@@ -5,6 +5,7 @@
 #include "core/gpu.h"
 #include "core/os.h"
 #include "core/util.h"
+#include "lib/tinycthread/tinycthread.h"
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -21,12 +22,14 @@ struct Texture {
 };
 
 static LOVR_THREAD_LOCAL struct {
-  uint32_t transform;
-  float transforms[64][16];
   struct {
     gpu_pipeline_info info;
+    gpu_pipeline* instance;
+    uint64_t hash;
     bool dirty;
   } pipeline;
+  uint32_t transform;
+  float transforms[64][16];
 } thread;
 
 static struct {
@@ -38,6 +41,9 @@ static struct {
   int height;
   gpu_batch* batch;
   map_t passes;
+  map_t pipelines;
+  map_t pipelineLobby;
+  mtx_t pipelineLock;
 } state;
 
 static void onDebugMessage(void* context, const char* message, int severe) {
@@ -56,7 +62,6 @@ static void onResizeWindow(int width, int height) {
 
 bool lovrGraphicsInit(bool debug) {
   state.debug = debug;
-  map_init(&state.passes, 0);
   return false;
 }
 
@@ -70,6 +75,9 @@ void lovrGraphicsDestroy() {
     }
   }
   map_free(&state.passes);
+  map_free(&state.pipelines);
+  map_free(&state.pipelineLobby);
+  mtx_destroy(&state.pipelineLock);
   gpu_thread_detach();
   gpu_destroy();
   memset(&state, 0, sizeof(state));
@@ -102,6 +110,10 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
 
   lovrAssert(gpu_init(&config), "Could not initialize GPU");
   gpu_thread_attach();
+  map_init(&state.passes, 0);
+  map_init(&state.pipelines, 0);
+  map_init(&state.pipelineLobby, 0);
+  mtx_init(&state.pipelineLock, mtx_plain);
 
   state.initialized = true;
 }
@@ -182,6 +194,8 @@ void lovrGraphicsBegin() {
 
 void lovrGraphicsFlush() {
   gpu_flush();
+
+  // TODO flush pipeline lobby
 }
 
 void lovrGraphicsRender(Canvas* canvas) {
@@ -241,8 +255,11 @@ void lovrGraphicsRender(Canvas* canvas) {
   uint64_t hash = hash64(&passInfo, sizeof(passInfo));
   uint64_t value = map_get(&state.passes, hash);
 
+  // TODO better allocator
+  // TODO eviction
   if (value == MAP_NIL) {
     gpu_pass* pass = calloc(1, gpu_sizeof_pass());
+    lovrAssert(pass, "Out of memory");
     gpu_pass_init(pass, &passInfo);
     value = (uintptr_t) pass;
     map_set(&state.passes, hash, value);
@@ -261,6 +278,48 @@ void lovrGraphicsCompute() {
 void lovrGraphicsEndPass() {
   gpu_batch_end(state.batch);
 }
+
+/*
+static gpu_pipeline* resolvePipeline() {
+
+  // If the pipeline info hasn't changed, and a pipeline is already bound, just use that
+  if (thread.pipeline.instance && !thread.pipeline.dirty) {
+    return thread.pipeline.instance;
+  }
+
+  uint64_t hash = hash64(&thread.pipeline.info, sizeof(gpu_pipeline_info));
+
+  // If the pipeline info is the same as the one already bound, just use the existing pipeline
+  if (thread.pipeline.instance && thread.pipeline.hash == hash) {
+    return thread.pipeline.instance;
+  }
+
+  // If there is already an existing pipeline with the matching info, use that
+  uint64_t value = map_get(&state.pipelines, hash);
+  if (value != MAP_NIL) {
+    return (gpu_pipeline*) (uintptr_t) value;
+  }
+
+  // Otherwise, check the lobby
+  mtx_lock(&state.pipelineLock);
+  value = map_get(&state.pipelineLobby, hash);
+  if (value != MAP_NIL) {
+    mtx_unlock(&state.pipelineLock);
+    return (gpu_pipeline*) (uintptr_t) value;
+  }
+
+  // If it's not in the lobby, add it
+  // TODO better allocator
+  // TODO eviction
+  gpu_pipeline* pipeline = calloc(1, gpu_sizeof_pipeline());
+  lovrAssert(pipeline, "Out of memory");
+  gpu_pipeline_init_graphics(pipeline, &thread.pipeline.info);
+  value = (uintptr_t) pipeline;
+  map_set(&state.pipelineLobby, hash, value);
+  mtx_unlock(&state.pipelineLock);
+  return pipeline;
+}
+*/
 
 bool lovrGraphicsGetAlphaToCoverage() {
   return thread.pipeline.info.alphaToCoverage;
