@@ -191,6 +191,7 @@ static struct {
   VkSwapchainKHR swapchain;
   gpu_texture backbuffers[4];
   uint32_t currentBackbuffer;
+  VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
   VkPhysicalDeviceMemoryProperties memoryProperties;
   VkMemoryRequirements scratchMemoryRequirements;
@@ -326,6 +327,8 @@ static const char* getErrorString(VkResult result);
   X(vkAllocateDescriptorSets)\
   X(vkResetDescriptorPool)\
   X(vkUpdateDescriptorSets)\
+  X(vkCreatePipelineCache)\
+  X(vkDestroyPipelineCache)\
   X(vkCreateGraphicsPipelines)\
   X(vkCreateComputePipelines)\
   X(vkDestroyPipeline)\
@@ -671,6 +674,14 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
+  { // Pipeline cache
+    VkPipelineCacheCreateInfo info = { .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+    if (vkCreatePipelineCache(state.device, &info, NULL, &state.pipelineCache)) {
+      gpu_destroy();
+      return false;
+    }
+  }
+
   // Frame resources
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     VkCommandPoolCreateInfo poolInfo = {
@@ -709,7 +720,7 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  // Query Pool
+  // Query pool
   if (state.config.debug) {
     VkQueryPoolCreateInfo info = {
       .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
@@ -757,6 +768,7 @@ void gpu_destroy(void) {
     if (state.backbuffers[i].view) vkDestroyImageView(state.device, state.backbuffers[i].view, NULL);
   }
   if (state.queryPool) vkDestroyQueryPool(state.device, state.queryPool, NULL);
+  if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
   if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
   if (state.surface) vkDestroySurfaceKHR(state.instance, state.surface, NULL);
@@ -1984,7 +1996,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .renderPass = info->pass->handle
   };
 
-  if (vkCreateGraphicsPipelines(state.device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline->handle)) {
+  if (vkCreateGraphicsPipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle)) {
     return false;
   }
 
@@ -2000,7 +2012,7 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_pipeline_info* info) 
     .layout = info->shader->pipelineLayout
   };
 
-  if (vkCreateComputePipelines(state.device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline->handle)) {
+  if (vkCreateComputePipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle)) {
     return false;
   }
 
