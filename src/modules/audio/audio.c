@@ -182,6 +182,9 @@ void lovrAudioDestroy() {
   if (!state.initialized) return;
   lovrAudioStop(AUDIO_PLAYBACK);
   lovrAudioStop(AUDIO_CAPTURE);
+  for(int i = 0; i < AUDIO_TYPE_COUNT; i++) {
+    ma_device_uninit(&state.devices[i]);
+  }
 
   ma_mutex_uninit(&state.playbackLock);
   ma_context_uninit(&state.context);
@@ -250,11 +253,16 @@ bool lovrAudioInitDevice(AudioType type) {
 }
 
 bool lovrAudioStart(AudioType type) {
-  bool initResult = lovrAudioInitDevice(type);
-  if (initResult == false && type == AUDIO_CAPTURE) {
-    lovrPlatformRequestPermission(AUDIO_CAPTURE_PERMISSION);
-    // lovrAudioStart will be retried from boot.lua upon permission granted event
-    return false;
+  ma_uint32 deviceState = state.devices[type].state;
+  if (deviceState == MA_STATE_UNINITIALIZED) {
+    bool initResult = lovrAudioInitDevice(type);
+    if (initResult == false) {
+      if(type == AUDIO_CAPTURE) {
+        lovrPlatformRequestPermission(AUDIO_CAPTURE_PERMISSION);
+        // lovrAudioStart will be retried from boot.lua upon permission granted event
+      }
+      return false;
+    }
   }
   ma_result status = ma_device_start(&state.devices[type]);
   return status == MA_SUCCESS;
@@ -262,7 +270,6 @@ bool lovrAudioStart(AudioType type) {
 
 bool lovrAudioStop(AudioType type) {
   ma_result stoppingResult = ma_device_stop(&state.devices[type]);
-  ma_device_uninit(&state.devices[type]);
 
   return stoppingResult == MA_SUCCESS;
 }
@@ -506,9 +513,12 @@ void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate)
 
   // restart device if needed
   ma_uint32 previousState = state.devices[AUDIO_CAPTURE].state;
-  if (previousState != MA_STATE_UNINITIALIZED && previousState != MA_STATE_STOPPED) {
+  if (previousState != MA_STATE_UNINITIALIZED) {
     lovrAudioStop(AUDIO_CAPTURE);
-    lovrAudioStart(AUDIO_CAPTURE);
+    ma_device_uninit(&state.devices[AUDIO_CAPTURE]);
+    if (previousState == MA_STATE_STARTED) {
+      lovrAudioStart(AUDIO_CAPTURE);
+    }
   }
 }
 
@@ -518,8 +528,11 @@ void lovrAudioUseDevice(AudioType type, const char *deviceName) {
 
   // restart device if needed
   ma_uint32 previousState = state.devices[type].state;
-  if (previousState != MA_STATE_UNINITIALIZED && previousState != MA_STATE_STOPPED) {
+  if (previousState != MA_STATE_UNINITIALIZED) {
     lovrAudioStop(type);
-    lovrAudioStart(type);
+    ma_device_uninit(&state.devices[type]);
+    if (previousState == MA_STATE_STARTED) {
+      lovrAudioStart(type);
+    }
   }
 }
