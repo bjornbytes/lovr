@@ -75,10 +75,19 @@ static int luax_loadfile(lua_State* L, const char* path, const char* debug) {
 }
 
 static int l_lovrFilesystemAppend(lua_State* L) {
-  size_t size;
   const char* path = luaL_checkstring(L, 1);
-  const char* content = luaL_checklstring(L, 2, &size);
-  lua_pushnumber(L, lovrFilesystemWrite(path, content, size, true));
+  size_t size;
+  const char* data;
+  Blob* blob = luax_totype(L, 2, Blob);
+  if (blob) {
+    data = blob->data;
+    size = blob->size;
+  } else if (lua_type(L, 2) == LUA_TSTRING) {
+    data = lua_tolstring(L, 2, &size);
+  } else {
+    return luax_typeerror(L, 2, "string or Blob");
+  }
+  lua_pushinteger(L, lovrFilesystemWrite(path, data, size, true));
   return 1;
 }
 
@@ -308,10 +317,19 @@ static int l_lovrFilesystemUnmount(lua_State* L) {
 }
 
 static int l_lovrFilesystemWrite(lua_State* L) {
-  size_t size;
   const char* path = luaL_checkstring(L, 1);
-  const char* content = luaL_checklstring(L, 2, &size);
-  lua_pushnumber(L, lovrFilesystemWrite(path, content, size, false));
+  size_t size;
+  const char* data;
+  Blob* blob = luax_totype(L, 2, Blob);
+  if (blob) {
+    data = blob->data;
+    size = blob->size;
+  } else if (lua_type(L, 2) == LUA_TSTRING) {
+    data = lua_tolstring(L, 2, &size);
+  } else {
+    return luax_typeerror(L, 2, "string or Blob");
+  }
+  lua_pushinteger(L, lovrFilesystemWrite(path, data, size, false));
   return 1;
 }
 
