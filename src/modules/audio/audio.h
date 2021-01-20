@@ -1,5 +1,8 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
+#include "modules/data/soundData.h"
+#include "core/arr.h"
 
 #pragma once
 
@@ -23,24 +26,21 @@ typedef enum {
   UNIT_SECONDS,
   UNIT_SAMPLES
 } TimeUnit;
-
 typedef struct {
-  bool enable;
-  bool start;
-} AudioConfig;
+  AudioType type;
+  const char *name;
+  bool isDefault;
+} AudioDevice;
+typedef arr_t(AudioDevice) AudioDeviceArr;
 
-#ifndef LOVR_AUDIO_SAMPLE_RATE
-#  define LOVR_AUDIO_SAMPLE_RATE 44100
-#endif
-
-bool lovrAudioInit(AudioConfig config[2]);
+bool lovrAudioInit();
 void lovrAudioDestroy(void);
-bool lovrAudioReset(void);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
 void lovrAudioSetListenerPose(float position[4], float orientation[4]);
+double lovrAudioConvertToSeconds(uint32_t sampleCount, AudioType context);
 
 Source* lovrSourceCreate(struct SoundData* soundData, bool spatial);
 void lovrSourceDestroy(void* ref);
@@ -60,3 +60,11 @@ struct SoundData* lovrSourceGetSoundData(Source* source);
 
 uint32_t lovrAudioGetCaptureSampleCount();
 struct SoundData* lovrAudioCapture(uint32_t sampleCount, struct SoundData *soundData, uint32_t offset);
+
+// Return a list of devices for the given type. Must be freed with lovrAudioFreeDevices.
+AudioDeviceArr* lovrAudioGetDevices(AudioType type);
+// free a list of devices returned from above call
+void lovrAudioFreeDevices(AudioDeviceArr *devices);
+
+void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate);
+void lovrAudioUseDevice(AudioType type, const char *deviceName);

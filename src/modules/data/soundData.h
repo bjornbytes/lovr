@@ -11,7 +11,9 @@ typedef uint32_t SoundDataReader(struct SoundData* soundData, uint32_t offset, u
 
 typedef enum {
   SAMPLE_F32,
-  SAMPLE_I16
+  SAMPLE_I16,
+
+  SAMPLE_INVALID
 } SampleFormat;
 
 size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt);

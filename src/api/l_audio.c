@@ -17,11 +17,6 @@ StringEntry lovrTimeUnit[] = {
   { 0 }
 };
 
-static int l_lovrAudioReset(lua_State* L) {
-  lovrAudioReset();
-  return 0;
-}
-
 static int l_lovrAudioStart(lua_State* L) {
   AudioType type = luax_checkenum(L, 1, AudioType, "playback");
   bool  started = lovrAudioStart(type);
@@ -49,7 +44,7 @@ static int l_lovrAudioSetVolume(lua_State* L) {
 static int l_lovrAudioNewSource(lua_State* L) {
   Source* source = NULL;
   SoundData* soundData = luax_totype(L, 1, SoundData);
-  
+
   bool spatial = true;
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "spatial");
@@ -58,7 +53,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     }
     lua_pop(L, 1);
   }
-  
+
 
   if (soundData) {
     source = lovrSourceCreate(soundData, spatial);
@@ -88,9 +83,9 @@ static int l_lovrAudioSetListenerPose(lua_State *L) {
 static int l_lovrAudioGetCaptureDuration(lua_State *L) {
   TimeUnit units = luax_checkenum(L, 1, TimeUnit, "seconds");
   size_t sampleCount = lovrAudioGetCaptureSampleCount();
-  
+
   if (units == UNIT_SECONDS) {
-    lua_pushnumber(L, (double) sampleCount / LOVR_AUDIO_SAMPLE_RATE);
+    lua_pushnumber(L, lovrAudioConvertToSeconds(sampleCount, AUDIO_CAPTURE));
   } else {
     lua_pushinteger(L, sampleCount);
   }
@@ -99,7 +94,7 @@ static int l_lovrAudioGetCaptureDuration(lua_State *L) {
 
 static int l_lovrAudioCapture(lua_State* L) {
   int index = 1;
-  
+
   size_t samples = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : lovrAudioGetCaptureSampleCount();
 
   if (samples == 0) {
@@ -119,26 +114,43 @@ static int l_lovrAudioCapture(lua_State* L) {
   return 1;
 }
 
-static int l_lovrAudioSetCaptureDevice(lua_State *L) {
-  //
+static int l_lovrAudioGetDevices(lua_State *L) {
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
 
+  AudioDeviceArr *devices = lovrAudioGetDevices(type);
+  lua_newtable(L);
+  int listOfDevicesIdx = lua_gettop(L);
+  for(int i = 0; i < devices->length; i++) {
+    AudioDevice *device = &devices->data[i];
+    lua_newtable(L);
+    luax_pushenum(L, AudioType, device->type);
+    lua_setfield(L, -2, "type");
+    lua_pushstring(L, device->name);
+    lua_setfield(L, -2, "name");
+    lua_pushboolean(L, device->isDefault);
+    lua_setfield(L, -2, "isDefault");
+
+    lua_rawseti(L, listOfDevicesIdx, i + 1);
+  }
+  lovrAudioFreeDevices(devices);
+  return 1;
+}
+
+static int l_lovrAudioUseDevice(lua_State *L) {
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
+  const char *name = lua_tostring(L, 2);
+  lovrAudioUseDevice(type, name);
   return 0;
 }
 
-static int l_lovrAudioGetCaptureDevice(lua_State *L) {
-  //
-
-  return 0;
-}
-
-static int l_lovrAudioListCaptureDevices(lua_State *L) {
-  //
-  
+static int l_lovrAudioSetCaptureFormat(lua_State *L) {
+  SampleFormat format = luax_checkenum(L, 1, SampleFormat, "invalid");
+  int sampleRate = lua_tointeger(L, 2);
+  lovrAudioSetCaptureFormat(format, sampleRate);
   return 0;
 }
 
 static const luaL_Reg lovrAudio[] = {
-  { "reset", l_lovrAudioReset },
   { "start", l_lovrAudioStart },
   { "stop", l_lovrAudioStop },
   { "getVolume", l_lovrAudioGetVolume },
@@ -147,9 +159,9 @@ static const luaL_Reg lovrAudio[] = {
   { "setListenerPose", l_lovrAudioSetListenerPose },
   { "capture", l_lovrAudioCapture },
   { "getCaptureDuration", l_lovrAudioGetCaptureDuration },
-  { "setCaptureDevice", l_lovrAudioSetCaptureDevice },
-  { "getCaptureDevice", l_lovrAudioGetCaptureDevice },
-  { "listCaptureDevices", l_lovrAudioListCaptureDevices },
+  { "getDevices", l_lovrAudioGetDevices },
+  { "useDevice", l_lovrAudioUseDevice },
+  { "setCaptureFormat", l_lovrAudioSetCaptureFormat },
   { NULL, NULL }
 };
 
@@ -157,8 +169,8 @@ int luaopen_lovr_audio(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrAudio);
   luax_registertype(L, Source);
-  AudioConfig config[2] = { { .enable = true, .start = true }, { .enable = false, .start = false } };
-  if (lovrAudioInit(config)) {
+  if (lovrAudioInit()) {
+    lovrAudioStart(AUDIO_PLAYBACK);
     luax_atexit(L, lovrAudioDestroy);
   }
   return 1;
