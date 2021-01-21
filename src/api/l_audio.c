@@ -88,7 +88,6 @@ static int l_lovrAudioGetDevices(lua_State *L) {
   int listOfDevicesIdx = lua_gettop(L);
   for(int i = 0; i < devices->length; i++) {
     AudioDevice *device = &devices->data[i];
-    lua_pushinteger(L, i+1); // key in listOfDevicesIdx, for the bottom settable
     lua_newtable(L);
     luax_pushenum(L, AudioType, device->type);
     lua_setfield(L, -2, "type");
@@ -97,7 +96,7 @@ static int l_lovrAudioGetDevices(lua_State *L) {
     lua_pushboolean(L, device->isDefault);
     lua_setfield(L, -2, "isDefault");
 
-    lua_settable(L, listOfDevicesIdx);
+    lua_rawseti(L, listOfDevicesIdx, i + 1);
   }
   lovrAudioFreeDevices(devices);
   return 1;
