@@ -325,6 +325,24 @@ void lovrGraphicsEndPass() {
   gpu_batch_end(state.batch);
 }
 
+void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata) {
+  uint8_t oldValue = thread.pipeline.info.stencil.value;
+  gpu_compare_mode oldTest = thread.pipeline.info.stencil.test;
+  // TODO must be in render pass
+  // TODO must have stencil buffer?
+  thread.pipeline.info.stencil.test = GPU_COMPARE_NONE;
+  thread.pipeline.info.stencil.passOp = (gpu_stencil_op) action;
+  thread.pipeline.info.stencil.depthFailOp = (gpu_stencil_op) depthFailAction;
+  thread.pipeline.info.stencil.value = value;
+  thread.pipeline.dirty = true;
+  callback(userdata);
+  thread.pipeline.info.stencil.test = oldTest;
+  thread.pipeline.info.stencil.passOp = GPU_STENCIL_KEEP;
+  thread.pipeline.info.stencil.depthFailOp = GPU_STENCIL_KEEP;
+  thread.pipeline.info.stencil.value = oldValue;
+  thread.pipeline.dirty = true;
+}
+
 static void checkSlot(Shader* shader, uint32_t group, uint32_t index, uint32_t element, gpu_slot** slot, gpu_binding** binding) {
   lovrAssert(group < 4, "Attempt to bind a resource to group %d (max group is 3)", group);
   lovrAssert(index < 16, "Attempt to bind a resource to index %d (max index is 15)", index);
@@ -356,7 +374,7 @@ void lovrGraphicsBindBuffer(uint32_t group, uint32_t index, uint32_t element, Bu
 
   binding->buffer = (gpu_buffer_binding) { buffer->gpu, offset, extent };
   thread.dirtyGroups |= 1 << group;
-  //lovrRetain(buffer)
+  lovrRetain(buffer);
 }
 
 void lovrGraphicsBindTexture(uint32_t group, uint32_t index, uint32_t element, Texture* texture, Sampler* sampler) {
@@ -367,7 +385,8 @@ void lovrGraphicsBindTexture(uint32_t group, uint32_t index, uint32_t element, T
   lovrAssert(slot->type == GPU_SLOT_SAMPLED_TEXTURE || slot->type == GPU_SLOT_STORAGE_TEXTURE, "Attempt to bind a Texture to slot (%d,%d), but only Buffers can be bound here");
   binding->texture = (gpu_texture_binding) { texture->gpu, sampler->gpu };
   thread.dirtyGroups |= 1 << group;
-  //lovrRetain(texture)
+  lovrRetain(texture);
+  lovrRetain(sampler);
 }
 
 Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type) {
@@ -604,7 +623,6 @@ void lovrGraphicsSetShader(Shader* shader) {
   // Clear bindings starting at the first group that has a conflicting slot (if any)
   for (uint32_t i = 0; i < 4; i++) {
     if (shader->groups[i].hash != thread.shader->groups[i].hash) {
-      // TODO lovrRelease any bound Buffers/Textures before clearing
       uint32_t base = shader->groups[i].baseBinding;
       uint32_t tail = MAX(shader->bindingCount, thread.shader->bindingCount) - base;
       memset(thread.bindings + base, 0, tail * sizeof(gpu_binding));
