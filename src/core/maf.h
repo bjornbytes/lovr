@@ -632,6 +632,32 @@ MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   vec3_normalize(vec3_cross(vec3_init(x, up), z));
   vec3_cross(vec3_init(y, z), x);
   m[0] = x[0];
+  m[1] = y[0];
+  m[2] = z[0];
+  m[3] = 0.f;
+  m[4] = x[1];
+  m[5] = y[1];
+  m[6] = z[1];
+  m[7] = 0.f;
+  m[8] = x[2];
+  m[9] = y[2];
+  m[10] = z[2];
+  m[11] = 0.f;
+  m[12] = -vec3_dot(x, from);
+  m[13] = -vec3_dot(y, from);
+  m[14] = -vec3_dot(z, from);
+  m[15] = 1.f;
+  return m;
+}
+
+MAF mat4 mat4_target(mat4 m, vec3 from, vec3 to, vec3 up) {
+  float x[4];
+  float y[4];
+  float z[4];
+  vec3_normalize(vec3_sub(vec3_init(z, from), to));
+  vec3_normalize(vec3_cross(vec3_init(x, up), z));
+  vec3_cross(vec3_init(y, z), x);
+  m[0] = x[0];
   m[1] = x[1];
   m[2] = x[2];
   m[3] = 0.f;
@@ -643,9 +669,9 @@ MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
   m[9] = z[1];
   m[10] = z[2];
   m[11] = 0.f;
-  m[12] = -vec3_dot(x, from);
-  m[13] = -vec3_dot(y, from);
-  m[14] = -vec3_dot(z, from);
+  m[12] = from[0];
+  m[13] = from[1];
+  m[14] = from[2];
   m[15] = 1.f;
   return m;
 }
