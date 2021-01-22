@@ -11,6 +11,8 @@ typedef struct Texture Texture;
 typedef struct Sampler Sampler;
 typedef struct Shader Shader;
 
+typedef void StencilCallback(void* userdata);
+
 typedef struct {
   bool bptc;
   bool astc;
@@ -97,6 +99,16 @@ typedef struct {
 } Canvas;
 
 typedef enum {
+  STENCIL_KEEP,
+  STENCIL_REPLACE,
+  STENCIL_INCREMENT,
+  STENCIL_DECREMENT,
+  STENCIL_INCREMENT_WRAP,
+  STENCIL_DECREMENT_WRAP,
+  STENCIL_INVERT
+} StencilAction;
+
+typedef enum {
   SAMPLER_NEAREST,
   SAMPLER_BILINEAR,
   SAMPLER_TRILINEAR,
@@ -155,6 +167,7 @@ void lovrGraphicsFlush(void);
 void lovrGraphicsRender(Canvas* canvas);
 void lovrGraphicsCompute(void);
 void lovrGraphicsEndPass(void);
+void lovrGraphicsStencil(StencilAction actions, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata);
 void lovrGraphicsBindBuffer(uint32_t group, uint32_t index, uint32_t element, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrGraphicsBindTexture(uint32_t group, uint32_t index, uint32_t element, Texture* texture, Sampler* sampler);
 Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type);

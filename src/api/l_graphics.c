@@ -10,55 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-StringEntry lovrBufferUsage[] = {
-  [BUFFER_VERTEX] = ENTRY("vertex"),
-  [BUFFER_INDEX] = ENTRY("index"),
-  [BUFFER_UNIFORM] = ENTRY("uniform"),
-  [BUFFER_COMPUTE] = ENTRY("compute"),
-  [BUFFER_ARGUMENT] = ENTRY("argument"),
-  [BUFFER_UPLOAD] = ENTRY("upload"),
-  [BUFFER_DOWNLOAD] = ENTRY("download"),
-  { 0 }
-};
-
-StringEntry lovrTextureType[] = {
-  [TEXTURE_2D] = ENTRY("2d"),
-  [TEXTURE_CUBE] = ENTRY("cube"),
-  [TEXTURE_VOLUME] = ENTRY("volume"),
-  [TEXTURE_ARRAY] = ENTRY("array"),
-  { 0 }
-};
-
-StringEntry lovrTextureUsage[] = {
-  [TEXTURE_SAMPLE] = ENTRY("sample"),
-  [TEXTURE_RENDER] = ENTRY("render"),
-  [TEXTURE_COMPUTE] = ENTRY("compute"),
-  [TEXTURE_UPLOAD] = ENTRY("upload"),
-  [TEXTURE_DOWNLOAD] = ENTRY("download"),
-  { 0 }
-};
-
-StringEntry lovrDefaultSampler[] = {
-  [SAMPLER_NEAREST] = ENTRY("nearest"),
-  [SAMPLER_BILINEAR] = ENTRY("bilinear"),
-  [SAMPLER_TRILINEAR] = ENTRY("trilinear"),
-  [SAMPLER_ANISOTROPIC] = ENTRY("anisotropic"),
-  { 0 }
-};
-
-StringEntry lovrFilterMode[] = {
-  [FILTER_NEAREST] = ENTRY("nearest"),
-  [FILTER_LINEAR] = ENTRY("linear"),
-  { 0 }
-};
-
-StringEntry lovrWrapMode[] = {
-  [WRAP_CLAMP] = ENTRY("clamp"),
-  [WRAP_REPEAT] = ENTRY("repeat"),
-  [WRAP_MIRROR] = ENTRY("mirror"),
-  { 0 }
-};
-
 StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
   [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
@@ -73,6 +24,17 @@ StringEntry lovrBlendMode[] = {
   [BLEND_LIGHTEN] = ENTRY("lighten"),
   [BLEND_DARKEN] = ENTRY("darken"),
   [BLEND_SCREEN] = ENTRY("screen"),
+  { 0 }
+};
+
+StringEntry lovrBufferUsage[] = {
+  [BUFFER_VERTEX] = ENTRY("vertex"),
+  [BUFFER_INDEX] = ENTRY("index"),
+  [BUFFER_UNIFORM] = ENTRY("uniform"),
+  [BUFFER_COMPUTE] = ENTRY("compute"),
+  [BUFFER_ARGUMENT] = ENTRY("argument"),
+  [BUFFER_UPLOAD] = ENTRY("upload"),
+  [BUFFER_DOWNLOAD] = ENTRY("download"),
   { 0 }
 };
 
@@ -94,9 +56,58 @@ StringEntry lovrCullMode[] = {
   { 0 }
 };
 
+StringEntry lovrDefaultSampler[] = {
+  [SAMPLER_NEAREST] = ENTRY("nearest"),
+  [SAMPLER_BILINEAR] = ENTRY("bilinear"),
+  [SAMPLER_TRILINEAR] = ENTRY("trilinear"),
+  [SAMPLER_ANISOTROPIC] = ENTRY("anisotropic"),
+  { 0 }
+};
+
+StringEntry lovrFilterMode[] = {
+  [FILTER_NEAREST] = ENTRY("nearest"),
+  [FILTER_LINEAR] = ENTRY("linear"),
+  { 0 }
+};
+
+StringEntry lovrStencilAction[] = {
+  [STENCIL_KEEP] = ENTRY("keep"),
+  [STENCIL_REPLACE] = ENTRY("replace"),
+  [STENCIL_INCREMENT] = ENTRY("increment"),
+  [STENCIL_DECREMENT] = ENTRY("decrement"),
+  [STENCIL_INCREMENT_WRAP] = ENTRY("incrementwrap"),
+  [STENCIL_DECREMENT_WRAP] = ENTRY("decrementwrap"),
+  [STENCIL_INVERT] = ENTRY("invert"),
+  { 0 }
+};
+
+StringEntry lovrTextureType[] = {
+  [TEXTURE_2D] = ENTRY("2d"),
+  [TEXTURE_CUBE] = ENTRY("cube"),
+  [TEXTURE_VOLUME] = ENTRY("volume"),
+  [TEXTURE_ARRAY] = ENTRY("array"),
+  { 0 }
+};
+
+StringEntry lovrTextureUsage[] = {
+  [TEXTURE_SAMPLE] = ENTRY("sample"),
+  [TEXTURE_RENDER] = ENTRY("render"),
+  [TEXTURE_COMPUTE] = ENTRY("compute"),
+  [TEXTURE_UPLOAD] = ENTRY("upload"),
+  [TEXTURE_DOWNLOAD] = ENTRY("download"),
+  { 0 }
+};
+
 StringEntry lovrWinding[] = {
   [WINDING_COUNTERCLOCKWISE] = ENTRY("counterclockwise"),
   [WINDING_CLOCKWISE] = ENTRY("clockwise"),
+  { 0 }
+};
+
+StringEntry lovrWrapMode[] = {
+  [WRAP_CLAMP] = ENTRY("clamp"),
+  [WRAP_REPEAT] = ENTRY("repeat"),
+  [WRAP_MIRROR] = ENTRY("mirror"),
   { 0 }
 };
 
@@ -481,6 +492,21 @@ static int l_lovrGraphicsCompute(lua_State* L) {
   luaL_checktype(L, 1, LUA_TFUNCTION);
   lua_settop(L, 1);
   lua_call(L, 0, 0);
+  return 0;
+}
+
+static void onStencil(void* userdata) {
+  lua_State* L = userdata;
+  luaL_checktype(L, -1, LUA_TFUNCTION);
+  lua_call(L, 0, 0);
+}
+
+static int l_lovrGraphicsStencil(lua_State* L) {
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  StencilAction action = luax_checkenum(L, 2, StencilAction, "replace");
+  uint8_t value = luaL_optinteger(L, 3, 1);
+  StencilAction depthAction = luax_checkenum(L, 2, StencilAction, "keep");
+  lovrGraphicsStencil(action, depthAction, value, onStencil, L);
   return 0;
 }
 
@@ -1084,7 +1110,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewShader(lua_State* L) {
-  const char* dynamicBuffers[8];
+  const char* dynamicBuffers[64];
 
   ShaderInfo info = {
     .dynamicBuffers = dynamicBuffers
@@ -1141,6 +1167,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "flush", l_lovrGraphicsFlush },
   { "render", l_lovrGraphicsRender },
   { "compute", l_lovrGraphicsCompute },
+  { "stencil", l_lovrGraphicsStencil },
   { "bind", l_lovrGraphicsBind },
   { "getAlphaToCoverage", l_lovrGraphicsGetAlphaToCoverage },
   { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
