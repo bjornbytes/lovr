@@ -74,7 +74,6 @@ struct gpu_shader {
   VkShaderModule handles[2];
   VkPipelineShaderStageCreateInfo pipelineInfo[2];
   VkDescriptorSetLayout layouts[4];
-  VkDescriptorType descriptorTypes[4][32];
   VkPipelineLayout pipelineLayout;
   VkPipelineBindPoint type;
 };
@@ -229,7 +228,6 @@ static void readback(void);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static void beginCommandBuffer(void);
-static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, VkDescriptorSetLayoutCreateInfo* layouts, VkDescriptorSetLayoutBinding bindings[4][32]);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
 static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]);
 static void nickname(void* object, VkObjectType type, const char* name);
@@ -493,7 +491,7 @@ bool gpu_init(gpu_config* config) {
       config->limits->renderSize[1] = deviceLimits->maxFramebufferHeight;
       config->limits->renderViews = multiviewLimits.maxMultiviewViewCount;
       config->limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader*) NULL)->layouts));
-      config->limits->bundleSlots = MIN(maintenance3Limits.maxPerSetDescriptors, COUNTOF(((gpu_bundle_info*) NULL)->bindings));
+      config->limits->bundleSlots = maintenance3Limits.maxPerSetDescriptors;
       config->limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
       config->limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
       config->limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
@@ -529,8 +527,7 @@ bool gpu_init(gpu_config* config) {
 
     VkPhysicalDeviceFeatures2 enabledFeatures = {
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-      .pNext = &enableShaderDrawParameter,
-      .features.independentBlend = VK_TRUE
+      .pNext = &enableShaderDrawParameter
     };
 
     if (config->features) {
@@ -545,6 +542,8 @@ bool gpu_init(gpu_config* config) {
       config->features->bptc = enable->textureCompressionBC = supports->textureCompressionBC;
       config->features->pointSize = enable->largePoints = supports->largePoints;
       config->features->wireframe = enable->fillModeNonSolid = supports->fillModeNonSolid;
+      config->features->multiview = enableMultiview.multiview = true; // Always supported in 1.1
+      config->features->multiblend = enable->independentBlend = supports->independentBlend;
       config->features->anisotropy = enable->samplerAnisotropy = supports->samplerAnisotropy;
       config->features->depthClamp = enable->depthClamp = supports->depthClamp;
       config->features->depthOffsetClamp = enable->depthBiasClamp = supports->depthBiasClamp;
@@ -554,7 +553,17 @@ bool gpu_init(gpu_config* config) {
       config->features->indirectDrawCount = enable->multiDrawIndirect = supports->multiDrawIndirect;
       config->features->indirectDrawFirstInstance = enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance;
       config->features->extraShaderInputs = enableShaderDrawParameter.shaderDrawParameters = supportsShaderDrawParameter.shaderDrawParameters;
-      config->features->multiview = enableMultiview.multiview = true; // Always supported in 1.1
+      config->features->float64 = enable->shaderFloat64 = supports->shaderFloat64;
+      config->features->int64 = enable->shaderInt64 = supports->shaderInt64;
+      config->features->int16 = enable->shaderInt16 = supports->shaderInt16;
+
+      if (supports->shaderUniformBufferArrayDynamicIndexing && supports->shaderSampledImageArrayDynamicIndexing && supports->shaderStorageBufferArrayDynamicIndexing && supports->shaderStorageImageArrayDynamicIndexing) {
+        enable->shaderUniformBufferArrayDynamicIndexing = true;
+        enable->shaderSampledImageArrayDynamicIndexing = true;
+        enable->shaderStorageBufferArrayDynamicIndexing = true;
+        enable->shaderStorageImageArrayDynamicIndexing = true;
+        config->features->dynamicIndexing = true;
+      }
 
       VkFormatProperties formatProperties;
       for (uint32_t i = 0; i < GPU_TEXTURE_FORMAT_COUNT; i++) {
@@ -1589,59 +1598,95 @@ size_t gpu_sizeof_shader() {
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
   memset(shader, 0, sizeof(*shader));
 
-  VkDescriptorSetLayoutCreateInfo layoutInfo[COUNTOF(shader->layouts)] = { 0 };
-  VkDescriptorSetLayoutBinding bindings[COUNTOF(shader->layouts)][32];
-
   if (info->compute.code) {
     shader->type = VK_PIPELINE_BIND_POINT_COMPUTE;
-    loadShader(&info->compute, VK_SHADER_STAGE_COMPUTE_BIT, &shader->handles[0], &shader->pipelineInfo[0], layoutInfo, bindings);
-  } else {
-    shader->type = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    loadShader(&info->vertex, VK_SHADER_STAGE_VERTEX_BIT, &shader->handles[0], &shader->pipelineInfo[0], layoutInfo, bindings);
-    loadShader(&info->fragment, VK_SHADER_STAGE_FRAGMENT_BIT, &shader->handles[1], &shader->pipelineInfo[1], layoutInfo, bindings);
-  }
 
-  for (uint32_t i = 0; i < info->dynamicBufferCount; i++) {
-    gpu_shader_var* var = &info->dynamicBuffers[i];
-    uint32_t bindingCount = layoutInfo[var->group].bindingCount;
-    for (uint32_t j = 0; j < bindingCount; j++) {
-      VkDescriptorSetLayoutBinding* binding = &bindings[var->group][j];
-      if (binding->binding == var->slot) {
-        switch (binding->descriptorType) {
-          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: binding->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC; break;
-          case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: binding->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC; break;
-          default: return gpu_shader_destroy(shader), false;
-        }
-        break;
-      }
-    }
-  }
+    VkShaderModuleCreateInfo moduleInfo = {
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .codeSize = info->compute.size,
+      .pCode = info->compute.code
+    };
 
-  uint32_t layoutCount = 0;
-
-  for (uint32_t i = 0; i < COUNTOF(shader->layouts); i++) {
-    layoutInfo[i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo[i].pBindings = bindings[i];
-
-    if (vkCreateDescriptorSetLayout(state.device, &layoutInfo[i], NULL, &shader->layouts[i])) {
-      gpu_shader_destroy(shader);
+    if (vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[0])) {
       return false;
     }
 
-    layoutCount = layoutInfo[i].bindingCount > 0 ? (i + 1) : layoutCount;
-  }
+    shader->pipelineInfo[0] = (VkPipelineShaderStageCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+      .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+      .module = shader->handles[0],
+      .pName = info->compute.entry ? info->compute.entry : "main"
+    };
+  } else {
+    shader->type = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-  for (uint32_t i = 0; i < layoutCount; i++) {
-    for (uint32_t j = 0; j < layoutInfo[i].bindingCount; j++) {
-      shader->descriptorTypes[i][j] = bindings[i][j].descriptorType;
+    for (uint32_t i = 0; i < 2; i++) {
+      gpu_shader_source* source = i == 0 ? &info->vertex : &info->fragment;
+      VkShaderStageFlags stage = i == 0 ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT;
+
+      VkShaderModuleCreateInfo moduleInfo = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = source->size,
+        .pCode = source->code
+      };
+
+      if (vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i])) {
+        return false;
+      }
+
+      shader->pipelineInfo[i] = (VkPipelineShaderStageCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = stage,
+        .module = shader->handles[i],
+        .pName = source->entry ? source->entry : "main"
+      };
     }
   }
 
+  static const VkDescriptorType descriptorTypes[] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+  };
+
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-    .setLayoutCount = layoutCount,
     .pSetLayouts = shader->layouts
   };
+
+  uint32_t bindingCounts[4] = { 0 };
+  VkDescriptorSetLayoutBinding bindings[4][16];
+
+  for (uint32_t i = 0; i < info->slotCount; i++) {
+    gpu_slot slot = info->slots[i];
+    uint32_t index = bindingCounts[slot.group]++;
+    bindings[slot.group][index] = (VkDescriptorSetLayoutBinding) {
+      .binding = slot.index,
+      .descriptorType = descriptorTypes[slot.type],
+      .descriptorCount = slot.count,
+      .stageFlags = slot.stage == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
+        (((slot.stage & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
+        ((slot.stage & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
+        ((slot.stage & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
+    };
+  }
+
+  for (uint32_t i = 0; i < COUNTOF(bindings); i++) {
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+      .bindingCount = bindingCounts[i],
+      .pBindings = bindings[i]
+    };
+
+    GPU_VK(vkCreateDescriptorSetLayout(state.device, &layoutInfo, NULL, &shader->layouts[i]));
+
+    if (bindingCounts[i] > 0) {
+      pipelineLayoutInfo.setLayoutCount = i + 1;
+    }
+  }
 
   GPU_VK(vkCreatePipelineLayout(state.device, &pipelineLayoutInfo, NULL, &shader->pipelineLayout));
 
@@ -1747,56 +1792,63 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
     }
   }
 
+  static const VkDescriptorType descriptorTypes[] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+  };
+
+  gpu_binding* binding = info->bindings;
+  VkDescriptorBufferInfo buffers[64];
+  VkDescriptorImageInfo textures[64];
+  VkWriteDescriptorSet writes[16];
   uint32_t bufferCount = 0;
   uint32_t textureCount = 0;
   uint32_t writeCount = 0;
-  VkDescriptorBufferInfo buffers[128];
-  VkDescriptorImageInfo textures[128];
-  VkWriteDescriptorSet writes[COUNTOF(info->bindings)];
 
-  for (uint32_t i = 0; i < info->bindingCount; i++) {
-    gpu_binding* binding = &info->bindings[i];
-    VkDescriptorType type = info->shader->descriptorTypes[info->group][i];
-    bool texture = type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+  for (uint32_t i = 0; i < info->slotCount; i++) {
+    gpu_slot* slot = &info->slots[i];
+    bool texture = slot->type == GPU_SLOT_SAMPLED_TEXTURE || slot->type == GPU_SLOT_STORAGE_TEXTURE;
     uint32_t cursor = 0;
 
-    while (cursor < binding->count) {
+    while (cursor < slot->count) {
       if (texture ? textureCount >= COUNTOF(textures) : bufferCount >= COUNTOF(buffers)) {
         vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
-        bufferCount = 0;
-        textureCount = 0;
-        writeCount = 0;
+        bufferCount = textureCount = writeCount = 0;
       }
 
       uint32_t available = texture ? COUNTOF(textures) - textureCount : COUNTOF(buffers) - bufferCount;
-      uint32_t remaining = binding->count - cursor;
+      uint32_t remaining = slot->count - cursor;
       uint32_t chunk = MIN(available, remaining);
 
       writes[writeCount++] = (VkWriteDescriptorSet) {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = bundle->handle,
-        .dstBinding = binding->slot,
+        .dstBinding = slot->index,
         .dstArrayElement = cursor,
         .descriptorCount = chunk,
-        .descriptorType = type,
+        .descriptorType = descriptorTypes[slot->type],
         .pBufferInfo = &buffers[bufferCount],
         .pImageInfo = &textures[textureCount]
       };
 
       if (texture) {
-        for (uint32_t j = 0; j < chunk; j++) {
+        for (uint32_t j = 0; j < chunk; j++, binding++) {
           textures[textureCount++] = (VkDescriptorImageInfo) {
-            .sampler = binding->textures[cursor].sampler->handle,
-            .imageView = binding->textures[cursor].texture->view,
-            .imageLayout = binding->textures[cursor].texture->layout
+            .sampler = binding->texture.sampler->handle,
+            .imageView = binding->texture.object->view,
+            .imageLayout = binding->texture.object->layout
           };
         }
       } else {
-        for (uint32_t j = 0; j < chunk; j++) {
+        for (uint32_t j = 0; j < chunk; j++, binding++) {
           buffers[bufferCount++] = (VkDescriptorBufferInfo) {
-            .buffer = binding->buffers[cursor].buffer->handle,
-            .offset = binding->buffers[cursor].offset,
-            .range = binding->buffers[cursor].size
+            .buffer = binding->buffer.object->handle,
+            .offset = binding->buffer.offset,
+            .range = binding->buffer.extent
           };
         }
       }
@@ -2439,187 +2491,6 @@ static void beginCommandBuffer() {
   GPU_VK(vkBeginCommandBuffer(state.batch.commands, &beginfo));
 }
 
-static bool loadShader(gpu_shader_source* source, VkShaderStageFlagBits stage, VkShaderModule* handle, VkPipelineShaderStageCreateInfo* pipelineInfo, VkDescriptorSetLayoutCreateInfo* layouts, VkDescriptorSetLayoutBinding bindings[4][32]) {
-  const uint32_t* words = source->code;
-  if (words[0] != 0x07230203) {
-    return false;
-  }
-
-  VkShaderModuleCreateInfo info = {
-    .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-    .codeSize = source->size,
-    .pCode = source->code
-  };
-
-  if (vkCreateShaderModule(state.device, &info, NULL, handle)) {
-    return false;
-  }
-
-  struct {
-    uint16_t group;
-    uint16_t index;
-    uint16_t count;
-    VkDescriptorType type;
-  } resources[128];
-  uint32_t resourceCount = 0;
-
-  // For variable ids, stores the index of its resource
-  // For type ids, stores the index of its declaration instruction
-  uint32_t cache[8192];
-  memset(cache, 0xff, sizeof(cache));
-
-  uint32_t wordCount = source->size / sizeof(uint32_t);
-  const uint32_t* instruction = words + 5;
-  while (instruction < words + wordCount) {
-    uint16_t opcode = instruction[0] & 0xffff;
-    uint16_t length = instruction[0] >> 16;
-    switch (opcode) {
-      case 71: { // OpDecorate
-        uint32_t target = instruction[1];
-        uint32_t decoration = instruction[2];
-
-        // Skip irrelevant decorations, skip out of bounds ids, skip resources that won't fit
-        if ((decoration != 33 && decoration != 34) || target >= COUNTOF(cache) || resourceCount > COUNTOF(resources)) {
-          break;
-        }
-
-        uint32_t resource = cache[target] == ~0u ? (cache[target] = resourceCount++) : cache[target];
-
-        // Decorate the resource
-        if (decoration == 33) {
-          resources[resource].index = instruction[3];
-        } else if (decoration == 34) {
-          resources[resource].group = instruction[3];
-        }
-
-        break;
-      }
-      case 19: // OpTypeVoid
-      case 20: // OpTypeBool
-      case 21: // OpTypeInt
-      case 22: // OpTypeFloat
-      case 23: // OpTypeVector
-      case 24: // OpTypeMatrix
-      case 25: // OpTypeImage
-      case 26: // OpTypeSampler
-      case 27: // OpTypeSampledImage
-      case 28: // OpTypeArray
-      case 29: // OpTypeRuntimeArray
-      case 30: // OpTypeStruct
-      case 31: // OpTypeOpaque
-      case 32: // OpTypePointer
-        cache[instruction[1]] = instruction - words;
-        break;
-      case 59: { // OpVariable
-        uint32_t type = instruction[1];
-        uint32_t id = instruction[2];
-        uint32_t storageClass = instruction[3];
-
-        // Skip if it wasn't decorated with a group/binding
-        if (cache[id] == ~0u) {
-          break;
-        }
-
-        uint32_t pointerId = type;
-        const uint32_t* pointer = words + cache[pointerId];
-        uint32_t pointerTypeId = pointer[3];
-        const uint32_t* pointerType = words + cache[pointerTypeId];
-
-        // If it's a pointer to an array, set the resource array size and keep going
-        if ((pointerType[0] & 0xffff) == 28 /* OpTypeArray */) {
-          uint32_t sizeId = pointerType[3];
-          const uint32_t* size = words + cache[sizeId];
-          if ((size[0] & 0xffff) == 43 /* OpConstant */ || (size[0] & 0xffff) == 50 /* OpSpecConstant */) {
-            resources[cache[id]].count = size[3];
-          } else {
-            return false; // XXX
-          }
-
-          pointerTypeId = pointerType[2];
-          pointerType = words + cache[pointerTypeId];
-        } else {
-          resources[cache[id]].count = 1;
-        }
-
-        // Use StorageClass to detect uniform/storage buffers
-        if (storageClass == 12 /* StorageBuffer */) {
-          resources[cache[id]].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-          break;
-        } else if (storageClass == 2 /* Uniform */) {
-          resources[cache[id]].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-          break;
-        }
-
-        // If it's a sampled image, unwrap to get to the image type
-        // If it's not an image or a sampled image, then it's weird, fail
-        if ((pointerType[0] & 0xffff) == 27 /* OpTypeSampledImage */) {
-          pointerTypeId = pointerType[2];
-          pointerType = words + cache[pointerTypeId];
-        } else if ((pointerType[0] & 0xffff) != 25 /* OpTypeImage */) {
-          vkDestroyShaderModule(state.device, *handle, NULL);
-          return false; // XXX
-        }
-
-        // If it's a buffer (uniform/storage texel buffer) or an input attachment, fail
-        if (pointerType[3] == 5 /* DimBuffer */ || pointerType[3] == 6 /* DimSubpassData */) {
-          vkDestroyShaderModule(state.device, *handle, NULL);
-          return false; // XXX
-        }
-
-        // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
-        if (pointerType[7] == 1) {
-          resources[cache[id]].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        } else if (pointerType[7] == 2) {
-          resources[cache[id]].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        } else {
-          vkDestroyShaderModule(state.device, *handle, NULL);
-          return false; // XXX
-        }
-
-        break;
-      }
-      // If we find a function, we can exit early because the shader's actual code is irrelevant
-      case 54: /* OpFunction */
-        instruction = words + wordCount;
-        break;
-      default: break;
-    }
-    instruction += length;
-  }
-
-  // Merge resources into layout info
-  for (uint32_t i = 0; i < resourceCount; i++) {
-    uint32_t group = resources[i].group;
-
-    bool found = false;
-    for (uint32_t j = 0; j < layouts[group].bindingCount; j++) {
-      if (bindings[group][j].binding == resources[i].index) {
-        bindings[group][j].stageFlags |= stage;
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) {
-      bindings[group][layouts[group].bindingCount++] = (VkDescriptorSetLayoutBinding) {
-        .binding = resources[i].index,
-        .descriptorType = resources[i].type,
-        .descriptorCount = resources[i].count,
-        .stageFlags = stage
-      };
-    }
-  }
-
-  *pipelineInfo = (VkPipelineShaderStageCreateInfo) {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-    .stage = stage,
-    .module = *handle,
-    .pName = source->entry ? source->entry : "main"
-  };
-
-  return true;
-}
-
 static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
   static const VkFormat formats[][2] = {
     [GPU_TEXTURE_FORMAT_NONE] = { VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED },
@@ -2759,8 +2630,8 @@ static const char* getErrorString(VkResult result) {
 // - Texel buffers are not supported.
 // - ~0u aka -1 is commonly used as a "nil" value.
 // ### Threads
-// - Any thread that wants to call gpu_batch_begin or gpu_bundle_init should call gpu_thread_attach
-//   to set up thread local state.  This should happen after one thread has called gpu_init.  Call
+// - Any thread that wants to call batch_begin or bundle_init should call gpu_thread_attach to set
+//   up thread local state.  This should happen after one thread has called gpu_init.  Call
 //   gpu_thread_detach when finished on the thread.
 // - It is safe to record batches concurrently as long as they're created with gpu_batch_begin and
 //   batches created on one thread are not recorded concurrently (basically just record them on the

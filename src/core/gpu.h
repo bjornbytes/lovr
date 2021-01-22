@@ -17,7 +17,7 @@ typedef void gpu_read_fn(void* data, uint64_t size, void* userdata);
 
 // Buffer
 
-typedef enum {
+enum {
   GPU_BUFFER_USAGE_VERTEX   = (1 << 0),
   GPU_BUFFER_USAGE_INDEX    = (1 << 1),
   GPU_BUFFER_USAGE_UNIFORM  = (1 << 2),
@@ -25,7 +25,7 @@ typedef enum {
   GPU_BUFFER_USAGE_INDIRECT = (1 << 4),
   GPU_BUFFER_USAGE_UPLOAD   = (1 << 5),
   GPU_BUFFER_USAGE_DOWNLOAD = (1 << 6)
-} gpu_buffer_usage;
+};
 
 typedef struct {
   uint64_t size;
@@ -42,13 +42,13 @@ void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint6
 
 // Texture
 
-typedef enum {
+enum {
   GPU_TEXTURE_USAGE_SAMPLE   = (1 << 0),
   GPU_TEXTURE_USAGE_RENDER   = (1 << 1),
   GPU_TEXTURE_USAGE_STORAGE  = (1 << 2),
   GPU_TEXTURE_USAGE_UPLOAD   = (1 << 3),
   GPU_TEXTURE_USAGE_DOWNLOAD = (1 << 4)
-} gpu_texture_usage;
+};
 
 typedef enum {
   GPU_TEXTURE_TYPE_2D,
@@ -208,17 +208,36 @@ typedef struct {
   const char* entry;
 } gpu_shader_source;
 
+typedef enum {
+  GPU_SLOT_UNIFORM_BUFFER,
+  GPU_SLOT_STORAGE_BUFFER,
+  GPU_SLOT_UNIFORM_BUFFER_DYNAMIC,
+  GPU_SLOT_STORAGE_BUFFER_DYNAMIC,
+  GPU_SLOT_SAMPLED_TEXTURE,
+  GPU_SLOT_STORAGE_TEXTURE
+} gpu_slot_type;
+
+enum {
+  GPU_STAGE_ALL = 0,
+  GPU_STAGE_VERTEX = (1 << 0),
+  GPU_STAGE_FRAGMENT = (1 << 1),
+  GPU_STAGE_COMPUTE = (1 << 2)
+};
+
 typedef struct {
   uint16_t group;
-  uint16_t slot;
-} gpu_shader_var;
+  uint16_t index;
+  uint16_t count;
+  uint8_t type;
+  uint8_t stage;
+} gpu_slot;
 
 typedef struct {
   gpu_shader_source vertex;
   gpu_shader_source fragment;
   gpu_shader_source compute;
-  gpu_shader_var* dynamicBuffers;
-  uint32_t dynamicBufferCount;
+  uint32_t slotCount;
+  gpu_slot* slots;
   const char* label;
 } gpu_shader_info;
 
@@ -229,28 +248,27 @@ void gpu_shader_destroy(gpu_shader* shader);
 // Bundle
 
 typedef struct {
-  gpu_buffer* buffer;
-  uint64_t offset;
-  uint32_t size;
+  gpu_buffer* object;
+  uint32_t offset;
+  uint32_t extent;
 } gpu_buffer_binding;
 
 typedef struct {
-  gpu_texture* texture;
+  gpu_texture* object;
   gpu_sampler* sampler;
 } gpu_texture_binding;
 
-typedef struct {
-  uint32_t slot;
-  uint32_t count;
-  gpu_buffer_binding* buffers;
-  gpu_texture_binding* textures;
+typedef union {
+  gpu_buffer_binding buffer;
+  gpu_texture_binding texture;
 } gpu_binding;
 
 typedef struct {
   gpu_shader* shader;
   uint32_t group;
-  uint32_t bindingCount;
-  gpu_binding bindings[32];
+  uint32_t slotCount;
+  gpu_slot* slots;
+  gpu_binding* bindings;
 } gpu_bundle_info;
 
 size_t gpu_sizeof_bundle(void);
@@ -418,7 +436,7 @@ typedef enum {
 gpu_batch* gpu_batch_begin(gpu_pass* pass, uint32_t renderSize[2]);
 void gpu_batch_end(gpu_batch* batch);
 void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
-void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
+void gpu_batch_bind_bundles(gpu_batch* batch, gpu_shader* shader, uint32_t group, uint32_t count, gpu_bundle* bundles, uint32_t* offsets);
 void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
 void gpu_batch_bind_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type);
 void gpu_batch_draw(gpu_batch* batch, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
@@ -451,6 +469,8 @@ typedef struct {
   bool astc;
   bool pointSize;
   bool wireframe;
+  bool multiview;
+  bool multiblend;
   bool anisotropy;
   bool depthClamp;
   bool depthOffsetClamp;
@@ -460,7 +480,10 @@ typedef struct {
   bool indirectDrawCount;
   bool indirectDrawFirstInstance;
   bool extraShaderInputs;
-  bool multiview;
+  bool dynamicIndexing;
+  bool float64;
+  bool int64;
+  bool int16;
   uint8_t formats[GPU_TEXTURE_FORMAT_COUNT];
 } gpu_features;
 

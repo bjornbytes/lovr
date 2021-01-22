@@ -8,6 +8,7 @@ struct WindowFlags;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
+typedef struct Sampler Sampler;
 typedef struct Shader Shader;
 
 typedef struct {
@@ -15,6 +16,8 @@ typedef struct {
   bool astc;
   bool pointSize;
   bool wireframe;
+  bool multiview;
+  bool multiblend;
   bool anisotropy;
   bool depthClamp;
   bool depthNudgeClamp;
@@ -24,7 +27,10 @@ typedef struct {
   bool indirectDrawCount;
   bool indirectDrawFirstInstance;
   bool extraShaderInputs;
-  bool multiview;
+  bool dynamicIndexing;
+  bool float64;
+  bool int64;
+  bool int16;
 } GraphicsFeatures;
 
 typedef struct {
@@ -91,6 +97,14 @@ typedef struct {
 } Canvas;
 
 typedef enum {
+  SAMPLER_NEAREST,
+  SAMPLER_BILINEAR,
+  SAMPLER_TRILINEAR,
+  SAMPLER_ANISOTROPIC,
+  MAX_DEFAULT_SAMPLERS
+} DefaultSampler;
+
+typedef enum {
   BLEND_ALPHA_MULTIPLY,
   BLEND_PREMULTIPLIED
 } BlendAlphaMode;
@@ -141,6 +155,9 @@ void lovrGraphicsFlush(void);
 void lovrGraphicsRender(Canvas* canvas);
 void lovrGraphicsCompute(void);
 void lovrGraphicsEndPass(void);
+void lovrGraphicsBindBuffer(uint32_t group, uint32_t index, uint32_t element, Buffer* buffer, uint32_t offset, uint32_t extent);
+void lovrGraphicsBindTexture(uint32_t group, uint32_t index, uint32_t element, Texture* texture, Sampler* sampler);
+Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type);
 bool lovrGraphicsGetAlphaToCoverage(void);
 void lovrGraphicsSetAlphaToCoverage(bool enabled);
 void lovrGraphicsGetBlendMode(uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
@@ -155,6 +172,8 @@ void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp);
 void lovrGraphicsSetDepthNudge(float nudge, float sloped, float clamp);
 bool lovrGraphicsGetDepthClamp(void);
 void lovrGraphicsSetDepthClamp(bool clamp);
+Shader* lovrGraphicsGetShader(void);
+void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsGetStencilTest(CompareMode* test, uint8_t* value);
 void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value);
 Winding lovrGraphicsGetWinding(void);
@@ -252,7 +271,7 @@ typedef struct {
   struct Blob* vertex;
   struct Blob* fragment;
   struct Blob* compute;
-  const char** dynamicBufferNames;
+  const char** dynamicBuffers;
   uint32_t dynamicBufferCount;
   const char* label;
 } ShaderInfo;
@@ -260,3 +279,31 @@ typedef struct {
 Shader* lovrShaderCreate(ShaderInfo* info);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
+bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* index);
+
+// Sampler
+
+typedef enum {
+  FILTER_NEAREST,
+  FILTER_LINEAR
+} FilterMode;
+
+typedef enum {
+  WRAP_CLAMP,
+  WRAP_REPEAT,
+  WRAP_MIRROR
+} WrapMode;
+
+typedef struct {
+  FilterMode min;
+  FilterMode mag;
+  FilterMode mip;
+  WrapMode wrap[3];
+  CompareMode compare;
+  float anisotropy;
+  float lodClamp[2];
+} SamplerInfo;
+
+Sampler* lovrSamplerCreate(SamplerInfo* info);
+void lovrSamplerDestroy(void* ref);
+const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);

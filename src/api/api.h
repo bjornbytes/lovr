@@ -28,12 +28,14 @@ extern StringEntry lovrChannelLayout[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCullMode[];
 extern StringEntry lovrDefaultAttribute[];
+extern StringEntry lovrDefaultSampler[];
 extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];
 extern StringEntry lovrDrawMode[];
 extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
+extern StringEntry lovrFilterMode[];
 extern StringEntry lovrHeadsetDriver[];
 extern StringEntry lovrHeadsetOrigin[];
 extern StringEntry lovrJointType[];
@@ -53,6 +55,7 @@ extern StringEntry lovrTextureType[];
 extern StringEntry lovrTimeUnit[];
 extern StringEntry lovrVolumeUnit[];
 extern StringEntry lovrWinding[];
+extern StringEntry lovrWrapMode[];
 
 // General helpers
 
