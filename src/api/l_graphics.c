@@ -38,6 +38,27 @@ StringEntry lovrTextureUsage[] = {
   { 0 }
 };
 
+StringEntry lovrDefaultSampler[] = {
+  [SAMPLER_NEAREST] = ENTRY("nearest"),
+  [SAMPLER_BILINEAR] = ENTRY("bilinear"),
+  [SAMPLER_TRILINEAR] = ENTRY("trilinear"),
+  [SAMPLER_ANISOTROPIC] = ENTRY("anisotropic"),
+  { 0 }
+};
+
+StringEntry lovrFilterMode[] = {
+  [FILTER_NEAREST] = ENTRY("nearest"),
+  [FILTER_LINEAR] = ENTRY("linear"),
+  { 0 }
+};
+
+StringEntry lovrWrapMode[] = {
+  [WRAP_CLAMP] = ENTRY("clamp"),
+  [WRAP_REPEAT] = ENTRY("repeat"),
+  [WRAP_MIRROR] = ENTRY("mirror"),
+  { 0 }
+};
+
 StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
   [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
@@ -56,7 +77,7 @@ StringEntry lovrBlendMode[] = {
 };
 
 StringEntry lovrCompareMode[] = {
-  [COMPARE_NONE] = ENTRY("\0"),
+  [COMPARE_NONE] = ENTRY("none"),
   [COMPARE_EQUAL] = ENTRY("equal"),
   [COMPARE_NEQUAL] = ENTRY("notequal"),
   [COMPARE_LESS] = ENTRY("less"),
@@ -253,6 +274,15 @@ static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
   lua_pop(L, 1);
 }
 
+static Sampler* luax_checksampler(lua_State* L, int index) {
+  if (lua_type(L, index) == LUA_TSTRING) {
+    DefaultSampler sampler = luax_checkenum(L, index, DefaultSampler, "trilinear");
+    return lovrGraphicsGetDefaultSampler(sampler);
+  }
+
+  return luax_checktype(L, index, Sampler);
+}
+
 static int l_lovrGraphicsCreateWindow(lua_State* L) {
   os_window_config window;
   memset(&window, 0, sizeof(window));
@@ -343,35 +373,25 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
 
   GraphicsFeatures features;
   lovrGraphicsGetFeatures(&features);
-
-  lua_pushboolean(L, features.bptc);
-  lua_setfield(L, -2, "bptc");
-  lua_pushboolean(L, features.astc);
-  lua_setfield(L, -2, "astc");
-  lua_pushboolean(L, features.pointSize);
-  lua_setfield(L, -2, "pointSize");
-  lua_pushboolean(L, features.wireframe);
-  lua_setfield(L, -2, "wireframe");
-  lua_pushboolean(L, features.anisotropy);
-  lua_setfield(L, -2, "anisotropy");
-  lua_pushboolean(L, features.depthClamp);
-  lua_setfield(L, -2, "depthClamp");
-  lua_pushboolean(L, features.depthNudgeClamp);
-  lua_setfield(L, -2, "depthNudgeClamp");
-  lua_pushboolean(L, features.clipDistance);
-  lua_setfield(L, -2, "clipDistance");
-  lua_pushboolean(L, features.cullDistance);
-  lua_setfield(L, -2, "cullDistance");
-  lua_pushboolean(L, features.fullIndexBufferRange);
-  lua_setfield(L, -2, "fullIndexBufferRange");
-  lua_pushboolean(L, features.indirectDrawCount);
-  lua_setfield(L, -2, "indirectDrawCount");
-  lua_pushboolean(L, features.indirectDrawFirstInstance);
-  lua_setfield(L, -2, "indirectDrawFirstInstance");
-  lua_pushboolean(L, features.extraShaderInputs);
-  lua_setfield(L, -2, "extraShaderInputs");
-  lua_pushboolean(L, features.multiview);
-  lua_setfield(L, -2, "multiview");
+  lua_pushboolean(L, features.bptc), lua_setfield(L, -2, "bptc");
+  lua_pushboolean(L, features.astc), lua_setfield(L, -2, "astc");
+  lua_pushboolean(L, features.pointSize), lua_setfield(L, -2, "pointSize");
+  lua_pushboolean(L, features.wireframe), lua_setfield(L, -2, "wireframe");
+  lua_pushboolean(L, features.multiview), lua_setfield(L, -2, "multiview");
+  lua_pushboolean(L, features.multiblend), lua_setfield(L, -2, "multiblend");
+  lua_pushboolean(L, features.anisotropy), lua_setfield(L, -2, "anisotropy");
+  lua_pushboolean(L, features.depthClamp), lua_setfield(L, -2, "depthClamp");
+  lua_pushboolean(L, features.depthNudgeClamp), lua_setfield(L, -2, "depthNudgeClamp");
+  lua_pushboolean(L, features.clipDistance), lua_setfield(L, -2, "clipDistance");
+  lua_pushboolean(L, features.cullDistance), lua_setfield(L, -2, "cullDistance");
+  lua_pushboolean(L, features.fullIndexBufferRange), lua_setfield(L, -2, "fullIndexBufferRange");
+  lua_pushboolean(L, features.indirectDrawCount), lua_setfield(L, -2, "indirectDrawCount");
+  lua_pushboolean(L, features.indirectDrawFirstInstance), lua_setfield(L, -2, "indirectDrawFirstInstance");
+  lua_pushboolean(L, features.extraShaderInputs), lua_setfield(L, -2, "extraShaderInputs");
+  lua_pushboolean(L, features.dynamicIndexing), lua_setfield(L, -2, "dynamicIndexing");
+  lua_pushboolean(L, features.float64), lua_setfield(L, -2, "float64");
+  lua_pushboolean(L, features.int64), lua_setfield(L, -2, "int64");
+  lua_pushboolean(L, features.int16), lua_setfield(L, -2, "int16");
   return 1;
 }
 
@@ -385,103 +405,52 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   GraphicsLimits limits;
   lovrGraphicsGetLimits(&limits);
 
-  lua_pushinteger(L, limits.textureSize2D);
-  lua_setfield(L, -2, "textureSize2D");
-
-  lua_pushinteger(L, limits.textureSize3D);
-  lua_setfield(L, -2, "textureSize3D");
-
-  lua_pushinteger(L, limits.textureSizeCube);
-  lua_setfield(L, -2, "textureSizeCube");
-
-  lua_pushinteger(L, limits.textureLayers);
-  lua_setfield(L, -2, "textureLayers");
+  lua_pushinteger(L, limits.textureSize2D), lua_setfield(L, -2, "textureSize2D");
+  lua_pushinteger(L, limits.textureSize3D), lua_setfield(L, -2, "textureSize3D");
+  lua_pushinteger(L, limits.textureSizeCube), lua_setfield(L, -2, "textureSizeCube");
+  lua_pushinteger(L, limits.textureLayers), lua_setfield(L, -2, "textureLayers");
 
   lua_createtable(L, 2, 0);
-  lua_pushinteger(L, limits.renderSize[0]);
-  lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.renderSize[1]);
-  lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.renderSize[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.renderSize[1]), lua_rawseti(L, -2, 2);
   lua_setfield(L, -2, "renderSize");
 
-  lua_pushinteger(L, limits.renderViews);
-  lua_setfield(L, -2, "renderViews");
-
-  lua_pushinteger(L, limits.bundleCount);
-  lua_setfield(L, -2, "bundleCount");
-
-  lua_pushinteger(L, limits.bundleSlots);
-  lua_setfield(L, -2, "bundleSlots");
-
-  lua_pushinteger(L, limits.uniformBufferRange);
-  lua_setfield(L, -2, "uniformBufferRange");
-
-  lua_pushinteger(L, limits.storageBufferRange);
-  lua_setfield(L, -2, "storageBufferRange");
-
-  lua_pushinteger(L, limits.uniformBufferAlign);
-  lua_setfield(L, -2, "uniformBufferAlign");
-
-  lua_pushinteger(L, limits.storageBufferAlign);
-  lua_setfield(L, -2, "storageBufferAlign");
-
-  lua_pushinteger(L, limits.vertexAttributes);
-  lua_setfield(L, -2, "vertexAttributes");
-
-  lua_pushinteger(L, limits.vertexAttributeOffset);
-  lua_setfield(L, -2, "vertexAttributeOffset");
-
-  lua_pushinteger(L, limits.vertexBuffers);
-  lua_setfield(L, -2, "vertexBuffers");
-
-  lua_pushinteger(L, limits.vertexBufferStride);
-  lua_setfield(L, -2, "vertexBufferStride");
-
-  lua_pushinteger(L, limits.vertexShaderOutputs);
-  lua_setfield(L, -2, "vertexShaderOutputs");
+  lua_pushinteger(L, limits.renderViews), lua_setfield(L, -2, "renderViews");
+  lua_pushinteger(L, limits.bundleCount), lua_setfield(L, -2, "bundleCount");
+  lua_pushinteger(L, limits.bundleSlots), lua_setfield(L, -2, "bundleSlots");
+  lua_pushinteger(L, limits.uniformBufferRange), lua_setfield(L, -2, "uniformBufferRange");
+  lua_pushinteger(L, limits.storageBufferRange), lua_setfield(L, -2, "storageBufferRange");
+  lua_pushinteger(L, limits.uniformBufferAlign), lua_setfield(L, -2, "uniformBufferAlign");
+  lua_pushinteger(L, limits.storageBufferAlign), lua_setfield(L, -2, "storageBufferAlign");
+  lua_pushinteger(L, limits.vertexAttributes), lua_setfield(L, -2, "vertexAttributes");
+  lua_pushinteger(L, limits.vertexAttributeOffset), lua_setfield(L, -2, "vertexAttributeOffset");
+  lua_pushinteger(L, limits.vertexBuffers), lua_setfield(L, -2, "vertexBuffers");
+  lua_pushinteger(L, limits.vertexBufferStride), lua_setfield(L, -2, "vertexBufferStride");
+  lua_pushinteger(L, limits.vertexShaderOutputs), lua_setfield(L, -2, "vertexShaderOutputs");
 
   lua_createtable(L, 3, 0);
-  lua_pushinteger(L, limits.computeCount[0]);
-  lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.computeCount[1]);
-  lua_rawseti(L, -2, 2);
-  lua_pushinteger(L, limits.computeCount[2]);
-  lua_rawseti(L, -2, 3);
+  lua_pushinteger(L, limits.computeCount[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.computeCount[1]), lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.computeCount[2]), lua_rawseti(L, -2, 3);
   lua_setfield(L, -2, "computeCount");
 
   lua_createtable(L, 3, 0);
-  lua_pushinteger(L, limits.computeGroupSize[0]);
-  lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.computeGroupSize[1]);
-  lua_rawseti(L, -2, 2);
-  lua_pushinteger(L, limits.computeGroupSize[2]);
-  lua_rawseti(L, -2, 3);
+  lua_pushinteger(L, limits.computeGroupSize[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.computeGroupSize[1]), lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.computeGroupSize[2]), lua_rawseti(L, -2, 3);
   lua_setfield(L, -2, "computeGroupSize");
 
-  lua_pushinteger(L, limits.computeGroupVolume);
-  lua_setfield(L, -2, "computeGroupVolume");
-
-  lua_pushinteger(L, limits.computeSharedMemory);
-  lua_setfield(L, -2, "computeSharedMemory");
-
-  lua_pushinteger(L, limits.indirectDrawCount);
-  lua_setfield(L, -2, "indirectDrawCount");
-
-  lua_pushinteger(L, limits.allocationSize);
-  lua_setfield(L, -2, "allocationSize");
-
-  lua_pushinteger(L, limits.pointSize[0]);
-  lua_setfield(L, -2, "allocationSize");
+  lua_pushinteger(L, limits.computeGroupVolume), lua_setfield(L, -2, "computeGroupVolume");
+  lua_pushinteger(L, limits.computeSharedMemory), lua_setfield(L, -2, "computeSharedMemory");
+  lua_pushinteger(L, limits.indirectDrawCount), lua_setfield(L, -2, "indirectDrawCount");
+  lua_pushinteger(L, limits.allocationSize), lua_setfield(L, -2, "allocationSize");
 
   lua_createtable(L, 2, 0);
-  lua_pushinteger(L, limits.pointSize[0]);
-  lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.pointSize[1]);
-  lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.pointSize[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.pointSize[1]), lua_rawseti(L, -2, 2);
   lua_setfield(L, -2, "pointSize");
 
-  lua_pushnumber(L, limits.anisotropy);
-  lua_setfield(L, -2, "anisotropy");
+  lua_pushnumber(L, limits.anisotropy), lua_setfield(L, -2, "anisotropy");
   return 1;
 }
 
@@ -513,6 +482,51 @@ static int l_lovrGraphicsCompute(lua_State* L) {
   lua_settop(L, 1);
   lua_call(L, 0, 0);
   return 0;
+}
+
+static int l_lovrGraphicsBind(lua_State* L) {
+  uint32_t group = 0;
+  uint32_t slot = 0;
+  uint32_t item = 0;
+
+  size_t length;
+  const char* name = lua_tolstring(L, 1, &length);
+  int index;
+
+  if (name) {
+    uint64_t hash = hash64(name, length);
+    Shader* shader = lovrGraphicsGetShader();
+    bool exists = lovrShaderResolveName(shader, hash, &group, &slot);
+    lovrAssert(exists, "Active Shader has no variable named '%s'", name);
+    index = 2;
+  } else {
+    if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER) {
+      return luaL_error(L, "Expected a string or two integers");
+    }
+    group = lua_tointeger(L, 1);
+    slot = lua_tointeger(L, 2);
+    index = 3;
+  }
+
+  if (lua_type(L, index) == LUA_TNUMBER) {
+    item = lua_tointeger(L, index++) - 1;
+  }
+
+  Buffer* buffer = luax_totype(L, index, Buffer);
+  Texture* texture = luax_totype(L, index, Texture);
+
+  if (buffer) {
+    uint32_t offset = lua_tointeger(L, ++index);
+    uint32_t extent = lua_tointeger(L, ++index);
+    lovrGraphicsBindBuffer(group, slot, item, buffer, offset, extent);
+    return 0;
+  } else if (texture) {
+    Sampler* sampler = luax_checksampler(L, ++index);
+    lovrGraphicsBindTexture(group, slot, item, texture, sampler);
+    return 0;
+  } else {
+    return luax_typeerror(L, index, "Buffer or Texture");
+  }
 }
 
 static int l_lovrGraphicsGetAlphaToCoverage(lua_State* L) {
@@ -653,6 +667,18 @@ static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetShader(lua_State* L) {
+  Shader* shader = lovrGraphicsGetShader();
+  luax_pushtype(L, Shader, shader);
+  return 1;
+}
+
+static int l_lovrGraphicsSetShader(lua_State* L) {
+  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
+  lovrGraphicsSetShader(shader);
+  return 0;
+}
+
 static int l_lovrGraphicsGetStencilTest(lua_State* L) {
   CompareMode test;
   uint8_t value;
@@ -746,7 +772,7 @@ static int l_lovrGraphicsTransform(lua_State* L) {
 
 static int l_lovrGraphicsGetViewPose(lua_State* L) {
   uint32_t view = luaL_checkinteger(L, 1) - 1;
-  lovrAssert(view < 2, "Invalid view index %d", view + 1);
+  lovrAssert(view < 6, "Invalid view index %d", view + 1);
   if (lua_gettop(L) > 1) {
     float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
     bool invert = lua_toboolean(L, 3);
@@ -772,7 +798,7 @@ static int l_lovrGraphicsGetViewPose(lua_State* L) {
 
 static int l_lovrGraphicsSetViewPose(lua_State* L) {
   uint32_t view = luaL_checkinteger(L, 1) - 1;
-  lovrAssert(view < 2, "Invalid view index %d", view + 1);
+  lovrAssert(view < 6, "Invalid view index %d", view + 1);
   VectorType type;
   float* p = luax_tovector(L, 2, &type);
   if (p && type == V_MAT4) {
@@ -796,7 +822,7 @@ static int l_lovrGraphicsSetViewPose(lua_State* L) {
 
 static int l_lovrGraphicsGetProjection(lua_State* L) {
   uint32_t view = luaL_checkinteger(L, 1) - 1;
-  lovrAssert(view < 2, "Invalid view index %d", view + 1);
+  lovrAssert(view < 6, "Invalid view index %d", view + 1);
   if (lua_gettop(L) > 1) {
     float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
     lovrGraphicsGetProjection(view, matrix);
@@ -816,7 +842,7 @@ static int l_lovrGraphicsGetProjection(lua_State* L) {
 
 static int l_lovrGraphicsSetProjection(lua_State* L) {
   uint32_t view = luaL_checkinteger(L, 1) - 1;
-  lovrAssert(view < 2, "Invalid view index %d", view + 1);
+  lovrAssert(view < 6, "Invalid view index %d", view + 1);
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float left = luax_checkfloat(L, 2);
     float right = luax_checkfloat(L, 3);
@@ -1009,6 +1035,99 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewSampler(lua_State* L) {
+  luaL_checktype(L, 1, LUA_TTABLE);
+  SamplerInfo info = { 0 };
+
+  lua_getfield(L, 1, "min");
+  info.min = luax_checkenum(L, -1, FilterMode, "linear");
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "mag");
+  info.mag = luax_checkenum(L, -1, FilterMode, "linear");
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "mip");
+  info.mag = luax_checkenum(L, -1, FilterMode, "linear");
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "wrap");
+  if (lua_istable(L, -1)) {
+    lua_rawgeti(L, -1, 1);
+    lua_rawgeti(L, -2, 2);
+    lua_rawgeti(L, -3, 3);
+    info.wrap[0] = luax_checkenum(L, -3, WrapMode, "repeat");
+    info.wrap[1] = luax_checkenum(L, -2, WrapMode, "repeat");
+    info.wrap[2] = luax_checkenum(L, -1, WrapMode, "repeat");
+    lua_pop(L, 3);
+  } else {
+    info.wrap[0] = info.wrap[1] = info.wrap[2] = luax_checkenum(L, -1, WrapMode, "repeat");
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "compare");
+  info.compare = luax_checkenum(L, -1, CompareMode, "none");
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "anisotropy");
+  info.anisotropy = lua_tonumber(L, -1);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "mipclamp");
+  // TODO
+  lua_pop(L, 1);
+
+  Sampler* sampler = lovrSamplerCreate(&info);
+  luax_pushtype(L, Sampler, sampler);
+  lovrRelease(sampler, lovrSamplerDestroy);
+  return 1;
+}
+
+static int l_lovrGraphicsNewShader(lua_State* L) {
+  const char* dynamicBuffers[8];
+
+  ShaderInfo info = {
+    .dynamicBuffers = dynamicBuffers
+  };
+
+  bool table = lua_istable(L, 2);
+
+  if (lua_gettop(L) == 1 || table) {
+    info.type = SHADER_COMPUTE;
+    info.compute = luax_readblob(L, 1, "Shader");
+  } else {
+    info.type = SHADER_GRAPHICS;
+    info.vertex = luax_readblob(L, 1, "Shader");
+    info.fragment = luax_readblob(L, 2, "Shader");
+  }
+
+  if (table) {
+    lua_getfield(L, 2, "label");
+    info.label = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "dynamicbuffers");
+    if (lua_istable(L, -1)) {
+      info.dynamicBufferCount = (uint32_t) luax_len(L, -1);
+      lovrAssert(info.dynamicBufferCount <= COUNTOF(dynamicBuffers), "Too many dynamic buffers (max is %d, got %d)", COUNTOF(dynamicBuffers), info.dynamicBufferCount);
+      for (uint32_t i = 0; i < info.dynamicBufferCount; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        dynamicBuffers[i] = luaL_checkstring(L, -1);
+        lua_pop(L, 1);
+      }
+    }
+    lua_pop(L, 1);
+  }
+
+  Shader* shader = lovrShaderCreate(&info);
+  luax_pushtype(L, Shader, shader);
+  lovrRelease(shader, lovrShaderDestroy);
+  lovrRelease(info.vertex, lovrBlobDestroy);
+  lovrRelease(info.fragment, lovrBlobDestroy);
+  lovrRelease(info.compute, lovrBlobDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "createWindow", l_lovrGraphicsCreateWindow },
   { "hasWindow", l_lovrGraphicsHasWindow },
@@ -1022,6 +1141,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "flush", l_lovrGraphicsFlush },
   { "render", l_lovrGraphicsRender },
   { "compute", l_lovrGraphicsCompute },
+  { "bind", l_lovrGraphicsBind },
   { "getAlphaToCoverage", l_lovrGraphicsGetAlphaToCoverage },
   { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
   { "getBlendMode", l_lovrGraphicsGetBlendMode },
@@ -1036,6 +1156,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "setDepthNudge", l_lovrGraphicsSetDepthNudge },
   { "getDepthClamp", l_lovrGraphicsGetDepthClamp },
   { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
+  { "getShader", l_lovrGraphicsGetShader },
+  { "setShader", l_lovrGraphicsSetShader },
   { "getStencilTest", l_lovrGraphicsGetStencilTest },
   { "setStencilTest", l_lovrGraphicsSetStencilTest },
   { "getWinding", l_lovrGraphicsGetWinding },
@@ -1055,17 +1177,23 @@ static const luaL_Reg lovrGraphics[] = {
   { "setProjection", l_lovrGraphicsSetProjection },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
+  { "newSampler", l_lovrGraphicsNewSampler },
+  { "newShader", l_lovrGraphicsNewShader },
   { NULL, NULL }
 };
 
 extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
+extern const luaL_Reg lovrSampler[];
+extern const luaL_Reg lovrShader[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrGraphics);
   luax_registertype(L, Buffer);
   luax_registertype(L, Texture);
+  luax_registertype(L, Sampler);
+  luax_registertype(L, Shader);
 
   bool debug = false;
   luax_pushconf(L);
