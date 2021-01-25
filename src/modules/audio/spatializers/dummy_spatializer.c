@@ -39,7 +39,7 @@ void dummy_spatializer_apply(Source* source, mat4 transform, const float* input,
 void dummy_spatializer_setListenerPose(float position[4], float orientation[4]) {
   mat4_identity(state.listener);
   mat4_translate(state.listener, position[0], position[1], position[2]);
-  mat4_rotate(state.listener, orientation[0], orientation[1], orientation[2], orientation[3]);
+  mat4_rotateQuat(state.listener, orientation);
 }
 Spatializer dummySpatializer = {
   dummy_spatializer_init,
