@@ -212,7 +212,7 @@ bool lovrAudioInitDevice(AudioType type) {
     config.capture.format = miniAudioFormatFromLovr[state.config[AUDIO_CAPTURE].format];
     for(int i = 0; i < captureDeviceCount && state.config[AUDIO_CAPTURE].deviceName; i++) {
       if (strcmp(captureDevices[i].name, state.config[AUDIO_CAPTURE].deviceName) == 0) {
-        config.capture.pDeviceID = &playbackDevices[i].id;
+        config.capture.pDeviceID = &captureDevices[i].id;
       }
     }
     if (state.config[AUDIO_CAPTURE].deviceName && config.capture.pDeviceID == NULL) {
