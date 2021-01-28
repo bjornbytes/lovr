@@ -8,8 +8,8 @@ struct WindowFlags;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
-typedef struct Sampler Sampler;
 typedef struct Shader Shader;
+typedef struct Bundle Bundle;
 
 typedef void StencilCallback(void* userdata);
 
@@ -109,14 +109,6 @@ typedef enum {
 } StencilAction;
 
 typedef enum {
-  SAMPLER_NEAREST,
-  SAMPLER_BILINEAR,
-  SAMPLER_TRILINEAR,
-  SAMPLER_ANISOTROPIC,
-  MAX_DEFAULT_SAMPLERS
-} DefaultSampler;
-
-typedef enum {
   BLEND_ALPHA_MULTIPLY,
   BLEND_PREMULTIPLIED
 } BlendAlphaMode;
@@ -165,12 +157,8 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
 void lovrGraphicsFlush(void);
 void lovrGraphicsRender(Canvas* canvas);
-void lovrGraphicsCompute(void);
 void lovrGraphicsEndPass(void);
-void lovrGraphicsStencil(StencilAction actions, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata);
-void lovrGraphicsBindBuffer(uint32_t group, uint32_t index, uint32_t element, Buffer* buffer, uint32_t offset, uint32_t extent);
-void lovrGraphicsBindTexture(uint32_t group, uint32_t index, uint32_t element, Texture* texture, Sampler* sampler);
-Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type);
+void lovrGraphicsBind(uint32_t group, Bundle* bundle);
 bool lovrGraphicsGetAlphaToCoverage(void);
 void lovrGraphicsSetAlphaToCoverage(bool enabled);
 void lovrGraphicsGetBlendMode(uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
@@ -204,6 +192,7 @@ void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix);
 void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix);
 void lovrGraphicsGetProjection(uint32_t index, float* projection);
 void lovrGraphicsSetProjection(uint32_t index, float* projection);
+void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata);
 
 // Buffer
 
@@ -292,31 +281,12 @@ typedef struct {
 Shader* lovrShaderCreate(ShaderInfo* info);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
-bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* index);
+bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
 
-// Sampler
+// Bundle
 
-typedef enum {
-  FILTER_NEAREST,
-  FILTER_LINEAR
-} FilterMode;
-
-typedef enum {
-  WRAP_CLAMP,
-  WRAP_REPEAT,
-  WRAP_MIRROR
-} WrapMode;
-
-typedef struct {
-  FilterMode min;
-  FilterMode mag;
-  FilterMode mip;
-  WrapMode wrap[3];
-  CompareMode compare;
-  float anisotropy;
-  float lodClamp[2];
-} SamplerInfo;
-
-Sampler* lovrSamplerCreate(SamplerInfo* info);
-void lovrSamplerDestroy(void* ref);
-const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
+Bundle* lovrBundleCreate(Shader* shader, uint32_t group);
+void lovrBundleDestroy(void* ref);
+uint32_t lovrBundleGetGroup(Bundle* bundle);
+bool lovrBundleBindBuffer(Bundle* bundle, uint32_t id, uint32_t element, Buffer* buffer, uint32_t offset, uint32_t extent);
+bool lovrBundleBindTexture(Bundle* bundle, uint32_t id, uint32_t element, Texture* texture);
