@@ -426,12 +426,32 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
 // Batch
 
+typedef struct {
+  gpu_texture* texture;
+  gpu_texture* resolve;
+  float clear[4];
+} gpu_color_target;
+
+typedef struct {
+  gpu_texture* texture;
+  float clear;
+  uint32_t stencilClear;
+} gpu_depth_target;
+
+typedef struct {
+  gpu_color_target color[4];
+  gpu_depth_target depth;
+  uint32_t size[2];
+} gpu_render_target;
+
 typedef enum {
   GPU_INDEX_U16,
   GPU_INDEX_U32
 } gpu_index_type;
 
-gpu_batch* gpu_batch_begin(gpu_pass* pass, uint32_t renderSize[2]);
+gpu_batch* gpu_batch_init_render(gpu_pass* pass, gpu_render_target* target, gpu_batch** recordings, uint32_t recordingCount);
+gpu_batch* gpu_batch_init_record(gpu_pass* destination, uint32_t renderSize[2]);
+gpu_batch* gpu_batch_init_compute(void);
 void gpu_batch_end(gpu_batch* batch);
 void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
 void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
@@ -527,33 +547,12 @@ typedef struct {
   } vk;
 } gpu_config;
 
-typedef struct {
-  gpu_texture* texture;
-  gpu_texture* resolve;
-  float clear[4];
-} gpu_color_target;
-
-typedef struct {
-  gpu_texture* texture;
-  float clear;
-  uint32_t stencilClear;
-} gpu_depth_target;
-
-typedef struct {
-  gpu_pass* pass;
-  gpu_color_target color[4];
-  gpu_depth_target depth;
-  uint32_t size[2];
-} gpu_render_info;
-
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
 void gpu_thread_attach(void);
 void gpu_thread_detach(void);
 void gpu_begin(void);
 void gpu_flush(void);
-gpu_batch* gpu_render(gpu_render_info* info, gpu_batch** batches, uint32_t count);
-gpu_batch* gpu_compute(void);
 void gpu_debug_push(const char* label);
 void gpu_debug_pop(void);
 void gpu_time_write(void);
