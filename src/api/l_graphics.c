@@ -56,20 +56,6 @@ StringEntry lovrCullMode[] = {
   { 0 }
 };
 
-StringEntry lovrDefaultSampler[] = {
-  [SAMPLER_NEAREST] = ENTRY("nearest"),
-  [SAMPLER_BILINEAR] = ENTRY("bilinear"),
-  [SAMPLER_TRILINEAR] = ENTRY("trilinear"),
-  [SAMPLER_ANISOTROPIC] = ENTRY("anisotropic"),
-  { 0 }
-};
-
-StringEntry lovrFilterMode[] = {
-  [FILTER_NEAREST] = ENTRY("nearest"),
-  [FILTER_LINEAR] = ENTRY("linear"),
-  { 0 }
-};
-
 StringEntry lovrStencilAction[] = {
   [STENCIL_KEEP] = ENTRY("keep"),
   [STENCIL_REPLACE] = ENTRY("replace"),
@@ -101,13 +87,6 @@ StringEntry lovrTextureUsage[] = {
 StringEntry lovrWinding[] = {
   [WINDING_COUNTERCLOCKWISE] = ENTRY("counterclockwise"),
   [WINDING_CLOCKWISE] = ENTRY("clockwise"),
-  { 0 }
-};
-
-StringEntry lovrWrapMode[] = {
-  [WRAP_CLAMP] = ENTRY("clamp"),
-  [WRAP_REPEAT] = ENTRY("repeat"),
-  [WRAP_MIRROR] = ENTRY("mirror"),
   { 0 }
 };
 
@@ -283,15 +262,6 @@ static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
       lua_pop(L, 1);
   }
   lua_pop(L, 1);
-}
-
-static Sampler* luax_checksampler(lua_State* L, int index) {
-  if (lua_type(L, index) == LUA_TSTRING) {
-    DefaultSampler sampler = luax_checkenum(L, index, DefaultSampler, "trilinear");
-    return lovrGraphicsGetDefaultSampler(sampler);
-  }
-
-  return luax_checktype(L, index, Sampler);
 }
 
 static int l_lovrGraphicsCreateWindow(lua_State* L) {
@@ -487,72 +457,11 @@ static int l_lovrGraphicsRender(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsCompute(lua_State* L) {
-  lovrGraphicsCompute();
-  luaL_checktype(L, 1, LUA_TFUNCTION);
-  lua_settop(L, 1);
-  lua_call(L, 0, 0);
-  return 0;
-}
-
-static void onStencil(void* userdata) {
-  lua_State* L = userdata;
-  luaL_checktype(L, -1, LUA_TFUNCTION);
-  lua_call(L, 0, 0);
-}
-
-static int l_lovrGraphicsStencil(lua_State* L) {
-  luaL_checktype(L, 1, LUA_TFUNCTION);
-  StencilAction action = luax_checkenum(L, 2, StencilAction, "replace");
-  uint8_t value = luaL_optinteger(L, 3, 1);
-  StencilAction depthAction = luax_checkenum(L, 2, StencilAction, "keep");
-  lovrGraphicsStencil(action, depthAction, value, onStencil, L);
-  return 0;
-}
-
 static int l_lovrGraphicsBind(lua_State* L) {
-  uint32_t group = 0;
-  uint32_t slot = 0;
-  uint32_t item = 0;
-
-  size_t length;
-  const char* name = lua_tolstring(L, 1, &length);
-  int index;
-
-  if (name) {
-    uint64_t hash = hash64(name, length);
-    Shader* shader = lovrGraphicsGetShader();
-    bool exists = lovrShaderResolveName(shader, hash, &group, &slot);
-    lovrAssert(exists, "Active Shader has no variable named '%s'", name);
-    index = 2;
-  } else {
-    if (lua_type(L, 1) != LUA_TNUMBER || lua_type(L, 2) != LUA_TNUMBER) {
-      return luaL_error(L, "Expected a string or two integers");
-    }
-    group = lua_tointeger(L, 1);
-    slot = lua_tointeger(L, 2);
-    index = 3;
-  }
-
-  if (lua_type(L, index) == LUA_TNUMBER) {
-    item = lua_tointeger(L, index++) - 1;
-  }
-
-  Buffer* buffer = luax_totype(L, index, Buffer);
-  Texture* texture = luax_totype(L, index, Texture);
-
-  if (buffer) {
-    uint32_t offset = lua_tointeger(L, ++index);
-    uint32_t extent = lua_tointeger(L, ++index);
-    lovrGraphicsBindBuffer(group, slot, item, buffer, offset, extent);
-    return 0;
-  } else if (texture) {
-    Sampler* sampler = luax_checksampler(L, ++index);
-    lovrGraphicsBindTexture(group, slot, item, texture, sampler);
-    return 0;
-  } else {
-    return luax_typeerror(L, index, "Buffer or Texture");
-  }
+  uint32_t group = luaL_checkinteger(L, 1);
+  Bundle* bundle = luax_checktype(L, 2, Bundle);
+  lovrGraphicsBind(group, bundle);
+  return 0;
 }
 
 static int l_lovrGraphicsGetAlphaToCoverage(lua_State* L) {
@@ -886,6 +795,21 @@ static int l_lovrGraphicsSetProjection(lua_State* L) {
   return 0;
 }
 
+static void onStencil(void* userdata) {
+  lua_State* L = userdata;
+  luaL_checktype(L, -1, LUA_TFUNCTION);
+  lua_call(L, 0, 0);
+}
+
+static int l_lovrGraphicsStencil(lua_State* L) {
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  StencilAction action = luax_checkenum(L, 2, StencilAction, "replace");
+  uint8_t value = luaL_optinteger(L, 3, 1);
+  StencilAction depthAction = luax_checkenum(L, 2, StencilAction, "keep");
+  lovrGraphicsStencil(action, depthAction, value, onStencil, L);
+  return 0;
+}
+
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
   BufferInfo info = {
     .usage = ~0u
@@ -1061,54 +985,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsNewSampler(lua_State* L) {
-  luaL_checktype(L, 1, LUA_TTABLE);
-  SamplerInfo info = { 0 };
-
-  lua_getfield(L, 1, "min");
-  info.min = luax_checkenum(L, -1, FilterMode, "linear");
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "mag");
-  info.mag = luax_checkenum(L, -1, FilterMode, "linear");
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "mip");
-  info.mag = luax_checkenum(L, -1, FilterMode, "linear");
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "wrap");
-  if (lua_istable(L, -1)) {
-    lua_rawgeti(L, -1, 1);
-    lua_rawgeti(L, -2, 2);
-    lua_rawgeti(L, -3, 3);
-    info.wrap[0] = luax_checkenum(L, -3, WrapMode, "repeat");
-    info.wrap[1] = luax_checkenum(L, -2, WrapMode, "repeat");
-    info.wrap[2] = luax_checkenum(L, -1, WrapMode, "repeat");
-    lua_pop(L, 3);
-  } else {
-    info.wrap[0] = info.wrap[1] = info.wrap[2] = luax_checkenum(L, -1, WrapMode, "repeat");
-  }
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "compare");
-  info.compare = luax_checkenum(L, -1, CompareMode, "none");
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "anisotropy");
-  info.anisotropy = lua_tonumber(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "mipclamp");
-  // TODO
-  lua_pop(L, 1);
-
-  Sampler* sampler = lovrSamplerCreate(&info);
-  luax_pushtype(L, Sampler, sampler);
-  lovrRelease(sampler, lovrSamplerDestroy);
-  return 1;
-}
-
 static int l_lovrGraphicsNewShader(lua_State* L) {
   const char* dynamicBuffers[64];
 
@@ -1154,6 +1030,52 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewBundle(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  uint32_t group = luaL_checkinteger(L, 2);
+  Bundle* bundle = lovrBundleCreate(shader, group);
+
+  if (lua_istable(L, 3)) {
+    lua_pushnil(L);
+    while (lua_next(L, 3)) {
+      uint32_t id;
+
+      switch (lua_type(L, -2)) {
+        case LUA_TSTRING: {
+          size_t length;
+          const char* name = lua_tolstring(L, -2, &length);
+          uint64_t hash = hash64(name, length);
+          uint32_t g;
+          bool exists = lovrShaderResolveName(shader, hash, &g, &id);
+          lovrAssert(exists, "Shader has no variable named '%s', name");
+          lovrAssert(g == group, "Variable '%s' is not in this Bundle's group!", name);
+          break;
+        }
+        case LUA_TNUMBER:
+          id = lua_tointeger(L, -2);
+          break;
+        default:
+          break;
+      }
+
+      Buffer* buffer = luax_totype(L, -1, Buffer);
+      Texture* texture = luax_totype(L, -1, Texture);
+      lovrAssert(buffer || texture, "Expected a Buffer or a Texture for a bundle variable");
+      if (buffer) {
+        lovrBundleBindBuffer(bundle, id, 0, buffer, 0, ~0u);
+      } else {
+        lovrBundleBindTexture(bundle, id, 0, texture);
+      }
+
+      lua_pop(L, 1);
+    }
+  }
+
+  luax_pushtype(L, Bundle, bundle);
+  lovrRelease(bundle, lovrBundleDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "createWindow", l_lovrGraphicsCreateWindow },
   { "hasWindow", l_lovrGraphicsHasWindow },
@@ -1166,8 +1088,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "begin", l_lovrGraphicsBegin },
   { "flush", l_lovrGraphicsFlush },
   { "render", l_lovrGraphicsRender },
-  { "compute", l_lovrGraphicsCompute },
-  { "stencil", l_lovrGraphicsStencil },
   { "bind", l_lovrGraphicsBind },
   { "getAlphaToCoverage", l_lovrGraphicsGetAlphaToCoverage },
   { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
@@ -1202,25 +1122,26 @@ static const luaL_Reg lovrGraphics[] = {
   { "setViewPose", l_lovrGraphicsSetViewPose },
   { "getProjection", l_lovrGraphicsGetProjection },
   { "setProjection", l_lovrGraphicsSetProjection },
+  { "stencil", l_lovrGraphicsStencil },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
-  { "newSampler", l_lovrGraphicsNewSampler },
   { "newShader", l_lovrGraphicsNewShader },
+  { "newBundle", l_lovrGraphicsNewBundle },
   { NULL, NULL }
 };
 
 extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
-extern const luaL_Reg lovrSampler[];
 extern const luaL_Reg lovrShader[];
+extern const luaL_Reg lovrBundle[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrGraphics);
   luax_registertype(L, Buffer);
   luax_registertype(L, Texture);
-  luax_registertype(L, Sampler);
   luax_registertype(L, Shader);
+  luax_registertype(L, Bundle);
 
   bool debug = false;
   luax_pushconf(L);

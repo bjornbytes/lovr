@@ -225,19 +225,18 @@ enum {
 };
 
 typedef struct {
-  uint16_t group;
-  uint16_t index;
-  uint16_t count;
+  uint8_t id;
   uint8_t type;
   uint8_t stage;
+  uint8_t count;
 } gpu_slot;
 
 typedef struct {
   gpu_shader_source vertex;
   gpu_shader_source fragment;
   gpu_shader_source compute;
-  uint32_t slotCount;
-  gpu_slot* slots;
+  uint32_t slotCount[4];
+  gpu_slot* slots[4];
   const char* label;
 } gpu_shader_info;
 
@@ -422,7 +421,7 @@ typedef struct {
 
 size_t gpu_sizeof_pipeline(void);
 bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info);
-bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_pipeline_info* info);
+bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const char* label);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
 // Batch
@@ -435,7 +434,7 @@ typedef enum {
 gpu_batch* gpu_batch_begin(gpu_pass* pass, uint32_t renderSize[2]);
 void gpu_batch_end(gpu_batch* batch);
 void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
-void gpu_batch_bind_bundles(gpu_batch* batch, gpu_shader* shader, uint32_t group, uint32_t count, gpu_bundle* bundles, uint32_t* offsets);
+void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
 void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
 void gpu_batch_bind_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type);
 void gpu_batch_draw(gpu_batch* batch, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);

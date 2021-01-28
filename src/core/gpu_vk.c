@@ -1657,33 +1657,30 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     .pSetLayouts = shader->layouts
   };
 
-  uint32_t bindingCounts[4] = { 0 };
-  VkDescriptorSetLayoutBinding bindings[4][16];
+  for (uint32_t i = 0; i < COUNTOF(shader->layouts); i++) {
+    VkDescriptorSetLayoutBinding bindings[16];
+    for (uint32_t j = 0; j < info->slotCount[i]; j++) {
+      gpu_slot slot = info->slots[i][j];
+      bindings[j] = (VkDescriptorSetLayoutBinding) {
+        .binding = slot.id,
+        .descriptorType = descriptorTypes[slot.type],
+        .descriptorCount = slot.count,
+        .stageFlags = slot.stage == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
+          (((slot.stage & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
+          ((slot.stage & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
+          ((slot.stage & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
+      };
+    }
 
-  for (uint32_t i = 0; i < info->slotCount; i++) {
-    gpu_slot slot = info->slots[i];
-    uint32_t index = bindingCounts[slot.group]++;
-    bindings[slot.group][index] = (VkDescriptorSetLayoutBinding) {
-      .binding = slot.index,
-      .descriptorType = descriptorTypes[slot.type],
-      .descriptorCount = slot.count,
-      .stageFlags = slot.stage == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
-        (((slot.stage & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
-        ((slot.stage & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
-        ((slot.stage & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
-    };
-  }
-
-  for (uint32_t i = 0; i < COUNTOF(bindings); i++) {
     VkDescriptorSetLayoutCreateInfo layoutInfo = {
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-      .bindingCount = bindingCounts[i],
-      .pBindings = bindings[i]
+      .bindingCount = info->slotCount[i],
+      .pBindings = bindings
     };
 
     GPU_VK(vkCreateDescriptorSetLayout(state.device, &layoutInfo, NULL, &shader->layouts[i]));
 
-    if (bindingCounts[i] > 0) {
+    if (info->slotCount[i] > 0) {
       pipelineLayoutInfo.setLayoutCount = i + 1;
     }
   }
@@ -1810,27 +1807,27 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
   uint32_t writeCount = 0;
 
   for (uint32_t i = 0; i < info->slotCount; i++) {
-    gpu_slot* slot = &info->slots[i];
-    bool texture = slot->type == GPU_SLOT_SAMPLED_TEXTURE || slot->type == GPU_SLOT_STORAGE_TEXTURE;
+    gpu_slot slot = info->slots[i];
+    bool texture = slot.type == GPU_SLOT_SAMPLED_TEXTURE || slot.type == GPU_SLOT_STORAGE_TEXTURE;
     uint32_t cursor = 0;
 
-    while (cursor < slot->count) {
+    while (cursor < slot.count) {
       if (texture ? textureCount >= COUNTOF(textures) : bufferCount >= COUNTOF(buffers)) {
         vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
         bufferCount = textureCount = writeCount = 0;
       }
 
       uint32_t available = texture ? COUNTOF(textures) - textureCount : COUNTOF(buffers) - bufferCount;
-      uint32_t remaining = slot->count - cursor;
+      uint32_t remaining = slot.count - cursor;
       uint32_t chunk = MIN(available, remaining);
 
       writes[writeCount++] = (VkWriteDescriptorSet) {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = bundle->handle,
-        .dstBinding = slot->index,
+        .dstBinding = slot.id,
         .dstArrayElement = cursor,
         .descriptorCount = chunk,
-        .descriptorType = descriptorTypes[slot->type],
+        .descriptorType = descriptorTypes[slot.type],
         .pBufferInfo = &buffers[bufferCount],
         .pImageInfo = &textures[textureCount]
       };
@@ -2057,18 +2054,18 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   return true;
 }
 
-bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
+bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const char* label) {
   VkComputePipelineCreateInfo pipelineInfo = {
     .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-    .stage = info->shader->pipelineInfo[0],
-    .layout = info->shader->pipelineLayout
+    .stage = shader->pipelineInfo[0],
+    .layout = shader->pipelineLayout
   };
 
   if (vkCreateComputePipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle)) {
     return false;
   }
 
-  nickname(pipeline, VK_OBJECT_TYPE_PIPELINE, info->label);
+  nickname(pipeline, VK_OBJECT_TYPE_PIPELINE, label);
   pipeline->type = VK_PIPELINE_BIND_POINT_COMPUTE;
   return true;
 }
@@ -2144,7 +2141,6 @@ void gpu_batch_end(gpu_batch* batch) {
 
     gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
     VkCommandBuffer previous = tick->commandBuffers[tick->commandBufferCount - 2];
-    // insert sync commands
     GPU_VK(vkEndCommandBuffer(previous));
   } else {
     GPU_VK(vkEndCommandBuffer(batch->commands));

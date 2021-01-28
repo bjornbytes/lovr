@@ -21,33 +21,36 @@ struct Texture {
   TextureInfo info;
 };
 
-struct Sampler {
-  gpu_sampler* gpu;
-  SamplerInfo info;
-};
-
 typedef struct {
   uint64_t hash;
-  uint8_t baseSlot;
+  uint16_t slotMask;
+  uint16_t bufferMask;
+  uint16_t textureMask;
+  uint16_t dynamicMask;
+  gpu_slot slots[16];
   uint8_t slotCount;
-  uint8_t slotMap[16];
-  uint32_t baseBinding;
-  uint32_t bindingCount;
-  uint32_t bindingMap[16];
-  uint8_t baseDynamicOffset;
-  uint8_t dynamicOffsetCount;
-  uint8_t dynamicOffsetMap[16];
+  uint8_t slotIndex[16];
+  uint16_t bindingCount;
+  uint16_t bindingIndex[16];
+  uint16_t dynamicOffsetCount;
+  uint16_t dynamicOffsetIndex[16];
 } ShaderGroup;
 
 struct Shader {
   gpu_shader* gpu;
   ShaderInfo info;
-  map_t lookup;
-  gpu_slot slots[64];
-  uint32_t slotCount;
-  uint32_t bindingCount;
-  uint32_t dynamicOffsetCount;
   ShaderGroup groups[4];
+  map_t lookup;
+};
+
+struct Bundle {
+  gpu_bundle* gpu;
+  Shader* shader;
+  ShaderGroup* group;
+  gpu_binding* bindings;
+  uint32_t* dynamicOffsets;
+  uint32_t version;
+  bool dirty;
 };
 
 static LOVR_THREAD_LOCAL struct {
@@ -58,11 +61,7 @@ static LOVR_THREAD_LOCAL struct {
     bool dirty;
   } pipeline;
   Shader* shader;
-  gpu_binding* bindings;
-  uint32_t bindingCount;
-  uint32_t dynamicOffsets[64];
-  uint32_t dirtyGroups;
-  uint32_t filthyGroups;
+  Bundle* bundles[4];
   uint32_t transform;
   float transforms[64][16];
   float viewMatrix[6][16];
@@ -81,7 +80,6 @@ static struct {
   map_t pipelines;
   map_t pipelineLobby;
   mtx_t pipelineLock;
-  Sampler* defaultSamplers[MAX_DEFAULT_SAMPLERS];
 } state;
 
 static void onDebugMessage(void* context, const char* message, int severe) {
@@ -111,9 +109,6 @@ void lovrGraphicsDestroy() {
       gpu_pass_destroy(pass);
       free(pass);
     }
-  }
-  for (uint32_t i = 0; i < MAX_DEFAULT_SAMPLERS; i++) {
-    lovrRelease(state.defaultSamplers[i], lovrSamplerDestroy);
   }
   map_free(&state.passes);
   map_free(&state.pipelines);
@@ -315,94 +310,18 @@ void lovrGraphicsRender(Canvas* canvas) {
   renderInfo.size[0] = canvas->color[0].texture->info.size[0];
   renderInfo.size[1] = canvas->color[0].texture->info.size[1];
   state.batch = gpu_render(&renderInfo, NULL, 0);
-}
 
-void lovrGraphicsCompute() {
-  state.batch = gpu_compute();
+  // TODO reset pipeline state
+  memset(thread.bundles, 0, sizeof(thread.bundles));
 }
 
 void lovrGraphicsEndPass() {
   gpu_batch_end(state.batch);
 }
 
-void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata) {
-  uint8_t oldValue = thread.pipeline.info.stencil.value;
-  gpu_compare_mode oldTest = thread.pipeline.info.stencil.test;
-  // TODO must be in render pass
-  // TODO must have stencil buffer?
-  thread.pipeline.info.stencil.test = GPU_COMPARE_NONE;
-  thread.pipeline.info.stencil.passOp = (gpu_stencil_op) action;
-  thread.pipeline.info.stencil.depthFailOp = (gpu_stencil_op) depthFailAction;
-  thread.pipeline.info.stencil.value = value;
-  thread.pipeline.dirty = true;
-  callback(userdata);
-  thread.pipeline.info.stencil.test = oldTest;
-  thread.pipeline.info.stencil.passOp = GPU_STENCIL_KEEP;
-  thread.pipeline.info.stencil.depthFailOp = GPU_STENCIL_KEEP;
-  thread.pipeline.info.stencil.value = oldValue;
-  thread.pipeline.dirty = true;
-}
-
-static void checkSlot(Shader* shader, uint32_t group, uint32_t index, uint32_t element, gpu_slot** slot, gpu_binding** binding) {
-  lovrAssert(group < 4, "Attempt to bind a resource to group %d (max group is 3)", group);
-  lovrAssert(index < 16, "Attempt to bind a resource to index %d (max index is 15)", index);
-  uint8_t slotIndex = shader->groups[group].slotMap[index];
-  *slot = &shader->slots[slotIndex];
-  lovrAssert(slotIndex != 0xff, "Attempt to bind a resource to (%d,%d), but the active Shader does not have a resource there", group, index);
-  lovrAssert(element < (*slot)->count, "Attempt to bind a resource to array element %d of resource (%d,%d), which exceeds its array bounds", element, group, index);
-  uint32_t bindingIndex = shader->groups[group].bindingMap[index] + element;
-  *binding = &thread.bindings[bindingIndex];
-}
-
-void lovrGraphicsBindBuffer(uint32_t group, uint32_t index, uint32_t element, Buffer* buffer, uint32_t offset, uint32_t extent) {
-  gpu_slot* slot;
-  gpu_binding* binding;
-  Shader* shader = thread.shader;
-  checkSlot(shader, group, index, element, &slot, &binding);
-  lovrAssert(slot->type != GPU_SLOT_SAMPLED_TEXTURE && slot->type != GPU_SLOT_STORAGE_TEXTURE, "Attempt to bind a Buffer to slot (%d,%d), but only Textures can be bound here");
-
-  if (slot->type == GPU_SLOT_UNIFORM_BUFFER_DYNAMIC || slot->type == GPU_SLOT_STORAGE_BUFFER_DYNAMIC) {
-    uint8_t dynamicOffsetIndex = shader->groups[group].dynamicOffsetMap[index];
-    thread.dynamicOffsets[dynamicOffsetIndex] = offset;
-    offset = 0;
-
-    if (buffer->gpu == binding->buffer.object && extent == binding->buffer.extent) {
-      // TODO need to mark this set as dirty differently somehow (need to rebind, but don't need to recreate bundle)
-      return;
-    }
-  }
-
-  binding->buffer = (gpu_buffer_binding) { buffer->gpu, offset, extent };
-  thread.dirtyGroups |= 1 << group;
-  lovrRetain(buffer);
-}
-
-void lovrGraphicsBindTexture(uint32_t group, uint32_t index, uint32_t element, Texture* texture, Sampler* sampler) {
-  gpu_slot* slot;
-  gpu_binding* binding;
-  Shader* shader = thread.shader;
-  checkSlot(shader, group, index, element, &slot, &binding);
-  lovrAssert(slot->type == GPU_SLOT_SAMPLED_TEXTURE || slot->type == GPU_SLOT_STORAGE_TEXTURE, "Attempt to bind a Texture to slot (%d,%d), but only Buffers can be bound here");
-  binding->texture = (gpu_texture_binding) { texture->gpu, sampler->gpu };
-  thread.dirtyGroups |= 1 << group;
-  lovrRetain(texture);
-  lovrRetain(sampler);
-}
-
-Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type) {
-  if (!state.defaultSamplers[type]) {
-    SamplerInfo info = {
-      .min = (type == SAMPLER_NEAREST) ? FILTER_NEAREST : FILTER_LINEAR,
-      .mag = (type == SAMPLER_NEAREST) ? FILTER_NEAREST : FILTER_LINEAR,
-      .mip = (type == SAMPLER_TRILINEAR || type == SAMPLER_ANISOTROPIC) ? FILTER_LINEAR : FILTER_NEAREST,
-      .anisotropy = (type == SAMPLER_ANISOTROPIC) ? state.limits.anisotropy : 0.f
-    };
-
-    // TODO thread safety (just have to prevent a retain/release "leak" with cmpxchg or something)
-    state.defaultSamplers[type] = lovrSamplerCreate(&info);
-  }
-
-  return state.defaultSamplers[type];
+void lovrGraphicsBind(uint32_t group, Bundle* bundle) {
+  lovrAssert(group < 4, "Attempt to bind a bundle to group %d, but the max group is 3", group);
+  thread.bundles[group] = bundle;
 }
 
 /*
@@ -611,26 +530,6 @@ Shader* lovrGraphicsGetShader() {
 void lovrGraphicsSetShader(Shader* shader) {
   lovrAssert(!shader || shader->info.type == SHADER_GRAPHICS, "Compute shaders can not be used with setShader");
   if (shader == thread.shader) return;
-
-  // Resize bindings array if needed
-  if (shader->bindingCount > thread.bindingCount) {
-    thread.bindings = realloc(thread.bindings, shader->bindingCount * sizeof(gpu_binding));
-    lovrAssert(thread.bindings, "Out of memory");
-    memset(thread.bindings + thread.bindingCount, 0, (shader->bindingCount - thread.bindingCount) * sizeof(gpu_binding));
-    thread.bindingCount = shader->bindingCount;
-  }
-
-  // Clear bindings starting at the first group that has a conflicting slot (if any)
-  for (uint32_t i = 0; i < 4; i++) {
-    if (shader->groups[i].hash != thread.shader->groups[i].hash) {
-      uint32_t base = shader->groups[i].baseBinding;
-      uint32_t tail = MAX(shader->bindingCount, thread.shader->bindingCount) - base;
-      memset(thread.bindings + base, 0, tail * sizeof(gpu_binding));
-      thread.dirtyGroups |= ~((1 << (i + 1)) - 1) & 0xf; // Mark all cleared groups as dirty
-      break;
-    }
-  }
-
   lovrRetain(shader);
   lovrRelease(thread.shader, lovrShaderDestroy);
   thread.shader = shader;
@@ -703,6 +602,24 @@ void lovrGraphicsGetProjection(uint32_t index, float* projection) {
 void lovrGraphicsSetProjection(uint32_t index, float* projection) {
   lovrAssert(index < COUNTOF(thread.projection), "Invalid view index %d", index);
   mat4_init(thread.projection[index], projection);
+}
+
+void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata) {
+  uint8_t oldValue = thread.pipeline.info.stencil.value;
+  gpu_compare_mode oldTest = thread.pipeline.info.stencil.test;
+  // TODO must be in render pass
+  // TODO must have stencil buffer?
+  thread.pipeline.info.stencil.test = GPU_COMPARE_NONE;
+  thread.pipeline.info.stencil.passOp = (gpu_stencil_op) action;
+  thread.pipeline.info.stencil.depthFailOp = (gpu_stencil_op) depthFailAction;
+  thread.pipeline.info.stencil.value = value;
+  thread.pipeline.dirty = true;
+  callback(userdata);
+  thread.pipeline.info.stencil.test = oldTest;
+  thread.pipeline.info.stencil.passOp = GPU_STENCIL_KEEP;
+  thread.pipeline.info.stencil.depthFailOp = GPU_STENCIL_KEEP;
+  thread.pipeline.info.stencil.value = oldValue;
+  thread.pipeline.dirty = true;
 }
 
 // Buffer
@@ -807,7 +724,7 @@ void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, 
 
 // Only an explicit set of spir-v capabilities are allowed
 // Some capabilities require a GPU feature to be supported
-// Some common unsupported capabilities are handled directly, to provide better error messages
+// Some common unsupported capabilities are checked directly, to provide better error messages
 static bool checkShaderCapability(uint32_t capability) {
   switch (capability) {
     case 0: break; // Matrix
@@ -868,8 +785,8 @@ static bool checkShaderCapability(uint32_t capability) {
   return false;
 }
 
-// Sets the slot count (array size) and type (gpu_slot_type) from a variable instruction, throwing on failure
-static void getSlotInfo(const uint32_t* words, uint32_t wordCount, uint32_t* cache, uint32_t bound, const uint32_t* instruction, gpu_slot* slot) {
+// Parse a slot type and array size from a variable instruction, throwing on failure
+static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
   const uint32_t* edge = words + wordCount - MIN_SPIRV_WORDS;
   uint32_t type = instruction[1];
   uint32_t id = instruction[2];
@@ -888,7 +805,7 @@ static void getSlotInfo(const uint32_t* words, uint32_t wordCount, uint32_t* cac
     const uint32_t* size = words + cache[instruction[3]];
     if ((size[0] & 0xffff) == 43 || (size[0] & 0xffff) == 50) { // OpConstant || OpSpecConstant
       lovrAssert(size[3] <= 0xffff, "Unsupported Shader code: variable %d has array size of %d, but the max array size is 65535", id, size[3]);
-      slot->count = size[3];
+      *count = size[3];
     } else {
       lovrThrow("Invalid Shader code: variable %d is an array, but the array size is not a constant", id);
     }
@@ -897,13 +814,13 @@ static void getSlotInfo(const uint32_t* words, uint32_t wordCount, uint32_t* cac
     lovrAssert(instruction[2] < bound && words + cache[instruction[2]] < edge, "Invalid Shader code: id overflow");
     instruction = words + cache[instruction[2]];
   } else {
-    slot->count = 1;
+    *count = 1;
   }
 
   // Use StorageClass to detect uniform/storage buffers
   switch (storageClass) {
-    case 12: slot->type = GPU_SLOT_STORAGE_BUFFER; return;
-    case 2: slot->type = GPU_SLOT_UNIFORM_BUFFER; return;
+    case 12: *slotType = GPU_SLOT_STORAGE_BUFFER; return;
+    case 2: *slotType = GPU_SLOT_UNIFORM_BUFFER; return;
     default: break; // It's not a Buffer, keep going to see if it's a valid Texture
   }
 
@@ -922,8 +839,8 @@ static void getSlotInfo(const uint32_t* words, uint32_t wordCount, uint32_t* cac
 
   // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
   switch (instruction[7]) {
-    case 1: slot->type = GPU_SLOT_SAMPLED_TEXTURE; return;
-    case 2: slot->type = GPU_SLOT_STORAGE_TEXTURE; return;
+    case 1: *slotType = GPU_SLOT_SAMPLED_TEXTURE; return;
+    case 2: *slotType = GPU_SLOT_STORAGE_TEXTURE; return;
     default: lovrThrow("Unsupported Shader code: texture variable %d isn't a sampled texture or a storage texture", id);
   }
 }
@@ -942,13 +859,13 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
   // The cache stores information for spirv ids, allowing everything to be parsed in a single pass
   // - For variables, stores the slot's group, index, and name offset
   // - For types, stores the index of its declaration instruction
-  struct var { uint8_t group; uint8_t index; uint16_t name; };
+  struct var { uint8_t group; uint8_t binding; uint16_t name; };
   size_t cacheSize = bound * sizeof(uint32_t);
   void* cache = malloc(cacheSize);
-  uint32_t* types = cache;
-  struct var* vars = cache;
   lovrAssert(cache, "Out of memory");
   memset(cache, 0xff, cacheSize);
+  struct var* vars = cache;
+  uint32_t* types = cache;
 
   const uint32_t* instruction = words + 5;
 
@@ -979,7 +896,7 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
 
         if (decoration == 33) { // Binding
           lovrAssert(value < 16, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 16", id, value);
-          vars[id].index = value << 16;
+          vars[id].binding = value << 16;
         } else if (decoration == 34) { // Group
           lovrAssert(value < 4, "Unsupported Shader code: variable %d is in group %d, but group must be less than 4", id, value);
           vars[id].group = value << 24;
@@ -1006,26 +923,23 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
         if (length < 4 || instruction[2] >= bound) break;
         id = instruction[2];
 
-        gpu_slot slot;
-        slot.group = vars[id].group;
-        slot.index = vars[id].index;
-        slot.stage = stage;
-
         // Ignore variables that aren't decorated with a group and binding (e.g. global variables)
-        if (slot.group == 0xff || slot.index == 0xff) {
+        if (vars[id].group == 0xff || vars[id].binding == 0xff) {
           break;
         }
 
-        getSlotInfo(words, wordCount, types, bound, instruction, &slot);
+        uint32_t count;
+        gpu_slot_type type;
+        parseTypeInfo(words, wordCount, types, bound, instruction, &type, &count);
 
         // If the variable has a name, add it to the shader's lookup
-        // If the lookup already has one with the same name, it must be at the same group + index
+        // If the lookup already has one with the same name, it must be at the same binding location
         if (vars[id].name != 0xffff) {
           char* name = (char*) (words + vars[id].name);
           size_t len = strnlen(name, 4 * (wordCount - vars[id].name));
           uint64_t hash = hash64(name, len);
           uint64_t old = map_get(&shader->lookup, hash);
-          uint64_t new = ((uint64_t) slot.index << 32) | slot.group;
+          uint64_t new = ((uint64_t) vars[id].binding << 32) | vars[id].group;
           if (old == MAP_NIL) {
             map_set(&shader->lookup, hash, new);
           } else {
@@ -1033,18 +947,27 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
           }
         }
 
-        // If another stage already added a slot with the same group and index, verify that it has
-        //   the same type and size as the one here.  Merge the current stage into its stage flags.
-        // Otherwise, push it onto the list of slots and update the slotIndex
-        uint8_t slotIndex = shader->groups[slot.group].slotMap[slot.index];
-        if (slotIndex == 0xff) {
-          gpu_slot* other = &shader->slots[slotIndex];
-          lovrAssert(other->type == slot.type, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different types", slot.group, slot.index);
-          lovrAssert(other->count == slot.count, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different array sizes", slot.group, slot.index);
+        uint32_t groupId = vars[id].group;
+        uint32_t slotId = vars[id].binding;
+        ShaderGroup* group = &shader->groups[groupId];
+
+        // Add a new slot or merge our info into a slot added by a different stage
+        if (group->slotMask & (1 << slotId)) {
+          gpu_slot* other = &group->slots[group->slotIndex[slotId]];
+          lovrAssert(other->type == type, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different types", groupId, slotId);
+          lovrAssert(other->count == count, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different array sizes", groupId, slotId);
           other->stage |= stage;
         } else {
-          shader->slots[shader->slotCount] = slot;
-          shader->groups[slot.group].slotMap[slot.index] = shader->slotCount++;
+          lovrAssert(count < 256, "Unsupported Shader code: variable (%d,%d) has array size of %d (max is 255)", groupId, slotId, count);
+          bool buffer = type == GPU_SLOT_UNIFORM_BUFFER || type == GPU_SLOT_STORAGE_BUFFER;
+          group->slotMask |= 1 << slotId;
+          group->bufferMask |= buffer ? (1 << slotId) : 0;
+          group->textureMask |= !buffer ? (1 << slotId) : 0;
+          group->slots[group->slotCount++] = (gpu_slot) { slotId, type, stage, count };
+          group->slotIndex[slotId] = group->slotCount;
+          group->bindingIndex[slotId] = group->bindingCount;
+          group->bindingCount += count;
+          group->slotCount++;
         }
         break;
       case 54: // OpFunction
@@ -1059,12 +982,6 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
 
   free(cache);
   return true;
-}
-
-static int compareSlots(const void* x, const void* y) {
-  const gpu_slot* sx = x;
-  const gpu_slot* sy = y;
-  return (sy->group * 16 + sy->index) - (sx->group * 16 + sx->index);
 }
 
 Shader* lovrShaderCreate(ShaderInfo* info) {
@@ -1084,7 +1001,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   };
 
   // Perform reflection on the shader code to get slot info
-  // This temporarily populates the slotMaps so variables can be merged between stages
+  // This temporarily populates the slotIndex so variables can be merged between stages
   // After reflection and handling dynamic buffers, slots are sorted and lookup tables are generated
   if (info->type == SHADER_COMPUTE) {
     parseSpirv(shader, info->compute, GPU_STAGE_COMPUTE);
@@ -1097,50 +1014,32 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     uint32_t group, index;
     const char* name = info->dynamicBuffers[i];
     bool exists = lovrShaderResolveName(shader, hash64(name, strlen(name)), &group, &index);
-    lovrAssert(exists, "Dynamic buffer #%d (%s) does not exist", i + 1, name);
-    uint32_t slotIndex = shader->groups[group].slotMap[index];
-    gpu_slot* slot = &shader->slots[slotIndex];
+    lovrAssert(exists, "Dynamic buffer '%s' does not exist in the shader", name);
+    gpu_slot* slot = &shader->groups[group].slots[shader->groups[group].slotIndex[index]];
     switch (slot->type) {
       case GPU_SLOT_UNIFORM_BUFFER: slot->type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC; break;
       case GPU_SLOT_STORAGE_BUFFER: slot->type = GPU_SLOT_STORAGE_BUFFER_DYNAMIC; break;
-      default: lovrThrow("Dynamic buffer #%d (%s) is not a buffer resource", i + 1, name);
+      default: lovrThrow("Dynamic buffer '%s' is not a buffer", name);
     }
   }
 
-  qsort(shader->slots, shader->slotCount, sizeof(gpu_slot), compareSlots);
-
-  for (uint32_t i = 0; i < 4; i++) {
+  for (uint32_t i = 0; i < COUNTOF(shader->groups); i++) {
     ShaderGroup* group = &shader->groups[i];
-    memset(&group->slotMap, 0xff, sizeof(group->slotMap));
-    memset(&group->bindingMap, ~0u, sizeof(group->bindingMap));
-    memset(&group->dynamicOffsetMap, 0xff, sizeof(group->dynamicOffsetMap));
-  }
 
-  for (uint32_t i = 0; i < shader->slotCount; i++) {
-    gpu_slot* slot = &shader->slots[i];
-    ShaderGroup* group = &shader->groups[slot->group];
+    if (group->slotCount == 0) continue;
 
-    if (i > 0 && slot->group != shader->slots[i - 1].group) {
-      group->baseSlot = i;
-      group->baseBinding = shader->bindingCount;
-      group->baseDynamicOffset = shader->dynamicOffsetCount;
+    for (uint32_t j = 0; j < group->slotCount; j++) {
+      gpu_slot* slot = &group->slots[j];
+      if (slot->type == GPU_SLOT_UNIFORM_BUFFER_DYNAMIC || slot->type == GPU_SLOT_STORAGE_BUFFER_DYNAMIC) {
+        group->dynamicMask |= 1 << j;
+        group->dynamicOffsetIndex[slot->id] = group->dynamicOffsetCount;
+        group->dynamicOffsetCount += slot->count;
+      }
     }
 
-    if (slot->type == GPU_SLOT_UNIFORM_BUFFER_DYNAMIC || slot->type == GPU_SLOT_STORAGE_BUFFER_DYNAMIC) {
-      group->dynamicOffsetMap[slot->index] = shader->dynamicOffsetCount;
-      shader->dynamicOffsetCount++;
-      group->dynamicOffsetCount++;
-    }
-
-    group->slotMap[slot->index] = i;
-    group->slotCount++;
-    group->bindingCount += slot->count;
-    shader->bindingCount += slot->count;
-  }
-
-  for (uint32_t i = 0; i < 4; i++) {
-    ShaderGroup* group = &shader->groups[i];
-    shader->groups[i].hash = hash64(shader->slots + group->baseSlot, sizeof(gpu_slot) * group->slotCount);
+    group->hash = hash64(group->slots, group->slotCount * sizeof(gpu_slot));
+    gpuInfo.slotCount[i] = group->slotCount;
+    gpuInfo.slots[i] = group->slots;
   }
 
   lovrAssert(gpu_shader_init(shader->gpu, &gpuInfo), "Could not create Shader");
@@ -1159,43 +1058,126 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
   return &shader->info;
 }
 
-bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* index) {
+bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id) {
   uint64_t value = map_get(&shader->lookup, hash);
   if (value == MAP_NIL) return false;
   *group = value & ~0u;
-  *index = value >> 32;
+  *id = value >> 32;
   return true;
 }
 
-// Sampler
+// Bundle
 
-Sampler* lovrSamplerCreate(SamplerInfo* info) {
-  Sampler* sampler = calloc(1, sizeof(sampler) + gpu_sizeof_sampler());
-  sampler->gpu = (gpu_sampler*) (sampler + 1);
-  sampler->info = *info;
-
-  gpu_sampler_info gpuInfo = {
-    .min = (gpu_filter) info->min,
-    .mag = (gpu_filter) info->mag,
-    .mip = (gpu_filter) info->mip,
-    .wrap[0] = (gpu_wrap) info->wrap[0],
-    .wrap[1] = (gpu_wrap) info->wrap[1],
-    .wrap[2] = (gpu_wrap) info->wrap[2],
-    .compare = (gpu_compare_mode) info->compare,
-    .anisotropy = MIN(info->anisotropy, state.limits.anisotropy),
-    .lodClamp[0] = info->lodClamp[0],
-    .lodClamp[1] = info->lodClamp[1]
-  };
-
-  lovrAssert(gpu_sampler_init(sampler->gpu, &gpuInfo), "Could not create Sampler");
-  return sampler;
+Bundle* lovrBundleCreate(Shader* shader, uint32_t group) {
+  Bundle* bundle = calloc(1, sizeof(Bundle) + gpu_sizeof_bundle());
+  bundle->gpu = (gpu_bundle*) (bundle + 1);
+  lovrRetain(shader);
+  bundle->shader = shader;
+  bundle->group = &shader->groups[group];
+  bundle->bindings = calloc(bundle->group->bindingCount, sizeof(gpu_binding));
+  bundle->dynamicOffsets = calloc(bundle->group->dynamicOffsetCount, sizeof(uint32_t));
+  return bundle;
 }
 
-void lovrSamplerDestroy(void* ref) {
-  Sampler* sampler = ref;
-  gpu_sampler_destroy(sampler->gpu);
+void lovrBundleDestroy(void* ref) {
+  Bundle* bundle = ref;
+  gpu_bundle_destroy(bundle->gpu);
+  lovrRelease(bundle->shader, lovrShaderDestroy);
+  free(bundle->bindings);
+  free(bundle->dynamicOffsets);
 }
 
-const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
-  return &sampler->info;
+uint32_t lovrBundleGetGroup(Bundle* bundle) {
+  return bundle->group - bundle->shader->groups;
 }
+
+bool lovrBundleBindBuffer(Bundle* bundle, uint32_t id, uint32_t element, Buffer* buffer, uint32_t offset, uint32_t extent) {
+  ShaderGroup* group = bundle->group;
+  bool isSlot = group->slotMask & (1 << id);
+  bool isBuffer = group->bufferMask & (1 << id);
+  bool isDynamic = group->dynamicMask & (1 << id);
+  gpu_slot* slot = &group->slots[group->slotIndex[id]];
+  gpu_buffer_binding* binding = &bundle->bindings[group->bindingIndex[id]].buffer + element;
+
+  if (!isSlot || !isBuffer || element >= slot->count) return false;
+
+  if (isDynamic) {
+    bundle->dynamicOffsets[group->dynamicOffsetIndex[id]] = offset;
+    if (binding->object == buffer->gpu && extent == binding->extent) {
+      bundle->version++;
+      return true;
+    } else {
+      offset = 0;
+    }
+  }
+
+  binding->object = buffer->gpu;
+  binding->offset = offset;
+  binding->extent = extent;
+  bundle->dirty = true;
+  lovrRetain(buffer);
+  return true;
+}
+
+bool lovrBundleBindTexture(Bundle* bundle, uint32_t id, uint32_t element, Texture* texture) {
+  ShaderGroup* group = bundle->group;
+  bool isSlot = group->slotMask & (1 << id);
+  bool isTexture = group->textureMask & (1 << id);
+  gpu_slot* slot = &group->slots[bundle->group->slotIndex[id]];
+  gpu_texture_binding* binding = &bundle->bindings[group->bindingIndex[id]].texture + element;
+
+  if (!isSlot || !isTexture || element >= slot->count) return false;
+
+  binding->object = texture->gpu;
+  binding->sampler = NULL; // TODO
+  bundle->dirty = true;
+  lovrRetain(texture);
+  return true;
+}
+
+/*
+static void resolveBindings() {
+  Shader* shader = pass->shader;
+
+  for (uint32_t i = 0; i < 4; i++) {
+    ShaderGroup* group = &shader->groups[i];
+
+    if (!group->slotMask) continue;
+
+    Bundle* bundle = pass->bundles[i];
+    lovrAssert(bundle, "Missing bundle for group %d", i); // UGH
+    lovrAssert(bundle->group->hash == group->hash, "Incompatible bundle bound for group %d", i);
+
+    bool rebind = false;
+
+    if (pass->dirtyBundles & (1 << i)) {
+      pass->dirtyBundles &= ~(1 << i);
+      rebind = true;
+    }
+
+    if (bundle->dirty) {
+      gpu_bundle_destroy(bundle->gpu);
+      gpu_bundle_init(bundle->gpu, &(gpu_bundle_info) {
+        .shader = shader,
+        .group = i,
+        .slotCount = group->slotCount,
+        .slots = group->slots,
+        .bindings = bundle->bindings
+      });
+
+      bundle->dirty = false;
+      bundle->version++;
+      rebind = true;
+    }
+
+    if (pass->bundleVersions[i] != bundle->version) {
+      pass->bundleVersions[i] = bundle->version;
+      rebind = true;
+    }
+
+    if (rebind) {
+      gpu_batch_bind_bundle(pass->batch, shader, i, bundle->gpu, bundle->dynamicOffsets, group->dynamicOffsetCount);
+    }
+  }
+}
+*/
