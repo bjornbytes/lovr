@@ -240,9 +240,9 @@ void lovrGraphicsFlush() {
 }
 
 void lovrGraphicsRender(Canvas* canvas) {
-  gpu_pass_info passInfo;
-  gpu_render_info renderInfo;
-  memset(&passInfo, 0, sizeof(passInfo));
+  gpu_pass_info info;
+  gpu_render_target target;
+  memset(&info, 0, sizeof(info));
 
   gpu_load_op loads[] = {
     [LOAD_KEEP] = GPU_LOAD_OP_LOAD,
@@ -257,20 +257,20 @@ void lovrGraphicsRender(Canvas* canvas) {
 
   for (uint32_t i = 0; i < 4; i++) {
     if (!canvas->color[i].texture && !canvas->color[i].resolve) {
-      renderInfo.color[i].texture = NULL;
+      target.color[i].texture = NULL;
       break;
     }
 
     lovrAssert(canvas->color[i].texture, "TODO: Anonymous MSAA targets");
 
-    passInfo.color[i].format = (gpu_texture_format) canvas->color[i].texture->info.format;
-    passInfo.color[i].load = loads[canvas->color[i].load];
-    passInfo.color[i].save = saves[canvas->color[i].save];
-    passInfo.color[i].srgb = canvas->color[i].texture->info.srgb;
+    info.color[i].format = (gpu_texture_format) canvas->color[i].texture->info.format;
+    info.color[i].load = loads[canvas->color[i].load];
+    info.color[i].save = saves[canvas->color[i].save];
+    info.color[i].srgb = canvas->color[i].texture->info.srgb;
 
-    renderInfo.color[i].texture = canvas->color[i].texture->gpu;
-    renderInfo.color[i].resolve = canvas->color[i].resolve ? canvas->color[i].resolve->gpu : NULL;
-    memcpy(renderInfo.color[i].clear, canvas->color[i].clear, 4 * sizeof(float));
+    target.color[i].texture = canvas->color[i].texture->gpu;
+    target.color[i].resolve = canvas->color[i].resolve ? canvas->color[i].resolve->gpu : NULL;
+    memcpy(target.color[i].clear, canvas->color[i].clear, 4 * sizeof(float));
 
     // TODO view must have a single mipmap
   }
@@ -278,22 +278,22 @@ void lovrGraphicsRender(Canvas* canvas) {
   if (canvas->depth.enabled) {
     lovrAssert(canvas->depth.texture, "TODO: Anonymous depth targets");
 
-    passInfo.depth.format = (gpu_texture_format) canvas->depth.texture->info.format;
-    passInfo.depth.load = loads[canvas->depth.load];
-    passInfo.depth.save = saves[canvas->depth.save];
-    passInfo.depth.stencilLoad = loads[canvas->depth.stencil.load];
-    passInfo.depth.stencilSave = saves[canvas->depth.stencil.save];
+    info.depth.format = (gpu_texture_format) canvas->depth.texture->info.format;
+    info.depth.load = loads[canvas->depth.load];
+    info.depth.save = saves[canvas->depth.save];
+    info.depth.stencilLoad = loads[canvas->depth.stencil.load];
+    info.depth.stencilSave = saves[canvas->depth.stencil.save];
 
-    renderInfo.depth.texture = canvas->depth.texture->gpu;
-    renderInfo.depth.clear = canvas->depth.clear;
-    renderInfo.depth.stencilClear = canvas->depth.stencil.clear;
+    target.depth.texture = canvas->depth.texture->gpu;
+    target.depth.clear = canvas->depth.clear;
+    target.depth.stencilClear = canvas->depth.stencil.clear;
   }
 
   TextureInfo* textureInfo = canvas->color[0].texture ? &canvas->color[0].texture->info : &canvas->depth.texture->info;
-  passInfo.views = textureInfo->type == TEXTURE_ARRAY ? textureInfo->size[2] : 0;
-  passInfo.samples = canvas->samples;
+  info.views = textureInfo->type == TEXTURE_ARRAY ? textureInfo->size[2] : 0;
+  info.samples = canvas->samples;
 
-  uint64_t hash = hash64(&passInfo, sizeof(passInfo));
+  uint64_t hash = hash64(&info, sizeof(info));
   uint64_t value = map_get(&state.passes, hash);
 
   // TODO better allocator
@@ -301,15 +301,15 @@ void lovrGraphicsRender(Canvas* canvas) {
   if (value == MAP_NIL) {
     gpu_pass* pass = calloc(1, gpu_sizeof_pass());
     lovrAssert(pass, "Out of memory");
-    gpu_pass_init(pass, &passInfo);
+    gpu_pass_init(pass, &info);
     value = (uintptr_t) pass;
     map_set(&state.passes, hash, value);
   }
 
-  renderInfo.pass = (gpu_pass*) (uintptr_t) value;
-  renderInfo.size[0] = canvas->color[0].texture->info.size[0];
-  renderInfo.size[1] = canvas->color[0].texture->info.size[1];
-  state.batch = gpu_render(&renderInfo, NULL, 0);
+  gpu_pass* pass = (gpu_pass*) (uintptr_t) value;
+  target.size[0] = canvas->color[0].texture->info.size[0];
+  target.size[1] = canvas->color[0].texture->info.size[1];
+  state.batch = gpu_batch_init_render(pass, &target, NULL, 0);
 
   // TODO reset pipeline state
   memset(thread.bundles, 0, sizeof(thread.bundles));
