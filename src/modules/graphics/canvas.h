@@ -25,7 +25,7 @@ typedef struct {
 } CanvasFlags;
 
 typedef struct Canvas Canvas;
-Canvas* lovrCanvasCreate(uint32_t width, uint32_t height, CanvasFlags flags);
+Canvas* lovrCanvasCreate(uint32_t width, uint32_t height, CanvasFlags flags, char *from);
 Canvas* lovrCanvasCreateFromHandle(uint32_t width, uint32_t height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, uint32_t attachmentCount, bool immortal);
 void lovrCanvasDestroy(void* ref);
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, uint32_t* count);

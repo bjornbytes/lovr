@@ -577,7 +577,7 @@ static void lovrGraphicsBatch(BatchRequest* req) {
   Mesh* mesh = req->mesh ? req->mesh : (req->instanced ? state.instancedMesh : state.mesh);
   Canvas* canvas = state.canvas ? state.canvas : state.backbuffer;
   bool stereo = lovrCanvasIsStereo(canvas);
-  Shader* shader = state.shader ? state.shader : (state.defaultShaders[req->shader][stereo] ? state.defaultShaders[req->shader][stereo] : (state.defaultShaders[req->shader][stereo] = lovrShaderCreateDefault(req->shader, NULL, 0, stereo)));
+  Shader* shader = state.shader ? state.shader : (state.defaultShaders[req->shader][stereo] ? state.defaultShaders[req->shader][stereo] : (state.defaultShaders[req->shader][stereo] = lovrShaderCreateDefault(req->shader, NULL, 0, stereo, "batch")));
   Pipeline* pipeline = req->pipeline ? req->pipeline : &state.pipeline;
   Material* material = req->material ? req->material : (state.defaultMaterial ? state.defaultMaterial : (state.defaultMaterial = lovrMaterialCreate()));
 

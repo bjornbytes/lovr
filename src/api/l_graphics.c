@@ -1205,7 +1205,10 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     height = lovrTextureGetHeight(attachments[0].texture, attachments[0].level);
   }
 
-  Canvas* canvas = lovrCanvasCreate(width, height, flags);
+  luax_traceback(L, L, "", 0);
+  char *from = strdup(lua_tostring(L, -1));
+  lua_pop(L, 1);
+  Canvas* canvas = lovrCanvasCreate(width, height, flags, from);
 
   if (anonymous) {
     bool multiview = flags.stereo && lovrGraphicsGetFeatures()->multiview;
@@ -1514,6 +1517,10 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   bool multiview = true;
   Shader* shader;
 
+  luax_traceback(L, L, "", 0);
+  char *from = strdup(lua_tostring(L, -1));
+  lua_pop(L, 1);
+
   if (lua_isstring(L, 1) && (lua_istable(L, 2) || lua_gettop(L) == 1)) {
     DefaultShader shaderType = luax_checkenum(L, 1, DefaultShader, NULL);
 
@@ -1527,7 +1534,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       lua_pop(L, 1);
     }
 
-    shader = lovrShaderCreateDefault(shaderType, flags, flagCount, multiview);
+    shader = lovrShaderCreateDefault(shaderType, flags, flagCount, multiview, from);
 
     // Builtin uniforms
     if (shaderType == SHADER_STANDARD) {
@@ -1551,7 +1558,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       lua_pop(L, 1);
     }
 
-    shader = lovrShaderCreateGraphics(vertexSource, vertexSourceLength, fragmentSource, fragmentSourceLength, flags, flagCount, multiview);
+    shader = lovrShaderCreateGraphics(vertexSource, vertexSourceLength, fragmentSource, fragmentSourceLength, flags, flagCount, multiview, from);
   }
 
   luax_pushtype(L, Shader, shader);
@@ -1566,13 +1573,17 @@ static int l_lovrGraphicsNewComputeShader(lua_State* L) {
   ShaderFlag flags[MAX_SHADER_FLAGS];
   uint32_t flagCount = 0;
 
+  luax_traceback(L, L, "", 0);
+  char *from = strdup(lua_tostring(L, -1));
+  lua_pop(L, 1);
+
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "flags");
     luax_parseshaderflags(L, -1, flags, &flagCount);
     lua_pop(L, 1);
   }
 
-  Shader* shader = lovrShaderCreateCompute(source, sourceLength, flags, flagCount);
+  Shader* shader = lovrShaderCreateCompute(source, sourceLength, flags, flagCount, from);
   luax_pushtype(L, Shader, shader);
   lovrRelease(Shader, shader);
   return 1;

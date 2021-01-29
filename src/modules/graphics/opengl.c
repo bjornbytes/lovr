@@ -86,6 +86,7 @@ struct Canvas {
   bool needsAttach;
   bool needsResolve;
   bool immortal;
+  char *from;
 };
 
 struct ShaderBlock {
@@ -104,6 +105,7 @@ struct Shader {
   map_t uniformMap;
   map_t blockMap;
   bool multiview;
+  char *from;
 };
 
 struct Mesh {
@@ -1437,7 +1439,7 @@ void lovrGpuDiscard(Canvas* canvas, bool color, bool depth, bool stencil) {
 }
 
 void lovrGpuDraw(DrawCommand* draw) {
-  lovrAssert(state.singlepass != MULTIVIEW || draw->shader->multiview == draw->canvas->flags.stereo, "Shader and Canvas multiview settings must match!");
+  lovrAssert(state.singlepass != MULTIVIEW || draw->shader->multiview == draw->canvas->flags.stereo, "Shader and Canvas multiview settings must match! Canvas was created at %s, shader at %s", draw->canvas->from, draw->shader->from);
   uint32_t viewportCount = (draw->canvas->flags.stereo && state.singlepass != MULTIVIEW) ? 2 : 1;
   uint32_t drawCount = state.singlepass == NONE ? viewportCount : 1;
   uint32_t instanceMultiplier = state.singlepass == INSTANCED_STEREO ? viewportCount : 1;
@@ -1977,7 +1979,7 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
 
 // Canvas
 
-Canvas* lovrCanvasCreate(uint32_t width, uint32_t height, CanvasFlags flags) {
+Canvas* lovrCanvasCreate(uint32_t width, uint32_t height, CanvasFlags flags, char *from) {
   Canvas* canvas = lovrAlloc(Canvas);
   if (flags.stereo && state.singlepass != MULTIVIEW) {
     width *= 2;
@@ -1986,6 +1988,7 @@ Canvas* lovrCanvasCreate(uint32_t width, uint32_t height, CanvasFlags flags) {
   canvas->width = width;
   canvas->height = height;
   canvas->flags = flags;
+  canvas->from = from;
 
   glGenFramebuffers(1, &canvas->framebuffer);
   lovrGpuBindFramebuffer(canvas->framebuffer);
@@ -2047,6 +2050,7 @@ void lovrCanvasDestroy(void* ref) {
     lovrRelease(Texture, canvas->attachments[i].texture);
   }
   lovrRelease(Texture, canvas->depth.texture);
+  free(canvas->from);
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
@@ -2590,8 +2594,9 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
   return code;
 }
 
-Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLength, const char* fragmentSource, int fragmentSourceLength, ShaderFlag* flags, uint32_t flagCount, bool multiview) {
+Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLength, const char* fragmentSource, int fragmentSourceLength, ShaderFlag* flags, uint32_t flagCount, bool multiview, char *from) {
   Shader* shader = lovrAlloc(Shader);
+  shader->from = strdup(from);
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
   const char* version = "#version 300 es\n";
 #else
@@ -2674,20 +2679,21 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLengt
   return shader;
 }
 
-Shader* lovrShaderCreateDefault(DefaultShader type, ShaderFlag* flags, uint32_t flagCount, bool multiview) {
+Shader* lovrShaderCreateDefault(DefaultShader type, ShaderFlag* flags, uint32_t flagCount, bool multiview, char *from) {
   switch (type) {
-    case SHADER_UNLIT: return lovrShaderCreateGraphics(NULL, -1, NULL, -1, flags, flagCount, multiview);
-    case SHADER_STANDARD: return lovrShaderCreateGraphics(lovrStandardVertexShader, -1, lovrStandardFragmentShader, -1, flags, flagCount, multiview);
-    case SHADER_CUBE: return lovrShaderCreateGraphics(lovrCubeVertexShader, -1, lovrCubeFragmentShader, -1, flags, flagCount, multiview);
-    case SHADER_PANO: return lovrShaderCreateGraphics(lovrCubeVertexShader, -1, lovrPanoFragmentShader, -1, flags, flagCount, multiview);
-    case SHADER_FONT: return lovrShaderCreateGraphics(NULL, -1, lovrFontFragmentShader, -1, flags, flagCount, multiview);
-    case SHADER_FILL: return lovrShaderCreateGraphics(lovrFillVertexShader, -1, NULL, -1, flags, flagCount, multiview);
+    case SHADER_UNLIT: return lovrShaderCreateGraphics(NULL, -1, NULL, -1, flags, flagCount, multiview, from);
+    case SHADER_STANDARD: return lovrShaderCreateGraphics(lovrStandardVertexShader, -1, lovrStandardFragmentShader, -1, flags, flagCount, multiview, from);
+    case SHADER_CUBE: return lovrShaderCreateGraphics(lovrCubeVertexShader, -1, lovrCubeFragmentShader, -1, flags, flagCount, multiview, from);
+    case SHADER_PANO: return lovrShaderCreateGraphics(lovrCubeVertexShader, -1, lovrPanoFragmentShader, -1, flags, flagCount, multiview, from);
+    case SHADER_FONT: return lovrShaderCreateGraphics(NULL, -1, lovrFontFragmentShader, -1, flags, flagCount, multiview, from);
+    case SHADER_FILL: return lovrShaderCreateGraphics(lovrFillVertexShader, -1, NULL, -1, flags, flagCount, multiview, from);
     default: lovrThrow("Unknown default shader type"); return NULL;
   }
 }
 
-Shader* lovrShaderCreateCompute(const char* source, int length, ShaderFlag* flags, uint32_t flagCount) {
+Shader* lovrShaderCreateCompute(const char* source, int length, ShaderFlag* flags, uint32_t flagCount, char *from) {
   Shader* shader = lovrAlloc(Shader);
+  shader->from = strdup(from);
 #ifdef LOVR_WEBGL
   lovrThrow("Compute shaders are not supported on this system");
 #else
@@ -2729,6 +2735,7 @@ void lovrShaderDestroy(void* ref) {
   map_free(&shader->attributes);
   map_free(&shader->uniformMap);
   map_free(&shader->blockMap);
+  free(shader->from);
 }
 
 ShaderType lovrShaderGetType(Shader* shader) {
