@@ -8,7 +8,7 @@
 #include <string.h>
 #include <limits.h>
 
-static const ma_format miniAudioFormatFromLovr[] = {
+static const ma_format miniAudioFormat[] = {
   [SAMPLE_I16] = ma_format_s16,
   [SAMPLE_F32] = ma_format_f32
 };
@@ -18,9 +18,8 @@ static const ma_format sampleSizes[] = {
   [SAMPLE_F32] = 4
 };
 
-size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt)
-{
-  return channelCount * sampleSizes[fmt];
+size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat format) {
+  return channelCount * sampleSizes[format];
 }
 
 static uint32_t lovrSoundDataReadRaw(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
@@ -66,12 +65,12 @@ static uint32_t lovrSoundDataReadMp3(SoundData* soundData, uint32_t offset, uint
 */
 
 static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
-  uint8_t *charData = (uint8_t*)data;
+  uint8_t* charData = (uint8_t*)data;
   size_t bytesPerFrame = SampleFormatBytesPerFrame(soundData->channels, soundData->format);
   size_t totalRead = 0;
-  while(count > 0) {
+  while (count > 0) {
     uint32_t availableFramesInRing = count;
-    void *store;
+    void* store;
     ma_result acquire_status = ma_pcm_rb_acquire_read(soundData->ring, &availableFramesInRing, &store);
     if (acquire_status != MA_SUCCESS) return 0;
     memcpy(charData, store, availableFramesInRing * bytesPerFrame);
@@ -88,7 +87,6 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
   }
   return totalRead;
 }
-
 
 SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, uint32_t sampleRate, SampleFormat format, struct Blob* blob) {
   lovrAssert(format != SAMPLE_INVALID, "Invalid format");
@@ -121,7 +119,7 @@ SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t chann
   soundData->frames = bufferSizeInFrames;
   soundData->read = lovrSoundDataReadRing;
   soundData->ring = calloc(1, sizeof(ma_pcm_rb));
-  ma_result rbStatus = ma_pcm_rb_init(miniAudioFormatFromLovr[format], channels, bufferSizeInFrames, NULL, NULL, soundData->ring);
+  ma_result rbStatus = ma_pcm_rb_init(miniAudioFormat[format], channels, bufferSizeInFrames, NULL, NULL, soundData->ring);
   lovrAssert(rbStatus == MA_SUCCESS, "Failed to create ring buffer for streamed SoundData: %s (%d)", ma_result_description(rbStatus), rbStatus);
   return soundData;
 }
@@ -160,25 +158,33 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
   return soundData;
 }
 
-size_t lovrSoundDataStreamAppendBlob(SoundData *dest, struct Blob* blob) {
-  return lovrSoundDataStreamAppendBuffer(dest, blob->data, blob->size);
+void lovrSoundDataDestroy(void* ref) {
+  SoundData* soundData = (SoundData*) ref;
+  stb_vorbis_close(soundData->decoder);
+  lovrRelease(Blob, soundData->blob);
+  ma_pcm_rb_uninit(soundData->ring);
+  free(soundData->ring);
 }
 
-size_t lovrSoundDataStreamAppendBuffer(SoundData *dest, const void *buf, size_t byteSize) {
-  lovrAssert(dest->ring, "Data can only be appended to a SoundData stream");
+size_t lovrSoundDataStreamAppendBlob(SoundData* soundData, struct Blob* blob) {
+  return lovrSoundDataStreamAppendBuffer(soundData, blob->data, blob->size);
+}
 
-  const uint8_t *charBuf = (const uint8_t*)buf;
-  void *store;
+size_t lovrSoundDataStreamAppendBuffer(SoundData* soundData, const void* buffer, size_t byteSize) {
+  lovrAssert(soundData->ring, "Data can only be appended to a SoundData stream");
+
+  const uint8_t* charBuf = (const uint8_t*) buffer;
+  void* store;
   size_t blobOffset = 0;
-  size_t bytesPerFrame = SampleFormatBytesPerFrame(dest->channels, dest->format);
+  size_t bytesPerFrame = SampleFormatBytesPerFrame(soundData->channels, soundData->format);
   size_t frameCount = byteSize / bytesPerFrame;
   size_t framesAppended = 0;
   while(frameCount > 0) {
     uint32_t availableFrames = frameCount;
-    ma_result acquire_status = ma_pcm_rb_acquire_write(dest->ring, &availableFrames, &store);
+    ma_result acquire_status = ma_pcm_rb_acquire_write(soundData->ring, &availableFrames, &store);
     lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer: %s (%d)", ma_result_description(acquire_status), acquire_status);
     memcpy(store, charBuf + blobOffset, availableFrames * bytesPerFrame);
-    ma_result commit_status = ma_pcm_rb_commit_write(dest->ring, availableFrames, store);
+    ma_result commit_status = ma_pcm_rb_commit_write(soundData->ring, availableFrames, store);
     lovrAssert(commit_status == MA_SUCCESS, "Failed to commit to ring buffer: %s (%d)", ma_result_description(commit_status), commit_status);
     if (availableFrames == 0) {
       return framesAppended;
@@ -191,10 +197,10 @@ size_t lovrSoundDataStreamAppendBuffer(SoundData *dest, const void *buf, size_t 
   return framesAppended;
 }
 
-size_t lovrSoundDataStreamAppendSound(SoundData *dest, SoundData *src) {
-  lovrAssert(dest->channels == src->channels && dest->sampleRate == src->sampleRate && dest->format == src->format, "Source and destination SoundData formats must match");
+size_t lovrSoundDataStreamAppendSound(SoundData* soundData, SoundData* src) {
+  lovrAssert(soundData->channels == src->channels && soundData->sampleRate == src->sampleRate && soundData->format == src->format, "Source and destination SoundData formats must match");
   lovrAssert(src->blob && src->read == lovrSoundDataReadRaw, "Source SoundData must have static PCM data and not be a stream");
-  return lovrSoundDataStreamAppendBlob(dest, src->blob);
+  return lovrSoundDataStreamAppendBlob(soundData, src->blob);
 }
 
 void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value) {
@@ -211,19 +217,10 @@ bool lovrSoundDataIsStream(SoundData *soundData) {
   return soundData->read == lovrSoundDataReadRing;
 }
 
-uint32_t lovrSoundDataGetDuration(SoundData *soundData)
-{
+uint32_t lovrSoundDataGetDuration(SoundData *soundData) {
   if (lovrSoundDataIsStream(soundData)) {
     return ma_pcm_rb_available_read(soundData->ring);
   } else {
     return soundData->frames;
   }
-}
-
-void lovrSoundDataDestroy(void* ref) {
-  SoundData* soundData = (SoundData*) ref;
-  stb_vorbis_close(soundData->decoder);
-  lovrRelease(Blob, soundData->blob);
-  ma_pcm_rb_uninit(soundData->ring);
-  free(soundData->ring);
 }

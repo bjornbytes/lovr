@@ -12,9 +12,7 @@ typedef struct Source Source;
 
 typedef enum {
   AUDIO_PLAYBACK,
-  AUDIO_CAPTURE,
-
-  AUDIO_TYPE_COUNT
+  AUDIO_CAPTURE
 } AudioType;
 
 typedef enum {
@@ -22,10 +20,8 @@ typedef enum {
   SOURCE_STREAM
 } SourceType;
 
-typedef void* AudioDeviceIdentifier;
-
 typedef struct {
-  const char *spatializer; // Owned by caller
+  const char *spatializer;
   int spatializerMaxSourcesHint;
 } SpatializerConfig;
 
@@ -34,6 +30,7 @@ typedef struct {
   const char *name;
   bool isDefault;
 } AudioDevice;
+
 typedef arr_t(AudioDevice) AudioDeviceArr;
 
 bool lovrAudioInit(SpatializerConfig config);
@@ -44,7 +41,14 @@ bool lovrAudioIsRunning(AudioType type);
 float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
 void lovrAudioSetListenerPose(float position[4], float orientation[4]);
-double lovrAudioConvertToSeconds(uint32_t sampleCount, AudioType context);
+struct SoundData* lovrAudioGetCaptureStream(void);
+AudioDeviceArr* lovrAudioGetDevices(AudioType type);
+void lovrAudioFreeDevices(AudioDeviceArr* devices);
+void lovrAudioUseDevice(AudioType type, const char* deviceName);
+void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate);
+const char* lovrSourceGetSpatializerName();
+
+// Source
 
 Source* lovrSourceCreate(struct SoundData* soundData, bool spatial);
 void lovrSourceDestroy(void* ref);
@@ -62,15 +66,4 @@ void lovrSourceGetPose(Source *source, float position[4], float orientation[4]);
 uint32_t lovrSourceGetTime(Source* source);
 void lovrSourceSetTime(Source* source, uint32_t sample);
 struct SoundData* lovrSourceGetSoundData(Source* source);
-const char *lovrSourceGetSpatializerName();
-intptr_t *lovrSourceGetSpatializerMemoField(Source *source);
-
-struct SoundData* lovrAudioGetCaptureStream();
-
-// Return a list of devices for the given type. Must be freed with lovrAudioFreeDevices.
-AudioDeviceArr* lovrAudioGetDevices(AudioType type);
-// free a list of devices returned from above call
-void lovrAudioFreeDevices(AudioDeviceArr *devices);
-
-void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate);
-void lovrAudioUseDevice(AudioType type, const char *deviceName);
+intptr_t *lovrSourceGetSpatializerMemoField(Source* source);

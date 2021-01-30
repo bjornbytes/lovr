@@ -23,25 +23,17 @@ typedef struct {
   // called at end of frame for any "additional noise", like echo.
   // output is stereo, frames is stereo frames, scratch is a buffer the length of output (in case that helps)
   // return value is number of stereo frames written.
-  uint32_t (*tail)(float *scratch, float* output, uint32_t frames);
+  uint32_t (*tail)(float* scratch, float* output, uint32_t frames);
 
   void (*setListenerPose)(float position[4], float orientation[4]);
 
-  void (*sourceCreate)(Source *source);
-  void (*sourceDestroy)(Source *source);
+  void (*sourceCreate)(Source* source);
+  void (*sourceDestroy)(Source* source);
 
-  const char *name;
+  const char* name;
 } Spatializer;
 
-bool dummy_spatializer_init(SpatializerConfigIn configIn, SpatializerConfigOut *configOut);
-void dummy_spatializer_destroy(void);
-uint32_t dummy_spatializer_source_apply(Source* source, const float* input, float* output, uint32_t framesIn, uint32_t framesOut);
-uint32_t dummy_spatializer_tail(float *scratch, float* output, uint32_t frames);
-void dummy_spatializer_setListenerPose(float position[4], float orientation[4]);
-void dummy_spatializer_source_create(Source *);
-void dummy_spatializer_source_destroy(Source *);
 extern Spatializer dummySpatializer;
-
 #ifdef LOVR_ENABLE_OCULUS_AUDIO
 extern Spatializer oculusSpatializer;
 #endif

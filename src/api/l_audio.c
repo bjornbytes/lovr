@@ -6,17 +6,17 @@
 #include "core/util.h"
 #include <stdlib.h>
 
+#define AUDIO_SPATIALIZER_MAX_SOURCES_HINT 16
+
 StringEntry lovrAudioType[] = {
   [AUDIO_PLAYBACK] = ENTRY("playback"),
   [AUDIO_CAPTURE] = ENTRY("capture"),
   { 0 }
 };
 
-#define AUDIO_SPATIALIZER_MAX_SOURCES_HINT 16
-
 static int l_lovrAudioStart(lua_State* L) {
   AudioType type = luax_checkenum(L, 1, AudioType, "playback");
-  bool  started = lovrAudioStart(type);
+  bool started = lovrAudioStart(type);
   lua_pushboolean(L, started);
   return 1;
 }
@@ -45,36 +45,6 @@ static int l_lovrAudioSetVolume(lua_State* L) {
   return 0;
 }
 
-static int l_lovrAudioNewSource(lua_State* L) {
-  Source* source = NULL;
-  SoundData* soundData = luax_totype(L, 1, SoundData);
-
-  bool spatial = true;
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "spatial");
-    if (lua_isboolean(L, -1)) {
-      spatial = lua_toboolean(L, -1);
-    }
-    lua_pop(L, 1);
-  }
-
-
-  if (soundData) {
-    source = lovrSourceCreate(soundData, spatial);
-  } else {
-    Blob* blob = luax_readblob(L, 1, "Source");
-    soundData = lovrSoundDataCreateFromFile(blob, false);
-    lovrRelease(Blob, blob);
-
-    source = lovrSourceCreate(soundData, spatial);
-    lovrRelease(SoundData, soundData);
-  }
-
-  luax_pushtype(L, Source, source);
-  lovrRelease(Source, source);
-  return 1;
-}
-
 static int l_lovrAudioSetListenerPose(lua_State *L) {
   float position[4], orientation[4];
   int index = 1;
@@ -92,10 +62,10 @@ static int l_lovrAudioGetCaptureStream(lua_State* L) {
 
 static int l_lovrAudioGetDevices(lua_State *L) {
   AudioType type = luax_checkenum(L, 1, AudioType, "playback");
-
   AudioDeviceArr *devices = lovrAudioGetDevices(type);
+
   lua_newtable(L);
-  int listOfDevicesIdx = lua_gettop(L);
+  int top = lua_gettop(L);
   for(int i = 0; i < devices->length; i++) {
     AudioDevice *device = &devices->data[i];
     lua_newtable(L);
@@ -105,9 +75,9 @@ static int l_lovrAudioGetDevices(lua_State *L) {
     lua_setfield(L, -2, "name");
     lua_pushboolean(L, device->isDefault);
     lua_setfield(L, -2, "isDefault");
-
-    lua_rawseti(L, listOfDevicesIdx, i + 1);
+    lua_rawseti(L, top, i + 1);
   }
+
   lovrAudioFreeDevices(devices);
   return 1;
 }
@@ -131,19 +101,46 @@ static int l_lovrAudioGetSpatializerName(lua_State *L) {
   return 1;
 }
 
+static int l_lovrAudioNewSource(lua_State* L) {
+  Source* source = NULL;
+  SoundData* soundData = luax_totype(L, 1, SoundData);
+
+  bool spatial = true;
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "spatial");
+    spatial = lua_isnil(L, -1) || lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+
+  if (soundData) {
+    source = lovrSourceCreate(soundData, spatial);
+  } else {
+    Blob* blob = luax_readblob(L, 1, "Source");
+    soundData = lovrSoundDataCreateFromFile(blob, false);
+    lovrRelease(Blob, blob);
+
+    source = lovrSourceCreate(soundData, spatial);
+    lovrRelease(SoundData, soundData);
+  }
+
+  luax_pushtype(L, Source, source);
+  lovrRelease(Source, source);
+  return 1;
+}
+
 static const luaL_Reg lovrAudio[] = {
   { "start", l_lovrAudioStart },
   { "stop", l_lovrAudioStop },
   { "isRunning", l_lovrAudioIsRunning },
   { "getVolume", l_lovrAudioGetVolume },
   { "setVolume", l_lovrAudioSetVolume },
-  { "newSource", l_lovrAudioNewSource },
   { "setListenerPose", l_lovrAudioSetListenerPose },
   { "getCaptureStream", l_lovrAudioGetCaptureStream },
   { "getDevices", l_lovrAudioGetDevices },
   { "useDevice", l_lovrAudioUseDevice },
   { "setCaptureFormat", l_lovrAudioSetCaptureFormat },
   { "getSpatializerName", l_lovrAudioGetSpatializerName },
+  { "newSource", l_lovrAudioNewSource },
   { NULL, NULL }
 };
 
@@ -158,13 +155,15 @@ int luaopen_lovr_audio(lua_State* L) {
   lua_getfield(L, -1, "audio");
   if (lua_istable(L, -1)) {
     lua_getfield(L, -1, "spatializerMaxSourcesHint");
-    if (lua_type(L, -1) == LUA_TNUMBER)
+    if (lua_type(L, -1) == LUA_TNUMBER) {
       spatializerMaxSourcesHint = lua_tointeger(L, -1);
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "spatializer");
-    if (lua_type(L, -1) == LUA_TSTRING)
+    if (lua_type(L, -1) == LUA_TSTRING) {
       spatializer = lua_tostring(L, -1);
+    }
     lua_pop(L, 1);
   }
   lua_pop(L, 2);
@@ -178,5 +177,6 @@ int luaopen_lovr_audio(lua_State* L) {
     lovrAudioStart(AUDIO_PLAYBACK);
     luax_atexit(L, lovrAudioDestroy);
   }
+
   return 1;
 }
