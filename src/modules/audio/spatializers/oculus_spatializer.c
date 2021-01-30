@@ -28,8 +28,7 @@ struct {
   bool poseLockInited;
 } state;
 
-static bool oculus_spatializer_init(SpatializerConfigIn configIn, SpatializerConfigOut *configOut)
-{
+static bool oculus_spatializer_init(SpatializerConfigIn configIn, SpatializerConfigOut* configOut) {
   // Initialize own state
   state.sampleRate = configIn.sampleRate;
   configOut->needFixedBuffer = true;
@@ -43,36 +42,40 @@ static bool oculus_spatializer_init(SpatializerConfigIn configIn, SpatializerCon
   }
 
   // Initialize Oculus
-  ovrAudioContextConfiguration config = {0};
+  ovrAudioContextConfiguration config = { 0 };
 
   config.acc_Size = sizeof( config );
   config.acc_MaxNumSources = state.sourceMax;
   config.acc_SampleRate = state.sampleRate;
   config.acc_BufferLength = configIn.fixedBuffer; // Stereo
 
-  if ( ovrAudio_CreateContext( &state.context, &config ) != ovrSuccess )
-  {
+  if (ovrAudio_CreateContext(&state.context, &config) != ovrSuccess) {
     return false;
   }
 
   return true;
 }
-static void oculus_spatializer_destroy(void)
-{
+
+static void oculus_spatializer_destroy() {
   free(state.sources);
   state.sources = NULL;
 }
+
 static uint32_t oculus_spatializer_source_apply(Source* source, const float* input, float* output, uint32_t framesIn, uint32_t framesOut) {
   if (!state.midPlayback) { // Run this code only on the first Source of a playback
     state.midPlayback = true;
 
-    for(int idx = 0; idx < state.sourceMax; idx++) { // Clear presence tracking and get starting positions
-      SourceRecord *record = &state.sources[idx];
+    for (int idx = 0; idx < state.sourceMax; idx++) { // Clear presence tracking and get starting positions
+      SourceRecord* record = &state.sources[idx];
       record->usedSourceThisPlayback = false;
-      if (record->source)
+
+      if (record->source) {
         state.sourceCount++;
-      if (record->occupied)
+      }
+
+      if (record->occupied) {
         state.occupiedCount++;
+      }
     }
 
     if (state.poseUpdated) {
@@ -90,7 +93,7 @@ static uint32_t oculus_spatializer_source_apply(Source* source, const float* inp
     }
   }
 
-  intptr_t *spatializerMemo = lovrSourceGetSpatializerMemoField(source);
+  intptr_t* spatializerMemo = lovrSourceGetSpatializerMemoField(source);
 
   // Lovr allows for an unlimited number of simultaneous sources but OculusAudio makes us predeclare a limit.
   // We maintain a list of sources and keep the index each source is associated with in its memo field.
@@ -107,14 +110,17 @@ static uint32_t oculus_spatializer_source_apply(Source* source, const float* inp
   // but if there's a record which is only playing a tail, in *that* case we will override the tail.
   if (idx < 0 && lovrSourceIsPlaying(source)) {
     if (state.occupiedCount < state.sourceMax) { // There's an empty slot
-      for (idx = 0; idx < state.sourceMax; idx++)
-        if (!state.sources[idx].occupied) // Claim the first unoccupied slot
+      for (idx = 0; idx < state.sourceMax; idx++) {
+        if (!state.sources[idx].occupied) { // Claim the first unoccupied slot
           break;
+        }
+      }
     } else if (state.sourceCount < state.sourceMax) { // There's a slot doing a tail
-      for (idx = 0; idx < state.sourceMax; idx++)
-        if (!state.sources[idx].occupied // Claim the first unsourced slot
-         && !state.sources[idx].usedSourceThisPlayback) // Does OculusAudio allow reusing indexes within a playback? Let's guess no for now.
+      for (idx = 0; idx < state.sourceMax; idx++) {
+        if (!state.sources[idx].occupied && !state.sources[idx].usedSourceThisPlayback) { // Does OculusAudio allow reusing indexes within a playback? Let's guess no for now.
           break;
+        }
+      }
     }
 
     if (idx >= 0) { // Successfully assigned
@@ -151,7 +157,7 @@ static uint32_t oculus_spatializer_source_apply(Source* source, const float* inp
   return 0;
 }
 
-static uint32_t oculus_spatializer_tail(float *scratch, float* output, uint32_t frames) {
+static uint32_t oculus_spatializer_tail(float* scratch, float* output, uint32_t frames) {
   bool didAnything = false;
   for (int idx = 0; idx < state.sourceMax; idx++) {
     // If a sound is finished, feed in NULL input on its index until reverb tail completes.
@@ -165,7 +171,7 @@ static uint32_t oculus_spatializer_tail(float *scratch, float* output, uint32_t 
       if (outStatus & ovrAudioSpatializationStatus_Finished) {
         state.sources[idx].occupied = false;
       }
-      for(unsigned int i = 0; i < frames*2; i++) {
+      for (unsigned int i = 0; i < frames * 2; i++) {
         output[i] += scratch[i];
       }
     }
@@ -178,16 +184,17 @@ static uint32_t oculus_spatializer_tail(float *scratch, float* output, uint32_t 
 static void oculusUnpackQuat(ovrQuatf* oq, float* lq) {
   oq->x = lq[0]; oq->y = lq[1]; oq->z = lq[2]; oq->w = lq[3];
 }
-static void oculusUnpackVec(ovrVector3f* ov, float *p) {
+
+static void oculusUnpackVec(ovrVector3f* ov, float* p) {
   ov->x = p[0]; ov->y = p[1]; ov->z = p[2];
 }
 
-static void oculusRecreatePose(ovrPoseStatef *out, float position[4], float orientation[4]) {
+static void oculusRecreatePose(ovrPoseStatef* out, float position[4], float orientation[4]) {
   ovrPosef pose;
   oculusUnpackVec(&pose.Position, position);
   oculusUnpackQuat(&pose.Orientation, orientation);
   out->ThePose = pose;
-  float zero[4] = {0}; // TODO
+  float zero[4] = { 0 }; // TODO
   oculusUnpackVec(&out->AngularVelocity, zero);
   oculusUnpackVec(&out->LinearVelocity, zero);
   oculusUnpackVec(&out->AngularAcceleration, zero);
@@ -205,15 +212,19 @@ static void oculus_spatializer_setListenerPose(float position[4], float orientat
   state.poseUpdated = true;
   ma_mutex_unlock(&state.poseLock);
 }
-static void oculus_spatializer_source_create(Source *source) {
-  intptr_t *spatializerMemo = lovrSourceGetSpatializerMemoField(source);
+
+static void oculus_spatializer_source_create(Source* source) {
+  intptr_t* spatializerMemo = lovrSourceGetSpatializerMemoField(source);
   *spatializerMemo = -1;
 }
+
 static void oculus_spatializer_source_destroy(Source *source) {
-  intptr_t *spatializerMemo = lovrSourceGetSpatializerMemoField(source);
-  if (*spatializerMemo >= 0)
+  intptr_t* spatializerMemo = lovrSourceGetSpatializerMemoField(source);
+  if (*spatializerMemo >= 0) {
     state.sources[*spatializerMemo].source = NULL;
+  }
 }
+
 Spatializer oculusSpatializer = {
   oculus_spatializer_init,
   oculus_spatializer_destroy,

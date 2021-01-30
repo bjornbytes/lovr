@@ -1,17 +1,17 @@
 #include "audio/audio.h"
+#include "audio/spatializer.h"
 #include "data/soundData.h"
 #include "data/blob.h"
 #include "core/arr.h"
 #include "core/ref.h"
 #include "core/os.h"
 #include "core/util.h"
+#include "lib/miniaudio/miniaudio.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "lib/miniaudio/miniaudio.h"
-#include "audio/spatializer.h"
 
-static const ma_format miniAudioFormatFromLovr[] = {
+static const ma_format miniAudioFormat[] = {
   [SAMPLE_I16] = ma_format_s16,
   [SAMPLE_F32] = ma_format_f32
 };
@@ -19,7 +19,6 @@ static const ma_format miniAudioFormatFromLovr[] = {
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2
 #define CAPTURE_CHANNELS 1
-
 #define CALLBACK_PERIODS 3
 #define PERIOD_LENGTH 128
 #define CALLBACK_LENGTH (PERIOD_LENGTH*CALLBACK_PERIODS)
@@ -36,15 +35,15 @@ struct Source {
   Source* next;
   SoundData* sound;
   ma_data_converter* converter;
+  intptr_t spatializerMemo; // Spatializer can put anything it wants here
   uint32_t offset;
   float volume;
+  float position[4];
+  float orientation[4];
   bool tracked;
   bool playing;
   bool looping;
   bool spatial;
-  float position[4];
-  float orientation[4];
-  intptr_t spatializerMemo; // Spatializer can put anything it wants here
 };
 
 typedef struct {
@@ -53,13 +52,13 @@ typedef struct {
   SampleFormat format;
 } AudioConfig;
 
-static inline int outputChannelCountForSource(Source *source) { return source->spatial ? 1 : OUTPUT_CHANNELS; }
+static int outputChannelCountForSource(Source *source) { return source->spatial ? 1 : OUTPUT_CHANNELS; }
 
 static struct {
   bool initialized;
   ma_context context;
-  AudioConfig config[AUDIO_TYPE_COUNT];
-  ma_device devices[AUDIO_TYPE_COUNT];
+  AudioConfig config[2];
+  ma_device devices[2];
   ma_mutex playbackLock;
   Source* sources;
   SoundData *captureStream;
@@ -71,7 +70,6 @@ static struct {
   float *persistBuffer;  // If fixedBuffer, preserves excess audio between frames.
   float *persistBufferContent; // Pointer into persistBuffer
   uint32_t persistBufferRemaining; // In fixedBuffer mode, how much of the previous frame's mixBuffer was consumed?
-
 #ifdef LOVR_DEBUG_AUDIOTAP
   bool audiotapWriting;
 #endif
@@ -83,12 +81,15 @@ static struct {
 // Note: output is always equal to scratchBuffer1. This saves a little memory but is ugly.
 //       count is always less than or equal to the size of scratchBuffer1
 static int generateSource(Source* source, float* output, uint32_t count) {
-  char *raw; float *aux; // Scratch buffers: Raw generated audio from source; converted to float by converter
+  // Scratch buffers: Raw generated audio from source; converted to float by converter
+  char* raw;
+  float* aux;
+
   if (source->spatial) { // In spatial mode, raw and aux are mono and only output is stereo
-    raw = (char *)state.scratchBuffer1;
+    raw = (char*) state.scratchBuffer1;
     aux = state.scratchBuffer2;
-  } else {               // Otherwise, the data converter will produce stereo and aux=output is stereo
-    raw = (char *)state.scratchBuffer2;
+  } else { // Otherwise, the data converter will produce stereo and aux=output is stereo
+    raw = (char*) state.scratchBuffer2;
     aux = output;
   }
 
@@ -121,7 +122,7 @@ static int generateSource(Source* source, float* output, uint32_t count) {
   if (source->spatial) {
     // Fixed buffer mode we have to pad buffer with silence if it underran
     if (state.fixedBuffer && sourceFinished) {
-      memset(aux + framesIn, 0, (count - framesIn)*sizeof(float)); // Note always mono
+      memset(aux + framesIn, 0, (count - framesIn) * sizeof(float)); // Note always mono
       framesOut = count;
     }
     framesOut = state.spatializer->apply(source, aux, output, framesIn, framesOut);
@@ -135,23 +136,21 @@ static int generateSource(Source* source, float* output, uint32_t count) {
 }
 
 static void onPlayback(ma_device* device, void* outputUntyped, const void* _, uint32_t count) {
-  float *output = outputUntyped;
+  float* output = outputUntyped;
 
 #ifdef LOVR_DEBUG_AUDIOTAP
   int originalCount = count;
 #endif
 
-//  printf("Persist buffer remaining %d, Count %d\n", state.persistBufferRemaining, count); // Can't call lovrLog from audio thread
-
   // This case means we are in fixedBuffer mode and there was excess data generated last frame
   if (state.persistBufferRemaining > 0) {
     uint32_t persistConsumed = MIN(count, state.persistBufferRemaining);
-    memcpy(output, state.persistBufferContent, persistConsumed*OUTPUT_CHANNELS*sizeof(float)); // Stereo frames
+    memcpy(output, state.persistBufferContent, persistConsumed * OUTPUT_CHANNELS * sizeof(float)); // Stereo frames
     // Move forward both the persistBufferContent and output pointers so the right thing happens regardless of which is larger
     // persistBufferRemaining being larger than count is deeply unlikely, but it is not impossible
     state.persistBufferContent += persistConsumed*OUTPUT_CHANNELS;
     state.persistBufferRemaining -= persistConsumed;
-    output += persistConsumed*OUTPUT_CHANNELS;
+    output += persistConsumed * OUTPUT_CHANNELS;
     count -= persistConsumed;
   }
 
@@ -162,7 +161,7 @@ static void onPlayback(ma_device* device, void* outputUntyped, const void* _, ui
     // But if we're in fixed buffer mode and the fixed buffer size is bigger than output,
     // we mix into persistBuffer and save the excess until next onPlayback() call.
     uint32_t passSize;
-    float *mixBuffer;
+    float* mixBuffer;
     bool usingPersistBuffer;
     if (state.fixedBuffer) {
       usingPersistBuffer = state.bufferSize > count;
@@ -170,7 +169,7 @@ static void onPlayback(ma_device* device, void* outputUntyped, const void* _, ui
       if (usingPersistBuffer) {
         mixBuffer = state.persistBuffer;
         state.persistBufferRemaining = state.bufferSize;
-        memset(mixBuffer, 0, state.bufferSize*sizeof(float)*OUTPUT_CHANNELS);
+        memset(mixBuffer, 0, state.bufferSize * sizeof(float) * OUTPUT_CHANNELS);
       } else {
         mixBuffer = output;
         state.persistBufferRemaining = 0;
@@ -226,25 +225,26 @@ static void onPlayback(ma_device* device, void* outputUntyped, const void* _, ui
   }
 
 #ifdef LOVR_DEBUG_AUDIOTAP
-  if (state.audiotapWriting)
-    lovrFilesystemWrite("lovrDebugAudio.raw", outputUntyped, originalCount*OUTPUT_CHANNELS*sizeof(float), true);
+  if (state.audiotapWriting) {
+    lovrFilesystemWrite("lovrDebugAudio.raw", outputUntyped, originalCount * OUTPUT_CHANNELS * sizeof(float), true);
+  }
 #endif
 }
 
 static void onCapture(ma_device* device, void* output, const void* inputUntyped, uint32_t frames) {
-  const float *input = inputUntyped;
+  const float* input = inputUntyped;
   // note: uses ma_pcm_rb which is lockless
   size_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, state.config[AUDIO_CAPTURE].format);
-  lovrSoundDataStreamAppendBuffer(state.captureStream, input, frames*bytesPerFrame);
+  lovrSoundDataStreamAppendBuffer(state.captureStream, input, frames * bytesPerFrame);
 }
 
 static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
 
-static Spatializer *spatializers[] = {
+static Spatializer* spatializers[] = {
 #ifdef LOVR_ENABLE_OCULUS_AUDIO
   &oculusSpatializer,
 #endif
-  &dummySpatializer,
+  &dummySpatializer
 };
 
 // Entry
@@ -252,8 +252,8 @@ static Spatializer *spatializers[] = {
 bool lovrAudioInit(SpatializerConfig config) {
   if (state.initialized) return false;
 
-  state.config[AUDIO_PLAYBACK] = (AudioConfig){ .format = SAMPLE_F32, .sampleRate = 44100 };
-  state.config[AUDIO_CAPTURE] = (AudioConfig){ .format = SAMPLE_F32, .sampleRate = 44100 };
+  state.config[AUDIO_PLAYBACK] = (AudioConfig) { .format = SAMPLE_F32, .sampleRate = 44100 };
+  state.config[AUDIO_CAPTURE] = (AudioConfig) { .format = SAMPLE_F32, .sampleRate = 44100 };
 
   if (ma_context_init(NULL, 0, NULL, &state.context)) {
     return false;
@@ -264,27 +264,30 @@ bool lovrAudioInit(SpatializerConfig config) {
 
   SpatializerConfigIn spatializerConfigIn = {
     .maxSourcesHint = config.spatializerMaxSourcesHint,
-    .fixedBuffer=CALLBACK_LENGTH,
-    .sampleRate=state.config[AUDIO_PLAYBACK].sampleRate
+    .fixedBuffer = CALLBACK_LENGTH,
+    .sampleRate = state.config[AUDIO_PLAYBACK].sampleRate
   };
-  SpatializerConfigOut spatializerConfigOut = {0};
+  SpatializerConfigOut spatializerConfigOut = { 0 };
   // Find first functioning spatializer
   for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
-    if (config.spatializer && strcmp(config.spatializer, spatializers[i]->name))
+    if (config.spatializer && strcmp(config.spatializer, spatializers[i]->name)) {
       continue; // If a name was provided, only match spatializers with that exact name
+    }
+
     if (spatializers[i]->init(spatializerConfigIn, &spatializerConfigOut)) {
       state.spatializer = spatializers[i];
       break;
     }
   }
-  lovrAssert(state.spatializer != NULL, "Must have at least one spatializer");
+  lovrAssert(state.spatializer, "Must have at least one spatializer");
 
   state.fixedBuffer = spatializerConfigOut.needFixedBuffer;
   state.bufferSize = state.fixedBuffer ? CALLBACK_LENGTH : 1024;
-  state.scratchBuffer1 = malloc(state.bufferSize*sizeof(float)*OUTPUT_CHANNELS);
-  state.scratchBuffer2 = malloc(state.bufferSize*sizeof(float)*OUTPUT_CHANNELS);
-  if (state.fixedBuffer)
-    state.persistBuffer = malloc(state.bufferSize*sizeof(float)*OUTPUT_CHANNELS);
+  state.scratchBuffer1 = malloc(state.bufferSize * sizeof(float) * OUTPUT_CHANNELS);
+  state.scratchBuffer2 = malloc(state.bufferSize * sizeof(float) * OUTPUT_CHANNELS);
+  if (state.fixedBuffer) {
+    state.persistBuffer = malloc(state.bufferSize * sizeof(float) * OUTPUT_CHANNELS);
+  }
   state.persistBufferRemaining = 0;
 
   arr_init(&state.converters);
@@ -301,7 +304,7 @@ void lovrAudioDestroy() {
   if (!state.initialized) return;
   lovrAudioStop(AUDIO_PLAYBACK);
   lovrAudioStop(AUDIO_CAPTURE);
-  for(int i = 0; i < AUDIO_TYPE_COUNT; i++) {
+  for(int i = 0; i < 2; i++) {
     ma_device_uninit(&state.devices[i]);
   }
 
@@ -316,21 +319,16 @@ void lovrAudioDestroy() {
   arr_free(&state.converters);
   free(state.config[0].deviceName);
   free(state.config[1].deviceName);
+  free(state.scratchBuffer1);
+  free(state.scratchBuffer2);
+  free(state.persistBuffer);
   memset(&state, 0, sizeof(state));
-  free(state.scratchBuffer1); state.scratchBuffer1 = NULL;
-  free(state.scratchBuffer2); state.scratchBuffer2 = NULL;
-  free(state.persistBuffer);  state.persistBuffer = NULL;
-
-#ifdef LOVR_DEBUG_AUDIOTAP
-  state.audiotapWriting = false;
-#endif
 }
 
 bool lovrAudioInitDevice(AudioType type) {
-
-  ma_device_info *playbackDevices;
+  ma_device_info* playbackDevices;
   ma_uint32 playbackDeviceCount;
-  ma_device_info *captureDevices;
+  ma_device_info* captureDevices;
   ma_uint32 captureDeviceCount;
   ma_result gettingStatus = ma_context_get_devices(&state.context, &playbackDevices, &playbackDeviceCount, &captureDevices, &captureDeviceCount);
   lovrAssert(gettingStatus == MA_SUCCESS, "Failed to enumerate audio devices during initialization: %s (%d)", ma_result_description(gettingStatus), gettingStatus);
@@ -341,37 +339,41 @@ bool lovrAudioInitDevice(AudioType type) {
     config = ma_device_config_init(deviceType);
 
     lovrAssert(state.config[AUDIO_PLAYBACK].format == OUTPUT_FORMAT, "Only f32 playback format currently supported");
-    config.playback.format = miniAudioFormatFromLovr[state.config[AUDIO_PLAYBACK].format];
-    for(int i = 0; i < playbackDeviceCount && state.config[AUDIO_PLAYBACK].deviceName; i++) {
+    config.playback.format = miniAudioFormat[state.config[AUDIO_PLAYBACK].format];
+    for (int i = 0; i < playbackDeviceCount && state.config[AUDIO_PLAYBACK].deviceName; i++) {
       if (strcmp(playbackDevices[i].name, state.config[AUDIO_PLAYBACK].deviceName) == 0) {
         config.playback.pDeviceID = &playbackDevices[i].id;
       }
     }
+
     if (state.config[AUDIO_PLAYBACK].deviceName && config.playback.pDeviceID == NULL) {
       lovrLog(LOG_WARN, "audio", "No audio playback device called '%s'; falling back to default.", state.config[AUDIO_PLAYBACK].deviceName);
     }
+
     config.playback.channels = OUTPUT_CHANNELS;
-  } else { // if AUDIO_CAPTURE
+  } else {
     ma_device_type deviceType = ma_device_type_capture;
     config = ma_device_config_init(deviceType);
 
-    config.capture.format = miniAudioFormatFromLovr[state.config[AUDIO_CAPTURE].format];
+    config.capture.format = miniAudioFormat[state.config[AUDIO_CAPTURE].format];
     for(int i = 0; i < captureDeviceCount && state.config[AUDIO_CAPTURE].deviceName; i++) {
       if (strcmp(captureDevices[i].name, state.config[AUDIO_CAPTURE].deviceName) == 0) {
         config.capture.pDeviceID = &captureDevices[i].id;
       }
     }
+
     if (state.config[AUDIO_CAPTURE].deviceName && config.capture.pDeviceID == NULL) {
       lovrLog(LOG_WARN, "audio", "No audio capture device called '%s'; falling back to default.", state.config[AUDIO_CAPTURE].deviceName);
     }
+
     config.capture.channels = CAPTURE_CHANNELS;
   }
+
   config.periodSizeInFrames = PERIOD_LENGTH;
   config.periods = 3;
   config.performanceProfile = ma_performance_profile_low_latency;
   config.dataCallback = callbacks[type];
   config.sampleRate = state.config[type].sampleRate;
-
 
   ma_result err = ma_device_init(&state.context, &config, &state.devices[type]);
   if (err != MA_SUCCESS) {
@@ -395,27 +397,22 @@ bool lovrAudioInitDevice(AudioType type) {
 bool lovrAudioStart(AudioType type) {
   ma_uint32 deviceState = state.devices[type].state;
   if (deviceState == MA_STATE_UNINITIALIZED) {
-    bool initResult = lovrAudioInitDevice(type);
-    if (initResult == false) {
+    if (!lovrAudioInitDevice(type)) {
       if(type == AUDIO_CAPTURE) {
         lovrPlatformRequestPermission(AUDIO_CAPTURE_PERMISSION);
-        // lovrAudioStart will be retried from boot.lua upon permission granted event
+        // by default,lovrAudioStart will be retried from boot.lua upon permission granted event
       }
       return false;
     }
   }
-  ma_result status = ma_device_start(&state.devices[type]);
-  return status == MA_SUCCESS;
+  return ma_device_start(&state.devices[type]) == MA_SUCCESS;
 }
 
 bool lovrAudioStop(AudioType type) {
-  ma_result stoppingResult = ma_device_stop(&state.devices[type]);
-
-  return stoppingResult == MA_SUCCESS;
+  return ma_device_stop(&state.devices[type]) == MA_SUCCESS;
 }
 
-bool lovrAudioIsRunning(AudioType type)
-{
+bool lovrAudioIsRunning(AudioType type) {
   return ma_device_get_state(&state.devices[type]) == MA_STATE_STARTED;
 }
 
@@ -433,17 +430,13 @@ void lovrAudioSetListenerPose(float position[4], float orientation[4]) {
   state.spatializer->setListenerPose(position, orientation);
 }
 
-double lovrAudioConvertToSeconds(uint32_t sampleCount, AudioType context) {
-  return sampleCount / (double)state.config[context].sampleRate;
-}
-
 // Source
 
 static void _lovrSourceAssignConverter(Source *source) {
   source->converter = NULL;
   for (size_t i = 0; i < state.converters.length; i++) {
     ma_data_converter* converter = state.converters.data[i];
-    if (converter->config.formatIn != miniAudioFormatFromLovr[source->sound->format]) continue;
+    if (converter->config.formatIn != miniAudioFormat[source->sound->format]) continue;
     if (converter->config.sampleRateIn != source->sound->sampleRate) continue;
     if (converter->config.channelsIn != source->sound->channels) continue;
     if (converter->config.channelsOut != outputChannelCountForSource(source)) continue;
@@ -453,14 +446,14 @@ static void _lovrSourceAssignConverter(Source *source) {
 
   if (!source->converter) {
     ma_data_converter_config config = ma_data_converter_config_init_default();
-    config.formatIn = miniAudioFormatFromLovr[source->sound->format];
-    config.formatOut = miniAudioFormatFromLovr[OUTPUT_FORMAT];
+    config.formatIn = miniAudioFormat[source->sound->format];
+    config.formatOut = miniAudioFormat[OUTPUT_FORMAT];
     config.channelsIn = source->sound->channels;
     config.channelsOut = outputChannelCountForSource(source);
     config.sampleRateIn = source->sound->sampleRate;
     config.sampleRateOut = state.config[AUDIO_PLAYBACK].sampleRate;
 
-    ma_data_converter *converter = malloc(sizeof(ma_data_converter));
+    ma_data_converter* converter = malloc(sizeof(ma_data_converter));
     ma_result converterStatus = ma_data_converter_init(&config, converter);
     lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %s (%d)", state.converters.length, ma_result_description(converterStatus), converterStatus);
 
@@ -571,46 +564,45 @@ SoundData* lovrSourceGetSoundData(Source* source) {
 
 // Capture
 
-struct SoundData* lovrAudioGetCaptureStream()
-{
+struct SoundData* lovrAudioGetCaptureStream() {
   return state.captureStream;
 }
 
 // Devices
 
 AudioDeviceArr* lovrAudioGetDevices(AudioType type) {
-  ma_device_info *playbackDevices;
+  ma_device_info* playbackDevices;
   ma_uint32 playbackDeviceCount;
-  ma_device_info *captureDevices;
+  ma_device_info* captureDevices;
   ma_uint32 captureDeviceCount;
   ma_result gettingStatus = ma_context_get_devices(&state.context, &playbackDevices, &playbackDeviceCount, &captureDevices, &captureDeviceCount);
   lovrAssert(gettingStatus == MA_SUCCESS, "Failed to enumerate audio devices: %s (%d)", ma_result_description(gettingStatus), gettingStatus);
 
   ma_uint32 count = type == AUDIO_PLAYBACK ? playbackDeviceCount : captureDeviceCount;
-  ma_device_info *madevices = type == AUDIO_PLAYBACK ? playbackDevices : captureDevices;
-  AudioDeviceArr *devices = calloc(1, sizeof(AudioDeviceArr));
+  ma_device_info* madevices = type == AUDIO_PLAYBACK ? playbackDevices : captureDevices;
+  AudioDeviceArr* devices = calloc(1, sizeof(AudioDeviceArr));
   devices->capacity = devices->length = count;
   devices->data = calloc(count, sizeof(AudioDevice));
 
-  for(int i = 0; i < count; i++) {
-    ma_device_info *mainfo = &madevices[i];
-    AudioDevice *lovrInfo = &devices->data[i];
+  for (int i = 0; i < count; i++) {
+    ma_device_info* mainfo = &madevices[i];
+    AudioDevice* lovrInfo = &devices->data[i];
     lovrInfo->name = strdup(mainfo->name);
     lovrInfo->type = type;
     lovrInfo->isDefault = mainfo->isDefault;
   }
+
   return devices;
 }
 
 void lovrAudioFreeDevices(AudioDeviceArr *devices) {
-  for(int i = 0; i < devices->length; i++) {
-    free((void*)devices->data[i].name);
+  for (int i = 0; i < devices->length; i++) {
+    free((void*) devices->data[i].name);
   }
   arr_free(devices);
 }
 
-void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate)
-{
+void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate) {
   if (sampleRate) state.config[AUDIO_CAPTURE].sampleRate = sampleRate;
   if (format != SAMPLE_INVALID) state.config[AUDIO_CAPTURE].format = format;
 
@@ -625,7 +617,7 @@ void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate)
   }
 }
 
-void lovrAudioUseDevice(AudioType type, const char *deviceName) {
+void lovrAudioUseDevice(AudioType type, const char* deviceName) {
   free(state.config[type].deviceName);
 
 #ifdef ANDROID
@@ -648,10 +640,10 @@ void lovrAudioUseDevice(AudioType type, const char *deviceName) {
   }
 }
 
-intptr_t *lovrSourceGetSpatializerMemoField(Source *source) {
+intptr_t* lovrSourceGetSpatializerMemoField(Source* source) {
   return &source->spatializerMemo;
 }
 
-const char *lovrSourceGetSpatializerName() {
+const char* lovrSourceGetSpatializerName() {
   return state.spatializer->name;
 }
