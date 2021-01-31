@@ -2,13 +2,13 @@
 #include "core/maf.h"
 
 typedef struct {
-	int maxSourcesHint;
-	int fixedBuffer;
-	int sampleRate;
+  int maxSourcesHint;
+  int fixedBuffer;
+  int sampleRate;
 } SpatializerConfigIn;
 
 typedef struct {
-	bool needFixedBuffer;
+  bool needFixedBuffer;
 } SpatializerConfigOut;
 
 typedef struct {
