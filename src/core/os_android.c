@@ -498,7 +498,6 @@ JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jn
   }
 }
 
-
 // Private, must be declared manually to use
 
 struct ANativeActivity* lovrPlatformGetActivity() {

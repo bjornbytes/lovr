@@ -122,12 +122,10 @@ size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
   return length;
 }
 
-void lovrPlatformRequestPermission(Permission permission)
-{
-
+void lovrPlatformRequestPermission(Permission permission) {
+  //
 }
 
-void lovrPlatformOnPermissionEvent(permissionsCallback callback)
-{
-
+void lovrPlatformOnPermissionEvent(permissionsCallback callback) {
+  //
 }
