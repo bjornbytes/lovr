@@ -66,7 +66,7 @@ static int l_lovrAudioGetDevices(lua_State *L) {
 
   lua_newtable(L);
   int top = lua_gettop(L);
-  for(int i = 0; i < devices->length; i++) {
+  for(size_t i = 0; i < devices->length; i++) {
     AudioDevice *device = &devices->data[i];
     lua_newtable(L);
     luax_pushenum(L, AudioType, device->type);
