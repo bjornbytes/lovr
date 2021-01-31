@@ -52,7 +52,7 @@ typedef struct {
   SampleFormat format;
 } AudioConfig;
 
-static int outputChannelCountForSource(Source *source) { return source->spatial ? 1 : OUTPUT_CHANNELS; }
+static uint32_t outputChannelCountForSource(Source *source) { return source->spatial ? 1 : OUTPUT_CHANNELS; }
 
 static struct {
   bool initialized;
@@ -312,7 +312,7 @@ void lovrAudioDestroy() {
   ma_context_uninit(&state.context);
   lovrRelease(SoundData, state.captureStream);
   if (state.spatializer) state.spatializer->destroy();
-  for(int i = 0; i < state.converters.length; i++) {
+  for(size_t i = 0; i < state.converters.length; i++) {
     ma_data_converter_uninit(state.converters.data[i]);
     free(state.converters.data[i]);
   }
@@ -340,7 +340,7 @@ bool lovrAudioInitDevice(AudioType type) {
 
     lovrAssert(state.config[AUDIO_PLAYBACK].format == OUTPUT_FORMAT, "Only f32 playback format currently supported");
     config.playback.format = miniAudioFormat[state.config[AUDIO_PLAYBACK].format];
-    for (int i = 0; i < playbackDeviceCount && state.config[AUDIO_PLAYBACK].deviceName; i++) {
+    for (uint32_t i = 0; i < playbackDeviceCount && state.config[AUDIO_PLAYBACK].deviceName; i++) {
       if (strcmp(playbackDevices[i].name, state.config[AUDIO_PLAYBACK].deviceName) == 0) {
         config.playback.pDeviceID = &playbackDevices[i].id;
       }
@@ -356,7 +356,7 @@ bool lovrAudioInitDevice(AudioType type) {
     config = ma_device_config_init(deviceType);
 
     config.capture.format = miniAudioFormat[state.config[AUDIO_CAPTURE].format];
-    for(int i = 0; i < captureDeviceCount && state.config[AUDIO_CAPTURE].deviceName; i++) {
+    for(uint32_t i = 0; i < captureDeviceCount && state.config[AUDIO_CAPTURE].deviceName; i++) {
       if (strcmp(captureDevices[i].name, state.config[AUDIO_CAPTURE].deviceName) == 0) {
         config.capture.pDeviceID = &captureDevices[i].id;
       }
@@ -584,7 +584,7 @@ AudioDeviceArr* lovrAudioGetDevices(AudioType type) {
   devices->capacity = devices->length = count;
   devices->data = calloc(count, sizeof(AudioDevice));
 
-  for (int i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < count; i++) {
     ma_device_info* mainfo = &madevices[i];
     AudioDevice* lovrInfo = &devices->data[i];
     lovrInfo->name = strdup(mainfo->name);
@@ -596,7 +596,7 @@ AudioDeviceArr* lovrAudioGetDevices(AudioType type) {
 }
 
 void lovrAudioFreeDevices(AudioDeviceArr *devices) {
-  for (int i = 0; i < devices->length; i++) {
+  for (size_t i = 0; i < devices->length; i++) {
     free((void*) devices->data[i].name);
   }
   arr_free(devices);
