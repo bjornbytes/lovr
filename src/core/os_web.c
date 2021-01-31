@@ -371,12 +371,10 @@ bool lovrPlatformIsKeyDown(KeyboardKey key) {
   return state.keyMap[key];
 }
 
-void lovrPlatformRequestPermission(Permission permission)
-{
-
+void lovrPlatformRequestPermission(Permission permission) {
+  //
 }
 
-void lovrPlatformOnPermissionEvent(permissionsCallback callback)
-{
-
+void lovrPlatformOnPermissionEvent(permissionsCallback callback) {
+  //
 }

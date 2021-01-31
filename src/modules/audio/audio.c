@@ -304,7 +304,7 @@ void lovrAudioDestroy() {
   if (!state.initialized) return;
   lovrAudioStop(AUDIO_PLAYBACK);
   lovrAudioStop(AUDIO_CAPTURE);
-  for(int i = 0; i < 2; i++) {
+  for (int i = 0; i < 2; i++) {
     ma_device_uninit(&state.devices[i]);
   }
 
@@ -312,7 +312,7 @@ void lovrAudioDestroy() {
   ma_context_uninit(&state.context);
   lovrRelease(SoundData, state.captureStream);
   if (state.spatializer) state.spatializer->destroy();
-  for(size_t i = 0; i < state.converters.length; i++) {
+  for (size_t i = 0; i < state.converters.length; i++) {
     ma_data_converter_uninit(state.converters.data[i]);
     free(state.converters.data[i]);
   }
@@ -356,7 +356,7 @@ bool lovrAudioInitDevice(AudioType type) {
     config = ma_device_config_init(deviceType);
 
     config.capture.format = miniAudioFormat[state.config[AUDIO_CAPTURE].format];
-    for(uint32_t i = 0; i < captureDeviceCount && state.config[AUDIO_CAPTURE].deviceName; i++) {
+    for (uint32_t i = 0; i < captureDeviceCount && state.config[AUDIO_CAPTURE].deviceName; i++) {
       if (strcmp(captureDevices[i].name, state.config[AUDIO_CAPTURE].deviceName) == 0) {
         config.capture.pDeviceID = &captureDevices[i].id;
       }
