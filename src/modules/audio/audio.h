@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "modules/data/soundData.h"
+#include "data/soundData.h"
 #include "core/arr.h"
 
 #pragma once
@@ -14,11 +14,6 @@ typedef enum {
   AUDIO_PLAYBACK,
   AUDIO_CAPTURE
 } AudioType;
-
-typedef enum {
-  SOURCE_STATIC,
-  SOURCE_STREAM
-} SourceType;
 
 typedef struct {
   const char *spatializer;
@@ -37,16 +32,17 @@ bool lovrAudioInit(SpatializerConfig config);
 void lovrAudioDestroy(void);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
-bool lovrAudioIsRunning(AudioType type);
+bool lovrAudioIsStarted(AudioType type);
 float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
-void lovrAudioSetListenerPose(float position[4], float orientation[4]);
+void lovrAudioGetPose(float position[4], float orientation[4]);
+void lovrAudioSetPose(float position[4], float orientation[4]);
 struct SoundData* lovrAudioGetCaptureStream(void);
 AudioDeviceArr* lovrAudioGetDevices(AudioType type);
 void lovrAudioFreeDevices(AudioDeviceArr* devices);
 void lovrAudioUseDevice(AudioType type, const char* deviceName);
-void lovrAudioSetCaptureFormat(SampleFormat format, int sampleRate);
-const char* lovrSourceGetSpatializerName();
+void lovrAudioSetCaptureFormat(SampleFormat format, uint32_t sampleRate);
+const char* lovrAudioGetSpatializer(void);
 
 // Source
 
@@ -57,13 +53,13 @@ void lovrSourcePause(Source* source);
 void lovrSourceStop(Source* source);
 bool lovrSourceIsPlaying(Source* source);
 bool lovrSourceIsLooping(Source* source);
-void lovrSourceSetLooping(Source* source, bool isLooping);
+void lovrSourceSetLooping(Source* source, bool loop);
 float lovrSourceGetVolume(Source* source);
 void lovrSourceSetVolume(Source* source, float volume);
-bool lovrSourceGetSpatial(Source *source);
-void lovrSourceSetPose(Source *source, float position[4], float orientation[4]);
-void lovrSourceGetPose(Source *source, float position[4], float orientation[4]);
-uint32_t lovrSourceGetTime(Source* source);
-void lovrSourceSetTime(Source* source, uint32_t sample);
-struct SoundData* lovrSourceGetSoundData(Source* source);
-intptr_t *lovrSourceGetSpatializerMemoField(Source* source);
+bool lovrSourceIsSpatial(Source* source);
+void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
+void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
+double lovrSourceGetDuration(Source* source, TimeUnit units);
+double lovrSourceGetTime(Source* source, TimeUnit units);
+void lovrSourceSetTime(Source* source, double time, TimeUnit units);
+intptr_t* lovrSourceGetSpatializerMemoField(Source* source);
