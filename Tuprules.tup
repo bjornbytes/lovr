@@ -23,19 +23,19 @@ CFLAGS_win32 += -DLOVR_GL
 CFLAGS_win32 += -D_CRT_SECURE_NO_WARNINGS
 CFLAGS_win32 += -Wno-language-extension-token
 LDFLAGS_win32 += -lShell32 -lOle32
-EXTRAS_win32 += lovr.lib lovr.exp
+EXTRAS_win32 += bin/lovr.lib bin/lovr.exp
 ifeq (@(DEBUG),y)
-EXTRAS_win32 += lovr.pdb lovr.ilk
+EXTRAS_win32 += bin/lovr.pdb bin/lovr.ilk
 endif
 
 ## Linux
 CFLAGS_linux += -DLOVR_GL
 LDFLAGS_linux += -lm -lpthread -ldl
-LDFLAGS_linux += -Wl,-rpath,\$ORIGIN/libs
+LDFLAGS_linux += -Wl,-rpath,\$ORIGIN
 
 ## macOS
 CFLAGS_macos += -DLOVR_GL
-LDFLAGS_macos += -Wl,-rpath,@executable_path/libs
+LDFLAGS_macos += -Wl,-rpath,@executable_path
 LDFLAGS_macos += -lobjc
 
 ## Android
@@ -45,7 +45,6 @@ CFLAGS_android += --target=aarch64-linux-android@(ANDROID_VERSION)
 LDFLAGS_android += --target=aarch64-linux-android@(ANDROID_VERSION)
 LDFLAGS_android += -landroid -lEGL -lGLESv3
 LDFLAGS_android += -shared
-PREFIX_android = lib/arm64-v8a/lib
 
 ## emscripten
 CFLAGS_web += -DLOVR_WEBGL
@@ -56,8 +55,8 @@ LDFLAGS_@(WEBXR)_web += --js-library $(ROOT)/src/resources/webxr.js
 LDFLAGS_web += --shell-file $(ROOT)/src/resources/lovr.html
 CFLAGS_@(THREAD)_web += -s USE_PTHREADS=1
 LDFLAGS_@(THREAD)_web += -s USE_PTHREADS=1
-EXTRAS_web = lovr.js lovr.wasm
-EXTRAS_@(THREAD)_web += lovr.worker.js
+EXTRAS_web = bin/lovr.js bin/lovr.wasm
+EXTRAS_@(THREAD)_web += bin/lovr.worker.js
 
 ## Modules
 CFLAGS_@(AUDIO) += -DLOVR_ENABLE_AUDIO
@@ -231,9 +230,9 @@ PLATFORM = @(PLATFORM)
 endif
 
 ifeq ($(PLATFORM),android)
-LIB = lib/arm64-v8a
+LIB = bin/apk/lib/arm64-v8a
 else
-LIB = libs
+LIB = bin
 endif
 
 ifeq ($(PLATFORM),win32)
@@ -261,6 +260,7 @@ ifeq ($(PLATFORM),android)
 CFLAGS += $(CFLAGS_android) $(CFLAGS_y_android)
 LDFLAGS += $(LDFLAGS_android) $(LDFLAGS_y_android)
 LIBS += $(LIBS_y_android)
+PREFIX = apk/lib/arm64-v8a/lib
 SUFFIX = .so
 endif
 
@@ -277,7 +277,7 @@ CFLAGS += @(EXTRA_CFLAGS)
 LDFLAGS += @(EXTRA_LDFLAGS)
 
 ## Macros
-!cc = |> ^ CC %b^ $(CC) $(CFLAGS_y) $(CFLAGS) -o %o -c %f |>
+!cc = |> ^o CC %b^ $(CC) $(CFLAGS_y) $(CFLAGS) -o %o -c %f |>
 !ld = |> ^ LD %o^ $(CC) -o %o %f $(LDFLAGS_y) $(LDFLAGS) |>
 !xd = |> ^ XD %f^ xxd -i %f > %o |>
 !cp = |> ^ CP %b^ cp %f %o |>
