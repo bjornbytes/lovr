@@ -2,6 +2,7 @@
 #include "audio/audio.h"
 #include "data/blob.h"
 #include "data/soundData.h"
+#include "core/maf.h"
 #include "core/ref.h"
 #include "core/util.h"
 #include <stdlib.h>
@@ -27,10 +28,10 @@ static int l_lovrAudioStop(lua_State* L) {
   return 0;
 }
 
-static int l_lovrAudioIsRunning(lua_State* L) {
+static int l_lovrAudioIsStarted(lua_State* L) {
   AudioType type = luax_checkenum(L, 1, AudioType, "playback");
-  bool isRunning = lovrAudioIsRunning(type);
-  lua_pushboolean(L, isRunning);
+  bool started = lovrAudioIsStarted(type);
+  lua_pushboolean(L, started);
   return 1;
 }
 
@@ -45,12 +46,26 @@ static int l_lovrAudioSetVolume(lua_State* L) {
   return 0;
 }
 
-static int l_lovrAudioSetListenerPose(lua_State *L) {
+static int l_lovrAudioGetPose(lua_State *L) {
+  float position[4], orientation[4], angle, ax, ay, az;
+  lovrAudioGetPose(position, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
+static int l_lovrAudioSetPose(lua_State *L) {
   float position[4], orientation[4];
   int index = 1;
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readquat(L, index, orientation, NULL);
-  lovrAudioSetListenerPose(position, orientation);
+  lovrAudioSetPose(position, orientation);
   return 0;
 }
 
@@ -96,8 +111,8 @@ static int l_lovrAudioSetCaptureFormat(lua_State *L) {
   return 0;
 }
 
-static int l_lovrAudioGetSpatializerName(lua_State *L) {
-  lua_pushstring(L, lovrSourceGetSpatializerName());
+static int l_lovrAudioGetSpatializer(lua_State *L) {
+  lua_pushstring(L, lovrAudioGetSpatializer());
   return 1;
 }
 
@@ -131,15 +146,16 @@ static int l_lovrAudioNewSource(lua_State* L) {
 static const luaL_Reg lovrAudio[] = {
   { "start", l_lovrAudioStart },
   { "stop", l_lovrAudioStop },
-  { "isRunning", l_lovrAudioIsRunning },
+  { "isStarted", l_lovrAudioIsStarted },
   { "getVolume", l_lovrAudioGetVolume },
   { "setVolume", l_lovrAudioSetVolume },
-  { "setListenerPose", l_lovrAudioSetListenerPose },
+  { "getPose", l_lovrAudioGetPose },
+  { "setPose", l_lovrAudioSetPose },
   { "getCaptureStream", l_lovrAudioGetCaptureStream },
   { "getDevices", l_lovrAudioGetDevices },
   { "useDevice", l_lovrAudioUseDevice },
   { "setCaptureFormat", l_lovrAudioSetCaptureFormat },
-  { "getSpatializerName", l_lovrAudioGetSpatializerName },
+  { "getSpatializer", l_lovrAudioGetSpatializer },
   { "newSource", l_lovrAudioNewSource },
   { NULL, NULL }
 };

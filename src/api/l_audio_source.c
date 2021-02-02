@@ -1,6 +1,7 @@
 #include "api.h"
 #include "audio/audio.h"
 #include "data/soundData.h"
+#include "core/maf.h"
 #include "core/util.h"
 
 static int l_lovrSourcePlay(lua_State* L) {
@@ -54,8 +55,23 @@ static int l_lovrSourceSetVolume(lua_State* L) {
 
 static int l_lovrSourceIsSpatial(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  lua_pushboolean(L, lovrSourceGetSpatial(source));
+  lua_pushboolean(L, lovrSourceIsSpatial(source));
   return 1;
+}
+
+static int l_lovrSourceGetPose(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float position[4], orientation[4], angle, ax, ay, az;
+  lovrSourceGetPose(source, position, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
 }
 
 static int l_lovrSourceSetPose(lua_State *L) {
@@ -71,44 +87,24 @@ static int l_lovrSourceSetPose(lua_State *L) {
 static int l_lovrSourceGetDuration(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
-  SoundData* sound = lovrSourceGetSoundData(source);
-  uint32_t frames = lovrSoundDataGetDuration(sound);
-  if (units == UNIT_SECONDS) {
-    lua_pushnumber(L, (double) frames / sound->sampleRate);
-  } else {
-    lua_pushinteger(L, frames);
-  }
-
+  double duration = lovrSourceGetDuration(source, units);
+  lua_pushnumber(L, duration);
   return 1;
 }
 
 static int l_lovrSourceGetTime(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
-  uint32_t offset = lovrSourceGetTime(source);
-
-  if (units == UNIT_SECONDS) {
-    SoundData* sound = lovrSourceGetSoundData(source);
-    lua_pushnumber(L, (double) offset / sound->sampleRate);
-  } else {
-    lua_pushinteger(L, offset);
-  }
-
+  uint32_t time = lovrSourceGetTime(source, units);
+  lua_pushnumber(L, time);
   return 1;
 }
 
 static int l_lovrSourceSetTime(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
+  double seconds = luaL_checknumber(L, 2);
   TimeUnit units = luax_checkenum(L, 3, TimeUnit, "seconds");
-
-  if (units == UNIT_SECONDS) {
-    double seconds = luaL_checknumber(L, 2);
-    SoundData* sound = lovrSourceGetSoundData(source);
-    lovrSourceSetTime(source, (uint32_t) (seconds * sound->sampleRate + .5));
-  } else {
-    lovrSourceSetTime(source, luaL_checkinteger(L, 2));
-  }
-
+  lovrSourceSetTime(source, seconds, units);
   return 0;
 }
 
@@ -122,6 +118,7 @@ const luaL_Reg lovrSource[] = {
   { "getVolume", l_lovrSourceGetVolume },
   { "setVolume", l_lovrSourceSetVolume },
   { "isSpatial", l_lovrSourceIsSpatial },
+  { "getPose", l_lovrSourceGetPose },
   { "setPose", l_lovrSourceSetPose },
   { "getDuration", l_lovrSourceGetDuration },
   { "getTime", l_lovrSourceGetTime },
