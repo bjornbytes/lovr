@@ -685,4 +685,36 @@ elseif(UNIX)
   endif()
   target_sources(lovr PRIVATE src/core/os_linux.c)
   target_compile_definitions(lovr PRIVATE LOVR_GL)
+  set_target_properties(lovr PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "\$ORIGIN"
+  )
+  function(move_lib)
+    if(TARGET ${ARGV0})
+      get_target_property(TARGET_TYPE ${ARGV0} TYPE)
+      if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
+        add_custom_command(TARGET lovr POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_FILE:${ARGV0}>
+          ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:${ARGV0}>
+        )
+      else()
+        add_custom_command(TARGET lovr POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_SONAME_FILE:${ARGV0}>
+          ${CMAKE_BINARY_DIR}/bin/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
+        )
+      endif()
+    endif()
+  endfunction()
+  move_lib(${LOVR_GLFW})
+  move_lib(${LOVR_LUA})
+  move_lib(${LOVR_ODE})
+  move_lib(${LOVR_OPENAL})
+  move_lib(${LOVR_OPENVR})
+  move_lib(${LOVR_MSDF})
+  foreach(target ${ALL_PLUGIN_TARGETS})
+    move_lib(${target})
+  endforeach()
 endif()
