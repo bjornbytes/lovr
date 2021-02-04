@@ -5,12 +5,6 @@
 #include "core/util.h"
 #include <stdlib.h>
 
-StringEntry lovrTimeUnit[] = {
-  [UNIT_SECONDS] = ENTRY("seconds"),
-  [UNIT_SAMPLES] = ENTRY("samples"),
-  { 0 }
-};
-
 static int l_lovrSoundDataGetBlob(lua_State* L) {
   SoundData* soundData = luax_checktype(L, 1, SoundData);
   Blob* blob = soundData->blob;
@@ -18,16 +12,10 @@ static int l_lovrSoundDataGetBlob(lua_State* L) {
   return 1;
 }
 
-static int l_lovrSoundDataGetDuration(lua_State* L) {
+static int l_lovrSoundDataGetFrameCount(lua_State* L) {
   SoundData* soundData = luax_checktype(L, 1, SoundData);
-  TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
-  uint32_t frames = lovrSoundDataGetDuration(soundData);
-  if (units == UNIT_SECONDS) {
-    lua_pushnumber(L, (double) frames / soundData->sampleRate);
-  } else {
-    lua_pushinteger(L, frames);
-  }
-
+  uint32_t frames = lovrSoundDataGetFrameCount(soundData);
+  lua_pushinteger(L, frames);
   return 1;
 }
 
@@ -41,7 +29,7 @@ static int l_lovrSoundDataRead(lua_State* L) {
   int index = 2;
   SoundData* dest = luax_totype(L, index, SoundData);
   if (dest) index++;
-  size_t frameCount = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : lovrSoundDataGetDuration(source);
+  size_t frameCount = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : lovrSoundDataGetFrameCount(source);
   size_t offset = dest ? luaL_optinteger(L, index, 0) : 0;
   bool shouldRelease = false;
   if (dest == NULL) {
@@ -90,7 +78,7 @@ static int l_lovrSoundDataSetSample(lua_State* L) {
 
 const luaL_Reg lovrSoundData[] = {
   { "getBlob", l_lovrSoundDataGetBlob },
-  { "getDuration", l_lovrSoundDataGetDuration },
+  { "getFrameCount", l_lovrSoundDataGetFrameCount },
   { "read", l_lovrSoundDataRead },
   { "append", l_lovrSoundDataAppend },
   { "setSample", l_lovrSoundDataSetSample },

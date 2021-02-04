@@ -5,15 +5,11 @@ typedef struct {
   int maxSourcesHint;
   int fixedBuffer;
   int sampleRate;
-} SpatializerConfigIn;
-
-typedef struct {
-  bool needFixedBuffer;
-} SpatializerConfigOut;
+} SpatializerConfig;
 
 typedef struct {
   // return true on success
-  bool (*init)(SpatializerConfigIn configIn, SpatializerConfigOut *configOut);
+  bool (*init)(SpatializerConfig config);
   void (*destroy)(void);
 
   // input is mono, output is interleaved stereo, framesIn is mono frames, framesOut is stereo frames.
@@ -30,10 +26,11 @@ typedef struct {
   void (*sourceCreate)(Source* source);
   void (*sourceDestroy)(Source* source);
 
+  bool buffered;
   const char* name;
 } Spatializer;
 
-extern Spatializer dummySpatializer;
+extern Spatializer simpleSpatializer;
 #ifdef LOVR_ENABLE_OCULUS_AUDIO
 extern Spatializer oculusSpatializer;
 #endif

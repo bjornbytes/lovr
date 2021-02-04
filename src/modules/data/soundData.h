@@ -11,14 +11,8 @@ typedef uint32_t SoundDataReader(struct SoundData* soundData, uint32_t offset, u
 
 typedef enum {
   SAMPLE_F32,
-  SAMPLE_I16,
-  SAMPLE_INVALID
+  SAMPLE_I16
 } SampleFormat;
-
-typedef enum {
-  UNIT_SECONDS,
-  UNIT_SAMPLES
-} TimeUnit;
 
 size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt);
 
@@ -41,6 +35,6 @@ void lovrSoundDataDestroy(void* ref);
 size_t lovrSoundDataStreamAppendBuffer(SoundData* soundData, const void* buffer, size_t byteSize);
 size_t lovrSoundDataStreamAppendBlob(SoundData* soundData, struct Blob* blob);
 size_t lovrSoundDataStreamAppendSound(SoundData* soundData, SoundData *src);
-void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value);
-uint32_t lovrSoundDataGetDuration(SoundData* soundData);
+void lovrSoundDataSetSample(SoundData* soundData, uint32_t index, float value);
+uint32_t lovrSoundDataGetFrameCount(SoundData* soundData);
 bool lovrSoundDataIsStream(SoundData* soundData);

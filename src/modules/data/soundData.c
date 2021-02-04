@@ -13,7 +13,7 @@ static const ma_format miniAudioFormat[] = {
   [SAMPLE_F32] = ma_format_f32
 };
 
-static const ma_format sampleSizes[] = {
+static const size_t sampleSizes[] = {
   [SAMPLE_I16] = 2,
   [SAMPLE_F32] = 4
 };
@@ -65,7 +65,7 @@ static uint32_t lovrSoundDataReadMp3(SoundData* soundData, uint32_t offset, uint
 */
 
 static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
-  uint8_t* charData = (uint8_t*)data;
+  uint8_t* charData = (uint8_t*) data;
   size_t bytesPerFrame = SampleFormatBytesPerFrame(soundData->channels, soundData->format);
   size_t totalRead = 0;
   while (count > 0) {
@@ -89,7 +89,6 @@ static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uin
 }
 
 SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, uint32_t sampleRate, SampleFormat format, struct Blob* blob) {
-  lovrAssert(format != SAMPLE_INVALID, "Invalid format");
   SoundData* soundData = lovrAlloc(SoundData);
   soundData->format = format;
   soundData->sampleRate = sampleRate;
@@ -111,7 +110,6 @@ SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, ui
 }
 
 SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t channels, uint32_t sampleRate, SampleFormat format) {
-  lovrAssert(format != SAMPLE_INVALID, "Invalid format");
   SoundData* soundData = lovrAlloc(SoundData);
   soundData->format = format;
   soundData->sampleRate = sampleRate;
@@ -203,24 +201,24 @@ size_t lovrSoundDataStreamAppendSound(SoundData* soundData, SoundData* src) {
   return lovrSoundDataStreamAppendBlob(soundData, src->blob);
 }
 
-void lovrSoundDataSetSample(SoundData* soundData, size_t index, float value) {
+void lovrSoundDataSetSample(SoundData* soundData, uint32_t index, float value) {
   lovrAssert(soundData->blob && soundData->read == lovrSoundDataReadRaw, "Source SoundData must have static PCM data and not be a stream");
-  lovrAssert(index < soundData->frames, "Sample index out of range");
+  lovrAssert(index < soundData->frames * soundData->channels, "Sample index out of range");
   switch (soundData->format) {
     case SAMPLE_I16: ((int16_t*) soundData->blob->data)[index] = value * SHRT_MAX; break;
     case SAMPLE_F32: ((float*) soundData->blob->data)[index] = value; break;
-    default: lovrThrow("Unsupported SoundData format %d\n", soundData->format); break;
+    default: lovrThrow("Unreachable"); break;
   }
 }
 
-bool lovrSoundDataIsStream(SoundData *soundData) {
-  return soundData->read == lovrSoundDataReadRing;
-}
-
-uint32_t lovrSoundDataGetDuration(SoundData *soundData) {
+uint32_t lovrSoundDataGetFrameCount(SoundData *soundData) {
   if (lovrSoundDataIsStream(soundData)) {
     return ma_pcm_rb_available_read(soundData->ring);
   } else {
     return soundData->frames;
   }
+}
+
+bool lovrSoundDataIsStream(SoundData *soundData) {
+  return soundData->read == lovrSoundDataReadRing;
 }

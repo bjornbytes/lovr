@@ -1,8 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "data/soundData.h"
-#include "core/arr.h"
 
 #pragma once
 
@@ -15,21 +13,25 @@ typedef enum {
   AUDIO_CAPTURE
 } AudioType;
 
-typedef struct {
-  const char *spatializer;
-  int spatializerMaxSourcesHint;
-} SpatializerConfig;
+typedef enum {
+  UNIT_SECONDS,
+  UNIT_FRAMES
+} TimeUnit;
 
 typedef struct {
-  AudioType type;
-  const char *name;
+  size_t idSize;
+  const void* id;
+  const char* name;
   bool isDefault;
 } AudioDevice;
 
-typedef arr_t(AudioDevice) AudioDeviceArr;
+typedef void AudioDeviceCallback(AudioDevice* device, void* userdata);
 
-bool lovrAudioInit(SpatializerConfig config);
+bool lovrAudioInit(const char* spatializer);
 void lovrAudioDestroy(void);
+const char* lovrAudioGetSpatializer(void);
+void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
+bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, uint32_t format);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 bool lovrAudioIsStarted(AudioType type);
@@ -38,17 +40,12 @@ void lovrAudioSetVolume(float volume);
 void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
 struct SoundData* lovrAudioGetCaptureStream(void);
-AudioDeviceArr* lovrAudioGetDevices(AudioType type);
-void lovrAudioFreeDevices(AudioDeviceArr* devices);
-void lovrAudioUseDevice(AudioType type, const char* deviceName);
-void lovrAudioSetCaptureFormat(SampleFormat format, uint32_t sampleRate);
-const char* lovrAudioGetSpatializer(void);
 
 // Source
 
 Source* lovrSourceCreate(struct SoundData* soundData, bool spatial);
 void lovrSourceDestroy(void* ref);
-void lovrSourcePlay(Source* source);
+bool lovrSourcePlay(Source* source);
 void lovrSourcePause(Source* source);
 void lovrSourceStop(Source* source);
 bool lovrSourceIsPlaying(Source* source);

@@ -11,7 +11,6 @@
 StringEntry lovrSampleFormat[] = {
   [SAMPLE_F32] = ENTRY("f32"),
   [SAMPLE_I16] = ENTRY("i16"),
-  [SAMPLE_INVALID] = ENTRY("invalid"),
   { 0 }
 };
 

@@ -122,20 +122,6 @@ ifneq (@(CMAKE_DEPS),)
   LIBS_macos += $(BUILD)/glfw/src/libglfw.*dylib
   LIBS_linux += $(BUILD)/glfw/src/libglfw.*so*
 
-  # OpenAL
-  CFLAGS_@(AUDIO)_win32 += -I$(DEPS)/openal-soft/include
-  CFLAGS_@(AUDIO)_macos += -I$(DEPS)/openal-soft/include
-  CFLAGS_@(AUDIO)_linux += -I$(DEPS)/openal-soft/include
-  CFLAGS_@(AUDIO)_android += -I$(DEPS)/openal-soft/include
-  LDFLAGS_@(AUDIO)_win32 += -L$(BUILD)/openal/$(CONFIG) -lOpenAL32
-  LDFLAGS_@(AUDIO)_macos += -L$(BUILD)/openal -lopenal
-  LDFLAGS_@(AUDIO)_linux += -L$(BUILD)/openal -lopenal
-  LDFLAGS_@(AUDIO)_android += -L$(BUILD)/lib/arm64-v8a -lopenal
-  LIBS_@(AUDIO)_win32 += $(BUILD)/openal/$(CONFIG)/OpenAL32.dll
-  LIBS_@(AUDIO)_macos += $(BUILD)/openal/libopenal.*dylib
-  LIBS_@(AUDIO)_linux += $(BUILD)/openal/libopenal.*so*
-  LIBS_@(AUDIO)_android += $(BUILD)/lib/arm64-v8a/libopenal.*so*
-
   # msdfgen
   CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
   LDFLAGS_@(DATA)_win32 += -L$(BUILD)/lib_msdfgen/$(CONFIG) -lmsdfgen
