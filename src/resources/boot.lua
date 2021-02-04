@@ -173,8 +173,8 @@ function lovr.boot()
 end
 
 function lovr.permission(permission, granted)
-  if permission == "audiocapture" and granted then
-    lovr.audio.start("capture")
+  if permission == 'audiocapture' and granted then
+    lovr.audio.start('capture')
   end
 end
 
@@ -197,7 +197,7 @@ function lovr.run()
       lovr.headset.update(dt)
     end
     if lovr.audio and lovr.headset then
-        lovr.audio.setListenerPose(lovr.headset.getPose())
+      lovr.audio.setPose(lovr.headset.getPose())
     end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then

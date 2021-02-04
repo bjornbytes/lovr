@@ -28,11 +28,10 @@ struct {
   bool poseLockInited;
 } state;
 
-static bool oculus_spatializer_init(SpatializerConfigIn configIn, SpatializerConfigOut* configOut) {
+static bool oculus_spatializer_init(SpatializerConfig config) {
   // Initialize own state
-  state.sampleRate = configIn.sampleRate;
-  configOut->needFixedBuffer = true;
-  state.sourceMax = configIn.maxSourcesHint;
+  state.sampleRate = config.sampleRate;
+  state.sourceMax = config.maxSourcesHint;
   state.sources = calloc(state.sourceMax, sizeof(SourceRecord));
 
   if (!state.poseLockInited) {
@@ -42,14 +41,14 @@ static bool oculus_spatializer_init(SpatializerConfigIn configIn, SpatializerCon
   }
 
   // Initialize Oculus
-  ovrAudioContextConfiguration config = { 0 };
+  ovrAudioContextConfiguration contextConfig = { 0 };
 
-  config.acc_Size = sizeof( config );
-  config.acc_MaxNumSources = state.sourceMax;
-  config.acc_SampleRate = state.sampleRate;
-  config.acc_BufferLength = configIn.fixedBuffer; // Stereo
+  contextConfig.acc_Size = sizeof(contextConfig);
+  contextConfig.acc_MaxNumSources = state.sourceMax;
+  contextConfig.acc_SampleRate = state.sampleRate;
+  contextConfig.acc_BufferLength = config.fixedBuffer; // Stereo
 
-  if (ovrAudio_CreateContext(&state.context, &config) != ovrSuccess) {
+  if (ovrAudio_CreateContext(&state.context, &contextConfig) != ovrSuccess) {
     return false;
   }
 
@@ -226,12 +225,13 @@ static void oculus_spatializer_source_destroy(Source *source) {
 }
 
 Spatializer oculusSpatializer = {
-  oculus_spatializer_init,
-  oculus_spatializer_destroy,
-  oculus_spatializer_source_apply,
-  oculus_spatializer_tail,
-  oculus_spatializer_setListenerPose,
-  oculus_spatializer_source_create,
-  oculus_spatializer_source_destroy, // Need noop
-  "oculus"
+  .init = oculus_spatializer_init,
+  .destroy = oculus_spatializer_destroy,
+  .apply = oculus_spatializer_source_apply,
+  .tail = oculus_spatializer_tail,
+  .setListenerPose = oculus_spatializer_setListenerPose,
+  .sourceCreate = oculus_spatializer_source_create,
+  .sourceDestroy = oculus_spatializer_source_destroy, // Need noop
+  .buffered = true,
+  .name = "oculus"
 };

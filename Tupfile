@@ -16,7 +16,7 @@ SRC += src/core/util.c
 SRC += src/core/zip.c
 
 # modules
-SRC_@(AUDIO) += src/modules/audio/audio.c src/modules/audio/spatializers/dummy_spatializer.c
+SRC_@(AUDIO) += src/modules/audio/audio.c src/modules/audio/spatializers/simple_spatializer.c
 SRC_@(DATA) += src/modules/data/*.c
 SRC_@(EVENT) += src/modules/event/*.c
 SRC_@(FILESYSTEM) += src/modules/filesystem/*.c

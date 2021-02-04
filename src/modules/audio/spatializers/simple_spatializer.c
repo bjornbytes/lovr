@@ -5,16 +5,16 @@ static struct {
   float listener[16];
 } state;
 
-bool dummy_spatializer_init(SpatializerConfigIn configIn, SpatializerConfigOut* configOut) {
+bool simple_spatializer_init(SpatializerConfig config) {
   mat4_identity(state.listener);
   return true;
 }
 
-void dummy_spatializer_destroy(void) {
+void simple_spatializer_destroy(void) {
   //
 }
 
-uint32_t dummy_spatializer_source_apply(Source* source, const float* input, float* output, uint32_t frames, uint32_t _frames) {
+uint32_t simple_spatializer_source_apply(Source* source, const float* input, float* output, uint32_t frames, uint32_t _frames) {
   float sourcePos[4], sourceOrientation[4];
   lovrSourceGetPose(source, sourcePos, sourceOrientation);
 
@@ -40,31 +40,32 @@ uint32_t dummy_spatializer_source_apply(Source* source, const float* input, floa
   return frames;
 }
 
-uint32_t dummy_spatializer_tail(float* scratch, float* output, uint32_t frames) {
+uint32_t simple_spatializer_tail(float* scratch, float* output, uint32_t frames) {
   return 0;
 }
 
-void dummy_spatializer_setListenerPose(float position[4], float orientation[4]) {
+void simple_spatializer_setListenerPose(float position[4], float orientation[4]) {
   mat4_identity(state.listener);
   mat4_translate(state.listener, position[0], position[1], position[2]);
   mat4_rotateQuat(state.listener, orientation);
 }
 
-void dummy_spatializer_source_create(Source* source) {
+void simple_spatializer_source_create(Source* source) {
   //
 }
 
-void dummy_spatializer_source_destroy(Source* source) {
+void simple_spatializer_source_destroy(Source* source) {
   //
 }
 
-Spatializer dummySpatializer = {
-  dummy_spatializer_init,
-  dummy_spatializer_destroy,
-  dummy_spatializer_source_apply,
-  dummy_spatializer_tail,
-  dummy_spatializer_setListenerPose,
-  dummy_spatializer_source_create,
-  dummy_spatializer_source_destroy,
-  "dummy"
+Spatializer simpleSpatializer = {
+  .init = simple_spatializer_init,
+  .destroy = simple_spatializer_destroy,
+  .apply = simple_spatializer_source_apply,
+  .tail = simple_spatializer_tail,
+  .setListenerPose = simple_spatializer_setListenerPose,
+  .sourceCreate = simple_spatializer_source_create,
+  .sourceDestroy = simple_spatializer_source_destroy,
+  .buffered = false,
+  .name = "simple"
 };
