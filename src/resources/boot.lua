@@ -112,6 +112,10 @@ function lovr.boot()
       thread = true,
       timer = true
     },
+    audio = {
+      start = true,
+      spatializer = 'simple'
+    },
     graphics = {
       debug = false
     },

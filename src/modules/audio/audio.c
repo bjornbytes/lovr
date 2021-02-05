@@ -267,6 +267,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRa
   ma_device_config config;
 
   if (type == AUDIO_PLAYBACK) {
+    sampleRate = sampleRate ? sampleRate : PLAYBACK_SAMPLE_RATE;
     lovrAssert(sampleRate == PLAYBACK_SAMPLE_RATE, "Playback sample rate must be %d", PLAYBACK_SAMPLE_RATE);
     lovrAssert(format == SAMPLE_F32, "Playback format must be f32");
     config = ma_device_config_init(ma_device_type_playback);
