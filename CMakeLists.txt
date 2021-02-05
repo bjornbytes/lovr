@@ -668,6 +668,8 @@ elseif(ANDROID)
       COMMAND ${CMAKE_COMMAND} -E remove_directory org
     )
 
+    add_dependencies(buildAPK lovr)
+
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
       add_custom_command(TARGET lovr POST_BUILD
