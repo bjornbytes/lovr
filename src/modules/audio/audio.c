@@ -159,9 +159,9 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
   ma_mutex_unlock(&state.lock);
 }
 
-static void onCapture(ma_device* device, void* output, const void* input, uint32_t frames) {
-  size_t bytesPerFrame = SampleFormatBytesPerFrame(CAPTURE_CHANNELS, state.captureStream->format);
-  lovrSoundDataStreamAppendBuffer(state.captureStream, (float*) input, frames * bytesPerFrame);
+static void onCapture(ma_device* device, void* output, const void* input, uint32_t count) {
+  size_t stride = lovrSoundDataGetStride(state.captureStream);
+  lovrSoundDataStreamAppendBuffer(state.captureStream, (float*) input, count * stride);
 }
 
 static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };

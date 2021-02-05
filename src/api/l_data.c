@@ -8,12 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-StringEntry lovrSampleFormat[] = {
-  [SAMPLE_F32] = ENTRY("f32"),
-  [SAMPLE_I16] = ENTRY("i16"),
-  { 0 }
-};
-
 static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;
   uint8_t* data = NULL;
