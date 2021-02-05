@@ -4,6 +4,8 @@
 
 #pragma once
 
+#define PLAYBACK_SAMPLE_RATE 48000
+
 struct SoundData;
 
 typedef struct Source Source;

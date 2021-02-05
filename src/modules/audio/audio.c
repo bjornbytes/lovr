@@ -66,10 +66,9 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
     state.leftoverFrames -= leftoverFrames;
     output += leftoverFrames * OUTPUT_CHANNELS;
     count -= leftoverFrames;
-  }
-
-  if (count == 0) {
-    return;
+    if (count == 0) {
+      return;
+    }
   }
 
   ma_mutex_lock(&state.lock);
@@ -185,7 +184,7 @@ bool lovrAudioInit(const char* spatializer) {
   SpatializerConfig spatializerConfig = {
     .maxSourcesHint = MAX_SOURCES,
     .fixedBuffer = BUFFER_SIZE,
-    .sampleRate = 44100
+    .sampleRate = PLAYBACK_SAMPLE_RATE
   };
 
   for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
@@ -264,8 +263,8 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRa
   ma_device_config config;
 
   if (type == AUDIO_PLAYBACK) {
-    lovrAssert(sampleRate == 44100, "");
-    lovrAssert(format == SAMPLE_F32, "");
+    lovrAssert(sampleRate == PLAYBACK_SAMPLE_RATE, "Playback sample rate must be %d", PLAYBACK_SAMPLE_RATE);
+    lovrAssert(format == SAMPLE_F32, "Playback format must be f32");
     config = ma_device_config_init(ma_device_type_playback);
     config.playback.pDeviceID = (ma_device_id*) id;
     config.playback.format = miniaudioFormats[format];
@@ -280,7 +279,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRa
   }
 
   config.sampleRate = sampleRate;
-  config.performanceProfile = ma_performance_profile_low_latency;
+  config.periodSizeInFrames = BUFFER_SIZE;
   config.dataCallback = callbacks[type];
 
   ma_device_uninit(&state.devices[type]);
@@ -350,7 +349,7 @@ Source* lovrSourceCreate(SoundData* sound, bool spatial) {
     config.channelsIn = sound->channels;
     config.channelsOut = outputChannelCountForSource(source);
     config.sampleRateIn = sound->sampleRate;
-    config.sampleRateOut = 44100;
+    config.sampleRateOut = PLAYBACK_SAMPLE_RATE;
 
     ma_data_converter* converter = malloc(sizeof(ma_data_converter));
     ma_result converterStatus = ma_data_converter_init(&config, converter);
