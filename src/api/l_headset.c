@@ -87,7 +87,7 @@ static void renderHelper(void* userdata) {
   lua_State* L = renderData->L;
 #ifdef LOVR_USE_PICO
   luax_geterror(L);
-  if (lua_isnil(L, -1)) {
+  if (lua_isnil(L, -1) && renderData->ref != LUA_REFNIL) {
     lua_pushcfunction(L, luax_getstack);
     lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
     if (lua_pcall(L, 0, 0, -2)) {
@@ -97,7 +97,9 @@ static void renderHelper(void* userdata) {
   }
   lua_pop(L, 1);
 #else
-  lua_call(L, 0, 0);
+  if (lua_isfunction(L, -1)) {
+    lua_call(L, 0, 0);
+  }
 #endif
 }
 
@@ -642,7 +644,6 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
 
 static int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
-  luaL_checktype(L, 1, LUA_TFUNCTION);
 
 #ifdef LOVR_USE_PICO
   if (headsetRenderData.ref != LUA_NOREF) {

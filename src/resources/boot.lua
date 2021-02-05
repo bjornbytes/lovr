@@ -200,13 +200,11 @@ function lovr.run()
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
       lovr.graphics.origin()
-      if lovr.draw then
-        if lovr.headset then
-          lovr.headset.renderTo(lovr.draw)
-        end
-        if lovr.graphics.hasWindow() then
-          lovr.mirror()
-        end
+      if lovr.headset then
+        lovr.headset.renderTo(lovr.draw)
+      end
+      if lovr.graphics.hasWindow() then
+        lovr.mirror()
       end
       lovr.graphics.present()
     end
@@ -231,7 +229,9 @@ function lovr.mirror()
     lovr.graphics.setBlendMode(blend, alpha)
   else
     lovr.graphics.clear()
-    lovr.draw()
+    if lovr.draw then
+      lovr.draw()
+    end
   end
 end
 
