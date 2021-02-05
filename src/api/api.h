@@ -75,6 +75,7 @@ typedef struct {
 
 extern StringEntry lovrArcMode[];
 extern StringEntry lovrAttributeType[];
+extern StringEntry lovrAudioType[];
 extern StringEntry lovrBlendAlphaMode[];
 extern StringEntry lovrBlendMode[];
 extern StringEntry lovrBlockType[];
@@ -82,7 +83,7 @@ extern StringEntry lovrBufferUsage[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCoordinateSpace[];
 extern StringEntry lovrDevice[];
-extern StringEntry lovrDeviceAxe[];
+extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];
 extern StringEntry lovrDrawMode[];
 extern StringEntry lovrDrawStyle[];
@@ -97,7 +98,6 @@ extern StringEntry lovrMaterialScalar[];
 extern StringEntry lovrMaterialTexture[];
 extern StringEntry lovrShaderType[];
 extern StringEntry lovrShapeType[];
-extern StringEntry lovrSourceType[];
 extern StringEntry lovrStencilAction[];
 extern StringEntry lovrTextureFormat[];
 extern StringEntry lovrTextureType[];

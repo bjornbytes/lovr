@@ -14,8 +14,6 @@ typedef enum {
   SAMPLE_I16
 } SampleFormat;
 
-size_t SampleFormatBytesPerFrame(int channelCount, SampleFormat fmt);
-
 typedef struct SoundData {
   SoundDataReader* read;
   void* decoder;
@@ -29,12 +27,18 @@ typedef struct SoundData {
 } SoundData;
 
 SoundData* lovrSoundDataCreateRaw(uint32_t frames, uint32_t channels, uint32_t sampleRate, SampleFormat format, struct Blob* data);
-SoundData* lovrSoundDataCreateStream(uint32_t bufferSizeInFrames, uint32_t channels, uint32_t sampleRate, SampleFormat format);
+SoundData* lovrSoundDataCreateStream(uint32_t frames, uint32_t channels, uint32_t sampleRate, SampleFormat format);
 SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode);
 void lovrSoundDataDestroy(void* ref);
+SampleFormat lovrSoundDataGetFormat(SoundData* soundData);
+uint32_t lovrSoundDataGetSampleRate(SoundData* soundData);
+uint32_t lovrSoundDataGetChannelCount(SoundData* soundData);
+uint32_t lovrSoundDataGetFrameCount(SoundData* soundData);
+size_t lovrSoundDataGetStride(SoundData* soundData);
+bool lovrSoundDataIsCompressed(SoundData* soundData);
+bool lovrSoundDataIsStream(SoundData* soundData);
+
 size_t lovrSoundDataStreamAppendBuffer(SoundData* soundData, const void* buffer, size_t byteSize);
 size_t lovrSoundDataStreamAppendBlob(SoundData* soundData, struct Blob* blob);
 size_t lovrSoundDataStreamAppendSound(SoundData* soundData, SoundData *src);
 void lovrSoundDataSetSample(SoundData* soundData, uint32_t index, float value);
-uint32_t lovrSoundDataGetFrameCount(SoundData* soundData);
-bool lovrSoundDataIsStream(SoundData* soundData);
