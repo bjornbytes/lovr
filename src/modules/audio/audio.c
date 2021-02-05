@@ -79,6 +79,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
     float mix[BUFFER_SIZE * 2];
 
     float* dst = count >= BUFFER_SIZE ? output : state.leftovers;
+    float* src = NULL; // The "current" buffer (used for fast paths)
 
     if (dst == state.leftovers) {
       memset(dst, 0, sizeof(state.leftovers));
@@ -92,25 +93,28 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
         continue;
       }
 
+      // Read and convert raw frames until there's BUFFER_SIZE converted frames
       uint32_t channels = outputChannelCountForSource(source);
+      uint64_t frameLimit = sizeof(raw) / source->sound->channels / sizeof(float);
       uint32_t framesToConvert = BUFFER_SIZE;
       uint32_t framesConverted = 0;
       while (framesToConvert > 0) {
-        uint64_t rawCapacity = sizeof(raw) / source->sound->channels / sizeof(float);
-        uint64_t framesToRead = MIN(ma_data_converter_get_required_input_frame_count(source->converter, framesToConvert), rawCapacity);
-        uint64_t framesRead = source->sound->read(source->sound, source->offset, framesToRead, raw);
-
+        src = raw;
+        uint64_t framesToRead = source->converter ? MIN(ma_data_converter_get_required_input_frame_count(source->converter, framesToConvert), frameLimit) : framesToConvert;
+        uint64_t framesRead = source->sound->read(source->sound, source->offset, framesToRead, src);
         ma_uint64 framesIn = framesRead;
         ma_uint64 framesOut = framesToConvert;
-        ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, aux + framesConverted * channels, &framesOut);
-        // assert(framesIn == framesRead);
-        // assert(framesOut <= framesToConvert);
+
+        if (source->converter) {
+          ma_data_converter_process_pcm_frames(source->converter, src, &framesIn, aux + framesConverted * channels, &framesOut);
+          src = aux;
+        }
 
         if (framesRead < framesToRead) {
           source->offset = 0;
           if (!source->looping) {
             source->playing = false;
-            memset(aux + framesConverted * channels, 0, framesToConvert * channels * sizeof(float));
+            memset(src + framesConverted * channels, 0, framesToConvert * channels * sizeof(float));
             break;
           }
         }
@@ -120,15 +124,16 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
         source->offset += framesRead;
       }
 
+      // Spatialize
       if (source->spatial) {
-        state.spatializer->apply(source, aux, mix, BUFFER_SIZE, BUFFER_SIZE);
-      } else {
-        memcpy(mix, aux, BUFFER_SIZE * OUTPUT_CHANNELS * sizeof(float));
+        state.spatializer->apply(source, src, mix, BUFFER_SIZE, BUFFER_SIZE);
+        src = mix;
       }
 
+      // Mix
       float volume = source->volume;
       for (uint32_t i = 0; i < OUTPUT_CHANNELS * BUFFER_SIZE; i++) {
-        dst[i] += mix[i] * volume;
+        dst[i] += src[i] * volume;
       }
 
       list = &source->next;
@@ -140,14 +145,13 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       dst[i] += mix[i];
     }
 
-    // Copy leftovers to output
+    // Copy some leftovers to output
     if (dst == state.leftovers) {
       memcpy(output, state.leftovers, count * OUTPUT_CHANNELS * sizeof(float));
       state.leftoverFrames = BUFFER_SIZE - count;
       state.leftoverOffset = count;
     }
 
-    // Scroll
     output += BUFFER_SIZE * OUTPUT_CHANNELS;
     count -= MIN(count, BUFFER_SIZE);
   } while (count > 0);
@@ -332,31 +336,33 @@ Source* lovrSourceCreate(SoundData* sound, bool spatial) {
   source->volume = 1.f;
   source->spatial = spatial;
 
-  for (size_t i = 0; i < state.converters.length; i++) {
-    ma_data_converter* converter = state.converters.data[i];
-    if (converter->config.formatIn != miniaudioFormats[sound->format]) continue;
-    if (converter->config.sampleRateIn != sound->sampleRate) continue;
-    if (converter->config.channelsIn != sound->channels) continue;
-    if (converter->config.channelsOut != outputChannelCountForSource(source)) continue;
-    source->converter = converter;
-    break;
-  }
+  if (sound->format != OUTPUT_FORMAT || sound->channels != outputChannelCountForSource(source) || sound->sampleRate != PLAYBACK_SAMPLE_RATE) {
+    for (size_t i = 0; i < state.converters.length; i++) {
+      ma_data_converter* converter = state.converters.data[i];
+      if (converter->config.formatIn != miniaudioFormats[sound->format]) continue;
+      if (converter->config.sampleRateIn != sound->sampleRate) continue;
+      if (converter->config.channelsIn != sound->channels) continue;
+      if (converter->config.channelsOut != outputChannelCountForSource(source)) continue;
+      source->converter = converter;
+      break;
+    }
 
-  if (!source->converter) {
-    ma_data_converter_config config = ma_data_converter_config_init_default();
-    config.formatIn = miniaudioFormats[sound->format];
-    config.formatOut = miniaudioFormats[OUTPUT_FORMAT];
-    config.channelsIn = sound->channels;
-    config.channelsOut = outputChannelCountForSource(source);
-    config.sampleRateIn = sound->sampleRate;
-    config.sampleRateOut = PLAYBACK_SAMPLE_RATE;
+    if (!source->converter) {
+      ma_data_converter_config config = ma_data_converter_config_init_default();
+      config.formatIn = miniaudioFormats[sound->format];
+      config.formatOut = miniaudioFormats[OUTPUT_FORMAT];
+      config.channelsIn = sound->channels;
+      config.channelsOut = outputChannelCountForSource(source);
+      config.sampleRateIn = sound->sampleRate;
+      config.sampleRateOut = PLAYBACK_SAMPLE_RATE;
 
-    ma_data_converter* converter = malloc(sizeof(ma_data_converter));
-    ma_result converterStatus = ma_data_converter_init(&config, converter);
-    lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %s (%d)", state.converters.length, ma_result_description(converterStatus), converterStatus);
+      ma_data_converter* converter = malloc(sizeof(ma_data_converter));
+      ma_result converterStatus = ma_data_converter_init(&config, converter);
+      lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %s (%d)", state.converters.length, ma_result_description(converterStatus), converterStatus);
 
-    arr_push(&state.converters, converter);
-    source->converter = converter;
+      arr_push(&state.converters, converter);
+      source->converter = converter;
+    }
   }
 
   state.spatializer->sourceCreate(source);
