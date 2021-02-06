@@ -20,14 +20,7 @@ typedef enum {
   UNIT_FRAMES
 } TimeUnit;
 
-typedef struct {
-  size_t idSize;
-  const void* id;
-  const char* name;
-  bool isDefault;
-} AudioDevice;
-
-typedef void AudioDeviceCallback(AudioDevice* device, void* userdata);
+typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
 
 bool lovrAudioInit(const char* spatializer);
 void lovrAudioDestroy(void);

@@ -19,15 +19,15 @@ StringEntry lovrTimeUnit[] = {
   { 0 }
 };
 
-static void onDevice(AudioDevice* device, void* userdata) {
+static void onDevice(const void* id, size_t size, const char* name, bool isDefault, void* userdata) {
   lua_State* L = userdata;
   lua_createtable(L, 0, 3);
-  void* id = lua_newuserdata(L, device->idSize);
-  memcpy(id, device->id, device->idSize);
+  void* p = lua_newuserdata(L, size);
+  memcpy(p, id, size);
   lua_setfield(L, -2, "id");
-  lua_pushstring(L, device->name);
+  lua_pushstring(L, name);
   lua_setfield(L, -2, "name");
-  lua_pushboolean(L, device->isDefault);
+  lua_pushboolean(L, isDefault);
   lua_setfield(L, -2, "default");
   lua_rawseti(L, -2, luax_len(L, -2) + 1);
 }
