@@ -228,30 +228,21 @@ const char* lovrAudioGetSpatializer() {
   return state.spatializer->name;
 }
 
-static LOVR_THREAD_LOCAL struct {
-  AudioType type;
-  AudioDeviceCallback* callback;
-} enumerateContext;
+static AudioDeviceCallback* enumerateCallback;
 
-static ma_bool32 enumerateCallback(ma_context* context, ma_device_type type, const ma_device_info* info, void* userdata) {
-  if (type == (enumerateContext.type == AUDIO_PLAYBACK ? ma_device_type_playback : ma_device_type_capture)) {
-    AudioDevice device = {
-      .id = &info->id,
-      .idSize = sizeof(info->id),
-      .name = info->name,
-      .isDefault = info->isDefault
-    };
+static ma_bool32 enumPlayback(ma_context* context, ma_device_type type, const ma_device_info* info, void* userdata) {
+  if (type == ma_device_type_playback) enumerateCallback(&info->id, sizeof(info->id), info->name, info->isDefault, userdata);
+  return MA_TRUE;
+}
 
-    enumerateContext.callback(&device, userdata);
-  }
-
+static ma_bool32 enumCapture(ma_context* context, ma_device_type type, const ma_device_info* info, void* userdata) {
+  if (type == ma_device_type_capture) enumerateCallback(&info->id, sizeof(info->id), info->name, info->isDefault, userdata);
   return MA_TRUE;
 }
 
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata) {
-  enumerateContext.type = type;
-  enumerateContext.callback = callback;
-  ma_context_enumerate_devices(&state.context, enumerateCallback, userdata);
+  enumerateCallback = callback;
+  ma_context_enumerate_devices(&state.context, type == AUDIO_PLAYBACK ? enumPlayback : enumCapture, userdata);
 }
 
 bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, SampleFormat format, bool exclusive) {
