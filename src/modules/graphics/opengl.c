@@ -1736,7 +1736,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
   uint32_t maxSize = (uint32_t) state.limits.textureSize;
   lovrAssert(!texture->allocated, "Texture is already allocated");
   lovrAssert(texture->type != TEXTURE_CUBE || width == height, "Cubemap images must be square");
-  lovrAssert(texture->type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture\n");
+  lovrAssert(texture->type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture");
   lovrAssert(texture->type != TEXTURE_2D || depth == 1, "2D textures can only contain a single image");
   lovrAssert(width < maxSize, "Texture width %d exceeds max of %d", width, maxSize);
   lovrAssert(height < maxSize, "Texture height %d exceeds max of %d", height, maxSize);
@@ -2129,7 +2129,7 @@ const Attachment* lovrCanvasGetAttachments(Canvas* canvas, uint32_t* count) {
 
 void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, uint32_t count) {
   lovrAssert(count > 0, "A Canvas must have at least one attached Texture");
-  lovrAssert(count <= MAX_CANVAS_ATTACHMENTS, "Only %d textures can be attached to a Canvas, got %d\n", MAX_CANVAS_ATTACHMENTS, count);
+  lovrAssert(count <= MAX_CANVAS_ATTACHMENTS, "Only %d textures can be attached to a Canvas, got %d", MAX_CANVAS_ATTACHMENTS, count);
 
   if (!canvas->needsAttach && count == canvas->attachmentCount && !memcmp(canvas->attachments, attachments, count * sizeof(Attachment))) {
     return;

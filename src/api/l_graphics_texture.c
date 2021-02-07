@@ -3,7 +3,7 @@
 
 int luax_optmipmap(lua_State* L, int index, Texture* texture) {
   uint32_t mipmap = luaL_optinteger(L, index, 1);
-  lovrAssert(mipmap <= lovrTextureGetMipmapCount(texture), "Invalid mipmap %d\n", mipmap);
+  lovrAssert(mipmap <= lovrTextureGetMipmapCount(texture), "Invalid mipmap %d", mipmap);
   return mipmap - 1;
 }
 
