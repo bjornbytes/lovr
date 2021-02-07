@@ -254,7 +254,7 @@ void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, vo
   ma_context_enumerate_devices(&state.context, enumerateCallback, userdata);
 }
 
-bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, SampleFormat format) {
+bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, SampleFormat format, bool exclusive) {
   if (id && size != sizeof(ma_device_id)) return false;
 
 #ifdef ANDROID
@@ -274,11 +274,13 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRa
     config.playback.pDeviceID = (ma_device_id*) id;
     config.playback.format = miniaudioFormats[format];
     config.playback.channels = OUTPUT_CHANNELS;
+    config.playback.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared;
   } else {
     config = ma_device_config_init(ma_device_type_capture);
     config.capture.pDeviceID = (ma_device_id*) id;
     config.capture.format = miniaudioFormats[format];
     config.capture.channels = CAPTURE_CHANNELS;
+    config.capture.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared;
     lovrRelease(SoundData, state.captureStream);
     state.captureStream = lovrSoundDataCreateStream(sampleRate * 1., CAPTURE_CHANNELS, sampleRate, format);
   }

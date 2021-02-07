@@ -33,7 +33,7 @@ bool lovrAudioInit(const char* spatializer);
 void lovrAudioDestroy(void);
 const char* lovrAudioGetSpatializer(void);
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
-bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, uint32_t format);
+bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, uint32_t format, bool exclusive);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 bool lovrAudioIsStarted(AudioType type);
