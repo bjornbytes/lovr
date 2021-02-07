@@ -53,7 +53,7 @@ void lovrEventDestroy() {
   for (size_t i = state.head; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
     switch (event->type) {
-#if LOVR_ENABLE_THREAD
+#ifndef LOVR_DISABLE_THREAD
       case EVENT_THREAD_ERROR: lovrRelease(Thread, event->data.thread.thread); break;
 #endif
       case EVENT_CUSTOM:
@@ -75,7 +75,7 @@ void lovrEventPump() {
 }
 
 void lovrEventPush(Event event) {
-#ifdef LOVR_ENABLE_THREAD
+#ifndef LOVR_DISABLE_THREAD
   if (event.type == EVENT_THREAD_ERROR) {
     lovrRetain(event.data.thread.thread);
   }

@@ -4,34 +4,34 @@
 
 const luaL_Reg lovrModules[] = {
   { "lovr", luaopen_lovr },
-#ifdef LOVR_ENABLE_AUDIO
+#ifndef LOVR_DISABLE_AUDIO
   { "lovr.audio", luaopen_lovr_audio },
 #endif
-#ifdef LOVR_ENABLE_DATA
+#ifndef LOVR_DISABLE_DATA
   { "lovr.data", luaopen_lovr_data },
 #endif
-#ifdef LOVR_ENABLE_EVENT
+#ifndef LOVR_DISABLE_EVENT
   { "lovr.event", luaopen_lovr_event },
 #endif
-#ifdef LOVR_ENABLE_FILESYSTEM
+#ifndef LOVR_DISABLE_FILESYSTEM
   { "lovr.filesystem", luaopen_lovr_filesystem },
 #endif
-#ifdef LOVR_ENABLE_GRAPHICS
+#ifndef LOVR_DISABLE_GRAPHICS
   { "lovr.graphics", luaopen_lovr_graphics },
 #endif
-#ifdef LOVR_ENABLE_HEADSET
+#ifndef LOVR_DISABLE_HEADSET
   { "lovr.headset", luaopen_lovr_headset },
 #endif
-#ifdef LOVR_ENABLE_MATH
+#ifndef LOVR_DISABLE_MATH
   { "lovr.math", luaopen_lovr_math },
 #endif
-#ifdef LOVR_ENABLE_PHYSICS
+#ifndef LOVR_DISABLE_PHYSICS
   { "lovr.physics", luaopen_lovr_physics },
 #endif
-#ifdef LOVR_ENABLE_THREAD
+#ifndef LOVR_DISABLE_THREAD
   { "lovr.thread", luaopen_lovr_thread },
 #endif
-#ifdef LOVR_ENABLE_TIMER
+#ifndef LOVR_DISABLE_TIMER
   { "lovr.timer", luaopen_lovr_timer },
 #endif
   { NULL, NULL }

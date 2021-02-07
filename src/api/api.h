@@ -156,22 +156,22 @@ void luax_readcolor(lua_State* L, int index, struct Color* color);
 
 // Module helpers
 
-#ifdef LOVR_ENABLE_DATA
+#ifndef LOVR_DISABLE_DATA
 struct Blob;
 struct Blob* luax_readblob(lua_State* L, int index, const char* debug);
 #endif
 
-#ifdef LOVR_ENABLE_EVENT
+#ifndef LOVR_DISABLE_EVENT
 struct Variant;
 void luax_checkvariant(lua_State* L, int index, struct Variant* variant);
 int luax_pushvariant(lua_State* L, struct Variant* variant);
 #endif
 
-#ifdef LOVR_ENABLE_FILESYSTEM
+#ifndef LOVR_DISABLE_FILESYSTEM
 void* luax_readfile(const char* filename, size_t* bytesRead);
 #endif
 
-#ifdef LOVR_ENABLE_GRAPHICS
+#ifndef LOVR_DISABLE_GRAPHICS
 struct Attachment;
 struct Texture;
 struct Uniform;
@@ -180,7 +180,7 @@ int luax_optmipmap(lua_State* L, int index, struct Texture* texture);
 void luax_readattachments(lua_State* L, int index, struct Attachment* attachments, int* count);
 #endif
 
-#ifdef LOVR_ENABLE_MATH
+#ifndef LOVR_DISABLE_MATH
 #include "math/pool.h" // TODO
 float* luax_tovector(lua_State* L, int index, VectorType* type);
 float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
@@ -192,7 +192,7 @@ int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);
 uint64_t luax_checkrandomseed(lua_State* L, int index);
 #endif
 
-#ifdef LOVR_ENABLE_PHYSICS
+#ifndef LOVR_DISABLE_PHYSICS
 struct Joint;
 struct Shape;
 void luax_pushjoint(lua_State* L, struct Joint* joint);

@@ -337,17 +337,17 @@ target_link_libraries(lovr
 )
 
 if(LOVR_ENABLE_AUDIO)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/modules/audio/audio.c
     src/api/l_audio.c
     src/api/l_audio_source.c
     src/api/l_audio_microphone.c
   )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_AUDIO)
 endif()
 
 if(LOVR_ENABLE_DATA)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
     src/modules/data/audioStream.c
     src/modules/data/blob.c
@@ -369,27 +369,30 @@ if(LOVR_ENABLE_DATA)
     src/lib/stb/stb_vorbis.c
     src/lib/jsmn/jsmn.c
   )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_DATA)
 endif()
 
 if(LOVR_ENABLE_EVENT)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_EVENT)
   target_sources(lovr PRIVATE
     src/modules/event/event.c
     src/api/l_event.c
   )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_EVENT)
 endif()
 
 if(LOVR_ENABLE_FILESYSTEM)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
     src/modules/filesystem/filesystem.c
     src/modules/filesystem/file.c
     src/api/l_filesystem.c
   )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_FILESYSTEM)
 endif()
 
 if(LOVR_ENABLE_GRAPHICS)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
     src/modules/graphics/font.c
     src/modules/graphics/graphics.c
@@ -409,9 +412,10 @@ if(LOVR_ENABLE_GRAPHICS)
     src/lib/glad/glad.c
   )
 endif()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
+endif()
 
 if(LOVR_ENABLE_HEADSET)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
     src/api/l_headset.c
     src/modules/headset/headset.c
@@ -445,10 +449,11 @@ if(LOVR_ENABLE_HEADSET)
     target_compile_definitions(lovr PRIVATE LOVR_USE_DESKTOP_HEADSET)
     target_sources(lovr PRIVATE src/modules/headset/headset_desktop.c)
   endif()
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_HEADSET)
 endif()
 
 if(LOVR_ENABLE_MATH)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_MATH)
   target_sources(lovr PRIVATE
     src/modules/math/math.c
     src/modules/math/curve.c
@@ -460,10 +465,11 @@ if(LOVR_ENABLE_MATH)
     src/api/l_math_vectors.c
     src/lib/noise1234/noise1234.c
   )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_MATH)
 endif()
 
 if(LOVR_ENABLE_PHYSICS)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_PHYSICS)
   target_sources(lovr PRIVATE
     src/modules/physics/physics.c
     src/api/l_physics.c
@@ -472,10 +478,11 @@ if(LOVR_ENABLE_PHYSICS)
     src/api/l_physics_shapes.c
     src/api/l_physics_world.c
   )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_PHYSICS)
 endif()
 
 if(LOVR_ENABLE_THREAD)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_THREAD)
   target_sources(lovr PRIVATE
     src/modules/thread/channel.c
     src/modules/thread/thread.c
@@ -484,11 +491,14 @@ if(LOVR_ENABLE_THREAD)
     src/api/l_thread_thread.c
     src/lib/tinycthread/tinycthread.c
   )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_THREAD)
 endif()
 
 if(LOVR_ENABLE_TIMER)
-  target_compile_definitions(lovr PRIVATE LOVR_ENABLE_TIMER)
   target_sources(lovr PRIVATE src/modules/timer/timer.c src/api/l_timer.c)
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_TIMER)
 endif()
 
 # Resources

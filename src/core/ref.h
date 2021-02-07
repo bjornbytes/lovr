@@ -7,7 +7,7 @@
 #define __has_builtin(x) 0
 #endif
 
-#ifndef LOVR_ENABLE_THREAD
+#ifdef LOVR_DISABLE_THREAD
 
 // Thread module is off, don't use atomics
 
@@ -39,7 +39,7 @@ static inline uint32_t ref_dec(Ref* ref) { return __atomic_sub_fetch(ref, 1, __A
 
 // stdatomic.h doesn't work in c++ (except on Android, where it is fine)
 #if !defined(__ANDROID__) && defined(__cplusplus)
-#error "The header core/ref.h cannot currently be included from C++ when threading is enabled with this compiler. Either remove your ref.h include from any C++ files, or rebuild LOVR with -DLOVR_ENABLE_THREAD=OFF"
+#error "The header core/ref.h cannot currently be included from C++ when threading is enabled with this compiler. Either remove your ref.h include from any C++ files, or rebuild LOVR with -DLOVR_DISABLE_THREAD=ON"
 #endif
 
 #include <stdatomic.h>

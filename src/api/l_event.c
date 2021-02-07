@@ -15,7 +15,7 @@ StringEntry lovrEventType[] = {
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
   [EVENT_KEYRELEASED] = ENTRY("keyreleased"),
   [EVENT_TEXTINPUT] = ENTRY("textinput"),
-#ifdef LOVR_ENABLE_THREAD
+#ifndef LOVR_DISABLE_THREAD
   [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
 #endif
   { 0 }
@@ -220,7 +220,7 @@ static int nextEvent(lua_State* L) {
       lua_pushinteger(L, event.data.text.codepoint);
       return 3;
 
-#ifdef LOVR_ENABLE_THREAD
+#ifndef LOVR_DISABLE_THREAD
     case EVENT_THREAD_ERROR:
       luax_pushtype(L, Thread, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
