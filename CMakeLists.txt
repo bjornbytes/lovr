@@ -411,7 +411,7 @@ if(LOVR_ENABLE_GRAPHICS)
     src/resources/shaders.c
     src/lib/glad/glad.c
   )
-endif()
+else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
 endif()
 
