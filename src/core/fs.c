@@ -1,6 +1,7 @@
 #ifdef _WIN32
 
 #include "fs.h"
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #define FS_PATH_MAX 1024
