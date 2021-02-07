@@ -4,6 +4,9 @@
 #include "core/ref.h"
 #include "lib/stb/stb_vorbis.h"
 #include "lib/miniaudio/miniaudio.h"
+#define MINIMP3_FLOAT_OUTPUT
+#define MINIMP3_NO_STDIO
+#include "lib/minimp3/minimp3_ex.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -55,6 +58,18 @@ static uint32_t lovrSoundDataReadOgg(SoundData* soundData, uint32_t offset, uint
   return n;
 }
 
+static uint32_t lovrSoundDataReadMp3(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
+  if (soundData->cursor != offset) {
+    mp3dec_ex_seek(soundData->decoder, offset);
+    soundData->cursor = offset;
+  }
+
+  size_t samples = mp3dec_ex_read(soundData->decoder, data, count * soundData->channels);
+  uint32_t frames = samples / soundData->channels;
+  soundData->cursor += frames;
+  return frames;
+}
+
 // SoundData
 
 SoundData* lovrSoundDataCreateRaw(uint32_t frames, SampleFormat format, uint32_t channels, uint32_t sampleRate, struct Blob* blob) {
@@ -84,6 +99,7 @@ SoundData* lovrSoundDataCreateStream(uint32_t frames, SampleFormat format, uint3
   soundData->sampleRate = sampleRate;
   soundData->read = lovrSoundDataReadStream;
   soundData->stream = malloc(sizeof(ma_pcm_rb));
+  lovrAssert(soundData->stream, "Out of memory");
   size_t size = frames * lovrSoundDataGetStride(soundData);
   void* data = malloc(size);
   lovrAssert(data, "Out of memory");
@@ -113,7 +129,7 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
       lovrAssert(data, "Out of memory");
       soundData->blob = lovrBlobCreate(data, size, "SoundData");
       if (stb_vorbis_get_samples_float_interleaved(soundData->decoder, info.channels, data, size / 4) < (int) soundData->frames) {
-        lovrThrow("Could not decode sound from '%s'", blob->name);
+        lovrThrow("Could not decode vorbis from '%s'", blob->name);
       }
       stb_vorbis_close(soundData->decoder);
       soundData->decoder = NULL;
@@ -186,6 +202,35 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
         data += chunkSize + 8;
       }
     }
+  } else if (!mp3dec_detect_buf(blob->data, blob->size)) {
+    if (decode) {
+      mp3dec_t decoder;
+      mp3dec_file_info_t info;
+      int status = mp3dec_load_buf(&decoder, blob->data, blob->size, &info, NULL, NULL);
+      lovrAssert(!status, "Could not decode mp3 from '%s'", blob->name);
+      soundData->blob = lovrBlobCreate(info.buffer, info.samples * sizeof(float), blob->name);
+      soundData->format = SAMPLE_F32;
+      soundData->sampleRate = info.hz;
+      soundData->channels = info.channels;
+      soundData->frames = info.samples / info.channels;
+      soundData->read = lovrSoundDataReadRaw;
+      return soundData;
+    } else {
+      mp3dec_ex_t* decoder = soundData->decoder = malloc(sizeof(mp3dec_ex_t));
+      lovrAssert(decoder, "Out of memory");
+      if (mp3dec_ex_open_buf(soundData->decoder, blob->data, blob->size, MP3D_SEEK_TO_SAMPLE)) {
+        free(soundData->decoder);
+        lovrThrow("Could not load mp3 from '%s'", blob->name);
+      }
+      soundData->format = SAMPLE_F32;
+      soundData->sampleRate = decoder->info.hz;
+      soundData->channels = decoder->info.channels;
+      soundData->frames = decoder->samples / soundData->channels;
+      soundData->read = lovrSoundDataReadMp3;
+      soundData->blob = blob;
+      lovrRetain(blob);
+      return soundData;
+    }
   }
 
   lovrThrow("Could not load sound from '%s': Audio format not recognized", blob->name);
@@ -195,7 +240,8 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
 void lovrSoundDataDestroy(void* ref) {
   SoundData* soundData = (SoundData*) ref;
   lovrRelease(Blob, soundData->blob);
-  stb_vorbis_close(soundData->decoder);
+  if (soundData->read == lovrSoundDataReadOgg) stb_vorbis_close(soundData->decoder);
+  if (soundData->read == lovrSoundDataReadMp3) mp3dec_ex_close(soundData->decoder), free(soundData->decoder);
   ma_pcm_rb_uninit(soundData->stream);
   free(soundData->stream);
 }

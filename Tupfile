@@ -37,8 +37,9 @@ SRC_@(TIMER) += src/modules/timer/*.c
 # lib
 SRC += src/lib/stb/*.c
 SRC_@(DATA) += src/lib/jsmn/jsmn.c
+SRC_@(DATA) += src/lib/minimp3/minimp3.c
 SRC_@(GRAPHICS) += src/lib/glad/glad.c
-SRC_@(AUDIO) += src/lib/miniaudio/miniaudio.c
+SRC_@(AUDIO)@(DATA) += src/lib/miniaudio/miniaudio.c
 SRC_@(MATH) += src/lib/noise1234/noise1234.c
 SRC_@(THREAD) += src/lib/tinycthread/tinycthread.c
 
