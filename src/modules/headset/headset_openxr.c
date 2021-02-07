@@ -53,7 +53,7 @@
 #define MAX_IMAGES 4
 
 #if defined(_WIN32)
-HANDLE lovrPlatformGetWindow(void);
+HANDLE lovrPlatformGetWin32Window(void);
 HGLRC lovrPlatformGetContext(void);
 #elif defined(__ANDROID__)
 struct ANativeActivity* lovrPlatformGetActivity(void);
@@ -343,7 +343,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
 #if defined(_WIN32) && defined(LOVR_GL)
     XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {
       .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
-      .hDC = lovrPlatformGetWindow(),
+      .hDC = lovrPlatformGetWin32Window(),
       .hGLRC = lovrPlatformGetContext()
     };
 #elif defined(__ANDROID__) && defined(LOVR_GLES)

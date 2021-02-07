@@ -357,7 +357,7 @@ bool lovrPlatformIsKeyDown(KeyboardKey key) {
 }
 
 #ifdef _WIN32
-HANDLE lovrPlatformGetWindow() {
+HANDLE lovrPlatformGetWin32Window() {
   return (HANDLE) glfwGetWin32Window(glfwState.window);
 }
 
