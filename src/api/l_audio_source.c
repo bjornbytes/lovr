@@ -99,7 +99,7 @@ static int l_lovrSourceGetDuration(lua_State* L) {
 static int l_lovrSourceGetTime(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
-  uint32_t time = lovrSourceGetTime(source, units);
+  double time = lovrSourceGetTime(source, units);
   lua_pushnumber(L, time);
   return 1;
 }
