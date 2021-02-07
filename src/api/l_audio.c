@@ -41,6 +41,7 @@ static int l_lovrAudioGetDevices(lua_State *L) {
 
 static int l_lovrAudioSetDevice(lua_State *L) {
   AudioType type = luax_checkenum(L, 1, AudioType, "playback");
+  luaL_checkany(L, 2);
   void* id = lua_touserdata(L, 2);
   size_t size = luax_len(L, 2);
   uint32_t sampleRate = lua_tointeger(L, 3);
