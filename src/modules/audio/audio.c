@@ -35,8 +35,6 @@ struct Source {
   bool spatial;
 };
 
-static uint32_t outputChannelCountForSource(Source *source) { return source->spatial ? 1 : OUTPUT_CHANNELS; }
-
 static struct {
   bool initialized;
   ma_context context;
@@ -94,29 +92,32 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       }
 
       // Read and convert raw frames until there's BUFFER_SIZE converted frames
-      uint32_t channels = outputChannelCountForSource(source);
-      uint64_t frameLimit = sizeof(raw) / source->sound->channels / sizeof(float);
+      uint32_t channels = source->spatial ? 1 : 2;
+      uint64_t frameLimit = sizeof(raw) / lovrSoundDataGetChannelCount(source->sound) / sizeof(float);
       uint32_t framesToConvert = BUFFER_SIZE;
       uint32_t framesConverted = 0;
       while (framesToConvert > 0) {
         src = raw;
         uint64_t framesToRead = source->converter ? MIN(ma_data_converter_get_required_input_frame_count(source->converter, framesToConvert), frameLimit) : framesToConvert;
-        uint64_t framesRead = source->sound->read(source->sound, source->offset, framesToRead, src);
+        uint64_t framesRead = lovrSoundDataRead(source->sound, source->offset, framesToRead, src);
         ma_uint64 framesIn = framesRead;
         ma_uint64 framesOut = framesToConvert;
 
-        if (source->converter) {
-          ma_data_converter_process_pcm_frames(source->converter, src, &framesIn, aux + framesConverted * channels, &framesOut);
-          src = aux;
-        }
-
-        if (framesRead < framesToRead) {
-          source->offset = 0;
-          if (!source->looping) {
+        if (framesRead == 0) {
+          if (source->looping) {
+            source->offset = 0;
+            continue;
+          } else {
+            source->offset = 0;
             source->playing = false;
             memset(src + framesConverted * channels, 0, framesToConvert * channels * sizeof(float));
             break;
           }
+        }
+
+        if (source->converter) {
+          ma_data_converter_process_pcm_frames(source->converter, src, &framesIn, aux + framesConverted * channels, &framesOut);
+          src = aux;
         }
 
         framesToConvert -= framesOut;
@@ -160,8 +161,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
 }
 
 static void onCapture(ma_device* device, void* output, const void* input, uint32_t count) {
-  size_t stride = lovrSoundDataGetStride(state.captureStream);
-  lovrSoundDataStreamAppendBuffer(state.captureStream, (float*) input, count * stride);
+  lovrSoundDataWrite(state.captureStream, 0, count, input);
 }
 
 static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
@@ -337,30 +337,29 @@ Source* lovrSourceCreate(SoundData* sound, bool spatial) {
   source->volume = 1.f;
   source->spatial = spatial;
 
-  if (sound->format != OUTPUT_FORMAT || sound->channels != outputChannelCountForSource(source) || sound->sampleRate != PLAYBACK_SAMPLE_RATE) {
+  ma_data_converter_config config = ma_data_converter_config_init_default();
+  config.formatIn = miniaudioFormats[lovrSoundDataGetFormat(sound)];
+  config.formatOut = miniaudioFormats[OUTPUT_FORMAT];
+  config.channelsIn = lovrSoundDataGetChannelCount(sound);
+  config.channelsOut = spatial ? 1 : 2;
+  config.sampleRateIn = lovrSoundDataGetSampleRate(sound);
+  config.sampleRateOut = PLAYBACK_SAMPLE_RATE;
+
+  if (config.formatIn != config.formatOut || config.channelsIn == config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
     for (size_t i = 0; i < state.converters.length; i++) {
       ma_data_converter* converter = state.converters.data[i];
-      if (converter->config.formatIn != miniaudioFormats[sound->format]) continue;
-      if (converter->config.sampleRateIn != sound->sampleRate) continue;
-      if (converter->config.channelsIn != sound->channels) continue;
-      if (converter->config.channelsOut != outputChannelCountForSource(source)) continue;
+      if (converter->config.formatIn != config.formatIn) continue;
+      if (converter->config.sampleRateIn != config.sampleRateIn) continue;
+      if (converter->config.channelsIn != config.channelsIn) continue;
+      if (converter->config.channelsOut != config.channelsOut) continue;
       source->converter = converter;
       break;
     }
 
     if (!source->converter) {
-      ma_data_converter_config config = ma_data_converter_config_init_default();
-      config.formatIn = miniaudioFormats[sound->format];
-      config.formatOut = miniaudioFormats[OUTPUT_FORMAT];
-      config.channelsIn = sound->channels;
-      config.channelsOut = outputChannelCountForSource(source);
-      config.sampleRateIn = sound->sampleRate;
-      config.sampleRateOut = PLAYBACK_SAMPLE_RATE;
-
       ma_data_converter* converter = malloc(sizeof(ma_data_converter));
-      ma_result converterStatus = ma_data_converter_init(&config, converter);
-      lovrAssert(converterStatus == MA_SUCCESS, "Problem creating Source data converter #%d: %s (%d)", state.converters.length, ma_result_description(converterStatus), converterStatus);
-
+      ma_result status = ma_data_converter_init(&config, converter);
+      lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
       arr_push(&state.converters, converter);
       source->converter = converter;
     }
@@ -442,16 +441,17 @@ void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) 
 }
 
 double lovrSourceGetDuration(Source* source, TimeUnit units) {
-  return units == UNIT_SECONDS ? (double) source->sound->frames / source->sound->sampleRate : source->sound->frames;
+  uint32_t frames = lovrSoundDataGetFrameCount(source->sound);
+  return units == UNIT_SECONDS ? (double) frames / lovrSoundDataGetSampleRate(source->sound) : frames;
 }
 
 double lovrSourceGetTime(Source* source, TimeUnit units) {
-  return units == UNIT_SECONDS ? (double) source->offset / source->sound->sampleRate : source->offset;
+  return units == UNIT_SECONDS ? (double) source->offset / lovrSoundDataGetSampleRate(source->sound) : source->offset;
 }
 
 void lovrSourceSetTime(Source* source, double time, TimeUnit units) {
   ma_mutex_lock(&state.lock);
-  source->offset = units == UNIT_SECONDS ? (uint32_t) (time * source->sound->sampleRate + .5) : (uint32_t) time;
+  source->offset = units == UNIT_SECONDS ? (uint32_t) (time * lovrSoundDataGetSampleRate(source->sound) + .5) : (uint32_t) time;
   ma_mutex_unlock(&state.lock);
 }
 

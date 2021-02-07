@@ -6,12 +6,25 @@
 #include "lib/miniaudio/miniaudio.h"
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 
 static const ma_format miniaudioFormats[] = {
   [SAMPLE_I16] = ma_format_s16,
   [SAMPLE_F32] = ma_format_f32
 };
+
+struct SoundData {
+  uint32_t (*read)(SoundData* soundData, uint32_t offset, uint32_t count, void* data);
+  struct Blob* blob;
+  void* decoder;
+  void* stream;
+  SampleFormat format;
+  uint32_t sampleRate;
+  uint32_t channels;
+  uint32_t frames;
+  uint32_t cursor;
+};
+
+// Readers
 
 static uint32_t lovrSoundDataReadRaw(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
   uint8_t* p = soundData->blob->data;
@@ -21,83 +34,62 @@ static uint32_t lovrSoundDataReadRaw(SoundData* soundData, uint32_t offset, uint
   return n;
 }
 
+static uint32_t lovrSoundDataReadStream(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
+  void* p = NULL;
+  uint32_t frames = count;
+  ma_pcm_rb_acquire_read(soundData->stream, &frames, &p);
+  memcpy(data, p, frames * lovrSoundDataGetStride(soundData));
+  ma_pcm_rb_commit_read(soundData->stream, frames, p);
+  return frames;
+}
+
 static uint32_t lovrSoundDataReadOgg(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
   if (soundData->cursor != offset) {
     stb_vorbis_seek(soundData->decoder, (int) offset);
     soundData->cursor = offset;
   }
 
-  uint32_t frames = 0;
   uint32_t channels = soundData->channels;
-  float* p = data;
-  int n;
-
-  do {
-    n = stb_vorbis_get_samples_float_interleaved(soundData->decoder, channels, p, count * channels);
-    p += n * channels;
-    frames += n;
-    count -= n;
-  } while (frames < count && n > 0);
-
-  soundData->cursor += frames;
-  return frames;
+  uint32_t n = stb_vorbis_get_samples_float_interleaved(soundData->decoder, channels, data, count * channels);
+  soundData->cursor += n;
+  return n;
 }
 
-static uint32_t lovrSoundDataReadRing(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
-  uint8_t* charData = (uint8_t*) data;
-  size_t bytesPerFrame = lovrSoundDataGetStride(soundData);
-  size_t totalRead = 0;
-  while (count > 0) {
-    uint32_t availableFramesInRing = count;
-    void* store;
-    ma_result acquire_status = ma_pcm_rb_acquire_read(soundData->ring, &availableFramesInRing, &store);
-    if (acquire_status != MA_SUCCESS) return 0;
-    memcpy(charData, store, availableFramesInRing * bytesPerFrame);
-    ma_result commit_status = ma_pcm_rb_commit_read(soundData->ring, availableFramesInRing, store);
-    if (commit_status != MA_SUCCESS) return 0;
+// SoundData
 
-    if (availableFramesInRing == 0) {
-      return totalRead;
-    }
-
-    count -= availableFramesInRing;
-    charData += availableFramesInRing * bytesPerFrame;
-    totalRead += availableFramesInRing;
-  }
-  return totalRead;
-}
-
-SoundData* lovrSoundDataCreateRaw(uint32_t frameCount, uint32_t channelCount, uint32_t sampleRate, SampleFormat format, struct Blob* blob) {
+SoundData* lovrSoundDataCreateRaw(uint32_t frames, SampleFormat format, uint32_t channels, uint32_t sampleRate, struct Blob* blob) {
   SoundData* soundData = lovrAlloc(SoundData);
+  soundData->frames = frames;
   soundData->format = format;
+  soundData->channels = channels;
   soundData->sampleRate = sampleRate;
-  soundData->channels = channelCount;
-  soundData->frames = frameCount;
   soundData->read = lovrSoundDataReadRaw;
+  size_t size = frames * lovrSoundDataGetStride(soundData);
+  void* data = calloc(1, size);
+  lovrAssert(data, "Out of memory");
+  soundData->blob = lovrBlobCreate(data, size, "SoundData");
 
   if (blob) {
-    soundData->blob = blob;
-    lovrRetain(blob);
-  } else {
-    size_t size = frameCount * lovrSoundDataGetStride(soundData);
-    void* data = calloc(1, size);
-    lovrAssert(data, "Out of memory");
-    soundData->blob = lovrBlobCreate(data, size, "SoundData");
+    memcpy(soundData->blob->data, blob->data, MIN(size, blob->size));
   }
 
   return soundData;
 }
 
-SoundData* lovrSoundDataCreateStream(uint32_t frames, uint32_t channels, uint32_t sampleRate, SampleFormat format) {
+SoundData* lovrSoundDataCreateStream(uint32_t frames, SampleFormat format, uint32_t channels, uint32_t sampleRate) {
   SoundData* soundData = lovrAlloc(SoundData);
-  soundData->format = format;
-  soundData->sampleRate = sampleRate;
-  soundData->channels = channels;
   soundData->frames = frames;
-  soundData->read = lovrSoundDataReadRing;
-  soundData->ring = calloc(1, sizeof(ma_pcm_rb));
-  ma_result rbStatus = ma_pcm_rb_init(miniaudioFormats[format], channels, frames, NULL, NULL, soundData->ring);
-  lovrAssert(rbStatus == MA_SUCCESS, "Failed to create ring buffer for streamed SoundData: %s (%d)", ma_result_description(rbStatus), rbStatus);
+  soundData->format = format;
+  soundData->channels = channels;
+  soundData->sampleRate = sampleRate;
+  soundData->read = lovrSoundDataReadStream;
+  soundData->stream = malloc(sizeof(ma_pcm_rb));
+  size_t size = frames * lovrSoundDataGetStride(soundData);
+  void* data = malloc(size);
+  lovrAssert(data, "Out of memory");
+  soundData->blob = lovrBlobCreate(data, size, NULL);
+  ma_result status = ma_pcm_rb_init(miniaudioFormats[format], channels, frames, data, NULL, soundData->stream);
+  lovrAssert(status == MA_SUCCESS, "Failed to create ring buffer for streamed SoundData: %s (%d)", ma_result_description(status), status);
   return soundData;
 }
 
@@ -109,10 +101,10 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
     lovrAssert(soundData->decoder, "Could not load sound from '%s'", blob->name);
 
     stb_vorbis_info info = stb_vorbis_get_info(soundData->decoder);
-    soundData->frames = stb_vorbis_stream_length_in_samples(soundData->decoder);
-    soundData->sampleRate = info.sample_rate;
-    soundData->channels = info.channels;
     soundData->format = SAMPLE_F32;
+    soundData->channels = info.channels;
+    soundData->sampleRate = info.sample_rate;
+    soundData->frames = stb_vorbis_stream_length_in_samples(soundData->decoder);
 
     if (decode) {
       soundData->read = lovrSoundDataReadRaw;
@@ -132,41 +124,55 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
     }
 
     return soundData;
-  } else if (blob->size >= 44 && !memcmp(blob->data, "RIFF", 4)) {
+  } else if (blob->size >= 64 && !memcmp(blob->data, "RIFF", 4)) {
     typedef struct {
       uint32_t id;
       uint32_t size;
-      uint32_t format;
+      uint32_t fileFormat;
       uint32_t fmtId;
       uint32_t fmtSize;
-      uint16_t sampleFormat;
+      uint16_t format;
       uint16_t channels;
       uint32_t sampleRate;
       uint32_t byteRate;
       uint16_t frameSize;
       uint16_t sampleSize;
+      uint16_t extSize;
+      uint16_t validBitsPerSample;
+      uint32_t channelMask;
+      char guid[16];
     } wavHeader;
+
+    char guidi16[16] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71 };
+    char guidf32[16] = { 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71 };
 
     wavHeader* wav = blob->data;
     lovrAssert(wav->size == blob->size - 8, "Invalid WAV");
-    lovrAssert(!memcmp(&wav->format, "WAVE", 4), "Invalid WAV");
+    lovrAssert(!memcmp(&wav->fileFormat, "WAVE", 4), "Invalid WAV");
     lovrAssert(!memcmp(&wav->fmtId, "fmt ", 4), "Invalid WAV");
-    lovrAssert(wav->fmtSize == 16, "Unsupported WAV format");
-    lovrAssert(wav->sampleFormat == 1 && wav->sampleSize == 16, "Unsupported WAV format");
-    soundData->format = SAMPLE_I16;
-    soundData->sampleRate = wav->sampleRate;
+    if (wav->fmtSize == 16 && wav->format == 1 && wav->sampleSize == 16) {
+      soundData->format = SAMPLE_I16;
+    } else if (wav->fmtSize == 16 && wav->format == 3 && wav->sampleSize == 32) {
+      soundData->format = SAMPLE_F32;
+    } else if (wav->fmtSize == 40 && wav->format == 65534 && wav->extSize == 22 && wav->validBitsPerSample == 16 && !memcmp(wav->guid, guidi16, 16)) {
+      soundData->format = SAMPLE_I16;
+    } else if (wav->fmtSize == 40 && wav->format == 65534 && wav->extSize == 22 && wav->validBitsPerSample == 32 && !memcmp(wav->guid, guidf32, 16)) {
+      soundData->format = SAMPLE_F32;
+    } else {
+      lovrThrow("Unsupported WAV format");
+    }
     soundData->channels = wav->channels;
+    soundData->sampleRate = wav->sampleRate;
     lovrAssert(wav->frameSize == lovrSoundDataGetStride(soundData), "Invalid WAV");
 
-    size_t offset = sizeof(wavHeader);
+    size_t offset = 12 + 8 + wav->fmtSize;
     char* data = (char*) blob->data + offset;
-    struct subchunk { uint32_t id, size; };
-    while (offset < blob->size - sizeof(struct subchunk)) {
-      struct subchunk* header = (struct subchunk*) data;
-      if (!memcmp(&header->id, "data", 4)) {
+    while (offset < blob->size - 8) {
+      uint32_t chunkSize = *((uint32_t*) data + 1);
+      if (!memcmp(data, "data", 4)) {
         offset += 8;
         data += 8;
-        lovrAssert(header->size == blob->size - offset, "Invalid WAV");
+        lovrAssert(chunkSize == blob->size - offset, "Invalid WAV");
         size_t size = blob->size - offset;
         void* samples = malloc(size); // TODO Blob views
         lovrAssert(samples, "Out of memory");
@@ -175,9 +181,10 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
         soundData->read = lovrSoundDataReadRaw;
         soundData->frames = size / wav->frameSize;
         return soundData;
+      } else {
+        offset += chunkSize + 8;
+        data += chunkSize + 8;
       }
-      offset += header->size + 8;
-      data += header->size + 8;
     }
   }
 
@@ -187,34 +194,34 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
 
 void lovrSoundDataDestroy(void* ref) {
   SoundData* soundData = (SoundData*) ref;
-  stb_vorbis_close(soundData->decoder);
   lovrRelease(Blob, soundData->blob);
-  ma_pcm_rb_uninit(soundData->ring);
-  free(soundData->ring);
+  stb_vorbis_close(soundData->decoder);
+  ma_pcm_rb_uninit(soundData->stream);
+  free(soundData->stream);
+}
+
+Blob* lovrSoundDataGetBlob(SoundData* soundData) {
+  return soundData->blob;
 }
 
 SampleFormat lovrSoundDataGetFormat(SoundData* soundData) {
   return soundData->format;
 }
 
-uint32_t lovrSoundDataGetSampleRate(SoundData* soundData) {
-  return soundData->sampleRate;
-}
-
 uint32_t lovrSoundDataGetChannelCount(SoundData* soundData) {
   return soundData->channels;
 }
 
+uint32_t lovrSoundDataGetSampleRate(SoundData* soundData) {
+  return soundData->sampleRate;
+}
+
 uint32_t lovrSoundDataGetFrameCount(SoundData* soundData) {
-  return soundData->ring ? ma_pcm_rb_available_read(soundData->ring) : soundData->frames;
+  return soundData->stream ? ma_pcm_rb_available_read(soundData->stream) : soundData->frames;
 }
 
 size_t lovrSoundDataGetStride(SoundData* soundData) {
-  switch (soundData->format) {
-    case SAMPLE_I16: return soundData->channels * sizeof(int16_t);
-    case SAMPLE_F32: return soundData->channels * sizeof(float);
-    default: lovrThrow("Unreachable");
-  }
+  return soundData->channels * (soundData->format == SAMPLE_I16 ? sizeof(short) : sizeof(float));
 }
 
 bool lovrSoundDataIsCompressed(SoundData* soundData) {
@@ -222,52 +229,67 @@ bool lovrSoundDataIsCompressed(SoundData* soundData) {
 }
 
 bool lovrSoundDataIsStream(SoundData* soundData) {
-  return soundData->ring;
+  return soundData->stream;
 }
 
-void lovrSoundDataSetSample(SoundData* soundData, uint32_t index, float value) {
-  lovrAssert(soundData->blob && soundData->read == lovrSoundDataReadRaw, "Source SoundData must have static PCM data and not be a stream");
-  lovrAssert(index < soundData->frames * soundData->channels, "Sample index out of range");
-  switch (soundData->format) {
-    case SAMPLE_I16: ((int16_t*) soundData->blob->data)[index] = value * SHRT_MAX; break;
-    case SAMPLE_F32: ((float*) soundData->blob->data)[index] = value; break;
-    default: lovrThrow("Unreachable"); break;
-  }
+uint32_t lovrSoundDataRead(SoundData* soundData, uint32_t offset, uint32_t count, void* data) {
+  return soundData->read(soundData, offset, count, data);
 }
 
-size_t lovrSoundDataStreamAppendBlob(SoundData* soundData, struct Blob* blob) {
-  return lovrSoundDataStreamAppendBuffer(soundData, blob->data, blob->size);
-}
+uint32_t lovrSoundDataWrite(SoundData* soundData, uint32_t offset, uint32_t count, const void* data) {
+  lovrAssert(!soundData->decoder, "Compressed SoundData can not be written to");
+  size_t stride = lovrSoundDataGetStride(soundData);
+  uint32_t frames = 0;
 
-size_t lovrSoundDataStreamAppendBuffer(SoundData* soundData, const void* buffer, size_t byteSize) {
-  lovrAssert(soundData->ring, "Data can only be appended to a SoundData stream");
-
-  const uint8_t* charBuf = (const uint8_t*) buffer;
-  void* store;
-  size_t blobOffset = 0;
-  size_t bytesPerFrame = lovrSoundDataGetStride(soundData);
-  size_t frameCount = byteSize / bytesPerFrame;
-  size_t framesAppended = 0;
-  while(frameCount > 0) {
-    uint32_t availableFrames = frameCount;
-    ma_result acquire_status = ma_pcm_rb_acquire_write(soundData->ring, &availableFrames, &store);
-    lovrAssert(acquire_status == MA_SUCCESS, "Failed to acquire ring buffer: %s (%d)", ma_result_description(acquire_status), acquire_status);
-    memcpy(store, charBuf + blobOffset, availableFrames * bytesPerFrame);
-    ma_result commit_status = ma_pcm_rb_commit_write(soundData->ring, availableFrames, store);
-    lovrAssert(commit_status == MA_SUCCESS, "Failed to commit to ring buffer: %s (%d)", ma_result_description(commit_status), commit_status);
-    if (availableFrames == 0) {
-      return framesAppended;
+  if (soundData->stream) {
+    const char* bytes = data;
+    while (frames < count) {
+      void* pointer;
+      uint32_t chunk = count - frames;
+      ma_pcm_rb_acquire_write(soundData->stream, &chunk, &pointer);
+      memcpy(pointer, bytes, chunk * stride);
+      ma_pcm_rb_commit_write(soundData->stream, chunk, pointer);
+      if (chunk == 0) break;
+      bytes += chunk * stride;
+      frames += chunk;
     }
-
-    frameCount -= availableFrames;
-    blobOffset += availableFrames * bytesPerFrame;
-    framesAppended += availableFrames;
+  } else {
+    count = MIN(count, soundData->frames - offset);
+    memcpy((char*) soundData->blob->data + offset * stride, data, count * stride);
+    frames = count;
   }
-  return framesAppended;
+
+  return frames;
 }
 
-size_t lovrSoundDataStreamAppendSound(SoundData* soundData, SoundData* src) {
-  lovrAssert(soundData->channels == src->channels && soundData->sampleRate == src->sampleRate && soundData->format == src->format, "Source and destination SoundData formats must match");
-  lovrAssert(src->blob && src->read == lovrSoundDataReadRaw, "Source SoundData must have static PCM data and not be a stream");
-  return lovrSoundDataStreamAppendBlob(soundData, src->blob);
+uint32_t lovrSoundDataCopy(SoundData* src, SoundData* dst, uint32_t count, uint32_t srcOffset, uint32_t dstOffset) {
+  lovrAssert(!dst->decoder, "Compressed SoundData can not be written to");
+  lovrAssert(src != dst, "Can not copy a SoundData to itself");
+  lovrAssert(src->format == dst->format, "SoundData formats need to match");
+  lovrAssert(src->channels == dst->channels, "SoundData channel layouts need to match");
+  uint32_t frames = 0;
+
+  if (dst->stream) {
+    while (frames < count) {
+      void* data;
+      uint32_t available = count - frames;
+      ma_pcm_rb_acquire_write(dst->stream, &available, &data);
+      uint32_t read = src->read(src, srcOffset + frames, available, data);
+      ma_pcm_rb_commit_write(dst->stream, read, data);
+      if (read == 0) break;
+      frames += read;
+    }
+  } else {
+    count = MIN(count, dst->frames - dstOffset);
+    size_t stride = lovrSoundDataGetStride(src);
+    char* data = (char*) dst->blob->data + dstOffset * stride;
+    while (frames < count) {
+      uint32_t read = src->read(src, srcOffset + frames, count - frames, data);
+      if (read == 0) break;
+      data += read * stride;
+      frames += read;
+    }
+  }
+
+  return frames;
 }
