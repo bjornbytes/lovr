@@ -3,6 +3,7 @@
 #include "event/event.h"
 #include "core/os.h"
 #include "core/util.h"
+#include <lualib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>

@@ -4,6 +4,7 @@
 #include "thread/channel.h"
 #include "core/ref.h"
 #include "core/util.h"
+#include <lualib.h>
 #include <stdlib.h>
 #include <string.h>
 
