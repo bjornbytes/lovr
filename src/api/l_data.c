@@ -68,16 +68,15 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
 static int l_lovrDataNewSoundData(lua_State* L) {
   if (lua_type(L, 1) == LUA_TNUMBER) {
     uint64_t frames = luaL_checkinteger(L, 1);
-    uint32_t channels = luaL_optinteger(L, 2, 2);
-    uint32_t sampleRate = luaL_optinteger(L, 3, 44100);
-    SampleFormat format = luax_checkenum(L, 4, SampleFormat, "i16");
+    SampleFormat format = luax_checkenum(L, 2, SampleFormat, "f32");
+    uint32_t channels = luaL_optinteger(L, 3, 2);
+    uint32_t sampleRate = luaL_optinteger(L, 4, 48000);
     Blob* blob = luax_totype(L, 5, Blob);
-    const char *other = lua_tostring(L, 5);
-    bool isStream = other && strcmp(other, "stream") == 0;
-    SoundData* soundData = isStream ?
-      lovrSoundDataCreateStream(frames, channels, sampleRate, format) :
-      lovrSoundDataCreateRaw(frames, channels, sampleRate, format, blob);
-
+    const char* other = lua_tostring(L, 5);
+    bool stream = other && !strcmp(other, "stream");
+    SoundData* soundData = stream ?
+      lovrSoundDataCreateStream(frames, format, channels, sampleRate) :
+      lovrSoundDataCreateRaw(frames, format, channels, sampleRate, blob);
     luax_pushtype(L, SoundData, soundData);
     lovrRelease(SoundData, soundData);
     return 1;
