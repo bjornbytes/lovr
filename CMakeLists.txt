@@ -658,6 +658,7 @@ elseif(ANDROID)
       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
       COMMAND ${ANDROID_TOOLS}/dx --dex --output raw/classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
+      COMMAND ${CMAKE_STRIP} raw/lib/${ANDROID_ABI}/*.so
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
