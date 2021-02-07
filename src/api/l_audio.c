@@ -45,7 +45,8 @@ static int l_lovrAudioSetDevice(lua_State *L) {
   size_t size = luax_len(L, 2);
   uint32_t sampleRate = lua_tointeger(L, 3);
   SampleFormat format = luax_checkenum(L, 4, SampleFormat, "f32");
-  bool success = lovrAudioSetDevice(type, id, size, sampleRate, format);
+  bool exclusive = lua_toboolean(L, 5);
+  bool success = lovrAudioSetDevice(type, id, size, sampleRate, format, exclusive);
   lua_pushboolean(L, success);
   return 1;
 }
@@ -181,7 +182,7 @@ int luaopen_lovr_audio(lua_State* L) {
   if (lovrAudioInit(spatializer)) {
     luax_atexit(L, lovrAudioDestroy);
     if (start) {
-      lovrAudioSetDevice(AUDIO_PLAYBACK, NULL, 0, PLAYBACK_SAMPLE_RATE, SAMPLE_F32);
+      lovrAudioSetDevice(AUDIO_PLAYBACK, NULL, 0, PLAYBACK_SAMPLE_RATE, SAMPLE_F32, false);
       lovrAudioStart(AUDIO_PLAYBACK);
     }
   }
