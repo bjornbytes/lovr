@@ -1,4 +1,5 @@
 #include "../spatializer.h"
+#include "core/maf.h"
 #include "core/util.h"
 
 static struct {
@@ -66,6 +67,5 @@ Spatializer simpleSpatializer = {
   .setListenerPose = simple_spatializer_setListenerPose,
   .sourceCreate = simple_spatializer_source_create,
   .sourceDestroy = simple_spatializer_source_destroy,
-  .buffered = false,
   .name = "simple"
 };

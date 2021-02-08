@@ -118,8 +118,15 @@ static int l_lovrAudioGetCaptureStream(lua_State* L) {
 }
 
 static int l_lovrAudioNewSource(lua_State* L) {
-  Source* source = NULL;
   SoundData* soundData = luax_totype(L, 1, SoundData);
+
+  if (!soundData) {
+    Blob* blob = luax_readblob(L, 1, "Source");
+    soundData = lovrSoundDataCreateFromFile(blob, false);
+    lovrRelease(Blob, blob);
+  } else {
+    lovrRetain(soundData);
+  }
 
   bool spatial = true;
   if (lua_istable(L, 2)) {
@@ -128,18 +135,9 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  if (soundData) {
-    source = lovrSourceCreate(soundData, spatial);
-  } else {
-    Blob* blob = luax_readblob(L, 1, "Source");
-    soundData = lovrSoundDataCreateFromFile(blob, false);
-    lovrRelease(Blob, blob);
-
-    source = lovrSourceCreate(soundData, spatial);
-    lovrRelease(SoundData, soundData);
-  }
-
+  Source* source = lovrSourceCreate(soundData, spatial);
   luax_pushtype(L, Source, source);
+  lovrRelease(SoundData, soundData);
   lovrRelease(Source, source);
   return 1;
 }

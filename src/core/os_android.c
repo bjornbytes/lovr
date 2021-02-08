@@ -22,7 +22,7 @@ static struct {
   quitCallback onQuit;
   keyboardCallback onKeyboardEvent;
   textCallback onTextEvent;
-  permissionsCallback onPermissionEvent;
+  permissionCallback onPermissionEvent;
 } state;
 
 static void onAppCmd(struct android_app* app, int32_t cmd) {
@@ -471,7 +471,7 @@ bool lovrPlatformIsKeyDown(KeyboardKey key) {
   return false;
 }
 
-// permissions
+// Permissions
 
 void lovrPlatformRequestPermission(Permission permission) {
   if (permission == AUDIO_CAPTURE_PERMISSION) {
@@ -480,7 +480,7 @@ void lovrPlatformRequestPermission(Permission permission) {
     jmethodID requestAudioCapturePermission = (*state.jni)->GetMethodID(state.jni, class, "requestAudioCapturePermission", "()V");
     if (!requestAudioCapturePermission) {
       (*state.jni)->DeleteLocalRef(state.jni, class);
-      if(state.onPermissionEvent) state.onPermissionEvent(AUDIO_CAPTURE_PERMISSION, false);
+      if (state.onPermissionEvent) state.onPermissionEvent(AUDIO_CAPTURE_PERMISSION, false);
       return;
     }
 
@@ -488,7 +488,7 @@ void lovrPlatformRequestPermission(Permission permission) {
   }
 }
 
-void lovrPlatformOnPermissionEvent(permissionsCallback callback) {
+void lovrPlatformOnPermissionEvent(permissionCallback callback) {
   state.onPermissionEvent = callback;
 }
 

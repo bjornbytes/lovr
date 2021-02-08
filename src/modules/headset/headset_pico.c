@@ -224,7 +224,7 @@ static struct {
   arr_t(NativeCanvas) canvases;
   void (*renderCallback)(void*);
   void* renderUserdata;
-  permissionsCallback onPermissionEvent;
+  permissionCallback onPermissionEvent;
 } state;
 
 static bool pico_init(float supersample, float offset, uint32_t msaa) {
@@ -419,7 +419,7 @@ void lovrPlatformRequestPermission(Permission permission) {
   // todo
 }
 
-void lovrPlatformOnPermissionEvent(permissionsCallback callback) {
+void lovrPlatformOnPermissionEvent(permissionCallback callback) {
   state.onPermissionEvent = callback;
 }
 

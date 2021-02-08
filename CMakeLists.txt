@@ -309,7 +309,7 @@ target_link_libraries(lovr
 if(LOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/modules/audio/audio.c
-    src/modules/audio/spatializers/simple_spatializer.c
+    src/modules/audio/spatializers/spatializer_simple.c
     src/api/l_audio.c
     src/api/l_audio_source.c
     src/lib/miniaudio/miniaudio.c
@@ -341,7 +341,7 @@ if(LOVR_ENABLE_AUDIO)
 
     set(LOVR_OCULUS_AUDIO OculusAudio)
     add_definitions(-DLOVR_ENABLE_OCULUS_AUDIO)
-    target_sources(lovr PRIVATE src/modules/audio/spatializers/oculus_spatializer.c)
+    target_sources(lovr PRIVATE src/modules/audio/spatializers/spatializer_oculus.c)
     target_link_libraries(lovr ${LOVR_OCULUS_AUDIO}) # TODO: Reorder?
   endif()
 else()
@@ -649,10 +649,6 @@ elseif(ANDROID)
       set(ANDROID_APKSIGNER_KEYSTORE_PASS --ks-pass)
     endif()
 
-    if (ANDROID_EXTRAPACKAGES) # Only pass --extra-packages if var is set
-      set(ANDROID_EXTRAPACKAGES --extra-packages ${ANDROID_EXTRAPACKAGES})
-    endif()
-
     # Make an apk
     add_custom_target(
       buildAPK ALL
@@ -669,7 +665,6 @@ elseif(ANDROID)
         -M AndroidManifest.xml
         -I ${ANDROID_JAR}
         -F lovr.unaligned.apk
-        ${ANDROID_EXTRAPACKAGES}
         ${ANDROID_ASSETS}
         raw
       COMMAND ${ANDROID_TOOLS}/zipalign -f -p 4 lovr.unaligned.apk lovr.unsigned.apk

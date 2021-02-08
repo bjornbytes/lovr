@@ -116,7 +116,6 @@ StringEntry lovrPermission[] = {
   { 0 }
 };
 
-
 static LOVR_THREAD_LOCAL int pollRef;
 
 void luax_checkvariant(lua_State* L, int index, Variant* variant) {
