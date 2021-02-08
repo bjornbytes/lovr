@@ -16,11 +16,13 @@
 #include "resources/bindings_vive_tracker_right_foot.json.h"
 #include "resources/bindings_vive_tracker_camera.json.h"
 #include "resources/bindings_vive_tracker_keyboard.json.h"
+#include "data/blob.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/model.h"
+#include "graphics/texture.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include <stdbool.h>

@@ -10,6 +10,7 @@
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
+#include "core/os.h"
 #include "core/util.h"
 #include <math.h>
 #include <stdbool.h>

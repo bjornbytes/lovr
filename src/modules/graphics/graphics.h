@@ -1,8 +1,6 @@
 #include "graphics/font.h"
 #include "data/modelData.h"
 #include "core/maf.h"
-#include "core/os.h"
-#include "core/util.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -15,6 +13,7 @@ struct Material;
 struct Mesh;
 struct Shader;
 struct Texture;
+struct WindowFlags;
 
 typedef void (*StencilCallback)(void* userdata);
 
@@ -88,7 +87,7 @@ typedef struct {
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsPresent(void);
-void lovrGraphicsCreateWindow(WindowFlags* flags);
+void lovrGraphicsCreateWindow(struct WindowFlags* flags);
 int lovrGraphicsGetWidth(void);
 int lovrGraphicsGetHeight(void);
 float lovrGraphicsGetPixelDensity(void);

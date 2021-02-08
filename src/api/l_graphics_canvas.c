@@ -1,6 +1,7 @@
 #include "api.h"
 #include "graphics/canvas.h"
 #include "graphics/graphics.h"
+#include "graphics/texture.h"
 #include <stdlib.h>
 
 static int luax_checkattachment(lua_State* L, int index, Attachment* attachment) {

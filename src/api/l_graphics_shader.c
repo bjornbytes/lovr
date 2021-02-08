@@ -1,6 +1,7 @@
 #include "api.h"
 #include "graphics/buffer.h"
 #include "graphics/shader.h"
+#include "data/blob.h"
 #include "core/maf.h"
 #include <stdlib.h>
 

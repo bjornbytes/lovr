@@ -1,9 +1,10 @@
-#include "data/blob.h"
 #include "core/util.h"
 #include <stdint.h>
 #include <stdbool.h>
 
 #pragma once
+
+struct Blob;
 
 typedef enum {
   FORMAT_RGB,
@@ -52,19 +53,19 @@ typedef struct {
 
 typedef struct TextureData {
   ref_t ref;
-  Blob* blob;
+  struct Blob* blob;
   uint32_t width;
   uint32_t height;
-  Blob* source;
+  struct Blob* source;
   TextureFormat format;
   Mipmap* mipmaps;
   uint32_t mipmapCount;
 } TextureData;
 
-TextureData* lovrTextureDataCreate(uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format);
-TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip);
+TextureData* lovrTextureDataCreate(uint32_t width, uint32_t height, struct Blob* contents, uint8_t value, TextureFormat format);
+TextureData* lovrTextureDataCreateFromBlob(struct Blob* blob, bool flip);
 Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y);
 void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, Color color);
-Blob* lovrTextureDataEncode(TextureData* textureData);
+struct Blob* lovrTextureDataEncode(TextureData* textureData);
 void lovrTextureDataPaste(TextureData* textureData, TextureData* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h);
 void lovrTextureDataDestroy(void* ref);

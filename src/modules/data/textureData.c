@@ -1,4 +1,5 @@
 #include "data/textureData.h"
+#include "data/blob.h"
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
 #include <stdbool.h>

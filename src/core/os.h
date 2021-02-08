@@ -4,7 +4,7 @@
 
 #pragma once
 
-typedef struct {
+typedef struct WindowFlags {
   uint32_t width;
   uint32_t height;
   bool fullscreen;

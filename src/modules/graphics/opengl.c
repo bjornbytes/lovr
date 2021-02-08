@@ -6,6 +6,7 @@
 #include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "resources/shaders.h"
+#include "data/blob.h"
 #include "data/modelData.h"
 #include "math/math.h"
 #include <math.h>

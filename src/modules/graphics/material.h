@@ -1,19 +1,11 @@
 #include "data/modelData.h"
-#include "core/util.h"
 
 #pragma once
 
 struct Texture;
 struct Shader;
 
-typedef struct Material {
-  ref_t ref;
-  float scalars[MAX_MATERIAL_SCALARS];
-  Color colors[MAX_MATERIAL_COLORS];
-  struct Texture* textures[MAX_MATERIAL_TEXTURES];
-  float transform[9];
-} Material;
-
+typedef struct Material Material;
 Material* lovrMaterialCreate(void);
 void lovrMaterialDestroy(void* ref);
 void lovrMaterialBind(Material* material, struct Shader* shader);

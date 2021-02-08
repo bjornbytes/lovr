@@ -3,8 +3,17 @@
 #include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "resources/shaders.h"
+#include "core/util.h"
 #include <stdlib.h>
 #include <math.h>
+
+struct Material {
+  ref_t ref;
+  float scalars[MAX_MATERIAL_SCALARS];
+  Color colors[MAX_MATERIAL_COLORS];
+  struct Texture* textures[MAX_MATERIAL_TEXTURES];
+  float transform[9];
+};
 
 Material* lovrMaterialCreate() {
   Material* material = calloc(1, sizeof(Material));

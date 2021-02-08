@@ -9,6 +9,7 @@
 #include "event/event.h"
 #include "math/math.h"
 #include "core/maf.h"
+#include "core/os.h"
 #include "core/util.h"
 #include <stdlib.h>
 #include <string.h>
