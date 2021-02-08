@@ -138,5 +138,12 @@ _Bool atomic_flag_clear_explicit(volatile atomic_flag*, memory_order);
 #define atomic_flag_clear_explicit __atomic_clear
 
 #else
-#error "TODO: win32 atomics"
+
+#include <intrin.h>
+
+typedef unsigned int atomic_uint;
+
+#define atomic_fetch_add(p, x) _InterlockedExchangeAdd(p, x)
+#define atomic_fetch_sub(p, x) _InterlockedExchangeAdd(p, -(x))
+
 #endif
