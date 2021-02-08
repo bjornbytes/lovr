@@ -24,7 +24,6 @@ typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, 
 
 bool lovrAudioInit(const char* spatializer);
 void lovrAudioDestroy(void);
-const char* lovrAudioGetSpatializer(void);
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
 bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, uint32_t format, bool exclusive);
 bool lovrAudioStart(AudioType type);
@@ -34,6 +33,7 @@ float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
 void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
+const char* lovrAudioGetSpatializer(void);
 struct SoundData* lovrAudioGetCaptureStream(void);
 
 // Source
