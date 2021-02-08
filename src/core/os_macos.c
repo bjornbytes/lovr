@@ -126,6 +126,6 @@ void lovrPlatformRequestPermission(Permission permission) {
   //
 }
 
-void lovrPlatformOnPermissionEvent(permissionsCallback callback) {
+void lovrPlatformOnPermissionEvent(permissionCallback callback) {
   //
 }

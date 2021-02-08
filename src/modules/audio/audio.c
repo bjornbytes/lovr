@@ -187,7 +187,7 @@ bool lovrAudioInit(const char* spatializer) {
 
   SpatializerConfig spatializerConfig = {
     .maxSourcesHint = MAX_SOURCES,
-    .fixedBuffer = BUFFER_SIZE,
+    .fixedBufferSize = BUFFER_SIZE,
     .sampleRate = PLAYBACK_SAMPLE_RATE
   };
 
