@@ -76,7 +76,7 @@ static int l_lovrFontGetPixelDensity(lua_State* L) {
 static int l_lovrFontSetPixelDensity(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   if (lua_isnoneornil(L, 2)) {
-    lovrFontSetPixelDensity(font, lovrFontGetRasterizer(font)->height);
+    lovrFontSetPixelDensity(font, lovrRasterizerGetHeight(lovrFontGetRasterizer(font)));
   } else {
     float pixelDensity = luax_optfloat(L, 2, -1.f);
     lovrFontSetPixelDensity(font, pixelDensity);

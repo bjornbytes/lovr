@@ -1,4 +1,5 @@
 #include "data/blob.h"
+#include "core/util.h"
 #include <stdlib.h>
 
 Blob* lovrBlobCreate(void* data, size_t size, const char* name) {

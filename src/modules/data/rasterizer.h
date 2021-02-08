@@ -1,7 +1,5 @@
-#include "lib/stb/stb_truetype.h"
-#include "core/util.h"
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #pragma once
 
@@ -9,19 +7,6 @@
 
 struct Blob;
 struct TextureData;
-
-typedef struct Rasterizer {
-  ref_t ref;
-  stbtt_fontinfo font;
-  struct Blob* blob;
-  float size;
-  float scale;
-  int glyphCount;
-  int height;
-  int advance;
-  int ascent;
-  int descent;
-} Rasterizer;
 
 typedef struct {
   uint32_t x;
@@ -36,8 +21,15 @@ typedef struct {
   struct TextureData* data;
 } Glyph;
 
+typedef struct Rasterizer Rasterizer;
 Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size);
 void lovrRasterizerDestroy(void* ref);
+float lovrRasterizerGetSize(Rasterizer* rasterizer);
+int lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
+int lovrRasterizerGetHeight(Rasterizer* rasterizer);
+int lovrRasterizerGetAdvance(Rasterizer* rasterizer);
+int lovrRasterizerGetAscent(Rasterizer* rasterizer);
+int lovrRasterizerGetDescent(Rasterizer* rasterizer);
 bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
 bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
 void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, Glyph* glyph);

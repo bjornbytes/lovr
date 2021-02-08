@@ -3,11 +3,25 @@
 #include "data/textureData.h"
 #include "resources/VarelaRound.ttf.h"
 #include "core/utf.h"
+#include "core/util.h"
 #include "lib/stb/stb_truetype.h"
 #include <msdfgen-c.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+struct Rasterizer {
+  ref_t ref;
+  stbtt_fontinfo font;
+  struct Blob* blob;
+  float size;
+  float scale;
+  int glyphCount;
+  int height;
+  int advance;
+  int ascent;
+  int descent;
+};
 
 Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
   Rasterizer* rasterizer = calloc(1, sizeof(Rasterizer));
@@ -43,6 +57,30 @@ void lovrRasterizerDestroy(void* ref) {
   Rasterizer* rasterizer = ref;
   lovrRelease(rasterizer->blob, lovrBlobDestroy);
   free(rasterizer);
+}
+
+float lovrRasterizerGetSize(Rasterizer* rasterizer) {
+  return rasterizer->size;
+}
+
+int lovrRasterizerGetGlyphCount(Rasterizer* rasterizer) {
+  return rasterizer->glyphCount;
+}
+
+int lovrRasterizerGetHeight(Rasterizer* rasterizer) {
+  return rasterizer->height;
+}
+
+int lovrRasterizerGetAdvance(Rasterizer* rasterizer) {
+  return rasterizer->advance;
+}
+
+int lovrRasterizerGetAscent(Rasterizer* rasterizer) {
+  return rasterizer->ascent;
+}
+
+int lovrRasterizerGetDescent(Rasterizer* rasterizer) {
+  return rasterizer->descent;
 }
 
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t character) {

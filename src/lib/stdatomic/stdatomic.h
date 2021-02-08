@@ -1,6 +1,8 @@
 // I hacked this together from a C11 draft spec and clang/gcc atomics documentation
 // DO NOT TRUST IT
 
+#pragma once
+
 #ifndef _WIN32
 
 #include <stdint.h>

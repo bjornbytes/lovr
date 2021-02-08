@@ -56,7 +56,7 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
   lovrRetain(rasterizer);
   font->rasterizer = rasterizer;
   font->lineHeight = 1.f;
-  font->pixelDensity = (float) font->rasterizer->height;
+  font->pixelDensity = (float) lovrRasterizerGetHeight(rasterizer);
   map_init(&font->kerning, 0);
 
   // Atlas
@@ -70,7 +70,7 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
   map_init(&font->atlas.glyphMap, 0);
 
   // Set initial atlas size
-  while (font->atlas.height < 4 * rasterizer->size) {
+  while (font->atlas.height < 4 * lovrRasterizerGetSize(rasterizer)) {
     lovrFontExpandTexture(font);
   }
 
@@ -105,8 +105,10 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
   FontAtlas* atlas = &font->atlas;
   bool flip = font->flip;
 
+  int height = lovrRasterizerGetHeight(font->rasterizer);
+
   float cx = 0.f;
-  float cy = -font->rasterizer->height * .8f * (flip ? -1.f : 1.f);
+  float cy = -height * .8f * (flip ? -1.f : 1.f);
   float u = atlas->width;
   float v = atlas->height;
   float scale = 1.f / font->pixelDensity;
@@ -128,7 +130,7 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
     if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
       lineStart = lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
       cx = 0.f;
-      cy -= font->rasterizer->height * font->lineHeight * (flip ? -1.f : 1.f);
+      cy -= height * font->lineHeight * (flip ? -1.f : 1.f);
       previous = '\0';
       str += bytes;
       continue;
@@ -230,23 +232,23 @@ void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, flo
   }
 
   *width = MAX(*width, x * scale);
-  *height = ((*lineCount + 1) * font->rasterizer->height * font->lineHeight) * (font->flip ? -1 : 1);
+  *height = ((*lineCount + 1) * lovrRasterizerGetHeight(font->rasterizer) * font->lineHeight) * (font->flip ? -1 : 1);
 }
 
 float lovrFontGetHeight(Font* font) {
-  return font->rasterizer->height / font->pixelDensity;
+  return lovrRasterizerGetHeight(font->rasterizer) / font->pixelDensity;
 }
 
 float lovrFontGetAscent(Font* font) {
-  return font->rasterizer->ascent / font->pixelDensity;
+  return lovrRasterizerGetAscent(font->rasterizer) / font->pixelDensity;
 }
 
 float lovrFontGetDescent(Font* font) {
-  return font->rasterizer->descent / font->pixelDensity;
+  return lovrRasterizerGetDescent(font->rasterizer) / font->pixelDensity;
 }
 
 float lovrFontGetBaseline(Font* font) {
-  return font->rasterizer->height * .8f / font->pixelDensity;
+  return lovrRasterizerGetHeight(font->rasterizer) * .8f / font->pixelDensity;
 }
 
 float lovrFontGetLineHeight(Font* font) {
@@ -284,7 +286,7 @@ float lovrFontGetPixelDensity(Font* font) {
 
 void lovrFontSetPixelDensity(Font* font, float pixelDensity) {
   if (pixelDensity <= 0) {
-    pixelDensity = font->rasterizer->height;
+    pixelDensity = lovrRasterizerGetHeight(font->rasterizer);
   }
 
   font->pixelDensity = pixelDensity;

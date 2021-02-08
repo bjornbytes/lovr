@@ -4,37 +4,37 @@
 
 static int l_lovrRasterizerGetHeight(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  lua_pushinteger(L, rasterizer->height);
+  lua_pushinteger(L, lovrRasterizerGetHeight(rasterizer));
   return 1;
 }
 
 static int l_lovrRasterizerGetAdvance(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  lua_pushinteger(L, rasterizer->advance);
+  lua_pushinteger(L, lovrRasterizerGetAdvance(rasterizer));
   return 1;
 }
 
 static int l_lovrRasterizerGetAscent(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  lua_pushinteger(L, rasterizer->ascent);
+  lua_pushinteger(L, lovrRasterizerGetAscent(rasterizer));
   return 1;
 }
 
 static int l_lovrRasterizerGetDescent(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  lua_pushinteger(L, rasterizer->descent);
+  lua_pushinteger(L, lovrRasterizerGetDescent(rasterizer));
   return 1;
 }
 
 static int l_lovrRasterizerGetLineHeight(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  lua_pushinteger(L, rasterizer->height * 1.25f);
+  lua_pushinteger(L, lovrRasterizerGetHeight(rasterizer) * 1.25f);
   return 1;
 }
 
 static int l_lovrRasterizerGetGlyphCount(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  lua_pushinteger(L, rasterizer->glyphCount);
+  lua_pushinteger(L, lovrRasterizerGetGlyphCount(rasterizer));
   return 1;
 }
 
