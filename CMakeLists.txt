@@ -290,7 +290,7 @@ endif()
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
-target_include_directories(lovr PRIVATE src src/modules)
+target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic)
 target_link_libraries(lovr
   ${LOVR_GLFW}
   ${LOVR_LUA}

@@ -10,6 +10,7 @@ CFLAGS += -std=c99 -pedantic
 CFLAGS += -D_POSIX_C_SOURCE=200809L
 CFLAGS += -I$(ROOT)/src
 CFLAGS += -I$(ROOT)/src/modules
+CFLAGS += -I$(ROOT)/src/lib/stdatomic
 CFLAGS += -fvisibility=hidden
 CFLAGS += -Wall -Wextra
 CFLAGS += -Wno-unused-parameter
