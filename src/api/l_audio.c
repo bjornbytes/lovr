@@ -106,14 +106,14 @@ static int l_lovrAudioSetPose(lua_State *L) {
   return 0;
 }
 
-static int l_lovrAudioGetCaptureStream(lua_State* L) {
-  SoundData* soundData = lovrAudioGetCaptureStream();
-  luax_pushtype(L, SoundData, soundData);
+static int l_lovrAudioGetSpatializer(lua_State *L) {
+  lua_pushstring(L, lovrAudioGetSpatializer());
   return 1;
 }
 
-static int l_lovrAudioGetSpatializer(lua_State *L) {
-  lua_pushstring(L, lovrAudioGetSpatializer());
+static int l_lovrAudioGetCaptureStream(lua_State* L) {
+  SoundData* soundData = lovrAudioGetCaptureStream();
+  luax_pushtype(L, SoundData, soundData);
   return 1;
 }
 
@@ -154,8 +154,8 @@ static const luaL_Reg lovrAudio[] = {
   { "setVolume", l_lovrAudioSetVolume },
   { "getPose", l_lovrAudioGetPose },
   { "setPose", l_lovrAudioSetPose },
-  { "getCaptureStream", l_lovrAudioGetCaptureStream },
   { "getSpatializer", l_lovrAudioGetSpatializer },
+  { "getCaptureStream", l_lovrAudioGetCaptureStream },
   { "newSource", l_lovrAudioNewSource },
   { NULL, NULL }
 };

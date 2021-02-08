@@ -24,7 +24,7 @@ struct Source {
   Source* next;
   SoundData* sound;
   ma_data_converter* converter;
-  intptr_t spatializerMemo; // Spatializer can put anything it wants here
+  intptr_t spatializerMemo;
   uint32_t offset;
   float volume;
   float position[4];
@@ -224,10 +224,6 @@ void lovrAudioDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-const char* lovrAudioGetSpatializer() {
-  return state.spatializer->name;
-}
-
 static AudioDeviceCallback* enumerateCallback;
 
 static ma_bool32 enumPlayback(ma_context* context, ma_device_type type, const ma_device_info* info, void* userdata) {
@@ -267,13 +263,14 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRa
     config.playback.channels = OUTPUT_CHANNELS;
     config.playback.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared;
   } else {
+    sampleRate = sampleRate ? sampleRate : 16000;
     config = ma_device_config_init(ma_device_type_capture);
     config.capture.pDeviceID = (ma_device_id*) id;
     config.capture.format = miniaudioFormats[format];
     config.capture.channels = CAPTURE_CHANNELS;
     config.capture.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared;
     lovrRelease(SoundData, state.captureStream);
-    state.captureStream = lovrSoundDataCreateStream(sampleRate * 1., CAPTURE_CHANNELS, sampleRate, format);
+    state.captureStream = lovrSoundDataCreateStream(sampleRate * 1., format, CAPTURE_CHANNELS, sampleRate);
   }
 
   config.sampleRate = sampleRate;
@@ -314,6 +311,10 @@ void lovrAudioGetPose(float position[4], float orientation[4]) {
 
 void lovrAudioSetPose(float position[4], float orientation[4]) {
   state.spatializer->setListenerPose(position, orientation);
+}
+
+const char* lovrAudioGetSpatializer() {
+  return state.spatializer->name;
 }
 
 struct SoundData* lovrAudioGetCaptureStream() {
