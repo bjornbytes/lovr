@@ -2,7 +2,6 @@
 #include "data/blob.h"
 #include "data/image.h"
 #include "resources/VarelaRound.ttf.h"
-#include "core/utf.h"
 #include "core/util.h"
 #include "lib/stb/stb_truetype.h"
 #include <msdfgen-c.h>

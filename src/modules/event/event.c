@@ -2,7 +2,6 @@
 #include "thread/thread.h"
 #include "core/os.h"
 #include "core/util.h"
-#include "core/utf.h"
 #include <stdlib.h>
 #include <string.h>
 

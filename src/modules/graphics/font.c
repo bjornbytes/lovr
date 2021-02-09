@@ -3,7 +3,6 @@
 #include "data/rasterizer.h"
 #include "data/image.h"
 #include "core/map.h"
-#include "core/utf.h"
 #include <string.h>
 #include <stdlib.h>
 

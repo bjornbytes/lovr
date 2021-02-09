@@ -83,3 +83,7 @@ static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t 
   *data = allocator(*data, *capacity * stride);
   lovrAssert(*data, "Out of memory");
 }
+
+// UTF-8
+size_t utf8_decode(const char *s, const char *e, unsigned *pch);
+void utf8_encode(uint32_t codepoint, char str[4]);
