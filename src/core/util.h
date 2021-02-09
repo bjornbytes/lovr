@@ -67,7 +67,7 @@ typedef atomic_uint ref_t;
 typedef void* arr_allocator(void* data, size_t size);
 #define arr_t(T) struct { T* data; arr_allocator* alloc; size_t length, capacity; }
 #define arr_init(a, allocator) (a)->data = NULL, (a)->length = 0, (a)->capacity = 0, (a)->alloc = allocator
-#define arr_free(a) (a)->alloc((a)->data, 0)
+#define arr_free(a) if ((a)->data) (a)->alloc((a)->data, 0)
 #define arr_reserve(a, n) _arr_reserve((void**) &((a)->data), n, &(a)->capacity, sizeof(*(a)->data), (a)->alloc)
 #define arr_expand(a, n) arr_reserve(a, (a)->length + n)
 #define arr_push(a, x) arr_reserve(a, (a)->length + 1), (a)->data[(a)->length++] = x
