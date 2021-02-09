@@ -126,13 +126,15 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
 
     // Newlines
-    if (codepoint == '\n' || (wrap && cx * scale > wrap && codepoint == ' ')) {
+    if (codepoint == '\n' || (wrap && cx * scale > wrap && (codepoint == ' ' || previous == ' '))) {
       lineStart = lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
       cx = 0.f;
       cy -= height * font->lineHeight * (flip ? -1.f : 1.f);
       previous = '\0';
-      str += bytes;
-      continue;
+      if (codepoint == ' ' || codepoint == '\n') {
+        str += bytes;
+        continue;
+      }
     }
 
     // Tabs
