@@ -80,6 +80,7 @@ void lovrWorldDestroy(void* ref) {
   for (uint32_t i = 0; i < MAX_TAGS && world->tags[i]; i++) {
     free(world->tags[i]);
   }
+  free(world);
 }
 
 void lovrWorldDestroyData(World* world) {
@@ -325,6 +326,7 @@ void lovrColliderDestroy(void* ref) {
   lovrColliderDestroyData(collider);
   arr_free(&collider->shapes);
   arr_free(&collider->joints);
+  free(collider);
 }
 
 void lovrColliderDestroyData(Collider* collider) {
@@ -341,7 +343,7 @@ void lovrColliderDestroyData(Collider* collider) {
 
   Joint** joints = lovrColliderGetJoints(collider, &count);
   for (size_t i = 0; i < count; i++) {
-    lovrRelease(Joint, joints[i]);
+    lovrRelease(joints[i], lovrJointDestroy);
   }
 
   dBodyDestroy(collider->body);
@@ -353,7 +355,7 @@ void lovrColliderDestroyData(Collider* collider) {
   collider->next = collider->prev = NULL;
 
   // If the Collider is destroyed, the world lets go of its reference to this Collider
-  lovrRelease(Collider, collider);
+  lovrRelease(collider, lovrColliderDestroy);
 }
 
 void lovrColliderInitInertia(Collider* collider, Shape* shape) {
@@ -386,7 +388,7 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
     dSpaceRemove(collider->world->space, shape->id);
     dGeomSetBody(shape->id, 0);
     shape->collider = NULL;
-    lovrRelease(Shape, shape);
+    lovrRelease(shape, lovrShapeDestroy);
   }
 }
 
@@ -688,6 +690,7 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
 void lovrShapeDestroy(void* ref) {
   Shape* shape = ref;
   lovrShapeDestroyData(shape);
+  free(shape);
 }
 
 void lovrShapeDestroyData(Shape* shape) {
@@ -938,6 +941,7 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount
 void lovrJointDestroy(void* ref) {
   Joint* joint = ref;
   lovrJointDestroyData(joint);
+  free(joint);
 }
 
 void lovrJointDestroyData(Joint* joint) {

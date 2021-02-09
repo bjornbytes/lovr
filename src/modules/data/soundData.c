@@ -245,11 +245,12 @@ SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
 
 void lovrSoundDataDestroy(void* ref) {
   SoundData* soundData = (SoundData*) ref;
-  lovrRelease(Blob, soundData->blob);
+  lovrRelease(soundData->blob, lovrBlobDestroy);
   if (soundData->read == lovrSoundDataReadOgg) stb_vorbis_close(soundData->decoder);
   if (soundData->read == lovrSoundDataReadMp3) mp3dec_ex_close(soundData->decoder), free(soundData->decoder);
   ma_pcm_rb_uninit(soundData->stream);
   free(soundData->stream);
+  free(soundData);
 }
 
 Blob* lovrSoundDataGetBlob(SoundData* soundData) {

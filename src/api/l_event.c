@@ -229,7 +229,7 @@ static int nextEvent(lua_State* L) {
     case EVENT_THREAD_ERROR:
       luax_pushtype(L, Thread, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
-      lovrRelease(Thread, event.data.thread.thread);
+      lovrRelease(event.data.thread.thread, lovrThreadDestroy);
       return 3;
 #endif
 

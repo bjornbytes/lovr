@@ -479,7 +479,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
       Texture* texture = lovrTextureCreateFromHandle(images[i].image, textureType, arraySize, state.msaa);
       state.canvases[i] = lovrCanvasCreate(state.width, state.height, flags);
       lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { texture, 0, 0 }, 1);
-      lovrRelease(Texture, texture);
+      lovrRelease(texture, lovrTextureDestroy);
     }
 
     // Pre-init composition layer
@@ -516,7 +516,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
 
 static void openxr_destroy(void) {
   for (uint32_t i = 0; i < state.imageCount; i++) {
-    lovrRelease(Canvas, state.canvases[i]);
+    lovrRelease(state.canvases[i], lovrCanvasDestroy);
   }
 
   for (size_t i = 0; i < MAX_ACTIONS; i++) {

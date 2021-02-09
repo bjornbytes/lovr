@@ -311,7 +311,7 @@ static TextureData* luax_checktexturedata(lua_State* L, int index, bool flip) {
   } else {
     Blob* blob = luax_readblob(L, index, "Texture");
     textureData = lovrTextureDataCreateFromBlob(blob, flip);
-    lovrRelease(Blob, blob);
+    lovrRelease(blob, lovrBlobDestroy);
   }
 
   return textureData;
@@ -374,7 +374,7 @@ static int l_lovrGraphicsCreateWindow(lua_State* L) {
 
   lovrGraphicsCreateWindow(&flags);
   luax_atexit(L, lovrGraphicsDestroy); // The lua_State that creates the window shall be the one to destroy it
-  lovrRelease(TextureData, textureData);
+  lovrRelease(textureData, lovrTextureDataDestroy);
   return 0;
 }
 
@@ -1220,12 +1220,12 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
   if (attachmentCount > 0) {
     lovrCanvasSetAttachments(canvas, attachments, attachmentCount);
     if (anonymous) {
-      lovrRelease(Texture, attachments[0].texture);
+      lovrRelease(attachments[0].texture, lovrTextureDestroy);
     }
   }
 
   luax_pushtype(L, Canvas, canvas);
-  lovrRelease(Canvas, canvas);
+  lovrRelease(canvas, lovrCanvasDestroy);
   return 1;
 }
 
@@ -1244,13 +1244,13 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
     }
 
     rasterizer = lovrRasterizerCreate(blob, size);
-    lovrRelease(Blob, blob);
+    lovrRelease(blob, lovrBlobDestroy);
   }
 
   Font* font = lovrFontCreate(rasterizer);
   luax_pushtype(L, Font, font);
-  lovrRelease(Rasterizer, rasterizer);
-  lovrRelease(Font, font);
+  lovrRelease(rasterizer, lovrRasterizerDestroy);
+  lovrRelease(font, lovrFontDestroy);
   return 1;
 }
 
@@ -1264,9 +1264,9 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     TextureData* textureData = lovrTextureDataCreateFromBlob(blob, true);
     Texture* texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, true, 0);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
-    lovrRelease(Blob, blob);
-    lovrRelease(TextureData, textureData);
-    lovrRelease(Texture, texture);
+    lovrRelease(blob, lovrBlobDestroy);
+    lovrRelease(textureData, lovrTextureDataDestroy);
+    lovrRelease(texture, lovrTextureDestroy);
   } else if (lua_isuserdata(L, index)) {
     Texture* texture = luax_checktype(L, index, Texture);
     lovrMaterialSetTexture(material, TEXTURE_DIFFUSE, texture);
@@ -1280,7 +1280,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
   }
 
   luax_pushtype(L, Material, material);
-  lovrRelease(Material, material);
+  lovrRelease(material, lovrMaterialDestroy);
   return 1;
 }
 
@@ -1419,10 +1419,10 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
 
   lovrBufferFlush(vertexBuffer, 0, count * stride);
   lovrBufferUnmap(vertexBuffer);
-  lovrRelease(Buffer, vertexBuffer);
+  lovrRelease(vertexBuffer, lovrBufferDestroy);
 
   luax_pushtype(L, Mesh, mesh);
-  lovrRelease(Mesh, mesh);
+  lovrRelease(mesh, lovrMeshDestroy);
   return 1;
 }
 
@@ -1432,15 +1432,15 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   if (!modelData) {
     Blob* blob = luax_readblob(L, 1, "Model");
     modelData = lovrModelDataCreate(blob, luax_readfile);
-    lovrRelease(Blob, blob);
+    lovrRelease(blob, lovrBlobDestroy);
   } else {
     lovrRetain(modelData);
   }
 
   Model* model = lovrModelCreate(modelData);
   luax_pushtype(L, Model, model);
-  lovrRelease(ModelData, modelData);
-  lovrRelease(Model, model);
+  lovrRelease(modelData, lovrModelDataDestroy);
+  lovrRelease(model, lovrModelDestroy);
   return 1;
 }
 
@@ -1554,7 +1554,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   }
 
   luax_pushtype(L, Shader, shader);
-  lovrRelease(Shader, shader);
+  lovrRelease(shader, lovrShaderDestroy);
   return 1;
 }
 
@@ -1573,7 +1573,7 @@ static int l_lovrGraphicsNewComputeShader(lua_State* L) {
 
   Shader* shader = lovrShaderCreateCompute(source, sourceLength, flags, flagCount);
   luax_pushtype(L, Shader, shader);
-  lovrRelease(Shader, shader);
+  lovrRelease(shader, lovrShaderDestroy);
   return 1;
 }
 
@@ -1632,8 +1632,8 @@ static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   ShaderBlock* block = lovrShaderBlockCreate(type, buffer, &uniforms);
   luax_pushtype(L, ShaderBlock, block);
   arr_free(&uniforms);
-  lovrRelease(Buffer, buffer);
-  lovrRelease(ShaderBlock, block);
+  lovrRelease(buffer, lovrBufferDestroy);
+  lovrRelease(block, lovrShaderBlockDestroy);
   return 1;
 }
 
@@ -1714,13 +1714,13 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         lovrTextureAllocate(texture, textureData->width, textureData->height, depth, textureData->format);
       }
       lovrTextureReplacePixels(texture, textureData, 0, 0, i, 0);
-      lovrRelease(TextureData, textureData);
+      lovrRelease(textureData, lovrTextureDataDestroy);
       lua_pop(L, 1);
     }
   }
 
   luax_pushtype(L, Texture, texture);
-  lovrRelease(Texture, texture);
+  lovrRelease(texture, lovrTextureDestroy);
   return 1;
 }
 

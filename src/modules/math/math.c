@@ -23,7 +23,7 @@ bool lovrMathInit() {
 
 void lovrMathDestroy() {
   if (!state.initialized) return;
-  lovrRelease(RandomGenerator, state.generator);
+  lovrRelease(state.generator, lovrRandomGeneratorDestroy);
   memset(&state, 0, sizeof(state));
 }
 

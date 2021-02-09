@@ -35,6 +35,7 @@ void lovrChannelDestroy(void* ref) {
   arr_free(&channel->messages);
   mtx_destroy(&channel->lock);
   cnd_destroy(&channel->cond);
+  free(channel);
 }
 
 bool lovrChannelPush(Channel* channel, Variant* variant, double timeout, uint64_t* id) {
@@ -82,7 +83,7 @@ bool lovrChannelPop(Channel* channel, Variant* variant, double timeout) {
       *variant = channel->messages.data[channel->head++];
       if (channel->head == channel->messages.length) {
         channel->head = channel->messages.length = 0;
-        lovrRelease(Channel, channel);
+        lovrRelease(channel, lovrChannelDestroy);
       }
       channel->received++;
       cnd_broadcast(&channel->cond);

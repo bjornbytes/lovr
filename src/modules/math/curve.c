@@ -62,6 +62,7 @@ Curve* lovrCurveCreate(void) {
 void lovrCurveDestroy(void* ref) {
   Curve* curve = ref;
   arr_free(&curve->points);
+  free(curve);
 }
 
 void lovrCurveEvaluate(Curve* curve, float t, vec3 p) {

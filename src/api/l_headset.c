@@ -620,8 +620,8 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
   if (modelData) {
     Model* model = lovrModelCreate(modelData);
     luax_pushtype(L, Model, model);
-    lovrRelease(ModelData, modelData);
-    lovrRelease(Model, model);
+    lovrRelease(modelData, lovrModelDataDestroy);
+    lovrRelease(model, lovrModelDestroy);
     return 1;
   }
 

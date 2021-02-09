@@ -122,7 +122,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
   if (!soundData) {
     Blob* blob = luax_readblob(L, 1, "Source");
     soundData = lovrSoundDataCreateFromFile(blob, false);
-    lovrRelease(Blob, blob);
+    lovrRelease(blob, lovrBlobDestroy);
   } else {
     lovrRetain(soundData);
   }
@@ -136,8 +136,8 @@ static int l_lovrAudioNewSource(lua_State* L) {
 
   Source* source = lovrSourceCreate(soundData, spatial);
   luax_pushtype(L, Source, source);
-  lovrRelease(SoundData, soundData);
-  lovrRelease(Source, source);
+  lovrRelease(soundData, lovrSoundDataDestroy);
+  lovrRelease(source, lovrSourceDestroy);
   return 1;
 }
 

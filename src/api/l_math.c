@@ -44,7 +44,7 @@ static const char* lovrVectorTypeNames[] = {
 };
 
 static void luax_destroypool(void) {
-  lovrRelease(Pool, pool);
+  lovrRelease(pool, lovrPoolDestroy);
 }
 
 float* luax_tovector(lua_State* L, int index, VectorType* type) {
@@ -126,7 +126,7 @@ static int l_lovrMathNewCurve(lua_State* L) {
   }
 
   luax_pushtype(L, Curve, curve);
-  lovrRelease(Curve, curve);
+  lovrRelease(curve, lovrCurveDestroy);
   return 1;
 }
 
@@ -137,7 +137,7 @@ static int l_lovrMathNewRandomGenerator(lua_State* L) {
     lovrRandomGeneratorSetSeed(generator, seed);
   }
   luax_pushtype(L, RandomGenerator, generator);
-  lovrRelease(RandomGenerator, generator);
+  lovrRelease(generator, lovrRandomGeneratorDestroy);
   return 1;
 }
 

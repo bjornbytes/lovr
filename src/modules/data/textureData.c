@@ -528,7 +528,7 @@ TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip) {
 
   if (!textureData->blob->data) {
     lovrThrow("Could not load texture data from '%s'", blob->name);
-    lovrRelease(Blob, textureData->blob);
+    lovrRelease(textureData->blob, lovrBlobDestroy);
     free(textureData);
     return NULL;
   }
@@ -751,7 +751,8 @@ void lovrTextureDataPaste(TextureData* textureData, TextureData* source, uint32_
 
 void lovrTextureDataDestroy(void* ref) {
   TextureData* textureData = ref;
-  lovrRelease(Blob, textureData->source);
+  lovrRelease(textureData->source, lovrBlobDestroy);
   free(textureData->mipmaps);
-  lovrRelease(Blob, textureData->blob);
+  lovrRelease(textureData->blob, lovrBlobDestroy);
+  free(textureData);
 }

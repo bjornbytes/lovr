@@ -88,7 +88,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       if (!source->playing) {
         *list = source->next;
         source->tracked = false;
-        lovrRelease(Source, source);
+        lovrRelease(source, lovrSourceDestroy);
         continue;
       }
 
@@ -215,7 +215,7 @@ void lovrAudioDestroy() {
   }
   ma_mutex_uninit(&state.lock);
   ma_context_uninit(&state.context);
-  lovrRelease(SoundData, state.captureStream);
+  lovrRelease(state.captureStream, lovrSoundDataDestroy);
   if (state.spatializer) state.spatializer->destroy();
   for (size_t i = 0; i < state.converters.length; i++) {
     ma_data_converter_uninit(state.converters.data[i]);
@@ -270,7 +270,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRa
     config.capture.format = miniaudioFormats[format];
     config.capture.channels = CAPTURE_CHANNELS;
     config.capture.shareMode = exclusive ? ma_share_mode_exclusive : ma_share_mode_shared;
-    lovrRelease(SoundData, state.captureStream);
+    lovrRelease(state.captureStream, lovrSoundDataDestroy);
     state.captureStream = lovrSoundDataCreateStream(sampleRate * 1., format, CAPTURE_CHANNELS, sampleRate);
   }
 
@@ -370,7 +370,8 @@ Source* lovrSourceCreate(SoundData* sound, bool spatial) {
 void lovrSourceDestroy(void* ref) {
   Source* source = ref;
   state.spatializer->sourceDestroy(source);
-  lovrRelease(SoundData, source->sound);
+  lovrRelease(source->sound, lovrSoundDataDestroy);
+  free(source);
 }
 
 bool lovrSourcePlay(Source* source) {

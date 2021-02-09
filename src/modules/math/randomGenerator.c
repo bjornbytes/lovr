@@ -40,7 +40,7 @@ RandomGenerator* lovrRandomGeneratorCreate(void) {
 }
 
 void lovrRandomGeneratorDestroy(void* ref) {
-  //
+  free(ref);
 }
 
 Seed lovrRandomGeneratorGetSeed(RandomGenerator* generator) {

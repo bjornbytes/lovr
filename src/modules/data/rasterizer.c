@@ -41,7 +41,8 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
 
 void lovrRasterizerDestroy(void* ref) {
   Rasterizer* rasterizer = ref;
-  lovrRelease(Blob, rasterizer->blob);
+  lovrRelease(rasterizer->blob, lovrBlobDestroy);
+  free(rasterizer);
 }
 
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t character) {

@@ -22,8 +22,9 @@ File* lovrFileInit(File* file ,const char* path) {
 void lovrFileDestroy(void* ref) {
   File* file = ref;
   if (file->handle) {
-    lovrFileClose(ref);
+    lovrFileClose(file);
   }
+  free(file);
 }
 
 bool lovrFileOpen(File* file, FileMode mode) {

@@ -33,7 +33,7 @@ static int l_lovrDataNewBlob(lua_State* L) {
   const char* name = luaL_optstring(L, 2, "");
   Blob* blob = lovrBlobCreate(data, size, name);
   luax_pushtype(L, Blob, blob);
-  lovrRelease(Blob, blob);
+  lovrRelease(blob, lovrBlobDestroy);
   return 1;
 }
 
@@ -41,8 +41,8 @@ static int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob, luax_readfile);
   luax_pushtype(L, ModelData, modelData);
-  lovrRelease(Blob, blob);
-  lovrRelease(ModelData, modelData);
+  lovrRelease(blob, lovrBlobDestroy);
+  lovrRelease(modelData, lovrModelDataDestroy);
   return 1;
 }
 
@@ -59,8 +59,8 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
 
   Rasterizer* rasterizer = lovrRasterizerCreate(blob, size);
   luax_pushtype(L, Rasterizer, rasterizer);
-  lovrRelease(Blob, blob);
-  lovrRelease(Rasterizer, rasterizer);
+  lovrRelease(blob, lovrBlobDestroy);
+  lovrRelease(rasterizer, lovrRasterizerDestroy);
   return 1;
 }
 
@@ -77,7 +77,7 @@ static int l_lovrDataNewSoundData(lua_State* L) {
       lovrSoundDataCreateStream(frames, format, channels, sampleRate) :
       lovrSoundDataCreateRaw(frames, format, channels, sampleRate, blob);
     luax_pushtype(L, SoundData, soundData);
-    lovrRelease(SoundData, soundData);
+    lovrRelease(soundData, lovrSoundDataDestroy);
     return 1;
   }
 
@@ -85,8 +85,8 @@ static int l_lovrDataNewSoundData(lua_State* L) {
   bool decode = lua_toboolean(L, 2);
   SoundData* soundData = lovrSoundDataCreateFromFile(blob, decode);
   luax_pushtype(L, SoundData, soundData);
-  lovrRelease(Blob, blob);
-  lovrRelease(SoundData, soundData);
+  lovrRelease(blob, lovrBlobDestroy);
+  lovrRelease(soundData, lovrSoundDataDestroy);
   return 1;
 }
 
@@ -106,12 +106,12 @@ static int l_lovrDataNewTextureData(lua_State* L) {
       Blob* blob = luax_readblob(L, 1, "Texture");
       bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
       textureData = lovrTextureDataCreateFromBlob(blob, flip);
-      lovrRelease(Blob, blob);
+      lovrRelease(blob, lovrBlobDestroy);
     }
   }
 
   luax_pushtype(L, TextureData, textureData);
-  lovrRelease(TextureData, textureData);
+  lovrRelease(textureData, lovrTextureDataDestroy);
   return 1;
 }
 

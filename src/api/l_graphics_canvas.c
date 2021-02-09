@@ -57,7 +57,7 @@ static int l_lovrCanvasNewTextureData(lua_State* L) {
   lovrAssert(index < count, "Can not create a TextureData from Texture #%d of Canvas (it only has %d textures)", index, count);
   TextureData* textureData = lovrCanvasNewTextureData(canvas, index);
   luax_pushtype(L, TextureData, textureData);
-  lovrRelease(TextureData, textureData);
+  lovrRelease(textureData, lovrTextureDataDestroy);
   return 1;
 }
 

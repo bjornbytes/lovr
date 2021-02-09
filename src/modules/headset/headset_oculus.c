@@ -111,7 +111,7 @@ static bool oculus_init(float supersample, float offset, uint32_t msaa) {
 
 static void oculus_destroy(void) {
   for (size_t i = 0; i < state.textures.length; i++) {
-    lovrRelease(Texture, state.textures.data[i]);
+    lovrRelease(state.textures.data[i], lovrTextureDestroy);
   }
   map_free(&state.textureLookup);
 
@@ -125,7 +125,7 @@ static void oculus_destroy(void) {
     state.chain = NULL;
   }
 
-  lovrRelease(Canvas, state.canvas);
+  lovrRelease(state.canvas, lovrCanvasDestroy);
   ovr_Destroy(state.session);
   ovr_Shutdown();
   memset(&state, 0, sizeof(state));

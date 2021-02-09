@@ -21,7 +21,7 @@ static int luax_meta__gc(lua_State* L) {
     lua_getfield(L, -1, "__destructor");
     destructorFn* destructor = (destructorFn*) lua_tocfunction(L, -1);
     if (destructor) {
-      _lovrRelease(p->object, destructor);
+      lovrRelease(p->object, destructor);
       p->object = NULL;
     }
   }

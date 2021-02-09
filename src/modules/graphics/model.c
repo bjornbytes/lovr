@@ -201,35 +201,36 @@ void lovrModelDestroy(void* ref) {
 
   if (model->buffers) {
     for (uint32_t i = 0; i < model->data->bufferCount; i++) {
-      lovrRelease(Buffer, model->buffers[i]);
+      lovrRelease(model->buffers[i], lovrBufferDestroy);
     }
     free(model->buffers);
   }
 
   if (model->meshes) {
     for (uint32_t i = 0; i < model->data->primitiveCount; i++) {
-      lovrRelease(Mesh, model->meshes[i]);
+      lovrRelease(model->meshes[i], lovrMeshDestroy);
     }
     free(model->meshes);
   }
 
   if (model->textures) {
     for (uint32_t i = 0; i < model->data->textureCount; i++) {
-      lovrRelease(Texture, model->textures[i]);
+      lovrRelease(model->textures[i], lovrTextureDestroy);
     }
     free(model->textures);
   }
 
   if (model->materials) {
     for (uint32_t i = 0; i < model->data->materialCount; i++) {
-      lovrRelease(Material, model->materials[i]);
+      lovrRelease(model->materials[i], lovrMaterialDestroy);
     }
     free(model->materials);
   }
 
-  lovrRelease(ModelData, model->data);
+  lovrRelease(model->data, lovrModelDataDestroy);
   free(model->globalTransforms);
   free(model->localTransforms);
+  free(model);
 }
 
 ModelData* lovrModelGetModelData(Model* model) {

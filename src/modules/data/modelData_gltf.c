@@ -661,7 +661,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           Blob* blob = lovrBlobCreate(buffer->data, buffer->size, NULL);
           *texture = lovrTextureDataCreateFromBlob(blob, false);
           blob->data = NULL; // XXX Blob data ownership
-          lovrRelease(Blob, blob);
+          lovrRelease(blob, lovrBlobDestroy);
         } else if (STR_EQ(key, "uri")) {
           size_t size = 0;
           gltfString uri = NOM_STR(json, token);
@@ -672,7 +672,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           lovrAssert(data && size > 0, "Unable to read texture from '%s'", filename);
           Blob* blob = lovrBlobCreate(data, size, NULL);
           *texture = lovrTextureDataCreateFromBlob(blob, false);
-          lovrRelease(Blob, blob);
+          lovrRelease(blob, lovrBlobDestroy);
           *root = '\0';
         } else {
           token += NOM_VALUE(json, token);

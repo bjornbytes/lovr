@@ -42,7 +42,7 @@ static void onPermissionEvent(Permission permission, bool granted) {
 void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
     case TYPE_STRING: free(variant->value.string); return;
-    case TYPE_OBJECT: _lovrRelease(variant->value.object.pointer, variant->value.object.destructor); return;
+    case TYPE_OBJECT: lovrRelease(variant->value.object.pointer, variant->value.object.destructor); return;
     default: return;
   }
 }
@@ -62,7 +62,7 @@ void lovrEventDestroy() {
     Event* event = &state.events.data[i];
     switch (event->type) {
 #ifndef LOVR_DISABLE_THREAD
-      case EVENT_THREAD_ERROR: lovrRelease(Thread, event->data.thread.thread); break;
+      case EVENT_THREAD_ERROR: lovrRelease(event->data.thread.thread, lovrThreadDestroy); break;
 #endif
       case EVENT_CUSTOM:
         for (uint32_t j = 0; j < event->data.custom.count; j++) {

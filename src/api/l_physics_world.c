@@ -44,7 +44,7 @@ static int l_lovrWorldNewCollider(lua_State* L) {
   luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   luax_pushtype(L, Collider, collider);
-  lovrRelease(Collider, collider);
+  lovrRelease(collider, lovrColliderDestroy);
   return 1;
 }
 
@@ -58,8 +58,8 @@ static int l_lovrWorldNewBoxCollider(lua_State* L) {
   lovrColliderAddShape(collider, shape);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
-  lovrRelease(Collider, collider);
-  lovrRelease(Shape, shape);
+  lovrRelease(collider, lovrColliderDestroy);
+  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -74,8 +74,8 @@ static int l_lovrWorldNewCapsuleCollider(lua_State* L) {
   lovrColliderAddShape(collider, shape);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
-  lovrRelease(Collider, collider);
-  lovrRelease(Shape, shape);
+  lovrRelease(collider, lovrColliderDestroy);
+  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -90,8 +90,8 @@ static int l_lovrWorldNewCylinderCollider(lua_State* L) {
   lovrColliderAddShape(collider, shape);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
-  lovrRelease(Collider, collider);
-  lovrRelease(Shape, shape);
+  lovrRelease(collider, lovrColliderDestroy);
+  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -105,8 +105,8 @@ static int l_lovrWorldNewSphereCollider(lua_State* L) {
   lovrColliderAddShape(collider, shape);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
-  lovrRelease(Collider, collider);
-  lovrRelease(Shape, shape);
+  lovrRelease(collider, lovrColliderDestroy);
+  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -143,8 +143,8 @@ static int l_lovrWorldNewMeshCollider(lua_State* L) {
   lovrColliderAddShape(collider, shape);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
-  lovrRelease(Collider, collider);
-  lovrRelease(Shape, shape);
+  lovrRelease(collider, lovrColliderDestroy);
+  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 

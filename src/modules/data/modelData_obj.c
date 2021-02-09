@@ -80,7 +80,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_texturedata_t*
       material->filters[TEXTURE_DIFFUSE].mode = FILTER_TRILINEAR;
       material->wraps[TEXTURE_DIFFUSE] = (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT };
       arr_push(textures, texture);
-      lovrRelease(Blob, blob);
+      lovrRelease(blob, lovrBlobDestroy);
     }
 
     next:

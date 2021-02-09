@@ -29,7 +29,7 @@ void lovrThreadModuleDestroy() {
   for (size_t i = 0; i < state.channels.size; i++) {
     if (state.channels.values[i] != MAP_NIL) {
       ChannelEntry entry = { state.channels.values[i] };
-      lovrRelease(Channel, entry.channel);
+      lovrRelease(entry.channel, lovrChannelDestroy);
     }
   }
   mtx_destroy(&state.channelLock);
@@ -67,8 +67,9 @@ void lovrThreadDestroy(void* ref) {
   Thread* thread = ref;
   mtx_destroy(&thread->lock);
   thrd_detach(thread->handle);
-  lovrRelease(Blob, thread->body);
+  lovrRelease(thread->body, lovrBlobDestroy);
   free(thread->error);
+  free(thread);
 }
 
 void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount) {

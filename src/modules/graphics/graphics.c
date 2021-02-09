@@ -199,18 +199,18 @@ void lovrGraphicsDestroy() {
   lovrGraphicsSetFont(NULL);
   lovrGraphicsSetCanvas(NULL);
   for (int i = 0; i < MAX_DEFAULT_SHADERS; i++) {
-    lovrRelease(Shader, state.defaultShaders[i][false]);
-    lovrRelease(Shader, state.defaultShaders[i][true]);
+    lovrRelease(state.defaultShaders[i][false], lovrShaderDestroy);
+    lovrRelease(state.defaultShaders[i][true], lovrShaderDestroy);
   }
   for (int i = 0; i < MAX_STREAMS; i++) {
-    lovrRelease(Buffer, state.buffers[i]);
+    lovrRelease(state.buffers[i], lovrBufferDestroy);
   }
-  lovrRelease(Mesh, state.mesh);
-  lovrRelease(Mesh, state.instancedMesh);
-  lovrRelease(Buffer, state.identityBuffer);
-  lovrRelease(Material, state.defaultMaterial);
-  lovrRelease(Font, state.defaultFont);
-  lovrRelease(Canvas, state.defaultCanvas);
+  lovrRelease(state.mesh, lovrMeshDestroy);
+  lovrRelease(state.instancedMesh, lovrMeshDestroy);
+  lovrRelease(state.identityBuffer, lovrBufferDestroy);
+  lovrRelease(state.defaultMaterial, lovrMaterialDestroy);
+  lovrRelease(state.defaultFont, lovrFontDestroy);
+  lovrRelease(state.defaultCanvas, lovrCanvasDestroy);
   lovrGpuDestroy();
   memset(&state, 0, sizeof(state));
 }
@@ -412,7 +412,7 @@ void lovrGraphicsSetCanvas(Canvas* canvas) {
   }
 
   lovrRetain(canvas);
-  lovrRelease(Canvas, state.canvas);
+  lovrRelease(state.canvas, lovrCanvasDestroy);
   state.canvas = canvas;
 }
 
@@ -467,7 +467,7 @@ Font* lovrGraphicsGetFont() {
     if (!state.defaultFont) {
       Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
       state.defaultFont = lovrFontCreate(rasterizer);
-      lovrRelease(Rasterizer, rasterizer);
+      lovrRelease(rasterizer, lovrRasterizerDestroy);
     }
 
     lovrGraphicsSetFont(state.defaultFont);
@@ -478,7 +478,7 @@ Font* lovrGraphicsGetFont() {
 
 void lovrGraphicsSetFont(Font* font) {
   lovrRetain(font);
-  lovrRelease(Font, state.font);
+  lovrRelease(state.font, lovrFontDestroy);
   state.font = font;
 }
 
@@ -505,7 +505,7 @@ Shader* lovrGraphicsGetShader() {
 void lovrGraphicsSetShader(Shader* shader) {
   lovrAssert(!shader || lovrShaderGetType(shader) == SHADER_GRAPHICS, "Compute shaders can not be set as the active shader");
   lovrRetain(shader);
-  lovrRelease(Shader, state.shader);
+  lovrRelease(state.shader, lovrShaderDestroy);
   state.shader = shader;
 }
 

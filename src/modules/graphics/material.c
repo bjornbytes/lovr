@@ -31,8 +31,9 @@ void lovrMaterialDestroy(void* ref) {
   Material* material = ref;
   lovrGraphicsFlushMaterial(material);
   for (int i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
-    lovrRelease(Texture, material->textures[i]);
+    lovrRelease(material->textures[i], lovrTextureDestroy);
   }
+  free(material);
 }
 
 void lovrMaterialBind(Material* material, Shader* shader) {
@@ -81,7 +82,7 @@ void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Tex
   if (material->textures[textureType] != texture) {
     lovrGraphicsFlushMaterial(material);
     lovrRetain(texture);
-    lovrRelease(Texture, material->textures[textureType]);
+    lovrRelease(material->textures[textureType], lovrTextureDestroy);
     material->textures[textureType] = texture;
   }
 }

@@ -80,7 +80,7 @@ static void vrapi_destroy() {
   vrapi_DestroyTextureSwapChain(state.swapchain);
   vrapi_Shutdown();
   for (uint32_t i = 0; i < 3; i++) {
-    lovrRelease(Canvas, state.canvases[i]);
+    lovrRelease(state.canvases[i], lovrCanvasDestroy);
   }
   free(state.rawBoundaryPoints);
   free(state.boundaryPoints);
@@ -686,7 +686,7 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
       uint32_t handle = vrapi_GetTextureSwapChainHandle(state.swapchain, i);
       Texture* texture = lovrTextureCreateFromHandle(handle, TEXTURE_ARRAY, 2, 1);
       lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { .texture = texture }, 1);
-      lovrRelease(Texture, texture);
+      lovrRelease(texture, lovrTextureDestroy);
     }
   }
 

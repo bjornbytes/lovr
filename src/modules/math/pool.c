@@ -21,6 +21,7 @@ Pool* lovrPoolCreate() {
 void lovrPoolDestroy(void* ref) {
   Pool* pool = ref;
   free(pool->data);
+  free(pool);
 }
 
 void lovrPoolGrow(Pool* pool, size_t count) {

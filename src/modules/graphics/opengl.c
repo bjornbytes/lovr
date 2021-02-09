@@ -754,7 +754,7 @@ static void lovrGpuBindTexture(Texture* texture, int slot) {
 
   if (texture != state.textures[slot]) {
     lovrRetain(texture);
-    lovrRelease(Texture, state.textures[slot]);
+    lovrRelease(state.textures[slot], lovrTextureDestroy);
     state.textures[slot] = texture;
     if (state.activeTexture != slot) {
       glActiveTexture(GL_TEXTURE0 + slot);
@@ -783,7 +783,7 @@ static void lovrGpuBindImage(Image* image, int slot, const char* name) {
     int slice = layered ? 0 : image->slice;
 
     lovrRetain(texture);
-    lovrRelease(Texture, state.images[slot].texture);
+    lovrRelease(state.images[slot].texture, lovrTextureDestroy);
     glBindImageTexture(slot, texture->id, image->mipmap, layered, slice, glAccess, glFormat);
     memcpy(state.images + slot, image, sizeof(Image));
   }
@@ -1351,7 +1351,7 @@ void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
   state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
   lovrTextureSetFilter(state.defaultTexture, (TextureFilter) { .mode = FILTER_NEAREST });
   lovrTextureSetWrap(state.defaultTexture, (TextureWrap) { WRAP_CLAMP, WRAP_CLAMP, WRAP_CLAMP });
-  lovrRelease(TextureData, textureData);
+  lovrRelease(textureData, lovrTextureDataDestroy);
 
   map_init(&state.timerMap, 4);
   state.queryPool.next = ~0u;
@@ -1359,12 +1359,12 @@ void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
 }
 
 void lovrGpuDestroy() {
-  lovrRelease(Texture, state.defaultTexture);
+  lovrRelease(state.defaultTexture, lovrTextureDestroy);
   for (int i = 0; i < MAX_TEXTURES; i++) {
-    lovrRelease(Texture, state.textures[i]);
+    lovrRelease(state.textures[i], lovrTextureDestroy);
   }
   for (int i = 0; i < MAX_IMAGES; i++) {
-    lovrRelease(Texture, state.images[i].texture);
+    lovrRelease(state.images[i].texture, lovrTextureDestroy);
   }
   for (int i = 0; i < MAX_BARRIERS; i++) {
     arr_free(&state.incoherents[i]);
@@ -1520,7 +1520,7 @@ void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback call
 }
 
 void lovrGpuDirtyTexture() {
-  lovrRelease(Texture, state.textures[state.activeTexture]);
+  lovrRelease(state.textures[state.activeTexture], lovrTextureDestroy);
   state.textures[state.activeTexture] = NULL;
 }
 
@@ -1739,6 +1739,7 @@ void lovrTextureDestroy(void* ref) {
   lovrGpuDestroySyncResource(texture, texture->incoherent);
   state.stats.textureMemory -= getTextureMemorySize(texture);
   state.stats.textureCount--;
+  free(texture);
 }
 
 void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint32_t depth, TextureFormat format) {
@@ -2058,9 +2059,10 @@ void lovrCanvasDestroy(void* ref) {
     glDeleteFramebuffers(1, &canvas->resolveBuffer);
   }
   for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
-    lovrRelease(Texture, canvas->attachments[i].texture);
+    lovrRelease(canvas->attachments[i].texture, lovrTextureDestroy);
   }
-  lovrRelease(Texture, canvas->depth.texture);
+  lovrRelease(canvas->depth.texture, lovrTextureDestroy);
+  free(canvas);
 }
 
 void lovrCanvasResolve(Canvas* canvas) {
@@ -2171,7 +2173,7 @@ void lovrCanvasSetAttachments(Canvas* canvas, Attachment* attachments, uint32_t 
   }
 
   for (uint32_t i = 0; i < canvas->attachmentCount; i++) {
-    lovrRelease(Texture, canvas->attachments[i].texture);
+    lovrRelease(canvas->attachments[i].texture, lovrTextureDestroy);
   }
 
   memcpy(canvas->attachments, attachments, count * sizeof(Attachment));
@@ -2252,6 +2254,7 @@ void lovrBufferDestroy(void* ref) {
 #endif
   state.stats.bufferMemory -= buffer->size;
   state.stats.bufferCount--;
+  free(buffer);
 }
 
 size_t lovrBufferGetSize(Buffer* buffer) {
@@ -2741,7 +2744,7 @@ void lovrShaderDestroy(void* ref) {
   }
   for (BlockType type = BLOCK_UNIFORM; type <= BLOCK_COMPUTE; type++) {
     for (size_t i = 0; i < shader->blocks[type].length; i++) {
-      lovrRelease(Buffer, shader->blocks[type].data[i].source);
+      lovrRelease(shader->blocks[type].data[i].source, lovrBufferDestroy);
       arr_free(&shader->blocks[type].data[i].uniforms);
     }
   }
@@ -2751,6 +2754,7 @@ void lovrShaderDestroy(void* ref) {
   map_free(&shader->attributes);
   map_free(&shader->uniformMap);
   map_free(&shader->blockMap);
+  free(shader);
 }
 
 ShaderType lovrShaderGetType(Shader* shader) {
@@ -2832,7 +2836,7 @@ void lovrShaderSetBlock(Shader* shader, const char* name, Buffer* buffer, size_t
   if (block->source != buffer || block->offset != offset || block->size != size) {
     lovrGraphicsFlushShader(shader);
     lovrRetain(buffer);
-    lovrRelease(Buffer, block->source);
+    lovrRelease(block->source, lovrBufferDestroy);
     block->access = access;
     block->source = buffer;
     block->offset = offset;
@@ -2884,9 +2888,10 @@ ShaderBlock* lovrShaderBlockCreate(BlockType type, Buffer* buffer, arr_uniform_t
 
 void lovrShaderBlockDestroy(void* ref) {
   ShaderBlock* block = ref;
-  lovrRelease(Buffer, block->buffer);
+  lovrRelease(block->buffer, lovrBufferDestroy);
   arr_free(&block->uniforms);
   map_free(&block->uniformMap);
+  free(block);
 }
 
 BlockType lovrShaderBlockGetType(ShaderBlock* block) {
@@ -2974,19 +2979,20 @@ void lovrMeshDestroy(void* ref) {
   lovrGraphicsFlushMesh(mesh);
   glDeleteVertexArrays(1, &mesh->vao);
   for (uint32_t i = 0; i < mesh->attributeCount; i++) {
-    lovrRelease(Buffer, mesh->attributes[i].buffer);
+    lovrRelease(mesh->attributes[i].buffer, lovrBufferDestroy);
   }
   map_free(&mesh->attributeMap);
-  lovrRelease(Buffer, mesh->vertexBuffer);
-  lovrRelease(Buffer, mesh->indexBuffer);
-  lovrRelease(Material, mesh->material);
+  lovrRelease(mesh->vertexBuffer, lovrBufferDestroy);
+  lovrRelease(mesh->indexBuffer, lovrBufferDestroy);
+  lovrRelease(mesh->material, lovrMaterialDestroy);
+  free(mesh);
 }
 
 void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer, uint32_t indexCount, size_t indexSize, size_t offset) {
   if (mesh->indexBuffer != buffer || mesh->indexCount != indexCount || mesh->indexSize != indexSize) {
     lovrGraphicsFlushMesh(mesh);
     lovrRetain(buffer);
-    lovrRelease(Buffer, mesh->indexBuffer);
+    lovrRelease(mesh->indexBuffer, lovrBufferDestroy);
     mesh->indexBuffer = buffer;
     mesh->indexCount = indexCount;
     mesh->indexSize = indexSize;
@@ -3037,7 +3043,7 @@ void lovrMeshDetachAttribute(Mesh* mesh, const char* name) {
   lovrAssert(index != MAP_NIL, "No attached attribute named '%s' was found", name);
   MeshAttribute* attribute = &mesh->attributes[index];
   lovrGraphicsFlushMesh(mesh);
-  lovrRelease(Buffer, attribute->buffer);
+  lovrRelease(attribute->buffer, lovrBufferDestroy);
   map_remove(&mesh->attributeMap, hash);
   mesh->attributeNames[index][0] = '\0';
   memmove(mesh->attributeNames + index, mesh->attributeNames + index + 1, (mesh->attributeCount - index - 1) * MAX_ATTRIBUTE_NAME_LENGTH * sizeof(char));
@@ -3110,6 +3116,6 @@ Material* lovrMeshGetMaterial(Mesh* mesh) {
 
 void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
   lovrRetain(material);
-  lovrRelease(Material, mesh->material);
+  lovrRelease(mesh->material, lovrMaterialDestroy);
   mesh->material = material;
 }

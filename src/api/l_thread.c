@@ -36,7 +36,7 @@ static int threadRunner(void* data) {
       mtx_lock(&thread->lock);
       thread->running = false;
       mtx_unlock(&thread->lock);
-      lovrRelease(Thread, thread);
+      lovrRelease(thread, lovrThreadDestroy);
       lua_close(L);
       return 0;
     }
@@ -56,7 +56,7 @@ static int threadRunner(void* data) {
   }
   thread->running = false;
   mtx_unlock(&thread->lock);
-  lovrRelease(Thread, thread);
+  lovrRelease(thread, lovrThreadDestroy);
   lua_close(L);
   return 1;
 }
@@ -81,8 +81,8 @@ static int l_lovrThreadNewThread(lua_State* L) {
   }
   Thread* thread = lovrThreadCreate(threadRunner, blob);
   luax_pushtype(L, Thread, thread);
-  lovrRelease(Thread, thread);
-  lovrRelease(Blob, blob);
+  lovrRelease(thread, lovrThreadDestroy);
+  lovrRelease(blob, lovrBlobDestroy);
   return 1;
 }
 

@@ -256,7 +256,7 @@ static bool openvr_init(float supersample, float offset, uint32_t msaa) {
 }
 
 static void openvr_destroy(void) {
-  lovrRelease(Canvas, state.canvas);
+  lovrRelease(state.canvas, lovrCanvasDestroy);
   VR_ShutdownInternal();
   free(state.mask);
   memset(&state, 0, sizeof(state));
@@ -816,7 +816,7 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
     lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
     lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
     lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
-    lovrRelease(Texture, texture);
+    lovrRelease(texture, lovrTextureDestroy);
     lovrPlatformSetSwapInterval(0);
   }
 

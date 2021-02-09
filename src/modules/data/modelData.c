@@ -21,15 +21,16 @@ ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
 void lovrModelDataDestroy(void* ref) {
   ModelData* model = ref;
   for (uint32_t i = 0; i < model->blobCount; i++) {
-    lovrRelease(Blob, model->blobs[i]);
+    lovrRelease(model->blobs[i], lovrBlobDestroy);
   }
   for (uint32_t i = 0; i < model->textureCount; i++) {
-    lovrRelease(TextureData, model->textures[i]);
+    lovrRelease(model->textures[i], lovrTextureDataDestroy);
   }
   map_free(&model->animationMap);
   map_free(&model->materialMap);
   map_free(&model->nodeMap);
   free(model->data);
+  free(model);
 }
 
 // Note: this code is a scary optimization
