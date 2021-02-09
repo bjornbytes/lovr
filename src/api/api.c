@@ -3,6 +3,7 @@
 #include "core/util.h"
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 
 typedef void voidFn(void);
 typedef void destructorFn(void*);

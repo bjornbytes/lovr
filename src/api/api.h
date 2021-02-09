@@ -1,7 +1,6 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdint.h>
-#include <string.h>
 
 #pragma once
 
@@ -125,9 +124,9 @@ typedef struct {
 #endif
 
 #define luax_registertype(L, T) _luax_registertype(L, #T, lovr ## T, lovr ## T ## Destroy)
-#define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, strlen(#T)))
-#define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, strlen(#T)), #T)
-#define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash64(#T, strlen(#T)), o)
+#define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, sizeof(#T) - 1))
+#define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, sizeof(#T) - 1), #T)
+#define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash64(#T, sizeof(#T) - 1), o)
 #define luax_checkenum(L, i, T, x) _luax_checkenum(L, i, lovr ## T, x, #T)
 #define luax_pushenum(L, T, x) lua_pushlstring(L, (lovr ## T)[x].string, (lovr ## T)[x].length)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
