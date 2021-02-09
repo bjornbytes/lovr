@@ -6,7 +6,6 @@
 #include "core/arr.h"
 #include "core/maf.h"
 #include "core/map.h"
-#include "core/ref.h"
 #include <OVR_CAPI.h>
 #include <OVR_CAPI_GL.h>
 #include <stdlib.h>

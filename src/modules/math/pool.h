@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include "core/util.h"
 
 #pragma once
 
@@ -24,14 +25,14 @@ typedef union {
 } Vector;
 
 typedef struct Pool {
+  ref_t ref;
   float* data;
   size_t count;
   size_t cursor;
   size_t generation;
 } Pool;
 
-Pool* lovrPoolInit(Pool* pool);
-#define lovrPoolCreate(...) lovrPoolInit(lovrAlloc(Pool))
+Pool* lovrPoolCreate(void);
 void lovrPoolDestroy(void* ref);
 void lovrPoolGrow(Pool* pool, size_t count);
 Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data);

@@ -1,7 +1,10 @@
 #include "data/blob.h"
 #include <stdlib.h>
 
-Blob* lovrBlobInit(Blob* blob, void* data, size_t size, const char* name) {
+Blob* lovrBlobCreate(void* data, size_t size, const char* name) {
+  Blob* blob = calloc(1, sizeof(Blob));
+  lovrAssert(blob, "Out of memory");
+  blob->ref = 1;
   blob->data = data;
   blob->size = size;
   blob->name = name;

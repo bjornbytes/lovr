@@ -10,7 +10,10 @@ static const size_t vectorComponents[] = {
   [V_MAT4] = 16
 };
 
-Pool* lovrPoolInit(Pool* pool) {
+Pool* lovrPoolCreate() {
+  Pool* pool = calloc(1, sizeof(Pool));
+  lovrAssert(pool, "Out of memory");
+  pool->ref = 1;
   lovrPoolGrow(pool, 1 << 12);
   return pool;
 }

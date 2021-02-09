@@ -5,7 +5,6 @@
 #include "graphics/model.h"
 #include "core/maf.h"
 #include "core/os.h"
-#include "core/ref.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -470,7 +469,9 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
     return NULL;
   }
 
-  ModelData* model = lovrAlloc(ModelData);
+  ModelData* model = calloc(1, sizeof(ModelData));
+  lovrAssert(model, "Out of memory");
+  model->ref = 1;
   model->blobCount = 2;
   model->bufferCount = 6;
   model->attributeCount = 6;

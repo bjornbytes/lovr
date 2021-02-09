@@ -1,4 +1,5 @@
 #include "lib/stb/stb_truetype.h"
+#include "core/util.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -10,6 +11,7 @@ struct Blob;
 struct TextureData;
 
 typedef struct Rasterizer {
+  ref_t ref;
   stbtt_fontinfo font;
   struct Blob* blob;
   float size;
@@ -34,8 +36,7 @@ typedef struct {
   struct TextureData* data;
 } Glyph;
 
-Rasterizer* lovrRasterizerInit(Rasterizer* rasterizer, struct Blob* blob, float size);
-#define lovrRasterizerCreate(...) lovrRasterizerInit(lovrAlloc(Rasterizer), __VA_ARGS__)
+Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size);
 void lovrRasterizerDestroy(void* ref);
 bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
 bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);

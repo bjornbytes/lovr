@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdatomic.h>
 
 #pragma once
 
@@ -56,3 +57,9 @@ static inline uint64_t hash64(const void* data, size_t length) {
   }
   return hash;
 }
+
+// Refcounting
+typedef atomic_uint ref_t;
+#define lovrRetain(o) if (o) { atomic_fetch_add((ref_t*) (o), 1); }
+#define lovrRelease(T, o) if (o && atomic_fetch_sub((ref_t*) (o), 1) == 1) lovr ## T ## Destroy(o), free(o);
+#define _lovrRelease(o, f) if (o && atomic_fetch_sub((ref_t*) (o), 1) == 1) f(o), free(o);

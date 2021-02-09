@@ -1,5 +1,4 @@
 #include "data/textureData.h"
-#include "core/ref.h"
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
 #include <stdbool.h>
@@ -453,7 +452,10 @@ static bool parseASTC(uint8_t* bytes, size_t size, TextureData* textureData) {
   return true;
 }
 
-TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format) {
+TextureData* lovrTextureDataCreate(uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format) {
+  TextureData* textureData = calloc(1, sizeof(TextureData));
+  lovrAssert(textureData, "Out of memory");
+  textureData->ref = 1;
   size_t pixelSize = getPixelSize(format);
   size_t size = width * height * pixelSize;
   lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
@@ -473,8 +475,11 @@ TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint3
   return textureData;
 }
 
-TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip) {
-  textureData->blob = lovrAlloc(Blob);
+TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip) {
+  TextureData* textureData = calloc(1, sizeof(TextureData));
+  lovrAssert(textureData, "Out of memory");
+  textureData->ref = 1;
+  textureData->blob = lovrBlobCreate(NULL, 0, NULL);
   if (parseDDS(blob->data, blob->size, textureData)) {
     textureData->source = blob;
     lovrRetain(blob);

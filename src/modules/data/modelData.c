@@ -1,10 +1,13 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "data/textureData.h"
-#include "core/ref.h"
 #include <stdlib.h>
 
-ModelData* lovrModelDataInit(ModelData* model, Blob* source, ModelDataIO* io) {
+ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
+  ModelData* model = calloc(1, sizeof(ModelData));
+  lovrAssert(model, "Out of memory");
+  model->ref = 1;
+
   if (lovrModelDataInitGltf(model, source, io)) {
     return model;
   } else if (lovrModelDataInitObj(model, source, io)) {

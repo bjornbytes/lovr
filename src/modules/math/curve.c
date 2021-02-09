@@ -1,12 +1,12 @@
 #include "math/curve.h"
 #include "core/arr.h"
 #include "core/maf.h"
-#include "core/ref.h"
 #include "core/util.h"
 #include <stdlib.h>
 #include <math.h>
 
 struct Curve {
+  ref_t ref;
   arr_t(float) points;
 };
 
@@ -51,7 +51,9 @@ static void evaluate(float* LOVR_RESTRICT P, size_t n, float t, vec3 p) {
 }
 
 Curve* lovrCurveCreate(void) {
-  Curve* curve = lovrAlloc(Curve);
+  Curve* curve = calloc(1, sizeof(Curve));
+  lovrAssert(curve, "Out of memory");
+  curve->ref = 1;
   arr_init(&curve->points);
   arr_reserve(&curve->points, 16);
   return curve;

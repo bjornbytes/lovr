@@ -8,7 +8,6 @@
 #include "resources/shaders.h"
 #include "data/modelData.h"
 #include "math/math.h"
-#include "core/ref.h"
 #include <math.h>
 #include <limits.h>
 #include <string.h>
@@ -40,6 +39,7 @@
 #define LOVR_SHADER_DRAW_ID 7
 
 struct Buffer {
+  ref_t ref;
   uint32_t id;
   void* data;
   size_t size;
@@ -53,6 +53,7 @@ struct Buffer {
 };
 
 struct Texture {
+  ref_t ref;
   GLuint id;
   GLuint msaaId;
   GLenum target;
@@ -74,6 +75,7 @@ struct Texture {
 };
 
 struct Canvas {
+  ref_t ref;
   uint32_t framebuffer;
   uint32_t resolveBuffer;
   uint32_t depthBuffer;
@@ -89,6 +91,7 @@ struct Canvas {
 };
 
 struct ShaderBlock {
+  ref_t ref;
   BlockType type;
   arr_uniform_t uniforms;
   map_t uniformMap;
@@ -96,6 +99,7 @@ struct ShaderBlock {
 };
 
 struct Shader {
+  ref_t ref;
   uint32_t program;
   ShaderType type;
   arr_uniform_t uniforms;
@@ -107,6 +111,7 @@ struct Shader {
 };
 
 struct Mesh {
+  ref_t ref;
   uint32_t vao;
   uint32_t ibo;
   DrawMode mode;
@@ -1665,13 +1670,15 @@ const GpuStats* lovrGpuGetStats() {
 // Texture
 
 Texture* lovrTextureCreate(TextureType type, TextureData** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa) {
-  Texture* texture = lovrAlloc(Texture);
-  state.stats.textureCount++;
+  Texture* texture = calloc(1, sizeof(Texture));
+  lovrAssert(texture, "Out of memory");
+  texture->ref = 1;
   texture->type = type;
   texture->srgb = srgb;
   texture->mipmaps = mipmaps;
   texture->target = convertTextureTarget(type);
   texture->compareMode = COMPARE_NONE;
+  state.stats.textureCount++;
 
   WrapMode wrap = type == TEXTURE_CUBE ? WRAP_CLAMP : WRAP_REPEAT;
   glGenTextures(1, &texture->id);
@@ -1694,13 +1701,15 @@ Texture* lovrTextureCreate(TextureType type, TextureData** slices, uint32_t slic
 }
 
 Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type, uint32_t depth, uint32_t msaa) {
-  Texture* texture = lovrAlloc(Texture);
-  state.stats.textureCount++;
+  Texture* texture = calloc(1, sizeof(Texture));
+  lovrAssert(texture, "Out of memory");
+  texture->ref = 1;
   texture->type = type;
   texture->id = handle;
   texture->target = convertTextureTarget(type);
   texture->compareMode = COMPARE_NONE;
   texture->native = true;
+  state.stats.textureCount++;
 
   int width, height;
   lovrGpuBindTexture(texture, 0);
@@ -1978,7 +1987,10 @@ void lovrTextureSetWrap(Texture* texture, TextureWrap wrap) {
 // Canvas
 
 Canvas* lovrCanvasCreate(uint32_t width, uint32_t height, CanvasFlags flags) {
-  Canvas* canvas = lovrAlloc(Canvas);
+  Canvas* canvas = calloc(1, sizeof(Canvas));
+  lovrAssert(canvas, "Out of memory");
+  canvas->ref = 1;
+
   if (flags.stereo && state.singlepass != MULTIVIEW) {
     width *= 2;
   }
@@ -2023,7 +2035,9 @@ Canvas* lovrCanvasCreate(uint32_t width, uint32_t height, CanvasFlags flags) {
 }
 
 Canvas* lovrCanvasCreateFromHandle(uint32_t width, uint32_t height, CanvasFlags flags, uint32_t framebuffer, uint32_t depthBuffer, uint32_t resolveBuffer, uint32_t attachmentCount, bool immortal) {
-  Canvas* canvas = lovrAlloc(Canvas);
+  Canvas* canvas = calloc(1, sizeof(Canvas));
+  lovrAssert(canvas, "Out of memory");
+  canvas->ref = 1;
   canvas->framebuffer = framebuffer;
   canvas->depthBuffer = depthBuffer;
   canvas->resolveBuffer = resolveBuffer;
@@ -2200,7 +2214,10 @@ Texture* lovrCanvasGetDepthTexture(Canvas* canvas) {
 // Buffer
 
 Buffer* lovrBufferCreate(size_t size, void* data, BufferType type, BufferUsage usage, bool readable) {
-  Buffer* buffer = lovrAlloc(Buffer);
+  Buffer* buffer = calloc(1, sizeof(Buffer));
+  lovrAssert(buffer, "Out of memory");
+  buffer->ref = 1;
+
   state.stats.bufferCount++;
   state.stats.bufferMemory += size;
   buffer->size = size;
@@ -2591,7 +2608,10 @@ static char* lovrShaderGetFlagCode(ShaderFlag* flags, uint32_t flagCount) {
 }
 
 Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLength, const char* fragmentSource, int fragmentSourceLength, ShaderFlag* flags, uint32_t flagCount, bool multiview) {
-  Shader* shader = lovrAlloc(Shader);
+  Shader* shader = calloc(1, sizeof(Shader));
+  lovrAssert(shader, "Out of memory");
+  shader->ref = 1;
+
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
   const char* version = "#version 300 es\n";
 #else
@@ -2687,7 +2707,9 @@ Shader* lovrShaderCreateDefault(DefaultShader type, ShaderFlag* flags, uint32_t 
 }
 
 Shader* lovrShaderCreateCompute(const char* source, int length, ShaderFlag* flags, uint32_t flagCount) {
-  Shader* shader = lovrAlloc(Shader);
+  Shader* shader = calloc(1, sizeof(Shader));
+  lovrAssert(shader, "Out of memory");
+  shader->ref = 1;
 #ifdef LOVR_WEBGL
   lovrThrow("Compute shaders are not supported on this system");
 #else
@@ -2840,7 +2862,10 @@ size_t lovrShaderComputeUniformLayout(arr_uniform_t* uniforms) {
 }
 
 ShaderBlock* lovrShaderBlockCreate(BlockType type, Buffer* buffer, arr_uniform_t* uniforms) {
-  ShaderBlock* block = lovrAlloc(ShaderBlock);
+  ShaderBlock* block = calloc(1, sizeof(ShaderBlock));
+  lovrAssert(block, "Out of memory");
+  block->ref = 1;
+
   arr_init(&block->uniforms);
   map_init(&block->uniformMap, (uint32_t) uniforms->length);
 
@@ -2931,7 +2956,9 @@ Buffer* lovrShaderBlockGetBuffer(ShaderBlock* block) {
 // Mesh
 
 Mesh* lovrMeshCreate(DrawMode mode, Buffer* vertexBuffer, uint32_t vertexCount) {
-  Mesh* mesh = lovrAlloc(Mesh);
+  Mesh* mesh = calloc(1, sizeof(Mesh));
+  lovrAssert(mesh, "Out of memory");
+  mesh->ref = 1;
   mesh->mode = mode;
   mesh->vertexBuffer = vertexBuffer;
   mesh->vertexCount = vertexCount;

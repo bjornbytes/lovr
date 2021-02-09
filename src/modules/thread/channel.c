@@ -1,7 +1,6 @@
 #include "thread/channel.h"
 #include "event/event.h"
 #include "core/arr.h"
-#include "core/ref.h"
 #include "core/util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <stdlib.h>
@@ -9,6 +8,7 @@
 #include <math.h>
 
 struct Channel {
+  ref_t ref;
   mtx_t lock;
   cnd_t cond;
   arr_t(Variant) messages;
@@ -19,7 +19,9 @@ struct Channel {
 };
 
 Channel* lovrChannelCreate(uint64_t hash) {
-  Channel* channel = lovrAlloc(Channel);
+  Channel* channel = calloc(1, sizeof(Channel));
+  lovrAssert(channel, "Out of memory");
+  channel->ref = 1;
   arr_init(&channel->messages);
   mtx_init(&channel->lock, mtx_plain | mtx_timed);
   cnd_init(&channel->cond);

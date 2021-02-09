@@ -4,7 +4,6 @@
 #include "data/textureData.h"
 #include "core/arr.h"
 #include "core/map.h"
-#include "core/ref.h"
 #include "core/utf.h"
 #include <string.h>
 #include <stdlib.h>
@@ -21,6 +20,7 @@ typedef struct {
 } FontAtlas;
 
 struct Font {
+  ref_t ref;
   Rasterizer* rasterizer;
   Texture* texture;
   FontAtlas atlas;
@@ -50,7 +50,10 @@ static void lovrFontExpandTexture(Font* font);
 static void lovrFontCreateTexture(Font* font);
 
 Font* lovrFontCreate(Rasterizer* rasterizer) {
-  Font* font = lovrAlloc(Font);
+  Font* font = calloc(1, sizeof(Font));
+  lovrAssert(font, "Out of memory");
+  font->ref = 1;
+
   lovrRetain(rasterizer);
   font->rasterizer = rasterizer;
   font->lineHeight = 1.f;

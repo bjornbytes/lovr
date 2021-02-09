@@ -3,11 +3,14 @@
 #include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "resources/shaders.h"
-#include "core/ref.h"
 #include <stdlib.h>
 #include <math.h>
 
-Material* lovrMaterialInit(Material* material) {
+Material* lovrMaterialCreate() {
+  Material* material = calloc(1, sizeof(Material));
+  lovrAssert(material, "Out of memory");
+  material->ref = 1;
+
   for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
     material->scalars[i] = 1.f;
   }

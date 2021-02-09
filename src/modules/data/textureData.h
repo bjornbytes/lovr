@@ -51,6 +51,7 @@ typedef struct {
 } Mipmap;
 
 typedef struct TextureData {
+  ref_t ref;
   Blob* blob;
   uint32_t width;
   uint32_t height;
@@ -60,10 +61,8 @@ typedef struct TextureData {
   uint32_t mipmapCount;
 } TextureData;
 
-TextureData* lovrTextureDataInit(TextureData* textureData, uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format);
-TextureData* lovrTextureDataInitFromBlob(TextureData* textureData, Blob* blob, bool flip);
-#define lovrTextureDataCreate(...) lovrTextureDataInit(lovrAlloc(TextureData), __VA_ARGS__)
-#define lovrTextureDataCreateFromBlob(...) lovrTextureDataInitFromBlob(lovrAlloc(TextureData), __VA_ARGS__)
+TextureData* lovrTextureDataCreate(uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format);
+TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip);
 Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y);
 void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, Color color);
 Blob* lovrTextureDataEncode(TextureData* textureData);

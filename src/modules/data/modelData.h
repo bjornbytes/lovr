@@ -179,6 +179,7 @@ typedef struct {
 } ModelSkin;
 
 typedef struct ModelData {
+  ref_t ref;
   void* data;
   struct Blob** blobs;
   ModelBuffer* buffers;
@@ -217,8 +218,7 @@ typedef struct ModelData {
 
 typedef void* ModelDataIO(const char* filename, size_t* bytesRead);
 
-ModelData* lovrModelDataInit(ModelData* model, struct Blob* blob, ModelDataIO* io);
-#define lovrModelDataCreate(...) lovrModelDataInit(lovrAlloc(ModelData), __VA_ARGS__)
+ModelData* lovrModelDataCreate(struct Blob* blob, ModelDataIO* io);
 ModelData* lovrModelDataInitGltf(ModelData* model, struct Blob* blob, ModelDataIO* io);
 ModelData* lovrModelDataInitObj(ModelData* model, struct Blob* blob, ModelDataIO* io);
 void lovrModelDataDestroy(void* ref);

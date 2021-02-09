@@ -1,7 +1,6 @@
 #include "data/soundData.h"
 #include "data/blob.h"
 #include "core/util.h"
-#include "core/ref.h"
 #include "lib/stb/stb_vorbis.h"
 #include "lib/miniaudio/miniaudio.h"
 #define MINIMP3_FLOAT_OUTPUT
@@ -16,6 +15,7 @@ static const ma_format miniaudioFormats[] = {
 };
 
 struct SoundData {
+  ref_t ref;
   uint32_t (*read)(SoundData* soundData, uint32_t offset, uint32_t count, void* data);
   struct Blob* blob;
   void* decoder;
@@ -73,7 +73,9 @@ static uint32_t lovrSoundDataReadMp3(SoundData* soundData, uint32_t offset, uint
 // SoundData
 
 SoundData* lovrSoundDataCreateRaw(uint32_t frames, SampleFormat format, uint32_t channels, uint32_t sampleRate, struct Blob* blob) {
-  SoundData* soundData = lovrAlloc(SoundData);
+  SoundData* soundData = calloc(1, sizeof(SoundData));
+  lovrAssert(soundData, "Out of memory");
+  soundData->ref = 1;
   soundData->frames = frames;
   soundData->format = format;
   soundData->channels = channels;
@@ -92,7 +94,9 @@ SoundData* lovrSoundDataCreateRaw(uint32_t frames, SampleFormat format, uint32_t
 }
 
 SoundData* lovrSoundDataCreateStream(uint32_t frames, SampleFormat format, uint32_t channels, uint32_t sampleRate) {
-  SoundData* soundData = lovrAlloc(SoundData);
+  SoundData* soundData = calloc(1, sizeof(SoundData));
+  lovrAssert(soundData, "Out of memory");
+  soundData->ref = 1;
   soundData->frames = frames;
   soundData->format = format;
   soundData->channels = channels;
@@ -110,7 +114,9 @@ SoundData* lovrSoundDataCreateStream(uint32_t frames, SampleFormat format, uint3
 }
 
 SoundData* lovrSoundDataCreateFromFile(struct Blob* blob, bool decode) {
-  SoundData* soundData = lovrAlloc(SoundData);
+  SoundData* soundData = calloc(1, sizeof(SoundData));
+  lovrAssert(soundData, "Out of memory");
+  soundData->ref = 1;
 
   if (blob->size >= 4 && !memcmp(blob->data, "OggS", 4)) {
     soundData->decoder = stb_vorbis_open_memory(blob->data, (int) blob->size, NULL, NULL);

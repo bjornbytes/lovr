@@ -7,14 +7,14 @@ struct Texture;
 struct Shader;
 
 typedef struct Material {
+  ref_t ref;
   float scalars[MAX_MATERIAL_SCALARS];
   Color colors[MAX_MATERIAL_COLORS];
   struct Texture* textures[MAX_MATERIAL_TEXTURES];
   float transform[9];
 } Material;
 
-Material* lovrMaterialInit(Material* material);
-#define lovrMaterialCreate() lovrMaterialInit(lovrAlloc(Material))
+Material* lovrMaterialCreate(void);
 void lovrMaterialDestroy(void* ref);
 void lovrMaterialBind(Material* material, struct Shader* shader);
 float lovrMaterialGetScalar(Material* material, MaterialScalar scalarType);

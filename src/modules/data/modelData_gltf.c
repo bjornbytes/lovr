@@ -2,7 +2,6 @@
 #include "data/blob.h"
 #include "data/textureData.h"
 #include "core/maf.h"
-#include "core/ref.h"
 #include "lib/jsmn/jsmn.h"
 #include <stdbool.h>
 #include <stdlib.h>

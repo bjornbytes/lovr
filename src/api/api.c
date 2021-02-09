@@ -1,6 +1,5 @@
 #include "api.h"
 #include "core/os.h"
-#include "core/ref.h"
 #include "core/util.h"
 #include <stdlib.h>
 #include <stdarg.h>

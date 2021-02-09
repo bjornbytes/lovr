@@ -6,7 +6,6 @@
 #include "graphics/texture.h"
 #include "resources/shaders.h"
 #include "core/maf.h"
-#include "core/ref.h"
 #include <stdlib.h>
 #include <float.h>
 #include <math.h>
@@ -16,6 +15,7 @@ typedef struct {
 } NodeTransform;
 
 struct Model {
+  ref_t ref;
   struct ModelData* data;
   struct Buffer** buffers;
   struct Mesh** meshes;
@@ -76,7 +76,9 @@ static void renderNode(Model* model, uint32_t nodeIndex, uint32_t instances) {
 }
 
 Model* lovrModelCreate(ModelData* data) {
-  Model* model = lovrAlloc(Model);
+  Model* model = calloc(1, sizeof(Model));
+  lovrAssert(model, "Out of memory");
+  model->ref = 1;
   model->data = data;
   lovrRetain(data);
 

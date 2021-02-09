@@ -2,7 +2,7 @@
 #include "audio/spatializer.h"
 #include "data/soundData.h"
 #include "core/arr.h"
-#include "core/ref.h"
+#include "core/maf.h"
 #include "core/os.h"
 #include "core/util.h"
 #include "lib/miniaudio/miniaudio.h"
@@ -21,6 +21,7 @@ static const ma_format miniaudioFormats[] = {
 #define BUFFER_SIZE 256
 
 struct Source {
+  ref_t ref;
   Source* next;
   SoundData* sound;
   ma_data_converter* converter;
@@ -324,7 +325,9 @@ struct SoundData* lovrAudioGetCaptureStream() {
 // Source
 
 Source* lovrSourceCreate(SoundData* sound, bool spatial) {
-  Source* source = lovrAlloc(Source);
+  Source* source = calloc(1, sizeof(Source));
+  lovrAssert(source, "Out of memory");
+  source->ref = 1;
   source->sound = sound;
   lovrRetain(source->sound);
 

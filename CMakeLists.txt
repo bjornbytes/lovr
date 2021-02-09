@@ -268,7 +268,6 @@ set(LOVR_SRC
   src/core/arr.c
   src/core/fs.c
   src/core/map.c
-  src/core/ref.c
   src/core/utf.c
   src/core/util.c
   src/core/zip.c

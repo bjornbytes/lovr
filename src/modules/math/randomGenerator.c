@@ -1,5 +1,4 @@
 #include "math/randomGenerator.h"
-#include "core/ref.h"
 #include "core/util.h"
 #include <math.h>
 #include <stdio.h>
@@ -7,6 +6,7 @@
 #include <inttypes.h>
 
 struct RandomGenerator {
+  ref_t ref;
   Seed seed;
   Seed state;
   double lastRandomNormal;
@@ -30,7 +30,9 @@ static uint64_t wangHash64(uint64_t key) {
 // Use an 'Xorshift*' variant, as shown here: http://xorshift.di.unimi.it
 
 RandomGenerator* lovrRandomGeneratorCreate(void) {
-  RandomGenerator* generator = lovrAlloc(RandomGenerator);
+  RandomGenerator* generator = calloc(1, sizeof(RandomGenerator));
+  lovrAssert(generator, "Out of memory");
+  generator->ref = 1;
   Seed seed = { .b32 = { .lo = 0xCBBF7A44, .hi = 0x0139408D } };
   lovrRandomGeneratorSetSeed(generator, seed);
   generator->lastRandomNormal = HUGE_VAL;

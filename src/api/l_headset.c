@@ -6,7 +6,6 @@
 #include "graphics/texture.h"
 #include "core/arr.h"
 #include "core/maf.h"
-#include "core/ref.h"
 #include <stdlib.h>
 
 StringEntry lovrHeadsetDriver[] = {

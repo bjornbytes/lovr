@@ -23,7 +23,6 @@
 #include "graphics/model.h"
 #include "core/maf.h"
 #include "core/os.h"
-#include "core/ref.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -618,7 +617,9 @@ static ModelData* openvr_newModelData(Device device, bool animated) {
     }
   }
 
-  ModelData* model = lovrAlloc(ModelData);
+  ModelData* model = calloc(1, sizeof(ModelData));
+  lovrAssert(model, "Out of memory");
+  model->ref = 1;
   model->blobCount = 2;
   model->nodeCount = animated ? (1 + modelCount) : 1;
   model->bufferCount = 2 * modelCount;

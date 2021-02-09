@@ -11,7 +11,6 @@
 #include "data/rasterizer.h"
 #include "data/textureData.h"
 #include "core/arr.h"
-#include "core/ref.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>

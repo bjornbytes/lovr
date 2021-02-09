@@ -2,7 +2,6 @@
 #include "thread/channel.h"
 #include "core/arr.h"
 #include "core/map.h"
-#include "core/ref.h"
 #include "core/util.h"
 #include <stdlib.h>
 #include <string.h>
@@ -53,11 +52,14 @@ Channel* lovrThreadGetChannel(const char* name) {
   return entry.channel;
 }
 
-Thread* lovrThreadInit(Thread* thread, int (*runner)(void*), Blob* body) {
-  lovrRetain(body);
+Thread* lovrThreadCreate(int (*runner)(void*), Blob* body) {
+  Thread* thread = calloc(1, sizeof(Thread));
+  lovrAssert(thread, "Out of memory");
+  thread->ref = 1;
   thread->runner = runner;
   thread->body = body;
   mtx_init(&thread->lock, mtx_plain);
+  lovrRetain(body);
   return thread;
 }
 

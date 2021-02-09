@@ -1,5 +1,4 @@
 #include "physics.h"
-#include "core/ref.h"
 #include "core/util.h"
 #include <stdlib.h>
 #include <stdbool.h>
@@ -54,7 +53,10 @@ void lovrPhysicsDestroy() {
   initialized = false;
 }
 
-World* lovrWorldInit(World* world, float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount) {
+World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount) {
+  World* world = calloc(1, sizeof(World));
+  lovrAssert(world, "Out of memory");
+  world->ref = 1;
   world->id = dWorldCreate();
   world->space = dHashSpaceCreate(0);
   dHashSpaceSetLevels(world->space, -4, 8);
@@ -289,7 +291,10 @@ int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const cha
   return (world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i));
 }
 
-Collider* lovrColliderInit(Collider* collider, World* world, float x, float y, float z) {
+Collider* lovrColliderCreate(World* world, float x, float y, float z) {
+  Collider* collider = calloc(1, sizeof(Collider));
+  lovrAssert(collider, "Out of memory");
+  collider->ref = 1;
   collider->body = dBodyCreate(world->id);
   collider->world = world;
   collider->friction = 0;
@@ -817,7 +822,10 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   dGeomGetAABB(shape->id, aabb);
 }
 
-SphereShape* lovrSphereShapeInit(SphereShape* sphere, float radius) {
+SphereShape* lovrSphereShapeCreate(float radius) {
+  SphereShape* sphere = calloc(1, sizeof(SphereShape));
+  lovrAssert(sphere, "Out of memory");
+  sphere->ref = 1;
   sphere->type = SHAPE_SPHERE;
   sphere->id = dCreateSphere(0, radius);
   dGeomSetData(sphere->id, sphere);
@@ -832,7 +840,10 @@ void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
   dGeomSphereSetRadius(sphere->id, radius);
 }
 
-BoxShape* lovrBoxShapeInit(BoxShape* box, float x, float y, float z) {
+BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
+  BoxShape* box = calloc(1, sizeof(BoxShape));
+  lovrAssert(box, "Out of memory");
+  box->ref = 1;
   box->type = SHAPE_BOX;
   box->id = dCreateBox(0, x, y, z);
   dGeomSetData(box->id, box);
@@ -851,7 +862,10 @@ void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
   dGeomBoxSetLengths(box->id, x, y, z);
 }
 
-CapsuleShape* lovrCapsuleShapeInit(CapsuleShape* capsule, float radius, float length) {
+CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
+  CapsuleShape* capsule = calloc(1, sizeof(CapsuleShape));
+  lovrAssert(capsule, "Out of memory");
+  capsule->ref = 1;
   capsule->type = SHAPE_CAPSULE;
   capsule->id = dCreateCapsule(0, radius, length);
   dGeomSetData(capsule->id, capsule);
@@ -878,7 +892,10 @@ void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
   dGeomCapsuleSetParams(capsule->id, lovrCapsuleShapeGetRadius(capsule), length);
 }
 
-CylinderShape* lovrCylinderShapeInit(CylinderShape* cylinder, float radius, float length) {
+CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
+  CylinderShape* cylinder = calloc(1, sizeof(CylinderShape));
+  lovrAssert(cylinder, "Out of memory");
+  cylinder->ref = 1;
   cylinder->type = SHAPE_CYLINDER;
   cylinder->id = dCreateCylinder(0, radius, length);
   dGeomSetData(cylinder->id, cylinder);
@@ -905,7 +922,10 @@ void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
   dGeomCylinderSetParams(cylinder->id, lovrCylinderShapeGetRadius(cylinder), length);
 }
 
-MeshShape* lovrMeshShapeInit(MeshShape* mesh, int vertexCount, float vertices[], int indexCount, dTriIndex indices[]) {
+MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, dTriIndex indices[]) {
+  MeshShape* mesh = calloc(1, sizeof(MeshShape));
+  lovrAssert(mesh, "Out of memory");
+  mesh->ref = 1;
   dTriMeshDataID dataID = dGeomTriMeshDataCreate();
   dGeomTriMeshDataBuildSingle(dataID, vertices, 3 * sizeof(float), vertexCount, indices, indexCount, 3 * sizeof(dTriIndex));
   dGeomTriMeshDataPreprocess2(dataID, (1U << dTRIDATAPREPROCESS_BUILD_FACE_ANGLES), NULL);
@@ -964,8 +984,11 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
   }
 }
 
-BallJoint* lovrBallJointInit(BallJoint* joint, Collider* a, Collider* b, float x, float y, float z) {
+BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
+  BallJoint* joint = calloc(1, sizeof(BallJoint));
+  lovrAssert(joint, "Out of memory");
+  joint->ref = 1;
   joint->type = JOINT_BALL;
   joint->id = dJointCreateBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
@@ -1007,8 +1030,11 @@ void lovrBallJointSetTightness(Joint* joint, float tightness) {
   dJointSetBallParam(joint->id, dParamERP, tightness);
 }
 
-DistanceJoint* lovrDistanceJointInit(DistanceJoint* joint, Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
+DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
+  DistanceJoint* joint = calloc(1, sizeof(DistanceJoint));
+  lovrAssert(joint, "Out of memory");
+  joint->ref = 1;
   joint->type = JOINT_DISTANCE;
   joint->id = dJointCreateDBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
@@ -1059,8 +1085,11 @@ void lovrDistanceJointSetTightness(Joint* joint, float tightness) {
   dJointSetDBallParam(joint->id, dParamERP, tightness);
 }
 
-HingeJoint* lovrHingeJointInit(HingeJoint* joint, Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
+HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
+  HingeJoint* joint = calloc(1, sizeof(HingeJoint));
+  lovrAssert(joint, "Out of memory");
+  joint->ref = 1;
   joint->type = JOINT_HINGE;
   joint->id = dJointCreateHinge(a->world->id, 0);
   dJointSetData(joint->id, joint);
@@ -1119,8 +1148,11 @@ void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
   dJointSetHingeParam(joint->id, dParamHiStop, limit);
 }
 
-SliderJoint* lovrSliderJointInit(SliderJoint* joint, Collider* a, Collider* b, float ax, float ay, float az) {
+SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in the same world");
+  SliderJoint* joint = calloc(1, sizeof(SliderJoint));
+  lovrAssert(joint, "Out of memory");
+  joint->ref = 1;
   joint->type = JOINT_SLIDER;
   joint->id = dJointCreateSlider(a->world->id, 0);
   dJointSetData(joint->id, joint);
