@@ -53,7 +53,7 @@ extern const luaL_Reg lovrRasterizer[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrShaderBlock[];
 extern const luaL_Reg lovrSliderJoint[];
-extern const luaL_Reg lovrSoundData[];
+extern const luaL_Reg lovrSound[];
 extern const luaL_Reg lovrSource[];
 extern const luaL_Reg lovrSphereShape[];
 extern const luaL_Reg lovrMeshShape[];

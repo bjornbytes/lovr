@@ -6,7 +6,7 @@
 
 #define PLAYBACK_SAMPLE_RATE 48000
 
-struct SoundData;
+struct Sound;
 
 typedef struct Source Source;
 
@@ -34,11 +34,11 @@ void lovrAudioSetVolume(float volume);
 void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
 const char* lovrAudioGetSpatializer(void);
-struct SoundData* lovrAudioGetCaptureStream(void);
+struct Sound* lovrAudioGetCaptureStream(void);
 
 // Source
 
-Source* lovrSourceCreate(struct SoundData* soundData, bool spatial);
+Source* lovrSourceCreate(struct Sound* sound, bool spatial);
 void lovrSourceDestroy(void* ref);
 bool lovrSourcePlay(Source* source);
 void lovrSourcePause(Source* source);

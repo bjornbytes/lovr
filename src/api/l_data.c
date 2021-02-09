@@ -2,7 +2,7 @@
 #include "data/blob.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
-#include "data/soundData.h"
+#include "data/sound.h"
 #include "data/textureData.h"
 #include <stdlib.h>
 #include <string.h>
@@ -64,7 +64,7 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
   return 1;
 }
 
-static int l_lovrDataNewSoundData(lua_State* L) {
+static int l_lovrDataNewSound(lua_State* L) {
   if (lua_type(L, 1) == LUA_TNUMBER) {
     uint64_t frames = luaL_checkinteger(L, 1);
     SampleFormat format = luax_checkenum(L, 2, SampleFormat, "f32");
@@ -73,20 +73,20 @@ static int l_lovrDataNewSoundData(lua_State* L) {
     Blob* blob = luax_totype(L, 5, Blob);
     const char* other = lua_tostring(L, 5);
     bool stream = other && !strcmp(other, "stream");
-    SoundData* soundData = stream ?
-      lovrSoundDataCreateStream(frames, format, channels, sampleRate) :
-      lovrSoundDataCreateRaw(frames, format, channels, sampleRate, blob);
-    luax_pushtype(L, SoundData, soundData);
-    lovrRelease(soundData, lovrSoundDataDestroy);
+    Sound* sound = stream ?
+      lovrSoundCreateStream(frames, format, channels, sampleRate) :
+      lovrSoundCreateRaw(frames, format, channels, sampleRate, blob);
+    luax_pushtype(L, Sound, sound);
+    lovrRelease(sound, lovrSoundDestroy);
     return 1;
   }
 
-  Blob* blob = luax_readblob(L, 1, "SoundData");
+  Blob* blob = luax_readblob(L, 1, "Sound");
   bool decode = lua_toboolean(L, 2);
-  SoundData* soundData = lovrSoundDataCreateFromFile(blob, decode);
-  luax_pushtype(L, SoundData, soundData);
+  Sound* sound = lovrSoundCreateFromFile(blob, decode);
+  luax_pushtype(L, Sound, sound);
   lovrRelease(blob, lovrBlobDestroy);
-  lovrRelease(soundData, lovrSoundDataDestroy);
+  lovrRelease(sound, lovrSoundDestroy);
   return 1;
 }
 
@@ -119,7 +119,7 @@ static const luaL_Reg lovrData[] = {
   { "newBlob", l_lovrDataNewBlob },
   { "newModelData", l_lovrDataNewModelData },
   { "newRasterizer", l_lovrDataNewRasterizer },
-  { "newSoundData", l_lovrDataNewSoundData },
+  { "newSound", l_lovrDataNewSound },
   { "newTextureData", l_lovrDataNewTextureData },
   { NULL, NULL }
 };
@@ -130,7 +130,7 @@ int luaopen_lovr_data(lua_State* L) {
   luax_registertype(L, Blob);
   luax_registertype(L, ModelData);
   luax_registertype(L, Rasterizer);
-  luax_registertype(L, SoundData);
+  luax_registertype(L, Sound);
   luax_registertype(L, TextureData);
   return 1;
 }

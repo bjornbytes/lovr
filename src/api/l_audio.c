@@ -1,7 +1,7 @@
 #include "api.h"
 #include "audio/audio.h"
 #include "data/blob.h"
-#include "data/soundData.h"
+#include "data/sound.h"
 #include "core/maf.h"
 #include "core/util.h"
 #include <stdlib.h>
@@ -111,20 +111,20 @@ static int l_lovrAudioGetSpatializer(lua_State *L) {
 }
 
 static int l_lovrAudioGetCaptureStream(lua_State* L) {
-  SoundData* soundData = lovrAudioGetCaptureStream();
-  luax_pushtype(L, SoundData, soundData);
+  Sound* sound = lovrAudioGetCaptureStream();
+  luax_pushtype(L, Sound, sound);
   return 1;
 }
 
 static int l_lovrAudioNewSource(lua_State* L) {
-  SoundData* soundData = luax_totype(L, 1, SoundData);
+  Sound* sound = luax_totype(L, 1, Sound);
 
-  if (!soundData) {
+  if (!sound) {
     Blob* blob = luax_readblob(L, 1, "Source");
-    soundData = lovrSoundDataCreateFromFile(blob, false);
+    sound = lovrSoundCreateFromFile(blob, false);
     lovrRelease(blob, lovrBlobDestroy);
   } else {
-    lovrRetain(soundData);
+    lovrRetain(sound);
   }
 
   bool spatial = true;
@@ -134,9 +134,9 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  Source* source = lovrSourceCreate(soundData, spatial);
+  Source* source = lovrSourceCreate(sound, spatial);
   luax_pushtype(L, Source, source);
-  lovrRelease(soundData, lovrSoundDataDestroy);
+  lovrRelease(sound, lovrSoundDestroy);
   lovrRelease(source, lovrSourceDestroy);
   return 1;
 }
