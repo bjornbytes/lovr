@@ -183,23 +183,24 @@ function lovr.permission(permission, granted)
 end
 
 function lovr.run()
-  lovr.timer.step()
+  local dt = 0
+  if lovr.timer then lovr.timer.step() end
   if lovr.load then lovr.load(arg) end
   return function()
-    lovr.event.pump()
-    for name, a, b, c, d in lovr.event.poll() do
-      if name == 'restart' then
-        local cookie = lovr.restart and lovr.restart()
-        return 'restart', cookie
-      elseif name == 'quit' and (not lovr.quit or not lovr.quit(a)) then
-        return a or 0
+    if lovr.event then
+      lovr.event.pump()
+      for name, a, b, c, d in lovr.event.poll() do
+        if name == 'restart' then
+          local cookie = lovr.restart and lovr.restart()
+          return 'restart', cookie
+        elseif name == 'quit' and (not lovr.quit or not lovr.quit(a)) then
+          return a or 0
+        end
+        if lovr.handlers[name] then lovr.handlers[name](a, b, c, d) end
       end
-      if lovr.handlers[name] then lovr.handlers[name](a, b, c, d) end
     end
-    local dt = lovr.timer.step()
-    if lovr.headset then
-      lovr.headset.update(dt)
-    end
+    if lovr.timer then dt = lovr.timer.step() end
+    if lovr.headset then lovr.headset.update(dt) end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
       lovr.graphics.origin()
@@ -211,9 +212,7 @@ function lovr.run()
       end
       lovr.graphics.present()
     end
-    if lovr.math then
-      lovr.math.drain()
-    end
+    if lovr.math then lovr.math.drain() end
   end
 end
 
