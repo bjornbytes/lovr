@@ -28,7 +28,6 @@ LOVR_EXPORT int luaopen_lovr_timer(lua_State* L);
 extern const luaL_Reg lovrModules[];
 
 // Objects
-extern const luaL_Reg lovrAudioStream[];
 extern const luaL_Reg lovrBallJoint[];
 extern const luaL_Reg lovrBlob[];
 extern const luaL_Reg lovrBoxShape[];
