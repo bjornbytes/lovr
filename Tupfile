@@ -4,7 +4,6 @@ include_rules
 ifneq (@(PICO),y)
 SRC += src/main.c
 endif
-SRC += src/core/arr.c
 SRC += src/core/fs.c
 SRC += src/core/map.c
 ifneq (@(PICO),y)

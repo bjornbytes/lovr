@@ -265,7 +265,6 @@ endforeach()
 
 set(LOVR_SRC
   src/main.c
-  src/core/arr.c
   src/core/fs.c
   src/core/map.c
   src/core/utf.c

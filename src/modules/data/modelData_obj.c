@@ -1,7 +1,6 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "data/textureData.h"
-#include "core/arr.h"
 #include "core/maf.h"
 #include "core/map.h"
 #include "core/util.h"
@@ -107,16 +106,16 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   arr_t(float) normals;
   arr_t(float) uvs;
 
-  arr_init(&groups);
-  arr_init(&textures);
-  arr_init(&materials);
+  arr_init(&groups, realloc);
+  arr_init(&textures, realloc);
+  arr_init(&materials, realloc);
   map_init(&materialMap, 0);
-  arr_init(&vertexBlob);
-  arr_init(&indexBlob);
+  arr_init(&vertexBlob, realloc);
+  arr_init(&indexBlob, realloc);
   map_init(&vertexMap, 0);
-  arr_init(&positions);
-  arr_init(&normals);
-  arr_init(&uvs);
+  arr_init(&positions, realloc);
+  arr_init(&normals, realloc);
+  arr_init(&uvs, realloc);
 
   arr_push(&groups, ((objGroup) { .material = -1 }));
 

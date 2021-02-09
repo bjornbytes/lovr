@@ -1,6 +1,5 @@
 #include "thread/thread.h"
 #include "thread/channel.h"
-#include "core/arr.h"
 #include "core/map.h"
 #include "core/util.h"
 #include <stdlib.h>

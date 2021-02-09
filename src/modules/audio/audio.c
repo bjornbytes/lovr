@@ -1,8 +1,6 @@
 #include "audio/audio.h"
 #include "audio/spatializer.h"
 #include "data/soundData.h"
-#include "core/arr.h"
-#include "core/maf.h"
 #include "core/os.h"
 #include "core/util.h"
 #include "lib/miniaudio/miniaudio.h"
@@ -204,7 +202,7 @@ bool lovrAudioInit(const char* spatializer) {
   }
   lovrAssert(state.spatializer, "Must have at least one spatializer");
 
-  arr_init(&state.converters);
+  arr_init(&state.converters, realloc);
   return state.initialized = true;
 }
 

@@ -3,7 +3,6 @@
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
-#include "core/arr.h"
 #include "core/maf.h"
 #include "core/map.h"
 #include <OVR_CAPI.h>

@@ -1,4 +1,3 @@
-#include "core/arr.h"
 #include "core/maf.h"
 #include "core/util.h"
 #include <stdint.h>

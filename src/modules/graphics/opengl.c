@@ -1344,7 +1344,7 @@ void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
 #endif
 
   for (int i = 0; i < MAX_BARRIERS; i++) {
-    arr_init(&state.incoherents[i]);
+    arr_init(&state.incoherents[i], realloc);
   }
 
   TextureData* textureData = lovrTextureDataCreate(1, 1, NULL, 0xff, FORMAT_RGBA);
@@ -2384,7 +2384,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   lovrAssert((size_t) blockCount <= MAX_BLOCK_BUFFERS, "Shader has too many uniform blocks (%d) the max is %d", blockCount, MAX_BLOCK_BUFFERS);
   map_init(&shader->blockMap, blockCount);
   arr_block_t* uniformBlocks = &shader->blocks[BLOCK_UNIFORM];
-  arr_init(uniformBlocks);
+  arr_init(uniformBlocks, realloc);
   arr_reserve(uniformBlocks, (size_t) blockCount);
   for (int i = 0; i < blockCount; i++) {
     UniformBlock block = { .slot = i, .source = NULL };
@@ -2396,12 +2396,12 @@ static void lovrShaderSetupUniforms(Shader* shader) {
     int blockId = (i << 1) + BLOCK_UNIFORM;
     map_set(&shader->blockMap, hash64(name, length), blockId);
     arr_push(uniformBlocks, block);
-    arr_init(&uniformBlocks->data[uniformBlocks->length - 1].uniforms);
+    arr_init(&uniformBlocks->data[uniformBlocks->length - 1].uniforms, realloc);
   }
 
   // Shader storage buffers and their buffer variables
   arr_block_t* computeBlocks = &shader->blocks[BLOCK_COMPUTE];
-  arr_init(computeBlocks);
+  arr_init(computeBlocks, realloc);
 #ifndef LOVR_WEBGL
   if ((GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_program_interface_query) || GLAD_GL_ES_VERSION_3_1) {
 
@@ -2417,7 +2417,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
 #else
       glShaderStorageBlockBinding(program, i, block.slot);
 #endif
-      arr_init(&block.uniforms);
+      arr_init(&block.uniforms, realloc);
 
       GLsizei length;
       char name[LOVR_MAX_UNIFORM_LENGTH];
@@ -2459,7 +2459,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
   int imageSlot = 0;
   glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &uniformCount);
   map_init(&shader->uniformMap, 0);
-  arr_init(&shader->uniforms);
+  arr_init(&shader->uniforms, realloc);
   for (uint32_t i = 0; i < (uint32_t) uniformCount; i++) {
     Uniform uniform;
     GLenum glType;
@@ -2870,7 +2870,7 @@ ShaderBlock* lovrShaderBlockCreate(BlockType type, Buffer* buffer, arr_uniform_t
   lovrAssert(block, "Out of memory");
   block->ref = 1;
 
-  arr_init(&block->uniforms);
+  arr_init(&block->uniforms, realloc);
   map_init(&block->uniformMap, (uint32_t) uniforms->length);
 
   arr_append(&block->uniforms, uniforms->data, uniforms->length);

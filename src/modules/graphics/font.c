@@ -2,7 +2,6 @@
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
-#include "core/arr.h"
 #include "core/map.h"
 #include "core/utf.h"
 #include <string.h>
@@ -67,7 +66,7 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
   font->atlas.width = 128;
   font->atlas.height = 128;
   font->atlas.padding = padding;
-  arr_init(&font->atlas.glyphs);
+  arr_init(&font->atlas.glyphs, realloc);
   map_init(&font->atlas.glyphMap, 0);
 
   // Set initial atlas size

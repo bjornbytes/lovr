@@ -4,7 +4,6 @@
 #include "graphics/graphics.h"
 #include "graphics/model.h"
 #include "graphics/texture.h"
-#include "core/arr.h"
 #include "core/maf.h"
 #include <stdlib.h>
 

@@ -62,3 +62,24 @@ static inline uint64_t hash64(const void* data, size_t length) {
 typedef atomic_uint ref_t;
 #define lovrRetain(o) if (o) { atomic_fetch_add((ref_t*) (o), 1); }
 #define lovrRelease(o, f) if (o && atomic_fetch_sub((ref_t*) (o), 1) == 1) f(o)
+
+// Dynamic Array
+typedef void* arr_allocator(void* data, size_t size);
+#define arr_t(T) struct { T* data; arr_allocator* alloc; size_t length, capacity; }
+#define arr_init(a, allocator) (a)->data = NULL, (a)->length = 0, (a)->capacity = 0, (a)->alloc = allocator
+#define arr_free(a) (a)->alloc((a)->data, 0)
+#define arr_reserve(a, n) _arr_reserve((void**) &((a)->data), n, &(a)->capacity, sizeof(*(a)->data), (a)->alloc)
+#define arr_expand(a, n) arr_reserve(a, (a)->length + n)
+#define arr_push(a, x) arr_reserve(a, (a)->length + 1), (a)->data[(a)->length++] = x
+#define arr_pop(a) (a)->data[--(a)->length]
+#define arr_append(a, p, n) arr_reserve(a, (a)->length + n), memcpy((a)->data + (a)->length, p, n * sizeof(*(p))), (a)->length += n
+#define arr_splice(a, i, n) memmove((a)->data + (i), (a)->data + ((i) + n), ((a)->length - (n)) * sizeof(*(a)->data)), (a)->length -= n
+#define arr_clear(a) (a)->length = 0
+
+static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t stride, arr_allocator* allocator) {
+  if (*capacity >= n) return;
+  if (*capacity == 0) *capacity = 1;
+  while (*capacity < n) *capacity *= 2;
+  *data = allocator(*data, *capacity * stride);
+  lovrAssert(*data, "Out of memory");
+}

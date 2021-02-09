@@ -1,5 +1,4 @@
 #include "filesystem/filesystem.h"
-#include "core/arr.h"
 #include "core/fs.h"
 #include "core/map.h"
 #include "core/os.h"
@@ -112,7 +111,7 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   if (state.initialized) return false;
   state.initialized = true;
 
-  arr_init(&state.archives);
+  arr_init(&state.archives, realloc);
   arr_reserve(&state.archives, 2);
 
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
@@ -169,7 +168,7 @@ bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, 
   }
 
   Archive archive;
-  arr_init(&archive.strings);
+  arr_init(&archive.strings, realloc);
 
   if (!dir_init(&archive, path, mountpoint, root) && !zip_init(&archive, path, mountpoint, root)) {
     arr_free(&archive.strings);
@@ -593,7 +592,7 @@ static void zip_close(Archive* archive) {
 static bool zip_init(Archive* archive, const char* filename, const char* mountpoint, const char* root) {
   char path[LOVR_PATH_MAX];
   memset(&archive->lookup, 0, sizeof(archive->lookup));
-  arr_init(&archive->nodes);
+  arr_init(&archive->nodes, realloc);
 
   // mmap the zip file, try to parse it, and figure out how many files there are
   archive->zip.data = fs_map(filename, &archive->zip.size);

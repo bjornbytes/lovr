@@ -10,7 +10,7 @@
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/textureData.h"
-#include "core/arr.h"
+#include "core/util.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -1579,7 +1579,7 @@ static int l_lovrGraphicsNewComputeShader(lua_State* L) {
 
 static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   arr_uniform_t uniforms;
-  arr_init(&uniforms);
+  arr_init(&uniforms, realloc);
 
   BlockType type = luax_checkenum(L, 1, BlockType, NULL);
 

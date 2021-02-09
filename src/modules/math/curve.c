@@ -1,5 +1,4 @@
 #include "math/curve.h"
-#include "core/arr.h"
 #include "core/maf.h"
 #include "core/util.h"
 #include <stdlib.h>
@@ -54,7 +53,7 @@ Curve* lovrCurveCreate(void) {
   Curve* curve = calloc(1, sizeof(Curve));
   lovrAssert(curve, "Out of memory");
   curve->ref = 1;
-  arr_init(&curve->points);
+  arr_init(&curve->points, realloc);
   arr_reserve(&curve->points, 16);
   return curve;
 }

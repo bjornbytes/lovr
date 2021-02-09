@@ -4,7 +4,6 @@
 #include "graphics/canvas.h"
 #include "resources/boot.lua.h"
 #include "api/api.h"
-#include "core/arr.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include "core/util.h"

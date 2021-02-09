@@ -1,6 +1,5 @@
 #include "event/event.h"
 #include "thread/thread.h"
-#include "core/arr.h"
 #include "core/os.h"
 #include "core/util.h"
 #include "core/utf.h"
@@ -49,7 +48,7 @@ void lovrVariantDestroy(Variant* variant) {
 
 bool lovrEventInit() {
   if (state.initialized) return false;
-  arr_init(&state.events);
+  arr_init(&state.events, realloc);
   lovrPlatformOnKeyboardEvent(onKeyboardEvent);
   lovrPlatformOnTextEvent(onTextEvent);
   lovrPlatformOnPermissionEvent(onPermissionEvent);
