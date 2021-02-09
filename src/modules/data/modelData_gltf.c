@@ -1,6 +1,6 @@
 #include "data/modelData.h"
 #include "data/blob.h"
-#include "data/textureData.h"
+#include "data/image.h"
 #include "core/maf.h"
 #include "lib/jsmn/jsmn.h"
 #include <stdbool.h>
@@ -133,7 +133,7 @@ static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMateri
       uint32_t index = NOM_INT(json, token);
       gltfTexture* texture = &textures[index];
       gltfSampler* sampler = texture->sampler == ~0u ? NULL : &samplers[texture->sampler];
-      material->textures[textureType] = texture->image;
+      material->images[textureType] = texture->image;
       material->filters[textureType] = sampler ? sampler->filter : (TextureFilter) { .mode = FILTER_BILINEAR };
       material->wraps[textureType] = sampler ? sampler->wrap : (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT, .r = WRAP_REPEAT };
     } else if (STR_EQ(key, "texCoord")) {
@@ -303,7 +303,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
 
     } else if (STR_EQ(key, "images")) {
       info.images = token;
-      model->textureCount = token->size;
+      model->imageCount = token->size;
       token += NOM_VALUE(json, token);
 
     } else if (STR_EQ(key, "samplers")) {
@@ -649,17 +649,17 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     }
   }
 
-  // Textures (glTF images)
-  if (model->textureCount > 0) {
+  // Images
+  if (model->imageCount > 0) {
     jsmntok_t* token = info.images;
-    TextureData** texture = model->textures;
-    for (int i = (token++)->size; i > 0; i--, texture++) {
+    Image** image = model->images;
+    for (int i = (token++)->size; i > 0; i--, image++) {
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "bufferView")) {
           ModelBuffer* buffer = &model->buffers[NOM_INT(json, token)];
           Blob* blob = lovrBlobCreate(buffer->data, buffer->size, NULL);
-          *texture = lovrTextureDataCreateFromBlob(blob, false);
+          *image = lovrImageCreateFromBlob(blob, false);
           blob->data = NULL; // XXX Blob data ownership
           lovrRelease(blob, lovrBlobDestroy);
         } else if (STR_EQ(key, "uri")) {
@@ -669,9 +669,9 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           lovrAssert(uri.length < maxPathLength, "Image filename is too long");
           strncat(filename, uri.data, uri.length);
           void* data = io(filename, &size);
-          lovrAssert(data && size > 0, "Unable to read texture from '%s'", filename);
+          lovrAssert(data && size > 0, "Unable to read image from '%s'", filename);
           Blob* blob = lovrBlobCreate(data, size, NULL);
-          *texture = lovrTextureDataCreateFromBlob(blob, false);
+          *image = lovrImageCreateFromBlob(blob, false);
           lovrRelease(blob, lovrBlobDestroy);
           *root = '\0';
         } else {
@@ -690,7 +690,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       material->scalars[SCALAR_ROUGHNESS] = 1.f;
       material->colors[COLOR_DIFFUSE] = (Color) { 1.f, 1.f, 1.f, 1.f };
       material->colors[COLOR_EMISSIVE] = (Color) { 0.f, 0.f, 0.f, 0.f };
-      memset(material->textures, 0xff, MAX_MATERIAL_TEXTURES * sizeof(uint32_t));
+      memset(material->images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(uint32_t));
 
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
@@ -711,7 +711,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
               material->scalars[SCALAR_ROUGHNESS] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "metallicRoughnessTexture")) {
               token = resolveTexture(json, token, material, TEXTURE_METALNESS, textures, samplers);
-              material->textures[TEXTURE_ROUGHNESS] = material->textures[TEXTURE_METALNESS];
+              material->images[TEXTURE_ROUGHNESS] = material->images[TEXTURE_METALNESS];
               material->filters[TEXTURE_ROUGHNESS] = material->filters[TEXTURE_METALNESS];
               material->wraps[TEXTURE_ROUGHNESS] = material->wraps[TEXTURE_METALNESS];
             } else {

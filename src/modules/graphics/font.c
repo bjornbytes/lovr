@@ -1,7 +1,7 @@
 #include "graphics/font.h"
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
-#include "data/textureData.h"
+#include "data/image.h"
 #include "core/map.h"
 #include "core/utf.h"
 #include <string.h>
@@ -85,7 +85,7 @@ void lovrFontDestroy(void* ref) {
   lovrRelease(font->rasterizer, lovrRasterizerDestroy);
   lovrRelease(font->texture, lovrTextureDestroy);
   for (size_t i = 0; i < font->atlas.glyphs.length; i++) {
-    lovrRelease(font->atlas.glyphs.data[i].data, lovrTextureDataDestroy);
+    lovrRelease(font->atlas.glyphs.data[i].data, lovrImageDestroy);
   }
   arr_free(&font->atlas.glyphs);
   map_free(&font->atlas.glyphMap);
@@ -369,13 +369,13 @@ static void lovrFontExpandTexture(Font* font) {
   }
 }
 
-// TODO we only need the TextureData here to clear the texture, but it's a big waste of memory.
+// TODO we only need the Image here to clear the texture, but it's a big waste of memory.
 // Could look into using glClearTexImage when supported to make this more efficient.
 static void lovrFontCreateTexture(Font* font) {
   lovrRelease(font->texture, lovrTextureDestroy);
-  TextureData* textureData = lovrTextureDataCreate(font->atlas.width, font->atlas.height, NULL, 0x0, FORMAT_RGB);
-  font->texture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, false, false, 0);
+  Image* image = lovrImageCreate(font->atlas.width, font->atlas.height, NULL, 0x0, FORMAT_RGB);
+  font->texture = lovrTextureCreate(TEXTURE_2D, &image, 1, false, false, 0);
   lovrTextureSetFilter(font->texture, (TextureFilter) { .mode = FILTER_BILINEAR });
   lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
-  lovrRelease(textureData, lovrTextureDataDestroy);
+  lovrRelease(image, lovrImageDestroy);
 }

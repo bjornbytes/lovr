@@ -6,7 +6,7 @@
 #define GLYPH_PADDING 1
 
 struct Blob;
-struct TextureData;
+struct Image;
 
 typedef struct {
   uint32_t x;
@@ -18,7 +18,7 @@ typedef struct {
   int32_t dx;
   int32_t dy;
   int32_t advance;
-  struct TextureData* data;
+  struct Image* data;
 } Glyph;
 
 typedef struct Rasterizer Rasterizer;

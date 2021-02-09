@@ -50,15 +50,15 @@ void luax_readattachments(lua_State* L, int index, Attachment* attachments, int*
   }
 }
 
-static int l_lovrCanvasNewTextureData(lua_State* L) {
+static int l_lovrCanvasNewImage(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   uint32_t index = luaL_optinteger(L, 2, 1) - 1;
   uint32_t count;
   lovrCanvasGetAttachments(canvas, &count);
-  lovrAssert(index < count, "Can not create a TextureData from Texture #%d of Canvas (it only has %d textures)", index, count);
-  TextureData* textureData = lovrCanvasNewTextureData(canvas, index);
-  luax_pushtype(L, TextureData, textureData);
-  lovrRelease(textureData, lovrTextureDataDestroy);
+  lovrAssert(index < count, "Can not create an Image from Texture #%d of Canvas (it only has %d textures)", index, count);
+  Image* image = lovrCanvasNewImage(canvas, index);
+  luax_pushtype(L, Image, image);
+  lovrRelease(image, lovrImageDestroy);
   return 1;
 }
 
@@ -133,7 +133,7 @@ static int l_lovrCanvasIsStereo(lua_State* L) {
 }
 
 const luaL_Reg lovrCanvas[] = {
-  { "newTextureData", l_lovrCanvasNewTextureData },
+  { "newImage", l_lovrCanvasNewImage },
   { "renderTo", l_lovrCanvasRenderTo },
   { "getTexture", l_lovrCanvasGetTexture },
   { "setTexture", l_lovrCanvasSetTexture },

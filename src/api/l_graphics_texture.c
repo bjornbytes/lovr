@@ -83,12 +83,12 @@ static int l_lovrTextureGetWrap(lua_State* L) {
 
 static int l_lovrTextureReplacePixels(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  TextureData* textureData = luax_checktype(L, 2, TextureData);
+  Image* image = luax_checktype(L, 2, Image);
   int x = luaL_optinteger(L, 3, 0);
   int y = luaL_optinteger(L, 4, 0);
   int slice = luaL_optinteger(L, 5, 1) - 1;
   int mipmap = luaL_optinteger(L, 6, 1) - 1;
-  lovrTextureReplacePixels(texture, textureData, x, y, slice, mipmap);
+  lovrTextureReplacePixels(texture, image, x, y, slice, mipmap);
   return 0;
 }
 

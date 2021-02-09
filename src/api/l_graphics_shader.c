@@ -71,13 +71,13 @@ int luax_checkuniform(lua_State* L, int index, const Uniform* uniform, void* des
         }
 
         case UNIFORM_IMAGE: {
-          Image* image = (Image*) dest + i;
+          StorageImage* image = (StorageImage*) dest + i;
           image->texture = luax_checktype(L, j, Texture);
           image->slice = -1;
           image->mipmap = 0;
           image->access = ACCESS_READ_WRITE;
           TextureType type = lovrTextureGetType(image->texture);
-          lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s image uniform", lovrTextureType[type], lovrTextureType[uniform->textureType]);
+          lovrAssert(type == uniform->textureType, "Attempt to send %s texture to %s storage image uniform", lovrTextureType[type], lovrTextureType[uniform->textureType]);
           break;
         }
 
@@ -256,7 +256,7 @@ static int l_lovrShaderSendImage(lua_State* L) {
   int slice = luaL_optinteger(L, index++, 0) - 1; // Default is -1
   int mipmap = luax_optmipmap(L, index++, texture);
   UniformAccess access = luax_checkenum(L, index++, UniformAccess, "readwrite");
-  Image image = { .texture = texture, .slice = slice, .mipmap = mipmap, .access = access };
+  StorageImage image = { .texture = texture, .slice = slice, .mipmap = mipmap, .access = access };
   lovrShaderSetImages(shader, name, &image, start, 1);
   return 0;
 }

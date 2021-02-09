@@ -64,7 +64,7 @@ typedef struct {
   int slice;
   int mipmap;
   UniformAccess access;
-} Image;
+} StorageImage;
 
 typedef struct Uniform {
   char name[LOVR_MAX_UNIFORM_LENGTH];
@@ -80,7 +80,7 @@ typedef struct Uniform {
     int* ints;
     float* floats;
     struct Texture** textures;
-    Image* images;
+    StorageImage* images;
   } value;
   TextureType textureType;
   int baseSlot;
@@ -118,7 +118,7 @@ void lovrShaderSetFloats(Shader* shader, const char* name, float* data, int star
 void lovrShaderSetInts(Shader* shader, const char* name, int* data, int start, int count);
 void lovrShaderSetMatrices(Shader* shader, const char* name, float* data, int start, int count);
 void lovrShaderSetTextures(Shader* shader, const char* name, struct Texture** data, int start, int count);
-void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int start, int count);
+void lovrShaderSetImages(Shader* shader, const char* name, StorageImage* data, int start, int count);
 void lovrShaderSetColor(Shader* shader, const char* name, Color color);
 void lovrShaderSetBlock(Shader* shader, const char* name, struct Buffer* buffer, size_t offset, size_t size, UniformAccess access);
 

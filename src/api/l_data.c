@@ -3,7 +3,7 @@
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "data/sound.h"
-#include "data/textureData.h"
+#include "data/image.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -90,37 +90,37 @@ static int l_lovrDataNewSound(lua_State* L) {
   return 1;
 }
 
-static int l_lovrDataNewTextureData(lua_State* L) {
-  TextureData* textureData = NULL;
+static int l_lovrDataNewImage(lua_State* L) {
+  Image* image = NULL;
   if (lua_type(L, 1) == LUA_TNUMBER) {
     int width = luaL_checkinteger(L, 1);
     int height = luaL_checkinteger(L, 2);
     TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba");
     Blob* blob = lua_isnoneornil(L, 4) ? NULL : luax_checktype(L, 4, Blob);
-    textureData = lovrTextureDataCreate(width, height, blob, 0x0, format);
+    image = lovrImageCreate(width, height, blob, 0x0, format);
   } else {
-    TextureData* source = luax_totype(L, 1, TextureData);
+    Image* source = luax_totype(L, 1, Image);
     if (source) {
-      textureData = lovrTextureDataCreate(source->width, source->height, source->blob, 0x0, source->format);
+      image = lovrImageCreate(source->width, source->height, source->blob, 0x0, source->format);
     } else {
       Blob* blob = luax_readblob(L, 1, "Texture");
       bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
-      textureData = lovrTextureDataCreateFromBlob(blob, flip);
+      image = lovrImageCreateFromBlob(blob, flip);
       lovrRelease(blob, lovrBlobDestroy);
     }
   }
 
-  luax_pushtype(L, TextureData, textureData);
-  lovrRelease(textureData, lovrTextureDataDestroy);
+  luax_pushtype(L, Image, image);
+  lovrRelease(image, lovrImageDestroy);
   return 1;
 }
 
 static const luaL_Reg lovrData[] = {
   { "newBlob", l_lovrDataNewBlob },
+  { "newImage", l_lovrDataNewImage },
   { "newModelData", l_lovrDataNewModelData },
   { "newRasterizer", l_lovrDataNewRasterizer },
   { "newSound", l_lovrDataNewSound },
-  { "newTextureData", l_lovrDataNewTextureData },
   { NULL, NULL }
 };
 
@@ -128,9 +128,9 @@ int luaopen_lovr_data(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrData);
   luax_registertype(L, Blob);
+  luax_registertype(L, Image);
   luax_registertype(L, ModelData);
   luax_registertype(L, Rasterizer);
   luax_registertype(L, Sound);
-  luax_registertype(L, TextureData);
   return 1;
 }

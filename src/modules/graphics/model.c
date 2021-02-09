@@ -86,8 +86,8 @@ Model* lovrModelCreate(ModelData* data) {
   if (data->materialCount > 0) {
     model->materials = malloc(data->materialCount * sizeof(Material*));
 
-    if (data->textureCount > 0) {
-      model->textures = calloc(data->textureCount, sizeof(Texture*));
+    if (data->imageCount > 0) {
+      model->textures = calloc(data->imageCount, sizeof(Texture*));
     }
 
     for (uint32_t i = 0; i < data->materialCount; i++) {
@@ -102,13 +102,13 @@ Model* lovrModelCreate(ModelData* data) {
       }
 
       for (uint32_t j = 0; j < MAX_MATERIAL_TEXTURES; j++) {
-        uint32_t index = data->materials[i].textures[j];
+        uint32_t index = data->materials[i].images[j];
 
         if (index != ~0u) {
           if (!model->textures[index]) {
-            TextureData* textureData = data->textures[index];
+            Image* image = data->images[index];
             bool srgb = j == TEXTURE_DIFFUSE || j == TEXTURE_EMISSIVE;
-            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &textureData, 1, srgb, true, 0);
+            model->textures[index] = lovrTextureCreate(TEXTURE_2D, &image, 1, srgb, true, 0);
             lovrTextureSetFilter(model->textures[index], data->materials[i].filters[j]);
             lovrTextureSetWrap(model->textures[index], data->materials[i].wraps[j]);
           }
@@ -214,7 +214,7 @@ void lovrModelDestroy(void* ref) {
   }
 
   if (model->textures) {
-    for (uint32_t i = 0; i < model->data->textureCount; i++) {
+    for (uint32_t i = 0; i < model->data->imageCount; i++) {
       lovrRelease(model->textures[i], lovrTextureDestroy);
     }
     free(model->textures);

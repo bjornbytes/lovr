@@ -626,7 +626,7 @@ static ModelData* openvr_newModelData(Device device, bool animated) {
   model->nodeCount = animated ? (1 + modelCount) : 1;
   model->bufferCount = 2 * modelCount;
   model->attributeCount = 4 * modelCount;
-  model->textureCount = modelCount;
+  model->imageCount = modelCount;
   model->materialCount = modelCount;
   model->primitiveCount = modelCount;
   model->childCount = animated ? modelCount : 0;
@@ -702,12 +702,12 @@ static ModelData* openvr_newModelData(Device device, bool animated) {
     };
 
     RenderModel_TextureMap_t* texture = renderModelTextures[i];
-    model->textures[i] = lovrTextureDataCreate(texture->unWidth, texture->unHeight, NULL, 0, FORMAT_RGBA);
-    memcpy(model->textures[i]->blob->data, texture->rubTextureMapData, texture->unWidth * texture->unHeight * 4);
+    model->images[i] = lovrImageCreate(texture->unWidth, texture->unHeight, NULL, 0, FORMAT_RGBA);
+    memcpy(model->images[i]->blob->data, texture->rubTextureMapData, texture->unWidth * texture->unHeight * 4);
 
     model->materials[i] = (ModelMaterial) {
       .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
-      .textures[TEXTURE_DIFFUSE] = i,
+      .images[TEXTURE_DIFFUSE] = i,
       .filters[TEXTURE_DIFFUSE] = lovrGraphicsGetDefaultFilter()
     };
 

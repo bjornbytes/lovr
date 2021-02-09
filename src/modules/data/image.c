@@ -1,4 +1,4 @@
-#include "data/textureData.h"
+#include "data/image.h"
 #include "data/blob.h"
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
@@ -32,7 +32,7 @@ static size_t getPixelSize(TextureFormat format) {
 }
 
 // Modified from ddsparse (https://bitbucket.org/slime73/ddsparse)
-static bool parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
+static bool parseDDS(uint8_t* data, size_t size, Image* image) {
   enum {
     DDPF_ALPHAPIXELS = 0x000001,
     DDPF_ALPHA       = 0x000002,
@@ -255,17 +255,17 @@ static bool parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
       case DXGI_FORMAT_BC1_TYPELESS:
       case DXGI_FORMAT_BC1_UNORM:
       case DXGI_FORMAT_BC1_UNORM_SRGB:
-        textureData->format = FORMAT_DXT1;
+        image->format = FORMAT_DXT1;
         break;
       case DXGI_FORMAT_BC2_TYPELESS:
       case DXGI_FORMAT_BC2_UNORM:
       case DXGI_FORMAT_BC2_UNORM_SRGB:
-        textureData->format = FORMAT_DXT3;
+        image->format = FORMAT_DXT3;
         break;
       case DXGI_FORMAT_BC3_TYPELESS:
       case DXGI_FORMAT_BC3_UNORM:
       case DXGI_FORMAT_BC3_UNORM_SRGB:
-        textureData->format = FORMAT_DXT5;
+        image->format = FORMAT_DXT5;
         break;
       default:
         return 1;
@@ -277,20 +277,20 @@ static bool parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
     // Ensure DXT 1/3/5
     switch (header->format.fourCC) {
-      case FOUR_CC('D', 'X', 'T', '1'): textureData->format = FORMAT_DXT1; break;
-      case FOUR_CC('D', 'X', 'T', '3'): textureData->format = FORMAT_DXT3; break;
-      case FOUR_CC('D', 'X', 'T', '5'): textureData->format = FORMAT_DXT5; break;
+      case FOUR_CC('D', 'X', 'T', '1'): image->format = FORMAT_DXT1; break;
+      case FOUR_CC('D', 'X', 'T', '3'): image->format = FORMAT_DXT3; break;
+      case FOUR_CC('D', 'X', 'T', '5'): image->format = FORMAT_DXT5; break;
       default: return false;
     }
   }
 
-  uint32_t width = textureData->width = header->width;
-  uint32_t height = textureData->height = header->height;
-  uint32_t mipmapCount = textureData->mipmapCount = MAX(header->mipMapCount, 1);
-  textureData->mipmaps = malloc(mipmapCount * sizeof(Mipmap));
+  uint32_t width = image->width = header->width;
+  uint32_t height = image->height = header->height;
+  uint32_t mipmapCount = image->mipmapCount = MAX(header->mipMapCount, 1);
+  image->mipmaps = malloc(mipmapCount * sizeof(Mipmap));
   size_t blockBytes = 0;
 
-  switch (textureData->format) {
+  switch (image->format) {
     case FORMAT_DXT1: blockBytes = 8; break;
     case FORMAT_DXT3: blockBytes = 16; break;
     case FORMAT_DXT5: blockBytes = 16; break;
@@ -305,22 +305,22 @@ static bool parseDDS(uint8_t* data, size_t size, TextureData* textureData) {
 
     // Overflow check
     if (mipmapSize == 0 || (offset + mipmapSize) > size) {
-      free(textureData->mipmaps);
+      free(image->mipmaps);
       return false;
     }
 
-    textureData->mipmaps[i] = (Mipmap) { .width = width, .height = height, .data = &data[offset], .size = mipmapSize };
+    image->mipmaps[i] = (Mipmap) { .width = width, .height = height, .data = &data[offset], .size = mipmapSize };
     offset += mipmapSize;
     width = MAX(width >> 1, 1);
     height = MAX(height >> 1, 1);
   }
 
-  textureData->blob->data = NULL;
+  image->blob->data = NULL;
 
   return true;
 }
 
-static bool parseKTX(uint8_t* bytes, size_t size, TextureData* textureData) {
+static bool parseKTX(uint8_t* bytes, size_t size, Image* image) {
   typedef struct {
     uint8_t magic[12];
     uint32_t endianness;
@@ -356,34 +356,34 @@ static bool parseKTX(uint8_t* bytes, size_t size, TextureData* textureData) {
 
   // TODO MOAR FORMATS, GIMME COOOBMAPS
   switch (data.ktx->glInternalFormat) {
-    case 0x83F0: textureData->format = FORMAT_DXT1; break;
-    case 0x83F2: textureData->format = FORMAT_DXT3; break;
-    case 0x83F3: textureData->format = FORMAT_DXT5; break;
-    case 0x93B0: case 0x93D0: textureData->format = FORMAT_ASTC_4x4; break;
-    case 0x93B1: case 0x93D1: textureData->format = FORMAT_ASTC_5x4; break;
-    case 0x93B2: case 0x93D2: textureData->format = FORMAT_ASTC_5x5; break;
-    case 0x93B3: case 0x93D3: textureData->format = FORMAT_ASTC_6x5; break;
-    case 0x93B4: case 0x93D4: textureData->format = FORMAT_ASTC_6x6; break;
-    case 0x93B5: case 0x93D5: textureData->format = FORMAT_ASTC_8x5; break;
-    case 0x93B6: case 0x93D6: textureData->format = FORMAT_ASTC_8x6; break;
-    case 0x93B7: case 0x93D7: textureData->format = FORMAT_ASTC_8x8; break;
-    case 0x93B8: case 0x93D8: textureData->format = FORMAT_ASTC_10x5; break;
-    case 0x93B9: case 0x93D9: textureData->format = FORMAT_ASTC_10x6; break;
-    case 0x93BA: case 0x93DA: textureData->format = FORMAT_ASTC_10x8; break;
-    case 0x93BB: case 0x93DB: textureData->format = FORMAT_ASTC_10x10; break;
-    case 0x93BC: case 0x93DC: textureData->format = FORMAT_ASTC_12x10; break;
-    case 0x93BD: case 0x93DD: textureData->format = FORMAT_ASTC_12x12; break;
+    case 0x83F0: image->format = FORMAT_DXT1; break;
+    case 0x83F2: image->format = FORMAT_DXT3; break;
+    case 0x83F3: image->format = FORMAT_DXT5; break;
+    case 0x93B0: case 0x93D0: image->format = FORMAT_ASTC_4x4; break;
+    case 0x93B1: case 0x93D1: image->format = FORMAT_ASTC_5x4; break;
+    case 0x93B2: case 0x93D2: image->format = FORMAT_ASTC_5x5; break;
+    case 0x93B3: case 0x93D3: image->format = FORMAT_ASTC_6x5; break;
+    case 0x93B4: case 0x93D4: image->format = FORMAT_ASTC_6x6; break;
+    case 0x93B5: case 0x93D5: image->format = FORMAT_ASTC_8x5; break;
+    case 0x93B6: case 0x93D6: image->format = FORMAT_ASTC_8x6; break;
+    case 0x93B7: case 0x93D7: image->format = FORMAT_ASTC_8x8; break;
+    case 0x93B8: case 0x93D8: image->format = FORMAT_ASTC_10x5; break;
+    case 0x93B9: case 0x93D9: image->format = FORMAT_ASTC_10x6; break;
+    case 0x93BA: case 0x93DA: image->format = FORMAT_ASTC_10x8; break;
+    case 0x93BB: case 0x93DB: image->format = FORMAT_ASTC_10x10; break;
+    case 0x93BC: case 0x93DC: image->format = FORMAT_ASTC_12x10; break;
+    case 0x93BD: case 0x93DD: image->format = FORMAT_ASTC_12x12; break;
     default: lovrThrow("Unsupported KTX format '%d' (please open an issue)", data.ktx->glInternalFormat);
   }
 
-  uint32_t width = textureData->width = data.ktx->pixelWidth;
-  uint32_t height = textureData->height = data.ktx->pixelHeight;
-  uint32_t mipmapCount = textureData->mipmapCount = data.ktx->numberOfMipmapLevels;
-  textureData->mipmaps = malloc(mipmapCount * sizeof(Mipmap));
+  uint32_t width = image->width = data.ktx->pixelWidth;
+  uint32_t height = image->height = data.ktx->pixelHeight;
+  uint32_t mipmapCount = image->mipmapCount = data.ktx->numberOfMipmapLevels;
+  image->mipmaps = malloc(mipmapCount * sizeof(Mipmap));
 
   data.u8 += sizeof(KTXHeader) + data.ktx->bytesOfKeyValueData;
   for (uint32_t i = 0; i < mipmapCount; i++) {
-    textureData->mipmaps[i] = (Mipmap) { .width = width, .height = height, .data = data.u8 + sizeof(uint32_t), .size = *data.u32 };
+    image->mipmaps[i] = (Mipmap) { .width = width, .height = height, .data = data.u8 + sizeof(uint32_t), .size = *data.u32 };
     width = MAX(width >> 1, 1u);
     height = MAX(height >> 1, 1u);
     data.u8 = (uint8_t*) ALIGN(data.u8 + sizeof(uint32_t) + *data.u32, 4);
@@ -392,7 +392,7 @@ static bool parseKTX(uint8_t* bytes, size_t size, TextureData* textureData) {
   return true;
 }
 
-static bool parseASTC(uint8_t* bytes, size_t size, TextureData* textureData) {
+static bool parseASTC(uint8_t* bytes, size_t size, Image* image) {
   typedef struct {
     uint32_t magic;
     uint8_t blockX;
@@ -416,36 +416,36 @@ static bool parseASTC(uint8_t* bytes, size_t size, TextureData* textureData) {
   }
 
   uint32_t bx = data.astc->blockX, by = data.astc->blockY, bz = data.astc->blockZ;
-  if (bx == 4 && by == 4 && bz == 1) { textureData->format = FORMAT_ASTC_4x4; }
-  else if (bx == 5 && by == 4 && bz == 1) { textureData->format = FORMAT_ASTC_5x4; }
-  else if (bx == 5 && by == 5 && bz == 1) { textureData->format = FORMAT_ASTC_5x5; }
-  else if (bx == 6 && by == 5 && bz == 1) { textureData->format = FORMAT_ASTC_6x5; }
-  else if (bx == 6 && by == 6 && bz == 1) { textureData->format = FORMAT_ASTC_6x6; }
-  else if (bx == 8 && by == 5 && bz == 1) { textureData->format = FORMAT_ASTC_8x5; }
-  else if (bx == 8 && by == 6 && bz == 1) { textureData->format = FORMAT_ASTC_8x6; }
-  else if (bx == 8 && by == 8 && bz == 1) { textureData->format = FORMAT_ASTC_8x8; }
-  else if (bx == 10 && by == 5 && bz == 1) { textureData->format = FORMAT_ASTC_10x5; }
-  else if (bx == 10 && by == 6 && bz == 1) { textureData->format = FORMAT_ASTC_10x6; }
-  else if (bx == 10 && by == 8 && bz == 1) { textureData->format = FORMAT_ASTC_10x8; }
-  else if (bx == 10 && by == 10 && bz == 1) { textureData->format = FORMAT_ASTC_10x10; }
-  else if (bx == 12 && by == 10 && bz == 1) { textureData->format = FORMAT_ASTC_12x10; }
-  else if (bx == 12 && by == 12 && bz == 1) { textureData->format = FORMAT_ASTC_12x12; }
+  if (bx == 4 && by == 4 && bz == 1) { image->format = FORMAT_ASTC_4x4; }
+  else if (bx == 5 && by == 4 && bz == 1) { image->format = FORMAT_ASTC_5x4; }
+  else if (bx == 5 && by == 5 && bz == 1) { image->format = FORMAT_ASTC_5x5; }
+  else if (bx == 6 && by == 5 && bz == 1) { image->format = FORMAT_ASTC_6x5; }
+  else if (bx == 6 && by == 6 && bz == 1) { image->format = FORMAT_ASTC_6x6; }
+  else if (bx == 8 && by == 5 && bz == 1) { image->format = FORMAT_ASTC_8x5; }
+  else if (bx == 8 && by == 6 && bz == 1) { image->format = FORMAT_ASTC_8x6; }
+  else if (bx == 8 && by == 8 && bz == 1) { image->format = FORMAT_ASTC_8x8; }
+  else if (bx == 10 && by == 5 && bz == 1) { image->format = FORMAT_ASTC_10x5; }
+  else if (bx == 10 && by == 6 && bz == 1) { image->format = FORMAT_ASTC_10x6; }
+  else if (bx == 10 && by == 8 && bz == 1) { image->format = FORMAT_ASTC_10x8; }
+  else if (bx == 10 && by == 10 && bz == 1) { image->format = FORMAT_ASTC_10x10; }
+  else if (bx == 12 && by == 10 && bz == 1) { image->format = FORMAT_ASTC_12x10; }
+  else if (bx == 12 && by == 12 && bz == 1) { image->format = FORMAT_ASTC_12x12; }
   else { lovrThrow("Unsupported ASTC format %dx%dx%d", bx, by, bz); }
 
-  textureData->width = data.astc->width[0] + (data.astc->width[1] << 8) + (data.astc->width[2] << 16);
-  textureData->height = data.astc->height[0] + (data.astc->height[1] << 8) + (data.astc->height[2] << 16);
+  image->width = data.astc->width[0] + (data.astc->width[1] << 8) + (data.astc->width[2] << 16);
+  image->height = data.astc->height[0] + (data.astc->height[1] << 8) + (data.astc->height[2] << 16);
 
-  size_t imageSize = ((textureData->width + bx - 1) / bx) * ((textureData->height + by - 1) / by) * (128 / 8);
+  size_t imageSize = ((image->width + bx - 1) / bx) * ((image->height + by - 1) / by) * (128 / 8);
 
   if (imageSize > size - sizeof(ASTCHeader)) {
     return false;
   }
 
-  textureData->mipmapCount = 1;
-  textureData->mipmaps = malloc(sizeof(Mipmap));
-  textureData->mipmaps[0] = (Mipmap) {
-    .width = textureData->width,
-    .height = textureData->height,
+  image->mipmapCount = 1;
+  image->mipmaps = malloc(sizeof(Mipmap));
+  image->mipmaps[0] = (Mipmap) {
+    .width = image->width,
+    .height = image->height,
     .data = data.u8 + sizeof(ASTCHeader),
     .size = imageSize
   };
@@ -453,18 +453,18 @@ static bool parseASTC(uint8_t* bytes, size_t size, TextureData* textureData) {
   return true;
 }
 
-TextureData* lovrTextureDataCreate(uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format) {
-  TextureData* textureData = calloc(1, sizeof(TextureData));
-  lovrAssert(textureData, "Out of memory");
-  textureData->ref = 1;
+Image* lovrImageCreate(uint32_t width, uint32_t height, Blob* contents, uint8_t value, TextureFormat format) {
+  Image* image = calloc(1, sizeof(Image));
+  lovrAssert(image, "Out of memory");
+  image->ref = 1;
   size_t pixelSize = getPixelSize(format);
   size_t size = width * height * pixelSize;
-  lovrAssert(width > 0 && height > 0, "TextureData dimensions must be positive");
-  lovrAssert(format < FORMAT_DXT1, "Blank TextureData cannot be compressed");
-  lovrAssert(!contents || contents->size >= size, "TextureData Blob is too small (%d bytes needed, got %d)", size, contents->size);
-  textureData->width = width;
-  textureData->height = height;
-  textureData->format = format;
+  lovrAssert(width > 0 && height > 0, "Image dimensions must be positive");
+  lovrAssert(format < FORMAT_DXT1, "Blank images cannot be compressed");
+  lovrAssert(!contents || contents->size >= size, "Image Blob is too small (%d bytes needed, got %d)", size, contents->size);
+  image->width = width;
+  image->height = height;
+  image->format = format;
   void* data = malloc(size);
   lovrAssert(data, "Out of memory");
   if (contents) {
@@ -472,27 +472,27 @@ TextureData* lovrTextureDataCreate(uint32_t width, uint32_t height, Blob* conten
   } else {
     memset(data, value, size);
   }
-  textureData->blob = lovrBlobCreate(data, size, "TextureData plain");
-  return textureData;
+  image->blob = lovrBlobCreate(data, size, "Image");
+  return image;
 }
 
-TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip) {
-  TextureData* textureData = calloc(1, sizeof(TextureData));
-  lovrAssert(textureData, "Out of memory");
-  textureData->ref = 1;
-  textureData->blob = lovrBlobCreate(NULL, 0, NULL);
-  if (parseDDS(blob->data, blob->size, textureData)) {
-    textureData->source = blob;
+Image* lovrImageCreateFromBlob(Blob* blob, bool flip) {
+  Image* image = calloc(1, sizeof(Image));
+  lovrAssert(image, "Out of memory");
+  image->ref = 1;
+  image->blob = lovrBlobCreate(NULL, 0, NULL);
+  if (parseDDS(blob->data, blob->size, image)) {
+    image->source = blob;
     lovrRetain(blob);
-    return textureData;
-  } else if (parseKTX(blob->data, blob->size, textureData)) {
-    textureData->source = blob;
+    return image;
+  } else if (parseKTX(blob->data, blob->size, image)) {
+    image->source = blob;
     lovrRetain(blob);
-    return textureData;
-  } else if (parseASTC(blob->data, blob->size, textureData)) {
-    textureData->source = blob;
+    return image;
+  } else if (parseASTC(blob->data, blob->size, image)) {
+    image->source = blob;
     lovrRetain(blob);
-    return textureData;
+    return image;
   }
 
   int width, height;
@@ -500,71 +500,79 @@ TextureData* lovrTextureDataCreateFromBlob(Blob* blob, bool flip) {
   stbi_set_flip_vertically_on_load_thread(flip);
   if (stbi_is_16_bit_from_memory(blob->data, length)) {
     int channels;
-    textureData->blob->data = stbi_load_16_from_memory(blob->data, length, &width, &height, &channels, 0);
+    image->blob->data = stbi_load_16_from_memory(blob->data, length, &width, &height, &channels, 0);
     switch (channels) {
       case 1:
-        textureData->format = FORMAT_R16;
-        textureData->blob->size = 2 * width * height;
+        image->format = FORMAT_R16;
+        image->blob->size = 2 * width * height;
         break;
       case 2:
-        textureData->format = FORMAT_RG16;
-        textureData->blob->size = 4 * width * height;
+        image->format = FORMAT_RG16;
+        image->blob->size = 4 * width * height;
         break;
       case 4:
-        textureData->format = FORMAT_RGBA16;
-        textureData->blob->size = 8 * width * height;
+        image->format = FORMAT_RGBA16;
+        image->blob->size = 8 * width * height;
         break;
       default:
         lovrThrow("Unsupported channel count for 16 bit image: %d", channels);
     }
   } else if (stbi_is_hdr_from_memory(blob->data, length)) {
-    textureData->format = FORMAT_RGBA32F;
-    textureData->blob->data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
-    textureData->blob->size = 16 * width * height;
+    image->format = FORMAT_RGBA32F;
+    image->blob->data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
+    image->blob->size = 16 * width * height;
   } else {
-    textureData->format = FORMAT_RGBA;
-    textureData->blob->data = stbi_load_from_memory(blob->data, length, &width, &height, NULL, 4);
-    textureData->blob->size = 4 * width * height;
+    image->format = FORMAT_RGBA;
+    image->blob->data = stbi_load_from_memory(blob->data, length, &width, &height, NULL, 4);
+    image->blob->size = 4 * width * height;
   }
 
-  if (!textureData->blob->data) {
-    lovrThrow("Could not load texture data from '%s'", blob->name);
-    lovrRelease(textureData->blob, lovrBlobDestroy);
-    free(textureData);
+  if (!image->blob->data) {
+    lovrThrow("Could not load image from '%s'", blob->name);
+    lovrRelease(image->blob, lovrBlobDestroy);
+    free(image);
     return NULL;
   }
 
-  textureData->width = width;
-  textureData->height = height;
-  textureData->mipmapCount = 0;
-  return textureData;
+  image->width = width;
+  image->height = height;
+  image->mipmapCount = 0;
+  return image;
 }
 
-Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y) {
-  lovrAssert(textureData->blob->data, "TextureData does not have any pixel data");
-  lovrAssert(x < textureData->width && y < textureData->height, "getPixel coordinates must be within TextureData bounds");
-  size_t index = (textureData->height - (y + 1)) * textureData->width + x;
-  size_t pixelSize = getPixelSize(textureData->format);
-  uint8_t* u8 = (uint8_t*) textureData->blob->data + pixelSize * index;
+void lovrImageDestroy(void* ref) {
+  Image* image = ref;
+  lovrRelease(image->source, lovrBlobDestroy);
+  free(image->mipmaps);
+  lovrRelease(image->blob, lovrBlobDestroy);
+  free(image);
+}
+
+Color lovrImageGetPixel(Image* image, uint32_t x, uint32_t y) {
+  lovrAssert(image->blob->data, "Image does not have any pixel data");
+  lovrAssert(x < image->width && y < image->height, "getPixel coordinates must be within Image bounds");
+  size_t index = (image->height - (y + 1)) * image->width + x;
+  size_t pixelSize = getPixelSize(image->format);
+  uint8_t* u8 = (uint8_t*) image->blob->data + pixelSize * index;
   float* f32 = (float*) u8;
-  switch (textureData->format) {
+  switch (image->format) {
     case FORMAT_RGB: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, 1.f };
     case FORMAT_RGBA: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, u8[3] / 255.f };
     case FORMAT_RGBA32F: return (Color) { f32[0], f32[1], f32[2], f32[3] };
     case FORMAT_R32F: return (Color) { f32[0], 1.f, 1.f, 1.f };
     case FORMAT_RG32F: return (Color) { f32[0], f32[1], 1.f, 1.f };
-    default: lovrThrow("Unsupported format for TextureData:getPixel");
+    default: lovrThrow("Unsupported format for Image:getPixel");
   }
 }
 
-void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, Color color) {
-  lovrAssert(textureData->blob->data, "TextureData does not have any pixel data");
-  lovrAssert(x < textureData->width && y < textureData->height, "setPixel coordinates must be within TextureData bounds");
-  size_t index = (textureData->height - (y + 1)) * textureData->width + x;
-  size_t pixelSize = getPixelSize(textureData->format);
-  uint8_t* u8 = (uint8_t*) textureData->blob->data + pixelSize * index;
+void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color) {
+  lovrAssert(image->blob->data, "Image does not have any pixel data");
+  lovrAssert(x < image->width && y < image->height, "setPixel coordinates must be within Image bounds");
+  size_t index = (image->height - (y + 1)) * image->width + x;
+  size_t pixelSize = getPixelSize(image->format);
+  uint8_t* u8 = (uint8_t*) image->blob->data + pixelSize * index;
   float* f32 = (float*) u8;
-  switch (textureData->format) {
+  switch (image->format) {
     case FORMAT_RGB:
       u8[0] = (uint8_t) (color.r * 255.f + .5f);
       u8[1] = (uint8_t) (color.g * 255.f + .5f);
@@ -594,7 +602,7 @@ void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, C
       f32[1] = color.g;
       break;
 
-    default: lovrThrow("Unsupported format for TextureData:setPixel");
+    default: lovrThrow("Unsupported format for Image:setPixel");
   }
 }
 
@@ -623,11 +631,11 @@ static uint32_t crc32(uint8_t* data, size_t length) {
   return c ^ 0xffffffff;
 }
 
-Blob* lovrTextureDataEncode(TextureData* textureData) {
-  lovrAssert(textureData->format == FORMAT_RGBA, "Only RGBA TextureData can be encoded");
-  uint32_t w = textureData->width;
-  uint32_t h = textureData->height;
-  uint8_t* pixels = (uint8_t*) textureData->blob->data + (h - 1) * w * 4;
+Blob* lovrImageEncode(Image* image) {
+  lovrAssert(image->format == FORMAT_RGBA, "Only RGBA Image can be encoded");
+  uint32_t w = image->width;
+  uint32_t h = image->height;
+  uint8_t* pixels = (uint8_t*) image->blob->data + (h - 1) * w * 4;
   int32_t stride = -1 * (int) (w * 4);
 
   // The world's worst png encoder
@@ -732,28 +740,20 @@ Blob* lovrTextureDataEncode(TextureData* textureData) {
   memcpy(data + 8, (uint8_t[4]) { crc >> 24, crc >> 16, crc >> 8, crc >> 0 }, 4);
   data += 8 + 4;
 
-  return lovrBlobCreate(data - size, size, "Encoded TextureData");
+  return lovrBlobCreate(data - size, size, "Encoded Image");
 }
 
-void lovrTextureDataPaste(TextureData* textureData, TextureData* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h) {
-  lovrAssert(textureData->format == source->format, "Currently TextureData must have the same format to paste");
-  lovrAssert(textureData->format < FORMAT_DXT1, "Compressed TextureData cannot be pasted");
-  size_t pixelSize = getPixelSize(textureData->format);
-  lovrAssert(dx + w <= textureData->width && dy + h <= textureData->height, "Attempt to paste outside of destination TextureData bounds");
-  lovrAssert(sx + w <= source->width && sy + h <= source->height, "Attempt to paste from outside of source TextureData bounds");
+void lovrImagePaste(Image* image, Image* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h) {
+  lovrAssert(image->format == source->format, "Currently Image must have the same format to paste");
+  lovrAssert(image->format < FORMAT_DXT1, "Compressed Image cannot be pasted");
+  size_t pixelSize = getPixelSize(image->format);
+  lovrAssert(dx + w <= image->width && dy + h <= image->height, "Attempt to paste outside of destination Image bounds");
+  lovrAssert(sx + w <= source->width && sy + h <= source->height, "Attempt to paste from outside of source Image bounds");
   uint8_t* src = (uint8_t*) source->blob->data + ((source->height - 1 - sy) * source->width + sx) * pixelSize;
-  uint8_t* dst = (uint8_t*) textureData->blob->data + ((textureData->height - 1 - dy) * textureData->width + sx) * pixelSize;
+  uint8_t* dst = (uint8_t*) image->blob->data + ((image->height - 1 - dy) * image->width + sx) * pixelSize;
   for (uint32_t y = 0; y < h; y++) {
     memcpy(dst, src, w * pixelSize);
     src -= source->width * pixelSize;
-    dst -= textureData->width * pixelSize;
+    dst -= image->width * pixelSize;
   }
-}
-
-void lovrTextureDataDestroy(void* ref) {
-  TextureData* textureData = ref;
-  lovrRelease(textureData->source, lovrBlobDestroy);
-  free(textureData->mipmaps);
-  lovrRelease(textureData->blob, lovrBlobDestroy);
-  free(textureData);
 }

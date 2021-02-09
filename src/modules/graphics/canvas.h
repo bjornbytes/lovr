@@ -1,11 +1,11 @@
-#include "data/textureData.h"
+#include "data/image.h"
 
 #pragma once
 
 #define MAX_CANVAS_ATTACHMENTS 4
 
+struct Image;
 struct Texture;
-struct TextureData;
 
 typedef struct Attachment {
   struct Texture* texture;
@@ -39,4 +39,4 @@ void lovrCanvasSetWidth(Canvas* canvas, uint32_t width);
 void lovrCanvasSetHeight(Canvas* canvas, uint32_t height);
 uint32_t lovrCanvasGetMSAA(Canvas* canvas);
 struct Texture* lovrCanvasGetDepthTexture(Canvas* canvas);
-struct TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index);
+struct Image* lovrCanvasNewImage(Canvas* canvas, uint32_t index);

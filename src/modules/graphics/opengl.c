@@ -189,7 +189,7 @@ static struct {
   BlockBuffer blockBuffers[2][MAX_BLOCK_BUFFERS];
   int activeTexture;
   Texture* textures[MAX_TEXTURES];
-  Image images[MAX_IMAGES];
+  StorageImage images[MAX_IMAGES];
   float viewports[2][4];
   uint32_t viewportCount;
   arr_t(void*) incoherents[MAX_BARRIERS];
@@ -766,11 +766,11 @@ static void lovrGpuBindTexture(Texture* texture, int slot) {
 }
 
 #ifndef LOVR_WEBGL
-static void lovrGpuBindImage(Image* image, int slot, const char* name) {
+static void lovrGpuBindImage(StorageImage* image, int slot, const char* name) {
   lovrAssert(slot >= 0 && slot < MAX_IMAGES, "Invalid image slot %d", slot);
 
   // This is a risky way to compare the two structs
-  if (memcmp(state.images + slot, image, sizeof(Image))) {
+  if (memcmp(state.images + slot, image, sizeof(StorageImage))) {
     Texture* texture = image->texture;
     lovrAssert(texture, "No Texture bound to image uniform '%s'", name);
     lovrAssert(texture->format != FORMAT_RGBA || !texture->srgb, "Attempt to bind sRGB texture to image uniform '%s'", name);
@@ -786,7 +786,7 @@ static void lovrGpuBindImage(Image* image, int slot, const char* name) {
     lovrRetain(texture);
     lovrRelease(state.images[slot].texture, lovrTextureDestroy);
     glBindImageTexture(slot, texture->id, image->mipmap, layered, slice, glAccess, glFormat);
-    memcpy(state.images + slot, image, sizeof(Image));
+    memcpy(state.images + slot, image, sizeof(StorageImage));
   }
 }
 #endif
@@ -1167,7 +1167,7 @@ static void lovrGpuBindShader(Shader* shader) {
       case UNIFORM_IMAGE:
 #ifndef LOVR_WEBGL
         for (int j = 0; j < count; j++) {
-          Image* image = &uniform->value.images[j];
+          StorageImage* image = &uniform->value.images[j];
           Texture* texture = image->texture;
           lovrAssert(!texture || texture->type == uniform->textureType, "Uniform texture type mismatch for uniform '%s'", uniform->name);
 
@@ -1348,11 +1348,11 @@ void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
     arr_init(&state.incoherents[i], realloc);
   }
 
-  TextureData* textureData = lovrTextureDataCreate(1, 1, NULL, 0xff, FORMAT_RGBA);
-  state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &textureData, 1, true, false, 0);
+  Image* image = lovrImageCreate(1, 1, NULL, 0xff, FORMAT_RGBA);
+  state.defaultTexture = lovrTextureCreate(TEXTURE_2D, &image, 1, true, false, 0);
   lovrTextureSetFilter(state.defaultTexture, (TextureFilter) { .mode = FILTER_NEAREST });
   lovrTextureSetWrap(state.defaultTexture, (TextureWrap) { WRAP_CLAMP, WRAP_CLAMP, WRAP_CLAMP });
-  lovrRelease(textureData, lovrTextureDataDestroy);
+  lovrRelease(image, lovrImageDestroy);
 
   map_init(&state.timerMap, 4);
   state.queryPool.next = ~0u;
@@ -1670,7 +1670,7 @@ const GpuStats* lovrGpuGetStats() {
 
 // Texture
 
-Texture* lovrTextureCreate(TextureType type, TextureData** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa) {
+Texture* lovrTextureCreate(TextureType type, Image** slices, uint32_t sliceCount, bool srgb, bool mipmaps, uint32_t msaa) {
   Texture* texture = calloc(1, sizeof(Texture));
   lovrAssert(texture, "Out of memory");
   texture->ref = 1;
@@ -1814,7 +1814,7 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
   state.stats.textureMemory += getTextureMemorySize(texture);
 }
 
-void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap) {
+void lovrTextureReplacePixels(Texture* texture, Image* image, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap) {
   lovrGraphicsFlush();
   lovrAssert(texture->allocated, "Texture is not allocated");
 
@@ -1826,21 +1826,21 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32
 
   uint32_t maxWidth = lovrTextureGetWidth(texture, mipmap);
   uint32_t maxHeight = lovrTextureGetHeight(texture, mipmap);
-  uint32_t width = textureData->width;
-  uint32_t height = textureData->height;
+  uint32_t width = image->width;
+  uint32_t height = image->height;
   bool overflow = (x + width > maxWidth) || (y + height > maxHeight);
   lovrAssert(!overflow, "Trying to replace pixels outside the texture's bounds");
   lovrAssert(mipmap < texture->mipmapCount, "Invalid mipmap level %d", mipmap);
-  GLenum glFormat = convertTextureFormat(textureData->format);
-  GLenum glInternalFormat = convertTextureFormatInternal(textureData->format, texture->srgb);
+  GLenum glFormat = convertTextureFormat(image->format);
+  GLenum glInternalFormat = convertTextureFormatInternal(image->format, texture->srgb);
   GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->target;
 
   lovrGpuBindTexture(texture, 0);
-  if (isTextureFormatCompressed(textureData->format)) {
+  if (isTextureFormatCompressed(image->format)) {
     lovrAssert(width == maxWidth && height == maxHeight, "Compressed texture pixels must be fully replaced");
     lovrAssert(mipmap == 0, "Unable to replace a specific mipmap of a compressed texture");
-    for (uint32_t i = 0; i < textureData->mipmapCount; i++) {
-      Mipmap* m = textureData->mipmaps + i;
+    for (uint32_t i = 0; i < image->mipmapCount; i++) {
+      Mipmap* m = image->mipmaps + i;
       switch (texture->type) {
         case TEXTURE_2D:
         case TEXTURE_CUBE:
@@ -1853,17 +1853,17 @@ void lovrTextureReplacePixels(Texture* texture, TextureData* textureData, uint32
       }
     }
   } else {
-    lovrAssert(textureData->blob->data, "Trying to replace Texture pixels with empty pixel data");
-    GLenum glType = convertTextureFormatType(textureData->format);
+    lovrAssert(image->blob->data, "Trying to replace Texture pixels with empty pixel data");
+    GLenum glType = convertTextureFormatType(image->format);
 
     switch (texture->type) {
       case TEXTURE_2D:
       case TEXTURE_CUBE:
-        glTexSubImage2D(binding, mipmap, x, y, width, height, glFormat, glType, textureData->blob->data);
+        glTexSubImage2D(binding, mipmap, x, y, width, height, glFormat, glType, image->blob->data);
         break;
       case TEXTURE_ARRAY:
       case TEXTURE_VOLUME:
-        glTexSubImage3D(binding, mipmap, x, y, slice, width, height, 1, glFormat, glType, textureData->blob->data);
+        glTexSubImage3D(binding, mipmap, x, y, slice, width, height, 1, glFormat, glType, image->blob->data);
         break;
     }
 
@@ -2110,7 +2110,7 @@ void lovrCanvasResolve(Canvas* canvas) {
   canvas->needsResolve = false;
 }
 
-TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index) {
+Image* lovrCanvasNewImage(Canvas* canvas, uint32_t index) {
   lovrGraphicsFlushCanvas(canvas);
   lovrGpuBindCanvas(canvas, false);
 
@@ -2129,14 +2129,14 @@ TextureData* lovrCanvasNewTextureData(Canvas* canvas, uint32_t index) {
     glReadBuffer(index);
   }
 
-  TextureData* textureData = lovrTextureDataCreate(canvas->width, canvas->height, NULL, 0x0, FORMAT_RGBA);
-  glReadPixels(0, 0, canvas->width, canvas->height, GL_RGBA, GL_UNSIGNED_BYTE, textureData->blob->data);
+  Image* image = lovrImageCreate(canvas->width, canvas->height, NULL, 0x0, FORMAT_RGBA);
+  glReadPixels(0, 0, canvas->width, canvas->height, GL_RGBA, GL_UNSIGNED_BYTE, image->blob->data);
 
   if (index != 0) {
     glReadBuffer(0);
   }
 
-  return textureData;
+  return image;
 }
 
 const Attachment* lovrCanvasGetAttachments(Canvas* canvas, uint32_t* count) {
@@ -2536,7 +2536,7 @@ static void lovrShaderSetupUniforms(Shader* shader) {
 
       case UNIFORM_SAMPLER:
       case UNIFORM_IMAGE:
-        uniform.size = uniform.count * (uniform.type == UNIFORM_SAMPLER ? sizeof(Texture*) : sizeof(Image));
+        uniform.size = uniform.count * (uniform.type == UNIFORM_SAMPLER ? sizeof(Texture*) : sizeof(StorageImage));
         uniform.value.data = calloc(1, uniform.size);
         lovrAssert(uniform.value.data, "Out of memory");
 
@@ -2815,8 +2815,8 @@ void lovrShaderSetTextures(Shader* shader, const char* name, Texture** data, int
   lovrShaderSetUniform(shader, name, UNIFORM_SAMPLER, data, start, count, sizeof(Texture*), "texture");
 }
 
-void lovrShaderSetImages(Shader* shader, const char* name, Image* data, int start, int count) {
-  lovrShaderSetUniform(shader, name, UNIFORM_IMAGE, data, start, count, sizeof(Image), "image");
+void lovrShaderSetImages(Shader* shader, const char* name, StorageImage* data, int start, int count) {
+  lovrShaderSetUniform(shader, name, UNIFORM_IMAGE, data, start, count, sizeof(StorageImage), "image");
 }
 
 void lovrShaderSetColor(Shader* shader, const char* name, Color color) {

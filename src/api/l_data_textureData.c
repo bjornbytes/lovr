@@ -1,57 +1,57 @@
 #include "api.h"
-#include "data/textureData.h"
+#include "data/image.h"
 #include "data/blob.h"
 
-static int l_lovrTextureDataEncode(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
-  Blob* blob = lovrTextureDataEncode(textureData);
+static int l_lovrImageEncode(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  Blob* blob = lovrImageEncode(image);
   luax_pushtype(L, Blob, blob);
   return 1;
 }
 
-static int l_lovrTextureDataGetWidth(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
-  lua_pushinteger(L, textureData->width);
+static int l_lovrImageGetWidth(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  lua_pushinteger(L, image->width);
   return 1;
 }
 
-static int l_lovrTextureDataGetHeight(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
-  lua_pushinteger(L, textureData->height);
+static int l_lovrImageGetHeight(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  lua_pushinteger(L, image->height);
   return 1;
 }
 
-static int l_lovrTextureDataGetDimensions(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
-  lua_pushinteger(L, textureData->width);
-  lua_pushinteger(L, textureData->height);
+static int l_lovrImageGetDimensions(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  lua_pushinteger(L, image->width);
+  lua_pushinteger(L, image->height);
   return 2;
 }
 
-static int l_lovrTextureDataGetFormat(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
-  luax_pushenum(L, TextureFormat, textureData->format);
+static int l_lovrImageGetFormat(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  luax_pushenum(L, TextureFormat, image->format);
   return 1;
 }
 
-static int l_lovrTextureDataPaste(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
-  TextureData* source = luax_checktype(L, 2, TextureData);
+static int l_lovrImagePaste(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  Image* source = luax_checktype(L, 2, Image);
   uint32_t dx = luaL_optinteger(L, 3, 0);
   uint32_t dy = luaL_optinteger(L, 4, 0);
   uint32_t sx = luaL_optinteger(L, 5, 0);
   uint32_t sy = luaL_optinteger(L, 6, 0);
   uint32_t w = luaL_optinteger(L, 7, source->width);
   uint32_t h = luaL_optinteger(L, 8, source->height);
-  lovrTextureDataPaste(textureData, source, dx, dy, sx, sy, w, h);
+  lovrImagePaste(image, source, dx, dy, sx, sy, w, h);
   return 0;
 }
 
-static int l_lovrTextureDataGetPixel(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
+static int l_lovrImageGetPixel(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);
-  Color color = lovrTextureDataGetPixel(textureData, x, y);
+  Color color = lovrImageGetPixel(image, x, y);
   lua_pushnumber(L, color.r);
   lua_pushnumber(L, color.g);
   lua_pushnumber(L, color.b);
@@ -59,8 +59,8 @@ static int l_lovrTextureDataGetPixel(lua_State* L) {
   return 4;
 }
 
-static int l_lovrTextureDataSetPixel(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
+static int l_lovrImageSetPixel(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);
   Color color = {
@@ -69,26 +69,26 @@ static int l_lovrTextureDataSetPixel(lua_State* L) {
     luax_optfloat(L, 6, 1.f),
     luax_optfloat(L, 7, 1.f)
   };
-  lovrTextureDataSetPixel(textureData, x, y, color);
+  lovrImageSetPixel(image, x, y, color);
   return 0;
 }
 
-static int l_lovrTextureDataGetBlob(lua_State* L) {
-  TextureData* textureData = luax_checktype(L, 1, TextureData);
-  Blob* blob = textureData->blob;
+static int l_lovrImageGetBlob(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  Blob* blob = image->blob;
   luax_pushtype(L, Blob, blob);
   return 1;
 }
 
-const luaL_Reg lovrTextureData[] = {
-  { "encode", l_lovrTextureDataEncode },
-  { "getWidth", l_lovrTextureDataGetWidth },
-  { "getHeight", l_lovrTextureDataGetHeight },
-  { "getDimensions", l_lovrTextureDataGetDimensions },
-  { "getFormat", l_lovrTextureDataGetFormat },
-  { "paste", l_lovrTextureDataPaste },
-  { "getPixel", l_lovrTextureDataGetPixel },
-  { "setPixel", l_lovrTextureDataSetPixel },
-  { "getBlob", l_lovrTextureDataGetBlob },
+const luaL_Reg lovrImage[] = {
+  { "encode", l_lovrImageEncode },
+  { "getWidth", l_lovrImageGetWidth },
+  { "getHeight", l_lovrImageGetHeight },
+  { "getDimensions", l_lovrImageGetDimensions },
+  { "getFormat", l_lovrImageGetFormat },
+  { "paste", l_lovrImagePaste },
+  { "getPixel", l_lovrImageGetPixel },
+  { "setPixel", l_lovrImageSetPixel },
+  { "getBlob", l_lovrImageGetBlob },
   { NULL, NULL }
 };

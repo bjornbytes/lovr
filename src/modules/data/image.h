@@ -51,7 +51,7 @@ typedef struct {
   void* data;
 } Mipmap;
 
-typedef struct TextureData {
+typedef struct Image {
   ref_t ref;
   struct Blob* blob;
   uint32_t width;
@@ -60,12 +60,12 @@ typedef struct TextureData {
   TextureFormat format;
   Mipmap* mipmaps;
   uint32_t mipmapCount;
-} TextureData;
+} Image;
 
-TextureData* lovrTextureDataCreate(uint32_t width, uint32_t height, struct Blob* contents, uint8_t value, TextureFormat format);
-TextureData* lovrTextureDataCreateFromBlob(struct Blob* blob, bool flip);
-Color lovrTextureDataGetPixel(TextureData* textureData, uint32_t x, uint32_t y);
-void lovrTextureDataSetPixel(TextureData* textureData, uint32_t x, uint32_t y, Color color);
-struct Blob* lovrTextureDataEncode(TextureData* textureData);
-void lovrTextureDataPaste(TextureData* textureData, TextureData* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h);
-void lovrTextureDataDestroy(void* ref);
+Image* lovrImageCreate(uint32_t width, uint32_t height, struct Blob* contents, uint8_t value, TextureFormat format);
+Image* lovrImageCreateFromBlob(struct Blob* blob, bool flip);
+void lovrImageDestroy(void* ref);
+Color lovrImageGetPixel(Image* image, uint32_t x, uint32_t y);
+void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color);
+struct Blob* lovrImageEncode(Image* image);
+void lovrImagePaste(Image* image, Image* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h);

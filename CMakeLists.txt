@@ -349,18 +349,18 @@ endif()
 if(LOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
     src/modules/data/blob.c
+    src/modules/data/image.c
     src/modules/data/modelData.c
     src/modules/data/modelData_gltf.c
     src/modules/data/modelData_obj.c
     src/modules/data/rasterizer.c
     src/modules/data/sound.c
-    src/modules/data/textureData.c
     src/api/l_data.c
     src/api/l_data_blob.c
+    src/api/l_data_image.c
     src/api/l_data_modelData.c
     src/api/l_data_rasterizer.c
     src/api/l_data_sound.c
-    src/api/l_data_textureData.c
     src/lib/minimp3/minimp3.c
     src/lib/stb/stb_image.c
     src/lib/stb/stb_truetype.c

@@ -1,6 +1,6 @@
 #include "data/modelData.h"
 #include "data/blob.h"
-#include "data/textureData.h"
+#include "data/image.h"
 #include "core/maf.h"
 #include "core/map.h"
 #include "core/util.h"
@@ -15,7 +15,7 @@ typedef struct {
 } objGroup;
 
 typedef arr_t(ModelMaterial) arr_material_t;
-typedef arr_t(TextureData*) arr_texturedata_t;
+typedef arr_t(Image*) arr_image_t;
 typedef arr_t(objGroup) arr_group_t;
 
 #define STARTS_WITH(a, b) !strncmp(a, b, strlen(b))
@@ -27,7 +27,7 @@ static uint32_t nomu32(char* s, char** end) {
   return n;
 }
 
-static void parseMtl(char* path, char* base, ModelDataIO* io, arr_texturedata_t* textures, arr_material_t* materials, map_t* names) {
+static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* images, arr_material_t* materials, map_t* names) {
   size_t size = 0;
   char* p = io(path, &size);
   lovrAssert(p && size > 0, "Unable to read mtl from '%s'", path);
@@ -53,7 +53,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_texturedata_t*
         .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
         .colors[COLOR_EMISSIVE] = { 0.f, 0.f, 0.f, 0.f }
       }));
-      memset(&materials->data[materials->length - 1].textures, 0xff, MAX_MATERIAL_TEXTURES * sizeof(int));
+      memset(&materials->data[materials->length - 1].images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(int));
     } else if (line[0] == 'K' && line[1] == 'd' && line[2] == ' ') {
       float r, g, b;
       char* s = line + 3;
@@ -63,22 +63,22 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_texturedata_t*
       ModelMaterial* material = &materials->data[materials->length - 1];
       material->colors[COLOR_DIFFUSE] = (Color) { r, g, b, 1.f };
     } else if (STARTS_WITH(line, "map_Kd ")) {
-      lovrAssert(base - path + (length - 7) < 1024, "Bad OBJ: Material texture filename is too long");
+      lovrAssert(base - path + (length - 7) < 1024, "Bad OBJ: Material image filename is too long");
       memcpy(base, line + 7, length - 7);
       base[length - 7] = '\0';
 
       size_t imageSize = 0;
-      void* image = io(path, &imageSize);
-      lovrAssert(image && imageSize > 0, "Unable to read texture from %s", path);
-      Blob* blob = lovrBlobCreate(image, imageSize, NULL);
+      void* pixels = io(path, &imageSize);
+      lovrAssert(pixels && imageSize > 0, "Unable to read image from %s", path);
+      Blob* blob = lovrBlobCreate(pixels, imageSize, NULL);
 
-      TextureData* texture = lovrTextureDataCreateFromBlob(blob, true);
+      Image* image = lovrImageCreateFromBlob(blob, true);
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->textures[TEXTURE_DIFFUSE] = (uint32_t) textures->length;
+      material->images[TEXTURE_DIFFUSE] = (uint32_t) images->length;
       material->filters[TEXTURE_DIFFUSE].mode = FILTER_TRILINEAR;
       material->wraps[TEXTURE_DIFFUSE] = (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT };
-      arr_push(textures, texture);
+      arr_push(images, image);
       lovrRelease(blob, lovrBlobDestroy);
     }
 
@@ -96,7 +96,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   size_t size = source->size;
 
   arr_group_t groups;
-  arr_texturedata_t textures;
+  arr_image_t images;
   arr_material_t materials;
   arr_t(float) vertexBlob;
   arr_t(int) indexBlob;
@@ -107,7 +107,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   arr_t(float) uvs;
 
   arr_init(&groups, realloc);
-  arr_init(&textures, realloc);
+  arr_init(&images, realloc);
   arr_init(&materials, realloc);
   map_init(&materialMap, 0);
   arr_init(&vertexBlob, realloc);
@@ -215,7 +215,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
       lovrAssert(baseLength + filenameLength < sizeof(path), "Bad OBJ: Material filename is too long");
       memcpy(path + baseLength, filename, filenameLength);
       path[baseLength + filenameLength] = '\0';
-      parseMtl(path, base, io, &textures, &materials, &materialMap);
+      parseMtl(path, base, io, &images, &materials, &materialMap);
     } else if (STARTS_WITH(line, "usemtl ")) {
       uint64_t index = map_get(&materialMap, hash64(line + 7, length - 7));
       int material = index == MAP_NIL ? -1 : index;
@@ -244,7 +244,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   model->attributeCount = 3 + (uint32_t) groups.length;
   model->primitiveCount = (uint32_t) groups.length;
   model->nodeCount = 1;
-  model->textureCount = (uint32_t) textures.length;
+  model->imageCount = (uint32_t) images.length;
   model->materialCount = (uint32_t) materials.length;
   lovrModelDataAllocate(model);
 
@@ -263,7 +263,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
     .stride = sizeof(int)
   };
 
-  memcpy(model->textures, textures.data, model->textureCount * sizeof(TextureData*));
+  memcpy(model->images, images.data, model->imageCount * sizeof(Image*));
   memcpy(model->materials, materials.data, model->materialCount * sizeof(ModelMaterial));
   memcpy(model->materialMap.hashes, materialMap.hashes, materialMap.size * sizeof(uint64_t));
   memcpy(model->materialMap.values, materialMap.values, materialMap.size * sizeof(uint64_t));
@@ -348,7 +348,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
 
 finish:
   arr_free(&groups);
-  arr_free(&textures);
+  arr_free(&images);
   arr_free(&materials);
   map_free(&materialMap);
   map_free(&vertexMap);

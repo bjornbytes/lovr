@@ -1,6 +1,6 @@
 #include "data/modelData.h"
 #include "data/blob.h"
-#include "data/textureData.h"
+#include "data/image.h"
 #include <stdlib.h>
 
 ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
@@ -23,8 +23,8 @@ void lovrModelDataDestroy(void* ref) {
   for (uint32_t i = 0; i < model->blobCount; i++) {
     lovrRelease(model->blobs[i], lovrBlobDestroy);
   }
-  for (uint32_t i = 0; i < model->textureCount; i++) {
-    lovrRelease(model->textures[i], lovrTextureDataDestroy);
+  for (uint32_t i = 0; i < model->imageCount; i++) {
+    lovrRelease(model->images[i], lovrImageDestroy);
   }
   map_free(&model->animationMap);
   map_free(&model->materialMap);
@@ -40,7 +40,7 @@ void lovrModelDataAllocate(ModelData* model) {
   size_t alignment = 8;
   totalSize += sizes[0] = ALIGN(model->blobCount * sizeof(Blob*), alignment);
   totalSize += sizes[1] = ALIGN(model->bufferCount * sizeof(ModelBuffer), alignment);
-  totalSize += sizes[2] = ALIGN(model->textureCount * sizeof(TextureData*), alignment);
+  totalSize += sizes[2] = ALIGN(model->imageCount * sizeof(Image*), alignment);
   totalSize += sizes[3] = ALIGN(model->materialCount * sizeof(ModelMaterial), alignment);
   totalSize += sizes[4] = ALIGN(model->attributeCount * sizeof(ModelAttribute), alignment);
   totalSize += sizes[5] = ALIGN(model->primitiveCount * sizeof(ModelPrimitive), alignment);
@@ -57,7 +57,7 @@ void lovrModelDataAllocate(ModelData* model) {
   lovrAssert(model->data, "Out of memory");
   model->blobs = (Blob**) (p + offset), offset += sizes[0];
   model->buffers = (ModelBuffer*) (p + offset), offset += sizes[1];
-  model->textures = (TextureData**) (p + offset), offset += sizes[2];
+  model->images = (Image**) (p + offset), offset += sizes[2];
   model->materials = (ModelMaterial*) (p + offset), offset += sizes[3];
   model->attributes = (ModelAttribute*) (p + offset), offset += sizes[4];
   model->primitives = (ModelPrimitive*) (p + offset), offset += sizes[5];
