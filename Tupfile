@@ -74,7 +74,7 @@ ifeq ($(PLATFORM),android)
   CLASS = org/lovr/app/Activity.class
   JAR = bin/lovr.jar
   DEX = bin/apk/classes.dex
-  MANIFEST = src/resources/AndroidManifest.xml
+  MANIFEST = bin/AndroidManifest.xml
 
   : src/resources/$(ACTIVITY_y).java |> !cp |> $(JAVA)
   : $(ANDROID_MANIFEST_y) |> !cp |> $(MANIFEST)
@@ -85,9 +85,9 @@ ifeq ($(PLATFORM),android)
   : $(JAR) $(EXTRA_JARS) |> !dx |> $(DEX)
 
   # aapt
-  : $(MANIFEST) | $(LIB)/*.so $(DEX) |> ^ AAPT %b^ aapt package -F %o -M %f -I $(ANDROID_JAR) bin/apk $(ANDROID_ASSETS) |> bin/lovr.unaligned.apk
+  : $(MANIFEST) | $(LIB)/*.so $(DEX) |> ^ AAPT %b^ aapt package -F %o -M %f -0 so -I $(ANDROID_JAR) bin/apk $(ANDROID_ASSETS) |> bin/.lovr.unaligned.apk
 
   # align n sign
-  : bin/lovr.unaligned.apk |> !zipalign |> bin/lovr.unsigned.apk
-  : bin/lovr.unsigned.apk |> !apksigner |> bin/lovr.apk
+  : bin/.lovr.unaligned.apk |> !zipalign |> bin/.lovr.unsigned.apk
+  : bin/.lovr.unsigned.apk |> !apksigner |> bin/lovr.apk
 endif
