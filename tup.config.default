@@ -60,6 +60,7 @@ CONFIG_LUAJIT=y
 # ANDROID_KEYSTORE: The path to the keystore (use keytool to generate)
 # ANDROID_KEYSTORE_PASS: The keystore password (use either pass:<string>, env:<var>, or file:<path>)
 # ANDROID_MANIFEST: Optional path to a custom Android manifest file (xml)
+# ANDROID_PACKAGE: Optional package id override (default is org.lovr.app, taken from manifest)
 # ANDROID_ASSETS: Optional path to a folder to embed as the assets folder of the apk
 CONFIG_ANDROID_SDK=
 CONFIG_ANDROID_NDK=
@@ -69,4 +70,5 @@ CONFIG_ANDROID_HOST_TAG=
 CONFIG_ANDROID_KEYSTORE=
 CONFIG_ANDROID_KEYSTORE_PASS=
 CONFIG_ANDROID_MANIFEST=
+CONFIG_ANDROID_PACKAGE=
 CONFIG_ANDROID_ASSETS=
