@@ -551,7 +551,7 @@ void lovrColliderGetOrientation(Collider* collider, quat orientation) {
 }
 
 void lovrColliderSetOrientation(Collider* collider, quat orientation) {
-  float q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
+  dReal q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dBodySetQuaternion(collider->body, q);
 }
 
@@ -758,7 +758,7 @@ void lovrShapeGetOrientation(Shape* shape, quat orientation) {
 }
 
 void lovrShapeSetOrientation(Shape* shape, quat orientation) {
-  float q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
+  dReal q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dGeomSetOffsetQuaternion(shape->id, q);
 }
 
@@ -854,7 +854,7 @@ BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
 }
 
 void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
-  float dimensions[3];
+  dReal dimensions[3];
   dGeomBoxGetLengths(box->id, dimensions);
   *x = dimensions[0];
   *y = dimensions[1];
@@ -876,7 +876,7 @@ CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
 }
 
 float lovrCapsuleShapeGetRadius(CapsuleShape* capsule) {
-  float radius, length;
+  dReal radius, length;
   dGeomCapsuleGetParams(capsule->id, &radius, &length);
   return radius;
 }
@@ -886,7 +886,7 @@ void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius) {
 }
 
 float lovrCapsuleShapeGetLength(CapsuleShape* capsule) {
-  float radius, length;
+  dReal radius, length;
   dGeomCapsuleGetParams(capsule->id, &radius, &length);
   return length;
 }
@@ -906,7 +906,7 @@ CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
 }
 
 float lovrCylinderShapeGetRadius(CylinderShape* cylinder) {
-  float radius, length;
+  dReal radius, length;
   dGeomCylinderGetParams(cylinder->id, &radius, &length);
   return radius;
 }
@@ -916,7 +916,7 @@ void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius) {
 }
 
 float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
-  float radius, length;
+  dReal radius, length;
   dGeomCylinderGetParams(cylinder->id, &radius, &length);
   return length;
 }
@@ -1003,7 +1003,7 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
 }
 
 void lovrBallJointGetAnchors(BallJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  float anchor[3];
+  dReal anchor[3];
   dJointGetBallAnchor(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1049,7 +1049,7 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float
 }
 
 void lovrDistanceJointGetAnchors(DistanceJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  float anchor[3];
+  dReal anchor[3];
   dJointGetDBallAnchor1(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1105,7 +1105,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, flo
 }
 
 void lovrHingeJointGetAnchors(HingeJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  float anchor[3];
+  dReal anchor[3];
   dJointGetHingeAnchor(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1121,7 +1121,7 @@ void lovrHingeJointSetAnchor(HingeJoint* joint, float x, float y, float z) {
 }
 
 void lovrHingeJointGetAxis(HingeJoint* joint, float* x, float* y, float* z) {
-  float axis[3];
+  dReal axis[3];
   dJointGetHingeAxis(joint->id, axis);
   *x = axis[0];
   *y = axis[1];
@@ -1167,7 +1167,7 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay,
 }
 
 void lovrSliderJointGetAxis(SliderJoint* joint, float* x, float* y, float* z) {
-  float axis[3];
+  dReal axis[3];
   dJointGetSliderAxis(joint->id, axis);
   *x = axis[0];
   *y = axis[1];
