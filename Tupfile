@@ -11,7 +11,9 @@ SRC += src/core/map.c
 SRC += src/core/zip.c
 
 # modules
-SRC_@(AUDIO) += src/modules/audio/*.c src/modules/audio/spatializers/spatializer_simple.c
+SRC_@(AUDIO) += src/modules/audio/audio.c
+SRC_@(AUDIO) += src/modules/audio/spatializer_simple.c
+SRC_@(AUDIO)@(OCULUS_AUDIO) += src/modules/audio/spatializer_oculus.c
 SRC_@(DATA) += src/modules/data/*.c
 SRC_@(EVENT) += src/modules/event/*.c
 SRC_@(FILESYSTEM) += src/modules/filesystem/*.c

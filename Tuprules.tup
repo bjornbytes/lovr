@@ -44,6 +44,9 @@ CFLAGS_@(VRAPI) += -DLOVR_USE_VRAPI
 CFLAGS_@(PICO) += -DLOVR_USE_PICO
 CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 
+## Spatializer backends
+CFLAGS_@(OCULUS_AUDIO) += -DLOVR_ENABLE_OCULUS_AUDIO
+
 ifeq (@(PLATFORM),)
 PLATFORM = @(TUP_PLATFORM)
 else
@@ -229,6 +232,15 @@ ifneq (@(CMAKE_DEPS),)
   LIBS_@(PHYSICS)_$(macos) += $(BUILD)/ode/libode.dylib
   LIBS_@(PHYSICS)_$(linux) += $(BUILD)/ode/libode.so
   LIBS_@(PHYSICS)_$(android) += $(BUILD)/lib/arm64-v8a/libode.so
+
+  # Oculus Audio
+  CFLAGS_@(OCULUS_AUDIO) += -I@(OCULUS_AUDIO_PATH)/Include
+  LDFLAGS_@(OCULUS_AUDIO)_$(win32) += -L@(OCULUS_AUDIO_PATH)/Lib/x64 -lovraudio64
+  LDFLAGS_@(OCULUS_AUDIO)_$(linux) += -L@(OCULUS_AUDIO_PATH)/Lib/Linux64 -lovraudio64
+  LDFLAGS_@(OCULUS_AUDIO)_$(android) += -L@(OCULUS_AUDIO_PATH)/Lib/Android/arm64-v8a -lovraudio64
+  LIB_@(OCULUS_AUDIO)_$(win32) += @(OCULUS_AUDIO_PATH)/Lib/x64/ovraudio64.dll
+  LIB_@(OCULUS_AUDIO)_$(linux) += @(OCULUS_AUDIO_PATH)/Lib/Linux64/libovraudio64.so
+  LIB_@(OCULUS_AUDIO)_$(android) += @(OCULUS_AUDIO_PATH)/Lib/Android/arm64-v8a/libovraudio64.so
 endif
 
 LIBS += $(LIBS_y) $(LIBS_y_y)

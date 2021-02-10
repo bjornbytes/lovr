@@ -1,4 +1,4 @@
-#include "../spatializer.h"
+#include "spatializer.h"
 #include "core/maf.h"
 #include "core/util.h"
 

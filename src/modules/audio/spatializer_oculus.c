@@ -1,5 +1,5 @@
+#include "spatializer.h"
 #include "audio/audio.h"
-#include "audio/spatializer.h"
 #include "lib/miniaudio/miniaudio.h"
 #include <stdlib.h>
 
