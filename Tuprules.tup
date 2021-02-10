@@ -64,6 +64,7 @@ endif
 
 ## Linux
 ifeq ($(PLATFORM),linux)
+  linux = y
   CFLAGS += -DLOVR_GL
   LDFLAGS += -lm -lpthread -ldl
   LDFLAGS += -Wl,-rpath,\$ORIGIN
@@ -203,10 +204,10 @@ ifneq (@(CMAKE_DEPS),)
   LDFLAGS_@(DATA)_$(macos) += -L$(BUILD)/lib_msdfgen -lmsdfgen
   LDFLAGS_@(DATA)_$(linux) += -L$(BUILD)/lib_msdfgen -lmsdfgen
   LDFLAGS_@(DATA)_$(android) += -L$(BUILD)/lib_msdfgen -lmsdfgen
-  LDFLAGS_@(DATA)_web += $(BUILD)/lib_msdfgen/libmsdfgen.a
-  LIBS_@(DATA)_win32 += $(BUILD)/lib_msdfgen/$(CONFIG)/msdfgen.dll
-  LIBS_@(DATA)_macos += $(BUILD)/lib_msdfgen/libmsdfgen.dylib
-  LIBS_@(DATA)_linux += $(BUILD)/lib_msdfgen/libmsdfgen.so
+  LDFLAGS_@(DATA)_$(web) += $(BUILD)/lib_msdfgen/libmsdfgen.a
+  LIBS_@(DATA)_$(win32) += $(BUILD)/lib_msdfgen/$(CONFIG)/msdfgen.dll
+  LIBS_@(DATA)_$(macos) += $(BUILD)/lib_msdfgen/libmsdfgen.dylib
+  LIBS_@(DATA)_$(linux) += $(BUILD)/lib_msdfgen/libmsdfgen.so
 
   # OpenVR
   CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
