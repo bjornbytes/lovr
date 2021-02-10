@@ -388,7 +388,7 @@ static void lovrFontExpandTexture(Font* font) {
 // Could look into using glClearTexImage when supported to make this more efficient.
 static void lovrFontCreateTexture(Font* font) {
   lovrRelease(font->texture, lovrTextureDestroy);
-  Image* image = lovrImageCreate(font->atlas.width, font->atlas.height, NULL, 0x0, FORMAT_RG11B10F);
+  Image* image = lovrImageCreate(font->atlas.width, font->atlas.height, NULL, 0x0, FORMAT_RGBA16F);
   font->texture = lovrTextureCreate(TEXTURE_2D, &image, 1, false, false, 0);
   lovrTextureSetFilter(font->texture, (TextureFilter) { .mode = FILTER_BILINEAR });
   lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
