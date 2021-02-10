@@ -3,8 +3,6 @@
 
 #pragma once
 
-#define GLYPH_PADDING 1
-
 struct Blob;
 struct Image;
 
@@ -32,5 +30,5 @@ int lovrRasterizerGetAscent(Rasterizer* rasterizer);
 int lovrRasterizerGetDescent(Rasterizer* rasterizer);
 bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
 bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
-void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, Glyph* glyph);
+void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, uint32_t padding, double spread, Glyph* glyph);
 int32_t lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);

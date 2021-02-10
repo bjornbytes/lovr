@@ -51,6 +51,7 @@ typedef union {
   struct { DrawStyle style; ArcMode mode; float r1; float r2; int segments; } arc;
   struct { float r1; float r2; bool capped; int segments; } cylinder;
   struct { int segments; } sphere;
+  struct { float spread; } text;
   struct { float u; float v; float w; float h; } fill;
   struct { uint32_t rangeStart; uint32_t rangeCount; uint32_t instances; float* pose; } mesh;
 } BatchParams;
@@ -467,7 +468,7 @@ Font* lovrGraphicsGetFont() {
   if (!state.font) {
     if (!state.defaultFont) {
       Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
-      state.defaultFont = lovrFontCreate(rasterizer);
+      state.defaultFont = lovrFontCreate(rasterizer, 1, 3.);
       lovrRelease(rasterizer, lovrRasterizerDestroy);
     }
 
@@ -757,6 +758,13 @@ void lovrGraphicsFlush() {
     lovrShaderSetBlock(batch->draw.shader, "lovrModelBlock", state.buffers[STREAM_MODEL], batch->drawStart * bufferStride[STREAM_MODEL], MAX_DRAWS * bufferStride[STREAM_MODEL], ACCESS_READ);
     lovrShaderSetBlock(batch->draw.shader, "lovrColorBlock", state.buffers[STREAM_COLOR], batch->drawStart * bufferStride[STREAM_COLOR], MAX_DRAWS * bufferStride[STREAM_COLOR], ACCESS_READ);
     lovrShaderSetBlock(batch->draw.shader, "lovrFrameBlock", state.buffers[STREAM_FRAME], (state.head[STREAM_FRAME] - 1) * bufferStride[STREAM_FRAME], bufferStride[STREAM_FRAME], ACCESS_READ);
+    if (batch->type == BATCH_TEXT) {
+      Texture* texture = lovrMaterialGetTexture(batch->material, TEXTURE_DIFFUSE);
+      uint32_t width = lovrTextureGetWidth(texture, 0);
+      uint32_t height = lovrTextureGetHeight(texture, 0);
+      float range[2] = { batch->params.text.spread / width, batch->params.text.spread / height };
+      lovrShaderSetFloats(batch->draw.shader, "lovrSdfRange", range, 0, 2);
+    }
     if (batch->draw.topology == DRAW_POINTS) {
       lovrShaderSetFloats(batch->draw.shader, "lovrPointSize", &state.pointSize, 0, 1);
     }
@@ -1277,6 +1285,7 @@ void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wra
   uint16_t baseVertex;
   lovrGraphicsBatch(&(BatchRequest) {
     .type = BATCH_TEXT,
+    .params.text.spread = lovrFontGetSpread(font),
     .topology = DRAW_TRIANGLES,
     .shader = SHADER_FONT,
     .pipeline = &pipeline,
