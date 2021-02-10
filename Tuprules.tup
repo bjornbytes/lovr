@@ -51,6 +51,7 @@ CFLAGS_@(WEBXR) += -DLOVR_USE_WEBXR
 
 ## Spatializer backends
 CFLAGS_@(OCULUS_AUDIO) += -DLOVR_ENABLE_OCULUS_AUDIO
+CFLAGS_@(STEAM_AUDIO) += -DLOVR_ENABLE_PHONON
 
 ifeq (@(PLATFORM),)
 PLATFORM = @(TUP_PLATFORM)
@@ -245,6 +246,12 @@ ifneq (@(CMAKE_DEPS),)
   LIB_@(OCULUS_AUDIO)_$(win32) += @(OCULUS_AUDIO_PATH)/Lib/x64/ovraudio64.dll
   LIB_@(OCULUS_AUDIO)_$(linux) += @(OCULUS_AUDIO_PATH)/Lib/Linux64/libovraudio64.so
   LIB_@(OCULUS_AUDIO)_$(android) += @(OCULUS_AUDIO_PATH)/Lib/Android/arm64-v8a/libovraudio64.so
+
+  # Phonon
+  CFLAGS_@(STEAM_AUDIO) += -I@(STEAM_AUDIO_PATH)/include
+  LIBS_@(STEAM_AUDIO)_$(win32) += @(STEAM_AUDIO_PATH)/lib/Windows/x64/phonon.dll
+  LIBS_@(STEAM_AUDIO)_$(linux) += @(STEAM_AUDIO_PATH)/lib/Linux/x64/libphonon.so
+  LIBS_@(STEAM_AUDIO)_$(android) += @(STEAM_AUDIO_PATH)/lib/Android/x64/libphonon.so
 endif
 
 LIBS += $(LIBS_y) $(LIBS_y_y)
