@@ -121,11 +121,11 @@ endif()
 
 # MSDF
 if(LOVR_ENABLE_DATA)
-  add_subdirectory(deps/msdfgen lib_msdfgen)
+  add_subdirectory(deps/msdfgen)
   include_directories(deps/msdfgen)
-  set(LOVR_MSDF lib_msdfgen)
+  set(LOVR_MSDF msdfgen)
   if(APPLE)
-    set_target_properties(lib_msdfgen PROPERTIES MACOSX_RPATH ON)
+    set_target_properties(msdfgen PROPERTIES MACOSX_RPATH ON)
   endif()
 endif()
 
