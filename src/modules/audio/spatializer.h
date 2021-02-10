@@ -24,6 +24,9 @@ typedef struct {
   const char* name;
 } Spatializer;
 
+#ifdef LOVR_ENABLE_PHONON
+extern Spatializer phononSpatializer;
+#endif
 #ifdef LOVR_ENABLE_OCULUS_AUDIO
 extern Spatializer oculusSpatializer;
 #endif

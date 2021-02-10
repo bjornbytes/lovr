@@ -13,6 +13,7 @@ SRC += src/core/zip.c
 # modules
 SRC_@(AUDIO) += src/modules/audio/audio.c
 SRC_@(AUDIO) += src/modules/audio/spatializer_simple.c
+SRC_@(AUDIO)@(STEAM_AUDIO) += src/modules/audio/spatializer_phonon.c
 SRC_@(AUDIO)@(OCULUS_AUDIO) += src/modules/audio/spatializer_oculus.c
 SRC_@(DATA) += src/modules/data/*.c
 SRC_@(EVENT) += src/modules/event/*.c

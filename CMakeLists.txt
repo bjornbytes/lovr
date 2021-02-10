@@ -22,6 +22,7 @@ option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sur
 option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
 option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
+option(LOVR_USE_STEAM_AUDIO "Enable the Steam Audio spatializer (be sure to also set LOVR_STEAM_AUDIO_PATH)" OFF)
 option(LOVR_USE_OCULUS_AUDIO "Enable the Oculus Audio spatializer (be sure to also set LOVR_OCULUS_AUDIO_PATH)" OFF)
 option(LOVR_USE_LINUX_EGL "Use the EGL graphics extension on Linux" OFF)
 
@@ -249,6 +250,14 @@ if(LOVR_ENABLE_THREAD AND NOT (WIN32 OR EMSCRIPTEN))
   set(LOVR_PTHREADS Threads::Threads)
 endif()
 
+# Steam Audio
+if(LOVR_USE_STEAM_AUDIO)
+  if(NOT LOVR_STEAM_AUDIO_PATH)
+    message(FATAL_ERROR "LOVR_USE_STEAM_AUDIO requires the LOVR_STEAM_AUDIO_PATH to be set to the location of the Steam Audio folder")
+  endif()
+  include_directories("${STEAM_AUDIO_PATH}/include")
+endif()
+
 # Oculus Audio
 if(LOVR_USE_OCULUS_AUDIO)
   if(NOT LOVR_OCULUS_AUDIO_PATH)
@@ -349,6 +358,10 @@ if(LOVR_ENABLE_AUDIO)
     src/api/l_audio_source.c
   )
 
+  if(LOVR_USE_STEAM_AUDIO)
+    target_compile_definitions(lovr PRIVATE LOVR_ENABLE_PHONON)
+    target_sources(lovr PRIVATE src/modules/audio/spatializer_phonon.c)
+  endif()
 
   if(LOVR_USE_OCULUS_AUDIO)
     target_compile_definitions(lovr PRIVATE LOVR_ENABLE_OCULUS_AUDIO)
