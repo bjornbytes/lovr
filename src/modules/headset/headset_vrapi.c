@@ -3,6 +3,8 @@
 #include "graphics/canvas.h"
 #include "graphics/graphics.h"
 #include "graphics/model.h"
+#include "graphics/texture.h"
+#include "data/blob.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include <stdint.h>
