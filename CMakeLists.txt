@@ -154,6 +154,9 @@ endif()
 
 # OpenGL
 if(NOT (WIN32 OR EMSCRIPTEN OR ANDROID))
+  if(UNIX AND NOT APPLE)
+    set(OpenGL_GL_PREFERENCE "GLVND")
+  endif()
   find_package(OpenGL REQUIRED)
   include_directories(${OPENGL_INCLUDE_DIRS})
   set(LOVR_OPENGL ${OPENGL_LIBRARIES})
