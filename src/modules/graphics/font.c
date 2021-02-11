@@ -18,7 +18,7 @@ typedef struct {
 } FontAtlas;
 
 struct Font {
-  ref_t ref;
+  uint32_t ref;
   Rasterizer* rasterizer;
   Texture* texture;
   FontAtlas atlas;

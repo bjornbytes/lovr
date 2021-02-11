@@ -8,7 +8,7 @@
 #include <math.h>
 
 struct Material {
-  ref_t ref;
+  uint32_t ref;
   float scalars[MAX_MATERIAL_SCALARS];
   Color colors[MAX_MATERIAL_COLORS];
   struct Texture* textures[MAX_MATERIAL_TEXTURES];

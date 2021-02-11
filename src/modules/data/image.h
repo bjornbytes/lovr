@@ -52,7 +52,7 @@ typedef struct {
 } Mipmap;
 
 typedef struct Image {
-  ref_t ref;
+  uint32_t ref;
   struct Blob* blob;
   uint32_t width;
   uint32_t height;

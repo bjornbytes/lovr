@@ -19,7 +19,7 @@ static const ma_format miniaudioFormats[] = {
 #define BUFFER_SIZE 256
 
 struct Source {
-  ref_t ref;
+  uint32_t ref;
   Source* next;
   Sound* sound;
   ma_data_converter* converter;

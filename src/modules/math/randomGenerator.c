@@ -6,7 +6,7 @@
 #include <inttypes.h>
 
 struct RandomGenerator {
-  ref_t ref;
+  uint32_t ref;
   Seed seed;
   Seed state;
   double lastRandomNormal;

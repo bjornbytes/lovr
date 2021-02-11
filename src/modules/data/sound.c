@@ -15,7 +15,7 @@ static const ma_format miniaudioFormats[] = {
 };
 
 struct Sound {
-  ref_t ref;
+  uint32_t ref;
   uint32_t (*read)(Sound* sound, uint32_t offset, uint32_t count, void* data);
   struct Blob* blob;
   void* decoder;

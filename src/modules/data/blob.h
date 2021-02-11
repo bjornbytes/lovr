@@ -1,10 +1,10 @@
 #include <stddef.h>
-#include "core/util.h"
+#include <stdint.h>
 
 #pragma once
 
 typedef struct Blob {
-  ref_t ref;
+  uint32_t ref;
   void* data;
   size_t size;
   const char* name;

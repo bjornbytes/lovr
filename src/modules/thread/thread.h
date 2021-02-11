@@ -1,6 +1,5 @@
 #include "data/blob.h"
 #include "event/event.h"
-#include "core/util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -15,7 +14,7 @@
 struct Channel;
 
 typedef struct Thread {
-  ref_t ref;
+  uint32_t ref;
   thrd_t handle;
   mtx_t lock;
   Blob* body;

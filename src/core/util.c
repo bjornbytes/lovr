@@ -1,6 +1,7 @@
 #include "util.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdatomic.h>
 
 // Error handling
 static void defaultErrorCallback(void* p, const char* format, va_list args) {
@@ -39,6 +40,23 @@ void lovrLog(int level, const char* tag, const char* format, ...) {
   va_start(args, format);
   lovrLogCallback(lovrLogUserdata, level, tag, format, args);
   va_end(args);
+}
+
+// Refcounting
+#if ATOMIC_INT_LOCK_FREE != 2
+#error "Lock-free integer atomics are not supported on this platform, but are required for refcounting
+#endif
+
+void lovrRetain(void* object) {
+  if (object) {
+    atomic_fetch_add((atomic_uint*) object, 1);
+  }
+}
+
+void lovrRelease(void* object, void (*destructor)(void*)) {
+  if (object && atomic_fetch_sub((atomic_uint*) object, 1) == 1) {
+    destructor(object);
+  }
 }
 
 // UTF-8

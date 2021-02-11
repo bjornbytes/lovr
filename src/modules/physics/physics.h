@@ -30,7 +30,7 @@ typedef struct Shape Shape;
 typedef struct Joint Joint;
 
 typedef struct {
-  ref_t ref;
+  uint32_t ref;
   dWorldID id;
   dSpaceID space;
   dJointGroupID contactGroup;
@@ -41,7 +41,7 @@ typedef struct {
 } World;
 
 struct Collider {
-  ref_t ref;
+  uint32_t ref;
   dBodyID body;
   World* world;
   Collider* prev;
@@ -55,7 +55,7 @@ struct Collider {
 };
 
 struct Shape {
-  ref_t ref;
+  uint32_t ref;
   ShapeType type;
   dGeomID id;
   Collider* collider;
@@ -70,7 +70,7 @@ typedef Shape CylinderShape;
 typedef Shape MeshShape;
 
 struct Joint {
-  ref_t ref;
+  uint32_t ref;
   JointType type;
   dJointID id;
   void* userdata;

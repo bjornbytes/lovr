@@ -179,7 +179,7 @@ typedef struct {
 } ModelSkin;
 
 typedef struct ModelData {
-  ref_t ref;
+  uint32_t ref;
   void* data;
   struct Blob** blobs;
   ModelBuffer* buffers;

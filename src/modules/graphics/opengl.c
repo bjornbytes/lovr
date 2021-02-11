@@ -40,7 +40,7 @@
 #define LOVR_SHADER_DRAW_ID 7
 
 struct Buffer {
-  ref_t ref;
+  uint32_t ref;
   uint32_t id;
   void* data;
   size_t size;
@@ -54,7 +54,7 @@ struct Buffer {
 };
 
 struct Texture {
-  ref_t ref;
+  uint32_t ref;
   GLuint id;
   GLuint msaaId;
   GLenum target;
@@ -76,7 +76,7 @@ struct Texture {
 };
 
 struct Canvas {
-  ref_t ref;
+  uint32_t ref;
   uint32_t framebuffer;
   uint32_t resolveBuffer;
   uint32_t depthBuffer;
@@ -92,7 +92,7 @@ struct Canvas {
 };
 
 struct ShaderBlock {
-  ref_t ref;
+  uint32_t ref;
   BlockType type;
   arr_uniform_t uniforms;
   map_t uniformMap;
@@ -100,7 +100,7 @@ struct ShaderBlock {
 };
 
 struct Shader {
-  ref_t ref;
+  uint32_t ref;
   uint32_t program;
   ShaderType type;
   arr_uniform_t uniforms;
@@ -112,7 +112,7 @@ struct Shader {
 };
 
 struct Mesh {
-  ref_t ref;
+  uint32_t ref;
   uint32_t vao;
   uint32_t ibo;
   DrawMode mode;

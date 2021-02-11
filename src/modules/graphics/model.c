@@ -15,7 +15,7 @@ typedef struct {
 } NodeTransform;
 
 struct Model {
-  ref_t ref;
+  uint32_t ref;
   struct ModelData* data;
   struct Buffer** buffers;
   struct Mesh** meshes;

@@ -5,7 +5,7 @@
 #include <math.h>
 
 struct Curve {
-  ref_t ref;
+  uint32_t ref;
   arr_t(float) points;
 };
 

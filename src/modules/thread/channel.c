@@ -7,7 +7,7 @@
 #include <math.h>
 
 struct Channel {
-  ref_t ref;
+  uint32_t ref;
   mtx_t lock;
   cnd_t cond;
   arr_t(Variant) messages;

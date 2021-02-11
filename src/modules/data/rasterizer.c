@@ -10,7 +10,7 @@
 #include <math.h>
 
 struct Rasterizer {
-  ref_t ref;
+  uint32_t ref;
   stbtt_fontinfo font;
   struct Blob* blob;
   float size;

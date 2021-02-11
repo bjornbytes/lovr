@@ -11,7 +11,7 @@ static const size_t vectorComponents[] = {
 };
 
 struct Pool {
-  ref_t ref;
+  uint32_t ref;
   float* data;
   size_t count;
   size_t cursor;
