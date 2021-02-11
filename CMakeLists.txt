@@ -306,13 +306,18 @@ target_link_libraries(lovr
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
 
+if(LOVR_ENABLE_AUDIO OR LOVR_ENABLE_DATA)
+  target_sources(lovr PRIVATE
+    src/lib/miniaudio/miniaudio.c
+  )
+endif()
+
 if(LOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/modules/audio/audio.c
     src/modules/audio/spatializers/spatializer_simple.c
     src/api/l_audio.c
     src/api/l_audio_source.c
-    src/lib/miniaudio/miniaudio.c
   )
 
   if(LOVR_USE_OCULUS_AUDIO)
