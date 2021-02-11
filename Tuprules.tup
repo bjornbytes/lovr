@@ -203,14 +203,14 @@ ifneq (@(CMAKE_DEPS),)
 
   # msdfgen
   CFLAGS_@(DATA) += -I$(DEPS)/msdfgen
-  LDFLAGS_@(DATA)_$(win32) += -L$(BUILD)/lib_msdfgen/$(CONFIG) -lmsdfgen
-  LDFLAGS_@(DATA)_$(macos) += -L$(BUILD)/lib_msdfgen -lmsdfgen
-  LDFLAGS_@(DATA)_$(linux) += -L$(BUILD)/lib_msdfgen -lmsdfgen
-  LDFLAGS_@(DATA)_$(android) += -L$(BUILD)/lib_msdfgen -lmsdfgen
-  LDFLAGS_@(DATA)_$(web) += $(BUILD)/lib_msdfgen/libmsdfgen.a
-  LIBS_@(DATA)_$(win32) += $(BUILD)/lib_msdfgen/$(CONFIG)/msdfgen.dll
-  LIBS_@(DATA)_$(macos) += $(BUILD)/lib_msdfgen/libmsdfgen.dylib
-  LIBS_@(DATA)_$(linux) += $(BUILD)/lib_msdfgen/libmsdfgen.so
+  LDFLAGS_@(DATA)_$(win32) += -L$(BUILD)/msdfgen/$(CONFIG) -lmsdfgen
+  LDFLAGS_@(DATA)_$(macos) += -L$(BUILD)/msdfgen -lmsdfgen
+  LDFLAGS_@(DATA)_$(linux) += -L$(BUILD)/msdfgen -lmsdfgen
+  LDFLAGS_@(DATA)_$(android) += -L$(BUILD)/msdfgen -lmsdfgen
+  LDFLAGS_@(DATA)_$(web) += $(BUILD)/msdfgen/libmsdfgen.a
+  LIBS_@(DATA)_$(win32) += $(BUILD)/msdfgen/$(CONFIG)/msdfgen.dll
+  LIBS_@(DATA)_$(macos) += $(BUILD)/msdfgen/libmsdfgen.dylib
+  LIBS_@(DATA)_$(linux) += $(BUILD)/msdfgen/libmsdfgen.so
 
   # OpenVR
   CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers

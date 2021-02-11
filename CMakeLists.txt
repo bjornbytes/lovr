@@ -121,7 +121,7 @@ endif()
 
 # MSDF
 if(LOVR_ENABLE_DATA)
-  add_subdirectory(deps/msdfgen)
+  add_subdirectory(deps/msdfgen msdfgen)
   include_directories(deps/msdfgen)
   set(LOVR_MSDF msdfgen)
   if(APPLE)
