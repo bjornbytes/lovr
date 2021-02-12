@@ -542,7 +542,9 @@ static void openxr_destroy(void) {
 }
 
 static bool openxr_getName(char* name, size_t length) {
-  XrSystemProperties properties;
+  XrSystemProperties properties = {
+    .type = XR_TYPE_SYSTEM_PROPERTIES
+  };
   XR(xrGetSystemProperties(state.instance, state.system, &properties));
   strncpy(name, properties.systemName, length - 1);
   name[length - 1] = '\0';
@@ -738,6 +740,10 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
 
 static bool openxr_getSkeleton(Device device, float* poses) {
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  if (!state.features.handTracking) {
     return false;
   }
 

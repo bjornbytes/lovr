@@ -528,7 +528,7 @@ Image* lovrImageCreateFromBlob(Blob* blob, bool flip) {
   }
 
   if (!image->blob->data) {
-    lovrThrow("Could not load image from '%s'", blob->name);
+    lovrThrow("Could not load image from '%s': %s", blob->name, stbi_failure_reason());
     lovrRelease(image->blob, lovrBlobDestroy);
     free(image);
     return NULL;

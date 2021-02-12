@@ -377,7 +377,7 @@ var webxr = {
     }
     Module.stackRestore(matrix);
     Module._lovrGraphicsSetBackbuffer(state.canvas, true, true);
-    Module.dynCall_vi(callback, userdata);
+    {{{ makeDynCall('vi', 'callback') }}} (userdata);
     Module._lovrGraphicsSetBackbuffer(0, false, false);
   },
 
