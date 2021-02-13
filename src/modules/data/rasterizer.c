@@ -20,6 +20,7 @@ struct Rasterizer {
   int advance;
   int ascent;
   int descent;
+  bool dummy; // If true no truetype font is attached
 };
 
 Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
@@ -49,6 +50,16 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
   stbtt_GetFontBoundingBox(font, &x0, &y0, &x1, &y1);
   rasterizer->advance = roundf(x1 * rasterizer->scale);
 
+  return rasterizer;
+}
+
+Rasterizer* lovrRasterizerDummyCreate(float size, int height) {
+  Rasterizer* rasterizer = calloc(1, sizeof(Rasterizer));
+  lovrAssert(rasterizer, "Out of memory");
+  rasterizer->ref = 1;
+  rasterizer->dummy = true;
+  rasterizer->size = size;
+  rasterizer->height = height;
   return rasterizer;
 }
 
@@ -83,7 +94,8 @@ int lovrRasterizerGetDescent(Rasterizer* rasterizer) {
 }
 
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t character) {
-  return stbtt_FindGlyphIndex(&rasterizer->font, character) != 0;
+  return !rasterizer->dummy &&
+    stbtt_FindGlyphIndex(&rasterizer->font, character) != 0;
 }
 
 bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str) {
@@ -100,6 +112,8 @@ bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str) {
 }
 
 void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, uint32_t padding, double spread, Glyph* glyph) {
+  lovrAssert(!rasterizer->dummy, "Can't perform this operation on a dummy rasterizer.");
+
   int glyphIndex = stbtt_FindGlyphIndex(&rasterizer->font, character);
   lovrAssert(glyphIndex, "No font glyph found for character code %d, try using Rasterizer:hasGlyphs", character);
 
@@ -182,5 +196,18 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, uint32_
 }
 
 int32_t lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right) {
+  if (rasterizer->dummy) {
+    return 0;
+  }
   return stbtt_GetCodepointKernAdvance(&rasterizer->font, left, right) * rasterizer->scale;
+}
+
+bool lovrRasterizerIsDummy(Rasterizer *rasterizer) {
+  return rasterizer->dummy;
+}
+
+// A glyph has been added without the rasterizer's involvement
+void lovrRasterizerDummyAdd(Rasterizer *rasterizer, int advance) {
+  rasterizer->glyphCount++;
+  rasterizer->advance = MAX(rasterizer->advance, advance);
 }

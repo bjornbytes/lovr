@@ -7,12 +7,12 @@
 #include <stdlib.h>
 
 typedef struct {
-  uint32_t x;
+  uint32_t x;           // Glyphs are packed row by row. This is the x,y position for the next glyph
   uint32_t y;
-  uint32_t width;
+  uint32_t width;       // Width and height of the image in pixels
   uint32_t height;
-  uint32_t rowHeight;
-  uint32_t padding;
+  uint32_t rowHeight;   // Max glyph height for the current row
+  uint32_t padding;     // Space around every glyph
   arr_t(Glyph) glyphs;
   map_t glyphMap;
 } FontAtlas;
@@ -74,13 +74,15 @@ Font* lovrFontCreate(Rasterizer* rasterizer, uint32_t padding, double spread) {
   arr_init(&font->atlas.glyphs, realloc);
   map_init(&font->atlas.glyphMap, 0);
 
-  // Set initial atlas size
-  while (font->atlas.height < 4 * lovrRasterizerGetSize(rasterizer)) {
-    lovrFontExpandTexture(font);
-  }
+  if (!lovrRasterizerIsDummy(rasterizer)) {
+    // Set initial atlas size
+    while (font->atlas.height < 4 * lovrRasterizerGetSize(rasterizer)) {
+      lovrFontExpandTexture(font);
+    }
 
-  // Create the texture
-  lovrFontCreateTexture(font);
+    // Create the texture
+    lovrFontCreateTexture(font);
+  }
 
   return font;
 }
@@ -314,6 +316,11 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
 
   // Add the glyph to the atlas if it isn't there
   if (index == MAP_NIL) {
+    if (lovrRasterizerIsDummy(font->rasterizer)) { // Dummy rasterizers can't add glyphs on demand
+      lovrAssert(codepoint != 32, "Printed missing glyph %u but font has no space character. Don't know how to fall back", codepoint);
+      return lovrFontGetGlyph(font, 32);
+    }
+
     index = atlas->glyphs.length;
     arr_reserve(&atlas->glyphs, atlas->glyphs.length + 1);
     lovrRasterizerLoadGlyph(font->rasterizer, codepoint, font->padding, font->spread, &atlas->glyphs.data[atlas->glyphs.length++]);
@@ -357,6 +364,34 @@ static void lovrFontAddGlyph(Font* font, Glyph* glyph) {
   atlas->rowHeight = MAX(atlas->rowHeight, glyph->th);
 }
 
+void lovrFontAddTextureGlyph(Font* font, uint32_t codepoint, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t tw, uint32_t th, int32_t dx, int32_t dy, int32_t advance) {
+  FontAtlas* atlas = &font->atlas;
+  Rasterizer* rasterizer = font->rasterizer;
+  uint64_t hash = hash64(&codepoint, sizeof(codepoint));
+
+  int index = atlas->glyphs.length;
+  arr_reserve(&atlas->glyphs, atlas->glyphs.length + 1);
+  Glyph* glyph = &atlas->glyphs.data[atlas->glyphs.length++];
+
+  glyph->x = x;
+  glyph->y = y;
+  glyph->w = w;
+  glyph->h = h;
+  glyph->tw = tw;
+  glyph->th = th;
+  glyph->dx = dx;
+  glyph->dy = dy;
+  glyph->advance = advance;
+  glyph->data = NULL;
+  map_set(&atlas->glyphMap, hash, index);
+
+  lovrRasterizerDummyAdd(rasterizer, advance);
+
+  atlas->rowHeight = atlas->y == y ? MIN(th, atlas->rowHeight) : th;
+  atlas->x = x + tw + atlas->padding;
+  atlas->y = y;
+}
+
 static void lovrFontExpandTexture(Font* font) {
   FontAtlas* atlas = &font->atlas;
 
@@ -393,4 +428,32 @@ static void lovrFontCreateTexture(Font* font) {
   lovrTextureSetFilter(font->texture, (TextureFilter) { .mode = FILTER_BILINEAR });
   lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
   lovrRelease(image, lovrImageDestroy);
+}
+
+void lovrFontSetTextureDataExternal(Font* font, Texture *texture) {
+  lovrRelease(font->texture, lovrTextureDestroy);
+  font->texture = texture;
+  font->atlas.width = lovrTextureGetWidth(texture, 0);
+  font->atlas.height = lovrTextureGetHeight(texture, 0);
+}
+
+bool lovrFontHasGlyphCached(Font* font, uint32_t character) {
+  FontAtlas* atlas = &font->atlas;
+  uint64_t hash = hash64(&character, sizeof(character));
+  uint64_t index = map_get(&atlas->glyphMap, hash);
+  return index != MAP_NIL;
+}
+
+// Copypaste of lovrRasterizerHasGlyphs
+bool lovrFontHasGlyphsCached(Font* font, const char* str) {
+  const char* end = str + strlen(str);
+  unsigned int codepoint;
+  size_t bytes;
+
+  bool hasGlyphs = true;
+  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+    hasGlyphs &= lovrFontHasGlyphCached(font, codepoint);
+    str += bytes;
+  }
+  return hasGlyphs;
 }

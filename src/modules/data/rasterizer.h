@@ -21,6 +21,7 @@ typedef struct {
 
 typedef struct Rasterizer Rasterizer;
 Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size);
+Rasterizer* lovrRasterizerDummyCreate(float size, int height);
 void lovrRasterizerDestroy(void* ref);
 float lovrRasterizerGetSize(Rasterizer* rasterizer);
 int lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
@@ -32,3 +33,5 @@ bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
 bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
 void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, uint32_t padding, double spread, Glyph* glyph);
 int32_t lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);
+bool lovrRasterizerIsDummy(Rasterizer *rasterizer);
+void lovrRasterizerDummyAdd(Rasterizer *rasterizer, int advance);

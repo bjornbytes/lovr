@@ -39,3 +39,7 @@ void lovrFontSetFlipEnabled(Font* font, bool flip);
 int32_t lovrFontGetKerning(Font* font, unsigned int a, unsigned int b);
 float lovrFontGetPixelDensity(Font* font);
 void lovrFontSetPixelDensity(Font* font, float pixelDensity);
+bool lovrFontHasGlyphCached(Font* font, uint32_t character);
+bool lovrFontHasGlyphsCached(Font* font, const char* str);
+void lovrFontSetTextureDataExternal(Font* font, struct Texture* texture);
+void lovrFontAddTextureGlyph(Font* font, uint32_t codepoint, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t tw, uint32_t th, int32_t dx, int32_t dy, int32_t advance);

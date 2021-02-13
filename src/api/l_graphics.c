@@ -1264,6 +1264,24 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewTextureFont(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  float pixelDensity = luaL_checknumber(L, 2);
+  int height = luaL_checkinteger(L, 3);
+  double spread = luaL_optnumber(L, 4, 4.); // Only needed if we are using SDF font
+  Rasterizer* rasterizer = lovrRasterizerDummyCreate(1, height);
+  Font* font = lovrFontCreate(rasterizer, 0, spread); // FIXME: Might a texture font ever need to set padding?
+
+  lovrRetain(texture);
+  lovrFontSetPixelDensity(font, pixelDensity);
+  lovrFontSetTextureDataExternal(font, texture);
+
+  luax_pushtype(L, Font, font);
+  lovrRelease(rasterizer, lovrRasterizerDestroy);
+  lovrRelease(font, lovrFontDestroy);
+  return 1;
+}
+
 static int l_lovrGraphicsNewMaterial(lua_State* L) {
   Material* material = lovrMaterialCreate();
 
@@ -1821,6 +1839,7 @@ static const luaL_Reg lovrGraphics[] = {
   // Types
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newFont", l_lovrGraphicsNewFont },
+  { "newTextureFont", l_lovrGraphicsNewTextureFont },
   { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },

@@ -94,15 +94,48 @@ static int l_lovrFontHasGlyphs(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   Rasterizer* rasterizer = lovrFontGetRasterizer(font);
   bool hasGlyphs = true;
-  for (int i = 2; i <= lua_gettop(L); i++) {
-    if (lua_type(L, i) == LUA_TSTRING) {
-      hasGlyphs &= lovrRasterizerHasGlyphs(rasterizer, lua_tostring(L, i));
-    } else {
-      hasGlyphs &= lovrRasterizerHasGlyph(rasterizer, luaL_checkinteger(L, i));
+  if (lovrRasterizerIsDummy(rasterizer)) {
+    for (int i = 2; i <= lua_gettop(L); i++) {
+      if (lua_type(L, i) == LUA_TSTRING) {
+        hasGlyphs &= lovrFontHasGlyphsCached(font, lua_tostring(L, i));
+      } else {
+        hasGlyphs &= lovrFontHasGlyphCached(font, luaL_checkinteger(L, i));
+      }
+    }
+  } else {
+    for (int i = 2; i <= lua_gettop(L); i++) {
+      if (lua_type(L, i) == LUA_TSTRING) {
+        hasGlyphs &= lovrRasterizerHasGlyphs(rasterizer, lua_tostring(L, i));
+      } else {
+        hasGlyphs &= lovrRasterizerHasGlyph(rasterizer, luaL_checkinteger(L, i));
+      }
     }
   }
   lua_pushboolean(L, hasGlyphs);
   return 1;
+}
+
+static int l_lovrAddTextureGlyph(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  size_t length;
+  const char* str = luaL_checklstring(L, 2, &length);
+
+  unsigned int codepoint;
+  const char* end = str + length;
+  size_t bytes = utf8_decode(str, end, &codepoint);
+  lovrAssert(bytes, "Argument 2 does not contain a Unicode character");
+
+  uint32_t x = luaL_checknumber(L,3);
+  uint32_t y = luaL_checknumber(L,4);
+  uint32_t w = luaL_checknumber(L,5);
+  uint32_t h = luaL_checknumber(L,6);
+  uint32_t tw = luaL_checknumber(L,7);
+  uint32_t th = luaL_checknumber(L,8);
+  int32_t dx = luaL_checknumber(L,9);
+  int32_t dy = luaL_checknumber(L,10);
+  int32_t advance = luaL_checknumber(L,11);
+  lovrFontAddTextureGlyph(font, codepoint, x, y, w, h, tw, th, dx, dy, advance);
+  return 0;
 }
 
 const luaL_Reg lovrFont[] = {
@@ -119,5 +152,6 @@ const luaL_Reg lovrFont[] = {
   { "setPixelDensity", l_lovrFontSetPixelDensity },
   { "getRasterizer", l_lovrFontGetRasterizer},
   { "hasGlyphs", l_lovrFontHasGlyphs },
+  { "addTextureGlyph", l_lovrAddTextureGlyph },
   { NULL, NULL }
 };
