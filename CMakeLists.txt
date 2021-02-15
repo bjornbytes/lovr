@@ -24,6 +24,7 @@ option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_OCULUS_AUDIO "Enable the Oculus Audio spatializer (be sure to also set LOVR_OCULUS_AUDIO_PATH)" OFF)
 option(LOVR_USE_LINUX_EGL "Use the EGL graphics extension on Linux" OFF)
+option(LOVR_SANITIZE "Enable Address Sanitizer" OFF)
 
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
 option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
@@ -334,6 +335,12 @@ target_link_libraries(lovr
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
+
+if (LOVR_SANITIZE)
+  set(LOVR_SANITIZE_FLAGS "-fsanitize=address,undefined" "-O1" "-fno-omit-frame-pointer")
+  target_compile_options(lovr PRIVATE ${LOVR_SANITIZE_FLAGS})
+  target_link_options(lovr PRIVATE ${LOVR_SANITIZE_FLAGS})
+endif()
 
 if(LOVR_ENABLE_AUDIO OR LOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
