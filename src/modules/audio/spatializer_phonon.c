@@ -1,4 +1,5 @@
 #include "spatializer.h"
+#include "core/maf.h"
 #include <phonon.h>
 #include <string.h>
 
@@ -108,18 +109,31 @@ void phonon_destroy() {
 }
 
 uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_t frames, uint32_t why) {
-  IPLVector3 listenerPosition = { state.listenerPosition[0], state.listenerPosition[1], state.listenerPosition[2] };
-  IPLVector3 listenerForward = { 0 }; // TODO
-  IPLVector3 listenerUp = { 0 }; // TODO
+  float forward[4] = { 0.f, 0.f, -1.f };
+  float up[4] = { 0.f, 1.f, 0.f };
 
-  float position[4], orientation[4];
+  quat_rotate(state.listenerOrientation, forward);
+  quat_rotate(state.listenerOrientation, up);
+
+  IPLVector3 listenerPosition = { state.listenerPosition[0], state.listenerPosition[1], state.listenerPosition[2] };
+  IPLVector3 listenerForward = { forward[0], forward[1], forward[2] };
+  IPLVector3 listenerUp = { up[0], up[1], up[2] };
+
+  // Using a matrix may be more effective here?
+  float position[4], orientation[4], right[4];
   lovrSourceGetPose(source, position, orientation);
+  vec3_set(forward, 0.f, 0.f, -1.f);
+  vec3_set(up, 0.f, 1.f, 0.f);
+  vec3_set(right, 1.f, 0.f, 0.f);
+  quat_rotate(orientation, forward);
+  quat_rotate(orientation, up);
+  quat_rotate(orientation, right);
 
   IPLSource iplSource = {
     .position = (IPLVector3) { position[0], position[1], position[2] },
-    .ahead = (IPLVector3) { 0 /* TODO */ },
-    .up = (IPLVector3) { 0 /* TODO */ },
-    .right = (IPLVector3) { 0 /* TODO */ },
+    .ahead = (IPLVector3) { forward[0], forward[1], forward[2] },
+    .up = (IPLVector3) { up[0], up[1], up[2] },
+    .right = (IPLVector3) { right[0], right[1], right[2] },
     .directivity = {
       .dipoleWeight = 0.f,
       .dipolePower = 0.f
