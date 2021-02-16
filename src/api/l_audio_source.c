@@ -64,6 +64,30 @@ static int l_lovrSourceSetVolume(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSourceGetDuration(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
+  double duration = lovrSourceGetDuration(source, units);
+  lua_pushnumber(L, duration);
+  return 1;
+}
+
+static int l_lovrSourceGetTime(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
+  double time = lovrSourceGetTime(source, units);
+  lua_pushnumber(L, time);
+  return 1;
+}
+
+static int l_lovrSourceSetTime(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  double seconds = luaL_checknumber(L, 2);
+  TimeUnit units = luax_checkenum(L, 3, TimeUnit, "seconds");
+  lovrSourceSetTime(source, seconds, units);
+  return 0;
+}
+
 static int l_lovrSourceIsSpatial(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   lua_pushboolean(L, lovrSourceIsSpatial(source));
@@ -95,30 +119,6 @@ static int l_lovrSourceSetPose(lua_State *L) {
   return 0;
 }
 
-static int l_lovrSourceGetDuration(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
-  double duration = lovrSourceGetDuration(source, units);
-  lua_pushnumber(L, duration);
-  return 1;
-}
-
-static int l_lovrSourceGetTime(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  TimeUnit units = luax_checkenum(L, 2, TimeUnit, "seconds");
-  double time = lovrSourceGetTime(source, units);
-  lua_pushnumber(L, time);
-  return 1;
-}
-
-static int l_lovrSourceSetTime(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  double seconds = luaL_checknumber(L, 2);
-  TimeUnit units = luax_checkenum(L, 3, TimeUnit, "seconds");
-  lovrSourceSetTime(source, seconds, units);
-  return 0;
-}
-
 const luaL_Reg lovrSource[] = {
   { "clone", l_lovrSourceClone },
   { "play", l_lovrSourcePlay },
@@ -129,11 +129,11 @@ const luaL_Reg lovrSource[] = {
   { "setLooping", l_lovrSourceSetLooping },
   { "getVolume", l_lovrSourceGetVolume },
   { "setVolume", l_lovrSourceSetVolume },
-  { "isSpatial", l_lovrSourceIsSpatial },
-  { "getPose", l_lovrSourceGetPose },
-  { "setPose", l_lovrSourceSetPose },
   { "getDuration", l_lovrSourceGetDuration },
   { "getTime", l_lovrSourceGetTime },
   { "setTime", l_lovrSourceSetTime },
+  { "isSpatial", l_lovrSourceIsSpatial },
+  { "getPose", l_lovrSourceGetPose },
+  { "setPose", l_lovrSourceSetPose },
   { NULL, NULL }
 };
