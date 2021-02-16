@@ -35,6 +35,8 @@ struct Source {
   float position[4];
   float orientation[4];
   float absorption[3];
+  float dipoleWeight;
+  float dipolePower;
   float falloff;
   bool playing;
   bool looping;
@@ -491,6 +493,16 @@ void lovrSourceGetAbsorption(Source* source, float absorption[3]) {
 
 void lovrSourceSetAbsorption(Source* source, float absorption[3]) {
   memcpy(source->absorption, absorption, sizeof(source->absorption));
+}
+
+void lovrSourceGetDirectivity(Source* source, float* weight, float* power) {
+  *weight = source->dipoleWeight;
+  *power = source->dipolePower;
+}
+
+void lovrSourceSetDirectivity(Source* source, float weight, float power) {
+  source->dipoleWeight = weight;
+  source->dipolePower = power;
 }
 
 float lovrSourceGetFalloff(Source* source) {

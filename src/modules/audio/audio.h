@@ -58,6 +58,8 @@ void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceGetAbsorption(Source* source, float absorption[3]);
 void lovrSourceSetAbsorption(Source* source, float absorption[3]);
+void lovrSourceGetDirectivity(Source* source, float* weight, float* power);
+void lovrSourceSetDirectivity(Source* source, float weight, float power);
 float lovrSourceGetFalloff(Source* source);
 void lovrSourceSetFalloff(Source* source, float falloff);
 intptr_t* lovrSourceGetSpatializerMemoField(Source* source);

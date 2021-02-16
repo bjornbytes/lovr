@@ -157,6 +157,42 @@ static int l_lovrSourceSetAbsorption(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSourceGetDirectivity(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float weight, power;
+  lovrSourceGetDirectivity(source, &weight, &power);
+  if (weight == 0.f && power == 0.f) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lua_pushnumber(L, weight);
+  lua_pushnumber(L, power);
+  return 2;
+}
+
+static int l_lovrSourceSetDirectivity(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float weight = 0.f;
+  float power = 0.f;
+  switch (lua_type(L, 2)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      break;
+    case LUA_TBOOLEAN:
+      if (lua_toboolean(L, 2)) {
+        weight = .5f;
+        power = 1.f;
+      }
+      break;
+    default:
+      weight = luax_checkfloat(L, 2);
+      power = luax_checkfloat(L, 3);
+      break;
+  }
+  lovrSourceSetDirectivity(source, weight, power);
+  return 0;
+}
+
 static int l_lovrSourceGetFalloff(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float falloff = lovrSourceGetFalloff(source);
@@ -170,11 +206,10 @@ static int l_lovrSourceGetFalloff(lua_State* L) {
 
 static int l_lovrSourceSetFalloff(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float falloff;
+  float falloff = 0.f;
   switch (lua_type(L, 2)) {
     case LUA_TNONE:
     case LUA_TNIL:
-      falloff = 0.f;
       break;
     case LUA_TBOOLEAN:
       falloff = lua_toboolean(L, 2) ? 1.f : 0.f;
@@ -205,6 +240,8 @@ const luaL_Reg lovrSource[] = {
   { "setPose", l_lovrSourceSetPose },
   { "getAbsorption", l_lovrSourceGetAbsorption },
   { "setAbsorption", l_lovrSourceSetAbsorption },
+  { "getDirectivity", l_lovrSourceGetDirectivity },
+  { "setDirectivity", l_lovrSourceSetDirectivity },
   { "getFalloff", l_lovrSourceGetFalloff },
   { "setFalloff", l_lovrSourceSetFalloff },
   { NULL, NULL }
