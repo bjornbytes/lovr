@@ -131,6 +131,9 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
 
   float absorption[3];
   lovrSourceGetAbsorption(source, absorption);
+  float dipoleWeight;
+  float dipolePower;
+  lovrSourceGetDirectivity(source, &dipoleWeight, &dipolePower);
   float falloff = lovrSourceGetFalloff(source);
 
   IPLSource iplSource = {
@@ -138,8 +141,8 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
     .ahead = (IPLVector3) { forward[0], forward[1], forward[2] },
     .up = (IPLVector3) { up[0], up[1], up[2] },
     .right = (IPLVector3) { right[0], right[1], right[2] },
-    .directivity.dipoleWeight = 0.f,
-    .directivity.dipolePower = 0.f,
+    .directivity.dipoleWeight = dipoleWeight,
+    .directivity.dipolePower = dipolePower,
     .distanceAttenuationModel.type = IPL_DISTANCEATTENUATION_INVERSEDISTANCE,
     .distanceAttenuationModel.minDistance = falloff,
     .airAbsorptionModel.type = IPL_AIRABSORPTION_EXPONENTIAL,
@@ -152,8 +155,8 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
 
   IPLDirectSoundEffectOptions options = {
     .applyDistanceAttenuation = falloff > 0.f ? IPL_TRUE : IPL_FALSE,
-    .applyDirectivity = IPL_TRUE,
     .applyAirAbsorption = (absorption[0] > 0.f || absorption[1] > 0.f || absorption[2] > 0.f) ? IPL_TRUE : IPL_FALSE,
+    .applyDirectivity = dipoleWeight > 0.f ? IPL_TRUE : IPL_FALSE,
     .directOcclusionMode = occlusionMode
   };
 
