@@ -119,6 +119,36 @@ static int l_lovrSourceSetPose(lua_State *L) {
   return 0;
 }
 
+static int l_lovrSourceGetFalloff(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float falloff = lovrSourceGetFalloff(source);
+  if (falloff <= 0.f) {
+    lua_pushnil(L);
+  } else {
+    lua_pushnumber(L, falloff);
+  }
+  return 1;
+}
+
+static int l_lovrSourceSetFalloff(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float falloff;
+  switch (lua_type(L, 2)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      falloff = 0.f;
+      break;
+    case LUA_TBOOLEAN:
+      falloff = lua_toboolean(L, 2) ? 1.f : 0.f;
+      break;
+    default:
+      falloff = luax_checkfloat(L, 2);
+      break;
+  }
+  lovrSourceSetFalloff(source, falloff);
+  return 0;
+}
+
 const luaL_Reg lovrSource[] = {
   { "clone", l_lovrSourceClone },
   { "play", l_lovrSourcePlay },
@@ -135,5 +165,7 @@ const luaL_Reg lovrSource[] = {
   { "isSpatial", l_lovrSourceIsSpatial },
   { "getPose", l_lovrSourceGetPose },
   { "setPose", l_lovrSourceSetPose },
+  { "getFalloff", l_lovrSourceGetFalloff },
+  { "setFalloff", l_lovrSourceSetFalloff },
   { NULL, NULL }
 };

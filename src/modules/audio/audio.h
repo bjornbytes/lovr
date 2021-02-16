@@ -56,4 +56,6 @@ void lovrSourceSetTime(Source* source, double time, TimeUnit units);
 bool lovrSourceIsSpatial(Source* source);
 void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
+float lovrSourceGetFalloff(Source* source);
+void lovrSourceSetFalloff(Source* source, float falloff);
 intptr_t* lovrSourceGetSpatializerMemoField(Source* source);
