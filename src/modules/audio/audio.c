@@ -452,6 +452,21 @@ void lovrSourceSetVolume(Source* source, float volume) {
   ma_mutex_unlock(&state.lock);
 }
 
+double lovrSourceGetDuration(Source* source, TimeUnit units) {
+  uint32_t frames = lovrSoundGetFrameCount(source->sound);
+  return units == UNIT_SECONDS ? (double) frames / lovrSoundGetSampleRate(source->sound) : frames;
+}
+
+double lovrSourceGetTime(Source* source, TimeUnit units) {
+  return units == UNIT_SECONDS ? (double) source->offset / lovrSoundGetSampleRate(source->sound) : source->offset;
+}
+
+void lovrSourceSetTime(Source* source, double time, TimeUnit units) {
+  ma_mutex_lock(&state.lock);
+  source->offset = units == UNIT_SECONDS ? (uint32_t) (time * lovrSoundGetSampleRate(source->sound) + .5) : (uint32_t) time;
+  ma_mutex_unlock(&state.lock);
+}
+
 bool lovrSourceIsSpatial(Source *source) {
   return source->spatial;
 }
@@ -465,21 +480,6 @@ void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) 
   ma_mutex_lock(&state.lock);
   memcpy(source->position, position, sizeof(source->position));
   memcpy(source->orientation, orientation, sizeof(source->orientation));
-  ma_mutex_unlock(&state.lock);
-}
-
-double lovrSourceGetDuration(Source* source, TimeUnit units) {
-  uint32_t frames = lovrSoundGetFrameCount(source->sound);
-  return units == UNIT_SECONDS ? (double) frames / lovrSoundGetSampleRate(source->sound) : frames;
-}
-
-double lovrSourceGetTime(Source* source, TimeUnit units) {
-  return units == UNIT_SECONDS ? (double) source->offset / lovrSoundGetSampleRate(source->sound) : source->offset;
-}
-
-void lovrSourceSetTime(Source* source, double time, TimeUnit units) {
-  ma_mutex_lock(&state.lock);
-  source->offset = units == UNIT_SECONDS ? (uint32_t) (time * lovrSoundGetSampleRate(source->sound) + .5) : (uint32_t) time;
   ma_mutex_unlock(&state.lock);
 }
 
