@@ -34,6 +34,7 @@ struct Source {
   float volume;
   float position[4];
   float orientation[4];
+  float absorption[3];
   float falloff;
   bool playing;
   bool looping;
@@ -482,6 +483,14 @@ void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) 
   memcpy(source->position, position, sizeof(source->position));
   memcpy(source->orientation, orientation, sizeof(source->orientation));
   ma_mutex_unlock(&state.lock);
+}
+
+void lovrSourceGetAbsorption(Source* source, float absorption[3]) {
+  memcpy(absorption, source->absorption, sizeof(source->absorption));
+}
+
+void lovrSourceSetAbsorption(Source* source, float absorption[3]) {
+  memcpy(source->absorption, absorption, sizeof(source->absorption));
 }
 
 float lovrSourceGetFalloff(Source* source) {
