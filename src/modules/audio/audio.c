@@ -15,12 +15,11 @@ static const ma_format miniaudioFormats[] = {
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2
 #define CAPTURE_CHANNELS 1
-#define MAX_SOURCES 64
 #define BUFFER_SIZE 256
 
 struct Source {
   uint32_t ref;
-  Source* next;
+  uint32_t index;
   Sound* sound;
   ma_data_converter* converter;
   intptr_t spatializerMemo;
@@ -28,7 +27,6 @@ struct Source {
   float volume;
   float position[4];
   float orientation[4];
-  bool tracked;
   bool playing;
   bool looping;
   bool spatial;
@@ -39,7 +37,8 @@ static struct {
   ma_context context;
   ma_device devices[2];
   ma_mutex lock;
-  Source* sources;
+  Source* sources[MAX_SOURCES];
+  uint64_t sourceMask;
   Sound* captureStream;
   arr_t(ma_data_converter*) converters;
   float position[4];
@@ -82,10 +81,15 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       memset(dst, 0, sizeof(state.leftovers));
     }
 
-    for (Source** list = &state.sources, *source = *list; source != NULL; source = *list) {
+    // Biterate the source mask to iterate over all active Sources
+    for (uint64_t mask = state.sourceMask, lobit = mask & -mask; mask != 0; mask ^= lobit, lobit = mask & -mask) {
+      uint32_t index = LOVR_CTZLL(mask);
+      Source* source = state.sources[index];
+
       if (!source->playing) {
-        *list = source->next;
-        source->tracked = false;
+        source->index = ~0u;
+        state.sources[index] = NULL;
+        state.sourceMask &= ~(1ull << index);
         lovrRelease(source, lovrSourceDestroy);
         continue;
       }
@@ -135,8 +139,6 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       for (uint32_t i = 0; i < OUTPUT_CHANNELS * BUFFER_SIZE; i++) {
         dst[i] += src[i] * volume;
       }
-
-      list = &source->next;
     }
 
     // Tail
@@ -326,6 +328,7 @@ Source* lovrSourceCreate(Sound* sound, bool spatial) {
   Source* source = calloc(1, sizeof(Source));
   lovrAssert(source, "Out of memory");
   source->ref = 1;
+  source->index = ~0u;
   source->sound = sound;
   lovrRetain(source->sound);
 
@@ -386,15 +389,21 @@ void lovrSourceDestroy(void* ref) {
 }
 
 bool lovrSourcePlay(Source* source) {
+  if (state.sourceMask == ~0ull) {
+    return false;
+  }
+
   ma_mutex_lock(&state.lock);
 
   source->playing = true;
 
-  if (!source->tracked) {
+  // If the source isn't tracked, set its index to the right-most zero bit in the mask
+  if (source->index == ~0u) {
+    uint32_t index = state.sourceMask ? LOVR_CTZLL(~state.sourceMask) : 0;
+    state.sourceMask |= (1ull << index);
+    state.sources[index] = source;
+    source->index = index;
     lovrRetain(source);
-    source->tracked = true;
-    source->next = state.sources;
-    state.sources = source;
   }
 
   ma_mutex_unlock(&state.lock);
