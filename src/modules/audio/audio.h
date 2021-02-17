@@ -5,6 +5,7 @@
 #pragma once
 
 #define PLAYBACK_SAMPLE_RATE 48000
+#define MAX_SOURCES 64
 
 struct Sound;
 
