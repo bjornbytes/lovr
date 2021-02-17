@@ -3,6 +3,14 @@
 #include "core/maf.h"
 #include "core/util.h"
 
+static int l_lovrSourceClone(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  Source* clone = lovrSourceClone(source);
+  luax_pushtype(L, Source, clone);
+  lovrRelease(clone, lovrSourceDestroy);
+  return 1;
+}
+
 static int l_lovrSourcePlay(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   if (lua_isboolean(L, -1)) {
@@ -112,6 +120,7 @@ static int l_lovrSourceSetTime(lua_State* L) {
 }
 
 const luaL_Reg lovrSource[] = {
+  { "clone", l_lovrSourceClone },
   { "play", l_lovrSourcePlay },
   { "pause", l_lovrSourcePause },
   { "stop", l_lovrSourceStop },

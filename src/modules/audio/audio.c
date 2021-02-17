@@ -365,6 +365,19 @@ Source* lovrSourceCreate(Sound* sound, bool spatial) {
   return source;
 }
 
+Source* lovrSourceClone(Source* source) {
+  Source* clone = calloc(1, sizeof(Source));
+  lovrAssert(clone, "Out of memory");
+  clone->ref = 1;
+  clone->sound = source->sound;
+  lovrRetain(clone->sound);
+  clone->volume = source->volume;
+  clone->spatial = source->spatial;
+  clone->converter = source->converter;
+  state.spatializer->sourceCreate(clone);
+  return clone;
+}
+
 void lovrSourceDestroy(void* ref) {
   Source* source = ref;
   state.spatializer->sourceDestroy(source);
