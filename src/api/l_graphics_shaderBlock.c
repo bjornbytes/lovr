@@ -44,11 +44,11 @@ static int l_lovrShaderBlockSend(lua_State* L) {
     void* data = lovrBufferMap(buffer, 0, false);
     int offset = luaL_optinteger(L, 3, 0);
     lovrAssert(offset >= 0, "Negative offset");
-    lovrAssert(offset < blob->size, "Offset %d larger than blob (size %d)", offset, (int) blob->size);
+    lovrAssert((size_t) offset < blob->size, "Offset %d larger than blob (size %d)", offset, (int) blob->size);
     int size = luaL_optnumber(L, 4, blob->size - offset);
-    lovrAssert(size <= blob->size - offset, "Size %d offset %d larger than blob (size %d)", offset, size, (int) blob->size);
+    lovrAssert((size_t) size <= blob->size - offset, "Size %d offset %d larger than blob (size %d)", offset, size, (int) blob->size);
     size_t bufferSize = lovrBufferGetSize(buffer);
-    size_t copySize = MIN(bufferSize, size);
+    size_t copySize = MIN(bufferSize, (size_t) size);
     memcpy(data, ((uint8_t*) blob->data) + offset, copySize);
     lovrBufferFlush(buffer, offset, copySize);
     lua_pushinteger(L, copySize);
