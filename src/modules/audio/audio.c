@@ -12,6 +12,7 @@ static const ma_format miniaudioFormats[] = {
   [SAMPLE_F32] = ma_format_f32
 };
 
+#define FOREACH_SOURCE(s) for (uint64_t m = state.sourceMask, x = m & -m; s = m ? state.sources[LOVR_CTZLL(m)] : NULL, m != 0; m ^= x, x = m & -m)
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2
 #define CAPTURE_CHANNELS 1
@@ -81,15 +82,12 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       memset(dst, 0, sizeof(state.leftovers));
     }
 
-    // Biterate the source mask to iterate over all active Sources
-    for (uint64_t mask = state.sourceMask, lobit = mask & -mask; mask != 0; mask ^= lobit, lobit = mask & -mask) {
-      uint32_t index = LOVR_CTZLL(mask);
-      Source* source = state.sources[index];
-
+    Source* source;
+    FOREACH_SOURCE(source) {
       if (!source->playing) {
+        state.sources[source->index] = NULL;
+        state.sourceMask &= ~(1ull << source->index);
         source->index = ~0u;
-        state.sources[index] = NULL;
-        state.sourceMask &= ~(1ull << index);
         lovrRelease(source, lovrSourceDestroy);
         continue;
       }
@@ -213,6 +211,8 @@ void lovrAudioDestroy() {
   for (size_t i = 0; i < 2; i++) {
     ma_device_uninit(&state.devices[i]);
   }
+  Source* source;
+  FOREACH_SOURCE(source) lovrRelease(source, lovrSourceDestroy);
   ma_mutex_uninit(&state.lock);
   ma_context_uninit(&state.context);
   lovrRelease(state.captureStream, lovrSoundDestroy);
