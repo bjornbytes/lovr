@@ -251,7 +251,7 @@ ifneq (@(CMAKE_DEPS),)
   CFLAGS_@(STEAM_AUDIO) += -I@(STEAM_AUDIO_PATH)/include
   LIBS_@(STEAM_AUDIO)_$(win32) += @(STEAM_AUDIO_PATH)/lib/Windows/x64/phonon.dll
   LIBS_@(STEAM_AUDIO)_$(linux) += @(STEAM_AUDIO_PATH)/lib/Linux/x64/libphonon.so
-  LIBS_@(STEAM_AUDIO)_$(android) += @(STEAM_AUDIO_PATH)/lib/Android/x64/libphonon.so
+  LIBS_@(STEAM_AUDIO)_$(android) += @(STEAM_AUDIO_PATH)/lib/Android/arm64/libphonon.so
 endif
 
 LIBS += $(LIBS_y) $(LIBS_y_y)
