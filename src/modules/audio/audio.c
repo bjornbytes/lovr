@@ -12,7 +12,7 @@ static const ma_format miniaudioFormats[] = {
   [SAMPLE_F32] = ma_format_f32
 };
 
-#define FOREACH_SOURCE(s) for (uint64_t m = state.sourceMask, x = m & -m; s = m ? state.sources[LOVR_CTZLL(m)] : NULL, m != 0; m ^= x, x = m & -m)
+#define FOREACH_SOURCE(s) for (uint64_t m = state.sourceMask; s = m ? state.sources[LOVR_CTZLL(m)] : NULL, m; m ^= (m & -m))
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2
 #define CAPTURE_CHANNELS 1
