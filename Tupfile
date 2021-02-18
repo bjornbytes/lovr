@@ -87,7 +87,7 @@ ifeq ($(PLATFORM),android)
   : $(JAR) $(EXTRA_JARS) |> !dx |> $(DEX)
 
   # aapt
-  : $(MANIFEST) | $(LIB)/*.so $(DEX) |> ^ AAPT %b^ aapt package $(PACKAGE_RENAME) -F %o -M %f -0 so -I $(ANDROID_JAR) bin/apk $(ANDROID_ASSETS) |> bin/.lovr.unaligned.apk
+  : $(MANIFEST) | $(LIB)/*.so $(DEX) |> ^ AAPT %b^ aapt package $(PACKAGE_RENAME) -F %o -M %f -0 so -I $(ANDROID_JAR) $(ANDROID_ASSETS) bin/apk |> bin/.lovr.unaligned.apk
 
   # align n sign
   : bin/.lovr.unaligned.apk |> !zipalign |> bin/.lovr.unsigned.apk
