@@ -155,8 +155,7 @@ ifeq ($(PLATFORM),web)
   LDFLAGS += -s EXPORTED_FUNCTIONS="['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection']"
   LDFLAGS_@(WEBXR) += --js-library $(ROOT)/src/resources/webxr.js
   LDFLAGS += --shell-file $(ROOT)/src/resources/lovr.html
-  CFLAGS_@(THREAD) += -s USE_PTHREADS=1
-  LDFLAGS_@(THREAD) += -s USE_PTHREADS=1
+  FLAGS_@(THREAD) += -s USE_PTHREADS=1
   EXTRAS = bin/lovr.js bin/lovr.wasm
   EXTRAS_@(THREAD) += bin/lovr.worker.js
 endif

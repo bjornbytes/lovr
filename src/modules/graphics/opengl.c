@@ -1232,6 +1232,7 @@ static void lovrGpuSetViewports(float* viewport, uint32_t count) {
 
 // GPU
 
+#ifndef LOVR_WEBGL
 static void GLAPIENTRY onMessage(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userdata) {
   int level;
   switch (severity) {
@@ -1242,6 +1243,7 @@ static void GLAPIENTRY onMessage(GLenum source, GLenum type, GLuint id, GLenum s
   }
   lovrLog(level, "GL", message);
 }
+#endif
 
 void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
 #ifdef LOVR_GL

@@ -356,9 +356,9 @@ void lovrPlatformSetMouseMode(MouseMode mode) {
   if (state.mouseMode != mode) {
     state.mouseMode = mode;
     if (mode == MOUSE_MODE_GRABBED) {
-      EM_ASM(Module['canvas'].requestPointerLock());
+      emscripten_run_script("Module['canvas'].requestPointerLock();");
     } else {
-      EM_ASM(document.exitPointerLock());
+      emscripten_run_script("document.exitPointerLock();");
     }
   }
 }
