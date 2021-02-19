@@ -1258,7 +1258,7 @@ void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
     glDebugMessageCallback(onMessage, NULL);
   }
   state.features.astc = GLAD_GL_ES_VERSION_3_2;
-  state.features.compute = GLAD_GL_ES_VERSION_3_1 || GLAD_GL_ARB_compute_shader;
+  state.features.compute = GLAD_GL_ES_VERSION_3_1 || (GLAD_GL_ARB_compute_shader && GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_shader_image_load_store);
   state.features.dxt = GLAD_GL_EXT_texture_compression_s3tc;
   state.features.instancedStereo = GLAD_GL_ARB_viewport_array && GLAD_GL_AMD_vertex_shader_viewport_index && GLAD_GL_ARB_fragment_layer_viewport;
   state.features.multiview = GLAD_GL_ES_VERSION_3_0 && GLAD_GL_OVR_multiview2 && GLAD_GL_OVR_multiview_multisampled_render_to_texture;
@@ -2621,8 +2621,13 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLengt
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
   const char* version = "#version 300 es\n";
 #else
-  const char* version = state.features.compute ? "#version 430\n" : "#version 150\n";
+  const char* version = "#version 330\n";
 #endif
+
+  const char* computeExtensions = state.features.compute ?
+    "#extension GL_ARB_shader_storage_buffer_object : enable \n"
+    "#extension GL_ARB_shader_image_load_store : enable \n" :
+    NULL;
 
   const char* singlepass[2] = { "", "" };
   if (multiview && state.singlepass == MULTIVIEW) {
@@ -2636,15 +2641,15 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLengt
 
   // Vertex
   vertexSource = vertexSource == NULL ? lovrUnlitVertexShader : vertexSource;
-  const char* vertexSources[] = { version, singlepass[0], flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
-  int vertexSourceLengths[] = { -1, -1, -1, -1, vertexSourceLength, -1 };
+  const char* vertexSources[] = { version, computeExtensions, singlepass[0], flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
+  int vertexSourceLengths[] = { -1, -1, -1, -1, -1, vertexSourceLength, -1 };
   int vertexSourceCount = sizeof(vertexSources) / sizeof(vertexSources[0]);
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, vertexSourceLengths, vertexSourceCount);
 
   // Fragment
   fragmentSource = fragmentSource == NULL ? lovrUnlitFragmentShader : fragmentSource;
-  const char* fragmentSources[] = { version, singlepass[1], flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
-  int fragmentSourceLengths[] = { -1, -1, -1, -1, fragmentSourceLength, -1 };
+  const char* fragmentSources[] = { version, computeExtensions, singlepass[1], flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
+  int fragmentSourceLengths[] = { -1, -1, -1, -1, -1, fragmentSourceLength, -1 };
   int fragmentSourceCount = sizeof(fragmentSources) / sizeof(fragmentSources[0]);
   GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSources, fragmentSourceLengths, fragmentSourceCount);
 

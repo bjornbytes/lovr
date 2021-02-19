@@ -140,7 +140,10 @@ const char* lovrShaderComputePrefix = ""
 "#line 0 \n";
 #else
 const char* lovrShaderComputePrefix = ""
-"#version 430 \n"
+"#version 330 \n"
+"#extension GL_ARB_compute_shader : enable \n"
+"#extension GL_ARB_shader_storage_buffer_object : enable \n"
+"#extension GL_ARB_shader_image_load_store : enable \n"
 "#line 0 \n";
 #endif
 
