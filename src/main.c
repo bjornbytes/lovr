@@ -21,6 +21,8 @@ typedef struct {
 static void emscriptenLoop(void*);
 #endif
 
+static Variant cookie;
+
 int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
     lovrPlatformOpenConsole();
@@ -32,8 +34,6 @@ int main(int argc, char** argv) {
 
   int status;
   bool restart;
-  Variant cookie;
-  cookie.type = TYPE_NIL;
 
   do {
     lovrPlatformSetTime(0.);
@@ -124,8 +124,13 @@ static void emscriptenLoop(void* arg) {
   lua_State* T = context->T;
 
   if (luax_resume(T, 0) != LUA_YIELD) {
-    bool restart = lua_type(T, -1) == LUA_TSTRING && !strcmp(lua_tostring(T, -1), "restart");
-    int status = lua_tonumber(T, -1);
+    bool restart = lua_type(T, 1) == LUA_TSTRING && !strcmp(lua_tostring(T, 1), "restart");
+    int status = lua_tonumber(T, 1);
+    luax_checkvariant(T, 2, &cookie);
+    if (cookie.type == TYPE_OBJECT) {
+      cookie.type = TYPE_NIL;
+      memset(&cookie.value, 0, sizeof(cookie.value));
+    }
 
     lua_close(context->L);
     emscripten_cancel_main_loop();
