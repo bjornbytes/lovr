@@ -71,7 +71,7 @@ static double desktop_getDisplayTime(void) {
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   int w, h;
   lovrPlatformGetFramebufferSize(&w, &h);
-  *width = (uint32_t) w;
+  *width = (uint32_t) w / 2;
   *height = (uint32_t) h;
 }
 
