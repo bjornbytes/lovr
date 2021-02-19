@@ -88,6 +88,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
         state.sources[source->index] = NULL;
         state.sourceMask &= ~(1ull << source->index);
         source->index = ~0u;
+        state.spatializer->sourceDestroy(source);
         lovrRelease(source, lovrSourceDestroy);
         continue;
       }
@@ -365,8 +366,6 @@ Source* lovrSourceCreate(Sound* sound, bool spatial) {
     }
   }
 
-  state.spatializer->sourceCreate(source);
-
   return source;
 }
 
@@ -379,13 +378,11 @@ Source* lovrSourceClone(Source* source) {
   clone->volume = source->volume;
   clone->spatial = source->spatial;
   clone->converter = source->converter;
-  state.spatializer->sourceCreate(clone);
   return clone;
 }
 
 void lovrSourceDestroy(void* ref) {
   Source* source = ref;
-  state.spatializer->sourceDestroy(source);
   lovrRelease(source->sound, lovrSoundDestroy);
   free(source);
 }
@@ -406,6 +403,7 @@ bool lovrSourcePlay(Source* source) {
     state.sources[index] = source;
     source->index = index;
     lovrRetain(source);
+    state.spatializer->sourceCreate(source);
   }
 
   ma_mutex_unlock(&state.lock);
