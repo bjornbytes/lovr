@@ -78,6 +78,7 @@ extern StringEntry lovrBlendAlphaMode[];
 extern StringEntry lovrBlendMode[];
 extern StringEntry lovrBlockType[];
 extern StringEntry lovrBufferUsage[];
+extern StringEntry lovrChannelLayout[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCoordinateSpace[];
 extern StringEntry lovrDevice[];

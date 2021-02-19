@@ -9,6 +9,13 @@ StringEntry lovrSampleFormat[] = {
   { 0 }
 };
 
+StringEntry lovrChannelLayout[] = {
+  [CHANNEL_MONO] = ENTRY("mono"),
+  [CHANNEL_STEREO] = ENTRY("stereo"),
+  [CHANNEL_AMBISONIC] = ENTRY("ambisonic"),
+  { 0 }
+};
+
 static int l_lovrSoundGetBlob(lua_State* L) {
   Sound* sound = luax_checktype(L, 1, Sound);
   Blob* blob = lovrSoundGetBlob(sound);
@@ -19,6 +26,12 @@ static int l_lovrSoundGetBlob(lua_State* L) {
 static int l_lovrSoundGetFormat(lua_State* L) {
   Sound* sound = luax_checktype(L, 1, Sound);
   luax_pushenum(L, SampleFormat, lovrSoundGetFormat(sound));
+  return 1;
+}
+
+static int l_lovrSoundGetChannelLayout(lua_State* L) {
+  Sound* sound = luax_checktype(L, 1, Sound);
+  luax_pushenum(L, ChannelLayout, lovrSoundGetChannelLayout(sound));
   return 1;
 }
 
@@ -230,6 +243,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
 const luaL_Reg lovrSound[] = {
   { "getBlob", l_lovrSoundGetBlob },
   { "getFormat", l_lovrSoundGetFormat },
+  { "getChannelLayout", l_lovrSoundGetChannelLayout },
   { "getChannelCount", l_lovrSoundGetChannelCount },
   { "getSampleRate", l_lovrSoundGetSampleRate },
   { "getFrameCount", l_lovrSoundGetFrameCount },

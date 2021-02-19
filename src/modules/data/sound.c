@@ -21,8 +21,8 @@ struct Sound {
   void* decoder;
   void* stream;
   SampleFormat format;
+  ChannelLayout channels;
   uint32_t sampleRate;
-  uint32_t channels;
   uint32_t frames;
   uint32_t cursor;
 };
@@ -52,8 +52,9 @@ static uint32_t lovrSoundReadOgg(Sound* sound, uint32_t offset, uint32_t count, 
     sound->cursor = offset;
   }
 
-  uint32_t channels = sound->channels;
-  uint32_t n = stb_vorbis_get_samples_float_interleaved(sound->decoder, channels, data, count * channels);
+  uint32_t channelCount = lovrSoundGetChannelCount(sound);
+  uint32_t sampleCount = count * channelCount;
+  uint32_t n = stb_vorbis_get_samples_float_interleaved(sound->decoder, channelCount, data, sampleCount);
   sound->cursor += n;
   return n;
 }
@@ -64,7 +65,7 @@ static uint32_t lovrSoundReadMp3(Sound* sound, uint32_t offset, uint32_t count, 
     sound->cursor = offset;
   }
 
-  size_t samples = mp3dec_ex_read(sound->decoder, data, count * sound->channels);
+  size_t samples = mp3dec_ex_read(sound->decoder, data, count * lovrSoundGetChannelCount(sound));
   uint32_t frames = samples / sound->channels;
   sound->cursor += frames;
   return frames;
@@ -72,7 +73,7 @@ static uint32_t lovrSoundReadMp3(Sound* sound, uint32_t offset, uint32_t count, 
 
 // Sound
 
-Sound* lovrSoundCreateRaw(uint32_t frames, SampleFormat format, uint32_t channels, uint32_t sampleRate, struct Blob* blob) {
+Sound* lovrSoundCreateRaw(uint32_t frames, SampleFormat format, ChannelLayout channels, uint32_t sampleRate, struct Blob* blob) {
   Sound* sound = calloc(1, sizeof(Sound));
   lovrAssert(sound, "Out of memory");
   sound->ref = 1;
@@ -93,7 +94,7 @@ Sound* lovrSoundCreateRaw(uint32_t frames, SampleFormat format, uint32_t channel
   return sound;
 }
 
-Sound* lovrSoundCreateStream(uint32_t frames, SampleFormat format, uint32_t channels, uint32_t sampleRate) {
+Sound* lovrSoundCreateStream(uint32_t frames, SampleFormat format, ChannelLayout channels, uint32_t sampleRate) {
   Sound* sound = calloc(1, sizeof(Sound));
   lovrAssert(sound, "Out of memory");
   sound->ref = 1;
@@ -108,7 +109,7 @@ Sound* lovrSoundCreateStream(uint32_t frames, SampleFormat format, uint32_t chan
   void* data = malloc(size);
   lovrAssert(data, "Out of memory");
   sound->blob = lovrBlobCreate(data, size, NULL);
-  ma_result status = ma_pcm_rb_init(miniaudioFormats[format], channels, frames, data, NULL, sound->stream);
+  ma_result status = ma_pcm_rb_init(miniaudioFormats[format], lovrSoundGetChannelCount(sound), frames, data, NULL, sound->stream);
   lovrAssert(status == MA_SUCCESS, "Failed to create ring buffer for streamed Sound: %s (%d)", ma_result_description(status), status);
   return sound;
 }
@@ -124,7 +125,7 @@ Sound* lovrSoundCreateFromFile(struct Blob* blob, bool decode) {
 
     stb_vorbis_info info = stb_vorbis_get_info(sound->decoder);
     sound->format = SAMPLE_F32;
-    sound->channels = info.channels;
+    sound->channels = info.channels >= 2 ? CHANNEL_STEREO : CHANNEL_MONO;
     sound->sampleRate = info.sample_rate;
     sound->frames = stb_vorbis_stream_length_in_samples(sound->decoder);
 
@@ -134,7 +135,7 @@ Sound* lovrSoundCreateFromFile(struct Blob* blob, bool decode) {
       void* data = calloc(1, size);
       lovrAssert(data, "Out of memory");
       sound->blob = lovrBlobCreate(data, size, "Sound");
-      if (stb_vorbis_get_samples_float_interleaved(sound->decoder, info.channels, data, size / 4) < (int) sound->frames) {
+      if (stb_vorbis_get_samples_float_interleaved(sound->decoder, lovrSoundGetChannelCount(sound), data, size / sizeof(float)) < (int) sound->frames) {
         lovrThrow("Could not decode vorbis from '%s'", blob->name);
       }
       stb_vorbis_close(sound->decoder);
@@ -172,6 +173,8 @@ Sound* lovrSoundCreateFromFile(struct Blob* blob, bool decode) {
     lovrAssert(wav->size == blob->size - 8, "Invalid WAV");
     lovrAssert(!memcmp(&wav->fileFormat, "WAVE", 4), "Invalid WAV");
     lovrAssert(!memcmp(&wav->fmtId, "fmt ", 4), "Invalid WAV");
+
+    // Format
     if (wav->fmtSize == 16 && wav->format == 1 && wav->sampleSize == 16) {
       sound->format = SAMPLE_I16;
     } else if (wav->fmtSize == 16 && wav->format == 3 && wav->sampleSize == 32) {
@@ -183,7 +186,16 @@ Sound* lovrSoundCreateFromFile(struct Blob* blob, bool decode) {
     } else {
       lovrThrow("Unsupported WAV format");
     }
-    sound->channels = wav->channels;
+
+    // Channels
+    if (wav->channels == 2) {
+      sound->channels = CHANNEL_STEREO;
+    } else if (wav->channels == 1) {
+      sound->channels = CHANNEL_MONO;
+    } else {
+      lovrThrow("Unsupported WAV channel layout");
+    }
+
     sound->sampleRate = wav->sampleRate;
     lovrAssert(wav->frameSize == lovrSoundGetStride(sound), "Invalid WAV");
 
@@ -217,7 +229,7 @@ Sound* lovrSoundCreateFromFile(struct Blob* blob, bool decode) {
       sound->blob = lovrBlobCreate(info.buffer, info.samples * sizeof(float), blob->name);
       sound->format = SAMPLE_F32;
       sound->sampleRate = info.hz;
-      sound->channels = info.channels;
+      sound->channels = info.channels == 2 ? CHANNEL_STEREO : CHANNEL_MONO;
       sound->frames = info.samples / info.channels;
       sound->read = lovrSoundReadRaw;
       return sound;
@@ -230,8 +242,8 @@ Sound* lovrSoundCreateFromFile(struct Blob* blob, bool decode) {
       }
       sound->format = SAMPLE_F32;
       sound->sampleRate = decoder->info.hz;
-      sound->channels = decoder->info.channels;
-      sound->frames = decoder->samples / sound->channels;
+      sound->channels = decoder->info.channels == 2 ? CHANNEL_STEREO : CHANNEL_MONO;
+      sound->frames = decoder->samples / decoder->info.channels;
       sound->read = lovrSoundReadMp3;
       sound->blob = blob;
       lovrRetain(blob);
@@ -261,8 +273,12 @@ SampleFormat lovrSoundGetFormat(Sound* sound) {
   return sound->format;
 }
 
-uint32_t lovrSoundGetChannelCount(Sound* sound) {
+ChannelLayout lovrSoundGetChannelLayout(Sound* sound) {
   return sound->channels;
+}
+
+uint32_t lovrSoundGetChannelCount(Sound* sound) {
+  return 1 << sound->channels;
 }
 
 uint32_t lovrSoundGetSampleRate(Sound* sound) {
@@ -274,7 +290,7 @@ uint32_t lovrSoundGetFrameCount(Sound* sound) {
 }
 
 size_t lovrSoundGetStride(Sound* sound) {
-  return sound->channels * (sound->format == SAMPLE_I16 ? sizeof(short) : sizeof(float));
+  return lovrSoundGetChannelCount(sound) * (sound->format == SAMPLE_I16 ? sizeof(short) : sizeof(float));
 }
 
 bool lovrSoundIsCompressed(Sound* sound) {
