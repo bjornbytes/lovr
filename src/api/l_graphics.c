@@ -921,6 +921,7 @@ static int l_lovrGraphicsPoints(lua_State* L) {
 static int l_lovrGraphicsLine(lua_State* L) {
   float* vertices;
   uint32_t count = luax_getvertexcount(L, 1);
+  lovrAssert(count >= 2, "Need at least 2 points to draw a line");
   lovrGraphicsLine(count, &vertices);
   luax_readvertices(L, 1, vertices, count);
   return 0;
