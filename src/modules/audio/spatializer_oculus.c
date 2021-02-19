@@ -279,6 +279,10 @@ static void oculus_spatializer_setListenerPose(float position[4], float orientat
   ma_mutex_unlock(&state.poseLock);
 }
 
+bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount) {
+  return false;
+}
+
 static void oculus_spatializer_source_create(Source* source) {
   intptr_t* spatializerMemo = lovrSourceGetSpatializerMemoField(source);
   *spatializerMemo = -1;
@@ -297,6 +301,7 @@ Spatializer oculusSpatializer = {
   .apply = oculus_spatializer_source_apply,
   .tail = oculus_spatializer_tail,
   .setListenerPose = oculus_spatializer_setListenerPose,
+  .setGeometry = oculus_setGeometry,
   .sourceCreate = oculus_spatializer_source_create,
   .sourceDestroy = oculus_spatializer_source_destroy, // Need noop
   .name = "oculus"

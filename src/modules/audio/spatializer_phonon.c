@@ -12,7 +12,11 @@ static FARPROC phonon_dlsym(void* library, const char* symbol) { return GetProcA
 static void phonon_dlclose(void* library) { FreeLibrary(library); }
 #else
 #include <dlfcn.h>
+#if __APPLE__
+#define PHONON_LIBRARY "libphonon.dylib"
+#else
 #define PHONON_LIBRARY "libphonon.so"
+#endif
 static void* phonon_dlopen(const char* library) { return dlopen(library, RTLD_NOW | RTLD_LOCAL); }
 static void* phonon_dlsym(void* library, const char* symbol) { return dlsym(library, symbol); }
 static void phonon_dlclose(void* library) { dlclose(library); }
@@ -21,6 +25,11 @@ static void phonon_dlclose(void* library) { dlclose(library); }
 typedef IPLerror fn_iplCreateContext(IPLLogFunction logCallback, IPLAllocateFunction allocateCallback, IPLFreeFunction freeCallback, IPLhandle* context);
 typedef IPLvoid fn_iplDestroyContext(IPLhandle* context);
 typedef IPLvoid fn_iplCleanup(void);
+typedef IPLerror fn_iplCreateScene(IPLhandle context, IPLhandle computeDevice, IPLSceneType sceneType, IPLint32 numMaterials, IPLMaterial* materials, IPLClosestHitCallback closestHitCallback, IPLAnyHitCallback anyHitCallback, IPLBatchedClosestHitCallback batchedClosestHitCallback, IPLBatchedAnyHitCallback batchedAnyHitCallback, IPLvoid* userData, IPLhandle* scene);
+typedef IPLerror fn_iplDestroyScene(IPLhandle* scene);
+typedef IPLvoid fn_iplSaveSceneAsObj(IPLhandle scene, IPLstring fileBaseName);
+typedef IPLerror fn_iplCreateStaticMesh(IPLhandle scene, IPLint32 numVertices, IPLint32 numTriangles, IPLVector3* vertices, IPLTriangle* triangles, IPLint32* materialIndices, IPLhandle* staticMesh);
+typedef IPLerror fn_iplDestroyStaticMesh(IPLhandle* staticMesh);
 typedef IPLerror fn_iplCreateEnvironment(IPLhandle context, IPLhandle computeDevice, IPLSimulationSettings simulationSettings, IPLhandle scene, IPLhandle probeManager, IPLhandle* environment);
 typedef IPLvoid fn_iplDestroyEnvironment(IPLhandle* environment);
 typedef IPLerror fn_iplCreateDirectSoundEffect(IPLAudioFormat inputFormat, IPLAudioFormat outputFormat, IPLRenderingSettings renderingSettings, IPLhandle* effect);
@@ -39,6 +48,11 @@ typedef IPLvoid fn_iplApplyBinauralEffect(IPLhandle effect, IPLhandle binauralRe
   X(iplCreateContext)\
   X(iplDestroyContext)\
   X(iplCleanup)\
+  X(iplCreateScene)\
+  X(iplDestroyScene)\
+  X(iplSaveSceneAsObj)\
+  X(iplCreateStaticMesh)\
+  X(iplDestroyStaticMesh)\
   X(iplCreateEnvironment)\
   X(iplDestroyEnvironment)\
   X(iplCreateDirectSoundEffect)\
@@ -56,6 +70,8 @@ PHONON_FOREACH(PHONON_DECLARE)
 static struct {
   void* library;
   IPLhandle context;
+  IPLhandle scene;
+  IPLhandle mesh;
   IPLhandle environment;
   IPLhandle directSoundEffect;
   IPLhandle binauralRenderer;
@@ -124,6 +140,8 @@ void phonon_destroy() {
   if (state.binauralRenderer) phonon_iplDestroyBinauralRenderer(&state.binauralRenderer);
   if (state.directSoundEffect) phonon_iplDestroyDirectSoundEffect(&state.directSoundEffect);
   if (state.environment) phonon_iplDestroyEnvironment(&state.environment);
+  if (state.mesh) phonon_iplDestroyStaticMesh(&state.mesh);
+  if (state.scene) phonon_iplDestroyStaticMesh(&state.scene);
   if (state.context) phonon_iplDestroyContext(&state.context);
   phonon_iplCleanup();
   phonon_dlclose(state.library);
@@ -171,9 +189,9 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
     .airAbsorptionModel.coefficients = { absorption[0], absorption[1], absorption[2] }
   };
 
-  IPLDirectOcclusionMode occlusionMode = IPL_DIRECTOCCLUSION_NONE;
-  IPLDirectOcclusionMethod occlusionMethod = IPL_DIRECTOCCLUSION_RAYCAST;
-  IPLDirectSoundPath path = phonon_iplGetDirectSoundPath(state.environment, listenerPosition, listenerForward, listenerUp, iplSource, 0.f, 1, occlusionMode, occlusionMethod);
+  IPLDirectOcclusionMode occlusionMode = IPL_DIRECTOCCLUSION_TRANSMISSIONBYFREQUENCY;
+  IPLDirectOcclusionMethod occlusionMethod = IPL_DIRECTOCCLUSION_VOLUMETRIC;
+  IPLDirectSoundPath path = phonon_iplGetDirectSoundPath(state.environment, listenerPosition, listenerForward, listenerUp, iplSource, .5f, 32, occlusionMode, occlusionMethod);
 
   IPLDirectSoundEffectOptions options = {
     .applyDistanceAttenuation = falloff > 0.f ? IPL_TRUE : IPL_FALSE,
@@ -230,6 +248,61 @@ void phonon_setListenerPose(float position[4], float orientation[4]) {
   memcpy(state.listenerOrientation, orientation, sizeof(state.listenerOrientation));
 }
 
+bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount) {
+  if (state.mesh) phonon_iplDestroyStaticMesh(&state.mesh);
+  if (state.scene) phonon_iplDestroyScene(&state.scene);
+  if (state.environment) phonon_iplDestroyEnvironment(&state.environment);
+
+  IPLMaterial material = (IPLMaterial) {
+    .lowFreqAbsorption = .1f,
+    .midFreqAbsorption = .2f,
+    .highFreqAbsorption = .3f,
+    .scattering = .05f,
+    .lowFreqTransmission = .1f,
+    .midFreqTransmission = .05f,
+    .highFreqTransmission = .03f
+  };
+
+  IPLSimulationSettings settings = (IPLSimulationSettings) {
+    .sceneType = IPL_SCENETYPE_PHONON,
+    .maxNumOcclusionSamples = 32,
+    .numRays = 4096,
+    .numDiffuseSamples = 1024,
+    .numBounces = 8,
+    .numThreads = 1,
+    .irDuration = 1.f,
+    .ambisonicsOrder = 1,
+    .maxConvolutionSources = 64,
+    .bakingBatchSize = 1,
+    .irradianceMinDistance = .1f
+  };
+
+  IPLint32* materials = malloc(indexCount / 3 * sizeof(IPLint32));
+  if (!materials) goto fail;
+  memset(materials, 0, indexCount / 3 * sizeof(IPLint32));
+
+  IPLerror status;
+  status = phonon_iplCreateScene(state.context, NULL, IPL_SCENETYPE_PHONON, 1, &material, NULL, NULL, NULL, NULL, NULL, &state.scene);
+  if (status != IPL_STATUS_SUCCESS) goto fail;
+
+  status = phonon_iplCreateStaticMesh(state.scene, vertexCount, indexCount / 3, (IPLVector3*) vertices, (IPLTriangle*) indices, materials, &state.mesh);
+  if (status != IPL_STATUS_SUCCESS) goto fail;
+
+  status = phonon_iplCreateEnvironment(state.context, NULL, settings, state.scene, NULL, &state.environment);
+  if (status != IPL_STATUS_SUCCESS) goto fail;
+
+  free(materials);
+  return true;
+
+fail:
+  free(materials);
+  if (state.mesh) phonon_iplDestroyStaticMesh(&state.mesh);
+  if (state.scene) phonon_iplDestroyScene(&state.scene);
+  if (state.environment) phonon_iplDestroyEnvironment(&state.environment);
+  phonon_iplCreateEnvironment(state.context, NULL, settings, NULL, NULL, &state.environment);
+  return false;
+}
+
 void phonon_sourceCreate(Source* source) {
   //
 }
@@ -244,6 +317,7 @@ Spatializer phononSpatializer = {
   .apply = phonon_apply,
   .tail = phonon_tail,
   .setListenerPose = phonon_setListenerPose,
+  .setGeometry = phonon_setGeometry,
   .sourceCreate = phonon_sourceCreate,
   .sourceDestroy = phonon_sourceDestroy,
   .name = "phonon"

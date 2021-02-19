@@ -51,6 +51,10 @@ void simple_spatializer_setListenerPose(float position[4], float orientation[4])
   mat4_rotateQuat(state.listener, orientation);
 }
 
+bool simple_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount) {
+  return false;
+}
+
 void simple_spatializer_source_create(Source* source) {
   //
 }
@@ -65,6 +69,7 @@ Spatializer simpleSpatializer = {
   .apply = simple_spatializer_source_apply,
   .tail = simple_spatializer_tail,
   .setListenerPose = simple_spatializer_setListenerPose,
+  .setGeometry = simple_setGeometry,
   .sourceCreate = simple_spatializer_source_create,
   .sourceDestroy = simple_spatializer_source_destroy,
   .name = "simple"
