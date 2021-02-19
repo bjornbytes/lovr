@@ -95,7 +95,7 @@ static bool desktop_getViewAngles(uint32_t view, float* left, float* right, floa
   float aspect, fov;
   uint32_t width, height;
   desktop_getDisplayDimensions(&width, &height);
-  aspect = (float) width / 2.f / height;
+  aspect = (float) width / height;
   fov = 67.f * (float) M_PI / 180.f * .5f;
   *left = fov * aspect;
   *right = fov * aspect;
