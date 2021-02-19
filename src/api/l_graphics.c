@@ -615,6 +615,10 @@ static int l_lovrGraphicsGetBlendMode(lua_State* L) {
   BlendMode mode;
   BlendAlphaMode alphaMode;
   lovrGraphicsGetBlendMode(&mode, &alphaMode);
+  if (mode == BLEND_NONE) {
+    lua_pushnil(L);
+    return 1;
+  }
   luax_pushenum(L, BlendMode, mode);
   luax_pushenum(L, BlendAlphaMode, alphaMode);
   return 2;
