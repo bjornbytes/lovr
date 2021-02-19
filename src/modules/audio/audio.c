@@ -346,7 +346,7 @@ Source* lovrSourceCreate(Sound* sound, bool spatial) {
 
   source->converter = ~0u;
 
-  if (config.formatIn != config.formatOut || config.channelsIn == config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
+  if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
     for (size_t i = 0; i < state.converters.length; i++) {
       ma_data_converter* converter = &state.converters.data[i];
       if (converter->config.formatIn != config.formatIn) continue;
