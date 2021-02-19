@@ -341,3 +341,32 @@ void luax_readcolor(lua_State* L, int index, Color* color) {
     luaL_error(L, "Invalid color, expected a hexcode, 3 numbers, 4 numbers, or a table");
   }
 }
+
+int luax_readtriangles(lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree) {
+  if (lua_istable(L, index)) {
+    luaL_checktype(L, index + 1, LUA_TTABLE);
+    *vertexCount = luax_len(L, index) / 3;
+    *indexCount = luax_len(L, index + 1);
+    lovrAssert(*indexCount % 3 == 0, "Index count must be a multiple of 3");
+    *vertices = malloc(sizeof(float) * *vertexCount * 3);
+    *indices = malloc(sizeof(uint32_t) * *indexCount);
+    lovrAssert(vertices && indices, "Out of memory");
+    *shouldFree = true;
+
+    for (uint32_t i = 0; i < *vertexCount * 3; i++) {
+      lua_rawgeti(L, index, i + 1);
+      (*vertices)[i] = luax_checkfloat(L, -1);
+      lua_pop(L, 1);
+    }
+
+    for (uint32_t i = 0; i < *indexCount; i++) {
+      lua_rawgeti(L, index + 1, i + 1);
+      (*indices)[i] = luaL_checkinteger(L, -1) - 1;
+      lua_pop(L, 1);
+    }
+
+    return index + 2;
+  }
+
+  return luaL_argerror(L, index, "table or Model");
+}

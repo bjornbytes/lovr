@@ -328,6 +328,10 @@ void lovrAudioSetPose(float position[4], float orientation[4]) {
   state.spatializer->setListenerPose(position, orientation);
 }
 
+bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount) {
+  return state.spatializer->setGeometry(vertices, indices, vertexCount, indexCount);
+}
+
 const char* lovrAudioGetSpatializer() {
   return state.spatializer->name;
 }

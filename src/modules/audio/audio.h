@@ -34,6 +34,7 @@ float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
 void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
+bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount);
 const char* lovrAudioGetSpatializer(void);
 struct Sound* lovrAudioGetCaptureStream(void);
 
