@@ -2620,14 +2620,14 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLengt
 
 #if defined(LOVR_WEBGL) || defined(LOVR_GLES)
   const char* version = "#version 300 es\n";
+  const char* computeExtensions = "";
 #else
   const char* version = "#version 330\n";
-#endif
-
   const char* computeExtensions = state.features.compute ?
     "#extension GL_ARB_shader_storage_buffer_object : enable \n"
     "#extension GL_ARB_shader_image_load_store : enable \n" :
     NULL;
+#endif
 
   const char* singlepass[2] = { "", "" };
   if (multiview && state.singlepass == MULTIVIEW) {
