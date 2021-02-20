@@ -16,7 +16,7 @@ static const ma_format miniaudioFormats[] = {
 
 struct Sound {
   uint32_t ref;
-  uint32_t (*read)(Sound* sound, uint32_t offset, uint32_t count, void* data);
+  SoundCallback* read;
   struct Blob* blob;
   void* decoder;
   void* stream;
@@ -25,13 +25,15 @@ struct Sound {
   uint32_t sampleRate;
   uint32_t frames;
   uint32_t cursor;
+  void* callbackMemo; // When using lovrSoundCreateFromCallback, any state the read callback uses should be stored here
+  SoundDestroyCallback* callbackMemoDestroy; // This should be used to free the callbackMemo pointer (if appropriate)
 };
 
 // Readers
 
 static uint32_t lovrSoundReadRaw(Sound* sound, uint32_t offset, uint32_t count, void* data) {
   uint8_t* p = sound->blob->data;
-  uint32_t n = MIN(count, sound->frames - offset);
+  uint32_t n = sound->frames == LOVR_SOUND_ENDLESS ? count : MIN(count, sound->frames - offset);
   size_t stride = lovrSoundGetStride(sound);
   memcpy(data, p + offset * stride, n * stride);
   return n;
@@ -255,8 +257,23 @@ Sound* lovrSoundCreateFromFile(struct Blob* blob, bool decode) {
   return NULL;
 }
 
+Sound* lovrSoundCreateFromCallback(SoundCallback read, void *callbackMemo, SoundDestroyCallback callbackMemoDestroy, SampleFormat format, uint32_t sampleRate, ChannelLayout channels, uint32_t maxFrames) {
+  Sound* sound = calloc(1, sizeof(Sound));
+  lovrAssert(sound, "Out of memory");
+  sound->ref = 1;
+  sound->read = read;
+  sound->format = format;
+  sound->sampleRate = sampleRate;
+  sound->channels = channels;
+  sound->frames = maxFrames;
+  sound->callbackMemo = callbackMemo;
+  sound->callbackMemoDestroy = callbackMemoDestroy;
+  return sound;
+}
+
 void lovrSoundDestroy(void* ref) {
   Sound* sound = (Sound*) ref;
+  if (sound->callbackMemoDestroy) sound->callbackMemoDestroy(sound);
   lovrRelease(sound->blob, lovrBlobDestroy);
   if (sound->read == lovrSoundReadOgg) stb_vorbis_close(sound->decoder);
   if (sound->read == lovrSoundReadMp3) mp3dec_ex_close(sound->decoder), free(sound->decoder);
@@ -307,6 +324,7 @@ uint32_t lovrSoundRead(Sound* sound, uint32_t offset, uint32_t count, void* data
 
 uint32_t lovrSoundWrite(Sound* sound, uint32_t offset, uint32_t count, const void* data) {
   lovrAssert(!sound->decoder, "Compressed Sound can not be written to");
+  lovrAssert(sound->stream || sound->blob, "Live-generated sound can not be written to");
   size_t stride = lovrSoundGetStride(sound);
   uint32_t frames = 0;
 
@@ -333,6 +351,7 @@ uint32_t lovrSoundWrite(Sound* sound, uint32_t offset, uint32_t count, const voi
 
 uint32_t lovrSoundCopy(Sound* src, Sound* dst, uint32_t count, uint32_t srcOffset, uint32_t dstOffset) {
   lovrAssert(!dst->decoder, "Compressed Sound can not be written to");
+  lovrAssert(dst->stream || dst->blob, "Live-generated sound can not be written to");
   lovrAssert(src != dst, "Can not copy a Sound to itself");
   lovrAssert(src->format == dst->format, "Sound formats need to match");
   lovrAssert(src->channels == dst->channels, "Sound channel layouts need to match");
@@ -361,4 +380,8 @@ uint32_t lovrSoundCopy(Sound* src, Sound* dst, uint32_t count, uint32_t srcOffse
   }
 
   return frames;
+}
+
+void *lovrSoundGetCallbackMemo(Sound *sound) {
+  return sound->callbackMemo;
 }
