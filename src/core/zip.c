@@ -73,12 +73,12 @@ void* zip_load(zip_state* zip, size_t offset, bool* compressed) {
     return NULL;
   }
 
-  uint16_t compression;
-  *compressed = compression = readu16(p + 8);
+  uint16_t compression = readu16(p + 8);
   if (compression != 0 && compression != 8) {
     return false;
   }
 
+  *compressed = (compression == 8);
   uint32_t skip = readu16(p + 26) + readu16(p + 28);
   return p + 30 + skip;
 }

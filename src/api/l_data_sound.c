@@ -111,7 +111,7 @@ static int l_lovrSoundGetFrames(lua_State* L) {
     case LUA_TNONE:
       lua_settop(L, index - 1);
       lua_createtable(L, count * lovrSoundGetChannelCount(sound), 0);
-    // fallthrough;
+    // fallthrough
     case LUA_TTABLE:
       dstOffset = luaL_optinteger(L, index + 1, 1);
       lua_settop(L, index);
@@ -162,7 +162,7 @@ static int l_lovrSoundGetFrames(lua_State* L) {
         lua_pushinteger(L, frames);
         return 2;
       }
-    // fallthrough;
+    // fallthrough
     default:
       return luax_typeerror(L, index, "nil, table, Blob, or Sound");
   }

@@ -150,14 +150,11 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       Proxy* proxy = lua_touserdata(L, index);
       lua_getmetatable(L, index);
 
-      lua_pushliteral(L, "__name");
+      lua_pushliteral(L, "__info");
       lua_rawget(L, -2);
-      variant->value.object.type = (const char*) lua_touserdata(L, -1);
-      lua_pop(L, 1);
-
-      lua_pushliteral(L, "__destructor");
-      lua_rawget(L, -2);
-      variant->value.object.destructor = (void (*)(void*)) lua_tocfunction(L, -1);
+      TypeInfo* info = lua_touserdata(L, -1);
+      variant->value.object.type = info->name;
+      variant->value.object.destructor = info->destructor;
       lua_pop(L, 1);
 
       variant->value.object.pointer = proxy->object;

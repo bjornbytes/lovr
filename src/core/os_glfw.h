@@ -305,8 +305,8 @@ void lovrPlatformSwapBuffers() {
   glfwSwapBuffers(glfwState.window);
 }
 
-void* lovrPlatformGetProcAddress(const char* function) {
-  return (void*) glfwGetProcAddress(function);
+os_proc lovrPlatformGetProcAddress(const char* function) {
+  return (os_proc) glfwGetProcAddress(function);
 }
 
 void lovrPlatformOnQuitRequest(quitCallback callback) {

@@ -10,8 +10,9 @@ typedef void destructorFn(void*);
 
 // Object names are lightuserdata because Variants need a non-Lua string due to threads.
 static int luax_meta__tostring(lua_State* L) {
-  lua_getfield(L, -1, "__name");
-  lua_pushstring(L, (const char*) lua_touserdata(L, -1));
+  lua_getfield(L, -1, "__info");
+  TypeInfo* info = lua_touserdata(L, -1);
+  lua_pushstring(L, info->name);
   return 1;
 }
 
@@ -19,10 +20,10 @@ static int luax_meta__gc(lua_State* L) {
   Proxy* p = lua_touserdata(L, 1);
   if (p) {
     lua_getmetatable(L, 1);
-    lua_getfield(L, -1, "__destructor");
-    destructorFn* destructor = (destructorFn*) lua_tocfunction(L, -1);
-    if (destructor) {
-      lovrRelease(p->object, destructor);
+    lua_getfield(L, -1, "__info");
+    TypeInfo* info = lua_touserdata(L, -1);
+    if (info->destructor) {
+      lovrRelease(p->object, info->destructor);
       p->object = NULL;
     }
   }
@@ -50,17 +51,15 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   lua_pushvalue(L, -1);
   lua_setfield(L, -1, "__index");
 
+  // m.__info = info
+  TypeInfo* info = lua_newuserdata(L, sizeof(TypeInfo));
+  info->name = name;
+  info->destructor = destructor;
+  lua_setfield(L, -2, "__info");
+
   // m.__gc = gc
   lua_pushcfunction(L, luax_meta__gc);
   lua_setfield(L, -2, "__gc");
-
-  // m.__destructor = destructor (used to release reference)
-  lua_pushcfunction(L, (lua_CFunction) destructor);
-  lua_setfield(L, -2, "__destructor");
-
-  // m.__name = name
-  lua_pushlightuserdata(L, (void*) name);
-  lua_setfield(L, -2, "__name");
 
   // m.__tostring
   lua_pushcfunction(L, luax_meta__tostring);

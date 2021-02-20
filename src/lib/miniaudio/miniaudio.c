@@ -10,7 +10,4 @@
 #ifdef ANDROID
 #define MA_NO_RUNTIME_LINKING
 #endif
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-function"
 #include "miniaudio.h"
-#pragma clang diagnostic pop

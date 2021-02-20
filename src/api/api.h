@@ -111,6 +111,11 @@ extern StringEntry lovrWrapMode[];
 // General helpers
 
 typedef struct {
+  const char* name;
+  void (*destructor)(void*);
+} TypeInfo;
+
+typedef struct {
   uint64_t hash;
   void* object;
 } Proxy;

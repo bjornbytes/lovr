@@ -274,7 +274,7 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
     float* (*lerp)(float* a, float* b, float t) = rotate ? quat_slerp : vec3_lerp;
 
     if (keyframe == 0 || keyframe >= channel->keyframeCount) {
-      size_t index = CLAMP(keyframe, 0, channel->keyframeCount - 1);
+      size_t index = MIN(keyframe, channel->keyframeCount - 1);
 
       // For cubic interpolation, each keyframe has 3 parts, and the actual data is in the middle (*3, +1)
       if (channel->smoothing == SMOOTH_CUBIC) {

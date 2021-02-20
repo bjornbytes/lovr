@@ -133,6 +133,7 @@ typedef enum {
   AUDIO_CAPTURE_PERMISSION
 } Permission;
 
+typedef void (*os_proc)(void);
 typedef void (*quitCallback)(void);
 typedef void (*windowFocusCallback)(bool focused);
 typedef void (*windowResizeCallback)(int width, int height);
@@ -160,7 +161,7 @@ void lovrPlatformGetWindowSize(int* width, int* height);
 void lovrPlatformGetFramebufferSize(int* width, int* height);
 void lovrPlatformSetSwapInterval(int interval);
 void lovrPlatformSwapBuffers(void);
-void* lovrPlatformGetProcAddress(const char* function);
+os_proc lovrPlatformGetProcAddress(const char* function);
 void lovrPlatformOnQuitRequest(quitCallback callback);
 void lovrPlatformOnWindowFocus(windowFocusCallback callback);
 void lovrPlatformOnWindowResize(windowResizeCallback callback);

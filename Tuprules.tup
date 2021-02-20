@@ -16,6 +16,11 @@ CFLAGS += -I$(ROOT)/src/lib/stdatomic
 CFLAGS += -fvisibility=hidden
 CFLAGS += -Wall -Wextra
 CFLAGS += -Wno-unused-parameter
+CFLAGS_glad.c += -Wno-pedantic
+CFLAGS_os_android.c += -Wno-format-pedantic
+CFLAGS_headset_openvr.c += -Wno-unused-variable -Wno-typedef-redefinition -Wno-pedantic
+CFLAGS_headset_vrapi.c += -Wno-c11-extensions -Wno-gnu-empty-initializer -Wno-pedantic
+CFLAGS_miniaudio.c += -Wno-unused-function
 CFLAGS_@(STRICT) += -Werror
 FLAGS_@(DEBUG) += -g
 FLAGS_@(OPTIMIZE) += -Oz
@@ -247,7 +252,7 @@ CFLAGS += $(FLAGS) $(FLAGS_y) $(DISABLE_n) $(CFLAGS_y) @(EXTRA_CFLAGS)
 LDFLAGS += $(FLAGS) $(FLAGS_y) $(LDFLAGS_y) $(LDFLAGS_y_y) @(EXTRA_LDFLAGS)
 
 ## Macros
-!cc = |> ^o CC %b^ $(CC) $(CFLAGS) -o %o -c %f |>
+!cc = |> ^o CC %b^ $(CC) $(CFLAGS) $(CFLAGS_%b) -o %o -c %f |>
 !ld = |> ^ LD %o^ $(CC) -o %o %f $(LDFLAGS) |>
 !xd = |> ^ XD %f^ xxd -i %f > %o |>
 !cp = |> ^ CP %b^ cp %f %o |>

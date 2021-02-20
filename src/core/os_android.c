@@ -7,10 +7,7 @@
 #include <EGL/eglext.h>
 
 // This is probably bad, but makes things easier to build
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-pedantic"
 #include <android_native_app_glue.c>
-#pragma clang diagnostic pop
 
 static struct {
   struct android_app* app;

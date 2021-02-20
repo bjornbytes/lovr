@@ -44,7 +44,7 @@ void lovrLog(int level, const char* tag, const char* format, ...) {
 
 // Refcounting
 #if ATOMIC_INT_LOCK_FREE != 2
-#error "Lock-free integer atomics are not supported on this platform, but are required for refcounting
+#error "Lock-free integer atomics are not supported on this platform, but are required for refcounting"
 #endif
 
 void lovrRetain(void* object) {

@@ -39,7 +39,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
     if (*data == '#') goto next;
 
     char line[1024];
-    size_t length = newline ? newline - data : size;
+    size_t length = newline ? (size_t) (newline - data) : size;
     while (length > 0 && (data[length - 1] == '\r' || data[length - 1] == '\t' || data[length - 1] == ' ')) length--;
     lovrAssert(length < sizeof(line), "OBJ MTL line length is too long (max is %d)", sizeof(line) - 1);
     memcpy(line, data, length);
@@ -135,7 +135,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
     if (*data == '#') goto next;
 
     char line[1024];
-    size_t length = newline ? newline - data : size;
+    size_t length = newline ? (size_t) (newline - data) : size;
     while (length > 0 && (data[length - 1] == '\r' || data[length - 1] == '\t' || data[length - 1] == ' ')) length--;
     lovrAssert(length < sizeof(line), "OBJ line length is too long (max is %d)", sizeof(line) - 1);
     memcpy(line, data, length);
@@ -218,7 +218,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
       parseMtl(path, base, io, &images, &materials, &materialMap);
     } else if (STARTS_WITH(line, "usemtl ")) {
       uint64_t index = map_get(&materialMap, hash64(line + 7, length - 7));
-      int material = index == MAP_NIL ? -1 : index;
+      uint32_t material = index == MAP_NIL ? ~0u : index;
       objGroup* group = &groups.data[groups.length - 1];
       if (group->count > 0) {
         objGroup next = { .material = material, .start = group->start + group->count };

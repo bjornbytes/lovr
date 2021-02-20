@@ -12,14 +12,9 @@
 #include <string.h>
 #include <EGL/egl.h>
 #include <android_native_app_glue.h>
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wc11-extensions"
-#pragma clang diagnostic ignored "-Wgnu-empty-initializer"
-#pragma clang diagnostic ignored "-Wpedantic"
 #include <VrApi.h>
 #include <VrApi_Helpers.h>
 #include <VrApi_Input.h>
-#pragma clang diagnostic pop
 
 #define GL_SRGB8_ALPHA8 0x8C43
 #define VRAPI_DEVICE_TYPE_OCULUSGO 64

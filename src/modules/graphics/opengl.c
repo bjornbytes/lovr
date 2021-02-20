@@ -1245,7 +1245,7 @@ static void GLAPIENTRY onMessage(GLenum source, GLenum type, GLuint id, GLenum s
 }
 #endif
 
-void lovrGpuInit(void* (*getProcAddress)(const char*), bool debug) {
+void lovrGpuInit(void (*getProcAddress(const char*))(void), bool debug) {
 #ifdef LOVR_GL
   gladLoadGLLoader((GLADloadproc) getProcAddress);
 #elif defined(LOVR_GLES)
