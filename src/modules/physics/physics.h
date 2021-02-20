@@ -59,6 +59,8 @@ struct Shape {
   ShapeType type;
   dGeomID id;
   Collider* collider;
+  void* vertices;
+  void* indices;
   void* userdata;
   bool sensor;
 };
