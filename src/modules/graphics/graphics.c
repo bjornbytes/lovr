@@ -32,7 +32,6 @@ typedef enum {
 typedef enum {
   BATCH_POINTS,
   BATCH_LINES,
-  BATCH_TRIANGLES,
   BATCH_PLANE,
   BATCH_BOX,
   BATCH_ARC,
@@ -864,33 +863,6 @@ void lovrGraphicsLine(uint32_t count, float** vertices) {
   indices[0] = 0xffff;
   for (uint32_t i = 1; i < indexCount; i++) {
     indices[i] = baseVertex + i - 1;
-  }
-}
-
-void lovrGraphicsTriangle(DrawStyle style, Material* material, uint32_t count, float** vertices) {
-  uint32_t indexCount = style == STYLE_LINE ? (4 * count / 3) : 0;
-  uint16_t* indices;
-  uint16_t baseVertex;
-
-  lovrGraphicsBatch(&(BatchRequest) {
-    .type = BATCH_TRIANGLES,
-    .params.triangles.style = style,
-    .topology = style == STYLE_LINE ? DRAW_LINE_LOOP : DRAW_TRIANGLES,
-    .material = material,
-    .vertexCount = count,
-    .vertices = vertices,
-    .indexCount = indexCount,
-    .indices = &indices,
-    .baseVertex = &baseVertex
-  });
-
-  if (style == STYLE_LINE) {
-    for (uint32_t i = 0; i < count; i += 3) {
-      *indices++ = 0xffff;
-      *indices++ = baseVertex + i + 0;
-      *indices++ = baseVertex + i + 1;
-      *indices++ = baseVertex + i + 2;
-    }
   }
 }
 

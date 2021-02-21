@@ -931,23 +931,6 @@ static int l_lovrGraphicsLine(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsTriangle(lua_State* L) {
-  DrawStyle style = STYLE_FILL;
-  Material* material = NULL;
-  if (lua_isuserdata(L, 1)) {
-    material = luax_checktype(L, 1, Material);
-  } else {
-    style = luax_checkenum(L, 1, DrawStyle, NULL);
-  }
-
-  float* vertices;
-  uint32_t count = luax_getvertexcount(L, 2);
-  lovrAssert(count % 3 == 0, "Triangle vertex count must be a multiple of 3");
-  lovrGraphicsTriangle(style, material, count, &vertices);
-  luax_readvertices(L, 2, vertices, count);
-  return 0;
-}
-
 static int l_lovrGraphicsPlane(lua_State* L) {
   DrawStyle style = STYLE_FILL;
   Material* material = NULL;
@@ -1809,7 +1792,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "flush", l_lovrGraphicsFlush },
   { "points", l_lovrGraphicsPoints },
   { "line", l_lovrGraphicsLine },
-  { "triangle", l_lovrGraphicsTriangle },
   { "plane", l_lovrGraphicsPlane },
   { "cube", l_lovrGraphicsCube },
   { "box", l_lovrGraphicsBox },

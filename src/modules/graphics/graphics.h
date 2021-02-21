@@ -157,7 +157,6 @@ void lovrGraphicsClear(Color* color, float* depth, int* stencil);
 void lovrGraphicsDiscard(bool color, bool depth, bool stencil);
 void lovrGraphicsPoints(uint32_t count, float** vertices);
 void lovrGraphicsLine(uint32_t count, float** vertices);
-void lovrGraphicsTriangle(DrawStyle style, struct Material* material, uint32_t count, float** vertices);
 void lovrGraphicsPlane(DrawStyle style, struct Material* material, mat4 transform, float u, float v, float w, float h);
 void lovrGraphicsBox(DrawStyle style, struct Material* material, mat4 transform);
 void lovrGraphicsArc(DrawStyle style, ArcMode mode, struct Material* material, mat4 transform, float r1, float r2, int segments);
