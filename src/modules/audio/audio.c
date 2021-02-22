@@ -491,14 +491,6 @@ void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) 
   ma_mutex_unlock(&state.lock);
 }
 
-bool lovrSourceIsAbsorptionEnabled(Source* source) {
-  return source->absorption;
-}
-
-void lovrSourceSetAbsorptionEnabled(Source* source, bool enabled) {
-  source->absorption = enabled;
-}
-
 void lovrSourceGetDirectivity(Source* source, float* weight, float* power) {
   *weight = source->dipoleWeight;
   *power = source->dipolePower;
@@ -507,6 +499,14 @@ void lovrSourceGetDirectivity(Source* source, float* weight, float* power) {
 void lovrSourceSetDirectivity(Source* source, float weight, float power) {
   source->dipoleWeight = weight;
   source->dipolePower = power;
+}
+
+bool lovrSourceIsAbsorptionEnabled(Source* source) {
+  return source->absorption;
+}
+
+void lovrSourceSetAbsorptionEnabled(Source* source, bool enabled) {
+  source->absorption = enabled;
 }
 
 bool lovrSourceIsFalloffEnabled(Source* source) {
