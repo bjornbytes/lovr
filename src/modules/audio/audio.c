@@ -37,7 +37,7 @@ struct Source {
   float absorption[3];
   float dipoleWeight;
   float dipolePower;
-  float falloff;
+  bool falloff;
   bool playing;
   bool looping;
   bool spatial;
@@ -509,11 +509,11 @@ void lovrSourceSetDirectivity(Source* source, float weight, float power) {
   source->dipolePower = power;
 }
 
-float lovrSourceGetFalloff(Source* source) {
+bool lovrSourceIsFalloffEnabled(Source* source) {
   return source->falloff;
 }
 
-void lovrSourceSetFalloff(Source* source, float falloff) {
+void lovrSourceSetFalloffEnabled(Source* source, bool falloff) {
   source->falloff = falloff;
 }
 
