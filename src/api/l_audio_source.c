@@ -119,6 +119,23 @@ static int l_lovrSourceSetPose(lua_State *L) {
   return 0;
 }
 
+static int l_lovrSourceGetDirectivity(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float weight, power;
+  lovrSourceGetDirectivity(source, &weight, &power);
+  lua_pushnumber(L, weight);
+  lua_pushnumber(L, power);
+  return 2;
+}
+
+static int l_lovrSourceSetDirectivity(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float weight = luax_optfloat(L, 2, 0.f);
+  float power = luax_optfloat(L, 3, 0.f);
+  lovrSourceSetDirectivity(source, weight, power);
+  return 0;
+}
+
 static int l_lovrSourceIsAbsorptionEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   bool enabled = lovrSourceIsAbsorptionEnabled(source);
@@ -130,42 +147,6 @@ static int l_lovrSourceSetAbsorptionEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   bool enabled = lua_toboolean(L, 2);
   lovrSourceSetAbsorptionEnabled(source, enabled);
-  return 0;
-}
-
-static int l_lovrSourceGetDirectivity(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  float weight, power;
-  lovrSourceGetDirectivity(source, &weight, &power);
-  if (weight == 0.f && power == 0.f) {
-    lua_pushnil(L);
-    return 1;
-  }
-  lua_pushnumber(L, weight);
-  lua_pushnumber(L, power);
-  return 2;
-}
-
-static int l_lovrSourceSetDirectivity(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  float weight = 0.f;
-  float power = 0.f;
-  switch (lua_type(L, 2)) {
-    case LUA_TNONE:
-    case LUA_TNIL:
-      break;
-    case LUA_TBOOLEAN:
-      if (lua_toboolean(L, 2)) {
-        weight = .5f;
-        power = 1.f;
-      }
-      break;
-    default:
-      weight = luax_checkfloat(L, 2);
-      power = luax_checkfloat(L, 3);
-      break;
-  }
-  lovrSourceSetDirectivity(source, weight, power);
   return 0;
 }
 
@@ -199,10 +180,10 @@ const luaL_Reg lovrSource[] = {
   { "isSpatial", l_lovrSourceIsSpatial },
   { "getPose", l_lovrSourceGetPose },
   { "setPose", l_lovrSourceSetPose },
-  { "isAbsorptionEnabled", l_lovrSourceIsAbsorptionEnabled },
-  { "setAbsorptionEnabled", l_lovrSourceSetAbsorptionEnabled },
   { "getDirectivity", l_lovrSourceGetDirectivity },
   { "setDirectivity", l_lovrSourceSetDirectivity },
+  { "isAbsorptionEnabled", l_lovrSourceIsAbsorptionEnabled },
+  { "setAbsorptionEnabled", l_lovrSourceSetAbsorptionEnabled },
   { "isFalloffEnabled", l_lovrSourceIsFalloffEnabled },
   { "setFalloffEnabled", l_lovrSourceSetFalloffEnabled },
   { NULL, NULL }
