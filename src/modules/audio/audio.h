@@ -61,6 +61,6 @@ void lovrSourceGetAbsorption(Source* source, float absorption[3]);
 void lovrSourceSetAbsorption(Source* source, float absorption[3]);
 void lovrSourceGetDirectivity(Source* source, float* weight, float* power);
 void lovrSourceSetDirectivity(Source* source, float weight, float power);
-float lovrSourceGetFalloff(Source* source);
-void lovrSourceSetFalloff(Source* source, float falloff);
+bool lovrSourceIsFalloffEnabled(Source* source);
+void lovrSourceSetFalloffEnabled(Source* source, bool enabled);
 intptr_t* lovrSourceGetSpatializerMemoField(Source* source);

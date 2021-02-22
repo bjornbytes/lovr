@@ -193,32 +193,17 @@ static int l_lovrSourceSetDirectivity(lua_State* L) {
   return 0;
 }
 
-static int l_lovrSourceGetFalloff(lua_State* L) {
+static int l_lovrSourceIsFalloffEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float falloff = lovrSourceGetFalloff(source);
-  if (falloff <= 0.f) {
-    lua_pushnil(L);
-  } else {
-    lua_pushnumber(L, falloff);
-  }
+  bool enabled = lovrSourceIsFalloffEnabled(source);
+  lua_pushboolean(L, enabled);
   return 1;
 }
 
-static int l_lovrSourceSetFalloff(lua_State* L) {
+static int l_lovrSourceSetFalloffEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float falloff = 0.f;
-  switch (lua_type(L, 2)) {
-    case LUA_TNONE:
-    case LUA_TNIL:
-      break;
-    case LUA_TBOOLEAN:
-      falloff = lua_toboolean(L, 2) ? 1.f : 0.f;
-      break;
-    default:
-      falloff = luax_checkfloat(L, 2);
-      break;
-  }
-  lovrSourceSetFalloff(source, falloff);
+  bool enabled = lua_toboolean(L, 2);
+  lovrSourceSetFalloffEnabled(source, enabled);
   return 0;
 }
 
@@ -242,7 +227,7 @@ const luaL_Reg lovrSource[] = {
   { "setAbsorption", l_lovrSourceSetAbsorption },
   { "getDirectivity", l_lovrSourceGetDirectivity },
   { "setDirectivity", l_lovrSourceSetDirectivity },
-  { "getFalloff", l_lovrSourceGetFalloff },
-  { "setFalloff", l_lovrSourceSetFalloff },
+  { "isFalloffEnabled", l_lovrSourceIsFalloffEnabled },
+  { "setFalloffEnabled", l_lovrSourceSetFalloffEnabled },
   { NULL, NULL }
 };
