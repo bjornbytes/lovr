@@ -32,15 +32,22 @@ struct Source {
   uint32_t converter;
   uint32_t offset;
   float volume;
+  float blend;
   float position[4];
   float orientation[4];
+  float radius;
   float dipoleWeight;
   float dipolePower;
   bool absorption;
   bool falloff;
+  bool occlusion;
+  bool reverb;
+  bool transmission;
   bool playing;
   bool looping;
   bool spatial;
+  bool shared;
+  bool bilinear;
 };
 
 static struct {
@@ -97,8 +104,8 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       if (!source->playing) {
         state.sources[source->index] = NULL;
         state.sourceMask &= ~(1ull << source->index);
-        source->index = ~0u;
         state.spatializer->sourceDestroy(source);
+        source->index = ~0u;
         lovrRelease(source, lovrSourceDestroy);
         continue;
       }
@@ -342,7 +349,7 @@ Sound* lovrAudioGetCaptureStream() {
 
 // Source
 
-Source* lovrSourceCreate(Sound* sound, bool spatial) {
+Source* lovrSourceCreate(Sound* sound, bool spatial, bool shared) {
   lovrAssert(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
   Source* source = calloc(1, sizeof(Source));
   lovrAssert(source, "Out of memory");
@@ -353,6 +360,8 @@ Source* lovrSourceCreate(Sound* sound, bool spatial) {
 
   source->volume = 1.f;
   source->spatial = spatial;
+  source->shared = shared;
+  source->converter = ~0u;
 
   ma_data_converter_config config = ma_data_converter_config_init_default();
   config.formatIn = miniaudioFormats[lovrSoundGetFormat(sound)];
@@ -361,8 +370,6 @@ Source* lovrSourceCreate(Sound* sound, bool spatial) {
   config.channelsOut = spatial ? 1 : 2;
   config.sampleRateIn = lovrSoundGetSampleRate(sound);
   config.sampleRateOut = PLAYBACK_SAMPLE_RATE;
-
-  source->converter = ~0u;
 
   if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
     for (size_t i = 0; i < state.converters.length; i++) {
@@ -479,6 +486,26 @@ bool lovrSourceIsSpatial(Source *source) {
   return source->spatial;
 }
 
+bool lovrSourceIsShared(Source* source) {
+  return source->shared;
+}
+
+float lovrSourceGetSpatialBlend(Source* source) {
+  return source->blend;
+}
+
+void lovrSourceSetSpatialBlend(Source* source, float blend) {
+  source->blend = blend;
+}
+
+SourceInterpolation lovrSourceGetInterpolation(Source* source) {
+  return source->bilinear ? SOURCE_BILINEAR : SOURCE_NEAREST;
+}
+
+void lovrSourceSetInterpolation(Source* source, SourceInterpolation interpolation) {
+  source->bilinear = interpolation == SOURCE_BILINEAR;
+}
+
 void lovrSourceGetPose(Source *source, float position[4], float orientation[4]) {
   memcpy(position, source->position, sizeof(source->position));
   memcpy(orientation, source->orientation, sizeof(source->orientation));
@@ -489,6 +516,14 @@ void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) 
   memcpy(source->position, position, sizeof(source->position));
   memcpy(source->orientation, orientation, sizeof(source->orientation));
   ma_mutex_unlock(&state.lock);
+}
+
+float lovrSourceGetRadius(Source* source) {
+  return source->radius;
+}
+
+void lovrSourceSetRadius(Source* source, float radius) {
+  source->radius = radius;
 }
 
 void lovrSourceGetDirectivity(Source* source, float* weight, float* power) {
@@ -513,10 +548,38 @@ bool lovrSourceIsFalloffEnabled(Source* source) {
   return source->falloff;
 }
 
-void lovrSourceSetFalloffEnabled(Source* source, bool falloff) {
-  source->falloff = falloff;
+void lovrSourceSetFalloffEnabled(Source* source, bool enabled) {
+  source->falloff = enabled;
+}
+
+bool lovrSourceIsOcclusionEnabled(Source* source) {
+  return source->occlusion;
+}
+
+void lovrSourceSetOcclusionEnabled(Source* source, bool enabled) {
+  source->occlusion = enabled;
+}
+
+bool lovrSourceIsReverbEnabled(Source* source) {
+  return source->reverb;
+}
+
+void lovrSourceSetReverbEnabled(Source* source, bool enabled) {
+  source->reverb = enabled;
+}
+
+bool lovrSourceIsTransmissionEnabled(Source* source) {
+  return source->transmission;
+}
+
+void lovrSourceSetTransmissionEnabled(Source* source, bool enabled) {
+  source->transmission = enabled;
 }
 
 intptr_t* lovrSourceGetSpatializerMemoField(Source* source) {
   return &source->spatializerMemo;
+}
+
+uint32_t lovrSourceGetIndex(Source* source) {
+  return source->index;
 }

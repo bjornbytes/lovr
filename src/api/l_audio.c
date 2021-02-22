@@ -18,6 +18,12 @@ StringEntry lovrTimeUnit[] = {
   { 0 }
 };
 
+StringEntry lovrSourceInterpolation[] = {
+  [SOURCE_NEAREST] = ENTRY("nearest"),
+  [SOURCE_BILINEAR] = ENTRY("bilinear"),
+  { 0 }
+};
+
 static void onDevice(const void* id, size_t size, const char* name, bool isDefault, void* userdata) {
   lua_State* L = userdata;
   lua_createtable(L, 0, 3);
@@ -134,22 +140,32 @@ static int l_lovrAudioGetCaptureStream(lua_State* L) {
 static int l_lovrAudioNewSource(lua_State* L) {
   Sound* sound = luax_totype(L, 1, Sound);
 
+  bool spatial = true;
+  bool shared = false;
+  bool decode = false;
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "spatial");
+    spatial = lua_isnil(L, -1) || lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "shared");
+    spatial = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "decode");
+    decode = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+
   if (!sound) {
     Blob* blob = luax_readblob(L, 1, "Source");
-    sound = lovrSoundCreateFromFile(blob, false);
+    sound = lovrSoundCreateFromFile(blob, decode);
     lovrRelease(blob, lovrBlobDestroy);
   } else {
     lovrRetain(sound);
   }
 
-  bool spatial = true;
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "spatial");
-    spatial = lua_isnil(L, -1) || lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  }
-
-  Source* source = lovrSourceCreate(sound, spatial);
+  Source* source = lovrSourceCreate(sound, spatial, shared);
   luax_pushtype(L, Source, source);
   lovrRelease(sound, lovrSoundDestroy);
   lovrRelease(source, lovrSourceDestroy);
