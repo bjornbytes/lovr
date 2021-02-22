@@ -34,9 +34,9 @@ struct Source {
   float volume;
   float position[4];
   float orientation[4];
-  float absorption[3];
   float dipoleWeight;
   float dipolePower;
+  bool absorption;
   bool falloff;
   bool playing;
   bool looping;
@@ -491,12 +491,12 @@ void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) 
   ma_mutex_unlock(&state.lock);
 }
 
-void lovrSourceGetAbsorption(Source* source, float absorption[3]) {
-  memcpy(absorption, source->absorption, sizeof(source->absorption));
+bool lovrSourceIsAbsorptionEnabled(Source* source) {
+  return source->absorption;
 }
 
-void lovrSourceSetAbsorption(Source* source, float absorption[3]) {
-  memcpy(source->absorption, absorption, sizeof(source->absorption));
+void lovrSourceSetAbsorptionEnabled(Source* source, bool enabled) {
+  source->absorption = enabled;
 }
 
 void lovrSourceGetDirectivity(Source* source, float* weight, float* power) {

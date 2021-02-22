@@ -119,41 +119,17 @@ static int l_lovrSourceSetPose(lua_State *L) {
   return 0;
 }
 
-static int l_lovrSourceGetAbsorption(lua_State* L) {
+static int l_lovrSourceIsAbsorptionEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float absorption[3];
-  lovrSourceGetAbsorption(source, absorption);
-  if (absorption[0] == 0.f && absorption[1] == 0.f && absorption[2] == 0.f) {
-    lua_pushnil(L);
-    return 1;
-  }
-  lua_pushnumber(L, absorption[0]);
-  lua_pushnumber(L, absorption[1]);
-  lua_pushnumber(L, absorption[2]);
-  return 3;
+  bool enabled = lovrSourceIsAbsorptionEnabled(source);
+  lua_pushboolean(L, enabled);
+  return 1;
 }
 
-static int l_lovrSourceSetAbsorption(lua_State* L) {
+static int l_lovrSourceSetAbsorptionEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float absorption[3] = { 0.f };
-  switch (lua_type(L, 2)) {
-    case LUA_TNONE:
-    case LUA_TNIL:
-      break;
-    case LUA_TBOOLEAN:
-      if (lua_toboolean(L, 2)) {
-        absorption[0] = .0002f;
-        absorption[1] = .0017f;
-        absorption[2] = .0182f;
-      }
-      break;
-    default:
-      absorption[0] = luax_checkfloat(L, 2);
-      absorption[1] = luax_checkfloat(L, 3);
-      absorption[2] = luax_checkfloat(L, 4);
-      break;
-  }
-  lovrSourceSetAbsorption(source, absorption);
+  bool enabled = lua_toboolean(L, 2);
+  lovrSourceSetAbsorptionEnabled(source, enabled);
   return 0;
 }
 
@@ -223,8 +199,8 @@ const luaL_Reg lovrSource[] = {
   { "isSpatial", l_lovrSourceIsSpatial },
   { "getPose", l_lovrSourceGetPose },
   { "setPose", l_lovrSourceSetPose },
-  { "getAbsorption", l_lovrSourceGetAbsorption },
-  { "setAbsorption", l_lovrSourceSetAbsorption },
+  { "isAbsorptionEnabled", l_lovrSourceIsAbsorptionEnabled },
+  { "setAbsorptionEnabled", l_lovrSourceSetAbsorptionEnabled },
   { "getDirectivity", l_lovrSourceGetDirectivity },
   { "setDirectivity", l_lovrSourceSetDirectivity },
   { "isFalloffEnabled", l_lovrSourceIsFalloffEnabled },
