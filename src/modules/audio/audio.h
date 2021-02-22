@@ -21,6 +21,11 @@ typedef enum {
   UNIT_FRAMES
 } TimeUnit;
 
+typedef enum {
+  SOURCE_NEAREST,
+  SOURCE_BILINEAR
+} SourceInterpolation;
+
 typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
 
 bool lovrAudioInit(const char* spatializer);
@@ -40,7 +45,7 @@ struct Sound* lovrAudioGetCaptureStream(void);
 
 // Source
 
-Source* lovrSourceCreate(struct Sound* sound, bool spatial);
+Source* lovrSourceCreate(struct Sound* sound, bool spatial, bool shared);
 Source* lovrSourceClone(Source* source);
 void lovrSourceDestroy(void* ref);
 bool lovrSourcePlay(Source* source);
@@ -55,12 +60,26 @@ double lovrSourceGetDuration(Source* source, TimeUnit units);
 double lovrSourceGetTime(Source* source, TimeUnit units);
 void lovrSourceSetTime(Source* source, double time, TimeUnit units);
 bool lovrSourceIsSpatial(Source* source);
+bool lovrSourceIsShared(Source* source);
+float lovrSourceGetSpatialBlend(Source* source);
+void lovrSourceSetSpatialBlend(Source* source, float blend);
+SourceInterpolation lovrSourceGetInterpolation(Source* source);
+void lovrSourceSetInterpolation(Source* source, SourceInterpolation interpolation);
 void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
+float lovrSourceGetRadius(Source* source);
+void lovrSourceSetRadius(Source* source, float radius);
 void lovrSourceGetDirectivity(Source* source, float* weight, float* power);
 void lovrSourceSetDirectivity(Source* source, float weight, float power);
 bool lovrSourceIsAbsorptionEnabled(Source* source);
 void lovrSourceSetAbsorptionEnabled(Source* source, bool enabled);
 bool lovrSourceIsFalloffEnabled(Source* source);
 void lovrSourceSetFalloffEnabled(Source* source, bool enabled);
+bool lovrSourceIsOcclusionEnabled(Source* source);
+void lovrSourceSetOcclusionEnabled(Source* source, bool enabled);
+bool lovrSourceIsReverbEnabled(Source* source);
+void lovrSourceSetReverbEnabled(Source* source, bool enabled);
+bool lovrSourceIsTransmissionEnabled(Source* source);
+void lovrSourceSetTransmissionEnabled(Source* source, bool enabled);
 intptr_t* lovrSourceGetSpatializerMemoField(Source* source);
+uint32_t lovrSourceGetIndex(Source* source);

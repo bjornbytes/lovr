@@ -90,8 +90,44 @@ static int l_lovrSourceSetTime(lua_State* L) {
 
 static int l_lovrSourceIsSpatial(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  lua_pushboolean(L, lovrSourceIsSpatial(source));
+  bool spatial = lovrSourceIsSpatial(source);
+  lua_pushboolean(L, spatial);
   return 1;
+}
+
+static int l_lovrSourceIsShared(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  bool shared = lovrSourceIsShared(source);
+  lua_pushboolean(L, shared);
+  return 1;
+}
+
+static int l_lovrSourceGetSpatialBlend(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float blend = lovrSourceGetSpatialBlend(source);
+  lua_pushnumber(L, blend);
+  return 1;
+}
+
+static int l_lovrSourceSetSpatialBlend(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float blend = luax_checkfloat(L, 2);
+  lovrSourceSetSpatialBlend(source, blend);
+  return 0;
+}
+
+static int l_lovrSourceGetInterpolation(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  SourceInterpolation interpolation = lovrSourceGetInterpolation(source);
+  luax_pushenum(L, SourceInterpolation, interpolation);
+  return 1;
+}
+
+static int l_lovrSourceSetInterpolation(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  SourceInterpolation interpolation = luax_checkenum(L, 2, SourceInterpolation, NULL);
+  lovrSourceSetInterpolation(source, interpolation);
+  return 0;
 }
 
 static int l_lovrSourceGetPose(lua_State* L) {
@@ -136,6 +172,20 @@ static int l_lovrSourceSetDirectivity(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSourceGetRadius(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float radius = lovrSourceGetRadius(source);
+  lua_pushnumber(L, radius);
+  return 1;
+}
+
+static int l_lovrSourceSetRadius(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float radius = luax_checkfloat(L, 2);
+  lovrSourceSetRadius(source, radius);
+  return 0;
+}
+
 static int l_lovrSourceIsAbsorptionEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   bool enabled = lovrSourceIsAbsorptionEnabled(source);
@@ -164,6 +214,48 @@ static int l_lovrSourceSetFalloffEnabled(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSourceIsOcclusionEnabled(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  bool enabled = lovrSourceIsOcclusionEnabled(source);
+  lua_pushboolean(L, enabled);
+  return 1;
+}
+
+static int l_lovrSourceSetOcclusionEnabled(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  bool enabled = lua_toboolean(L, 2);
+  lovrSourceSetOcclusionEnabled(source, enabled);
+  return 0;
+}
+
+static int l_lovrSourceIsReverbEnabled(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  bool enabled = lovrSourceIsReverbEnabled(source);
+  lua_pushboolean(L, enabled);
+  return 1;
+}
+
+static int l_lovrSourceSetReverbEnabled(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  bool enabled = lua_toboolean(L, 2);
+  lovrSourceSetReverbEnabled(source, enabled);
+  return 0;
+}
+
+static int l_lovrSourceIsTransmissionEnabled(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  bool enabled = lovrSourceIsTransmissionEnabled(source);
+  lua_pushboolean(L, enabled);
+  return 1;
+}
+
+static int l_lovrSourceSetTransmissionEnabled(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  bool enabled = lua_toboolean(L, 2);
+  lovrSourceSetTransmissionEnabled(source, enabled);
+  return 0;
+}
+
 const luaL_Reg lovrSource[] = {
   { "clone", l_lovrSourceClone },
   { "play", l_lovrSourcePlay },
@@ -178,13 +270,26 @@ const luaL_Reg lovrSource[] = {
   { "getTime", l_lovrSourceGetTime },
   { "setTime", l_lovrSourceSetTime },
   { "isSpatial", l_lovrSourceIsSpatial },
+  { "isShared", l_lovrSourceIsShared },
+  { "getSpatialBlend", l_lovrSourceGetSpatialBlend },
+  { "setSpatialBlend", l_lovrSourceSetSpatialBlend },
+  { "getInterpolation", l_lovrSourceGetInterpolation },
+  { "setInterpolation", l_lovrSourceSetInterpolation },
   { "getPose", l_lovrSourceGetPose },
   { "setPose", l_lovrSourceSetPose },
+  { "getRadius", l_lovrSourceGetRadius },
+  { "setRadius", l_lovrSourceSetRadius },
   { "getDirectivity", l_lovrSourceGetDirectivity },
   { "setDirectivity", l_lovrSourceSetDirectivity },
   { "isAbsorptionEnabled", l_lovrSourceIsAbsorptionEnabled },
   { "setAbsorptionEnabled", l_lovrSourceSetAbsorptionEnabled },
   { "isFalloffEnabled", l_lovrSourceIsFalloffEnabled },
   { "setFalloffEnabled", l_lovrSourceSetFalloffEnabled },
+  { "isOcclusionEnabled", l_lovrSourceIsOcclusionEnabled },
+  { "setOcclusionEnabled", l_lovrSourceSetOcclusionEnabled },
+  { "isReverbEnabled", l_lovrSourceIsReverbEnabled },
+  { "setReverbEnabled", l_lovrSourceSetReverbEnabled },
+  { "isTransmissionEnabled", l_lovrSourceIsTransmissionEnabled },
+  { "setTransmissionEnabled", l_lovrSourceSetTransmissionEnabled },
   { NULL, NULL }
 };
