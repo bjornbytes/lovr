@@ -92,6 +92,10 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
 }
 
 ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io) {
+  if (source->size < 7 || (memcmp(source->data, "v ", 2) && memcmp(source->data, "o ", 2) && memcmp(source->data, "mtllib ", 7) && memcmp(source->data, "#", 1))) {
+    return NULL;
+  }
+
   char* data = (char*) source->data;
   size_t size = source->size;
 
