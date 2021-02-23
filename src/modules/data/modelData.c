@@ -12,6 +12,8 @@ ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
     return model;
   } else if (lovrModelDataInitObj(model, source, io)) {
     return model;
+  } else if (lovrModelDataInitStl(model, source, io)) {
+    return model;
   }
 
   lovrThrow("Unable to load model from '%s'", source->name);

@@ -221,5 +221,6 @@ typedef void* ModelDataIO(const char* filename, size_t* bytesRead);
 ModelData* lovrModelDataCreate(struct Blob* blob, ModelDataIO* io);
 ModelData* lovrModelDataInitGltf(ModelData* model, struct Blob* blob, ModelDataIO* io);
 ModelData* lovrModelDataInitObj(ModelData* model, struct Blob* blob, ModelDataIO* io);
+ModelData* lovrModelDataInitStl(ModelData* model, struct Blob* blob, ModelDataIO* io);
 void lovrModelDataDestroy(void* ref);
 void lovrModelDataAllocate(ModelData* model);

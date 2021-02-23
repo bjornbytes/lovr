@@ -130,7 +130,8 @@ Model* lovrModelCreate(ModelData* data) {
     model->meshes = calloc(data->primitiveCount, sizeof(Mesh*));
     for (uint32_t i = 0; i < data->primitiveCount; i++) {
       ModelPrimitive* primitive = &data->primitives[i];
-      model->meshes[i] = lovrMeshCreate(primitive->mode, NULL, 0);
+      uint32_t vertexCount = primitive->attributes[ATTR_POSITION] ? primitive->attributes[ATTR_POSITION]->count : 0;
+      model->meshes[i] = lovrMeshCreate(primitive->mode, NULL, vertexCount);
 
       if (primitive->material != ~0u) {
         lovrMeshSetMaterial(model->meshes[i], model->materials[primitive->material]);
