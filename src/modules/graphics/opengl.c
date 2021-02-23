@@ -2624,9 +2624,9 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLengt
 #else
   const char* version = "#version 330\n";
   const char* computeExtensions = state.features.compute ?
-    "#extension GL_ARB_shader_storage_buffer_object : enable \n"
-    "#extension GL_ARB_shader_image_load_store : enable \n" :
-    NULL;
+    "#extension GL_ARB_shader_storage_buffer_object : enable\n"
+    "#extension GL_ARB_shader_image_load_store : enable\n" :
+    "";
 #endif
 
   const char* singlepass[2] = { "", "" };
