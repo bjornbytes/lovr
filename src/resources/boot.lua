@@ -36,7 +36,7 @@ local function nogame()
         }
         uv.x -= clamp(uv.x, -2., 0.);
         float sdf = -length(uv) * sign(uv.y) - .5;
-        float w = fwidth(sdf);
+        float w = fwidth(sdf) * .5;
         float alpha = smoothstep(.22 + w, .22 - w, sdf);
         vec3 color = mix(vec3(.094, .662, .890), vec3(.913, .275, .6), clamp(y * 1.5 - .25, 0., 1.));
         color = mix(color, vec3(.2, .2, .24), smoothstep(-.12 + w, -.12 - w, sdf));
