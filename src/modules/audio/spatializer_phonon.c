@@ -6,6 +6,7 @@
 
 #define MONO (IPLAudioFormat) { IPL_CHANNELLAYOUTTYPE_SPEAKERS, IPL_CHANNELLAYOUT_MONO, .channelOrder = IPL_CHANNELORDER_INTERLEAVED }
 #define STEREO (IPLAudioFormat) { IPL_CHANNELLAYOUTTYPE_SPEAKERS, IPL_CHANNELLAYOUT_STEREO, .channelOrder = IPL_CHANNELORDER_INTERLEAVED }
+#define AMBISONIC (IPLAudioFormat) { .channelLayoutType = IPL_CHANNELLAYOUTTYPE_AMBISONICS, .ambisonicsOrder = 1, .ambisonicsOrdering = IPL_AMBISONICSORDERING_ACN, .ambisonicsNormalization = IPL_AMBISONICSNORMALIZATION_N3D, .channelOrder = IPL_CHANNELORDER_DEINTERLEAVED }
 
 #ifdef _WIN32
 #include <windows.h>
@@ -48,9 +49,13 @@ typedef IPLerror fn_iplCreateBinauralEffect(IPLhandle renderer, IPLAudioFormat i
 typedef IPLvoid fn_iplDestroyBinauralEffect(IPLhandle* effect);
 typedef IPLvoid fn_iplApplyBinauralEffect(IPLhandle effect, IPLhandle binauralRenderer, IPLAudioBuffer inputAudio, IPLVector3 direction, IPLHrtfInterpolation interpolation, IPLfloat32 spatialBlend, IPLAudioBuffer outputAudio);
 typedef IPLvoid fn_iplFlushBinauralEffect(IPLhandle effect);
+typedef IPLerror fn_iplCreateAmbisonicsBinauralEffect(IPLhandle renderer, IPLAudioFormat inputFormat, IPLAudioFormat outputFormat, IPLhandle* effect);
+typedef IPLvoid fn_iplDestroyAmbisonicsBinauralEffect(IPLhandle* effect);
+typedef IPLvoid fn_iplApplyAmbisonicsBinauralEffect(IPLhandle effect, IPLhandle binauralRenderer, IPLAudioBuffer inputAudio, IPLAudioBuffer outputAudio);
 typedef IPLerror fn_iplCreateConvolutionEffect(IPLhandle renderer, IPLBakedDataIdentifier identifier, IPLSimulationType simulationType, IPLAudioFormat inputFormat, IPLAudioFormat outputFormat, IPLhandle* effect);
 typedef IPLvoid fn_iplDestroyConvolutionEffect(IPLhandle* effect);
 typedef IPLvoid fn_iplSetDryAudioForConvolutionEffect(IPLhandle effect, IPLSource source, IPLAudioBuffer dryAudio);
+typedef IPLvoid fn_iplGetWetAudioForConvolutionEffect(IPLhandle effect, IPLVector3 listenerPosition, IPLVector3 listenerAhead, IPLVector3 listenerUp, IPLAudioBuffer wetAudio);
 typedef IPLvoid fn_iplGetMixedEnvironmentalAudio(IPLhandle renderer, IPLVector3 listenerPosition, IPLVector3 listenerAhead, IPLVector3 listenerUp, IPLAudioBuffer mixedWetAudio);
 typedef IPLvoid fn_iplFlushConvolutionEffect(IPLhandle effect);
 
@@ -80,9 +85,13 @@ typedef IPLvoid fn_iplFlushConvolutionEffect(IPLhandle effect);
   X(iplDestroyBinauralEffect)\
   X(iplApplyBinauralEffect)\
   X(iplFlushBinauralEffect)\
+  X(iplCreateAmbisonicsBinauralEffect)\
+  X(iplDestroyAmbisonicsBinauralEffect)\
+  X(iplApplyAmbisonicsBinauralEffect)\
   X(iplCreateConvolutionEffect)\
   X(iplDestroyConvolutionEffect)\
   X(iplSetDryAudioForConvolutionEffect)\
+  X(iplGetWetAudioForConvolutionEffect)\
   X(iplGetMixedEnvironmentalAudio)\
   X(iplFlushConvolutionEffect)
 
@@ -96,6 +105,7 @@ static struct {
   IPLhandle environment;
   IPLhandle environmentalRenderer;
   IPLhandle binauralRenderer;
+  IPLhandle ambisonicsBinauralEffect;
   IPLhandle binauralEffect[MAX_SOURCES];
   IPLhandle directSoundEffect[MAX_SOURCES];
   IPLhandle convolutionEffect[MAX_SOURCES];
@@ -126,7 +136,7 @@ bool phonon_init(SpatializerConfig config) {
   state.renderingSettings.frameSize = config.fixedBufferSize;
   state.renderingSettings.convolutionType = IPL_CONVOLUTIONTYPE_PHONON;
 
-  state.scratchpad = malloc(config.fixedBufferSize * sizeof(float));
+  state.scratchpad = malloc(config.fixedBufferSize * 4 * sizeof(float));
   if (!state.scratchpad) return phonon_destroy(), false;
 
   IPLHrtfParams hrtfParams = {
@@ -134,6 +144,9 @@ bool phonon_init(SpatializerConfig config) {
   };
 
   status = phonon_iplCreateBinauralRenderer(state.context, state.renderingSettings, hrtfParams, &state.binauralRenderer);
+  if (status != IPL_STATUS_SUCCESS) return phonon_destroy(), false;
+
+  status = phonon_iplCreateAmbisonicsBinauralEffect(state.binauralRenderer, AMBISONIC, STEREO, &state.ambisonicsBinauralEffect);
   if (status != IPL_STATUS_SUCCESS) return phonon_destroy(), false;
 
   return true;
@@ -146,6 +159,7 @@ void phonon_destroy() {
     if (state.directSoundEffect[i]) phonon_iplDestroyDirectSoundEffect(&state.directSoundEffect[i]);
     if (state.convolutionEffect[i]) phonon_iplDestroyConvolutionEffect(&state.convolutionEffect[i]);
   }
+  if (state.ambisonicsBinauralEffect) phonon_iplDestroyAmbisonicsBinauralEffect(&state.ambisonicsBinauralEffect);
   if (state.binauralRenderer) phonon_iplDestroyBinauralRenderer(&state.binauralRenderer);
   if (state.environmentalRenderer) phonon_iplDestroyEnvironmentalRenderer(&state.environmentalRenderer);
   if (state.environment) phonon_iplDestroyEnvironment(&state.environment);
@@ -165,7 +179,6 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
   uint32_t index = lovrSourceGetIndex(source);
 
   float x[4], y[4], z[4];
-
   vec3_set(y, 0.f, 1.f, 0.f);
   vec3_set(z, 0.f, 0.f, -1.f);
   quat_rotate(state.listenerOrientation, y);
@@ -239,7 +252,32 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
 }
 
 uint32_t phonon_tail(float* scratch, float* output, uint32_t frames) {
-  return 0;
+  IPLAudioBuffer out = { .format = STEREO, .numSamples = frames, .interleavedBuffer = output };
+
+  IPLAudioBuffer tmp = {
+    .format = AMBISONIC,
+    .numSamples = frames,
+    .deinterleavedBuffer = (float*[4]) {
+      state.scratchpad + frames * 0,
+      state.scratchpad + frames * 1,
+      state.scratchpad + frames * 2,
+      state.scratchpad + frames * 3
+    }
+  };
+
+  float y[4], z[4];
+  vec3_set(y, 0.f, 1.f, 0.f);
+  vec3_set(z, 0.f, 0.f, -1.f);
+  quat_rotate(state.listenerOrientation, y);
+  quat_rotate(state.listenerOrientation, z);
+  IPLVector3 listener = { state.listenerPosition[0], state.listenerPosition[1], state.listenerPosition[2] };
+  IPLVector3 forward = { z[0], z[1], z[2] };
+  IPLVector3 up = { y[0], y[1], y[2] };
+
+  memset(state.scratchpad, 0, 4 * frames * sizeof(float));
+  phonon_iplGetMixedEnvironmentalAudio(state.environmentalRenderer, listener, forward, up, tmp);
+  phonon_iplApplyAmbisonicsBinauralEffect(state.ambisonicsBinauralEffect, state.binauralRenderer, tmp, out);
+  return frames;
 }
 
 void phonon_setListenerPose(float position[4], float orientation[4]) {
@@ -254,13 +292,13 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   if (state.environmentalRenderer) phonon_iplDestroyEnvironment(&state.environmentalRenderer);
 
   IPLMaterial material = (IPLMaterial) {
-    .lowFreqAbsorption = .1f,
-    .midFreqAbsorption = .2f,
-    .highFreqAbsorption = .3f,
+    .lowFreqAbsorption = .2f,
+    .midFreqAbsorption = .07f,
+    .highFreqAbsorption = .06f,
     .scattering = .05f,
-    .lowFreqTransmission = .1f,
-    .midFreqTransmission = .05f,
-    .highFreqTransmission = .03f
+    .lowFreqTransmission = .2f,
+    .midFreqTransmission = .025f,
+    .highFreqTransmission = .01f
   };
 
   IPLSimulationSettings settings = (IPLSimulationSettings) {
@@ -291,7 +329,7 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   status = phonon_iplCreateEnvironment(state.context, NULL, settings, state.scene, NULL, &state.environment);
   if (status != IPL_STATUS_SUCCESS) goto fail;
 
-  status = phonon_iplCreateEnvironmentalRenderer(state.context, state.environment, state.renderingSettings, STEREO, NULL, NULL, &state.environmentalRenderer);
+  status = phonon_iplCreateEnvironmentalRenderer(state.context, state.environment, state.renderingSettings, AMBISONIC, NULL, NULL, &state.environmentalRenderer);
   if (status != IPL_STATUS_SUCCESS) goto fail;
 
   free(materials);
@@ -304,7 +342,7 @@ fail:
   if (state.environment) phonon_iplDestroyEnvironment(&state.environment);
   if (state.environmentalRenderer) phonon_iplDestroyEnvironmentalRenderer(&state.environmentalRenderer);
   phonon_iplCreateEnvironment(state.context, NULL, settings, NULL, NULL, &state.environment);
-  phonon_iplCreateEnvironmentalRenderer(state.context, state.environment, state.renderingSettings, STEREO, NULL, NULL, &state.environmentalRenderer);
+  phonon_iplCreateEnvironmentalRenderer(state.context, state.environment, state.renderingSettings, AMBISONIC, NULL, NULL, &state.environmentalRenderer);
   return false;
 }
 
@@ -321,14 +359,7 @@ void phonon_sourceCreate(Source* source) {
 
   if (!state.convolutionEffect[index]) {
     IPLBakedDataIdentifier id = { 0 };
-    IPLAudioFormat ambisonic = (IPLAudioFormat) {
-      .channelLayoutType = IPL_CHANNELLAYOUTTYPE_AMBISONICS,
-      .ambisonicsOrder = 1,
-      .ambisonicsOrdering = IPL_AMBISONICSORDERING_FURSEMALHAM,
-      .ambisonicsNormalization = IPL_AMBISONICSNORMALIZATION_FURSEMALHAM,
-      .channelOrder = IPL_CHANNELORDER_INTERLEAVED
-    };
-    phonon_iplCreateConvolutionEffect(state.environmentalRenderer, id, IPL_SIMTYPE_REALTIME, MONO, ambisonic, &state.convolutionEffect[index]);
+    phonon_iplCreateConvolutionEffect(state.environmentalRenderer, id, IPL_SIMTYPE_REALTIME, MONO, AMBISONIC, &state.convolutionEffect[index]);
   }
 }
 
