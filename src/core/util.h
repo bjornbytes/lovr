@@ -14,13 +14,11 @@
 #define LOVR_THREAD_LOCAL __declspec(thread)
 #define LOVR_ALIGN(n) __declspec(align(n))
 #define LOVR_RESTRICT __restrict
-#define LOVR_CTZLL _tzcnt_u64
 #else
 #define LOVR_NORETURN __attribute__((noreturn))
 #define LOVR_THREAD_LOCAL __thread
 #define LOVR_ALIGN(n) __attribute__((aligned(n)))
 #define LOVR_RESTRICT restrict
-#define LOVR_CTZLL __builtin_ctzll
 #endif
 
 #ifndef M_PI

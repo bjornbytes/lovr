@@ -6,13 +6,19 @@
 #include "lib/miniaudio/miniaudio.h"
 #include <string.h>
 #include <stdlib.h>
+#ifdef _MSVC_VER
+#include <intrin.h>
+#define CTZL _tzcnt_u64
+#else
+#define CTZL __builtin_ctzl
+#endif
 
 static const ma_format miniaudioFormats[] = {
   [SAMPLE_I16] = ma_format_s16,
   [SAMPLE_F32] = ma_format_f32
 };
 
-#define FOREACH_SOURCE(s) for (uint64_t m = state.sourceMask; s = m ? state.sources[LOVR_CTZLL(m)] : NULL, m; m ^= (m & -m))
+#define FOREACH_SOURCE(s) for (uint64_t m = state.sourceMask; s = m ? state.sources[CTZL(m)] : NULL, m; m ^= (m & -m))
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2
 #define CAPTURE_CHANNELS 1
@@ -398,7 +404,7 @@ bool lovrSourcePlay(Source* source) {
 
   // If the source isn't tracked, set its index to the right-most zero bit in the mask
   if (source->index == ~0u) {
-    uint32_t index = state.sourceMask ? LOVR_CTZLL(~state.sourceMask) : 0;
+    uint32_t index = state.sourceMask ? CTZL(~state.sourceMask) : 0;
     state.sourceMask |= (1ull << index);
     state.sources[index] = source;
     source->index = index;
