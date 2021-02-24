@@ -332,6 +332,7 @@ Sound* lovrAudioGetCaptureStream() {
 // Source
 
 Source* lovrSourceCreate(Sound* sound, bool spatial) {
+  lovrAssert(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
   Source* source = calloc(1, sizeof(Source));
   lovrAssert(source, "Out of memory");
   source->ref = 1;
