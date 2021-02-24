@@ -6,6 +6,9 @@
 
 struct Blob;
 
+// Can pass as the maxFrames argument to lovrSoundCreateFromCallback
+#define LOVR_SOUND_ENDLESS 0xFFFFFFFF
+
 typedef enum {
   SAMPLE_F32,
   SAMPLE_I16
@@ -21,9 +24,6 @@ typedef struct Sound Sound;
 
 typedef uint32_t (SoundCallback)(Sound* sound, uint32_t offset, uint32_t count, void* data);
 typedef void (SoundDestroyCallback)(Sound* sound);
-
-// Can pass as the maxFrames argument to lovrSoundCreateFromCallback
-#define LOVR_SOUND_ENDLESS 0xFFFFFFFF
 
 Sound* lovrSoundCreateRaw(uint32_t frames, SampleFormat format, ChannelLayout channels, uint32_t sampleRate, struct Blob* data);
 Sound* lovrSoundCreateStream(uint32_t frames, SampleFormat format, ChannelLayout channels, uint32_t sampleRate);
