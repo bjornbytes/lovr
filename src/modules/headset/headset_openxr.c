@@ -52,22 +52,22 @@
 #define MAX_IMAGES 4
 
 #if defined(_WIN32)
-HANDLE lovrPlatformGetWin32Window(void);
-HGLRC lovrPlatformGetContext(void);
+HANDLE os_get_win32_window(void);
+HGLRC os_get_context(void);
 #elif defined(__ANDROID__)
-struct ANativeActivity* lovrPlatformGetActivity(void);
-EGLDisplay lovrPlatformGetEGLDisplay(void);
-EGLContext lovrPlatformGetEGLContext(void);
-EGLConfig lovrPlatformGetEGLConfig(void);
+struct ANativeActivity* os_get_activity(void);
+EGLDisplay os_get_egl_display(void);
+EGLContext os_get_egl_context(void);
+EGLConfig os_get_egl_config(void);
 #elif defined(LOVR_LINUX_X11)
-Display* lovrPlatformGetX11Display(void);
-GLXDrawable lovrPlatformGetGLXDrawable(void);
-GLXContext lovrPlatformGetGLXContext(void);
+Display* os_get_x11_display(void);
+GLXDrawable os_get_glx_drawable(void);
+GLXContext os_get_glx_context(void);
 #elif defined(LOVR_LINUX_EGL)
-PFNEGLGETPROCADDRESSPROC lovrPlatformGetEGLProcAddr(void);
-EGLDisplay lovrPlatformGetEGLDisplay(void);
-EGLContext lovrPlatformGetEGLContext(void);
-EGLConfig lovrPlatformGetEGLConfig(void);
+PFNEGLGETPROCADDRESSPROC os_get_egl_proc_addr(void);
+EGLDisplay os_get_egl_display(void);
+EGLContext os_get_egl_context(void);
+EGLConfig os_get_egl_config(void);
 #endif
 
 #define XR_FOREACH(X)\
@@ -178,7 +178,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
     return false;
   }
 
-  ANativeActivity* activity = lovrPlatformGetActivity();
+  ANativeActivity* activity = os_get_activity();
   XrLoaderInitInfoAndroidKHR loaderInfo = {
     .type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR,
     .applicationVM = activity->vm,
@@ -342,34 +342,34 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
 #if defined(_WIN32) && defined(LOVR_GL)
     XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {
       .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
-      .hDC = lovrPlatformGetWin32Window(),
-      .hGLRC = lovrPlatformGetContext()
+      .hDC = os_get_win32_window(),
+      .hGLRC = os_get_context()
     };
 #elif defined(__ANDROID__) && defined(LOVR_GLES)
     XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {
       .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
-      .display = lovrPlatformGetEGLDisplay(),
-      .config = lovrPlatformGetEGLConfig(),
-      .context = lovrPlatformGetEGLContext()
+      .display = os_get_egl_display(),
+      .config = os_get_egl_config(),
+      .context = os_get_egl_context()
     };
 #elif defined(LOVR_LINUX_X11)
     XrGraphicsBindingOpenGLXlibKHR graphicsBinding = {
       .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
       .next = NULL,
-      .xDisplay = lovrPlatformGetX11Display(),
+      .xDisplay = os_get_x11_display(),
       .visualid = 0,
       .glxFBConfig = 0,
-      .glxDrawable = lovrPlatformGetGLXDrawable(),
-      .glxContext = lovrPlatformGetGLXContext(),
+      .glxDrawable = os_get_glx_drawable(),
+      .glxContext = os_get_glx_context(),
     };
 #elif defined(LOVR_LINUX_EGL)
     XrGraphicsBindingEGLMNDX graphicsBinding = {
       .type = XR_TYPE_GRAPHICS_BINDING_EGL_MNDX,
       .next = NULL,
-      .getProcAddress = lovrPlatformGetEGLProcAddr(),
-      .display = lovrPlatformGetEGLDisplay(),
-      .config = lovrPlatformGetEGLConfig(),
-      .context = lovrPlatformGetEGLContext(),
+      .getProcAddress = os_get_egl_proc_addr(),
+      .display = os_get_egl_display(),
+      .config = os_get_egl_config(),
+      .context = os_get_egl_context(),
     };
 #else
 #error "Unsupported OpenXR platform/graphics combination"
@@ -509,7 +509,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
   state.clipFar = 100.f;
 
   state.frameState.type = XR_TYPE_FRAME_STATE;
-  lovrPlatformSetSwapInterval(0);
+  os_window_set_vsync(0);
 
   return true;
 }

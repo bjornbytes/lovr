@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include "core/os.h"
 
 #pragma once
 
@@ -16,11 +15,11 @@ typedef enum {
   EVENT_KEYPRESSED,
   EVENT_KEYRELEASED,
   EVENT_TEXTINPUT,
-  EVENT_CUSTOM,
 #ifndef LOVR_DISABLE_THREAD
   EVENT_THREAD_ERROR,
 #endif
   EVENT_PERMISSION,
+  EVENT_CUSTOM
 } EventType;
 
 typedef enum {
@@ -83,7 +82,7 @@ typedef struct {
 } CustomEvent;
 
 typedef struct {
-  Permission permission;
+  uint32_t permission;
   bool granted;
 } PermissionEvent;
 

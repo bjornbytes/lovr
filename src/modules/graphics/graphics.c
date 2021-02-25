@@ -218,19 +218,32 @@ void lovrGraphicsDestroy() {
 
 void lovrGraphicsPresent() {
   lovrGraphicsFlush();
-  lovrPlatformSwapBuffers();
+  os_window_swap();
   lovrGpuPresent();
 }
 
 void lovrGraphicsCreateWindow(WindowFlags* flags) {
-  flags->debug = state.debug;
+  os_window_config config = {
+    .width = flags->width,
+    .height = flags->height,
+    .fullscreen = flags->fullscreen,
+    .resizable = flags->resizable,
+    .debug = state.debug,
+    .vsync = flags->vsync,
+    .msaa = flags->msaa,
+    .title = flags->title,
+    .icon.data = flags->icon.data,
+    .icon.width = flags->icon.width,
+    .icon.height = flags->icon.height
+  };
+
   lovrAssert(!state.initialized, "Window is already created");
-  lovrAssert(lovrPlatformCreateWindow(flags), "Could not create window");
-  lovrPlatformSetSwapInterval(flags->vsync); // Force vsync in case lovr.headset changed it in a previous restart
-  lovrPlatformOnQuitRequest(onQuitRequest);
-  lovrPlatformOnWindowResize(onResizeWindow);
-  lovrPlatformGetFramebufferSize(&state.width, &state.height);
-  lovrGpuInit(lovrPlatformGetProcAddress, state.debug);
+  lovrAssert(os_window_open(&config), "Could not create window");
+  os_window_set_vsync(flags->vsync); // Force vsync in case lovr.headset changed it in a previous restart
+  os_on_quit(onQuitRequest);
+  os_on_resize(onResizeWindow);
+  os_window_get_fbsize(&state.width, &state.height);
+  lovrGpuInit(os_get_gl_proc_address, state.debug);
 
   state.defaultCanvas = lovrCanvasCreateFromHandle(state.width, state.height, (CanvasFlags) { .stereo = false }, 0, 0, 0, 1, true);
   state.backbuffer = state.defaultCanvas;
@@ -282,8 +295,8 @@ int lovrGraphicsGetHeight() {
 
 float lovrGraphicsGetPixelDensity() {
   int width, height, framebufferWidth, framebufferHeight;
-  lovrPlatformGetWindowSize(&width, &height);
-  lovrPlatformGetFramebufferSize(&framebufferWidth, &framebufferHeight);
+  os_window_get_size(&width, &height);
+  os_window_get_fbsize(&framebufferWidth, &framebufferHeight);
   if (width == 0 || framebufferWidth == 0) {
     return 0.f;
   } else {

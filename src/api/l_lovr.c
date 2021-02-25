@@ -1,5 +1,4 @@
 #include "api.h"
-#include "core/os.h"
 #include "core/util.h"
 
 const luaL_Reg lovrModules[] = {
@@ -28,6 +27,9 @@ const luaL_Reg lovrModules[] = {
 #ifndef LOVR_DISABLE_PHYSICS
   { "lovr.physics", luaopen_lovr_physics },
 #endif
+#ifndef LOVR_DISABLE_SYSTEM
+  { "lovr.system", luaopen_lovr_system },
+#endif
 #ifndef LOVR_DISABLE_THREAD
   { "lovr.thread", luaopen_lovr_thread },
 #endif
@@ -36,11 +38,6 @@ const luaL_Reg lovrModules[] = {
 #endif
   { NULL, NULL }
 };
-
-static int l_lovrGetOS(lua_State* L) {
-  lua_pushstring(L, lovrPlatformGetName());
-  return 1;
-}
 
 static int l_lovrGetVersion(lua_State* L) {
   lua_pushinteger(L, LOVR_VERSION_MAJOR);
@@ -51,7 +48,6 @@ static int l_lovrGetVersion(lua_State* L) {
 
 static const luaL_Reg lovr[] = {
   { "_setConf", luax_setconf },
-  { "getOS", l_lovrGetOS },
   { "getVersion", l_lovrGetVersion },
   { NULL, NULL }
 };

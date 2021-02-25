@@ -1,4 +1,4 @@
-#include "util.h"
+#include <stdio.h>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -26,16 +26,15 @@
 
 static struct {
   GLFWwindow* window;
-  quitCallback onQuitRequest;
-  windowFocusCallback onWindowFocus;
-  windowResizeCallback onWindowResize;
-  mouseButtonCallback onMouseButton;
-  keyboardCallback onKeyboardEvent;
-  textCallback onTextEvent;
+  fn_quit* onQuitRequest;
+  fn_focus* onWindowFocus;
+  fn_resize* onWindowResize;
+  fn_key* onKeyboardEvent;
+  fn_text* onTextEvent;
 } glfwState;
 
 static void onError(int code, const char* description) {
-  lovrThrow(description);
+  printf("GLFW error %d: %s\n", code, description);
 }
 
 static void onWindowClose(GLFWwindow* window) {
@@ -57,17 +56,9 @@ static void onWindowResize(GLFWwindow* window, int width, int height) {
   }
 }
 
-static void onMouseButton(GLFWwindow* window, int b, int a, int mods) {
-  if (glfwState.onMouseButton && (b == GLFW_MOUSE_BUTTON_LEFT || b == GLFW_MOUSE_BUTTON_RIGHT)) {
-    MouseButton button = (b == GLFW_MOUSE_BUTTON_LEFT) ? MOUSE_LEFT : MOUSE_RIGHT;
-    ButtonAction action = (a == GLFW_PRESS) ? BUTTON_PRESSED : BUTTON_RELEASED;
-    glfwState.onMouseButton(button, action);
-  }
-}
-
 static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int mods) {
   if (glfwState.onKeyboardEvent) {
-    KeyboardKey key;
+    os_key key;
     switch (k) {
       case GLFW_KEY_A: key = KEY_A; break;
       case GLFW_KEY_B: key = KEY_B; break;
@@ -161,7 +152,7 @@ static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int 
 
       default: return;
     }
-    ButtonAction action = (a == GLFW_RELEASE) ? BUTTON_RELEASED : BUTTON_PRESSED;
+    os_button_action action = (a == GLFW_RELEASE) ? BUTTON_RELEASED : BUTTON_PRESSED;
     bool repeat = (a == GLFW_REPEAT);
     glfwState.onKeyboardEvent(action, key, scancode, repeat);
   }
@@ -173,15 +164,15 @@ static void onTextEvent(GLFWwindow* window, unsigned int codepoint) {
   }
 }
 
-static int convertMouseButton(MouseButton button) {
+static int convertMouseButton(os_mouse_button button) {
   switch (button) {
     case MOUSE_LEFT: return GLFW_MOUSE_BUTTON_LEFT;
     case MOUSE_RIGHT: return GLFW_MOUSE_BUTTON_RIGHT;
-    default: lovrThrow("Unreachable");
+    default: return -1;
   }
 }
 
-static int convertKey(KeyboardKey key) {
+static int convertKey(os_key key) {
   switch (key) {
     case KEY_W: return GLFW_KEY_W;
     case KEY_A: return GLFW_KEY_A;
@@ -195,17 +186,17 @@ static int convertKey(KeyboardKey key) {
     case KEY_RIGHT: return GLFW_KEY_RIGHT;
     case KEY_ESCAPE: return GLFW_KEY_ESCAPE;
     case KEY_F5: return GLFW_KEY_F5;
-    default: lovrThrow("Unreachable");
+    default: return GLFW_KEY_UNKNOWN;
   }
 }
 
-void lovrPlatformPollEvents() {
+void os_poll_events() {
   if (glfwState.window) {
     glfwPollEvents();
   }
 }
 
-bool lovrPlatformCreateWindow(const WindowFlags* flags) {
+bool os_window_open(const os_window_config* config) {
   if (glfwState.window) {
     return true;
   }
@@ -226,37 +217,37 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-  glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, flags->debug);
+  glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, config->debug);
 #ifndef LOVR_LINUX_EGL
-  glfwWindowHint(GLFW_CONTEXT_NO_ERROR, !flags->debug);
+  glfwWindowHint(GLFW_CONTEXT_NO_ERROR, !config->debug);
 #endif
-  glfwWindowHint(GLFW_SAMPLES, flags->msaa);
-  glfwWindowHint(GLFW_RESIZABLE, flags->resizable);
+  glfwWindowHint(GLFW_SAMPLES, config->msaa);
+  glfwWindowHint(GLFW_RESIZABLE, config->resizable);
   glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
   const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-  uint32_t width = flags->width ? flags->width : (uint32_t) mode->width;
-  uint32_t height = flags->height ? flags->height : (uint32_t) mode->height;
+  uint32_t width = config->width ? config->width : (uint32_t) mode->width;
+  uint32_t height = config->height ? config->height : (uint32_t) mode->height;
 
-  if (flags->fullscreen) {
+  if (config->fullscreen) {
     glfwWindowHint(GLFW_RED_BITS, mode->redBits);
     glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
     glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
     glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
   }
 
-  glfwState.window = glfwCreateWindow(width, height, flags->title, flags->fullscreen ? monitor : NULL, NULL);
+  glfwState.window = glfwCreateWindow(width, height, config->title, config->fullscreen ? monitor : NULL, NULL);
 
   if (!glfwState.window) {
     return false;
   }
 
-  if (flags->icon.data) {
+  if (config->icon.data) {
     glfwSetWindowIcon(glfwState.window, 1, &(GLFWimage) {
-      .pixels = flags->icon.data,
-      .width = flags->icon.width,
-      .height = flags->icon.height
+      .pixels = config->icon.data,
+      .width = config->icon.width,
+      .height = config->icon.height
     });
   }
 
@@ -264,18 +255,17 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
   glfwSetWindowCloseCallback(glfwState.window, onWindowClose);
   glfwSetWindowFocusCallback(glfwState.window, onWindowFocus);
   glfwSetWindowSizeCallback(glfwState.window, onWindowResize);
-  glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
   glfwSetKeyCallback(glfwState.window, onKeyboardEvent);
   glfwSetCharCallback(glfwState.window, onTextEvent);
-  lovrPlatformSetSwapInterval(flags->vsync);
+  os_window_set_vsync(config->vsync);
   return true;
 }
 
-bool lovrPlatformHasWindow() {
+bool os_window_is_open() {
   return glfwState.window;
 }
 
-void lovrPlatformGetWindowSize(int* width, int* height) {
+void os_window_get_size(int* width, int* height) {
   if (glfwState.window) {
     glfwGetWindowSize(glfwState.window, width, height);
   } else {
@@ -284,7 +274,7 @@ void lovrPlatformGetWindowSize(int* width, int* height) {
   }
 }
 
-void lovrPlatformGetFramebufferSize(int* width, int* height) {
+void os_window_get_fbsize(int* width, int* height) {
   if (glfwState.window) {
     glfwGetFramebufferSize(glfwState.window, width, height);
   } else {
@@ -293,7 +283,7 @@ void lovrPlatformGetFramebufferSize(int* width, int* height) {
   }
 }
 
-void lovrPlatformSetSwapInterval(int interval) {
+void os_window_set_vsync(int interval) {
 #if EMSCRIPTEN
   glfwSwapInterval(1);
 #else
@@ -301,39 +291,35 @@ void lovrPlatformSetSwapInterval(int interval) {
 #endif
 }
 
-void lovrPlatformSwapBuffers() {
+void os_window_swap() {
   glfwSwapBuffers(glfwState.window);
 }
 
-os_proc lovrPlatformGetProcAddress(const char* function) {
-  return (os_proc) glfwGetProcAddress(function);
+fn_gl_proc* os_get_gl_proc_address(const char* function) {
+  return (fn_gl_proc*) glfwGetProcAddress(function);
 }
 
-void lovrPlatformOnQuitRequest(quitCallback callback) {
+void os_on_quit(fn_quit* callback) {
   glfwState.onQuitRequest = callback;
 }
 
-void lovrPlatformOnWindowFocus(windowFocusCallback callback) {
+void os_on_focus(fn_focus* callback) {
   glfwState.onWindowFocus = callback;
 }
 
-void lovrPlatformOnWindowResize(windowResizeCallback callback) {
+void os_on_resize(fn_resize* callback) {
   glfwState.onWindowResize = callback;
 }
 
-void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
-  glfwState.onMouseButton = callback;
-}
-
-void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
+void os_on_key(fn_key* callback) {
   glfwState.onKeyboardEvent = callback;
 }
 
-void lovrPlatformOnTextEvent(textCallback callback) {
+void os_on_text(fn_text* callback) {
   glfwState.onTextEvent = callback;
 }
 
-void lovrPlatformGetMousePosition(double* x, double* y) {
+void os_get_mouse_position(double* x, double* y) {
   if (glfwState.window) {
     glfwGetCursorPos(glfwState.window, x, y);
   } else {
@@ -341,51 +327,47 @@ void lovrPlatformGetMousePosition(double* x, double* y) {
   }
 }
 
-void lovrPlatformSetMouseMode(MouseMode mode) {
+void os_set_mouse_mode(os_mouse_mode mode) {
   if (glfwState.window) {
     int m = (mode == MOUSE_MODE_GRABBED) ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
     glfwSetInputMode(glfwState.window, GLFW_CURSOR, m);
   }
 }
 
-bool lovrPlatformIsMouseDown(MouseButton button) {
+bool os_is_mouse_down(os_mouse_button button) {
   return glfwState.window ? glfwGetMouseButton(glfwState.window, convertMouseButton(button)) == GLFW_PRESS : false;
 }
 
-bool lovrPlatformIsKeyDown(KeyboardKey key) {
+bool os_is_key_down(os_key key) {
   return glfwState.window ? glfwGetKey(glfwState.window, convertKey(key)) == GLFW_PRESS : false;
 }
 
 #ifdef _WIN32
-HANDLE lovrPlatformGetWin32Window() {
+HANDLE os_get_win32_window() {
   return (HANDLE) glfwGetWin32Window(glfwState.window);
 }
 
-HGLRC lovrPlatformGetContext() {
+HGLRC os_get_context() {
   return glfwGetWGLContext(glfwState.window);
 }
 #endif
 
 #ifdef LOVR_LINUX_EGL
-PFNEGLGETPROCADDRESSPROC lovrPlatformGetEGLProcAddr(void)
-{
-  return (PFNEGLGETPROCADDRESSPROC)glfwGetProcAddress;
+PFNEGLGETPROCADDRESSPROC os_get_egl_proc_addr() {
+  return (PFNEGLGETPROCADDRESSPROC) glfwGetProcAddress;
 }
 
-EGLDisplay lovrPlatformGetEGLDisplay(void)
-{
+EGLDisplay os_get_egl_display() {
   return glfwGetEGLDisplay();
 }
 
-EGLContext lovrPlatformGetEGLContext(void)
-{
+EGLContext os_get_egl_context() {
   return glfwGetEGLContext(glfwState.window);
 }
 
-EGLConfig lovrPlatformGetEGLConfig(void)
-{
-  EGLDisplay dpy = lovrPlatformGetEGLDisplay();
-  EGLContext ctx = lovrPlatformGetEGLContext();
+EGLConfig os_get_egl_config() {
+  EGLDisplay dpy = os_get_egl_display();
+  EGLContext ctx = os_get_egl_context();
   EGLint cfg_id = -1;
   EGLint num_cfgs = -1;
   EGLConfig cfg = NULL;
@@ -403,18 +385,15 @@ EGLConfig lovrPlatformGetEGLConfig(void)
 #endif
 
 #ifdef LOVR_LINUX_X11
-Display* lovrPlatformGetX11Display(void)
-{
+Display* os_get_x11_display() {
   return glfwGetX11Display();
 }
 
-GLXDrawable lovrPlatformGetGLXDrawable(void)
-{
+GLXDrawable os_get_glx_drawable() {
   return glfwGetGLXWindow(glfwState.window);
 }
 
-GLXContext lovrPlatformGetGLXContext(void)
-{
+GLXContext os_get_glx_context() {
   return glfwGetGLXContext(glfwState.window);
 }
 #endif

@@ -25,18 +25,17 @@ static Variant cookie;
 
 int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
-    lovrPlatformOpenConsole();
+    os_open_console();
     printf("LOVR %d.%d.%d (%s)\n", LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH, LOVR_VERSION_ALIAS);
     exit(0);
   }
 
-  lovrAssert(lovrPlatformInit(), "Failed to initialize platform");
+  lovrAssert(os_init(), "Failed to initialize platform");
 
   int status;
   bool restart;
 
   do {
-    lovrPlatformSetTime(0.);
     lua_State* L = luaL_newstate();
     luax_setmainthread(L);
     luaL_openlibs(L);
@@ -51,7 +50,7 @@ int main(int argc, char** argv) {
     int argOffset = 1;
     for (int i = 1; i < argc; i++, argOffset++) {
       if (!strcmp(argv[i], "--console")) {
-        lovrPlatformOpenConsole();
+        os_open_console();
       } else {
         break; // This is the project path
       }
@@ -89,7 +88,7 @@ int main(int argc, char** argv) {
 #endif
 
     while (luax_resume(T, 0) == LUA_YIELD) {
-      lovrPlatformSleep(0.);
+      os_sleep(0.);
     }
 
     restart = lua_type(T, 1) == LUA_TSTRING && !strcmp(lua_tostring(T, 1), "restart");
@@ -102,7 +101,7 @@ int main(int argc, char** argv) {
     lua_close(L);
   } while (restart);
 
-  lovrPlatformDestroy();
+  os_destroy();
 
   return status;
 }
@@ -115,7 +114,7 @@ void lovrDestroy(void* arg) {
     lua_State* L = context->L;
     emscripten_cancel_main_loop();
     lua_close(L);
-    lovrPlatformDestroy();
+    os_destroy();
   }
 }
 
@@ -138,7 +137,7 @@ static void emscriptenLoop(void* arg) {
     if (restart) {
       main(context->argc, context->argv);
     } else {
-      lovrPlatformDestroy();
+      os_destroy();
       exit(status);
     }
   }

@@ -20,12 +20,12 @@
 #define VRAPI_DEVICE_TYPE_OCULUSGO 64
 
 // Private platform functions
-JNIEnv* lovrPlatformGetJNI(void);
-struct ANativeActivity* lovrPlatformGetActivity(void);
-int lovrPlatformGetActivityState(void);
-ANativeWindow* lovrPlatformGetNativeWindow(void);
-EGLDisplay lovrPlatformGetEGLDisplay(void);
-EGLContext lovrPlatformGetEGLContext(void);
+JNIEnv* os_get_jni(void);
+struct ANativeActivity* os_get_activity(void);
+int os_get_activity_state(void);
+ANativeWindow* os_get_native_window(void);
+EGLDisplay os_get_egl_display(void);
+EGLContext os_get_egl_context(void);
 
 static struct {
   ovrJava java;
@@ -54,8 +54,8 @@ static struct {
 } state;
 
 static bool vrapi_init(float supersample, float offset, uint32_t msaa) {
-  ANativeActivity* activity = lovrPlatformGetActivity();
-  JNIEnv* jni = lovrPlatformGetJNI();
+  ANativeActivity* activity = os_get_activity();
+  JNIEnv* jni = os_get_jni();
   state.java.Vm = activity->vm;
   state.java.ActivityObject = activity->clazz;
   state.java.Env = jni;
@@ -732,8 +732,8 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
 }
 
 static void vrapi_update(float dt) {
-  int appState = lovrPlatformGetActivityState();
-  ANativeWindow* window = lovrPlatformGetNativeWindow();
+  int appState = os_get_activity_state();
+  ANativeWindow* window = os_get_native_window();
 
   // Session
   if (!state.session && appState == APP_CMD_RESUME && window) {
@@ -741,8 +741,8 @@ static void vrapi_update(float dt) {
     config.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
     config.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
     config.Flags |= VRAPI_MODE_FLAG_FRONT_BUFFER_SRGB;
-    config.Display = (size_t) lovrPlatformGetEGLDisplay();
-    config.ShareContext = (size_t) lovrPlatformGetEGLContext();
+    config.Display = (size_t) os_get_egl_dispay();
+    config.ShareContext = (size_t) os_get_egl_context();
     config.WindowSurface = (size_t) window;
     state.session = vrapi_EnterVrMode(&config);
     state.frameIndex = 0;

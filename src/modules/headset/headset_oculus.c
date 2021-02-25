@@ -351,7 +351,7 @@ static void oculus_renderTo(void (*callback)(void*), void* userdata) {
     CanvasFlags flags = { .depth = { .enabled = true, .format = FORMAT_D24S8 }, .stereo = true };
     state.canvas = lovrCanvasCreate(state.size.w, state.size.h, flags);
 
-    lovrPlatformSetSwapInterval(0);
+    os_window_set_vsync(0);
   }
 
   ovrPosef EyeRenderPose[2];

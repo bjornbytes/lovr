@@ -4,6 +4,7 @@
 
 static struct {
   bool initialized;
+  double epoch;
   double lastTime;
   double time;
   double dt;
@@ -14,8 +15,9 @@ static struct {
 
 bool lovrTimerInit() {
   if (state.initialized) return false;
-  lovrTimerDestroy();
-  return state.initialized = true;
+  state.initialized = true;
+  state.epoch = os_get_time();
+  return true;
 }
 
 void lovrTimerDestroy() {
@@ -28,12 +30,12 @@ double lovrTimerGetDelta() {
 }
 
 double lovrTimerGetTime() {
-  return lovrPlatformGetTime();
+  return os_get_time() - state.epoch;
 }
 
 double lovrTimerStep() {
   state.lastTime = state.time;
-  state.time = lovrPlatformGetTime();
+  state.time = os_get_time();
   state.dt = state.time - state.lastTime;
   state.tickSum -= state.tickBuffer[state.tickIndex];
   state.tickSum += state.dt;
@@ -53,5 +55,5 @@ int lovrTimerGetFPS() {
 }
 
 void lovrTimerSleep(double seconds) {
-  lovrPlatformSleep(seconds);
+  os_sleep(seconds);
 }

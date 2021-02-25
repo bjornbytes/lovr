@@ -118,7 +118,7 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
 
   // First, try to mount a bundled archive
   const char* root = NULL;
-  if (lovrPlatformGetBundlePath(state.source, LOVR_PATH_MAX, &root) && lovrFilesystemMount(state.source, NULL, true, root)) {
+  if (os_get_bundle_path(state.source, LOVR_PATH_MAX, &root) && lovrFilesystemMount(state.source, NULL, true, root)) {
     state.fused = true;
     return true;
   }
@@ -285,7 +285,7 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   }
 
   // Initialize the save path to the data path
-  size_t cursor = lovrPlatformGetDataDirectory(state.savePath, sizeof(state.savePath));
+  size_t cursor = os_get_data_directory(state.savePath, sizeof(state.savePath));
 
   // If the data path was too long or unavailable, fail
   if (cursor == 0) {
@@ -389,19 +389,19 @@ size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, b
 // Paths
 
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
-  return lovrPlatformGetDataDirectory(buffer, size);
+  return os_get_data_directory(buffer, size);
 }
 
 size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size) {
-  return lovrPlatformGetExecutablePath(buffer, size);
+  return os_get_executable_path(buffer, size);
 }
 
 size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size) {
-  return lovrPlatformGetHomeDirectory(buffer, size);
+  return os_get_home_directory(buffer, size);
 }
 
 size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size) {
-  return lovrPlatformGetWorkingDirectory(buffer, size);
+  return os_get_working_directory(buffer, size);
 }
 
 const char* lovrFilesystemGetRequirePath() {

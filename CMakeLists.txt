@@ -11,6 +11,7 @@ option(LOVR_ENABLE_GRAPHICS "Enable the graphics module" ON)
 option(LOVR_ENABLE_HEADSET "Enable the headset module" ON)
 option(LOVR_ENABLE_MATH "Enable the math module" ON)
 option(LOVR_ENABLE_PHYSICS "Enable the physics module" ON)
+option(LOVR_ENABLE_SYSTEM "Enable the system module" ON)
 option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
@@ -504,6 +505,15 @@ if(LOVR_ENABLE_PHYSICS)
   )
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_PHYSICS)
+endif()
+
+if(LOVR_ENABLE_SYSTEM)
+  target_sources(lovr PRIVATE
+    src/modules/system/system.c
+    src/api/l_system.c
+  )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_SYSTEM)
 endif()
 
 if(LOVR_ENABLE_THREAD)

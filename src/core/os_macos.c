@@ -10,38 +10,32 @@
 
 #include "os_glfw.h"
 
-static uint64_t epoch;
 static uint64_t frequency;
 
-static uint64_t getTime() {
-  return mach_absolute_time();
-}
-
-bool lovrPlatformInit() {
+bool os_init() {
   mach_timebase_info_data_t info;
   mach_timebase_info(&info);
   frequency = (info.denom * 1e9) / info.numer;
-  epoch = getTime();
   return true;
 }
 
-void lovrPlatformDestroy() {
+void os_destroy() {
   glfwTerminate();
 }
 
-const char* lovrPlatformGetName() {
+const char* os_get_name() {
   return "macOS";
 }
 
-double lovrPlatformGetTime() {
-  return (getTime() - epoch) / (double) frequency;
+void os_open_console() {
+  //
 }
 
-void lovrPlatformSetTime(double t) {
-  epoch = getTime() - (uint64_t) (t * frequency + .5);
+double os_get_time() {
+  return mach_absolute_time() / (double) frequency;
 }
 
-void lovrPlatformSleep(double seconds) {
+void os_sleep(double seconds) {
   seconds += .5e-9;
   struct timespec t;
   t.tv_sec = seconds;
@@ -49,11 +43,15 @@ void lovrPlatformSleep(double seconds) {
   while (nanosleep(&t, &t));
 }
 
-void lovrPlatformOpenConsole() {
+void os_request_permission(os_permission permission) {
   //
 }
 
-size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+void os_on_permission(fn_permission* callback) {
+  //
+}
+
+size_t os_get_home_directory(char* buffer, size_t size) {
   const char* path = getenv("HOME");
 
   if (!path) {
@@ -71,8 +69,8 @@ size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
   return length;
 }
 
-size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
-  size_t cursor = lovrPlatformGetHomeDirectory(buffer, size);
+size_t os_get_data_directory(char* buffer, size_t size) {
+  size_t cursor = os_get_home_directory(buffer, size);
 
   if (cursor > 0) {
     buffer += cursor;
@@ -89,16 +87,16 @@ size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+size_t os_get_working_directory(char* buffer, size_t size) {
   return getcwd(buffer, size) ? strlen(buffer) : 0;
 }
 
-size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+size_t os_get_executable_path(char* buffer, size_t size) {
   uint32_t size32 = size;
   return _NSGetExecutablePath(buffer, &size32) ? 0 : size32;
 }
 
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
+size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   id extension = ((id(*)(Class, SEL, char*)) objc_msgSend)(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
   id bundle = ((id(*)(Class, SEL)) objc_msgSend)(objc_getClass("NSBundle"), sel_registerName("mainBundle"));
   id path = ((id(*)(id, SEL, char*, id)) objc_msgSend)(bundle, sel_registerName("pathForResource:ofType:"), nil, extension);
@@ -120,12 +118,4 @@ size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
   buffer[length] = '\0';
   *root = NULL;
   return length;
-}
-
-void lovrPlatformRequestPermission(Permission permission) {
-  //
-}
-
-void lovrPlatformOnPermissionEvent(permissionCallback callback) {
-  //
 }

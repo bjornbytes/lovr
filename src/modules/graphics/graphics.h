@@ -13,7 +13,6 @@ struct Material;
 struct Mesh;
 struct Shader;
 struct Texture;
-struct WindowFlags;
 
 typedef void (*StencilCallback)(void* userdata);
 
@@ -83,11 +82,27 @@ typedef struct {
   unsigned wireframe : 1;
 } Pipeline;
 
+typedef struct {
+  uint32_t width;
+  uint32_t height;
+  bool fullscreen;
+  bool resizable;
+  bool debug;
+  int vsync;
+  int msaa;
+  const char* title;
+  struct {
+    void* data;
+    uint32_t width;
+    uint32_t height;
+  } icon;
+} WindowFlags;
+
 // Base
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsPresent(void);
-void lovrGraphicsCreateWindow(struct WindowFlags* flags);
+void lovrGraphicsCreateWindow(WindowFlags* flags);
 int lovrGraphicsGetWidth(void);
 int lovrGraphicsGetHeight(void);
 float lovrGraphicsGetPixelDensity(void);

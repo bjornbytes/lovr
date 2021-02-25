@@ -10,21 +10,19 @@
 
 static struct {
   EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context;
-  quitCallback onQuitRequest;
-  windowFocusCallback onWindowFocus;
-  windowResizeCallback onWindowResize;
-  mouseButtonCallback onMouseButton;
-  keyboardCallback onKeyboardEvent;
+  fn_quit* onQuitRequest;
+  fn_focus* onWindowFocus;
+  fn_resize* onWindowResize;
+  fn_key* onKeyboardEvent;
   bool keyMap[KEY_COUNT];
   bool mouseMap[2];
-  MouseMode mouseMode;
+  os_mouse_mode mouseMode;
   long mouseX;
   long mouseY;
   int width;
   int height;
   int framebufferWidth;
   int framebufferHeight;
-  double epoch;
 } state;
 
 static const char* onBeforeUnload(int type, const void* unused, void* userdata) {
@@ -59,24 +57,6 @@ static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata)
   return false;
 }
 
-static EM_BOOL onMouseButton(int type, const EmscriptenMouseEvent* data, void* userdata) {
-  MouseButton button;
-  switch (data->button) {
-    case 0: button = MOUSE_LEFT; break;
-    case 2: button = MOUSE_RIGHT; break;
-    default: return false;
-  }
-
-  ButtonAction action = type == EMSCRIPTEN_EVENT_MOUSEDOWN ? BUTTON_PRESSED : BUTTON_RELEASED;
-  state.mouseMap[button] = action == BUTTON_PRESSED;
-
-  if (state.onMouseButton) {
-    state.onMouseButton(button, action);
-  }
-
-  return false;
-}
-
 static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* userdata) {
   if (state.mouseMode == MOUSE_MODE_GRABBED) {
     state.mouseX += data->movementX;
@@ -89,7 +69,7 @@ static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* use
 }
 
 static EM_BOOL onKeyEvent(int type, const EmscriptenKeyboardEvent* data, void* userdata) {
-  KeyboardKey key;
+  os_key key;
   DOM_PK_CODE_TYPE scancode = emscripten_compute_dom_pk_code(data->code);
   switch (scancode) {
     case DOM_PK_ESCAPE: key = KEY_ESCAPE; break;
@@ -189,13 +169,11 @@ static EM_BOOL onKeyEvent(int type, const EmscriptenKeyboardEvent* data, void* u
   return false;
 }
 
-bool lovrPlatformInit() {
+bool os_init() {
   emscripten_set_beforeunload_callback(NULL, onBeforeUnload);
   emscripten_set_focus_callback(CANVAS, NULL, true, onFocusChanged);
   emscripten_set_blur_callback(CANVAS, NULL, true, onFocusChanged);
   emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, true, onResize);
-  emscripten_set_mousedown_callback(CANVAS, NULL, true, onMouseButton);
-  emscripten_set_mouseup_callback(CANVAS, NULL, true, onMouseButton);
   emscripten_set_mousemove_callback(CANVAS, NULL, true, onMouseMove);
   emscripten_set_keydown_callback(CANVAS, NULL, true, onKeyEvent);
   emscripten_set_keyup_callback(CANVAS, NULL, true, onKeyEvent);
@@ -203,7 +181,7 @@ bool lovrPlatformInit() {
   return true;
 }
 
-void lovrPlatformDestroy() {
+void os_destroy() {
   emscripten_set_beforeunload_callback(NULL, NULL);
   emscripten_set_focus_callback(CANVAS, NULL, true, NULL);
   emscripten_set_blur_callback(CANVAS, NULL, true, NULL);
@@ -215,31 +193,35 @@ void lovrPlatformDestroy() {
   emscripten_set_keyup_callback(CANVAS, NULL, true, NULL);
 }
 
-const char* lovrPlatformGetName() {
+const char* os_get_name() {
   return "Web";
 }
 
-double lovrPlatformGetTime() {
-  return (emscripten_get_now() - state.epoch) / 1000.;
+void os_open_console() {
+  //
 }
 
-void lovrPlatformSetTime(double t) {
-  state.epoch = emscripten_get_now() - (t * 1000.);
+double os_get_time() {
+  return emscripten_get_now() / 1000.;
 }
 
-void lovrPlatformSleep(double seconds) {
+void os_sleep(double seconds) {
   emscripten_sleep((unsigned int) (seconds * 1000. + .5));
 }
 
-void lovrPlatformOpenConsole() {
+void os_request_permission(os_permission permission) {
   //
 }
 
-void lovrPlatformPollEvents() {
+void os_poll_events() {
   //
 }
 
-size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+void os_on_permission(fn_permission* callback) {
+  //
+}
+
+size_t os_get_home_directory(char* buffer, size_t size) {
   const char* path = getenv("HOME");
   size_t length = strlen(path);
   if (length >= size) { return 0; }
@@ -248,7 +230,7 @@ size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
   return length;
 }
 
-size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+size_t os_get_data_directory(char* buffer, size_t size) {
   const char* path = "/home/web_user";
   size_t length = strlen(path);
   if (length >= size) { return 0; }
@@ -257,20 +239,20 @@ size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
   return length;
 }
 
-size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+size_t os_get_working_directory(char* buffer, size_t size) {
   return getcwd(buffer, size) ? strlen(buffer) : 0;
 }
 
-size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+size_t os_get_executable_path(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
+size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   *root = NULL;
   return 0;
 }
 
-bool lovrPlatformCreateWindow(const WindowFlags* flags) {
+bool os_window_open(const WindowFlags* flags) {
   if (state.context) {
     return true;
   }
@@ -296,63 +278,59 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
   return true;
 }
 
-bool lovrPlatformHasWindow() {
+bool os_window_is_open() {
   return state.context > 0;
 }
 
-void lovrPlatformGetWindowSize(int* width, int* height) {
+void os_window_get_size(int* width, int* height) {
   *width = state.width;
   *height = state.height;
 }
 
-void lovrPlatformGetFramebufferSize(int* width, int* height) {
+void os_window_get_fbsize(int* width, int* height) {
   *width = state.framebufferWidth;
   *height = state.framebufferHeight;
 }
 
-void lovrPlatformSetSwapInterval(int interval) {
+void os_window_set_vsync(int interval) {
   //
 }
 
-void lovrPlatformSwapBuffers() {
+void os_window_swap() {
   //
 }
 
-void* lovrPlatformGetProcAddress(const char* function) {
+void* os_get_gl_proc_address(const char* function) {
   emscripten_webgl_enable_extension(state.context, function);
   return NULL;
 }
 
-void lovrPlatformOnQuitRequest(quitCallback callback) {
+void os_on_quit(fn_quit* callback) {
   state.onQuitRequest = callback;
 }
 
-void lovrPlatformOnWindowFocus(windowFocusCallback callback) {
+void os_on_focus(fn_focus* callback) {
   state.onWindowFocus = callback;
 }
 
-void lovrPlatformOnWindowResize(windowResizeCallback callback) {
+void os_on_resize(fn_resize* callback) {
   state.onWindowResize = callback;
 }
 
-void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
-  state.onMouseButton = callback;
-}
-
-void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
+void os_on_key(fn_key* callback) {
   state.onKeyboardEvent = callback;
 }
 
-void lovrPlatformOnTextEvent(textCallback callback) {
+void os_on_text(fn_text* callback) {
   //
 }
 
-void lovrPlatformGetMousePosition(double* x, double* y) {
+void os_get_mouse_position(double* x, double* y) {
   *x = state.mouseX;
   *y = state.mouseY;
 }
 
-void lovrPlatformSetMouseMode(MouseMode mode) {
+void os_set_mouse_mode(os_mouse_mode mode) {
   if (state.mouseMode != mode) {
     state.mouseMode = mode;
     if (mode == MOUSE_MODE_GRABBED) {
@@ -363,18 +341,10 @@ void lovrPlatformSetMouseMode(MouseMode mode) {
   }
 }
 
-bool lovrPlatformIsMouseDown(MouseButton button) {
+bool os_is_mouse_down(os_mouse_button button) {
   return state.mouseMap[button];
 }
 
-bool lovrPlatformIsKeyDown(KeyboardKey key) {
+bool os_is_key_down(os_key key) {
   return state.keyMap[key];
-}
-
-void lovrPlatformRequestPermission(Permission permission) {
-  //
-}
-
-void lovrPlatformOnPermissionEvent(permissionCallback callback) {
-  //
 }

@@ -7,44 +7,24 @@
 
 #include "os_glfw.h"
 
-static uint64_t epoch;
 static uint64_t frequency;
 
-static uint64_t getTime() {
-  LARGE_INTEGER t;
-  QueryPerformanceCounter(&t);
-  return t.QuadPart;
-}
-
-bool lovrPlatformInit() {
+bool os_init() {
   LARGE_INTEGER f;
   QueryPerformanceFrequency(&f);
   frequency = f.QuadPart;
-  epoch = getTime();
   return true;
 }
 
-void lovrPlatformDestroy() {
+void os_destroy() {
   glfwTerminate();
 }
 
-const char* lovrPlatformGetName() {
+const char* os_get_name() {
   return "Windows";
 }
 
-double lovrPlatformGetTime() {
-  return (getTime() - epoch) / (double) frequency;
-}
-
-void lovrPlatformSetTime(double t) {
-  epoch = getTime() - (uint64_t) (t * frequency + .5);
-}
-
-void lovrPlatformSleep(double seconds) {
-  Sleep((unsigned int) (seconds * 1000));
-}
-
-void lovrPlatformOpenConsole() {
+void os_open_console() {
   if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
     if (GetLastError() != ERROR_ACCESS_DENIED) {
       if (!AllocConsole()) {
@@ -58,7 +38,25 @@ void lovrPlatformOpenConsole() {
   freopen("CONOUT$", "w", stderr);
 }
 
-size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+double os_get_time() {
+  LARGE_INTEGER t;
+  QueryPerformanceCounter(&t);
+  return t.QuadPart / (double) frequency;
+}
+
+void os_sleep(double seconds) {
+  Sleep((unsigned int) (seconds * 1000));
+}
+
+void os_request_permission(os_permission permission) {
+  //
+}
+
+void os_on_permission(fn_permission* callback) {
+  //
+}
+
+size_t os_get_home_directory(char* buffer, size_t size) {
   PWSTR wpath = NULL;
   if (SHGetKnownFolderPath(&FOLDERID_Profile, 0, NULL, &wpath) == S_OK) {
     size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, (int) size, NULL, NULL) - 1;
@@ -68,7 +66,7 @@ size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+size_t os_get_data_directory(char* buffer, size_t size) {
   PWSTR wpath = NULL;
   if (SHGetKnownFolderPath(&FOLDERID_RoamingAppData, 0, NULL, &wpath) == S_OK) {
     size_t bytes = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, buffer, (int) size, NULL, NULL) - 1;
@@ -78,7 +76,7 @@ size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+size_t os_get_working_directory(char* buffer, size_t size) {
   WCHAR wpath[1024];
   int length = GetCurrentDirectoryW((int) size, wpath);
   if (length) {
@@ -87,7 +85,7 @@ size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+size_t os_get_executable_path(char* buffer, size_t size) {
   WCHAR wpath[1024];
   DWORD length = GetModuleFileNameW(NULL, wpath, 1024);
   if (length < 1024) {
@@ -96,15 +94,7 @@ size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
+size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   *root = NULL;
-  return lovrPlatformGetExecutablePath(buffer, size);
-}
-
-void lovrPlatformRequestPermission(Permission permission) {
-  //
-}
-
-void lovrPlatformOnPermissionEvent(permissionCallback callback) {
-  //
+  return os_get_executable_path(buffer, size);
 }

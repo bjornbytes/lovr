@@ -401,7 +401,7 @@ static int l_lovrGraphicsGetPixelDensity(lua_State* L) {
 }
 
 static int l_lovrGraphicsHasWindow(lua_State *L) {
-  bool window = lovrPlatformHasWindow();
+  bool window = os_window_is_open();
   lua_pushboolean(L, window);
   return 1;
 }

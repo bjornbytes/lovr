@@ -311,7 +311,7 @@ static double openvr_getDisplayTime(void) {
   float frameDuration = 1.f / frequency;
   float vsyncToPhotons = state.system->GetFloatTrackedDeviceProperty(HEADSET, ETrackedDeviceProperty_Prop_SecondsFromVsyncToPhotons_Float, NULL);
 
-  return lovrPlatformGetTime() + (double) (frameDuration - secondsSinceVsync + vsyncToPhotons);
+  return os_get_time() + (double) (frameDuration - secondsSinceVsync + vsyncToPhotons);
 }
 
 static uint32_t openvr_getViewCount(void) {
@@ -542,14 +542,14 @@ static bool openvr_vibrate(Device device, float strength, float duration, float 
 static bool loadRenderModel(char* name, RenderModel_t** model, RenderModel_TextureMap_t** texture) {
   loadModel:
   switch (state.renderModels->LoadRenderModel_Async(name, model)) {
-    case EVRRenderModelError_VRRenderModelError_Loading: lovrPlatformSleep(.001); goto loadModel;
+    case EVRRenderModelError_VRRenderModelError_Loading: os_sleep(.001); goto loadModel;
     case EVRRenderModelError_VRRenderModelError_None: break;
     default: return false;
   }
 
   loadTexture:
   switch (state.renderModels->LoadTexture_Async((*model)->diffuseTextureId, texture)) {
-    case EVRRenderModelError_VRRenderModelError_Loading: lovrPlatformSleep(.001); goto loadTexture;
+    case EVRRenderModelError_VRRenderModelError_Loading: os_sleep(.001); goto loadTexture;
     case EVRRenderModelError_VRRenderModelError_None: break;
     default: state.renderModels->FreeRenderModel(*model); return false;
   }
@@ -816,7 +816,7 @@ static void openvr_renderTo(void (*callback)(void*), void* userdata) {
     lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
     lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
     lovrRelease(texture, lovrTextureDestroy);
-    lovrPlatformSetSwapInterval(0);
+    os_window_set_vsync(0);
   }
 
   float head[16];

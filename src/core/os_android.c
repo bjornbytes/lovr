@@ -16,10 +16,10 @@ static struct {
   EGLContext context;
   EGLConfig config;
   EGLSurface surface;
-  quitCallback onQuit;
-  keyboardCallback onKeyboardEvent;
-  textCallback onTextEvent;
-  permissionCallback onPermissionEvent;
+  fn_quit* onQuit;
+  fn_key* onKeyboardEvent;
+  fn_text* onTextEvent;
+  fn_permission* onPermissionEvent;
 } state;
 
 static void onAppCmd(struct android_app* app, int32_t cmd) {
@@ -40,7 +40,7 @@ static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
     default: return 0;
   }
 
-  KeyboardKey key;
+  os_key key;
   switch (AKeyEvent_getKeyCode(event)) {
     case AKEYCODE_A: key = KEY_A; break;
     case AKEYCODE_B: key = KEY_B; break;
@@ -162,18 +162,18 @@ int main(int argc, char** argv);
 void android_main(struct android_app* app) {
   state.app = app;
   (*app->activity->vm)->AttachCurrentThread(app->activity->vm, &state.jni, NULL);
-  lovrPlatformOpenConsole();
+  os_open_console();
   app->onAppCmd = onAppCmd;
   app->onInputEvent = onInputEvent;
   main(0, NULL);
   (*app->activity->vm)->DetachCurrentThread(app->activity->vm);
 }
 
-bool lovrPlatformInit() {
+bool os_init() {
   return true;
 }
 
-void lovrPlatformDestroy() {
+void os_destroy() {
   if (state.display) eglMakeCurrent(state.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
   if (state.surface) eglDestroySurface(state.display, state.surface);
   if (state.context) eglDestroyContext(state.display, state.context);
@@ -181,58 +181,8 @@ void lovrPlatformDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-const char* lovrPlatformGetName() {
+const char* os_get_name() {
   return "Android";
-}
-
-static uint64_t epoch;
-#define NS_PER_SEC 1000000000ULL
-
-static uint64_t getTime() {
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return (uint64_t) t.tv_sec * NS_PER_SEC + (uint64_t) t.tv_nsec;
-}
-
-double lovrPlatformGetTime() {
-  return (getTime() - epoch) / (double) NS_PER_SEC;
-}
-
-void lovrPlatformSetTime(double time) {
-  epoch = getTime() - (uint64_t) (time * NS_PER_SEC + .5);
-}
-
-void lovrPlatformSleep(double seconds) {
-  seconds += .5e-9;
-  struct timespec t;
-  t.tv_sec = seconds;
-  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
-  while (nanosleep(&t, &t));
-}
-
-void lovrPlatformPollEvents() {
-  // Notes about polling:
-  // - Stop polling if a destroy is requested to give the application a chance to shut down.
-  //   Otherwise this loop would still wait for an event and the app would seem unresponsive.
-  // - Block if the app is paused or no window is present
-  // - If the app was active and becomes inactive after an event, break instead of waiting for
-  //   another event.  This gives the main loop a chance to respond (e.g. exit VR mode).
-  while (!state.app->destroyRequested) {
-    int events;
-    struct android_poll_source* source;
-    int timeout = (state.app->window && state.app->activityState == APP_CMD_RESUME) ? 0 : -1;
-    if (ALooper_pollAll(timeout, NULL, &events, (void**) &source) >= 0) {
-      if (source) {
-        source->process(state.app, source);
-      }
-
-      if (timeout == 0 && (!state.app->window || state.app->activityState != APP_CMD_RESUME)) {
-        break;
-      }
-    } else {
-      break;
-    }
-  }
 }
 
 // To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
@@ -258,66 +208,98 @@ static void* log_main(void* data) {
   return 0;
 }
 
-void lovrPlatformOpenConsole() {
+void os_open_console() {
   pthread_create(&log.thread, NULL, log_main, log.handles);
   pthread_detach(log.thread);
 }
 
-size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
-  return 0;
+#define NS_PER_SEC 1000000000ULL
+
+double os_get_time() {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (double) t.tv_sec + (t.tv_nsec / (double) NS_PER_SEC);
 }
 
-size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
-  const char* path = state.app->activity->externalDataPath;
-  size_t length = strlen(path);
-  if (length >= size) return 0;
-  memcpy(buffer, path, length);
-  buffer[length] = '\0';
-  return length;
+void os_sleep(double seconds) {
+  seconds += .5e-9;
+  struct timespec t;
+  t.tv_sec = seconds;
+  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
+  while (nanosleep(&t, &t));
 }
 
-size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
-  return getcwd(buffer, size) ? strlen(buffer) : 0;
-}
-
-size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
-  ssize_t length = readlink("/proc/self/exe", buffer, size - 1);
-  if (length >= 0) {
-    buffer[length] = '\0';
-    return length;
-  } else {
-    return 0;
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
+  if (state.onPermissionEvent) {
+    state.onPermissionEvent(permission, granted);
   }
 }
 
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
-  jobject activity = state.app->activity->clazz;
-  jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
-  jmethodID getPackageCodePath = (*state.jni)->GetMethodID(state.jni, class, "getPackageCodePath", "()Ljava/lang/String;");
-  if (!getPackageCodePath) {
-    (*state.jni)->DeleteLocalRef(state.jni, class);
-    return 0;
+void os_request_permission(os_permission permission) {
+  if (permission == PERMISSION_CAPTURE_PERMISSION) {
+    jobject activity = state.app->activity->clazz;
+    jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
+    jmethodID requestAudioCapturePermission = (*state.jni)->GetMethodID(state.jni, class, "requestAudioCapturePermission", "()V");
+    if (!requestAudioCapturePermission) {
+      (*state.jni)->DeleteLocalRef(state.jni, class);
+      if (state.onPermissionEvent) state.onPermissionEvent(OS_PERMISSION_AUDIO_CAPTURE, false);
+      return;
+    }
+
+    (*state.jni)->CallVoidMethod(state.jni, activity, requestAudioCapturePermission);
   }
-
-  jstring jpath = (*state.jni)->CallObjectMethod(state.jni, activity, getPackageCodePath);
-  (*state.jni)->DeleteLocalRef(state.jni, class);
-  if ((*state.jni)->ExceptionOccurred(state.jni)) {
-    (*state.jni)->ExceptionClear(state.jni);
-    return 0;
-  }
-
-  size_t length = (*state.jni)->GetStringUTFLength(state.jni, jpath);
-  if (length >= size) return 0;
-
-  const char* path = (*state.jni)->GetStringUTFChars(state.jni, jpath, NULL);
-  memcpy(buffer, path, length);
-  buffer[length] = '\0';
-  (*state.jni)->ReleaseStringUTFChars(state.jni, jpath, path);
-  *root = "/assets";
-  return length;
 }
 
-bool lovrPlatformCreateWindow(const WindowFlags* flags) {
+// Notes about polling:
+// - Stop polling if a destroy is requested to give the application a chance to shut down.
+//   Otherwise this loop would still wait for an event and the app would seem unresponsive.
+// - Block if the app is paused or no window is present
+// - If the app was active and becomes inactive after an event, break instead of waiting for
+//   another event.  This gives the main loop a chance to respond (e.g. exit VR mode).
+void os_poll_events() {
+  while (!state.app->destroyRequested) {
+    int events;
+    struct android_poll_source* source;
+    int timeout = (state.app->window && state.app->activityState == APP_CMD_RESUME) ? 0 : -1;
+    if (ALooper_pollAll(timeout, NULL, &events, (void**) &source) >= 0) {
+      if (source) {
+        source->process(state.app, source);
+      }
+
+      if (timeout == 0 && (!state.app->window || state.app->activityState != APP_CMD_RESUME)) {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+}
+
+void os_on_quit(quitCallback callback) {
+  state.onQuit = callback;
+}
+
+void os_on_focus(windowFocusCallback callback) {
+  //
+}
+
+void os_on_resize(windowResizeCallback callback) {
+  //
+}
+
+void os_on_key(keyboardCallback callback) {
+  state.onKeyboardEvent = callback;
+}
+
+void os_on_text(textCallback callback) {
+  state.onTextEvent = callback;
+}
+
+void os_on_permission(permissionCallback callback) {
+  state.onPermissionEvent = callback;
+}
+
+bool os_window_open(const os_window_config* config) {
   if (state.display) {
     return true;
   }
@@ -375,7 +357,7 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
 
   EGLint contextAttributes[] = {
     EGL_CONTEXT_CLIENT_VERSION, 3,
-    EGL_CONTEXT_OPENGL_DEBUG, flags->debug,
+    EGL_CONTEXT_OPENGL_DEBUG, config->debug,
     EGL_NONE
   };
 
@@ -402,129 +384,132 @@ bool lovrPlatformCreateWindow(const WindowFlags* flags) {
   return true;
 }
 
-bool lovrPlatformHasWindow() {
+bool os_window_is_open() {
   return false;
 }
 
-void lovrPlatformGetWindowSize(int* width, int* height) {
+void os_window_get_size(int* width, int* height) {
   if (width) *width = 0;
   if (height) *height = 0;
 }
 
-void lovrPlatformGetFramebufferSize(int* width, int* height) {
+void os_window_get_fbsize(int* width, int* height) {
   *width = 0;
   *height = 0;
 }
 
-void lovrPlatformSetSwapInterval(int interval) {
+void os_window_set_vsync(int interval) {
   //
 }
 
-void lovrPlatformSwapBuffers() {
+void os_window_swap() {
   //
 }
 
-void* lovrPlatformGetProcAddress(const char* function) {
+void* os_get_gl_proc_address(const char* function) {
   return (void*) eglGetProcAddress(function);
 }
 
-void lovrPlatformOnQuitRequest(quitCallback callback) {
-  state.onQuit = callback;
+size_t os_get_home_directory(char* buffer, size_t size) {
+  return 0;
 }
 
-void lovrPlatformOnWindowFocus(windowFocusCallback callback) {
-  //
+size_t os_get_data_directory(char* buffer, size_t size) {
+  const char* path = state.app->activity->externalDataPath;
+  size_t length = strlen(path);
+  if (length >= size) return 0;
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+  return length;
 }
 
-void lovrPlatformOnWindowResize(windowResizeCallback callback) {
-  //
+size_t os_get_working_directory(char* buffer, size_t size) {
+  return getcwd(buffer, size) ? strlen(buffer) : 0;
 }
 
-void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
-  //
+size_t os_get_executable_path(char* buffer, size_t size) {
+  ssize_t length = readlink("/proc/self/exe", buffer, size - 1);
+  if (length >= 0) {
+    buffer[length] = '\0';
+    return length;
+  } else {
+    return 0;
+  }
 }
 
-void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
-  state.onKeyboardEvent = callback;
+size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
+  jobject activity = state.app->activity->clazz;
+  jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
+  jmethodID getPackageCodePath = (*state.jni)->GetMethodID(state.jni, class, "getPackageCodePath", "()Ljava/lang/String;");
+  if (!getPackageCodePath) {
+    (*state.jni)->DeleteLocalRef(state.jni, class);
+    return 0;
+  }
+
+  jstring jpath = (*state.jni)->CallObjectMethod(state.jni, activity, getPackageCodePath);
+  (*state.jni)->DeleteLocalRef(state.jni, class);
+  if ((*state.jni)->ExceptionOccurred(state.jni)) {
+    (*state.jni)->ExceptionClear(state.jni);
+    return 0;
+  }
+
+  size_t length = (*state.jni)->GetStringUTFLength(state.jni, jpath);
+  if (length >= size) return 0;
+
+  const char* path = (*state.jni)->GetStringUTFChars(state.jni, jpath, NULL);
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+  (*state.jni)->ReleaseStringUTFChars(state.jni, jpath, path);
+  *root = "/assets";
+  return length;
 }
 
-void lovrPlatformOnTextEvent(textCallback callback) {
-  state.onTextEvent = callback;
-}
-
-void lovrPlatformGetMousePosition(double* x, double* y) {
+void os_get_mouse_position(double* x, double* y) {
   *x = *y = 0.;
 }
 
-void lovrPlatformSetMouseMode(MouseMode mode) {
+void os_set_mouse_mode(os_mouse_mode mode) {
   //
 }
 
-bool lovrPlatformIsMouseDown(MouseButton button) {
+bool os_is_mouse_down(os_mouse_button button) {
   return false;
 }
 
-bool lovrPlatformIsKeyDown(KeyboardKey key) {
+bool os_is_key_down(os_key key) {
   return false;
-}
-
-// Permissions
-
-void lovrPlatformRequestPermission(Permission permission) {
-  if (permission == AUDIO_CAPTURE_PERMISSION) {
-    jobject activity = state.app->activity->clazz;
-    jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
-    jmethodID requestAudioCapturePermission = (*state.jni)->GetMethodID(state.jni, class, "requestAudioCapturePermission", "()V");
-    if (!requestAudioCapturePermission) {
-      (*state.jni)->DeleteLocalRef(state.jni, class);
-      if (state.onPermissionEvent) state.onPermissionEvent(AUDIO_CAPTURE_PERMISSION, false);
-      return;
-    }
-
-    (*state.jni)->CallVoidMethod(state.jni, activity, requestAudioCapturePermission);
-  }
-}
-
-void lovrPlatformOnPermissionEvent(permissionCallback callback) {
-  state.onPermissionEvent = callback;
-}
-
-JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
-  if (state.onPermissionEvent) {
-    state.onPermissionEvent(permission, granted);
-  }
 }
 
 // Private, must be declared manually to use
 
-struct ANativeActivity* lovrPlatformGetActivity() {
+struct ANativeActivity* os_get_activity() {
   return state.app->activity;
 }
 
-int lovrPlatformGetActivityState() {
+int os_get_activity_state() {
   return state.app->activityState;
 }
 
-ANativeWindow* lovrPlatformGetNativeWindow() {
+ANativeWindow* os_get_native_window() {
   return state.app->window;
 }
 
-JNIEnv* lovrPlatformGetJNI() {
+JNIEnv* os_get_jni() {
   return state.jni;
 }
 
-EGLDisplay lovrPlatformGetEGLDisplay() {
+EGLDisplay os_get_egl_display() {
   return state.display;
 }
 
-EGLContext lovrPlatformGetEGLContext() {
+EGLContext os_get_egl_context() {
   return state.context;
 }
 
-EGLContext lovrPlatformGetEGLConfig() {
+EGLContext os_get_egl_config() {
   return state.config;
 }
 
-EGLSurface lovrPlatformGetEGLSurface() {
+EGLSurface os_get_egl_surface() {
   return state.surface;
 }

@@ -19,46 +19,21 @@
 
 // Platform
 
-bool lovrPlatformInit() {
-  lovrPlatformOpenConsole();
+static struct {
+  fn_permission* onPermissionEvent;
+} os;
+
+bool os_init() {
+  os_open_console();
   return true;
 }
 
-void lovrPlatformDestroy() {
+void os_destroy() {
   //
 }
 
-const char* lovrPlatformGetName() {
+const char* os_get_name() {
   return "Android";
-}
-
-static uint64_t epoch;
-#define NS_PER_SEC 1000000000ULL
-
-static uint64_t getTime() {
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return (uint64_t) t.tv_sec * NS_PER_SEC + (uint64_t) t.tv_nsec;
-}
-
-double lovrPlatformGetTime() {
-  return (getTime() - epoch) / (double) NS_PER_SEC;
-}
-
-void lovrPlatformSetTime(double time) {
-  epoch = getTime() - (uint64_t) (time * NS_PER_SEC + .5);
-}
-
-void lovrPlatformSleep(double seconds) {
-  seconds += .5e-9;
-  struct timespec t;
-  t.tv_sec = seconds;
-  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
-  while (nanosleep(&t, &t));
-}
-
-void lovrPlatformPollEvents() {
-  //
 }
 
 // To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
@@ -84,25 +59,109 @@ static void* log_main(void* data) {
   return 0;
 }
 
-void lovrPlatformOpenConsole() {
+void os_open_console() {
   pthread_create(&logState.thread, NULL, log_main, logState.handles);
   pthread_detach(logState.thread);
 }
 
-size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+#define NS_PER_SEC 1000000000ULL
+
+double os_get_time() {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (double) t.tv_sec + (t.tv_nsec / (double) NS_PER_SEC);
+}
+
+void os_sleep(double seconds) {
+  seconds += .5e-9;
+  struct timespec t;
+  t.tv_sec = seconds;
+  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
+  while (nanosleep(&t, &t));
+}
+
+JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
+  if (os.onPermissionEvent) {
+    os.onPermissionEvent(permission, granted);
+  }
+}
+
+void os_request_permission(Permission permission) {
+  // TODO
+}
+
+void os_poll_events() {
+  //
+}
+
+void os_on_quit(fn_quit* callback) {
+  //
+}
+
+void os_on_focus(fn_focus* callback) {
+  //
+}
+
+void os_on_resize(fn_resize* callback) {
+  //
+}
+
+void os_on_key(fn_key* callback) {
+  //
+}
+
+void os_on_text*(fn_text* callback) {
+  // TODO
+}
+
+void os_on_permission(fn_permission* callback) {
+  os.onPermissionEvent = callback;
+}
+
+bool os_window_open(const WindowFlags* flags) {
+  return true;
+}
+
+bool os_window_is_open() {
+  return false;
+}
+
+void os_window_get_size(int* width, int* height) {
+  if (width) *width = 0;
+  if (height) *height = 0;
+}
+
+void os_window_get_fbsize(int* width, int* height) {
+  *width = 0;
+  *height = 0;
+}
+
+void os_window_set_vsync(int interval) {
+  //
+}
+
+void os_window_swap() {
+  //
+}
+
+void* os_get_gl_proc_address(const char* function) {
+  return (void*) eglGetProcAddress(function);
+}
+
+size_t os_get_home_directory(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+size_t os_get_data_directory(char* buffer, size_t size) {
   buffer[0] = '\0';
   return 0;
 }
 
-size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+size_t os_get_working_directory(char* buffer, size_t size) {
   return getcwd(buffer, size) ? strlen(buffer) : 0;
 }
 
-size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+size_t os_get_executable_path(char* buffer, size_t size) {
   ssize_t length = readlink("/proc/self/exe", buffer, size - 1);
   if (length >= 0) {
     buffer[length] = '\0';
@@ -113,7 +172,7 @@ size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
 }
 
 static char apkPath[1024];
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
+size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   size_t length = strlen(apkPath);
   if (length >= size) return 0;
   memcpy(buffer, apkPath, length);
@@ -122,73 +181,19 @@ size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
   return length;
 }
 
-bool lovrPlatformCreateWindow(const WindowFlags* flags) {
-  return true;
-}
-
-bool lovrPlatformHasWindow() {
-  return false;
-}
-
-void lovrPlatformGetWindowSize(int* width, int* height) {
-  if (width) *width = 0;
-  if (height) *height = 0;
-}
-
-void lovrPlatformGetFramebufferSize(int* width, int* height) {
-  *width = 0;
-  *height = 0;
-}
-
-void lovrPlatformSetSwapInterval(int interval) {
-  //
-}
-
-void lovrPlatformSwapBuffers() {
-  //
-}
-
-void* lovrPlatformGetProcAddress(const char* function) {
-  return (void*) eglGetProcAddress(function);
-}
-
-void lovrPlatformOnQuitRequest(quitCallback callback) {
-  //
-}
-
-void lovrPlatformOnWindowFocus(windowFocusCallback callback) {
-  //
-}
-
-void lovrPlatformOnWindowResize(windowResizeCallback callback) {
-  //
-}
-
-void lovrPlatformOnMouseButton(mouseButtonCallback callback) {
-  //
-}
-
-void lovrPlatformOnKeyboardEvent(keyboardCallback callback) {
-  //
-}
-
-void lovrPlatformOnTextEvent(textCallback callback) {
-  // todo
-}
-
-void lovrPlatformGetMousePosition(double* x, double* y) {
+void os_get_mouse_position(double* x, double* y) {
   *x = *y = 0.;
 }
 
-void lovrPlatformSetMouseMode(MouseMode mode) {
+void os_set_mouse_mode(os_mouse_mode mode) {
   //
 }
 
-bool lovrPlatformIsMouseDown(MouseButton button) {
+bool os_is_mouse_down(os_mouse_button button) {
   return false;
 }
 
-bool lovrPlatformIsKeyDown(KeyboardKey key) {
+bool os_is_key_down(os_key key) {
   return false;
 }
 
@@ -223,7 +228,6 @@ static struct {
   arr_t(NativeCanvas) canvases;
   void (*renderCallback)(void*);
   void* renderUserdata;
-  permissionCallback onPermissionEvent;
 } state;
 
 static bool pico_init(float supersample, float offset, uint32_t msaa) {
@@ -253,7 +257,7 @@ static HeadsetOrigin pico_getOriginType(void) {
 }
 
 static double pico_getDisplayTime(void) {
-  return lovrPlatformGetTime();
+  return os_get_time();
 }
 
 static void pico_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -414,20 +418,6 @@ static void pico_update(float dt) {
   //
 }
 
-void lovrPlatformRequestPermission(Permission permission) {
-  // todo
-}
-
-void lovrPlatformOnPermissionEvent(permissionCallback callback) {
-  state.onPermissionEvent = callback;
-}
-
-JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
-  if (state.onPermissionEvent) {
-    state.onPermissionEvent(permission, granted);
-  }
-}
-
 HeadsetInterface lovrHeadsetPicoDriver = {
   .driverType = DRIVER_PICO,
   .init = pico_init,
@@ -463,8 +453,7 @@ static lua_State* T;
 static Variant cookie;
 
 static void lovrPicoBoot(void) {
-  lovrAssert(lovrPlatformInit(), "Failed to initialize platform");
-  lovrPlatformSetTime(0.);
+  lovrAssert(os_init(), "Failed to initialize platform");
 
   L = luaL_newstate();
   luax_setmainthread(L);

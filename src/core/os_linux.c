@@ -8,37 +8,31 @@
 
 #include "os_glfw.h"
 
-static uint64_t epoch;
 #define NS_PER_SEC 1000000000ULL
 
-static uint64_t getTime() {
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return (uint64_t) t.tv_sec * NS_PER_SEC + (uint64_t) t.tv_nsec;
-}
-
-bool lovrPlatformInit() {
-  epoch = getTime();
+bool os_init() {
   return true;
 }
 
-void lovrPlatformDestroy() {
+void os_destroy() {
   glfwTerminate();
 }
 
-const char* lovrPlatformGetName() {
+const char* os_get_name() {
   return "Linux";
 }
 
-double lovrPlatformGetTime() {
-  return (getTime() - epoch) / (double) NS_PER_SEC;
+void os_open_console() {
+  //
 }
 
-void lovrPlatformSetTime(double t) {
-  epoch = getTime() - (uint64_t) (t * NS_PER_SEC + .5);
+double os_get_time() {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (double) t.tv_sec + (t.tv_nsec / (double) NS_PER_SEC);
 }
 
-void lovrPlatformSleep(double seconds) {
+void os_sleep(double seconds) {
   seconds += .5e-9;
   struct timespec t;
   t.tv_sec = seconds;
@@ -46,11 +40,15 @@ void lovrPlatformSleep(double seconds) {
   while (nanosleep(&t, &t));
 }
 
-void lovrPlatformOpenConsole() {
+void os_request_permission(os_permission permission) {
   //
 }
 
-size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
+void os_on_permission(fn_permission* callback) {
+  //
+}
+
+size_t os_get_home_directory(char* buffer, size_t size) {
   const char* path = getenv("HOME");
 
   if (!path) {
@@ -68,7 +66,7 @@ size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size) {
   return length;
 }
 
-size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
+size_t os_get_data_directory(char* buffer, size_t size) {
   const char* xdg = getenv("XDG_DATA_HOME");
 
   if (xdg) {
@@ -79,7 +77,7 @@ size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
       return length;
     }
   } else {
-    size_t cursor = lovrPlatformGetHomeDirectory(buffer, size);
+    size_t cursor = os_get_home_directory(buffer, size);
     if (cursor > 0) {
       buffer += cursor;
       size -= cursor;
@@ -96,11 +94,11 @@ size_t lovrPlatformGetDataDirectory(char* buffer, size_t size) {
   return 0;
 }
 
-size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size) {
+size_t os_get_working_directory(char* buffer, size_t size) {
   return getcwd(buffer, size) ? strlen(buffer) : 0;
 }
 
-size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
+size_t os_get_executable_path(char* buffer, size_t size) {
   ssize_t length = readlink("/proc/self/exe", buffer, size - 1);
   if (length >= 0) {
     buffer[length] = '\0';
@@ -110,15 +108,7 @@ size_t lovrPlatformGetExecutablePath(char* buffer, size_t size) {
   }
 }
 
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root) {
+size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   *root = NULL;
-  return lovrPlatformGetExecutablePath(buffer, size);
-}
-
-void lovrPlatformRequestPermission(Permission permission) {
-  //
-}
-
-void lovrPlatformOnPermissionEvent(permissionCallback callback) {
-  //
+  return os_get_executable_path(buffer, size);
 }

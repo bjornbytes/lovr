@@ -4,7 +4,7 @@
 
 #pragma once
 
-typedef struct WindowFlags {
+typedef struct {
   uint32_t width;
   uint32_t height;
   bool fullscreen;
@@ -18,17 +18,17 @@ typedef struct WindowFlags {
     uint32_t width;
     uint32_t height;
   } icon;
-} WindowFlags;
+} os_window_config;
 
 typedef enum {
   MOUSE_LEFT,
   MOUSE_RIGHT
-} MouseButton;
+} os_mouse_button;
 
 typedef enum {
   MOUSE_MODE_NORMAL,
   MOUSE_MODE_GRABBED
-} MouseMode;
+} os_mouse_mode;
 
 typedef enum {
   KEY_A,
@@ -67,7 +67,6 @@ typedef enum {
   KEY_7,
   KEY_8,
   KEY_9,
-
   KEY_SPACE,
   KEY_ENTER,
   KEY_TAB,
@@ -95,7 +94,6 @@ typedef enum {
   KEY_F10,
   KEY_F11,
   KEY_F12,
-
   KEY_BACKTICK,
   KEY_MINUS,
   KEY_EQUALS,
@@ -107,7 +105,6 @@ typedef enum {
   KEY_COMMA,
   KEY_PERIOD,
   KEY_SLASH,
-
   KEY_LEFT_CONTROL,
   KEY_LEFT_SHIFT,
   KEY_LEFT_ALT,
@@ -116,61 +113,60 @@ typedef enum {
   KEY_RIGHT_SHIFT,
   KEY_RIGHT_ALT,
   KEY_RIGHT_OS,
-
   KEY_CAPS_LOCK,
   KEY_SCROLL_LOCK,
   KEY_NUM_LOCK,
-
   KEY_COUNT
-} KeyboardKey;
+} os_key;
 
 typedef enum {
   BUTTON_PRESSED,
   BUTTON_RELEASED
-} ButtonAction;
+} os_button_action;
 
 typedef enum {
-  AUDIO_CAPTURE_PERMISSION
-} Permission;
+  OS_PERMISSION_AUDIO_CAPTURE
+} os_permission;
 
-typedef void (*os_proc)(void);
-typedef void (*quitCallback)(void);
-typedef void (*windowFocusCallback)(bool focused);
-typedef void (*windowResizeCallback)(int width, int height);
-typedef void (*mouseButtonCallback)(MouseButton button, ButtonAction action);
-typedef void (*keyboardCallback)(ButtonAction action, KeyboardKey key, uint32_t scancode, bool repeat);
-typedef void (*textCallback)(uint32_t codepoint);
-typedef void (*permissionCallback)(Permission permission, bool granted);
+typedef void fn_gl_proc(void);
+typedef void fn_quit(void);
+typedef void fn_focus(bool focused);
+typedef void fn_resize(int width, int height);
+typedef void fn_key(os_button_action action, os_key key, uint32_t scancode, bool repeat);
+typedef void fn_text(uint32_t codepoint);
+typedef void fn_permission(os_permission permission, bool granted);
 
-bool lovrPlatformInit(void);
-void lovrPlatformDestroy(void);
-const char* lovrPlatformGetName(void);
-double lovrPlatformGetTime(void);
-void lovrPlatformSetTime(double t);
-void lovrPlatformSleep(double seconds);
-void lovrPlatformOpenConsole(void);
-void lovrPlatformPollEvents(void);
-size_t lovrPlatformGetHomeDirectory(char* buffer, size_t size);
-size_t lovrPlatformGetDataDirectory(char* buffer, size_t size);
-size_t lovrPlatformGetWorkingDirectory(char* buffer, size_t size);
-size_t lovrPlatformGetExecutablePath(char* buffer, size_t size);
-size_t lovrPlatformGetBundlePath(char* buffer, size_t size, const char** root);
-bool lovrPlatformCreateWindow(const WindowFlags* flags);
-bool lovrPlatformHasWindow(void);
-void lovrPlatformGetWindowSize(int* width, int* height);
-void lovrPlatformGetFramebufferSize(int* width, int* height);
-void lovrPlatformSetSwapInterval(int interval);
-void lovrPlatformSwapBuffers(void);
-os_proc lovrPlatformGetProcAddress(const char* function);
-void lovrPlatformOnQuitRequest(quitCallback callback);
-void lovrPlatformOnWindowFocus(windowFocusCallback callback);
-void lovrPlatformOnWindowResize(windowResizeCallback callback);
-void lovrPlatformOnMouseButton(mouseButtonCallback callback);
-void lovrPlatformOnKeyboardEvent(keyboardCallback callback);
-void lovrPlatformOnTextEvent(textCallback callback);
-void lovrPlatformGetMousePosition(double* x, double* y);
-void lovrPlatformSetMouseMode(MouseMode mode);
-bool lovrPlatformIsMouseDown(MouseButton button);
-bool lovrPlatformIsKeyDown(KeyboardKey key);
-void lovrPlatformRequestPermission(Permission permission);
-void lovrPlatformOnPermissionEvent(permissionCallback callback);
+bool os_init(void);
+void os_destroy(void);
+const char* os_get_name(void);
+void os_open_console(void);
+double os_get_time(void);
+void os_sleep(double seconds);
+void os_request_permission(os_permission permission);
+
+void os_poll_events(void);
+void os_on_quit(fn_quit* callback);
+void os_on_focus(fn_focus* callback);
+void os_on_resize(fn_resize* callback);
+void os_on_key(fn_key* callback);
+void os_on_text(fn_text* callback);
+void os_on_permission(fn_permission* callback);
+
+bool os_window_open(const os_window_config* config);
+bool os_window_is_open(void);
+void os_window_get_size(int* width, int* height);
+void os_window_get_fbsize(int* width, int* height);
+void os_window_set_vsync(int interval);
+void os_window_swap(void);
+fn_gl_proc* os_get_gl_proc_address(const char* function);
+
+size_t os_get_home_directory(char* buffer, size_t size);
+size_t os_get_data_directory(char* buffer, size_t size);
+size_t os_get_working_directory(char* buffer, size_t size);
+size_t os_get_executable_path(char* buffer, size_t size);
+size_t os_get_bundle_path(char* buffer, size_t size, const char** root);
+
+void os_get_mouse_position(double* x, double* y);
+void os_set_mouse_mode(os_mouse_mode mode);
+bool os_is_mouse_down(os_mouse_button button);
+bool os_is_key_down(os_key key);

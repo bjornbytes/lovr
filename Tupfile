@@ -29,6 +29,7 @@ SRC_@(HEADSET)@(PICO) += src/modules/headset/headset_pico.c
 SRC_@(HEADSET)@(WEBXR) += src/modules/headset/headset_webxr.c
 SRC_@(MATH) += src/modules/math/*.c
 SRC_@(PHYSICS) += src/modules/physics/*.c
+SRC_@(SYSTEM) += src/modules/system/*.c
 SRC_@(THREAD) += src/modules/thread/*.c
 SRC_@(TIMER) += src/modules/timer/*.c
 
@@ -52,6 +53,7 @@ SRC_@(GRAPHICS) += src/api/l_graphics*.c
 SRC_@(HEADSET) += src/api/l_headset*.c
 SRC_@(MATH) += src/api/l_math*.c
 SRC_@(PHYSICS) += src/api/l_physics*.c
+SRC_@(SYSTEM) += src/api/l_system*.c
 SRC_@(THREAD) += src/api/l_thread*.c
 SRC_@(TIMER) += src/api/l_timer*.c
 

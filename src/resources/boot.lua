@@ -109,6 +109,7 @@ function lovr.boot()
       headset = true,
       math = true,
       physics = true,
+      system = true,
       thread = true,
       timer = true
     },
@@ -174,12 +175,6 @@ function lovr.boot()
   if not confOk then error(confError) end
   if hasMain then require 'main' end
   return lovr.run()
-end
-
-function lovr.permission(permission, granted)
-  if permission == 'audiocapture' and granted then
-    lovr.audio.start('capture')
-  end
 end
 
 function lovr.run()
