@@ -141,15 +141,10 @@ static int l_lovrAudioNewSource(lua_State* L) {
   Sound* sound = luax_totype(L, 1, Sound);
 
   bool spatial = true;
-  bool shared = false;
   bool decode = false;
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "spatial");
     spatial = lua_isnil(L, -1) || lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "shared");
-    spatial = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "decode");
@@ -165,7 +160,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lovrRetain(sound);
   }
 
-  Source* source = lovrSourceCreate(sound, spatial, shared);
+  Source* source = lovrSourceCreate(sound, spatial);
   luax_pushtype(L, Source, source);
   lovrRelease(sound, lovrSoundDestroy);
   lovrRelease(source, lovrSourceDestroy);

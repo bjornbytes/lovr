@@ -45,7 +45,7 @@ struct Sound* lovrAudioGetCaptureStream(void);
 
 // Source
 
-Source* lovrSourceCreate(struct Sound* sound, bool spatial, bool shared);
+Source* lovrSourceCreate(struct Sound* sound, bool spatial);
 Source* lovrSourceClone(Source* source);
 void lovrSourceDestroy(void* ref);
 bool lovrSourcePlay(Source* source);
@@ -60,7 +60,6 @@ double lovrSourceGetDuration(Source* source, TimeUnit units);
 double lovrSourceGetTime(Source* source, TimeUnit units);
 void lovrSourceSetTime(Source* source, double time, TimeUnit units);
 bool lovrSourceIsSpatial(Source* source);
-bool lovrSourceIsShared(Source* source);
 float lovrSourceGetSpatialBlend(Source* source);
 void lovrSourceSetSpatialBlend(Source* source, float blend);
 SourceInterpolation lovrSourceGetInterpolation(Source* source);

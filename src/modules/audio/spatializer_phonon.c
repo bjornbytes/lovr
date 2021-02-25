@@ -358,7 +358,7 @@ fail:
 void phonon_sourceCreate(Source* source) {
   uint32_t index = lovrSourceGetIndex(source);
 
-  if (!state.binauralEffect[index] && !lovrSourceIsShared(source)) {
+  if (!state.binauralEffect[index]) {
     phonon_iplCreateBinauralEffect(state.binauralRenderer, MONO, STEREO, &state.binauralEffect[index]);
   }
 
