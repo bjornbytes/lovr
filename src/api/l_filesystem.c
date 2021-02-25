@@ -487,7 +487,7 @@ int luaopen_lovr_filesystem(lua_State* L) {
 
   lua_getglobal(L, "arg");
   if (lua_istable(L, -1)) {
-    lua_rawgeti(L, -2, 0);
+    lua_rawgeti(L, -1, 0);
     archive = lua_tostring(L, -1);
     lua_pop(L, 1);
   }
