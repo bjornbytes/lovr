@@ -1,4 +1,6 @@
 #include "os.h"
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include <objc/objc-runtime.h>
 #include <mach-o/dyld.h>
 #include <mach/mach_time.h>
@@ -25,6 +27,13 @@ void os_destroy() {
 
 const char* os_get_name() {
   return "macOS";
+}
+
+uint32_t os_get_core_count() {
+  uint32_t count;
+  size_t size = sizeof(count);
+  sysctlbyname("hw.logicalcpu", &count, &size, NULL, 0);
+  return count;
 }
 
 void os_open_console() {

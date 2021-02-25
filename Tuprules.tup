@@ -9,7 +9,6 @@ else
 CC = @(CC)
 endif
 CFLAGS += -std=c99 -pedantic
-CFLAGS += -D_POSIX_C_SOURCE=200809L
 CFLAGS += -I$(ROOT)/src
 CFLAGS += -I$(ROOT)/src/modules
 CFLAGS += -I$(ROOT)/src/lib/stdatomic
@@ -75,6 +74,7 @@ endif
 ## Linux
 ifeq ($(PLATFORM),linux)
   linux = y
+  CFLAGS += -D_POSIX_C_SOURCE=200809L
   CFLAGS += -DLOVR_GL
   LDFLAGS += -lm -lpthread -ldl
   LDFLAGS += -Wl,-rpath,\$ORIGIN

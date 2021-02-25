@@ -24,6 +24,12 @@ const char* os_get_name() {
   return "Windows";
 }
 
+uint32_t os_get_core_count() {
+  SYSTEM_INFO info;
+  GetSystemInfo(&info);
+  return info.dwNumberOfProcessors;
+}
+
 void os_open_console() {
   if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
     if (GetLastError() != ERROR_ACCESS_DENIED) {

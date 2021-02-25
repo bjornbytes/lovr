@@ -101,6 +101,11 @@ static int l_lovrSystemGetOS(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSystemGetCoreCount(lua_State* L) {
+  lua_pushinteger(L, lovrSystemGetCoreCount());
+  return 1;
+}
+
 static int l_lovrSystemRequestPermission(lua_State* L) {
   Permission permission = luax_checkenum(L, 1, Permission, NULL);
   lovrSystemRequestPermission(permission);
@@ -109,6 +114,7 @@ static int l_lovrSystemRequestPermission(lua_State* L) {
 
 static const luaL_Reg lovrSystem[] = {
   { "getOS", l_lovrSystemGetOS },
+  { "getCoreCount", l_lovrSystemGetCoreCount },
   { "requestPermission", l_lovrSystemRequestPermission },
   { NULL, NULL }
 };

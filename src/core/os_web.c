@@ -197,6 +197,10 @@ const char* os_get_name() {
   return "Web";
 }
 
+uint32_t os_get_core_count() {
+  return 1;
+}
+
 void os_open_console() {
   //
 }

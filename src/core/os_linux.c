@@ -22,6 +22,10 @@ const char* os_get_name() {
   return "Linux";
 }
 
+uint32_t os_get_core_count() {
+  return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
 void os_open_console() {
   //
 }

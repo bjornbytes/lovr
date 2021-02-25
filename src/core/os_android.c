@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -183,6 +184,10 @@ void os_destroy() {
 
 const char* os_get_name() {
   return "Android";
+}
+
+uint32_t os_get_core_count() {
+  return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
 // To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write

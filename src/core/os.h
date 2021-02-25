@@ -139,6 +139,7 @@ typedef void fn_permission(os_permission permission, bool granted);
 bool os_init(void);
 void os_destroy(void);
 const char* os_get_name(void);
+uint32_t os_get_core_count(void);
 void os_open_console(void);
 double os_get_time(void);
 void os_sleep(double seconds);

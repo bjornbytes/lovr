@@ -55,6 +55,10 @@ const char* lovrSystemGetOS() {
   return os_get_name();
 }
 
+uint32_t lovrSystemGetCoreCount() {
+  return os_get_core_count();
+}
+
 void lovrSystemRequestPermission(Permission permission) {
   os_request_permission((os_permission) permission);
 }

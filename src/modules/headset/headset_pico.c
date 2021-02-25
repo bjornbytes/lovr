@@ -36,6 +36,10 @@ const char* os_get_name() {
   return "Android";
 }
 
+uint32_t os_get_core_count() {
+  return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
 // To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
 // end of the pipe.  The read end of the pipe is forwarded to __android_log_write.
 static struct {
