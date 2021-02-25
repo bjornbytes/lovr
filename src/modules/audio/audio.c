@@ -46,7 +46,6 @@ struct Source {
   bool playing;
   bool looping;
   bool spatial;
-  bool shared;
   bool bilinear;
 };
 
@@ -349,7 +348,7 @@ Sound* lovrAudioGetCaptureStream() {
 
 // Source
 
-Source* lovrSourceCreate(Sound* sound, bool spatial, bool shared) {
+Source* lovrSourceCreate(Sound* sound, bool spatial) {
   lovrAssert(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
   Source* source = calloc(1, sizeof(Source));
   lovrAssert(source, "Out of memory");
@@ -360,7 +359,6 @@ Source* lovrSourceCreate(Sound* sound, bool spatial, bool shared) {
 
   source->volume = 1.f;
   source->spatial = spatial;
-  source->shared = shared;
   source->converter = ~0u;
 
   ma_data_converter_config config = ma_data_converter_config_init_default();
@@ -484,10 +482,6 @@ void lovrSourceSetTime(Source* source, double time, TimeUnit units) {
 
 bool lovrSourceIsSpatial(Source *source) {
   return source->spatial;
-}
-
-bool lovrSourceIsShared(Source* source) {
-  return source->shared;
 }
 
 float lovrSourceGetSpatialBlend(Source* source) {

@@ -95,13 +95,6 @@ static int l_lovrSourceIsSpatial(lua_State* L) {
   return 1;
 }
 
-static int l_lovrSourceIsShared(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool shared = lovrSourceIsShared(source);
-  lua_pushboolean(L, shared);
-  return 1;
-}
-
 static int l_lovrSourceGetSpatialBlend(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float blend = lovrSourceGetSpatialBlend(source);
@@ -270,7 +263,6 @@ const luaL_Reg lovrSource[] = {
   { "getTime", l_lovrSourceGetTime },
   { "setTime", l_lovrSourceSetTime },
   { "isSpatial", l_lovrSourceIsSpatial },
-  { "isShared", l_lovrSourceIsShared },
   { "getSpatialBlend", l_lovrSourceGetSpatialBlend },
   { "setSpatialBlend", l_lovrSourceSetSpatialBlend },
   { "getInterpolation", l_lovrSourceGetInterpolation },
