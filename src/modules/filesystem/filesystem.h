@@ -12,7 +12,7 @@
 #define LOVR_PATH_SEP '/'
 #endif
 
-bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* argRoot);
+bool lovrFilesystemInit(const char* archive);
 void lovrFilesystemDestroy(void);
 const char* lovrFilesystemGetSource(void);
 bool lovrFilesystemIsFused(void);

@@ -107,7 +107,7 @@ static size_t normalize(char* buffer, const char* path, size_t length) {
   return n;
 }
 
-bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* argRoot) {
+bool lovrFilesystemInit(const char* archive) {
   if (state.initialized) return false;
   state.initialized = true;
 
@@ -124,10 +124,10 @@ bool lovrFilesystemInit(const char* argExe, const char* argGame, const char* arg
   }
 
   // If that didn't work, try mounting an archive passed in from the command line
-  if (argGame) {
+  if (archive) {
     state.source[LOVR_PATH_MAX - 1] = '\0';
-    strncpy(state.source, argGame, LOVR_PATH_MAX - 1);
-    if (lovrFilesystemMount(state.source, NULL, true, argRoot)) {
+    strncpy(state.source, archive, LOVR_PATH_MAX - 1);
+    if (lovrFilesystemMount(state.source, NULL, true, NULL)) {
       return true;
     }
   }
