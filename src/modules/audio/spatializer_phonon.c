@@ -4,9 +4,23 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define PHONON_THREADS 1
+#define PHONON_RAYS 4096
+#define PHONON_BOUNCES 4
+#define PHONON_DIFFUSE_SAMPLES 1024
+#define PHONON_OCCLUSION_SAMPLES 32
+#define PHONON_MAX_REVERB 1.f
+// If this is changed, the scratchpad needs to grow to account for the increase in channels
+#define PHONON_AMBISONIC_ORDER 1
+
 #define MONO (IPLAudioFormat) { IPL_CHANNELLAYOUTTYPE_SPEAKERS, IPL_CHANNELLAYOUT_MONO, .channelOrder = IPL_CHANNELORDER_INTERLEAVED }
 #define STEREO (IPLAudioFormat) { IPL_CHANNELLAYOUTTYPE_SPEAKERS, IPL_CHANNELLAYOUT_STEREO, .channelOrder = IPL_CHANNELORDER_INTERLEAVED }
-#define AMBISONIC (IPLAudioFormat) { .channelLayoutType = IPL_CHANNELLAYOUTTYPE_AMBISONICS, .ambisonicsOrder = 1, .ambisonicsOrdering = IPL_AMBISONICSORDERING_ACN, .ambisonicsNormalization = IPL_AMBISONICSNORMALIZATION_N3D, .channelOrder = IPL_CHANNELORDER_DEINTERLEAVED }
+#define AMBISONIC (IPLAudioFormat) {\
+  .channelLayoutType = IPL_CHANNELLAYOUTTYPE_AMBISONICS,\
+  .ambisonicsOrder = PHONON_AMBISONIC_ORDER,\
+  .ambisonicsOrdering = IPL_AMBISONICSORDERING_ACN,\
+  .ambisonicsNormalization = IPL_AMBISONICSNORMALIZATION_N3D,\
+  .channelOrder = IPL_CHANNELORDER_DEINTERLEAVED }
 
 #ifdef _WIN32
 #include <windows.h>
@@ -220,7 +234,7 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
 
     if (radius > 0.f) {
       volumetric = IPL_DIRECTOCCLUSION_VOLUMETRIC;
-      rays = 32;
+      rays = PHONON_OCCLUSION_SAMPLES;
     }
   }
 
@@ -235,14 +249,9 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
 
   phonon_iplApplyDirectSoundEffect(state.directSoundEffect[index], in, path, options, tmp);
 
-  if (lovrSourceIsShared(source)) {
-    memset(output, 0, frames * 2 * sizeof(float));
-    // ambisonic panning effect
-  } else {
-    float blend = lovrSourceGetSpatialBlend(source);
-    IPLHrtfInterpolation interpolation = lovrSourceGetInterpolation(source) == SOURCE_BILINEAR ? IPL_HRTFINTERPOLATION_BILINEAR : IPL_HRTFINTERPOLATION_NEAREST;
-    phonon_iplApplyBinauralEffect(state.binauralEffect[index], state.binauralRenderer, tmp, path.direction, interpolation, blend, out);
-  }
+  float blend = lovrSourceGetSpatialBlend(source);
+  IPLHrtfInterpolation interpolation = lovrSourceGetInterpolation(source) == SOURCE_BILINEAR ? IPL_HRTFINTERPOLATION_BILINEAR : IPL_HRTFINTERPOLATION_NEAREST;
+  phonon_iplApplyBinauralEffect(state.binauralEffect[index], state.binauralRenderer, tmp, path.direction, interpolation, blend, out);
 
   if (lovrSourceIsReverbEnabled(source)) {
     phonon_iplSetDryAudioForConvolutionEffect(state.convolutionEffect[index], iplSource, in);
@@ -303,13 +312,13 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
 
   IPLSimulationSettings settings = (IPLSimulationSettings) {
     .sceneType = IPL_SCENETYPE_PHONON,
-    .maxNumOcclusionSamples = 32,
-    .numRays = 4096,
-    .numDiffuseSamples = 1024,
-    .numBounces = 8,
-    .numThreads = 1,
-    .irDuration = 1.f,
-    .ambisonicsOrder = 1,
+    .maxNumOcclusionSamples = PHONON_OCCLUSION_SAMPLES,
+    .numRays = PHONON_RAYS,
+    .numDiffuseSamples = PHONON_DIFFUSE_SAMPLES,
+    .numBounces = PHONON_BOUNCES,
+    .numThreads = PHONON_THREADS,
+    .irDuration = PHONON_MAX_REVERB,
+    .ambisonicsOrder = PHONON_AMBISONIC_ORDER,
     .maxConvolutionSources = MAX_SOURCES,
     .bakingBatchSize = 1,
     .irradianceMinDistance = .1f
