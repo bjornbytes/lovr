@@ -181,7 +181,7 @@ ifneq (@(CMAKE_DEPS),)
   ifeq (@(LUAJIT),y)
     CFLAGS += -I$(DEPS)/luajit/src
     LDFLAGS_$(win32) += -L$(BUILD)/luajit/src/$(CONFIG) -lluajit
-    LDFLAGS_$(macos) += -L$(BUILD)/luajit/src -lluajit -pagezero_size 10000 -image_base 100000000
+    LDFLAGS_$(macos) += -L$(BUILD)/luajit/src -lluajit
     LDFLAGS_$(linux) += -L$(BUILD)/luajit/src -lluajit
     LDFLAGS_$(android) += -L$(BUILD)/luajit/src -lluajit
     LIBS_$(win32) += $(BUILD)/luajit/src/$(CONFIG)/luajit.dll
