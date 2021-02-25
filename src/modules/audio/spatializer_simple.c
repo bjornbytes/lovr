@@ -29,7 +29,7 @@ uint32_t simple_spatializer_source_apply(Source* source, const float* input, flo
   mat4_transform(state.listener, rightEar);
   float ldistance = vec3_distance(sourcePos, leftEar);
   float rdistance = vec3_distance(sourcePos, rightEar);
-  float distanceAttenuation = MAX(1.f - distance / 10.f, 0.f);
+  float distanceAttenuation = 1.f / MAX(distance, 1.f);
   float leftAttenuation = .5f + (rdistance - ldistance) * 2.5f;
   float rightAttenuation = .5f + (ldistance - rdistance) * 2.5f;
 
