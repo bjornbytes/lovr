@@ -438,7 +438,7 @@ void lovrSourcePause(Source* source) {
 
 void lovrSourceStop(Source* source) {
   lovrSourcePause(source);
-  lovrSourceSetTime(source, 0, UNIT_FRAMES);
+  lovrSourceSeek(source, 0, UNIT_FRAMES);
 }
 
 bool lovrSourceIsPlaying(Source* source) {
@@ -464,19 +464,19 @@ void lovrSourceSetVolume(Source* source, float volume) {
   ma_mutex_unlock(&state.lock);
 }
 
-double lovrSourceGetDuration(Source* source, TimeUnit units) {
-  uint32_t frames = lovrSoundGetFrameCount(source->sound);
-  return units == UNIT_SECONDS ? (double) frames / lovrSoundGetSampleRate(source->sound) : frames;
-}
-
-double lovrSourceGetTime(Source* source, TimeUnit units) {
-  return units == UNIT_SECONDS ? (double) source->offset / lovrSoundGetSampleRate(source->sound) : source->offset;
-}
-
-void lovrSourceSetTime(Source* source, double time, TimeUnit units) {
+void lovrSourceSeek(Source* source, double time, TimeUnit units) {
   ma_mutex_lock(&state.lock);
   source->offset = units == UNIT_SECONDS ? (uint32_t) (time * lovrSoundGetSampleRate(source->sound) + .5) : (uint32_t) time;
   ma_mutex_unlock(&state.lock);
+}
+
+double lovrSourceTell(Source* source, TimeUnit units) {
+  return units == UNIT_SECONDS ? (double) source->offset / lovrSoundGetSampleRate(source->sound) : source->offset;
+}
+
+double lovrSourceGetDuration(Source* source, TimeUnit units) {
+  uint32_t frames = lovrSoundGetFrameCount(source->sound);
+  return units == UNIT_SECONDS ? (double) frames / lovrSoundGetSampleRate(source->sound) : frames;
 }
 
 bool lovrSourceIsSpatial(Source *source) {
