@@ -249,7 +249,7 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
 
   phonon_iplApplyDirectSoundEffect(state.directSoundEffect[index], in, path, options, tmp);
 
-  float blend = lovrSourceGetSpatialBlend(source);
+  float blend = 1.f;
   IPLHrtfInterpolation interpolation = lovrSourceGetInterpolation(source) == SOURCE_BILINEAR ? IPL_HRTFINTERPOLATION_BILINEAR : IPL_HRTFINTERPOLATION_NEAREST;
   phonon_iplApplyBinauralEffect(state.binauralEffect[index], state.binauralRenderer, tmp, path.direction, interpolation, blend, out);
 

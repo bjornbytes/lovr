@@ -95,20 +95,6 @@ static int l_lovrSourceIsSpatial(lua_State* L) {
   return 1;
 }
 
-static int l_lovrSourceGetSpatialBlend(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  float blend = lovrSourceGetSpatialBlend(source);
-  lua_pushnumber(L, blend);
-  return 1;
-}
-
-static int l_lovrSourceSetSpatialBlend(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  float blend = luax_checkfloat(L, 2);
-  lovrSourceSetSpatialBlend(source, blend);
-  return 0;
-}
-
 static int l_lovrSourceGetInterpolation(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   SourceInterpolation interpolation = lovrSourceGetInterpolation(source);
@@ -303,8 +289,6 @@ const luaL_Reg lovrSource[] = {
   { "tell", l_lovrSourceTell },
   { "getDuration", l_lovrSourceGetDuration },
   { "isSpatial", l_lovrSourceIsSpatial },
-  { "getSpatialBlend", l_lovrSourceGetSpatialBlend },
-  { "setSpatialBlend", l_lovrSourceSetSpatialBlend },
   { "getInterpolation", l_lovrSourceGetInterpolation },
   { "setInterpolation", l_lovrSourceSetInterpolation },
   { "getPosition", l_lovrSourceGetPosition },

@@ -483,14 +483,6 @@ bool lovrSourceIsSpatial(Source *source) {
   return source->spatial;
 }
 
-float lovrSourceGetSpatialBlend(Source* source) {
-  return source->blend;
-}
-
-void lovrSourceSetSpatialBlend(Source* source, float blend) {
-  source->blend = blend;
-}
-
 SourceInterpolation lovrSourceGetInterpolation(Source* source) {
   return source->bilinear ? SOURCE_BILINEAR : SOURCE_NEAREST;
 }
