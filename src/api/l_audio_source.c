@@ -13,9 +13,6 @@ static int l_lovrSourceClone(lua_State* L) {
 
 static int l_lovrSourcePlay(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  if (lua_isboolean(L, -1)) {
-    lovrSourceSetLooping(source, lua_toboolean(L, -1));
-  }
   bool played = lovrSourcePlay(source);
   lua_pushboolean(L, played);
   return 1;
