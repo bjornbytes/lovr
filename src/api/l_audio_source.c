@@ -123,6 +123,46 @@ static int l_lovrSourceSetInterpolation(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSourceGetPosition(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float position[4], orientation[4];
+  lovrSourceGetPose(source, position, orientation);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  return 3;
+}
+
+static int l_lovrSourceSetPosition(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float position[4], orientation[4];
+  lovrSourceGetPose(source, position, orientation);
+  luax_readvec3(L, 2, position, NULL);
+  lovrSourceSetPose(source, position, orientation);
+  return 0;
+}
+
+static int l_lovrSourceGetOrientation(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float position[4], orientation[4], angle, ax, ay, az;
+  lovrSourceGetPose(source, position, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
+}
+
+static int l_lovrSourceSetOrientation(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  float position[4], orientation[4];
+  lovrSourceGetPose(source, position, orientation);
+  luax_readquat(L, 2, orientation, NULL);
+  lovrSourceSetPose(source, position, orientation);
+  return 0;
+}
+
 static int l_lovrSourceGetPose(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float position[4], orientation[4], angle, ax, ay, az;
@@ -267,6 +307,10 @@ const luaL_Reg lovrSource[] = {
   { "setSpatialBlend", l_lovrSourceSetSpatialBlend },
   { "getInterpolation", l_lovrSourceGetInterpolation },
   { "setInterpolation", l_lovrSourceSetInterpolation },
+  { "getPosition", l_lovrSourceGetPosition },
+  { "setPosition", l_lovrSourceSetPosition },
+  { "getOrientation", l_lovrSourceGetOrientation },
+  { "setOrientation", l_lovrSourceSetOrientation },
   { "getPose", l_lovrSourceGetPose },
   { "setPose", l_lovrSourceSetPose },
   { "getRadius", l_lovrSourceGetRadius },
