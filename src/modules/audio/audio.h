@@ -80,5 +80,3 @@ bool lovrSourceIsReverbEnabled(Source* source);
 void lovrSourceSetReverbEnabled(Source* source, bool enabled);
 bool lovrSourceIsTransmissionEnabled(Source* source);
 void lovrSourceSetTransmissionEnabled(Source* source, bool enabled);
-intptr_t* lovrSourceGetSpatializerMemoField(Source* source);
-uint32_t lovrSourceGetIndex(Source* source);

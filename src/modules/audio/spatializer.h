@@ -1,5 +1,9 @@
 #include "audio.h"
 
+// Private Source functions for spatializer use
+intptr_t* lovrSourceGetSpatializerMemoField(Source* source);
+uint32_t lovrSourceGetIndex(Source* source);
+
 typedef struct {
   uint32_t maxSourcesHint;
   uint32_t fixedBufferSize;
