@@ -63,7 +63,6 @@ CONFIG_LUAJIT=y
 # ANDROID_NDK: The path to the Android NDK
 # ANDROID_VERSION: The Android version to build against (usually 21 or 26)
 # ANDROID_BUILD_TOOLS_VERSION: The version of the Android build tools to use (in build-tools folder)
-# ANDROID_HOST_TAG: The host machine tag (e.g. windows-x86_64, darwin-x86_64)
 # ANDROID_KEYSTORE: The path to the keystore (use keytool to generate)
 # ANDROID_KEYSTORE_PASS: The keystore password (use either pass:<string>, env:<var>, or file:<path>)
 # ANDROID_MANIFEST: Optional path to a custom Android manifest file (xml)
@@ -73,7 +72,6 @@ CONFIG_ANDROID_SDK=
 CONFIG_ANDROID_NDK=
 CONFIG_ANDROID_VERSION=
 CONFIG_ANDROID_BUILD_TOOLS_VERSION=
-CONFIG_ANDROID_HOST_TAG=
 CONFIG_ANDROID_KEYSTORE=
 CONFIG_ANDROID_KEYSTORE_PASS=
 CONFIG_ANDROID_MANIFEST=

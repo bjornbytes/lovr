@@ -96,7 +96,17 @@ ifeq ($(PLATFORM),android)
   PREFIX = apk/lib/arm64-v8a/lib
   LIB = bin/apk/lib/arm64-v8a
 
-  CC = @(ANDROID_NDK)/toolchains/llvm/prebuilt/@(ANDROID_HOST_TAG)/bin/clang
+  ifeq (@(TUP_PLATFORM),win32)
+    HOST = windows-x86_64
+  endif
+  ifeq (@(TUP_PLATFORM),macosx)
+    HOST = darwin-x86_64
+  endif
+  ifeq (@(TUP_PLATFORM),linux)
+    HOST = linux-x86_64
+  endif
+
+  CC = @(ANDROID_NDK)/toolchains/llvm/prebuilt/$(HOST)/bin/clang
   CFLAGS += -DLOVR_GLES
   CFLAGS += -I@(ANDROID_NDK)/sources/android/native_app_glue
   FLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
