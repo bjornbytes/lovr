@@ -148,4 +148,6 @@ typedef unsigned int atomic_uint;
 #define atomic_fetch_add(p, x) _InterlockedExchangeAdd(p, x)
 #define atomic_fetch_sub(p, x) _InterlockedExchangeAdd(p, -(x))
 
+#define ATOMIC_INT_LOCK_FREE 2
+
 #endif
