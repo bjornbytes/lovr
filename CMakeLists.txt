@@ -167,21 +167,17 @@ endif()
 
 # OpenVR
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
-  set(BUILD_SHARED ON CACHE BOOL "")
-  set(BUILD_UNIVERSAL OFF CACHE BOOL "")
+  add_library(openvr SHARED IMPORTED)
   include_directories(deps/openvr/headers)
-  include_directories(deps/openvr/src)
-  include_directories(deps/openvr/src/vrcommon)
-  if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(LOVR_OPENVR openvr_api64)
+  if(WIN32)
+    set_target_properties(openvr PROPERTIES IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/deps/openvr/bin/win64/openvr_api.dll")
+    set_target_properties(openvr PROPERTIES IMPORTED_IMPLIB "${CMAKE_SOURCE_DIR}/deps/openvr/lib/win64/openvr_api.lib")
+  elseif(APPLE)
+    set_target_properties(openvr PROPERTIES IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/deps/openvr/bin/osx32/libopenvr_api.dylib")
   else()
-    set(LOVR_OPENVR openvr_api)
+    set_target_properties(openvr PROPERTIES IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/deps/openvr/bin/linux64/libopenvr_api.so")
   endif()
-  add_subdirectory(deps/openvr)
-  set_target_properties(${LOVR_OPENVR} PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
-  )
+  set(LOVR_OPENVR openvr)
 endif()
 
 # OpenXR

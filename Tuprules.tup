@@ -220,12 +220,12 @@ ifneq (@(CMAKE_DEPS),)
 
   # OpenVR
   CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
-  LDFLAGS_@(OPENVR)_$(win32) += -L$(DEPS)/openvr/bin/win64/$(CONFIG) -lopenvr_api64
-  LDFLAGS_@(OPENVR)_$(macos) += -L$(BUILD)/openvr_api -lopenvr_api
-  LDFLAGS_@(OPENVR)_$(linux) += -L$(BUILD)/openvr_api -lopenvr_api
+  LDFLAGS_@(OPENVR)_$(win32) += -L$(DEPS)/openvr/bin/win64 -lopenvr_api64
+  LDFLAGS_@(OPENVR)_$(macos) += -L$(DEPS)/openvr/bin/osx32 -lopenvr_api
+  LDFLAGS_@(OPENVR)_$(linux) += -L$(DEPS)/openvr/bin/linux64 -lopenvr_api
   LIBS_@(OPENVR)_$(win32) += $(DEPS)/openvr/bin/win64/openvr_api.dll
-  LIBS_@(OPENVR)_$(macos) += $(BUILD)/openvr_api/libopenvr_api.dylib
-  LIBS_@(OPENVR)_$(linux) += $(BUILD)/openvr_api/libopenvr_api.so
+  LIBS_@(OPENVR)_$(macos) += $(DEPS)/openvr/bin/osx32/libopenvr_api.dylib
+  LIBS_@(OPENVR)_$(linux) += $(DEPS)/openvr/bin/linux64/libopenvr_api.so
 
   # ODE
   CFLAGS_@(PHYSICS) += -I$(DEPS)/ode/include -I$(BUILD)/ode/include
