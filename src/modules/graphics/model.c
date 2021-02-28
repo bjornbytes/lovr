@@ -21,6 +21,10 @@ struct Model {
   struct Mesh** meshes;
   struct Texture** textures;
   struct Material** materials;
+  float* vertices;
+  uint32_t* indices;
+  uint32_t vertexCount;
+  uint32_t indexCount;
   NodeTransform* localTransforms;
   float* globalTransforms;
   bool transformsDirty;
@@ -435,4 +439,83 @@ void lovrModelGetAABB(Model* model, float aabb[6]) {
   aabb[0] = aabb[2] = aabb[4] = FLT_MAX;
   aabb[1] = aabb[3] = aabb[5] = -FLT_MAX;
   applyAABB(model, model->data->rootNode, aabb);
+}
+
+static void countVertices(Model* model, uint32_t nodeIndex, uint32_t* vertexCount, uint32_t* indexCount) {
+  ModelNode* node = &model->data->nodes[nodeIndex];
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
+    ModelAttribute* positions = primitive->attributes[ATTR_POSITION];
+    ModelAttribute* indices = primitive->indices;
+    uint32_t count = positions ? positions->count : 0;
+    *vertexCount += count;
+    *indexCount += indices ? indices->count : count;
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    countVertices(model, node->children[i], vertexCount, indexCount);
+  }
+}
+
+static void collectVertices(Model* model, uint32_t nodeIndex, float* vertices, uint32_t* indices) {
+  ModelNode* node = &model->data->nodes[nodeIndex];
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
+
+    ModelAttribute* positions = primitive->attributes[ATTR_POSITION];
+    if (!positions) continue;
+
+    ModelBuffer* buffer = &model->data->buffers[positions->buffer];
+    char* data = (char*) buffer->data + positions->offset;
+
+    for (uint32_t j = 0; j < positions->count; j++) {
+      *vertices++ = *(float*) data + 0;
+      *vertices++ = *(float*) data + 1;
+      *vertices++ = *(float*) data + 2;
+      data += buffer->stride;
+    }
+
+    ModelAttribute* index = primitive->indices;
+    if (index) {
+      AttributeType type = index->type;
+      lovrAssert(type == U16 || type == U32, "Unreachable");
+
+      buffer = &model->data->buffers[index->buffer];
+      data = (char*) buffer->data + index->offset;
+
+      for (uint32_t j = 0; j < index->count; j++) {
+        *indices++ = type == U16 ? ((uint32_t) *(uint16_t*) data) : *(uint32_t*) data;
+      }
+    } else {
+      for (uint32_t j = 0; j < positions->count; j++) {
+        *indices++ = j;
+      }
+    }
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    collectVertices(model, node->children[i], vertices, indices);
+  }
+}
+
+void lovrModelGetTriangles(Model* model, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount) {
+  if (model->transformsDirty) {
+    updateGlobalTransform(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+    model->transformsDirty = false;
+  }
+
+  if (!model->vertices) {
+    countVertices(model, model->data->rootNode, &model->vertexCount, &model->indexCount);
+    model->vertices = malloc(model->vertexCount * 3 * sizeof(float));
+    model->indices = malloc(model->indexCount * sizeof(uint32_t));
+    lovrAssert(model->vertices && model->indices, "Out of memory");
+  }
+
+  collectVertices(model, model->data->rootNode, model->vertices, model->indices);
+  *vertexCount = model->vertexCount;
+  *indexCount = model->indexCount;
+  *vertices = model->vertices;
+  *indices = model->indices;
 }
