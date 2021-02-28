@@ -5,7 +5,7 @@
 #include "lib/miniaudio/miniaudio.h"
 #include <string.h>
 #include <stdlib.h>
-#ifdef _MSVC_VER
+#ifdef _MSC_VER
 #include <intrin.h>
 #define CTZL _tzcnt_u64
 #else
