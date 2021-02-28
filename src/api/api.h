@@ -110,7 +110,7 @@ int luax_setconf(struct lua_State* L);
 void luax_setmainthread(struct lua_State* L);
 void luax_atexit(struct lua_State* L, void (*destructor)(void));
 void luax_readcolor(struct lua_State* L, int index, struct Color* color);
-int luax_readtriangles(struct lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
+int luax_readmesh(struct lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
 
 // Module helpers
 

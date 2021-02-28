@@ -186,7 +186,7 @@ static int l_lovrAudioSetGeometry(lua_State* L) {
   uint32_t* indices;
   uint32_t vertexCount, indexCount;
   bool shouldFree;
-  int index = luax_readtriangles(L, 1, &vertices, &vertexCount, &indices, &indexCount, &shouldFree);
+  int index = luax_readmesh(L, 1, &vertices, &vertexCount, &indices, &indexCount, &shouldFree);
   AudioMaterial material = luax_checkenum(L, index, AudioMaterial, "generic");
   bool success = lovrAudioSetGeometry(vertices, indices, vertexCount, indexCount, material);
   if (shouldFree) {
