@@ -22,3 +22,4 @@ void lovrModelPose(Model* model, uint32_t nodeIndex, float position[4], float ro
 void lovrModelResetPose(Model* model);
 struct Material* lovrModelGetMaterial(Model* model, uint32_t material);
 void lovrModelGetAABB(Model* model, float aabb[6]);
+void lovrModelGetTriangles(Model* model, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount);
