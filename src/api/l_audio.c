@@ -6,6 +6,21 @@
 #include "core/util.h"
 #include <stdlib.h>
 
+StringEntry lovrAudioMaterial[] = {
+  [MATERIAL_GENERIC] = ENTRY("generic"),
+  [MATERIAL_BRICK] = ENTRY("brick"),
+  [MATERIAL_CARPET] = ENTRY("carpet"),
+  [MATERIAL_CERAMIC] = ENTRY("ceramic"),
+  [MATERIAL_CONCRETE] = ENTRY("concrete"),
+  [MATERIAL_GLASS] = ENTRY("glass"),
+  [MATERIAL_GRAVEL] = ENTRY("gravel"),
+  [MATERIAL_METAL] = ENTRY("metal"),
+  [MATERIAL_PLASTER] = ENTRY("plaster"),
+  [MATERIAL_ROCK] = ENTRY("rock"),
+  [MATERIAL_WOOD] = ENTRY("wood"),
+  { 0 }
+};
+
 StringEntry lovrAudioType[] = {
   [AUDIO_PLAYBACK] = ENTRY("playback"),
   [AUDIO_CAPTURE] = ENTRY("capture"),
@@ -152,8 +167,9 @@ static int l_lovrAudioSetGeometry(lua_State* L) {
   uint32_t* indices;
   uint32_t vertexCount, indexCount;
   bool shouldFree;
-  luax_readtriangles(L, 1, &vertices, &vertexCount, &indices, &indexCount, &shouldFree);
-  bool success = lovrAudioSetGeometry(vertices, indices, vertexCount, indexCount);
+  int index = luax_readtriangles(L, 1, &vertices, &vertexCount, &indices, &indexCount, &shouldFree);
+  AudioMaterial material = luax_checkenum(L, index, AudioMaterial, "generic");
+  bool success = lovrAudioSetGeometry(vertices, indices, vertexCount, indexCount, material);
   if (shouldFree) {
     free(vertices);
     free(indices);

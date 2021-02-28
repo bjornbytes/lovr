@@ -279,7 +279,7 @@ static void oculus_spatializer_setListenerPose(float position[4], float orientat
   ma_mutex_unlock(&state.poseLock);
 }
 
-bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount) {
+bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material) {
   return false;
 }
 

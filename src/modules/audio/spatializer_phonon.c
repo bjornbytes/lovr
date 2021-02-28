@@ -294,20 +294,24 @@ void phonon_setListenerPose(float position[4], float orientation[4]) {
   memcpy(state.listenerOrientation, orientation, sizeof(state.listenerOrientation));
 }
 
-bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount) {
+bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material) {
   if (state.mesh) phonon_iplDestroyStaticMesh(&state.mesh);
   if (state.scene) phonon_iplDestroyScene(&state.scene);
   if (state.environment) phonon_iplDestroyEnvironment(&state.environment);
   if (state.environmentalRenderer) phonon_iplDestroyEnvironment(&state.environmentalRenderer);
 
-  IPLMaterial material = (IPLMaterial) {
-    .lowFreqAbsorption = .2f,
-    .midFreqAbsorption = .07f,
-    .highFreqAbsorption = .06f,
-    .scattering = .05f,
-    .lowFreqTransmission = .2f,
-    .midFreqTransmission = .025f,
-    .highFreqTransmission = .01f
+  IPLMaterial materials[] = {
+    [AUDIO_GENERIC] = { .10f, .20f, .30f, .05f, .100f, .050f, .030f },
+    [AUDIO_BRICK] = { .03f, .04f, .07f, .05f, .015f, .015f, .015f },
+    [AUDIO_CARPET] = { .24f, .69f, .73f, .05f, .020f, .005f, .003f },
+    [AUDIO_CERAMIC] = { .01f, .02f, .02f, .05f, .060f, .044f, .011f },
+    [AUDIO_CONCRETE] = { .05f, .07f, .08f, .05f, .015f, .002f, .001f },
+    [AUDIO_GLASS] = { .06f, .03f, .02f, .05f, .060f, .044f, .011f },
+    [AUDIO_GRAVEL] = { .60f, .70f, .80f, .05f, .031f, .012f, .008f },
+    [AUDIO_METAL] = { .20f, .07f, .06f, .05f, .200f, .025f, .010f },
+    [AUDIO_PLASTER] = { .12f, .06f, .04f, .05f, .056f, .056f, .004f },
+    [AUDIO_ROCK] = { .13f, .20f, .24f, .05f, .015f, .002f, .001f },
+    [AUDIO_WOOD] = { .11f, .07f, .06f, .05f, .070f, .014f, .005f }
   };
 
   IPLSimulationSettings settings = (IPLSimulationSettings) {
@@ -324,15 +328,18 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
     .irradianceMinDistance = .1f
   };
 
-  IPLint32* materials = malloc(indexCount / 3 * sizeof(IPLint32));
-  if (!materials) goto fail;
-  memset(materials, 0, indexCount / 3 * sizeof(IPLint32));
+  IPLint32* triangleMaterials = malloc(indexCount / 3 * sizeof(IPLint32));
+  if (!triangleMaterials) goto fail;
+
+  for (uint32_t i = 0; i < indexCount / 3; i++) {
+    triangleMaterials[i] = material;
+  }
 
   IPLerror status;
-  status = phonon_iplCreateScene(state.context, NULL, IPL_SCENETYPE_PHONON, 1, &material, NULL, NULL, NULL, NULL, NULL, &state.scene);
+  status = phonon_iplCreateScene(state.context, NULL, IPL_SCENETYPE_PHONON, 1, materials, NULL, NULL, NULL, NULL, NULL, &state.scene);
   if (status != IPL_STATUS_SUCCESS) goto fail;
 
-  status = phonon_iplCreateStaticMesh(state.scene, vertexCount, indexCount / 3, (IPLVector3*) vertices, (IPLTriangle*) indices, materials, &state.mesh);
+  status = phonon_iplCreateStaticMesh(state.scene, vertexCount, indexCount / 3, (IPLVector3*) vertices, (IPLTriangle*) indices, triangleMaterials, &state.mesh);
   if (status != IPL_STATUS_SUCCESS) goto fail;
 
   status = phonon_iplCreateEnvironment(state.context, NULL, settings, state.scene, NULL, &state.environment);

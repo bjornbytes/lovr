@@ -51,7 +51,7 @@ void simple_spatializer_setListenerPose(float position[4], float orientation[4])
   mat4_rotateQuat(state.listener, orientation);
 }
 
-bool simple_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount) {
+bool simple_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material) {
   return false;
 }
 

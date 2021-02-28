@@ -12,6 +12,20 @@ struct Sound;
 typedef struct Source Source;
 
 typedef enum {
+  MATERIAL_GENERIC,
+  MATERIAL_BRICK,
+  MATERIAL_CARPET,
+  MATERIAL_CERAMIC,
+  MATERIAL_CONCRETE,
+  MATERIAL_GLASS,
+  MATERIAL_GRAVEL,
+  MATERIAL_METAL,
+  MATERIAL_PLASTER,
+  MATERIAL_ROCK,
+  MATERIAL_WOOD
+} AudioMaterial;
+
+typedef enum {
   AUDIO_PLAYBACK,
   AUDIO_CAPTURE
 } AudioType;
@@ -39,7 +53,7 @@ float lovrAudioGetVolume(void);
 void lovrAudioSetVolume(float volume);
 void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
-bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount);
+bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
 const char* lovrAudioGetSpatializer(void);
 struct Sound* lovrAudioGetCaptureStream(void);
 
