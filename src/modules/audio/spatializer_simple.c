@@ -55,11 +55,11 @@ bool simple_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   return false;
 }
 
-void simple_source_create(Source* source) {
+void simple_sourceCreate(Source* source) {
   //
 }
 
-void simple_source_destroy(Source* source) {
+void simple_sourceDestroy(Source* source) {
   //
 }
 
