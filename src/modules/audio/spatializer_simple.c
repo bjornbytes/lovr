@@ -6,16 +6,16 @@ static struct {
   float listener[16];
 } state;
 
-bool simple_spatializer_init(SpatializerConfig config) {
+bool simple_init(SpatializerConfig config) {
   mat4_identity(state.listener);
   return true;
 }
 
-void simple_spatializer_destroy(void) {
+void simple_destroy(void) {
   //
 }
 
-uint32_t simple_spatializer_source_apply(Source* source, const float* input, float* output, uint32_t frames, uint32_t _frames) {
+uint32_t simple_apply(Source* source, const float* input, float* output, uint32_t frames, uint32_t _frames) {
   float sourcePos[4], sourceOrientation[4];
   lovrSourceGetPose(source, sourcePos, sourceOrientation);
 
@@ -41,11 +41,11 @@ uint32_t simple_spatializer_source_apply(Source* source, const float* input, flo
   return frames;
 }
 
-uint32_t simple_spatializer_tail(float* scratch, float* output, uint32_t frames) {
+uint32_t simple_tail(float* scratch, float* output, uint32_t frames) {
   return 0;
 }
 
-void simple_spatializer_setListenerPose(float position[4], float orientation[4]) {
+void simple_setListenerPose(float position[4], float orientation[4]) {
   mat4_identity(state.listener);
   mat4_translate(state.listener, position[0], position[1], position[2]);
   mat4_rotateQuat(state.listener, orientation);
@@ -55,22 +55,22 @@ bool simple_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   return false;
 }
 
-void simple_spatializer_source_create(Source* source) {
+void simple_source_create(Source* source) {
   //
 }
 
-void simple_spatializer_source_destroy(Source* source) {
+void simple_source_destroy(Source* source) {
   //
 }
 
 Spatializer simpleSpatializer = {
-  .init = simple_spatializer_init,
-  .destroy = simple_spatializer_destroy,
-  .apply = simple_spatializer_source_apply,
-  .tail = simple_spatializer_tail,
-  .setListenerPose = simple_spatializer_setListenerPose,
+  .init = simple_init,
+  .destroy = simple_destroy,
+  .apply = simple_apply,
+  .tail = simple_tail,
+  .setListenerPose = simple_setListenerPose,
   .setGeometry = simple_setGeometry,
-  .sourceCreate = simple_spatializer_source_create,
-  .sourceDestroy = simple_spatializer_source_destroy,
+  .sourceCreate = simple_sourceCreate,
+  .sourceDestroy = simple_sourceDestroy,
   .name = "simple"
 };

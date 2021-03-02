@@ -261,7 +261,7 @@ void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, vo
   ma_context_enumerate_devices(&state.context, type == AUDIO_PLAYBACK ? enumPlayback : enumCapture, userdata);
 }
 
-bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, SampleFormat format, bool exclusive) {
+bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, uint32_t format, bool exclusive) {
   if (id && size != sizeof(ma_device_id)) return false;
 
 #ifdef ANDROID
