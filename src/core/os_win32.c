@@ -1,6 +1,7 @@
 #include "os.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <shellapi.h>
 #include <KnownFolders.h>
 #include <ShlObj.h>
 #include <stdio.h>
@@ -8,6 +9,45 @@
 #include "os_glfw.h"
 
 static uint64_t frequency;
+
+int main(int argc, char** argv);
+
+int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev, LPSTR args, int show) {
+  int argc;
+  char** argv;
+
+  LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+  if (!wargv) {
+    return EXIT_FAILURE;
+  }
+
+  argv = calloc(argc + 1, sizeof(char*));
+  if (!argv) {
+    return EXIT_FAILURE;
+  }
+
+  for (int i = 0; i < argc; i++) {
+    int size = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, NULL, 0, NULL, NULL);
+
+    argv[i] = malloc(size);
+    if (!argv[i]) {
+      return EXIT_FAILURE;
+    }
+
+    if (!WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, argv[i], size, NULL, NULL)) {
+      return EXIT_FAILURE;
+    }
+  }
+
+  int status = main(argc, argv);
+
+  for (int i = 0; i < argc; i++) {
+    free(argv[i]);
+  }
+  free(argv);
+
+  return status;
+}
 
 bool os_init() {
   LARGE_INTEGER f;
