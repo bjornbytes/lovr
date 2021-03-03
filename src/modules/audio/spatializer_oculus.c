@@ -79,8 +79,6 @@ typedef struct {
 } SourceRecord;
 
 struct {
-  uint32_t sampleRate;
-
   ovrAudioContext context;
   SourceRecord sources[MAX_SOURCES];
 
@@ -94,10 +92,7 @@ struct {
   bool poseLockInited;
 } state;
 
-static bool oculus_init(SpatializerConfig config) {
-  // Initialize own state
-  state.sampleRate = config.sampleRate;
-
+static bool oculus_init() {
   if (!state.poseLockInited) {
     int mutexStatus = ma_mutex_init(&state.poseLock);
     lovrAssert(mutexStatus == MA_SUCCESS, "Failed to create audio mutex");
@@ -105,12 +100,12 @@ static bool oculus_init(SpatializerConfig config) {
   }
 
   // Initialize Oculus
-  ovrAudioContextConfiguration contextConfig = { 0 };
+  ovrAudioContextConfiguration config = { 0 };
 
   contextConfig.acc_Size = sizeof(contextConfig);
   contextConfig.acc_MaxNumSources = MAX_SOURCES;
-  contextConfig.acc_SampleRate = state.sampleRate;
-  contextConfig.acc_BufferLength = config.fixedBuffer; // Stereo
+  contextConfig.acc_SampleRate = PLAYBACK_SAMPLE_RATE;
+  contextConfig.acc_BufferLength = BUFFER_SIZE; // Stereo
 
   if (ovrAudio_CreateContext(&state.context, &contextConfig) != ovrSuccess) {
     return false;

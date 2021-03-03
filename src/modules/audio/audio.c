@@ -21,7 +21,6 @@ static const ma_format miniaudioFormats[] = {
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2
 #define CAPTURE_CHANNELS 1
-#define BUFFER_SIZE 256
 
 struct Source {
   uint32_t ref;
@@ -200,18 +199,12 @@ bool lovrAudioInit(const char* spatializer) {
   int mutexStatus = ma_mutex_init(&state.lock);
   lovrAssert(mutexStatus == MA_SUCCESS, "Failed to create audio mutex");
 
-  SpatializerConfig spatializerConfig = {
-    .maxSourcesHint = MAX_SOURCES,
-    .fixedBufferSize = BUFFER_SIZE,
-    .sampleRate = PLAYBACK_SAMPLE_RATE
-  };
-
   for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
     if (spatializer && strcmp(spatializer, spatializers[i]->name)) {
       continue;
     }
 
-    if (spatializers[i]->init(spatializerConfig)) {
+    if (spatializers[i]->init()) {
       state.spatializer = spatializers[i];
       break;
     }

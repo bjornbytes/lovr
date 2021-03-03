@@ -5,14 +5,7 @@ intptr_t* lovrSourceGetSpatializerMemoField(Source* source);
 uint32_t lovrSourceGetIndex(Source* source);
 
 typedef struct {
-  uint32_t maxSourcesHint;
-  uint32_t fixedBufferSize;
-  uint32_t sampleRate;
-} SpatializerConfig;
-
-typedef struct {
-  // return true on success
-  bool (*init)(SpatializerConfig config);
+  bool (*init)(void);
   void (*destroy)(void);
   // input is mono, output is interleaved stereo, framesIn is mono frames, framesOut is stereo frames.
   // Safe to assume framesIn == framesOut unless spatializer requests needFixedBuffer.

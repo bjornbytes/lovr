@@ -131,7 +131,7 @@ static struct {
 
 static void phonon_destroy(void);
 
-bool phonon_init(SpatializerConfig config) {
+bool phonon_init() {
   state.library = phonon_dlopen(PHONON_LIBRARY);
   if (!state.library) return false;
 
@@ -146,11 +146,11 @@ bool phonon_init(SpatializerConfig config) {
   status = phonon_iplCreateEnvironment(state.context, NULL, simulationSettings, NULL, NULL, &state.environment);
   if (status != IPL_STATUS_SUCCESS) return phonon_destroy(), false;
 
-  state.renderingSettings.samplingRate = config.sampleRate;
-  state.renderingSettings.frameSize = config.fixedBufferSize;
+  state.renderingSettings.samplingRate = PLAYBACK_SAMPLE_RATE;
+  state.renderingSettings.frameSize = BUFFER_SIZE;
   state.renderingSettings.convolutionType = IPL_CONVOLUTIONTYPE_PHONON;
 
-  state.scratchpad = malloc(config.fixedBufferSize * 4 * sizeof(float));
+  state.scratchpad = malloc(BUFFER_SIZE * 4 * sizeof(float));
   if (!state.scratchpad) return phonon_destroy(), false;
 
   IPLHrtfParams hrtfParams = {

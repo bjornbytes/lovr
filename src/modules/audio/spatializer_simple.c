@@ -6,7 +6,7 @@ static struct {
   float listener[16];
 } state;
 
-bool simple_init(SpatializerConfig config) {
+bool simple_init() {
   mat4_identity(state.listener);
   return true;
 }
