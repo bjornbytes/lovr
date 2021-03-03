@@ -82,8 +82,7 @@ struct {
   uint32_t sampleRate;
 
   ovrAudioContext context;
-  SourceRecord *sources;
-  int sourceMax;   // Maximum allowed simultaneous sources
+  SourceRecord sources[MAX_SOURCES];
 
   int sourceCount; // Number of active sources seen this playback
   int occupiedCount; // Number of sources+tailoffs seen this playback (ie strictly gte sourceCount)
@@ -98,8 +97,6 @@ struct {
 static bool oculus_init(SpatializerConfig config) {
   // Initialize own state
   state.sampleRate = config.sampleRate;
-  state.sourceMax = config.maxSourcesHint;
-  state.sources = calloc(state.sourceMax, sizeof(SourceRecord));
 
   if (!state.poseLockInited) {
     int mutexStatus = ma_mutex_init(&state.poseLock);
@@ -111,7 +108,7 @@ static bool oculus_init(SpatializerConfig config) {
   ovrAudioContextConfiguration contextConfig = { 0 };
 
   contextConfig.acc_Size = sizeof(contextConfig);
-  contextConfig.acc_MaxNumSources = state.sourceMax;
+  contextConfig.acc_MaxNumSources = MAX_SOURCES;
   contextConfig.acc_SampleRate = state.sampleRate;
   contextConfig.acc_BufferLength = config.fixedBuffer; // Stereo
 
@@ -123,15 +120,16 @@ static bool oculus_init(SpatializerConfig config) {
 }
 
 static void oculus_destroy() {
-  free(state.sources);
-  state.sources = NULL;
+  ovrAudio_DestroyContext(state.context);
+  ma_mutex_uninit(&state.lock);
+  memset(&state, 0, sizeof(state));
 }
 
 static uint32_t oculus_apply(Source* source, const float* input, float* output, uint32_t framesIn, uint32_t framesOut) {
   if (!state.midPlayback) { // Run this code only on the first Source of a playback
     state.midPlayback = true;
 
-    for (int idx = 0; idx < state.sourceMax; idx++) { // Clear presence tracking and get starting positions
+    for (int idx = 0; idx < MAX_SOURCES; idx++) { // Clear presence tracking and get starting positions
       SourceRecord* record = &state.sources[idx];
       record->usedSourceThisPlayback = false;
 
@@ -175,14 +173,14 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
   // If there are no free source records, we will simply not play the sound,
   // but if there's a record which is only playing a tail, in *that* case we will override the tail.
   if (idx < 0 && lovrSourceIsPlaying(source)) {
-    if (state.occupiedCount < state.sourceMax) { // There's an empty slot
-      for (idx = 0; idx < state.sourceMax; idx++) {
+    if (state.occupiedCount < MAX_SOURCES) { // There's an empty slot
+      for (idx = 0; idx < MAX_SOURCES; idx++) {
         if (!state.sources[idx].occupied) { // Claim the first unoccupied slot
           break;
         }
       }
-    } else if (state.sourceCount < state.sourceMax) { // There's a slot doing a tail
-      for (idx = 0; idx < state.sourceMax; idx++) {
+    } else if (state.sourceCount < MAX_SOURCES) { // There's a slot doing a tail
+      for (idx = 0; idx < MAX_SOURCES; idx++) {
         if (!state.sources[idx].occupied && !state.sources[idx].usedSourceThisPlayback) { // Does OculusAudio allow reusing indexes within a playback? Let's guess no for now.
           break;
         }
@@ -225,7 +223,7 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
 
 static uint32_t oculus_tail(float* scratch, float* output, uint32_t frames) {
   bool didAnything = false;
-  for (int idx = 0; idx < state.sourceMax; idx++) {
+  for (int idx = 0; idx < MAX_SOURCES; idx++) {
     // If a sound is finished, feed in NULL input on its index until reverb tail completes.
     if (state.sources[idx].occupied && !state.sources[idx].usedSourceThisPlayback) {
       uint32_t outStatus = 0;
