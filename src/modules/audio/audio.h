@@ -12,6 +12,15 @@ struct Sound;
 typedef struct Source Source;
 
 typedef enum {
+  EFFECT_ABSORPTION,
+  EFFECT_FALLOFF,
+  EFFECT_OCCLUSION,
+  EFFECT_REVERB,
+  EFFECT_SPATIALIZATION,
+  EFFECT_TRANSMISSION
+} Effect;
+
+typedef enum {
   MATERIAL_GENERIC,
   MATERIAL_BRICK,
   MATERIAL_CARPET,
@@ -74,21 +83,11 @@ void lovrSourceSeek(Source* source, double time, TimeUnit units);
 double lovrSourceTell(Source* source, TimeUnit units);
 double lovrSourceGetDuration(Source* source, TimeUnit units);
 bool lovrSourceIsSpatial(Source* source);
-SourceInterpolation lovrSourceGetInterpolation(Source* source);
-void lovrSourceSetInterpolation(Source* source, SourceInterpolation interpolation);
 void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
 float lovrSourceGetRadius(Source* source);
 void lovrSourceSetRadius(Source* source, float radius);
 void lovrSourceGetDirectivity(Source* source, float* weight, float* power);
 void lovrSourceSetDirectivity(Source* source, float weight, float power);
-bool lovrSourceIsAbsorptionEnabled(Source* source);
-void lovrSourceSetAbsorptionEnabled(Source* source, bool enabled);
-bool lovrSourceIsFalloffEnabled(Source* source);
-void lovrSourceSetFalloffEnabled(Source* source, bool enabled);
-bool lovrSourceIsOcclusionEnabled(Source* source);
-void lovrSourceSetOcclusionEnabled(Source* source, bool enabled);
-bool lovrSourceIsReverbEnabled(Source* source);
-void lovrSourceSetReverbEnabled(Source* source, bool enabled);
-bool lovrSourceIsTransmissionEnabled(Source* source);
-void lovrSourceSetTransmissionEnabled(Source* source, bool enabled);
+bool lovrSourceIsEffectEnabled(Source* source, Effect effect);
+void lovrSourceSetEffectEnabled(Source* Source, Effect effect, bool enabled);

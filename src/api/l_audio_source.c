@@ -92,20 +92,6 @@ static int l_lovrSourceIsSpatial(lua_State* L) {
   return 1;
 }
 
-static int l_lovrSourceGetInterpolation(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  SourceInterpolation interpolation = lovrSourceGetInterpolation(source);
-  luax_pushenum(L, SourceInterpolation, interpolation);
-  return 1;
-}
-
-static int l_lovrSourceSetInterpolation(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  SourceInterpolation interpolation = luax_checkenum(L, 2, SourceInterpolation, NULL);
-  lovrSourceSetInterpolation(source, interpolation);
-  return 0;
-}
-
 static int l_lovrSourceGetPosition(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float position[4], orientation[4];
@@ -202,73 +188,19 @@ static int l_lovrSourceSetRadius(lua_State* L) {
   return 0;
 }
 
-static int l_lovrSourceIsAbsorptionEnabled(lua_State* L) {
+static int l_lovrSourceIsEffectEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lovrSourceIsAbsorptionEnabled(source);
+  Effect effect = luax_checkenum(L, 2, Effect, NULL);
+  bool enabled = lovrSourceIsEffectEnabled(source, effect);
   lua_pushboolean(L, enabled);
   return 1;
 }
 
-static int l_lovrSourceSetAbsorptionEnabled(lua_State* L) {
+static int l_lovrSourceSetEffectEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lua_toboolean(L, 2);
-  lovrSourceSetAbsorptionEnabled(source, enabled);
-  return 0;
-}
-
-static int l_lovrSourceIsFalloffEnabled(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lovrSourceIsFalloffEnabled(source);
-  lua_pushboolean(L, enabled);
-  return 1;
-}
-
-static int l_lovrSourceSetFalloffEnabled(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lua_toboolean(L, 2);
-  lovrSourceSetFalloffEnabled(source, enabled);
-  return 0;
-}
-
-static int l_lovrSourceIsOcclusionEnabled(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lovrSourceIsOcclusionEnabled(source);
-  lua_pushboolean(L, enabled);
-  return 1;
-}
-
-static int l_lovrSourceSetOcclusionEnabled(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lua_toboolean(L, 2);
-  lovrSourceSetOcclusionEnabled(source, enabled);
-  return 0;
-}
-
-static int l_lovrSourceIsReverbEnabled(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lovrSourceIsReverbEnabled(source);
-  lua_pushboolean(L, enabled);
-  return 1;
-}
-
-static int l_lovrSourceSetReverbEnabled(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lua_toboolean(L, 2);
-  lovrSourceSetReverbEnabled(source, enabled);
-  return 0;
-}
-
-static int l_lovrSourceIsTransmissionEnabled(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lovrSourceIsTransmissionEnabled(source);
-  lua_pushboolean(L, enabled);
-  return 1;
-}
-
-static int l_lovrSourceSetTransmissionEnabled(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool enabled = lua_toboolean(L, 2);
-  lovrSourceSetTransmissionEnabled(source, enabled);
+  Effect effect = luax_checkenum(L, 2, Effect, NULL);
+  bool enabled = lua_isnoneornil(L, -1) ? true : lua_toboolean(L, -1);
+  lovrSourceSetEffectEnabled(source, effect, enabled);
   return 0;
 }
 
@@ -286,8 +218,6 @@ const luaL_Reg lovrSource[] = {
   { "tell", l_lovrSourceTell },
   { "getDuration", l_lovrSourceGetDuration },
   { "isSpatial", l_lovrSourceIsSpatial },
-  { "getInterpolation", l_lovrSourceGetInterpolation },
-  { "setInterpolation", l_lovrSourceSetInterpolation },
   { "getPosition", l_lovrSourceGetPosition },
   { "setPosition", l_lovrSourceSetPosition },
   { "getOrientation", l_lovrSourceGetOrientation },
@@ -298,15 +228,7 @@ const luaL_Reg lovrSource[] = {
   { "setRadius", l_lovrSourceSetRadius },
   { "getDirectivity", l_lovrSourceGetDirectivity },
   { "setDirectivity", l_lovrSourceSetDirectivity },
-  { "isAbsorptionEnabled", l_lovrSourceIsAbsorptionEnabled },
-  { "setAbsorptionEnabled", l_lovrSourceSetAbsorptionEnabled },
-  { "isFalloffEnabled", l_lovrSourceIsFalloffEnabled },
-  { "setFalloffEnabled", l_lovrSourceSetFalloffEnabled },
-  { "isOcclusionEnabled", l_lovrSourceIsOcclusionEnabled },
-  { "setOcclusionEnabled", l_lovrSourceSetOcclusionEnabled },
-  { "isReverbEnabled", l_lovrSourceIsReverbEnabled },
-  { "setReverbEnabled", l_lovrSourceSetReverbEnabled },
-  { "isTransmissionEnabled", l_lovrSourceIsTransmissionEnabled },
-  { "setTransmissionEnabled", l_lovrSourceSetTransmissionEnabled },
+  { "isEffectEnabled", l_lovrSourceIsEffectEnabled },
+  { "setEffectEnabled", l_lovrSourceSetEffectEnabled },
   { NULL, NULL }
 };

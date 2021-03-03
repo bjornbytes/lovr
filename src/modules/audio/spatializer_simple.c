@@ -22,16 +22,24 @@ uint32_t simple_apply(Source* source, const float* input, float* output, uint32_
   float listenerPos[4] = { 0.f };
   mat4_transform(state.listener, listenerPos);
 
-  float distance = vec3_distance(sourcePos, listenerPos);
-  float leftEar[4] = { -0.1f, 0.0f, 0.0f, 1.0f };
-  float rightEar[4] = { 0.1f, 0.0f, 0.0f, 1.0f };
-  mat4_transform(state.listener, leftEar);
-  mat4_transform(state.listener, rightEar);
-  float ldistance = vec3_distance(sourcePos, leftEar);
-  float rdistance = vec3_distance(sourcePos, rightEar);
-  float distanceAttenuation = 1.f / MAX(distance, 1.f);
-  float leftAttenuation = .5f + (rdistance - ldistance) * 2.5f;
-  float rightAttenuation = .5f + (ldistance - rdistance) * 2.5f;
+  float distanceAttenuation = 1.f;
+  if (lovrSourceIsEffectEnabled(source, EFFECT_FALLOFF)) {
+    float distance = vec3_distance(sourcePos, listenerPos);
+    distanceAttenuation = 1.f / MAX(distance, 1.f);
+  }
+
+  float leftAttenuation = 1.f;
+  float rightAttenuation = 1.f;
+  if (lovrSourceIsEffectEnabled(source, EFFECT_SPATIALIZATION)) {
+    float leftEar[4] = { -0.1f, 0.0f, 0.0f, 1.0f };
+    float rightEar[4] = { 0.1f, 0.0f, 0.0f, 1.0f };
+    mat4_transform(state.listener, leftEar);
+    mat4_transform(state.listener, rightEar);
+    float ldistance = vec3_distance(sourcePos, leftEar);
+    float rdistance = vec3_distance(sourcePos, rightEar);
+    leftAttenuation = .5f + (rdistance - ldistance) * 2.5f;
+    rightAttenuation = .5f + (ldistance - rdistance) * 2.5f;
+  }
 
   for (unsigned int i = 0; i < frames; i++) {
     output[i * 2 + 0] = input[i] * distanceAttenuation * leftAttenuation;

@@ -6,6 +6,16 @@
 #include "core/util.h"
 #include <stdlib.h>
 
+StringEntry lovrEffect[] = {
+  [EFFECT_ABSORPTION] = ENTRY("absorption"),
+  [EFFECT_FALLOFF] = ENTRY("falloff"),
+  [EFFECT_OCCLUSION] = ENTRY("occlusion"),
+  [EFFECT_REVERB] = ENTRY("reverb"),
+  [EFFECT_SPATIALIZATION] = ENTRY("spatialization"),
+  [EFFECT_TRANSMISSION] = ENTRY("transmission"),
+  { 0 }
+};
+
 StringEntry lovrAudioMaterial[] = {
   [MATERIAL_GENERIC] = ENTRY("generic"),
   [MATERIAL_BRICK] = ENTRY("brick"),

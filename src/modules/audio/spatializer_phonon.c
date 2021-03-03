@@ -228,8 +228,9 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
   float radius = 0.f;
   IPLint32 rays = 0;
 
-  if (lovrSourceIsOcclusionEnabled(source)) {
-    occlusion = lovrSourceIsTransmissionEnabled(source) ? IPL_DIRECTOCCLUSION_TRANSMISSIONBYFREQUENCY : IPL_DIRECTOCCLUSION_NOTRANSMISSION;
+  if (lovrSourceIsEffectEnabled(source, EFFECT_OCCLUSION)) {
+    bool transmission = lovrSourceIsEffectEnabled(source, EFFECT_TRANSMISSION);
+    occlusion = transmission ? IPL_DIRECTOCCLUSION_TRANSMISSIONBYFREQUENCY : IPL_DIRECTOCCLUSION_NOTRANSMISSION;
     radius = lovrSourceGetRadius(source);
 
     if (radius > 0.f) {
@@ -241,8 +242,8 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
   IPLDirectSoundPath path = phonon_iplGetDirectSoundPath(state.environment, listener, forward, up, iplSource, radius, rays, occlusion, volumetric);
 
   IPLDirectSoundEffectOptions options = {
-    .applyDistanceAttenuation = lovrSourceIsFalloffEnabled(source) ? IPL_TRUE : IPL_FALSE,
-    .applyAirAbsorption = lovrSourceIsAbsorptionEnabled(source) ? IPL_TRUE : IPL_FALSE,
+    .applyDistanceAttenuation = lovrSourceIsEffectEnabled(source, EFFECT_FALLOFF) ? IPL_TRUE : IPL_FALSE,
+    .applyAirAbsorption = lovrSourceIsEffectEnabled(source, EFFECT_ABSORPTION) ? IPL_TRUE : IPL_FALSE,
     .applyDirectivity = weight > 0.f && power > 0.f ? IPL_TRUE : IPL_FALSE,
     .directOcclusionMode = occlusion
   };
@@ -250,10 +251,10 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
   phonon_iplApplyDirectSoundEffect(state.directSoundEffect[index], in, path, options, tmp);
 
   float blend = 1.f;
-  IPLHrtfInterpolation interpolation = lovrSourceGetInterpolation(source) == SOURCE_BILINEAR ? IPL_HRTFINTERPOLATION_BILINEAR : IPL_HRTFINTERPOLATION_NEAREST;
+  IPLHrtfInterpolation interpolation = IPL_HRTFINTERPOLATION_NEAREST;
   phonon_iplApplyBinauralEffect(state.binauralEffect[index], state.binauralRenderer, tmp, path.direction, interpolation, blend, out);
 
-  if (lovrSourceIsReverbEnabled(source)) {
+  if (lovrSourceIsEffectEnabled(source, EFFECT_REVERB)) {
     phonon_iplSetDryAudioForConvolutionEffect(state.convolutionEffect[index], iplSource, in);
   }
 

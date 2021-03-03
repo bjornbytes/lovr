@@ -37,15 +37,10 @@ struct Source {
   float radius;
   float dipoleWeight;
   float dipolePower;
-  bool absorption;
-  bool falloff;
-  bool occlusion;
-  bool reverb;
-  bool transmission;
+  uint8_t effects;
   bool playing;
   bool looping;
   bool spatial;
-  bool bilinear;
 };
 
 static struct {
@@ -459,9 +454,7 @@ float lovrSourceGetVolume(Source* source) {
 }
 
 void lovrSourceSetVolume(Source* source, float volume) {
-  ma_mutex_lock(&state.lock);
   source->volume = volume;
-  ma_mutex_unlock(&state.lock);
 }
 
 void lovrSourceSeek(Source* source, double time, TimeUnit units) {
@@ -481,14 +474,6 @@ double lovrSourceGetDuration(Source* source, TimeUnit units) {
 
 bool lovrSourceIsSpatial(Source *source) {
   return source->spatial;
-}
-
-SourceInterpolation lovrSourceGetInterpolation(Source* source) {
-  return source->bilinear ? SOURCE_BILINEAR : SOURCE_NEAREST;
-}
-
-void lovrSourceSetInterpolation(Source* source, SourceInterpolation interpolation) {
-  source->bilinear = interpolation == SOURCE_BILINEAR;
 }
 
 void lovrSourceGetPose(Source *source, float position[4], float orientation[4]) {
@@ -521,44 +506,16 @@ void lovrSourceSetDirectivity(Source* source, float weight, float power) {
   source->dipolePower = power;
 }
 
-bool lovrSourceIsAbsorptionEnabled(Source* source) {
-  return source->absorption;
+bool lovrSourceIsEffectEnabled(Source* source, Effect effect) {
+  return source->effects & (1 << effect);
 }
 
-void lovrSourceSetAbsorptionEnabled(Source* source, bool enabled) {
-  source->absorption = enabled;
-}
-
-bool lovrSourceIsFalloffEnabled(Source* source) {
-  return source->falloff;
-}
-
-void lovrSourceSetFalloffEnabled(Source* source, bool enabled) {
-  source->falloff = enabled;
-}
-
-bool lovrSourceIsOcclusionEnabled(Source* source) {
-  return source->occlusion;
-}
-
-void lovrSourceSetOcclusionEnabled(Source* source, bool enabled) {
-  source->occlusion = enabled;
-}
-
-bool lovrSourceIsReverbEnabled(Source* source) {
-  return source->reverb;
-}
-
-void lovrSourceSetReverbEnabled(Source* source, bool enabled) {
-  source->reverb = enabled;
-}
-
-bool lovrSourceIsTransmissionEnabled(Source* source) {
-  return source->transmission;
-}
-
-void lovrSourceSetTransmissionEnabled(Source* source, bool enabled) {
-  source->transmission = enabled;
+void lovrSourceSetEffectEnabled(Source* source, Effect effect, bool enabled) {
+  if (enabled) {
+    source->effects |= (1 << effect);
+  } else {
+    source->effects &= ~(1 << effect);
+  }
 }
 
 intptr_t* lovrSourceGetSpatializerMemoField(Source* source) {
