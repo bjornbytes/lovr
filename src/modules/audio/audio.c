@@ -404,6 +404,10 @@ void lovrSourceDestroy(void* ref) {
   free(source);
 }
 
+Sound* lovrSourceGetSound(Source* source) {
+  return source->sound;
+}
+
 bool lovrSourcePlay(Source* source) {
   if (state.sourceMask == ~0ull) {
     return false;

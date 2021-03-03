@@ -11,6 +11,13 @@ static int l_lovrSourceClone(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSourceGetSound(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  struct Sound* sound = lovrSourceGetSound(source);
+  luax_pushtype(L, Sound, sound);
+  return 1;
+}
+
 static int l_lovrSourcePlay(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   bool played = lovrSourcePlay(source);
@@ -206,6 +213,7 @@ static int l_lovrSourceSetEffectEnabled(lua_State* L) {
 
 const luaL_Reg lovrSource[] = {
   { "clone", l_lovrSourceClone },
+  { "getSound", l_lovrSourceGetSound },
   { "play", l_lovrSourcePlay },
   { "pause", l_lovrSourcePause },
   { "stop", l_lovrSourceStop },

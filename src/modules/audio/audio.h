@@ -71,6 +71,7 @@ struct Sound* lovrAudioGetCaptureStream(void);
 Source* lovrSourceCreate(struct Sound* sound, bool spatial);
 Source* lovrSourceClone(Source* source);
 void lovrSourceDestroy(void* ref);
+struct Sound* lovrSourceGetSound(Source* source);
 bool lovrSourcePlay(Source* source);
 void lovrSourcePause(Source* source);
 void lovrSourceStop(Source* source);
