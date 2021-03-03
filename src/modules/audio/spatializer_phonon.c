@@ -219,9 +219,12 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
     .ahead = (IPLVector3) { z[0], z[1], z[2] },
     .up = (IPLVector3) { y[0], y[1], y[2] },
     .right = (IPLVector3) { x[0], x[1], x[2] },
+    .airAbsorptionModel.type = IPL_AIRABSORPTION_EXPONENTIAL,
     .directivity.dipoleWeight = weight,
     .directivity.dipolePower = power
   };
+
+  lovrAudioGetAirAbsorption(iplSource.airAbsorptionModel.coefficients);
 
   IPLDirectOcclusionMode occlusion = IPL_DIRECTOCCLUSION_NONE;
   IPLDirectOcclusionMethod volumetric = IPL_DIRECTOCCLUSION_RAYCAST;

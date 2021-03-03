@@ -58,6 +58,7 @@ static struct {
   uint32_t leftoverOffset;
   uint32_t leftoverFrames;
   float leftovers[BUFFER_SIZE * 2];
+  float absorption[3];
 } state;
 
 // Device callbacks
@@ -217,6 +218,11 @@ bool lovrAudioInit(const char* spatializer) {
   }
   lovrAssert(state.spatializer, "Must have at least one spatializer");
 
+  // SteamAudio's default frequency-dependent absorption coefficients for air
+  state.absorption[0] = .0002f;
+  state.absorption[1] = .0017f;
+  state.absorption[1] = .0182f;
+
   arr_init(&state.converters, realloc);
   return state.initialized = true;
 }
@@ -338,6 +344,16 @@ const char* lovrAudioGetSpatializer() {
 
 Sound* lovrAudioGetCaptureStream() {
   return state.captureStream;
+}
+
+void lovrAudioGetAbsorption(float absorption[3]) {
+  memcpy(absorption, state.absorption, 3 * sizeof(float));
+}
+
+void lovrAudioSetAbsorption(float absorption[3]) {
+  ma_mutex_lock(&state.lock);
+  memcpy(state.absorption, absorption, 3 * sizeof(float));
+  ma_mutex_unlock(&state.lock);
 }
 
 // Source

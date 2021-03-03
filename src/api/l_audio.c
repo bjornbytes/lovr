@@ -199,6 +199,24 @@ static int l_lovrAudioGetCaptureStream(lua_State* L) {
   return 1;
 }
 
+static int l_lovrAudioGetAbsorption(lua_State* L) {
+  float absorption[3];
+  lovrAudioGetAbsorption(absorption);
+  lua_pushnumber(L, absorption[0]);
+  lua_pushnumber(L, absorption[1]);
+  lua_pushnumber(L, absorption[2]);
+  return 3;
+}
+
+static int l_lovrAudioSetAbsorption(lua_State* L) {
+  float absorption[3];
+  absorption[0] = luax_checkfloat(L, 1);
+  absorption[1] = luax_checkfloat(L, 2);
+  absorption[2] = luax_checkfloat(L, 3);
+  lovrAudioSetAbsorption(absorption);
+  return 0;
+}
+
 static int l_lovrAudioNewSource(lua_State* L) {
   Sound* sound = luax_totype(L, 1, Sound);
 
@@ -246,6 +264,8 @@ static const luaL_Reg lovrAudio[] = {
   { "setGeometry", l_lovrAudioSetGeometry },
   { "getSpatializer", l_lovrAudioGetSpatializer },
   { "getCaptureStream", l_lovrAudioGetCaptureStream },
+  { "getAbsorption", l_lovrAudioGetAbsorption },
+  { "setAbsorption", l_lovrAudioSetAbsorption },
   { "newSource", l_lovrAudioNewSource },
   { NULL, NULL }
 };
