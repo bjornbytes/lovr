@@ -76,6 +76,7 @@ typedef struct {
 extern StringEntry lovrArcMode[];
 extern StringEntry lovrAttributeType[];
 extern StringEntry lovrAudioMaterial[];
+extern StringEntry lovrAudioShareMode[];
 extern StringEntry lovrAudioType[];
 extern StringEntry lovrBlendAlphaMode[];
 extern StringEntry lovrBlendMode[];

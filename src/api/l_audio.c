@@ -31,6 +31,12 @@ StringEntry lovrAudioMaterial[] = {
   { 0 }
 };
 
+StringEntry lovrAudioShareMode[] = {
+  [AUDIO_SHARED] = ENTRY("shared"),
+  [AUDIO_EXCLUSIVE] = ENTRY("exclusive"),
+  { 0 }
+};
+
 StringEntry lovrAudioType[] = {
   [AUDIO_PLAYBACK] = ENTRY("playback"),
   [AUDIO_CAPTURE] = ENTRY("capture"),
@@ -74,10 +80,9 @@ static int l_lovrAudioSetDevice(lua_State *L) {
   luaL_checkany(L, 2);
   void* id = lua_touserdata(L, 2);
   size_t size = luax_len(L, 2);
-  uint32_t sampleRate = lua_tointeger(L, 3);
-  SampleFormat format = luax_checkenum(L, 4, SampleFormat, "f32");
-  bool exclusive = lua_toboolean(L, 5);
-  bool success = lovrAudioSetDevice(type, id, size, sampleRate, format, exclusive);
+  Sound* sink = lua_isnoneornil(L, 3) ? NULL : luax_checktype(L, 3, Sound);
+  AudioShareMode shareMode = luax_checkenum(L, 4, AudioShareMode, "shared");
+  bool success = lovrAudioSetDevice(type, id, size, sink, shareMode);
   lua_pushboolean(L, success);
   return 1;
 }
@@ -193,12 +198,6 @@ static int l_lovrAudioGetSpatializer(lua_State *L) {
   return 1;
 }
 
-static int l_lovrAudioGetCaptureStream(lua_State* L) {
-  Sound* sound = lovrAudioGetCaptureStream();
-  luax_pushtype(L, Sound, sound);
-  return 1;
-}
-
 static int l_lovrAudioGetAbsorption(lua_State* L) {
   float absorption[3];
   lovrAudioGetAbsorption(absorption);
@@ -263,7 +262,6 @@ static const luaL_Reg lovrAudio[] = {
   { "setPose", l_lovrAudioSetPose },
   { "setGeometry", l_lovrAudioSetGeometry },
   { "getSpatializer", l_lovrAudioGetSpatializer },
-  { "getCaptureStream", l_lovrAudioGetCaptureStream },
   { "getAbsorption", l_lovrAudioGetAbsorption },
   { "setAbsorption", l_lovrAudioSetAbsorption },
   { "newSource", l_lovrAudioNewSource },
@@ -293,7 +291,7 @@ int luaopen_lovr_audio(lua_State* L) {
   if (lovrAudioInit(spatializer)) {
     luax_atexit(L, lovrAudioDestroy);
     if (start) {
-      lovrAudioSetDevice(AUDIO_PLAYBACK, NULL, 0, PLAYBACK_SAMPLE_RATE, SAMPLE_F32, false);
+      lovrAudioSetDevice(AUDIO_PLAYBACK, NULL, 0, NULL, AUDIO_SHARED);
       lovrAudioStart(AUDIO_PLAYBACK);
     }
   }

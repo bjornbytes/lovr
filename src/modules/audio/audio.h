@@ -4,7 +4,7 @@
 
 #pragma once
 
-#define PLAYBACK_SAMPLE_RATE 48000
+#define SAMPLE_RATE 48000
 #define BUFFER_SIZE 256
 #define MAX_SOURCES 64
 
@@ -36,6 +36,11 @@ typedef enum {
 } AudioMaterial;
 
 typedef enum {
+  AUDIO_SHARED,
+  AUDIO_EXCLUSIVE
+} AudioShareMode;
+
+typedef enum {
   AUDIO_PLAYBACK,
   AUDIO_CAPTURE
 } AudioType;
@@ -55,7 +60,7 @@ typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, 
 bool lovrAudioInit(const char* spatializer);
 void lovrAudioDestroy(void);
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
-bool lovrAudioSetDevice(AudioType type, void* id, size_t size, uint32_t sampleRate, uint32_t format, bool exclusive);
+bool lovrAudioSetDevice(AudioType type, void* id, size_t size, struct Sound* sink, AudioShareMode shareMode);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 bool lovrAudioIsStarted(AudioType type);
@@ -65,7 +70,6 @@ void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
 bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
 const char* lovrAudioGetSpatializer(void);
-struct Sound* lovrAudioGetCaptureStream(void);
 void lovrAudioGetAbsorption(float absorption[3]);
 void lovrAudioSetAbsorption(float absorption[3]);
 
