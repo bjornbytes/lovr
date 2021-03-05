@@ -5,6 +5,7 @@
 #include "graphics/texture.h"
 #include "core/maf.h"
 #include "core/map.h"
+#include "core/os.h"
 #include <OVR_CAPI.h>
 #include <OVR_CAPI_GL.h>
 #include <stdlib.h>
