@@ -422,6 +422,9 @@ Canvas* lovrGraphicsGetCanvas() {
 
 void lovrGraphicsSetCanvas(Canvas* canvas) {
   if (state.canvas && canvas != state.canvas) {
+    // The canvas must be flushed because if someone uses its textures to do a draw there is no way
+    // to know that using that Texture requires the Canvas' batches to be flushed.
+    lovrGraphicsFlushCanvas(state.canvas);
     lovrCanvasResolve(state.canvas);
   }
 
