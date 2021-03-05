@@ -83,6 +83,8 @@ static ovrInputState *refreshButtons(void) {
 }
 
 static bool oculus_init(float supersample, float offset, uint32_t msaa) {
+  arr_init(&state.textures, realloc);
+
   ovrResult result = ovr_Initialize(NULL);
   if (OVR_FAILURE(result)) {
     return false;
@@ -112,6 +114,7 @@ static void oculus_destroy(void) {
   for (size_t i = 0; i < state.textures.length; i++) {
     lovrRelease(state.textures.data[i], lovrTextureDestroy);
   }
+  arr_free(&state.textures);
   map_free(&state.textureLookup);
 
   if (state.mirror) {
