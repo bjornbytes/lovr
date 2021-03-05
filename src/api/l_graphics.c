@@ -1413,10 +1413,11 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
         lua_pop(L, 1);
       }
     }
+
+    lovrBufferFlush(vertexBuffer, 0, count * stride);
+    lovrBufferUnmap(vertexBuffer);
   }
 
-  lovrBufferFlush(vertexBuffer, 0, count * stride);
-  lovrBufferUnmap(vertexBuffer);
   lovrRelease(vertexBuffer, lovrBufferDestroy);
 
   luax_pushtype(L, Mesh, mesh);
