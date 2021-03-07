@@ -16,3 +16,6 @@
 [submodule "deps/openxr"]
 	path = deps/openxr
 	url = https://github.com/khronosgroup/openxr-sdk
+[submodule "deps/lua"]
+	path = deps/lua
+	url = https://github.com/lua/lua
