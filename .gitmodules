@@ -1,9 +1,6 @@
 [submodule "deps/glfw"]
 	path = deps/glfw
 	url = https://github.com/glfw/glfw
-[submodule "deps/lua"]
-	path = deps/lua
-	url = https://github.com/LuaDist/lua
 [submodule "deps/msdfgen"]
 	path = deps/msdfgen
 	url = https://github.com/bjornbytes/msdfgen
