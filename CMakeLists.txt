@@ -354,19 +354,19 @@ endif()
 if(LOVR_ENABLE_AUDIO)
   target_sources(lovr PRIVATE
     src/modules/audio/audio.c
-    src/modules/audio/spatializer_simple.c
+    src/modules/audio/spatializer/simple.c
     src/api/l_audio.c
     src/api/l_audio_source.c
   )
 
   if(LOVR_USE_STEAM_AUDIO)
     target_compile_definitions(lovr PRIVATE LOVR_ENABLE_PHONON)
-    target_sources(lovr PRIVATE src/modules/audio/spatializer_phonon.c)
+    target_sources(lovr PRIVATE src/modules/audio/spatializer/phonon.c)
   endif()
 
   if(LOVR_USE_OCULUS_AUDIO)
     target_compile_definitions(lovr PRIVATE LOVR_ENABLE_OCULUS_AUDIO)
-    target_sources(lovr PRIVATE src/modules/audio/spatializer_oculus.c)
+    target_sources(lovr PRIVATE src/modules/audio/spatializer/oculus.c)
   endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_AUDIO)

@@ -1,4 +1,4 @@
-#include "audio.h"
+#include "audio/audio.h"
 
 // Private Source functions for spatializer use
 intptr_t* lovrSourceGetSpatializerMemoField(Source* source);
