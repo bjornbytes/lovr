@@ -34,7 +34,7 @@ static struct {
   float yaw;
 } state;
 
-static bool desktop_init(float supersample, float offset, uint32_t msaa) {
+static bool simulator_init(float supersample, float offset, uint32_t msaa) {
   state.offset = offset;
   state.clipNear = .1f;
   state.clipFar = 100.f;
@@ -50,51 +50,51 @@ static bool desktop_init(float supersample, float offset, uint32_t msaa) {
   return true;
 }
 
-static void desktop_destroy(void) {
+static void simulator_destroy(void) {
   //
 }
 
-static bool desktop_getName(char* name, size_t length) {
+static bool simulator_getName(char* name, size_t length) {
   strncpy(name, "Simulator", length - 1);
   name[length - 1] = '\0';
   return true;
 }
 
-static HeadsetOrigin desktop_getOriginType(void) {
+static HeadsetOrigin simulator_getOriginType(void) {
   return ORIGIN_HEAD;
 }
 
-static double desktop_getDisplayTime(void) {
+static double simulator_getDisplayTime(void) {
   return os_get_time();
 }
 
-static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void simulator_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   int w, h;
   os_window_get_fbsize(&w, &h);
   *width = (uint32_t) w / 2;
   *height = (uint32_t) h;
 }
 
-static const float* desktop_getDisplayMask(uint32_t* count) {
+static const float* simulator_getDisplayMask(uint32_t* count) {
   *count = 0;
   return NULL;
 }
 
-static uint32_t desktop_getViewCount(void) {
+static uint32_t simulator_getViewCount(void) {
   return 2;
 }
 
-static bool desktop_getViewPose(uint32_t view, float* position, float* orientation) {
+static bool simulator_getViewPose(uint32_t view, float* position, float* orientation) {
   vec3_init(position, state.position);
   quat_fromMat4(orientation, state.headTransform);
   position[1] += state.offset;
   return view < 2;
 }
 
-static bool desktop_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
+static bool simulator_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
   float aspect, fov;
   uint32_t width, height;
-  desktop_getDisplayDimensions(&width, &height);
+  simulator_getDisplayDimensions(&width, &height);
   aspect = (float) width / height;
   fov = 67.f * (float) M_PI / 180.f * .5f;
   *left = fov * aspect;
@@ -104,26 +104,26 @@ static bool desktop_getViewAngles(uint32_t view, float* left, float* right, floa
   return view < 2;
 }
 
-static void desktop_getClipDistance(float* clipNear, float* clipFar) {
+static void simulator_getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-static void desktop_setClipDistance(float clipNear, float clipFar) {
+static void simulator_setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 }
 
-static void desktop_getBoundsDimensions(float* width, float* depth) {
+static void simulator_getBoundsDimensions(float* width, float* depth) {
   *width = *depth = 0.f;
 }
 
-static const float* desktop_getBoundsGeometry(uint32_t* count) {
+static const float* simulator_getBoundsGeometry(uint32_t* count) {
   *count = 0;
   return NULL;
 }
 
-static bool desktop_getPose(Device device, vec3 position, quat orientation) {
+static bool simulator_getPose(Device device, vec3 position, quat orientation) {
   if (device == DEVICE_HEAD) {
     vec3_set(position, 0.f, 0.f, 0.f);
     mat4_transform(state.headTransform, position);
@@ -137,7 +137,7 @@ static bool desktop_getPose(Device device, vec3 position, quat orientation) {
   return false;
 }
 
-static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
+static bool simulator_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   if (device != DEVICE_HEAD) {
     return false;
   }
@@ -147,7 +147,7 @@ static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVeloci
   return true;
 }
 
-static bool desktop_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
+static bool simulator_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
   if (device != DEVICE_HAND_LEFT || button != BUTTON_TRIGGER) {
     return false;
   }
@@ -156,33 +156,33 @@ static bool desktop_isDown(Device device, DeviceButton button, bool* down, bool*
   return true;
 }
 
-static bool desktop_isTouched(Device device, DeviceButton button, bool* touched) {
+static bool simulator_isTouched(Device device, DeviceButton button, bool* touched) {
   return false;
 }
 
-static bool desktop_getAxis(Device device, DeviceAxis axis, vec3 value) {
+static bool simulator_getAxis(Device device, DeviceAxis axis, vec3 value) {
   return false;
 }
 
-static bool desktop_getSkeleton(Device device, float* poses) {
+static bool simulator_getSkeleton(Device device, float* poses) {
   return false;
 }
 
-static bool desktop_vibrate(Device device, float strength, float duration, float frequency) {
+static bool simulator_vibrate(Device device, float strength, float duration, float frequency) {
   return false;
 }
 
-static ModelData* desktop_newModelData(Device device, bool animated) {
+static ModelData* simulator_newModelData(Device device, bool animated) {
   return NULL;
 }
 
-static bool desktop_animate(Device device, struct Model* model) {
+static bool simulator_animate(Device device, struct Model* model) {
   return false;
 }
 
-static void desktop_renderTo(void (*callback)(void*), void* userdata) {
+static void simulator_renderTo(void (*callback)(void*), void* userdata) {
   float projection[16], left, right, up, down;
-  desktop_getViewAngles(0, &left, &right, &up, &down);
+  simulator_getViewAngles(0, &left, &right, &up, &down);
   mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
 
   float viewMatrix[16];
@@ -197,7 +197,7 @@ static void desktop_renderTo(void (*callback)(void*), void* userdata) {
   lovrGraphicsSetBackbuffer(NULL, false, false);
 }
 
-static void desktop_update(float dt) {
+static void simulator_update(float dt) {
   bool front = os_is_key_down(KEY_W) || os_is_key_down(KEY_UP);
   bool back = os_is_key_down(KEY_S) || os_is_key_down(KEY_DOWN);
   bool left = os_is_key_down(KEY_A) || os_is_key_down(KEY_LEFT);
@@ -285,31 +285,31 @@ static void desktop_update(float dt) {
   mat4_rotate(state.leftHandTransform, -py * yrange, 1, 0, 0);
 }
 
-HeadsetInterface lovrHeadsetDesktopDriver = {
-  .driverType = DRIVER_DESKTOP,
-  .init = desktop_init,
-  .destroy = desktop_destroy,
-  .getName = desktop_getName,
-  .getOriginType = desktop_getOriginType,
-  .getDisplayTime = desktop_getDisplayTime,
-  .getDisplayDimensions = desktop_getDisplayDimensions,
-  .getDisplayMask = desktop_getDisplayMask,
-  .getViewCount = desktop_getViewCount,
-  .getViewPose = desktop_getViewPose,
-  .getViewAngles = desktop_getViewAngles,
-  .getClipDistance = desktop_getClipDistance,
-  .setClipDistance = desktop_setClipDistance,
-  .getBoundsDimensions = desktop_getBoundsDimensions,
-  .getBoundsGeometry = desktop_getBoundsGeometry,
-  .getPose = desktop_getPose,
-  .getVelocity = desktop_getVelocity,
-  .isDown = desktop_isDown,
-  .isTouched = desktop_isTouched,
-  .getAxis = desktop_getAxis,
-  .getSkeleton = desktop_getSkeleton,
-  .vibrate = desktop_vibrate,
-  .newModelData = desktop_newModelData,
-  .animate = desktop_animate,
-  .renderTo = desktop_renderTo,
-  .update = desktop_update
+HeadsetInterface lovrHeadsetSimulatorDriver = {
+  .driverType = DRIVER_SIMULATOR,
+  .init = simulator_init,
+  .destroy = simulator_destroy,
+  .getName = simulator_getName,
+  .getOriginType = simulator_getOriginType,
+  .getDisplayTime = simulator_getDisplayTime,
+  .getDisplayDimensions = simulator_getDisplayDimensions,
+  .getDisplayMask = simulator_getDisplayMask,
+  .getViewCount = simulator_getViewCount,
+  .getViewPose = simulator_getViewPose,
+  .getViewAngles = simulator_getViewAngles,
+  .getClipDistance = simulator_getClipDistance,
+  .setClipDistance = simulator_setClipDistance,
+  .getBoundsDimensions = simulator_getBoundsDimensions,
+  .getBoundsGeometry = simulator_getBoundsGeometry,
+  .getPose = simulator_getPose,
+  .getVelocity = simulator_getVelocity,
+  .isDown = simulator_isDown,
+  .isTouched = simulator_isTouched,
+  .getAxis = simulator_getAxis,
+  .getSkeleton = simulator_getSkeleton,
+  .vibrate = simulator_vibrate,
+  .newModelData = simulator_newModelData,
+  .animate = simulator_animate,
+  .renderTo = simulator_renderTo,
+  .update = simulator_update
 };

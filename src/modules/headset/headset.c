@@ -15,8 +15,8 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, fl
     HeadsetInterface* interface = NULL;
 
     switch (drivers[i]) {
-#ifdef LOVR_USE_DESKTOP_HEADSET
-      case DRIVER_DESKTOP: interface = &lovrHeadsetDesktopDriver; break;
+#ifdef LOVR_USE_SIMULATOR
+      case DRIVER_SIMULATOR: interface = &lovrHeadsetSimulatorDriver; break;
 #endif
 #ifdef LOVR_USE_OCULUS
       case DRIVER_OCULUS: interface = &lovrHeadsetOculusDriver; break;

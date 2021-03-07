@@ -11,7 +11,7 @@ struct ModelData;
 struct Texture;
 
 typedef enum {
-  DRIVER_DESKTOP,
+  DRIVER_SIMULATOR,
   DRIVER_OCULUS,
   DRIVER_OPENVR,
   DRIVER_OPENXR,
@@ -148,7 +148,7 @@ extern HeadsetInterface lovrHeadsetOpenXRDriver;
 extern HeadsetInterface lovrHeadsetVrApiDriver;
 extern HeadsetInterface lovrHeadsetPicoDriver;
 extern HeadsetInterface lovrHeadsetWebXRDriver;
-extern HeadsetInterface lovrHeadsetDesktopDriver;
+extern HeadsetInterface lovrHeadsetSimulatorDriver;
 
 // Active drivers
 extern HeadsetInterface* lovrHeadsetDisplayDriver;
