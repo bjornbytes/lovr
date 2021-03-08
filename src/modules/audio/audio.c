@@ -215,10 +215,10 @@ static void onCapture(ma_device* device, void* output, const void* input, uint32
 static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
 
 static Spatializer* spatializers[] = {
-#ifdef LOVR_ENABLE_PHONON
+#ifdef LOVR_ENABLE_PHONON_SPATIALIZER
   &phononSpatializer,
 #endif
-#ifdef LOVR_ENABLE_OCULUS_AUDIO
+#ifdef LOVR_ENABLE_OCULUS_SPATIALIZER
   &oculusSpatializer,
 #endif
   &simpleSpatializer

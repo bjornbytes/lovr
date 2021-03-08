@@ -9,7 +9,7 @@
 #define LOVR_VERSION_PATCH 0
 #define LOVR_VERSION_ALIAS "Government Goop"
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define LOVR_NORETURN __declspec(noreturn)
 #define LOVR_THREAD_LOCAL __declspec(thread)
 #define LOVR_RESTRICT __restrict
