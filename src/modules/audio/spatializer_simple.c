@@ -1,12 +1,14 @@
 #include "spatializer.h"
 #include "core/maf.h"
 #include "core/util.h"
+#include <math.h>
 
 static struct {
   float listener[16];
+  float gain[MAX_SOURCES][2];
 } state;
 
-bool simple_init() {
+bool simple_init(void) {
   mat4_identity(state.listener);
   return true;
 }
@@ -22,14 +24,7 @@ uint32_t simple_apply(Source* source, const float* input, float* output, uint32_
   float listenerPos[4] = { 0.f };
   mat4_transform(state.listener, listenerPos);
 
-  float distanceAttenuation = 1.f;
-  if (lovrSourceIsEffectEnabled(source, EFFECT_FALLOFF)) {
-    float distance = vec3_distance(sourcePos, listenerPos);
-    distanceAttenuation = 1.f / MAX(distance, 1.f);
-  }
-
-  float leftAttenuation = 1.f;
-  float rightAttenuation = 1.f;
+  float target[2] = { 1.f, 1.f };
   if (lovrSourceIsEffectEnabled(source, EFFECT_SPATIALIZATION)) {
     float leftEar[4] = { -0.1f, 0.0f, 0.0f, 1.0f };
     float rightEar[4] = { 0.1f, 0.0f, 0.0f, 1.0f };
@@ -37,13 +32,38 @@ uint32_t simple_apply(Source* source, const float* input, float* output, uint32_
     mat4_transform(state.listener, rightEar);
     float ldistance = vec3_distance(sourcePos, leftEar);
     float rdistance = vec3_distance(sourcePos, rightEar);
-    leftAttenuation = .5f + (rdistance - ldistance) * 2.5f;
-    rightAttenuation = .5f + (ldistance - rdistance) * 2.5f;
+    target[0] = .5f + (rdistance - ldistance) * 2.5f;
+    target[1] = .5f + (ldistance - rdistance) * 2.5f;
   }
 
-  for (unsigned int i = 0; i < frames; i++) {
-    output[i * 2 + 0] = input[i] * distanceAttenuation * leftAttenuation;
-    output[i * 2 + 1] = input[i] * distanceAttenuation * rightAttenuation;
+  if (lovrSourceIsEffectEnabled(source, EFFECT_FALLOFF)) {
+    float distance = vec3_distance(sourcePos, listenerPos);
+    float falloff = 1.f / MAX(distance, 1.f);
+    target[0] *= falloff;
+    target[1] *= falloff;
+  }
+
+  uint32_t index = lovrSourceGetIndex(source);
+  float* gain = state.gain[index];
+
+  float lerpDuration = .05f;
+  float lerpFrames = SAMPLE_RATE * lerpDuration;
+  float lerpRate = 1.f / lerpFrames;
+
+  for (uint32_t c = 0; c < 2; c++) {
+    float sign = target[c] > gain[c] ? 1.f : -1.f;
+
+    uint32_t lerpCount = fabsf(target[c] - gain[c]) / lerpRate;
+    lerpCount = MIN(lerpCount, frames);
+
+    for (uint32_t i = 0; i < lerpCount; i++) {
+      output[i * 2 + c] = input[i] * gain[c];
+      gain[c] += lerpRate * sign;
+    }
+
+    for (uint32_t i = lerpCount; i < frames; i++) {
+      output[i * 2 + c] = input[i] * gain[c];
+    }
   }
 
   return frames;
@@ -64,7 +84,9 @@ bool simple_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
 }
 
 void simple_sourceCreate(Source* source) {
-  //
+  uint32_t index = lovrSourceGetIndex(source);
+  state.gain[index][0] = 0.f;
+  state.gain[index][1] = 0.f;
 }
 
 void simple_sourceDestroy(Source* source) {
