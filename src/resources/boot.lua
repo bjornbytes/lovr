@@ -115,7 +115,7 @@ function lovr.boot()
     },
     audio = {
       start = true,
-      spatializer = 'simple'
+      spatializer = nil
     },
     graphics = {
       debug = false

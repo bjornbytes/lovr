@@ -256,7 +256,7 @@ if(LOVR_USE_STEAM_AUDIO)
   if(NOT LOVR_STEAM_AUDIO_PATH)
     message(FATAL_ERROR "LOVR_USE_STEAM_AUDIO requires the LOVR_STEAM_AUDIO_PATH to be set to the location of the Steam Audio folder")
   endif()
-  include_directories("${STEAM_AUDIO_PATH}/include")
+  include_directories("${LOVR_STEAM_AUDIO_PATH}/include")
 endif()
 
 # Oculus Audio

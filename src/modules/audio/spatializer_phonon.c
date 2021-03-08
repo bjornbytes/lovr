@@ -224,7 +224,7 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
     .directivity.dipolePower = power
   };
 
-  lovrAudioGetAirAbsorption(iplSource.airAbsorptionModel.coefficients);
+  lovrAudioGetAbsorption(iplSource.airAbsorptionModel.coefficients);
 
   IPLDirectOcclusionMode occlusion = IPL_DIRECTOCCLUSION_NONE;
   IPLDirectOcclusionMethod volumetric = IPL_DIRECTOCCLUSION_RAYCAST;
@@ -305,17 +305,17 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   if (state.environmentalRenderer) phonon_iplDestroyEnvironment(&state.environmentalRenderer);
 
   IPLMaterial materials[] = {
-    [AUDIO_GENERIC] = { .10f, .20f, .30f, .05f, .100f, .050f, .030f },
-    [AUDIO_BRICK] = { .03f, .04f, .07f, .05f, .015f, .015f, .015f },
-    [AUDIO_CARPET] = { .24f, .69f, .73f, .05f, .020f, .005f, .003f },
-    [AUDIO_CERAMIC] = { .01f, .02f, .02f, .05f, .060f, .044f, .011f },
-    [AUDIO_CONCRETE] = { .05f, .07f, .08f, .05f, .015f, .002f, .001f },
-    [AUDIO_GLASS] = { .06f, .03f, .02f, .05f, .060f, .044f, .011f },
-    [AUDIO_GRAVEL] = { .60f, .70f, .80f, .05f, .031f, .012f, .008f },
-    [AUDIO_METAL] = { .20f, .07f, .06f, .05f, .200f, .025f, .010f },
-    [AUDIO_PLASTER] = { .12f, .06f, .04f, .05f, .056f, .056f, .004f },
-    [AUDIO_ROCK] = { .13f, .20f, .24f, .05f, .015f, .002f, .001f },
-    [AUDIO_WOOD] = { .11f, .07f, .06f, .05f, .070f, .014f, .005f }
+    [MATERIAL_GENERIC] = { .10f, .20f, .30f, .05f, .100f, .050f, .030f },
+    [MATERIAL_BRICK] = { .03f, .04f, .07f, .05f, .015f, .015f, .015f },
+    [MATERIAL_CARPET] = { .24f, .69f, .73f, .05f, .020f, .005f, .003f },
+    [MATERIAL_CERAMIC] = { .01f, .02f, .02f, .05f, .060f, .044f, .011f },
+    [MATERIAL_CONCRETE] = { .05f, .07f, .08f, .05f, .015f, .002f, .001f },
+    [MATERIAL_GLASS] = { .06f, .03f, .02f, .05f, .060f, .044f, .011f },
+    [MATERIAL_GRAVEL] = { .60f, .70f, .80f, .05f, .031f, .012f, .008f },
+    [MATERIAL_METAL] = { .20f, .07f, .06f, .05f, .200f, .025f, .010f },
+    [MATERIAL_PLASTER] = { .12f, .06f, .04f, .05f, .056f, .056f, .004f },
+    [MATERIAL_ROCK] = { .13f, .20f, .24f, .05f, .015f, .002f, .001f },
+    [MATERIAL_WOOD] = { .11f, .07f, .06f, .05f, .070f, .014f, .005f }
   };
 
   IPLSimulationSettings settings = (IPLSimulationSettings) {
