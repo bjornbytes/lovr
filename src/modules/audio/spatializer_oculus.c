@@ -1,7 +1,9 @@
 #include "spatializer.h"
 #include "audio/audio.h"
+#include "core/util.h"
 #include "lib/miniaudio/miniaudio.h"
 #include <stdlib.h>
+#include <string.h>
 
 //////// Just the definition of a pose from OVR_CAPI.h. Lets OVR_Audio work right.
 #ifndef OVR_CAPI_h
@@ -92,7 +94,7 @@ struct {
   bool poseLockInited;
 } state;
 
-static bool oculus_init() {
+static bool oculus_init(void) {
   if (!state.poseLockInited) {
     int mutexStatus = ma_mutex_init(&state.poseLock);
     lovrAssert(mutexStatus == MA_SUCCESS, "Failed to create audio mutex");
@@ -102,21 +104,21 @@ static bool oculus_init() {
   // Initialize Oculus
   ovrAudioContextConfiguration config = { 0 };
 
-  contextConfig.acc_Size = sizeof(contextConfig);
-  contextConfig.acc_MaxNumSources = MAX_SOURCES;
-  contextConfig.acc_SampleRate = SAMPLE_RATE;
-  contextConfig.acc_BufferLength = BUFFER_SIZE; // Stereo
+  config.acc_Size = sizeof(config);
+  config.acc_MaxNumSources = MAX_SOURCES;
+  config.acc_SampleRate = SAMPLE_RATE;
+  config.acc_BufferLength = BUFFER_SIZE; // Stereo
 
-  if (ovrAudio_CreateContext(&state.context, &contextConfig) != ovrSuccess) {
+  if (ovrAudio_CreateContext(&state.context, &config) != ovrSuccess) {
     return false;
   }
 
   return true;
 }
 
-static void oculus_destroy() {
+static void oculus_destroy(void) {
   ovrAudio_DestroyContext(state.context);
-  ma_mutex_uninit(&state.lock);
+  ma_mutex_uninit(&state.poseLock);
   memset(&state, 0, sizeof(state));
 }
 
