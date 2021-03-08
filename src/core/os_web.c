@@ -159,7 +159,7 @@ static EM_BOOL onKeyEvent(int type, const EmscriptenKeyboardEvent* data, void* u
     default: return false;
   }
 
-  ButtonAction action = type == EMSCRIPTEN_EVENT_KEYDOWN ? BUTTON_PRESSED : BUTTON_RELEASED;
+  os_button_action action = type == EMSCRIPTEN_EVENT_KEYDOWN ? BUTTON_PRESSED : BUTTON_RELEASED;
   state.keyMap[key] = action == BUTTON_PRESSED;
 
   if (state.onKeyboardEvent) {
@@ -177,7 +177,6 @@ bool os_init() {
   emscripten_set_mousemove_callback(CANVAS, NULL, true, onMouseMove);
   emscripten_set_keydown_callback(CANVAS, NULL, true, onKeyEvent);
   emscripten_set_keyup_callback(CANVAS, NULL, true, onKeyEvent);
-  state.epoch = emscripten_get_now();
   return true;
 }
 
@@ -256,7 +255,7 @@ size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   return 0;
 }
 
-bool os_window_open(const WindowFlags* flags) {
+bool os_window_open(const os_window_config* flags) {
   if (state.context) {
     return true;
   }
@@ -304,7 +303,7 @@ void os_window_swap() {
   //
 }
 
-void* os_get_gl_proc_address(const char* function) {
+fn_gl_proc* os_get_gl_proc_address(const char* function) {
   emscripten_webgl_enable_extension(state.context, function);
   return NULL;
 }
