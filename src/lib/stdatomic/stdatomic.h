@@ -3,7 +3,7 @@
 
 #pragma once
 
-#ifndef _WIN32
+#ifndef _MSC_VER
 
 #include <stdint.h>
 #include <stddef.h>
@@ -143,7 +143,7 @@ _Bool atomic_flag_clear_explicit(volatile atomic_flag*, memory_order);
 
 #include <intrin.h>
 
-typedef unsigned int atomic_uint;
+typedef volatile long atomic_uint;
 
 #define atomic_fetch_add(p, x) _InterlockedExchangeAdd(p, x)
 #define atomic_fetch_sub(p, x) _InterlockedExchangeAdd(p, -(x))
