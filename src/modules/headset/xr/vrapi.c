@@ -741,7 +741,7 @@ static void vrapi_update(float dt) {
     config.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
     config.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
     config.Flags |= VRAPI_MODE_FLAG_FRONT_BUFFER_SRGB;
-    config.Display = (size_t) os_get_egl_dispay();
+    config.Display = (size_t) os_get_egl_display();
     config.ShareContext = (size_t) os_get_egl_context();
     config.WindowSurface = (size_t) window;
     state.session = vrapi_EnterVrMode(&config);
