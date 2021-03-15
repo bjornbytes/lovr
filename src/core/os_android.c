@@ -34,7 +34,7 @@ static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
     return 0;
   }
 
-  ButtonAction action;
+  os_button_action action;
   switch (AKeyEvent_getAction(event)) {
     case AKEY_EVENT_ACTION_DOWN: action = BUTTON_PRESSED; break;
     case AKEY_EVENT_ACTION_UP: action = BUTTON_RELEASED; break;
@@ -241,7 +241,7 @@ JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jn
 }
 
 void os_request_permission(os_permission permission) {
-  if (permission == PERMISSION_CAPTURE_PERMISSION) {
+  if (permission == OS_PERMISSION_AUDIO_CAPTURE) {
     jobject activity = state.app->activity->clazz;
     jclass class = (*state.jni)->GetObjectClass(state.jni, activity);
     jmethodID requestAudioCapturePermission = (*state.jni)->GetMethodID(state.jni, class, "requestAudioCapturePermission", "()V");
@@ -280,27 +280,27 @@ void os_poll_events() {
   }
 }
 
-void os_on_quit(quitCallback callback) {
+void os_on_quit(fn_quit* callback) {
   state.onQuit = callback;
 }
 
-void os_on_focus(windowFocusCallback callback) {
+void os_on_focus(fn_focus* callback) {
   //
 }
 
-void os_on_resize(windowResizeCallback callback) {
+void os_on_resize(fn_resize* callback) {
   //
 }
 
-void os_on_key(keyboardCallback callback) {
+void os_on_key(fn_key* callback) {
   state.onKeyboardEvent = callback;
 }
 
-void os_on_text(textCallback callback) {
+void os_on_text(fn_text* callback) {
   state.onTextEvent = callback;
 }
 
-void os_on_permission(permissionCallback callback) {
+void os_on_permission(fn_permission* callback) {
   state.onPermissionEvent = callback;
 }
 
@@ -411,7 +411,7 @@ void os_window_swap() {
   //
 }
 
-void* os_get_gl_proc_address(const char* function) {
+fn_gl_proc* os_get_gl_proc_address(const char* function) {
   return (void*) eglGetProcAddress(function);
 }
 

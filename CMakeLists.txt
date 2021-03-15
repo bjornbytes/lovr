@@ -685,7 +685,7 @@ elseif(ANDROID)
     endif()
 
     if(ANDROID_PACKAGE)
-      set(PACKAGE_RENAME "--rename-manifest-package ${ANDROID_PACKAGE}")
+      set(PACKAGE_RENAME "--rename-manifest-package" "${ANDROID_PACKAGE}")
     endif()
 
     # Make an apk
