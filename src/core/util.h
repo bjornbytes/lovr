@@ -12,12 +12,10 @@
 #ifdef _WIN32
 #define LOVR_NORETURN __declspec(noreturn)
 #define LOVR_THREAD_LOCAL __declspec(thread)
-#define LOVR_ALIGN(n) __declspec(align(n))
 #define LOVR_RESTRICT __restrict
 #else
 #define LOVR_NORETURN __attribute__((noreturn))
 #define LOVR_THREAD_LOCAL __thread
-#define LOVR_ALIGN(n) __attribute__((aligned(n)))
 #define LOVR_RESTRICT restrict
 #endif
 

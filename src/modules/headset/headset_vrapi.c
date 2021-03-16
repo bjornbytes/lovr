@@ -358,7 +358,7 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
     return false;
   }
 
-  float LOVR_ALIGN(16) globalPoses[ovrHandBone_Max * 8];
+  float globalPoses[ovrHandBone_Max * 8];
   for (uint32_t i = 0; i < ovrHandBone_Max; i++) {
     float* pose = &globalPoses[i * 8];
 
@@ -369,7 +369,7 @@ static bool vrapi_getSkeleton(Device device, float* poses) {
       memcpy(pose + 4, &handPose->RootPose.Orientation.x, 4 * sizeof(float));
     }
 
-    float LOVR_ALIGN(16) translation[4];
+    float translation[4];
     memcpy(translation, &skeleton->BonePoses[i].Position.x, 3 * sizeof(float));
     quat_rotate(pose + 4, translation);
     vec3_add(pose + 0, translation);

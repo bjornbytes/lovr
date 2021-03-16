@@ -1485,7 +1485,7 @@ int l_lovrMat4Set(lua_State* L) {
       int index = 2;
       mat4_identity(m);
 
-      float LOVR_ALIGN(16) position[4];
+      float position[4];
       index = luax_readvec3(L, index, position, "nil, number, vec3, or mat4");
       m[12] = position[0];
       m[13] = position[1];
@@ -1512,7 +1512,7 @@ int l_lovrMat4Set(lua_State* L) {
           m[10] = luax_checkfloat(L, index++);
         }
 
-        float LOVR_ALIGN(16) rotation[4];
+        float rotation[4];
         luax_readquat(L, index, rotation, NULL);
         mat4_rotateQuat(m, rotation);
       }

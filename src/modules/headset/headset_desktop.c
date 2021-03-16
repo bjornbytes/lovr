@@ -14,19 +14,16 @@ static void onFocus(bool focused) {
 
 static struct {
   bool initialized;
-
-  float LOVR_ALIGN(16) position[4];
-  float LOVR_ALIGN(16) velocity[4];
-  float LOVR_ALIGN(16) localVelocity[4];
-  float LOVR_ALIGN(16) angularVelocity[4];
-  float LOVR_ALIGN(16) headTransform[16];
-  float LOVR_ALIGN(16) leftHandTransform[16];
-
+  float position[4];
+  float velocity[4];
+  float localVelocity[4];
+  float angularVelocity[4];
+  float headTransform[16];
+  float leftHandTransform[16];
   double prevCursorX;
   double prevCursorY;
   bool mouseDown;
   bool prevMouseDown;
-
   float offset;
   float clipNear;
   float clipFar;
