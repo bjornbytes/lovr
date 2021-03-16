@@ -2,6 +2,8 @@
 #include "math/math.h"
 #include "core/maf.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 static const uint32_t* swizzles[5] = {
   [2] = (uint32_t[]) {

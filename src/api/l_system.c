@@ -1,6 +1,8 @@
 #include "api.h"
 #include "system/system.h"
 #include "core/os.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 StringEntry lovrKeyboardKey[] = {
   [KEY_A] = ENTRY("a"),

@@ -1,6 +1,8 @@
 #include "api.h"
 #include "physics/physics.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 StringEntry lovrShapeType[] = {
   [SHAPE_SPHERE] = ENTRY("sphere"),
@@ -140,6 +142,18 @@ static const luaL_Reg lovrPhysics[] = {
   { "newSphereShape", l_lovrPhysicsNewSphereShape },
   { NULL, NULL }
 };
+
+extern const luaL_Reg lovrWorld[];
+extern const luaL_Reg lovrCollider[];
+extern const luaL_Reg lovrBallJoint[];
+extern const luaL_Reg lovrDistanceJoint[];
+extern const luaL_Reg lovrHingeJoint[];
+extern const luaL_Reg lovrSliderJoint[];
+extern const luaL_Reg lovrSphereShape[];
+extern const luaL_Reg lovrBoxShape[];
+extern const luaL_Reg lovrCapsuleShape[];
+extern const luaL_Reg lovrCylinderShape[];
+extern const luaL_Reg lovrMeshShape[];
 
 int luaopen_lovr_physics(lua_State* L) {
   lua_newtable(L);

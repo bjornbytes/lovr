@@ -1,69 +1,13 @@
-#include <lua.h>
-#include <lauxlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdarg.h>
+#include <stddef.h>
 
 #pragma once
 
+struct lua_State;
+struct luaL_Reg;
 struct Color;
-
-#ifdef _WIN32
-#define LOVR_EXPORT __declspec(dllexport)
-#else
-#define LOVR_EXPORT __attribute__((visibility("default")))
-#endif
-
-// Modules
-LOVR_EXPORT int luaopen_lovr(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_audio(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_data(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_event(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_filesystem(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_graphics(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_headset(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_math(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_physics(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_system(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_thread(lua_State* L);
-LOVR_EXPORT int luaopen_lovr_timer(lua_State* L);
-extern const luaL_Reg lovrModules[];
-
-// Objects
-extern const luaL_Reg lovrBallJoint[];
-extern const luaL_Reg lovrBlob[];
-extern const luaL_Reg lovrBoxShape[];
-extern const luaL_Reg lovrCanvas[];
-extern const luaL_Reg lovrCapsuleShape[];
-extern const luaL_Reg lovrChannel[];
-extern const luaL_Reg lovrCollider[];
-extern const luaL_Reg lovrCurve[];
-extern const luaL_Reg lovrCylinderShape[];
-extern const luaL_Reg lovrDistanceJoint[];
-extern const luaL_Reg lovrFont[];
-extern const luaL_Reg lovrHingeJoint[];
-extern const luaL_Reg lovrImage[];
-extern const luaL_Reg lovrMat4[];
-extern const luaL_Reg lovrMaterial[];
-extern const luaL_Reg lovrMesh[];
-extern const luaL_Reg lovrMicrophone[];
-extern const luaL_Reg lovrModel[];
-extern const luaL_Reg lovrModelData[];
-extern const luaL_Reg lovrQuat[];
-extern const luaL_Reg lovrRandomGenerator[];
-extern const luaL_Reg lovrRasterizer[];
-extern const luaL_Reg lovrShader[];
-extern const luaL_Reg lovrShaderBlock[];
-extern const luaL_Reg lovrSliderJoint[];
-extern const luaL_Reg lovrSound[];
-extern const luaL_Reg lovrSource[];
-extern const luaL_Reg lovrSphereShape[];
-extern const luaL_Reg lovrMeshShape[];
-extern const luaL_Reg lovrTexture[];
-extern const luaL_Reg lovrThread[];
-extern const luaL_Reg lovrVec2[];
-extern const luaL_Reg lovrVec4[];
-extern const luaL_Reg lovrVec3[];
-extern const luaL_Reg lovrWorld[];
 
 // Enums
 typedef struct {
@@ -148,36 +92,37 @@ typedef struct {
 #define luax_seterror(L) lua_setfield(L, LUA_REGISTRYINDEX, "_lovrerror")
 #define luax_clearerror(L) lua_pushnil(L), luax_seterror(L)
 
-void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, void (*destructor)(void*));
-void* _luax_totype(lua_State* L, int index, uint64_t hash);
-void* _luax_checktype(lua_State* L, int index, uint64_t hash, const char* debug);
-int luax_typeerror(lua_State* L, int index, const char* expected);
-void _luax_pushtype(lua_State* L, const char* name, uint64_t hash, void* object);
-int _luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
-void luax_registerloader(lua_State* L, lua_CFunction loader, int index);
-int luax_resume(lua_State* T, int n);
+void luax_preload(struct lua_State* L);
+void _luax_registertype(struct lua_State* L, const char* name, const struct luaL_Reg* functions, void (*destructor)(void*));
+void* _luax_totype(struct lua_State* L, int index, uint64_t hash);
+void* _luax_checktype(struct lua_State* L, int index, uint64_t hash, const char* debug);
+int luax_typeerror(struct lua_State* L, int index, const char* expected);
+void _luax_pushtype(struct lua_State* L, const char* name, uint64_t hash, void* object);
+int _luax_checkenum(struct lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
+void luax_registerloader(struct lua_State* L, int (*loader)(struct lua_State* L), int index);
+int luax_resume(struct lua_State* T, int n);
 void luax_vthrow(void* L, const char* format, va_list args);
 void luax_vlog(void* context, int level, const char* tag, const char* format, va_list args);
-void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);
-int luax_getstack(lua_State* L);
-void luax_pushconf(lua_State* L);
-int luax_setconf(lua_State* L);
-void luax_setmainthread(lua_State* L);
-void luax_atexit(lua_State* L, void (*destructor)(void));
-void luax_readcolor(lua_State* L, int index, struct Color* color);
-int luax_readtriangles(lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
+void luax_traceback(struct lua_State* L, struct lua_State* T, const char* message, int level);
+int luax_getstack(struct lua_State* L);
+void luax_pushconf(struct lua_State* L);
+int luax_setconf(struct lua_State* L);
+void luax_setmainthread(struct lua_State* L);
+void luax_atexit(struct lua_State* L, void (*destructor)(void));
+void luax_readcolor(struct lua_State* L, int index, struct Color* color);
+int luax_readtriangles(struct lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
 
 // Module helpers
 
 #ifndef LOVR_DISABLE_DATA
 struct Blob;
-struct Blob* luax_readblob(lua_State* L, int index, const char* debug);
+struct Blob* luax_readblob(struct lua_State* L, int index, const char* debug);
 #endif
 
 #ifndef LOVR_DISABLE_EVENT
 struct Variant;
-void luax_checkvariant(lua_State* L, int index, struct Variant* variant);
-int luax_pushvariant(lua_State* L, struct Variant* variant);
+void luax_checkvariant(struct lua_State* L, int index, struct Variant* variant);
+int luax_pushvariant(struct lua_State* L, struct Variant* variant);
 #endif
 
 #ifndef LOVR_DISABLE_FILESYSTEM
@@ -188,28 +133,28 @@ void* luax_readfile(const char* filename, size_t* bytesRead);
 struct Attachment;
 struct Texture;
 struct Uniform;
-int luax_checkuniform(lua_State* L, int index, const struct Uniform* uniform, void* dest, const char* debug);
-int luax_optmipmap(lua_State* L, int index, struct Texture* texture);
-void luax_readattachments(lua_State* L, int index, struct Attachment* attachments, int* count);
+int luax_checkuniform(struct lua_State* L, int index, const struct Uniform* uniform, void* dest, const char* debug);
+int luax_optmipmap(struct lua_State* L, int index, struct Texture* texture);
+void luax_readattachments(struct lua_State* L, int index, struct Attachment* attachments, int* count);
 #endif
 
 #ifndef LOVR_DISABLE_MATH
 #include "math/pool.h" // TODO
-float* luax_tovector(lua_State* L, int index, VectorType* type);
-float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
-float* luax_newtempvector(lua_State* L, VectorType type);
-int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
-int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
-int luax_readquat(lua_State* L, int index, float* q, const char* expected);
-int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);
-uint64_t luax_checkrandomseed(lua_State* L, int index);
+float* luax_tovector(struct lua_State* L, int index, VectorType* type);
+float* luax_checkvector(struct lua_State* L, int index, VectorType type, const char* expected);
+float* luax_newtempvector(struct lua_State* L, VectorType type);
+int luax_readvec3(struct lua_State* L, int index, float* v, const char* expected);
+int luax_readscale(struct lua_State* L, int index, float* v, int components, const char* expected);
+int luax_readquat(struct lua_State* L, int index, float* q, const char* expected);
+int luax_readmat4(struct lua_State* L, int index, float* m, int scaleComponents);
+uint64_t luax_checkrandomseed(struct lua_State* L, int index);
 #endif
 
 #ifndef LOVR_DISABLE_PHYSICS
 struct Joint;
 struct Shape;
-void luax_pushjoint(lua_State* L, struct Joint* joint);
-void luax_pushshape(lua_State* L, struct Shape* shape);
-struct Joint* luax_checkjoint(lua_State* L, int index);
-struct Shape* luax_checkshape(lua_State* L, int index);
+void luax_pushjoint(struct lua_State* L, struct Joint* joint);
+void luax_pushshape(struct lua_State* L, struct Shape* shape);
+struct Joint* luax_checkjoint(struct lua_State* L, int index);
+struct Shape* luax_checkshape(struct lua_State* L, int index);
 #endif

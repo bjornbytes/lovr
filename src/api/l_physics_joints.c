@@ -1,6 +1,8 @@
 #include "api.h"
 #include "physics/physics.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 void luax_pushjoint(lua_State* L, Joint* joint) {
   switch (joint->type) {

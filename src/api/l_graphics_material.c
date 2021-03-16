@@ -1,6 +1,8 @@
 #include "api.h"
 #include "graphics/material.h"
 #include "graphics/texture.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 static int l_lovrMaterialGetColor(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);

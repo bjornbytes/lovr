@@ -3,6 +3,8 @@
 #include "graphics/shader.h"
 #include "data/blob.h"
 #include "core/maf.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdlib.h>
 
 struct TempData {

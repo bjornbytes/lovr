@@ -4,6 +4,8 @@
 #include "data/rasterizer.h"
 #include "data/sound.h"
 #include "data/image.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -123,6 +125,12 @@ static const luaL_Reg lovrData[] = {
   { "newSound", l_lovrDataNewSound },
   { NULL, NULL }
 };
+
+extern const luaL_Reg lovrBlob[];
+extern const luaL_Reg lovrImage[];
+extern const luaL_Reg lovrModelData[];
+extern const luaL_Reg lovrRasterizer[];
+extern const luaL_Reg lovrSound[];
 
 int luaopen_lovr_data(lua_State* L) {
   lua_newtable(L);

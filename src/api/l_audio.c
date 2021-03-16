@@ -4,6 +4,8 @@
 #include "data/sound.h"
 #include "core/maf.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdlib.h>
 
 StringEntry lovrEffect[] = {
@@ -266,6 +268,8 @@ static const luaL_Reg lovrAudio[] = {
   { "newSource", l_lovrAudioNewSource },
   { NULL, NULL }
 };
+
+extern const luaL_Reg lovrSource[];
 
 int luaopen_lovr_audio(lua_State* L) {
   lua_newtable(L);

@@ -1,6 +1,8 @@
 #include "api.h"
 #include "physics/physics.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdbool.h>
 
 static int l_lovrColliderDestroy(lua_State* L) {

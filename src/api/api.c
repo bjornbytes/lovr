@@ -1,12 +1,33 @@
 #include "api.h"
 #include "core/os.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 
 typedef void voidFn(void);
 typedef void destructorFn(void*);
+
+#ifdef _WIN32
+#define LOVR_EXPORT __declspec(dllexport)
+#else
+#define LOVR_EXPORT __attribute__((visibility("default")))
+#endif
+
+LOVR_EXPORT int luaopen_lovr(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_audio(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_data(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_event(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_filesystem(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_graphics(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_headset(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_math(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_physics(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_system(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_thread(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_timer(lua_State* L);
 
 // Object names are lightuserdata because Variants need a non-Lua string due to threads.
 static int luax_meta__tostring(lua_State* L) {
@@ -39,6 +60,51 @@ static int luax_module__gc(lua_State* L) {
     lua_pop(L, 1);
   }
   return 0;
+}
+
+void luax_preload(lua_State* L) {
+  static const luaL_Reg lovrModules[] = {
+    { "lovr", luaopen_lovr },
+#ifndef LOVR_DISABLE_AUDIO
+    { "lovr.audio", luaopen_lovr_audio },
+#endif
+#ifndef LOVR_DISABLE_DATA
+    { "lovr.data", luaopen_lovr_data },
+#endif
+#ifndef LOVR_DISABLE_EVENT
+    { "lovr.event", luaopen_lovr_event },
+#endif
+#ifndef LOVR_DISABLE_FILESYSTEM
+    { "lovr.filesystem", luaopen_lovr_filesystem },
+#endif
+#ifndef LOVR_DISABLE_GRAPHICS
+    { "lovr.graphics", luaopen_lovr_graphics },
+#endif
+#ifndef LOVR_DISABLE_HEADSET
+    { "lovr.headset", luaopen_lovr_headset },
+#endif
+#ifndef LOVR_DISABLE_MATH
+    { "lovr.math", luaopen_lovr_math },
+#endif
+#ifndef LOVR_DISABLE_PHYSICS
+    { "lovr.physics", luaopen_lovr_physics },
+#endif
+#ifndef LOVR_DISABLE_SYSTEM
+    { "lovr.system", luaopen_lovr_system },
+#endif
+#ifndef LOVR_DISABLE_THREAD
+    { "lovr.thread", luaopen_lovr_thread },
+#endif
+#ifndef LOVR_DISABLE_TIMER
+    { "lovr.timer", luaopen_lovr_timer },
+#endif
+    { NULL, NULL }
+  };
+
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "preload");
+  luax_register(L, lovrModules);
+  lua_pop(L, 2);
 }
 
 void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, destructorFn* destructor) {

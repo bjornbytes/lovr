@@ -5,6 +5,8 @@
 #include "math/randomGenerator.h"
 #include "core/maf.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdlib.h>
 
 int l_lovrRandomGeneratorRandom(lua_State* L);
@@ -18,6 +20,14 @@ int l_lovrQuatSet(lua_State* L);
 int l_lovrMat4Set(lua_State* L);
 
 static LOVR_THREAD_LOCAL Pool* pool;
+
+extern const luaL_Reg lovrCurve[];
+extern const luaL_Reg lovrRandomGenerator[];
+extern const luaL_Reg lovrVec2[];
+extern const luaL_Reg lovrVec3[];
+extern const luaL_Reg lovrVec4[];
+extern const luaL_Reg lovrQuat[];
+extern const luaL_Reg lovrMat4[];
 
 static const luaL_Reg* lovrVectorMetatables[] = {
   [V_VEC2] = lovrVec2,

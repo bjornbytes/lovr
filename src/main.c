@@ -3,6 +3,8 @@
 #include "event/event.h"
 #include "core/os.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <lualib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -39,6 +41,7 @@ int main(int argc, char** argv) {
     lua_State* L = luaL_newstate();
     luax_setmainthread(L);
     luaL_openlibs(L);
+    luax_preload(L);
 
     // arg table
     lua_newtable(L);
@@ -62,11 +65,6 @@ int main(int argc, char** argv) {
       lua_rawseti(L, -2, -argOffset + i);
     }
     lua_setglobal(L, "arg");
-
-    lua_getglobal(L, "package");
-    lua_getfield(L, -1, "preload");
-    luax_register(L, lovrModules);
-    lua_pop(L, 2);
 
     lua_pushcfunction(L, luax_getstack);
     if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
@@ -107,7 +105,7 @@ int main(int argc, char** argv) {
 }
 
 #ifdef EMSCRIPTEN
-// Called by JS
+// Called by JS, don't delete
 void lovrDestroy(void* arg) {
   if (arg) {
     lovrEmscriptenContext* context = arg;

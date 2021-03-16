@@ -2,6 +2,8 @@
 #include "graphics/canvas.h"
 #include "graphics/graphics.h"
 #include "graphics/texture.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdlib.h>
 
 static int luax_checkattachment(lua_State* L, int index, Attachment* attachment) {

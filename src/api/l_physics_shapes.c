@@ -1,6 +1,8 @@
 #include "api.h"
 #include "physics/physics.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 void luax_pushshape(lua_State* L, Shape* shape) {
   switch (shape->type) {

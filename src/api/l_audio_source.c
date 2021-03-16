@@ -2,6 +2,8 @@
 #include "audio/audio.h"
 #include "core/maf.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 static int l_lovrSourceClone(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);

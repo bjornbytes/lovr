@@ -12,6 +12,8 @@
 #include "data/image.h"
 #include "core/os.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -1819,6 +1821,15 @@ static const luaL_Reg lovrGraphics[] = {
 
   { NULL, NULL }
 };
+
+extern const luaL_Reg lovrCanvas[];
+extern const luaL_Reg lovrFont[];
+extern const luaL_Reg lovrMaterial[];
+extern const luaL_Reg lovrMesh[];
+extern const luaL_Reg lovrModel[];
+extern const luaL_Reg lovrShader[];
+extern const luaL_Reg lovrShaderBlock[];
+extern const luaL_Reg lovrTexture[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);

@@ -1,6 +1,8 @@
 #include "api.h"
 #include "math/randomGenerator.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <math.h>
 
 static double luax_checkrandomseedpart(lua_State* L, int index) {

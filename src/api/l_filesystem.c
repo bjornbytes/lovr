@@ -4,6 +4,8 @@
 #include "core/fs.h"
 #include "core/os.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdlib.h>
 #include <string.h>
 

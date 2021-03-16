@@ -3,6 +3,8 @@
 #include "graphics/model.h"
 #include "data/modelData.h"
 #include "core/maf.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
   switch (lua_type(L, index)) {

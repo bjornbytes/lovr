@@ -5,6 +5,8 @@
 #include "graphics/model.h"
 #include "graphics/texture.h"
 #include "core/maf.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <stdlib.h>
 
 StringEntry lovrHeadsetDriver[] = {

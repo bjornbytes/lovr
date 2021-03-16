@@ -1,6 +1,8 @@
 #include "api.h"
 #include "data/image.h"
 #include "data/blob.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 static int l_lovrImageEncode(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);

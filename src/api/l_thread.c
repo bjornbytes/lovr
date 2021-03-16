@@ -3,6 +3,8 @@
 #include "thread/thread.h"
 #include "thread/channel.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 #include <lualib.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,12 +19,8 @@ static int threadRunner(void* data) {
 
   lua_State* L = luaL_newstate();
   luaL_openlibs(L);
+  luax_preload(L);
   lovrSetErrorCallback((errorFn*) luax_vthrow, L);
-
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "preload");
-  luax_register(L, lovrModules);
-  lua_pop(L, 2);
 
   lua_pushcfunction(L, luax_getstack);
   int errhandler = lua_gettop(L);
@@ -103,6 +101,9 @@ static const luaL_Reg lovrThreadModule[] = {
   { "getChannel", l_lovrThreadGetChannel },
   { NULL, NULL }
 };
+
+extern const luaL_Reg lovrThread[];
+extern const luaL_Reg lovrChannel[];
 
 int luaopen_lovr_thread(lua_State* L) {
   lua_newtable(L);

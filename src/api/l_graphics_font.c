@@ -2,6 +2,8 @@
 #include "graphics/font.h"
 #include "data/rasterizer.h"
 #include "core/util.h"
+#include <lua.h>
+#include <lauxlib.h>
 
 static int l_lovrFontGetWidth(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
