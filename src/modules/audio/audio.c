@@ -360,7 +360,7 @@ float lovrAudioGetVolume() {
 }
 
 void lovrAudioSetVolume(float volume) {
-  ma_device_set_master_volume(&state.devices[AUDIO_PLAYBACK], volume);
+  ma_device_set_master_volume(&state.devices[AUDIO_PLAYBACK], CLAMP(volume, 0.f, 1.f));
 }
 
 void lovrAudioGetPose(float position[4], float orientation[4]) {
@@ -508,7 +508,7 @@ float lovrSourceGetVolume(Source* source) {
 }
 
 void lovrSourceSetVolume(Source* source, float volume) {
-  source->volume = volume;
+  source->volume = CLAMP(volume, 0.f, 1.f);
 }
 
 void lovrSourceSeek(Source* source, double time, TimeUnit units) {
