@@ -222,7 +222,9 @@ static int l_lovrAudioNewSource(lua_State* L) {
 
   bool spatial = true;
   bool decode = false;
-  if (lua_istable(L, 2)) {
+  if (lua_gettop(L) >= 2) {
+    luaL_checktype(L, 2, LUA_TTABLE);
+
     lua_getfield(L, 2, "spatial");
     spatial = lua_isnil(L, -1) || lua_toboolean(L, -1);
     lua_pop(L, 1);
