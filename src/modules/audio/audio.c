@@ -25,8 +25,8 @@ struct Source {
   uint32_t ref;
   uint32_t index;
   Sound* sound;
+  ma_data_converter* converter;
   intptr_t spatializerMemo;
-  uint32_t converter;
   uint32_t offset;
   float volume;
   float blend;
@@ -56,7 +56,6 @@ static struct {
   uint32_t leftoverFrames;
   float leftovers[BUFFER_SIZE * 2];
   float absorption[3];
-  arr_t(ma_data_converter) converters;
   ma_data_converter playbackConverter;
 } state;
 
@@ -110,8 +109,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       uint32_t framesConverted = 0;
       while (framesToConvert > 0) {
         src = raw;
-        ma_data_converter* converter = source->converter == ~0u ? NULL : &state.converters.data[source->converter];
-        uint64_t framesToRead = converter ? MIN(ma_data_converter_get_required_input_frame_count(converter, framesToConvert), frameLimit) : framesToConvert;
+        uint64_t framesToRead = source->converter ? MIN(ma_data_converter_get_required_input_frame_count(source->converter, framesToConvert), frameLimit) : framesToConvert;
         uint64_t framesRead = lovrSoundRead(source->sound, source->offset, framesToRead, src);
         ma_uint64 framesIn = framesRead;
         ma_uint64 framesOut = framesToConvert;
@@ -129,8 +127,8 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
           }
         }
 
-        if (converter) {
-          ma_data_converter_process_pcm_frames(converter, src, &framesIn, aux + framesConverted * channels, &framesOut);
+        if (source->converter) {
+          ma_data_converter_process_pcm_frames(source->converter, src, &framesIn, aux + framesConverted * channels, &framesOut);
           src = aux;
         }
 
@@ -233,7 +231,6 @@ bool lovrAudioInit(const char* spatializer) {
   state.absorption[1] = .0017f;
   state.absorption[1] = .0182f;
 
-  arr_init(&state.converters, realloc);
   return state.initialized = true;
 }
 
@@ -249,11 +246,7 @@ void lovrAudioDestroy() {
   lovrRelease(state.sinks[AUDIO_PLAYBACK], lovrSoundDestroy);
   lovrRelease(state.sinks[AUDIO_CAPTURE], lovrSoundDestroy);
   if (state.spatializer) state.spatializer->destroy();
-  for (size_t i = 0; i < state.converters.length; i++) {
-    ma_data_converter_uninit(&state.converters.data[i]);
-  }
   ma_data_converter_uninit(&state.playbackConverter);
-  arr_free(&state.converters);
   memset(&state, 0, sizeof(state));
 }
 
@@ -404,7 +397,6 @@ Source* lovrSourceCreate(Sound* sound, bool spatial) {
 
   source->volume = 1.f;
   source->spatial = spatial;
-  source->converter = ~0u;
 
   ma_data_converter_config config = ma_data_converter_config_init_default();
   config.formatIn = miniaudioFormats[lovrSoundGetFormat(sound)];
@@ -415,23 +407,10 @@ Source* lovrSourceCreate(Sound* sound, bool spatial) {
   config.sampleRateOut = SAMPLE_RATE;
 
   if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
-    for (size_t i = 0; i < state.converters.length; i++) {
-      ma_data_converter* converter = &state.converters.data[i];
-      if (converter->config.formatIn != config.formatIn) continue;
-      if (converter->config.sampleRateIn != config.sampleRateIn) continue;
-      if (converter->config.channelsIn != config.channelsIn) continue;
-      if (converter->config.channelsOut != config.channelsOut) continue;
-      source->converter = i;
-      break;
-    }
-
-    if (source->converter == ~0u) {
-      arr_expand(&state.converters, 1);
-      ma_data_converter* converter = &state.converters.data[state.converters.length];
-      ma_result status = ma_data_converter_init(&config, converter);
-      lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
-      source->converter = state.converters.length++;
-    }
+    source->converter = malloc(sizeof(ma_data_converter));
+    lovrAssert(source->converter, "Out of memory");
+    ma_result status = ma_data_converter_init(&config, source->converter);
+    lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
   }
 
   return source;
@@ -452,6 +431,8 @@ Source* lovrSourceClone(Source* source) {
 void lovrSourceDestroy(void* ref) {
   Source* source = ref;
   lovrRelease(source->sound, lovrSoundDestroy);
+  ma_data_converter_uninit(source->converter);
+  free(source->converter);
   free(source);
 }
 
