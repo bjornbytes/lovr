@@ -51,6 +51,12 @@ StringEntry lovrTimeUnit[] = {
   { 0 }
 };
 
+StringEntry lovrVolumeUnit[] = {
+  [UNIT_LINEAR] = ENTRY("linear"),
+  [UNIT_DECIBELS] = ENTRY("db"),
+  { 0 }
+};
+
 StringEntry lovrSourceInterpolation[] = {
   [SOURCE_NEAREST] = ENTRY("nearest"),
   [SOURCE_BILINEAR] = ENTRY("bilinear"),
@@ -109,13 +115,15 @@ static int l_lovrAudioIsStarted(lua_State* L) {
 }
 
 static int l_lovrAudioGetVolume(lua_State* L) {
-  lua_pushnumber(L, lovrAudioGetVolume());
+  VolumeUnit units = luax_checkenum(L, 1, VolumeUnit, "linear");
+  lua_pushnumber(L, lovrAudioGetVolume(units));
   return 1;
 }
 
 static int l_lovrAudioSetVolume(lua_State* L) {
   float volume = luax_checkfloat(L, 1);
-  lovrAudioSetVolume(volume);
+  VolumeUnit units = luax_checkenum(L, 2, VolumeUnit, "linear");
+  lovrAudioSetVolume(volume, units);
   return 0;
 }
 

@@ -5,17 +5,13 @@
 #include "lib/miniaudio/miniaudio.h"
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #ifdef _MSC_VER
 #include <intrin.h>
 #define CTZL _tzcnt_u64
 #else
 #define CTZL __builtin_ctzl
 #endif
-
-static const ma_format miniaudioFormats[] = {
-  [SAMPLE_I16] = ma_format_s16,
-  [SAMPLE_F32] = ma_format_f32
-};
 
 #define FOREACH_SOURCE(s) for (uint64_t m = state.sourceMask; s = m ? state.sources[CTZL(m)] : NULL, m; m ^= (m & -m))
 #define OUTPUT_FORMAT SAMPLE_F32
@@ -58,6 +54,19 @@ static struct {
   float absorption[3];
   ma_data_converter playbackConverter;
 } state;
+
+static const ma_format miniaudioFormats[] = {
+  [SAMPLE_I16] = ma_format_s16,
+  [SAMPLE_F32] = ma_format_f32
+};
+
+static float dbToLinear(float db) {
+  return powf(10.f, db / 20.f);
+}
+
+static float linearToDb(float linear) {
+  return 20.f * log10f(linear);
+}
 
 // Device callbacks
 
@@ -347,13 +356,14 @@ bool lovrAudioIsStarted(AudioType type) {
   return ma_device_is_started(&state.devices[type]);
 }
 
-float lovrAudioGetVolume() {
+float lovrAudioGetVolume(VolumeUnit units) {
   float volume = 0.f;
   ma_device_get_master_volume(&state.devices[AUDIO_PLAYBACK], &volume);
-  return volume;
+  return units == UNIT_LINEAR ? volume : linearToDb(volume);
 }
 
-void lovrAudioSetVolume(float volume) {
+void lovrAudioSetVolume(float volume, VolumeUnit units) {
+  if (units == UNIT_DECIBELS) volume = dbToLinear(volume);
   ma_device_set_master_volume(&state.devices[AUDIO_PLAYBACK], CLAMP(volume, 0.f, 1.f));
 }
 
@@ -485,11 +495,12 @@ void lovrSourceSetLooping(Source* source, bool loop) {
   source->looping = loop;
 }
 
-float lovrSourceGetVolume(Source* source) {
-  return source->volume;
+float lovrSourceGetVolume(Source* source, VolumeUnit units) {
+  return units == UNIT_LINEAR ? source->volume : linearToDb(source->volume);
 }
 
-void lovrSourceSetVolume(Source* source, float volume) {
+void lovrSourceSetVolume(Source* source, float volume, VolumeUnit units) {
+  if (units == UNIT_DECIBELS) volume = dbToLinear(volume);
   source->volume = CLAMP(volume, 0.f, 1.f);
 }
 

@@ -59,14 +59,16 @@ static int l_lovrSourceSetLooping(lua_State* L) {
 
 static int l_lovrSourceGetVolume(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  lua_pushnumber(L, lovrSourceGetVolume(source));
+  VolumeUnit units = luax_checkenum(L, 2, VolumeUnit, "linear");
+  lua_pushnumber(L, lovrSourceGetVolume(source, units));
   return 1;
 }
 
 static int l_lovrSourceSetVolume(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float volume = luax_checkfloat(L, 2);
-  lovrSourceSetVolume(source, volume);
+  VolumeUnit units = luax_checkenum(L, 3, VolumeUnit, "linear");
+  lovrSourceSetVolume(source, volume, units);
   return 0;
 }
 

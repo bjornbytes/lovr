@@ -51,6 +51,11 @@ typedef enum {
 } TimeUnit;
 
 typedef enum {
+  UNIT_LINEAR,
+  UNIT_DECIBELS
+} VolumeUnit;
+
+typedef enum {
   SOURCE_NEAREST,
   SOURCE_BILINEAR
 } SourceInterpolation;
@@ -64,8 +69,8 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, struct Sound* sin
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 bool lovrAudioIsStarted(AudioType type);
-float lovrAudioGetVolume(void);
-void lovrAudioSetVolume(float volume);
+float lovrAudioGetVolume(VolumeUnit units);
+void lovrAudioSetVolume(float volume, VolumeUnit units);
 void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
 bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
@@ -85,8 +90,8 @@ void lovrSourceStop(Source* source);
 bool lovrSourceIsPlaying(Source* source);
 bool lovrSourceIsLooping(Source* source);
 void lovrSourceSetLooping(Source* source, bool loop);
-float lovrSourceGetVolume(Source* source);
-void lovrSourceSetVolume(Source* source, float volume);
+float lovrSourceGetVolume(Source* source, VolumeUnit units);
+void lovrSourceSetVolume(Source* source, float volume, VolumeUnit units);
 void lovrSourceSeek(Source* source, double time, TimeUnit units);
 double lovrSourceTell(Source* source, TimeUnit units);
 double lovrSourceGetDuration(Source* source, TimeUnit units);
