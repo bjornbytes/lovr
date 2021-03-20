@@ -103,8 +103,9 @@ static int l_lovrAudioStart(lua_State* L) {
 
 static int l_lovrAudioStop(lua_State* L) {
   AudioType type = luax_checkenum(L, 1, AudioType, "playback");
-  lovrAudioStop(type);
-  return 0;
+  bool stopped = lovrAudioStop(type);
+  lua_pushboolean(L, stopped);
+  return 1;
 }
 
 static int l_lovrAudioIsStarted(lua_State* L) {
