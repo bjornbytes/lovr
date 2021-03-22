@@ -245,7 +245,7 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
   IPLDirectSoundPath path = phonon_iplGetDirectSoundPath(state.environment, listener, forward, up, iplSource, radius, rays, occlusion, volumetric);
 
   IPLDirectSoundEffectOptions options = {
-    .applyDistanceAttenuation = lovrSourceIsEffectEnabled(source, EFFECT_FALLOFF) ? IPL_TRUE : IPL_FALSE,
+    .applyDistanceAttenuation = lovrSourceIsEffectEnabled(source, EFFECT_ATTENUATION) ? IPL_TRUE : IPL_FALSE,
     .applyAirAbsorption = lovrSourceIsEffectEnabled(source, EFFECT_ABSORPTION) ? IPL_TRUE : IPL_FALSE,
     .applyDirectivity = weight > 0.f && power > 0.f ? IPL_TRUE : IPL_FALSE,
     .directOcclusionMode = occlusion

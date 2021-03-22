@@ -36,11 +36,11 @@ uint32_t simple_apply(Source* source, const float* input, float* output, uint32_
     target[1] = .5f + (ldistance - rdistance) * 2.5f;
   }
 
-  if (lovrSourceIsEffectEnabled(source, EFFECT_FALLOFF)) {
+  if (lovrSourceIsEffectEnabled(source, EFFECT_ATTENUATION)) {
     float distance = vec3_distance(sourcePos, listenerPos);
-    float falloff = 1.f / MAX(distance, 1.f);
-    target[0] *= falloff;
-    target[1] *= falloff;
+    float attenuation = 1.f / MAX(distance, 1.f);
+    target[0] *= attenuation;
+    target[1] *= attenuation;
   }
 
   uint32_t index = lovrSourceGetIndex(source);

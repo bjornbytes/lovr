@@ -10,7 +10,7 @@
 
 StringEntry lovrEffect[] = {
   [EFFECT_ABSORPTION] = ENTRY("absorption"),
-  [EFFECT_FALLOFF] = ENTRY("falloff"),
+  [EFFECT_ATTENUATION] = ENTRY("attenuation"),
   [EFFECT_OCCLUSION] = ENTRY("occlusion"),
   [EFFECT_REVERB] = ENTRY("reverb"),
   [EFFECT_SPATIALIZATION] = ENTRY("spatialization"),
