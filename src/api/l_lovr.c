@@ -3,6 +3,10 @@
 #include "core/util.h"
 #include "lib/lua-cjson/lua_cjson.h"
 #include "lib/lua-enet/enet.h"
+#include "lib/luasocket/luasocket.h"
+#include "lib/luasocket/libluasocket/luasocket.h"
+#include "lib/luasocket/libluasocket/mime.h"
+
 
 const luaL_Reg lovrModules[] = {
   { "lovr", luaopen_lovr },
@@ -41,6 +45,18 @@ const luaL_Reg lovrModules[] = {
 #endif
 #ifdef LOVR_ENABLE_ENET
   { "enet", luaopen_enet },
+#endif
+#ifdef LOVR_ENABLE_LUASOCKET
+  { "socket.core", luaopen_socket_core },
+  {"mime.core", luaopen_mime_core},
+  { "socket", __open_luasocket_socket },
+  { "socket.url", __open_luasocket_url},
+  { "socket.http", __open_luasocket_http},
+  {"ltn12", __open_luasocket_ltn12},
+  {"mime", __open_luasocket_mime},
+  {"socket.headers", __open_luasocket_headers},
+
+
 #endif
   { NULL, NULL }
 };
