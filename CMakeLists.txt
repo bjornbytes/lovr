@@ -16,7 +16,6 @@ option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
 option(LOVR_ENABLE_ENET "Bundle with lua-enet" ON)
 option(LOVR_ENABLE_LUASOCKET "Bundle with luasocket" ON)
-
 option(LOVR_ENABLE_JSON "Bundle with lua-cjson" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
@@ -30,7 +29,6 @@ option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the heads
 option(LOVR_USE_LINUX_EGL "Use the EGL graphics extension on Linux" OFF)
 
 option(LOVR_SYSTEM_ENET "Use the system-provided enet" OFF)
-
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
 option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
 option(LOVR_SYSTEM_ODE "Use the system-provided ODE" OFF)
@@ -148,8 +146,6 @@ else()
     set_target_properties(lua luac PROPERTIES EXCLUDE_FROM_ALL 1)
   endif()
 endif()
-
-
 
 # MSDF
 if(LOVR_ENABLE_DATA)
@@ -756,7 +752,7 @@ elseif(ANDROID)
         ${ANDROID_APKSIGNER_KEYSTORE_PASS} ${ANDROID_KEYSTORE_PASS}
         --in lovr.unsigned.apk
         --out lovr.apk
-      #COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java classes.dex
+      COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java classes.dex
       COMMAND ${CMAKE_COMMAND} -E remove_directory org
     )
   endif()
