@@ -55,11 +55,6 @@ typedef enum {
   UNIT_DECIBELS
 } VolumeUnit;
 
-typedef enum {
-  SOURCE_NEAREST,
-  SOURCE_BILINEAR
-} SourceInterpolation;
-
 typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
 
 bool lovrAudioInit(const char* spatializer);

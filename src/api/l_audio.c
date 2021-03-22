@@ -57,12 +57,6 @@ StringEntry lovrVolumeUnit[] = {
   { 0 }
 };
 
-StringEntry lovrSourceInterpolation[] = {
-  [SOURCE_NEAREST] = ENTRY("nearest"),
-  [SOURCE_BILINEAR] = ENTRY("bilinear"),
-  { 0 }
-};
-
 static void onDevice(const void* id, size_t size, const char* name, bool isDefault, void* userdata) {
   lua_State* L = userdata;
   lua_createtable(L, 0, 3);
