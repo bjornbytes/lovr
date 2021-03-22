@@ -25,7 +25,6 @@ struct Source {
   intptr_t spatializerMemo;
   uint32_t offset;
   float volume;
-  float blend;
   float position[4];
   float orientation[4];
   float radius;
