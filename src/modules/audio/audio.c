@@ -129,8 +129,8 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
           } else {
             source->offset = 0;
             source->playing = false;
-            memset(aux + framesConverted * channels, 0, framesToConvert * channels * sizeof(float));
-            src = aux;
+            src = source->converter ? aux : raw;
+            memset(src + framesConverted * channels, 0, framesToConvert * channels * sizeof(float));
             break;
           }
         }
