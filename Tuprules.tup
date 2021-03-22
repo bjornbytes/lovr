@@ -198,12 +198,7 @@ ifneq (@(CMAKE_DEPS),)
     LIBS_$(macos) += $(BUILD)/luajit/src/libluajit.dylib
     LIBS_$(linux) += $(BUILD)/luajit/src/libluajit.so
   else
-    CFLAGS += -I$(DEPS)/lua/src -I$(BUILD)/lua
-    LDFLAGS_$(win32) += -L$(BUILD)/lua/$(CONFIG) -llua
-    LDFLAGS_$(macos) += -L$(BUILD)/lua -llua
-    LDFLAGS_$(linux) += -L$(BUILD)/lua -llua
-    LDFLAGS_$(android) += -L$(BUILD)/lua -llua
-    LDFLAGS_$(web) += $(BUILD)/lua/liblua.a
+    error "Vanillua does not work on this commit"
   endif
 
   # GLFW
