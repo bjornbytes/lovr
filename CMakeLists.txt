@@ -110,7 +110,15 @@ else()
     include_directories(${LUA_INCLUDE_DIRS})
     set(LOVR_LUA ${LUA_LIBRARIES})
   else()
-    message(FATAL_ERROR "Vanillua does not work on this commit")
+    set(LUA_SRC
+      lapi.c lauxlib.c lbaselib.c lcode.c ldblib.c ldebug.c ldo.c ldump.c lfunc.c lgc.c linit.c
+      liolib.c llex.c lmathlib.c lmem.c loadlib.c lobject.c lopcodes.c loslib.c lparser.c lstate.c
+      lstring.c lstrlib.c ltable.c ltablib.c ltm.c lundump.c lvm.c lzio.c
+    )
+    list(TRANSFORM LUA_SRC PREPEND deps/lua/)
+    add_library(lua SHARED ${LUA_SRC})
+    include_directories(deps/lua)
+    set(LOVR_LUA lua)
   endif()
 endif()
 
