@@ -634,7 +634,8 @@ elseif(ANDROID)
 
   # Dynamically linked targets output libraries in raw/lib/<ABI> for easy including in apk with aapt
   set_target_properties(
-    lovr ${LOVR_ODE}
+    lovr
+    ${LOVR_ODE}
     PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/raw/lib/${ANDROID_ABI}"
   )
 
@@ -678,6 +679,11 @@ elseif(ANDROID)
       else()
         set(ANDROID_CLASSPATH "${ANDROID_JAR}:${EXTRA_JAR}")
       endif()
+    endif()
+
+    if(LOVR_USE_OCULUS_AUDIO)
+      get_target_property(OCULUS_AUDIO_LIB ${LOVR_OCULUS_AUDIO} IMPORTED_LOCATION)
+      file(COPY ${OCULUS_AUDIO_LIB} DESTINATION raw/lib/${ANDROID_ABI})
     endif()
 
     set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${MANIFEST}.xml" CACHE STRING "The AndroidManifest.xml file to use")
