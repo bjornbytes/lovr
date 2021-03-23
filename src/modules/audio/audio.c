@@ -429,11 +429,21 @@ Source* lovrSourceClone(Source* source) {
   Source* clone = calloc(1, sizeof(Source));
   lovrAssert(clone, "Out of memory");
   clone->ref = 1;
+  clone->index = ~0u;
   clone->sound = source->sound;
   lovrRetain(clone->sound);
   clone->volume = source->volume;
+  memcpy(clone->position, source->position, 4 * sizeof(float));
+  memcpy(clone->orientation, source->orientation, 4 * sizeof(float));
+  clone->radius = source->radius;
+  clone->dipoleWeight = source->dipoleWeight;
+  clone->dipolePower = source->dipolePower;
+  clone->effects = source->effects;
+  clone->looping = source->looping;
   clone->spatial = source->spatial;
-  clone->converter = source->converter;
+  clone->converter = malloc(sizeof(ma_data_converter));
+  ma_result status = ma_data_converter_init(&source->converter->config, clone->converter);
+  lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
   return clone;
 }
 
