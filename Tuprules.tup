@@ -237,12 +237,12 @@ ifneq (@(CMAKE_DEPS),)
   LDFLAGS_@(PHYSICS)_$(win32) += -L$(BUILD)/ode/$(CONFIG) -lode
   LDFLAGS_@(PHYSICS)_$(macos) += -L$(BUILD)/ode -lode
   LDFLAGS_@(PHYSICS)_$(linux) += -L$(BUILD)/ode -lode
-  LDFLAGS_@(PHYSICS)_$(android) += -L$(BUILD)/lib/arm64-v8a -lode
+  LDFLAGS_@(PHYSICS)_$(android) += -L$(BUILD)/raw/lib/arm64-v8a -lode
   LDFLAGS_@(PHYSICS)_$(web) += $(BUILD)/ode/libode.a
   LIBS_@(PHYSICS)_$(win32) += $(BUILD)/ode/$(CONFIG)/ode.dll
   LIBS_@(PHYSICS)_$(macos) += $(BUILD)/ode/libode.dylib
   LIBS_@(PHYSICS)_$(linux) += $(BUILD)/ode/libode.so
-  LIBS_@(PHYSICS)_$(android) += $(BUILD)/lib/arm64-v8a/libode.so
+  LIBS_@(PHYSICS)_$(android) += $(BUILD)/raw/lib/arm64-v8a/libode.so
 
   # Oculus Audio
   CFLAGS_@(OCULUS_AUDIO) += -I@(OCULUS_AUDIO_PATH)/Include
