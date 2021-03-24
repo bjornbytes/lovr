@@ -412,7 +412,7 @@ void os_window_swap() {
 }
 
 fn_gl_proc* os_get_gl_proc_address(const char* function) {
-  return (void*) eglGetProcAddress(function);
+  return eglGetProcAddress(function);
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
