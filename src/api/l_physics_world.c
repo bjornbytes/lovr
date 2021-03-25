@@ -114,31 +114,28 @@ static int l_lovrWorldNewSphereCollider(lua_State* L) {
 
 static int l_lovrWorldNewMeshCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  luaL_checktype(L, 2, LUA_TTABLE);
-  luaL_checktype(L, 3, LUA_TTABLE);
-  int vertexCount = luax_len(L, 2);
-  int indexCount  = luax_len(L, 3);
-  float* vertices = malloc(sizeof(float) * vertexCount * 3);
-  unsigned* indices  = malloc(sizeof(unsigned) * indexCount);
 
-  for (int i = 0; i < vertexCount; i++) {
-    lua_rawgeti(L, 2, i + 1);
-    lovrAssert(lua_istable(L, -1), "Each vertex must be a table of coordinates");
-    lua_rawgeti(L, -1, 1); // x
-    vertices[i * 3 + 0] = luaL_optnumber(L, -1, 0.);
-    lua_pop(L, 1);
-    lua_rawgeti(L, -1, 2); // y
-    vertices[i * 3 + 1] = luaL_optnumber(L, -1, 0.);
-    lua_pop(L, 1);
-    lua_rawgeti(L, -1, 3); // z
-    vertices[i * 3 + 2] = luaL_optnumber(L, -1, 0.);
-    lua_pop(L, 2);
+  float* vertices;
+  uint32_t* indices;
+  uint32_t vertexCount;
+  uint32_t indexCount;
+  bool shouldFree;
+  luax_readmesh(L, 2, &vertices, &vertexCount, &indices, &indexCount, &shouldFree);
+
+  // If we do not own the mesh data, we must make a copy
+  // ode's trimesh collider needs to own the triangle info for the lifetime of the geom
+  // Note that if shouldFree is true, we don't free the data and let the physics module do it when
+  // the collider/shape is destroyed
+  if (!shouldFree) {
+    float* v = vertices;
+    uint32_t* i = indices;
+    vertices = malloc(3 * vertexCount * sizeof(float));
+    indices = malloc(indexCount * sizeof(uint32_t));
+    lovrAssert(vertices && indices, "Out of memory");
+    memcpy(vertices, v, 3 * vertexCount * sizeof(float));
+    memcpy(indices, i, indexCount * sizeof(uint32_t));
   }
-  for (int i = 0; i < indexCount; i++) {
-    lua_rawgeti(L, 3, i + 1);
-    indices[i] = luaL_checkinteger(L, -1) - 1;
-    lua_pop(L, 1);
-  }
+
   Collider* collider = lovrColliderCreate(world, 0, 0, 0);
   MeshShape* shape = lovrMeshShapeCreate(vertexCount, vertices, indexCount, indices);
   lovrColliderAddShape(collider, shape);
