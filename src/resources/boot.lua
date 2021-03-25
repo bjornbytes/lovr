@@ -238,7 +238,9 @@ end
 
 function lovr.errhand(message, traceback)
   message = tostring(message)
-  message = message .. formatTraceback(traceback or debug.traceback('', 4))
+  if debug then
+    message = message .. formatTraceback(traceback or debug.traceback('', 4))
+  end
   print('Error:\n' .. message)
   if not lovr.graphics then return function() return 1 end end
 
