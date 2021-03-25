@@ -571,7 +571,7 @@ static bool zip_read(Archive* archive, const char* path, size_t bytes, size_t* b
   *bytesRead = (bytes == (size_t) -1 || bytes > dstSize) ? (uint32_t) dstSize : bytes;
 
   if (compressed) {
-    srcSize++; // pad buffer to fix an stb_image "bug"
+    srcSize += 4; // pad buffer to fix an stb_image "bug"
     if (stbi_zlib_decode_noheader_buffer(*dst, (int) dstSize, src, (int) srcSize) < 0) {
       free(*dst);
       *dst = NULL;
