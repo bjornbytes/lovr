@@ -108,6 +108,29 @@ static int l_lovrModelGetAABB(lua_State* L) {
   return 6;
 }
 
+static int l_lovrModelGetTriangles(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  float* vertices = NULL;
+  uint32_t* indices = NULL;
+  uint32_t vertexCount;
+  uint32_t indexCount;
+  lovrModelGetTriangles(model, &vertices, &vertexCount, &indices, &indexCount);
+
+  lua_createtable(L, vertexCount * 3, 0);
+  for (uint32_t i = 0; i < vertexCount * 3; i++) {
+    lua_pushnumber(L, vertices[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+
+  lua_createtable(L, indexCount, 0);
+  for (uint32_t i = 0; i < indexCount; i++) {
+    lua_pushinteger(L, indices[i] + 1);
+    lua_rawseti(L, -2, i + 1);
+  }
+
+  return 2;
+}
+
 static int l_lovrModelGetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node;
@@ -206,6 +229,7 @@ const luaL_Reg lovrModel[] = {
   { "pose", l_lovrModelPose },
   { "getMaterial", l_lovrModelGetMaterial },
   { "getAABB", l_lovrModelGetAABB },
+  { "getTriangles", l_lovrModelGetTriangles },
   { "getNodePose", l_lovrModelGetNodePose },
   { "getAnimationName", l_lovrModelGetAnimationName },
   { "getMaterialName", l_lovrModelGetMaterialName },

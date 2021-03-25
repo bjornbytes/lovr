@@ -458,8 +458,9 @@ static void countVertices(Model* model, uint32_t nodeIndex, uint32_t* vertexCoun
   }
 }
 
-static void collectVertices(Model* model, uint32_t nodeIndex, float* vertices, uint32_t* indices) {
+static void collectVertices(Model* model, uint32_t nodeIndex, float** vertices, uint32_t** indices, uint32_t* baseIndex) {
   ModelNode* node = &model->data->nodes[nodeIndex];
+  mat4 transform = model->globalTransforms + 16 * nodeIndex;
 
   for (uint32_t i = 0; i < node->primitiveCount; i++) {
     ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
@@ -469,12 +470,15 @@ static void collectVertices(Model* model, uint32_t nodeIndex, float* vertices, u
 
     ModelBuffer* buffer = &model->data->buffers[positions->buffer];
     char* data = (char*) buffer->data + positions->offset;
+    size_t stride = buffer->stride == 0 ? 3 * sizeof(float) : buffer->stride;
 
     for (uint32_t j = 0; j < positions->count; j++) {
-      *vertices++ = *(float*) data + 0;
-      *vertices++ = *(float*) data + 1;
-      *vertices++ = *(float*) data + 2;
-      data += buffer->stride;
+      float v[4];
+      memcpy(v, data, 3 * sizeof(float));
+      mat4_transform(transform, v);
+      memcpy(*vertices, v, 3 * sizeof(float));
+      *vertices += 3;
+      data += stride;
     }
 
     ModelAttribute* index = primitive->indices;
@@ -484,19 +488,25 @@ static void collectVertices(Model* model, uint32_t nodeIndex, float* vertices, u
 
       buffer = &model->data->buffers[index->buffer];
       data = (char*) buffer->data + index->offset;
+      size_t stride = buffer->stride == 0 ? (type == U16 ? 2 : 4) : buffer->stride;
 
       for (uint32_t j = 0; j < index->count; j++) {
-        *indices++ = type == U16 ? ((uint32_t) *(uint16_t*) data) : *(uint32_t*) data;
+        **indices = (type == U16 ? ((uint32_t) *(uint16_t*) data) : *(uint32_t*) data) + *baseIndex;
+        *indices += 1;
+        data += stride;
       }
     } else {
       for (uint32_t j = 0; j < positions->count; j++) {
-        *indices++ = j;
+        **indices = j + *baseIndex;
+        *indices += 1;
       }
     }
+
+    *baseIndex += positions->count;
   }
 
   for (uint32_t i = 0; i < node->childCount; i++) {
-    collectVertices(model, node->children[i], vertices, indices);
+    collectVertices(model, node->children[i], vertices, indices, baseIndex);
   }
 }
 
@@ -513,7 +523,10 @@ void lovrModelGetTriangles(Model* model, float** vertices, uint32_t* vertexCount
     lovrAssert(model->vertices && model->indices, "Out of memory");
   }
 
-  collectVertices(model, model->data->rootNode, model->vertices, model->indices);
+  *vertices = model->vertices;
+  *indices = model->indices;
+  uint32_t baseIndex = 0;
+  collectVertices(model, model->data->rootNode, vertices, indices, &baseIndex);
   *vertexCount = model->vertexCount;
   *indexCount = model->indexCount;
   *vertices = model->vertices;
