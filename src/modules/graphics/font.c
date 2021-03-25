@@ -166,8 +166,9 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
 
     // Triangles
     if (glyph->w > 0 && glyph->h > 0) {
-      float x1 = cx + glyph->dx - font->padding;
-      float y1 = cy + (glyph->dy + font->padding) * (flip ? -1.f : 1.f);
+      int32_t padding = font->padding;
+      float x1 = cx + glyph->dx - padding;
+      float y1 = cy + (glyph->dy + padding) * (flip ? -1.f : 1.f);
       float x2 = x1 + glyph->tw;
       float y2 = y1 - glyph->th * (flip ? -1.f : 1.f);
       float s1 = glyph->x / u;
