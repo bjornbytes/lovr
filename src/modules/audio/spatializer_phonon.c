@@ -343,8 +343,10 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   status = phonon_iplCreateScene(state.context, NULL, IPL_SCENETYPE_PHONON, 1, materials, NULL, NULL, NULL, NULL, NULL, &state.scene);
   if (status != IPL_STATUS_SUCCESS) goto fail;
 
-  status = phonon_iplCreateStaticMesh(state.scene, vertexCount, indexCount / 3, (IPLVector3*) vertices, (IPLTriangle*) indices, triangleMaterials, &state.mesh);
-  if (status != IPL_STATUS_SUCCESS) goto fail;
+  if (vertexCount > 0 && indexCount > 0) {
+    status = phonon_iplCreateStaticMesh(state.scene, vertexCount, indexCount / 3, (IPLVector3*) vertices, (IPLTriangle*) indices, triangleMaterials, &state.mesh);
+    if (status != IPL_STATUS_SUCCESS) goto fail;
+  }
 
   status = phonon_iplCreateEnvironment(state.context, NULL, settings, state.scene, NULL, &state.environment);
   if (status != IPL_STATUS_SUCCESS) goto fail;
