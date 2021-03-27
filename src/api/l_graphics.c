@@ -1651,6 +1651,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     depth = lua_type(L, index) == LUA_TNUMBER ? lua_tonumber(L, index++) : 0;
     lovrAssert(width > 0 && height > 0, "A Texture must have a positive width, height, and depth");
   } else if (argType != LUA_TTABLE) {
+    luaL_checkany(L, 1);
     lua_createtable(L, 1, 0);
     lua_pushvalue(L, 1);
     lua_rawseti(L, -2, 1);
