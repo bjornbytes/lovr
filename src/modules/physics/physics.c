@@ -39,11 +39,32 @@ static uint32_t findTag(World* world, const char* name) {
   return NO_TAG;
 }
 
+static void onErrorMessage(int num, const char* format, va_list args) {
+  char message[1024];
+  vsnprintf(message, 1024, format, args);
+  lovrLog(LOG_ERROR, "PHY", message);
+}
+
+static void onDebugMessage(int num, const char* format, va_list args) {
+  char message[1024];
+  vsnprintf(message, 1024, format, args);
+  lovrLog(LOG_DEBUG, "PHY", message);
+}
+
+static void onInfoMessage(int num, const char* format, va_list args) {
+  char message[1024];
+  vsnprintf(message, 1024, format, args);
+  lovrLog(LOG_INFO, "PHY", message);
+}
+
 static bool initialized = false;
 
 bool lovrPhysicsInit() {
   if (initialized) return false;
   dInitODE();
+  dSetErrorHandler(onErrorMessage);
+  dSetDebugHandler(onDebugMessage);
+  dSetMessageHandler(onInfoMessage);
   return initialized = true;
 }
 
