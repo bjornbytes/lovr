@@ -444,6 +444,7 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
   if (model) {
     lovrModelGetTriangles(model, vertices, vertexCount, indices, indexCount);
     *shouldFree = false;
+    return index + 1;
   }
 #endif
 
