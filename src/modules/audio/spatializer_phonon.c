@@ -354,7 +354,7 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   status = phonon_iplCreateEnvironmentalRenderer(state.context, state.environment, state.renderingSettings, AMBISONIC, NULL, NULL, &state.environmentalRenderer);
   if (status != IPL_STATUS_SUCCESS) goto fail;
 
-  free(materials);
+  free(triangleMaterials);
   return true;
 
 fail:
