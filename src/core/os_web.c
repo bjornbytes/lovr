@@ -57,6 +57,18 @@ static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata)
   return false;
 }
 
+static EM_BOOL onMouseButton(int type, const EmscriptenMouseEvent* data, void* userdata) {
+  os_mouse_button button;
+  switch (data->button) {
+    case 0: button = MOUSE_LEFT; break;
+    case 2: button = MOUSE_RIGHT; break;
+    default: return false;
+  }
+
+  state.mouseMap[button] = type == EMSCRIPTEN_EVENT_MOUSEDOWN;
+  return false;
+}
+
 static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* userdata) {
   if (state.mouseMode == MOUSE_MODE_GRABBED) {
     state.mouseX += data->movementX;
@@ -174,6 +186,8 @@ bool os_init() {
   emscripten_set_focus_callback(CANVAS, NULL, true, onFocusChanged);
   emscripten_set_blur_callback(CANVAS, NULL, true, onFocusChanged);
   emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, true, onResize);
+  emscripten_set_mousedown_callback(CANVAS, NULL, true, onMouseButton);
+  emscripten_set_mouseup_callback(CANVAS, NULL, true, onMouseButton);
   emscripten_set_mousemove_callback(CANVAS, NULL, true, onMouseMove);
   emscripten_set_keydown_callback(CANVAS, NULL, true, onKeyEvent);
   emscripten_set_keyup_callback(CANVAS, NULL, true, onKeyEvent);
