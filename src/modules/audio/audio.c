@@ -215,12 +215,11 @@ static Spatializer* spatializers[] = {
 bool lovrAudioInit(const char* spatializer) {
   if (state.initialized) return false;
 
-  if (ma_context_init(NULL, 0, NULL, &state.context)) {
-    return false;
-  }
+  ma_result result = ma_context_init(NULL, 0, NULL, &state.context);
+  lovrAssert(result == MA_SUCCESS, "Failed to initialize miniaudio");
 
-  int mutexStatus = ma_mutex_init(&state.lock);
-  lovrAssert(mutexStatus == MA_SUCCESS, "Failed to create audio mutex");
+  result = ma_mutex_init(&state.lock);
+  lovrAssert(result == MA_SUCCESS, "Failed to create audio mutex");
 
   for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
     if (spatializer && strcmp(spatializer, spatializers[i]->name)) {
