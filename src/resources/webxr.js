@@ -273,18 +273,25 @@ var webxr = {
   },
 
   webxr_getVelocity: function(device, velocity, angularVelocity) {
-    if (state.hands[device]) {
+    var pose;
+
+    if (device === 0 /* DEVICE_HEAD */) {
+      pose = state.viewer;
+    } else if (state.hands[device]) {
       var space = state.hands[device].gripSpace || state.hands[device].targetRaySpace;
-      var pose = state.frame.getPose(space, state.space);
-      if (pose && pose.linearVelocity && pose.angularVelocity) {
-        HEAPF32[(velocity >> 2) + 0] = pose.linearVelocity.x;
-        HEAPF32[(velocity >> 2) + 1] = pose.linearVelocity.y;
-        HEAPF32[(velocity >> 2) + 2] = pose.linearVelocity.z;
-        HEAPF32[(angularVelocity >> 2) + 0] = pose.angularVelocity.x;
-        HEAPF32[(angularVelocity >> 2) + 1] = pose.angularVelocity.y;
-        HEAPF32[(angularVelocity >> 2) + 2] = pose.angularVelocity.z;
-        return true;
-      }
+      pose = state.frame.getPose(space, state.space);
+    } else {
+      return false;
+    }
+
+    if (pose && pose.linearVelocity && pose.angularVelocity) {
+      HEAPF32[(velocity >> 2) + 0] = pose.linearVelocity.x;
+      HEAPF32[(velocity >> 2) + 1] = pose.linearVelocity.y;
+      HEAPF32[(velocity >> 2) + 2] = pose.linearVelocity.z;
+      HEAPF32[(angularVelocity >> 2) + 0] = pose.angularVelocity.x;
+      HEAPF32[(angularVelocity >> 2) + 1] = pose.angularVelocity.y;
+      HEAPF32[(angularVelocity >> 2) + 2] = pose.angularVelocity.z;
+      return true;
     }
 
     return false;
