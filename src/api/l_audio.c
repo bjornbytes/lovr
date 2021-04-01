@@ -223,17 +223,39 @@ static int l_lovrAudioSetAbsorption(lua_State* L) {
 static int l_lovrAudioNewSource(lua_State* L) {
   Sound* sound = luax_totype(L, 1, Sound);
 
-  bool spatial = true;
   bool decode = false;
+  uint32_t effects = EFFECT_ALL;
   if (lua_gettop(L) >= 2) {
     luaL_checktype(L, 2, LUA_TTABLE);
 
-    lua_getfield(L, 2, "spatial");
-    spatial = lua_isnil(L, -1) || lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
     lua_getfield(L, 2, "decode");
     decode = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "effects");
+    switch (lua_type(L, -1)) {
+      case LUA_TNIL: effects = EFFECT_ALL; break;
+      case LUA_TBOOLEAN: effects = lua_toboolean(L, -1) ? EFFECT_ALL : EFFECT_NONE; break;
+      case LUA_TTABLE:
+        effects = 0;
+        lua_pushnil(L);
+        while (lua_next(L, -2) != 0) {
+          if (lua_type(L, -2) == LUA_TSTRING) {
+            Effect effect = luax_checkenum(L, -2, Effect, NULL);
+            if (lua_toboolean(L, -1)) {
+              effects |= (1 << effect);
+            } else {
+              effects &= ~(1 << effect);
+            }
+          } else if (lua_type(L, -2) == LUA_TNUMBER) {
+            Effect effect = luax_checkenum(L, -1, Effect, NULL);
+            effects |= (1 << effect);
+          }
+          lua_pop(L, 1);
+        }
+        break;
+      default: break;
+    }
     lua_pop(L, 1);
   }
 
@@ -245,7 +267,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lovrRetain(sound);
   }
 
-  Source* source = lovrSourceCreate(sound, spatial);
+  Source* source = lovrSourceCreate(sound, effects);
   luax_pushtype(L, Source, source);
   lovrRelease(sound, lovrSoundDestroy);
   lovrRelease(source, lovrSourceDestroy);

@@ -18,7 +18,9 @@ typedef enum {
   EFFECT_OCCLUSION,
   EFFECT_REVERB,
   EFFECT_SPATIALIZATION,
-  EFFECT_TRANSMISSION
+  EFFECT_TRANSMISSION,
+  EFFECT_ALL = 0x3f,
+  EFFECT_NONE = 0xff
 } Effect;
 
 typedef enum {
@@ -75,7 +77,7 @@ void lovrAudioSetAbsorption(float absorption[3]);
 
 // Source
 
-Source* lovrSourceCreate(struct Sound* sound, bool spatial);
+Source* lovrSourceCreate(struct Sound* sound, uint32_t effects);
 Source* lovrSourceClone(Source* source);
 void lovrSourceDestroy(void* ref);
 struct Sound* lovrSourceGetSound(Source* source);
