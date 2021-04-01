@@ -747,6 +747,7 @@ elseif(ANDROID)
         sign
         --ks ${ANDROID_KEYSTORE}
         ${ANDROID_APKSIGNER_KEYSTORE_PASS} ${ANDROID_KEYSTORE_PASS}
+        $<$<BOOL:${ANDROID_KEY_PASS}>:--key-pass> $<$<BOOL:${ANDROID_KEY_PASS}>:${ANDROID_KEY_PASS}>
         --in lovr.unsigned.apk
         --out lovr.apk
       COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java
