@@ -10,6 +10,4 @@ plugins
 *.config
 Activity*.java
 AndroidManifest*.xml
-deps/VrApi
-deps/pico
 deps/OpenXR-Oculus
