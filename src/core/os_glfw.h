@@ -258,6 +258,8 @@ bool os_window_open(const os_window_config* config) {
   glfwSetKeyCallback(glfwState.window, onKeyboardEvent);
   glfwSetCharCallback(glfwState.window, onTextEvent);
   os_window_set_vsync(config->vsync);
+  // trigger first-callback after window is created if callback is already set
+  os_on_focus(glfwState.onWindowFocus);
   return true;
 }
 
@@ -305,6 +307,11 @@ void os_on_quit(fn_quit* callback) {
 
 void os_on_focus(fn_focus* callback) {
   glfwState.onWindowFocus = callback;
+  if (callback && glfwState.window) {
+    // make sure whoever sets this callback also gets its initial state
+    int focused = glfwGetWindowAttrib(glfwState.window, GLFW_FOCUSED);
+    callback(focused);
+  }
 }
 
 void os_on_resize(fn_resize* callback) {
