@@ -133,6 +133,7 @@ static void phonon_destroy(void);
 
 bool phonon_init() {
   state.library = phonon_dlopen(PHONON_LIBRARY);
+  printf("LOOKING FOR PHONON_LIBRARY, PATH '%s': %s\n", PHONON_LIBRARY, state.library?"FOUND":"NOT FOUND");
   if (!state.library) return false;
 
   PHONON_FOREACH(PHONON_LOAD)
