@@ -414,7 +414,11 @@ void luax_readcolor(lua_State* L, int index, Color* color) {
 int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree) {
   if (lua_istable(L, index)) {
     luaL_checktype(L, index + 1, LUA_TTABLE);
-    *vertexCount = luax_len(L, index) / 3;
+    lua_rawgeti(L, index, 1);
+    bool nested = lua_type(L, -1) == LUA_TTABLE;
+    lua_pop(L, 1);
+
+    *vertexCount = luax_len(L, index) / (nested ? 1 : 3);
     *indexCount = luax_len(L, index + 1);
     lovrAssert(*indexCount % 3 == 0, "Index count must be a multiple of 3");
     *vertices = malloc(sizeof(float) * *vertexCount * 3);
@@ -422,10 +426,23 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     lovrAssert(vertices && indices, "Out of memory");
     *shouldFree = true;
 
-    for (uint32_t i = 0; i < *vertexCount * 3; i++) {
-      lua_rawgeti(L, index, i + 1);
-      (*vertices)[i] = luax_checkfloat(L, -1);
-      lua_pop(L, 1);
+    if (nested) {
+      for (uint32_t i = 0; i < *vertexCount; i++) {
+        lua_rawgeti(L, index, i + 1);
+        lua_rawgeti(L, -1, 1);
+        lua_rawgeti(L, -2, 2);
+        lua_rawgeti(L, -3, 3);
+        (*vertices)[3 * i + 0] = luax_checkfloat(L, -3);
+        (*vertices)[3 * i + 1] = luax_checkfloat(L, -2);
+        (*vertices)[3 * i + 2] = luax_checkfloat(L, -1);
+        lua_pop(L, 4);
+      }
+    } else {
+      for (uint32_t i = 0; i < *vertexCount * 3; i++) {
+        lua_rawgeti(L, index, i + 1);
+        (*vertices)[i] = luax_checkfloat(L, -1);
+        lua_pop(L, 1);
+      }
     }
 
     for (uint32_t i = 0; i < *indexCount; i++) {
