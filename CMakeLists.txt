@@ -610,6 +610,11 @@ elseif(APPLE)
   target_link_libraries(lovr objc)
   target_sources(lovr PRIVATE src/core/os_macos.c)
   target_compile_definitions(lovr PRIVATE LOVR_GL)
+  set_target_properties(lovr PROPERTIES
+    MACOSX_RPATH TRUE
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "@executable_path"
+  )
   if(LOVR_BUILD_BUNDLE)
     function(move_lib)
       if(TARGET ${ARGV0})
@@ -635,9 +640,6 @@ elseif(APPLE)
     target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
     set_target_properties(lovr PROPERTIES
       MACOSX_BUNDLE TRUE
-      MACOSX_RPATH TRUE
-      BUILD_WITH_INSTALL_RPATH TRUE
-      INSTALL_RPATH "@executable_path"
       MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Info.plist"
       RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns"
     )
