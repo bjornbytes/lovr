@@ -110,7 +110,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       }
 
       // Read and convert raw frames until there's BUFFER_SIZE converted frames
-      uint32_t channels = source->effects == EFFECT_NONE ? 2 : 1;
+      uint32_t channels = lovrSourceUsesSpatializer(source) ? 1 : 2; // If spatializer isn't converting to stereo, converter must do it
       uint64_t frameLimit = sizeof(raw) / lovrSoundGetChannelCount(source->sound) / sizeof(float);
       uint32_t framesToConvert = BUFFER_SIZE;
       uint32_t framesConverted = 0;
@@ -145,7 +145,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       }
 
       // Spatialize
-      if (source->effects != EFFECT_NONE) {
+      if (lovrSourceUsesSpatializer(source)) {
         state.spatializer->apply(source, src, mix, BUFFER_SIZE, BUFFER_SIZE);
         src = mix;
       }
@@ -409,7 +409,7 @@ Source* lovrSourceCreate(Sound* sound, uint32_t effects) {
   config.formatIn = miniaudioFormats[lovrSoundGetFormat(sound)];
   config.formatOut = miniaudioFormats[OUTPUT_FORMAT];
   config.channelsIn = lovrSoundGetChannelCount(sound);
-  config.channelsOut = effects == EFFECT_NONE ? 2 : 1;
+  config.channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // See onPlayback
   config.sampleRateIn = lovrSoundGetSampleRate(sound);
   config.sampleRateOut = SAMPLE_RATE;
 
@@ -523,6 +523,10 @@ double lovrSourceTell(Source* source, TimeUnit units) {
 double lovrSourceGetDuration(Source* source, TimeUnit units) {
   uint32_t frames = lovrSoundGetFrameCount(source->sound);
   return units == UNIT_SECONDS ? (double) frames / lovrSoundGetSampleRate(source->sound) : frames;
+}
+
+bool lovrSourceUsesSpatializer(Source* source) {
+  return source->effects != EFFECT_NONE; // Currently, all effects require the spatializer
 }
 
 void lovrSourceGetPose(Source *source, float position[4], float orientation[4]) {
