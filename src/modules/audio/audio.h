@@ -92,7 +92,7 @@ void lovrSourceSetVolume(Source* source, float volume, VolumeUnit units);
 void lovrSourceSeek(Source* source, double time, TimeUnit units);
 double lovrSourceTell(Source* source, TimeUnit units);
 double lovrSourceGetDuration(Source* source, TimeUnit units);
-bool lovrSourceIsSpatial(Source* source);
+bool lovrSourceUsesSpatializer(Source* source);
 void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
 float lovrSourceGetRadius(Source* source);
