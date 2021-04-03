@@ -173,7 +173,7 @@ static int l_lovrSourceGetDirectivity(lua_State* L) {
 static int l_lovrSourceSetDirectivity(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float weight = luax_optfloat(L, 2, 0.f);
-  float power = luax_optfloat(L, 3, 0.f);
+  float power = luax_optfloat(L, 3, 1.f);
   lovrSourceSetDirectivity(source, weight, power);
   return 0;
 }
