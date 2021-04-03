@@ -8,7 +8,4 @@
 #define MA_NO_DECODING
 #define MA_NO_ENCODING
 #define MA_NO_GENERATION
-#ifdef ANDROID
-#define MA_NO_RUNTIME_LINKING
-#endif
 #include "miniaudio.h"
