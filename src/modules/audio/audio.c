@@ -348,7 +348,9 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
     config.sampleRate = lovrSoundGetSampleRate(sink);
   }
 
+#ifndef EMSCRIPTEN // Web needs to use the default bigger buffer size to prevent stutters
   config.periodSizeInFrames = BUFFER_SIZE;
+#endif
   config.dataCallback = callbacks[type];
 
   ma_result result = ma_device_init(&state.context, &config, &state.devices[type]);
