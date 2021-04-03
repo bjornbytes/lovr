@@ -92,7 +92,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
 
   do {
     float* dst = count >= BUFFER_SIZE ? output : state.leftovers;
-    float* src = NULL; // The "current" buffer (used for fast paths)
+    float* buf = NULL; // The "current" buffer (used for fast paths)
 
     if (dst == state.leftovers) {
       memset(dst, 0, sizeof(state.leftovers));
@@ -110,16 +110,25 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       }
 
       // Read and convert raw frames until there's BUFFER_SIZE converted frames
-      uint32_t channels = lovrSourceUsesSpatializer(source) ? 1 : 2; // If spatializer isn't converting to stereo, converter must do it
-      uint64_t frameLimit = sizeof(raw) / lovrSoundGetChannelCount(source->sound) / sizeof(float);
-      uint32_t framesToConvert = BUFFER_SIZE;
-      uint32_t framesConverted = 0;
-      while (framesToConvert > 0) {
-        src = raw;
-        uint64_t framesToRead = source->converter ? MIN(ma_data_converter_get_required_input_frame_count(source->converter, framesToConvert), frameLimit) : framesToConvert;
-        uint64_t framesRead = lovrSoundRead(source->sound, source->offset, framesToRead, src);
-        ma_uint64 framesIn = framesRead;
-        ma_uint64 framesOut = framesToConvert;
+      // - No converter: just read frames into raw (it has enough space for BUFFER_SIZE frames).
+      // - Converter: keep reading as many frames as possible/needed into raw and convert into aux.
+      // - If EOF is reached, rewind and continue for looping sources, otherwise pad end with zero.
+      buf = source->converter ? aux : raw;
+      float* cursor = buf; // Edge of processed frames
+      uint32_t channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // If spatializer isn't converting to stereo, converter must do it
+      uint32_t framesRemaining = BUFFER_SIZE;
+      uint32_t framesProcessed = 0;
+      while (framesRemaining > 0) {
+        uint32_t framesRead;
+
+        if (source->converter) {
+          uint32_t channelsIn = lovrSoundGetChannelCount(source->sound);
+          uint32_t capacity = sizeof(raw) / (channelsIn * sizeof(float));
+          uint32_t chunk = MIN(ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining), capacity);
+          framesRead = lovrSoundRead(source->sound, source->offset, chunk, raw);
+        } else {
+          framesRead = lovrSoundRead(source->sound, source->offset, framesRemaining, cursor);
+        }
 
         if (framesRead == 0) {
           if (source->looping) {
@@ -128,32 +137,37 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
           } else {
             source->offset = 0;
             source->playing = false;
-            src = source->converter ? aux : raw;
-            memset(src + framesConverted * channels, 0, framesToConvert * channels * sizeof(float));
+            memset(cursor, 0, framesRemaining * channelsOut * sizeof(float));
             break;
           }
+        } else {
+          source->offset += framesRead;
         }
 
         if (source->converter) {
-          ma_data_converter_process_pcm_frames(source->converter, src, &framesIn, aux + framesConverted * channels, &framesOut);
-          src = aux;
+          ma_uint64 framesIn = framesRead;
+          ma_uint64 framesOut = framesRemaining;
+          ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, cursor, &framesOut);
+          cursor += framesOut * channelsOut;
+          framesProcessed += framesOut;
+          framesRemaining -= framesOut;
+        } else {
+          cursor += framesRead * channelsOut;
+          framesProcessed += framesRead;
+          framesRemaining -= framesRead;
         }
-
-        framesToConvert -= framesOut;
-        framesConverted += framesOut;
-        source->offset += framesRead;
       }
 
       // Spatialize
       if (lovrSourceUsesSpatializer(source)) {
-        state.spatializer->apply(source, src, mix, BUFFER_SIZE, BUFFER_SIZE);
-        src = mix;
+        state.spatializer->apply(source, buf, mix, BUFFER_SIZE, BUFFER_SIZE);
+        buf = mix;
       }
 
       // Mix
       float volume = source->volume;
       for (uint32_t i = 0; i < OUTPUT_CHANNELS * BUFFER_SIZE; i++) {
-        dst[i] += src[i] * volume;
+        dst[i] += buf[i] * volume;
       }
     }
 
