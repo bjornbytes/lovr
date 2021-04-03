@@ -112,6 +112,9 @@ ifeq ($(PLATFORM),android)
   FLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
   FLAGS_@(DEBUG) += -funwind-tables
   LDFLAGS += -shared -landroid -lEGL -lGLESv3
+  ifneq (@(DEBUG),y)
+    LDFLAGS += -Wl,-s
+  endif
 
   ACTIVITY_@(OPENXR) = Activity_openxr
   ACTIVITY_@(VRAPI) = Activity_vrapi
