@@ -452,9 +452,12 @@ Source* lovrSourceClone(Source* source) {
   clone->dipolePower = source->dipolePower;
   clone->effects = source->effects;
   clone->looping = source->looping;
-  clone->converter = malloc(sizeof(ma_data_converter));
-  ma_result status = ma_data_converter_init(&source->converter->config, clone->converter);
-  lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
+  if (source->converter) {
+    clone->converter = malloc(sizeof(ma_data_converter));
+    lovrAssert(clone->converter, "Out of memory");
+    ma_result status = ma_data_converter_init(&source->converter->config, clone->converter);
+    lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
+  }
   return clone;
 }
 
