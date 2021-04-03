@@ -734,7 +734,6 @@ elseif(ANDROID)
       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
       COMMAND ${ANDROID_TOOLS}/dx --dex --output raw/classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
-      COMMAND ${CMAKE_STRIP} raw/lib/${ANDROID_ABI}/*.so
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
@@ -757,6 +756,16 @@ elseif(ANDROID)
     )
 
     add_dependencies(buildAPK lovr)
+
+    if(CMAKE_BUILD_TYPE STREQUAL Release)
+      add_custom_target(
+        strip ALL
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND ${CMAKE_STRIP} raw/lib/${ANDROID_ABI}/*.so
+      )
+      add_dependencies(strip lovr)
+      add_dependencies(buildAPK strip)
+    endif()
 
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
