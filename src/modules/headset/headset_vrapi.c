@@ -17,7 +17,6 @@
 #include <VrApi_Input.h>
 
 #define GL_SRGB8_ALPHA8 0x8C43
-#define VRAPI_DEVICE_TYPE_OCULUSGO 64
 
 // Private platform functions
 JNIEnv* os_get_jni(void);
@@ -86,8 +85,8 @@ static void vrapi_destroy() {
 
 static bool vrapi_getName(char* buffer, size_t length) {
   switch ((int) state.deviceType) {
-    case VRAPI_DEVICE_TYPE_OCULUSGO: strncpy(buffer, "Oculus Go", length - 1); break;
     case VRAPI_DEVICE_TYPE_OCULUSQUEST: strncpy(buffer, "Oculus Quest", length - 1); break;
+    case VRAPI_DEVICE_TYPE_OCULUSQUEST2: strncpy(buffer, "Oculus Quest 2", length - 1); break;
     default: return false;
   }
   buffer[length - 1] = '\0';
@@ -255,27 +254,16 @@ static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* c
   }
 
   uint32_t mask;
-  if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSGO) {
-    switch (button) {
-      case BUTTON_TRIGGER: mask = ovrButton_Trigger; break;
-      case BUTTON_TOUCHPAD: mask = ovrButton_Enter; break;
-      case BUTTON_MENU: mask = ovrButton_Back; break;
-      default: return false;
-    }
-  } else if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
-    switch (button) {
-      case BUTTON_TRIGGER: mask = ovrButton_Trigger; break;
-      case BUTTON_THUMBSTICK: mask = ovrButton_Joystick; break;
-      case BUTTON_GRIP: mask = ovrButton_GripTrigger; break;
-      case BUTTON_MENU: mask = ovrButton_Enter; break;
-      case BUTTON_A: mask = ovrButton_A; break;
-      case BUTTON_B: mask = ovrButton_B; break;
-      case BUTTON_X: mask = ovrButton_X; break;
-      case BUTTON_Y: mask = ovrButton_Y; break;
-      default: return false;
-    }
-  } else {
-    return false;
+  switch (button) {
+    case BUTTON_TRIGGER: mask = ovrButton_Trigger; break;
+    case BUTTON_THUMBSTICK: mask = ovrButton_Joystick; break;
+    case BUTTON_GRIP: mask = ovrButton_GripTrigger; break;
+    case BUTTON_MENU: mask = ovrButton_Enter; break;
+    case BUTTON_A: mask = ovrButton_A; break;
+    case BUTTON_B: mask = ovrButton_B; break;
+    case BUTTON_X: mask = ovrButton_X; break;
+    case BUTTON_Y: mask = ovrButton_Y; break;
+    default: return false;
   }
 
   uint32_t index = device - DEVICE_HAND_LEFT;
@@ -295,24 +283,15 @@ static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
 
   ovrInputStateTrackedRemote* input = &state.input[device - DEVICE_HAND_LEFT];
 
-  if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSGO) {
-    switch (button) {
-      case BUTTON_TOUCHPAD: *touched = input->Touches & ovrTouch_TrackPad; return true;
-      default: return false;
-    }
-  } else if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
-    switch (button) {
-      case BUTTON_TRIGGER: *touched = input->Touches & ovrTouch_IndexTrigger; return true;
-      case BUTTON_THUMBSTICK: *touched = input->Touches & ovrTouch_Joystick; return true;
-      case BUTTON_A: *touched = input->Touches & ovrTouch_A; return true;
-      case BUTTON_B: *touched = input->Touches & ovrTouch_B; return true;
-      case BUTTON_X: *touched = input->Touches & ovrTouch_X; return true;
-      case BUTTON_Y: *touched = input->Touches & ovrTouch_Y; return true;
-      default: return false;
-    }
+  switch (button) {
+    case BUTTON_TRIGGER: *touched = input->Touches & ovrTouch_IndexTrigger; return true;
+    case BUTTON_THUMBSTICK: *touched = input->Touches & ovrTouch_Joystick; return true;
+    case BUTTON_A: *touched = input->Touches & ovrTouch_A; return true;
+    case BUTTON_B: *touched = input->Touches & ovrTouch_B; return true;
+    case BUTTON_X: *touched = input->Touches & ovrTouch_X; return true;
+    case BUTTON_Y: *touched = input->Touches & ovrTouch_Y; return true;
+    default: return false;
   }
-
-  return false;
 }
 
 static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
@@ -322,28 +301,15 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
 
   ovrInputStateTrackedRemote* input = &state.input[device - DEVICE_HAND_LEFT];
 
-  if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSGO) {
-    switch (axis) {
-      case AXIS_TOUCHPAD:
-        value[0] = (input->TrackpadPosition.x - 160.f) / 160.f;
-        value[1] = (input->TrackpadPosition.y - 160.f) / 160.f;
-        return true;
-      case AXIS_TRIGGER: value[0] = (input->Buttons & ovrButton_Trigger) ? 1.f : 0.f; return true;
-      default: return false;
-    }
-  } else if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
-    switch (axis) {
-      case AXIS_THUMBSTICK:
-        value[0] = input->Joystick.x;
-        value[1] = input->Joystick.y;
-        return true;
-      case AXIS_TRIGGER: value[0] = input->IndexTrigger; return true;
-      case AXIS_GRIP: value[0] = input->GripTrigger; return true;
-      default: return false;
-    }
+  switch (axis) {
+    case AXIS_THUMBSTICK:
+      value[0] = input->Joystick.x;
+      value[1] = input->Joystick.y;
+      return true;
+    case AXIS_TRIGGER: value[0] = input->IndexTrigger; return true;
+    case AXIS_GRIP: value[0] = input->GripTrigger; return true;
+    default: return false;
   }
-
-  return false;
 }
 
 static bool vrapi_getSkeleton(Device device, float* poses) {
@@ -746,10 +712,8 @@ static void vrapi_update(float dt) {
     config.WindowSurface = (size_t) window;
     state.session = vrapi_EnterVrMode(&config);
     state.frameIndex = 0;
-    if (state.deviceType == VRAPI_DEVICE_TYPE_OCULUSQUEST) {
-      vrapi_SetTrackingSpace(state.session, VRAPI_TRACKING_SPACE_STAGE);
-      state.offset = 0.f;
-    }
+    vrapi_SetTrackingSpace(state.session, VRAPI_TRACKING_SPACE_STAGE);
+    state.offset = 0.f;
   } else if (state.session && (appState != APP_CMD_RESUME || !window)) {
     vrapi_LeaveVrMode(state.session);
     state.session = NULL;
