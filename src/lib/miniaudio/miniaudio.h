@@ -36891,6 +36891,7 @@ MA_API ma_uint32 ma_lpf_get_latency(const ma_lpf* pLPF)
 }
 
 
+#if 0
 /**************************************************************************************************************************************************************
 
 High-Pass Filtering
@@ -38186,7 +38187,7 @@ MA_API ma_uint32 ma_hishelf2_get_latency(const ma_hishelf2* pFilter)
 
     return ma_biquad_get_latency(&pFilter->bq);
 }
-
+#endif
 
 
 /**************************************************************************************************************************************************************
@@ -42822,7 +42823,7 @@ MA_API ma_uint32 ma_get_bytes_per_sample(ma_format format)
 }
 
 
-
+#if 0
 MA_API ma_result ma_data_source_read_pcm_frames(ma_data_source* pDataSource, void* pFramesOut, ma_uint64 frameCount, ma_uint64* pFramesRead, ma_bool32 loop)
 {
     ma_data_source_callbacks* pCallbacks = (ma_data_source_callbacks*)pDataSource;
@@ -43012,10 +43013,10 @@ MA_API ma_result ma_data_source_get_length_in_pcm_frames(ma_data_source* pDataSo
 
     return pCallbacks->onGetLength(pDataSource, pLength);
 }
+#endif
 
 
-
-
+#if 0
 static ma_result ma_audio_buffer_ref__data_source_on_read(ma_data_source* pDataSource, void* pFramesOut, ma_uint64 frameCount, ma_uint64* pFramesRead)
 {
     ma_uint64 framesRead = ma_audio_buffer_ref_read_pcm_frames((ma_audio_buffer_ref*)pDataSource, pFramesOut, frameCount, MA_FALSE);
@@ -43474,9 +43475,10 @@ MA_API ma_result ma_audio_buffer_get_available_frames(ma_audio_buffer* pAudioBuf
 
     return ma_audio_buffer_ref_get_available_frames(&pAudioBuffer->ref, pAvailableFrames);
 }
+#endif
 
 
-
+#if 0
 /**************************************************************************************************************************************************************
 
 VFS
@@ -44386,7 +44388,7 @@ MA_API ma_result ma_vfs_or_default_info(ma_vfs* pVFS, ma_vfs_file file, ma_file_
         return ma_default_vfs_info(pVFS, file, pInfo);
     }
 }
-
+#endif
 
 
 /**************************************************************************************************************************************************************
