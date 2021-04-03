@@ -616,34 +616,36 @@ elseif(APPLE)
     INSTALL_RPATH "@executable_path"
   )
   if(LOVR_BUILD_BUNDLE)
-    function(move_lib)
-      if(TARGET ${ARGV0})
-        add_custom_command(TARGET lovr POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy
-          $<TARGET_SONAME_FILE:${ARGV0}>
-          ${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/MacOS/$<TARGET_SONAME_FILE_NAME:${ARGV0}> # Bad
-        )
-      endif()
-    endfunction()
-
-    move_lib(${LOVR_GLFW})
-    move_lib(${LOVR_LUA})
-    move_lib(${LOVR_ODE})
-    move_lib(${LOVR_OPENVR})
-    move_lib(${LOVR_MSDF})
-    move_lib(${LOVR_OCULUS_AUDIO})
-    move_lib(${LOVR_PHONON})
-    foreach(target ${ALL_PLUGIN_TARGETS})
-      move_lib(${target})
-    endforeach()
-
+    set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/MacOS)
     target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
     set_target_properties(lovr PROPERTIES
       MACOSX_BUNDLE TRUE
       MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Info.plist"
       RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns"
     )
+  else()
+    set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
+    set_target_properties(lovr PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
   endif()
+  function(move_lib)
+    if(TARGET ${ARGV0})
+      add_custom_command(TARGET lovr POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_SONAME_FILE:${ARGV0}>
+        ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
+      )
+    endif()
+  endfunction()
+  move_lib(${LOVR_GLFW})
+  move_lib(${LOVR_LUA})
+  move_lib(${LOVR_ODE})
+  move_lib(${LOVR_OPENVR})
+  move_lib(${LOVR_MSDF})
+  move_lib(${LOVR_OCULUS_AUDIO})
+  move_lib(${LOVR_PHONON})
+  foreach(target ${ALL_PLUGIN_TARGETS})
+    move_lib(${target})
+  endforeach()
 elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_web.c)
   target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
