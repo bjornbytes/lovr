@@ -222,6 +222,7 @@ ifneq (@(CMAKE_DEPS),)
   LIBS_@(DATA)_$(win32) += $(BUILD)/msdfgen/$(CONFIG)/msdfgen.dll
   LIBS_@(DATA)_$(macos) += $(BUILD)/msdfgen/libmsdfgen.dylib
   LIBS_@(DATA)_$(linux) += $(BUILD)/msdfgen/libmsdfgen.so
+  LIBS_@(DATA)_$(android) += $(BUILD)/msdfgen/libmsdfgen.so
 
   # OpenVR
   CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers

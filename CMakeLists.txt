@@ -124,6 +124,7 @@ endif()
 
 # MSDF
 if(LOVR_ENABLE_DATA)
+  set(BUILD_SHARED_LIBS ON)
   add_subdirectory(deps/msdfgen msdfgen)
   include_directories(deps/msdfgen)
   set(LOVR_MSDF msdfgen)
@@ -659,6 +660,7 @@ elseif(ANDROID)
   set_target_properties(
     lovr
     ${LOVR_ODE}
+    ${LOVR_MSDF}
     PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/raw/lib/${ANDROID_ABI}"
   )
 
