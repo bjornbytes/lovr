@@ -67,7 +67,8 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
 }
 
 static int l_lovrDataNewSound(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TNUMBER) {
+  int type = lua_type(L, 1);
+  if (type == LUA_TNUMBER) {
     uint64_t frames = luaL_checkinteger(L, 1);
     SampleFormat format = luax_checkenum(L, 2, SampleFormat, "f32");
     ChannelLayout layout = luax_checkenum(L, 3, ChannelLayout, "stereo");
@@ -81,6 +82,8 @@ static int l_lovrDataNewSound(lua_State* L) {
     luax_pushtype(L, Sound, sound);
     lovrRelease(sound, lovrSoundDestroy);
     return 1;
+  } else if (type != LUA_TSTRING && type != LUA_TUSERDATA) {
+    return luax_typeerror(L, 1, "number, string, or Blob");
   }
 
   Blob* blob = luax_readblob(L, 1, "Sound");
