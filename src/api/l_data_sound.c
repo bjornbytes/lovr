@@ -221,20 +221,20 @@ static int l_lovrSoundSetFrames(lua_State* L) {
     if (format == SAMPLE_I16) {
       short* shorts = (short*) buffer;
       for (uint32_t i = 0; i < samples; i++) {
-        lua_rawgeti(L, 2, dstOffset + frames + i);
+        lua_rawgeti(L, 2, srcOffset + frames + i);
         *shorts++ = lua_tointeger(L, -1);
         lua_pop(L, 1);
       }
     } else if (format == SAMPLE_F32) {
       float* floats = (float*) buffer;
       for (uint32_t i = 0; i < samples; i++) {
-        lua_rawgeti(L, 2, dstOffset + frames + i);
+        lua_rawgeti(L, 2, srcOffset + frames + i);
         *floats++ = lua_tonumber(L, -1);
         lua_pop(L, 1);
       }
     }
 
-    uint32_t written = lovrSoundWrite(sound, srcOffset + frames, chunk, buffer);
+    uint32_t written = lovrSoundWrite(sound, dstOffset + frames, chunk, buffer);
     if (written == 0) break;
     frames += written;
   }
