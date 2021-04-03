@@ -24,6 +24,11 @@ CFLAGS_@(STRICT) += -Werror
 FLAGS_@(DEBUG) += -g
 FLAGS_@(OPTIMIZE) += -Oz
 FLAGS_@(SANITIZE) += -fsanitize=address,undefined
+CFLAGS_@(OPTIMIZE) += -fdata-sections -ffunction-sections
+LDFLAGS_@(OPTIMIZE) += -Wl,--gc-sections
+ifneq (@(DEBUG),y)
+LDFLAGS += -Wl,-s
+endif
 
 ## Modules
 DISABLE_@(AUDIO) += -DLOVR_DISABLE_AUDIO
@@ -112,9 +117,6 @@ ifeq ($(PLATFORM),android)
   FLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
   FLAGS_@(DEBUG) += -funwind-tables
   LDFLAGS += -shared -landroid -lEGL -lGLESv3
-  ifneq (@(DEBUG),y)
-    LDFLAGS += -Wl,-s
-  endif
 
   ACTIVITY_@(OPENXR) = Activity_openxr
   ACTIVITY_@(VRAPI) = Activity_vrapi
