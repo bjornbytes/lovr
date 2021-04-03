@@ -129,13 +129,13 @@ static int l_lovrSoundGetFrames(lua_State* L) {
           short* shorts = (short*) buffer;
           for (uint32_t i = 0; i < samples; i++) {
             lua_pushnumber(L, *shorts++);
-            lua_rawseti(L, index, dstOffset + frames + i);
+            lua_rawseti(L, index, dstOffset + (frames * channels) + i);
           }
         } else {
           float* floats = (float*) buffer;
           for (uint32_t i = 0; i < samples; i++) {
             lua_pushnumber(L, *floats++);
-            lua_rawseti(L, index, dstOffset + frames + i);
+            lua_rawseti(L, index, dstOffset + (frames * channels) + i);
           }
         }
 
@@ -208,7 +208,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
   int length = luax_len(L, 2);
   uint32_t srcOffset = luaL_optinteger(L, 5, 1);
   uint32_t dstOffset = luaL_optinteger(L, 4, 0);
-  uint32_t limit = MIN(frameCount - dstOffset, length - srcOffset + 1);
+  uint32_t limit = MIN(frameCount - dstOffset, (length - srcOffset) / channels + 1);
   uint32_t count = luaL_optinteger(L, 3, limit);
   lovrAssert(count <= limit, "Tried to write too many frames");
 
@@ -221,14 +221,14 @@ static int l_lovrSoundSetFrames(lua_State* L) {
     if (format == SAMPLE_I16) {
       short* shorts = (short*) buffer;
       for (uint32_t i = 0; i < samples; i++) {
-        lua_rawgeti(L, 2, srcOffset + frames + i);
+        lua_rawgeti(L, 2, srcOffset + (frames * channels) + i);
         *shorts++ = lua_tointeger(L, -1);
         lua_pop(L, 1);
       }
     } else if (format == SAMPLE_F32) {
       float* floats = (float*) buffer;
       for (uint32_t i = 0; i < samples; i++) {
-        lua_rawgeti(L, 2, srcOffset + frames + i);
+        lua_rawgeti(L, 2, srcOffset + (frames * channels) + i);
         *floats++ = lua_tonumber(L, -1);
         lua_pop(L, 1);
       }
