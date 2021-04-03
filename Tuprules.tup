@@ -110,6 +110,7 @@ ifeq ($(PLATFORM),android)
   CFLAGS += -DLOVR_GLES
   CFLAGS += -I@(ANDROID_NDK)/sources/android/native_app_glue
   FLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
+  FLAGS_@(DEBUG) += -funwind-tables
   LDFLAGS += -shared -landroid -lEGL -lGLESv3
 
   ACTIVITY_@(OPENXR) = Activity_openxr
