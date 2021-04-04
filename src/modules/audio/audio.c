@@ -1,6 +1,7 @@
 #include "audio/audio.h"
 #include "audio/spatializer.h"
 #include "data/sound.h"
+#include "core/maf.h"
 #include "core/util.h"
 #include "lib/miniaudio/miniaudio.h"
 #include <string.h>
@@ -251,6 +252,8 @@ bool lovrAudioInit(const char* spatializer) {
   state.absorption[1] = .0017f;
   state.absorption[1] = .0182f;
 
+  quat_identity(state.orientation);
+
   return state.initialized = true;
 }
 
@@ -420,6 +423,7 @@ Source* lovrSourceCreate(Sound* sound, uint32_t effects) {
 
   source->volume = 1.f;
   source->effects = effects;
+  quat_identity(source->orientation);
 
   ma_data_converter_config config = ma_data_converter_config_init_default();
   config.formatIn = miniaudioFormats[lovrSoundGetFormat(sound)];
