@@ -92,36 +92,27 @@ static int l_lovrSoundGetFrames(lua_State* L) {
   SampleFormat format = lovrSoundGetFormat(sound);
   uint32_t channels = lovrSoundGetChannelCount(sound);
   uint32_t frameCount = lovrSoundGetFrameCount(sound);
-  uint32_t count = frameCount;
-  uint32_t offset = 0;
-  uint32_t dstOffset = 0;
 
-  int index = 2;
-  if (lua_type(L, 2) == LUA_TNUMBER) {
-    count = lua_tointeger(L, 2);
-    index = 3;
-    if (lua_type(L, 3) == LUA_TNUMBER) {
-      offset = lua_tointeger(L, 3);
-      index = 4;
-    }
-  }
+  int index = lua_type(L, 2) == LUA_TNUMBER ? 2 : 3;
+  uint32_t dstOffset = luaL_optinteger(L, index + 2, 0);
+  uint32_t srcOffset = luaL_optinteger(L, index + 1, 0);
+  uint32_t count = luaL_optinteger(L, index, frameCount - srcOffset);
+  lovrAssert(srcOffset + count <= frameCount, "Tried to read samples past the end of the Sound");
+  lua_settop(L, 2);
 
-  lovrAssert(offset + count <= frameCount, "Tried to read samples past the end of the Sound");
-
-  switch (lua_type(L, index)) {
+  switch (lua_type(L, 2)) {
     case LUA_TNIL:
     case LUA_TNONE:
-      lua_settop(L, index - 1);
-      lua_createtable(L, count * lovrSoundGetChannelCount(sound), 0);
+    case LUA_TNUMBER:
+      lua_pop(L, 1);
+      lua_createtable(L, dstOffset + count * channels, 0);
     // fallthrough
-    case LUA_TTABLE:
-      dstOffset = luaL_optinteger(L, index + 1, 1);
-      lua_settop(L, index);
+    case LUA_TTABLE: {
       uint32_t frames = 0;
       while (frames < count) {
         char buffer[4096];
         uint32_t chunk = MIN(sizeof(buffer) / stride, count - frames);
-        uint32_t read = lovrSoundRead(sound, offset + frames, chunk, buffer);
+        uint32_t read = lovrSoundRead(sound, srcOffset + frames, chunk, buffer);
         uint32_t samples = read * channels;
         if (read == 0) break;
 
@@ -129,13 +120,13 @@ static int l_lovrSoundGetFrames(lua_State* L) {
           short* shorts = (short*) buffer;
           for (uint32_t i = 0; i < samples; i++) {
             lua_pushnumber(L, *shorts++);
-            lua_rawseti(L, index, dstOffset + (frames * channels) + i);
+            lua_rawseti(L, 2, dstOffset + (frames * channels) + i + 1);
           }
         } else {
           float* floats = (float*) buffer;
           for (uint32_t i = 0; i < samples; i++) {
             lua_pushnumber(L, *floats++);
-            lua_rawseti(L, index, dstOffset + (frames * channels) + i);
+            lua_rawseti(L, 2, dstOffset + (frames * channels) + i + 1);
           }
         }
 
@@ -143,30 +134,31 @@ static int l_lovrSoundGetFrames(lua_State* L) {
       }
       lua_pushinteger(L, frames);
       return 2;
-    case LUA_TUSERDATA:
-      dstOffset = luaL_optinteger(L, index + 1, 0);
-      lua_settop(L, index);
-      Sound* other = luax_totype(L, index, Sound);
-      Blob* blob = luax_totype(L, index, Blob);
+    }
+    case LUA_TUSERDATA: {
+      Sound* other = luax_totype(L, 2, Sound);
+      Blob* blob = luax_totype(L, 2, Blob);
       if (blob) {
         lovrAssert(dstOffset + count * stride <= blob->size, "Tried to write samples past the end of the Blob");
         char* data = (char*) blob->data + dstOffset;
         uint32_t frames = 0;
         while (frames < count) {
-          uint32_t read = lovrSoundRead(sound, offset + frames, count - frames, data);
+          uint32_t read = lovrSoundRead(sound, srcOffset + frames, count - frames, data);
           data += read * stride;
+          frames += read;
           if (read == 0) break;
         }
         lua_pushinteger(L, frames);
-        return 2;
+        return 1;
       } else if (other) {
-        uint32_t frames = lovrSoundCopy(sound, other, count, offset, dstOffset);
+        uint32_t frames = lovrSoundCopy(sound, other, count, srcOffset, dstOffset);
         lua_pushinteger(L, frames);
-        return 2;
+        return 1;
       }
+    }
     // fallthrough
     default:
-      return luax_typeerror(L, index, "nil, table, Blob, or Sound");
+      return luax_typeerror(L, 2, "nil, number, table, Blob, or Sound");
   }
 }
 
