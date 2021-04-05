@@ -739,10 +739,6 @@ elseif(ANDROID)
 
     set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${MANIFEST}.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
-    if(ANDROID_KEYSTORE_PASS) # Trick so that --ks-pass is not passed if no password is given.
-      set(ANDROID_APKSIGNER_KEYSTORE_PASS --ks-pass)
-    endif()
-
     if(ANDROID_PACKAGE)
       set(PACKAGE_RENAME "--rename-manifest-package" "${ANDROID_PACKAGE}")
     endif()
@@ -769,7 +765,7 @@ elseif(ANDROID)
       COMMAND ${ANDROID_TOOLS}/apksigner
         sign
         --ks ${ANDROID_KEYSTORE}
-        ${ANDROID_APKSIGNER_KEYSTORE_PASS} ${ANDROID_KEYSTORE_PASS}
+        $<$<BOOL:${ANDROID_KEYSTORE_PASS}>:--ks-pass> $<$<BOOL:${ANDROID_KEYSTORE_PASS}>:${ANDROID_KEYSTORE_PASS}>
         $<$<BOOL:${ANDROID_KEY_PASS}>:--key-pass> $<$<BOOL:${ANDROID_KEY_PASS}>:${ANDROID_KEY_PASS}>
         --in lovr.unsigned.apk
         --out lovr.apk
