@@ -381,6 +381,7 @@ static int l_lovrMeshGetVertexMap(lua_State* L) {
 
 static int l_lovrMeshSetVertexMap(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
+  Buffer* release = NULL;
 
   if (lua_isnoneornil(L, 2)) {
     lovrMeshSetIndexBuffer(mesh, NULL, 0, 0, 0);
@@ -398,7 +399,7 @@ static int l_lovrMeshSetVertexMap(lua_State* L) {
       Buffer* vertexBuffer = lovrMeshGetVertexBuffer(mesh);
       BufferUsage usage = vertexBuffer ? lovrBufferGetUsage(vertexBuffer) : USAGE_DYNAMIC;
       bool readable = vertexBuffer ? lovrBufferIsReadable(vertexBuffer) : false;
-      indexBuffer = lovrBufferCreate(blob->size, blob->data, BUFFER_INDEX, usage, readable);
+      indexBuffer = release = lovrBufferCreate(blob->size, blob->data, BUFFER_INDEX, usage, readable);
       lovrMeshSetIndexBuffer(mesh, indexBuffer, count, size, 0);
     } else {
       void* indices = lovrBufferMap(indexBuffer, 0, false);
@@ -416,7 +417,7 @@ static int l_lovrMeshSetVertexMap(lua_State* L) {
       Buffer* vertexBuffer = lovrMeshGetVertexBuffer(mesh);
       BufferUsage usage = vertexBuffer ? lovrBufferGetUsage(vertexBuffer) : USAGE_DYNAMIC;
       bool readable = vertexBuffer ? lovrBufferIsReadable(vertexBuffer) : false;
-      indexBuffer = lovrBufferCreate(count * size, NULL, BUFFER_INDEX, usage, readable);
+      indexBuffer = release = lovrBufferCreate(count * size, NULL, BUFFER_INDEX, usage, readable);
     }
 
     union { void* raw; uint16_t* shorts; uint32_t* ints; } indices = { .raw = lovrBufferMap(indexBuffer, 0, false) };
@@ -445,6 +446,7 @@ static int l_lovrMeshSetVertexMap(lua_State* L) {
     lovrBufferFlush(indexBuffer, 0, count * size);
   }
 
+  lovrRelease(release, lovrBufferDestroy);
   return 0;
 }
 
