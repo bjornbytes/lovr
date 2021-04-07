@@ -62,6 +62,7 @@ cflags = {
   config.strict and '-Werror' or '',
   '-Wno-unused-parameter',
   '-fvisibility=hidden',
+  config.optimize and '-fdata-sections -ffunction-sections' or '',
   '-Isrc',
   '-Isrc/modules',
   '-Isrc/lib/stdatomic',
@@ -69,6 +70,8 @@ cflags = {
 
 bin = target == 'android' and 'bin/apk/lib/arm64-v8a' or 'bin'
 lflags = '-L' .. bin
+lflags += not config.debug and '-Wl,-s' or ''
+lflags += config.optimize and (target == 'macos' and '-Wl,-dead_strip' or '-Wl,--gc-sections') or ''
 
 base_flags = {
   config.debug and '-g' or '',
@@ -136,6 +139,7 @@ if target == 'android' then
   cc = ('%s/toolchains/llvm/prebuilt/%s/bin/clang'):format(config.android.ndk, host)
   cxx = cc .. '++'
   base_flags += '--target=aarch64-linux-android' .. config.android.version
+  base_flags += config.debug and '-funwind-tables' or ''
   cflags += '-DLOVR_GLES'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   cflags += '-I' .. config.android.ndk .. '/sources/android/native_app_glue'
