@@ -296,14 +296,14 @@ end
 
 if config.headsets.openxr then
   if target == 'android' then
-    cflags_openxr += '-Ideps/OpenXR-Oculus/Include'
+    cflags_headset_openxr += '-Ideps/OpenXR-Oculus/Include'
     lflags += 'lopenxr_loader'
     copy('deps/OpenXR-Oculus/Libs/Android/arm64-v8a/Release/libopenxr_loader.so', '$(bin)/%b')
   else
     if type(config.headsets.openxr) ~= 'string' then
       error('Sorry, building OpenXR is not supported yet.  However, you can set config.headsets.openxr to a path to a folder containing the OpenXR library.')
     end
-    cflags += '-Ideps/openxr/include'
+    cflags_headset_openxr += '-Ideps/openxr/include'
     lflags += '-L' .. config.headsets.openxr
     lflags += '-lopenxr_loader'
   end
@@ -311,13 +311,16 @@ end
 
 if config.headsets.oculus then
   assert(target == 'windows', 'LibOVR is not supported on this target')
-  cflags_oculus += '-Ideps/LibOVR/Include'
+  cflags_headset_oculus += '-Ideps/LibOVR/Include'
   copy('deps/LibOVR/LibWindows/x64/Release/VS2017/LibOVR.dll', lib('LibOVR'))
 end
 
 if config.headsets.vrapi then
   assert(target == 'android', 'VrApi is not supported on this target')
-  cflags_vrapi += '-Ideps/VrApi/Include'
+  cflags_headset_vrapi += '-Ideps/VrApi/Include'
+  cflags_headset_vrapi += '-Wno-gnu-empty-initializer'
+  cflags_headset_vrapi += '-Wno-c11-extensions'
+  cflags_headset_vrapi += '-Wno-pedantic'
   lflags += '-lvrapi'
   copy('deps/VrApi/Libs/Android/arm64-v8a/Release/libvrapi.so', '$(bin)/%b')
 end
@@ -329,7 +332,7 @@ if config.headsets.pico then
 end
 
 if config.spatializers.oculus then
-  cflags_oculus += '-Ideps/AudioSDK/Include'
+  cflags_headset_oculus += '-Ideps/AudioSDK/Include'
   ovraudio_libs = {
     win32 = 'deps/AudioSDK/Lib/x64/ovraudio64.dll',
     linux = 'deps/AudioSDK/Lib/Linux64/libovraudio64.so',
@@ -340,7 +343,7 @@ if config.spatializers.oculus then
 end
 
 if config.spatializers.phonon then
-  cflags_phonon += '-Ideps/phonon/include'
+  cflags_spatializer_phonon += '-Ideps/phonon/include'
   phonon_libs = {
     win32 = 'deps/phonon/bin/Windows/x64/phonon.dll',
     macos = 'deps/phonon/lib/OSX/libphonon.dylib',
@@ -487,5 +490,5 @@ if target == 'android' then
     unaligned
   )
   tup.rule(unaligned, '^ ZIPALIGN %f^ $(tools)/zipalign -f -p 4 %f %o', unsigned)
-  tup.rule(unsigned, '^ APKSIGNER %o^ $(tools)/apksigner sign --ks $(ks) --ks-pass $(kspass) --out %o %f', apk)
+  tup.rule(unsigned, '^ APKSIGNER %o^ $(tools)/apksigner sign --ks $(ks) --ks-pass $(kspass) --out %o %f', { apk, extra_outputs = 'bin/lovr.apk.idsig' })
 end
