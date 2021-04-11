@@ -5,9 +5,9 @@
 #pragma once
 
 #define LOVR_VERSION_MAJOR 0
-#define LOVR_VERSION_MINOR 14
+#define LOVR_VERSION_MINOR 15
 #define LOVR_VERSION_PATCH 0
-#define LOVR_VERSION_ALIAS "Maximum Moss"
+#define LOVR_VERSION_ALIAS "Government Goop"
 
 #ifdef _WIN32
 #define LOVR_NORETURN __declspec(noreturn)

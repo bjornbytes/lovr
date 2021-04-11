@@ -98,7 +98,7 @@ end
 -- Note: Cannot be overloaded
 function lovr.boot()
   local conf = {
-    version = '0.14.0',
+    version = '0.15.0',
     identity = 'default',
     saveprecedence = true,
     modules = {
