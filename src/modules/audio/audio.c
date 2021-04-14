@@ -307,13 +307,6 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
   lovrRelease(state.sinks[type], lovrSoundDestroy);
   state.sinks[type] = sink;
 
-#ifdef ANDROID
-  // XXX<nevyn> miniaudio doesn't seem to be happy to set a specific device an android (fails with
-  // error -2 on device init). Since there is only one playback and one capture device in OpenSL,
-  // we can just set this to NULL and make this call a no-op.
-  id = NULL;
-#endif
-
   static const ma_share_mode shareModes[] = {
     [AUDIO_SHARED] = ma_share_mode_shared,
     [AUDIO_EXCLUSIVE] = ma_share_mode_exclusive
