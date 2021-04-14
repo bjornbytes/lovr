@@ -1260,7 +1260,6 @@ void lovrGpuInit(void (*getProcAddress(const char*))(void), bool debug) {
   }
   const char* vendor = (const char*) glGetString(GL_VENDOR);
   state.amd = vendor && (strstr(vendor, "ATI Technologies") || strstr(vendor, "AMD") || strstr(vendor, "Advanced Micro Devices"));
-  state.amd = true;
   state.features.astc = GLAD_GL_ES_VERSION_3_2;
   state.features.compute = GLAD_GL_ES_VERSION_3_1 || (GLAD_GL_ARB_compute_shader && GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_shader_image_load_store);
   state.features.dxt = GLAD_GL_EXT_texture_compression_s3tc;
