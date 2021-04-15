@@ -56,6 +56,13 @@ static int l_lovrSoundGetFrameCount(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSoundGetCapacity(lua_State* L) {
+  Sound* sound = luax_checktype(L, 1, Sound);
+  uint32_t frames = lovrSoundGetCapacity(sound);
+  lua_pushinteger(L, frames);
+  return 1;
+}
+
 static int l_lovrSoundGetSampleCount(lua_State* L) {
   Sound* sound = luax_checktype(L, 1, Sound);
   uint32_t frames = lovrSoundGetFrameCount(sound);
@@ -241,6 +248,7 @@ const luaL_Reg lovrSound[] = {
   { "getChannelCount", l_lovrSoundGetChannelCount },
   { "getSampleRate", l_lovrSoundGetSampleRate },
   { "getFrameCount", l_lovrSoundGetFrameCount },
+  { "getCapacity", l_lovrSoundGetCapacity },
   { "getSampleCount", l_lovrSoundGetSampleCount },
   { "getDuration", l_lovrSoundGetDuration },
   { "isCompressed", l_lovrSoundIsCompressed },
