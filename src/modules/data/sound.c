@@ -367,6 +367,10 @@ uint32_t lovrSoundGetFrameCount(Sound* sound) {
   return sound->stream ? ma_pcm_rb_available_read(sound->stream) : sound->frames;
 }
 
+uint32_t lovrSoundGetCapacity(Sound* sound) {
+  return sound->stream ? ma_pcm_rb_available_write(sound->stream) : sound->frames;
+}
+
 size_t lovrSoundGetStride(Sound* sound) {
   return lovrSoundGetChannelCount(sound) * (sound->format == SAMPLE_I16 ? sizeof(short) : sizeof(float));
 }
