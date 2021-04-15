@@ -36,6 +36,7 @@ ChannelLayout lovrSoundGetChannelLayout(Sound* sound);
 uint32_t lovrSoundGetChannelCount(Sound* sound);
 uint32_t lovrSoundGetSampleRate(Sound* sound);
 uint32_t lovrSoundGetFrameCount(Sound* sound);
+uint32_t lovrSoundGetCapacity(Sound* sound);
 size_t lovrSoundGetStride(Sound* sound);
 bool lovrSoundIsCompressed(Sound* sound);
 bool lovrSoundIsStream(Sound* sound);
