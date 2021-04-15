@@ -174,7 +174,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
   Sound* sound = luax_checktype(L, 1, Sound);
   size_t stride = lovrSoundGetStride(sound);
   SampleFormat format = lovrSoundGetFormat(sound);
-  uint32_t frameCount = lovrSoundGetFrameCount(sound);
+  uint32_t frameCount = lovrSoundGetCapacity(sound);
   uint32_t channels = lovrSoundGetChannelCount(sound);
 
   if (lua_isuserdata(L, 2)) {
@@ -194,7 +194,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
     if (other) {
       uint32_t srcOffset = luaL_optinteger(L, 5, 0);
       uint32_t dstOffset = luaL_optinteger(L, 4, 0);
-      uint32_t count = luaL_optinteger(L, 3, lovrSoundGetFrameCount(other) - srcOffset);
+      uint32_t count = luaL_optinteger(L, 3, lovrSoundGetCapacity(other) - srcOffset);
       uint32_t frames = lovrSoundCopy(other, sound, count, srcOffset, dstOffset);
       lua_pushinteger(L, frames);
       return 1;
@@ -210,7 +210,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
   uint32_t dstOffset = luaL_optinteger(L, 4, 0);
   uint32_t limit = MIN(frameCount - dstOffset, (length - srcOffset) / channels + 1);
   uint32_t count = luaL_optinteger(L, 3, limit);
-  lovrAssert(count <= limit, "Tried to write too many frames");
+  lovrAssert(count <= limit, "Tried to write too many frames (%d is over limit %d)", count, limit);
 
   uint32_t frames = 0;
   while (frames < count) {
