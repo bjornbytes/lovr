@@ -205,16 +205,16 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa) {
     enabledExtensionNames[enabledExtensionCount++] = XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME;
 #endif
 
-#ifdef LOVR_LINUX_EGL
-    enabledExtensionNames[enabledExtensionCount++] = "XR_MNDX_egl_enable";
-#endif
-
     enabledExtensionNames[enabledExtensionCount++] = GRAPHICS_EXTENSION;
 
     if (hasExtension(extensions, extensionCount, XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
       enabledExtensionNames[enabledExtensionCount++] = XR_EXT_HAND_TRACKING_EXTENSION_NAME;
       state.features.handTracking = true;
     }
+
+#ifdef LOVR_LINUX_EGL
+    enabledExtensionNames[enabledExtensionCount++] = XR_MNDX_EGL_ENABLE_EXTENSION_NAME;
+#endif
 
     free(extensions);
 
