@@ -10,6 +10,8 @@
 
 static uint64_t frequency;
 
+#ifndef LOVR_BUILDING_SHARED
+
 int main(int argc, char** argv);
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev, LPSTR args, int show) {
@@ -48,6 +50,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev, LPSTR args, int show) {
 
   return status;
 }
+
+#endif
 
 bool os_init() {
   LARGE_INTEGER f;
