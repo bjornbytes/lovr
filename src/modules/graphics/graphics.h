@@ -197,6 +197,12 @@ void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, ui
 // Buffer
 
 typedef enum {
+  BUFFER_STATIC,
+  BUFFER_DYNAMIC,
+  BUFFER_STREAM
+} BufferType;
+
+typedef enum {
   BUFFER_VERTEX,
   BUFFER_INDEX,
   BUFFER_UNIFORM,
@@ -206,9 +212,28 @@ typedef enum {
   BUFFER_DOWNLOAD
 } BufferUsage;
 
+typedef enum {
+  FIELD_I8,
+  FIELD_U8,
+  FIELD_VEC2,
+  FIELD_VEC3,
+  FIELD_VEC4,
+  FIELD_MAT4
+} FieldType;
+
+typedef struct {
+  uint16_t count;
+  uint16_t stride;
+  FieldType types[16];
+  uint16_t offsets[16];
+} BufferFormat;
+
 typedef struct {
   uint32_t size;
   uint32_t usage;
+  BufferType type;
+  void** mapping;
+  BufferFormat format;
   const char* label;
 } BufferInfo;
 

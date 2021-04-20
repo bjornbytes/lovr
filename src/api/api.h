@@ -24,6 +24,8 @@ extern StringEntry lovrAudioShareMode[];
 extern StringEntry lovrAudioType[];
 extern StringEntry lovrBlendAlphaMode[];
 extern StringEntry lovrBlendMode[];
+extern StringEntry lovrBufferType[];
+extern StringEntry lovrBufferUsage[];
 extern StringEntry lovrChannelLayout[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCullMode[];
@@ -34,6 +36,7 @@ extern StringEntry lovrDeviceButton[];
 extern StringEntry lovrDrawMode[];
 extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
+extern StringEntry lovrFieldType[];
 extern StringEntry lovrFilterMode[];
 extern StringEntry lovrHeadsetDriver[];
 extern StringEntry lovrHeadsetOrigin[];
@@ -124,6 +127,11 @@ int luax_pushvariant(struct lua_State* L, struct Variant* variant);
 
 #ifndef LOVR_DISABLE_FILESYSTEM
 void* luax_readfile(const char* filename, size_t* bytesRead);
+#endif
+
+#ifndef LOVR_DISABLE_GRAPHICS
+struct Buffer;
+void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer, void* data);
 #endif
 
 #ifndef LOVR_DISABLE_MATH

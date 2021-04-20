@@ -27,6 +27,13 @@ StringEntry lovrBlendMode[] = {
   { 0 }
 };
 
+StringEntry lovrBufferType[] = {
+  [BUFFER_STATIC] = ENTRY("static"),
+  [BUFFER_DYNAMIC] = ENTRY("dynamic"),
+  [BUFFER_STREAM] = ENTRY("stream"),
+  { 0 }
+};
+
 StringEntry lovrBufferUsage[] = {
   [BUFFER_VERTEX] = ENTRY("vertex"),
   [BUFFER_INDEX] = ENTRY("index"),
@@ -53,6 +60,16 @@ StringEntry lovrCullMode[] = {
   [CULL_NONE] = ENTRY("none"),
   [CULL_FRONT] = ENTRY("front"),
   [CULL_BACK] = ENTRY("back"),
+  { 0 }
+};
+
+StringEntry lovrFieldType[] = {
+  [FIELD_I8] = ENTRY("i8"),
+  [FIELD_U8] = ENTRY("u8"),
+  [FIELD_VEC2] = ENTRY("vec2"),
+  [FIELD_VEC3] = ENTRY("vec3"),
+  [FIELD_VEC4] = ENTRY("vec4"),
+  [FIELD_MAT4] = ENTRY("mat4"),
   { 0 }
 };
 
@@ -810,14 +827,24 @@ static int l_lovrGraphicsStencil(lua_State* L) {
   return 0;
 }
 
+static struct { uint16_t size, scalarAlign, baseAlign, components; } fieldInfo[] = {
+  [FIELD_I8] = { 1, 1, 1, 1 },
+  [FIELD_U8] = { 1, 1, 1, 1 },
+  [FIELD_VEC2] = { 8, 4, 4, 2 },
+  [FIELD_VEC3] = { 12, 4, 16, 3 },
+  [FIELD_VEC4] = { 16, 4, 16, 4 },
+  [FIELD_MAT4] = { 64, 4, 16, 16 }
+};
+
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info = {
-    .usage = ~0u
-  };
+  BufferInfo info = { 0 };
 
-  info.size = luaL_checkinteger(L, 1);
-
+  // Options
   if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "type");
+    info.type = luax_checkenum(L, -1, BufferType, "dynamic");
+    lua_pop(L, 1);
+
     lua_getfield(L, 2, "usage");
     switch (lua_type(L, -1)) {
       case LUA_TSTRING:
@@ -839,12 +866,93 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     }
     lua_pop(L, 1);
 
+    bool block = info.usage & (BUFFER_UNIFORM | BUFFER_COMPUTE);
+    lua_getfield(L, 2, "format");
+    if (lua_isstring(L, -1)) {
+      FieldType type = luax_checkenum(L, -1, FieldType, NULL);
+      info.format.types[0] = type;
+      info.format.offsets[0] = 0;
+      info.format.stride = fieldInfo[type].size;
+      info.format.count = 1;
+    } else {
+      lovrAssert(lua_istable(L, -1), "Expected FieldType, table, or nil for Buffer format");
+      int length = luax_len(L, -1);
+      uint16_t offset = 0;
+      for (int i = 0; i < length; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        switch (lua_type(L, -1)) {
+          case LUA_TNUMBER:
+            offset += lua_tonumber(L, -1);
+            break;
+          case LUA_TSTRING: {
+            uint32_t index = info.format.count++;
+            FieldType type = luax_checkenum(L, -1, FieldType, NULL);
+            uint16_t alignment = block ? fieldInfo[type].baseAlign : fieldInfo[type].scalarAlign;
+            info.format.types[index] = type;
+            info.format.offsets[index] = ALIGN(offset, alignment);
+            offset += fieldInfo[type].size;
+            break;
+          }
+          default:
+            lovrThrow("Buffer format table may only contain FieldTypes and numbers (found %s)", lua_typename(L, lua_type(L, -1)));
+            return 0;
+        }
+        lua_pop(L, 1);
+      }
+
+      // std140
+      info.format.stride = offset;
+      if (info.usage & BUFFER_UNIFORM) {
+        info.format.stride = ALIGN(offset, 16);
+      }
+    }
+    lua_pop(L, 1);
+
     lua_getfield(L, 2, "label");
     info.label = lua_tostring(L, -1);
     lua_pop(L, 1);
+  } else {
+    info.type = BUFFER_DYNAMIC;
+    info.usage = ~0u & ~(1 << BUFFER_COMPUTE);
   }
 
+  // Size
+  switch (lua_type(L, 1)) {
+    case LUA_TNUMBER:
+      info.size = lua_tointeger(L, 1) * (info.format.stride ? info.format.stride : 1);
+      break;
+    case LUA_TTABLE:
+      if (info.format.count > 1) {
+        info.size = luax_len(L, 1) * info.format.stride;
+      } else if (info.format.count == 1) {
+        uint32_t components = fieldInfo[info.format.types[0]].components;
+        lua_rawgeti(L, 1, 1);
+        uint32_t count = lua_isuserdata(L, -1) ? luax_len(L, 1) : (luax_len(L, 1) / components);
+        lua_pop(L, 1);
+        info.size = count * info.format.stride;
+      } else {
+        lovrThrow("Trying to use a table for Buffer data, but no format for the Buffer was given");
+      }
+      break;
+    default: {
+      Blob* blob = luax_totype(L, 1, Blob);
+      if (blob) {
+        info.size = blob->size;
+        break;
+      }
+      return luax_typeerror(L, 1, "number, table, or Blob");
+    }
+  }
+
+  void* data = NULL;
+  info.mapping = &data;
   Buffer* buffer = lovrBufferCreate(&info);
+
+  if (!lua_isnumber(L, 1)) {
+    lua_settop(L, 1);
+    luax_readbufferdata(L, 1, buffer, data);
+  }
+
   luax_pushtype(L, Buffer, buffer);
   lovrRelease(buffer, lovrBufferDestroy);
   return 1;
