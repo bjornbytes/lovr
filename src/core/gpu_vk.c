@@ -50,6 +50,11 @@ typedef enum {
 struct gpu_buffer {
   VkBuffer handle;
   VkDeviceMemory memory;
+  VkDeviceSize size;
+  void* data[2];
+  uint32_t region;
+  uint32_t ticks[2];
+  gpu_buffer_type type;
 };
 
 struct gpu_texture {
@@ -233,6 +238,7 @@ typedef struct {
 static gpu_mapping scratch(uint32_t size);
 static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info);
 static void ketchup(void);
+static void stall(uint32_t until);
 static void readback(void);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
@@ -916,9 +922,8 @@ size_t gpu_sizeof_buffer() {
   return sizeof(gpu_buffer);
 }
 
+#include <stdio.h>
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
-  memset(buffer, 0, sizeof(*buffer));
-
   VkBufferUsageFlags usage =
     ((info->usage & GPU_BUFFER_USAGE_VERTEX) ? VK_BUFFER_USAGE_VERTEX_BUFFER_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
@@ -928,9 +933,11 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     ((info->usage & GPU_BUFFER_USAGE_UPLOAD) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_DOWNLOAD) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0);
 
+  bool doubleBuffered = info->type == GPU_BUFFER_TYPE_DYNAMIC || info->type == GPU_BUFFER_TYPE_STREAM;
+
   VkBufferCreateInfo bufferInfo = {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-    .size = info->size,
+    .size = info->size << doubleBuffered,
     .usage = usage
   };
 
@@ -943,14 +950,43 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkMemoryRequirements requirements;
   vkGetBufferMemoryRequirements(state.device, buffer->handle, &requirements);
 
+  // - static buffers just want device local memory (could be picky about which kind, but whatever)
+  // - dynamic buffers really want cached memory because they read from mapped pointers to copy old
+  //   data when switching to a new region of the buffer.  they can live without it, but it's slower
+  // - stream buffers are set up to use the special 256MB memory block on AMD/NV that's both device
+  //   local and mappable, since they're mostly used for temporary per-frame vertex/uniform streams.
+  //   falling back to regular uncached host visible memory is perfectly fine, though.
+  uint32_t mask, fallback;
+  switch (info->type) {
+    case GPU_BUFFER_TYPE_STATIC:
+      mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+      fallback = 0;
+      break;
+    case GPU_BUFFER_TYPE_DYNAMIC:
+      mask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+      fallback = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+      break;
+    case GPU_BUFFER_TYPE_STREAM:
+      mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+      fallback = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+      break;
+  }
+
   uint32_t memoryType = ~0u;
+  bool mappable;
+
+search:
   for (uint32_t i = 0; i < state.memoryProperties.memoryTypeCount; i++) {
     uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
-    uint32_t mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    if ((flags & mask) == mask && (requirements.memoryTypeBits & (1 << i))) {
-      memoryType = i;
-      break;
-    }
+    if ((flags & mask) != mask || ~requirements.memoryTypeBits & (1 << i)) continue;
+    mappable = flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    memoryType = i;
+    break;
+  }
+
+  if (memoryType == ~0u && fallback && mask != fallback) {
+    mask = fallback;
+    goto search;
   }
 
   if (memoryType == ~0u) {
@@ -975,6 +1011,40 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     return false;
   }
 
+  void* data;
+  bool map = doubleBuffered || (mappable && info->mapping);
+  if (map && vkMapMemory(state.device, buffer->memory, 0, VK_WHOLE_SIZE, 0, &data)) {
+    vkDestroyBuffer(state.device, buffer->handle, NULL);
+    vkFreeMemory(state.device, buffer->memory, NULL);
+    return false;
+  }
+
+  if (doubleBuffered) {
+    buffer->data[0] = data;
+    buffer->data[1] = (char*) buffer->data[0] + info->size;
+    buffer->ticks[0] = buffer->ticks[1] = state.tick[CPU];
+  }
+
+  if (info->mapping) {
+    if (mappable) {
+      *info->mapping = data;
+    } else {
+      gpu_mapping mapped = scratch(info->size);
+
+      *info->mapping = mapped.data;
+
+      VkBufferCopy region = {
+        .srcOffset = mapped.offset,
+        .dstOffset = 0,
+        .size = info->size
+      };
+
+      vkCmdCopyBuffer(state.batch->commands, buffer->handle, mapped.buffer, 1, &region);
+    }
+  }
+
+  buffer->type = info->type;
+  buffer->size = info->size;
   return true;
 }
 
@@ -985,17 +1055,30 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
 }
 
 void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
-  gpu_mapping mapped = scratch(size);
+  if (buffer->type == GPU_BUFFER_TYPE_STATIC) return NULL;
 
-  VkBufferCopy region = {
-    .srcOffset = mapped.offset,
-    .dstOffset = offset,
-    .size = size
-  };
+  // If the current region is active or the GPU has already caught up to the current region, use it
+  if (buffer->ticks[buffer->region] == state.tick[CPU] || state.tick[GPU] >= buffer->ticks[buffer->region]) {
+    buffer->ticks[buffer->region] = state.tick[CPU];
+    return (char*) buffer->data[buffer->region] + offset;
+  }
 
-  vkCmdCopyBuffer(state.batch->commands, mapped.buffer, buffer->handle, 1, &region);
+  // Otherwise, the GPU is using the current region, so switch to the other one, stalling if needed
+  buffer->region = !buffer->region;
+  if (buffer->ticks[buffer->region] > state.tick[GPU]) {
+    ketchup();
 
-  return mapped.data;
+    if (buffer->ticks[buffer->region] > state.tick[GPU]) {
+      stall(buffer->ticks[buffer->region]);
+    }
+  }
+
+  // Dynamic buffers need to copy data from the old half to the new half
+  if (buffer->type == GPU_BUFFER_TYPE_DYNAMIC) {
+    memcpy(buffer->data[buffer->region], buffer->data[!buffer->region], buffer->size);
+  }
+
+  return (char*) buffer->data[buffer->region] + offset;
 }
 
 void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata) {
@@ -1726,6 +1809,40 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     [GPU_DRAW_TRIANGLE_STRIP] = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP
   };
 
+  static const VkFormat vertexFormats[] = {
+    [GPU_FORMAT_NONE] = VK_FORMAT_UNDEFINED,
+    [GPU_FORMAT_I8x2] = VK_FORMAT_R8G8_SINT,
+    [GPU_FORMAT_I8x4] = VK_FORMAT_R8G8B8A8_SINT,
+    [GPU_FORMAT_U8x2] = VK_FORMAT_R8G8_UINT,
+    [GPU_FORMAT_U8x4] = VK_FORMAT_R8G8B8A8_UINT,
+    [GPU_FORMAT_SN8x2] = VK_FORMAT_R8G8_SNORM,
+    [GPU_FORMAT_SN8x4] = VK_FORMAT_R8G8B8A8_SNORM,
+    [GPU_FORMAT_UN8x2] = VK_FORMAT_R8G8_UNORM,
+    [GPU_FORMAT_UN8x4] = VK_FORMAT_R8G8B8A8_UNORM,
+    [GPU_FORMAT_I16x2] = VK_FORMAT_R16G16_SINT,
+    [GPU_FORMAT_I16x4] = VK_FORMAT_R16G16B16A16_SINT,
+    [GPU_FORMAT_U16x2] = VK_FORMAT_R16G16_UINT,
+    [GPU_FORMAT_U16x4] = VK_FORMAT_R16G16B16A16_UINT,
+    [GPU_FORMAT_SN16x2] = VK_FORMAT_R16G16_SNORM,
+    [GPU_FORMAT_SN16x4] = VK_FORMAT_R16G16B16A16_SNORM,
+    [GPU_FORMAT_UN16x2] = VK_FORMAT_R16G16_UNORM,
+    [GPU_FORMAT_UN16x4] = VK_FORMAT_R16G16B16A16_UNORM,
+    [GPU_FORMAT_F16x2] = VK_FORMAT_R16G16_SFLOAT,
+    [GPU_FORMAT_F16x4] = VK_FORMAT_R16G16B16A16_SFLOAT,
+    [GPU_FORMAT_F32x1] = VK_FORMAT_R32_SFLOAT,
+    [GPU_FORMAT_F32x2] = VK_FORMAT_R32G32_SFLOAT,
+    [GPU_FORMAT_F32x3] = VK_FORMAT_R32G32B32_SFLOAT,
+    [GPU_FORMAT_F32x4] = VK_FORMAT_R32G32B32A32_SFLOAT,
+    [GPU_FORMAT_I32x1] = VK_FORMAT_R32_SINT,
+    [GPU_FORMAT_I32x2] = VK_FORMAT_R32G32_SINT,
+    [GPU_FORMAT_I32x3] = VK_FORMAT_R32G32B32_SINT,
+    [GPU_FORMAT_I32x4] = VK_FORMAT_R32G32B32A32_SINT,
+    [GPU_FORMAT_U32x1] = VK_FORMAT_R32_UINT,
+    [GPU_FORMAT_U32x2] = VK_FORMAT_R32G32_UINT,
+    [GPU_FORMAT_U32x3] = VK_FORMAT_R32G32B32_UINT,
+    [GPU_FORMAT_U32x4] = VK_FORMAT_R32G32B32A32_UINT
+  };
+
   static const VkCullModeFlagBits cullModes[] = {
     [GPU_CULL_NONE] = VK_CULL_MODE_NONE,
     [GPU_CULL_FRONT] = VK_CULL_MODE_FRONT_BIT,
@@ -1778,12 +1895,33 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     [GPU_BLEND_MAX] = VK_BLEND_OP_MAX
   };
 
+  uint32_t vertexBufferCount = 0;
+  VkVertexInputBindingDescription vertexBuffers[COUNTOF(info->buffers)];
+  for (uint32_t i = 0; i < COUNTOF(info->buffers) && (info->buffers[i].stride || info->buffers[i].divisor); i++, vertexBufferCount++) {
+    vertexBuffers[vertexBufferCount++] = (VkVertexInputBindingDescription) {
+      .binding = i,
+      .stride = info->buffers[i].stride,
+      .inputRate = info->buffers[i].divisor == 0 ? VK_VERTEX_INPUT_RATE_VERTEX : VK_VERTEX_INPUT_RATE_INSTANCE
+    };
+  }
+
+  uint32_t vertexAttributeCount = 0;
+  VkVertexInputAttributeDescription vertexAttributes[COUNTOF(info->attributes)];
+  for (uint32_t i = 0; i < COUNTOF(info->attributes) && info->attributes[i].format != GPU_FORMAT_NONE; i++, vertexAttributeCount++) {
+    vertexAttributes[vertexAttributeCount++] = (VkVertexInputAttributeDescription) {
+      .location = info->attributes[i].location,
+      .binding = info->attributes[i].buffer,
+      .format = vertexFormats[info->attributes[i].format],
+      .offset = info->attributes[i].offset
+    };
+  }
+
   VkPipelineVertexInputStateCreateInfo vertexInput = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-    .vertexBindingDescriptionCount = 0,
-    .pVertexBindingDescriptions = NULL,
-    .vertexAttributeDescriptionCount = 0,
-    .pVertexAttributeDescriptions = NULL
+    .vertexBindingDescriptionCount = vertexBufferCount,
+    .pVertexBindingDescriptions = vertexBuffers,
+    .vertexAttributeDescriptionCount = vertexAttributeCount,
+    .pVertexAttributeDescriptions = vertexAttributes
   };
 
   VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
@@ -2340,6 +2478,12 @@ static void ketchup() {
       default: GPU_THROW(getErrorString(result)); return;
     }
   }
+}
+
+static void stall(uint32_t until) {
+  gpu_tick* tick = &state.ticks[until & 0xf];
+  GPU_VK(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull));
+  state.tick[GPU] = until;
 }
 
 static void readback() {

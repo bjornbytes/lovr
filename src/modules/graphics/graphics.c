@@ -630,8 +630,10 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   buffer->info = *info;
 
   gpu_buffer_info gpuInfo = {
-    .size = info->size,
+    .size = ALIGN(info->size, 4),
+    .type = (gpu_buffer_type) info->type,
     .usage = info->usage,
+    .mapping = info->mapping,
     .label = info->label
   };
 
