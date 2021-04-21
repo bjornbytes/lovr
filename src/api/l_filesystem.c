@@ -1,8 +1,6 @@
 #include "api.h"
 #include "filesystem/filesystem.h"
 #include "data/blob.h"
-#include "core/fs.h"
-#include "core/os.h"
 #include "core/util.h"
 #include <lua.h>
 #include <lauxlib.h>

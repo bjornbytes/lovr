@@ -3,7 +3,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #include <pwd.h>
 
 #include "os_glfw.h"
