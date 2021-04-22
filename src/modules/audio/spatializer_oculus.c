@@ -271,7 +271,7 @@ static inline ovrResult pseudo_ovrAudio_GetReflectionBands(ovrAudioMaterialPrese
 }
 //////// End fake OVR_Audio.h
 
-#define E(f, a) { ovrResult rrresultz = (f a); if ( rrresultz != ovrSuccess ) { lovrLogRaw("Oculus Spatializer: %s failed (%d)\n", #f, rrresultz); } }
+#define E(f, a) { ovrResult rrresultz = (f a); if ( rrresultz != ovrSuccess ) { lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: %s failed (%d)\n", #f, rrresultz); } }
 
 typedef struct {
   Source* source;
@@ -439,7 +439,7 @@ static uint32_t oculus_tail(float* scratch, float* output, uint32_t frames) {
   if (state.haveGeometry || state.haveBox) { // MixInSharedReverb only works after reverb enabled
     E(ovrAudio_MixInSharedReverbInterleaved, (state.context, &outStatus, output));
   }
-  //lovrLogRaw("Spatializer test OUTSTATUS %d\n", outStatus);
+  //lovrLog(LOG_ERROR, "Oculus-Spatializer", "Spatializer test OUTSTATUS %d\n", outStatus);
   return frames;
 }
 
@@ -503,7 +503,7 @@ static bool oculus_reverbEnable(bool simple, bool late, bool random) {
   for(int c = 0; c < REVERB_ENABLES; c++) {  
     result = ovrAudio_Enable(state.context, enables[c], values[c]);
     if (result != ovrSuccess) {
-      lovrLogRaw("Oculus Spatializer: SET ENABLED %s FAILED (%d)\n", names[c], result);
+      lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: SET ENABLED %s FAILED (%d)\n", names[c], result);
       return 1;
     }
   }
@@ -523,7 +523,7 @@ static bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vert
   if (mode == GEOMETRY_DISABLE) {
     if (!oculus_reverbEnable(false, false, true))
       return false;
-    lovrLogRaw("Oculus Spatializer: Disabled geometry");
+    lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: Disabled geometry");
     return true;
   } else if (mode == GEOMETRY_BOX) {
     AudioBands materialBands;
@@ -531,7 +531,7 @@ static bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vert
 
     float minVertex[3], maxVertex[3]; // Compute AABB
     bool anyVertices = false;
-    for(int indexIndex = 0; indexIndex < indexCount; indexIndex++) {
+    for(unsigned int indexIndex = 0; indexIndex < indexCount; indexIndex++) {
       int index = indices[indexIndex]*3;
       if (!anyVertices) {
         for(int offset = 0; offset < 3; offset++) {
@@ -568,7 +568,7 @@ static bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vert
     result = ovrAudio_SetAdvancedBoxRoomParameters(state.context, &parameters);
 
     if (result != ovrSuccess) {
-      lovrLogRaw("Oculus Spatializer: CREATE GEOMETRY FAILED (%d)\n", result);
+      lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: CREATE GEOMETRY FAILED (%d)\n", result);
       return false;
     }
     
@@ -577,13 +577,13 @@ static bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vert
 
     state.haveBox = true;
 
-    lovrLogRaw("Oculus Spatializer: Set box-model geometry success");
+    lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: Set box-model geometry success");
 
     return true;
   } else if (mode == GEOMETRY_MESH) {
     result = ovrAudio_CreateAudioGeometry(state.context, &state.geometry);
     if (result != ovrSuccess) {
-      lovrLogRaw("Oculus Spatializer: CREATE GEOMETRY FAILED (%d)\n", result);
+      lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: CREATE GEOMETRY FAILED (%d)\n", result);
       return false;
     }
 
@@ -598,14 +598,14 @@ static bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vert
       &meshGroup, 1);
 
     if (result != ovrSuccess) {
-      lovrLogRaw("Oculus Spatializer: UPLOAD GEOMETRY FAILED (%d)\n", result);
+      lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: UPLOAD GEOMETRY FAILED (%d)\n", result);
       return false;
     }
 
     if (!oculus_reverbEnable(true, true, true))
       return false;
 
-    lovrLogRaw("Oculus Spatializer: Set geometry success");
+    lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: Set geometry success");
 
     return true;
   }
