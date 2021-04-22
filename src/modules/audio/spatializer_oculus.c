@@ -72,7 +72,206 @@ typedef struct OVR_ALIGNAS(8) ovrPoseStatef_
     double       TimeInSeconds;         ///< Absolute time that this pose refers to. \see ovr_GetTimeInSeconds
 } ovrPoseStatef;
 #endif //////// end OVR_CAPI_h
+
 #include <OVR_Audio.h>
+
+///////// This function is a copypaste from OVR_Audio.h. They accidentally declared this function as "inline" instead of "static inline", so the body is ignored in C. I guess they only tested in C++.
+static inline ovrResult pseudo_ovrAudio_GetReflectionBands(ovrAudioMaterialPreset Preset, AudioBands Bands)
+{
+    if (Preset >= ovrAudioMaterialPreset_COUNT || Bands == NULL)
+    {
+        return ovrError_AudioInvalidParam;
+    }
+
+    switch (Preset)
+    {
+    case ovrAudioMaterialPreset_AcousticTile:
+        Bands[0] = 0.488168418f;
+        Bands[1] = 0.361475229f;
+        Bands[2] = 0.339595377f;
+        Bands[3] = 0.498946249f;
+        break;
+    case ovrAudioMaterialPreset_Brick:
+        Bands[0] = 0.975468814f;
+        Bands[1] = 0.972064495f;
+        Bands[2] = 0.949180186f;
+        Bands[3] = 0.930105388f;
+        break;
+    case ovrAudioMaterialPreset_BrickPainted:
+        Bands[0] = 0.975710571f;
+        Bands[1] = 0.983324170f;
+        Bands[2] = 0.978116691f;
+        Bands[3] = 0.970052719f;
+        break;
+    case ovrAudioMaterialPreset_Carpet:
+        Bands[0] = 0.987633705f;
+        Bands[1] = 0.905486643f;
+        Bands[2] = 0.583110571f;
+        Bands[3] = 0.351053834f;
+        break;
+    case ovrAudioMaterialPreset_CarpetHeavy:
+        Bands[0] = 0.977633715f;
+        Bands[1] = 0.859082878f;
+        Bands[2] = 0.526479602f;
+        Bands[3] = 0.370790422f;
+        break;
+    case ovrAudioMaterialPreset_CarpetHeavyPadded:
+        Bands[0] = 0.910534739f;
+        Bands[1] = 0.530433178f;
+        Bands[2] = 0.294055820f;
+        Bands[3] = 0.270105422f;
+        break;
+    case ovrAudioMaterialPreset_CeramicTile:
+        Bands[0] = 0.990000010f;
+        Bands[1] = 0.990000010f;
+        Bands[2] = 0.982753932f;
+        Bands[3] = 0.980000019f;
+        break;
+    case ovrAudioMaterialPreset_Concrete:
+        Bands[0] = 0.990000010f;
+        Bands[1] = 0.983324170f;
+        Bands[2] = 0.980000019f;
+        Bands[3] = 0.980000019f;
+        break;
+    case ovrAudioMaterialPreset_ConcreteRough:
+        Bands[0] = 0.989408433f;
+        Bands[1] = 0.964494646f;
+        Bands[2] = 0.922127008f;
+        Bands[3] = 0.900105357f;
+        break;
+    case ovrAudioMaterialPreset_ConcreteBlock:
+        Bands[0] = 0.635267377f;
+        Bands[1] = 0.652230680f;
+        Bands[2] = 0.671053469f;
+        Bands[3] = 0.789051592f;
+        break;
+    case ovrAudioMaterialPreset_ConcreteBlockPainted:
+        Bands[0] = 0.902957916f;
+        Bands[1] = 0.940235913f;
+        Bands[2] = 0.917584062f;
+        Bands[3] = 0.919947326f;
+        break;
+    case ovrAudioMaterialPreset_Curtain:
+        Bands[0] = 0.686494231f;
+        Bands[1] = 0.545859993f;
+        Bands[2] = 0.310078561f;
+        Bands[3] = 0.399473131f;
+        break;
+    case ovrAudioMaterialPreset_Foliage:
+        Bands[0] = 0.518259346f;
+        Bands[1] = 0.503568292f;
+        Bands[2] = 0.578688800f;
+        Bands[3] = 0.690210819f;
+        break;
+    case ovrAudioMaterialPreset_Glass:
+        Bands[0] = 0.655915797f;
+        Bands[1] = 0.800631821f;
+        Bands[2] = 0.918839693f;
+        Bands[3] = 0.923488140f;
+        break;
+    case ovrAudioMaterialPreset_GlassHeavy:
+        Bands[0] = 0.827098966f;
+        Bands[1] = 0.950222731f;
+        Bands[2] = 0.974604130f;
+        Bands[3] = 0.980000019f;
+        break;
+    case ovrAudioMaterialPreset_Grass:
+        Bands[0] = 0.881126285f;
+        Bands[1] = 0.507170796f;
+        Bands[2] = 0.131893098f;
+        Bands[3] = 0.0103688836f;
+        break;
+    case ovrAudioMaterialPreset_Gravel:
+        Bands[0] = 0.729294717f;
+        Bands[1] = 0.373122454f;
+        Bands[2] = 0.255317450f;
+        Bands[3] = 0.200263441f;
+        break;
+    case ovrAudioMaterialPreset_GypsumBoard:
+        Bands[0] = 0.721240044f;
+        Bands[1] = 0.927690148f;
+        Bands[2] = 0.934302270f;
+        Bands[3] = 0.910105407f;
+        break;
+    case ovrAudioMaterialPreset_PlasterOnBrick:
+        Bands[0] = 0.975696504f;
+        Bands[1] = 0.979106009f;
+        Bands[2] = 0.961063504f;
+        Bands[3] = 0.950052679f;
+        break;
+    case ovrAudioMaterialPreset_PlasterOnConcreteBlock:
+        Bands[0] = 0.881774724f;
+        Bands[1] = 0.924773932f;
+        Bands[2] = 0.951497555f;
+        Bands[3] = 0.959947288f;
+        break;
+    case ovrAudioMaterialPreset_Soil:
+        Bands[0] = 0.844084203f;
+        Bands[1] = 0.634624243f;
+        Bands[2] = 0.416662872f;
+        Bands[3] = 0.400000036f;
+        break;
+    case ovrAudioMaterialPreset_SoundProof:
+        Bands[0] = 0.000000000f;
+        Bands[1] = 0.000000000f;
+        Bands[2] = 0.000000000f;
+        Bands[3] = 0.000000000f;
+        break;
+    case ovrAudioMaterialPreset_Snow:
+        Bands[0] = 0.532252669f;
+        Bands[1] = 0.154535770f;
+        Bands[2] = 0.0509644151f;
+        Bands[3] = 0.0500000119f;
+        break;
+    case ovrAudioMaterialPreset_Steel:
+        Bands[0] = 0.793111682f;
+        Bands[1] = 0.840140402f;
+        Bands[2] = 0.925591767f;
+        Bands[3] = 0.979736567f;
+        break;
+    case ovrAudioMaterialPreset_Water:
+        Bands[0] = 0.970588267f;
+        Bands[1] = 0.971753478f;
+        Bands[2] = 0.978309572f;
+        Bands[3] = 0.970052719f;
+        break;
+    case ovrAudioMaterialPreset_WoodThin:
+        Bands[0] = 0.592423141f;
+        Bands[1] = 0.858273327f;
+        Bands[2] = 0.917242289f;
+        Bands[3] = 0.939999998f;
+        break;
+    case ovrAudioMaterialPreset_WoodThick:
+        Bands[0] = 0.812957883f;
+        Bands[1] = 0.895329595f;
+        Bands[2] = 0.941304684f;
+        Bands[3] = 0.949947298f;
+        break;
+    case ovrAudioMaterialPreset_WoodFloor:
+        Bands[0] = 0.852366328f;
+        Bands[1] = 0.898992121f;
+        Bands[2] = 0.934784114f;
+        Bands[3] = 0.930052698f;
+        break;
+    case ovrAudioMaterialPreset_WoodOnConcrete:
+        Bands[0] = 0.959999979f;
+        Bands[1] = 0.941232264f;
+        Bands[2] = 0.937923789f;
+        Bands[3] = 0.930052698f;
+        break;
+    default:
+        Bands[0] = 0.000000000f;
+        Bands[1] = 0.000000000f;
+        Bands[2] = 0.000000000f;
+        Bands[3] = 0.000000000f;
+        return ovrError_AudioInvalidParam;
+    };
+
+    return ovrSuccess;
+}
+//////// End fake OVR_Audio.h
+
+#define E(f, a) { ovrResult rrresultz = (f a); if ( rrresultz != ovrSuccess ) { lovrLogRaw("Oculus Spatializer: %s failed (%d)\n", #f, rrresultz); } }
 
 typedef struct {
   Source* source;
@@ -92,6 +291,10 @@ struct {
   ovrPoseStatef pose;
   ma_mutex poseLock; // Using ma_mutex in case holding a lovr lock inside a ma lock is weird
   bool poseLockInited;
+
+  ovrAudioGeometry geometry;
+  bool haveGeometry;
+  bool haveBox;
 } state;
 
 static bool oculus_init(void) {
@@ -148,7 +351,7 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
         state.poseUpdated = false;
         ma_mutex_unlock(&state.poseLock);
 
-        ovrAudio_SetListenerPoseStatef(state.context, &pose); // Upload pose
+        E(ovrAudio_SetListenerPoseStatef, (state.context, &pose)); // Upload pose
       }
       state.poseUpdated = false;
     }
@@ -190,7 +393,7 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
       state.occupiedCount++;
       state.sources[idx].source = source;
       state.sources[idx].occupied = true;
-      ovrAudio_ResetAudioSource(state.context, idx);
+      E(ovrAudio_ResetAudioSource, (state.context, idx));
     }
   }
 
@@ -202,9 +405,9 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
     float position[4], orientation[4];
     lovrSourceGetPose(source, position, orientation);
 
-    ovrAudio_SetAudioSourcePos(state.context, idx, position[0], position[1], position[2]);
+    E(ovrAudio_SetAudioSourcePos, (state.context, idx, position[0], position[1], position[2]));
 
-    ovrAudio_SpatializeMonoSourceInterleaved(state.context, idx, &outStatus, output, input);
+    E(ovrAudio_SpatializeMonoSourceInterleaved, (state.context, idx, &outStatus, output, input));
 
     if (!lovrSourceIsPlaying(source)) { // Source is finished
       state.sources[idx].source = NULL;
@@ -219,16 +422,12 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
 }
 
 static uint32_t oculus_tail(float* scratch, float* output, uint32_t frames) {
-  bool didAnything = false;
+  memset(output, 0, frames*sizeof(float)*2); // FIXME: Any way to tell if SharedReverbLR will do anything ahead of time?
+  uint32_t outStatus = 0;
   for (int idx = 0; idx < MAX_SOURCES; idx++) {
     // If a sound is finished, feed in NULL input on its index until reverb tail completes.
     if (state.sources[idx].occupied && !state.sources[idx].usedSourceThisPlayback) {
-      uint32_t outStatus = 0;
-      if (!didAnything) {
-        didAnything = true;
-        memset(output, 0, frames*sizeof(float)*2);
-      }
-      ovrAudio_SpatializeMonoSourceInterleaved(state.context, idx, &outStatus, scratch, NULL);
+      E(ovrAudio_SpatializeMonoSourceInterleaved, (state.context, idx, &outStatus, scratch, NULL));
       if (outStatus & ovrAudioSpatializationStatus_Finished) {
         state.sources[idx].occupied = false;
       }
@@ -237,7 +436,11 @@ static uint32_t oculus_tail(float* scratch, float* output, uint32_t frames) {
       }
     }
   }
-  return didAnything ? frames : 0;
+  if (state.haveGeometry || state.haveBox) { // MixInSharedReverb only works after reverb enabled
+    E(ovrAudio_MixInSharedReverbInterleaved, (state.context, &outStatus, output));
+  }
+  //lovrLogRaw("Spatializer test OUTSTATUS %d\n", outStatus);
+  return frames;
 }
 
 // Oculus math primitives
@@ -274,7 +477,139 @@ static void oculus_setListenerPose(float position[4], float orientation[4]) {
   ma_mutex_unlock(&state.poseLock);
 }
 
-bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material) {
+static ovrAudioMaterialPreset lovrToOvrMaterial(AudioMaterial material) {
+  switch (material) {
+    case MATERIAL_GENERIC: default: return ovrAudioMaterialPreset_AcousticTile;
+    case MATERIAL_BRICK: return ovrAudioMaterialPreset_Brick;
+    case MATERIAL_CARPET: return ovrAudioMaterialPreset_Carpet;
+    case MATERIAL_CERAMIC: return ovrAudioMaterialPreset_CeramicTile;
+    case MATERIAL_CONCRETE: return ovrAudioMaterialPreset_Concrete;
+    case MATERIAL_GLASS: return ovrAudioMaterialPreset_Glass;
+    case MATERIAL_GRAVEL: return ovrAudioMaterialPreset_Gravel;
+    case MATERIAL_METAL: return ovrAudioMaterialPreset_Steel;
+    case MATERIAL_PLASTER: return ovrAudioMaterialPreset_PlasterOnConcreteBlock;
+    case MATERIAL_ROCK: return ovrAudioMaterialPreset_WoodOnConcrete;
+    case MATERIAL_WOOD: return ovrAudioMaterialPreset_WoodThick;
+  }
+}
+
+// FIXME: This could be much simplified by removing the value printouts
+static bool oculus_reverbEnable(bool simple, bool late, bool random) {
+  ovrResult result;
+  #define REVERB_ENABLES 3
+  ovrAudioEnable enables[REVERB_ENABLES] = {ovrAudioEnable_SimpleRoomModeling, ovrAudioEnable_LateReverberation, ovrAudioEnable_RandomizeReverb};
+  const char *names[REVERB_ENABLES] = {"ovrAudioEnable_SimpleRoomModeling", "ovrAudioEnable_LateReverberation", "ovrAudioEnable_RandomizeReverb"};
+  bool values[REVERB_ENABLES] = {simple, late, random};
+  for(int c = 0; c < REVERB_ENABLES; c++) {  
+    result = ovrAudio_Enable(state.context, enables[c], values[c]);
+    if (result != ovrSuccess) {
+      lovrLogRaw("Oculus Spatializer: SET ENABLED %s FAILED (%d)\n", names[c], result);
+      return 1;
+    }
+  }
+  return false;
+}
+
+static bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material, GeometryMode mode) {
+  // No lock because audio.h holds a lock when this is called
+  if (state.haveGeometry) {
+    E(ovrAudio_DestroyAudioGeometry, (state.geometry));
+    state.haveGeometry = false;
+  }
+  state.haveBox = false;
+
+  ovrResult result;
+
+  if (mode == GEOMETRY_DISABLE) {
+    if (!oculus_reverbEnable(false, false, true))
+      return false;
+    lovrLogRaw("Oculus Spatializer: Disabled geometry");
+    return true;
+  } else if (mode == GEOMETRY_BOX) {
+    AudioBands materialBands;
+    pseudo_ovrAudio_GetReflectionBands(lovrToOvrMaterial(material), materialBands);
+
+    float minVertex[3], maxVertex[3]; // Compute AABB
+    bool anyVertices = false;
+    for(int indexIndex = 0; indexIndex < indexCount; indexIndex++) {
+      int index = indices[indexIndex]*3;
+      if (!anyVertices) {
+        for(int offset = 0; offset < 3; offset++) {
+          minVertex[offset] = maxVertex[offset] = vertices[index+offset];
+        }
+        anyVertices = true;
+      } else {
+        for(int offset = 0; offset < 3; offset++) {
+          float value = vertices[index+offset];
+          if (value < minVertex[offset]) minVertex[offset] = value;
+          if (value > maxVertex[offset]) maxVertex[offset] = value;
+        }
+      }
+    }
+
+    ovrAudioVector3f center = {(minVertex[0]+maxVertex[0])/2,
+                          (minVertex[1]+maxVertex[1])/2,
+                          (minVertex[2]+maxVertex[2])/2};
+
+    ovrAudioAdvancedBoxRoomParameters parameters;
+    parameters.abrp_Size = sizeof(ovrAudioAdvancedBoxRoomParameters);
+    memcpy(parameters.abrp_ReflectLeft, materialBands, sizeof(AudioBands));
+    memcpy(parameters.abrp_ReflectRight, materialBands, sizeof(AudioBands));
+    memcpy(parameters.abrp_ReflectUp, materialBands, sizeof(AudioBands));
+    memcpy(parameters.abrp_ReflectDown, materialBands, sizeof(AudioBands));
+    memcpy(parameters.abrp_ReflectBehind, materialBands, sizeof(AudioBands));
+    memcpy(parameters.abrp_ReflectFront, materialBands, sizeof(AudioBands));
+    parameters.abrp_Width = maxVertex[0]-minVertex[0];
+    parameters.abrp_Height = maxVertex[1]-minVertex[1];
+    parameters.abrp_Depth = maxVertex[2]-minVertex[2];
+    parameters.abrp_LockToListenerPosition = 0;
+    parameters.abrp_RoomPosition = center;
+
+    result = ovrAudio_SetAdvancedBoxRoomParameters(state.context, &parameters);
+
+    if (result != ovrSuccess) {
+      lovrLogRaw("Oculus Spatializer: CREATE GEOMETRY FAILED (%d)\n", result);
+      return false;
+    }
+    
+    if (!oculus_reverbEnable(true, true, true))
+      return false;
+
+    state.haveBox = true;
+
+    lovrLogRaw("Oculus Spatializer: Set box-model geometry success");
+
+    return true;
+  } else if (mode == GEOMETRY_MESH) {
+    result = ovrAudio_CreateAudioGeometry(state.context, &state.geometry);
+    if (result != ovrSuccess) {
+      lovrLogRaw("Oculus Spatializer: CREATE GEOMETRY FAILED (%d)\n", result);
+      return false;
+    }
+
+    state.haveGeometry = true;
+
+    // see OVR_Audio_Propagation.h
+    ovrAudioMeshGroup meshGroup = {0, indexCount/3, ovrAudioFaceType_Triangles, NULL}; // All fields except material
+
+    result = ovrAudio_AudioGeometryUploadMeshArrays(state.geometry,
+      vertices, 0, vertexCount, sizeof(float)*3, ovrAudioScalarType_Float32,
+      indices, 0, indexCount, ovrAudioScalarType_UInt32,
+      &meshGroup, 1);
+
+    if (result != ovrSuccess) {
+      lovrLogRaw("Oculus Spatializer: UPLOAD GEOMETRY FAILED (%d)\n", result);
+      return false;
+    }
+
+    if (!oculus_reverbEnable(true, true, true))
+      return false;
+
+    lovrLogRaw("Oculus Spatializer: Set geometry success");
+
+    return true;
+  }
+
   return false;
 }
 

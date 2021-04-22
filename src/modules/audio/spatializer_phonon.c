@@ -300,7 +300,7 @@ void phonon_setListenerPose(float position[4], float orientation[4]) {
   memcpy(state.listenerOrientation, orientation, sizeof(state.listenerOrientation));
 }
 
-bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material) {
+bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material, GeometryMode mode) {
   if (state.mesh) phonon_iplDestroyStaticMesh(&state.mesh);
   if (state.scene) phonon_iplDestroyScene(&state.scene);
   if (state.environment) phonon_iplDestroyEnvironment(&state.environment);
@@ -333,6 +333,12 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
     .bakingBatchSize = 1,
     .irradianceMinDistance = .1f
   };
+
+  if (mode == GEOMETRY_DISABLE) {
+    phonon_iplCreateEnvironment(state.context, NULL, settings, NULL, NULL, &state.environment);
+    phonon_iplCreateEnvironmentalRenderer(state.context, state.environment, state.renderingSettings, AMBISONIC, NULL, NULL, &state.environmentalRenderer);
+    return true;
+  }
 
   IPLint32* triangleMaterials = malloc(indexCount / 3 * sizeof(IPLint32));
   if (!triangleMaterials) goto fail;

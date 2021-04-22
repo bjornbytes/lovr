@@ -57,6 +57,12 @@ typedef enum {
   UNIT_DECIBELS
 } VolumeUnit;
 
+typedef enum {
+  GEOMETRY_DISABLE,
+  GEOMETRY_BOX,
+  GEOMETRY_MESH
+} GeometryMode;
+
 typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
 
 bool lovrAudioInit(const char* spatializer);
@@ -70,7 +76,7 @@ float lovrAudioGetVolume(VolumeUnit units);
 void lovrAudioSetVolume(float volume, VolumeUnit units);
 void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
-bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
+bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material, GeometryMode mode);
 const char* lovrAudioGetSpatializer(void);
 void lovrAudioGetAbsorption(float absorption[3]);
 void lovrAudioSetAbsorption(float absorption[3]);

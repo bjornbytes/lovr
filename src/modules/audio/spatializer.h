@@ -16,7 +16,7 @@ typedef struct {
   // return value is number of stereo frames written.
   uint32_t (*tail)(float* scratch, float* output, uint32_t frames);
   void (*setListenerPose)(float position[4], float orientation[4]);
-  bool (*setGeometry)(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
+  bool (*setGeometry)(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material, GeometryMode mode);
   void (*sourceCreate)(Source* source);
   void (*sourceDestroy)(Source* source);
   const char* name;

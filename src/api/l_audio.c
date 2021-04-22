@@ -33,6 +33,13 @@ StringEntry lovrAudioMaterial[] = {
   { 0 }
 };
 
+StringEntry lovrGeometryMode[] = {
+  [GEOMETRY_DISABLE] = ENTRY("disable"),
+  [GEOMETRY_BOX] = ENTRY("box"),
+  [GEOMETRY_MESH] = ENTRY("mesh"),
+  { 0 }
+};
+
 StringEntry lovrAudioShareMode[] = {
   [AUDIO_SHARED] = ENTRY("shared"),
   [AUDIO_EXCLUSIVE] = ENTRY("exclusive"),
@@ -188,7 +195,8 @@ static int l_lovrAudioSetGeometry(lua_State* L) {
   bool shouldFree;
   int index = luax_readmesh(L, 1, &vertices, &vertexCount, &indices, &indexCount, &shouldFree);
   AudioMaterial material = luax_checkenum(L, index, AudioMaterial, "generic");
-  bool success = lovrAudioSetGeometry(vertices, indices, vertexCount, indexCount, material);
+  GeometryMode mode = luax_checkenum(L, index+1, GeometryMode, "mesh");
+  bool success = lovrAudioSetGeometry(vertices, indices, vertexCount, indexCount, material, mode);
   if (shouldFree) {
     free(vertices);
     free(indices);
