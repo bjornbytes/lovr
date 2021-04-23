@@ -316,6 +316,7 @@ static const char* getErrorString(VkResult result);
   X(vkCmdCopyImage)\
   X(vkCmdCopyBufferToImage)\
   X(vkCmdCopyImageToBuffer)\
+  X(vkCmdFillBuffer)\
   X(vkAllocateMemory)\
   X(vkFreeMemory)\
   X(vkMapMemory)\
@@ -1111,6 +1112,15 @@ void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint6
   };
 
   vkCmdCopyBuffer(state.batch->commands, src->handle, dst->handle, 1, &region);
+}
+
+void gpu_buffer_clear(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
+  if (buffer->type == GPU_BUFFER_TYPE_STATIC) {
+    vkCmdFillBuffer(state.batch->commands, buffer->handle, offset, size, 0);
+  } else {
+    void* data = gpu_buffer_map(buffer);
+    memset((char*) data + offset, 0, size);
+  }
 }
 
 // Texture
