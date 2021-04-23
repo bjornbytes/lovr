@@ -12,11 +12,13 @@
 #include <math.h>
 
 struct Buffer {
+  uint32_t ref;
   gpu_buffer* gpu;
   BufferInfo info;
 };
 
 struct Texture {
+  uint32_t ref;
   gpu_texture* gpu;
   TextureInfo info;
 };
@@ -37,6 +39,7 @@ typedef struct {
 } ShaderGroup;
 
 struct Shader {
+  uint32_t ref;
   gpu_shader* gpu;
   ShaderInfo info;
   ShaderGroup groups[4];
@@ -44,6 +47,7 @@ struct Shader {
 };
 
 struct Bundle {
+  uint32_t ref;
   gpu_bundle* gpu;
   Shader* shader;
   ShaderGroup* group;
@@ -625,9 +629,12 @@ void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, ui
 // Buffer
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
+  lovrAssert(info->type == BUFFER_STATIC || ~info->usage & (1 << BUFFER_COMPUTE), "Only static buffers can have the 'compute' usage flag");
+  lovrAssert(info->type == BUFFER_STATIC || ~info->usage & (1 << BUFFER_COPY_DST), "Only static buffers can have the 'copyto' usage flag");
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
   buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->info = *info;
+  buffer->ref = 1;
 
   gpu_buffer_info gpuInfo = {
     .size = ALIGN(info->size, 4),
@@ -650,8 +657,9 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
 }
 
-void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
-  return gpu_buffer_map(buffer->gpu, offset, size);
+void* lovrBufferMap(Buffer* buffer) {
+  lovrAssert(buffer->info.type != BUFFER_STATIC, "Static Buffers can not be mapped");
+  return gpu_buffer_map(buffer->gpu);
 }
 
 // Texture
@@ -660,6 +668,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
+  texture->ref = 1;
 
   if (info->mipmaps == ~0u) {
     info->mipmaps = log2(MAX(MAX(info->size[0], info->size[1]), info->size[2])) + 1;
@@ -687,6 +696,7 @@ Texture* lovrTextureCreateView(TextureView* view) {
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = view->source->info;
   texture->info.view = *view;
+  texture->ref = 1;
 
   gpu_texture_view_info gpuInfo = {
     .source = view->source->gpu,
@@ -990,6 +1000,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
+  shader->ref = 1;
   map_init(&shader->lookup, 64);
   lovrRetain(info->vertex);
   lovrRetain(info->fragment);
@@ -1073,6 +1084,7 @@ bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint3
 Bundle* lovrBundleCreate(Shader* shader, uint32_t group) {
   Bundle* bundle = calloc(1, sizeof(Bundle) + gpu_sizeof_bundle());
   bundle->gpu = (gpu_bundle*) (bundle + 1);
+  bundle->ref = 1;
   lovrRetain(shader);
   bundle->shader = shader;
   bundle->group = &shader->groups[group];
