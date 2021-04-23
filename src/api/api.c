@@ -418,6 +418,8 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
 
     *vertexCount = luax_len(L, index) / (nested ? 1 : 3);
     *indexCount = luax_len(L, index + 1);
+    lovrAssert(*vertexCount > 0, "Invalid mesh data: vertex count is zero");
+    lovrAssert(*indexCount > 0, "Invalid mesh data: index count is zero");
     lovrAssert(*indexCount % 3 == 0, "Index count must be a multiple of 3");
     *vertices = malloc(sizeof(float) * *vertexCount * 3);
     *indices = malloc(sizeof(uint32_t) * *indexCount);
