@@ -6,134 +6,229 @@
 #include <lauxlib.h>
 #include <string.h>
 
+static const uint16_t vectorComponents[MAX_VECTOR_TYPES] = {
+  [V_VEC2] = 2,
+  [V_VEC3] = 3,
+  [V_VEC4] = 4,
+  [V_MAT4] = 16
+};
+
 static const uint16_t fieldComponents[] = {
   [FIELD_I8] = 1,
   [FIELD_U8] = 1,
-  [FIELD_VEC2] = 2,
-  [FIELD_VEC3] = 3,
-  [FIELD_VEC4] = 4,
+  [FIELD_I16] = 1,
+  [FIELD_U16] = 1,
+  [FIELD_I32] = 1,
+  [FIELD_U32] = 1,
+  [FIELD_F32] = 1,
+  [FIELD_F64] = 1,
+  [FIELD_I8x2] = 2,
+  [FIELD_U8x2] = 2,
+  [FIELD_I8Nx2] = 2,
+  [FIELD_U8Nx2] = 2,
+  [FIELD_I16x2] = 2,
+  [FIELD_U16x2] = 2,
+  [FIELD_I16Nx2] = 2,
+  [FIELD_U16Nx2] = 2,
+  [FIELD_I32x2] = 2,
+  [FIELD_U32x2] = 2,
+  [FIELD_F32x2] = 2,
+  [FIELD_I32x3] = 3,
+  [FIELD_U32x3] = 3,
+  [FIELD_F32x3] = 3,
+  [FIELD_I8x4] = 4,
+  [FIELD_U8x4] = 4,
+  [FIELD_I8Nx4] = 4,
+  [FIELD_U8Nx4] = 4,
+  [FIELD_I16x4] = 4,
+  [FIELD_U16x4] = 4,
+  [FIELD_I16Nx4] = 4,
+  [FIELD_U16Nx4] = 4,
+  [FIELD_I32x4] = 4,
+  [FIELD_U32x4] = 4,
+  [FIELD_F32x4] = 4,
+  [FIELD_MAT2] = 4,
+  [FIELD_MAT3] = 9,
   [FIELD_MAT4] = 16
 };
 
+typedef union {
+  void* raw;
+  int8_t* i8;
+  uint8_t* u8;
+  int16_t* i16;
+  uint16_t* u16;
+  int32_t* i32;
+  uint32_t* u32;
+  float* f32;
+  double* f64;
+} FieldPointer;
+
+static void luax_readbufferfield(lua_State* L, int index, FieldType type, int components, void* data) {
+  FieldPointer p = { .raw = data };
+  for (int i = 0; i < components; i++) {
+    double x = lua_tonumber(L, index + i);
+    switch (type) {
+      case FIELD_I8: p.i8[i] = (int8_t) x; break;
+      case FIELD_U8: p.u8[i] = (uint8_t) x; break;
+      case FIELD_I16: p.i16[i] = (int16_t) x; break;
+      case FIELD_U16: p.u16[i] = (uint16_t) x; break;
+      case FIELD_I32: p.i32[i] = (int32_t) x; break;
+      case FIELD_U32: p.u32[i] = (uint32_t) x; break;
+      case FIELD_F32: p.f32[i] = (float) x; break;
+      case FIELD_F64: p.f64[i] = (double) x; break;
+      case FIELD_I8x2: p.i8[i] = (int8_t) x; break;
+      case FIELD_U8x2: p.u8[i] = (uint8_t) x; break;
+      case FIELD_I8Nx2: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
+      case FIELD_U8Nx2: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
+      case FIELD_I16x2: p.i16[i] = (int16_t) x; break;
+      case FIELD_U16x2: p.u16[i] = (uint16_t) x; break;
+      case FIELD_I16Nx2: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
+      case FIELD_U16Nx2: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
+      case FIELD_I32x2: p.i32[i] = (int32_t) x; break;
+      case FIELD_U32x2: p.u32[i] = (uint32_t) x; break;
+      case FIELD_F32x2: p.f32[i] = (float) x; break;
+      case FIELD_I32x3: p.i32[i] = (int32_t) x; break;
+      case FIELD_U32x3: p.u32[i] = (uint32_t) x; break;
+      case FIELD_F32x3: p.f32[i] = (float) x; break;
+      case FIELD_I8x4: p.i8[i] = (int8_t) x; break;
+      case FIELD_U8x4: p.u8[i] = (uint8_t) x; break;
+      case FIELD_I8Nx4: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
+      case FIELD_U8Nx4: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
+      case FIELD_I16x4: p.i16[i] = (int16_t) x; break;
+      case FIELD_U16x4: p.u16[i] = (uint16_t) x; break;
+      case FIELD_I16Nx4: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
+      case FIELD_U16Nx4: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
+      case FIELD_I32x4: p.i32[i] = (int32_t) x; break;
+      case FIELD_U32x4: p.i32[i] = (uint32_t) x; break;
+      case FIELD_F32x4: p.f32[i] = (float) x; break;
+      case FIELD_MAT2: p.f32[i] = (float) x; break;
+      case FIELD_MAT3: p.f32[i] = (float) x; break;
+      case FIELD_MAT4: p.f32[i] = (float) x; break;
+      default: lovrThrow("Unreachable");
+    }
+  }
+}
+
+static void luax_readbufferfieldv(float* v, FieldType type, int c, void* data) {
+  FieldPointer p = { .raw = data };
+  switch (type) {
+    case FIELD_I8x2: for (int i = 0; i < 2; i++) p.i8[c] = (int8_t) v[i]; break;
+    case FIELD_U8x2: for (int i = 0; i < 2; i++) p.u8[c] = (uint8_t) v[i]; break;
+    case FIELD_I8Nx2: for (int i = 0; i < 2; i++) p.i8[c] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
+    case FIELD_U8Nx2: for (int i = 0; i < 2; i++) p.u8[c] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
+    case FIELD_I16x2: for (int i = 0; i < 2; i++) p.i16[c] = (int16_t) v[i]; break;
+    case FIELD_U16x2: for (int i = 0; i < 2; i++) p.u16[c] = (uint16_t) v[i]; break;
+    case FIELD_I16Nx2: for (int i = 0; i < 2; i++) p.i16[c] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
+    case FIELD_U16Nx2: for (int i = 0; i < 2; i++) p.u16[c] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
+    case FIELD_I32x2: for (int i = 0; i < 2; i++) p.i32[c] = (int32_t) v[i]; break;
+    case FIELD_U32x2: for (int i = 0; i < 2; i++) p.u32[c] = (uint32_t) v[i]; break;
+    case FIELD_I32x3: for (int i = 0; i < 3; i++) p.i32[c] = (int32_t) v[i]; break;
+    case FIELD_U32x3: for (int i = 0; i < 3; i++) p.u32[c] = (uint32_t) v[i]; break;
+    case FIELD_I8x4: for (int i = 0; i < 4; i++) p.i8[c] = (int8_t) v[i]; break;
+    case FIELD_U8x4: for (int i = 0; i < 4; i++) p.u8[c] = (uint8_t) v[i]; break;
+    case FIELD_I8Nx4: for (int i = 0; i < 4; i++) p.i8[c] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
+    case FIELD_U8Nx4: for (int i = 0; i < 4; i++) p.u8[c] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
+    case FIELD_I16x4: for (int i = 0; i < 4; i++) p.i16[c] = (int16_t) v[i]; break;
+    case FIELD_U16x4: for (int i = 0; i < 4; i++) p.u16[c] = (uint16_t) v[i]; break;
+    case FIELD_I16Nx4: for (int i = 0; i < 4; i++) p.i16[c] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
+    case FIELD_U16Nx4: for (int i = 0; i < 4; i++) p.u16[c] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
+    case FIELD_I32x4: for (int i = 0; i < 4; i++) p.i32[c] = (int32_t) v[i]; break;
+    case FIELD_U32x4: for (int i = 0; i < 4; i++) p.u32[c] = (uint32_t) v[i]; break;
+    case FIELD_F32x2: memcpy(data, v, 2 * sizeof(float)); break;
+    case FIELD_F32x3: memcpy(data, v, 3 * sizeof(float)); break;
+    case FIELD_F32x4: memcpy(data, v, 4 * sizeof(float)); break;
+    case FIELD_MAT4: memcpy(data, v, 16 * sizeof(float)); break;
+    default: lovrThrow("Unreachable");
+  }
+}
+
 void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, void* data) {
   const BufferInfo* info = lovrBufferGetInfo(buffer);
-  const BufferFormat* format = &info->format;
-  char* base = data;
 
   Blob* blob = luax_totype(L, index, Blob);
 
   if (blob) {
-    uint32_t dstOffset = lua_tointeger(L, index + 2);
-    uint32_t srcOffset = lua_tointeger(L, index + 3);
-    uint32_t size = luaL_optinteger(L, index + 1, MIN(blob->size - srcOffset, info->size - dstOffset));
+    uint32_t dstOffset = lua_tointeger(L, index + 1);
+    uint32_t srcOffset = lua_tointeger(L, index + 2);
+    uint32_t size = luaL_optinteger(L, index + 3, MIN(blob->size - srcOffset, info->size - dstOffset));
     lovrAssert(srcOffset + size <= blob->size, "Tried to read past the end of the Blob");
     lovrAssert(dstOffset + size <= info->size, "Tried to write past the end of the Buffer");
-    memcpy(base + dstOffset, (char*) blob->data + srcOffset, size);
+    memcpy((char*) data + dstOffset, (char*) blob->data + srcOffset, size);
     return;
   }
 
   luaL_checktype(L, index, LUA_TTABLE);
+  const BufferFormat* format = &info->format;
   lovrAssert(format->count > 0, "Buffer must be created with a format to write to it using a table");
+  uint32_t dstOffset = luaL_optinteger(L, index + 1, 1) - 1;
+  uint32_t srcOffset = luaL_optinteger(L, index + 2, 1) - 1;
+  char* base = (char*) data + dstOffset * format->stride;
+  uint32_t capacity = info->size / format->stride;
+  uint32_t length = luax_len(L, index);
 
-  if (format->count == 1) {
-    uint16_t offset = format->offsets[0];
-    FieldType type = format->types[0];
-    VectorType vectorType;
-    lua_rawgeti(L, index, 1);
-    float* p = luax_tovector(L, -1, &vectorType);
-    lua_pop(L, 1);
-    if (p) {
-      uint16_t components;
-      switch (vectorType) {
-        case V_VEC2: components = 2; break;
-        case V_VEC3: components = 3; break;
-        case V_VEC4: components = 4; break;
-        case V_MAT4: components = 16; break;
-        default: lovrThrow("Unsupported vector type for Buffer field");
-      }
-      lovrAssert(components == fieldComponents[type], "Vector component count does not match field component count");
-      int length = luax_len(L, index);
-      for (int i = 0; i < length; i++) {
-        lua_rawgeti(L, index, i + 1);
-        p = luax_checkvector(L, -1, vectorType, NULL);
-        switch (type) {
-          case FIELD_VEC2: memcpy(base + offset, p, 2 * sizeof(float)); break;
-          case FIELD_VEC3: memcpy(base + offset, p, 3 * sizeof(float)); break;
-          case FIELD_VEC4: memcpy(base + offset, p, 4 * sizeof(float)); break;
-          case FIELD_MAT4: memcpy(base + offset, p, 16 * sizeof(float)); break;
-          default: lovrThrow("Unreachable");
-        }
-        base += format->stride;
-        lua_pop(L, 1);
-      }
-    } else {
-      int length = luax_len(L, index);
-      uint16_t components = fieldComponents[type];
-      for (int i = 0; i < length; i += components) {
-        for (uint16_t c = 0; c < components; c++) {
-          lua_rawgeti(L, index, i + 1);
-          switch (type) {
-            case FIELD_I8: ((int8_t*) (base + offset))[c] = (int8_t) lua_tonumber(L, -1); break;
-            case FIELD_U8: ((uint8_t*) (base + offset))[c] = (uint8_t) lua_tonumber(L, -1); break;
-            case FIELD_VEC2: ((float*) (base + offset))[c] = (float) lua_tonumber(L, -1); break;
-            case FIELD_VEC3: ((float*) (base + offset))[c] = (float) lua_tonumber(L, -1); break;
-            case FIELD_VEC4: ((float*) (base + offset))[c] = (float) lua_tonumber(L, -1); break;
-            case FIELD_MAT4: ((float*) (base + offset))[c] = (float) lua_tonumber(L, -1); break;
-          }
-          lua_pop(L, 1);
-        }
-        base += format->stride;
-      }
-    }
-  } else {
-    int length = luax_len(L, index);
-    for (int i = 0; i < length; i++) {
-      int j = 1;
-      lua_rawgeti(L, index, i + 1);
+  lua_rawgeti(L, index, 1);
+  bool nested = lua_istable(L, -1);
+  lua_pop(L, 1);
+
+  uint32_t limit = nested ? MIN(length - srcOffset, capacity - dstOffset) : capacity - dstOffset;
+  uint32_t count = luaL_optinteger(L, index + 3, limit);
+
+  if (nested) {
+    for (uint32_t i = 0; i < count; i++) {
+      lua_rawgeti(L, index, i + srcOffset + 1);
       lovrAssert(lua_type(L, -1) == LUA_TTABLE, "Expected table of tables");
-      for (uint16_t k = 0; k < format->count; k++) {
-        uint16_t offset = format->offsets[k];
-        FieldType type = format->types[k];
-        lua_rawgeti(L, -1, j);
+      int j = 1;
+      for (uint16_t f = 0; f < format->count; f++) {
+        uint16_t offset = format->offsets[f];
+        FieldType type = format->types[f];
         VectorType vectorType;
-        float* p = luax_tovector(L, -1, &vectorType);
-        if (p) {
-          uint16_t components;
-          switch (vectorType) {
-            case V_VEC2: components = 2; break;
-            case V_VEC3: components = 3; break;
-            case V_VEC4: components = 4; break;
-            case V_MAT4: components = 16; break;
-            default: lovrThrow("Unsupported vector type for Buffer field");
-          }
-          lovrAssert(components == fieldComponents[type], "Vector component count does not match field component count");
-          switch (type) {
-            case FIELD_MAT4: memcpy(base + offset, p, 16 * sizeof(float)); break;
-            default: lovrThrow("Unreachable");
-          }
+        lua_rawgeti(L, -1, j);
+        float* vector = luax_tovector(L, -1, &vectorType);
+        if (vector) {
+          uint16_t components = vectorComponents[vectorType];
+          lovrAssert(components == fieldComponents[type], "Vector type is incompatible with field type");
+          luax_readbufferfieldv(vector, type, components, base + offset);
           lua_pop(L, 1);
+          j++;
         } else {
           uint16_t components = fieldComponents[type];
           for (uint16_t c = 1; c < components; c++) {
-            lua_rawgeti(L, -(c + 1), ++j);
+            lua_rawgeti(L, -c - 1, j + c);
           }
-
-          for (uint16_t c = 0, idx = -components; c < components; c++, idx++) {
-            switch (type) {
-              case FIELD_I8: ((int8_t*) (base + offset))[c] = lua_tonumber(L, idx); break;
-              case FIELD_U8: ((uint8_t*) (base + offset))[c] = lua_tonumber(L, idx); break;
-              case FIELD_VEC2: ((float*) (base + offset))[c] = lua_tonumber(L, idx); break;
-              case FIELD_VEC3: ((float*) (base + offset))[c] = lua_tonumber(L, idx); break;
-              case FIELD_VEC4: ((float*) (base + offset))[c] = lua_tonumber(L, idx); break;
-              case FIELD_MAT4: ((float*) (base + offset))[c] = lua_tonumber(L, idx); break;
-            }
-          }
-
+          luax_readbufferfield(L, -components, type, components, base + offset);
           lua_pop(L, components);
+          j += components;
         }
       }
       base += format->stride;
       lua_pop(L, 1);
+    }
+  } else {
+    for (uint32_t i = 0, j = srcOffset + 1; i < count && j <= length; i++) {
+      for (uint16_t f = 0; f < format->count; f++) {
+        uint16_t offset = format->offsets[f];
+        FieldType type = format->types[f];
+        VectorType vectorType;
+        lua_rawgeti(L, index, j);
+        float* vector = luax_tovector(L, -1, &vectorType);
+        if (vector) {
+          uint16_t components = vectorComponents[vectorType];
+          lovrAssert(components == fieldComponents[type], "Vector type is incompatible with field type");
+          luax_readbufferfieldv(vector, type, components, base + offset);
+          lua_pop(L, 1);
+          j++;
+        } else {
+          uint16_t components = fieldComponents[type];
+          for (uint16_t c = 1; c < components; c++) {
+            lua_rawgeti(L, index, j + c);
+          }
+          luax_readbufferfield(L, -components, type, components, base + offset);
+          lua_pop(L, components);
+          j += components;
+        }
+      }
+      base += format->stride;
     }
   }
 }
@@ -145,6 +240,17 @@ static int l_lovrBufferGetSize(lua_State* L) {
   return 1;
 }
 
+static int l_lovrBufferGetStride(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  const BufferFormat* format = &lovrBufferGetInfo(buffer)->format;
+  if (format->count > 0) {
+    lua_pushinteger(L, format->stride);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
 static int l_lovrBufferGetType(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   BufferType type = lovrBufferGetInfo(buffer)->type;
@@ -152,8 +258,39 @@ static int l_lovrBufferGetType(lua_State* L) {
   return 1;
 }
 
+static int l_lovrBufferGetUsage(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  const BufferInfo* info = lovrBufferGetInfo(buffer);
+  int count = 0;
+  for (int i = 0; lovrBufferUsage[i].length; i++) {
+    if (info->usage & (1 << i)) {
+      lua_pushlstring(L, lovrBufferUsage[i].string, lovrBufferUsage[i].length);
+      count++;
+    }
+  }
+  return count;
+}
+
+static int l_lovrBufferWrite(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  void* data = lovrBufferMap(buffer);
+  luax_readbufferdata(L, 2, buffer, data);
+  return 0;
+}
+
+static int l_lovrBufferGetPointer(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  void* pointer = lovrBufferMap(buffer);
+  lua_pushlightuserdata(L, pointer);
+  return 1;
+}
+
 const luaL_Reg lovrBuffer[] = {
   { "getSize", l_lovrBufferGetSize },
+  { "getStride", l_lovrBufferGetStride },
   { "getType", l_lovrBufferGetType },
+  { "getUsage", l_lovrBufferGetUsage },
+  { "write", l_lovrBufferWrite },
+  { "getPointer", l_lovrBufferGetPointer },
   { NULL, NULL }
 };
