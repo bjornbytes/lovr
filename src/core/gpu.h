@@ -47,6 +47,7 @@ void gpu_buffer_destroy(gpu_buffer* buffer);
 void* gpu_buffer_map(gpu_buffer* buffer);
 void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata);
 void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint64_t dstOffset, uint64_t size);
+void gpu_buffer_clear(gpu_buffer* buffer, uint64_t offset, uint64_t size);
 
 // Texture
 
