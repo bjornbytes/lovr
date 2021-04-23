@@ -39,9 +39,9 @@ StringEntry lovrBufferUsage[] = {
   [BUFFER_INDEX] = ENTRY("index"),
   [BUFFER_UNIFORM] = ENTRY("uniform"),
   [BUFFER_COMPUTE] = ENTRY("compute"),
-  [BUFFER_ARGUMENT] = ENTRY("argument"),
-  [BUFFER_UPLOAD] = ENTRY("upload"),
-  [BUFFER_DOWNLOAD] = ENTRY("download"),
+  [BUFFER_INDIRECT] = ENTRY("indirect"),
+  [BUFFER_COPY_SRC] = ENTRY("copyfrom"),
+  [BUFFER_COPY_DST] = ENTRY("copyto"),
   { 0 }
 };
 
@@ -66,9 +66,39 @@ StringEntry lovrCullMode[] = {
 StringEntry lovrFieldType[] = {
   [FIELD_I8] = ENTRY("i8"),
   [FIELD_U8] = ENTRY("u8"),
-  [FIELD_VEC2] = ENTRY("vec2"),
-  [FIELD_VEC3] = ENTRY("vec3"),
-  [FIELD_VEC4] = ENTRY("vec4"),
+  [FIELD_I16] = ENTRY("i16"),
+  [FIELD_U16] = ENTRY("u16"),
+  [FIELD_I32] = ENTRY("i32"),
+  [FIELD_U32] = ENTRY("u32"),
+  [FIELD_F32] = ENTRY("f32"),
+  [FIELD_F64] = ENTRY("f64"),
+  [FIELD_I8x2] = ENTRY("i8x2"),
+  [FIELD_U8x2] = ENTRY("u8x2"),
+  [FIELD_I8Nx2] = ENTRY("i8nx2"),
+  [FIELD_U8Nx2] = ENTRY("u8nx2"),
+  [FIELD_I16x2] = ENTRY("i16x2"),
+  [FIELD_U16x2] = ENTRY("u16x2"),
+  [FIELD_I16Nx2] = ENTRY("i16nx2"),
+  [FIELD_U16Nx2] = ENTRY("u16nx2"),
+  [FIELD_I32x2] = ENTRY("i32x2"),
+  [FIELD_U32x2] = ENTRY("u32x2"),
+  [FIELD_F32x2] = ENTRY("f32x2"),
+  [FIELD_I32x3] = ENTRY("i32x3"),
+  [FIELD_U32x3] = ENTRY("u32x3"),
+  [FIELD_F32x3] = ENTRY("f32x3"),
+  [FIELD_I8x4] = ENTRY("i8x4"),
+  [FIELD_U8x4] = ENTRY("u8x4"),
+  [FIELD_I8Nx4] = ENTRY("i8nx4"),
+  [FIELD_U8Nx4] = ENTRY("u8nx4"),
+  [FIELD_I16x4] = ENTRY("i16x4"),
+  [FIELD_U16x4] = ENTRY("u16x4"),
+  [FIELD_I16Nx4] = ENTRY("i16nx4"),
+  [FIELD_U16Nx4] = ENTRY("u16nx4"),
+  [FIELD_I32x4] = ENTRY("i32x4"),
+  [FIELD_U32x4] = ENTRY("u32x4"),
+  [FIELD_F32x4] = ENTRY("f32x4"),
+  [FIELD_MAT2] = ENTRY("mat2"),
+  [FIELD_MAT3] = ENTRY("mat3"),
   [FIELD_MAT4] = ENTRY("mat4"),
   { 0 }
 };
@@ -830,14 +860,46 @@ static int l_lovrGraphicsStencil(lua_State* L) {
 static struct { uint16_t size, scalarAlign, baseAlign, components; } fieldInfo[] = {
   [FIELD_I8] = { 1, 1, 1, 1 },
   [FIELD_U8] = { 1, 1, 1, 1 },
-  [FIELD_VEC2] = { 8, 4, 4, 2 },
-  [FIELD_VEC3] = { 12, 4, 16, 3 },
-  [FIELD_VEC4] = { 16, 4, 16, 4 },
+  [FIELD_I16] = { 2, 2, 2, 1 },
+  [FIELD_U16] = { 2, 2, 2, 1 },
+  [FIELD_I32] = { 4, 4, 4, 1 },
+  [FIELD_U32] = { 4, 4, 4, 1 },
+  [FIELD_F32] = { 4, 4, 4, 1 },
+  [FIELD_I8x2] = { 2, 1, 2, 2 },
+  [FIELD_U8x2] = { 2, 1, 2, 2 },
+  [FIELD_I8Nx2] = { 2, 1, 2, 2 },
+  [FIELD_U8Nx2] = { 2, 1, 2, 2 },
+  [FIELD_I16x2] = { 4, 2, 4, 2 },
+  [FIELD_U16x2] = { 4, 2, 4, 2 },
+  [FIELD_I16Nx2] = { 4, 2, 4, 2 },
+  [FIELD_U16Nx2] = { 4, 2, 4, 2 },
+  [FIELD_I32x2] = { 8, 4, 8, 2 },
+  [FIELD_U32x2] = { 8, 4, 8, 2 },
+  [FIELD_F32x2] = { 8, 4, 8, 2 },
+  [FIELD_I32x3] = { 12, 4, 16, 3 },
+  [FIELD_U32x3] = { 12, 4, 16, 3 },
+  [FIELD_F32x3] = { 12, 4, 16, 3 },
+  [FIELD_I8x4] = { 4, 1, 4, 4 },
+  [FIELD_U8x4] = { 4, 1, 4, 4 },
+  [FIELD_I8Nx4] = { 4, 1, 4, 4 },
+  [FIELD_U8Nx4] = { 4, 1, 4, 4 },
+  [FIELD_I16x4] = { 8, 2, 8, 4 },
+  [FIELD_U16x4] = { 8, 2, 8, 4 },
+  [FIELD_I16Nx4] = { 8, 2, 8, 4 },
+  [FIELD_U16Nx4] = { 8, 2, 8, 4 },
+  [FIELD_I32x4] = { 16, 4, 16, 4 },
+  [FIELD_U32x4] = { 16, 4, 16, 4 },
+  [FIELD_F32x4] = { 16, 4, 16, 4 },
+  [FIELD_MAT2] = { 16, 4, 8, 4 },
+  [FIELD_MAT3] = { 64, 4, 16, 9 },
   [FIELD_MAT4] = { 64, 4, 16, 16 }
 };
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info = { 0 };
+  BufferInfo info = {
+    .type = BUFFER_DYNAMIC,
+    .usage = BUFFER_VERTEX | BUFFER_INDEX | BUFFER_UNIFORM
+  };
 
   // Options
   if (lua_istable(L, 2)) {
@@ -874,8 +936,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
       info.format.offsets[0] = 0;
       info.format.stride = fieldInfo[type].size;
       info.format.count = 1;
-    } else {
-      lovrAssert(lua_istable(L, -1), "Expected FieldType, table, or nil for Buffer format");
+    } else if (lua_istable(L, -1)) {
       int length = luax_len(L, -1);
       uint16_t offset = 0;
       for (int i = 0; i < length; i++) {
@@ -905,15 +966,14 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
       if (info.usage & BUFFER_UNIFORM) {
         info.format.stride = ALIGN(offset, 16);
       }
+    } else {
+      lovrAssert(lua_isnil(L, -1), "Expected nil, table, or FieldType for Buffer format");
     }
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "label");
     info.label = lua_tostring(L, -1);
     lua_pop(L, 1);
-  } else {
-    info.type = BUFFER_DYNAMIC;
-    info.usage = ~0u & ~(1 << BUFFER_COMPUTE);
   }
 
   // Size

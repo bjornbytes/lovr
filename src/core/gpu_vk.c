@@ -930,8 +930,8 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     ((info->usage & GPU_BUFFER_USAGE_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
     ((info->usage & GPU_BUFFER_USAGE_INDIRECT) ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_UPLOAD) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_DOWNLOAD) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0);
+    ((info->usage & GPU_BUFFER_USAGE_COPY_SRC) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
+    ((info->usage & GPU_BUFFER_USAGE_COPY_DST) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0);
 
   bool doubleBuffered = info->type == GPU_BUFFER_TYPE_DYNAMIC || info->type == GPU_BUFFER_TYPE_STREAM;
 
@@ -1054,13 +1054,13 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
   memset(buffer, 0, sizeof(*buffer));
 }
 
-void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
+void* gpu_buffer_map(gpu_buffer* buffer) {
   if (buffer->type == GPU_BUFFER_TYPE_STATIC) return NULL;
 
   // If the current region is active or the GPU has already caught up to the current region, use it
   if (buffer->ticks[buffer->region] == state.tick[CPU] || state.tick[GPU] >= buffer->ticks[buffer->region]) {
     buffer->ticks[buffer->region] = state.tick[CPU];
-    return (char*) buffer->data[buffer->region] + offset;
+    return (char*) buffer->data[buffer->region];
   }
 
   // Otherwise, the GPU is using the current region, so switch to the other one, stalling if needed
@@ -1078,7 +1078,7 @@ void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
     memcpy(buffer->data[buffer->region], buffer->data[!buffer->region], buffer->size);
   }
 
-  return (char*) buffer->data[buffer->region] + offset;
+  return (char*) buffer->data[buffer->region];
 }
 
 void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata) {
@@ -1149,8 +1149,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     (((info->usage & GPU_TEXTURE_USAGE_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
     ((info->usage & GPU_TEXTURE_USAGE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_UPLOAD) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_DOWNLOAD) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0);
+    ((info->usage & GPU_TEXTURE_USAGE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
+    ((info->usage & GPU_TEXTURE_USAGE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
 
   bool array = info->type = GPU_TEXTURE_TYPE_ARRAY;
   VkImageCreateInfo imageInfo = {

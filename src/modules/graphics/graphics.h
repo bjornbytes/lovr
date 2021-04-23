@@ -207,17 +207,47 @@ typedef enum {
   BUFFER_INDEX,
   BUFFER_UNIFORM,
   BUFFER_COMPUTE,
-  BUFFER_ARGUMENT,
-  BUFFER_UPLOAD,
-  BUFFER_DOWNLOAD
+  BUFFER_INDIRECT,
+  BUFFER_COPY_SRC,
+  BUFFER_COPY_DST
 } BufferUsage;
 
 typedef enum {
   FIELD_I8,
   FIELD_U8,
-  FIELD_VEC2,
-  FIELD_VEC3,
-  FIELD_VEC4,
+  FIELD_I16,
+  FIELD_U16,
+  FIELD_I32,
+  FIELD_U32,
+  FIELD_F32,
+  FIELD_F64,
+  FIELD_I8x2,
+  FIELD_U8x2,
+  FIELD_I8Nx2,
+  FIELD_U8Nx2,
+  FIELD_I16x2,
+  FIELD_U16x2,
+  FIELD_I16Nx2,
+  FIELD_U16Nx2,
+  FIELD_I32x2,
+  FIELD_U32x2,
+  FIELD_F32x2,
+  FIELD_I32x3,
+  FIELD_U32x3,
+  FIELD_F32x3,
+  FIELD_I8x4,
+  FIELD_U8x4,
+  FIELD_I8Nx4,
+  FIELD_U8Nx4,
+  FIELD_I16x4,
+  FIELD_U16x4,
+  FIELD_I16Nx4,
+  FIELD_U16Nx4,
+  FIELD_I32x4,
+  FIELD_U32x4,
+  FIELD_F32x4,
+  FIELD_MAT2,
+  FIELD_MAT3,
   FIELD_MAT4
 } FieldType;
 
@@ -240,7 +270,7 @@ typedef struct {
 Buffer* lovrBufferCreate(BufferInfo* info);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
-void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
+void* lovrBufferMap(Buffer* buffer);
 
 // Texture
 

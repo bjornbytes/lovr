@@ -18,13 +18,13 @@ typedef void gpu_read_fn(void* data, uint64_t size, void* userdata);
 // Buffer
 
 enum {
-  GPU_BUFFER_USAGE_VERTEX   = (1 << 0),
-  GPU_BUFFER_USAGE_INDEX    = (1 << 1),
-  GPU_BUFFER_USAGE_UNIFORM  = (1 << 2),
-  GPU_BUFFER_USAGE_STORAGE  = (1 << 3),
-  GPU_BUFFER_USAGE_INDIRECT = (1 << 4),
-  GPU_BUFFER_USAGE_UPLOAD   = (1 << 5),
-  GPU_BUFFER_USAGE_DOWNLOAD = (1 << 6)
+  GPU_BUFFER_USAGE_VERTEX    = (1 << 0),
+  GPU_BUFFER_USAGE_INDEX     = (1 << 1),
+  GPU_BUFFER_USAGE_UNIFORM   = (1 << 2),
+  GPU_BUFFER_USAGE_STORAGE   = (1 << 3),
+  GPU_BUFFER_USAGE_INDIRECT  = (1 << 4),
+  GPU_BUFFER_USAGE_COPY_SRC  = (1 << 5),
+  GPU_BUFFER_USAGE_COPY_DST  = (1 << 6)
 };
 
 typedef enum {
@@ -44,7 +44,7 @@ typedef struct {
 size_t gpu_sizeof_buffer(void);
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
-void* gpu_buffer_map(gpu_buffer* buffer, uint64_t offset, uint64_t size);
+void* gpu_buffer_map(gpu_buffer* buffer);
 void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata);
 void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint64_t dstOffset, uint64_t size);
 
@@ -54,8 +54,8 @@ enum {
   GPU_TEXTURE_USAGE_SAMPLE   = (1 << 0),
   GPU_TEXTURE_USAGE_RENDER   = (1 << 1),
   GPU_TEXTURE_USAGE_STORAGE  = (1 << 2),
-  GPU_TEXTURE_USAGE_UPLOAD   = (1 << 3),
-  GPU_TEXTURE_USAGE_DOWNLOAD = (1 << 4)
+  GPU_TEXTURE_USAGE_COPY_SRC = (1 << 3),
+  GPU_TEXTURE_USAGE_COPY_DST = (1 << 4)
 };
 
 typedef enum {
