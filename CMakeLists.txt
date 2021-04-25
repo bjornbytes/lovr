@@ -268,8 +268,8 @@ if(LOVR_USE_STEAM_AUDIO)
     set_target_properties(Phonon PROPERTIES IMPORTED_IMPLIB "${LOVR_STEAM_AUDIO_PATH}/lib/Windows/x64/phonon.lib")
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/bin/Windows/x64/phonon.dll")
   elseif(APPLE)
-    set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib"
-                                            BUILD_RPATH "${LOVR_STEAM_AUDIO_PATH}/lib/OSX")
+    message("Phonon IMPORTED_LOCATION: ${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib")
+    set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib")
   else() # Assume Linux. Note: This has *not* been tested. FIXME: When is the .so copied?
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/Linux/x64/libphonon.so")
   endif()
@@ -300,15 +300,17 @@ if(LOVR_USE_OCULUS_AUDIO)
     # Oculus Audio ships with an intel .framework, but (as of 25.0.0) it is broken. We can convert it to a working dylib with install_name_tool in a custom target:
     SET(OCULUS_AUDIO_MAC_LIB_DIR "${CMAKE_CURRENT_BINARY_DIR}/ovraudio")
     SET(OCULUS_AUDIO_MAC_LIB_FILE "${OCULUS_AUDIO_MAC_LIB_DIR}/ovraudio64.dylib")
+    SET(OCULUS_AUDIO_MAC_RPATH "@rpath/ovraudio64.dylib")
     file(MAKE_DIRECTORY "${OCULUS_AUDIO_MAC_LIB_DIR}")
     add_custom_command(OUTPUT "${OCULUS_AUDIO_MAC_LIB_FILE}"
                    COMMAND ${CMAKE_COMMAND} -E copy "${LOVR_OCULUS_AUDIO_PATH}/Lib/mac64/OVRAudio64.framework/Versions/A/ovraudio64" "${OCULUS_AUDIO_MAC_LIB_FILE}"
-                   COMMAND install_name_tool -id @rpath/ovraudio64.dylib "${OCULUS_AUDIO_MAC_LIB_FILE}"
+                   COMMAND install_name_tool -id ${OCULUS_AUDIO_MAC_RPATH} "${OCULUS_AUDIO_MAC_LIB_FILE}"
                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
     add_custom_target(OculusAudioFixed DEPENDS "${OCULUS_AUDIO_MAC_LIB_FILE}")
     add_dependencies(OculusAudio OculusAudioFixed)
+    # IMPORTED_SONAME required because the automatic rpath requires the dylib file to exist before builds start
     set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${OCULUS_AUDIO_MAC_LIB_FILE}"
-                                                 BUILD_RPATH "${OCULUS_AUDIO_MAC_LIB_DIR}")
+                                                 IMPORTED_SONAME "${OCULUS_AUDIO_MAC_RPATH}")
   else() # Assume Linux. Note: This has *not* been tested. FIXME: When is the .so copied?
     set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_OCULUS_AUDIO_PATH}/Lib/Linux64/libovraudio64.so")
   endif()
@@ -643,6 +645,7 @@ elseif(APPLE)
   function(move_lib)
     if(TARGET ${ARGV0})
       add_custom_command(TARGET lovr POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E echo "TARGET ${ARGV0} COPY $<TARGET_SONAME_FILE:${ARGV0}>"
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_SONAME_FILE:${ARGV0}>
         ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
