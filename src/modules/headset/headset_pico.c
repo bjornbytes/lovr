@@ -234,7 +234,7 @@ static struct {
   void* renderUserdata;
 } state;
 
-static bool pico_init(float supersample, float offset, uint32_t msaa) {
+static bool pico_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   state.offset = offset;
   state.clipNear = .1f;
   state.clipFar = 100.f;

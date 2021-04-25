@@ -161,6 +161,10 @@ MAF quat quat_fromMat4(quat q, mat4 m) {
   return quat_set(q, x, y, z, w);
 }
 
+MAF quat quat_identity(quat q) {
+  return quat_set(q, 0.f, 0.f, 0.f, 1.f);
+}
+
 MAF quat quat_mul(quat out, quat q, quat r) {
   return quat_set(out,
     q[0] * r[3] + q[3] * r[0] + q[1] * r[2] - q[2] * r[1],

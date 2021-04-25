@@ -48,7 +48,7 @@ var webxr = {
   },
 
   webxr_init__deps: ['$buttons', '$axes'],
-  webxr_init: function(supersample, offset, msaa) {
+  webxr_init: function(supersample, offset, msaa, overlay) {
     if (!navigator.xr) {
       return false;
     }
@@ -299,8 +299,9 @@ var webxr = {
 
   webxr_isDown: function(device, button, down, changed) {
     var b = state.hands[device] && state.hands[device].buttons[button];
+    var c = state.lastButtonState[device];
     HEAPU8[down] = b && b.pressed;
-    HEAPU8[changed] = b && (state.lastButtonState[device][button] ^ b.pressed);
+    HEAPU8[changed] = b && c && (c[button] ^ b.pressed);
     return !!b;
   },
 
@@ -345,18 +346,17 @@ var webxr = {
       return false;
     }
 
-    // WebXR does not have a palm joint but the skeleton otherwise matches up
-    HEAPF32.fill(0, poses >> 2, (poses >> 2) + 8 * 26 /* HAND_JOINT_COUNT */);
+    var space = state.hands[device].gripSpace;
+    var pose = state.frame.getPose(space, state.space);
+    pose && writePose(pose.transform, poses, poses + 16);
     poses += 32;
 
-    for (var i = 0; i < 25; i++) {
-      if (inputSource.hand[i]) {
-        var pose = state.frame.getJointPose(inputSource.hand[i], state.space);
-        if (pose) {
-          var position = poses + i * 32;
-          writePose(pose.transform, position, position + 16);
-        }
-      }
+    // TODO use fillPoses
+    for ([joint, space] of inputSource.hand) {
+      var pose = state.frame.getJointPose(space, state.space);
+      if (!pose) return false;
+      writePose(pose.transform, poses, poses + 16);
+      poses += 32;
     }
 
     return true;

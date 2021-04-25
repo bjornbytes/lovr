@@ -232,7 +232,7 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
   float radius = 0.f;
   IPLint32 rays = 0;
 
-  if (lovrSourceIsEffectEnabled(source, EFFECT_OCCLUSION)) {
+  if (state.mesh && lovrSourceIsEffectEnabled(source, EFFECT_OCCLUSION)) {
     bool transmission = lovrSourceIsEffectEnabled(source, EFFECT_TRANSMISSION);
     occlusion = transmission ? IPL_DIRECTOCCLUSION_TRANSMISSIONBYFREQUENCY : IPL_DIRECTOCCLUSION_NOTRANSMISSION;
     radius = lovrSourceGetRadius(source);
@@ -258,7 +258,7 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
   IPLHrtfInterpolation interpolation = IPL_HRTFINTERPOLATION_NEAREST;
   phonon_iplApplyBinauralEffect(state.binauralEffect[index], state.binauralRenderer, tmp, path.direction, interpolation, blend, out);
 
-  if (lovrSourceIsEffectEnabled(source, EFFECT_REVERB)) {
+  if (state.mesh && lovrSourceIsEffectEnabled(source, EFFECT_REVERB)) {
     phonon_iplSetDryAudioForConvolutionEffect(state.convolutionEffect[index], iplSource, in);
   }
 
@@ -266,6 +266,8 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
 }
 
 uint32_t phonon_tail(float* scratch, float* output, uint32_t frames) {
+  if (!state.mesh) return 0;
+
   IPLAudioBuffer out = { .format = STEREO, .numSamples = frames, .interleavedBuffer = output };
 
   IPLAudioBuffer tmp = {

@@ -400,32 +400,49 @@ void luax_readcolor(lua_State* L, int index, Color* color) {
     color->g = luax_checkfloat(L, index + 1);
     color->b = luax_checkfloat(L, index + 2);
     color->a = luax_optfloat(L, index + 3, 1.);
-  } else if (lua_gettop(L) == index) {
+  } else if (lua_gettop(L) <= index + 1) {
     uint32_t x = luaL_checkinteger(L, index);
     color->r = ((x >> 16) & 0xff) / 255.f;
     color->g = ((x >> 8) & 0xff) / 255.f;
     color->b = ((x >> 0) & 0xff) / 255.f;
-    color->a = 1.f;
-  } else {
-    luaL_error(L, "Invalid color, expected a hexcode, 3 numbers, 4 numbers, or a table");
+    color->a = luax_optfloat(L, index + 1, 1.);
   }
 }
 
 int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree) {
   if (lua_istable(L, index)) {
     luaL_checktype(L, index + 1, LUA_TTABLE);
-    *vertexCount = luax_len(L, index) / 3;
+    lua_rawgeti(L, index, 1);
+    bool nested = lua_type(L, -1) == LUA_TTABLE;
+    lua_pop(L, 1);
+
+    *vertexCount = luax_len(L, index) / (nested ? 1 : 3);
     *indexCount = luax_len(L, index + 1);
+    lovrAssert(*vertexCount > 0, "Invalid mesh data: vertex count is zero");
+    lovrAssert(*indexCount > 0, "Invalid mesh data: index count is zero");
     lovrAssert(*indexCount % 3 == 0, "Index count must be a multiple of 3");
     *vertices = malloc(sizeof(float) * *vertexCount * 3);
     *indices = malloc(sizeof(uint32_t) * *indexCount);
     lovrAssert(vertices && indices, "Out of memory");
     *shouldFree = true;
 
-    for (uint32_t i = 0; i < *vertexCount * 3; i++) {
-      lua_rawgeti(L, index, i + 1);
-      (*vertices)[i] = luax_checkfloat(L, -1);
-      lua_pop(L, 1);
+    if (nested) {
+      for (uint32_t i = 0; i < *vertexCount; i++) {
+        lua_rawgeti(L, index, i + 1);
+        lua_rawgeti(L, -1, 1);
+        lua_rawgeti(L, -2, 2);
+        lua_rawgeti(L, -3, 3);
+        (*vertices)[3 * i + 0] = luax_checkfloat(L, -3);
+        (*vertices)[3 * i + 1] = luax_checkfloat(L, -2);
+        (*vertices)[3 * i + 2] = luax_checkfloat(L, -1);
+        lua_pop(L, 4);
+      }
+    } else {
+      for (uint32_t i = 0; i < *vertexCount * 3; i++) {
+        lua_rawgeti(L, index, i + 1);
+        (*vertices)[i] = luax_checkfloat(L, -1);
+        lua_pop(L, 1);
+      }
     }
 
     for (uint32_t i = 0; i < *indexCount; i++) {

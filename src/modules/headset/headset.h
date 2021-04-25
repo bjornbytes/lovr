@@ -112,7 +112,7 @@ typedef enum {
 typedef struct HeadsetInterface {
   struct HeadsetInterface* next;
   HeadsetDriver driverType;
-  bool (*init)(float supersample, float offset, uint32_t msaa);
+  bool (*init)(float supersample, float offset, uint32_t msaa, bool overlay);
   void (*destroy)(void);
   bool (*getName)(char* name, size_t length);
   HeadsetOrigin (*getOriginType)(void);
@@ -157,5 +157,5 @@ extern HeadsetInterface* lovrHeadsetTrackingDrivers;
 #define FOREACH_TRACKING_DRIVER(i)\
   for (HeadsetInterface* i = lovrHeadsetTrackingDrivers; i != NULL; i = i->next)
 
-bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, float offset, uint32_t msaa);
+bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, float offset, uint32_t msaa, bool overlay);
 void lovrHeadsetDestroy(void);

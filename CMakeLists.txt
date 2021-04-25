@@ -124,6 +124,7 @@ endif()
 
 # MSDF
 if(LOVR_ENABLE_DATA)
+  set(BUILD_SHARED_LIBS ON)
   add_subdirectory(deps/msdfgen msdfgen)
   include_directories(deps/msdfgen)
   set(LOVR_MSDF msdfgen)
@@ -262,7 +263,7 @@ if(LOVR_USE_STEAM_AUDIO)
   include_directories("${LOVR_STEAM_AUDIO_PATH}/include")
   add_library(Phonon SHARED IMPORTED)
   if(ANDROID)
-    set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/Android/arm64/libphonon.so")
+    set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/Android/arm64/libphonon.so")
   elseif(WIN32)
     set_target_properties(Phonon PROPERTIES IMPORTED_IMPLIB "${LOVR_STEAM_AUDIO_PATH}/lib/Windows/x64/phonon.lib")
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/bin/Windows/x64/phonon.dll")
@@ -622,44 +623,48 @@ elseif(APPLE)
   target_link_libraries(lovr objc)
   target_sources(lovr PRIVATE src/core/os_macos.c)
   target_compile_definitions(lovr PRIVATE LOVR_GL)
+  set_target_properties(lovr PROPERTIES
+    MACOSX_RPATH TRUE
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "@executable_path"
+  )
   if(LOVR_BUILD_BUNDLE)
-    function(move_lib)
-      if(TARGET ${ARGV0})
-        add_custom_command(TARGET lovr POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy
-          $<TARGET_SONAME_FILE:${ARGV0}>
-          ${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/MacOS/$<TARGET_SONAME_FILE_NAME:${ARGV0}> # Bad
-        )
-      endif()
-    endfunction()
-
-    move_lib(${LOVR_GLFW})
-    move_lib(${LOVR_LUA})
-    move_lib(${LOVR_ODE})
-    move_lib(${LOVR_OPENVR})
-    move_lib(${LOVR_MSDF})
-    move_lib(${LOVR_OCULUS_AUDIO})
-    move_lib(${LOVR_PHONON})
-    foreach(target ${ALL_PLUGIN_TARGETS})
-      move_lib(${target})
-    endforeach()
-
+    set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/MacOS)
     target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
     set_target_properties(lovr PROPERTIES
       MACOSX_BUNDLE TRUE
-      MACOSX_RPATH TRUE
-      BUILD_WITH_INSTALL_RPATH TRUE
-      INSTALL_RPATH "@executable_path"
       MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Info.plist"
       RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns"
     )
+  else()
+    set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
+    set_target_properties(lovr PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
   endif()
+  function(move_lib)
+    if(TARGET ${ARGV0})
+      add_custom_command(TARGET lovr POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_SONAME_FILE:${ARGV0}>
+        ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
+      )
+    endif()
+  endfunction()
+  move_lib(${LOVR_GLFW})
+  move_lib(${LOVR_LUA})
+  move_lib(${LOVR_ODE})
+  move_lib(${LOVR_OPENVR})
+  move_lib(${LOVR_MSDF})
+  move_lib(${LOVR_OCULUS_AUDIO})
+  move_lib(${LOVR_PHONON})
+  foreach(target ${ALL_PLUGIN_TARGETS})
+    move_lib(${target})
+  endforeach()
 elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_web.c)
   target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
   configure_file(src/resources/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
-  target_link_libraries(lovr log EGL GLESv3 OpenSLES android dl)
+  target_link_libraries(lovr log EGL GLESv3 android dl)
   target_compile_definitions(lovr PRIVATE LOVR_GLES)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
@@ -667,6 +672,7 @@ elseif(ANDROID)
   set_target_properties(
     lovr
     ${LOVR_ODE}
+    ${LOVR_MSDF}
     PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/raw/lib/${ANDROID_ABI}"
   )
 
@@ -740,7 +746,6 @@ elseif(ANDROID)
       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
       COMMAND ${ANDROID_TOOLS}/dx --dex --output raw/classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
-      COMMAND ${CMAKE_STRIP} raw/lib/${ANDROID_ABI}/*.so
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
@@ -763,6 +768,16 @@ elseif(ANDROID)
     )
 
     add_dependencies(buildAPK lovr)
+
+    if(CMAKE_BUILD_TYPE STREQUAL Release)
+      add_custom_target(
+        strip ALL
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND ${CMAKE_STRIP} raw/lib/${ANDROID_ABI}/*.so
+      )
+      add_dependencies(strip lovr)
+      add_dependencies(buildAPK strip)
+    endif()
 
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
@@ -804,6 +819,14 @@ elseif(UNIX)
       endif()
     endif()
   endfunction()
+  function(move_app_image_file)
+    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/${ARGV0}")
+    set(DST "${CMAKE_BINARY_DIR}/bin/${ARGV0}")
+    add_custom_command(TARGET lovr POST_BUILD
+       DEPENDS ${SRC}
+       COMMAND ${CMAKE_COMMAND} -E copy ${SRC} ${DST}
+    )
+  endfunction()
   move_lib(${LOVR_GLFW})
   move_lib(${LOVR_LUA})
   move_lib(${LOVR_ODE})
@@ -813,4 +836,9 @@ elseif(UNIX)
   foreach(target ${ALL_PLUGIN_TARGETS})
     move_lib(${target})
   endforeach()
+  if(LOVR_BUILD_BUNDLE)
+    move_app_image_file("lovr.desktop")
+    move_app_image_file("AppRun")
+    move_app_image_file("logo.svg")
+  endif()
 endif()

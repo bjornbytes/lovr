@@ -36,6 +36,19 @@ uint32_t simple_apply(Source* source, const float* input, float* output, uint32_
     target[1] = .5f + (ldistance - rdistance) * 2.5f;
   }
 
+  float weight, power;
+  lovrSourceGetDirectivity(source, &weight, &power);
+  if (weight > 0.f && power > 0.f) {
+    float sourceDirection[4];
+    float sourceToListener[4];
+    quat_getDirection(sourceOrientation, sourceDirection);
+    vec3_normalize(vec3_sub(vec3_init(sourceToListener, listenerPos), sourcePos));
+    float dot = vec3_dot(sourceToListener, sourceDirection);
+    float factor = powf(fabsf(1.f - weight + weight * dot), power);
+    target[0] *= factor;
+    target[1] *= factor;
+  }
+
   if (lovrSourceIsEffectEnabled(source, EFFECT_ATTENUATION)) {
     float distance = vec3_distance(sourcePos, listenerPos);
     float attenuation = 1.f / MAX(distance, 1.f);

@@ -87,7 +87,7 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
   switch (lua_type(L, index)) {
     case LUA_TNIL:
     case LUA_TNONE:
-      quat_set(q, 0.f, 0.f, 0.f, 1.f);
+      quat_identity(q);
       return ++index;
     case LUA_TNUMBER:
       angle = luax_optfloat(L, index++, 0.f);
@@ -1245,7 +1245,7 @@ static int l_lovrQuatUnpack(lua_State* L) {
 int l_lovrQuatSet(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
   if (lua_isnoneornil(L, 2)) {
-    quat_set(q, 0.f, 0.f, 0.f, 1.f);
+    quat_identity(q);
   } else if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     float y = luax_checkfloat(L, 3);

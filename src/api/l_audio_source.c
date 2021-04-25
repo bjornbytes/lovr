@@ -96,13 +96,6 @@ static int l_lovrSourceGetDuration(lua_State* L) {
   return 1;
 }
 
-static int l_lovrSourceIsSpatial(lua_State* L) {
-  Source* source = luax_checktype(L, 1, Source);
-  bool spatial = lovrSourceIsSpatial(source);
-  lua_pushboolean(L, spatial);
-  return 1;
-}
-
 static int l_lovrSourceGetPosition(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float position[4], orientation[4];
@@ -180,7 +173,7 @@ static int l_lovrSourceGetDirectivity(lua_State* L) {
 static int l_lovrSourceSetDirectivity(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   float weight = luax_optfloat(L, 2, 0.f);
-  float power = luax_optfloat(L, 3, 0.f);
+  float power = luax_optfloat(L, 3, 1.f);
   lovrSourceSetDirectivity(source, weight, power);
   return 0;
 }
@@ -229,7 +222,6 @@ const luaL_Reg lovrSource[] = {
   { "seek", l_lovrSourceSeek },
   { "tell", l_lovrSourceTell },
   { "getDuration", l_lovrSourceGetDuration },
-  { "isSpatial", l_lovrSourceIsSpatial },
   { "getPosition", l_lovrSourceGetPosition },
   { "setPosition", l_lovrSourceSetPosition },
   { "getOrientation", l_lovrSourceGetOrientation },

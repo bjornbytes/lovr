@@ -24,6 +24,10 @@ CFLAGS_@(STRICT) += -Werror
 FLAGS_@(DEBUG) += -g
 FLAGS_@(OPTIMIZE) += -Oz
 FLAGS_@(SANITIZE) += -fsanitize=address,undefined
+CFLAGS_@(OPTIMIZE) += -fdata-sections -ffunction-sections
+ifneq (@(DEBUG),y)
+LDFLAGS += -Wl,-s
+endif
 
 ## Modules
 DISABLE_@(AUDIO) += -DLOVR_DISABLE_AUDIO
@@ -67,6 +71,7 @@ ifeq ($(PLATFORM),win32)
   CFLAGS += -D_CRT_SECURE_NO_WARNINGS
   CFLAGS += -Wno-language-extension-token
   LDFLAGS += -lShell32 -lOle32
+  LDFLAGS_@(OPTIMIZE) += -Wl,--gc-sections
   EXTRAS += bin/lovr.lib bin/lovr.exp
   EXTRAS_@(DEBUG) += bin/lovr.pdb bin/lovr.ilk
 endif
@@ -78,6 +83,7 @@ ifeq ($(PLATFORM),linux)
   CFLAGS += -DLOVR_GL
   LDFLAGS += -lm -lpthread -ldl
   LDFLAGS += -Wl,-rpath,\$ORIGIN
+  LDFLAGS_@(OPTIMIZE) += -Wl,--gc-sections
 endif
 
 ## macOS
@@ -86,6 +92,7 @@ ifeq ($(PLATFORM),macosx)
   PLATFORM = macos
   CFLAGS += -DLOVR_GL
   LDFLAGS += -Wl,-rpath,@executable_path
+  LDFLAGS_@(OPTIMIZE) += -Wl,-dead_strip
   LDFLAGS += -lobjc
 endif
 
@@ -110,7 +117,9 @@ ifeq ($(PLATFORM),android)
   CFLAGS += -DLOVR_GLES
   CFLAGS += -I@(ANDROID_NDK)/sources/android/native_app_glue
   FLAGS += --target=aarch64-linux-android@(ANDROID_VERSION)
+  FLAGS_@(DEBUG) += -funwind-tables
   LDFLAGS += -shared -landroid -lEGL -lGLESv3
+  LDFLAGS_@(OPTIMIZE) += -Wl,--gc-sections
 
   ACTIVITY_@(OPENXR) = Activity_openxr
   ACTIVITY_@(VRAPI) = Activity_vrapi
@@ -222,6 +231,7 @@ ifneq (@(CMAKE_DEPS),)
   LIBS_@(DATA)_$(win32) += $(BUILD)/msdfgen/$(CONFIG)/msdfgen.dll
   LIBS_@(DATA)_$(macos) += $(BUILD)/msdfgen/libmsdfgen.dylib
   LIBS_@(DATA)_$(linux) += $(BUILD)/msdfgen/libmsdfgen.so
+  LIBS_@(DATA)_$(android) += $(BUILD)/msdfgen/libmsdfgen.so
 
   # OpenVR
   CFLAGS_@(OPENVR) += -I$(DEPS)/openvr/headers
