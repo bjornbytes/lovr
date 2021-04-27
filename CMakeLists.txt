@@ -269,7 +269,8 @@ if(LOVR_USE_STEAM_AUDIO)
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/bin/Windows/x64/phonon.dll")
   elseif(APPLE)
     message("Phonon IMPORTED_LOCATION: ${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib")
-    set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib")
+    set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib"
+                                            IMPORTED_SONAME "@rpath/libphonon.dylib")
   else() # Assume Linux. Note: This has *not* been tested. FIXME: When is the .so copied?
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/Linux/x64/libphonon.so")
   endif()
