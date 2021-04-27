@@ -36,7 +36,6 @@ option(LOVR_BUILD_EXE "Build an executable (or an apk on Android)" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 option(LOVR_BUILD_WITH_EXPORTED_INTERNALS "When building as a shared library, make all C symbols visible. This exposes internals, so be aware that any APIs you use from C may change at any time." OFF)
-option(LOVR_BUILD_EXTRA_PLUGINS "Any additional plugins you want to include in the build system" "")
 
 # Setup
 if(EMSCRIPTEN)
@@ -309,8 +308,7 @@ endif()
 # Plugins
 set(LOVR 1)
 link_libraries(${LOVR_LUA})
-file(GLOB LOVR_PLUGINS plugins/*)
-list(APPEND LOVR_PLUGINS ${LOVR_BUILD_EXTRA_PLUGINS})
+file(GLOB LOVR_PLUGINS ${CMAKE_SOURCE_DIR}/plugins/*)
 message("Using these Lovr Plugins: ${LOVR_PLUGINS}")
 foreach(plugin ${LOVR_PLUGINS})
   if(IS_DIRECTORY ${plugin} AND EXISTS ${plugin}/CMakeLists.txt)
