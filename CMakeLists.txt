@@ -395,6 +395,8 @@ if(LOVR_ENABLE_AUDIO)
   if(LOVR_USE_STEAM_AUDIO)
     target_compile_definitions(lovr PRIVATE LOVR_ENABLE_PHONON)
     target_sources(lovr PRIVATE src/modules/audio/spatializer_phonon.c)
+    # Dynamically linked at runtime, so this is not otherwise a dependency
+    add_dependencies(lovr ${LOVR_PHONON})
   endif()
 
   if(LOVR_USE_OCULUS_AUDIO)
