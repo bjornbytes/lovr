@@ -17,6 +17,7 @@ CFLAGS += -Wall -Wextra
 CFLAGS += -Wno-unused-parameter
 CFLAGS_glad.c += -Wno-pedantic
 CFLAGS_os_android.c += -Wno-format-pedantic
+CFLAGS_os_macos.c += -xobjective-c
 CFLAGS_headset_openvr.c += -Wno-unused-variable -Wno-typedef-redefinition -Wno-pedantic
 CFLAGS_headset_vrapi.c += -Wno-c11-extensions -Wno-gnu-empty-initializer -Wno-pedantic
 CFLAGS_miniaudio.c += -Wno-unused-function
