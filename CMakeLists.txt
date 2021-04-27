@@ -614,8 +614,10 @@ if(WIN32)
   endforeach()
   target_compile_definitions(lovr PRIVATE LOVR_GL)
 elseif(APPLE)
-  target_link_libraries(lovr objc)
+  find_library(AVFOUNDATION AVFoundation)
+  target_link_libraries(lovr objc ${AVFOUNDATION})
   target_sources(lovr PRIVATE src/core/os_macos.c)
+  set_source_files_properties(src/core/os_macos.c PROPERTIES COMPILE_FLAGS -xobjective-c)
   target_compile_definitions(lovr PRIVATE LOVR_GL)
   set_target_properties(lovr PROPERTIES
     MACOSX_RPATH TRUE

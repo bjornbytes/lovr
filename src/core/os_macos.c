@@ -9,15 +9,19 @@
 #include <unistd.h>
 #include <time.h>
 #include <pwd.h>
+#import <AVFoundation/AVFoundation.h>
 
 #include "os_glfw.h"
 
-static uint64_t frequency;
+static struct {
+  uint64_t frequency;
+  fn_permission* onPermissionEvent;
+} state;
 
 bool os_init() {
   mach_timebase_info_data_t info;
   mach_timebase_info(&info);
-  frequency = (info.denom * 1e9) / info.numer;
+  state.frequency = (info.denom * 1e9) / info.numer;
   return true;
 }
 
@@ -41,7 +45,7 @@ void os_open_console() {
 }
 
 double os_get_time() {
-  return mach_absolute_time() / (double) frequency;
+  return mach_absolute_time() / (double) state.frequency;
 }
 
 void os_sleep(double seconds) {
@@ -53,11 +57,38 @@ void os_sleep(double seconds) {
 }
 
 void os_request_permission(os_permission permission) {
-  //
+  if (permission == OS_PERMISSION_AUDIO_CAPTURE) {
+    // If on old OS without permissions check, permission is implicitly granted
+    if(![AVCaptureDevice respondsToSelector:@selector(authorizationStatusForMediaType:)]) {
+      if(state.onPermissionEvent) state.onPermissionEvent(permission, true);
+    }
+    
+    switch ([AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio]) {
+      case AVAuthorizationStatusAuthorized:
+        if(state.onPermissionEvent) state.onPermissionEvent(permission, true);
+        return;
+      case AVAuthorizationStatusNotDetermined:
+        [AVCaptureDevice
+          requestAccessForMediaType:AVMediaTypeAudio
+          completionHandler:^(BOOL granted) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+              if(state.onPermissionEvent) state.onPermissionEvent(permission, granted);
+            });
+          }
+        ];
+        return;
+      case AVAuthorizationStatusDenied:
+        if(state.onPermissionEvent) state.onPermissionEvent(permission, false);
+        return;
+      case AVAuthorizationStatusRestricted:
+        if(state.onPermissionEvent) state.onPermissionEvent(permission, false);
+        return;
+    }
+  }
 }
 
 void os_on_permission(fn_permission* callback) {
-  //
+  state.onPermissionEvent = callback;
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
