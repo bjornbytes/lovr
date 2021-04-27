@@ -268,7 +268,6 @@ if(LOVR_USE_STEAM_AUDIO)
     set_target_properties(Phonon PROPERTIES IMPORTED_IMPLIB "${LOVR_STEAM_AUDIO_PATH}/lib/Windows/x64/phonon.lib")
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/bin/Windows/x64/phonon.dll")
   elseif(APPLE)
-    message("Phonon IMPORTED_LOCATION: ${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib")
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib"
                                             IMPORTED_SONAME "@rpath/libphonon.dylib")
   else() # Assume Linux. Note: This has *not* been tested. FIXME: When is the .so copied?
@@ -311,7 +310,7 @@ if(LOVR_USE_OCULUS_AUDIO)
     add_dependencies(OculusAudio OculusAudioFixed)
     # IMPORTED_SONAME required because the automatic rpath requires the dylib file to exist before builds start
     set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${OCULUS_AUDIO_MAC_LIB_FILE}"
-                                                 IMPORTED_SONAME "${OCULUS_AUDIO_MAC_RPATH}")
+                                                 IMPORTED_SONAME "${OCULUS_AUDIO_MAC_RPATH}") # It doesn't make sense this line is required, but it is
   else() # Assume Linux. Note: This has *not* been tested. FIXME: When is the .so copied?
     set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_OCULUS_AUDIO_PATH}/Lib/Linux64/libovraudio64.so")
   endif()
@@ -648,7 +647,6 @@ elseif(APPLE)
   function(move_lib)
     if(TARGET ${ARGV0})
       add_custom_command(TARGET lovr POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "TARGET ${ARGV0} COPY $<TARGET_SONAME_FILE:${ARGV0}>"
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_SONAME_FILE:${ARGV0}>
         ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
