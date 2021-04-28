@@ -37,6 +37,7 @@ option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUI
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 
 option(LOVR_SYMBOL_VISIBILITY "What should the C symbol visibility be? hidden reduces binary size, default lets other binaries use this one." "hidden")
+option(LOVR_USE_MAIN "Whether to include a main() function in the target." ON)
 
 # Setup
 if(EMSCRIPTEN)
@@ -69,6 +70,10 @@ elseif(UNIX)
   if(NOT APPLE)
     set(CMAKE_SKIP_RPATH OFF)
   endif()
+endif()
+
+if((LOVR_BUILD_SHARED AND NOT ANDROID) OR LOVR_USE_PICO)
+  set(LOVR_USE_MAIN OFF)
 endif()
 
 # GLFW
@@ -331,18 +336,20 @@ set(LOVR_SRC
   src/api/l_lovr.c
 )
 
-if(LOVR_USE_PICO)
+if(NOT LOVR_USE_MAIN)
   list(REMOVE_ITEM LOVR_SRC src/main.c)
 endif()
 
 if(LOVR_BUILD_SHARED)
-  list(REMOVE_ITEM LOVR_SRC src/main.c)
   add_library(lovr SHARED ${LOVR_SRC})
-  target_compile_definitions(lovr PRIVATE LOVR_BUILDING_SHARED)
 elseif(LOVR_BUILD_EXE)
   add_executable(lovr ${LOVR_SRC})
 else()
   return()
+endif()
+
+if(NOT LOVR_USE_MAIN)
+  target_compile_definitions(lovr PRIVATE LOVR_OMIT_MAIN)
 endif()
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
