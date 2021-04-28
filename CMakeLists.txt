@@ -72,6 +72,10 @@ elseif(UNIX)
   endif()
 endif()
 
+if(NOT ANDROID AND LOVR_BUILD_SHARED)
+  set(LOVR_BUILD_EXE OFF)
+endif()
+
 # GLFW
 if(NOT (EMSCRIPTEN OR ANDROID))
   if(LOVR_SYSTEM_GLFW)
@@ -337,7 +341,6 @@ foreach(plugin ${LOVR_PLUGINS})
 endforeach()
 
 set(LOVR_SRC
-  src/main.c
   src/core/fs.c
   src/core/map.c
   src/core/util.c
@@ -346,12 +349,12 @@ set(LOVR_SRC
   src/api/l_lovr.c
 )
 
-if(LOVR_USE_PICO)
-  list(REMOVE_ITEM LOVR_SRC src/main.c)
+
+if(LOVR_BUILD_EXE AND NOT LOVR_USE_PICO)
+  list(APPEND LOVR_SRC src/main.c)
 endif()
 
 if(LOVR_BUILD_SHARED)
-  list(REMOVE_ITEM LOVR_SRC src/main.c)
   add_library(lovr SHARED ${LOVR_SRC})
   target_compile_definitions(lovr PRIVATE LOVR_BUILDING_SHARED)
 elseif(LOVR_BUILD_EXE)
@@ -359,6 +362,11 @@ elseif(LOVR_BUILD_EXE)
 else()
   return()
 endif()
+
+if(NOT LOVR_BUILD_EXE)
+  target_compile_definitions(lovr PUBLIC LOVR_OMIT_MAIN) # specifically for win32 WinMain
+endif()
+
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
