@@ -360,7 +360,7 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   return true;
 
 fail:
-  free(materials);
+  free(triangleMaterials);
   if (state.mesh) phonon_iplDestroyStaticMesh(&state.mesh);
   if (state.scene) phonon_iplDestroyScene(&state.scene);
   if (state.environment) phonon_iplDestroyEnvironment(&state.environment);

@@ -264,12 +264,13 @@ if(LOVR_USE_STEAM_AUDIO)
   include_directories("${LOVR_STEAM_AUDIO_PATH}/include")
   add_library(Phonon SHARED IMPORTED)
   if(ANDROID)
-    set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/Android/arm64/libphonon.so")
+    set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/Android/arm64/libphonon.so")
   elseif(WIN32)
     set_target_properties(Phonon PROPERTIES IMPORTED_IMPLIB "${LOVR_STEAM_AUDIO_PATH}/lib/Windows/x64/phonon.lib")
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/bin/Windows/x64/phonon.dll")
-  elseif(APPLE) # This should be possible, there is a dylib in OSX/
-    message(FATAL_ERROR "LOVR_USE_STEAM_AUDIO is not currently supported on Apple platforms")
+  elseif(APPLE)
+    set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/OSX/libphonon.dylib"
+                                            IMPORTED_SONAME "@rpath/libphonon.dylib")  # It doesn't make sense this line is required, but it is
   else() # Assume Linux. Note: This has *not* been tested. FIXME: When is the .so copied?
     set_target_properties(Phonon PROPERTIES IMPORTED_LOCATION "${LOVR_STEAM_AUDIO_PATH}/lib/Linux/x64/libphonon.so")
   endif()
@@ -296,8 +297,21 @@ if(LOVR_USE_OCULUS_AUDIO)
       set_target_properties(OculusAudio PROPERTIES IMPORTED_IMPLIB "${LOVR_OCULUS_AUDIO_PATH}/Lib/Win32/ovraudio32.lib")
       set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_OCULUS_AUDIO_PATH}/Lib/Win32/ovraudio32.dll")
     endif()
-  elseif(APPLE) # This *might* be possible-- there is a .framework in "macub/" ("universal binary"?)
-    message(FATAL_ERROR "LOVR_USE_OCULUS_AUDIO is not currently supported on Apple platforms")
+  elseif(APPLE)
+    # Oculus Audio ships with an intel .framework, but (as of 25.0.0) it is broken. We can convert it to a working dylib with install_name_tool in a custom target:
+    SET(OCULUS_AUDIO_MAC_LIB_DIR "${CMAKE_CURRENT_BINARY_DIR}/ovraudio")
+    SET(OCULUS_AUDIO_MAC_LIB_FILE "${OCULUS_AUDIO_MAC_LIB_DIR}/ovraudio64.dylib")
+    SET(OCULUS_AUDIO_MAC_RPATH "@rpath/ovraudio64.dylib")
+    file(MAKE_DIRECTORY "${OCULUS_AUDIO_MAC_LIB_DIR}")
+    add_custom_command(OUTPUT "${OCULUS_AUDIO_MAC_LIB_FILE}"
+                   COMMAND ${CMAKE_COMMAND} -E copy "${LOVR_OCULUS_AUDIO_PATH}/Lib/mac64/OVRAudio64.framework/Versions/A/ovraudio64" "${OCULUS_AUDIO_MAC_LIB_FILE}"
+                   COMMAND install_name_tool -id ${OCULUS_AUDIO_MAC_RPATH} "${OCULUS_AUDIO_MAC_LIB_FILE}"
+                   WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+    add_custom_target(OculusAudioFixed DEPENDS "${OCULUS_AUDIO_MAC_LIB_FILE}")
+    add_dependencies(OculusAudio OculusAudioFixed)
+    # IMPORTED_SONAME required because the automatic rpath requires the dylib file to exist before builds start
+    set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${OCULUS_AUDIO_MAC_LIB_FILE}"
+                                                 IMPORTED_SONAME "${OCULUS_AUDIO_MAC_RPATH}")
   else() # Assume Linux. Note: This has *not* been tested. FIXME: When is the .so copied?
     set_target_properties(OculusAudio PROPERTIES IMPORTED_LOCATION "${LOVR_OCULUS_AUDIO_PATH}/Lib/Linux64/libovraudio64.so")
   endif()
@@ -387,6 +401,8 @@ if(LOVR_ENABLE_AUDIO)
   if(LOVR_USE_STEAM_AUDIO)
     target_compile_definitions(lovr PRIVATE LOVR_ENABLE_PHONON)
     target_sources(lovr PRIVATE src/modules/audio/spatializer_phonon.c)
+    # Dynamically linked at runtime, so this is not otherwise a dependency
+    add_dependencies(lovr ${LOVR_PHONON})
   endif()
 
   if(LOVR_USE_OCULUS_AUDIO)
@@ -814,6 +830,14 @@ elseif(UNIX)
       endif()
     endif()
   endfunction()
+  function(move_app_image_file)
+    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/${ARGV0}")
+    set(DST "${CMAKE_BINARY_DIR}/bin/${ARGV0}")
+    add_custom_command(TARGET lovr POST_BUILD
+       DEPENDS ${SRC}
+       COMMAND ${CMAKE_COMMAND} -E copy ${SRC} ${DST}
+    )
+  endfunction()
   move_lib(${LOVR_GLFW})
   move_lib(${LOVR_LUA})
   move_lib(${LOVR_ODE})
@@ -823,4 +847,9 @@ elseif(UNIX)
   foreach(target ${ALL_PLUGIN_TARGETS})
     move_lib(${target})
   endforeach()
+  if(LOVR_BUILD_BUNDLE)
+    move_app_image_file("lovr.desktop")
+    move_app_image_file("AppRun")
+    move_app_image_file("logo.svg")
+  endif()
 endif()
