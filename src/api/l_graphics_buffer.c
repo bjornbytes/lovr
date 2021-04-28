@@ -233,6 +233,13 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, void* data) {
   }
 }
 
+static int l_lovrBufferGetPointer(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  void* pointer = lovrBufferMap(buffer);
+  lua_pushlightuserdata(L, pointer);
+  return 1;
+}
+
 static int l_lovrBufferGetSize(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   uint32_t size = lovrBufferGetInfo(buffer)->size;
@@ -278,19 +285,22 @@ static int l_lovrBufferWrite(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBufferGetPointer(lua_State* L) {
+static int l_lovrBufferClear(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  void* pointer = lovrBufferMap(buffer);
-  lua_pushlightuserdata(L, pointer);
-  return 1;
+  const BufferInfo* info = lovrBufferGetInfo(buffer);
+  uint32_t offset = luaL_optinteger(L, 2, 0);
+  uint32_t size = luaL_optinteger(L, 2, info->size - offset);
+  lovrBufferClear(buffer, offset, size);
+  return 0;
 }
 
 const luaL_Reg lovrBuffer[] = {
+  { "getPointer", l_lovrBufferGetPointer },
   { "getSize", l_lovrBufferGetSize },
   { "getStride", l_lovrBufferGetStride },
   { "getType", l_lovrBufferGetType },
   { "getUsage", l_lovrBufferGetUsage },
   { "write", l_lovrBufferWrite },
-  { "getPointer", l_lovrBufferGetPointer },
+  { "clear", l_lovrBufferClear },
   { NULL, NULL }
 };
