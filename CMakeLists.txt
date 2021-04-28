@@ -238,7 +238,7 @@ endif()
 
 # Pico Native SDK (1.3.3)
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_PICO)
-  set(LOVR_PICO_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico/aar" CACHE STRING "The path to the Pico SDK folder (unzipped aar)")
+  set(LOVR_PICO_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico/aar" CACHE STRING "The path to the Pico SDK folder")
   add_library(Pvr_NativeSDK SHARED IMPORTED)
   set_target_properties(Pvr_NativeSDK PROPERTIES IMPORTED_LOCATION "${LOVR_PICO_PATH}/jni/${ANDROID_ABI}/libPvr_NativeSDK.so")
   set(LOVR_PICO Pvr_NativeSDK)
