@@ -216,7 +216,7 @@ endif()
 
 # Oculus SDK -- expects Oculus SDK 1.26.0 or later
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
-  set(LOVR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-pc" CACHE STRING "location of the Oculus Desktop SDK folder")
+  set(LOVR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-pc" CACHE STRING "Location of the Oculus Desktop SDK folder")
   set(OCULUS_BUILD_TYPE "Release")
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(OCULUS_ARCH "x64")
