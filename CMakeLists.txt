@@ -35,7 +35,8 @@ option(LOVR_SYSTEM_OPENXR "Use the system-provided OpenXR" OFF)
 option(LOVR_BUILD_EXE "Build an executable (or an apk on Android)" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
-option(LOVR_BUILD_WITH_EXPORTED_INTERNALS "When building as a shared library, make all C symbols visible. This exposes internals, so be aware that any APIs you use from C may change at any time." OFF)
+
+option(LOVR_SYMBOL_VISIBILITY "What should the C symbol visibility be? hidden reduces binary size, default lets other binaries use this one." "hidden")
 
 # Setup
 if(EMSCRIPTEN)
@@ -346,9 +347,7 @@ else()
   return()
 endif()
 
-if(NOT LOVR_BUILD_WITH_EXPORTED_INTERNALS)
-  set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET hidden)
-endif()
+set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
 target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic)
 target_link_libraries(lovr
