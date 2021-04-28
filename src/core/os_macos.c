@@ -59,30 +59,31 @@ void os_sleep(double seconds) {
 void os_request_permission(os_permission permission) {
   if (permission == OS_PERMISSION_AUDIO_CAPTURE) {
     // If on old OS without permissions check, permission is implicitly granted
-    if(![AVCaptureDevice respondsToSelector:@selector(authorizationStatusForMediaType:)]) {
-      if(state.onPermissionEvent) state.onPermissionEvent(permission, true);
+    if (![AVCaptureDevice respondsToSelector:@selector(authorizationStatusForMediaType:)]) {
+      if (state.onPermissionEvent) state.onPermissionEvent(permission, true);
+      return;
     }
     
     switch ([AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio]) {
       case AVAuthorizationStatusAuthorized:
-        if(state.onPermissionEvent) state.onPermissionEvent(permission, true);
-        return;
+        if (state.onPermissionEvent) state.onPermissionEvent(permission, true);
+        break;
       case AVAuthorizationStatusNotDetermined:
         [AVCaptureDevice
           requestAccessForMediaType:AVMediaTypeAudio
           completionHandler:^(BOOL granted) {
             dispatch_async(dispatch_get_main_queue(), ^{
-              if(state.onPermissionEvent) state.onPermissionEvent(permission, granted);
+              if (state.onPermissionEvent) state.onPermissionEvent(permission, granted);
             });
           }
         ];
-        return;
+        break;
       case AVAuthorizationStatusDenied:
-        if(state.onPermissionEvent) state.onPermissionEvent(permission, false);
-        return;
+        if (state.onPermissionEvent) state.onPermissionEvent(permission, false);
+        break;
       case AVAuthorizationStatusRestricted:
-        if(state.onPermissionEvent) state.onPermissionEvent(permission, false);
-        return;
+        if (state.onPermissionEvent) state.onPermissionEvent(permission, false);
+        break;
     }
   }
 }
