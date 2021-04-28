@@ -662,6 +662,14 @@ void* lovrBufferMap(Buffer* buffer) {
   return gpu_buffer_map(buffer->gpu);
 }
 
+void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
+  lovrAssert((offset & 0x3) == 0, "Buffer clear offset must be a multiple of 4");
+  lovrAssert((size & 0x3) == 0, "Buffer clear size must be a multiple of 4");
+  lovrAssert(offset + size <= buffer->info.size, "Buffer clear range exceeds size of Buffer");
+  lovrAssert(buffer->info.type != BUFFER_STATIC || buffer->info.usage & BUFFER_COPY_DST, "Static buffers can only be cleared if they have the 'copyto' usage");
+  gpu_buffer_clear(buffer->gpu, offset, size);
+}
+
 // Texture
 
 Texture* lovrTextureCreate(TextureInfo* info) {
