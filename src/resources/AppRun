@@ -1,0 +1,5 @@
+#!/bin/sh
+
+IMAGE_DIR="$(dirname "$(readlink -f "$0")")"
+
+exec "$IMAGE_DIR/lovr" "$@"

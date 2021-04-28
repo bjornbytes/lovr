@@ -386,7 +386,10 @@ void lovrAudioSetPose(float position[4], float orientation[4]) {
 }
 
 bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material) {
-  return state.spatializer->setGeometry(vertices, indices, vertexCount, indexCount, material);
+  ma_mutex_lock(&state.lock);
+  bool success = state.spatializer->setGeometry(vertices, indices, vertexCount, indexCount, material);
+  ma_mutex_unlock(&state.lock);
+  return success;
 }
 
 const char* lovrAudioGetSpatializer() {

@@ -94,5 +94,5 @@ ifeq ($(PLATFORM),android)
 
   # align n sign
   : bin/.lovr.unaligned.apk |> !zipalign |> bin/.lovr.unsigned.apk
-  : bin/.lovr.unsigned.apk |> !apksigner |> bin/lovr.apk
+  : bin/.lovr.unsigned.apk |> !apksigner |> bin/lovr.apk | bin/lovr.apk.idsig
 endif

@@ -52,7 +52,7 @@ static struct {
   float hapticDuration[2];
 } state;
 
-static bool vrapi_init(float supersample, float offset, uint32_t msaa) {
+static bool vrapi_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   ANativeActivity* activity = os_get_activity();
   JNIEnv* jni = os_get_jni();
   state.java.Vm = activity->vm;
@@ -602,8 +602,8 @@ static bool vrapi_animate(Device device, struct Model* model) {
   float compensate[4];
   if (device == DEVICE_HAND_LEFT) {
     float q[4];
-    quat_fromAngleAxis(compensate, (float) -M_PI, 0.f, 0.f, 1.f);
-    quat_mul(compensate, compensate, quat_fromAngleAxis(q, (float) -M_PI / 2.f, 0.f, 1.f, 0.f));
+    quat_fromAngleAxis(compensate, (float) M_PI, 0.f, 0.f, 1.f);
+    quat_mul(compensate, compensate, quat_fromAngleAxis(q, (float) M_PI / 2.f, 0.f, 1.f, 0.f));
   } else {
     quat_fromAngleAxis(compensate, (float) -M_PI / 2.f, 0.f, 1.f, 0.f);
   }

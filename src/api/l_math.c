@@ -3,7 +3,6 @@
 #include "math/curve.h"
 #include "math/pool.h"
 #include "math/randomGenerator.h"
-#include "core/maf.h"
 #include "core/util.h"
 #include <lua.h>
 #include <lauxlib.h>

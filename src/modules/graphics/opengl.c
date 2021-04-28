@@ -200,6 +200,7 @@ static struct {
   GpuFeatures features;
   GpuLimits limits;
   GpuStats stats;
+  bool amd;
 } state;
 
 // Helper functions
@@ -1257,6 +1258,8 @@ void lovrGpuInit(void (*getProcAddress(const char*))(void), bool debug) {
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(onMessage, NULL);
   }
+  const char* vendor = (const char*) glGetString(GL_VENDOR);
+  state.amd = vendor && (strstr(vendor, "ATI Technologies") || strstr(vendor, "AMD") || strstr(vendor, "Advanced Micro Devices"));
   state.features.astc = GLAD_GL_ES_VERSION_3_2;
   state.features.compute = GLAD_GL_ES_VERSION_3_1 || (GLAD_GL_ARB_compute_shader && GLAD_GL_ARB_shader_storage_buffer_object && GLAD_GL_ARB_shader_image_load_store);
   state.features.dxt = GLAD_GL_EXT_texture_compression_s3tc;
@@ -1737,7 +1740,7 @@ Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type, uint32_t
 
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
-  glDeleteTextures(1, &texture->id);
+  if (!texture->native) glDeleteTextures(1, &texture->id);
   glDeleteRenderbuffers(1, &texture->msaaId);
   lovrGpuDestroySyncResource(texture, texture->incoherent);
   state.stats.textureMemory -= getTextureMemorySize(texture);
@@ -2233,16 +2236,20 @@ Buffer* lovrBufferCreate(size_t size, void* data, BufferType type, BufferUsage u
   lovrGpuBindBuffer(type, buffer->id);
   GLenum glType = convertBufferType(type);
 
-#ifdef LOVR_WEBGL
-  buffer->data = malloc(size);
-  lovrAssert(buffer->data, "Out of memory");
-  glBufferData(glType, size, data, convertBufferUsage(usage));
+#ifndef LOVR_WEBGL
+  if (state.amd) {
+#endif
+    buffer->data = malloc(size);
+    lovrAssert(buffer->data, "Out of memory");
+    glBufferData(glType, size, data, convertBufferUsage(usage));
 
-  if (data) {
-    memcpy(buffer->data, data, size);
+    if (data) {
+      memcpy(buffer->data, data, size);
+    }
+#ifndef LOVR_WEBGL
+  } else {
+    glBufferData(glType, size, data, convertBufferUsage(usage));
   }
-#else
-  glBufferData(glType, size, data, convertBufferUsage(usage));
 #endif
 
   return buffer;
@@ -2252,9 +2259,10 @@ void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
   lovrGpuDestroySyncResource(buffer, buffer->incoherent);
   glDeleteBuffers(1, &buffer->id);
-#ifdef LOVR_WEBGL
-  free(buffer->data);
+#ifndef LOVR_WEBGL
+  if (state.amd)
 #endif
+    free(buffer->data);
   state.stats.bufferMemory -= buffer->size;
   state.stats.bufferCount--;
   free(buffer);
@@ -2274,7 +2282,7 @@ BufferUsage lovrBufferGetUsage(Buffer* buffer) {
 
 void* lovrBufferMap(Buffer* buffer, size_t offset, bool unsynchronized) {
 #ifndef LOVR_WEBGL
-  if (!buffer->mapped) {
+  if (!state.amd && !buffer->mapped) {
     buffer->mapped = true;
     lovrGpuBindBuffer(buffer->type, buffer->id);
     lovrAssert(!buffer->readable || !unsynchronized, "Readable Buffers must be mapped with synchronization");
@@ -2282,6 +2290,7 @@ void* lovrBufferMap(Buffer* buffer, size_t offset, bool unsynchronized) {
     flags |= buffer->readable ? GL_MAP_READ_BIT : 0;
     flags |= unsynchronized ? GL_MAP_UNSYNCHRONIZED_BIT : 0;
     buffer->data = glMapBufferRange(convertBufferType(buffer->type), 0, buffer->size, flags);
+    return (uint8_t*) buffer->data + offset;
   }
 #endif
   return (uint8_t*) buffer->data + offset;
@@ -2289,21 +2298,23 @@ void* lovrBufferMap(Buffer* buffer, size_t offset, bool unsynchronized) {
 
 void lovrBufferFlush(Buffer* buffer, size_t offset, size_t size) {
 #ifndef LOVR_WEBGL
-  lovrAssert(size == 0 || buffer->mapped, "Attempt to flush unmapped Buffer");
+  lovrAssert(state.amd || size == 0 || buffer->mapped, "Attempt to flush unmapped Buffer");
 #endif
   buffer->flushFrom = MIN(buffer->flushFrom, offset);
   buffer->flushTo = MAX(buffer->flushTo, offset + size);
 }
 
 void lovrBufferUnmap(Buffer* buffer) {
-#ifdef LOVR_WEBGL
-  if (buffer->flushTo > buffer->flushFrom) {
-    lovrGpuBindBuffer(buffer->type, buffer->id);
-    void* data = (uint8_t*) buffer->data + buffer->flushFrom;
-    glBufferSubData(convertBufferType(buffer->type), buffer->flushFrom, buffer->flushTo - buffer->flushFrom, data);
-  }
-#else
-  if (buffer->mapped) {
+#ifndef LOVR_WEBGL
+  if (state.amd) {
+#endif
+    if (buffer->flushTo > buffer->flushFrom) {
+      lovrGpuBindBuffer(buffer->type, buffer->id);
+      void* data = (uint8_t*) buffer->data + buffer->flushFrom;
+      glBufferSubData(convertBufferType(buffer->type), buffer->flushFrom, buffer->flushTo - buffer->flushFrom, data);
+    }
+#ifndef LOVR_WEBGL
+  } else if (buffer->mapped) {
     lovrGpuBindBuffer(buffer->type, buffer->id);
 
     if (buffer->flushTo > buffer->flushFrom) {
@@ -2323,12 +2334,16 @@ void lovrBufferDiscard(Buffer* buffer) {
   lovrAssert(!buffer->mapped, "Mapped Buffers can not be discarded");
   lovrGpuBindBuffer(buffer->type, buffer->id);
   GLenum glType = convertBufferType(buffer->type);
-#ifdef LOVR_WEBGL
-  glBufferData(glType, buffer->size, NULL, convertBufferUsage(buffer->usage));
-#else
-  GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
-  buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
-  buffer->mapped = true;
+#ifndef LOVR_WEBGL
+  if (state.amd) {
+#endif
+    glBufferData(glType, buffer->size, NULL, convertBufferUsage(buffer->usage));
+#ifndef LOVR_WEBGL
+  } else {
+    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
+    buffer->data = glMapBufferRange(glType, 0, buffer->size, flags);
+    buffer->mapped = true;
+  }
 #endif
 }
 
