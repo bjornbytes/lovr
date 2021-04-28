@@ -247,6 +247,21 @@ static int l_lovrBufferGetSize(lua_State* L) {
   return 1;
 }
 
+static int l_lovrBufferGetFormat(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  const BufferFormat* format = &lovrBufferGetInfo(buffer)->format;
+  if (format->count == 0) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lua_createtable(L, format->count, 0);
+  for (uint32_t i = 0; i < format->count; i++) {
+    luax_pushenum(L, FieldType, format->types[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
 static int l_lovrBufferGetStride(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferFormat* format = &lovrBufferGetInfo(buffer)->format;
@@ -300,6 +315,7 @@ const luaL_Reg lovrBuffer[] = {
   { "getStride", l_lovrBufferGetStride },
   { "getType", l_lovrBufferGetType },
   { "getUsage", l_lovrBufferGetUsage },
+  { "getFormat", l_lovrBufferGetFormat },
   { "write", l_lovrBufferWrite },
   { "clear", l_lovrBufferClear },
   { NULL, NULL }
