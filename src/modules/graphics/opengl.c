@@ -1740,7 +1740,7 @@ Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type, uint32_t
 
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
-  glDeleteTextures(1, &texture->id);
+  if (!texture->native) glDeleteTextures(1, &texture->id);
   glDeleteRenderbuffers(1, &texture->msaaId);
   lovrGpuDestroySyncResource(texture, texture->incoherent);
   state.stats.textureMemory -= getTextureMemorySize(texture);
