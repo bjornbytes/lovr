@@ -224,7 +224,6 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
     set(OCULUS_ARCH "Win32")
   endif()
   include_directories("${LOVR_OCULUS_PATH}/LibOVR/Include")
-  link_directories("${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/${OCULUS_ARCH}/${OCULUS_BUILD_TYPE}/VS2017")
   set(LOVR_OCULUS "${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/${OCULUS_ARCH}/${OCULUS_BUILD_TYPE}/VS2017/LibOVR.lib")
 endif()
 
