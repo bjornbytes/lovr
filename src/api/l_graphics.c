@@ -27,21 +27,16 @@ StringEntry lovrBlendMode[] = {
   { 0 }
 };
 
-StringEntry lovrBufferType[] = {
-  [BUFFER_STATIC] = ENTRY("static"),
-  [BUFFER_DYNAMIC] = ENTRY("dynamic"),
-  [BUFFER_STREAM] = ENTRY("stream"),
-  { 0 }
-};
-
-StringEntry lovrBufferUsage[] = {
+StringEntry lovrBufferFlag[] = {
   [BUFFER_VERTEX] = ENTRY("vertex"),
   [BUFFER_INDEX] = ENTRY("index"),
   [BUFFER_UNIFORM] = ENTRY("uniform"),
   [BUFFER_COMPUTE] = ENTRY("compute"),
-  [BUFFER_INDIRECT] = ENTRY("indirect"),
-  [BUFFER_COPY_SRC] = ENTRY("copyfrom"),
-  [BUFFER_COPY_DST] = ENTRY("copyto"),
+  [BUFFER_PARAMETER] = ENTRY("parameter"),
+  [BUFFER_COPYFROM] = ENTRY("copyfrom"),
+  [BUFFER_COPYTO] = ENTRY("copyto"),
+  [BUFFER_WRITE] = ENTRY("write"),
+  [BUFFER_RETAIN] = ENTRY("retain"),
   { 0 }
 };
 
@@ -895,109 +890,135 @@ static struct { uint16_t size, scalarAlign, baseAlign, components; } fieldInfo[]
   [FIELD_MAT4] = { 64, 4, 16, 16 }
 };
 
+static FieldType luax_checkfieldtype(lua_State* L, int index) {
+  size_t length;
+  const char* string = luaL_checklstring(L, index, &length);
+
+  // Plural FieldTypes are allowed and ignored
+  if (string[length - 1] == 's') {
+    length--;
+  }
+
+  // vec[234] alias
+  if (length == 4 && string[0] == 'v' && string[1] == 'e' && string[2] == 'c') {
+    switch (string[3]) {
+      case '2': return FIELD_F32x2;
+      case '3': return FIELD_F32x3;
+      case '4': return FIELD_F32x4;
+      default: break;
+    }
+  }
+
+  if (length == 4 && !memcmp(string, "byte", length)) {
+    return FIELD_U8;
+  }
+
+  if (length == 3 && !memcmp(string, "int", length)) {
+    return FIELD_I32;
+  }
+
+  if (length == 5 && !memcmp(string, "float", length)) {
+    return FIELD_F32;
+  }
+
+  if (length == 5 && !memcmp(string, "color", length)) {
+    return FIELD_U8Nx4;
+  }
+
+  for (int i = 0; lovrFieldType[i].length; i++) {
+    if (length == lovrFieldType[i].length && !memcmp(string, lovrFieldType[i].string, length)) {
+      return i;
+    }
+  }
+
+  return luaL_error(L, "invalid FieldType '%s'", string);
+}
+
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info = {
-    .type = BUFFER_DYNAMIC,
-    .usage = BUFFER_VERTEX | BUFFER_INDEX | BUFFER_UNIFORM
-  };
+  BufferInfo info = { .flags = (1 << BUFFER_WRITE) | (1 << BUFFER_RETAIN) };
 
-  // Options
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "type");
-    info.type = luax_checkenum(L, -1, BufferType, "dynamic");
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "usage");
-    switch (lua_type(L, -1)) {
-      case LUA_TSTRING:
-        info.usage = 1 << luax_checkenum(L, -1, BufferUsage, NULL);
-        break;
-      case LUA_TTABLE:
-        info.usage = 0;
-        int length = luax_len(L, -1);
-        for (int i = 0; i < length; i++) {
-          lua_rawgeti(L, -1, i + 1);
-          info.usage |= 1 << luax_checkenum(L, -1, BufferUsage, NULL);
-          lua_pop(L, 1);
+  // Flags
+  if (lua_istable(L, 3)) {
+    for (int i = 0; lovrBufferFlag[i].length; i++) {
+      lua_pushlstring(L, lovrBufferFlag[i].string, lovrBufferFlag[i].length);
+      lua_gettable(L, 3);
+      if (!lua_isnil(L, -1)) {
+        if (lua_toboolean(L, -1)) {
+          info.flags |= (1 << i);
+        } else {
+          info.flags &= ~(1 << i);
         }
-        break;
-      case LUA_TNIL:
-        break;
-      default:
-        return luaL_error(L, "Buffer usage flags must be a string or a table of strings");
-    }
-    lua_pop(L, 1);
-
-    bool block = info.usage & (BUFFER_UNIFORM | BUFFER_COMPUTE);
-    lua_getfield(L, 2, "format");
-    if (lua_isstring(L, -1)) {
-      FieldType type = luax_checkenum(L, -1, FieldType, NULL);
-      info.format.types[0] = type;
-      info.format.offsets[0] = 0;
-      info.format.stride = fieldInfo[type].size;
-      info.format.count = 1;
-    } else if (lua_istable(L, -1)) {
-      int length = luax_len(L, -1);
-      uint16_t offset = 0;
-      for (int i = 0; i < length; i++) {
-        lua_rawgeti(L, -1, i + 1);
-        switch (lua_type(L, -1)) {
-          case LUA_TNUMBER:
-            offset += lua_tonumber(L, -1);
-            break;
-          case LUA_TSTRING: {
-            uint32_t index = info.format.count++;
-            FieldType type = luax_checkenum(L, -1, FieldType, NULL);
-            uint16_t alignment = block ? fieldInfo[type].baseAlign : fieldInfo[type].scalarAlign;
-            info.format.types[index] = type;
-            info.format.offsets[index] = ALIGN(offset, alignment);
-            offset += fieldInfo[type].size;
-            break;
-          }
-          default:
-            lovrThrow("Buffer format table may only contain FieldTypes and numbers (found %s)", lua_typename(L, lua_type(L, -1)));
-            return 0;
-        }
-        lua_pop(L, 1);
       }
-
-      // std140
-      info.format.stride = offset;
-      if (info.usage & BUFFER_UNIFORM) {
-        info.format.stride = ALIGN(offset, 16);
-      }
-    } else {
-      lovrAssert(lua_isnil(L, -1), "Expected nil, table, or FieldType for Buffer format");
+      lua_pop(L, 1);
     }
-    lua_pop(L, 1);
 
-    lua_getfield(L, 2, "label");
+    lua_getfield(L, 3, "label");
     info.label = lua_tostring(L, -1);
     lua_pop(L, 1);
   }
 
-  // Size
+  // Format
+  if (lua_isstring(L, 2)) {
+    FieldType type = luax_checkfieldtype(L, 2);
+    info.types[0] = type;
+    info.offsets[0] = 0;
+    info.fieldCount = 1;
+    info.stride = fieldInfo[type].size;
+  } else if (lua_istable(L, 2)) {
+    uint16_t offset = 0;
+    int length = luax_len(L, 2);
+    bool blocky = info.flags & (BUFFER_UNIFORM | BUFFER_COMPUTE);
+    for (int i = 0; i < length; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      switch (lua_type(L, -1)) {
+        case LUA_TNUMBER: offset += lua_tonumber(L, -1); break;
+        case LUA_TSTRING: {
+          uint32_t index = info.fieldCount++;
+          FieldType type = luax_checkfieldtype(L, -1);
+          uint16_t align = blocky ? fieldInfo[type].baseAlign : fieldInfo[type].scalarAlign;
+          info.types[index] = type;
+          info.offsets[index] = ALIGN(offset, align);
+          offset = info.offsets[index] + fieldInfo[type].size;
+          break;
+        }
+        default: lovrThrow("Buffer format table may only contain FieldTypes and numbers (found %s)", lua_typename(L, lua_type(L, -1)));
+      }
+      lua_pop(L, 1);
+    }
+    info.stride = offset;
+  } else {
+    lovrThrow("Expected FieldType or table for Buffer format");
+  }
+
+  // std140 (only needed for uniform buffers, also as special case 'byte' formats skip this)
+  if ((info.flags & BUFFER_UNIFORM) && info.stride > 1) {
+    info.stride = ALIGN(info.stride, 16);
+  }
+
+  // Length/data
   switch (lua_type(L, 1)) {
     case LUA_TNUMBER:
-      info.size = lua_tointeger(L, 1) * (info.format.stride ? info.format.stride : 1);
+      info.length = lua_tointeger(L, 1);
       break;
-    case LUA_TTABLE:
-      if (info.format.count > 1) {
-        info.size = luax_len(L, 1) * info.format.stride;
-      } else if (info.format.count == 1) {
-        uint32_t components = fieldInfo[info.format.types[0]].components;
-        lua_rawgeti(L, 1, 1);
-        uint32_t count = lua_isuserdata(L, -1) ? luax_len(L, 1) : (luax_len(L, 1) / components);
-        lua_pop(L, 1);
-        info.size = count * info.format.stride;
+    case LUA_TTABLE: // Approximate
+      lua_rawgeti(L, 1, 1);
+      if (lua_istable(L, -1)) {
+        info.length = luax_len(L, 1);
+      } else if (lua_isuserdata(L, -1)) {
+        info.length = luax_len(L, 1) / info.fieldCount;
       } else {
-        lovrThrow("Trying to use a table for Buffer data, but no format for the Buffer was given");
+        uint32_t totalComponents = 0;
+        for (uint32_t i = 0; i < info.fieldCount; i++) {
+          totalComponents += fieldInfo[info.types[i]].components;
+        }
+        info.length = luax_len(L, 1) / totalComponents;
       }
+      lua_pop(L, 1);
       break;
     default: {
       Blob* blob = luax_totype(L, 1, Blob);
       if (blob) {
-        info.size = blob->size;
+        info.length = blob->size / info.stride;
         break;
       }
       return luax_typeerror(L, 1, "number, table, or Blob");
@@ -1005,7 +1026,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   }
 
   void* data = NULL;
-  info.mapping = &data;
+  info.initialContents = &data;
   Buffer* buffer = lovrBufferCreate(&info);
 
   if (!lua_isnumber(L, 1)) {

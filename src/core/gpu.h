@@ -18,26 +18,21 @@ typedef void gpu_read_fn(void* data, uint64_t size, void* userdata);
 // Buffer
 
 enum {
-  GPU_BUFFER_USAGE_VERTEX    = (1 << 0),
-  GPU_BUFFER_USAGE_INDEX     = (1 << 1),
-  GPU_BUFFER_USAGE_UNIFORM   = (1 << 2),
-  GPU_BUFFER_USAGE_STORAGE   = (1 << 3),
-  GPU_BUFFER_USAGE_INDIRECT  = (1 << 4),
-  GPU_BUFFER_USAGE_COPY_SRC  = (1 << 5),
-  GPU_BUFFER_USAGE_COPY_DST  = (1 << 6)
+  GPU_BUFFER_FLAG_VERTEX   = (1 << 0),
+  GPU_BUFFER_FLAG_INDEX    = (1 << 1),
+  GPU_BUFFER_FLAG_UNIFORM  = (1 << 2),
+  GPU_BUFFER_FLAG_STORAGE  = (1 << 3),
+  GPU_BUFFER_FLAG_INDIRECT = (1 << 4),
+  GPU_BUFFER_FLAG_COPY_SRC = (1 << 5),
+  GPU_BUFFER_FLAG_COPY_DST = (1 << 6),
+  GPU_BUFFER_FLAG_MAPPABLE = (1 << 7),
+  GPU_BUFFER_FLAG_PRESERVE = (1 << 8)
 };
-
-typedef enum {
-  GPU_BUFFER_TYPE_STATIC,
-  GPU_BUFFER_TYPE_DYNAMIC,
-  GPU_BUFFER_TYPE_STREAM
-} gpu_buffer_type;
 
 typedef struct {
   uint64_t size;
-  uint32_t usage;
-  gpu_buffer_type type;
-  void** mapping;
+  uint32_t flags;
+  void** pointer;
   const char* label;
 } gpu_buffer_info;
 
