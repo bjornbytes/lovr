@@ -50,11 +50,10 @@ typedef enum {
 struct gpu_buffer {
   VkBuffer handle;
   VkDeviceMemory memory;
-  VkDeviceSize size;
-  void* data[2];
-  uint32_t region;
   uint32_t ticks[2];
-  gpu_buffer_type type;
+  char* data[2];
+  bool region;
+  bool keep;
 };
 
 struct gpu_texture {
@@ -760,8 +759,6 @@ bool gpu_init(gpu_config* config) {
   }
 
   gpu_mutex_init(&state.morgue.lock);
-  state.tick[CPU] = 1;
-  state.tick[GPU] = 0;
   state.scratchpads.head = ~0u;
   state.scratchpads.tail = ~0u;
   state.currentBackbuffer = ~0u;
@@ -830,6 +827,7 @@ void gpu_thread_detach() {
 }
 
 void gpu_begin() {
+  state.tick[CPU]++;
   gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
   GPU_VK(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull));
   GPU_VK(vkResetFences(state.device, 1, &tick->fence));
@@ -855,6 +853,7 @@ void gpu_begin() {
 
 void gpu_flush() {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+
   gpu_batch_end(state.batch);
   state.batch = NULL;
 
@@ -870,7 +869,6 @@ void gpu_flush() {
   };
 
   GPU_VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence));
-  state.tick[CPU]++;
 }
 
 void gpu_debug_push(const char* label) {
@@ -923,22 +921,21 @@ size_t gpu_sizeof_buffer() {
   return sizeof(gpu_buffer);
 }
 
-#include <stdio.h>
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkBufferUsageFlags usage =
-    ((info->usage & GPU_BUFFER_USAGE_VERTEX) ? VK_BUFFER_USAGE_VERTEX_BUFFER_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_INDIRECT) ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_COPY_SRC) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
-    ((info->usage & GPU_BUFFER_USAGE_COPY_DST) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0);
+    ((info->flags & GPU_BUFFER_FLAG_VERTEX) ? VK_BUFFER_USAGE_VERTEX_BUFFER_BIT : 0) |
+    ((info->flags & GPU_BUFFER_FLAG_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
+    ((info->flags & GPU_BUFFER_FLAG_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
+    ((info->flags & GPU_BUFFER_FLAG_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
+    ((info->flags & GPU_BUFFER_FLAG_INDIRECT) ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0) |
+    ((info->flags & GPU_BUFFER_FLAG_COPY_SRC) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
+    ((info->flags & GPU_BUFFER_FLAG_COPY_DST) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0);
 
-  bool doubleBuffered = info->type == GPU_BUFFER_TYPE_DYNAMIC || info->type == GPU_BUFFER_TYPE_STREAM;
+  bool mappable = info->flags & GPU_BUFFER_FLAG_MAPPABLE;
 
   VkBufferCreateInfo bufferInfo = {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-    .size = info->size << doubleBuffered,
+    .size = info->size << mappable,
     .usage = usage
   };
 
@@ -951,36 +948,26 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkMemoryRequirements requirements;
   vkGetBufferMemoryRequirements(state.device, buffer->handle, &requirements);
 
-  // - static buffers just want device local memory (could be picky about which kind, but whatever)
-  // - dynamic buffers really want cached memory because they read from mapped pointers to copy old
-  //   data when switching to a new region of the buffer.  they can live without it, but it's slower
-  // - stream buffers are set up to use the special 256MB memory block on AMD/NV that's both device
-  //   local and mappable, since they're mostly used for temporary per-frame vertex/uniform streams.
-  //   falling back to regular uncached host visible memory is perfectly fine, though.
   uint32_t mask, fallback;
-  switch (info->type) {
-    case GPU_BUFFER_TYPE_STATIC:
-      mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-      fallback = 0;
-      break;
-    case GPU_BUFFER_TYPE_DYNAMIC:
-      mask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-      fallback = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-      break;
-    case GPU_BUFFER_TYPE_STREAM:
-      mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-      fallback = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-      break;
+  if (!mappable) {
+    mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    fallback = 0;
+  } else if (info->flags & GPU_BUFFER_FLAG_PRESERVE) {
+    mask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+    fallback = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+  } else {
+    mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    fallback = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
   }
 
   uint32_t memoryType = ~0u;
-  bool mappable;
+  bool hostVisible;
 
 search:
   for (uint32_t i = 0; i < state.memoryProperties.memoryTypeCount; i++) {
     uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
     if ((flags & mask) != mask || ~requirements.memoryTypeBits & (1 << i)) continue;
-    mappable = flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    hostVisible = flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     memoryType = i;
     break;
   }
@@ -1012,59 +999,59 @@ search:
     return false;
   }
 
-  void* data;
-  bool map = doubleBuffered || (mappable && info->mapping);
-  if (map && vkMapMemory(state.device, buffer->memory, 0, VK_WHOLE_SIZE, 0, &data)) {
+  void* data = NULL;
+  if (hostVisible && vkMapMemory(state.device, buffer->memory, 0, VK_WHOLE_SIZE, 0, &data)) {
     vkDestroyBuffer(state.device, buffer->handle, NULL);
     vkFreeMemory(state.device, buffer->memory, NULL);
     return false;
   }
 
-  if (doubleBuffered) {
+  // If initial pointer is needed and memory was mappable, return mapped pointer
+  if (info->pointer && hostVisible) {
+    *info->pointer = data;
+  }
+
+  // If initial pointer is needed and memory is not mappable, use staging buffer (TODO 16MB limit)
+  if (info->pointer && !hostVisible) {
+    gpu_mapping mapped = scratch(info->size);
+
+    VkBufferCopy region = {
+      .srcOffset = mapped.offset,
+      .dstOffset = 0,
+      .size = info->size
+    };
+
+    vkCmdCopyBuffer(state.batch->commands, buffer->handle, mapped.buffer, 1, &region);
+    *info->pointer = mapped.data;
+  }
+
+  if (mappable) {
     buffer->data[0] = data;
-    buffer->data[1] = (char*) buffer->data[0] + info->size;
-    buffer->ticks[0] = buffer->ticks[1] = state.tick[CPU];
+    buffer->data[1] = buffer->data[0] + info->size;
+    buffer->ticks[0] = state.tick[CPU];
+    buffer->ticks[1] = state.tick[CPU];
+    buffer->keep = info->flags & GPU_BUFFER_FLAG_PRESERVE;
   }
 
-  if (info->mapping) {
-    if (mappable) {
-      *info->mapping = data;
-    } else {
-      gpu_mapping mapped = scratch(info->size);
-
-      *info->mapping = mapped.data;
-
-      VkBufferCopy region = {
-        .srcOffset = mapped.offset,
-        .dstOffset = 0,
-        .size = info->size
-      };
-
-      vkCmdCopyBuffer(state.batch->commands, buffer->handle, mapped.buffer, 1, &region);
-    }
-  }
-
-  buffer->type = info->type;
-  buffer->size = info->size;
   return true;
 }
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
-  if (buffer->handle) condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
-  if (buffer->memory) condemn(buffer->memory, VK_OBJECT_TYPE_DEVICE_MEMORY);
+  condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
+  condemn(buffer->memory, VK_OBJECT_TYPE_DEVICE_MEMORY);
   memset(buffer, 0, sizeof(*buffer));
 }
 
 void* gpu_buffer_map(gpu_buffer* buffer) {
-  if (buffer->type == GPU_BUFFER_TYPE_STATIC) return NULL;
+  if (!buffer->data[0]) return NULL;
 
   // If the current region is active or the GPU has already caught up to the current region, use it
   if (buffer->ticks[buffer->region] == state.tick[CPU] || state.tick[GPU] >= buffer->ticks[buffer->region]) {
     buffer->ticks[buffer->region] = state.tick[CPU];
-    return (char*) buffer->data[buffer->region];
+    return buffer->data[buffer->region];
   }
 
-  // Otherwise, the GPU is using the current region, so switch to the other one, stalling if needed
+  // Otherwise, the GPU is using the current region, so switch to the other half, stalling if needed
   buffer->region = !buffer->region;
   if (buffer->ticks[buffer->region] > state.tick[GPU]) {
     ketchup();
@@ -1074,12 +1061,12 @@ void* gpu_buffer_map(gpu_buffer* buffer) {
     }
   }
 
-  // Dynamic buffers need to copy data from the old half to the new half
-  if (buffer->type == GPU_BUFFER_TYPE_DYNAMIC) {
-    memcpy(buffer->data[buffer->region], buffer->data[!buffer->region], buffer->size);
+  // Copy old data to new region if needed
+  if (buffer->keep) {
+    memcpy(buffer->data[buffer->region], buffer->data[!buffer->region], buffer->data[1] - buffer->data[0]);
   }
 
-  return (char*) buffer->data[buffer->region];
+  return buffer->data[buffer->region];
 }
 
 void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata) {
@@ -1090,6 +1077,10 @@ void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_rea
     .dstOffset = mapped.offset,
     .size = size
   };
+
+  if (buffer->data[0]) {
+    region.srcOffset += (buffer->data[1] - buffer->data[0]) * buffer->region;
+  }
 
   vkCmdCopyBuffer(state.batch->commands, buffer->handle, mapped.buffer, 1, &region);
 
@@ -1115,11 +1106,11 @@ void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint6
 }
 
 void gpu_buffer_clear(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
-  if (buffer->type == GPU_BUFFER_TYPE_STATIC) {
-    vkCmdFillBuffer(state.batch->commands, buffer->handle, offset, size, 0);
-  } else {
+  if (buffer->data[0]) {
     void* data = gpu_buffer_map(buffer);
     memset((char*) data + offset, 0, size);
+  } else {
+    vkCmdFillBuffer(state.batch->commands, buffer->handle, offset, size, 0);
   }
 }
 
@@ -1268,9 +1259,9 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
 }
 
 void gpu_texture_destroy(gpu_texture* texture) {
-  if (texture->handle) condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
-  if (texture->memory) condemn(texture->memory, VK_OBJECT_TYPE_DEVICE_MEMORY);
-  if (texture->view) condemn(texture->view, VK_OBJECT_TYPE_IMAGE_VIEW);
+  condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
+  condemn(texture->memory, VK_OBJECT_TYPE_DEVICE_MEMORY);
+  condemn(texture->view, VK_OBJECT_TYPE_IMAGE_VIEW);
   memset(texture, 0, sizeof(*texture));
 }
 
@@ -1404,7 +1395,7 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
 }
 
 void gpu_sampler_destroy(gpu_sampler* sampler) {
-  if (sampler->handle) condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER);
+  condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER);
   memset(sampler, 0, sizeof(*sampler));
 }
 
@@ -1524,7 +1515,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
 }
 
 void gpu_pass_destroy(gpu_pass* pass) {
-  if (pass->handle) condemn(pass->handle, VK_OBJECT_TYPE_RENDER_PASS);
+  condemn(pass->handle, VK_OBJECT_TYPE_RENDER_PASS);
   memset(pass, 0, sizeof(*pass));
 }
 
@@ -2065,7 +2056,7 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const
 }
 
 void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
-  if (pipeline->handle) condemn(pipeline->handle, VK_OBJECT_TYPE_PIPELINE);
+  condemn(pipeline->handle, VK_OBJECT_TYPE_PIPELINE);
 }
 
 // Batch
@@ -2364,9 +2355,7 @@ static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info) {
   }
 
   // Evict least-recently-used framebuffer
-  if (entries[1].handle != VK_NULL_HANDLE) {
-    condemn((void*) entries[1].handle, VK_OBJECT_TYPE_FRAMEBUFFER);
-  }
+  condemn((void*) entries[1].handle, VK_OBJECT_TYPE_FRAMEBUFFER);
 
   // Shift bucket entries over to make room for new framebuffer
   memcpy(&entries[1], &entries[0], sizeof(gpu_framebuffer_entry));
@@ -2479,9 +2468,9 @@ static gpu_mapping scratch(uint32_t size) {
 }
 
 static void ketchup() {
-  while (state.tick[GPU] < state.tick[CPU]) {
-    gpu_tick* tick = &state.ticks[state.tick[GPU] & 0xf];
-    VkResult result = vkGetFenceStatus(state.device, tick->fence);
+  while (state.tick[GPU] + 1 < state.tick[CPU]) {
+    gpu_tick* next = &state.ticks[(state.tick[GPU] + 1) & 0xf];
+    VkResult result = vkGetFenceStatus(state.device, next->fence);
     switch (result) {
       case VK_SUCCESS: state.tick[GPU]++; continue;
       case VK_NOT_READY: return;
@@ -2505,6 +2494,7 @@ static void readback() {
 }
 
 static void condemn(void* handle, VkObjectType type) {
+  if (!handle) return;
   gpu_morgue* morgue = &state.morgue;
   gpu_mutex_lock(&morgue->lock);
   GPU_CHECK(morgue->head - morgue->tail != COUNTOF(morgue->data), "GPU morgue overflow"); // TODO ketchup and expunge if morgue is full
@@ -2733,3 +2723,14 @@ static const char* getErrorString(VkResult result) {
 // - If you run out of command buffers, the current recommendation is to split the workload into
 //   multiple queue submissions.  In the future it may be possible to support an unbounded number of
 //   command buffers using dynamic memory allocation.
+// ### Buffers
+// - Mappable buffers are double buffered, each tick uses one region, stalling if needed.
+// - Memory type strategy:
+//   - Non-mappable buffers just want device local memory (could be picky about which kind, but meh)
+//   - Buffers that preserve their contents really want cached memory since they copy old data when
+//     switching to a new region, which counts as reading from a mapped pointer.  using uncached
+//     memory is acceptable, but those reads will be slow.
+//   - Transient buffers prefer the special 256MB memory block on AMD/NV that's both device local +
+//     host visible, since they're meant for temp per-frame vertex/uniform streams.  Falling back to
+//     regular uncached host visible memory is perfectly fine, though.
+//   - Host-visible buffers always use coherent memory.

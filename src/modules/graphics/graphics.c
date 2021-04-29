@@ -629,18 +629,20 @@ void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, ui
 // Buffer
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
-  lovrAssert(info->type == BUFFER_STATIC || ~info->usage & (1 << BUFFER_COMPUTE), "Only static buffers can have the 'compute' usage flag");
-  lovrAssert(info->type == BUFFER_STATIC || ~info->usage & (1 << BUFFER_COPY_DST), "Only static buffers can have the 'copyto' usage flag");
+  if (info->flags & BUFFER_WRITE) {
+    lovrAssert(~info->flags & (1 << BUFFER_COMPUTE), "Buffers with the 'write' flag can not have the '%s' flag", "compute");
+    lovrAssert(~info->flags & (1 << BUFFER_COPYTO), "Buffers with the 'write' flag can not have the '%s' flag", "copyto");
+  }
+
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
   buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->info = *info;
   buffer->ref = 1;
 
   gpu_buffer_info gpuInfo = {
-    .size = ALIGN(info->size, 4),
-    .type = (gpu_buffer_type) info->type,
-    .usage = info->usage,
-    .mapping = info->mapping,
+    .size = ALIGN(info->length * info->stride, 4),
+    .flags = info->flags,
+    .pointer = info->initialContents,
     .label = info->label
   };
 
@@ -658,15 +660,18 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
 }
 
 void* lovrBufferMap(Buffer* buffer) {
-  lovrAssert(buffer->info.type != BUFFER_STATIC, "Static Buffers can not be mapped");
+  lovrAssert(buffer->info.flags & BUFFER_WRITE, "A Buffer must have the 'write' flag to write to it");
   return gpu_buffer_map(buffer->gpu);
+}
+
+void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
+  gpu_buffer_read(buffer->gpu, offset, size, callback, userdata);
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrAssert((offset & 0x3) == 0, "Buffer clear offset must be a multiple of 4");
   lovrAssert((size & 0x3) == 0, "Buffer clear size must be a multiple of 4");
-  lovrAssert(offset + size <= buffer->info.size, "Buffer clear range exceeds size of Buffer");
-  lovrAssert(buffer->info.type != BUFFER_STATIC || buffer->info.usage & BUFFER_COPY_DST, "Static buffers can only be cleared if they have the 'copyto' usage");
+  lovrAssert(buffer->info.flags & (BUFFER_WRITE | BUFFER_COPYTO), "A Buffer can only be cleared if it has the 'write' or 'copyto' flags");
   gpu_buffer_clear(buffer->gpu, offset, size);
 }
 
