@@ -665,14 +665,23 @@ void* lovrBufferMap(Buffer* buffer) {
 }
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
+  lovrAssert(buffer->info.flags & (1 << BUFFER_COPYFROM), "A Buffer can only be read if it has the 'copyfrom' flag");
   gpu_buffer_read(buffer->gpu, offset, size, callback, userdata);
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrAssert((offset & 0x3) == 0, "Buffer clear offset must be a multiple of 4");
   lovrAssert((size & 0x3) == 0, "Buffer clear size must be a multiple of 4");
-  lovrAssert(buffer->info.flags & (BUFFER_WRITE | BUFFER_COPYTO), "A Buffer can only be cleared if it has the 'write' or 'copyto' flags");
+  lovrAssert(buffer->info.flags & ((1 << BUFFER_WRITE) | (1 << BUFFER_COPYTO)), "A Buffer can only be cleared if it has the 'write' or 'copyto' flags");
   gpu_buffer_clear(buffer->gpu, offset, size);
+}
+
+void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
+  lovrAssert(src->info.flags & (1 << BUFFER_COPYFROM), "A Buffer can only be copied if it has the 'copyfrom' flag");
+  lovrAssert(dst->info.flags & (1 << BUFFER_COPYTO), "A Buffer can only be copied to if it has the 'copyto' flag");
+  lovrAssert(srcOffset + size <= src->info.length * src->info.stride, "Tried to read past the end of the source Buffer");
+  lovrAssert(dstOffset + size <= dst->info.length * dst->info.stride, "Tried to copy past the end of the destination Buffer");
+  gpu_buffer_copy(src->gpu, dst->gpu, srcOffset, dstOffset, size);
 }
 
 // Texture

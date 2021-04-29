@@ -419,6 +419,20 @@ static int l_lovrBufferClear(lua_State* L) {
   return 0;
 }
 
+static int l_lovrBufferCopy(lua_State* L) {
+  Buffer* src = luax_checktype(L, 1, Buffer);
+  Buffer* dst = luax_checktype(L, 2, Buffer);
+  const BufferInfo* srcInfo = lovrBufferGetInfo(src);
+  const BufferInfo* dstInfo = lovrBufferGetInfo(dst);
+  uint32_t srcSize = srcInfo->length * srcInfo->stride;
+  uint32_t dstSize = dstInfo->length * dstInfo->stride;
+  uint32_t srcOffset = luaL_optinteger(L, 3, 0);
+  uint32_t dstOffset = luaL_optinteger(L, 4, 0);
+  uint32_t size = luaL_optinteger(L, 5, MIN(srcSize - srcOffset, dstSize - dstOffset));
+  lovrBufferCopy(src, dst, srcOffset, dstOffset, size);
+  return 0;
+}
+
 const luaL_Reg lovrBuffer[] = {
   { "getSize", l_lovrBufferGetSize },
   { "getLength", l_lovrBufferGetLength },
@@ -431,6 +445,6 @@ const luaL_Reg lovrBuffer[] = {
   //{ "append", l_lovrBufferAppend },
   //{ "rewind", l_lovrBufferRewind },
   { "clear", l_lovrBufferClear },
-  //{ "copy", l_lovrBufferCopy },
+  { "copy", l_lovrBufferCopy },
   { NULL, NULL }
 };
