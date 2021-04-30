@@ -333,7 +333,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .size[2] = info->size[2],
     .mipmaps = info->mipmaps,
     .samples = info->samples,
-    .usage = info->usage,
+    .usage = info->flags,
     .srgb = info->srgb,
     .label = info->label
   };

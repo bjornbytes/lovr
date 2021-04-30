@@ -115,12 +115,12 @@ StringEntry lovrTextureType[] = {
   { 0 }
 };
 
-StringEntry lovrTextureUsage[] = {
-  [TEXTURE_SAMPLE] = ENTRY("sample"),
-  [TEXTURE_RENDER] = ENTRY("render"),
-  [TEXTURE_COMPUTE] = ENTRY("compute"),
-  [TEXTURE_UPLOAD] = ENTRY("upload"),
-  [TEXTURE_DOWNLOAD] = ENTRY("download"),
+StringEntry lovrTextureFlag[] = {
+  [0] = ENTRY("sample"),
+  [1] = ENTRY("render"),
+  [2] = ENTRY("compute"),
+  [3] = ENTRY("copyfrom"),
+  [4] = ENTRY("copyto"),
   { 0 }
 };
 
@@ -538,7 +538,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     .format = FORMAT_RGBA8,
     .mipmaps = ~0u,
     .samples = 1,
-    .usage = ~0u,
+    .flags = TEXTURE_SAMPLE,
     .srgb = !blank
   };
 
@@ -583,26 +583,18 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.samples = lua_isnil(L, -1) ? info.samples : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, index, "usage");
-    switch (lua_type(L, -1)) {
-      case LUA_TSTRING:
-        info.usage = 1 << luax_checkenum(L, -1, TextureUsage, NULL);
-        break;
-      case LUA_TTABLE:
-        info.usage = 0;
-        int length = luax_len(L, -1);
-        for (int i = 0; i < length; i++) {
-          lua_rawgeti(L, -1, i + 1);
-          info.usage |= 1 << luax_checkenum(L, -1, TextureUsage, NULL);
-          lua_pop(L, 1);
+    for (int i = 0; lovrTextureFlag[i].length; i++) {
+      lua_pushlstring(L, lovrTextureFlag[i].string, lovrTextureFlag[i].length);
+      lua_gettable(L, 3);
+      if (!lua_isnil(L, -1)) {
+        if (lua_toboolean(L, -1)) {
+          info.flags |= (1 << i);
+        } else {
+          info.flags &= ~(1 << i);
         }
-        break;
-      case LUA_TNIL:
-        break;
-      default:
-        return luaL_error(L, "Texture usage flags must be a string or a table of strings");
+      }
+      lua_pop(L, 1);
     }
-    lua_pop(L, 1);
 
     lua_getfield(L, index, "label");
     info.label = lua_tostring(L, -1);

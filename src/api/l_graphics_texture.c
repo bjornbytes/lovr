@@ -66,6 +66,21 @@ static int l_lovrTextureGetSampleCount(lua_State* L) {
   return 1;
 }
 
+static int l_lovrTextureHasFlags(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  const TextureInfo* info = lovrTextureGetInfo(texture);
+  luaL_checkany(L, 2);
+  int top = lua_gettop(L);
+  for (int i = 2; i <= top; i++) {
+    int bit = luax_checkenum(L, i, TextureFlag, NULL);
+    if (~info->flags & (1 << bit)) {
+      lua_pushboolean(L, false);
+    }
+  }
+  lua_pushboolean(L, true);
+  return 1;
+}
+
 typedef struct {
   lua_State* L;
   int ref;
@@ -109,11 +124,6 @@ static int l_lovrTextureGetPixels(lua_State* L) {
   return 0;
 }
 
-static int l_lovrTextureSetPixels(lua_State* L) {
-  //
-  return 0;
-}
-
 const luaL_Reg lovrTexture[] = {
   { "getType", l_lovrTextureGetType },
   { "getFormat", l_lovrTextureGetFormat },
@@ -123,7 +133,7 @@ const luaL_Reg lovrTexture[] = {
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getSampleCount", l_lovrTextureGetSampleCount },
+  { "hasFlags", l_lovrTextureHasFlags },
   { "getPixels", l_lovrTextureGetPixels },
-  { "setPixels", l_lovrTextureSetPixels },
   { NULL, NULL }
 };
