@@ -1069,6 +1069,25 @@ void* gpu_buffer_map(gpu_buffer* buffer) {
   return buffer->data[buffer->region];
 }
 
+void gpu_buffer_clear(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
+  if (buffer->data[0]) {
+    void* data = gpu_buffer_map(buffer);
+    memset((char*) data + offset, 0, size);
+  } else {
+    vkCmdFillBuffer(state.batch->commands, buffer->handle, offset, size, 0);
+  }
+}
+
+void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint64_t dstOffset, uint64_t size) {
+  VkBufferCopy region = {
+    .srcOffset = srcOffset,
+    .dstOffset = dstOffset,
+    .size = size
+  };
+
+  vkCmdCopyBuffer(state.batch->commands, src->handle, dst->handle, 1, &region);
+}
+
 void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_read_fn* fn, void* userdata) {
   gpu_mapping mapped = scratch(size);
 
@@ -1093,25 +1112,6 @@ void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_rea
     .size = size,
     .tick = state.tick[CPU]
   };
-}
-
-void gpu_buffer_copy(gpu_buffer* src, gpu_buffer* dst, uint64_t srcOffset, uint64_t dstOffset, uint64_t size) {
-  VkBufferCopy region = {
-    .srcOffset = srcOffset,
-    .dstOffset = dstOffset,
-    .size = size
-  };
-
-  vkCmdCopyBuffer(state.batch->commands, src->handle, dst->handle, 1, &region);
-}
-
-void gpu_buffer_clear(gpu_buffer* buffer, uint64_t offset, uint64_t size) {
-  if (buffer->data[0]) {
-    void* data = gpu_buffer_map(buffer);
-    memset((char*) data + offset, 0, size);
-  } else {
-    vkCmdFillBuffer(state.batch->commands, buffer->handle, offset, size, 0);
-  }
 }
 
 // Texture

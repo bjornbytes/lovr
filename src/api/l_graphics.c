@@ -28,15 +28,15 @@ StringEntry lovrBlendMode[] = {
 };
 
 StringEntry lovrBufferFlag[] = {
-  [BUFFER_VERTEX] = ENTRY("vertex"),
-  [BUFFER_INDEX] = ENTRY("index"),
-  [BUFFER_UNIFORM] = ENTRY("uniform"),
-  [BUFFER_COMPUTE] = ENTRY("compute"),
-  [BUFFER_PARAMETER] = ENTRY("parameter"),
-  [BUFFER_COPYFROM] = ENTRY("copyfrom"),
-  [BUFFER_COPYTO] = ENTRY("copyto"),
-  [BUFFER_WRITE] = ENTRY("write"),
-  [BUFFER_RETAIN] = ENTRY("retain"),
+  [0] = ENTRY("vertex"),
+  [1] = ENTRY("index"),
+  [2] = ENTRY("uniform"),
+  [3] = ENTRY("compute"),
+  [4] = ENTRY("parameter"),
+  [5] = ENTRY("copyfrom"),
+  [6] = ENTRY("copyto"),
+  [7] = ENTRY("write"),
+  [8] = ENTRY("retain"),
   { 0 }
 };
 
@@ -935,7 +935,7 @@ static FieldType luax_checkfieldtype(lua_State* L, int index) {
 }
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info = { .flags = (1 << BUFFER_WRITE) | (1 << BUFFER_RETAIN) };
+  BufferInfo info = { .flags = BUFFER_WRITE | BUFFER_RETAIN };
 
   // Flags
   if (lua_istable(L, 3)) {
