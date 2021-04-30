@@ -8,10 +8,10 @@ struct WindowFlags;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
+typedef struct Pipeline Pipeline;
+typedef struct Canvas Canvas;
 typedef struct Shader Shader;
 typedef struct Bundle Bundle;
-
-typedef void StencilCallback(void* userdata);
 
 typedef struct {
   bool bptc;
@@ -63,88 +63,6 @@ typedef struct {
   float anisotropy;
 } GraphicsLimits;
 
-typedef enum {
-  LOAD_KEEP,
-  LOAD_CLEAR,
-  LOAD_DISCARD
-} LoadOp;
-
-typedef enum {
-  SAVE_KEEP,
-  SAVE_DISCARD
-} SaveOp;
-
-typedef struct {
-  struct {
-    Texture* texture;
-    Texture* resolve;
-    LoadOp load;
-    SaveOp save;
-    float clear[4];
-  } color[4];
-  struct {
-    bool enabled;
-    Texture* texture;
-    uint32_t format;
-    LoadOp load;
-    SaveOp save;
-    float clear;
-    struct {
-      LoadOp load;
-      SaveOp save;
-      uint8_t clear;
-    } stencil;
-  } depth;
-  uint32_t samples;
-} Canvas;
-
-typedef enum {
-  STENCIL_KEEP,
-  STENCIL_REPLACE,
-  STENCIL_INCREMENT,
-  STENCIL_DECREMENT,
-  STENCIL_INCREMENT_WRAP,
-  STENCIL_DECREMENT_WRAP,
-  STENCIL_INVERT
-} StencilAction;
-
-typedef enum {
-  BLEND_ALPHA_MULTIPLY,
-  BLEND_PREMULTIPLIED
-} BlendAlphaMode;
-
-typedef enum {
-  BLEND_ALPHA,
-  BLEND_ADD,
-  BLEND_SUBTRACT,
-  BLEND_MULTIPLY,
-  BLEND_LIGHTEN,
-  BLEND_DARKEN,
-  BLEND_SCREEN,
-  BLEND_NONE
-} BlendMode;
-
-typedef enum {
-  COMPARE_NONE,
-  COMPARE_EQUAL,
-  COMPARE_NEQUAL,
-  COMPARE_LESS,
-  COMPARE_LEQUAL,
-  COMPARE_GREATER,
-  COMPARE_GEQUAL
-} CompareMode;
-
-typedef enum {
-  CULL_NONE,
-  CULL_FRONT,
-  CULL_BACK
-} CullMode;
-
-typedef enum {
-  WINDING_COUNTERCLOCKWISE,
-  WINDING_CLOCKWISE
-} Winding;
-
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsCreateWindow(struct WindowFlags* window);
@@ -156,43 +74,6 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
 void lovrGraphicsFlush(void);
-void lovrGraphicsRender(Canvas* canvas);
-void lovrGraphicsEndPass(void);
-void lovrGraphicsBind(uint32_t group, Bundle* bundle);
-bool lovrGraphicsGetAlphaToCoverage(void);
-void lovrGraphicsSetAlphaToCoverage(bool enabled);
-void lovrGraphicsGetBlendMode(uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
-void lovrGraphicsSetBlendMode(uint32_t target, BlendMode mode, BlendAlphaMode alphaMode);
-void lovrGraphicsGetColorMask(uint32_t target, bool* r, bool* g, bool* b, bool* a);
-void lovrGraphicsSetColorMask(uint32_t target, bool r, bool g, bool b, bool a);
-CullMode lovrGraphicsGetCullMode(void);
-void lovrGraphicsSetCullMode(CullMode mode);
-void lovrGraphicsGetDepthTest(CompareMode* test, bool* write);
-void lovrGraphicsSetDepthTest(CompareMode test, bool write);
-void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp);
-void lovrGraphicsSetDepthNudge(float nudge, float sloped, float clamp);
-bool lovrGraphicsGetDepthClamp(void);
-void lovrGraphicsSetDepthClamp(bool clamp);
-Shader* lovrGraphicsGetShader(void);
-void lovrGraphicsSetShader(Shader* shader);
-void lovrGraphicsGetStencilTest(CompareMode* test, uint8_t* value);
-void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value);
-Winding lovrGraphicsGetWinding(void);
-void lovrGraphicsSetWinding(Winding winding);
-bool lovrGraphicsIsWireframe(void);
-void lovrGraphicsSetWireframe(bool wireframe);
-void lovrGraphicsPush(void);
-void lovrGraphicsPop(void);
-void lovrGraphicsOrigin(void);
-void lovrGraphicsTranslate(float* translation);
-void lovrGraphicsRotate(float* rotation);
-void lovrGraphicsScale(float* scale);
-void lovrGraphicsTransform(float* transform);
-void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix);
-void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix);
-void lovrGraphicsGetProjection(uint32_t index, float* projection);
-void lovrGraphicsSetProjection(uint32_t index, float* projection);
-void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata);
 
 // Buffer
 
@@ -312,6 +193,146 @@ void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
 void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t layer, uint32_t level, void (*callback)(void* data, uint64_t size, void* context), void* context);
 
+// Pipeline
+
+typedef enum {
+  BLEND_ALPHA_MULTIPLY,
+  BLEND_PREMULTIPLIED
+} BlendAlphaMode;
+
+typedef enum {
+  BLEND_ALPHA,
+  BLEND_ADD,
+  BLEND_SUBTRACT,
+  BLEND_MULTIPLY,
+  BLEND_LIGHTEN,
+  BLEND_DARKEN,
+  BLEND_SCREEN,
+  BLEND_NONE
+} BlendMode;
+
+typedef enum {
+  COMPARE_NONE,
+  COMPARE_EQUAL,
+  COMPARE_NEQUAL,
+  COMPARE_LESS,
+  COMPARE_LEQUAL,
+  COMPARE_GREATER,
+  COMPARE_GEQUAL
+} CompareMode;
+
+typedef enum {
+  CULL_NONE,
+  CULL_FRONT,
+  CULL_BACK
+} CullMode;
+
+typedef enum {
+  STENCIL_KEEP,
+  STENCIL_REPLACE,
+  STENCIL_INCREMENT,
+  STENCIL_DECREMENT,
+  STENCIL_INCREMENT_WRAP,
+  STENCIL_DECREMENT_WRAP,
+  STENCIL_INVERT
+} StencilAction;
+
+typedef enum {
+  WINDING_COUNTERCLOCKWISE,
+  WINDING_CLOCKWISE
+} Winding;
+
+typedef struct {
+  const char* label;
+} PipelineInfo;
+
+Pipeline* lovrPipelineCreate(PipelineInfo* info);
+void lovrPipelineDestroy(void* ref);
+const PipelineInfo* lovrPipelineGetInfo(Pipeline* pipeline);
+
+// Canvas
+
+typedef enum {
+  LOAD_KEEP,
+  LOAD_CLEAR,
+  LOAD_DISCARD
+} LoadOp;
+
+typedef enum {
+  SAVE_KEEP,
+  SAVE_DISCARD
+} SaveOp;
+
+typedef struct {
+  struct {
+    Texture* texture;
+    Texture* resolve;
+    LoadOp load;
+    SaveOp save;
+    float clear[4];
+  } color[4];
+  struct {
+    bool enabled;
+    Texture* texture;
+    uint32_t format;
+    LoadOp load;
+    SaveOp save;
+    float clear;
+    struct {
+      LoadOp load;
+      SaveOp save;
+      uint8_t clear;
+    } stencil;
+  } depth;
+  uint32_t samples;
+} CanvasInfo;
+
+typedef void StencilCallback(void* userdata);
+
+Canvas* lovrCanvasCreate(CanvasInfo* info);
+void lovrCanvasDestroy(void* ref);
+const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
+void lovrCanvasBegin(Canvas* canvas);
+void lovrCanvasFinish(Canvas* canvas);
+bool lovrCanvasIsActive(Canvas* canvas);
+
+bool lovrCanvasGetAlphaToCoverage(Canvas* canvas);
+void lovrCanvasSetAlphaToCoverage(Canvas* canvas, bool enabled);
+void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
+void lovrCanvasSetBlendMode(Canvas* canvas, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode);
+void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, bool* b, bool* a);
+void lovrCanvasSetColorMask(Canvas* canvas, uint32_t target, bool r, bool g, bool b, bool a);
+CullMode lovrCanvasGetCullMode(Canvas* canvas);
+void lovrCanvasSetCullMode(Canvas* canvas, CullMode mode);
+void lovrCanvasGetDepthTest(Canvas* canvas, CompareMode* test, bool* write);
+void lovrCanvasSetDepthTest(Canvas* canvas, CompareMode test, bool write);
+void lovrCanvasGetDepthNudge(Canvas* canvas, float* nudge, float* sloped, float* clamp);
+void lovrCanvasSetDepthNudge(Canvas* canvas, float nudge, float sloped, float clamp);
+bool lovrCanvasGetDepthClamp(Canvas* canvas);
+void lovrCanvasSetDepthClamp(Canvas* canvas, bool clamp);
+Shader* lovrCanvasGetShader(Canvas* canvas);
+void lovrCanvasSetShader(Canvas* canvas, Shader* shader);
+void lovrCanvasGetStencilTest(Canvas* canvas, CompareMode* test, uint8_t* value);
+void lovrCanvasSetStencilTest(Canvas* canvas, CompareMode test, uint8_t value);
+Winding lovrCanvasGetWinding(Canvas* canvas);
+void lovrCanvasSetWinding(Canvas* canvas, Winding winding);
+bool lovrCanvasIsWireframe(Canvas* canvas);
+void lovrCanvasSetWireframe(Canvas* canvas, bool wireframe);
+
+void lovrCanvasPush(Canvas* canvas);
+void lovrCanvasPop(Canvas* canvas);
+void lovrCanvasOrigin(Canvas* canvas);
+void lovrCanvasTranslate(Canvas* canvas, float* translation);
+void lovrCanvasRotate(Canvas* canvas, float* rotation);
+void lovrCanvasScale(Canvas* canvas, float* scale);
+void lovrCanvasTransform(Canvas* canvas, float* transform);
+void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
+void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
+void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection);
+void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection);
+
+void lovrCanvasStencil(Canvas* canvas, StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata);
+
 // Shader
 
 typedef enum {
@@ -338,6 +359,7 @@ bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint3
 
 Bundle* lovrBundleCreate(Shader* shader, uint32_t group);
 void lovrBundleDestroy(void* ref);
+Shader* lovrBundleGetShader(Bundle* bundle);
 uint32_t lovrBundleGetGroup(Bundle* bundle);
 bool lovrBundleBindBuffer(Bundle* bundle, uint32_t id, uint32_t element, Buffer* buffer, uint32_t offset, uint32_t extent);
 bool lovrBundleBindTexture(Bundle* bundle, uint32_t id, uint32_t element, Texture* texture);

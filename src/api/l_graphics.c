@@ -2,12 +2,10 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
-#include "core/maf.h"
 #include "core/os.h"
 #include "core/util.h"
 #include <lua.h>
 #include <lauxlib.h>
-#include <stdlib.h>
 #include <string.h>
 
 StringEntry lovrBlendAlphaMode[] = {
@@ -145,165 +143,6 @@ static Image* luax_checkimage(lua_State* L, int index, bool flip) {
   }
 
   return image;
-}
-
-static void luax_readcanvas(lua_State* L, int index, Canvas* canvas) {
-  canvas->depth.enabled = true;
-  canvas->depth.texture = NULL;
-  canvas->depth.format = FORMAT_D16;
-  canvas->depth.load = LOAD_CLEAR;
-  canvas->depth.save = SAVE_DISCARD;
-  canvas->depth.clear = 1.f;
-  canvas->samples = 1;
-
-  // Texture instead of table
-  int type = lua_type(L, index);
-  if (type == LUA_TUSERDATA) {
-    canvas->color[0].texture = luax_checktype(L, index, Texture);
-    canvas->color[0].load = LOAD_KEEP;
-    canvas->color[0].save = SAVE_KEEP;
-    return;
-  } else if (type != LUA_TTABLE) {
-    luaL_argerror(L, index, "Expected a Texture or table for a render target");
-    return;
-  }
-
-  // Color targets
-  int count = luax_len(L, index);
-  for (int i = 0; i < count; i++) {
-    lua_rawgeti(L, index, i + 1);
-    canvas->color[i].texture = luax_totype(L, -1, Texture);
-    lovrAssert(canvas->color[i].texture, "The numeric keys of a render target table must be Textures");
-    lua_pop(L, 1);
-  }
-
-  lua_getfield(L, index, "load");
-  if (lua_istable(L, -1)) {
-    lua_rawgeti(L, -1, 1);
-    if (lua_type(L, -1) == LUA_TNUMBER) {
-      lua_rawgeti(L, -2, 2);
-      lua_rawgeti(L, -3, 3);
-      lua_rawgeti(L, -4, 4);
-      canvas->color[0].load = LOAD_CLEAR;
-      canvas->color[0].clear[0] = luax_checkfloat(L, -4);
-      canvas->color[0].clear[1] = luax_checkfloat(L, -3);
-      canvas->color[0].clear[2] = luax_checkfloat(L, -2);
-      canvas->color[0].clear[3] = luax_optfloat(L, -1, 1.f);
-      lua_pop(L, 4);
-      for (int i = 1; i < count; i++) {
-        canvas->color[i].load = LOAD_CLEAR;
-        memcpy(canvas->color[i].clear, canvas->color[0].clear, 4 * sizeof(float));
-      }
-    } else {
-      lua_pop(L, 1);
-      for (int i = 0; i < count; i++) {
-        lua_rawgeti(L, -1, i + 1);
-        if (lua_istable(L, -1)) {
-          lua_rawgeti(L, -1, 1);
-          lua_rawgeti(L, -2, 2);
-          lua_rawgeti(L, -3, 3);
-          lua_rawgeti(L, -4, 4);
-          canvas->color[i].load = LOAD_CLEAR;
-          canvas->color[i].clear[0] = luax_checkfloat(L, -4);
-          canvas->color[i].clear[1] = luax_checkfloat(L, -3);
-          canvas->color[i].clear[2] = luax_checkfloat(L, -2);
-          canvas->color[i].clear[3] = luax_optfloat(L, -1, 1.f);
-          lua_pop(L, 4);
-        } else {
-          canvas->color[i].load = lua_isnil(L, -1) || lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
-        }
-        lua_pop(L, 1);
-      }
-    }
-  } else {
-    LoadOp load = lua_isnil(L, -1) || lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
-    for (int i = 0; i < count; i++) {
-      canvas->color[i].load = load;
-    }
-  }
-  lua_pop(L, 1);
-
-  lua_getfield(L, index, "save");
-  if (lua_istable(L, -1)) {
-    for (int i = 0; i < count; i++) {
-      lua_rawgeti(L, -1, i + 1);
-      canvas->color[i].save = lua_isnil(L, -1) || lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
-      lua_pop(L, 1);
-    }
-  } else {
-    SaveOp save = lua_isnil(L, -1) || lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
-    for (int i = 0; i < count; i++) {
-      canvas->color[i].save = save;
-    }
-  }
-  lua_pop(L, 1);
-
-  lua_getfield(L, index, "multisamples");
-  if (lua_toboolean(L, -1)) {
-    for (int i = 0; i < count; i++) {
-      canvas->color[i].resolve = canvas->color[i].texture;
-      canvas->color[i].texture = NULL;
-    }
-    switch (lua_type(L, -1)) {
-      case LUA_TBOOLEAN:
-        canvas->samples = 4;
-        break;
-      case LUA_TNUMBER:
-        canvas->samples = lua_tointeger(L, -1); // TODO PO2, zero, negative
-        break;
-      case LUA_TTABLE:
-        for (int i = 0; i < count; i++) {
-          lua_rawgeti(L, -1, i + 1);
-          canvas->color[i].texture = luax_totype(L, -1, Texture);
-          lua_pop(L, 1);
-        }
-        break;
-      case LUA_TUSERDATA:
-        canvas->color[0].texture = luax_checktype(L, -1, Texture);
-        break;
-    }
-  }
-  lua_pop(L, 1);
-
-  lua_getfield(L, index, "depth");
-  switch (lua_type(L, -1)) {
-    case LUA_TBOOLEAN:
-      canvas->depth.enabled = lua_toboolean(L, -1);
-      break;
-    case LUA_TSTRING:
-      canvas->depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
-      break;
-    case LUA_TUSERDATA:
-      canvas->depth.texture = luax_checktype(L, -1, Texture);
-      break;
-    case LUA_TTABLE:
-      lua_rawgeti(L, -1, 1);
-      canvas->depth.texture = luax_totype(L, -1, Texture);
-      lua_pop(L, 1);
-
-      lua_getfield(L, -1, "format");
-      canvas->depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
-      lua_pop(L, 1);
-
-      lua_getfield(L, -1, "load");
-      switch (lua_type(L, -1)) {
-        case LUA_TNIL:
-          canvas->depth.load = LOAD_KEEP;
-          break;
-        case LUA_TBOOLEAN:
-          canvas->depth.load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
-          break;
-        case LUA_TNUMBER:
-          canvas->depth.load = LOAD_CLEAR;
-          canvas->depth.clear = lua_tonumber(L, -1);
-          break;
-        case LUA_TTABLE:
-          //
-          break;
-      }
-      lua_pop(L, 1);
-  }
-  lua_pop(L, 1);
 }
 
 static int l_lovrGraphicsCreateWindow(lua_State* L) {
@@ -484,371 +323,6 @@ static int l_lovrGraphicsBegin(lua_State* L) {
 
 static int l_lovrGraphicsFlush(lua_State* L) {
   lovrGraphicsFlush();
-  return 0;
-}
-
-static int l_lovrGraphicsRender(lua_State* L) {
-  Canvas canvas;
-  memset(&canvas, 0, sizeof(canvas));
-  luax_readcanvas(L, 1, &canvas);
-  lovrGraphicsRender(&canvas);
-  luaL_checktype(L, 2, LUA_TFUNCTION);
-  lua_settop(L, 2);
-  lua_call(L, 0, 0);
-  lovrGraphicsEndPass();
-  return 0;
-}
-
-static int l_lovrGraphicsBind(lua_State* L) {
-  uint32_t group = luaL_checkinteger(L, 1);
-  Bundle* bundle = luax_checktype(L, 2, Bundle);
-  lovrGraphicsBind(group, bundle);
-  return 0;
-}
-
-static int l_lovrGraphicsGetAlphaToCoverage(lua_State* L) {
-  lua_pushboolean(L, lovrGraphicsGetAlphaToCoverage());
-  return 1;
-}
-
-static int l_lovrGraphicsSetAlphaToCoverage(lua_State* L) {
-  lovrGraphicsSetAlphaToCoverage(lua_toboolean(L, 1));
-  return 1;
-}
-
-static int l_lovrGraphicsGetBlendMode(lua_State* L) {
-  uint32_t target = luaL_optinteger(L, 1, 1) - 1;
-  lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
-  BlendMode mode;
-  BlendAlphaMode alphaMode;
-  lovrGraphicsGetBlendMode(target, &mode, &alphaMode);
-  if (mode == BLEND_NONE) {
-    lua_pushnil(L);
-    return 1;
-  } else {
-    luax_pushenum(L, BlendMode, mode);
-    luax_pushenum(L, BlendAlphaMode, alphaMode);
-    return 2;
-  }
-}
-
-static int l_lovrGraphicsSetBlendMode(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TNUMBER) {
-    uint32_t target = lua_tonumber(L, 1) - 1;
-    lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
-    BlendMode mode = lua_isnoneornil(L, 2) ? BLEND_NONE : luax_checkenum(L, 2, BlendMode, NULL);
-    BlendAlphaMode alphaMode = luax_checkenum(L, 3, BlendAlphaMode, "alphamultiply");
-    lovrGraphicsSetBlendMode(target, mode, alphaMode);
-    return 0;
-  }
-
-  BlendMode mode = lua_isnoneornil(L, 1) ? BLEND_NONE : luax_checkenum(L, 1, BlendMode, NULL);
-  BlendAlphaMode alphaMode = luax_checkenum(L, 2, BlendAlphaMode, "alphamultiply");
-  for (uint32_t i = 0; i < 4; i++) {
-    lovrGraphicsSetBlendMode(i, mode, alphaMode);
-  }
-  return 0;
-}
-
-static int l_lovrGraphicsGetColorMask(lua_State* L) {
-  uint32_t target = luaL_optinteger(L, 1, 1) - 1;
-  lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
-  bool r, g, b, a;
-  lovrGraphicsGetColorMask(target, &r, &g, &b, &a);
-  lua_pushboolean(L, r);
-  lua_pushboolean(L, g);
-  lua_pushboolean(L, b);
-  lua_pushboolean(L, a);
-  return 4;
-}
-
-static int l_lovrGraphicsSetColorMask(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TNUMBER) {
-    uint32_t target = lua_tonumber(L, 1) - 1;
-    lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
-    bool r = lua_toboolean(L, 2);
-    bool g = lua_toboolean(L, 3);
-    bool b = lua_toboolean(L, 4);
-    bool a = lua_toboolean(L, 5);
-    lovrGraphicsSetColorMask(target, r, g, b, a);
-    return 0;
-  }
-
-  bool r = lua_toboolean(L, 1);
-  bool g = lua_toboolean(L, 2);
-  bool b = lua_toboolean(L, 3);
-  bool a = lua_toboolean(L, 4);
-  for (uint32_t i = 0; i < 4; i++) {
-    lovrGraphicsSetColorMask(i, r, g, b, a);
-  }
-  return 0;
-}
-
-static int l_lovrGraphicsGetCullMode(lua_State* L) {
-  luax_pushenum(L, CullMode, lovrGraphicsGetCullMode());
-  return 1;
-}
-
-static int l_lovrGraphicsSetCullMode(lua_State* L) {
-  CullMode mode = luax_checkenum(L, 1, CullMode, "none");
-  lovrGraphicsSetCullMode(mode);
-  return 0;
-}
-
-static int l_lovrGraphicsGetDepthTest(lua_State* L) {
-  CompareMode test;
-  bool write;
-  lovrGraphicsGetDepthTest(&test, &write);
-  if (test == COMPARE_NONE) {
-    lua_pushnil(L);
-  } else {
-    luax_pushenum(L, CompareMode, test);
-  }
-  lua_pushboolean(L, write);
-  return 2;
-}
-
-static int l_lovrGraphicsSetDepthTest(lua_State* L) {
-  CompareMode test = lua_isnoneornil(L, 1) ? COMPARE_NONE : luax_checkenum(L, 1, CompareMode, NULL);
-  bool write = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
-  lovrGraphicsSetDepthTest(test, write);
-  return 0;
-}
-
-static int l_lovrGraphicsGetDepthNudge(lua_State* L) {
-  float nudge, sloped, clamp;
-  lovrGraphicsGetDepthNudge(&nudge, &sloped, &clamp);
-  lua_pushnumber(L, nudge);
-  lua_pushnumber(L, sloped);
-  lua_pushnumber(L, clamp);
-  return 3;
-}
-
-static int l_lovrGraphicsSetDepthNudge(lua_State* L) {
-  float nudge = luax_optfloat(L, 1, 0.f);
-  float sloped = luax_optfloat(L, 2, 0.f);
-  float clamp = luax_optfloat(L, 3, 0.f);
-  lovrGraphicsSetDepthNudge(nudge, sloped, clamp);
-  return 0;
-}
-
-static int l_lovrGraphicsGetDepthClamp(lua_State* L) {
-  bool clamp = lovrGraphicsGetDepthClamp();
-  lua_pushboolean(L, clamp);
-  return 1;
-}
-
-static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
-  bool clamp = lua_toboolean(L, 1);
-  lovrGraphicsSetDepthClamp(clamp);
-  return 0;
-}
-
-static int l_lovrGraphicsGetShader(lua_State* L) {
-  Shader* shader = lovrGraphicsGetShader();
-  luax_pushtype(L, Shader, shader);
-  return 1;
-}
-
-static int l_lovrGraphicsSetShader(lua_State* L) {
-  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 1, Shader);
-  lovrGraphicsSetShader(shader);
-  return 0;
-}
-
-static int l_lovrGraphicsGetStencilTest(lua_State* L) {
-  CompareMode test;
-  uint8_t value;
-  lovrGraphicsGetStencilTest(&test, &value);
-  if (test == COMPARE_NONE) {
-    lua_pushnil(L);
-    return 1;
-  }
-  luax_pushenum(L, CompareMode, test);
-  lua_pushinteger(L, value);
-  return 2;
-}
-
-static int l_lovrGraphicsSetStencilTest(lua_State* L) {
-  if (lua_isnoneornil(L, 1)) {
-    lovrGraphicsSetStencilTest(COMPARE_NONE, 0);
-  } else {
-    CompareMode test = luax_checkenum(L, 1, CompareMode, NULL);
-    uint8_t value = luaL_checkinteger(L, 2);
-    lovrGraphicsSetStencilTest(test, value);
-  }
-  return 0;
-}
-
-static int l_lovrGraphicsGetWinding(lua_State* L) {
-  Winding winding = lovrGraphicsGetWinding();
-  luax_pushenum(L, Winding, winding);
-  return 1;
-}
-
-static int l_lovrGraphicsSetWinding(lua_State* L) {
-  Winding winding = luax_checkenum(L, 1, Winding, NULL);
-  lovrGraphicsSetWinding(winding);
-  return 0;
-}
-
-static int l_lovrGraphicsIsWireframe(lua_State* L) {
-  bool wireframe = lovrGraphicsIsWireframe();
-  lua_pushboolean(L, wireframe);
-  return 1;
-}
-
-static int l_lovrGraphicsSetWireframe(lua_State* L) {
-  bool wireframe = lua_toboolean(L, 1);
-  lovrGraphicsSetWireframe(wireframe);
-  return 0;
-}
-
-static int l_lovrGraphicsPush(lua_State* L) {
-  lovrGraphicsPush();
-  return 0;
-}
-
-static int l_lovrGraphicsPop(lua_State* L) {
-  lovrGraphicsPop();
-  return 0;
-}
-
-static int l_lovrGraphicsOrigin(lua_State* L) {
-  lovrGraphicsOrigin();
-  return 0;
-}
-
-static int l_lovrGraphicsTranslate(lua_State* L) {
-  float translation[4];
-  luax_readvec3(L, 1, translation, NULL);
-  lovrGraphicsTranslate(translation);
-  return 0;
-}
-
-static int l_lovrGraphicsRotate(lua_State* L) {
-  float rotation[4];
-  luax_readquat(L, 1, rotation, NULL);
-  lovrGraphicsRotate(rotation);
-  return 0;
-}
-
-static int l_lovrGraphicsScale(lua_State* L) {
-  float scale[4];
-  luax_readscale(L, 1, scale, 3, NULL);
-  lovrGraphicsScale(scale);
-  return 0;
-}
-
-static int l_lovrGraphicsTransform(lua_State* L) {
-  float transform[16];
-  luax_readmat4(L, 1, transform, 3);
-  lovrGraphicsTransform(transform);
-  return 0;
-}
-
-static int l_lovrGraphicsGetViewPose(lua_State* L) {
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
-  lovrAssert(view < 6, "Invalid view index %d", view + 1);
-  if (lua_gettop(L) > 1) {
-    float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
-    bool invert = lua_toboolean(L, 3);
-    lovrGraphicsGetViewMatrix(view, matrix);
-    if (!invert) mat4_invert(matrix);
-    lua_settop(L, 2);
-    return 1;
-  } else {
-    float matrix[16], angle, ax, ay, az;
-    lovrGraphicsGetViewMatrix(view, matrix);
-    mat4_invert(matrix);
-    mat4_getAngleAxis(matrix, &angle, &ax, &ay, &az);
-    lua_pushnumber(L, matrix[12]);
-    lua_pushnumber(L, matrix[13]);
-    lua_pushnumber(L, matrix[14]);
-    lua_pushnumber(L, angle);
-    lua_pushnumber(L, ax);
-    lua_pushnumber(L, ay);
-    lua_pushnumber(L, az);
-    return 7;
-  }
-}
-
-static int l_lovrGraphicsSetViewPose(lua_State* L) {
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
-  lovrAssert(view < 6, "Invalid view index %d", view + 1);
-  VectorType type;
-  float* p = luax_tovector(L, 2, &type);
-  if (p && type == V_MAT4) {
-    float matrix[16];
-    mat4_init(matrix, p);
-    bool inverted = lua_toboolean(L, 3);
-    if (!inverted) mat4_invert(matrix);
-    lovrGraphicsSetViewMatrix(view, matrix);
-  } else {
-    int index = 2;
-    float position[4], orientation[4], matrix[16];
-    index = luax_readvec3(L, index, position, "vec3, number, or mat4");
-    index = luax_readquat(L, index, orientation, NULL);
-    mat4_fromQuat(matrix, orientation);
-    memcpy(matrix + 12, position, 3 * sizeof(float));
-    mat4_invert(matrix);
-    lovrGraphicsSetViewMatrix(view, matrix);
-  }
-  return 0;
-}
-
-static int l_lovrGraphicsGetProjection(lua_State* L) {
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
-  lovrAssert(view < 6, "Invalid view index %d", view + 1);
-  if (lua_gettop(L) > 1) {
-    float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
-    lovrGraphicsGetProjection(view, matrix);
-    lua_settop(L, 2);
-    return 1;
-  } else {
-    float matrix[16], left, right, up, down;
-    lovrGraphicsGetProjection(view, matrix);
-    mat4_getFov(matrix, &left, &right, &up, &down);
-    lua_pushnumber(L, left);
-    lua_pushnumber(L, right);
-    lua_pushnumber(L, up);
-    lua_pushnumber(L, down);
-    return 4;
-  }
-}
-
-static int l_lovrGraphicsSetProjection(lua_State* L) {
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
-  lovrAssert(view < 6, "Invalid view index %d", view + 1);
-  if (lua_type(L, 2) == LUA_TNUMBER) {
-    float left = luax_checkfloat(L, 2);
-    float right = luax_checkfloat(L, 3);
-    float up = luax_checkfloat(L, 4);
-    float down = luax_checkfloat(L, 5);
-    float clipNear = luax_optfloat(L, 6, .1f);
-    float clipFar = luax_optfloat(L, 7, 100.f);
-    float matrix[16];
-    mat4_fov(matrix, left, right, up, down, clipNear, clipFar);
-    lovrGraphicsSetProjection(view, matrix);
-  } else {
-    float* matrix = luax_checkvector(L, 2, V_MAT4, "mat4 or number");
-    lovrGraphicsSetProjection(view, matrix);
-  }
-  return 0;
-}
-
-static void onStencil(void* userdata) {
-  lua_State* L = userdata;
-  luaL_checktype(L, -1, LUA_TFUNCTION);
-  lua_call(L, 0, 0);
-}
-
-static int l_lovrGraphicsStencil(lua_State* L) {
-  luaL_checktype(L, 1, LUA_TFUNCTION);
-  StencilAction action = luax_checkenum(L, 2, StencilAction, "replace");
-  uint8_t value = luaL_optinteger(L, 3, 1);
-  StencilAction depthAction = luax_checkenum(L, 2, StencilAction, "keep");
-  lovrGraphicsStencil(action, depthAction, value, onStencil, L);
   return 0;
 }
 
@@ -1174,6 +648,172 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewCanvas(lua_State* L) {
+  CanvasInfo info = {
+    .depth.enabled = true,
+    .depth.texture = NULL,
+    .depth.format = FORMAT_D16,
+    .depth.load = LOAD_CLEAR,
+    .depth.save = SAVE_DISCARD,
+    .depth.clear = 1.f,
+    .samples = 1
+  };
+
+  // Texture instead of table
+  int type = lua_type(L, 1);
+  if (type == LUA_TUSERDATA) {
+    info.color[0].texture = luax_checktype(L, 1, Texture);
+    info.color[0].load = LOAD_KEEP;
+    info.color[0].save = SAVE_KEEP;
+    return 0;
+  } else if (lua_istable(L, 1)) {
+
+    // Color targets
+    int count = luax_len(L, 1);
+    for (int i = 0; i < count; i++) {
+      lua_rawgeti(L, 1, i + 1);
+      info.color[i].texture = luax_totype(L, -1, Texture);
+      lovrAssert(info.color[i].texture, "The numeric keys of a render target table must be Textures");
+      lua_pop(L, 1);
+    }
+
+    lua_getfield(L, 1, "load");
+    if (lua_istable(L, -1)) {
+      lua_rawgeti(L, -1, 1);
+      if (lua_type(L, -1) == LUA_TNUMBER) {
+        lua_rawgeti(L, -2, 2);
+        lua_rawgeti(L, -3, 3);
+        lua_rawgeti(L, -4, 4);
+        info.color[0].load = LOAD_CLEAR;
+        info.color[0].clear[0] = luax_checkfloat(L, -4);
+        info.color[0].clear[1] = luax_checkfloat(L, -3);
+        info.color[0].clear[2] = luax_checkfloat(L, -2);
+        info.color[0].clear[3] = luax_optfloat(L, -1, 1.f);
+        lua_pop(L, 4);
+        for (int i = 1; i < count; i++) {
+          info.color[i].load = LOAD_CLEAR;
+          memcpy(info.color[i].clear, info.color[0].clear, 4 * sizeof(float));
+        }
+      } else {
+        lua_pop(L, 1);
+        for (int i = 0; i < count; i++) {
+          lua_rawgeti(L, -1, i + 1);
+          if (lua_istable(L, -1)) {
+            lua_rawgeti(L, -1, 1);
+            lua_rawgeti(L, -2, 2);
+            lua_rawgeti(L, -3, 3);
+            lua_rawgeti(L, -4, 4);
+            info.color[i].load = LOAD_CLEAR;
+            info.color[i].clear[0] = luax_checkfloat(L, -4);
+            info.color[i].clear[1] = luax_checkfloat(L, -3);
+            info.color[i].clear[2] = luax_checkfloat(L, -2);
+            info.color[i].clear[3] = luax_optfloat(L, -1, 1.f);
+            lua_pop(L, 4);
+          } else {
+            info.color[i].load = lua_isnil(L, -1) || lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+          }
+          lua_pop(L, 1);
+        }
+      }
+    } else {
+      LoadOp load = lua_isnil(L, -1) || lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+      for (int i = 0; i < count; i++) {
+        info.color[i].load = load;
+      }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "save");
+    if (lua_istable(L, -1)) {
+      for (int i = 0; i < count; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        info.color[i].save = lua_isnil(L, -1) || lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
+        lua_pop(L, 1);
+      }
+    } else {
+      SaveOp save = lua_isnil(L, -1) || lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
+      for (int i = 0; i < count; i++) {
+        info.color[i].save = save;
+      }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "multisamples");
+    if (lua_toboolean(L, -1)) {
+      for (int i = 0; i < count; i++) {
+        info.color[i].resolve = info.color[i].texture;
+        info.color[i].texture = NULL;
+      }
+      switch (lua_type(L, -1)) {
+        case LUA_TBOOLEAN:
+          info.samples = 4;
+          break;
+        case LUA_TNUMBER:
+          info.samples = lua_tointeger(L, -1); // TODO PO2, zero, negative
+          break;
+        case LUA_TTABLE:
+          for (int i = 0; i < count; i++) {
+            lua_rawgeti(L, -1, i + 1);
+            info.color[i].texture = luax_totype(L, -1, Texture);
+            lua_pop(L, 1);
+          }
+          break;
+        case LUA_TUSERDATA:
+          info.color[0].texture = luax_checktype(L, -1, Texture);
+          break;
+      }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "depth");
+    switch (lua_type(L, -1)) {
+      case LUA_TBOOLEAN:
+        info.depth.enabled = lua_toboolean(L, -1);
+        break;
+      case LUA_TSTRING:
+        info.depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
+        break;
+      case LUA_TUSERDATA:
+        info.depth.texture = luax_checktype(L, -1, Texture);
+        break;
+      case LUA_TTABLE:
+        lua_rawgeti(L, -1, 1);
+        info.depth.texture = luax_totype(L, -1, Texture);
+        lua_pop(L, 1);
+
+        lua_getfield(L, -1, "format");
+        info.depth.format = luax_checkenum(L, -1, TextureFormat, NULL);
+        lua_pop(L, 1);
+
+        lua_getfield(L, -1, "load");
+        switch (lua_type(L, -1)) {
+          case LUA_TNIL:
+            info.depth.load = LOAD_KEEP;
+            break;
+          case LUA_TBOOLEAN:
+            info.depth.load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+            break;
+          case LUA_TNUMBER:
+            info.depth.load = LOAD_CLEAR;
+            info.depth.clear = lua_tonumber(L, -1);
+            break;
+          case LUA_TTABLE:
+            //
+            break;
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+  } else {
+    return luaL_argerror(L, 1, "Need Texture or table to create a Canvas");
+  }
+
+  Canvas* canvas = lovrCanvasCreate(&info);
+  luax_pushtype(L, Canvas, canvas);
+  lovrRelease(canvas, lovrCanvasDestroy);
+  return 1;
+}
+
 static int l_lovrGraphicsNewShader(lua_State* L) {
   const char* dynamicBuffers[64];
 
@@ -1276,44 +916,9 @@ static const luaL_Reg lovrGraphics[] = {
   { "getLimits", l_lovrGraphicsGetLimits },
   { "begin", l_lovrGraphicsBegin },
   { "flush", l_lovrGraphicsFlush },
-  { "render", l_lovrGraphicsRender },
-  { "bind", l_lovrGraphicsBind },
-  { "getAlphaToCoverage", l_lovrGraphicsGetAlphaToCoverage },
-  { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
-  { "getBlendMode", l_lovrGraphicsGetBlendMode },
-  { "setBlendMode", l_lovrGraphicsSetBlendMode },
-  { "getColorMask", l_lovrGraphicsGetColorMask },
-  { "setColorMask", l_lovrGraphicsSetColorMask },
-  { "getCullMode", l_lovrGraphicsGetCullMode },
-  { "setCullMode", l_lovrGraphicsSetCullMode },
-  { "getDepthTest", l_lovrGraphicsGetDepthTest },
-  { "setDepthTest", l_lovrGraphicsSetDepthTest },
-  { "getDepthNudge", l_lovrGraphicsGetDepthNudge },
-  { "setDepthNudge", l_lovrGraphicsSetDepthNudge },
-  { "getDepthClamp", l_lovrGraphicsGetDepthClamp },
-  { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
-  { "getShader", l_lovrGraphicsGetShader },
-  { "setShader", l_lovrGraphicsSetShader },
-  { "getStencilTest", l_lovrGraphicsGetStencilTest },
-  { "setStencilTest", l_lovrGraphicsSetStencilTest },
-  { "getWinding", l_lovrGraphicsGetWinding },
-  { "setWinding", l_lovrGraphicsSetWinding },
-  { "isWireframe", l_lovrGraphicsIsWireframe },
-  { "setWireframe", l_lovrGraphicsSetWireframe },
-  { "push", l_lovrGraphicsPush },
-  { "pop", l_lovrGraphicsPop },
-  { "origin", l_lovrGraphicsOrigin },
-  { "translate", l_lovrGraphicsTranslate },
-  { "rotate", l_lovrGraphicsRotate },
-  { "scale", l_lovrGraphicsScale },
-  { "transform", l_lovrGraphicsTransform },
-  { "getViewPose", l_lovrGraphicsGetViewPose },
-  { "setViewPose", l_lovrGraphicsSetViewPose },
-  { "getProjection", l_lovrGraphicsGetProjection },
-  { "setProjection", l_lovrGraphicsSetProjection },
-  { "stencil", l_lovrGraphicsStencil },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
+  { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newShader", l_lovrGraphicsNewShader },
   { "newBundle", l_lovrGraphicsNewBundle },
   { NULL, NULL }
@@ -1321,6 +926,7 @@ static const luaL_Reg lovrGraphics[] = {
 
 extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
+extern const luaL_Reg lovrCanvas[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrBundle[];
 
@@ -1329,6 +935,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_register(L, lovrGraphics);
   luax_registertype(L, Buffer);
   luax_registertype(L, Texture);
+  luax_registertype(L, Canvas);
   luax_registertype(L, Shader);
   luax_registertype(L, Bundle);
 

@@ -26,6 +26,31 @@ struct Texture {
   TextureInfo info;
 };
 
+struct Pipeline {
+  uint32_t ref;
+  gpu_pipeline* gpu;
+  PipelineInfo info;
+};
+
+struct Canvas {
+  uint32_t ref;
+  gpu_pass* gpu;
+  gpu_render_target target;
+  gpu_batch* commands;
+  CanvasInfo info;
+  struct {
+    gpu_pipeline_info info;
+    gpu_pipeline* instance;
+    uint64_t hash;
+    bool dirty;
+  } pipeline;
+  Shader* shader;
+  uint32_t transform;
+  float transforms[64][16];
+  float viewMatrix[6][16];
+  float projection[6][16];
+};
+
 typedef struct {
   uint64_t hash;
   uint16_t slotMask;
@@ -60,21 +85,6 @@ struct Bundle {
   bool dirty;
 };
 
-static LOVR_THREAD_LOCAL struct {
-  struct {
-    gpu_pipeline_info info;
-    gpu_pipeline* instance;
-    uint64_t hash;
-    bool dirty;
-  } pipeline;
-  Shader* shader;
-  Bundle* bundles[4];
-  uint32_t transform;
-  float transforms[64][16];
-  float viewMatrix[6][16];
-  float projection[6][16];
-} thread;
-
 static struct {
   bool initialized;
   bool debug;
@@ -82,8 +92,6 @@ static struct {
   int height;
   gpu_features features;
   gpu_limits limits;
-  gpu_batch* batch;
-  map_t passes;
   map_t pipelines;
   map_t pipelineLobby;
   mtx_t pipelineLock;
@@ -110,14 +118,6 @@ bool lovrGraphicsInit(bool debug) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
-  for (uint32_t i = 0; i < state.passes.size; i++) {
-    if (state.passes.values[i] != MAP_NIL) {
-      gpu_pass* pass = (gpu_pass*) (uintptr_t) state.passes.values[i];
-      gpu_pass_destroy(pass);
-      free(pass);
-    }
-  }
-  map_free(&state.passes);
   map_free(&state.pipelines);
   map_free(&state.pipelineLobby);
   mtx_destroy(&state.pipelineLock);
@@ -153,7 +153,6 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
 
   lovrAssert(gpu_init(&config), "Could not initialize GPU");
   gpu_thread_attach();
-  map_init(&state.passes, 0);
   map_init(&state.pipelines, 0);
   map_init(&state.pipelineLobby, 0);
   mtx_init(&state.pipelineLock, mtx_plain);
@@ -244,389 +243,6 @@ void lovrGraphicsFlush() {
   gpu_flush();
 
   // TODO flush pipeline lobby
-}
-
-void lovrGraphicsRender(Canvas* canvas) {
-  gpu_pass_info info;
-  gpu_render_target target;
-  memset(&info, 0, sizeof(info));
-
-  gpu_load_op loads[] = {
-    [LOAD_KEEP] = GPU_LOAD_OP_LOAD,
-    [LOAD_CLEAR] = GPU_LOAD_OP_CLEAR,
-    [LOAD_DISCARD] = GPU_LOAD_OP_DISCARD
-  };
-
-  gpu_save_op saves[] = {
-    [SAVE_KEEP] = GPU_SAVE_OP_SAVE,
-    [SAVE_DISCARD] = GPU_SAVE_OP_DISCARD
-  };
-
-  for (uint32_t i = 0; i < 4; i++) {
-    if (!canvas->color[i].texture && !canvas->color[i].resolve) {
-      target.color[i].texture = NULL;
-      break;
-    }
-
-    lovrAssert(canvas->color[i].texture, "TODO: Anonymous MSAA targets");
-
-    info.color[i].format = (gpu_texture_format) canvas->color[i].texture->info.format;
-    info.color[i].load = loads[canvas->color[i].load];
-    info.color[i].save = saves[canvas->color[i].save];
-    info.color[i].srgb = canvas->color[i].texture->info.srgb;
-
-    target.color[i].texture = canvas->color[i].texture->gpu;
-    target.color[i].resolve = canvas->color[i].resolve ? canvas->color[i].resolve->gpu : NULL;
-    memcpy(target.color[i].clear, canvas->color[i].clear, 4 * sizeof(float));
-
-    // TODO view must have a single mipmap
-  }
-
-  if (canvas->depth.enabled) {
-    lovrAssert(canvas->depth.texture, "TODO: Anonymous depth targets");
-
-    info.depth.format = (gpu_texture_format) canvas->depth.texture->info.format;
-    info.depth.load = loads[canvas->depth.load];
-    info.depth.save = saves[canvas->depth.save];
-    info.depth.stencilLoad = loads[canvas->depth.stencil.load];
-    info.depth.stencilSave = saves[canvas->depth.stencil.save];
-
-    target.depth.texture = canvas->depth.texture->gpu;
-    target.depth.clear = canvas->depth.clear;
-    target.depth.stencilClear = canvas->depth.stencil.clear;
-  }
-
-  TextureInfo* textureInfo = canvas->color[0].texture ? &canvas->color[0].texture->info : &canvas->depth.texture->info;
-  info.views = textureInfo->type == TEXTURE_ARRAY ? textureInfo->size[2] : 0;
-  info.samples = canvas->samples;
-
-  uint64_t hash = hash64(&info, sizeof(info));
-  uint64_t value = map_get(&state.passes, hash);
-
-  // TODO better allocator
-  // TODO eviction
-  if (value == MAP_NIL) {
-    gpu_pass* pass = calloc(1, gpu_sizeof_pass());
-    lovrAssert(pass, "Out of memory");
-    gpu_pass_init(pass, &info);
-    value = (uintptr_t) pass;
-    map_set(&state.passes, hash, value);
-  }
-
-  gpu_pass* pass = (gpu_pass*) (uintptr_t) value;
-  target.size[0] = canvas->color[0].texture->info.size[0];
-  target.size[1] = canvas->color[0].texture->info.size[1];
-  state.batch = gpu_batch_init_render(pass, &target, NULL, 0);
-
-  // TODO reset pipeline state
-  memset(thread.bundles, 0, sizeof(thread.bundles));
-}
-
-void lovrGraphicsEndPass() {
-  gpu_batch_end(state.batch);
-}
-
-void lovrGraphicsBind(uint32_t group, Bundle* bundle) {
-  lovrAssert(group < 4, "Attempt to bind a bundle to group %d, but the max group is 3", group);
-  thread.bundles[group] = bundle;
-}
-
-/*
-static gpu_pipeline* resolvePipeline() {
-
-  // If the pipeline info hasn't changed, and a pipeline is already bound, just use that
-  if (thread.pipeline.instance && !thread.pipeline.dirty) {
-    return thread.pipeline.instance;
-  }
-
-  uint64_t hash = hash64(&thread.pipeline.info, sizeof(gpu_pipeline_info));
-
-  // If the pipeline info is the same as the one already bound, just use the existing pipeline
-  if (thread.pipeline.instance && thread.pipeline.hash == hash) {
-    return thread.pipeline.instance;
-  }
-
-  // If there is already an existing pipeline with the matching info, use that
-  uint64_t value = map_get(&state.pipelines, hash);
-  if (value != MAP_NIL) {
-    return (gpu_pipeline*) (uintptr_t) value;
-  }
-
-  // Otherwise, check the lobby
-  mtx_lock(&state.pipelineLock);
-  value = map_get(&state.pipelineLobby, hash);
-  if (value != MAP_NIL) {
-    mtx_unlock(&state.pipelineLock);
-    return (gpu_pipeline*) (uintptr_t) value;
-  }
-
-  // If it's not in the lobby, add it
-  // TODO better allocator
-  // TODO eviction
-  gpu_pipeline* pipeline = calloc(1, gpu_sizeof_pipeline());
-  lovrAssert(pipeline, "Out of memory");
-  gpu_pipeline_init_graphics(pipeline, &thread.pipeline.info);
-  value = (uintptr_t) pipeline;
-  map_set(&state.pipelineLobby, hash, value);
-  mtx_unlock(&state.pipelineLock);
-  return pipeline;
-}
-*/
-
-bool lovrGraphicsGetAlphaToCoverage() {
-  return thread.pipeline.info.alphaToCoverage;
-}
-
-void lovrGraphicsSetAlphaToCoverage(bool enabled) {
-  thread.pipeline.info.alphaToCoverage = enabled;
-  thread.pipeline.dirty = true;
-}
-
-static const gpu_blend_state blendModes[] = {
-  [BLEND_ALPHA] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD },
-    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD }
-  },
-  [BLEND_ADD] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD },
-    .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD }
-  },
-  [BLEND_SUBTRACT] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB },
-    .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB }
-  },
-  [BLEND_MULTIPLY] = {
-    .color = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
-    .alpha = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
-  },
-  [BLEND_LIGHTEN] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX },
-    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX }
-  },
-  [BLEND_DARKEN] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN },
-    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN }
-  },
-  [BLEND_SCREEN] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD },
-    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD }
-  }
-};
-
-void lovrGraphicsGetBlendMode(uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode) {
-  gpu_blend_state* blend = &thread.pipeline.info.blend[target];
-
-  if (!blend->enabled) {
-    *mode = BLEND_NONE;
-    *alphaMode = BLEND_ALPHA_MULTIPLY;
-    return;
-  }
-
-  for (uint32_t i = 0; i < COUNTOF(blendModes); i++) {
-    const gpu_blend_state* a = blend;
-    const gpu_blend_state* b = &blendModes[i];
-    if (a->color.dst == b->color.dst && a->alpha.src == b->alpha.src && a->alpha.dst == b->alpha.dst && a->color.op == b->color.op && a->alpha.op == b->alpha.op) {
-      *mode = i;
-      *alphaMode = a->color.src == GPU_BLEND_ONE ? BLEND_PREMULTIPLIED : BLEND_ALPHA_MULTIPLY;
-    }
-  }
-
-  lovrThrow("Unreachable");
-}
-
-void lovrGraphicsSetBlendMode(uint32_t target, BlendMode mode, BlendAlphaMode alphaMode) {
-  if (mode == BLEND_NONE) {
-    memset(&thread.pipeline.info.blend[target], 0, sizeof(gpu_blend_state));
-    return;
-  }
-
-  thread.pipeline.info.blend[target] = blendModes[mode];
-  if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
-    thread.pipeline.info.blend[target].color.src = GPU_BLEND_ONE;
-  }
-  thread.pipeline.info.blend[target].enabled = true;
-  thread.pipeline.dirty = true;
-}
-
-void lovrGraphicsGetColorMask(uint32_t target, bool* r, bool* g, bool* b, bool* a) {
-  uint8_t mask = thread.pipeline.info.colorMask[target];
-  *r = mask & 0x1;
-  *g = mask & 0x2;
-  *b = mask & 0x4;
-  *a = mask & 0x8;
-}
-
-void lovrGraphicsSetColorMask(uint32_t target, bool r, bool g, bool b, bool a) {
-  thread.pipeline.info.colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
-  thread.pipeline.dirty = true;
-}
-
-CullMode lovrGraphicsGetCullMode() {
-  return (CullMode) thread.pipeline.info.rasterizer.cullMode;
-}
-
-void lovrGraphicsSetCullMode(CullMode mode) {
-  thread.pipeline.info.rasterizer.cullMode = (gpu_cull_mode) mode;
-  thread.pipeline.dirty = true;
-}
-
-void lovrGraphicsGetDepthTest(CompareMode* test, bool* write) {
-  *test = (CompareMode) thread.pipeline.info.depth.test;
-  *write = thread.pipeline.info.depth.write;
-}
-
-void lovrGraphicsSetDepthTest(CompareMode test, bool write) {
-  thread.pipeline.info.depth.test = (gpu_compare_mode) test;
-  thread.pipeline.info.depth.write = write;
-  thread.pipeline.dirty = true;
-}
-
-void lovrGraphicsGetDepthNudge(float* nudge, float* sloped, float* clamp) {
-  *nudge = thread.pipeline.info.rasterizer.depthOffset;
-  *sloped = thread.pipeline.info.rasterizer.depthOffsetSloped;
-  *clamp = thread.pipeline.info.rasterizer.depthOffsetClamp;
-}
-
-void lovrGraphicsSetDepthNudge(float nudge, float sloped, float clamp) {
-  thread.pipeline.info.rasterizer.depthOffset = nudge;
-  thread.pipeline.info.rasterizer.depthOffsetSloped = sloped;
-  thread.pipeline.info.rasterizer.depthOffsetClamp = clamp;
-  thread.pipeline.dirty = true;
-}
-
-bool lovrGraphicsGetDepthClamp() {
-  return thread.pipeline.info.rasterizer.depthClamp;
-}
-
-void lovrGraphicsSetDepthClamp(bool clamp) {
-  thread.pipeline.info.rasterizer.depthClamp = clamp;
-  thread.pipeline.dirty = true;
-}
-
-void lovrGraphicsGetStencilTest(CompareMode* test, uint8_t* value) {
-  switch (thread.pipeline.info.stencil.test) {
-    case GPU_COMPARE_NONE: default: *test = COMPARE_NONE; break;
-    case GPU_COMPARE_EQUAL: *test = COMPARE_EQUAL; break;
-    case GPU_COMPARE_NEQUAL: *test = COMPARE_NEQUAL; break;
-    case GPU_COMPARE_LESS: *test = COMPARE_GREATER; break;
-    case GPU_COMPARE_LEQUAL: *test = COMPARE_GEQUAL; break;
-    case GPU_COMPARE_GREATER: *test = COMPARE_LESS; break;
-    case GPU_COMPARE_GEQUAL: *test = COMPARE_LEQUAL; break;
-  }
-  *value = thread.pipeline.info.stencil.value;
-}
-
-void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value) {
-  switch (test) {
-    case COMPARE_NONE: default: thread.pipeline.info.stencil.test = GPU_COMPARE_NONE; break;
-    case COMPARE_EQUAL: thread.pipeline.info.stencil.test = GPU_COMPARE_EQUAL; break;
-    case COMPARE_NEQUAL: thread.pipeline.info.stencil.test = GPU_COMPARE_NEQUAL; break;
-    case COMPARE_LESS: thread.pipeline.info.stencil.test = GPU_COMPARE_GREATER; break;
-    case COMPARE_LEQUAL: thread.pipeline.info.stencil.test = GPU_COMPARE_GEQUAL; break;
-    case COMPARE_GREATER: thread.pipeline.info.stencil.test = GPU_COMPARE_LESS; break;
-    case COMPARE_GEQUAL: thread.pipeline.info.stencil.test = GPU_COMPARE_LEQUAL; break;
-  }
-  thread.pipeline.info.stencil.value = value;
-  thread.pipeline.dirty = true;
-}
-
-Shader* lovrGraphicsGetShader() {
-  return thread.shader;
-}
-
-void lovrGraphicsSetShader(Shader* shader) {
-  lovrAssert(!shader || shader->info.type == SHADER_GRAPHICS, "Compute shaders can not be used with setShader");
-  if (shader == thread.shader) return;
-  lovrRetain(shader);
-  lovrRelease(thread.shader, lovrShaderDestroy);
-  thread.shader = shader;
-  thread.pipeline.info.shader = shader->gpu;
-  thread.pipeline.dirty = true;
-}
-
-Winding lovrGraphicsGetWinding() {
-  return (Winding) thread.pipeline.info.rasterizer.winding;
-}
-
-void lovrGraphicsSetWinding(Winding winding) {
-  thread.pipeline.info.rasterizer.winding = (gpu_winding) winding;
-  thread.pipeline.dirty = true;
-}
-
-bool lovrGraphicsIsWireframe() {
-  return thread.pipeline.info.rasterizer.wireframe;
-}
-
-void lovrGraphicsSetWireframe(bool wireframe) {
-  thread.pipeline.info.rasterizer.wireframe = wireframe;
-  thread.pipeline.dirty = true;
-}
-
-void lovrGraphicsPush() {
-  lovrAssert(++thread.transform < COUNTOF(thread.transforms), "Unbalanced matrix stack (more pushes than pops?)");
-  mat4_init(thread.transforms[thread.transform], thread.transforms[thread.transform - 1]);
-}
-
-void lovrGraphicsPop() {
-  lovrAssert(--thread.transform < COUNTOF(thread.transforms), "Unbalanced matrix stack (more pops than pushes?)");
-}
-
-void lovrGraphicsOrigin() {
-  mat4_identity(thread.transforms[thread.transform]);
-}
-
-void lovrGraphicsTranslate(vec3 translation) {
-  mat4_translate(thread.transforms[thread.transform], translation[0], translation[1], translation[2]);
-}
-
-void lovrGraphicsRotate(quat rotation) {
-  mat4_rotateQuat(thread.transforms[thread.transform], rotation);
-}
-
-void lovrGraphicsScale(vec3 scale) {
-  mat4_scale(thread.transforms[thread.transform], scale[0], scale[1], scale[2]);
-}
-
-void lovrGraphicsTransform(mat4 transform) {
-  mat4_mul(thread.transforms[thread.transform], transform);
-}
-
-void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix) {
-  lovrAssert(index < COUNTOF(thread.viewMatrix), "Invalid view index %d", index);
-  mat4_init(viewMatrix, thread.viewMatrix[index]);
-}
-
-void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix) {
-  lovrAssert(index < COUNTOF(thread.viewMatrix), "Invalid view index %d", index);
-  mat4_init(thread.viewMatrix[index], viewMatrix);
-}
-
-void lovrGraphicsGetProjection(uint32_t index, float* projection) {
-  lovrAssert(index < COUNTOF(thread.projection), "Invalid view index %d", index);
-  mat4_init(projection, thread.projection[index]);
-}
-
-void lovrGraphicsSetProjection(uint32_t index, float* projection) {
-  lovrAssert(index < COUNTOF(thread.projection), "Invalid view index %d", index);
-  mat4_init(thread.projection[index], projection);
-}
-
-void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata) {
-  uint8_t oldValue = thread.pipeline.info.stencil.value;
-  gpu_compare_mode oldTest = thread.pipeline.info.stencil.test;
-  // TODO must be in render pass
-  // TODO must have stencil buffer?
-  thread.pipeline.info.stencil.test = GPU_COMPARE_NONE;
-  thread.pipeline.info.stencil.passOp = (gpu_stencil_op) action;
-  thread.pipeline.info.stencil.depthFailOp = (gpu_stencil_op) depthFailAction;
-  thread.pipeline.info.stencil.value = value;
-  thread.pipeline.dirty = true;
-  callback(userdata);
-  thread.pipeline.info.stencil.test = oldTest;
-  thread.pipeline.info.stencil.passOp = GPU_STENCIL_KEEP;
-  thread.pipeline.info.stencil.depthFailOp = GPU_STENCIL_KEEP;
-  thread.pipeline.info.stencil.value = oldValue;
-  thread.pipeline.dirty = true;
 }
 
 // Buffer
@@ -763,6 +379,350 @@ void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, 
   uint16_t offset[4] = { x, y, layer, level };
   uint16_t extent[3] = { w, h, 1 };
   gpu_texture_read(texture->gpu, offset, extent, callback, context);
+}
+
+// Pipeline
+
+// Canvas
+
+Canvas* lovrCanvasCreate(CanvasInfo* info) {
+  Canvas* canvas = calloc(1, sizeof(Canvas) + gpu_sizeof_pass());
+  canvas->gpu = (gpu_pass*) (canvas + 1);
+  canvas->info = *info;
+  canvas->ref = 1;
+
+  gpu_pass_info gpuInfo;
+  gpu_render_target target;
+  memset(&info, 0, sizeof(info));
+
+  gpu_load_op loads[] = {
+    [LOAD_KEEP] = GPU_LOAD_OP_LOAD,
+    [LOAD_CLEAR] = GPU_LOAD_OP_CLEAR,
+    [LOAD_DISCARD] = GPU_LOAD_OP_DISCARD
+  };
+
+  gpu_save_op saves[] = {
+    [SAVE_KEEP] = GPU_SAVE_OP_SAVE,
+    [SAVE_DISCARD] = GPU_SAVE_OP_DISCARD
+  };
+
+  for (uint32_t i = 0; i < 4; i++) {
+    if (!info->color[i].texture && !info->color[i].resolve) {
+      target.color[i].texture = NULL;
+      break;
+    }
+
+    lovrAssert(info->color[i].texture, "TODO: Anonymous MSAA targets");
+
+    gpuInfo.color[i].format = (gpu_texture_format) info->color[i].texture->info.format;
+    gpuInfo.color[i].load = loads[info->color[i].load];
+    gpuInfo.color[i].save = saves[info->color[i].save];
+    gpuInfo.color[i].srgb = info->color[i].texture->info.srgb;
+
+    target.color[i].texture = info->color[i].texture->gpu;
+    target.color[i].resolve = info->color[i].resolve ? info->color[i].resolve->gpu : NULL;
+    memcpy(target.color[i].clear, info->color[i].clear, 4 * sizeof(float));
+
+    // TODO view must have a single mipmap
+  }
+
+  if (info->depth.enabled) {
+    lovrAssert(info->depth.texture, "TODO: Anonymous depth targets");
+
+    gpuInfo.depth.format = (gpu_texture_format) info->depth.texture->info.format;
+    gpuInfo.depth.load = loads[info->depth.load];
+    gpuInfo.depth.save = saves[info->depth.save];
+    gpuInfo.depth.stencilLoad = loads[info->depth.stencil.load];
+    gpuInfo.depth.stencilSave = saves[info->depth.stencil.save];
+
+    target.depth.texture = info->depth.texture->gpu;
+    target.depth.clear = info->depth.clear;
+    target.depth.stencilClear = info->depth.stencil.clear;
+  }
+
+  TextureInfo* textureInfo = info->color[0].texture ? &info->color[0].texture->info : &info->depth.texture->info;
+  gpuInfo.views = textureInfo->type == TEXTURE_ARRAY ? textureInfo->size[2] : 0;
+  gpuInfo.samples = info->samples;
+
+  lovrAssert(gpu_pass_init(canvas->gpu, &gpuInfo), "Could not create Canvas");
+  return canvas;
+}
+
+void lovrCanvasDestroy(void* ref) {
+  Canvas* canvas = ref;
+  gpu_pass_destroy(canvas->gpu);
+}
+
+const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
+  return &canvas->info;
+}
+
+void lovrCanvasBegin(Canvas* canvas) {
+  canvas->commands = gpu_batch_init_render(canvas->gpu, &canvas->target, NULL, 0);
+}
+
+void lovrCanvasFinish(Canvas* canvas) {
+  canvas->commands = NULL;
+}
+
+bool lovrCanvasIsActive(Canvas* canvas) {
+  return canvas->commands;
+}
+
+bool lovrCanvasGetAlphaToCoverage(Canvas* canvas) {
+  return canvas->pipeline.info.alphaToCoverage;
+}
+
+void lovrCanvasSetAlphaToCoverage(Canvas* canvas, bool enabled) {
+  canvas->pipeline.info.alphaToCoverage = enabled;
+  canvas->pipeline.dirty = true;
+}
+
+static const gpu_blend_state blendModes[] = {
+  [BLEND_ALPHA] = {
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD },
+    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD }
+  },
+  [BLEND_ADD] = {
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD },
+    .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD }
+  },
+  [BLEND_SUBTRACT] = {
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB },
+    .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB }
+  },
+  [BLEND_MULTIPLY] = {
+    .color = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
+    .alpha = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
+  },
+  [BLEND_LIGHTEN] = {
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX },
+    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX }
+  },
+  [BLEND_DARKEN] = {
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN },
+    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN }
+  },
+  [BLEND_SCREEN] = {
+    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD },
+    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD }
+  }
+};
+
+void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode) {
+  gpu_blend_state* blend = &canvas->pipeline.info.blend[target];
+
+  if (!blend->enabled) {
+    *mode = BLEND_NONE;
+    *alphaMode = BLEND_ALPHA_MULTIPLY;
+    return;
+  }
+
+  for (uint32_t i = 0; i < COUNTOF(blendModes); i++) {
+    const gpu_blend_state* a = blend;
+    const gpu_blend_state* b = &blendModes[i];
+    if (a->color.dst == b->color.dst && a->alpha.src == b->alpha.src && a->alpha.dst == b->alpha.dst && a->color.op == b->color.op && a->alpha.op == b->alpha.op) {
+      *mode = i;
+      *alphaMode = a->color.src == GPU_BLEND_ONE ? BLEND_PREMULTIPLIED : BLEND_ALPHA_MULTIPLY;
+    }
+  }
+
+  lovrThrow("Unreachable");
+}
+
+void lovrCanvasSetBlendMode(Canvas* canvas, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode) {
+  if (mode == BLEND_NONE) {
+    memset(&canvas->pipeline.info.blend[target], 0, sizeof(gpu_blend_state));
+    return;
+  }
+
+  canvas->pipeline.info.blend[target] = blendModes[mode];
+  if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
+    canvas->pipeline.info.blend[target].color.src = GPU_BLEND_ONE;
+  }
+  canvas->pipeline.info.blend[target].enabled = true;
+  canvas->pipeline.dirty = true;
+}
+
+void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, bool* b, bool* a) {
+  uint8_t mask = canvas->pipeline.info.colorMask[target];
+  *r = mask & 0x1;
+  *g = mask & 0x2;
+  *b = mask & 0x4;
+  *a = mask & 0x8;
+}
+
+void lovrCanvasSetColorMask(Canvas* canvas, uint32_t target, bool r, bool g, bool b, bool a) {
+  canvas->pipeline.info.colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
+  canvas->pipeline.dirty = true;
+}
+
+CullMode lovrCanvasGetCullMode(Canvas* canvas) {
+  return (CullMode) canvas->pipeline.info.rasterizer.cullMode;
+}
+
+void lovrCanvasSetCullMode(Canvas* canvas, CullMode mode) {
+  canvas->pipeline.info.rasterizer.cullMode = (gpu_cull_mode) mode;
+  canvas->pipeline.dirty = true;
+}
+
+void lovrCanvasGetDepthTest(Canvas* canvas, CompareMode* test, bool* write) {
+  *test = (CompareMode) canvas->pipeline.info.depth.test;
+  *write = canvas->pipeline.info.depth.write;
+}
+
+void lovrCanvasSetDepthTest(Canvas* canvas, CompareMode test, bool write) {
+  canvas->pipeline.info.depth.test = (gpu_compare_mode) test;
+  canvas->pipeline.info.depth.write = write;
+  canvas->pipeline.dirty = true;
+}
+
+void lovrCanvasGetDepthNudge(Canvas* canvas, float* nudge, float* sloped, float* clamp) {
+  *nudge = canvas->pipeline.info.rasterizer.depthOffset;
+  *sloped = canvas->pipeline.info.rasterizer.depthOffsetSloped;
+  *clamp = canvas->pipeline.info.rasterizer.depthOffsetClamp;
+}
+
+void lovrCanvasSetDepthNudge(Canvas* canvas, float nudge, float sloped, float clamp) {
+  canvas->pipeline.info.rasterizer.depthOffset = nudge;
+  canvas->pipeline.info.rasterizer.depthOffsetSloped = sloped;
+  canvas->pipeline.info.rasterizer.depthOffsetClamp = clamp;
+  canvas->pipeline.dirty = true;
+}
+
+bool lovrCanvasGetDepthClamp(Canvas* canvas) {
+  return canvas->pipeline.info.rasterizer.depthClamp;
+}
+
+void lovrCanvasSetDepthClamp(Canvas* canvas, bool clamp) {
+  canvas->pipeline.info.rasterizer.depthClamp = clamp;
+  canvas->pipeline.dirty = true;
+}
+
+void lovrCanvasGetStencilTest(Canvas* canvas, CompareMode* test, uint8_t* value) {
+  switch (canvas->pipeline.info.stencil.test) {
+    case GPU_COMPARE_NONE: default: *test = COMPARE_NONE; break;
+    case GPU_COMPARE_EQUAL: *test = COMPARE_EQUAL; break;
+    case GPU_COMPARE_NEQUAL: *test = COMPARE_NEQUAL; break;
+    case GPU_COMPARE_LESS: *test = COMPARE_GREATER; break;
+    case GPU_COMPARE_LEQUAL: *test = COMPARE_GEQUAL; break;
+    case GPU_COMPARE_GREATER: *test = COMPARE_LESS; break;
+    case GPU_COMPARE_GEQUAL: *test = COMPARE_LEQUAL; break;
+  }
+  *value = canvas->pipeline.info.stencil.value;
+}
+
+void lovrCanvasSetStencilTest(Canvas* canvas, CompareMode test, uint8_t value) {
+  switch (test) {
+    case COMPARE_NONE: default: canvas->pipeline.info.stencil.test = GPU_COMPARE_NONE; break;
+    case COMPARE_EQUAL: canvas->pipeline.info.stencil.test = GPU_COMPARE_EQUAL; break;
+    case COMPARE_NEQUAL: canvas->pipeline.info.stencil.test = GPU_COMPARE_NEQUAL; break;
+    case COMPARE_LESS: canvas->pipeline.info.stencil.test = GPU_COMPARE_GREATER; break;
+    case COMPARE_LEQUAL: canvas->pipeline.info.stencil.test = GPU_COMPARE_GEQUAL; break;
+    case COMPARE_GREATER: canvas->pipeline.info.stencil.test = GPU_COMPARE_LESS; break;
+    case COMPARE_GEQUAL: canvas->pipeline.info.stencil.test = GPU_COMPARE_LEQUAL; break;
+  }
+  canvas->pipeline.info.stencil.value = value;
+  canvas->pipeline.dirty = true;
+}
+
+Shader* lovrCanvasGetShader(Canvas* canvas) {
+  return canvas->shader;
+}
+
+void lovrCanvasSetShader(Canvas* canvas, Shader* shader) {
+  lovrAssert(!shader || shader->info.type == SHADER_GRAPHICS, "Compute shaders can not be used with setShader");
+  if (shader == canvas->shader) return;
+  lovrRetain(shader);
+  lovrRelease(canvas->shader, lovrShaderDestroy);
+  canvas->shader = shader;
+  canvas->pipeline.info.shader = shader->gpu;
+  canvas->pipeline.dirty = true;
+}
+
+Winding lovrCanvasGetWinding(Canvas* canvas) {
+  return (Winding) canvas->pipeline.info.rasterizer.winding;
+}
+
+void lovrCanvasSetWinding(Canvas* canvas, Winding winding) {
+  canvas->pipeline.info.rasterizer.winding = (gpu_winding) winding;
+  canvas->pipeline.dirty = true;
+}
+
+bool lovrCanvasIsWireframe(Canvas* canvas) {
+  return canvas->pipeline.info.rasterizer.wireframe;
+}
+
+void lovrCanvasSetWireframe(Canvas* canvas, bool wireframe) {
+  canvas->pipeline.info.rasterizer.wireframe = wireframe;
+  canvas->pipeline.dirty = true;
+}
+
+void lovrCanvasPush(Canvas* canvas) {
+  lovrAssert(++canvas->transform < COUNTOF(canvas->transforms), "Unbalanced matrix stack (more pushes than pops?)");
+  mat4_init(canvas->transforms[canvas->transform], canvas->transforms[canvas->transform - 1]);
+}
+
+void lovrCanvasPop(Canvas* canvas) {
+  lovrAssert(--canvas->transform < COUNTOF(canvas->transforms), "Unbalanced matrix stack (more pops than pushes?)");
+}
+
+void lovrCanvasOrigin(Canvas* canvas) {
+  mat4_identity(canvas->transforms[canvas->transform]);
+}
+
+void lovrCanvasTranslate(Canvas* canvas, vec3 translation) {
+  mat4_translate(canvas->transforms[canvas->transform], translation[0], translation[1], translation[2]);
+}
+
+void lovrCanvasRotate(Canvas* canvas, quat rotation) {
+  mat4_rotateQuat(canvas->transforms[canvas->transform], rotation);
+}
+
+void lovrCanvasScale(Canvas* canvas, vec3 scale) {
+  mat4_scale(canvas->transforms[canvas->transform], scale[0], scale[1], scale[2]);
+}
+
+void lovrCanvasTransform(Canvas* canvas, mat4 transform) {
+  mat4_mul(canvas->transforms[canvas->transform], transform);
+}
+
+void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
+  lovrAssert(index < COUNTOF(canvas->viewMatrix), "Invalid view index %d", index);
+  mat4_init(viewMatrix, canvas->viewMatrix[index]);
+}
+
+void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
+  lovrAssert(index < COUNTOF(canvas->viewMatrix), "Invalid view index %d", index);
+  mat4_init(canvas->viewMatrix[index], viewMatrix);
+}
+
+void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection) {
+  lovrAssert(index < COUNTOF(canvas->projection), "Invalid view index %d", index);
+  mat4_init(projection, canvas->projection[index]);
+}
+
+void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection) {
+  lovrAssert(index < COUNTOF(canvas->projection), "Invalid view index %d", index);
+  mat4_init(canvas->projection[index], projection);
+}
+
+void lovrCanvasStencil(Canvas* canvas, StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata) {
+  uint8_t oldValue = canvas->pipeline.info.stencil.value;
+  gpu_compare_mode oldTest = canvas->pipeline.info.stencil.test;
+  // TODO must be in render pass
+  // TODO must have stencil buffer?
+  canvas->pipeline.info.stencil.test = GPU_COMPARE_NONE;
+  canvas->pipeline.info.stencil.passOp = (gpu_stencil_op) action;
+  canvas->pipeline.info.stencil.depthFailOp = (gpu_stencil_op) depthFailAction;
+  canvas->pipeline.info.stencil.value = value;
+  canvas->pipeline.dirty = true;
+  callback(userdata);
+  canvas->pipeline.info.stencil.test = oldTest;
+  canvas->pipeline.info.stencil.passOp = GPU_STENCIL_KEEP;
+  canvas->pipeline.info.stencil.depthFailOp = GPU_STENCIL_KEEP;
+  canvas->pipeline.info.stencil.value = oldValue;
+  canvas->pipeline.dirty = true;
 }
 
 // Shader
@@ -1136,6 +1096,10 @@ void lovrBundleDestroy(void* ref) {
   free(bundle->dynamicOffsets);
 }
 
+Shader* lovrBundleGetShader(Bundle* bundle) {
+  return bundle->shader;
+}
+
 uint32_t lovrBundleGetGroup(Bundle* bundle) {
   return bundle->group - bundle->shader->groups;
 }
@@ -1183,50 +1147,3 @@ bool lovrBundleBindTexture(Bundle* bundle, uint32_t id, uint32_t element, Textur
   lovrRetain(texture);
   return true;
 }
-
-/*
-static void resolveBindings() {
-  Shader* shader = pass->shader;
-
-  for (uint32_t i = 0; i < 4; i++) {
-    ShaderGroup* group = &shader->groups[i];
-
-    if (!group->slotMask) continue;
-
-    Bundle* bundle = pass->bundles[i];
-    lovrAssert(bundle, "Missing bundle for group %d", i); // UGH
-    lovrAssert(bundle->group->hash == group->hash, "Incompatible bundle bound for group %d", i);
-
-    bool rebind = false;
-
-    if (pass->dirtyBundles & (1 << i)) {
-      pass->dirtyBundles &= ~(1 << i);
-      rebind = true;
-    }
-
-    if (bundle->dirty) {
-      gpu_bundle_destroy(bundle->gpu);
-      gpu_bundle_init(bundle->gpu, &(gpu_bundle_info) {
-        .shader = shader,
-        .group = i,
-        .slotCount = group->slotCount,
-        .slots = group->slots,
-        .bindings = bundle->bindings
-      });
-
-      bundle->dirty = false;
-      bundle->version++;
-      rebind = true;
-    }
-
-    if (pass->bundleVersions[i] != bundle->version) {
-      pass->bundleVersions[i] = bundle->version;
-      rebind = true;
-    }
-
-    if (rebind) {
-      gpu_batch_bind_bundle(pass->batch, shader, i, bundle->gpu, bundle->dynamicOffsets, group->dynamicOffsetCount);
-    }
-  }
-}
-*/
