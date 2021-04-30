@@ -16,7 +16,7 @@ static int l_lovrBundleBind(lua_State* L) {
 
   if (name) {
     uint64_t hash = hash64(name, length);
-    Shader* shader = lovrGraphicsGetShader();
+    Shader* shader = lovrBundleGetShader(bundle);
     bool exists = lovrShaderResolveName(shader, hash, &group, &id);
     lovrAssert(exists, "Active Shader has no variable named '%s'", name);
     lovrAssert(group == lovrBundleGetGroup(bundle), "Variable '%s' is not in this Bundle's group", name);
