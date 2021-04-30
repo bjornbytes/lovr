@@ -2675,62 +2675,64 @@ static const char* getErrorString(VkResult result) {
   }
 }
 
-// Comments
-// ### General
-// - Vulkan 1.1 is targeted.
-// - The first physical device is used.
-// - There's almost no error handling.  The intent is to use validation layers or handle the errors
-//   at a higher level if needed, so they don't need to be duplicated for each backend.
-// - There is very little use of dynamic memory allocation.  Most of the state is in fixed-size
-//   blocks of static memory.  This might end up being too restrictive and can be relaxed later.
-// - Writing to storage resources from vertex/fragment shaders is currently not allowed.
-// - Texel buffers are not supported.
-// - ~0u aka -1 is commonly used as a "nil" value.
-// ### Threads
-// - Any thread that wants to call batch_begin or bundle_init should call gpu_thread_attach to set
-//   up thread local state.  This should happen after one thread has called gpu_init.  Call
-//   gpu_thread_detach when finished on the thread.
-// - It is safe to record batches concurrently as long as they're created with gpu_batch_begin and
-//   batches created on one thread are not recorded concurrently (basically just record them on the
-//   the same thread that created them).
-// - Creating and destroying objects is thread safe.
-// - Nothing else is thread safe (transfers, passes, queries, synchronization, etc.).
-// ### Ticks
-// - There is no concept of a frame.  There are ticks.  Every sequence of commands between gpu_begin
-//   and gpu_flush is a tick.  We keep track of the current CPU tick (the tick being recorded) and
-//   the current GPU tick (the most recent tick the GPU has completed).  These are monotonically
-//   increasing counters.
-// - Each tick has a set of resources (see gpu_tick).  There is a ring buffer of ticks.  The size of
-//   the ring buffer determines how many ticks can be in flight (currently 16).  A tick index can be
-//   masked off to find the element of the ring buffer it corresponds to.  The tick's fence is used
-//   to make sure that the GPU is done with a tick before recording a new one in the same slot.
-// - In a lot of places (command buffers, descriptor pools, morgue, scratchpad) a tick is tracked to
-//   know when the GPU is done with a resource so it can be recycled or destroyed.
-// - The ketchup helper function checks the oldest fences to try to increment the GPU tick as much
-//   as possible, allowing more resources to be recycled and avoid potential resource exhaustion.
-// - I don't know what will happen if the tick counter wraps around or reaches UINT32_MAX.
-// - In the future I'd like to use timeline semaphores instead of fences, but those are in Vulkan
-//   1.2 and currently aren't widely supported.
-// ### Command buffers
-// - Each tick has a cap on the number of primary command buffers it uses.
-// - Each render or compute pass uses one primary command buffer.  This is purely for
-//   synchronization reasons.  When starting a command buffer for a pass, the previous command
-//   buffer is left "open" until the pass completes.  Once the pass completes, we know what
-//   resources were used during the pass, which is used to figure out which barriers are required.
-//   The barriers are recorded at the end of the previous command buffer, after which it's closed.
-// - gpu_begin opens an initial command buffer.  Assuming no pass is active, the trailing command
-//   buffer in the tick is always open.  It gets closed during gpu_flush.
-// - If you run out of command buffers, the current recommendation is to split the workload into
-//   multiple queue submissions.  In the future it may be possible to support an unbounded number of
-//   command buffers using dynamic memory allocation.
-// ### Buffers
-// - Mappable buffers are double buffered, each tick uses one region, stalling if needed.
-// - Memory type strategy:
-//   - Non-mappable buffers just want device local memory (could be picky about which kind, but meh)
-//   - Buffers that preserve their contents really want cached memory since they copy old data when
-//     switching to a new region, which counts as reading from a mapped pointer.  using uncached
-//     memory is acceptable, but those reads will be slow.
-//   - Transient buffers prefer the special 256MB memory block on AMD/NV that's both device local +
-//     host visible, since they're meant for temp per-frame vertex/uniform streams.  Falling back to
-//     regular uncached host visible memory is perfectly fine, though.
-//   - Host-visible buffers always use coherent memory.
+/*
+Comments
+## General
+- Vulkan 1.1 is targeted.
+- The first physical device is used.
+- There's almost no error handling.  The intent is to use validation layers or handle the errors at
+  a higher level if needed, so they don't need to be duplicated for each backend.
+- There is very little use of dynamic memory allocation.  Most of the state is in fixed-size blocks
+  of static memory.  This might end up being too restrictive and can be relaxed later.
+- Writing to storage resources from vertex/fragment shaders is currently not allowed.
+- Texel buffers are not supported.
+- ~0u aka -1 is commonly used as a "nil" value.
+## Threads
+- Any thread that wants to call batch_begin or bundle_init should call gpu_thread_attach to set up
+  thread local state.  This should happen after one thread has called gpu_init.  When finished on
+  the thread call gpu_thread_detach.
+- It is safe to record batches concurrently as long as they're created with gpu_batch_begin and
+  batches created on one thread are not recorded concurrently (basically just record them on the
+  same thread that created them).
+- Creating and destroying objects is thread safe.
+- Nothing else is thread safe (transfers, passes, queries, synchronization, etc.).
+## Ticks
+- There is no concept of a frame.  There are ticks.  Every sequence of commands between gpu_begin
+  and gpu_flush is a tick.  We keep track of the current CPU tick (the tick being recorded) and the
+  current GPU tick (the most recent tick the GPU has completed).  These are monotonically increasing
+  counters.
+- Each tick has a set of resources (see gpu_tick).  There is a ring buffer of ticks.  The size of
+  the ring buffer determines how many ticks can be in flight (currently 16).  A tick index can be
+  masked off to find the element of the ring buffer it corresponds to.  The tick's fence is used to
+  make sure that the GPU is done with a tick before recording a new one in the same slot.
+- In a lot of places (command buffers, descriptor pools, morgue, scratchpad) a tick is tracked to
+  know when the GPU is done with a resource so it can be recycled or destroyed.
+- The ketchup helper function checks the oldest fences to try to increment the GPU tick as much as
+  possible, allowing more resources to be recycled and avoid potential resource exhaustion.
+- I don't know what will happen if the tick counter wraps around or reaches UINT32_MAX.
+- In the future I'd like to use timeline semaphores instead of fences, but those are in Vulkan 1.2
+  and currently aren't widely supported.
+## Command buffers
+- Each tick has a cap on the number of primary command buffers it uses.
+- Each render or compute pass uses one primary command buffer.  This is purely for synchronization
+  reasons.  When starting a command buffer for a pass, the previous command buffer is left "open"
+  until the pass completes.  Once the pass completes, we know what resources were used during the
+  pass, which is used to figure out which barriers are required.  The barriers are recorded at the
+  end of the previous command buffer, after which it's closed.
+- gpu_begin opens an initial command buffer.  Assuming no pass is active, the trailing command
+  buffer in the tick is always open.  It gets closed during gpu_flush.
+- If you run out of command buffers, the current recommendation is to split the workload into
+  multiple queue submissions.  In the future it may be possible to support an unbounded number of
+  command buffers using dynamic memory allocation.
+## Buffers
+- Mappable buffers are double buffered, each tick uses one region, stalling if needed.
+- Memory type strategy:
+  - Non-mappable buffers just want device local memory (could be picky about which kind, but meh)
+  - Buffers that preserve their contents really want cached memory since they copy old data when
+    switching to a new region, which counts as reading from a mapped pointer.  using uncached memory
+    is acceptable, but those reads will be slow.
+  - Transient buffers prefer the special 256MB memory block on AMD/NV that's both device local +
+    host visible, since they're meant for temp per-frame vertex/uniform streams.  Falling back to
+    regular uncached host visible memory is perfectly fine, though.
+  - Host-visible buffers always use coherent memory.
+*/
