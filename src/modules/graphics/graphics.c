@@ -8,13 +8,16 @@
 #include "core/util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <string.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <math.h>
 
 struct Buffer {
   uint32_t ref;
+  uint32_t cursor;
   gpu_buffer* gpu;
   BufferInfo info;
+  uint32_t size;
 };
 
 struct Texture {
@@ -630,8 +633,8 @@ void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, ui
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
   if (info->flags & BUFFER_WRITE) {
-    lovrAssert(~info->flags & (1 << BUFFER_COMPUTE), "Buffers with the 'write' flag can not have the '%s' flag", "compute");
-    lovrAssert(~info->flags & (1 << BUFFER_COPYTO), "Buffers with the 'write' flag can not have the '%s' flag", "copyto");
+    lovrAssert(~info->flags & BUFFER_COMPUTE, "Buffers with the 'write' flag can not have the '%s' flag", "compute");
+    lovrAssert(~info->flags & BUFFER_COPYTO, "Buffers with the 'write' flag can not have the '%s' flag", "copyto");
   }
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
@@ -647,6 +650,7 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   };
 
   lovrAssert(gpu_buffer_init(buffer->gpu, &gpuInfo), "Could not create Buffer");
+  buffer->size = info->length * info->stride;
   return buffer;
 }
 
@@ -664,24 +668,33 @@ void* lovrBufferMap(Buffer* buffer) {
   return gpu_buffer_map(buffer->gpu);
 }
 
-void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
-  lovrAssert(buffer->info.flags & (1 << BUFFER_COPYFROM), "A Buffer can only be read if it has the 'copyfrom' flag");
-  gpu_buffer_read(buffer->gpu, offset, size, callback, userdata);
+uint32_t lovrBufferAppend(Buffer* buffer, uint32_t size) {
+  lovrAssert(buffer->cursor + size <= buffer->size, "Buffer append overflow");
+  return atomic_fetch_add(&buffer->cursor, size);
+}
+
+void lovrBufferRewind(Buffer* buffer) {
+  buffer->cursor = 0;
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
-  lovrAssert((offset & 0x3) == 0, "Buffer clear offset must be a multiple of 4");
-  lovrAssert((size & 0x3) == 0, "Buffer clear size must be a multiple of 4");
-  lovrAssert(buffer->info.flags & ((1 << BUFFER_WRITE) | (1 << BUFFER_COPYTO)), "A Buffer can only be cleared if it has the 'write' or 'copyto' flags");
+  lovrAssert(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
+  lovrAssert(size % 4 == 0, "Buffer clear size must be a multiple of 4");
+  lovrAssert(buffer->info.flags & (BUFFER_WRITE | BUFFER_COPYTO), "A Buffer can only be cleared if it has the 'write' or 'copyto' flags");
   gpu_buffer_clear(buffer->gpu, offset, size);
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
-  lovrAssert(src->info.flags & (1 << BUFFER_COPYFROM), "A Buffer can only be copied if it has the 'copyfrom' flag");
-  lovrAssert(dst->info.flags & (1 << BUFFER_COPYTO), "A Buffer can only be copied to if it has the 'copyto' flag");
+  lovrAssert(src->info.flags & BUFFER_COPYFROM, "A Buffer can only be copied if it has the 'copyfrom' flag");
+  lovrAssert(dst->info.flags & BUFFER_COPYTO, "A Buffer can only be copied to if it has the 'copyto' flag");
   lovrAssert(srcOffset + size <= src->info.length * src->info.stride, "Tried to read past the end of the source Buffer");
   lovrAssert(dstOffset + size <= dst->info.length * dst->info.stride, "Tried to copy past the end of the destination Buffer");
   gpu_buffer_copy(src->gpu, dst->gpu, srcOffset, dstOffset, size);
+}
+
+void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
+  lovrAssert(buffer->info.flags & BUFFER_COPYFROM, "A Buffer can only be read if it has the 'copyfrom' flag");
+  gpu_buffer_read(buffer->gpu, offset, size, callback, userdata);
 }
 
 // Texture

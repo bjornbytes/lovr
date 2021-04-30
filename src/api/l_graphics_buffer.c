@@ -65,6 +65,53 @@ typedef union {
   double* f64;
 } FieldPointer;
 
+static int luax_pushbufferfield(lua_State* L, void* data, FieldType type) {
+  FieldPointer p = { .raw = data };
+  int components = fieldComponents[type];
+  for (int c = 0; c < components; c++) {
+    switch (type) {
+      case FIELD_I8: lua_pushnumber(L, p.i8[c]); break;
+      case FIELD_U8: lua_pushnumber(L, p.u8[c]); break;
+      case FIELD_I16: lua_pushnumber(L, p.i16[c]); break;
+      case FIELD_U16: lua_pushnumber(L, p.u16[c]); break;
+      case FIELD_I32: lua_pushnumber(L, p.i32[c]); break;
+      case FIELD_U32: lua_pushnumber(L, p.u32[c]); break;
+      case FIELD_F32: lua_pushnumber(L, p.f32[c]); break;
+      case FIELD_F64: lua_pushnumber(L, p.f64[c]); break;
+      case FIELD_I8x2: lua_pushnumber(L, p.i8[c]); break;
+      case FIELD_U8x2: lua_pushnumber(L, p.u8[c]); break;
+      case FIELD_I8Nx2: lua_pushnumber(L, p.i8[c] / (double) INT8_MAX); break;
+      case FIELD_U8Nx2: lua_pushnumber(L, p.u8[c] / (double) UINT8_MAX); break;
+      case FIELD_I16x2: lua_pushnumber(L, p.i16[c]); break;
+      case FIELD_U16x2: lua_pushnumber(L, p.u16[c]); break;
+      case FIELD_I16Nx2: lua_pushnumber(L, p.i16[c] / (double) INT16_MAX); break;
+      case FIELD_U16Nx2: lua_pushnumber(L, p.u16[c] / (double) UINT16_MAX); break;
+      case FIELD_I32x2: lua_pushnumber(L, p.i32[c]); break;
+      case FIELD_U32x2: lua_pushnumber(L, p.u32[c]); break;
+      case FIELD_F32x2: lua_pushnumber(L, p.f32[c]); break;
+      case FIELD_I32x3: lua_pushnumber(L, p.i32[c]); break;
+      case FIELD_U32x3: lua_pushnumber(L, p.u32[c]); break;
+      case FIELD_F32x3: lua_pushnumber(L, p.f32[c]); break;
+      case FIELD_I8x4: lua_pushnumber(L, p.i8[c]); break;
+      case FIELD_U8x4: lua_pushnumber(L, p.u8[c]); break;
+      case FIELD_I8Nx4: lua_pushnumber(L, p.i8[c] / (double) INT8_MAX); break;
+      case FIELD_U8Nx4: lua_pushnumber(L, p.u8[c] / (double) UINT8_MAX); break;
+      case FIELD_I16x4: lua_pushnumber(L, p.i16[c]); break;
+      case FIELD_U16x4: lua_pushnumber(L, p.u16[c]); break;
+      case FIELD_I16Nx4: lua_pushnumber(L, p.i16[c] / (double) INT16_MAX); break;
+      case FIELD_U16Nx4: lua_pushnumber(L, p.u16[c] / (double) UINT16_MAX); break;
+      case FIELD_I32x4: lua_pushnumber(L, p.i32[c]); break;
+      case FIELD_U32x4: lua_pushnumber(L, p.u32[c]); break;
+      case FIELD_F32x4: lua_pushnumber(L, p.f32[c]); break;
+      case FIELD_MAT2: lua_pushnumber(L, p.f32[c]); break;
+      case FIELD_MAT3: lua_pushnumber(L, p.f32[c]); break;
+      case FIELD_MAT4: lua_pushnumber(L, p.f32[c]); break;
+      default: lovrThrow("Unreachable");
+    }
+  }
+  return components;
+}
+
 static void luax_readbufferfield(lua_State* L, int index, FieldType type, int components, void* data) {
   FieldPointer p = { .raw = data };
   for (int i = 0; i < components; i++) {
@@ -284,13 +331,58 @@ static int l_lovrBufferHasFlags(lua_State* L) {
   luaL_checkany(L, 2);
   int top = lua_gettop(L);
   for (int i = 2; i <= top; i++) {
-    BufferFlag flag = luax_checkenum(L, i, BufferFlag, NULL);
-    if (~info->flags & (1 << flag)) {
+    int bit = luax_checkenum(L, i, BufferFlag, NULL);
+    if (~info->flags & (1 << bit)) {
       lua_pushboolean(L, false);
     }
   }
   lua_pushboolean(L, true);
   return 1;
+}
+
+static int l_lovrBufferWrite(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  void* data = lovrBufferMap(buffer);
+  luax_readbufferdata(L, 2, buffer, data);
+  return 0;
+}
+
+static int l_lovrBufferAppend(lua_State* L) {
+  //Buffer* buffer = luax_checktype(L, 1, Buffer);
+  //const BufferInfo* info = lovrBufferGetInfo(buffer);
+  //void* data = lovrBufferMap(buffer);
+  //uint32_t offset = lovrBufferAppend(buffer, info->stride);
+  // something, need to write 1 thing, want to reuse buffer:write somehow, fuck
+  return 0;
+}
+
+static int l_lovrBufferRewind(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  lovrBufferRewind(buffer);
+  return 0;
+}
+
+static int l_lovrBufferClear(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  const BufferInfo* info = lovrBufferGetInfo(buffer);
+  uint32_t index = luaL_optinteger(L, 2, 1);
+  uint32_t count = luaL_optinteger(L, 3, info->length - index + 1);
+  lovrBufferClear(buffer, (index - 1) * info->stride, count * info->stride);
+  return 0;
+}
+
+static int l_lovrBufferCopy(lua_State* L) {
+  Buffer* src = luax_checktype(L, 1, Buffer);
+  Buffer* dst = luax_checktype(L, 2, Buffer);
+  const BufferInfo* srcInfo = lovrBufferGetInfo(src);
+  const BufferInfo* dstInfo = lovrBufferGetInfo(dst);
+  uint32_t srcSize = srcInfo->length * srcInfo->stride;
+  uint32_t dstSize = dstInfo->length * dstInfo->stride;
+  uint32_t srcOffset = luaL_optinteger(L, 3, 0);
+  uint32_t dstOffset = luaL_optinteger(L, 4, 0);
+  uint32_t size = luaL_optinteger(L, 5, MIN(srcSize - srcOffset, dstSize - dstOffset));
+  lovrBufferCopy(src, dst, srcOffset, dstOffset, size);
+  return 0;
 }
 
 typedef struct {
@@ -324,51 +416,14 @@ static void luax_onreadback(void* data, uint64_t size, void* userdata) {
     int index = 1;
     char* base = data;
     lua_createtable(L, reader->count * totalComponents, 0);
+    int tableIndex = lua_gettop(L);
     for (uint32_t i = 0; i < reader->count; i++) {
       for (uint32_t f = 0; f < info->fieldCount; f++) {
-        FieldPointer p = { .raw = base + info->offsets[f] };
-        for (uint32_t c = 0; c < fieldComponents[info->types[f]]; c++) {
-          switch (info->types[f]) {
-            case FIELD_I8: lua_pushnumber(L, p.i8[c]); break;
-            case FIELD_U8: lua_pushnumber(L, p.u8[c]); break;
-            case FIELD_I16: lua_pushnumber(L, p.i16[c]); break;
-            case FIELD_U16: lua_pushnumber(L, p.u16[c]); break;
-            case FIELD_I32: lua_pushnumber(L, p.i32[c]); break;
-            case FIELD_U32: lua_pushnumber(L, p.u32[c]); break;
-            case FIELD_F32: lua_pushnumber(L, p.f32[c]); break;
-            case FIELD_F64: lua_pushnumber(L, p.f64[c]); break;
-            case FIELD_I8x2: lua_pushnumber(L, p.i8[c]); break;
-            case FIELD_U8x2: lua_pushnumber(L, p.u8[c]); break;
-            case FIELD_I8Nx2: lua_pushnumber(L, p.i8[c] / (double) INT8_MAX); break;
-            case FIELD_U8Nx2: lua_pushnumber(L, p.u8[c] / (double) UINT8_MAX); break;
-            case FIELD_I16x2: lua_pushnumber(L, p.i16[c]); break;
-            case FIELD_U16x2: lua_pushnumber(L, p.u16[c]); break;
-            case FIELD_I16Nx2: lua_pushnumber(L, p.i16[c] / (double) INT16_MAX); break;
-            case FIELD_U16Nx2: lua_pushnumber(L, p.u16[c] / (double) UINT16_MAX); break;
-            case FIELD_I32x2: lua_pushnumber(L, p.i32[c]); break;
-            case FIELD_U32x2: lua_pushnumber(L, p.u32[c]); break;
-            case FIELD_F32x2: lua_pushnumber(L, p.f32[c]); break;
-            case FIELD_I32x3: lua_pushnumber(L, p.i32[c]); break;
-            case FIELD_U32x3: lua_pushnumber(L, p.u32[c]); break;
-            case FIELD_F32x3: lua_pushnumber(L, p.f32[c]); break;
-            case FIELD_I8x4: lua_pushnumber(L, p.i8[c]); break;
-            case FIELD_U8x4: lua_pushnumber(L, p.u8[c]); break;
-            case FIELD_I8Nx4: lua_pushnumber(L, p.i8[c] / (double) INT8_MAX); break;
-            case FIELD_U8Nx4: lua_pushnumber(L, p.u8[c] / (double) UINT8_MAX); break;
-            case FIELD_I16x4: lua_pushnumber(L, p.i16[c]); break;
-            case FIELD_U16x4: lua_pushnumber(L, p.u16[c]); break;
-            case FIELD_I16Nx4: lua_pushnumber(L, p.i16[c] / (double) INT16_MAX); break;
-            case FIELD_U16Nx4: lua_pushnumber(L, p.u16[c] / (double) UINT16_MAX); break;
-            case FIELD_I32x4: lua_pushnumber(L, p.i32[c]); break;
-            case FIELD_U32x4: lua_pushnumber(L, p.u32[c]); break;
-            case FIELD_F32x4: lua_pushnumber(L, p.f32[c]); break;
-            case FIELD_MAT2: lua_pushnumber(L, p.f32[c]); break;
-            case FIELD_MAT3: lua_pushnumber(L, p.f32[c]); break;
-            case FIELD_MAT4: lua_pushnumber(L, p.f32[c]); break;
-            default: lovrThrow("Unreachable");
-          }
-          lua_rawseti(L, -2, index++);
+        int components = luax_pushbufferfield(L, base + info->offsets[f], info->types[f]);
+        for (int c = 1; c <= components; c++) {
+          lua_rawseti(L, tableIndex, index + components - c);
         }
+        index += components;
       }
       base += info->stride;
     }
@@ -403,36 +458,6 @@ static int l_lovrBufferRead(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBufferWrite(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
-  void* data = lovrBufferMap(buffer);
-  luax_readbufferdata(L, 2, buffer, data);
-  return 0;
-}
-
-static int l_lovrBufferClear(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
-  const BufferInfo* info = lovrBufferGetInfo(buffer);
-  uint32_t index = luaL_optinteger(L, 2, 1);
-  uint32_t count = luaL_optinteger(L, 3, info->length - index + 1);
-  lovrBufferClear(buffer, (index - 1) * info->stride, count * info->stride);
-  return 0;
-}
-
-static int l_lovrBufferCopy(lua_State* L) {
-  Buffer* src = luax_checktype(L, 1, Buffer);
-  Buffer* dst = luax_checktype(L, 2, Buffer);
-  const BufferInfo* srcInfo = lovrBufferGetInfo(src);
-  const BufferInfo* dstInfo = lovrBufferGetInfo(dst);
-  uint32_t srcSize = srcInfo->length * srcInfo->stride;
-  uint32_t dstSize = dstInfo->length * dstInfo->stride;
-  uint32_t srcOffset = luaL_optinteger(L, 3, 0);
-  uint32_t dstOffset = luaL_optinteger(L, 4, 0);
-  uint32_t size = luaL_optinteger(L, 5, MIN(srcSize - srcOffset, dstSize - dstOffset));
-  lovrBufferCopy(src, dst, srcOffset, dstOffset, size);
-  return 0;
-}
-
 const luaL_Reg lovrBuffer[] = {
   { "getSize", l_lovrBufferGetSize },
   { "getLength", l_lovrBufferGetLength },
@@ -440,11 +465,11 @@ const luaL_Reg lovrBuffer[] = {
   { "getFormat", l_lovrBufferGetFormat },
   { "getPointer", l_lovrBufferGetPointer },
   { "hasFlags", l_lovrBufferHasFlags },
-  { "read", l_lovrBufferRead },
   { "write", l_lovrBufferWrite },
-  //{ "append", l_lovrBufferAppend },
-  //{ "rewind", l_lovrBufferRewind },
+  { "append", l_lovrBufferAppend },
+  { "rewind", l_lovrBufferRewind },
   { "clear", l_lovrBufferClear },
   { "copy", l_lovrBufferCopy },
+  { "read", l_lovrBufferRead },
   { NULL, NULL }
 };

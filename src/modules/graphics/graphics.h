@@ -196,17 +196,17 @@ void lovrGraphicsStencil(StencilAction action, StencilAction depthFailAction, ui
 
 // Buffer
 
-typedef enum {
-  BUFFER_VERTEX,
-  BUFFER_INDEX,
-  BUFFER_UNIFORM,
-  BUFFER_COMPUTE,
-  BUFFER_PARAMETER,
-  BUFFER_COPYFROM,
-  BUFFER_COPYTO,
-  BUFFER_WRITE,
-  BUFFER_RETAIN
-} BufferFlag;
+enum {
+  BUFFER_VERTEX    = (1 << 0),
+  BUFFER_INDEX     = (1 << 1),
+  BUFFER_UNIFORM   = (1 << 2),
+  BUFFER_COMPUTE   = (1 << 3),
+  BUFFER_PARAMETER = (1 << 4),
+  BUFFER_COPYFROM  = (1 << 5),
+  BUFFER_COPYTO    = (1 << 6),
+  BUFFER_WRITE     = (1 << 7),
+  BUFFER_RETAIN    = (1 << 8)
+};
 
 typedef enum {
   FIELD_I8,
@@ -262,9 +262,11 @@ Buffer* lovrBufferCreate(BufferInfo* info);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 void* lovrBufferMap(Buffer* buffer);
-void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata);
+uint32_t lovrBufferAppend(Buffer* buffer, uint32_t size);
+void lovrBufferRewind(Buffer* buffer);
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
+void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata);
 
 // Texture
 
