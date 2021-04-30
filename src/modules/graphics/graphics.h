@@ -143,8 +143,6 @@ Buffer* lovrBufferCreate(BufferInfo* info);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 void* lovrBufferMap(Buffer* buffer);
-uint32_t lovrBufferAppend(Buffer* buffer, uint32_t size);
-void lovrBufferRewind(Buffer* buffer);
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata);
