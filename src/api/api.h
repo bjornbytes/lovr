@@ -51,6 +51,7 @@ extern StringEntry lovrShapeType[];
 extern StringEntry lovrSmoothMode[];
 extern StringEntry lovrSourceInterpolation[];
 extern StringEntry lovrStencilAction[];
+extern StringEntry lovrTextureFlag[];
 extern StringEntry lovrTextureFormat[];
 extern StringEntry lovrTextureType[];
 extern StringEntry lovrTimeUnit[];
