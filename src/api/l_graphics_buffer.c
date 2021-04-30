@@ -347,21 +347,6 @@ static int l_lovrBufferWrite(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBufferAppend(lua_State* L) {
-  //Buffer* buffer = luax_checktype(L, 1, Buffer);
-  //const BufferInfo* info = lovrBufferGetInfo(buffer);
-  //void* data = lovrBufferMap(buffer);
-  //uint32_t offset = lovrBufferAppend(buffer, info->stride);
-  // something, need to write 1 thing, want to reuse buffer:write somehow, fuck
-  return 0;
-}
-
-static int l_lovrBufferRewind(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
-  lovrBufferRewind(buffer);
-  return 0;
-}
-
 static int l_lovrBufferClear(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
@@ -466,8 +451,6 @@ const luaL_Reg lovrBuffer[] = {
   { "getPointer", l_lovrBufferGetPointer },
   { "hasFlags", l_lovrBufferHasFlags },
   { "write", l_lovrBufferWrite },
-  { "append", l_lovrBufferAppend },
-  { "rewind", l_lovrBufferRewind },
   { "clear", l_lovrBufferClear },
   { "copy", l_lovrBufferCopy },
   { "read", l_lovrBufferRead },

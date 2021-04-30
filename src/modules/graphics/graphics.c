@@ -14,7 +14,6 @@
 
 struct Buffer {
   uint32_t ref;
-  uint32_t cursor;
   gpu_buffer* gpu;
   BufferInfo info;
   uint32_t size;
@@ -282,15 +281,6 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
 void* lovrBufferMap(Buffer* buffer) {
   lovrAssert(buffer->info.flags & BUFFER_WRITE, "A Buffer must have the 'write' flag to write to it");
   return gpu_buffer_map(buffer->gpu);
-}
-
-uint32_t lovrBufferAppend(Buffer* buffer, uint32_t size) {
-  lovrAssert(buffer->cursor + size <= buffer->size, "Buffer append overflow");
-  return atomic_fetch_add(&buffer->cursor, size);
-}
-
-void lovrBufferRewind(Buffer* buffer) {
-  buffer->cursor = 0;
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
