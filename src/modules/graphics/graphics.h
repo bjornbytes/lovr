@@ -158,13 +158,13 @@ typedef enum {
   TEXTURE_ARRAY
 } TextureType;
 
-typedef enum {
-  TEXTURE_SAMPLE,
-  TEXTURE_RENDER,
-  TEXTURE_COMPUTE,
-  TEXTURE_UPLOAD,
-  TEXTURE_DOWNLOAD
-} TextureUsage;
+enum {
+  TEXTURE_SAMPLE   = (1 << 0),
+  TEXTURE_RENDER   = (1 << 1),
+  TEXTURE_COMPUTE  = (1 << 2),
+  TEXTURE_COPYFROM = (1 << 3),
+  TEXTURE_COPYTO   = (1 << 4)
+};
 
 typedef struct {
   Texture* source;
@@ -182,7 +182,7 @@ typedef struct {
   uint32_t size[3];
   uint32_t mipmaps;
   uint32_t samples;
-  uint32_t usage;
+  uint32_t flags;
   bool srgb;
   const char* label;
 } TextureInfo;
