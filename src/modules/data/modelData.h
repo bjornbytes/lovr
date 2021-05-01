@@ -141,7 +141,7 @@ typedef struct {
 typedef struct {
   const char* name;
   float scalars[MAX_MATERIAL_SCALARS];
-  Color colors[MAX_MATERIAL_COLORS];
+  float colors[MAX_MATERIAL_COLORS][4];
   uint32_t images[MAX_MATERIAL_TEXTURES];
   TextureFilter filters[MAX_MATERIAL_TEXTURES];
   TextureWrap wraps[MAX_MATERIAL_TEXTURES];

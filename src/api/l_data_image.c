@@ -92,11 +92,12 @@ static int l_lovrImageGetPixel(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);
-  Color color = lovrImageGetPixel(image, x, y);
-  lua_pushnumber(L, color.r);
-  lua_pushnumber(L, color.g);
-  lua_pushnumber(L, color.b);
-  lua_pushnumber(L, color.a);
+  float color[4];
+  lovrImageGetPixel(image, x, y, color);
+  lua_pushnumber(L, color[0]);
+  lua_pushnumber(L, color[1]);
+  lua_pushnumber(L, color[2]);
+  lua_pushnumber(L, color[3]);
   return 4;
 }
 
@@ -104,7 +105,7 @@ static int l_lovrImageSetPixel(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);
-  Color color = {
+  float color[4] = {
     luax_optfloat(L, 4, 1.f),
     luax_optfloat(L, 5, 1.f),
     luax_optfloat(L, 6, 1.f),

@@ -7,7 +7,6 @@
 
 struct lua_State;
 struct luaL_Reg;
-struct Color;
 
 // Enums
 typedef struct {
@@ -101,7 +100,7 @@ void luax_pushconf(struct lua_State* L);
 int luax_setconf(struct lua_State* L);
 void luax_setmainthread(struct lua_State* L);
 void luax_atexit(struct lua_State* L, void (*destructor)(void));
-void luax_readcolor(struct lua_State* L, int index, struct Color* color);
+void luax_readcolor(struct lua_State* L, int index, float color[4]);
 int luax_readmesh(struct lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
 
 // Module helpers

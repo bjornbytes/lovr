@@ -389,29 +389,31 @@ void luax_atexit(lua_State* L, voidFn* destructor) {
   lua_pop(L, 1);
 }
 
-void luax_readcolor(lua_State* L, int index, Color* color) {
-  color->r = color->g = color->b = color->a = 1.f;
+void luax_readcolor(lua_State* L, int index, float color[4]) {
+  color[0] = color[1] = color[2] = color[3] = 1.f;
 
   if (lua_istable(L, index)) {
     for (int i = 1; i <= 4; i++) {
       lua_rawgeti(L, index, i);
     }
-    color->r = luax_checkfloat(L, -4);
-    color->g = luax_checkfloat(L, -3);
-    color->b = luax_checkfloat(L, -2);
-    color->a = luax_optfloat(L, -1, 1.);
+    color[0] = luax_checkfloat(L, -4);
+    color[1] = luax_checkfloat(L, -3);
+    color[2] = luax_checkfloat(L, -2);
+    color[3] = luax_optfloat(L, -1, 1.);
     lua_pop(L, 4);
   } else if (lua_gettop(L) >= index + 2) {
-    color->r = luax_checkfloat(L, index);
-    color->g = luax_checkfloat(L, index + 1);
-    color->b = luax_checkfloat(L, index + 2);
-    color->a = luax_optfloat(L, index + 3, 1.);
-  } else if (lua_gettop(L) <= index + 1) {
+    color[0] = luax_checkfloat(L, index);
+    color[1] = luax_checkfloat(L, index + 1);
+    color[2] = luax_checkfloat(L, index + 2);
+    color[3] = luax_optfloat(L, index + 3, 1.);
+  } else if (lua_gettop(L) == index) {
     uint32_t x = luaL_checkinteger(L, index);
-    color->r = ((x >> 16) & 0xff) / 255.f;
-    color->g = ((x >> 8) & 0xff) / 255.f;
-    color->b = ((x >> 0) & 0xff) / 255.f;
-    color->a = luax_optfloat(L, index + 1, 1.);
+    color[0] = ((x >> 16) & 0xff) / 255.f;
+    color[1] = ((x >> 8) & 0xff) / 255.f;
+    color[2] = ((x >> 0) & 0xff) / 255.f;
+    color[3] = luax_optfloat(L, index + 1, 1.);
+  } else {
+    luaL_error(L, "Invalid color, expected a hexcode, 3 numbers, 4 numbers, or a table");
   }
 }
 

@@ -61,7 +61,10 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       g = strtof(s, &s);
       b = strtof(s, &s);
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->colors[COLOR_DIFFUSE] = (Color) { r, g, b, 1.f };
+      material->colors[COLOR_DIFFUSE][0] = r;
+      material->colors[COLOR_DIFFUSE][1] = g;
+      material->colors[COLOR_DIFFUSE][2] = b;
+      material->colors[COLOR_DIFFUSE][3] = 1.f;
     } else if (STARTS_WITH(line, "map_Kd ")) {
       lovrAssert(base - path + (length - 7) < 1024, "Bad OBJ: Material image filename is too long");
       memcpy(base, line + 7, length - 7);

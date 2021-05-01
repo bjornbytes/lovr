@@ -688,8 +688,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     for (int i = (token++)->size; i > 0; i--, material++) {
       material->scalars[SCALAR_METALNESS] = 1.f;
       material->scalars[SCALAR_ROUGHNESS] = 1.f;
-      material->colors[COLOR_DIFFUSE] = (Color) { 1.f, 1.f, 1.f, 1.f };
-      material->colors[COLOR_EMISSIVE] = (Color) { 0.f, 0.f, 0.f, 0.f };
+      memcpy(material->colors[COLOR_DIFFUSE], (float[4]) { 1.f, 1.f, 1.f, 1.f }, 4 * sizeof(float));
+      memcpy(material->colors[COLOR_EMISSIVE], (float[4]) { 0.f }, 4 * sizeof(float));
       memset(material->images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(uint32_t));
 
       for (int k = (token++)->size; k > 0; k--) {
@@ -699,10 +699,10 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             gltfString key = NOM_STR(json, token);
             if (STR_EQ(key, "baseColorFactor")) {
               token++; // Enter array
-              material->colors[COLOR_DIFFUSE].r = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE].g = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE].b = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE].a = NOM_FLOAT(json, token);
+              material->colors[COLOR_DIFFUSE][0] = NOM_FLOAT(json, token);
+              material->colors[COLOR_DIFFUSE][1] = NOM_FLOAT(json, token);
+              material->colors[COLOR_DIFFUSE][2] = NOM_FLOAT(json, token);
+              material->colors[COLOR_DIFFUSE][3] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "baseColorTexture")) {
               token = resolveTexture(json, token, material, TEXTURE_DIFFUSE, textures, samplers);
             } else if (STR_EQ(key, "metallicFactor")) {
@@ -726,9 +726,9 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           token = resolveTexture(json, token, material, TEXTURE_EMISSIVE, textures, samplers);
         } else if (STR_EQ(key, "emissiveFactor")) {
           token++; // Enter array
-          material->colors[COLOR_EMISSIVE].r = NOM_FLOAT(json, token);
-          material->colors[COLOR_EMISSIVE].g = NOM_FLOAT(json, token);
-          material->colors[COLOR_EMISSIVE].b = NOM_FLOAT(json, token);
+          material->colors[COLOR_EMISSIVE][0] = NOM_FLOAT(json, token);
+          material->colors[COLOR_EMISSIVE][1] = NOM_FLOAT(json, token);
+          material->colors[COLOR_EMISSIVE][2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
           map_set(&model->materialMap, hash64(name.data, name.length), model->materialCount - i);
