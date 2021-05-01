@@ -1128,7 +1128,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   VkImageCreateFlags flags = 0;
   switch (info->type) {
     case GPU_TEXTURE_TYPE_2D: type = VK_IMAGE_TYPE_2D; break;
-    case GPU_TEXTURE_TYPE_3D: type = VK_IMAGE_TYPE_3D; break;
+    case GPU_TEXTURE_TYPE_3D: type = VK_IMAGE_TYPE_3D; flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT; break;
     case GPU_TEXTURE_TYPE_CUBE: type = VK_IMAGE_TYPE_2D; flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; break;
     case GPU_TEXTURE_TYPE_ARRAY: type = VK_IMAGE_TYPE_2D; break;
     default: return false;
