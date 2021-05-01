@@ -557,7 +557,7 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
   lovrAssert(texture->info.flags & TEXTURE_COPYTO, "Texture must have the 'copyto' to clear it");
   lovrAssert(layer + layerCount <= texture->info.size[2], "Texture clear range exceeds texture layer count");
   lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
-  gpu_texture_clear(texture->gpu, layer, layerCount, level, levelCount, color);
+  gpu_texture_clear(texture->gpu, layer + texture->baseLayer, layerCount, level + texture->baseLevel, levelCount, color);
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
