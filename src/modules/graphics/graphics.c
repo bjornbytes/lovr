@@ -516,6 +516,7 @@ void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], 
     info->type == TEXTURE_ARRAY ? info->size[2] : MAX(info->size[2] >> offset[3], 1)
   };
 
+  lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
   lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture write range exceeds texture width");
   lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture write range exceeds texture height");
   lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture write range exceeds texture depth");
@@ -570,6 +571,7 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
   };
 
   lovrAssert(texture->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to read from it");
+  lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be read");
   lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture read range exceeds texture width");
   lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture read range exceeds texture height");
   lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture read range exceeds texture depth");
@@ -584,6 +586,7 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   size_t srcSize = getTextureRegionSize(src->info.format, extent[0], extent[1], extent[2]);
   size_t dstSize = getTextureRegionSize(dst->info.format, extent[0], extent[1], extent[2]);
   lovrAssert(srcSize == dstSize, "Unable to copy between Textures that have differently-sized formats");
+  lovrAssert(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
 
   uint16_t srcBounds[3] = {
     MAX(src->info.size[0] >> srcOffset[3], 1),
