@@ -4,6 +4,7 @@
 #pragma once
 
 struct Blob;
+struct Image;
 struct WindowFlags;
 
 typedef struct Buffer Buffer;
@@ -165,16 +166,16 @@ enum {
 };
 
 typedef struct {
-  Texture* source;
+  Texture* parent;
   TextureType type;
   uint32_t layerIndex;
   uint32_t layerCount;
-  uint32_t mipmapIndex;
-  uint32_t mipmapCount;
-} TextureView;
+  uint32_t levelIndex;
+  uint32_t levelCount;
+} TextureViewInfo;
 
 typedef struct {
-  TextureView view;
+  Texture* parent;
   TextureType type;
   uint32_t format;
   uint32_t size[3];
@@ -186,10 +187,14 @@ typedef struct {
 } TextureInfo;
 
 Texture* lovrTextureCreate(TextureInfo* info);
-Texture* lovrTextureCreateView(TextureView* view);
+Texture* lovrTextureCreateView(TextureViewInfo* view);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
-void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t layer, uint32_t level, void (*callback)(void* data, uint64_t size, void* context), void* context);
+void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]);
+void lovrTexturePaste(Texture* texture, struct Image* image, uint16_t srcOffset[4], uint16_t dstOffset[2], uint16_t extent[2]);
+void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t mipmap, uint16_t layerCount, uint16_t mipmapCount);
+void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata);
+void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]);
 
 // Pipeline
 
