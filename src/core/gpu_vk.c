@@ -1343,6 +1343,12 @@ void gpu_texture_clear(gpu_texture* texture, uint16_t layer, uint16_t layerCount
   VkClearColorValue clear;
   memcpy(clear.float32, color, 4 * sizeof(float));
 
+  // 3D textures don't support clearing individual slices
+  if (texture->type == GPU_TEXTURE_TYPE_ARRAY) {
+    layer = 0;
+    layerCount = 1;
+  }
+
   VkImageSubresourceRange range = {
     .aspectMask = texture->aspect,
     .baseMipLevel = level,
