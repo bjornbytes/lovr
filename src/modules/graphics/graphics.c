@@ -584,10 +584,33 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   size_t srcSize = getTextureRegionSize(src->info.format, extent[0], extent[1], extent[2]);
   size_t dstSize = getTextureRegionSize(dst->info.format, extent[0], extent[1], extent[2]);
   lovrAssert(srcSize == dstSize, "Unable to copy between Textures that have differently-sized formats");
-  // TODO bounds checks
-  // TODO offset[2] += texture->info.view.layerIndex;
-  // TODO offset[3] += texture->info.view.mipmapIndex;
-  gpu_texture_copy(src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+
+  uint16_t srcBounds[3] = {
+    MAX(src->info.size[0] >> srcOffset[3], 1),
+    MAX(src->info.size[1] >> srcOffset[3], 1),
+    src->info.type == TEXTURE_ARRAY ? src->info.size[2] : MAX(src->info.size[2] >> srcOffset[3], 1)
+  };
+
+  uint16_t dstBounds[3] = {
+    MAX(dst->info.size[0] >> dstOffset[3], 1),
+    MAX(dst->info.size[1] >> dstOffset[3], 1),
+    dst->info.type == TEXTURE_ARRAY ? dst->info.size[2] : MAX(dst->info.size[2] >> dstOffset[3], 1)
+  };
+
+  lovrAssert(srcOffset[0] + extent[0] <= srcBounds[0], "Texture copy range exceeds source texture width");
+  lovrAssert(srcOffset[1] + extent[1] <= srcBounds[1], "Texture copy range exceeds source texture height");
+  lovrAssert(srcOffset[2] + extent[2] <= srcBounds[2], "Texture copy range exceeds source texture depth");
+  lovrAssert(srcOffset[3] < src->info.mipmaps, "Tried to copy from Texture mipmap %d, but it only has %d mipmaps", srcOffset[3], src->info.mipmaps);
+
+  lovrAssert(dstOffset[0] + extent[0] <= dstBounds[0], "Texture copy range exceeds destination texture width");
+  lovrAssert(dstOffset[1] + extent[1] <= dstBounds[1], "Texture copy range exceeds destination texture height");
+  lovrAssert(dstOffset[2] + extent[2] <= dstBounds[2], "Texture copy range exceeds destination texture depth");
+  lovrAssert(dstOffset[3] < dst->info.mipmaps, "Tried to copy to Texture mipmap %d, but it only has %d mipmaps", dstOffset[3], dst->info.mipmaps);
+
+  uint16_t realSrcOffset[4] = { srcOffset[0], srcOffset[1], srcOffset[2] + src->baseLayer, srcOffset[3] + src->baseLevel };
+  uint16_t realDstOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + dst->baseLayer, dstOffset[3] + dst->baseLevel };
+
+  gpu_texture_copy(src->gpu, dst->gpu, realSrcOffset, realDstOffset, extent);
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3]) {
