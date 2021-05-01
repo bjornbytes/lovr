@@ -514,15 +514,15 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewTexture(lua_State* L) {
-  Texture* source = luax_totype(L, 1, Texture);
+  Texture* parent = luax_totype(L, 1, Texture);
 
-  if (source) {
-    TextureView view = { .source = source };
+  if (parent) {
+    TextureViewInfo view = { .parent = parent };
     view.type = luax_checkenum(L, 2, TextureType, NULL);
     view.layerIndex = luaL_optinteger(L, 3, 1) - 1;
     view.layerCount = luaL_optinteger(L, 4, 1);
-    view.mipmapIndex = luaL_optinteger(L, 5, 1) - 1;
-    view.mipmapCount = luaL_optinteger(L, 6, 0);
+    view.levelIndex = luaL_optinteger(L, 5, 1) - 1;
+    view.levelCount = luaL_optinteger(L, 6, 0);
     Texture* texture = lovrTextureCreateView(&view);
     luax_pushtype(L, Texture, texture);
     lovrRelease(texture, lovrTextureDestroy);
@@ -628,8 +628,15 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         info.size[1] = image->height;
         info.format = image->format;
         texture = lovrTextureCreate(&info);
+      } else {
+        lovrAssert(image->width == info.size[0], "Image widths must match");
+        lovrAssert(image->height == info.size[1], "Image heights must match");
+        lovrAssert(image->format == info.format, "Image formats must match");
       }
-      //lovrTextureReplacePixels(texture, image, 0, 0, i, 0);
+      uint16_t offset[4] = { 0, 0, i, 0 };
+      uint16_t extent[3] = { info.size[0], info.size[1], 1 };
+      uint32_t step[2] = { 0, 0 };
+      lovrTextureWrite(texture, offset, extent, image->blob->data, step);
       lovrRelease(image, lovrImageDestroy);
       lua_pop(L, 1);
     }
