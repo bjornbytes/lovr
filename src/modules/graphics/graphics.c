@@ -561,15 +561,22 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
+  TextureInfo* info = &texture->info;
+
+  uint16_t bounds[3] = {
+    MAX(info->size[0] >> offset[3], 1),
+    MAX(info->size[1] >> offset[3], 1),
+    info->type == TEXTURE_ARRAY ? info->size[2] : MAX(info->size[2] >> offset[3], 1)
+  };
+
   lovrAssert(texture->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to copy from it");
-  lovrAssert(offset[0] + extent[0] <= texture->info.size[0], "Tried to read past the width of the Texture");
-  lovrAssert(offset[1] + extent[1] <= texture->info.size[1], "Tried to read past the height of the Texture");
-  lovrAssert(offset[2] + extent[2] <= texture->info.size[2], "Tried to read past the depth of the Texture");
+  lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture read range exceeds texture width");
+  lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture read range exceeds texture height");
+  lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture read range exceeds texture depth");
   lovrAssert(offset[3] < texture->info.mipmaps, "Tried to read from Texture mipmap %d, but it only has %d mipmaps", offset[3], texture->info.mipmaps);
-  // TODO bounds checks
-  // TODO offset[2] += texture->info.view.layerIndex;
-  // TODO offset[3] += texture->info.view.mipmapIndex;
-  gpu_texture_read(texture->gpu, offset, extent, callback, userdata);
+
+  uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
+  gpu_texture_read(texture->gpu, realOffset, extent, callback, userdata);
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
