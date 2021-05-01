@@ -547,7 +547,7 @@ void lovrImageDestroy(void* ref) {
   free(image);
 }
 
-Color lovrImageGetPixel(Image* image, uint32_t x, uint32_t y) {
+void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float color[4]) {
   lovrAssert(image->blob->data, "Image does not have any pixel data");
   lovrAssert(x < image->width && y < image->height, "getPixel coordinates must be within Image bounds");
   size_t index = (image->height - (y + 1)) * image->width + x;
@@ -555,15 +555,35 @@ Color lovrImageGetPixel(Image* image, uint32_t x, uint32_t y) {
   uint8_t* u8 = (uint8_t*) image->blob->data + pixelSize * index;
   float* f32 = (float*) u8;
   switch (image->format) {
-    case FORMAT_RGBA8: return (Color) { u8[0] / 255.f, u8[1] / 255.f, u8[2] / 255.f, u8[3] / 255.f };
-    case FORMAT_R32F: return (Color) { f32[0], 1.f, 1.f, 1.f };
-    case FORMAT_RG32F: return (Color) { f32[0], f32[1], 1.f, 1.f };
-    case FORMAT_RGBA32F: return (Color) { f32[0], f32[1], f32[2], f32[3] };
+    case FORMAT_RGBA8:
+      color[0] = u8[0] / 255.f;
+      color[1] = u8[1] / 255.f;
+      color[2] = u8[2] / 255.f;
+      color[3] = u8[3] / 255.f;
+      return;
+    case FORMAT_R32F:
+      color[0] = f32[0];
+      color[1] = 1.f;
+      color[2] = 1.f;
+      color[3] = 1.f;
+      return;
+    case FORMAT_RG32F:
+      color[0] = f32[0];
+      color[1] = f32[1];
+      color[2] = 1.f;
+      color[3] = 1.f;
+      return;
+    case FORMAT_RGBA32F:
+      color[0] = f32[0];
+      color[1] = f32[1];
+      color[2] = f32[2];
+      color[3] = f32[3];
+      return;
     default: lovrThrow("Unsupported format for Image:getPixel");
   }
 }
 
-void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color) {
+void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float color[4]) {
   lovrAssert(image->blob->data, "Image does not have any pixel data");
   lovrAssert(x < image->width && y < image->height, "setPixel coordinates must be within Image bounds");
   size_t index = (image->height - (y + 1)) * image->width + x;
@@ -572,26 +592,26 @@ void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color) {
   float* f32 = (float*) u8;
   switch (image->format) {
     case FORMAT_RGBA8:
-      u8[0] = (uint8_t) (color.r * 255.f + .5f);
-      u8[1] = (uint8_t) (color.g * 255.f + .5f);
-      u8[2] = (uint8_t) (color.b * 255.f + .5f);
-      u8[3] = (uint8_t) (color.a * 255.f + .5f);
+      u8[0] = (uint8_t) (color[0] * 255.f + .5f);
+      u8[1] = (uint8_t) (color[1] * 255.f + .5f);
+      u8[2] = (uint8_t) (color[2] * 255.f + .5f);
+      u8[3] = (uint8_t) (color[3] * 255.f + .5f);
       break;
 
     case FORMAT_R32F:
-      f32[0] = color.r;
+      f32[0] = color[0];
       break;
 
     case FORMAT_RG32F:
-      f32[0] = color.r;
-      f32[1] = color.g;
+      f32[0] = color[0];
+      f32[1] = color[1];
       break;
 
     case FORMAT_RGBA32F:
-      f32[0] = color.r;
-      f32[1] = color.g;
-      f32[2] = color.b;
-      f32[3] = color.a;
+      f32[0] = color[0];
+      f32[1] = color[1];
+      f32[2] = color[2];
+      f32[3] = color[3];
       break;
 
     default: lovrThrow("Unsupported format for Image:setPixel");

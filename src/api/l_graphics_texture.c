@@ -184,11 +184,15 @@ static int l_lovrTextureCopy(lua_State* L) {
 
 static int l_lovrTextureClear(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  uint16_t layer = luaL_optinteger(L, 2, 1);
-  uint16_t level = luaL_optinteger(L, 3, 1);
-  uint16_t layerCount = luaL_optinteger(L, 4, 0);
-  uint16_t levelCount = luaL_optinteger(L, 5, 0);
-  lovrTextureClear(texture, layer, level, layerCount, levelCount);
+  const TextureInfo* info = lovrTextureGetInfo(texture);
+  float color[4];
+  luax_readcolor(L, 2, color);
+  int index = lua_istable(L, 2) ? 3 : 6; // color must occupy 1 or 4 arguments
+  uint16_t layer = luaL_optinteger(L, index++, 1) - 1;
+  uint16_t level = luaL_optinteger(L, index++, 1) - 1;
+  uint16_t layerCount = luaL_optinteger(L, index++, info->size[2] - layer);
+  uint16_t levelCount = luaL_optinteger(L, index++, info->mipmaps - level);
+  lovrTextureClear(texture, layer, layerCount, level, levelCount, color);
   return 0;
 }
 

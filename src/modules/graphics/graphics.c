@@ -13,6 +13,9 @@
 #include <stdlib.h>
 #include <math.h>
 
+const char** os_vk_get_instance_extensions(uint32_t* count);
+uint32_t os_vk_create_surface(void* instance, void** surface);
+
 struct Buffer {
   uint32_t ref;
   gpu_buffer* gpu;
@@ -482,8 +485,8 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
     .type = (gpu_texture_type) view->type,
     .layerIndex = view->layerIndex,
     .layerCount = view->layerCount,
-    .mipmapIndex = view->levelIndex,
-    .mipmapCount = view->levelCount
+    .levelIndex = view->levelIndex,
+    .levelCount = view->levelCount
   };
 
   lovrAssert(gpu_texture_init_view(texture->gpu, &gpuInfo), "Could not create Texture view");
@@ -507,16 +510,16 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
   TextureInfo* info = &texture->info;
 
-  uint32_t bounds[3] = {
+  uint16_t bounds[3] = {
     MAX(info->size[0] >> offset[3], 1),
     MAX(info->size[1] >> offset[3], 1),
     info->type == TEXTURE_ARRAY ? info->size[2] : MAX(info->size[2] >> offset[3], 1)
   };
 
-  lovrAssert(offset[3] < info->mipmaps, "Tried to write to Texture mipmap %d, but it only has %d mipmaps", offset[3], info->mipmaps);
   lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture write range exceeds texture width");
   lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture write range exceeds texture height");
   lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture write range exceeds texture depth");
+  lovrAssert(offset[3] < info->mipmaps, "Tried to write to Texture mipmap %d, but it only has %d mipmaps", offset[3], info->mipmaps);
 
   char* src = data;
   uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
@@ -540,16 +543,21 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
   lovrAssert(texture->info.format == image->format, "Texture and Image formats must match");
   lovrAssert(srcOffset[0] + extent[0] <= image->width, "Tried to read pixels past the width of the Image");
   lovrAssert(srcOffset[1] + extent[1] <= image->height, "Tried to read pixels past the height of the Image");
-  lovrAssert(dstOffset[0] + extent[0] <= texture->info.size[0], "Tried to write past the width of the Texture");
-  lovrAssert(dstOffset[1] + extent[1] <= texture->info.size[1], "Tried to write past the height of the Texture");
-  lovrAssert(dstOffset[2] < texture->info.size[2], "Tried to write past the depth of the Texture");
-  lovrAssert(dstOffset[3] < texture->info.mipmaps, "Tried to write to Texture mipmap %d, but it only has %d mipmaps", dstOffset[3], texture->info.mipmaps);
-  // TODO baseLayer/baseIndex
-  // TODO
+
+  uint16_t fullExtent[3] = { extent[0], extent[1], 1 };
+  uint32_t step[2] = { getTextureRegionSize(image->format, image->width, 1, 1), 0 };
+  size_t offsetx = getTextureRegionSize(image->format, srcOffset[0], 1, 1);
+  size_t offsety = srcOffset[1] * step[0];
+  char* data = (char*) image->blob->data + offsety + offsetx;
+
+  lovrTextureWrite(texture, dstOffset, fullExtent, data, step);
 }
 
-void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t mipmap, uint16_t layerCount, uint16_t mipmapCount) {
-  //gpu_texture_clear();
+void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
+  lovrAssert(texture->info.flags & TEXTURE_COPYTO, "Texture must have the 'copyto' to clear it");
+  lovrAssert(layer + layerCount <= texture->info.size[2], "Texture clear range exceeds texture layer count");
+  lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
+  gpu_texture_clear(texture->gpu, layer, layerCount, level, levelCount, color);
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
@@ -566,10 +574,17 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
   lovrAssert(src->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to copy from it");
+  size_t srcSize = getTextureRegionSize(src->info.format, extent[0], extent[1], extent[2]);
+  size_t dstSize = getTextureRegionSize(dst->info.format, extent[0], extent[1], extent[2]);
+  lovrAssert(srcSize == dstSize, "Unable to copy between Textures that have differently-sized formats");
   // TODO bounds checks
   // TODO offset[2] += texture->info.view.layerIndex;
   // TODO offset[3] += texture->info.view.mipmapIndex;
   gpu_texture_copy(src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+}
+
+void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3]) {
+  // Oh no
 }
 
 // Pipeline

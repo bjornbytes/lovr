@@ -316,6 +316,7 @@ static const char* getErrorString(VkResult result);
   X(vkCmdCopyBufferToImage)\
   X(vkCmdCopyImageToBuffer)\
   X(vkCmdFillBuffer)\
+  X(vkCmdClearColorImage)\
   X(vkAllocateMemory)\
   X(vkFreeMemory)\
   X(vkMapMemory)\
@@ -1246,8 +1247,8 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     .format = texture->format,
     .subresourceRange = {
       .aspectMask = texture->aspect,
-      .baseMipLevel = info ? info->mipmapIndex : 0,
-      .levelCount = (info && info->mipmapCount) ? info->mipmapCount : VK_REMAINING_MIP_LEVELS,
+      .baseMipLevel = info ? info->levelIndex : 0,
+      .levelCount = (info && info->levelCount) ? info->levelCount : VK_REMAINING_MIP_LEVELS,
       .baseArrayLayer = info ? info->layerIndex : 0,
       .layerCount = (info && info->layerCount) ? info->layerCount : VK_REMAINING_ARRAY_LAYERS
     }
@@ -1336,6 +1337,21 @@ void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4],
   };
 
   vkCmdCopyImage(state.batch->commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region);
+}
+
+void gpu_texture_clear(gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
+  VkClearColorValue clear;
+  memcpy(clear.float32, color, 4 * sizeof(float));
+
+  VkImageSubresourceRange range = {
+    .aspectMask = texture->aspect,
+    .baseMipLevel = level,
+    .levelCount = levelCount,
+    .baseArrayLayer = layer,
+    .layerCount = layerCount
+  };
+
+  vkCmdClearColorImage(state.batch->commands, texture->handle, texture->layout, &clear, 1, &range);
 }
 
 // Sampler
