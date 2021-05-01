@@ -65,7 +65,7 @@ typedef struct Image {
 Image* lovrImageCreate(uint32_t width, uint32_t height, struct Blob* contents, uint8_t value, TextureFormat format);
 Image* lovrImageCreateFromBlob(struct Blob* blob, bool flip);
 void lovrImageDestroy(void* ref);
-Color lovrImageGetPixel(Image* image, uint32_t x, uint32_t y);
-void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color);
+void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float color[4]);
+void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float color[4]);
 struct Blob* lovrImageEncode(Image* image);
 void lovrImagePaste(Image* image, Image* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h);

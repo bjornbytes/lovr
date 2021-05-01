@@ -633,10 +633,10 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         lovrAssert(image->height == info.size[1], "Image heights must match");
         lovrAssert(image->format == info.format, "Image formats must match");
       }
-      uint16_t offset[4] = { 0, 0, i, 0 };
+      uint16_t srcOffset[4] = { 0, 0, i, 0 };
+      uint16_t dstOffset[2] = { 0, 0 };
       uint16_t extent[3] = { info.size[0], info.size[1], 1 };
-      uint32_t step[2] = { 0, 0 };
-      lovrTextureWrite(texture, offset, extent, image->blob->data, step);
+      lovrTexturePaste(texture, image, srcOffset, dstOffset, extent);
       lovrRelease(image, lovrImageDestroy);
       lua_pop(L, 1);
     }

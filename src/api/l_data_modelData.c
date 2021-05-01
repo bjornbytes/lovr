@@ -407,10 +407,10 @@ static int l_lovrModelDataGetMaterialColor(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmaterial(L, 2, model);
   MaterialColor type = luax_checkenum(L, 3, MaterialColor, "diffuse");
-  lua_pushnumber(L, material->colors[type].r);
-  lua_pushnumber(L, material->colors[type].g);
-  lua_pushnumber(L, material->colors[type].b);
-  lua_pushnumber(L, material->colors[type].a);
+  lua_pushnumber(L, material->colors[type][0]);
+  lua_pushnumber(L, material->colors[type][1]);
+  lua_pushnumber(L, material->colors[type][2]);
+  lua_pushnumber(L, material->colors[type][3]);
   return 4;
 }
 
