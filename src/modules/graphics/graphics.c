@@ -1,5 +1,6 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
+#include "data/image.h"
 #include "event/event.h"
 #include "core/maf.h"
 #include "core/map.h"
@@ -23,6 +24,8 @@ struct Texture {
   uint32_t ref;
   gpu_texture* gpu;
   TextureInfo info;
+  uint32_t baseLayer;
+  uint32_t baseLevel;
 };
 
 struct Pipeline {
@@ -247,9 +250,10 @@ void lovrGraphicsFlush() {
 // Buffer
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
+  lovrAssert(info->length * info->stride > 0, "Buffer size must be greater than zero");
+
   if (info->flags & BUFFER_WRITE) {
-    lovrAssert(~info->flags & BUFFER_COMPUTE, "Buffers with the 'write' flag can not have the '%s' flag", "compute");
-    lovrAssert(~info->flags & BUFFER_COPYTO, "Buffers with the 'write' flag can not have the '%s' flag", "copyto");
+    lovrAssert(~info->flags & BUFFER_COMPUTE, "Buffers can not have both the 'write' and 'compute' flags");
   }
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
@@ -286,6 +290,7 @@ void* lovrBufferMap(Buffer* buffer) {
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrAssert(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrAssert(size % 4 == 0, "Buffer clear size must be a multiple of 4");
+  lovrAssert(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
   lovrAssert(buffer->info.flags & (BUFFER_WRITE | BUFFER_COPYTO), "A Buffer can only be cleared if it has the 'write' or 'copyto' flags");
   gpu_buffer_clear(buffer->gpu, offset, size);
 }
@@ -293,27 +298,130 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   lovrAssert(src->info.flags & BUFFER_COPYFROM, "A Buffer can only be copied if it has the 'copyfrom' flag");
   lovrAssert(dst->info.flags & BUFFER_COPYTO, "A Buffer can only be copied to if it has the 'copyto' flag");
-  lovrAssert(srcOffset + size <= src->info.length * src->info.stride, "Tried to read past the end of the source Buffer");
-  lovrAssert(dstOffset + size <= dst->info.length * dst->info.stride, "Tried to copy past the end of the destination Buffer");
+  lovrAssert(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
+  lovrAssert(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
   gpu_buffer_copy(src->gpu, dst->gpu, srcOffset, dstOffset, size);
 }
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
   lovrAssert(buffer->info.flags & BUFFER_COPYFROM, "A Buffer can only be read if it has the 'copyfrom' flag");
+  lovrAssert(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
   gpu_buffer_read(buffer->gpu, offset, size, callback, userdata);
 }
 
 // Texture
 
+static size_t getTextureRegionSize(TextureFormat format, uint16_t w, uint16_t h, uint16_t d) {
+  switch (format) {
+    case FORMAT_R8: return w * h * d;
+    case FORMAT_RG8:
+    case FORMAT_R16:
+    case FORMAT_R16F:
+    case FORMAT_RGB565:
+    case FORMAT_RGB5A1:
+    case FORMAT_D16: return w * h * d * 2;
+    case FORMAT_RGBA8:
+    case FORMAT_RG16:
+    case FORMAT_RG16F:
+    case FORMAT_R32F:
+    case FORMAT_RG11B10F:
+    case FORMAT_RGB10A2:
+    case FORMAT_D24S8:
+    case FORMAT_D32F: return w * h * d * 4;
+    case FORMAT_RGBA16:
+    case FORMAT_RGBA16F:
+    case FORMAT_RG32F: return w * h * d * 8;
+    case FORMAT_RGBA32F: return w * h * d * 16;
+    case FORMAT_BC6:
+    case FORMAT_BC7:
+    case FORMAT_ASTC_4x4: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
+    case FORMAT_ASTC_5x4: return ((w + 4) / 5) * ((h + 3) / 4) * d * 16;
+    case FORMAT_ASTC_5x5: return ((w + 4) / 5) * ((h + 4) / 5) * d * 16;
+    case FORMAT_ASTC_6x5: return ((w + 5) / 6) * ((h + 4) / 5) * d * 16;
+    case FORMAT_ASTC_6x6: return ((w + 5) / 6) * ((h + 5) / 6) * d * 16;
+    case FORMAT_ASTC_8x5: return ((w + 7) / 8) * ((h + 4) / 5) * d * 16;
+    case FORMAT_ASTC_8x6: return ((w + 7) / 8) * ((h + 5) / 6) * d * 16;
+    case FORMAT_ASTC_8x8: return ((w + 7) / 8) * ((h + 7) / 8) * d * 16;
+    case FORMAT_ASTC_10x5: return ((w + 9) / 10) * ((h + 4) / 5) * d * 16;
+    case FORMAT_ASTC_10x6: return ((w + 9) / 10) * ((h + 5) / 6) * d * 16;
+    case FORMAT_ASTC_10x8: return ((w + 9) / 10) * ((h + 7) / 8) * d * 16;
+    case FORMAT_ASTC_10x10: return ((w + 9) / 10) * ((h + 9) / 10) * d * 16;
+    case FORMAT_ASTC_12x10: return ((w + 11) / 12) * ((h + 9) / 10) * d * 16;
+    case FORMAT_ASTC_12x12: return ((w + 11) / 12) * ((h + 11) / 12) * d * 16;
+    default: lovrThrow("Unreachable");
+  }
+}
+
 Texture* lovrTextureCreate(TextureInfo* info) {
+  lovrAssert(!info->parent, "Textures can only have parents when created as views");
+  lovrAssert(info->size[0] > 0, "Texture width must be greater than zero");
+  lovrAssert(info->size[1] > 0, "Texture height must be greater than zero");
+  lovrAssert(info->size[2] > 0, "Texture depth must be greater than zero");
+  lovrAssert(info->mipmaps > 0, "Texture mipmap count must be greater than zero");
+  lovrAssert(info->samples > 0, "Texture sample count must be greater than zero");
+  lovrAssert(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
+
+  if (info->type == TEXTURE_2D) {
+    uint32_t maxSize = state.limits.textureSize2D;
+    lovrAssert(info->size[2] == 1, "2D textures must have a depth of 1");
+    lovrAssert(info->size[0] <= maxSize, "2D texture %s exceeds the textureSize2D limit of this GPU (%d)", "width", maxSize);
+    lovrAssert(info->size[1] <= maxSize, "2D texture %s exceeds the textureSize2D limit of this GPU (%d)", "height", maxSize);
+  }
+
+  if (info->type == TEXTURE_CUBE) {
+    uint32_t maxSize = state.limits.textureSizeCube;
+    lovrAssert(info->size[0] == info->size[1], "Cubemaps must have square dimensions");
+    lovrAssert(info->size[2] == 6, "Cubemaps must have a depth of 6");
+    lovrAssert(info->samples == 1, "Cubemaps can not be multisampled");
+    lovrAssert(info->size[0] <= maxSize, "Cubemap size exceeds the textureSizeCube limit of this GPU (%d)", maxSize);
+  }
+
+  if (info->type == TEXTURE_VOLUME) {
+    uint32_t maxSize = state.limits.textureSize3D;
+    lovrAssert(info->samples == 1, "Volume textures can not be multisampled");
+    lovrAssert(info->size[0] <= maxSize, "Volume texture %s exceeds the textureSize3D limit of this GPU (%d)", "width", maxSize);
+    lovrAssert(info->size[1] <= maxSize, "Volume texture %s exceeds the textureSize3D limit of this GPU (%d)", "height", maxSize);
+    lovrAssert(info->size[2] <= maxSize, "Volume texture %s exceeds the textureSize3D limit of this GPU (%d)", "depth", maxSize);
+  }
+
+  if (info->type == TEXTURE_ARRAY) {
+    uint32_t maxLayers = state.limits.textureLayers;
+    lovrAssert(info->size[2] <= maxLayers, "Array texture layer count exceeds the textureLayers limit of this GPU (%d)", maxLayers);
+  }
+
+  if (info->flags & TEXTURE_SAMPLE) {
+    bool canSample = state.features.formats[info->format] & GPU_FORMAT_FEATURE_SAMPLE;
+    lovrAssert(canSample, "Texture has 'sample' flag but this GPU does not support sampling this format");
+  }
+
+  if (info->flags & TEXTURE_RENDER) {
+    bool canRender = state.features.formats[info->format] & (GPU_FORMAT_FEATURE_RENDER_COLOR | GPU_FORMAT_FEATURE_RENDER_DEPTH);
+    lovrAssert(canRender, "Texture has 'render' flag but this GPU does not support rendering to this format");
+    uint32_t maxWidth = state.limits.renderSize[0];
+    uint32_t maxHeight = state.limits.renderSize[1];
+    bool excessive = info->size[0] > maxWidth || info->size[1] > maxHeight;
+    lovrAssert(!excessive, "Texture has 'render' flag but it exceeds the renderSize limit of this GPU (%d,%d)", maxWidth, maxHeight);
+  }
+
+  if (info->flags & TEXTURE_COMPUTE) {
+    bool allowed = state.features.formats[info->format] & GPU_FORMAT_FEATURE_STORAGE;
+    lovrAssert(allowed, "Texture has 'compute' flag but this GPU does not support this for this format");
+    lovrAssert(info->samples == 1, "Textures with the 'compute' flag can not currently be multisampled");
+  }
+
+  uint32_t mipDepth = info->type == TEXTURE_VOLUME ? info->size[2] : 1;
+  uint32_t mipMax = log2(MAX(MAX(info->size[0], info->size[1]), mipDepth)) + 1;
+
+  if (info->mipmaps == ~0u) {
+    info->mipmaps = mipMax;
+  } else {
+    lovrAssert(info->mipmaps <= mipMax, "Texture has more than the max number of mipmap levels for its size (%d)", mipMax);
+  }
+
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
   texture->ref = 1;
-
-  if (info->mipmaps == ~0u) {
-    info->mipmaps = log2(MAX(MAX(info->size[0], info->size[1]), info->size[2])) + 1;
-  }
 
   gpu_texture_info gpuInfo = {
     .type = (gpu_texture_type) info->type,
@@ -332,32 +440,63 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   return texture;
 }
 
-Texture* lovrTextureCreateView(TextureView* view) {
+Texture* lovrTextureCreateView(TextureViewInfo* view) {
+  lovrAssert(view->parent, "Texture view must have a parent texture");
+  lovrAssert(view->type != TEXTURE_VOLUME, "Texture views may not be volume textures");
+
+  const TextureInfo* info = &view->parent->info;
+  lovrAssert(!info->parent, "Can't create a Texture view from another Texture view");
+  lovrAssert(view->layerCount > 0, "Texture view must have at least one layer");
+  lovrAssert(view->levelCount > 0, "Texture view must have at least one mipmap");
+  uint32_t maxDepth = info->type == TEXTURE_VOLUME ? MAX(info->size[2] >> view->levelIndex, 1) : info->size[2];
+  lovrAssert(view->layerIndex + view->layerCount <= maxDepth, "Texture view layer range exceeds depth of parent texture");
+  lovrAssert(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
+
+  if (view->type == TEXTURE_2D) {
+    lovrAssert(view->layerCount == 1, "2D textures can only have a single layer");
+  }
+
+  if (view->type == TEXTURE_CUBE) {
+    lovrAssert(view->layerCount == 6, "Cubemaps must have 6 layers");
+  }
+
+  if (info->type == TEXTURE_VOLUME) {
+    lovrAssert(view->levelCount == 1, "Views created from volume textures may only have a single mipmap level");
+  }
+
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   texture->gpu = (gpu_texture*) (texture + 1);
-  texture->info = view->source->info;
-  texture->info.view = *view;
+  texture->info = *info;
   texture->ref = 1;
 
+  texture->info.parent = view->parent;
+  texture->info.mipmaps = view->levelCount;
+  texture->info.size[0] = MAX(info->size[0] >> view->levelIndex, 1);
+  texture->info.size[1] = MAX(info->size[1] >> view->levelIndex, 1);
+  texture->info.size[2] = view->layerCount;
+  texture->baseLayer = view->layerIndex;
+  texture->baseLevel = view->levelIndex;
+
   gpu_texture_view_info gpuInfo = {
-    .source = view->source->gpu,
+    .source = view->parent->gpu,
     .type = (gpu_texture_type) view->type,
     .layerIndex = view->layerIndex,
     .layerCount = view->layerCount,
-    .mipmapIndex = view->mipmapIndex,
-    .mipmapCount = view->mipmapCount
+    .mipmapIndex = view->levelIndex,
+    .mipmapCount = view->levelCount
   };
 
   lovrAssert(gpu_texture_init_view(texture->gpu, &gpuInfo), "Could not create Texture view");
-  lovrRetain(view->source);
+  lovrRetain(view->parent);
   return texture;
 }
 
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
-  gpu_texture_destroy(texture->gpu);
-  if (texture->info.view.source) {
-    lovrRelease(texture->info.view.source, lovrTextureDestroy);
+  if (texture->info.parent) {
+    lovrRelease(texture->info.parent, lovrTextureDestroy);
+  } else {
+    gpu_texture_destroy(texture->gpu);
   }
 }
 
@@ -365,10 +504,72 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
 }
 
-void lovrTextureGetPixels(Texture* texture, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t layer, uint32_t level, void (*callback)(void* data, uint64_t size, void* context), void* context) {
-  uint16_t offset[4] = { x, y, layer, level };
-  uint16_t extent[3] = { w, h, 1 };
-  gpu_texture_read(texture->gpu, offset, extent, callback, context);
+void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
+  TextureInfo* info = &texture->info;
+
+  uint32_t bounds[3] = {
+    MAX(info->size[0] >> offset[3], 1),
+    MAX(info->size[1] >> offset[3], 1),
+    info->type == TEXTURE_ARRAY ? info->size[2] : MAX(info->size[2] >> offset[3], 1)
+  };
+
+  lovrAssert(offset[3] < info->mipmaps, "Tried to write to Texture mipmap %d, but it only has %d mipmaps", offset[3], info->mipmaps);
+  lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture write range exceeds texture width");
+  lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture write range exceeds texture height");
+  lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture write range exceeds texture depth");
+
+  char* src = data;
+  uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
+  char* dst = gpu_texture_map(texture->gpu, realOffset, extent);
+  size_t rowSize = getTextureRegionSize(info->format, extent[0], 1, 1);
+  size_t imgSize = getTextureRegionSize(info->format, extent[0], extent[1], 1);
+  size_t jump = step[0] ? step[0] : rowSize;
+  size_t leap = step[1] ? step[1] : imgSize;
+  for (uint16_t z = 0; z < extent[2]; z++) {
+    for (uint16_t y = 0; y < extent[1]; y++) {
+      memcpy(dst, src, rowSize);
+      dst += rowSize;
+      src += jump;
+    }
+    dst += imgSize;
+    src += leap;
+  }
+}
+
+void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uint16_t dstOffset[4], uint16_t extent[2]) {
+  lovrAssert(texture->info.format == image->format, "Texture and Image formats must match");
+  lovrAssert(srcOffset[0] + extent[0] <= image->width, "Tried to read pixels past the width of the Image");
+  lovrAssert(srcOffset[1] + extent[1] <= image->height, "Tried to read pixels past the height of the Image");
+  lovrAssert(dstOffset[0] + extent[0] <= texture->info.size[0], "Tried to write past the width of the Texture");
+  lovrAssert(dstOffset[1] + extent[1] <= texture->info.size[1], "Tried to write past the height of the Texture");
+  lovrAssert(dstOffset[2] < texture->info.size[2], "Tried to write past the depth of the Texture");
+  lovrAssert(dstOffset[3] < texture->info.mipmaps, "Tried to write to Texture mipmap %d, but it only has %d mipmaps", dstOffset[3], texture->info.mipmaps);
+  // TODO baseLayer/baseIndex
+  // TODO
+}
+
+void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t mipmap, uint16_t layerCount, uint16_t mipmapCount) {
+  //gpu_texture_clear();
+}
+
+void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
+  lovrAssert(texture->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to copy from it");
+  lovrAssert(offset[0] + extent[0] <= texture->info.size[0], "Tried to read past the width of the Texture");
+  lovrAssert(offset[1] + extent[1] <= texture->info.size[1], "Tried to read past the height of the Texture");
+  lovrAssert(offset[2] + extent[2] <= texture->info.size[2], "Tried to read past the depth of the Texture");
+  lovrAssert(offset[3] < texture->info.mipmaps, "Tried to read from Texture mipmap %d, but it only has %d mipmaps", offset[3], texture->info.mipmaps);
+  // TODO bounds checks
+  // TODO offset[2] += texture->info.view.layerIndex;
+  // TODO offset[3] += texture->info.view.mipmapIndex;
+  gpu_texture_read(texture->gpu, offset, extent, callback, userdata);
+}
+
+void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
+  lovrAssert(src->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to copy from it");
+  // TODO bounds checks
+  // TODO offset[2] += texture->info.view.layerIndex;
+  // TODO offset[3] += texture->info.view.mipmapIndex;
+  gpu_texture_copy(src->gpu, dst->gpu, srcOffset, dstOffset, extent);
 }
 
 // Pipeline
