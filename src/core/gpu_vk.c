@@ -313,6 +313,7 @@ static const char* getErrorString(VkResult result);
   X(vkBindImageMemory)\
   X(vkCmdCopyBuffer)\
   X(vkCmdCopyImage)\
+  X(vkCmdBlitImage)\
   X(vkCmdCopyBufferToImage)\
   X(vkCmdCopyImageToBuffer)\
   X(vkCmdFillBuffer)\
@@ -1325,18 +1326,45 @@ void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4],
       .baseArrayLayer = srcArray ? srcOffset[2] : 0,
       .layerCount = srcArray ? size[2] : 1
     },
-    .srcOffset = { srcOffset[0], srcOffset[1], srcArray ? 0 : srcOffset[2] },
     .dstSubresource = {
       .aspectMask = dst->aspect,
       .mipLevel = dstOffset[3],
       .baseArrayLayer = dstArray ? dstOffset[2] : 0,
       .layerCount = dstArray ? size[2] : 1
     },
+    .srcOffset = { srcOffset[0], srcOffset[1], srcArray ? 0 : srcOffset[2] },
     .dstOffset = { dstOffset[0], dstOffset[1], dstArray ? 0 : dstOffset[2] },
     .extent = { size[0], size[1], size[2] }
   };
 
   vkCmdCopyImage(state.batch->commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region);
+}
+
+void gpu_texture_blit(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
+  bool srcArray = src->type == GPU_TEXTURE_TYPE_ARRAY;
+  bool dstArray = dst->type == GPU_TEXTURE_TYPE_ARRAY;
+
+  VkImageBlit region = {
+    .srcSubresource = {
+      .aspectMask = src->aspect,
+      .mipLevel = srcOffset[3],
+      .baseArrayLayer = srcArray ? srcOffset[2] : 0,
+      .layerCount = srcArray ? srcExtent[2] : 1
+    },
+    .dstSubresource = {
+      .aspectMask = dst->aspect,
+      .mipLevel = dstOffset[3],
+      .baseArrayLayer = dstArray ? dstOffset[2] : 0,
+      .layerCount = dstArray ? dstExtent[2] : 1
+    },
+    .srcOffsets[0] = { srcOffset[0], srcOffset[1], srcArray ? 0 : srcOffset[2] },
+    .dstOffsets[0] = { dstOffset[0], dstOffset[1], dstArray ? 0 : dstOffset[2] },
+    .srcOffsets[1] = { srcOffset[0] + srcExtent[0], srcOffset[1] + srcExtent[1], srcArray ? 1 : srcOffset[2] + srcExtent[2] },
+    .dstOffsets[1] = { dstOffset[0] + dstExtent[0], dstOffset[1] + dstExtent[1], dstArray ? 1 : dstOffset[2] + dstExtent[2] }
+  };
+
+  VkFilter filter = nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
+  vkCmdBlitImage(state.batch->commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region, filter);
 }
 
 void gpu_texture_clear(gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {

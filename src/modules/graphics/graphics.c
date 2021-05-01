@@ -314,6 +314,10 @@ void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callb
 
 // Texture
 
+static bool isDepthFormat(TextureFormat format) {
+  return format == FORMAT_D16 || format == FORMAT_D24S8 || format == FORMAT_D32F;
+}
+
 static size_t getTextureRegionSize(TextureFormat format, uint16_t w, uint16_t h, uint16_t d) {
   switch (format) {
     case FORMAT_R8: return w * h * d;
@@ -513,7 +517,7 @@ void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], 
   uint16_t bounds[3] = {
     MAX(info->size[0] >> offset[3], 1),
     MAX(info->size[1] >> offset[3], 1),
-    info->type == TEXTURE_ARRAY ? info->size[2] : MAX(info->size[2] >> offset[3], 1)
+    info->type == TEXTURE_VOLUME ? MAX(info->size[2] >> offset[3], 1) : info->size[2]
   };
 
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
@@ -555,6 +559,7 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
 }
 
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
+  lovrAssert(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
   lovrAssert(texture->info.flags & TEXTURE_COPYTO, "Texture must have the 'copyto' to clear it");
   lovrAssert(layer + layerCount <= texture->info.size[2], "Texture clear range exceeds texture layer count");
   lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
@@ -567,7 +572,7 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
   uint16_t bounds[3] = {
     MAX(info->size[0] >> offset[3], 1),
     MAX(info->size[1] >> offset[3], 1),
-    info->type == TEXTURE_ARRAY ? info->size[2] : MAX(info->size[2] >> offset[3], 1)
+    info->type == TEXTURE_VOLUME ? MAX(info->size[2] >> offset[3], 1) : info->size[2]
   };
 
   lovrAssert(texture->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to read from it");
@@ -583,21 +588,19 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
   lovrAssert(src->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to copy from it");
-  size_t srcSize = getTextureRegionSize(src->info.format, extent[0], extent[1], extent[2]);
-  size_t dstSize = getTextureRegionSize(dst->info.format, extent[0], extent[1], extent[2]);
-  lovrAssert(srcSize == dstSize, "Unable to copy between Textures that have differently-sized formats");
+  lovrAssert(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
   lovrAssert(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
 
   uint16_t srcBounds[3] = {
     MAX(src->info.size[0] >> srcOffset[3], 1),
     MAX(src->info.size[1] >> srcOffset[3], 1),
-    src->info.type == TEXTURE_ARRAY ? src->info.size[2] : MAX(src->info.size[2] >> srcOffset[3], 1)
+    src->info.type == TEXTURE_VOLUME ? MAX(src->info.size[2] >> srcOffset[3], 1) : src->info.size[2]
   };
 
   uint16_t dstBounds[3] = {
     MAX(dst->info.size[0] >> dstOffset[3], 1),
     MAX(dst->info.size[1] >> dstOffset[3], 1),
-    dst->info.type == TEXTURE_ARRAY ? dst->info.size[2] : MAX(dst->info.size[2] >> dstOffset[3], 1)
+    dst->info.type == TEXTURE_VOLUME ? MAX(dst->info.size[2] >> dstOffset[3], 1) : dst->info.size[2]
   };
 
   lovrAssert(srcOffset[0] + extent[0] <= srcBounds[0], "Texture copy range exceeds source texture width");
@@ -616,8 +619,20 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   gpu_texture_copy(src->gpu, dst->gpu, realSrcOffset, realDstOffset, extent);
 }
 
-void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3]) {
-  // Oh no
+void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
+  lovrAssert(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
+  lovrAssert(src->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to blit from it");
+  lovrAssert(state.features.formats[src->info.format] & GPU_FORMAT_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
+  lovrAssert(state.features.formats[dst->info.format] & GPU_FORMAT_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
+
+  if (isDepthFormat(src->info.format) || isDepthFormat(dst->info.format)) {
+    lovrAssert(src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
+  }
+
+  lovrAssert(srcOffset[3] < src->info.mipmaps, "Tried to blit from Texture mipmap level %d, but it only has %d mipmaps", srcOffset[3], src->info.mipmaps);
+  lovrAssert(dstOffset[3] < dst->info.mipmaps, "Tried to blit to Texture mipmap level %d, but it only has %d mipmaps", dstOffset[3], dst->info.mipmaps);
+
+  gpu_texture_blit(src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
 }
 
 // Pipeline

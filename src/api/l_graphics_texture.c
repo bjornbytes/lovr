@@ -182,6 +182,29 @@ static int l_lovrTextureCopy(lua_State* L) {
   return 0;
 }
 
+static int l_lovrTextureBlit(lua_State* L) {
+  Texture* src = luax_checktype(L, 1, Texture);
+  Texture* dst = luax_checktype(L, 2, Texture);
+  uint16_t srcOffset[4], dstOffset[4], srcExtent[3], dstExtent[3];
+  srcOffset[0] = luaL_optinteger(L, 3, 0);
+  srcOffset[1] = luaL_optinteger(L, 4, 0);
+  srcOffset[2] = luaL_optinteger(L, 5, 1);
+  srcOffset[3] = luaL_optinteger(L, 6, 1);
+  dstOffset[0] = luaL_optinteger(L, 7, 0);
+  dstOffset[1] = luaL_optinteger(L, 8, 0);
+  dstOffset[2] = luaL_optinteger(L, 9, 1);
+  dstOffset[3] = luaL_optinteger(L, 10, 1);
+  srcExtent[0] = luaL_optinteger(L, 11, 1);
+  srcExtent[1] = luaL_optinteger(L, 12, 1);
+  srcExtent[2] = luaL_optinteger(L, 13, 1);
+  dstExtent[0] = luaL_optinteger(L, 14, 1);
+  dstExtent[1] = luaL_optinteger(L, 15, 1);
+  dstExtent[2] = luaL_optinteger(L, 16, 1);
+  bool nearest = false;
+  lovrTextureBlit(src, dst, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
+  return 0;
+}
+
 static int l_lovrTextureClear(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
@@ -211,6 +234,7 @@ const luaL_Reg lovrTexture[] = {
   { "write", l_lovrTextureWrite },
   { "read", l_lovrTextureRead },
   { "copy", l_lovrTextureCopy },
+  { "blit", l_lovrTextureBlit },
   { "clear", l_lovrTextureClear },
   { NULL, NULL }
 };
