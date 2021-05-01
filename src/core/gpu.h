@@ -62,7 +62,6 @@ typedef enum {
 } gpu_texture_type;
 
 typedef enum {
-  GPU_TEXTURE_FORMAT_NONE,
   GPU_TEXTURE_FORMAT_R8,
   GPU_TEXTURE_FORMAT_RG8,
   GPU_TEXTURE_FORMAT_RGBA8,
