@@ -359,6 +359,19 @@ static size_t getTextureRegionSize(TextureFormat format, uint16_t w, uint16_t h,
   }
 }
 
+static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint16_t extent[3]) {
+  uint16_t bounds[3] = {
+    MAX(info->size[0] >> offset[3], 1),
+    MAX(info->size[1] >> offset[3], 1),
+    info->type == TEXTURE_VOLUME ? MAX(info->size[2] >> offset[3], 1) : info->size[2]
+  };
+
+  lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture x range [%d,%d] exceeds width (%d)", offset[0], offset[0] + extent[0], bounds[0]);
+  lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], bounds[1]);
+  lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], bounds[2]);
+  lovrAssert(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
+}
+
 Texture* lovrTextureCreate(TextureInfo* info) {
   lovrAssert(!info->parent, "Textures can only have parents when created as views");
   lovrAssert(info->size[0] > 0, "Texture width must be greater than zero");
@@ -512,25 +525,14 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 }
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
-  TextureInfo* info = &texture->info;
-
-  uint16_t bounds[3] = {
-    MAX(info->size[0] >> offset[3], 1),
-    MAX(info->size[1] >> offset[3], 1),
-    info->type == TEXTURE_VOLUME ? MAX(info->size[2] >> offset[3], 1) : info->size[2]
-  };
-
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
-  lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture write range exceeds texture width");
-  lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture write range exceeds texture height");
-  lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture write range exceeds texture depth");
-  lovrAssert(offset[3] < info->mipmaps, "Tried to write to Texture mipmap %d, but it only has %d mipmaps", offset[3], info->mipmaps);
+  checkTextureBounds(&texture->info, offset, extent);
 
   char* src = data;
   uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
   char* dst = gpu_texture_map(texture->gpu, realOffset, extent);
-  size_t rowSize = getTextureRegionSize(info->format, extent[0], 1, 1);
-  size_t imgSize = getTextureRegionSize(info->format, extent[0], extent[1], 1);
+  size_t rowSize = getTextureRegionSize(texture->info.format, extent[0], 1, 1);
+  size_t imgSize = getTextureRegionSize(texture->info.format, extent[0], extent[1], 1);
   size_t jump = step[0] ? step[0] : rowSize;
   size_t leap = step[1] ? step[1] : imgSize;
   for (uint16_t z = 0; z < extent[2]; z++) {
@@ -561,26 +563,15 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
   lovrAssert(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
   lovrAssert(texture->info.flags & TEXTURE_COPYTO, "Texture must have the 'copyto' to clear it");
-  lovrAssert(layer + layerCount <= texture->info.size[2], "Texture clear range exceeds texture layer count");
+  lovrAssert(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.size[2], "Texture clear range exceeds texture layer count");
   lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
   gpu_texture_clear(texture->gpu, layer + texture->baseLayer, layerCount, level + texture->baseLevel, levelCount, color);
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
-  TextureInfo* info = &texture->info;
-
-  uint16_t bounds[3] = {
-    MAX(info->size[0] >> offset[3], 1),
-    MAX(info->size[1] >> offset[3], 1),
-    info->type == TEXTURE_VOLUME ? MAX(info->size[2] >> offset[3], 1) : info->size[2]
-  };
-
   lovrAssert(texture->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to read from it");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be read");
-  lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture read range exceeds texture width");
-  lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture read range exceeds texture height");
-  lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture read range exceeds texture depth");
-  lovrAssert(offset[3] < texture->info.mipmaps, "Tried to read from Texture mipmap %d, but it only has %d mipmaps", offset[3], texture->info.mipmaps);
+  checkTextureBounds(&texture->info, offset, extent);
 
   uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
   gpu_texture_read(texture->gpu, realOffset, extent, callback, userdata);
@@ -590,32 +581,10 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   lovrAssert(src->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to copy from it");
   lovrAssert(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
   lovrAssert(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
-
-  uint16_t srcBounds[3] = {
-    MAX(src->info.size[0] >> srcOffset[3], 1),
-    MAX(src->info.size[1] >> srcOffset[3], 1),
-    src->info.type == TEXTURE_VOLUME ? MAX(src->info.size[2] >> srcOffset[3], 1) : src->info.size[2]
-  };
-
-  uint16_t dstBounds[3] = {
-    MAX(dst->info.size[0] >> dstOffset[3], 1),
-    MAX(dst->info.size[1] >> dstOffset[3], 1),
-    dst->info.type == TEXTURE_VOLUME ? MAX(dst->info.size[2] >> dstOffset[3], 1) : dst->info.size[2]
-  };
-
-  lovrAssert(srcOffset[0] + extent[0] <= srcBounds[0], "Texture copy range exceeds source texture width");
-  lovrAssert(srcOffset[1] + extent[1] <= srcBounds[1], "Texture copy range exceeds source texture height");
-  lovrAssert(srcOffset[2] + extent[2] <= srcBounds[2], "Texture copy range exceeds source texture depth");
-  lovrAssert(srcOffset[3] < src->info.mipmaps, "Tried to copy from Texture mipmap %d, but it only has %d mipmaps", srcOffset[3], src->info.mipmaps);
-
-  lovrAssert(dstOffset[0] + extent[0] <= dstBounds[0], "Texture copy range exceeds destination texture width");
-  lovrAssert(dstOffset[1] + extent[1] <= dstBounds[1], "Texture copy range exceeds destination texture height");
-  lovrAssert(dstOffset[2] + extent[2] <= dstBounds[2], "Texture copy range exceeds destination texture depth");
-  lovrAssert(dstOffset[3] < dst->info.mipmaps, "Tried to copy to Texture mipmap %d, but it only has %d mipmaps", dstOffset[3], dst->info.mipmaps);
-
+  checkTextureBounds(&src->info, srcOffset, extent);
+  checkTextureBounds(&dst->info, dstOffset, extent);
   uint16_t realSrcOffset[4] = { srcOffset[0], srcOffset[1], srcOffset[2] + src->baseLayer, srcOffset[3] + src->baseLevel };
   uint16_t realDstOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + dst->baseLayer, dstOffset[3] + dst->baseLevel };
-
   gpu_texture_copy(src->gpu, dst->gpu, realSrcOffset, realDstOffset, extent);
 }
 
@@ -629,9 +598,8 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
     lovrAssert(src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
   }
 
-  lovrAssert(srcOffset[3] < src->info.mipmaps, "Tried to blit from Texture mipmap level %d, but it only has %d mipmaps", srcOffset[3], src->info.mipmaps);
-  lovrAssert(dstOffset[3] < dst->info.mipmaps, "Tried to blit to Texture mipmap level %d, but it only has %d mipmaps", dstOffset[3], dst->info.mipmaps);
-
+  checkTextureBounds(&src->info, srcOffset, srcExtent);
+  checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_texture_blit(src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
 }
 
