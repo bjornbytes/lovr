@@ -411,7 +411,7 @@ static int luaLoader(lua_State* L) {
   return 0;
 }
 
-static int libLoader(lua_State* L) {
+static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 #ifdef _WIN32
   const char* extension = ".dll";
 #else
@@ -454,6 +454,7 @@ static int libLoader(lua_State* L) {
 #endif
 
   for (const char* m = module; *m && length < sizeof(path); m++, length++) {
+    if (allInOneFlag && *m == '.') break;
     *p++ = *m == '.' ? LOVR_PATH_SEP : *m;
   }
 
@@ -484,6 +485,18 @@ static int libLoader(lua_State* L) {
   return 1;
 }
 
+static int libLoader(lua_State* L) {
+  const char* module = lua_tostring(L, 1);
+  bool allInOneFlag = false;
+  return libLoaderCommon(L, allInOneFlag);
+}
+
+static int libLoaderAllInOne(lua_State* L) {
+  const char* module = lua_tostring(L, 1);
+  bool allInOneFlag = true;
+  return libLoaderCommon(L, allInOneFlag);
+}
+
 int luaopen_lovr_filesystem(lua_State* L) {
   const char* archive = NULL;
 
@@ -503,5 +516,6 @@ int luaopen_lovr_filesystem(lua_State* L) {
   luax_register(L, lovrFilesystem);
   luax_registerloader(L, luaLoader, 2);
   luax_registerloader(L, libLoader, 3);
+  luax_registerloader(L, libLoaderAllInOne, 4);
   return 1;
 }
