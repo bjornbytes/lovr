@@ -569,7 +569,7 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
     info->type == TEXTURE_ARRAY ? info->size[2] : MAX(info->size[2] >> offset[3], 1)
   };
 
-  lovrAssert(texture->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to copy from it");
+  lovrAssert(texture->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to read from it");
   lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture read range exceeds texture width");
   lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture read range exceeds texture height");
   lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture read range exceeds texture depth");
