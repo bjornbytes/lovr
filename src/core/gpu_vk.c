@@ -1468,7 +1468,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   };
 
   VkAttachmentDescription attachments[9];
-  uint32_t count = 0;
+  uint32_t attachmentCount = 0;
 
   struct {
     VkAttachmentReference color[4];
@@ -1476,8 +1476,8 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     VkAttachmentReference depth;
   } refs;
 
-  for (uint32_t i = 0; i < COUNTOF(info->color) && info->color[i].format; i++, pass->colorCount++) {
-    uint32_t attachment = count++;
+  for (uint32_t i = 0; i < COUNTOF(info->color) && i < info->colorCount; i++) {
+    uint32_t attachment = attachmentCount++;
     attachments[attachment] = (VkAttachmentDescription) {
       .format = convertFormat(info->color[i].format, info->color[i].srgb),
       .samples = info->samples,
@@ -1493,7 +1493,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     };
 
     if (info->samples > 1) {
-      attachment = count++;
+      attachment = attachmentCount++;
       attachments[attachment] = (VkAttachmentDescription) {
         .format = convertFormat(info->color[i].format, LINEAR),
         .samples = info->samples,
@@ -1515,8 +1515,8 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     }
   }
 
-  if (info->depth.format) {
-    uint32_t attachment = count++;
+  if (info->depth.enabled) {
+    uint32_t attachment = attachmentCount++;
     attachments[attachment] = (VkAttachmentDescription) {
       .format = convertFormat(info->depth.format, LINEAR),
       .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -1535,10 +1535,10 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   }
 
   VkSubpassDescription subpass = {
-    .colorAttachmentCount = pass->colorCount,
+    .colorAttachmentCount = info->colorCount,
     .pColorAttachments = refs.color,
     .pResolveAttachments = refs.resolve,
-    .pDepthStencilAttachment = info->depth.format ? &refs.depth : NULL
+    .pDepthStencilAttachment = info->depth.enabled ? &refs.depth : NULL
   };
 
   VkRenderPassCreateInfo createInfo = {
@@ -1548,7 +1548,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       .subpassCount = 1,
       .pViewMasks = (uint32_t[1]) { (1 << info->views) - 1 }
     },
-    .attachmentCount = count,
+    .attachmentCount = attachmentCount,
     .pAttachments = attachments,
     .subpassCount = 1,
     .pSubpasses = &subpass
@@ -1559,6 +1559,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   }
 
   nickname(pass, VK_OBJECT_TYPE_RENDER_PASS, info->label);
+  pass->colorCount = info->colorCount;
   pass->samples = info->samples;
   pass->views = info->views;
   return true;
