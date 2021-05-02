@@ -1148,12 +1148,12 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   bool depth = texture->aspect & VK_IMAGE_ASPECT_DEPTH_BIT;
   VkImageUsageFlags usage =
-    (((info->usage & GPU_TEXTURE_USAGE_RENDER) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
-    (((info->usage & GPU_TEXTURE_USAGE_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
-    ((info->usage & GPU_TEXTURE_USAGE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
+    (((info->flags & GPU_TEXTURE_FLAG_RENDER) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
+    (((info->flags & GPU_TEXTURE_FLAG_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
+    ((info->flags & GPU_TEXTURE_FLAG_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
+    ((info->flags & GPU_TEXTURE_FLAG_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
+    ((info->flags & GPU_TEXTURE_FLAG_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
+    ((info->flags & GPU_TEXTURE_FLAG_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
 
   bool array = info->type = GPU_TEXTURE_TYPE_ARRAY;
   VkImageCreateInfo imageInfo = {
