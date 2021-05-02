@@ -74,6 +74,7 @@ typedef struct {
 struct Shader {
   uint32_t ref;
   gpu_shader* gpu;
+  gpu_pipeline* computePipeline;
   ShaderInfo info;
   ShaderGroup groups[4];
   map_t lookup;
@@ -1243,7 +1244,7 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
 }
 
 Shader* lovrShaderCreate(ShaderInfo* info) {
-  Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
+  Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader() + gpu_sizeof_pipeline());
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
   shader->ref = 1;
@@ -1302,12 +1303,19 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   }
 
   lovrAssert(gpu_shader_init(shader->gpu, &gpuInfo), "Could not create Shader");
+
+  if (info->type == SHADER_COMPUTE) {
+    shader->computePipeline = (gpu_pipeline*) ((char*) shader + gpu_sizeof_shader());
+    lovrAssert(gpu_pipeline_init_compute(shader->computePipeline, shader->gpu, NULL), "Could not create Shader compute pipeline");
+  }
+
   return shader;
 }
 
 void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   gpu_shader_destroy(shader->gpu);
+  if (shader->computePipeline) gpu_pipeline_destroy(shader->computePipeline);
   lovrRelease(shader->info.vertex, lovrBlobDestroy);
   lovrRelease(shader->info.fragment, lovrBlobDestroy);
   lovrRelease(shader->info.compute, lovrBlobDestroy);
@@ -1323,6 +1331,19 @@ bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint3
   *group = value & ~0u;
   *id = value >> 32;
   return true;
+}
+
+void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z) {
+  lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to compute with it");
+  // gpu_batch_bind_pipeline(batch, shader->computePipeline);
+  // gpu_batch_compute(batch, shader->gpu, x, y, z);
+}
+
+void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset) {
+  lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to compute with it");
+  lovrAssert(buffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with the 'parameter' flag to be used for compute parameters");
+  // gpu_batch_bind_pipeline(batch, shader->computePipeline);
+  // gpu_batch_compute_indirect(batch, shader->gpu, buffer->gpu, offset);
 }
 
 // Bundle
