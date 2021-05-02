@@ -31,10 +31,9 @@ StringEntry lovrBufferFlag[] = {
   [2] = ENTRY("uniform"),
   [3] = ENTRY("compute"),
   [4] = ENTRY("parameter"),
-  [5] = ENTRY("copyfrom"),
-  [6] = ENTRY("copyto"),
-  [7] = ENTRY("write"),
-  [8] = ENTRY("retain"),
+  [5] = ENTRY("copy"),
+  [6] = ENTRY("write"),
+  [7] = ENTRY("retain"),
   { 0 }
 };
 
@@ -96,6 +95,12 @@ StringEntry lovrFieldType[] = {
   { 0 }
 };
 
+StringEntry lovrShaderType[] = {
+  [SHADER_GRAPHICS] = ENTRY("graphics"),
+  [SHADER_COMPUTE] = ENTRY("compute"),
+  { 0 }
+};
+
 StringEntry lovrStencilAction[] = {
   [STENCIL_KEEP] = ENTRY("keep"),
   [STENCIL_REPLACE] = ENTRY("replace"),
@@ -119,8 +124,7 @@ StringEntry lovrTextureFlag[] = {
   [0] = ENTRY("sample"),
   [1] = ENTRY("render"),
   [2] = ENTRY("compute"),
-  [3] = ENTRY("copyfrom"),
-  [4] = ENTRY("copyto"),
+  [3] = ENTRY("copy"),
   { 0 }
 };
 
@@ -314,11 +318,6 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
 
   lua_pushnumber(L, limits.anisotropy), lua_setfield(L, -2, "anisotropy");
   return 1;
-}
-
-static int l_lovrGraphicsBegin(lua_State* L) {
-  lovrGraphicsBegin();
-  return 0;
 }
 
 static int l_lovrGraphicsFlush(lua_State* L) {
@@ -913,7 +912,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "getPixelDensity", l_lovrGraphicsGetPixelDensity },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
-  { "begin", l_lovrGraphicsBegin },
   { "flush", l_lovrGraphicsFlush },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
