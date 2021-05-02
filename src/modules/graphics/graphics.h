@@ -356,6 +356,8 @@ Shader* lovrShaderCreate(ShaderInfo* info);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
+void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z);
+void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset);
 
 // Bundle
 
