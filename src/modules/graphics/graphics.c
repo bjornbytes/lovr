@@ -99,6 +99,7 @@ static struct {
   int height;
   gpu_features features;
   gpu_limits limits;
+  gpu_batch* computer;
   map_t pipelines;
   map_t pipelineLobby;
   mtx_t pipelineLock;
@@ -250,6 +251,11 @@ void lovrGraphicsBegin() {
 }
 
 void lovrGraphicsFlush() {
+  if (state.computer) {
+    gpu_batch_end(state.computer);
+    state.computer = NULL;
+  }
+
   if (state.recording) {
     state.recording = false;
     gpu_flush();
@@ -714,6 +720,11 @@ void lovrCanvasBegin(Canvas* canvas) {
 }
 
 void lovrCanvasFinish(Canvas* canvas) {
+  if (state.computer) {
+    gpu_batch_end(state.computer);
+    state.computer = NULL;
+  }
+
   canvas->commands = NULL;
 }
 
@@ -1335,15 +1346,25 @@ bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint3
 
 void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z) {
   lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to compute with it");
-  // gpu_batch_bind_pipeline(batch, shader->computePipeline);
-  // gpu_batch_compute(batch, shader->gpu, x, y, z);
+
+  if (!state.computer) {
+    state.computer = gpu_batch_init_compute();
+  }
+
+  gpu_batch_bind_pipeline(state.computer, shader->computePipeline);
+  gpu_batch_compute(state.computer, shader->gpu, x, y, z);
 }
 
 void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset) {
   lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to compute with it");
   lovrAssert(buffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with the 'parameter' flag to be used for compute parameters");
-  // gpu_batch_bind_pipeline(batch, shader->computePipeline);
-  // gpu_batch_compute_indirect(batch, shader->gpu, buffer->gpu, offset);
+
+  if (!state.computer) {
+    state.computer = gpu_batch_init_compute();
+  }
+
+  gpu_batch_bind_pipeline(state.computer, shader->computePipeline);
+  gpu_batch_compute_indirect(state.computer, shader->gpu, buffer->gpu, offset);
 }
 
 // Bundle
