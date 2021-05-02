@@ -649,57 +649,26 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
   canvas->ref = 1;
 
   gpu_pass_info gpuInfo;
-  gpu_render_target target;
   memset(&info, 0, sizeof(info));
 
-  gpu_load_op loads[] = {
-    [LOAD_KEEP] = GPU_LOAD_OP_LOAD,
-    [LOAD_CLEAR] = GPU_LOAD_OP_CLEAR,
-    [LOAD_DISCARD] = GPU_LOAD_OP_DISCARD
-  };
-
-  gpu_save_op saves[] = {
-    [SAVE_KEEP] = GPU_SAVE_OP_SAVE,
-    [SAVE_DISCARD] = GPU_SAVE_OP_DISCARD
-  };
-
-  for (uint32_t i = 0; i < 4; i++) {
-    if (!info->color[i].texture && !info->color[i].resolve) {
-      target.color[i].texture = NULL;
-      break;
-    }
-
-    lovrAssert(info->color[i].texture, "TODO: Anonymous MSAA targets");
-
-    gpuInfo.color[i].format = (gpu_texture_format) info->color[i].texture->info.format;
-    gpuInfo.color[i].load = loads[info->color[i].load];
-    gpuInfo.color[i].save = saves[info->color[i].save];
-    gpuInfo.color[i].srgb = info->color[i].texture->info.srgb;
-
-    target.color[i].texture = info->color[i].texture->gpu;
-    target.color[i].resolve = info->color[i].resolve ? info->color[i].resolve->gpu : NULL;
-    memcpy(target.color[i].clear, info->color[i].clear, 4 * sizeof(float));
-
-    // TODO view must have a single mipmap
+  for (uint32_t i = 0; i < info->colorCount; i++) {
+    gpuInfo.color[i].format = (gpu_texture_format) info->color[i].format;
+    gpuInfo.color[i].load = (gpu_load_op) info->color[i].load;
+    gpuInfo.color[i].save = (gpu_save_op) info->color[i].save;
   }
 
   if (info->depth.enabled) {
-    lovrAssert(info->depth.texture, "TODO: Anonymous depth targets");
-
-    gpuInfo.depth.format = (gpu_texture_format) info->depth.texture->info.format;
-    gpuInfo.depth.load = loads[info->depth.load];
-    gpuInfo.depth.save = saves[info->depth.save];
-    gpuInfo.depth.stencilLoad = loads[info->depth.stencil.load];
-    gpuInfo.depth.stencilSave = saves[info->depth.stencil.save];
-
-    target.depth.texture = info->depth.texture->gpu;
-    target.depth.clear = info->depth.clear;
-    target.depth.stencilClear = info->depth.stencil.clear;
+    gpuInfo.depth.enabled = true;
+    gpuInfo.depth.format = (gpu_texture_format) info->depth.format;
+    gpuInfo.depth.load = (gpu_load_op) info->depth.load;
+    gpuInfo.depth.save = (gpu_save_op) info->depth.save;
+    gpuInfo.depth.stencilLoad = (gpu_load_op) info->depth.stencilLoad;
+    gpuInfo.depth.stencilSave = (gpu_save_op) info->depth.stencilSave;
   }
 
-  TextureInfo* textureInfo = info->color[0].texture ? &info->color[0].texture->info : &info->depth.texture->info;
-  gpuInfo.views = textureInfo->type == TEXTURE_ARRAY ? textureInfo->size[2] : 0;
   gpuInfo.samples = info->samples;
+  gpuInfo.views = info->views;
+  gpuInfo.label = info->label;
 
   lovrAssert(gpu_pass_init(canvas->gpu, &gpuInfo), "Could not create Canvas");
   return canvas;
