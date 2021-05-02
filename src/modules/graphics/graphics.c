@@ -92,6 +92,7 @@ struct Bundle {
 
 static struct {
   bool initialized;
+  bool recording;
   bool debug;
   int width;
   int height;
@@ -241,11 +242,17 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
 }
 
 void lovrGraphicsBegin() {
-  gpu_begin();
+  if (!state.recording) {
+    state.recording = true;
+    gpu_begin();
+  }
 }
 
 void lovrGraphicsFlush() {
-  gpu_flush();
+  if (state.recording) {
+    state.recording = false;
+    gpu_flush();
+  }
 
   // TODO flush pipeline lobby
 }
@@ -266,11 +273,21 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
 
   gpu_buffer_info gpuInfo = {
     .size = ALIGN(info->length * info->stride, 4),
-    .flags = info->flags,
+    .flags =
+      ((info->flags & BUFFER_VERTEX) ? GPU_BUFFER_FLAG_VERTEX : 0) |
+      ((info->flags & BUFFER_INDEX) ? GPU_BUFFER_FLAG_INDEX : 0) |
+      ((info->flags & BUFFER_UNIFORM) ? GPU_BUFFER_FLAG_UNIFORM : 0) |
+      ((info->flags & BUFFER_COMPUTE) ? GPU_BUFFER_FLAG_STORAGE : 0) |
+      ((info->flags & BUFFER_PARAMETER) ? GPU_BUFFER_FLAG_INDIRECT : 0) |
+      ((info->flags & BUFFER_COPY) ? GPU_BUFFER_FLAG_COPY_SRC : 0) |
+      ((info->flags & BUFFER_WRITE) ? GPU_BUFFER_FLAG_MAPPABLE : 0) |
+      ((info->flags & BUFFER_RETAIN) ? GPU_BUFFER_FLAG_PRESERVE : 0) |
+      ((~info->flags & BUFFER_WRITE) ? GPU_BUFFER_FLAG_COPY_DST : 0),
     .pointer = info->initialContents,
     .label = info->label
   };
 
+  if ((~info->flags & BUFFER_WRITE) && info->initialContents) lovrGraphicsBegin();
   lovrAssert(gpu_buffer_init(buffer->gpu, &gpuInfo), "Could not create Buffer");
   buffer->size = info->length * info->stride;
   return buffer;
@@ -294,21 +311,23 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrAssert(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrAssert(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrAssert(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
-  lovrAssert(buffer->info.flags & (BUFFER_WRITE | BUFFER_COPYTO), "A Buffer can only be cleared if it has the 'write' or 'copyto' flags");
+  if (~buffer->info.flags & BUFFER_WRITE) lovrGraphicsBegin();
   gpu_buffer_clear(buffer->gpu, offset, size);
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
-  lovrAssert(src->info.flags & BUFFER_COPYFROM, "A Buffer can only be copied if it has the 'copyfrom' flag");
-  lovrAssert(dst->info.flags & BUFFER_COPYTO, "A Buffer can only be copied to if it has the 'copyto' flag");
+  lovrAssert(src->info.flags & BUFFER_COPY, "A Buffer can only be copied if it has the 'copy' flag");
+  lovrAssert(~dst->info.flags & BUFFER_WRITE, "Buffers with the 'write' flag can not be copied to");
   lovrAssert(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
   lovrAssert(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
+  lovrGraphicsBegin();
   gpu_buffer_copy(src->gpu, dst->gpu, srcOffset, dstOffset, size);
 }
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
-  lovrAssert(buffer->info.flags & BUFFER_COPYFROM, "A Buffer can only be read if it has the 'copyfrom' flag");
+  lovrAssert(buffer->info.flags & BUFFER_COPY, "A Buffer can only be read if it has the 'copy' flag");
   lovrAssert(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
+  lovrGraphicsBegin();
   gpu_buffer_read(buffer->gpu, offset, size, callback, userdata);
 }
 
@@ -451,7 +470,12 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .size[2] = info->size[2],
     .mipmaps = info->mipmaps,
     .samples = info->samples,
-    .usage = info->flags,
+    .flags =
+      ((info->flags & TEXTURE_SAMPLE) ? GPU_TEXTURE_FLAG_SAMPLE : 0) |
+      ((info->flags & TEXTURE_RENDER) ? GPU_TEXTURE_FLAG_RENDER : 0) |
+      ((info->flags & TEXTURE_COMPUTE) ? GPU_TEXTURE_FLAG_STORAGE : 0) |
+      ((info->flags & TEXTURE_COPY) ? GPU_TEXTURE_FLAG_COPY_SRC : 0) |
+      GPU_TEXTURE_FLAG_COPY_DST,
     .srgb = info->srgb,
     .label = info->label
   };
@@ -527,6 +551,7 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
   checkTextureBounds(&texture->info, offset, extent);
+  lovrGraphicsBegin();
 
   char* src = data;
   uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
@@ -562,35 +587,37 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
 
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
   lovrAssert(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
-  lovrAssert(texture->info.flags & TEXTURE_COPYTO, "Texture must have the 'copyto' to clear it");
   lovrAssert(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.size[2], "Texture clear range exceeds texture layer count");
   lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
+  lovrGraphicsBegin();
   gpu_texture_clear(texture->gpu, layer + texture->baseLayer, layerCount, level + texture->baseLevel, levelCount, color);
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
-  lovrAssert(texture->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to read from it");
+  lovrAssert(texture->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to read from it");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
+  lovrGraphicsBegin();
   uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
   gpu_texture_read(texture->gpu, realOffset, extent, callback, userdata);
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
-  lovrAssert(src->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to copy from it");
+  lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to copy from it");
   lovrAssert(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
   lovrAssert(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
   checkTextureBounds(&src->info, srcOffset, extent);
   checkTextureBounds(&dst->info, dstOffset, extent);
   uint16_t realSrcOffset[4] = { srcOffset[0], srcOffset[1], srcOffset[2] + src->baseLayer, srcOffset[3] + src->baseLevel };
   uint16_t realDstOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + dst->baseLayer, dstOffset[3] + dst->baseLevel };
+  lovrGraphicsBegin();
   gpu_texture_copy(src->gpu, dst->gpu, realSrcOffset, realDstOffset, extent);
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
   lovrAssert(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
-  lovrAssert(src->info.flags & TEXTURE_COPYFROM, "Texture must have the 'copy' flag to blit from it");
+  lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to blit from it");
   lovrAssert(state.features.formats[src->info.format] & GPU_FORMAT_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
   lovrAssert(state.features.formats[dst->info.format] & GPU_FORMAT_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
 
@@ -600,6 +627,7 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
+  lovrGraphicsBegin();
   gpu_texture_blit(src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
 }
 
@@ -680,6 +708,7 @@ const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
 }
 
 void lovrCanvasBegin(Canvas* canvas) {
+  lovrGraphicsBegin();
   canvas->commands = gpu_batch_init_render(canvas->gpu, &canvas->target, NULL, 0);
 }
 

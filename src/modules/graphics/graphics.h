@@ -84,10 +84,9 @@ enum {
   BUFFER_UNIFORM   = (1 << 2),
   BUFFER_COMPUTE   = (1 << 3),
   BUFFER_PARAMETER = (1 << 4),
-  BUFFER_COPYFROM  = (1 << 5),
-  BUFFER_COPYTO    = (1 << 6),
-  BUFFER_WRITE     = (1 << 7),
-  BUFFER_RETAIN    = (1 << 8)
+  BUFFER_COPY      = (1 << 5),
+  BUFFER_WRITE     = (1 << 6),
+  BUFFER_RETAIN    = (1 << 7)
 };
 
 typedef enum {
@@ -158,11 +157,10 @@ typedef enum {
 } TextureType;
 
 enum {
-  TEXTURE_SAMPLE   = (1 << 0),
-  TEXTURE_RENDER   = (1 << 1),
-  TEXTURE_COMPUTE  = (1 << 2),
-  TEXTURE_COPYFROM = (1 << 3),
-  TEXTURE_COPYTO   = (1 << 4)
+  TEXTURE_SAMPLE  = (1 << 0),
+  TEXTURE_RENDER  = (1 << 1),
+  TEXTURE_COMPUTE = (1 << 2),
+  TEXTURE_COPY    = (1 << 3)
 };
 
 typedef struct {
