@@ -459,6 +459,10 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     lovrAssert(info->samples == 1, "Textures with the 'compute' flag can not currently be multisampled");
   }
 
+  if (info->flags & TEXTURE_TRANSIENT) {
+    lovrAssert((info->flags & ~TEXTURE_TRANSIENT) == TEXTURE_RENDER, "Textures with the 'transient' flag must have the 'render' flag set (and no other flags)");
+  }
+
   uint32_t mipDepth = info->type == TEXTURE_VOLUME ? info->size[2] : 1;
   uint32_t mipMax = log2(MAX(MAX(info->size[0], info->size[1]), mipDepth)) + 1;
 
@@ -486,7 +490,8 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       ((info->flags & TEXTURE_RENDER) ? GPU_TEXTURE_FLAG_RENDER : 0) |
       ((info->flags & TEXTURE_COMPUTE) ? GPU_TEXTURE_FLAG_STORAGE : 0) |
       ((info->flags & TEXTURE_COPY) ? GPU_TEXTURE_FLAG_COPY_SRC : 0) |
-      GPU_TEXTURE_FLAG_COPY_DST,
+      ((info->flags & TEXTURE_TRANSIENT) ? GPU_TEXTURE_FLAG_TRANSIENT : 0) |
+      ((info->flags & TEXTURE_TRANSIENT) ? 0 : GPU_TEXTURE_FLAG_COPY_DST),
     .srgb = info->srgb,
     .label = info->label
   };
@@ -560,6 +565,7 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 }
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
+  lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be written to");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
   checkTextureBounds(&texture->info, offset, extent);
   lovrGraphicsBegin();
@@ -597,6 +603,7 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
 }
 
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
+  lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be cleared");
   lovrAssert(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
   lovrAssert(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.size[2], "Texture clear range exceeds texture layer count");
   lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
@@ -606,6 +613,7 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
   lovrAssert(texture->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to read from it");
+  lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be read");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
@@ -615,6 +623,7 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
+  lovrAssert(~dst->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be copied to");
   lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to copy from it");
   lovrAssert(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
   lovrAssert(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
@@ -627,6 +636,7 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
+  lovrAssert(~dst->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be copied to");
   lovrAssert(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
   lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to blit from it");
   lovrAssert(state.features.formats[src->info.format] & GPU_FORMAT_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");

@@ -132,6 +132,7 @@ StringEntry lovrTextureFlag[] = {
   [1] = ENTRY("render"),
   [2] = ENTRY("compute"),
   [3] = ENTRY("copy"),
+  [4] = ENTRY("transient"),
   { 0 }
 };
 
