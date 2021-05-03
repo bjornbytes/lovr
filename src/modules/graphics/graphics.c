@@ -40,9 +40,13 @@ struct Pipeline {
 struct Canvas {
   uint32_t ref;
   gpu_pass* gpu;
-  gpu_render_target target;
   gpu_batch* commands;
+  gpu_render_target target;
   CanvasInfo info;
+  Texture* colorTextures[4];
+  Texture* depthTexture;
+  Texture* multisampleTextures[4];
+  bool texturesDirty;
   struct {
     gpu_pipeline_info info;
     gpu_pipeline* instance;
@@ -643,6 +647,24 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 // Canvas
 
 Canvas* lovrCanvasCreate(CanvasInfo* info) {
+  bool multiview = info->views > 1;
+  lovrAssert(info->colorCount > 0 || info->depth.enabled, "A Canvas must have at least one color or depth texture");
+  lovrAssert(!multiview || state.features.multiview, "Canvas has multiple views but multiview is not supported by this GPU");
+  lovrAssert(!multiview || info->views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", info->views, state.limits.renderViews);
+  lovrAssert(info->samples > 0, "Canvas multisample count can not be zero");
+  lovrAssert((info->samples & (info->samples - 1)) == 0, "Canvas multisample count must be a power of 2");
+
+  if (info->depth.enabled) {
+    lovrAssert(isDepthFormat(info->depth.format), "Canvas depth attachment does not use a depth format");
+    bool renderable = state.features.formats[info->depth.format] & GPU_FORMAT_FEATURE_RENDER_DEPTH;
+    lovrAssert(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
+  }
+
+  for (uint32_t i = 0; i < info->colorCount; i++) {
+    bool renderable = state.features.formats[info->color[i].format] & GPU_FORMAT_FEATURE_RENDER_COLOR;
+    lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
+  }
+
   Canvas* canvas = calloc(1, sizeof(Canvas) + gpu_sizeof_pass());
   canvas->gpu = (gpu_pass*) (canvas + 1);
   canvas->info = *info;
@@ -681,6 +703,70 @@ void lovrCanvasDestroy(void* ref) {
 
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
   return &canvas->info;
+}
+
+void lovrCanvasGetTextures(Canvas* canvas, AttachmentType type, Texture* textures[4], uint32_t* count) {
+  switch (type) {
+    case ATTACHMENT_COLOR:
+      memcpy(textures, canvas->colorTextures, 4 * sizeof(Texture*));
+      *count = (canvas->info.samples == 1 || canvas->info.resolve) ? canvas->info.colorCount : 0;
+      break;
+    case ATTACHMENT_DEPTH:
+      memcpy(textures, canvas->depthTexture, 1 * sizeof(Texture*));
+      *count = canvas->info.depth.enabled ? 1 : 0;
+      break;
+    case ATTACHMENT_MULTISAMPLE:
+      memcpy(textures, canvas->multisampleTextures, 4 * sizeof(Texture*));
+      *count = canvas->info.samples > 1 ? canvas->info.colorCount : 0;
+      break;
+    default:
+      *count = 0;
+      break;
+  }
+}
+
+void lovrCanvasSetTextures(Canvas* canvas, AttachmentType type, Texture** textures, uint32_t count) {
+  switch (type) {
+    case ATTACHMENT_COLOR:
+      lovrAssert(canvas->info.samples == 1 || canvas->info.resolve, "Attempt to attach color textures to a multisample-only Canvas");
+      lovrAssert(count == canvas->info.colorCount, "Color attachment count (%d) does not match the Canvas color attachment count (%d)", count, canvas->info.colorCount);
+      for (uint32_t i = 0; i < count; i++) {
+        if (textures[i] != canvas->colorTextures[i]) {
+          lovrAssert(textures[i]->info.format == canvas->info.color[i].format, "Texture (%d) format does not match Canvas attachment format", i + 1);
+          lovrAssert(textures[i]->info.samples == 1, "Canvas color attachments may not be multisampled");
+          lovrRetain(textures[i]);
+          lovrRelease(canvas->colorTextures[i], lovrTextureDestroy);
+          canvas->colorTextures[i] = textures[i];
+          canvas->texturesDirty = true;
+        }
+      }
+      break;
+    case ATTACHMENT_DEPTH:
+      lovrAssert(count == 1, "A Canvas can only have one depth texture");
+      lovrAssert(canvas->info.depth.enabled, "Attempt to attach a depth texture to a Canvas that was created with depth disabled");
+      if (textures[0] != canvas->depthTexture) {
+        lovrRetain(textures[0]);
+        lovrRelease(canvas->depthTexture, lovrTextureDestroy);
+        canvas->depthTexture = textures[0];
+        canvas->texturesDirty = true;
+      }
+      break;
+    case ATTACHMENT_MULTISAMPLE:
+      lovrAssert(canvas->info.samples > 1, "Tried to assign multisample textures to a Canvas that is not multisampled");
+      lovrAssert(count == canvas->info.colorCount, "Multisample attachment count (%d) does not match the Canvas multisample attachment count (%d)", count, canvas->info.colorCount);
+      for (uint32_t i = 0; i < count; i++) {
+        if (textures[i] != canvas->multisampleTextures[i]) {
+          lovrAssert(textures[i]->info.format == canvas->info.color[i].format, "Texture (%d) format does not match Canvas attachment format", i + 1);
+          lovrAssert(textures[i]->info.samples == canvas->info.samples, "Texture multisample count (%d) does not match Canvas multisample count (%d)", textures[i]->info.samples, canvas->info.samples);
+          lovrRetain(textures[i]);
+          lovrRelease(canvas->multisampleTextures[i], lovrTextureDestroy);
+          canvas->multisampleTextures[i] = textures[i];
+          canvas->texturesDirty = true;
+        }
+      }
+      break;
+    default: lovrThrow("Unreachable");
+  }
 }
 
 void lovrCanvasBegin(Canvas* canvas) {

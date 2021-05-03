@@ -6,6 +6,32 @@
 #include <lauxlib.h>
 #include <string.h>
 
+static int l_lovrCanvasGetTextures(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  AttachmentType type = lua_isstring(L, 2) ? luax_checkenum(L, 2, AttachmentType, "color") : ATTACHMENT_COLOR;
+  Texture* textures[MAX_ATTACHMENTS];
+  uint32_t count;
+  lovrCanvasGetTextures(canvas, type, textures, &count);
+  for (uint32_t i = 0; i < count; i++) {
+    luax_pushtype(L, Texture, textures[i]);
+  }
+  return count;
+}
+
+static int l_lovrCanvasSetTextures(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  int index = 2;
+  AttachmentType type = lua_isstring(L, 2) ? luax_checkenum(L, index++, AttachmentType, "color") : ATTACHMENT_COLOR;
+  int top = lua_gettop(L);
+  Texture* textures[MAX_ATTACHMENTS];
+  uint32_t count = 0;
+  for (int i = index; i <= top && count < MAX_ATTACHMENTS; i++, count++) {
+    textures[i] = luax_checktype(L, i, Texture);
+  }
+  lovrCanvasSetTextures(canvas, type, textures, count);
+  return 0;
+}
+
 static int l_lovrCanvasBegin(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   lovrCanvasBegin(canvas);
@@ -405,6 +431,8 @@ static int l_lovrCanvasStencil(lua_State* L) {
 }
 
 const luaL_Reg lovrCanvas[] = {
+  { "getTextures", l_lovrCanvasGetTextures },
+  { "setTextures", l_lovrCanvasSetTextures },
   { "begin", l_lovrCanvasBegin },
   { "finish", l_lovrCanvasFinish },
   { "isActive", l_lovrCanvasIsActive },
