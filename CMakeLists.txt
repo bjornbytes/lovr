@@ -37,7 +37,7 @@ option(LOVR_BUILD_EXE "Build an executable (or an apk on Android)" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 
-option(LOVR_SYMBOL_VISIBILITY "What should the C symbol visibility be? hidden reduces binary size, default lets other binaries use this one." "hidden")
+set(LOVR_SYMBOL_VISIBILITY "hidden" CACHE STRING "What should the C symbol visibility be? hidden reduces binary size, default lets other binaries use this one.")
 
 # Setup
 if(EMSCRIPTEN)
