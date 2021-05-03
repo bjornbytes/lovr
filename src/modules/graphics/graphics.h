@@ -293,6 +293,7 @@ typedef struct {
   uint32_t colorCount;
   uint32_t samples;
   uint32_t views;
+  bool resolve;
   const char* label;
 } CanvasInfo;
 
@@ -301,7 +302,8 @@ typedef void StencilCallback(void* userdata);
 Canvas* lovrCanvasCreate(CanvasInfo* info);
 void lovrCanvasDestroy(void* ref);
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
-void lovrCanvasSetTextures(Canvas* canvas, AttachmentType type, Texture** textures, uint32_t index, uint32_t count);
+void lovrCanvasGetTextures(Canvas* canvas, AttachmentType type, Texture* textures[4], uint32_t* count);
+void lovrCanvasSetTextures(Canvas* canvas, AttachmentType type, Texture** textures, uint32_t count);
 void lovrCanvasBegin(Canvas* canvas);
 void lovrCanvasFinish(Canvas* canvas);
 bool lovrCanvasIsActive(Canvas* canvas);

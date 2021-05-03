@@ -8,6 +8,13 @@
 #include <lauxlib.h>
 #include <string.h>
 
+StringEntry lovrAttachmentType[] = {
+  [ATTACHMENT_COLOR] = ENTRY("color"),
+  [ATTACHMENT_DEPTH] = ENTRY("depth"),
+  [ATTACHMENT_MULTISAMPLE] = ENTRY("multisample"),
+  { 0 }
+};
+
 StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
   [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
@@ -652,6 +659,7 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     .depth.format = FORMAT_D16,
     .depth.load = LOAD_CLEAR,
     .depth.save = SAVE_DISCARD,
+    .resolve = true,
     .samples = 1,
     .views = 2
   };
@@ -753,16 +761,29 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
       case LUA_TNIL: break;
       case LUA_TBOOLEAN: info.samples = lua_toboolean(L, -1) ? 4 : 1; break;
       case LUA_TNUMBER: info.samples = lua_tonumber(L, -1); break;
-      case LUA_TUSERDATA:
-        multisampleTextures[0] = luax_checktype(L, -1, Texture);
-        info.samples = lovrTextureGetInfo(multisampleTextures[0])->samples;
-        break;
       case LUA_TTABLE:
-        for (uint32_t i = 0; i < info.colorCount; i++) {
-          lua_rawgeti(L, -1, i + 1);
-          multisampleTextures[i] = luax_totype(L, -1, Texture);
-          info.samples = lovrTextureGetInfo(multisampleTextures[i])->samples;
-          lua_pop(L, 1);
+        if (info.colorCount == 0) {
+          info.resolve = false;
+          info.colorCount = luax_len(L, -1);
+          for (uint32_t i = 0; i < info.colorCount; i++) {
+            lua_rawgeti(L, -1, i + 1);
+            if (lua_isstring(L, -1)) {
+              info.color[i].format = luax_checkenum(L, -1, TextureFormat, NULL);
+            } else {
+              multisampleTextures[i] = luax_totype(L, -1, Texture);
+              const TextureInfo* textureInfo = lovrTextureGetInfo(multisampleTextures[i]);
+              info.color[i].format = textureInfo->format;
+              info.samples = textureInfo->samples;
+            }
+            lua_pop(L, 1);
+          }
+        } else {
+          for (uint32_t i = 0; i < info.colorCount; i++) {
+            lua_rawgeti(L, -1, i + 1);
+            multisampleTextures[i] = luax_totype(L, -1, Texture);
+            info.samples = lovrTextureGetInfo(multisampleTextures[i])->samples;
+            lua_pop(L, 1);
+          }
         }
         break;
       default: lovrThrow("Expected nil, boolean, number, Texture, or table for Canvas multisample option");
