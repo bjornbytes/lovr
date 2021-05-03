@@ -200,6 +200,7 @@ typedef struct {
   uint32_t colorCount;
   uint32_t samples;
   uint32_t views;
+  bool resolve;
   const char* label;
 } gpu_pass_info;
 
