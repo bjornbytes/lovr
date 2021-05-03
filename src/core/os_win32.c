@@ -10,7 +10,7 @@
 
 static uint64_t frequency;
 
-#ifndef LOVR_OMIT_MAIN
+#ifndef LOVR_BUILDING_SHARED
 
 int main(int argc, char** argv);
 
