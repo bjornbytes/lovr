@@ -1153,7 +1153,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     ((info->flags & GPU_TEXTURE_FLAG_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
     ((info->flags & GPU_TEXTURE_FLAG_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
     ((info->flags & GPU_TEXTURE_FLAG_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
-    ((info->flags & GPU_TEXTURE_FLAG_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
+    ((info->flags & GPU_TEXTURE_FLAG_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
+    ((info->flags & GPU_TEXTURE_FLAG_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0);
 
   bool array = info->type = GPU_TEXTURE_TYPE_ARRAY;
   VkImageCreateInfo imageInfo = {
@@ -1177,9 +1178,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   nickname(texture->handle, VK_OBJECT_TYPE_IMAGE, info->label);
 
+  uint32_t memoryType = ~0u;
   VkMemoryRequirements requirements;
   vkGetImageMemoryRequirements(state.device, texture->handle, &requirements);
-  uint32_t memoryType = ~0u;
   for (uint32_t i = 0; i < state.memoryProperties.memoryTypeCount; i++) {
     uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
     uint32_t mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;

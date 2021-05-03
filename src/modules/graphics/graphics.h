@@ -157,10 +157,11 @@ typedef enum {
 } TextureType;
 
 enum {
-  TEXTURE_SAMPLE  = (1 << 0),
-  TEXTURE_RENDER  = (1 << 1),
-  TEXTURE_COMPUTE = (1 << 2),
-  TEXTURE_COPY    = (1 << 3)
+  TEXTURE_SAMPLE    = (1 << 0),
+  TEXTURE_RENDER    = (1 << 1),
+  TEXTURE_COMPUTE   = (1 << 2),
+  TEXTURE_COPY      = (1 << 3),
+  TEXTURE_TRANSIENT = (1 << 4)
 };
 
 typedef struct {

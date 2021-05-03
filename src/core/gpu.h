@@ -47,11 +47,12 @@ void gpu_buffer_read(gpu_buffer* buffer, uint64_t offset, uint64_t size, gpu_rea
 // Texture
 
 enum {
-  GPU_TEXTURE_FLAG_SAMPLE   = (1 << 0),
-  GPU_TEXTURE_FLAG_RENDER   = (1 << 1),
-  GPU_TEXTURE_FLAG_STORAGE  = (1 << 2),
-  GPU_TEXTURE_FLAG_COPY_SRC = (1 << 3),
-  GPU_TEXTURE_FLAG_COPY_DST = (1 << 4)
+  GPU_TEXTURE_FLAG_SAMPLE    = (1 << 0),
+  GPU_TEXTURE_FLAG_RENDER    = (1 << 1),
+  GPU_TEXTURE_FLAG_STORAGE   = (1 << 2),
+  GPU_TEXTURE_FLAG_COPY_SRC  = (1 << 3),
+  GPU_TEXTURE_FLAG_COPY_DST  = (1 << 4),
+  GPU_TEXTURE_FLAG_TRANSIENT = (1 << 5)
 };
 
 typedef enum {
