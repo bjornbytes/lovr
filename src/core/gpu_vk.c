@@ -1478,11 +1478,13 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
 
   for (uint32_t i = 0; i < COUNTOF(info->color) && i < info->colorCount; i++) {
     uint32_t attachment = attachmentCount++;
+
+    // Add main color attachment
     attachments[attachment] = (VkAttachmentDescription) {
       .format = convertFormat(info->color[i].format, info->color[i].srgb),
       .samples = info->samples,
       .loadOp = loadOps[info->color[i].load],
-      .storeOp = storeOps[info->color[i].save],
+      .storeOp = (info->samples == 1 || !info->resolve) ? storeOps[info->color[i].save] : VK_ATTACHMENT_STORE_OP_DONT_CARE,
       .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
@@ -1492,14 +1494,15 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
-    if (info->samples > 1) {
+    // Add resolve attachment if it's a multisample pass and info->resolve is set
+    if (info->samples > 1 && info->resolve) {
       attachment = attachmentCount++;
       attachments[attachment] = (VkAttachmentDescription) {
-        .format = convertFormat(info->color[i].format, LINEAR),
-        .samples = info->samples,
+        .format = convertFormat(info->color[i].format, info->color[i].srgb),
+        .samples = 1,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .storeOp = storeOps[info->color[i].save],
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
       };
 
@@ -1537,7 +1540,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   VkSubpassDescription subpass = {
     .colorAttachmentCount = info->colorCount,
     .pColorAttachments = refs.color,
-    .pResolveAttachments = refs.resolve,
+    .pResolveAttachments = info->samples > 1 && info->resolve ? refs.resolve : NULL,
     .pDepthStencilAttachment = info->depth.enabled ? &refs.depth : NULL
   };
 
