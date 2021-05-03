@@ -1541,13 +1541,15 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     .pDepthStencilAttachment = info->depth.enabled ? &refs.depth : NULL
   };
 
+  VkRenderPassMultiviewCreateInfo multiview = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
+    .subpassCount = 1,
+    .pViewMasks = (uint32_t[1]) { (1 << info->views) - 1 }
+  };
+
   VkRenderPassCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-    .pNext = &(VkRenderPassMultiviewCreateInfo) {
-      .sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
-      .subpassCount = 1,
-      .pViewMasks = (uint32_t[1]) { (1 << info->views) - 1 }
-    },
+    .pNext = info->views > 1 ? &multiview : NULL,
     .attachmentCount = attachmentCount,
     .pAttachments = attachments,
     .subpassCount = 1,
