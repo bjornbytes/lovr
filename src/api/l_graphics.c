@@ -861,6 +861,19 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
   }
 
   Canvas* canvas = lovrCanvasCreate(&info);
+
+  if (info.samples == 1 || info.resolve) {
+    lovrCanvasSetTextures(canvas, ATTACHMENT_COLOR, colorTextures, info.colorCount);
+  }
+
+  if (info.depth.enabled) {
+    lovrCanvasSetTextures(canvas, ATTACHMENT_DEPTH, &depthTexture, 1);
+  }
+
+  if (info.samples > 1) {
+    lovrCanvasSetTextures(canvas, ATTACHMENT_MULTISAMPLE, multisampleTextures, info.colorCount);
+  }
+
   luax_pushtype(L, Canvas, canvas);
   lovrRelease(canvas, lovrCanvasDestroy);
   return 1;
