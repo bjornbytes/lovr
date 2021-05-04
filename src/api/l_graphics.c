@@ -8,13 +8,6 @@
 #include <lauxlib.h>
 #include <string.h>
 
-StringEntry lovrAttachmentType[] = {
-  [ATTACHMENT_COLOR] = ENTRY("color"),
-  [ATTACHMENT_DEPTH] = ENTRY("depth"),
-  [ATTACHMENT_MULTISAMPLE] = ENTRY("multisample"),
-  { 0 }
-};
-
 StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
   [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
@@ -283,12 +276,8 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.textureSize3D), lua_setfield(L, -2, "textureSize3D");
   lua_pushinteger(L, limits.textureSizeCube), lua_setfield(L, -2, "textureSizeCube");
   lua_pushinteger(L, limits.textureLayers), lua_setfield(L, -2, "textureLayers");
-
-  lua_createtable(L, 2, 0);
-  lua_pushinteger(L, limits.renderSize[0]), lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.renderSize[1]), lua_rawseti(L, -2, 2);
-  lua_setfield(L, -2, "renderSize");
-
+  lua_pushinteger(L, limits.renderWidth), lua_setfield(L, -2, "renderWidth");
+  lua_pushinteger(L, limits.renderHeight), lua_setfield(L, -2, "renderHeight");
   lua_pushinteger(L, limits.renderViews), lua_setfield(L, -2, "renderViews");
   lua_pushinteger(L, limits.bundleCount), lua_setfield(L, -2, "bundleCount");
   lua_pushinteger(L, limits.bundleSlots), lua_setfield(L, -2, "bundleSlots");
@@ -566,18 +555,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   if (lua_istable(L, index)) {
-    lua_getfield(L, index, "linear");
-    info.srgb = lua_isnil(L, -1) ? info.srgb : !lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, index, "mipmaps");
-    if (lua_type(L, -1) == LUA_TNUMBER) {
-      info.mipmaps = lua_tonumber(L, -1);
-    } else {
-      info.mipmaps = (lua_isnil(L, -1) || lua_toboolean(L, -1)) ? ~0u : 1;
-    }
-    lua_pop(L, 1);
-
     lua_getfield(L, index, "type");
     info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, TextureType, NULL);
     lua_pop(L, 1);
@@ -586,8 +563,22 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.format = lua_isnil(L, -1) ? info.format : luax_checkenum(L, -1, TextureFormat, NULL);
     lua_pop(L, 1);
 
+    lua_getfield(L, index, "linear");
+    info.srgb = lua_isnil(L, -1) ? info.srgb : !lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
     lua_getfield(L, index, "samples");
     info.samples = lua_isnil(L, -1) ? info.samples : luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "mipmaps");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+      info.mipmaps = lua_tonumber(L, -1);
+    } else if (!lua_isnil(L, -1)) {
+      info.mipmaps = lua_toboolean(L, -1) ? ~0u : 1;
+    } else {
+      info.mipmaps = info.samples > 1 ? 1 : ~0u;
+    }
     lua_pop(L, 1);
 
     for (int i = 0; lovrTextureFlag[i].length; i++) {
@@ -659,31 +650,24 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     .depth.enabled = true,
     .depth.format = FORMAT_D16,
     .depth.load = LOAD_CLEAR,
+    .depth.stencilLoad = LOAD_CLEAR,
     .depth.save = SAVE_DISCARD,
-    .resolve = true,
-    .samples = 1,
-    .views = 2
+    .samples = 4
   };
 
-  Texture* colorTextures[MAX_ATTACHMENTS] = { NULL };
-  Texture* multisampleTextures[MAX_ATTACHMENTS] = { NULL };
-  Texture* depthTexture = NULL;
-
-  float colorClear[MAX_ATTACHMENTS][4] = { 0 };
+  float colorClear[MAX_COLOR_ATTACHMENTS][4] = { 0 };
   float depthClear = 1.f;
   uint8_t stencilClear = 0;
+  uint32_t count = 0;
 
   int index;
-  for (index = 1; index <= MAX_ATTACHMENTS; index++) {
-    if (lua_isuserdata(L, index)) {
-      Texture* texture = luax_checktype(L, index, Texture);
-      colorTextures[info.colorCount] = texture;
-      info.color[info.colorCount++].format = lovrTextureGetInfo(texture)->format;
-    } else if (lua_isstring(L, index)) {
-      info.color[info.colorCount++].format = luax_checkenum(L, index, TextureFormat, NULL);
-    } else {
-      break;
-    }
+  for (index = 1; index <= MAX_COLOR_ATTACHMENTS; index++) {
+    if (!lua_isuserdata(L, index)) break;
+    info.color[count++] = (ColorAttachment) {
+      .texture = luax_checktype(L, index, Texture),
+      .load = LOAD_CLEAR,
+      .save = SAVE_KEEP
+    };
   }
 
   if (lua_istable(L, index)) {
@@ -692,51 +676,44 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
       case LUA_TBOOLEAN: info.depth.enabled = lua_toboolean(L, -1); break;
       case LUA_TSTRING: info.depth.format = luax_checkenum(L, -1, TextureFormat, NULL); break;
       case LUA_TUSERDATA:
-        depthTexture = luax_checktype(L, -1, Texture);
-        info.depth.format = lovrTextureGetInfo(depthTexture)->format;
+        info.depth.texture = luax_checktype(L, -1, Texture);
         break;
       case LUA_TTABLE:
-        lua_getfield(L, -1, "texture");
-        if (!lua_isnil(L, -1)) {
-          depthTexture = luax_checktype(L, -1, Texture);
-          info.depth.format = lovrTextureGetInfo(depthTexture)->format;
-        }
-        lua_pop(L, 1);
-
         lua_getfield(L, -1, "format");
         info.depth.format = lua_isnil(L, -1) ? info.depth.format : luax_checkenum(L, -1, TextureFormat, NULL);
         lua_pop(L, 1);
 
-        lua_getfield(L, -1, "clear");
+        lua_getfield(L, -1, "texture");
+        info.depth.texture = lua_isnil(L, -1) ? NULL : luax_checktype(L, -1, Texture);
+        lua_pop(L, 1);
+
+        lua_getfield(L, -1, "load");
         switch (lua_type(L, -1)) {
           case LUA_TNIL:
             break;
           case LUA_TBOOLEAN:
-            info.depth.load = info.depth.stencilLoad = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
+            info.depth.load = info.depth.stencilLoad = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
             break;
           case LUA_TNUMBER:
-            info.depth.load = LOAD_CLEAR;
             depthClear = lua_tonumber(L, -1);
             break;
           case LUA_TTABLE:
             lua_rawgeti(L, -1, 1);
             if (lua_isboolean(L, -1)) {
-              info.depth.load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
+              info.depth.load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
             } else if (lua_isnumber(L, -1)) {
-              info.depth.load = LOAD_CLEAR;
               depthClear = lua_tonumber(L, -1);
             } else {
-              lovrThrow("Expected boolean or number for depth clear");
+              lovrThrow("Expected boolean or number for depth load");
             }
 
             lua_rawgeti(L, -1, 2);
             if (lua_isboolean(L, -1)) {
-              info.depth.stencilLoad = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
+              info.depth.stencilLoad = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
             } else if (lua_isnumber(L, -1)) {
-              info.depth.stencilLoad = LOAD_CLEAR;
               stencilClear = (uint8_t) lua_tointeger(L, -1);
             } else {
-              lovrThrow("Expected boolean or number for stencil clear");
+              lovrThrow("Expected boolean or number for stencil load");
             }
             lua_pop(L, 2);
             break;
@@ -757,101 +734,49 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     }
     lua_pop(L, 1);
 
-    lua_getfield(L, index, "multisample");
-    switch (lua_type(L, -1)) {
-      case LUA_TNIL: break;
-      case LUA_TBOOLEAN: info.samples = lua_toboolean(L, -1) ? 4 : 1; break;
-      case LUA_TNUMBER: info.samples = lua_tonumber(L, -1); break;
-      case LUA_TTABLE:
-        if (info.colorCount == 0) {
-          info.resolve = false;
-          info.colorCount = luax_len(L, -1);
-          for (uint32_t i = 0; i < info.colorCount; i++) {
-            lua_rawgeti(L, -1, i + 1);
-            if (lua_isstring(L, -1)) {
-              info.color[i].format = luax_checkenum(L, -1, TextureFormat, NULL);
-            } else {
-              multisampleTextures[i] = luax_totype(L, -1, Texture);
-              const TextureInfo* textureInfo = lovrTextureGetInfo(multisampleTextures[i]);
-              info.color[i].format = textureInfo->format;
-              info.samples = textureInfo->samples;
-            }
-            lua_pop(L, 1);
-          }
-        } else {
-          for (uint32_t i = 0; i < info.colorCount; i++) {
-            lua_rawgeti(L, -1, i + 1);
-            multisampleTextures[i] = luax_totype(L, -1, Texture);
-            info.samples = lovrTextureGetInfo(multisampleTextures[i])->samples;
-            lua_pop(L, 1);
-          }
-        }
-        break;
-      default: lovrThrow("Expected nil, boolean, number, Texture, or table for Canvas multisample option");
-    }
+    lua_getfield(L, index, "samples");
+    info.samples = lua_isnil(L, -1) ? info.samples : lua_tointeger(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, index, "views");
-    info.views = lua_tointeger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, index, "clear");
+    lua_getfield(L, index, "load");
     if (lua_istable(L, -1)) {
       lua_rawgeti(L, -1, 1);
       if (lua_type(L, -1) == LUA_TNUMBER) {
         lua_rawgeti(L, -2, 2);
         lua_rawgeti(L, -3, 3);
         lua_rawgeti(L, -4, 4);
-        info.color[0].load = LOAD_CLEAR;
         colorClear[0][0] = luax_checkfloat(L, -4);
         colorClear[0][1] = luax_checkfloat(L, -3);
         colorClear[0][2] = luax_checkfloat(L, -2);
         colorClear[0][3] = luax_optfloat(L, -1, 1.f);
         lua_pop(L, 4);
-        for (uint32_t i = 1; i < info.colorCount; i++) {
-          info.color[i].load = LOAD_CLEAR;
+        for (uint32_t i = 1; i < count; i++) {
           memcpy(colorClear[i], colorClear[0], 4 * sizeof(float));
         }
       } else {
         lua_pop(L, 1);
-        for (uint32_t i = 0; i < info.colorCount; i++) {
+        for (uint32_t i = 0; i < count; i++) {
           lua_rawgeti(L, -1, i + 1);
           if (lua_istable(L, -1)) {
             lua_rawgeti(L, -1, 1);
             lua_rawgeti(L, -2, 2);
             lua_rawgeti(L, -3, 3);
             lua_rawgeti(L, -4, 4);
-            info.color[i].load = LOAD_CLEAR;
             colorClear[i][0] = luax_checkfloat(L, -4);
             colorClear[i][1] = luax_checkfloat(L, -3);
             colorClear[i][2] = luax_checkfloat(L, -2);
             colorClear[i][3] = luax_optfloat(L, -1, 1.f);
             lua_pop(L, 4);
           } else {
-            info.color[i].load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
+            info.color[i].load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
           }
           lua_pop(L, 1);
         }
       }
     } else if (!lua_isnil(L, -1)) {
-      LoadAction load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
-      for (uint32_t i = 0; i < info.colorCount; i++) {
+      LoadAction load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
+      for (uint32_t i = 0; i < count; i++) {
         info.color[i].load = load;
-      }
-    }
-    lua_pop(L, 1);
-
-    lua_getfield(L, index, "save");
-    if (lua_istable(L, -1)) {
-      for (uint32_t i = 0; i < info.colorCount; i++) {
-        lua_rawgeti(L, -1, i + 1);
-        info.color[i].save = lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
-        lua_pop(L, 1);
-      }
-    } else if (!lua_isnil(L, -1)) {
-      SaveAction save = lua_toboolean(L, -1) ? SAVE_KEEP : SAVE_DISCARD;
-      for (uint32_t i = 0; i < info.colorCount; i++) {
-        info.color[i].save = save;
       }
     }
     lua_pop(L, 1);
@@ -862,19 +787,6 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
   }
 
   Canvas* canvas = lovrCanvasCreate(&info);
-
-  if (info.samples == 1 || info.resolve) {
-    lovrCanvasSetTextures(canvas, ATTACHMENT_COLOR, colorTextures, info.colorCount);
-  }
-
-  if (info.depth.enabled) {
-    lovrCanvasSetTextures(canvas, ATTACHMENT_DEPTH, &depthTexture, 1);
-  }
-
-  if (info.samples > 1) {
-    lovrCanvasSetTextures(canvas, ATTACHMENT_MULTISAMPLE, multisampleTextures, info.colorCount);
-  }
-
   luax_pushtype(L, Canvas, canvas);
   lovrRelease(canvas, lovrCanvasDestroy);
   return 1;

@@ -43,10 +43,6 @@ struct Canvas {
   gpu_batch* commands;
   gpu_render_target target;
   CanvasInfo info;
-  Texture* colorTextures[4];
-  Texture* depthTexture;
-  Texture* multisampleTextures[4];
-  bool texturesDirty;
   struct {
     gpu_pipeline_info info;
     gpu_pipeline* instance;
@@ -222,8 +218,8 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->textureSize3D = state.limits.textureSize3D;
   limits->textureSizeCube = state.limits.textureSizeCube;
   limits->textureLayers = state.limits.textureLayers;
-  limits->renderSize[0] = state.limits.renderSize[0];
-  limits->renderSize[1] = state.limits.renderSize[1];
+  limits->renderWidth = state.limits.renderSize[0];
+  limits->renderHeight = state.limits.renderSize[1];
   limits->renderViews = state.limits.renderViews;
   limits->bundleCount = state.limits.bundleCount;
   limits->bundleSlots = state.limits.bundleSlots;
@@ -409,6 +405,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrAssert(info->size[2] > 0, "Texture depth must be greater than zero");
   lovrAssert(info->mipmaps > 0, "Texture mipmap count must be greater than zero");
   lovrAssert(info->samples > 0, "Texture sample count must be greater than zero");
+  lovrAssert((info->samples & (info->samples - 1)) == 0, "Texture multisample count must be a power of 2");
   lovrAssert(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
 
   if (info->type == TEXTURE_2D) {
@@ -553,11 +550,8 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
-  if (texture->info.parent) {
-    lovrRelease(texture->info.parent, lovrTextureDestroy);
-  } else {
-    gpu_texture_destroy(texture->gpu);
-  }
+  lovrRelease(texture->info.parent, lovrTextureDestroy);
+  gpu_texture_destroy(texture->gpu);
 }
 
 const TextureInfo* lovrTextureGetInfo(Texture* texture) {
@@ -657,22 +651,38 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 // Canvas
 
 Canvas* lovrCanvasCreate(CanvasInfo* info) {
-  bool multiview = info->views > 1;
-  lovrAssert(info->colorCount > 0 || info->depth.enabled, "A Canvas must have at least one color or depth texture");
-  lovrAssert(!multiview || state.features.multiview, "Canvas has multiple views but multiview is not supported by this GPU");
-  lovrAssert(!multiview || info->views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", info->views, state.limits.renderViews);
-  lovrAssert(info->samples > 0, "Canvas multisample count can not be zero");
-  lovrAssert((info->samples & (info->samples - 1)) == 0, "Canvas multisample count must be a power of 2");
+  Texture* firstTexture = info->color[0].texture ? info->color[0].texture : info->depth.texture;
+  lovrAssert(firstTexture, "Canvas must have at least one color or depth texture");
+  uint32_t width = firstTexture->info.size[0], height = firstTexture->info.size[1], views = firstTexture->info.size[2];
+  lovrAssert(width <= state.limits.renderSize[0], "Canvas width exceeds the renderWidth limit of this GPU (%d)", state.limits.renderSize[0]);
+  lovrAssert(height <= state.limits.renderSize[1], "Canvas width exceeds the renderHeight limit of this GPU (%d)", state.limits.renderSize[1]);
+  lovrAssert(views == 1 || state.features.multiview, "Canvas has multiple views but multiview is not supported by this GPU");
+  lovrAssert(views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", views, state.limits.renderViews);
+  uint32_t samples = firstTexture->info.samples > 1 ? firstTexture->info.samples : info->samples;
+  lovrAssert((samples & (samples - 1)) == 0, "Canvas multisample count must be a power of 2");
 
-  if (info->depth.enabled) {
-    lovrAssert(isDepthFormat(info->depth.format), "Canvas depth attachment does not use a depth format");
-    bool renderable = state.features.formats[info->depth.format] & GPU_FORMAT_FEATURE_RENDER_DEPTH;
-    lovrAssert(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
+  uint32_t colorCount = 0;
+  for (uint32_t i = 0; i < MAX_COLOR_ATTACHMENTS; i++) {
+    if (!info->color[i].texture) break;
+    Texture* texture = info->color[i].texture;
+    bool renderable = state.features.formats[texture->info.format] & GPU_FORMAT_FEATURE_RENDER_COLOR;
+    lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
+    lovrAssert(texture->info.flags & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to Canvases");
+    lovrAssert(!memcmp(texture->info.size, firstTexture->info.size, 3 * sizeof(uint32_t)), "Canvas texture sizes must match");
+    lovrAssert(texture->info.samples == firstTexture->info.samples, "Canvas texture sample counts must match");
+    colorCount++;
   }
 
-  for (uint32_t i = 0; i < info->colorCount; i++) {
-    bool renderable = state.features.formats[info->color[i].format] & GPU_FORMAT_FEATURE_RENDER_COLOR;
-    lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
+  if (info->depth.enabled) {
+    Texture* texture = info->depth.texture;
+    TextureFormat format = texture ? texture->info.format : info->depth.format;
+    bool renderable = state.features.formats[format] & GPU_FORMAT_FEATURE_RENDER_DEPTH;
+    lovrAssert(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
+    if (texture) {
+      lovrAssert(texture->info.flags & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to a Canvas");
+      lovrAssert(!memcmp(texture->info.size, firstTexture->info.size, 3 * sizeof(uint32_t)), "Canvas texture sizes must match");
+      lovrAssert(texture->info.samples == samples, "Currently, Canvas depth buffer sample count must match its main multisample count");
+    }
   }
 
   Canvas* canvas = calloc(1, sizeof(Canvas) + gpu_sizeof_pass());
@@ -680,103 +690,112 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
   canvas->info = *info;
   canvas->ref = 1;
 
-  gpu_pass_info gpuInfo;
-  memset(&info, 0, sizeof(info));
+  gpu_pass_info gpuInfo = {
+    .colorCount = colorCount,
+    .samples = samples,
+    .views = views,
+    .resolve = info->samples > 1 && firstTexture->info.samples == 1,
+    .label = info->label
+  };
 
-  for (uint32_t i = 0; i < info->colorCount; i++) {
-    gpuInfo.color[i].format = (gpu_texture_format) info->color[i].format;
-    gpuInfo.color[i].load = (gpu_load_op) info->color[i].load;
-    gpuInfo.color[i].save = (gpu_save_op) info->color[i].save;
+  for (uint32_t i = 0; i < colorCount; i++) {
+    gpuInfo.color[i] = (gpu_pass_color_info) {
+      .format = (gpu_texture_format) info->color[i].texture->info.format,
+      .load = (gpu_load_op) info->color[i].load,
+      .save = (gpu_save_op) info->color[i].save
+    };
   }
 
   if (info->depth.enabled) {
-    gpuInfo.depth.enabled = true;
-    gpuInfo.depth.format = (gpu_texture_format) info->depth.format;
-    gpuInfo.depth.load = (gpu_load_op) info->depth.load;
-    gpuInfo.depth.save = (gpu_save_op) info->depth.save;
-    gpuInfo.depth.stencilLoad = (gpu_load_op) info->depth.stencilLoad;
-    gpuInfo.depth.stencilSave = (gpu_save_op) info->depth.stencilSave;
+    gpuInfo.depth = (gpu_pass_depth_info) {
+      .enabled = true,
+      .format = (gpu_texture_format) (info->depth.texture ? info->depth.texture->info.format : info->depth.format),
+      .load = (gpu_load_op) info->depth.load,
+      .save = (gpu_save_op) info->depth.save,
+      .stencilLoad = (gpu_load_op) info->depth.stencilLoad,
+      .stencilSave = (gpu_save_op) info->depth.stencilSave
+    };
   }
 
-  gpuInfo.samples = info->samples;
-  gpuInfo.views = info->views;
-  gpuInfo.label = info->label;
-
   lovrAssert(gpu_pass_init(canvas->gpu, &gpuInfo), "Could not create Canvas");
+
+  canvas->target.size[0] = width;
+  canvas->target.size[1] = height;
+
+  // Temporary targets are created for multisample/depth textures as needed.  (TODO pool/share them)
+  TextureInfo targetInfo = {
+    .type = views > 1 ? TEXTURE_ARRAY : TEXTURE_2D,
+    .size = { width, height, views },
+    .mipmaps = 1,
+    .samples = info->samples,
+    .flags = GPU_TEXTURE_FLAG_RENDER | GPU_TEXTURE_FLAG_TRANSIENT
+  };
+
+  // Attachments can only have a single mip level and must be 2D/array textures.
+  // For convenience, texture views are created for any incompatible textures.
+  TextureViewInfo viewInfo = {
+    .type = views > 1 ? TEXTURE_ARRAY : TEXTURE_2D,
+    .layerCount = views,
+    .levelCount = 1
+  };
+
+  for (uint32_t i = 0; i < colorCount; i++) {
+    Texture* texture = info->color[i].texture;
+
+    if (texture->info.mipmaps > 1 || (texture->info.type != TEXTURE_ARRAY && texture->info.type != TEXTURE_2D)) {
+      viewInfo.parent = texture->info.parent ? texture->info.parent : texture;
+      viewInfo.layerIndex = texture->baseLayer;
+      viewInfo.levelIndex = texture->baseLevel;
+      texture = lovrTextureCreateView(&viewInfo);
+    } else {
+      lovrRetain(texture);
+    }
+
+    canvas->target.color[i].texture = texture->gpu;
+
+    if (texture->info.samples == 1 && info->samples > 1) {
+      targetInfo.format = texture->info.format;
+      canvas->target.color[i].texture = lovrTextureCreate(&targetInfo)->gpu;
+      canvas->target.color[i].resolve = texture->gpu;
+    }
+  }
+
+  if (info->depth.enabled) {
+    if (info->depth.texture) {
+      Texture* texture = info->depth.texture;
+      if (texture->info.mipmaps > 1 || (texture->info.type != TEXTURE_ARRAY && texture->info.type != TEXTURE_2D)) {
+        viewInfo.parent = texture->info.parent ? texture->info.parent : texture;
+        viewInfo.layerIndex = texture->baseLayer;
+        viewInfo.levelIndex = texture->baseLevel;
+        texture = lovrTextureCreateView(&viewInfo);
+      } else {
+        lovrRetain(texture);
+      }
+      canvas->target.depth.texture = texture->gpu;
+    } else {
+      targetInfo.format = info->depth.format;
+      canvas->target.depth.texture = lovrTextureCreate(&targetInfo)->gpu;
+    }
+  }
+
   return canvas;
 }
 
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
   gpu_pass_destroy(canvas->gpu);
+  for (uint32_t i = 0; i < MAX_COLOR_ATTACHMENTS; i++) {
+    char* texture = canvas->target.color[i].texture ? (char*) canvas->target.color[i].texture - sizeof(Texture) : NULL;
+    char* resolve = canvas->target.color[i].resolve ? (char*) canvas->target.color[i].resolve - sizeof(Texture) : NULL;
+    lovrRelease(texture, lovrTextureDestroy);
+    lovrRelease(resolve, lovrTextureDestroy);
+  }
+  char* depth = canvas->target.depth.texture ? (char*) canvas->target.depth.texture - sizeof(Texture) : NULL;
+  lovrRelease(depth, lovrTextureDestroy);
 }
 
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
   return &canvas->info;
-}
-
-void lovrCanvasGetTextures(Canvas* canvas, AttachmentType type, Texture* textures[4], uint32_t* count) {
-  switch (type) {
-    case ATTACHMENT_COLOR:
-      memcpy(textures, canvas->colorTextures, 4 * sizeof(Texture*));
-      *count = (canvas->info.samples == 1 || canvas->info.resolve) ? canvas->info.colorCount : 0;
-      break;
-    case ATTACHMENT_DEPTH:
-      memcpy(textures, canvas->depthTexture, 1 * sizeof(Texture*));
-      *count = canvas->info.depth.enabled ? 1 : 0;
-      break;
-    case ATTACHMENT_MULTISAMPLE:
-      memcpy(textures, canvas->multisampleTextures, 4 * sizeof(Texture*));
-      *count = canvas->info.samples > 1 ? canvas->info.colorCount : 0;
-      break;
-    default:
-      *count = 0;
-      break;
-  }
-}
-
-void lovrCanvasSetTextures(Canvas* canvas, AttachmentType type, Texture** textures, uint32_t count) {
-  switch (type) {
-    case ATTACHMENT_COLOR:
-      lovrAssert(canvas->info.samples == 1 || canvas->info.resolve, "Attempt to attach color textures to a multisample-only Canvas");
-      lovrAssert(count == canvas->info.colorCount, "Color attachment count (%d) does not match the Canvas color attachment count (%d)", count, canvas->info.colorCount);
-      for (uint32_t i = 0; i < count; i++) {
-        if (textures[i] != canvas->colorTextures[i]) {
-          lovrAssert(textures[i]->info.format == canvas->info.color[i].format, "Texture (%d) format does not match Canvas attachment format", i + 1);
-          lovrAssert(textures[i]->info.samples == 1, "Canvas color attachments may not be multisampled");
-          lovrRetain(textures[i]);
-          lovrRelease(canvas->colorTextures[i], lovrTextureDestroy);
-          canvas->colorTextures[i] = textures[i];
-          canvas->texturesDirty = true;
-        }
-      }
-      break;
-    case ATTACHMENT_DEPTH:
-      lovrAssert(count == 1, "A Canvas can only have one depth texture");
-      lovrAssert(canvas->info.depth.enabled, "Attempt to attach a depth texture to a Canvas that was created with depth disabled");
-      if (textures[0] != canvas->depthTexture) {
-        lovrRetain(textures[0]);
-        lovrRelease(canvas->depthTexture, lovrTextureDestroy);
-        canvas->depthTexture = textures[0];
-        canvas->texturesDirty = true;
-      }
-      break;
-    case ATTACHMENT_MULTISAMPLE:
-      lovrAssert(canvas->info.samples > 1, "Tried to assign multisample textures to a Canvas that is not multisampled");
-      lovrAssert(count == canvas->info.colorCount, "Multisample attachment count (%d) does not match the Canvas multisample attachment count (%d)", count, canvas->info.colorCount);
-      for (uint32_t i = 0; i < count; i++) {
-        if (textures[i] != canvas->multisampleTextures[i]) {
-          lovrAssert(textures[i]->info.format == canvas->info.color[i].format, "Texture (%d) format does not match Canvas attachment format", i + 1);
-          lovrAssert(textures[i]->info.samples == canvas->info.samples, "Texture multisample count (%d) does not match Canvas multisample count (%d)", textures[i]->info.samples, canvas->info.samples);
-          lovrRetain(textures[i]);
-          lovrRelease(canvas->multisampleTextures[i], lovrTextureDestroy);
-          canvas->multisampleTextures[i] = textures[i];
-          canvas->texturesDirty = true;
-        }
-      }
-      break;
-    default: lovrThrow("Unreachable");
-  }
 }
 
 void lovrCanvasBegin(Canvas* canvas) {
