@@ -1523,7 +1523,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     uint32_t attachment = attachmentCount++;
     attachments[attachment] = (VkAttachmentDescription) {
       .format = convertFormat(info->depth.format, LINEAR),
-      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .samples = info->samples,
       .loadOp = loadOps[info->depth.load],
       .storeOp = storeOps[info->depth.save],
       .stencilLoadOp = loadOps[info->depth.stencilLoad],
