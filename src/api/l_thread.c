@@ -9,10 +9,28 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int threadRunner(void* data) {
-  Thread* thread = (Thread*) data;
+void threadError(Thread *thread, lua_State *L) {
+  // Error handling
+  size_t length;
+  const char* error = lua_tolstring(L, -1, &length);
+  mtx_lock(&thread->lock);
 
-  lovrRetain(thread);
+  if (error) {
+    thread->error = malloc(length + 1);
+    if (thread->error) {
+      memcpy(thread->error, error, length + 1);
+      lovrEventPush((Event) {
+        .type = EVENT_THREAD_ERROR,
+        .data.thread = { thread, thread->error }
+      });
+    }
+  }
+
+  thread->running = false;
+  mtx_unlock(&thread->lock);
+}
+
+lua_State *threadSetup(Thread *thread) {
   mtx_lock(&thread->lock);
   thread->running = true;
   mtx_unlock(&thread->lock);
@@ -31,35 +49,32 @@ static int threadRunner(void* data) {
     }
 
     if (!lua_pcall(L, thread->argumentCount, 0, errhandler)) {
-      mtx_lock(&thread->lock);
-      thread->running = false;
-      mtx_unlock(&thread->lock);
-      lovrRelease(thread, lovrThreadDestroy);
-      lua_close(L);
-      return 0;
+      return L; // Success
     }
   }
 
-  mtx_lock(&thread->lock);
+  threadError(thread, L);
 
-  // Error handling
-  size_t length;
-  const char* error = lua_tolstring(L, -1, &length);
-  if (error) {
-    thread->error = malloc(length + 1);
-    if (thread->error) {
-      memcpy(thread->error, error, length + 1);
-      lovrEventPush((Event) {
-        .type = EVENT_THREAD_ERROR,
-        .data.thread = { thread, thread->error }
-      });
-    }
+  return NULL;
+}
+
+static int threadRunner(void* data) {
+  Thread* thread = (Thread*) data;
+
+  lovrRetain(thread);
+
+  lua_State *L = threadSetup(thread);
+  int status = 1;
+
+  if (L) { // Complete thread execution
+    mtx_lock(&thread->lock);
+    thread->running = false;
+    mtx_unlock(&thread->lock);
+    lua_close(L);
+    return 0;
   }
 
-  thread->running = false;
-  mtx_unlock(&thread->lock);
   lovrRelease(thread, lovrThreadDestroy);
-  lua_close(L);
   return 1;
 }
 

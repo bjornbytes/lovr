@@ -65,6 +65,10 @@ static int luax_module__gc(lua_State* L) {
   return 0;
 }
 
+#ifdef LOVR_ENABLE_EXTAUDIO
+#include "audio/hook-audio.h"
+#endif
+
 void luax_preload(lua_State* L) {
   static const luaL_Reg lovrModules[] = {
     { "lovr", luaopen_lovr },
@@ -101,6 +105,10 @@ void luax_preload(lua_State* L) {
 #ifndef LOVR_DISABLE_TIMER
     { "lovr.timer", luaopen_lovr_timer },
 #endif
+#ifdef LOVR_ENABLE_EXTAUDIO
+    { "ext.audio", luaopen_ext_audio },
+#endif
+
     { NULL, NULL }
   };
 

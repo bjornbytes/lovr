@@ -15,6 +15,8 @@ option(LOVR_ENABLE_SYSTEM "Enable the system module" ON)
 option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
+option(LOVR_ENABLE_EXTAUDIO "Enable extended audio module" ON)
+
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" OFF)
@@ -567,6 +569,13 @@ if(LOVR_ENABLE_TIMER)
   target_sources(lovr PRIVATE src/modules/timer/timer.c src/api/l_timer.c)
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_TIMER)
+endif()
+
+
+if (LOVR_ENABLE_EXTAUDIO)
+  add_definitions(-DLOVR_ENABLE_EXTAUDIO)
+  target_sources(lovr PRIVATE game/audio/hook-audio.cpp)
+  target_include_directories(lovr PRIVATE game/include)
 endif()
 
 # Resources
