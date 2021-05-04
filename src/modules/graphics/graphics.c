@@ -103,6 +103,7 @@ static struct {
   map_t pipelines;
   map_t pipelineLobby;
   mtx_t pipelineLock;
+  uint32_t activeCanvasCount;
 } state;
 
 static void onDebugMessage(void* context, const char* message, int severe) {
@@ -248,6 +249,8 @@ void lovrGraphicsBegin() {
 }
 
 void lovrGraphicsFlush() {
+  lovrAssert(state.activeCanvasCount == 0, "Tried to submit graphics commands while a Canvas is still active");
+
   if (state.computer) {
     gpu_batch_end(state.computer);
     state.computer = NULL;
@@ -797,6 +800,7 @@ const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
 
 void lovrCanvasBegin(Canvas* canvas) {
   lovrGraphicsBegin();
+  state.activeCanvasCount++;
   canvas->commands = gpu_batch_init_render(canvas->gpu, &canvas->target, NULL, 0);
 }
 
@@ -806,6 +810,7 @@ void lovrCanvasFinish(Canvas* canvas) {
     state.computer = NULL;
   }
 
+  state.activeCanvasCount--;
   canvas->commands = NULL;
 }
 
