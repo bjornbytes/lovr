@@ -664,16 +664,13 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
   uint32_t samples = firstTexture->info.samples > 1 ? firstTexture->info.samples : info->samples;
   lovrAssert((samples & (samples - 1)) == 0, "Canvas multisample count must be a power of 2");
 
-  uint32_t colorCount = 0;
-  for (uint32_t i = 0; i < MAX_COLOR_ATTACHMENTS; i++) {
-    if (!info->color[i].texture) break;
+  for (uint32_t i = 0; i < info->colorCount && i < MAX_COLOR_ATTACHMENTS; i++) {
     Texture* texture = info->color[i].texture;
     bool renderable = state.features.formats[texture->info.format] & GPU_FORMAT_FEATURE_RENDER_COLOR;
     lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
     lovrAssert(texture->info.flags & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to Canvases");
     lovrAssert(!memcmp(texture->info.size, firstTexture->info.size, 3 * sizeof(uint32_t)), "Canvas texture sizes must match");
     lovrAssert(texture->info.samples == firstTexture->info.samples, "Canvas texture sample counts must match");
-    colorCount++;
   }
 
   if (info->depth.enabled) {
@@ -694,14 +691,14 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
   canvas->ref = 1;
 
   gpu_pass_info gpuInfo = {
-    .colorCount = colorCount,
+    .colorCount = info->colorCount,
     .samples = samples,
     .views = views,
     .resolve = info->samples > 1 && firstTexture->info.samples == 1,
     .label = info->label
   };
 
-  for (uint32_t i = 0; i < colorCount; i++) {
+  for (uint32_t i = 0; i < info->colorCount; i++) {
     gpuInfo.color[i] = (gpu_pass_color_info) {
       .format = (gpu_texture_format) info->color[i].texture->info.format,
       .load = (gpu_load_op) info->color[i].load,
@@ -742,7 +739,7 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
     .levelCount = 1
   };
 
-  for (uint32_t i = 0; i < colorCount; i++) {
+  for (uint32_t i = 0; i < info->colorCount; i++) {
     Texture* texture = info->color[i].texture;
 
     if (texture->info.mipmaps > 1 || (texture->info.type != TEXTURE_ARRAY && texture->info.type != TEXTURE_2D)) {
@@ -898,6 +895,22 @@ void lovrCanvasSetBlendMode(Canvas* canvas, uint32_t target, BlendMode mode, Ble
   }
   canvas->pipeline.info.blend[target].enabled = true;
   canvas->pipeline.dirty = true;
+}
+
+void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float* depth, uint8_t* stencil) {
+  for (uint32_t i = 0; i < canvas->info.colorCount; i++) {
+    memcpy(color[i], canvas->target.color[i].clear, 4 * sizeof(float));
+  }
+  *depth = canvas->target.depth.clear;
+  *stencil = canvas->target.depth.stencilClear;
+}
+
+void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float depth, uint8_t stencil) {
+  for (uint32_t i = 0; i < canvas->info.colorCount; i++) {
+    memcpy(canvas->target.color[i].clear, color[i], 4 * sizeof(float));
+  }
+  canvas->target.depth.clear = depth;
+  canvas->target.depth.stencilClear = stencil;
 }
 
 void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, bool* b, bool* a) {
