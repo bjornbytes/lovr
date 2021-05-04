@@ -804,6 +804,10 @@ const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
 void lovrCanvasBegin(Canvas* canvas) {
   lovrGraphicsBegin();
   state.activeCanvasCount++;
+  canvas->transform = 0;
+  lovrCanvasOrigin(canvas);
+  memset(&canvas->pipeline, 0, sizeof(canvas->pipeline));
+  canvas->pipeline.dirty = true;
   canvas->commands = gpu_batch_init_render(canvas->gpu, &canvas->target, NULL, 0);
 }
 
