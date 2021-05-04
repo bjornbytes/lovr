@@ -16,7 +16,6 @@ typedef struct {
 
 #define ENTRY(s) { sizeof(s) - 1, s }
 
-extern StringEntry lovrAttachmentType[];
 extern StringEntry lovrAudioMaterial[];
 extern StringEntry lovrAudioShareMode[];
 extern StringEntry lovrAudioType[];

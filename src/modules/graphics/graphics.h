@@ -41,7 +41,8 @@ typedef struct {
   uint32_t textureSize3D;
   uint32_t textureSizeCube;
   uint32_t textureLayers;
-  uint32_t renderSize[2];
+  uint32_t renderWidth;
+  uint32_t renderHeight;
   uint32_t renderViews;
   uint32_t bundleCount;
   uint32_t bundleSlots;
@@ -255,7 +256,7 @@ const PipelineInfo* lovrPipelineGetInfo(Pipeline* pipeline);
 
 // Canvas
 
-#define MAX_ATTACHMENTS 4
+#define MAX_COLOR_ATTACHMENTS 4
 
 typedef enum {
   LOAD_KEEP,
@@ -268,33 +269,24 @@ typedef enum {
   SAVE_DISCARD
 } SaveAction;
 
-typedef enum {
-  ATTACHMENT_COLOR,
-  ATTACHMENT_DEPTH,
-  ATTACHMENT_MULTISAMPLE
-} AttachmentType;
-
 typedef struct {
-  uint32_t format;
+  Texture* texture;
   LoadAction load;
   SaveAction save;
-  bool srgb;
 } ColorAttachment;
 
 typedef struct {
+  bool enabled;
   uint32_t format;
+  Texture* texture;
   LoadAction load, stencilLoad;
   SaveAction save, stencilSave;
-  bool enabled;
 } DepthAttachment;
 
 typedef struct {
-  ColorAttachment color[MAX_ATTACHMENTS];
+  ColorAttachment color[MAX_COLOR_ATTACHMENTS];
   DepthAttachment depth;
-  uint32_t colorCount;
   uint32_t samples;
-  uint32_t views;
-  bool resolve;
   const char* label;
 } CanvasInfo;
 
@@ -303,8 +295,6 @@ typedef void StencilCallback(void* userdata);
 Canvas* lovrCanvasCreate(CanvasInfo* info);
 void lovrCanvasDestroy(void* ref);
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
-void lovrCanvasGetTextures(Canvas* canvas, AttachmentType type, Texture* textures[4], uint32_t* count);
-void lovrCanvasSetTextures(Canvas* canvas, AttachmentType type, Texture** textures, uint32_t count);
 void lovrCanvasBegin(Canvas* canvas);
 void lovrCanvasFinish(Canvas* canvas);
 bool lovrCanvasIsActive(Canvas* canvas);
