@@ -286,6 +286,7 @@ typedef struct {
 typedef struct {
   ColorAttachment color[MAX_COLOR_ATTACHMENTS];
   DepthAttachment depth;
+  uint32_t colorCount;
   uint32_t samples;
   const char* label;
 } CanvasInfo;
@@ -303,6 +304,8 @@ bool lovrCanvasGetAlphaToCoverage(Canvas* canvas);
 void lovrCanvasSetAlphaToCoverage(Canvas* canvas, bool enabled);
 void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrCanvasSetBlendMode(Canvas* canvas, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode);
+void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float* depth, uint8_t* stencil);
+void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float depth, uint8_t stencil);
 void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, bool* b, bool* a);
 void lovrCanvasSetColorMask(Canvas* canvas, uint32_t target, bool r, bool g, bool b, bool a);
 CullMode lovrCanvasGetCullMode(Canvas* canvas);

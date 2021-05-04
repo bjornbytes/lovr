@@ -658,12 +658,11 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
   float colorClear[MAX_COLOR_ATTACHMENTS][4] = { 0 };
   float depthClear = 1.f;
   uint8_t stencilClear = 0;
-  uint32_t count = 0;
 
   int index;
   for (index = 1; index <= MAX_COLOR_ATTACHMENTS; index++) {
     if (!lua_isuserdata(L, index)) break;
-    info.color[count++] = (ColorAttachment) {
+    info.color[info.colorCount++] = (ColorAttachment) {
       .texture = luax_checktype(L, index, Texture),
       .load = LOAD_CLEAR,
       .save = SAVE_KEEP
@@ -677,6 +676,7 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
       case LUA_TSTRING: info.depth.format = luax_checkenum(L, -1, TextureFormat, NULL); break;
       case LUA_TUSERDATA:
         info.depth.texture = luax_checktype(L, -1, Texture);
+        info.depth.format = lovrTextureGetInfo(info.depth.texture)->format;
         break;
       case LUA_TTABLE:
         lua_getfield(L, -1, "format");
@@ -685,6 +685,7 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
 
         lua_getfield(L, -1, "texture");
         info.depth.texture = lua_isnil(L, -1) ? NULL : luax_checktype(L, -1, Texture);
+        info.depth.format = info.depth.texture ? lovrTextureGetInfo(info.depth.texture)->format : info.depth.format;
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "load");
@@ -750,12 +751,12 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
         colorClear[0][2] = luax_checkfloat(L, -2);
         colorClear[0][3] = luax_optfloat(L, -1, 1.f);
         lua_pop(L, 4);
-        for (uint32_t i = 1; i < count; i++) {
+        for (uint32_t i = 1; i < info.colorCount; i++) {
           memcpy(colorClear[i], colorClear[0], 4 * sizeof(float));
         }
       } else {
         lua_pop(L, 1);
-        for (uint32_t i = 0; i < count; i++) {
+        for (uint32_t i = 0; i < info.colorCount; i++) {
           lua_rawgeti(L, -1, i + 1);
           if (lua_istable(L, -1)) {
             lua_rawgeti(L, -1, 1);
@@ -775,7 +776,7 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
       }
     } else if (!lua_isnil(L, -1)) {
       LoadAction load = lua_toboolean(L, -1) ? LOAD_KEEP : LOAD_DISCARD;
-      for (uint32_t i = 0; i < count; i++) {
+      for (uint32_t i = 0; i < info.colorCount; i++) {
         info.color[i].load = load;
       }
     }
@@ -787,6 +788,7 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
   }
 
   Canvas* canvas = lovrCanvasCreate(&info);
+  lovrCanvasSetClear(canvas, colorClear, depthClear, stencilClear);
   luax_pushtype(L, Canvas, canvas);
   lovrRelease(canvas, lovrCanvasDestroy);
   return 1;

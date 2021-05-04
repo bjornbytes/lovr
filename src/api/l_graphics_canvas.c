@@ -1,5 +1,6 @@
 #include "api/api.h"
 #include "graphics/graphics.h"
+#include "data/image.h"
 #include "core/maf.h"
 #include "core/util.h"
 #include <lua.h>
@@ -69,6 +70,79 @@ static int l_lovrCanvasSetBlendMode(lua_State* L) {
   for (uint32_t i = 0; i < 4; i++) {
     lovrCanvasSetBlendMode(canvas, i, mode, alphaMode);
   }
+  return 0;
+}
+
+static int l_lovrCanvasGetClear(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  const CanvasInfo* info = lovrCanvasGetInfo(canvas);
+  float color[MAX_COLOR_ATTACHMENTS][4];
+  float depth;
+  uint8_t stencil;
+  lovrCanvasGetClear(canvas, color, &depth, &stencil);
+  lua_createtable(L, info->colorCount, 2);
+  for (uint32_t i = 0; i < info->colorCount; i++) {
+    lua_createtable(L, 4, 0);
+    lua_pushnumber(L, color[i][0]);
+    lua_rawseti(L, -2, 1);
+    lua_pushnumber(L, color[i][1]);
+    lua_rawseti(L, -2, 2);
+    lua_pushnumber(L, color[i][2]);
+    lua_rawseti(L, -2, 3);
+    lua_pushnumber(L, color[i][3]);
+    lua_rawseti(L, -2, 4);
+    lua_rawseti(L, -2, i + 1);
+  }
+  if (info->depth.enabled) {
+    lua_pushnumber(L, depth);
+    lua_setfield(L, -2, "depth");
+    if (info->depth.format == FORMAT_D24S8) {
+      lua_pushinteger(L, stencil);
+      lua_setfield(L, -2, "stencil");
+    }
+  }
+  return 1;
+}
+
+static int l_lovrCanvasSetClear(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  const CanvasInfo* info = lovrCanvasGetInfo(canvas);
+  float color[MAX_COLOR_ATTACHMENTS][4];
+  float depth;
+  uint8_t stencil;
+  lovrCanvasGetClear(canvas, color, &depth, &stencil);
+  if (lua_istable(L, 2)) {
+    for (uint32_t i = 0; i < info->colorCount; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      if (lua_istable(L, -1)) {
+        lua_rawgeti(L, -1, 1);
+        lua_rawgeti(L, -2, 2);
+        lua_rawgeti(L, -3, 3);
+        lua_rawgeti(L, -4, 4);
+        luax_readcolor(L, -4, color[i]);
+        lua_pop(L, 4);
+      } else {
+        luax_readcolor(L, -1, color[i]);
+      }
+      lua_pop(L, 1);
+    }
+    lua_getfield(L, 2, "depth");
+    depth = luax_optfloat(L, -1, depth);
+    lua_getfield(L, 2, "stencil");
+    stencil = luaL_optinteger(L, -1, stencil);
+    lua_pop(L, 2);
+  } else {
+    for (uint32_t i = 0; i < info->colorCount; i++) {
+      if (lua_istable(L, i + 1)) {
+        luax_readcolor(L, i + 1, color[i]);
+      } else {
+        lua_pushvalue(L, i + 1);
+        luax_readcolor(L, -1, color[i]);
+        lua_pop(L, 1);
+      }
+    }
+  }
+  lovrCanvasSetClear(canvas, color, depth, stencil);
   return 0;
 }
 
@@ -410,6 +484,8 @@ const luaL_Reg lovrCanvas[] = {
   { "isActive", l_lovrCanvasIsActive },
   { "getAlphaToCoverage", l_lovrCanvasGetAlphaToCoverage },
   { "setAlphaToCoverage", l_lovrCanvasSetAlphaToCoverage },
+  { "getClear", l_lovrCanvasGetClear },
+  { "setClear", l_lovrCanvasSetClear },
   { "getBlendMode", l_lovrCanvasGetBlendMode },
   { "setBlendMode", l_lovrCanvasSetBlendMode },
   { "getColorMask", l_lovrCanvasGetColorMask },
