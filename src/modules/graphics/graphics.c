@@ -33,9 +33,8 @@ struct Texture {
 
 struct Canvas {
   uint32_t ref;
-  gpu_pass* gpu;
-  gpu_batch* commands;
-  gpu_render_target target;
+  gpu_canvas gpu;
+  gpu_pass* pass;
   CanvasInfo info;
   struct {
     gpu_pipeline_info info;
@@ -87,13 +86,13 @@ struct Bundle {
 
 static struct {
   bool initialized;
-  bool recording;
+  bool active;
   bool debug;
   int width;
   int height;
   gpu_features features;
   gpu_limits limits;
-  gpu_batch* computer;
+  gpu_pass* compute;
   map_t pipelines;
   map_t pipelineLobby;
   mtx_t pipelineLock;
@@ -124,7 +123,6 @@ void lovrGraphicsDestroy() {
   map_free(&state.pipelines);
   map_free(&state.pipelineLobby);
   mtx_destroy(&state.pipelineLock);
-  gpu_thread_detach();
   gpu_destroy();
   memset(&state, 0, sizeof(state));
 }
@@ -155,7 +153,6 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
   };
 
   lovrAssert(gpu_init(&config), "Could not initialize GPU");
-  gpu_thread_attach();
   map_init(&state.pipelines, 0);
   map_init(&state.pipelineLobby, 0);
   mtx_init(&state.pipelineLock, mtx_plain);
@@ -239,8 +236,8 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
 }
 
 void lovrGraphicsBegin() {
-  if (!state.recording) {
-    state.recording = true;
+  if (!state.active) {
+    state.active = true;
     gpu_begin();
   }
 }
@@ -248,17 +245,15 @@ void lovrGraphicsBegin() {
 void lovrGraphicsFlush() {
   lovrAssert(state.activeCanvasCount == 0, "Tried to submit graphics commands while a Canvas is still active");
 
-  if (state.computer) {
-    gpu_batch_end(state.computer);
-    state.computer = NULL;
+  if (state.compute) {
+    gpu_pass_end(state.compute);
+    state.compute = NULL;
   }
 
-  if (state.recording) {
-    state.recording = false;
+  if (state.active) {
+    state.active = false;
     gpu_flush();
   }
-
-  // TODO flush pipeline lobby
 }
 
 // Buffer
@@ -677,42 +672,13 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
     }
   }
 
-  Canvas* canvas = calloc(1, sizeof(Canvas) + gpu_sizeof_pass());
-  canvas->gpu = (gpu_pass*) (canvas + 1);
+  Canvas* canvas = calloc(1, sizeof(Canvas));
   canvas->info = *info;
   canvas->ref = 1;
 
-  gpu_pass_info gpuInfo = {
-    .colorCount = info->colorCount,
-    .samples = samples,
-    .views = views,
-    .resolve = info->samples > 1 && firstTexture->info.samples == 1,
-    .label = info->label
-  };
-
-  for (uint32_t i = 0; i < info->colorCount; i++) {
-    gpuInfo.color[i] = (gpu_pass_color_info) {
-      .format = (gpu_texture_format) info->color[i].texture->info.format,
-      .load = (gpu_load_op) info->color[i].load,
-      .save = (gpu_save_op) info->color[i].save
-    };
-  }
-
-  if (info->depth.enabled) {
-    gpuInfo.depth = (gpu_pass_depth_info) {
-      .enabled = true,
-      .format = (gpu_texture_format) (info->depth.texture ? info->depth.texture->info.format : info->depth.format),
-      .load = (gpu_load_op) info->depth.load,
-      .save = (gpu_save_op) info->depth.save,
-      .stencilLoad = (gpu_load_op) info->depth.stencilLoad,
-      .stencilSave = (gpu_save_op) info->depth.stencilSave
-    };
-  }
-
-  lovrAssert(gpu_pass_init(canvas->gpu, &gpuInfo), "Could not create Canvas");
-
-  canvas->target.size[0] = width;
-  canvas->target.size[1] = height;
+  canvas->gpu.size[0] = width;
+  canvas->gpu.size[1] = height;
+  canvas->gpu.size[2] = views;
 
   // Temporary targets are created for multisample/depth textures as needed.  (TODO pool/share them)
   TextureInfo targetInfo = {
@@ -743,12 +709,12 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
       lovrRetain(texture);
     }
 
-    canvas->target.color[i].texture = texture->gpu;
+    canvas->gpu.color[i].texture = texture->gpu;
 
     if (texture->info.samples == 1 && info->samples > 1) {
       targetInfo.format = texture->info.format;
-      canvas->target.color[i].texture = lovrTextureCreate(&targetInfo)->gpu;
-      canvas->target.color[i].resolve = texture->gpu;
+      canvas->gpu.color[i].texture = lovrTextureCreate(&targetInfo)->gpu;
+      canvas->gpu.color[i].resolve = texture->gpu;
     }
   }
 
@@ -763,10 +729,10 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
       } else {
         lovrRetain(texture);
       }
-      canvas->target.depth.texture = texture->gpu;
+      canvas->gpu.depth.texture = texture->gpu;
     } else {
       targetInfo.format = info->depth.format;
-      canvas->target.depth.texture = lovrTextureCreate(&targetInfo)->gpu;
+      canvas->gpu.depth.texture = lovrTextureCreate(&targetInfo)->gpu;
     }
   }
 
@@ -775,14 +741,13 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
 
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
-  gpu_pass_destroy(canvas->gpu);
   for (uint32_t i = 0; i < MAX_COLOR_ATTACHMENTS; i++) {
-    char* texture = canvas->target.color[i].texture ? (char*) canvas->target.color[i].texture - sizeof(Texture) : NULL;
-    char* resolve = canvas->target.color[i].resolve ? (char*) canvas->target.color[i].resolve - sizeof(Texture) : NULL;
+    char* texture = canvas->gpu.color[i].texture ? (char*) canvas->gpu.color[i].texture - sizeof(Texture) : NULL;
+    char* resolve = canvas->gpu.color[i].resolve ? (char*) canvas->gpu.color[i].resolve - sizeof(Texture) : NULL;
     lovrRelease(texture, lovrTextureDestroy);
     lovrRelease(resolve, lovrTextureDestroy);
   }
-  char* depth = canvas->target.depth.texture ? (char*) canvas->target.depth.texture - sizeof(Texture) : NULL;
+  char* depth = canvas->gpu.depth.texture ? (char*) canvas->gpu.depth.texture - sizeof(Texture) : NULL;
   lovrRelease(depth, lovrTextureDestroy);
 }
 
@@ -797,21 +762,21 @@ void lovrCanvasBegin(Canvas* canvas) {
   lovrCanvasOrigin(canvas);
   memset(&canvas->pipeline, 0, sizeof(canvas->pipeline));
   canvas->pipeline.dirty = true;
-  canvas->commands = gpu_batch_init_render(canvas->gpu, &canvas->target, NULL, 0);
+  canvas->pass = gpu_begin_render(&canvas->gpu);
 }
 
 void lovrCanvasFinish(Canvas* canvas) {
-  if (state.computer) {
-    gpu_batch_end(state.computer);
-    state.computer = NULL;
+  if (state.compute) {
+    gpu_pass_end(state.compute);
+    state.compute = NULL;
   }
 
   state.activeCanvasCount--;
-  canvas->commands = NULL;
+  canvas->pass = NULL;
 }
 
 bool lovrCanvasIsActive(Canvas* canvas) {
-  return canvas->commands;
+  return canvas->pass;
 }
 
 bool lovrCanvasGetAlphaToCoverage(Canvas* canvas) {
@@ -855,7 +820,7 @@ static const gpu_blend_state blendModes[] = {
 };
 
 void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode) {
-  gpu_blend_state* blend = &canvas->pipeline.info.blend[target];
+  gpu_blend_state* blend = &canvas->pipeline.info.color[target].blend;
 
   if (!blend->enabled) {
     *mode = BLEND_NONE;
@@ -877,36 +842,36 @@ void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, Bl
 
 void lovrCanvasSetBlendMode(Canvas* canvas, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode) {
   if (mode == BLEND_NONE) {
-    memset(&canvas->pipeline.info.blend[target], 0, sizeof(gpu_blend_state));
+    memset(&canvas->pipeline.info.color[target].blend, 0, sizeof(gpu_blend_state));
     return;
   }
 
-  canvas->pipeline.info.blend[target] = blendModes[mode];
+  canvas->pipeline.info.color[target].blend = blendModes[mode];
   if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
-    canvas->pipeline.info.blend[target].color.src = GPU_BLEND_ONE;
+    canvas->pipeline.info.color[target].blend.color.src = GPU_BLEND_ONE;
   }
-  canvas->pipeline.info.blend[target].enabled = true;
+  canvas->pipeline.info.color[target].blend.enabled = true;
   canvas->pipeline.dirty = true;
 }
 
 void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float* depth, uint8_t* stencil) {
   for (uint32_t i = 0; i < canvas->info.colorCount; i++) {
-    memcpy(color[i], canvas->target.color[i].clear, 4 * sizeof(float));
+    memcpy(color[i], canvas->gpu.color[i].clear, 4 * sizeof(float));
   }
-  *depth = canvas->target.depth.clear;
-  *stencil = canvas->target.depth.stencilClear;
+  *depth = canvas->gpu.depth.clear;
+  *stencil = canvas->gpu.depth.stencil.clear;
 }
 
 void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float depth, uint8_t stencil) {
   for (uint32_t i = 0; i < canvas->info.colorCount; i++) {
-    memcpy(canvas->target.color[i].clear, color[i], 4 * sizeof(float));
+    memcpy(canvas->gpu.color[i].clear, color[i], 4 * sizeof(float));
   }
-  canvas->target.depth.clear = depth;
-  canvas->target.depth.stencilClear = stencil;
+  canvas->gpu.depth.clear = depth;
+  canvas->gpu.depth.stencil.clear = stencil;
 }
 
 void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, bool* b, bool* a) {
-  uint8_t mask = canvas->pipeline.info.colorMask[target];
+  uint8_t mask = canvas->pipeline.info.color[target].mask;
   *r = mask & 0x1;
   *g = mask & 0x2;
   *b = mask & 0x4;
@@ -914,7 +879,7 @@ void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, b
 }
 
 void lovrCanvasSetColorMask(Canvas* canvas, uint32_t target, bool r, bool g, bool b, bool a) {
-  canvas->pipeline.info.colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
+  canvas->pipeline.info.color[target].mask = (r << 0) | (g << 1) | (b << 2) | (a << 3);
   canvas->pipeline.dirty = true;
 }
 
@@ -1069,10 +1034,10 @@ void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection) 
 }
 
 void lovrCanvasStencil(Canvas* canvas, StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata) {
+  lovrAssert(canvas->pass, "Canvas must be active");
+  lovrAssert(canvas->info.depth.format == FORMAT_D24S8, "Canvas must have a stencil buffer");
   uint8_t oldValue = canvas->pipeline.info.stencil.value;
   gpu_compare_mode oldTest = canvas->pipeline.info.stencil.test;
-  // TODO must be in render pass
-  // TODO must have stencil buffer?
   canvas->pipeline.info.stencil.test = GPU_COMPARE_NONE;
   canvas->pipeline.info.stencil.passOp = (gpu_stencil_op) action;
   canvas->pipeline.info.stencil.depthFailOp = (gpu_stencil_op) depthFailAction;
@@ -1443,26 +1408,18 @@ bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint3
 }
 
 void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z) {
-  lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to compute with it");
-
-  if (!state.computer) {
-    state.computer = gpu_batch_init_compute();
-  }
-
-  gpu_batch_bind_pipeline(state.computer, shader->computePipeline);
-  gpu_batch_compute(state.computer, shader->gpu, x, y, z);
+  lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to dispatch a compute operation");
+  if (!state.compute) state.compute = gpu_begin_compute();
+  gpu_pass_bind_pipeline(state.compute, shader->computePipeline);
+  gpu_pass_compute(state.compute, shader->gpu, x, y, z);
 }
 
 void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset) {
-  lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to compute with it");
+  lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to dispatch a compute operation");
   lovrAssert(buffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with the 'parameter' flag to be used for compute parameters");
-
-  if (!state.computer) {
-    state.computer = gpu_batch_init_compute();
-  }
-
-  gpu_batch_bind_pipeline(state.computer, shader->computePipeline);
-  gpu_batch_compute_indirect(state.computer, shader->gpu, buffer->gpu, offset);
+  if (!state.compute) state.compute = gpu_begin_compute();
+  gpu_pass_bind_pipeline(state.compute, shader->computePipeline);
+  gpu_pass_compute_indirect(state.compute, shader->gpu, buffer->gpu, offset);
 }
 
 // Bundle
