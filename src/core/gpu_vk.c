@@ -186,9 +186,10 @@ typedef struct {
 } gpu_readback_pool;
 
 typedef struct {
-  uint64_t hash;
-  VkFramebuffer handle;
-} gpu_framebuffer_entry;
+  uint32_t hash;
+  uint32_t tick;
+  void* object;
+} gpu_cache_entry;
 
 // State
 
@@ -214,7 +215,8 @@ static struct {
   gpu_tick ticks[16];
   gpu_batch* batch;
   gpu_morgue morgue;
-  gpu_framebuffer_entry framebuffers[16][2];
+  gpu_cache_entry passes[16][4];
+  gpu_cache_entry framebuffers[16][4];
   gpu_scratchpad_pool scratchpads;
   gpu_readback_pool readbacks;
   VkQueryPool queryPool;
@@ -234,8 +236,10 @@ typedef struct {
   uint8_t* data;
 } gpu_mapping;
 
+static uint32_t hash32(void* data, uint32_t size);
+static gpu_cache_entry* cacheFetch(gpu_cache_entry* cache, uint32_t rows, uint32_t cols, uint32_t hash);
+static gpu_cache_entry* cacheEvict(gpu_cache_entry* cache, uint32_t rows, uint32_t cols, uint32_t hash);
 static gpu_mapping scratch(uint32_t size);
-static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info);
 static void ketchup(void);
 static void stall(uint32_t until);
 static void readback(void);
@@ -776,9 +780,14 @@ void gpu_destroy(void) {
     vkDestroyBuffer(state.device, state.scratchpads.data[i].buffer, NULL);
     vkFreeMemory(state.device, state.scratchpads.data[i].memory, NULL);
   }
+  for (uint32_t i = 0; i < COUNTOF(state.passes); i++) {
+    for (uint32_t j = 0; j < COUNTOF(state.passes[0]); j++) {
+      if (state.passes[i][j].object) vkDestroyRenderPass(state.device, state.passes[i][j].object, NULL);
+    }
+  }
   for (uint32_t i = 0; i < COUNTOF(state.framebuffers); i++) {
     for (uint32_t j = 0; j < COUNTOF(state.framebuffers[0]); j++) {
-      if (state.framebuffers[i][j].handle) vkDestroyFramebuffer(state.device, state.framebuffers[i][j].handle, NULL);
+      if (state.framebuffers[i][j].object) vkDestroyFramebuffer(state.device, state.framebuffers[i][j].object, NULL);
     }
   }
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
@@ -2148,7 +2157,19 @@ gpu_batch* gpu_batch_init_render(gpu_pass* pass, gpu_render_target* target, gpu_
     .layers = 1
   };
 
-  VkFramebuffer framebuffer = getFramebuffer(&framebufferInfo);
+  VkFramebuffer framebuffer;
+  uint32_t hash = hash32(&framebufferInfo, sizeof(framebufferInfo));
+  gpu_cache_entry* entry = cacheFetch(state.framebuffers[0], COUNTOF(state.framebuffers), COUNTOF(state.framebuffers[0]), hash);
+
+  if (!entry) {
+    entry = cacheEvict(state.framebuffers[0], COUNTOF(state.framebuffers), COUNTOF(state.framebuffers[0]), hash);
+    condemn(entry->object, VK_OBJECT_TYPE_FRAMEBUFFER);
+    GPU_VK(vkCreateFramebuffer(state.device, &framebufferInfo, NULL, &entry->object));
+    entry->hash = hash;
+  }
+
+  framebuffer = entry->object;
+  entry->tick = state.tick[CPU];
 
   VkRenderPassBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -2390,38 +2411,41 @@ void gpu_surface_present() {
 
 // Helpers
 
-static VkFramebuffer getFramebuffer(const VkFramebufferCreateInfo* info) {
-  uint64_t key[11] = { 0 };
-  for (uint32_t i = 0; i < info->attachmentCount; i++) {
-    key[i] = VOIDP_TO_U64(info->pAttachments[i]); // TODO generational collision if image view is destroyed + recreated with same pointer (either flush cache on destroy or track which buckets each image view is in with uint16_t mask)
+static uint32_t hash32(void* data, uint32_t size) {
+  uint32_t hash = 2166136261;
+  const uint8_t* bytes = data;
+  for (uint32_t i = 0; i < size; i++) {
+    hash = (hash ^ bytes[i]) * 16777619;
   }
-  key[9] = VOIDP_TO_U64(info->renderPass); // TODO generational collision if pass is destroyed + recreated with same pointer (either flush cache on destroy or track which buckets each pass is in with uint16_t mask)
-  key[10] = ((uint64_t) info->width << 32) | info->height;
+  return hash;
+}
 
-  uint64_t hash = 0xcbf29ce484222325;
-  for (size_t i = 0; i < sizeof(key); i++) {
-    hash = (hash ^ ((const uint8_t*) key)[i]) * 0x100000001b3;
-  }
-
-  gpu_framebuffer_entry* entries = &state.framebuffers[hash & (COUNTOF(state.framebuffers) - 1)][0];
-
-  for (size_t i = 0; i < 2; i++) {
+static gpu_cache_entry* cacheFetch(gpu_cache_entry* cache, uint32_t rows, uint32_t cols, uint32_t hash) {
+  uint32_t row = hash & (rows - 1);
+  gpu_cache_entry* entries = cache + row * cols;
+  for (uint32_t i = 0; i < cols; i++) {
     if (entries[i].hash == hash) {
-      return entries[i].handle;
+      return &entries[i];
     }
   }
+  return NULL;
+}
 
-  // Evict least-recently-used framebuffer
-  condemn((void*) entries[1].handle, VK_OBJECT_TYPE_FRAMEBUFFER);
-
-  // Shift bucket entries over to make room for new framebuffer
-  memcpy(&entries[1], &entries[0], sizeof(gpu_framebuffer_entry));
-
-  // Insert new framebuffer
-  GPU_VK(vkCreateFramebuffer(state.device, info, NULL, &entries[0].handle));
-  entries[0].hash = hash;
-
-  return entries[0].handle;
+static gpu_cache_entry* cacheEvict(gpu_cache_entry* cache, uint32_t rows, uint32_t cols, uint32_t hash) {
+  uint32_t row = hash & (rows - 1);
+  gpu_cache_entry* entries = cache + row * cols;
+  for (uint32_t i = 0; i < cols; i++) {
+    if (!entries[i].object) {
+      return &entries[i];
+    }
+  }
+  gpu_cache_entry* oldest = entries;
+  for (uint32_t i = 1; i < cols; i++) {
+    if (entries[i].tick < oldest->tick) {
+      oldest = &entries[i];
+    }
+  }
+  return oldest;
 }
 
 #define SCRATCHPAD_SIZE (16 * 1024 * 1024)
