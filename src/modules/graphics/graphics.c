@@ -31,12 +31,6 @@ struct Texture {
   uint32_t baseLevel;
 };
 
-struct Pipeline {
-  uint32_t ref;
-  gpu_pipeline* gpu;
-  PipelineInfo info;
-};
-
 struct Canvas {
   uint32_t ref;
   gpu_pass* gpu;
@@ -648,8 +642,6 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   lovrGraphicsBegin();
   gpu_texture_blit(src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
 }
-
-// Pipeline
 
 // Canvas
 

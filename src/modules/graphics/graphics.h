@@ -9,7 +9,6 @@ struct WindowFlags;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
-typedef struct Pipeline Pipeline;
 typedef struct Canvas Canvas;
 typedef struct Shader Shader;
 typedef struct Bundle Bundle;
@@ -197,7 +196,9 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]);
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest);
 
-// Pipeline
+// Canvas
+
+#define MAX_COLOR_ATTACHMENTS 4
 
 typedef enum {
   BLEND_ALPHA_MULTIPLY,
@@ -245,18 +246,6 @@ typedef enum {
   WINDING_COUNTERCLOCKWISE,
   WINDING_CLOCKWISE
 } Winding;
-
-typedef struct {
-  const char* label;
-} PipelineInfo;
-
-Pipeline* lovrPipelineCreate(PipelineInfo* info);
-void lovrPipelineDestroy(void* ref);
-const PipelineInfo* lovrPipelineGetInfo(Pipeline* pipeline);
-
-// Canvas
-
-#define MAX_COLOR_ATTACHMENTS 4
 
 typedef enum {
   LOAD_KEEP,
