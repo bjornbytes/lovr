@@ -349,12 +349,12 @@ set(LOVR_SRC
   src/api/l_lovr.c
 )
 
+
 if(LOVR_BUILD_EXE AND NOT LOVR_USE_PICO)
   list(APPEND LOVR_SRC src/main.c)
 endif()
 
 if(LOVR_BUILD_SHARED)
-  list(REMOVE_ITEM LOVR_SRC src/main.c)
   add_library(lovr SHARED ${LOVR_SRC})
   target_compile_definitions(lovr PRIVATE LOVR_BUILDING_SHARED)
 elseif(LOVR_BUILD_EXE)
