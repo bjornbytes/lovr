@@ -324,10 +324,7 @@ static void gpu_dlclose(void* library);
   X(vkCmdDrawIndirect)\
   X(vkCmdDrawIndexedIndirect)\
   X(vkCmdDispatch)\
-  X(vkCmdDispatchIndirect)\
-  X(vkCmdExecuteCommands)\
-  X(vkCmdSetViewport)\
-  X(vkCmdSetScissor)
+  X(vkCmdDispatchIndirect)
 
 // Used to load/declare Vulkan functions without lots of clutter
 #define GPU_LOAD_ANONYMOUS(fn) fn = (PFN_##fn) vkGetInstanceProcAddr(NULL, #fn);
