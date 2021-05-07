@@ -363,9 +363,10 @@ else()
   return()
 endif()
 
-if(!LOVR_BUILD_EXE)
-  target_compile_definitions(lovr LOVR_OMIT_MAIN) # specifically for win32 WinMain
+if(NOT LOVR_BUILD_EXE)
+  target_compile_definitions(lovr PUBLIC LOVR_OMIT_MAIN) # specifically for win32 WinMain
 endif()
+
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
 set_target_properties(lovr PROPERTIES C_STANDARD 99)
