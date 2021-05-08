@@ -30,7 +30,7 @@ typedef enum {
   DRAW_TRIANGLES,
   DRAW_TRIANGLE_STRIP,
   DRAW_TRIANGLE_FAN
-} DrawMode;
+} ModelDrawMode;
 
 typedef enum {
   FILTER_NEAREST,
@@ -152,7 +152,7 @@ typedef struct {
 typedef struct {
   ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
   ModelAttribute* indices;
-  DrawMode mode;
+  ModelDrawMode mode;
   uint32_t material;
 } ModelPrimitive;
 

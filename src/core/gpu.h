@@ -7,10 +7,11 @@
 typedef struct gpu_buffer gpu_buffer;
 typedef struct gpu_texture gpu_texture;
 typedef struct gpu_sampler gpu_sampler;
+typedef struct gpu_pass gpu_pass;
 typedef struct gpu_shader gpu_shader;
 typedef struct gpu_bundle gpu_bundle;
 typedef struct gpu_pipeline gpu_pipeline;
-typedef struct gpu_pass gpu_pass;
+typedef struct gpu_batch gpu_batch;
 
 typedef void gpu_read_fn(void* data, uint64_t size, void* userdata);
 
@@ -167,6 +168,46 @@ size_t gpu_sizeof_sampler(void);
 bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info);
 void gpu_sampler_destroy(gpu_sampler* sampler);
 
+// Pass
+
+typedef enum {
+  GPU_LOAD_OP_LOAD,
+  GPU_LOAD_OP_CLEAR,
+  GPU_LOAD_OP_DISCARD
+} gpu_load_op;
+
+typedef enum {
+  GPU_SAVE_OP_SAVE,
+  GPU_SAVE_OP_DISCARD
+} gpu_save_op;
+
+typedef struct {
+  gpu_texture_format format;
+  gpu_load_op load;
+  gpu_save_op save;
+  bool srgb;
+} gpu_pass_color_info;
+
+typedef struct {
+  gpu_texture_format format;
+  gpu_load_op load, stencilLoad;
+  gpu_save_op save, stencilSave;
+} gpu_pass_depth_info;
+
+typedef struct {
+  gpu_pass_color_info color[4];
+  gpu_pass_depth_info depth;
+  uint32_t count;
+  uint32_t samples;
+  uint32_t views;
+  bool resolve;
+  const char* label;
+} gpu_pass_info;
+
+size_t gpu_sizeof_pass(void);
+bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info);
+void gpu_pass_destroy(gpu_pass* pass);
+
 // Shader
 
 typedef struct {
@@ -246,15 +287,8 @@ void gpu_bundle_destroy(gpu_bundle* bundle);
 typedef enum {
   GPU_DRAW_POINTS,
   GPU_DRAW_LINES,
-  GPU_DRAW_LINE_STRIP,
-  GPU_DRAW_TRIANGLES,
-  GPU_DRAW_TRIANGLE_STRIP
+  GPU_DRAW_TRIANGLES
 } gpu_draw_mode;
-
-typedef struct {
-  uint16_t stride;
-  uint16_t divisor;
-} gpu_buffer_layout;
 
 typedef enum {
   GPU_FORMAT_NONE,
@@ -288,7 +322,7 @@ typedef enum {
   GPU_FORMAT_U32x2,
   GPU_FORMAT_U32x3,
   GPU_FORMAT_U32x4
-} gpu_vertex_format;
+} gpu_attribute_format;
 
 typedef struct {
   uint8_t location;
@@ -319,7 +353,6 @@ typedef struct {
 } gpu_rasterizer_state;
 
 typedef struct {
-  gpu_texture_format format;
   gpu_compare_mode test;
   bool write;
 } gpu_depth_state;
@@ -384,22 +417,18 @@ typedef enum {
 } gpu_color_mask;
 
 typedef struct {
-  gpu_texture_format format;
-  gpu_blend_state blend;
-  uint8_t mask;
-} gpu_color_state;
-
-typedef struct {
+  gpu_pass* pass;
   gpu_shader* shader;
   gpu_draw_mode drawMode;
-  gpu_buffer_layout buffers[16];
+  uint16_t vertexBufferCount;
+  uint16_t instancedBufferMask;
+  uint16_t bufferStrides[16];
   gpu_vertex_attribute attributes[16];
   gpu_rasterizer_state rasterizer;
   gpu_depth_state depth;
   gpu_stencil_state stencil;
-  gpu_color_state color[4];
-  uint32_t colorCount;
-  uint32_t multisamples;
+  gpu_blend_state blend[4];
+  uint8_t colorMask[4];
   bool alphaToCoverage;
   const char* label;
 } gpu_pipeline_info;
@@ -409,64 +438,44 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const char* label);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
-// Pass
-
-typedef enum {
-  GPU_LOAD_OP_LOAD,
-  GPU_LOAD_OP_CLEAR,
-  GPU_LOAD_OP_DISCARD
-} gpu_load_op;
-
-typedef enum {
-  GPU_SAVE_OP_SAVE,
-  GPU_SAVE_OP_DISCARD
-} gpu_save_op;
-
-typedef struct {
-  gpu_texture* texture;
-  gpu_texture* resolve;
-  gpu_load_op load;
-  gpu_save_op save;
-  float clear[4];
-} gpu_color_attachment;
-
-typedef struct {
-  gpu_texture* texture;
-  gpu_load_op load;
-  gpu_save_op save;
-  float clear;
-  struct {
-    gpu_load_op load;
-    gpu_save_op save;
-    uint8_t clear;
-  } stencil;
-} gpu_depth_attachment;
-
-typedef struct {
-  gpu_color_attachment color[4];
-  gpu_depth_attachment depth;
-  uint32_t samples;
-  uint32_t size[3];
-} gpu_canvas;
+// Batch
 
 typedef enum {
   GPU_INDEX_U16,
   GPU_INDEX_U32
 } gpu_index_type;
 
-gpu_pass* gpu_begin_render(gpu_canvas* canvas);
-gpu_pass* gpu_begin_compute(void);
-void gpu_pass_end(gpu_pass* pass);
-void gpu_pass_bind_pipeline(gpu_pass* pass, gpu_pipeline* pipeline);
-void gpu_pass_bind_bundle(gpu_pass* pass, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
-void gpu_pass_bind_vertex_buffers(gpu_pass* pass, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
-void gpu_pass_bind_index_buffer(gpu_pass* pass, gpu_buffer* buffer, uint64_t offset, gpu_index_type type);
-void gpu_pass_draw(gpu_pass* pass, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
-void gpu_pass_draw_indexed(gpu_pass* pass, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex);
-void gpu_pass_draw_indirect(gpu_pass* pass, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
-void gpu_pass_draw_indirect_indexed(gpu_pass* pass, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
-void gpu_pass_compute(gpu_pass* pass, gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z);
-void gpu_pass_compute_indirect(gpu_pass* pass, gpu_shader* shader, gpu_buffer* buffer, uint64_t offset);
+typedef struct {
+  gpu_texture* texture;
+  gpu_texture* resolve;
+  float clear[4];
+} gpu_color_attachment;
+
+typedef struct {
+  gpu_texture* texture;
+  struct { float depth; uint8_t stencil; } clear;
+} gpu_depth_attachment;
+
+typedef struct {
+  gpu_pass* pass;
+  gpu_color_attachment color[4];
+  gpu_depth_attachment depth;
+  uint32_t size[2];
+} gpu_canvas;
+
+gpu_batch* gpu_begin_render(gpu_canvas* canvas);
+gpu_batch* gpu_begin_compute(void);
+void gpu_batch_end(gpu_batch* batch);
+void gpu_batch_bind_pipeline(gpu_batch* batch, gpu_pipeline* pipeline);
+void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
+void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count);
+void gpu_batch_bind_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type);
+void gpu_batch_draw(gpu_batch* batch, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex);
+void gpu_batch_draw_indexed(gpu_batch* batch, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex);
+void gpu_batch_draw_indirect(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
+void gpu_batch_draw_indirect_indexed(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, uint32_t drawCount);
+void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z);
+void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer* buffer, uint64_t offset);
 
 // Surface
 
@@ -491,7 +500,6 @@ typedef struct {
   bool astc;
   bool pointSize;
   bool wireframe;
-  bool multiview;
   bool multiblend;
   bool anisotropy;
   bool depthClamp;
@@ -499,7 +507,6 @@ typedef struct {
   bool clipDistance;
   bool cullDistance;
   bool fullIndexBufferRange;
-  bool indirectDrawCount;
   bool indirectDrawFirstInstance;
   bool extraShaderInputs;
   bool dynamicIndexing;

@@ -18,7 +18,6 @@ typedef struct {
   bool astc;
   bool pointSize;
   bool wireframe;
-  bool multiview;
   bool multiblend;
   bool anisotropy;
   bool depthClamp;
@@ -26,7 +25,6 @@ typedef struct {
   bool clipDistance;
   bool cullDistance;
   bool fullIndexBufferRange;
-  bool indirectDrawCount;
   bool indirectDrawFirstInstance;
   bool extraShaderInputs;
   bool dynamicIndexing;
@@ -196,9 +194,7 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]);
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest);
 
-// Canvas
-
-#define MAX_COLOR_ATTACHMENTS 4
+// Pipeline
 
 typedef enum {
   BLEND_ALPHA_MULTIPLY,
@@ -247,6 +243,10 @@ typedef enum {
   WINDING_CLOCKWISE
 } Winding;
 
+// Canvas
+
+#define MAX_COLOR_ATTACHMENTS 4
+
 typedef enum {
   LOAD_KEEP,
   LOAD_CLEAR,
@@ -275,20 +275,51 @@ typedef struct {
 typedef struct {
   ColorAttachment color[MAX_COLOR_ATTACHMENTS];
   DepthAttachment depth;
-  uint32_t colorCount;
+  uint32_t count;
   uint32_t samples;
   const char* label;
 } CanvasInfo;
 
-typedef void StencilCallback(void* userdata);
+typedef enum {
+  DRAW_POINTS,
+  DRAW_LINES,
+  DRAW_TRIANGLES
+} DrawMode;
+
+typedef struct {
+  DrawMode mode;
+  uint32_t vertexBufferCount;
+  Buffer* vertexBuffers[16];
+  Buffer* indexBuffer;
+  uint32_t start;
+  uint32_t count;
+  uint32_t instances;
+  uint32_t baseVertex;
+  Buffer* indirectBuffer;
+  uint32_t indirectOffset;
+  uint32_t indirectCount;
+  float* transform;
+  Texture* texture;
+} DrawCall;
 
 Canvas* lovrCanvasCreate(CanvasInfo* info);
+Canvas* lovrCanvasGetTemporary(CanvasInfo* info);
 void lovrCanvasDestroy(void* ref);
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
 void lovrCanvasBegin(Canvas* canvas);
 void lovrCanvasFinish(Canvas* canvas);
 bool lovrCanvasIsActive(Canvas* canvas);
-
+void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
+void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
+void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection);
+void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection);
+void lovrCanvasPush(Canvas* canvas);
+void lovrCanvasPop(Canvas* canvas);
+void lovrCanvasOrigin(Canvas* canvas);
+void lovrCanvasTranslate(Canvas* canvas, float* translation);
+void lovrCanvasRotate(Canvas* canvas, float* rotation);
+void lovrCanvasScale(Canvas* canvas, float* scale);
+void lovrCanvasTransform(Canvas* canvas, float* transform);
 bool lovrCanvasGetAlphaToCoverage(Canvas* canvas);
 void lovrCanvasSetAlphaToCoverage(Canvas* canvas, bool enabled);
 void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
@@ -313,20 +344,10 @@ Winding lovrCanvasGetWinding(Canvas* canvas);
 void lovrCanvasSetWinding(Canvas* canvas, Winding winding);
 bool lovrCanvasIsWireframe(Canvas* canvas);
 void lovrCanvasSetWireframe(Canvas* canvas, bool wireframe);
-
-void lovrCanvasPush(Canvas* canvas);
-void lovrCanvasPop(Canvas* canvas);
-void lovrCanvasOrigin(Canvas* canvas);
-void lovrCanvasTranslate(Canvas* canvas, float* translation);
-void lovrCanvasRotate(Canvas* canvas, float* rotation);
-void lovrCanvasScale(Canvas* canvas, float* scale);
-void lovrCanvasTransform(Canvas* canvas, float* transform);
-void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
-void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
-void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection);
-void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection);
-
-void lovrCanvasStencil(Canvas* canvas, StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata);
+void lovrCanvasDraw(Canvas* canvas, DrawCall* draw);
+void lovrCanvasDrawIndexed(Canvas* canvas, DrawCall* draw);
+void lovrCanvasDrawIndirect(Canvas* canvas, DrawCall* draw);
+void lovrCanvasDrawIndirectIndexed(Canvas* canvas, DrawCall* draw);
 
 // Shader
 
