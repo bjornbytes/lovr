@@ -707,7 +707,6 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 }
 
 // Canvas
-#include <stdio.h>
 
 static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   // Validate
@@ -777,14 +776,10 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     map_set(&state.passes, hash, value);
   }
 
-  // Set up render target
-  // - Attachments can only have a single mip level and must be 2D/array.  Create views if needed.
-  // - Create any missing depth/msaa textures
   canvas->gpu.pass = (gpu_pass*) (uintptr_t) value;
   canvas->gpu.size[0] = width;
   canvas->gpu.size[1] = height;
 
-  // TODO pool/search these
   TextureInfo textureInfo = {
     .type = TEXTURE_ARRAY,
     .size = { width, height, views },
@@ -799,6 +794,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     .levelCount = 1
   };
 
+  // Color
   for (uint32_t i = 0; i < info->count; i++) {
     Texture* texture = info->color[i].texture;
 
@@ -816,6 +812,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     canvas->gpu.color[i].texture = texture->renderView;
   }
 
+  // Resolve (swap color -> resolve and create temp msaa targets as new color targets)
   if (key.resolve) {
     for (uint32_t i = 0; i < info->count; i++) {
       canvas->resolveTextures[i] = canvas->colorTextures[i];
@@ -827,6 +824,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     }
   }
 
+  // Depth
   if (info->depth.enabled) {
     if (info->depth.texture) {
       if (!info->depth.texture->renderView) {
