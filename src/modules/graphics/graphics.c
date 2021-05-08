@@ -296,7 +296,7 @@ void lovrGraphicsFlush() {
   lovrAssert(state.activeCanvasCount == 0, "Tried to submit graphics commands while a Canvas is still active");
 
   if (state.compute) {
-    gpu_batch_end(state.compute);
+    gpu_batch_end(state.compute, false);
     state.compute = NULL;
   }
 
@@ -609,7 +609,7 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   lovrRelease(texture->info.parent, lovrTextureDestroy);
-  if (texture->renderView) gpu_texture_destroy(texture->renderView);
+  if (texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
   gpu_texture_destroy(texture->gpu);
   free(texture);
 }
@@ -862,8 +862,10 @@ Canvas* lovrCanvasGetTemporary(CanvasInfo* info) {
     arr_expand(&state.canvases, 1);
     index = state.canvases.length++;
     Canvas* canvas = &state.canvases.data[index];
-    lovrCanvasInit(canvas, info);
+    canvas->ref = 1;
+    canvas->info = *info;
     canvas->temporary = true;
+    lovrCanvasInit(canvas, info);
     map_set(&state.canvasLookup, hash, index);
   }
   return &state.canvases.data[index];
@@ -900,11 +902,11 @@ void lovrCanvasFinish(Canvas* canvas) {
   lovrAssert(canvas->batch, "Canvas must be active to finish it");
 
   if (state.compute) {
-    gpu_batch_end(state.compute);
+    gpu_batch_end(state.compute, false);
     state.compute = NULL;
   }
 
-  gpu_batch_end(canvas->batch);
+  gpu_batch_end(canvas->batch, true);
   canvas->batch = NULL;
   state.activeCanvasCount--;
 }
