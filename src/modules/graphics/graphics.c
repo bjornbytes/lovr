@@ -26,6 +26,7 @@ struct Buffer {
 struct Texture {
   uint32_t ref;
   gpu_texture* gpu;
+  gpu_texture* renderView;
   TextureInfo info;
   uint32_t baseLayer;
   uint32_t baseLevel;
@@ -34,8 +35,14 @@ struct Texture {
 struct Canvas {
   uint32_t ref;
   gpu_canvas gpu;
-  gpu_pass* pass;
+  gpu_batch* batch;
   CanvasInfo info;
+  bool temporary;
+  Texture* colorTextures[4];
+  Texture* resolveTextures[4];
+  Texture* depthTexture;
+  Buffer* vertexBuffers[16];
+  Buffer* indexBuffer;
   struct {
     gpu_pipeline_info info;
     gpu_pipeline* instance;
@@ -70,6 +77,7 @@ struct Shader {
   gpu_pipeline* computePipeline;
   ShaderInfo info;
   ShaderGroup groups[4];
+  uint32_t locationMask;
   map_t lookup;
 };
 
@@ -92,11 +100,14 @@ static struct {
   int height;
   gpu_features features;
   gpu_limits limits;
-  gpu_pass* compute;
+  gpu_batch* compute;
   map_t pipelines;
-  map_t pipelineLobby;
-  mtx_t pipelineLock;
+  map_t passes;
+  map_t canvasLookup;
+  arr_t(Canvas) canvases;
   uint32_t activeCanvasCount;
+  Texture* defaultTexture;
+  Buffer* defaultBuffer;
 } state;
 
 static void onDebugMessage(void* context, const char* message, int severe) {
@@ -120,9 +131,22 @@ bool lovrGraphicsInit(bool debug) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
+  for (uint32_t i = 0; i < state.passes.size; i++) {
+    if (state.passes.values[i] != MAP_NIL) {
+      gpu_pass* pass = (gpu_pass*) (uintptr_t) state.passes.values[i];
+      gpu_pass_destroy(pass);
+      free(pass);
+    }
+  }
+  map_free(&state.passes);
   map_free(&state.pipelines);
-  map_free(&state.pipelineLobby);
-  mtx_destroy(&state.pipelineLock);
+  map_free(&state.canvasLookup);
+  for (size_t i = 0; i < state.canvases.length; i++) {
+    lovrRelease(&state.canvases.data[i], lovrCanvasDestroy);
+  }
+  arr_free(&state.canvases);
+  lovrRelease(state.defaultTexture, lovrTextureDestroy);
+  lovrRelease(state.defaultBuffer, lovrBufferDestroy);
   gpu_destroy();
   memset(&state, 0, sizeof(state));
 }
@@ -153,9 +177,35 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
   };
 
   lovrAssert(gpu_init(&config), "Could not initialize GPU");
-  map_init(&state.pipelines, 0);
-  map_init(&state.pipelineLobby, 0);
-  mtx_init(&state.pipelineLock, mtx_plain);
+  map_init(&state.pipelines, 8);
+  map_init(&state.passes, 4);
+  map_init(&state.canvasLookup, 4);
+  arr_init(&state.canvases, realloc);
+  arr_reserve(&state.canvases, 2);
+
+  state.defaultTexture = lovrTextureCreate(&(TextureInfo) {
+    .type = TEXTURE_2D,
+    .format = FORMAT_RGBA8,
+    .size = { 1, 1, 1 },
+    .mipmaps = 1,
+    .samples = 1,
+    .flags = TEXTURE_SAMPLE
+  });
+  uint16_t offset[4] = { 0 };
+  uint16_t extent[3] = { 1 };
+  uint8_t pixel[4] = { 0xff, 0xff, 0xff, 0xff };
+  uint32_t step[3] = { 0 };
+  lovrTextureWrite(state.defaultTexture, offset, extent, pixel, step);
+
+  void* zero;
+  state.defaultBuffer = lovrBufferCreate(&(BufferInfo) {
+    .flags = BUFFER_VERTEX | BUFFER_UNIFORM,
+    .length = 1 << 16,
+    .stride = 0, // TODO need some fixes for zero-stride buffers, or separate vertex stride
+    .initialContents = &zero,
+    .label = "zero"
+  });
+  memset(zero, 0, 1 << 16);
 
   state.initialized = true;
 }
@@ -188,7 +238,6 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->astc = state.features.astc;
   features->pointSize = state.features.pointSize;
   features->wireframe = state.features.wireframe;
-  features->multiview = state.features.multiview;
   features->multiblend = state.features.multiblend;
   features->anisotropy = state.features.anisotropy;
   features->depthClamp = state.features.depthClamp;
@@ -196,7 +245,6 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->clipDistance = state.features.clipDistance;
   features->cullDistance = state.features.cullDistance;
   features->fullIndexBufferRange = state.features.fullIndexBufferRange;
-  features->indirectDrawCount = state.features.indirectDrawCount;
   features->indirectDrawFirstInstance = state.features.indirectDrawFirstInstance;
   features->extraShaderInputs = state.features.extraShaderInputs;
   features->dynamicIndexing = state.features.dynamicIndexing;
@@ -246,7 +294,7 @@ void lovrGraphicsFlush() {
   lovrAssert(state.activeCanvasCount == 0, "Tried to submit graphics commands while a Canvas is still active");
 
   if (state.compute) {
-    gpu_pass_end(state.compute);
+    gpu_batch_end(state.compute);
     state.compute = NULL;
   }
 
@@ -260,6 +308,8 @@ void lovrGraphicsFlush() {
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
   lovrAssert(info->length * info->stride > 0, "Buffer size must be greater than zero");
+  size_t totalSize = info->length * info->stride * ((info->flags & BUFFER_WRITE) ? 2 : 1);
+  lovrAssert(totalSize <= state.limits.allocationSize, "Buffer size (%d) exceeds the allocationSize limit of this GPU (%d)", totalSize, state.limits.allocationSize);
 
   if (info->flags & BUFFER_WRITE) {
     lovrAssert(~info->flags & BUFFER_COMPUTE, "Buffers can not have both the 'write' and 'compute' flags");
@@ -295,6 +345,7 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
   gpu_buffer_destroy(buffer->gpu);
+  free(buffer);
 }
 
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
@@ -461,6 +512,9 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     lovrAssert(info->mipmaps <= mipMax, "Texture has more than the max number of mipmap levels for its size (%d)", mipMax);
   }
 
+  size_t size = getTextureRegionSize(info->format, info->size[0], info->size[1], info->size[2]);
+  lovrAssert(size <= state.limits.allocationSize, "Texture size (%d) exceeds allocationSize limit of this GPU (%d)", size, state.limits.allocationSize);
+
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
@@ -543,7 +597,9 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   lovrRelease(texture->info.parent, lovrTextureDestroy);
+  if (texture->renderView) gpu_texture_destroy(texture->renderView);
   gpu_texture_destroy(texture->gpu);
+  free(texture);
 }
 
 const TextureInfo* lovrTextureGetInfo(Texture* texture) {
@@ -640,18 +696,18 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 
 // Canvas
 
-Canvas* lovrCanvasCreate(CanvasInfo* info) {
+static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
+  // Validate
   Texture* firstTexture = info->color[0].texture ? info->color[0].texture : info->depth.texture;
   lovrAssert(firstTexture, "Canvas must have at least one color or depth texture");
   uint32_t width = firstTexture->info.size[0], height = firstTexture->info.size[1], views = firstTexture->info.size[2];
   lovrAssert(width <= state.limits.renderSize[0], "Canvas width exceeds the renderWidth limit of this GPU (%d)", state.limits.renderSize[0]);
   lovrAssert(height <= state.limits.renderSize[1], "Canvas width exceeds the renderHeight limit of this GPU (%d)", state.limits.renderSize[1]);
-  lovrAssert(views == 1 || state.features.multiview, "Canvas has multiple views but multiview is not supported by this GPU");
   lovrAssert(views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", views, state.limits.renderViews);
   uint32_t samples = firstTexture->info.samples > 1 ? firstTexture->info.samples : info->samples;
   lovrAssert((samples & (samples - 1)) == 0, "Canvas multisample count must be a power of 2");
 
-  for (uint32_t i = 0; i < info->colorCount && i < MAX_COLOR_ATTACHMENTS; i++) {
+  for (uint32_t i = 0; i < info->count && i < MAX_COLOR_ATTACHMENTS; i++) {
     Texture* texture = info->color[i].texture;
     bool renderable = state.features.formats[texture->info.format] & GPU_FORMAT_FEATURE_RENDER_COLOR;
     lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
@@ -672,83 +728,151 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
     }
   }
 
-  Canvas* canvas = calloc(1, sizeof(Canvas));
-  canvas->info = *info;
-  canvas->ref = 1;
+  // Get cached pass instance
+  gpu_pass_info key;
+  memset(&key, 0, sizeof(key));
+  for (uint32_t i = 0; i < info->count; i++) {
+    key.color[i] = (gpu_pass_color_info) {
+      .format = (gpu_texture_format) info->color[i].texture->info.format,
+      .load = (gpu_load_op) info->color[i].load,
+      .save = (gpu_save_op) info->color[i].save,
+      .srgb = info->color[i].texture->info.srgb
+    };
+  }
+  if (info->depth.enabled) {
+    key.depth = (gpu_pass_depth_info) {
+      .format = (gpu_texture_format) info->depth.format,
+      .load = (gpu_load_op) info->depth.load,
+      .save = (gpu_save_op) info->depth.save,
+      .stencilLoad = (gpu_load_op) info->depth.stencilLoad,
+      .stencilSave = (gpu_save_op) info->depth.stencilSave
+    };
+  }
+  key.count = info->count;
+  key.samples = info->samples;
+  key.views = views;
+  key.resolve = firstTexture->info.samples == 1 && info->samples > 1;
 
+  uint64_t hash = hash64(&key, sizeof(key));
+  uint64_t value = map_get(&state.passes, hash);
+
+  if (value == MAP_NIL) {
+    gpu_pass* pass = calloc(1, gpu_sizeof_pass());
+    lovrAssert(pass, "Out of memory");
+    lovrAssert(gpu_pass_init(pass, &key), "Failed to initialize pass");
+    value = (uintptr_t) pass;
+    map_set(&state.passes, hash, value);
+  }
+
+  // Set up render target
+  // - Attachments can only have a single mip level and must be 2D/array.  Create views if needed.
+  // - Create any missing depth/msaa textures
+  canvas->gpu.pass = (gpu_pass*) (uintptr_t) value;
   canvas->gpu.size[0] = width;
   canvas->gpu.size[1] = height;
-  canvas->gpu.size[2] = views;
 
-  // Temporary targets are created for multisample/depth textures as needed.  (TODO pool/share them)
-  TextureInfo targetInfo = {
-    .type = views > 1 ? TEXTURE_ARRAY : TEXTURE_2D,
+  // TODO pool/search these
+  TextureInfo textureInfo = {
+    .type = TEXTURE_ARRAY,
     .size = { width, height, views },
     .mipmaps = 1,
     .samples = info->samples,
     .flags = GPU_TEXTURE_FLAG_RENDER | GPU_TEXTURE_FLAG_TRANSIENT
   };
 
-  // Attachments can only have a single mip level and must be 2D/array textures.
-  // For convenience, texture views are created for any incompatible textures.
-  TextureViewInfo viewInfo = {
-    .type = views > 1 ? TEXTURE_ARRAY : TEXTURE_2D,
+  gpu_texture_view_info viewInfo = {
+    .type = GPU_TEXTURE_TYPE_ARRAY,
     .layerCount = views,
     .levelCount = 1
   };
 
-  for (uint32_t i = 0; i < info->colorCount; i++) {
+  for (uint32_t i = 0; i < info->count; i++) {
     Texture* texture = info->color[i].texture;
+    gpu_texture* gpu = texture->gpu;
 
     if (texture->info.mipmaps > 1 || (texture->info.type != TEXTURE_ARRAY && texture->info.type != TEXTURE_2D)) {
-      viewInfo.parent = texture->info.parent ? texture->info.parent : texture;
-      viewInfo.layerIndex = texture->baseLayer;
-      viewInfo.levelIndex = texture->baseLevel;
-      texture = lovrTextureCreateView(&viewInfo);
-    } else {
-      lovrRetain(texture);
+      if (!texture->renderView) {
+        viewInfo.source = texture->info.parent ? texture->info.parent->gpu : texture->gpu;
+        viewInfo.layerIndex = texture->baseLayer;
+        viewInfo.levelIndex = texture->baseLevel;
+        texture->renderView = malloc(gpu_sizeof_texture());
+        lovrAssert(texture->renderView, "Out of memory");
+        lovrAssert(gpu_texture_init_view(texture->renderView, &viewInfo), "Failed to create texture view for canvas");
+      }
+      gpu = texture->renderView;
     }
 
-    canvas->gpu.color[i].texture = texture->gpu;
+    canvas->gpu.color[i].texture = gpu;
+    canvas->colorTextures[i] = texture;
+    lovrRetain(texture);
+  }
 
-    if (texture->info.samples == 1 && info->samples > 1) {
-      targetInfo.format = texture->info.format;
-      canvas->gpu.color[i].texture = lovrTextureCreate(&targetInfo)->gpu;
-      canvas->gpu.color[i].resolve = texture->gpu;
+  if (key.resolve) {
+    for (uint32_t i = 0; i < info->count; i++) {
+      textureInfo.format = canvas->colorTextures[i]->info.format;
+      canvas->resolveTextures[i] = canvas->colorTextures[i];
+      canvas->colorTextures[i] = lovrTextureCreate(&textureInfo);
+      canvas->gpu.color[i].texture = canvas->colorTextures[i]->gpu;
+      canvas->gpu.color[i].resolve = canvas->resolveTextures[i]->gpu;
     }
   }
 
   if (info->depth.enabled) {
     if (info->depth.texture) {
       Texture* texture = info->depth.texture;
+      canvas->depthTexture = texture;
+      gpu_texture* gpu = texture->gpu;
       if (texture->info.mipmaps > 1 || (texture->info.type != TEXTURE_ARRAY && texture->info.type != TEXTURE_2D)) {
-        viewInfo.parent = texture->info.parent ? texture->info.parent : texture;
-        viewInfo.layerIndex = texture->baseLayer;
-        viewInfo.levelIndex = texture->baseLevel;
-        texture = lovrTextureCreateView(&viewInfo);
-      } else {
-        lovrRetain(texture);
+        if (!texture->renderView) {
+          viewInfo.source = texture->info.parent ? texture->info.parent->gpu : texture->gpu;
+          viewInfo.layerIndex = texture->baseLayer;
+          viewInfo.levelIndex = texture->baseLevel;
+          texture->renderView = malloc(gpu_sizeof_texture());
+          lovrAssert(texture->renderView, "Out of memory");
+          lovrAssert(gpu_texture_init_view(texture->renderView, &viewInfo), "Failed to create texture view for canvas");
+        }
+        gpu = texture->renderView;
       }
       canvas->gpu.depth.texture = texture->gpu;
+      lovrRetain(texture);
     } else {
-      targetInfo.format = info->depth.format;
-      canvas->gpu.depth.texture = lovrTextureCreate(&targetInfo)->gpu;
+      textureInfo.format = info->depth.format;
+      canvas->depthTexture = lovrTextureCreate(&textureInfo);
+      canvas->gpu.depth.texture = canvas->depthTexture->gpu;
     }
   }
+}
 
+Canvas* lovrCanvasCreate(CanvasInfo* info) {
+  Canvas* canvas = calloc(1, sizeof(Canvas));
+  canvas->info = *info;
+  canvas->ref = 1;
+  lovrCanvasInit(canvas, info);
   return canvas;
+}
+
+Canvas* lovrCanvasGetTemporary(CanvasInfo* info) {
+  uint64_t hash = hash64(info, sizeof(*info));
+  uint64_t index = map_get(&state.canvasLookup, hash);
+  if (index == MAP_NIL) {
+    arr_expand(&state.canvases, 1);
+    index = state.canvases.length++;
+    Canvas* canvas = &state.canvases.data[index];
+    lovrCanvasInit(canvas, info);
+    canvas->temporary = true;
+    map_set(&state.canvasLookup, hash, index);
+  }
+  return &state.canvases.data[index];
 }
 
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
-  for (uint32_t i = 0; i < MAX_COLOR_ATTACHMENTS; i++) {
-    char* texture = canvas->gpu.color[i].texture ? (char*) canvas->gpu.color[i].texture - sizeof(Texture) : NULL;
-    char* resolve = canvas->gpu.color[i].resolve ? (char*) canvas->gpu.color[i].resolve - sizeof(Texture) : NULL;
-    lovrRelease(texture, lovrTextureDestroy);
-    lovrRelease(resolve, lovrTextureDestroy);
+  for (uint32_t i = 0; i < canvas->info.count; i++) {
+    lovrRelease(canvas->colorTextures[i], lovrTextureDestroy);
+    lovrRelease(canvas->resolveTextures[i], lovrTextureDestroy);
   }
-  char* depth = canvas->gpu.depth.texture ? (char*) canvas->gpu.depth.texture - sizeof(Texture) : NULL;
-  lovrRelease(depth, lovrTextureDestroy);
+  lovrRelease(canvas->depthTexture, lovrTextureDestroy);
+  if (!canvas->temporary) free(canvas);
 }
 
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
@@ -757,26 +881,81 @@ const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
 
 void lovrCanvasBegin(Canvas* canvas) {
   lovrGraphicsBegin();
-  state.activeCanvasCount++;
+  canvas->batch = gpu_begin_render(&canvas->gpu);
+  memset(&canvas->pipeline, 0, sizeof(canvas->pipeline));
+  canvas->pipeline.info.pass = canvas->gpu.pass;
+  canvas->pipeline.info.depth.test = GPU_COMPARE_LEQUAL;
+  canvas->pipeline.info.depth.write = true;
+  canvas->pipeline.dirty = true;
   canvas->transform = 0;
   lovrCanvasOrigin(canvas);
-  memset(&canvas->pipeline, 0, sizeof(canvas->pipeline));
-  canvas->pipeline.dirty = true;
-  canvas->pass = gpu_begin_render(&canvas->gpu);
+  state.activeCanvasCount++;
 }
 
 void lovrCanvasFinish(Canvas* canvas) {
+  lovrAssert(canvas->batch, "Canvas must be active to finish it");
+
   if (state.compute) {
-    gpu_pass_end(state.compute);
+    gpu_batch_end(state.compute);
     state.compute = NULL;
   }
 
+  gpu_batch_end(canvas->batch);
+  canvas->batch = NULL;
   state.activeCanvasCount--;
-  canvas->pass = NULL;
 }
 
 bool lovrCanvasIsActive(Canvas* canvas) {
-  return canvas->pass;
+  return canvas->batch;
+}
+
+void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
+  lovrAssert(index < COUNTOF(canvas->viewMatrix), "Invalid view index %d", index);
+  mat4_init(viewMatrix, canvas->viewMatrix[index]);
+}
+
+void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
+  lovrAssert(index < COUNTOF(canvas->viewMatrix), "Invalid view index %d", index);
+  mat4_init(canvas->viewMatrix[index], viewMatrix);
+}
+
+void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection) {
+  lovrAssert(index < COUNTOF(canvas->projection), "Invalid view index %d", index);
+  mat4_init(projection, canvas->projection[index]);
+}
+
+void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection) {
+  lovrAssert(index < COUNTOF(canvas->projection), "Invalid view index %d", index);
+  mat4_init(canvas->projection[index], projection);
+}
+
+void lovrCanvasPush(Canvas* canvas) {
+  lovrAssert(++canvas->transform < COUNTOF(canvas->transforms), "Unbalanced matrix stack (more pushes than pops?)");
+  mat4_init(canvas->transforms[canvas->transform], canvas->transforms[canvas->transform - 1]);
+}
+
+void lovrCanvasPop(Canvas* canvas) {
+  lovrAssert(--canvas->transform < COUNTOF(canvas->transforms), "Unbalanced matrix stack (more pops than pushes?)");
+}
+
+void lovrCanvasOrigin(Canvas* canvas) {
+  mat4_identity(canvas->transforms[canvas->transform]);
+}
+
+void lovrCanvasTranslate(Canvas* canvas, vec3 translation) {
+  mat4_translate(canvas->transforms[canvas->transform], translation[0], translation[1], translation[2]);
+}
+
+void lovrCanvasRotate(Canvas* canvas, quat rotation) {
+  mat4_rotateQuat(canvas->transforms[canvas->transform], rotation);
+}
+
+void lovrCanvasScale(Canvas* canvas, vec3 scale) {
+  mat4_scale(canvas->transforms[canvas->transform], scale[0], scale[1], scale[2]);
+}
+
+void lovrCanvasTransform(Canvas* canvas, mat4 transform) {
+  mat4_mul(canvas->transforms[canvas->transform], transform);
 }
 
 bool lovrCanvasGetAlphaToCoverage(Canvas* canvas) {
@@ -820,7 +999,7 @@ static const gpu_blend_state blendModes[] = {
 };
 
 void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode) {
-  gpu_blend_state* blend = &canvas->pipeline.info.color[target].blend;
+  gpu_blend_state* blend = &canvas->pipeline.info.blend[target];
 
   if (!blend->enabled) {
     *mode = BLEND_NONE;
@@ -842,36 +1021,40 @@ void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, Bl
 
 void lovrCanvasSetBlendMode(Canvas* canvas, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode) {
   if (mode == BLEND_NONE) {
-    memset(&canvas->pipeline.info.color[target].blend, 0, sizeof(gpu_blend_state));
+    memset(&canvas->pipeline.info.blend[target], 0, sizeof(gpu_blend_state));
     return;
   }
 
-  canvas->pipeline.info.color[target].blend = blendModes[mode];
+  lovrAssert(target < canvas->info.count, "Tried to set a blend mode for color target #%d, but Canvas only has %d color textures", target + 1, canvas->info.count);
+  bool willItBlend = state.features.formats[canvas->info.color[target].texture->info.format] & GPU_FORMAT_FEATURE_BLEND;
+  lovrAssert(willItBlend, "This GPU does not support blending the texture format used by color target #%d", target + 1);
+
+  canvas->pipeline.info.blend[target] = blendModes[mode];
   if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
-    canvas->pipeline.info.color[target].blend.color.src = GPU_BLEND_ONE;
+    canvas->pipeline.info.blend[target].color.src = GPU_BLEND_ONE;
   }
-  canvas->pipeline.info.color[target].blend.enabled = true;
+  canvas->pipeline.info.blend[target].enabled = true;
   canvas->pipeline.dirty = true;
 }
 
 void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float* depth, uint8_t* stencil) {
-  for (uint32_t i = 0; i < canvas->info.colorCount; i++) {
+  for (uint32_t i = 0; i < canvas->info.count; i++) {
     memcpy(color[i], canvas->gpu.color[i].clear, 4 * sizeof(float));
   }
-  *depth = canvas->gpu.depth.clear;
-  *stencil = canvas->gpu.depth.stencil.clear;
+  *depth = canvas->gpu.depth.clear.depth;
+  *stencil = canvas->gpu.depth.clear.stencil;
 }
 
 void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float depth, uint8_t stencil) {
-  for (uint32_t i = 0; i < canvas->info.colorCount; i++) {
+  for (uint32_t i = 0; i < canvas->info.count; i++) {
     memcpy(canvas->gpu.color[i].clear, color[i], 4 * sizeof(float));
   }
-  canvas->gpu.depth.clear = depth;
-  canvas->gpu.depth.stencil.clear = stencil;
+  canvas->gpu.depth.clear.depth = depth;
+  canvas->gpu.depth.clear.stencil = stencil;
 }
 
 void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, bool* b, bool* a) {
-  uint8_t mask = canvas->pipeline.info.color[target].mask;
+  uint8_t mask = canvas->pipeline.info.colorMask[target];
   *r = mask & 0x1;
   *g = mask & 0x2;
   *b = mask & 0x4;
@@ -879,7 +1062,7 @@ void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, b
 }
 
 void lovrCanvasSetColorMask(Canvas* canvas, uint32_t target, bool r, bool g, bool b, bool a) {
-  canvas->pipeline.info.color[target].mask = (r << 0) | (g << 1) | (b << 2) | (a << 3);
+  canvas->pipeline.info.colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
   canvas->pipeline.dirty = true;
 }
 
@@ -984,71 +1167,109 @@ void lovrCanvasSetWireframe(Canvas* canvas, bool wireframe) {
   canvas->pipeline.dirty = true;
 }
 
-void lovrCanvasPush(Canvas* canvas) {
-  lovrAssert(++canvas->transform < COUNTOF(canvas->transforms), "Unbalanced matrix stack (more pushes than pops?)");
-  mat4_init(canvas->transforms[canvas->transform], canvas->transforms[canvas->transform - 1]);
-}
+static void lovrCanvasBindVertexBuffers(Canvas* canvas, DrawCall* draw) {
+  if (draw->vertexBufferCount == 0) return;
 
-void lovrCanvasPop(Canvas* canvas) {
-  lovrAssert(--canvas->transform < COUNTOF(canvas->transforms), "Unbalanced matrix stack (more pops than pushes?)");
-}
+  bool buffersDirty = false;
+  buffersDirty = buffersDirty || draw->vertexBufferCount != canvas->pipeline.info.vertexBufferCount;
+  buffersDirty = buffersDirty || memcmp(draw->vertexBuffers, canvas->vertexBuffers, draw->vertexBufferCount * sizeof(Buffer*));
+  if (!buffersDirty) return;
 
-void lovrCanvasOrigin(Canvas* canvas) {
-  mat4_identity(canvas->transforms[canvas->transform]);
-}
+  gpu_buffer* buffers[16];
+  for (uint32_t i = 0; i < draw->vertexBufferCount; i++) {
+    Buffer* buffer = draw->vertexBuffers[i];
+    lovrAssert(buffer->info.flags & BUFFER_VERTEX, "Buffer must be created with 'vertex' flag to use it as a vertex buffer");
+    lovrRetain(buffer);
+    lovrRelease(canvas->vertexBuffers[i], lovrBufferDestroy);
+    canvas->vertexBuffers[i] = buffer;
+    canvas->pipeline.info.bufferStrides[i] = buffer->info.stride;
+    buffers[i] = buffer->gpu;
+  }
 
-void lovrCanvasTranslate(Canvas* canvas, vec3 translation) {
-  mat4_translate(canvas->transforms[canvas->transform], translation[0], translation[1], translation[2]);
-}
-
-void lovrCanvasRotate(Canvas* canvas, quat rotation) {
-  mat4_rotateQuat(canvas->transforms[canvas->transform], rotation);
-}
-
-void lovrCanvasScale(Canvas* canvas, vec3 scale) {
-  mat4_scale(canvas->transforms[canvas->transform], scale[0], scale[1], scale[2]);
-}
-
-void lovrCanvasTransform(Canvas* canvas, mat4 transform) {
-  mat4_mul(canvas->transforms[canvas->transform], transform);
-}
-
-void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
-  lovrAssert(index < COUNTOF(canvas->viewMatrix), "Invalid view index %d", index);
-  mat4_init(viewMatrix, canvas->viewMatrix[index]);
-}
-
-void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
-  lovrAssert(index < COUNTOF(canvas->viewMatrix), "Invalid view index %d", index);
-  mat4_init(canvas->viewMatrix[index], viewMatrix);
-}
-
-void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection) {
-  lovrAssert(index < COUNTOF(canvas->projection), "Invalid view index %d", index);
-  mat4_init(projection, canvas->projection[index]);
-}
-
-void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection) {
-  lovrAssert(index < COUNTOF(canvas->projection), "Invalid view index %d", index);
-  mat4_init(canvas->projection[index], projection);
-}
-
-void lovrCanvasStencil(Canvas* canvas, StencilAction action, StencilAction depthFailAction, uint8_t value, StencilCallback* callback, void* userdata) {
-  lovrAssert(canvas->pass, "Canvas must be active");
-  lovrAssert(canvas->info.depth.format == FORMAT_D24S8, "Canvas must have a stencil buffer");
-  uint8_t oldValue = canvas->pipeline.info.stencil.value;
-  gpu_compare_mode oldTest = canvas->pipeline.info.stencil.test;
-  canvas->pipeline.info.stencil.test = GPU_COMPARE_NONE;
-  canvas->pipeline.info.stencil.passOp = (gpu_stencil_op) action;
-  canvas->pipeline.info.stencil.depthFailOp = (gpu_stencil_op) depthFailAction;
-  canvas->pipeline.info.stencil.value = value;
+  canvas->pipeline.info.vertexBufferCount = draw->vertexBufferCount;
   canvas->pipeline.dirty = true;
-  callback(userdata);
-  canvas->pipeline.info.stencil.test = oldTest;
-  canvas->pipeline.info.stencil.passOp = GPU_STENCIL_KEEP;
-  canvas->pipeline.info.stencil.depthFailOp = GPU_STENCIL_KEEP;
-  canvas->pipeline.info.stencil.value = oldValue;
-  canvas->pipeline.dirty = true;
+
+  uint64_t offsets[16] = { 0 };
+  gpu_batch_bind_vertex_buffers(canvas->batch, buffers, offsets, draw->vertexBufferCount);
+}
+
+static void lovrCanvasBindIndexBuffer(Canvas* canvas, DrawCall* draw) {
+  if (!draw->indexBuffer || canvas->indexBuffer == draw->indexBuffer) return;
+  Buffer* buffer = draw->indexBuffer;
+  lovrAssert(buffer->info.flags & BUFFER_INDEX, "Buffer must be created with 'index' flag to use it as an index buffer");
+  gpu_index_type type = buffer->info.types[0] == FIELD_U32 ? GPU_INDEX_U32 : GPU_INDEX_U16;
+  size_t stride = buffer->info.types[0] == FIELD_U32 ? 4 : 2;
+  lovrAssert((draw->start + draw->count) * stride <= buffer->size, "Draw range exceeds size of index buffer");
+  lovrRetain(buffer);
+  lovrRelease(canvas->indexBuffer, lovrBufferDestroy);
+  canvas->indexBuffer = buffer;
+  gpu_batch_bind_index_buffer(canvas->batch, buffer->gpu, 0, type);
+}
+
+static void lovrCanvasBindPipeline(Canvas* canvas, DrawCall* draw) {
+  if (canvas->pipeline.info.drawMode != (gpu_draw_mode) draw->mode) {
+    canvas->pipeline.info.drawMode = (gpu_draw_mode) draw->mode;
+    canvas->pipeline.dirty = true;
+  }
+
+  if (!canvas->pipeline.dirty) return;
+
+  uint64_t hash = hash64(&canvas->pipeline.info, sizeof(gpu_pipeline_info));
+  if (canvas->pipeline.hash == hash) return;
+
+  uint64_t value = map_get(&state.pipelines, hash);
+
+  if (value == MAP_NIL) {
+    gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
+    lovrAssert(pipeline, "Out of memory");
+    lovrAssert(gpu_pipeline_init_graphics(pipeline, &canvas->pipeline.info), "Failed to create pipeline");
+    map_set(&state.pipelines, hash, (uintptr_t) pipeline);
+    value = (uintptr_t) pipeline;
+  }
+
+  canvas->pipeline.instance = (gpu_pipeline*) (uintptr_t) value;
+  canvas->pipeline.hash = hash;
+  canvas->pipeline.dirty = false;
+
+  gpu_batch_bind_pipeline(canvas->batch, canvas->pipeline.instance);
+}
+
+void lovrCanvasDraw(Canvas* canvas, DrawCall* draw) {
+  lovrAssert(canvas->batch, "Canvas is not active");
+  lovrCanvasBindVertexBuffers(canvas, draw);
+  lovrCanvasBindPipeline(canvas, draw);
+  gpu_batch_draw(canvas->batch, draw->count, draw->instances, draw->start);
+}
+
+void lovrCanvasDrawIndexed(Canvas* canvas, DrawCall* draw) {
+  lovrAssert(canvas->batch, "Canvas is not active");
+  lovrCanvasBindVertexBuffers(canvas, draw);
+  lovrCanvasBindIndexBuffer(canvas, draw);
+  lovrCanvasBindPipeline(canvas, draw);
+  gpu_batch_draw_indexed(canvas->batch, draw->count, draw->instances, draw->start, draw->baseVertex);
+}
+
+void lovrCanvasDrawIndirect(Canvas* canvas, DrawCall* draw) {
+  lovrAssert(canvas->batch, "Canvas is not active");
+  lovrAssert(draw->indirectBuffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with 'parameter' flag to use it for draw parameters");
+  lovrAssert(draw->indirectOffset % 4 == 0, "Parameter buffer offset must be a multiple of 4");
+  lovrAssert(draw->indirectCount <= state.limits.indirectDrawCount, "Indirect draw count (%d) exceeds the indirectDrawCount limit of this GPU (%d)", draw->indirectCount, state.limits.indirectDrawCount);
+  lovrAssert(draw->indirectOffset + draw->indirectCount * 16 <= draw->indirectBuffer->size, "Parameter buffer range exceeds its size");
+  lovrCanvasBindVertexBuffers(canvas, draw);
+  lovrCanvasBindPipeline(canvas, draw);
+  gpu_batch_draw_indirect(canvas->batch, draw->indirectBuffer->gpu, draw->indirectOffset, draw->indirectCount);
+}
+
+void lovrCanvasDrawIndirectIndexed(Canvas* canvas, DrawCall* draw) {
+  lovrAssert(canvas->batch, "Canvas is not active");
+  lovrAssert(draw->indirectBuffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with 'parameter' flag to use it for draw parameters");
+  lovrAssert(draw->indirectOffset % 4 == 0, "Parameter buffer offset must be a multiple of 4");
+  lovrAssert(draw->indirectCount <= state.limits.indirectDrawCount, "Indirect draw count (%d) exceeds the indirectDrawCount limit of this GPU (%d)", draw->indirectCount, state.limits.indirectDrawCount);
+  lovrAssert(draw->indirectOffset + draw->indirectCount * 20 <= draw->indirectBuffer->size, "Parameter buffer range exceeds its size");
+  lovrCanvasBindVertexBuffers(canvas, draw);
+  lovrCanvasBindIndexBuffer(canvas, draw);
+  lovrCanvasBindPipeline(canvas, draw);
+  gpu_batch_draw_indirect_indexed(canvas->batch, draw->indirectBuffer->gpu, draw->indirectOffset, draw->indirectCount);
 }
 
 // Shader
@@ -1107,7 +1328,7 @@ static bool checkShaderCapability(uint32_t capability) {
     case 70: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multiviewport");
     case 4427: lovrAssert(state.features.extraShaderInputs, "GPU does not support shader feature #%d: %s", capability, "extra shader inputs");
     case 4437: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multigpu");
-    case 4439: lovrAssert(state.features.multiview, "GPU does not support shader feature #%d: %s", capability, "multiview");
+    case 4439: lovrAssert(state.limits.renderViews > 1, "GPU does not support shader feature #%d: %s", capability, "multiview");
     case 5301: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non uniform indexing");
     case 5306: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
     case 5307: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
@@ -1190,14 +1411,17 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
   lovrAssert(bound <= 0xffff, "Unsupported Shader code: id bound is too big (max is 65535)");
 
   // The cache stores information for spirv ids, allowing everything to be parsed in a single pass
-  // - For variables, stores the slot's group, index, and name offset
+  // - For bundle variables, stores the slot's group, index, and name offset
+  // - For vertex attributes, stores the attribute location decoration
   // - For types, stores the index of its declaration instruction
+  // Need to study whether aliasing cache as u32 and struct var violates strict aliasing
   struct var { uint8_t group; uint8_t binding; uint16_t name; };
   size_t cacheSize = bound * sizeof(uint32_t);
   void* cache = malloc(cacheSize);
   lovrAssert(cache, "Out of memory");
   memset(cache, 0xff, cacheSize);
   struct var* vars = cache;
+  uint32_t* locations = cache;
   uint32_t* types = cache;
 
   const uint32_t* instruction = words + 5;
@@ -1233,6 +1457,9 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
         } else if (decoration == 34) { // Group
           lovrAssert(value < 4, "Unsupported Shader code: variable %d is in group %d, but group must be less than 4", id, value);
           vars[id].group = value << 24;
+        } else if (decoration == 30) { // Location
+          lovrAssert(value < 16, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
+          locations[id] = value;
         }
         break;
       case 19: // OpTypeVoid
@@ -1255,6 +1482,14 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
       case 59: // OpVariable
         if (length < 4 || instruction[2] >= bound) break;
         id = instruction[2];
+
+        // For vertex shaders, track which attribute locations are in use.
+        // Vertex attributes are OpDecorated with Location and have an Input (30) StorageClass.
+        uint32_t storageClass = instruction[3];
+        if (stage == GPU_STAGE_VERTEX && storageClass == 30 && locations[id] < 16) {
+          shader->locationMask |= (1 << locations[id]);
+          break;
+        }
 
         // Ignore variables that aren't decorated with a group and binding (e.g. global variables)
         if (vars[id].group == 0xff || vars[id].binding == 0xff) {
@@ -1393,6 +1628,7 @@ void lovrShaderDestroy(void* ref) {
   lovrRelease(shader->info.vertex, lovrBlobDestroy);
   lovrRelease(shader->info.fragment, lovrBlobDestroy);
   lovrRelease(shader->info.compute, lovrBlobDestroy);
+  free(shader);
 }
 
 const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
@@ -1409,17 +1645,20 @@ bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint3
 
 void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z) {
   lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to dispatch a compute operation");
+  lovrAssert(x <= state.limits.computeCount[0], "Compute size exceeds the computeCount[%d] limit of this GPU (%d)", 0, state.limits.computeCount[0]);
+  lovrAssert(y <= state.limits.computeCount[1], "Compute size exceeds the computeCount[%d] limit of this GPU (%d)", 1, state.limits.computeCount[1]);
+  lovrAssert(z <= state.limits.computeCount[2], "Compute size exceeds the computeCount[%d] limit of this GPU (%d)", 2, state.limits.computeCount[2]);
   if (!state.compute) state.compute = gpu_begin_compute();
-  gpu_pass_bind_pipeline(state.compute, shader->computePipeline);
-  gpu_pass_compute(state.compute, shader->gpu, x, y, z);
+  gpu_batch_bind_pipeline(state.compute, shader->computePipeline);
+  gpu_batch_compute(state.compute, shader->gpu, x, y, z);
 }
 
 void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset) {
   lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to dispatch a compute operation");
   lovrAssert(buffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with the 'parameter' flag to be used for compute parameters");
   if (!state.compute) state.compute = gpu_begin_compute();
-  gpu_pass_bind_pipeline(state.compute, shader->computePipeline);
-  gpu_pass_compute_indirect(state.compute, shader->gpu, buffer->gpu, offset);
+  gpu_batch_bind_pipeline(state.compute, shader->computePipeline);
+  gpu_batch_compute_indirect(state.compute, shader->gpu, buffer->gpu, offset);
 }
 
 // Bundle
@@ -1442,6 +1681,7 @@ void lovrBundleDestroy(void* ref) {
   lovrRelease(bundle->shader, lovrShaderDestroy);
   free(bundle->bindings);
   free(bundle->dynamicOffsets);
+  free(bundle);
 }
 
 Shader* lovrBundleGetShader(Bundle* bundle) {
@@ -1459,6 +1699,20 @@ bool lovrBundleBindBuffer(Bundle* bundle, uint32_t id, uint32_t element, Buffer*
   bool isDynamic = group->dynamicMask & (1 << id);
   gpu_slot* slot = &group->slots[group->slotIndex[id]];
   gpu_buffer_binding* binding = &bundle->bindings[group->bindingIndex[id]].buffer + element;
+
+  if (slot->type == GPU_SLOT_UNIFORM_BUFFER || slot->type == GPU_SLOT_UNIFORM_BUFFER_DYNAMIC) {
+    bool aligned = offset % state.limits.uniformBufferAlign == 0;
+    bool fits = extent <= state.limits.uniformBufferRange;
+    lovrAssert(aligned, "Uniform buffer offset (%d) is not aligned to the uniformBufferAlign limit of this GPU (%d)", offset, state.limits.uniformBufferAlign);
+    lovrAssert(fits, "Uniform buffer range (%d) exceeds the uniformBufferRange limit of this GPU (%d)", extent, state.limits.uniformBufferRange);
+  }
+
+  if (slot->type == GPU_SLOT_STORAGE_BUFFER || slot->type == GPU_SLOT_STORAGE_BUFFER_DYNAMIC) {
+    bool aligned = offset % state.limits.storageBufferAlign == 0;
+    bool fits = extent <= state.limits.storageBufferRange;
+    lovrAssert(aligned, "Storage buffer offset (%d) is not aligned to the storageBufferAlign limit of this GPU (%d)", offset, state.limits.storageBufferAlign);
+    lovrAssert(fits, "Storage buffer range (%d) exceeds the storageBufferRange limit of this GPU (%d)", extent, state.limits.storageBufferRange);
+  }
 
   if (!isSlot || !isBuffer || element >= slot->count) return false;
 

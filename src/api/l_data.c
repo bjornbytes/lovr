@@ -38,7 +38,7 @@ StringEntry lovrDefaultAttribute[] = {
   { 0 }
 };
 
-StringEntry lovrDrawMode[] = {
+StringEntry lovrModelDrawMode[] = {
   [DRAW_POINTS] = ENTRY("points"),
   [DRAW_LINES] = ENTRY("lines"),
   [DRAW_LINE_LOOP] = ENTRY("lineloop"),
