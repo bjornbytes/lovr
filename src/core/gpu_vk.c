@@ -176,7 +176,7 @@ static struct {
   uint32_t scratchMemoryType;
   uint32_t queueFamilyIndex;
   uint32_t tick[2];
-  gpu_tick ticks[16];
+  gpu_tick ticks[4];
   gpu_batch batch;
   gpu_morgue morgue;
   gpu_cache_entry framebuffers[16][4];
@@ -687,24 +687,36 @@ bool gpu_init(gpu_config* config) {
       .queueFamilyIndex = state.queueFamilyIndex
     };
 
-    VkFenceCreateInfo fenceInfo = {
-      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-      .flags = VK_FENCE_CREATE_SIGNALED_BIT
-    };
-
-    VkSemaphoreCreateInfo semaphoreInfo = {
-      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-    };
-
     if (vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool)) {
       gpu_destroy();
       return false;
     }
 
+    VkCommandBufferAllocateInfo allocateInfo = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+      .commandPool = state.ticks[i].pool,
+      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+      .commandBufferCount = COUNTOF(state.ticks[i].batch)
+    };
+
+    if (vkAllocateCommandBuffers(state.device, &allocateInfo, &state.ticks[i].batch[0].commands)) {
+      gpu_destroy();
+      return false;
+    }
+
+    VkFenceCreateInfo fenceInfo = {
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+      .flags = VK_FENCE_CREATE_SIGNALED_BIT
+    };
+
     if (vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence)) {
       gpu_destroy();
       return false;
     }
+
+    VkSemaphoreCreateInfo semaphoreInfo = {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+    };
 
     if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].waitSemaphore)) {
       gpu_destroy();
@@ -775,7 +787,7 @@ void gpu_destroy(void) {
 }
 
 void gpu_begin() {
-  gpu_tick* tick = &state.ticks[state.tick[CPU]++ & 0xf];
+  gpu_tick* tick = &state.ticks[state.tick[CPU]++ & 0x3];
 
   GPU_VK(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull));
   GPU_VK(vkResetFences(state.device, 1, &tick->fence));
@@ -793,7 +805,7 @@ void gpu_begin() {
 }
 
 void gpu_flush() {
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
   gpu_batch_end(&state.batch);
 
   VkPipelineStageFlags waitMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -830,7 +842,7 @@ void gpu_debug_pop() {
 void gpu_timer_mark() {
   if (state.config.debug) {
     if (state.queryCount == 0) {
-      uint32_t queryIndex = (state.tick[CPU] & 0xf) * QUERY_CHUNK;
+      uint32_t queryIndex = (state.tick[CPU] & 0x3) * QUERY_CHUNK;
       vkCmdResetQueryPool(state.batch.commands, state.queryPool, queryIndex, QUERY_CHUNK);
     }
 
@@ -846,7 +858,7 @@ void gpu_timer_read(gpu_read_fn* fn, void* userdata) {
   uint32_t size = sizeof(uint64_t) * state.queryCount;
   gpu_mapping mapped = scratch(size);
 
-  uint32_t queryIndex = (state.tick[CPU] & 0xf) * QUERY_CHUNK;
+  uint32_t queryIndex = (state.tick[CPU] & 0x3) * QUERY_CHUNK;
   VkQueryResultFlags flags = VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT;
   vkCmdCopyQueryPoolResults(state.batch.commands, state.queryPool, queryIndex, state.queryCount, mapped.buffer, mapped.offset, sizeof(uint64_t), flags);
 
@@ -2113,7 +2125,7 @@ gpu_batch* gpu_begin_compute() {
 }
 
 void gpu_batch_end(gpu_batch* batch) {
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
 
   uint32_t index = tick->batchCount++;
 
@@ -2194,7 +2206,7 @@ gpu_texture* gpu_surface_acquire() {
   }
 
   gpu_begin();
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
   GPU_VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->waitSemaphore, VK_NULL_HANDLE, &state.currentBackbuffer));
   tick->wait = true;
 
@@ -2227,7 +2239,7 @@ void gpu_surface_present() {
   }
 
   gpu_begin();
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
   tick->tell = true;
 
   // Transition backbuffer to general layout (TODO autosync instead)
@@ -2402,7 +2414,7 @@ static gpu_mapping scratch(uint32_t size) {
 
 static void ketchup() {
   while (state.tick[GPU] + 1 < state.tick[CPU]) {
-    gpu_tick* next = &state.ticks[(state.tick[GPU] + 1) & 0xf];
+    gpu_tick* next = &state.ticks[(state.tick[GPU] + 1) & 0x3];
     VkResult result = vkGetFenceStatus(state.device, next->fence);
     switch (result) {
       case VK_SUCCESS: state.tick[GPU]++; continue;
@@ -2413,7 +2425,7 @@ static void ketchup() {
 }
 
 static void stall(uint32_t until) {
-  gpu_tick* tick = &state.ticks[until & 0xf];
+  gpu_tick* tick = &state.ticks[until & 0x3];
   GPU_VK(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull));
   state.tick[GPU] = until;
 }
@@ -2456,24 +2468,12 @@ static void expunge() {
 }
 
 static gpu_batch* begin(bool render) {
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0xf];
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
   GPU_CHECK(tick->batchCount < COUNTOF(tick->batch), "Too many batches");
 
   uint32_t index = tick->batchCount++; // TODO not batch count, need 2 counts
   tick->renderPassMask = render ? (tick->renderPassMask | (1 << index)) : (tick->renderPassMask & ~(1 << index));
   gpu_batch* batch = &tick->batch[index];
-
-  // TODO at init/begin
-  if (!batch->commands) {
-    VkCommandBufferAllocateInfo info = {
-      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-      .commandPool = tick->pool,
-      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-      .commandBufferCount = 1
-    };
-
-    GPU_VK(vkAllocateCommandBuffers(state.device, &info, &batch->commands));
-  }
 
   VkCommandBufferBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -2650,7 +2650,7 @@ Comments
   current GPU tick (the most recent tick the GPU has completed).  These are monotonically increasing
   counters.
 - Each tick has a set of resources (see gpu_tick).  There is a ring buffer of ticks.  The size of
-  the ring buffer determines how many ticks can be in flight (currently 16).  A tick index can be
+  the ring buffer determines how many ticks can be in flight (currently 4).  A tick index can be
   masked off to find the element of the ring buffer it corresponds to.  The tick's fence is used to
   make sure that the GPU is done with a tick before recording a new one in the same slot.
 - In a lot of places (command buffers, descriptor pools, morgue, scratchpad) a tick is tracked to
