@@ -183,6 +183,7 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
   arr_init(&state.canvases, realloc);
   arr_reserve(&state.canvases, 2);
 
+  /*
   state.defaultTexture = lovrTextureCreate(&(TextureInfo) {
     .type = TEXTURE_2D,
     .format = FORMAT_RGBA8,
@@ -206,6 +207,7 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
     .label = "zero"
   });
   memset(zero, 0, 1 << 16);
+  */
 
   state.initialized = true;
 }
@@ -540,6 +542,11 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   };
 
   lovrAssert(gpu_texture_init(texture->gpu, &gpuInfo), "Could not create Texture");
+
+  if (info->mipmaps == 1 && (info->type == TEXTURE_2D || info->type == TEXTURE_ARRAY)) {
+    texture->renderView = texture->gpu;
+  }
+
   return texture;
 }
 
@@ -590,6 +597,11 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
   };
 
   lovrAssert(gpu_texture_init_view(texture->gpu, &gpuInfo), "Could not create Texture view");
+
+  if (view->levelCount == 1 && (view->type == TEXTURE_2D || view->type == TEXTURE_ARRAY)) {
+    texture->renderView = texture->gpu;
+  }
+
   lovrRetain(view->parent);
   return texture;
 }
@@ -695,6 +707,7 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 }
 
 // Canvas
+#include <stdio.h>
 
 static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   // Validate
@@ -788,10 +801,36 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
 
   for (uint32_t i = 0; i < info->count; i++) {
     Texture* texture = info->color[i].texture;
-    gpu_texture* gpu = texture->gpu;
 
-    if (texture->info.mipmaps > 1 || (texture->info.type != TEXTURE_ARRAY && texture->info.type != TEXTURE_2D)) {
-      if (!texture->renderView) {
+    if (!texture->renderView) {
+      viewInfo.source = texture->info.parent ? texture->info.parent->gpu : texture->gpu;
+      viewInfo.layerIndex = texture->baseLayer;
+      viewInfo.levelIndex = texture->baseLevel;
+      texture->renderView = malloc(gpu_sizeof_texture());
+      lovrAssert(texture->renderView, "Out of memory");
+      lovrAssert(gpu_texture_init_view(texture->renderView, &viewInfo), "Failed to create texture view for canvas");
+    }
+
+    lovrRetain(texture);
+    canvas->colorTextures[i] = texture;
+    canvas->gpu.color[i].texture = texture->renderView;
+  }
+
+  if (key.resolve) {
+    for (uint32_t i = 0; i < info->count; i++) {
+      canvas->resolveTextures[i] = canvas->colorTextures[i];
+      canvas->gpu.color[i].resolve = canvas->gpu.color[i].texture;
+
+      textureInfo.format = canvas->colorTextures[i]->info.format;
+      canvas->colorTextures[i] = lovrTextureCreate(&textureInfo);
+      canvas->gpu.color[i].texture = canvas->colorTextures[i]->renderView;
+    }
+  }
+
+  if (info->depth.enabled) {
+    if (info->depth.texture) {
+      if (!info->depth.texture->renderView) {
+        Texture* texture = canvas->depthTexture;
         viewInfo.source = texture->info.parent ? texture->info.parent->gpu : texture->gpu;
         viewInfo.layerIndex = texture->baseLayer;
         viewInfo.levelIndex = texture->baseLevel;
@@ -799,46 +838,13 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
         lovrAssert(texture->renderView, "Out of memory");
         lovrAssert(gpu_texture_init_view(texture->renderView, &viewInfo), "Failed to create texture view for canvas");
       }
-      gpu = texture->renderView;
-    }
-
-    canvas->gpu.color[i].texture = gpu;
-    canvas->colorTextures[i] = texture;
-    lovrRetain(texture);
-  }
-
-  if (key.resolve) {
-    for (uint32_t i = 0; i < info->count; i++) {
-      textureInfo.format = canvas->colorTextures[i]->info.format;
-      canvas->resolveTextures[i] = canvas->colorTextures[i];
-      canvas->colorTextures[i] = lovrTextureCreate(&textureInfo);
-      canvas->gpu.color[i].texture = canvas->colorTextures[i]->gpu;
-      canvas->gpu.color[i].resolve = canvas->resolveTextures[i]->gpu;
-    }
-  }
-
-  if (info->depth.enabled) {
-    if (info->depth.texture) {
-      Texture* texture = info->depth.texture;
-      canvas->depthTexture = texture;
-      gpu_texture* gpu = texture->gpu;
-      if (texture->info.mipmaps > 1 || (texture->info.type != TEXTURE_ARRAY && texture->info.type != TEXTURE_2D)) {
-        if (!texture->renderView) {
-          viewInfo.source = texture->info.parent ? texture->info.parent->gpu : texture->gpu;
-          viewInfo.layerIndex = texture->baseLayer;
-          viewInfo.levelIndex = texture->baseLevel;
-          texture->renderView = malloc(gpu_sizeof_texture());
-          lovrAssert(texture->renderView, "Out of memory");
-          lovrAssert(gpu_texture_init_view(texture->renderView, &viewInfo), "Failed to create texture view for canvas");
-        }
-        gpu = texture->renderView;
-      }
-      canvas->gpu.depth.texture = texture->gpu;
-      lovrRetain(texture);
+      canvas->depthTexture = info->depth.texture;
+      canvas->gpu.depth.texture = canvas->depthTexture->renderView;
+      lovrRetain(canvas->depthTexture);
     } else {
       textureInfo.format = info->depth.format;
       canvas->depthTexture = lovrTextureCreate(&textureInfo);
-      canvas->gpu.depth.texture = canvas->depthTexture->gpu;
+      canvas->gpu.depth.texture = canvas->depthTexture->renderView;
     }
   }
 }
