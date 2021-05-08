@@ -191,8 +191,8 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
     .samples = 1,
     .flags = TEXTURE_SAMPLE
   });
-  uint16_t offset[4] = { 0 };
-  uint16_t extent[3] = { 1 };
+  uint16_t offset[4] = { 0, 0, 0, 0 };
+  uint16_t extent[3] = { 1, 1, 1 };
   uint8_t pixel[4] = { 0xff, 0xff, 0xff, 0xff };
   uint32_t step[3] = { 0 };
   lovrTextureWrite(state.defaultTexture, offset, extent, pixel, step);
