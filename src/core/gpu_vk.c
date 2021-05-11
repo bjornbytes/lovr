@@ -2,28 +2,11 @@
 #include <string.h>
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
-
 #ifdef _WIN32
 #include <windows.h>
-#define VULKAN_LIBRARY "vulkan-1.dll"
-#define SYMTYPE FARPROC
-typedef CRITICAL_SECTION gpu_mutex;
 #else
 #include <dlfcn.h>
-#include <pthread.h>
-#define VULKAN_LIBRARY "libvulkan.so"
-#define SYMTYPE void*
-typedef pthread_mutex_t gpu_mutex;
 #endif
-
-#define MIN(a, b) (a < b ? a : b)
-#define MAX(a, b) (a > b ? a : b)
-#define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
-#define GPU_THROW(s) if (state.config.callback) { state.config.callback(state.config.userdata, s, true); }
-#define GPU_CHECK(c, s) if (!(c)) { GPU_THROW(s); }
-#define GPU_VK(f) do { VkResult r = (f); GPU_CHECK(r >= 0, getErrorString(r)); } while (0)
-#define HASH_SEED 2166136261
-#define QUERY_CHUNK 64
 
 // Objects
 
@@ -32,22 +15,21 @@ struct gpu_buffer {
   VkDeviceMemory memory;
   uint32_t ticks[2];
   char* data[2];
+  uint32_t status;
   bool region;
   bool keep;
 };
 
 struct gpu_texture {
   VkImage handle;
-  VkImageView view;
   VkDeviceMemory memory;
-  VkImageViewType type;
-  VkFormat format;
-  VkImageLayout layout;
-  VkPipelineStageFlagBits users;
-  VkAccessFlagBits writer;
-  VkImageAspectFlagBits aspect;
-  VkSampleCountFlagBits samples;
   gpu_texture* source;
+  VkImageView view;
+  VkFormat format;
+  VkImageAspectFlagBits aspect;
+  VkImageLayout layout;
+  uint32_t status;
+  bool array;
 };
 
 struct gpu_sampler {
@@ -56,10 +38,8 @@ struct gpu_sampler {
 
 struct gpu_pass {
   VkRenderPass handle;
-  uint16_t samples;
-  uint16_t count;
-  uint16_t views;
-  bool resolve;
+  uint32_t samples;
+  uint32_t count;
 };
 
 struct gpu_shader {
@@ -88,10 +68,8 @@ struct gpu_batch {
 typedef struct {
   VkCommandPool pool;
   gpu_batch batches[32];
+  VkSemaphore semaphores[2];
   VkFence fence;
-  VkSemaphore waitSemaphore;
-  VkSemaphore tellSemaphore;
-  bool wait, tell;
 } gpu_tick;
 
 typedef struct {
@@ -115,7 +93,6 @@ typedef struct {
 
 typedef struct {
   gpu_ref data[256];
-  gpu_mutex lock;
   uint32_t head;
   uint32_t tail;
 } gpu_morgue;
@@ -129,11 +106,13 @@ typedef struct {
 } gpu_scratchpad;
 
 typedef struct {
-  gpu_scratchpad data[128];
-  uint32_t cursor;
-  uint32_t count;
   uint32_t head;
   uint32_t tail;
+  uint32_t count;
+  uint32_t cursor;
+  uint32_t memoryType;
+  uint32_t memorySize;
+  gpu_scratchpad data[128];
 } gpu_scratchpad_pool;
 
 typedef struct {
@@ -160,6 +139,7 @@ typedef struct {
 
 static struct {
   void* library;
+  gpu_config config;
   VkInstance instance;
   VkDevice device;
   VkQueue queue;
@@ -169,10 +149,8 @@ static struct {
   uint32_t currentBackbuffer;
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
-  VkPhysicalDeviceMemoryProperties memoryProperties;
-  VkMemoryRequirements scratchMemoryRequirements;
-  uint32_t scratchMemoryType;
-  uint32_t queueFamilyIndex;
+  uint32_t memoryTypeCount;
+  uint32_t memoryTypes[32];
   uint32_t tick[2];
   gpu_tick ticks[4];
   uint8_t batchOrder[32];
@@ -180,16 +158,24 @@ static struct {
   uint8_t batchCount;
   gpu_batch* batch;
   gpu_morgue morgue;
-  gpu_cache_entry framebuffers[16][4];
-  gpu_scratchpad_pool scratchpads;
   gpu_readback_pool readbacks;
+  gpu_scratchpad_pool scratchpads;
+  gpu_cache_entry framebuffers[16][4];
   gpu_binding_pool bindings;
   VkQueryPool queryPool;
   uint32_t queryCount;
-  gpu_config config;
 } state;
 
 // Helpers
+
+#define MIN(a, b) (a < b ? a : b)
+#define MAX(a, b) (a > b ? a : b)
+#define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
+#define GPU_THROW(s) if (state.config.callback) { state.config.callback(state.config.userdata, s, true); }
+#define GPU_CHECK(c, s) if (!(c)) { GPU_THROW(s); }
+#define GPU_VK(f) do { VkResult r = (f); GPU_CHECK(r >= 0, getErrorString(r)); } while (0)
+#define HASH_SEED 2166136261
+#define QUERY_CHUNK 64
 
 enum { CPU, GPU };
 enum { LINEAR, SRGB };
@@ -215,13 +201,6 @@ static uint64_t getTextureRegionSize(VkFormat format, uint16_t extent[3]);
 static void nickname(void* object, VkObjectType type, const char* name);
 static VkBool32 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
 static const char* getErrorString(VkResult result);
-static void gpu_mutex_init(gpu_mutex* mutex);
-static void gpu_mutex_destroy(gpu_mutex* mutex);
-static void gpu_mutex_lock(gpu_mutex* mutex);
-static void gpu_mutex_unlock(gpu_mutex* mutex);
-static void* gpu_dlopen(const char* library);
-static SYMTYPE gpu_dlsym(void* library, const char* symbol);
-static void gpu_dlclose(void* library);
 
 // Loader
 
@@ -352,8 +331,13 @@ bool gpu_init(gpu_config* config) {
   state.config = *config;
 
   // Load
-  state.library = gpu_dlopen(VULKAN_LIBRARY);
-  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) gpu_dlsym(state.library, "vkGetInstanceProcAddr");
+#ifdef _WIN32
+  state.library = LoadLibraryA("vulkan-1.dll");
+  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
+#else
+  state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
+#endif
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
   { // Instance
@@ -425,6 +409,7 @@ bool gpu_init(gpu_config* config) {
   }
 
   VkPhysicalDevice physicalDevice;
+  uint32_t queueFamilyIndex = ~0u;
 
   { // Device
     uint32_t deviceCount = 1;
@@ -437,7 +422,6 @@ bool gpu_init(gpu_config* config) {
     uint32_t queueFamilyCount = COUNTOF(queueFamilies);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies);
 
-    state.queueFamilyIndex = ~0u;
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
       VkBool32 presentable = VK_TRUE;
 
@@ -447,24 +431,29 @@ bool gpu_init(gpu_config* config) {
 
       uint32_t flags = queueFamilies[i].queueFlags;
       if ((flags & VK_QUEUE_GRAPHICS_BIT) && (flags & VK_QUEUE_COMPUTE_BIT) && presentable) {
-        state.queueFamilyIndex = i;
+        queueFamilyIndex = i;
         break;
       }
     }
 
-    if (state.queueFamilyIndex == ~0u) {
+    if (queueFamilyIndex == ~0u) {
       gpu_destroy();
       return false;
     }
 
     VkDeviceQueueCreateInfo queueInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-      .queueFamilyIndex = state.queueFamilyIndex,
+      .queueFamilyIndex = queueFamilyIndex,
       .queueCount = 1,
       .pQueuePriorities = &(float) { 1.f }
     };
 
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &state.memoryProperties);
+    VkPhysicalDeviceMemoryProperties memoryProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+    state.memoryTypeCount = memoryProperties.memoryTypeCount;
+    for (uint32_t i = 0; i < state.memoryTypeCount; i++) {
+      state.memoryTypes[i] = memoryProperties.memoryTypes[i].propertyFlags;
+    }
 
     if (config->limits) {
       VkPhysicalDeviceMaintenance3Properties maintenance3Limits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES };
@@ -587,7 +576,7 @@ bool gpu_init(gpu_config* config) {
       return false;
     }
 
-    vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
+    vkGetDeviceQueue(state.device, queueFamilyIndex, 0, &state.queue);
 
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
   }
@@ -635,18 +624,13 @@ bool gpu_init(gpu_config* config) {
       return false;
     }
 
+    VkImage images[4];
     uint32_t imageCount;
-    if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL)) {
+    if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL) || imageCount > COUNTOF(images)) {
       gpu_destroy();
       return false;
     }
 
-    if (imageCount > COUNTOF(state.backbuffers)) {
-      gpu_destroy();
-      return false;
-    }
-
-    VkImage images[COUNTOF(state.backbuffers)];
     if (vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images)) {
       gpu_destroy();
       return false;
@@ -658,7 +642,6 @@ bool gpu_init(gpu_config* config) {
       texture->handle = images[i];
       texture->format = surfaceFormat.format;
       texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-      texture->samples = VK_SAMPLE_COUNT_1_BIT;
 
       gpu_texture_view_info view = {
         .source = texture,
@@ -685,7 +668,7 @@ bool gpu_init(gpu_config* config) {
     VkCommandPoolCreateInfo poolInfo = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
       .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-      .queueFamilyIndex = state.queueFamilyIndex
+      .queueFamilyIndex = queueFamilyIndex
     };
 
     if (vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool)) {
@@ -705,26 +688,26 @@ bool gpu_init(gpu_config* config) {
       return false;
     }
 
+    VkSemaphoreCreateInfo semaphoreInfo = {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+    };
+
+    if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[0])) {
+      gpu_destroy();
+      return false;
+    }
+
+    if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[1])) {
+      gpu_destroy();
+      return false;
+    }
+
     VkFenceCreateInfo fenceInfo = {
       .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
       .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
     if (vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence)) {
-      gpu_destroy();
-      return false;
-    }
-
-    VkSemaphoreCreateInfo semaphoreInfo = {
-      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-    };
-
-    if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].waitSemaphore)) {
-      gpu_destroy();
-      return false;
-    }
-
-    if (vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].tellSemaphore)) {
       gpu_destroy();
       return false;
     }
@@ -744,10 +727,10 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  gpu_mutex_init(&state.morgue.lock);
+  state.currentBackbuffer = ~0u;
   state.scratchpads.head = ~0u;
   state.scratchpads.tail = ~0u;
-  state.currentBackbuffer = ~0u;
+  state.scratchpads.memoryType = ~0u;
   return true;
 }
 
@@ -767,10 +750,10 @@ void gpu_destroy(void) {
   }
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
-    if (tick->waitSemaphore) vkDestroySemaphore(state.device, tick->waitSemaphore, NULL);
-    if (tick->tellSemaphore) vkDestroySemaphore(state.device, tick->tellSemaphore, NULL);
-    if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
+    if (tick->semaphores[0]) vkDestroySemaphore(state.device, tick->semaphores[0], NULL);
+    if (tick->semaphores[1]) vkDestroySemaphore(state.device, tick->semaphores[1], NULL);
+    if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
   }
   for (uint32_t i = 0; i < COUNTOF(state.backbuffers); i++) {
     if (state.backbuffers[i].view) vkDestroyImageView(state.device, state.backbuffers[i].view, NULL);
@@ -782,8 +765,11 @@ void gpu_destroy(void) {
   if (state.surface) vkDestroySurfaceKHR(state.instance, state.surface, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
-  gpu_dlclose(state.library);
-  gpu_mutex_destroy(&state.morgue.lock);
+#ifdef _WIN32
+  if (state.library) FreeLibrary(state.library);
+#else
+  if (state.library) dlclose(state.library);
+#endif
   memset(&state, 0, sizeof(state));
 }
 
@@ -798,10 +784,9 @@ void gpu_begin() {
   readback();
   expunge();
 
-  tick->wait = false;
-  tick->tell = false;
   state.queryCount = 0;
   state.batchCount = 0;
+  state.batchCursor = 0;
   state.batch = begin();
 }
 
@@ -809,7 +794,7 @@ void gpu_flush() {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
   gpu_batch_end(state.batch, false);
 
-  // Reorder batches to be in the order they were finished
+  // Reorder batches to be in the order they were completed...
   for (uint32_t i = 0; i < state.batchCount; i++) {
     gpu_batch temp = tick->batches[i];
     uint32_t j = state.batchOrder[i];
@@ -818,19 +803,189 @@ void gpu_flush() {
   }
 
   VkPipelineStageFlags waitMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  bool present = state.currentBackbuffer != ~0u;
 
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .waitSemaphoreCount = tick->wait,
-    .pWaitSemaphores = &tick->waitSemaphore,
+    .waitSemaphoreCount = present,
+    .pWaitSemaphores = &tick->semaphores[0],
     .pWaitDstStageMask = &waitMask,
     .commandBufferCount = state.batchCount,
     .pCommandBuffers = &tick->batches[0].commands,
-    .signalSemaphoreCount = tick->tell,
-    .pSignalSemaphores = &tick->tellSemaphore
+    .signalSemaphoreCount = present,
+    .pSignalSemaphores = &tick->semaphores[1]
   };
 
   GPU_VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence));
+
+  if (present) {
+    VkPresentInfoKHR presentInfo = {
+      .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &tick->semaphores[1],
+      .swapchainCount = 1,
+      .pSwapchains = &state.swapchain,
+      .pImageIndices = &state.currentBackbuffer
+    };
+
+    GPU_VK(vkQueuePresentKHR(state.queue, &presentInfo));
+    state.currentBackbuffer = ~0u;
+  }
+}
+
+void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* textures, uint32_t textureCount) {
+  VkPipelineStageFlags srcStage = 0;
+  VkPipelineStageFlags dstStage = 0;
+  VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+
+  for (uint32_t i = 0; i < bufferCount; i++) {
+    gpu_buffer* buffer = buffers[i].buffer;
+    uint32_t writeMask = GPU_BUFFER_FLAG_STORAGE | GPU_BUFFER_FLAG_COPY_DST;
+    uint32_t afterRead = buffer->status & ~writeMask;
+    uint32_t afterWrite = buffer->status & writeMask;
+    uint32_t read = buffers[i].flags & ~writeMask;
+    uint32_t write = buffers[i].flags & writeMask;
+    uint32_t newReads = read & ~buffer->status;
+
+    // For read-after-write, a memory dependency is required so that the write cache is flushed and
+    // the read cache is invalidated.  An execution dependency is also necessary to ensure the read
+    // only starts once the write is finished.  However, if all of the new read bits are already in
+    // the current status, this means a barrier was already issued for the incoming actions, and so
+    // it can be skipped.  The write bit in the status is kept so future reads can sync against it.
+    if (read && afterWrite && newReads) {
+      if (afterWrite == GPU_BUFFER_FLAG_STORAGE) {
+        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+      }
+
+      if (afterWrite == GPU_BUFFER_FLAG_COPY_DST) {
+        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        barrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_FLAG_VERTEX) {
+        dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_FLAG_INDEX) {
+        dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_INDEX_READ_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_FLAG_UNIFORM) {
+        dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_FLAG_INDIRECT) {
+        dstStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_FLAG_COPY_SRC) {
+        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+      }
+
+      buffer->status |= newReads; // Keep the write bit in the status in case there are more reads
+    }
+
+    // A write-after-write hazard exists if a write is followed by a write without any intermediate
+    // reads.  This requires a full memory/execution dependency.  The write bit is also updated.
+    if (write && afterWrite && !afterRead) {
+      if (afterWrite == GPU_BUFFER_FLAG_STORAGE) {
+        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+      }
+
+      if (afterWrite == GPU_BUFFER_FLAG_COPY_DST) {
+        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        barrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      }
+
+      if (write == GPU_BUFFER_FLAG_STORAGE) {
+        dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+      }
+
+      if (write == GPU_BUFFER_FLAG_COPY_DST) {
+        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      }
+
+      buffer->status = write;
+    }
+
+    // For write-after-read, only an execution dependency is needed.  The read just needs to finish
+    // before starting the write.  No memory dependency is needed because the read doesn't write to
+    // any caches.  Also, even if a write bit is set, no synchronization with it is needed, because
+    // the results of the past write are already visible and available.  An execution dependency is
+    // all that is needed to ensure that this is also the case for the new write.  However, because
+    // a write is performed, it becomes the new status bit, clearing any existing read bits.
+    if (write && afterRead) {
+      if (afterRead & GPU_BUFFER_FLAG_UNIFORM) {
+        srcStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      } else if (afterRead & (GPU_BUFFER_FLAG_VERTEX | GPU_BUFFER_FLAG_INDEX)) {
+        srcStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+      } else if (afterRead & GPU_BUFFER_FLAG_INDIRECT) {
+        srcStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+      }
+
+      if (afterRead & GPU_BUFFER_FLAG_COPY_SRC) {
+        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      }
+
+      if (write == GPU_BUFFER_FLAG_STORAGE) {
+        dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      }
+
+      if (write == GPU_BUFFER_FLAG_COPY_DST) {
+        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      }
+
+      buffer->status = write;
+    }
+  }
+
+  uint32_t imageBarrierCount = 0;
+  VkImageMemoryBarrier imageBarriers[64];
+  for (uint32_t i = 0; i < textureCount; i++) {
+    gpu_texture* texture = textures[i].texture->source;
+
+    VkImageLayout newLayout;
+    switch (textures[i].flags) {
+      case GPU_TEXTURE_FLAG_SAMPLE: newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; break;
+      case GPU_TEXTURE_FLAG_RENDER: newLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; break;
+      case GPU_TEXTURE_FLAG_COPY_SRC: newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; break;
+      case GPU_TEXTURE_FLAG_COPY_DST: newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; break;
+      default: newLayout = VK_IMAGE_LAYOUT_GENERAL; break;
+    }
+
+    VkImageLayout oldLayout = (textures[i].flags & GPU_TEXTURE_FLAG_TRANSIENT) ? VK_IMAGE_LAYOUT_UNDEFINED : texture->layout;
+    if (oldLayout != newLayout) {
+      // Transition, also store pointer to image barriers srcAccess/dstAccess and write memory
+      // dependencies to there instead
+    }
+
+    /*uint32_t writeMask = GPU_TEXTURE_FLAG_STORAGE | GPU_TEXTURE_FLAG_COPY_DST | GPU_TEXTURE_FLAG_RENDER;
+    uint32_t afterRead = texture->status & ~writeMask;
+    uint32_t afterWrite = texture->status & writeMask;
+    uint32_t read = textures[i].flags & ~writeMask;
+    uint32_t write = textures[i].flags & writeMask;
+    uint32_t newReads = read & ~texture->status;*/
+  }
+
+  if (srcStage && dstStage) {
+    VkDependencyFlags flags = 0;
+    vkCmdPipelineBarrier(state.batch->commands, srcStage, dstStage, flags, 1, &barrier, 0, NULL, imageBarrierCount, imageBarriers);
+  }
+}
+
+void gpu_surface_acquire(gpu_texture** texture) {
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
+  GPU_VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &state.currentBackbuffer));
+  *texture = &state.backbuffers[state.currentBackbuffer];
 }
 
 void gpu_debug_push(const char* label) {
@@ -931,10 +1086,9 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   bool hostVisible;
 
 search:
-  for (uint32_t i = 0; i < state.memoryProperties.memoryTypeCount; i++) {
-    uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
-    if ((flags & mask) != mask || ~requirements.memoryTypeBits & (1 << i)) continue;
-    hostVisible = flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+  for (uint32_t i = 0; i < state.memoryTypeCount; i++) {
+    if ((state.memoryTypes[i] & mask) != mask || ~requirements.memoryTypeBits & (1 << i)) continue;
+    hostVisible = state.memoryTypes[i] & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     memoryType = i;
     break;
   }
@@ -1101,7 +1255,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   }
 
   texture->format = convertFormat(info->format, info->srgb);
-  texture->samples = info->samples;
+  texture->array = info->type == GPU_TEXTURE_TYPE_ARRAY;
 
   if (info->format == GPU_TEXTURE_FORMAT_D24S8) {
     texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -1121,7 +1275,6 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     ((info->flags & GPU_TEXTURE_FLAG_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
     ((info->flags & GPU_TEXTURE_FLAG_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0);
 
-  bool array = info->type = GPU_TEXTURE_TYPE_ARRAY;
   VkImageCreateInfo imageInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
     .flags = flags,
@@ -1129,9 +1282,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .format = texture->format,
     .extent.width = info->size[0],
     .extent.height = info->size[1],
-    .extent.depth = array ? 1 : info->size[2],
+    .extent.depth = texture->array ? 1 : info->size[2],
     .mipLevels = info->mipmaps,
-    .arrayLayers = array ? info->size[2] : 1,
+    .arrayLayers = texture->array ? info->size[2] : 1,
     .samples = info->samples,
     .tiling = VK_IMAGE_TILING_OPTIMAL,
     .usage = usage
@@ -1146,10 +1299,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   uint32_t memoryType = ~0u;
   VkMemoryRequirements requirements;
   vkGetImageMemoryRequirements(state.device, texture->handle, &requirements);
-  for (uint32_t i = 0; i < state.memoryProperties.memoryTypeCount; i++) {
-    uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
+  for (uint32_t i = 0; i < state.memoryTypeCount; i++) {
     uint32_t mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    if ((flags & mask) == mask && (requirements.memoryTypeBits & (1 << i))) {
+    if ((state.memoryTypes[i] & mask) == mask && (requirements.memoryTypeBits & (1 << i))) {
       memoryType = i;
       break;
     }
@@ -1185,32 +1337,32 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
+  texture->source = texture;
   return true;
 }
 
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
   if (texture != info->source) {
     texture->handle = VK_NULL_HANDLE;
-    texture->format = info->source->format;
     texture->memory = VK_NULL_HANDLE;
-    texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    texture->aspect = info->source->aspect;
-    texture->samples = info->source->samples;
     texture->source = info->source;
+    texture->format = info->source->format;
+    texture->aspect = info->source->aspect;
+    texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    texture->array = info->type == GPU_TEXTURE_TYPE_ARRAY;
   }
 
-  switch (info->type) {
-    case GPU_TEXTURE_TYPE_2D: texture->type = VK_IMAGE_VIEW_TYPE_2D; break;
-    case GPU_TEXTURE_TYPE_3D: texture->type = VK_IMAGE_VIEW_TYPE_3D; break;
-    case GPU_TEXTURE_TYPE_CUBE: texture->type = VK_IMAGE_VIEW_TYPE_CUBE; break;
-    case GPU_TEXTURE_TYPE_ARRAY: texture->type = VK_IMAGE_VIEW_TYPE_2D_ARRAY; break;
-    default: return false;
-  }
+  static const VkImageViewType types[] = {
+    [GPU_TEXTURE_TYPE_2D] = VK_IMAGE_VIEW_TYPE_2D,
+    [GPU_TEXTURE_TYPE_3D] = VK_IMAGE_VIEW_TYPE_3D,
+    [GPU_TEXTURE_TYPE_CUBE] = VK_IMAGE_VIEW_TYPE_CUBE,
+    [GPU_TEXTURE_TYPE_ARRAY] = VK_IMAGE_VIEW_TYPE_2D_ARRAY
+  };
 
   VkImageViewCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
     .image = info->source->handle,
-    .viewType = texture->type,
+    .viewType = types[info->type],
     .format = texture->format,
     .subresourceRange = {
       .aspectMask = texture->aspect,
@@ -1234,18 +1386,18 @@ void gpu_texture_destroy(gpu_texture* texture) {
 }
 
 void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t extent[3]) {
+  texture = texture->source;
   uint64_t bytes = getTextureRegionSize(texture->format, extent);
   gpu_mapping mapped = scratch(bytes);
 
-  bool array = texture->type == VK_IMAGE_VIEW_TYPE_2D_ARRAY;
   VkBufferImageCopy region = {
     .bufferOffset = mapped.offset,
     .imageSubresource.aspectMask = texture->aspect,
     .imageSubresource.mipLevel = offset[3],
-    .imageSubresource.baseArrayLayer = array ? offset[2] : 0,
-    .imageSubresource.layerCount = array ? extent[2] : 1,
-    .imageOffset = { offset[0], offset[1], array ? 0 : offset[2] },
-    .imageExtent = { extent[0], extent[1], array ? 1 : extent[2] }
+    .imageSubresource.baseArrayLayer = texture->array ? offset[2] : 0,
+    .imageSubresource.layerCount = texture->array ? extent[2] : 1,
+    .imageOffset = { offset[0], offset[1], texture->array ? 0 : offset[2] },
+    .imageExtent = { extent[0], extent[1], texture->array ? 1 : extent[2] }
   };
 
   vkCmdCopyBufferToImage(state.batch->commands, mapped.buffer, texture->handle, texture->layout, 1, &region);
@@ -1254,18 +1406,18 @@ void* gpu_texture_map(gpu_texture* texture, uint16_t offset[4], uint16_t extent[
 }
 
 void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t extent[3], gpu_read_fn* fn, void* userdata) {
+  texture = texture->source;
   uint64_t bytes = getTextureRegionSize(texture->format, extent);
   gpu_mapping mapped = scratch(bytes);
 
-  bool array = texture->type == VK_IMAGE_VIEW_TYPE_2D_ARRAY;
   VkBufferImageCopy region = {
     .bufferOffset = mapped.offset,
     .imageSubresource.aspectMask = texture->aspect,
     .imageSubresource.mipLevel = offset[3],
-    .imageSubresource.baseArrayLayer = array ? offset[2] : 0,
-    .imageSubresource.layerCount = array ? extent[2] : 1,
-    .imageOffset = { offset[0], offset[1], array ? 0 : offset[2] },
-    .imageExtent = { extent[0], extent[1], array ? 1 : extent[2] }
+    .imageSubresource.baseArrayLayer = texture->array ? offset[2] : 0,
+    .imageSubresource.layerCount = texture->array ? extent[2] : 1,
+    .imageOffset = { offset[0], offset[1], texture->array ? 0 : offset[2] },
+    .imageExtent = { extent[0], extent[1], texture->array ? 1 : extent[2] }
   };
 
   vkCmdCopyImageToBuffer(state.batch->commands, texture->handle, texture->layout, mapped.buffer, 1, &region);
@@ -1282,24 +1434,24 @@ void gpu_texture_read(gpu_texture* texture, uint16_t offset[4], uint16_t extent[
 }
 
 void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]) {
-  bool srcArray = src->type == GPU_TEXTURE_TYPE_ARRAY;
-  bool dstArray = dst->type == GPU_TEXTURE_TYPE_ARRAY;
+  src = src->source;
+  dst = dst->source;
 
   VkImageCopy region = {
     .srcSubresource = {
       .aspectMask = src->aspect,
       .mipLevel = srcOffset[3],
-      .baseArrayLayer = srcArray ? srcOffset[2] : 0,
-      .layerCount = srcArray ? size[2] : 1
+      .baseArrayLayer = src->array ? srcOffset[2] : 0,
+      .layerCount = src->array ? size[2] : 1
     },
     .dstSubresource = {
       .aspectMask = dst->aspect,
       .mipLevel = dstOffset[3],
-      .baseArrayLayer = dstArray ? dstOffset[2] : 0,
-      .layerCount = dstArray ? size[2] : 1
+      .baseArrayLayer = dst->array ? dstOffset[2] : 0,
+      .layerCount = dst->array ? size[2] : 1
     },
-    .srcOffset = { srcOffset[0], srcOffset[1], srcArray ? 0 : srcOffset[2] },
-    .dstOffset = { dstOffset[0], dstOffset[1], dstArray ? 0 : dstOffset[2] },
+    .srcOffset = { srcOffset[0], srcOffset[1], src->array ? 0 : srcOffset[2] },
+    .dstOffset = { dstOffset[0], dstOffset[1], dst->array ? 0 : dstOffset[2] },
     .extent = { size[0], size[1], size[2] }
   };
 
@@ -1307,26 +1459,26 @@ void gpu_texture_copy(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4],
 }
 
 void gpu_texture_blit(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
-  bool srcArray = src->type == GPU_TEXTURE_TYPE_ARRAY;
-  bool dstArray = dst->type == GPU_TEXTURE_TYPE_ARRAY;
+  src = src->source;
+  dst = dst->source;
 
   VkImageBlit region = {
     .srcSubresource = {
       .aspectMask = src->aspect,
       .mipLevel = srcOffset[3],
-      .baseArrayLayer = srcArray ? srcOffset[2] : 0,
-      .layerCount = srcArray ? srcExtent[2] : 1
+      .baseArrayLayer = src->array ? srcOffset[2] : 0,
+      .layerCount = src->array ? srcExtent[2] : 1
     },
     .dstSubresource = {
       .aspectMask = dst->aspect,
       .mipLevel = dstOffset[3],
-      .baseArrayLayer = dstArray ? dstOffset[2] : 0,
-      .layerCount = dstArray ? dstExtent[2] : 1
+      .baseArrayLayer = dst->array ? dstOffset[2] : 0,
+      .layerCount = dst->array ? dstExtent[2] : 1
     },
-    .srcOffsets[0] = { srcOffset[0], srcOffset[1], srcArray ? 0 : srcOffset[2] },
-    .dstOffsets[0] = { dstOffset[0], dstOffset[1], dstArray ? 0 : dstOffset[2] },
-    .srcOffsets[1] = { srcOffset[0] + srcExtent[0], srcOffset[1] + srcExtent[1], srcArray ? 1 : srcOffset[2] + srcExtent[2] },
-    .dstOffsets[1] = { dstOffset[0] + dstExtent[0], dstOffset[1] + dstExtent[1], dstArray ? 1 : dstOffset[2] + dstExtent[2] }
+    .srcOffsets[0] = { srcOffset[0], srcOffset[1], src->array ? 0 : srcOffset[2] },
+    .dstOffsets[0] = { dstOffset[0], dstOffset[1], dst->array ? 0 : dstOffset[2] },
+    .srcOffsets[1] = { srcOffset[0] + srcExtent[0], srcOffset[1] + srcExtent[1], src->array ? 1 : srcOffset[2] + srcExtent[2] },
+    .dstOffsets[1] = { dstOffset[0] + dstExtent[0], dstOffset[1] + dstExtent[1], dst->array ? 1 : dstOffset[2] + dstExtent[2] }
   };
 
   VkFilter filter = nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
@@ -1334,14 +1486,9 @@ void gpu_texture_blit(gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4],
 }
 
 void gpu_texture_clear(gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
+  texture = texture->source;
   VkClearColorValue clear;
   memcpy(clear.float32, color, 4 * sizeof(float));
-
-  // 3D textures don't support clearing individual slices
-  if (texture->type == GPU_TEXTURE_TYPE_ARRAY) {
-    layer = 0;
-    layerCount = 1;
-  }
 
   VkImageSubresourceRange range = {
     .aspectMask = texture->aspect,
@@ -1664,7 +1811,7 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
           textures[textureCount++] = (VkDescriptorImageInfo) {
             .sampler = binding->texture.sampler->handle,
             .imageView = binding->texture.object->view,
-            .imageLayout = binding->texture.object->layout
+            .imageLayout = binding->texture.object->source->layout
           };
         }
       } else {
@@ -1717,11 +1864,11 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[i] = (VkAttachmentDescription) {
-      .format = convertFormat(info->color[i].format, info->color[i].srgb),
+      .format = info->color[i].format == ~0u ? state.backbuffers[0].format : convertFormat(info->color[i].format, info->color[i].srgb),
       .samples = info->samples,
       .loadOp = loadOps[info->color[i].load],
       .storeOp = info->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->color[i].save],
-      .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      .initialLayout = info->color[i].load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
       .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
   }
@@ -1753,7 +1900,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       .storeOp = storeOps[info->depth.save],
       .stencilLoadOp = loadOps[info->depth.stencilLoad],
       .stencilStoreOp = storeOps[info->depth.stencilSave],
-      .initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+      .initialLayout = info->depth.load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
       .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
     };
   }
@@ -1784,11 +1931,19 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     return false;
   }
 
-  nickname(pass, VK_OBJECT_TYPE_RENDER_PASS, info->label);
+  nickname(pass->handle, VK_OBJECT_TYPE_RENDER_PASS, info->label);
   pass->count = info->count;
   pass->samples = info->samples;
-  pass->views = info->views;
   return true;
+}
+
+bool gpu_pass_init_surface(gpu_pass* pass, gpu_pass_info* info) {
+  info->color[0].format = ~0u; // Shhh
+  info->color[0].load = GPU_LOAD_OP_CLEAR;
+  info->color[0].save = GPU_SAVE_OP_SAVE;
+  info->color[0].srgb = true;
+  info->count = 1;
+  return gpu_pass_init(pass, info);
 }
 
 void gpu_pass_destroy(gpu_pass* pass) {
@@ -2031,7 +2186,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     return false;
   }
 
-  nickname(pipeline, VK_OBJECT_TYPE_PIPELINE, info->label);
+  nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
   pipeline->type = VK_PIPELINE_BIND_POINT_GRAPHICS;
   return true;
 }
@@ -2047,7 +2202,7 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const
     return false;
   }
 
-  nickname(pipeline, VK_OBJECT_TYPE_PIPELINE, label);
+  nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, label);
   pipeline->type = VK_PIPELINE_BIND_POINT_COMPUTE;
   return true;
 }
@@ -2194,83 +2349,6 @@ void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer
   vkCmdDispatchIndirect(batch->commands, buffer->handle, offset);
 }
 
-// Surface
-
-gpu_texture* gpu_surface_acquire() {
-  if (!state.swapchain || state.currentBackbuffer != ~0u) {
-    return NULL;
-  }
-
-  gpu_begin();
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
-  GPU_VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->waitSemaphore, VK_NULL_HANDLE, &state.currentBackbuffer));
-  tick->wait = true;
-
-  // Transition backbuffer to general layout (TODO autosync instead)
-  gpu_texture* texture = &state.backbuffers[state.currentBackbuffer];
-  VkPipelineStageFlags src = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkImageMemoryBarrier barrier = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .srcAccessMask = 0,
-    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .image = texture->handle,
-    .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
-  };
-
-  vkCmdPipelineBarrier(state.batch->commands, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
-  texture->layout = VK_IMAGE_LAYOUT_GENERAL;
-  gpu_flush();
-
-  return texture;
-}
-
-void gpu_surface_present() {
-  if (!state.swapchain || state.currentBackbuffer == ~0u) {
-    return;
-  }
-
-  gpu_begin();
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
-  tick->tell = true;
-
-  // Transition backbuffer to general layout (TODO autosync instead)
-  gpu_texture* texture = &state.backbuffers[state.currentBackbuffer];
-  VkPipelineStageFlags src = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkImageMemoryBarrier barrier = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .srcAccessMask = 0,
-    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-    .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-    .image = texture->handle,
-    .subresourceRange = { texture->aspect, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
-  };
-
-  vkCmdPipelineBarrier(state.batch->commands, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
-  texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-  gpu_flush();
-
-  VkPresentInfoKHR info = {
-    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-    .waitSemaphoreCount = 1,
-    .pWaitSemaphores = &tick->tellSemaphore,
-    .swapchainCount = 1,
-    .pSwapchains = &state.swapchain,
-    .pImageIndices = &state.currentBackbuffer
-  };
-
-  GPU_VK(vkQueuePresentKHR(state.queue, &info));
-  state.currentBackbuffer = ~0u;
-}
-
 // Helpers
 
 static void hash32(uint32_t* hash, void* data, uint32_t size) {
@@ -2340,46 +2418,47 @@ static gpu_mapping scratch(uint32_t size) {
 
       GPU_VK(vkCreateBuffer(state.device, &bufferInfo, NULL, &scratchpad->buffer));
 
-      // Cache memory requirements if needed
-      if (state.scratchMemoryRequirements.size == 0) {
-        state.scratchMemoryType = ~0u;
-        vkGetBufferMemoryRequirements(state.device, scratchpad->buffer, &state.scratchMemoryRequirements);
-        for (uint32_t i = 0; i < state.memoryProperties.memoryTypeCount; i++) {
-          uint32_t flags = state.memoryProperties.memoryTypes[i].propertyFlags;
+      // Cached memory type
+      if (pool->memoryType == ~0u) {
+        VkMemoryRequirements requirements;
+        vkGetBufferMemoryRequirements(state.device, scratchpad->buffer, &requirements);
+        for (uint32_t i = 0; i < state.memoryTypeCount; i++) {
           uint32_t mask = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-          if ((flags & mask) == mask && (state.scratchMemoryRequirements.memoryTypeBits & (1 << i))) {
-            state.scratchMemoryType = i;
+          if ((state.memoryTypes[i] & mask) == mask && (requirements.memoryTypeBits & (1 << i))) {
+            pool->memoryType = i;
             break;
           }
         }
 
-        if (state.scratchMemoryType == ~0u) {
+        if (pool->memoryType == ~0u) {
           vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-          return (gpu_mapping) { .data = NULL };
+          return (gpu_mapping) { 0 };
         }
+
+        pool->memorySize = requirements.size;
       }
 
       VkMemoryAllocateInfo memoryInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = state.scratchMemoryRequirements.size,
-        .memoryTypeIndex = state.scratchMemoryType
+        .allocationSize = pool->memorySize,
+        .memoryTypeIndex = pool->memoryType
       };
 
       if (vkAllocateMemory(state.device, &memoryInfo, NULL, &scratchpad->memory)) {
         vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
-        return (gpu_mapping) { .data = NULL };
+        return (gpu_mapping) { 0 };
       }
 
       if (vkBindBufferMemory(state.device, scratchpad->buffer, scratchpad->memory, 0)) {
         vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
         vkFreeMemory(state.device, scratchpad->memory, NULL);
-        return (gpu_mapping) { .data = NULL };
+        return (gpu_mapping) { 0 };
       }
 
       if (vkMapMemory(state.device, scratchpad->memory, 0, VK_WHOLE_SIZE, 0, &scratchpad->data)) {
         vkDestroyBuffer(state.device, scratchpad->buffer, NULL);
         vkFreeMemory(state.device, scratchpad->memory, NULL);
-        return (gpu_mapping) { .data = NULL };
+        return (gpu_mapping) { 0 };
       }
     }
 
@@ -2437,15 +2516,12 @@ static void readback() {
 static void condemn(void* handle, VkObjectType type) {
   if (!handle) return;
   gpu_morgue* morgue = &state.morgue;
-  gpu_mutex_lock(&morgue->lock);
   GPU_CHECK(morgue->head - morgue->tail != COUNTOF(morgue->data), "GPU morgue overflow"); // TODO ketchup and expunge if morgue is full
   morgue->data[morgue->head++ & 0xff] = (gpu_ref) { handle, type, state.tick[CPU] };
-  gpu_mutex_unlock(&morgue->lock);
 }
 
 static void expunge() {
   gpu_morgue* morgue = &state.morgue;
-  gpu_mutex_lock(&morgue->lock);
   while (morgue->tail != morgue->head && state.tick[GPU] >= morgue->data[morgue->tail & 0xff].tick) {
     gpu_ref* victim = &morgue->data[morgue->tail++ & 0xff];
     switch (victim->type) {
@@ -2460,7 +2536,6 @@ static void expunge() {
       default: GPU_THROW("Unreachable"); break;
     }
   }
-  gpu_mutex_unlock(&morgue->lock);
 }
 
 static gpu_batch* begin() {
@@ -2605,24 +2680,6 @@ static const char* getErrorString(VkResult result) {
   }
 }
 
-#ifdef _WIN32
-static void gpu_mutex_init(gpu_mutex* mutex) { InitializeCriticalSection(mutex); }
-static void gpu_mutex_destroy(gpu_mutex* mutex) { DeleteCriticalSection(mutex); }
-static void gpu_mutex_lock(gpu_mutex* mutex) { EnterCriticalSection(mutex); }
-static void gpu_mutex_unlock(gpu_mutex* mutex) { LeaveCriticalSection(mutex); }
-static void* gpu_dlopen(const char* library) { return LoadLibraryA(library); }
-static FARPROC gpu_dlsym(void* library, const char* symbol) { return GetProcAddress(library, symbol); }
-static void gpu_dlclose(void* library) { FreeLibrary(library); }
-#else
-static void gpu_mutex_init(gpu_mutex* mutex) { pthread_mutex_init(mutex, NULL); }
-static void gpu_mutex_destroy(gpu_mutex* mutex) { pthread_mutex_destroy(mutex); }
-static void gpu_mutex_lock(gpu_mutex* mutex) { pthread_mutex_lock(mutex); }
-static void gpu_mutex_unlock(gpu_mutex* mutex) { pthread_mutex_unlock(mutex); }
-static void* gpu_dlopen(const char* library) { return dlopen(library, RTLD_NOW | RTLD_LOCAL); }
-static void* gpu_dlsym(void* library, const char* symbol) { return dlsym(library, symbol); }
-static void gpu_dlclose(void* library) { dlclose(library); }
-#endif
-
 /*
 Comments
 ## General
@@ -2630,12 +2687,12 @@ Comments
 - The first physical device is used.
 - There's almost no error handling.  The intent is to use validation layers or handle the errors at
   a higher level if needed, so they don't need to be duplicated for each backend.
-- There is no dynamic memory allocation in this layer.  All state is in ~24kb of static bss data.
+- There is no dynamic memory allocation in this layer.  All state is in ~15kb of static bss data.
 - Writing to storage resources from vertex/fragment shaders is currently not allowed.
 - Texel buffers are not supported.
 - ~0u aka -1 is commonly used as a "nil" value.
 ## Threads
-- Currently, the only thread safe operation is destruction of objects.
+- Currently, the API is not generally thread safe.
 - Multithreaded render passes are planned.
 ## Ticks
 - There is no concept of a frame.  There are ticks.  Every sequence of commands between gpu_begin
@@ -2676,4 +2733,20 @@ Comments
     host visible, since they're meant for temp per-frame vertex/uniform streams.  Falling back to
     regular uncached host visible memory is perfectly fine, though.
   - Host-visible buffers always use coherent memory.
+## Synchronization
+- Synchronization must be performed using the gpu_sync function.  Pass in a list of buffers/textures
+  and usage flags for each (the same flags used during initialization) representing what operations
+  are going to be performed on those objects in the future.  Barriers are automatically issued using
+  the previous state of the objects, preventing data hazards and ensuring operations are sequenced
+  correctly.  There are some rules about the flags that must be followed for proper synchronization:
+  - An object may only appear in the list once, unless all of its flags are read flags
+  - Valid flag configurations for an object are: a single write bit, or a combination of read bits
+    - For buffers, the write bits are: STORAGE, COPY_DST
+    - For textures, the write bits are: STORAGE, COPY_DST, RENDER
+  - For buffers, the MAPPABLE and PRESERVE flags are ignored
+  - For textures, the TRANSIENT flag will erase its contents
+  - It is valid to set none of the flags, this means the object is "not used" and has no effect
+  - It is recommended to avoid combining read flags for textures
+- Note that right now the STORAGE flag means "written from a compute shader".  Future improvements
+  may allow for read-only storage buffers to be expressed better, maybe via stage flags.
 */

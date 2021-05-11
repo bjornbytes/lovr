@@ -206,6 +206,7 @@ typedef struct {
 
 size_t gpu_sizeof_pass(void);
 bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info);
+bool gpu_pass_init_surface(gpu_pass* pass, gpu_pass_info* info);
 void gpu_pass_destroy(gpu_pass* pass);
 
 // Shader
@@ -477,12 +478,17 @@ void gpu_batch_draw_indirect_indexed(gpu_batch* batch, gpu_buffer* buffer, uint6
 void gpu_batch_compute(gpu_batch* batch, gpu_shader* shader, uint32_t x, uint32_t y, uint32_t z);
 void gpu_batch_compute_indirect(gpu_batch* batch, gpu_shader* shader, gpu_buffer* buffer, uint64_t offset);
 
-// Surface
-
-gpu_texture* gpu_surface_acquire(void);
-void gpu_surface_present(void);
-
 // Entry
+
+typedef struct {
+  gpu_buffer* buffer;
+  uint32_t flags;
+} gpu_buffer_sync;
+
+typedef struct {
+  gpu_texture* texture;
+  uint32_t flags;
+} gpu_texture_sync;
 
 enum {
   GPU_FORMAT_FEATURE_SAMPLE       = (1 << 0),
@@ -562,6 +568,8 @@ bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
 void gpu_begin(void);
 void gpu_flush(void);
+void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* textures, uint32_t textureCount);
+void gpu_surface_acquire(gpu_texture** texture);
 void gpu_debug_push(const char* label);
 void gpu_debug_pop(void);
 void gpu_timer_mark(void);

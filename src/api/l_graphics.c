@@ -169,11 +169,8 @@ static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float
 
   while (info->count < MAX_COLOR_ATTACHMENTS) {
     if (!lua_isuserdata(L, index)) break;
-    info->color[info->count++] = (ColorAttachment) {
-      .texture = luax_checktype(L, index++, Texture),
-      .load = LOAD_CLEAR,
-      .save = SAVE_KEEP
-    };
+    Texture* texture = luax_checktype(L, index++, Texture);
+    info->color[info->count++] = (ColorAttachment) { .texture = texture, .load = LOAD_CLEAR, .save = SAVE_KEEP };
   }
 
   if (lua_istable(L, index)) {
@@ -472,14 +469,18 @@ static int l_lovrGraphicsRenderTo(lua_State* L) {
   int index = 1;
   Canvas* canvas = luax_totype(L, index++, Canvas);
   if (!canvas) {
-    CanvasInfo info;
-    float clear[MAX_COLOR_ATTACHMENTS][4];
-    float depthClear;
-    uint8_t stencilClear;
-    index = luax_checkcanvasinfo(L, 1, &info, clear, &depthClear, &stencilClear);
-    info.label = NULL;
-    canvas = lovrCanvasGetTemporary(&info);
-    lovrCanvasSetClear(canvas, clear, depthClear, stencilClear);
+    if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "window")) {
+      canvas = lovrCanvasGetWindow();
+    } else {
+      CanvasInfo info;
+      float clear[MAX_COLOR_ATTACHMENTS][4];
+      float depthClear;
+      uint8_t stencilClear;
+      index = luax_checkcanvasinfo(L, 1, &info, clear, &depthClear, &stencilClear);
+      info.label = NULL;
+      canvas = lovrCanvasGetTemporary(&info);
+      lovrCanvasSetClear(canvas, clear, depthClear, stencilClear);
+    }
   }
   luaL_checktype(L, index, LUA_TFUNCTION);
   lua_settop(L, index);
