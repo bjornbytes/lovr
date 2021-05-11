@@ -13,8 +13,10 @@
 #include <stdlib.h>
 #include <math.h>
 
+#ifdef LOVR_VK
 const char** os_vk_get_instance_extensions(uint32_t* count);
 uint32_t os_vk_create_surface(void* instance, void** surface);
+#endif
 
 struct Buffer {
   uint32_t ref;
@@ -108,6 +110,7 @@ static struct {
   uint32_t activeCanvasCount;
   Texture* defaultTexture;
   Buffer* defaultBuffer;
+  Canvas* defaultCanvas;
 } state;
 
 static void onDebugMessage(void* context, const char* message, int severe) {
@@ -147,6 +150,7 @@ void lovrGraphicsDestroy() {
   arr_free(&state.canvases);
   lovrRelease(state.defaultTexture, lovrTextureDestroy);
   lovrRelease(state.defaultBuffer, lovrBufferDestroy);
+  lovrRelease(state.defaultCanvas, lovrCanvasDestroy);
   gpu_destroy();
   memset(&state, 0, sizeof(state));
 }
@@ -295,6 +299,10 @@ void lovrGraphicsBegin() {
 void lovrGraphicsFlush() {
   lovrAssert(state.activeCanvasCount == 0, "Tried to submit graphics commands while a Canvas is still active");
 
+  if (state.defaultCanvas) {
+    state.defaultCanvas->gpu.color[0].texture = NULL;
+  }
+
   if (state.compute) {
     gpu_batch_end(state.compute, false);
     state.compute = NULL;
@@ -318,6 +326,7 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   }
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
+  lovrAssert(buffer, "Out of memory");
   buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->info = *info;
   buffer->ref = 1;
@@ -518,6 +527,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrAssert(size <= state.limits.allocationSize, "Texture size (%d) exceeds allocationSize limit of this GPU (%d)", size, state.limits.allocationSize);
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
+  lovrAssert(texture, "Out of memory");
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
   texture->ref = 1;
@@ -575,6 +585,7 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
   }
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
+  lovrAssert(texture, "Out of memory");
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
   texture->ref = 1;
@@ -723,7 +734,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     Texture* texture = info->color[i].texture;
     bool renderable = state.features.formats[texture->info.format] & GPU_FORMAT_FEATURE_RENDER_COLOR;
     lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
-    lovrAssert(texture->info.flags & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to Canvases");
+    lovrAssert(texture->info.flags & TEXTURE_RENDER, "Texture must be created with the 'render' flag to attach it to a Canvas");
     lovrAssert(!memcmp(texture->info.size, firstTexture->info.size, 3 * sizeof(uint32_t)), "Canvas texture sizes must match");
     lovrAssert(texture->info.samples == firstTexture->info.samples, "Canvas texture sample counts must match");
   }
@@ -849,6 +860,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
 
 Canvas* lovrCanvasCreate(CanvasInfo* info) {
   Canvas* canvas = calloc(1, sizeof(Canvas));
+  lovrAssert(canvas, "Out of memory");
   canvas->info = *info;
   canvas->ref = 1;
   lovrCanvasInit(canvas, info);
@@ -871,6 +883,31 @@ Canvas* lovrCanvasGetTemporary(CanvasInfo* info) {
   return &state.canvases.data[index];
 }
 
+Canvas* lovrCanvasGetWindow() {
+  if (state.defaultCanvas) return state.defaultCanvas;
+
+  Canvas* canvas = calloc(1, sizeof(Canvas));
+  lovrAssert(canvas, "Out of memory");
+  canvas->ref = 1;
+
+  gpu_pass_info info = {
+    .label = "Window",
+    .depth.format = 0,//FORMAT_D24S8,
+    .depth.load = GPU_LOAD_OP_CLEAR,
+    .depth.save = GPU_SAVE_OP_DISCARD,
+    .depth.stencilLoad = GPU_LOAD_OP_CLEAR,
+    .depth.stencilSave = GPU_SAVE_OP_DISCARD,
+    .samples = 1,
+    .views = 1
+  };
+
+  canvas->gpu.pass = calloc(1, gpu_sizeof_pass());
+  lovrAssert(canvas->gpu.pass, "Out of memory");
+  lovrAssert(gpu_pass_init_surface(canvas->gpu.pass, &info), "Failed to create window pass");
+  // TODO create depth buffer
+  return state.defaultCanvas = canvas;
+}
+
 void lovrCanvasDestroy(void* ref) {
   Canvas* canvas = ref;
   for (uint32_t i = 0; i < canvas->info.count; i++) {
@@ -878,6 +915,9 @@ void lovrCanvasDestroy(void* ref) {
     lovrRelease(canvas->resolveTextures[i], lovrTextureDestroy);
   }
   lovrRelease(canvas->depthTexture, lovrTextureDestroy);
+  if (canvas == state.defaultCanvas) {
+    gpu_pass_destroy(canvas->gpu.pass);
+  }
   if (!canvas->temporary) free(canvas);
 }
 
@@ -887,6 +927,14 @@ const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas) {
 
 void lovrCanvasBegin(Canvas* canvas) {
   lovrGraphicsBegin();
+  if (canvas == state.defaultCanvas) {
+    if (!canvas->gpu.color[0].texture) {
+      gpu_surface_acquire(&canvas->gpu.color[0].texture);
+    }
+    canvas->gpu.size[0] = state.width;
+    canvas->gpu.size[1] = state.height;
+    // TODO set clear to background
+  }
   canvas->batch = gpu_begin_render(&canvas->gpu);
   memset(&canvas->pipeline, 0, sizeof(canvas->pipeline));
   canvas->pipeline.info.pass = canvas->gpu.pass;
@@ -1560,6 +1608,7 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
 
 Shader* lovrShaderCreate(ShaderInfo* info) {
   Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader() + gpu_sizeof_pipeline());
+  lovrAssert(shader, "Out of memory");
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
   shader->ref = 1;
@@ -1671,6 +1720,7 @@ void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset) 
 
 Bundle* lovrBundleCreate(Shader* shader, uint32_t group) {
   Bundle* bundle = calloc(1, sizeof(Bundle) + gpu_sizeof_bundle());
+  lovrAssert(bundle, "Out of memory");
   bundle->gpu = (gpu_bundle*) (bundle + 1);
   bundle->ref = 1;
   lovrRetain(shader);
@@ -1678,6 +1728,7 @@ Bundle* lovrBundleCreate(Shader* shader, uint32_t group) {
   bundle->group = &shader->groups[group];
   bundle->bindings = calloc(bundle->group->bindingCount, sizeof(gpu_binding));
   bundle->dynamicOffsets = calloc(bundle->group->dynamicOffsetCount, sizeof(uint32_t));
+  lovrAssert(bundle->bindings && bundle->dynamicOffsets, "Out of memory");
   return bundle;
 }
 
