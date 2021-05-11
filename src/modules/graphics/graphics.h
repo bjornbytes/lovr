@@ -289,7 +289,7 @@ typedef enum {
 typedef struct {
   DrawMode mode;
   uint32_t vertexBufferCount;
-  Buffer* vertexBuffers[16];
+  Buffer* vertexBuffers[8];
   Buffer* indexBuffer;
   uint32_t start;
   uint32_t count;
@@ -304,6 +304,7 @@ typedef struct {
 
 Canvas* lovrCanvasCreate(CanvasInfo* info);
 Canvas* lovrCanvasGetTemporary(CanvasInfo* info);
+Canvas* lovrCanvasGetWindow(void);
 void lovrCanvasDestroy(void* ref);
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
 void lovrCanvasBegin(Canvas* canvas);
