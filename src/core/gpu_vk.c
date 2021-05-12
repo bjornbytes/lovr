@@ -834,9 +834,9 @@ void gpu_flush() {
 }
 
 void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* textures, uint32_t textureCount) {
+  VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
   VkPipelineStageFlags srcStage = 0;
   VkPipelineStageFlags dstStage = 0;
-  VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
 
   for (uint32_t i = 0; i < bufferCount; i++) {
     gpu_buffer* buffer = buffers[i].buffer;
@@ -846,6 +846,8 @@ void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* 
     uint32_t read = buffers[i].flags & ~writeMask;
     uint32_t write = buffers[i].flags & writeMask;
     uint32_t newReads = read & ~buffer->status;
+    VkAccessFlags srcAccess = 0;
+    VkAccessFlags dstAccess = 0;
 
     // For read-after-write, a memory dependency is required so that the write cache is flushed and
     // the read cache is invalidated.  An execution dependency is also necessary to ensure the read
@@ -853,67 +855,34 @@ void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* 
     // the current status, this means a barrier was already issued for the incoming actions, and so
     // it can be skipped.  The write bit in the status is kept so future reads can sync against it.
     if (read && afterWrite && newReads) {
-      if (afterWrite == GPU_BUFFER_FLAG_STORAGE) {
-        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
-      }
-
-      if (afterWrite == GPU_BUFFER_FLAG_COPY_DST) {
-        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        barrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_FLAG_VERTEX) {
-        dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-        barrier.dstAccessMask |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_FLAG_INDEX) {
-        dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-        barrier.dstAccessMask |= VK_ACCESS_INDEX_READ_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_FLAG_UNIFORM) {
-        dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_FLAG_INDIRECT) {
-        dstStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
-        barrier.dstAccessMask |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_FLAG_COPY_SRC) {
-        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        barrier.dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-      }
-
+      if (buffer->status == GPU_BUFFER_FLAG_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (buffer->status == GPU_BUFFER_FLAG_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (buffer->status == GPU_BUFFER_FLAG_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (buffer->status == GPU_BUFFER_FLAG_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (newReads & GPU_BUFFER_FLAG_VERTEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+      if (newReads & GPU_BUFFER_FLAG_VERTEX) dstAccess |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+      if (newReads & GPU_BUFFER_FLAG_INDEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+      if (newReads & GPU_BUFFER_FLAG_INDEX) dstAccess |= VK_ACCESS_INDEX_READ_BIT;
+      if (newReads & GPU_BUFFER_FLAG_UNIFORM) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      if (newReads & GPU_BUFFER_FLAG_UNIFORM) dstAccess |= VK_ACCESS_SHADER_READ_BIT;
+      if (newReads & GPU_BUFFER_FLAG_INDIRECT) dstStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+      if (newReads & GPU_BUFFER_FLAG_INDIRECT) dstAccess |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+      if (newReads & GPU_BUFFER_FLAG_COPY_SRC) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (newReads & GPU_BUFFER_FLAG_COPY_SRC) dstAccess |= VK_ACCESS_TRANSFER_READ_BIT;
       buffer->status |= newReads; // Keep the write bit in the status in case there are more reads
     }
 
     // A write-after-write hazard exists if a write is followed by a write without any intermediate
     // reads.  This requires a full memory/execution dependency.  The write bit is also updated.
     if (write && afterWrite && !afterRead) {
-      if (afterWrite == GPU_BUFFER_FLAG_STORAGE) {
-        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
-      }
-
-      if (afterWrite == GPU_BUFFER_FLAG_COPY_DST) {
-        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        barrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      }
-
-      if (write == GPU_BUFFER_FLAG_STORAGE) {
-        dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        barrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
-      }
-
-      if (write == GPU_BUFFER_FLAG_COPY_DST) {
-        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        barrier.dstAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      }
-
+      if (buffer->status == GPU_BUFFER_FLAG_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (buffer->status == GPU_BUFFER_FLAG_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (buffer->status == GPU_BUFFER_FLAG_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (buffer->status == GPU_BUFFER_FLAG_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (write == GPU_BUFFER_FLAG_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (write == GPU_BUFFER_FLAG_STORAGE) dstAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (write == GPU_BUFFER_FLAG_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (write == GPU_BUFFER_FLAG_COPY_DST) dstAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
       buffer->status = write;
     }
 
@@ -924,34 +893,70 @@ void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* 
     // all that is needed to ensure that this is also the case for the new write.  However, because
     // a write is performed, it becomes the new status bit, clearing any existing read bits.
     if (write && afterRead) {
-      if (afterRead & GPU_BUFFER_FLAG_UNIFORM) {
-        srcStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-      } else if (afterRead & (GPU_BUFFER_FLAG_VERTEX | GPU_BUFFER_FLAG_INDEX)) {
-        srcStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-      } else if (afterRead & GPU_BUFFER_FLAG_INDIRECT) {
-        srcStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
-      }
-
-      if (afterRead & GPU_BUFFER_FLAG_COPY_SRC) {
-        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      }
-
-      if (write == GPU_BUFFER_FLAG_STORAGE) {
-        dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      }
-
-      if (write == GPU_BUFFER_FLAG_COPY_DST) {
-        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      }
-
+      if (buffer->status & GPU_BUFFER_FLAG_UNIFORM) srcStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      else if (buffer->status & GPU_BUFFER_FLAG_VERTEX) srcStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+      if (afterRead & GPU_BUFFER_FLAG_INDIRECT) srcStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+      if (afterRead & GPU_BUFFER_FLAG_COPY_SRC) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (write == GPU_BUFFER_FLAG_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (write == GPU_BUFFER_FLAG_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
       buffer->status = write;
     }
+
+    barrier.srcAccessMask |= srcAccess;
+    barrier.dstAccessMask |= dstAccess;
   }
 
   uint32_t imageBarrierCount = 0;
   VkImageMemoryBarrier imageBarriers[64];
   for (uint32_t i = 0; i < textureCount; i++) {
     gpu_texture* texture = textures[i].texture->source;
+    uint32_t writeMask = GPU_TEXTURE_FLAG_STORAGE | GPU_TEXTURE_FLAG_COPY_DST | GPU_TEXTURE_FLAG_RENDER;
+    uint32_t afterRead = texture->status & ~writeMask;
+    uint32_t afterWrite = texture->status & writeMask;
+    uint32_t read = textures[i].flags & ~writeMask;
+    uint32_t write = textures[i].flags & writeMask;
+    uint32_t newReads = read & ~texture->status;
+    VkAccessFlags srcAccess = 0;
+    VkAccessFlags dstAccess = 0;
+
+    VkPipelineStageFlags renderStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkAccessFlags renderAccessRead = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    VkAccessFlags renderAccessWrite = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    if (texture->aspect != VK_IMAGE_ASPECT_COLOR_BIT) {
+      renderStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+      renderAccessRead = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+      renderAccessWrite = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    }
+
+    if (read && afterWrite && newReads) {
+      if (texture->status == GPU_TEXTURE_FLAG_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (texture->status == GPU_TEXTURE_FLAG_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (texture->status == GPU_TEXTURE_FLAG_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (texture->status == GPU_TEXTURE_FLAG_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (texture->status == GPU_TEXTURE_FLAG_RENDER) srcStage |= renderStage;
+      if (texture->status == GPU_TEXTURE_FLAG_RENDER) srcAccess |= renderAccessWrite;
+      if (newReads & GPU_TEXTURE_FLAG_SAMPLE) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      if (newReads & GPU_TEXTURE_FLAG_SAMPLE) dstAccess |= VK_ACCESS_SHADER_READ_BIT;
+      if (newReads & GPU_TEXTURE_FLAG_COPY_SRC) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (newReads & GPU_TEXTURE_FLAG_COPY_SRC) dstAccess |= VK_ACCESS_TRANSFER_READ_BIT;
+      texture->status |= newReads;
+    }
+
+    if (write && afterWrite && !afterRead) {
+      if (texture->status == GPU_TEXTURE_FLAG_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (texture->status == GPU_TEXTURE_FLAG_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (texture->status == GPU_TEXTURE_FLAG_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (texture->status == GPU_TEXTURE_FLAG_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (texture->status == GPU_TEXTURE_FLAG_RENDER) srcStage |= renderStage;
+      if (texture->status == GPU_TEXTURE_FLAG_RENDER) srcAccess |= renderAccessWrite;
+      if (write == GPU_TEXTURE_FLAG_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (write == GPU_TEXTURE_FLAG_STORAGE) dstAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (write == GPU_TEXTURE_FLAG_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (write == GPU_TEXTURE_FLAG_COPY_DST) dstAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (write == GPU_TEXTURE_FLAG_RENDER) dstStage |= renderStage;
+      if (write == GPU_TEXTURE_FLAG_RENDER) dstAccess |= renderAccessWrite;
+      texture->status = write;
+    }
 
     VkImageLayout newLayout;
     switch (textures[i].flags) {
@@ -964,16 +969,25 @@ void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* 
 
     VkImageLayout oldLayout = (textures[i].flags & GPU_TEXTURE_FLAG_TRANSIENT) ? VK_IMAGE_LAYOUT_UNDEFINED : texture->layout;
     if (oldLayout != newLayout) {
-      // Transition, also store pointer to image barriers srcAccess/dstAccess and write memory
-      // dependencies to there instead
+      imageBarriers[imageBarrierCount++] = (VkImageMemoryBarrier) {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = srcAccess,
+        .dstAccessMask = dstAccess,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .image = texture->source->handle,
+        .subresourceRange = {
+          .aspectMask = texture->aspect,
+          .baseMipLevel = 0,
+          .levelCount = VK_REMAINING_MIP_LEVELS,
+          .baseArrayLayer = 0,
+          .layerCount = VK_REMAINING_ARRAY_LAYERS
+        }
+      };
+    } else {
+      barrier.srcAccessMask |= srcAccess;
+      barrier.dstAccessMask |= dstAccess;
     }
-
-    /*uint32_t writeMask = GPU_TEXTURE_FLAG_STORAGE | GPU_TEXTURE_FLAG_COPY_DST | GPU_TEXTURE_FLAG_RENDER;
-    uint32_t afterRead = texture->status & ~writeMask;
-    uint32_t afterWrite = texture->status & writeMask;
-    uint32_t read = textures[i].flags & ~writeMask;
-    uint32_t write = textures[i].flags & writeMask;
-    uint32_t newReads = read & ~texture->status;*/
   }
 
   if (srcStage && dstStage) {
