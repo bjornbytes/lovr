@@ -2323,7 +2323,7 @@ void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group,
 }
 
 void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
-  VkBuffer handles[8];
+  VkBuffer handles[COUNTOF(((gpu_pipeline_info*) NULL)->bufferStrides)];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
   }
