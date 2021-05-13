@@ -292,7 +292,6 @@ typedef enum {
 } gpu_draw_mode;
 
 typedef enum {
-  GPU_FORMAT_NONE,
   GPU_FORMAT_I8x2,
   GPU_FORMAT_I8x4,
   GPU_FORMAT_U8x2,
@@ -424,6 +423,7 @@ typedef struct {
   uint16_t vertexBufferCount;
   uint16_t instancedBufferMask;
   uint16_t bufferStrides[16];
+  uint16_t attributeCount;
   gpu_vertex_attribute attributes[16];
   gpu_rasterizer_state rasterizer;
   gpu_depth_state depth;

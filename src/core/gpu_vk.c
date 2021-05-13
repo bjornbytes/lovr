@@ -1979,7 +1979,6 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   };
 
   static const VkFormat vertexFormats[] = {
-    [GPU_FORMAT_NONE] = VK_FORMAT_UNDEFINED,
     [GPU_FORMAT_I8x2] = VK_FORMAT_R8G8_SINT,
     [GPU_FORMAT_I8x4] = VK_FORMAT_R8G8B8A8_SINT,
     [GPU_FORMAT_U8x2] = VK_FORMAT_R8G8_UINT,
@@ -2075,7 +2074,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   uint32_t vertexAttributeCount = 0;
   VkVertexInputAttributeDescription vertexAttributes[COUNTOF(info->attributes)];
-  for (uint32_t i = 0; i < COUNTOF(info->attributes) && info->attributes[i].format != GPU_FORMAT_NONE; i++, vertexAttributeCount++) {
+  for (uint32_t i = 0; i < info->attributeCount; i++, vertexAttributeCount++) {
     vertexAttributes[vertexAttributeCount++] = (VkVertexInputAttributeDescription) {
       .location = info->attributes[i].location,
       .binding = info->attributes[i].buffer,
