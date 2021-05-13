@@ -2322,12 +2322,12 @@ void gpu_batch_bind_bundle(gpu_batch* batch, gpu_shader* shader, uint32_t group,
   vkCmdBindDescriptorSets(batch->commands, shader->type, shader->pipelineLayout, group, 1, &bundle->handle, offsetCount, offsets);
 }
 
-void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t count) {
+void gpu_batch_bind_vertex_buffers(gpu_batch* batch, gpu_buffer** buffers, uint64_t* offsets, uint32_t first, uint32_t count) {
   VkBuffer handles[COUNTOF(((gpu_pipeline_info*) NULL)->bufferStrides)];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
   }
-  vkCmdBindVertexBuffers(batch->commands, 0, count, handles, offsets);
+  vkCmdBindVertexBuffers(batch->commands, first, count, handles, offsets);
 }
 
 void gpu_batch_bind_index_buffer(gpu_batch* batch, gpu_buffer* buffer, uint64_t offset, gpu_index_type type) {
