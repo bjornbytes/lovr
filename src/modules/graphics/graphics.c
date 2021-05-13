@@ -19,6 +19,8 @@ uint32_t os_vk_create_surface(void* instance, void** surface);
 #endif
 
 #define INTERNAL_VERTEX_BUFFERS 2
+#define MAX_VERTICES (1 << 16)
+#define MAX_INDICES (1 << 16)
 
 struct Buffer {
   uint32_t ref;
@@ -112,9 +114,15 @@ static struct {
   map_t canvasLookup;
   arr_t(Canvas) canvases;
   uint32_t activeCanvasCount;
-  Texture* defaultTexture;
-  Buffer* defaultBuffer;
   Canvas* defaultCanvas;
+  float* vertices;
+  uint16_t* indices;
+  uint32_t vertexCursor;
+  uint32_t indexCursor;
+  gpu_buffer* vertexBuffer;
+  gpu_buffer* indexBuffer;
+  gpu_buffer* zeroBuffer;
+  gpu_texture* defaultTexture;
 } state;
 
 static void onDebugMessage(void* context, const char* message, int severe) {
@@ -152,9 +160,15 @@ void lovrGraphicsDestroy() {
     lovrRelease(&state.canvases.data[i], lovrCanvasDestroy);
   }
   arr_free(&state.canvases);
-  lovrRelease(state.defaultTexture, lovrTextureDestroy);
-  lovrRelease(state.defaultBuffer, lovrBufferDestroy);
   lovrRelease(state.defaultCanvas, lovrCanvasDestroy);
+  gpu_buffer_destroy(state.vertexBuffer);
+  gpu_buffer_destroy(state.indexBuffer);
+  gpu_buffer_destroy(state.zeroBuffer);
+  gpu_texture_destroy(state.defaultTexture);
+  free(state.vertexBuffer);
+  free(state.indexBuffer);
+  free(state.zeroBuffer);
+  free(state.defaultTexture);
   gpu_destroy();
   memset(&state, 0, sizeof(state));
 }
@@ -191,31 +205,61 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
   arr_init(&state.canvases, realloc);
   arr_reserve(&state.canvases, 2);
 
-  /*
-  state.defaultTexture = lovrTextureCreate(&(TextureInfo) {
-    .type = TEXTURE_2D,
-    .format = FORMAT_RGBA8,
-    .size = { 1, 1, 1 },
+  gpu_begin();
+  state.active = true;
+
+  // Vertex buffer
+  gpu_buffer_info vertexBufferInfo = {
+    .size = MAX_VERTICES * 32,
+    .flags = GPU_BUFFER_FLAG_VERTEX | GPU_BUFFER_FLAG_MAPPABLE,
+    .label = "vertices"
+  };
+  state.vertexBuffer = malloc(gpu_sizeof_buffer());
+  lovrAssert(state.vertexBuffer, "Out of memory");
+  lovrAssert(gpu_buffer_init(state.vertexBuffer, &vertexBufferInfo), "Failed to create vertex buffer");
+
+  // Index buffer
+  gpu_buffer_info indexBufferInfo = {
+    .size = MAX_INDICES * sizeof(uint16_t),
+    .flags = GPU_BUFFER_FLAG_INDEX | GPU_BUFFER_FLAG_MAPPABLE,
+    .label = "indices"
+  };
+  state.indexBuffer = malloc(gpu_sizeof_buffer());
+  lovrAssert(state.indexBuffer, "Out of memory");
+  lovrAssert(gpu_buffer_init(state.indexBuffer, &indexBufferInfo), "Failed to create vertex buffer");
+
+  // Zero buffer (filled with zeroes, for missing vertex attributes)
+  void* pointer;
+  gpu_buffer_info zeroBufferInfo = {
+    .size = 64,
+    .flags = GPU_BUFFER_FLAG_VERTEX | GPU_BUFFER_FLAG_COPY_DST,
+    .pointer = &pointer,
+    .label = "empty"
+  };
+  state.zeroBuffer = malloc(gpu_sizeof_buffer());
+  lovrAssert(state.zeroBuffer, "Out of memory");
+  lovrAssert(gpu_buffer_init(state.zeroBuffer, &zeroBufferInfo), "Failed to create default buffer");
+  memset(pointer, 0, zeroBufferInfo.size);
+
+  // Default texture (8x8 white)
+  gpu_texture_info textureInfo = {
+    .type = GPU_TEXTURE_TYPE_2D,
+    .format = GPU_TEXTURE_FORMAT_RGBA8,
+    .size = { 8, 8, 1 },
     .mipmaps = 1,
     .samples = 1,
-    .flags = TEXTURE_SAMPLE
-  });
+    .flags = GPU_TEXTURE_FLAG_SAMPLE | GPU_TEXTURE_FLAG_COPY_DST,
+    .label = "empty"
+  };
+  state.defaultTexture = malloc(gpu_sizeof_texture());
+  lovrAssert(state.defaultTexture, "Out of memory");
+  lovrAssert(gpu_texture_init(state.defaultTexture, &textureInfo), "Failed to create default texture");
   uint16_t offset[4] = { 0, 0, 0, 0 };
-  uint16_t extent[3] = { 1, 1, 1 };
-  uint8_t pixel[4] = { 0xff, 0xff, 0xff, 0xff };
-  uint32_t step[3] = { 0 };
-  lovrTextureWrite(state.defaultTexture, offset, extent, pixel, step);
-
-  void* zero;
-  state.defaultBuffer = lovrBufferCreate(&(BufferInfo) {
-    .flags = BUFFER_VERTEX | BUFFER_UNIFORM,
-    .length = 1 << 16,
-    .stride = 0, // TODO need some fixes for zero-stride buffers, or separate vertex stride
-    .initialContents = &zero,
-    .label = "zero"
-  });
-  memset(zero, 0, 1 << 16);
-  */
+  uint16_t extent[3] = { 8, 8, 1 };
+  gpu_texture_sync sync = { state.defaultTexture, GPU_TEXTURE_FLAG_COPY_DST };
+  gpu_sync(NULL, 0, &sync, 1);
+  void* pixels = gpu_texture_map(state.defaultTexture, offset, extent);
+  memset(pixels, 0xff, 8 * 8 * 4);
 
   state.initialized = true;
 }
@@ -295,8 +339,12 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
 
 void lovrGraphicsBegin() {
   if (!state.active) {
-    state.active = true;
     gpu_begin();
+    state.active = true;
+    state.vertices = gpu_buffer_map(state.vertexBuffer);
+    state.indices = gpu_buffer_map(state.indexBuffer);
+    state.vertexCursor = 0;
+    state.indexCursor = 0;
   }
 }
 
