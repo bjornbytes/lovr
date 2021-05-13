@@ -1472,7 +1472,7 @@ static bool checkShaderCapability(uint32_t capability) {
     case 4427: lovrAssert(state.features.extraShaderInputs, "GPU does not support shader feature #%d: %s", capability, "extra shader inputs"); break;
     case 4437: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multigpu");
     case 4439: lovrAssert(state.limits.renderViews > 1, "GPU does not support shader feature #%d: %s", capability, "multiview"); break;
-    case 5301: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non uniform indexing");
+    case 5301: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
     case 5306: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
     case 5307: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
     case 5308: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
@@ -1707,9 +1707,6 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   lovrRetain(info->compute);
 
   gpu_shader_info gpuInfo = {
-    .compute = { info->compute->data, info->compute->size, NULL },
-    .vertex = { info->vertex->data, info->vertex->size, NULL },
-    .fragment = { info->fragment->data, info->fragment->size, NULL },
     .label = info->label
   };
 
@@ -1717,8 +1714,14 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   // This temporarily populates the slotIndex so variables can be merged between stages
   // After reflection and handling dynamic buffers, slots are sorted and lookup tables are generated
   if (info->type == SHADER_COMPUTE) {
+    gpuInfo.compute.code = info->compute->data;
+    gpuInfo.compute.size = info->compute->size;
     parseSpirv(shader, info->compute, GPU_STAGE_COMPUTE);
   } else {
+    gpuInfo.vertex.code = info->vertex->data;
+    gpuInfo.vertex.size = info->vertex->size;
+    gpuInfo.fragment.code = info->fragment->data;
+    gpuInfo.fragment.size = info->fragment->size;
     parseSpirv(shader, info->vertex, GPU_STAGE_VERTEX);
     parseSpirv(shader, info->fragment, GPU_STAGE_FRAGMENT);
   }
