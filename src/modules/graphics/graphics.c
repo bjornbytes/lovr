@@ -988,6 +988,9 @@ void lovrCanvasBegin(Canvas* canvas) {
     // TODO set clear to background
   }
   canvas->batch = gpu_begin_render(&canvas->gpu);
+  gpu_buffer* defaultBuffers[2] = { state.zeroBuffer, state.vertexBuffer };
+  uint64_t offsets[2] = { 0 };
+  gpu_batch_bind_vertex_buffers(canvas->batch, defaultBuffers, offsets, 0, 2);
   memset(&canvas->pipeline, 0, sizeof(canvas->pipeline));
   canvas->pipeline.info.pass = canvas->gpu.pass;
   canvas->pipeline.info.depth.test = GPU_COMPARE_LEQUAL;
