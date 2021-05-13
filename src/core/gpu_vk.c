@@ -958,6 +958,8 @@ void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* 
       texture->status = write;
     }
 
+    // TODO write after read
+
     VkImageLayout newLayout;
     switch (textures[i].flags) {
       case GPU_TEXTURE_FLAG_SAMPLE: newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; break;
@@ -984,6 +986,7 @@ void gpu_sync(gpu_buffer_sync* buffers, uint32_t bufferCount, gpu_texture_sync* 
           .layerCount = VK_REMAINING_ARRAY_LAYERS
         }
       };
+      texture->layout = newLayout;
     } else {
       barrier.srcAccessMask |= srcAccess;
       barrier.dstAccessMask |= dstAccess;
