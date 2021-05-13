@@ -21,6 +21,8 @@ uint32_t os_vk_create_surface(void* instance, void** surface);
 #define INTERNAL_VERTEX_BUFFERS 2
 #define MAX_VERTICES (1 << 16)
 #define MAX_INDICES (1 << 16)
+#define MAX_TRANSFORMS (1 << 12)
+#define MAX_COLORS (1 << 12)
 
 struct Buffer {
   uint32_t ref;
@@ -117,11 +119,17 @@ static struct {
   Canvas* defaultCanvas;
   float* vertices;
   uint16_t* indices;
+  float* transforms;
+  float* colors;
   uint32_t vertexCursor;
   uint32_t indexCursor;
+  uint32_t transformCursor;
+  uint32_t colorCursor;
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
   gpu_buffer* zeroBuffer;
+  gpu_buffer* transformBuffer;
+  gpu_buffer* colorBuffer;
   gpu_texture* defaultTexture;
 } state;
 
@@ -164,10 +172,14 @@ void lovrGraphicsDestroy() {
   gpu_buffer_destroy(state.vertexBuffer);
   gpu_buffer_destroy(state.indexBuffer);
   gpu_buffer_destroy(state.zeroBuffer);
+  gpu_buffer_destroy(state.transformBuffer);
+  gpu_buffer_destroy(state.colorBuffer);
   gpu_texture_destroy(state.defaultTexture);
   free(state.vertexBuffer);
   free(state.indexBuffer);
   free(state.zeroBuffer);
+  free(state.transformBuffer);
+  free(state.colorBuffer);
   free(state.defaultTexture);
   gpu_destroy();
   memset(&state, 0, sizeof(state));
@@ -240,6 +252,18 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
   lovrAssert(state.zeroBuffer, "Out of memory");
   lovrAssert(gpu_buffer_init(state.zeroBuffer, &zeroBufferInfo), "Failed to create default buffer");
   memset(pointer, 0, zeroBufferInfo.size);
+
+  // Transform buffer
+  gpu_buffer_info transformBufferInfo = { .size = MAX_TRANSFORMS * 64, .flags = GPU_BUFFER_FLAG_UNIFORM | GPU_BUFFER_FLAG_MAPPABLE };
+  state.transformBuffer = malloc(gpu_sizeof_buffer());
+  lovrAssert(state.transformBuffer, "Out of memory");
+  lovrAssert(gpu_buffer_init(state.transformBuffer, &transformBufferInfo), "Failed to create transform buffer");
+
+  // Color buffer
+  gpu_buffer_info colorBufferInfo = { .size = MAX_COLORS * 16, .flags = GPU_BUFFER_FLAG_UNIFORM | GPU_BUFFER_FLAG_MAPPABLE };
+  state.colorBuffer = malloc(gpu_sizeof_buffer());
+  lovrAssert(state.colorBuffer, "Out of memory");
+  lovrAssert(gpu_buffer_init(state.colorBuffer, &colorBufferInfo), "Failed to create color buffer");
 
   // Default texture (8x8 white)
   gpu_texture_info textureInfo = {
@@ -343,8 +367,12 @@ void lovrGraphicsBegin() {
     state.active = true;
     state.vertices = gpu_buffer_map(state.vertexBuffer);
     state.indices = gpu_buffer_map(state.indexBuffer);
+    state.transforms = gpu_buffer_map(state.transformBuffer);
+    state.colors = gpu_buffer_map(state.colorBuffer);
     state.vertexCursor = 0;
     state.indexCursor = 0;
+    state.transformCursor = 0;
+    state.colorCursor = 0;
   }
 }
 
