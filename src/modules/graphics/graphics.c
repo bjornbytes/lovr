@@ -18,6 +18,8 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 uint32_t os_vk_create_surface(void* instance, void** surface);
 #endif
 
+#define INTERNAL_VERTEX_BUFFERS 2
+
 struct Buffer {
   uint32_t ref;
   gpu_buffer* gpu;
@@ -43,6 +45,8 @@ struct Canvas {
   Texture* colorTextures[4];
   Texture* resolveTextures[4];
   Texture* depthTexture;
+  uint32_t attributeCount;
+  VertexAttribute attributes[16];
   Buffer* vertexBuffers[16];
   Buffer* indexBuffer;
   struct {
@@ -1203,6 +1207,16 @@ void lovrCanvasSetShader(Canvas* canvas, Shader* shader) {
   canvas->pipeline.dirty = true;
 }
 
+void lovrCanvasGetVertexFormat(Canvas* canvas, VertexAttribute attributes[16], uint32_t* count) {
+  memcpy(attributes, canvas->attributes, canvas->attributeCount * sizeof(VertexAttribute));
+  *count = canvas->attributeCount;
+}
+
+void lovrCanvasSetVertexFormat(Canvas* canvas, VertexAttribute attributes[16], uint32_t count) {
+  memcpy(canvas->attributes, attributes, count * sizeof(VertexAttribute));
+  canvas->attributeCount = count;
+}
+
 Winding lovrCanvasGetWinding(Canvas* canvas) {
   return (Winding) canvas->pipeline.info.rasterizer.winding;
 }
@@ -1244,7 +1258,7 @@ static void lovrCanvasBindVertexBuffers(Canvas* canvas, DrawCall* draw) {
   canvas->pipeline.dirty = true;
 
   uint64_t offsets[16] = { 0 };
-  gpu_batch_bind_vertex_buffers(canvas->batch, buffers, offsets, draw->vertexBufferCount);
+  gpu_batch_bind_vertex_buffers(canvas->batch, buffers, offsets, INTERNAL_VERTEX_BUFFERS, draw->vertexBufferCount);
 }
 
 static void lovrCanvasBindIndexBuffer(Canvas* canvas, DrawCall* draw) {
@@ -1266,6 +1280,12 @@ static void lovrCanvasBindPipeline(Canvas* canvas, DrawCall* draw) {
     canvas->pipeline.dirty = true;
   }
 
+  // TODO see if (pre-)hashing vertex formats is worth it to make comparison easier/faster
+  if (canvas->pipeline.info.attributeCount != draw->attributeCount || memcmp(canvas->pipeline.info.attributes, draw->attributes, draw->attributeCount * sizeof(VertexAttribute))) {
+    memcpy(canvas->pipeline.info.attributes, draw->attributes, draw->attributeCount * sizeof(VertexAttribute));
+    canvas->pipeline.dirty = true;
+  }
+
   if (!canvas->pipeline.dirty) return;
 
   uint64_t hash = hash64(&canvas->pipeline.info, sizeof(gpu_pipeline_info));
@@ -1274,6 +1294,27 @@ static void lovrCanvasBindPipeline(Canvas* canvas, DrawCall* draw) {
   uint64_t value = map_get(&state.pipelines, hash);
 
   if (value == MAP_NIL) {
+    // Offset vertex buffer indices by the internal buffer count, track which locations are present
+    uint16_t mask = 0;
+    for (uint32_t i = 0; i < draw->attributeCount; i++) {
+      draw->attributes[i].buffer += INTERNAL_VERTEX_BUFFERS;
+      mask |= (1 << draw->attributes[i].location);
+    }
+
+    // Add attributes for any missing locations, pointing at the zero buffer
+    uint32_t missingAttributes = canvas->shader->locationMask & ~mask;
+    if (missingAttributes) {
+      for (uint32_t i = 0; i < COUNTOF(canvas->pipeline.info.attributes); i++) {
+        if (missingAttributes & (1 << i)) {
+          canvas->pipeline.info.attributes[canvas->pipeline.info.attributeCount++] = (gpu_vertex_attribute) {
+            .location = i,
+            .buffer = 0,
+            .format = GPU_FORMAT_F32x4
+          };
+        }
+      }
+    }
+
     gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
     lovrAssert(pipeline, "Out of memory");
     lovrAssert(gpu_pipeline_init_graphics(pipeline, &canvas->pipeline.info), "Failed to create pipeline");
