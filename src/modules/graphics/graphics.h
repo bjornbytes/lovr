@@ -229,6 +229,12 @@ typedef enum {
 } CullMode;
 
 typedef enum {
+  DRAW_POINTS,
+  DRAW_LINES,
+  DRAW_TRIANGLES
+} DrawMode;
+
+typedef enum {
   STENCIL_KEEP,
   STENCIL_REPLACE,
   STENCIL_INCREMENT,
@@ -237,6 +243,13 @@ typedef enum {
   STENCIL_DECREMENT_WRAP,
   STENCIL_INVERT
 } StencilAction;
+
+typedef struct {
+  uint8_t location;
+  uint8_t buffer;
+  uint8_t fieldType;
+  uint8_t offset;
+} VertexAttribute;
 
 typedef enum {
   WINDING_COUNTERCLOCKWISE,
@@ -280,14 +293,10 @@ typedef struct {
   const char* label;
 } CanvasInfo;
 
-typedef enum {
-  DRAW_POINTS,
-  DRAW_LINES,
-  DRAW_TRIANGLES
-} DrawMode;
-
 typedef struct {
   DrawMode mode;
+  uint32_t attributeCount;
+  VertexAttribute attributes[16];
   uint32_t vertexBufferCount;
   Buffer* vertexBuffers[8];
   Buffer* indexBuffer;
@@ -341,6 +350,8 @@ Shader* lovrCanvasGetShader(Canvas* canvas);
 void lovrCanvasSetShader(Canvas* canvas, Shader* shader);
 void lovrCanvasGetStencilTest(Canvas* canvas, CompareMode* test, uint8_t* value);
 void lovrCanvasSetStencilTest(Canvas* canvas, CompareMode test, uint8_t value);
+void lovrCanvasGetVertexFormat(Canvas* canvas, VertexAttribute attributes[16], uint32_t* count);
+void lovrCanvasSetVertexFormat(Canvas* canvas, VertexAttribute attributes[16], uint32_t count);
 Winding lovrCanvasGetWinding(Canvas* canvas);
 void lovrCanvasSetWinding(Canvas* canvas, Winding winding);
 bool lovrCanvasIsWireframe(Canvas* canvas);
