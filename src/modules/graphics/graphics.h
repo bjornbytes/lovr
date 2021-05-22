@@ -72,7 +72,7 @@ float lovrGraphicsGetPixelDensity(void);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
-void lovrGraphicsFlush(void);
+void lovrGraphicsSubmit(void);
 
 // Buffer
 
