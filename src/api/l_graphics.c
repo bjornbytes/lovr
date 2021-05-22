@@ -460,8 +460,13 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsFlush(lua_State* L) {
-  lovrGraphicsFlush();
+static int l_lovrGraphicsBegin(lua_State* L) {
+  lovrGraphicsBegin();
+  return 0;
+}
+
+static int l_lovrGraphicsSubmit(lua_State* L) {
+  lovrGraphicsSubmit();
   return 0;
 }
 
@@ -927,7 +932,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "getPixelDensity", l_lovrGraphicsGetPixelDensity },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
-  { "flush", l_lovrGraphicsFlush },
+  { "begin", l_lovrGraphicsBegin },
+  { "submit", l_lovrGraphicsSubmit },
   { "renderTo", l_lovrGraphicsRenderTo },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
