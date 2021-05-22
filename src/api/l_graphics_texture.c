@@ -126,7 +126,7 @@ typedef struct {
   uint32_t height;
 } luax_readback;
 
-static void onReadback(void* data, uint64_t size, void* context) {
+static void onReadback(void* data, uint32_t size, void* context) {
   luax_readback* readback = context;
 
   Image* image = lovrImageCreate(readback->width, readback->height, NULL, 0, readback->format);

@@ -191,7 +191,7 @@ static void luax_readbufferfieldv(float* v, FieldType type, int c, void* data) {
   }
 }
 
-void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, void* data) {
+void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   uint32_t stride = info->stride;
 
@@ -204,7 +204,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, void* data) {
     uint32_t count = luaL_optinteger(L, index + 3, limit);
     lovrAssert(srcIndex + count <= blob->size / stride, "Tried to read too many elements from the Blob");
     lovrAssert(dstIndex + count <= info->length, "Tried to write Buffer elements [%d,%d] but Buffer can only hold %d things", dstIndex + 1, dstIndex + count - 1, info->length);
-    char* dst = (char*) data + dstIndex * stride;
+    char* dst = lovrBufferMap(buffer, dstIndex * stride, count * stride);
     char* src = (char*) blob->data + srcIndex * stride;
     memcpy(dst, src, count * stride);
     return;
@@ -220,7 +220,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, void* data) {
   uint32_t count = luaL_optinteger(L, index + 3, limit);
   lovrAssert(dstIndex + count <= info->length, "Tried to write Buffer elements [%d,%d] but Buffer can only hold %d things", dstIndex + 1, dstIndex + count - 1, info->length);
 
-  char* base = (char*) data + dstIndex * stride;
+  char* base = lovrBufferMap(buffer, dstIndex * stride, count * stride);
 
   if (nested) {
     for (uint32_t i = 0; i < count; i++) {
@@ -320,30 +320,21 @@ static int l_lovrBufferGetFormat(lua_State* L) {
 
 static int l_lovrBufferGetPointer(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  void* pointer = lovrBufferMap(buffer);
+  void* pointer = lovrBufferMap(buffer, 0, ~0u);
   lua_pushlightuserdata(L, pointer);
   return 1;
 }
 
-static int l_lovrBufferHasFlags(lua_State* L) {
+static int l_lovrBufferIsTransient(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
-  luaL_checkany(L, 2);
-  int top = lua_gettop(L);
-  for (int i = 2; i <= top; i++) {
-    int bit = luax_checkenum(L, i, BufferFlag, NULL);
-    if (~info->flags & (1 << bit)) {
-      lua_pushboolean(L, false);
-    }
-  }
-  lua_pushboolean(L, true);
+  lua_pushboolean(L, info->transient);
   return 1;
 }
 
 static int l_lovrBufferWrite(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  void* data = lovrBufferMap(buffer);
-  luax_readbufferdata(L, 2, buffer, data);
+  luax_readbufferdata(L, 2, buffer);
   return 0;
 }
 
@@ -380,7 +371,7 @@ typedef struct {
   uint32_t offset;
 } BufferReader;
 
-static void luax_onreadback(void* data, uint64_t size, void* userdata) {
+static void luax_onreadback(void* data, uint32_t size, void* userdata) {
   BufferReader* reader = userdata;
 
   lua_State* L = reader->L;
@@ -443,16 +434,23 @@ static int l_lovrBufferRead(lua_State* L) {
   return 0;
 }
 
+static int l_lovrBufferDrop(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  lovrBufferDrop(buffer);
+  return 0;
+}
+
 const luaL_Reg lovrBuffer[] = {
   { "getSize", l_lovrBufferGetSize },
   { "getLength", l_lovrBufferGetLength },
   { "getStride", l_lovrBufferGetStride },
   { "getFormat", l_lovrBufferGetFormat },
   { "getPointer", l_lovrBufferGetPointer },
-  { "hasFlags", l_lovrBufferHasFlags },
+  { "isTransient", l_lovrBufferIsTransient },
   { "write", l_lovrBufferWrite },
   { "clear", l_lovrBufferClear },
   { "copy", l_lovrBufferCopy },
   { "read", l_lovrBufferRead },
+  { "drop", l_lovrBufferDrop },
   { NULL, NULL }
 };

@@ -25,6 +25,9 @@ struct Buffer {
   uint32_t ref;
   gpu_buffer* gpu;
   BufferInfo info;
+  void* pointer;
+  uint32_t base;
+  uint32_t frame;
   uint32_t size;
 };
 
@@ -104,6 +107,7 @@ static struct {
   bool debug;
   int width;
   int height;
+  uint32_t frame;
   gpu_features features;
   gpu_limits limits;
   map_t pipelines;
@@ -271,6 +275,7 @@ void lovrGraphicsBegin() {
     state.stream = state.streams[0] = gpu_stream_begin();
     state.streamSort[0] = 1;
     state.streamCount = 1;
+    state.frame++;
   }
 }
 
@@ -300,13 +305,11 @@ void lovrGraphicsSubmit() {
 // Buffer
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
-  lovrAssert(info->length * info->stride > 0, "Buffer size must be greater than zero");
-  size_t totalSize = info->length * info->stride * ((info->flags & BUFFER_WRITE) ? 2 : 1);
-  lovrAssert(totalSize <= state.limits.allocationSize, "Buffer size (%d) exceeds the allocationSize limit of this GPU (%d)", totalSize, state.limits.allocationSize);
-
-  if (info->flags & BUFFER_WRITE) {
-    lovrAssert(~info->flags & BUFFER_COMPUTE, "Buffers can not have both the 'write' and 'compute' flags");
-  }
+  size_t size = info->length * info->stride;
+  lovrAssert(size > 0, "Buffer size must be greater than zero");
+  lovrAssert(size <= state.limits.allocationSize, "Buffer size (%d) exceeds the allocationSize limit of this GPU (%d)", size, state.limits.allocationSize);
+  lovrAssert(info->type == BUFFER_STORAGE || !info->parameter, "Only storage buffers can have the 'parameter' flag");
+  lovrAssert(!info->transient || info->type != BUFFER_STORAGE, "Storage buffers can not be transient");
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
   lovrAssert(buffer, "Out of memory");
@@ -315,21 +318,19 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   buffer->ref = 1;
 
   gpu_buffer_info gpuInfo = {
-    .size = ALIGN(info->length * info->stride, 4),
+    .size = ALIGN(size, 4),
     .flags =
-      ((info->flags & BUFFER_VERTEX) ? GPU_BUFFER_FLAG_VERTEX : 0) |
-      ((info->flags & BUFFER_INDEX) ? GPU_BUFFER_FLAG_INDEX : 0) |
-      ((info->flags & BUFFER_UNIFORM) ? GPU_BUFFER_FLAG_UNIFORM : 0) |
-      ((info->flags & BUFFER_COMPUTE) ? GPU_BUFFER_FLAG_STORAGE : 0) |
-      ((info->flags & BUFFER_PARAMETER) ? GPU_BUFFER_FLAG_INDIRECT : 0) |
-      ((info->flags & BUFFER_COPY) ? GPU_BUFFER_FLAG_COPY_SRC : 0) |
-      ((~info->flags & BUFFER_WRITE) ? GPU_BUFFER_FLAG_COPY_DST : 0),
-    .pointer = info->initialContents,
+      ((info->type == BUFFER_VERTEX) ? GPU_BUFFER_FLAG_VERTEX : 0) |
+      ((info->type == BUFFER_INDEX) ? GPU_BUFFER_FLAG_INDEX : 0) |
+      ((info->type == BUFFER_UNIFORM) ? GPU_BUFFER_FLAG_UNIFORM : 0) |
+      ((info->type == BUFFER_STORAGE) ? GPU_BUFFER_FLAG_STORAGE : 0) |
+      (info->transient ? 0 : GPU_BUFFER_FLAG_COPY_DST) |
+      (info->parameter ? GPU_BUFFER_FLAG_INDIRECT : 0),
     .label = info->label
   };
 
   gpu_buffer_init(buffer->gpu, &gpuInfo);
-  buffer->size = info->length * info->stride;
+  buffer->size = size;
   return buffer;
 }
 
@@ -343,9 +344,21 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
 }
 
-void* lovrBufferMap(Buffer* buffer) {
+void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
+  if (size == ~0u) size = buffer->size - offset;
   lovrAssert(state.stream, "Graphics is not active");
-  return NULL;
+  lovrAssert(offset + size <= buffer->size, "Tried to write past the end of the Buffer");
+  if (buffer->info.transient) {
+    if (buffer->frame != state.frame) {
+      lovrBufferDrop(buffer);
+    }
+    return (uint8_t*) buffer->pointer + offset;
+  } else {
+    gpu_scratchpad scratch = gpu_scratch(size, 4);
+    lovrAssert(scratch.buffer, "Failed to get GPU scratch memory");
+    gpu_copy_buffer(state.stream, scratch.buffer, buffer->gpu, scratch.offset, offset, size);
+    return scratch.pointer;
+  }
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
@@ -353,23 +366,39 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrAssert(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrAssert(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrAssert(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
-  gpu_clear_buffer(state.stream, buffer->gpu, offset, size, 0);
+  if (buffer->info.transient) {
+    if (buffer->frame != state.frame) {
+      lovrBufferDrop(buffer);
+    }
+    memset((uint8_t*) buffer->pointer + offset, 0, size);
+  } else {
+    gpu_clear_buffer(state.stream, buffer->gpu, offset, size, 0);
+  }
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   lovrAssert(state.stream, "Graphics is not active");
-  lovrAssert(src->info.flags & BUFFER_COPY, "A Buffer can only be copied if it has the 'copy' flag");
-  lovrAssert(~dst->info.flags & BUFFER_WRITE, "Buffers with the 'write' flag can not be copied to");
+  lovrAssert(!dst->info.transient, "Transient Buffers can not be copied to");
   lovrAssert(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
   lovrAssert(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
   gpu_copy_buffer(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, size);
 }
 
-void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
+void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
   lovrAssert(state.stream, "Graphics is not active");
-  lovrAssert(buffer->info.flags & BUFFER_COPY, "A Buffer can only be read if it has the 'copy' flag");
   lovrAssert(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
   gpu_read_buffer(state.stream, buffer->gpu, offset, size, callback, userdata);
+}
+
+void lovrBufferDrop(Buffer* buffer) {
+  lovrAssert(state.stream, "Graphics is not active");
+  lovrAssert(buffer->info.transient, "Only transient Buffers can be dropped");
+  gpu_scratchpad scratch = gpu_scratch(buffer->size, 4);
+  lovrAssert(scratch.buffer, "Failed to get GPU scratch memory");
+  buffer->gpu = scratch.buffer;
+  buffer->base = scratch.offset;
+  buffer->pointer = scratch.pointer;
+  buffer->frame = state.frame;
 }
 
 // Texture
@@ -656,7 +685,7 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
   gpu_clear_texture(state.stream, texture->gpu, layer + texture->baseLayer, layerCount, level + texture->baseLevel, levelCount, color);
 }
 
-void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata) {
+void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
   lovrAssert(state.stream, "Graphics is not active");
   lovrAssert(texture->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to read from it");
   lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be read");
@@ -910,7 +939,7 @@ void lovrCanvasBegin(Canvas* canvas) {
   lovrAssert(state.stream, "Graphics is not active");
   if (canvas == state.defaultCanvas) {
     if (!canvas->gpu.color[0].texture) {
-      gpu_surface_acquire(&canvas->gpu.color[0].texture);
+      canvas->gpu.color[0].texture = gpu_surface_acquire();
     }
     canvas->gpu.size[0] = state.width;
     canvas->gpu.size[1] = state.height;
@@ -1219,7 +1248,7 @@ static void lovrCanvasBindVertexBuffers(Canvas* canvas, DrawCall* draw) {
   gpu_buffer* buffers[16];
   for (uint32_t i = 0; i < draw->vertexBufferCount; i++) {
     Buffer* buffer = draw->vertexBuffers[i];
-    lovrAssert(buffer->info.flags & BUFFER_VERTEX, "Buffer must be created with 'vertex' flag to use it as a vertex buffer");
+    lovrAssert(buffer->info.type == BUFFER_VERTEX, "Vertex buffer has the wrong type");
     lovrRetain(buffer);
     lovrRelease(canvas->vertexBuffers[i], lovrBufferDestroy);
     canvas->vertexBuffers[i] = buffer;
@@ -1230,14 +1259,14 @@ static void lovrCanvasBindVertexBuffers(Canvas* canvas, DrawCall* draw) {
   canvas->pipeline.info.vertexBufferCount = draw->vertexBufferCount;
   canvas->pipeline.dirty = true;
 
-  uint64_t offsets[16] = { 0 };
+  uint32_t offsets[16] = { 0 };
   gpu_bind_vertex_buffers(canvas->stream, buffers, offsets, INTERNAL_VERTEX_BUFFERS, draw->vertexBufferCount);
 }
 
 static void lovrCanvasBindIndexBuffer(Canvas* canvas, DrawCall* draw) {
   if (!draw->indexBuffer || canvas->indexBuffer == draw->indexBuffer) return;
   Buffer* buffer = draw->indexBuffer;
-  lovrAssert(buffer->info.flags & BUFFER_INDEX, "Buffer must be created with 'index' flag to use it as an index buffer");
+  lovrAssert(buffer->info.type == BUFFER_INDEX, "Index buffer has the wrong type");
   gpu_index_type type = buffer->info.types[0] == FIELD_U32 ? GPU_INDEX_U32 : GPU_INDEX_U16;
   size_t stride = buffer->info.types[0] == FIELD_U32 ? 4 : 2;
   lovrAssert((draw->start + draw->count) * stride <= buffer->size, "Draw range exceeds size of index buffer");
@@ -1319,7 +1348,7 @@ void lovrCanvasDrawIndexed(Canvas* canvas, DrawCall* draw) {
 
 void lovrCanvasDrawIndirect(Canvas* canvas, DrawCall* draw) {
   lovrAssert(canvas->stream, "Canvas is not active");
-  lovrAssert(draw->indirectBuffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with 'parameter' flag to use it for draw parameters");
+  lovrAssert(draw->indirectBuffer->info.parameter, "Buffer must be created with 'parameter' flag to use it for draw parameters");
   lovrAssert(draw->indirectOffset % 4 == 0, "Parameter buffer offset must be a multiple of 4");
   lovrAssert(draw->indirectCount <= state.limits.indirectDrawCount, "Indirect draw count (%d) exceeds the indirectDrawCount limit of this GPU (%d)", draw->indirectCount, state.limits.indirectDrawCount);
   lovrAssert(draw->indirectOffset + draw->indirectCount * 16 <= draw->indirectBuffer->size, "Parameter buffer range exceeds its size");
@@ -1330,7 +1359,7 @@ void lovrCanvasDrawIndirect(Canvas* canvas, DrawCall* draw) {
 
 void lovrCanvasDrawIndirectIndexed(Canvas* canvas, DrawCall* draw) {
   lovrAssert(canvas->stream, "Canvas is not active");
-  lovrAssert(draw->indirectBuffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with 'parameter' flag to use it for draw parameters");
+  lovrAssert(draw->indirectBuffer->info.parameter, "Buffer must be created with 'parameter' flag to use it for draw parameters");
   lovrAssert(draw->indirectOffset % 4 == 0, "Parameter buffer offset must be a multiple of 4");
   lovrAssert(draw->indirectCount <= state.limits.indirectDrawCount, "Indirect draw count (%d) exceeds the indirectDrawCount limit of this GPU (%d)", draw->indirectCount, state.limits.indirectDrawCount);
   lovrAssert(draw->indirectOffset + draw->indirectCount * 20 <= draw->indirectBuffer->size, "Parameter buffer range exceeds its size");
@@ -1726,7 +1755,7 @@ void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z) {
 
 void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset) {
   lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to dispatch a compute operation");
-  lovrAssert(buffer->info.flags & BUFFER_PARAMETER, "Buffer must be created with the 'parameter' flag to be used for compute parameters");
+  lovrAssert(buffer->info.parameter, "Buffer must be created with the 'parameter' flag to be used for compute parameters");
   gpu_bind_pipeline(state.stream, shader->computePipeline);
   gpu_compute_indirect(state.stream, buffer->gpu, offset);
 }
