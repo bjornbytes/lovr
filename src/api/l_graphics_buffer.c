@@ -281,6 +281,13 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
   }
 }
 
+static int l_lovrBufferGetType(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  const BufferInfo* info = lovrBufferGetInfo(buffer);
+  luax_pushenum(L, BufferType, info->type);
+  return 1;
+}
+
 static int l_lovrBufferGetSize(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
@@ -441,6 +448,7 @@ static int l_lovrBufferDrop(lua_State* L) {
 }
 
 const luaL_Reg lovrBuffer[] = {
+  { "getType", l_lovrBufferGetType },
   { "getSize", l_lovrBufferGetSize },
   { "getLength", l_lovrBufferGetLength },
   { "getStride", l_lovrBufferGetStride },
