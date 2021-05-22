@@ -319,13 +319,13 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
     .size = info->size,
     .usage =
-      ((info->flags & GPU_BUFFER_FLAG_VERTEX) ? VK_BUFFER_USAGE_VERTEX_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_FLAG_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_FLAG_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_FLAG_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_FLAG_INDIRECT) ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_FLAG_COPY_SRC) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
-      ((info->flags & GPU_BUFFER_FLAG_COPY_DST) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0)
+      ((info->flags & GPU_BUFFER_VERTEX) ? VK_BUFFER_USAGE_VERTEX_BUFFER_BIT : 0) |
+      ((info->flags & GPU_BUFFER_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
+      ((info->flags & GPU_BUFFER_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
+      ((info->flags & GPU_BUFFER_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
+      ((info->flags & GPU_BUFFER_INDIRECT) ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0) |
+      ((info->flags & GPU_BUFFER_COPY_SRC) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
+      ((info->flags & GPU_BUFFER_COPY_DST) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0)
   };
 
   TRY(vkCreateBuffer(state.device, &bufferInfo, NULL, &buffer->handle), "Could not create buffer") {
@@ -375,19 +375,19 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   VkImageType type;
   VkImageCreateFlags flags = 0;
   switch (info->type) {
-    case GPU_TEXTURE_TYPE_2D: type = VK_IMAGE_TYPE_2D; break;
-    case GPU_TEXTURE_TYPE_3D: type = VK_IMAGE_TYPE_3D; flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT; break;
-    case GPU_TEXTURE_TYPE_CUBE: type = VK_IMAGE_TYPE_2D; flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; break;
-    case GPU_TEXTURE_TYPE_ARRAY: type = VK_IMAGE_TYPE_2D; break;
+    case GPU_TEXTURE_2D: type = VK_IMAGE_TYPE_2D; break;
+    case GPU_TEXTURE_3D: type = VK_IMAGE_TYPE_3D; flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT; break;
+    case GPU_TEXTURE_CUBE: type = VK_IMAGE_TYPE_2D; flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; break;
+    case GPU_TEXTURE_ARRAY: type = VK_IMAGE_TYPE_2D; break;
     default: return false;
   }
 
   texture->format = convertFormat(info->format, info->srgb);
-  texture->array = info->type == GPU_TEXTURE_TYPE_ARRAY;
+  texture->array = info->type == GPU_TEXTURE_ARRAY;
 
-  if (info->format == GPU_TEXTURE_FORMAT_D24S8) {
+  if (info->format == GPU_FORMAT_D24S8) {
     texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-  } else if (info->format == GPU_TEXTURE_FORMAT_D16 || info->format == GPU_TEXTURE_FORMAT_D32F) {
+  } else if (info->format == GPU_FORMAT_D16 || info->format == GPU_FORMAT_D32F) {
     texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
   } else {
     texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -407,13 +407,13 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .samples = info->samples,
     .tiling = VK_IMAGE_TILING_OPTIMAL,
     .usage =
-      (((info->flags & GPU_TEXTURE_FLAG_RENDER) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
-      (((info->flags & GPU_TEXTURE_FLAG_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_FLAG_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_FLAG_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_FLAG_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_FLAG_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_FLAG_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0)
+      (((info->flags & GPU_TEXTURE_RENDER) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
+      (((info->flags & GPU_TEXTURE_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
+      ((info->flags & GPU_TEXTURE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
+      ((info->flags & GPU_TEXTURE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
+      ((info->flags & GPU_TEXTURE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
+      ((info->flags & GPU_TEXTURE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
+      ((info->flags & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0)
   };
 
   TRY(vkCreateImage(state.device, &imageInfo, NULL, &texture->handle), "Could not create texture") {
@@ -469,14 +469,14 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     texture->format = info->source->format;
     texture->aspect = info->source->aspect;
     texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    texture->array = info->type == GPU_TEXTURE_TYPE_ARRAY;
+    texture->array = info->type == GPU_TEXTURE_ARRAY;
   }
 
   static const VkImageViewType types[] = {
-    [GPU_TEXTURE_TYPE_2D] = VK_IMAGE_VIEW_TYPE_2D,
-    [GPU_TEXTURE_TYPE_3D] = VK_IMAGE_VIEW_TYPE_3D,
-    [GPU_TEXTURE_TYPE_CUBE] = VK_IMAGE_VIEW_TYPE_CUBE,
-    [GPU_TEXTURE_TYPE_ARRAY] = VK_IMAGE_VIEW_TYPE_2D_ARRAY
+    [GPU_TEXTURE_2D] = VK_IMAGE_VIEW_TYPE_2D,
+    [GPU_TEXTURE_3D] = VK_IMAGE_VIEW_TYPE_3D,
+    [GPU_TEXTURE_CUBE] = VK_IMAGE_VIEW_TYPE_CUBE,
+    [GPU_TEXTURE_ARRAY] = VK_IMAGE_VIEW_TYPE_2D_ARRAY
   };
 
   VkImageViewCreateInfo createInfo = {
@@ -1514,7 +1514,7 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
 
   for (uint32_t i = 0; i < sync->bufferCount; i++) {
     gpu_buffer* buffer = sync->buffers[i].buffer;
-    uint32_t writeMask = GPU_BUFFER_FLAG_STORAGE | GPU_BUFFER_FLAG_COPY_DST;
+    uint32_t writeMask = GPU_BUFFER_STORAGE | GPU_BUFFER_COPY_DST;
     uint32_t afterRead = buffer->status & ~writeMask;
     uint32_t afterWrite = buffer->status & writeMask;
     uint32_t read = sync->buffers[i].flags & ~writeMask;
@@ -1529,34 +1529,34 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
     // the current status, this means a barrier was already issued for the incoming actions, and so
     // it can be skipped.  The write bit in the status is kept so future reads can sync against it.
     if (read && afterWrite && newReads) {
-      if (buffer->status == GPU_BUFFER_FLAG_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (buffer->status == GPU_BUFFER_FLAG_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
-      if (buffer->status == GPU_BUFFER_FLAG_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (buffer->status == GPU_BUFFER_FLAG_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      if (newReads & GPU_BUFFER_FLAG_VERTEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-      if (newReads & GPU_BUFFER_FLAG_VERTEX) dstAccess |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
-      if (newReads & GPU_BUFFER_FLAG_INDEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-      if (newReads & GPU_BUFFER_FLAG_INDEX) dstAccess |= VK_ACCESS_INDEX_READ_BIT;
-      if (newReads & GPU_BUFFER_FLAG_UNIFORM) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-      if (newReads & GPU_BUFFER_FLAG_UNIFORM) dstAccess |= VK_ACCESS_SHADER_READ_BIT;
-      if (newReads & GPU_BUFFER_FLAG_INDIRECT) dstStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
-      if (newReads & GPU_BUFFER_FLAG_INDIRECT) dstAccess |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
-      if (newReads & GPU_BUFFER_FLAG_COPY_SRC) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (newReads & GPU_BUFFER_FLAG_COPY_SRC) dstAccess |= VK_ACCESS_TRANSFER_READ_BIT;
+      if (buffer->status == GPU_BUFFER_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (buffer->status == GPU_BUFFER_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (buffer->status == GPU_BUFFER_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (buffer->status == GPU_BUFFER_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (newReads & GPU_BUFFER_VERTEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+      if (newReads & GPU_BUFFER_VERTEX) dstAccess |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+      if (newReads & GPU_BUFFER_INDEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+      if (newReads & GPU_BUFFER_INDEX) dstAccess |= VK_ACCESS_INDEX_READ_BIT;
+      if (newReads & GPU_BUFFER_UNIFORM) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      if (newReads & GPU_BUFFER_UNIFORM) dstAccess |= VK_ACCESS_SHADER_READ_BIT;
+      if (newReads & GPU_BUFFER_INDIRECT) dstStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+      if (newReads & GPU_BUFFER_INDIRECT) dstAccess |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+      if (newReads & GPU_BUFFER_COPY_SRC) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (newReads & GPU_BUFFER_COPY_SRC) dstAccess |= VK_ACCESS_TRANSFER_READ_BIT;
       buffer->status |= newReads; // Keep the write bit in the status in case there are more reads
     }
 
     // A write-after-write hazard exists if a write is followed by a write without any intermediate
     // reads.  This requires a full memory/execution dependency.  The write bit is also updated.
     if (write && afterWrite && !afterRead) {
-      if (buffer->status == GPU_BUFFER_FLAG_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (buffer->status == GPU_BUFFER_FLAG_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
-      if (buffer->status == GPU_BUFFER_FLAG_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (buffer->status == GPU_BUFFER_FLAG_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      if (write == GPU_BUFFER_FLAG_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (write == GPU_BUFFER_FLAG_STORAGE) dstAccess |= VK_ACCESS_SHADER_WRITE_BIT;
-      if (write == GPU_BUFFER_FLAG_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (write == GPU_BUFFER_FLAG_COPY_DST) dstAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (buffer->status == GPU_BUFFER_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (buffer->status == GPU_BUFFER_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (buffer->status == GPU_BUFFER_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (buffer->status == GPU_BUFFER_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (write == GPU_BUFFER_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (write == GPU_BUFFER_STORAGE) dstAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (write == GPU_BUFFER_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (write == GPU_BUFFER_COPY_DST) dstAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
       buffer->status = write;
     }
 
@@ -1567,12 +1567,12 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
     // all that is needed to ensure that this is also the case for the new write.  However, because
     // a write is performed, it becomes the new status bit, clearing any existing read bits.
     if (write && afterRead) {
-      if (buffer->status & GPU_BUFFER_FLAG_UNIFORM) srcStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-      else if (buffer->status & GPU_BUFFER_FLAG_VERTEX) srcStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-      if (afterRead & GPU_BUFFER_FLAG_INDIRECT) srcStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
-      if (afterRead & GPU_BUFFER_FLAG_COPY_SRC) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (write == GPU_BUFFER_FLAG_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (write == GPU_BUFFER_FLAG_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (buffer->status & GPU_BUFFER_UNIFORM) srcStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      else if (buffer->status & GPU_BUFFER_VERTEX) srcStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+      if (afterRead & GPU_BUFFER_INDIRECT) srcStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+      if (afterRead & GPU_BUFFER_COPY_SRC) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (write == GPU_BUFFER_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (write == GPU_BUFFER_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
       buffer->status = write;
     }
 
@@ -1584,7 +1584,7 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
   VkImageMemoryBarrier imageBarriers[64];
   for (uint32_t i = 0; i < sync->textureCount; i++) {
     gpu_texture* texture = sync->textures[i].texture->source;
-    uint32_t writeMask = GPU_TEXTURE_FLAG_STORAGE | GPU_TEXTURE_FLAG_COPY_DST | GPU_TEXTURE_FLAG_RENDER;
+    uint32_t writeMask = GPU_TEXTURE_STORAGE | GPU_TEXTURE_COPY_DST | GPU_TEXTURE_RENDER;
     uint32_t afterRead = texture->status & ~writeMask;
     uint32_t afterWrite = texture->status & writeMask;
     uint32_t read = sync->textures[i].flags & ~writeMask;
@@ -1603,32 +1603,32 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
     }
 
     if (read && afterWrite && newReads) {
-      if (texture->status == GPU_TEXTURE_FLAG_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (texture->status == GPU_TEXTURE_FLAG_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
-      if (texture->status == GPU_TEXTURE_FLAG_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (texture->status == GPU_TEXTURE_FLAG_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      if (texture->status == GPU_TEXTURE_FLAG_RENDER) srcStage |= renderStage;
-      if (texture->status == GPU_TEXTURE_FLAG_RENDER) srcAccess |= renderAccessWrite;
-      if (newReads & GPU_TEXTURE_FLAG_SAMPLE) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-      if (newReads & GPU_TEXTURE_FLAG_SAMPLE) dstAccess |= VK_ACCESS_SHADER_READ_BIT;
-      if (newReads & GPU_TEXTURE_FLAG_COPY_SRC) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (newReads & GPU_TEXTURE_FLAG_COPY_SRC) dstAccess |= VK_ACCESS_TRANSFER_READ_BIT;
+      if (texture->status == GPU_TEXTURE_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (texture->status == GPU_TEXTURE_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (texture->status == GPU_TEXTURE_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (texture->status == GPU_TEXTURE_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (texture->status == GPU_TEXTURE_RENDER) srcStage |= renderStage;
+      if (texture->status == GPU_TEXTURE_RENDER) srcAccess |= renderAccessWrite;
+      if (newReads & GPU_TEXTURE_SAMPLE) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      if (newReads & GPU_TEXTURE_SAMPLE) dstAccess |= VK_ACCESS_SHADER_READ_BIT;
+      if (newReads & GPU_TEXTURE_COPY_SRC) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (newReads & GPU_TEXTURE_COPY_SRC) dstAccess |= VK_ACCESS_TRANSFER_READ_BIT;
       texture->status |= newReads;
     }
 
     if (write && afterWrite && !afterRead) {
-      if (texture->status == GPU_TEXTURE_FLAG_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (texture->status == GPU_TEXTURE_FLAG_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
-      if (texture->status == GPU_TEXTURE_FLAG_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (texture->status == GPU_TEXTURE_FLAG_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      if (texture->status == GPU_TEXTURE_FLAG_RENDER) srcStage |= renderStage;
-      if (texture->status == GPU_TEXTURE_FLAG_RENDER) srcAccess |= renderAccessWrite;
-      if (write == GPU_TEXTURE_FLAG_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (write == GPU_TEXTURE_FLAG_STORAGE) dstAccess |= VK_ACCESS_SHADER_WRITE_BIT;
-      if (write == GPU_TEXTURE_FLAG_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-      if (write == GPU_TEXTURE_FLAG_COPY_DST) dstAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      if (write == GPU_TEXTURE_FLAG_RENDER) dstStage |= renderStage;
-      if (write == GPU_TEXTURE_FLAG_RENDER) dstAccess |= renderAccessWrite;
+      if (texture->status == GPU_TEXTURE_STORAGE) srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (texture->status == GPU_TEXTURE_STORAGE) srcAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (texture->status == GPU_TEXTURE_COPY_DST) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (texture->status == GPU_TEXTURE_COPY_DST) srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (texture->status == GPU_TEXTURE_RENDER) srcStage |= renderStage;
+      if (texture->status == GPU_TEXTURE_RENDER) srcAccess |= renderAccessWrite;
+      if (write == GPU_TEXTURE_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (write == GPU_TEXTURE_STORAGE) dstAccess |= VK_ACCESS_SHADER_WRITE_BIT;
+      if (write == GPU_TEXTURE_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+      if (write == GPU_TEXTURE_COPY_DST) dstAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      if (write == GPU_TEXTURE_RENDER) dstStage |= renderStage;
+      if (write == GPU_TEXTURE_RENDER) dstAccess |= renderAccessWrite;
       texture->status = write;
     }
 
@@ -1636,14 +1636,14 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
 
     VkImageLayout newLayout;
     switch (sync->textures[i].flags) {
-      case GPU_TEXTURE_FLAG_SAMPLE: newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; break;
-      case GPU_TEXTURE_FLAG_RENDER: newLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; break;
-      case GPU_TEXTURE_FLAG_COPY_SRC: newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; break;
-      case GPU_TEXTURE_FLAG_COPY_DST: newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; break;
+      case GPU_TEXTURE_SAMPLE: newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; break;
+      case GPU_TEXTURE_RENDER: newLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; break;
+      case GPU_TEXTURE_COPY_SRC: newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; break;
+      case GPU_TEXTURE_COPY_DST: newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; break;
       default: newLayout = VK_IMAGE_LAYOUT_GENERAL; break;
     }
 
-    VkImageLayout oldLayout = (sync->textures[i].flags & GPU_TEXTURE_FLAG_TRANSIENT) ? VK_IMAGE_LAYOUT_UNDEFINED : texture->layout;
+    VkImageLayout oldLayout = (sync->textures[i].flags & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_LAYOUT_UNDEFINED : texture->layout;
     if (oldLayout != newLayout) {
       imageBarriers[imageBarrierCount++] = (VkImageMemoryBarrier) {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -1927,19 +1927,19 @@ bool gpu_init(gpu_config* config) {
       }
 
       VkFormatProperties formatProperties;
-      for (uint32_t i = 0; i < GPU_TEXTURE_FORMAT_COUNT; i++) {
+      for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
         vkGetPhysicalDeviceFormatProperties(physicalDevice, convertFormat(i, LINEAR), &formatProperties);
         uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
         uint32_t flags = formatProperties.optimalTilingFeatures;
         config->features->formats[i] =
-          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FORMAT_FEATURE_SAMPLE : 0) |
-          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_RENDER_COLOR : 0) |
-          ((flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FORMAT_FEATURE_RENDER_DEPTH : 0) |
-          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FORMAT_FEATURE_BLEND : 0) |
-          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FORMAT_FEATURE_FILTER : 0) |
-          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FORMAT_FEATURE_STORAGE : 0) |
-          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FORMAT_FEATURE_ATOMIC : 0) |
-          ((flags & blitMask) == blitMask ? GPU_FORMAT_FEATURE_BLIT : 0);
+          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FEATURE_SAMPLE : 0) |
+          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) ? GPU_FEATURE_RENDER_COLOR : 0) |
+          ((flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FEATURE_RENDER_DEPTH : 0) |
+          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FEATURE_BLEND : 0) |
+          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FEATURE_FILTER : 0) |
+          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FEATURE_STORAGE : 0) |
+          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FEATURE_ATOMIC : 0) |
+          ((flags & blitMask) == blitMask ? GPU_FEATURE_BLIT : 0);
       }
     }
 
@@ -2009,7 +2009,7 @@ bool gpu_init(gpu_config* config) {
 
       gpu_texture_view_info view = {
         .source = texture,
-        .type = GPU_TEXTURE_TYPE_2D
+        .type = GPU_TEXTURE_2D
       };
 
       CHECK(gpu_texture_init_view(texture, &view), "Swapchain texture view creation failed") DIE();
@@ -2342,41 +2342,41 @@ static void expunge() {
 
 static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
   static const VkFormat formats[][2] = {
-    [GPU_TEXTURE_FORMAT_R8] = { VK_FORMAT_R8_UNORM, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RG8] = { VK_FORMAT_R8G8_UNORM, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RGBA8] = { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_SRGB },
-    [GPU_TEXTURE_FORMAT_R16] = { VK_FORMAT_R16_UNORM, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RG16] = { VK_FORMAT_R16G16_UNORM, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RGBA16] = { VK_FORMAT_R16G16B16A16_UNORM, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_R16F] = { VK_FORMAT_R16_SFLOAT, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RG16F] = { VK_FORMAT_R16G16_SFLOAT, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RGBA16F] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_R32F] = { VK_FORMAT_R32_SFLOAT, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RG32F] = { VK_FORMAT_R32G32_SFLOAT, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RGBA32F] = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RGB565] = { VK_FORMAT_R5G6B5_UNORM_PACK16, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RGB5A1] = { VK_FORMAT_R5G5B5A1_UNORM_PACK16, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RGB10A2] = { VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_RG11B10F] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_D16] = { VK_FORMAT_D16_UNORM, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_D32F] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_BC6] = { VK_FORMAT_BC6H_SFLOAT_BLOCK, VK_FORMAT_UNDEFINED },
-    [GPU_TEXTURE_FORMAT_BC7] = { VK_FORMAT_BC7_UNORM_BLOCK, VK_FORMAT_BC7_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_4x4] = { VK_FORMAT_ASTC_4x4_UNORM_BLOCK, VK_FORMAT_ASTC_4x4_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_5x4] = { VK_FORMAT_ASTC_5x4_UNORM_BLOCK, VK_FORMAT_ASTC_5x4_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_5x5] = { VK_FORMAT_ASTC_5x5_UNORM_BLOCK, VK_FORMAT_ASTC_5x5_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_6x5] = { VK_FORMAT_ASTC_6x5_UNORM_BLOCK, VK_FORMAT_ASTC_6x5_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_6x6] = { VK_FORMAT_ASTC_6x6_UNORM_BLOCK, VK_FORMAT_ASTC_6x6_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_8x5] = { VK_FORMAT_ASTC_8x5_UNORM_BLOCK, VK_FORMAT_ASTC_8x5_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_8x6] = { VK_FORMAT_ASTC_8x6_UNORM_BLOCK, VK_FORMAT_ASTC_8x6_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_8x8] = { VK_FORMAT_ASTC_8x8_UNORM_BLOCK, VK_FORMAT_ASTC_8x8_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_10x5] = { VK_FORMAT_ASTC_10x5_UNORM_BLOCK, VK_FORMAT_ASTC_10x5_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_10x6] = { VK_FORMAT_ASTC_10x6_UNORM_BLOCK, VK_FORMAT_ASTC_10x6_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_10x8] = { VK_FORMAT_ASTC_10x8_UNORM_BLOCK, VK_FORMAT_ASTC_10x8_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_10x10] = { VK_FORMAT_ASTC_10x10_UNORM_BLOCK, VK_FORMAT_ASTC_10x10_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_12x10] = { VK_FORMAT_ASTC_12x10_UNORM_BLOCK, VK_FORMAT_ASTC_12x10_SRGB_BLOCK },
-    [GPU_TEXTURE_FORMAT_ASTC_12x12] = { VK_FORMAT_ASTC_12x12_UNORM_BLOCK, VK_FORMAT_ASTC_12x12_SRGB_BLOCK }
+    [GPU_FORMAT_R8] = { VK_FORMAT_R8_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RG8] = { VK_FORMAT_R8G8_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RGBA8] = { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_SRGB },
+    [GPU_FORMAT_R16] = { VK_FORMAT_R16_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RG16] = { VK_FORMAT_R16G16_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RGBA16] = { VK_FORMAT_R16G16B16A16_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_R16F] = { VK_FORMAT_R16_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RG16F] = { VK_FORMAT_R16G16_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RGBA16F] = { VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_R32F] = { VK_FORMAT_R32_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RG32F] = { VK_FORMAT_R32G32_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RGBA32F] = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RGB565] = { VK_FORMAT_R5G6B5_UNORM_PACK16, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RGB5A1] = { VK_FORMAT_R5G5B5A1_UNORM_PACK16, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RGB10A2] = { VK_FORMAT_A2B10G10R10_UNORM_PACK32, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_RG11B10F] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_D16] = { VK_FORMAT_D16_UNORM, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_D32F] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_BC6] = { VK_FORMAT_BC6H_SFLOAT_BLOCK, VK_FORMAT_UNDEFINED },
+    [GPU_FORMAT_BC7] = { VK_FORMAT_BC7_UNORM_BLOCK, VK_FORMAT_BC7_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_4x4] = { VK_FORMAT_ASTC_4x4_UNORM_BLOCK, VK_FORMAT_ASTC_4x4_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_5x4] = { VK_FORMAT_ASTC_5x4_UNORM_BLOCK, VK_FORMAT_ASTC_5x4_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_5x5] = { VK_FORMAT_ASTC_5x5_UNORM_BLOCK, VK_FORMAT_ASTC_5x5_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_6x5] = { VK_FORMAT_ASTC_6x5_UNORM_BLOCK, VK_FORMAT_ASTC_6x5_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_6x6] = { VK_FORMAT_ASTC_6x6_UNORM_BLOCK, VK_FORMAT_ASTC_6x6_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_8x5] = { VK_FORMAT_ASTC_8x5_UNORM_BLOCK, VK_FORMAT_ASTC_8x5_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_8x6] = { VK_FORMAT_ASTC_8x6_UNORM_BLOCK, VK_FORMAT_ASTC_8x6_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_8x8] = { VK_FORMAT_ASTC_8x8_UNORM_BLOCK, VK_FORMAT_ASTC_8x8_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_10x5] = { VK_FORMAT_ASTC_10x5_UNORM_BLOCK, VK_FORMAT_ASTC_10x5_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_10x6] = { VK_FORMAT_ASTC_10x6_UNORM_BLOCK, VK_FORMAT_ASTC_10x6_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_10x8] = { VK_FORMAT_ASTC_10x8_UNORM_BLOCK, VK_FORMAT_ASTC_10x8_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_10x10] = { VK_FORMAT_ASTC_10x10_UNORM_BLOCK, VK_FORMAT_ASTC_10x10_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_12x10] = { VK_FORMAT_ASTC_12x10_UNORM_BLOCK, VK_FORMAT_ASTC_12x10_SRGB_BLOCK },
+    [GPU_FORMAT_ASTC_12x12] = { VK_FORMAT_ASTC_12x12_UNORM_BLOCK, VK_FORMAT_ASTC_12x12_SRGB_BLOCK }
   };
   return formats[format][colorspace];
 }
