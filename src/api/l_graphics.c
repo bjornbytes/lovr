@@ -25,15 +25,11 @@ StringEntry lovrBlendMode[] = {
   { 0 }
 };
 
-StringEntry lovrBufferFlag[] = {
-  [0] = ENTRY("vertex"),
-  [1] = ENTRY("index"),
-  [2] = ENTRY("uniform"),
-  [3] = ENTRY("compute"),
-  [4] = ENTRY("parameter"),
-  [5] = ENTRY("copy"),
-  [6] = ENTRY("write"),
-  [7] = ENTRY("retain"),
+StringEntry lovrBufferType[] = {
+  [BUFFER_VERTEX] = ENTRY("vertex"),
+  [BUFFER_INDEX] = ENTRY("index"),
+  [BUFFER_UNIFORM] = ENTRY("uniform"),
+  [BUFFER_STORAGE] = ENTRY("storage"),
   { 0 }
 };
 
@@ -579,22 +575,21 @@ static FieldType luax_checkfieldtype(lua_State* L, int index) {
 }
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info = { .flags = BUFFER_WRITE | BUFFER_RETAIN };
+  BufferInfo info = { 0 };
 
   // Flags
   if (lua_istable(L, 3)) {
-    for (int i = 0; lovrBufferFlag[i].length; i++) {
-      lua_pushlstring(L, lovrBufferFlag[i].string, lovrBufferFlag[i].length);
-      lua_gettable(L, 3);
-      if (!lua_isnil(L, -1)) {
-        if (lua_toboolean(L, -1)) {
-          info.flags |= (1 << i);
-        } else {
-          info.flags &= ~(1 << i);
-        }
-      }
-      lua_pop(L, 1);
-    }
+    lua_getfield(L, 3, "type");
+    info.type = luax_checkenum(L, -1, BufferType, "storage");
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "transient");
+    info.transient = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "parameter");
+    info.parameter = lua_toboolean(L, -1);
+    lua_pop(L, 1);
 
     lua_getfield(L, 3, "label");
     info.label = lua_tostring(L, -1);
@@ -611,7 +606,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   } else if (lua_istable(L, 2)) {
     uint16_t offset = 0;
     int length = luax_len(L, 2);
-    bool blocky = info.flags & (BUFFER_UNIFORM | BUFFER_COMPUTE);
+    bool blocky = info.type == BUFFER_UNIFORM || info.type == BUFFER_STORAGE;
     for (int i = 0; i < length; i++) {
       lua_rawgeti(L, 2, i + 1);
       switch (lua_type(L, -1)) {
@@ -635,7 +630,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   }
 
   // std140 (only needed for uniform buffers, also as special case 'byte' formats skip this)
-  if ((info.flags & BUFFER_UNIFORM) && info.stride > 1) {
+  if (info.type == BUFFER_UNIFORM && info.stride > 1) {
     info.stride = ALIGN(info.stride, 16);
   }
 
@@ -669,13 +664,11 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     }
   }
 
-  void* data = NULL;
-  info.initialContents = &data;
   Buffer* buffer = lovrBufferCreate(&info);
 
   if (!lua_isnumber(L, 1)) {
     lua_settop(L, 1);
-    luax_readbufferdata(L, 1, buffer, data);
+    luax_readbufferdata(L, 1, buffer);
   }
 
   luax_pushtype(L, Buffer, buffer);

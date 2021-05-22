@@ -21,7 +21,7 @@ extern StringEntry lovrAudioShareMode[];
 extern StringEntry lovrAudioType[];
 extern StringEntry lovrBlendAlphaMode[];
 extern StringEntry lovrBlendMode[];
-extern StringEntry lovrBufferFlag[];
+extern StringEntry lovrBufferType[];
 extern StringEntry lovrChannelLayout[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCullMode[];
@@ -123,7 +123,7 @@ void* luax_readfile(const char* filename, size_t* bytesRead);
 
 #ifndef LOVR_DISABLE_GRAPHICS
 struct Buffer;
-void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer, void* data);
+void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer);
 #endif
 
 #ifndef LOVR_DISABLE_MATH

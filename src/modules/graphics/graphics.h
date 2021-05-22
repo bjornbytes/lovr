@@ -76,16 +76,12 @@ void lovrGraphicsSubmit(void);
 
 // Buffer
 
-enum {
-  BUFFER_VERTEX    = (1 << 0),
-  BUFFER_INDEX     = (1 << 1),
-  BUFFER_UNIFORM   = (1 << 2),
-  BUFFER_COMPUTE   = (1 << 3),
-  BUFFER_PARAMETER = (1 << 4),
-  BUFFER_COPY      = (1 << 5),
-  BUFFER_WRITE     = (1 << 6),
-  BUFFER_RETAIN    = (1 << 7)
-};
+typedef enum {
+  BUFFER_VERTEX,
+  BUFFER_INDEX,
+  BUFFER_UNIFORM,
+  BUFFER_STORAGE
+} BufferType;
 
 typedef enum {
   FIELD_I8,
@@ -127,10 +123,12 @@ typedef enum {
 } FieldType;
 
 typedef struct {
-  uint32_t flags;
+  BufferType type;
+  bool transient;
+  bool parameter;
+  uint16_t stride;
   uint32_t length;
-  uint32_t stride;
-  uint32_t fieldCount;
+  uint16_t fieldCount;
   FieldType types[16];
   uint16_t offsets[16];
   void** initialContents;
@@ -140,10 +138,11 @@ typedef struct {
 Buffer* lovrBufferCreate(BufferInfo* info);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
-void* lovrBufferMap(Buffer* buffer);
+void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
-void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint64_t size, void* userdata), void* userdata);
+void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint32_t size, void* userdata), void* userdata);
+void lovrBufferDrop(Buffer* buffer);
 
 // Texture
 
@@ -190,7 +189,7 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture);
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]);
 void lovrTexturePaste(Texture* texture, struct Image* image, uint16_t srcOffset[4], uint16_t dstOffset[2], uint16_t extent[2]);
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]);
-void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint64_t size, void* userdata), void* userdata);
+void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint32_t size, void* userdata), void* userdata);
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]);
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest);
 

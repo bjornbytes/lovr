@@ -177,6 +177,7 @@ end
 function lovr.run()
   local dt = 0
   if lovr.timer then lovr.timer.step() end
+  if lovr.graphics then lovr.graphics.begin() end
   if lovr.load then lovr.load(arg) end
   return function()
     if lovr.event then
