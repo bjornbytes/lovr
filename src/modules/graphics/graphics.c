@@ -320,12 +320,12 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   gpu_buffer_info gpuInfo = {
     .size = ALIGN(size, 4),
     .flags =
-      ((info->type == BUFFER_VERTEX) ? GPU_BUFFER_FLAG_VERTEX : 0) |
-      ((info->type == BUFFER_INDEX) ? GPU_BUFFER_FLAG_INDEX : 0) |
-      ((info->type == BUFFER_UNIFORM) ? GPU_BUFFER_FLAG_UNIFORM : 0) |
-      ((info->type == BUFFER_STORAGE) ? GPU_BUFFER_FLAG_STORAGE : 0) |
-      (info->transient ? 0 : GPU_BUFFER_FLAG_COPY_DST) |
-      (info->parameter ? GPU_BUFFER_FLAG_INDIRECT : 0),
+      ((info->type == BUFFER_VERTEX) ? GPU_BUFFER_VERTEX : 0) |
+      ((info->type == BUFFER_INDEX) ? GPU_BUFFER_INDEX : 0) |
+      ((info->type == BUFFER_UNIFORM) ? GPU_BUFFER_UNIFORM : 0) |
+      ((info->type == BUFFER_STORAGE) ? GPU_BUFFER_STORAGE : 0) |
+      (info->transient ? 0 : GPU_BUFFER_COPY_DST) |
+      (info->parameter ? GPU_BUFFER_INDIRECT : 0),
     .label = info->label
   };
 
@@ -500,12 +500,12 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   }
 
   if (info->flags & TEXTURE_SAMPLE) {
-    bool canSample = state.features.formats[info->format] & GPU_FORMAT_FEATURE_SAMPLE;
+    bool canSample = state.features.formats[info->format] & GPU_FEATURE_SAMPLE;
     lovrAssert(canSample, "Texture has 'sample' flag but this GPU does not support sampling this format");
   }
 
   if (info->flags & TEXTURE_RENDER) {
-    bool canRender = state.features.formats[info->format] & (GPU_FORMAT_FEATURE_RENDER_COLOR | GPU_FORMAT_FEATURE_RENDER_DEPTH);
+    bool canRender = state.features.formats[info->format] & (GPU_FEATURE_RENDER_COLOR | GPU_FEATURE_RENDER_DEPTH);
     lovrAssert(canRender, "Texture has 'render' flag but this GPU does not support rendering to this format");
     uint32_t maxWidth = state.limits.renderSize[0];
     uint32_t maxHeight = state.limits.renderSize[1];
@@ -514,7 +514,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   }
 
   if (info->flags & TEXTURE_COMPUTE) {
-    bool allowed = state.features.formats[info->format] & GPU_FORMAT_FEATURE_STORAGE;
+    bool allowed = state.features.formats[info->format] & GPU_FEATURE_STORAGE;
     lovrAssert(allowed, "Texture has 'compute' flag but this GPU does not support this for this format");
     lovrAssert(info->samples == 1, "Textures with the 'compute' flag can not currently be multisampled");
   }
@@ -550,12 +550,12 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .mipmaps = info->mipmaps,
     .samples = info->samples,
     .flags =
-      ((info->flags & TEXTURE_SAMPLE) ? GPU_TEXTURE_FLAG_SAMPLE : 0) |
-      ((info->flags & TEXTURE_RENDER) ? GPU_TEXTURE_FLAG_RENDER : 0) |
-      ((info->flags & TEXTURE_COMPUTE) ? GPU_TEXTURE_FLAG_STORAGE : 0) |
-      ((info->flags & TEXTURE_COPY) ? GPU_TEXTURE_FLAG_COPY_SRC : 0) |
-      ((info->flags & TEXTURE_TRANSIENT) ? GPU_TEXTURE_FLAG_TRANSIENT : 0) |
-      ((info->flags & TEXTURE_TRANSIENT) ? 0 : GPU_TEXTURE_FLAG_COPY_DST),
+      ((info->flags & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
+      ((info->flags & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
+      ((info->flags & TEXTURE_COMPUTE) ? GPU_TEXTURE_STORAGE : 0) |
+      ((info->flags & TEXTURE_COPY) ? GPU_TEXTURE_COPY_SRC : 0) |
+      ((info->flags & TEXTURE_TRANSIENT) ? GPU_TEXTURE_TRANSIENT : 0) |
+      ((info->flags & TEXTURE_TRANSIENT) ? 0 : GPU_TEXTURE_COPY_DST),
     .srgb = info->srgb,
     .label = info->label
   };
@@ -714,8 +714,8 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   lovrAssert(~dst->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be copied to");
   lovrAssert(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
   lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to blit from it");
-  lovrAssert(state.features.formats[src->info.format] & GPU_FORMAT_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
-  lovrAssert(state.features.formats[dst->info.format] & GPU_FORMAT_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
+  lovrAssert(state.features.formats[src->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
+  lovrAssert(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
 
   if (isDepthFormat(src->info.format) || isDepthFormat(dst->info.format)) {
     lovrAssert(src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
@@ -742,7 +742,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
 
   for (uint32_t i = 0; i < info->count && i < MAX_COLOR_ATTACHMENTS; i++) {
     Texture* texture = info->color[i].texture;
-    bool renderable = state.features.formats[texture->info.format] & GPU_FORMAT_FEATURE_RENDER_COLOR;
+    bool renderable = state.features.formats[texture->info.format] & GPU_FEATURE_RENDER_COLOR;
     lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
     lovrAssert(texture->info.flags & TEXTURE_RENDER, "Texture must be created with the 'render' flag to attach it to a Canvas");
     lovrAssert(!memcmp(texture->info.size, firstTexture->info.size, 3 * sizeof(uint32_t)), "Canvas texture sizes must match");
@@ -752,7 +752,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   if (info->depth.enabled) {
     Texture* texture = info->depth.texture;
     TextureFormat format = texture ? texture->info.format : info->depth.format;
-    bool renderable = state.features.formats[format] & GPU_FORMAT_FEATURE_RENDER_DEPTH;
+    bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER_DEPTH;
     lovrAssert(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
     if (texture) {
       lovrAssert(texture->info.flags & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to a Canvas");
@@ -806,11 +806,11 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     .size = { width, height, views },
     .mipmaps = 1,
     .samples = info->samples,
-    .flags = GPU_TEXTURE_FLAG_RENDER | GPU_TEXTURE_FLAG_TRANSIENT
+    .flags = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT
   };
 
   gpu_texture_view_info viewInfo = {
-    .type = GPU_TEXTURE_TYPE_ARRAY,
+    .type = GPU_TEXTURE_ARRAY,
     .layerCount = views,
     .levelCount = 1
   };
@@ -1086,7 +1086,7 @@ void lovrCanvasSetBlendMode(Canvas* canvas, uint32_t target, BlendMode mode, Ble
   }
 
   lovrAssert(target < canvas->info.count, "Tried to set a blend mode for color target #%d, but Canvas only has %d color textures", target + 1, canvas->info.count);
-  bool willItBlend = state.features.formats[canvas->info.color[target].texture->info.format] & GPU_FORMAT_FEATURE_BLEND;
+  bool willItBlend = state.features.formats[canvas->info.color[target].texture->info.format] & GPU_FEATURE_BLEND;
   lovrAssert(willItBlend, "This GPU does not support blending the texture format used by color target #%d", target + 1);
 
   canvas->pipeline.info.blend[target] = blendModes[mode];
