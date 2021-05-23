@@ -131,7 +131,6 @@ typedef struct {
   uint16_t fieldCount;
   FieldType types[16];
   uint16_t offsets[16];
-  void** initialContents;
   const char* label;
 } BufferInfo;
 

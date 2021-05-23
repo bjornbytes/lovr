@@ -102,6 +102,15 @@ struct Bundle {
   bool dirty;
 };
 
+typedef struct {
+  gpu_buffer* gpu;
+  uint32_t active;
+  uint32_t cursor;
+  uint32_t size;
+  uint32_t mask;
+  uint32_t refs[32];
+} Megabuffer;
+
 static struct {
   bool initialized;
   bool debug;
@@ -120,6 +129,7 @@ static struct {
   gpu_stream* streams[MAX_STREAMS];
   uint32_t streamSort[MAX_STREAMS];
   uint32_t streamCount;
+  Megabuffer megabuffer;
 } state;
 
 static void onDebugMessage(void* context, const char* message, int severe) {
@@ -158,6 +168,7 @@ void lovrGraphicsDestroy() {
   }
   arr_free(&state.canvases);
   lovrRelease(state.defaultCanvas, lovrCanvasDestroy);
+  gpu_buffer_destroy(state.megabuffer.gpu);
   gpu_destroy();
   memset(&state, 0, sizeof(state));
 }
@@ -193,6 +204,14 @@ void lovrGraphicsCreateWindow(os_window_config* window) {
   map_init(&state.canvasLookup, 4);
   arr_init(&state.canvases, realloc);
   arr_reserve(&state.canvases, 2);
+
+  gpu_buffer_info megainfo = { .size = 256 * 1024 * 1024, .flags = ~0u, .label = "megabuffer" };
+  state.megabuffer.gpu = malloc(gpu_sizeof_buffer());
+  lovrAssert(state.megabuffer.gpu, "Out of memory");
+  lovrAssert(gpu_buffer_init(state.megabuffer.gpu, &megainfo), "Failed to summon megabuffer");
+  state.megabuffer.size = megainfo.size / 32;
+  state.megabuffer.mask = 0x1;
+
   state.initialized = true;
 }
 
@@ -311,11 +330,41 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   lovrAssert(info->type == BUFFER_STORAGE || !info->parameter, "Only storage buffers can have the 'parameter' flag");
   lovrAssert(!info->transient || info->type != BUFFER_STORAGE, "Storage buffers can not be transient");
 
-  Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
+  Buffer* buffer = calloc(1, sizeof(Buffer));
   lovrAssert(buffer, "Out of memory");
-  buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->info = *info;
+  buffer->size = size;
   buffer->ref = 1;
+
+  if (info->transient) {
+    return buffer;
+  }
+
+  // If it can fit in the megabuffer somewhere, put it there
+  if (size <= state.megabuffer.size) {
+    if (state.megabuffer.cursor + size > state.megabuffer.size && state.megabuffer.mask != ~0u) {
+      for (uint32_t i = 0; i < 32; i++) {
+        if (~state.megabuffer.mask & (1 << i)) {
+          state.megabuffer.mask |= (1 << i);
+          state.megabuffer.active = i;
+          state.megabuffer.cursor = 0;
+          break;
+        }
+      }
+    }
+
+    if (state.megabuffer.cursor + size <= state.megabuffer.size) {
+      buffer->gpu = state.megabuffer.gpu;
+      buffer->base = state.megabuffer.active * state.megabuffer.size + state.megabuffer.cursor;
+      state.megabuffer.refs[state.megabuffer.active]++;
+      state.megabuffer.cursor += size;
+      return buffer;
+    }
+  }
+
+  // Otherwise, it gets its own buffer
+  buffer->gpu = malloc(gpu_sizeof_buffer());
+  lovrAssert(buffer->gpu, "Out of memory");
 
   gpu_buffer_info gpuInfo = {
     .size = ALIGN(size, 4),
@@ -330,13 +379,19 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   };
 
   gpu_buffer_init(buffer->gpu, &gpuInfo);
-  buffer->size = size;
   return buffer;
 }
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
-  gpu_buffer_destroy(buffer->gpu);
+  if (buffer->gpu == state.megabuffer.gpu) {
+    uint32_t index = buffer->base / state.megabuffer.size;
+    if (--state.megabuffer.refs[index] == 0) {
+      state.megabuffer.mask &= ~(1 << index);
+    }
+  } else if (!buffer->info.transient) {
+    gpu_buffer_destroy(buffer->gpu);
+  }
   free(buffer);
 }
 
