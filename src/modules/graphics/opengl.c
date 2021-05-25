@@ -1820,6 +1820,55 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
   state.stats.textureMemory += getTextureMemorySize(texture);
 }
 
+void lovrTextureReplacePixelsBuffer(Texture* texture, void* data, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap) {
+  lovrGraphicsFlush();
+  lovrAssert(texture->allocated, "Texture is not allocated");
+
+  #ifndef LOVR_WEBGL
+  if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
+    lovrGpuSync(1 << BARRIER_TEXTURE);
+  }
+  #endif
+  uint32_t width = lovrTextureGetWidth(texture, mipmap);
+  uint32_t height = lovrTextureGetHeight(texture, mipmap);
+  TextureFormat format = lovrTextureGetFormat(texture);
+  lovrAssert(mipmap < texture->mipmapCount, "Invalid mipmap level %d", mipmap);
+  GLenum glFormat = convertTextureFormat(format);
+  GLenum glInternalFormat = convertTextureFormatInternal(format, texture->srgb);
+  GLenum binding = (texture->type == TEXTURE_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + slice : texture->target;
+
+  lovrGpuBindTexture(texture, 0);
+  if (isTextureFormatCompressed(format)) {
+      lovrAssert(false, "Trying to replace compressed Texture pixels with buffer");
+  } else {
+    lovrAssert(data, "Trying to replace Texture pixels with empty pixel data");
+    GLenum glType = convertTextureFormatType(format);
+
+    switch (texture->type) {
+      case TEXTURE_2D:
+      case TEXTURE_CUBE:
+        glTexSubImage2D(binding, mipmap, x, y, width, height, glFormat, glType, data);
+        break;
+      case TEXTURE_ARRAY:
+      case TEXTURE_VOLUME:
+        glTexSubImage3D(binding, mipmap, x, y, slice, width, height, 1, glFormat, glType, data);
+        break;
+    }
+
+    if (texture->mipmaps) {
+#if defined(__APPLE__) || defined(LOVR_WEBGL) // glGenerateMipmap doesn't work on big cubemap textures on macOS
+      if (texture->type != TEXTURE_CUBE || width < 2048) {
+        glGenerateMipmap(texture->target);
+      } else {
+        glTexParameteri(texture->target, GL_TEXTURE_MAX_LEVEL, 0);
+      }
+#else
+      glGenerateMipmap(texture->target);
+#endif
+    }
+  }
+}
+
 void lovrTextureReplacePixels(Texture* texture, Image* image, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap) {
   lovrGraphicsFlush();
   lovrAssert(texture->allocated, "Texture is not allocated");

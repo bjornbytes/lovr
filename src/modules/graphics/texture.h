@@ -20,6 +20,7 @@ Texture* lovrTextureCreateFromHandle(uint32_t handle, TextureType type, uint32_t
 void lovrTextureDestroy(void* ref);
 void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint32_t depth, TextureFormat format);
 void lovrTextureReplacePixels(Texture* texture, struct Image* data, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap);
+void lovrTextureReplacePixelsBuffer(Texture* texture, void* data, uint32_t x, uint32_t y, uint32_t slice, uint32_t mipmap);
 uint64_t lovrTextureGetId(Texture* texture);
 uint32_t lovrTextureGetWidth(Texture* texture, uint32_t mipmap);
 uint32_t lovrTextureGetHeight(Texture* texture, uint32_t mipmap);
