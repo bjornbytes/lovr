@@ -1234,17 +1234,18 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     for (uint32_t i = 0; i < count; i++) {
       textures[count + i] = canvas->color[i].resolve->view;
     }
+    count <<= 1;
   }
 
   if (canvas->depth.texture) {
-    uint32_t index = count << resolve;
+    uint32_t index = count++;
     clears[index].depthStencil.depth = canvas->depth.clear.depth;
     clears[index].depthStencil.stencil = canvas->depth.clear.stencil;
     textures[index] = canvas->depth.texture->view;
   }
 
   uint32_t hash = HASH_SEED;
-  hash32(&hash, textures, (count << resolve) + !!canvas->depth.texture);
+  hash32(&hash, textures, count);
   hash32(&hash, &canvas->pass->handle, sizeof(canvas->pass->handle));
   hash32(&hash, canvas->size, 2 * sizeof(uint32_t));
 
@@ -1266,7 +1267,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     VkFramebufferCreateInfo framebufferInfo = {
       .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
       .renderPass = canvas->pass->handle,
-      .attachmentCount = (count << resolve) + !!canvas->depth.texture,
+      .attachmentCount = count,
       .pAttachments = textures,
       .width = canvas->size[0],
       .height = canvas->size[1],
@@ -1295,7 +1296,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     .renderPass = canvas->pass->handle,
     .framebuffer = framebuffer,
     .renderArea = { { 0, 0 }, { canvas->size[0], canvas->size[1] } },
-    .clearValueCount = COUNTOF(clears),
+    .clearValueCount = count,
     .pClearValues = clears
   };
 
