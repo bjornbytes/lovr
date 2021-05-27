@@ -504,10 +504,10 @@ static bool oculus_reverbEnable(bool simple, bool late, bool random) {
     result = ovrAudio_Enable(state.context, enables[c], values[c]);
     if (result != ovrSuccess) {
       lovrLog(LOG_ERROR, "Oculus-Spatializer", "Oculus Spatializer: SET ENABLED %s FAILED (%d)\n", names[c], result);
-      return 1;
+      return false;
     }
   }
-  return false;
+  return true;
 }
 
 static bool oculus_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material, GeometryMode mode) {
