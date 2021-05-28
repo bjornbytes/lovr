@@ -196,7 +196,6 @@ typedef struct {
 } gpu_pass_info;
 
 bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info);
-bool gpu_pass_init_surface(gpu_pass* pass, gpu_pass_info* info);
 void gpu_pass_destroy(gpu_pass* pass);
 
 // Shader

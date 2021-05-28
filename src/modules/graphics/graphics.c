@@ -915,18 +915,23 @@ Canvas* lovrCanvasGetWindow() {
 
   gpu_pass_info info = {
     .label = "Window",
+    .color[0].format = ~0u,
+    .color[0].load = GPU_LOAD_OP_CLEAR,
+    .color[0].save = GPU_SAVE_OP_SAVE,
+    .color[0].srgb = true,
     .depth.format = 0,//FORMAT_D24S8,
     .depth.load = GPU_LOAD_OP_CLEAR,
     .depth.save = GPU_SAVE_OP_DISCARD,
     .depth.stencilLoad = GPU_LOAD_OP_CLEAR,
     .depth.stencilSave = GPU_SAVE_OP_DISCARD,
+    .count = 1,
     .samples = 1,
     .views = 1
   };
 
   canvas->gpu.pass = calloc(1, gpu_sizeof_pass());
   lovrAssert(canvas->gpu.pass, "Out of memory");
-  lovrAssert(gpu_pass_init_surface(canvas->gpu.pass, &info), "Failed to create window pass");
+  lovrAssert(gpu_pass_init(canvas->gpu.pass, &info), "Failed to create window pass");
   // TODO create depth buffer
   return state.defaultCanvas = canvas;
 }
