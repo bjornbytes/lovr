@@ -290,6 +290,8 @@ static bool check(bool condition, const char* message);
   X(vkCreateGraphicsPipelines)\
   X(vkCreateComputePipelines)\
   X(vkDestroyPipeline)\
+  X(vkCmdSetViewport)\
+  X(vkCmdSetScissor)\
   X(vkCmdBindPipeline)\
   X(vkCmdBindDescriptorSets)\
   X(vkCmdBindVertexBuffers)\
@@ -334,10 +336,11 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
 
   nickname(buffer->handle, VK_OBJECT_TYPE_BUFFER, info->label);
 
-  uint32_t memoryType = ~0u;
-  uint32_t mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
   VkMemoryRequirements requirements;
   vkGetBufferMemoryRequirements(state.device, buffer->handle, &requirements);
+
+  uint32_t memoryType = ~0u;
+  uint32_t mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
   for (uint32_t i = 0; i < state.memoryTypeCount; i++) {
     if ((state.memoryTypes[i] & mask) != mask || ~requirements.memoryTypeBits & (1 << i)) continue;
     memoryType = i;
@@ -658,6 +661,8 @@ void gpu_shader_destroy(gpu_shader* shader) {
 // Bundle
 
 bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
+  bundle->handle = VK_NULL_HANDLE;
+
   VkDescriptorSetAllocateInfo allocateInfo = {
     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
     .descriptorPool = VK_NULL_HANDLE,
@@ -667,10 +672,11 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
 
   // Try to allocate bindings from the current pool
   gpu_binding_pool* pool = &state.bindings;
+  gpu_binding_puddle* puddle = NULL;
 
   if (pool->head != ~0u) {
-    allocateInfo.descriptorPool = pool->data[pool->head].handle;
-
+    puddle = &pool->data[pool->head];
+    allocateInfo.descriptorPool = puddle->handle;
     VkResult result = vkAllocateDescriptorSets(state.device, &allocateInfo, &bundle->handle);
     if (result != VK_ERROR_OUT_OF_POOL_MEMORY && !try(result, "Could not allocate bundle")) {
       return false;
@@ -679,10 +685,9 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
 
   // If that didn't work, there either wasn't a puddle available or the current one overflowed.
   if (!bundle->handle) {
-    gpu_binding_puddle* puddle = NULL;
     uint32_t index = ~0u;
 
-    // Make sure we have an up to date GPU tick before trying to reuse a pool
+    // Make sure we have an up to date GPU tick before trying to reuse a puddle
     ketchup();
 
     // If there's a crusty old puddle laying around that isn't even being used by anyone, use it
@@ -735,6 +740,8 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
       return false;
     }
   }
+
+  puddle->tick = state.tick[CPU];
 
   static const VkDescriptorType descriptorTypes[] = {
     [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1273,6 +1280,8 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   };
 
   vkCmdBeginRenderPass(stream->commands, &beginfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdSetViewport(stream->commands, 0, 1, (VkViewport[]) { { 0.f, 0.f, canvas->size[0], canvas->size[1], 0.f, 1.f } });
+  vkCmdSetScissor(stream->commands, 0, 1, &beginfo.renderArea);
 }
 
 void gpu_render_end(gpu_stream* stream) {
@@ -1306,12 +1315,7 @@ void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t*
 }
 
 void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type) {
-  static const VkIndexType types[] = {
-    [GPU_INDEX_U16] = VK_INDEX_TYPE_UINT16,
-    [GPU_INDEX_U32] = VK_INDEX_TYPE_UINT32
-  };
-
-  vkCmdBindIndexBuffer(stream->commands, buffer->handle, offset, types[type]);
+  vkCmdBindIndexBuffer(stream->commands, buffer->handle, offset, (VkIndexType) type);
 }
 
 void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex) {
@@ -2006,21 +2010,15 @@ bool gpu_init(gpu_config* config) {
       .commandBufferCount = COUNTOF(state.ticks[i].streams)
     };
 
-    VkSemaphoreCreateInfo semaphoreInfo = {
-      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
-    };
-
-    VkFenceCreateInfo fenceInfo = {
-      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-      .flags = VK_FENCE_CREATE_SIGNALED_BIT
-    };
-
+    VkSemaphoreCreateInfo semaphoreInfo = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+    VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };
     TRY(vkAllocateCommandBuffers(state.device, &allocateInfo, &state.ticks[i].streams[0].commands), "Commmand buffer allocation failed") DIE();
     TRY(vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[0]), "Semaphore creation failed") DIE();
     TRY(vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[1]), "Semaphore creation failed") DIE();
     TRY(vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence), "Fence creation failed") DIE();
   }
 
+  // Pipeline cache
   VkPipelineCacheCreateInfo cacheInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
   TRY(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "Pipeline cache creation failed") DIE();
 
@@ -2038,6 +2036,7 @@ bool gpu_init(gpu_config* config) {
   state.buffers[0].head = state.buffers[1].head = ~0u;
   state.buffers[0].tail = state.buffers[1].tail = ~0u;
   state.buffers[0].memoryType = state.buffers[1].memoryType = ~0u;
+  state.bindings.head = state.bindings.tail = ~0u;
   return true;
 }
 
@@ -2430,7 +2429,7 @@ static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUt
 static bool try(VkResult result, const char* message) {
   if (result >= 0) return true;
   if (!state.config.callback) return false;
-#define CASE(x) case x: state.config.callback(state.config.userdata, "Vulkan error: " #x, false);
+#define CASE(x) case x: state.config.callback(state.config.userdata, "Vulkan error: " #x, false); break;
   switch (result) {
     CASE(VK_ERROR_OUT_OF_HOST_MEMORY);
     CASE(VK_ERROR_OUT_OF_DEVICE_MEMORY);
