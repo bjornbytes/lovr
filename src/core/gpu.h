@@ -231,9 +231,7 @@ typedef struct {
 } gpu_slot;
 
 typedef struct {
-  gpu_shader_source vertex;
-  gpu_shader_source fragment;
-  gpu_shader_source compute;
+  gpu_shader_source stages[2];
   uint32_t slotCount[4];
   gpu_slot* slots[4];
   const char* label;

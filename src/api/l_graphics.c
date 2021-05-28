@@ -811,20 +811,24 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
 
 static int l_lovrGraphicsNewShader(lua_State* L) {
   const char* dynamicBuffers[64];
-
-  ShaderInfo info = {
-    .dynamicBuffers = dynamicBuffers
-  };
+  ShaderInfo info = { .dynamicBuffers = dynamicBuffers };
+  Blob* blobs[2] = { NULL, NULL };
 
   bool table = lua_istable(L, 2);
 
   if (lua_gettop(L) == 1 || table) {
+    blobs[0] = luax_readblob(L, 1, "Shader");
+    info.source[0] = blobs[0]->data;
+    info.length[0] = blobs[0]->size;
     info.type = SHADER_COMPUTE;
-    info.compute = luax_readblob(L, 1, "Shader");
   } else {
+    blobs[0] = luax_readblob(L, 1, "Shader");
+    blobs[1] = luax_readblob(L, 2, "Shader");
+    info.source[0] = blobs[0]->data;
+    info.length[0] = blobs[0]->size;
+    info.source[1] = blobs[1]->data;
+    info.length[1] = blobs[1]->size;
     info.type = SHADER_GRAPHICS;
-    info.vertex = luax_readblob(L, 1, "Shader");
-    info.fragment = luax_readblob(L, 2, "Shader");
   }
 
   if (table) {
@@ -848,9 +852,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   Shader* shader = lovrShaderCreate(&info);
   luax_pushtype(L, Shader, shader);
   lovrRelease(shader, lovrShaderDestroy);
-  lovrRelease(info.vertex, lovrBlobDestroy);
-  lovrRelease(info.fragment, lovrBlobDestroy);
-  lovrRelease(info.compute, lovrBlobDestroy);
+  lovrRelease(blobs[0], lovrBlobDestroy);
+  lovrRelease(blobs[1], lovrBlobDestroy);
   return 1;
 }
 

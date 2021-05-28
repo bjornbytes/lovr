@@ -368,9 +368,8 @@ typedef enum {
 
 typedef struct {
   ShaderType type;
-  struct Blob* vertex;
-  struct Blob* fragment;
-  struct Blob* compute;
+  const void* source[2];
+  uint32_t length[2];
   const char** dynamicBuffers;
   uint32_t dynamicBufferCount;
   const char* label;
