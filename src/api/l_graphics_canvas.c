@@ -615,8 +615,23 @@ static int l_lovrCanvasDraw(lua_State* L) {
     draw.vertexBufferCount = 1;
     draw.vertexBuffers[0] = luax_checktype(L, index++, Buffer);
   } else if (lua_istable(L, index)) {
-    // TODO multiple buffers, immediate-mode vertices, oh my
-    lovrThrow("TODO");
+    lua_rawgeti(L, index, 1);
+    bool buffers = luax_totype(L, -1, Buffer);
+    lua_pop(L, 1);
+
+    if (buffers) {
+      int length = luax_len(L, index);
+      draw.vertexBufferCount = length;
+      for (int i = 0; i < length; i++) {
+        lua_rawgeti(L, index, i + 1);
+        draw.vertexBuffers[i] = luax_checktype(L, -1, Buffer);
+        lua_pop(L, 1);
+      }
+    } else {
+      // TODO immediate-mode vertices, oh my
+      lovrThrow("TODO");
+    }
+    index++;
   } else {
     lovrThrow("Expected nil, false, Buffer or table for vertex data");
   }
