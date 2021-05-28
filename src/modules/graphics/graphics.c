@@ -48,6 +48,7 @@ struct Canvas {
   gpu_canvas gpu;
   gpu_stream* stream;
   CanvasInfo info;
+  uint32_t views;
   bool temporary;
   Texture* colorTextures[4];
   Texture* resolveTextures[4];
@@ -831,6 +832,8 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     mat4_perspective(canvas->camera.projection[i], .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) width / height);
     mat4_identity(canvas->camera.viewMatrix[i]);
   }
+
+  canvas->views = views;
 }
 
 Canvas* lovrCanvasCreate(CanvasInfo* info) {
@@ -981,6 +984,18 @@ void lovrCanvasFinish(Canvas* canvas) {
 
 bool lovrCanvasIsActive(Canvas* canvas) {
   return canvas->stream;
+}
+
+uint32_t lovrCanvasGetWidth(Canvas* canvas) {
+  return canvas->gpu.size[0];
+}
+
+uint32_t lovrCanvasGetHeight(Canvas* canvas) {
+  return canvas->gpu.size[1];
+}
+
+uint32_t lovrCanvasGetViewCount(Canvas* canvas) {
+  return canvas->views;
 }
 
 void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
