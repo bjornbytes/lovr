@@ -838,7 +838,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       .loadOp = loadOps[info->color[i].load],
       .storeOp = info->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->color[i].save],
       .initialLayout = info->color[i].load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-      .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+      .finalLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
   }
 
@@ -853,7 +853,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = storeOps[info->color[i].save],
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        .finalLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
       };
     }
   }
@@ -904,15 +904,6 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   pass->samples = info->samples;
   pass->count = info->count;
   return true;
-}
-
-bool gpu_pass_init_surface(gpu_pass* pass, gpu_pass_info* info) {
-  info->color[0].format = ~0u; // Shhh
-  info->color[0].load = GPU_LOAD_OP_CLEAR;
-  info->color[0].save = GPU_SAVE_OP_SAVE;
-  info->color[0].srgb = true;
-  info->count = 1;
-  return gpu_pass_init(pass, info);
 }
 
 void gpu_pass_destroy(gpu_pass* pass) {
