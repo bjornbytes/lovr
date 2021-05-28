@@ -811,20 +811,24 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
 
 static int l_lovrGraphicsNewShader(lua_State* L) {
   const char* dynamicBuffers[64];
-
-  ShaderInfo info = {
-    .dynamicBuffers = dynamicBuffers
-  };
+  ShaderInfo info = { .dynamicBuffers = dynamicBuffers };
+  Blob* blobs[2] = { NULL, NULL };
 
   bool table = lua_istable(L, 2);
 
   if (lua_gettop(L) == 1 || table) {
+    blobs[0] = luax_readblob(L, 1, "Shader");
+    info.source[0] = blobs[0]->data;
+    info.length[0] = blobs[0]->size;
     info.type = SHADER_COMPUTE;
-    info.compute = luax_readblob(L, 1, "Shader");
   } else {
+    blobs[0] = luax_readblob(L, 1, "Shader");
+    blobs[1] = luax_readblob(L, 2, "Shader");
+    info.source[0] = blobs[0]->data;
+    info.length[0] = blobs[0]->size;
+    info.source[1] = blobs[1]->data;
+    info.length[1] = blobs[1]->size;
     info.type = SHADER_GRAPHICS;
-    info.vertex = luax_readblob(L, 1, "Shader");
-    info.fragment = luax_readblob(L, 2, "Shader");
   }
 
   if (table) {
@@ -848,55 +852,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   Shader* shader = lovrShaderCreate(&info);
   luax_pushtype(L, Shader, shader);
   lovrRelease(shader, lovrShaderDestroy);
-  lovrRelease(info.vertex, lovrBlobDestroy);
-  lovrRelease(info.fragment, lovrBlobDestroy);
-  lovrRelease(info.compute, lovrBlobDestroy);
-  return 1;
-}
-
-static int l_lovrGraphicsNewBundle(lua_State* L) {
-  Shader* shader = luax_checktype(L, 1, Shader);
-  uint32_t group = luaL_checkinteger(L, 2);
-  Bundle* bundle = lovrBundleCreate(shader, group);
-
-  if (lua_istable(L, 3)) {
-    lua_pushnil(L);
-    while (lua_next(L, 3)) {
-      uint32_t id;
-
-      switch (lua_type(L, -2)) {
-        case LUA_TSTRING: {
-          size_t length;
-          const char* name = lua_tolstring(L, -2, &length);
-          uint64_t hash = hash64(name, length);
-          uint32_t g;
-          bool exists = lovrShaderResolveName(shader, hash, &g, &id);
-          lovrAssert(exists, "Shader has no variable named '%s', name");
-          lovrAssert(g == group, "Variable '%s' is not in this Bundle's group!", name);
-          break;
-        }
-        case LUA_TNUMBER:
-          id = lua_tointeger(L, -2);
-          break;
-        default:
-          break;
-      }
-
-      Buffer* buffer = luax_totype(L, -1, Buffer);
-      Texture* texture = luax_totype(L, -1, Texture);
-      lovrAssert(buffer || texture, "Expected a Buffer or a Texture for a bundle variable");
-      if (buffer) {
-        lovrBundleBindBuffer(bundle, id, 0, buffer, 0, ~0u);
-      } else {
-        lovrBundleBindTexture(bundle, id, 0, texture);
-      }
-
-      lua_pop(L, 1);
-    }
-  }
-
-  luax_pushtype(L, Bundle, bundle);
-  lovrRelease(bundle, lovrBundleDestroy);
+  lovrRelease(blobs[0], lovrBlobDestroy);
+  lovrRelease(blobs[1], lovrBlobDestroy);
   return 1;
 }
 
