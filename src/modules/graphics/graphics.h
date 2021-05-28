@@ -171,7 +171,9 @@ typedef struct {
   Texture* parent;
   TextureType type;
   uint32_t format;
-  uint32_t size[3];
+  uint32_t width;
+  uint32_t height;
+  uint32_t depth;
   uint32_t mipmaps;
   uint32_t samples;
   uint32_t flags;

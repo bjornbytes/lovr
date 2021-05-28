@@ -690,19 +690,19 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   };
 
   if (blank) {
-    info.size[0] = lua_tointeger(L, index++);
-    info.size[1] = luaL_checkinteger(L, index++);
-    info.size[2] = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : 0;
+    info.width = lua_tointeger(L, index++);
+    info.height = luaL_checkinteger(L, index++);
+    info.depth = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : 0;
   } else if (argType != LUA_TTABLE) {
     lua_createtable(L, 1, 0);
     lua_pushvalue(L, 1);
     lua_rawseti(L, -2, 1);
     lua_replace(L, 1);
-    info.size[2] = 1;
+    info.depth = 1;
     index++;
   } else {
-    info.size[2] = luax_len(L, index++);
-    info.type = info.size[2] > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE;
+    info.depth = luax_len(L, index++);
+    info.type = info.depth > 0 ? TEXTURE_ARRAY : TEXTURE_CUBE;
   }
 
   if (lua_istable(L, index)) {
@@ -753,11 +753,11 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   Texture* texture;
 
   if (blank) {
-    info.size[2] = info.size[2] > 0 ? info.size[2] : (info.type == TEXTURE_CUBE ? 6 : 1);
+    info.depth = info.depth > 0 ? info.depth : (info.type == TEXTURE_CUBE ? 6 : 1);
     texture = lovrTextureCreate(&info);
   } else {
-    if (info.type == TEXTURE_CUBE && info.size[2] == 0) {
-      info.size[2] = 6;
+    if (info.type == TEXTURE_CUBE && info.depth == 0) {
+      info.depth = 6;
       const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
       for (int i = 0; i < 6; i++) {
         lua_pushstring(L, faces[i]);
@@ -767,24 +767,24 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
       }
     }
 
-    lovrAssert(info.size[2] > 0, "No texture images specified");
+    lovrAssert(info.depth > 0, "No texture images specified");
 
-    for (uint32_t i = 0; i < info.size[2]; i++) {
+    for (uint32_t i = 0; i < info.depth; i++) {
       lua_rawgeti(L, 1, i + 1);
       Image* image = luax_checkimage(L, -1, info.type != TEXTURE_CUBE);
       if (i == 0) {
-        info.size[0] = image->width;
-        info.size[1] = image->height;
+        info.width = image->width;
+        info.height = image->height;
         info.format = image->format;
         texture = lovrTextureCreate(&info);
       } else {
-        lovrAssert(image->width == info.size[0], "Image widths must match");
-        lovrAssert(image->height == info.size[1], "Image heights must match");
+        lovrAssert(image->width == info.width, "Image widths must match");
+        lovrAssert(image->height == info.height, "Image heights must match");
         lovrAssert(image->format == info.format, "Image formats must match");
       }
       uint16_t srcOffset[4] = { 0, 0, i, 0 };
       uint16_t dstOffset[2] = { 0, 0 };
-      uint16_t extent[3] = { info.size[0], info.size[1], 1 };
+      uint16_t extent[3] = { info.width, info.height, 1 };
       lovrTexturePaste(texture, image, srcOffset, dstOffset, extent);
       lovrRelease(image, lovrImageDestroy);
       lua_pop(L, 1);

@@ -39,30 +39,30 @@ static int l_lovrTextureGetFormat(lua_State* L) {
 static int l_lovrTextureGetWidth(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
-  lua_pushinteger(L, info->size[0]);
+  lua_pushinteger(L, info->width);
   return 1;
 }
 
 static int l_lovrTextureGetHeight(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
-  lua_pushinteger(L, info->size[1]);
+  lua_pushinteger(L, info->height);
   return 1;
 }
 
 static int l_lovrTextureGetDepth(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
-  lua_pushinteger(L, info->size[2]);
+  lua_pushinteger(L, info->depth);
   return 1;
 }
 
 static int l_lovrTextureGetDimensions(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
-  lua_pushinteger(L, info->size[0]);
-  lua_pushinteger(L, info->size[1]);
-  lua_pushinteger(L, info->size[2]);
+  lua_pushinteger(L, info->width);
+  lua_pushinteger(L, info->height);
+  lua_pushinteger(L, info->depth);
   return 3;
 }
 
@@ -145,8 +145,8 @@ static int l_lovrTextureRead(lua_State* L) {
   luaL_checktype(L, 2, LUA_TFUNCTION);
   uint32_t x = luaL_optinteger(L, 3, 0);
   uint32_t y = luaL_optinteger(L, 4, 0);
-  uint32_t w = luaL_optinteger(L, 5, info->size[0] - x);
-  uint32_t h = luaL_optinteger(L, 6, info->size[1] - y);
+  uint32_t w = luaL_optinteger(L, 5, info->width - x);
+  uint32_t h = luaL_optinteger(L, 6, info->height - y);
   uint32_t layer = luaL_optinteger(L, 7, 1);
   uint32_t level = luaL_optinteger(L, 8, 1);
   luax_readback* readback = malloc(sizeof(luax_readback));
@@ -213,7 +213,7 @@ static int l_lovrTextureClear(lua_State* L) {
   int index = lua_istable(L, 2) ? 3 : 6; // color must occupy 1 or 4 arguments
   uint16_t layer = luaL_optinteger(L, index++, 1) - 1;
   uint16_t level = luaL_optinteger(L, index++, 1) - 1;
-  uint16_t layerCount = luaL_optinteger(L, index++, info->size[2] - layer);
+  uint16_t layerCount = luaL_optinteger(L, index++, info->depth - layer);
   uint16_t levelCount = luaL_optinteger(L, index++, info->mipmaps - level);
   lovrTextureClear(texture, layer, layerCount, level, levelCount, color);
   return 0;
