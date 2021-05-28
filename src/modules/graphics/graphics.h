@@ -11,7 +11,6 @@ typedef struct Buffer Buffer;
 typedef struct Texture Texture;
 typedef struct Canvas Canvas;
 typedef struct Shader Shader;
-typedef struct Bundle Bundle;
 
 typedef struct {
   bool bptc;
@@ -381,12 +380,3 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
 void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z);
 void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset);
-
-// Bundle
-
-Bundle* lovrBundleCreate(Shader* shader, uint32_t group);
-void lovrBundleDestroy(void* ref);
-Shader* lovrBundleGetShader(Bundle* bundle);
-uint32_t lovrBundleGetGroup(Bundle* bundle);
-bool lovrBundleBindBuffer(Bundle* bundle, uint32_t id, uint32_t element, Buffer* buffer, uint32_t offset, uint32_t extent);
-bool lovrBundleBindTexture(Bundle* bundle, uint32_t id, uint32_t element, Texture* texture);
