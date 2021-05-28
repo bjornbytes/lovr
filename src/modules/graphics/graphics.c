@@ -1266,6 +1266,7 @@ static void lovrCanvasBindVertexBuffers(Canvas* canvas, DrawCall* draw) {
   buffersDirty = buffersDirty || memcmp(draw->vertexBuffers, canvas->vertexBuffers, draw->vertexBufferCount * sizeof(Buffer*));
   if (!buffersDirty) return;
 
+  uint32_t offsets[15];
   gpu_buffer* buffers[15];
   for (uint32_t i = 0; i < draw->vertexBufferCount; i++) {
     Buffer* buffer = draw->vertexBuffers[i];
@@ -1275,12 +1276,12 @@ static void lovrCanvasBindVertexBuffers(Canvas* canvas, DrawCall* draw) {
     canvas->vertexBuffers[i] = buffer;
     canvas->pipelineInfo.bufferStrides[INTERNAL_VERTEX_BUFFERS + i] = buffer->info.stride;
     buffers[i] = buffer->gpu;
+    offsets[i] = buffer->base;
   }
 
   canvas->pipelineInfo.vertexBufferCount = INTERNAL_VERTEX_BUFFERS + draw->vertexBufferCount;
   canvas->pipelineDirty = true;
 
-  uint32_t offsets[15] = { 0 };
   gpu_bind_vertex_buffers(canvas->stream, buffers, offsets, INTERNAL_VERTEX_BUFFERS, draw->vertexBufferCount);
 }
 
