@@ -594,7 +594,7 @@ static int l_lovrCanvasDraw(lua_State* L) {
   int index = 2;
 
   // Texture
-  if (lua_isuserdata(L, index)) {
+  if (luax_totype(L, index, Texture)) {
     draw.texture = luax_checktype(L, index++, Texture);
   } else {
     draw.texture = NULL;
@@ -637,6 +637,8 @@ static int l_lovrCanvasDraw(lua_State* L) {
   float transform[16];
   index = luax_readmat4(L, index, transform, 1);
   draw.transform = transform;
+
+  lovrCanvasGetVertexFormat(canvas, draw.attributes, &draw.attributeCount);
 
   // Parameters
   if (lua_isuserdata(L, index)) {
