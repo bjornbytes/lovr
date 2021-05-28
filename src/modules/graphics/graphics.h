@@ -14,6 +14,17 @@ typedef struct Canvas Canvas;
 typedef struct Shader Shader;
 
 typedef struct {
+  uint32_t vendorId;
+  uint32_t deviceId;
+  const char* deviceName;
+  const char* renderer;
+  uint32_t driverMajor;
+  uint32_t driverMinor;
+  uint32_t driverPatch;
+  bool discrete;
+} GraphicsDevice;
+
+typedef struct {
   bool bptc;
   bool astc;
   bool pointSize;
@@ -64,6 +75,7 @@ typedef struct {
 
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
+void lovrGraphicsGetDeviceInfo(GraphicsDevice* device);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
