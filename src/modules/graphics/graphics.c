@@ -1262,7 +1262,7 @@ static void lovrCanvasBindVertexBuffers(Canvas* canvas, DrawCall* draw) {
   lovrAssert(draw->vertexBufferCount < state.limits.vertexBuffers, "Too many vertex buffers");
 
   bool buffersDirty = false;
-  buffersDirty = buffersDirty || draw->vertexBufferCount != canvas->pipelineInfo.vertexBufferCount;
+  buffersDirty = buffersDirty || INTERNAL_VERTEX_BUFFERS + draw->vertexBufferCount != canvas->pipelineInfo.vertexBufferCount;
   buffersDirty = buffersDirty || memcmp(draw->vertexBuffers, canvas->vertexBuffers, draw->vertexBufferCount * sizeof(Buffer*));
   if (!buffersDirty) return;
 
@@ -1274,13 +1274,9 @@ static void lovrCanvasBindVertexBuffers(Canvas* canvas, DrawCall* draw) {
     lovrRetain(buffer);
     lovrRelease(canvas->vertexBuffers[i], lovrBufferDestroy);
     canvas->vertexBuffers[i] = buffer;
-    canvas->pipelineInfo.bufferStrides[INTERNAL_VERTEX_BUFFERS + i] = buffer->info.stride;
     buffers[i] = buffer->gpu;
     offsets[i] = buffer->base;
   }
-
-  canvas->pipelineInfo.vertexBufferCount = INTERNAL_VERTEX_BUFFERS + draw->vertexBufferCount;
-  canvas->pipelineDirty = true;
 
   gpu_bind_vertex_buffers(canvas->stream, buffers, offsets, INTERNAL_VERTEX_BUFFERS, draw->vertexBufferCount);
 }
@@ -1308,6 +1304,19 @@ static void lovrCanvasBindPipeline(Canvas* canvas, DrawCall* draw) {
     memcpy(canvas->pipelineInfo.attributes, draw->attributes, draw->attributeCount * sizeof(VertexAttribute));
     canvas->pipelineInfo.attributeCount = draw->attributeCount;
     canvas->pipelineDirty = true;
+  }
+
+  if (canvas->pipelineInfo.vertexBufferCount != INTERNAL_VERTEX_BUFFERS + draw->vertexBufferCount) {
+    canvas->pipelineInfo.vertexBufferCount = INTERNAL_VERTEX_BUFFERS + draw->vertexBufferCount;
+    canvas->pipelineDirty = true;
+  }
+
+  for (uint32_t i = 0; i < draw->vertexBufferCount; i++) {
+    uint16_t stride = draw->vertexBuffers[i]->info.stride;
+    if (canvas->pipelineInfo.bufferStrides[INTERNAL_VERTEX_BUFFERS + i] != stride) {
+      canvas->pipelineInfo.bufferStrides[INTERNAL_VERTEX_BUFFERS + i] = stride;
+      canvas->pipelineDirty = true;
+    }
   }
 
   if (!canvas->pipelineDirty) return;
