@@ -108,7 +108,9 @@ int luax_readmesh(struct lua_State* L, int index, float** vertices, uint32_t* ve
 
 #ifndef LOVR_DISABLE_DATA
 struct Blob;
+struct Image;
 struct Blob* luax_readblob(struct lua_State* L, int index, const char* debug);
+struct Image* luax_checkimage(struct lua_State* L, int index, bool flip);
 #endif
 
 #ifndef LOVR_DISABLE_EVENT
