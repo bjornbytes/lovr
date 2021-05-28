@@ -25,6 +25,43 @@ static int l_lovrCanvasIsActive(lua_State* L) {
   return 1;
 }
 
+static int l_lovrCanvasGetWidth(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  uint32_t width = lovrCanvasGetWidth(canvas);
+  lua_pushinteger(L, width);
+  return 1;
+}
+
+static int l_lovrCanvasGetHeight(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  uint32_t height = lovrCanvasGetHeight(canvas);
+  lua_pushinteger(L, height);
+  return 1;
+}
+
+static int l_lovrCanvasGetDimensions(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  uint32_t width = lovrCanvasGetWidth(canvas);
+  uint32_t height = lovrCanvasGetHeight(canvas);
+  lua_pushinteger(L, width);
+  lua_pushinteger(L, height);
+  return 2;
+}
+
+static int l_lovrCanvasGetSampleCount(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  const CanvasInfo* info = lovrCanvasGetInfo(canvas);
+  lua_pushinteger(L, info->samples);
+  return 1;
+}
+
+static int l_lovrCanvasGetViewCount(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  uint32_t views = lovrCanvasGetViewCount(canvas);
+  lua_pushinteger(L, views);
+  return 1;
+}
+
 static int l_lovrCanvasGetViewPose(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
@@ -695,6 +732,11 @@ const luaL_Reg lovrCanvas[] = {
   { "begin", l_lovrCanvasBegin },
   { "finish", l_lovrCanvasFinish },
   { "isActive", l_lovrCanvasIsActive },
+  { "getWidth", l_lovrCanvasGetWidth },
+  { "getHeight", l_lovrCanvasGetHeight },
+  { "getDimensions", l_lovrCanvasGetDimensions },
+  { "getSampleCount", l_lovrCanvasGetSampleCount },
+  { "getViewCount", l_lovrCanvasGetViewCount },
   { "getViewPose", l_lovrCanvasGetViewPose },
   { "setViewPose", l_lovrCanvasSetViewPose },
   { "getProjection", l_lovrCanvasGetProjection },
