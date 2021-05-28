@@ -16,8 +16,8 @@
 #define MAX_STREAMS 32
 
 typedef struct {
-  float viewMatrix[6][16];
-  float projection[6][16];
+  float viewMatrix[MAX_VIEWS][16];
+  float projection[MAX_VIEWS][16];
 } Camera;
 
 typedef struct {
@@ -237,7 +237,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->textureLayers = state.limits.textureLayers;
   limits->renderWidth = state.limits.renderSize[0];
   limits->renderHeight = state.limits.renderSize[1];
-  limits->renderViews = state.limits.renderViews;
+  limits->renderViews = MIN(state.limits.renderViews, MAX_VIEWS);
   limits->bundleCount = state.limits.bundleCount;
   limits->bundleSlots = state.limits.bundleSlots;
   limits->uniformBufferRange = state.limits.uniformBufferRange;
@@ -682,7 +682,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   // Validate color attachments
   for (uint32_t i = 0; i < info->count && i < MAX_COLOR_ATTACHMENTS; i++) {
     Texture* texture = info->color[i].texture;
-    bool renderable = state.features.formats[texture->info.format] & GPU_FEATURE_RENDER_COLOR;
+    bool renderable = texture->info.format == ~0u || (state.features.formats[texture->info.format] & GPU_FEATURE_RENDER_COLOR);
     lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
     lovrAssert(texture->info.flags & TEXTURE_RENDER, "Texture must be created with the 'render' flag to attach it to a Canvas");
     lovrAssert(texture->info.width == first->width, "Canvas texture sizes must match");
@@ -748,13 +748,6 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   canvas->gpu.pass = (gpu_pass*) (uintptr_t) value;
   canvas->gpu.size[0] = width;
   canvas->gpu.size[1] = height;
-
-  // Bundles
-  gpu_bundle* bundles = malloc(3 * gpu_sizeof_bundle());
-  lovrAssert(bundles, "Out of memory");
-  canvas->bundles[0] = (gpu_bundle*) ((char*) bundles + 0 * gpu_sizeof_bundle());
-  canvas->bundles[1] = (gpu_bundle*) ((char*) bundles + 1 * gpu_sizeof_bundle());
-  canvas->bundles[2] = (gpu_bundle*) ((char*) bundles + 2 * gpu_sizeof_bundle());
 
   // Create any missing targets
 
@@ -825,6 +818,19 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
       canvas->gpu.depth.texture = canvas->depthTexture->renderView;
     }
   }
+
+  // Bundles
+  gpu_bundle* bundles = malloc(3 * gpu_sizeof_bundle());
+  lovrAssert(bundles, "Out of memory");
+  canvas->bundles[0] = (gpu_bundle*) ((char*) bundles + 0 * gpu_sizeof_bundle());
+  canvas->bundles[1] = (gpu_bundle*) ((char*) bundles + 1 * gpu_sizeof_bundle());
+  canvas->bundles[2] = (gpu_bundle*) ((char*) bundles + 2 * gpu_sizeof_bundle());
+
+  // Default camera, for funsies
+  for (uint32_t i = 0; i < views; i++) {
+    mat4_perspective(canvas->camera.projection[i], .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) width / height);
+    mat4_identity(canvas->camera.viewMatrix[i]);
+  }
 }
 
 Canvas* lovrCanvasCreate(CanvasInfo* info) {
@@ -875,12 +881,21 @@ Canvas* lovrCanvasGetWindow() {
     .views = 1
   };
 
-  // Bundles
+  // Bundles (TODO dedupe)
   gpu_bundle* bundles = malloc(3 * gpu_sizeof_bundle());
   lovrAssert(bundles, "Out of memory");
   canvas->bundles[0] = (gpu_bundle*) ((char*) bundles + 0 * gpu_sizeof_bundle());
   canvas->bundles[1] = (gpu_bundle*) ((char*) bundles + 1 * gpu_sizeof_bundle());
   canvas->bundles[2] = (gpu_bundle*) ((char*) bundles + 2 * gpu_sizeof_bundle());
+
+  int width, height;
+  os_window_get_fbsize(&width, &height);
+
+  // Default camera, for funsies (TODO dedupe)
+  for (uint32_t i = 0; i < info.views; i++) {
+    mat4_perspective(canvas->camera.projection[i], .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) width / height);
+    mat4_identity(canvas->camera.viewMatrix[i]);
+  }
 
   canvas->gpu.pass = calloc(1, gpu_sizeof_pass());
   lovrAssert(canvas->gpu.pass, "Out of memory");
