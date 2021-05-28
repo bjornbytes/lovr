@@ -504,91 +504,50 @@ static size_t getTextureRegionSize(TextureFormat format, uint16_t w, uint16_t h,
 }
 
 static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint16_t extent[3]) {
-  uint16_t bounds[3] = {
-    MAX(info->size[0] >> offset[3], 1),
-    MAX(info->size[1] >> offset[3], 1),
-    info->type == TEXTURE_VOLUME ? MAX(info->size[2] >> offset[3], 1) : info->size[2]
-  };
-
-  lovrAssert(offset[0] + extent[0] <= bounds[0], "Texture x range [%d,%d] exceeds width (%d)", offset[0], offset[0] + extent[0], bounds[0]);
-  lovrAssert(offset[1] + extent[1] <= bounds[1], "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], bounds[1]);
-  lovrAssert(offset[2] + extent[2] <= bounds[2], "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], bounds[2]);
+  uint16_t maxWidth = MAX(info->width >> offset[3], 1);
+  uint16_t maxHeight = MAX(info->height >> offset[3], 1);
+  uint16_t maxDepth = info->type == TEXTURE_VOLUME ? MAX(info->depth >> offset[3], 1) : info->depth;
+  lovrAssert(offset[0] + extent[0] <= maxWidth, "Texture x range [%d,%d] exceeds width (%d)", offset[0], offset[0] + extent[0], maxWidth);
+  lovrAssert(offset[1] + extent[1] <= maxHeight, "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], maxHeight);
+  lovrAssert(offset[2] + extent[2] <= maxDepth, "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], maxDepth);
   lovrAssert(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
 }
 
 Texture* lovrTextureCreate(TextureInfo* info) {
-  lovrAssert(!info->parent, "Textures can only have parents when created as views");
-  lovrAssert(info->size[0] > 0, "Texture width must be greater than zero");
-  lovrAssert(info->size[1] > 0, "Texture height must be greater than zero");
-  lovrAssert(info->size[2] > 0, "Texture depth must be greater than zero");
-  lovrAssert(info->mipmaps > 0, "Texture mipmap count must be greater than zero");
-  lovrAssert(info->samples > 0, "Texture sample count must be greater than zero");
+  size_t memory = getTextureRegionSize(info->format, info->width, info->height, info->depth);
+  uint32_t mips = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_VOLUME ? info->depth : 1))) + 1;
+  uint8_t supports = state.features.formats[info->format];
+
+  uint32_t limits[] = {
+    [TEXTURE_2D] = state.limits.textureSize2D,
+    [TEXTURE_CUBE] = state.limits.textureSizeCube,
+    [TEXTURE_ARRAY] = state.limits.textureSize2D,
+    [TEXTURE_VOLUME] = state.limits.textureSize3D
+  };
+
+  lovrAssert(info->width > 0, "Texture width must be greater than zero");
+  lovrAssert(info->height > 0, "Texture height must be greater than zero");
+  lovrAssert(info->depth > 0, "Texture depth must be greater than zero");
+  lovrAssert(info->width <= limits[info->type], "Texture %s exceeds the limit for this texture type (%d)", "width", limits[info->type]);
+  lovrAssert(info->height <= limits[info->type], "Texture %s exceeds the limit for this texture type (%d)", "height", limits[info->type]);
+  lovrAssert(info->depth <= limits[info->type] || info->type != TEXTURE_VOLUME, "Texture %s exceeds the limit for this texture type (%d)", "depth", limits[info->type]);
+  lovrAssert(info->depth <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "depth", limits[info->type]);
+  lovrAssert(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
+  lovrAssert(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
+  lovrAssert(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
+  lovrAssert(memory <= state.limits.allocationSize, "Texture memory (%d) exceeds allocationSize limit of this GPU (%d)", memory, state.limits.allocationSize);
   lovrAssert((info->samples & (info->samples - 1)) == 0, "Texture multisample count must be a power of 2");
+  lovrAssert(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
+  lovrAssert(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
+  lovrAssert(info->samples == 1 || ~info->flags & TEXTURE_COMPUTE, "Currently, Textures with the 'compute' flag can not be multisampled");
   lovrAssert(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
-
-  if (info->type == TEXTURE_2D) {
-    uint32_t maxSize = state.limits.textureSize2D;
-    lovrAssert(info->size[2] == 1, "2D textures must have a depth of 1");
-    lovrAssert(info->size[0] <= maxSize, "2D texture %s exceeds the textureSize2D limit of this GPU (%d)", "width", maxSize);
-    lovrAssert(info->size[1] <= maxSize, "2D texture %s exceeds the textureSize2D limit of this GPU (%d)", "height", maxSize);
-  }
-
-  if (info->type == TEXTURE_CUBE) {
-    uint32_t maxSize = state.limits.textureSizeCube;
-    lovrAssert(info->size[0] == info->size[1], "Cubemaps must have square dimensions");
-    lovrAssert(info->size[2] == 6, "Cubemaps must have a depth of 6");
-    lovrAssert(info->samples == 1, "Cubemaps can not be multisampled");
-    lovrAssert(info->size[0] <= maxSize, "Cubemap size exceeds the textureSizeCube limit of this GPU (%d)", maxSize);
-  }
-
-  if (info->type == TEXTURE_VOLUME) {
-    uint32_t maxSize = state.limits.textureSize3D;
-    lovrAssert(info->samples == 1, "Volume textures can not be multisampled");
-    lovrAssert(info->size[0] <= maxSize, "Volume texture %s exceeds the textureSize3D limit of this GPU (%d)", "width", maxSize);
-    lovrAssert(info->size[1] <= maxSize, "Volume texture %s exceeds the textureSize3D limit of this GPU (%d)", "height", maxSize);
-    lovrAssert(info->size[2] <= maxSize, "Volume texture %s exceeds the textureSize3D limit of this GPU (%d)", "depth", maxSize);
-  }
-
-  if (info->type == TEXTURE_ARRAY) {
-    uint32_t maxLayers = state.limits.textureLayers;
-    lovrAssert(info->size[2] <= maxLayers, "Array texture layer count exceeds the textureLayers limit of this GPU (%d)", maxLayers);
-  }
-
-  if (info->flags & TEXTURE_SAMPLE) {
-    bool canSample = state.features.formats[info->format] & GPU_FEATURE_SAMPLE;
-    lovrAssert(canSample, "Texture has 'sample' flag but this GPU does not support sampling this format");
-  }
-
-  if (info->flags & TEXTURE_RENDER) {
-    bool canRender = state.features.formats[info->format] & (GPU_FEATURE_RENDER_COLOR | GPU_FEATURE_RENDER_DEPTH);
-    lovrAssert(canRender, "Texture has 'render' flag but this GPU does not support rendering to this format");
-    uint32_t maxWidth = state.limits.renderSize[0];
-    uint32_t maxHeight = state.limits.renderSize[1];
-    bool excessive = info->size[0] > maxWidth || info->size[1] > maxHeight;
-    lovrAssert(!excessive, "Texture has 'render' flag but it exceeds the renderSize limit of this GPU (%d,%d)", maxWidth, maxHeight);
-  }
-
-  if (info->flags & TEXTURE_COMPUTE) {
-    bool allowed = state.features.formats[info->format] & GPU_FEATURE_STORAGE;
-    lovrAssert(allowed, "Texture has 'compute' flag but this GPU does not support this for this format");
-    lovrAssert(info->samples == 1, "Textures with the 'compute' flag can not currently be multisampled");
-  }
-
-  if (info->flags & TEXTURE_TRANSIENT) {
-    lovrAssert((info->flags & ~TEXTURE_TRANSIENT) == TEXTURE_RENDER, "Textures with the 'transient' flag must have the 'render' flag set (and no other flags)");
-  }
-
-  uint32_t mipDepth = info->type == TEXTURE_VOLUME ? info->size[2] : 1;
-  uint32_t mipMax = log2(MAX(MAX(info->size[0], info->size[1]), mipDepth)) + 1;
-
-  if (info->mipmaps == ~0u) {
-    info->mipmaps = mipMax;
-  } else {
-    lovrAssert(info->mipmaps <= mipMax, "Texture has more than the max number of mipmap levels for its size (%d)", mipMax);
-  }
-
-  size_t size = getTextureRegionSize(info->format, info->size[0], info->size[1], info->size[2]);
-  lovrAssert(size <= state.limits.allocationSize, "Texture size (%d) exceeds allocationSize limit of this GPU (%d)", size, state.limits.allocationSize);
+  lovrAssert(~info->flags & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
+  lovrAssert(~info->flags & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
+  lovrAssert(~info->flags & TEXTURE_COMPUTE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'compute' flag for this format");
+  lovrAssert(~info->flags & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
+  lovrAssert(~info->flags & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
+  lovrAssert(~info->flags & TEXTURE_TRANSIENT || info->flags == (TEXTURE_TRANSIENT | TEXTURE_RENDER), "Textures with the 'transient' flag must have the 'render' flag set (and no other flags)");
+  lovrAssert(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   lovrAssert(texture, "Out of memory");
@@ -596,14 +555,12 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   texture->info = *info;
   texture->ref = 1;
 
-  gpu_texture_info gpuInfo = {
+  gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
     .format = (gpu_texture_format) info->format,
-    .size[0] = info->size[0],
-    .size[1] = info->size[1],
-    .size[2] = info->size[2],
-    .mipmaps = info->mipmaps,
-    .samples = info->samples,
+    .size = { info->width, info->height, info->depth },
+    .mipmaps = info->mipmaps == ~0u ? mips : info->mipmaps + !info->mipmaps,
+    .samples = info->samples + !info->samples,
     .flags =
       ((info->flags & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->flags & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
@@ -613,9 +570,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       ((info->flags & TEXTURE_TRANSIENT) ? 0 : GPU_TEXTURE_COPY_DST),
     .srgb = info->srgb,
     .label = info->label
-  };
-
-  lovrAssert(gpu_texture_init(texture->gpu, &gpuInfo), "Could not create Texture");
+  });
 
   if (info->mipmaps == 1 && (info->type == TEXTURE_2D || info->type == TEXTURE_ARRAY)) {
     texture->renderView = texture->gpu;
@@ -625,28 +580,17 @@ Texture* lovrTextureCreate(TextureInfo* info) {
 }
 
 Texture* lovrTextureCreateView(TextureViewInfo* view) {
-  lovrAssert(view->parent, "Texture view must have a parent texture");
-  lovrAssert(view->type != TEXTURE_VOLUME, "Texture views may not be volume textures");
-
   const TextureInfo* info = &view->parent->info;
-  lovrAssert(!info->parent, "Can't create a Texture view from another Texture view");
+  uint32_t maxDepth = info->type == TEXTURE_VOLUME ? MAX(info->depth >> view->levelIndex, 1) : info->depth;
+  lovrAssert(!info->parent, "Can't nest texture views");
+  lovrAssert(view->type != TEXTURE_VOLUME, "Texture views may not be volume textures");
   lovrAssert(view->layerCount > 0, "Texture view must have at least one layer");
   lovrAssert(view->levelCount > 0, "Texture view must have at least one mipmap");
-  uint32_t maxDepth = info->type == TEXTURE_VOLUME ? MAX(info->size[2] >> view->levelIndex, 1) : info->size[2];
   lovrAssert(view->layerIndex + view->layerCount <= maxDepth, "Texture view layer range exceeds depth of parent texture");
   lovrAssert(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
-
-  if (view->type == TEXTURE_2D) {
-    lovrAssert(view->layerCount == 1, "2D textures can only have a single layer");
-  }
-
-  if (view->type == TEXTURE_CUBE) {
-    lovrAssert(view->layerCount == 6, "Cubemaps must have 6 layers");
-  }
-
-  if (info->type == TEXTURE_VOLUME) {
-    lovrAssert(view->levelCount == 1, "Views created from volume textures may only have a single mipmap level");
-  }
+  lovrAssert(view->layerCount == 1 || view->type != TEXTURE_2D, "2D texture can only have a single layer");
+  lovrAssert(view->layerCount == 6 || view->type != TEXTURE_CUBE, "Cubemaps can only have a six layers");
+  lovrAssert(view->levelCount == 1 || info->type != TEXTURE_VOLUME, "Views of volume textures may only have a single mipmap level");
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   lovrAssert(texture, "Out of memory");
@@ -656,22 +600,20 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 
   texture->info.parent = view->parent;
   texture->info.mipmaps = view->levelCount;
-  texture->info.size[0] = MAX(info->size[0] >> view->levelIndex, 1);
-  texture->info.size[1] = MAX(info->size[1] >> view->levelIndex, 1);
-  texture->info.size[2] = view->layerCount;
+  texture->info.width = MAX(info->width >> view->levelIndex, 1);
+  texture->info.height = MAX(info->height >> view->levelIndex, 1);
+  texture->info.depth = view->layerCount;
   texture->baseLayer = view->layerIndex;
   texture->baseLevel = view->levelIndex;
 
-  gpu_texture_view_info gpuInfo = {
+  gpu_texture_init_view(texture->gpu, &(gpu_texture_view_info) {
     .source = view->parent->gpu,
     .type = (gpu_texture_type) view->type,
     .layerIndex = view->layerIndex,
     .layerCount = view->layerCount,
     .levelIndex = view->levelIndex,
     .levelCount = view->levelCount
-  };
-
-  lovrAssert(gpu_texture_init_view(texture->gpu, &gpuInfo), "Could not create Texture view");
+  });
 
   if (view->levelCount == 1 && (view->type == TEXTURE_2D || view->type == TEXTURE_ARRAY)) {
     texture->renderView = texture->gpu;
@@ -735,7 +677,7 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
   lovrAssert(state.stream, "Graphics is not active");
   lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be cleared");
   lovrAssert(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
-  lovrAssert(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.size[2], "Texture clear range exceeds texture layer count");
+  lovrAssert(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
   lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
   gpu_clear_texture(state.stream, texture->gpu, layer + texture->baseLayer, layerCount, level + texture->baseLevel, levelCount, color);
 }
@@ -785,25 +727,34 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 // Canvas
 
 static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
-  // Validate
-  Texture* firstTexture = info->color[0].texture ? info->color[0].texture : info->depth.texture;
-  lovrAssert(firstTexture, "Canvas must have at least one color or depth texture");
-  uint32_t width = firstTexture->info.size[0], height = firstTexture->info.size[1], views = firstTexture->info.size[2];
+  lovrAssert(info->color[0].texture || info->depth.texture, "Canvas must have at least one color or depth texture");
+  const TextureInfo* first = info->color[0].texture ? &info->color[0].texture->info : &info->depth.texture->info;
+
+  uint32_t width = first->width;
+  uint32_t height = first->height;
+  uint32_t views = first->depth;
+  uint32_t samples = first->samples > 1 ? first->samples : info->samples;
+  bool resolve = first->samples == 1 && info->samples > 1;
+
+  // Validate size/samples
   lovrAssert(width <= state.limits.renderSize[0], "Canvas width exceeds the renderWidth limit of this GPU (%d)", state.limits.renderSize[0]);
   lovrAssert(height <= state.limits.renderSize[1], "Canvas width exceeds the renderHeight limit of this GPU (%d)", state.limits.renderSize[1]);
   lovrAssert(views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", views, state.limits.renderViews);
-  uint32_t samples = firstTexture->info.samples > 1 ? firstTexture->info.samples : info->samples;
   lovrAssert((samples & (samples - 1)) == 0, "Canvas multisample count must be a power of 2");
 
+  // Validate color attachments
   for (uint32_t i = 0; i < info->count && i < MAX_COLOR_ATTACHMENTS; i++) {
     Texture* texture = info->color[i].texture;
     bool renderable = state.features.formats[texture->info.format] & GPU_FEATURE_RENDER_COLOR;
     lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
     lovrAssert(texture->info.flags & TEXTURE_RENDER, "Texture must be created with the 'render' flag to attach it to a Canvas");
-    lovrAssert(!memcmp(texture->info.size, firstTexture->info.size, 3 * sizeof(uint32_t)), "Canvas texture sizes must match");
-    lovrAssert(texture->info.samples == firstTexture->info.samples, "Canvas texture sample counts must match");
+    lovrAssert(texture->info.width == first->width, "Canvas texture sizes must match");
+    lovrAssert(texture->info.height == first->height, "Canvas texture sizes must match");
+    lovrAssert(texture->info.depth == first->depth, "Canvas texture sizes must match");
+    lovrAssert(texture->info.samples == first->samples, "Canvas texture sample counts must match");
   }
 
+  // Validate depth attachment
   if (info->depth.enabled) {
     Texture* texture = info->depth.texture;
     TextureFormat format = texture ? texture->info.format : info->depth.format;
@@ -811,24 +762,32 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     lovrAssert(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
     if (texture) {
       lovrAssert(texture->info.flags & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to a Canvas");
-      lovrAssert(!memcmp(texture->info.size, firstTexture->info.size, 3 * sizeof(uint32_t)), "Canvas texture sizes must match");
+      lovrAssert(texture->info.width == first->width, "Canvas texture sizes must match");
+      lovrAssert(texture->info.height == first->height, "Canvas texture sizes must match");
+      lovrAssert(texture->info.depth == first->depth, "Canvas texture sizes must match");
       lovrAssert(texture->info.samples == samples, "Currently, Canvas depth buffer sample count must match its main multisample count");
     }
   }
 
-  // Get cached pass instance
-  gpu_pass_info key;
-  memset(&key, 0, sizeof(key));
+  // Pass info
+  gpu_pass_info pass = {
+    .count = info->count,
+    .samples = info->samples,
+    .views = views,
+    .resolve = resolve
+  };
+
   for (uint32_t i = 0; i < info->count; i++) {
-    key.color[i] = (gpu_pass_color_info) {
+    pass.color[i] = (gpu_pass_color_info) {
       .format = (gpu_texture_format) info->color[i].texture->info.format,
       .load = (gpu_load_op) info->color[i].load,
       .save = (gpu_save_op) info->color[i].save,
       .srgb = info->color[i].texture->info.srgb
     };
   }
+
   if (info->depth.enabled) {
-    key.depth = (gpu_pass_depth_info) {
+    pass.depth = (gpu_pass_depth_info) {
       .format = (gpu_texture_format) info->depth.format,
       .load = (gpu_load_op) info->depth.load,
       .save = (gpu_save_op) info->depth.save,
@@ -836,19 +795,16 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
       .stencilSave = (gpu_save_op) info->depth.stencilSave
     };
   }
-  key.count = info->count;
-  key.samples = info->samples;
-  key.views = views;
-  key.resolve = firstTexture->info.samples == 1 && info->samples > 1;
 
-  uint64_t hash = hash64(&key, sizeof(key));
+  // Get/create cached pass
+  uint64_t hash = hash64(&pass, sizeof(pass));
   uint64_t value = map_get(&state.passes, hash);
 
   if (value == MAP_NIL) {
-    gpu_pass* pass = calloc(1, gpu_sizeof_pass());
-    lovrAssert(pass, "Out of memory");
-    lovrAssert(gpu_pass_init(pass, &key), "Failed to initialize pass");
-    value = (uintptr_t) pass;
+    gpu_pass* instance = calloc(1, gpu_sizeof_pass());
+    lovrAssert(instance, "Out of memory");
+    lovrAssert(gpu_pass_init(instance, &pass), "Failed to initialize pass");
+    value = (uintptr_t) instance;
     map_set(&state.passes, hash, value);
   }
 
@@ -858,7 +814,9 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
 
   TextureInfo textureInfo = {
     .type = TEXTURE_ARRAY,
-    .size = { width, height, views },
+    .width = width,
+    .height = height,
+    .depth = views,
     .mipmaps = 1,
     .samples = info->samples,
     .flags = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT
@@ -889,7 +847,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   }
 
   // Resolve (swap color -> resolve and create temp msaa targets as new color targets)
-  if (key.resolve) {
+  if (resolve) {
     for (uint32_t i = 0; i < info->count; i++) {
       canvas->resolveTextures[i] = canvas->colorTextures[i];
       canvas->gpu.color[i].resolve = canvas->gpu.color[i].texture;

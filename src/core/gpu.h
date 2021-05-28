@@ -512,7 +512,8 @@ enum {
   GPU_FEATURE_FILTER       = (1 << 4),
   GPU_FEATURE_STORAGE      = (1 << 5),
   GPU_FEATURE_ATOMIC       = (1 << 6),
-  GPU_FEATURE_BLIT         = (1 << 7)
+  GPU_FEATURE_BLIT         = (1 << 7),
+  GPU_FEATURE_RENDER       = GPU_FEATURE_RENDER_COLOR | GPU_FEATURE_RENDER_DEPTH
 };
 
 typedef struct {
