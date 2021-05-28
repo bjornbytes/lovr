@@ -916,7 +916,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newShader", l_lovrGraphicsNewShader },
-  { "newBundle", l_lovrGraphicsNewBundle },
   { NULL, NULL }
 };
 
@@ -924,7 +923,6 @@ extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrCanvas[];
 extern const luaL_Reg lovrShader[];
-extern const luaL_Reg lovrBundle[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
@@ -933,7 +931,6 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Texture);
   luax_registertype(L, Canvas);
   luax_registertype(L, Shader);
-  luax_registertype(L, Bundle);
 
   bool debug = false;
   luax_pushconf(L);
