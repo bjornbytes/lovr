@@ -66,7 +66,6 @@ StringEntry lovrFieldType[] = {
   [FIELD_I32] = ENTRY("i32"),
   [FIELD_U32] = ENTRY("u32"),
   [FIELD_F32] = ENTRY("f32"),
-  [FIELD_F64] = ENTRY("f64"),
   [FIELD_I8x2] = ENTRY("i8x2"),
   [FIELD_U8x2] = ENTRY("u8x2"),
   [FIELD_I8Nx2] = ENTRY("i8nx2"),
@@ -515,7 +514,7 @@ static struct { uint16_t size, scalarAlign, baseAlign, components; } fieldInfo[]
   [FIELD_MAT4] = { 64, 4, 16, 16 }
 };
 
-static FieldType luax_checkfieldtype(lua_State* L, int index) {
+uint32_t luax_checkfieldtype(lua_State* L, int index) {
   size_t length;
   const char* string = luaL_checklstring(L, index, &length);
 

@@ -949,36 +949,38 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   };
 
   static const VkFormat vertexFormats[] = {
+    [GPU_FORMAT_I8] = VK_FORMAT_R8_SINT,
+    [GPU_FORMAT_U8] = VK_FORMAT_R8_UINT,
+    [GPU_FORMAT_I16] = VK_FORMAT_R16_SINT,
+    [GPU_FORMAT_U16] = VK_FORMAT_R16_UINT,
+    [GPU_FORMAT_I32] = VK_FORMAT_R32_SINT,
+    [GPU_FORMAT_U32] = VK_FORMAT_R32_UINT,
+    [GPU_FORMAT_F32] = VK_FORMAT_R32_SFLOAT,
     [GPU_FORMAT_I8x2] = VK_FORMAT_R8G8_SINT,
-    [GPU_FORMAT_I8x4] = VK_FORMAT_R8G8B8A8_SINT,
     [GPU_FORMAT_U8x2] = VK_FORMAT_R8G8_UINT,
-    [GPU_FORMAT_U8x4] = VK_FORMAT_R8G8B8A8_UINT,
-    [GPU_FORMAT_SN8x2] = VK_FORMAT_R8G8_SNORM,
-    [GPU_FORMAT_SN8x4] = VK_FORMAT_R8G8B8A8_SNORM,
-    [GPU_FORMAT_UN8x2] = VK_FORMAT_R8G8_UNORM,
-    [GPU_FORMAT_UN8x4] = VK_FORMAT_R8G8B8A8_UNORM,
+    [GPU_FORMAT_I8Nx2] = VK_FORMAT_R8G8_SNORM,
+    [GPU_FORMAT_U8Nx2] = VK_FORMAT_R8G8_UNORM,
     [GPU_FORMAT_I16x2] = VK_FORMAT_R16G16_SINT,
-    [GPU_FORMAT_I16x4] = VK_FORMAT_R16G16B16A16_SINT,
     [GPU_FORMAT_U16x2] = VK_FORMAT_R16G16_UINT,
-    [GPU_FORMAT_U16x4] = VK_FORMAT_R16G16B16A16_UINT,
-    [GPU_FORMAT_SN16x2] = VK_FORMAT_R16G16_SNORM,
-    [GPU_FORMAT_SN16x4] = VK_FORMAT_R16G16B16A16_SNORM,
-    [GPU_FORMAT_UN16x2] = VK_FORMAT_R16G16_UNORM,
-    [GPU_FORMAT_UN16x4] = VK_FORMAT_R16G16B16A16_UNORM,
-    [GPU_FORMAT_F16x2] = VK_FORMAT_R16G16_SFLOAT,
-    [GPU_FORMAT_F16x4] = VK_FORMAT_R16G16B16A16_SFLOAT,
-    [GPU_FORMAT_F32x1] = VK_FORMAT_R32_SFLOAT,
-    [GPU_FORMAT_F32x2] = VK_FORMAT_R32G32_SFLOAT,
-    [GPU_FORMAT_F32x3] = VK_FORMAT_R32G32B32_SFLOAT,
-    [GPU_FORMAT_F32x4] = VK_FORMAT_R32G32B32A32_SFLOAT,
-    [GPU_FORMAT_I32x1] = VK_FORMAT_R32_SINT,
+    [GPU_FORMAT_I16Nx2] = VK_FORMAT_R16G16_SNORM,
+    [GPU_FORMAT_U16Nx2] = VK_FORMAT_R16G16_UNORM,
     [GPU_FORMAT_I32x2] = VK_FORMAT_R32G32_SINT,
-    [GPU_FORMAT_I32x3] = VK_FORMAT_R32G32B32_SINT,
-    [GPU_FORMAT_I32x4] = VK_FORMAT_R32G32B32A32_SINT,
-    [GPU_FORMAT_U32x1] = VK_FORMAT_R32_UINT,
     [GPU_FORMAT_U32x2] = VK_FORMAT_R32G32_UINT,
+    [GPU_FORMAT_F32x2] = VK_FORMAT_R32G32_SFLOAT,
+    [GPU_FORMAT_I32x3] = VK_FORMAT_R32G32B32_SINT,
     [GPU_FORMAT_U32x3] = VK_FORMAT_R32G32B32_UINT,
-    [GPU_FORMAT_U32x4] = VK_FORMAT_R32G32B32A32_UINT
+    [GPU_FORMAT_F32x3] = VK_FORMAT_R32G32B32_SFLOAT,
+    [GPU_FORMAT_I8x4] = VK_FORMAT_R8G8B8A8_SINT,
+    [GPU_FORMAT_U8x4] = VK_FORMAT_R8G8B8A8_UINT,
+    [GPU_FORMAT_I8Nx4] = VK_FORMAT_R8G8B8A8_SNORM,
+    [GPU_FORMAT_U8Nx4] = VK_FORMAT_R8G8B8A8_UNORM,
+    [GPU_FORMAT_I16x4] = VK_FORMAT_R16G16B16A16_SINT,
+    [GPU_FORMAT_U16x4] = VK_FORMAT_R16G16B16A16_UINT,
+    [GPU_FORMAT_I16Nx4] = VK_FORMAT_R16G16B16A16_SNORM,
+    [GPU_FORMAT_U16Nx4] = VK_FORMAT_R16G16B16A16_UNORM,
+    [GPU_FORMAT_I32x4] = VK_FORMAT_R32G32B32A32_SINT,
+    [GPU_FORMAT_U32x4] = VK_FORMAT_R32G32B32A32_UINT,
+    [GPU_FORMAT_F32x4] = VK_FORMAT_R32G32B32A32_SFLOAT
   };
 
   static const VkCullModeFlagBits cullModes[] = {
@@ -1042,10 +1044,9 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     };
   }
 
-  uint32_t vertexAttributeCount = 0;
   VkVertexInputAttributeDescription vertexAttributes[COUNTOF(info->attributes)];
-  for (uint32_t i = 0; i < info->attributeCount; i++, vertexAttributeCount++) {
-    vertexAttributes[vertexAttributeCount++] = (VkVertexInputAttributeDescription) {
+  for (uint32_t i = 0; i < info->attributeCount; i++) {
+    vertexAttributes[i] = (VkVertexInputAttributeDescription) {
       .location = info->attributes[i].location,
       .binding = info->attributes[i].buffer,
       .format = vertexFormats[info->attributes[i].format],
@@ -1057,7 +1058,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     .vertexBindingDescriptionCount = info->vertexBufferCount,
     .pVertexBindingDescriptions = vertexBuffers,
-    .vertexAttributeDescriptionCount = vertexAttributeCount,
+    .vertexAttributeDescriptionCount = info->attributeCount,
     .pVertexAttributeDescriptions = vertexAttributes
   };
 
