@@ -514,6 +514,16 @@ enum {
 };
 
 typedef struct {
+  uint32_t vendorId;
+  uint32_t deviceId;
+  char deviceName[256];
+  uint32_t driverMajor;
+  uint32_t driverMinor;
+  uint32_t driverPatch;
+  bool discrete;
+} gpu_info;
+
+typedef struct {
   bool bptc;
   bool astc;
   bool pointSize;
@@ -564,6 +574,7 @@ typedef struct {
 
 typedef struct {
   bool debug;
+  gpu_info* info;
   gpu_features* features;
   gpu_limits* limits;
   void (*callback)(void* userdata, const char* message, int level);

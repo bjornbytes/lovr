@@ -1815,12 +1815,27 @@ bool gpu_init(gpu_config* config) {
       state.memoryTypes[i] = memoryProperties.memoryTypes[i].propertyFlags;
     }
 
-    if (config->limits) {
-      VkPhysicalDeviceMaintenance3Properties maintenance3Limits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES };
-      VkPhysicalDeviceMultiviewProperties multiviewLimits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES, .pNext = &maintenance3Limits };
-      VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &multiviewLimits };
-      VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
+    VkPhysicalDeviceMaintenance3Properties maintenance3Limits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES };
+    VkPhysicalDeviceMultiviewProperties multiviewLimits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES, .pNext = &maintenance3Limits };
+    VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &multiviewLimits };
+    VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
+
+    if (config->limits || config->info) {
       vkGetPhysicalDeviceProperties2(physicalDevice, &properties2);
+    }
+
+    if (config->info) {
+      VkPhysicalDeviceProperties* properties = &properties2.properties;
+      config->info->vendorId = properties->vendorID;
+      config->info->deviceId = properties->deviceID;
+      memcpy(config->info->deviceName, properties->deviceName, MIN(sizeof(config->info->deviceName), sizeof(properties->deviceName)));
+      config->info->driverMajor = VK_VERSION_MAJOR(properties->driverVersion);
+      config->info->driverMinor = VK_VERSION_MINOR(properties->driverVersion);
+      config->info->driverPatch = VK_VERSION_PATCH(properties->driverVersion);
+      config->info->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    }
+
+    if (config->limits) {
       config->limits->textureSize2D = MIN(deviceLimits->maxImageDimension2D, UINT16_MAX);
       config->limits->textureSize3D = MIN(deviceLimits->maxImageDimension3D, UINT16_MAX);
       config->limits->textureSizeCube = MIN(deviceLimits->maxImageDimensionCube, UINT16_MAX);
