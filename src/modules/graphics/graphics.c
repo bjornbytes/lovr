@@ -972,6 +972,10 @@ void lovrCanvasFinish(Canvas* canvas) {
   lovrAssert(canvas->stream, "Canvas must be active to finish it");
   gpu_render_end(canvas->stream);
   canvas->stream = NULL;
+  for (uint32_t i = 0; i < COUNTOF(canvas->vertexBuffers); i++) {
+    lovrRelease(canvas->vertexBuffers[i], lovrBufferDestroy);
+    canvas->vertexBuffers[i] = NULL;
+  }
   state.activeCanvasCount--;
 }
 
