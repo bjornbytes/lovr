@@ -854,52 +854,6 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsNewBundle(lua_State* L) {
-  Shader* shader = luax_checktype(L, 1, Shader);
-  uint32_t group = luaL_checkinteger(L, 2);
-  Bundle* bundle = lovrBundleCreate(shader, group);
-
-  if (lua_istable(L, 3)) {
-    lua_pushnil(L);
-    while (lua_next(L, 3)) {
-      uint32_t id;
-
-      switch (lua_type(L, -2)) {
-        case LUA_TSTRING: {
-          size_t length;
-          const char* name = lua_tolstring(L, -2, &length);
-          uint64_t hash = hash64(name, length);
-          uint32_t g;
-          bool exists = lovrShaderResolveName(shader, hash, &g, &id);
-          lovrAssert(exists, "Shader has no variable named '%s', name");
-          lovrAssert(g == group, "Variable '%s' is not in this Bundle's group!", name);
-          break;
-        }
-        case LUA_TNUMBER:
-          id = lua_tointeger(L, -2);
-          break;
-        default:
-          break;
-      }
-
-      Buffer* buffer = luax_totype(L, -1, Buffer);
-      Texture* texture = luax_totype(L, -1, Texture);
-      lovrAssert(buffer || texture, "Expected a Buffer or a Texture for a bundle variable");
-      if (buffer) {
-        lovrBundleBindBuffer(bundle, id, 0, buffer, 0, ~0u);
-      } else {
-        lovrBundleBindTexture(bundle, id, 0, texture);
-      }
-
-      lua_pop(L, 1);
-    }
-  }
-
-  luax_pushtype(L, Bundle, bundle);
-  lovrRelease(bundle, lovrBundleDestroy);
-  return 1;
-}
-
 static const luaL_Reg lovrGraphics[] = {
   { "createWindow", l_lovrGraphicsCreateWindow },
   { "hasWindow", l_lovrGraphicsHasWindow },
@@ -916,7 +870,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newShader", l_lovrGraphicsNewShader },
-  { "newBundle", l_lovrGraphicsNewBundle },
   { NULL, NULL }
 };
 
@@ -924,7 +877,6 @@ extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrCanvas[];
 extern const luaL_Reg lovrShader[];
-extern const luaL_Reg lovrBundle[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
@@ -933,7 +885,6 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Texture);
   luax_registertype(L, Canvas);
   luax_registertype(L, Shader);
-  luax_registertype(L, Bundle);
 
   bool debug = false;
   luax_pushconf(L);
