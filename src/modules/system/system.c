@@ -4,6 +4,12 @@
 #include "core/util.h"
 #include <string.h>
 
+static struct {
+  bool initialized;
+  int windowWidth;
+  int windowHeight;
+} state;
+
 static void onKeyboardEvent(os_button_action action, os_key key, uint32_t scancode, bool repeat) {
   lovrEventPush((Event) {
     .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
@@ -30,9 +36,14 @@ static void onPermissionEvent(os_permission permission, bool granted) {
   lovrEventPush(event);
 }
 
-static struct {
-  bool initialized;
-} state;
+static void onQuit() {
+  lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.exitCode = 0 });
+}
+
+static void onResize(int width, int height) {
+  state.windowWidth = width;
+  state.windowHeight = height;
+}
 
 bool lovrSystemInit() {
   if (state.initialized) return false;
@@ -61,4 +72,30 @@ uint32_t lovrSystemGetCoreCount() {
 
 void lovrSystemRequestPermission(Permission permission) {
   os_request_permission((os_permission) permission);
+}
+
+void lovrSystemOpenWindow(os_window_config* window) {
+  lovrAssert(os_window_open(window), "Could not open window");
+  os_on_resize(onResize);
+  os_on_quit(onQuit);
+  os_window_get_fbsize(&state.windowWidth, &state.windowHeight);
+}
+
+bool lovrSystemIsWindowOpen() {
+  return os_window_is_open();
+}
+
+uint32_t lovrSystemGetWindowWidth() {
+  return state.windowWidth;
+}
+
+uint32_t lovrSystemGetWindowHeight() {
+  return state.windowHeight;
+}
+
+float lovrSystemGetWindowDensity() {
+  int width, height, fbwidth, fbheight;
+  os_window_get_size(&width, &height);
+  os_window_get_fbsize(&fbwidth, &fbheight);
+  return (width == 0 || fbwidth == 0) ? 0.f : (float) fbwidth / width;
 }

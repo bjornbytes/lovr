@@ -1,8 +1,11 @@
 #include "api.h"
 #include "system/system.h"
+#include "data/blob.h"
+#include "data/image.h"
 #include "core/os.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <string.h>
 
 StringEntry lovrKeyboardKey[] = {
   [KEY_A] = ENTRY("a"),
@@ -114,10 +117,96 @@ static int l_lovrSystemRequestPermission(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSystemOpenWindow(lua_State* L) {
+  os_window_config window;
+  memset(&window, 0, sizeof(window));
+
+  if (!lua_toboolean(L, 1)) {
+    return 0;
+  }
+
+  luaL_checktype(L, 1, LUA_TTABLE);
+
+  lua_getfield(L, 1, "width");
+  window.width = luaL_optinteger(L, -1, 1080);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "height");
+  window.height = luaL_optinteger(L, -1, 600);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "fullscreen");
+  window.fullscreen = lua_toboolean(L, -1);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "resizable");
+  window.resizable = lua_toboolean(L, -1);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "msaa");
+  window.msaa = lua_tointeger(L, -1);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "title");
+  window.title = luaL_optstring(L, -1, "LÖVR");
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "icon");
+  Image* image = NULL;
+  if (!lua_isnil(L, -1)) {
+    image = luax_checkimage(L, -1, false);
+    window.icon.data = image->blob->data;
+    window.icon.width = image->width;
+    window.icon.height = image->height;
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "vsync");
+  window.vsync = lua_tointeger(L, -1);
+  lua_pop(L, 1);
+
+  lovrSystemOpenWindow(&window);
+  lovrRelease(image, lovrImageDestroy);
+  return 0;
+}
+
+static int l_lovrSystemIsWindowOpen(lua_State* L) {
+  bool open = lovrSystemIsWindowOpen();
+  lua_pushboolean(L, open);
+  return 1;
+}
+
+static int l_lovrSystemGetWindowWidth(lua_State* L) {
+  lua_pushnumber(L, lovrSystemGetWindowWidth());
+  return 1;
+}
+
+static int l_lovrSystemGetWindowHeight(lua_State* L) {
+  lua_pushnumber(L, lovrSystemGetWindowHeight());
+  return 1;
+}
+
+static int l_lovrSystemGetWindowDimensions(lua_State* L) {
+  lua_pushnumber(L, lovrSystemGetWindowWidth());
+  lua_pushnumber(L, lovrSystemGetWindowHeight());
+  return 2;
+}
+
+static int l_lovrSystemGetWindowDensity(lua_State* L) {
+  lua_pushnumber(L, lovrSystemGetWindowDensity());
+  return 1;
+}
+
 static const luaL_Reg lovrSystem[] = {
   { "getOS", l_lovrSystemGetOS },
   { "getCoreCount", l_lovrSystemGetCoreCount },
   { "requestPermission", l_lovrSystemRequestPermission },
+  { "openWindow", l_lovrSystemOpenWindow },
+  { "isWindowOpen", l_lovrSystemIsWindowOpen },
+  { "getWindowWidth", l_lovrSystemGetWindowWidth },
+  { "getWindowHeight", l_lovrSystemGetWindowHeight },
+  { "getWindowDimensions", l_lovrSystemGetWindowDimensions },
+  { "getWindowDensity", l_lovrSystemGetWindowDensity },
   { NULL, NULL }
 };
 
