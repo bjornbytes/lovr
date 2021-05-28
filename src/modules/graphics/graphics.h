@@ -91,7 +91,6 @@ typedef enum {
   FIELD_I32,
   FIELD_U32,
   FIELD_F32,
-  FIELD_F64,
   FIELD_I8x2,
   FIELD_U8x2,
   FIELD_I8Nx2,

@@ -22,7 +22,6 @@ static const uint16_t fieldComponents[] = {
   [FIELD_I32] = 1,
   [FIELD_U32] = 1,
   [FIELD_F32] = 1,
-  [FIELD_F64] = 1,
   [FIELD_I8x2] = 2,
   [FIELD_U8x2] = 2,
   [FIELD_I8Nx2] = 2,
@@ -77,7 +76,6 @@ static int luax_pushbufferfield(lua_State* L, void* data, FieldType type) {
       case FIELD_I32: lua_pushnumber(L, p.i32[c]); break;
       case FIELD_U32: lua_pushnumber(L, p.u32[c]); break;
       case FIELD_F32: lua_pushnumber(L, p.f32[c]); break;
-      case FIELD_F64: lua_pushnumber(L, p.f64[c]); break;
       case FIELD_I8x2: lua_pushnumber(L, p.i8[c]); break;
       case FIELD_U8x2: lua_pushnumber(L, p.u8[c]); break;
       case FIELD_I8Nx2: lua_pushnumber(L, p.i8[c] / (double) INT8_MAX); break;
@@ -124,7 +122,6 @@ static void luax_readbufferfield(lua_State* L, int index, FieldType type, int co
       case FIELD_I32: p.i32[i] = (int32_t) x; break;
       case FIELD_U32: p.u32[i] = (uint32_t) x; break;
       case FIELD_F32: p.f32[i] = (float) x; break;
-      case FIELD_F64: p.f64[i] = (double) x; break;
       case FIELD_I8x2: p.i8[i] = (int8_t) x; break;
       case FIELD_U8x2: p.u8[i] = (uint8_t) x; break;
       case FIELD_I8Nx2: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
