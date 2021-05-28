@@ -434,6 +434,131 @@ static int l_lovrCanvasSetStencilTest(lua_State* L) {
   return 0;
 }
 
+static int l_lovrCanvasGetVertexFormat(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  VertexAttribute attributes[16];
+  uint32_t count;
+  lovrCanvasGetVertexFormat(canvas, attributes, &count);
+  lua_createtable(L, count, 0);
+  for (uint32_t i = 0; i < count; i++) {
+    lua_newtable(L);
+    lua_pushinteger(L, attributes[i].location);
+    lua_rawseti(L, -2, 1);
+    luax_pushenum(L, FieldType, attributes[i].fieldType);
+    lua_rawseti(L, -2, 2);
+    lua_pushinteger(L, attributes[i].buffer + 1);
+    lua_setfield(L, -2, "buffer");
+    lua_pushinteger(L, attributes[i].offset);
+    lua_setfield(L, -2, "offset");
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
+static int l_lovrCanvasSetVertexFormat(lua_State* L) {
+  uint32_t strides[] = {
+    [FIELD_I8] = 1,
+    [FIELD_U8] = 1,
+    [FIELD_I16] = 2,
+    [FIELD_U16] = 2,
+    [FIELD_I32] = 4,
+    [FIELD_U32] = 4,
+    [FIELD_F32] = 4,
+    [FIELD_I8x2] = 2,
+    [FIELD_U8x2] = 2,
+    [FIELD_I8Nx2] = 2,
+    [FIELD_U8Nx2] = 2,
+    [FIELD_I16x2] = 4,
+    [FIELD_U16x2] = 4,
+    [FIELD_I16Nx2] = 4,
+    [FIELD_U16Nx2] = 4,
+    [FIELD_I32x2] = 8,
+    [FIELD_U32x2] = 8,
+    [FIELD_F32x2] = 8,
+    [FIELD_I32x3] = 12,
+    [FIELD_U32x3] = 12,
+    [FIELD_F32x3] = 12,
+    [FIELD_I8x4] = 4,
+    [FIELD_U8x4] = 4,
+    [FIELD_I8Nx4] = 4,
+    [FIELD_U8Nx4] = 4,
+    [FIELD_I16x4] = 8,
+    [FIELD_U16x4] = 8,
+    [FIELD_I16Nx4] = 8,
+    [FIELD_U16Nx4] = 8,
+    [FIELD_I32x4] = 16,
+    [FIELD_U32x4] = 16,
+    [FIELD_F32x4] = 16,
+    [FIELD_MAT2] = 0,
+    [FIELD_MAT3] = 0,
+    [FIELD_MAT4] = 0
+  };
+
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  VertexAttribute attributes[16];
+  uint32_t count = 0;
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    uint32_t offset = 0;
+    int top = lua_gettop(L);
+    for (int i = 2; i <= top; i++) {
+      FieldType type = luax_checkfieldtype(L, i);
+      attributes[count++] = (VertexAttribute) {
+        .location = i - 2,
+        .buffer = 0,
+        .fieldType = type,
+        .offset = offset
+      };
+      offset += strides[type];
+    }
+  } else if (lua_type(L, 2) == LUA_TUSERDATA) {
+    int top = lua_gettop(L);
+    for (int i = 2; i <= top; i++) {
+      Buffer* buffer = luax_checktype(L, i, Buffer);
+      const BufferInfo* info = lovrBufferGetInfo(buffer);
+      for (uint32_t j = 0; j < info->fieldCount; j++) {
+        attributes[count] = (VertexAttribute) {
+          .location = count,
+          .buffer = i - 2,
+          .fieldType = info->types[j],
+          .offset = info->offsets[j]
+        };
+        count++;
+      }
+    }
+  } else {
+    uint32_t offset = 0;
+    luaL_checktype(L, 2, LUA_TTABLE);
+    int length = luax_len(L, 2);
+    for (int i = 0; i < length; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      lovrAssert(lua_istable(L, -1), "Vertex format should be a FieldTypes, Buffers, or a table of tables");
+      VertexAttribute* attribute = &attributes[count];
+
+      lua_rawgeti(L, -1, 1);
+      attribute->location = luaL_optinteger(L, -1, count);
+      lua_pop(L, 1);
+
+      lua_rawgeti(L, -1, 2);
+      attribute->fieldType = luax_checkfieldtype(L, -1);
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "buffer");
+      attribute->buffer = luaL_optinteger(L, -1, 1) - 1;
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "offset");
+      attribute->offset = luaL_optinteger(L, -1, offset);
+      lua_pop(L, 1);
+
+      lua_pop(L, 1);
+      offset += strides[attribute->fieldType];
+      count++;
+    }
+  }
+  lovrCanvasSetVertexFormat(canvas, attributes, count);
+  return 0;
+}
+
 static int l_lovrCanvasGetWinding(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   Winding winding = lovrCanvasGetWinding(canvas);
@@ -572,6 +697,8 @@ const luaL_Reg lovrCanvas[] = {
   { "setShader", l_lovrCanvasSetShader },
   { "getStencilTest", l_lovrCanvasGetStencilTest },
   { "setStencilTest", l_lovrCanvasSetStencilTest },
+  { "getVertexFormat", l_lovrCanvasGetVertexFormat },
+  { "setVertexFormat", l_lovrCanvasSetVertexFormat },
   { "getWinding", l_lovrCanvasGetWinding },
   { "setWinding", l_lovrCanvasSetWinding },
   { "isWireframe", l_lovrCanvasIsWireframe },
