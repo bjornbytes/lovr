@@ -565,50 +565,30 @@ void gpu_sampler_destroy(gpu_sampler* sampler) {
 // Shader
 
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
-  if (info->compute.code) {
-    shader->type = VK_PIPELINE_BIND_POINT_COMPUTE;
+  shader->type = info->stages[1].code ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE; // TODO
 
+  VkShaderStageFlags stageFlags[][2] = {
+    [VK_PIPELINE_BIND_POINT_GRAPHICS] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT },
+    [VK_PIPELINE_BIND_POINT_COMPUTE] = { VK_SHADER_STAGE_COMPUTE_BIT },
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(info->stages) && info->stages[i].code; i++) {
     VkShaderModuleCreateInfo moduleInfo = {
       .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-      .codeSize = info->compute.size,
-      .pCode = info->compute.code
+      .codeSize = info->stages[i].size,
+      .pCode = info->stages[i].code
     };
 
-    TRY(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[0]), "Failed to load shader") {
+    TRY(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "Failed to load shader") {
       return false;
     }
 
-    shader->pipelineInfo[0] = (VkPipelineShaderStageCreateInfo) {
+    shader->pipelineInfo[i] = (VkPipelineShaderStageCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-      .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-      .module = shader->handles[0],
-      .pName = info->compute.entry ? info->compute.entry : "main"
+      .stage = stageFlags[shader->type][i],
+      .module = shader->handles[i],
+      .pName = info->stages[i].entry ? info->stages[i].entry : "main"
     };
-  } else {
-    shader->type = VK_PIPELINE_BIND_POINT_GRAPHICS;
-
-    for (uint32_t i = 0; i < 2; i++) {
-      gpu_shader_source* source = i == 0 ? &info->vertex : &info->fragment;
-      VkShaderStageFlags stage = i == 0 ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT;
-
-      VkShaderModuleCreateInfo moduleInfo = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = source->size,
-        .pCode = source->code
-      };
-
-      TRY(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "Failed to load shader") {
-        gpu_shader_destroy(shader);
-        return false;
-      }
-
-      shader->pipelineInfo[i] = (VkPipelineShaderStageCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = stage,
-        .module = shader->handles[i],
-        .pName = source->entry ? source->entry : "main"
-      };
-    }
   }
 
   static const VkDescriptorType descriptorTypes[] = {

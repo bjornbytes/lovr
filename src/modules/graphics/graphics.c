@@ -1509,9 +1509,9 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* c
   }
 }
 
-static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
-  const uint32_t* words = source->data;
-  uint32_t wordCount = source->size / sizeof(uint32_t);
+static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_t stage) {
+  const uint32_t* words = source;
+  uint32_t wordCount = size / sizeof(uint32_t);
 
   if (wordCount < MIN_SPIRV_WORDS || words[0] != 0x07230203) {
     return false;
@@ -1563,10 +1563,10 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
 
         if (decoration == 33) { // Binding
           lovrAssert(value < 16, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 16", id, value);
-          vars[id].binding = value << 16;
+          vars[id].binding = value;
         } else if (decoration == 34) { // Group
           lovrAssert(value < 4, "Unsupported Shader code: variable %d is in group %d, but group must be less than 4", id, value);
-          vars[id].group = value << 24;
+          vars[id].group = value;
         } else if (decoration == 30) { // Location
           lovrAssert(value < 16, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
           locations[id] = value;
@@ -1594,15 +1594,15 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
         id = instruction[2];
 
         // For vertex shaders, track which attribute locations are in use.
-        // Vertex attributes are OpDecorated with Location and have an Input (30) StorageClass.
+        // Vertex attributes are OpDecorated with Location and have an Input (1) StorageClass.
         uint32_t storageClass = instruction[3];
-        if (stage == GPU_STAGE_VERTEX && storageClass == 30 && locations[id] < 16) {
+        if (stage == GPU_STAGE_VERTEX && storageClass == 1 && locations[id] < 16) {
           shader->locationMask |= (1 << locations[id]);
           break;
         }
 
-        // Ignore variables that aren't decorated with a group and binding (e.g. global variables)
-        if (vars[id].group == 0xff || vars[id].binding == 0xff) {
+        // Ignore inputs/outputs and variables that aren't decorated with a group and binding (e.g. global variables)
+        if (storageClass == 1 || storageClass == 3 || vars[id].group == 0xff || vars[id].binding == 0xff) {
           break;
         }
 
@@ -1615,13 +1615,15 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
         if (vars[id].name != 0xffff) {
           char* name = (char*) (words + vars[id].name);
           size_t len = strnlen(name, 4 * (wordCount - vars[id].name));
-          uint64_t hash = hash64(name, len);
-          uint64_t old = map_get(&shader->lookup, hash);
-          uint64_t new = ((uint64_t) vars[id].binding << 32) | vars[id].group;
-          if (old == MAP_NIL) {
-            map_set(&shader->lookup, hash, new);
-          } else {
-            lovrAssert(old == new, "Unsupported Shader code: variable named '%s' is bound to 2 different locations", name);
+          if (len > 0) {
+            uint64_t hash = hash64(name, len);
+            uint64_t old = map_get(&shader->lookup, hash);
+            uint64_t new = ((uint64_t) vars[id].binding << 32) | vars[id].group;
+            if (old == MAP_NIL) {
+              map_set(&shader->lookup, hash, new);
+            } else {
+              lovrAssert(old == new, "Unsupported Shader code: variable named '%s' is bound to 2 different locations", name);
+            }
           }
         }
 
@@ -1641,7 +1643,7 @@ static bool parseSpirv(Shader* shader, Blob* source, uint8_t stage) {
           group->slotMask |= 1 << slotId;
           group->bufferMask |= buffer ? (1 << slotId) : 0;
           group->textureMask |= !buffer ? (1 << slotId) : 0;
-          group->slots[group->slotCount++] = (gpu_slot) { slotId, type, stage, count };
+          group->slots[group->slotCount] = (gpu_slot) { slotId, type, stage, count };
           group->slotIndex[slotId] = group->slotCount;
           group->bindingIndex[slotId] = group->bindingCount;
           group->bindingCount += count;
@@ -1669,11 +1671,12 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->info = *info;
   shader->ref = 1;
   map_init(&shader->lookup, 64);
-  lovrRetain(info->vertex);
-  lovrRetain(info->fragment);
-  lovrRetain(info->compute);
 
   gpu_shader_info gpuInfo = {
+    .stages[0].code = info->source[0],
+    .stages[0].size = info->length[0],
+    .stages[1].code = info->source[1],
+    .stages[1].size = info->length[1],
     .label = info->label
   };
 
@@ -1681,16 +1684,12 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   // This temporarily populates the slotIndex so variables can be merged between stages
   // After reflection and handling dynamic buffers, slots are sorted and lookup tables are generated
   if (info->type == SHADER_COMPUTE) {
-    gpuInfo.compute.code = info->compute->data;
-    gpuInfo.compute.size = info->compute->size;
-    parseSpirv(shader, info->compute, GPU_STAGE_COMPUTE);
+    lovrAssert(info->source[0] && !info->source[1], "Compute shaders require one stage");
+    parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_COMPUTE);
   } else {
-    gpuInfo.vertex.code = info->vertex->data;
-    gpuInfo.vertex.size = info->vertex->size;
-    gpuInfo.fragment.code = info->fragment->data;
-    gpuInfo.fragment.size = info->fragment->size;
-    parseSpirv(shader, info->vertex, GPU_STAGE_VERTEX);
-    parseSpirv(shader, info->fragment, GPU_STAGE_FRAGMENT);
+    lovrAssert(info->source[0] && info->source[1], "Currently, graphics shaders require two stages");
+    parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_VERTEX);
+    parseSpirv(shader, info->source[1], info->length[1], GPU_STAGE_FRAGMENT);
   }
 
   for (uint32_t i = 0; i < info->dynamicBufferCount; i++) {
@@ -1739,9 +1738,6 @@ void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   gpu_shader_destroy(shader->gpu);
   if (shader->computePipeline) gpu_pipeline_destroy(shader->computePipeline);
-  lovrRelease(shader->info.vertex, lovrBlobDestroy);
-  lovrRelease(shader->info.fragment, lovrBlobDestroy);
-  lovrRelease(shader->info.compute, lovrBlobDestroy);
   free(shader);
 }
 
