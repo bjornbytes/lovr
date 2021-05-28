@@ -667,7 +667,19 @@ static int l_lovrCanvasDraw(lua_State* L) {
     }
   } else {
     draw.start = luaL_optinteger(L, index++, 1) - 1;
-    draw.count = luaL_optinteger(L, index++, 0); // TODO min length of all buffers or length of table, minus start
+    if (lua_type(L, index) == LUA_TNUMBER) {
+      draw.count = lua_tointeger(L, index++);
+    } else if (indexed) {
+      draw.count = lovrBufferGetInfo(draw.indexBuffer)->length - draw.start;
+    } else if (draw.vertexBufferCount > 0) {
+      draw.count = ~0u;
+      for (uint32_t i = 0; i < draw.vertexBufferCount; i++) {
+        const BufferInfo* info = lovrBufferGetInfo(draw.vertexBuffers[i]);
+        draw.count = MIN(draw.count, info->length - draw.start);
+      }
+    } else {
+      return 0;
+    }
     draw.instances = luaL_optinteger(L, index++, 1);
     if (indexed) {
       lovrCanvasDrawIndexed(canvas, &draw);
