@@ -5,7 +5,7 @@
 
 struct Blob;
 struct Image;
-struct WindowFlags;
+struct os_window_config;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
@@ -63,7 +63,7 @@ typedef struct {
 
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
-void lovrGraphicsCreateWindow(struct WindowFlags* window);
+void lovrGraphicsCreateWindow(struct os_window_config* window);
 bool lovrGraphicsHasWindow(void);
 uint32_t lovrGraphicsGetWidth(void);
 uint32_t lovrGraphicsGetHeight(void);

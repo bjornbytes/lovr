@@ -202,6 +202,7 @@ void os_poll_events() {
 
 bool os_window_open(const os_window_config* config) {
   if (glfwState.window) {
+    os_window_set_vsync(config->vsync);
     return true;
   }
 
