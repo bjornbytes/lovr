@@ -4,6 +4,7 @@
 #pragma once
 
 #define MAX_COLOR_ATTACHMENTS 4
+#define MAX_VIEWS 6
 
 struct Image;
 
