@@ -275,85 +275,22 @@ static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float
   return index;
 }
 
-static int l_lovrGraphicsCreateWindow(lua_State* L) {
-  os_window_config window;
-  memset(&window, 0, sizeof(window));
+static int l_lovrGraphicsInit(lua_State* L) {
+  bool debug = false;
+  luax_pushconf(L);
+  lua_getfield(L, -1, "graphics");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "debug");
+    debug = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 2);
 
-  if (!lua_toboolean(L, 1)) {
-    return 0;
+  if (lovrGraphicsInit(debug)) {
+    luax_atexit(L, lovrGraphicsDestroy);
   }
 
-  luaL_checktype(L, 1, LUA_TTABLE);
-
-  lua_getfield(L, 1, "width");
-  window.width = luaL_optinteger(L, -1, 1080);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "height");
-  window.height = luaL_optinteger(L, -1, 600);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "fullscreen");
-  window.fullscreen = lua_toboolean(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "resizable");
-  window.resizable = lua_toboolean(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "msaa");
-  window.msaa = lua_tointeger(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "title");
-  window.title = luaL_optstring(L, -1, "LÖVR");
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "icon");
-  Image* image = NULL;
-  if (!lua_isnil(L, -1)) {
-    image = luax_checkimage(L, -1, false);
-    window.icon.data = image->blob->data;
-    window.icon.width = image->width;
-    window.icon.height = image->height;
-  }
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "vsync");
-  window.vsync = lua_tointeger(L, -1);
-  lua_pop(L, 1);
-
-  lovrGraphicsCreateWindow(&window);
-  luax_atexit(L, lovrGraphicsDestroy); // The lua_State that creates the window shall be the one to destroy it
-  lovrRelease(image, lovrImageDestroy);
   return 0;
-}
-
-static int l_lovrGraphicsHasWindow(lua_State* L) {
-  bool window = lovrGraphicsHasWindow();
-  lua_pushboolean(L, window);
-  return 1;
-}
-
-static int l_lovrGraphicsGetWidth(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetWidth());
-  return 1;
-}
-
-static int l_lovrGraphicsGetHeight(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetHeight());
-  return 1;
-}
-
-static int l_lovrGraphicsGetDimensions(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetWidth());
-  lua_pushnumber(L, lovrGraphicsGetHeight());
-  return 2;
-}
-
-static int l_lovrGraphicsGetPixelDensity(lua_State* L) {
-  lua_pushnumber(L, lovrGraphicsGetPixelDensity());
-  return 1;
 }
 
 static int l_lovrGraphicsGetFeatures(lua_State* L) {
@@ -858,12 +795,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static const luaL_Reg lovrGraphics[] = {
-  { "createWindow", l_lovrGraphicsCreateWindow },
-  { "hasWindow", l_lovrGraphicsHasWindow },
-  { "getWidth", l_lovrGraphicsGetWidth },
-  { "getHeight", l_lovrGraphicsGetHeight },
-  { "getDimensions", l_lovrGraphicsGetDimensions },
-  { "getPixelDensity", l_lovrGraphicsGetPixelDensity },
+  { "init", l_lovrGraphicsInit },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
   { "begin", l_lovrGraphicsBegin },
@@ -888,22 +820,5 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Texture);
   luax_registertype(L, Canvas);
   luax_registertype(L, Shader);
-
-  bool debug = false;
-  luax_pushconf(L);
-  lua_getfield(L, -1, "graphics");
-  if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "debug");
-    debug = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  }
-  lua_pop(L, 1);
-
-  lovrGraphicsInit(debug);
-
-  lua_pushcfunction(L, l_lovrGraphicsCreateWindow);
-  lua_getfield(L, -2, "window");
-  lua_call(L, 1, 0);
-  lua_pop(L, 1);
   return 1;
 }

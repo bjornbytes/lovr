@@ -3,9 +3,9 @@
 
 #pragma once
 
-struct Blob;
+#define MAX_COLOR_ATTACHMENTS 4
+
 struct Image;
-struct os_window_config;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
@@ -63,11 +63,6 @@ typedef struct {
 
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
-void lovrGraphicsCreateWindow(struct os_window_config* window);
-bool lovrGraphicsHasWindow(void);
-uint32_t lovrGraphicsGetWidth(void);
-uint32_t lovrGraphicsGetHeight(void);
-float lovrGraphicsGetPixelDensity(void);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
@@ -255,8 +250,6 @@ typedef enum {
 } Winding;
 
 // Canvas
-
-#define MAX_COLOR_ATTACHMENTS 4
 
 typedef enum {
   LOAD_KEEP,
