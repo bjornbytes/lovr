@@ -138,21 +138,6 @@ StringEntry lovrWinding[] = {
   { 0 }
 };
 
-// Must be released when done
-static Image* luax_checkimage(lua_State* L, int index, bool flip) {
-  Image* image = luax_totype(L, index, Image);
-
-  if (image) {
-    lovrRetain(image);
-  } else {
-    Blob* blob = luax_readblob(L, index, "Texture");
-    image = lovrImageCreateFromBlob(blob, flip);
-    lovrRelease(blob, lovrBlobDestroy);
-  }
-
-  return image;
-}
-
 static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float clear[4][4], float* depthClear, uint8_t* stencilClear) {
   *info = (CanvasInfo) {
     .depth.enabled = true,
