@@ -35,6 +35,8 @@ static struct {
   fn_resize* onWindowResize;
   fn_key* onKeyboardEvent;
   fn_text* onTextEvent;
+  int width;
+  int height;
 } glfwState;
 
 static void onError(int code, const char* description) {
@@ -54,9 +56,9 @@ static void onWindowFocus(GLFWwindow* window, int focused) {
 }
 
 static void onWindowResize(GLFWwindow* window, int width, int height) {
+  glfwGetFramebufferSize(window, &glfwState.width, &glfwState.height);
   if (glfwState.onWindowResize) {
-    glfwGetFramebufferSize(window, &width, &height);
-    glfwState.onWindowResize(width, height);
+    glfwState.onWindowResize(glfwState.width, glfwState.height);
   }
 }
 
@@ -214,7 +216,6 @@ bool os_window_open(const os_window_config* config) {
     return false;
   }
 
-
 #ifdef LOVR_VK
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 #endif
@@ -259,6 +260,8 @@ bool os_window_open(const os_window_config* config) {
     });
   }
 
+  glfwGetFramebufferSize(glfwState.window, &glfwState.width, &glfwState.height);
+
 #ifndef LOVR_VK
   glfwMakeContextCurrent(glfwState.window);
 #endif
@@ -286,7 +289,8 @@ void os_window_get_size(int* width, int* height) {
 
 void os_window_get_fbsize(int* width, int* height) {
   if (glfwState.window) {
-    glfwGetFramebufferSize(glfwState.window, width, height);
+    *width = glfwState.width;
+    *height = glfwState.height;
   } else {
     if (*width) *width = 0;
     if (*height) *height = 0;
