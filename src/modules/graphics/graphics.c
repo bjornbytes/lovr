@@ -946,12 +946,18 @@ void lovrCanvasBegin(Canvas* canvas) {
     os_window_get_fbsize(&width, &height); // TODO resize swapchain?
     canvas->gpu.size[0] = width;
     canvas->gpu.size[1] = height;
+    canvas->gpu.color[0].clear[0] = 0.f;
+    canvas->gpu.color[0].clear[1] = 0.f;
+    canvas->gpu.color[0].clear[2] = 0.f;
+    canvas->gpu.color[0].clear[3] = 1.f;
     // TODO set clear to background
   }
   canvas->stream = gpu_stream_begin();
   state.streams[state.streamCount++] = canvas->stream;
   gpu_render_begin(canvas->stream, &canvas->gpu);
   canvas->pipeline = NULL;
+  canvas->shader = NULL;
+  memset(&canvas->pipelineInfo, 0, sizeof(canvas->pipelineInfo));
   canvas->pipelineInfo.pass = canvas->gpu.pass;
   canvas->pipelineInfo.depth.test = GPU_COMPARE_LEQUAL;
   canvas->pipelineInfo.depth.write = true;
@@ -963,10 +969,11 @@ void lovrCanvasBegin(Canvas* canvas) {
 
   lovrCanvasSetShader(canvas, state.defaultShader);
 
-  canvas->attributeCount = 3;
-  canvas->attributes[0] = (VertexAttribute) { 0, -1, FIELD_F32x3, 0 };
-  canvas->attributes[1] = (VertexAttribute) { 1, -1, FIELD_F32x3, 12 };
-  canvas->attributes[2] = (VertexAttribute) { 2, -1, FIELD_U16Nx2, 24 };
+  canvas->attributes[0] = (VertexAttribute) { 0, 0, FIELD_F32x3, 0 };
+  canvas->attributes[1] = (VertexAttribute) { 1, 0, FIELD_F32x3, 12 };
+  canvas->attributes[2] = (VertexAttribute) { 2, 0, FIELD_U16Nx2, 24 };
+  canvas->attributes[3] = (VertexAttribute) { 3, 0, FIELD_F32x4, 28 };
+  canvas->attributeCount = 4;
 
   gpu_bind_vertex_buffers(canvas->stream, &state.defaultBuffer, (uint32_t[]) { 0 }, 0, 1);
 
@@ -976,7 +983,7 @@ void lovrCanvasBegin(Canvas* canvas) {
 
   uint32_t maxDraws = MIN(state.limits.uniformBufferRange / (16 * sizeof(float)), 100);
   scratch = gpu_scratch(maxDraws * 16 * sizeof(float), state.limits.uniformBufferAlign);
-  canvas->builtins[1].buffer = (gpu_buffer_binding) { scratch.buffer, scratch.offset, maxDraws * 16 * sizeof(float) };
+  canvas->builtins[1].buffer = (gpu_buffer_binding) { scratch.buffer, scratch.offset, 64 };
   canvas->drawTransforms = scratch.pointer;
   canvas->drawCount = 0;
   canvas->builtinsDirty = true;
@@ -1399,6 +1406,7 @@ static void lovrCanvasBindResources(Canvas* canvas, DrawCall* draw) {
   memcpy(transform, canvas->transforms[canvas->transform], 16 * sizeof(float));
   mat4_mul(transform, draw->transform);
   memcpy(canvas->drawTransforms, transform, 16 * sizeof(float));
+  canvas->builtinsDirty = true;
   canvas->drawTransforms += 16;
   canvas->drawCount++;
 
@@ -1481,6 +1489,15 @@ void lovrCanvasDrawIndirectIndexed(Canvas* canvas, DrawCall* draw) {
   lovrCanvasBindPipeline(canvas, draw);
   lovrCanvasBindResources(canvas, draw);
   gpu_draw_indirect_indexed(canvas->stream, draw->indirectBuffer->gpu, draw->indirectOffset, draw->indirectCount);
+}
+
+void lovrCanvasBox(Canvas* canvas, DrawStyle style, float transform[16]) {
+  lovrAssert(canvas->stream, "Canvas is not active");
+  if (style == STYLE_LINE) {
+    lovrThrow("TODO");
+  } else {
+    lovrThrow("TODO");
+  }
 }
 
 // Shader

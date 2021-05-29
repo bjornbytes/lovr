@@ -728,6 +728,15 @@ static int l_lovrCanvasDraw(lua_State* L) {
   return 0;
 }
 
+static int l_lovrCanvasCube(lua_State* L) {
+  Canvas* canvas = luax_checktype(L, 1, Canvas);
+  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
+  float transform[16];
+  luax_readmat4(L, 3, transform, 1);
+  lovrCanvasBox(canvas, style, transform);
+  return 0;
+}
+
 const luaL_Reg lovrCanvas[] = {
   { "begin", l_lovrCanvasBegin },
   { "finish", l_lovrCanvasFinish },
@@ -775,5 +784,6 @@ const luaL_Reg lovrCanvas[] = {
   { "isWireframe", l_lovrCanvasIsWireframe },
   { "setWireframe", l_lovrCanvasSetWireframe },
   { "draw", l_lovrCanvasDraw },
+  { "cube", l_lovrCanvasCube },
   { NULL, NULL }
 };

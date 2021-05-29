@@ -32,6 +32,7 @@ extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];
 extern StringEntry lovrDrawMode[];
+extern StringEntry lovrDrawStyle[];
 extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
 extern StringEntry lovrFieldType[];
