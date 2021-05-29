@@ -674,7 +674,7 @@ static int l_lovrCanvasDraw(lua_State* L) {
   }
 
   // Indices
-  if (lua_isuserdata(L, index)) {
+  if (luax_totype(L, index, Buffer)) {
     draw.indexBuffer = luax_checktype(L, index++, Buffer);
     draw.baseVertex = 0;
     indexed = true;
