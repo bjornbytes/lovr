@@ -1163,6 +1163,7 @@ void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, b
 
 void lovrCanvasSetColorMask(Canvas* canvas, uint32_t target, bool r, bool g, bool b, bool a) {
   canvas->pipelineInfo.colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
+  if (canvas->pipelineInfo.colorMask[target] == 0) canvas->pipelineInfo.colorMask[target] = 0xff;
   canvas->pipelineDirty = true;
 }
 
