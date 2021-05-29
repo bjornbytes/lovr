@@ -896,7 +896,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
 
   VkRenderPassCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-    .pNext = info->views > 1 ? &multiview : NULL,
+    .pNext = info->views > 0 ? &multiview : NULL,
     .attachmentCount = (info->count << info->resolve) + !!info->depth.format,
     .pAttachments = attachments,
     .subpassCount = 1,
