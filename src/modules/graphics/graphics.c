@@ -16,13 +16,9 @@
 #define MAX_STREAMS 32
 
 typedef struct {
-  float viewMatrix[MAX_VIEWS][16];
   float projection[MAX_VIEWS][16];
+  float viewMatrix[MAX_VIEWS][16];
 } Camera;
-
-typedef struct {
-  float transform[16];
-} PerDraw;
 
 struct Buffer {
   uint32_t ref;
@@ -72,7 +68,7 @@ struct Canvas {
   bool texturesDirty;
   bool buffersDirty;
   Camera camera;
-  PerDraw* draws;
+  float* drawTransforms;
   uint32_t drawCount;
 };
 
@@ -978,10 +974,10 @@ void lovrCanvasBegin(Canvas* canvas) {
   canvas->builtins[0].buffer = (gpu_buffer_binding) { scratch.buffer, scratch.offset, sizeof(Camera) };
   memcpy(scratch.pointer, &canvas->camera, sizeof(Camera));
 
-  uint32_t maxDraws = MIN(state.limits.uniformBufferRange / sizeof(PerDraw), 1024);
-  scratch = gpu_scratch(maxDraws * sizeof(PerDraw), state.limits.uniformBufferAlign);
-  canvas->builtins[1].buffer = (gpu_buffer_binding) { scratch.buffer, scratch.offset, maxDraws * sizeof(PerDraw) };
-  canvas->draws = scratch.pointer;
+  uint32_t maxDraws = MIN(state.limits.uniformBufferRange / (16 * sizeof(float)), 100);
+  scratch = gpu_scratch(maxDraws * 16 * sizeof(float), state.limits.uniformBufferAlign);
+  canvas->builtins[1].buffer = (gpu_buffer_binding) { scratch.buffer, scratch.offset, maxDraws * 16 * sizeof(float) };
+  canvas->drawTransforms = scratch.pointer;
   canvas->drawCount = 0;
   canvas->builtinsDirty = true;
 }
@@ -1401,7 +1397,9 @@ static void lovrCanvasBindResources(Canvas* canvas, DrawCall* draw) {
   float transform[16];
   memcpy(transform, canvas->transforms[canvas->transform], 16 * sizeof(float));
   mat4_mul(transform, draw->transform);
-  memcpy(canvas->draws[canvas->drawCount++].transform, transform, 16 * sizeof(float));
+  memcpy(canvas->drawTransforms, transform, 16 * sizeof(float));
+  canvas->drawTransforms += 16;
+  canvas->drawCount++;
 
   if (!canvas->builtinsDirty && !canvas->texturesDirty && !canvas->buffersDirty) return;
 
