@@ -297,6 +297,11 @@ typedef struct {
   const char* label;
 } CanvasInfo;
 
+typedef enum {
+  STYLE_LINE,
+  STYLE_FILL
+} DrawStyle;
+
 typedef struct {
   DrawMode mode;
   uint32_t attributeCount;
@@ -367,6 +372,7 @@ void lovrCanvasDraw(Canvas* canvas, DrawCall* draw);
 void lovrCanvasDrawIndexed(Canvas* canvas, DrawCall* draw);
 void lovrCanvasDrawIndirect(Canvas* canvas, DrawCall* draw);
 void lovrCanvasDrawIndirectIndexed(Canvas* canvas, DrawCall* draw);
+void lovrCanvasBox(Canvas* canvas, DrawStyle style, float transform[16]);
 
 // Shader
 
