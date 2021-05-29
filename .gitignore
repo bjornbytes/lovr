@@ -3,3 +3,4 @@
 bin
 build*
 *.*.h
+src/resources/shaders.h
