@@ -2052,6 +2052,7 @@ bool gpu_init(gpu_config* config) {
   state.buffers[0].tail = state.buffers[1].tail = ~0u;
   state.buffers[0].memoryType = state.buffers[1].memoryType = ~0u;
   state.bindings.head = state.bindings.tail = ~0u;
+  state.tick[CPU] = COUNTOF(state.ticks) - 1;
   return true;
 }
 
@@ -2097,16 +2098,13 @@ void gpu_destroy(void) {
 
 void gpu_begin() {
   gpu_tick* tick = &state.ticks[++state.tick[CPU] & 0x3];
-
   TRY(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull), "Fence wait failed") return;
   TRY(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return;
   TRY(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return;
-
-  ketchup();
-  expunge();
-
+  state.tick[GPU] = MAX(state.tick[GPU], state.tick[CPU] - COUNTOF(state.ticks));
   state.streamCount = 0;
   state.queryCount = 0;
+  expunge();
 }
 
 void gpu_submit(gpu_stream** streams, uint32_t count) {
