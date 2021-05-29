@@ -2171,14 +2171,14 @@ static gpu_scratchpad scratch(int type, uint32_t size, uint32_t align) {
   uint32_t index;
 
   // If there's an active scratchpad and it has enough space, just use that
-  if (pool->head != ~0u && pool->cursor + size <= SCRATCHPAD_SIZE) {
+  if (pool->head != ~0u && pool->cursor + size + align - 1 <= SCRATCHPAD_SIZE) {
     index = pool->head;
     buffer = &pool->data[index];
   } else {
     // Otherwise, see if it's possible to reuse the oldest existing scratch buffer
     CHECK(size <= SCRATCHPAD_SIZE, "Tried to map too much scratch memory") return (gpu_scratchpad) { 0 };
 
-    // If no buffer is available, check the fence, there's a small chance one will become available
+    // If no buffer is available, check the fence, there's a chance one will become available
     if (pool->tail != ~0u && state.tick[GPU] < pool->data[pool->tail].tick) {
       ketchup();
     }
