@@ -486,13 +486,11 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 }
 
 static int libLoader(lua_State* L) {
-  const char* module = lua_tostring(L, 1);
   bool allInOneFlag = false;
   return libLoaderCommon(L, allInOneFlag);
 }
 
 static int libLoaderAllInOne(lua_State* L) {
-  const char* module = lua_tostring(L, 1);
   bool allInOneFlag = true;
   return libLoaderCommon(L, allInOneFlag);
 }
