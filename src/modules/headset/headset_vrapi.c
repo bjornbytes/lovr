@@ -572,6 +572,14 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
     .skin = ~0u
   };
 
+  // Root node transform has a rotation compensation for different coordinate spaces
+  if (device == DEVICE_HAND_LEFT) {
+    mat4_rotate(model->nodes[model->rootNode].transform.matrix, M_PI, 0.f, 0.f, 1.f);
+    mat4_rotate(model->nodes[model->rootNode].transform.matrix, M_PI / 2.f, 0.f, 1.f, 0.f);
+  } else {
+    mat4_rotate(model->nodes[model->rootNode].transform.matrix, -M_PI / 2.f, 0.f, 1.f, 0.f);
+  }
+
   // Add the children to the root node
   *children++ = 0;
   *children++ = model->jointCount;
@@ -598,24 +606,11 @@ static bool vrapi_animate(Device device, struct Model* model) {
 
   lovrModelResetPose(model);
 
-  // compensate for vrapi_getPose changing "forward" to be -Z
-  float compensate[4];
-  if (device == DEVICE_HAND_LEFT) {
-    float q[4];
-    quat_fromAngleAxis(compensate, (float) M_PI, 0.f, 0.f, 1.f);
-    quat_mul(compensate, compensate, quat_fromAngleAxis(q, (float) M_PI / 2.f, 0.f, 1.f, 0.f));
-  } else {
-    quat_fromAngleAxis(compensate, (float) -M_PI / 2.f, 0.f, 1.f, 0.f);
-  }
-
   // Replace node rotations with the rotations in the hand pose, keeping the position the same
   for (uint32_t i = 0; i < ovrHandBone_MaxSkinnable && i < modelData->nodeCount; i++) {
     float position[4], orientation[4];
     vec3_init(position, modelData->nodes[i].transform.properties.translation);
     quat_init(orientation, &handPose->BoneRotations[i].x);
-    if(i == ovrHandBone_WristRoot) {
-      quat_mul(orientation, orientation, compensate);
-    }
     lovrModelPose(model, i, position, orientation, 1.f);
   }
 
