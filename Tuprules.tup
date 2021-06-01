@@ -161,8 +161,8 @@ ifeq ($(PLATFORM),android)
   LIBS_@(OPENXR) += $(OPENXR_LIB_PATH)/libopenxr_loader.so
 
   # VrApi
-  VRAPI_LIB_PATH = $(DEPS)/VrApi/Libs/Android/arm64-v8a/Release
-  CFLAGS_@(VRAPI) += -I$(DEPS)/VrApi/Include
+  VRAPI_LIB_PATH = $(DEPS)/oculus-mobile/VrApi/Libs/Android/arm64-v8a/Release
+  CFLAGS_@(VRAPI) += -I$(DEPS)/oculus-mobile/VrApi/Include
   LDFLAGS_@(VRAPI) += -L$(VRAPI_LIB_PATH) -lvrapi
   LIBS_@(VRAPI) += $(VRAPI_LIB_PATH)/libvrapi.so
 
