@@ -1014,17 +1014,18 @@ static void lovrGpuBindPipeline(Pipeline* pipeline) {
   bool updateDepthTest = pipeline->depthTest != state.depthTest;
   bool updateDepthWrite = state.depthWrite != (pipeline->depthWrite && !state.stencilWriting);
   if (updateDepthTest || updateDepthWrite) {
-    bool enable = state.depthTest != COMPARE_NONE || state.depthWrite;
+    bool enable = pipeline->depthTest != COMPARE_NONE || pipeline->depthWrite;
 
     if (enable && !state.depthEnabled) {
       glEnable(GL_DEPTH_TEST);
     } else if (!enable && state.depthEnabled) {
       glDisable(GL_DEPTH_TEST);
     }
+
     state.depthEnabled = enable;
+    state.depthTest = pipeline->depthTest;
 
     if (enable && updateDepthTest) {
-      state.depthTest = pipeline->depthTest;
       glDepthFunc(convertCompareMode(state.depthTest));
     }
 
