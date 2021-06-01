@@ -47,6 +47,7 @@ static struct {
   ovrHandSkeleton skeleton[2];
   ovrInputCapabilityHeader hands[2];
   ovrInputStateTrackedRemote input[2];
+  ovrInputStateHand handInput[2];
   uint32_t changedButtons[2];
   float hapticStrength[2];
   float hapticDuration[2];
@@ -299,7 +300,14 @@ static bool vrapi_getAxis(Device device, DeviceAxis axis, float* value) {
     return false;
   }
 
-  ovrInputStateTrackedRemote* input = &state.input[device - DEVICE_HAND_LEFT];
+  uint32_t index = device - DEVICE_HAND_LEFT;
+
+  if (state.hands[index].Type == ovrControllerType_Hand && axis == AXIS_TRIGGER) {
+    value[0] = state.handInput[index].PinchStrength[ovrHandPinchStrength_Index];
+    return state.handPose[index].HandConfidence == ovrConfidence_HIGH;
+  }
+
+  ovrInputStateTrackedRemote* input = &state.input[index];
 
   switch (axis) {
     case AXIS_THUMBSTICK:
@@ -790,6 +798,9 @@ static void vrapi_update(float dt) {
 
         state.handPose[i].Header.Version = ovrHandVersion_1;
         vrapi_GetHandPose(state.session, header->DeviceID, state.displayTime, &state.handPose[i].Header);
+
+        state.handInput[i].Header.ControllerType = header->Type;
+        vrapi_GetCurrentInputState(state.session, header->DeviceID, &state.handInput[i].Header);
         break;
 
       default: break;
