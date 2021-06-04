@@ -317,12 +317,12 @@ end
 
 if config.headsets.vrapi then
   assert(target == 'android', 'VrApi is not supported on this target')
-  cflags_headset_vrapi += '-Ideps/VrApi/Include'
+  cflags_headset_vrapi += '-Ideps/oculus-mobile/VrApi/Include'
   cflags_headset_vrapi += '-Wno-gnu-empty-initializer'
   cflags_headset_vrapi += '-Wno-c11-extensions'
   cflags_headset_vrapi += '-Wno-pedantic'
   lflags += '-lvrapi'
-  copy('deps/VrApi/Libs/Android/arm64-v8a/Release/libvrapi.so', '$(bin)/%b')
+  copy('deps/oculus-mobile/VrApi/Libs/Android/arm64-v8a/Release/libvrapi.so', '$(bin)/%b')
 end
 
 if config.headsets.pico then
