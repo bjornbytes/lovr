@@ -32,7 +32,10 @@ int main(int argc, char** argv) {
     exit(0);
   }
 
-  lovrAssert(os_init(), "Failed to initialize platform");
+  if (!os_init()) {
+    fprintf(stderr, "Failed to initialize platform");
+    exit(1);
+  }
 
   int status;
   bool restart;

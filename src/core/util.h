@@ -33,11 +33,15 @@ typedef struct Color { float r, g, b, a; } Color;
 
 // Error handling
 typedef void errorFn(void*, const char*, va_list);
-extern LOVR_THREAD_LOCAL errorFn* lovrErrorCallback;
-extern LOVR_THREAD_LOCAL void* lovrErrorUserdata;
 void lovrSetErrorCallback(errorFn* callback, void* userdata);
 void LOVR_NORETURN lovrThrow(const char* format, ...);
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
+
+#ifdef LOVR_UNCHECKED
+#define lovrCheck(c, ...) ((void) 0)
+#else
+#define lovrCheck lovrAssert
+#endif
 
 // Logging
 typedef void logFn(void*, int, const char*, const char*, va_list);
