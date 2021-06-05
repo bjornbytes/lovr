@@ -1091,14 +1091,6 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   VkPipelineColorBlendAttachmentState colorAttachments[4];
   for (uint32_t i = 0; i < info->pass->count; i++) {
-    VkColorComponentFlagBits colorMask = info->colorMask[i];
-
-    if (info->colorMask[i] == GPU_COLOR_MASK_RGBA) {
-      colorMask = 0xf;
-    } else if (info->colorMask[i] == GPU_COLOR_MASK_NONE) {
-      colorMask = 0x0;
-    }
-
     colorAttachments[i] = (VkPipelineColorBlendAttachmentState) {
       .blendEnable = info->blend[i].enabled,
       .srcColorBlendFactor = blendFactors[info->blend[i].color.src],
@@ -1107,7 +1099,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
       .srcAlphaBlendFactor = blendFactors[info->blend[i].alpha.src],
       .dstAlphaBlendFactor = blendFactors[info->blend[i].alpha.dst],
       .alphaBlendOp = blendOps[info->blend[i].alpha.op],
-      .colorWriteMask = colorMask
+      .colorWriteMask = info->colorMask[i]
     };
   }
 
@@ -1173,7 +1165,7 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
   condemn(pipeline->handle, VK_OBJECT_TYPE_PIPELINE);
 }
 
-// Batch
+// Stream
 
 gpu_stream* gpu_stream_begin() {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
