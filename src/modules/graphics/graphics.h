@@ -12,6 +12,7 @@ typedef struct Buffer Buffer;
 typedef struct Texture Texture;
 typedef struct Canvas Canvas;
 typedef struct Shader Shader;
+typedef struct Batch Batch;
 
 typedef struct {
   uint32_t vendorId;
@@ -297,37 +298,11 @@ typedef struct {
   const char* label;
 } CanvasInfo;
 
-typedef enum {
-  STYLE_LINE,
-  STYLE_FILL
-} DrawStyle;
-
-typedef struct {
-  DrawMode mode;
-  uint32_t attributeCount;
-  VertexAttribute attributes[16];
-  uint32_t vertexBufferCount;
-  Buffer* vertexBuffers[8];
-  Buffer* indexBuffer;
-  uint32_t start;
-  uint32_t count;
-  uint32_t instances;
-  uint32_t baseVertex;
-  Buffer* indirectBuffer;
-  uint32_t indirectOffset;
-  uint32_t indirectCount;
-  float* transform;
-  Texture* texture;
-} DrawCall;
-
 Canvas* lovrCanvasCreate(CanvasInfo* info);
 Canvas* lovrCanvasGetTemporary(CanvasInfo* info);
 Canvas* lovrCanvasGetWindow(void);
 void lovrCanvasDestroy(void* ref);
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
-void lovrCanvasBegin(Canvas* canvas);
-void lovrCanvasFinish(Canvas* canvas);
-bool lovrCanvasIsActive(Canvas* canvas);
 uint32_t lovrCanvasGetWidth(Canvas* canvas);
 uint32_t lovrCanvasGetHeight(Canvas* canvas);
 uint32_t lovrCanvasGetViewCount(Canvas* canvas);
@@ -335,44 +310,9 @@ void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
 void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
 void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection);
 void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection);
-void lovrCanvasPush(Canvas* canvas);
-void lovrCanvasPop(Canvas* canvas);
-void lovrCanvasOrigin(Canvas* canvas);
-void lovrCanvasTranslate(Canvas* canvas, float* translation);
-void lovrCanvasRotate(Canvas* canvas, float* rotation);
-void lovrCanvasScale(Canvas* canvas, float* scale);
-void lovrCanvasTransform(Canvas* canvas, float* transform);
-bool lovrCanvasGetAlphaToCoverage(Canvas* canvas);
-void lovrCanvasSetAlphaToCoverage(Canvas* canvas, bool enabled);
-void lovrCanvasGetBlendMode(Canvas* canvas, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
-void lovrCanvasSetBlendMode(Canvas* canvas, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode);
 void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float* depth, uint8_t* stencil);
 void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float depth, uint8_t stencil);
-void lovrCanvasGetColorMask(Canvas* canvas, uint32_t target, bool* r, bool* g, bool* b, bool* a);
-void lovrCanvasSetColorMask(Canvas* canvas, uint32_t target, bool r, bool g, bool b, bool a);
-CullMode lovrCanvasGetCullMode(Canvas* canvas);
-void lovrCanvasSetCullMode(Canvas* canvas, CullMode mode);
-void lovrCanvasGetDepthTest(Canvas* canvas, CompareMode* test, bool* write);
-void lovrCanvasSetDepthTest(Canvas* canvas, CompareMode test, bool write);
-void lovrCanvasGetDepthNudge(Canvas* canvas, float* nudge, float* sloped, float* clamp);
-void lovrCanvasSetDepthNudge(Canvas* canvas, float nudge, float sloped, float clamp);
-bool lovrCanvasGetDepthClamp(Canvas* canvas);
-void lovrCanvasSetDepthClamp(Canvas* canvas, bool clamp);
-Shader* lovrCanvasGetShader(Canvas* canvas);
-void lovrCanvasSetShader(Canvas* canvas, Shader* shader);
-void lovrCanvasGetStencilTest(Canvas* canvas, CompareMode* test, uint8_t* value);
-void lovrCanvasSetStencilTest(Canvas* canvas, CompareMode test, uint8_t value);
-void lovrCanvasGetVertexFormat(Canvas* canvas, VertexAttribute attributes[16], uint32_t* count);
-void lovrCanvasSetVertexFormat(Canvas* canvas, VertexAttribute attributes[16], uint32_t count);
-Winding lovrCanvasGetWinding(Canvas* canvas);
-void lovrCanvasSetWinding(Canvas* canvas, Winding winding);
-bool lovrCanvasIsWireframe(Canvas* canvas);
-void lovrCanvasSetWireframe(Canvas* canvas, bool wireframe);
-void lovrCanvasDraw(Canvas* canvas, DrawCall* draw);
-void lovrCanvasDrawIndexed(Canvas* canvas, DrawCall* draw);
-void lovrCanvasDrawIndirect(Canvas* canvas, DrawCall* draw);
-void lovrCanvasDrawIndirectIndexed(Canvas* canvas, DrawCall* draw);
-void lovrCanvasBox(Canvas* canvas, DrawStyle style, float transform[16]);
+void lovrCanvasRender(Canvas* canvas, Batch* batch, void (*callback)(void* userdata, Canvas* canvas, Batch* batch), void* userdata);
 
 // Shader
 
@@ -396,3 +336,60 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
 void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z);
 void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset);
+
+// Batch
+
+typedef struct {
+  DrawMode mode;
+  uint32_t bufferCount;
+  Buffer* vertexBuffers[8];
+  Buffer* indexBuffer;
+  uint32_t start;
+  uint32_t count;
+  uint32_t instances;
+  Buffer* indirectBuffer;
+  uint32_t indirectOffset;
+  uint32_t indirectCount;
+  float transform[16];
+} DrawInfo;
+
+typedef struct {
+  uint32_t capacity;
+  bool transient;
+} BatchInfo;
+
+Batch* lovrBatchCreate(BatchInfo* info);
+void lovrBatchDestroy(void* ref);
+void lovrBatchClear(Batch* batch);
+void lovrBatchPush(Batch* batch);
+void lovrBatchPop(Batch* batch);
+void lovrBatchOrigin(Batch* batch);
+void lovrBatchTranslate(Batch* batch, float* translation);
+void lovrBatchRotate(Batch* batch, float* rotation);
+void lovrBatchScale(Batch* batch, float* scale);
+void lovrBatchTransform(Batch* batch, float* transform);
+bool lovrBatchGetAlphaToCoverage(Batch* batch);
+void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled);
+void lovrBatchGetBlendMode(Batch* batch, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
+void lovrBatchSetBlendMode(Batch* batch, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode);
+void lovrBatchGetColorMask(Batch* batch, uint32_t target, bool* r, bool* g, bool* b, bool* a);
+void lovrBatchSetColorMask(Batch* batch, uint32_t target, bool r, bool g, bool b, bool a);
+CullMode lovrBatchGetCullMode(Batch* batch);
+void lovrBatchSetCullMode(Batch* batch, CullMode mode);
+void lovrBatchGetDepthTest(Batch* batch, CompareMode* test, bool* write);
+void lovrBatchSetDepthTest(Batch* batch, CompareMode test, bool write);
+void lovrBatchGetDepthNudge(Batch* batch, float* nudge, float* sloped, float* clamp);
+void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped, float clamp);
+bool lovrBatchGetDepthClamp(Batch* batch);
+void lovrBatchSetDepthClamp(Batch* batch, bool clamp);
+Shader* lovrBatchGetShader(Batch* batch);
+void lovrBatchSetShader(Batch* batch, Shader* shader);
+void lovrBatchGetStencilTest(Batch* batch, CompareMode* test, uint8_t* value);
+void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value);
+void lovrBatchGetVertexFormat(Batch* batch, VertexAttribute attributes[16], uint32_t* count);
+void lovrBatchSetVertexFormat(Batch* batch, VertexAttribute attributes[16], uint32_t count);
+Winding lovrBatchGetWinding(Batch* batch);
+void lovrBatchSetWinding(Batch* batch, Winding winding);
+bool lovrBatchIsWireframe(Batch* batch);
+void lovrBatchSetWireframe(Batch* batch, bool wireframe);
+void lovrBatchDraw(Batch* batch, DrawInfo* info);
