@@ -394,15 +394,6 @@ typedef struct {
   bool enabled;
 } gpu_blend_state;
 
-typedef enum {
-  GPU_COLOR_MASK_RGBA = 0,
-  GPU_COLOR_MASK_NONE = 0xff,
-  GPU_COLOR_MASK_R = (1 << 0),
-  GPU_COLOR_MASK_G = (1 << 1),
-  GPU_COLOR_MASK_B = (1 << 2),
-  GPU_COLOR_MASK_A = (1 << 3)
-} gpu_color_mask;
-
 typedef struct {
   gpu_pass* pass;
   gpu_shader* shader;
@@ -425,7 +416,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const char* label);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
-// Batch
+// Stream
 
 typedef enum {
   GPU_INDEX_U16,

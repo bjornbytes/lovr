@@ -58,12 +58,6 @@ StringEntry lovrDrawMode[] = {
   { 0 }
 };
 
-StringEntry lovrDrawStyle[] = {
-  [STYLE_LINE] = ENTRY("line"),
-  [STYLE_FILL] = ENTRY("fill"),
-  { 0 }
-};
-
 StringEntry lovrFieldType[] = {
   [FIELD_I8] = ENTRY("i8"),
   [FIELD_U8] = ENTRY("u8"),
@@ -411,6 +405,14 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   return 0;
 }
 
+static void renderCallback(void* userdata, Canvas* canvas, Batch* batch) {
+  lua_State* L = userdata;
+  luaL_checktype(L, -1, LUA_TFUNCTION);
+  luax_pushtype(L, Batch, batch);
+  luax_pushtype(L, Canvas, canvas);
+  lua_call(L, 2, 0);
+}
+
 static int l_lovrGraphicsRenderTo(lua_State* L) {
   int index = 1;
   Canvas* canvas = luax_totype(L, index++, Canvas);
@@ -428,12 +430,9 @@ static int l_lovrGraphicsRenderTo(lua_State* L) {
       lovrCanvasSetClear(canvas, clear, depthClear, stencilClear);
     }
   }
-  luaL_checktype(L, index, LUA_TFUNCTION);
   lua_settop(L, index);
-  luax_pushtype(L, Canvas, canvas);
-  lovrCanvasBegin(canvas);
-  lua_call(L, 1, 0);
-  lovrCanvasFinish(canvas);
+  Batch* batch = luax_totype(L, index, Batch);
+  lovrCanvasRender(canvas, batch, renderCallback, L);
   return 0;
 }
 
@@ -837,6 +836,7 @@ extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrCanvas[];
 extern const luaL_Reg lovrShader[];
+extern const luaL_Reg lovrBatch[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
@@ -845,5 +845,6 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Texture);
   luax_registertype(L, Canvas);
   luax_registertype(L, Shader);
+  luax_registertype(L, Batch);
   return 1;
 }
