@@ -241,6 +241,10 @@ static bool pico_init(float supersample, float offset, uint32_t msaa, bool overl
   return true;
 }
 
+static void pico_start(void) {
+  //
+}
+
 static void pico_destroy(void) {
   arr_free(&state.canvases);
   memset(&state, 0, sizeof(state));
@@ -425,6 +429,7 @@ static void pico_update(float dt) {
 HeadsetInterface lovrHeadsetPicoDriver = {
   .driverType = DRIVER_PICO,
   .init = pico_init,
+  .start = pico_start,
   .destroy = pico_destroy,
   .getName = pico_getName,
   .getOriginType = pico_getOriginType,

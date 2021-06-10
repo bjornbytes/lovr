@@ -1,6 +1,7 @@
 #include "headset/headset.h"
 
 extern bool webxr_init(float supersample, float offset, uint32_t msaa, bool overlay);
+extern void webxr_start(void);
 extern void webxr_destroy(void);
 extern bool webxr_getName(char* name, size_t length);
 extern HeadsetOrigin webxr_getOriginType(void);
@@ -69,6 +70,7 @@ void webxr_detach() {
 HeadsetInterface lovrHeadsetWebXRDriver = {
   .driverType = DRIVER_WEBXR,
   .init = webxr_init,
+  .start = webxr_start,
   .destroy = webxr_destroy,
   .getName = webxr_getName,
   .getOriginType = webxr_getOriginType,

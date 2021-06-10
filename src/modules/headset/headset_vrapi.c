@@ -70,6 +70,33 @@ static bool vrapi_init(float supersample, float offset, uint32_t msaa, bool over
   return true;
 }
 
+static void vrapi_start(void) {
+  CanvasFlags flags = {
+    .depth.enabled = true,
+    .depth.readable = false,
+    .depth.format = FORMAT_D24S8,
+    .msaa = state.msaa,
+    .stereo = true,
+    .mipmaps = false
+  };
+
+  uint32_t width, height;
+  vrapi_getDisplayDimensions(&width, &height);
+  width *= state.supersample;
+  height *= state.supersample;
+  state.swapchain = vrapi_CreateTextureSwapChain3(VRAPI_TEXTURE_TYPE_2D_ARRAY, GL_SRGB8_ALPHA8, width, height, 1, 3);
+  state.swapchainLength = vrapi_GetTextureSwapChainLength(state.swapchain);
+  lovrAssert(state.swapchainLength <= sizeof(state.canvases) / sizeof(state.canvases[0]), "VrApi: The swapchain is too long");
+
+  for (uint32_t i = 0; i < state.swapchainLength; i++) {
+    state.canvases[i] = lovrCanvasCreate(width, height, flags);
+    uint32_t handle = vrapi_GetTextureSwapChainHandle(state.swapchain, i);
+    Texture* texture = lovrTextureCreateFromHandle(handle, TEXTURE_ARRAY, 2, 1);
+    lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { .texture = texture }, 1);
+    lovrRelease(texture, lovrTextureDestroy);
+  }
+}
+
 static void vrapi_destroy() {
   if (state.session) {
     vrapi_LeaveVrMode(state.session);
@@ -628,34 +655,6 @@ static bool vrapi_animate(Device device, struct Model* model) {
 static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
   if (!state.session) return;
 
-  // Lazily create swapchain and canvases
-  if (!state.swapchain) {
-    CanvasFlags flags = {
-      .depth.enabled = true,
-      .depth.readable = false,
-      .depth.format = FORMAT_D24S8,
-      .msaa = state.msaa,
-      .stereo = true,
-      .mipmaps = false
-    };
-
-    uint32_t width, height;
-    vrapi_getDisplayDimensions(&width, &height);
-    width *= state.supersample;
-    height *= state.supersample;
-    state.swapchain = vrapi_CreateTextureSwapChain3(VRAPI_TEXTURE_TYPE_2D_ARRAY, GL_SRGB8_ALPHA8, width, height, 1, 3);
-    state.swapchainLength = vrapi_GetTextureSwapChainLength(state.swapchain);
-    lovrAssert(state.swapchainLength <= sizeof(state.canvases) / sizeof(state.canvases[0]), "VrApi: The swapchain is too long");
-
-    for (uint32_t i = 0; i < state.swapchainLength; i++) {
-      state.canvases[i] = lovrCanvasCreate(width, height, flags);
-      uint32_t handle = vrapi_GetTextureSwapChainHandle(state.swapchain, i);
-      Texture* texture = lovrTextureCreateFromHandle(handle, TEXTURE_ARRAY, 2, 1);
-      lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { .texture = texture }, 1);
-      lovrRelease(texture, lovrTextureDestroy);
-    }
-  }
-
   ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
 
   // Camera
@@ -806,6 +805,7 @@ static void vrapi_update(float dt) {
 HeadsetInterface lovrHeadsetVrApiDriver = {
   .driverType = DRIVER_VRAPI,
   .init = vrapi_init,
+  .start = vrapi_start,
   .destroy = vrapi_destroy,
   .getName = vrapi_getName,
   .getOriginType = vrapi_getOriginType,

@@ -254,6 +254,21 @@ static bool openvr_init(float supersample, float offset, uint32_t msaa, bool ove
   return true;
 }
 
+static void openvr_start(void) {
+  uint32_t width, height;
+  state.system->GetRecommendedRenderTargetSize(&width, &height);
+  width *= state.supersample;
+  height *= state.supersample;
+  CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = true, .msaa = state.msaa };
+  state.canvas = lovrCanvasCreate(width, height, flags);
+  Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, true, state.msaa);
+  lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
+  lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
+  lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
+  lovrRelease(texture, lovrTextureDestroy);
+  os_window_set_vsync(0);
+}
+
 static void openvr_destroy(void) {
   lovrRelease(state.canvas, lovrCanvasDestroy);
   VR_ShutdownInternal();
@@ -804,21 +819,6 @@ static bool openvr_animate(Device device, Model* model) {
 }
 
 static void openvr_renderTo(void (*callback)(void*), void* userdata) {
-  if (!state.canvas) {
-    uint32_t width, height;
-    openvr_getDisplayDimensions(&width, &height);
-    width *= state.supersample;
-    height *= state.supersample;
-    CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = true, .msaa = state.msaa };
-    state.canvas = lovrCanvasCreate(width, height, flags);
-    Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, true, state.msaa);
-    lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
-    lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
-    lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
-    lovrRelease(texture, lovrTextureDestroy);
-    os_window_set_vsync(0);
-  }
-
   float head[16];
   mat4_fromMat34(head, state.renderPoses[k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking.m);
 
@@ -879,6 +879,7 @@ static void openvr_update(float dt) {
 HeadsetInterface lovrHeadsetOpenVRDriver = {
   .driverType = DRIVER_OPENVR,
   .init = openvr_init,
+  .start = openvr_start,
   .destroy = openvr_destroy,
   .getName = openvr_getName,
   .getOriginType = openvr_getOriginType,

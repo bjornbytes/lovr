@@ -112,6 +112,37 @@ static bool oculus_init(float supersample, float offset, uint32_t msaa, bool ove
   return true;
 }
 
+static void oculus_start(void) {
+  state.size = ovr_GetFovTextureSize(state.session, ovrEye_Left, state.desc.DefaultEyeFov[ovrEye_Left], 1.0f);
+  state.size.w *= state.supersample;
+  state.size.h *= state.supersample;
+
+  ovrTextureSwapChainDesc swdesc = {
+    .Type = ovrTexture_2D,
+    .ArraySize = 1,
+    .Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB,
+    .Width = 2 * state.size.w,
+    .Height = state.size.h,
+    .MipLevels = 1,
+    .SampleCount = 1,
+    .StaticImage = ovrFalse
+  };
+  lovrAssert(OVR_SUCCESS(ovr_CreateTextureSwapChainGL(state.session, &swdesc, &state.chain)), "Unable to create swapchain");
+
+  ovrMirrorTextureDesc mdesc = {
+    .Width = lovrGraphicsGetWidth(),
+    .Height = lovrGraphicsGetHeight(),
+    .Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB,
+    .MirrorOptions = ovrMirrorOption_LeftEyeOnly
+  };
+  lovrAssert(OVR_SUCCESS(ovr_CreateMirrorTextureWithOptionsGL(state.session, &mdesc, &state.mirror)), "Unable to create mirror texture");
+
+  CanvasFlags flags = { .depth = { .enabled = true, .format = FORMAT_D24S8 }, .stereo = true };
+  state.canvas = lovrCanvasCreate(state.size.w, state.size.h, flags);
+
+  os_window_set_vsync(0);
+}
+
 static void oculus_destroy(void) {
   for (size_t i = 0; i < state.textures.length; i++) {
     lovrRelease(state.textures.data[i], lovrTextureDestroy);
@@ -328,37 +359,6 @@ static ModelData* oculus_newModelData(Device device, bool animated) {
 }
 
 static void oculus_renderTo(void (*callback)(void*), void* userdata) {
-  if (!state.canvas) {
-    state.size = ovr_GetFovTextureSize(state.session, ovrEye_Left, state.desc.DefaultEyeFov[ovrEye_Left], 1.0f);
-    state.size.w *= state.supersample;
-    state.size.h *= state.supersample;
-
-    ovrTextureSwapChainDesc swdesc = {
-      .Type = ovrTexture_2D,
-      .ArraySize = 1,
-      .Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB,
-      .Width = 2 * state.size.w,
-      .Height = state.size.h,
-      .MipLevels = 1,
-      .SampleCount = 1,
-      .StaticImage = ovrFalse
-    };
-    lovrAssert(OVR_SUCCESS(ovr_CreateTextureSwapChainGL(state.session, &swdesc, &state.chain)), "Unable to create swapchain");
-
-    ovrMirrorTextureDesc mdesc = {
-      .Width = lovrGraphicsGetWidth(),
-      .Height = lovrGraphicsGetHeight(),
-      .Format = OVR_FORMAT_R8G8B8A8_UNORM_SRGB,
-      .MirrorOptions = ovrMirrorOption_LeftEyeOnly
-    };
-    lovrAssert(OVR_SUCCESS(ovr_CreateMirrorTextureWithOptionsGL(state.session, &mdesc, &state.mirror)), "Unable to create mirror texture");
-
-    CanvasFlags flags = { .depth = { .enabled = true, .format = FORMAT_D24S8 }, .stereo = true };
-    state.canvas = lovrCanvasCreate(state.size.w, state.size.h, flags);
-
-    os_window_set_vsync(0);
-  }
-
   ovrPosef EyeRenderPose[2];
   double sensorSampleTime;
   getEyePoses(EyeRenderPose, &sensorSampleTime);
@@ -460,6 +460,7 @@ static void oculus_update(float dt) {
 HeadsetInterface lovrHeadsetOculusDriver = {
   .driverType = DRIVER_OCULUS,
   .init = oculus_init,
+  .start = oculus_start,
   .destroy = oculus_destroy,
   .getName = oculus_getName,
   .getOriginType = oculus_getOriginType,

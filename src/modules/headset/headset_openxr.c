@@ -333,6 +333,13 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     }
   }
 
+  state.clipNear = .1f;
+  state.clipFar = 100.f;
+  state.frameState.type = XR_TYPE_FRAME_STATE;
+  return true;
+}
+
+static void openxr_start(void) {
   { // Session
 #if defined(LOVR_GL)
     XrGraphicsRequirementsOpenGLKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR, NULL };
@@ -413,7 +420,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     XR_INIT(xrAttachSessionActionSets(state.session, &attachInfo));
   }
 
-  { // Spaaaaace
+  { // Spaaace
 
     // Main reference space (can be stage or local)
     XrReferenceSpaceCreateInfo info = {
@@ -535,13 +542,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
 #endif
   }
 
-  state.clipNear = .1f;
-  state.clipFar = 100.f;
-
-  state.frameState.type = XR_TYPE_FRAME_STATE;
   os_window_set_vsync(0);
-
-  return true;
 }
 
 static void openxr_destroy(void) {
@@ -976,6 +977,7 @@ static void openxr_update(float dt) {
 HeadsetInterface lovrHeadsetOpenXRDriver = {
   .driverType = DRIVER_OPENXR,
   .init = openxr_init,
+  .start = openxr_start,
   .destroy = openxr_destroy,
   .getName = openxr_getName,
   .getOriginType = openxr_getOriginType,

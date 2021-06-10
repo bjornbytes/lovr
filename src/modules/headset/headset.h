@@ -104,6 +104,8 @@ typedef enum {
 } HandJoint;
 
 // Notes:
+// - init is called immediately, the graphics module may not exist yet
+// - start is called after the graphics module is initialized, can be used to set up graphics objects
 // - getDisplayFrequency may return 0.f if the information is unavailable.
 // - For isDown, changed can be set to false if change information is unavailable or inconvenient.
 // - getAxis may write 4 floats to the output value.  The expected number is a constant (see axisCounts in l_headset).
@@ -113,6 +115,7 @@ typedef struct HeadsetInterface {
   struct HeadsetInterface* next;
   HeadsetDriver driverType;
   bool (*init)(float supersample, float offset, uint32_t msaa, bool overlay);
+  void (*start)(void);
   void (*destroy)(void);
   bool (*getName)(char* name, size_t length);
   HeadsetOrigin (*getOriginType)(void);

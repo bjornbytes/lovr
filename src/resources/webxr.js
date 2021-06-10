@@ -163,6 +163,10 @@ var webxr = {
     return false;
   },
 
+  webxr_start: function() {
+    // Session is handled asynchronously
+  },
+
   webxr_destroy: function() {
     if (state.session) {
       state.session.end();

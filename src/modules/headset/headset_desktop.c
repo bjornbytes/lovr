@@ -47,6 +47,10 @@ static bool desktop_init(float supersample, float offset, uint32_t msaa, bool ov
   return true;
 }
 
+static void desktop_start(void) {
+  //
+}
+
 static void desktop_destroy(void) {
   //
 }
@@ -285,6 +289,7 @@ static void desktop_update(float dt) {
 HeadsetInterface lovrHeadsetDesktopDriver = {
   .driverType = DRIVER_DESKTOP,
   .init = desktop_init,
+  .start = desktop_start,
   .destroy = desktop_destroy,
   .getName = desktop_getName,
   .getOriginType = desktop_getOriginType,
