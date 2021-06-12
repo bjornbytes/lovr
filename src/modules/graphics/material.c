@@ -89,6 +89,7 @@ Texture* lovrMaterialGetTexture(Material* material, MaterialTexture textureType)
 
 void lovrMaterialSetTexture(Material* material, MaterialTexture textureType, Texture* texture) {
   if (material->textures[textureType] != texture) {
+    lovrAssert(lovrTextureGetType(texture) == TEXTURE_2D, "Material textures must be 2D");
     lovrGraphicsFlushMaterial(material);
     lovrRetain(texture);
     lovrRelease(material->textures[textureType], lovrTextureDestroy);
