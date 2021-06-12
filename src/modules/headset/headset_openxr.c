@@ -4,6 +4,7 @@
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/texture.h"
+#include "core/os.h"
 #include "core/util.h"
 #include <stdlib.h>
 #include <math.h>
@@ -139,6 +140,7 @@ static struct {
   uint32_t height;
   float clipNear;
   float clipFar;
+  float offset;
   XrActionSet actionSet;
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[2];
@@ -171,6 +173,7 @@ static void openxr_destroy();
 
 static bool openxr_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   state.msaa = msaa;
+  state.offset = offset;
 
 #ifdef __ANDROID__
   static PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
@@ -345,13 +348,13 @@ static void openxr_start(void) {
     XrGraphicsRequirementsOpenGLKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR, NULL };
     PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR;
     XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
-    XR_INIT(xrGetOpenGLGraphicsRequirementsKHR(state.instance, state.system, &requirements));
+    xrGetOpenGLGraphicsRequirementsKHR(state.instance, state.system, &requirements);
     // TODO validate OpenGL versions
 #elif defined(LOVR_GLES)
     XrGraphicsRequirementsOpenGLESKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR, NULL };
     PFN_xrGetOpenGLESGraphicsRequirementsKHR xrGetOpenGLESGraphicsRequirementsKHR;
     XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
-    XR_INIT(xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements));
+    xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements);
     // TODO validate OpenGLES versions
 #endif
 
@@ -416,8 +419,8 @@ static void openxr_start(void) {
       .actionSets = &state.actionSet
     };
 
-    XR_INIT(xrCreateSession(state.instance, &info, &state.session));
-    XR_INIT(xrAttachSessionActionSets(state.session, &attachInfo));
+    XR(xrCreateSession(state.instance, &info, &state.session));
+    XR(xrAttachSessionActionSets(state.session, &attachInfo));
   }
 
   { // Spaaace
@@ -431,8 +434,8 @@ static void openxr_start(void) {
 
     if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace))) {
       info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-      info.poseInReferenceSpace.position.y = -offset;
-      XR_INIT(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace));
+      info.poseInReferenceSpace.position.y = -state.offset;
+      XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace));
     }
 
     state.referenceSpaceType = info.referenceSpaceType;
@@ -444,7 +447,7 @@ static void openxr_start(void) {
       .poseInReferenceSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
     };
 
-    XR_INIT(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]));
+    XR(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]));
 
     // Left hand space
     XrActionSpaceCreateInfo leftHandSpaceInfo = {
@@ -454,7 +457,7 @@ static void openxr_start(void) {
       .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
     };
 
-    XR_INIT(xrCreateActionSpace(state.session, &leftHandSpaceInfo, &state.spaces[DEVICE_HAND_LEFT]));
+    XR(xrCreateActionSpace(state.session, &leftHandSpaceInfo, &state.spaces[DEVICE_HAND_LEFT]));
 
     // Right hand space
     XrActionSpaceCreateInfo rightHandSpaceInfo = {
@@ -464,7 +467,7 @@ static void openxr_start(void) {
       .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
     };
 
-    XR_INIT(xrCreateActionSpace(state.session, &rightHandSpaceInfo, &state.spaces[DEVICE_HAND_RIGHT]));
+    XR(xrCreateActionSpace(state.session, &rightHandSpaceInfo, &state.spaces[DEVICE_HAND_RIGHT]));
   }
 
   { // Swapchain
@@ -500,8 +503,8 @@ static void openxr_start(void) {
       .mipCount = 1
     };
 
-    XR_INIT(xrCreateSwapchain(state.session, &info, &state.swapchain));
-    XR_INIT(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
+    XR(xrCreateSwapchain(state.session, &info, &state.swapchain));
+    XR(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
     CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = false, .msaa = state.msaa };
     for (uint32_t i = 0; i < state.imageCount; i++) {
