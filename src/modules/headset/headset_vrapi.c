@@ -80,10 +80,8 @@ static void vrapi_start(void) {
     .mipmaps = false
   };
 
-  uint32_t width, height;
-  vrapi_getDisplayDimensions(&width, &height);
-  width *= state.supersample;
-  height *= state.supersample;
+  uint32_t width = (uint32_t) vrapi_GetSystemPropertyInt(&state.java, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH) * state.supersample;
+  uint32_t height = (uint32_t) vrapi_GetSystemPropertyInt(&state.java, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT) * state.supersample;
   state.swapchain = vrapi_CreateTextureSwapChain3(VRAPI_TEXTURE_TYPE_2D_ARRAY, GL_SRGB8_ALPHA8, width, height, 1, 3);
   state.swapchainLength = vrapi_GetTextureSwapChainLength(state.swapchain);
   lovrAssert(state.swapchainLength <= sizeof(state.canvases) / sizeof(state.canvases[0]), "VrApi: The swapchain is too long");
