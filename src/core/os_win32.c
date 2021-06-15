@@ -2,8 +2,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shellapi.h>
-#include <KnownFolders.h>
-#include <ShlObj.h>
+#include <knownfolders.h>
+#include <shlobj.h>
 #include <stdio.h>
 
 #include "os_glfw.h"
