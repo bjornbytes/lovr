@@ -139,7 +139,7 @@ static bool vrapi_getViewAngles(uint32_t view, float* left, float* right, float*
   mat4_init(projection, (float*) &tracking.Eye[view].ProjectionMatrix);
   mat4_transpose(projection);
   mat4_getFov(projection, left, right, up, down);
-  uint32_t mask = VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
+  uint32_t mask = VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
   return (tracking.Status & mask) == mask;
 }
 
