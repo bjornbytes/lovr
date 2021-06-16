@@ -115,9 +115,6 @@ static Device luax_optdevice(lua_State* L, int index) {
 
 static int l_lovrHeadsetStart(lua_State* L) {
   lovrHeadsetDisplayDriver->start();
-  FOREACH_TRACKING_DRIVER(driver) {
-    driver->start();
-  }
   return 0;
 }
 
