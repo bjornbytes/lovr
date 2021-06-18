@@ -128,8 +128,7 @@ static bool vrapi_getViewPose(uint32_t view, float* position, float* orientation
   mat4_invert(transform);
   mat4_getPosition(transform, position);
   mat4_getOrientation(transform, orientation);
-  uint32_t mask = VRAPI_TRACKING_STATUS_POSITION_VALID | VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
-  return (tracking.Status & mask) == mask;
+  return tracking.Status & VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
 }
 
 static bool vrapi_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
@@ -139,8 +138,7 @@ static bool vrapi_getViewAngles(uint32_t view, float* left, float* right, float*
   mat4_init(projection, (float*) &tracking.Eye[view].ProjectionMatrix);
   mat4_transpose(projection);
   mat4_getFov(projection, left, right, up, down);
-  uint32_t mask = VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
-  return (tracking.Status & mask) == mask;
+  return tracking.Status & VRAPI_TRACKING_STATUS_ORIENTATION_VALID;
 }
 
 static void vrapi_getClipDistance(float* clipNear, float* clipFar) {
