@@ -1,5 +1,6 @@
 [Desktop Entry]
-Type=Application
+Exec=AppRun
 Name=LÖVR
+Type=Application
 Icon=logo
-Categories=
+Categories=Development;
