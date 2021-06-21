@@ -2639,15 +2639,23 @@ Shader* lovrShaderCreateGraphics(const char* vertexSource, int vertexSourceLengt
 
   char* flagSource = lovrShaderGetFlagCode(flags, flagCount);
 
+  if (!vertexSource) {
+    vertexSource = lovrUnlitVertexShader;
+    vertexSourceLength = -1;
+  }
+
+  if (!fragmentSource) {
+    fragmentSource = lovrUnlitFragmentShader;
+    fragmentSourceLength = -1;
+  }
+
   // Vertex
-  vertexSource = vertexSource == NULL ? lovrUnlitVertexShader : vertexSource;
   const char* vertexSources[] = { version, computeExtensions, singlepass[0], flagSource ? flagSource : "", lovrShaderVertexPrefix, vertexSource, lovrShaderVertexSuffix };
   int vertexSourceLengths[] = { -1, -1, -1, -1, -1, vertexSourceLength, -1 };
   int vertexSourceCount = sizeof(vertexSources) / sizeof(vertexSources[0]);
   GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSources, vertexSourceLengths, vertexSourceCount);
 
   // Fragment
-  fragmentSource = fragmentSource == NULL ? lovrUnlitFragmentShader : fragmentSource;
   const char* fragmentSources[] = { version, computeExtensions, singlepass[1], flagSource ? flagSource : "", lovrShaderFragmentPrefix, fragmentSource, lovrShaderFragmentSuffix };
   int fragmentSourceLengths[] = { -1, -1, -1, -1, -1, fragmentSourceLength, -1 };
   int fragmentSourceCount = sizeof(fragmentSources) / sizeof(fragmentSources[0]);
