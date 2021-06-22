@@ -293,21 +293,21 @@ static int l_lovrGraphicsInit(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsGetDeviceInfo(lua_State* L) {
+static int l_lovrGraphicsGetHardware(lua_State* L) {
   if (lua_istable(L, 1)) {
     lua_settop(L, 1);
   } else {
     lua_newtable(L);
   }
 
-  GraphicsDevice device;
-  lovrGraphicsGetDeviceInfo(&device);
-  lua_pushinteger(L, device.deviceId), lua_setfield(L, -2, "id");
-  lua_pushstring(L, device.deviceName), lua_setfield(L, -2, "name");
-  lua_pushinteger(L, device.vendorId), lua_setfield(L, -2, "vendor");
-  lua_pushfstring(L, "%d.%d.%d", device.driverMajor, device.driverMinor, device.driverPatch), lua_setfield(L, -2, "version");
-  lua_pushboolean(L, device.discrete), lua_setfield(L, -2, "discrete");
-  lua_pushstring(L, device.renderer), lua_setfield(L, -2, "renderer");
+  GraphicsHardware hardware;
+  lovrGraphicsGetHardware(&hardware);
+  lua_pushinteger(L, hardware.deviceId), lua_setfield(L, -2, "id");
+  lua_pushstring(L, hardware.deviceName), lua_setfield(L, -2, "name");
+  lua_pushinteger(L, hardware.vendorId), lua_setfield(L, -2, "vendor");
+  lua_pushfstring(L, "%d.%d.%d", hardware.driverMajor, hardware.driverMinor, hardware.driverPatch), lua_setfield(L, -2, "version");
+  lua_pushboolean(L, hardware.discrete), lua_setfield(L, -2, "discrete");
+  lua_pushstring(L, hardware.renderer), lua_setfield(L, -2, "renderer");
   return 1;
 }
 
@@ -819,7 +819,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
-  { "getDeviceInfo", l_lovrGraphicsGetDeviceInfo },
+  { "getHardware", l_lovrGraphicsGetHardware },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
   { "begin", l_lovrGraphicsBegin },

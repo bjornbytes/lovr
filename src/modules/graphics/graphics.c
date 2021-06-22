@@ -214,17 +214,17 @@ void lovrGraphicsDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-void lovrGraphicsGetDeviceInfo(GraphicsDevice* device) {
-  device->vendorId = state.device.vendorId;
-  device->deviceId = state.device.deviceId;
-  device->deviceName = state.device.deviceName;
+void lovrGraphicsGetHardware(GraphicsHardware* hardware) {
+  hardware->vendorId = state.device.vendorId;
+  hardware->deviceId = state.device.deviceId;
+  hardware->deviceName = state.device.deviceName;
 #ifdef LOVR_VK
-  device->renderer = "vulkan";
+  hardware->renderer = "vulkan";
 #endif
-  device->driverMajor = state.device.driverMajor;
-  device->driverMinor = state.device.driverMinor;
-  device->driverPatch = state.device.driverPatch;
-  device->discrete = state.device.discrete;
+  hardware->driverMajor = state.device.driverMajor;
+  hardware->driverMinor = state.device.driverMinor;
+  hardware->driverPatch = state.device.driverPatch;
+  hardware->discrete = state.device.discrete;
 }
 
 void lovrGraphicsGetFeatures(GraphicsFeatures* features) {

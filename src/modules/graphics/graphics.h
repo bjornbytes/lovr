@@ -23,7 +23,7 @@ typedef struct {
   uint32_t driverMinor;
   uint32_t driverPatch;
   bool discrete;
-} GraphicsDevice;
+} GraphicsHardware;
 
 typedef struct {
   bool bptc;
@@ -76,7 +76,7 @@ typedef struct {
 
 bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);
-void lovrGraphicsGetDeviceInfo(GraphicsDevice* device);
+void lovrGraphicsGetHardware(GraphicsHardware* hardware);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
