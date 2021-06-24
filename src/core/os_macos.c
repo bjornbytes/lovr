@@ -89,7 +89,7 @@ void os_request_permission(os_permission permission) {
         break;
     }
 #else
-    lovrAssert(false, "Unreachable code");
+    lovrThrow("Unreachable");
 #endif
   }
 }
