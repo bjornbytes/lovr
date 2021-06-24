@@ -12,6 +12,7 @@
 #import <AVFoundation/AVFoundation.h>
 
 #include "os_glfw.h"
+#include "util.h"
 
 static struct {
   uint64_t frequency;
@@ -64,7 +65,8 @@ void os_request_permission(os_permission permission) {
       if (state.onPermissionEvent) state.onPermissionEvent(permission, true);
       return;
     }
-    
+
+#if TARGET_OS_IOS || (defined(MAC_OS_X_VERSION_10_14) && __MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_14)
     switch ([AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio]) {
       case AVAuthorizationStatusAuthorized:
         if (state.onPermissionEvent) state.onPermissionEvent(permission, true);
@@ -86,6 +88,9 @@ void os_request_permission(os_permission permission) {
         if (state.onPermissionEvent) state.onPermissionEvent(permission, false);
         break;
     }
+#else
+    lovrAssert(false, "Unreachable code");
+#endif
   }
 }
 
