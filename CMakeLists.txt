@@ -666,11 +666,20 @@ elseif(APPLE)
   endif()
   function(move_lib)
     if(TARGET ${ARGV0})
-      add_custom_command(TARGET lovr POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        $<TARGET_SONAME_FILE:${ARGV0}>
-        ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
-      )
+      get_target_property(TARGET_TYPE ${ARGV0} TYPE)
+      if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
+        add_custom_command(TARGET lovr POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_FILE:${ARGV0}>
+          ${EXE_DIR}/$<TARGET_FILE_NAME:${ARGV0}>
+        )
+      else()
+        add_custom_command(TARGET lovr POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_SONAME_FILE:${ARGV0}>
+          ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
+        )
+      endif()
     endif()
   endfunction()
   move_lib(${LOVR_GLFW})
