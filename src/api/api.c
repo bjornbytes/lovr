@@ -43,6 +43,16 @@ static int luax_meta__tostring(lua_State* L) {
 static int luax_meta__gc(lua_State* L) {
   Proxy* p = lua_touserdata(L, 1);
   if (p) {
+    // Remove from userdata cache
+    lua_getfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+    if (lua_istable(L, -1)) {
+      lua_pushlightuserdata(L, p->object);
+      lua_pushnil(L);
+      lua_rawset(L, -3);
+    }
+    lua_pop(L, 1);
+
+    // Release
     lua_getmetatable(L, 1);
     lua_getfield(L, -1, "__info");
     TypeInfo* info = lua_touserdata(L, -1);
