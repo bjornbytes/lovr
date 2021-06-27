@@ -14,6 +14,4 @@ layout(set = 0, binding = 1) uniform Transform { mat4 transform; };
 void main() {
   vertexColor = color;
   gl_Position = projections[gl_ViewIndex] * views[gl_ViewIndex] * transform * position;
-  gl_Position.y = -gl_Position.y;
-  gl_Position.z = (gl_Position.z + gl_Position.w) / 2.;
 }
