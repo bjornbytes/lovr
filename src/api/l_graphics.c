@@ -653,6 +653,12 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.width = lua_tointeger(L, index++);
     info.height = luaL_checkinteger(L, index++);
     info.depth = lua_type(L, index) == LUA_TNUMBER ? lua_tointeger(L, index++) : 0;
+    switch (info.depth) {
+      case 0: info.type = TEXTURE_2D; break;
+      case 1: info.type = TEXTURE_2D; break;
+      case 6: info.type = TEXTURE_CUBE; break;
+      default: info.type = TEXTURE_ARRAY; break;
+    }
   } else if (argType != LUA_TTABLE) {
     lua_createtable(L, 1, 0);
     lua_pushvalue(L, 1);
