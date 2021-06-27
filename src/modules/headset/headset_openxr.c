@@ -2,11 +2,10 @@
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
-#include "graphics/canvas.h"
-#include "graphics/texture.h"
 #include "core/os.h"
 #include "core/util.h"
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #if defined(_WIN32)
   #define XR_USE_PLATFORM_WIN32
@@ -18,14 +17,18 @@
   #include <EGL/egl.h>
   #include <jni.h>
 #endif
-#if defined(LOVR_GL)
+#if defined(LOVR_VK)
+  #define XR_USE_GRAPHICS_API_VULKAN
+  #define GRAPHICS_EXTENSION "XR_KHR_vulkan_enable2"
+  #include <vulkan/vulkan.h>
+#elif defined(LOVR_GL)
   #define XR_USE_GRAPHICS_API_OPENGL
   #define GRAPHICS_EXTENSION "XR_KHR_opengl_enable"
 #elif defined(LOVR_GLES)
   #define XR_USE_GRAPHICS_API_OPENGL_ES
   #define GRAPHICS_EXTENSION "XR_KHR_opengl_es_enable"
 #endif
-#if defined(LOVR_LINUX_X11)
+#if defined(LOVR_LINUX_X11) && !defined(LOVR_VK)
   #define XR_USE_PLATFORM_XLIB
   typedef unsigned long XID;
   typedef struct Display Display;
@@ -33,7 +36,7 @@
   typedef XID GLXDrawable;
   typedef XID GLXContext;
 #endif
-#if defined(LOVR_LINUX_EGL)
+#if defined(LOVR_LINUX_EGL) && !defined(LOVR_VK)
   #define XR_USE_PLATFORM_EGL
   #define EGL_NO_X11
   #include <EGL/egl.h>
@@ -60,7 +63,7 @@ struct ANativeActivity* os_get_activity(void);
 EGLDisplay os_get_egl_display(void);
 EGLContext os_get_egl_context(void);
 EGLConfig os_get_egl_config(void);
-#elif defined(LOVR_LINUX_X11)
+#elif defined(LOVR_LINUX_X11) && !defined(LOVR_VK)
 Display* os_get_x11_display(void);
 GLXDrawable os_get_glx_drawable(void);
 GLXContext os_get_glx_context(void);
@@ -132,7 +135,8 @@ static struct {
   XrCompositionLayerProjection layers[1];
   XrCompositionLayerProjectionView layerViews[2];
   XrFrameState frameState;
-  Canvas* canvases[MAX_IMAGES];
+  Canvas* canvas;
+  Texture* textures[MAX_IMAGES];
   uint32_t imageIndex;
   uint32_t imageCount;
   uint32_t msaa;
@@ -344,7 +348,15 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
 
 static void openxr_start(void) {
   { // Session
-#if defined(LOVR_GL)
+#if defined(LOVR_VK)
+    XrGraphicsRequirementsVulkanKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR, NULL };
+    PFN_xrGetVulkanGraphicsRequirementsKHR xrGetVulkanGraphicsRequirementsKHR;
+    XR_LOAD(xrGetVulkanGraphicsRequirementsKHR);
+    XR(xrGetVulkanGraphicsRequirementsKHR(state.instance, state.system, &requirements));
+    if (XR_VERSION_MAJOR(requirements.minApiVersionSupported) > 1 || XR_VERSION_MINOR(requirements.minApiVersionSupported) > 1) {
+      lovrThrow("OpenXR Vulkan version not supported");
+    }
+#elif defined(LOVR_GL)
     XrGraphicsRequirementsOpenGLKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR, NULL };
     PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR;
     XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
