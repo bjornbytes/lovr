@@ -204,16 +204,21 @@ function lovr.run()
     if lovr.headset then lovr.headset.update(dt) end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics and lovr.draw then
-      lovr.graphics.begin()
-      lovr.graphics.renderTo('window', lovr.draw)
-      lovr.graphics.submit()
+      if lovr.headset then lovr.headset.renderTo(lovr.draw) end
+      if lovr.system.isWindowOpen() then lovr.mirror() end
     end
     if lovr.math then lovr.math.drain() end
   end
 end
 
 function lovr.mirror()
-  --
+  if lovr.headset then
+    --
+  else
+    lovr.graphics.begin()
+    lovr.graphics.renderTo('window', lovr.draw)
+    lovr.graphics.submit()
+  end
 end
 
 local function formatTraceback(s)

@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "data/modelData.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
@@ -72,7 +73,7 @@ static double desktop_getDisplayTime(void) {
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   int w, h;
   os_window_get_fbsize(&w, &h);
-  *width = (uint32_t) w / 2;
+  *width = (uint32_t) w;
   *height = (uint32_t) h;
 }
 
@@ -97,9 +98,9 @@ static bool desktop_getViewAngles(uint32_t view, float* left, float* right, floa
   uint32_t width, height;
   desktop_getDisplayDimensions(&width, &height);
   aspect = (float) width / height;
-  fov = 67.f * (float) M_PI / 180.f * .5f;
-  *left = fov * aspect;
-  *right = fov * aspect;
+  fov = 67.f * (float) M_PI / 180.f * .5;
+  *left = atanf(tanf(fov) * aspect);
+  *right = atanf(tanf(fov) * aspect);
   *up = fov;
   *down = fov;
   return view < 2;
@@ -181,7 +182,7 @@ static bool desktop_animate(Device device, struct Model* model) {
   return false;
 }
 
-static void desktop_renderTo(void (*callback)(void*), void* userdata) {
+static void desktop_renderTo(Batch* batch) {
   float projection[16], left, right, up, down;
   desktop_getViewAngles(0, &left, &right, &up, &down);
   mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
@@ -189,13 +190,15 @@ static void desktop_renderTo(void (*callback)(void*), void* userdata) {
   float viewMatrix[16];
   mat4_invert(mat4_init(viewMatrix, state.headTransform));
 
-  lovrGraphicsSetProjection(0, projection);
-  lovrGraphicsSetProjection(1, projection);
-  lovrGraphicsSetViewMatrix(0, viewMatrix);
-  lovrGraphicsSetViewMatrix(1, viewMatrix);
-  lovrGraphicsSetBackbuffer(NULL, true, true);
-  callback(userdata);
-  lovrGraphicsSetBackbuffer(NULL, false, false);
+  Canvas* canvas = lovrCanvasGetWindow();
+
+  lovrGraphicsBegin();
+  lovrCanvasSetProjection(canvas, 0, projection);
+  lovrCanvasSetProjection(canvas, 1, projection);
+  lovrCanvasSetViewMatrix(canvas, 0, viewMatrix);
+  lovrCanvasSetViewMatrix(canvas, 1, viewMatrix);
+  lovrGraphicsRender(canvas, batch);
+  lovrGraphicsSubmit();
 }
 
 static void desktop_update(float dt) {

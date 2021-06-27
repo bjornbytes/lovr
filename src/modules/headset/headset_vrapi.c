@@ -1,30 +1,31 @@
 #include "headset/headset.h"
 #include "event/event.h"
-#include "graphics/canvas.h"
 #include "graphics/graphics.h"
-#include "graphics/model.h"
-#include "graphics/texture.h"
 #include "data/blob.h"
+#include "data/image.h"
 #include "core/maf.h"
 #include "core/os.h"
+#include "core/util.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <EGL/egl.h>
 #include <android_native_app_glue.h>
 #include <VrApi.h>
 #include <VrApi_Helpers.h>
 #include <VrApi_Input.h>
+#include <VrApi_Vulkan.h>
 
-#define GL_SRGB8_ALPHA8 0x8C43
+#define VK_FORMAT_R8G8B8A8_UNORM 37
 
 // Private platform functions
 JNIEnv* os_get_jni(void);
 struct ANativeActivity* os_get_activity(void);
 int os_get_activity_state(void);
 ANativeWindow* os_get_native_window(void);
-EGLDisplay os_get_egl_display(void);
-EGLContext os_get_egl_context(void);
+uintptr_t gpu_vk_get_instance(void);
+uintptr_t gpu_vk_get_physical_device(void);
+uintptr_t gpu_vk_get_device(void);
+uintptr_t gpu_vk_get_queue(void);
 
 static struct {
   ovrJava java;
@@ -41,7 +42,8 @@ static struct {
   ovrTextureSwapChain* swapchain;
   uint32_t swapchainLength;
   uint32_t swapchainIndex;
-  Canvas* canvases[4];
+  Canvas* canvas;
+  Texture* textures[4];
   ovrTracking tracking[3];
   ovrHandPose handPose[2];
   ovrHandSkeleton skeleton[2];
@@ -53,6 +55,14 @@ static struct {
   float hapticDuration[2];
 } state;
 
+static bool vrapi_getVulkanInstanceExtensions(char* buffer, uint32_t size) {
+  return vrapi_GetInstanceExtensionsVulkan(buffer, &size) == ovrSuccess;
+}
+
+static bool vrapi_getVulkanDeviceExtensions(char* buffer, uint32_t size, uintptr_t physicalDevice) {
+  return vrapi_GetDeviceExtensionsVulkan(buffer, &size) == ovrSuccess;
+}
+
 static bool vrapi_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   ANativeActivity* activity = os_get_activity();
   JNIEnv* jni = os_get_jni();
@@ -62,7 +72,8 @@ static bool vrapi_init(float supersample, float offset, uint32_t msaa, bool over
   state.supersample = supersample;
   state.offset = offset;
   state.msaa = msaa;
-  const ovrInitParms config = vrapi_DefaultInitParms(&state.java);
+  ovrInitParms config = vrapi_DefaultInitParms(&state.java);
+  config.GraphicsAPI = VRAPI_GRAPHICS_API_VULKAN_1;
   if (vrapi_Initialize(&config) != VRAPI_INITIALIZE_SUCCESS) {
     return false;
   }
@@ -71,28 +82,60 @@ static bool vrapi_init(float supersample, float offset, uint32_t msaa, bool over
 }
 
 static void vrapi_start(void) {
-  CanvasFlags flags = {
-    .depth.enabled = true,
-    .depth.readable = false,
-    .depth.format = FORMAT_D24S8,
-    .msaa = state.msaa,
-    .stereo = true,
-    .mipmaps = false
+  ovrSystemCreateInfoVulkan vulkanInfo = {
+    .Instance = (VkInstance) gpu_vk_get_instance(),
+    .PhysicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device(),
+    .Device = (VkDevice) gpu_vk_get_device()
   };
+  lovrAssert(vrapi_CreateSystemVulkan(&vulkanInfo) == ovrSuccess, "Headset failed to initialize vulkan");
 
   uint32_t width = (uint32_t) vrapi_GetSystemPropertyInt(&state.java, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH) * state.supersample;
   uint32_t height = (uint32_t) vrapi_GetSystemPropertyInt(&state.java, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT) * state.supersample;
-  state.swapchain = vrapi_CreateTextureSwapChain3(VRAPI_TEXTURE_TYPE_2D_ARRAY, GL_SRGB8_ALPHA8, width, height, 1, 3);
+
+  state.swapchain = vrapi_CreateTextureSwapChain4(&(ovrSwapChainCreateInfo) {
+    .Format = VK_FORMAT_R8G8B8A8_UNORM,
+    .Width = width,
+    .Height = height,
+    .Levels = 1,
+    .FaceCount = 1,
+    .ArraySize = 2,
+    .BufferCount = 3,
+    .UsageFlags = VRAPI_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT
+  });
+  lovrAssert(state.swapchain, "Failed to create VrApi swapchain");
+
   state.swapchainLength = vrapi_GetTextureSwapChainLength(state.swapchain);
-  lovrAssert(state.swapchainLength <= sizeof(state.canvases) / sizeof(state.canvases[0]), "VrApi: The swapchain is too long");
+  lovrAssert(state.swapchainLength <= COUNTOF(state.textures), "Wow, the VrApi swapchain is too long");
 
   for (uint32_t i = 0; i < state.swapchainLength; i++) {
-    state.canvases[i] = lovrCanvasCreate(width, height, flags);
-    uint32_t handle = vrapi_GetTextureSwapChainHandle(state.swapchain, i);
-    Texture* texture = lovrTextureCreateFromHandle(handle, TEXTURE_ARRAY, 2, 1);
-    lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { .texture = texture }, 1);
-    lovrRelease(texture, lovrTextureDestroy);
+    state.textures[i] = lovrTextureCreate(&(TextureInfo) {
+      .type = TEXTURE_ARRAY,
+      .format = FORMAT_RGBA8,
+      .width = width,
+      .height = height,
+      .depth = 2,
+      .mipmaps = 1,
+      .samples = 1,
+      .flags = TEXTURE_RENDER,
+      .handle = (uintptr_t) vrapi_GetTextureSwapChainBufferVulkan(state.swapchain, i)
+    });
   }
+
+  state.canvas = lovrCanvasCreate(&(CanvasInfo) {
+    .color[0].texture = state.textures[0],
+    .color[0].load = LOAD_CLEAR,
+    .color[0].save = SAVE_KEEP,
+    .depth.enabled = true,
+    .depth.format = FORMAT_D24S8,
+    .depth.load = LOAD_CLEAR,
+    .depth.stencilLoad = LOAD_CLEAR,
+    .depth.save = SAVE_DISCARD,
+    .depth.stencilSave = SAVE_DISCARD,
+    .samples = 1,
+    .count = 1
+  });
+
+  lovrCanvasSetClear(state.canvas, &(float[4]) { 0.f, 0.f, 0.f, 1.f }, 1.f, 0);
 }
 
 static void vrapi_destroy() {
@@ -100,10 +143,12 @@ static void vrapi_destroy() {
     vrapi_LeaveVrMode(state.session);
   }
   vrapi_DestroyTextureSwapChain(state.swapchain);
+  vrapi_DestroySystemVulkan();
   vrapi_Shutdown();
-  for (uint32_t i = 0; i < 3; i++) {
-    lovrRelease(state.canvases[i], lovrCanvasDestroy);
+  for (size_t i = 0; i < COUNTOF(state.textures); i++) {
+    lovrRelease(state.textures[i], lovrTextureDestroy);
   }
+  lovrRelease(state.canvas, lovrCanvasDestroy);
   free(state.rawBoundaryPoints);
   free(state.boundaryPoints);
   memset(&state, 0, sizeof(state));
@@ -450,6 +495,9 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
     return NULL;
   }
 
+  return NULL;
+
+  /*
   ovrHandSkeleton* skeleton = &state.skeleton[device - DEVICE_HAND_LEFT];
 
   ovrHandMesh* mesh = malloc(sizeof(ovrHandMesh));
@@ -628,6 +676,7 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
   *children++ = model->jointCount;
 
   return model;
+  */
 }
 
 static bool vrapi_animate(Device device, struct Model* model) {
@@ -635,6 +684,7 @@ static bool vrapi_animate(Device device, struct Model* model) {
     return false;
   }
 
+  /*
   ovrInputCapabilityHeader* header = &state.hands[device - DEVICE_HAND_LEFT];
   ovrHandPose* handPose = &state.handPose[device - DEVICE_HAND_LEFT];
   if (header->Type != ovrControllerType_Hand || handPose->HandConfidence != ovrConfidence_HIGH) {
@@ -656,11 +706,12 @@ static bool vrapi_animate(Device device, struct Model* model) {
     quat_init(orientation, &handPose->BoneRotations[i].x);
     lovrModelPose(model, i, position, orientation, 1.f);
   }
+  */
 
   return true;
 }
 
-static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
+static void vrapi_renderTo(Batch* batch) {
   if (!state.session) return;
 
   ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
@@ -671,19 +722,19 @@ static void vrapi_renderTo(void (*callback)(void*), void* userdata) {
     mat4_init(view, &tracking.Eye[i].ViewMatrix.M[0][0]);
     mat4_transpose(view);
     view[13] -= state.offset;
-    lovrGraphicsSetViewMatrix(i, view);
+    lovrCanvasSetViewMatrix(state.canvas, i, view);
 
     float projection[16];
     mat4_init(projection, &tracking.Eye[i].ProjectionMatrix.M[0][0]);
     mat4_transpose(projection);
-    lovrGraphicsSetProjection(i, projection);
+    lovrCanvasSetProjection(state.canvas, i, projection);
   }
 
   // Render
-  lovrGraphicsSetBackbuffer(state.canvases[state.swapchainIndex], true, true);
-  callback(userdata);
-  lovrGraphicsDiscard(false, true, true);
-  lovrGraphicsSetBackbuffer(NULL, false, false);
+  lovrCanvasSetTextures(state.canvas, (Texture*[1]) { state.textures[state.swapchainIndex] }, NULL);
+  lovrGraphicsBegin();
+  lovrGraphicsRender(state.canvas, batch);
+  lovrGraphicsSubmit();
 
   // Submit a layer to VrApi
   ovrLayerProjection2 layer = vrapi_DefaultLayerProjection2();
@@ -713,14 +764,12 @@ static void vrapi_update(float dt) {
 
   // Session
   if (!state.session && appState == APP_CMD_RESUME && window) {
-    ovrModeParms config = vrapi_DefaultModeParms(&state.java);
-    config.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
-    config.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
-    config.Flags |= VRAPI_MODE_FLAG_FRONT_BUFFER_SRGB;
-    config.Display = (size_t) os_get_egl_display();
-    config.ShareContext = (size_t) os_get_egl_context();
-    config.WindowSurface = (size_t) window;
-    state.session = vrapi_EnterVrMode(&config);
+    ovrModeParmsVulkan config = vrapi_DefaultModeParmsVulkan(&state.java, (unsigned long long) gpu_vk_get_queue());
+    config.ModeParms.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
+    config.ModeParms.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
+    config.ModeParms.Flags |= VRAPI_MODE_FLAG_FRONT_BUFFER_SRGB;
+    config.ModeParms.WindowSurface = (size_t) window;
+    state.session = vrapi_EnterVrMode(&config.ModeParms);
     state.frameIndex = 0;
     vrapi_SetTrackingSpace(state.session, VRAPI_TRACKING_SPACE_LOCAL_FLOOR);
     state.offset = 0.f;
@@ -812,6 +861,8 @@ static void vrapi_update(float dt) {
 
 HeadsetInterface lovrHeadsetVrApiDriver = {
   .driverType = DRIVER_VRAPI,
+  .getVulkanInstanceExtensions = vrapi_getVulkanInstanceExtensions,
+  .getVulkanDeviceExtensions = vrapi_getVulkanDeviceExtensions,
   .init = vrapi_init,
   .start = vrapi_start,
   .destroy = vrapi_destroy,
