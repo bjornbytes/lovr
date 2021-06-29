@@ -47,7 +47,7 @@ static int l_lovrShaderBlockSend(lua_State* L) {
     size_t bufferSize = lovrBufferGetSize(buffer);
     // TODO make/use shared helper to check srcOffset/dstOffset/size are non-negative to make these errors better
     lovrAssert(srcOffset <= blob->size, "Source offset is bigger than the Blob size (%d > %d)", srcOffset, blob->size);
-    lovrAssert(dstOffset <= bufferSize, "Destination offset is bigger than the ShaderBlock size (%d > %d)", srcOffset, bufferSize);
+    lovrAssert(dstOffset <= bufferSize, "Destination offset is bigger than the ShaderBlock size (%d > %d)", dstOffset, bufferSize);
     size_t maxSize = MIN(blob->size - srcOffset, bufferSize - dstOffset);
     size_t size = luaL_optinteger(L, 5, maxSize);
     lovrAssert(size <= blob->size - srcOffset, "Source offset plus copy size exceeds Blob size (%d > %d)", srcOffset + size, blob->size);
