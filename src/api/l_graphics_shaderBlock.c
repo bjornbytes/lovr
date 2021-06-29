@@ -31,29 +31,33 @@ static int l_lovrShaderBlockGetOffset(lua_State* L) {
 
 static int l_lovrShaderBlockSend(lua_State* L) {
   ShaderBlock* block = luax_checktype(L, 1, ShaderBlock);
+  Buffer* buffer = lovrShaderBlockGetBuffer(block);
   if (lua_type(L, 2) == LUA_TSTRING) {
     const char* name = luaL_checkstring(L, 2);
     const Uniform* uniform = lovrShaderBlockGetUniform(block, name);
     lovrAssert(uniform, "Unknown uniform for ShaderBlock '%s'", name);
-    Buffer* buffer = lovrShaderBlockGetBuffer(block);
     uint8_t* data = lovrBufferMap(buffer, uniform->offset, false);
     luax_checkuniform(L, 3, uniform, data, name);
     lovrBufferFlush(buffer, uniform->offset, uniform->size);
     return 0;
   } else {
     Blob* blob = luax_checktype(L, 2, Blob);
-    Buffer* buffer = lovrShaderBlockGetBuffer(block);
-    void* data = lovrBufferMap(buffer, 0, false);
-    int offset = luaL_optinteger(L, 3, 0);
-    lovrAssert(offset >= 0, "Negative offset");
-    lovrAssert((size_t) offset < blob->size, "Offset %d larger than blob (size %d)", offset, (int) blob->size);
-    int size = luaL_optnumber(L, 4, blob->size - offset);
-    lovrAssert((size_t) size <= blob->size - offset, "Size %d offset %d larger than blob (size %d)", offset, size, (int) blob->size);
+    size_t srcOffset = luaL_optinteger(L, 3, 0);
+    size_t dstOffset = luaL_optinteger(L, 4, 0);
     size_t bufferSize = lovrBufferGetSize(buffer);
-    size_t copySize = MIN(bufferSize, (size_t) size);
-    memcpy(data, ((uint8_t*) blob->data) + offset, copySize);
-    lovrBufferFlush(buffer, offset, copySize);
-    lua_pushinteger(L, copySize);
+    // TODO make/use shared helper to check srcOffset/dstOffset/size are non-negative to make these errors better
+    lovrAssert(srcOffset <= blob->size, "Source offset is bigger than the Blob size (%d > %d)", srcOffset, blob->size);
+    lovrAssert(dstOffset <= bufferSize, "Destination offset is bigger than the ShaderBlock size (%d > %d)", srcOffset, bufferSize);
+    size_t maxSize = MIN(blob->size - srcOffset, bufferSize - dstOffset);
+    size_t size = luaL_optinteger(L, 5, maxSize);
+    lovrAssert(size <= blob->size - srcOffset, "Source offset plus copy size exceeds Blob size (%d > %d)", srcOffset + size, blob->size);
+    lovrAssert(size <= bufferSize - dstOffset, "Destination offset plus copy size exceeds ShaderBlock size (%d > %d)", dstOffset + size, bufferSize);
+
+    char* dst = lovrBufferMap(buffer, dstOffset, false);
+    char* src = (char*) blob->data + srcOffset;
+    memcpy(dst, src, size);
+    lovrBufferFlush(buffer, dstOffset, size);
+    lua_pushinteger(L, size);
     return 1;
   }
 }
