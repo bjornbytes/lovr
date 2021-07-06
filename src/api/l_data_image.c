@@ -82,6 +82,13 @@ static int l_lovrImageGetBlob(lua_State* L) {
   return 1;
 }
 
+static int l_lovrImageSetBlob(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  Blob* blob = luax_checktype(L, 2, Blob);
+  image->blob=blob;
+  return 0;
+}
+
 const luaL_Reg lovrImage[] = {
   { "encode", l_lovrImageEncode },
   { "getWidth", l_lovrImageGetWidth },
@@ -92,5 +99,6 @@ const luaL_Reg lovrImage[] = {
   { "getPixel", l_lovrImageGetPixel },
   { "setPixel", l_lovrImageSetPixel },
   { "getBlob", l_lovrImageGetBlob },
+  { "setBlob", l_lovrImageSetBlob },
   { NULL, NULL }
 };
