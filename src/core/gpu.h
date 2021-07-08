@@ -514,7 +514,7 @@ typedef struct {
   uint32_t driverMinor;
   uint32_t driverPatch;
   bool discrete;
-} gpu_info;
+} gpu_hardware;
 
 typedef struct {
   bool bptc;
@@ -567,7 +567,7 @@ typedef struct {
 
 typedef struct {
   bool debug;
-  gpu_info* info;
+  gpu_hardware* hardware;
   gpu_features* features;
   gpu_limits* limits;
   void (*callback)(void* userdata, const char* message, int level);
