@@ -75,20 +75,6 @@ struct Shader {
   map_t lookup;
 };
 
-typedef struct {
-  gpu_pipeline_info pipeline;
-  uint32_t vertexBufferCount;
-  gpu_buffer* vertexBuffers[8];
-  uint32_t vertexOffsets[8];
-  gpu_buffer* indexBuffer;
-  float transform[16];
-  uint32_t start;
-  uint32_t count;
-  uint32_t instances;
-  uint32_t baseVertex;
-  uint32_t baseInstance;
-} BatchDraw;
-
 struct Batch {
   uint32_t ref;
   BatchInfo info;
@@ -98,7 +84,6 @@ struct Batch {
   float transforms[64][16];
   uint32_t transform;
   gpu_pipeline_info* pipeline;
-  arr_t(BatchDraw) draws;
 };
 
 static LOVR_THREAD_LOCAL struct {
@@ -334,54 +319,6 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
 
   gpu_stream* stream = gpu_stream_begin();
   gpu_render_begin(stream, &canvas->gpu);
-  gpu_bind_vertex_buffers(stream, &state.defaultBuffer, &(uint32_t) { 0 }, 0, 1);
-  for (size_t i = 0; i < batch->draws.length; i++) {
-    BatchDraw* draw = &batch->draws.data[i];
-
-    draw->pipeline.pass = canvas->gpu.pass;
-    uint64_t hash = hash64(&draw->pipeline, sizeof(draw->pipeline));
-    uint64_t value = map_get(&state.pipelines, hash);
-
-    if (value == MAP_NIL) {
-      gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
-      lovrAssert(pipeline, "Out of memory");
-      lovrAssert(gpu_pipeline_init_graphics(pipeline, &draw->pipeline), "Failed to create pipeline");
-      map_set(&state.pipelines, hash, (uintptr_t) pipeline);
-      value = (uintptr_t) pipeline;
-    }
-
-    gpu_bind_pipeline(stream, (gpu_pipeline*) (uintptr_t) value);
-
-    gpu_scratchpad transform = gpu_scratch(64, state.limits.uniformBufferAlign);
-    memcpy(transform.pointer, draw->transform, 16 * sizeof(float));
-
-    gpu_bundle_init(bundle, &(gpu_bundle_info) {
-      .shader = draw->pipeline.shader,
-      .group = 0,
-      .slotCount = 2,
-      .slots = (gpu_slot[]) {
-        { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 },
-        { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 }
-      },
-      .bindings = (gpu_binding[]) {
-        [0].buffer = { camera.buffer, camera.offset, sizeof(Camera) },
-        [1].buffer = { transform.buffer, transform.offset, 16 * sizeof(float) },
-      }
-    });
-
-    gpu_bind_bundle(stream, draw->pipeline.shader, 0, bundle, NULL, 0);
-
-    if (draw->vertexBufferCount > 0) {
-      gpu_bind_vertex_buffers(stream, draw->vertexBuffers, draw->vertexOffsets, 1, draw->vertexBufferCount);
-    }
-
-    if (draw->indexBuffer) {
-      gpu_bind_index_buffer(stream, draw->indexBuffer, 0, GPU_INDEX_U32);
-      gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->baseVertex);
-    } else {
-      gpu_draw(stream, draw->count, draw->instances, draw->start);
-    }
-  }
   gpu_render_end(stream);
   state.streams[state.streamCount++] = stream;
 }
@@ -1447,33 +1384,17 @@ Batch* lovrBatchCreate(BatchInfo* info) {
   lovrAssert(batch, "Out of memory");
   batch->info = *info;
   batch->ref = 1;
-  arr_init(&batch->draws, realloc);
-  arr_reserve(&batch->draws, info->capacity);
   return batch;
 }
 
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
-  arr_free(&batch->draws);
   free(batch);
 }
 
 void lovrBatchReset(Batch* batch) {
-  arr_clear(&batch->draws);
-  arr_reserve(&batch->draws, 1);
-  memset(&batch->draws.data[0], 0, sizeof(BatchDraw));
   batch->transform = 0;
   lovrBatchOrigin(batch);
-  batch->attributeCount = 4;
-  batch->attributes[0] = (VertexAttribute) { 0, 0, FIELD_F32x3, 0 };
-  batch->attributes[1] = (VertexAttribute) { 1, 0, FIELD_F32x3, 12 };
-  batch->attributes[2] = (VertexAttribute) { 2, 0, FIELD_U16Nx2, 24 };
-  batch->attributes[3] = (VertexAttribute) { 3, 0, FIELD_F32x4, 28 };
-  batch->pipeline = &batch->draws.data[0].pipeline;
-  memset(batch->pipeline->colorMask, 0xf, sizeof(batch->pipeline->colorMask));
-  batch->pipeline->depth.test = GPU_COMPARE_LEQUAL;
-  batch->pipeline->depth.write = true;
-  lovrBatchSetShader(batch, state.defaultShader);
 }
 
 void lovrBatchPush(Batch* batch) {
@@ -1699,50 +1620,4 @@ bool lovrBatchIsWireframe(Batch* batch) {
 
 void lovrBatchSetWireframe(Batch* batch, bool wireframe) {
   batch->pipeline->rasterizer.wireframe = wireframe;
-}
-
-void lovrBatchDraw(Batch* batch, DrawInfo* info) {
-  BatchDraw* draw = &batch->draws.data[batch->draws.length++];
-  draw->pipeline.drawMode = (gpu_draw_mode) info->mode;
-  draw->pipeline.attributeCount = batch->attributeCount;
-  memcpy(draw->pipeline.attributes, batch->attributes, batch->attributeCount * sizeof(gpu_vertex_attribute));
-  for (uint32_t i = 0; i < info->bufferCount; i++) draw->pipeline.bufferStrides[INTERNAL_VERTEX_BUFFERS + i] = info->vertexBuffers[i]->info.stride;
-  for (uint32_t i = 0; i < info->bufferCount; i++) draw->vertexBuffers[i] = info->vertexBuffers[i]->gpu;
-  for (uint32_t i = 0; i < info->bufferCount; i++) draw->vertexOffsets[i] = info->vertexBuffers[i]->base;
-  draw->pipeline.shader = batch->shader->gpu;
-
-  // Offset vertex buffer indices by the internal buffer count, track which locations are present
-  uint16_t mask = 0;
-  for (uint32_t i = 0; i < batch->attributeCount; i++) {
-    draw->pipeline.attributes[i].buffer += INTERNAL_VERTEX_BUFFERS;
-    mask |= (1 << draw->pipeline.attributes[i].location);
-  }
-
-  // Add attributes for any missing locations, pointing at the zero buffer
-  uint32_t missingAttributes = batch->shader->locationMask & ~mask;
-  if (missingAttributes) {
-    for (uint32_t i = 0; i < COUNTOF(draw->pipeline.attributes); i++) {
-      if (missingAttributes & (1 << i)) {
-        draw->pipeline.attributes[draw->pipeline.attributeCount++] = (gpu_vertex_attribute) {
-          .location = i,
-          .buffer = 0,
-          .format = GPU_FORMAT_F32x4
-        };
-      }
-    }
-  }
-
-  draw->vertexBufferCount = info->bufferCount;
-  draw->pipeline.vertexBufferCount = INTERNAL_VERTEX_BUFFERS + info->bufferCount;
-  draw->indexBuffer = NULL;
-  draw->start = info->start;
-  draw->count = info->count;
-  draw->instances = info->instances;
-  memcpy(draw->transform, info->transform, sizeof(draw->transform));
-  arr_expand(&batch->draws, 1);
-  memset(&batch->draws.data[batch->draws.length], 0, sizeof(BatchDraw));
-  batch->pipeline = &batch->draws.data[batch->draws.length].pipeline;
-  memset(batch->pipeline->colorMask, 0xf, sizeof(batch->pipeline->colorMask));
-  batch->pipeline->depth.test = GPU_COMPARE_LEQUAL;
-  batch->pipeline->depth.write = true;
 }
