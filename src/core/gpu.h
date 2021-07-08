@@ -36,6 +36,7 @@ enum {
 typedef struct {
   uint32_t size;
   uint32_t flags;
+  uintptr_t handle;
   const char* label;
 } gpu_buffer_info;
 
@@ -116,6 +117,7 @@ typedef struct {
   uint32_t samples;
   uint32_t flags;
   bool srgb;
+  uintptr_t handle;
   const char* label;
 } gpu_texture_info;
 
