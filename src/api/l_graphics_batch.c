@@ -4,9 +4,9 @@
 #include <lua.h>
 #include <lauxlib.h>
 
-static int l_lovrBatchClear(lua_State* L) {
+static int l_lovrBatchReset(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
-  lovrBatchClear(batch);
+  lovrBatchReset(batch);
   return 0;
 }
 
@@ -495,7 +495,7 @@ static int l_lovrBatchDraw(lua_State* L) {
 }
 
 const luaL_Reg lovrBatch[] = {
-  { "clear", l_lovrBatchClear },
+  { "reset", l_lovrBatchReset },
   { "push", l_lovrBatchPush },
   { "pop", l_lovrBatchPop },
   { "origin", l_lovrBatchOrigin },

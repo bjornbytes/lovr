@@ -1458,7 +1458,7 @@ void lovrBatchDestroy(void* ref) {
   free(batch);
 }
 
-void lovrBatchClear(Batch* batch) {
+void lovrBatchReset(Batch* batch) {
   arr_clear(&batch->draws);
   arr_reserve(&batch->draws, 1);
   memset(&batch->draws.data[0], 0, sizeof(BatchDraw));
