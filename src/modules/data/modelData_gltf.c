@@ -752,7 +752,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "primitives")) {
           for (uint32_t j = (token++)->size; j > 0; j--, primitive++) {
-            primitive->mode = DRAW_TRIANGLES;
+            primitive->topology = TOPOLOGY_TRIANGLES;
             primitive->material = ~0u;
 
             for (int kk = (token++)->size; kk > 0; kk--) {
@@ -764,13 +764,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                 lovrAssert(primitive->indices->type != U8, "Unsigned byte indices are not supported (must be unsigned shorts or unsigned ints)");
               } else if (STR_EQ(key, "mode")) {
                 switch (NOM_INT(json, token)) {
-                  case 0: primitive->mode = DRAW_POINTS; break;
-                  case 1: primitive->mode = DRAW_LINES; break;
-                  case 2: primitive->mode = DRAW_LINE_LOOP; break;
-                  case 3: primitive->mode = DRAW_LINE_STRIP; break;
-                  case 4: primitive->mode = DRAW_TRIANGLES; break;
-                  case 5: primitive->mode = DRAW_TRIANGLE_STRIP; break;
-                  case 6: primitive->mode = DRAW_TRIANGLE_FAN; break;
+                  case 0: primitive->topology = TOPOLOGY_POINTS; break;
+                  case 1: primitive->topology = TOPOLOGY_LINES; break;
+                  case 2: primitive->topology = TOPOLOGY_LINE_LOOP; break;
+                  case 3: primitive->topology = TOPOLOGY_LINE_STRIP; break;
+                  case 4: primitive->topology = TOPOLOGY_TRIANGLES; break;
+                  case 5: primitive->topology = TOPOLOGY_TRIANGLE_STRIP; break;
+                  case 6: primitive->topology = TOPOLOGY_TRIANGLE_FAN; break;
                   default: lovrThrow("Unknown primitive mode");
                 }
               } else if (STR_EQ(key, "attributes")) {

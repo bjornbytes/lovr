@@ -33,7 +33,7 @@ static ModelData* lovrModelDataInitStlBinary(ModelData* model, Blob* source, Mod
   model->attributes[0] = (ModelAttribute) { .count = vertexCount, .components = 3, .type = F32, .offset = 0 * sizeof(float) };
   model->attributes[1] = (ModelAttribute) { .count = vertexCount, .components = 3, .type = F32, .offset = 3 * sizeof(float) };
   model->primitives[0] = (ModelPrimitive) {
-    .mode = DRAW_TRIANGLES,
+    .topology = TOPOLOGY_TRIANGLES,
     .material = ~0u,
     .attributes = {
       [ATTR_POSITION] = &model->attributes[0],

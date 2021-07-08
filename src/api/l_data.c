@@ -38,14 +38,14 @@ StringEntry lovrDefaultAttribute[] = {
   { 0 }
 };
 
-StringEntry lovrModelDrawMode[] = {
-  [DRAW_POINTS] = ENTRY("points"),
-  [DRAW_LINES] = ENTRY("lines"),
-  [DRAW_LINE_LOOP] = ENTRY("lineloop"),
-  [DRAW_LINE_STRIP] = ENTRY("linestrip"),
-  [DRAW_TRIANGLES] = ENTRY("triangles"),
-  [DRAW_TRIANGLE_STRIP] = ENTRY("strip"),
-  [DRAW_TRIANGLE_FAN] = ENTRY("fan"),
+StringEntry lovrTopology[] = {
+  [TOPOLOGY_POINTS] = ENTRY("points"),
+  [TOPOLOGY_LINES] = ENTRY("lines"),
+  [TOPOLOGY_LINE_LOOP] = ENTRY("lineloop"),
+  [TOPOLOGY_LINE_STRIP] = ENTRY("linestrip"),
+  [TOPOLOGY_TRIANGLES] = ENTRY("triangles"),
+  [TOPOLOGY_TRIANGLE_STRIP] = ENTRY("strip"),
+  [TOPOLOGY_TRIANGLE_FAN] = ENTRY("fan"),
   { 0 }
 };
 
