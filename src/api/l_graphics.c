@@ -532,10 +532,6 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     info.transient = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 3, "parameter");
-    info.parameter = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
     lua_getfield(L, 3, "label");
     info.label = lua_tostring(L, -1);
     lua_pop(L, 1);

@@ -392,7 +392,6 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
 Buffer* lovrBufferCreate(BufferInfo* info) {
   size_t size = info->length * info->stride;
   lovrAssert(size > 0 && size <= state.limits.allocationSize, "Buffer size must be between 1 and limits.allocationSize (%d)", state.limits.allocationSize);
-  lovrAssert(info->type == BUFFER_STORAGE || !info->parameter, "Only storage buffers can have the 'parameter' flag");
   lovrAssert(info->type != BUFFER_STORAGE || !info->transient, "Storage buffers can not be transient");
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
@@ -415,7 +414,7 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
 
   gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
     .size = ALIGN(size, 4),
-    .flags = usage[info->type] | GPU_BUFFER_COPY_DST | (-info->parameter & GPU_BUFFER_INDIRECT),
+    .flags = usage[info->type] | GPU_BUFFER_COPY_DST,
     .label = info->label
   });
 
@@ -1434,7 +1433,6 @@ void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z) {
 
 void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset) {
   lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to dispatch a compute operation");
-  lovrAssert(buffer->info.parameter, "Buffer must be created with the 'parameter' flag to be used for compute parameters");
   gpu_bind_pipeline(thread.stream, shader->computePipeline);
   gpu_compute_indirect(thread.stream, buffer->gpu, offset);
 }
