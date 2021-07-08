@@ -317,6 +317,11 @@ GPU_FOREACH_DEVICE(GPU_DECLARE)
 // Buffer
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
+  if (info->handle) {
+    buffer->handle = (VkBuffer) info->handle;
+    return true;
+  }
+
   VkBufferCreateInfo bufferInfo = {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
     .size = info->size,
@@ -368,6 +373,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
 }
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
+  if (!buffer->memory) return;
   condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
   condemn(buffer->memory, VK_OBJECT_TYPE_DEVICE_MEMORY);
 }
@@ -385,8 +391,11 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: return false;
   }
 
+  texture->source = texture;
   texture->format = convertFormat(info->format, info->srgb);
   texture->array = info->type == GPU_TEXTURE_ARRAY;
+  texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+  texture->status = 0;
 
   if (info->format == GPU_FORMAT_D24S8) {
     texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -394,6 +403,14 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
   } else {
     texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+  }
+
+  if (info->handle) {
+    texture->handle = (VkImage) info->handle;
+    return gpu_texture_init_view(texture, &(gpu_texture_view_info) {
+      .source = texture,
+      .type = info->type
+    });
   }
 
   bool depth = texture->aspect & VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -458,9 +475,6 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  texture->source = texture;
-  texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
-  texture->status = 0;
   return true;
 }
 
