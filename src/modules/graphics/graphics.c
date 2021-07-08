@@ -107,7 +107,7 @@ static LOVR_THREAD_LOCAL struct {
 
 static struct {
   bool initialized;
-  gpu_info device;
+  gpu_hardware hardware;
   gpu_features features;
   gpu_limits limits;
   map_t pipelines;
@@ -137,7 +137,7 @@ uint32_t os_vk_create_surface(void* instance, void** surface);
 bool lovrGraphicsInit(bool debug) {
   gpu_config config = {
     .debug = debug,
-    .info = &state.device,
+    .hardware = &state.hardware,
     .features = &state.features,
     .limits = &state.limits,
     .callback = callback
@@ -214,16 +214,16 @@ void lovrGraphicsDestroy() {
 }
 
 void lovrGraphicsGetHardware(GraphicsHardware* hardware) {
-  hardware->vendorId = state.device.vendorId;
-  hardware->deviceId = state.device.deviceId;
-  hardware->deviceName = state.device.deviceName;
+  hardware->vendorId = state.hardware.vendorId;
+  hardware->deviceId = state.hardware.deviceId;
+  hardware->deviceName = state.hardware.deviceName;
 #ifdef LOVR_VK
   hardware->renderer = "vulkan";
 #endif
-  hardware->driverMajor = state.device.driverMajor;
-  hardware->driverMinor = state.device.driverMinor;
-  hardware->driverPatch = state.device.driverPatch;
-  hardware->discrete = state.device.discrete;
+  hardware->driverMajor = state.hardware.driverMajor;
+  hardware->driverMinor = state.hardware.driverMinor;
+  hardware->driverPatch = state.hardware.driverPatch;
+  hardware->discrete = state.hardware.discrete;
 }
 
 void lovrGraphicsGetFeatures(GraphicsFeatures* features) {

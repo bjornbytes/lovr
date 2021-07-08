@@ -1826,19 +1826,19 @@ bool gpu_init(gpu_config* config) {
     VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &multiviewLimits };
     VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
 
-    if (config->limits || config->info) {
+    if (config->limits || config->hardware) {
       vkGetPhysicalDeviceProperties2(state.adapter, &properties2);
     }
 
-    if (config->info) {
+    if (config->hardware) {
       VkPhysicalDeviceProperties* properties = &properties2.properties;
-      config->info->vendorId = properties->vendorID;
-      config->info->deviceId = properties->deviceID;
-      memcpy(config->info->deviceName, properties->deviceName, MIN(sizeof(config->info->deviceName), sizeof(properties->deviceName)));
-      config->info->driverMajor = VK_VERSION_MAJOR(properties->driverVersion);
-      config->info->driverMinor = VK_VERSION_MINOR(properties->driverVersion);
-      config->info->driverPatch = VK_VERSION_PATCH(properties->driverVersion);
-      config->info->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+      config->hardware->vendorId = properties->vendorID;
+      config->hardware->deviceId = properties->deviceID;
+      memcpy(config->hardware->deviceName, properties->deviceName, MIN(sizeof(config->hardware->deviceName), sizeof(properties->deviceName)));
+      config->hardware->driverMajor = VK_VERSION_MAJOR(properties->driverVersion);
+      config->hardware->driverMinor = VK_VERSION_MINOR(properties->driverVersion);
+      config->hardware->driverPatch = VK_VERSION_PATCH(properties->driverVersion);
+      config->hardware->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
     }
 
     if (config->limits) {
