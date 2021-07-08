@@ -336,7 +336,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   for (size_t i = 0; i < groups.length; i++) {
     objGroup* group = &groups.data[i];
     model->primitives[i] = (ModelPrimitive) {
-      .mode = DRAW_TRIANGLES,
+      .topology = TOPOLOGY_TRIANGLES,
       .attributes = {
         [ATTR_POSITION] = &model->attributes[0],
         [ATTR_NORMAL] = &model->attributes[1],

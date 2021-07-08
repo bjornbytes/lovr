@@ -235,12 +235,12 @@ static int l_lovrModelDataGetMeshCount(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetMeshDrawMode(lua_State* L) {
+static int l_lovrModelDataGetMeshTopology(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   uint32_t index = luaL_checkinteger(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
-  luax_pushenum(L, ModelDrawMode, mesh->mode);
+  luax_pushenum(L, Topology, mesh->topology);
   return 1;
 }
 
@@ -555,7 +555,7 @@ const luaL_Reg lovrModelData[] = {
   { "getNodeMeshes", l_lovrModelDataGetNodeMeshes },
   { "getNodeSkin", l_lovrModelDataGetNodeSkin },
   { "getMeshCount", l_lovrModelDataGetMeshCount },
-  { "getMeshDrawMode", l_lovrModelDataGetMeshDrawMode },
+  { "getMeshTopology", l_lovrModelDataGetMeshTopology },
   { "getMeshMaterial", l_lovrModelDataGetMeshMaterial },
   { "getMeshVertexCount", l_lovrModelDataGetMeshVertexCount },
   { "getMeshIndexCount", l_lovrModelDataGetMeshIndexCount },

@@ -23,14 +23,14 @@ typedef enum {
 } DefaultAttribute;
 
 typedef enum {
-  DRAW_POINTS,
-  DRAW_LINES,
-  DRAW_LINE_LOOP,
-  DRAW_LINE_STRIP,
-  DRAW_TRIANGLES,
-  DRAW_TRIANGLE_STRIP,
-  DRAW_TRIANGLE_FAN
-} ModelDrawMode;
+  TOPOLOGY_POINTS,
+  TOPOLOGY_LINES,
+  TOPOLOGY_LINE_LOOP,
+  TOPOLOGY_LINE_STRIP,
+  TOPOLOGY_TRIANGLES,
+  TOPOLOGY_TRIANGLE_STRIP,
+  TOPOLOGY_TRIANGLE_FAN
+} Topology;
 
 typedef enum {
   FILTER_NEAREST,
@@ -152,7 +152,7 @@ typedef struct {
 typedef struct {
   ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
   ModelAttribute* indices;
-  ModelDrawMode mode;
+  Topology topology;
   uint32_t material;
 } ModelPrimitive;
 
