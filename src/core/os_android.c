@@ -518,3 +518,11 @@ EGLContext os_get_egl_config() {
 EGLSurface os_get_egl_surface() {
   return state.surface;
 }
+
+const char** os_vk_get_instance_extensions(uint32_t* count) {
+  return *count = 0, NULL;
+}
+
+uint32_t os_vk_create_surface(void* instance, void** surface) {
+  return -13; // VK_ERROR_UNKNOWN
+}
