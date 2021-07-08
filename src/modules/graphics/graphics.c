@@ -414,6 +414,7 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
     .size = ALIGN(size, 4),
     .flags = usage[info->type] | GPU_BUFFER_COPY_DST,
+    .handle = info->handle,
     .label = info->label
   });
 
@@ -600,6 +601,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       ((info->flags & TEXTURE_TRANSIENT) ? GPU_TEXTURE_TRANSIENT : 0) |
       ((info->flags & TEXTURE_TRANSIENT) ? 0 : GPU_TEXTURE_COPY_DST),
     .srgb = info->srgb,
+    .handle = info->handle,
     .label = info->label
   });
 

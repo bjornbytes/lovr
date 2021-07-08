@@ -138,6 +138,7 @@ typedef struct {
   uint16_t fieldCount;
   FieldType types[16];
   uint16_t offsets[16];
+  uintptr_t handle;
   const char* label;
 } BufferInfo;
 
@@ -187,6 +188,7 @@ typedef struct {
   uint32_t samples;
   uint32_t flags;
   bool srgb;
+  uintptr_t handle;
   const char* label;
 } TextureInfo;
 
