@@ -363,7 +363,7 @@ typedef struct {
 
 Batch* lovrBatchCreate(BatchInfo* info);
 void lovrBatchDestroy(void* ref);
-void lovrBatchClear(Batch* batch);
+void lovrBatchReset(Batch* batch);
 void lovrBatchPush(Batch* batch);
 void lovrBatchPop(Batch* batch);
 void lovrBatchOrigin(Batch* batch);
