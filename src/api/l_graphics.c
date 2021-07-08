@@ -266,6 +266,14 @@ static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float
     }
     lua_pop(L, 1);
 
+    lua_getfield(L, index, "views");
+    if (lua_isnil(L, -1)) {
+      Texture* first = info->color[0].texture ? info->color[0].texture : info->depth.texture;
+      info->views = first ? lovrTextureGetInfo(first)->depth : 2;
+    } else {
+      info->views = luaL_checkinteger(L, -1);
+    }
+
     lua_getfield(L, index, "label");
     info->label = lua_tostring(L, -1);
     lua_pop(L, 1);
