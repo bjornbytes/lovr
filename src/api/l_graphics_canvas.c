@@ -141,7 +141,7 @@ static int l_lovrCanvasSetProjection(lua_State* L) {
 static int l_lovrCanvasGetClear(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   const CanvasInfo* info = lovrCanvasGetInfo(canvas);
-  float color[MAX_COLOR_ATTACHMENTS][4];
+  float color[4][4];
   float depth;
   uint8_t stencil;
   lovrCanvasGetClear(canvas, color, &depth, &stencil);
@@ -172,7 +172,7 @@ static int l_lovrCanvasGetClear(lua_State* L) {
 static int l_lovrCanvasSetClear(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
   const CanvasInfo* info = lovrCanvasGetInfo(canvas);
-  float color[MAX_COLOR_ATTACHMENTS][4];
+  float color[4][4];
   float depth;
   uint8_t stencil;
   lovrCanvasGetClear(canvas, color, &depth, &stencil);

@@ -35,8 +35,8 @@ struct Texture {
 };
 
 typedef struct {
-  float projection[MAX_VIEWS][16];
-  float viewMatrix[MAX_VIEWS][16];
+  float projection[6][16];
+  float viewMatrix[6][16];
 } Camera;
 
 struct Canvas {
@@ -253,7 +253,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->textureLayers = state.limits.textureLayers;
   limits->renderWidth = state.limits.renderSize[0];
   limits->renderHeight = state.limits.renderSize[1];
-  limits->renderViews = MIN(state.limits.renderViews, MAX_VIEWS);
+  limits->renderViews = MIN(state.limits.renderViews, 6);
   limits->bundleCount = state.limits.bundleCount;
   limits->bundleSlots = state.limits.bundleSlots;
   limits->uniformBufferRange = state.limits.uniformBufferRange;
@@ -774,7 +774,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   lovrAssert((samples & (samples - 1)) == 0, "Canvas multisample count must be a power of 2");
 
   // Validate color attachments
-  for (uint32_t i = 0; i < info->count && i < MAX_COLOR_ATTACHMENTS; i++) {
+  for (uint32_t i = 0; i < info->count && i < 4; i++) {
     Texture* texture = info->color[i].texture;
     bool renderable = texture->info.format == ~0u || (state.features.formats[texture->info.format] & GPU_FEATURE_RENDER_COLOR);
     lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
@@ -1029,7 +1029,7 @@ void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection) 
   mat4_init(canvas->camera.projection[index], projection);
 }
 
-void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float* depth, uint8_t* stencil) {
+void lovrCanvasGetClear(Canvas* canvas, float color[4][4], float* depth, uint8_t* stencil) {
   for (uint32_t i = 0; i < canvas->info.count; i++) {
     memcpy(color[i], canvas->gpu.color[i].clear, 4 * sizeof(float));
   }
@@ -1037,7 +1037,7 @@ void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], f
   *stencil = canvas->gpu.depth.clear.stencil;
 }
 
-void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float depth, uint8_t stencil) {
+void lovrCanvasSetClear(Canvas* canvas, float color[4][4], float depth, uint8_t stencil) {
   for (uint32_t i = 0; i < canvas->info.count; i++) {
     memcpy(canvas->gpu.color[i].clear, color[i], 4 * sizeof(float));
   }
