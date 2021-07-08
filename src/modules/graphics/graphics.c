@@ -309,6 +309,84 @@ void lovrGraphicsSubmit() {
   thread.stream = NULL;
 }
 
+void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
+  lovrAssert(thread.stream, "Graphics is not active");
+
+  if (canvas == state.window) {
+    if (!canvas->gpu.color[0].texture) {
+      canvas->gpu.color[0].texture = gpu_surface_acquire();
+    }
+    int width, height;
+    os_window_get_fbsize(&width, &height); // TODO resize swapchain?
+    canvas->gpu.size[0] = width;
+    canvas->gpu.size[1] = height;
+    canvas->gpu.color[0].clear[0] = 0.f;
+    canvas->gpu.color[0].clear[1] = 0.f;
+    canvas->gpu.color[0].clear[2] = 0.f;
+    canvas->gpu.color[0].clear[3] = 1.f;
+    // TODO set clear to background
+  }
+
+  gpu_bundle* bundle = malloc(gpu_sizeof_bundle());
+  lovrAssert(bundle, "Out of memory");
+
+  gpu_scratchpad camera = gpu_scratch(sizeof(Camera), state.limits.uniformBufferAlign);
+  memcpy(camera.pointer, &canvas->camera, sizeof(Camera));
+
+  gpu_stream* stream = gpu_stream_begin();
+  gpu_render_begin(stream, &canvas->gpu);
+  gpu_bind_vertex_buffers(stream, &state.defaultBuffer, &(uint32_t) { 0 }, 0, 1);
+  for (size_t i = 0; i < batch->draws.length; i++) {
+    BatchDraw* draw = &batch->draws.data[i];
+
+    draw->pipeline.pass = canvas->gpu.pass;
+    uint64_t hash = hash64(&draw->pipeline, sizeof(draw->pipeline));
+    uint64_t value = map_get(&state.pipelines, hash);
+
+    if (value == MAP_NIL) {
+      gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
+      lovrAssert(pipeline, "Out of memory");
+      lovrAssert(gpu_pipeline_init_graphics(pipeline, &draw->pipeline), "Failed to create pipeline");
+      map_set(&state.pipelines, hash, (uintptr_t) pipeline);
+      value = (uintptr_t) pipeline;
+    }
+
+    gpu_bind_pipeline(stream, (gpu_pipeline*) (uintptr_t) value);
+
+    gpu_scratchpad transform = gpu_scratch(64, state.limits.uniformBufferAlign);
+    memcpy(transform.pointer, draw->transform, 16 * sizeof(float));
+
+    gpu_bundle_init(bundle, &(gpu_bundle_info) {
+      .shader = draw->pipeline.shader,
+      .group = 0,
+      .slotCount = 2,
+      .slots = (gpu_slot[]) {
+        { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 },
+        { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 }
+      },
+      .bindings = (gpu_binding[]) {
+        [0].buffer = { camera.buffer, camera.offset, sizeof(Camera) },
+        [1].buffer = { transform.buffer, transform.offset, 16 * sizeof(float) },
+      }
+    });
+
+    gpu_bind_bundle(stream, draw->pipeline.shader, 0, bundle, NULL, 0);
+
+    if (draw->vertexBufferCount > 0) {
+      gpu_bind_vertex_buffers(stream, draw->vertexBuffers, draw->vertexOffsets, 1, draw->vertexBufferCount);
+    }
+
+    if (draw->indexBuffer) {
+      gpu_bind_index_buffer(stream, draw->indexBuffer, 0, GPU_INDEX_U32);
+      gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->baseVertex);
+    } else {
+      gpu_draw(stream, draw->count, draw->instances, draw->start);
+    }
+  }
+  gpu_render_end(stream);
+  state.streams[state.streamCount++] = stream;
+}
+
 // Buffer
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
@@ -972,96 +1050,6 @@ void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], f
   }
   canvas->gpu.depth.clear.depth = depth;
   canvas->gpu.depth.clear.stencil = stencil;
-}
-
-#include <stdio.h>
-void lovrCanvasRender(Canvas* canvas, Batch* batch, void (*callback)(void* userdata, Canvas* canvas, Batch* batch), void* userdata) {
-  lovrAssert(thread.stream, "Graphics is not active");
-
-  if (canvas == state.window) {
-    if (!canvas->gpu.color[0].texture) {
-      canvas->gpu.color[0].texture = gpu_surface_acquire();
-    }
-    int width, height;
-    os_window_get_fbsize(&width, &height); // TODO resize swapchain?
-    canvas->gpu.size[0] = width;
-    canvas->gpu.size[1] = height;
-    canvas->gpu.color[0].clear[0] = 0.f;
-    canvas->gpu.color[0].clear[1] = 0.f;
-    canvas->gpu.color[0].clear[2] = 0.f;
-    canvas->gpu.color[0].clear[3] = 1.f;
-    // TODO set clear to background
-  }
-
-  if (!batch) {
-    batch = lovrBatchCreate(&(BatchInfo) { .capacity = 1024, .transient = true });
-    lovrBatchClear(batch);
-    callback(userdata, canvas, batch);
-  } else {
-    lovrRetain(batch);
-  }
-
-  gpu_bundle* bundle = malloc(gpu_sizeof_bundle());
-  lovrAssert(bundle, "Out of memory");
-
-  gpu_scratchpad camera = gpu_scratch(sizeof(Camera), state.limits.uniformBufferAlign);
-  memcpy(camera.pointer, &canvas->camera, sizeof(Camera));
-
-  double t = os_get_time();
-  gpu_stream* stream = gpu_stream_begin();
-  gpu_render_begin(stream, &canvas->gpu);
-  gpu_bind_vertex_buffers(stream, &state.defaultBuffer, &(uint32_t) { 0 }, 0, 1);
-  for (size_t i = 0; i < batch->draws.length; i++) {
-    BatchDraw* draw = &batch->draws.data[i];
-
-    draw->pipeline.pass = canvas->gpu.pass;
-    uint64_t hash = hash64(&draw->pipeline, sizeof(draw->pipeline));
-    uint64_t value = map_get(&state.pipelines, hash);
-
-    if (value == MAP_NIL) {
-      gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
-      lovrAssert(pipeline, "Out of memory");
-      lovrAssert(gpu_pipeline_init_graphics(pipeline, &draw->pipeline), "Failed to create pipeline");
-      map_set(&state.pipelines, hash, (uintptr_t) pipeline);
-      value = (uintptr_t) pipeline;
-    }
-
-    gpu_bind_pipeline(stream, (gpu_pipeline*) (uintptr_t) value);
-
-    gpu_scratchpad transform = gpu_scratch(64, state.limits.uniformBufferAlign);
-    memcpy(transform.pointer, draw->transform, 16 * sizeof(float));
-
-    gpu_bundle_init(bundle, &(gpu_bundle_info) {
-      .shader = draw->pipeline.shader,
-      .group = 0,
-      .slotCount = 2,
-      .slots = (gpu_slot[]) {
-        { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 },
-        { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 }
-      },
-      .bindings = (gpu_binding[]) {
-        [0].buffer = { camera.buffer, camera.offset, sizeof(Camera) },
-        [1].buffer = { transform.buffer, transform.offset, 16 * sizeof(float) },
-      }
-    });
-
-    gpu_bind_bundle(stream, draw->pipeline.shader, 0, bundle, NULL, 0);
-
-    if (draw->vertexBufferCount > 0) {
-      gpu_bind_vertex_buffers(stream, draw->vertexBuffers, draw->vertexOffsets, 1, draw->vertexBufferCount);
-    }
-
-    if (draw->indexBuffer) {
-      gpu_bind_index_buffer(stream, draw->indexBuffer, 0, GPU_INDEX_U32);
-      gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->baseVertex);
-    } else {
-      gpu_draw(stream, draw->count, draw->instances, draw->start);
-    }
-  }
-  gpu_render_end(stream);
-  state.streams[state.streamCount++] = stream;
-  lovrRelease(batch, lovrBatchDestroy);
-  printf("%g\n", os_get_time() - t);
 }
 
 // Shader

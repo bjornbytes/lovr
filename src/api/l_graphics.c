@@ -405,15 +405,7 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   return 0;
 }
 
-static void renderCallback(void* userdata, Canvas* canvas, Batch* batch) {
-  lua_State* L = userdata;
-  luaL_checktype(L, -1, LUA_TFUNCTION);
-  luax_pushtype(L, Batch, batch);
-  luax_pushtype(L, Canvas, canvas);
-  lua_call(L, 2, 0);
-}
-
-static int l_lovrGraphicsRenderTo(lua_State* L) {
+static int l_lovrGraphicsRender(lua_State* L) {
   int index = 1;
   Canvas* canvas = luax_totype(L, index++, Canvas);
   if (!canvas) {
@@ -430,9 +422,18 @@ static int l_lovrGraphicsRenderTo(lua_State* L) {
       lovrCanvasSetClear(canvas, clear, depthClear, stencilClear);
     }
   }
-  lua_settop(L, index);
-  Batch* batch = luax_totype(L, index, Batch);
-  lovrCanvasRender(canvas, batch, renderCallback, L);
+  Batch* batch;
+  if (lua_type(L, 2) == LUA_TFUNCTION) {
+    lua_settop(L, 2);
+    batch = lovrBatchCreate(&(BatchInfo) { .capacity = 1024, .transient = true });
+    luax_pushtype(L, Batch, batch);
+    lua_call(L, 1, 0);
+  } else {
+    batch = luax_checktype(L, 2, Batch);
+    lovrRetain(batch);
+  }
+  lovrGraphicsRender(canvas, batch);
+  lovrRelease(batch, lovrBatchDestroy);
   return 0;
 }
 
@@ -830,7 +831,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getLimits", l_lovrGraphicsGetLimits },
   { "begin", l_lovrGraphicsBegin },
   { "submit", l_lovrGraphicsSubmit },
-  { "renderTo", l_lovrGraphicsRenderTo },
+  { "render", l_lovrGraphicsRender },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newCanvas", l_lovrGraphicsNewCanvas },
