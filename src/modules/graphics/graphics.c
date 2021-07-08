@@ -1414,21 +1414,6 @@ bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint3
   return true;
 }
 
-void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z) {
-  lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to dispatch a compute operation");
-  lovrAssert(x <= state.limits.computeCount[0], "Compute size exceeds the computeCount[%d] limit of this GPU (%d)", 0, state.limits.computeCount[0]);
-  lovrAssert(y <= state.limits.computeCount[1], "Compute size exceeds the computeCount[%d] limit of this GPU (%d)", 1, state.limits.computeCount[1]);
-  lovrAssert(z <= state.limits.computeCount[2], "Compute size exceeds the computeCount[%d] limit of this GPU (%d)", 2, state.limits.computeCount[2]);
-  gpu_bind_pipeline(thread.stream, shader->computePipeline);
-  gpu_compute(thread.stream, x, y, z);
-}
-
-void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset) {
-  lovrAssert(shader->info.type == SHADER_COMPUTE, "Shader must be a compute shader to dispatch a compute operation");
-  gpu_bind_pipeline(thread.stream, shader->computePipeline);
-  gpu_compute_indirect(thread.stream, buffer->gpu, offset);
-}
-
 // Batch
 
 Batch* lovrBatchCreate(BatchInfo* info) {
