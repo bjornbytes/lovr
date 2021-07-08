@@ -101,7 +101,6 @@ static struct {
   map_t passes;
   Canvas* window;
   Shader* defaultShader;
-  gpu_buffer* defaultBuffer;
   uint32_t activeCanvasCount;
   gpu_stream* streams[MAX_STREAMS];
   uint32_t streamOrder[MAX_STREAMS];
@@ -182,18 +181,6 @@ bool lovrGraphicsInit(bool debug) {
     .label = "unlit"
   });
 
-  state.defaultBuffer = malloc(gpu_sizeof_buffer());
-  lovrAssert(state.defaultBuffer, "Out of memory");
-  gpu_buffer_info info = { .size = 64, .flags = GPU_BUFFER_VERTEX | GPU_BUFFER_COPY_DST, .label = "zero" };
-  lovrAssert(gpu_buffer_init(state.defaultBuffer, &info), "Failed to initialize default buffer");
-
-  // Setup
-  gpu_begin();
-  gpu_stream* stream = gpu_stream_begin();
-  gpu_clear_buffer(stream, state.defaultBuffer, 0, 64, 0);
-  gpu_stream_end(stream);
-  gpu_submit(&stream, 1);
-
   return state.initialized = true;
 }
 
@@ -220,7 +207,6 @@ void lovrGraphicsDestroy() {
   map_free(&state.pipelines);
   map_free(&state.canvases);
   map_free(&state.passes);
-  gpu_buffer_destroy(state.defaultBuffer);
   lovrRelease(state.defaultShader, lovrShaderDestroy);
   lovrRelease(state.window, lovrCanvasDestroy);
   gpu_destroy();
