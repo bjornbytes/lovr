@@ -293,8 +293,8 @@ typedef struct {
   ColorAttachment color[4];
   DepthAttachment depth;
   uint32_t count;
-  uint32_t samples;
   uint32_t views;
+  uint32_t samples;
   const char* label;
 } CanvasInfo;
 
