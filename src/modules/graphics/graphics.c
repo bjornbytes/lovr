@@ -1362,10 +1362,8 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   map_init(&shader->lookup, 64);
 
   gpu_shader_info gpuInfo = {
-    .stages[0].code = info->source[0],
-    .stages[0].size = info->length[0],
-    .stages[1].code = info->source[1],
-    .stages[1].size = info->length[1],
+    .stages[0] = { info->source[0], info->length[0], NULL },
+    .stages[1] = { info->source[1], info->length[1], NULL },
     .label = info->label
   };
 
