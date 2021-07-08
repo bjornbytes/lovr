@@ -133,7 +133,6 @@ typedef enum {
 typedef struct {
   BufferType type;
   bool transient;
-  bool parameter;
   uint16_t stride;
   uint32_t length;
   uint16_t fieldCount;
