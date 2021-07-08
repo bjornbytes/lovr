@@ -39,8 +39,8 @@ static int l_lovrCanvasGetSampleCount(lua_State* L) {
 
 static int l_lovrCanvasGetViewCount(lua_State* L) {
   Canvas* canvas = luax_checktype(L, 1, Canvas);
-  uint32_t views = lovrCanvasGetViewCount(canvas);
-  lua_pushinteger(L, views);
+  const CanvasInfo* info = lovrCanvasGetInfo(canvas);
+  lua_pushinteger(L, info->views);
   return 1;
 }
 
