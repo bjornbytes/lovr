@@ -340,20 +340,6 @@ void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset);
 // Batch
 
 typedef struct {
-  DrawMode mode;
-  uint32_t bufferCount;
-  Buffer* vertexBuffers[8];
-  Buffer* indexBuffer;
-  uint32_t start;
-  uint32_t count;
-  uint32_t instances;
-  Buffer* indirectBuffer;
-  uint32_t indirectOffset;
-  uint32_t indirectCount;
-  float transform[16];
-} DrawInfo;
-
-typedef struct {
   uint32_t capacity;
   bool transient;
 } BatchInfo;
@@ -392,4 +378,3 @@ Winding lovrBatchGetWinding(Batch* batch);
 void lovrBatchSetWinding(Batch* batch, Winding winding);
 bool lovrBatchIsWireframe(Batch* batch);
 void lovrBatchSetWireframe(Batch* batch, bool wireframe);
-void lovrBatchDraw(Batch* batch, DrawInfo* info);
