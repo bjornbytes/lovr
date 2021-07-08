@@ -2,6 +2,7 @@
 #include "data/blob.h"
 #include "data/image.h"
 #include "event/event.h"
+#include "headset/headset.h"
 #include "core/maf.h"
 #include "core/map.h"
 #include "core/gpu.h"
@@ -116,8 +117,30 @@ static void callback(void* context, const char* message, int severe) {
   }
 }
 
-const char** os_vk_get_instance_extensions(uint32_t* count);
+const char** os_vk_get_instance_extensions(uint32_t* capacity);
 uint32_t os_vk_create_surface(void* instance, void** surface);
+
+static bool getInstanceExtensions(char* buffer, uint32_t size) {
+  uint32_t count;
+  const char** extensions = os_vk_get_instance_extensions(&count);
+  for (uint32_t i = 0; i < count; i++) {
+    size_t length = strlen(extensions[i]);
+    if (length >= size) return false;
+    memcpy(buffer, extensions[i], length);
+    buffer[length] = ' ' ;
+    buffer += length + 1;
+    size -= length + 1;
+  }
+
+#ifndef LOVR_DISABLE_HEADSET
+  if (lovrHeadsetDisplayDriver && lovrHeadsetDisplayDriver->getVulkanInstanceExtensions) {
+    lovrHeadsetDisplayDriver->getVulkanInstanceExtensions(buffer, size);
+  } else
+#endif
+  buffer[-1] = '\0';
+
+  return true;
+}
 
 bool lovrGraphicsInit(bool debug) {
   gpu_config config = {
@@ -125,19 +148,25 @@ bool lovrGraphicsInit(bool debug) {
     .hardware = &state.hardware,
     .features = &state.features,
     .limits = &state.limits,
-    .callback = callback
+    .callback = callback,
+    .vk.getInstanceExtensions = getInstanceExtensions,
+#if defined(LOVR_VK) && !defined(LOVR_DISABLE_HEADSET)
+    .vk.getDeviceExtensions = lovrHeadsetDisplayDriver ? lovrHeadsetDisplayDriver->getVulkanDeviceExtensions : NULL
+#endif
   };
 
-#ifdef LOVR_VK
+#if defined(LOVR_VK) && !defined(__ANDROID__)
   if (os_window_is_open()) {
     config.vk.surface = true;
     config.vk.vsync = false; // TODO
-    config.vk.getExtraInstanceExtensions = os_vk_get_instance_extensions;
     config.vk.createSurface = os_vk_create_surface;
   }
 #endif
 
-  lovrAssert(gpu_init(&config), "Could not initialize GPU");
+  if (!gpu_init(&config)) {
+    lovrThrow("Failed to initialize GPU");
+  }
+
   map_init(&state.pipelines, 8);
   map_init(&state.canvases, 4);
   map_init(&state.passes, 4);
