@@ -81,6 +81,7 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
 void lovrGraphicsSubmit(void);
+void lovrGraphicsRender(Canvas* canvas, Batch* batch);
 
 // Buffer
 
@@ -312,7 +313,6 @@ void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection);
 void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection);
 void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float* depth, uint8_t* stencil);
 void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float depth, uint8_t stencil);
-void lovrCanvasRender(Canvas* canvas, Batch* batch, void (*callback)(void* userdata, Canvas* canvas, Batch* batch), void* userdata);
 
 // Shader
 
