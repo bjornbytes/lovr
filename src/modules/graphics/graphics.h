@@ -295,6 +295,7 @@ typedef struct {
   DepthAttachment depth;
   uint32_t count;
   uint32_t samples;
+  uint32_t views;
   const char* label;
 } CanvasInfo;
 
@@ -305,7 +306,6 @@ void lovrCanvasDestroy(void* ref);
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
 uint32_t lovrCanvasGetWidth(Canvas* canvas);
 uint32_t lovrCanvasGetHeight(Canvas* canvas);
-uint32_t lovrCanvasGetViewCount(Canvas* canvas);
 void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
 void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
 void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection);

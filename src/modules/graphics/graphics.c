@@ -44,7 +44,6 @@ struct Canvas {
   bool temporary;
   gpu_canvas gpu;
   CanvasInfo info;
-  uint32_t views;
   Texture* colorTextures[4];
   Texture* resolveTextures[4];
   Texture* depthTexture;
@@ -763,14 +762,13 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
 
   uint32_t width = first->width;
   uint32_t height = first->height;
-  uint32_t views = first->depth;
   uint32_t samples = first->samples > 1 ? first->samples : info->samples;
   bool resolve = first->samples == 1 && info->samples > 1;
 
   // Validate size/samples
   lovrAssert(width <= state.limits.renderSize[0], "Canvas width exceeds the renderWidth limit of this GPU (%d)", state.limits.renderSize[0]);
   lovrAssert(height <= state.limits.renderSize[1], "Canvas width exceeds the renderHeight limit of this GPU (%d)", state.limits.renderSize[1]);
-  lovrAssert(views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", views, state.limits.renderViews);
+  lovrAssert(info->views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", info->views, state.limits.renderViews);
   lovrAssert((samples & (samples - 1)) == 0, "Canvas multisample count must be a power of 2");
 
   // Validate color attachments
@@ -804,7 +802,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   gpu_pass_info pass = {
     .count = info->count,
     .samples = info->samples,
-    .views = views,
+    .views = info->views,
     .resolve = resolve
   };
 
@@ -849,7 +847,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     .type = TEXTURE_ARRAY,
     .width = width,
     .height = height,
-    .depth = views,
+    .depth = info->views,
     .mipmaps = 1,
     .samples = info->samples,
     .flags = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT
@@ -857,7 +855,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
 
   gpu_texture_view_info viewInfo = {
     .type = GPU_TEXTURE_ARRAY,
-    .layerCount = views,
+    .layerCount = info->views,
     .levelCount = 1
   };
 
@@ -914,12 +912,10 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
   }
 
   // Default camera, for funsies
-  for (uint32_t i = 0; i < views; i++) {
+  for (uint32_t i = 0; i < info->views; i++) {
     mat4_perspective(canvas->camera.projection[i], .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) width / height);
     mat4_identity(canvas->camera.viewMatrix[i]);
   }
-
-  canvas->views = views;
 }
 
 Canvas* lovrCanvasCreate(CanvasInfo* info) {
@@ -1009,10 +1005,6 @@ uint32_t lovrCanvasGetWidth(Canvas* canvas) {
 
 uint32_t lovrCanvasGetHeight(Canvas* canvas) {
   return canvas->gpu.size[1];
-}
-
-uint32_t lovrCanvasGetViewCount(Canvas* canvas) {
-  return canvas->views;
 }
 
 void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
