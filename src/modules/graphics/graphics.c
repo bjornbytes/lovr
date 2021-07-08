@@ -101,7 +101,6 @@ static struct {
   map_t passes;
   Canvas* window;
   Shader* defaultShader;
-  uint32_t activeCanvasCount;
   gpu_stream* streams[MAX_STREAMS];
   uint32_t streamOrder[MAX_STREAMS];
   uint32_t streamCount;
@@ -297,7 +296,6 @@ static int gryffindor(const void* s, const void* t) {
 void lovrGraphicsSubmit() {
   if (!thread.stream) return;
   if (state.window) state.window->gpu.color[0].texture = NULL;
-  lovrAssert(state.activeCanvasCount == 0, "Can not submit graphics work while a Canvas is active");
 
   for (uint32_t i = 0; i < state.streamCount; i++) {
     gpu_stream_end(state.streams[i]);
