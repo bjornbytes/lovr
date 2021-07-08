@@ -518,7 +518,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
 }
 
 void gpu_texture_destroy(gpu_texture* texture) {
-  condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
+  if (texture->memory) condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
   condemn(texture->memory, VK_OBJECT_TYPE_DEVICE_MEMORY);
   condemn(texture->view, VK_OBJECT_TYPE_IMAGE_VIEW);
 }
