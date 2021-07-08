@@ -1730,22 +1730,30 @@ bool gpu_init(gpu_config* config) {
       "VK_LAYER_KHRONOS_validation"
     };
 
-    const char* extensions[3];
+    char buffer[1024];
+    const char* extensions[16];
     uint32_t extensionCount = 0;
+    if (state.config.vk.getInstanceExtensions) {
+      CHECK(state.config.vk.getInstanceExtensions(buffer, sizeof(buffer)), "Failed to get instance extensions") DIE();
 
-    if (state.config.debug) {
-      extensions[extensionCount++] = "VK_EXT_debug_utils";
+      char* cursor = buffer;
+      char* extension = buffer;
+      while (*cursor++) {
+        if (*cursor == ' ' || *cursor == '\0') {
+          CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") DIE();
+          extensions[extensionCount++] = extension;
+          extension = cursor + 1;
+          if (*cursor == ' ') {
+            *cursor = '\0';
+            cursor++;
+          }
+        }
+      }
     }
 
-    if (state.config.vk.getExtraInstanceExtensions) {
-      uint32_t extraExtensionCount;
-      const char** extraExtensions = state.config.vk.getExtraInstanceExtensions(&extraExtensionCount);
-
-      CHECK(extraExtensionCount + extensionCount <= COUNTOF(extensions), "Too many extra vulkan extensions") DIE();
-
-      for (uint32_t i = 0; i < extraExtensionCount; i++) {
-        extensions[extensionCount++] = extraExtensions[i];
-      }
+    if (state.config.debug) {
+      CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") DIE();
+      extensions[extensionCount++] = "VK_EXT_debug_utils";
     }
 
     VkInstanceCreateInfo instanceInfo = {
@@ -1941,13 +1949,39 @@ bool gpu_init(gpu_config* config) {
       }
     }
 
+    char buffer[1024];
+    const char* extensions[64];
+    uint32_t extensionCount = 0;
+    if (state.config.vk.getDeviceExtensions) {
+      CHECK(state.config.vk.getDeviceExtensions(buffer, sizeof(buffer), (uintptr_t) state.adapter), "Failed to get device extensions") DIE();
+
+      char* cursor = buffer;
+      char* extension = buffer;
+      while (*cursor++) {
+        if (*cursor == ' ' || *cursor == '\0') {
+          CHECK(extensionCount < COUNTOF(extensions), "Too many device extensions") DIE();
+          extensions[extensionCount++] = extension;
+          extension= cursor + 1;
+          if (*cursor == ' ') {
+            *cursor = '\0';
+            cursor++;
+          }
+        }
+      }
+    }
+
+    if (state.surface) {
+      CHECK(extensionCount < COUNTOF(extensions), "Too many device extensions") DIE();
+      extensions[extensionCount++] = "VK_KHR_swapchain";
+    }
+
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
       .pNext = config->features ? &enabledFeatures : NULL,
       .queueCreateInfoCount = 1,
       .pQueueCreateInfos = &queueInfo,
-      .enabledExtensionCount = state.surface ? 1 : 0,
-      .ppEnabledExtensionNames = (const char*[1]) { "VK_KHR_swapchain" }
+      .enabledExtensionCount = extensionCount,
+      .ppEnabledExtensionNames = extensions
     };
 
     TRY(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") DIE();

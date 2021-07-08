@@ -575,7 +575,8 @@ typedef struct {
   struct {
     bool surface;
     int vsync;
-    const char** (*getExtraInstanceExtensions)(uint32_t* count);
+    bool (*getInstanceExtensions)(char* buffer, uint32_t size);
+    bool (*getDeviceExtensions)(char* buffer, uint32_t size, uintptr_t physicalDevice);
     uint32_t (*createSurface)(void* instance, void** surface);
   } vk;
 } gpu_config;
