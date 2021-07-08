@@ -117,7 +117,7 @@ static void callback(void* context, const char* message, int severe) {
   }
 }
 
-const char** os_vk_get_instance_extensions(uint32_t* capacity);
+const char** os_vk_get_instance_extensions(uint32_t* count);
 uint32_t os_vk_create_surface(void* instance, void** surface);
 
 static bool getInstanceExtensions(char* buffer, uint32_t size) {
