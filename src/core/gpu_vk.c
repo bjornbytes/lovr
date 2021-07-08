@@ -140,6 +140,7 @@ static struct {
   void* library;
   gpu_config config;
   VkInstance instance;
+  VkPhysicalDevice adapter;
   VkDevice device;
   VkQueue queue;
   VkSurfaceKHR surface;
@@ -1780,22 +1781,21 @@ bool gpu_init(gpu_config* config) {
     TRY(state.config.vk.createSurface(state.instance, (void**) &state.surface), "Surface creation failed") DIE();
   }
 
-  VkPhysicalDevice physicalDevice;
   uint32_t queueFamilyIndex = ~0u;
 
   { // Device
     uint32_t deviceCount = 1;
-    TRY(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &physicalDevice), "Physical device enumeration failed") DIE();
+    TRY(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "Physical device enumeration failed") DIE();
 
     VkQueueFamilyProperties queueFamilies[4];
     uint32_t queueFamilyCount = COUNTOF(queueFamilies);
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies);
+    vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, queueFamilies);
 
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
       VkBool32 presentable = VK_TRUE;
 
       if (state.surface) {
-        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, state.surface, &presentable);
+        vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, i, state.surface, &presentable);
       }
 
       uint32_t flags = queueFamilies[i].queueFlags;
@@ -1815,7 +1815,7 @@ bool gpu_init(gpu_config* config) {
     };
 
     VkPhysicalDeviceMemoryProperties memoryProperties;
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+    vkGetPhysicalDeviceMemoryProperties(state.adapter, &memoryProperties);
     state.memoryTypeCount = memoryProperties.memoryTypeCount;
     for (uint32_t i = 0; i < state.memoryTypeCount; i++) {
       state.memoryTypes[i] = memoryProperties.memoryTypes[i].propertyFlags;
@@ -1827,7 +1827,7 @@ bool gpu_init(gpu_config* config) {
     VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
 
     if (config->limits || config->info) {
-      vkGetPhysicalDeviceProperties2(physicalDevice, &properties2);
+      vkGetPhysicalDeviceProperties2(state.adapter, &properties2);
     }
 
     if (config->info) {
@@ -1893,7 +1893,7 @@ bool gpu_init(gpu_config* config) {
     if (config->features) {
       VkPhysicalDeviceShaderDrawParameterFeatures supportsShaderDrawParameter = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES };
       VkPhysicalDeviceFeatures2 root = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &supportsShaderDrawParameter };
-      vkGetPhysicalDeviceFeatures2(physicalDevice, &root);
+      vkGetPhysicalDeviceFeatures2(state.adapter, &root);
 
       VkPhysicalDeviceFeatures* enable = &enabledFeatures.features;
       VkPhysicalDeviceFeatures* supports = &root.features;
@@ -1926,7 +1926,7 @@ bool gpu_init(gpu_config* config) {
 
       VkFormatProperties formatProperties;
       for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
-        vkGetPhysicalDeviceFormatProperties(physicalDevice, convertFormat(i, LINEAR), &formatProperties);
+        vkGetPhysicalDeviceFormatProperties(state.adapter, convertFormat(i, LINEAR), &formatProperties);
         uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
         uint32_t flags = formatProperties.optimalTilingFeatures;
         config->features->formats[i] =
@@ -1950,7 +1950,7 @@ bool gpu_init(gpu_config* config) {
       .ppEnabledExtensionNames = (const char*[1]) { "VK_KHR_swapchain" }
     };
 
-    TRY(vkCreateDevice(physicalDevice, &deviceInfo, NULL, &state.device), "Device creation failed") DIE();
+    TRY(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") DIE();
     vkGetDeviceQueue(state.device, queueFamilyIndex, 0, &state.queue);
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
   }
@@ -1958,12 +1958,12 @@ bool gpu_init(gpu_config* config) {
   // Swapchain
   if (state.surface) {
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, state.surface, &surfaceCapabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, state.surface, &surfaceCapabilities);
 
     VkSurfaceFormatKHR formats[16];
     uint32_t formatCount = COUNTOF(formats);
     VkSurfaceFormatKHR surfaceFormat = { .format = VK_FORMAT_UNDEFINED };
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, state.surface, &formatCount, formats);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, state.surface, &formatCount, formats);
 
     for (uint32_t i = 0; i < formatCount; i++) {
       if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
@@ -2160,6 +2160,22 @@ gpu_texture* gpu_surface_acquire(void) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
   TRY(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &state.currentBackbuffer), "Surface image acquisition failed") return NULL;
   return &state.backbuffers[state.currentBackbuffer];
+}
+
+uintptr_t gpu_vk_get_instance() {
+  return (uintptr_t) state.instance;
+}
+
+uintptr_t gpu_vk_get_physical_device() {
+  return (uintptr_t) state.adapter;
+}
+
+uintptr_t gpu_vk_get_device() {
+  return (uintptr_t) state.device;
+}
+
+uintptr_t gpu_vk_get_queue() {
+  return (uintptr_t) state.queue;
 }
 
 // Helpers
