@@ -314,6 +314,8 @@ void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection);
 void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection);
 void lovrCanvasGetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float* depth, uint8_t* stencil);
 void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], float depth, uint8_t stencil);
+void lovrCanvasGetTextures(Canvas* canvas, Texture* textures[4], Texture** depth);
+void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth);
 
 // Shader
 

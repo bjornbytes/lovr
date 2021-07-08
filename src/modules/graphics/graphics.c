@@ -1045,6 +1045,32 @@ void lovrCanvasSetClear(Canvas* canvas, float color[MAX_COLOR_ATTACHMENTS][4], f
   canvas->gpu.depth.clear.stencil = stencil;
 }
 
+void lovrCanvasGetTextures(Canvas* canvas, Texture* textures[4], Texture** depth) {
+  for (uint32_t i = 0; i < canvas->info.count; i++) {
+    textures[i] = canvas->info.samples > 1 ? canvas->resolveTextures[i] : canvas->colorTextures[i];
+  }
+  *depth = canvas->info.depth.enabled ? canvas->depthTexture : NULL;
+}
+
+void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth) {
+  for (uint32_t i = 0; i < canvas->info.count; i++) {
+    if (!textures[i]) continue;
+    lovrRetain(textures[i]);
+    if (canvas->info.samples > 1) {
+      lovrRelease(canvas->resolveTextures[i], lovrTextureDestroy);
+      canvas->gpu.color[i].resolve = textures[i]->renderView;
+      canvas->colorTextures[i] = textures[i];
+    }
+  }
+
+  if (canvas->info.depth.enabled && depth) {
+    lovrRetain(depth);
+    lovrRelease(canvas->depthTexture, lovrTextureDestroy);
+    canvas->gpu.depth.texture = depth->renderView;
+    canvas->depthTexture = depth;
+  }
+}
+
 // Shader
 
 #define MIN_SPIRV_WORDS 8
