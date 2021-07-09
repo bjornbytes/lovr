@@ -87,14 +87,14 @@ static int l_lovrTextureGetParent(lua_State* L) {
   return 1;
 }
 
-static int l_lovrTextureHasFlags(lua_State* L) {
+static int l_lovrTextureHasUsage(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
   luaL_checkany(L, 2);
   int top = lua_gettop(L);
   for (int i = 2; i <= top; i++) {
-    int bit = luax_checkenum(L, i, TextureFlag, NULL);
-    if (~info->flags & (1 << bit)) {
+    int bit = luax_checkenum(L, i, TextureUsage, NULL);
+    if (~info->usage & (1 << bit)) {
       lua_pushboolean(L, false);
     }
   }
@@ -230,7 +230,7 @@ const luaL_Reg lovrTexture[] = {
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getSampleCount", l_lovrTextureGetSampleCount },
   { "getParent", l_lovrTextureGetParent },
-  { "hasFlags", l_lovrTextureHasFlags },
+  { "hasUsage", l_lovrTextureHasUsage },
   { "write", l_lovrTextureWrite },
   { "read", l_lovrTextureRead },
   { "copy", l_lovrTextureCopy },

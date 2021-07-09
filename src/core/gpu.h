@@ -35,7 +35,7 @@ enum {
 
 typedef struct {
   uint32_t size;
-  uint32_t flags;
+  uint32_t usage;
   uintptr_t handle;
   const char* label;
 } gpu_buffer_info;
@@ -115,7 +115,7 @@ typedef struct {
   uint32_t size[3];
   uint32_t mipmaps;
   uint32_t samples;
-  uint32_t flags;
+  uint32_t usage;
   bool srgb;
   uintptr_t handle;
   const char* label;
@@ -445,12 +445,12 @@ typedef struct {
 
 typedef struct {
   gpu_buffer* buffer;
-  uint32_t flags;
+  uint32_t usage;
 } gpu_buffer_sync;
 
 typedef struct {
   gpu_texture* texture;
-  uint32_t flags;
+  uint32_t usage;
 } gpu_texture_sync;
 
 typedef struct {

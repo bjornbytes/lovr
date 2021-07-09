@@ -25,11 +25,13 @@ StringEntry lovrBlendMode[] = {
   { 0 }
 };
 
-StringEntry lovrBufferType[] = {
-  [BUFFER_VERTEX] = ENTRY("vertex"),
-  [BUFFER_INDEX] = ENTRY("index"),
-  [BUFFER_UNIFORM] = ENTRY("uniform"),
-  [BUFFER_STORAGE] = ENTRY("storage"),
+StringEntry lovrBufferUsage[] = {
+  [0] = ENTRY("vertex"),
+  [1] = ENTRY("index"),
+  [2] = ENTRY("uniform"),
+  [3] = ENTRY("storage"),
+  [4] = ENTRY("copyfrom"),
+  [5] = ENTRY("copyto"),
   { 0 }
 };
 
@@ -122,12 +124,12 @@ StringEntry lovrTextureType[] = {
   { 0 }
 };
 
-StringEntry lovrTextureFlag[] = {
+StringEntry lovrTextureUsage[] = {
   [0] = ENTRY("sample"),
-  [1] = ENTRY("render"),
-  [2] = ENTRY("compute"),
-  [3] = ENTRY("copy"),
-  [4] = ENTRY("transient"),
+  [1] = ENTRY("canvas"),
+  [2] = ENTRY("storage"),
+  [3] = ENTRY("copyfrom"),
+  [4] = ENTRY("copyto"),
   { 0 }
 };
 
@@ -532,8 +534,20 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   // Flags
   if (lua_istable(L, 3)) {
-    lua_getfield(L, 3, "type");
-    info.type = luax_checkenum(L, -1, BufferType, "storage");
+    lua_getfield(L, 3, "usage");
+    switch (lua_type(L, -1)) {
+      case LUA_TSTRING: info.usage = luax_checkenum(L, -1, BufferUsage, NULL); break;
+      case LUA_TTABLE: {
+        int length = luax_len(L, -1);
+        for (int i = 0; i < length; i++) {
+          lua_rawgeti(L, -1, i + 1);
+          info.usage |= 1 << luax_checkenum(L, -1, BufferUsage, NULL);
+          lua_pop(L, 1);
+        }
+      }
+      case LUA_TNIL: info.usage = ~0u;
+      default: return luaL_error(L, "Expected Buffer usage to be a string, table, or nil");
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, 3, "transient");
@@ -555,7 +569,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   } else if (lua_istable(L, 2)) {
     uint16_t offset = 0;
     int length = luax_len(L, 2);
-    bool blocky = info.type == BUFFER_UNIFORM || info.type == BUFFER_STORAGE;
+    bool blocky = info.usage & (BUFFER_UNIFORM | BUFFER_STORAGE);
     for (int i = 0; i < length; i++) {
       lua_rawgeti(L, 2, i + 1);
       switch (lua_type(L, -1)) {
@@ -579,7 +593,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   }
 
   // std140 (only needed for uniform buffers, also as special case 'byte' formats skip this)
-  if (info.type == BUFFER_UNIFORM && info.stride > 1) {
+  if (info.usage & BUFFER_UNIFORM && info.stride > 1) {
     info.stride = ALIGN(info.stride, 16);
   }
 
@@ -650,7 +664,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     .format = FORMAT_RGBA8,
     .mipmaps = ~0u,
     .samples = 1,
-    .flags = TEXTURE_SAMPLE,
+    .usage = TEXTURE_SAMPLE,
     .srgb = !blank
   };
 
@@ -703,18 +717,25 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     }
     lua_pop(L, 1);
 
-    for (int i = 0; lovrTextureFlag[i].length; i++) {
-      lua_pushlstring(L, lovrTextureFlag[i].string, lovrTextureFlag[i].length);
-      lua_gettable(L, 3);
-      if (!lua_isnil(L, -1)) {
-        if (lua_toboolean(L, -1)) {
-          info.flags |= (1 << i);
-        } else {
-          info.flags &= ~(1 << i);
+    lua_getfield(L, index, "usage");
+    switch (lua_type(L, -1)) {
+      case LUA_TSTRING: info.usage = luax_checkenum(L, -1, TextureUsage, NULL); break;
+      case LUA_TTABLE: {
+        int length = luax_len(L, -1);
+        for (int i = 0; i < length; i++) {
+          lua_rawgeti(L, -1, i + 1);
+          info.usage |= 1 << luax_checkenum(L, -1, TextureUsage, NULL);
+          lua_pop(L, 1);
         }
       }
-      lua_pop(L, 1);
+      case LUA_TNIL: info.usage = ~0u;
+      default: return luaL_error(L, "Expected Texture usage to be a string, table, or nil");
     }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "transient");
+    info.transient = lua_toboolean(L, -1);
+    lua_pop(L, 1);
 
     lua_getfield(L, index, "label");
     info.label = lua_tostring(L, -1);

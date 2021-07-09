@@ -327,13 +327,13 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
     .size = info->size,
     .usage =
-      ((info->flags & GPU_BUFFER_VERTEX) ? VK_BUFFER_USAGE_VERTEX_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_INDIRECT) ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0) |
-      ((info->flags & GPU_BUFFER_COPY_SRC) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
-      ((info->flags & GPU_BUFFER_COPY_DST) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0)
+      ((info->usage & GPU_BUFFER_VERTEX) ? VK_BUFFER_USAGE_VERTEX_BUFFER_BIT : 0) |
+      ((info->usage & GPU_BUFFER_INDEX) ? VK_BUFFER_USAGE_INDEX_BUFFER_BIT : 0) |
+      ((info->usage & GPU_BUFFER_UNIFORM) ? VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT : 0) |
+      ((info->usage & GPU_BUFFER_STORAGE) ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0) |
+      ((info->usage & GPU_BUFFER_INDIRECT) ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0) |
+      ((info->usage & GPU_BUFFER_COPY_SRC) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0) |
+      ((info->usage & GPU_BUFFER_COPY_DST) ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : 0)
   };
 
   TRY(vkCreateBuffer(state.device, &bufferInfo, NULL, &buffer->handle), "Could not create buffer") {
@@ -428,13 +428,13 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .samples = info->samples,
     .tiling = VK_IMAGE_TILING_OPTIMAL,
     .usage =
-      (((info->flags & GPU_TEXTURE_RENDER) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
-      (((info->flags & GPU_TEXTURE_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
-      ((info->flags & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0)
+      (((info->usage & GPU_TEXTURE_RENDER) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
+      (((info->usage & GPU_TEXTURE_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
+      ((info->usage & GPU_TEXTURE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
+      ((info->usage & GPU_TEXTURE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
+      ((info->usage & GPU_TEXTURE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
+      ((info->usage & GPU_TEXTURE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
+      ((info->usage & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0)
   };
 
   TRY(vkCreateImage(state.device, &imageInfo, NULL, &texture->handle), "Could not create texture") {
@@ -1501,8 +1501,8 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
     uint32_t writeMask = GPU_BUFFER_STORAGE | GPU_BUFFER_COPY_DST;
     uint32_t afterRead = buffer->status & ~writeMask;
     uint32_t afterWrite = buffer->status & writeMask;
-    uint32_t read = sync->buffers[i].flags & ~writeMask;
-    uint32_t write = sync->buffers[i].flags & writeMask;
+    uint32_t read = sync->buffers[i].usage & ~writeMask;
+    uint32_t write = sync->buffers[i].usage & writeMask;
     uint32_t newReads = read & ~buffer->status;
     VkAccessFlags srcAccess = 0;
     VkAccessFlags dstAccess = 0;
@@ -1571,8 +1571,8 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
     uint32_t writeMask = GPU_TEXTURE_STORAGE | GPU_TEXTURE_COPY_DST | GPU_TEXTURE_RENDER;
     uint32_t afterRead = texture->status & ~writeMask;
     uint32_t afterWrite = texture->status & writeMask;
-    uint32_t read = sync->textures[i].flags & ~writeMask;
-    uint32_t write = sync->textures[i].flags & writeMask;
+    uint32_t read = sync->textures[i].usage & ~writeMask;
+    uint32_t write = sync->textures[i].usage & writeMask;
     uint32_t newReads = read & ~texture->status;
     VkAccessFlags srcAccess = 0;
     VkAccessFlags dstAccess = 0;
@@ -1619,7 +1619,7 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
     // TODO write after read
 
     VkImageLayout newLayout;
-    switch (sync->textures[i].flags) {
+    switch (sync->textures[i].usage) {
       case GPU_TEXTURE_SAMPLE: newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; break;
       case GPU_TEXTURE_RENDER: newLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; break;
       case GPU_TEXTURE_COPY_SRC: newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; break;
@@ -1627,7 +1627,7 @@ void gpu_sync(gpu_stream* stream, gpu_sync_info* sync) {
       default: newLayout = VK_IMAGE_LAYOUT_GENERAL; break;
     }
 
-    VkImageLayout oldLayout = (sync->textures[i].flags & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_LAYOUT_UNDEFINED : texture->layout;
+    VkImageLayout oldLayout = (sync->textures[i].usage & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_LAYOUT_UNDEFINED : texture->layout;
     if (oldLayout != newLayout) {
       imageBarriers[imageBarrierCount++] = (VkImageMemoryBarrier) {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,

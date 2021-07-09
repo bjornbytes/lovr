@@ -341,9 +341,9 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
 // Buffer
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
-  size_t size = info->length * info->stride;
+  size_t size = info->length * (info->stride + !info->stride);
   lovrAssert(size > 0 && size <= state.limits.allocationSize, "Buffer size must be between 1 and limits.allocationSize (%d)", state.limits.allocationSize);
-  lovrAssert(info->type != BUFFER_STORAGE || !info->transient, "Storage buffers can not be transient");
+  lovrAssert(!info->transient || (~info->usage & BUFFER_COPYTO), "Transient Buffers can not have the 'copyto' usage");
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
   lovrAssert(buffer, "Out of memory");
@@ -356,16 +356,9 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
     return buffer;
   }
 
-  uint32_t usage[] = {
-    [BUFFER_VERTEX] = GPU_BUFFER_VERTEX,
-    [BUFFER_INDEX] = GPU_BUFFER_INDEX,
-    [BUFFER_UNIFORM] = GPU_BUFFER_UNIFORM,
-    [BUFFER_STORAGE] = GPU_BUFFER_STORAGE
-  };
-
   gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
     .size = ALIGN(size, 4),
-    .flags = usage[info->type] | GPU_BUFFER_COPY_DST,
+    .usage = info->usage,
     .handle = info->handle,
     .label = info->label
   });
@@ -395,6 +388,7 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
     }
     return (uint8_t*) buffer->pointer + offset;
   } else {
+    lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Non-transient buffers must have the 'copyto' usage to write to them");
     gpu_scratchpad scratch = gpu_scratch(size, 4);
     gpu_copy_buffer(state.transfers, scratch.buffer, buffer->gpu, scratch.offset, offset, size);
     return scratch.pointer;
@@ -412,13 +406,15 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
     }
     memset((uint8_t*) buffer->pointer + offset, 0, size);
   } else {
+    lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Non-transient buffers must have the 'copyto' usage to clear them");
     gpu_clear_buffer(state.transfers, buffer->gpu, offset, size, 0);
   }
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(!dst->info.transient, "Transient Buffers can not be copied to");
+  lovrAssert(src->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to copy from it");
+  lovrAssert(dst->info.usage & BUFFER_COPYTO, "Buffer must have the 'copyto' usage to copy to it");
   lovrAssert(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
   lovrAssert(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
   gpu_copy_buffer(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, size);
@@ -426,6 +422,7 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
   lovrAssert(state.active, "Graphics is not active");
+  lovrAssert(buffer->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to read from it");
   lovrAssert(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
   gpu_read_buffer(state.transfers, buffer->gpu, offset, size, callback, userdata);
 }
@@ -523,14 +520,14 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrAssert((info->samples & (info->samples - 1)) == 0, "Texture multisample count must be a power of 2");
   lovrAssert(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
   lovrAssert(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
-  lovrAssert(info->samples == 1 || ~info->flags & TEXTURE_COMPUTE, "Currently, Textures with the 'compute' flag can not be multisampled");
+  lovrAssert(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'compute' flag can not be multisampled");
   lovrAssert(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
-  lovrAssert(~info->flags & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
-  lovrAssert(~info->flags & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
-  lovrAssert(~info->flags & TEXTURE_COMPUTE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'compute' flag for this format");
-  lovrAssert(~info->flags & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
-  lovrAssert(~info->flags & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
-  lovrAssert(~info->flags & TEXTURE_TRANSIENT || info->flags == (TEXTURE_TRANSIENT | TEXTURE_RENDER), "Textures with the 'transient' flag must have the 'render' flag set (and no other flags)");
+  lovrAssert(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
+  lovrAssert(~info->usage & TEXTURE_CANVAS || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
+  lovrAssert(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'compute' flag for this format");
+  lovrAssert(~info->usage & TEXTURE_CANVAS || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
+  lovrAssert(~info->usage & TEXTURE_CANVAS || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
+  lovrAssert(!info->transient || info->usage == TEXTURE_CANVAS, "Textures with the 'transient' flag must have the 'render' usage (and only the render usage)");
   lovrAssert(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
@@ -545,13 +542,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .size = { info->width, info->height, info->depth },
     .mipmaps = info->mipmaps == ~0u ? mips : info->mipmaps + !info->mipmaps,
     .samples = info->samples + !info->samples,
-    .flags =
-      ((info->flags & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
-      ((info->flags & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
-      ((info->flags & TEXTURE_COMPUTE) ? GPU_TEXTURE_STORAGE : 0) |
-      ((info->flags & TEXTURE_COPY) ? GPU_TEXTURE_COPY_SRC : 0) |
-      ((info->flags & TEXTURE_TRANSIENT) ? GPU_TEXTURE_TRANSIENT : 0) |
-      ((info->flags & TEXTURE_TRANSIENT) ? 0 : GPU_TEXTURE_COPY_DST),
+    .usage = info->usage | (info->transient ? GPU_TEXTURE_TRANSIENT : 0),
     .srgb = info->srgb,
     .handle = info->handle,
     .label = info->label
@@ -622,7 +613,7 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
   lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be written to");
+  lovrAssert(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to write to it");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
   checkTextureBounds(&texture->info, offset, extent);
 
@@ -660,7 +651,6 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
 
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
   lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be cleared");
   lovrAssert(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
   lovrAssert(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
   lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
@@ -669,8 +659,7 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
   lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(texture->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to read from it");
-  lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be read");
+  lovrAssert(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to read from it");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
@@ -680,8 +669,8 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
   lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(~dst->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be copied to");
-  lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to copy from it");
+  lovrAssert(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to copy from it");
+  lovrAssert(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to copy to it");
   lovrAssert(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
   lovrAssert(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
   checkTextureBounds(&src->info, srcOffset, extent);
@@ -693,9 +682,9 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
   lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(~dst->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be copied to");
   lovrAssert(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
-  lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to blit from it");
+  lovrAssert(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to blit from it");
+  lovrAssert(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to blit to it");
   lovrAssert(state.features.formats[src->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
   lovrAssert(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
 
@@ -730,7 +719,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     Texture* texture = info->color[i].texture;
     bool renderable = texture->info.format == ~0u || (state.features.formats[texture->info.format] & GPU_FEATURE_RENDER_COLOR);
     lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
-    lovrAssert(texture->info.flags & TEXTURE_RENDER, "Texture must be created with the 'render' flag to attach it to a Canvas");
+    lovrAssert(texture->info.usage & TEXTURE_CANVAS, "Texture must be created with the 'render' flag to attach it to a Canvas");
     lovrAssert(texture->info.width == first->width, "Canvas texture sizes must match");
     lovrAssert(texture->info.height == first->height, "Canvas texture sizes must match");
     lovrAssert(texture->info.depth == first->depth, "Canvas texture sizes must match");
@@ -744,7 +733,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER_DEPTH;
     lovrAssert(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
     if (texture) {
-      lovrAssert(texture->info.flags & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to a Canvas");
+      lovrAssert(texture->info.usage & TEXTURE_CANVAS, "Textures must be created with the 'render' flag to attach them to a Canvas");
       lovrAssert(texture->info.width == first->width, "Canvas texture sizes must match");
       lovrAssert(texture->info.height == first->height, "Canvas texture sizes must match");
       lovrAssert(texture->info.depth == first->depth, "Canvas texture sizes must match");
@@ -804,7 +793,7 @@ static void lovrCanvasInit(Canvas* canvas, CanvasInfo* info) {
     .depth = info->views,
     .mipmaps = 1,
     .samples = info->samples,
-    .flags = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT
+    .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT
   };
 
   gpu_texture_view_info viewInfo = {
