@@ -82,12 +82,15 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch);
 
 // Buffer
 
-typedef enum {
-  BUFFER_VERTEX,
-  BUFFER_INDEX,
-  BUFFER_UNIFORM,
-  BUFFER_STORAGE
-} BufferType;
+enum {
+  BUFFER_VERTEX   = (1 << 0),
+  BUFFER_INDEX    = (1 << 1),
+  BUFFER_UNIFORM  = (1 << 2),
+  BUFFER_STORAGE  = (1 << 3),
+  BUFFER_INDIRECT = (1 << 4),
+  BUFFER_COPYFROM = (1 << 5),
+  BUFFER_COPYTO   = (1 << 6)
+};
 
 typedef enum {
   FIELD_I8,
@@ -128,13 +131,13 @@ typedef enum {
 } FieldType;
 
 typedef struct {
-  BufferType type;
-  bool transient;
-  uint16_t stride;
+  uint32_t usage;
   uint32_t length;
+  uint16_t stride;
   uint16_t fieldCount;
   FieldType types[16];
   uint16_t offsets[16];
+  bool transient;
   uintptr_t handle;
   const char* label;
 } BufferInfo;
@@ -158,11 +161,11 @@ typedef enum {
 } TextureType;
 
 enum {
-  TEXTURE_SAMPLE    = (1 << 0),
-  TEXTURE_RENDER    = (1 << 1),
-  TEXTURE_COMPUTE   = (1 << 2),
-  TEXTURE_COPY      = (1 << 3),
-  TEXTURE_TRANSIENT = (1 << 4)
+  TEXTURE_SAMPLE   = (1 << 0),
+  TEXTURE_CANVAS   = (1 << 1),
+  TEXTURE_STORAGE  = (1 << 2),
+  TEXTURE_COPYFROM = (1 << 3),
+  TEXTURE_COPYTO   = (1 << 4)
 };
 
 typedef struct {
@@ -177,14 +180,15 @@ typedef struct {
 typedef struct {
   Texture* parent;
   TextureType type;
+  uint32_t usage;
   uint32_t format;
   uint32_t width;
   uint32_t height;
   uint32_t depth;
   uint32_t mipmaps;
   uint32_t samples;
-  uint32_t flags;
   bool srgb;
+  bool transient;
   uintptr_t handle;
   const char* label;
 } TextureInfo;
