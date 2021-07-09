@@ -87,12 +87,9 @@ struct Batch {
   gpu_pipeline_info* pipeline;
 };
 
-static LOVR_THREAD_LOCAL struct {
-  gpu_stream* stream;
-} thread;
-
 static struct {
   bool initialized;
+  bool active;
   gpu_hardware hardware;
   gpu_features features;
   gpu_limits limits;
@@ -101,8 +98,9 @@ static struct {
   map_t passes;
   Canvas* window;
   Shader* defaultShader;
+  gpu_stream* transfers;
   gpu_stream* streams[MAX_STREAMS];
-  uint32_t streamOrder[MAX_STREAMS];
+  int8_t streamOrder[MAX_STREAMS];
   uint32_t streamCount;
   uint32_t frame;
 } state;
@@ -276,39 +274,47 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
 }
 
 void lovrGraphicsBegin() {
-  if (!thread.stream) {
-    gpu_begin();
-    state.streams[0] = gpu_stream_begin();
-    thread.stream = state.streams[0];
-    state.streamOrder[0] = 1;
-    state.streamCount = 1;
-    state.frame++;
-  }
+  if (state.active) return;
+  state.active = true;
+  state.frame++;
+  gpu_begin();
+  state.streams[0] = state.transfers = gpu_stream_begin();
+  state.streamOrder[0] = 0;
+  state.streamCount = 1;
 }
 
-// FIXME
-static int gryffindor(const void* s, const void* t) {
-  uint32_t i = (gpu_stream**) s - state.streams;
-  uint32_t j = (gpu_stream**) t - state.streams;
-  return state.streamOrder[i] < state.streamOrder[j];
+static int streamSort(const void* a, const void* b) {
+  return state.streamOrder[*(uint32_t*) a] - state.streamOrder[*(uint32_t*) b];
 }
 
 void lovrGraphicsSubmit() {
-  if (!thread.stream) return;
-  if (state.window) state.window->gpu.color[0].texture = NULL;
+  if (!state.active) return;
+  state.active = false;
 
-  for (uint32_t i = 0; i < state.streamCount; i++) {
-    gpu_stream_end(state.streams[i]);
+  if (state.window) {
+    state.window->gpu.color[0].texture = NULL;
   }
 
-  qsort(state.streams, state.streamCount, sizeof(state.streams[0]), gryffindor);
-  gpu_submit(state.streams, state.streamCount);
-  thread.stream = NULL;
+  uint32_t streamMap[MAX_STREAMS];
+  for (uint32_t i = 0; i < state.streamCount; i++) {
+    streamMap[i] = i;
+  }
+
+  qsort(streamMap, state.streamCount, sizeof(uint32_t), streamSort);
+
+  gpu_stream* streams[MAX_STREAMS]; // Sorted
+  for (uint32_t i = 0; i < state.streamCount; i++) {
+    streams[i] = state.streams[streamMap[i]];
+    gpu_stream_end(streams[i]);
+  }
+
+  gpu_submit(streams, state.streamCount);
 }
 
 void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
 
+  // TODO pre-render hook
   if (canvas == state.window) {
     if (!canvas->gpu.color[0].texture) {
       canvas->gpu.color[0].texture = gpu_surface_acquire();
@@ -324,15 +330,11 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
     // TODO set clear to background
   }
 
-  gpu_bundle* bundle = malloc(gpu_sizeof_bundle());
-  lovrAssert(bundle, "Out of memory");
-
-  gpu_scratchpad camera = gpu_scratch(sizeof(Camera), state.limits.uniformBufferAlign);
-  memcpy(camera.pointer, &canvas->camera, sizeof(Camera));
-
   gpu_stream* stream = gpu_stream_begin();
   gpu_render_begin(stream, &canvas->gpu);
   gpu_render_end(stream);
+
+  state.streamOrder[state.streamCount] = 1;
   state.streams[state.streamCount++] = stream;
 }
 
@@ -385,7 +387,7 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
 
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
   if (size == ~0u) size = buffer->size - offset;
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(offset + size <= buffer->size, "Tried to write past the end of the Buffer");
   if (buffer->info.transient) {
     if (buffer->frame != state.frame) {
@@ -394,13 +396,13 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
     return (uint8_t*) buffer->pointer + offset;
   } else {
     gpu_scratchpad scratch = gpu_scratch(size, 4);
-    gpu_copy_buffer(thread.stream, scratch.buffer, buffer->gpu, scratch.offset, offset, size);
+    gpu_copy_buffer(state.transfers, scratch.buffer, buffer->gpu, scratch.offset, offset, size);
     return scratch.pointer;
   }
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrAssert(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrAssert(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
@@ -410,26 +412,26 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
     }
     memset((uint8_t*) buffer->pointer + offset, 0, size);
   } else {
-    gpu_clear_buffer(thread.stream, buffer->gpu, offset, size, 0);
+    gpu_clear_buffer(state.transfers, buffer->gpu, offset, size, 0);
   }
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(!dst->info.transient, "Transient Buffers can not be copied to");
   lovrAssert(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
   lovrAssert(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
-  gpu_copy_buffer(thread.stream, src->gpu, dst->gpu, srcOffset, dstOffset, size);
+  gpu_copy_buffer(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, size);
 }
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
-  gpu_read_buffer(thread.stream, buffer->gpu, offset, size, callback, userdata);
+  gpu_read_buffer(state.transfers, buffer->gpu, offset, size, callback, userdata);
 }
 
 void lovrBufferDrop(Buffer* buffer) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(buffer->info.transient, "Only transient Buffers can be dropped");
   gpu_scratchpad scratch = gpu_scratch(buffer->size, 4);
   buffer->gpu = scratch.buffer;
@@ -619,14 +621,14 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 }
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be written to");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
   checkTextureBounds(&texture->info, offset, extent);
 
   char* src = data;
   uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
-  char* dst = gpu_map_texture(thread.stream, texture->gpu, realOffset, extent);
+  char* dst = gpu_map_texture(state.transfers, texture->gpu, realOffset, extent);
   size_t rowSize = getTextureRegionSize(texture->info.format, extent[0], 1, 1);
   size_t imgSize = getTextureRegionSize(texture->info.format, extent[0], extent[1], 1);
   size_t jump = step[0] ? step[0] : rowSize;
@@ -657,27 +659,27 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
 }
 
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be cleared");
   lovrAssert(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
   lovrAssert(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
   lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
-  gpu_clear_texture(thread.stream, texture->gpu, layer + texture->baseLayer, layerCount, level + texture->baseLevel, levelCount, color);
+  gpu_clear_texture(state.transfers, texture->gpu, layer + texture->baseLayer, layerCount, level + texture->baseLevel, levelCount, color);
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(texture->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to read from it");
   lovrAssert(~texture->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be read");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
   uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
-  gpu_read_texture(thread.stream, texture->gpu, realOffset, extent, callback, userdata);
+  gpu_read_texture(state.transfers, texture->gpu, realOffset, extent, callback, userdata);
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(~dst->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be copied to");
   lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to copy from it");
   lovrAssert(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
@@ -686,11 +688,11 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   checkTextureBounds(&dst->info, dstOffset, extent);
   uint16_t realSrcOffset[4] = { srcOffset[0], srcOffset[1], srcOffset[2] + src->baseLayer, srcOffset[3] + src->baseLevel };
   uint16_t realDstOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + dst->baseLayer, dstOffset[3] + dst->baseLevel };
-  gpu_copy_texture(thread.stream, src->gpu, dst->gpu, realSrcOffset, realDstOffset, extent);
+  gpu_copy_texture(state.transfers, src->gpu, dst->gpu, realSrcOffset, realDstOffset, extent);
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
-  lovrAssert(thread.stream, "Graphics is not active");
+  lovrAssert(state.active, "Graphics is not active");
   lovrAssert(~dst->info.flags & TEXTURE_TRANSIENT, "Transient Textures can not be copied to");
   lovrAssert(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
   lovrAssert(src->info.flags & TEXTURE_COPY, "Texture must have the 'copy' flag to blit from it");
@@ -703,7 +705,7 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
-  gpu_blit(thread.stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
+  gpu_blit(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
 }
 
 // Canvas
