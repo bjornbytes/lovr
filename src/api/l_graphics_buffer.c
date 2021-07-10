@@ -446,12 +446,6 @@ static int l_lovrBufferRead(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBufferDrop(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
-  lovrBufferDrop(buffer);
-  return 0;
-}
-
 const luaL_Reg lovrBuffer[] = {
   { "getSize", l_lovrBufferGetSize },
   { "getLength", l_lovrBufferGetLength },
@@ -464,6 +458,5 @@ const luaL_Reg lovrBuffer[] = {
   { "clear", l_lovrBufferClear },
   { "copy", l_lovrBufferCopy },
   { "read", l_lovrBufferRead },
-  { "drop", l_lovrBufferDrop },
   { NULL, NULL }
 };

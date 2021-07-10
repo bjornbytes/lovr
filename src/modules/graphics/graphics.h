@@ -149,7 +149,6 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint32_t size, void* userdata), void* userdata);
-void lovrBufferDrop(Buffer* buffer);
 
 // Texture
 
