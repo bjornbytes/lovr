@@ -337,13 +337,6 @@ static int l_lovrBufferHasUsage(lua_State* L) {
   return 1;
 }
 
-static int l_lovrBufferIsTransient(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
-  const BufferInfo* info = lovrBufferGetInfo(buffer);
-  lua_pushboolean(L, info->transient);
-  return 1;
-}
-
 static int l_lovrBufferWrite(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   luax_readbufferdata(L, 2, buffer);
@@ -453,7 +446,6 @@ const luaL_Reg lovrBuffer[] = {
   { "getFormat", l_lovrBufferGetFormat },
   { "getPointer", l_lovrBufferGetPointer },
   { "hasUsage", l_lovrBufferHasUsage },
-  { "isTransient", l_lovrBufferIsTransient },
   { "write", l_lovrBufferWrite },
   { "clear", l_lovrBufferClear },
   { "copy", l_lovrBufferCopy },

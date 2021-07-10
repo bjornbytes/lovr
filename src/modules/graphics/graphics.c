@@ -343,7 +343,6 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
 Buffer* lovrBufferCreate(BufferInfo* info) {
   size_t size = info->length * (info->stride + !info->stride);
   lovrAssert(size > 0 && size <= state.limits.allocationSize, "Buffer size must be between 1 and limits.allocationSize (%d)", state.limits.allocationSize);
-  lovrAssert(!info->transient || (~info->usage & BUFFER_COPYTO), "Transient Buffers can not have the 'copyto' usage");
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
   lovrAssert(buffer, "Out of memory");
@@ -351,10 +350,6 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   buffer->info = *info;
   buffer->size = size;
   buffer->ref = 1;
-
-  if (info->transient) {
-    return buffer;
-  }
 
   gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
     .size = ALIGN(size, 4),
@@ -368,9 +363,6 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
-  if (!buffer->info.transient) {
-    gpu_buffer_destroy(buffer->gpu);
-  }
   free(buffer);
 }
 
@@ -382,14 +374,10 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
   if (size == ~0u) size = buffer->size - offset;
   lovrAssert(state.active, "Graphics is not active");
   lovrAssert(offset + size <= buffer->size, "Tried to write past the end of the Buffer");
-  if (buffer->info.transient) {
-    return (uint8_t*) buffer->pointer + offset;
-  } else {
-    lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Non-transient buffers must have the 'copyto' usage to write to them");
-    gpu_scratchpad scratch = gpu_scratch(size, 4);
-    gpu_copy_buffer(state.transfers, scratch.buffer, buffer->gpu, scratch.offset, offset, size);
-    return scratch.pointer;
-  }
+  lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
+  gpu_scratchpad scratch = gpu_scratch(size, 4);
+  gpu_copy_buffer(state.transfers, scratch.buffer, buffer->gpu, scratch.offset, offset, size);
+  return scratch.pointer;
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
@@ -397,12 +385,8 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrAssert(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrAssert(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrAssert(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
-  if (buffer->info.transient) {
-    memset((uint8_t*) buffer->pointer + offset, 0, size);
-  } else {
-    lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Non-transient buffers must have the 'copyto' usage to clear them");
-    gpu_clear_buffer(state.transfers, buffer->gpu, offset, size, 0);
-  }
+  lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
+  gpu_clear_buffer(state.transfers, buffer->gpu, offset, size, 0);
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
