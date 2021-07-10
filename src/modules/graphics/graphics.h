@@ -135,9 +135,8 @@ typedef struct {
   uint32_t length;
   uint16_t stride;
   uint16_t fieldCount;
-  FieldType types[16];
   uint16_t offsets[16];
-  bool transient;
+  uint8_t types[16];
   uintptr_t handle;
   const char* label;
 } BufferInfo;
