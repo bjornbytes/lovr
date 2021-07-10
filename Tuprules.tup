@@ -80,7 +80,7 @@ endif
 ## Linux
 ifeq ($(PLATFORM),linux)
   linux = y
-  CFLAGS += -D_POSIX_C_SOURCE=200809L
+  CFLAGS += -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
   CFLAGS += -DLOVR_GL
   LDFLAGS += -lm -lpthread -ldl
   LDFLAGS += -Wl,-rpath,\$ORIGIN
