@@ -134,9 +134,9 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
       index = luax_readvec3(L, index, m + 12, "mat4, vec3, or number");
       index = luax_readscale(L, index, S, scaleComponents, NULL);
       index = luax_readquat(L, index, R, NULL);
+      m[15] = 1.f;
       mat4_rotateQuat(m, R);
       mat4_scale(m, S[0], S[1], S[2]);
-      m[15] = 1.f;
       return index;
     }
   }

@@ -5,6 +5,8 @@
   "actions" : [
     { "name" : "/actions/lovr/in/leftHandPose", "type" : "pose" },
     { "name" : "/actions/lovr/in/rightHandPose", "type" : "pose" },
+    { "name" : "/actions/lovr/in/leftHandPoint", "type" : "pose" },
+    { "name" : "/actions/lovr/in/rightHandPoint", "type" : "pose" },
     { "name" : "/actions/lovr/in/leftElbowPose", "type" : "pose" },
     { "name" : "/actions/lovr/in/rightElbowPose", "type" : "pose" },
     { "name" : "/actions/lovr/in/leftShoulderPose", "type" : "pose" },
@@ -76,6 +78,8 @@
     {
       "/actions/lovr/in/leftHandPose": "Left Hand Pose",
       "/actions/lovr/in/rightHandPose": "Right Hand Pose",
+      "/actions/lovr/in/leftHandPoint": "Left Hand Point",
+      "/actions/lovr/in/rightHandPoint": "Right Hand Point",
       "/actions/lovr/in/leftTriggerDown": "Left Trigger Press",
       "/actions/lovr/in/leftTriggerTouch": "Left Trigger Touch",
       "/actions/lovr/in/leftTriggerAxis": "Left Trigger Axis",
