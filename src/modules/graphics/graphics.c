@@ -252,7 +252,6 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->renderHeight = state.limits.renderSize[1];
   limits->renderViews = MIN(state.limits.renderViews, 6);
   limits->bundleCount = state.limits.bundleCount;
-  limits->bundleSlots = state.limits.bundleSlots;
   limits->uniformBufferRange = state.limits.uniformBufferRange;
   limits->storageBufferRange = state.limits.storageBufferRange;
   limits->uniformBufferAlign = state.limits.uniformBufferAlign;
@@ -267,7 +266,6 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->computeGroupVolume = state.limits.computeGroupVolume;
   limits->computeSharedMemory = state.limits.computeSharedMemory;
   limits->indirectDrawCount = state.limits.indirectDrawCount;
-  limits->allocationSize = state.limits.allocationSize;
   limits->pointSize[0] = state.limits.pointSize[0];
   limits->pointSize[1] = state.limits.pointSize[1];
   limits->anisotropy = state.limits.anisotropy;
@@ -341,8 +339,9 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
 // Buffer
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
-  size_t size = info->length * (info->stride + !info->stride);
-  lovrAssert(size > 0 && size <= state.limits.allocationSize, "Buffer size must be between 1 and limits.allocationSize (%d)", state.limits.allocationSize);
+  size_t size = info->length * MAX(info->stride, 1);
+  lovrAssert(size > 0, "Buffer size must be positive");
+  lovrAssert(size <= 1 << 30, "Max Buffer size is 1GB");
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
   lovrAssert(buffer, "Out of memory");
@@ -463,7 +462,6 @@ static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint
 }
 
 Texture* lovrTextureCreate(TextureInfo* info) {
-  size_t memory = getTextureRegionSize(info->format, info->width, info->height, info->depth);
   uint32_t mips = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_VOLUME ? info->depth : 1))) + 1;
   uint8_t supports = state.features.formats[info->format];
 
@@ -484,7 +482,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrAssert(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
   lovrAssert(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
   lovrAssert(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
-  lovrAssert(memory <= state.limits.allocationSize, "Texture memory (%d) exceeds allocationSize limit of this GPU (%d)", memory, state.limits.allocationSize);
+  lovrAssert(getTextureRegionSize(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB");
   lovrAssert((info->samples & (info->samples - 1)) == 0, "Texture multisample count must be a power of 2");
   lovrAssert(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
   lovrAssert(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
