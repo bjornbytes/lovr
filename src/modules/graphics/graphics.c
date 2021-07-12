@@ -90,6 +90,7 @@ struct Batch {
 static struct {
   bool initialized;
   bool active;
+  uint32_t blockSize;
   gpu_hardware hardware;
   gpu_features features;
   gpu_limits limits;
@@ -138,7 +139,10 @@ static bool getInstanceExtensions(char* buffer, uint32_t size) {
   return true;
 }
 
-bool lovrGraphicsInit(bool debug) {
+bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
+  lovrAssert(blockSize <= 1 << 30, "Block size can not exceed 1GB");
+  state.blockSize = blockSize;
+
   gpu_config config = {
     .debug = debug,
     .hardware = &state.hardware,

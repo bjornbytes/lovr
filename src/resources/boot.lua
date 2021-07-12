@@ -118,7 +118,8 @@ function lovr.boot()
       spatializer = nil
     },
     graphics = {
-      debug = false
+      debug = false,
+      blocksize = 2 ^ 24
     },
     headset = {
       drivers = { 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'desktop' },

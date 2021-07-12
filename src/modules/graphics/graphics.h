@@ -69,7 +69,7 @@ typedef struct {
   float anisotropy;
 } GraphicsLimits;
 
-bool lovrGraphicsInit(bool debug);
+bool lovrGraphicsInit(bool debug, uint32_t blockSize);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsGetHardware(GraphicsHardware* hardware);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
