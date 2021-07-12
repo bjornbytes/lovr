@@ -7,6 +7,7 @@ struct Image;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
+typedef struct Sampler Sampler;
 typedef struct Canvas Canvas;
 typedef struct Shader Shader;
 typedef struct Batch Batch;
@@ -199,6 +200,50 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]);
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest);
 
+// Sampler
+
+typedef enum {
+  SAMPLER_NEAREST,
+  SAMPLER_BILINEAR,
+  SAMPLER_TRILINEAR,
+  SAMPLER_ANISOTROPIC,
+  MAX_DEFAULT_SAMPLERS
+} DefaultSampler;
+
+typedef enum {
+  FILTER_NEAREST,
+  FILTER_LINEAR
+} FilterMode;
+
+typedef enum {
+  WRAP_CLAMP,
+  WRAP_REPEAT,
+  WRAP_MIRROR
+} WrapMode;
+
+typedef enum {
+  COMPARE_NONE,
+  COMPARE_EQUAL,
+  COMPARE_NEQUAL,
+  COMPARE_LESS,
+  COMPARE_LEQUAL,
+  COMPARE_GREATER,
+  COMPARE_GEQUAL
+} CompareMode;
+
+typedef struct {
+  FilterMode min, mag, mip;
+  WrapMode wrap[3];
+  CompareMode compare;
+  float anisotropy;
+  float lodClamp[2];
+} SamplerInfo;
+
+Sampler* lovrSamplerCreate(SamplerInfo* info);
+Sampler* lovrSamplerGetDefault(DefaultSampler type);
+void lovrSamplerDestroy(void* ref);
+const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
+
 // Pipeline
 
 typedef enum {
@@ -216,16 +261,6 @@ typedef enum {
   BLEND_SCREEN,
   BLEND_NONE
 } BlendMode;
-
-typedef enum {
-  COMPARE_NONE,
-  COMPARE_EQUAL,
-  COMPARE_NEQUAL,
-  COMPARE_LESS,
-  COMPARE_LEQUAL,
-  COMPARE_GREATER,
-  COMPARE_GEQUAL
-} CompareMode;
 
 typedef enum {
   CULL_NONE,
