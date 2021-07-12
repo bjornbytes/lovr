@@ -184,7 +184,6 @@ typedef struct {
   uint32_t mipmaps;
   uint32_t samples;
   bool srgb;
-  bool transient;
   uintptr_t handle;
   const char* label;
 } TextureInfo;

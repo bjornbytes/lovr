@@ -493,7 +493,6 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrAssert(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'compute' flag for this format");
   lovrAssert(~info->usage & TEXTURE_CANVAS || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
   lovrAssert(~info->usage & TEXTURE_CANVAS || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
-  lovrAssert(!info->transient || info->usage == TEXTURE_CANVAS, "Textures with the 'transient' flag must have the 'render' usage (and only the render usage)");
   lovrAssert(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
@@ -508,7 +507,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .size = { info->width, info->height, info->depth },
     .mipmaps = info->mipmaps == ~0u ? mips : info->mipmaps + !info->mipmaps,
     .samples = info->samples + !info->samples,
-    .usage = info->usage | (info->transient ? GPU_TEXTURE_TRANSIENT : 0),
+    .usage = info->usage,
     .srgb = info->srgb,
     .handle = info->handle,
     .label = info->label
