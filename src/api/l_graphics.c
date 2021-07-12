@@ -727,10 +727,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     }
     lua_pop(L, 1);
 
-    lua_getfield(L, index, "transient");
-    info.transient = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
     lua_getfield(L, index, "label");
     info.label = lua_tostring(L, -1);
     lua_pop(L, 1);
