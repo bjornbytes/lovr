@@ -443,23 +443,6 @@ typedef struct {
   uint32_t size[2];
 } gpu_canvas;
 
-typedef struct {
-  gpu_buffer* buffer;
-  uint32_t usage;
-} gpu_buffer_sync;
-
-typedef struct {
-  gpu_texture* texture;
-  uint32_t usage;
-} gpu_texture_sync;
-
-typedef struct {
-  gpu_buffer_sync* buffers;
-  gpu_texture_sync* textures;
-  uint32_t bufferCount;
-  uint32_t textureCount;
-} gpu_sync_info;
-
 typedef void gpu_read_fn(void* data, uint32_t size, void* userdata);
 
 gpu_stream* gpu_stream_begin(void);
@@ -486,7 +469,7 @@ void gpu_read_texture(gpu_stream* stream, gpu_texture* texture, uint16_t offset[
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, uint32_t value);
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]);
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], gpu_filter filter);
-void gpu_sync(gpu_stream* stream, gpu_sync_info* sync);
+void gpu_sync(gpu_stream* stream);
 void gpu_label_push(gpu_stream* stream, const char* label);
 void gpu_label_pop(gpu_stream* stream);
 void gpu_timer_write(gpu_stream* stream);
