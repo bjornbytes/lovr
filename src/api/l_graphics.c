@@ -368,7 +368,6 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.renderHeight), lua_setfield(L, -2, "renderHeight");
   lua_pushinteger(L, limits.renderViews), lua_setfield(L, -2, "renderViews");
   lua_pushinteger(L, limits.bundleCount), lua_setfield(L, -2, "bundleCount");
-  lua_pushinteger(L, limits.bundleSlots), lua_setfield(L, -2, "bundleSlots");
   lua_pushinteger(L, limits.uniformBufferRange), lua_setfield(L, -2, "uniformBufferRange");
   lua_pushinteger(L, limits.storageBufferRange), lua_setfield(L, -2, "storageBufferRange");
   lua_pushinteger(L, limits.uniformBufferAlign), lua_setfield(L, -2, "uniformBufferAlign");
@@ -394,7 +393,6 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.computeGroupVolume), lua_setfield(L, -2, "computeGroupVolume");
   lua_pushinteger(L, limits.computeSharedMemory), lua_setfield(L, -2, "computeSharedMemory");
   lua_pushinteger(L, limits.indirectDrawCount), lua_setfield(L, -2, "indirectDrawCount");
-  lua_pushinteger(L, limits.allocationSize), lua_setfield(L, -2, "allocationSize");
 
   lua_createtable(L, 2, 0);
   lua_pushinteger(L, limits.pointSize[0]), lua_rawseti(L, -2, 1);
