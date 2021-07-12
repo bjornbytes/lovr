@@ -545,7 +545,6 @@ typedef struct {
   uint32_t renderSize[2];
   uint32_t renderViews;
   uint32_t bundleCount;
-  uint32_t bundleSlots;
   uint32_t uniformBufferRange;
   uint32_t storageBufferRange;
   uint32_t uniformBufferAlign;
@@ -560,7 +559,6 @@ typedef struct {
   uint32_t computeGroupVolume;
   uint32_t computeSharedMemory;
   uint32_t indirectDrawCount;
-  uint64_t allocationSize;
   uint32_t pointSize[2];
   float anisotropy;
 } gpu_limits;

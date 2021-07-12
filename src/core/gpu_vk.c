@@ -1829,8 +1829,7 @@ bool gpu_init(gpu_config* config) {
       state.memoryTypes[i] = memoryProperties.memoryTypes[i].propertyFlags;
     }
 
-    VkPhysicalDeviceMaintenance3Properties maintenance3Limits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES };
-    VkPhysicalDeviceMultiviewProperties multiviewLimits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES, .pNext = &maintenance3Limits };
+    VkPhysicalDeviceMultiviewProperties multiviewLimits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES };
     VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &multiviewLimits };
     VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
 
@@ -1858,7 +1857,6 @@ bool gpu_init(gpu_config* config) {
       config->limits->renderSize[1] = deviceLimits->maxFramebufferHeight;
       config->limits->renderViews = multiviewLimits.maxMultiviewViewCount;
       config->limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader*) NULL)->layouts));
-      config->limits->bundleSlots = maintenance3Limits.maxPerSetDescriptors;
       config->limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
       config->limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
       config->limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
@@ -1877,7 +1875,6 @@ bool gpu_init(gpu_config* config) {
       config->limits->computeGroupVolume = deviceLimits->maxComputeWorkGroupInvocations;
       config->limits->computeSharedMemory = deviceLimits->maxComputeSharedMemorySize;
       config->limits->indirectDrawCount = deviceLimits->maxDrawIndirectCount;
-      config->limits->allocationSize = maintenance3Limits.maxMemoryAllocationSize;
       config->limits->pointSize[0] = deviceLimits->pointSizeRange[0];
       config->limits->pointSize[1] = deviceLimits->pointSizeRange[1];
       config->limits->anisotropy = deviceLimits->maxSamplerAnisotropy;
