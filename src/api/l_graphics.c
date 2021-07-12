@@ -287,16 +287,21 @@ static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float
 
 static int l_lovrGraphicsInit(lua_State* L) {
   bool debug = false;
+  uint32_t blockSize = 1 << 24;
   luax_pushconf(L);
   lua_getfield(L, -1, "graphics");
   if (lua_istable(L, -1)) {
     lua_getfield(L, -1, "debug");
     debug = lua_toboolean(L, -1);
     lua_pop(L, 1);
+
+    lua_getfield(L, -1, "blocksize");
+    blockSize = luaL_optinteger(L, -1, blockSize);
+    lua_pop(L, 1);
   }
   lua_pop(L, 2);
 
-  if (lovrGraphicsInit(debug)) {
+  if (lovrGraphicsInit(debug, blockSize)) {
     luax_atexit(L, lovrGraphicsDestroy);
   }
 
