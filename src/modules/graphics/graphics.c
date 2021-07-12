@@ -18,12 +18,10 @@
 
 struct Buffer {
   uint32_t ref;
-  gpu_buffer* gpu;
-  BufferInfo info;
-  void* pointer;
-  uint32_t base;
-  uint32_t frame;
+  uint32_t index;
+  uint32_t offset;
   uint32_t size;
+  BufferInfo info;
 };
 
 struct Texture {
@@ -31,8 +29,6 @@ struct Texture {
   gpu_texture* gpu;
   gpu_texture* renderView;
   TextureInfo info;
-  uint32_t baseLayer;
-  uint32_t baseLevel;
 };
 
 typedef struct {
@@ -87,6 +83,39 @@ struct Batch {
   gpu_pipeline_info* pipeline;
 };
 
+typedef struct {
+  gpu_buffer* gpu;
+  uint32_t size;
+  uint32_t type;
+  uint32_t next;
+  uint32_t tick;
+  uint32_t refs;
+  char* data;
+} Megabuffer;
+
+typedef struct {
+  Megabuffer list[256];
+  uint32_t active[3];
+  uint32_t oldest[3];
+  uint32_t newest[3];
+  uint32_t cursor[3];
+  uint32_t count;
+} BufferPool;
+
+typedef struct {
+  void (*callback)(void*, uint32_t, void*);
+  void* userdata;
+  void* data;
+  uint32_t size;
+  uint32_t tick;
+} Readback;
+
+typedef struct {
+  uint32_t head;
+  uint32_t tail;
+  Readback list[16];
+} ReadbackPool;
+
 static struct {
   bool initialized;
   bool active;
@@ -94,6 +123,8 @@ static struct {
   gpu_hardware hardware;
   gpu_features features;
   gpu_limits limits;
+  BufferPool buffers;
+  ReadbackPool readbacks;
   map_t pipelines;
   map_t canvases;
   map_t passes;
@@ -103,7 +134,7 @@ static struct {
   gpu_stream* streams[MAX_STREAMS];
   int8_t streamOrder[MAX_STREAMS];
   uint32_t streamCount;
-  uint32_t frame;
+  uint32_t tick;
 } state;
 
 static void callback(void* context, const char* message, int severe) {
@@ -278,11 +309,17 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
 void lovrGraphicsBegin() {
   if (state.active) return;
   state.active = true;
-  state.frame++;
-  gpu_begin();
+  state.tick = gpu_begin();
   state.streams[0] = state.transfers = gpu_stream_begin();
   state.streamOrder[0] = 0;
   state.streamCount = 1;
+
+  // Process any finished readbacks
+  ReadbackPool* readbacks = &state.readbacks;
+  while (readbacks->tail != readbacks->head && gpu_finished(readbacks->list[readbacks->tail & 0xf].tick)) {
+    Readback* readback = &readbacks->list[readbacks->tail++ & 0xf];
+    readback->callback(readback->data, readback->size, readback->userdata);
+  }
 }
 
 static int streamSort(const void* a, const void* b) {
@@ -342,45 +379,130 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
 
 // Buffer
 
+static void bufferRecycle(uint8_t index) {
+  Megabuffer* buffer = &state.buffers.list[index];
+
+  lovrCheck(buffer->refs == 0, "Trying to release a Buffer while people are still using it");
+
+  // If there's a "newest" Megabuffer, make it the second newest
+  if (state.buffers.newest[buffer->type] != ~0u) {
+    state.buffers.list[state.buffers.newest[buffer->type]].next = index;
+  }
+
+  // If the waitlist is completely empty, this Megabuffer should become both the oldest and newest
+  if (state.buffers.oldest[buffer->type] == ~0u) {
+    state.buffers.oldest[buffer->type] = index;
+  }
+
+  // This Megabuffer is the newest
+  state.buffers.newest[buffer->type] = index;
+  buffer->next = ~0u;
+  buffer->tick = state.tick;
+}
+
+static void bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t align, uint32_t* index, uint32_t* offset) {
+  uint32_t active = state.buffers.active[type];
+  uint32_t oldest = state.buffers.oldest[type];
+  uint32_t cursor = ALIGN(state.buffers.cursor[type], align);
+
+  // If there's an active Megabuffer and it has room, use it
+  if (active != ~0u && cursor + size <= state.buffers.list[active].size) {
+    *index = active;
+    *offset = cursor;
+    state.buffers.cursor[type] = cursor + size;
+    return;
+  }
+
+  // If the active Megabuffer is full and has no users, it can be reused when GPU is done with it
+  if (active != ~0u && state.buffers.list[active].refs == 0) {
+    bufferRecycle(active);
+  }
+
+  // If the GPU is finished with the oldest Megabuffer, use it
+  if (oldest != ~0u && gpu_finished(state.buffers.list[oldest].tick)) {
+    *index = oldest;
+    *offset = 0;
+    // Linked list madness (basically moving oldest -> active)
+    state.buffers.oldest[type] = state.buffers.list[oldest].next;
+    state.buffers.list[oldest].next = ~0u;
+    state.buffers.active[type] = oldest;
+    state.buffers.cursor[type] = size;
+    return;
+  }
+
+  // No Megabuffers were available, time for a new one
+  lovrAssert(state.buffers.count < COUNTOF(state.buffers.list), "Out of Buffer memory");
+  state.buffers.active[type] = active = state.buffers.count++;
+  state.buffers.cursor[type] = size;
+  *index = active;
+  *offset = 0;
+
+  Megabuffer* buffer = &state.buffers.list[active];
+  buffer->gpu = calloc(1, gpu_sizeof_buffer()); // TODO
+  buffer->size = MAX(state.blockSize, size);
+  buffer->type = type;
+  buffer->next = ~0u;
+
+  uint32_t usage[] = {
+    [GPU_MEMORY_GPU] = ~0u,
+    [GPU_MEMORY_CPU_WRITE] = ~(GPU_BUFFER_STORAGE | GPU_BUFFER_COPY_DST),
+    [GPU_MEMORY_CPU_READ] = GPU_BUFFER_COPY_DST
+  };
+
+  void* data;
+  gpu_buffer_info info = {
+    .size = buffer->size,
+    .usage = usage[type],
+    .memory = type,
+    .data = &data
+  };
+
+  lovrAssert(buffer->gpu, "Out of memory");
+  lovrAssert(gpu_buffer_init(buffer->gpu, &info), "Failed to initialize Buffer");
+  buffer->data = data;
+}
+
 Buffer* lovrBufferCreate(BufferInfo* info) {
   size_t size = info->length * MAX(info->stride, 1);
   lovrAssert(size > 0, "Buffer size must be positive");
   lovrAssert(size <= 1 << 30, "Max Buffer size is 1GB");
-
-  Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
+  Buffer* buffer = calloc(1, sizeof(Buffer));
   lovrAssert(buffer, "Out of memory");
-  buffer->gpu = (gpu_buffer*) (buffer + 1);
-  buffer->info = *info;
-  buffer->size = size;
   buffer->ref = 1;
-
-  gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
-    .size = ALIGN(size, 4),
-    .usage = info->usage,
-    .handle = info->handle,
-    .label = info->label
-  });
-
+  buffer->size = size;
+  buffer->info = *info;
+  bufferAllocate(GPU_MEMORY_GPU, size, 16, &buffer->index, &buffer->offset);
+  state.buffers.list[buffer->index].refs++;
   return buffer;
 }
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
-  free(buffer);
+  Megabuffer* mega = &state.buffers.list[buffer->index];
+  if (mega->type == GPU_MEMORY_GPU) {
+    if (--mega->refs == 0) {
+      bufferRecycle(buffer->index);
+    }
+    free(buffer);
+  }
 }
 
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
 }
 
-void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
-  if (size == ~0u) size = buffer->size - offset;
+void* lovrBufferMap(Buffer* buffer, uint32_t dstOffset, uint32_t size) {
+  if (size == ~0u) size = buffer->size - dstOffset;
   lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(offset + size <= buffer->size, "Tried to write past the end of the Buffer");
+  lovrAssert(dstOffset + size <= buffer->size, "Tried to write past the end of the Buffer");
   lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
-  gpu_scratchpad scratch = gpu_scratch(size, 4);
-  gpu_copy_buffer(state.transfers, scratch.buffer, buffer->gpu, scratch.offset, offset, size);
-  return scratch.pointer;
+  uint32_t index;
+  uint32_t srcOffset;
+  bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4, &index, &srcOffset);
+  gpu_buffer* src = state.buffers.list[index].gpu;
+  gpu_buffer* dst = state.buffers.list[buffer->index].gpu;
+  gpu_copy_buffers(state.transfers, src, dst, srcOffset, dstOffset, size);
+  return state.buffers.list[index].data + srcOffset;
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
@@ -389,7 +511,7 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrAssert(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrAssert(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
   lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
-  gpu_clear_buffer(state.transfers, buffer->gpu, offset, size, 0);
+  gpu_clear_buffer(state.transfers, state.buffers.list[buffer->index].gpu, offset, size, 0);
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
@@ -398,14 +520,26 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
   lovrAssert(dst->info.usage & BUFFER_COPYTO, "Buffer must have the 'copyto' usage to copy to it");
   lovrAssert(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
   lovrAssert(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
-  gpu_copy_buffer(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, size);
+  gpu_buffer* gpuSrc = state.buffers.list[src->index].gpu;
+  gpu_buffer* gpuDst = state.buffers.list[dst->index].gpu;
+  gpu_copy_buffers(state.transfers, gpuSrc, gpuDst, srcOffset, dstOffset, size);
 }
 
-void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
+void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void*, uint32_t, void*), void* userdata) {
   lovrAssert(state.active, "Graphics is not active");
   lovrAssert(buffer->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to read from it");
   lovrAssert(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
-  gpu_read_buffer(state.transfers, buffer->gpu, offset, size, callback, userdata);
+  ReadbackPool* readbacks = &state.readbacks;
+  lovrAssert(readbacks->head - readbacks->tail != COUNTOF(readbacks->list), "Too many readbacks"); // TODO emergency waitIdle instead
+  //bufferAllocate
+  //gpu_copy_buffers...
+  readbacks->list[readbacks->head++ & 0xf] = (Readback) {
+    .callback = callback,
+    .userdata = userdata,
+    .data = NULL,
+    .size = size,
+    .tick = state.tick
+  };
 }
 
 // Texture
@@ -519,6 +653,21 @@ Texture* lovrTextureCreate(TextureInfo* info) {
 
   if (info->mipmaps == 1 && (info->type == TEXTURE_2D || info->type == TEXTURE_ARRAY)) {
     texture->renderView = texture->gpu;
+  } else if (texture->usage & TEXTURE_CANVAS) {
+    gpu_texture_view_info viewInfo = {
+      .source = texture->gpu,
+      .type = GPU_TEXTURE_ARRAY,
+      .layerCount = info->views,
+      .levelCount = 1
+    };
+
+    gpu_texture_init_view(
+    viewInfo.source = texture->info.parent ? texture->info.parent->gpu : texture->gpu;
+    viewInfo.layerIndex = texture->baseLayer;
+    viewInfo.levelIndex = texture->baseLevel;
+    texture->renderView = malloc(gpu_sizeof_texture());
+    lovrAssert(texture->renderView, "Out of memory");
+    lovrAssert(gpu_texture_init_view(texture->renderView, &viewInfo), "Failed to create texture view for canvas");
   }
 
   return texture;
@@ -562,6 +711,8 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 
   if (view->levelCount == 1 && (view->type == TEXTURE_2D || view->type == TEXTURE_ARRAY)) {
     texture->renderView = texture->gpu;
+  } else {
+
   }
 
   lovrRetain(view->parent);
@@ -582,15 +733,19 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
   lovrAssert(state.active, "Graphics is not active");
+  lovrAssert(!texture->info.parent, "Texture views can not be written to");
   lovrAssert(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to write to it");
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
   checkTextureBounds(&texture->info, offset, extent);
 
   char* src = data;
-  uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
-  char* dst = gpu_map_texture(state.transfers, texture->gpu, realOffset, extent);
+  //uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
+  size_t fullSize = getTextureRegionSize(texture->info.format, extent[0], extent[1], extent[2]);
   size_t rowSize = getTextureRegionSize(texture->info.format, extent[0], 1, 1);
   size_t imgSize = getTextureRegionSize(texture->info.format, extent[0], extent[1], 1);
+  // TODO all 3 of the above could be combined via successive multiplies, maybe it should be
+  // getTexturePixelSize
+  // bufferAllocate CPU_WRITE fullSize bytes to get scratch data to write to (gpu_buffer and offset for copy)
   size_t jump = step[0] ? step[0] : rowSize;
   size_t leap = step[1] ? step[1] : imgSize;
   for (uint16_t z = 0; z < extent[2]; z++) {
@@ -602,6 +757,8 @@ void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], 
     dst += imgSize;
     src += leap;
   }
+
+  //gpu_copy_buffer_texture(state.transfers, buffer->gpu, texture->gpu, offset, realOffset, extent, NULL);
 }
 
 void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uint16_t dstOffset[4], uint16_t extent[2]) {
@@ -632,8 +789,11 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
   lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
-  uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
-  gpu_read_texture(state.transfers, texture->gpu, realOffset, extent, callback, userdata);
+  //uint16_t realOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
+  ReadbackPool* readbacks = &state.readbacks;
+  lovrAssert(readbacks->head - readbacks->tail != COUNTOF(readbacks->list), "Too many readbacks"); // TODO emergency waitIdle instead
+  //bufferAllocate
+  //gpu_copy_texture_buffer
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
@@ -646,7 +806,7 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   checkTextureBounds(&dst->info, dstOffset, extent);
   uint16_t realSrcOffset[4] = { srcOffset[0], srcOffset[1], srcOffset[2] + src->baseLayer, srcOffset[3] + src->baseLevel };
   uint16_t realDstOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + dst->baseLayer, dstOffset[3] + dst->baseLevel };
-  gpu_copy_texture(state.transfers, src->gpu, dst->gpu, realSrcOffset, realDstOffset, extent);
+  gpu_copy_textures(state.transfers, src->gpu, dst->gpu, realSrcOffset, realDstOffset, extent);
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
