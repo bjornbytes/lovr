@@ -31,6 +31,12 @@ struct Texture {
   TextureInfo info;
 };
 
+struct Sampler {
+  uint32_t ref;
+  gpu_sampler* gpu;
+  SamplerInfo info;
+};
+
 typedef struct {
   float projection[6][16];
   float viewMatrix[6][16];
@@ -125,6 +131,7 @@ static struct {
   gpu_limits limits;
   BufferPool buffers;
   ReadbackPool readbacks;
+  Sampler* defaultSamplers[MAX_DEFAULT_SAMPLERS];
   map_t pipelines;
   map_t canvases;
   map_t passes;
@@ -824,6 +831,54 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_blit(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
+}
+
+// Sampler
+
+Sampler* lovrSamplerCreate(SamplerInfo* info) {
+  Sampler* sampler = calloc(1, sizeof(Sampler) + gpu_sizeof_sampler());
+  lovrAssert(sampler, "Out of memory");
+  sampler->gpu = (gpu_sampler*) (sampler + 1);
+  sampler->info = *info;
+  sampler->ref = 1;
+
+  gpu_sampler_info gpu = {
+    .min = (gpu_filter) info->min,
+    .mag = (gpu_filter) info->mag,
+    .mip = (gpu_filter) info->mip,
+    .wrap[0] = (gpu_wrap) info->wrap[0],
+    .wrap[1] = (gpu_wrap) info->wrap[1],
+    .wrap[2] = (gpu_wrap) info->wrap[2],
+    .compare = (gpu_compare_mode) info->compare,
+    .anisotropy = info->anisotropy,
+    .lodClamp = { info->lodClamp[0], info->lodClamp[1] }
+  };
+
+  lovrAssert(gpu_sampler_init(sampler->gpu, &gpu), "Failed to initialize sampler");
+  return sampler;
+}
+
+Sampler* lovrSamplerGetDefault(DefaultSampler type) {
+  if (!state.defaultSamplers[type]) {
+    state.defaultSamplers[type] = lovrSamplerCreate(&(SamplerInfo) {
+      .min = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
+      .mag = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
+      .mip = type == SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
+      .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
+    });
+  }
+
+  return state.defaultSamplers[type];
+}
+
+void lovrSamplerDestroy(void* ref) {
+  Sampler* sampler = ref;
+  gpu_sampler_destroy(sampler->gpu);
+  free(sampler);
+}
+
+const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
+  return &sampler->info;
 }
 
 // Canvas
