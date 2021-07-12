@@ -33,9 +33,17 @@ enum {
   GPU_BUFFER_COPY_DST = (1 << 6)
 };
 
+typedef enum {
+  GPU_MEMORY_GPU,
+  GPU_MEMORY_CPU_WRITE,
+  GPU_MEMORY_CPU_READ
+} gpu_memory_type;
+
 typedef struct {
   uint32_t size;
   uint32_t usage;
+  gpu_memory_type memory;
+  void** data;
   uintptr_t handle;
   const char* label;
 } gpu_buffer_info;
@@ -124,6 +132,7 @@ typedef struct {
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
+gpu_texture* gpu_surface_acquire(void);
 
 // Sampler
 
@@ -443,8 +452,6 @@ typedef struct {
   uint32_t size[2];
 } gpu_canvas;
 
-typedef void gpu_read_fn(void* data, uint32_t size, void* userdata);
-
 gpu_stream* gpu_stream_begin(void);
 void gpu_stream_end(gpu_stream* stream);
 void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas);
@@ -461,11 +468,10 @@ void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, 
 void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount);
 void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z);
 void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset);
-void* gpu_map_texture(gpu_stream* stream, gpu_texture* texture, uint16_t offset[4], uint16_t extent[3]);
-void gpu_copy_buffer(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
-void gpu_copy_texture(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]);
-void gpu_read_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, gpu_read_fn* fn, void* userdata);
-void gpu_read_texture(gpu_stream* stream, gpu_texture* texture, uint16_t offset[4], uint16_t extent[3], gpu_read_fn* fn, void* userdata);
+void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
+void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]);
+void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint16_t dstOffset[4], uint16_t extent[3]);
+void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint16_t srcOffset[4], uint32_t dstOffset, uint16_t extent[3]);
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, uint32_t value);
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]);
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], gpu_filter filter);
@@ -473,7 +479,7 @@ void gpu_sync(gpu_stream* stream);
 void gpu_label_push(gpu_stream* stream, const char* label);
 void gpu_label_pop(gpu_stream* stream);
 void gpu_timer_write(gpu_stream* stream);
-void gpu_timer_gather(gpu_stream* stream, gpu_read_fn* fn, void* userdata);
+void gpu_timer_gather(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset);
 
 // Entry
 
@@ -562,15 +568,8 @@ typedef struct {
   } vk;
 } gpu_config;
 
-typedef struct {
-  gpu_buffer* buffer;
-  void* pointer;
-  uint32_t offset;
-} gpu_scratchpad;
-
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
-void gpu_begin(void);
+uint32_t gpu_begin(void);
 void gpu_submit(gpu_stream** streams, uint32_t count);
-gpu_scratchpad gpu_scratch(uint32_t size, uint32_t align);
-gpu_texture* gpu_surface_acquire(void);
+bool gpu_finished(uint32_t tick);
