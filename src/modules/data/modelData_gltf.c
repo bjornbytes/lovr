@@ -49,11 +49,6 @@ typedef struct {
 } gltfMesh;
 
 typedef struct {
-  TextureFilter filter;
-  TextureWrap wrap;
-} gltfSampler;
-
-typedef struct {
   uint32_t image;
   uint32_t sampler;
 } gltfTexture;
@@ -126,16 +121,14 @@ static void* decodeBase64(char* str, size_t length, size_t decodedSize) {
   return data;
 }
 
-static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMaterial* material, MaterialTexture textureType, gltfTexture* textures, gltfSampler* samplers) {
+static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMaterial* material, MaterialTexture textureType, gltfTexture* textures) {
   for (int k = (token++)->size; k > 0; k--) {
     gltfString key = NOM_STR(json, token);
     if (STR_EQ(key, "index")) {
       uint32_t index = NOM_INT(json, token);
       gltfTexture* texture = &textures[index];
-      gltfSampler* sampler = texture->sampler == ~0u ? NULL : &samplers[texture->sampler];
       material->images[textureType] = texture->image;
-      material->filters[textureType] = sampler ? sampler->filter : (TextureFilter) { .mode = FILTER_BILINEAR };
-      material->wraps[textureType] = sampler ? sampler->wrap : (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT, .r = WRAP_REPEAT };
+      material->samplers[textureType] = texture->sampler;
     } else if (STR_EQ(key, "texCoord")) {
       lovrAssert(NOM_INT(json, token) == 0, "Only one set of texture coordinates is supported");
     } else {
@@ -217,6 +210,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     jsmntok_t* buffers;
     jsmntok_t* bufferViews;
     jsmntok_t* images;
+    jsmntok_t* samplers;
     jsmntok_t* materials;
     jsmntok_t* meshes;
     jsmntok_t* nodes;
@@ -229,7 +223,6 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
 
   gltfAnimationSampler* animationSamplers = NULL;
   gltfMesh* meshes = NULL;
-  gltfSampler* samplers = NULL;
   gltfTexture* textures = NULL;
   gltfScene* scenes = NULL;
   int rootScene = 0;
@@ -307,48 +300,9 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       token += NOM_VALUE(json, token);
 
     } else if (STR_EQ(key, "samplers")) {
-      samplers = malloc(token->size * sizeof(gltfSampler));
-      lovrAssert(samplers, "Out of memory");
-      gltfSampler* sampler = samplers;
-      for (int i = (token++)->size; i > 0; i--, sampler++) {
-        sampler->filter.mode = FILTER_BILINEAR;
-        sampler->wrap.s = sampler->wrap.t = sampler->wrap.r = WRAP_REPEAT;
-        int min = -1;
-        int mag = -1;
-
-        for (int k = (token++)->size; k > 0; k--) {
-          gltfString key = NOM_STR(json, token);
-          if (STR_EQ(key, "minFilter")) { min = NOM_INT(json, token); }
-          else if (STR_EQ(key, "magFilter")) { mag = NOM_INT(json, token); }
-          else if (STR_EQ(key, "wrapS")) {
-            switch (NOM_INT(json, token)) {
-              case 33071: sampler->wrap.s = WRAP_CLAMP; break;
-              case 33648: sampler->wrap.s = WRAP_MIRRORED_REPEAT; break;
-              case 10497: sampler->wrap.s = WRAP_REPEAT; break;
-              default: lovrThrow("Unknown sampler wrapS mode for sampler %d", i);
-            }
-          } else if (STR_EQ(key, "wrapT")) {
-            switch (NOM_INT(json, token)) {
-              case 33071: sampler->wrap.t = WRAP_CLAMP; break;
-              case 33648: sampler->wrap.t = WRAP_MIRRORED_REPEAT; break;
-              case 10497: sampler->wrap.t = WRAP_REPEAT; break;
-              default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
-            }
-          } else {
-            token += NOM_VALUE(json, token);
-          }
-        }
-
-        if (min == 9728 || min == 9984 || min == 9986 || mag == 9728) {
-          sampler->filter.mode = FILTER_NEAREST;
-        } else {
-          switch (min) {
-            case 9729: sampler->filter.mode = FILTER_BILINEAR; break;
-            case 9985: sampler->filter.mode = FILTER_BILINEAR; break;
-            case 9987: sampler->filter.mode = FILTER_TRILINEAR; break;
-          }
-        }
-      }
+      info.samplers = token;
+      model->samplerCount = token->size;
+      token += NOM_VALUE(json, token);
 
     } else if (STR_EQ(key, "textures")) {
       textures = malloc(token->size * sizeof(gltfTexture));
@@ -682,6 +636,46 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     }
   }
 
+  // Samplers
+  if (model->samplerCount > 0) {
+    jsmntok_t* token = info.samplers;
+    ModelSampler* sampler = model->samplers;
+    for (int i = (token++)->size; i > 0; i--, sampler++) {
+      sampler->min = sampler->mag = sampler->mip = MODEL_LINEAR;
+      sampler->u = sampler->v = sampler->w = MODEL_REPEAT;
+      int min = -1;
+      int mag = -1;
+
+      for (int k = (token++)->size; k > 0; k--) {
+        gltfString key = NOM_STR(json, token);
+        if (STR_EQ(key, "minFilter")) { min = NOM_INT(json, token); }
+        else if (STR_EQ(key, "magFilter")) { mag = NOM_INT(json, token); }
+        else if (STR_EQ(key, "wrapS")) {
+          switch (NOM_INT(json, token)) {
+            case 33071: sampler->u = MODEL_CLAMP; break;
+            case 10497: sampler->u = MODEL_REPEAT; break;
+            case 33648: sampler->u = MODEL_MIRROR; break;
+            default: lovrThrow("Unknown sampler wrapS mode for sampler %d", i);
+          }
+        } else if (STR_EQ(key, "wrapT")) {
+          switch (NOM_INT(json, token)) {
+            case 33071: sampler->v = MODEL_CLAMP; break;
+            case 10497: sampler->v = MODEL_REPEAT; break;
+            case 33648: sampler->v = MODEL_MIRROR; break;
+            default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
+          }
+        } else {
+          token += NOM_VALUE(json, token);
+        }
+      }
+
+      sampler->mag = (mag == 9728) ? MODEL_NEAREST : MODEL_LINEAR;
+      sampler->min = (min == 9728 || min == 9984 || min == 9986) ? MODEL_NEAREST : MODEL_LINEAR;
+      sampler->mip = (min == 9728 || min == 9729 || min == 9984 || min == 9985) ? MODEL_NEAREST : MODEL_LINEAR;
+      sampler->w = sampler->u;
+    }
+  }
+
   // Materials
   if (model->materialCount > 0) {
     jsmntok_t* token = info.materials;
@@ -705,26 +699,25 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
               material->colors[COLOR_DIFFUSE][2] = NOM_FLOAT(json, token);
               material->colors[COLOR_DIFFUSE][3] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "baseColorTexture")) {
-              token = resolveTexture(json, token, material, TEXTURE_DIFFUSE, textures, samplers);
+              token = resolveTexture(json, token, material, TEXTURE_DIFFUSE, textures);
             } else if (STR_EQ(key, "metallicFactor")) {
               material->scalars[SCALAR_METALNESS] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "roughnessFactor")) {
               material->scalars[SCALAR_ROUGHNESS] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "metallicRoughnessTexture")) {
-              token = resolveTexture(json, token, material, TEXTURE_METALNESS, textures, samplers);
+              token = resolveTexture(json, token, material, TEXTURE_METALNESS, textures);
               material->images[TEXTURE_ROUGHNESS] = material->images[TEXTURE_METALNESS];
-              material->filters[TEXTURE_ROUGHNESS] = material->filters[TEXTURE_METALNESS];
-              material->wraps[TEXTURE_ROUGHNESS] = material->wraps[TEXTURE_METALNESS];
+              material->samplers[TEXTURE_ROUGHNESS] = material->samplers[TEXTURE_METALNESS];
             } else {
               token += NOM_VALUE(json, token);
             }
           }
         } else if (STR_EQ(key, "normalTexture")) {
-          token = resolveTexture(json, token, material, TEXTURE_NORMAL, textures, samplers);
+          token = resolveTexture(json, token, material, TEXTURE_NORMAL, textures);
         } else if (STR_EQ(key, "occlusionTexture")) {
-          token = resolveTexture(json, token, material, TEXTURE_OCCLUSION, textures, samplers);
+          token = resolveTexture(json, token, material, TEXTURE_OCCLUSION, textures);
         } else if (STR_EQ(key, "emissiveTexture")) {
-          token = resolveTexture(json, token, material, TEXTURE_EMISSIVE, textures, samplers);
+          token = resolveTexture(json, token, material, TEXTURE_EMISSIVE, textures);
         } else if (STR_EQ(key, "emissiveFactor")) {
           token++; // Enter array
           material->colors[COLOR_EMISSIVE][0] = NOM_FLOAT(json, token);
@@ -926,7 +919,6 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
 
   free(animationSamplers);
   free(meshes);
-  free(samplers);
   free(textures);
   free(scenes);
   free(heapTokens);
