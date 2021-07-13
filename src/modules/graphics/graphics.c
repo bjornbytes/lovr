@@ -183,7 +183,7 @@ static bool getInstanceExtensions(char* buffer, uint32_t size) {
 }
 
 bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
-  lovrAssert(blockSize <= 1 << 30, "Block size can not exceed 1GB");
+  lovrCheck(blockSize <= 1 << 30, "Block size can not exceed 1GB");
   state.blockSize = blockSize;
 
   gpu_config config = {
@@ -355,7 +355,7 @@ void lovrGraphicsSubmit() {
 }
 
 void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
-  lovrAssert(state.active, "Graphics is not active");
+  lovrCheck(state.active, "Graphics is not active");
 
   // TODO pre-render hook
   if (canvas == state.window) {
@@ -464,8 +464,8 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
   size_t size = info->length * MAX(info->stride, 1);
-  lovrAssert(size > 0, "Buffer size must be positive");
-  lovrAssert(size <= 1 << 30, "Max Buffer size is 1GB");
+  lovrCheck(size > 0, "Buffer size must be positive");
+  lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
   Buffer* buffer = calloc(1, sizeof(Buffer));
   lovrAssert(buffer, "Out of memory");
   buffer->ref = 1;
@@ -495,38 +495,38 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
 
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
   if (size == ~0u) size = buffer->size - offset;
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(offset + size <= buffer->size, "Tried to write past the end of the Buffer");
-  lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(offset + size <= buffer->size, "Tried to write past the end of the Buffer");
+  lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
   Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
   gpu_copy_buffers(state.transfers, scratch.buffer->gpu, buffer->gpu, scratch.offset, buffer->offset + offset, size);
   return scratch.buffer->data + scratch.offset;
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
-  lovrAssert(size % 4 == 0, "Buffer clear size must be a multiple of 4");
-  lovrAssert(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
-  lovrAssert(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
+  lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
+  lovrCheck(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
+  lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
   gpu_clear_buffer(state.transfers, buffer->gpu, offset, size, 0);
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(src->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to copy from it");
-  lovrAssert(dst->info.usage & BUFFER_COPYTO, "Buffer must have the 'copyto' usage to copy to it");
-  lovrAssert(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
-  lovrAssert(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(src->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to copy from it");
+  lovrCheck(dst->info.usage & BUFFER_COPYTO, "Buffer must have the 'copyto' usage to copy to it");
+  lovrCheck(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
+  lovrCheck(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
   gpu_copy_buffers(state.transfers, src->gpu, dst->gpu, src->offset + srcOffset, dst->offset + dstOffset, size);
 }
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void*, uint32_t, void*), void* userdata) {
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(buffer->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to read from it");
-  lovrAssert(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(buffer->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to read from it");
+  lovrCheck(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
   ReaderPool* readers = &state.readers;
-  lovrAssert(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
+  lovrCheck(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
   //bufferAllocate
   //gpu_copy_buffers...
   readers->list[readers->head++ & 0xf] = (Reader) {
@@ -589,10 +589,10 @@ static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint
   uint16_t maxWidth = MAX(info->width >> offset[3], 1);
   uint16_t maxHeight = MAX(info->height >> offset[3], 1);
   uint16_t maxDepth = info->type == TEXTURE_VOLUME ? MAX(info->depth >> offset[3], 1) : info->depth;
-  lovrAssert(offset[0] + extent[0] <= maxWidth, "Texture x range [%d,%d] exceeds width (%d)", offset[0], offset[0] + extent[0], maxWidth);
-  lovrAssert(offset[1] + extent[1] <= maxHeight, "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], maxHeight);
-  lovrAssert(offset[2] + extent[2] <= maxDepth, "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], maxDepth);
-  lovrAssert(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
+  lovrCheck(offset[0] + extent[0] <= maxWidth, "Texture x range [%d,%d] exceeds width (%d)", offset[0], offset[0] + extent[0], maxWidth);
+  lovrCheck(offset[1] + extent[1] <= maxHeight, "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], maxHeight);
+  lovrCheck(offset[2] + extent[2] <= maxDepth, "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], maxDepth);
+  lovrCheck(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
 }
 
 Texture* lovrTextureCreate(TextureInfo* info) {
@@ -606,28 +606,28 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     [TEXTURE_VOLUME] = state.limits.textureSize3D
   };
 
-  lovrAssert(info->width > 0, "Texture width must be greater than zero");
-  lovrAssert(info->height > 0, "Texture height must be greater than zero");
-  lovrAssert(info->depth > 0, "Texture depth must be greater than zero");
-  lovrAssert(info->width <= limits[info->type], "Texture %s exceeds the limit for this texture type (%d)", "width", limits[info->type]);
-  lovrAssert(info->height <= limits[info->type], "Texture %s exceeds the limit for this texture type (%d)", "height", limits[info->type]);
-  lovrAssert(info->depth <= limits[info->type] || info->type != TEXTURE_VOLUME, "Texture %s exceeds the limit for this texture type (%d)", "depth", limits[info->type]);
-  lovrAssert(info->depth <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "depth", limits[info->type]);
-  lovrAssert(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
-  lovrAssert(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
-  lovrAssert(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
-  lovrAssert(getTextureRegionSize(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB");
-  lovrAssert((info->samples & (info->samples - 1)) == 0, "Texture multisample count must be a power of 2");
-  lovrAssert(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
-  lovrAssert(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
-  lovrAssert(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'compute' flag can not be multisampled");
-  lovrAssert(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
-  lovrAssert(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
-  lovrAssert(~info->usage & TEXTURE_CANVAS || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
-  lovrAssert(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'compute' flag for this format");
-  lovrAssert(~info->usage & TEXTURE_CANVAS || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
-  lovrAssert(~info->usage & TEXTURE_CANVAS || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
-  lovrAssert(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
+  lovrCheck(info->width > 0, "Texture width must be greater than zero");
+  lovrCheck(info->height > 0, "Texture height must be greater than zero");
+  lovrCheck(info->depth > 0, "Texture depth must be greater than zero");
+  lovrCheck(info->width <= limits[info->type], "Texture %s exceeds the limit for this texture type (%d)", "width", limits[info->type]);
+  lovrCheck(info->height <= limits[info->type], "Texture %s exceeds the limit for this texture type (%d)", "height", limits[info->type]);
+  lovrCheck(info->depth <= limits[info->type] || info->type != TEXTURE_VOLUME, "Texture %s exceeds the limit for this texture type (%d)", "depth", limits[info->type]);
+  lovrCheck(info->depth <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "depth", limits[info->type]);
+  lovrCheck(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
+  lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
+  lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
+  lovrCheck(getTextureRegionSize(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB");
+  lovrCheck((info->samples & (info->samples - 1)) == 0, "Texture multisample count must be a power of 2");
+  lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
+  lovrCheck(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
+  lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'compute' flag can not be multisampled");
+  lovrCheck(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
+  lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
+  lovrCheck(~info->usage & TEXTURE_CANVAS || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
+  lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'compute' flag for this format");
+  lovrCheck(~info->usage & TEXTURE_CANVAS || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
+  lovrCheck(~info->usage & TEXTURE_CANVAS || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
+  lovrCheck(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   lovrAssert(texture, "Out of memory");
@@ -673,15 +673,15 @@ Texture* lovrTextureCreate(TextureInfo* info) {
 Texture* lovrTextureCreateView(TextureViewInfo* view) {
   const TextureInfo* info = &view->parent->info;
   uint32_t maxDepth = info->type == TEXTURE_VOLUME ? MAX(info->depth >> view->levelIndex, 1) : info->depth;
-  lovrAssert(!info->parent, "Can't nest texture views");
-  lovrAssert(view->type != TEXTURE_VOLUME, "Texture views may not be volume textures");
-  lovrAssert(view->layerCount > 0, "Texture view must have at least one layer");
-  lovrAssert(view->levelCount > 0, "Texture view must have at least one mipmap");
-  lovrAssert(view->layerIndex + view->layerCount <= maxDepth, "Texture view layer range exceeds depth of parent texture");
-  lovrAssert(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
-  lovrAssert(view->layerCount == 1 || view->type != TEXTURE_2D, "2D texture can only have a single layer");
-  lovrAssert(view->layerCount == 6 || view->type != TEXTURE_CUBE, "Cubemaps can only have a six layers");
-  lovrAssert(view->levelCount == 1 || info->type != TEXTURE_VOLUME, "Views of volume textures may only have a single mipmap level");
+  lovrCheck(!info->parent, "Can't nest texture views");
+  lovrCheck(view->type != TEXTURE_VOLUME, "Texture views may not be volume textures");
+  lovrCheck(view->layerCount > 0, "Texture view must have at least one layer");
+  lovrCheck(view->levelCount > 0, "Texture view must have at least one mipmap");
+  lovrCheck(view->layerIndex + view->layerCount <= maxDepth, "Texture view layer range exceeds depth of parent texture");
+  lovrCheck(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
+  lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D texture can only have a single layer");
+  lovrCheck(view->layerCount == 6 || view->type != TEXTURE_CUBE, "Cubemaps can only have a six layers");
+  lovrCheck(view->levelCount == 1 || info->type != TEXTURE_VOLUME, "Views of volume textures may only have a single mipmap level");
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   lovrAssert(texture, "Out of memory");
@@ -727,10 +727,10 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 }
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(!texture->info.parent, "Texture views can not be written to");
-  lovrAssert(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to write to it");
-  lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be written to");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(!texture->info.parent, "Texture views can not be written to");
+  lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to write to it");
+  lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be written to");
   checkTextureBounds(&texture->info, offset, extent);
 
   char* src = data;
@@ -756,9 +756,9 @@ void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], 
 }
 
 void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uint16_t dstOffset[4], uint16_t extent[2]) {
-  lovrAssert(texture->info.format == image->format, "Texture and Image formats must match");
-  lovrAssert(srcOffset[0] + extent[0] <= image->width, "Tried to read pixels past the width of the Image");
-  lovrAssert(srcOffset[1] + extent[1] <= image->height, "Tried to read pixels past the height of the Image");
+  lovrCheck(texture->info.format == image->format, "Texture and Image formats must match");
+  lovrCheck(srcOffset[0] + extent[0] <= image->width, "Tried to read pixels past the width of the Image");
+  lovrCheck(srcOffset[1] + extent[1] <= image->height, "Tried to read pixels past the height of the Image");
 
   uint16_t fullExtent[3] = { extent[0], extent[1], 1 };
   uint32_t step[2] = { getTextureRegionSize(image->format, image->width, 1, 1), 0 };
@@ -770,50 +770,50 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
 }
 
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(!texture->info.parent, "Texture views can not be cleared");
-  lovrAssert(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
-  lovrAssert(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
-  lovrAssert(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(!texture->info.parent, "Texture views can not be cleared");
+  lovrCheck(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
+  lovrCheck(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
+  lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
   gpu_clear_texture(state.transfers, texture->gpu, layer, layerCount, level, levelCount, color);
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(!texture->info.parent, "Texture views can not be read");
-  lovrAssert(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to read from it");
-  lovrAssert(texture->info.samples == 1, "Multisampled Textures can not be read");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(!texture->info.parent, "Texture views can not be read");
+  lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to read from it");
+  lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
   ReaderPool* readers = &state.readers;
-  lovrAssert(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
+  lovrCheck(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
   //bufferAllocate
   //gpu_copy_texture_buffer
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(!src->info.parent && !dst->info.parent, "Can not copy Texture views");
-  lovrAssert(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to copy from it");
-  lovrAssert(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to copy to it");
-  lovrAssert(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
-  lovrAssert(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(!src->info.parent && !dst->info.parent, "Can not copy Texture views");
+  lovrCheck(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to copy from it");
+  lovrCheck(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to copy to it");
+  lovrCheck(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
+  lovrCheck(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
   checkTextureBounds(&src->info, srcOffset, extent);
   checkTextureBounds(&dst->info, dstOffset, extent);
   gpu_copy_textures(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
-  lovrAssert(state.active, "Graphics is not active");
-  lovrAssert(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
-  lovrAssert(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
-  lovrAssert(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to blit from it");
-  lovrAssert(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to blit to it");
-  lovrAssert(state.features.formats[src->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
-  lovrAssert(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
+  lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
+  lovrCheck(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to blit from it");
+  lovrCheck(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to blit to it");
+  lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
+  lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
 
   if (isDepthFormat(src->info.format) || isDepthFormat(dst->info.format)) {
-    lovrAssert(src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
+    lovrCheck(src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
   }
 
   checkTextureBounds(&src->info, srcOffset, srcExtent);
@@ -872,7 +872,7 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
 // Canvas
 
 Canvas* lovrCanvasCreate(CanvasInfo* info) {
-  lovrAssert(info->color[0].texture || info->depth.texture, "Canvas must have at least one color or depth texture");
+  lovrCheck(info->color[0].texture || info->depth.texture, "Canvas must have at least one color or depth texture");
   const TextureInfo* first = info->color[0].texture ? &info->color[0].texture->info : &info->depth.texture->info;
 
   uint32_t width = first->width;
@@ -881,21 +881,21 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
   bool resolve = first->samples == 1 && info->samples > 1;
 
   // Validate size/samples
-  lovrAssert(width <= state.limits.renderSize[0], "Canvas width exceeds the renderWidth limit of this GPU (%d)", state.limits.renderSize[0]);
-  lovrAssert(height <= state.limits.renderSize[1], "Canvas width exceeds the renderHeight limit of this GPU (%d)", state.limits.renderSize[1]);
-  lovrAssert(info->views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", info->views, state.limits.renderViews);
-  lovrAssert((samples & (samples - 1)) == 0, "Canvas multisample count must be a power of 2");
+  lovrCheck(width <= state.limits.renderSize[0], "Canvas width exceeds the renderWidth limit of this GPU (%d)", state.limits.renderSize[0]);
+  lovrCheck(height <= state.limits.renderSize[1], "Canvas width exceeds the renderHeight limit of this GPU (%d)", state.limits.renderSize[1]);
+  lovrCheck(info->views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", info->views, state.limits.renderViews);
+  lovrCheck((samples & (samples - 1)) == 0, "Canvas multisample count must be a power of 2");
 
   // Validate color attachments
   for (uint32_t i = 0; i < info->count && i < 4; i++) {
     Texture* texture = info->color[i].texture;
     bool renderable = texture->info.format == ~0u || (state.features.formats[texture->info.format] & GPU_FEATURE_RENDER_COLOR);
-    lovrAssert(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
-    lovrAssert(texture->info.usage & TEXTURE_CANVAS, "Texture must be created with the 'render' flag to attach it to a Canvas");
-    lovrAssert(texture->info.width == first->width, "Canvas texture sizes must match");
-    lovrAssert(texture->info.height == first->height, "Canvas texture sizes must match");
-    lovrAssert(texture->info.depth == first->depth, "Canvas texture sizes must match");
-    lovrAssert(texture->info.samples == first->samples, "Canvas texture sample counts must match");
+    lovrCheck(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
+    lovrCheck(texture->info.usage & TEXTURE_CANVAS, "Texture must be created with the 'render' flag to attach it to a Canvas");
+    lovrCheck(texture->info.width == first->width, "Canvas texture sizes must match");
+    lovrCheck(texture->info.height == first->height, "Canvas texture sizes must match");
+    lovrCheck(texture->info.depth == first->depth, "Canvas texture sizes must match");
+    lovrCheck(texture->info.samples == first->samples, "Canvas texture sample counts must match");
   }
 
   // Validate depth attachment
@@ -903,13 +903,13 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
     Texture* texture = info->depth.texture;
     TextureFormat format = texture ? texture->info.format : info->depth.format;
     bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER_DEPTH;
-    lovrAssert(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
+    lovrCheck(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
     if (texture) {
-      lovrAssert(texture->info.usage & TEXTURE_CANVAS, "Textures must be created with the 'render' flag to attach them to a Canvas");
-      lovrAssert(texture->info.width == first->width, "Canvas texture sizes must match");
-      lovrAssert(texture->info.height == first->height, "Canvas texture sizes must match");
-      lovrAssert(texture->info.depth == first->depth, "Canvas texture sizes must match");
-      lovrAssert(texture->info.samples == samples, "Currently, Canvas depth buffer sample count must match its main multisample count");
+      lovrCheck(texture->info.usage & TEXTURE_CANVAS, "Textures must be created with the 'render' flag to attach them to a Canvas");
+      lovrCheck(texture->info.width == first->width, "Canvas texture sizes must match");
+      lovrCheck(texture->info.height == first->height, "Canvas texture sizes must match");
+      lovrCheck(texture->info.depth == first->depth, "Canvas texture sizes must match");
+      lovrCheck(texture->info.samples == samples, "Currently, Canvas depth buffer sample count must match its main multisample count");
     }
   }
 
@@ -1080,22 +1080,22 @@ uint32_t lovrCanvasGetHeight(Canvas* canvas) {
 }
 
 void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
-  lovrAssert(index < COUNTOF(canvas->camera.viewMatrix), "Invalid view index %d", index);
+  lovrCheck(index < COUNTOF(canvas->camera.viewMatrix), "Invalid view index %d", index);
   mat4_init(viewMatrix, canvas->camera.viewMatrix[index]);
 }
 
 void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
-  lovrAssert(index < COUNTOF(canvas->camera.viewMatrix), "Invalid view index %d", index);
+  lovrCheck(index < COUNTOF(canvas->camera.viewMatrix), "Invalid view index %d", index);
   mat4_init(canvas->camera.viewMatrix[index], viewMatrix);
 }
 
 void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection) {
-  lovrAssert(index < COUNTOF(canvas->camera.projection), "Invalid view index %d", index);
+  lovrCheck(index < COUNTOF(canvas->camera.projection), "Invalid view index %d", index);
   mat4_init(projection, canvas->camera.projection[index]);
 }
 
 void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection) {
-  lovrAssert(index < COUNTOF(canvas->camera.projection), "Invalid view index %d", index);
+  lovrCheck(index < COUNTOF(canvas->camera.projection), "Invalid view index %d", index);
   mat4_init(canvas->camera.projection[index], projection);
 }
 
@@ -1156,20 +1156,20 @@ static bool checkShaderCapability(uint32_t capability) {
     case 3: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "tessellation shading");
     case 5: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "linkage");
     case 9: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "half floats");
-    case 10: lovrAssert(state.features.float64, "GPU does not support shader feature #%d: %s", capability, "64 bit floats"); break;
-    case 11: lovrAssert(state.features.int64, "GPU does not support shader feature #%d: %s", capability, "64 bit integers"); break;
+    case 10: lovrCheck(state.features.float64, "GPU does not support shader feature #%d: %s", capability, "64 bit floats"); break;
+    case 11: lovrCheck(state.features.int64, "GPU does not support shader feature #%d: %s", capability, "64 bit integers"); break;
     case 12: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "64 bit atomics");
-    case 22: lovrAssert(state.features.int16, "GPU does not support shader feature #%d: %s", capability, "16 bit integers"); break;
+    case 22: lovrCheck(state.features.int16, "GPU does not support shader feature #%d: %s", capability, "16 bit integers"); break;
     case 23: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "tessellation shading");
     case 24: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "geometry shading");
     case 25: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "extended image gather");
     case 27: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multisample storage textures");
-    case 28: lovrAssert(state.features.dynamicIndexing, "GPU does not support shader feature #%d: %s", capability, "dynamic indexing"); break;
-    case 29: lovrAssert(state.features.dynamicIndexing, "GPU does not support shader feature #%d: %s", capability, "dynamic indexing"); break;
-    case 30: lovrAssert(state.features.dynamicIndexing, "GPU does not support shader feature #%d: %s", capability, "dynamic indexing"); break;
-    case 31: lovrAssert(state.features.dynamicIndexing, "GPU does not support shader feature #%d: %s", capability, "dynamic indexing"); break;
-    case 32: lovrAssert(state.features.clipDistance, "GPU does not support shader feature #%d: %s", capability, "clip distance"); break;
-    case 33: lovrAssert(state.features.cullDistance, "GPU does not support shader feature #%d: %s", capability, "cull distance"); break;
+    case 28: lovrCheck(state.features.dynamicIndexing, "GPU does not support shader feature #%d: %s", capability, "dynamic indexing"); break;
+    case 29: lovrCheck(state.features.dynamicIndexing, "GPU does not support shader feature #%d: %s", capability, "dynamic indexing"); break;
+    case 30: lovrCheck(state.features.dynamicIndexing, "GPU does not support shader feature #%d: %s", capability, "dynamic indexing"); break;
+    case 31: lovrCheck(state.features.dynamicIndexing, "GPU does not support shader feature #%d: %s", capability, "dynamic indexing"); break;
+    case 32: lovrCheck(state.features.clipDistance, "GPU does not support shader feature #%d: %s", capability, "clip distance"); break;
+    case 33: lovrCheck(state.features.cullDistance, "GPU does not support shader feature #%d: %s", capability, "cull distance"); break;
     case 34: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "cubemap array textures");
     case 35: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "sample rate shading");
     case 36: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "rectangle textures");
@@ -1195,9 +1195,9 @@ static bool checkShaderCapability(uint32_t capability) {
     case 57: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multiviewport");
     case 69: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "layered rendering");
     case 70: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multiviewport");
-    case 4427: lovrAssert(state.features.extraShaderInputs, "GPU does not support shader feature #%d: %s", capability, "extra shader inputs"); break;
+    case 4427: lovrCheck(state.features.extraShaderInputs, "GPU does not support shader feature #%d: %s", capability, "extra shader inputs"); break;
     case 4437: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multigpu");
-    case 4439: lovrAssert(state.limits.renderViews > 1, "GPU does not support shader feature #%d: %s", capability, "multiview"); break;
+    case 4439: lovrCheck(state.limits.renderViews > 1, "GPU does not support shader feature #%d: %s", capability, "multiview"); break;
     case 5301: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
     case 5306: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
     case 5307: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
@@ -1218,23 +1218,23 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* c
   // Follow the variable's type id to the OpTypePointer instruction that declares its pointer type
   // Then unwrap the pointer to get to the inner type of the variable
   instruction = words + cache[type];
-  lovrAssert(instruction < edge && instruction[3] < bound, "Invalid Shader code: id overflow");
+  lovrCheck(instruction < edge && instruction[3] < bound, "Invalid Shader code: id overflow");
   instruction = words + cache[instruction[3]];
-  lovrAssert(instruction < edge, "Invalid Shader code: id overflow");
+  lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
 
   if ((instruction[0] & 0xffff) == 28) { // OpTypeArray
     // Read array size
-    lovrAssert(instruction[3] < bound && words + cache[instruction[3]] < edge, "Invalid Shader code: id overflow");
+    lovrCheck(instruction[3] < bound && words + cache[instruction[3]] < edge, "Invalid Shader code: id overflow");
     const uint32_t* size = words + cache[instruction[3]];
     if ((size[0] & 0xffff) == 43 || (size[0] & 0xffff) == 50) { // OpConstant || OpSpecConstant
-      lovrAssert(size[3] <= 0xffff, "Unsupported Shader code: variable %d has array size of %d, but the max array size is 65535", id, size[3]);
+      lovrCheck(size[3] <= 0xffff, "Unsupported Shader code: variable %d has array size of %d, but the max array size is 65535", id, size[3]);
       *count = size[3];
     } else {
       lovrThrow("Invalid Shader code: variable %d is an array, but the array size is not a constant", id);
     }
 
     // Unwrap array to get to inner array type and keep going
-    lovrAssert(instruction[2] < bound && words + cache[instruction[2]] < edge, "Invalid Shader code: id overflow");
+    lovrCheck(instruction[2] < bound && words + cache[instruction[2]] < edge, "Invalid Shader code: id overflow");
     instruction = words + cache[instruction[2]];
   } else {
     *count = 1;
@@ -1250,7 +1250,7 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* c
   // If it's a sampled image, unwrap to get to the image type.  If it's not an image, fail
   if ((instruction[0] & 0xffff) == 27) { // OpTypeSampledImage
     instruction = words + cache[instruction[2]];
-    lovrAssert(instruction < edge, "Invalid Shader code: id overflow");
+    lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
   } else if ((instruction[0] & 0xffff) != 25) { // OpTypeImage
     lovrThrow("Invalid Shader code: variable %d is not recognized as a valid buffer or texture resource", id);
   }
@@ -1277,7 +1277,7 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
   }
 
   uint32_t bound = words[3];
-  lovrAssert(bound <= 0xffff, "Unsupported Shader code: id bound is too big (max is 65535)");
+  lovrCheck(bound <= 0xffff, "Unsupported Shader code: id bound is too big (max is 65535)");
 
   // The cache stores information for spirv ids, allowing everything to be parsed in a single pass
   // - For bundle variables, stores the slot's group, index, and name offset
@@ -1300,8 +1300,8 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
     uint16_t length = instruction[0] >> 16;
     uint32_t id;
 
-    lovrAssert(length > 0, "Invalid Shader code: zero-length instruction");
-    lovrAssert(instruction + length <= words + wordCount, "Invalid Shader code: instruction overflow");
+    lovrCheck(length > 0, "Invalid Shader code: zero-length instruction");
+    lovrCheck(instruction + length <= words + wordCount, "Invalid Shader code: instruction overflow");
 
     switch (opcode) {
       case 17: // OpCapability
@@ -1321,13 +1321,13 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
         uint32_t value = instruction[3];
 
         if (decoration == 33) { // Binding
-          lovrAssert(value < 16, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 16", id, value);
+          lovrCheck(value < 16, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 16", id, value);
           vars[id].binding = value;
         } else if (decoration == 34) { // Group
-          lovrAssert(value < 4, "Unsupported Shader code: variable %d is in group %d, but group must be less than 4", id, value);
+          lovrCheck(value < 4, "Unsupported Shader code: variable %d is in group %d, but group must be less than 4", id, value);
           vars[id].group = value;
         } else if (decoration == 30) { // Location
-          lovrAssert(value < 16, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
+          lovrCheck(value < 16, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
           locations[id] = value;
         }
         break;
@@ -1381,7 +1381,7 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
             if (old == MAP_NIL) {
               map_set(&shader->lookup, hash, new);
             } else {
-              lovrAssert(old == new, "Unsupported Shader code: variable named '%s' is bound to 2 different locations", name);
+              lovrCheck(old == new, "Unsupported Shader code: variable named '%s' is bound to 2 different locations", name);
             }
           }
         }
@@ -1393,11 +1393,11 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
         // Add a new slot or merge our info into a slot added by a different stage
         if (group->slotMask & (1 << slotId)) {
           gpu_slot* other = &group->slots[group->slotIndex[slotId]];
-          lovrAssert(other->type == type, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different types", groupId, slotId);
-          lovrAssert(other->count == count, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different array sizes", groupId, slotId);
+          lovrCheck(other->type == type, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different types", groupId, slotId);
+          lovrCheck(other->count == count, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different array sizes", groupId, slotId);
           other->stage |= stage;
         } else {
-          lovrAssert(count < 256, "Unsupported Shader code: variable (%d,%d) has array size of %d (max is 255)", groupId, slotId, count);
+          lovrCheck(count < 256, "Unsupported Shader code: variable (%d,%d) has array size of %d (max is 255)", groupId, slotId, count);
           bool buffer = type == GPU_SLOT_UNIFORM_BUFFER || type == GPU_SLOT_STORAGE_BUFFER;
           group->slotMask |= 1 << slotId;
           group->bufferMask |= buffer ? (1 << slotId) : 0;
@@ -1441,10 +1441,10 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   // This temporarily populates the slotIndex so variables can be merged between stages
   // After reflection and handling dynamic buffers, slots are sorted and lookup tables are generated
   if (info->type == SHADER_COMPUTE) {
-    lovrAssert(info->source[0] && !info->source[1], "Compute shaders require one stage");
+    lovrCheck(info->source[0] && !info->source[1], "Compute shaders require one stage");
     parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_COMPUTE);
   } else {
-    lovrAssert(info->source[0] && info->source[1], "Currently, graphics shaders require two stages");
+    lovrCheck(info->source[0] && info->source[1], "Currently, graphics shaders require two stages");
     parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_VERTEX);
     parseSpirv(shader, info->source[1], info->length[1], GPU_STAGE_FRAGMENT);
   }
@@ -1453,7 +1453,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     uint32_t group, index;
     const char* name = info->dynamicBuffers[i];
     bool exists = lovrShaderResolveName(shader, hash64(name, strlen(name)), &group, &index);
-    lovrAssert(exists, "Dynamic buffer '%s' does not exist in the shader", name);
+    lovrCheck(exists, "Dynamic buffer '%s' does not exist in the shader", name);
     gpu_slot* slot = &shader->groups[group].slots[shader->groups[group].slotIndex[index]];
     switch (slot->type) {
       case GPU_SLOT_UNIFORM_BUFFER: slot->type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC; break;
@@ -1531,12 +1531,12 @@ void lovrBatchReset(Batch* batch) {
 }
 
 void lovrBatchPush(Batch* batch) {
-  lovrAssert(++batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pushes than pops?)");
+  lovrCheck(++batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pushes than pops?)");
   mat4_init(batch->transforms[batch->transform], batch->transforms[batch->transform - 1]);
 }
 
 void lovrBatchPop(Batch* batch) {
-  lovrAssert(--batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pops than pushes?)");
+  lovrCheck(--batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pops than pushes?)");
 }
 
 void lovrBatchOrigin(Batch* batch) {
@@ -1713,7 +1713,7 @@ Shader* lovrBatchGetShader(Batch* batch) {
 }
 
 void lovrBatchSetShader(Batch* batch, Shader* shader) {
-  lovrAssert(!shader || shader->info.type == SHADER_GRAPHICS, "Compute shaders can not be used with setShader");
+  lovrCheck(!shader || shader->info.type == SHADER_GRAPHICS, "Compute shaders can not be used with setShader");
   if (shader == batch->shader) return;
   lovrRetain(shader);
   lovrRelease(batch->shader, lovrShaderDestroy);
@@ -1726,13 +1726,13 @@ void lovrBatchGetVertexFormat(Batch* batch, VertexAttribute attributes[16], uint
 }
 
 void lovrBatchSetVertexFormat(Batch* batch, VertexAttribute attributes[16], uint32_t count) {
-  lovrAssert(count < state.limits.vertexAttributes, "Vertex attribute count must be less than limits.vertexAttributes (%d)", state.limits.vertexAttributes);
+  lovrCheck(count < state.limits.vertexAttributes, "Vertex attribute count must be less than limits.vertexAttributes (%d)", state.limits.vertexAttributes);
 
   for (uint32_t i = 0; i < count; i++) {
-    lovrAssert(attributes[i].location < 16, "Vertex attribute location must be less than 16");
-    lovrAssert(attributes[i].buffer < state.limits.vertexBuffers, "Vertex attribute buffer index must be less than limits.vertexBuffers (%d)", state.limits.vertexBuffers);
-    lovrAssert(attributes[i].fieldType < FIELD_MAT2, "Matrix types can not be used as vertex attribute formats");
-    lovrAssert(attributes[i].offset < state.limits.vertexAttributeOffset, "Vertex attribute byte offset must be less than limits.vertexAttributeOffset (%d)", state.limits.vertexAttributeOffset);
+    lovrCheck(attributes[i].location < 16, "Vertex attribute location must be less than 16");
+    lovrCheck(attributes[i].buffer < state.limits.vertexBuffers, "Vertex attribute buffer index must be less than limits.vertexBuffers (%d)", state.limits.vertexBuffers);
+    lovrCheck(attributes[i].fieldType < FIELD_MAT2, "Matrix types can not be used as vertex attribute formats");
+    lovrCheck(attributes[i].offset < state.limits.vertexAttributeOffset, "Vertex attribute byte offset must be less than limits.vertexAttributeOffset (%d)", state.limits.vertexAttributeOffset);
   }
 
   memcpy(batch->attributes, attributes, count * sizeof(VertexAttribute));
