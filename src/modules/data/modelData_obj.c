@@ -79,8 +79,6 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
       material->images[TEXTURE_DIFFUSE] = (uint32_t) images->length;
-      material->filters[TEXTURE_DIFFUSE].mode = FILTER_TRILINEAR;
-      material->wraps[TEXTURE_DIFFUSE] = (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT };
       arr_push(images, image);
       lovrRelease(blob, lovrBlobDestroy);
     }
@@ -252,6 +250,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   model->primitiveCount = (uint32_t) groups.length;
   model->nodeCount = 1;
   model->imageCount = (uint32_t) images.length;
+  model->samplerCount = 1;
   model->materialCount = (uint32_t) materials.length;
   lovrModelDataAllocate(model);
 
@@ -276,6 +275,11 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   memcpy(model->materials, materials.data, model->materialCount * sizeof(ModelMaterial));
   memcpy(model->materialMap.hashes, materialMap.hashes, materialMap.size * sizeof(uint64_t));
   memcpy(model->materialMap.values, materialMap.values, materialMap.size * sizeof(uint64_t));
+
+  model->samplers[0] = (ModelSampler) {
+    MODEL_LINEAR, MODEL_LINEAR, MODEL_LINEAR,
+    MODEL_REPEAT, MODEL_REPEAT, MODEL_REPEAT
+  };
 
   float min[4] = { FLT_MAX };
   float max[4] = { FLT_MIN };
