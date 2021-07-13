@@ -431,7 +431,8 @@ static int l_lovrGraphicsRender(lua_State* L) {
       uint8_t stencilClear;
       index = luax_checkcanvasinfo(L, 1, &info, clear, &depthClear, &stencilClear);
       info.label = NULL;
-      canvas = lovrCanvasGetTemporary(&info);
+      info.transient = true;
+      canvas = lovrCanvasCreate(&info);
       lovrCanvasSetClear(canvas, clear, depthClear, stencilClear);
     }
   }

@@ -329,11 +329,11 @@ typedef struct {
   uint32_t count;
   uint32_t views;
   uint32_t samples;
+  bool transient;
   const char* label;
 } CanvasInfo;
 
 Canvas* lovrCanvasCreate(CanvasInfo* info);
-Canvas* lovrCanvasGetTemporary(CanvasInfo* info);
 Canvas* lovrCanvasGetWindow(void);
 void lovrCanvasDestroy(void* ref);
 const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
