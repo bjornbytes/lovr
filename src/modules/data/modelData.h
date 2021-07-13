@@ -33,27 +33,15 @@ typedef enum {
 } Topology;
 
 typedef enum {
-  FILTER_NEAREST,
-  FILTER_BILINEAR,
-  FILTER_TRILINEAR
-} FilterMode;
-
-typedef struct {
-  FilterMode mode;
-  float anisotropy;
-} TextureFilter;
+  MODEL_NEAREST,
+  MODEL_LINEAR
+} ModelFilter;
 
 typedef enum {
-  WRAP_CLAMP,
-  WRAP_REPEAT,
-  WRAP_MIRRORED_REPEAT
-} WrapMode;
-
-typedef struct {
-  WrapMode s;
-  WrapMode t;
-  WrapMode r;
-} TextureWrap;
+  MODEL_CLAMP,
+  MODEL_REPEAT,
+  MODEL_MIRROR
+} ModelWrap;
 
 typedef enum {
   SCALAR_METALNESS,
@@ -139,12 +127,16 @@ typedef struct {
 } ModelAnimation;
 
 typedef struct {
+  ModelFilter min, mag, mip;
+  ModelWrap u, v, w;
+} ModelSampler;
+
+typedef struct {
   const char* name;
   float scalars[MAX_MATERIAL_SCALARS];
   float colors[MAX_MATERIAL_COLORS][4];
   uint32_t images[MAX_MATERIAL_TEXTURES];
-  TextureFilter filters[MAX_MATERIAL_TEXTURES];
-  TextureWrap wraps[MAX_MATERIAL_TEXTURES];
+  uint32_t samplers[MAX_MATERIAL_TEXTURES];
 } ModelMaterial;
 
 typedef struct {
@@ -184,6 +176,7 @@ typedef struct ModelData {
   struct Blob** blobs;
   ModelBuffer* buffers;
   struct Image** images;
+  ModelSampler* samplers;
   ModelMaterial* materials;
   ModelAttribute* attributes;
   ModelPrimitive* primitives;
@@ -195,6 +188,7 @@ typedef struct ModelData {
   uint32_t blobCount;
   uint32_t bufferCount;
   uint32_t imageCount;
+  uint32_t samplerCount;
   uint32_t materialCount;
   uint32_t attributeCount;
   uint32_t primitiveCount;
