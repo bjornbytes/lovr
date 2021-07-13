@@ -62,11 +62,6 @@ struct Sampler {
   SamplerInfo info;
 };
 
-typedef struct {
-  float projection[6][16];
-  float viewMatrix[6][16];
-} Camera;
-
 struct Canvas {
   uint32_t ref;
   bool temporary;
@@ -75,7 +70,6 @@ struct Canvas {
   Texture* colorTextures[4];
   Texture* resolveTextures[4];
   Texture* depthTexture;
-  Camera camera;
 };
 
 typedef struct {
@@ -1004,12 +998,6 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
     }
   }
 
-  // Default camera, for funsies
-  for (uint32_t i = 0; i < info->views; i++) {
-    mat4_perspective(canvas->camera.projection[i], .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) width / height);
-    mat4_identity(canvas->camera.viewMatrix[i]);
-  }
-
   return canvas;
 }
 
@@ -1038,12 +1026,6 @@ Canvas* lovrCanvasGetWindow() {
 
   int width, height;
   os_window_get_fbsize(&width, &height);
-
-  // Default camera, for funsies (TODO dedupe)
-  for (uint32_t i = 0; i < info.views; i++) {
-    mat4_perspective(canvas->camera.projection[i], .01f, 100.f, 67.f * (float) M_PI / 180.f, (float) width / height);
-    mat4_identity(canvas->camera.viewMatrix[i]);
-  }
 
   canvas->gpu.pass = calloc(1, gpu_sizeof_pass());
   lovrAssert(canvas->gpu.pass, "Out of memory");
@@ -1075,26 +1057,6 @@ uint32_t lovrCanvasGetWidth(Canvas* canvas) {
 
 uint32_t lovrCanvasGetHeight(Canvas* canvas) {
   return canvas->gpu.size[1];
-}
-
-void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
-  lovrCheck(index < COUNTOF(canvas->camera.viewMatrix), "Invalid view index %d", index);
-  mat4_init(viewMatrix, canvas->camera.viewMatrix[index]);
-}
-
-void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix) {
-  lovrCheck(index < COUNTOF(canvas->camera.viewMatrix), "Invalid view index %d", index);
-  mat4_init(canvas->camera.viewMatrix[index], viewMatrix);
-}
-
-void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection) {
-  lovrCheck(index < COUNTOF(canvas->camera.projection), "Invalid view index %d", index);
-  mat4_init(projection, canvas->camera.projection[index]);
-}
-
-void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection) {
-  lovrCheck(index < COUNTOF(canvas->camera.projection), "Invalid view index %d", index);
-  mat4_init(canvas->camera.projection[index], projection);
 }
 
 void lovrCanvasGetClear(Canvas* canvas, float color[4][4], float* depth, uint8_t* stencil) {
