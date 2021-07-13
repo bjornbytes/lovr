@@ -599,9 +599,6 @@ static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint
 }
 
 Texture* lovrTextureCreate(TextureInfo* info) {
-  uint32_t mips = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_VOLUME ? info->depth : 1))) + 1;
-  uint8_t supports = state.features.formats[info->format];
-
   uint32_t limits[] = {
     [TEXTURE_2D] = state.limits.textureSize2D,
     [TEXTURE_CUBE] = state.limits.textureSizeCube,
@@ -609,13 +606,17 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     [TEXTURE_VOLUME] = state.limits.textureSize3D
   };
 
+  uint32_t limit = limits[info->type];
+  uint32_t mips = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_VOLUME ? info->depth : 1))) + 1;
+  uint8_t supports = state.features.formats[info->format];
+
   lovrCheck(info->width > 0, "Texture width must be greater than zero");
   lovrCheck(info->height > 0, "Texture height must be greater than zero");
   lovrCheck(info->depth > 0, "Texture depth must be greater than zero");
-  lovrCheck(info->width <= limits[info->type], "Texture %s exceeds the limit for this texture type (%d)", "width", limits[info->type]);
-  lovrCheck(info->height <= limits[info->type], "Texture %s exceeds the limit for this texture type (%d)", "height", limits[info->type]);
-  lovrCheck(info->depth <= limits[info->type] || info->type != TEXTURE_VOLUME, "Texture %s exceeds the limit for this texture type (%d)", "depth", limits[info->type]);
-  lovrCheck(info->depth <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "depth", limits[info->type]);
+  lovrCheck(info->width <= limit, "Texture %s exceeds the limit for this texture type (%d)", "width", limit);
+  lovrCheck(info->height <= limit, "Texture %s exceeds the limit for this texture type (%d)", "height", limit);
+  lovrCheck(info->depth <= limit || info->type != TEXTURE_VOLUME, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
+  lovrCheck(info->depth <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
   lovrCheck(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
   lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
   lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
@@ -650,24 +651,22 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .label = info->label
   });
 
-  if (info->mipmaps == 1 && (info->type == TEXTURE_2D || info->type == TEXTURE_ARRAY)) {
-    texture->renderView = texture->gpu;
-  } else if (info->usage & TEXTURE_CANVAS) {
-    /*gpu_texture_view_info viewInfo = {
-      .source = texture->gpu,
-      .type = GPU_TEXTURE_ARRAY,
-      .layerCount = info->views,
-      .levelCount = 1
-    };
+  // Automatically create a renderable view for renderable non-volume textures
+  if (info->usage & TEXTURE_CANVAS && info->type != TEXTURE_VOLUME && info->depth <= 6) {
+    if (info->mipmaps == 1) {
+      texture->renderView = texture->gpu;
+    } else {
+      gpu_texture_view_info view = {
+        .source = texture->gpu,
+        .type = GPU_TEXTURE_ARRAY,
+        .layerCount = info->depth,
+        .levelCount = 1
+      };
 
-    gpu_texture_init_view(
-    viewInfo.source = texture->info.parent ? texture->info.parent->gpu : texture->gpu;
-    viewInfo.layerIndex = texture->baseLayer;
-    viewInfo.levelIndex = texture->baseLevel;
-    texture->renderView = malloc(gpu_sizeof_texture());
-    lovrAssert(texture->renderView, "Out of memory");
-    lovrAssert(gpu_texture_init_view(texture->renderView, &viewInfo), "Failed to create texture view for canvas");
-    */
+      texture->renderView = malloc(gpu_sizeof_texture());
+      lovrAssert(texture->renderView, "Out of memory");
+      lovrAssert(gpu_texture_init_view(texture->renderView, &view), "Failed to create texture view");
+    }
   }
 
   return texture;
@@ -707,10 +706,8 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
     .levelCount = view->levelCount
   });
 
-  if (view->levelCount == 1 && (view->type == TEXTURE_2D || view->type == TEXTURE_ARRAY)) {
+  if (view->levelCount == 1 && view->type != TEXTURE_VOLUME && view->layerCount <= 6) {
     texture->renderView = texture->gpu;
-  } else {
-
   }
 
   lovrRetain(view->parent);
@@ -736,15 +733,15 @@ void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], 
   lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be written to");
   checkTextureBounds(&texture->info, offset, extent);
 
-  char* src = data;
   size_t fullSize = getTextureRegionSize(texture->info.format, extent[0], extent[1], extent[2]);
   size_t rowSize = getTextureRegionSize(texture->info.format, extent[0], 1, 1);
   size_t imgSize = getTextureRegionSize(texture->info.format, extent[0], extent[1], 1);
-  // TODO all 3 of the above could be combined via successive multiplies, maybe it should be
-  // getTexturePixelSize
-  // bufferAllocate CPU_WRITE fullSize bytes to get scratch data to write to (gpu_buffer and offset for copy)
+  Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, fullSize, 64);
   size_t jump = step[0] ? step[0] : rowSize;
   size_t leap = step[1] ? step[1] : imgSize;
+  char* src = data;
+  char* dst = scratch.buffer->data + scratch.offset;
+
   for (uint16_t z = 0; z < extent[2]; z++) {
     for (uint16_t y = 0; y < extent[1]; y++) {
       memcpy(dst, src, rowSize);
@@ -755,20 +752,18 @@ void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], 
     src += leap;
   }
 
-  //gpu_copy_buffer_texture(state.transfers, buffer->gpu, texture->gpu, offset, realOffset, extent, NULL);
+  gpu_copy_buffer_texture(state.transfers, scratch.buffer->gpu, texture->gpu, scratch.offset, offset, extent);
 }
 
 void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uint16_t dstOffset[4], uint16_t extent[2]) {
   lovrCheck(texture->info.format == image->format, "Texture and Image formats must match");
   lovrCheck(srcOffset[0] + extent[0] <= image->width, "Tried to read pixels past the width of the Image");
   lovrCheck(srcOffset[1] + extent[1] <= image->height, "Tried to read pixels past the height of the Image");
-
   uint16_t fullExtent[3] = { extent[0], extent[1], 1 };
   uint32_t step[2] = { getTextureRegionSize(image->format, image->width, 1, 1), 0 };
   size_t offsetx = getTextureRegionSize(image->format, srcOffset[0], 1, 1);
   size_t offsety = srcOffset[1] * step[0];
   char* data = (char*) image->blob->data + offsety + offsetx;
-
   lovrTextureWrite(texture, dstOffset, fullExtent, data, step);
 }
 
@@ -782,16 +777,23 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
+  ReaderPool* readers = &state.readers;
   lovrCheck(state.active, "Graphics is not active");
   lovrCheck(!texture->info.parent, "Texture views can not be read");
   lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to read from it");
   lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
-
-  ReaderPool* readers = &state.readers;
   lovrCheck(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
-  //bufferAllocate
-  //gpu_copy_texture_buffer
+  size_t size = getTextureRegionSize(texture->info.format, extent[0], extent[1], extent[2]);
+  Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_READ, size, 64);
+  gpu_copy_texture_buffer(state.transfers, texture->gpu, scratch.buffer->gpu, offset, scratch.offset, extent);
+  readers->list[readers->head++ & 0xf] = (Reader) {
+    .callback = callback,
+    .userdata = userdata,
+    .data = scratch.buffer->data + scratch.offset,
+    .size = size,
+    .tick = state.tick
+  };
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
@@ -814,11 +816,7 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   lovrCheck(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to blit to it");
   lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
   lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
-
-  if (isDepthFormat(src->info.format) || isDepthFormat(dst->info.format)) {
-    lovrCheck(src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
-  }
-
+  lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_blit(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
@@ -850,16 +848,13 @@ Sampler* lovrSamplerCreate(SamplerInfo* info) {
 }
 
 Sampler* lovrSamplerGetDefault(DefaultSampler type) {
-  if (!state.defaultSamplers[type]) {
-    state.defaultSamplers[type] = lovrSamplerCreate(&(SamplerInfo) {
-      .min = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
-      .mag = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
-      .mip = type == SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
-      .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
-    });
-  }
-
-  return state.defaultSamplers[type];
+  if (state.defaultSamplers[type]) return state.defaultSamplers[type];
+  return state.defaultSamplers[type] = lovrSamplerCreate(&(SamplerInfo) {
+    .min = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
+    .mag = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
+    .mip = type == SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
+    .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
+  });
 }
 
 void lovrSamplerDestroy(void* ref) {
