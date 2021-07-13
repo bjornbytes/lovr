@@ -383,6 +383,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
 
 // Buffer
 
+// Returns a Megabuffer to the pool
 static void bufferRecycle(uint8_t index) {
   Megabuffer* buffer = &state.buffers.list[index];
   lovrCheck(buffer->refs == 0, "Trying to release a Buffer while people are still using it");
@@ -403,6 +404,7 @@ static void bufferRecycle(uint8_t index) {
   buffer->tick = state.tick;
 }
 
+// Suballocates into a Megabuffer
 static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t align) {
   uint32_t active = state.buffers.active[type];
   uint32_t oldest = state.buffers.oldest[type];
@@ -472,7 +474,8 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   buffer->size = size;
   buffer->info = *info;
   Megaview view = bufferAllocate(GPU_MEMORY_GPU, size, 256);
-  buffer->mega = view.buffer; // TODO this stuff is cached for convenience but isn't 100% necessary
+  // TODO determine exact set of fields to store, balancing size, speed, convenience
+  buffer->mega = view.buffer;
   buffer->gpu = buffer->mega->gpu;
   buffer->offset = view.offset;
   view.buffer->refs++;
@@ -522,17 +525,17 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
 }
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void*, uint32_t, void*), void* userdata) {
+  ReaderPool* readers = &state.readers;
   lovrCheck(state.active, "Graphics is not active");
   lovrCheck(buffer->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to read from it");
   lovrCheck(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
-  ReaderPool* readers = &state.readers;
   lovrCheck(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
-  //bufferAllocate
-  //gpu_copy_buffers...
+  Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_READ, size, 4);
+  gpu_copy_buffers(state.transfers, buffer->gpu, scratch.buffer->gpu, buffer->offset + offset, scratch.offset, size);
   readers->list[readers->head++ & 0xf] = (Reader) {
     .callback = callback,
     .userdata = userdata,
-    .data = NULL,
+    .data = scratch.buffer->data + scratch.offset,
     .size = size,
     .tick = state.tick
   };
