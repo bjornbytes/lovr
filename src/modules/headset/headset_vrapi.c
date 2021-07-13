@@ -722,12 +722,12 @@ static void vrapi_renderTo(Batch* batch) {
     mat4_init(view, &tracking.Eye[i].ViewMatrix.M[0][0]);
     mat4_transpose(view);
     view[13] -= state.offset;
-    lovrCanvasSetViewMatrix(state.canvas, i, view);
+    //lovrCanvasSetViewMatrix(state.canvas, i, view);
 
     float projection[16];
     mat4_init(projection, &tracking.Eye[i].ProjectionMatrix.M[0][0]);
     mat4_transpose(projection);
-    lovrCanvasSetProjection(state.canvas, i, projection);
+    //lovrCanvasSetProjection(state.canvas, i, projection);
   }
 
   // Render
