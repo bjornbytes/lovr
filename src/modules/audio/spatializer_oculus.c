@@ -106,7 +106,7 @@ static bool oculus_init(void) {
 
   config.acc_Size = sizeof(config);
   config.acc_MaxNumSources = MAX_SOURCES;
-  config.acc_SampleRate = SAMPLE_RATE;
+  config.acc_SampleRate = lovrAudioGetSampleRate();
   config.acc_BufferLength = BUFFER_SIZE; // Stereo
 
   if (ovrAudio_CreateContext(&state.context, &config) != ovrSuccess) {

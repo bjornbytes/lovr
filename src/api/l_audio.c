@@ -202,6 +202,11 @@ static int l_lovrAudioGetSpatializer(lua_State *L) {
   return 1;
 }
 
+static int l_lovrAudioGetSampleRate(lua_State *L) {
+  lua_pushnumber(L, lovrAudioGetSampleRate());
+  return 1;
+}
+
 static int l_lovrAudioGetAbsorption(lua_State* L) {
   float absorption[3];
   lovrAudioGetAbsorption(absorption);
@@ -290,6 +295,7 @@ static const luaL_Reg lovrAudio[] = {
   { "setPose", l_lovrAudioSetPose },
   { "setGeometry", l_lovrAudioSetGeometry },
   { "getSpatializer", l_lovrAudioGetSpatializer },
+  { "getSampleRate", l_lovrAudioGetSampleRate },
   { "getAbsorption", l_lovrAudioGetAbsorption },
   { "setAbsorption", l_lovrAudioSetAbsorption },
   { "newSource", l_lovrAudioNewSource },
@@ -305,11 +311,18 @@ int luaopen_lovr_audio(lua_State* L) {
 
   bool start = true;
   const char *spatializer = NULL;
+  int sampleRate = DEFAULT_SAMPLE_RATE;
   luax_pushconf(L);
   lua_getfield(L, -1, "audio");
   if (lua_istable(L, -1)) {
     lua_getfield(L, -1, "spatializer");
     spatializer = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "sampleRate");
+    int userSampleRate = luaL_optnumber(L, -1, 0);
+    if (userSampleRate > 0)
+      sampleRate = userSampleRate;
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "start");
@@ -318,7 +331,7 @@ int luaopen_lovr_audio(lua_State* L) {
   }
   lua_pop(L, 2);
 
-  if (lovrAudioInit(spatializer)) {
+  if (lovrAudioInit(spatializer, sampleRate)) {
     luax_atexit(L, lovrAudioDestroy);
     if (start) {
       lovrAudioSetDevice(AUDIO_PLAYBACK, NULL, 0, NULL, AUDIO_SHARED);
