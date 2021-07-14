@@ -87,6 +87,20 @@ static int l_lovrTextureGetParent(lua_State* L) {
   return 1;
 }
 
+static int l_lovrTextureGetSampler(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  Sampler* sampler = lovrTextureGetSampler(texture);
+  luax_pushtype(L, Sampler, sampler);
+  return 1;
+}
+
+static int l_lovrTextureSetSampler(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  Sampler* sampler = luax_checktype(L, 2, Sampler);
+  lovrTextureSetSampler(texture, sampler);
+  return 0;
+}
+
 static int l_lovrTextureHasUsage(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
@@ -230,6 +244,8 @@ const luaL_Reg lovrTexture[] = {
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getSampleCount", l_lovrTextureGetSampleCount },
   { "getParent", l_lovrTextureGetParent },
+  { "getSampler", l_lovrTextureGetSampler },
+  { "setSampler", l_lovrTextureSetSampler },
   { "hasUsage", l_lovrTextureHasUsage },
   { "write", l_lovrTextureWrite },
   { "read", l_lovrTextureRead },

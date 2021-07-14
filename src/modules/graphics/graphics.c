@@ -55,6 +55,7 @@ struct Texture {
   uint32_t ref;
   gpu_texture* gpu;
   gpu_texture* renderView;
+  Sampler* sampler;
   TextureInfo info;
 };
 
@@ -717,6 +718,10 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     }
   }
 
+  if (info->usage & TEXTURE_SAMPLE) {
+    lovrTextureSetSampler(texture, lovrGraphicsGetDefaultSampler(SAMPLER_TRILINEAR));
+  }
+
   return texture;
 }
 
@@ -765,6 +770,7 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   lovrRelease(texture->info.parent, lovrTextureDestroy);
+  lovrRelease(texture->sampler, lovrSamplerDestroy);
   if (texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
   gpu_texture_destroy(texture->gpu);
   free(texture);
@@ -772,6 +778,18 @@ void lovrTextureDestroy(void* ref) {
 
 const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
+}
+
+Sampler* lovrTextureGetSampler(Texture* texture) {
+  if (~texture->info.usage & TEXTURE_SAMPLE) return NULL;
+  return texture->sampler;
+}
+
+void lovrTextureSetSampler(Texture* texture, Sampler* sampler) {
+  lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must have the 'sample' usage to apply Samplers to them");
+  lovrRetain(sampler);
+  lovrRelease(texture->sampler, lovrSamplerDestroy);
+  texture->sampler = sampler;
 }
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
@@ -897,7 +915,7 @@ Sampler* lovrSamplerCreate(SamplerInfo* info) {
   return sampler;
 }
 
-Sampler* lovrSamplerGetDefault(DefaultSampler type) {
+Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type) {
   if (state.defaultSamplers[type]) return state.defaultSamplers[type];
   return state.defaultSamplers[type] = lovrSamplerCreate(&(SamplerInfo) {
     .min = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
