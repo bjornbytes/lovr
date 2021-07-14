@@ -873,6 +873,8 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 // Sampler
 
 Sampler* lovrSamplerCreate(SamplerInfo* info) {
+  lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
+
   Sampler* sampler = calloc(1, sizeof(Sampler) + gpu_sizeof_sampler());
   lovrAssert(sampler, "Out of memory");
   sampler->gpu = (gpu_sampler*) (sampler + 1);
@@ -887,8 +889,8 @@ Sampler* lovrSamplerCreate(SamplerInfo* info) {
     .wrap[1] = (gpu_wrap) info->wrap[1],
     .wrap[2] = (gpu_wrap) info->wrap[2],
     .compare = (gpu_compare_mode) info->compare,
-    .anisotropy = info->anisotropy,
-    .lodClamp = { info->lodClamp[0], info->lodClamp[1] }
+    .anisotropy = state.features.anisotropy ? MIN(info->anisotropy, state.limits.anisotropy) : 0.f,
+    .lodClamp = { info->range[0], info->range[1] }
   };
 
   lovrAssert(gpu_sampler_init(sampler->gpu, &gpu), "Failed to initialize sampler");
@@ -900,8 +902,9 @@ Sampler* lovrSamplerGetDefault(DefaultSampler type) {
   return state.defaultSamplers[type] = lovrSamplerCreate(&(SamplerInfo) {
     .min = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
     .mag = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
-    .mip = type == SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
-    .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
+    .mip = type >= SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
+    .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
+    .anisotropy = (type == SAMPLER_ANISOTROPIC && state.features.anisotropy) ? MIN(2.f, state.limits.anisotropy) : 0.f
   });
 }
 
