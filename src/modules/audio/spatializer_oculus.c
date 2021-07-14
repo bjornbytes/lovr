@@ -237,6 +237,7 @@ static uint32_t oculus_tail(float* scratch, float* output, uint32_t frames) {
       }
     }
   }
+  state.midPlayback = false; // Allow the first Source of the next pass to recognize it is first
   return didAnything ? frames : 0;
 }
 
