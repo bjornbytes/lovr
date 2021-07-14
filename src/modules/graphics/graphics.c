@@ -122,9 +122,17 @@ typedef struct {
   Reader list[16];
 } ReaderPool;
 
+typedef struct {
+  char* memory;
+  uint32_t tip;
+  uint32_t top;
+  uint32_t cap;
+} LinearAllocator;
+
 static struct {
   bool initialized;
   bool active;
+  LinearAllocator frame;
   uint32_t blockSize;
   gpu_hardware hardware;
   gpu_features features;
@@ -142,6 +150,18 @@ static struct {
   uint32_t streamCount;
   uint32_t tick;
 } state;
+
+static void* talloc(size_t size) {
+  while (state.frame.tip + size > state.frame.top) {
+    lovrAssert(state.frame.top << 1 <= state.frame.cap, "Out of memory");
+    os_vm_commit(state.frame.memory + state.frame.top, state.frame.top);
+    state.frame.top <<= 1;
+  }
+
+  uint32_t tip = ALIGN(state.frame.tip, 8);
+  state.frame.tip = tip + size;
+  return state.frame.memory + tip;
+}
 
 static void callback(void* context, const char* message, int severe) {
   if (severe) {
@@ -179,6 +199,11 @@ static bool getInstanceExtensions(char* buffer, uint32_t size) {
 bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   lovrCheck(blockSize <= 1 << 30, "Block size can not exceed 1GB");
   state.blockSize = blockSize;
+
+  state.frame.top = 1 << 12;
+  state.frame.cap = 1 << 30;
+  state.frame.memory = os_vm_init(state.frame.cap);
+  os_vm_commit(state.frame.memory, state.frame.top);
 
   gpu_config config = {
     .debug = debug,
@@ -240,6 +265,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultShader, lovrShaderDestroy);
   lovrRelease(state.window, lovrCanvasDestroy);
   gpu_destroy();
+  os_vm_free(state.frame.memory, state.frame.cap);
   memset(&state, 0, sizeof(state));
 }
 
@@ -307,6 +333,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
 void lovrGraphicsBegin() {
   if (state.active) return;
   state.active = true;
+  state.frame.tip = 0;
   state.tick = gpu_begin();
   state.streams[0] = state.transfers = gpu_stream_begin();
   state.streamOrder[0] = 0;
@@ -456,6 +483,21 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
   lovrAssert(gpu_buffer_init(buffer->gpu, &info), "Failed to initialize Buffer");
 
   return (Megaview) { .buffer = &state.buffers.list[active], .offset = 0 };
+}
+
+Buffer* lovrGraphicsGetBuffer(BufferInfo* info) {
+  size_t size = info->length * MAX(info->stride, 1);
+  lovrCheck(size > 0, "Buffer size must be positive");
+  lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
+  Megaview view = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 256);
+  Buffer* buffer = talloc(sizeof(Buffer));
+  buffer->ref = 1;
+  buffer->size = size;
+  buffer->info = *info;
+  buffer->mega = view.buffer;
+  buffer->gpu = buffer->mega->gpu;
+  buffer->offset = view.offset;
+  return buffer;
 }
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
