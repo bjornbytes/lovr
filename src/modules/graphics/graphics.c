@@ -42,8 +42,10 @@ typedef struct {
 
 struct Buffer {
   uint32_t ref;
+  bool scratch;
   Megabuffer* mega;
   gpu_buffer* gpu;
+  char* data;
   uint32_t offset;
   uint32_t size;
   BufferInfo info;
@@ -497,6 +499,8 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info) {
   buffer->mega = view.buffer;
   buffer->gpu = buffer->mega->gpu;
   buffer->offset = view.offset;
+  buffer->data = buffer->mega->data + buffer->offset;
+  buffer->scratch = true;
   return buffer;
 }
 
@@ -520,7 +524,7 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
-  if (buffer->mega->type == GPU_MEMORY_GPU) {
+  if (!buffer->scratch) {
     if (--buffer->mega->refs == 0) {
       bufferRecycle(buffer->mega - state.buffers.list);
     }
@@ -536,10 +540,14 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
   if (size == ~0u) size = buffer->size - offset;
   lovrCheck(state.active, "Graphics is not active");
   lovrCheck(offset + size <= buffer->size, "Tried to write past the end of the Buffer");
-  lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
-  Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
-  gpu_copy_buffers(state.transfers, scratch.buffer->gpu, buffer->gpu, scratch.offset, buffer->offset + offset, size);
-  return scratch.buffer->data + scratch.offset;
+  if (buffer->scratch) {
+    return buffer->data + offset;
+  } else {
+    lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
+    Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
+    gpu_copy_buffers(state.transfers, scratch.buffer->gpu, buffer->gpu, scratch.offset, buffer->offset + offset, size);
+    return scratch.buffer->data + scratch.offset;
+  }
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
@@ -547,8 +555,12 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrCheck(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
-  lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
-  gpu_clear_buffer(state.transfers, buffer->gpu, offset, size, 0);
+  if (buffer->scratch) {
+    memset(buffer->data + offset, 0, size);
+  } else {
+    lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
+    gpu_clear_buffer(state.transfers, buffer->gpu, offset, size, 0);
+  }
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
