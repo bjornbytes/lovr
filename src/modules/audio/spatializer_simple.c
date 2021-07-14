@@ -60,7 +60,7 @@ uint32_t simple_apply(Source* source, const float* input, float* output, uint32_
   float* gain = state.gain[index];
 
   float lerpDuration = .05f;
-  float lerpFrames = SAMPLE_RATE * lerpDuration;
+  float lerpFrames = lovrAudioGetSampleRate() * lerpDuration;
   float lerpRate = 1.f / lerpFrames;
 
   for (uint32_t c = 0; c < 2; c++) {

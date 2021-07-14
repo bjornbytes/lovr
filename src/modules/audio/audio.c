@@ -52,6 +52,7 @@ static struct {
   float leftovers[BUFFER_SIZE * 2];
   float absorption[3];
   ma_data_converter playbackConverter;
+  int sampleRate;
 } state;
 
 static const ma_format miniaudioFormats[] = {
@@ -226,8 +227,10 @@ static Spatializer* spatializers[] = {
 
 // Entry
 
-bool lovrAudioInit(const char* spatializer) {
+bool lovrAudioInit(const char* spatializer, int sampleRate) {
   if (state.initialized) return false;
+
+  state.sampleRate = sampleRate;
 
   ma_result result = ma_context_init(NULL, 0, NULL, &state.context);
   lovrAssert(result == MA_SUCCESS, "Failed to initialize miniaudio");
@@ -295,7 +298,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
 
   // If no sink is provided for a capture device, one is created internally
   if (type == AUDIO_CAPTURE && !sink) {
-    sink = lovrSoundCreateStream(SAMPLE_RATE * 1., SAMPLE_F32, CHANNEL_MONO, SAMPLE_RATE);
+    sink = lovrSoundCreateStream(state.sampleRate * 1., SAMPLE_F32, CHANNEL_MONO, state.sampleRate);
   } else {
     lovrRetain(sink);
   }
@@ -327,7 +330,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
     config.playback.shareMode = shareModes[shareMode];
     config.playback.format = ma_format_f32;
     config.playback.channels = OUTPUT_CHANNELS;
-    config.sampleRate = SAMPLE_RATE;
+    config.sampleRate = state.sampleRate;
     if (sink) {
       ma_data_converter_config converterConfig = ma_data_converter_config_init_default();
       converterConfig.formatIn = config.playback.format;
@@ -403,6 +406,10 @@ const char* lovrAudioGetSpatializer() {
   return state.spatializer->name;
 }
 
+int lovrAudioGetSampleRate() {
+  return state.sampleRate;
+}
+
 void lovrAudioGetAbsorption(float absorption[3]) {
   memcpy(absorption, state.absorption, 3 * sizeof(float));
 }
@@ -434,7 +441,7 @@ Source* lovrSourceCreate(Sound* sound, uint32_t effects) {
   config.channelsIn = lovrSoundGetChannelCount(sound);
   config.channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // See onPlayback
   config.sampleRateIn = lovrSoundGetSampleRate(sound);
-  config.sampleRateOut = SAMPLE_RATE;
+  config.sampleRateOut = state.sampleRate;
 
   if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
     source->converter = malloc(sizeof(ma_data_converter));

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#define SAMPLE_RATE 48000
+#define DEFAULT_SAMPLE_RATE 48000
 #define BUFFER_SIZE 256
 #define MAX_SOURCES 64
 
@@ -59,7 +59,7 @@ typedef enum {
 
 typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
 
-bool lovrAudioInit(const char* spatializer);
+bool lovrAudioInit(const char* spatializer, int sampleRate);
 void lovrAudioDestroy(void);
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
 bool lovrAudioSetDevice(AudioType type, void* id, size_t size, struct Sound* sink, AudioShareMode shareMode);
@@ -72,6 +72,7 @@ void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
 bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
 const char* lovrAudioGetSpatializer(void);
+int lovrAudioGetSampleRate();
 void lovrAudioGetAbsorption(float absorption[3]);
 void lovrAudioSetAbsorption(float absorption[3]);
 

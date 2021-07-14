@@ -146,7 +146,7 @@ bool phonon_init() {
   status = phonon_iplCreateEnvironment(state.context, NULL, simulationSettings, NULL, NULL, &state.environment);
   if (status != IPL_STATUS_SUCCESS) return phonon_destroy(), false;
 
-  state.renderingSettings.samplingRate = SAMPLE_RATE;
+  state.renderingSettings.samplingRate = lovrAudioGetSampleRate();
   state.renderingSettings.frameSize = BUFFER_SIZE;
   state.renderingSettings.convolutionType = IPL_CONVOLUTIONTYPE_PHONON;
 
