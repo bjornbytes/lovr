@@ -139,6 +139,127 @@ StringEntry lovrWinding[] = {
   { 0 }
 };
 
+static struct { uint16_t size, scalarAlign, baseAlign, components; } fieldInfo[] = {
+  [FIELD_I8] = { 1, 1, 1, 1 },
+  [FIELD_U8] = { 1, 1, 1, 1 },
+  [FIELD_I16] = { 2, 2, 2, 1 },
+  [FIELD_U16] = { 2, 2, 2, 1 },
+  [FIELD_I32] = { 4, 4, 4, 1 },
+  [FIELD_U32] = { 4, 4, 4, 1 },
+  [FIELD_F32] = { 4, 4, 4, 1 },
+  [FIELD_I8x2] = { 2, 1, 2, 2 },
+  [FIELD_U8x2] = { 2, 1, 2, 2 },
+  [FIELD_I8Nx2] = { 2, 1, 2, 2 },
+  [FIELD_U8Nx2] = { 2, 1, 2, 2 },
+  [FIELD_I16x2] = { 4, 2, 4, 2 },
+  [FIELD_U16x2] = { 4, 2, 4, 2 },
+  [FIELD_I16Nx2] = { 4, 2, 4, 2 },
+  [FIELD_U16Nx2] = { 4, 2, 4, 2 },
+  [FIELD_I32x2] = { 8, 4, 8, 2 },
+  [FIELD_U32x2] = { 8, 4, 8, 2 },
+  [FIELD_F32x2] = { 8, 4, 8, 2 },
+  [FIELD_I32x3] = { 12, 4, 16, 3 },
+  [FIELD_U32x3] = { 12, 4, 16, 3 },
+  [FIELD_F32x3] = { 12, 4, 16, 3 },
+  [FIELD_I8x4] = { 4, 1, 4, 4 },
+  [FIELD_U8x4] = { 4, 1, 4, 4 },
+  [FIELD_I8Nx4] = { 4, 1, 4, 4 },
+  [FIELD_U8Nx4] = { 4, 1, 4, 4 },
+  [FIELD_I16x4] = { 8, 2, 8, 4 },
+  [FIELD_U16x4] = { 8, 2, 8, 4 },
+  [FIELD_I16Nx4] = { 8, 2, 8, 4 },
+  [FIELD_U16Nx4] = { 8, 2, 8, 4 },
+  [FIELD_I32x4] = { 16, 4, 16, 4 },
+  [FIELD_U32x4] = { 16, 4, 16, 4 },
+  [FIELD_F32x4] = { 16, 4, 16, 4 },
+  [FIELD_MAT2] = { 16, 4, 8, 4 },
+  [FIELD_MAT3] = { 64, 4, 16, 9 },
+  [FIELD_MAT4] = { 64, 4, 16, 16 }
+};
+
+uint32_t luax_checkfieldtype(lua_State* L, int index) {
+  size_t length;
+  const char* string = luaL_checklstring(L, index, &length);
+
+  // Plural FieldTypes are allowed and ignored
+  if (string[length - 1] == 's') {
+    length--;
+  }
+
+  // vec[234] alias
+  if (length == 4 && string[0] == 'v' && string[1] == 'e' && string[2] == 'c') {
+    switch (string[3]) {
+      case '2': return FIELD_F32x2;
+      case '3': return FIELD_F32x3;
+      case '4': return FIELD_F32x4;
+      default: break;
+    }
+  }
+
+  if (length == 4 && !memcmp(string, "byte", length)) {
+    return FIELD_U8;
+  }
+
+  if (length == 3 && !memcmp(string, "int", length)) {
+    return FIELD_I32;
+  }
+
+  if (length == 5 && !memcmp(string, "float", length)) {
+    return FIELD_F32;
+  }
+
+  if (length == 5 && !memcmp(string, "color", length)) {
+    return FIELD_U8Nx4;
+  }
+
+  for (int i = 0; lovrFieldType[i].length; i++) {
+    if (length == lovrFieldType[i].length && !memcmp(string, lovrFieldType[i].string, length)) {
+      return i;
+    }
+  }
+
+  return luaL_error(L, "invalid FieldType '%s'", string);
+}
+
+static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
+  if (lua_isstring(L, index)) {
+    FieldType type = luax_checkfieldtype(L, index);
+    info->types[0] = type;
+    info->offsets[0] = 0;
+    info->fieldCount = 1;
+    info->stride = fieldInfo[type].size;
+  } else if (lua_istable(L, index)) {
+    uint16_t offset = 0;
+    int length = luax_len(L, index);
+    bool blocky = info->usage & (BUFFER_UNIFORM | BUFFER_STORAGE);
+    for (int i = 0; i < length; i++) {
+      lua_rawgeti(L, index, i + 1);
+      switch (lua_type(L, -1)) {
+        case LUA_TNUMBER: offset += lua_tonumber(L, -1); break;
+        case LUA_TSTRING: {
+          uint32_t index = info->fieldCount++;
+          FieldType type = luax_checkfieldtype(L, -1);
+          uint16_t align = blocky ? fieldInfo[type].baseAlign : fieldInfo[type].scalarAlign;
+          info->types[index] = type;
+          info->offsets[index] = ALIGN(offset, align);
+          offset = info->offsets[index] + fieldInfo[type].size;
+          break;
+        }
+        default: lovrThrow("Buffer format table may only contain FieldTypes and numbers (found %s)", lua_typename(L, lua_type(L, -1)));
+      }
+      lua_pop(L, 1);
+    }
+    info->stride = offset;
+  } else {
+    lovrThrow("Expected FieldType or table for Buffer format");
+  }
+
+  // std140 (only needed for uniform buffers, also as special case 'byte' formats skip this)
+  if (info->usage & BUFFER_UNIFORM && info->stride > 1) {
+    info->stride = ALIGN(info->stride, 16);
+  }
+}
+
 static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float clear[4][4], float* depthClear, uint8_t* stencilClear) {
   *info = (CanvasInfo) {
     .depth.enabled = true,
@@ -451,86 +572,44 @@ static int l_lovrGraphicsRender(lua_State* L) {
   return 0;
 }
 
-static struct { uint16_t size, scalarAlign, baseAlign, components; } fieldInfo[] = {
-  [FIELD_I8] = { 1, 1, 1, 1 },
-  [FIELD_U8] = { 1, 1, 1, 1 },
-  [FIELD_I16] = { 2, 2, 2, 1 },
-  [FIELD_U16] = { 2, 2, 2, 1 },
-  [FIELD_I32] = { 4, 4, 4, 1 },
-  [FIELD_U32] = { 4, 4, 4, 1 },
-  [FIELD_F32] = { 4, 4, 4, 1 },
-  [FIELD_I8x2] = { 2, 1, 2, 2 },
-  [FIELD_U8x2] = { 2, 1, 2, 2 },
-  [FIELD_I8Nx2] = { 2, 1, 2, 2 },
-  [FIELD_U8Nx2] = { 2, 1, 2, 2 },
-  [FIELD_I16x2] = { 4, 2, 4, 2 },
-  [FIELD_U16x2] = { 4, 2, 4, 2 },
-  [FIELD_I16Nx2] = { 4, 2, 4, 2 },
-  [FIELD_U16Nx2] = { 4, 2, 4, 2 },
-  [FIELD_I32x2] = { 8, 4, 8, 2 },
-  [FIELD_U32x2] = { 8, 4, 8, 2 },
-  [FIELD_F32x2] = { 8, 4, 8, 2 },
-  [FIELD_I32x3] = { 12, 4, 16, 3 },
-  [FIELD_U32x3] = { 12, 4, 16, 3 },
-  [FIELD_F32x3] = { 12, 4, 16, 3 },
-  [FIELD_I8x4] = { 4, 1, 4, 4 },
-  [FIELD_U8x4] = { 4, 1, 4, 4 },
-  [FIELD_I8Nx4] = { 4, 1, 4, 4 },
-  [FIELD_U8Nx4] = { 4, 1, 4, 4 },
-  [FIELD_I16x4] = { 8, 2, 8, 4 },
-  [FIELD_U16x4] = { 8, 2, 8, 4 },
-  [FIELD_I16Nx4] = { 8, 2, 8, 4 },
-  [FIELD_U16Nx4] = { 8, 2, 8, 4 },
-  [FIELD_I32x4] = { 16, 4, 16, 4 },
-  [FIELD_U32x4] = { 16, 4, 16, 4 },
-  [FIELD_F32x4] = { 16, 4, 16, 4 },
-  [FIELD_MAT2] = { 16, 4, 8, 4 },
-  [FIELD_MAT3] = { 64, 4, 16, 9 },
-  [FIELD_MAT4] = { 64, 4, 16, 16 }
-};
+static int l_lovrGraphicsGetBuffer(lua_State* L) {
+  BufferInfo info = { .usage = BUFFER_VERTEX | BUFFER_INDEX | BUFFER_UNIFORM | BUFFER_COPYFROM };
 
-uint32_t luax_checkfieldtype(lua_State* L, int index) {
-  size_t length;
-  const char* string = luaL_checklstring(L, index, &length);
+  // Format
+  luax_checkbufferformat(L, 2, &info);
 
-  // Plural FieldTypes are allowed and ignored
-  if (string[length - 1] == 's') {
-    length--;
-  }
-
-  // vec[234] alias
-  if (length == 4 && string[0] == 'v' && string[1] == 'e' && string[2] == 'c') {
-    switch (string[3]) {
-      case '2': return FIELD_F32x2;
-      case '3': return FIELD_F32x3;
-      case '4': return FIELD_F32x4;
-      default: break;
+  // Length/contents
+  int dataType = lua_type(L, 1);
+  if (dataType == LUA_TNUMBER) {
+    info.length = lua_tointeger(L, 1);
+  } else if (dataType == LUA_TTABLE) {
+    lua_rawgeti(L, 1, 1);
+    if (lua_istable(L, -1)) {
+      info.length = luax_len(L, 1);
+    } else if (lua_isuserdata(L, -1)) {
+      info.length = luax_len(L, 1) / info.fieldCount;
+    } else {
+      uint32_t totalComponents = 0;
+      for (uint32_t i = 0; i < info.fieldCount; i++) {
+        totalComponents += fieldInfo[info.types[i]].components;
+      }
+      info.length = luax_len(L, 1) / totalComponents;
     }
+    lua_pop(L, 1);
+  } else {
+    return luax_typeerror(L, 1, "number or table");
   }
 
-  if (length == 4 && !memcmp(string, "byte", length)) {
-    return FIELD_U8;
+  Buffer* buffer = lovrGraphicsGetBuffer(&info);
+
+  if (dataType != LUA_TNUMBER) {
+    lua_settop(L, 1);
+    luax_readbufferdata(L, 1, buffer);
   }
 
-  if (length == 3 && !memcmp(string, "int", length)) {
-    return FIELD_I32;
-  }
-
-  if (length == 5 && !memcmp(string, "float", length)) {
-    return FIELD_F32;
-  }
-
-  if (length == 5 && !memcmp(string, "color", length)) {
-    return FIELD_U8Nx4;
-  }
-
-  for (int i = 0; lovrFieldType[i].length; i++) {
-    if (length == lovrFieldType[i].length && !memcmp(string, lovrFieldType[i].string, length)) {
-      return i;
-    }
-  }
-
-  return luaL_error(L, "invalid FieldType '%s'", string);
+  luax_pushtype(L, Buffer, buffer);
+  lovrRelease(buffer, lovrBufferDestroy);
+  return 1;
 }
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
@@ -560,44 +639,9 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   }
 
   // Format
-  if (lua_isstring(L, 2)) {
-    FieldType type = luax_checkfieldtype(L, 2);
-    info.types[0] = type;
-    info.offsets[0] = 0;
-    info.fieldCount = 1;
-    info.stride = fieldInfo[type].size;
-  } else if (lua_istable(L, 2)) {
-    uint16_t offset = 0;
-    int length = luax_len(L, 2);
-    bool blocky = info.usage & (BUFFER_UNIFORM | BUFFER_STORAGE);
-    for (int i = 0; i < length; i++) {
-      lua_rawgeti(L, 2, i + 1);
-      switch (lua_type(L, -1)) {
-        case LUA_TNUMBER: offset += lua_tonumber(L, -1); break;
-        case LUA_TSTRING: {
-          uint32_t index = info.fieldCount++;
-          FieldType type = luax_checkfieldtype(L, -1);
-          uint16_t align = blocky ? fieldInfo[type].baseAlign : fieldInfo[type].scalarAlign;
-          info.types[index] = type;
-          info.offsets[index] = ALIGN(offset, align);
-          offset = info.offsets[index] + fieldInfo[type].size;
-          break;
-        }
-        default: lovrThrow("Buffer format table may only contain FieldTypes and numbers (found %s)", lua_typename(L, lua_type(L, -1)));
-      }
-      lua_pop(L, 1);
-    }
-    info.stride = offset;
-  } else {
-    lovrThrow("Expected FieldType or table for Buffer format");
-  }
+  luax_checkbufferformat(L, 2, &info);
 
-  // std140 (only needed for uniform buffers, also as special case 'byte' formats skip this)
-  if (info.usage & BUFFER_UNIFORM && info.stride > 1) {
-    info.stride = ALIGN(info.stride, 16);
-  }
-
-  // Length/data
+  // Length/contents
   switch (lua_type(L, 1)) {
     case LUA_TNUMBER:
       info.length = lua_tointeger(L, 1);
@@ -617,6 +661,14 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
       }
       lua_pop(L, 1);
       break;
+    case LUA_TSTRING: {
+      Blob* blob = luax_readblob(L, 1, "Buffer data");
+      info.length = blob->size / info.stride;
+      luax_pushtype(L, Blob, blob);
+      lua_replace(L, 1);
+      lovrRelease(blob, lovrBlobDestroy);
+      break;
+    }
     default: {
       Blob* blob = luax_totype(L, 1, Blob);
       if (blob) {
@@ -853,6 +905,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "begin", l_lovrGraphicsBegin },
   { "submit", l_lovrGraphicsSubmit },
   { "render", l_lovrGraphicsRender },
+  { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newCanvas", l_lovrGraphicsNewCanvas },
