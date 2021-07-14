@@ -140,6 +140,7 @@ typedef struct {
   const char* label;
 } BufferInfo;
 
+Buffer* lovrGraphicsGetBuffer(BufferInfo* info);
 Buffer* lovrBufferCreate(BufferInfo* info);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
