@@ -237,7 +237,7 @@ typedef struct {
   WrapMode wrap[3];
   CompareMode compare;
   float anisotropy;
-  float lodClamp[2];
+  float range[2];
 } SamplerInfo;
 
 Sampler* lovrSamplerCreate(SamplerInfo* info);

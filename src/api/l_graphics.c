@@ -53,6 +53,14 @@ StringEntry lovrCullMode[] = {
   { 0 }
 };
 
+StringEntry lovrDefaultSampler[] = {
+  [SAMPLER_NEAREST] = ENTRY("nearest"),
+  [SAMPLER_BILINEAR] = ENTRY("bilinear"),
+  [SAMPLER_TRILINEAR] = ENTRY("trilinear"),
+  [SAMPLER_ANISOTROPIC] = ENTRY("anisotropic"),
+  { 0 }
+};
+
 StringEntry lovrDrawMode[] = {
   [DRAW_POINTS] = ENTRY("points"),
   [DRAW_LINES] = ENTRY("lines"),
@@ -99,6 +107,12 @@ StringEntry lovrFieldType[] = {
   { 0 }
 };
 
+StringEntry lovrFilterMode[] = {
+  [FILTER_NEAREST] = ENTRY("nearest"),
+  [FILTER_LINEAR] = ENTRY("linear"),
+  { 0 }
+};
+
 StringEntry lovrShaderType[] = {
   [SHADER_GRAPHICS] = ENTRY("graphics"),
   [SHADER_COMPUTE] = ENTRY("compute"),
@@ -136,6 +150,13 @@ StringEntry lovrTextureUsage[] = {
 StringEntry lovrWinding[] = {
   [WINDING_COUNTERCLOCKWISE] = ENTRY("counterclockwise"),
   [WINDING_CLOCKWISE] = ENTRY("clockwise"),
+  { 0 }
+};
+
+StringEntry lovrWrapMode[] = {
+  [WRAP_CLAMP] = ENTRY("clamp"),
+  [WRAP_REPEAT] = ENTRY("repeat"),
+  [WRAP_MIRROR] = ENTRY("mirror"),
   { 0 }
 };
 
@@ -836,6 +857,74 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewSampler(lua_State* L) {
+  SamplerInfo info = {
+    .min = FILTER_LINEAR,
+    .mag = FILTER_LINEAR,
+    .mip = FILTER_LINEAR,
+    .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
+    .range = { 0.f, -1.f }
+  };
+
+  luaL_checktype(L, 1, LUA_TTABLE);
+
+  lua_getfield(L, 1, "filter");
+  if (lua_isstring(L, -1)) {
+    info.min = info.mag = info.mip = luax_checkenum(L, -1, FilterMode, NULL);
+  } else if (lua_istable(L, -1)) {
+    lua_rawgeti(L, -1, 1);
+    lua_rawgeti(L, -2, 2);
+    lua_rawgeti(L, -3, 3);
+    info.min = luax_checkenum(L, -3, FilterMode, NULL);
+    info.mag = luax_checkenum(L, -2, FilterMode, NULL);
+    info.mip = luax_checkenum(L, -1, FilterMode, NULL);
+    lua_pop(L, 3);
+  } else if (!lua_isnil(L, -1)) {
+    lovrThrow("Expected string or table for Sampler filter");
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "wrap");
+  if (lua_isstring(L, -1)) {
+    info.wrap[0] = info.wrap[1] = info.wrap[2] = luax_checkenum(L, -1, WrapMode, NULL);
+  } else if (lua_istable(L, -1)) {
+    lua_rawgeti(L, -1, 1);
+    lua_rawgeti(L, -2, 2);
+    lua_rawgeti(L, -3, 3);
+    info.wrap[0] = luax_checkenum(L, -3, WrapMode, NULL);
+    info.wrap[1] = luax_checkenum(L, -2, WrapMode, NULL);
+    info.wrap[2] = luax_checkenum(L, -1, WrapMode, NULL);
+    lua_pop(L, 3);
+  } else if (!lua_isnil(L, -1)) {
+    lovrThrow("Expected string or table for Sampler filter");
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "compare");
+  info.compare = luax_checkenum(L, -1, CompareMode, "none");
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "anisotropy");
+  info.anisotropy = luax_optfloat(L, -1, 0.f);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "mipmaprange");
+  if (!lua_isnil(L, -1)) {
+    lovrAssert(lua_istable(L, -1), "Sampler mipmap range must be nil or a table");
+    lua_rawgeti(L, -1, 1);
+    lua_rawgeti(L, -2, 2);
+    info.range[0] = luax_checkfloat(L, -2);
+    info.range[1] = luax_checkfloat(L, -1);
+    lua_pop(L, 2);
+  }
+  lua_pop(L, 1);
+
+  Sampler* sampler = lovrSamplerCreate(&info);
+  luax_pushtype(L, Sampler, sampler);
+  lovrRelease(sampler, lovrSamplerDestroy);
+  return 1;
+}
+
 static int l_lovrGraphicsNewCanvas(lua_State* L) {
   CanvasInfo info;
   float clear[4][4] = { 0 };
@@ -908,6 +997,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
+  { "newSampler", l_lovrGraphicsNewSampler },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newShader", l_lovrGraphicsNewShader },
   { NULL, NULL }
@@ -915,6 +1005,7 @@ static const luaL_Reg lovrGraphics[] = {
 
 extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
+extern const luaL_Reg lovrSampler[];
 extern const luaL_Reg lovrCanvas[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrBatch[];
@@ -924,6 +1015,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_register(L, lovrGraphics);
   luax_registertype(L, Buffer);
   luax_registertype(L, Texture);
+  luax_registertype(L, Sampler);
   luax_registertype(L, Canvas);
   luax_registertype(L, Shader);
   luax_registertype(L, Batch);
