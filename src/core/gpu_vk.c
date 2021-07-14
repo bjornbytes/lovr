@@ -558,7 +558,7 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     .compareEnable = info->compare != GPU_COMPARE_NONE,
     .compareOp = compareOps[info->compare],
     .minLod = info->lodClamp[0],
-    .maxLod = info->lodClamp[1]
+    .maxLod = info->lodClamp[1] < 0.f ? VK_LOD_CLAMP_NONE : info->lodClamp[1]
   };
 
   TRY(vkCreateSampler(state.device, &samplerInfo, NULL, &sampler->handle), "Could not create sampler") {
