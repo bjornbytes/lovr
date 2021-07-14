@@ -116,6 +116,12 @@ static int l_lovrTextureHasUsage(lua_State* L) {
   return 1;
 }
 
+static int l_lovrTextureIsView(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  lua_pushboolean(L, !!lovrTextureGetInfo(texture)->parent);
+  return 1;
+}
+
 static int l_lovrTextureWrite(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   Image* image = luax_checktype(L, 2, Image);
@@ -247,6 +253,7 @@ const luaL_Reg lovrTexture[] = {
   { "getSampler", l_lovrTextureGetSampler },
   { "setSampler", l_lovrTextureSetSampler },
   { "hasUsage", l_lovrTextureHasUsage },
+  { "isView", l_lovrTextureIsView },
   { "write", l_lovrTextureWrite },
   { "read", l_lovrTextureRead },
   { "copy", l_lovrTextureCopy },
