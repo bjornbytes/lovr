@@ -96,7 +96,9 @@ static int l_lovrTextureGetSampler(lua_State* L) {
 
 static int l_lovrTextureSetSampler(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  Sampler* sampler = luax_checktype(L, 2, Sampler);
+  Sampler* sampler = lua_isstring(L, 2) ?
+    lovrGraphicsGetDefaultSampler(luax_checkenum(L, 2, DefaultSampler, NULL)) :
+    luax_checktype(L, 2, Sampler);
   lovrTextureSetSampler(texture, sampler);
   return 0;
 }
