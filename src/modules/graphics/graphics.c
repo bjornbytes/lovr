@@ -75,28 +75,19 @@ struct Canvas {
   Texture* depthTexture;
 };
 
-typedef struct {
-  uint64_t hash;
-  uint16_t slotMask;
-  uint16_t bufferMask;
-  uint16_t textureMask;
-  uint16_t dynamicMask;
-  gpu_slot slots[16];
-  uint8_t slotCount;
-  uint8_t slotIndex[16];
-  uint16_t bindingCount;
-  uint16_t bindingIndex[16];
-  uint16_t dynamicOffsetCount;
-  uint16_t dynamicOffsetIndex[16];
-} ShaderGroup;
-
 struct Shader {
   uint32_t ref;
-  gpu_shader* gpu;
-  gpu_pipeline* computePipeline;
   ShaderInfo info;
-  ShaderGroup groups[4];
-  uint32_t locationMask;
+  gpu_shader* gpu;
+  gpu_pipeline* compute;
+  /*MaterialData material;
+  ShaderResource* resources;
+  ShaderVariable* variables;
+  ShaderConstant* constants;
+  uint32_t resourceCount;
+  uint32_t variableCount;
+  uint32_t constantCount;
+  uint32_t attributeMask;*/
   map_t lookup;
 };
 
@@ -146,7 +137,6 @@ static struct {
   map_t pipelines;
   map_t passes;
   Canvas* window;
-  Shader* defaultShader;
   gpu_stream* transfers;
   gpu_stream* streams[MAX_STREAMS];
   int8_t streamOrder[MAX_STREAMS];
@@ -237,15 +227,6 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
 
   state.limits.vertexBuffers -= INTERNAL_VERTEX_BUFFERS;
 
-  state.defaultShader = lovrShaderCreate(&(ShaderInfo) {
-    .type = SHADER_GRAPHICS,
-    .source[0] = lovr_shader_unlit_vert,
-    .source[1] = lovr_shader_unlit_frag,
-    .length[0] = sizeof(lovr_shader_unlit_vert),
-    .length[1] = sizeof(lovr_shader_unlit_frag),
-    .label = "unlit"
-  });
-
   return state.initialized = true;
 }
 
@@ -265,7 +246,6 @@ void lovrGraphicsDestroy() {
   }
   map_free(&state.pipelines);
   map_free(&state.passes);
-  lovrRelease(state.defaultShader, lovrShaderDestroy);
   lovrRelease(state.window, lovrCanvasDestroy);
   gpu_destroy();
   os_vm_free(state.frame.memory, state.frame.cap);
@@ -1243,66 +1223,6 @@ static bool checkShaderCapability(uint32_t capability) {
   return false;
 }
 
-// Parse a slot type and array size from a variable instruction, throwing on failure
-static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
-  const uint32_t* edge = words + wordCount - MIN_SPIRV_WORDS;
-  uint32_t type = instruction[1];
-  uint32_t id = instruction[2];
-  uint32_t storageClass = instruction[3];
-
-  // Follow the variable's type id to the OpTypePointer instruction that declares its pointer type
-  // Then unwrap the pointer to get to the inner type of the variable
-  instruction = words + cache[type];
-  lovrCheck(instruction < edge && instruction[3] < bound, "Invalid Shader code: id overflow");
-  instruction = words + cache[instruction[3]];
-  lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
-
-  if ((instruction[0] & 0xffff) == 28) { // OpTypeArray
-    // Read array size
-    lovrCheck(instruction[3] < bound && words + cache[instruction[3]] < edge, "Invalid Shader code: id overflow");
-    const uint32_t* size = words + cache[instruction[3]];
-    if ((size[0] & 0xffff) == 43 || (size[0] & 0xffff) == 50) { // OpConstant || OpSpecConstant
-      lovrCheck(size[3] <= 0xffff, "Unsupported Shader code: variable %d has array size of %d, but the max array size is 65535", id, size[3]);
-      *count = size[3];
-    } else {
-      lovrThrow("Invalid Shader code: variable %d is an array, but the array size is not a constant", id);
-    }
-
-    // Unwrap array to get to inner array type and keep going
-    lovrCheck(instruction[2] < bound && words + cache[instruction[2]] < edge, "Invalid Shader code: id overflow");
-    instruction = words + cache[instruction[2]];
-  } else {
-    *count = 1;
-  }
-
-  // Use StorageClass to detect uniform/storage buffers
-  switch (storageClass) {
-    case 12: *slotType = GPU_SLOT_STORAGE_BUFFER; return;
-    case 2: *slotType = GPU_SLOT_UNIFORM_BUFFER; return;
-    default: break; // It's not a Buffer, keep going to see if it's a valid Texture
-  }
-
-  // If it's a sampled image, unwrap to get to the image type.  If it's not an image, fail
-  if ((instruction[0] & 0xffff) == 27) { // OpTypeSampledImage
-    instruction = words + cache[instruction[2]];
-    lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
-  } else if ((instruction[0] & 0xffff) != 25) { // OpTypeImage
-    lovrThrow("Invalid Shader code: variable %d is not recognized as a valid buffer or texture resource", id);
-  }
-
-  // Reject texel buffers (DimBuffer) and input attachments (DimSubpassData)
-  if (instruction[3] == 5 || instruction[3] == 6) {
-    lovrThrow("Unsupported Shader code: texel buffers and input attachments are not supported");
-  }
-
-  // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
-  switch (instruction[7]) {
-    case 1: *slotType = GPU_SLOT_SAMPLED_TEXTURE; return;
-    case 2: *slotType = GPU_SLOT_STORAGE_TEXTURE; return;
-    default: lovrThrow("Unsupported Shader code: texture variable %d isn't a sampled texture or a storage texture", id);
-  }
-}
-
 static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_t stage) {
   const uint32_t* words = source;
   uint32_t wordCount = size / sizeof(uint32_t);
@@ -1385,65 +1305,7 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
         break;
       case 59: // OpVariable
         if (length < 4 || instruction[2] >= bound) break;
-        id = instruction[2];
-
-        // For vertex shaders, track which attribute locations are in use.
-        // Vertex attributes are OpDecorated with Location and have an Input (1) StorageClass.
-        uint32_t storageClass = instruction[3];
-        if (stage == GPU_STAGE_VERTEX && storageClass == 1 && locations[id] < 16) {
-          shader->locationMask |= (1 << locations[id]);
-          break;
-        }
-
-        // Ignore inputs/outputs and variables that aren't decorated with a group and binding (e.g. global variables)
-        if (storageClass == 1 || storageClass == 3 || vars[id].group == 0xff || vars[id].binding == 0xff) {
-          break;
-        }
-
-        uint32_t count;
-        gpu_slot_type type;
-        parseTypeInfo(words, wordCount, types, bound, instruction, &type, &count);
-
-        // If the variable has a name, add it to the shader's lookup
-        // If the lookup already has one with the same name, it must be at the same binding location
-        if (vars[id].name != 0xffff) {
-          char* name = (char*) (words + vars[id].name);
-          size_t len = strnlen(name, 4 * (wordCount - vars[id].name));
-          if (len > 0) {
-            uint64_t hash = hash64(name, len);
-            uint64_t old = map_get(&shader->lookup, hash);
-            uint64_t new = ((uint64_t) vars[id].binding << 32) | vars[id].group;
-            if (old == MAP_NIL) {
-              map_set(&shader->lookup, hash, new);
-            } else {
-              lovrCheck(old == new, "Unsupported Shader code: variable named '%s' is bound to 2 different locations", name);
-            }
-          }
-        }
-
-        uint32_t groupId = vars[id].group;
-        uint32_t slotId = vars[id].binding;
-        ShaderGroup* group = &shader->groups[groupId];
-
-        // Add a new slot or merge our info into a slot added by a different stage
-        if (group->slotMask & (1 << slotId)) {
-          gpu_slot* other = &group->slots[group->slotIndex[slotId]];
-          lovrCheck(other->type == type, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different types", groupId, slotId);
-          lovrCheck(other->count == count, "Unsupported Shader code: variable (%d,%d) is in multiple shader stages with different array sizes", groupId, slotId);
-          other->stage |= stage;
-        } else {
-          lovrCheck(count < 256, "Unsupported Shader code: variable (%d,%d) has array size of %d (max is 255)", groupId, slotId, count);
-          bool buffer = type == GPU_SLOT_UNIFORM_BUFFER || type == GPU_SLOT_STORAGE_BUFFER;
-          group->slotMask |= 1 << slotId;
-          group->bufferMask |= buffer ? (1 << slotId) : 0;
-          group->textureMask |= !buffer ? (1 << slotId) : 0;
-          group->slots[group->slotCount] = (gpu_slot) { slotId, type, stage, count };
-          group->slotIndex[slotId] = group->slotCount;
-          group->bindingIndex[slotId] = group->bindingCount;
-          group->bindingCount += count;
-          group->slotCount++;
-        }
-        break;
+        // TODO
       case 54: // OpFunction
         instruction = words + wordCount; // Exit early upon encountering actual shader code
         break;
@@ -1464,17 +1326,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
   shader->ref = 1;
-  map_init(&shader->lookup, 64);
 
-  gpu_shader_info gpuInfo = {
-    .stages[0] = { info->source[0], info->length[0], NULL },
-    .stages[1] = { info->source[1], info->length[1], NULL },
-    .label = info->label
-  };
-
-  // Perform reflection on the shader code to get slot info
-  // This temporarily populates the slotIndex so variables can be merged between stages
-  // After reflection and handling dynamic buffers, slots are sorted and lookup tables are generated
   if (info->type == SHADER_COMPUTE) {
     lovrCheck(info->source[0] && !info->source[1], "Compute shaders require one stage");
     parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_COMPUTE);
@@ -1484,43 +1336,17 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     parseSpirv(shader, info->source[1], info->length[1], GPU_STAGE_FRAGMENT);
   }
 
-  for (uint32_t i = 0; i < info->dynamicBufferCount; i++) {
-    uint32_t group, index;
-    const char* name = info->dynamicBuffers[i];
-    bool exists = lovrShaderResolveName(shader, hash64(name, strlen(name)), &group, &index);
-    lovrCheck(exists, "Dynamic buffer '%s' does not exist in the shader", name);
-    gpu_slot* slot = &shader->groups[group].slots[shader->groups[group].slotIndex[index]];
-    switch (slot->type) {
-      case GPU_SLOT_UNIFORM_BUFFER: slot->type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC; break;
-      case GPU_SLOT_STORAGE_BUFFER: slot->type = GPU_SLOT_STORAGE_BUFFER_DYNAMIC; break;
-      default: lovrThrow("Dynamic buffer '%s' is not a buffer", name);
-    }
-  }
-
-  for (uint32_t i = 0; i < COUNTOF(shader->groups); i++) {
-    ShaderGroup* group = &shader->groups[i];
-
-    if (group->slotCount == 0) continue;
-
-    for (uint32_t j = 0; j < group->slotCount; j++) {
-      gpu_slot* slot = &group->slots[j];
-      if (slot->type == GPU_SLOT_UNIFORM_BUFFER_DYNAMIC || slot->type == GPU_SLOT_STORAGE_BUFFER_DYNAMIC) {
-        group->dynamicMask |= 1 << j;
-        group->dynamicOffsetIndex[slot->id] = group->dynamicOffsetCount;
-        group->dynamicOffsetCount += slot->count;
-      }
-    }
-
-    group->hash = hash64(group->slots, group->slotCount * sizeof(gpu_slot));
-    gpuInfo.slotCount[i] = group->slotCount;
-    gpuInfo.slots[i] = group->slots;
-  }
+  gpu_shader_info gpuInfo = {
+    .stages[0] = { info->source[0], info->length[0], NULL },
+    .stages[1] = { info->source[1], info->length[1], NULL },
+    .label = info->label
+  };
 
   lovrAssert(gpu_shader_init(shader->gpu, &gpuInfo), "Could not create Shader");
 
   if (info->type == SHADER_COMPUTE) {
-    shader->computePipeline = (gpu_pipeline*) ((char*) shader + gpu_sizeof_shader());
-    lovrAssert(gpu_pipeline_init_compute(shader->computePipeline, shader->gpu, NULL), "Could not create Shader compute pipeline");
+    shader->compute = (gpu_pipeline*) ((char*) shader + gpu_sizeof_shader());
+    lovrAssert(gpu_pipeline_init_compute(shader->compute, shader->gpu, NULL), "Could not create Shader compute pipeline");
   }
 
   return shader;
@@ -1529,20 +1355,12 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   gpu_shader_destroy(shader->gpu);
-  if (shader->computePipeline) gpu_pipeline_destroy(shader->computePipeline);
+  if (shader->compute) gpu_pipeline_destroy(shader->compute);
   free(shader);
 }
 
 const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
   return &shader->info;
-}
-
-bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id) {
-  uint64_t value = map_get(&shader->lookup, hash);
-  if (value == MAP_NIL) return false;
-  *group = value & ~0u;
-  *id = value >> 32;
-  return true;
 }
 
 // Batch
