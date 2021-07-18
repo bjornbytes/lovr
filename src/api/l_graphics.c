@@ -581,7 +581,7 @@ static int l_lovrGraphicsRender(lua_State* L) {
   Batch* batch;
   if (lua_type(L, 2) == LUA_TFUNCTION) {
     lua_settop(L, 2);
-    batch = lovrBatchCreate(&(BatchInfo) { .capacity = 1024, .transient = true });
+    batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 1024 });
     luax_pushtype(L, Batch, batch);
     lua_call(L, 1, 0);
   } else {
@@ -986,6 +986,24 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsGetBatch(lua_State* L) {
+  BatchInfo info;
+  info.capacity = luaL_checkinteger(L, 1);
+  Batch* batch = lovrGraphicsGetBatch(&info);
+  luax_pushtype(L, Batch, batch);
+  lovrRelease(batch, lovrBatchDestroy);
+  return 1;
+}
+
+static int l_lovrGraphicsNewBatch(lua_State* L) {
+  BatchInfo info;
+  info.capacity = luaL_checkinteger(L, 1);
+  Batch* batch = lovrBatchCreate(&info);
+  luax_pushtype(L, Batch, batch);
+  lovrRelease(batch, lovrBatchDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
   { "getHardware", l_lovrGraphicsGetHardware },
@@ -1000,6 +1018,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "newSampler", l_lovrGraphicsNewSampler },
   { "newCanvas", l_lovrGraphicsNewCanvas },
   { "newShader", l_lovrGraphicsNewShader },
+  { "getBatch", l_lovrGraphicsGetBatch },
+  { "newBatch", l_lovrGraphicsNewBatch },
   { NULL, NULL }
 };
 
