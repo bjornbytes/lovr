@@ -1391,6 +1391,10 @@ const BatchInfo* lovrBatchGetInfo(Batch* batch) {
   return &batch->info;
 }
 
+uint32_t lovrBatchGetCount(Batch* batch) {
+  return 0;
+}
+
 void lovrBatchReset(Batch* batch) {
   batch->transform = 0;
   lovrBatchOrigin(batch);

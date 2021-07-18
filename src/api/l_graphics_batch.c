@@ -11,6 +11,20 @@ static int l_lovrBatchGetType(lua_State* L) {
   return 1;
 }
 
+static int l_lovrBatchGetCapacity(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  const BatchInfo* info = lovrBatchGetInfo(batch);
+  lua_pushinteger(L, info->capacity);
+  return 1;
+}
+
+static int l_lovrBatchGetCount(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  uint32_t count = lovrBatchGetCount(batch);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
 static int l_lovrBatchReset(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   lovrBatchReset(batch);
@@ -418,6 +432,8 @@ static int l_lovrBatchDraw(lua_State* L) {
 
 const luaL_Reg lovrBatch[] = {
   { "getType", l_lovrBatchGetType },
+  { "getCapacity", l_lovrBatchGetCapacity },
+  { "getCount", l_lovrBatchGetCount },
   { "reset", l_lovrBatchReset },
   { "push", l_lovrBatchPush },
   { "pop", l_lovrBatchPop },
