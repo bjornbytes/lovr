@@ -4,6 +4,13 @@
 #include <lua.h>
 #include <lauxlib.h>
 
+static int l_lovrBatchGetType(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  const BatchInfo* info = lovrBatchGetInfo(batch);
+  luax_pushenum(L, BatchType, info->type);
+  return 1;
+}
+
 static int l_lovrBatchReset(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   lovrBatchReset(batch);
@@ -410,6 +417,7 @@ static int l_lovrBatchDraw(lua_State* L) {
 }
 
 const luaL_Reg lovrBatch[] = {
+  { "getType", l_lovrBatchGetType },
   { "reset", l_lovrBatchReset },
   { "push", l_lovrBatchPush },
   { "pop", l_lovrBatchPop },
