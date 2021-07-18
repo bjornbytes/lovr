@@ -390,6 +390,7 @@ Batch* lovrGraphicsGetBatch(BatchInfo* info);
 Batch* lovrBatchCreate(BatchInfo* info);
 void lovrBatchDestroy(void* ref);
 const BatchInfo* lovrBatchGetInfo(Batch* batch);
+uint32_t lovrBatchGetCount(Batch* batch);
 void lovrBatchReset(Batch* batch);
 void lovrBatchPush(Batch* batch);
 void lovrBatchPop(Batch* batch);
