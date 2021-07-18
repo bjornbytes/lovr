@@ -191,6 +191,8 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
       state.sources[idx].source = source;
       state.sources[idx].occupied = true;
       ovrAudio_ResetAudioSource(state.context, idx);
+      ovrAudio_SetAudioSourceAttenuationMode(state.context, idx,
+        lovrSourceIsEffectEnabled(source, EFFECT_ATTENUATION) ? ovrAudioSourceAttenuationMode_InverseSquare : ovrAudioSourceAttenuationMode_None, 1.0f);
     }
   }
 
