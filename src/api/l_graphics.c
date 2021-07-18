@@ -8,6 +8,12 @@
 #include <lauxlib.h>
 #include <string.h>
 
+StringEntry lovrBatchType[] = {
+  [BATCH_RENDER] = ENTRY("render"),
+  [BATCH_COMPUTE] = ENTRY("compute"),
+  { 0 }
+};
+
 StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
   [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
@@ -987,8 +993,15 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetBatch(lua_State* L) {
-  BatchInfo info;
+  BatchInfo info = { .type = BATCH_RENDER };
   info.capacity = luaL_checkinteger(L, 1);
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "type");
+    info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, BatchType, NULL);
+    lua_pop(L, 1);
+  }
+
   Batch* batch = lovrGraphicsGetBatch(&info);
   luax_pushtype(L, Batch, batch);
   lovrRelease(batch, lovrBatchDestroy);
@@ -996,8 +1009,15 @@ static int l_lovrGraphicsGetBatch(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewBatch(lua_State* L) {
-  BatchInfo info;
+  BatchInfo info = { .type = BATCH_RENDER };
   info.capacity = luaL_checkinteger(L, 1);
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "type");
+    info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, BatchType, NULL);
+    lua_pop(L, 1);
+  }
+
   Batch* batch = lovrBatchCreate(&info);
   luax_pushtype(L, Batch, batch);
   lovrRelease(batch, lovrBatchDestroy);

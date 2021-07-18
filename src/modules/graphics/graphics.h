@@ -376,13 +376,20 @@ void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset);
 
 // Batch
 
+typedef enum {
+  BATCH_RENDER,
+  BATCH_COMPUTE
+} BatchType;
+
 typedef struct {
+  BatchType type;
   uint32_t capacity;
 } BatchInfo;
 
 Batch* lovrGraphicsGetBatch(BatchInfo* info);
 Batch* lovrBatchCreate(BatchInfo* info);
 void lovrBatchDestroy(void* ref);
+const BatchInfo* lovrBatchGetInfo(Batch* batch);
 void lovrBatchReset(Batch* batch);
 void lovrBatchPush(Batch* batch);
 void lovrBatchPop(Batch* batch);
