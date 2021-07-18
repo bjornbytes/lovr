@@ -185,7 +185,7 @@ static bool getInstanceExtensions(char* buffer, uint32_t size) {
     lovrHeadsetDisplayDriver->getVulkanInstanceExtensions(buffer, size);
   } else
 #endif
-  buffer[-1] = '\0';
+  buffer[count ? -1 : 0] = '\0';
 
   return true;
 }
@@ -752,7 +752,7 @@ void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   lovrRelease(texture->info.parent, lovrTextureDestroy);
   lovrRelease(texture->sampler, lovrSamplerDestroy);
-  if (texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
+  if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
   gpu_texture_destroy(texture->gpu);
   free(texture);
 }
@@ -1370,6 +1370,7 @@ Batch* lovrGraphicsGetBatch(BatchInfo* info) {
   Batch* batch = talloc(sizeof(Batch));
   batch->ref = 1;
   batch->info = *info;
+  batch->scratch = true;
   return batch;
 }
 
@@ -1384,6 +1385,10 @@ Batch* lovrBatchCreate(BatchInfo* info) {
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
   if (!batch->scratch) free(batch);
+}
+
+const BatchInfo* lovrBatchGetInfo(Batch* batch) {
+  return &batch->info;
 }
 
 void lovrBatchReset(Batch* batch) {
