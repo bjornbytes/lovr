@@ -378,9 +378,9 @@ void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset);
 
 typedef struct {
   uint32_t capacity;
-  bool transient;
 } BatchInfo;
 
+Batch* lovrGraphicsGetBatch(BatchInfo* info);
 Batch* lovrBatchCreate(BatchInfo* info);
 void lovrBatchDestroy(void* ref);
 void lovrBatchReset(Batch* batch);

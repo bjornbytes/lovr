@@ -571,7 +571,7 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
   Batch* batch;
   if (lua_isfunction(L, 1)) {
     lua_settop(L, 1);
-    batch = lovrBatchCreate(&(BatchInfo) { .capacity = 1024, .transient = true });
+    batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 1024 });
     luax_pushtype(L, Batch, batch);
     lua_call(L, 1, 0);
   } else {

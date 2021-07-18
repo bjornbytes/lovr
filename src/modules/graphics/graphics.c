@@ -93,6 +93,7 @@ struct Shader {
 
 struct Batch {
   uint32_t ref;
+  bool scratch;
   BatchInfo info;
   Shader* shader;
   uint32_t attributeCount;
@@ -1365,6 +1366,13 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
 
 // Batch
 
+Batch* lovrGraphicsGetBatch(BatchInfo* info) {
+  Batch* batch = talloc(sizeof(Batch));
+  batch->ref = 1;
+  batch->info = *info;
+  return batch;
+}
+
 Batch* lovrBatchCreate(BatchInfo* info) {
   Batch* batch = calloc(1, sizeof(Batch));
   lovrAssert(batch, "Out of memory");
@@ -1375,7 +1383,7 @@ Batch* lovrBatchCreate(BatchInfo* info) {
 
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
-  free(batch);
+  if (!batch->scratch) free(batch);
 }
 
 void lovrBatchReset(Batch* batch) {
