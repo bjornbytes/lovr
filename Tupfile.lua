@@ -452,7 +452,7 @@ if target == 'android' then
     config.headsets.pico and 'src/resources/Activity_pico.java' or
     config.headsets.openxr and 'src/resources/Activity_openxr.java'
 
-  java = 'src/resources/Activity.java'
+  java = 'bin/Activity.java'
   class = 'org/lovr/app/Activity.class'
   binclass = 'bin/' .. class
   jar = 'bin/lovr.jar'
