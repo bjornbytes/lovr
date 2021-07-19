@@ -104,6 +104,7 @@ end
 if target == 'linux' then
   cflags += '-DLOVR_GL'
   cflags += '-D_POSIX_C_SOURCE=200809L'
+  cflags += '-D_DEFAULT_SOURCE'
   lflags += '-lm -lpthread -ldl'
   lflags += '-Wl,-rpath,\\$ORIGIN'
 end
