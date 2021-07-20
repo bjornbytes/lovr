@@ -52,7 +52,7 @@ static struct {
   float leftovers[BUFFER_SIZE * 2];
   float absorption[3];
   ma_data_converter playbackConverter;
-  int sampleRate;
+  uint32_t sampleRate;
 } state;
 
 static const ma_format miniaudioFormats[] = {
@@ -227,7 +227,7 @@ static Spatializer* spatializers[] = {
 
 // Entry
 
-bool lovrAudioInit(const char* spatializer, int sampleRate) {
+bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   if (state.initialized) return false;
 
   state.sampleRate = sampleRate;
@@ -406,7 +406,7 @@ const char* lovrAudioGetSpatializer() {
   return state.spatializer->name;
 }
 
-int lovrAudioGetSampleRate() {
+uint32_t lovrAudioGetSampleRate() {
   return state.sampleRate;
 }
 
