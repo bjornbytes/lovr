@@ -202,8 +202,8 @@ static int l_lovrAudioGetSpatializer(lua_State *L) {
   return 1;
 }
 
-static uint32_t l_lovrAudioGetSampleRate(lua_State *L) {
-  lua_pushnumber(L, lovrAudioGetSampleRate());
+static int l_lovrAudioGetSampleRate(lua_State *L) {
+  lua_pushinteger(L, lovrAudioGetSampleRate());
   return 1;
 }
 
@@ -311,7 +311,7 @@ int luaopen_lovr_audio(lua_State* L) {
 
   bool start = true;
   const char *spatializer = NULL;
-  int sampleRate = 48000; // Set default here
+  uint32_t sampleRate = 48000; // Set default here
   luax_pushconf(L);
   lua_getfield(L, -1, "audio");
   if (lua_istable(L, -1)) {
@@ -320,9 +320,7 @@ int luaopen_lovr_audio(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "samplerate");
-    int userSampleRate = luaL_optnumber(L, -1, 0);
-    if (userSampleRate > 0)
-      sampleRate = userSampleRate;
+    sampleRate = lua_isnil(L, -1) ? sampleRate : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "start");
