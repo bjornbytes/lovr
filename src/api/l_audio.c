@@ -311,7 +311,7 @@ int luaopen_lovr_audio(lua_State* L) {
 
   bool start = true;
   const char *spatializer = NULL;
-  int sampleRate = DEFAULT_SAMPLE_RATE;
+  int sampleRate = 48000; // Set default here
   luax_pushconf(L);
   lua_getfield(L, -1, "audio");
   if (lua_istable(L, -1)) {
