@@ -102,7 +102,7 @@ void os_poll_events() {
   } event;
 
   while ((event.any = xcb_poll_for_event(state.connection)) != NULL) {
-    uint8_t type = event.any->response_type & 0xf;
+    uint8_t type = event.any->response_type & 0x7f;
 
     switch (type) {
       case XCB_CLIENT_MESSAGE:
@@ -200,7 +200,7 @@ bool os_window_open(const os_window_config* config) {
   uint16_t h = config->height;
   uint16_t border = 0;
   xcb_window_class_t class = XCB_WINDOW_CLASS_INPUT_OUTPUT;
-  xcb_visual_t visual = screen->root_visual;
+  xcb_visualid_t visual = screen->root_visual;
   uint32_t keys = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
   uint32_t values[] = {
     screen->black_pixel,
