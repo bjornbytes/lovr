@@ -142,7 +142,7 @@ if target == 'linux' then
   cflags += '-D_DEFAULT_SOURCE'
   lflags += '-lm -lpthread -ldl'
   lflags += '-Wl,-rpath,\\$ORIGIN'
-  lflags += '-lX11 -lxcb -lX11-xcb'
+  lflags += '-lxcb'
 end
 
 if target == 'wasm' then
