@@ -59,7 +59,7 @@ typedef enum {
 
 typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
 
-bool lovrAudioInit(const char* spatializer, int sampleRate);
+bool lovrAudioInit(const char* spatializer, uint32_t sampleRate);
 void lovrAudioDestroy(void);
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
 bool lovrAudioSetDevice(AudioType type, void* id, size_t size, struct Sound* sink, AudioShareMode shareMode);
@@ -72,7 +72,7 @@ void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
 bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
 const char* lovrAudioGetSpatializer(void);
-int lovrAudioGetSampleRate();
+uint32_t lovrAudioGetSampleRate();
 void lovrAudioGetAbsorption(float absorption[3]);
 void lovrAudioSetAbsorption(float absorption[3]);
 
