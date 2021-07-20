@@ -91,6 +91,42 @@ struct Shader {
   map_t lookup;
 };
 
+enum {
+  DIRTY_PIPELINE = (1 << 0),
+  DIRTY_VERTEX_BUFFER = (1 << 1),
+  DIRTY_INDEX_BUFFER = (1 << 2),
+  DIRTY_UNIFORM_CHUNK = (1 << 3),
+  DIRTY_TEXTURE_PAGE = (1 << 4),
+  DIRTY_BUNDLE = (1 << 5)
+};
+
+typedef struct {
+  uint16_t dirty;
+  uint16_t count;
+} BatchGroup;
+
+typedef union {
+  uint64_t u64;
+  struct {
+    unsigned pipeline : 16;
+    unsigned vertex : 8;
+    unsigned index : 8;
+    unsigned textures : 4;
+    unsigned chunk : 4;
+    unsigned bundle : 12;
+    unsigned depth : 12;
+  } bits;
+} DrawKey;
+
+typedef struct {
+  DrawKey key;
+  uint32_t index;
+  uint32_t start;
+  uint32_t count;
+  uint32_t instances;
+  uint32_t base;
+} BatchDraw;
+
 struct Batch {
   uint32_t ref;
   bool scratch;
@@ -101,6 +137,10 @@ struct Batch {
   float transforms[64][16];
   uint32_t transform;
   gpu_pipeline_info* pipeline;
+  uint32_t groupCount;
+  uint32_t drawCount;
+  BatchGroup* groups;
+  BatchDraw* draws;
 };
 
 typedef struct {
@@ -361,25 +401,50 @@ void lovrGraphicsSubmit() {
 
 void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
   lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
 
-  // TODO pre-render hook
-  if (canvas == state.window) {
-    if (!canvas->gpu.color[0].texture) {
-      canvas->gpu.color[0].texture = gpu_surface_acquire();
+  BatchDraw* draw = batch->draws;
+  BatchGroup* group = batch->groups;
+  gpu_stream* stream = gpu_stream_begin();
+
+  gpu_render_begin(stream, &canvas->gpu);
+
+  for (uint32_t i = 0; i < batch->groupCount; i++, group++) {
+    if (group->dirty & DIRTY_PIPELINE) {
+      gpu_bind_pipeline(stream, state.pipelines[draw->key.bits.pipeline]);
     }
-    int width, height;
-    os_window_get_fbsize(&width, &height); // TODO resize swapchain?
-    canvas->gpu.size[0] = width;
-    canvas->gpu.size[1] = height;
-    canvas->gpu.color[0].clear[0] = 0.f;
-    canvas->gpu.color[0].clear[1] = 0.f;
-    canvas->gpu.color[0].clear[2] = 0.f;
-    canvas->gpu.color[0].clear[3] = 1.f;
-    // TODO set clear to background
+
+    if (group->dirty & DIRTY_VERTEX_BUFFER) {
+      uint32_t offset = 0;
+      gpu_bind_vertex_buffers(stream, &state.buffers.list[draw->key.bits.vertex].gpu, &offset, 0, 1);
+    }
+
+    if (group->dirty & DIRTY_INDEX_BUFFER) {
+      gpu_bind_index_buffer(stream, state.buffers.list[draw->key.bits.index].gpu, 0, GPU_INDEX_U32);
+    }
+
+    if (group->dirty & (DIRTY_UNIFORM_CHUNK | DIRTY_TEXTURE_PAGE)) {
+      gpu_bundle* bundle = batch->texturePages + draw->key.bits.textures * gpu_sizeof_bundle();
+      uint32_t dynamicOffsets[4] = { 0, 0, 0, 0 };
+      gpu_bind_bundle(stream, NULL, 0, bundle, dynamicOffsets, COUNTOF(dynamicOffsets));
+    }
+
+    if (group->dirty & DIRTY_BUNDLE) {
+      gpu_bundle* bundle = batch->bundles + draw->key.bits.bundle * gpu_sizeof_bundle();
+      gpu_bind_bundle(stream, NULL, 1, bundle, NULL, 0);
+    }
+
+    if (draw->key.bits.index != 0xff) {
+      for (uint16_t j = 0; j < group->count; j++, draw++) {
+        gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base);
+      }
+    } else {
+      for (uint16_t j = 0; j < group->count; j++, draw++) {
+        gpu_draw(stream, draw->count, draw->instances, draw->start);
+      }
+    }
   }
 
-  gpu_stream* stream = gpu_stream_begin();
-  gpu_render_begin(stream, &canvas->gpu);
   gpu_render_end(stream);
 
   state.streamOrder[state.streamCount] = 1;
