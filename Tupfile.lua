@@ -464,7 +464,7 @@ if target == 'android' then
   classpath = table.concat({ androidjar, extrajar }, classpathsep)
 
   package = config.android.package and ('--rename-manifest-package ' .. config.android.package) or ''
-  project = config.android.project
+  project = config.android.project and ('-A ' .. config.android.project) or ''
 
   manifest = config.android.manifest or
     config.headsets.vrapi and 'src/resources/AndroidManifest_oculus.xml' or
