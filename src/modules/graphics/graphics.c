@@ -91,6 +91,15 @@ struct Shader {
   map_t lookup;
 };
 
+struct Pipeline {
+  uint32_t ref;
+  PipelineInfo info;
+  gpu_pipeline_info gpuinfo;
+  gpu_pipeline* gpu;
+  gpu_pass* pass;
+  uint64_t hash;
+};
+
 enum {
   DIRTY_PIPELINE = (1 << 0),
   DIRTY_VERTEX_BUFFER = (1 << 1),
@@ -131,14 +140,20 @@ struct Batch {
   uint32_t ref;
   bool scratch;
   BatchInfo info;
+  gpu_pass* pass;
   uint32_t groupCount;
   uint32_t drawCount;
   BatchGroup* groups;
   BatchDraw* draws;
   float viewMatrix[6][16];
   float projection[6][16];
-  float transforms[64][16];
   uint32_t transform;
+  float transforms[64][16];
+  uint32_t pipeline;
+  bool pipelineDirty;
+  gpu_pipeline_info pipelines[4];
+  uint64_t pipelineHash;
+  Shader* shader;
 };
 
 typedef struct {
@@ -232,7 +247,7 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   lovrCheck(blockSize <= 1 << 30, "Block size can not exceed 1GB");
   state.blockSize = blockSize;
 
-  state.frame.top = 1 << 12;
+  state.frame.top = 1 << 14;
   state.frame.cap = 1 << 30;
   state.frame.memory = os_vm_init(state.frame.cap);
   os_vm_commit(state.frame.memory, state.frame.top);
@@ -397,48 +412,52 @@ void lovrGraphicsSubmit() {
   gpu_submit(streams, state.streamCount);
 }
 
-void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
+void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count) {
   lovrCheck(state.active, "Graphics is not active");
-  lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
 
-  BatchDraw* draw = batch->draws;
-  BatchGroup* group = batch->groups;
   gpu_stream* stream = gpu_stream_begin();
-
   gpu_render_begin(stream, &canvas->gpu);
 
-  for (uint32_t i = 0; i < batch->groupCount; i++, group++) {
-    if (group->dirty & DIRTY_PIPELINE) {
-      gpu_bind_pipeline(stream, state.pipelines[draw->key.bits.pipeline]);
-    }
+  for (uint32_t i = 0; i < count; i++) {
+    Batch* batch = batches[i];
+    BatchDraw* draw = batch->draws;
+    BatchGroup* group = batch->groups;
 
-    if (group->dirty & DIRTY_VERTEX_BUFFER) {
-      uint32_t offset = 0;
-      gpu_bind_vertex_buffers(stream, &state.buffers.list[draw->key.bits.vertex].gpu, &offset, 0, 1);
-    }
+    lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
 
-    if (group->dirty & DIRTY_INDEX_BUFFER) {
-      gpu_bind_index_buffer(stream, state.buffers.list[draw->key.bits.index].gpu, 0, GPU_INDEX_U32);
-    }
-
-    if (group->dirty & (DIRTY_UNIFORM_CHUNK | DIRTY_TEXTURE_PAGE)) {
-      gpu_bundle* bundle = batch->texturePages + draw->key.bits.textures * gpu_sizeof_bundle();
-      uint32_t dynamicOffsets[4] = { 0, 0, 0, 0 };
-      gpu_bind_bundle(stream, NULL, 0, bundle, dynamicOffsets, COUNTOF(dynamicOffsets));
-    }
-
-    if (group->dirty & DIRTY_BUNDLE) {
-      gpu_bundle* bundle = batch->bundles + draw->key.bits.bundle * gpu_sizeof_bundle();
-      gpu_bind_bundle(stream, NULL, 1, bundle, NULL, 0);
-    }
-
-    if (draw->key.bits.index != 0xff) {
-      for (uint16_t j = 0; j < group->count; j++, draw++) {
-        gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base);
+    for (uint32_t j = 0; j < batch->groupCount; j++, group++) {
+      if (group->dirty & DIRTY_PIPELINE) {
+        gpu_bind_pipeline(stream, state.pipelines[draw->key.bits.pipeline]);
       }
-    } else {
-      for (uint16_t j = 0; j < group->count; j++, draw++) {
-        gpu_draw(stream, draw->count, draw->instances, draw->start);
+
+      if (group->dirty & DIRTY_VERTEX_BUFFER) {
+        uint32_t offset = 0;
+        gpu_bind_vertex_buffers(stream, &state.buffers.list[draw->key.bits.vertex].gpu, &offset, 0, 1);
+      }
+
+      if (group->dirty & DIRTY_INDEX_BUFFER) {
+        gpu_bind_index_buffer(stream, state.buffers.list[draw->key.bits.index].gpu, 0, GPU_INDEX_U32);
+      }
+
+      if (group->dirty & (DIRTY_UNIFORM_CHUNK | DIRTY_TEXTURE_PAGE)) {
+        gpu_bundle* bundle = batch->texturePages + draw->key.bits.textures * gpu_sizeof_bundle();
+        uint32_t dynamicOffsets[4] = { 0, 0, 0, 0 };
+        gpu_bind_bundle(stream, NULL, 0, bundle, dynamicOffsets, COUNTOF(dynamicOffsets));
+      }
+
+      if (group->dirty & DIRTY_BUNDLE) {
+        gpu_bundle* bundle = batch->bundles + draw->key.bits.bundle * gpu_sizeof_bundle();
+        gpu_bind_bundle(stream, NULL, 1, bundle, NULL, 0);
+      }
+
+      if (draw->key.bits.index != 0xff) {
+        for (uint16_t k = 0; k < group->count; k++, draw++) {
+          gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base);
+        }
+      } else {
+        for (uint16_t k = 0; k < group->count; k++, draw++) {
+          gpu_draw(stream, draw->count, draw->instances, draw->start);
+        }
       }
     }
   }
@@ -447,6 +466,10 @@ void lovrGraphicsRender(Canvas* canvas, Batch* batch) {
 
   state.streamOrder[state.streamCount] = 1;
   state.streams[state.streamCount++] = stream;
+}
+
+void lovrGraphicsCompute(Batch** batches, uint32_t count) {
+  // TODO
 }
 
 // Buffer
@@ -1485,13 +1508,27 @@ void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection) {
   mat4_init(projection, batch->projection[index]);
 }
 
-void lovrBatchPush(Batch* batch) {
-  lovrCheck(++batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pushes than pops?)");
-  mat4_init(batch->transforms[batch->transform], batch->transforms[batch->transform - 1]);
+void lovrBatchPush(Batch* batch, StackType type) {
+  if (type == STACK_TRANSFORM) {
+    batch->transform++;
+    lovrCheck(batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pushes than pops?)");
+    mat4_init(batch->transforms[batch->transform], batch->transforms[batch->transform - 1]);
+  } else {
+    batch->pipeline++;
+    lovrCheck(batch->pipeline < COUNTOF(batch->pipelines), "Unbalanced pipeline stack (more pushes than pops?)");
+    batch->pipelines[batch->pipeline] = batch->pipelines[batch->pipeline - 1];
+  }
 }
 
-void lovrBatchPop(Batch* batch) {
-  lovrCheck(--batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pops than pushes?)");
+void lovrBatchPop(Batch* batch, StackType type) {
+  if (type == STACK_TRANSFORM) {
+    batch->transform--;
+    lovrCheck(batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pops than pushes?)");
+  } else {
+    batch->pipeline--;
+    lovrCheck(batch->pipeline < COUNTOF(batch->pipelines), "Unbalanced pipeline stack (more pops than pushes?)");
+    batch->pipelineDirty = true;
+  }
 }
 
 void lovrBatchOrigin(Batch* batch) {
@@ -1514,157 +1551,98 @@ void lovrBatchTransform(Batch* batch, mat4 transform) {
   mat4_mul(batch->transforms[batch->transform], transform);
 }
 
-bool lovrBatchGetAlphaToCoverage(Batch* batch) {
-  return batch->pipeline->alphaToCoverage;
-}
-
 void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled) {
-  batch->pipeline->alphaToCoverage = enabled;
-}
-
-static const gpu_blend_state blendModes[] = {
-  [BLEND_ALPHA] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD },
-    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD }
-  },
-  [BLEND_ADD] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD },
-    .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD }
-  },
-  [BLEND_SUBTRACT] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB },
-    .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB }
-  },
-  [BLEND_MULTIPLY] = {
-    .color = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
-    .alpha = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
-  },
-  [BLEND_LIGHTEN] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX },
-    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX }
-  },
-  [BLEND_DARKEN] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN },
-    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN }
-  },
-  [BLEND_SCREEN] = {
-    .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD },
-    .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD }
-  }
-};
-
-void lovrBatchGetBlendMode(Batch* batch, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode) {
-  gpu_blend_state* blend = &batch->pipeline->blend[target];
-
-  if (!blend->enabled) {
-    *mode = BLEND_NONE;
-    *alphaMode = BLEND_ALPHA_MULTIPLY;
-    return;
-  }
-
-  for (uint32_t i = 0; i < COUNTOF(blendModes); i++) {
-    const gpu_blend_state* a = blend;
-    const gpu_blend_state* b = &blendModes[i];
-    if (a->color.dst == b->color.dst && a->alpha.src == b->alpha.src && a->alpha.dst == b->alpha.dst && a->color.op == b->color.op && a->alpha.op == b->alpha.op) {
-      *mode = i;
-      *alphaMode = a->color.src == GPU_BLEND_ONE ? BLEND_PREMULTIPLIED : BLEND_ALPHA_MULTIPLY;
-    }
-  }
-
-  lovrThrow("Unreachable");
+  batch->pipelines[batch->pipeline].alphaToCoverage = enabled;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetBlendMode(Batch* batch, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode) {
   if (mode == BLEND_NONE) {
-    memset(&batch->pipeline->blend[target], 0, sizeof(gpu_blend_state));
+    memset(&batch->pipelines[batch->pipeline].blend[target], 0, sizeof(gpu_blend_state));
     return;
   }
 
-  batch->pipeline->blend[target] = blendModes[mode];
-  if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
-    batch->pipeline->blend[target].color.src = GPU_BLEND_ONE;
-  }
-  batch->pipeline->blend[target].enabled = true;
-}
+  gpu_blend_state blendModes[] = {
+    [BLEND_ALPHA] = {
+      .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD },
+      .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA, .op = GPU_BLEND_ADD }
+    },
+    [BLEND_ADD] = {
+      .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD },
+      .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_ADD }
+    },
+    [BLEND_SUBTRACT] = {
+      .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB },
+      .alpha = { .src = GPU_BLEND_ZERO, .dst = GPU_BLEND_ONE, .op = GPU_BLEND_RSUB }
+    },
+    [BLEND_MULTIPLY] = {
+      .color = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
+      .alpha = { .src = GPU_BLEND_DST_COLOR, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_ADD },
+    },
+    [BLEND_LIGHTEN] = {
+      .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX },
+      .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MAX }
+    },
+    [BLEND_DARKEN] = {
+      .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN },
+      .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ZERO, .op = GPU_BLEND_MIN }
+    },
+    [BLEND_SCREEN] = {
+      .color = { .src = GPU_BLEND_SRC_ALPHA, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD },
+      .alpha = { .src = GPU_BLEND_ONE, .dst = GPU_BLEND_ONE_MINUS_SRC_COLOR, .op = GPU_BLEND_ADD }
+    }
+  };
 
-void lovrBatchGetColorMask(Batch* batch, uint32_t target, bool* r, bool* g, bool* b, bool* a) {
-  uint8_t mask = batch->pipeline->colorMask[target];
-  *r = mask & 0x1;
-  *g = mask & 0x2;
-  *b = mask & 0x4;
-  *a = mask & 0x8;
+  batch->pipelines[batch->pipeline].blend[target] = blendModes[mode];
+
+  if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
+    batch->pipelines[batch->pipeline].blend[target].color.src = GPU_BLEND_ONE;
+  }
+
+  batch->pipelines[batch->pipeline].blend[target].enabled = true;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetColorMask(Batch* batch, uint32_t target, bool r, bool g, bool b, bool a) {
-  batch->pipeline->colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
-}
-
-CullMode lovrBatchGetCullMode(Batch* batch) {
-  return (CullMode) batch->pipeline->rasterizer.cullMode;
+  batch->pipelines[batch->pipeline].colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetCullMode(Batch* batch, CullMode mode) {
-  batch->pipeline->rasterizer.cullMode = (gpu_cull_mode) mode;
-}
-
-void lovrBatchGetDepthTest(Batch* batch, CompareMode* test, bool* write) {
-  *test = (CompareMode) batch->pipeline->depth.test;
-  *write = batch->pipeline->depth.write;
+  batch->pipelines[batch->pipeline].rasterizer.cullMode = (gpu_cull_mode) mode;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetDepthTest(Batch* batch, CompareMode test, bool write) {
-  batch->pipeline->depth.test = (gpu_compare_mode) test;
-  batch->pipeline->depth.write = write;
-}
-
-void lovrBatchGetDepthNudge(Batch* batch, float* nudge, float* sloped, float* clamp) {
-  *nudge = batch->pipeline->rasterizer.depthOffset;
-  *sloped = batch->pipeline->rasterizer.depthOffsetSloped;
-  *clamp = batch->pipeline->rasterizer.depthOffsetClamp;
+  batch->pipelines[batch->pipeline].depth.test = (gpu_compare_mode) test;
+  batch->pipelines[batch->pipeline].depth.write = write;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped, float clamp) {
-  batch->pipeline->rasterizer.depthOffset = nudge;
-  batch->pipeline->rasterizer.depthOffsetSloped = sloped;
-  batch->pipeline->rasterizer.depthOffsetClamp = clamp;
-}
-
-bool lovrBatchGetDepthClamp(Batch* batch) {
-  return batch->pipeline->rasterizer.depthClamp;
+  batch->pipelines[batch->pipeline].rasterizer.depthOffset = nudge;
+  batch->pipelines[batch->pipeline].rasterizer.depthOffsetSloped = sloped;
+  batch->pipelines[batch->pipeline].rasterizer.depthOffsetClamp = clamp;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetDepthClamp(Batch* batch, bool clamp) {
-  batch->pipeline->rasterizer.depthClamp = clamp;
-}
-
-void lovrBatchGetStencilTest(Batch* batch, CompareMode* test, uint8_t* value) {
-  switch (batch->pipeline->stencil.test) {
-    case GPU_COMPARE_NONE: default: *test = COMPARE_NONE; break;
-    case GPU_COMPARE_EQUAL: *test = COMPARE_EQUAL; break;
-    case GPU_COMPARE_NEQUAL: *test = COMPARE_NEQUAL; break;
-    case GPU_COMPARE_LESS: *test = COMPARE_GREATER; break;
-    case GPU_COMPARE_LEQUAL: *test = COMPARE_GEQUAL; break;
-    case GPU_COMPARE_GREATER: *test = COMPARE_LESS; break;
-    case GPU_COMPARE_GEQUAL: *test = COMPARE_LEQUAL; break;
-  }
-  *value = batch->pipeline->stencil.value;
+  batch->pipelines[batch->pipeline].rasterizer.depthClamp = clamp;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value) {
-  switch (test) {
-    case COMPARE_NONE: default: batch->pipeline->stencil.test = GPU_COMPARE_NONE; break;
-    case COMPARE_EQUAL: batch->pipeline->stencil.test = GPU_COMPARE_EQUAL; break;
-    case COMPARE_NEQUAL: batch->pipeline->stencil.test = GPU_COMPARE_NEQUAL; break;
-    case COMPARE_LESS: batch->pipeline->stencil.test = GPU_COMPARE_GREATER; break;
-    case COMPARE_LEQUAL: batch->pipeline->stencil.test = GPU_COMPARE_GEQUAL; break;
-    case COMPARE_GREATER: batch->pipeline->stencil.test = GPU_COMPARE_LESS; break;
-    case COMPARE_GEQUAL: batch->pipeline->stencil.test = GPU_COMPARE_LEQUAL; break;
+  switch (test) { // (Reversed compare mode)
+    case COMPARE_NONE: default: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_NONE; break;
+    case COMPARE_EQUAL: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_EQUAL; break;
+    case COMPARE_NEQUAL: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_NEQUAL; break;
+    case COMPARE_LESS: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_GREATER; break;
+    case COMPARE_LEQUAL: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_GEQUAL; break;
+    case COMPARE_GREATER: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_LESS; break;
+    case COMPARE_GEQUAL: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_LEQUAL; break;
   }
-  batch->pipeline->stencil.value = value;
-}
-
-Shader* lovrBatchGetShader(Batch* batch) {
-  return batch->shader;
+  batch->pipelines[batch->pipeline].stencil.value = value;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetShader(Batch* batch, Shader* shader) {
@@ -1673,39 +1651,21 @@ void lovrBatchSetShader(Batch* batch, Shader* shader) {
   lovrRetain(shader);
   lovrRelease(batch->shader, lovrShaderDestroy);
   batch->shader = shader;
-}
-
-void lovrBatchGetVertexFormat(Batch* batch, VertexAttribute attributes[16], uint32_t* count) {
-  memcpy(attributes, batch->attributes, batch->attributeCount * sizeof(VertexAttribute));
-  *count = batch->attributeCount;
-}
-
-void lovrBatchSetVertexFormat(Batch* batch, VertexAttribute attributes[16], uint32_t count) {
-  lovrCheck(count < state.limits.vertexAttributes, "Vertex attribute count must be less than limits.vertexAttributes (%d)", state.limits.vertexAttributes);
-
-  for (uint32_t i = 0; i < count; i++) {
-    lovrCheck(attributes[i].location < 16, "Vertex attribute location must be less than 16");
-    lovrCheck(attributes[i].buffer < state.limits.vertexBuffers, "Vertex attribute buffer index must be less than limits.vertexBuffers (%d)", state.limits.vertexBuffers);
-    lovrCheck(attributes[i].fieldType < FIELD_MAT2, "Matrix types can not be used as vertex attribute formats");
-    lovrCheck(attributes[i].offset < state.limits.vertexAttributeOffset, "Vertex attribute byte offset must be less than limits.vertexAttributeOffset (%d)", state.limits.vertexAttributeOffset);
-  }
-
-  memcpy(batch->attributes, attributes, count * sizeof(VertexAttribute));
-  batch->attributeCount = count;
-}
-
-Winding lovrBatchGetWinding(Batch* batch) {
-  return (Winding) batch->pipeline->rasterizer.winding;
+  batch->pipelines[batch->pipeline].shader = shader->gpu;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetWinding(Batch* batch, Winding winding) {
-  batch->pipeline->rasterizer.winding = (gpu_winding) winding;
-}
-
-bool lovrBatchIsWireframe(Batch* batch) {
-  return batch->pipeline->rasterizer.wireframe;
+  batch->pipelines[batch->pipeline].rasterizer.winding = (gpu_winding) winding;
+  batch->pipelineDirty = true;
 }
 
 void lovrBatchSetWireframe(Batch* batch, bool wireframe) {
-  batch->pipeline->rasterizer.wireframe = wireframe;
+  batch->pipelines[batch->pipeline].rasterizer.wireframe = wireframe;
+  batch->pipelineDirty = true;
+}
+
+void lovrBatchSetPipeline(Batch* batch, Pipeline* pipeline) {
+  lovrCheck(batch->pass == pipeline->pass, "Batch canvas and Pipeline canvas must match");
+  batch->pipelineDirty = false;
 }
