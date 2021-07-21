@@ -220,7 +220,7 @@ if config.modules.data then
   msdfgen_cflags += '-fPIC'
   msdfgen_src += 'deps/msdfgen/core/*.cpp'
   tup.foreach_rule(msdfgen_src, '^ CC msdfgen/%b^ $(cxx) $(base_flags) $(msdfgen_cflags) -c %f -o %o', '.obj/msdfgen/%B.o')
-  tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(base_flags) -shared -o %o %f', lib('msdfgen'))
+  tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(base_flags) -shared -static-libstdc++ -o %o %f', lib('msdfgen'))
 end
 
 if config.modules.physics then
@@ -280,7 +280,7 @@ if config.modules.physics then
 
   tup.foreach_rule(ode_c_src, '^ CC ode/%b^ $(cc) $(base_flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
   tup.foreach_rule(ode_src, '^ CC ode/%b^ $(cxx) $(base_flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
-  tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(base_flags) -shared -o %o %f', lib('ode'))
+  tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(base_flags) -shared -static-libstdc++ -o %o %f', lib('ode'))
 end
 
 if config.headsets.openvr then
