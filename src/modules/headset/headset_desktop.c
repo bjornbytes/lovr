@@ -197,7 +197,7 @@ static void desktop_renderTo(Batch* batch) {
   //lovrCanvasSetProjection(canvas, 1, projection);
   //lovrCanvasSetViewMatrix(canvas, 0, viewMatrix);
   //lovrCanvasSetViewMatrix(canvas, 1, viewMatrix);
-  lovrGraphicsRender(canvas, batch);
+  lovrGraphicsRender(canvas, &batch, 1);
   lovrGraphicsSubmit();
 }
 

@@ -10,6 +10,7 @@ typedef struct Texture Texture;
 typedef struct Sampler Sampler;
 typedef struct Canvas Canvas;
 typedef struct Shader Shader;
+typedef struct Pipeline Pipeline;
 typedef struct Batch Batch;
 
 typedef struct {
@@ -77,7 +78,8 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
 void lovrGraphicsSubmit(void);
-void lovrGraphicsRender(Canvas* canvas, Batch* batch);
+void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count);
+void lovrGraphicsCompute(Batch** batches, uint32_t count);
 
 // Buffer
 
@@ -299,6 +301,15 @@ typedef enum {
   WINDING_CLOCKWISE
 } Winding;
 
+typedef struct {
+  bool alphaToCoverage;
+  //
+} PipelineInfo;
+
+Pipeline* lovrPipelineCreate(PipelineInfo* info);
+void lovrPipelineDestroy(Pipeline* pipeline);
+const PipelineInfo* lovrPipelineGetInfo(Pipeline* pipeline);
+
 // Canvas
 
 typedef enum {
@@ -371,8 +382,6 @@ Shader* lovrShaderCreate(ShaderInfo* info);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
-void lovrShaderCompute(Shader* shader, uint32_t x, uint32_t y, uint32_t z);
-void lovrShaderComputeIndirect(Shader* shader, Buffer* buffer, uint32_t offset);
 
 // Batch
 
@@ -384,7 +393,15 @@ typedef enum {
 typedef struct {
   BatchType type;
   uint32_t capacity;
+  uint32_t colorFormats[4];
+  uint32_t depthFormat;
+  uint32_t samples;
 } BatchInfo;
+
+typedef enum {
+  STACK_TRANSFORM,
+  STACK_PIPELINE
+} StackType;
 
 Batch* lovrGraphicsGetBatch(BatchInfo* info);
 Batch* lovrBatchCreate(BatchInfo* info);
@@ -396,34 +413,22 @@ void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix);
 void lovrBatchSetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix);
 void lovrBatchGetProjection(Batch* batch, uint32_t index, float* projection);
 void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection);
-void lovrBatchPush(Batch* batch);
-void lovrBatchPop(Batch* batch);
+void lovrBatchPush(Batch* batch, StackType type);
+void lovrBatchPop(Batch* batch, StackType type);
 void lovrBatchOrigin(Batch* batch);
 void lovrBatchTranslate(Batch* batch, float* translation);
 void lovrBatchRotate(Batch* batch, float* rotation);
 void lovrBatchScale(Batch* batch, float* scale);
 void lovrBatchTransform(Batch* batch, float* transform);
-bool lovrBatchGetAlphaToCoverage(Batch* batch);
 void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled);
-void lovrBatchGetBlendMode(Batch* batch, uint32_t target, BlendMode* mode, BlendAlphaMode* alphaMode);
 void lovrBatchSetBlendMode(Batch* batch, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode);
-void lovrBatchGetColorMask(Batch* batch, uint32_t target, bool* r, bool* g, bool* b, bool* a);
 void lovrBatchSetColorMask(Batch* batch, uint32_t target, bool r, bool g, bool b, bool a);
-CullMode lovrBatchGetCullMode(Batch* batch);
 void lovrBatchSetCullMode(Batch* batch, CullMode mode);
-void lovrBatchGetDepthTest(Batch* batch, CompareMode* test, bool* write);
 void lovrBatchSetDepthTest(Batch* batch, CompareMode test, bool write);
-void lovrBatchGetDepthNudge(Batch* batch, float* nudge, float* sloped, float* clamp);
 void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped, float clamp);
-bool lovrBatchGetDepthClamp(Batch* batch);
 void lovrBatchSetDepthClamp(Batch* batch, bool clamp);
-Shader* lovrBatchGetShader(Batch* batch);
 void lovrBatchSetShader(Batch* batch, Shader* shader);
-void lovrBatchGetStencilTest(Batch* batch, CompareMode* test, uint8_t* value);
 void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value);
-void lovrBatchGetVertexFormat(Batch* batch, VertexAttribute attributes[16], uint32_t* count);
-void lovrBatchSetVertexFormat(Batch* batch, VertexAttribute attributes[16], uint32_t count);
-Winding lovrBatchGetWinding(Batch* batch);
 void lovrBatchSetWinding(Batch* batch, Winding winding);
-bool lovrBatchIsWireframe(Batch* batch);
 void lovrBatchSetWireframe(Batch* batch, bool wireframe);
+void lovrBatchSetPipeline(Batch* batch, Pipeline* pipeline);
