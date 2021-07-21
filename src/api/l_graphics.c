@@ -125,6 +125,12 @@ StringEntry lovrShaderType[] = {
   { 0 }
 };
 
+StringEntry lovrStackType[] = {
+  [STACK_TRANSFORM] = ENTRY("transform"),
+  [STACK_PIPELINE] = ENTRY("pipeline"),
+  { 0 }
+};
+
 StringEntry lovrStencilAction[] = {
   [STENCIL_KEEP] = ENTRY("keep"),
   [STENCIL_REPLACE] = ENTRY("replace"),
@@ -594,7 +600,7 @@ static int l_lovrGraphicsRender(lua_State* L) {
     batch = luax_checktype(L, 2, Batch);
     lovrRetain(batch);
   }
-  lovrGraphicsRender(canvas, batch);
+  lovrGraphicsRender(canvas, &batch, 1);
   lovrRelease(batch, lovrBatchDestroy);
   return 0;
 }
