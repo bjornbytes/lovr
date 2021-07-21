@@ -131,16 +131,14 @@ struct Batch {
   uint32_t ref;
   bool scratch;
   BatchInfo info;
-  Shader* shader;
-  uint32_t attributeCount;
-  VertexAttribute attributes[16];
-  float transforms[64][16];
-  uint32_t transform;
-  gpu_pipeline_info* pipeline;
   uint32_t groupCount;
   uint32_t drawCount;
   BatchGroup* groups;
   BatchDraw* draws;
+  float viewMatrix[6][16];
+  float projection[6][16];
+  float transforms[64][16];
+  uint32_t transform;
 };
 
 typedef struct {
@@ -1457,12 +1455,34 @@ const BatchInfo* lovrBatchGetInfo(Batch* batch) {
 }
 
 uint32_t lovrBatchGetCount(Batch* batch) {
-  return 0;
+  return batch->drawCount;
 }
 
 void lovrBatchReset(Batch* batch) {
+  batch->groupCount = 0;
+  batch->drawCount = 0;
   batch->transform = 0;
   lovrBatchOrigin(batch);
+}
+
+void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix) {
+  lovrCheck(index < COUNTOF(batch->viewMatrix), "Invalid view index %d", index);
+  mat4_init(viewMatrix, batch->viewMatrix[index]);
+}
+
+void lovrBatchSetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix) {
+  lovrCheck(index < COUNTOF(batch->viewMatrix), "Invalid view index %d", index);
+  mat4_init(batch->viewMatrix[index], viewMatrix);
+}
+
+void lovrBatchGetProjection(Batch* batch, uint32_t index, float* projection) {
+  lovrCheck(index < COUNTOF(batch->projection), "Invalid view index %d", index);
+  mat4_init(batch->projection[index], projection);
+}
+
+void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection) {
+  lovrCheck(index < COUNTOF(batch->projection), "Invalid view index %d", index);
+  mat4_init(projection, batch->projection[index]);
 }
 
 void lovrBatchPush(Batch* batch) {
