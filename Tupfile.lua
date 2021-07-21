@@ -76,7 +76,7 @@ lflags += config.optimize and (target == 'macos' and '-Wl,-dead_strip' or '-Wl,-
 base_flags = {
   config.debug and '-g' or '',
   config.optimize and '-Os' or '',
-  config.supercharge and '-flto' or '',
+  config.supercharge and '-flto -march=native -DLOVR_UNCHECKED' or '',
   config.sanitize and '-fsanitize=address,undefined' or '',
 }
 
