@@ -297,7 +297,12 @@ static int l_lovrBatchSetPipeline(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBatchDraw(lua_State* L) {
+static int l_lovrBatchCube(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
+  float transform[16];
+  luax_readmat4(L, 3, transform, 1);
+  lovrBatchCube(batch, style, transform);
   return 0;
 }
 
@@ -333,7 +338,7 @@ const luaL_Reg lovrBatch[] = {
   { "setWireframe", l_lovrBatchSetWireframe },
   { "setPipeline", l_lovrBatchSetPipeline },
 
-  { "draw", l_lovrBatchDraw },
+  { "cube", l_lovrBatchCube },
 
   { NULL, NULL }
 };
