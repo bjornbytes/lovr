@@ -129,12 +129,22 @@ typedef union {
 
 typedef struct {
   DrawKey key;
+  gpu_pipeline* pipeline;
+  gpu_bundle* bundle;
   uint32_t index;
   uint32_t start;
   uint32_t count;
   uint32_t instances;
   uint32_t base;
 } BatchDraw;
+
+typedef struct {
+  float color[4];
+  gpu_pipeline_info info;
+  gpu_pipeline* instance;
+  uint64_t hash;
+  bool dirty;
+} BatchPipeline;
 
 struct Batch {
   uint32_t ref;
@@ -145,15 +155,24 @@ struct Batch {
   uint32_t drawCount;
   BatchGroup* groups;
   BatchDraw* draws;
+  uint32_t bundle;
+  bool bindingsDirty;
+  uint32_t transformIndex;
+  uint32_t pipelineIndex;
+  BatchPipeline* pipeline;
+  float* transform;
+  Shader* shader;
+  Megaview transformBuffer;
+  Megaview colorBuffer;
+  float* transformData;
+  float* colorData;
+  uint32_t bindingCount;
+  gpu_binding bindings[256];
+  BatchPipeline pipelines[4];
+  float transforms[16][16];
   float viewMatrix[6][16];
   float projection[6][16];
-  uint32_t transform;
-  float transforms[64][16];
-  uint32_t pipeline;
-  bool pipelineDirty;
-  gpu_pipeline_info pipelines[4];
-  uint64_t pipelineHash;
-  Shader* shader;
+  char* bundles;
 };
 
 typedef struct {
@@ -427,7 +446,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count) {
 
     for (uint32_t j = 0; j < batch->groupCount; j++, group++) {
       if (group->dirty & DIRTY_PIPELINE) {
-        gpu_bind_pipeline(stream, state.pipelines[draw->key.bits.pipeline]);
+        gpu_bind_pipeline(stream, draw->pipeline);
       }
 
       if (group->dirty & DIRTY_VERTEX_BUFFER) {
@@ -439,15 +458,14 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count) {
         gpu_bind_index_buffer(stream, state.buffers.list[draw->key.bits.index].gpu, 0, GPU_INDEX_U32);
       }
 
-      if (group->dirty & (DIRTY_UNIFORM_CHUNK | DIRTY_TEXTURE_PAGE)) {
+      /*if (group->dirty & (DIRTY_UNIFORM_CHUNK | DIRTY_TEXTURE_PAGE)) {
         gpu_bundle* bundle = batch->texturePages + draw->key.bits.textures * gpu_sizeof_bundle();
         uint32_t dynamicOffsets[4] = { 0, 0, 0, 0 };
         gpu_bind_bundle(stream, NULL, 0, bundle, dynamicOffsets, COUNTOF(dynamicOffsets));
-      }
+      }*/
 
       if (group->dirty & DIRTY_BUNDLE) {
-        gpu_bundle* bundle = batch->bundles + draw->key.bits.bundle * gpu_sizeof_bundle();
-        gpu_bind_bundle(stream, NULL, 1, bundle, NULL, 0);
+        gpu_bind_bundle(stream, NULL, 1, draw->bundle, NULL, 0);
       }
 
       if (draw->key.bits.index != 0xff) {
@@ -1452,20 +1470,30 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
 
 // Batch
 
-Batch* lovrGraphicsGetBatch(BatchInfo* info) {
-  Batch* batch = talloc(sizeof(Batch));
+Batch* lovrBatchInit(void* (*allocate)(size_t size), BatchInfo* info) {
+  size_t sizes[3];
+  size_t total = 0;
+  total += sizes[0] = sizeof(Batch);
+  total += sizes[1] = info->capacity * sizeof(BatchGroup);
+  total += sizes[2] = info->capacity * sizeof(BatchDraw);
+  char* memory = allocate(total);
+  lovrAssert(memory, "Out of memory");
+  Batch* batch = (Batch*) memory; memory += sizes[0];
+  batch->groups = (BatchGroup*) memory, memory += sizes[1];
+  batch->draws = (BatchDraw*) memory, memory += sizes[2];
   batch->ref = 1;
   batch->info = *info;
+  return batch;
+}
+
+Batch* lovrGraphicsGetBatch(BatchInfo* info) {
+  Batch* batch = lovrBatchInit(talloc, info);
   batch->scratch = true;
   return batch;
 }
 
 Batch* lovrBatchCreate(BatchInfo* info) {
-  Batch* batch = calloc(1, sizeof(Batch));
-  lovrAssert(batch, "Out of memory");
-  batch->info = *info;
-  batch->ref = 1;
-  return batch;
+  return lovrBatchInit(malloc, info);
 }
 
 void lovrBatchDestroy(void* ref) {
@@ -1510,55 +1538,55 @@ void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection) {
 
 void lovrBatchPush(Batch* batch, StackType type) {
   if (type == STACK_TRANSFORM) {
-    batch->transform++;
-    lovrCheck(batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pushes than pops?)");
-    mat4_init(batch->transforms[batch->transform], batch->transforms[batch->transform - 1]);
+    batch->transform = batch->transforms[++batch->transformIndex];
+    lovrCheck(batch->transformIndex < COUNTOF(batch->transforms), "Matrix stack overflow (more pushes than pops?)");
+    mat4_init(batch->transform, batch->transforms[batch->transformIndex - 1]);
   } else {
-    batch->pipeline++;
-    lovrCheck(batch->pipeline < COUNTOF(batch->pipelines), "Unbalanced pipeline stack (more pushes than pops?)");
-    batch->pipelines[batch->pipeline] = batch->pipelines[batch->pipeline - 1];
+    batch->pipeline = &batch->pipelines[++batch->pipelineIndex];
+    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelines), "Pipeline stack overflow (more pushes than pops?)");
+    batch->pipeline = &batch->pipelines[batch->pipelineIndex - 1];
   }
 }
 
 void lovrBatchPop(Batch* batch, StackType type) {
   if (type == STACK_TRANSFORM) {
-    batch->transform--;
-    lovrCheck(batch->transform < COUNTOF(batch->transforms), "Unbalanced matrix stack (more pops than pushes?)");
+    batch->transform = batch->transforms[--batch->transformIndex];
+    lovrCheck(batch->transformIndex < COUNTOF(batch->transforms), "Matrix stack overflow (more pops than pushes?)");
   } else {
-    batch->pipeline--;
-    lovrCheck(batch->pipeline < COUNTOF(batch->pipelines), "Unbalanced pipeline stack (more pops than pushes?)");
-    batch->pipelineDirty = true;
+    batch->pipeline = &batch->pipelines[--batch->pipelineIndex];
+    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelines), "Pipeline stack overflow (more pops than pushes?)");
   }
 }
 
 void lovrBatchOrigin(Batch* batch) {
-  mat4_identity(batch->transforms[batch->transform]);
+  mat4_identity(batch->transform);
 }
 
 void lovrBatchTranslate(Batch* batch, vec3 translation) {
-  mat4_translate(batch->transforms[batch->transform], translation[0], translation[1], translation[2]);
+  mat4_translate(batch->transform, translation[0], translation[1], translation[2]);
 }
 
 void lovrBatchRotate(Batch* batch, quat rotation) {
-  mat4_rotateQuat(batch->transforms[batch->transform], rotation);
+  mat4_rotateQuat(batch->transform, rotation);
 }
 
 void lovrBatchScale(Batch* batch, vec3 scale) {
-  mat4_scale(batch->transforms[batch->transform], scale[0], scale[1], scale[2]);
+  mat4_scale(batch->transform, scale[0], scale[1], scale[2]);
 }
 
 void lovrBatchTransform(Batch* batch, mat4 transform) {
-  mat4_mul(batch->transforms[batch->transform], transform);
+  mat4_mul(batch->transform, transform);
 }
 
 void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled) {
-  batch->pipelines[batch->pipeline].alphaToCoverage = enabled;
-  batch->pipelineDirty = true;
+  batch->pipeline->dirty |= enabled != batch->pipeline->info.alphaToCoverage;
+  batch->pipeline->info.alphaToCoverage = enabled;
 }
 
 void lovrBatchSetBlendMode(Batch* batch, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode) {
   if (mode == BLEND_NONE) {
-    memset(&batch->pipelines[batch->pipeline].blend[target], 0, sizeof(gpu_blend_state));
+    batch->pipeline->dirty |= batch->pipeline->info.blend[target].enabled;
+    memset(&batch->pipeline->info.blend[target], 0, sizeof(gpu_blend_state));
     return;
   }
 
@@ -1593,79 +1621,146 @@ void lovrBatchSetBlendMode(Batch* batch, uint32_t target, BlendMode mode, BlendA
     }
   };
 
-  batch->pipelines[batch->pipeline].blend[target] = blendModes[mode];
+  batch->pipeline->info.blend[target] = blendModes[mode];
 
   if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
-    batch->pipelines[batch->pipeline].blend[target].color.src = GPU_BLEND_ONE;
+    batch->pipeline->info.blend[target].color.src = GPU_BLEND_ONE;
   }
 
-  batch->pipelines[batch->pipeline].blend[target].enabled = true;
-  batch->pipelineDirty = true;
+  batch->pipeline->info.blend[target].enabled = true;
+  batch->pipeline->dirty = true;
 }
 
 void lovrBatchSetColorMask(Batch* batch, uint32_t target, bool r, bool g, bool b, bool a) {
-  batch->pipelines[batch->pipeline].colorMask[target] = (r << 0) | (g << 1) | (b << 2) | (a << 3);
-  batch->pipelineDirty = true;
+  uint8_t mask = (r << 0) | (g << 1) | (b << 2) | (a << 3);
+  batch->pipeline->dirty |= batch->pipeline->info.colorMask[target] != mask;
+  batch->pipeline->info.colorMask[target] = mask;
 }
 
 void lovrBatchSetCullMode(Batch* batch, CullMode mode) {
-  batch->pipelines[batch->pipeline].rasterizer.cullMode = (gpu_cull_mode) mode;
-  batch->pipelineDirty = true;
+  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
+  batch->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
 }
 
 void lovrBatchSetDepthTest(Batch* batch, CompareMode test, bool write) {
-  batch->pipelines[batch->pipeline].depth.test = (gpu_compare_mode) test;
-  batch->pipelines[batch->pipeline].depth.write = write;
-  batch->pipelineDirty = true;
+  batch->pipeline->dirty |= batch->pipeline->info.depth.test != (gpu_compare_mode) test;
+  batch->pipeline->dirty |= batch->pipeline->info.depth.write != write;
+  batch->pipeline->info.depth.test = (gpu_compare_mode) test;
+  batch->pipeline->info.depth.write = write;
 }
 
 void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped, float clamp) {
-  batch->pipelines[batch->pipeline].rasterizer.depthOffset = nudge;
-  batch->pipelines[batch->pipeline].rasterizer.depthOffsetSloped = sloped;
-  batch->pipelines[batch->pipeline].rasterizer.depthOffsetClamp = clamp;
-  batch->pipelineDirty = true;
+  batch->pipeline->info.rasterizer.depthOffset = nudge;
+  batch->pipeline->info.rasterizer.depthOffsetSloped = sloped;
+  batch->pipeline->info.rasterizer.depthOffsetClamp = clamp;
+  batch->pipeline->dirty = true;
 }
 
 void lovrBatchSetDepthClamp(Batch* batch, bool clamp) {
-  batch->pipelines[batch->pipeline].rasterizer.depthClamp = clamp;
-  batch->pipelineDirty = true;
+  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.depthClamp != clamp;
+  batch->pipeline->info.rasterizer.depthClamp = clamp;
 }
 
 void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value) {
   switch (test) { // (Reversed compare mode)
-    case COMPARE_NONE: default: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_NONE; break;
-    case COMPARE_EQUAL: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_EQUAL; break;
-    case COMPARE_NEQUAL: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_NEQUAL; break;
-    case COMPARE_LESS: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_GREATER; break;
-    case COMPARE_LEQUAL: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_GEQUAL; break;
-    case COMPARE_GREATER: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_LESS; break;
-    case COMPARE_GEQUAL: batch->pipelines[batch->pipeline].stencil.test = GPU_COMPARE_LEQUAL; break;
+    case COMPARE_NONE: default: batch->pipeline->info.stencil.test = GPU_COMPARE_NONE; break;
+    case COMPARE_EQUAL: batch->pipeline->info.stencil.test = GPU_COMPARE_EQUAL; break;
+    case COMPARE_NEQUAL: batch->pipeline->info.stencil.test = GPU_COMPARE_NEQUAL; break;
+    case COMPARE_LESS: batch->pipeline->info.stencil.test = GPU_COMPARE_GREATER; break;
+    case COMPARE_LEQUAL: batch->pipeline->info.stencil.test = GPU_COMPARE_GEQUAL; break;
+    case COMPARE_GREATER: batch->pipeline->info.stencil.test = GPU_COMPARE_LESS; break;
+    case COMPARE_GEQUAL: batch->pipeline->info.stencil.test = GPU_COMPARE_LEQUAL; break;
   }
-  batch->pipelines[batch->pipeline].stencil.value = value;
-  batch->pipelineDirty = true;
+  batch->pipeline->info.stencil.value = value;
+  batch->pipeline->dirty = true;
 }
 
 void lovrBatchSetShader(Batch* batch, Shader* shader) {
-  lovrCheck(!shader || shader->info.type == SHADER_GRAPHICS, "Compute shaders can not be used with setShader");
   if (shader == batch->shader) return;
   lovrRetain(shader);
   lovrRelease(batch->shader, lovrShaderDestroy);
   batch->shader = shader;
-  batch->pipelines[batch->pipeline].shader = shader->gpu;
-  batch->pipelineDirty = true;
+  batch->pipeline->info.shader = shader->gpu;
+  batch->pipeline->dirty = true;
 }
 
 void lovrBatchSetWinding(Batch* batch, Winding winding) {
-  batch->pipelines[batch->pipeline].rasterizer.winding = (gpu_winding) winding;
-  batch->pipelineDirty = true;
+  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.winding != (gpu_winding) winding;
+  batch->pipeline->info.rasterizer.winding = (gpu_winding) winding;
 }
 
 void lovrBatchSetWireframe(Batch* batch, bool wireframe) {
-  batch->pipelines[batch->pipeline].rasterizer.wireframe = wireframe;
-  batch->pipelineDirty = true;
+  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
+  batch->pipeline->info.rasterizer.wireframe = wireframe;
 }
 
 void lovrBatchSetPipeline(Batch* batch, Pipeline* pipeline) {
   lovrCheck(batch->pass == pipeline->pass, "Batch canvas and Pipeline canvas must match");
-  batch->pipelineDirty = false;
+  batch->pipeline->dirty = false;
+}
+
+static BatchDraw* lovrBatchGetDraw(Batch* batch, DrawMode mode, float* transform) {
+  lovrCheck(batch->drawCount < batch->info.capacity, "Too many draws");
+  BatchDraw* draw = &batch->draws[batch->drawCount];
+  draw->index = batch->drawCount++;
+
+  // Pipeline
+  if (batch->pipeline->info.drawMode != (gpu_draw_mode) mode) {
+    batch->pipeline->info.drawMode = (gpu_draw_mode) mode;
+    batch->pipeline->dirty = true;
+  }
+
+  if (batch->pipeline->dirty) {
+    batch->pipeline->dirty = false;
+    batch->pipeline->hash = hash64(&batch->pipeline->info, sizeof(gpu_pipeline_info));
+    draw->pipeline = /* resolve */ NULL;
+  } else {
+    draw->pipeline = batch->pipeline->instance;
+  }
+
+  // Bundle
+  if (batch->bindingsDirty) {
+    // if no room in bindings array, flush (allocate a new bunch of bundles and write all the bindings to it)
+    // write the bindings
+    // increment bundle index (batch->bundle)
+  }
+
+  draw->bundle = (gpu_bundle*) (batch->bundles + batch->bundle * gpu_sizeof_bundle());
+
+  // Key
+  draw->key.bits.pipeline = batch->pipeline->hash & 0xffff;
+  draw->key.bits.chunk = (draw->index >> 8) * 0xf;
+  draw->key.bits.bundle = batch->bundle & 0xfff;
+  draw->key.bits.depth = 0;
+
+  // Transform
+  if (transform) {
+    float modelMatrix[16];
+    mat4_init(modelMatrix, batch->transform);
+    mat4_mul(modelMatrix, transform);
+    memcpy(batch->transformData + draw->index * 64, modelMatrix, 64);
+  } else {
+    memcpy(batch->transformData + draw->index * 16, batch->transform, 16 * sizeof(float));
+  }
+
+  // Color
+  memcpy(batch->colorData + draw->index * 4, batch->pipeline->color, 4 * sizeof(float));
+
+  return draw;
+}
+
+void lovrBatchCube(Batch* batch, DrawStyle style, float* transform) {
+  BatchDraw* draw = lovrBatchGetDraw(batch, DRAW_TRIANGLES, transform);
+  draw->base = 0;
+
+  /*
+  draw->vertexBuffer;
+  draw->indexBuffer;
+  draw->key.vertex;
+  draw->key.index;
+  draw->start
+  draw->count
+  draw->instances
+  draw->base
+  */
 }
