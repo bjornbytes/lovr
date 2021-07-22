@@ -403,6 +403,11 @@ typedef enum {
   STACK_PIPELINE
 } StackType;
 
+typedef enum {
+  DRAW_LINE,
+  DRAW_FILL
+} DrawStyle;
+
 Batch* lovrGraphicsGetBatch(BatchInfo* info);
 Batch* lovrBatchCreate(BatchInfo* info);
 void lovrBatchDestroy(void* ref);
@@ -432,3 +437,4 @@ void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value);
 void lovrBatchSetWinding(Batch* batch, Winding winding);
 void lovrBatchSetWireframe(Batch* batch, bool wireframe);
 void lovrBatchSetPipeline(Batch* batch, Pipeline* pipeline);
+void lovrBatchCube(Batch* batch, DrawStyle style, float* transform);

@@ -67,10 +67,9 @@ StringEntry lovrDefaultSampler[] = {
   { 0 }
 };
 
-StringEntry lovrDrawMode[] = {
-  [DRAW_POINTS] = ENTRY("points"),
-  [DRAW_LINES] = ENTRY("lines"),
-  [DRAW_TRIANGLES] = ENTRY("triangles"),
+StringEntry lovrDrawStyle[] = {
+  [DRAW_LINE] = ENTRY("line"),
+  [DRAW_FILL] = ENTRY("fill"),
   { 0 }
 };
 
