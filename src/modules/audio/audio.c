@@ -22,6 +22,7 @@ struct Source {
   uint32_t ref;
   uint32_t index;
   Sound* sound;
+  // Note: Converter is written once in lovrSourceCreate and can never be changed.
   ma_data_converter* converter;
   intptr_t spatializerMemo;
   uint32_t offset;
@@ -456,6 +457,7 @@ Sound* lovrSourceGetSound(Source* source) {
 }
 
 bool lovrSourcePlay(Source* source) {
+  // If too many sources already running, refuse to play
   if (state.sourceMask == ~0ull) {
     return false;
   }
