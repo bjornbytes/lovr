@@ -245,8 +245,9 @@ static uint32_t oculus_tail(float* scratch, float* output, uint32_t frames) {
 
 // Oculus math primitives
 
+ // Note: Mirror on YZ plane. There appears to be some difference between Lovr and Oculus Audio quaternions.
 static void oculusUnpackQuat(ovrQuatf* oq, float* lq) {
-  oq->x = lq[0]; oq->y = lq[1]; oq->z = lq[2]; oq->w = lq[3];
+  oq->x = lq[0]; oq->y = lq[1]; oq->z = -lq[2]; oq->w = -lq[3];
 }
 
 static void oculusUnpackVec(ovrVector3f* ov, float* p) {
