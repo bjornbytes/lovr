@@ -393,9 +393,7 @@ typedef enum {
 typedef struct {
   BatchType type;
   uint32_t capacity;
-  uint32_t colorFormats[4];
-  uint32_t depthFormat;
-  uint32_t samples;
+  uint32_t primitiveMemory;
 } BatchInfo;
 
 typedef enum {
