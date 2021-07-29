@@ -249,6 +249,54 @@ Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type);
 void lovrSamplerDestroy(void* ref);
 const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
+// Canvas
+
+typedef enum {
+  LOAD_KEEP,
+  LOAD_CLEAR,
+  LOAD_DISCARD
+} LoadAction;
+
+typedef enum {
+  SAVE_KEEP,
+  SAVE_DISCARD
+} SaveAction;
+
+typedef struct {
+  Texture* texture;
+  LoadAction load;
+  SaveAction save;
+} ColorAttachment;
+
+typedef struct {
+  bool enabled;
+  uint32_t format;
+  Texture* texture;
+  LoadAction load, stencilLoad;
+  SaveAction save, stencilSave;
+} DepthAttachment;
+
+typedef struct {
+  ColorAttachment color[4];
+  DepthAttachment depth;
+  uint32_t count;
+  uint32_t views;
+  uint32_t samples;
+  bool transient;
+  const char* label;
+} CanvasInfo;
+
+Canvas* lovrCanvasCreate(CanvasInfo* info);
+Canvas* lovrCanvasGetWindow(void);
+void lovrCanvasDestroy(void* ref);
+const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
+uint32_t lovrCanvasGetWidth(Canvas* canvas);
+uint32_t lovrCanvasGetHeight(Canvas* canvas);
+void lovrCanvasGetClear(Canvas* canvas, float color[4][4], float* depth, uint8_t* stencil);
+void lovrCanvasSetClear(Canvas* canvas, float color[4][4], float depth, uint8_t stencil);
+void lovrCanvasGetTextures(Canvas* canvas, Texture* textures[4], Texture** depth);
+void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth);
+
 // Pipeline
 
 typedef enum {
@@ -310,58 +358,6 @@ Pipeline* lovrPipelineCreate(PipelineInfo* info);
 void lovrPipelineDestroy(Pipeline* pipeline);
 const PipelineInfo* lovrPipelineGetInfo(Pipeline* pipeline);
 
-// Canvas
-
-typedef enum {
-  LOAD_KEEP,
-  LOAD_CLEAR,
-  LOAD_DISCARD
-} LoadAction;
-
-typedef enum {
-  SAVE_KEEP,
-  SAVE_DISCARD
-} SaveAction;
-
-typedef struct {
-  Texture* texture;
-  LoadAction load;
-  SaveAction save;
-} ColorAttachment;
-
-typedef struct {
-  bool enabled;
-  uint32_t format;
-  Texture* texture;
-  LoadAction load, stencilLoad;
-  SaveAction save, stencilSave;
-} DepthAttachment;
-
-typedef struct {
-  ColorAttachment color[4];
-  DepthAttachment depth;
-  uint32_t count;
-  uint32_t views;
-  uint32_t samples;
-  bool transient;
-  const char* label;
-} CanvasInfo;
-
-Canvas* lovrCanvasCreate(CanvasInfo* info);
-Canvas* lovrCanvasGetWindow(void);
-void lovrCanvasDestroy(void* ref);
-const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
-uint32_t lovrCanvasGetWidth(Canvas* canvas);
-uint32_t lovrCanvasGetHeight(Canvas* canvas);
-void lovrCanvasGetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
-void lovrCanvasSetViewMatrix(Canvas* canvas, uint32_t index, float* viewMatrix);
-void lovrCanvasGetProjection(Canvas* canvas, uint32_t index, float* projection);
-void lovrCanvasSetProjection(Canvas* canvas, uint32_t index, float* projection);
-void lovrCanvasGetClear(Canvas* canvas, float color[4][4], float* depth, uint8_t* stencil);
-void lovrCanvasSetClear(Canvas* canvas, float color[4][4], float depth, uint8_t stencil);
-void lovrCanvasGetTextures(Canvas* canvas, Texture* textures[4], Texture** depth);
-void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth);
-
 // Shader
 
 typedef enum {
@@ -393,7 +389,11 @@ typedef enum {
 typedef struct {
   BatchType type;
   uint32_t capacity;
-  uint32_t primitiveMemory;
+  uint32_t geometryMemory;
+  uint32_t colorFormats[4];
+  uint32_t depthFormat;
+  uint32_t samples;
+  Canvas* canvas;
 } BatchInfo;
 
 typedef enum {
