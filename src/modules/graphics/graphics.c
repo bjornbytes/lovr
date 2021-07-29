@@ -155,7 +155,7 @@ typedef struct {
 enum {
   BUFFER_TRANSFORM,
   BUFFER_DRAW_DATA,
-  BUFFER_PRIMITIVE,
+  BUFFER_GEOMETRY,
   BUFFER_MAX
 };
 
@@ -168,23 +168,18 @@ struct Batch {
   uint32_t drawCount;
   BatchGroup* groups;
   BatchDraw* draws;
-  uint32_t bundle;
-  bool bindingsDirty;
   uint32_t transformIndex;
   uint32_t pipelineIndex;
   BatchPipeline* pipeline;
   float* transform;
   Shader* shader;
   Megaview buffers[BUFFER_MAX];
-  Megaview scratchBuffers[BUFFER_MAX];
-  uint32_t shapeCursor;
-  uint32_t bindingCount;
-  gpu_binding bindings[256];
+  Megaview scratchpads[BUFFER_MAX];
+  uint32_t geometryCursor;
   BatchPipeline pipelines[4];
   float transforms[16][16];
   float viewMatrix[6][16];
   float projection[6][16];
-  char* bundles;
 };
 
 typedef struct {
@@ -217,7 +212,7 @@ static struct {
   LinearAllocator frame;
   uint32_t blockSize;
   uint32_t baseVertex[SHAPE_MAX];
-  gpu_buffer* shapes;
+  Megaview shapes;
   BufferPool buffers;
   ReaderPool readers;
   Sampler* defaultSamplers[MAX_DEFAULT_SAMPLERS];
@@ -264,7 +259,7 @@ static void bufferRecycle(uint8_t index) {
   buffer->tick = state.tick;
 }
 
-// Suballocates into a Megabuffer
+// Suballocates from a Megabuffer
 static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t align) {
   uint32_t active = state.buffers.active[type];
   uint32_t oldest = state.buffers.oldest[type];
@@ -392,6 +387,10 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
     lovrThrow("Failed to initialize GPU");
   }
 
+  memset(state.buffers.active, 0xff, sizeof(state.buffers.active));
+  memset(state.buffers.oldest, 0xff, sizeof(state.buffers.active));
+  memset(state.buffers.newest, 0xff, sizeof(state.buffers.active));
+
   struct Vertex {
     float x, y, z;
     unsigned pad: 2, nx: 10, ny: 10, nz: 10;
@@ -412,17 +411,16 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   };
 
   uint32_t size = 0;
-  state.baseVertex[SHAPE_CUBE] = size / sizeof(Vertex), size += sizeof(cube);
-  Megaview shapes = bufferAllocate(GPU_MEMORY_GPU, size, 4);
+  state.baseVertex[SHAPE_CUBE] = size / sizeof(struct Vertex), size += sizeof(cube);
+  state.shapes = bufferAllocate(GPU_MEMORY_GPU, size, 4);
   Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
-  lovrAssert(shapes.offset == 0, "Unreachable");
-  state.shapes = shapes.gpu;
+  lovrAssert(state.shapes.offset == 0, "Unreachable");
 
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
 
   gpu_begin();
   gpu_stream* stream = gpu_stream_begin();
-  gpu_copy_buffers(stream, scratch.gpu, shapes.gpu, scratch.offset, shapes.offset, size);
+  gpu_copy_buffers(stream, scratch.gpu, state.shapes.gpu, scratch.offset, state.shapes.offset, size);
   gpu_stream_end(stream);
   gpu_submit(&stream, 1);
 
@@ -1536,12 +1534,13 @@ Batch* lovrGraphicsGetBatch(BatchInfo* info) {
   uint32_t bufferSizes[] = {
     [BUFFER_TRANSFORM] = 64 * info->capacity,
     [BUFFER_DRAW_DATA] = 16 * info->capacity,
-    [BUFFER_PRIMITIVE] = info->primitiveMemory
+    [BUFFER_GEOMETRY] = info->geometryMemory
   };
   for (uint32_t i = 0; i < BUFFER_MAX; i++) {
-    batch->buffers[i] = bufferAllocate(GPU_MEMORY_CPU_WRITE, bufferSizes[i], 256);
+    batch->buffers[i] = batch->scratchpads[i] = bufferAllocate(GPU_MEMORY_CPU_WRITE, bufferSizes[i], 256);
   }
   batch->scratch = true;
+  lovrBatchReset(batch);
   return batch;
 }
 
@@ -1550,15 +1549,13 @@ Batch* lovrBatchCreate(BatchInfo* info) {
   uint32_t bufferSizes[] = {
     [BUFFER_TRANSFORM] = 64 * info->capacity,
     [BUFFER_DRAW_DATA] = 16 * info->capacity,
-    [BUFFER_PRIMITIVE] = info->primitiveMemory
+    [BUFFER_GEOMETRY] = info->geometryMemory
   };
   for (uint32_t i = 0; i < BUFFER_MAX; i++) {
-    Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, bufferSizes[i], 256);
-    Megaview buffer = bufferAllocate(GPU_MEMORY_GPU, bufferSizes[i], 256);
-    gpu_copy_buffers(state.transfers, scratch.gpu, buffer.gpu, scratch.offset, buffer.offset, bufferSizes[i]);
-    batch->scratchBuffers[i] = scratch;
-    batch->buffers[i] = buffer;
+    batch->scratchpads[i] = bufferAllocate(GPU_MEMORY_CPU_WRITE, bufferSizes[i], 256);
+    batch->buffers[i] = bufferAllocate(GPU_MEMORY_GPU, bufferSizes[i], 256);
   }
+  lovrBatchReset(batch);
   return batch;
 }
 
@@ -1578,8 +1575,23 @@ uint32_t lovrBatchGetCount(Batch* batch) {
 void lovrBatchReset(Batch* batch) {
   batch->groupCount = 0;
   batch->drawCount = 0;
-  batch->transform = 0;
-  lovrBatchOrigin(batch);
+
+  batch->transformIndex = 0;
+  batch->transform = batch->transforms[batch->transformIndex = 0];
+  mat4_identity(batch->transform);
+
+  batch->pipelineIndex = 0;
+  batch->pipeline = &batch->pipelines[batch->pipelineIndex = 0];
+  memset(&batch->pipeline->info, 0, sizeof(batch->pipeline->info));
+  batch->pipeline->info.pass = batch->pass;
+  batch->pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
+  batch->pipeline->info.depth.write = true;
+  memset(batch->pipeline->info.colorMask, 0xff, sizeof(batch->pipeline->info.colorMask));
+  batch->pipeline->color[0] = 1.f;
+  batch->pipeline->color[1] = 1.f;
+  batch->pipeline->color[2] = 1.f;
+  batch->pipeline->color[3] = 1.f;
+  batch->pipeline->dirty = true;
 }
 
 void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix) {
@@ -1769,25 +1781,30 @@ typedef struct {
   DrawMode mode;
   float* transform;
   struct {
+    Megaview* buffer;
     void* data;
     void** pointer;
-    Megaview buffer;
-    uint32_t offset;
-    uint32_t count;
+    uint32_t size;
+    uint32_t stride;
   } vertex;
   struct {
+    Megaview* buffer;
     void* data;
     void** pointer;
-    Megaview buffer;
-    uint32_t offset;
-    uint32_t count;
+    uint32_t size;
+    uint32_t stride;
   } index;
+  uint32_t start;
+  uint32_t count;
+  uint32_t instances;
+  uint32_t base;
 } DrawRequest;
 
 static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   lovrCheck(batch->drawCount < batch->info.capacity, "Too many draws");
   BatchDraw* draw = &batch->draws[batch->drawCount];
   draw->index = batch->drawCount++;
+  draw->key.bits.chunk = (draw->index >> 8) & 0xf;
 
   // Pipeline
   if (batch->pipeline->info.drawMode != (gpu_draw_mode) req->mode) {
@@ -1813,65 +1830,77 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
     draw->pipeline = batch->pipeline->instance;
   }
 
+  draw->key.bits.pipeline = batch->pipeline->hash & 0xffff;
+
+  uint32_t vertexOffset;
+  uint32_t indexOffset;
+
   // Vertices
-  if (req->vertex.data) {
+  if (req->vertex.buffer) {
+    draw->vertexBuffer = req->vertex.buffer->gpu;
+    draw->key.bits.vertex = req->vertex.buffer->index;
+    vertexOffset = req->vertex.buffer->offset / req->vertex.stride;
+  } else {
+    draw->vertexBuffer = batch->buffers[BUFFER_GEOMETRY].gpu;
+    draw->key.bits.vertex = batch->buffers[BUFFER_GEOMETRY].index;
 
-  } else if (req->vertex.pointer) {
+    uint32_t cursor = ALIGN(batch->geometryCursor, req->vertex.stride);
+    lovrCheck(cursor + req->vertex.size <= batch->info.geometryMemory, "Out of vertex data memory");
+    batch->geometryCursor = cursor + req->vertex.size;
+    vertexOffset = cursor / req->vertex.stride;
 
-  } else if (req->vertex.buffer) {
-
+    if (req->vertex.pointer) {
+      *req->vertex.pointer = batch->scratchpads[BUFFER_GEOMETRY].data + cursor;
+    } else {
+      memcpy(batch->scratchpads[BUFFER_GEOMETRY].data + cursor, req->vertex.data, req->vertex.size);
+    }
   }
 
   // Indices
-  if (req->index.data) {
+  if (req->index.buffer) {
+    draw->indexBuffer = req->index.buffer->gpu;
+    draw->key.bits.index = req->index.buffer->index;
+    indexOffset = req->index.buffer->offset / req->index.stride;
+  } else if (req->index.size > 0) {
+    draw->indexBuffer = batch->buffers[BUFFER_GEOMETRY].gpu;
+    draw->key.bits.index = batch->buffers[BUFFER_GEOMETRY].index;
 
-  } else if (req->index.pointer) {
+    uint32_t cursor = ALIGN(batch->geometryCursor, req->index.stride);
+    lovrCheck(cursor + req->index.size <= batch->info.geometryMemory, "Out of index data memory");
+    batch->geometryCursor = cursor + req->index.size;
+    indexOffset = cursor / req->index.stride;
 
-  } else if (req->index.buffer) {
-
+    if (req->index.pointer) {
+      *req->index.pointer = batch->scratchpads[BUFFER_GEOMETRY].data + cursor;
+    } else {
+      memcpy(batch->scratchpads[BUFFER_GEOMETRY].data + cursor, req->index.data, req->index.size);
+    }
   }
+
+  // Params
+  draw->start = req->start + (draw->indexBuffer ? indexOffset : vertexOffset);
+  draw->count = req->count;
+  draw->instances = MAX(req->instances, 1);
+  draw->base = draw->indexBuffer ? draw->base : 0;
 
   // Bundle
-  if (batch->bindingsDirty) {
-    // if no room in bindings array, flush (allocate a new bunch of bundles and write all the bindings to it)
-    // write the bindings
-    // increment bundle index (batch->bundle)
-  }
-
-  draw->bundle = (gpu_bundle*) (batch->bundles + batch->bundle * gpu_sizeof_bundle());
+  //draw->bundle = (gpu_bundle*) (batch->bundles + batch->bundle * gpu_sizeof_bundle());
+  //draw->key.bits.bundle = batch->bundle & 0xfff;
 
   // Transform
-  if (transform) {
-    float modelMatrix[16];
-    mat4_init(modelMatrix, batch->transform);
-    mat4_mul(modelMatrix, transform);
-    memcpy(batch->scratchBuffers[BUFFER_TRANSFORM].data + draw->index * 64, modelMatrix, 64);
+  if (req->transform) {
+    float transform[16];
+    mat4_init(transform, batch->transform);
+    mat4_mul(transform, req->transform);
+    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + draw->index * 64, transform, 64);
   } else {
-    memcpy(batch->scratchBuffers[BUFFER_TRANSFORM].data + draw->index * 16, batch->transform, 16 * sizeof(float));
+    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + draw->index * 16, batch->transform, 16 * sizeof(float));
   }
 
   // Color
-  memcpy(batch->scratchBuffers[BUFFER_DRAW_DATA].data + draw->index * 4, batch->pipeline->color, 4 * sizeof(float));
-
-  // Key
-  draw->key.bits.pipeline = batch->pipeline->hash & 0xffff;
-  draw->key.bits.chunk = (draw->index >> 8) & 0xf;
-  draw->key.bits.bundle = batch->bundle & 0xfff;
-  draw->key.bits.depth = 0;
+  memcpy(batch->scratchpads[BUFFER_DRAW_DATA].data + draw->index * 4, batch->pipeline->color, 4 * sizeof(float));
 
   return draw;
-}
-
-static void lovrBatchGetIndices(Batch* batch, BatchDraw* draw, float** vertices, uint32_t vertexCount, uint16_t** indices, uint32_t indexCount) {
-  uint32_t size = count * sizeof(uint16_t);
-  lovrCheck(batch->shapeCursor + size <= batch->info.primitiveMemory, "Out of geometry memory");
-
-  draw->indexBuffer = batch->buffers[BUFFER_PRIMITIVE].gpu;
-  draw->key.bits.index = batch->buffers[BUFFER_PRIMITIVE].index;
-
-  void* data = batch->scratchBuffers[BUFFER_PRIMITIVE].data + batch->shapeCursor;
-  batch->shapeCursor += size;
-  return data;
 }
 
 void lovrBatchCube(Batch* batch, DrawStyle style, float* transform) {
@@ -1889,6 +1918,8 @@ void lovrBatchCube(Batch* batch, DrawStyle style, float* transform) {
     .transform = transform,
     .vertex.buffer = &state.shapes,
     .index.data = indices,
+    .index.size = sizeof(indices),
+    .index.stride = sizeof(uint16_t),
     .count = COUNTOF(indices),
     .base = state.baseVertex[SHAPE_CUBE]
   });
