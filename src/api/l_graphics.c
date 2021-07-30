@@ -292,30 +292,37 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
   }
 }
 
-static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float clear[4][4], float* depthClear, uint8_t* stencilClear) {
+static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float clear[4][4], float* depthClear, uint8_t* stencilClear, Texture* textures[4], Texture** depthTexture) {
   *info = (CanvasInfo) {
-    .depth.enabled = true,
     .depth.format = FORMAT_D16,
     .depth.load = LOAD_CLEAR,
     .depth.stencilLoad = LOAD_CLEAR,
     .depth.save = SAVE_DISCARD,
-    .samples = 4
+    .samples = 4,
+    .views = 2
   };
+
+  *depthTexture = NULL;
 
   while (info->count < 4) {
     if (!lua_isuserdata(L, index)) break;
-    Texture* texture = luax_checktype(L, index++, Texture);
-    info->color[info->count++] = (ColorAttachment) { .texture = texture, .load = LOAD_CLEAR, .save = SAVE_KEEP };
+    textures[info->count] = luax_checktype(L, index++, Texture);
+    info->color[info->count] = (ColorAttachment) {
+      .format = lovrTextureGetInfo(textures[info->count])->format,
+      .load = LOAD_CLEAR,
+      .save = SAVE_KEEP
+    };
+    info->count++;
   }
 
   if (lua_istable(L, index)) {
     lua_getfield(L, index, "depth");
     switch (lua_type(L, -1)) {
-      case LUA_TBOOLEAN: info->depth.enabled = lua_toboolean(L, -1); break;
+      case LUA_TBOOLEAN: info->depth.format = lua_toboolean(L, -1) ? info->depth.format : 0; break;
       case LUA_TSTRING: info->depth.format = luax_checkenum(L, -1, TextureFormat, NULL); break;
       case LUA_TUSERDATA:
-        info->depth.texture = luax_checktype(L, -1, Texture);
-        info->depth.format = lovrTextureGetInfo(info->depth.texture)->format;
+        *depthTexture = luax_checktype(L, -1, Texture);
+        info->depth.format = lovrTextureGetInfo(*depthTexture)->format;
         break;
       case LUA_TTABLE:
         lua_getfield(L, -1, "format");
@@ -323,8 +330,8 @@ static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "texture");
-        info->depth.texture = lua_isnil(L, -1) ? NULL : luax_checktype(L, -1, Texture);
-        info->depth.format = info->depth.texture ? lovrTextureGetInfo(info->depth.texture)->format : info->depth.format;
+        *depthTexture = lua_isnil(L, -1) ? NULL : luax_checktype(L, -1, Texture);
+        info->depth.format = *depthTexture ? lovrTextureGetInfo(*depthTexture)->format : info->depth.format;
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "load");
@@ -422,12 +429,8 @@ static int luax_checkcanvasinfo(lua_State* L, int index, CanvasInfo* info, float
     lua_pop(L, 1);
 
     lua_getfield(L, index, "views");
-    if (lua_isnil(L, -1)) {
-      Texture* first = info->color[0].texture ? info->color[0].texture : info->depth.texture;
-      info->views = first ? lovrTextureGetInfo(first)->depth : 2;
-    } else {
-      info->views = luaL_checkinteger(L, -1);
-    }
+    info->views = lua_isnil(L, -1) ? info->views : luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
 
     lua_getfield(L, index, "label");
     info->label = lua_tostring(L, -1);
@@ -578,15 +581,16 @@ static int l_lovrGraphicsRender(lua_State* L) {
     if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "window")) {
       canvas = lovrCanvasGetWindow();
     } else {
-      CanvasInfo info;
+      CanvasInfo info = { 0 };
       float clear[4][4];
       float depthClear;
       uint8_t stencilClear;
-      index = luax_checkcanvasinfo(L, 1, &info, clear, &depthClear, &stencilClear);
-      info.label = NULL;
-      info.transient = true;
+      Texture* textures[4];
+      Texture* depthTexture;
+      index = luax_checkcanvasinfo(L, 1, &info, clear, &depthClear, &stencilClear, textures, &depthTexture);
       canvas = lovrCanvasCreate(&info);
       lovrCanvasSetClear(canvas, clear, depthClear, stencilClear);
+      lovrCanvasSetTextures(canvas, textures, depthTexture);
     }
   }
   Batch* batch;
@@ -941,9 +945,12 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
   float clear[4][4] = { 0 };
   float depthClear = 1.f;
   uint8_t stencilClear = 0;
-  luax_checkcanvasinfo(L, 1, &info, clear, &depthClear, &stencilClear);
+  Texture* textures[4];
+  Texture* depthTexture;
+  luax_checkcanvasinfo(L, 1, &info, clear, &depthClear, &stencilClear, textures, &depthTexture);
   Canvas* canvas = lovrCanvasCreate(&info);
   lovrCanvasSetClear(canvas, clear, depthClear, stencilClear);
+  lovrCanvasSetTextures(canvas, textures, depthTexture);
   luax_pushtype(L, Canvas, canvas);
   lovrRelease(canvas, lovrCanvasDestroy);
   return 1;
