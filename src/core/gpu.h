@@ -200,8 +200,8 @@ typedef struct {
   gpu_pass_color_info color[4];
   gpu_pass_depth_info depth;
   uint32_t count;
-  uint32_t samples;
   uint32_t views;
+  uint32_t samples;
   bool resolve;
   const char* label;
 } gpu_pass_info;
