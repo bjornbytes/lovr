@@ -263,15 +263,14 @@ typedef enum {
 } SaveAction;
 
 typedef struct {
-  Texture* texture;
+  uint32_t format;
   LoadAction load;
   SaveAction save;
+  bool srgb;
 } ColorAttachment;
 
 typedef struct {
-  bool enabled;
   uint32_t format;
-  Texture* texture;
   LoadAction load, stencilLoad;
   SaveAction save, stencilSave;
 } DepthAttachment;
@@ -282,10 +281,11 @@ typedef struct {
   uint32_t count;
   uint32_t views;
   uint32_t samples;
-  bool transient;
+  bool resolve;
   const char* label;
 } CanvasInfo;
 
+Canvas* lovrGraphicsGetCanvas(CanvasInfo* info);
 Canvas* lovrCanvasCreate(CanvasInfo* info);
 Canvas* lovrCanvasGetWindow(void);
 void lovrCanvasDestroy(void* ref);
@@ -390,10 +390,7 @@ typedef struct {
   BatchType type;
   uint32_t capacity;
   uint32_t geometryMemory;
-  uint32_t colorFormats[4];
-  uint32_t depthFormat;
-  uint32_t samples;
-  Canvas* canvas;
+  CanvasInfo* pass;
 } BatchInfo;
 
 typedef enum {

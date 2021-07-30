@@ -64,7 +64,7 @@ static int l_lovrCanvasGetClear(lua_State* L) {
     lua_rawseti(L, -2, 4);
     lua_rawseti(L, -2, i + 1);
   }
-  if (info->depth.enabled) {
+  if (info->depth.format) {
     lua_pushnumber(L, depth);
     lua_setfield(L, -2, "depth");
     if (info->depth.format == FORMAT_D24S8) {
