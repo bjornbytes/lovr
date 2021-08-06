@@ -118,21 +118,19 @@ typedef struct {
   uint16_t count;
 } BatchGroup;
 
-typedef union {
-  uint64_t u64;
-  struct {
-    unsigned pipeline : 16;
-    unsigned vertex : 8;
-    unsigned index : 8;
-    unsigned textures : 4;
-    unsigned chunk : 4;
-    unsigned bundle : 12;
-    unsigned depth : 12;
-  } bits;
-} DrawKey;
-
 typedef struct {
-  DrawKey key;
+  union {
+    uint64_t u64;
+    struct {
+      unsigned pipeline : 16;
+      unsigned vertex : 8;
+      unsigned index : 8;
+      unsigned textures : 4;
+      unsigned chunk : 4;
+      unsigned bundle : 12;
+      unsigned depth : 12;
+    } bits;
+  } key;
   gpu_pipeline* pipeline;
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
@@ -1078,7 +1076,7 @@ Canvas* lovrCanvasCreate(CanvasInfo* info) {
   }
 
   if (info->depth.format) {
-    lovrCheck(state.feature.formats[info->depth.format] & GPU_FEATURE_RENDER_DEPTH, "This GPU does not support rendering to the Canvas depth buffer's format");
+    lovrCheck(state.features.formats[info->depth.format] & GPU_FEATURE_RENDER_DEPTH, "This GPU does not support rendering to the Canvas depth buffer's format");
   }
 
   Canvas* canvas = calloc(1, sizeof(Canvas));
@@ -1237,18 +1235,18 @@ void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth)
     lovrCheck(depth->info.width == first->width, "Canvas texture sizes must match");
     lovrCheck(depth->info.height == first->height, "Canvas texture sizes must match");
     lovrCheck(depth->info.depth == first->depth, "Canvas texture sizes must match");
-    lovrCheck(depth->info.samples == samples, "Currently, Canvas depth buffer sample count must match its main multisample count");
+    lovrCheck(depth->info.samples == info->samples, "Currently, Canvas depth buffer sample count must match the Canvas sample count");
   }
 
   for (uint32_t i = 0; i < info->count; i++) {
     lovrAssert(textures[i], "Missing color attachment #%d", i + 1);
-    lovrRetain(textures[i]]);
+    lovrRetain(textures[i]);
     if (info->resolve && info->samples > 1) {
-      lovrRelease(canvas->resolveTextures[i]);
+      lovrRelease(canvas->resolveTextures[i], lovrTextureDestroy);
       canvas->resolveTextures[i] = textures[i];
       canvas->gpu.color[i].resolve = textures[i]->renderView;
     } else {
-      lovrRelease(canvas->colorTextures[i]);
+      lovrRelease(canvas->colorTextures[i], lovrTextureDestroy);
       canvas->colorTextures[i] = textures[i];
       canvas->gpu.color[i].texture = textures[i]->renderView;
     }
@@ -1261,7 +1259,7 @@ void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth)
     canvas->depthTexture = depth;
   }
 
-  // TODO ---- recreate msaa textures if needed (dimensions changed)
+  // TODO ---- recreate msaa textures if needed (dimensions got bigger)
   // TODO ---- something something depth textures (create transient if needed, or resize?)
 
   // (Re)create temporary multisample textures if needed
@@ -1287,7 +1285,7 @@ void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth)
   if (info->depth.format) {
     if (depth) {
       canvas->gpu.depth.texture = canvas->depthTexture->renderView;
-      canvas->depthTexture = info->depth.texture;
+      canvas->depthTexture = depth;
       lovrRetain(canvas->depthTexture);
     } else {
       textureInfo.format = info->depth.format;
@@ -1568,13 +1566,13 @@ uint32_t lovrBatchGetCount(Batch* batch) {
 void lovrBatchReset(Batch* batch) {
   batch->groupCount = 0;
   batch->drawCount = 0;
-
   batch->transformIndex = 0;
-  batch->transform = batch->transforms[batch->transformIndex = 0];
+  batch->pipelineIndex = 0;
+
+  batch->transform = batch->transforms[batch->transformIndex];
   mat4_identity(batch->transform);
 
-  batch->pipelineIndex = 0;
-  batch->pipeline = &batch->pipelines[batch->pipelineIndex = 0];
+  batch->pipeline = &batch->pipelines[batch->pipelineIndex];
   memset(&batch->pipeline->info, 0, sizeof(batch->pipeline->info));
   batch->pipeline->info.pass = batch->pass;
   batch->pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
