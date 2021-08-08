@@ -16,6 +16,7 @@ option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
+option(LOVR_USE_VULKAN "Use the Vulkan renderer" ON)
 option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" OFF)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
@@ -472,23 +473,20 @@ endif()
 
 if(LOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
-    src/modules/graphics/font.c
     src/modules/graphics/graphics.c
-    src/modules/graphics/material.c
-    src/modules/graphics/model.c
-    src/modules/graphics/opengl.c
     src/api/l_graphics.c
+    src/api/l_graphics_batch.c
+    src/api/l_graphics_buffer.c
     src/api/l_graphics_canvas.c
-    src/api/l_graphics_font.c
-    src/api/l_graphics_material.c
-    src/api/l_graphics_mesh.c
-    src/api/l_graphics_model.c
+    src/api/l_graphics_sampler.c
     src/api/l_graphics_shader.c
-    src/api/l_graphics_shaderBlock.c
     src/api/l_graphics_texture.c
-    src/resources/shaders.c
-    src/lib/glad/glad.c
   )
+
+  if(LOVR_USE_VULKAN)
+    target_compile_definitions(lovr PRIVATE LOVR_VK)
+    target_sources(lovr PRIVATE src/core/gpu_vk.c)
+  endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
 endif()
