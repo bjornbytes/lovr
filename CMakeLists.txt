@@ -38,6 +38,8 @@ option(LOVR_BUILD_EXE "Build an executable (or an apk on Android)" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 
+option(VULKAN_SDK "$ENV{VULKAN_SDK}")
+
 set(LOVR_SYMBOL_VISIBILITY "hidden" CACHE STRING "What should the C symbol visibility be? hidden reduces binary size, default lets other binaries use this one.")
 
 # Setup
@@ -484,8 +486,13 @@ if(LOVR_ENABLE_GRAPHICS)
   )
 
   if(LOVR_USE_VULKAN)
+    if(NOT VULKAN_SDK)
+      message(FATAL_ERROR "Vulkan not found. You may need to install the Vulkan SDK from lunarg.com.")
+    endif()
+
     target_compile_definitions(lovr PRIVATE LOVR_VK)
     target_sources(lovr PRIVATE src/core/gpu_vk.c)
+    target_include_directories(lovr PRIVATE "${VULKAN_SDK}/include")
   endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
