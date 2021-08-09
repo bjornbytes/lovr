@@ -862,7 +862,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       references[index].attachment = index;
       references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       attachments[index] = (VkAttachmentDescription) {
-        .format = convertFormat(info->color[i].format, info->color[i].srgb),
+        .format = info->color[i].format == ~0u ? state.backbuffers[0].format : convertFormat(info->color[i].format, info->color[i].srgb),
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = storeOps[info->color[i].save],
