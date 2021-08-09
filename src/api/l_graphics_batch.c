@@ -290,13 +290,6 @@ static int l_lovrBatchSetWireframe(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBatchSetPipeline(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  Pipeline* pipeline = luax_checktype(L, 2, Pipeline);
-  lovrBatchSetPipeline(batch, pipeline);
-  return 0;
-}
-
 static int l_lovrBatchCube(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
@@ -336,7 +329,6 @@ const luaL_Reg lovrBatch[] = {
   { "setStencilTest", l_lovrBatchSetStencilTest },
   { "setWinding", l_lovrBatchSetWinding },
   { "setWireframe", l_lovrBatchSetWireframe },
-  { "setPipeline", l_lovrBatchSetPipeline },
 
   { "cube", l_lovrBatchCube },
 

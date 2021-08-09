@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "data/image.h"
 #include "data/modelData.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
@@ -190,14 +191,25 @@ static void desktop_renderTo(Batch* batch) {
   float viewMatrix[16];
   mat4_invert(mat4_init(viewMatrix, state.headTransform));
 
-  Canvas* canvas = lovrCanvasGetWindow();
+  lovrBatchSetProjection(batch, 0, projection);
+  lovrBatchSetProjection(batch, 1, projection);
+  lovrBatchSetViewMatrix(batch, 0, viewMatrix);
+  lovrBatchSetViewMatrix(batch, 1, viewMatrix);
+
+  Canvas canvas = {
+    .textures.color[0] = lovrGraphicsGetWindowTexture(),
+    .load = { .color[0] = LOAD_CLEAR, .depth = LOAD_CLEAR, .stencil = LOAD_CLEAR },
+    .store = { .color[0] = STORE_KEEP, .depth = STORE_DISCARD, .stencil = STORE_DISCARD },
+    .clear = { .depth = 1.f, .stencil = 0 },
+    .depthFormat = FORMAT_D16,
+    .samples = 4,
+    .views = 2
+  };
+
+  // lovrGraphicsGetBackgroundColor(canvas.clear.color[0]);
 
   lovrGraphicsBegin();
-  //lovrCanvasSetProjection(canvas, 0, projection);
-  //lovrCanvasSetProjection(canvas, 1, projection);
-  //lovrCanvasSetViewMatrix(canvas, 0, viewMatrix);
-  //lovrCanvasSetViewMatrix(canvas, 1, viewMatrix);
-  lovrGraphicsRender(canvas, &batch, 1);
+  lovrGraphicsRender(&canvas, &batch, 1, 10);
   lovrGraphicsSubmit();
 }
 

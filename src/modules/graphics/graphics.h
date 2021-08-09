@@ -8,9 +8,7 @@ struct Image;
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
 typedef struct Sampler Sampler;
-typedef struct Canvas Canvas;
 typedef struct Shader Shader;
-typedef struct Pipeline Pipeline;
 typedef struct Batch Batch;
 
 typedef struct {
@@ -71,6 +69,27 @@ typedef struct {
   float anisotropy;
 } GraphicsLimits;
 
+typedef enum {
+  LOAD_KEEP,
+  LOAD_CLEAR,
+  LOAD_DISCARD
+} LoadOp;
+
+typedef enum {
+  STORE_KEEP,
+  STORE_DISCARD
+} StoreOp;
+
+typedef struct {
+  struct { Texture *color[4], *depth; } textures;
+  struct { LoadOp color[4], depth, stencil; } load;
+  struct { StoreOp color[4], depth, stencil; } store;
+  struct { float color[4][4], depth; uint8_t stencil; } clear;
+  uint32_t depthFormat;
+  uint32_t samples;
+  uint32_t views;
+} Canvas;
+
 bool lovrGraphicsInit(bool debug, uint32_t blockSize);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsGetHardware(GraphicsHardware* hardware);
@@ -78,8 +97,8 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsBegin(void);
 void lovrGraphicsSubmit(void);
-void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count);
-void lovrGraphicsCompute(Batch** batches, uint32_t count);
+void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_t order);
+void lovrGraphicsCompute(Batch** batches, uint32_t count, uint32_t order);
 
 // Buffer
 
@@ -162,7 +181,7 @@ typedef enum {
 
 enum {
   TEXTURE_SAMPLE   = (1 << 0),
-  TEXTURE_CANVAS   = (1 << 1),
+  TEXTURE_RENDER   = (1 << 1),
   TEXTURE_STORAGE  = (1 << 2),
   TEXTURE_COPYFROM = (1 << 3),
   TEXTURE_COPYTO   = (1 << 4)
@@ -192,6 +211,7 @@ typedef struct {
   const char* label;
 } TextureInfo;
 
+Texture* lovrGraphicsGetWindowTexture(void);
 Texture* lovrTextureCreate(TextureInfo* info);
 Texture* lovrTextureCreateView(TextureViewInfo* view);
 void lovrTextureDestroy(void* ref);
@@ -249,55 +269,44 @@ Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type);
 void lovrSamplerDestroy(void* ref);
 const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
-// Canvas
+// Shader
 
 typedef enum {
-  LOAD_KEEP,
-  LOAD_CLEAR,
-  LOAD_DISCARD
-} LoadAction;
-
-typedef enum {
-  SAVE_KEEP,
-  SAVE_DISCARD
-} SaveAction;
+  SHADER_GRAPHICS,
+  SHADER_COMPUTE
+} ShaderType;
 
 typedef struct {
-  uint32_t format;
-  LoadAction load;
-  SaveAction save;
-  bool srgb;
-} ColorAttachment;
-
-typedef struct {
-  uint32_t format;
-  LoadAction load, stencilLoad;
-  SaveAction save, stencilSave;
-} DepthAttachment;
-
-typedef struct {
-  ColorAttachment color[4];
-  DepthAttachment depth;
-  uint32_t count;
-  uint32_t views;
-  uint32_t samples;
-  bool resolve;
+  ShaderType type;
+  const void* source[2];
+  uint32_t length[2];
+  const char** dynamicBuffers;
+  uint32_t dynamicBufferCount;
   const char* label;
-} CanvasInfo;
+} ShaderInfo;
 
-Canvas* lovrGraphicsGetCanvas(CanvasInfo* info);
-Canvas* lovrCanvasCreate(CanvasInfo* info);
-Canvas* lovrCanvasGetWindow(void);
-void lovrCanvasDestroy(void* ref);
-const CanvasInfo* lovrCanvasGetInfo(Canvas* canvas);
-uint32_t lovrCanvasGetWidth(Canvas* canvas);
-uint32_t lovrCanvasGetHeight(Canvas* canvas);
-void lovrCanvasGetClear(Canvas* canvas, float color[4][4], float* depth, uint8_t* stencil);
-void lovrCanvasSetClear(Canvas* canvas, float color[4][4], float depth, uint8_t stencil);
-void lovrCanvasGetTextures(Canvas* canvas, Texture* textures[4], Texture** depth);
-void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth);
+Shader* lovrShaderCreate(ShaderInfo* info);
+void lovrShaderDestroy(void* ref);
+const ShaderInfo* lovrShaderGetInfo(Shader* shader);
+bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
 
-// Pipeline
+// Batch
+
+typedef enum {
+  BATCH_RENDER,
+  BATCH_COMPUTE
+} BatchType;
+
+typedef struct {
+  BatchType type;
+  uint32_t capacity;
+  uint32_t geometryMemory;
+} BatchInfo;
+
+typedef enum {
+  STACK_TRANSFORM,
+  STACK_PIPELINE
+} StackType;
 
 typedef enum {
   BLEND_ALPHA_MULTIPLY,
@@ -337,66 +346,10 @@ typedef enum {
   STENCIL_INVERT
 } StencilAction;
 
-typedef struct {
-  uint8_t location;
-  uint8_t buffer;
-  uint8_t fieldType;
-  uint8_t offset;
-} VertexAttribute;
-
 typedef enum {
   WINDING_COUNTERCLOCKWISE,
   WINDING_CLOCKWISE
 } Winding;
-
-typedef struct {
-  bool alphaToCoverage;
-  //
-} PipelineInfo;
-
-Pipeline* lovrPipelineCreate(PipelineInfo* info);
-void lovrPipelineDestroy(Pipeline* pipeline);
-const PipelineInfo* lovrPipelineGetInfo(Pipeline* pipeline);
-
-// Shader
-
-typedef enum {
-  SHADER_GRAPHICS,
-  SHADER_COMPUTE
-} ShaderType;
-
-typedef struct {
-  ShaderType type;
-  const void* source[2];
-  uint32_t length[2];
-  const char** dynamicBuffers;
-  uint32_t dynamicBufferCount;
-  const char* label;
-} ShaderInfo;
-
-Shader* lovrShaderCreate(ShaderInfo* info);
-void lovrShaderDestroy(void* ref);
-const ShaderInfo* lovrShaderGetInfo(Shader* shader);
-bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
-
-// Batch
-
-typedef enum {
-  BATCH_RENDER,
-  BATCH_COMPUTE
-} BatchType;
-
-typedef struct {
-  BatchType type;
-  uint32_t capacity;
-  uint32_t geometryMemory;
-  CanvasInfo* pass;
-} BatchInfo;
-
-typedef enum {
-  STACK_TRANSFORM,
-  STACK_PIPELINE
-} StackType;
 
 typedef enum {
   DRAW_LINE,
@@ -431,5 +384,4 @@ void lovrBatchSetShader(Batch* batch, Shader* shader);
 void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value);
 void lovrBatchSetWinding(Batch* batch, Winding winding);
 void lovrBatchSetWireframe(Batch* batch, bool wireframe);
-void lovrBatchSetPipeline(Batch* batch, Pipeline* pipeline);
 void lovrBatchCube(Batch* batch, DrawStyle style, float* transform);
