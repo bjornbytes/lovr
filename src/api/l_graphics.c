@@ -444,7 +444,9 @@ static int l_lovrGraphicsRender(lua_State* L) {
 
     for (uint32_t i = 0; i < 4; i++) {
       lua_rawgeti(L, 1, i + 1);
-      if (lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "window")) {
+      if (lua_isnil(L, -1)) {
+        break;
+      } else if (lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "window")) {
         canvas.textures.color[i] = lovrGraphicsGetWindowTexture();
       } else {
         canvas.textures.color[i] = luax_checktype(L, -1, Texture);
@@ -773,7 +775,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
 
     lua_getfield(L, index, "usage");
     switch (lua_type(L, -1)) {
-      case LUA_TSTRING: info.usage = luax_checkenum(L, -1, TextureUsage, NULL); break;
+      case LUA_TSTRING: info.usage = 1 << luax_checkenum(L, -1, TextureUsage, NULL); break;
       case LUA_TTABLE: {
         int length = luax_len(L, -1);
         for (int i = 0; i < length; i++) {
@@ -781,8 +783,9 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
           info.usage |= 1 << luax_checkenum(L, -1, TextureUsage, NULL);
           lua_pop(L, 1);
         }
+        break;
       }
-      case LUA_TNIL: info.usage = ~0u;
+      case LUA_TNIL: info.usage = ~0u; break;
       default: return luaL_error(L, "Expected Texture usage to be a string, table, or nil");
     }
     lua_pop(L, 1);
