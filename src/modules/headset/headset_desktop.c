@@ -197,18 +197,18 @@ static void desktop_renderTo(Batch* batch) {
   lovrBatchSetViewMatrix(batch, 1, viewMatrix);
 
   Canvas canvas = {
-    .textures.color[0] = lovrGraphicsGetWindowTexture(),
     .load = { .color[0] = LOAD_CLEAR, .depth = LOAD_CLEAR, .stencil = LOAD_CLEAR },
     .store = { .color[0] = STORE_KEEP, .depth = STORE_DISCARD, .stencil = STORE_DISCARD },
     .clear = { .depth = 1.f, .stencil = 0 },
     .depthFormat = FORMAT_D16,
     .samples = 4,
-    .views = 2
+    .views = 1
   };
 
   // lovrGraphicsGetBackgroundColor(canvas.clear.color[0]);
 
   lovrGraphicsBegin();
+  canvas.textures.color[0] = lovrGraphicsGetWindowTexture();
   lovrGraphicsRender(&canvas, &batch, 1, 10);
   lovrGraphicsSubmit();
 }
