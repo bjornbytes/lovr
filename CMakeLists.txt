@@ -167,14 +167,10 @@ if(LOVR_ENABLE_PHYSICS)
   endif()
 endif()
 
-# OpenGL
-if(NOT (WIN32 OR EMSCRIPTEN OR ANDROID))
-  if(UNIX AND NOT APPLE)
-    set(OpenGL_GL_PREFERENCE "GLVND")
-  endif()
-  find_package(OpenGL REQUIRED)
-  include_directories(${OPENGL_INCLUDE_DIRS})
-  set(LOVR_OPENGL ${OPENGL_LIBRARIES})
+# Vulkan
+if(LOVR_USE_VULKAN AND NOT EMSCRIPTEN)
+  find_package(Vulkan REQUIRED)
+  include_directories(${Vulkan_INCLUDE_DIRS})
 endif()
 
 # OpenVR
@@ -380,7 +376,6 @@ target_link_libraries(lovr
   ${LOVR_LUA}
   ${LOVR_MSDF}
   ${LOVR_ODE}
-  ${LOVR_OPENGL}
   ${LOVR_OPENVR}
   ${LOVR_OPENXR}
   ${LOVR_OCULUS}
