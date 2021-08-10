@@ -381,7 +381,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: return false;
   }
 
-  texture->format = convertFormat(info->format, info->srgb);
+  texture->format = info->format == ~0u ? state.backbuffers[0].format : convertFormat(info->format, info->srgb);
   texture->array = info->type == GPU_TEXTURE_ARRAY;
   texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
