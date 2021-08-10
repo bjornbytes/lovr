@@ -1223,7 +1223,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   }
 
   uint32_t hash = HASH_SEED;
-  hash32(&hash, textures, count);
+  hash32(&hash, textures, count * sizeof(textures[0]));
   hash32(&hash, &canvas->pass->handle, sizeof(canvas->pass->handle));
   hash32(&hash, canvas->size, 2 * sizeof(uint32_t));
 
