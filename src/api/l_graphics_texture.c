@@ -169,8 +169,8 @@ static int l_lovrTextureRead(lua_State* L) {
   uint32_t y = luaL_optinteger(L, 4, 0);
   uint32_t w = luaL_optinteger(L, 5, info->width - x);
   uint32_t h = luaL_optinteger(L, 6, info->height - y);
-  uint32_t layer = luaL_optinteger(L, 7, 1);
-  uint32_t level = luaL_optinteger(L, 8, 1);
+  uint32_t layer = luaL_optinteger(L, 7, 1) - 1;
+  uint32_t level = luaL_optinteger(L, 8, 1) - 1;
   luax_readback* readback = malloc(sizeof(luax_readback));
   lovrAssert(readback, "Out of memory");
   readback->L = L;
