@@ -182,6 +182,12 @@ typedef struct {
   uint32_t cap;
 } LinearAllocator;
 
+typedef struct {
+  gpu_texture* handle;
+  uint32_t hash;
+  uint32_t tick;
+} ScratchTexture;
+
 static struct {
   bool initialized;
   bool active;
@@ -195,6 +201,7 @@ static struct {
   BufferPool buffers;
   ReaderPool readers;
   Sampler* defaultSamplers[MAX_DEFAULT_SAMPLERS];
+  ScratchTexture scratchTextures[16][4];
   Texture* window;
   map_t pipelines;
   map_t passes;
@@ -425,6 +432,18 @@ void lovrGraphicsDestroy() {
     gpu_pass_destroy(pass);
     free(pass);
   }
+  for (uint32_t i = 0; i < state.buffers.count; i++) {
+    gpu_buffer_destroy(state.buffers.list[i].gpu);
+    free(state.buffers.list[i].gpu);
+  }
+  for (uint32_t i = 0; i < COUNTOF(state.scratchTextures); i++) {
+    for (uint32_t j = 0; j < COUNTOF(state.scratchTextures[0]); j++) {
+      if (state.scratchTextures[i][j].handle) {
+        gpu_texture_destroy(state.scratchTextures[i][j].handle);
+        free(state.scratchTextures[i][j].handle);
+      }
+    }
+  }
   lovrRelease(state.window, lovrTextureDestroy);
   map_free(&state.pipelines);
   map_free(&state.passes);
@@ -540,68 +559,64 @@ void lovrGraphicsSubmit() {
   gpu_submit(streams, state.streamCount);
 }
 
-/*
-void lovrCanvasSetTextures(Canvas* canvas, Texture* textures[4], Texture* depth) {
-  const CanvasInfo* info = &canvas->info;
-  const TextureInfo* first = info->count > 0 ? &textures[0]->info : &depth->info;
+static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
+  uint16_t key[] = { size[0], size[1], layers, format, srgb, samples };
+  uint32_t hash = (uint32_t) hash64(key, sizeof(key));
 
-  for (uint32_t i = 0; i < info->count; i++) {
-    lovrAssert(textures[i], "Missing color attachment #%d", i + 1);
-    lovrRetain(textures[i]);
-    if (info->resolve && info->samples > 1) {
-      lovrRelease(canvas->resolveTextures[i], lovrTextureDestroy);
-      canvas->resolveTextures[i] = textures[i];
-      canvas->gpu.color[i].resolve = textures[i]->renderView;
-    } else {
-      lovrRelease(canvas->colorTextures[i], lovrTextureDestroy);
-      canvas->colorTextures[i] = textures[i];
-      canvas->gpu.color[i].texture = textures[i]->renderView;
+  // Search for matching texture in cache table
+  gpu_texture* texture;
+  uint32_t rows = COUNTOF(state.scratchTextures);
+  uint32_t cols = COUNTOF(state.scratchTextures[0]);
+  ScratchTexture* row = state.scratchTextures[0] + (hash & (rows - 1)) * cols;
+  ScratchTexture* entry = NULL;
+  for (uint32_t i = 0; i < cols; i++) {
+    if (row[i].hash == hash) {
+      entry = &row[i];
+      break;
     }
   }
 
-  if (info->depth.format && depth) {
-    lovrRetain(depth);
-    lovrRelease(canvas->depthTexture, lovrTextureDestroy);
-    canvas->gpu.depth.texture = depth->renderView;
-    canvas->depthTexture = depth;
+  // If there's a match, use it
+  if (entry) {
+    entry->tick = state.tick;
+    return entry->handle;
   }
 
-  // TODO ---- recreate msaa textures if needed (dimensions got bigger)
-  // TODO ---- something something depth textures (create transient if needed, or resize?)
-
-  // (Re)create temporary multisample textures if needed
-  TextureInfo textureInfo = {
-    .type = TEXTURE_ARRAY,
-    .width = width,
-    .height = height,
-    .depth = info->views,
+  // TODO this has bad malloc churn
+  // Otherwise, create new texture, add to an empty slot, evicting oldest if needed
+  gpu_texture_info info = {
+    .type = GPU_TEXTURE_ARRAY,
+    .format = (gpu_texture_format) format,
+    .size[0] = size[0],
+    .size[1] = size[1],
+    .size[2] = layers,
     .mipmaps = 1,
-    .samples = info->samples,
-    .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT
+    .samples = samples,
+    .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT,
+    .srgb = srgb
   };
 
-  if (info->resolve && info->samples > 1) {
-    for (uint32_t i = 0; i < info->count; i++) {
-      textureInfo.format = canvas->info.color[i].format;
-      canvas->colorTextures[i] = lovrTextureCreate(&textureInfo);
-      canvas->gpu.color[i].texture = canvas->colorTextures[i]->renderView;
+  entry = &row[0];
+  for (uint32_t i = 1; i < cols; i++) {
+    if (!row[i].handle || row[i].tick < entry->tick) {
+      entry = &row[i];
+      break;
     }
   }
 
-  // Depth
-  if (info->depth.format) {
-    if (depth) {
-      canvas->gpu.depth.texture = canvas->depthTexture->renderView;
-      canvas->depthTexture = depth;
-      lovrRetain(canvas->depthTexture);
-    } else {
-      textureInfo.format = info->depth.format;
-      canvas->depthTexture = lovrTextureCreate(&textureInfo);
-      canvas->gpu.depth.texture = canvas->depthTexture->renderView;
-    }
+  if (entry->handle) {
+    gpu_texture_destroy(entry->handle);
+    free(entry->handle);
   }
+
+  texture = calloc(1, gpu_sizeof_texture());
+  lovrAssert(texture, "Out of memory");
+  lovrAssert(gpu_texture_init(texture, &info), "Failed to create scratch texture");
+  entry->handle = texture;
+  entry->hash = hash;
+  entry->tick = state.tick;
+  return texture;
 }
-*/
 
 void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_t order) {
   lovrCheck(state.active, "Graphics is not active");
@@ -642,12 +657,14 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     }
   }
 
-  // Resolve pass
+  bool resolve = first->samples == 1 && canvas->samples > 1;
+
+  // Get cached gpu_pass
   gpu_pass_info passInfo = {
     .count = colorAttachmentCount,
     .views = canvas->views,
     .samples = canvas->samples,
-    .resolve = first->samples == 1 && canvas->samples > 1
+    .resolve = resolve
   };
 
   for (uint32_t i = 0; i < colorAttachmentCount; i++) {
@@ -680,18 +697,37 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     map_set(&state.passes, hash, (uintptr_t) pass);
   }
 
-  // Make gpu_canvas
-  gpu_canvas target;
-  target.pass = pass;
-  target.size[0] = first->width;
-  target.size[1] = first->height;
+  // Make gpu_canvas, using scratch textures for any missing targets
+  gpu_canvas target = {
+    .pass = pass,
+    .size = { first->width, first->height },
+  };
 
+  // Color attachments
   for (uint32_t i = 0; i < colorAttachmentCount; i++) {
+    if (resolve) {
+      TextureFormat format = canvas->textures.color[i]->info.format;
+      bool srgb = canvas->textures.color[i]->info.srgb;
+      target.color[i].texture = getScratchTexture(target.size, canvas->views, format, srgb, canvas->samples);
+      target.color[i].resolve = canvas->textures.color[i]->renderView;
+    } else {
+      target.color[i].texture = canvas->textures.color[i]->renderView;
+    }
+
     memcpy(target.color[i].clear, canvas->clear.color[i], 4 * sizeof(float));
   }
 
-  target.depth.clear.depth = canvas->clear.depth;
-  target.depth.clear.stencil = canvas->clear.stencil;
+  // Depth attachment
+  if (canvas->textures.depth || canvas->depthFormat) {
+    if (canvas->textures.depth) {
+      target.depth.texture = canvas->textures.depth->renderView;
+    } else {
+      target.depth.texture = getScratchTexture(target.size, canvas->views, canvas->depthFormat, false, canvas->samples);
+    }
+
+    target.depth.clear.depth = canvas->clear.depth;
+    target.depth.clear.stencil = canvas->clear.stencil;
+  }
 
   // Do the thing!
   gpu_stream* stream = gpu_stream_begin();
@@ -1056,7 +1092,7 @@ void lovrTextureDestroy(void* ref) {
   lovrRelease(texture->info.parent, lovrTextureDestroy);
   lovrRelease(texture->sampler, lovrSamplerDestroy);
   if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
-  gpu_texture_destroy(texture->gpu);
+  if (texture->gpu) gpu_texture_destroy(texture->gpu);
   free(texture);
 }
 
