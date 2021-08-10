@@ -576,6 +576,23 @@ static int l_lovrGraphicsRender(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsCompute(lua_State* L) {
+  Batch* batch;
+  if (lua_type(L, 2) == LUA_TFUNCTION) {
+    batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 16 });
+    lua_settop(L, 2);
+    luax_pushtype(L, Batch, batch);
+    lua_call(L, 1, 0);
+  } else {
+    batch = luax_checktype(L, 2, Batch);
+    lovrRetain(batch);
+  }
+
+  lovrGraphicsCompute(&batch, 1, 0);
+  lovrRelease(batch, lovrBatchDestroy);
+  return 0;
+}
+
 static int l_lovrGraphicsGetBuffer(lua_State* L) {
   BufferInfo info = { .usage = BUFFER_VERTEX | BUFFER_INDEX | BUFFER_UNIFORM | BUFFER_COPYFROM };
 
@@ -997,6 +1014,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "begin", l_lovrGraphicsBegin },
   { "submit", l_lovrGraphicsSubmit },
   { "render", l_lovrGraphicsRender },
+  { "compute", l_lovrGraphicsCompute },
   { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
