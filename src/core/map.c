@@ -18,7 +18,7 @@ static void map_rehash(map_t* map) {
   map->hashes = malloc(2 * map->size * sizeof(uint64_t));
   map->values = map->hashes + map->size;
   lovrAssert(map->size && map->hashes, "Out of memory");
-  memset(map->hashes, 0xff, 2 * map->size * sizeof(uint64_t));
+  map_clear(map);
 
   if (old.hashes) {
     uint64_t mask = map->size - 1;
@@ -97,4 +97,9 @@ void map_remove(map_t* map, uint64_t hash) {
   map->hashes[i] = MAP_NIL;
   map->values[i] = MAP_NIL;
   map->used--;
+}
+
+void map_clear(map_t* map) {
+  memset(map->hashes, 0xff, 2 * map->size * sizeof(uint64_t));
+  map->used = 0;
 }
