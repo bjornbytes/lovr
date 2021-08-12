@@ -597,7 +597,8 @@ bool lovrSourceIsEffectEnabled(Source* source, Effect effect) {
 }
 
 void lovrSourceSetEffectEnabled(Source* source, Effect effect, bool enabled) {
-  if (enabled && source->effects != EFFECT_NONE) {
+  lovrCheck(source->effects != EFFECT_NONE, "Unable to change effects on a Source with effects disabled");
+  if (enabled) {
     source->effects |= (1 << effect);
   } else {
     source->effects &= ~(1 << effect);
