@@ -112,7 +112,6 @@ typedef struct {
       unsigned depth : 12;
     } bits;
   } key;
-  gpu_pipeline* pipeline;
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
   gpu_bundle* bundle;
@@ -124,10 +123,11 @@ typedef struct {
 } BatchDraw;
 
 typedef struct {
-  float color[4];
-  gpu_pipeline_info info;
   gpu_pipeline* instance;
+  gpu_pipeline_info info;
   uint64_t hash;
+  float color[4];
+  uint16_t index;
   bool dirty;
 } BatchPipeline;
 
@@ -147,16 +147,18 @@ struct Batch {
   uint32_t drawCount;
   BatchGroup* groups;
   BatchDraw* draws;
-  uint32_t transformIndex;
+  map_t pipelineLookup;
+  arr_t(BatchPipeline) pipelines;
   uint32_t pipelineIndex;
+  uint32_t transformIndex;
   BatchPipeline* pipeline;
   float* transform;
   Shader* shader;
   Megaview buffers[BUFFER_MAX];
   Megaview scratchpads[BUFFER_MAX];
   uint32_t geometryCursor;
-  BatchPipeline pipelines[4];
-  float transforms[16][16];
+  BatchPipeline pipelineStack[4];
+  float transformStack[16][16];
   float viewMatrix[6][16];
   float projection[6][16];
 };
@@ -686,21 +688,21 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     };
   }
 
-  uint64_t hash = hash64(&passInfo, sizeof(passInfo));
-  uint64_t value = map_get(&state.passes, hash);
+  uint64_t passHash = hash64(&passInfo, sizeof(passInfo));
+  uint64_t value = map_get(&state.passes, passHash);
   gpu_pass* pass = (gpu_pass*) (uintptr_t) value;
 
   if (value == MAP_NIL) {
     pass = calloc(1, gpu_sizeof_pass());
     lovrAssert(pass, "Out of memory");
     lovrAssert(gpu_pass_init(pass, &passInfo), "Failed to initialize pass");
-    map_set(&state.passes, hash, (uintptr_t) pass);
+    map_set(&state.passes, passHash, (uintptr_t) pass);
   }
 
   // Make gpu_canvas, using scratch textures for any missing targets
   gpu_canvas target = {
     .pass = pass,
-    .size = { first->width, first->height },
+    .size = { first->width, first->height }
   };
 
   // Color attachments
@@ -737,15 +739,27 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     Batch* batch = batches[i];
     BatchDraw* draw = batch->draws;
     BatchGroup* group = batch->groups;
+    lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
+
+    // When the batch's pass changes (or becomes known for first time), (re-)resolve pipelines
+    if (batch->pass != pass) {
+      batch->pass = pass;
+
+      gpu_pipeline_info infos[16];
+      gpu_pipeline* pipelines = talloc(COUNTOF(infos) * gpu_sizeof_pipeline());
+      for (uint32_t i = 0; i < batch->pipelines.length; i++) {
+        uint64_t hashes[2] = { batch->pipelines.data[i].hash, passHash };
+        uint64_t fullHash = hash64(hashes, sizeof(hashes));
+        uint64_t value = map_get(&state.pipelines, fullHash);
+      }
+    }
 
     Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, sizeof(batch->viewMatrix) + sizeof(batch->projection), 256);
     memcpy(camera.data, batch->viewMatrix, sizeof(batch->viewMatrix) + sizeof(batch->projection));
 
-    lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
-
     for (uint32_t j = 0; j < batch->groupCount; j++, group++) {
       if (group->dirty & DIRTY_PIPELINE) {
-        gpu_bind_pipeline(stream, draw->pipeline);
+        gpu_bind_pipeline(stream, batch->pipelines.data[draw->key.bits.pipeline].instance, false);
       }
 
       if (group->dirty & DIRTY_VERTEX_BUFFER) {
@@ -1493,6 +1507,8 @@ Batch* lovrGraphicsGetBatch(BatchInfo* info) {
   }
   batch->scratch = true;
   lovrBatchReset(batch);
+  arr_init(&batch->pipelines, realloc);
+  map_init(&batch->pipelineLookup, 8);
   return batch;
 }
 
@@ -1508,11 +1524,15 @@ Batch* lovrBatchCreate(BatchInfo* info) {
     batch->buffers[i] = bufferAllocate(GPU_MEMORY_GPU, bufferSizes[i], 256);
   }
   lovrBatchReset(batch);
+  arr_init(&batch->pipelines, realloc);
+  map_init(&batch->pipelineLookup, 8);
   return batch;
 }
 
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
+  arr_free(&batch->pipelines);
+  map_free(&batch->pipelineLookup);
   if (!batch->scratch) free(batch);
 }
 
@@ -1525,20 +1545,24 @@ uint32_t lovrBatchGetCount(Batch* batch) {
 }
 
 void lovrBatchReset(Batch* batch) {
+  batch->pass = NULL;
   batch->groupCount = 0;
   batch->drawCount = 0;
   batch->transformIndex = 0;
   batch->pipelineIndex = 0;
 
-  batch->transform = batch->transforms[batch->transformIndex];
+  arr_clear(&batch->pipelines);
+  map_clear(&batch->pipelineLookup);
+
+  batch->transform = batch->transformStack[batch->transformIndex];
   mat4_identity(batch->transform);
 
-  batch->pipeline = &batch->pipelines[batch->pipelineIndex];
+  batch->pipeline = &batch->pipelineStack[batch->pipelineIndex];
   memset(&batch->pipeline->info, 0, sizeof(batch->pipeline->info));
   batch->pipeline->info.pass = batch->pass;
   batch->pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
   batch->pipeline->info.depth.write = true;
-  memset(batch->pipeline->info.colorMask, 0xff, sizeof(batch->pipeline->info.colorMask));
+  batch->pipeline->info.colorMask = 0xf;
   batch->pipeline->color[0] = 1.f;
   batch->pipeline->color[1] = 1.f;
   batch->pipeline->color[2] = 1.f;
@@ -1568,23 +1592,23 @@ void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection) {
 
 void lovrBatchPush(Batch* batch, StackType type) {
   if (type == STACK_TRANSFORM) {
-    batch->transform = batch->transforms[++batch->transformIndex];
-    lovrCheck(batch->transformIndex < COUNTOF(batch->transforms), "Matrix stack overflow (more pushes than pops?)");
-    mat4_init(batch->transform, batch->transforms[batch->transformIndex - 1]);
+    batch->transform = batch->transformStack[++batch->transformIndex];
+    lovrCheck(batch->transformIndex < COUNTOF(batch->transformStack), "Matrix stack overflow (more pushes than pops?)");
+    mat4_init(batch->transform, batch->transformStack[batch->transformIndex - 1]);
   } else {
-    batch->pipeline = &batch->pipelines[++batch->pipelineIndex];
-    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelines), "Pipeline stack overflow (more pushes than pops?)");
-    batch->pipeline = &batch->pipelines[batch->pipelineIndex - 1];
+    batch->pipeline = &batch->pipelineStack[++batch->pipelineIndex];
+    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelineStack), "Pipeline stack overflow (more pushes than pops?)");
+    batch->pipeline = &batch->pipelineStack[batch->pipelineIndex - 1];
   }
 }
 
 void lovrBatchPop(Batch* batch, StackType type) {
   if (type == STACK_TRANSFORM) {
-    batch->transform = batch->transforms[--batch->transformIndex];
-    lovrCheck(batch->transformIndex < COUNTOF(batch->transforms), "Matrix stack overflow (more pops than pushes?)");
+    batch->transform = batch->transformStack[--batch->transformIndex];
+    lovrCheck(batch->transformIndex < COUNTOF(batch->transformStack), "Matrix stack overflow (more pops than pushes?)");
   } else {
-    batch->pipeline = &batch->pipelines[--batch->pipelineIndex];
-    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelines), "Pipeline stack overflow (more pops than pushes?)");
+    batch->pipeline = &batch->pipelineStack[--batch->pipelineIndex];
+    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelineStack), "Pipeline stack overflow (more pops than pushes?)");
   }
 }
 
@@ -1613,10 +1637,10 @@ void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled) {
   batch->pipeline->info.alphaToCoverage = enabled;
 }
 
-void lovrBatchSetBlendMode(Batch* batch, uint32_t target, BlendMode mode, BlendAlphaMode alphaMode) {
+void lovrBatchSetBlendMode(Batch* batch, BlendMode mode, BlendAlphaMode alphaMode) {
   if (mode == BLEND_NONE) {
-    batch->pipeline->dirty |= batch->pipeline->info.blend[target].enabled;
-    memset(&batch->pipeline->info.blend[target], 0, sizeof(gpu_blend_state));
+    batch->pipeline->dirty |= batch->pipeline->info.blend.enabled;
+    memset(&batch->pipeline->info.blend, 0, sizeof(gpu_blend_state));
     return;
   }
 
@@ -1651,20 +1675,20 @@ void lovrBatchSetBlendMode(Batch* batch, uint32_t target, BlendMode mode, BlendA
     }
   };
 
-  batch->pipeline->info.blend[target] = blendModes[mode];
+  batch->pipeline->info.blend = blendModes[mode];
 
   if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
-    batch->pipeline->info.blend[target].color.src = GPU_BLEND_ONE;
+    batch->pipeline->info.blend.color.src = GPU_BLEND_ONE;
   }
 
-  batch->pipeline->info.blend[target].enabled = true;
+  batch->pipeline->info.blend.enabled = true;
   batch->pipeline->dirty = true;
 }
 
-void lovrBatchSetColorMask(Batch* batch, uint32_t target, bool r, bool g, bool b, bool a) {
+void lovrBatchSetColorMask(Batch* batch, bool r, bool g, bool b, bool a) {
   uint8_t mask = (r << 0) | (g << 1) | (b << 2) | (a << 3);
-  batch->pipeline->dirty |= batch->pipeline->info.colorMask[target] != mask;
-  batch->pipeline->info.colorMask[target] = mask;
+  batch->pipeline->dirty |= batch->pipeline->info.colorMask != mask;
+  batch->pipeline->info.colorMask = mask;
 }
 
 void lovrBatchSetCullMode(Batch* batch, CullMode mode) {
@@ -1762,27 +1786,20 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   if (batch->pipeline->dirty) {
     batch->pipeline->dirty = false;
     batch->pipeline->hash = hash64(&batch->pipeline->info, sizeof(gpu_pipeline_info));
-    uint64_t entry = map_get(&state.pipelines, batch->pipeline->hash);
-
-    if (entry == MAP_NIL) {
-      gpu_pipeline* pipeline = calloc(1, gpu_sizeof_pipeline());
-      lovrAssert(gpu_pipeline_init_graphics(pipeline, &batch->pipeline->info), "Failed to create pipeline");
-      map_set(&state.pipelines, batch->pipeline->hash, (uintptr_t) pipeline);
-      batch->pipeline->instance = pipeline;
-      entry = (uintptr_t) pipeline;
+    uint64_t index = map_get(&batch->pipelineLookup, batch->pipeline->hash);
+    if (index == MAP_NIL) {
+      index = batch->pipelines.length;
+      lovrCheck(index < 0xffff, "Too many pipelines");
+      map_set(&batch->pipelineLookup, batch->pipeline->hash, index);
+      arr_push(&batch->pipelines, *batch->pipeline);
     }
-
-    draw->pipeline = (gpu_pipeline*) (uintptr_t) entry;
-  } else {
-    draw->pipeline = batch->pipeline->instance;
+    batch->pipeline->index = index & 0xffff;
   }
 
-  draw->key.bits.pipeline = batch->pipeline->hash & 0xffff;
-
-  uint32_t vertexOffset;
-  uint32_t indexOffset;
+  draw->key.bits.pipeline = batch->pipeline->index;
 
   // Vertices
+  uint32_t vertexOffset;
   if (req->vertex.buffer) {
     draw->vertexBuffer = req->vertex.buffer->gpu;
     draw->key.bits.vertex = req->vertex.buffer->index;
@@ -1804,6 +1821,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   }
 
   // Indices
+  uint32_t indexOffset;
   if (req->index.buffer) {
     draw->indexBuffer = req->index.buffer->gpu;
     draw->key.bits.index = req->index.buffer->index;

@@ -186,43 +186,19 @@ static int l_lovrBatchSetAlphaToCoverage(lua_State* L) {
 
 static int l_lovrBatchSetBlendMode(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
-  if (lua_type(L, 2) == LUA_TNUMBER) {
-    uint32_t target = lua_tonumber(L, 2) - 1;
-    lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
-    BlendMode mode = lua_isnoneornil(L, 3) ? BLEND_NONE : luax_checkenum(L, 3, BlendMode, NULL);
-    BlendAlphaMode alphaMode = luax_checkenum(L, 4, BlendAlphaMode, "alphamultiply");
-    lovrBatchSetBlendMode(batch, target, mode, alphaMode);
-    return 0;
-  }
-
   BlendMode mode = lua_isnoneornil(L, 2) ? BLEND_NONE : luax_checkenum(L, 2, BlendMode, NULL);
   BlendAlphaMode alphaMode = luax_checkenum(L, 3, BlendAlphaMode, "alphamultiply");
-  for (uint32_t i = 0; i < 4; i++) {
-    lovrBatchSetBlendMode(batch, i, mode, alphaMode);
-  }
+  lovrBatchSetBlendMode(batch, mode, alphaMode);
   return 0;
 }
 
 static int l_lovrBatchSetColorMask(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
-  if (lua_type(L, 2) == LUA_TNUMBER) {
-    uint32_t target = lua_tonumber(L, 2) - 1;
-    lovrAssert(target < 4, "Invalid color target index: %d", target + 1);
-    bool r = lua_toboolean(L, 3);
-    bool g = lua_toboolean(L, 4);
-    bool b = lua_toboolean(L, 5);
-    bool a = lua_toboolean(L, 6);
-    lovrBatchSetColorMask(batch, target, r, g, b, a);
-    return 0;
-  }
-
   bool r = lua_toboolean(L, 2);
   bool g = lua_toboolean(L, 3);
   bool b = lua_toboolean(L, 4);
   bool a = lua_toboolean(L, 5);
-  for (uint32_t i = 0; i < 4; i++) {
-    lovrBatchSetColorMask(batch, i, r, g, b, a);
-  }
+  lovrBatchSetColorMask(batch, r, g, b, a);
   return 0;
 }
 

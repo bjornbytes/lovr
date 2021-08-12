@@ -49,7 +49,6 @@ struct gpu_bundle {
 
 struct gpu_pipeline {
   VkPipeline handle;
-  VkPipelineBindPoint type;
 };
 
 struct gpu_stream {
@@ -926,7 +925,7 @@ void gpu_pass_destroy(gpu_pass* pass) {
 
 // Pipeline
 
-bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
+bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* infos, uint32_t count) {
   static const VkPrimitiveTopology topologies[] = {
     [GPU_DRAW_POINTS] = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
     [GPU_DRAW_LINES] = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
@@ -1020,135 +1019,145 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     [GPU_BLEND_MAX] = VK_BLEND_OP_MAX
   };
 
-  VkVertexInputBindingDescription vertexBuffers[16];
-  for (uint32_t i = 0; i < info->vertexBufferCount; i++) {
-    vertexBuffers[i] = (VkVertexInputBindingDescription) {
-      .binding = i,
-      .stride = info->bufferStrides[i],
-      .inputRate = (info->instancedBufferMask & (1 << i)) ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX
-    };
-  }
+  VkGraphicsPipelineCreateInfo pipelineInfos[16];
 
-  VkVertexInputAttributeDescription vertexAttributes[COUNTOF(info->attributes)];
-  for (uint32_t i = 0; i < info->attributeCount; i++) {
-    vertexAttributes[i] = (VkVertexInputAttributeDescription) {
-      .location = info->attributes[i].location,
-      .binding = info->attributes[i].buffer,
-      .format = vertexFormats[info->attributes[i].format],
-      .offset = info->attributes[i].offset
-    };
-  }
+  do {
+    uint32_t chunk = MIN(count, COUNTOF(pipelineInfos));
 
-  VkPipelineVertexInputStateCreateInfo vertexInput = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-    .vertexBindingDescriptionCount = info->vertexBufferCount,
-    .pVertexBindingDescriptions = vertexBuffers,
-    .vertexAttributeDescriptionCount = info->attributeCount,
-    .pVertexAttributeDescriptions = vertexAttributes
-  };
+    for (uint32_t i = 0; i < chunk; i++) {
+      VkVertexInputBindingDescription vertexBuffers[16];
+      for (uint32_t j = 0; j < infos[i].vertexBufferCount; j++) {
+        vertexBuffers[j] = (VkVertexInputBindingDescription) {
+          .binding = j,
+          .stride = infos[i].bufferStrides[j],
+          .inputRate = (infos[i].instancedBufferMask & (1 << j)) ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX
+        };
+      }
 
-  VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-    .topology = topologies[info->drawMode]
-  };
+      VkVertexInputAttributeDescription vertexAttributes[COUNTOF(infos[i].attributes)];
+      for (uint32_t j = 0; j < infos[i].attributeCount; j++) {
+        vertexAttributes[i] = (VkVertexInputAttributeDescription) {
+          .location = infos[i].attributes[j].location,
+          .binding = infos[i].attributes[j].buffer,
+          .format = vertexFormats[infos[i].attributes[j].format],
+          .offset = infos[i].attributes[j].offset
+        };
+      }
 
-  VkPipelineViewportStateCreateInfo viewport = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-    .viewportCount = 1,
-    .scissorCount = 1
-  };
+      VkPipelineVertexInputStateCreateInfo vertexInput = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = infos[i].vertexBufferCount,
+        .pVertexBindingDescriptions = vertexBuffers,
+        .vertexAttributeDescriptionCount = infos[i].attributeCount,
+        .pVertexAttributeDescriptions = vertexAttributes
+      };
 
-  VkPipelineRasterizationStateCreateInfo rasterization = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-    .polygonMode = info->rasterizer.wireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
-    .cullMode = cullModes[info->rasterizer.cullMode],
-    .frontFace = frontFaces[info->rasterizer.winding],
-    .depthBiasEnable = info->rasterizer.depthOffset != 0.f || info->rasterizer.depthOffsetSloped != 0.f,
-    .depthBiasConstantFactor = info->rasterizer.depthOffset,
-    .depthBiasSlopeFactor = info->rasterizer.depthOffsetSloped,
-    .depthBiasClamp = info->rasterizer.depthOffsetClamp,
-    .lineWidth = 1.f
-  };
+      VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = topologies[infos[i].drawMode]
+      };
 
-  VkPipelineMultisampleStateCreateInfo multisample = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-    .rasterizationSamples = info->pass->samples,
-    .alphaToCoverageEnable = info->alphaToCoverage
-  };
+      VkPipelineViewportStateCreateInfo viewport = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .scissorCount = 1
+      };
 
-  VkStencilOpState stencil = {
-    .failOp = stencilOps[info->stencil.failOp],
-    .passOp = stencilOps[info->stencil.passOp],
-    .depthFailOp = stencilOps[info->stencil.depthFailOp],
-    .compareOp = compareOps[info->stencil.test],
-    .compareMask = info->stencil.readMask,
-    .writeMask = info->stencil.writeMask,
-    .reference = info->stencil.value
-  };
+      VkPipelineRasterizationStateCreateInfo rasterization = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .polygonMode = infos[i].rasterizer.wireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
+        .cullMode = cullModes[infos[i].rasterizer.cullMode],
+        .frontFace = frontFaces[infos[i].rasterizer.winding],
+        .depthBiasEnable = infos[i].rasterizer.depthOffset != 0.f || infos[i].rasterizer.depthOffsetSloped != 0.f,
+        .depthBiasConstantFactor = infos[i].rasterizer.depthOffset,
+        .depthBiasSlopeFactor = infos[i].rasterizer.depthOffsetSloped,
+        .depthBiasClamp = infos[i].rasterizer.depthOffsetClamp,
+        .lineWidth = 1.f
+      };
 
-  VkPipelineDepthStencilStateCreateInfo depthStencil = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-    .depthTestEnable = info->depth.test != GPU_COMPARE_NONE,
-    .depthWriteEnable = info->depth.write,
-    .depthCompareOp = compareOps[info->depth.test],
-    .stencilTestEnable = info->stencil.test != GPU_COMPARE_NONE,
-    .front = stencil,
-    .back = stencil
-  };
+      VkPipelineMultisampleStateCreateInfo multisample = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .rasterizationSamples = infos[i].pass->samples,
+        .alphaToCoverageEnable = infos[i].alphaToCoverage
+      };
 
-  VkPipelineColorBlendAttachmentState colorAttachments[4];
-  for (uint32_t i = 0; i < info->pass->count; i++) {
-    colorAttachments[i] = (VkPipelineColorBlendAttachmentState) {
-      .blendEnable = info->blend[i].enabled,
-      .srcColorBlendFactor = blendFactors[info->blend[i].color.src],
-      .dstColorBlendFactor = blendFactors[info->blend[i].color.dst],
-      .colorBlendOp = blendOps[info->blend[i].color.op],
-      .srcAlphaBlendFactor = blendFactors[info->blend[i].alpha.src],
-      .dstAlphaBlendFactor = blendFactors[info->blend[i].alpha.dst],
-      .alphaBlendOp = blendOps[info->blend[i].alpha.op],
-      .colorWriteMask = info->colorMask[i]
-    };
-  }
+      VkStencilOpState stencil = {
+        .failOp = stencilOps[infos[i].stencil.failOp],
+        .passOp = stencilOps[infos[i].stencil.passOp],
+        .depthFailOp = stencilOps[infos[i].stencil.depthFailOp],
+        .compareOp = compareOps[infos[i].stencil.test],
+        .compareMask = infos[i].stencil.readMask,
+        .writeMask = infos[i].stencil.writeMask,
+        .reference = infos[i].stencil.value
+      };
 
-  VkPipelineColorBlendStateCreateInfo colorBlend = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-    .attachmentCount = info->pass->count,
-    .pAttachments = colorAttachments
-  };
+      VkPipelineDepthStencilStateCreateInfo depthStencil = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = infos[i].depth.test != GPU_COMPARE_NONE,
+        .depthWriteEnable = infos[i].depth.write,
+        .depthCompareOp = compareOps[infos[i].depth.test],
+        .stencilTestEnable = infos[i].stencil.test != GPU_COMPARE_NONE,
+        .front = stencil,
+        .back = stencil
+      };
 
-  VkDynamicState dynamicStates[] = {
-    VK_DYNAMIC_STATE_VIEWPORT,
-    VK_DYNAMIC_STATE_SCISSOR
-  };
+      VkPipelineColorBlendAttachmentState colorAttachments[4];
+      for (uint32_t i = 0; i < infos[i].pass->count; i++) {
+        colorAttachments[i] = (VkPipelineColorBlendAttachmentState) {
+          .blendEnable = infos[i].blend.enabled,
+          .srcColorBlendFactor = blendFactors[infos[i].blend.color.src],
+          .dstColorBlendFactor = blendFactors[infos[i].blend.color.dst],
+          .colorBlendOp = blendOps[infos[i].blend.color.op],
+          .srcAlphaBlendFactor = blendFactors[infos[i].blend.alpha.src],
+          .dstAlphaBlendFactor = blendFactors[infos[i].blend.alpha.dst],
+          .alphaBlendOp = blendOps[infos[i].blend.alpha.op],
+          .colorWriteMask = infos[i].colorMask
+        };
+      }
 
-  VkPipelineDynamicStateCreateInfo dynamicState = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-    .dynamicStateCount = COUNTOF(dynamicStates),
-    .pDynamicStates = dynamicStates
-  };
+      VkPipelineColorBlendStateCreateInfo colorBlend = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .attachmentCount = infos[i].pass->count,
+        .pAttachments = colorAttachments
+      };
 
-  VkGraphicsPipelineCreateInfo pipelineInfo = {
-    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-    .stageCount = 2,
-    .pStages = info->shader->pipelineInfo,
-    .pVertexInputState = &vertexInput,
-    .pInputAssemblyState = &inputAssembly,
-    .pViewportState = &viewport,
-    .pRasterizationState = &rasterization,
-    .pMultisampleState = &multisample,
-    .pDepthStencilState = &depthStencil,
-    .pColorBlendState = &colorBlend,
-    .pDynamicState = &dynamicState,
-    .layout = info->shader->pipelineLayout,
-    .renderPass = info->pass->handle
-  };
+      VkDynamicState dynamicStates[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+      };
 
-  TRY(vkCreateGraphicsPipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle), "Could not create pipeline") {
-    return false;
-  }
+      VkPipelineDynamicStateCreateInfo dynamicState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = COUNTOF(dynamicStates),
+        .pDynamicStates = dynamicStates
+      };
 
-  nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
-  pipeline->type = VK_PIPELINE_BIND_POINT_GRAPHICS;
+      pipelineInfos[i] = (VkGraphicsPipelineCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = 2,
+        .pStages = infos[i].shader->pipelineInfo,
+        .pVertexInputState = &vertexInput,
+        .pInputAssemblyState = &inputAssembly,
+        .pViewportState = &viewport,
+        .pRasterizationState = &rasterization,
+        .pMultisampleState = &multisample,
+        .pDepthStencilState = &depthStencil,
+        .pColorBlendState = &colorBlend,
+        .pDynamicState = &dynamicState,
+        .layout = infos[i].shader->pipelineLayout,
+        .renderPass = infos[i].pass->handle
+      };
+    }
+
+    TRY(vkCreateGraphicsPipelines(state.device, state.pipelineCache, chunk, pipelineInfos, NULL, &pipelines[0].handle), "Could not create pipeline") {
+      return false;
+    }
+
+    pipelines += chunk;
+    infos += chunk;
+    count -= chunk;
+  } while (count > 0);
+
   return true;
 }
 
@@ -1164,7 +1173,6 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const
   }
 
   nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, label);
-  pipeline->type = VK_PIPELINE_BIND_POINT_COMPUTE;
   return true;
 }
 
@@ -1295,8 +1303,9 @@ void gpu_compute_end(gpu_stream* stream) {
   //
 }
 
-void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline) {
-  vkCmdBindPipeline(stream->commands, pipeline->type, pipeline->handle);
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
+  VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
+  vkCmdBindPipeline(stream->commands, bindPoint, pipeline->handle);
 }
 
 void gpu_bind_bundle(gpu_stream* stream, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount) {

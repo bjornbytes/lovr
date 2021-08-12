@@ -16,3 +16,4 @@ void map_free(map_t* map);
 uint64_t map_get(map_t* map, uint64_t hash);
 void map_set(map_t* map, uint64_t hash, uint64_t value);
 void map_remove(map_t* map, uint64_t hash);
+void map_clear(map_t* map);

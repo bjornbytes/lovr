@@ -417,13 +417,13 @@ typedef struct {
   gpu_rasterizer_state rasterizer;
   gpu_depth_state depth;
   gpu_stencil_state stencil;
-  gpu_blend_state blend[4];
-  uint8_t colorMask[4];
+  gpu_blend_state blend;
+  uint8_t colorMask;
   bool alphaToCoverage;
   const char* label;
 } gpu_pipeline_info;
 
-bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info);
+bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* infos, uint32_t count);
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const char* label);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
@@ -458,7 +458,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas);
 void gpu_render_end(gpu_stream* stream);
 void gpu_compute_begin(gpu_stream* stream);
 void gpu_compute_end(gpu_stream* stream);
-void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline);
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute);
 void gpu_bind_bundle(gpu_stream* stream, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count);
 void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type);
