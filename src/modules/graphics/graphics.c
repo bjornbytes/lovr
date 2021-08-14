@@ -112,6 +112,7 @@ typedef struct {
       unsigned depth : 12;
     } bits;
   } key;
+  gpu_pipeline* pipeline;
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
   gpu_bundle* bundle;
@@ -147,8 +148,6 @@ struct Batch {
   uint32_t drawCount;
   BatchGroup* groups;
   BatchDraw* draws;
-  map_t pipelineLookup;
-  arr_t(BatchPipeline) pipelines;
   uint32_t pipelineIndex;
   uint32_t transformIndex;
   BatchPipeline* pipeline;
@@ -157,8 +156,8 @@ struct Batch {
   Megaview buffers[BUFFER_MAX];
   Megaview scratchpads[BUFFER_MAX];
   uint32_t geometryCursor;
-  BatchPipeline pipelineStack[4];
-  float transformStack[16][16];
+  BatchPipeline pipelines[4];
+  float transforms[16][16];
   float viewMatrix[6][16];
   float projection[6][16];
 };
@@ -206,7 +205,8 @@ static struct {
   ScratchTexture scratchTextures[16][4];
   Texture* window;
   map_t pipelines;
-  map_t passes;
+  uint64_t passKeys[256];
+  gpu_pass* passes[256];
   gpu_stream* transfers;
   gpu_stream* streams[MAX_STREAMS];
   int8_t streamOrder[MAX_STREAMS];
@@ -342,6 +342,52 @@ static bool getInstanceExtensions(char* buffer, uint32_t size) {
   return true;
 }
 
+static gpu_pass* lookupPass(Canvas* canvas) {
+  uint64_t id = 0; // TODO get pass key
+
+  const TextureInfo* first = canvas->textures.color[0] ? &canvas->textures.color[0]->info : &canvas->textures.depth->info;
+  bool resolve = first->samples == 1 && canvas->samples > 1;
+
+  uint32_t index;
+  for (index = 0; index < COUNTOF(state.passes) && state.passKeys[index]; index++) {
+    if (state.passKeys[index] == id) {
+      return state.passes[index];
+    }
+  }
+
+  lovrCheck(index < COUNTOF(state.passes), "Too many passes, please report this encounter");
+
+  // Create new pass
+  gpu_pass_info info = {
+    .views = canvas->views,
+    .samples = canvas->samples,
+    .resolve = resolve
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(canvas->textures.color) && canvas->textures.color[i]; i++, info.count++) {
+    info.color[i] = (gpu_pass_color_info) {
+      .format = (gpu_texture_format) canvas->textures.color[i]->info.format,
+      .load = (gpu_load_op) canvas->load.color[i],
+      .save = (gpu_save_op) canvas->store.color[i],
+      .srgb = canvas->textures.color[i]->info.srgb
+    };
+  }
+
+  if (canvas->textures.depth || canvas->depthFormat) {
+    info.depth = (gpu_pass_depth_info) {
+      .format = (gpu_texture_format) (canvas->textures.depth ? canvas->textures.depth->info.format : canvas->depthFormat),
+      .load = (gpu_load_op) canvas->load.depth,
+      .save = (gpu_save_op) canvas->store.depth,
+      .stencilLoad = (gpu_load_op) canvas->load.stencil,
+      .stencilSave = (gpu_save_op) canvas->store.stencil
+    };
+  }
+
+  lovrAssert(gpu_pass_init(state.passes[index], &info), "Failed to initialize pass");
+  state.passKeys[index] = id;
+  return NULL;
+}
+
 bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   lovrCheck(blockSize <= 1 << 30, "Block size can not exceed 1GB");
   state.blockSize = blockSize;
@@ -413,9 +459,13 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   gpu_submit(&stream, 1);
 
   map_init(&state.pipelines, 8);
-  map_init(&state.passes, 4);
 
   state.limits.vertexBuffers -= INTERNAL_VERTEX_BUFFERS;
+
+  state.passes[0] = calloc(COUNTOF(state.passes), gpu_sizeof_pass());
+  for (uint32_t i = 0; i < COUNTOF(state.passes); i++) {
+    state.passes[i] = (gpu_pass*) ((char*) state.passes[0] + gpu_sizeof_pass());
+  }
 
   return state.initialized = true;
 }
@@ -428,12 +478,10 @@ void lovrGraphicsDestroy() {
     gpu_pipeline_destroy(pipeline);
     free(pipeline);
   }
-  for (uint32_t i = 0; i < state.passes.size; i++) {
-    if (state.passes.values[i] == MAP_NIL) continue;
-    gpu_pass* pass = (gpu_pass*) (uintptr_t) state.passes.values[i];
-    gpu_pass_destroy(pass);
-    free(pass);
+  for (uint32_t i = 0; i < COUNTOF(state.passes) && state.passKeys[i]; i++) {
+    gpu_pass_destroy(state.passes[i]);
   }
+  free(state.passes[0]);
   for (uint32_t i = 0; i < state.buffers.count; i++) {
     gpu_buffer_destroy(state.buffers.list[i].gpu);
     free(state.buffers.list[i].gpu);
@@ -448,7 +496,6 @@ void lovrGraphicsDestroy() {
   }
   lovrRelease(state.window, lovrTextureDestroy);
   map_free(&state.pipelines);
-  map_free(&state.passes);
   gpu_destroy();
   os_vm_free(state.frame.memory, state.frame.cap);
   memset(&state, 0, sizeof(state));
@@ -659,55 +706,14 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     }
   }
 
-  bool resolve = first->samples == 1 && canvas->samples > 1;
-
-  // Get cached gpu_pass
-  gpu_pass_info passInfo = {
-    .count = colorAttachmentCount,
-    .views = canvas->views,
-    .samples = canvas->samples,
-    .resolve = resolve
-  };
-
-  for (uint32_t i = 0; i < colorAttachmentCount; i++) {
-    passInfo.color[i] = (gpu_pass_color_info) {
-      .format = (gpu_texture_format) canvas->textures.color[i]->info.format,
-      .load = (gpu_load_op) canvas->load.color[i],
-      .save = (gpu_save_op) canvas->store.color[i],
-      .srgb = canvas->textures.color[i]->info.srgb
-    };
-  }
-
-  if (canvas->textures.depth || canvas->depthFormat) {
-    passInfo.depth = (gpu_pass_depth_info) {
-      .format = (gpu_texture_format) (canvas->textures.depth ? canvas->textures.depth->info.format : canvas->depthFormat),
-      .load = (gpu_load_op) canvas->load.depth,
-      .save = (gpu_save_op) canvas->store.depth,
-      .stencilLoad = (gpu_load_op) canvas->load.stencil,
-      .stencilSave = (gpu_save_op) canvas->store.stencil
-    };
-  }
-
-  uint64_t passHash = hash64(&passInfo, sizeof(passInfo));
-  uint64_t value = map_get(&state.passes, passHash);
-  gpu_pass* pass = (gpu_pass*) (uintptr_t) value;
-
-  if (value == MAP_NIL) {
-    pass = calloc(1, gpu_sizeof_pass());
-    lovrAssert(pass, "Out of memory");
-    lovrAssert(gpu_pass_init(pass, &passInfo), "Failed to initialize pass");
-    map_set(&state.passes, passHash, (uintptr_t) pass);
-  }
-
-  // Make gpu_canvas, using scratch textures for any missing targets
+  // Set up render target: look up pass, get scratch textures if needed
   gpu_canvas target = {
-    .pass = pass,
+    .pass = lookupPass(canvas),
     .size = { first->width, first->height }
   };
 
-  // Color attachments
   for (uint32_t i = 0; i < colorAttachmentCount; i++) {
-    if (resolve) {
+    if (first->samples == 1 && canvas->samples > 1) {
       TextureFormat format = canvas->textures.color[i]->info.format;
       bool srgb = canvas->textures.color[i]->info.srgb;
       target.color[i].texture = getScratchTexture(target.size, canvas->views, format, srgb, canvas->samples);
@@ -719,7 +725,6 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     memcpy(target.color[i].clear, canvas->clear.color[i], 4 * sizeof(float));
   }
 
-  // Depth attachment
   if (canvas->textures.depth || canvas->depthFormat) {
     if (canvas->textures.depth) {
       target.depth.texture = canvas->textures.depth->renderView;
@@ -731,7 +736,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     target.depth.clear.stencil = canvas->clear.stencil;
   }
 
-  // Do the thing!
+  // Get command stream, execute render pass, replay batches onto stream
   gpu_stream* stream = gpu_stream_begin();
   gpu_render_begin(stream, &target);
 
@@ -746,7 +751,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
     for (uint32_t j = 0; j < batch->groupCount; j++, group++) {
       if (group->dirty & DIRTY_PIPELINE) {
-        gpu_bind_pipeline(stream, batch->pipelines.data[draw->key.bits.pipeline].instance, false);
+        gpu_bind_pipeline(stream, draw->pipeline, false);
       }
 
       if (group->dirty & DIRTY_VERTEX_BUFFER) {
@@ -1475,6 +1480,7 @@ Batch* lovrBatchInit(void* (*allocate)(size_t size), BatchInfo* info) {
   char* memory = allocate(total);
   lovrAssert(memory, "Out of memory");
   Batch* batch = (Batch*) memory; memory += sizes[0];
+  batch->pass = lookupPass(&info->canvas);
   batch->groups = (BatchGroup*) memory, memory += sizes[1];
   batch->draws = (BatchDraw*) memory, memory += sizes[2];
   batch->ref = 1;
@@ -1487,15 +1493,13 @@ Batch* lovrGraphicsGetBatch(BatchInfo* info) {
   uint32_t bufferSizes[] = {
     [BUFFER_TRANSFORM] = 64 * info->capacity,
     [BUFFER_DRAW_DATA] = 16 * info->capacity,
-    [BUFFER_GEOMETRY] = info->geometryMemory
+    [BUFFER_GEOMETRY] = info->scratchMemory
   };
   for (uint32_t i = 0; i < BUFFER_MAX; i++) {
     batch->buffers[i] = batch->scratchpads[i] = bufferAllocate(GPU_MEMORY_CPU_WRITE, bufferSizes[i], 256);
   }
   batch->scratch = true;
   lovrBatchReset(batch);
-  arr_init(&batch->pipelines, realloc);
-  map_init(&batch->pipelineLookup, 8);
   return batch;
 }
 
@@ -1504,22 +1508,18 @@ Batch* lovrBatchCreate(BatchInfo* info) {
   uint32_t bufferSizes[] = {
     [BUFFER_TRANSFORM] = 64 * info->capacity,
     [BUFFER_DRAW_DATA] = 16 * info->capacity,
-    [BUFFER_GEOMETRY] = info->geometryMemory
+    [BUFFER_GEOMETRY] = info->scratchMemory
   };
   for (uint32_t i = 0; i < BUFFER_MAX; i++) {
     batch->scratchpads[i] = bufferAllocate(GPU_MEMORY_CPU_WRITE, bufferSizes[i], 256);
     batch->buffers[i] = bufferAllocate(GPU_MEMORY_GPU, bufferSizes[i], 256);
   }
   lovrBatchReset(batch);
-  arr_init(&batch->pipelines, realloc);
-  map_init(&batch->pipelineLookup, 8);
   return batch;
 }
 
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
-  arr_free(&batch->pipelines);
-  map_free(&batch->pipelineLookup);
   if (!batch->scratch) free(batch);
 }
 
@@ -1538,13 +1538,10 @@ void lovrBatchReset(Batch* batch) {
   batch->transformIndex = 0;
   batch->pipelineIndex = 0;
 
-  arr_clear(&batch->pipelines);
-  map_clear(&batch->pipelineLookup);
-
-  batch->transform = batch->transformStack[batch->transformIndex];
+  batch->transform = batch->transforms[batch->transformIndex];
   mat4_identity(batch->transform);
 
-  batch->pipeline = &batch->pipelineStack[batch->pipelineIndex];
+  batch->pipeline = &batch->pipelines[batch->pipelineIndex];
   memset(&batch->pipeline->info, 0, sizeof(batch->pipeline->info));
   batch->pipeline->info.pass = batch->pass;
   batch->pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
@@ -1579,23 +1576,23 @@ void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection) {
 
 void lovrBatchPush(Batch* batch, StackType type) {
   if (type == STACK_TRANSFORM) {
-    batch->transform = batch->transformStack[++batch->transformIndex];
-    lovrCheck(batch->transformIndex < COUNTOF(batch->transformStack), "Matrix stack overflow (more pushes than pops?)");
-    mat4_init(batch->transform, batch->transformStack[batch->transformIndex - 1]);
+    batch->transform = batch->transforms[++batch->transformIndex];
+    lovrCheck(batch->transformIndex < COUNTOF(batch->transforms), "Matrix stack overflow (more pushes than pops?)");
+    mat4_init(batch->transform, batch->transforms[batch->transformIndex - 1]);
   } else {
-    batch->pipeline = &batch->pipelineStack[++batch->pipelineIndex];
-    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelineStack), "Pipeline stack overflow (more pushes than pops?)");
-    batch->pipeline = &batch->pipelineStack[batch->pipelineIndex - 1];
+    batch->pipeline = &batch->pipelines[++batch->pipelineIndex];
+    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelines), "Pipeline stack overflow (more pushes than pops?)");
+    batch->pipeline = &batch->pipelines[batch->pipelineIndex - 1];
   }
 }
 
 void lovrBatchPop(Batch* batch, StackType type) {
   if (type == STACK_TRANSFORM) {
-    batch->transform = batch->transformStack[--batch->transformIndex];
-    lovrCheck(batch->transformIndex < COUNTOF(batch->transformStack), "Matrix stack overflow (more pops than pushes?)");
+    batch->transform = batch->transforms[--batch->transformIndex];
+    lovrCheck(batch->transformIndex < COUNTOF(batch->transforms), "Matrix stack overflow (more pops than pushes?)");
   } else {
-    batch->pipeline = &batch->pipelineStack[--batch->pipelineIndex];
-    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelineStack), "Pipeline stack overflow (more pops than pushes?)");
+    batch->pipeline = &batch->pipelines[--batch->pipelineIndex];
+    lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelines), "Pipeline stack overflow (more pops than pushes?)");
   }
 }
 
@@ -1773,14 +1770,17 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   if (batch->pipeline->dirty) {
     batch->pipeline->dirty = false;
     batch->pipeline->hash = hash64(&batch->pipeline->info, sizeof(gpu_pipeline_info));
-    uint64_t index = map_get(&batch->pipelineLookup, batch->pipeline->hash);
-    if (index == MAP_NIL) {
-      index = batch->pipelines.length;
-      lovrCheck(index < 0xffff, "Too many pipelines");
-      map_set(&batch->pipelineLookup, batch->pipeline->hash, index);
-      arr_push(&batch->pipelines, *batch->pipeline);
+    uint64_t entry = map_get(&state.pipelines, batch->pipeline->hash);
+    if (entry == MAP_NIL) {
+      gpu_pipeline* pipeline = calloc(1, gpu_sizeof_pipeline()); // TODO NO just malloc in blocks
+      lovrAssert(pipeline, "Out of memory");
+      map_set(&state.pipelines, batch->pipeline->hash, (uintptr_t) pipeline);
+      batch->pipeline->instance = pipeline;
+      entry = (uintptr_t) pipeline;
     }
-    batch->pipeline->index = index & 0xffff;
+    draw->pipeline = (gpu_pipeline*) (uintptr_t) entry;
+  } else {
+    draw->pipeline = batch->pipeline->instance;
   }
 
   draw->key.bits.pipeline = batch->pipeline->index;
@@ -1796,7 +1796,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
     draw->key.bits.vertex = batch->buffers[BUFFER_GEOMETRY].index;
 
     uint32_t cursor = ALIGN(batch->geometryCursor, req->vertex.stride);
-    lovrCheck(cursor + req->vertex.size <= batch->info.geometryMemory, "Out of vertex data memory");
+    lovrCheck(cursor + req->vertex.size <= batch->info.scratchMemory, "Out of vertex data memory");
     batch->geometryCursor = cursor + req->vertex.size;
     vertexOffset = cursor / req->vertex.stride;
 
@@ -1818,7 +1818,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
     draw->key.bits.index = batch->buffers[BUFFER_GEOMETRY].index;
 
     uint32_t cursor = ALIGN(batch->geometryCursor, req->index.stride);
-    lovrCheck(cursor + req->index.size <= batch->info.geometryMemory, "Out of index data memory");
+    lovrCheck(cursor + req->index.size <= batch->info.scratchMemory, "Out of index data memory");
     batch->geometryCursor = cursor + req->index.size;
     indexOffset = cursor / req->index.stride;
 
