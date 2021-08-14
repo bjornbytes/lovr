@@ -741,19 +741,6 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     BatchGroup* group = batch->groups;
     lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
 
-    // When the batch's pass changes (or becomes known for first time), (re-)resolve pipelines
-    if (batch->pass != pass) {
-      batch->pass = pass;
-
-      gpu_pipeline_info infos[16];
-      gpu_pipeline* pipelines = talloc(COUNTOF(infos) * gpu_sizeof_pipeline());
-      for (uint32_t i = 0; i < batch->pipelines.length; i++) {
-        uint64_t hashes[2] = { batch->pipelines.data[i].hash, passHash };
-        uint64_t fullHash = hash64(hashes, sizeof(hashes));
-        uint64_t value = map_get(&state.pipelines, fullHash);
-      }
-    }
-
     Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, sizeof(batch->viewMatrix) + sizeof(batch->projection), 256);
     memcpy(camera.data, batch->viewMatrix, sizeof(batch->viewMatrix) + sizeof(batch->projection));
 
