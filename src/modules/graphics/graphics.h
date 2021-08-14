@@ -299,8 +299,9 @@ typedef enum {
 
 typedef struct {
   BatchType type;
+  Canvas canvas;
   uint32_t capacity;
-  uint32_t geometryMemory;
+  uint32_t scratchMemory;
 } BatchInfo;
 
 typedef enum {
