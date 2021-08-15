@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define INTERNAL_VERTEX_BUFFERS 1
 #define MAX_STREAMS 32
 
 enum {
@@ -22,13 +21,13 @@ enum {
 };
 
 typedef struct {
+  char* pointer;
   gpu_buffer* gpu;
   uint32_t size;
   uint32_t type;
   uint32_t next;
   uint32_t tick;
   uint32_t refs;
-  char* data;
 } Megabuffer;
 
 typedef struct {
@@ -99,22 +98,21 @@ typedef struct {
   uint16_t count;
 } BatchGroup;
 
+typedef union {
+  uint64_t u64;
+  struct {
+    unsigned pipeline : 16;
+    unsigned vertex : 8;
+    unsigned index : 8;
+    unsigned textures : 4;
+    unsigned chunk : 4;
+    unsigned bundle : 12;
+    unsigned depth : 12;
+  } bits;
+} DrawKey;
+
 typedef struct {
-  union {
-    uint64_t u64;
-    struct {
-      unsigned pipeline : 16;
-      unsigned vertex : 8;
-      unsigned index : 8;
-      unsigned textures : 4;
-      unsigned chunk : 4;
-      unsigned bundle : 12;
-      unsigned depth : 12;
-    } bits;
-  } key;
-  gpu_pipeline* pipeline;
-  gpu_buffer* vertexBuffer;
-  gpu_buffer* indexBuffer;
+  DrawKey key;
   gpu_bundle* bundle;
   uint32_t index;
   uint32_t start;
@@ -124,10 +122,8 @@ typedef struct {
 } BatchDraw;
 
 typedef struct {
-  gpu_pipeline* instance;
-  gpu_pipeline_info info;
-  uint64_t hash;
   float color[4];
+  gpu_pipeline_info info;
   uint16_t index;
   bool dirty;
 } BatchPipeline;
@@ -199,12 +195,14 @@ static struct {
   uint32_t blockSize;
   uint32_t baseVertex[SHAPE_MAX];
   Megaview shapes;
-  BufferPool buffers;
-  ReaderPool readers;
   Sampler* defaultSamplers[MAX_DEFAULT_SAMPLERS];
   ScratchTexture scratchTextures[16][4];
   Texture* window;
-  map_t pipelines;
+  ReaderPool readers;
+  BufferPool buffers;
+  uint32_t pipelineCount;
+  uint64_t pipelineLookup[4096];
+  gpu_pipeline* pipelines[4096];
   uint64_t passKeys[256];
   gpu_pass* passes[256];
   gpu_stream* transfers;
@@ -257,7 +255,7 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
   if (active != ~0u && cursor + size <= state.buffers.list[active].size) {
     state.buffers.cursor[type] = cursor + size;
     Megabuffer* buffer = &state.buffers.list[active];
-    return (Megaview) { .gpu = buffer->gpu, .data = buffer->data + cursor, .index = active, .offset = cursor };
+    return (Megaview) { .gpu = buffer->gpu, .data = buffer->pointer + cursor, .index = active, .offset = cursor };
   }
 
   // If the active Megabuffer is full and has no users, it can be reused when GPU is done with it
@@ -276,7 +274,7 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
     state.buffers.cursor[type] = size;
 
     Megabuffer* buffer = &state.buffers.list[oldest];
-    return (Megaview) { .gpu = buffer->gpu, .data = buffer->data, .index = oldest, .offset = 0 };
+    return (Megaview) { .gpu = buffer->gpu, .data = buffer->pointer, .index = oldest, .offset = 0 };
   }
 
   // No Megabuffers were available, time for a new one
@@ -285,7 +283,6 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
   state.buffers.cursor[type] = size;
 
   Megabuffer* buffer = &state.buffers.list[active];
-  buffer->gpu = calloc(1, gpu_sizeof_buffer()); // TODO
   buffer->size = MAX(state.blockSize, size);
   buffer->type = type;
   buffer->next = ~0u;
@@ -300,13 +297,12 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
     .size = buffer->size,
     .usage = usage[type],
     .memory = type,
-    .data = (void**) &buffer->data
+    .data = (void**) &buffer->pointer
   };
 
-  lovrAssert(buffer->gpu, "Out of memory");
   lovrAssert(gpu_buffer_init(buffer->gpu, &info), "Failed to initialize Buffer");
 
-  return (Megaview) { .gpu = buffer->gpu, .data = buffer->data, .index = active, .offset = 0 };
+  return (Megaview) { .gpu = buffer->gpu, .data = buffer->pointer, .index = active, .offset = 0 };
 }
 
 static void callback(void* context, const char* message, int severe) {
@@ -425,6 +421,24 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   memset(state.buffers.oldest, 0xff, sizeof(state.buffers.active));
   memset(state.buffers.newest, 0xff, sizeof(state.buffers.active));
 
+  state.buffers.list[0].gpu = malloc(COUNTOF(state.buffers.list) * gpu_sizeof_buffer());
+  lovrAssert(state.buffers.list[0].gpu, "Out of memory");
+  for (uint32_t i = 1; i < COUNTOF(state.buffers.list); i++) {
+    state.buffers.list[i].gpu = (gpu_buffer*) ((char*) state.buffers.list[0].gpu + gpu_sizeof_buffer());
+  }
+
+  state.pipelines[0] = malloc(COUNTOF(state.pipelines) * gpu_sizeof_pipeline());
+  lovrAssert(state.pipelines[0], "Out of memory");
+  for (uint32_t i = 1; i < COUNTOF(state.pipelines); i++) {
+    state.pipelines[i] = (gpu_pipeline*) ((char*) state.pipelines[0] + gpu_sizeof_pipeline());
+  }
+
+  state.passes[0] = malloc(COUNTOF(state.passes) * gpu_sizeof_pass());
+  lovrAssert(state.passes[0], "Out of memory");
+  for (uint32_t i = 1; i < COUNTOF(state.passes); i++) {
+    state.passes[i] = (gpu_pass*) ((char*) state.passes[0] + gpu_sizeof_pass());
+  }
+
   struct Vertex {
     float x, y, z;
     unsigned pad: 2, nx: 10, ny: 10, nz: 10;
@@ -458,33 +472,19 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   gpu_stream_end(stream);
   gpu_submit(&stream, 1);
 
-  map_init(&state.pipelines, 8);
-
-  state.limits.vertexBuffers -= INTERNAL_VERTEX_BUFFERS;
-
-  state.passes[0] = calloc(COUNTOF(state.passes), gpu_sizeof_pass());
-  for (uint32_t i = 0; i < COUNTOF(state.passes); i++) {
-    state.passes[i] = (gpu_pass*) ((char*) state.passes[0] + gpu_sizeof_pass());
-  }
-
   return state.initialized = true;
 }
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
-  for (size_t i = 0; i < state.pipelines.size; i++) {
-    if (state.pipelines.values[i] == MAP_NIL) continue;
-    gpu_pipeline* pipeline = (gpu_pipeline*) (uintptr_t) state.pipelines.values[i];
-    gpu_pipeline_destroy(pipeline);
-    free(pipeline);
+  for (uint32_t i = 0; i < state.buffers.count; i++) {
+    gpu_buffer_destroy(state.buffers.list[i].gpu);
+  }
+  for (uint32_t i = 0; i < state.pipelineCount; i++) {
+    gpu_pipeline_destroy(state.pipelines[i]);
   }
   for (uint32_t i = 0; i < COUNTOF(state.passes) && state.passKeys[i]; i++) {
     gpu_pass_destroy(state.passes[i]);
-  }
-  free(state.passes[0]);
-  for (uint32_t i = 0; i < state.buffers.count; i++) {
-    gpu_buffer_destroy(state.buffers.list[i].gpu);
-    free(state.buffers.list[i].gpu);
   }
   for (uint32_t i = 0; i < COUNTOF(state.scratchTextures); i++) {
     for (uint32_t j = 0; j < COUNTOF(state.scratchTextures[0]); j++) {
@@ -495,8 +495,10 @@ void lovrGraphicsDestroy() {
     }
   }
   lovrRelease(state.window, lovrTextureDestroy);
-  map_free(&state.pipelines);
   gpu_destroy();
+  free(state.passes[0]);
+  free(state.pipelines[0]);
+  free(state.buffers.list[0].gpu);
   os_vm_free(state.frame.memory, state.frame.cap);
   memset(&state, 0, sizeof(state));
 }
@@ -751,7 +753,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
     for (uint32_t j = 0; j < batch->groupCount; j++, group++) {
       if (group->dirty & DIRTY_PIPELINE) {
-        gpu_bind_pipeline(stream, draw->pipeline, false);
+        gpu_bind_pipeline(stream, state.pipelines[draw->key.bits.pipeline], false);
       }
 
       if (group->dirty & DIRTY_VERTEX_BUFFER) {
@@ -1347,8 +1349,7 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
   // Need to study whether aliasing cache as u32 and struct var violates strict aliasing
   struct var { uint8_t group; uint8_t binding; uint16_t name; };
   size_t cacheSize = bound * sizeof(uint32_t);
-  void* cache = malloc(cacheSize);
-  lovrAssert(cache, "Out of memory");
+  void* cache = talloc(cacheSize);
   memset(cache, 0xff, cacheSize);
   struct var* vars = cache;
   uint32_t* locations = cache;
@@ -1422,7 +1423,6 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
     instruction += length;
   }
 
-  free(cache);
   return true;
 }
 
@@ -1768,19 +1768,23 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   }
 
   if (batch->pipeline->dirty) {
-    batch->pipeline->dirty = false;
-    batch->pipeline->hash = hash64(&batch->pipeline->info, sizeof(gpu_pipeline_info));
-    uint64_t entry = map_get(&state.pipelines, batch->pipeline->hash);
-    if (entry == MAP_NIL) {
-      gpu_pipeline* pipeline = calloc(1, gpu_sizeof_pipeline()); // TODO NO just malloc in blocks
-      lovrAssert(pipeline, "Out of memory");
-      map_set(&state.pipelines, batch->pipeline->hash, (uintptr_t) pipeline);
-      batch->pipeline->instance = pipeline;
-      entry = (uintptr_t) pipeline;
+    uint32_t hash = hash64(&batch->pipeline->info, sizeof(gpu_pipeline_info)) & ~0u;
+    uint32_t mask = COUNTOF(state.pipelines) - 1;
+    uint32_t bucket = hash & mask;
+
+    while (state.pipelineLookup[bucket] >> 32 != hash) {
+      bucket = (bucket + 1) & mask;
     }
-    draw->pipeline = (gpu_pipeline*) (uintptr_t) entry;
-  } else {
-    draw->pipeline = batch->pipeline->instance;
+
+    if (!state.pipelineLookup[bucket]) {
+      uint32_t index = state.pipelineCount++;
+      lovrCheck(index < COUNTOF(state.pipelines), "Too many pipelines, please report this encounter");
+      lovrAssert(gpu_pipeline_init_graphics(state.pipelines[index], &batch->pipeline->info, 1), "Failed to initialize pipeline");
+      state.pipelineLookup[bucket] = ((uint64_t) hash << 32) | index;
+    }
+
+    batch->pipeline->index = state.pipelineLookup[bucket] & 0xffff;
+    batch->pipeline->dirty = false;
   }
 
   draw->key.bits.pipeline = batch->pipeline->index;
@@ -1788,11 +1792,9 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   // Vertices
   uint32_t vertexOffset;
   if (req->vertex.buffer) {
-    draw->vertexBuffer = req->vertex.buffer->gpu;
     draw->key.bits.vertex = req->vertex.buffer->index;
     vertexOffset = req->vertex.buffer->offset / req->vertex.stride;
   } else {
-    draw->vertexBuffer = batch->buffers[BUFFER_GEOMETRY].gpu;
     draw->key.bits.vertex = batch->buffers[BUFFER_GEOMETRY].index;
 
     uint32_t cursor = ALIGN(batch->geometryCursor, req->vertex.stride);
@@ -1810,11 +1812,9 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   // Indices
   uint32_t indexOffset;
   if (req->index.buffer) {
-    draw->indexBuffer = req->index.buffer->gpu;
     draw->key.bits.index = req->index.buffer->index;
     indexOffset = req->index.buffer->offset / req->index.stride;
   } else if (req->index.size > 0) {
-    draw->indexBuffer = batch->buffers[BUFFER_GEOMETRY].gpu;
     draw->key.bits.index = batch->buffers[BUFFER_GEOMETRY].index;
 
     uint32_t cursor = ALIGN(batch->geometryCursor, req->index.stride);
@@ -1830,10 +1830,11 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   }
 
   // Params
-  draw->start = req->start + (draw->indexBuffer ? indexOffset : vertexOffset);
+  bool indexed = req->index.buffer || req->index.pointer || req->index.data;
+  draw->start = req->start + (indexed ? indexOffset : vertexOffset);
   draw->count = req->count;
   draw->instances = MAX(req->instances, 1);
-  draw->base = draw->indexBuffer ? draw->base : 0;
+  draw->base = indexed ? draw->base : 0;
 
   // Bundle
   //draw->bundle = (gpu_bundle*) (batch->bundles + batch->bundle * gpu_sizeof_bundle());
