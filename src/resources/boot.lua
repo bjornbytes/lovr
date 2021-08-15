@@ -188,6 +188,13 @@ function lovr.run()
   if lovr.timer then lovr.timer.step() end
   if lovr.graphics then lovr.graphics.begin() end
   if lovr.load then lovr.load(arg) end
+  local function headsetRender(batch)
+    for i = 1, lovr.headset.getViewCount() do
+      batch:setViewPose(i, lovr.headset.getViewPose(i))
+      batch:setProjection(i, lovr.headset.getViewAngles(i))
+    end
+    return lovr.draw(batch)
+  end
   return function()
     if lovr.event then
       lovr.event.pump()
@@ -205,9 +212,12 @@ function lovr.run()
     if lovr.headset then lovr.headset.update(dt) end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics and lovr.draw then
-      if lovr.headset then lovr.headset.renderTo(lovr.draw) end
+      lovr.graphics.begin()
+      if lovr.headset then lovr.graphics.render(lovr.headset.getTexture(), headsetRender) end
       if lovr.system.isWindowOpen() then lovr.mirror() end
+      lovr.graphics.submit()
     end
+    if lovr.headset then lovr.headset.submit() end
     if lovr.math then lovr.math.drain() end
   end
 end
@@ -216,9 +226,7 @@ function lovr.mirror()
   if lovr.headset then
     --
   else
-    lovr.graphics.begin()
     lovr.graphics.renderTo('window', lovr.draw)
-    lovr.graphics.submit()
   end
 end
 

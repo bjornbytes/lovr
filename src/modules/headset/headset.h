@@ -143,8 +143,8 @@ typedef struct HeadsetInterface {
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(Device device, struct Model* model);
-  void (*renderTo)(struct Batch* batch);
-  struct Texture* (*getMirrorTexture)(void);
+  struct Texture* (*getTexture)(void);
+  void (*submit)(void);
   void (*update)(float dt);
 } HeadsetInterface;
 

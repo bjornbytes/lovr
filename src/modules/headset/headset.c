@@ -39,7 +39,7 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, fl
       default: continue;
     }
 
-    bool hasDisplay = interface->renderTo != NULL;
+    bool hasDisplay = interface->submit != NULL;
     bool shouldInitialize = !hasDisplay || !lovrHeadsetDisplayDriver;
 
     if (shouldInitialize && interface->init(supersample, offset, msaa, overlay)) {

@@ -3,6 +3,7 @@
 #include "data/image.h"
 #include "event/event.h"
 #include "headset/headset.h"
+#include "math/math.h"
 #include "core/maf.h"
 #include "core/map.h"
 #include "core/gpu.h"
@@ -191,6 +192,7 @@ static struct {
   gpu_hardware hardware;
   gpu_features features;
   gpu_limits limits;
+  float background[4];
   LinearAllocator frame;
   uint32_t blockSize;
   uint32_t baseVertex[SHAPE_MAX];
@@ -339,7 +341,7 @@ static bool getInstanceExtensions(char* buffer, uint32_t size) {
 }
 
 static gpu_pass* lookupPass(Canvas* canvas) {
-  uint64_t id = 0; // TODO get pass key
+  uint64_t id = 0xaaa; // TODO get pass key
 
   const TextureInfo* first = canvas->textures.color[0] ? &canvas->textures.color[0]->info : &canvas->textures.depth->info;
   bool resolve = first->samples == 1 && canvas->samples > 1;
@@ -381,7 +383,7 @@ static gpu_pass* lookupPass(Canvas* canvas) {
 
   lovrAssert(gpu_pass_init(state.passes[index], &info), "Failed to initialize pass");
   state.passKeys[index] = id;
-  return NULL;
+  return state.passes[index];
 }
 
 bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
@@ -424,19 +426,19 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   state.buffers.list[0].gpu = malloc(COUNTOF(state.buffers.list) * gpu_sizeof_buffer());
   lovrAssert(state.buffers.list[0].gpu, "Out of memory");
   for (uint32_t i = 1; i < COUNTOF(state.buffers.list); i++) {
-    state.buffers.list[i].gpu = (gpu_buffer*) ((char*) state.buffers.list[0].gpu + gpu_sizeof_buffer());
+    state.buffers.list[i].gpu = (gpu_buffer*) ((char*) state.buffers.list[0].gpu + i * gpu_sizeof_buffer());
   }
 
   state.pipelines[0] = malloc(COUNTOF(state.pipelines) * gpu_sizeof_pipeline());
   lovrAssert(state.pipelines[0], "Out of memory");
   for (uint32_t i = 1; i < COUNTOF(state.pipelines); i++) {
-    state.pipelines[i] = (gpu_pipeline*) ((char*) state.pipelines[0] + gpu_sizeof_pipeline());
+    state.pipelines[i] = (gpu_pipeline*) ((char*) state.pipelines[0] + i * gpu_sizeof_pipeline());
   }
 
   state.passes[0] = malloc(COUNTOF(state.passes) * gpu_sizeof_pass());
   lovrAssert(state.passes[0], "Out of memory");
   for (uint32_t i = 1; i < COUNTOF(state.passes); i++) {
-    state.passes[i] = (gpu_pass*) ((char*) state.passes[0] + gpu_sizeof_pass());
+    state.passes[i] = (gpu_pass*) ((char*) state.passes[0] + i * gpu_sizeof_pass());
   }
 
   struct Vertex {
@@ -564,6 +566,14 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->anisotropy = state.limits.anisotropy;
 }
 
+void lovrGraphicsGetBackgroundColor(float background[4]) {
+  memcpy(background, state.background, 4 * sizeof(float));
+}
+
+void lovrGraphicsSetBackgroundColor(float background[4]) {
+  memcpy(state.background, background, 4 * sizeof(float));
+}
+
 void lovrGraphicsBegin() {
   if (state.active) return;
   state.active = true;
@@ -675,6 +685,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   // Validate Canvas
   lovrCheck(canvas->textures.color[0] || canvas->textures.depth, "Canvas must have at least one color or depth texture");
   const TextureInfo* first = canvas->textures.color[0] ? &canvas->textures.color[0]->info : &canvas->textures.depth->info;
+  canvas->views = canvas->views ? canvas->views : first->depth;
   lovrCheck(first->width <= state.limits.renderSize[0], "Canvas width exceeds the renderWidth limit of this GPU (%d)", state.limits.renderSize[0]);
   lovrCheck(first->height <= state.limits.renderSize[1], "Canvas height exceeds the renderHeight limit of this GPU (%d)", state.limits.renderSize[1]);
   lovrCheck(canvas->views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", canvas->views, state.limits.renderViews);
@@ -724,7 +735,10 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
       target.color[i].texture = canvas->textures.color[i]->renderView;
     }
 
-    memcpy(target.color[i].clear, canvas->clear.color[i], 4 * sizeof(float));
+    target.color[i].clear[0] = lovrMathGammaToLinear(canvas->clear.color[i][0]);
+    target.color[i].clear[1] = lovrMathGammaToLinear(canvas->clear.color[i][1]);
+    target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clear.color[i][2]);
+    target.color[i].clear[3] = canvas->clear.color[i][3];
   }
 
   if (canvas->textures.depth || canvas->depthFormat) {
@@ -970,6 +984,7 @@ Texture* lovrGraphicsGetWindowTexture() {
     os_window_get_fbsize(&width, &height);
     state.window->info.width = width;
     state.window->info.height = height;
+    state.window->info.depth = 1;
   }
 
   return state.window;

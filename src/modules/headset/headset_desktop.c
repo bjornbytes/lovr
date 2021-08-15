@@ -183,34 +183,12 @@ static bool desktop_animate(Device device, struct Model* model) {
   return false;
 }
 
-static void desktop_renderTo(Batch* batch) {
-  float projection[16], left, right, up, down;
-  desktop_getViewAngles(0, &left, &right, &up, &down);
-  mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
+static Texture* desktop_getTexture(void) {
+  return lovrGraphicsGetWindowTexture();
+}
 
-  float viewMatrix[16];
-  mat4_invert(mat4_init(viewMatrix, state.headTransform));
-
-  lovrBatchSetProjection(batch, 0, projection);
-  lovrBatchSetProjection(batch, 1, projection);
-  lovrBatchSetViewMatrix(batch, 0, viewMatrix);
-  lovrBatchSetViewMatrix(batch, 1, viewMatrix);
-
-  Canvas canvas = {
-    .load = { .color[0] = LOAD_CLEAR, .depth = LOAD_CLEAR, .stencil = LOAD_CLEAR },
-    .store = { .color[0] = STORE_KEEP, .depth = STORE_DISCARD, .stencil = STORE_DISCARD },
-    .clear = { .depth = 1.f, .stencil = 0 },
-    .depthFormat = FORMAT_D16,
-    .samples = 4,
-    .views = 1
-  };
-
-  // lovrGraphicsGetBackgroundColor(canvas.clear.color[0]);
-
-  lovrGraphicsBegin();
-  canvas.textures.color[0] = lovrGraphicsGetWindowTexture();
-  lovrGraphicsRender(&canvas, &batch, 1, 10);
-  lovrGraphicsSubmit();
+static void desktop_submit(void) {
+  //
 }
 
 static void desktop_update(float dt) {
@@ -327,6 +305,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .vibrate = desktop_vibrate,
   .newModelData = desktop_newModelData,
   .animate = desktop_animate,
-  .renderTo = desktop_renderTo,
+  .getTexture = desktop_getTexture,
+  .submit = desktop_submit,
   .update = desktop_update
 };
