@@ -1102,8 +1102,8 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
       };
 
       VkPipelineColorBlendAttachmentState colorAttachments[4];
-      for (uint32_t i = 0; i < infos[i].pass->count; i++) {
-        colorAttachments[i] = (VkPipelineColorBlendAttachmentState) {
+      for (uint32_t j = 0; j < infos[i].pass->count; j++) {
+        colorAttachments[j] = (VkPipelineColorBlendAttachmentState) {
           .blendEnable = infos[i].blend.enabled,
           .srcColorBlendFactor = blendFactors[infos[i].blend.color.src],
           .dstColorBlendFactor = blendFactors[infos[i].blend.color.dst],
