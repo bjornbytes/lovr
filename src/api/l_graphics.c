@@ -298,9 +298,12 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
     .store = { .color = { STORE_KEEP, STORE_KEEP, STORE_KEEP, STORE_KEEP }, .depth = STORE_DISCARD, .stencil = STORE_DISCARD },
     .clear = { .depth = 1.f, .stencil = 0 },
     .depthFormat = FORMAT_D16,
-    .samples = 4,
-    .views = 2
+    .samples = 4
   };
+
+  for (uint32_t i = 0; i < 4; i++) {
+    lovrGraphicsGetBackgroundColor(canvas.clear.color[i]);
+  }
 
   if (lua_type(L, index) == LUA_TSTRING && !strcmp(lua_tostring(L, index), "window")) {
     canvas.textures.color[0] = lovrGraphicsGetWindowTexture();
@@ -553,6 +556,23 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
+  float color[4];
+  lovrGraphicsGetBackgroundColor(color);
+  lua_pushnumber(L, color[0]);
+  lua_pushnumber(L, color[1]);
+  lua_pushnumber(L, color[2]);
+  lua_pushnumber(L, color[3]);
+  return 4;
+}
+
+static int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
+  float color[4];
+  luax_readcolor(L, 1, color);
+  lovrGraphicsSetBackgroundColor(color);
+  return 0;
+}
+
 static int l_lovrGraphicsBegin(lua_State* L) {
   lovrGraphicsBegin();
   return 0;
@@ -568,7 +588,7 @@ static int l_lovrGraphicsRender(lua_State* L) {
 
   Batch* batch;
   if (lua_type(L, 2) == LUA_TFUNCTION) {
-    batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 1024 });
+    batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 1024, .canvas = canvas });
     lua_settop(L, 2);
     luax_pushtype(L, Batch, batch);
     lua_call(L, 1, 0);
@@ -1041,6 +1061,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "getHardware", l_lovrGraphicsGetHardware },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
+  { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
+  { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "begin", l_lovrGraphicsBegin },
   { "submit", l_lovrGraphicsSubmit },
   { "render", l_lovrGraphicsRender },
