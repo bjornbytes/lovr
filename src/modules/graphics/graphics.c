@@ -410,7 +410,7 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
 #if defined(LOVR_VK) && !defined(__ANDROID__)
   if (os_window_is_open()) {
     config.vk.surface = true;
-    config.vk.vsync = false; // TODO
+    config.vk.vsync = true;
     config.vk.createSurface = os_vk_create_surface;
   }
 #endif
@@ -1547,7 +1547,6 @@ uint32_t lovrBatchGetCount(Batch* batch) {
 }
 
 void lovrBatchReset(Batch* batch) {
-  batch->pass = NULL;
   batch->groupCount = 0;
   batch->drawCount = 0;
   batch->transformIndex = 0;
@@ -1787,7 +1786,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
     uint32_t mask = COUNTOF(state.pipelines) - 1;
     uint32_t bucket = hash & mask;
 
-    while (state.pipelineLookup[bucket] >> 32 != hash) {
+    while (state.pipelineLookup[bucket] && state.pipelineLookup[bucket] >> 32 != hash) {
       bucket = (bucket + 1) & mask;
     }
 
