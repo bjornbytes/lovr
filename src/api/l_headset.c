@@ -567,19 +567,14 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetRenderTo(lua_State* L) {
-  Batch* batch;
-  if (lua_isfunction(L, 1)) {
-    lua_settop(L, 1);
-    batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 1024 });
-    luax_pushtype(L, Batch, batch);
-    lua_call(L, 1, 0);
-  } else {
-    batch = luax_checktype(L, 1, Batch);
-    lovrRetain(batch);
-  }
-  lovrHeadsetDisplayDriver->renderTo(batch);
-  lovrRelease(batch, lovrBatchDestroy);
+static int l_lovrHeadsetGetTexture(lua_State* L) {
+  Texture* texture = lovrHeadsetDisplayDriver->getTexture();
+  luax_pushtype(L, Texture, texture);
+  return 1;
+}
+
+static int l_lovrHeadsetSubmit(lua_State* L) {
+  lovrHeadsetDisplayDriver->submit();
   return 0;
 }
 
@@ -601,15 +596,6 @@ static int l_lovrHeadsetUpdate(lua_State* L) {
 
 static int l_lovrHeadsetGetTime(lua_State* L) {
   lua_pushnumber(L, lovrHeadsetDisplayDriver->getDisplayTime());
-  return 1;
-}
-
-static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
-  Texture *texture = NULL;
-  if (lovrHeadsetDisplayDriver->getMirrorTexture)
-    texture = lovrHeadsetDisplayDriver->getMirrorTexture();
-  luax_pushtype(L, Texture, texture);
-
   return 1;
 }
 
@@ -670,10 +656,10 @@ static const luaL_Reg lovrHeadset[] = {
   { "newModel", l_lovrHeadsetNewModel },
   { "animate", l_lovrHeadsetAnimate },
   { "getSkeleton", l_lovrHeadsetGetSkeleton },
-  { "renderTo", l_lovrHeadsetRenderTo },
+  { "getTexture", l_lovrHeadsetGetTexture },
+  { "submit", l_lovrHeadsetSubmit },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
-  { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
   { "getHands", l_lovrHeadsetGetHands },
   { NULL, NULL }
 };
