@@ -344,8 +344,8 @@ static bool getInstanceExtensions(char* buffer, uint32_t size) {
 static gpu_pass* lookupPass(Canvas* canvas) {
   uint64_t id = 0xaaa; // TODO get pass key
 
-  const TextureInfo* first = canvas->textures.color[0] ? &canvas->textures.color[0]->info : &canvas->textures.depth->info;
-  bool resolve = first->samples == 1 && canvas->samples > 1;
+  Texture* texture = canvas->textures[0] ? canvas->textures[0] : canvas->depth.texture;
+  bool resolve = texture->info.samples == 1 && canvas->samples > 1;
 
   uint32_t index;
   for (index = 0; index < COUNTOF(state.passes) && state.passKeys[index]; index++) {
@@ -358,27 +358,27 @@ static gpu_pass* lookupPass(Canvas* canvas) {
 
   // Create new pass
   gpu_pass_info info = {
-    .views = canvas->views,
+    .views = texture->info.depth,
     .samples = canvas->samples,
     .resolve = resolve
   };
 
-  for (uint32_t i = 0; i < COUNTOF(canvas->textures.color) && canvas->textures.color[i]; i++, info.count++) {
+  for (uint32_t i = 0; i < COUNTOF(canvas->textures) && canvas->textures[i]; i++, info.count++) {
     info.color[i] = (gpu_pass_color_info) {
-      .format = (gpu_texture_format) canvas->textures.color[i]->info.format,
-      .load = (gpu_load_op) canvas->load.color[i],
-      .save = (gpu_save_op) canvas->store.color[i],
-      .srgb = canvas->textures.color[i]->info.srgb
+      .format = (gpu_texture_format) canvas->textures[i]->info.format,
+      .load = (gpu_load_op) canvas->loads[i],
+      .save = (gpu_save_op) GPU_SAVE_OP_SAVE,
+      .srgb = canvas->textures[i]->info.srgb
     };
   }
 
-  if (canvas->textures.depth || canvas->depthFormat) {
+  if (canvas->depth.texture || canvas->depth.format) {
     info.depth = (gpu_pass_depth_info) {
-      .format = (gpu_texture_format) (canvas->textures.depth ? canvas->textures.depth->info.format : canvas->depthFormat),
-      .load = (gpu_load_op) canvas->load.depth,
-      .save = (gpu_save_op) canvas->store.depth,
-      .stencilLoad = (gpu_load_op) canvas->load.stencil,
-      .stencilSave = (gpu_save_op) canvas->store.stencil
+      .format = (gpu_texture_format) (canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format),
+      .load = (gpu_load_op) canvas->depth.load,
+      .stencilLoad = (gpu_load_op) canvas->depth.load,
+      .save = canvas->depth.save ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD,
+      .stencilSave = canvas->depth.save ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD
     };
   }
 
@@ -692,74 +692,70 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   lovrCheck(state.active, "Graphics is not active");
 
   // Validate Canvas
-  lovrCheck(canvas->textures.color[0] || canvas->textures.depth, "Canvas must have at least one color or depth texture");
-  const TextureInfo* first = canvas->textures.color[0] ? &canvas->textures.color[0]->info : &canvas->textures.depth->info;
-  canvas->views = canvas->views ? canvas->views : first->depth;
-  lovrCheck(first->width <= state.limits.renderSize[0], "Canvas width exceeds the renderWidth limit of this GPU (%d)", state.limits.renderSize[0]);
-  lovrCheck(first->height <= state.limits.renderSize[1], "Canvas height exceeds the renderHeight limit of this GPU (%d)", state.limits.renderSize[1]);
-  lovrCheck(canvas->views <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", canvas->views, state.limits.renderViews);
+  const TextureInfo* main = canvas->textures[0] ? &canvas->textures[0]->info : &canvas->depth.texture->info;
+  lovrCheck(canvas->textures[0] || canvas->depth.texture, "Canvas must have at least one color or depth texture");
+  lovrCheck(main->width <= state.limits.renderSize[0], "Canvas width (%d) exceeds the renderWidth limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
+  lovrCheck(main->height <= state.limits.renderSize[1], "Canvas height (%d) exceeds the renderHeight limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
+  lovrCheck(main->depth <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", main->depth, state.limits.renderViews);
   lovrCheck((canvas->samples & (canvas->samples - 1)) == 0, "Canvas sample count must be a power of 2");
 
   // Validate color attachments
-  uint32_t colorAttachmentCount = 0;
-  for (uint32_t i = 0; i < COUNTOF(canvas->textures.color) && canvas->textures.color[i]; i++, colorAttachmentCount++) {
-    Texture* texture = canvas->textures.color[i];
-    bool renderable = texture->info.format == ~0u || (state.features.formats[texture->info.format] & GPU_FEATURE_RENDER_COLOR);
-    lovrCheck(renderable, "This GPU does not support rendering to the texture format used by Canvas color attachment #%d", i + 1);
-    lovrCheck(texture->info.usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to attach it to a Canvas");
-    lovrCheck(texture->info.width == first->width, "Canvas texture sizes must match");
-    lovrCheck(texture->info.height == first->height, "Canvas texture sizes must match");
-    lovrCheck(texture->info.depth == first->depth, "Canvas texture sizes must match");
-    lovrCheck(texture->info.samples == first->samples, "Canvas texture sample counts must match");
+  uint32_t colorTextureCount = 0;
+  for (uint32_t i = 0; i < COUNTOF(canvas->textures) && canvas->textures[i]; i++, colorTextureCount++) {
+    const TextureInfo* info = &canvas->textures[i]->info;
+    bool renderable = info->format == ~0u || (state.features.formats[info->format] & GPU_FEATURE_RENDER_COLOR);
+    lovrCheck(renderable, "This GPU does not support rendering to the texture format used by Canvas texture #%d", i + 1);
+    lovrCheck(info->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
+    lovrCheck(info->width == main->width, "Canvas texture sizes must match");
+    lovrCheck(info->height == main->height, "Canvas texture sizes must match");
+    lovrCheck(info->depth == main->depth, "Canvas texture depths must match");
+    lovrCheck(info->samples == main->samples, "Canvas texture sample counts must match");
   }
 
   // Validate depth attachment
-  if (canvas->textures.depth || canvas->depthFormat) {
-    Texture* texture = canvas->textures.depth;
-    TextureFormat format = texture ? texture->info.format : canvas->depthFormat;
+  if (canvas->depth.texture || canvas->depth.format) {
+    const TextureInfo* info = &canvas->depth.texture->info;
+    TextureFormat format = canvas->depth.texture ? info->format : canvas->depth.format;
     bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER_DEPTH;
     lovrCheck(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
-    if (texture) {
-      lovrCheck(texture->info.usage & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to a Canvas");
-      lovrCheck(texture->info.width == first->width, "Canvas texture sizes must match");
-      lovrCheck(texture->info.height == first->height, "Canvas texture sizes must match");
-      lovrCheck(texture->info.depth == first->depth, "Canvas texture sizes must match");
-      lovrCheck(texture->info.samples == canvas->samples, "Currently, Canvas depth buffer sample count must match its main sample count");
+    if (canvas->depth.texture) {
+      lovrCheck(info->usage & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to a Canvas");
+      lovrCheck(info->width == main->width, "Canvas texture sizes must match");
+      lovrCheck(info->height == main->height, "Canvas texture sizes must match");
+      lovrCheck(info->depth == main->depth, "Canvas texture depths must match");
+      lovrCheck(info->samples == canvas->samples, "Currently, Canvas depth buffer sample count must match its main sample count");
     }
   }
 
-  // Set up render target: look up pass, get scratch textures if needed
+  // Set up render target
   gpu_canvas target = {
     .pass = lookupPass(canvas),
-    .size = { first->width, first->height }
+    .size = { main->width, main->height }
   };
 
-  for (uint32_t i = 0; i < colorAttachmentCount; i++) {
-    if (first->samples == 1 && canvas->samples > 1) {
-      TextureFormat format = canvas->textures.color[i]->info.format;
-      bool srgb = canvas->textures.color[i]->info.srgb;
-      target.color[i].texture = getScratchTexture(target.size, canvas->views, format, srgb, canvas->samples);
-      target.color[i].resolve = canvas->textures.color[i]->renderView;
+  for (uint32_t i = 0; i < colorTextureCount; i++) {
+    if (main->samples == 1 && canvas->samples > 1) {
+      TextureFormat format = canvas->textures[i]->info.format;
+      bool srgb = canvas->textures[i]->info.srgb;
+      target.color[i].texture = getScratchTexture(target.size, main->depth, format, srgb, canvas->samples);
+      target.color[i].resolve = canvas->textures[i]->renderView;
     } else {
-      target.color[i].texture = canvas->textures.color[i]->renderView;
+      target.color[i].texture = canvas->textures[i]->renderView;
     }
 
-    target.color[i].clear[0] = lovrMathGammaToLinear(canvas->clear.color[i][0]);
-    target.color[i].clear[1] = lovrMathGammaToLinear(canvas->clear.color[i][1]);
-    target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clear.color[i][2]);
-    target.color[i].clear[3] = canvas->clear.color[i][3];
+    target.color[i].clear[0] = lovrMathGammaToLinear(canvas->clears[i][0]);
+    target.color[i].clear[1] = lovrMathGammaToLinear(canvas->clears[i][1]);
+    target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clears[i][2]);
+    target.color[i].clear[3] = canvas->clears[i][3];
   }
 
-  if (canvas->textures.depth || canvas->depthFormat) {
-    if (canvas->textures.depth) {
-      target.depth.texture = canvas->textures.depth->renderView;
-    } else {
-      target.depth.texture = getScratchTexture(target.size, canvas->views, canvas->depthFormat, false, canvas->samples);
-    }
-
-    target.depth.clear.depth = canvas->clear.depth;
-    target.depth.clear.stencil = canvas->clear.stencil;
+  if (canvas->depth.texture) {
+    target.depth.texture = canvas->depth.texture->renderView;
+  } else if (canvas->depth.format) {
+    target.depth.texture = getScratchTexture(target.size, main->depth, canvas->depth.format, false, canvas->samples);
   }
+
+  target.depth.clear.depth = canvas->depth.clear;
 
   // Get command stream, execute render pass, replay batches onto stream
   gpu_stream* stream = gpu_stream_begin();
