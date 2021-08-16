@@ -294,21 +294,22 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
 
 static Canvas luax_checkcanvas(lua_State* L, int index) {
   Canvas canvas = {
-    .load = { .color = { LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR }, .depth = LOAD_CLEAR, .stencil = LOAD_CLEAR },
-    .store = { .color = { STORE_KEEP, STORE_KEEP, STORE_KEEP, STORE_KEEP }, .depth = STORE_DISCARD, .stencil = STORE_DISCARD },
-    .clear = { .depth = 1.f, .stencil = 0 },
-    .depthFormat = FORMAT_D16,
+    .loads = { LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR },
+    .depth.format = FORMAT_D16,
+    .depth.load = LOAD_CLEAR,
+    .depth.clear = 1.f,
+    .depth.save = false,
     .samples = 4
   };
 
   for (uint32_t i = 0; i < 4; i++) {
-    lovrGraphicsGetBackgroundColor(canvas.clear.color[i]);
+    lovrGraphicsGetBackgroundColor(canvas.clears[i]);
   }
 
   if (lua_type(L, index) == LUA_TSTRING && !strcmp(lua_tostring(L, index), "window")) {
-    canvas.textures.color[0] = lovrGraphicsGetWindowTexture();
+    canvas.textures[0] = lovrGraphicsGetWindowTexture();
   } else if (lua_isuserdata(L, index)) {
-    canvas.textures.color[0] = luax_checktype(L, index, Texture);
+    canvas.textures[0] = luax_checktype(L, index, Texture);
   } else {
     luaL_checktype(L, index, LUA_TTABLE);
 
@@ -317,65 +318,38 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
       if (lua_isnil(L, -1)) {
         break;
       } else if (lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "window")) {
-        canvas.textures.color[i] = lovrGraphicsGetWindowTexture();
+        canvas.textures[i] = lovrGraphicsGetWindowTexture();
       } else {
-        canvas.textures.color[i] = luax_checktype(L, -1, Texture);
+        canvas.textures[i] = luax_checktype(L, -1, Texture);
       }
       lua_pop(L, 1);
     }
 
     lua_getfield(L, index, "depth");
     switch (lua_type(L, -1)) {
-      case LUA_TBOOLEAN: canvas.depthFormat = lua_toboolean(L, -1) ? canvas.depthFormat : 0; break;
-      case LUA_TSTRING: canvas.depthFormat = luax_checkenum(L, -1, TextureFormat, NULL); break;
-      case LUA_TUSERDATA: canvas.textures.depth = luax_checktype(L, -1, Texture); break;
+      case LUA_TBOOLEAN: canvas.depth.format = lua_toboolean(L, -1) ? canvas.depth.format : 0; break;
+      case LUA_TSTRING: canvas.depth.format = luax_checkenum(L, -1, TextureFormat, NULL); break;
+      case LUA_TUSERDATA: canvas.depth.texture = luax_checktype(L, -1, Texture); break;
       case LUA_TTABLE:
         lua_getfield(L, -1, "format");
-        canvas.depthFormat = lua_isnil(L, -1) ? canvas.depthFormat : luax_checkenum(L, -1, TextureFormat, NULL);
+        canvas.depth.format = lua_isnil(L, -1) ? canvas.depth.format : luax_checkenum(L, -1, TextureFormat, NULL);
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "texture");
-        canvas.textures.depth = lua_isnil(L, -1) ? NULL : luax_checktype(L, -1, Texture);
+        canvas.depth.texture = lua_isnil(L, -1) ? NULL : luax_checktype(L, -1, Texture);
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "clear");
         switch (lua_type(L, -1)) {
           case LUA_TNIL: break;
-          case LUA_TBOOLEAN: canvas.load.depth = canvas.load.stencil = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP; break;
-          case LUA_TNUMBER: canvas.clear.depth = lua_tonumber(L, -1); break;
-          case LUA_TTABLE:
-            lua_rawgeti(L, -1, 1);
-            if (lua_isboolean(L, -1)) {
-              canvas.load.depth = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
-            } else if (lua_isnumber(L, -1)) {
-              canvas.clear.depth = lua_tonumber(L, -1);
-            } else {
-              lovrThrow("Expected boolean or number for depth load");
-            }
-
-            lua_rawgeti(L, -1, 2);
-            if (lua_isboolean(L, -1)) {
-              canvas.load.stencil = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
-            } else if (lua_isnumber(L, -1)) {
-              canvas.clear.stencil = (uint8_t) lua_tointeger(L, -1);
-            } else {
-              lovrThrow("Expected boolean or number for stencil load");
-            }
-            lua_pop(L, 2);
-            break;
+          case LUA_TBOOLEAN: canvas.depth.load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP; break;
+          case LUA_TNUMBER: canvas.depth.clear = lua_tonumber(L, -1); break;
+          default: lovrThrow("Expected boolean or number for depth clear");
         }
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "save");
-        if (lua_istable(L, -1)) {
-          lua_rawgeti(L, -1, 1);
-          canvas.store.depth = lua_toboolean(L, -1) ? STORE_KEEP : STORE_DISCARD;
-          lua_rawgeti(L, -1, 2);
-          canvas.store.stencil = lua_toboolean(L, -1) ? STORE_KEEP : STORE_DISCARD;
-          lua_pop(L, 2);
-        } else {
-          canvas.store.depth = canvas.store.stencil = lua_toboolean(L, -1) ? STORE_KEEP : STORE_DISCARD;
-        }
+        canvas.depth.save = lua_toboolean(L, -1);
         lua_pop(L, 1);
     }
     lua_pop(L, 1);
@@ -387,13 +361,13 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
         lua_rawgeti(L, -2, 2);
         lua_rawgeti(L, -3, 3);
         lua_rawgeti(L, -4, 4);
-        canvas.clear.color[0][0] = luax_checkfloat(L, -4);
-        canvas.clear.color[0][1] = luax_checkfloat(L, -3);
-        canvas.clear.color[0][2] = luax_checkfloat(L, -2);
-        canvas.clear.color[0][3] = luax_optfloat(L, -1, 1.f);
+        canvas.clears[0][0] = luax_checkfloat(L, -4);
+        canvas.clears[0][1] = luax_checkfloat(L, -3);
+        canvas.clears[0][2] = luax_checkfloat(L, -2);
+        canvas.clears[0][3] = luax_optfloat(L, -1, 1.f);
         lua_pop(L, 4);
         for (uint32_t i = 1; i < 4; i++) {
-          memcpy(canvas.clear.color[i], canvas.clear.color[0], 4 * sizeof(float));
+          memcpy(canvas.clears[i], canvas.clears[0], 4 * sizeof(float));
         }
       } else {
         lua_pop(L, 1);
@@ -404,29 +378,25 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
             lua_rawgeti(L, -2, 2);
             lua_rawgeti(L, -3, 3);
             lua_rawgeti(L, -4, 4);
-            canvas.clear.color[i][0] = luax_checkfloat(L, -4);
-            canvas.clear.color[i][1] = luax_checkfloat(L, -3);
-            canvas.clear.color[i][2] = luax_checkfloat(L, -2);
-            canvas.clear.color[i][3] = luax_optfloat(L, -1, 1.f);
+            canvas.clears[i][0] = luax_checkfloat(L, -4);
+            canvas.clears[i][1] = luax_checkfloat(L, -3);
+            canvas.clears[i][2] = luax_checkfloat(L, -2);
+            canvas.clears[i][3] = luax_optfloat(L, -1, 1.f);
             lua_pop(L, 4);
           } else {
-            canvas.load.color[i] = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
+            canvas.loads[i] = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
           }
           lua_pop(L, 1);
         }
       }
     } else if (!lua_isnil(L, -1)) {
-      LoadOp load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
-      canvas.load.color[0] = canvas.load.color[1] = canvas.load.color[2] = canvas.load.color[3] = load;
+      LoadAction load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
+      canvas.loads[0] = canvas.loads[1] = canvas.loads[2] = canvas.loads[3] = load;
     }
     lua_pop(L, 1);
 
     lua_getfield(L, index, "samples");
     canvas.samples = lua_isnil(L, -1) ? canvas.samples : lua_tointeger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, index, "views");
-    canvas.views = lua_isnil(L, -1) ? canvas.views : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
   }
 
