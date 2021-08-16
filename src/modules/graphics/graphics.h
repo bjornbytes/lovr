@@ -73,21 +73,22 @@ typedef enum {
   LOAD_KEEP,
   LOAD_CLEAR,
   LOAD_DISCARD
-} LoadOp;
-
-typedef enum {
-  STORE_KEEP,
-  STORE_DISCARD
-} StoreOp;
+} LoadAction;
 
 typedef struct {
-  struct { Texture *color[4], *depth; } textures;
-  struct { LoadOp color[4], depth, stencil; } load;
-  struct { StoreOp color[4], depth, stencil; } store;
-  struct { float color[4][4], depth; uint8_t stencil; } clear;
-  uint32_t depthFormat;
+  Texture* texture;
+  uint32_t format;
+  LoadAction load;
+  float clear;
+  bool save;
+} DepthBuffer;
+
+typedef struct {
+  Texture* textures[4];
+  LoadAction loads[4];
+  float clears[4][4];
+  DepthBuffer depth;
   uint32_t samples;
-  uint32_t views;
 } Canvas;
 
 bool lovrGraphicsInit(bool debug, uint32_t blockSize);
