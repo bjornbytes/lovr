@@ -124,6 +124,7 @@ typedef struct {
 
 typedef struct {
   float color[4];
+  Shader* shader;
   gpu_pipeline_info info;
   uint16_t index;
   bool dirty;
@@ -149,7 +150,6 @@ struct Batch {
   uint32_t transformIndex;
   BatchPipeline* pipeline;
   float* transform;
-  Shader* shader;
   Megaview buffers[BUFFER_MAX];
   Megaview scratchpads[BUFFER_MAX];
   uint32_t geometryCursor;
@@ -197,6 +197,7 @@ static struct {
   uint32_t blockSize;
   uint32_t baseVertex[SHAPE_MAX];
   Megaview shapes;
+  Shader* defaultShader;
   Sampler* defaultSamplers[MAX_DEFAULT_SAMPLERS];
   ScratchTexture scratchTextures[16][4];
   Texture* window;
@@ -441,6 +442,13 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
     state.passes[i] = (gpu_pass*) ((char*) state.passes[0] + i * gpu_sizeof_pass());
   }
 
+  state.defaultShader = lovrShaderCreate(&(ShaderInfo) {
+    .type = SHADER_GRAPHICS,
+    .source = { lovr_shader_unlit_vert, lovr_shader_unlit_frag },
+    .length = { sizeof(lovr_shader_unlit_vert), sizeof(lovr_shader_unlit_frag) },
+    .label = "unlit"
+  });
+
   struct Vertex {
     float x, y, z;
     unsigned pad: 2, nx: 10, ny: 10, nz: 10;
@@ -496,6 +504,7 @@ void lovrGraphicsDestroy() {
       }
     }
   }
+  lovrRelease(state.defaultShader, lovrShaderDestroy);
   lovrRelease(state.window, lovrTextureDestroy);
   gpu_destroy();
   free(state.passes[0]);
@@ -1728,11 +1737,11 @@ void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value) {
 }
 
 void lovrBatchSetShader(Batch* batch, Shader* shader) {
-  if (shader == batch->shader) return;
+  if (shader == batch->pipeline->shader) return;
   lovrRetain(shader);
-  lovrRelease(batch->shader, lovrShaderDestroy);
-  batch->shader = shader;
-  batch->pipeline->info.shader = shader->gpu;
+  lovrRelease(batch->pipeline->shader, lovrShaderDestroy);
+  batch->pipeline->shader = shader;
+  batch->pipeline->info.shader = shader ? shader->gpu : NULL;
   batch->pipeline->dirty = true;
 }
 
@@ -1779,6 +1788,12 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   if (batch->pipeline->info.drawMode != (gpu_draw_mode) req->mode) {
     batch->pipeline->info.drawMode = (gpu_draw_mode) req->mode;
     batch->pipeline->dirty = true;
+  }
+
+  if (!batch->pipeline->shader) {
+    Shader* shader = state.defaultShader;
+    batch->pipeline->dirty = shader->gpu != batch->pipeline->info.shader;
+    batch->pipeline->info.shader = shader->gpu;
   }
 
   if (batch->pipeline->dirty) {
