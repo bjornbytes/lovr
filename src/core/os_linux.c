@@ -1,8 +1,8 @@
 #include "os.h"
 #include <string.h>
-#include <time.h>
-#include <unistd.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <time.h>
 #include <pwd.h>
 #include <sys/mman.h>
 #include <linux/input.h>
@@ -181,7 +181,6 @@ void os_on_permission(fn_permission* callback) {
 // TODO EGL
 // TODO fullscreen
 // TODO resizable
-// TODO title
 // TODO icon
 bool os_window_open(const os_window_config* config) {
   state.connection = xcb_connect(NULL, NULL);
@@ -193,6 +192,7 @@ bool os_window_open(const os_window_config* config) {
 
   xcb_screen_t* screen = xcb_setup_roots_iterator(xcb_get_setup(state.connection)).data;
 
+  // Create window
   uint8_t depth = XCB_COPY_FROM_PARENT;
   xcb_window_t window = xcb_generate_id(state.connection);
   xcb_window_t parent = screen->root;
@@ -214,6 +214,7 @@ bool os_window_open(const os_window_config* config) {
 
   xcb_create_window(state.connection, depth, window, parent, 0, 0, w, h, border, class, visual, keys, values);
 
+  // Set up window close event
   xcb_intern_atom_cookie_t protocols = xcb_intern_atom(state.connection, 1, 12, "WM_PROTOCOLS");
   xcb_intern_atom_cookie_t delete = xcb_intern_atom(state.connection, 1, 16, "WM_DELETE_WINDOW");
   xcb_intern_atom_reply_t* protocolReply = xcb_intern_atom_reply(state.connection, protocols, 0);
@@ -222,6 +223,11 @@ bool os_window_open(const os_window_config* config) {
   state.deleteWindow = deleteReply;
   free(protocolReply);
 
+  // Set title
+  xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
+  xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, window, XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
+
+  // Show window and flush messages
   xcb_map_window(state.connection, window);
   xcb_flush(state.connection);
   return true;
