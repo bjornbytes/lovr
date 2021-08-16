@@ -82,7 +82,6 @@ struct Shader {
   uint32_t variableCount;
   uint32_t constantCount;
   uint32_t attributeMask;*/
-  map_t lookup;
 };
 
 enum {
