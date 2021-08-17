@@ -26,10 +26,23 @@ static int l_lovrBatchGetCount(lua_State* L) {
   return 1;
 }
 
-static int l_lovrBatchReset(lua_State* L) {
+static int l_lovrBatchBegin(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
-  lovrBatchReset(batch);
+  lovrBatchBegin(batch);
   return 0;
+}
+
+static int l_lovrBatchFinish(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  lovrBatchFinish(batch);
+  return 0;
+}
+
+static int l_lovrBatchIsActive(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  bool active = lovrBatchIsActive(batch);
+  lua_pushboolean(L, active);
+  return 1;
 }
 
 static int l_lovrBatchGetViewPose(lua_State* L) {
@@ -266,6 +279,35 @@ static int l_lovrBatchSetWireframe(lua_State* L) {
   return 0;
 }
 
+static int l_lovrBatchBind(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  const char* name = NULL;
+  size_t length = 0;
+  uint32_t slot = ~0u;
+
+  switch (lua_type(L, 2)) {
+    case LUA_TSTRING: name = lua_tolstring(L, 2, &length); break;
+    case LUA_TNUMBER: slot = lua_tointeger(L, 2) - 1; break;
+    default: return luax_typeerror(L, 2, "string or number");
+  }
+
+  Buffer* buffer = luax_totype(L, 3, Buffer);
+  Texture* texture = NULL;
+  uint32_t offset = 0;
+
+  if (buffer) {
+    offset = lua_tointeger(L, 4);
+  } else {
+    texture = luax_totype(L, 3, Texture);
+    if (!texture) {
+      return luax_typeerror(L, 3, "Buffer or Texture");
+    }
+  }
+
+  lovrBatchBind(batch, name, length, slot, buffer, offset, texture);
+  return 0;
+}
+
 static int l_lovrBatchCube(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
@@ -279,7 +321,9 @@ const luaL_Reg lovrBatch[] = {
   { "getType", l_lovrBatchGetType },
   { "getCapacity", l_lovrBatchGetCapacity },
   { "getCount", l_lovrBatchGetCount },
-  { "reset", l_lovrBatchReset },
+  { "begin", l_lovrBatchBegin },
+  { "finish", l_lovrBatchFinish },
+  { "isActive", l_lovrBatchIsActive },
 
   { "getViewPose", l_lovrBatchGetViewPose },
   { "setViewPose", l_lovrBatchSetViewPose },
@@ -305,6 +349,8 @@ const luaL_Reg lovrBatch[] = {
   { "setStencilTest", l_lovrBatchSetStencilTest },
   { "setWinding", l_lovrBatchSetWinding },
   { "setWireframe", l_lovrBatchSetWireframe },
+
+  { "bind", l_lovrBatchBind },
 
   { "cube", l_lovrBatchCube },
 

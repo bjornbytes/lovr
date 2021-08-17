@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -365,7 +366,9 @@ Batch* lovrBatchCreate(BatchInfo* info);
 void lovrBatchDestroy(void* ref);
 const BatchInfo* lovrBatchGetInfo(Batch* batch);
 uint32_t lovrBatchGetCount(Batch* batch);
-void lovrBatchReset(Batch* batch);
+void lovrBatchBegin(Batch* batch);
+void lovrBatchFinish(Batch* batch);
+bool lovrBatchIsActive(Batch* batch);
 void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix);
 void lovrBatchSetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix);
 void lovrBatchGetProjection(Batch* batch, uint32_t index, float* projection);
@@ -388,4 +391,5 @@ void lovrBatchSetShader(Batch* batch, Shader* shader);
 void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value);
 void lovrBatchSetWinding(Batch* batch, Winding winding);
 void lovrBatchSetWireframe(Batch* batch, bool wireframe);
+void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture);
 void lovrBatchCube(Batch* batch, DrawStyle style, float* transform);
