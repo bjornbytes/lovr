@@ -1,5 +1,5 @@
 config = {
-  target = nil,
+  target = 'native',
   debug = true,
   optimize = false,
   supercharge = false,
@@ -37,7 +37,7 @@ config = {
     sdk = nil,
     ndk = nil,
     version = nil,
-    buildtoolsversion = nil,
+    buildtools = nil,
     keystore = nil,
     keystorepass = nil,
     manifest = nil,
@@ -48,7 +48,7 @@ config = {
 
 ---> setup
 
-target = config.target or tup.getconfig('TUP_PLATFORM')
+target = config.target == 'native' and tup.getconfig('TUP_PLATFORM') or config.target
 if target == 'macosx' then target = 'macos' end
 
 cc = 'clang'
@@ -471,7 +471,7 @@ if target == 'android' then
     config.headsets.pico and 'src/resources/AndroidManifest_pico.xml' or
     config.headsets.openxr and 'src/resources/AndroidManifest_oculus.xml'
 
-  tools = config.android.sdk .. '/build-tools/' .. config.android.buildtoolsversion
+  tools = config.android.sdk .. '/build-tools/' .. config.android.buildtools
 
   ks = config.android.keystore
   kspass = config.android.keystorepass
