@@ -9,6 +9,7 @@ typedef struct gpu_texture gpu_texture;
 typedef struct gpu_sampler gpu_sampler;
 typedef struct gpu_pass gpu_pass;
 typedef struct gpu_shader gpu_shader;
+typedef struct gpu_bunch gpu_bunch;
 typedef struct gpu_bundle gpu_bundle;
 typedef struct gpu_pipeline gpu_pipeline;
 typedef struct gpu_stream gpu_stream;
@@ -18,6 +19,7 @@ size_t gpu_sizeof_texture(void);
 size_t gpu_sizeof_sampler(void);
 size_t gpu_sizeof_pass(void);
 size_t gpu_sizeof_shader(void);
+size_t gpu_sizeof_bunch(void);
 size_t gpu_sizeof_bundle(void);
 size_t gpu_sizeof_pipeline(void);
 
@@ -250,6 +252,16 @@ typedef struct {
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info);
 void gpu_shader_destroy(gpu_shader* shader);
 
+// Bunch
+
+typedef struct {
+  uint32_t bundleCount;
+  uint32_t bindingCounts[6];
+} gpu_bunch_info;
+
+bool gpu_bunch_init(gpu_bunch* bunch, gpu_bunch_info* info);
+void gpu_bunch_destroy(gpu_bunch* bunch);
+
 // Bundle
 
 typedef struct {
@@ -276,8 +288,7 @@ typedef struct {
   gpu_binding* bindings;
 } gpu_bundle_info;
 
-bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info);
-void gpu_bundle_destroy(gpu_bundle* bundle);
+void gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info);
 
 // Pipeline
 

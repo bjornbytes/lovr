@@ -43,6 +43,10 @@ struct gpu_shader {
   VkPipelineBindPoint type;
 };
 
+struct gpu_bunch {
+  VkDescriptorPool handle;
+};
+
 struct gpu_bundle {
   VkDescriptorSet handle;
 };
@@ -59,6 +63,7 @@ size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture() { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler() { return sizeof(gpu_sampler); }
 size_t gpu_sizeof_shader() { return sizeof(gpu_shader); }
+size_t gpu_sizeof_bunch() { return sizeof(gpu_bunch); }
 size_t gpu_sizeof_bundle() { return sizeof(gpu_bundle); }
 size_t gpu_sizeof_pass() { return sizeof(gpu_pass); }
 size_t gpu_sizeof_pipeline() { return sizeof(gpu_pipeline); }
@@ -90,19 +95,6 @@ typedef struct {
   void* object;
 } gpu_cache_entry;
 
-typedef struct {
-  VkDescriptorPool handle;
-  uint32_t tick;
-  uint32_t next;
-} gpu_binding_puddle;
-
-typedef struct {
-  uint32_t count;
-  uint32_t head;
-  uint32_t tail;
-  gpu_binding_puddle data[16];
-} gpu_binding_pool;
-
 // State
 
 static struct {
@@ -125,7 +117,6 @@ static struct {
   gpu_tick ticks[4];
   gpu_morgue morgue;
   gpu_cache_entry framebuffers[16][4];
-  gpu_binding_pool bindings;
   VkQueryPool queryPool;
   uint32_t queryCount;
 } state;
@@ -664,91 +655,39 @@ void gpu_shader_destroy(gpu_shader* shader) {
   if (shader->pipelineLayout) vkDestroyPipelineLayout(state.device, shader->pipelineLayout, NULL);
 }
 
-// Bundle
+// Bunch
 
-bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
-  bundle->handle = VK_NULL_HANDLE;
-
-  VkDescriptorSetAllocateInfo allocateInfo = {
-    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-    .descriptorPool = VK_NULL_HANDLE,
-    .descriptorSetCount = 1,
-    .pSetLayouts = &info->shader->layouts[info->group]
+bool gpu_bunch_init(gpu_bunch* bunch, gpu_bunch_info* info) {
+  VkDescriptorPoolSize sizes[6] = {
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info->bindingCounts[GPU_SLOT_UNIFORM_BUFFER] },
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, info->bindingCounts[GPU_SLOT_STORAGE_BUFFER] },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info->bindingCounts[GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] },
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, info->bindingCounts[GPU_SLOT_STORAGE_BUFFER_DYNAMIC] },
+    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info->bindingCounts[GPU_SLOT_SAMPLED_TEXTURE] },
+    { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, info->bindingCounts[GPU_SLOT_STORAGE_TEXTURE] }
   };
 
-  // Try to allocate bindings from the current pool
-  gpu_binding_pool* pool = &state.bindings;
-  gpu_binding_puddle* puddle = NULL;
+  VkDescriptorPoolCreateInfo poolInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+    .maxSets = info->bundleCount,
+    .poolSizeCount = COUNTOF(sizes),
+    .pPoolSizes = sizes
+  };
 
-  if (pool->head != ~0u) {
-    puddle = &pool->data[pool->head];
-    allocateInfo.descriptorPool = puddle->handle;
-    VkResult result = vkAllocateDescriptorSets(state.device, &allocateInfo, &bundle->handle);
-    if (result != VK_ERROR_OUT_OF_POOL_MEMORY && !try(result, "Could not allocate bundle")) {
-      return false;
-    }
+  TRY(vkCreateDescriptorPool(state.device, &poolInfo, NULL, &bunch->handle), "Could not create bunch") {
+    return false;
   }
 
-  // If that didn't work, there either wasn't a puddle available or the current one overflowed.
-  if (!bundle->handle) {
-    uint32_t index = ~0u;
+  return true;
+}
 
-    // Make sure we have an up to date GPU tick before trying to reuse a puddle
-    ketchup();
+void gpu_bunch_destroy(gpu_bunch* bunch) {
+  condemn(bunch->handle, VK_OBJECT_TYPE_DESCRIPTOR_POOL);
+}
 
-    // If there's a crusty old puddle laying around that isn't even being used by anyone, use it
-    if (pool->tail != ~0u && state.tick[GPU] >= pool->data[pool->tail].tick) {
-      index = pool->tail;
-      puddle = &pool->data[index];
-      pool->tail = puddle->next;
-      vkResetDescriptorPool(state.device, puddle->handle, 0);
-    } else {
-      CHECK(pool->count < COUNTOF(pool->data), "GPU binding pool overflow") return false;
-      index = pool->count++;
-      puddle = &pool->data[index];
+// Bundle
 
-      VkDescriptorPoolSize sizes[] = {
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 * 1024 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 * 1024 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 * 1024 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * 1024 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 2 * 1024 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 2 * 1024 }
-      };
-
-      VkDescriptorPoolCreateInfo descriptorPoolInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = 1024,
-        .poolSizeCount = COUNTOF(sizes),
-        .pPoolSizes = sizes
-      };
-
-      TRY(vkCreateDescriptorPool(state.device, &descriptorPoolInfo, NULL, &puddle->handle), "Could not create descriptor pool") {
-        return false;
-      }
-    }
-
-    // If there's no tail, this pool is the tail now
-    if (pool->tail == ~0u) {
-      pool->tail = index;
-    }
-
-    // This puddle is the new head, adjust old head
-    if (pool->head != ~0u) {
-      pool->data[pool->head].next = index;
-    }
-
-    pool->head = index;
-    puddle->next = ~0u;
-
-    allocateInfo.descriptorPool = puddle->handle;
-    TRY(vkAllocateDescriptorSets(state.device, &allocateInfo, &bundle->handle), "Could not allocate bundle") {
-      return false;
-    }
-  }
-
-  puddle->tick = state.tick[CPU];
-
+void gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
   static const VkDescriptorType descriptorTypes[] = {
     [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
     [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -817,12 +756,6 @@ bool gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
   if (writeCount > 0) {
     vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
   }
-
-  return true;
-}
-
-void gpu_bundle_destroy(gpu_bundle* bundle) {
-  //
 }
 
 // Pass
@@ -1870,7 +1803,6 @@ bool gpu_init(gpu_config* config) {
   }
 
   state.currentBackbuffer = ~0u;
-  state.bindings.head = state.bindings.tail = ~0u;
   state.tick[CPU] = COUNTOF(state.ticks) - 1;
   return true;
 }
@@ -2020,6 +1952,7 @@ static void expunge() {
       case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_DESCRIPTOR_POOL: vkDestroyDescriptorPool(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
       default: check(false, "Unreachable"); break;
     }
