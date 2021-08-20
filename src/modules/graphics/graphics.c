@@ -163,6 +163,19 @@ struct Batch {
 };
 
 typedef struct {
+  uint32_t cursor;
+  uint32_t tick;
+  uint32_t next;
+} Bunch;
+
+typedef struct {
+  uint32_t count;
+  gpu_bunch* handles;
+  uint64_t lookup[256];
+  Bunch list[256];
+} BunchPool;
+
+typedef struct {
   void (*callback)(void*, uint32_t, void*);
   void* userdata;
   void* data;
