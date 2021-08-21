@@ -33,6 +33,7 @@ static const uint16_t fieldComponents[] = {
   [FIELD_I32x2] = 2,
   [FIELD_U32x2] = 2,
   [FIELD_F32x2] = 2,
+  [FIELD_U10Nx3] = 3,
   [FIELD_I32x3] = 3,
   [FIELD_U32x3] = 3,
   [FIELD_F32x3] = 3,
@@ -87,6 +88,7 @@ static int luax_pushbufferfield(lua_State* L, void* data, FieldType type) {
       case FIELD_I32x2: lua_pushnumber(L, p.i32[c]); break;
       case FIELD_U32x2: lua_pushnumber(L, p.u32[c]); break;
       case FIELD_F32x2: lua_pushnumber(L, p.f32[c]); break;
+      case FIELD_U10Nx3: lua_pushnumber(L, ((p.u32[0] >> (10 * (2 - c))) & 0x3ff) / 1023.); break;
       case FIELD_I32x3: lua_pushnumber(L, p.i32[c]); break;
       case FIELD_U32x3: lua_pushnumber(L, p.u32[c]); break;
       case FIELD_F32x3: lua_pushnumber(L, p.f32[c]); break;
@@ -133,6 +135,7 @@ static void luax_readbufferfield(lua_State* L, int index, FieldType type, int co
       case FIELD_I32x2: p.i32[i] = (int32_t) x; break;
       case FIELD_U32x2: p.u32[i] = (uint32_t) x; break;
       case FIELD_F32x2: p.f32[i] = (float) x; break;
+      case FIELD_U10Nx3: p.u32[0] |= (uint32_t) (CLAMP(x, 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
       case FIELD_I32x3: p.i32[i] = (int32_t) x; break;
       case FIELD_U32x3: p.u32[i] = (uint32_t) x; break;
       case FIELD_F32x3: p.f32[i] = (float) x; break;
@@ -168,6 +171,7 @@ static void luax_readbufferfieldv(float* v, FieldType type, int c, void* data) {
     case FIELD_U16Nx2: for (int i = 0; i < 2; i++) p.u16[c] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
     case FIELD_I32x2: for (int i = 0; i < 2; i++) p.i32[c] = (int32_t) v[i]; break;
     case FIELD_U32x2: for (int i = 0; i < 2; i++) p.u32[c] = (uint32_t) v[i]; break;
+    case FIELD_U10Nx3: for (int i = 0; i < 3; i++) p.u32[0] |= (uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
     case FIELD_I32x3: for (int i = 0; i < 3; i++) p.i32[c] = (int32_t) v[i]; break;
     case FIELD_U32x3: for (int i = 0; i < 3; i++) p.u32[c] = (uint32_t) v[i]; break;
     case FIELD_I8x4: for (int i = 0; i < 4; i++) p.i8[c] = (int8_t) v[i]; break;
