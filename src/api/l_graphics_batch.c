@@ -45,6 +45,80 @@ static int l_lovrBatchIsActive(lua_State* L) {
   return 1;
 }
 
+static int l_lovrBatchGetViewport(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  float viewport[4], depthRange[2];
+  lovrBatchGetViewport(batch, viewport, depthRange);
+  if (viewport[2] == 0.f && viewport[3] == 0.f) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  lua_pushnumber(L, viewport[0]);
+  lua_pushnumber(L, viewport[1]);
+  lua_pushnumber(L, viewport[2]);
+  lua_pushnumber(L, viewport[3]);
+  lua_pushnumber(L, depthRange[0]);
+  lua_pushnumber(L, depthRange[1]);
+  return 6;
+}
+
+static int l_lovrBatchSetViewport(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  float viewport[4], depthRange[2];
+
+  if (lua_isnil(L, 2)) {
+    memset(viewport, 0, sizeof(viewport));
+    memset(depthRange, 0, sizeof(depthRange));
+    lovrBatchSetViewport(batch, viewport, depthRange);
+    return 0;
+  }
+
+  viewport[0] = luax_checkfloat(L, 2);
+  viewport[1] = luax_checkfloat(L, 3);
+  viewport[2] = luax_checkfloat(L, 4);
+  viewport[3] = luax_checkfloat(L, 5);
+  depthRange[0] = luax_checkfloat(L, 6);
+  depthRange[1] = luax_checkfloat(L, 7);
+  lovrBatchSetViewport(batch, viewport, depthRange);
+  return 0;
+}
+
+static int l_lovrBatchGetScissor(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  uint32_t scissor[4];
+  lovrBatchGetScissor(batch, scissor);
+
+  if (scissor[2] == 0 && scissor[3] == 0) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  lua_pushinteger(L, scissor[0]);
+  lua_pushinteger(L, scissor[1]);
+  lua_pushinteger(L, scissor[2]);
+  lua_pushinteger(L, scissor[3]);
+  return 4;
+}
+
+static int l_lovrBatchSetScissor(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  uint32_t scissor[4];
+
+  if (lua_isnil(L, 2)) {
+    memset(scissor, 0, sizeof(scissor));
+    lovrBatchSetScissor(batch, scissor);
+    return 0;
+  }
+
+  scissor[0] = luaL_checkinteger(L, 2);
+  scissor[1] = luaL_checkinteger(L, 3);
+  scissor[2] = luaL_checkinteger(L, 4);
+  scissor[3] = luaL_checkinteger(L, 5);
+  lovrBatchSetScissor(batch, scissor);
+  return 0;
+}
+
 static int l_lovrBatchGetViewPose(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
@@ -325,6 +399,10 @@ const luaL_Reg lovrBatch[] = {
   { "finish", l_lovrBatchFinish },
   { "isActive", l_lovrBatchIsActive },
 
+  { "getViewport", l_lovrBatchGetViewport },
+  { "setViewport", l_lovrBatchSetViewport },
+  { "getScissor", l_lovrBatchGetScissor },
+  { "setScissor", l_lovrBatchSetScissor },
   { "getViewPose", l_lovrBatchGetViewPose },
   { "setViewPose", l_lovrBatchSetViewPose },
   { "getProjection", l_lovrBatchGetProjection },

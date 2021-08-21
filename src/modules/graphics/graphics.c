@@ -157,6 +157,9 @@ struct Batch {
   uint32_t geometryCursor;
   BatchPipeline pipelines[4];
   float transforms[16][16];
+  float viewport[4];
+  float depthRange[2];
+  uint32_t scissor[4];
   float viewMatrix[6][16];
   float projection[6][16];
   gpu_binding bindings[32];
@@ -782,6 +785,18 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     BatchDraw* draw = batch->draws;
     BatchGroup* group = batch->groups;
     lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
+
+    if (batch->viewport[2] > 0.f && batch->viewport[3] > 0.f) {
+      gpu_set_viewport(stream, batch->viewport, batch->depthRange);
+    } else {
+      gpu_set_viewport(stream, (float[4]) { 0.f, 0.f, main->width, main->height }, (float[2]) { 0.f, 1.f });
+    }
+
+    if (batch->scissor[2] > 0 && batch->scissor[3] > 0) {
+      gpu_set_scissor(stream, batch->scissor);
+    } else {
+      gpu_set_scissor(stream, (uint32_t[4]) { 0, 0, main->width, main->height });
+    }
 
     Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, sizeof(batch->viewMatrix) + sizeof(batch->projection), 256);
     memcpy(camera.data, batch->viewMatrix, sizeof(batch->viewMatrix) + sizeof(batch->projection));
@@ -1598,6 +1613,28 @@ void lovrBatchFinish(Batch* batch) {
 
 bool lovrBatchIsActive(Batch* batch) {
   return batch->active;
+}
+
+void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]) {
+  memcpy(viewport, batch->viewport, sizeof(batch->viewport));
+  memcpy(depthRange, batch->depthRange, sizeof(batch->depthRange));
+}
+
+void lovrBatchSetViewport(Batch* batch, float viewport[4], float depthRange[2]) {
+  // TODO validate viewport dimensions
+  lovrCheck(depthRange[0] >= 0.f && depthRange[0] <= 1.f, "Depth range values must be between 0 and 1");
+  lovrCheck(depthRange[1] >= 0.f && depthRange[1] <= 1.f, "Depth range values must be between 0 and 1");
+  memcpy(batch->viewport, viewport, sizeof(batch->viewport));
+  memcpy(batch->depthRange, depthRange, sizeof(batch->depthRange));
+}
+
+void lovrBatchGetScissor(Batch* batch, uint32_t scissor[4]) {
+  memcpy(scissor, batch->scissor, sizeof(batch->scissor));
+}
+
+void lovrBatchSetScissor(Batch* batch, uint32_t scissor[4]) {
+  // TODO validate scissor range
+  memcpy(batch->scissor, scissor, sizeof(batch->scissor));
 }
 
 void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix) {
