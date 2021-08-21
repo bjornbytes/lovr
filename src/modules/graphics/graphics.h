@@ -135,6 +135,7 @@ typedef enum {
   FIELD_I32x2,
   FIELD_U32x2,
   FIELD_F32x2,
+  FIELD_U10Nx3,
   FIELD_I32x3,
   FIELD_U32x3,
   FIELD_F32x3,
