@@ -1221,8 +1221,6 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   };
 
   vkCmdBeginRenderPass(stream->commands, &beginfo, VK_SUBPASS_CONTENTS_INLINE);
-  vkCmdSetViewport(stream->commands, 0, 1, (VkViewport[]) { { 0.f, 0.f, canvas->size[0], canvas->size[1], 0.f, 1.f } });
-  vkCmdSetScissor(stream->commands, 0, 1, &beginfo.renderArea);
 }
 
 void gpu_render_end(gpu_stream* stream) {
@@ -1235,6 +1233,16 @@ void gpu_compute_begin(gpu_stream* stream) {
 
 void gpu_compute_end(gpu_stream* stream) {
   //
+}
+
+void gpu_set_viewport(gpu_stream* stream, float view[4], float depthRange[2]) {
+  VkViewport viewport = { view[0], view[1], view[2], view[3], depthRange[0], depthRange[1] };
+  vkCmdSetViewport(stream->commands, 0, 1, &viewport);
+}
+
+void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]) {
+  VkRect2D rect = { { scissor[0], scissor[1] }, { scissor[2], scissor[3] } };
+  vkCmdSetScissor(stream->commands, 0, 1, &rect);
 }
 
 void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
