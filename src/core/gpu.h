@@ -470,6 +470,8 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas);
 void gpu_render_end(gpu_stream* stream);
 void gpu_compute_begin(gpu_stream* stream);
 void gpu_compute_end(gpu_stream* stream);
+void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[2]);
+void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]);
 void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute);
 void gpu_bind_bundle(gpu_stream* stream, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count);
