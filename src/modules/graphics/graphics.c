@@ -157,25 +157,27 @@ struct Batch {
   uint32_t geometryCursor;
   BatchPipeline pipelines[4];
   float transforms[16][16];
+  gpu_binding bindings[32];
   float viewport[4];
   float depthRange[2];
   uint32_t scissor[4];
   float viewMatrix[6][16];
   float projection[6][16];
-  gpu_binding bindings[32];
 };
 
 typedef struct {
+  gpu_bundle* bundles;
+  gpu_layout* layout;
   uint32_t cursor;
   uint32_t tick;
   uint32_t next;
 } Bunch;
 
 typedef struct {
-  uint32_t count;
   gpu_bunch* handles;
-  uint64_t lookup[256];
+  uint8_t current[64];
   Bunch list[256];
+  uint32_t count;
 } BunchPool;
 
 typedef struct {
@@ -227,6 +229,8 @@ static struct {
   gpu_pipeline* pipelines[4096];
   uint64_t passKeys[256];
   gpu_pass* passes[256];
+  uint64_t layoutLookup[64];
+  gpu_layout* layouts[64];
   gpu_stream* transfers;
   gpu_stream* streams[MAX_STREAMS];
   int8_t streamOrder[MAX_STREAMS];

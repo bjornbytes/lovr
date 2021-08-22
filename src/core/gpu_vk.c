@@ -35,10 +35,13 @@ struct gpu_pass {
   uint32_t count;
 };
 
+struct gpu_layout {
+  VkDescriptorSetLayout handle;
+};
+
 struct gpu_shader {
   VkShaderModule handles[2];
   VkPipelineShaderStageCreateInfo pipelineInfo[2];
-  VkDescriptorSetLayout layouts[4];
   VkPipelineLayout pipelineLayout;
   VkPipelineBindPoint type;
 };
@@ -562,6 +565,49 @@ void gpu_sampler_destroy(gpu_sampler* sampler) {
   condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER);
 }
 
+// Layout
+
+bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
+  VkDescriptorSetLayoutBinding bindings[32];
+
+  static const VkDescriptorType types[] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+  };
+
+  for (uint32_t i = 0; i < info->count; i++) {
+    bindings[i] = (VkDescriptorSetLayoutBinding) {
+      .binding = info->slots[i].number,
+      .descriptorType = types[info->slots[i].type],
+      .descriptorCount = info->slots[i].count,
+      .stageFlags = info->slots[i].stage == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
+        (((info->slots[i].stage & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
+        ((info->slots[i].stage & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
+        ((info->slots[i].stage & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
+    };
+  }
+
+  VkDescriptorSetLayoutCreateInfo layoutInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    .bindingCount = info->count,
+    .pBindings = bindings
+  };
+
+  TRY(vkCreateDescriptorSetLayout(state.device, &layoutInfo, NULL, &layout->handle), "Failed to create layout") {
+    return false;
+  }
+
+  return true;
+}
+
+void gpu_layout_destroy(gpu_layout* layout) {
+  condemn(layout->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT);
+}
+
 // Shader
 
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
@@ -591,49 +637,15 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     };
   }
 
-  static const VkDescriptorType descriptorTypes[] = {
-    [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-  };
-
+  VkDescriptorSetLayout layouts[4];
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-    .pSetLayouts = shader->layouts
+    .pSetLayouts = layouts
   };
 
-  for (uint32_t i = 0; i < COUNTOF(shader->layouts); i++) {
-    VkDescriptorSetLayoutBinding bindings[16];
-    for (uint32_t j = 0; j < info->slotCount[i]; j++) {
-      gpu_slot slot = info->slots[i][j];
-      bindings[j] = (VkDescriptorSetLayoutBinding) {
-        .binding = slot.id,
-        .descriptorType = descriptorTypes[slot.type],
-        .descriptorCount = slot.count,
-        .stageFlags = slot.stage == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
-          (((slot.stage & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
-          ((slot.stage & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
-          ((slot.stage & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
-      };
-    }
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo = {
-      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-      .bindingCount = info->slotCount[i],
-      .pBindings = bindings
-    };
-
-    TRY(vkCreateDescriptorSetLayout(state.device, &layoutInfo, NULL, &shader->layouts[i]), "Failed to create descriptor set layout") {
-      gpu_shader_destroy(shader);
-      return false;
-    }
-
-    if (info->slotCount[i] > 0) {
-      pipelineLayoutInfo.setLayoutCount = i + 1;
-    }
+  for (uint32_t i = 0; i < COUNTOF(info->layouts) && info->layouts[i]; i++) {
+    layouts[i] = info->layouts[i]->handle;
+    pipelineLayoutInfo.setLayoutCount++;
   }
 
   TRY(vkCreatePipelineLayout(state.device, &pipelineLayoutInfo, NULL, &shader->pipelineLayout), "Failed to create pipeline layout") {
@@ -648,11 +660,7 @@ void gpu_shader_destroy(gpu_shader* shader) {
   // The spec says it's safe to destroy shaders while still in use
   if (shader->handles[0]) vkDestroyShaderModule(state.device, shader->handles[0], NULL);
   if (shader->handles[1]) vkDestroyShaderModule(state.device, shader->handles[1], NULL);
-  if (shader->layouts[0]) vkDestroyDescriptorSetLayout(state.device, shader->layouts[0], NULL);
-  if (shader->layouts[1]) vkDestroyDescriptorSetLayout(state.device, shader->layouts[1], NULL);
-  if (shader->layouts[2]) vkDestroyDescriptorSetLayout(state.device, shader->layouts[2], NULL);
-  if (shader->layouts[3]) vkDestroyDescriptorSetLayout(state.device, shader->layouts[3], NULL);
-  if (shader->pipelineLayout) vkDestroyPipelineLayout(state.device, shader->pipelineLayout, NULL);
+  condemn(shader->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT);
 }
 
 // Bunch
@@ -1583,7 +1591,7 @@ bool gpu_init(gpu_config* config) {
       config->limits->renderSize[0] = deviceLimits->maxFramebufferWidth;
       config->limits->renderSize[1] = deviceLimits->maxFramebufferHeight;
       config->limits->renderViews = multiviewLimits.maxMultiviewViewCount;
-      config->limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader*) NULL)->layouts));
+      config->limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader_info*) NULL)->layouts));
       config->limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
       config->limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
       config->limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
@@ -1961,7 +1969,9 @@ static void expunge() {
       case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkDestroyDescriptorSetLayout(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_DESCRIPTOR_POOL: vkDestroyDescriptorPool(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_PIPELINE_LAYOUT: vkDestroyPipelineLayout(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
       default: check(false, "Unreachable"); break;
     }
