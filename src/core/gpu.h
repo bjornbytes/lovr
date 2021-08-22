@@ -8,9 +8,10 @@ typedef struct gpu_buffer gpu_buffer;
 typedef struct gpu_texture gpu_texture;
 typedef struct gpu_sampler gpu_sampler;
 typedef struct gpu_pass gpu_pass;
+typedef struct gpu_layout gpu_layout;
 typedef struct gpu_shader gpu_shader;
-typedef struct gpu_bunch gpu_bunch;
 typedef struct gpu_bundle gpu_bundle;
+typedef struct gpu_bunch gpu_bunch;
 typedef struct gpu_pipeline gpu_pipeline;
 typedef struct gpu_stream gpu_stream;
 
@@ -18,9 +19,10 @@ size_t gpu_sizeof_buffer(void);
 size_t gpu_sizeof_texture(void);
 size_t gpu_sizeof_sampler(void);
 size_t gpu_sizeof_pass(void);
+size_t gpu_sizeof_layout(void);
 size_t gpu_sizeof_shader(void);
-size_t gpu_sizeof_bunch(void);
 size_t gpu_sizeof_bundle(void);
+size_t gpu_sizeof_bunch(void);
 size_t gpu_sizeof_pipeline(void);
 
 // Buffer
@@ -211,13 +213,7 @@ typedef struct {
 bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info);
 void gpu_pass_destroy(gpu_pass* pass);
 
-// Shader
-
-typedef struct {
-  const void* code;
-  size_t size;
-  const char* entry;
-} gpu_shader_source;
+// Layout
 
 typedef enum {
   GPU_SLOT_UNIFORM_BUFFER,
@@ -236,16 +232,31 @@ enum {
 };
 
 typedef struct {
-  uint8_t id;
+  uint8_t number;
   uint8_t type;
   uint8_t stage;
   uint8_t count;
 } gpu_slot;
 
 typedef struct {
+  uint32_t count;
+  gpu_slot* slots;
+} gpu_layout_info;
+
+bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info);
+void gpu_layout_destroy(gpu_layout* layout);
+
+// Shader
+
+typedef struct {
+  const void* code;
+  size_t size;
+  const char* entry;
+} gpu_shader_source;
+
+typedef struct {
   gpu_shader_source stages[2];
-  uint32_t slotCount[4];
-  gpu_slot* slots[4];
+  gpu_layout* layouts[4];
   const char* label;
 } gpu_shader_info;
 
@@ -255,8 +266,10 @@ void gpu_shader_destroy(gpu_shader* shader);
 // Bunch
 
 typedef struct {
-  uint32_t bundleCount;
   uint32_t bindingCounts[6];
+  uint32_t bundleCount;
+  gpu_layout** layouts;
+  gpu_bundle* bundles;
 } gpu_bunch_info;
 
 bool gpu_bunch_init(gpu_bunch* bunch, gpu_bunch_info* info);
@@ -280,15 +293,7 @@ typedef union {
   gpu_texture_binding texture;
 } gpu_binding;
 
-typedef struct {
-  gpu_shader* shader;
-  uint32_t group;
-  uint32_t slotCount;
-  gpu_slot* slots;
-  gpu_binding* bindings;
-} gpu_bundle_info;
-
-void gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info);
+void gpu_bundle_init(gpu_bundle* bundles, gpu_binding** bindings, uint32_t bundleCount);
 
 // Pipeline
 
