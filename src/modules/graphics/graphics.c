@@ -1261,6 +1261,15 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   gpu_blit(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
 }
 
+void lovrTextureGenerateMipmaps(Texture* texture) {
+  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(!texture->info.parent, "Can not generate mipmaps on texture views");
+  lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to generate mipmaps");
+  lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to generate mipmaps");
+  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the texture's format, which is required for mipmap generation");
+  gpu_mipgen(state.transfers, texture->gpu);
+}
+
 // Sampler
 
 Sampler* lovrSamplerCreate(SamplerInfo* info) {
