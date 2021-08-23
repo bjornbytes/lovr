@@ -37,6 +37,10 @@ struct gpu_pass {
 
 struct gpu_layout {
   VkDescriptorSetLayout handle;
+  uint8_t slotTypes[32];
+  uint8_t slotLengths[32];
+  uint8_t slotNumbers[32];
+  uint32_t slotCount;
 };
 
 struct gpu_shader {
@@ -65,6 +69,7 @@ struct gpu_stream {
 size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture() { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler() { return sizeof(gpu_sampler); }
+size_t gpu_sizeof_layout() { return sizeof(gpu_layout); }
 size_t gpu_sizeof_shader() { return sizeof(gpu_shader); }
 size_t gpu_sizeof_bunch() { return sizeof(gpu_bunch); }
 size_t gpu_sizeof_bundle() { return sizeof(gpu_bundle); }
@@ -139,7 +144,6 @@ enum { CPU, GPU };
 enum { LINEAR, SRGB };
 
 static void hash32(uint32_t* hash, void* data, uint32_t size);
-static void ketchup(void);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
@@ -580,6 +584,9 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
   };
 
   for (uint32_t i = 0; i < info->count; i++) {
+    layout->slotTypes[i] = types[info->slots[i].type];
+    layout->slotLengths[i] = info->slots[i].count;
+    layout->slotNumbers[i] = info->slots[i].number;
     bindings[i] = (VkDescriptorSetLayoutBinding) {
       .binding = info->slots[i].number,
       .descriptorType = types[info->slots[i].type],
@@ -601,6 +608,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     return false;
   }
 
+  layout->slotCount = info->count;
   return true;
 }
 
@@ -695,69 +703,65 @@ void gpu_bunch_destroy(gpu_bunch* bunch) {
 
 // Bundle
 
-void gpu_bundle_init(gpu_bundle* bundle, gpu_bundle_info* info) {
-  static const VkDescriptorType descriptorTypes[] = {
-    [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-  };
-
-  gpu_binding* binding = info->bindings;
-  VkDescriptorBufferInfo buffers[64];
-  VkDescriptorImageInfo textures[64];
-  VkWriteDescriptorSet writes[16];
+void gpu_bundle_init(gpu_bundle* bundles, gpu_bundle_info* infos, uint32_t count) {
+  VkDescriptorBufferInfo buffers[256];
+  VkDescriptorImageInfo textures[256];
+  VkWriteDescriptorSet writes[64];
   uint32_t bufferCount = 0;
   uint32_t textureCount = 0;
   uint32_t writeCount = 0;
 
-  for (uint32_t i = 0; i < info->slotCount; i++) {
-    gpu_slot slot = info->slots[i];
-    bool texture = slot.type == GPU_SLOT_SAMPLED_TEXTURE || slot.type == GPU_SLOT_STORAGE_TEXTURE;
-    uint32_t cursor = 0;
+  for (uint32_t i = 0; i < count; i++) {
+    gpu_layout* layout = infos[i].layout;
+    gpu_binding* binding = infos[i].bindings;
+    for (uint32_t j = 0; j < layout->slotCount; j++) {
+      VkDescriptorType type = layout->slotTypes[j];
+      bool texture = type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      uint32_t length = layout->slotLengths[j];
+      uint32_t number = layout->slotNumbers[j];
+      uint32_t cursor = 0;
 
-    while (cursor < slot.count) {
-      if (texture ? textureCount >= COUNTOF(textures) : bufferCount >= COUNTOF(buffers)) {
-        vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
-        bufferCount = textureCount = writeCount = 0;
-      }
-
-      uint32_t available = texture ? COUNTOF(textures) - textureCount : COUNTOF(buffers) - bufferCount;
-      uint32_t remaining = slot.count - cursor;
-      uint32_t chunk = MIN(available, remaining);
-
-      writes[writeCount++] = (VkWriteDescriptorSet) {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = bundle->handle,
-        .dstBinding = slot.id,
-        .dstArrayElement = cursor,
-        .descriptorCount = chunk,
-        .descriptorType = descriptorTypes[slot.type],
-        .pBufferInfo = &buffers[bufferCount],
-        .pImageInfo = &textures[textureCount]
-      };
-
-      if (texture) {
-        for (uint32_t j = 0; j < chunk; j++, binding++) {
-          textures[textureCount++] = (VkDescriptorImageInfo) {
-            .sampler = binding->texture.sampler->handle,
-            .imageView = binding->texture.object->view,
-            .imageLayout = binding->texture.object->layout
-          };
+      while (cursor < length) {
+        if (texture ? textureCount >= COUNTOF(textures) : bufferCount >= COUNTOF(buffers)) {
+          vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
+          bufferCount = textureCount = writeCount = 0;
         }
-      } else {
-        for (uint32_t j = 0; j < chunk; j++, binding++) {
-          buffers[bufferCount++] = (VkDescriptorBufferInfo) {
-            .buffer = binding->buffer.object->handle,
-            .offset = binding->buffer.offset,
-            .range = binding->buffer.extent
-          };
-        }
-      }
 
-      cursor += chunk;
+        uint32_t available = texture ? COUNTOF(textures) - textureCount : COUNTOF(buffers) - bufferCount;
+        uint32_t remaining = length - cursor;
+        uint32_t chunk = MIN(available, remaining);
+
+        writes[writeCount++] = (VkWriteDescriptorSet) {
+          .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+          .dstSet = bundles[i].handle,
+          .dstBinding = number,
+          .dstArrayElement = cursor,
+          .descriptorCount = chunk,
+          .descriptorType = type,
+          .pBufferInfo = &buffers[bufferCount],
+          .pImageInfo = &textures[textureCount]
+        };
+
+        if (texture) {
+          for (uint32_t k = 0; k < chunk; k++, binding++) {
+            textures[textureCount++] = (VkDescriptorImageInfo) {
+              .sampler = binding->texture.sampler->handle,
+              .imageView = binding->texture.object->view,
+              .imageLayout = binding->texture.object->layout
+            };
+          }
+        } else {
+          for (uint32_t k = 0; k < chunk; k++, binding++) {
+            buffers[bufferCount++] = (VkDescriptorBufferInfo) {
+              .buffer = binding->buffer.object->handle,
+              .offset = binding->buffer.offset,
+              .range = binding->buffer.extent
+            };
+          }
+        }
+
+        cursor += chunk;
+      }
     }
   }
 
@@ -1938,22 +1942,10 @@ static void hash32(uint32_t* hash, void* data, uint32_t size) {
   }
 }
 
-static void ketchup() {
-  while (state.tick[GPU] + 1 < state.tick[CPU]) {
-    gpu_tick* next = &state.ticks[(state.tick[GPU] + 1) & 0x3];
-    VkResult result = vkGetFenceStatus(state.device, next->fence);
-    switch (result) {
-      case VK_SUCCESS: state.tick[GPU]++; continue;
-      case VK_NOT_READY: return;
-      default: try(result, "Failed to ketchup"); return;
-    }
-  }
-}
-
 static void condemn(void* handle, VkObjectType type) {
   if (!handle) return;
   gpu_morgue* morgue = &state.morgue;
-  CHECK(morgue->head - morgue->tail != COUNTOF(morgue->data), "GPU morgue overflow") return; // TODO ketchup and expunge if morgue is full
+  CHECK(morgue->head - morgue->tail != COUNTOF(morgue->data), "GPU morgue overflow") return; // TODO stall and expunge if morgue is full
   morgue->data[morgue->head++ & 0xff] = (gpu_ref) { handle, type, state.tick[CPU] };
 }
 
@@ -2097,8 +2089,6 @@ Comments
   make sure that the GPU is done with a tick before recording a new one in the same slot.
 - In a lot of places (command buffers, descriptor pools, morgue, scratchpad) a tick is tracked to
   know when the GPU is done with a resource so it can be recycled or destroyed.
-- The ketchup helper function checks the oldest fences to try to increment the GPU tick as much as
-  possible, allowing more resources to be recycled and avoid potential resource exhaustion.
 - I don't know what will happen if the tick counter wraps around or reaches UINT32_MAX.
 - In the future I'd like to use timeline semaphores instead of fences, but those are in Vulkan 1.2
   and currently aren't widely supported.

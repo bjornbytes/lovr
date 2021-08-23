@@ -293,7 +293,12 @@ typedef union {
   gpu_texture_binding texture;
 } gpu_binding;
 
-void gpu_bundle_init(gpu_bundle* bundles, gpu_binding** bindings, uint32_t bundleCount);
+typedef struct {
+  gpu_layout* layout;
+  gpu_binding* bindings;
+} gpu_bundle_info;
+
+void gpu_bundle_init(gpu_bundle* bundles, gpu_bundle_info* infos, uint32_t count);
 
 // Pipeline
 

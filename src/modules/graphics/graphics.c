@@ -144,41 +144,23 @@ struct Batch {
   uint32_t drawCount;
   BatchGroup* groups;
   BatchDraw* draws;
-  gpu_bundle* bundles;
-  gpu_bundle_info* bundleInfo;
-  uint32_t bundleCount;
+  gpu_binding bindings[32];
   bool bindingsDirty;
+  BatchPipeline pipelines[4];
   uint32_t pipelineIndex;
-  uint32_t transformIndex;
   BatchPipeline* pipeline;
+  float transforms[16][16];
+  uint32_t transformIndex;
   float* transform;
   Megaview buffers[BUFFER_MAX];
   Megaview scratchpads[BUFFER_MAX];
   uint32_t geometryCursor;
-  BatchPipeline pipelines[4];
-  float transforms[16][16];
-  gpu_binding bindings[32];
   float viewport[4];
   float depthRange[2];
   uint32_t scissor[4];
   float viewMatrix[6][16];
   float projection[6][16];
 };
-
-typedef struct {
-  gpu_bundle* bundles;
-  gpu_layout* layout;
-  uint32_t cursor;
-  uint32_t tick;
-  uint32_t next;
-} Bunch;
-
-typedef struct {
-  gpu_bunch* handles;
-  uint8_t current[64];
-  Bunch list[256];
-  uint32_t count;
-} BunchPool;
 
 typedef struct {
   void (*callback)(void*, uint32_t, void*);
@@ -448,21 +430,25 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   memset(state.buffers.newest, 0xff, sizeof(state.buffers.active));
 
   state.buffers.list[0].gpu = malloc(COUNTOF(state.buffers.list) * gpu_sizeof_buffer());
-  lovrAssert(state.buffers.list[0].gpu, "Out of memory");
+  state.pipelines[0] = malloc(COUNTOF(state.pipelines) * gpu_sizeof_pipeline());
+  state.passes[0] = malloc(COUNTOF(state.passes) * gpu_sizeof_pass());
+  state.layouts[0] = malloc(COUNTOF(state.layouts) * gpu_sizeof_layout());
+  lovrAssert(state.buffers.list[0].gpu && state.pipelines[0] && state.passes[0] && state.layouts[0], "Out of memory");
+
   for (uint32_t i = 1; i < COUNTOF(state.buffers.list); i++) {
     state.buffers.list[i].gpu = (gpu_buffer*) ((char*) state.buffers.list[0].gpu + i * gpu_sizeof_buffer());
   }
 
-  state.pipelines[0] = malloc(COUNTOF(state.pipelines) * gpu_sizeof_pipeline());
-  lovrAssert(state.pipelines[0], "Out of memory");
   for (uint32_t i = 1; i < COUNTOF(state.pipelines); i++) {
     state.pipelines[i] = (gpu_pipeline*) ((char*) state.pipelines[0] + i * gpu_sizeof_pipeline());
   }
 
-  state.passes[0] = malloc(COUNTOF(state.passes) * gpu_sizeof_pass());
-  lovrAssert(state.passes[0], "Out of memory");
   for (uint32_t i = 1; i < COUNTOF(state.passes); i++) {
     state.passes[i] = (gpu_pass*) ((char*) state.passes[0] + i * gpu_sizeof_pass());
+  }
+
+  for (uint32_t i = 1; i < COUNTOF(state.layouts); i++) {
+    state.layouts[i] = (gpu_layout*) ((char*) state.layouts[0] + i * gpu_sizeof_layout());
   }
 
   state.defaultShader = lovrShaderCreate(&(ShaderInfo) {
@@ -519,6 +505,9 @@ void lovrGraphicsDestroy() {
   for (uint32_t i = 0; i < COUNTOF(state.passes) && state.passKeys[i]; i++) {
     gpu_pass_destroy(state.passes[i]);
   }
+  for (uint32_t i = 0; i < COUNTOF(state.layouts) && state.layoutLookup[i]; i++) {
+    gpu_layout_destroy(state.layouts[i]);
+  }
   for (uint32_t i = 0; i < COUNTOF(state.scratchTextures); i++) {
     for (uint32_t j = 0; j < COUNTOF(state.scratchTextures[0]); j++) {
       if (state.scratchTextures[i][j].handle) {
@@ -530,6 +519,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultShader, lovrShaderDestroy);
   lovrRelease(state.window, lovrTextureDestroy);
   gpu_destroy();
+  free(state.layouts[0]);
   free(state.passes[0]);
   free(state.pipelines[0]);
   free(state.buffers.list[0].gpu);
@@ -1539,7 +1529,6 @@ Batch* lovrBatchInit(BatchInfo* info, bool scratch) {
   batch->pass = lookupPass(&info->canvas);
   batch->groups = (BatchGroup*) memory, memory += sizes[1];
   batch->draws = (BatchDraw*) memory, memory += sizes[2];
-  batch->bundles = (gpu_bundle*) memory, memory += sizes[3];
   batch->ref = 1;
   batch->scratch = scratch;
   batch->info = *info;
@@ -1587,7 +1576,6 @@ void lovrBatchBegin(Batch* batch) {
   batch->groupCount = 0;
   batch->drawCount = 0;
 
-  batch->bundleCount = 0;
   batch->bindingsDirty = true;
   memset(batch->bindings, 0, sizeof(batch->bindings));
 
@@ -1874,7 +1862,7 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
   }
 
   if (buffer) {
-    lovrCheck(shader->bufferMask & (1 << index), "Attempt to bind a Texture to a Buffer");
+    lovrCheck(shader->bufferMask & (1 << index), "Unable to bind a Texture to a Buffer");
     lovrCheck(offset < buffer->size, "Buffer bind offset is past the end of the Buffer");
 
     if (shader->storageMask & (1 << index)) {
@@ -2013,7 +2001,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
 
   // Bundle
   if (batch->bindingsDirty) {
-    gpu_bundle_info* info = batch->bundleInfo + batch->bundleCount;
+    /*gpu_bundle_info* info = batch->bundleInfo + batch->bundleCount;
 
     info->shader = shader->gpu;
     info->group = 1;
@@ -2021,13 +2009,13 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
 
     for (uint32_t i = 0; i < shader->resourceCount; i++) {
       info->bindings[i] = batch->bindings[shader->resourceSlots[i]];
-    }
+    }*/
 
     batch->bindingsDirty = false;
-    batch->bundleCount++;
+    //batch->bundleCount++;
   }
 
-  draw->key.bits.bundle = batch->bundleCount - 1;
+  //draw->key.bits.bundle = batch->bundleCount - 1;
 
   // Params
   bool indexed = req->index.buffer || req->index.pointer || req->index.data;
