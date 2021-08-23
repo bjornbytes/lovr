@@ -241,6 +241,12 @@ static int l_lovrTextureClear(lua_State* L) {
   return 0;
 }
 
+static int l_lovrTextureGenerateMipmaps(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  lovrTextureGenerateMipmaps(texture);
+  return 0;
+}
+
 const luaL_Reg lovrTexture[] = {
   { "newView", l_lovrTextureNewView },
   { "getType", l_lovrTextureGetType },
@@ -261,5 +267,6 @@ const luaL_Reg lovrTexture[] = {
   { "copy", l_lovrTextureCopy },
   { "blit", l_lovrTextureBlit },
   { "clear", l_lovrTextureClear },
+  { "generateMipmaps", l_lovrTextureGenerateMipmaps },
   { NULL, NULL }
 };

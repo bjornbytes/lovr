@@ -229,6 +229,7 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void*, uint32_t, void*), void* userdata);
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]);
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest);
+void lovrTextureGenerateMipmaps(Texture* texture);
 
 // Sampler
 
