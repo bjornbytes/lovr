@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "data/image.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
@@ -7,40 +8,30 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
 #if defined(_WIN32)
-  #define XR_USE_PLATFORM_WIN32
-  #define WIN32_LEAN_AND_MEAN
-  #include <windows.h>
+#define XR_USE_PLATFORM_WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #elif defined(__ANDROID__)
-  #define XR_USE_PLATFORM_ANDROID
-  #include <android_native_app_glue.h>
-  #include <EGL/egl.h>
-  #include <jni.h>
+#define XR_USE_PLATFORM_ANDROID
+#include <android_native_app_glue.h>
+#include <jni.h>
+struct ANativeActivity* os_get_activity(void);
 #endif
+
 #if defined(LOVR_VK)
-  #define XR_USE_GRAPHICS_API_VULKAN
-  #define GRAPHICS_EXTENSION "XR_KHR_vulkan_enable2"
-  #include <vulkan/vulkan.h>
-#elif defined(LOVR_GL)
-  #define XR_USE_GRAPHICS_API_OPENGL
-  #define GRAPHICS_EXTENSION "XR_KHR_opengl_enable"
-#elif defined(LOVR_GLES)
-  #define XR_USE_GRAPHICS_API_OPENGL_ES
-  #define GRAPHICS_EXTENSION "XR_KHR_opengl_es_enable"
+#define XR_USE_GRAPHICS_API_VULKAN
+#define GRAPHICS_EXTENSION "XR_KHR_vulkan_enable2"
+#include <vulkan/vulkan.h>
+uintptr_t gpu_vk_get_instance(void);
+uintptr_t gpu_vk_get_physical_device(void);
+uintptr_t gpu_vk_get_device(void);
+uintptr_t gpu_vk_get_queue(void);
+#else
+#error "Unsupported graphics backend"
 #endif
-#if defined(LOVR_LINUX_X11) && !defined(LOVR_VK)
-  #define XR_USE_PLATFORM_XLIB
-  typedef unsigned long XID;
-  typedef struct Display Display;
-  typedef XID GLXFBConfig;
-  typedef XID GLXDrawable;
-  typedef XID GLXContext;
-#endif
-#if defined(LOVR_LINUX_EGL) && !defined(LOVR_VK)
-  #define XR_USE_PLATFORM_EGL
-  #define EGL_NO_X11
-  #include <EGL/egl.h>
-#endif
+
 #define XR_NO_PROTOTYPES
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
@@ -54,25 +45,6 @@
 #define SESSION_ACTIVE(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
 #define GL_SRGB8_ALPHA8 0x8C43
 #define MAX_IMAGES 4
-
-#if defined(_WIN32)
-HANDLE os_get_win32_window(void);
-HGLRC os_get_context(void);
-#elif defined(__ANDROID__)
-struct ANativeActivity* os_get_activity(void);
-EGLDisplay os_get_egl_display(void);
-EGLContext os_get_egl_context(void);
-EGLConfig os_get_egl_config(void);
-#elif defined(LOVR_LINUX_X11) && !defined(LOVR_VK)
-Display* os_get_x11_display(void);
-GLXDrawable os_get_glx_drawable(void);
-GLXContext os_get_glx_context(void);
-#elif defined(LOVR_LINUX_EGL)
-PFNEGLGETPROCADDRESSPROC os_get_egl_proc_addr(void);
-EGLDisplay os_get_egl_display(void);
-EGLContext os_get_egl_context(void);
-EGLConfig os_get_egl_config(void);
-#endif
 
 #define XR_FOREACH(X)\
   X(xrDestroyInstance)\
@@ -135,7 +107,6 @@ static struct {
   XrCompositionLayerProjection layers[1];
   XrCompositionLayerProjectionView layerViews[2];
   XrFrameState frameState;
-  Canvas* canvas;
   Texture* textures[MAX_IMAGES];
   uint32_t imageIndex;
   uint32_t imageCount;
@@ -149,6 +120,7 @@ static struct {
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[2];
   XrHandTrackerEXT handTrackers[2];
+  bool rendering;
   struct {
     bool handTracking;
     bool overlay;
@@ -206,7 +178,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     for (uint32_t i = 0; i < extensionCount; i++) extensions[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, 32, &extensionCount, extensions);
 
-    const char* enabledExtensionNames[5];
+    const char* enabledExtensionNames[4];
     uint32_t enabledExtensionCount = 0;
 
 #ifdef __ANDROID__
@@ -226,10 +198,6 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       enabledExtensionNames[enabledExtensionCount++] = XR_EXTX_OVERLAY_EXTENSION_NAME;
       state.features.overlay = true;
     }
-#endif
-
-#ifdef LOVR_LINUX_EGL
-    enabledExtensionNames[enabledExtensionCount++] = XR_MNDX_EGL_ENABLE_EXTENSION_NAME;
 #endif
 
     free(extensions);
@@ -356,54 +324,15 @@ static void openxr_start(void) {
     if (XR_VERSION_MAJOR(requirements.minApiVersionSupported) > 1 || XR_VERSION_MINOR(requirements.minApiVersionSupported) > 1) {
       lovrThrow("OpenXR Vulkan version not supported");
     }
-#elif defined(LOVR_GL)
-    XrGraphicsRequirementsOpenGLKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR, NULL };
-    PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR;
-    XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
-    xrGetOpenGLGraphicsRequirementsKHR(state.instance, state.system, &requirements);
-    // TODO validate OpenGL versions
-#elif defined(LOVR_GLES)
-    XrGraphicsRequirementsOpenGLESKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR, NULL };
-    PFN_xrGetOpenGLESGraphicsRequirementsKHR xrGetOpenGLESGraphicsRequirementsKHR;
-    XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
-    xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements);
-    // TODO validate OpenGLES versions
-#endif
 
-#if defined(_WIN32) && defined(LOVR_GL)
-    XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
-      .hDC = os_get_win32_window(),
-      .hGLRC = os_get_context()
+    XrGraphicsBindingVulkanKHR graphicsBinding = {
+      .type = XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
+      .instance = (VkInstance) gpu_vk_get_instance(),
+      .physicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device(),
+      .device = (VkDevice) gpu_vk_get_device(),
+      //.queueFamilyIndex = TODO
+      //.queueIndex = TODO
     };
-#elif defined(__ANDROID__) && defined(LOVR_GLES)
-    XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
-      .display = os_get_egl_display(),
-      .config = os_get_egl_config(),
-      .context = os_get_egl_context()
-    };
-#elif defined(LOVR_LINUX_X11)
-    XrGraphicsBindingOpenGLXlibKHR graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
-      .next = NULL,
-      .xDisplay = os_get_x11_display(),
-      .visualid = 0,
-      .glxFBConfig = 0,
-      .glxDrawable = os_get_glx_drawable(),
-      .glxContext = os_get_glx_context(),
-    };
-#elif defined(LOVR_LINUX_EGL)
-    XrGraphicsBindingEGLMNDX graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_EGL_MNDX,
-      .next = NULL,
-      .getProcAddress = os_get_egl_proc_addr(),
-      .display = os_get_egl_display(),
-      .config = os_get_egl_config(),
-      .context = os_get_egl_context(),
-    };
-#else
-#error "Unsupported OpenXR platform/graphics combination"
 #endif
 
     XrSessionCreateInfo info = {
@@ -416,7 +345,7 @@ static void openxr_start(void) {
     // Provisional extension.
     XrSessionCreateInfoOverlayEXTX overlayInfo = {
       .type = XR_TYPE_SESSION_CREATE_INFO_OVERLAY_EXTX,
-      .next = info.next,
+      .next = info.next
       // Fields may fluctuate, leave as auto initialised for now.
     };
 
@@ -483,54 +412,47 @@ static void openxr_start(void) {
   }
 
   { // Swapchain
-#if defined(XR_USE_GRAPHICS_API_OPENGL)
-    TextureType textureType = TEXTURE_2D;
-    uint32_t width = state.width * 2;
-    uint32_t arraySize = 1;
-    XrSwapchainImageOpenGLKHR images[MAX_IMAGES];
+#ifdef LOVR_VK
+    XrSwapchainImageVulkanKHR images[MAX_IMAGES];
     for (uint32_t i = 0; i < MAX_IMAGES; i++) {
-      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR;
-      images[i].next = NULL;
-    }
-#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-    TextureType textureType = TEXTURE_ARRAY;
-    uint32_t width = state.width;
-    uint32_t arraySize = 2;
-    XrSwapchainImageOpenGLESKHR images[MAX_IMAGES];
-    for (uint32_t i = 0; i < MAX_IMAGES; i++) {
-      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
+      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
       images[i].next = NULL;
     }
 #endif
 
     XrSwapchainCreateInfo info = {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
-      .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
+      .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT,
       .format = GL_SRGB8_ALPHA8,
-      .width = width,
+      .width = state.width,
       .height = state.height,
       .sampleCount = 1,
       .faceCount = 1,
-      .arraySize = arraySize,
+      .arraySize = 2,
       .mipCount = 1
     };
 
     XR(xrCreateSwapchain(state.session, &info, &state.swapchain));
     XR(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
-    CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = false, .msaa = state.msaa };
     for (uint32_t i = 0; i < state.imageCount; i++) {
-      Texture* texture = lovrTextureCreateFromHandle(images[i].image, textureType, arraySize, state.msaa);
-      state.canvases[i] = lovrCanvasCreate(state.width, state.height, flags);
-      lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { texture, 0, 0 }, 1);
-      lovrRelease(texture, lovrTextureDestroy);
+      state.textures[i] = lovrTextureCreate(&(TextureInfo) {
+        .type = TEXTURE_ARRAY,
+        .format = FORMAT_RGBA8,
+        .width = state.width,
+        .height = state.height,
+        .depth = 2,
+        .mipmaps = 1,
+        .samples = 1,
+        .usage = TEXTURE_RENDER,
+        .handle = (uintptr_t) images[i].image
+      });
     }
 
     XrCompositionLayerFlags layerFlags = 0;
 
     if (state.features.overlay) {
-      layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT |
-                   XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+      layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
     }
 
     // Pre-init composition layer
@@ -548,13 +470,10 @@ static void openxr_start(void) {
       .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 0 }
     };
 
-    // Copy the left view to the right view and offset either the viewport or array index
-    state.layerViews[1] = state.layerViews[0];
-#if defined(XR_USE_GRAPHICS_API_OPENGL)
-    state.layerViews[1].subImage.imageRect.offset.x += state.width;
-#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-    state.layerViews[1].subImage.imageArrayIndex = 1;
-#endif
+    state.layerViews[1] = (XrCompositionLayerProjectionView) {
+      .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+      .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 1 }
+    };
   }
 
   os_window_set_vsync(0);
@@ -562,7 +481,7 @@ static void openxr_start(void) {
 
 static void openxr_destroy(void) {
   for (uint32_t i = 0; i < state.imageCount; i++) {
-    lovrRelease(state.canvases[i], lovrCanvasDestroy);
+    lovrRelease(state.textures[i], lovrTextureDestroy);
   }
 
   for (size_t i = 0; i < MAX_ACTIONS; i++) {
@@ -693,7 +612,7 @@ static const float* openxr_getBoundsGeometry(uint32_t* count) {
   return NULL;
 }
 
-static bool openxr_getPose(Device device, vec3 position, quat orientation) {
+static bool openxr_getPose(Device device, float* position, float* orientation) {
   if (!state.spaces[device]) {
     return false;
   }
@@ -705,7 +624,7 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
   return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
 }
 
-static bool openxr_getVelocity(Device device, vec3 linearVelocity, vec3 angularVelocity) {
+static bool openxr_getVelocity(Device device, float* linearVelocity, float* angularVelocity) {
   if (!state.spaces[device]) {
     return false;
   }
@@ -872,12 +791,34 @@ static bool openxr_animate(Device device, struct Model* model) {
   return false;
 }
 
-static void openxr_renderTo(void (*callback)(void*), void* userdata) {
-  if (!SESSION_ACTIVE(state.sessionState)) { return; }
+static Texture* openxr_getTexture(void) {
+  if (!SESSION_ACTIVE(state.sessionState)) return NULL;
+  if (!state.frameState.shouldRender) return NULL;
 
-  XrFrameBeginInfo beginInfo = {
-    .type = XR_TYPE_FRAME_BEGIN_INFO
-  };
+  if (!state.rendering) {
+    XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
+    XR(xrBeginFrame(state.session, &beginfo));
+    XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));
+    XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = 1e9 };
+    if (XR(xrWaitSwapchainImage(state.swapchain, &waitInfo)) != XR_TIMEOUT_EXPIRED) {
+      uint32_t count;
+      XrView views[2];
+      getViews(views, &count);
+      state.layerViews[0].pose = views[0].pose;
+      state.layerViews[0].fov = views[0].fov;
+      state.layerViews[1].pose = views[1].pose;
+      state.layerViews[1].fov = views[1].fov;
+      state.rendering = true;
+    } else {
+      return NULL;
+    }
+  }
+
+  return state.textures[state.imageIndex];
+}
+
+static void openxr_submit(void) {
+  if (!SESSION_ACTIVE(state.sessionState)) return;
 
   XrFrameEndInfo endInfo = {
     .type = XR_TYPE_FRAME_END_INFO,
@@ -886,52 +827,13 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
     .layers = (const XrCompositionLayerBaseHeader*[1]) { (XrCompositionLayerBaseHeader*) &state.layers[0] }
   };
 
-  XR(xrBeginFrame(state.session, &beginInfo));
-
-  if (state.frameState.shouldRender) {
-    XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));
-    XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = 1e9 };
-
-    if (XR(xrWaitSwapchainImage(state.swapchain, &waitInfo)) != XR_TIMEOUT_EXPIRED) {
-      uint32_t count;
-      XrView views[2];
-      getViews(views, &count);
-
-      for (int eye = 0; eye < 2; eye++) {
-        float viewMatrix[16];
-        XrView* view = &views[eye];
-        mat4_fromQuat(viewMatrix, &view->pose.orientation.x);
-        memcpy(viewMatrix + 12, &view->pose.position.x, 3 * sizeof(float));
-        mat4_invert(viewMatrix);
-        lovrGraphicsSetViewMatrix(eye, viewMatrix);
-
-        float projection[16];
-        XrFovf* fov = &view->fov;
-        mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
-        lovrGraphicsSetProjection(eye, projection);
-      }
-
-      lovrGraphicsSetBackbuffer(state.canvases[state.imageIndex], true, true);
-      callback(userdata);
-      lovrGraphicsSetBackbuffer(NULL, false, false);
-
-      endInfo.layerCount = 1;
-      state.layerViews[0].pose = views[0].pose;
-      state.layerViews[0].fov = views[0].fov;
-      state.layerViews[1].pose = views[1].pose;
-      state.layerViews[1].fov = views[1].fov;
-    }
-
+  if (state.rendering) {
+    state.rendering = false;
     XR(xrReleaseSwapchainImage(state.swapchain, NULL));
+    endInfo.layerCount = 1;
   }
 
   XR(xrEndFrame(state.session, &endInfo));
-  lovrGpuDirtyTexture();
-}
-
-static Texture* openxr_getMirrorTexture(void) {
-  Canvas* canvas = state.canvases[state.imageIndex];
-  return canvas ? lovrCanvasGetAttachments(canvas, NULL)[0].texture : NULL;
 }
 
 static void openxr_update(float dt) {
@@ -1020,7 +922,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .vibrate = openxr_vibrate,
   .newModelData = openxr_newModelData,
   .animate = openxr_animate,
-  .renderTo = openxr_renderTo,
-  .getMirrorTexture = openxr_getMirrorTexture,
+  .getTexture = openxr_getTexture,
+  .submit = openxr_submit,
   .update = openxr_update
 };
