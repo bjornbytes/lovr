@@ -1406,6 +1406,10 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t s
   vkCmdBlitImage(stream->commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region, filters[filter]);
 }
 
+void gpu_mipgen(gpu_stream* stream, gpu_texture* texture) {
+  // TODO
+}
+
 void gpu_sync(gpu_stream* stream) {
   //
 }
