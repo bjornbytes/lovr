@@ -74,6 +74,7 @@ struct Shader {
   uint32_t ref;
   ShaderInfo info;
   gpu_shader* gpu;
+  gpu_layout* layout;
   gpu_pipeline* compute;
   uint32_t resourceCount;
   uint32_t bufferMask;
@@ -392,6 +393,29 @@ static gpu_pass* lookupPass(Canvas* canvas) {
   return state.passes[index];
 }
 
+static gpu_layout* lookupLayout(gpu_slot* slots, uint32_t count) {
+  uint64_t hash = hash64(slots, count * sizeof(gpu_slot));
+
+  uint32_t index;
+  for (index = 0; index < COUNTOF(state.layouts) && state.layoutLookup[index]; index++) {
+    if (state.layoutLookup[index] == hash) {
+      return state.layouts[index];
+    }
+  }
+
+  lovrCheck(index < COUNTOF(state.layouts), "Too many shader layouts, please report this encounter");
+
+  // Create new layout
+  gpu_layout_info info = {
+    .slots = slots,
+    .count = count
+  };
+
+  lovrAssert(gpu_layout_init(state.layouts[index], &info), "Failed to initialize shader layout");
+  state.layoutLookup[index] = hash;
+  return state.layouts[index];
+}
+
 bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   lovrCheck(blockSize <= 1 << 30, "Block size can not exceed 1GB");
   state.blockSize = blockSize;
@@ -451,6 +475,14 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
     state.layouts[i] = (gpu_layout*) ((char*) state.layouts[0] + i * gpu_sizeof_layout());
   }
 
+  // Create layout for builtin resources
+  gpu_slot builtins[] = {
+    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 }, // Camera
+    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 } // Transforms
+  };
+
+  lookupLayout(builtins, COUNTOF(builtins));
+
   state.defaultShader = lovrShaderCreate(&(ShaderInfo) {
     .type = SHADER_GRAPHICS,
     .source = { lovr_shader_unlit_vert, lovr_shader_unlit_frag },
@@ -458,6 +490,7 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
     .label = "unlit"
   });
 
+  // Shapes buffer
   struct Vertex {
     float x, y, z;
     unsigned pad: 2, nx: 10, ny: 10, nz: 10;
@@ -465,7 +498,6 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   };
 
   // In 10 bit land, 0x200 is 0.0, 0x3ff is 1.0, 0x000 is -1.0
-
   struct Vertex cube[] = {
     { -.5f, -.5f, -.5f, 0x0, 0x200, 0x200, 0x000, 0x0000, 0x0000 }, // Front
     { -.5f,  .5f, -.5f, 0x0, 0x200, 0x200, 0x000, 0x0000, 0xffff },
@@ -481,7 +513,6 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   state.baseVertex[SHAPE_CUBE] = size / sizeof(struct Vertex), size += sizeof(cube);
   state.shapes = bufferAllocate(GPU_MEMORY_GPU, size, 4);
   Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
-  lovrAssert(state.shapes.offset == 0, "Unreachable");
 
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
 
@@ -1385,7 +1416,66 @@ static bool checkShaderCapability(uint32_t capability) {
   return false;
 }
 
-static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_t stage) {
+// Parse a slot type and array size from a variable instruction, throwing on failure
+static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
+  const uint32_t* edge = words + wordCount - MIN_SPIRV_WORDS;
+  uint32_t type = instruction[1];
+  uint32_t id = instruction[2];
+  uint32_t storageClass = instruction[3];
+
+  // Follow the variable's type id to the OpTypePointer instruction that declares its pointer type
+  // Then unwrap the pointer to get to the inner type of the variable
+  instruction = words + cache[type];
+  lovrCheck(instruction < edge && instruction[3] < bound, "Invalid Shader code: id overflow");
+  instruction = words + cache[instruction[3]];
+  lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
+
+  if ((instruction[0] & 0xffff) == 28) { // OpTypeArray
+    // Read array size
+    lovrCheck(instruction[3] < bound && words + cache[instruction[3]] < edge, "Invalid Shader code: id overflow");
+    const uint32_t* size = words + cache[instruction[3]];
+    if ((size[0] & 0xffff) == 43 || (size[0] & 0xffff) == 50) { // OpConstant || OpSpecConstant
+      *count = size[3];
+    } else {
+      lovrThrow("Invalid Shader code: variable %d is an array, but the array size is not a constant", id);
+    }
+
+    // Unwrap array to get to inner array type and keep going
+    lovrCheck(instruction[2] < bound && words + cache[instruction[2]] < edge, "Invalid Shader code: id overflow");
+    instruction = words + cache[instruction[2]];
+  } else {
+    *count = 1;
+  }
+
+  // Use StorageClass to detect uniform/storage buffers
+  switch (storageClass) {
+    case 12: *slotType = GPU_SLOT_STORAGE_BUFFER; return;
+    case 2: *slotType = GPU_SLOT_UNIFORM_BUFFER; return;
+    default: break; // It's not a Buffer, keep going to see if it's a valid Texture
+  }
+
+  // If it's a sampled image, unwrap to get to the image type.  If it's not an image, fail
+  if ((instruction[0] & 0xffff) == 27) { // OpTypeSampledImage
+    instruction = words + cache[instruction[2]];
+    lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
+  } else if ((instruction[0] & 0xffff) != 25) { // OpTypeImage
+    lovrThrow("Invalid Shader code: variable %d is not recognized as a valid buffer or texture resource", id);
+  }
+
+  // Reject texel buffers (DimBuffer) and input attachments (DimSubpassData)
+  if (instruction[3] == 5 || instruction[3] == 6) {
+    lovrThrow("Unsupported Shader code: texel buffers and input attachments are not supported");
+  }
+
+  // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
+  switch (instruction[7]) {
+    case 1: *slotType = GPU_SLOT_SAMPLED_TEXTURE; return;
+    case 2: *slotType = GPU_SLOT_STORAGE_TEXTURE; return;
+    default: lovrThrow("Unsupported Shader code: texture variable %d isn't a sampled texture or a storage texture", id);
+  }
+}
+
+static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_t stage, gpu_slot slots[2][32], uint64_t names[32]) {
   const uint32_t* words = source;
   uint32_t wordCount = size / sizeof(uint32_t);
 
@@ -1437,10 +1527,10 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
         uint32_t value = instruction[3];
 
         if (decoration == 33) { // Binding
-          lovrCheck(value < 16, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 16", id, value);
+          lovrCheck(value < 32, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 32", id, value);
           vars[id].binding = value;
         } else if (decoration == 34) { // Group
-          lovrCheck(value < 4, "Unsupported Shader code: variable %d is in group %d, but group must be less than 4", id, value);
+          lovrCheck(value < 2, "Unsupported Shader code: variable %d is in group %d, but group must be less than 2", id, value);
           vars[id].group = value;
         } else if (decoration == 30) { // Location
           lovrCheck(value < 16, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
@@ -1466,7 +1556,41 @@ static bool parseSpirv(Shader* shader, const void* source, uint32_t size, uint8_
         break;
       case 59: // OpVariable
         if (length < 4 || instruction[2] >= bound) break;
-        // TODO
+        id = instruction[2];
+        uint32_t storageClass = instruction[3];
+
+        // Ignore inputs/outputs and variables that aren't decorated with a group and binding (e.g. globals)
+        if (storageClass == 1 || storageClass == 3 || vars[id].group == 0xff || vars[id].binding == 0xff) {
+          break;
+        }
+
+        uint32_t count;
+        gpu_slot_type type;
+        parseTypeInfo(words, wordCount, types, bound, instruction, &type, &count);
+
+        uint32_t group = vars[id].group;
+        uint32_t number = vars[id].binding;
+        gpu_slot* slot = &slots[group][number];
+
+        // Name
+        if (group == 1 && !names[number] && vars[id].name != 0xffff) {
+          char* name = (char*) (words + vars[id].name);
+          names[number] = hash64(name, strnlen(name, 4 * (wordCount - vars[id].name)));
+        }
+
+        // Either merge our info into an existing slot, or add the slot
+        if (slot->stage != 0) {
+          lovrCheck(slot->type == type, "Variable (%d,%d) is in multiple shader stages with different types");
+          lovrCheck(slot->count == count, "Variable (%d,%d) is in multiple shader stages with different array lengths");
+          slot->stage |= stage;
+        } else {
+          lovrCheck(count > 0, "Variable (%d,%d) has array length of zero");
+          lovrCheck(count < 256, "Variable (%d,%d) has array length of %d, but the max is 255", count);
+          slot->number = number;
+          slot->type = type;
+          slot->stage = stage;
+          slot->count = count;
+        }
       case 54: // OpFunction
         instruction = words + wordCount; // Exit early upon encountering actual shader code
         break;
@@ -1487,18 +1611,51 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->info = *info;
   shader->ref = 1;
 
+  gpu_slot slots[2][32] = { 0 };
+  uint64_t names[32] = { 0 };
+
   if (info->type == SHADER_COMPUTE) {
     lovrCheck(info->source[0] && !info->source[1], "Compute shaders require one stage");
-    parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_COMPUTE);
+    parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_COMPUTE, slots, names);
   } else {
     lovrCheck(info->source[0] && info->source[1], "Currently, graphics shaders require two stages");
-    parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_VERTEX);
-    parseSpirv(shader, info->source[1], info->length[1], GPU_STAGE_FRAGMENT);
+    parseSpirv(shader, info->source[0], info->length[0], GPU_STAGE_VERTEX, slots, names);
+    parseSpirv(shader, info->source[1], info->length[1], GPU_STAGE_FRAGMENT, slots, names);
+  }
+
+  // Validate built in bindings
+  lovrCheck(slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera matrices");
+
+  // Preprocess user bindings
+  for (uint32_t i = 0; i < COUNTOF(slots[1]); i++) {
+    gpu_slot slot = slots[1][i];
+    if (!slot.stage) continue;
+    uint32_t index = shader->resourceCount++;
+    bool buffer = slot.type == GPU_SLOT_UNIFORM_BUFFER || slot.type == GPU_SLOT_STORAGE_BUFFER;
+    bool storage = slot.type == GPU_SLOT_STORAGE_BUFFER || slot.type == GPU_SLOT_STORAGE_TEXTURE;
+    shader->bufferMask |= (buffer << index);
+    shader->textureMask |= (!buffer << index);
+    shader->storageMask |= (storage << index);
+    shader->resourceSlots[index] = i;
+    shader->resourceLookup[index] = names[i];
+  }
+
+  // Filter empties from slots, so non-sparse slot list can be used to hash/create layout
+  for (uint32_t i = 0; i < shader->resourceCount; i++) {
+    if (shader->resourceSlots[i] > i) {
+      slots[1][i] = slots[1][shader->resourceSlots[i]];
+    }
+  }
+
+  if (shader->resourceCount > 0) {
+    shader->layout = lookupLayout(slots[1], shader->resourceCount);
   }
 
   gpu_shader_info gpuInfo = {
     .stages[0] = { info->source[0], info->length[0], NULL },
     .stages[1] = { info->source[1], info->length[1], NULL },
+    .layouts[0] = state.layouts[0],
+    .layouts[1] = shader->layout,
     .label = info->label
   };
 
