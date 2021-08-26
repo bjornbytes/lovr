@@ -16,6 +16,9 @@
 
 #define MAX_STREAMS 32
 #define MAX_BUNDLES 4096
+#define MAX_BUNCHES 256
+#define BUNDLES_PER_BUNCH 1024
+#define MAX_LAYOUTS 64
 
 enum {
   SHAPE_CUBE,
@@ -145,7 +148,11 @@ struct Batch {
   uint32_t drawCount;
   BatchGroup* groups;
   BatchDraw* draws;
+  gpu_bunch* bunch;
+  gpu_bundle** bundles;
+  gpu_bundle_info* bundleWrites;
   gpu_binding bindings[32];
+  uint32_t bundleCount;
   bool bindingsDirty;
   BatchPipeline pipelines[4];
   uint32_t pipelineIndex;
@@ -190,6 +197,21 @@ typedef struct {
   uint32_t tick;
 } ScratchTexture;
 
+typedef struct Bunch {
+  gpu_bunch* gpu;
+  gpu_bundle* bundles;
+  struct Bunch* next;
+  uint32_t cursor;
+  uint32_t tick;
+} Bunch;
+
+typedef struct {
+  Bunch list[256];
+  Bunch* head[MAX_LAYOUTS];
+  Bunch* tail[MAX_LAYOUTS];
+  uint32_t count;
+} BunchPool;
+
 static struct {
   bool initialized;
   bool active;
@@ -207,13 +229,14 @@ static struct {
   Texture* window;
   ReaderPool readers;
   BufferPool buffers;
+  BunchPool bunches;
   uint32_t pipelineCount;
   uint64_t pipelineLookup[4096];
   gpu_pipeline* pipelines[4096];
   uint64_t passKeys[256];
   gpu_pass* passes[256];
-  uint64_t layoutLookup[64];
-  gpu_layout* layouts[64];
+  uint64_t layoutLookup[MAX_LAYOUTS];
+  gpu_layout* layouts[MAX_LAYOUTS];
   gpu_stream* transfers;
   gpu_stream* streams[MAX_STREAMS];
   int8_t streamOrder[MAX_STREAMS];
@@ -314,37 +337,48 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
   return (Megaview) { .gpu = buffer->gpu, .data = buffer->pointer, .index = active, .offset = 0 };
 }
 
-static void callback(void* context, const char* message, int severe) {
-  if (severe) {
-    lovrThrow(message);
-  } else {
-    lovrLog(LOG_DEBUG, "GPU", message);
+static gpu_bundle* bundleAllocate(uint32_t layout) {
+  Bunch* bunch = state.bunches.head[layout];
+
+  // If there's a bunch, try to use it
+  if (bunch) {
+    if (bunch->cursor < BUNDLES_PER_BUNCH) {
+      return (gpu_bundle*) ((char*) bunch->bundles + gpu_sizeof_bundle() * bunch->cursor++);
+    }
+
+    // If the bunch had no room, move it to the end of the list, try using next one
+    state.bunches.tail[layout]->next = bunch; // tail will never be NULL if head exists
+    state.bunches.tail[layout] = bunch;
+    state.bunches.head[layout] = bunch->next; // next will never be NULL, may be self-referential
+    bunch->next = NULL;
+    bunch->tick = state.tick;
+    bunch = state.bunches.head[layout];
+    if (gpu_finished(bunch->tick)) {
+      bunch->cursor = 0;
+      return (gpu_bundle*) ((char*) bunch->bundles + gpu_sizeof_bundle() * bunch->cursor++);
+    }
   }
-}
 
-const char** os_vk_get_instance_extensions(uint32_t* count);
-uint32_t os_vk_create_surface(void* instance, void** surface);
+  // Otherwise, make a new one
+  uint32_t index = state.bunches.count++;
+  lovrCheck(index < MAX_BUNCHES, "Too many bunches, please report this encounter");
+  bunch = &state.bunches.list[index];
 
-static bool getInstanceExtensions(char* buffer, uint32_t size) {
-  uint32_t count;
-  const char** extensions = os_vk_get_instance_extensions(&count);
-  for (uint32_t i = 0; i < count; i++) {
-    size_t length = strlen(extensions[i]);
-    if (length >= size) return false;
-    memcpy(buffer, extensions[i], length);
-    buffer[length] = ' ' ;
-    buffer += length + 1;
-    size -= length + 1;
-  }
+  bunch->bundles = malloc(BUNDLES_PER_BUNCH * gpu_sizeof_bundle());
+  lovrAssert(bunch->bundles, "Out of memory");
 
-#ifndef LOVR_DISABLE_HEADSET
-  if (lovrHeadsetDisplayDriver && lovrHeadsetDisplayDriver->getVulkanInstanceExtensions) {
-    lovrHeadsetDisplayDriver->getVulkanInstanceExtensions(buffer, size);
-  } else
-#endif
-  buffer[count ? -1 : 0] = '\0';
+  gpu_bunch_info info = {
+    .bundles = bunch->bundles,
+    .layout = state.layouts[layout],
+    .count = BUNDLES_PER_BUNCH
+  };
 
-  return true;
+  lovrAssert(gpu_bunch_init(bunch->gpu, &info), "Failed to initialize bunch");
+  bunch->next = state.bunches.head[layout];
+  state.bunches.head[layout] = bunch;
+  if (!state.bunches.tail[layout]) state.bunches.tail[layout] = bunch;
+  bunch->cursor = 1;
+  return bunch->bundles;
 }
 
 static gpu_pass* lookupPass(Canvas* canvas) {
@@ -416,6 +450,39 @@ static gpu_layout* lookupLayout(gpu_slot* slots, uint32_t count) {
   return state.layouts[index];
 }
 
+static void callback(void* context, const char* message, int severe) {
+  if (severe) {
+    lovrThrow(message);
+  } else {
+    lovrLog(LOG_DEBUG, "GPU", message);
+  }
+}
+
+const char** os_vk_get_instance_extensions(uint32_t* count);
+uint32_t os_vk_create_surface(void* instance, void** surface);
+
+static bool getInstanceExtensions(char* buffer, uint32_t size) {
+  uint32_t count;
+  const char** extensions = os_vk_get_instance_extensions(&count);
+  for (uint32_t i = 0; i < count; i++) {
+    size_t length = strlen(extensions[i]);
+    if (length >= size) return false;
+    memcpy(buffer, extensions[i], length);
+    buffer[length] = ' ' ;
+    buffer += length + 1;
+    size -= length + 1;
+  }
+
+#ifndef LOVR_DISABLE_HEADSET
+  if (lovrHeadsetDisplayDriver && lovrHeadsetDisplayDriver->getVulkanInstanceExtensions) {
+    lovrHeadsetDisplayDriver->getVulkanInstanceExtensions(buffer, size);
+  } else
+#endif
+  buffer[count ? -1 : 0] = '\0';
+
+  return true;
+}
+
 bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   lovrCheck(blockSize <= 1 << 30, "Block size can not exceed 1GB");
   state.blockSize = blockSize;
@@ -450,17 +517,22 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
   }
 
   memset(state.buffers.active, 0xff, sizeof(state.buffers.active));
-  memset(state.buffers.oldest, 0xff, sizeof(state.buffers.active));
-  memset(state.buffers.newest, 0xff, sizeof(state.buffers.active));
+  memset(state.buffers.oldest, 0xff, sizeof(state.buffers.oldest));
+  memset(state.buffers.newest, 0xff, sizeof(state.buffers.newest));
 
   state.buffers.list[0].gpu = malloc(COUNTOF(state.buffers.list) * gpu_sizeof_buffer());
+  state.bunches.list[0].gpu = malloc(COUNTOF(state.bunches.list) * gpu_sizeof_bunch());
   state.pipelines[0] = malloc(COUNTOF(state.pipelines) * gpu_sizeof_pipeline());
   state.passes[0] = malloc(COUNTOF(state.passes) * gpu_sizeof_pass());
   state.layouts[0] = malloc(COUNTOF(state.layouts) * gpu_sizeof_layout());
-  lovrAssert(state.buffers.list[0].gpu && state.pipelines[0] && state.passes[0] && state.layouts[0], "Out of memory");
+  lovrAssert(state.buffers.list[0].gpu && state.bunches.list[0].gpu && state.pipelines[0] && state.passes[0] && state.layouts[0], "Out of memory");
 
   for (uint32_t i = 1; i < COUNTOF(state.buffers.list); i++) {
     state.buffers.list[i].gpu = (gpu_buffer*) ((char*) state.buffers.list[0].gpu + i * gpu_sizeof_buffer());
+  }
+
+  for (uint32_t i = 1; i < COUNTOF(state.bunches.list); i++) {
+    state.bunches.list[i].gpu = (gpu_bunch*) ((char*) state.bunches.list[0].gpu + i * gpu_sizeof_bunch());
   }
 
   for (uint32_t i = 1; i < COUNTOF(state.pipelines); i++) {
@@ -530,6 +602,10 @@ void lovrGraphicsDestroy() {
   for (uint32_t i = 0; i < state.buffers.count; i++) {
     gpu_buffer_destroy(state.buffers.list[i].gpu);
   }
+  for (uint32_t i = 0; i < state.bunches.count; i++) {
+    gpu_bunch_destroy(state.bunches.list[i].gpu);
+    free(state.bunches.list[i].bundles);
+  }
   for (uint32_t i = 0; i < state.pipelineCount; i++) {
     gpu_pipeline_destroy(state.pipelines[i]);
   }
@@ -553,6 +629,7 @@ void lovrGraphicsDestroy() {
   free(state.layouts[0]);
   free(state.passes[0]);
   free(state.pipelines[0]);
+  free(state.bunches.list);
   free(state.buffers.list[0].gpu);
   os_vm_free(state.frame.memory, state.frame.cap);
   memset(&state, 0, sizeof(state));
@@ -801,8 +878,13 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
   target.depth.clear.depth = canvas->depth.clear;
 
-  // Get command stream, execute render pass, replay batches onto stream
+  // Command buffer
   gpu_stream* stream = gpu_stream_begin();
+  state.streamOrder[state.streamCount] = order;
+  state.streams[state.streamCount] = stream;
+  state.streamCount++;
+
+  // Render pass
   gpu_render_begin(stream, &target);
 
   for (uint32_t i = 0; i < count; i++) {
@@ -811,21 +893,38 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     BatchGroup* group = batch->groups;
     lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
 
+    // Viewport
     if (batch->viewport[2] > 0.f && batch->viewport[3] > 0.f) {
       gpu_set_viewport(stream, batch->viewport, batch->depthRange);
     } else {
       gpu_set_viewport(stream, (float[4]) { 0.f, 0.f, main->width, main->height }, (float[2]) { 0.f, 1.f });
     }
 
+    // Scissor
     if (batch->scissor[2] > 0 && batch->scissor[3] > 0) {
       gpu_set_scissor(stream, batch->scissor);
     } else {
       gpu_set_scissor(stream, (uint32_t[4]) { 0, 0, main->width, main->height });
     }
 
-    Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, sizeof(batch->viewMatrix) + sizeof(batch->projection), 256);
+    // Camera
+    uint32_t cameraSize = sizeof(batch->viewMatrix) + sizeof(batch->projection);
+    Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, cameraSize, 256);
     memcpy(camera.data, batch->viewMatrix, sizeof(batch->viewMatrix) + sizeof(batch->projection));
 
+    // Builtins
+    gpu_bundle* builtins = bundleAllocate(0);
+    gpu_bundle_info info = {
+      .layout = state.layouts[0],
+      .bindings = (gpu_binding[]) {
+        [0].buffer = { camera.gpu, camera.offset, cameraSize },
+        [1].buffer = { batch->buffers[BUFFER_TRANSFORM].gpu, batch->buffers[BUFFER_TRANSFORM].offset, 0 } // TODO extent
+      }
+    };
+    gpu_bundle_write(&builtins, &info, 1);
+    gpu_bind_bundle(stream, state.defaultShader->gpu, 0, builtins, NULL, 0);
+
+    // Draws
     for (uint32_t j = 0; j < batch->groupCount; j++, group++) {
       if (group->dirty & DIRTY_PIPELINE) {
         gpu_bind_pipeline(stream, state.pipelines[draw->key.bits.pipeline], false);
@@ -846,9 +945,9 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
         gpu_bind_bundle(stream, NULL, 0, bundle, dynamicOffsets, COUNTOF(dynamicOffsets));
       }*/
 
-      /*if (group->dirty & DIRTY_BUNDLE) {
-        gpu_bind_bundle(stream, NULL, 1, draw->bundle, NULL, 0);
-      }*/
+      if (group->dirty & DIRTY_BUNDLE) {
+        gpu_bind_bundle(stream, NULL, 1, batch->bundles[draw->key.bits.bundle], NULL, 0); // TODO pipelineLayout ahhhhhh
+      }
 
       if (draw->key.bits.index == 0xff) {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
@@ -863,9 +962,6 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   }
 
   gpu_render_end(stream);
-
-  state.streamOrder[state.streamCount] = order;
-  state.streams[state.streamCount++] = stream;
 }
 
 void lovrGraphicsCompute(Batch** batches, uint32_t count, uint32_t order) {
@@ -1683,18 +1779,30 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
 // Batch
 
 Batch* lovrBatchInit(BatchInfo* info, bool scratch) {
-  size_t sizes[4];
+  uint32_t maxBundles = MIN(info->capacity, MAX_BUNDLES);
+  size_t sizes[7];
   size_t total = 0;
   total += sizes[0] = sizeof(Batch);
   total += sizes[1] = info->capacity * sizeof(BatchGroup);
   total += sizes[2] = info->capacity * sizeof(BatchDraw);
-  total += sizes[3] = MIN(info->capacity, MAX_BUNDLES) * gpu_sizeof_bundle();
+  total += sizes[3] = maxBundles * sizeof(gpu_bundle_info);
+  total += sizes[4] = maxBundles * sizeof(gpu_bundle*);
+  total += sizes[5] = scratch ? 0 : maxBundles * gpu_sizeof_bundle();
+  total += sizes[6] = scratch ? 0 : gpu_sizeof_bunch();
   char* memory = scratch ? talloc(total) : malloc(total);
   lovrAssert(memory, "Out of memory");
   Batch* batch = (Batch*) memory; memory += sizes[0];
   batch->pass = lookupPass(&info->canvas);
   batch->groups = (BatchGroup*) memory, memory += sizes[1];
   batch->draws = (BatchDraw*) memory, memory += sizes[2];
+  batch->bundleWrites = (gpu_bundle_info*) memory, memory += sizes[3];
+  batch->bundles = (gpu_bundle**) memory, memory += sizes[4];
+  batch->bunch = (gpu_bunch*) memory, memory += sizes[5];
+  if (!scratch) {
+    for (uint32_t i = 0; i < maxBundles; i++) {
+      batch->bundles[i] = (gpu_bundle*) memory, memory += gpu_sizeof_bundle();
+    }
+  }
   batch->ref = 1;
   batch->scratch = scratch;
   batch->info = *info;
@@ -1725,7 +1833,12 @@ Batch* lovrBatchCreate(BatchInfo* info) {
 
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
-  if (!batch->scratch) free(batch);
+  if (!batch->scratch) {
+    if (!batch->active && batch->bundleCount > 0) {
+      gpu_bunch_destroy(batch->bunch);
+    }
+    free(batch);
+  }
 }
 
 const BatchInfo* lovrBatchGetInfo(Batch* batch) {
@@ -1742,6 +1855,12 @@ void lovrBatchBegin(Batch* batch) {
   batch->groupCount = 0;
   batch->drawCount = 0;
 
+  // Destroy old bunch if it exists (maybe this test for detecting if bunch exists can be improved)
+  if (!batch->scratch && !batch->active && batch->bundleCount > 0) {
+    gpu_bunch_destroy(batch->bunch);
+  }
+
+  batch->bundleCount = 0;
   batch->bindingsDirty = true;
   memset(batch->bindings, 0, sizeof(batch->bindings));
 
@@ -1767,6 +1886,23 @@ void lovrBatchBegin(Batch* batch) {
 void lovrBatchFinish(Batch* batch) {
   if (!batch->active) return;
   batch->active = false;
+
+  // Allocate and write bundles
+  if (batch->scratch) {
+    for (uint32_t i = 0; i < batch->bundleCount; i++) {
+      batch->bundles[i] = bundleAllocate(0);//batch->bundleWrites[i].layout - state.layouts[0]);
+    }
+  } else {
+    gpu_bunch_info info = {
+      .bundles = batch->bundles[0],
+      .contents = batch->bundleWrites,
+      .count = batch->bundleCount
+    };
+
+    lovrAssert(gpu_bunch_init(batch->bunch, &info), "Failed to initialize bunch");
+  }
+
+  gpu_bundle_write(batch->bundles, batch->bundleWrites, batch->bundleCount);
 }
 
 bool lovrBatchIsActive(Batch* batch) {
@@ -2028,7 +2164,7 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
   }
 
   if (buffer) {
-    lovrCheck(shader->bufferMask & (1 << index), "Unable to bind a Texture to a Buffer");
+    lovrCheck(shader->bufferMask & (1 << index), "Unable to bind a Buffer to a Texture");
     lovrCheck(offset < buffer->size, "Buffer bind offset is past the end of the Buffer");
 
     if (shader->storageMask & (1 << index)) {
@@ -2043,7 +2179,7 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
     batch->bindings[slot].buffer.offset = buffer->mega.offset + offset;
     batch->bindings[slot].buffer.extent = MIN(buffer->size - offset, (shader->storageMask & (1 << index)) ? state.limits.storageBufferAlign : state.limits.uniformBufferAlign);
   } else if (texture) {
-    lovrCheck(shader->textureMask & (1 << index), "Unable to bind a Buffer to a Texture");
+    lovrCheck(shader->textureMask & (1 << index), "Unable to bind a Texture to a Buffer");
 
     if (shader->storageMask & (1 << index)) {
       lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' flag to use them as storage textures");
@@ -2053,8 +2189,6 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
 
     batch->bindings[slot].texture.object = texture->gpu;
     batch->bindings[slot].texture.sampler = texture->sampler->gpu;
-  } else {
-    lovrThrow("Unreachable");
   }
 
   batch->bindingsDirty = true;
@@ -2167,21 +2301,18 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
 
   // Bundle
   if (batch->bindingsDirty) {
-    /*gpu_bundle_info* info = batch->bundleInfo + batch->bundleCount;
-
-    info->shader = shader->gpu;
-    info->group = 1;
-    info->bindings = talloc(shader->resourceCount * sizeof(gpu_binding));
-
-    for (uint32_t i = 0; i < shader->resourceCount; i++) {
-      info->bindings[i] = batch->bindings[shader->resourceSlots[i]];
-    }*/
-
     batch->bindingsDirty = false;
-    //batch->bundleCount++;
+    if (shader->resourceCount > 0) {
+      gpu_bundle_info* info = &batch->bundleWrites[batch->bundleCount++];
+      info->layout = shader->layout;
+      info->bindings = talloc(shader->resourceCount * sizeof(gpu_binding));
+      for (uint32_t i = 0; i < shader->resourceCount; i++) {
+        info->bindings[i] = batch->bindings[shader->resourceSlots[i]];
+      }
+    }
   }
 
-  //draw->key.bits.bundle = batch->bundleCount - 1;
+  draw->key.bits.bundle = batch->bundleCount - 1;
 
   // Params
   bool indexed = req->index.buffer || req->index.pointer || req->index.data;
