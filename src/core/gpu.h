@@ -263,18 +263,6 @@ typedef struct {
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info);
 void gpu_shader_destroy(gpu_shader* shader);
 
-// Bunch
-
-typedef struct {
-  uint32_t bindingCounts[6];
-  uint32_t bundleCount;
-  gpu_layout** layouts;
-  gpu_bundle* bundles;
-} gpu_bunch_info;
-
-bool gpu_bunch_init(gpu_bunch* bunch, gpu_bunch_info* info);
-void gpu_bunch_destroy(gpu_bunch* bunch);
-
 // Bundle
 
 typedef struct {
@@ -298,7 +286,16 @@ typedef struct {
   gpu_binding* bindings;
 } gpu_bundle_info;
 
-void gpu_bundle_init(gpu_bundle* bundles, gpu_bundle_info* infos, uint32_t count);
+typedef struct {
+  gpu_bundle* bundles;
+  gpu_bundle_info* contents;
+  gpu_layout* layout;
+  uint32_t count;
+} gpu_bunch_info;
+
+bool gpu_bunch_init(gpu_bunch* bunch, gpu_bunch_info* info);
+void gpu_bunch_destroy(gpu_bunch* bunch);
+void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* writes, uint32_t count);
 
 // Pipeline
 
