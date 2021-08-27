@@ -119,6 +119,7 @@ function lovr.boot()
     },
     graphics = {
       debug = false,
+      vsync = false,
       blocksize = 2 ^ 24
     },
     headset = {
@@ -136,10 +137,8 @@ function lovr.boot()
       height = 600,
       fullscreen = false,
       resizable = false,
-      msaa = 0,
       title = 'LÖVR',
-      icon = nil,
-      vsync = 1
+      icon = nil
     }
   }
 
