@@ -362,7 +362,6 @@ bool os_window_open(const os_window_config* config) {
 
   EGLint contextAttributes[] = {
     EGL_CONTEXT_CLIENT_VERSION, 3,
-    EGL_CONTEXT_OPENGL_DEBUG, config->debug,
     EGL_NONE
   };
 
@@ -401,18 +400,6 @@ void os_window_get_size(int* width, int* height) {
 void os_window_get_fbsize(int* width, int* height) {
   *width = 0;
   *height = 0;
-}
-
-void os_window_set_vsync(int interval) {
-  //
-}
-
-void os_window_swap() {
-  //
-}
-
-fn_gl_proc* os_get_gl_proc_address(const char* function) {
-  return eglGetProcAddress(function);
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {

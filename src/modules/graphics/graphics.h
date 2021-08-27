@@ -92,7 +92,7 @@ typedef struct {
   uint32_t samples;
 } Canvas;
 
-bool lovrGraphicsInit(bool debug, uint32_t blockSize);
+bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize);
 void lovrGraphicsDestroy(void);
 void lovrGraphicsGetHardware(GraphicsHardware* hardware);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);

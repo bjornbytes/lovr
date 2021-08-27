@@ -143,10 +143,6 @@ static int l_lovrSystemOpenWindow(lua_State* L) {
   window.resizable = lua_toboolean(L, -1);
   lua_pop(L, 1);
 
-  lua_getfield(L, 1, "msaa");
-  window.msaa = lua_tointeger(L, -1);
-  lua_pop(L, 1);
-
   lua_getfield(L, 1, "title");
   window.title = luaL_optstring(L, -1, "LÖVR");
   lua_pop(L, 1);
@@ -159,10 +155,6 @@ static int l_lovrSystemOpenWindow(lua_State* L) {
     window.icon.width = image->width;
     window.icon.height = image->height;
   }
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "vsync");
-  window.vsync = lua_tointeger(L, -1);
   lua_pop(L, 1);
 
   lovrSystemOpenWindow(&window);

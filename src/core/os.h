@@ -9,9 +9,6 @@ typedef struct os_window_config {
   uint32_t height;
   bool fullscreen;
   bool resizable;
-  bool debug;
-  int vsync;
-  int msaa;
   const char* title;
   struct {
     void* data;
@@ -162,9 +159,6 @@ bool os_window_open(const os_window_config* config);
 bool os_window_is_open(void);
 void os_window_get_size(int* width, int* height);
 void os_window_get_fbsize(int* width, int* height);
-void os_window_set_vsync(int interval);
-void os_window_swap(void);
-fn_gl_proc* os_get_gl_proc_address(const char* function);
 
 size_t os_get_home_directory(char* buffer, size_t size);
 size_t os_get_data_directory(char* buffer, size_t size);

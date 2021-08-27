@@ -483,7 +483,7 @@ static bool getInstanceExtensions(char* buffer, uint32_t size) {
   return true;
 }
 
-bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
+bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   lovrCheck(blockSize <= 1 << 30, "Block size can not exceed 1GB");
   state.blockSize = blockSize;
 
@@ -507,7 +507,7 @@ bool lovrGraphicsInit(bool debug, uint32_t blockSize) {
 #if defined(LOVR_VK) && !defined(__ANDROID__)
   if (os_window_is_open()) {
     config.vk.surface = true;
-    config.vk.vsync = true;
+    config.vk.vsync = vsync;
     config.vk.createSurface = os_vk_create_surface;
   }
 #endif

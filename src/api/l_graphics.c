@@ -407,6 +407,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
 
 static int l_lovrGraphicsInit(lua_State* L) {
   bool debug = false;
+  bool vsync = false;
   uint32_t blockSize = 1 << 24;
   luax_pushconf(L);
   lua_getfield(L, -1, "graphics");
@@ -415,13 +416,17 @@ static int l_lovrGraphicsInit(lua_State* L) {
     debug = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
+    lua_getfield(L, -1, "vsync");
+    vsync = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
     lua_getfield(L, -1, "blocksize");
     blockSize = luaL_optinteger(L, -1, blockSize);
     lua_pop(L, 1);
   }
   lua_pop(L, 2);
 
-  if (lovrGraphicsInit(debug, blockSize)) {
+  if (lovrGraphicsInit(debug, vsync, blockSize)) {
     luax_atexit(L, lovrGraphicsDestroy);
   }
 
