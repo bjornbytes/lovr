@@ -299,8 +299,14 @@ static int l_lovrBatchSetCullMode(lua_State* L) {
 static int l_lovrBatchSetDepthTest(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   CompareMode test = lua_isnoneornil(L, 2) ? COMPARE_NONE : luax_checkenum(L, 2, CompareMode, NULL);
-  bool write = lua_isnoneornil(L, 3) ? true : lua_toboolean(L, 3);
-  lovrBatchSetDepthTest(batch, test, write);
+  lovrBatchSetDepthTest(batch, test);
+  return 0;
+}
+
+static int l_lovrBatchSetDepthWrite(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  bool write = lua_toboolean(L, 2);
+  lovrBatchSetDepthWrite(batch, write);
   return 0;
 }
 
@@ -330,11 +336,37 @@ static int l_lovrBatchSetShader(lua_State* L) {
 static int l_lovrBatchSetStencilTest(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   if (lua_isnoneornil(L, 2)) {
-    lovrBatchSetStencilTest(batch, COMPARE_NONE, 0);
+    lovrBatchSetStencilTest(batch, COMPARE_NONE, 0, 0xff);
   } else {
     CompareMode test = luax_checkenum(L, 2, CompareMode, NULL);
     uint8_t value = luaL_checkinteger(L, 3);
-    lovrBatchSetStencilTest(batch, test, value);
+    uint8_t mask = luaL_optinteger(L, 4, 0xff);
+    lovrBatchSetStencilTest(batch, test, value, mask);
+  }
+  return 0;
+}
+
+static int l_lovrBatchSetStencilWrite(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  StencilAction actions[3];
+  if (lua_isnoneornil(L, 2)) {
+    actions[0] = actions[1] = actions[2] = STENCIL_KEEP;
+    lovrBatchSetStencilWrite(batch, actions, 0, 0xff);
+  } else {
+    if (lua_istable(L, 2)) {
+      lua_rawgeti(L, 2, 1);
+      lua_rawgeti(L, 2, 2);
+      lua_rawgeti(L, 2, 3);
+      actions[0] = luax_checkenum(L, -3, StencilAction, NULL);
+      actions[1] = luax_checkenum(L, -2, StencilAction, NULL);
+      actions[2] = luax_checkenum(L, -1, StencilAction, NULL);
+      lua_pop(L, 3);
+    } else {
+      actions[0] = actions[1] = actions[2] = luax_checkenum(L, 2, StencilAction, NULL);
+    }
+    uint8_t value = luaL_optinteger(L, 3, 1);
+    uint8_t mask = luaL_optinteger(L, 4, 0xff);
+    lovrBatchSetStencilWrite(batch, actions, value, mask);
   }
   return 0;
 }
@@ -421,10 +453,12 @@ const luaL_Reg lovrBatch[] = {
   { "setColorMask", l_lovrBatchSetColorMask },
   { "setCullMode", l_lovrBatchSetCullMode },
   { "setDepthTest", l_lovrBatchSetDepthTest },
+  { "setDepthWrite", l_lovrBatchSetDepthWrite },
   { "setDepthNudge", l_lovrBatchSetDepthNudge },
   { "setDepthClamp", l_lovrBatchSetDepthClamp },
   { "setShader", l_lovrBatchSetShader },
   { "setStencilTest", l_lovrBatchSetStencilTest },
+  { "setStencilWrite", l_lovrBatchSetStencilWrite },
   { "setWinding", l_lovrBatchSetWinding },
   { "setWireframe", l_lovrBatchSetWireframe },
 
