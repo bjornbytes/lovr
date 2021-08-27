@@ -359,6 +359,7 @@ typedef enum {
 
 typedef enum {
   STENCIL_KEEP,
+  STENCIL_ZERO,
   STENCIL_REPLACE,
   STENCIL_INCREMENT,
   STENCIL_DECREMENT,
@@ -404,12 +405,14 @@ void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled);
 void lovrBatchSetBlendMode(Batch* batch, BlendMode mode, BlendAlphaMode alphaMode);
 void lovrBatchSetColorMask(Batch* batch, bool r, bool g, bool b, bool a);
 void lovrBatchSetCullMode(Batch* batch, CullMode mode);
-void lovrBatchSetDepthTest(Batch* batch, CompareMode test, bool write);
+void lovrBatchSetDepthTest(Batch* batch, CompareMode test);
+void lovrBatchSetDepthWrite(Batch* batch, bool write);
 void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped, float clamp);
 void lovrBatchSetDepthClamp(Batch* batch, bool clamp);
-void lovrBatchSetShader(Batch* batch, Shader* shader);
-void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value);
+void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value, uint8_t mask);
+void lovrBatchSetStencilWrite(Batch* batch, StencilAction actions[3], uint8_t value, uint8_t mask);
 void lovrBatchSetWinding(Batch* batch, Winding winding);
 void lovrBatchSetWireframe(Batch* batch, bool wireframe);
+void lovrBatchSetShader(Batch* batch, Shader* shader);
 void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture);
 void lovrBatchCube(Batch* batch, DrawStyle style, float* transform);

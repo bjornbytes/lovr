@@ -969,6 +969,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
 
   static const VkStencilOp stencilOps[] = {
     [GPU_STENCIL_KEEP] = VK_STENCIL_OP_KEEP,
+    [GPU_STENCIL_ZERO] = VK_STENCIL_OP_ZERO,
     [GPU_STENCIL_REPLACE] = VK_STENCIL_OP_REPLACE,
     [GPU_STENCIL_INCREMENT] = VK_STENCIL_OP_INCREMENT_AND_CLAMP,
     [GPU_STENCIL_DECREMENT] = VK_STENCIL_OP_DECREMENT_AND_CLAMP,
@@ -1065,7 +1066,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
         .passOp = stencilOps[infos[i].stencil.passOp],
         .depthFailOp = stencilOps[infos[i].stencil.depthFailOp],
         .compareOp = compareOps[infos[i].stencil.test],
-        .compareMask = infos[i].stencil.readMask,
+        .compareMask = infos[i].stencil.testMask,
         .writeMask = infos[i].stencil.writeMask,
         .reference = infos[i].stencil.value
       };

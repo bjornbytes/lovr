@@ -376,6 +376,7 @@ typedef struct {
 
 typedef enum {
   GPU_STENCIL_KEEP,
+  GPU_STENCIL_ZERO,
   GPU_STENCIL_REPLACE,
   GPU_STENCIL_INCREMENT,
   GPU_STENCIL_DECREMENT,
@@ -389,9 +390,9 @@ typedef struct {
   gpu_stencil_op depthFailOp;
   gpu_stencil_op passOp;
   gpu_compare_mode test;
-  uint8_t value;
-  uint8_t readMask;
+  uint8_t testMask;
   uint8_t writeMask;
+  uint8_t value;
 } gpu_stencil_state;
 
 typedef enum {
