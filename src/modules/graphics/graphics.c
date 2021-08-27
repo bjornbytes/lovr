@@ -2137,10 +2137,13 @@ void lovrBatchSetCullMode(Batch* batch, CullMode mode) {
   batch->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
 }
 
-void lovrBatchSetDepthTest(Batch* batch, CompareMode test, bool write) {
+void lovrBatchSetDepthTest(Batch* batch, CompareMode test) {
   batch->pipeline->dirty |= batch->pipeline->info.depth.test != (gpu_compare_mode) test;
-  batch->pipeline->dirty |= batch->pipeline->info.depth.write != write;
   batch->pipeline->info.depth.test = (gpu_compare_mode) test;
+}
+
+void lovrBatchSetDepthWrite(Batch* batch, bool write) {
+  batch->pipeline->dirty |= batch->pipeline->info.depth.write != write;
   batch->pipeline->info.depth.write = write;
 }
 
@@ -2156,7 +2159,14 @@ void lovrBatchSetDepthClamp(Batch* batch, bool clamp) {
   batch->pipeline->info.rasterizer.depthClamp = clamp;
 }
 
-void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value) {
+void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value, uint8_t mask) {
+  bool hasReplace = false;
+  hasReplace |= batch->pipeline->info.stencil.failOp == GPU_STENCIL_REPLACE;
+  hasReplace |= batch->pipeline->info.stencil.depthFailOp == GPU_STENCIL_REPLACE;
+  hasReplace |= batch->pipeline->info.stencil.passOp == GPU_STENCIL_REPLACE;
+  if (hasReplace && test != COMPARE_NONE) {
+    lovrCheck(value == batch->pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
+  }
   switch (test) { // (Reversed compare mode)
     case COMPARE_NONE: default: batch->pipeline->info.stencil.test = GPU_COMPARE_NONE; break;
     case COMPARE_EQUAL: batch->pipeline->info.stencil.test = GPU_COMPARE_EQUAL; break;
@@ -2166,8 +2176,32 @@ void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value) {
     case COMPARE_GREATER: batch->pipeline->info.stencil.test = GPU_COMPARE_LESS; break;
     case COMPARE_GEQUAL: batch->pipeline->info.stencil.test = GPU_COMPARE_LEQUAL; break;
   }
-  batch->pipeline->info.stencil.value = value;
+  batch->pipeline->info.stencil.testMask = mask;
+  if (test != COMPARE_NONE) batch->pipeline->info.stencil.value = value;
   batch->pipeline->dirty = true;
+}
+
+void lovrBatchSetStencilWrite(Batch* batch, StencilAction actions[3], uint8_t value, uint8_t mask) {
+  bool hasReplace = actions[0] == STENCIL_REPLACE || actions[1] == STENCIL_REPLACE || actions[2] == STENCIL_REPLACE;
+  if (hasReplace && batch->pipeline->info.stencil.test != GPU_COMPARE_NONE) {
+    lovrCheck(value == batch->pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
+  }
+  batch->pipeline->info.stencil.failOp = (gpu_stencil_op) actions[0];
+  batch->pipeline->info.stencil.depthFailOp = (gpu_stencil_op) actions[1];
+  batch->pipeline->info.stencil.passOp = (gpu_stencil_op) actions[2];
+  batch->pipeline->info.stencil.writeMask = mask;
+  if (hasReplace) batch->pipeline->info.stencil.value = value;
+  batch->pipeline->dirty = true;
+}
+
+void lovrBatchSetWinding(Batch* batch, Winding winding) {
+  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.winding != (gpu_winding) winding;
+  batch->pipeline->info.rasterizer.winding = (gpu_winding) winding;
+}
+
+void lovrBatchSetWireframe(Batch* batch, bool wireframe) {
+  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
+  batch->pipeline->info.rasterizer.wireframe = wireframe;
 }
 
 void lovrBatchSetShader(Batch* batch, Shader* shader) {
@@ -2224,16 +2258,6 @@ void lovrBatchSetShader(Batch* batch, Shader* shader) {
   batch->pipeline->shader = shader;
   batch->pipeline->info.shader = shader ? shader->gpu : NULL;
   batch->pipeline->dirty = true;
-}
-
-void lovrBatchSetWinding(Batch* batch, Winding winding) {
-  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.winding != (gpu_winding) winding;
-  batch->pipeline->info.rasterizer.winding = (gpu_winding) winding;
-}
-
-void lovrBatchSetWireframe(Batch* batch, bool wireframe) {
-  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
-  batch->pipeline->info.rasterizer.wireframe = wireframe;
 }
 
 void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture) {
