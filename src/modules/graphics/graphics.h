@@ -158,10 +158,10 @@ typedef enum {
 typedef struct {
   uint32_t usage;
   uint32_t length;
-  uint16_t stride;
-  uint16_t fieldCount;
-  uint16_t offsets[16];
-  uint8_t types[16];
+  uint32_t stride;
+  uint32_t fieldCount;
+  uint32_t offsets[16];
+  FieldType types[16];
   uintptr_t handle;
   const char* label;
 } BufferInfo;
