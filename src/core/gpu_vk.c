@@ -1792,7 +1792,6 @@ bool gpu_init(gpu_config* config) {
       .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
       .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
       .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-      // TODO IMMEDIATE may not be supported, only FIFO is guaranteed
       .presentMode = state.config.vk.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
       .clipped = VK_TRUE
     };
