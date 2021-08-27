@@ -767,7 +767,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
               } else if (STR_EQ(key, "attributes")) {
                 int attributeCount = (token++)->size;
                 for (int a = 0; a < attributeCount; a++) {
-                  DefaultAttribute attributeType = ~0;
+                  DefaultAttribute2 attributeType = ~0;
                   gltfString name = NOM_STR(json, token);
                   uint32_t attributeIndex = NOM_INT(json, token);
                   if (STR_EQ(name, "POSITION")) { attributeType = ATTR_POSITION; }
@@ -777,7 +777,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   else if (STR_EQ(name, "TANGENT")) { attributeType = ATTR_TANGENT; }
                   else if (STR_EQ(name, "JOINTS_0")) { attributeType = ATTR_BONES; }
                   else if (STR_EQ(name, "WEIGHTS_0")) { attributeType = ATTR_WEIGHTS; }
-                  if (attributeType != (DefaultAttribute) ~0) {
+                  if (attributeType != (DefaultAttribute2) ~0) {
                     primitive->attributes[attributeType] = &model->attributes[attributeIndex];
                   }
                 }
