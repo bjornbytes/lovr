@@ -25,6 +25,13 @@ enum {
   SHAPE_MAX
 };
 
+enum {
+  VERTEX_FORMAT_EMPTY,
+  VERTEX_FORMAT_POSITION,
+  VERTEX_FORMAT_STANDARD,
+  VERTEX_FORMAT_COUNT
+};
+
 typedef struct {
   char* pointer;
   gpu_buffer* gpu;
@@ -85,6 +92,7 @@ struct Shader {
   uint32_t storageMask;
   uint8_t resourceSlots[32];
   uint64_t resourceLookup[32];
+  uint32_t attributeMask;
 };
 
 enum {
@@ -104,7 +112,8 @@ typedef struct {
 typedef union {
   uint64_t u64;
   struct {
-    unsigned pipeline : 16;
+    unsigned indirect : 1;
+    unsigned pipeline : 15;
     unsigned vertex : 8;
     unsigned index : 8;
     unsigned textures : 4;
@@ -126,6 +135,7 @@ typedef struct {
 typedef struct {
   float color[4];
   Shader* shader;
+  uint64_t vertexFormat;
   gpu_pipeline_info info;
   uint16_t index;
   bool dirty;
@@ -228,6 +238,7 @@ static struct {
   Texture* defaultTexture;
   Shader* defaultShader;
   Sampler* defaultSamplers[MAX_DEFAULT_SAMPLERS];
+  BufferFormat vertexFormats[VERTEX_FORMAT_COUNT];
   ScratchTexture scratchTextures[16][4];
   Texture* window;
   ReaderPool readers;
@@ -587,29 +598,49 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   });
 
   // Shapes buffer
-  struct Vertex {
-    float x, y, z;
-    unsigned pad: 2, nx: 10, ny: 10, nz: 10;
-    uint16_t u, v;
-  };
+  typedef struct {
+    struct { float x, y, z; } position;
+    struct { unsigned pad: 2, nx: 10, ny: 10, nz: 10; } normal;
+    struct { uint16_t u, v; } uv;
+  } Vertex;
+
+  uint32_t stride = sizeof(Vertex);
 
   // In 10 bit land, 0x200 is 0.0, 0x3ff is 1.0, 0x000 is -1.0
-  struct Vertex cube[] = {
-    { -.5f, -.5f, -.5f, 0x0, 0x200, 0x200, 0x000, 0x0000, 0x0000 }, // Front
-    { -.5f,  .5f, -.5f, 0x0, 0x200, 0x200, 0x000, 0x0000, 0xffff },
-    {  .5f, -.5f, -.5f, 0x0, 0x200, 0x200, 0x000, 0xffff, 0x0000 },
-    {  .5f,  .5f, -.5f, 0x0, 0x200, 0x200, 0x000, 0xffff, 0xffff },
-    {  .5f,  .5f, -.5f, 0x0, 0x3ff, 0x200, 0x200, 0x0000, 0xffff }, // Right
-    {  .5f,  .5f,  .5f, 0x0, 0x3ff, 0x200, 0x200, 0xffff, 0xffff },
-    {  .5f, -.5f, -.5f, 0x0, 0x3ff, 0x200, 0x200, 0x0000, 0x0000 },
-    {  .5f, -.5f,  .5f, 0x0, 0x3ff, 0x200, 0x200, 0xffff, 0x0000 },
+  Vertex cube[] = {
+    { { -.5f, -.5f, -.5f }, { 0x0, 0x200, 0x200, 0x000 }, { 0x0000, 0x0000 } }, // Front
+    { { -.5f,  .5f, -.5f }, { 0x0, 0x200, 0x200, 0x000 }, { 0x0000, 0xffff } },
+    { {  .5f, -.5f, -.5f }, { 0x0, 0x200, 0x200, 0x000 }, { 0xffff, 0x0000 } },
+    { {  .5f,  .5f, -.5f }, { 0x0, 0x200, 0x200, 0x000 }, { 0xffff, 0xffff } },
+    { {  .5f,  .5f, -.5f }, { 0x0, 0x3ff, 0x200, 0x200 }, { 0x0000, 0xffff } }, // Right
+    { {  .5f,  .5f,  .5f }, { 0x0, 0x3ff, 0x200, 0x200 }, { 0xffff, 0xffff } },
+    { {  .5f, -.5f, -.5f }, { 0x0, 0x3ff, 0x200, 0x200 }, { 0x0000, 0x0000 } },
+    { {  .5f, -.5f,  .5f }, { 0x0, 0x3ff, 0x200, 0x200 }, { 0xffff, 0x0000 } },
   };
 
+  state.vertexFormats[VERTEX_FORMAT_EMPTY] = (BufferFormat) { 0 };
+  state.vertexFormats[VERTEX_FORMAT_POSITION] = (BufferFormat) {
+    .count = 1,
+    .stride = 12,
+    .types[0] = FIELD_F32x3
+  };
+  state.vertexFormats[VERTEX_FORMAT_STANDARD] = (BufferFormat) {
+    .count = 3,
+    .stride = sizeof(Vertex),
+    .locations = { 0, 1, 2 },
+    .offsets = { offsetof(Vertex, position), offsetof(Vertex, normal), offsetof(Vertex, uv) },
+    .types = { FIELD_F32x3, FIELD_U10Nx3, FIELD_U16Nx2 }
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(state.vertexFormats); i++) {
+    state.vertexFormats[i].hash = hash64(&state.vertexFormats[i], sizeof(state.vertexFormats[i]));
+  }
+
   uint32_t size = 0;
-  state.baseVertex[SHAPE_CUBE] = size / sizeof(struct Vertex), size += sizeof(cube);
+  state.baseVertex[SHAPE_CUBE] = size / stride, size += sizeof(cube);
+
   state.shapes = bufferAllocate(GPU_MEMORY_GPU, size, 4);
   Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
-
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
 
   gpu_begin();
@@ -913,6 +944,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   // Render pass
   gpu_render_begin(stream, &target);
 
+  // Batches
   for (uint32_t i = 0; i < count; i++) {
     Batch* batch = batches[i];
     BatchDraw* draw = batch->draws;
@@ -997,24 +1029,32 @@ void lovrGraphicsCompute(Batch** batches, uint32_t count, uint32_t order) {
 // Buffer
 
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info) {
-  size_t size = info->length * MAX(info->stride, 1);
+  size_t size = info->length * MAX(info->format.stride, 1);
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
-  lovrCheck(~info->usage & BUFFER_VERTEX || info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", info->stride, state.limits.vertexBufferStride);
   Buffer* buffer = talloc(sizeof(Buffer));
   buffer->ref = 1;
   buffer->size = size;
   buffer->mega = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 256);
   buffer->info = *info;
   buffer->scratch = true;
+  if (info->usage & BUFFER_VERTEX) {
+    BufferFormat* format = &info->format;
+    lovrCheck(format->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", format->stride, state.limits.vertexBufferStride);
+    for (uint32_t i = 0; i < COUNTOF(format->locations); i++) {
+      lovrCheck(format->locations[i] < 16, "Vertex buffer attribute location %d is too big (max is 15)", format->locations[i]);
+      lovrCheck(format->offsets[i] < 256, "Vertex buffer attribute offset %d is too big (max is 255)", format->offsets[i]);
+    }
+    format->hash = 0;
+    format->hash = hash64(format, sizeof(*format));
+  }
   return buffer;
 }
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
-  size_t size = info->length * MAX(info->stride, 1);
+  size_t size = info->length * MAX(info->format.stride, 1);
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
-  lovrCheck(~info->usage & BUFFER_VERTEX || info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", info->stride, state.limits.vertexBufferStride);
   Buffer* buffer = calloc(1, sizeof(Buffer));
   lovrAssert(buffer, "Out of memory");
   buffer->ref = 1;
@@ -1022,6 +1062,16 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   buffer->mega = bufferAllocate(GPU_MEMORY_GPU, size, 256);
   buffer->info = *info;
   state.buffers.list[buffer->mega.index].refs++;
+  if (info->usage & BUFFER_VERTEX) {
+    BufferFormat* format = &info->format;
+    lovrCheck(format->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", format->stride, state.limits.vertexBufferStride);
+    for (uint32_t i = 0; i < COUNTOF(format->locations); i++) {
+      lovrCheck(format->locations[i] < 16, "Vertex buffer attribute location %d is too big (max is 15)", format->locations[i]);
+      lovrCheck(format->offsets[i] < 256, "Vertex buffer attribute offset %d is too big (max is 255)", format->offsets[i]);
+    }
+    format->hash = 0;
+    format->hash = hash64(format, sizeof(*format));
+  }
   return buffer;
 }
 
@@ -1905,6 +1955,7 @@ void lovrBatchBegin(Batch* batch) {
   batch->pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
   batch->pipeline->info.depth.write = true;
   batch->pipeline->info.colorMask = 0xf;
+  batch->pipeline->vertexFormat = 0;
   batch->pipeline->color[0] = 1.f;
   batch->pipeline->color[1] = 1.f;
   batch->pipeline->color[2] = 1.f;
@@ -2251,10 +2302,10 @@ typedef struct {
   float* transform;
   struct {
     Megaview* buffer;
+    BufferFormat* format;
     void* data;
     void** pointer;
     uint32_t size;
-    uint32_t stride;
   } vertex;
   struct {
     Megaview* buffer;
@@ -2273,6 +2324,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   lovrCheck(batch->drawCount < batch->info.capacity, "Too many draws");
   BatchDraw* draw = &batch->draws[batch->drawCount];
   draw->index = batch->drawCount++;
+  draw->key.bits.indirect = 0;
   draw->key.bits.chunk = (draw->index >> 8) & 0xf;
 
   // Pipeline
@@ -2287,6 +2339,10 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
     shader = state.defaultShader;
     batch->pipeline->dirty = shader->gpu != batch->pipeline->info.shader;
     batch->pipeline->info.shader = shader->gpu;
+  }
+
+  if (req->vertex.format->hash != batch->pipeline->vertexFormat) {
+    batch->pipeline->dirty = true;
   }
 
   if (batch->pipeline->dirty) {
@@ -2315,14 +2371,14 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   uint32_t vertexOffset;
   if (req->vertex.buffer) {
     draw->key.bits.vertex = req->vertex.buffer->index;
-    vertexOffset = req->vertex.buffer->offset / req->vertex.stride;
+    vertexOffset = req->vertex.buffer->offset / req->vertex.format->stride;
   } else {
     draw->key.bits.vertex = batch->buffers[BUFFER_GEOMETRY].index;
 
-    uint32_t cursor = ALIGN(batch->geometryCursor, req->vertex.stride);
+    uint32_t cursor = ALIGN(batch->geometryCursor, req->vertex.format->stride);
     lovrCheck(cursor + req->vertex.size <= batch->info.scratchMemory, "Out of vertex data memory");
     batch->geometryCursor = cursor + req->vertex.size;
-    vertexOffset = cursor / req->vertex.stride;
+    vertexOffset = cursor / req->vertex.format->stride;
 
     if (req->vertex.pointer) {
       *req->vertex.pointer = batch->scratchpads[BUFFER_GEOMETRY].data + cursor;
@@ -2403,6 +2459,7 @@ void lovrBatchCube(Batch* batch, DrawStyle style, float* transform) {
     .mode = DRAW_TRIANGLES,
     .transform = transform,
     .vertex.buffer = &state.shapes,
+    .vertex.format = &state.vertexFormats[VERTEX_FORMAT_STANDARD],
     .index.data = indices,
     .index.size = sizeof(indices),
     .index.stride = sizeof(uint16_t),
