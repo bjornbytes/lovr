@@ -152,6 +152,7 @@ struct Batch {
   gpu_bundle** bundles;
   gpu_bundle_info* bundleWrites;
   gpu_binding bindings[32];
+  uint32_t emptySlotMask;
   uint32_t bundleCount;
   bool bindingsDirty;
   BatchPipeline pipelines[4];
@@ -223,6 +224,8 @@ static struct {
   uint32_t blockSize;
   uint32_t baseVertex[SHAPE_MAX];
   Megaview shapes;
+  Buffer* defaultBuffer;
+  Texture* defaultTexture;
   Shader* defaultShader;
   Sampler* defaultSamplers[MAX_DEFAULT_SAMPLERS];
   ScratchTexture scratchTextures[16][4];
@@ -555,6 +558,27 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   lookupLayout(builtins, COUNTOF(builtins));
 
+  state.defaultBuffer = lovrBufferCreate(&(BufferInfo) {
+    .length = 4096,
+    .usage = BUFFER_VERTEX | BUFFER_UNIFORM | BUFFER_STORAGE,
+    .label = "zero"
+  });
+
+  state.defaultTexture = lovrTextureCreate(&(TextureInfo) {
+    .type = TEXTURE_2D,
+    .usage = TEXTURE_SAMPLE | TEXTURE_COPYTO,
+    .format = FORMAT_RGBA8,
+    .width = 4,
+    .height = 4,
+    .depth = 1,
+    .mipmaps = 1,
+    .samples = 1,
+    .srgb = false,
+    .label = "white"
+  });
+
+  lovrTextureSetSampler(state.defaultTexture, lovrGraphicsGetDefaultSampler(SAMPLER_NEAREST));
+
   state.defaultShader = lovrShaderCreate(&(ShaderInfo) {
     .type = SHADER_GRAPHICS,
     .source = { lovr_shader_unlit_vert, lovr_shader_unlit_frag },
@@ -590,6 +614,8 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   gpu_begin();
   gpu_stream* stream = gpu_stream_begin();
+  gpu_clear_buffer(stream, state.defaultBuffer->mega.gpu, state.defaultBuffer->mega.offset, state.defaultBuffer->info.length, 0);
+  gpu_clear_texture(stream, state.defaultTexture->gpu, 0, 1, 0, 1, (float[4]) { 1.f, 1.f, 1.f, 1.f });
   gpu_copy_buffers(stream, scratch.gpu, state.shapes.gpu, scratch.offset, state.shapes.offset, size);
   gpu_stream_end(stream);
   gpu_submit(&stream, 1);
@@ -974,6 +1000,7 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info) {
   size_t size = info->length * MAX(info->stride, 1);
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
+  lovrCheck(~info->usage & BUFFER_VERTEX || info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", info->stride, state.limits.vertexBufferStride);
   Buffer* buffer = talloc(sizeof(Buffer));
   buffer->ref = 1;
   buffer->size = size;
@@ -987,6 +1014,7 @@ Buffer* lovrBufferCreate(BufferInfo* info) {
   size_t size = info->length * MAX(info->stride, 1);
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
+  lovrCheck(~info->usage & BUFFER_VERTEX || info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", info->stride, state.limits.vertexBufferStride);
   Buffer* buffer = calloc(1, sizeof(Buffer));
   lovrAssert(buffer, "Out of memory");
   buffer->ref = 1;
@@ -1173,11 +1201,11 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck((info->samples & (info->samples - 1)) == 0, "Texture multisample count must be a power of 2");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
-  lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'compute' flag can not be multisampled");
+  lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'storage' flag can not be multisampled");
   lovrCheck(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
   lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
-  lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'compute' flag for this format");
+  lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this format");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
   lovrCheck(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
@@ -1729,9 +1757,9 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     uint32_t index = shader->resourceCount++;
     bool buffer = slot.type == GPU_SLOT_UNIFORM_BUFFER || slot.type == GPU_SLOT_STORAGE_BUFFER;
     bool storage = slot.type == GPU_SLOT_STORAGE_BUFFER || slot.type == GPU_SLOT_STORAGE_TEXTURE;
-    shader->bufferMask |= (buffer << index);
-    shader->textureMask |= (!buffer << index);
-    shader->storageMask |= (storage << index);
+    shader->bufferMask |= (buffer << i);
+    shader->textureMask |= (!buffer << i);
+    shader->storageMask |= (storage << i);
     shader->resourceSlots[index] = i;
     shader->resourceLookup[index] = names[i];
   }
@@ -1863,6 +1891,7 @@ void lovrBatchBegin(Batch* batch) {
   batch->bundleCount = 0;
   batch->bindingsDirty = true;
   memset(batch->bindings, 0, sizeof(batch->bindings));
+  batch->emptySlotMask = ~0u;
 
   batch->transformIndex = 0;
   batch->pipelineIndex = 0;
@@ -2091,34 +2120,56 @@ void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value) {
 }
 
 void lovrBatchSetShader(Batch* batch, Shader* shader) {
-  Shader* old = batch->pipeline->shader;
-  if (shader == old) return;
+  Shader* previous = batch->pipeline->shader;
+  if (shader == previous) return;
 
   // Clear any bindings for resources that share the same slot but have different types
-  for (uint32_t i = 0, j = 0; i < old->resourceCount && j < shader->resourceCount;) {
-    if (old->resourceSlots[i] < shader->resourceSlots[j]) {
-      i++;
-    } else if (old->resourceSlots[i] > shader->resourceSlots[j]) {
-      j++;
-    } else {
-      // Either the bufferMask or textureMask will be set, so only need to check one
-      bool differentType = !(old->bufferMask & (1 << i)) == !(shader->bufferMask & (1 << j));
-      bool differentStorage = !(old->storageMask & (1 << i)) == !(shader->storageMask & (1 << j));
-
-      if (differentType || differentStorage) {
-        memset(&batch->bindings[shader->resourceSlots[j]], 0, sizeof(gpu_binding));
-        batch->bindingsDirty = true;
+  if (previous) {
+    for (uint32_t i = 0, j = 0; i < previous->resourceCount && j < shader->resourceCount;) {
+      if (previous->resourceSlots[i] < shader->resourceSlots[j]) {
+        i++;
+      } else if (previous->resourceSlots[i] > shader->resourceSlots[j]) {
+        j++;
+      } else {
+        // Either the bufferMask or textureMask will be set, so only need to check one
+        uint32_t mask = 1 << shader->resourceSlots[j];
+        bool differentType = !(previous->bufferMask & mask) == !(shader->bufferMask & mask);
+        bool differentStorage = !(previous->storageMask & mask) == !(shader->storageMask & mask);
+        batch->emptySlotMask |= (differentType || differentStorage) << shader->resourceSlots[j];
+        i++;
+        j++;
       }
-
-      i++;
-      j++;
     }
   }
 
-  batch->bindingsDirty |= old->resourceCount != shader->resourceCount;
+  uint32_t empties = (shader->bufferMask | shader->textureMask) & batch->emptySlotMask;
+
+  // Assign default bindings to any empty slots used by the shader (TODO biterationtrinsics)
+  if (empties) {
+    for (uint32_t i = 0; i < 32; i++) {
+      if (~empties & (1 << i)) continue;
+
+      if (shader->bufferMask) {
+        batch->bindings[i].buffer = (gpu_buffer_binding) {
+          .object = state.defaultBuffer->mega.gpu,
+          .offset = 0,
+          .extent = state.defaultBuffer->info.length
+        };
+      } else {
+        batch->bindings[i].texture = (gpu_texture_binding) {
+          .object = state.defaultTexture->gpu,
+          .sampler = state.defaultTexture->sampler->gpu
+        };
+      }
+
+      batch->emptySlotMask &= ~(1 << i);
+    }
+
+    batch->bindingsDirty = true;
+  }
 
   lovrRetain(shader);
-  lovrRelease(old, lovrShaderDestroy);
+  lovrRelease(previous, lovrShaderDestroy);
   batch->pipeline->shader = shader;
   batch->pipeline->info.shader = shader ? shader->gpu : NULL;
   batch->pipeline->dirty = true;
@@ -2191,6 +2242,7 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
     batch->bindings[slot].texture.sampler = texture->sampler->gpu;
   }
 
+  batch->emptySlotMask &= ~(1 << slot);
   batch->bindingsDirty = true;
 }
 
