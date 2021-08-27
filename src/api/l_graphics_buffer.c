@@ -194,7 +194,8 @@ static void luax_readbufferfieldv(float* v, FieldType type, int c, void* data) {
 
 void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
   const BufferInfo* info = lovrBufferGetInfo(buffer);
-  uint32_t stride = info->stride;
+  const BufferFormat* format = &info->format;
+  uint32_t stride = format->stride;
 
   Blob* blob = luax_totype(L, index, Blob);
   uint32_t dstIndex = luaL_optinteger(L, index + 1, 1) - 1;
@@ -228,9 +229,9 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
       lua_rawgeti(L, index, i + srcIndex + 1);
       lovrAssert(lua_type(L, -1) == LUA_TTABLE, "Expected table of tables");
       int j = 1;
-      for (uint16_t f = 0; f < info->fieldCount; f++) {
-        uint16_t offset = info->offsets[f];
-        FieldType type = info->types[f];
+      for (uint16_t f = 0; f < format->count; f++) {
+        uint16_t offset = format->offsets[f];
+        FieldType type = format->types[f];
         VectorType vectorType;
         lua_rawgeti(L, -1, j);
         float* vector = luax_tovector(L, -1, &vectorType);
@@ -250,14 +251,14 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
           j += components;
         }
       }
-      base += info->stride;
+      base += format->stride;
       lua_pop(L, 1);
     }
   } else {
     for (uint32_t i = 0, j = srcIndex + 1; i < count && j <= length; i++) {
-      for (uint16_t f = 0; f < info->fieldCount; f++) {
-        uint16_t offset = info->offsets[f];
-        FieldType type = info->types[f];
+      for (uint16_t f = 0; f < format->count; f++) {
+        uint16_t offset = format->offsets[f];
+        FieldType type = format->types[f];
         VectorType vectorType;
         lua_rawgeti(L, index, j);
         float* vector = luax_tovector(L, -1, &vectorType);
@@ -277,7 +278,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
           j += components;
         }
       }
-      base += info->stride;
+      base += format->stride;
     }
   }
 }
@@ -285,7 +286,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
 static int l_lovrBufferGetSize(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
-  uint32_t size = info->length * info->stride;
+  uint32_t size = info->length * info->format.stride;
   lua_pushinteger(L, size);
   return 1;
 }
@@ -300,19 +301,19 @@ static int l_lovrBufferGetLength(lua_State* L) {
 static int l_lovrBufferGetStride(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
-  lua_pushinteger(L, info->stride);
+  lua_pushinteger(L, info->format.stride);
   return 1;
 }
 
 static int l_lovrBufferGetFormat(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
-  lua_createtable(L, info->fieldCount, 0);
-  for (uint32_t i = 0; i < info->fieldCount; i++) {
+  lua_createtable(L, info->format.count, 0);
+  for (uint32_t i = 0; i < info->format.count; i++) {
     lua_createtable(L, 2, 0);
-    luax_pushenum(L, FieldType, info->types[i]);
+    luax_pushenum(L, FieldType, info->format.types[i]);
     lua_rawseti(L, -2, 1);
-    lua_pushinteger(L, info->offsets[i]);
+    lua_pushinteger(L, info->format.offsets[i]);
     lua_rawseti(L, -2, 2);
     lua_rawseti(L, -2, i + 1);
   }
@@ -352,7 +353,7 @@ static int l_lovrBufferClear(lua_State* L) {
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   uint32_t index = luaL_optinteger(L, 2, 1);
   uint32_t count = luaL_optinteger(L, 3, info->length - index + 1);
-  lovrBufferClear(buffer, (index - 1) * info->stride, count * info->stride);
+  lovrBufferClear(buffer, (index - 1) * info->format.stride, count * info->format.stride);
   return 0;
 }
 
@@ -361,8 +362,8 @@ static int l_lovrBufferCopy(lua_State* L) {
   Buffer* dst = luax_checktype(L, 2, Buffer);
   const BufferInfo* srcInfo = lovrBufferGetInfo(src);
   const BufferInfo* dstInfo = lovrBufferGetInfo(dst);
-  uint32_t srcSize = srcInfo->length * srcInfo->stride;
-  uint32_t dstSize = dstInfo->length * dstInfo->stride;
+  uint32_t srcSize = srcInfo->length * srcInfo->format.stride;
+  uint32_t dstSize = dstInfo->length * dstInfo->format.stride;
   uint32_t srcOffset = luaL_optinteger(L, 3, 0);
   uint32_t dstOffset = luaL_optinteger(L, 4, 0);
   uint32_t size = luaL_optinteger(L, 5, MIN(srcSize - srcOffset, dstSize - dstOffset));
@@ -394,8 +395,8 @@ static void luax_onreadback(void* data, uint32_t size, void* userdata) {
     luax_pushtype(L, Blob, reader->blob);
   } else {
     uint32_t totalComponents = 0;
-    for (uint32_t i = 0; i < info->fieldCount; i++) {
-      totalComponents += fieldComponents[info->types[i]];
+    for (uint32_t i = 0; i < info->format.count; i++) {
+      totalComponents += fieldComponents[info->format.types[i]];
     }
 
     int index = 1;
@@ -403,14 +404,14 @@ static void luax_onreadback(void* data, uint32_t size, void* userdata) {
     lua_createtable(L, reader->count * totalComponents, 0);
     int tableIndex = lua_gettop(L);
     for (uint32_t i = 0; i < reader->count; i++) {
-      for (uint32_t f = 0; f < info->fieldCount; f++) {
-        int components = luax_pushbufferfield(L, base + info->offsets[f], info->types[f]);
+      for (uint32_t f = 0; f < info->format.count; f++) {
+        int components = luax_pushbufferfield(L, base + info->format.offsets[f], info->format.types[f]);
         for (int c = 1; c <= components; c++) {
           lua_rawseti(L, tableIndex, index + components - c);
         }
         index += components;
       }
-      base += info->stride;
+      base += info->format.stride;
     }
   }
 
@@ -439,7 +440,7 @@ static int l_lovrBufferRead(lua_State* L) {
   reader->offset = luaL_optinteger(L, 6, 0);
   lovrRetain(buffer);
   lovrRetain(reader->blob);
-  lovrBufferRead(buffer, (reader->index - 1) * info->stride, reader->count * info->stride, luax_onreadback, reader);
+  lovrBufferRead(buffer, (reader->index - 1) * info->format.stride, reader->count * info->format.stride, luax_onreadback, reader);
   return 0;
 }
 
