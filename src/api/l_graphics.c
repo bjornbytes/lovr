@@ -172,7 +172,7 @@ StringEntry lovrWrapMode[] = {
   { 0 }
 };
 
-static struct { uint16_t size, scalarAlign, baseAlign, components; } fieldInfo[] = {
+static struct { uint32_t size, scalarAlign, baseAlign, components; } fieldInfo[] = {
   [FIELD_I8] = { 1, 1, 1, 1 },
   [FIELD_U8] = { 1, 1, 1, 1 },
   [FIELD_I16] = { 2, 2, 2, 1 },
@@ -263,7 +263,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
     info->fieldCount = 1;
     info->stride = fieldInfo[type].size;
   } else if (lua_istable(L, index)) {
-    uint16_t offset = 0;
+    uint32_t offset = 0;
     int length = luax_len(L, index);
     bool blocky = info->usage & (BUFFER_UNIFORM | BUFFER_STORAGE);
     for (int i = 0; i < length; i++) {
