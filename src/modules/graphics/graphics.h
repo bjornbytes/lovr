@@ -163,19 +163,13 @@ typedef enum {
 } FieldType;
 
 typedef struct {
-  uint32_t count;
+  uint32_t usage;
+  uint32_t length;
   uint32_t stride;
+  uint32_t fieldCount;
   uint32_t locations[16];
   uint32_t offsets[16];
   FieldType types[16];
-  uint32_t locationMask;
-  uint64_t hash;
-} BufferFormat;
-
-typedef struct {
-  uint32_t usage;
-  uint32_t length;
-  BufferFormat format;
   uintptr_t handle;
   const char* label;
 } BufferInfo;
