@@ -60,6 +60,7 @@ struct gpu_bundle {
 
 struct gpu_pipeline {
   VkPipeline handle;
+  VkPipelineLayout layout;
 };
 
 struct gpu_stream {
@@ -1161,6 +1162,10 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
       return false;
     }
 
+    for (uint32_t i = 0; i < chunk; i++) {
+      pipelines[i].layout = infos[i].shader->pipelineLayout;
+    }
+
     pipelines += chunk;
     infos += chunk;
     count -= chunk;
@@ -1319,9 +1324,9 @@ void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]) {
   vkCmdSetScissor(stream->commands, 0, 1, &rect);
 }
 
-void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size) {
+void gpu_push_constants(gpu_stream* stream, gpu_pipeline* pipeline, void* data, uint32_t size) {
   VkShaderStageFlags stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-  vkCmdPushConstants(stream->commands, shader->pipelineLayout, stages, 0, size, data);
+  vkCmdPushConstants(stream->commands, pipeline->layout, stages, 0, size, data);
 }
 
 void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
@@ -1329,8 +1334,10 @@ void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute)
   vkCmdBindPipeline(stream->commands, bindPoint, pipeline->handle);
 }
 
-void gpu_bind_bundle(gpu_stream* stream, gpu_shader* shader, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount) {
-  vkCmdBindDescriptorSets(stream->commands, shader->type, shader->pipelineLayout, group, 1, &bundle->handle, offsetCount, offsets);
+void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount) {
+  bool compute = false; // TODO
+  VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
+  vkCmdBindDescriptorSets(stream->commands, bindPoint, pipeline->layout, group, 1, &bundle->handle, offsetCount, offsets);
 }
 
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count) {

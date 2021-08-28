@@ -585,13 +585,14 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   // Create layout for builtin resources
   gpu_slot builtins[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 }, // Camera
-    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 } // Transforms
+    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Transforms
+    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 } // DrawData
   };
 
   lookupLayout(builtins, COUNTOF(builtins));
 
   state.defaultBuffer = lovrBufferCreate(&(BufferInfo) {
-    .length = 4096,
+    .length = 4000,
     .usage = BUFFER_VERTEX | BUFFER_UNIFORM | BUFFER_STORAGE,
     .label = "zero"
   });
@@ -637,6 +638,22 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     { {  .5f,  .5f,  .5f }, { 0x0, 0x3ff, 0x200, 0x200 }, { 0xffff, 0xffff } },
     { {  .5f, -.5f, -.5f }, { 0x0, 0x3ff, 0x200, 0x200 }, { 0x0000, 0x0000 } },
     { {  .5f, -.5f,  .5f }, { 0x0, 0x3ff, 0x200, 0x200 }, { 0xffff, 0x0000 } },
+    { {  .5f, -.5f,  .5f }, { 0x0, 0x200, 0x200, 0x3ff }, { 0x0000, 0x0000 } }, // Back
+    { {  .5f,  .5f,  .5f }, { 0x0, 0x200, 0x200, 0x3ff }, { 0x0000, 0xffff } },
+    { { -.5f, -.5f,  .5f }, { 0x0, 0x200, 0x200, 0x3ff }, { 0xffff, 0x0000 } },
+    { { -.5f,  .5f,  .5f }, { 0x0, 0x200, 0x200, 0x3ff }, { 0xffff, 0xffff } },
+    { { -.5f,  .5f,  .5f }, { 0x0, 0x000, 0x200, 0x200 }, { 0x0000, 0xffff } }, // Left
+    { { -.5f,  .5f, -.5f }, { 0x0, 0x000, 0x200, 0x200 }, { 0xffff, 0xffff } },
+    { { -.5f, -.5f,  .5f }, { 0x0, 0x000, 0x200, 0x200 }, { 0x0000, 0x0000 } },
+    { { -.5f, -.5f, -.5f }, { 0x0, 0x000, 0x200, 0x200 }, { 0xffff, 0x0000 } },
+    { { -.5f, -.5f, -.5f }, { 0x0, 0x200, 0x000, 0x200 }, { 0x0000, 0x0000 } }, // Bottom
+    { {  .5f, -.5f, -.5f }, { 0x0, 0x200, 0x000, 0x200 }, { 0xffff, 0x0000 } },
+    { { -.5f, -.5f,  .5f }, { 0x0, 0x200, 0x000, 0x200 }, { 0x0000, 0xffff } },
+    { {  .5f, -.5f,  .5f }, { 0x0, 0x200, 0x000, 0x200 }, { 0xffff, 0xffff } },
+    { { -.5f,  .5f, -.5f }, { 0x0, 0x200, 0x3ff, 0x200 }, { 0x0000, 0xffff } }, // Top
+    { { -.5f,  .5f,  .5f }, { 0x0, 0x200, 0x3ff, 0x200 }, { 0x0000, 0x0000 } },
+    { {  .5f,  .5f, -.5f }, { 0x0, 0x200, 0x3ff, 0x200 }, { 0xffff, 0xffff } },
+    { {  .5f,  .5f,  .5f }, { 0x0, 0x200, 0x3ff, 0x200 }, { 0xffff, 0x0000 } },
   };
 
   state.vertexFormats[VERTEX_EMPTY] = (VertexFormat) { 0 };
@@ -663,9 +680,14 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   }
 
   uint32_t size = 0;
-  state.baseVertex[SHAPE_CUBE] = size / stride, size += sizeof(cube);
+  size += sizeof(cube);
 
+  // Be careful of alignment (Vertex is 20 bytes but bufferAllocate needs PO2 alignment)
   state.shapes = bufferAllocate(GPU_MEMORY_GPU, size, 4);
+
+  uint32_t offset = 0;
+  state.baseVertex[SHAPE_CUBE] = (state.shapes.offset + offset) / stride, offset += sizeof(cube);
+
   Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
 
@@ -984,6 +1006,11 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     BatchGroup* group = batch->groups;
     lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
 
+    // FIXME this absolutely does not go here
+    batch->groupCount = 1;
+    batch->groups[0].dirty = 0xffff;
+    batch->groups[0].count = 1;
+
     // Viewport
     if (batch->viewport[2] > 0.f && batch->viewport[3] > 0.f) {
       gpu_set_viewport(stream, batch->viewport, batch->depthRange);
@@ -1018,12 +1045,15 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
       }
     };
     gpu_bundle_write(&builtins, &info, 1);
-    gpu_bind_bundle(stream, state.defaultShader->gpu, 0, builtins, (uint32_t[1]) { 0 }, 1);
+    uint32_t dynamicOffsets[] = { 0, 0 };
+    gpu_bind_bundle(stream, state.pipelines[0], 0, builtins, dynamicOffsets, COUNTOF(dynamicOffsets));
 
     // Draws
     for (uint32_t j = 0; j < batch->groupCount; j++, group++) {
+      gpu_pipeline* pipeline = state.pipelines[draw->key.bits.pipeline];
+
       if (group->dirty & DIRTY_PIPELINE) {
-        gpu_bind_pipeline(stream, state.pipelines[draw->key.bits.pipeline], false);
+        gpu_bind_pipeline(stream, pipeline, false);
       }
 
       if (group->dirty & DIRTY_VERTEX_BUFFER) {
@@ -1032,30 +1062,30 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
       }
 
       if (group->dirty & DIRTY_INDEX_BUFFER) {
-        gpu_bind_index_buffer(stream, state.buffers.list[draw->key.bits.index].gpu, 0, GPU_INDEX_U32);
+        gpu_bind_index_buffer(stream, state.buffers.list[draw->key.bits.index].gpu, 0, GPU_INDEX_U16);
       }
 
       if (group->dirty & DIRTY_DRAW_CHUNK) {
         uint32_t transformOffset = (draw->index >> 8) * 256 * 16 * sizeof(float);
         uint32_t drawDataOffset = (draw->index >> 8) * 256 * sizeof(DrawData);
         uint32_t offsets[] = { transformOffset, drawDataOffset };
-        gpu_bind_bundle(stream, NULL, 0, builtins, offsets, COUNTOF(offsets));
+        gpu_bind_bundle(stream, pipeline, 0, builtins, offsets, COUNTOF(offsets));
       }
 
-      if (group->dirty & DIRTY_BUNDLE) {
-        gpu_bind_bundle(stream, NULL, 1, batch->bundles[draw->key.bits.bundle], NULL, 0); // TODO pipelineLayout ahhhhhh
+      if (group->dirty & DIRTY_BUNDLE && batch->bundleCount > 0) {
+        gpu_bind_bundle(stream, pipeline, 1, batch->bundles[draw->key.bits.bundle], NULL, 0); // TODO pipelineLayout ahhhhhh
       }
 
       if (draw->key.bits.index == 0xff) {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
           uint32_t index = draw->index & 0xff;
-          gpu_push_constants(stream, NULL, &index, sizeof(index));
+          gpu_push_constants(stream, pipeline, &index, sizeof(index));
           gpu_draw(stream, draw->count, draw->instances, draw->start);
         }
       } else {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
           uint32_t index = draw->index & 0xff;
-          gpu_push_constants(stream, NULL, &index, sizeof(index));
+          gpu_push_constants(stream, pipeline, &index, sizeof(index));
           gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base);
         }
       }
@@ -2097,12 +2127,12 @@ void lovrBatchSetViewMatrix(Batch* batch, uint32_t index, float* view) {
 
 void lovrBatchGetProjection(Batch* batch, uint32_t index, float* projection) {
   lovrCheck(index < COUNTOF(batch->camera.projection), "Invalid view index %d", index);
-  mat4_init(batch->camera.projection[index], projection);
+  mat4_init(projection, batch->camera.projection[index]);
 }
 
 void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection) {
   lovrCheck(index < COUNTOF(batch->camera.projection), "Invalid view index %d", index);
-  mat4_init(projection, batch->camera.projection[index]);
+  mat4_init(batch->camera.projection[index], projection);
 }
 
 void lovrBatchPush(Batch* batch, StackType type) {
@@ -2547,7 +2577,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
   draw->start = req->start + (indexed ? indexOffset : vertexOffset);
   draw->count = req->count;
   draw->instances = MAX(req->instances, 1);
-  draw->base = indexed ? draw->base : 0;
+  draw->base = indexed ? req->base : 0;
 
   // Transform
   if (req->transform) {
