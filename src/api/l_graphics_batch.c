@@ -279,6 +279,14 @@ static int l_lovrBatchSetBlendMode(lua_State* L) {
   return 0;
 }
 
+static int l_lovrBatchSetColor(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  float color[4];
+  luax_readcolor(L, 2, color);
+  lovrBatchSetColor(batch, color);
+  return 0;
+}
+
 static int l_lovrBatchSetColorMask(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   bool r = lua_toboolean(L, 2);
@@ -450,6 +458,7 @@ const luaL_Reg lovrBatch[] = {
 
   { "setAlphaToCoverage", l_lovrBatchSetAlphaToCoverage },
   { "setBlendMode", l_lovrBatchSetBlendMode },
+  { "setColor", l_lovrBatchSetColor },
   { "setColorMask", l_lovrBatchSetColorMask },
   { "setCullMode", l_lovrBatchSetCullMode },
   { "setDepthTest", l_lovrBatchSetDepthTest },
