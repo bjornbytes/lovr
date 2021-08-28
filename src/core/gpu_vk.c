@@ -255,6 +255,7 @@ static bool check(bool condition, const char* message);
   X(vkDestroyPipeline)\
   X(vkCmdSetViewport)\
   X(vkCmdSetScissor)\
+  X(vkCmdPushConstants)\
   X(vkCmdBindPipeline)\
   X(vkCmdBindDescriptorSets)\
   X(vkCmdBindVertexBuffers)\
@@ -648,7 +649,13 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
   VkDescriptorSetLayout layouts[4];
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-    .pSetLayouts = layouts
+    .pSetLayouts = layouts,
+    .pushConstantRangeCount = shader->type == VK_PIPELINE_BIND_POINT_GRAPHICS,
+    .pPushConstantRanges = &(VkPushConstantRange) {
+      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+      .offset = 0,
+      .size = info->pushConstantSize
+    }
   };
 
   for (uint32_t i = 0; i < COUNTOF(info->layouts) && info->layouts[i]; i++) {
@@ -1289,6 +1296,11 @@ void gpu_set_viewport(gpu_stream* stream, float view[4], float depthRange[2]) {
 void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]) {
   VkRect2D rect = { { scissor[0], scissor[1] }, { scissor[2], scissor[3] } };
   vkCmdSetScissor(stream->commands, 0, 1, &rect);
+}
+
+void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size) {
+  VkShaderStageFlags stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+  vkCmdPushConstants(stream->commands, shader->pipelineLayout, stages, 0, size, data);
 }
 
 void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
