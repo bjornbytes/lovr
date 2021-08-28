@@ -263,52 +263,53 @@ uint32_t luax_checkfieldtype(lua_State* L, int index) {
   return luaL_error(L, "invalid FieldType '%s'", string);
 }
 
-static void luax_checkbufferformat(lua_State* L, int index, BufferFormat* format, bool blocky) {
+static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
   if (lua_isstring(L, index)) {
     FieldType type = luax_checkfieldtype(L, index);
-    format->count = 1;
-    format->types[0] = type;
-    format->offsets[0] = 0;
-    format->locations[0] = 0;
-    format->stride = fieldInfo[type].size;
+    info->stride = fieldInfo[type].size;
+    info->fieldCount = 1;
+    info->locations[0] = 0;
+    info->offsets[0] = 0;
+    info->types[0] = type;
   } else if (lua_istable(L, index)) {
     uint32_t offset = 0;
     int length = luax_len(L, index);
+    bool blocky = info->usage & (BUFFER_UNIFORM | BUFFER_STORAGE);
     for (int i = 0; i < length; i++) {
       lua_rawgeti(L, index, i + 1);
       switch (lua_type(L, -1)) {
         case LUA_TNUMBER: offset += lua_tonumber(L, -1); break;
         case LUA_TSTRING: {
-          uint32_t idx = format->count++;
+          uint32_t idx = info->fieldCount++;
           FieldType type = luax_checkfieldtype(L, -1);
           uint16_t align = blocky ? fieldInfo[type].baseAlign : fieldInfo[type].scalarAlign;
-          format->types[idx] = type;
-          format->offsets[idx] = ALIGN(offset, align);
-          format->locations[idx] = idx;
-          offset = format->offsets[idx] + fieldInfo[type].size;
+          info->locations[idx] = idx;
+          info->offsets[idx] = ALIGN(offset, align);
+          info->types[idx] = type;
+          offset = info->offsets[idx] + fieldInfo[type].size;
           break;
         }
         case LUA_TTABLE:
           lua_rawgeti(L, -1, 1);
           lua_rawgeti(L, -1, 2);
-          uint32_t idx = format->count++;
+          uint32_t idx = info->fieldCount++;
           if (lua_type(L, -2) == LUA_TNUMBER) {
-            format->locations[idx] = lua_tointeger(L, -2);
+            info->locations[idx] = lua_tointeger(L, -2);
           } else {
-            format->locations[idx] = luax_checkenum(L, -2, DefaultAttribute, NULL);
+            info->locations[idx] = luax_checkenum(L, -2, DefaultAttribute, NULL);
           }
           FieldType type = luax_checkfieldtype(L, -1);
           uint16_t align = blocky ? fieldInfo[type].baseAlign : fieldInfo[type].scalarAlign;
-          format->types[idx] = type;
-          format->offsets[idx] = ALIGN(offset, align);
-          offset = format->offsets[idx] + fieldInfo[type].size;
+          info->offsets[idx] = ALIGN(offset, align);
+          info->types[idx] = type;
+          offset = info->offsets[idx] + fieldInfo[type].size;
           lua_pop(L, 2);
           break;
         default: lovrThrow("Buffer format table may only contain FieldTypes, numbers, and tables (found %s)", lua_typename(L, lua_type(L, -1)));
       }
       lua_pop(L, 1);
     }
-    format->stride = offset;
+    info->stride = offset;
   } else {
     lovrThrow("Expected FieldType or table for Buffer format");
   }
@@ -585,7 +586,11 @@ static int l_lovrGraphicsRender(lua_State* L) {
 
   Batch* batch;
   if (lua_type(L, 2) == LUA_TFUNCTION) {
-    batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 1024, .canvas = canvas });
+    batch = lovrGraphicsGetBatch(&(BatchInfo) {
+      .capacity = 1024,
+      .scratchMemory = 1 << 18,
+      .canvas = canvas
+    });
     lua_settop(L, 2);
     luax_pushtype(L, Batch, batch);
     lua_call(L, 1, 0);
@@ -620,8 +625,8 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
   BufferInfo info = { .usage = BUFFER_VERTEX | BUFFER_INDEX | BUFFER_UNIFORM | BUFFER_COPYFROM };
 
   // Format
-  luax_checkbufferformat(L, 2, &info.format, true);
-  info.format.stride = info.format.stride > 1 ? ALIGN(info.format.stride, 16) : info.format.stride;
+  luax_checkbufferformat(L, 2, &info);
+  info.stride = info.stride > 1 ? ALIGN(info.stride, 16) : info.stride;
 
   // Length/contents
   int dataType = lua_type(L, 1);
@@ -632,11 +637,11 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
     if (lua_istable(L, -1)) {
       info.length = luax_len(L, 1);
     } else if (lua_isuserdata(L, -1)) {
-      info.length = luax_len(L, 1) / info.format.count;
+      info.length = luax_len(L, 1) / info.fieldCount;
     } else {
       uint32_t totalComponents = 0;
-      for (uint32_t i = 0; i < info.format.count; i++) {
-        totalComponents += fieldInfo[info.format.types[i]].components;
+      for (uint32_t i = 0; i < info.fieldCount; i++) {
+        totalComponents += fieldInfo[info.types[i]].components;
       }
       info.length = luax_len(L, 1) / totalComponents;
     }
@@ -684,11 +689,11 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   }
 
   // Format
-  luax_checkbufferformat(L, 2, &info.format, info.usage & (BUFFER_UNIFORM | BUFFER_STORAGE));
+  luax_checkbufferformat(L, 2, &info);
 
   // std140 (only needed for uniform buffers, also as special case 'byte' formats skip this)
-  if (info.usage & BUFFER_UNIFORM && info.format.stride > 1) {
-    info.format.stride = ALIGN(info.format.stride, 16);
+  if (info.usage & BUFFER_UNIFORM && info.stride > 1) {
+    info.stride = ALIGN(info.stride, 16);
   }
 
   // Length/contents
@@ -701,11 +706,11 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
       if (lua_istable(L, -1)) {
         info.length = luax_len(L, 1);
       } else if (lua_isuserdata(L, -1)) {
-        info.length = luax_len(L, 1) / info.format.count;
+        info.length = luax_len(L, 1) / info.fieldCount;
       } else {
         uint32_t totalComponents = 0;
-        for (uint32_t i = 0; i < info.format.count; i++) {
-          totalComponents += fieldInfo[info.format.types[i]].components;
+        for (uint32_t i = 0; i < info.fieldCount; i++) {
+          totalComponents += fieldInfo[info.types[i]].components;
         }
         info.length = luax_len(L, 1) / totalComponents;
       }
@@ -713,7 +718,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
       break;
     case LUA_TSTRING: {
       Blob* blob = luax_readblob(L, 1, "Buffer data");
-      info.length = blob->size / info.format.stride;
+      info.length = blob->size / info.stride;
       luax_pushtype(L, Blob, blob);
       lua_replace(L, 1);
       lovrRelease(blob, lovrBlobDestroy);
@@ -722,7 +727,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     default: {
       Blob* blob = luax_totype(L, 1, Blob);
       if (blob) {
-        info.length = blob->size / info.format.stride;
+        info.length = blob->size / info.stride;
         break;
       }
       return luax_typeerror(L, 1, "number, table, or Blob");
@@ -1004,7 +1009,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetBatch(lua_State* L) {
-  BatchInfo info = { .scratchMemory = 1 << 20 };
+  BatchInfo info = { .scratchMemory = 1 << 18 };
 
   if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "compute")) {
     info.type = BATCH_COMPUTE;
