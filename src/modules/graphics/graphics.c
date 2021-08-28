@@ -99,9 +99,8 @@ enum {
   DIRTY_PIPELINE = (1 << 0),
   DIRTY_VERTEX_BUFFER = (1 << 1),
   DIRTY_INDEX_BUFFER = (1 << 2),
-  DIRTY_UNIFORM_CHUNK = (1 << 3),
-  DIRTY_TEXTURE_PAGE = (1 << 4),
-  DIRTY_BUNDLE = (1 << 5)
+  DIRTY_DRAW_CHUNK = (1 << 3),
+  DIRTY_BUNDLE = (1 << 4)
 };
 
 typedef struct {
@@ -148,6 +147,20 @@ enum {
   BUFFER_MAX
 };
 
+typedef struct {
+  float view[6][16];
+  float projection[6][16];
+  float viewProjection[6][16];
+} Camera;
+
+typedef struct {
+  uint32_t id;
+  uint32_t material;
+  uint32_t padding0;
+  uint32_t padding1;
+  float color[4];
+} DrawData;
+
 struct Batch {
   uint32_t ref;
   bool scratch;
@@ -177,8 +190,7 @@ struct Batch {
   float viewport[4];
   float depthRange[2];
   uint32_t scissor[4];
-  float viewMatrix[6][16];
-  float projection[6][16];
+  Camera camera;
 };
 
 typedef struct {
@@ -966,17 +978,22 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     }
 
     // Camera
-    uint32_t cameraSize = sizeof(batch->viewMatrix) + sizeof(batch->projection);
-    Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, cameraSize, 256);
-    memcpy(camera.data, batch->viewMatrix, sizeof(batch->viewMatrix) + sizeof(batch->projection));
+    for (uint32_t i = 0; i < main->depth; i++) {
+      mat4_init(batch->camera.viewProjection[i], batch->camera.projection[i]);
+      mat4_mul(batch->camera.viewProjection[i], batch->camera.view[i]);
+    }
+
+    Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, sizeof(Camera), 256);
+    memcpy(camera.data, &batch->camera, sizeof(Camera));
 
     // Builtins
     gpu_bundle* builtins = bundleAllocate(0);
     gpu_bundle_info info = {
       .layout = state.layouts[0],
       .bindings = (gpu_binding[]) {
-        [0].buffer = { camera.gpu, camera.offset, cameraSize },
-        [1].buffer = { batch->buffers[BUFFER_TRANSFORM].gpu, batch->buffers[BUFFER_TRANSFORM].offset, 0 } // TODO extent
+        [0].buffer = { camera.gpu, camera.offset, sizeof(Camera) },
+        [1].buffer = { batch->buffers[BUFFER_TRANSFORM].gpu, batch->buffers[BUFFER_TRANSFORM].offset, 256 * 16 * sizeof(float) },
+        [2].buffer = { batch->buffers[BUFFER_DRAW_DATA].gpu, batch->buffers[BUFFER_DRAW_DATA].offset, 256 * sizeof(DrawData) }
       }
     };
     gpu_bundle_write(&builtins, &info, 1);
@@ -997,11 +1014,12 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
         gpu_bind_index_buffer(stream, state.buffers.list[draw->key.bits.index].gpu, 0, GPU_INDEX_U32);
       }
 
-      /*if (group->dirty & (DIRTY_UNIFORM_CHUNK | DIRTY_TEXTURE_PAGE)) {
-        gpu_bundle* bundle = batch->texturePages + draw->key.bits.textures * gpu_sizeof_bundle();
-        uint32_t dynamicOffsets[4] = { 0, 0, 0, 0 };
-        gpu_bind_bundle(stream, NULL, 0, bundle, dynamicOffsets, COUNTOF(dynamicOffsets));
-      }*/
+      if (group->dirty & DIRTY_DRAW_CHUNK) {
+        uint32_t transformOffset = (draw->index >> 8) * 256 * 16 * sizeof(float);
+        uint32_t drawDataOffset = (draw->index >> 8) * 256 * sizeof(DrawData);
+        uint32_t offsets[] = { transformOffset, drawDataOffset };
+        gpu_bind_bundle(stream, NULL, 0, builtins, offsets, COUNTOF(offsets));
+      }
 
       if (group->dirty & DIRTY_BUNDLE) {
         gpu_bind_bundle(stream, NULL, 1, batch->bundles[draw->key.bits.bundle], NULL, 0); // TODO pipelineLayout ahhhhhh
@@ -1009,10 +1027,14 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
       if (draw->key.bits.index == 0xff) {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
+          uint32_t index = draw->index & 0xff;
+          gpu_push_constants(stream, NULL, &index, sizeof(index));
           gpu_draw(stream, draw->count, draw->instances, draw->start);
         }
       } else {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
+          uint32_t index = draw->index & 0xff;
+          gpu_push_constants(stream, NULL, &index, sizeof(index));
           gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base);
         }
       }
@@ -1885,8 +1907,8 @@ Batch* lovrBatchInit(BatchInfo* info, bool scratch) {
   batch->scratch = scratch;
   batch->info = *info;
   uint32_t bufferSizes[] = {
-    [BUFFER_TRANSFORM] = 64 * info->capacity,
-    [BUFFER_DRAW_DATA] = 16 * info->capacity,
+    [BUFFER_TRANSFORM] = 16 * sizeof(float) * info->capacity,
+    [BUFFER_DRAW_DATA] = sizeof(DrawData) * info->capacity,
     [BUFFER_GEOMETRY] = info->scratchMemory
   };
   for (uint32_t i = 0; i < BUFFER_MAX; i++) {
@@ -2011,24 +2033,24 @@ void lovrBatchSetScissor(Batch* batch, uint32_t scissor[4]) {
   memcpy(batch->scissor, scissor, sizeof(batch->scissor));
 }
 
-void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix) {
-  lovrCheck(index < COUNTOF(batch->viewMatrix), "Invalid view index %d", index);
-  mat4_init(viewMatrix, batch->viewMatrix[index]);
+void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* view) {
+  lovrCheck(index < COUNTOF(batch->camera.view), "Invalid view index %d", index);
+  mat4_init(view, batch->camera.view[index]);
 }
 
-void lovrBatchSetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix) {
-  lovrCheck(index < COUNTOF(batch->viewMatrix), "Invalid view index %d", index);
-  mat4_init(batch->viewMatrix[index], viewMatrix);
+void lovrBatchSetViewMatrix(Batch* batch, uint32_t index, float* view) {
+  lovrCheck(index < COUNTOF(batch->camera.view), "Invalid view index %d", index);
+  mat4_init(batch->camera.view[index], view);
 }
 
 void lovrBatchGetProjection(Batch* batch, uint32_t index, float* projection) {
-  lovrCheck(index < COUNTOF(batch->projection), "Invalid view index %d", index);
-  mat4_init(batch->projection[index], projection);
+  lovrCheck(index < COUNTOF(batch->camera.projection), "Invalid view index %d", index);
+  mat4_init(batch->camera.projection[index], projection);
 }
 
 void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection) {
-  lovrCheck(index < COUNTOF(batch->projection), "Invalid view index %d", index);
-  mat4_init(projection, batch->projection[index]);
+  lovrCheck(index < COUNTOF(batch->camera.projection), "Invalid view index %d", index);
+  mat4_init(projection, batch->camera.projection[index]);
 }
 
 void lovrBatchPush(Batch* batch, StackType type) {
@@ -2458,13 +2480,16 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
     float transform[16];
     mat4_init(transform, batch->transform);
     mat4_mul(transform, req->transform);
-    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + draw->index * 64, transform, 64);
+    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + draw->index * 16 * sizeof(float), transform, 16 * sizeof(float));
   } else {
-    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + draw->index * 64, batch->transform, 16 * sizeof(float));
+    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + draw->index * 16 * sizeof(float), batch->transform, 16 * sizeof(float));
   }
 
-  // Color
-  memcpy(batch->scratchpads[BUFFER_DRAW_DATA].data + draw->index * 4, batch->pipeline->color, 4 * sizeof(float));
+  // DrawData
+  DrawData* data = (DrawData*) (batch->scratchpads[BUFFER_DRAW_DATA].data + draw->index * sizeof(DrawData));
+  data->id = 0;
+  data->material = 0;
+  memcpy(data->color, batch->pipeline->color, sizeof(data->color));
 
   return draw;
 }
