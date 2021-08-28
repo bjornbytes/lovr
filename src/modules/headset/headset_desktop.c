@@ -84,14 +84,14 @@ static const float* desktop_getDisplayMask(uint32_t* count) {
 }
 
 static uint32_t desktop_getViewCount(void) {
-  return 2;
+  return 1;
 }
 
 static bool desktop_getViewPose(uint32_t view, float* position, float* orientation) {
   vec3_init(position, state.position);
   quat_fromMat4(orientation, state.headTransform);
   position[1] += state.offset;
-  return view < 2;
+  return view == 0;
 }
 
 static bool desktop_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
@@ -104,7 +104,7 @@ static bool desktop_getViewAngles(uint32_t view, float* left, float* right, floa
   *right = atanf(tanf(fov) * aspect);
   *up = fov;
   *down = fov;
-  return view < 2;
+  return view == 0;
 }
 
 static void desktop_getClipDistance(float* clipNear, float* clipFar) {
@@ -205,7 +205,7 @@ static void desktop_update(float dt) {
 
   int width, height;
   double mx, my;
-  os_window_get_size(&width, &height);
+  os_window_get_fbsize(&width, &height);
   os_get_mouse_position(&mx, &my);
 
   double aspect = (width > 0 && height > 0) ? ((double) width / height) : 1.;
