@@ -2496,6 +2496,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
       }
     }
 
+    batch->pipeline->vertexFormat = req->vertex.format->hash;
     batch->pipeline->dirty = true;
   }
 
@@ -2552,7 +2553,7 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
     uint32_t cursor = ALIGN(batch->geometryCursor, req->index.stride);
     lovrCheck(cursor + req->index.size <= batch->info.scratchMemory, "Out of index data memory");
     batch->geometryCursor = cursor + req->index.size;
-    indexOffset = cursor / req->index.stride;
+    indexOffset = (batch->scratchpads[BUFFER_GEOMETRY].offset + cursor) / req->index.stride;
 
     if (req->index.pointer) {
       *req->index.pointer = batch->scratchpads[BUFFER_GEOMETRY].data + cursor;
@@ -2595,9 +2596,8 @@ static BatchDraw* lovrBatchDraw(Batch* batch, DrawRequest* req) {
 
   // DrawData
   DrawData* data = (DrawData*) (batch->scratchpads[BUFFER_DRAW_DATA].data + draw->index * sizeof(DrawData));
-  data->id = 0;
-  data->material = 0;
-  memcpy(data->color, batch->pipeline->color, sizeof(data->color));
+  memset(data, 0, 16);
+  memcpy(data->color, batch->pipeline->color, 16);
 
   return draw;
 }
