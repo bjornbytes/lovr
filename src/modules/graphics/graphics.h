@@ -398,6 +398,7 @@ void lovrBatchTransform(Batch* batch, float* transform);
 void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled);
 void lovrBatchSetBlendMode(Batch* batch, BlendMode mode, BlendAlphaMode alphaMode);
 void lovrBatchSetColorMask(Batch* batch, bool r, bool g, bool b, bool a);
+void lovrBatchSetColor(Batch* batch, float color[4]);
 void lovrBatchSetCullMode(Batch* batch, CullMode mode);
 void lovrBatchSetDepthTest(Batch* batch, CompareMode test);
 void lovrBatchSetDepthWrite(Batch* batch, bool write);

@@ -586,7 +586,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   gpu_slot builtins[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX, 1 }, // Camera
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Transforms
-    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 } // DrawData
+    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT, 1 } // DrawData
   };
 
   lookupLayout(builtins, COUNTOF(builtins));
@@ -1009,7 +1009,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     // FIXME this absolutely does not go here
     batch->groupCount = 1;
     batch->groups[0].dirty = 0xffff;
-    batch->groups[0].count = 1;
+    batch->groups[0].count = batch->drawCount;
 
     // Viewport
     if (batch->viewport[2] > 0.f && batch->viewport[3] > 0.f) {
@@ -2234,6 +2234,10 @@ void lovrBatchSetColorMask(Batch* batch, bool r, bool g, bool b, bool a) {
   uint8_t mask = (r << 0) | (g << 1) | (b << 2) | (a << 3);
   batch->pipeline->dirty |= batch->pipeline->info.colorMask != mask;
   batch->pipeline->info.colorMask = mask;
+}
+
+void lovrBatchSetColor(Batch* batch, float color[4]) {
+  memcpy(batch->pipeline->color, color, 4 * sizeof(float));
 }
 
 void lovrBatchSetCullMode(Batch* batch, CullMode mode) {
