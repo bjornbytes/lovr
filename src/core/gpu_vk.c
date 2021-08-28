@@ -585,7 +585,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
   };
 
   for (uint32_t i = 0; i < info->count; i++) {
-    layout->slotTypes[i] = types[info->slots[i].type];
+    layout->slotTypes[i] = info->slots[i].type;
     layout->slotLengths[i] = info->slots[i].count;
     layout->slotNumbers[i] = info->slots[i].number;
     bindings[i] = (VkDescriptorSetLayoutBinding) {
@@ -650,7 +650,7 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .pSetLayouts = layouts,
-    .pushConstantRangeCount = shader->type == VK_PIPELINE_BIND_POINT_GRAPHICS,
+    .pushConstantRangeCount = shader->type == VK_PIPELINE_BIND_POINT_GRAPHICS && info->pushConstantSize > 0,
     .pPushConstantRanges = &(VkPushConstantRange) {
       .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
       .offset = 0,
@@ -703,10 +703,22 @@ bool gpu_bunch_init(gpu_bunch* bunch, gpu_bunch_info* info) {
     }
   }
 
+  // Descriptor counts of zero are forbidden, so swap any zero-sized sizes with the last entry
+  uint32_t poolSizeCount = COUNTOF(sizes);
+  for (uint32_t i = 0; i < poolSizeCount; i++) {
+    if (sizes[i].descriptorCount == 0) {
+      VkDescriptorPoolSize last = sizes[poolSizeCount - 1];
+      sizes[poolSizeCount - 1] = sizes[i];
+      sizes[i] = last;
+      poolSizeCount--;
+      i--;
+    }
+  }
+
   VkDescriptorPoolCreateInfo poolInfo = {
     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
     .maxSets = info->count,
-    .poolSizeCount = COUNTOF(sizes),
+    .poolSizeCount = poolSizeCount,
     .pPoolSizes = sizes
   };
 
@@ -751,11 +763,20 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
   uint32_t textureCount = 0;
   uint32_t writeCount = 0;
 
+  static const VkDescriptorType types[] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+  };
+
   for (uint32_t i = 0; i < count; i++) {
     gpu_layout* layout = infos[i].layout;
     gpu_binding* binding = infos[i].bindings;
     for (uint32_t j = 0; j < layout->slotCount; j++) {
-      VkDescriptorType type = layout->slotTypes[j];
+      VkDescriptorType type = types[layout->slotTypes[j]];
       bool texture = type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
       uint32_t length = layout->slotLengths[j];
       uint32_t number = layout->slotNumbers[j];
@@ -1023,7 +1044,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
 
       VkVertexInputAttributeDescription vertexAttributes[COUNTOF(infos[i].attributes)];
       for (uint32_t j = 0; j < infos[i].attributeCount; j++) {
-        vertexAttributes[i] = (VkVertexInputAttributeDescription) {
+        vertexAttributes[j] = (VkVertexInputAttributeDescription) {
           .location = infos[i].attributes[j].location,
           .binding = infos[i].attributes[j].buffer,
           .format = vertexFormats[infos[i].attributes[j].format],
