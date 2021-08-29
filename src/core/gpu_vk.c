@@ -137,7 +137,8 @@ static struct {
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define TRY(f, s) if (!try(f, s))
 #define CHECK(c, s) if (!check(c, s))
-#define SCRATCHPAD_SIZE (32 * 1024 * 1024)
+#define TICK_MASK (COUNTOF(state.ticks) - 1)
+#define MORGUE_MASK (COUNTOF(state.morgue.data) - 1)
 #define HASH_SEED 2166136261
 #define QUERY_CHUNK 64
 
@@ -510,7 +511,7 @@ void gpu_texture_destroy(gpu_texture* texture) {
 }
 
 gpu_texture* gpu_surface_acquire(void) {
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   TRY(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &state.currentBackbuffer), "Surface image acquisition failed") return NULL;
   return &state.backbuffers[state.currentBackbuffer];
 }
@@ -1196,7 +1197,7 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
 // Stream
 
 gpu_stream* gpu_stream_begin() {
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   CHECK(state.streamCount < COUNTOF(tick->streams), "Too many streams") return NULL;
   gpu_stream* stream = &tick->streams[state.streamCount];
 
@@ -1506,7 +1507,7 @@ void gpu_label_pop(gpu_stream* stream) {
 void gpu_timer_write(gpu_stream* stream) {
   if (state.config.debug) {
     if (state.queryCount == 0) {
-      uint32_t queryIndex = (state.tick[CPU] & 0x3) * QUERY_CHUNK;
+      uint32_t queryIndex = (state.tick[CPU] & TICK_MASK) * QUERY_CHUNK;
       vkCmdResetQueryPool(stream->commands, state.queryPool, queryIndex, QUERY_CHUNK);
     }
 
@@ -1519,7 +1520,7 @@ void gpu_timer_gather(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset) {
     return;
   }
 
-  uint32_t queryIndex = (state.tick[CPU] & 0x3) * QUERY_CHUNK;
+  uint32_t queryIndex = (state.tick[CPU] & TICK_MASK) * QUERY_CHUNK;
   VkQueryResultFlags flags = VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT;
   vkCmdCopyQueryPoolResults(stream->commands, state.queryPool, queryIndex, state.queryCount, buffer->handle, offset, sizeof(uint64_t), flags);
 }
@@ -1940,7 +1941,7 @@ void gpu_destroy(void) {
 }
 
 uint32_t gpu_begin() {
-  gpu_tick* tick = &state.ticks[++state.tick[CPU] & 0x3];
+  gpu_tick* tick = &state.ticks[++state.tick[CPU] & TICK_MASK];
   TRY(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull), "Fence wait failed") return 0;
   TRY(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
   TRY(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return 0;
@@ -1952,7 +1953,7 @@ uint32_t gpu_begin() {
 }
 
 void gpu_submit(gpu_stream** streams, uint32_t count) {
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & 0x3];
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
 
   VkCommandBuffer commands[32];
   for (uint32_t i = 0; i < count; i++) {
@@ -2023,13 +2024,13 @@ static void condemn(void* handle, VkObjectType type) {
   if (!handle) return;
   gpu_morgue* morgue = &state.morgue;
   CHECK(morgue->head - morgue->tail != COUNTOF(morgue->data), "GPU morgue overflow") return; // TODO stall and expunge if morgue is full
-  morgue->data[morgue->head++ & 0xff] = (gpu_ref) { handle, type, state.tick[CPU] };
+  morgue->data[morgue->head++ & MORGUE_MASK] = (gpu_ref) { handle, type, state.tick[CPU] };
 }
 
 static void expunge() {
   gpu_morgue* morgue = &state.morgue;
-  while (morgue->tail != morgue->head && state.tick[GPU] >= morgue->data[morgue->tail & 0xff].tick) {
-    gpu_ref* victim = &morgue->data[morgue->tail++ & 0xff];
+  while (morgue->tail != morgue->head && state.tick[GPU] >= morgue->data[morgue->tail & MORGUE_MASK].tick) {
+    gpu_ref* victim = &morgue->data[morgue->tail++ & MORGUE_MASK];
     switch (victim->type) {
       case VK_OBJECT_TYPE_BUFFER: vkDestroyBuffer(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_IMAGE: vkDestroyImage(state.device, victim->handle, NULL); break;
