@@ -334,13 +334,6 @@ static int l_lovrBatchSetDepthClamp(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBatchSetShader(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  Shader* shader = lua_isnoneornil(L, 2) ? NULL : luax_checktype(L, 2, Shader);
-  lovrBatchSetShader(batch, shader);
-  return 0;
-}
-
 static int l_lovrBatchSetStencilTest(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   if (lua_isnoneornil(L, 2)) {
@@ -390,6 +383,13 @@ static int l_lovrBatchSetWireframe(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   bool wireframe = lua_toboolean(L, 2);
   lovrBatchSetWireframe(batch, wireframe);
+  return 0;
+}
+
+static int l_lovrBatchSetShader(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  Shader* shader = lua_isnoneornil(L, 2) ? NULL : luax_checktype(L, 2, Shader);
+  lovrBatchSetShader(batch, shader);
   return 0;
 }
 
@@ -465,12 +465,12 @@ const luaL_Reg lovrBatch[] = {
   { "setDepthWrite", l_lovrBatchSetDepthWrite },
   { "setDepthNudge", l_lovrBatchSetDepthNudge },
   { "setDepthClamp", l_lovrBatchSetDepthClamp },
-  { "setShader", l_lovrBatchSetShader },
   { "setStencilTest", l_lovrBatchSetStencilTest },
   { "setStencilWrite", l_lovrBatchSetStencilWrite },
   { "setWinding", l_lovrBatchSetWinding },
   { "setWireframe", l_lovrBatchSetWireframe },
 
+  { "setShader", l_lovrBatchSetShader },
   { "bind", l_lovrBatchBind },
 
   { "cube", l_lovrBatchCube },
