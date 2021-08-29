@@ -422,12 +422,48 @@ static int l_lovrBatchBind(lua_State* L) {
   return 0;
 }
 
+static int l_lovrBatchMesh(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  Buffer* vertices = luax_totype(L, 2, Buffer);
+  Buffer* indices = luax_totype(L, 3, Buffer);
+  float transform[16];
+  int index = indices ? 4 : 3;
+  index = luax_readmat4(L, index, transform, 1);
+  uint32_t start = luaL_optinteger(L, index++, 1) - 1;
+  uint32_t maxCount = lovrBufferGetInfo(indices ? indices : vertices)->length;
+  uint32_t count = luaL_optinteger(L, index++, maxCount);
+  uint32_t instances = luaL_optinteger(L, index++, 1);
+  lovrBatchMesh(batch, &(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .vertex.buffer = vertices,
+    .index.buffer = indices,
+    .start = start,
+    .count = count,
+    .instances = instances
+  }, transform);
+  return 0;
+}
+
+static int l_lovrBatchPoints(lua_State* L) {
+  //
+  return 0;
+}
+
 static int l_lovrBatchCube(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
   float transform[16];
   luax_readmat4(L, 3, transform, 1);
-  lovrBatchCube(batch, style, transform);
+  lovrBatchBox(batch, style, transform);
+  return 0;
+}
+
+static int l_lovrBatchBox(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
+  float transform[16];
+  luax_readmat4(L, 3, transform, 3);
+  lovrBatchBox(batch, style, transform);
   return 0;
 }
 
@@ -473,7 +509,10 @@ const luaL_Reg lovrBatch[] = {
   { "setShader", l_lovrBatchSetShader },
   { "bind", l_lovrBatchBind },
 
+  { "mesh", l_lovrBatchMesh },
+  { "points", l_lovrBatchPoints },
   { "cube", l_lovrBatchCube },
+  { "box", l_lovrBatchBox },
 
   { NULL, NULL }
 };

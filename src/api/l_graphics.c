@@ -321,7 +321,6 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
     .depth.format = FORMAT_D16,
     .depth.load = LOAD_CLEAR,
     .depth.clear = 1.f,
-    .depth.save = false,
     .samples = 4
   };
 
@@ -369,10 +368,6 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
           case LUA_TNUMBER: canvas.depth.clear = lua_tonumber(L, -1); break;
           default: lovrThrow("Expected boolean or number for depth clear");
         }
-        lua_pop(L, 1);
-
-        lua_getfield(L, -1, "save");
-        canvas.depth.save = lua_toboolean(L, -1);
         lua_pop(L, 1);
     }
     lua_pop(L, 1);
@@ -961,8 +956,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewShader(lua_State* L) {
-  const char* dynamicBuffers[64];
-  ShaderInfo info = { .dynamicBuffers = dynamicBuffers };
+  ShaderInfo info = { 0 };
   Blob* blobs[2] = { NULL, NULL };
 
   bool table = lua_istable(L, 2);
@@ -985,18 +979,6 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   if (table) {
     lua_getfield(L, 2, "label");
     info.label = lua_tostring(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "dynamicbuffers");
-    if (lua_istable(L, -1)) {
-      info.dynamicBufferCount = (uint32_t) luax_len(L, -1);
-      lovrAssert(info.dynamicBufferCount <= COUNTOF(dynamicBuffers), "Too many dynamic buffers (max is %d, got %d)", COUNTOF(dynamicBuffers), info.dynamicBufferCount);
-      for (uint32_t i = 0; i < info.dynamicBufferCount; i++) {
-        lua_rawgeti(L, -1, i + 1);
-        dynamicBuffers[i] = luaL_checkstring(L, -1);
-        lua_pop(L, 1);
-      }
-    }
     lua_pop(L, 1);
   }
 
