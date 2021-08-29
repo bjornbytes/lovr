@@ -307,47 +307,55 @@ typedef enum {
 } gpu_draw_mode;
 
 typedef enum {
-  GPU_FORMAT_I8,
-  GPU_FORMAT_U8,
-  GPU_FORMAT_I16,
-  GPU_FORMAT_U16,
-  GPU_FORMAT_I32,
-  GPU_FORMAT_U32,
-  GPU_FORMAT_F32,
-  GPU_FORMAT_I8x2,
-  GPU_FORMAT_U8x2,
-  GPU_FORMAT_I8Nx2,
-  GPU_FORMAT_U8Nx2,
-  GPU_FORMAT_I16x2,
-  GPU_FORMAT_U16x2,
-  GPU_FORMAT_I16Nx2,
-  GPU_FORMAT_U16Nx2,
-  GPU_FORMAT_I32x2,
-  GPU_FORMAT_U32x2,
-  GPU_FORMAT_F32x2,
-  GPU_FORMAT_U10Nx3,
-  GPU_FORMAT_I32x3,
-  GPU_FORMAT_U32x3,
-  GPU_FORMAT_F32x3,
-  GPU_FORMAT_I8x4,
-  GPU_FORMAT_U8x4,
-  GPU_FORMAT_I8Nx4,
-  GPU_FORMAT_U8Nx4,
-  GPU_FORMAT_I16x4,
-  GPU_FORMAT_U16x4,
-  GPU_FORMAT_I16Nx4,
-  GPU_FORMAT_U16Nx4,
-  GPU_FORMAT_I32x4,
-  GPU_FORMAT_U32x4,
-  GPU_FORMAT_F32x4
-} gpu_attribute_format;
+  GPU_TYPE_I8,
+  GPU_TYPE_U8,
+  GPU_TYPE_I16,
+  GPU_TYPE_U16,
+  GPU_TYPE_I32,
+  GPU_TYPE_U32,
+  GPU_TYPE_F32,
+  GPU_TYPE_I8x2,
+  GPU_TYPE_U8x2,
+  GPU_TYPE_I8Nx2,
+  GPU_TYPE_U8Nx2,
+  GPU_TYPE_I16x2,
+  GPU_TYPE_U16x2,
+  GPU_TYPE_I16Nx2,
+  GPU_TYPE_U16Nx2,
+  GPU_TYPE_I32x2,
+  GPU_TYPE_U32x2,
+  GPU_TYPE_F32x2,
+  GPU_TYPE_U10Nx3,
+  GPU_TYPE_I32x3,
+  GPU_TYPE_U32x3,
+  GPU_TYPE_F32x3,
+  GPU_TYPE_I8x4,
+  GPU_TYPE_U8x4,
+  GPU_TYPE_I8Nx4,
+  GPU_TYPE_U8Nx4,
+  GPU_TYPE_I16x4,
+  GPU_TYPE_U16x4,
+  GPU_TYPE_I16Nx4,
+  GPU_TYPE_U16Nx4,
+  GPU_TYPE_I32x4,
+  GPU_TYPE_U32x4,
+  GPU_TYPE_F32x4
+} gpu_type;
 
 typedef struct {
-  uint8_t location;
   uint8_t buffer;
-  uint8_t format;
+  uint8_t location;
   uint8_t offset;
-} gpu_vertex_attribute;
+  uint8_t type;
+} gpu_attribute;
+
+typedef struct {
+  uint32_t bufferCount;
+  uint32_t attributeCount;
+  uint16_t instancedBuffers;
+  uint16_t bufferStrides[16];
+  gpu_attribute attributes[16];
+} gpu_vertex_format;
 
 typedef enum {
   GPU_CULL_NONE,
@@ -430,11 +438,7 @@ typedef struct {
   gpu_pass* pass;
   gpu_shader* shader;
   gpu_draw_mode drawMode;
-  uint16_t vertexBufferCount;
-  uint16_t instancedBufferMask;
-  uint16_t bufferStrides[16];
-  uint16_t attributeCount;
-  gpu_vertex_attribute attributes[16];
+  gpu_vertex_format vertex;
   gpu_rasterizer_state rasterizer;
   gpu_depth_state depth;
   gpu_stencil_state stencil;

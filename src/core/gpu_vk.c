@@ -940,40 +940,40 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
     [GPU_DRAW_TRIANGLES] = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
   };
 
-  static const VkFormat vertexFormats[] = {
-    [GPU_FORMAT_I8] = VK_FORMAT_R8_SINT,
-    [GPU_FORMAT_U8] = VK_FORMAT_R8_UINT,
-    [GPU_FORMAT_I16] = VK_FORMAT_R16_SINT,
-    [GPU_FORMAT_U16] = VK_FORMAT_R16_UINT,
-    [GPU_FORMAT_I32] = VK_FORMAT_R32_SINT,
-    [GPU_FORMAT_U32] = VK_FORMAT_R32_UINT,
-    [GPU_FORMAT_F32] = VK_FORMAT_R32_SFLOAT,
-    [GPU_FORMAT_I8x2] = VK_FORMAT_R8G8_SINT,
-    [GPU_FORMAT_U8x2] = VK_FORMAT_R8G8_UINT,
-    [GPU_FORMAT_I8Nx2] = VK_FORMAT_R8G8_SNORM,
-    [GPU_FORMAT_U8Nx2] = VK_FORMAT_R8G8_UNORM,
-    [GPU_FORMAT_I16x2] = VK_FORMAT_R16G16_SINT,
-    [GPU_FORMAT_U16x2] = VK_FORMAT_R16G16_UINT,
-    [GPU_FORMAT_I16Nx2] = VK_FORMAT_R16G16_SNORM,
-    [GPU_FORMAT_U16Nx2] = VK_FORMAT_R16G16_UNORM,
-    [GPU_FORMAT_I32x2] = VK_FORMAT_R32G32_SINT,
-    [GPU_FORMAT_U32x2] = VK_FORMAT_R32G32_UINT,
-    [GPU_FORMAT_F32x2] = VK_FORMAT_R32G32_SFLOAT,
-    [GPU_FORMAT_U10Nx3] = VK_FORMAT_A2B10G10R10_UNORM_PACK32,
-    [GPU_FORMAT_I32x3] = VK_FORMAT_R32G32B32_SINT,
-    [GPU_FORMAT_U32x3] = VK_FORMAT_R32G32B32_UINT,
-    [GPU_FORMAT_F32x3] = VK_FORMAT_R32G32B32_SFLOAT,
-    [GPU_FORMAT_I8x4] = VK_FORMAT_R8G8B8A8_SINT,
-    [GPU_FORMAT_U8x4] = VK_FORMAT_R8G8B8A8_UINT,
-    [GPU_FORMAT_I8Nx4] = VK_FORMAT_R8G8B8A8_SNORM,
-    [GPU_FORMAT_U8Nx4] = VK_FORMAT_R8G8B8A8_UNORM,
-    [GPU_FORMAT_I16x4] = VK_FORMAT_R16G16B16A16_SINT,
-    [GPU_FORMAT_U16x4] = VK_FORMAT_R16G16B16A16_UINT,
-    [GPU_FORMAT_I16Nx4] = VK_FORMAT_R16G16B16A16_SNORM,
-    [GPU_FORMAT_U16Nx4] = VK_FORMAT_R16G16B16A16_UNORM,
-    [GPU_FORMAT_I32x4] = VK_FORMAT_R32G32B32A32_SINT,
-    [GPU_FORMAT_U32x4] = VK_FORMAT_R32G32B32A32_UINT,
-    [GPU_FORMAT_F32x4] = VK_FORMAT_R32G32B32A32_SFLOAT
+  static const VkFormat attributeTypes[] = {
+    [GPU_TYPE_I8] = VK_FORMAT_R8_SINT,
+    [GPU_TYPE_U8] = VK_FORMAT_R8_UINT,
+    [GPU_TYPE_I16] = VK_FORMAT_R16_SINT,
+    [GPU_TYPE_U16] = VK_FORMAT_R16_UINT,
+    [GPU_TYPE_I32] = VK_FORMAT_R32_SINT,
+    [GPU_TYPE_U32] = VK_FORMAT_R32_UINT,
+    [GPU_TYPE_F32] = VK_FORMAT_R32_SFLOAT,
+    [GPU_TYPE_I8x2] = VK_FORMAT_R8G8_SINT,
+    [GPU_TYPE_U8x2] = VK_FORMAT_R8G8_UINT,
+    [GPU_TYPE_I8Nx2] = VK_FORMAT_R8G8_SNORM,
+    [GPU_TYPE_U8Nx2] = VK_FORMAT_R8G8_UNORM,
+    [GPU_TYPE_I16x2] = VK_FORMAT_R16G16_SINT,
+    [GPU_TYPE_U16x2] = VK_FORMAT_R16G16_UINT,
+    [GPU_TYPE_I16Nx2] = VK_FORMAT_R16G16_SNORM,
+    [GPU_TYPE_U16Nx2] = VK_FORMAT_R16G16_UNORM,
+    [GPU_TYPE_I32x2] = VK_FORMAT_R32G32_SINT,
+    [GPU_TYPE_U32x2] = VK_FORMAT_R32G32_UINT,
+    [GPU_TYPE_F32x2] = VK_FORMAT_R32G32_SFLOAT,
+    [GPU_TYPE_U10Nx3] = VK_FORMAT_A2B10G10R10_UNORM_PACK32,
+    [GPU_TYPE_I32x3] = VK_FORMAT_R32G32B32_SINT,
+    [GPU_TYPE_U32x3] = VK_FORMAT_R32G32B32_UINT,
+    [GPU_TYPE_F32x3] = VK_FORMAT_R32G32B32_SFLOAT,
+    [GPU_TYPE_I8x4] = VK_FORMAT_R8G8B8A8_SINT,
+    [GPU_TYPE_U8x4] = VK_FORMAT_R8G8B8A8_UINT,
+    [GPU_TYPE_I8Nx4] = VK_FORMAT_R8G8B8A8_SNORM,
+    [GPU_TYPE_U8Nx4] = VK_FORMAT_R8G8B8A8_UNORM,
+    [GPU_TYPE_I16x4] = VK_FORMAT_R16G16B16A16_SINT,
+    [GPU_TYPE_U16x4] = VK_FORMAT_R16G16B16A16_UINT,
+    [GPU_TYPE_I16Nx4] = VK_FORMAT_R16G16B16A16_SNORM,
+    [GPU_TYPE_U16Nx4] = VK_FORMAT_R16G16B16A16_UNORM,
+    [GPU_TYPE_I32x4] = VK_FORMAT_R32G32B32A32_SINT,
+    [GPU_TYPE_U32x4] = VK_FORMAT_R32G32B32A32_UINT,
+    [GPU_TYPE_F32x4] = VK_FORMAT_R32G32B32A32_SFLOAT
   };
 
   static const VkCullModeFlagBits cullModes[] = {
@@ -1036,29 +1036,29 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
 
     for (uint32_t i = 0; i < chunk; i++) {
       VkVertexInputBindingDescription vertexBuffers[16];
-      for (uint32_t j = 0; j < infos[i].vertexBufferCount; j++) {
+      for (uint32_t j = 0; j < infos[i].vertex.bufferCount; j++) {
         vertexBuffers[j] = (VkVertexInputBindingDescription) {
           .binding = j,
-          .stride = infos[i].bufferStrides[j],
-          .inputRate = (infos[i].instancedBufferMask & (1 << j)) ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX
+          .stride = infos[i].vertex.bufferStrides[j],
+          .inputRate = (infos[i].vertex.instancedBuffers & (1 << j)) ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX
         };
       }
 
-      VkVertexInputAttributeDescription vertexAttributes[COUNTOF(infos[i].attributes)];
-      for (uint32_t j = 0; j < infos[i].attributeCount; j++) {
+      VkVertexInputAttributeDescription vertexAttributes[COUNTOF(infos[i].vertex.attributes)];
+      for (uint32_t j = 0; j < infos[i].vertex.attributeCount; j++) {
         vertexAttributes[j] = (VkVertexInputAttributeDescription) {
-          .location = infos[i].attributes[j].location,
-          .binding = infos[i].attributes[j].buffer,
-          .format = vertexFormats[infos[i].attributes[j].format],
-          .offset = infos[i].attributes[j].offset
+          .location = infos[i].vertex.attributes[j].location,
+          .binding = infos[i].vertex.attributes[j].buffer,
+          .format = attributeTypes[infos[i].vertex.attributes[j].type],
+          .offset = infos[i].vertex.attributes[j].offset
         };
       }
 
       VkPipelineVertexInputStateCreateInfo vertexInput = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = infos[i].vertexBufferCount,
+        .vertexBindingDescriptionCount = infos[i].vertex.bufferCount,
         .pVertexBindingDescriptions = vertexBuffers,
-        .vertexAttributeDescriptionCount = infos[i].attributeCount,
+        .vertexAttributeDescriptionCount = infos[i].vertex.attributeCount,
         .pVertexAttributeDescriptions = vertexAttributes
       };
 
@@ -1342,7 +1342,7 @@ void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, uint32_t group,
 }
 
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count) {
-  VkBuffer handles[COUNTOF(((gpu_pipeline_info*) NULL)->bufferStrides)];
+  VkBuffer handles[COUNTOF(((gpu_pipeline_info*) NULL)->vertex.bufferStrides)];
   uint64_t offsets64[COUNTOF(handles)];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
@@ -1679,9 +1679,9 @@ bool gpu_init(gpu_config* config) {
       config->limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
       config->limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
       config->limits->storageBufferAlign = deviceLimits->minStorageBufferOffsetAlignment;
-      config->limits->vertexAttributes = MIN(deviceLimits->maxVertexInputAttributes, COUNTOF(((gpu_pipeline_info*) NULL)->attributes));
+      config->limits->vertexAttributes = MIN(deviceLimits->maxVertexInputAttributes, COUNTOF(((gpu_pipeline_info*) NULL)->vertex.attributes));
       config->limits->vertexAttributeOffset = MIN(deviceLimits->maxVertexInputAttributeOffset, UINT8_MAX);
-      config->limits->vertexBuffers = MIN(deviceLimits->maxVertexInputBindings, COUNTOF(((gpu_pipeline_info*) NULL)->bufferStrides));
+      config->limits->vertexBuffers = MIN(deviceLimits->maxVertexInputBindings, COUNTOF(((gpu_pipeline_info*) NULL)->vertex.bufferStrides));
       config->limits->vertexBufferStride = MIN(deviceLimits->maxVertexInputBindingStride, UINT16_MAX);
       config->limits->vertexShaderOutputs = deviceLimits->maxVertexOutputComponents;
       config->limits->computeCount[0] = deviceLimits->maxComputeWorkGroupCount[0];

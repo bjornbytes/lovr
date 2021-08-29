@@ -81,7 +81,6 @@ typedef struct {
   uint32_t format;
   LoadAction load;
   float clear;
-  bool save;
 } DepthBuffer;
 
 typedef struct {
@@ -290,16 +289,34 @@ typedef enum {
   SHADER_COMPUTE
 } ShaderType;
 
+typedef enum {
+  FLAG_B32,
+  FLAG_I32,
+  FLAG_U32
+} FlagType;
+
+typedef struct {
+  uint32_t id;
+  const char* name;
+  FlagType type;
+  union {
+    uint32_t b32;
+    int32_t i32;
+    uint32_t u32;
+  } value;
+} ShaderFlag;
+
 typedef struct {
   ShaderType type;
   const void* source[2];
   uint32_t length[2];
-  const char** dynamicBuffers;
-  uint32_t dynamicBufferCount;
+  ShaderFlag flags[32];
+  uint32_t flagCount;
   const char* label;
 } ShaderInfo;
 
 Shader* lovrShaderCreate(ShaderInfo* info);
+Shader* lovrShaderClone(Shader* shader, ShaderFlag* flags, uint32_t count);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
@@ -346,12 +363,6 @@ typedef enum {
 } CullMode;
 
 typedef enum {
-  DRAW_POINTS,
-  DRAW_LINES,
-  DRAW_TRIANGLES
-} DrawMode;
-
-typedef enum {
   STENCIL_KEEP,
   STENCIL_ZERO,
   STENCIL_REPLACE,
@@ -368,6 +379,41 @@ typedef enum {
 } Winding;
 
 typedef enum {
+  DRAW_POINTS,
+  DRAW_LINES,
+  DRAW_TRIANGLES
+} DrawMode;
+
+typedef enum {
+  VERTEX_STANDARD,
+  VERTEX_POSITION,
+  VERTEX_EMPTY,
+  VERTEX_FORMAT_COUNT
+} VertexFormat;
+
+typedef struct {
+  DrawMode mode;
+  struct {
+    Buffer* buffer;
+    VertexFormat format;
+    void* data;
+    void** pointer;
+    uint32_t size;
+  } vertex;
+  struct {
+    Buffer* buffer;
+    void* data;
+    void** pointer;
+    uint32_t size;
+    uint32_t stride;
+  } index;
+  uint32_t start;
+  uint32_t count;
+  uint32_t instances;
+  uint32_t base;
+} DrawInfo;
+
+typedef enum {
   DRAW_LINE,
   DRAW_FILL
 } DrawStyle;
@@ -380,6 +426,7 @@ uint32_t lovrBatchGetCount(Batch* batch);
 void lovrBatchBegin(Batch* batch);
 void lovrBatchFinish(Batch* batch);
 bool lovrBatchIsActive(Batch* batch);
+
 void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]);
 void lovrBatchSetViewport(Batch* batch, float viewport[4], float depthRange[2]);
 void lovrBatchGetScissor(Batch* batch, uint32_t scissor[4]);
@@ -388,6 +435,7 @@ void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix);
 void lovrBatchSetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix);
 void lovrBatchGetProjection(Batch* batch, uint32_t index, float* projection);
 void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection);
+
 void lovrBatchPush(Batch* batch, StackType type);
 void lovrBatchPop(Batch* batch, StackType type);
 void lovrBatchOrigin(Batch* batch);
@@ -395,6 +443,7 @@ void lovrBatchTranslate(Batch* batch, float* translation);
 void lovrBatchRotate(Batch* batch, float* rotation);
 void lovrBatchScale(Batch* batch, float* scale);
 void lovrBatchTransform(Batch* batch, float* transform);
+
 void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled);
 void lovrBatchSetBlendMode(Batch* batch, BlendMode mode, BlendAlphaMode alphaMode);
 void lovrBatchSetColorMask(Batch* batch, bool r, bool g, bool b, bool a);
@@ -408,6 +457,18 @@ void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value, uint
 void lovrBatchSetStencilWrite(Batch* batch, StencilAction actions[3], uint8_t value, uint8_t mask);
 void lovrBatchSetWinding(Batch* batch, Winding winding);
 void lovrBatchSetWireframe(Batch* batch, bool wireframe);
+
 void lovrBatchSetShader(Batch* batch, Shader* shader);
 void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture);
-void lovrBatchCube(Batch* batch, DrawStyle style, float* transform);
+
+void lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform);
+void lovrBatchPoints(Batch* batch, uint32_t count, float** positions);
+void lovrBatchLine(Batch* batch, uint32_t count, float** positions);
+void lovrBatchPlane(Batch* batch, DrawStyle style, float* transform);
+void lovrBatchBox(Batch* batch, DrawStyle style, float* transform);
+void lovrBatchCircle(Batch* batch, DrawStyle style, float* transform);
+void lovrBatchArc(Batch* batch, DrawStyle style, float* transform);
+void lovrBatchSphere(Batch* batch, float* transform, uint32_t detail);
+void lovrBatchCylinder(Batch* batch, float* transform, float r1, float r2, bool capped, uint32_t detail);
+void lovrBatchSkybox(Batch* batch, Texture* texture);
+void lovrBatchFill(Batch* batch);
