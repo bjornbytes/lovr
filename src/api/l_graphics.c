@@ -291,7 +291,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
         }
         case LUA_TTABLE:
           lua_rawgeti(L, -1, 1);
-          lua_rawgeti(L, -1, 2);
+          lua_rawgeti(L, -2, 2);
           uint32_t idx = info->fieldCount++;
           if (lua_type(L, -2) == LUA_TNUMBER) {
             info->locations[idx] = lua_tointeger(L, -2);
@@ -588,7 +588,7 @@ static int l_lovrGraphicsRender(lua_State* L) {
   if (lua_type(L, 2) == LUA_TFUNCTION) {
     batch = lovrGraphicsGetBatch(&(BatchInfo) {
       .capacity = 1024,
-      .scratchMemory = 1 << 18,
+      .scratchMemory = 1 << 16,
       .canvas = canvas
     });
     lua_settop(L, 2);
@@ -1009,7 +1009,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetBatch(lua_State* L) {
-  BatchInfo info = { .scratchMemory = 1 << 18 };
+  BatchInfo info = { .scratchMemory = 1 << 16 };
 
   if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "compute")) {
     info.type = BATCH_COMPUTE;
