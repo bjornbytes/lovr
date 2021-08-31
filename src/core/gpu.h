@@ -537,18 +537,15 @@ typedef struct {
 typedef struct {
   bool bptc;
   bool astc;
-  bool pointSize;
   bool wireframe;
-  bool multiblend;
-  bool anisotropy;
   bool depthClamp;
-  bool depthOffsetClamp;
   bool clipDistance;
   bool cullDistance;
   bool fullIndexBufferRange;
   bool indirectDrawFirstInstance;
   bool extraShaderInputs;
   bool dynamicIndexing;
+  bool nonUniformIndexing;
   bool float64;
   bool int64;
   bool int16;
@@ -560,25 +557,22 @@ typedef struct {
   uint32_t textureSize3D;
   uint32_t textureSizeCube;
   uint32_t textureLayers;
-  uint32_t renderSize[2];
-  uint32_t renderViews;
-  uint32_t bundleCount;
+  uint32_t renderSize[3];
   uint32_t uniformBufferRange;
   uint32_t storageBufferRange;
   uint32_t uniformBufferAlign;
   uint32_t storageBufferAlign;
   uint32_t vertexAttributes;
-  uint32_t vertexAttributeOffset;
   uint32_t vertexBuffers;
   uint32_t vertexBufferStride;
   uint32_t vertexShaderOutputs;
-  uint32_t computeCount[3];
-  uint32_t computeGroupSize[3];
-  uint32_t computeGroupVolume;
+  uint32_t computeDispatchCount[3];
+  uint32_t computeWorkgroupSize[3];
+  uint32_t computeWorkgroupVolume;
   uint32_t computeSharedMemory;
   uint32_t indirectDrawCount;
-  uint32_t pointSize[2];
   float anisotropy;
+  float pointSize;
 } gpu_limits;
 
 typedef struct {

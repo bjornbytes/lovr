@@ -691,7 +691,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   lovrCheck(state.geometryBuffer->hash == state.vertexFormatHash[VERTEX_STANDARD], "Unreachable");
 
   uint32_t offset = 0;
-  state.baseVertex[SHAPE_CUBE] = (state.geometryBuffer->mega.offset + offset) / sizeof(Vertex), offset += sizeof(cube);
+  state.baseVertex[SHAPE_CUBE] = offset / sizeof(Vertex), offset += sizeof(cube);
 
   Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, vertexCount * sizeof(Vertex), 4);
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
@@ -765,12 +765,8 @@ void lovrGraphicsGetHardware(GraphicsHardware* hardware) {
 void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->bptc = state.features.bptc;
   features->astc = state.features.astc;
-  features->pointSize = state.features.pointSize;
   features->wireframe = state.features.wireframe;
-  features->multiblend = state.features.multiblend;
-  features->anisotropy = state.features.anisotropy;
   features->depthClamp = state.features.depthClamp;
-  features->depthNudgeClamp = state.features.depthOffsetClamp;
   features->clipDistance = state.features.clipDistance;
   features->cullDistance = state.features.cullDistance;
   features->fullIndexBufferRange = state.features.fullIndexBufferRange;
@@ -787,27 +783,24 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->textureSize3D = state.limits.textureSize3D;
   limits->textureSizeCube = state.limits.textureSizeCube;
   limits->textureLayers = state.limits.textureLayers;
-  limits->renderWidth = state.limits.renderSize[0];
-  limits->renderHeight = state.limits.renderSize[1];
-  limits->renderViews = MIN(state.limits.renderViews, 6);
-  limits->bundleCount = state.limits.bundleCount;
+  limits->renderSize[0] = state.limits.renderSize[0];
+  limits->renderSize[1] = state.limits.renderSize[1];
+  limits->renderSize[2] = MIN(state.limits.renderSize[2], 6);
   limits->uniformBufferRange = state.limits.uniformBufferRange;
   limits->storageBufferRange = state.limits.storageBufferRange;
   limits->uniformBufferAlign = state.limits.uniformBufferAlign;
   limits->storageBufferAlign = state.limits.storageBufferAlign;
   limits->vertexAttributes = state.limits.vertexAttributes;
-  limits->vertexAttributeOffset = state.limits.vertexAttributeOffset;
   limits->vertexBuffers = state.limits.vertexBuffers;
   limits->vertexBufferStride = state.limits.vertexBufferStride;
   limits->vertexShaderOutputs = state.limits.vertexShaderOutputs;
-  memcpy(limits->computeCount, state.limits.computeCount, 3 * sizeof(uint32_t));
-  memcpy(limits->computeGroupSize, state.limits.computeGroupSize, 3 * sizeof(uint32_t));
-  limits->computeGroupVolume = state.limits.computeGroupVolume;
+  memcpy(limits->computeDispatchCount, state.limits.computeDispatchCount, 3 * sizeof(uint32_t));
+  memcpy(limits->computeWorkgroupSize, state.limits.computeWorkgroupSize, 3 * sizeof(uint32_t));
+  limits->computeWorkgroupVolume = state.limits.computeWorkgroupVolume;
   limits->computeSharedMemory = state.limits.computeSharedMemory;
   limits->indirectDrawCount = state.limits.indirectDrawCount;
-  limits->pointSize[0] = state.limits.pointSize[0];
-  limits->pointSize[1] = state.limits.pointSize[1];
   limits->anisotropy = state.limits.anisotropy;
+  limits->pointSize = state.limits.pointSize;
 }
 
 void lovrGraphicsGetBackgroundColor(float background[4]) {
@@ -929,9 +922,9 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   // Validate Canvas
   const TextureInfo* main = canvas->textures[0] ? &canvas->textures[0]->info : &canvas->depth.texture->info;
   lovrCheck(canvas->textures[0] || canvas->depth.texture, "Canvas must have at least one color or depth texture");
-  lovrCheck(main->width <= state.limits.renderSize[0], "Canvas width (%d) exceeds the renderWidth limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
-  lovrCheck(main->height <= state.limits.renderSize[1], "Canvas height (%d) exceeds the renderHeight limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
-  lovrCheck(main->depth <= state.limits.renderViews, "Canvas view count (%d) exceeds the renderViews limit of this GPU (%d)", main->depth, state.limits.renderViews);
+  lovrCheck(main->width <= state.limits.renderSize[0], "Canvas width (%d) exceeds the renderSize limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
+  lovrCheck(main->height <= state.limits.renderSize[1], "Canvas height (%d) exceeds the renderSize limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
+  lovrCheck(main->depth <= state.limits.renderSize[2], "Canvas view count (%d) exceeds the renderSize limit of this GPU (%d)", main->depth, state.limits.renderSize[2]);
   lovrCheck((canvas->samples & (canvas->samples - 1)) == 0, "Canvas sample count must be a power of 2");
 
   // Validate color attachments
@@ -1552,6 +1545,7 @@ void lovrTextureGenerateMipmaps(Texture* texture) {
 
 Sampler* lovrSamplerCreate(SamplerInfo* info) {
   lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
+  lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds limits.anisotropy (%f)", info->anisotropy, state.limits.anisotropy);
 
   Sampler* sampler = calloc(1, sizeof(Sampler) + gpu_sizeof_sampler());
   lovrAssert(sampler, "Out of memory");
@@ -1567,7 +1561,7 @@ Sampler* lovrSamplerCreate(SamplerInfo* info) {
     .wrap[1] = (gpu_wrap) info->wrap[1],
     .wrap[2] = (gpu_wrap) info->wrap[2],
     .compare = (gpu_compare_mode) info->compare,
-    .anisotropy = state.features.anisotropy ? MIN(info->anisotropy, state.limits.anisotropy) : 0.f,
+    .anisotropy = MIN(info->anisotropy, state.limits.anisotropy),
     .lodClamp = { info->range[0], info->range[1] }
   };
 
@@ -1582,7 +1576,7 @@ Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type) {
     .mag = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
     .mip = type >= SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
     .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
-    .anisotropy = (type == SAMPLER_ANISOTROPIC && state.features.anisotropy) ? MIN(2.f, state.limits.anisotropy) : 0.f
+    .anisotropy = type == SAMPLER_ANISOTROPIC ? MIN(2.f, state.limits.anisotropy) : 0.f
   });
 }
 
@@ -1652,7 +1646,7 @@ static bool checkShaderCapability(uint32_t capability) {
     case 70: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multiviewport");
     case 4427: lovrCheck(state.features.extraShaderInputs, "GPU does not support shader feature #%d: %s", capability, "extra shader inputs"); break;
     case 4437: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multigpu");
-    case 4439: lovrCheck(state.limits.renderViews > 1, "GPU does not support shader feature #%d: %s", capability, "multiview"); break;
+    case 4439: lovrCheck(state.limits.renderSize[2] > 1, "GPU does not support shader feature #%d: %s", capability, "multiview"); break;
     case 5301: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
     case 5306: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
     case 5307: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
@@ -2288,14 +2282,14 @@ void lovrBatchSetDepthWrite(Batch* batch, bool write) {
   batch->pipeline->info.depth.write = write;
 }
 
-void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped, float clamp) {
+void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped) {
   batch->pipeline->info.rasterizer.depthOffset = nudge;
   batch->pipeline->info.rasterizer.depthOffsetSloped = sloped;
-  batch->pipeline->info.rasterizer.depthOffsetClamp = clamp;
   batch->pipeline->dirty = true;
 }
 
 void lovrBatchSetDepthClamp(Batch* batch, bool clamp) {
+  lovrCheck(!clamp || state.features.depthClamp, "This GPU does not support depth clamp");
   batch->pipeline->dirty |= batch->pipeline->info.rasterizer.depthClamp != clamp;
   batch->pipeline->info.rasterizer.depthClamp = clamp;
 }
@@ -2341,6 +2335,7 @@ void lovrBatchSetWinding(Batch* batch, Winding winding) {
 }
 
 void lovrBatchSetWireframe(Batch* batch, bool wireframe) {
+  lovrCheck(!wireframe || state.features.wireframe, "This GPU does not support wireframe");
   batch->pipeline->dirty |= batch->pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
   batch->pipeline->info.rasterizer.wireframe = wireframe;
 }
@@ -2396,6 +2391,7 @@ void lovrBatchSetShader(Batch* batch, Shader* shader) {
 
   lovrRetain(shader);
   lovrRelease(previous, lovrShaderDestroy);
+
   batch->pipeline->shader = shader;
   batch->pipeline->info.shader = shader ? shader->gpu : NULL;
   batch->pipeline->dirty = true;
@@ -2545,21 +2541,28 @@ void lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
 
   // Vertices
   uint32_t vertexOffset;
+  uint32_t vertexStride = vertexFormat->bufferStrides[0];
   if (info->vertex.buffer) {
     draw->key.bits.vertex = info->vertex.buffer->mega.index;
-    vertexOffset = info->vertex.buffer->mega.offset / vertexFormat->bufferStrides[0];
+    vertexOffset = info->vertex.buffer->mega.offset / vertexStride;
   } else {
     draw->key.bits.vertex = batch->buffers[BUFFER_GEOMETRY].index;
 
-    uint32_t cursor = ALIGN(batch->geometryCursor, vertexFormat->bufferStrides[0]); // TODO PO2 AAAA!
-    lovrCheck(cursor + info->vertex.size <= batch->info.scratchMemory, "Out of vertex data memory");
-    batch->geometryCursor = cursor + info->vertex.size;
-    vertexOffset = cursor / vertexFormat->bufferStrides[0];
+    // AAAAAAAAAA halp
+    uint32_t cursor = batch->buffers[BUFFER_GEOMETRY].offset + batch->geometryCursor;
+    if (cursor % vertexStride != 0) {
+      cursor += vertexStride - cursor % vertexStride;
+    }
+    cursor -= batch->buffers[BUFFER_GEOMETRY].offset;
+
+    lovrCheck(cursor + info->vertex.count * vertexStride <= batch->info.scratchMemory, "Out of vertex data memory");
+    batch->geometryCursor = cursor + info->vertex.count * vertexStride;
+    vertexOffset = (batch->buffers[BUFFER_GEOMETRY].offset + cursor) / vertexStride;
 
     if (info->vertex.pointer) {
       *info->vertex.pointer = batch->scratchpads[BUFFER_GEOMETRY].data + cursor;
     } else {
-      memcpy(batch->scratchpads[BUFFER_GEOMETRY].data + cursor, info->vertex.data, info->vertex.size);
+      memcpy(batch->scratchpads[BUFFER_GEOMETRY].data + cursor, info->vertex.data, info->vertex.count * vertexStride);
     }
   }
 
@@ -2568,18 +2571,20 @@ void lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
   if (info->index.buffer) {
     draw->key.bits.index = info->index.buffer->mega.index;
     indexOffset = info->index.buffer->mega.offset / info->index.stride;
-  } else if (info->index.size > 0) {
+  } else if (info->index.count > 0) {
     draw->key.bits.index = batch->buffers[BUFFER_GEOMETRY].index;
 
+    // Since the index stride is a power of 2, and vertex strides are always divisible by 4, it's
+    // safe to use faster PO2 alignment here.
     uint32_t cursor = ALIGN(batch->geometryCursor, info->index.stride);
-    lovrCheck(cursor + info->index.size <= batch->info.scratchMemory, "Out of index data memory");
+    lovrCheck(cursor + info->index.count * info->index.stride <= batch->info.scratchMemory, "Out of index data memory");
     indexOffset = (batch->scratchpads[BUFFER_GEOMETRY].offset + cursor) / info->index.stride;
-    batch->geometryCursor = cursor + info->index.size;
+    batch->geometryCursor = cursor + info->index.count * info->index.stride;
 
     if (info->index.pointer) {
       *info->index.pointer = batch->scratchpads[BUFFER_GEOMETRY].data + cursor;
     } else {
-      memcpy(batch->scratchpads[BUFFER_GEOMETRY].data + cursor, info->index.data, info->index.size);
+      memcpy(batch->scratchpads[BUFFER_GEOMETRY].data + cursor, info->index.data, info->index.count * info->index.stride);
     }
   }
 
@@ -2603,11 +2608,11 @@ void lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
   draw->flags |= (info->vertex.buffer || info->vertex.pointer || info->vertex.data) ? DRAW_VERTEXED : 0;
   bool indexed = (info->index.buffer || info->index.pointer || info->index.data);
   draw->flags |= indexed ? DRAW_INDEXED : 0;
-  draw->flags |= (info->index.size == 4) << DRAW_INDEX32;
+  draw->flags |= (info->index.stride == 4) << DRAW_INDEX32;
   draw->start = info->start + (indexed ? indexOffset : vertexOffset);
   draw->count = info->count;
   draw->instances = MAX(info->instances, 1);
-  draw->base = info->base;
+  draw->base = indexed ? (info->base + vertexOffset) : 0;
 
   // Transform
   if (transform) {
@@ -2625,6 +2630,38 @@ void lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
   memcpy(data->color, batch->pipeline->color, 16);
 }
 
+void lovrBatchPoints(Batch* batch, uint32_t count, float** vertices) {
+  lovrBatchMesh(batch, &(DrawInfo) {
+    .mode = DRAW_POINTS,
+    .vertex.format = VERTEX_POSITION,
+    .vertex.pointer = (void**) vertices,
+    .vertex.count = count,
+    .count = count
+  }, NULL);
+}
+
+void lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
+  uint16_t* indices;
+
+  lovrBatchMesh(batch, &(DrawInfo) {
+    .mode = DRAW_LINES,
+    .vertex.pointer = (void**) vertices,
+    .vertex.count = count,
+    .index.pointer = (void**) &indices,
+    .index.count = 2 * (count - 1),
+    .index.stride = sizeof(*indices)
+  }, NULL);
+
+  for (uint32_t i = 0; i < count; i++) {
+    indices[2 * i + 0] = i;
+    indices[2 * i + 1] = i + 1;
+  }
+}
+
+void lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
+  lovrThrow("TODO");
+}
+
 void lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
   uint16_t indices[] = {
      0,  1,  2,  2,  1,  3,
@@ -2639,9 +2676,45 @@ void lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.geometryBuffer,
     .index.data = indices,
-    .index.size = sizeof(indices),
+    .index.count = COUNTOF(indices),
     .index.stride = sizeof(uint16_t),
     .count = COUNTOF(indices),
     .base = state.baseVertex[SHAPE_CUBE]
   }, transform);
+}
+
+void lovrBatchCircle(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
+  lovrThrow("TODO");
+}
+
+void lovrBatchCylinder(Batch* batch, mat4 transform, float r1, float r2, bool capped, uint32_t segments) {
+  lovrThrow("TODO");
+}
+
+void lovrBatchSphere(Batch* batch, mat4 transform, uint32_t segments) {
+  lovrThrow("TODO");
+}
+
+void lovrBatchSkybox(Batch* batch, Texture* texture) {
+  lovrThrow("TODO");
+}
+
+void lovrBatchFill(Batch* batch, Texture* texture) {
+  lovrThrow("TODO");
+}
+
+void lovrBatchModel(Batch* batch, Model* model, mat4 transform, uint32_t node, bool children, uint32_t instances) {
+  lovrThrow("TODO");
+}
+
+void lovrBatchPrint(Batch* batch, Font* font, const char* text, uint32_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+  lovrThrow("TODO");
+}
+
+void lovrBatchCompute(Batch* batch, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
+  if (indirect) {
+    lovrThrow("TODO");
+  } else {
+    lovrThrow("TODO");
+  }
 }

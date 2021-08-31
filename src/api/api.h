@@ -31,6 +31,7 @@ extern StringEntry lovrDefaultSampler[];
 extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];
+extern StringEntry lovrDrawMode[];
 extern StringEntry lovrDrawStyle[];
 extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
@@ -38,6 +39,7 @@ extern StringEntry lovrFieldType[];
 extern StringEntry lovrFilterMode[];
 extern StringEntry lovrHeadsetDriver[];
 extern StringEntry lovrHeadsetOrigin[];
+extern StringEntry lovrHorizontalAlign[];
 extern StringEntry lovrJointType[];
 extern StringEntry lovrKeyboardKey[];
 extern StringEntry lovrPermission[];
@@ -51,6 +53,7 @@ extern StringEntry lovrTextureFormat[];
 extern StringEntry lovrTextureType[];
 extern StringEntry lovrTextureUsage[];
 extern StringEntry lovrTimeUnit[];
+extern StringEntry lovrVerticalAlign[];
 extern StringEntry lovrVolumeUnit[];
 extern StringEntry lovrWinding[];
 extern StringEntry lovrWrapMode[];
@@ -82,6 +85,7 @@ typedef struct {
 #define luax_pushtype(L, T, o) _luax_pushtype(L, #T, hash64(#T, sizeof(#T) - 1), o)
 #define luax_checkenum(L, i, T, x) _luax_checkenum(L, i, lovr ## T, x, #T)
 #define luax_pushenum(L, T, x) lua_pushlstring(L, (lovr ## T)[x].string, (lovr ## T)[x].length)
+#define luax_tofloat(L, i) (float) lua_tonumber(L, i)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")

@@ -11,6 +11,8 @@ typedef struct Texture Texture;
 typedef struct Sampler Sampler;
 typedef struct Shader Shader;
 typedef struct Batch Batch;
+typedef struct Model Model;
+typedef struct Font Font;
 
 typedef struct {
   uint32_t vendorId;
@@ -26,18 +28,15 @@ typedef struct {
 typedef struct {
   bool bptc;
   bool astc;
-  bool pointSize;
   bool wireframe;
-  bool multiblend;
-  bool anisotropy;
   bool depthClamp;
-  bool depthNudgeClamp;
   bool clipDistance;
   bool cullDistance;
   bool fullIndexBufferRange;
   bool indirectDrawFirstInstance;
   bool extraShaderInputs;
   bool dynamicIndexing;
+  bool nonUniformIndexing;
   bool float64;
   bool int64;
   bool int16;
@@ -48,26 +47,22 @@ typedef struct {
   uint32_t textureSize3D;
   uint32_t textureSizeCube;
   uint32_t textureLayers;
-  uint32_t renderWidth;
-  uint32_t renderHeight;
-  uint32_t renderViews;
-  uint32_t bundleCount;
+  uint32_t renderSize[3];
   uint32_t uniformBufferRange;
   uint32_t storageBufferRange;
   uint32_t uniformBufferAlign;
   uint32_t storageBufferAlign;
   uint32_t vertexAttributes;
-  uint32_t vertexAttributeOffset;
   uint32_t vertexBuffers;
   uint32_t vertexBufferStride;
   uint32_t vertexShaderOutputs;
-  uint32_t computeCount[3];
-  uint32_t computeGroupSize[3];
-  uint32_t computeGroupVolume;
+  uint32_t computeDispatchCount[3];
+  uint32_t computeWorkgroupSize[3];
+  uint32_t computeWorkgroupVolume;
   uint32_t computeSharedMemory;
   uint32_t indirectDrawCount;
-  uint32_t pointSize[2];
   float anisotropy;
+  float pointSize;
 } GraphicsLimits;
 
 typedef enum {
@@ -398,13 +393,13 @@ typedef struct {
     VertexFormat format;
     void* data;
     void** pointer;
-    uint32_t size;
+    uint32_t count;
   } vertex;
   struct {
     Buffer* buffer;
     void* data;
     void** pointer;
-    uint32_t size;
+    uint32_t count;
     uint32_t stride;
   } index;
   uint32_t start;
@@ -417,6 +412,18 @@ typedef enum {
   DRAW_LINE,
   DRAW_FILL
 } DrawStyle;
+
+typedef enum {
+  ALIGN_LEFT,
+  ALIGN_CENTER,
+  ALIGN_RIGHT
+} HorizontalAlign;
+
+typedef enum {
+  ALIGN_TOP,
+  ALIGN_MIDDLE,
+  ALIGN_BOTTOM
+} VerticalAlign;
 
 Batch* lovrGraphicsGetBatch(BatchInfo* info);
 Batch* lovrBatchCreate(BatchInfo* info);
@@ -451,7 +458,7 @@ void lovrBatchSetColor(Batch* batch, float color[4]);
 void lovrBatchSetCullMode(Batch* batch, CullMode mode);
 void lovrBatchSetDepthTest(Batch* batch, CompareMode test);
 void lovrBatchSetDepthWrite(Batch* batch, bool write);
-void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped, float clamp);
+void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped);
 void lovrBatchSetDepthClamp(Batch* batch, bool clamp);
 void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value, uint8_t mask);
 void lovrBatchSetStencilWrite(Batch* batch, StencilAction actions[3], uint8_t value, uint8_t mask);
@@ -462,13 +469,15 @@ void lovrBatchSetShader(Batch* batch, Shader* shader);
 void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture);
 
 void lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform);
-void lovrBatchPoints(Batch* batch, uint32_t count, float** positions);
-void lovrBatchLine(Batch* batch, uint32_t count, float** positions);
-void lovrBatchPlane(Batch* batch, DrawStyle style, float* transform);
+void lovrBatchPoints(Batch* batch, uint32_t count, float** vertices);
+void lovrBatchLine(Batch* batch, uint32_t count, float** vertices);
+void lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_t segments);
 void lovrBatchBox(Batch* batch, DrawStyle style, float* transform);
-void lovrBatchCircle(Batch* batch, DrawStyle style, float* transform);
-void lovrBatchArc(Batch* batch, DrawStyle style, float* transform);
-void lovrBatchSphere(Batch* batch, float* transform, uint32_t detail);
-void lovrBatchCylinder(Batch* batch, float* transform, float r1, float r2, bool capped, uint32_t detail);
+void lovrBatchCircle(Batch* batch, DrawStyle style, float* transform, uint32_t segments);
+void lovrBatchCylinder(Batch* batch, float* transform, float r1, float r2, bool capped, uint32_t segments);
+void lovrBatchSphere(Batch* batch, float* transform, uint32_t segments);
 void lovrBatchSkybox(Batch* batch, Texture* texture);
-void lovrBatchFill(Batch* batch);
+void lovrBatchFill(Batch* batch, Texture* texture);
+void lovrBatchModel(Batch* batch, Model* model, float* transform, uint32_t node, bool children, uint32_t instances);
+void lovrBatchPrint(Batch* batch, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrBatchCompute(Batch* batch, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
