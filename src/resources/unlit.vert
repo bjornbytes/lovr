@@ -30,5 +30,6 @@ layout(set = 0, binding = 2) uniform DrawDataBuffer { DrawData draws[256]; };
 
 void main() {
   outColor = inColor;
+  gl_PointSize = 1.f;
   gl_Position = camera.viewProjection[gl_ViewIndex] * transforms[push.index] * inPosition;
 }

@@ -27,7 +27,7 @@ StringEntry lovrAttributeType[] = {
   { 0 }
 };
 
-StringEntry lovrDefaultAttribute[] = {
+StringEntry lovrDefaultAttribute2[] = {
   [ATTR_POSITION] = ENTRY("position"),
   [ATTR_NORMAL] = ENTRY("normal"),
   [ATTR_TEXCOORD] = ENTRY("texcoord"),

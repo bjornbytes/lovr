@@ -322,8 +322,7 @@ static int l_lovrBatchSetDepthNudge(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   float nudge = luax_optfloat(L, 2, 0.f);
   float sloped = luax_optfloat(L, 3, 0.f);
-  float clamp = luax_optfloat(L, 4, 0.f);
-  lovrBatchSetDepthNudge(batch, nudge, sloped, clamp);
+  lovrBatchSetDepthNudge(batch, nudge, sloped);
   return 0;
 }
 
@@ -423,18 +422,20 @@ static int l_lovrBatchBind(lua_State* L) {
 }
 
 static int l_lovrBatchMesh(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  Buffer* vertices = luax_totype(L, 2, Buffer);
-  Buffer* indices = luax_totype(L, 3, Buffer);
+  int index = 1;
+  Batch* batch = luax_checktype(L, index++, Batch);
+  DrawMode mode = lua_type(L, index) == LUA_TSTRING ? luax_checkenum(L, index++, DrawMode, NULL) : DRAW_TRIANGLES;
+  Buffer* vertices = luax_totype(L, index++, Buffer);
+  Buffer* indices = luax_totype(L, index, Buffer);
+  if (indices) index++;
   float transform[16];
-  int index = indices ? 4 : 3;
   index = luax_readmat4(L, index, transform, 1);
   uint32_t start = luaL_optinteger(L, index++, 1) - 1;
-  uint32_t maxCount = lovrBufferGetInfo(indices ? indices : vertices)->length;
-  uint32_t count = luaL_optinteger(L, index++, maxCount);
+  uint32_t limit = lovrBufferGetInfo(indices ? indices : vertices)->length;
+  uint32_t count = luaL_optinteger(L, index++, limit);
   uint32_t instances = luaL_optinteger(L, index++, 1);
   lovrBatchMesh(batch, &(DrawInfo) {
-    .mode = DRAW_TRIANGLES,
+    .mode = mode,
     .vertex.buffer = vertices,
     .index.buffer = indices,
     .start = start,
@@ -444,8 +445,89 @@ static int l_lovrBatchMesh(lua_State* L) {
   return 0;
 }
 
+static uint32_t luax_getvertexcount(lua_State* L, int index) {
+  switch (lua_type(L, index)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      return 0;
+    case LUA_TNUMBER:
+      return (lua_gettop(L) - index + 1) / 3;
+    case LUA_TTABLE:
+      lua_rawgeti(L, index, 1);
+      int innerType = lua_type(L, -1);
+      lua_pop(L, 1);
+      return luax_len(L, index) / (innerType == LUA_TNUMBER ? 3 : 1);
+    case LUA_TUSERDATA:
+      return lua_gettop(L) - index + 1;
+    default:
+      return luax_typeerror(L, index, "number, table, or vector");
+  }
+}
+
+static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t count) {
+  switch (lua_type(L, index)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+    default:
+      break;
+    case LUA_TNUMBER:
+      for (uint32_t i = 0; i < 3 * count; i++) {
+        *vertices++ = luax_tofloat(L, index + i);
+      }
+      break;
+    case LUA_TTABLE:
+      lua_rawgeti(L, index, 1);
+      int innerType = lua_type(L, -1);
+      lua_pop(L, 1);
+      if (innerType == LUA_TNUMBER) {
+        for (uint32_t i = 0; i < 3 * count; i++) {
+          lua_rawgeti(L, index, i + 1);
+          *vertices++ = luax_tofloat(L, -1);
+          lua_pop(L, 1);
+        }
+      } else if (innerType == LUA_TUSERDATA) {
+        for (uint32_t i = 0; i < count; i++) {
+          lua_rawgeti(L, index, i + 1);
+          vec3_init(vertices, luax_checkvector(L, -1, V_VEC3, NULL));
+          lua_pop(L, 1);
+          vertices += 3;
+        }
+      }
+      break;
+    case LUA_TUSERDATA:
+      for (uint32_t i = 0; i < count; i++) {
+        vec3_init(vertices, luax_checkvector(L, index + i, V_VEC3, NULL));
+        vertices += 3;
+      }
+      break;
+  }
+}
+
 static int l_lovrBatchPoints(lua_State* L) {
-  //
+  float* vertices;
+  Batch* batch = luax_checktype(L, 1, Batch);
+  uint32_t count = luax_getvertexcount(L, 2);
+  lovrBatchPoints(batch, count, &vertices);
+  luax_readvertices(L, 2, vertices, count);
+  return 0;
+}
+
+static int l_lovrBatchLine(lua_State* L) {
+  float* vertices;
+  Batch* batch = luax_checktype(L, 1, Batch);
+  uint32_t count = luax_getvertexcount(L, 2);
+  lovrBatchLine(batch, count, &vertices);
+  luax_readvertices(L, 2, vertices, count);
+  return 0;
+}
+
+static int l_lovrBatchPlane(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
+  float transform[16];
+  int index = luax_readmat4(L, 3, transform, 2);
+  uint32_t segments = luaL_optinteger(L, index, 0);
+  lovrBatchPlane(batch, style, transform, segments);
   return 0;
 }
 
@@ -464,6 +546,92 @@ static int l_lovrBatchBox(lua_State* L) {
   float transform[16];
   luax_readmat4(L, 3, transform, 3);
   lovrBatchBox(batch, style, transform);
+  return 0;
+}
+
+static int l_lovrBatchCircle(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
+  float transform[16];
+  int index = luax_readmat4(L, 3, transform, 1);
+  uint32_t segments = luaL_optinteger(L, index, 32);
+  lovrBatchCircle(batch, style, transform, segments);
+  return 0;
+}
+
+static int l_lovrBatchCylinder(lua_State* L) {
+  float transform[16];
+  Batch* batch = luax_checktype(L, 1, Batch);
+  int index = luax_readmat4(L, 2, transform, 1);
+  float r1 = luax_optfloat(L, index++, 1.f);
+  float r2 = luax_optfloat(L, index++, 1.f);
+  bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
+  uint32_t segments = luaL_optinteger(L, index, 32);
+  lovrBatchCylinder(batch, transform, r1, r2, capped, segments);
+  return 0;
+}
+
+static int l_lovrBatchSphere(lua_State* L) {
+  float transform[16];
+  Batch* batch = luax_checktype(L, 1, Batch);
+  int index = luax_readmat4(L, 2, transform, 1);
+  uint32_t segments = luaL_optinteger(L, index, 32);
+  lovrBatchSphere(batch, transform, segments);
+  return 0;
+}
+
+static int l_lovrBatchSkybox(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  Texture* texture = luax_checktype(L, 2, Texture);
+  lovrBatchSkybox(batch, texture);
+  return 0;
+}
+
+static int l_lovrBatchFill(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  Texture* texture = luax_totype(L, 2, Texture);
+  lovrBatchFill(batch, texture);
+  return 0;
+}
+
+static int l_lovrBatchModel(lua_State* L) {
+  float transform[16];
+  Batch* batch = luax_checktype(L, 1, Batch);
+  Model* model = luax_checktype(L, 2, Model);
+  int index = luax_readmat4(L, 3, transform, 1);
+  uint32_t node = luaL_optinteger(L, index++, ~0u); // TODO string
+  bool children = lua_isnil(L, index) ? (index++, true) : lua_toboolean(L, index++);
+  uint32_t instances = luaL_optinteger(L, index++, 1);
+  lovrBatchModel(batch, model, transform, node, children, instances);
+  return 0;
+}
+
+static int l_lovrBatchPrint(lua_State* L) {
+  size_t length;
+  float transform[16];
+  Batch* batch = luax_checktype(L, 1, Batch);
+  Font* font = luax_checktype(L, 2, Font);
+  const char* text = luaL_checklstring(L, 3, &length);
+  int index = luax_readmat4(L, 4, transform, 1);
+  float wrap = luax_optfloat(L, index++, 0.f);
+  HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
+  VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
+  lovrBatchPrint(batch, font, text, length, transform, wrap, halign, valign);
+  return 0;
+}
+
+static int l_lovrBatchCompute(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  Buffer* buffer = luax_totype(L, 2, Buffer);
+  if (buffer) {
+    uint32_t offset = lua_tointeger(L, 3);
+    lovrBatchCompute(batch, 0, 0, 0, buffer, offset);
+  } else {
+    uint32_t x = luaL_optinteger(L, 2, 1);
+    uint32_t y = luaL_optinteger(L, 3, 1);
+    uint32_t z = luaL_optinteger(L, 4, 1);
+    lovrBatchCompute(batch, x, y, z, NULL, 0);
+  }
   return 0;
 }
 
@@ -511,8 +679,19 @@ const luaL_Reg lovrBatch[] = {
 
   { "mesh", l_lovrBatchMesh },
   { "points", l_lovrBatchPoints },
+  { "line", l_lovrBatchLine },
+  { "plane", l_lovrBatchPlane },
   { "cube", l_lovrBatchCube },
   { "box", l_lovrBatchBox },
+  { "circle", l_lovrBatchCircle },
+  { "cylinder", l_lovrBatchCylinder },
+  { "sphere", l_lovrBatchSphere },
+  { "skybox", l_lovrBatchSkybox },
+  { "fill", l_lovrBatchFill },
+  { "model", l_lovrBatchModel },
+  { "print", l_lovrBatchPrint },
+
+  { "compute", l_lovrBatchCompute },
 
   { NULL, NULL }
 };
