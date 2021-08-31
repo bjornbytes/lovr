@@ -75,6 +75,13 @@ StringEntry lovrDefaultSampler[] = {
   { 0 }
 };
 
+StringEntry lovrDrawMode[] = {
+  [DRAW_POINTS] = ENTRY("points"),
+  [DRAW_LINES] = ENTRY("lines"),
+  [DRAW_TRIANGLES] = ENTRY("triangles"),
+  { 0 }
+};
+
 StringEntry lovrDrawStyle[] = {
   [DRAW_LINE] = ENTRY("line"),
   [DRAW_FILL] = ENTRY("fill"),
@@ -127,6 +134,13 @@ StringEntry lovrFilterMode[] = {
   { 0 }
 };
 
+StringEntry lovrHorizontalAlign[] = {
+  [ALIGN_LEFT] = ENTRY("left"),
+  [ALIGN_CENTER] = ENTRY("center"),
+  [ALIGN_RIGHT] = ENTRY("right"),
+  { 0 }
+};
+
 StringEntry lovrShaderType[] = {
   [SHADER_GRAPHICS] = ENTRY("graphics"),
   [SHADER_COMPUTE] = ENTRY("compute"),
@@ -164,6 +178,13 @@ StringEntry lovrTextureUsage[] = {
   [2] = ENTRY("storage"),
   [3] = ENTRY("copyfrom"),
   [4] = ENTRY("copyto"),
+  { 0 }
+};
+
+StringEntry lovrVerticalAlign[] = {
+  [ALIGN_TOP] = ENTRY("top"),
+  [ALIGN_MIDDLE] = ENTRY("middle"),
+  [ALIGN_BOTTOM] = ENTRY("bottom"),
   { 0 }
 };
 
@@ -478,12 +499,8 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lovrGraphicsGetFeatures(&features);
   lua_pushboolean(L, features.bptc), lua_setfield(L, -2, "bptc");
   lua_pushboolean(L, features.astc), lua_setfield(L, -2, "astc");
-  lua_pushboolean(L, features.pointSize), lua_setfield(L, -2, "pointSize");
   lua_pushboolean(L, features.wireframe), lua_setfield(L, -2, "wireframe");
-  lua_pushboolean(L, features.multiblend), lua_setfield(L, -2, "multiblend");
-  lua_pushboolean(L, features.anisotropy), lua_setfield(L, -2, "anisotropy");
   lua_pushboolean(L, features.depthClamp), lua_setfield(L, -2, "depthClamp");
-  lua_pushboolean(L, features.depthNudgeClamp), lua_setfield(L, -2, "depthNudgeClamp");
   lua_pushboolean(L, features.clipDistance), lua_setfield(L, -2, "clipDistance");
   lua_pushboolean(L, features.cullDistance), lua_setfield(L, -2, "cullDistance");
   lua_pushboolean(L, features.fullIndexBufferRange), lua_setfield(L, -2, "fullIndexBufferRange");
@@ -510,42 +527,40 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.textureSize3D), lua_setfield(L, -2, "textureSize3D");
   lua_pushinteger(L, limits.textureSizeCube), lua_setfield(L, -2, "textureSizeCube");
   lua_pushinteger(L, limits.textureLayers), lua_setfield(L, -2, "textureLayers");
-  lua_pushinteger(L, limits.renderWidth), lua_setfield(L, -2, "renderWidth");
-  lua_pushinteger(L, limits.renderHeight), lua_setfield(L, -2, "renderHeight");
-  lua_pushinteger(L, limits.renderViews), lua_setfield(L, -2, "renderViews");
-  lua_pushinteger(L, limits.bundleCount), lua_setfield(L, -2, "bundleCount");
+
+  lua_createtable(L, 3, 0);
+  lua_pushinteger(L, limits.renderSize[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.renderSize[1]), lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.renderSize[2]), lua_rawseti(L, -2, 3);
+  lua_setfield(L, -2, "renderSize");
+
   lua_pushinteger(L, limits.uniformBufferRange), lua_setfield(L, -2, "uniformBufferRange");
   lua_pushinteger(L, limits.storageBufferRange), lua_setfield(L, -2, "storageBufferRange");
   lua_pushinteger(L, limits.uniformBufferAlign), lua_setfield(L, -2, "uniformBufferAlign");
   lua_pushinteger(L, limits.storageBufferAlign), lua_setfield(L, -2, "storageBufferAlign");
   lua_pushinteger(L, limits.vertexAttributes), lua_setfield(L, -2, "vertexAttributes");
-  lua_pushinteger(L, limits.vertexAttributeOffset), lua_setfield(L, -2, "vertexAttributeOffset");
   lua_pushinteger(L, limits.vertexBuffers), lua_setfield(L, -2, "vertexBuffers");
   lua_pushinteger(L, limits.vertexBufferStride), lua_setfield(L, -2, "vertexBufferStride");
   lua_pushinteger(L, limits.vertexShaderOutputs), lua_setfield(L, -2, "vertexShaderOutputs");
 
   lua_createtable(L, 3, 0);
-  lua_pushinteger(L, limits.computeCount[0]), lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.computeCount[1]), lua_rawseti(L, -2, 2);
-  lua_pushinteger(L, limits.computeCount[2]), lua_rawseti(L, -2, 3);
-  lua_setfield(L, -2, "computeCount");
+  lua_pushinteger(L, limits.computeDispatchCount[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.computeDispatchCount[1]), lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.computeDispatchCount[2]), lua_rawseti(L, -2, 3);
+  lua_setfield(L, -2, "computeDispatchCount");
 
   lua_createtable(L, 3, 0);
-  lua_pushinteger(L, limits.computeGroupSize[0]), lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.computeGroupSize[1]), lua_rawseti(L, -2, 2);
-  lua_pushinteger(L, limits.computeGroupSize[2]), lua_rawseti(L, -2, 3);
-  lua_setfield(L, -2, "computeGroupSize");
+  lua_pushinteger(L, limits.computeWorkgroupSize[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.computeWorkgroupSize[1]), lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.computeWorkgroupSize[2]), lua_rawseti(L, -2, 3);
+  lua_setfield(L, -2, "computeWorkgroupSize");
 
-  lua_pushinteger(L, limits.computeGroupVolume), lua_setfield(L, -2, "computeGroupVolume");
+  lua_pushinteger(L, limits.computeWorkgroupVolume), lua_setfield(L, -2, "computeWorkgroupVolume");
   lua_pushinteger(L, limits.computeSharedMemory), lua_setfield(L, -2, "computeSharedMemory");
   lua_pushinteger(L, limits.indirectDrawCount), lua_setfield(L, -2, "indirectDrawCount");
 
-  lua_createtable(L, 2, 0);
-  lua_pushinteger(L, limits.pointSize[0]), lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.pointSize[1]), lua_rawseti(L, -2, 2);
-  lua_setfield(L, -2, "pointSize");
-
   lua_pushnumber(L, limits.anisotropy), lua_setfield(L, -2, "anisotropy");
+  lua_pushnumber(L, limits.pointSize), lua_setfield(L, -2, "pointSize");
   return 1;
 }
 

@@ -21,6 +21,7 @@ struct gpu_texture {
   VkImageView view;
   VkFormat format;
   VkImageAspectFlagBits aspect;
+  VkImageLayout natural;
   VkImageLayout layout;
   bool array;
 };
@@ -1081,7 +1082,6 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
         .depthBiasEnable = infos[i].rasterizer.depthOffset != 0.f || infos[i].rasterizer.depthOffsetSloped != 0.f,
         .depthBiasConstantFactor = infos[i].rasterizer.depthOffset,
         .depthBiasSlopeFactor = infos[i].rasterizer.depthOffsetSloped,
-        .depthBiasClamp = infos[i].rasterizer.depthOffsetClamp,
         .lineWidth = 1.f
       };
 
@@ -1673,29 +1673,26 @@ bool gpu_init(gpu_config* config) {
       config->limits->textureLayers = MIN(deviceLimits->maxImageArrayLayers, UINT16_MAX);
       config->limits->renderSize[0] = deviceLimits->maxFramebufferWidth;
       config->limits->renderSize[1] = deviceLimits->maxFramebufferHeight;
-      config->limits->renderViews = multiviewLimits.maxMultiviewViewCount;
-      config->limits->bundleCount = MIN(deviceLimits->maxBoundDescriptorSets, COUNTOF(((gpu_shader_info*) NULL)->layouts));
+      config->limits->renderSize[2] = multiviewLimits.maxMultiviewViewCount;
       config->limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
       config->limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
       config->limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
       config->limits->storageBufferAlign = deviceLimits->minStorageBufferOffsetAlignment;
       config->limits->vertexAttributes = MIN(deviceLimits->maxVertexInputAttributes, COUNTOF(((gpu_pipeline_info*) NULL)->vertex.attributes));
-      config->limits->vertexAttributeOffset = MIN(deviceLimits->maxVertexInputAttributeOffset, UINT8_MAX);
       config->limits->vertexBuffers = MIN(deviceLimits->maxVertexInputBindings, COUNTOF(((gpu_pipeline_info*) NULL)->vertex.bufferStrides));
       config->limits->vertexBufferStride = MIN(deviceLimits->maxVertexInputBindingStride, UINT16_MAX);
       config->limits->vertexShaderOutputs = deviceLimits->maxVertexOutputComponents;
-      config->limits->computeCount[0] = deviceLimits->maxComputeWorkGroupCount[0];
-      config->limits->computeCount[1] = deviceLimits->maxComputeWorkGroupCount[1];
-      config->limits->computeCount[2] = deviceLimits->maxComputeWorkGroupCount[2];
-      config->limits->computeGroupSize[0] = deviceLimits->maxComputeWorkGroupSize[0];
-      config->limits->computeGroupSize[1] = deviceLimits->maxComputeWorkGroupSize[1];
-      config->limits->computeGroupSize[2] = deviceLimits->maxComputeWorkGroupSize[2];
-      config->limits->computeGroupVolume = deviceLimits->maxComputeWorkGroupInvocations;
+      config->limits->computeDispatchCount[0] = deviceLimits->maxComputeWorkGroupCount[0];
+      config->limits->computeDispatchCount[1] = deviceLimits->maxComputeWorkGroupCount[1];
+      config->limits->computeDispatchCount[2] = deviceLimits->maxComputeWorkGroupCount[2];
+      config->limits->computeWorkgroupSize[0] = deviceLimits->maxComputeWorkGroupSize[0];
+      config->limits->computeWorkgroupSize[1] = deviceLimits->maxComputeWorkGroupSize[1];
+      config->limits->computeWorkgroupSize[2] = deviceLimits->maxComputeWorkGroupSize[2];
+      config->limits->computeWorkgroupVolume = deviceLimits->maxComputeWorkGroupInvocations;
       config->limits->computeSharedMemory = deviceLimits->maxComputeSharedMemorySize;
       config->limits->indirectDrawCount = deviceLimits->maxDrawIndirectCount;
-      config->limits->pointSize[0] = deviceLimits->pointSizeRange[0];
-      config->limits->pointSize[1] = deviceLimits->pointSizeRange[1];
       config->limits->anisotropy = deviceLimits->maxSamplerAnisotropy;
+      config->limits->pointSize = deviceLimits->pointSizeRange[1];
     }
 
     VkPhysicalDeviceMultiviewFeatures enableMultiview = {
@@ -1723,12 +1720,8 @@ bool gpu_init(gpu_config* config) {
 
       config->features->astc = enable->textureCompressionASTC_LDR = supports->textureCompressionASTC_LDR;
       config->features->bptc = enable->textureCompressionBC = supports->textureCompressionBC;
-      config->features->pointSize = enable->largePoints = supports->largePoints;
       config->features->wireframe = enable->fillModeNonSolid = supports->fillModeNonSolid;
-      config->features->multiblend = enable->independentBlend = supports->independentBlend;
-      config->features->anisotropy = enable->samplerAnisotropy = supports->samplerAnisotropy;
       config->features->depthClamp = enable->depthClamp = supports->depthClamp;
-      config->features->depthOffsetClamp = enable->depthBiasClamp = supports->depthBiasClamp;
       config->features->clipDistance = enable->shaderClipDistance = supports->shaderClipDistance;
       config->features->cullDistance = enable->shaderCullDistance = supports->shaderCullDistance;
       config->features->fullIndexBufferRange = enable->fullDrawIndexUint32 = supports->fullDrawIndexUint32;
@@ -1737,7 +1730,9 @@ bool gpu_init(gpu_config* config) {
       config->features->float64 = enable->shaderFloat64 = supports->shaderFloat64;
       config->features->int64 = enable->shaderInt64 = supports->shaderInt64;
       config->features->int16 = enable->shaderInt16 = supports->shaderInt16;
+      enable->samplerAnisotropy = supports->samplerAnisotropy;
       enable->multiDrawIndirect = supports->multiDrawIndirect;
+      enable->largePoints = supports->largePoints;
 
       if (supports->shaderUniformBufferArrayDynamicIndexing && supports->shaderSampledImageArrayDynamicIndexing && supports->shaderStorageBufferArrayDynamicIndexing && supports->shaderStorageImageArrayDynamicIndexing) {
         enable->shaderUniformBufferArrayDynamicIndexing = true;
