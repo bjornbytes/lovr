@@ -2640,11 +2640,13 @@ void lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
 
   lovrBatchMesh(batch, &(DrawInfo) {
     .mode = DRAW_LINES,
+    .vertex.format = VERTEX_POSITION,
     .vertex.pointer = (void**) vertices,
     .vertex.count = count,
     .index.pointer = (void**) &indices,
     .index.count = 2 * (count - 1),
-    .index.stride = sizeof(*indices)
+    .index.stride = sizeof(*indices),
+    .count = 2 * (count - 1)
   }, NULL);
 
   for (uint32_t i = 0; i < count; i++) {
