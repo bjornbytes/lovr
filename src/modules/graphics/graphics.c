@@ -1075,15 +1075,11 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
       if (draw->flags & DRAW_INDEXED) {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
-          uint32_t index = draw->index & 0xff;
-          gpu_push_constants(stream, pipeline, &index, sizeof(index));
-          gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base);
+          gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base, draw->index & 0xff);
         }
       } else {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
-          uint32_t index = draw->index & 0xff;
-          gpu_push_constants(stream, pipeline, &index, sizeof(index));
-          gpu_draw(stream, draw->count, draw->instances, draw->start);
+          gpu_draw(stream, draw->count, draw->instances, draw->start, draw->index & 0xff);
         }
       }
     }
@@ -1915,7 +1911,6 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     .stages[1] = { info->source[1], info->length[1], NULL },
     .layouts[0] = state.layouts[0],
     .layouts[1] = shader->layout,
-    .pushConstantSize = sizeof(uint32_t),
     .label = info->label
   };
 
