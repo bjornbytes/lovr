@@ -1355,12 +1355,12 @@ void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offs
   vkCmdBindIndexBuffer(stream->commands, buffer->handle, offset, (VkIndexType) type);
 }
 
-void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex) {
-  vkCmdDraw(stream->commands, vertexCount, instanceCount, firstVertex, 0);
+void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t baseInstance) {
+  vkCmdDraw(stream->commands, vertexCount, instanceCount, firstVertex, baseInstance);
 }
 
-void gpu_draw_indexed(gpu_stream* stream, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex) {
-  vkCmdDrawIndexed(stream->commands, indexCount, instanceCount, firstIndex, baseVertex, 0);
+void gpu_draw_indexed(gpu_stream* stream, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex, uint32_t baseInstance) {
+  vkCmdDrawIndexed(stream->commands, indexCount, instanceCount, firstIndex, baseVertex, baseInstance);
 }
 
 void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount) {
