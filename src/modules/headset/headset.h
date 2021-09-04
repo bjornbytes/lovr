@@ -120,7 +120,7 @@ typedef struct HeadsetInterface {
   bool (*getVulkanDeviceExtensions)(char* buffer, uint32_t size, uintptr_t physicalDevice);
   void (*getVulkanPhysicalDevice)(void* instance, uintptr_t physicalDevice);
   uint32_t (*createVulkanInstance)(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
-  uint32_t (*createVulkanDevice)(uintptr_t instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
+  uint32_t (*createVulkanDevice)(void* instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
   bool (*init)(float supersample, float offset, uint32_t msaa, bool overlay);
   void (*start)(void);
   void (*destroy)(void);

@@ -27,7 +27,7 @@ struct ANativeActivity* os_get_activity(void);
 uintptr_t gpu_vk_get_instance(void);
 uintptr_t gpu_vk_get_physical_device(void);
 uintptr_t gpu_vk_get_device(void);
-uintptr_t gpu_vk_get_queue(void);
+uintptr_t gpu_vk_get_queue(uint32_t*, uint32_t*);
 #else
 #error "Unsupported graphics backend"
 #endif
@@ -163,7 +163,7 @@ static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allo
   return result;
 }
 
-static uint32_t openxr_createVulkanDevice(uintptr_t instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr) {
+static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr) {
   XrVulkanDeviceCreateInfoKHR info = {
     .type = XR_TYPE_VULKAN_DEVICE_CREATE_INFO_KHR,
     .systemId = state.system,
@@ -375,7 +375,7 @@ static void openxr_start(void) {
       .instance = (VkInstance) gpu_vk_get_instance(),
       .physicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device(),
       .device = (VkDevice) gpu_vk_get_device(),
-      .queueFamilyIndex = queueFamilyIndex
+      .queueFamilyIndex = queueFamilyIndex,
       .queueIndex = queueIndex
     };
 #endif

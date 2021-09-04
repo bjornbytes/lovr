@@ -587,9 +587,9 @@ typedef struct {
     int vsync;
     bool (*getInstanceExtensions)(char* buffer, uint32_t size);
     bool (*getDeviceExtensions)(char* buffer, uint32_t size, uintptr_t physicalDevice);
-    bool (*getPhysicalDevice)(void* instance, uintptr_t physicalDevice);
+    void (*getPhysicalDevice)(void* instance, uintptr_t physicalDevice);
     uint32_t (*createInstance)(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
-    uint32_t (*createDevice)(void* instance, void* devceCreateInfo, void* allocator, uintptr_t device);
+    uint32_t (*createDevice)(void* instance, void* devceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
     uint32_t (*createSurface)(void* instance, void** surface);
   } vk;
 } gpu_config;

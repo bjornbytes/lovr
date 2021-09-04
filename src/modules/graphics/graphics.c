@@ -531,7 +531,10 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     .callback = callback,
     .vk.getInstanceExtensions = getInstanceExtensions,
 #if defined(LOVR_VK) && !defined(LOVR_DISABLE_HEADSET)
-    .vk.getDeviceExtensions = lovrHeadsetDisplayDriver ? lovrHeadsetDisplayDriver->getVulkanDeviceExtensions : NULL
+    .vk.getDeviceExtensions = lovrHeadsetDisplayDriver ? lovrHeadsetDisplayDriver->getVulkanDeviceExtensions : NULL,
+    .vk.getPhysicalDevice = lovrHeadsetDisplayDriver ? lovrHeadsetDisplayDriver->getVulkanPhysicalDevice : NULL,
+    .vk.createInstance = lovrHeadsetDisplayDriver ? lovrHeadsetDisplayDriver->createVulkanInstance : NULL,
+    .vk.createDevice = lovrHeadsetDisplayDriver ? lovrHeadsetDisplayDriver->createVulkanDevice : NULL
 #endif
   };
 
