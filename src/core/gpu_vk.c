@@ -114,6 +114,7 @@ static struct {
   VkPhysicalDevice adapter;
   VkDevice device;
   VkQueue queue;
+  uint32_t queueFamilyIndex;
   VkSurfaceKHR surface;
   VkSwapchainKHR swapchain;
   gpu_texture backbuffers[4];
@@ -1586,7 +1587,11 @@ bool gpu_init(gpu_config* config) {
       .ppEnabledExtensionNames = extensions
     };
 
-    TRY(vkCreateInstance(&instanceInfo, NULL, &state.instance), "Instance creation failed") DIE();
+    if (state.config.vk.createInstance) {
+      TRY(state.config.vk.createInstance(&instanceInfo, NULL, (uintptr_t) &state.instance, (void*) vkGetInstanceProcAddr), "Instance creation failed") DIE();
+    } else {
+      TRY(vkCreateInstance(&instanceInfo, NULL, &state.instance), "Instance creation failed") DIE();
+    }
 
     GPU_FOREACH_INSTANCE(GPU_LOAD_INSTANCE);
 
@@ -1607,11 +1612,15 @@ bool gpu_init(gpu_config* config) {
     TRY(state.config.vk.createSurface(state.instance, (void**) &state.surface), "Surface creation failed") DIE();
   }
 
-  uint32_t queueFamilyIndex = ~0u;
+  state.queueFamilyIndex = ~0u;
 
   { // Device
-    uint32_t deviceCount = 1;
-    TRY(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "Physical device enumeration failed") DIE();
+    if (state.config.vk.getPhysicalDevice) {
+      state.config.vk.getPhysicalDevice(state.instance, (uintptr_t) &state.adapter);
+    } else {
+      uint32_t deviceCount = 1;
+      TRY(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "Physical device enumeration failed") DIE();
+    }
 
     VkQueueFamilyProperties queueFamilies[4];
     uint32_t queueFamilyCount = COUNTOF(queueFamilies);
@@ -1626,16 +1635,16 @@ bool gpu_init(gpu_config* config) {
 
       uint32_t flags = queueFamilies[i].queueFlags;
       if ((flags & VK_QUEUE_GRAPHICS_BIT) && (flags & VK_QUEUE_COMPUTE_BIT) && presentable) {
-        queueFamilyIndex = i;
+        state.queueFamilyIndex = i;
         break;
       }
     }
 
-    CHECK(queueFamilyIndex != ~0u, "Queue selection failed") DIE();
+    CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") DIE();
 
     VkDeviceQueueCreateInfo queueInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-      .queueFamilyIndex = queueFamilyIndex,
+      .queueFamilyIndex = state.queueFamilyIndex,
       .queueCount = 1,
       .pQueuePriorities = &(float) { 1.f }
     };
@@ -1794,8 +1803,12 @@ bool gpu_init(gpu_config* config) {
       .ppEnabledExtensionNames = extensions
     };
 
-    TRY(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") DIE();
-    vkGetDeviceQueue(state.device, queueFamilyIndex, 0, &state.queue);
+    if (state.config.vk.createDevice) {
+      TRY(state.config.vk.createDevice(state.instance, &deviceInfo, NULL, (uintptr_t) &state.device), "Device creation failed") DIE();
+    } else {
+      TRY(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") DIE();
+    }
+    vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
   }
 
@@ -1862,7 +1875,7 @@ bool gpu_init(gpu_config* config) {
     VkCommandPoolCreateInfo poolInfo = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
       .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-      .queueFamilyIndex = queueFamilyIndex
+      .queueFamilyIndex = state.queueFamilyIndex
     };
 
     TRY(vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool), "Command pool creation failed") DIE();
@@ -2002,8 +2015,8 @@ uintptr_t gpu_vk_get_device() {
   return (uintptr_t) state.device;
 }
 
-uintptr_t gpu_vk_get_queue() {
-  return (uintptr_t) state.queue;
+uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex) {
+  return *queueFamilyIndex = state.queueFamilyIndex, *queueIndex = 0, (uintptr_t) state.queue;
 }
 
 // Helpers
