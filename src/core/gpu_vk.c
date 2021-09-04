@@ -1804,7 +1804,7 @@ bool gpu_init(gpu_config* config) {
     };
 
     if (state.config.vk.createDevice) {
-      TRY(state.config.vk.createDevice(state.instance, &deviceInfo, NULL, (uintptr_t) &state.device), "Device creation failed") DIE();
+      TRY(state.config.vk.createDevice(state.instance, &deviceInfo, NULL, (uintptr_t) &state.device, (void*) vkGetInstanceProcAddr), "Device creation failed") DIE();
     } else {
       TRY(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") DIE();
     }
