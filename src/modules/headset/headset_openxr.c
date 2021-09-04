@@ -52,6 +52,9 @@ uintptr_t gpu_vk_get_queue(void);
   X(xrResultToString)\
   X(xrGetSystem)\
   X(xrGetSystemProperties)\
+  X(xrCreateVulkanInstanceKHR)\
+  X(xrGetVulkanGraphicsDevice2KHR)\
+  X(xrCreateVulkanDeviceKHR)\
   X(xrCreateSession)\
   X(xrDestroySession)\
   X(xrCreateReferenceSpace)\
@@ -133,6 +136,45 @@ static XrResult handleResult(XrResult result, const char* file, int line) {
     xrResultToString(state.instance, result, message);
     lovrThrow("OpenXR Error: %s at %s:%d", message, file, line);
   }
+  return result;
+}
+
+static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice) {
+  XrVulkanGraphicsDeviceGetInfoKHR info = {
+    .type = XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR,
+    .systemId = state.system,
+    .vulkanInstance = (VkInstance) instance
+  };
+
+  XR(xrGetVulkanGraphicsDevice2KHR(state.instance, &info, (VkPhysicalDevice*) physicalDevice));
+}
+
+static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr) {
+  XrVulkanInstanceCreateInfoKHR info = {
+    .type = XR_TYPE_VULKAN_INSTANCE_CREATE_INFO_KHR,
+    .systemId = state.system,
+    .pfnGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) getInstanceProcAddr,
+    .vulkanCreateInfo = instanceCreateInfo,
+    .vulkanAllocator = allocator
+  };
+
+  VkResult result;
+  XR(xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result));
+  return result;
+}
+
+static uint32_t openxr_createVulkanDevice(uintptr_t instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr) {
+  XrVulkanDeviceCreateInfoKHR info = {
+    .type = XR_TYPE_VULKAN_DEVICE_CREATE_INFO_KHR,
+    .systemId = state.system,
+    .pfnGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) getInstanceProcAddr,
+    .vulkanPhysicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device(),
+    .vulkanCreateInfo = deviceCreateInfo,
+    .vulkanAllocator = allocator
+  };
+
+  VkResult result;
+  XR(xrCreateVulkanDeviceKHR(state.instance, &info, (VkDevice*) device, &result));
   return result;
 }
 
@@ -325,13 +367,16 @@ static void openxr_start(void) {
       lovrThrow("OpenXR Vulkan version not supported");
     }
 
+    uint32_t queueFamilyIndex, queueIndex;
+    gpu_vk_get_queue(&queueFamilyIndex, &queueIndex);
+
     XrGraphicsBindingVulkanKHR graphicsBinding = {
       .type = XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
       .instance = (VkInstance) gpu_vk_get_instance(),
       .physicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device(),
       .device = (VkDevice) gpu_vk_get_device(),
-      //.queueFamilyIndex = TODO
-      //.queueIndex = TODO
+      .queueFamilyIndex = queueFamilyIndex
+      .queueIndex = queueIndex
     };
 #endif
 
@@ -475,8 +520,6 @@ static void openxr_start(void) {
       .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 1 }
     };
   }
-
-  os_window_set_vsync(0);
 }
 
 static void openxr_destroy(void) {
@@ -898,6 +941,9 @@ static void openxr_update(float dt) {
 
 HeadsetInterface lovrHeadsetOpenXRDriver = {
   .driverType = DRIVER_OPENXR,
+  .getVulkanPhysicalDevice = openxr_getVulkanPhysicalDevice,
+  .createVulkanInstance = openxr_createVulkanInstance,
+  .createVulkanDevice = openxr_createVulkanDevice,
   .init = openxr_init,
   .start = openxr_start,
   .destroy = openxr_destroy,
