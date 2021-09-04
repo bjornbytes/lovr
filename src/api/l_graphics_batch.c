@@ -421,7 +421,7 @@ static int l_lovrBatchMesh(lua_State* L) {
   uint32_t limit = lovrBufferGetInfo(indices ? indices : vertices)->length;
   uint32_t count = luaL_optinteger(L, index++, limit);
   uint32_t instances = luaL_optinteger(L, index++, 1);
-  lovrBatchMesh(batch, &(DrawInfo) {
+  uint32_t id = lovrBatchMesh(batch, &(DrawInfo) {
     .mode = mode,
     .vertex.buffer = vertices,
     .index.buffer = indices,
@@ -429,7 +429,8 @@ static int l_lovrBatchMesh(lua_State* L) {
     .count = count,
     .instances = instances
   }, transform);
-  return 0;
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static uint32_t luax_getvertexcount(lua_State* L, int index) {
@@ -494,18 +495,20 @@ static int l_lovrBatchPoints(lua_State* L) {
   float* vertices;
   Batch* batch = luax_checktype(L, 1, Batch);
   uint32_t count = luax_getvertexcount(L, 2);
-  lovrBatchPoints(batch, count, &vertices);
+  uint32_t id = lovrBatchPoints(batch, count, &vertices);
   luax_readvertices(L, 2, vertices, count);
-  return 0;
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchLine(lua_State* L) {
   float* vertices;
   Batch* batch = luax_checktype(L, 1, Batch);
   uint32_t count = luax_getvertexcount(L, 2);
-  lovrBatchLine(batch, count, &vertices);
+  uint32_t id = lovrBatchLine(batch, count, &vertices);
   luax_readvertices(L, 2, vertices, count);
-  return 0;
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchPlane(lua_State* L) {
@@ -514,8 +517,9 @@ static int l_lovrBatchPlane(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 3, transform, 2);
   uint32_t segments = luaL_optinteger(L, index, 0);
-  lovrBatchPlane(batch, style, transform, segments);
-  return 0;
+  uint32_t id = lovrBatchPlane(batch, style, transform, segments);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchCube(lua_State* L) {
@@ -523,8 +527,9 @@ static int l_lovrBatchCube(lua_State* L) {
   DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
   float transform[16];
   luax_readmat4(L, 3, transform, 1);
-  lovrBatchBox(batch, style, transform);
-  return 0;
+  uint32_t id = lovrBatchBox(batch, style, transform);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchBox(lua_State* L) {
@@ -532,8 +537,9 @@ static int l_lovrBatchBox(lua_State* L) {
   DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
   float transform[16];
   luax_readmat4(L, 3, transform, 3);
-  lovrBatchBox(batch, style, transform);
-  return 0;
+  uint32_t id = lovrBatchBox(batch, style, transform);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchCircle(lua_State* L) {
@@ -542,8 +548,9 @@ static int l_lovrBatchCircle(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 3, transform, 1);
   uint32_t segments = luaL_optinteger(L, index, 32);
-  lovrBatchCircle(batch, style, transform, segments);
-  return 0;
+  uint32_t id = lovrBatchCircle(batch, style, transform, segments);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchCylinder(lua_State* L) {
@@ -554,8 +561,9 @@ static int l_lovrBatchCylinder(lua_State* L) {
   float r2 = luax_optfloat(L, index++, 1.f);
   bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
   uint32_t segments = luaL_optinteger(L, index, 32);
-  lovrBatchCylinder(batch, transform, r1, r2, capped, segments);
-  return 0;
+  uint32_t id = lovrBatchCylinder(batch, transform, r1, r2, capped, segments);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchSphere(lua_State* L) {
@@ -563,22 +571,25 @@ static int l_lovrBatchSphere(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   int index = luax_readmat4(L, 2, transform, 1);
   uint32_t segments = luaL_optinteger(L, index, 32);
-  lovrBatchSphere(batch, transform, segments);
-  return 0;
+  uint32_t id = lovrBatchSphere(batch, transform, segments);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchSkybox(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   Texture* texture = luax_checktype(L, 2, Texture);
-  lovrBatchSkybox(batch, texture);
-  return 0;
+  uint32_t id = lovrBatchSkybox(batch, texture);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchFill(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   Texture* texture = luax_totype(L, 2, Texture);
-  lovrBatchFill(batch, texture);
-  return 0;
+  uint32_t id = lovrBatchFill(batch, texture);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchModel(lua_State* L) {
@@ -589,8 +600,9 @@ static int l_lovrBatchModel(lua_State* L) {
   uint32_t node = luaL_optinteger(L, index++, ~0u); // TODO string
   bool children = lua_isnil(L, index) ? (index++, true) : lua_toboolean(L, index++);
   uint32_t instances = luaL_optinteger(L, index++, 1);
-  lovrBatchModel(batch, model, transform, node, children, instances);
-  return 0;
+  uint32_t id = lovrBatchModel(batch, model, transform, node, children, instances);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchPrint(lua_State* L) {
@@ -603,23 +615,26 @@ static int l_lovrBatchPrint(lua_State* L) {
   float wrap = luax_optfloat(L, index++, 0.f);
   HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
-  lovrBatchPrint(batch, font, text, length, transform, wrap, halign, valign);
-  return 0;
+  uint32_t id = lovrBatchPrint(batch, font, text, length, transform, wrap, halign, valign);
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 static int l_lovrBatchCompute(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   Buffer* buffer = luax_totype(L, 2, Buffer);
+  uint32_t id;
   if (buffer) {
     uint32_t offset = lua_tointeger(L, 3);
-    lovrBatchCompute(batch, 0, 0, 0, buffer, offset);
+    id = lovrBatchCompute(batch, 0, 0, 0, buffer, offset);
   } else {
     uint32_t x = luaL_optinteger(L, 2, 1);
     uint32_t y = luaL_optinteger(L, 3, 1);
     uint32_t z = luaL_optinteger(L, 4, 1);
-    lovrBatchCompute(batch, x, y, z, NULL, 0);
+    id = lovrBatchCompute(batch, x, y, z, NULL, 0);
   }
-  return 0;
+  lua_pushinteger(L, id);
+  return 1;
 }
 
 const luaL_Reg lovrBatch[] = {
