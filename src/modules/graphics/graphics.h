@@ -431,8 +431,6 @@ void lovrBatchDestroy(void* ref);
 const BatchInfo* lovrBatchGetInfo(Batch* batch);
 uint32_t lovrBatchGetCount(Batch* batch);
 void lovrBatchBegin(Batch* batch);
-void lovrBatchFinish(Batch* batch);
-bool lovrBatchIsActive(Batch* batch);
 
 void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]);
 void lovrBatchSetViewport(Batch* batch, float viewport[4], float depthRange[2]);
