@@ -25,7 +25,7 @@ ANativeWindow* os_get_native_window(void);
 uintptr_t gpu_vk_get_instance(void);
 uintptr_t gpu_vk_get_physical_device(void);
 uintptr_t gpu_vk_get_device(void);
-uintptr_t gpu_vk_get_queue(void);
+uintptr_t gpu_vk_get_queue(uint32_t*, uint32_t*);
 
 static struct {
   ovrJava java;
