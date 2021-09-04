@@ -12,27 +12,19 @@ public class Activity extends NativeActivity {
   protected native void lovrPermissionEvent(int permission, boolean granted);
 
   @Override
-  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults)
-  {
-    if(grantResults[0] == PackageManager.PERMISSION_GRANTED)
-    {
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
       lovrPermissionEvent(0, true);
-    }
-    else
-    {
+    } else {
       lovrPermissionEvent(0, false);
     }
   }
 
-  private void requestAudioCapturePermission()
-  {
+  private void requestAudioCapturePermission() {
     int existingPermission = checkSelfPermission(Manifest.permission.RECORD_AUDIO);
-    if(existingPermission != PackageManager.PERMISSION_GRANTED)
-    {
-      requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1);
-    }
-    else
-    {
+    if (existingPermission != PackageManager.PERMISSION_GRANTED) {
+      requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, 1);
+    } else {
       lovrPermissionEvent(0, true);
     }
   }
