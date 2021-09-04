@@ -166,11 +166,12 @@ typedef struct {
 struct Batch {
   uint32_t ref;
   bool scratch;
-  bool active;
   BatchInfo info;
   gpu_pass* pass;
   uint32_t groupCount;
   uint32_t drawCount;
+  uint32_t lastDrawCount;
+  uint32_t lastBundleCount;
   BatchGroup* groups;
   BatchDraw* draws;
   gpu_bunch* bunch;
@@ -273,6 +274,8 @@ static struct {
   uint32_t streamCount;
   uint32_t tick;
 } state;
+
+static void lovrBatchPrepare(Batch* batch);
 
 static void* talloc(size_t size) {
   while (state.frame.tip + size > state.frame.top) {
@@ -1011,7 +1014,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
       continue;
     }
 
-    lovrBatchFinish(batch);
+    lovrBatchPrepare(batch);
 
     // Viewport
     if (batch->viewport[2] > 0.f && batch->viewport[3] > 0.f) {
@@ -1996,7 +1999,7 @@ Batch* lovrBatchCreate(BatchInfo* info) {
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
   if (!batch->scratch) {
-    if (!batch->active && batch->bundleCount > 0) {
+    if (batch->lastBundleCount > 0) {
       gpu_bunch_destroy(batch->bunch);
     }
     free(batch);
@@ -2012,17 +2015,15 @@ uint32_t lovrBatchGetCount(Batch* batch) {
 }
 
 void lovrBatchBegin(Batch* batch) {
-  batch->active = true;
-
   batch->groupCount = 0;
   batch->drawCount = 0;
 
-  // Destroy old bunch if it exists (maybe this test for detecting if bunch exists can be improved)
-  if (!batch->scratch && !batch->active && batch->bundleCount > 0) {
+  if (!batch->scratch && batch->lastBundleCount > 0) {
     gpu_bunch_destroy(batch->bunch);
   }
 
   batch->bundleCount = 0;
+  batch->lastBundleCount = 0;
   batch->bindingsDirty = true;
   memset(batch->bindings, 0, sizeof(batch->bindings));
   batch->emptySlotMask = ~0u;
@@ -2047,30 +2048,31 @@ void lovrBatchBegin(Batch* batch) {
   batch->pipeline->dirty = true;
 }
 
-void lovrBatchFinish(Batch* batch) {
-  if (!batch->active) return;
-  batch->active = false;
+static void lovrBatchPrepare(Batch* batch) {
 
-  // Allocate and write bundles
-  if (batch->scratch) {
-    for (uint32_t i = 0; i < batch->bundleCount; i++) {
-      uint32_t layoutIndex = ((char*) batch->bundleWrites[i].layout - (char*) state.layouts[0]) / gpu_sizeof_layout();
-      batch->bundles[i] = bundleAllocate(layoutIndex);
+  // Allocate bundles
+  if (batch->bundleCount > 0) {
+    if (batch->scratch) {
+      for (uint32_t i = batch->lastBundleCount; i < batch->bundleCount; i++) {
+        uint32_t layoutIndex = ((char*) batch->bundleWrites[i].layout - (char*) state.layouts[0]) / gpu_sizeof_layout();
+        batch->bundles[i] = bundleAllocate(layoutIndex);
+      }
+    } else {
+      gpu_bunch_info info = {
+        .bundles = batch->bundles[0],
+        .contents = batch->bundleWrites,
+        .count = batch->bundleCount
+      };
+
+      lovrAssert(gpu_bunch_init(batch->bunch, &info), "Failed to initialize bunch");
     }
-  } else {
-    gpu_bunch_info info = {
-      .bundles = batch->bundles[0],
-      .contents = batch->bundleWrites,
-      .count = batch->bundleCount
-    };
 
-    lovrAssert(gpu_bunch_init(batch->bunch, &info), "Failed to initialize bunch");
+    gpu_bundle_write(batch->bundles, batch->bundleWrites, batch->bundleCount);
+    batch->lastBundleCount = batch->bundleCount;
   }
 
-  gpu_bundle_write(batch->bundles, batch->bundleWrites, batch->bundleCount);
-
   // Group draws
-  if (batch->drawCount > 0) {
+  if (batch->lastDrawCount == 0) {
     batch->groupCount = 1;
     batch->groups[0].count = 1;
     batch->groups[0].dirty = 0;
@@ -2079,43 +2081,42 @@ void lovrBatchFinish(Batch* batch) {
     batch->groups[0].dirty |= (batch->draws[0].flags & DRAW_INDEXED) ? DIRTY_INDEX : 0;
     batch->groups[0].dirty |= DIRTY_DRAW_CHUNK;
     batch->groups[0].dirty |= batch->bundleCount > 0 ? DIRTY_BUNDLE : 0;
+    batch->lastDrawCount = 1;
+  }
 
-    for (uint32_t i = 1; i < batch->drawCount; i++) {
-      BatchDraw* a = &batch->draws[i];
-      BatchDraw* b = &batch->draws[i - 1];
+  for (uint32_t i = batch->lastDrawCount; i < batch->drawCount; i++) {
+    BatchDraw* a = &batch->draws[i];
+    BatchDraw* b = &batch->draws[i - 1];
 
-      uint8_t dirty = 0;
-      if (a->key.bits.pipeline != b->key.bits.pipeline) {
-        dirty |= DIRTY_PIPELINE;
-      }
+    uint8_t dirty = 0;
+    if (a->key.bits.pipeline != b->key.bits.pipeline) {
+      dirty |= DIRTY_PIPELINE;
+    }
 
-      if ((a->flags & DRAW_VERTEXED) > (b->flags & DRAW_VERTEXED) || a->key.bits.vertex != b->key.bits.vertex) {
-        dirty |= DIRTY_VERTEX;
-      }
+    if ((a->flags & DRAW_VERTEXED) > (b->flags & DRAW_VERTEXED) || a->key.bits.vertex != b->key.bits.vertex) {
+      dirty |= DIRTY_VERTEX;
+    }
 
-      if ((a->flags & DRAW_INDEXED) > (b->flags & DRAW_INDEXED) || a->key.bits.index != b->key.bits.index || (a->flags & DRAW_INDEX32) != (b->flags & DRAW_INDEX32)) {
-        dirty |= DIRTY_INDEX;
-      }
+    if ((a->flags & DRAW_INDEXED) > (b->flags & DRAW_INDEXED) || a->key.bits.index != b->key.bits.index || (a->flags & DRAW_INDEX32) != (b->flags & DRAW_INDEX32)) {
+      dirty |= DIRTY_INDEX;
+    }
 
-      if (a->index >> 8 != b->index >> 8) {
-        dirty |= DIRTY_DRAW_CHUNK;
-      }
+    if (a->index >> 8 != b->index >> 8) {
+      dirty |= DIRTY_DRAW_CHUNK;
+    }
 
-      if (a->key.bits.bundle != b->key.bits.bundle) {
-        dirty |= DIRTY_BUNDLE;
-      }
+    if (a->key.bits.bundle != b->key.bits.bundle) {
+      dirty |= DIRTY_BUNDLE;
+    }
 
-      if (dirty) {
-        batch->groups[batch->groupCount++] = (BatchGroup) { .dirty = dirty, .count = 1 };
-      } else {
-        batch->groups[batch->groupCount - 1].count++;
-      }
+    if (dirty) {
+      batch->groups[batch->groupCount++] = (BatchGroup) { .dirty = dirty, .count = 1 };
+    } else {
+      batch->groups[batch->groupCount - 1].count++;
     }
   }
-}
 
-bool lovrBatchIsActive(Batch* batch) {
-  return batch->active;
+  batch->lastDrawCount = batch->drawCount;
 }
 
 void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]) {

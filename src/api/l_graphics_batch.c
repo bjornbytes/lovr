@@ -32,19 +32,6 @@ static int l_lovrBatchBegin(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBatchFinish(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  lovrBatchFinish(batch);
-  return 0;
-}
-
-static int l_lovrBatchIsActive(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  bool active = lovrBatchIsActive(batch);
-  lua_pushboolean(L, active);
-  return 1;
-}
-
 static int l_lovrBatchGetViewport(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   float viewport[4], depthRange[2];
@@ -640,8 +627,6 @@ const luaL_Reg lovrBatch[] = {
   { "getCapacity", l_lovrBatchGetCapacity },
   { "getCount", l_lovrBatchGetCount },
   { "begin", l_lovrBatchBegin },
-  { "finish", l_lovrBatchFinish },
-  { "isActive", l_lovrBatchIsActive },
 
   { "getViewport", l_lovrBatchGetViewport },
   { "setViewport", l_lovrBatchSetViewport },
