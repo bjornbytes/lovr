@@ -2457,7 +2457,7 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
   batch->bindingsDirty = true;
 }
 
-void lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
+uint32_t lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
   lovrCheck(batch->drawCount < batch->info.capacity, "Too many draws");
   BatchDraw* draw = &batch->draws[batch->drawCount];
   draw->index = batch->drawCount++;
@@ -2627,10 +2627,12 @@ void lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
   DrawData* data = (DrawData*) (batch->scratchpads[BUFFER_DRAW_DATA].data + draw->index * sizeof(DrawData));
   memset(data, 0, 16);
   memcpy(data->color, batch->pipeline->color, 16);
+
+  return draw->index;
 }
 
-void lovrBatchPoints(Batch* batch, uint32_t count, float** vertices) {
-  lovrBatchMesh(batch, &(DrawInfo) {
+uint32_t lovrBatchPoints(Batch* batch, uint32_t count, float** vertices) {
+  return lovrBatchMesh(batch, &(DrawInfo) {
     .mode = DRAW_POINTS,
     .vertex.format = VERTEX_POSITION,
     .vertex.pointer = (void**) vertices,
@@ -2639,10 +2641,10 @@ void lovrBatchPoints(Batch* batch, uint32_t count, float** vertices) {
   }, NULL);
 }
 
-void lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
+uint32_t lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
   uint16_t* indices;
 
-  lovrBatchMesh(batch, &(DrawInfo) {
+  uint32_t id = lovrBatchMesh(batch, &(DrawInfo) {
     .mode = DRAW_LINES,
     .vertex.format = VERTEX_POSITION,
     .vertex.pointer = (void**) vertices,
@@ -2657,13 +2659,15 @@ void lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
     indices[2 * i + 0] = i;
     indices[2 * i + 1] = i + 1;
   }
+
+  return id;
 }
 
-void lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
+uint32_t lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
   lovrThrow("TODO");
 }
 
-void lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
+uint32_t lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
   uint16_t indices[] = {
      0,  1,  2,  2,  1,  3,
      4,  5,  6,  6,  5,  7,
@@ -2673,7 +2677,7 @@ void lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
     20, 21, 22, 22, 21, 23
   };
 
-  lovrBatchMesh(batch, &(DrawInfo) {
+  return lovrBatchMesh(batch, &(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.geometryBuffer,
     .index.data = indices,
@@ -2684,35 +2688,35 @@ void lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
   }, transform);
 }
 
-void lovrBatchCircle(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
+uint32_t lovrBatchCircle(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
   lovrThrow("TODO");
 }
 
-void lovrBatchCylinder(Batch* batch, mat4 transform, float r1, float r2, bool capped, uint32_t segments) {
+uint32_t lovrBatchCylinder(Batch* batch, mat4 transform, float r1, float r2, bool capped, uint32_t segments) {
   lovrThrow("TODO");
 }
 
-void lovrBatchSphere(Batch* batch, mat4 transform, uint32_t segments) {
+uint32_t lovrBatchSphere(Batch* batch, mat4 transform, uint32_t segments) {
   lovrThrow("TODO");
 }
 
-void lovrBatchSkybox(Batch* batch, Texture* texture) {
+uint32_t lovrBatchSkybox(Batch* batch, Texture* texture) {
   lovrThrow("TODO");
 }
 
-void lovrBatchFill(Batch* batch, Texture* texture) {
+uint32_t lovrBatchFill(Batch* batch, Texture* texture) {
   lovrThrow("TODO");
 }
 
-void lovrBatchModel(Batch* batch, Model* model, mat4 transform, uint32_t node, bool children, uint32_t instances) {
+uint32_t lovrBatchModel(Batch* batch, Model* model, mat4 transform, uint32_t node, bool children, uint32_t instances) {
   lovrThrow("TODO");
 }
 
-void lovrBatchPrint(Batch* batch, Font* font, const char* text, uint32_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+uint32_t lovrBatchPrint(Batch* batch, Font* font, const char* text, uint32_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   lovrThrow("TODO");
 }
 
-void lovrBatchCompute(Batch* batch, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
+uint32_t lovrBatchCompute(Batch* batch, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
   if (indirect) {
     lovrThrow("TODO");
   } else {
