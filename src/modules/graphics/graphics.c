@@ -105,8 +105,7 @@ typedef struct {
 typedef union {
   uint64_t u64;
   struct {
-    unsigned indirect : 1;
-    unsigned pipeline : 15;
+    unsigned pipeline : 16;
     unsigned vertex : 8;
     unsigned index : 8;
     unsigned textures : 4;
@@ -125,8 +124,7 @@ enum {
 
 typedef struct {
   DrawKey key;
-  uint16_t index;
-  uint16_t flags;
+  uint32_t flags;
   uint32_t start;
   uint32_t count;
   uint32_t instances;
@@ -170,16 +168,18 @@ struct Batch {
   gpu_pass* pass;
   uint32_t groupCount;
   uint32_t drawCount;
-  uint32_t lastDrawCount;
-  uint32_t lastBundleCount;
+  uint32_t activeDrawCount;
+  uint32_t groupedDrawCount;
   BatchGroup* groups;
   BatchDraw* draws;
+  uint32_t* activeDraws;
   gpu_bunch* bunch;
   gpu_bundle** bundles;
   gpu_bundle_info* bundleWrites;
   gpu_binding bindings[32];
   uint32_t emptySlotMask;
   uint32_t bundleCount;
+  uint32_t lastBundleCount;
   bool bindingsDirty;
   BatchPipeline pipelines[4];
   uint32_t pipelineIndex;
@@ -1006,11 +1006,9 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   // Batches
   for (uint32_t i = 0; i < count; i++) {
     Batch* batch = batches[i];
-    BatchDraw* draw = batch->draws;
-    BatchGroup* group = batch->groups;
     lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
 
-    if (batch->drawCount == 0) {
+    if (batch->activeDrawCount == 0) {
       continue;
     }
 
@@ -1052,7 +1050,11 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     gpu_bundle_write(&builtins, &info, 1);
 
     // Draws
+    uint32_t activeDrawIndex = 0;
+    BatchGroup* group = batch->groups;
     for (uint32_t j = 0; j < batch->groupCount; j++, group++) {
+      uint32_t index = batch->activeDraws[activeDrawIndex];
+      BatchDraw* draw = &batch->draws[index];
       gpu_pipeline* pipeline = state.pipelines[draw->key.bits.pipeline];
 
       if (group->dirty & DIRTY_PIPELINE) {
@@ -1069,8 +1071,8 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
       }
 
       if (group->dirty & DIRTY_DRAW_CHUNK) {
-        uint32_t transformOffset = (draw->index >> 8) * 256 * 16 * sizeof(float);
-        uint32_t drawDataOffset = (draw->index >> 8) * 256 * sizeof(DrawData);
+        uint32_t transformOffset = (index >> 8) * 256 * 16 * sizeof(float);
+        uint32_t drawDataOffset = (index >> 8) * 256 * sizeof(DrawData);
         uint32_t offsets[] = { transformOffset, drawDataOffset };
         gpu_bind_bundle(stream, pipeline, 0, builtins, offsets, COUNTOF(offsets));
       }
@@ -1081,13 +1083,15 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
       if (draw->flags & DRAW_INDEXED) {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
-          gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base, draw->index & 0xff);
+          gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base, (index + k) & 0xff);
         }
       } else {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
-          gpu_draw(stream, draw->count, draw->instances, draw->start, draw->index & 0xff);
+          gpu_draw(stream, draw->count, draw->instances, draw->start, (index + k) & 0xff);
         }
       }
+
+      activeDrawIndex += group->count;
     }
   }
 
@@ -1945,7 +1949,7 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
 
 Batch* lovrBatchInit(BatchInfo* info, bool scratch) {
   uint32_t maxBundles = MIN(info->capacity, MAX_BUNDLES);
-  size_t sizes[7];
+  size_t sizes[8];
   size_t total = 0;
   total += sizes[0] = sizeof(Batch);
   total += sizes[1] = info->capacity * sizeof(BatchGroup);
@@ -1954,6 +1958,7 @@ Batch* lovrBatchInit(BatchInfo* info, bool scratch) {
   total += sizes[4] = maxBundles * sizeof(gpu_bundle*);
   total += sizes[5] = scratch ? 0 : maxBundles * gpu_sizeof_bundle();
   total += sizes[6] = scratch ? 0 : gpu_sizeof_bunch();
+  total += sizes[7] = info->capacity * sizeof(uint32_t);
   char* memory = scratch ? talloc(total) : malloc(total);
   lovrAssert(memory, "Out of memory");
   Batch* batch = (Batch*) memory; memory += sizes[0];
@@ -1962,7 +1967,8 @@ Batch* lovrBatchInit(BatchInfo* info, bool scratch) {
   batch->draws = (BatchDraw*) memory, memory += sizes[2];
   batch->bundleWrites = (gpu_bundle_info*) memory, memory += sizes[3];
   batch->bundles = (gpu_bundle**) memory, memory += sizes[4];
-  batch->bunch = (gpu_bunch*) memory, memory += sizes[5];
+  batch->bunch = (gpu_bunch*) memory, memory += sizes[6];
+  batch->activeDraws = (uint32_t*) memory, memory += sizes[7];
   if (!scratch) {
     for (uint32_t i = 0; i < maxBundles; i++) {
       batch->bundles[i] = (gpu_bundle*) memory, memory += gpu_sizeof_bundle();
@@ -1984,7 +1990,7 @@ Batch* lovrBatchInit(BatchInfo* info, bool scratch) {
       batch->buffers[i] = bufferAllocate(GPU_MEMORY_GPU, bufferSizes[i], 256);
     }
   }
-  lovrBatchBegin(batch);
+  lovrBatchReset(batch);
   return batch;
 }
 
@@ -2014,9 +2020,11 @@ uint32_t lovrBatchGetCount(Batch* batch) {
   return batch->drawCount;
 }
 
-void lovrBatchBegin(Batch* batch) {
+void lovrBatchReset(Batch* batch) {
   batch->groupCount = 0;
   batch->drawCount = 0;
+  batch->activeDrawCount = 0;
+  batch->groupedDrawCount = 0;
 
   if (!batch->scratch && batch->lastBundleCount > 0) {
     gpu_bunch_destroy(batch->bunch);
@@ -2071,22 +2079,22 @@ static void lovrBatchPrepare(Batch* batch) {
     batch->lastBundleCount = batch->bundleCount;
   }
 
-  // Group draws
-  if (batch->lastDrawCount == 0) {
+  // Group active draws
+  if (batch->groupedDrawCount == 0) {
     batch->groupCount = 1;
     batch->groups[0].count = 1;
     batch->groups[0].dirty = 0;
     batch->groups[0].dirty |= DIRTY_PIPELINE;
-    batch->groups[0].dirty |= (batch->draws[0].flags & DRAW_VERTEXED) ? DIRTY_VERTEX : 0;
-    batch->groups[0].dirty |= (batch->draws[0].flags & DRAW_INDEXED) ? DIRTY_INDEX : 0;
+    batch->groups[0].dirty |= (batch->draws[batch->activeDraws[0]].flags & DRAW_VERTEXED) ? DIRTY_VERTEX : 0;
+    batch->groups[0].dirty |= (batch->draws[batch->activeDraws[0]].flags & DRAW_INDEXED) ? DIRTY_INDEX : 0;
     batch->groups[0].dirty |= DIRTY_DRAW_CHUNK;
     batch->groups[0].dirty |= batch->bundleCount > 0 ? DIRTY_BUNDLE : 0;
-    batch->lastDrawCount = 1;
+    batch->groupedDrawCount = 1;
   }
 
-  for (uint32_t i = batch->lastDrawCount; i < batch->drawCount; i++) {
-    BatchDraw* a = &batch->draws[i];
-    BatchDraw* b = &batch->draws[i - 1];
+  for (uint32_t i = batch->groupedDrawCount; i < batch->activeDrawCount; i++) {
+    BatchDraw* a = &batch->draws[batch->activeDraws[i]];
+    BatchDraw* b = &batch->draws[batch->activeDraws[i - 1]];
 
     uint8_t dirty = 0;
     if (a->key.bits.pipeline != b->key.bits.pipeline) {
@@ -2101,7 +2109,7 @@ static void lovrBatchPrepare(Batch* batch) {
       dirty |= DIRTY_INDEX;
     }
 
-    if (a->index >> 8 != b->index >> 8) {
+    if (batch->activeDraws[i] >> 8 != batch->activeDraws[i - 1] >> 8) {
       dirty |= DIRTY_DRAW_CHUNK;
     }
 
@@ -2116,7 +2124,7 @@ static void lovrBatchPrepare(Batch* batch) {
     }
   }
 
-  batch->lastDrawCount = batch->drawCount;
+  batch->groupedDrawCount = batch->activeDrawCount;
 }
 
 void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]) {
@@ -2459,10 +2467,11 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
 
 uint32_t lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
   lovrCheck(batch->drawCount < batch->info.capacity, "Too many draws");
-  BatchDraw* draw = &batch->draws[batch->drawCount];
-  draw->index = batch->drawCount++;
-  draw->key.bits.indirect = 0;
-  draw->key.bits.chunk = (draw->index >> 8) & 0xf;
+  uint32_t drawIndex = batch->drawCount++;
+  batch->activeDraws[batch->activeDrawCount++] = drawIndex;
+
+  BatchDraw* draw = &batch->draws[drawIndex];
+  draw->key.bits.chunk = (drawIndex >> 8) & 0xf;
 
   // Pipeline
   if (batch->pipeline->info.drawMode != (gpu_draw_mode) info->mode) {
@@ -2618,17 +2627,17 @@ uint32_t lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform) {
     float model[16];
     mat4_init(model, batch->transform);
     mat4_mul(model, transform);
-    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + draw->index * 16 * sizeof(float), model, 16 * sizeof(float));
+    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + drawIndex * 16 * sizeof(float), model, 16 * sizeof(float));
   } else {
-    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + draw->index * 16 * sizeof(float), batch->transform, 16 * sizeof(float));
+    memcpy(batch->scratchpads[BUFFER_TRANSFORM].data + drawIndex * 16 * sizeof(float), batch->transform, 16 * sizeof(float));
   }
 
   // DrawData
-  DrawData* data = (DrawData*) (batch->scratchpads[BUFFER_DRAW_DATA].data + draw->index * sizeof(DrawData));
+  DrawData* data = (DrawData*) (batch->scratchpads[BUFFER_DRAW_DATA].data + drawIndex * sizeof(DrawData));
   memset(data, 0, 16);
   memcpy(data->color, batch->pipeline->color, 16);
 
-  return draw->index;
+  return drawIndex;
 }
 
 uint32_t lovrBatchPoints(Batch* batch, uint32_t count, float** vertices) {
