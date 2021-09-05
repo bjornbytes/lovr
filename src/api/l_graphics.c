@@ -673,7 +673,7 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info = { 0 };
+  BufferInfo info = { .usage = ~0u };
 
   // Flags
   if (lua_istable(L, 3)) {

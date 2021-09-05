@@ -1083,15 +1083,15 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
       if (draw->flags & DRAW_INDEXED) {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
-          gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base, (index + k) & 0xff);
+          index = batch->activeDraws[activeDrawIndex++];
+          gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->base, index);
         }
       } else {
         for (uint16_t k = 0; k < group->count; k++, draw++) {
-          gpu_draw(stream, draw->count, draw->instances, draw->start, (index + k) & 0xff);
+          index = batch->activeDraws[activeDrawIndex++];
+          gpu_draw(stream, draw->count, draw->instances, draw->start, index);
         }
       }
-
-      activeDrawIndex += group->count;
     }
   }
 
@@ -1171,7 +1171,7 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
     lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
     Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
     gpu_copy_buffers(state.transfers, scratch.gpu, buffer->mega.gpu, scratch.offset, buffer->mega.offset + offset, size);
-    return scratch.data + scratch.offset;
+    return scratch.data;
   }
 }
 
@@ -1600,6 +1600,21 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
 
 #define MIN_SPIRV_WORDS 8
 
+typedef union {
+  struct {
+    uint16_t location;
+    uint16_t name;
+  } attribute;
+  struct {
+    uint16_t group;
+    uint16_t binding;
+  } resource;
+  struct {
+    uint16_t inner;
+    uint16_t name;
+  } type;
+} SpirvVariable;
+
 // Only an explicit set of spir-v capabilities are allowed
 // Some capabilities require a GPU feature to be supported
 // Some common unsupported capabilities are checked directly, to provide better error messages
@@ -1664,7 +1679,7 @@ static bool checkShaderCapability(uint32_t capability) {
 }
 
 // Parse a slot type and array size from a variable instruction, throwing on failure
-static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
+static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, SpirvVariable* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
   const uint32_t* edge = words + wordCount - MIN_SPIRV_WORDS;
   uint32_t type = instruction[1];
   uint32_t id = instruction[2];
@@ -1672,15 +1687,15 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* c
 
   // Follow the variable's type id to the OpTypePointer instruction that declares its pointer type
   // Then unwrap the pointer to get to the inner type of the variable
-  instruction = words + cache[type];
+  instruction = words + cache[type].type.inner;
   lovrCheck(instruction < edge && instruction[3] < bound, "Invalid Shader code: id overflow");
-  instruction = words + cache[instruction[3]];
+  instruction = words + cache[instruction[3]].type.inner;
   lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
 
   if ((instruction[0] & 0xffff) == 28) { // OpTypeArray
     // Read array size
-    lovrCheck(instruction[3] < bound && words + cache[instruction[3]] < edge, "Invalid Shader code: id overflow");
-    const uint32_t* size = words + cache[instruction[3]];
+    lovrCheck(instruction[3] < bound && words + cache[instruction[3]].type.inner < edge, "Invalid Shader code: id overflow");
+    const uint32_t* size = words + cache[instruction[3]].type.inner;
     if ((size[0] & 0xffff) == 43 || (size[0] & 0xffff) == 50) { // OpConstant || OpSpecConstant
       *count = size[3];
     } else {
@@ -1688,8 +1703,8 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* c
     }
 
     // Unwrap array to get to inner array type and keep going
-    lovrCheck(instruction[2] < bound && words + cache[instruction[2]] < edge, "Invalid Shader code: id overflow");
-    instruction = words + cache[instruction[2]];
+    lovrCheck(instruction[2] < bound && words + cache[instruction[2]].type.inner < edge, "Invalid Shader code: id overflow");
+    instruction = words + cache[instruction[2]].type.inner;
   } else {
     *count = 1;
   }
@@ -1703,7 +1718,7 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, uint32_t* c
 
   // If it's a sampled image, unwrap to get to the image type.  If it's not an image, fail
   if ((instruction[0] & 0xffff) == 27) { // OpTypeSampledImage
-    instruction = words + cache[instruction[2]];
+    instruction = words + cache[instruction[2]].type.inner;
     lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
   } else if ((instruction[0] & 0xffff) != 25) { // OpTypeImage
     lovrThrow("Invalid Shader code: variable %d is not recognized as a valid buffer or texture resource", id);
@@ -1734,28 +1749,13 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
   lovrCheck(bound <= 0xffff, "Unsupported Shader code: id bound is too big (max is 65535)");
 
   // The cache stores information for spirv ids, allowing everything to be parsed in a single pass
-  // - For bundle variables, stores the slot's group, index, and name offset
+  // - For buffer/texture resources, stores the slot's group and binding number
   // - For vertex attributes, stores the attribute location decoration
-  // - For types, stores the index of its declaration instruction
-  // Need to study whether aliasing cache as u32 and struct var violates strict aliasing
-  typedef union {
-    struct {
-      uint16_t location;
-      uint16_t name;
-    } attribute;
-    struct {
-      uint8_t group;
-      uint8_t binding;
-      uint16_t name;
-    } resource;
-    struct {
-      uint32_t index;
-    } type;
-  } Variable;
-  size_t cacheSize = bound * sizeof(Variable);
+  // - For types, stores the id of its declaration instruction and its name (for block resources)
+  size_t cacheSize = bound * sizeof(SpirvVariable);
   void* cache = talloc(cacheSize);
   memset(cache, 0xff, cacheSize);
-  Variable* vars = cache;
+  SpirvVariable* vars = cache;
 
   const uint32_t* instruction = words + 5;
 
@@ -1775,7 +1775,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
       case 5: // OpName
         if (length < 3 || instruction[1] >= bound) break;
         id = instruction[1];
-        vars[id].resource.name = instruction - words + 2;
+        vars[id].type.name = instruction - words + 2;
         break;
       case 71: // OpDecorate
         if (length < 4 || instruction[1] >= bound) break;
@@ -1810,11 +1810,12 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
       case 31: // OpTypeOpaque
       case 32: // OpTypePointer
         if (length < 2 || instruction[1] >= bound) break;
-        vars[instruction[1]].type.index = instruction - words;
+        vars[instruction[1]].type.inner = instruction - words;
         break;
       case 59: // OpVariable
         if (length < 4 || instruction[2] >= bound) break;
         id = instruction[2];
+        uint32_t type = instruction[1];
         uint32_t storageClass = instruction[3];
 
         // Vertex shaders track attribute locations (Input StorageClass (1) decorated with Location)
@@ -1829,29 +1830,31 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
         }
 
         uint32_t count;
-        gpu_slot_type type;
-        parseTypeInfo(words, wordCount, &vars[0].type.index, bound, instruction, &type, &count);
+        gpu_slot_type slotType;
+        parseTypeInfo(words, wordCount, cache, bound, instruction, &slotType, &count);
 
         uint32_t group = vars[id].resource.group;
         uint32_t number = vars[id].resource.binding;
         gpu_slot* slot = &slots[group][number];
 
-        // Name
-        if (group == 1 && !names[number] && vars[id].resource.name != 0xffff) {
-          char* name = (char*) (words + vars[id].resource.name);
-          names[number] = hash64(name, strnlen(name, 4 * (wordCount - vars[id].resource.name)));
+        // Name (type of variable is pointer, follow pointer's inner type to get to struct type)
+        // The struct type is what actually has the block name, used for the resource's name
+        uint32_t blockType = (words + vars[type].type.inner)[3];
+        if (group == 1 && !names[number] && vars[blockType].type.name != 0xffff) {
+          char* name = (char*) (words + vars[blockType].type.name);
+          names[number] = hash64(name, strnlen(name, 4 * (wordCount - vars[blockType].type.name)));
         }
 
         // Either merge our info into an existing slot, or add the slot
         if (slot->stage != 0) {
-          lovrCheck(slot->type == type, "Variable (%d,%d) is in multiple shader stages with different types");
+          lovrCheck(slot->type == slotType, "Variable (%d,%d) is in multiple shader stages with different types");
           lovrCheck(slot->count == count, "Variable (%d,%d) is in multiple shader stages with different array lengths");
           slot->stage |= stage;
         } else {
           lovrCheck(count > 0, "Variable (%d,%d) has array length of zero");
           lovrCheck(count < 256, "Variable (%d,%d) has array length of %d, but the max is 255", count);
           slot->number = number;
-          slot->type = type;
+          slot->type = slotType;
           slot->stage = stage;
           slot->count = count;
         }
@@ -2004,6 +2007,9 @@ Batch* lovrBatchCreate(BatchInfo* info) {
 
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
+  for (uint32_t i = 0; i <= batch->pipelineIndex; i++) {
+    lovrRelease(batch->pipelines[i].shader, lovrShaderDestroy);
+  }
   if (!batch->scratch) {
     if (batch->lastBundleCount > 0) {
       gpu_bunch_destroy(batch->bunch);
@@ -2178,6 +2184,7 @@ void lovrBatchPush(Batch* batch, StackType type) {
     batch->pipeline = &batch->pipelines[++batch->pipelineIndex];
     lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelines), "Pipeline stack overflow (more pushes than pops?)");
     batch->pipeline = &batch->pipelines[batch->pipelineIndex - 1];
+    lovrRetain(batch->pipeline->shader);
   }
 }
 
@@ -2186,6 +2193,7 @@ void lovrBatchPop(Batch* batch, StackType type) {
     batch->transform = batch->transforms[--batch->transformIndex];
     lovrCheck(batch->transformIndex < COUNTOF(batch->transforms), "Matrix stack overflow (more pops than pushes?)");
   } else {
+    lovrRelease(batch->pipeline->shader, lovrShaderDestroy);
     batch->pipeline = &batch->pipelines[--batch->pipelineIndex];
     lovrCheck(batch->pipelineIndex < COUNTOF(batch->pipelines), "Pipeline stack overflow (more pops than pushes?)");
   }
