@@ -171,7 +171,7 @@ static int l_lovrVec2Add(lua_State* L) {
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     v[0] += x;
-    v[1] += x;
+    v[1] += luax_optfloat(L, 3, x);
   } else {
     float* u = luax_checkvector(L, 2, V_VEC2, "vec2 or number");
     v[0] += u[0];
@@ -186,7 +186,7 @@ static int l_lovrVec2Sub(lua_State* L) {
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     v[0] -= x;
-    v[1] -= x;
+    v[1] -= luax_optfloat(L, 3, x);
   } else {
     float* u = luax_checkvector(L, 2, V_VEC2, "vec2 or number");
     v[0] -= u[0];
@@ -201,7 +201,7 @@ static int l_lovrVec2Mul(lua_State* L) {
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     v[0] *= x;
-    v[1] *= x;
+    v[1] *= luax_optfloat(L, 3, x);
   } else {
     float* u = luax_checkvector(L, 2, V_VEC2, "vec2 or number");
     v[0] *= u[0];
@@ -216,7 +216,7 @@ static int l_lovrVec2Div(lua_State* L) {
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     v[0] /= x;
-    v[1] /= x;
+    v[1] /= luax_optfloat(L, 3, x);
   } else {
     float* u = luax_checkvector(L, 2, V_VEC2, "vec2 or number");
     v[0] /= u[0];
@@ -246,7 +246,15 @@ static int l_lovrVec2Normalize(lua_State* L) {
 
 static int l_lovrVec2Distance(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC2, NULL);
-  float* u = luax_checkvector(L, 2, V_VEC2, NULL);
+  float* u;
+  float uvec[2];
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC2, NULL);
+  }
   float dx = v[0] - u[0];
   float dy = v[1] - u[1];
   lua_pushnumber(L, sqrtf(dx * dx + dy * dy));
@@ -255,15 +263,33 @@ static int l_lovrVec2Distance(lua_State* L) {
 
 static int l_lovrVec2Dot(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC2, NULL);
-  float* u = luax_checkvector(L, 2, V_VEC2, NULL);
+  float* u;
+  float uvec[2];
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC2, NULL);
+  }
   lua_pushnumber(L, v[0] * u[0] + v[1] * u[1]);
   return 1;
 }
 
 static int l_lovrVec2Lerp(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC2, NULL);
-  float* u = luax_checkvector(L, 2, V_VEC2, NULL);
-  float t = luax_checkfloat(L, 3);
+  float* u;
+  float uvec[2];
+  float t;
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    u = uvec;
+    t = luax_checkfloat(L, 4);
+  } else {
+    u = luax_checkvector(L, 2, V_VEC2, NULL);
+    t = luax_checkfloat(L, 3);
+  }
   v[0] = v[0] + (u[0] - v[0]) * t;
   v[1] = v[1] + (u[1] - v[1]) * t;
   lua_settop(L, 1);
@@ -517,7 +543,10 @@ static int l_lovrVec3Add(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
-    v[0] += x, v[1] += x, v[2] += x, v[3] += x;
+    v[0] += x;
+    v[1] += luax_optfloat(L, 3, x);
+    v[2] += luax_optfloat(L, 4, x);
+    v[3] += 0.f;
   } else {
     vec3 u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
     vec3_add(v, u);
@@ -530,7 +559,10 @@ static int l_lovrVec3Sub(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
-    v[0] -= x, v[1] -= x, v[2] -= x, v[3] -= x;
+    v[0] -= x;
+    v[1] -= luax_optfloat(L, 3, x);
+    v[2] -= luax_optfloat(L, 4, x);
+    v[3] -= 0.f;
   } else {
     vec3 u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
     vec3_sub(v, u);
@@ -542,10 +574,15 @@ static int l_lovrVec3Sub(lua_State* L) {
 static int l_lovrVec3Mul(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
   if (lua_type(L, 2) == LUA_TNUMBER) {
-    vec3_scale(v, lua_tonumber(L, 2));
+    float x = lua_tonumber(L, 2);
+    v[0] *= x;
+    v[1] *= luax_optfloat(L, 3, x);
+    v[2] *= luax_optfloat(L, 4, x);
   } else {
     vec3 u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
-    v[0] = v[0] * u[0], v[1] = v[1] * u[1], v[2] = v[2] * u[2];
+    v[0] *= u[0];
+    v[1] *= u[1];
+    v[2] *= u[2];
   }
   lua_settop(L, 1);
   return 1;
@@ -554,10 +591,15 @@ static int l_lovrVec3Mul(lua_State* L) {
 static int l_lovrVec3Div(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
   if (lua_type(L, 2) == LUA_TNUMBER) {
-    vec3_scale(v, 1.f / (float) lua_tonumber(L, 2));
+    float x = lua_tonumber(L, 2);
+    v[0] /= x;
+    v[1] /= luax_optfloat(L, 3, x);
+    v[2] /= luax_optfloat(L, 4, x);
   } else {
     vec3 u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
-    v[0] = v[0] / u[0], v[1] = v[1] / u[1], v[2] = v[2] / u[2];
+    v[0] /= u[0];
+    v[1] /= u[1];
+    v[2] /= u[2];
   }
   lua_settop(L, 1);
   return 1;
@@ -578,21 +620,48 @@ static int l_lovrVec3Normalize(lua_State* L) {
 
 static int l_lovrVec3Distance(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
-  vec3 u = luax_checkvector(L, 2, V_VEC3, NULL);
+  vec3 u;
+  float uvec[4];
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
+  }
   lua_pushnumber(L, vec3_distance(v, u));
   return 1;
 }
 
 static int l_lovrVec3Dot(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
-  vec3 u = luax_checkvector(L, 2, V_VEC3, NULL);
+  vec3 u;
+  float uvec[4];
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
+  }
   lua_pushnumber(L, vec3_dot(v, u));
   return 1;
 }
 
 static int l_lovrVec3Cross(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
-  vec3 u = luax_checkvector(L, 2, V_VEC3, NULL);
+  vec3 u;
+  float uvec[4];
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
+  }
   vec3_cross(v, u);
   lua_settop(L, 1);
   return 1;
@@ -600,8 +669,19 @@ static int l_lovrVec3Cross(lua_State* L) {
 
 static int l_lovrVec3Lerp(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
-  vec3 u = luax_checkvector(L, 2, V_VEC3, NULL);
-  float t = luax_checkfloat(L, 3);
+  vec3 u;
+  float uvec[4];
+  float t;
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    u = uvec;
+    t = luax_checkfloat(L, 5);
+  } else {
+    u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
+    t = luax_checkfloat(L, 3);
+  }
   vec3_lerp(v, u, t);
   lua_settop(L, 1);
   return 1;
@@ -857,9 +937,9 @@ static int l_lovrVec4Add(lua_State* L) {
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     v[0] += x;
-    v[1] += x;
-    v[2] += x;
-    v[3] += x;
+    v[1] += luax_optfloat(L, 3, x);
+    v[2] += luax_optfloat(L, 4, x);
+    v[3] += luax_optfloat(L, 5, x);
   } else {
     float* u = luax_checkvector(L, 2, V_VEC4, "vec4 or number");
     v[0] += u[0];
@@ -876,9 +956,9 @@ static int l_lovrVec4Sub(lua_State* L) {
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     v[0] -= x;
-    v[1] -= x;
-    v[2] -= x;
-    v[3] -= x;
+    v[1] -= luax_optfloat(L, 3, x);
+    v[2] -= luax_optfloat(L, 4, x);
+    v[3] -= luax_optfloat(L, 5, x);
   } else {
     float* u = luax_checkvector(L, 2, V_VEC4, "vec4 or number");
     v[0] -= u[0];
@@ -895,9 +975,9 @@ static int l_lovrVec4Mul(lua_State* L) {
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     v[0] *= x;
-    v[1] *= x;
-    v[2] *= x;
-    v[3] *= x;
+    v[1] *= luax_optfloat(L, 3, x);
+    v[2] *= luax_optfloat(L, 4, x);
+    v[3] *= luax_optfloat(L, 5, x);
   } else {
     float* u = luax_checkvector(L, 2, V_VEC4, "vec4 or number");
     v[0] *= u[0];
@@ -914,9 +994,9 @@ static int l_lovrVec4Div(lua_State* L) {
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = lua_tonumber(L, 2);
     v[0] /= x;
-    v[1] /= x;
-    v[2] /= x;
-    v[3] /= x;
+    v[1] /= luax_optfloat(L, 3, x);
+    v[2] /= luax_optfloat(L, 4, x);
+    v[3] /= luax_optfloat(L, 5, x);
   } else {
     float* u = luax_checkvector(L, 2, V_VEC4, "vec4 or number");
     v[0] /= u[0];
@@ -950,7 +1030,17 @@ static int l_lovrVec4Normalize(lua_State* L) {
 
 static int l_lovrVec4Distance(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC4, NULL);
-  float* u = luax_checkvector(L, 2, V_VEC4, NULL);
+  float* u;
+  float uvec[4];
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);;
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    uvec[3] = luax_checkfloat(L, 5);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC4, NULL);
+  }
   float dx = v[0] - u[0];
   float dy = v[1] - u[1];
   float dz = v[2] - u[2];
@@ -961,15 +1051,37 @@ static int l_lovrVec4Distance(lua_State* L) {
 
 static int l_lovrVec4Dot(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC4, NULL);
-  float* u = luax_checkvector(L, 2, V_VEC4, NULL);
+  float* u;
+  float uvec[4];
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    uvec[3] = luax_checkfloat(L, 5);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC4, NULL);
+  }
   lua_pushnumber(L, v[0] * u[0] + v[1] * u[1] + v[2] * u[2] + v[3] * u[3]);
   return 1;
 }
 
 static int l_lovrVec4Lerp(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC4, NULL);
-  float* u = luax_checkvector(L, 2, V_VEC4, NULL);
-  float t = luax_checkfloat(L, 3);
+  float* u;
+  float uvec[4];
+  float t;
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    uvec[3] = luax_checkfloat(L, 5);
+    u = uvec;
+    t = luax_checkfloat(L, 6);
+  } else {
+    u = luax_checkvector(L, 2, V_VEC4, NULL);
+    t = luax_checkfloat(L, 3);
+  }
   v[0] = v[0] + (u[0] - v[0]) * t;
   v[1] = v[1] + (u[1] - v[1]) * t;
   v[2] = v[2] + (u[2] - v[2]) * t;
