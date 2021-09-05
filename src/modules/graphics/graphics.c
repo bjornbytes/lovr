@@ -2062,6 +2062,15 @@ void lovrBatchReset(Batch* batch) {
   batch->pipeline->dirty = true;
 }
 
+void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i), void* context) {
+  batch->activeDrawCount = 0;
+  for (uint32_t i = 0; i < batch->drawCount; i++) {
+    if (predicate(context, i)) {
+      batch->activeDraws[batch->activeDrawCount++] = i;
+    }
+  }
+}
+
 static void lovrBatchPrepare(Batch* batch) {
 
   // Allocate bundles

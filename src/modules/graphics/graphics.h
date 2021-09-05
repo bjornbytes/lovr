@@ -432,6 +432,8 @@ const BatchInfo* lovrBatchGetInfo(Batch* batch);
 uint32_t lovrBatchGetCount(Batch* batch);
 void lovrBatchReset(Batch* batch);
 
+void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i), void* context);
+
 void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]);
 void lovrBatchSetViewport(Batch* batch, float viewport[4], float depthRange[2]);
 void lovrBatchGetScissor(Batch* batch, uint32_t scissor[4]);

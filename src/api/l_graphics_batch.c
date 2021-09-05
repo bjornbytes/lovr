@@ -32,6 +32,24 @@ static int l_lovrBatchReset(lua_State* L) {
   return 0;
 }
 
+static bool luax_filterpredicate(void* context, uint32_t i) {
+  lua_State* L = context;
+  lua_pushvalue(L, -1);
+  lua_pushinteger(L, i);
+  lua_call(L, 1, 1);
+  bool result = lua_toboolean(L, -1);
+  lua_pop(L, 1);
+  return result;
+}
+
+static int l_lovrBatchFilter(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  lua_settop(L, 2);
+  lovrBatchFilter(batch, luax_filterpredicate, L);
+  return 0;
+}
+
 static int l_lovrBatchGetViewport(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   float viewport[4], depthRange[2];
@@ -642,6 +660,8 @@ const luaL_Reg lovrBatch[] = {
   { "getCapacity", l_lovrBatchGetCapacity },
   { "getCount", l_lovrBatchGetCount },
   { "reset", l_lovrBatchReset },
+
+  { "filter", l_lovrBatchFilter },
 
   { "getViewport", l_lovrBatchGetViewport },
   { "setViewport", l_lovrBatchSetViewport },
