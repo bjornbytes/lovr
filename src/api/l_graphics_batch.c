@@ -26,9 +26,9 @@ static int l_lovrBatchGetCount(lua_State* L) {
   return 1;
 }
 
-static int l_lovrBatchBegin(lua_State* L) {
+static int l_lovrBatchReset(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
-  lovrBatchBegin(batch);
+  lovrBatchReset(batch);
   return 0;
 }
 
@@ -641,7 +641,7 @@ const luaL_Reg lovrBatch[] = {
   { "getType", l_lovrBatchGetType },
   { "getCapacity", l_lovrBatchGetCapacity },
   { "getCount", l_lovrBatchGetCount },
-  { "begin", l_lovrBatchBegin },
+  { "reset", l_lovrBatchReset },
 
   { "getViewport", l_lovrBatchGetViewport },
   { "setViewport", l_lovrBatchSetViewport },
