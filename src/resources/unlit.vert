@@ -28,8 +28,9 @@ layout(set = 0, binding = 1) uniform TransformBuffer { mat4 transforms[256]; };
 layout(set = 0, binding = 2) uniform DrawDataBuffer { DrawData draws[256]; };
 
 void main() {
-  outGlobalColor = draws[gl_BaseInstance].color;
+  uint localIndex = gl_BaseInstance & 0xff;
+  outGlobalColor = draws[localIndex].color;
   outVertexColor = inColor;
   gl_PointSize = 1.f;
-  gl_Position = camera.viewProjection[gl_ViewIndex] * transforms[gl_BaseInstance] * inPosition;
+  gl_Position = camera.viewProjection[gl_ViewIndex] * transforms[localIndex] * inPosition;
 }
