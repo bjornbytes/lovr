@@ -11,13 +11,15 @@ static int l_lovrFontGetWidth(lua_State* L) {
   const char* string = luaL_checklstring(L, 2, &length);
   float wrap = luax_optfloat(L, 3, 0.f);
   float width;
+  float lastLineWidth;
   float height;
   uint32_t lineCount;
   uint32_t glyphCount;
-  lovrFontMeasure(font, string, length, wrap, &width, &height, &lineCount, &glyphCount);
+  lovrFontMeasure(font, string, length, wrap, &width, &lastLineWidth, &height, &lineCount, &glyphCount);
   lua_pushnumber(L, width);
   lua_pushnumber(L, lineCount + 1);
-  return 2;
+  lua_pushnumber(L, lastLineWidth);
+  return 3;
 }
 
 static int l_lovrFontGetHeight(lua_State* L) {

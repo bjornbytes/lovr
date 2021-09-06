@@ -1251,11 +1251,12 @@ void lovrGraphicsSkybox(Texture* texture) {
 
 void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   float width;
+  float lastLineWidth;
   float height;
   uint32_t lineCount;
   uint32_t glyphCount;
   Font* font = lovrGraphicsGetFont();
-  lovrFontMeasure(font, str, length, wrap, &width, &height, &lineCount, &glyphCount);
+  lovrFontMeasure(font, str, length, wrap, &width, &lastLineWidth, &height, &lineCount, &glyphCount);
 
   if (glyphCount == 0) {
     return;

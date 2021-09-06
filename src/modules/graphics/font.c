@@ -199,7 +199,7 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
   lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
 }
 
-void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, float* width, float* height, uint32_t* lineCount, uint32_t* glyphCount) {
+void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, float* width, float* lastLineWidth, float* height, uint32_t* lineCount, uint32_t* glyphCount) {
   float x = 0.f;
   const char* end = str + length;
   size_t bytes;
@@ -207,6 +207,7 @@ void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, flo
   unsigned int codepoint;
   float scale = 1.f / font->pixelDensity;
   *width = 0.f;
+  *lastLineWidth = 0.f;
   *lineCount = 0;
   *glyphCount = 0;
 
@@ -240,6 +241,7 @@ void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, flo
   }
 
   *width = MAX(*width, x * scale);
+  *lastLineWidth = x * scale;
   *height = ((*lineCount + 1) * lovrRasterizerGetHeight(font->rasterizer) * font->lineHeight) * (font->flip ? -1 : 1);
 }
 
