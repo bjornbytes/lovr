@@ -687,6 +687,22 @@ static int l_lovrVec3Lerp(lua_State* L) {
   return 1;
 }
 
+static int l_lovrVec3Transform(lua_State* L) {
+  vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
+  mat4 m = luax_checkvector(L, 2, V_MAT4, "mat4");
+  mat4_transform(m, v);
+  lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec3Rotate(lua_State* L) {
+  vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
+  quat q = luax_checkvector(L, 2, V_QUAT, "quat");
+  quat_rotate(q, v);
+  lua_settop(L, 1);
+  return 1;
+}
+
 static int l_lovrVec3__add(lua_State* L) {
   vec3 out = luax_newtempvector(L, V_VEC3);
   if (lua_type(L, 1) == LUA_TNUMBER) {
@@ -891,6 +907,8 @@ const luaL_Reg lovrVec3[] = {
   { "dot", l_lovrVec3Dot },
   { "cross", l_lovrVec3Cross },
   { "lerp", l_lovrVec3Lerp },
+  { "transform", l_lovrVec3Transform },
+  { "rotate", l_lovrVec3Rotate },
   { "__add", l_lovrVec3__add },
   { "__sub", l_lovrVec3__sub },
   { "__mul", l_lovrVec3__mul },
@@ -1086,6 +1104,14 @@ static int l_lovrVec4Lerp(lua_State* L) {
   v[1] = v[1] + (u[1] - v[1]) * t;
   v[2] = v[2] + (u[2] - v[2]) * t;
   v[3] = v[3] + (u[3] - v[3]) * t;
+  lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec4Transform(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC4, NULL);
+  mat4 m = luax_checkvector(L, 2, V_MAT4, "mat4");
+  mat4_mulVec4(m, v);
   lua_settop(L, 1);
   return 1;
 }
@@ -1329,6 +1355,7 @@ const luaL_Reg lovrVec4[] = {
   { "distance", l_lovrVec4Distance },
   { "dot", l_lovrVec4Dot },
   { "lerp", l_lovrVec4Lerp },
+  { "transform", l_lovrVec4Transform },
   { "__add", l_lovrVec4__add },
   { "__sub", l_lovrVec4__sub },
   { "__mul", l_lovrVec4__mul },
@@ -1405,13 +1432,21 @@ static int l_lovrQuatMul(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
   VectorType type;
   float* r = luax_tovector(L, 2, &type);
-  if (!r || (type != V_VEC3 && type != V_QUAT)) return luax_typeerror(L, 2, "quat or vec3");
-  if (type == V_VEC3) {
-    quat_rotate(q, r);
-    lua_settop(L, 2);
-  } else {
+  if (r && type == V_QUAT) {
     quat_mul(q, q, r);
     lua_settop(L, 1);
+  } else if (lua_type(L, 2) == LUA_TNUMBER) {
+    float x = luaL_checknumber(L, 2);
+    float y = luaL_optnumber(L, 3, 0.f);
+    float z = luaL_optnumber(L, 4, 0.f);
+    float v[4] = { x, y, z };
+    quat_rotate(q, v);
+    lua_pushnumber(L, v[0]);
+    lua_pushnumber(L, v[1]);
+    lua_pushnumber(L, v[2]);
+    return 3;
+  } else {
+    return luax_typeerror(L, 2, "quat or number");
   }
   return 1;
 }
@@ -1650,26 +1685,20 @@ static int l_lovrMat4Mul(lua_State* L) {
     mat4_mul(m, n);
     lua_settop(L, 1);
     return 1;
-  } else if (n && type == V_VEC3) {
-    mat4_transform(m, n);
-    lua_settop(L, 2);
-    return 1;
-  } else if (n && type == V_VEC4) {
-    mat4_mulVec4(m, n);
-    lua_settop(L, 2);
-    return 1;
   } else if (lua_type(L, 2) == LUA_TNUMBER) {
     float x = luaL_checknumber(L, 2);
     float y = luaL_optnumber(L, 3, 0.f);
     float z = luaL_optnumber(L, 4, 0.f);
-    float v[4] = { x, y, z };
-    mat4_transform(m, v);
+    float w = luaL_optnumber(L, 5, 1.f);
+    float v[4] = { x, y, z, w };
+    mat4_mulVec4(m, v);
     lua_pushnumber(L, v[0]);
     lua_pushnumber(L, v[1]);
     lua_pushnumber(L, v[2]);
-    return 3;
+    lua_pushnumber(L, v[3]);
+    return 4;
   } else {
-    return luax_typeerror(L, 2, "mat4, vec3, or number");
+    return luax_typeerror(L, 2, "mat4 or number");
   }
 }
 
