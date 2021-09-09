@@ -327,8 +327,13 @@ typedef struct {
   BatchType type;
   Canvas canvas;
   uint32_t capacity;
-  uint32_t scratchMemory;
+  uint32_t bufferSize;
 } BatchInfo;
+
+typedef enum {
+  SORT_OPAQUE,
+  SORT_TRANSPARENT
+} SortMode;
 
 typedef enum {
   STACK_TRANSFORM,
@@ -432,6 +437,7 @@ const BatchInfo* lovrBatchGetInfo(Batch* batch);
 uint32_t lovrBatchGetCount(Batch* batch);
 void lovrBatchReset(Batch* batch);
 
+void lovrBatchSort(Batch* batch, SortMode mode);
 void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i), void* context);
 
 void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]);
@@ -468,7 +474,7 @@ void lovrBatchSetWireframe(Batch* batch, bool wireframe);
 void lovrBatchSetShader(Batch* batch, Shader* shader);
 void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture);
 
-uint32_t lovrBatchMesh(Batch* batch, DrawInfo* info, float* transform);
+uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform);
 uint32_t lovrBatchPoints(Batch* batch, uint32_t count, float** vertices);
 uint32_t lovrBatchLine(Batch* batch, uint32_t count, float** vertices);
 uint32_t lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_t segments);
