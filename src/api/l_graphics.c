@@ -623,7 +623,21 @@ static int l_lovrGraphicsRender(lua_State* L) {
 
 static int l_lovrGraphicsCompute(lua_State* L) {
   Batch* batch;
-  if (lua_type(L, 1) == LUA_TFUNCTION) {
+  if (lua_type(L, 1) == LUA_TUSERDATA) {
+    Shader* shader = luax_checktype(L, 1, Shader);
+    batch = lovrGraphicsGetBatch(&(BatchInfo) { .type = BATCH_COMPUTE, .capacity = 1 });
+    lovrBatchSetShader(batch, shader);
+    Buffer* buffer = luax_totype(L, 2, Buffer);
+    if (buffer) {
+      uint32_t offset = lua_tointeger(L, 3);
+      lovrBatchCompute(batch, 0, 0, 0, buffer, offset);
+    } else {
+      uint32_t x = luaL_optinteger(L, 2, 1);
+      uint32_t y = luaL_optinteger(L, 3, 1);
+      uint32_t z = luaL_optinteger(L, 4, 1);
+      lovrBatchCompute(batch, x, y, z, NULL, 0);
+    }
+  } else if (lua_type(L, 1) == LUA_TFUNCTION) {
     batch = lovrGraphicsGetBatch(&(BatchInfo) { .type = BATCH_COMPUTE });
     lua_settop(L, 1);
     luax_pushtype(L, Batch, batch);
