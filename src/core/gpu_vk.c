@@ -117,7 +117,7 @@ static struct {
   uint32_t queueFamilyIndex;
   VkSurfaceKHR surface;
   VkSwapchainKHR swapchain;
-  gpu_texture backbuffers[4];
+  gpu_texture backbuffers[8];
   uint32_t currentBackbuffer;
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
@@ -1851,7 +1851,7 @@ bool gpu_init(gpu_config* config) {
 
     TRY(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain), "Swapchain creation failed") DIE();
 
-    VkImage images[4];
+    VkImage images[COUNTOF(state.backbuffers)];
     uint32_t imageCount;
     TRY(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL), "Failed to get swapchain images") DIE();
     TRY(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") DIE();
