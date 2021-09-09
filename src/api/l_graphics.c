@@ -452,6 +452,7 @@ static int l_lovrGraphicsInit(lua_State* L) {
   bool debug = false;
   bool vsync = false;
   uint32_t blockSize = 1 << 24;
+  uint32_t batchSize = 256;
   luax_pushconf(L);
   lua_getfield(L, -1, "graphics");
   if (lua_istable(L, -1)) {
@@ -466,10 +467,14 @@ static int l_lovrGraphicsInit(lua_State* L) {
     lua_getfield(L, -1, "blocksize");
     blockSize = luaL_optinteger(L, -1, blockSize);
     lua_pop(L, 1);
+
+    lua_getfield(L, -1, "batchsize");
+    batchSize = luaL_optinteger(L, -1, batchSize);
+    lua_pop(L, 1);
   }
   lua_pop(L, 2);
 
-  if (lovrGraphicsInit(debug, vsync, blockSize)) {
+  if (lovrGraphicsInit(debug, vsync, blockSize, batchSize)) {
     luax_atexit(L, lovrGraphicsDestroy);
   }
 
@@ -602,11 +607,7 @@ static int l_lovrGraphicsRender(lua_State* L) {
 
   Batch* batch;
   if (lua_type(L, 2) == LUA_TFUNCTION) {
-    batch = lovrGraphicsGetBatch(&(BatchInfo) {
-      .capacity = 1024,
-      .bufferSize = 1 << 18,
-      .canvas = canvas
-    });
+    batch = lovrGraphicsGetBatch(&(BatchInfo) { .type = BATCH_RENDER, .canvas = canvas });
     lua_settop(L, 2);
     luax_pushtype(L, Batch, batch);
     lua_call(L, 1, 0);
@@ -623,7 +624,7 @@ static int l_lovrGraphicsRender(lua_State* L) {
 static int l_lovrGraphicsCompute(lua_State* L) {
   Batch* batch;
   if (lua_type(L, 1) == LUA_TFUNCTION) {
-    batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 16 });
+    batch = lovrGraphicsGetBatch(&(BatchInfo) { .type = BATCH_COMPUTE });
     lua_settop(L, 1);
     luax_pushtype(L, Batch, batch);
     lua_call(L, 1, 0);
@@ -1012,24 +1013,18 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetBatch(lua_State* L) {
-  BatchInfo info = { .bufferSize = 1 << 16 };
+  BatchInfo info = { 0 };
 
   if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "compute")) {
     info.type = BATCH_COMPUTE;
-    info.capacity = 16;
   } else {
     info.type = BATCH_RENDER;
     info.canvas = luax_checkcanvas(L, 1);
-    info.capacity = 256;
   }
 
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "count");
     info.capacity = lua_isnil(L, -1) ? info.capacity : luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "memory");
-    info.bufferSize = lua_isnil(L, -1) ? info.bufferSize : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
   }
 
@@ -1044,11 +1039,9 @@ static int l_lovrGraphicsNewBatch(lua_State* L) {
 
   if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "compute")) {
     info.type = BATCH_COMPUTE;
-    info.capacity = 16;
   } else {
     info.type = BATCH_RENDER;
     info.canvas = luax_checkcanvas(L, 1);
-    info.capacity = 256;
   }
 
   if (lua_istable(L, 2)) {
@@ -1056,7 +1049,7 @@ static int l_lovrGraphicsNewBatch(lua_State* L) {
     info.capacity = lua_isnil(L, -1) ? info.capacity : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 2, "memory");
+    lua_getfield(L, 2, "buffersize");
     info.bufferSize = lua_isnil(L, -1) ? info.bufferSize : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
   }
