@@ -32,6 +32,13 @@ static int l_lovrBatchReset(lua_State* L) {
   return 0;
 }
 
+static int l_lovrBatchSort(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  SortMode mode = luax_checkenum(L, 2, SortMode, "opaque");
+  lovrBatchSort(batch, mode);
+  return 0;
+}
+
 static bool luax_filterpredicate(void* context, uint32_t i) {
   lua_State* L = context;
   lua_pushvalue(L, -1);
@@ -439,7 +446,7 @@ static int l_lovrBatchMesh(lua_State* L) {
   uint32_t limit = lovrBufferGetInfo(indices ? indices : vertices)->length;
   uint32_t count = luaL_optinteger(L, index++, limit);
   uint32_t instances = luaL_optinteger(L, index++, 1);
-  uint32_t id = lovrBatchMesh(batch, &(DrawInfo) {
+  uint32_t id = lovrBatchDraw(batch, &(DrawInfo) {
     .mode = mode,
     .vertex.buffer = vertices,
     .index.buffer = indices,
@@ -661,6 +668,7 @@ const luaL_Reg lovrBatch[] = {
   { "getCount", l_lovrBatchGetCount },
   { "reset", l_lovrBatchReset },
 
+  { "sort", l_lovrBatchSort },
   { "filter", l_lovrBatchFilter },
 
   { "getViewport", l_lovrBatchGetViewport },

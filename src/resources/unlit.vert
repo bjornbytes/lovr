@@ -16,10 +16,6 @@ struct Camera {
 };
 
 struct DrawData {
-  uint id;
-  uint material;
-  uint padding0;
-  uint padding1;
   vec4 color;
 };
 
