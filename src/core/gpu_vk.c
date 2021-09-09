@@ -1331,9 +1331,12 @@ void gpu_push_constants(gpu_stream* stream, gpu_pipeline* pipeline, void* data, 
   vkCmdPushConstants(stream->commands, pipeline->layout, stages, 0, size, data);
 }
 
-void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
-  VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
-  vkCmdBindPipeline(stream->commands, bindPoint, pipeline->handle);
+void gpu_bind_pipeline_graphics(gpu_stream* stream, gpu_pipeline* pipeline) {
+  vkCmdBindPipeline(stream->commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle);
+}
+
+void gpu_bind_pipeline_compute(gpu_stream* stream, gpu_pipeline* pipeline) {
+  vkCmdBindPipeline(stream->commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->handle);
 }
 
 void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount) {

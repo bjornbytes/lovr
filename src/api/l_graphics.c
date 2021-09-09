@@ -147,6 +147,12 @@ StringEntry lovrShaderType[] = {
   { 0 }
 };
 
+StringEntry lovrSortMode[] = {
+  [SORT_OPAQUE] = ENTRY("opaque"),
+  [SORT_TRANSPARENT] = ENTRY("transparent"),
+  { 0 }
+};
+
 StringEntry lovrStackType[] = {
   [STACK_TRANSFORM] = ENTRY("transform"),
   [STACK_PIPELINE] = ENTRY("pipeline"),
@@ -598,7 +604,7 @@ static int l_lovrGraphicsRender(lua_State* L) {
   if (lua_type(L, 2) == LUA_TFUNCTION) {
     batch = lovrGraphicsGetBatch(&(BatchInfo) {
       .capacity = 1024,
-      .scratchMemory = 1 << 16,
+      .bufferSize = 1 << 18,
       .canvas = canvas
     });
     lua_settop(L, 2);
@@ -616,13 +622,13 @@ static int l_lovrGraphicsRender(lua_State* L) {
 
 static int l_lovrGraphicsCompute(lua_State* L) {
   Batch* batch;
-  if (lua_type(L, 2) == LUA_TFUNCTION) {
+  if (lua_type(L, 1) == LUA_TFUNCTION) {
     batch = lovrGraphicsGetBatch(&(BatchInfo) { .capacity = 16 });
-    lua_settop(L, 2);
+    lua_settop(L, 1);
     luax_pushtype(L, Batch, batch);
     lua_call(L, 1, 0);
   } else {
-    batch = luax_checktype(L, 2, Batch);
+    batch = luax_checktype(L, 1, Batch);
     lovrRetain(batch);
   }
 
@@ -1006,7 +1012,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetBatch(lua_State* L) {
-  BatchInfo info = { .scratchMemory = 1 << 16 };
+  BatchInfo info = { .bufferSize = 1 << 16 };
 
   if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "compute")) {
     info.type = BATCH_COMPUTE;
@@ -1023,7 +1029,7 @@ static int l_lovrGraphicsGetBatch(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "memory");
-    info.scratchMemory = lua_isnil(L, -1) ? info.scratchMemory : luaL_checkinteger(L, -1);
+    info.bufferSize = lua_isnil(L, -1) ? info.bufferSize : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
   }
 
@@ -1034,7 +1040,7 @@ static int l_lovrGraphicsGetBatch(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewBatch(lua_State* L) {
-  BatchInfo info = { .scratchMemory = 1 << 20 };
+  BatchInfo info = { .bufferSize = 1 << 20 };
 
   if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "compute")) {
     info.type = BATCH_COMPUTE;
@@ -1051,7 +1057,7 @@ static int l_lovrGraphicsNewBatch(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "memory");
-    info.scratchMemory = lua_isnil(L, -1) ? info.scratchMemory : luaL_checkinteger(L, -1);
+    info.bufferSize = lua_isnil(L, -1) ? info.bufferSize : luaL_checkinteger(L, -1);
     lua_pop(L, 1);
   }
 
