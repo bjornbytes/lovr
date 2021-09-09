@@ -163,6 +163,7 @@ struct Batch {
   bool transient;
   BatchInfo info;
   gpu_pass* pass;
+  uint32_t lastReplay;
   uint32_t count;
   uint32_t groupCount;
   uint32_t activeDrawCount;
@@ -2034,13 +2035,7 @@ Batch* lovrBatchInit(BatchInfo* info, bool transient) {
   batch->ref = 1;
   batch->transient = transient;
   batch->info = *info;
-  if (!transient) {
-    Megaview* buffers = batch->uniformBuffers;
-    uint32_t align = state.limits.uniformBufferAlign;
-    buffers[UNIFORM_TRANSFORM] = bufferAllocate(GPU_MEMORY_GPU, info->capacity * 16 * sizeof(float), align);
-    buffers[UNIFORM_DRAW_DATA] = bufferAllocate(GPU_MEMORY_GPU, info->capacity * sizeof(DrawData), align);
-    batch->stash = bufferAllocate(GPU_MEMORY_GPU, info->bufferSize, 4);
-  }
+  batch->lastReplay = state.tick;
   lovrBatchReset(batch);
   return batch;
 }
@@ -2092,6 +2087,15 @@ void lovrBatchReset(Batch* batch) {
 
   if (batch->transient) {
     memcpy(batch->uniformBuffers, batch->scratchBuffers, sizeof(batch->scratchBuffers));
+  } else if (batch->lastReplay == state.tick) {
+    // If a persistent Batch has already been replayed this tick, it would be unsafe to rerecord it
+    // since copying the uniform buffers a second time would stomp on the contents needed by the
+    // first replay. Recreating the buffers is a way around this.
+    Megaview* buffers = batch->uniformBuffers;
+    uint32_t align = state.limits.uniformBufferAlign;
+    buffers[UNIFORM_TRANSFORM] = bufferAllocate(GPU_MEMORY_GPU, batch->info.capacity * 16 * sizeof(float), align);
+    buffers[UNIFORM_DRAW_DATA] = bufferAllocate(GPU_MEMORY_GPU, batch->info.capacity * sizeof(DrawData), align);
+    batch->stash = bufferAllocate(GPU_MEMORY_GPU, batch->info.bufferSize, 4);
   }
 
   // Reset bundles and bindings
@@ -2161,6 +2165,7 @@ void lovrBatchSort(Batch* batch, SortMode mode) {
 
   sortBatch = batch;
   qsort(batch->activeDraws, batch->activeDrawCount, sizeof(uint32_t), mode == SORT_OPAQUE ? cmpOpaque : cmpTransparent);
+  batch->groupedDrawCount = 0;
 }
 
 void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i), void* context) {
@@ -2170,6 +2175,7 @@ void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i),
       batch->activeDraws[batch->activeDrawCount++] = i;
     }
   }
+  batch->groupedDrawCount = 0;
 }
 
 static void lovrBatchPrepare(Batch* batch) {
@@ -2181,7 +2187,7 @@ static void lovrBatchPrepare(Batch* batch) {
         uint32_t layoutIndex = ((char*) batch->bundleWrites[i].layout - (char*) state.layouts[0]) / gpu_sizeof_layout();
         batch->bundles[i] = bundleAllocate(layoutIndex);
       }
-    } else {
+    } else if (batch->lastBundleCount < batch->bundleCount) {
       gpu_bunch_info info = {
         .bundles = batch->bundles[0],
         .contents = batch->bundleWrites,
@@ -2196,8 +2202,15 @@ static void lovrBatchPrepare(Batch* batch) {
   }
 
   // Copy buffers for persistent batches
-  if (!batch->transient) {
-    // copyyyyyyyyyyyy
+  // TODO only copy what's new (like lastBundleCount/groupedDrawCount)
+  if (batch->info.type == BATCH_RENDER) {
+    if (!batch->transient) {
+      Megaview from, to;
+      from = batch->scratchBuffers[UNIFORM_TRANSFORM], to = batch->uniformBuffers[UNIFORM_TRANSFORM];
+      gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * 64);
+      from = batch->scratchBuffers[UNIFORM_DRAW_DATA], to = batch->uniformBuffers[UNIFORM_DRAW_DATA];
+      gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * sizeof(DrawData));
+    }
   }
 
   // Group active draws
@@ -2249,6 +2262,8 @@ static void lovrBatchPrepare(Batch* batch) {
 
     batch->groupedDrawCount = batch->activeDrawCount;
   }
+
+  batch->lastReplay = state.tick;
 }
 
 void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]) {
