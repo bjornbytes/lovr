@@ -120,7 +120,8 @@ function lovr.boot()
     graphics = {
       debug = false,
       vsync = false,
-      blocksize = 2 ^ 24
+      blocksize = 2 ^ 24,
+      batchsize = 256
     },
     headset = {
       drivers = { 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'desktop' },
