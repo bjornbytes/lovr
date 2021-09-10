@@ -208,7 +208,15 @@ static int l_lovrBatchSetProjection(lua_State* L) {
   Batch* batch = luax_checktype(L, 1, Batch);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
   lovrAssert(view < 6, "Invalid view index %d", view + 1);
-  if (lua_type(L, 3) == LUA_TNUMBER) {
+  if (lua_type(L, 3) == LUA_TSTRING && !strcmp(lua_tostring(L, 3), "orthographic")) {
+    float ortho[16];
+    float width = luax_checkfloat(L, 4);
+    float height = luax_checkfloat(L, 5);
+    float near = luax_optfloat(L, 6, -1.f);
+    float far = luax_optfloat(L, 6, 1.f);
+    mat4_orthographic(ortho, 0.f, width, 0.f, height, near, far);
+    lovrBatchSetProjection(batch, view, ortho);
+  } else if (lua_type(L, 3) == LUA_TNUMBER) {
     float left = luax_checkfloat(L, 3);
     float right = luax_checkfloat(L, 4);
     float up = luax_checkfloat(L, 5);
