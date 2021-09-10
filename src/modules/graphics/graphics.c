@@ -629,13 +629,12 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batch
     struct { float x, y, z; } position;
     struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
     struct { uint16_t u, v; } uv;
-    char pad[12];
   } Vertex;
 
   state.vertexFormats[VERTEX_STANDARD] = (gpu_vertex_format) {
     .bufferCount = 1,
     .attributeCount = 3,
-    .bufferStrides[0] = 32, // TODO
+    .bufferStrides[0] = sizeof(Vertex),
     .attributes[0] = { 0, 0, offsetof(Vertex, position), GPU_TYPE_F32x3 },
     .attributes[1] = { 0, 1, offsetof(Vertex, normal), GPU_TYPE_U10Nx3 },
     .attributes[2] = { 0, 2, offsetof(Vertex, uv), GPU_TYPE_U16Nx2 }
@@ -659,30 +658,30 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batch
 
   // In 10 bit land, 0x200 is 0.0, 0x3ff is 1.0, 0x000 is -1.0
   Vertex cube[] = {
-    { { -.5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0x0000 }, { 0 } }, // Front
-    { { -.5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0xffff }, { 0 } },
-    { {  .5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0x0000 }, { 0 } },
-    { {  .5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0xffff }, { 0 } },
-    { {  .5f,  .5f, -.5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0x0000, 0xffff }, { 0 } }, // Right
-    { {  .5f,  .5f,  .5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0xffff, 0xffff }, { 0 } },
-    { {  .5f, -.5f, -.5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0x0000, 0x0000 }, { 0 } },
-    { {  .5f, -.5f,  .5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0xffff, 0x0000 }, { 0 } },
-    { {  .5f, -.5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0x0000 }, { 0 } }, // Back
-    { {  .5f,  .5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0xffff }, { 0 } },
-    { { -.5f, -.5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0x0000 }, { 0 } },
-    { { -.5f,  .5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0xffff }, { 0 } },
-    { { -.5f,  .5f,  .5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0x0000, 0xffff }, { 0 } }, // Left
-    { { -.5f,  .5f, -.5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0xffff, 0xffff }, { 0 } },
-    { { -.5f, -.5f,  .5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0x0000, 0x0000 }, { 0 } },
-    { { -.5f, -.5f, -.5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0xffff, 0x0000 }, { 0 } },
-    { { -.5f, -.5f, -.5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0x0000, 0x0000 }, { 0 } }, // Bottom
-    { {  .5f, -.5f, -.5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0xffff, 0x0000 }, { 0 } },
-    { { -.5f, -.5f,  .5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0x0000, 0xffff }, { 0 } },
-    { {  .5f, -.5f,  .5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0xffff, 0xffff }, { 0 } },
-    { { -.5f,  .5f, -.5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0x0000, 0xffff }, { 0 } }, // Top
-    { { -.5f,  .5f,  .5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0x0000, 0x0000 }, { 0 } },
-    { {  .5f,  .5f, -.5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0xffff }, { 0 } },
-    { {  .5f,  .5f,  .5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0x0000 }, { 0 } }
+    { { -.5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0x0000 } }, // Front
+    { { -.5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0xffff } },
+    { {  .5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0x0000 } },
+    { {  .5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0xffff } },
+    { {  .5f,  .5f, -.5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Right
+    { {  .5f,  .5f,  .5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0xffff, 0xffff } },
+    { {  .5f, -.5f, -.5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0x0000, 0x0000 } },
+    { {  .5f, -.5f,  .5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0xffff, 0x0000 } },
+    { {  .5f, -.5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0x0000 } }, // Back
+    { {  .5f,  .5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0xffff } },
+    { { -.5f, -.5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0x0000 } },
+    { { -.5f,  .5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0xffff } },
+    { { -.5f,  .5f,  .5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Left
+    { { -.5f,  .5f, -.5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0xffff, 0xffff } },
+    { { -.5f, -.5f,  .5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0x0000, 0x0000 } },
+    { { -.5f, -.5f, -.5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0xffff, 0x0000 } },
+    { { -.5f, -.5f, -.5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0x0000, 0x0000 } }, // Bottom
+    { {  .5f, -.5f, -.5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0xffff, 0x0000 } },
+    { { -.5f, -.5f,  .5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0x0000, 0xffff } },
+    { {  .5f, -.5f,  .5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0xffff, 0xffff } },
+    { { -.5f,  .5f, -.5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Top
+    { { -.5f,  .5f,  .5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0x0000, 0x0000 } },
+    { {  .5f,  .5f, -.5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0xffff } },
+    { {  .5f,  .5f,  .5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0x0000 } }
   };
 
   uint32_t vertexCount = 0;
@@ -1154,6 +1153,7 @@ void lovrGraphicsCompute(Batch** batches, uint32_t count, uint32_t order) {
 // Buffer
 
 Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
+  bool po2 = (info->stride & (info->stride - 1)) == 0;
   size_t size = info->length * MAX(info->stride, 1);
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
@@ -1161,13 +1161,29 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
   lovrAssert(buffer, "Out of memory");
   buffer->ref = 1;
   buffer->size = size;
-  buffer->mega = bufferAllocate(transient ? GPU_MEMORY_CPU_WRITE : GPU_MEMORY_GPU, size, 256);
+  uint32_t align = 1;
+  if (info->usage & BUFFER_UNIFORM) align = MAX(align, state.limits.uniformBufferAlign);
+  if (info->usage & BUFFER_STORAGE) align = MAX(align, state.limits.storageBufferAlign);
+  if (info->usage & BUFFER_VERTEX) {
+    if (po2) {
+      align = MAX(align, info->stride);
+    } else {
+      lovrCheck(~info->usage & (BUFFER_UNIFORM | BUFFER_STORAGE), "Buffers with the 'vertex' usage and either 'uniform' or 'storage' must have a power of 2 stride");
+      size += info->stride;
+    }
+  }
+  buffer->mega = bufferAllocate(transient ? GPU_MEMORY_CPU_WRITE : GPU_MEMORY_GPU, size, align);
   buffer->info = *info;
   buffer->transient = transient;
   if (!transient) {
     state.buffers.list[buffer->mega.index].refs++;
   }
   if (info->usage & BUFFER_VERTEX) {
+    if (!po2 && (buffer->mega.offset % info->stride) != 0) {
+      uint32_t alignment = info->stride - buffer->mega.offset % info->stride;
+      buffer->mega.offset += alignment;
+      buffer->mega.data += alignment;
+    }
     lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", info->stride, state.limits.vertexBufferStride);
     buffer->format.bufferCount = 1;
     buffer->format.attributeCount = info->fieldCount;
