@@ -621,37 +621,6 @@ static int l_lovrGraphicsRender(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsCompute(lua_State* L) {
-  Batch* batch;
-  if (lua_type(L, 1) == LUA_TUSERDATA) {
-    Shader* shader = luax_checktype(L, 1, Shader);
-    batch = lovrGraphicsGetBatch(&(BatchInfo) { .type = BATCH_COMPUTE, .capacity = 1 });
-    lovrBatchSetShader(batch, shader);
-    Buffer* buffer = luax_totype(L, 2, Buffer);
-    if (buffer) {
-      uint32_t offset = lua_tointeger(L, 3);
-      lovrBatchCompute(batch, 0, 0, 0, buffer, offset);
-    } else {
-      uint32_t x = luaL_optinteger(L, 2, 1);
-      uint32_t y = luaL_optinteger(L, 3, 1);
-      uint32_t z = luaL_optinteger(L, 4, 1);
-      lovrBatchCompute(batch, x, y, z, NULL, 0);
-    }
-  } else if (lua_type(L, 1) == LUA_TFUNCTION) {
-    batch = lovrGraphicsGetBatch(&(BatchInfo) { .type = BATCH_COMPUTE });
-    lua_settop(L, 1);
-    luax_pushtype(L, Batch, batch);
-    lua_call(L, 1, 0);
-  } else {
-    batch = luax_checktype(L, 1, Batch);
-    lovrRetain(batch);
-  }
-
-  lovrGraphicsCompute(&batch, 1, 0);
-  lovrRelease(batch, lovrBatchDestroy);
-  return 0;
-}
-
 static int l_lovrGraphicsGetBuffer(lua_State* L) {
   BufferInfo info = { .usage = BUFFER_VERTEX | BUFFER_INDEX | BUFFER_UNIFORM | BUFFER_COPYFROM };
 
@@ -1027,21 +996,9 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetBatch(lua_State* L) {
-  BatchInfo info = { 0 };
-
-  if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "compute")) {
-    info.type = BATCH_COMPUTE;
-  } else {
-    info.type = BATCH_RENDER;
-    info.canvas = luax_checkcanvas(L, 1);
-  }
-
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "count");
-    info.capacity = lua_isnil(L, -1) ? info.capacity : luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-  }
-
+  BatchInfo info;
+  info.canvas = luax_checkcanvas(L, 1);
+  info.capacity = lua_tointeger(L, 2);
   Batch* batch = lovrGraphicsGetBatch(&info);
   luax_pushtype(L, Batch, batch);
   lovrRelease(batch, lovrBatchDestroy);
@@ -1049,25 +1006,10 @@ static int l_lovrGraphicsGetBatch(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewBatch(lua_State* L) {
-  BatchInfo info = { .bufferSize = 1 << 20 };
-
-  if (lua_type(L, 1) == LUA_TSTRING && !strcmp(lua_tostring(L, 1), "compute")) {
-    info.type = BATCH_COMPUTE;
-  } else {
-    info.type = BATCH_RENDER;
-    info.canvas = luax_checkcanvas(L, 1);
-  }
-
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "count");
-    info.capacity = lua_isnil(L, -1) ? info.capacity : luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "buffersize");
-    info.bufferSize = lua_isnil(L, -1) ? info.bufferSize : luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-  }
-
+  BatchInfo info;
+  info.canvas = luax_checkcanvas(L, 1);
+  info.capacity = lua_tointeger(L, 2);
+  info.bufferSize = luaL_optinteger(L, 3, 1 << 20);
   Batch* batch = lovrBatchCreate(&info);
   luax_pushtype(L, Batch, batch);
   lovrRelease(batch, lovrBatchDestroy);
@@ -1084,7 +1026,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "begin", l_lovrGraphicsBegin },
   { "submit", l_lovrGraphicsSubmit },
   { "render", l_lovrGraphicsRender },
-  { "compute", l_lovrGraphicsCompute },
   { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },

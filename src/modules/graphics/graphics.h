@@ -96,7 +96,6 @@ void lovrGraphicsSetBackgroundColor(float background[4]);
 void lovrGraphicsBegin(void);
 void lovrGraphicsSubmit(void);
 void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_t order);
-void lovrGraphicsCompute(Batch** batches, uint32_t count, uint32_t order);
 
 // Buffer
 
