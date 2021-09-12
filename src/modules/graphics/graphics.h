@@ -91,10 +91,10 @@ void lovrGraphicsDestroy(void);
 void lovrGraphicsGetHardware(GraphicsHardware* hardware);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
-void lovrGraphicsGetBackgroundColor(float background[4]);
-void lovrGraphicsSetBackgroundColor(float background[4]);
 void lovrGraphicsBegin(void);
 void lovrGraphicsSubmit(void);
+void lovrGraphicsGetBackgroundColor(float background[4]);
+void lovrGraphicsSetBackgroundColor(float background[4]);
 void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_t order);
 
 // Buffer
@@ -313,7 +313,6 @@ Shader* lovrShaderCreate(ShaderInfo* info);
 Shader* lovrShaderClone(Shader* shader, ShaderFlag* flags, uint32_t count);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
-bool lovrShaderResolveName(Shader* shader, uint64_t hash, uint32_t* group, uint32_t* id);
 
 // Batch
 
