@@ -85,6 +85,10 @@ struct Shader {
   uint32_t storageMask;
   uint8_t resourceSlots[32];
   uint64_t resourceLookup[32];
+  uint64_t flagLookup[32];
+  gpu_shader_flag flags[32];
+  uint32_t activeFlagCount;
+  uint32_t flagCount;
   uint32_t attributeMask;
 };
 
@@ -1621,10 +1625,23 @@ typedef union {
     uint16_t binding;
   } resource;
   struct {
+    uint16_t number;
+    uint16_t name;
+  } flag;
+  struct {
     uint16_t inner;
     uint16_t name;
   } type;
-} SpirvVariable;
+} CacheData;
+
+typedef struct {
+  uint32_t attributeMask;
+  gpu_slot slots[2][32];
+  uint64_t slotNames[32];
+  uint64_t flagNames[32];
+  gpu_shader_flag flags[32];
+  uint32_t flagCount;
+} ReflectionInfo;
 
 // Only an explicit set of spir-v capabilities are allowed
 // Some capabilities require a GPU feature to be supported
@@ -1690,7 +1707,7 @@ static bool checkShaderCapability(uint32_t capability) {
 }
 
 // Parse a slot type and array size from a variable instruction, throwing on failure
-static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, SpirvVariable* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
+static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, CacheData* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
   const uint32_t* edge = words + wordCount - MIN_SPIRV_WORDS;
   uint32_t type = instruction[1];
   uint32_t id = instruction[2];
@@ -1748,25 +1765,27 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, SpirvVariab
   }
 }
 
-static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slot slots[2][32], uint64_t names[32], uint32_t* attributeMask) {
+static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, ReflectionInfo* reflection) {
   const uint32_t* words = source;
   uint32_t wordCount = size / sizeof(uint32_t);
+  const uint32_t* edge = words + wordCount - MIN_SPIRV_WORDS;
 
   if (wordCount < MIN_SPIRV_WORDS || words[0] != 0x07230203) {
     return false;
   }
 
   uint32_t bound = words[3];
-  lovrCheck(bound <= 0xffff, "Unsupported Shader code: id bound is too big (max is 65535)");
+  lovrCheck(bound < 0xffff, "Unsupported Shader code: id bound is too big (max is 65534)");
 
   // The cache stores information for spirv ids, allowing everything to be parsed in a single pass
   // - For buffer/texture resources, stores the slot's group and binding number
   // - For vertex attributes, stores the attribute location decoration
+  // - For specialization constants, stores the constant's name and its constant id
   // - For types, stores the id of its declaration instruction and its name (for block resources)
-  size_t cacheSize = bound * sizeof(SpirvVariable);
-  void* cache = talloc(cacheSize);
-  memset(cache, 0xff, cacheSize);
-  SpirvVariable* vars = cache;
+  size_t cacheSize = bound * sizeof(CacheData);
+  void* cacheData = talloc(cacheSize);
+  memset(cacheData, 0xff, cacheSize);
+  CacheData* cache = cacheData;
 
   const uint32_t* instruction = words + 5;
 
@@ -1786,7 +1805,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
       case 5: // OpName
         if (length < 3 || instruction[1] >= bound) break;
         id = instruction[1];
-        vars[id].type.name = instruction - words + 2;
+        cache[id].type.name = instruction - words + 2;
         break;
       case 71: // OpDecorate
         if (length < 4 || instruction[1] >= bound) break;
@@ -1797,13 +1816,16 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
 
         if (decoration == 33) { // Binding
           lovrCheck(value < 32, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 32", id, value);
-          vars[id].resource.binding = value;
+          cache[id].resource.binding = value;
         } else if (decoration == 34) { // Group
           lovrCheck(value < 2, "Unsupported Shader code: variable %d is in group %d, but group must be less than 2", id, value);
-          vars[id].resource.group = value;
+          cache[id].resource.group = value;
         } else if (decoration == 30) { // Location
           lovrCheck(value < 32, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
-          vars[id].attribute.location = value;
+          cache[id].attribute.location = value;
+        } else if (decoration == 1) { // SpecId
+          lovrCheck(value < 1000, "Unsupported Shader code: specialization constant id is too big (max is 1000)");
+          cache[id].flag.number = value;
         }
         break;
       case 19: // OpTypeVoid
@@ -1821,7 +1843,45 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
       case 31: // OpTypeOpaque
       case 32: // OpTypePointer
         if (length < 2 || instruction[1] >= bound) break;
-        vars[instruction[1]].type.inner = instruction - words;
+        cache[instruction[1]].type.inner = instruction - words;
+        break;
+      case 48: // OpSpecConstantTrue
+      case 49: // OpSpecConstantFalse
+      case 50: // OpSpecConstant
+        if (length < 2 || instruction[2] >= bound) break;
+        uint32_t id = instruction[2];
+
+        lovrCheck(reflection->flagCount < COUNTOF(reflection->flags), "Shader has too many flags");
+        uint32_t index = reflection->flagCount++;
+
+        lovrCheck(cache[id].flag.number != 0xffff, "Invalid Shader code: Specialization constant has no ID");
+        reflection->flags[index].id = cache[id].flag.number;
+
+        // If it's a regular SpecConstant, parse its type for i32/u32/f32, otherwise use b32
+        if (opcode == 50) {
+          const uint32_t* type = words + cache[instruction[1]].type.inner;
+          lovrCheck(type < edge, "Invalid Shader code: Specialization constant has invalid type");
+          if ((type[0] & 0xffff) == 21 && type[2] == 32) { // OpTypeInt
+            if (type[3] == 0) {
+              reflection->flags[index].type = GPU_FLAG_U32;
+            } else {
+              reflection->flags[index].type = GPU_FLAG_I32;
+            }
+          } else if ((type[0] & 0xffff) == 22 && type[2] == 32) { // OpTypeFloat
+            reflection->flags[index].type = GPU_FLAG_F32;
+          } else {
+            lovrThrow("Invalid Shader code: Specialization constant has unsupported type (use bool, int, uint, or float)");
+          }
+        } else {
+          reflection->flags[index].type = GPU_FLAG_B32;
+        }
+
+        if (cache[id].flag.name != 0xffff) {
+          uint32_t nameWord = cache[id].flag.name;
+          char* name = (char*) (words + nameWord);
+          size_t length = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
+          reflection->flagNames[index] = hash64(name, length);
+        }
         break;
       case 59: // OpVariable
         if (length < 4 || instruction[2] >= bound) break;
@@ -1830,13 +1890,13 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
         uint32_t storageClass = instruction[3];
 
         // Vertex shaders track attribute locations (Input StorageClass (1) decorated with Location)
-        if (stage == GPU_STAGE_VERTEX && storageClass == 1 && vars[id].attribute.location < 32) {
-          *attributeMask |= (1 << vars[id].attribute.location);
+        if (stage == GPU_STAGE_VERTEX && storageClass == 1 && cache[id].attribute.location < 32) {
+          reflection->attributeMask |= (1 << cache[id].attribute.location);
           break;
         }
 
         // Ignore inputs/outputs and variables that aren't decorated with a group and binding (e.g. globals)
-        if (storageClass == 1 || storageClass == 3 || vars[id].resource.group == 0xff || vars[id].resource.binding == 0xff) {
+        if (storageClass == 1 || storageClass == 3 || cache[id].resource.group == 0xff || cache[id].resource.binding == 0xff) {
           break;
         }
 
@@ -1844,16 +1904,18 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, gpu_slo
         gpu_slot_type slotType;
         parseTypeInfo(words, wordCount, cache, bound, instruction, &slotType, &count);
 
-        uint32_t group = vars[id].resource.group;
-        uint32_t number = vars[id].resource.binding;
-        gpu_slot* slot = &slots[group][number];
+        uint32_t group = cache[id].resource.group;
+        uint32_t number = cache[id].resource.binding;
+        gpu_slot* slot = &reflection->slots[group][number];
 
         // Name (type of variable is pointer, follow pointer's inner type to get to struct type)
         // The struct type is what actually has the block name, used for the resource's name
-        uint32_t blockType = (words + vars[type].type.inner)[3];
-        if (group == 1 && !names[number] && vars[blockType].type.name != 0xffff) {
-          char* name = (char*) (words + vars[blockType].type.name);
-          names[number] = hash64(name, strnlen(name, 4 * (wordCount - vars[blockType].type.name)));
+        uint32_t blockType = (words + cache[type].type.inner)[3];
+        if (group == 1 && !reflection->slotNames[number] && cache[blockType].type.name != 0xffff) {
+          uint32_t nameWord = cache[blockType].type.name;
+          char* name = (char*) (words + nameWord);
+          size_t length = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
+          reflection->slotNames[number] = hash64(name, length);
         }
 
         // Either merge our info into an existing slot, or add the slot
@@ -1890,24 +1952,30 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->info = *info;
   shader->ref = 1;
 
-  gpu_slot slots[2][32] = { 0 };
-  uint64_t names[32] = { 0 };
+  ReflectionInfo reflection;
+  memset(&reflection, 0, sizeof(reflection));
 
   if (info->type == SHADER_COMPUTE) {
     lovrCheck(info->source[0] && !info->source[1], "Compute shaders require one stage");
-    parseSpirv(info->source[0], info->length[0], GPU_STAGE_COMPUTE, slots, names, &shader->attributeMask);
+    parseSpirv(info->source[0], info->length[0], GPU_STAGE_COMPUTE, &reflection);
   } else {
     lovrCheck(info->source[0] && info->source[1], "Currently, graphics shaders require two stages");
-    parseSpirv(info->source[0], info->length[0], GPU_STAGE_VERTEX, slots, names, &shader->attributeMask);
-    parseSpirv(info->source[1], info->length[1], GPU_STAGE_FRAGMENT, slots, names, &shader->attributeMask);
+    parseSpirv(info->source[0], info->length[0], GPU_STAGE_VERTEX, &reflection);
+    parseSpirv(info->source[1], info->length[1], GPU_STAGE_FRAGMENT, &reflection);
   }
 
-  // Validate built in bindings
-  lovrCheck(slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera matrices");
+  // Copy some of the reflection info (maybe it should just write directly to Shader*)?
+  memcpy(shader->flagLookup, reflection.flagNames, sizeof(reflection.flagNames));
+  memcpy(shader->flags, reflection.flags, sizeof(reflection.flags));
+  shader->flagCount = reflection.flagCount;
+  shader->attributeMask = reflection.attributeMask;
+
+  // Validate built in bindings (TODO?)
+  lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera matrices");
 
   // Preprocess user bindings
-  for (uint32_t i = 0; i < COUNTOF(slots[1]); i++) {
-    gpu_slot slot = slots[1][i];
+  for (uint32_t i = 0; i < COUNTOF(reflection.slots[1]); i++) {
+    gpu_slot slot = reflection.slots[1][i];
     if (!slot.stage) continue;
     uint32_t index = shader->resourceCount++;
     bool buffer = slot.type == GPU_SLOT_UNIFORM_BUFFER || slot.type == GPU_SLOT_STORAGE_BUFFER;
@@ -1916,23 +1984,23 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     shader->textureMask |= (!buffer << i);
     shader->storageMask |= (storage << i);
     shader->resourceSlots[index] = i;
-    shader->resourceLookup[index] = names[i];
+    shader->resourceLookup[index] = reflection.slotNames[i];
   }
 
   // Filter empties from slots, so non-sparse slot list can be used to hash/create layout
   for (uint32_t i = 0; i < shader->resourceCount; i++) {
     if (shader->resourceSlots[i] > i) {
-      slots[1][i] = slots[1][shader->resourceSlots[i]];
+      reflection.slots[1][i] = reflection.slots[1][shader->resourceSlots[i]];
     }
   }
 
   if (shader->resourceCount > 0) {
-    shader->layout = lookupLayout(slots[1], shader->resourceCount);
+    shader->layout = lookupLayout(reflection.slots[1], shader->resourceCount);
   }
 
   gpu_shader_info gpuInfo = {
-    .stages[0] = { info->source[0], info->length[0], NULL },
-    .stages[1] = { info->source[1], info->length[1], NULL },
+    .stages[0] = { info->source[0], info->length[0] },
+    .stages[1] = { info->source[1], info->length[1] },
     .layouts[0] = state.layouts[0],
     .layouts[1] = shader->layout,
     .label = info->label
@@ -1940,10 +2008,92 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 
   lovrAssert(gpu_shader_init(shader->gpu, &gpuInfo), "Could not create Shader");
 
+  // Flags: Shader stores full list, but reorders them to put active (overridden) ones first
+  shader->activeFlagCount = 0;
+  for (uint32_t i = 0; i < info->flagCount; i++) {
+    ShaderFlag* flag = &info->flags[i];
+    uint64_t hash = flag->name ? hash64(flag->name, strlen(flag->name)) : 0;
+    for (uint32_t j = 0; j < shader->flagCount; j++) {
+      if (hash ? (hash != shader->flagLookup[j]) : (flag->id != shader->flags[j].id)) continue;
+      uint32_t index = shader->activeFlagCount++;
+      if (index != j) {
+        gpu_shader_flag temp = shader->flags[index];
+        shader->flags[index] = shader->flags[j];
+        shader->flags[j] = temp;
+
+        uint64_t tempName = shader->flagLookup[index];
+        shader->flagLookup[index] = shader->flagLookup[j];
+        shader->flagLookup[j] = tempName;
+      }
+      shader->flags[index].value = flag->value;
+    }
+  }
+
   if (info->type == SHADER_COMPUTE) {
+    gpu_compute_pipeline_info compute = {
+      .shader = shader->gpu,
+      .flags = shader->flags,
+      .flagCount = shader->activeFlagCount
+    };
     uint32_t index = state.pipelineCount++;
     lovrCheck(index < COUNTOF(state.pipelines), "Too many pipelines, please report this encounter");
-    lovrAssert(gpu_pipeline_init_compute(state.pipelines[index], shader->gpu, NULL), "Failed to initialize compute pipeline");
+    lovrAssert(gpu_pipeline_init_compute(state.pipelines[index], &compute), "Failed to initialize compute pipeline");
+    shader->computePipelineIndex = index;
+  }
+
+  return shader;
+}
+
+Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
+  Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader() + gpu_sizeof_pipeline());
+  lovrAssert(shader, "Out of memory");
+  shader->ref = 1;
+  shader->gpu = parent->gpu;
+  shader->info = parent->info;
+  shader->info.flags = flags;
+  shader->info.flagCount = count;
+  shader->layout = parent->layout;
+  shader->resourceCount = parent->resourceCount;
+  shader->bufferMask = parent->bufferMask;
+  shader->textureMask = parent->textureMask;
+  shader->storageMask = parent->storageMask;
+  memcpy(shader->resourceSlots, parent->resourceSlots, sizeof(shader->resourceSlots));
+  memcpy(shader->resourceLookup, parent->resourceLookup, sizeof(shader->resourceLookup));
+  memcpy(shader->flagLookup, parent->flagLookup, sizeof(shader->flagLookup));
+  memcpy(shader->flags, parent->flags, sizeof(shader->flags));
+  shader->flagCount = parent->flagCount;
+  shader->attributeMask = parent->attributeMask;
+
+  // Reorder the flags to put the overrides at the beginning
+  shader->activeFlagCount = 0;
+  for (uint32_t i = 0; i < count; i++) {
+    ShaderFlag* flag = &flags[i];
+    uint64_t hash = flag->name ? hash64(flag->name, strlen(flag->name)) : 0;
+    for (uint32_t j = 0; j < shader->flagCount; j++) {
+      if (hash ? (hash != shader->flagLookup[j]) : (flag->id != shader->flags[j].id)) continue;
+      uint32_t index = shader->activeFlagCount++;
+      if (index != j) {
+        gpu_shader_flag temp = shader->flags[index];
+        shader->flags[index] = shader->flags[j];
+        shader->flags[j] = temp;
+
+        uint64_t tempName = shader->flagLookup[index];
+        shader->flagLookup[index] = shader->flagLookup[j];
+        shader->flagLookup[j] = tempName;
+      }
+      shader->flags[index].value = flag->value;
+    }
+  }
+
+  if (shader->info.type == SHADER_COMPUTE) {
+    gpu_compute_pipeline_info compute = {
+      .shader = shader->gpu,
+      .flags = shader->flags,
+      .flagCount = shader->activeFlagCount
+    };
+    uint32_t index = state.pipelineCount++;
+    lovrCheck(index < COUNTOF(state.pipelines), "Too many pipelines, please report this encounter");
+    lovrAssert(gpu_pipeline_init_compute(state.pipelines[index], &compute), "Failed to initialize compute pipeline");
     shader->computePipelineIndex = index;
   }
 
@@ -2094,6 +2244,7 @@ void lovrBatchReset(Batch* batch) {
   batch->pipeline->color[1] = 1.f;
   batch->pipeline->color[2] = 1.f;
   batch->pipeline->color[3] = 1.f;
+  batch->pipeline->shader = NULL;
   batch->pipeline->dirty = true;
 }
 
@@ -2504,6 +2655,8 @@ void lovrBatchSetShader(Batch* batch, Shader* shader) {
 
   batch->pipeline->shader = shader;
   batch->pipeline->info.shader = shader ? shader->gpu : NULL;
+  batch->pipeline->info.flags = shader ? shader->flags : NULL;
+  batch->pipeline->info.flagCount = shader ? shader->activeFlagCount : 0;
   batch->pipeline->dirty = true;
 }
 
@@ -2588,6 +2741,8 @@ uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
     shader = state.defaultShader;
     batch->pipeline->dirty |= shader->gpu != batch->pipeline->info.shader;
     batch->pipeline->info.shader = shader->gpu;
+    batch->pipeline->info.flags = shader->flags;
+    batch->pipeline->info.flagCount = shader->activeFlagCount;
   }
 
   gpu_vertex_format* vertexFormat;

@@ -283,28 +283,17 @@ typedef enum {
   SHADER_COMPUTE
 } ShaderType;
 
-typedef enum {
-  FLAG_B32,
-  FLAG_I32,
-  FLAG_U32
-} FlagType;
-
 typedef struct {
-  uint32_t id;
   const char* name;
-  FlagType type;
-  union {
-    uint32_t b32;
-    int32_t i32;
-    uint32_t u32;
-  } value;
+  uint32_t id;
+  double value;
 } ShaderFlag;
 
 typedef struct {
   ShaderType type;
   const void* source[2];
   uint32_t length[2];
-  ShaderFlag flags[32];
+  ShaderFlag* flags;
   uint32_t flagCount;
   const char* label;
 } ShaderInfo;
