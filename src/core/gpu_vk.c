@@ -46,9 +46,7 @@ struct gpu_layout {
 
 struct gpu_shader {
   VkShaderModule handles[2];
-  VkPipelineShaderStageCreateInfo pipelineInfo[2];
   VkPipelineLayout pipelineLayout;
-  VkPipelineBindPoint type;
 };
 
 struct gpu_bunch {
@@ -624,12 +622,7 @@ void gpu_layout_destroy(gpu_layout* layout) {
 // Shader
 
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
-  shader->type = info->stages[1].code ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE; // TODO
-
-  VkShaderStageFlags stageFlags[][2] = {
-    [VK_PIPELINE_BIND_POINT_GRAPHICS] = { VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT },
-    [VK_PIPELINE_BIND_POINT_COMPUTE] = { VK_SHADER_STAGE_COMPUTE_BIT },
-  };
+  VkPipelineBindPoint type = info->stages[1].code ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE; // TODO
 
   for (uint32_t i = 0; i < COUNTOF(info->stages) && info->stages[i].code; i++) {
     VkShaderModuleCreateInfo moduleInfo = {
@@ -641,20 +634,13 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     TRY(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "Failed to load shader") {
       return false;
     }
-
-    shader->pipelineInfo[i] = (VkPipelineShaderStageCreateInfo) {
-      .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-      .stage = stageFlags[shader->type][i],
-      .module = shader->handles[i],
-      .pName = info->stages[i].entry ? info->stages[i].entry : "main"
-    };
   }
 
   VkDescriptorSetLayout layouts[4];
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .pSetLayouts = layouts,
-    .pushConstantRangeCount = shader->type == VK_PIPELINE_BIND_POINT_GRAPHICS && info->pushConstantSize > 0,
+    .pushConstantRangeCount = type == VK_PIPELINE_BIND_POINT_GRAPHICS && info->pushConstantSize > 0,
     .pPushConstantRanges = &(VkPushConstantRange) {
       .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
       .offset = 0,
@@ -1143,10 +1129,53 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
         .pDynamicStates = dynamicStates
       };
 
+      uint32_t constants[32];
+      VkSpecializationMapEntry entries[32];
+      CHECK(infos[i].flagCount <= COUNTOF(constants), "Too many specialization constants") return false;
+      for (uint32_t j = 0; j < infos[i].flagCount; j++) {
+        gpu_shader_flag* flag = &infos[i].flags[j];
+        switch (flag->type) {
+          case GPU_FLAG_B32: constants[j] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
+          case GPU_FLAG_I32: constants[j] = (uint32_t) flag->value; break;
+          case GPU_FLAG_U32: constants[j] = (uint32_t) flag->value; break;
+          case GPU_FLAG_F32: memcpy(&constants[j], &(float) { flag->value }, sizeof(float)); break;
+          default: flag->value = 0;
+        }
+        entries[j] = (VkSpecializationMapEntry) {
+          .constantID = infos[i].flags[j].id,
+          .offset = j * sizeof(uint32_t),
+          .size = sizeof(uint32_t)
+        };
+      }
+
+      VkSpecializationInfo specialization = {
+        .mapEntryCount = infos[i].flagCount,
+        .pMapEntries = entries,
+        .dataSize = sizeof(constants),
+        .pData = (const void*) constants
+      };
+
+      VkPipelineShaderStageCreateInfo shaders[2] = {
+        [0] = {
+          .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+          .stage = VK_SHADER_STAGE_VERTEX_BIT,
+          .module = infos[i].shader->handles[0],
+          .pName = "main",
+          .pSpecializationInfo = &specialization
+        },
+        [1] = {
+          .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+          .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+          .module = infos[i].shader->handles[1],
+          .pName = "main",
+          .pSpecializationInfo = &specialization
+        }
+      };
+
       pipelineInfos[i] = (VkGraphicsPipelineCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = 2,
-        .pStages = infos[i].shader->pipelineInfo,
+        .pStages = shaders,
         .pVertexInputState = &vertexInput,
         .pInputAssemblyState = &inputAssembly,
         .pViewportState = &viewport,
@@ -1176,18 +1205,51 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
   return true;
 }
 
-bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const char* label) {
+bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info) {
+  uint32_t constants[32];
+  VkSpecializationMapEntry entries[32];
+  CHECK(info->flagCount <= COUNTOF(constants), "Too many specialization constants") return false;
+  for (uint32_t i = 0; i < info->flagCount; i++) {
+    gpu_shader_flag* flag = &info->flags[i];
+    switch (flag->type) {
+      case GPU_FLAG_B32: default: constants[i] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
+      case GPU_FLAG_I32: constants[i] = (uint32_t) flag->value; break;
+      case GPU_FLAG_U32: constants[i] = (uint32_t) flag->value; break;
+      case GPU_FLAG_F32: constants[i] = (float) flag->value; break;
+    }
+    entries[i] = (VkSpecializationMapEntry) {
+      .constantID = info->flags[i].id,
+      .offset = i * sizeof(uint32_t),
+      .size = sizeof(uint32_t)
+    };
+  }
+
+  VkSpecializationInfo specialization = {
+    .mapEntryCount = info->flagCount,
+    .pMapEntries = entries,
+    .dataSize = sizeof(constants),
+    .pData = (const void*) constants
+  };
+
+  VkPipelineShaderStageCreateInfo shader = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+    .module = info->shader->handles[0],
+    .pName = "main",
+    .pSpecializationInfo = &specialization
+  };
+
   VkComputePipelineCreateInfo pipelineInfo = {
     .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-    .stage = shader->pipelineInfo[0],
-    .layout = shader->pipelineLayout
+    .stage = shader,
+    .layout = info->shader->pipelineLayout
   };
 
   TRY(vkCreateComputePipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle), "Could not create compute pipeline") {
     return false;
   }
 
-  nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, label);
+  nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
   return true;
 }
 

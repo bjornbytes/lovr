@@ -251,7 +251,6 @@ void gpu_layout_destroy(gpu_layout* layout);
 typedef struct {
   const void* code;
   size_t size;
-  const char* entry;
 } gpu_shader_source;
 
 typedef struct {
@@ -434,9 +433,24 @@ typedef struct {
   bool enabled;
 } gpu_blend_state;
 
+typedef enum {
+  GPU_FLAG_B32,
+  GPU_FLAG_I32,
+  GPU_FLAG_U32,
+  GPU_FLAG_F32
+} gpu_flag_type;
+
+typedef struct {
+  uint32_t id;
+  gpu_flag_type type;
+  double value;
+} gpu_shader_flag;
+
 typedef struct {
   gpu_pass* pass;
   gpu_shader* shader;
+  gpu_shader_flag* flags;
+  uint32_t flagCount;
   gpu_draw_mode drawMode;
   gpu_vertex_format vertex;
   gpu_rasterizer_state rasterizer;
@@ -448,8 +462,15 @@ typedef struct {
   const char* label;
 } gpu_pipeline_info;
 
+typedef struct {
+  gpu_shader* shader;
+  gpu_shader_flag* flags;
+  uint32_t flagCount;
+  const char* label;
+} gpu_compute_pipeline_info;
+
 bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* infos, uint32_t count);
-bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_shader* shader, const char* label);
+bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
 // Stream

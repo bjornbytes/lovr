@@ -981,8 +981,31 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     info.type = SHADER_GRAPHICS;
   }
 
-  if (table) {
-    lua_getfield(L, 2, "label");
+  ShaderFlag flags[32];
+  info.flags = flags;
+
+  int index = table ? 2 : 3;
+  if (table || lua_istable(L, index)) {
+    lua_getfield(L, index, "flags");
+    luaL_checktype(L, -1, LUA_TTABLE);
+    lua_pushnil(L);
+    while (lua_next(L, -2) != 0) {
+      lovrCheck(info.flagCount < COUNTOF(flags), "Too many shader flags (max is %d), please report this encounter", COUNTOF(flags));
+      double value = lua_isboolean(L, -1) ? (double) lua_toboolean(L, -1) : lua_tonumber(L, -1);
+      switch (lua_type(L, -2)) {
+        case LUA_TSTRING:
+          flags[info.flagCount++] = (ShaderFlag) { .name = lua_tostring(L, -2), .value = value };
+          break;
+        case LUA_TNUMBER:
+          flags[info.flagCount++] = (ShaderFlag) { .id = lua_tointeger(L, -2), .value = value };
+          break;
+        default: lovrThrow("Unexpected ShaderFlag key type (%s)", lua_typename(L, lua_type(L, -2)));
+      }
+      lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "label");
     info.label = lua_tostring(L, -1);
     lua_pop(L, 1);
   }
