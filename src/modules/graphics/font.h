@@ -24,8 +24,8 @@ Font* lovrFontCreate(struct Rasterizer* rasterizer, uint32_t padding, double spr
 void lovrFontDestroy(void* ref);
 struct Rasterizer* lovrFontGetRasterizer(Font* font);
 struct Texture* lovrFontGetTexture(Font* font);
-void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float* vertices, uint16_t* indices, uint16_t baseVertex);
-void lovrFontMeasure(Font* font, const char* string, size_t length, float wrap, float* width, float* lastLineWidth, float* height, uint32_t* lineCount, uint32_t* glyphCount);
+void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float indent, float* vertices, uint16_t* indices, uint16_t baseVertex);
+void lovrFontMeasure(Font* font, const char* string, size_t length, float wrap, float indent, float* width, float* lastLineWidth, float* height, uint32_t* lineCount, uint32_t* glyphCount);
 uint32_t lovrFontGetPadding(Font* font);
 double lovrFontGetSpread(Font* font);
 float lovrFontGetHeight(Font* font);

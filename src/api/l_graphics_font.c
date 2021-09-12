@@ -15,7 +15,8 @@ static int l_lovrFontGetWidth(lua_State* L) {
   float height;
   uint32_t lineCount;
   uint32_t glyphCount;
-  lovrFontMeasure(font, string, length, wrap, &width, &lastLineWidth, &height, &lineCount, &glyphCount);
+  float indent = luax_optfloat(L, 4, 0.f);
+  lovrFontMeasure(font, string, length, wrap, indent, &width, &lastLineWidth, &height, &lineCount, &glyphCount);
   lua_pushnumber(L, width);
   lua_pushnumber(L, lineCount + 1);
   lua_pushnumber(L, lastLineWidth);

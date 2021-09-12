@@ -1047,7 +1047,8 @@ static int l_lovrGraphicsPrint(lua_State* L) {
   float wrap = luax_optfloat(L, index++, 0.f);
   HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
-  lovrGraphicsPrint(str, length, transform, wrap, halign, valign);
+  float indent = luax_optfloat(L, index++, 0.f);
+  lovrGraphicsPrint(str, length, transform, wrap, halign, valign, indent);
   return 0;
 }
 

@@ -1249,14 +1249,14 @@ void lovrGraphicsSkybox(Texture* texture) {
   }
 }
 
-void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign, float indent) {
   float width;
   float lastLineWidth;
   float height;
   uint32_t lineCount;
   uint32_t glyphCount;
   Font* font = lovrGraphicsGetFont();
-  lovrFontMeasure(font, str, length, wrap, &width, &lastLineWidth, &height, &lineCount, &glyphCount);
+  lovrFontMeasure(font, str, length, wrap, indent, &width, &lastLineWidth, &height, &lineCount, &glyphCount);
 
   if (glyphCount == 0) {
     return;
@@ -1287,7 +1287,7 @@ void lovrGraphicsPrint(const char* str, size_t length, mat4 transform, float wra
     .baseVertex = &baseVertex
   });
 
-  lovrFontRender(font, str, length, wrap, halign, vertices, indices, baseVertex);
+  lovrFontRender(font, str, length, wrap, halign, indent, vertices, indices, baseVertex);
 }
 
 void lovrGraphicsFill(Texture* texture, float u, float v, float w, float h) {

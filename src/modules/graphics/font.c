@@ -106,17 +106,17 @@ Texture* lovrFontGetTexture(Font* font) {
   return font->texture;
 }
 
-void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float* vertices, uint16_t* indices, uint16_t baseVertex) {
+void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float indent, float* vertices, uint16_t* indices, uint16_t baseVertex) {
   FontAtlas* atlas = &font->atlas;
   bool flip = font->flip;
 
   int height = lovrRasterizerGetHeight(font->rasterizer);
 
-  float cx = 0.f;
+  float scale = 1.f / font->pixelDensity;
+  float cx = indent / scale;
   float cy = -height * .8f * (flip ? -1.f : 1.f);
   float u = atlas->width;
   float v = atlas->height;
-  float scale = 1.f / font->pixelDensity;
 
   const char* start = str;
   const char* end = str + length;
@@ -160,7 +160,7 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
 
     // Start over if texture was repacked
     if (u != atlas->width || v != atlas->height) {
-      lovrFontRender(font, start, length, wrap, halign, vertices, indices, baseVertex);
+      lovrFontRender(font, start, length, wrap, halign, indent, vertices, indices, baseVertex);
       return;
     }
 
@@ -199,13 +199,13 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
   lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
 }
 
-void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, float* width, float* lastLineWidth, float* height, uint32_t* lineCount, uint32_t* glyphCount) {
-  float x = 0.f;
+void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, float indent, float* width, float* lastLineWidth, float* height, uint32_t* lineCount, uint32_t* glyphCount) {
+  float scale = 1.f / font->pixelDensity;
+  float x = indent / scale;
   const char* end = str + length;
   size_t bytes;
   unsigned int previous = '\0';
   unsigned int codepoint;
-  float scale = 1.f / font->pixelDensity;
   *width = 0.f;
   *lastLineWidth = 0.f;
   *lineCount = 0;
