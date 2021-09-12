@@ -130,16 +130,6 @@ typedef struct {
 } BatchDraw;
 
 typedef struct {
-  uint16_t pipeline;
-  uint16_t bundle;
-  uint16_t x;
-  uint16_t y;
-  uint16_t z;
-  uint16_t buffer;
-  uint32_t offset;
-} BatchCompute;
-
-typedef struct {
   float color[4];
   Shader* shader;
   uint64_t vertexFormatHash;
@@ -170,7 +160,6 @@ struct Batch {
   uint32_t groupedDrawCount;
   BatchGroup* groups;
   BatchDraw* draws;
-  BatchCompute* computes;
   uint32_t* activeDraws;
   gpu_bunch* bunch;
   gpu_bundle** bundles;
@@ -1010,7 +999,6 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   // Batches
   for (uint32_t i = 0; i < count; i++) {
     Batch* batch = batches[i];
-    lovrCheck(batch->info.type == BATCH_RENDER, "Attempt to use a compute Batch for rendering");
 
     if (batch->activeDrawCount == 0) {
       continue;
@@ -1107,47 +1095,6 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   }
 
   gpu_render_end(stream);
-}
-
-void lovrGraphicsCompute(Batch** batches, uint32_t count, uint32_t order) {
-  lovrCheck(state.active, "Graphics is not active");
-
-  // Command buffer
-  gpu_stream* stream = gpu_stream_begin();
-  state.streamOrder[state.streamCount] = order;
-  state.streams[state.streamCount] = stream;
-  state.streamCount++;
-
-  gpu_compute_begin(stream);
-
-  for (uint32_t i = 0; i < count; i++) {
-    Batch* batch = batches[i];
-    lovrCheck(batch->info.type == BATCH_COMPUTE, "Attempt to use a render Batch for compute");
-
-    uint16_t pipeline = 0xffff;
-    uint16_t bundle = 0xffff;
-    for (uint32_t j = 0; j < batch->count; j++) {
-      BatchCompute* compute = &batch->computes[j];
-
-      if (compute->pipeline != pipeline) {
-        gpu_bind_pipeline_compute(stream, state.pipelines[compute->pipeline]);
-        pipeline = compute->pipeline;
-      }
-
-      if (compute->bundle != bundle) {
-        gpu_bind_bundle(stream, state.pipelines[compute->pipeline], 1, batch->bundles[compute->bundle], NULL, 0);
-        bundle = compute->bundle;
-      }
-
-      if (compute->buffer != 0xffff) {
-        gpu_compute_indirect(stream, state.buffers.list[compute->buffer].gpu, compute->offset);
-      } else {
-        gpu_compute(stream, compute->x, compute->y, compute->z);
-      }
-    }
-  }
-
-  gpu_compute_end(stream);
 }
 
 // Buffer
@@ -2219,66 +2166,61 @@ static void lovrBatchPrepare(Batch* batch) {
 
   // Copy buffers for persistent batches
   // TODO only copy what's new (like lastBundleCount/groupedDrawCount)
-  if (batch->info.type == BATCH_RENDER) {
-    if (!batch->transient) {
-      Megaview from, to;
-      from = batch->scratchBuffers[UNIFORM_TRANSFORM], to = batch->uniformBuffers[UNIFORM_TRANSFORM];
-      gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * 64);
-      from = batch->scratchBuffers[UNIFORM_DRAW_DATA], to = batch->uniformBuffers[UNIFORM_DRAW_DATA];
-      gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * sizeof(DrawData));
-    }
+  if (!batch->transient) {
+    Megaview from, to;
+    from = batch->scratchBuffers[UNIFORM_TRANSFORM], to = batch->uniformBuffers[UNIFORM_TRANSFORM];
+    gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * 64);
+    from = batch->scratchBuffers[UNIFORM_DRAW_DATA], to = batch->uniformBuffers[UNIFORM_DRAW_DATA];
+    gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * sizeof(DrawData));
   }
 
   // Group active draws
-  if (batch->info.type == BATCH_RENDER) {
-    if (batch->groupedDrawCount == 0) {
-      BatchDraw* draw = &batch->draws[batch->activeDraws[0]];
-      batch->groupCount = 1;
-      batch->groups[0].count = 1;
-      batch->groups[0].dirty = 0;
-      batch->groups[0].dirty |= DIRTY_PIPELINE;
-      batch->groups[0].dirty |= (draw->flags & DRAW_VERTEX_BUFFER) ? DIRTY_VERTEX : 0;
-      batch->groups[0].dirty |= (draw->flags & DRAW_INDEX_BUFFER) ? DIRTY_INDEX : 0;
-      batch->groups[0].dirty |= DIRTY_CHUNK;
-      batch->groups[0].dirty |= batch->bundleCount > 0 ? DIRTY_BUNDLE : 0;
-      batch->groupedDrawCount = 1;
-    }
-
-    for (uint32_t i = batch->groupedDrawCount; i < batch->activeDrawCount; i++) {
-      BatchDraw* a = &batch->draws[batch->activeDraws[i]];
-      BatchDraw* b = &batch->draws[batch->activeDraws[i - 1]];
-
-      uint16_t dirty = 0;
-      if (a->pipeline != b->pipeline) {
-        dirty |= DIRTY_PIPELINE;
-      }
-
-      if ((a->flags & DRAW_VERTEX_BUFFER) > (b->flags & DRAW_VERTEX_BUFFER) || a->vertexBuffer != b->vertexBuffer) {
-        dirty |= DIRTY_VERTEX;
-      }
-
-      if ((a->flags & DRAW_INDEX_BUFFER) && (a->indexBuffer != b->indexBuffer || (a->flags & DRAW_INDEX32) != (b->flags & DRAW_INDEX32))) {
-        dirty |= DIRTY_INDEX;
-      }
-
-      if (batch->activeDraws[i] >> 8 != batch->activeDraws[i - 1] >> 8) {
-        dirty |= DIRTY_CHUNK;
-      }
-
-      if (a->bundle != b->bundle) {
-        dirty |= DIRTY_BUNDLE;
-      }
-
-      if (dirty) {
-        batch->groups[batch->groupCount++] = (BatchGroup) { .dirty = dirty, .count = 1 };
-      } else {
-        batch->groups[batch->groupCount - 1].count++;
-      }
-    }
-
-    batch->groupedDrawCount = batch->activeDrawCount;
+  if (batch->groupedDrawCount == 0) {
+    BatchDraw* draw = &batch->draws[batch->activeDraws[0]];
+    batch->groupCount = 1;
+    batch->groups[0].count = 1;
+    batch->groups[0].dirty = 0;
+    batch->groups[0].dirty |= DIRTY_PIPELINE;
+    batch->groups[0].dirty |= (draw->flags & DRAW_VERTEX_BUFFER) ? DIRTY_VERTEX : 0;
+    batch->groups[0].dirty |= (draw->flags & DRAW_INDEX_BUFFER) ? DIRTY_INDEX : 0;
+    batch->groups[0].dirty |= DIRTY_CHUNK;
+    batch->groups[0].dirty |= batch->bundleCount > 0 ? DIRTY_BUNDLE : 0;
+    batch->groupedDrawCount = 1;
   }
 
+  for (uint32_t i = batch->groupedDrawCount; i < batch->activeDrawCount; i++) {
+    BatchDraw* a = &batch->draws[batch->activeDraws[i]];
+    BatchDraw* b = &batch->draws[batch->activeDraws[i - 1]];
+
+    uint16_t dirty = 0;
+    if (a->pipeline != b->pipeline) {
+      dirty |= DIRTY_PIPELINE;
+    }
+
+    if ((a->flags & DRAW_VERTEX_BUFFER) > (b->flags & DRAW_VERTEX_BUFFER) || a->vertexBuffer != b->vertexBuffer) {
+      dirty |= DIRTY_VERTEX;
+    }
+
+    if ((a->flags & DRAW_INDEX_BUFFER) && (a->indexBuffer != b->indexBuffer || (a->flags & DRAW_INDEX32) != (b->flags & DRAW_INDEX32))) {
+      dirty |= DIRTY_INDEX;
+    }
+
+    if (batch->activeDraws[i] >> 8 != batch->activeDraws[i - 1] >> 8) {
+      dirty |= DIRTY_CHUNK;
+    }
+
+    if (a->bundle != b->bundle) {
+      dirty |= DIRTY_BUNDLE;
+    }
+
+    if (dirty) {
+      batch->groups[batch->groupCount++] = (BatchGroup) { .dirty = dirty, .count = 1 };
+    } else {
+      batch->groups[batch->groupCount - 1].count++;
+    }
+  }
+
+  batch->groupedDrawCount = batch->activeDrawCount;
   batch->lastReplay = state.tick;
 }
 
@@ -2557,14 +2499,8 @@ void lovrBatchSetShader(Batch* batch, Shader* shader) {
   lovrRelease(previous, lovrShaderDestroy);
 
   batch->pipeline->shader = shader;
-  if (batch->info.type == BATCH_RENDER) {
-    lovrCheck(shader->info.type == SHADER_GRAPHICS, "setShader can only be called with %s shaders on this batch", "graphics");
-    batch->pipeline->info.shader = shader ? shader->gpu : NULL;
-    batch->pipeline->dirty = true;
-  } else {
-    lovrCheck(shader->info.type == SHADER_COMPUTE, "setShader can only be called with %s shaders on this batch", "compute");
-    batch->pipeline->index = shader ? shader->computePipelineIndex : 0xffff;
-  }
+  batch->pipeline->info.shader = shader ? shader->gpu : NULL;
+  batch->pipeline->dirty = true;
 }
 
 void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture) {
@@ -2632,7 +2568,6 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
 uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
   lovrCheck(state.active, "Graphics is not active");
   lovrCheck(batch->count < batch->info.capacity, "Batch is out of draws, try creating it with a higher capacity or increasing t.graphics.batchsize");
-  lovrCheck(batch->info.type == BATCH_RENDER, "Unable to record draws to a compute batch");
   uint32_t drawIndex = batch->count++;
   batch->activeDraws[batch->activeDrawCount++] = drawIndex;
   BatchDraw* draw = &batch->draws[drawIndex];
@@ -2907,38 +2842,4 @@ uint32_t lovrBatchModel(Batch* batch, Model* model, mat4 transform, uint32_t nod
 
 uint32_t lovrBatchPrint(Batch* batch, Font* font, const char* text, uint32_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   lovrThrow("TODO");
-}
-
-uint32_t lovrBatchCompute(Batch* batch, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
-  Shader* shader = batch->pipeline->shader;
-  lovrCheck(batch->info.type == BATCH_COMPUTE, "Unable to record compute work to a render batch");
-  lovrCheck(batch->count < batch->info.capacity, "Batch is out of space, try creating it with a higher capacity option");
-  lovrCheck(shader, "A compute Shader must be bound before calling compute");
-  lovrCheck(x <= state.limits.computeDispatchCount[0], "Compute %s count exceeds computeDispatchCount limit", "x");
-  lovrCheck(y <= state.limits.computeDispatchCount[1], "Compute %s count exceeds computeDispatchCount limit", "y");
-  lovrCheck(z <= state.limits.computeDispatchCount[2], "Compute %s count exceeds computeDispatchCount limit", "z");
-
-  uint32_t id = batch->count++;
-  BatchCompute* compute = &batch->computes[id];
-  compute->pipeline = batch->pipeline->index;
-
-  if (batch->bindingsDirty) {
-    batch->bindingsDirty = false;
-    if (shader->resourceCount > 0) {
-      gpu_bundle_info* info = &batch->bundleWrites[batch->bundleCount++];
-      info->layout = shader->layout;
-      info->bindings = talloc(shader->resourceCount * sizeof(gpu_binding));
-      for (uint32_t i = 0; i < shader->resourceCount; i++) {
-        info->bindings[i] = batch->bindings[shader->resourceSlots[i]];
-      }
-    }
-  }
-
-  compute->bundle = MAX(batch->bundleCount, 1) - 1;
-  compute->x = x;
-  compute->y = y;
-  compute->z = z;
-  compute->buffer = indirect ? indirect->mega.index : 0xffff;
-  compute->offset = indirect ? indirect->mega.offset + offset : 0;
-  return id;
 }

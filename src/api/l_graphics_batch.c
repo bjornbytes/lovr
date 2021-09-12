@@ -653,23 +653,6 @@ static int l_lovrBatchPrint(lua_State* L) {
   return 1;
 }
 
-static int l_lovrBatchCompute(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  Buffer* buffer = luax_totype(L, 2, Buffer);
-  uint32_t id;
-  if (buffer) {
-    uint32_t offset = lua_tointeger(L, 3);
-    id = lovrBatchCompute(batch, 0, 0, 0, buffer, offset);
-  } else {
-    uint32_t x = luaL_optinteger(L, 2, 1);
-    uint32_t y = luaL_optinteger(L, 3, 1);
-    uint32_t z = luaL_optinteger(L, 4, 1);
-    id = lovrBatchCompute(batch, x, y, z, NULL, 0);
-  }
-  lua_pushinteger(L, id);
-  return 1;
-}
-
 const luaL_Reg lovrBatch[] = {
   { "getType", l_lovrBatchGetType },
   { "getCapacity", l_lovrBatchGetCapacity },
@@ -726,8 +709,6 @@ const luaL_Reg lovrBatch[] = {
   { "fill", l_lovrBatchFill },
   { "model", l_lovrBatchModel },
   { "print", l_lovrBatchPrint },
-
-  { "compute", l_lovrBatchCompute },
 
   { NULL, NULL }
 };
