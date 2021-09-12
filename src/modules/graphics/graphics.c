@@ -277,7 +277,6 @@ static void* talloc(size_t size) {
 
   uint32_t tip = ALIGN(state.frame.tip, 8);
   state.frame.tip = tip + size;
-  memset(state.frame.memory + tip, 0, size);
   return state.frame.memory + tip;
 }
 
@@ -676,7 +675,6 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batch
   uint32_t vertexCount = 0;
   vertexCount += COUNTOF(cube);
 
-  // Be careful of alignment here
   state.geometryBuffer = lovrBufferCreate(&(BufferInfo) {
     .usage = BUFFER_VERTEX | BUFFER_COPYTO,
     .length = vertexCount,
@@ -802,14 +800,6 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->pointSize = state.limits.pointSize;
 }
 
-void lovrGraphicsGetBackgroundColor(float background[4]) {
-  memcpy(background, state.background, 4 * sizeof(float));
-}
-
-void lovrGraphicsSetBackgroundColor(float background[4]) {
-  memcpy(state.background, background, 4 * sizeof(float));
-}
-
 void lovrGraphicsBegin() {
   if (state.active) return;
   state.active = true;
@@ -913,6 +903,14 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
   entry->hash = hash;
   entry->tick = state.tick;
   return texture;
+}
+
+void lovrGraphicsGetBackgroundColor(float background[4]) {
+  memcpy(background, state.background, 4 * sizeof(float));
+}
+
+void lovrGraphicsSetBackgroundColor(float background[4]) {
+  memcpy(state.background, background, 4 * sizeof(float));
 }
 
 void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_t order) {
@@ -1023,9 +1021,9 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     }
 
     // Camera (TODO do this for each batch outside of this loop, can do single buffer allocation)
-    for (uint32_t i = 0; i < main->depth; i++) {
-      mat4_init(batch->camera.viewProjection[i], batch->camera.projection[i]);
-      mat4_mul(batch->camera.viewProjection[i], batch->camera.view[i]);
+    for (uint32_t j = 0; j < main->depth; j++) {
+      mat4_init(batch->camera.viewProjection[j], batch->camera.projection[j]);
+      mat4_mul(batch->camera.viewProjection[j], batch->camera.view[j]);
     }
 
     Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, sizeof(Camera), 256);
@@ -1132,6 +1130,7 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
       buffer->mega.data += alignment;
     }
     lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", info->stride, state.limits.vertexBufferStride);
+    buffer->mask = 0;
     buffer->format.bufferCount = 1;
     buffer->format.attributeCount = info->fieldCount;
     buffer->format.bufferStrides[0] = info->stride;
@@ -1999,6 +1998,12 @@ Batch* lovrBatchInit(BatchInfo* info, bool transient) {
   batch->transient = transient;
   batch->info = *info;
   batch->lastReplay = state.tick;
+  memset(&batch->viewport, 0, sizeof(batch->viewport));
+  memset(&batch->scissor, 0, sizeof(batch->scissor));
+  for (uint32_t i = 0; i < COUNTOF(batch->camera.view); i++) {
+    mat4_identity(batch->camera.view[i]);
+    mat4_identity(batch->camera.projection[i]);
+  }
   lovrBatchReset(batch);
   return batch;
 }
@@ -2069,7 +2074,6 @@ void lovrBatchReset(Batch* batch) {
   batch->bundleCount = 0;
   batch->lastBundleCount = 0;
   batch->bindingsDirty = true;
-  memset(batch->bindings, 0, sizeof(batch->bindings));
   batch->emptySlotMask = ~0u;
 
   // Matrix stack
