@@ -82,12 +82,6 @@ StringEntry lovrDrawMode[] = {
   { 0 }
 };
 
-StringEntry lovrDrawStyle[] = {
-  [DRAW_LINE] = ENTRY("line"),
-  [DRAW_FILL] = ENTRY("fill"),
-  { 0 }
-};
-
 StringEntry lovrFieldType[] = {
   [FIELD_I8] = ENTRY("i8"),
   [FIELD_U8] = ENTRY("u8"),

@@ -2964,7 +2964,7 @@ uint32_t lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
   return id;
 }
 
-uint32_t lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
+uint32_t lovrBatchPlane(Batch* batch, float* transform, uint32_t segments) {
   uint16_t indices[] = { 0,  1,  2,  1, 2, 3 };
   return lovrBatchDraw(batch, &(DrawInfo) {
     .mode = DRAW_TRIANGLES,
@@ -2977,7 +2977,7 @@ uint32_t lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_
   }, transform);
 }
 
-uint32_t lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
+uint32_t lovrBatchBox(Batch* batch, float* transform) {
   uint16_t indices[] = {
      0,  1,  2,  2,  1,  3,
      4,  5,  6,  6,  5,  7,
@@ -2998,7 +2998,7 @@ uint32_t lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
   }, transform);
 }
 
-uint32_t lovrBatchCircle(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
+uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t segments) {
   lovrThrow("TODO");
 }
 
