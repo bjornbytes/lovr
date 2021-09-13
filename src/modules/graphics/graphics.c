@@ -147,6 +147,7 @@ typedef struct {
   float view[6][16];
   float projection[6][16];
   float viewProjection[6][16];
+  float inverseViewProjection[6][16];
 } Camera;
 
 typedef struct {
@@ -1038,6 +1039,8 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
     for (uint32_t j = 0; j < main->depth; j++) {
       mat4_init(batch->camera.viewProjection[j], batch->camera.projection[j]);
       mat4_mul(batch->camera.viewProjection[j], batch->camera.view[j]);
+      mat4_init(batch->camera.inverseViewProjection[j], batch->camera.viewProjection[j]);
+      mat4_invert(batch->camera.inverseViewProjection[j]);
     }
 
     Megaview camera = bufferAllocate(GPU_MEMORY_CPU_WRITE, sizeof(Camera), 256);
