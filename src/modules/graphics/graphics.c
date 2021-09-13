@@ -19,6 +19,7 @@
 #define MAX_LAYOUTS 64
 
 enum {
+  SHAPE_QUAD,
   SHAPE_CUBE,
   SHAPE_MAX
 };
@@ -649,6 +650,13 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batch
   }
 
   // In 10 bit land, 0x200 is 0.0, 0x3ff is 1.0, 0x000 is -1.0
+  Vertex quad[] = {
+    { { -.5f,  .5f, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0x0000 } },
+    { {  .5f,  .5f, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0x0000 } },
+    { { -.5f, -.5f, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0xffff } },
+    { {  .5f, -.5f, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0xffff } }
+  };
+
   Vertex cube[] = {
     { { -.5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0x0000 } }, // Front
     { { -.5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0xffff } },
@@ -677,7 +685,12 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batch
   };
 
   uint32_t vertexCount = 0;
+  vertexCount += COUNTOF(quad);
   vertexCount += COUNTOF(cube);
+
+  uint32_t vertexOffset = 0;
+  state.baseVertex[SHAPE_QUAD] = vertexOffset / sizeof(Vertex), vertexOffset += sizeof(quad);
+  state.baseVertex[SHAPE_CUBE] = vertexOffset / sizeof(Vertex), vertexOffset += sizeof(cube);
 
   state.geometryBuffer = lovrBufferCreate(&(BufferInfo) {
     .usage = BUFFER_VERTEX | BUFFER_COPYTO,
@@ -690,9 +703,6 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batch
     .label = "geometry"
   });
   lovrCheck(state.geometryBuffer->hash == state.vertexFormatHash[VERTEX_STANDARD], "Unreachable");
-
-  uint32_t offset = 0;
-  state.baseVertex[SHAPE_CUBE] = offset / sizeof(Vertex), offset += sizeof(cube);
 
   Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, vertexCount * sizeof(Vertex), 4);
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
@@ -2955,7 +2965,16 @@ uint32_t lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
 }
 
 uint32_t lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_t segments) {
-  lovrThrow("TODO");
+  uint16_t indices[] = { 0,  1,  2,  1, 2, 3 };
+  return lovrBatchDraw(batch, &(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .vertex.buffer = state.geometryBuffer,
+    .index.data = indices,
+    .index.count = COUNTOF(indices),
+    .index.stride = sizeof(uint16_t),
+    .count = COUNTOF(indices),
+    .base = state.baseVertex[SHAPE_QUAD]
+  }, transform);
 }
 
 uint32_t lovrBatchBox(Batch* batch, DrawStyle style, float* transform) {
