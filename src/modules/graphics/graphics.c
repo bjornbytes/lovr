@@ -2821,7 +2821,11 @@ uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
 
     if (batch->transient) {
       draw->vertexBuffer = scratch.index;
-      if (scratch.offset % stride != 0) scratch.offset += stride - scratch.offset % stride;
+      if (scratch.offset % stride != 0) {
+        uint32_t pad = stride - scratch.offset % stride;
+        scratch.offset += pad;
+        scratch.data += pad;
+      }
       vertexOffset = scratch.offset / stride;
     } else {
       draw->vertexBuffer = batch->stash.index;
