@@ -21,6 +21,7 @@
 enum {
   SHAPE_QUAD,
   SHAPE_CUBE,
+  SHAPE_DISK,
   SHAPE_MAX
 };
 
@@ -685,13 +686,23 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batch
     { {  .5f,  .5f,  .5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0x0000 } }
   };
 
+  Vertex disk[256];
+  for (uint32_t i = 0; i < 256; i++) {
+    float theta = i / 256.f * 2.f * M_PI;
+    float x = cosf(theta) * .5f;
+    float y = sinf(theta) * .5f;
+    disk[i] = (Vertex) { { x, y, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { x * 0xffff, y * 0xffff } };
+  }
+
   uint32_t vertexCount = 0;
   vertexCount += COUNTOF(quad);
   vertexCount += COUNTOF(cube);
+  vertexCount += COUNTOF(disk);
 
   uint32_t vertexOffset = 0;
   state.baseVertex[SHAPE_QUAD] = vertexOffset / sizeof(Vertex), vertexOffset += sizeof(quad);
   state.baseVertex[SHAPE_CUBE] = vertexOffset / sizeof(Vertex), vertexOffset += sizeof(cube);
+  state.baseVertex[SHAPE_DISK] = vertexOffset / sizeof(Vertex), vertexOffset += sizeof(disk);
 
   state.geometryBuffer = lovrBufferCreate(&(BufferInfo) {
     .usage = BUFFER_VERTEX | BUFFER_COPYTO,
@@ -706,7 +717,9 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batch
   lovrCheck(state.geometryBuffer->hash == state.vertexFormatHash[VERTEX_STANDARD], "Unreachable");
 
   Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, vertexCount * sizeof(Vertex), 4);
+  memcpy(scratch.data, quad, sizeof(quad)), scratch.data += sizeof(quad);
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
+  memcpy(scratch.data, disk, sizeof(disk)), scratch.data += sizeof(disk);
 
   gpu_begin();
   gpu_stream* stream = gpu_stream_begin();
@@ -3001,8 +3014,31 @@ uint32_t lovrBatchBox(Batch* batch, float* transform) {
   }, transform);
 }
 
-uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t segments) {
-  lovrThrow("TODO");
+uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t detail) {
+  detail = MIN(detail, 6);
+  uint16_t vertexCount = 4 << detail;
+  uint16_t vertexSkip = 64 >> detail;
+  uint16_t triangleCount = vertexCount - 2;
+  uint16_t indexCount = 3 * triangleCount;
+
+  uint16_t* indices;
+  uint32_t id = lovrBatchDraw(batch, &(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .vertex.buffer = state.geometryBuffer,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount,
+    .index.stride = sizeof(uint16_t),
+    .count = indexCount,
+    .base = state.baseVertex[SHAPE_DISK]
+  }, transform);
+
+  for (uint16_t i = 0, j = vertexSkip; i < triangleCount; i++, j += vertexSkip) {
+    indices[3 * i + 0] = 0;
+    indices[3 * i + 1] = j;
+    indices[3 * i + 2] = j + vertexSkip;
+  }
+
+  return id;
 }
 
 uint32_t lovrBatchCylinder(Batch* batch, mat4 transform, float r1, float r2, bool capped, uint32_t segments) {
