@@ -401,11 +401,6 @@ typedef struct {
 } DrawInfo;
 
 typedef enum {
-  DRAW_LINE,
-  DRAW_FILL
-} DrawStyle;
-
-typedef enum {
   ALIGN_LEFT,
   ALIGN_CENTER,
   ALIGN_RIGHT
@@ -464,13 +459,12 @@ void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot,
 uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform);
 uint32_t lovrBatchPoints(Batch* batch, uint32_t count, float** vertices);
 uint32_t lovrBatchLine(Batch* batch, uint32_t count, float** vertices);
-uint32_t lovrBatchPlane(Batch* batch, DrawStyle style, float* transform, uint32_t segments);
-uint32_t lovrBatchBox(Batch* batch, DrawStyle style, float* transform);
-uint32_t lovrBatchCircle(Batch* batch, DrawStyle style, float* transform, uint32_t segments);
+uint32_t lovrBatchPlane(Batch* batch, float* transform, uint32_t segments);
+uint32_t lovrBatchBox(Batch* batch, float* transform);
+uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t segments);
 uint32_t lovrBatchCylinder(Batch* batch, float* transform, float r1, float r2, bool capped, uint32_t segments);
 uint32_t lovrBatchSphere(Batch* batch, float* transform, uint32_t segments);
 uint32_t lovrBatchSkybox(Batch* batch, Texture* texture);
 uint32_t lovrBatchFill(Batch* batch, Texture* texture);
 uint32_t lovrBatchModel(Batch* batch, Model* model, float* transform, uint32_t node, bool children, uint32_t instances);
 uint32_t lovrBatchPrint(Batch* batch, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
-uint32_t lovrBatchCompute(Batch* batch, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);

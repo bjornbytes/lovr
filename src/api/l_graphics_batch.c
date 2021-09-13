@@ -545,43 +545,39 @@ static int l_lovrBatchLine(lua_State* L) {
 }
 
 static int l_lovrBatchPlane(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
   float transform[16];
-  int index = luax_readmat4(L, 3, transform, 2);
+  Batch* batch = luax_checktype(L, 1, Batch);
+  int index = luax_readmat4(L, 2, transform, 2);
   uint32_t segments = luaL_optinteger(L, index, 0);
-  uint32_t id = lovrBatchPlane(batch, style, transform, segments);
+  uint32_t id = lovrBatchPlane(batch, transform, segments);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrBatchCube(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
   float transform[16];
-  luax_readmat4(L, 3, transform, 1);
-  uint32_t id = lovrBatchBox(batch, style, transform);
+  Batch* batch = luax_checktype(L, 1, Batch);
+  luax_readmat4(L, 2, transform, 1);
+  uint32_t id = lovrBatchBox(batch, transform);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrBatchBox(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
   float transform[16];
-  luax_readmat4(L, 3, transform, 3);
-  uint32_t id = lovrBatchBox(batch, style, transform);
+  Batch* batch = luax_checktype(L, 1, Batch);
+  luax_readmat4(L, 2, transform, 3);
+  uint32_t id = lovrBatchBox(batch, transform);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrBatchCircle(lua_State* L) {
-  Batch* batch = luax_checktype(L, 1, Batch);
-  DrawStyle style = luax_checkenum(L, 2, DrawStyle, NULL);
   float transform[16];
-  int index = luax_readmat4(L, 3, transform, 1);
+  Batch* batch = luax_checktype(L, 1, Batch);
+  int index = luax_readmat4(L, 2, transform, 1);
   uint32_t segments = luaL_optinteger(L, index, 32);
-  uint32_t id = lovrBatchCircle(batch, style, transform, segments);
+  uint32_t id = lovrBatchCircle(batch, transform, segments);
   lua_pushinteger(L, id);
   return 1;
 }
