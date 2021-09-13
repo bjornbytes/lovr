@@ -13,6 +13,7 @@ struct Camera {
   mat4 view[6];
   mat4 projection[6];
   mat4 viewProjection[6];
+  mat4 inverseViewProjection[6];
 };
 
 struct DrawData {
