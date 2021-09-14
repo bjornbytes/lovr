@@ -2833,6 +2833,7 @@ uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
   draw->pipeline = batch->pipeline->index;
 
   // Vertices
+  uint32_t count = info->count;
   uint32_t vertexOffset;
   if (info->vertex.buffer) {
     lovrCheck(batch->transient || !info->vertex.buffer->transient, "Transient buffers can only be used with transient batches");
@@ -2867,6 +2868,8 @@ uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
     } else {
       memcpy(scratch.data, info->vertex.data, size);
     }
+
+    count = info->vertex.count;
   } else {
     draw->vertexBuffer = 0xff;
   }
@@ -2899,6 +2902,8 @@ uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
     } else {
       memcpy(scratch.data, info->index.data, size);
     }
+
+    count = info->index.count;
   } else {
     draw->indexBuffer = 0xff;
   }
@@ -2925,7 +2930,7 @@ uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
   draw->flags |= -(info->vertex.buffer || info->vertex.pointer || info->vertex.data) & DRAW_VERTEX_BUFFER;
   draw->flags |= -(indexed) & DRAW_INDEX_BUFFER;
   draw->start = info->start + (indexed ? indexOffset : vertexOffset);
-  draw->count = info->count;
+  draw->count = count;
   draw->instances = MAX(info->instances, 1);
   draw->baseVertex = indexed ? (info->base + vertexOffset) : 0;
 
@@ -2953,8 +2958,7 @@ uint32_t lovrBatchPoints(Batch* batch, uint32_t count, float** vertices) {
     .mode = DRAW_POINTS,
     .vertex.format = VERTEX_POSITION,
     .vertex.pointer = (void**) vertices,
-    .vertex.count = count,
-    .count = count
+    .vertex.count = count
   }, NULL);
 }
 
@@ -2968,8 +2972,7 @@ uint32_t lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
     .vertex.count = count,
     .index.pointer = (void**) &indices,
     .index.count = 2 * (count - 1),
-    .index.stride = sizeof(*indices),
-    .count = 2 * (count - 1)
+    .index.stride = sizeof(*indices)
   }, NULL);
 
   for (uint32_t i = 0; i < count; i++) {
@@ -2988,7 +2991,6 @@ uint32_t lovrBatchPlane(Batch* batch, float* transform, uint32_t segments) {
     .index.data = indices,
     .index.count = COUNTOF(indices),
     .index.stride = sizeof(uint16_t),
-    .count = COUNTOF(indices),
     .base = state.baseVertex[SHAPE_QUAD]
   }, transform);
 }
@@ -3009,7 +3011,6 @@ uint32_t lovrBatchBox(Batch* batch, float* transform) {
     .index.data = indices,
     .index.count = COUNTOF(indices),
     .index.stride = sizeof(uint16_t),
-    .count = COUNTOF(indices),
     .base = state.baseVertex[SHAPE_CUBE]
   }, transform);
 }
@@ -3018,8 +3019,7 @@ uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t detail) {
   detail = MIN(detail, 6);
   uint16_t vertexCount = 4 << detail; // 4, 8, 16, 32, 64, 128, 256
   uint16_t vertexSkip = 64 >> detail; // 64, 32, 16, 8, 4, 2, 1
-  uint16_t triangleCount = vertexCount - 2;
-  uint16_t indexCount = 3 * triangleCount;
+  uint16_t indexCount = 3 * (vertexCount - 2);
 
   uint16_t* indices;
   uint32_t id = lovrBatchDraw(batch, &(DrawInfo) {
@@ -3028,14 +3028,13 @@ uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t detail) {
     .index.pointer = (void**) &indices,
     .index.count = indexCount,
     .index.stride = sizeof(uint16_t),
-    .count = indexCount,
     .base = state.baseVertex[SHAPE_DISK]
   }, transform);
 
-  for (uint16_t i = 0, j = vertexSkip; i < triangleCount; i++, j += vertexSkip) {
-    indices[3 * i + 0] = 0;
-    indices[3 * i + 1] = j;
-    indices[3 * i + 2] = j + vertexSkip;
+  for (uint16_t i = 0, j = vertexSkip; i < indexCount; i += 3, j += vertexSkip) {
+    indices[i + 0] = 0;
+    indices[i + 1] = j;
+    indices[i + 2] = j + vertexSkip;
   }
 
   return id;
