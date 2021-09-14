@@ -383,13 +383,13 @@ typedef struct {
   struct {
     Buffer* buffer;
     VertexFormat format;
-    void* data;
+    const void* data;
     void** pointer;
     uint32_t count;
   } vertex;
   struct {
     Buffer* buffer;
-    void* data;
+    const void* data;
     void** pointer;
     uint32_t count;
     uint32_t stride;
