@@ -2981,7 +2981,7 @@ uint32_t lovrBatchLine(Batch* batch, uint32_t count, float** vertices) {
 }
 
 uint32_t lovrBatchPlane(Batch* batch, float* transform, uint32_t segments) {
-  uint16_t indices[] = { 0,  1,  2,  1, 2, 3 };
+  static const uint16_t indices[] = { 0,  1,  2,  1, 2, 3 };
   return lovrBatchDraw(batch, &(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.geometryBuffer,
@@ -2994,7 +2994,7 @@ uint32_t lovrBatchPlane(Batch* batch, float* transform, uint32_t segments) {
 }
 
 uint32_t lovrBatchBox(Batch* batch, float* transform) {
-  uint16_t indices[] = {
+  static const uint16_t indices[] = {
      0,  1,  2,  2,  1,  3,
      4,  5,  6,  6,  5,  7,
      8,  9, 10, 10,  9, 11,
@@ -3016,8 +3016,8 @@ uint32_t lovrBatchBox(Batch* batch, float* transform) {
 
 uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t detail) {
   detail = MIN(detail, 6);
-  uint16_t vertexCount = 4 << detail;
-  uint16_t vertexSkip = 64 >> detail;
+  uint16_t vertexCount = 4 << detail; // 4, 8, 16, 32, 64, 128, 256
+  uint16_t vertexSkip = 64 >> detail; // 64, 32, 16, 8, 4, 2, 1
   uint16_t triangleCount = vertexCount - 2;
   uint16_t indexCount = 3 * triangleCount;
 
@@ -3041,7 +3041,7 @@ uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t detail) {
   return id;
 }
 
-uint32_t lovrBatchCylinder(Batch* batch, mat4 transform, float r1, float r2, bool capped, uint32_t segments) {
+uint32_t lovrBatchCylinder(Batch* batch, mat4 transform, float r1, float r2, bool capped, uint32_t detail) {
   lovrThrow("TODO");
 }
 
