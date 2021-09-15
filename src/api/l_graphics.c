@@ -544,7 +544,6 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.uniformBufferAlign), lua_setfield(L, -2, "uniformBufferAlign");
   lua_pushinteger(L, limits.storageBufferAlign), lua_setfield(L, -2, "storageBufferAlign");
   lua_pushinteger(L, limits.vertexAttributes), lua_setfield(L, -2, "vertexAttributes");
-  lua_pushinteger(L, limits.vertexBuffers), lua_setfield(L, -2, "vertexBuffers");
   lua_pushinteger(L, limits.vertexBufferStride), lua_setfield(L, -2, "vertexBufferStride");
   lua_pushinteger(L, limits.vertexShaderOutputs), lua_setfield(L, -2, "vertexShaderOutputs");
 
@@ -563,9 +562,56 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.computeWorkgroupVolume), lua_setfield(L, -2, "computeWorkgroupVolume");
   lua_pushinteger(L, limits.computeSharedMemory), lua_setfield(L, -2, "computeSharedMemory");
   lua_pushinteger(L, limits.indirectDrawCount), lua_setfield(L, -2, "indirectDrawCount");
+  lua_pushinteger(L, limits.instances), lua_setfield(L, -2, "instances");
 
   lua_pushnumber(L, limits.anisotropy), lua_setfield(L, -2, "anisotropy");
   lua_pushnumber(L, limits.pointSize), lua_setfield(L, -2, "pointSize");
+  return 1;
+}
+
+static int l_lovrGraphicsGetStats(lua_State* L) {
+  if (lua_istable(L, 1)) {
+    lua_settop(L, 1);
+  } else {
+    lua_newtable(L);
+  }
+
+  GraphicsStats stats;
+  lovrGraphicsGetStats(&stats);
+
+  lua_createtable(L, 0, 3);
+  lua_pushinteger(L, stats.memory), lua_setfield(L, -2, "total");
+  lua_pushinteger(L, stats.bufferMemory), lua_setfield(L, -2, "buffer");
+  lua_pushinteger(L, stats.textureMemory), lua_setfield(L, -2, "texture");
+  lua_setfield(L, -2, "memory");
+
+  lua_createtable(L, 0, 4);
+  lua_pushinteger(L, stats.buffers), lua_setfield(L, -2, "buffers");
+  lua_pushinteger(L, stats.textures), lua_setfield(L, -2, "textures");
+  lua_pushinteger(L, stats.samplers), lua_setfield(L, -2, "samplers");
+  lua_pushinteger(L, stats.shaders), lua_setfield(L, -2, "shaders");
+  lua_setfield(L, -2, "objects");
+
+  lua_createtable(L, 0, 10);
+  lua_pushinteger(L, stats.scratchMemory), lua_setfield(L, -2, "scratchMemory");
+  lua_pushinteger(L, stats.renderPasses), lua_setfield(L, -2, "renderPasses");
+  lua_pushinteger(L, stats.computePasses), lua_setfield(L, -2, "computePasses");
+  lua_pushinteger(L, stats.transferPasses), lua_setfield(L, -2, "transferPasses");
+  lua_pushinteger(L, stats.pipelineBinds), lua_setfield(L, -2, "pipelineBinds");
+  lua_pushinteger(L, stats.bundleBinds), lua_setfield(L, -2, "bundleBinds");
+  lua_pushinteger(L, stats.drawCalls), lua_setfield(L, -2, "drawCalls");
+  lua_pushinteger(L, stats.dispatches), lua_setfield(L, -2, "dispatches");
+  lua_pushinteger(L, stats.workgroups), lua_setfield(L, -2, "workgroups");
+  lua_pushinteger(L, stats.copies), lua_setfield(L, -2, "copies");
+  lua_setfield(L, -2, "frame");
+
+  lua_createtable(L, 0, 5);
+  lua_pushnumber(L, stats.blocks), lua_setfield(L, -2, "blocks");
+  lua_pushnumber(L, stats.canvases), lua_setfield(L, -2, "canvases");
+  lua_pushnumber(L, stats.pipelines), lua_setfield(L, -2, "pipelines");
+  lua_pushnumber(L, stats.layouts), lua_setfield(L, -2, "layouts");
+  lua_pushnumber(L, stats.bunches), lua_setfield(L, -2, "bunches");
+  lua_setfield(L, -2, "internal");
   return 1;
 }
 
@@ -1038,6 +1084,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getHardware", l_lovrGraphicsGetHardware },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
+  { "getStats", l_lovrGraphicsGetStats },
   { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "begin", l_lovrGraphicsBegin },

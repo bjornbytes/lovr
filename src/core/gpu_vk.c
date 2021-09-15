@@ -1766,6 +1766,7 @@ bool gpu_init(gpu_config* config) {
       config->limits->computeWorkgroupVolume = deviceLimits->maxComputeWorkGroupInvocations;
       config->limits->computeSharedMemory = deviceLimits->maxComputeSharedMemorySize;
       config->limits->indirectDrawCount = deviceLimits->maxDrawIndirectCount;
+      config->limits->instances = multiviewLimits.maxMultiviewInstanceIndex;
       config->limits->anisotropy = deviceLimits->maxSamplerAnisotropy;
       config->limits->pointSize = deviceLimits->pointSizeRange[1];
     }

@@ -593,6 +593,7 @@ typedef struct {
   uint32_t computeWorkgroupVolume;
   uint32_t computeSharedMemory;
   uint32_t indirectDrawCount;
+  uint32_t instances;
   float anisotropy;
   float pointSize;
 } gpu_limits;

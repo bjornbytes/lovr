@@ -263,6 +263,7 @@ static struct {
   gpu_hardware hardware;
   gpu_features features;
   gpu_limits limits;
+  GraphicsStats stats;
   float background[4];
   LinearAllocator frame;
   uint32_t blockSize;
@@ -284,6 +285,7 @@ static struct {
   uint32_t pipelineCount;
   uint64_t pipelineLookup[4096];
   gpu_pipeline* pipelines[4096];
+  uint32_t passCount;
   uint64_t passKeys[256];
   gpu_pass* passes[256];
   uint64_t layoutLookup[MAX_LAYOUTS];
@@ -343,6 +345,10 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
   uint32_t oldest = state.buffers.oldest[type];
   uint32_t cursor = ALIGN(state.buffers.cursor[type], align);
 
+  if (type == GPU_MEMORY_CPU_WRITE) {
+    state.stats.scratchMemory += (cursor - state.buffers.cursor[type]) + size;
+  }
+
   // If there's an active Megabuffer and it has room, use it
   if (active != ~0u && cursor + size <= state.buffers.list[active].size) {
     state.buffers.cursor[type] = cursor + size;
@@ -392,6 +398,8 @@ static Megaview bufferAllocate(gpu_memory_type type, uint32_t size, uint32_t ali
   };
 
   lovrAssert(gpu_buffer_init(buffer->gpu, &info), "Failed to initialize Buffer");
+  state.stats.bufferMemory += buffer->size;
+  state.stats.memory += buffer->size;
 
   return (Megaview) { .gpu = buffer->gpu, .data = buffer->pointer, .index = active, .offset = 0 };
 }
@@ -446,14 +454,13 @@ static gpu_pass* lookupPass(Canvas* canvas) {
   Texture* texture = canvas->textures[0] ? canvas->textures[0] : canvas->depth.texture;
   bool resolve = texture->info.samples == 1 && canvas->samples > 1;
 
-  uint32_t index;
-  for (index = 0; index < COUNTOF(state.passes) && state.passKeys[index]; index++) {
-    if (state.passKeys[index] == id) {
-      return state.passes[index];
+  for (uint32_t i = 0; i < state.passCount; i++) {
+    if (state.passKeys[i] == id) {
+      return state.passes[i];
     }
   }
 
-  lovrCheck(index < COUNTOF(state.passes), "Too many passes, please report this encounter");
+  lovrCheck(state.passCount < COUNTOF(state.passes), "Too many passes, please report this encounter");
 
   // Create new pass
   gpu_pass_info info = {
@@ -481,9 +488,9 @@ static gpu_pass* lookupPass(Canvas* canvas) {
     };
   }
 
-  lovrAssert(gpu_pass_init(state.passes[index], &info), "Failed to initialize pass");
-  state.passKeys[index] = id;
-  return state.passes[index];
+  lovrAssert(gpu_pass_init(state.passes[state.passCount], &info), "Failed to initialize pass");
+  state.passKeys[state.passCount] = id;
+  return state.passes[state.passCount++];
 }
 
 static gpu_layout* lookupLayout(gpu_slot* slots, uint32_t count) {
@@ -845,7 +852,6 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->uniformBufferAlign = state.limits.uniformBufferAlign;
   limits->storageBufferAlign = state.limits.storageBufferAlign;
   limits->vertexAttributes = state.limits.vertexAttributes;
-  limits->vertexBuffers = state.limits.vertexBuffers;
   limits->vertexBufferStride = state.limits.vertexBufferStride;
   limits->vertexShaderOutputs = state.limits.vertexShaderOutputs;
   memcpy(limits->computeDispatchCount, state.limits.computeDispatchCount, 3 * sizeof(uint32_t));
@@ -853,8 +859,17 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->computeWorkgroupVolume = state.limits.computeWorkgroupVolume;
   limits->computeSharedMemory = state.limits.computeSharedMemory;
   limits->indirectDrawCount = state.limits.indirectDrawCount;
+  limits->instances = state.limits.instances;
   limits->anisotropy = state.limits.anisotropy;
   limits->pointSize = state.limits.pointSize;
+}
+
+void lovrGraphicsGetStats(GraphicsStats* stats) {
+  state.stats.blocks = state.buffers.count / (float) COUNTOF(state.buffers.list);
+  state.stats.canvases = state.passCount / (float) COUNTOF(state.passes);
+  state.stats.pipelines = state.pipelineCount / (float) COUNTOF(state.pipelines);
+  state.stats.bunches = state.bunches.count / (float) COUNTOF(state.bunches.list);
+  *stats = state.stats;
 }
 
 void lovrGraphicsBegin() {
@@ -869,6 +884,17 @@ void lovrGraphicsBegin() {
   memset(&transfers->attachments, 0, sizeof(transfers->attachments));
   transfers->batchCount = 0;
   transfers->order = 0;
+
+  state.stats.scratchMemory = 0;
+  state.stats.renderPasses = 0;
+  state.stats.computePasses = 0;
+  state.stats.transferPasses = 0;
+  state.stats.pipelineBinds = 0;
+  state.stats.bundleBinds = 0;
+  state.stats.drawCalls = 0;
+  state.stats.dispatches = 0;
+  state.stats.workgroups = 0;
+  state.stats.copies = 0;
 
   // Process any finished readbacks
   ReaderPool* readers = &state.readers;
@@ -1126,6 +1152,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
       if (group->dirty & DIRTY_PIPELINE) {
         gpu_bind_pipeline_graphics(commands, state.pipelines[first->pipeline]);
+        state.stats.pipelineBinds++;
       }
 
       if (group->dirty & DIRTY_VERTEX) {
@@ -1147,6 +1174,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
 
       if (group->dirty & DIRTY_BUNDLE) {
         gpu_bind_bundle(commands, state.pipelines[first->pipeline], 1, batch->bundles[first->bundle], NULL, 0);
+        state.stats.bundleBinds++;
       }
 
       if (first->flags & DRAW_INDEX_BUFFER) {
@@ -1163,9 +1191,11 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
         }
       }
     }
+    state.stats.drawCalls += batch->activeDrawCount;
   }
 
   gpu_render_end(commands);
+  state.stats.renderPasses++;
 }
 
 // Buffer
@@ -1228,6 +1258,7 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info) {
 }
 
 Buffer* lovrBufferCreate(BufferInfo* info) {
+  state.stats.buffers++;
   return lovrBufferInit(info, false);
 }
 
@@ -1237,6 +1268,7 @@ void lovrBufferDestroy(void* ref) {
     if (--state.buffers.list[buffer->mega.index].refs == 0) {
       bufferRecycle(buffer->mega.index, GPU_MEMORY_GPU);
     }
+    state.stats.buffers--;
     free(buffer);
   }
 }
@@ -1255,6 +1287,7 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
     lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
     Megaview scratch = bufferAllocate(GPU_MEMORY_CPU_WRITE, size, 4);
     gpu_copy_buffers(state.transfers, scratch.gpu, buffer->mega.gpu, scratch.offset, buffer->mega.offset + offset, size);
+    state.stats.copies++;
     return scratch.data;
   }
 }
@@ -1269,6 +1302,7 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   } else {
     lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
     gpu_clear_buffer(state.transfers, buffer->mega.gpu, buffer->mega.offset + offset, size, 0);
+    state.stats.copies++;
   }
 }
 
@@ -1279,6 +1313,7 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
   lovrCheck(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
   lovrCheck(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
   gpu_copy_buffers(state.transfers, src->mega.gpu, dst->mega.gpu, src->mega.offset + srcOffset, dst->mega.offset + dstOffset, size);
+  state.stats.copies++;
 }
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void*, uint32_t, void*), void* userdata) {
@@ -1296,6 +1331,7 @@ void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callb
     .size = size,
     .tick = state.tick
   };
+  state.stats.copies++;
 }
 
 // Texture
@@ -1456,6 +1492,13 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     lovrTextureSetSampler(texture, lovrGraphicsGetDefaultSampler(SAMPLER_TRILINEAR));
   }
 
+  if (!info->handle) {
+    uint32_t size = getTextureRegionSize(info->format, info->width, info->height, info->depth);
+    state.stats.memory += size;
+    state.stats.textureMemory += size;
+  }
+
+  state.stats.textures++;
   return texture;
 }
 
@@ -1497,16 +1540,24 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
     texture->renderView = texture->gpu;
   }
 
+  state.stats.textures++;
   lovrRetain(view->parent);
   return texture;
 }
 
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
+  const TextureInfo* info = &texture->info;
   lovrRelease(texture->info.parent, lovrTextureDestroy);
   lovrRelease(texture->sampler, lovrSamplerDestroy);
   if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
   if (texture->gpu) gpu_texture_destroy(texture->gpu);
+  if (!info->parent && !info->handle) {
+    uint32_t size = getTextureRegionSize(info->format, info->width, info->height, info->depth);
+    state.stats.memory -= size;
+    state.stats.textureMemory -= size;
+  }
+  state.stats.textures--;
   free(texture);
 }
 
@@ -1553,6 +1604,7 @@ void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], 
   }
 
   gpu_copy_buffer_texture(state.transfers, scratch.gpu, texture->gpu, scratch.offset, offset, extent);
+  state.stats.copies++;
 }
 
 void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uint16_t dstOffset[4], uint16_t extent[2]) {
@@ -1574,6 +1626,7 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
   lovrCheck(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
   lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
   gpu_clear_texture(state.transfers, texture->gpu, layer, layerCount, level, levelCount, color);
+  state.stats.copies++;
 }
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
@@ -1594,6 +1647,7 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
     .size = size,
     .tick = state.tick
   };
+  state.stats.copies++;
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
@@ -1606,6 +1660,7 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   checkTextureBounds(&src->info, srcOffset, extent);
   checkTextureBounds(&dst->info, dstOffset, extent);
   gpu_copy_textures(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+  state.stats.copies++;
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
@@ -1620,6 +1675,7 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_blit(state.transfers, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, nearest);
+  state.stats.copies++;
 }
 
 void lovrTextureGenerateMipmaps(Texture* texture) {
@@ -1629,6 +1685,7 @@ void lovrTextureGenerateMipmaps(Texture* texture) {
   lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to generate mipmaps");
   lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the texture's format, which is required for mipmap generation");
   gpu_mipgen(state.transfers, texture->gpu);
+  state.stats.copies++;
 }
 
 // Sampler
@@ -1656,11 +1713,13 @@ Sampler* lovrSamplerCreate(SamplerInfo* info) {
   };
 
   lovrAssert(gpu_sampler_init(sampler->gpu, &gpu), "Failed to initialize sampler");
+  state.stats.samplers++;
   return sampler;
 }
 
 Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type) {
   if (state.defaultSamplers[type]) return state.defaultSamplers[type];
+  state.stats.samplers++;
   return state.defaultSamplers[type] = lovrSamplerCreate(&(SamplerInfo) {
     .min = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
     .mag = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
@@ -1673,6 +1732,7 @@ Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type) {
 void lovrSamplerDestroy(void* ref) {
   Sampler* sampler = ref;
   gpu_sampler_destroy(sampler->gpu);
+  state.stats.samplers--;
   free(sampler);
 }
 
@@ -2110,6 +2170,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     shader->computePipelineIndex = index;
   }
 
+  state.stats.shaders++;
   return shader;
 }
 
@@ -2166,12 +2227,14 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
     shader->computePipelineIndex = index;
   }
 
+  state.stats.shaders++;
   return shader;
 }
 
 void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   gpu_shader_destroy(shader->gpu);
+  state.stats.shaders--;
   free(shader);
 }
 
@@ -2417,6 +2480,7 @@ static void lovrBatchPrepare(Batch* batch) {
     gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * 64);
     from = batch->scratchBuffers[UNIFORM_DRAW_DATA], to = batch->uniformBuffers[UNIFORM_DRAW_DATA];
     gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * sizeof(DrawData));
+    state.stats.copies += 2;
   }
 
   // Group active draws
@@ -2943,6 +3007,7 @@ uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
       vertexOffset = batch->stashCursor / stride;
       batch->stashCursor += size;
       gpu_copy_buffers(state.transfers, scratch.gpu, batch->stash.gpu, scratch.offset, batch->stashCursor, size);
+      state.stats.copies++;
     }
 
     if (info->vertex.pointer) {
@@ -2978,6 +3043,7 @@ uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform) {
       indexOffset = batch->stashCursor / stride;
       batch->stashCursor += size;
       gpu_copy_buffers(state.transfers, scratch.gpu, batch->stash.gpu, scratch.offset, batch->stashCursor, size);
+      state.stats.copies++;
     }
 
     if (info->index.pointer) {
