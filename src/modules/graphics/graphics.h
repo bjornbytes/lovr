@@ -53,7 +53,6 @@ typedef struct {
   uint32_t uniformBufferAlign;
   uint32_t storageBufferAlign;
   uint32_t vertexAttributes;
-  uint32_t vertexBuffers;
   uint32_t vertexBufferStride;
   uint32_t vertexShaderOutputs;
   uint32_t computeDispatchCount[3];
@@ -61,9 +60,35 @@ typedef struct {
   uint32_t computeWorkgroupVolume;
   uint32_t computeSharedMemory;
   uint32_t indirectDrawCount;
+  uint32_t instances;
   float anisotropy;
   float pointSize;
 } GraphicsLimits;
+
+typedef struct {
+  uint32_t memory;
+  uint32_t bufferMemory;
+  uint32_t textureMemory;
+  uint32_t buffers;
+  uint32_t textures;
+  uint32_t samplers;
+  uint32_t shaders;
+  uint32_t scratchMemory;
+  uint32_t renderPasses;
+  uint32_t computePasses;
+  uint32_t transferPasses;
+  uint32_t pipelineBinds;
+  uint32_t bundleBinds;
+  uint32_t drawCalls;
+  uint32_t dispatches;
+  uint32_t workgroups;
+  uint32_t copies;
+  float blocks;
+  float canvases;
+  float pipelines;
+  float layouts;
+  float bunches;
+} GraphicsStats;
 
 typedef enum {
   LOAD_KEEP,
@@ -91,6 +116,7 @@ void lovrGraphicsDestroy(void);
 void lovrGraphicsGetHardware(GraphicsHardware* hardware);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
+void lovrGraphicsGetStats(GraphicsStats* stats);
 void lovrGraphicsBegin(void);
 void lovrGraphicsSubmit(void);
 void lovrGraphicsGetBackgroundColor(float background[4]);
