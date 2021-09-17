@@ -2706,9 +2706,10 @@ void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped) {
 }
 
 void lovrBatchSetDepthClamp(Batch* batch, bool clamp) {
-  lovrCheck(!clamp || state.features.depthClamp, "This GPU does not support depth clamp");
-  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.depthClamp != clamp;
-  batch->pipeline->info.rasterizer.depthClamp = clamp;
+  if (state.features.depthClamp) {
+    batch->pipeline->dirty |= batch->pipeline->info.rasterizer.depthClamp != clamp;
+    batch->pipeline->info.rasterizer.depthClamp = clamp;
+  }
 }
 
 void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value, uint8_t mask) {
