@@ -1019,7 +1019,7 @@ void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_
   lovrCheck(main->width <= state.limits.renderSize[0], "Canvas width (%d) exceeds the renderSize limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
   lovrCheck(main->height <= state.limits.renderSize[1], "Canvas height (%d) exceeds the renderSize limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
   lovrCheck(main->depth <= state.limits.renderSize[2], "Canvas view count (%d) exceeds the renderSize limit of this GPU (%d)", main->depth, state.limits.renderSize[2]);
-  lovrCheck((canvas->samples & (canvas->samples - 1)) == 0, "Canvas sample count must be a power of 2");
+  lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Currently, Canvas sample count must be 1 or 4");
 
   // Validate color attachments
   uint32_t colorTextureCount = 0;
@@ -1440,7 +1440,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
   lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
   lovrCheck(getTextureRegionSize(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB");
-  lovrCheck((info->samples & (info->samples - 1)) == 0, "Texture multisample count must be a power of 2");
+  lovrCheck(info->samples == 1 || info->samples == 4, "Currently, Texture multisample count must be 1 or 4");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
   lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'storage' flag can not be multisampled");
@@ -1463,7 +1463,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .format = (gpu_texture_format) info->format,
     .size = { info->width, info->height, info->depth },
     .mipmaps = info->mipmaps == ~0u ? mips : info->mipmaps + !info->mipmaps,
-    .samples = info->samples + !info->samples,
+    .samples = MAX(info->samples, 1),
     .usage = info->usage,
     .srgb = info->srgb,
     .handle = info->handle,
