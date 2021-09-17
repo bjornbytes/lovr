@@ -2750,9 +2750,10 @@ void lovrBatchSetWinding(Batch* batch, Winding winding) {
 }
 
 void lovrBatchSetWireframe(Batch* batch, bool wireframe) {
-  lovrCheck(!wireframe || state.features.wireframe, "This GPU does not support wireframe");
-  batch->pipeline->dirty |= batch->pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
-  batch->pipeline->info.rasterizer.wireframe = wireframe;
+  if (state.features.wireframe) {
+    batch->pipeline->dirty |= batch->pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
+    batch->pipeline->info.rasterizer.wireframe = wireframe;
+  }
 }
 
 void lovrBatchSetShader(Batch* batch, Shader* shader) {
