@@ -1451,6 +1451,8 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
   lovrCheck(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
+  lovrCheck((info->format != FORMAT_BC6 && info->format != FORMAT_BC7) || state.features.bptc, "BC6/BC7 textures are not supported on this GPU");
+  lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.astc, "ASTC textures are not supported on this GPU");
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   lovrAssert(texture, "Out of memory");
