@@ -238,47 +238,7 @@ function lovr.errhand(message, traceback)
   message = tostring(message)
   message = message .. formatTraceback(traceback or debug.traceback('', 4))
   print('Error:\n' .. message)
-  if not lovr.graphics then return function() return 1 end end
-
-  lovr.graphics.reset()
-  lovr.graphics.setBackgroundColor(.11, .10, .14)
-  lovr.graphics.setColor(.85, .85, .85)
-  local font = lovr.graphics.getFont()
-  font:setPixelDensity()
-  font:setFlipEnabled(false)
-  local wrap = .7 * font:getPixelDensity()
-  local width, lines = font:getWidth(message, wrap)
-  local height = 2.6 + lines
-  local y = math.min(height / 2, 10)
-  local function render()
-    lovr.graphics.print('Error', -width / 2, y, -20, 1.6, 0, 0, 0, 0, nil, 'left', 'top')
-    lovr.graphics.print(message, -width / 2, y - 2.6, -20, 1.0, 0, 0, 0, 0, wrap, 'left', 'top')
-  end
-
-  return function()
-    lovr.event.pump()
-    for name, a in lovr.event.poll() do
-      if name == 'quit' then return a or 1
-      elseif name == 'restart' then return 'restart', lovr.restart and lovr.restart() end
-    end
-    lovr.graphics.origin()
-    if lovr.headset then
-      lovr.headset.update(0)
-      lovr.headset.renderTo(render)
-    end
-    if lovr.system.isWindowOpen() then
-      lovr.graphics.setViewPose(1)
-      local width, height = lovr.graphics.getDimensions()
-      local projection = lovr.math.mat4():perspective(.1, 100, math.rad(67), width / height)
-      lovr.graphics.setProjection(1, projection)
-      lovr.graphics.clear()
-      render()
-    end
-    lovr.graphics.present()
-    if lovr.math then
-      lovr.math.drain()
-    end
-  end
+  return function() return 1 end
 end
 
 function lovr.threaderror(thread, err)
