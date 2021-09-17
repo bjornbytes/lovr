@@ -622,3 +622,4 @@ void gpu_destroy(void);
 uint32_t gpu_begin(void);
 void gpu_submit(gpu_stream** streams, uint32_t count);
 bool gpu_finished(uint32_t tick);
+void gpu_wait(void);

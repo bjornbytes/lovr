@@ -942,6 +942,10 @@ void lovrGraphicsSubmit() {
   gpu_submit(commands, state.streamCount);
 }
 
+void lovrGraphicsWait() {
+  gpu_wait();
+}
+
 static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
   uint16_t key[] = { size[0], size[1], layers, format, srgb, samples };
   uint32_t hash = (uint32_t) hash64(key, sizeof(key));
