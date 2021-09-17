@@ -2070,6 +2070,10 @@ bool gpu_finished(uint32_t tick) {
   return state.tick[GPU] >= tick;
 }
 
+void gpu_wait() {
+  vkDeviceWaitIdle(state.device);
+}
+
 uintptr_t gpu_vk_get_instance() {
   return (uintptr_t) state.instance;
 }

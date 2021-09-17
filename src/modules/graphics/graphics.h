@@ -119,6 +119,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsGetStats(GraphicsStats* stats);
 void lovrGraphicsBegin(void);
 void lovrGraphicsSubmit(void);
+void lovrGraphicsWait(void);
 void lovrGraphicsGetBackgroundColor(float background[4]);
 void lovrGraphicsSetBackgroundColor(float background[4]);
 void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_t order);

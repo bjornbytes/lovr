@@ -642,6 +642,11 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsWait(lua_State* L) {
+  lovrGraphicsWait();
+  return 0;
+}
+
 static int l_lovrGraphicsRender(lua_State* L) {
   Canvas canvas = luax_checkcanvas(L, 1);
 
@@ -1089,6 +1094,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "begin", l_lovrGraphicsBegin },
   { "submit", l_lovrGraphicsSubmit },
+  { "wait", l_lovrGraphicsWait },
   { "render", l_lovrGraphicsRender },
   { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
