@@ -492,7 +492,7 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 // Batch
 
 typedef struct {
-  Canvas canvas;
+  Canvas* canvas;
   uint32_t capacity;
   uint32_t bufferSize;
   bool transient;

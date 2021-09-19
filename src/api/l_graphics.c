@@ -1581,7 +1581,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 
 static int l_lovrGraphicsNewBatch(lua_State* L) {
   BatchInfo info;
-  info.canvas = luax_checkcanvas(L, 1);
+  Canvas canvas = luax_checkcanvas(L, 1);
+  info.canvas = &canvas;
   info.capacity = lua_tointeger(L, 2);
   info.bufferSize = luaL_optinteger(L, 3, 1 << 20);
   Batch* batch = lovrBatchCreate(&info);

@@ -18,15 +18,6 @@
 #define MAX_LAYOUTS 64
 
 typedef struct {
-  char* pointer;
-  gpu_buffer* gpu;
-  uint32_t size;
-  uint32_t next;
-  uint32_t tick;
-  uint32_t refs;
-} Megabuffer;
-
-typedef struct {
   gpu_buffer* gpu;
   char* data;
   uint32_t index;
@@ -135,9 +126,9 @@ struct Batch {
   uint32_t* activeDraws;
   uint32_t activeDrawCount;
   float* origins;
-  gpu_bunch* bunch;
   gpu_bundle** bundles;
   gpu_bundle_info* bundleInfo;
+  gpu_bunch* bunch;
   uint32_t bundleCount;
   uint32_t lastBundleCount;
   Megaview transforms;
@@ -190,6 +181,15 @@ typedef struct {
   uint32_t tail;
   Reader list[16];
 } ReaderPool;
+
+typedef struct {
+  char* pointer;
+  gpu_buffer* gpu;
+  uint32_t size;
+  uint32_t next;
+  uint32_t tick;
+  uint32_t refs;
+} Megabuffer;
 
 typedef struct {
   Megabuffer list[256];
@@ -511,6 +511,8 @@ static uint32_t lookupLayout(gpu_slot* slots, uint32_t count) {
   state.layoutLookup[index] = hash;
   return index;
 }
+
+static void lovrBatchFinalize(Batch* batch);
 
 static void callback(void* context, const char* message, int severe) {
   if (severe) {
@@ -1128,6 +1130,7 @@ void lovrGraphicsBeginBatch(Batch* batch) {
   lovrRetain(batch);
   lovrGraphicsReset(batch->pass);
   if (batch->info.transient) {
+    lovrBatchReset(batch);
     batch->transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 64, state.limits.uniformBufferAlign);
     batch->colors = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 16, state.limits.uniformBufferAlign);
     state.transforms = batch->transforms;
@@ -1145,10 +1148,12 @@ void lovrGraphicsFinish() {
     case PASS_RENDER: gpu_render_end(state.pass->stream); break;
     case PASS_COMPUTE: gpu_compute_end(state.pass->stream); break;
     case PASS_TRANSFER: break;
-    case PASS_BATCH:
+    case PASS_BATCH: {
+      lovrBatchFinalize(state.batch);
       lovrRelease(state.batch, lovrBatchDestroy);
       state.batch = NULL;
       break;
+    }
     default: break;
   }
   state.pass = NULL;
@@ -1996,6 +2001,47 @@ void lovrGraphicsReplay(Batch* batch) {
   gpu_bundle_write(&uniformBundle, &uniforms, 1);
   uint32_t dynamicOffsets[3] = { 0 };
 
+  // Group draws
+
+  if (batch->groupedCount == 0) {
+    BatchGroup* group = &batch->groups[0];
+    BatchDraw* draw = &batch->draws[batch->activeDraws[0]];
+    group->count = 1;
+    group->dirty = 0;
+    group->dirty |= DIRTY_PIPELINE;
+    group->dirty |= (draw->flags & FLAG_VERTEX) ? DIRTY_VERTEX : 0;
+    group->dirty |= (draw->flags & FLAG_INDEX) ? DIRTY_INDEX : 0;
+    group->dirty |= DIRTY_CHUNK;
+    group->dirty |= batch->bundleCount > 0 ? DIRTY_BUNDLE : 0;
+    batch->groupedCount = 1;
+    batch->groupCount = 1;
+  }
+
+  for (uint32_t i = batch->groupedCount; i < batch->activeDrawCount; i++, batch->groupedCount++) {
+    BatchDraw* a = &batch->draws[batch->activeDraws[i - 0]];
+    BatchDraw* b = &batch->draws[batch->activeDraws[i - 1]];
+
+    bool pipelineChanged = a->pipeline != b->pipeline;
+    bool vertexBufferChanged = (a->flags & FLAG_VERTEX) > (b->flags & FLAG_VERTEX) || a->vertexBuffer != b->vertexBuffer;
+    bool indexBufferChanged = (a->flags & FLAG_INDEX) > (b->flags & FLAG_INDEX) || a->indexBuffer != b->indexBuffer;
+    bool indexTypeChanged = (a->flags & FLAG_INDEX32) != (b->flags & FLAG_INDEX32);
+    bool chunkChanged = batch->activeDraws[i] >> 8 != batch->activeDraws[i - 1] >> 8;
+    bool bundleChanged = a->bundle != b->bundle;
+
+    uint16_t dirty = 0;
+    dirty |= -pipelineChanged & DIRTY_PIPELINE;
+    dirty |= -vertexBufferChanged & DIRTY_VERTEX;
+    dirty |= -(indexBufferChanged || indexTypeChanged) & DIRTY_INDEX;
+    dirty |= -chunkChanged & DIRTY_CHUNK;
+    dirty |= -bundleChanged & DIRTY_BUNDLE;
+
+    if (dirty) {
+      batch->groups[batch->groupCount++] = (BatchGroup) { .dirty = dirty, .count = 1 };
+    } else {
+      batch->groups[batch->groupCount - 1].count++;
+    }
+  }
+
   // Draws
 
   uint32_t activeDrawIndex = 0;
@@ -2005,32 +2051,36 @@ void lovrGraphicsReplay(Batch* batch) {
     BatchDraw* first = &batch->draws[index];
     gpu_pipeline* pipeline = state.pipelines[first->pipeline];
 
-    if (group->dirty) {
-      if (group->dirty & DIRTY_PIPELINE) {
-        gpu_bind_pipeline_graphics(state.pass->stream, pipeline);
-        state.stats.pipelineBinds++;
-      }
+    if (group->dirty & DIRTY_PIPELINE) {
+      gpu_bind_pipeline_graphics(state.pass->stream, pipeline);
+      state.boundPipeline = pipeline;
+      state.stats.pipelineBinds++;
+    }
 
-      if (group->dirty & DIRTY_VERTEX) {
-        uint32_t offsets[2] = { 0, 0 };
-        gpu_buffer* buffers[2] = { state.buffers.list[first->vertexBuffer].gpu, state.abyss->mega.gpu };
-        gpu_bind_vertex_buffers(state.pass->stream, buffers, offsets, 0, 2);
-      }
+    if (group->dirty & DIRTY_VERTEX) {
+      uint32_t offsets[2] = { 0, 0 };
+      gpu_buffer* buffers[2] = { state.buffers.list[first->vertexBuffer].gpu, state.abyss->mega.gpu };
+      gpu_bind_vertex_buffers(state.pass->stream, buffers, offsets, 0, 2);
+      state.boundVertexBuffer = buffers[0];
+    }
 
-      if (group->dirty & DIRTY_INDEX) {
-        gpu_bind_index_buffer(state.pass->stream, state.buffers.list[first->indexBuffer].gpu, 0, first->flags & FLAG_INDEX32);
-      }
+    if (group->dirty & DIRTY_INDEX) {
+      gpu_index_type type = (first->flags & FLAG_INDEX32) ? GPU_INDEX_U32 : GPU_INDEX_U16;
+      gpu_bind_index_buffer(state.pass->stream, state.buffers.list[first->indexBuffer].gpu, 0, type);
+      state.boundIndexBuffer = state.buffers.list[first->indexBuffer].gpu;
+      state.boundIndexType = type;
+    }
 
-      if (group->dirty & DIRTY_CHUNK) {
-        dynamicOffsets[0] = (index >> 8) * 256 * 64;
-        dynamicOffsets[1] = (index >> 8) * 256 * 16;
-        gpu_bind_bundle(state.pass->stream, pipeline, 0, uniformBundle, dynamicOffsets, 3);
-      }
+    if (group->dirty & DIRTY_CHUNK) {
+      dynamicOffsets[0] = (index >> 8) * 256 * 64;
+      dynamicOffsets[1] = (index >> 8) * 256 * 16;
+      gpu_bind_bundle(state.pass->stream, pipeline, 0, uniformBundle, dynamicOffsets, 3);
+    }
 
-      if (group->dirty & DIRTY_BUNDLE) {
-        gpu_bind_bundle(state.pass->stream, pipeline, 1, batch->bundles[first->bundle], NULL, 0);
-        state.stats.bundleBinds++;
-      }
+    if (group->dirty & DIRTY_BUNDLE) {
+      gpu_bind_bundle(state.pass->stream, pipeline, 1, batch->bundles[first->bundle], NULL, 0);
+      state.boundBundle = batch->bundles[first->bundle];
+      state.stats.bundleBinds++;
     }
 
     if (first->flags & FLAG_INDEX) {
@@ -3161,59 +3211,79 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
 // Batch
 
 Batch* lovrBatchCreate(BatchInfo* info) {
-  uint32_t maxBundles = MIN(info->capacity, MAX_BUNDLES);
-  size_t sizes[9];
-  size_t total = 0;
-  total += sizes[0] = sizeof(Batch);
-  total += sizes[1] = info->capacity * sizeof(BatchGroup);
-  total += sizes[2] = info->capacity * sizeof(BatchDraw);
-  total += sizes[3] = maxBundles * sizeof(gpu_bundle_info);
-  total += sizes[4] = maxBundles * sizeof(gpu_bundle*);
-  total += sizes[5] = info->capacity * sizeof(uint32_t);
-  total += sizes[6] = info->capacity * 4 * sizeof(float);
-  total += sizes[7] = info->transient ? 0 : gpu_sizeof_bunch();
-  total += sizes[8] = info->transient ? 0 : maxBundles * gpu_sizeof_bundle(); // Must go last
-  char* memory = info->transient ? talloc(total) : malloc(total);
-  lovrAssert(memory, "Out of memory");
-  Batch* batch = (Batch*) memory; memory += sizes[0];
-  batch->pass = lookupPass(&info->canvas);
-  batch->groups = (BatchGroup*) memory, memory += sizes[1];
-  batch->draws = (BatchDraw*) memory, memory += sizes[2];
-  batch->bundleInfo = (gpu_bundle_info*) memory, memory += sizes[3];
-  batch->bundles = (gpu_bundle**) memory, memory += sizes[4];
-  batch->activeDraws = (uint32_t*) memory, memory += sizes[5];
-  batch->origins = (float*) memory, memory += sizes[6];
-  batch->bunch = (gpu_bunch*) memory, memory += sizes[7];
-  if (!info->transient) {
-    for (uint32_t i = 0; i < maxBundles; i++) {
-      batch->bundles[i] = (gpu_bundle*) memory, memory += gpu_sizeof_bundle();
-    }
-  }
+  lovrCheck(info->capacity <= 0xffff, "Currently, the maximum batch capacity is %d", 0xffff);
+  Batch* batch = calloc(1, sizeof(Batch));
+  lovrAssert(batch, "Out of memory");
   batch->ref = 1;
   batch->info = *info;
+  batch->pass = lookupPass(info->canvas);
+  batch->draws = malloc(info->capacity * sizeof(BatchDraw));
+  batch->groups = malloc(info->capacity * sizeof(BatchGroup));
+  batch->activeDraws = malloc(info->capacity * sizeof(uint32_t));
+  batch->origins = malloc(info->capacity * 4 * sizeof(float));
+  batch->bundles = malloc(info->capacity * sizeof(gpu_bundle*));
+  batch->bundleInfo = malloc(info->capacity * sizeof(gpu_bundle_info));
+  lovrAssert(batch->draws, "Out of memory");
+  lovrAssert(batch->groups, "Out of memory");
+  lovrAssert(batch->activeDraws, "Out of memory");
+  lovrAssert(batch->origins, "Out of memory");
+  lovrAssert(batch->bundles, "Out of memory");
+  lovrAssert(batch->bundleInfo, "Out of memory");
+
+  if (!info->transient) {
+    batch->bunch = malloc(gpu_sizeof_bunch());
+    batch->bundles[0] = malloc(info->capacity * gpu_sizeof_bundle());
+    lovrAssert(batch->bunch, "Out of memory");
+    lovrAssert(batch->bundles[0], "Out of memory");
+
+    for (uint32_t i = 1; i < info->capacity; i++) {
+      batch->bundles[i] = (gpu_bundle*) ((char*) batch->bundles[0] + i * gpu_sizeof_bundle());
+    }
+
+    uint32_t alignment = state.limits.uniformBufferAlign;
+    batch->transforms = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 64, alignment);
+    batch->colors = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 16, alignment);
+    batch->stash = allocateBuffer(GPU_MEMORY_GPU, info->bufferSize, 4);
+  }
+
   arr_init(&batch->buffers, info->transient ? tgrow : realloc);
   arr_init(&batch->textures, info->transient ? tgrow : realloc);
-  lovrBatchReset(batch);
   return batch;
 }
 
 void lovrBatchDestroy(void* ref) {
   Batch* batch = ref;
+  for (size_t i = 0; i < batch->buffers.length; i++) {
+    lovrRelease(batch->buffers.data[i].buffer, lovrBufferDestroy);
+  }
+  for (size_t i = 0; i < batch->textures.length; i++) {
+    lovrRelease(batch->textures.data[i].texture, lovrTextureDestroy);
+  }
+  arr_free(&batch->buffers);
+  arr_free(&batch->textures);
   if (!batch->info.transient) {
-    // TODO destroy buffers/stash
-    if (batch->lastBundleCount > 0) {
+    if (--state.buffers.list[batch->transforms.index].refs == 0) {
+      recycleBuffer(batch->transforms.index, GPU_MEMORY_GPU);
+    }
+    if (--state.buffers.list[batch->colors.index].refs == 0) {
+      recycleBuffer(batch->transforms.index, GPU_MEMORY_GPU);
+    }
+    if (--state.buffers.list[batch->stash.index].refs == 0) {
+      recycleBuffer(batch->stash.index, GPU_MEMORY_GPU);
+    }
+    if (batch->bundleCount > 0) {
       gpu_bunch_destroy(batch->bunch);
     }
-    for (size_t i = 0; i < batch->buffers.length; i++) {
-      lovrRelease(batch->buffers.data[i].buffer, lovrBufferDestroy);
-    }
-    for (size_t i = 0; i < batch->textures.length; i++) {
-      lovrRelease(batch->textures.data[i].texture, lovrTextureDestroy);
-    }
-    arr_free(&batch->buffers);
-    arr_free(&batch->textures);
-    free(batch);
+    free(batch->bundles[0]);
+    free(batch->bunch);
   }
+  free(batch->bundleInfo);
+  free(batch->bundles);
+  free(batch->origins);
+  free(batch->activeDraws);
+  free(batch->groups);
+  free(batch->draws);
+  free(batch);
 }
 
 const BatchInfo* lovrBatchGetInfo(Batch* batch) {
@@ -3231,7 +3301,13 @@ void lovrBatchReset(Batch* batch) {
   batch->groupedCount = 0;
   batch->stashCursor = 0;
 
-  /*
+  if (!batch->info.transient && batch->lastBundleCount > 0) {
+    gpu_bunch_destroy(batch->bunch);
+  }
+
+  batch->bundleCount = 0;
+  batch->lastBundleCount = 0;
+
   for (size_t i = 0; i < batch->buffers.length; i++) {
     lovrRelease(batch->buffers.data[i].buffer, lovrBufferDestroy);
   }
@@ -3242,36 +3318,6 @@ void lovrBatchReset(Batch* batch) {
 
   arr_clear(&batch->buffers);
   arr_clear(&batch->textures);
-
-  // New buffers for writing uniform data
-  Megaview* scratch = batch->scratchBuffers;
-  gpu_memory_type type = GPU_MEMORY_CPU_WRITE;
-  uint32_t length = batch->info.capacity;
-  uint32_t align = batch->transient ? state.limits.uniformBufferAlign : 4;
-  scratch[UNIFORM_TRANSFORM] = allocateBuffer(type, length * 16 * sizeof(float), align);
-  scratch[UNIFORM_DRAW_DATA] = allocateBuffer(type, length * sizeof(DrawData), align);
-
-  if (batch->info.transient) {
-    memcpy(batch->uniformBuffers, batch->scratchBuffers, sizeof(batch->scratchBuffers));
-  } else if (batch->lastReplay == state.tick) {
-    // If a persistent Batch has already been replayed this tick, it would be unsafe to rerecord it
-    // since copying the uniform buffers a second time would stomp on the contents needed by the
-    // first replay. Recreating the buffers is a way around this.
-    Megaview* buffers = batch->uniformBuffers;
-    uint32_t align = state.limits.uniformBufferAlign;
-    buffers[UNIFORM_TRANSFORM] = allocateBuffer(GPU_MEMORY_GPU, batch->info.capacity * 16 * sizeof(float), align);
-    buffers[UNIFORM_DRAW_DATA] = allocateBuffer(GPU_MEMORY_GPU, batch->info.capacity * sizeof(DrawData), align);
-    batch->stash = allocateBuffer(GPU_MEMORY_GPU, batch->info.bufferSize, 4);
-  }
-
-  // Reset bundles and bindings
-  if (!batch->transient && batch->lastBundleCount > 0) {
-    gpu_bunch_destroy(batch->bunch);
-  }
-
-  batch->bundleCount = 0;
-  batch->lastBundleCount = 0;
-  */
 }
 
 static LOVR_THREAD_LOCAL Batch* sortBatch;
@@ -3324,88 +3370,25 @@ void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i),
   batch->groupedCount = 0;
 }
 
-/*
-static void lovrBatchPrepare(Batch* batch) {
-
+static void lovrBatchFinalize(Batch* batch) {
   // Allocate bundles
   if (batch->bundleCount > 0) {
-    if (batch->transient) {
-      for (uint32_t i = batch->lastBundleCount; i < batch->bundleCount; i++) {
-        uint32_t layoutIndex = ((char*) batch->bundleWrites[i].layout - (char*) state.layouts[0]) / gpu_sizeof_layout();
-        batch->bundles[i] = bundleAllocate(layoutIndex);
+    if (batch->info.transient) {
+      for (uint32_t i = 0; i < batch->bundleCount; i++) {
+        uint32_t layoutIndex = ((char*) batch->bundleInfo[i].layout - (char*) state.layouts[0]) / gpu_sizeof_layout();
+        batch->bundles[i] = allocateBundle(layoutIndex);
       }
-    } else if (batch->lastBundleCount < batch->bundleCount) {
+    } else {
       gpu_bunch_info info = {
         .bundles = batch->bundles[0],
-        .contents = batch->bundleWrites,
+        .contents = batch->bundleInfo,
         .count = batch->bundleCount
       };
 
       lovrAssert(gpu_bunch_init(batch->bunch, &info), "Failed to initialize bunch");
     }
 
-    gpu_bundle_write(batch->bundles, batch->bundleWrites, batch->bundleCount);
-    batch->lastBundleCount = batch->bundleCount;
+    gpu_bundle_write(batch->bundles, batch->bundleInfo, batch->bundleCount);
   }
 
-  // Copy buffers for persistent batches
-  // TODO only copy what's new (like lastBundleCount/groupedDrawCount)
-  if (!batch->transient) {
-    Megaview from, to;
-    from = batch->scratchBuffers[UNIFORM_TRANSFORM], to = batch->uniformBuffers[UNIFORM_TRANSFORM];
-    gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * 64);
-    from = batch->scratchBuffers[UNIFORM_DRAW_DATA], to = batch->uniformBuffers[UNIFORM_DRAW_DATA];
-    gpu_copy_buffers(state.transfers, from.gpu, to.gpu, from.offset, to.offset, batch->count * sizeof(DrawData));
-    state.stats.copies += 2;
-  }
-
-  // Group active draws
-  if (batch->groupedDrawCount == 0) {
-    BatchDraw* draw = &batch->draws[batch->activeDraws[0]];
-    batch->groupCount = 1;
-    batch->groups[0].count = 1;
-    batch->groups[0].dirty = 0;
-    batch->groups[0].dirty |= DIRTY_PIPELINE;
-    batch->groups[0].dirty |= (draw->flags & DRAW_VERTEX_BUFFER) ? DIRTY_VERTEX : 0;
-    batch->groups[0].dirty |= (draw->flags & DRAW_INDEX_BUFFER) ? DIRTY_INDEX : 0;
-    batch->groups[0].dirty |= DIRTY_CHUNK;
-    batch->groups[0].dirty |= batch->bundleCount > 0 ? DIRTY_BUNDLE : 0;
-    batch->groupedDrawCount = 1;
-  }
-
-  for (uint32_t i = batch->groupedDrawCount; i < batch->activeDrawCount; i++) {
-    BatchDraw* a = &batch->draws[batch->activeDraws[i]];
-    BatchDraw* b = &batch->draws[batch->activeDraws[i - 1]];
-
-    uint16_t dirty = 0;
-    if (a->pipeline != b->pipeline) {
-      dirty |= DIRTY_PIPELINE;
-    }
-
-    if ((a->flags & DRAW_VERTEX_BUFFER) > (b->flags & DRAW_VERTEX_BUFFER) || a->vertexBuffer != b->vertexBuffer) {
-      dirty |= DIRTY_VERTEX;
-    }
-
-    if ((a->flags & DRAW_INDEX_BUFFER) && (a->indexBuffer != b->indexBuffer || (a->flags & DRAW_INDEX32) != (b->flags & DRAW_INDEX32))) {
-      dirty |= DIRTY_INDEX;
-    }
-
-    if (batch->activeDraws[i] >> 8 != batch->activeDraws[i - 1] >> 8) {
-      dirty |= DIRTY_CHUNK;
-    }
-
-    if (a->bundle != b->bundle) {
-      dirty |= DIRTY_BUNDLE;
-    }
-
-    if (dirty) {
-      batch->groups[batch->groupCount++] = (BatchGroup) { .dirty = dirty, .count = 1 };
-    } else {
-      batch->groups[batch->groupCount - 1].count++;
-    }
-  }
-
-  batch->groupedDrawCount = batch->activeDrawCount;
-  batch->lastReplay = state.tick;
 }
-*/
