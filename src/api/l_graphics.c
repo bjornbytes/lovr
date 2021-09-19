@@ -70,6 +70,11 @@ StringEntry lovrDefaultSampler[] = {
   { 0 }
 };
 
+StringEntry lovrDefaultShader[] = {
+  [SHADER_UNLIT] = ENTRY("unlit"),
+  { 0 }
+};
+
 StringEntry lovrDrawMode[] = {
   [DRAW_POINTS] = ENTRY("points"),
   [DRAW_LINES] = ENTRY("lines"),
@@ -934,9 +939,18 @@ static int l_lovrGraphicsSetWireframe(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetShader(lua_State* L) {
-  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 2, Shader);
-  lovrGraphicsSetShader(shader);
-  return 0;
+  switch (lua_type(L, 1)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      lovrGraphicsSetShader(NULL);
+      return 0;
+    case LUA_TSTRING:
+      lovrGraphicsSetShader(lovrGraphicsGetDefaultShader(luax_checkenum(L, 1, DefaultShader, NULL)));
+      return 0;
+    default:
+      lovrGraphicsSetShader(luax_checktype(L, 1, Shader));
+      return 0;
+  }
 }
 
 static int l_lovrGraphicsBind(lua_State* L) {
