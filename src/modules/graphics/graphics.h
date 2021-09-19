@@ -91,6 +91,13 @@ typedef struct {
 } GraphicsStats;
 
 typedef enum {
+  PASS_RENDER,
+  PASS_COMPUTE,
+  PASS_TRANSFER,
+  PASS_BATCH
+} PassType;
+
+typedef enum {
   LOAD_KEEP,
   LOAD_CLEAR,
   LOAD_DISCARD
@@ -111,18 +118,178 @@ typedef struct {
   uint32_t samples;
 } Canvas;
 
-bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize, uint32_t batchSize);
+typedef enum {
+  STACK_TRANSFORM,
+  STACK_PIPELINE
+} StackType;
+
+typedef enum {
+  BLEND_ALPHA_MULTIPLY,
+  BLEND_PREMULTIPLIED
+} BlendAlphaMode;
+
+typedef enum {
+  BLEND_ALPHA,
+  BLEND_ADD,
+  BLEND_SUBTRACT,
+  BLEND_MULTIPLY,
+  BLEND_LIGHTEN,
+  BLEND_DARKEN,
+  BLEND_SCREEN,
+  BLEND_NONE
+} BlendMode;
+
+typedef enum {
+  COMPARE_NONE,
+  COMPARE_EQUAL,
+  COMPARE_NEQUAL,
+  COMPARE_LESS,
+  COMPARE_LEQUAL,
+  COMPARE_GREATER,
+  COMPARE_GEQUAL
+} CompareMode;
+
+typedef enum {
+  CULL_NONE,
+  CULL_FRONT,
+  CULL_BACK
+} CullMode;
+
+typedef enum {
+  STENCIL_KEEP,
+  STENCIL_ZERO,
+  STENCIL_REPLACE,
+  STENCIL_INCREMENT,
+  STENCIL_DECREMENT,
+  STENCIL_INCREMENT_WRAP,
+  STENCIL_DECREMENT_WRAP,
+  STENCIL_INVERT
+} StencilAction;
+
+typedef enum {
+  WINDING_COUNTERCLOCKWISE,
+  WINDING_CLOCKWISE
+} Winding;
+
+typedef enum {
+  DRAW_POINTS,
+  DRAW_LINES,
+  DRAW_TRIANGLES
+} DrawMode;
+
+typedef enum {
+  SHADER_UNLIT,
+  DEFAULT_SHADER_COUNT
+} DefaultShader;
+
+typedef enum {
+  VERTEX_STANDARD,
+  VERTEX_POSITION,
+  VERTEX_EMPTY,
+  VERTEX_FORMAT_COUNT
+} VertexFormat;
+
+typedef struct {
+  DrawMode mode;
+  DefaultShader shader;
+  struct {
+    Buffer* buffer;
+    VertexFormat format;
+    const void* data;
+    void** pointer;
+    uint32_t count;
+  } vertex;
+  struct {
+    Buffer* buffer;
+    const void* data;
+    void** pointer;
+    uint32_t count;
+    uint32_t stride;
+  } index;
+  uint32_t start;
+  uint32_t count;
+  uint32_t instances;
+  uint32_t base;
+} DrawInfo;
+
+typedef enum {
+  ALIGN_LEFT,
+  ALIGN_CENTER,
+  ALIGN_RIGHT
+} HorizontalAlign;
+
+typedef enum {
+  ALIGN_TOP,
+  ALIGN_MIDDLE,
+  ALIGN_BOTTOM
+} VerticalAlign;
+
+bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize);
 void lovrGraphicsDestroy(void);
+
 void lovrGraphicsGetHardware(GraphicsHardware* hardware);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsGetStats(GraphicsStats* stats);
-void lovrGraphicsBegin(void);
+
+void lovrGraphicsPrepare(void);
+void lovrGraphicsBeginRender(Canvas* canvas, uint32_t order);
+void lovrGraphicsBeginCompute(uint32_t order);
+void lovrGraphicsBeginTransfer(uint32_t order);
+void lovrGraphicsBeginBatch(Batch* batch);
+void lovrGraphicsFinish(void);
 void lovrGraphicsSubmit(void);
 void lovrGraphicsWait(void);
+
 void lovrGraphicsGetBackgroundColor(float background[4]);
 void lovrGraphicsSetBackgroundColor(float background[4]);
-void lovrGraphicsRender(Canvas* canvas, Batch** batches, uint32_t count, uint32_t order);
+void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix);
+void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix);
+void lovrGraphicsGetProjection(uint32_t index, float* projection);
+void lovrGraphicsSetProjection(uint32_t index, float* projection);
+void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]);
+void lovrGraphicsSetScissor(uint32_t scissor[4]);
+
+void lovrGraphicsPush(StackType type);
+void lovrGraphicsPop(StackType type);
+void lovrGraphicsOrigin(void);
+void lovrGraphicsTranslate(float* translation);
+void lovrGraphicsRotate(float* rotation);
+void lovrGraphicsScale(float* scale);
+void lovrGraphicsTransform(float* transform);
+
+void lovrGraphicsSetAlphaToCoverage(bool enabled);
+void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
+void lovrGraphicsSetColorMask(bool r, bool g, bool b, bool a);
+void lovrGraphicsSetColor(float color[4]);
+void lovrGraphicsSetCullMode(CullMode mode);
+void lovrGraphicsSetDepthTest(CompareMode test);
+void lovrGraphicsSetDepthWrite(bool write);
+void lovrGraphicsSetDepthNudge(float nudge, float sloped);
+void lovrGraphicsSetDepthClamp(bool clamp);
+void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value, uint8_t mask);
+void lovrGraphicsSetStencilWrite(StencilAction actions[3], uint8_t value, uint8_t mask);
+void lovrGraphicsSetWinding(Winding winding);
+void lovrGraphicsSetWireframe(bool wireframe);
+
+void lovrGraphicsSetShader(Shader* shader);
+void lovrGraphicsBind(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture);
+
+uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform);
+uint32_t lovrGraphicsPoints(uint32_t count, float** vertices);
+uint32_t lovrGraphicsLine(uint32_t count, float** vertices);
+uint32_t lovrGraphicsPlane(float* transform, uint32_t segments);
+uint32_t lovrGraphicsBox(float* transform);
+uint32_t lovrGraphicsCircle(float* transform, uint32_t segments);
+uint32_t lovrGraphicsCylinder(float* transform, float r1, float r2, bool capped, uint32_t segments);
+uint32_t lovrGraphicsSphere(float* transform, uint32_t segments);
+uint32_t lovrGraphicsSkybox(Texture* texture);
+uint32_t lovrGraphicsFill(Texture* texture);
+uint32_t lovrGraphicsModel(Model* model, float* transform, uint32_t node, bool children, uint32_t instances);
+uint32_t lovrGraphicsPrint(Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrGraphicsReplay(Batch* batch);
+
+void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uint32_t offset);
 
 // Buffer
 
@@ -266,7 +433,7 @@ typedef enum {
   SAMPLER_BILINEAR,
   SAMPLER_TRILINEAR,
   SAMPLER_ANISOTROPIC,
-  MAX_DEFAULT_SAMPLERS
+  DEFAULT_SAMPLER_COUNT
 } DefaultSampler;
 
 typedef enum {
@@ -279,16 +446,6 @@ typedef enum {
   WRAP_REPEAT,
   WRAP_MIRROR
 } WrapMode;
-
-typedef enum {
-  COMPARE_NONE,
-  COMPARE_EQUAL,
-  COMPARE_NEQUAL,
-  COMPARE_LESS,
-  COMPARE_LEQUAL,
-  COMPARE_GREATER,
-  COMPARE_GEQUAL
-} CompareMode;
 
 typedef struct {
   FilterMode min, mag, mip;
@@ -327,21 +484,18 @@ typedef struct {
 
 Shader* lovrShaderCreate(ShaderInfo* info);
 Shader* lovrShaderClone(Shader* shader, ShaderFlag* flags, uint32_t count);
+Shader* lovrShaderCreateDefault(DefaultShader type, ShaderFlag* flags, uint32_t count);
+Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 
 // Batch
 
-typedef enum {
-  BATCH_RENDER,
-  BATCH_COMPUTE
-} BatchType;
-
 typedef struct {
-  BatchType type;
   Canvas canvas;
   uint32_t capacity;
   uint32_t bufferSize;
+  bool transient;
 } BatchInfo;
 
 typedef enum {
@@ -349,149 +503,10 @@ typedef enum {
   SORT_TRANSPARENT
 } SortMode;
 
-typedef enum {
-  STACK_TRANSFORM,
-  STACK_PIPELINE
-} StackType;
-
-typedef enum {
-  BLEND_ALPHA_MULTIPLY,
-  BLEND_PREMULTIPLIED
-} BlendAlphaMode;
-
-typedef enum {
-  BLEND_ALPHA,
-  BLEND_ADD,
-  BLEND_SUBTRACT,
-  BLEND_MULTIPLY,
-  BLEND_LIGHTEN,
-  BLEND_DARKEN,
-  BLEND_SCREEN,
-  BLEND_NONE
-} BlendMode;
-
-typedef enum {
-  CULL_NONE,
-  CULL_FRONT,
-  CULL_BACK
-} CullMode;
-
-typedef enum {
-  STENCIL_KEEP,
-  STENCIL_ZERO,
-  STENCIL_REPLACE,
-  STENCIL_INCREMENT,
-  STENCIL_DECREMENT,
-  STENCIL_INCREMENT_WRAP,
-  STENCIL_DECREMENT_WRAP,
-  STENCIL_INVERT
-} StencilAction;
-
-typedef enum {
-  WINDING_COUNTERCLOCKWISE,
-  WINDING_CLOCKWISE
-} Winding;
-
-typedef enum {
-  DRAW_POINTS,
-  DRAW_LINES,
-  DRAW_TRIANGLES
-} DrawMode;
-
-typedef enum {
-  VERTEX_STANDARD,
-  VERTEX_POSITION,
-  VERTEX_EMPTY,
-  VERTEX_FORMAT_COUNT
-} VertexFormat;
-
-typedef struct {
-  DrawMode mode;
-  struct {
-    Buffer* buffer;
-    VertexFormat format;
-    const void* data;
-    void** pointer;
-    uint32_t count;
-  } vertex;
-  struct {
-    Buffer* buffer;
-    const void* data;
-    void** pointer;
-    uint32_t count;
-    uint32_t stride;
-  } index;
-  uint32_t start;
-  uint32_t count;
-  uint32_t instances;
-  uint32_t base;
-} DrawInfo;
-
-typedef enum {
-  ALIGN_LEFT,
-  ALIGN_CENTER,
-  ALIGN_RIGHT
-} HorizontalAlign;
-
-typedef enum {
-  ALIGN_TOP,
-  ALIGN_MIDDLE,
-  ALIGN_BOTTOM
-} VerticalAlign;
-
-Batch* lovrGraphicsGetBatch(BatchInfo* info);
 Batch* lovrBatchCreate(BatchInfo* info);
 void lovrBatchDestroy(void* ref);
 const BatchInfo* lovrBatchGetInfo(Batch* batch);
 uint32_t lovrBatchGetCount(Batch* batch);
 void lovrBatchReset(Batch* batch);
-
 void lovrBatchSort(Batch* batch, SortMode mode);
 void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i), void* context);
-
-void lovrBatchGetViewport(Batch* batch, float viewport[4], float depthRange[2]);
-void lovrBatchSetViewport(Batch* batch, float viewport[4], float depthRange[2]);
-void lovrBatchGetScissor(Batch* batch, uint32_t scissor[4]);
-void lovrBatchSetScissor(Batch* batch, uint32_t scissor[4]);
-void lovrBatchGetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix);
-void lovrBatchSetViewMatrix(Batch* batch, uint32_t index, float* viewMatrix);
-void lovrBatchGetProjection(Batch* batch, uint32_t index, float* projection);
-void lovrBatchSetProjection(Batch* batch, uint32_t index, float* projection);
-
-void lovrBatchPush(Batch* batch, StackType type);
-void lovrBatchPop(Batch* batch, StackType type);
-void lovrBatchOrigin(Batch* batch);
-void lovrBatchTranslate(Batch* batch, float* translation);
-void lovrBatchRotate(Batch* batch, float* rotation);
-void lovrBatchScale(Batch* batch, float* scale);
-void lovrBatchTransform(Batch* batch, float* transform);
-
-void lovrBatchSetAlphaToCoverage(Batch* batch, bool enabled);
-void lovrBatchSetBlendMode(Batch* batch, BlendMode mode, BlendAlphaMode alphaMode);
-void lovrBatchSetColorMask(Batch* batch, bool r, bool g, bool b, bool a);
-void lovrBatchSetColor(Batch* batch, float color[4]);
-void lovrBatchSetCullMode(Batch* batch, CullMode mode);
-void lovrBatchSetDepthTest(Batch* batch, CompareMode test);
-void lovrBatchSetDepthWrite(Batch* batch, bool write);
-void lovrBatchSetDepthNudge(Batch* batch, float nudge, float sloped);
-void lovrBatchSetDepthClamp(Batch* batch, bool clamp);
-void lovrBatchSetStencilTest(Batch* batch, CompareMode test, uint8_t value, uint8_t mask);
-void lovrBatchSetStencilWrite(Batch* batch, StencilAction actions[3], uint8_t value, uint8_t mask);
-void lovrBatchSetWinding(Batch* batch, Winding winding);
-void lovrBatchSetWireframe(Batch* batch, bool wireframe);
-
-void lovrBatchSetShader(Batch* batch, Shader* shader);
-void lovrBatchBind(Batch* batch, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture);
-
-uint32_t lovrBatchDraw(Batch* batch, DrawInfo* info, float* transform);
-uint32_t lovrBatchPoints(Batch* batch, uint32_t count, float** vertices);
-uint32_t lovrBatchLine(Batch* batch, uint32_t count, float** vertices);
-uint32_t lovrBatchPlane(Batch* batch, float* transform, uint32_t segments);
-uint32_t lovrBatchBox(Batch* batch, float* transform);
-uint32_t lovrBatchCircle(Batch* batch, float* transform, uint32_t segments);
-uint32_t lovrBatchCylinder(Batch* batch, float* transform, float r1, float r2, bool capped, uint32_t segments);
-uint32_t lovrBatchSphere(Batch* batch, float* transform, uint32_t segments);
-uint32_t lovrBatchSkybox(Batch* batch, Texture* texture);
-uint32_t lovrBatchFill(Batch* batch, Texture* texture);
-uint32_t lovrBatchModel(Batch* batch, Model* model, float* transform, uint32_t node, bool children, uint32_t instances);
-uint32_t lovrBatchPrint(Batch* batch, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
