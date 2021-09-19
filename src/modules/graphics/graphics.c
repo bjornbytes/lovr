@@ -260,7 +260,7 @@ static struct {
   gpu_index_type boundIndexType;
   uint32_t shapeOffset[SHAPE_MAX];
   Buffer* shapes;
-  Buffer* zeros;
+  Buffer* abyss;
   Texture* white;
   Texture* window;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
@@ -625,11 +625,19 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   // Default resources
 
-  state.zeros = lovrBufferCreate(&(BufferInfo) {
-    .length = 4000,
+  // The abyss contains 0.f x 32 followed by 1.f x 32, used for fallback attribute/resource data
+  state.abyss = lovrBufferCreate(&(BufferInfo) {
+    .length = 256,
     .usage = BUFFER_VERTEX | BUFFER_UNIFORM | BUFFER_STORAGE,
-    .label = "zeros"
+    .label = "abyss"
   });
+
+  Megaview abyss = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256, 4);
+  float* f32 = (float*) abyss.data;
+  for (uint32_t i = 0; i < 32; i++) {
+    f32[i] = 0.f;
+    f32[i + 32] = 1.f;
+  }
 
   state.white = lovrTextureCreate(&(TextureInfo) {
     .type = TEXTURE_2D,
@@ -757,7 +765,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   gpu_begin();
   gpu_stream* stream = gpu_stream_begin();
-  gpu_clear_buffer(stream, state.zeros->mega.gpu, state.zeros->mega.offset, state.zeros->info.length, 0);
+  gpu_copy_buffers(stream, abyss.gpu, state.abyss->mega.gpu, abyss.offset, state.abyss->mega.offset, 256);
   //gpu_clear_texture(stream, state.white->gpu, 0, 1, 0, 1, (float[4]) { 1.f, 1.f, 1.f, 1.f });
   gpu_copy_buffers(stream, scratch.gpu, state.shapes->mega.gpu, scratch.offset, state.shapes->mega.offset, vertexCount * sizeof(Vertex));
   gpu_stream_end(stream);
@@ -1436,9 +1444,9 @@ void lovrGraphicsSetShader(Shader* shader) {
 
       if (shader->bufferMask) {
         state.bindings[i].buffer = (gpu_buffer_binding) {
-          .object = state.zeros->mega.gpu,
+          .object = state.abyss->mega.gpu,
           .offset = 0,
-          .extent = state.zeros->info.length
+          .extent = state.abyss->info.length
         };
       } else {
         state.bindings[i].texture = (gpu_texture_binding) {
@@ -1577,8 +1585,8 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
           vertex->attributes[vertex->attributeCount++] = (gpu_attribute) {
             .buffer = 1,
             .location = i,
-            .offset = 0,
-            .type = GPU_TYPE_F32
+            .offset = i == ATTRIBUTE_COLOR ? 128 : 0, // abyss
+            .type = GPU_TYPE_F32x4
           };
         }
       }
@@ -1825,7 +1833,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
     }
 
     if (hasVertices && vertexBuffer.gpu != state.boundVertexBuffer) {
-      gpu_buffer* buffers[2] = { vertexBuffer.gpu, state.zeros->mega.gpu };
+      gpu_buffer* buffers[2] = { vertexBuffer.gpu, state.abyss->mega.gpu };
       gpu_bind_vertex_buffers(state.pass->stream, buffers, (uint32_t[2]) { 0, 0 }, 0, 2);
       state.boundVertexBuffer = vertexBuffer.gpu;
     }
@@ -2005,7 +2013,7 @@ void lovrGraphicsReplay(Batch* batch) {
 
       if (group->dirty & DIRTY_VERTEX) {
         uint32_t offsets[2] = { 0, 0 };
-        gpu_buffer* buffers[2] = { state.buffers.list[first->vertexBuffer].gpu, state.zeros->mega.gpu };
+        gpu_buffer* buffers[2] = { state.buffers.list[first->vertexBuffer].gpu, state.abyss->mega.gpu };
         gpu_bind_vertex_buffers(state.pass->stream, buffers, offsets, 0, 2);
       }
 
@@ -2843,7 +2851,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
           lovrCheck(value < 32, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
           cache[id].attribute.location = value;
         } else if (decoration == 1) { // SpecId
-          lovrCheck(value < 1000, "Unsupported Shader code: specialization constant id is too big (max is 1000)");
+          lovrCheck(value < 2000, "Unsupported Shader code: specialization constant id is too big (max is 2000)");
           cache[id].flag.number = value;
         }
         break;
