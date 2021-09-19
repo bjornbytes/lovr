@@ -2165,11 +2165,12 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
 
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
   if (size == ~0u) size = buffer->size - offset;
-  lovrCheck(state.active, "Graphics is not active");
   lovrCheck(offset + size <= buffer->size, "Tried to write past the end of the Buffer");
   if (buffer->transient) {
+    lovrCheck(state.active, "Graphics is not active");
     return buffer->mega.data + offset;
   } else {
+    lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Writing to persistent buffers can only happen in a transfer pass");
     lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
     Megaview scratch = allocateBuffer(GPU_MEMORY_CPU_WRITE, size, 4);
     gpu_copy_buffers(state.pass->stream, scratch.gpu, buffer->mega.gpu, scratch.offset, buffer->mega.offset + offset, size);
@@ -2179,13 +2180,14 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
-  lovrCheck(state.active, "Graphics is not active");
   lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrCheck(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
   if (buffer->transient) {
+    lovrCheck(state.active, "Graphics is not active");
     memset(buffer->mega.data + offset, 0, size);
   } else {
+    lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Clearing persistent buffers can only happen in a transfer pass");
     lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
     gpu_clear_buffer(state.pass->stream, buffer->mega.gpu, buffer->mega.offset + offset, size, 0);
     state.stats.copies++;
@@ -2193,7 +2195,7 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
-  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Buffer copies can only happen in a transfer pass");
   lovrCheck(src->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to copy from it");
   lovrCheck(dst->info.usage & BUFFER_COPYTO, "Buffer must have the 'copyto' usage to copy to it");
   lovrCheck(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
@@ -2204,7 +2206,7 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
 
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void*, uint32_t, void*), void* userdata) {
   ReaderPool* readers = &state.readers;
-  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Reading buffer data can only happen in a transfer pass");
   lovrCheck(buffer->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to read from it");
   lovrCheck(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
   lovrCheck(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
@@ -2466,7 +2468,7 @@ void lovrTextureSetSampler(Texture* texture, Sampler* sampler) {
 }
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
-  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Writing to a Texture can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Texture views can not be written to");
   lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to write to it");
   lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be written to");
@@ -2508,7 +2510,7 @@ void lovrTexturePaste(Texture* texture, Image* image, uint16_t srcOffset[2], uin
 }
 
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]) {
-  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Clearing a Texture can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Texture views can not be cleared");
   lovrCheck(!isDepthFormat(texture->info.format), "Currently only color textures can be cleared");
   lovrCheck(texture->info.type == TEXTURE_VOLUME || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
@@ -2519,7 +2521,7 @@ void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uin
 
 void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], void (*callback)(void* data, uint32_t size, void* userdata), void* userdata) {
   ReaderPool* readers = &state.readers;
-  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Downloading a Texture can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Texture views can not be read");
   lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to read from it");
   lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be read");
@@ -2539,7 +2541,7 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
-  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Texture copies can only happen in a transfer pass");
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not copy Texture views");
   lovrCheck(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to copy from it");
   lovrCheck(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to copy to it");
@@ -2552,7 +2554,7 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], bool nearest) {
-  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Texture blits can only happen in a transfer pass");
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
   lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
   lovrCheck(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to blit from it");
@@ -2567,7 +2569,7 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 }
 
 void lovrTextureGenerateMipmaps(Texture* texture) {
-  lovrCheck(state.active, "Graphics is not active");
+  lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Texture mipmap generation can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Can not generate mipmaps on texture views");
   lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to generate mipmaps");
   lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to generate mipmaps");
