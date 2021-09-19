@@ -120,8 +120,7 @@ function lovr.boot()
     graphics = {
       debug = false,
       vsync = false,
-      blocksize = 2 ^ 24,
-      batchsize = 256
+      blocksize = 2 ^ 24
     },
     headset = {
       drivers = { 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'desktop' },
@@ -186,14 +185,9 @@ end
 function lovr.run()
   local dt = 0
   if lovr.timer then lovr.timer.step() end
-  if lovr.graphics then lovr.graphics.begin() end
+  if lovr.graphics then lovr.graphics.prepare() end
   if lovr.load then lovr.load(arg) end
   local function headsetRender(batch)
-    for i = 1, lovr.headset.getViewCount() do
-      batch:setViewPose(i, lovr.headset.getViewPose(i))
-      batch:setProjection(i, lovr.headset.getViewAngles(i))
-    end
-    return lovr.draw(batch)
   end
   return function()
     if lovr.event then
@@ -212,8 +206,16 @@ function lovr.run()
     if lovr.headset then lovr.headset.update(dt) end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics and lovr.draw then
-      lovr.graphics.begin()
-      if lovr.headset then lovr.graphics.render(lovr.headset.getTexture(), headsetRender) end
+      lovr.graphics.prepare()
+      if lovr.headset then
+        lovr.graphics.begin('render', lovr.headset.getTexture())
+        for i = 1, lovr.headset.getViewCount() do
+          lovr.graphics.setViewPose(i, lovr.headset.getViewPose(i))
+          lovr.graphics.setProjection(i, lovr.headset.getViewAngles(i))
+        end
+        lovr.draw()
+        lovr.graphics.finish()
+      end
       if lovr.system.isWindowOpen() then lovr.mirror() end
       lovr.graphics.submit()
     end
@@ -226,7 +228,9 @@ function lovr.mirror()
   if lovr.headset then
     --
   else
-    lovr.graphics.renderTo('window', lovr.draw)
+    lovr.graphics.begin('render', 'window')
+    lovr.draw()
+    lovr.graphics.finish()
   end
 end
 

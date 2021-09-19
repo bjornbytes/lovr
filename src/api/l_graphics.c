@@ -2,17 +2,12 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "core/maf.h"
 #include "core/os.h"
 #include "core/util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <string.h>
-
-StringEntry lovrBatchType[] = {
-  [BATCH_RENDER] = ENTRY("render"),
-  [BATCH_COMPUTE] = ENTRY("compute"),
-  { 0 }
-};
 
 StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
@@ -132,6 +127,14 @@ StringEntry lovrHorizontalAlign[] = {
   [ALIGN_LEFT] = ENTRY("left"),
   [ALIGN_CENTER] = ENTRY("center"),
   [ALIGN_RIGHT] = ENTRY("right"),
+  { 0 }
+};
+
+StringEntry lovrPassType[] = {
+  [PASS_RENDER] = ENTRY("render"),
+  [PASS_COMPUTE] = ENTRY("compute"),
+  [PASS_TRANSFER] = ENTRY("transfer"),
+  [PASS_BATCH] = ENTRY("batch"),
   { 0 }
 };
 
@@ -442,39 +445,6 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
   return canvas;
 }
 
-static int l_lovrGraphicsInit(lua_State* L) {
-  bool debug = false;
-  bool vsync = false;
-  uint32_t blockSize = 1 << 24;
-  uint32_t batchSize = 256;
-  luax_pushconf(L);
-  lua_getfield(L, -1, "graphics");
-  if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "debug");
-    debug = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "vsync");
-    vsync = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "blocksize");
-    blockSize = luaL_optinteger(L, -1, blockSize);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "batchsize");
-    batchSize = luaL_optinteger(L, -1, batchSize);
-    lua_pop(L, 1);
-  }
-  lua_pop(L, 2);
-
-  if (lovrGraphicsInit(debug, vsync, blockSize, batchSize)) {
-    luax_atexit(L, lovrGraphicsDestroy);
-  }
-
-  return 0;
-}
-
 static int l_lovrGraphicsGetHardware(lua_State* L) {
   if (lua_istable(L, 1)) {
     lua_settop(L, 1);
@@ -615,6 +585,65 @@ static int l_lovrGraphicsGetStats(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsInit(lua_State* L) {
+  bool debug = false;
+  bool vsync = false;
+  uint32_t blockSize = 1 << 24;
+  luax_pushconf(L);
+  lua_getfield(L, -1, "graphics");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "debug");
+    debug = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "vsync");
+    vsync = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "blocksize");
+    blockSize = luaL_optinteger(L, -1, blockSize);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 2);
+
+  if (lovrGraphicsInit(debug, vsync, blockSize)) {
+    luax_atexit(L, lovrGraphicsDestroy);
+  }
+
+  return 0;
+}
+
+static int l_lovrGraphicsPrepare(lua_State* L) {
+  lovrGraphicsPrepare();
+  return 0;
+}
+
+static int l_lovrGraphicsBegin(lua_State* L) {
+  PassType type = luax_checkenum(L, 1, PassType, NULL);
+  switch (type) {
+    case PASS_RENDER: lovrGraphicsBeginRender((Canvas[1]) { luax_checkcanvas(L, 2) }, lua_tointeger(L, 3)); return 0;
+    case PASS_COMPUTE: lovrGraphicsBeginCompute(lua_tointeger(L, 2)); return 0;
+    case PASS_TRANSFER: lovrGraphicsBeginTransfer(lua_tointeger(L, 2)); return 0;
+    case PASS_BATCH: lovrGraphicsBeginBatch(luax_checktype(L, 2, Batch)); return 0;
+    default: return 0;
+  }
+}
+
+static int l_lovrGraphicsFinish(lua_State* L) {
+  lovrGraphicsFinish();
+  return 0;
+}
+
+static int l_lovrGraphicsSubmit(lua_State* L) {
+  lovrGraphicsSubmit();
+  return 0;
+}
+
+static int l_lovrGraphicsWait(lua_State* L) {
+  lovrGraphicsWait();
+  return 0;
+}
+
 static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
   float color[4];
   lovrGraphicsGetBackgroundColor(color);
@@ -632,37 +661,524 @@ static int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsBegin(lua_State* L) {
-  lovrGraphicsBegin();
-  return 0;
-}
-
-static int l_lovrGraphicsSubmit(lua_State* L) {
-  lovrGraphicsSubmit();
-  return 0;
-}
-
-static int l_lovrGraphicsWait(lua_State* L) {
-  lovrGraphicsWait();
-  return 0;
-}
-
-static int l_lovrGraphicsRender(lua_State* L) {
-  Canvas canvas = luax_checkcanvas(L, 1);
-
-  Batch* batch;
-  if (lua_type(L, 2) == LUA_TFUNCTION) {
-    batch = lovrGraphicsGetBatch(&(BatchInfo) { .type = BATCH_RENDER, .canvas = canvas });
+static int l_lovrGraphicsGetViewPose(lua_State* L) {
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  lovrAssert(view < 6, "Invalid view index %d", view + 1);
+  if (lua_gettop(L) > 1) {
+    float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
+    bool invert = lua_toboolean(L, 3);
+    lovrGraphicsGetViewMatrix(view, matrix);
+    if (!invert) mat4_invert(matrix);
     lua_settop(L, 2);
-    luax_pushtype(L, Batch, batch);
-    lua_call(L, 1, 0);
+    return 1;
   } else {
-    batch = luax_checktype(L, 2, Batch);
-    lovrRetain(batch);
+    float matrix[16], angle, ax, ay, az;
+    lovrGraphicsGetViewMatrix(view, matrix);
+    mat4_invert(matrix);
+    mat4_getAngleAxis(matrix, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, matrix[12]);
+    lua_pushnumber(L, matrix[13]);
+    lua_pushnumber(L, matrix[14]);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+    return 7;
+  }
+}
+
+static int l_lovrGraphicsSetViewPose(lua_State* L) {
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  lovrAssert(view < 6, "Invalid view index %d", view + 1);
+  VectorType type;
+  float* p = luax_tovector(L, 2, &type);
+  if (p && type == V_MAT4) {
+    float matrix[16];
+    mat4_init(matrix, p);
+    bool inverted = lua_toboolean(L, 3);
+    if (!inverted) mat4_invert(matrix);
+    lovrGraphicsSetViewMatrix(view, matrix);
+  } else {
+    int index = 2;
+    float position[4], orientation[4], matrix[16];
+    index = luax_readvec3(L, index, position, "vec3, number, or mat4");
+    index = luax_readquat(L, index, orientation, NULL);
+    mat4_fromQuat(matrix, orientation);
+    memcpy(matrix + 12, position, 3 * sizeof(float));
+    mat4_invert(matrix);
+    lovrGraphicsSetViewMatrix(view, matrix);
+  }
+  return 0;
+}
+
+static int l_lovrGraphicsGetProjection(lua_State* L) {
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  lovrAssert(view < 6, "Invalid view index %d", view + 1);
+  if (lua_gettop(L) > 1) {
+    float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
+    lovrGraphicsGetProjection(view, matrix);
+    lua_settop(L, 2);
+    return 1;
+  } else {
+    float matrix[16], left, right, up, down;
+    lovrGraphicsGetProjection(view, matrix);
+    mat4_getFov(matrix, &left, &right, &up, &down);
+    lua_pushnumber(L, left);
+    lua_pushnumber(L, right);
+    lua_pushnumber(L, up);
+    lua_pushnumber(L, down);
+    return 4;
+  }
+}
+
+static int l_lovrGraphicsSetProjection(lua_State* L) {
+  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  lovrAssert(view < 6, "Invalid view index %d", view + 1);
+  if (lua_type(L, 2) == LUA_TSTRING && !strcmp(lua_tostring(L, 2), "orthographic")) {
+    float ortho[16];
+    float width = luax_checkfloat(L, 3);
+    float height = luax_checkfloat(L, 4);
+    float near = luax_optfloat(L, 5, -1.f);
+    float far = luax_optfloat(L, 6, 1.f);
+    mat4_orthographic(ortho, 0.f, width, 0.f, height, near, far);
+    lovrGraphicsSetProjection(view, ortho);
+  } else if (lua_type(L, 2) == LUA_TNUMBER) {
+    float left = luax_checkfloat(L, 2);
+    float right = luax_checkfloat(L, 3);
+    float up = luax_checkfloat(L, 4);
+    float down = luax_checkfloat(L, 5);
+    float clipNear = luax_optfloat(L, 6, .01f);
+    float clipFar = luax_optfloat(L, 7, 100.f);
+    float matrix[16];
+    mat4_fov(matrix, left, right, up, down, clipNear, clipFar);
+    lovrGraphicsSetProjection(view, matrix);
+  } else {
+    float* matrix = luax_checkvector(L, 2, V_MAT4, "mat4 or number");
+    lovrGraphicsSetProjection(view, matrix);
+  }
+  return 0;
+}
+
+static int l_lovrGraphicsSetViewport(lua_State* L) {
+  float viewport[4], depthRange[2];
+  viewport[0] = luax_checkfloat(L, 1);
+  viewport[1] = luax_checkfloat(L, 2);
+  viewport[2] = luax_checkfloat(L, 3);
+  viewport[3] = luax_checkfloat(L, 4);
+  depthRange[0] = luax_optfloat(L, 5, 0.f);
+  depthRange[1] = luax_optfloat(L, 6, 1.f);
+  lovrGraphicsSetViewport(viewport, depthRange);
+  return 0;
+}
+
+static int l_lovrGraphicsSetScissor(lua_State* L) {
+  uint32_t scissor[4];
+  scissor[0] = luaL_checkinteger(L, 1);
+  scissor[1] = luaL_checkinteger(L, 2);
+  scissor[2] = luaL_checkinteger(L, 3);
+  scissor[3] = luaL_checkinteger(L, 4);
+  lovrGraphicsSetScissor(scissor);
+  return 0;
+}
+
+static int l_lovrGraphicsPush(lua_State* L) {
+  StackType type = luax_checkenum(L, 1, StackType, "transform");
+  lovrGraphicsPush(type);
+  return 0;
+}
+
+static int l_lovrGraphicsPop(lua_State* L) {
+  StackType type = luax_checkenum(L, 1, StackType, "transform");
+  lovrGraphicsPop(type);
+  return 0;
+}
+
+static int l_lovrGraphicsOrigin(lua_State* L) {
+  lovrGraphicsOrigin();
+  return 0;
+}
+
+static int l_lovrGraphicsTranslate(lua_State* L) {
+  float translation[4];
+  luax_readvec3(L, 1, translation, NULL);
+  lovrGraphicsTranslate(translation);
+  return 0;
+}
+
+static int l_lovrGraphicsRotate(lua_State* L) {
+  float rotation[4];
+  luax_readquat(L, 1, rotation, NULL);
+  lovrGraphicsRotate(rotation);
+  return 0;
+}
+
+static int l_lovrGraphicsScale(lua_State* L) {
+  float scale[4];
+  luax_readscale(L, 1, scale, 3, NULL);
+  lovrGraphicsScale(scale);
+  return 0;
+}
+
+static int l_lovrGraphicsTransform(lua_State* L) {
+  float transform[16];
+  luax_readmat4(L, 1, transform, 3);
+  lovrGraphicsTransform(transform);
+  return 0;
+}
+
+static int l_lovrGraphicsSetAlphaToCoverage(lua_State* L) {
+  lovrGraphicsSetAlphaToCoverage(lua_toboolean(L, 1));
+  return 1;
+}
+
+static int l_lovrGraphicsSetBlendMode(lua_State* L) {
+  BlendMode mode = lua_isnoneornil(L, 1) ? BLEND_NONE : luax_checkenum(L, 1, BlendMode, NULL);
+  BlendAlphaMode alphaMode = luax_checkenum(L, 2, BlendAlphaMode, "alphamultiply");
+  lovrGraphicsSetBlendMode(mode, alphaMode);
+  return 0;
+}
+
+static int l_lovrGraphicsSetColor(lua_State* L) {
+  float color[4];
+  luax_readcolor(L, 1, color);
+  lovrGraphicsSetColor(color);
+  return 0;
+}
+
+static int l_lovrGraphicsSetColorMask(lua_State* L) {
+  bool r = lua_toboolean(L, 1);
+  bool g = lua_toboolean(L, 2);
+  bool b = lua_toboolean(L, 3);
+  bool a = lua_toboolean(L, 4);
+  lovrGraphicsSetColorMask(r, g, b, a);
+  return 0;
+}
+
+static int l_lovrGraphicsSetCullMode(lua_State* L) {
+  CullMode mode = luax_checkenum(L, 1, CullMode, "none");
+  lovrGraphicsSetCullMode(mode);
+  return 0;
+}
+
+static int l_lovrGraphicsSetDepthTest(lua_State* L) {
+  CompareMode test = lua_isnoneornil(L, 1) ? COMPARE_NONE : luax_checkenum(L, 1, CompareMode, NULL);
+  lovrGraphicsSetDepthTest(test);
+  return 0;
+}
+
+static int l_lovrGraphicsSetDepthWrite(lua_State* L) {
+  bool write = lua_toboolean(L, 1);
+  lovrGraphicsSetDepthWrite(write);
+  return 0;
+}
+
+static int l_lovrGraphicsSetDepthNudge(lua_State* L) {
+  float nudge = luax_optfloat(L, 1, 0.f);
+  float sloped = luax_optfloat(L, 2, 0.f);
+  lovrGraphicsSetDepthNudge(nudge, sloped);
+  return 0;
+}
+
+static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
+  bool clamp = lua_toboolean(L, 1);
+  lovrGraphicsSetDepthClamp(clamp);
+  return 0;
+}
+
+static int l_lovrGraphicsSetStencilTest(lua_State* L) {
+  if (lua_isnoneornil(L, 1)) {
+    lovrGraphicsSetStencilTest(COMPARE_NONE, 0, 0xff);
+  } else {
+    CompareMode test = luax_checkenum(L, 1, CompareMode, NULL);
+    uint8_t value = luaL_checkinteger(L, 2);
+    uint8_t mask = luaL_optinteger(L, 3, 0xff);
+    lovrGraphicsSetStencilTest(test, value, mask);
+  }
+  return 0;
+}
+
+static int l_lovrGraphicsSetStencilWrite(lua_State* L) {
+  StencilAction actions[3];
+  if (lua_isnoneornil(L, 1)) {
+    actions[0] = actions[1] = actions[2] = STENCIL_KEEP;
+    lovrGraphicsSetStencilWrite(actions, 0, 0xff);
+  } else {
+    if (lua_istable(L, 1)) {
+      lua_rawgeti(L, 1, 1);
+      lua_rawgeti(L, 1, 2);
+      lua_rawgeti(L, 1, 3);
+      actions[0] = luax_checkenum(L, -3, StencilAction, NULL);
+      actions[1] = luax_checkenum(L, -2, StencilAction, NULL);
+      actions[2] = luax_checkenum(L, -1, StencilAction, NULL);
+      lua_pop(L, 3);
+    } else {
+      actions[0] = actions[1] = actions[2] = luax_checkenum(L, 1, StencilAction, NULL);
+    }
+    uint8_t value = luaL_optinteger(L, 2, 1);
+    uint8_t mask = luaL_optinteger(L, 3, 0xff);
+    lovrGraphicsSetStencilWrite(actions, value, mask);
+  }
+  return 0;
+}
+
+static int l_lovrGraphicsSetWinding(lua_State* L) {
+  Winding winding = luax_checkenum(L, 1, Winding, NULL);
+  lovrGraphicsSetWinding(winding);
+  return 0;
+}
+
+static int l_lovrGraphicsSetWireframe(lua_State* L) {
+  bool wireframe = lua_toboolean(L, 1);
+  lovrGraphicsSetWireframe(wireframe);
+  return 0;
+}
+
+static int l_lovrGraphicsSetShader(lua_State* L) {
+  Shader* shader = lua_isnoneornil(L, 1) ? NULL : luax_checktype(L, 2, Shader);
+  lovrGraphicsSetShader(shader);
+  return 0;
+}
+
+static int l_lovrGraphicsBind(lua_State* L) {
+  const char* name = NULL;
+  size_t length = 0;
+  uint32_t slot = ~0u;
+
+  switch (lua_type(L, 1)) {
+    case LUA_TSTRING: name = lua_tolstring(L, 1, &length); break;
+    case LUA_TNUMBER: slot = lua_tointeger(L, 1) - 1; break;
+    default: return luax_typeerror(L, 1, "string or number");
   }
 
-  lovrGraphicsRender(&canvas, &batch, 1, 0);
-  lovrRelease(batch, lovrBatchDestroy);
+  Buffer* buffer = luax_totype(L, 2, Buffer);
+  Texture* texture = NULL;
+  uint32_t offset = 0;
+
+  if (buffer) {
+    offset = lua_tointeger(L, 3);
+  } else {
+    texture = luax_totype(L, 2, Texture);
+    if (!texture) {
+      return luax_typeerror(L, 2, "Buffer or Texture");
+    }
+  }
+
+  lovrGraphicsBind(name, length, slot, buffer, offset, texture);
+  return 0;
+}
+
+static int l_lovrGraphicsMesh(lua_State* L) {
+  int index = 1;
+  DrawMode mode = lua_type(L, index) == LUA_TSTRING ? luax_checkenum(L, index++, DrawMode, NULL) : DRAW_TRIANGLES;
+  Buffer* vertices = luax_totype(L, index++, Buffer);
+  Buffer* indices = luax_totype(L, index, Buffer);
+  if (indices) index++;
+  float transform[16];
+  index = luax_readmat4(L, index, transform, 1);
+  uint32_t start = luaL_optinteger(L, index++, 1) - 1;
+  uint32_t limit = lovrBufferGetInfo(indices ? indices : vertices)->length;
+  uint32_t count = luaL_optinteger(L, index++, limit);
+  uint32_t instances = luaL_optinteger(L, index++, 1);
+  uint32_t id = lovrGraphicsDraw(&(DrawInfo) {
+    .mode = mode,
+    .vertex.buffer = vertices,
+    .index.buffer = indices,
+    .start = start,
+    .count = count,
+    .instances = instances
+  }, transform);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static uint32_t luax_getvertexcount(lua_State* L, int index) {
+  switch (lua_type(L, index)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      return 0;
+    case LUA_TNUMBER:
+      return (lua_gettop(L) - index + 1) / 3;
+    case LUA_TTABLE:
+      lua_rawgeti(L, index, 1);
+      int innerType = lua_type(L, -1);
+      lua_pop(L, 1);
+      return luax_len(L, index) / (innerType == LUA_TNUMBER ? 3 : 1);
+    case LUA_TUSERDATA:
+      return lua_gettop(L) - index + 1;
+    default:
+      return luax_typeerror(L, index, "number, table, or vector");
+  }
+}
+
+static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t count) {
+  switch (lua_type(L, index)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+    default:
+      break;
+    case LUA_TNUMBER:
+      for (uint32_t i = 0; i < 3 * count; i++) {
+        *vertices++ = luax_tofloat(L, index + i);
+      }
+      break;
+    case LUA_TTABLE:
+      lua_rawgeti(L, index, 1);
+      int innerType = lua_type(L, -1);
+      lua_pop(L, 1);
+      if (innerType == LUA_TNUMBER) {
+        for (uint32_t i = 0; i < 3 * count; i++) {
+          lua_rawgeti(L, index, i + 1);
+          *vertices++ = luax_tofloat(L, -1);
+          lua_pop(L, 1);
+        }
+      } else if (innerType == LUA_TUSERDATA) {
+        for (uint32_t i = 0; i < count; i++) {
+          lua_rawgeti(L, index, i + 1);
+          vec3_init(vertices, luax_checkvector(L, -1, V_VEC3, NULL));
+          lua_pop(L, 1);
+          vertices += 3;
+        }
+      }
+      break;
+    case LUA_TUSERDATA:
+      for (uint32_t i = 0; i < count; i++) {
+        vec3_init(vertices, luax_checkvector(L, index + i, V_VEC3, NULL));
+        vertices += 3;
+      }
+      break;
+  }
+}
+
+static int l_lovrGraphicsPoints(lua_State* L) {
+  float* vertices;
+  uint32_t count = luax_getvertexcount(L, 1);
+  uint32_t id = lovrGraphicsPoints(count, &vertices);
+  luax_readvertices(L, 1, vertices, count);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsLine(lua_State* L) {
+  float* vertices;
+  uint32_t count = luax_getvertexcount(L, 1);
+  uint32_t id = lovrGraphicsLine(count, &vertices);
+  luax_readvertices(L, 1, vertices, count);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsPlane(lua_State* L) {
+  float transform[16];
+  int index = luax_readmat4(L, 1, transform, 2);
+  uint32_t segments = luaL_optinteger(L, index, 0);
+  uint32_t id = lovrGraphicsPlane(transform, segments);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsCube(lua_State* L) {
+  float transform[16];
+  luax_readmat4(L, 1, transform, 1);
+  uint32_t id = lovrGraphicsBox(transform);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsBox(lua_State* L) {
+  float transform[16];
+  luax_readmat4(L, 1, transform, 3);
+  uint32_t id = lovrGraphicsBox(transform);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsCircle(lua_State* L) {
+  float transform[16];
+  int index = luax_readmat4(L, 1, transform, 1);
+  uint32_t segments = luaL_optinteger(L, index, 32);
+  uint32_t id = lovrGraphicsCircle(transform, segments);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsCylinder(lua_State* L) {
+  float transform[16];
+  int index = luax_readmat4(L, 1, transform, 1);
+  float r1 = luax_optfloat(L, index++, 1.f);
+  float r2 = luax_optfloat(L, index++, 1.f);
+  bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
+  uint32_t segments = luaL_optinteger(L, index, 32);
+  uint32_t id = lovrGraphicsCylinder(transform, r1, r2, capped, segments);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsSphere(lua_State* L) {
+  float transform[16];
+  int index = luax_readmat4(L, 1, transform, 1);
+  uint32_t segments = luaL_optinteger(L, index, 32);
+  uint32_t id = lovrGraphicsSphere(transform, segments);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsSkybox(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  uint32_t id = lovrGraphicsSkybox(texture);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsFill(lua_State* L) {
+  Texture* texture = luax_totype(L, 1, Texture);
+  uint32_t id = lovrGraphicsFill(texture);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsModel(lua_State* L) {
+  float transform[16];
+  Model* model = luax_checktype(L, 1, Model);
+  int index = luax_readmat4(L, 2, transform, 1);
+  uint32_t node = luaL_optinteger(L, index++, ~0u); // TODO string
+  bool children = lua_isnil(L, index) ? (index++, true) : lua_toboolean(L, index++);
+  uint32_t instances = luaL_optinteger(L, index++, 1);
+  uint32_t id = lovrGraphicsModel(model, transform, node, children, instances);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsPrint(lua_State* L) {
+  size_t length;
+  float transform[16];
+  Font* font = luax_checktype(L, 1, Font);
+  const char* text = luaL_checklstring(L, 2, &length);
+  int index = luax_readmat4(L, 3, transform, 1);
+  float wrap = luax_optfloat(L, index++, 0.f);
+  HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
+  VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
+  uint32_t id = lovrGraphicsPrint(font, text, length, transform, wrap, halign, valign);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+static int l_lovrGraphicsReplay(lua_State* L) {
+  Batch* batch = luax_checktype(L, 1, Batch);
+  lovrGraphicsReplay(batch);
+  return 0;
+}
+
+static int l_lovrGraphicsCompute(lua_State* L) {
+  Buffer* buffer = luax_totype(L, 1, Buffer);
+  if (buffer) {
+    uint32_t offset = lua_tointeger(L, 2);
+    lovrGraphicsCompute(0, 0, 0, buffer, offset);
+  } else {
+    uint32_t x = luaL_optinteger(L, 1, 1);
+    uint32_t y = luaL_optinteger(L, 2, 1);
+    uint32_t z = luaL_optinteger(L, 3, 1);
+    lovrGraphicsCompute(x, y, z, NULL, 0);
+  }
   return 0;
 }
 
@@ -1063,16 +1579,6 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsGetBatch(lua_State* L) {
-  BatchInfo info;
-  info.canvas = luax_checkcanvas(L, 1);
-  info.capacity = lua_tointeger(L, 2);
-  Batch* batch = lovrGraphicsGetBatch(&info);
-  luax_pushtype(L, Batch, batch);
-  lovrRelease(batch, lovrBatchDestroy);
-  return 1;
-}
-
 static int l_lovrGraphicsNewBatch(lua_State* L) {
   BatchInfo info;
   info.canvas = luax_checkcanvas(L, 1);
@@ -1085,24 +1591,76 @@ static int l_lovrGraphicsNewBatch(lua_State* L) {
 }
 
 static const luaL_Reg lovrGraphics[] = {
-  { "init", l_lovrGraphicsInit },
   { "getHardware", l_lovrGraphicsGetHardware },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
   { "getStats", l_lovrGraphicsGetStats },
-  { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
-  { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
+
+  { "init", l_lovrGraphicsInit },
+  { "prepare", l_lovrGraphicsPrepare },
   { "begin", l_lovrGraphicsBegin },
+  { "finish", l_lovrGraphicsFinish },
   { "submit", l_lovrGraphicsSubmit },
   { "wait", l_lovrGraphicsWait },
-  { "render", l_lovrGraphicsRender },
+
+  { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
+  { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
+  { "getViewPose", l_lovrGraphicsGetViewPose },
+  { "setViewPose", l_lovrGraphicsSetViewPose },
+  { "getProjection", l_lovrGraphicsGetProjection },
+  { "setProjection", l_lovrGraphicsSetProjection },
+  { "setViewport", l_lovrGraphicsSetViewport },
+  { "setScissor", l_lovrGraphicsSetScissor },
+
+  { "push", l_lovrGraphicsPush },
+  { "pop", l_lovrGraphicsPop },
+  { "origin", l_lovrGraphicsOrigin },
+  { "translate", l_lovrGraphicsTranslate },
+  { "rotate", l_lovrGraphicsRotate },
+  { "scale", l_lovrGraphicsScale },
+  { "transform", l_lovrGraphicsTransform },
+
+  { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
+  { "setBlendMode", l_lovrGraphicsSetBlendMode },
+  { "setColor", l_lovrGraphicsSetColor },
+  { "setColorMask", l_lovrGraphicsSetColorMask },
+  { "setCullMode", l_lovrGraphicsSetCullMode },
+  { "setDepthTest", l_lovrGraphicsSetDepthTest },
+  { "setDepthWrite", l_lovrGraphicsSetDepthWrite },
+  { "setDepthNudge", l_lovrGraphicsSetDepthNudge },
+  { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
+  { "setStencilTest", l_lovrGraphicsSetStencilTest },
+  { "setStencilWrite", l_lovrGraphicsSetStencilWrite },
+  { "setWinding", l_lovrGraphicsSetWinding },
+  { "setWireframe", l_lovrGraphicsSetWireframe },
+
+  { "setShader", l_lovrGraphicsSetShader },
+  { "bind", l_lovrGraphicsBind },
+
+  { "mesh", l_lovrGraphicsMesh },
+  { "points", l_lovrGraphicsPoints },
+  { "line", l_lovrGraphicsLine },
+  { "plane", l_lovrGraphicsPlane },
+  { "cube", l_lovrGraphicsCube },
+  { "box", l_lovrGraphicsBox },
+  { "circle", l_lovrGraphicsCircle },
+  { "cylinder", l_lovrGraphicsCylinder },
+  { "sphere", l_lovrGraphicsSphere },
+  { "skybox", l_lovrGraphicsSkybox },
+  { "fill", l_lovrGraphicsFill },
+  { "model", l_lovrGraphicsModel },
+  { "print", l_lovrGraphicsPrint },
+  { "replay", l_lovrGraphicsReplay },
+
+  { "compute", l_lovrGraphicsCompute },
+
   { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newSampler", l_lovrGraphicsNewSampler },
   { "newShader", l_lovrGraphicsNewShader },
-  { "getBatch", l_lovrGraphicsGetBatch },
   { "newBatch", l_lovrGraphicsNewBatch },
+
   { NULL, NULL }
 };
 
