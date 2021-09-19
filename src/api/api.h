@@ -30,6 +30,7 @@ extern StringEntry lovrCullMode[];
 extern StringEntry lovrDefaultAttribute[];
 extern StringEntry lovrDefaultAttribute2[];
 extern StringEntry lovrDefaultSampler[];
+extern StringEntry lovrDefaultShader[];
 extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];
