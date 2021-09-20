@@ -13,8 +13,8 @@
 struct gpu_buffer {
   VkBuffer handle;
   VkDeviceMemory memory;
-  uint32_t readers;
-  uint32_t writers;
+  uint32_t reads;
+  uint32_t write;
 };
 
 struct gpu_texture {
@@ -25,8 +25,8 @@ struct gpu_texture {
   VkImageAspectFlagBits aspect;
   VkImageLayout readLayout;
   VkImageLayout copyLayout;
-  uint32_t readers;
-  uint32_t writers;
+  uint32_t reads;
+  uint32_t write;
   bool layered;
 };
 
@@ -1616,33 +1616,131 @@ void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, u
 
 void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* textures, uint32_t bufferCount, uint32_t textureCount) {
   VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-  VkPipelineStageFlags src = 0;
-  VkPipelineStageFlags dst = 0;
+  VkPipelineStageFlags srcStage = 0;
+  VkPipelineStageFlags dstStage = 0;
 
   for (uint32_t i = 0; i < bufferCount; i++) {
     gpu_buffer* buffer = buffers[i].buffer;
-    //
+    uint32_t writeMask = GPU_BUFFER_COPY_DST | ((buffers[i].stage & GPU_STAGE_COMPUTE) ? GPU_BUFFER_STORAGE : 0);
+    uint32_t read = buffers[i].usage & ~writeMask;
+    uint32_t write = buffers[i].usage & writeMask;
+    uint32_t afterRead = buffer->reads;
+    uint32_t afterWrite = buffer->write;
+    uint32_t newReads = read & ~buffer->reads;
+    VkAccessFlags srcCache = 0, dstCache = 0;
+
+    // For read-after-write hazards, a memory dependency is needed to flush the write cache and
+    // invalidate the read cache.  An execution dependency is also needed to ensure the read starts
+    // after the write is finished. However, if all of the new readers are already tracked, this
+    // means a barrier was already issued earlier for the incoming actions, so nothing needs to be
+    // done. The existing writer is kept so future reads can synchronize against it.
+    if (read && afterWrite && !newReads) {
+      if (buffer->write == GPU_BUFFER_STORAGE) {
+        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
+      } else if (buffer->write == GPU_BUFFER_COPY_DST) {
+        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        srcCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_INDIRECT) {
+        dstStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        dstCache |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_VERTEX) {
+        dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+        dstCache |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_INDEX) {
+        dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+        dstCache |= VK_ACCESS_INDEX_READ_BIT;
+      }
+
+      if (newReads & (GPU_BUFFER_UNIFORM | GPU_BUFFER_STORAGE)) {
+        if (buffers[i].stage & GPU_STAGE_VERTEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+        if (buffers[i].stage & GPU_STAGE_FRAGMENT) dstStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dstCache |= VK_ACCESS_SHADER_READ_BIT;
+      }
+
+      if (newReads & GPU_BUFFER_COPY_SRC) {
+        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dstCache |= VK_ACCESS_TRANSFER_READ_BIT;
+      }
+
+      buffer->reads |= newReads;
+    }
+
+    // A write-after-write hazard exists if a write is followed by another write without any
+    // intermediate reads.  This requires a full memory/execution dependency, and also updates the
+    // writer.  If there were intermediate reads, they must have already flushed the write cache, so
+    // only an execution dependency is necessary, which is handled below.
+    if (write && afterWrite && !afterRead) {
+      if (buffer->write == GPU_BUFFER_STORAGE) {
+        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
+      } else if (buffer->write == GPU_BUFFER_COPY_DST) {
+        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        srcCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      }
+
+      if (write & GPU_BUFFER_STORAGE) {
+        dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        dstCache |= VK_ACCESS_SHADER_WRITE_BIT;
+      }
+
+      if (write & GPU_BUFFER_COPY_DST) {
+        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dstCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      }
+
+      buffer->reads = 0;
+      buffer->write = write;
+    }
+
+    // For write-after-read, only an execution dependency is needed.  The read just needs to finish
+    // before starting the write.  No memory dependency is needed because the read doesn't write to
+    // any caches.  Also, even if there is a writer, no synchronization with it is needed, because
+    // the resuts of the past write are already visible and avialable.  An execution dependency is
+    // all that is needed to ensure that this is also the case for the new wrte.  The writer is
+    // updated to the new write and existing readers are cleared.
+    if (write && afterRead) {
+      if (write & GPU_BUFFER_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (write & GPU_BUFFER_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+      if (buffer->reads & GPU_BUFFER_INDIRECT) srcStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+
+      // TODO maybe the fragment shader stages could be more granular if buffer tracks its stages
+      if (buffer->reads & (GPU_BUFFER_UNIFORM | GPU_BUFFER_STORAGE)) srcStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+      else if (buffer->reads & (GPU_BUFFER_VERTEX | GPU_BUFFER_INDEX)) srcStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+
+      if (buffer->reads & GPU_BUFFER_COPY_SRC) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+      buffer->reads = 0;
+      buffer->write = write;
+    }
+
+    barrier.srcAccessMask |= srcCache;
+    barrier.dstAccessMask |= dstCache;
   }
 
+  // Do image barriers in chunks
   uint32_t barrierCount = 1;
-  uint32_t imageBarrierCount = 0;
-  VkImageMemoryBarriers imageBarriers[64];
+  VkImageMemoryBarrier imageBarriers[64];
   while (textureCount > 0) {
     uint32_t chunk = MIN(textureCount, COUNTOF(imageBarriers));
+
     for (uint32_t i = 0; i < chunk; i++, textureCount--) {
       //
     }
 
-    if (src && dst) {
-      vkCmdPipelineBarrier(stream->commands, src, dst, 0, barrierCount, &barrier, 0, NULL, chunk, imageBarriers);
+    if (srcStage && dstStage) {
+      vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, barrierCount, &barrier, 0, NULL, chunk, imageBarriers);
       barrierCount = 0;
-      src = 0;
-      dst = 0;
+      srcStage = 0;
+      dstStage = 0;
     }
-  }
-
-  if (src && dst) {
-    vkCmdPipelineBarrier(stream->commands, src, dst, 0, barrierCount, &barrier, 0, NULL, chunk, imageBarriers);
   }
 }
 
