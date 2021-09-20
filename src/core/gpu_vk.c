@@ -13,6 +13,8 @@
 struct gpu_buffer {
   VkBuffer handle;
   VkDeviceMemory memory;
+  uint32_t readers;
+  uint32_t writers;
 };
 
 struct gpu_texture {
@@ -21,9 +23,11 @@ struct gpu_texture {
   VkImageView view;
   VkFormat format;
   VkImageAspectFlagBits aspect;
-  VkImageLayout natural;
-  VkImageLayout layout;
-  bool array;
+  VkImageLayout readLayout;
+  VkImageLayout copyLayout;
+  uint32_t readers;
+  uint32_t writers;
+  bool layered;
 };
 
 struct gpu_sampler {
@@ -383,8 +387,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   }
 
   texture->format = info->format == ~0u ? state.backbuffers[0].format : convertFormat(info->format, info->srgb);
-  texture->array = info->type == GPU_TEXTURE_ARRAY;
-  texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+  texture->layered = type == VK_IMAGE_TYPE_2D;
 
   if (info->format == GPU_FORMAT_D24S8) {
     texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -410,9 +413,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .format = texture->format,
     .extent.width = info->size[0],
     .extent.height = info->size[1],
-    .extent.depth = texture->array ? 1 : info->size[2],
+    .extent.depth = texture->layered ? 1 : info->size[2],
     .mipLevels = info->mipmaps,
-    .arrayLayers = texture->array ? info->size[2] : 1,
+    .arrayLayers = texture->layered ? info->size[2] : 1,
     .samples = info->samples,
     .tiling = VK_IMAGE_TILING_OPTIMAL,
     .usage =
@@ -464,6 +467,21 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
+  uint32_t both = GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST;
+  if ((info->usage & both) == both) {
+    texture->copyLayout = VK_IMAGE_LAYOUT_GENERAL;
+  } else if (info->usage & GPU_TEXTURE_COPY_DST) {
+    texture->copyLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  } else {
+    texture->copyLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  }
+
+  if (info->usage & GPU_TEXTURE_STORAGE) {
+    texture->readLayout = VK_IMAGE_LAYOUT_GENERAL;
+  } else if (info->usage & GPU_TEXTURE_SAMPLE) {
+    texture->readLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  }
+
   return true;
 }
 
@@ -473,8 +491,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     texture->memory = VK_NULL_HANDLE;
     texture->format = info->source->format;
     texture->aspect = info->source->aspect;
-    texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    texture->array = info->type == GPU_TEXTURE_ARRAY;
+    texture->layered = info->type != GPU_TEXTURE_3D;
   }
 
   static const VkImageViewType types[] = {
@@ -799,7 +816,7 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
             textures[textureCount++] = (VkDescriptorImageInfo) {
               .sampler = binding->texture.sampler->handle,
               .imageView = binding->texture.object->view,
-              .imageLayout = binding->texture.object->layout
+              .imageLayout = binding->texture.object->readLayout
             };
           }
         } else {
@@ -1455,21 +1472,21 @@ void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint
 }
 
 void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]) {
-  vkCmdCopyImage(stream->commands, src->handle, src->layout, dst->handle, dst->layout, 1, &(VkImageCopy) {
+  vkCmdCopyImage(stream->commands, src->handle, src->copyLayout, dst->handle, dst->copyLayout, 1, &(VkImageCopy) {
     .srcSubresource = {
       .aspectMask = src->aspect,
       .mipLevel = srcOffset[3],
-      .baseArrayLayer = src->array ? srcOffset[2] : 0,
-      .layerCount = src->array ? size[2] : 1
+      .baseArrayLayer = src->layered ? srcOffset[2] : 0,
+      .layerCount = src->layered ? size[2] : 1
     },
     .dstSubresource = {
       .aspectMask = dst->aspect,
       .mipLevel = dstOffset[3],
-      .baseArrayLayer = dst->array ? dstOffset[2] : 0,
-      .layerCount = dst->array ? size[2] : 1
+      .baseArrayLayer = dst->layered ? dstOffset[2] : 0,
+      .layerCount = dst->layered ? size[2] : 1
     },
-    .srcOffset = { srcOffset[0], srcOffset[1], src->array ? 0 : srcOffset[2] },
-    .dstOffset = { dstOffset[0], dstOffset[1], dst->array ? 0 : dstOffset[2] },
+    .srcOffset = { srcOffset[0], srcOffset[1], src->layered ? 0 : srcOffset[2] },
+    .dstOffset = { dstOffset[0], dstOffset[1], dst->layered ? 0 : dstOffset[2] },
     .extent = { size[0], size[1], size[2] }
   });
 }
@@ -1479,13 +1496,13 @@ void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* d
     .bufferOffset = srcOffset,
     .imageSubresource.aspectMask = dst->aspect,
     .imageSubresource.mipLevel = dstOffset[3],
-    .imageSubresource.baseArrayLayer = dst->array ? dstOffset[2] : 0,
-    .imageSubresource.layerCount = dst->array ? extent[2] : 1,
-    .imageOffset = { dstOffset[0], dstOffset[1], dst->array ? 0 : dstOffset[2] },
-    .imageExtent = { extent[0], extent[1], dst->array ? 1 : extent[2] }
+    .imageSubresource.baseArrayLayer = dst->layered ? dstOffset[2] : 0,
+    .imageSubresource.layerCount = dst->layered ? extent[2] : 1,
+    .imageOffset = { dstOffset[0], dstOffset[1], dst->layered ? 0 : dstOffset[2] },
+    .imageExtent = { extent[0], extent[1], dst->layered ? 1 : extent[2] }
   };
 
-  vkCmdCopyBufferToImage(stream->commands, src->handle, dst->handle, dst->layout, 1, &region);
+  vkCmdCopyBufferToImage(stream->commands, src->handle, dst->handle, dst->copyLayout, 1, &region);
 }
 
 void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint16_t srcOffset[4], uint32_t dstOffset, uint16_t extent[3]) {
@@ -1493,13 +1510,13 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
     .bufferOffset = dstOffset,
     .imageSubresource.aspectMask = src->aspect,
     .imageSubresource.mipLevel = srcOffset[3],
-    .imageSubresource.baseArrayLayer = src->array ? srcOffset[2] : 0,
-    .imageSubresource.layerCount = src->array ? extent[2] : 1,
-    .imageOffset = { srcOffset[0], srcOffset[1], src->array ? 0 : srcOffset[2] },
-    .imageExtent = { extent[0], extent[1], src->array ? 1 : extent[2] }
+    .imageSubresource.baseArrayLayer = src->layered ? srcOffset[2] : 0,
+    .imageSubresource.layerCount = src->layered ? extent[2] : 1,
+    .imageOffset = { srcOffset[0], srcOffset[1], src->layered ? 0 : srcOffset[2] },
+    .imageExtent = { extent[0], extent[1], src->layered ? 1 : extent[2] }
   };
 
-  vkCmdCopyImageToBuffer(stream->commands, src->handle, src->layout, dst->handle, 1, &region);
+  vkCmdCopyImageToBuffer(stream->commands, src->handle, src->copyLayout, dst->handle, 1, &region);
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, uint32_t value) {
@@ -1517,7 +1534,7 @@ void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, uint16_t layer,
     .layerCount = layerCount
   };
 
-  vkCmdClearColorImage(stream->commands, texture->handle, texture->layout, &clear, 1, &range);
+  vkCmdClearColorImage(stream->commands, texture->handle, texture->copyLayout, &clear, 1, &range);
 }
 
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], gpu_filter filter) {
@@ -1525,19 +1542,19 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t s
     .srcSubresource = {
       .aspectMask = src->aspect,
       .mipLevel = srcOffset[3],
-      .baseArrayLayer = src->array ? srcOffset[2] : 0,
-      .layerCount = src->array ? srcExtent[2] : 1
+      .baseArrayLayer = src->layered ? srcOffset[2] : 0,
+      .layerCount = src->layered ? srcExtent[2] : 1
     },
     .dstSubresource = {
       .aspectMask = dst->aspect,
       .mipLevel = dstOffset[3],
-      .baseArrayLayer = dst->array ? dstOffset[2] : 0,
-      .layerCount = dst->array ? dstExtent[2] : 1
+      .baseArrayLayer = dst->layered ? dstOffset[2] : 0,
+      .layerCount = dst->layered ? dstExtent[2] : 1
     },
-    .srcOffsets[0] = { srcOffset[0], srcOffset[1], src->array ? 0 : srcOffset[2] },
-    .dstOffsets[0] = { dstOffset[0], dstOffset[1], dst->array ? 0 : dstOffset[2] },
-    .srcOffsets[1] = { srcOffset[0] + srcExtent[0], srcOffset[1] + srcExtent[1], src->array ? 1 : srcOffset[2] + srcExtent[2] },
-    .dstOffsets[1] = { dstOffset[0] + dstExtent[0], dstOffset[1] + dstExtent[1], dst->array ? 1 : dstOffset[2] + dstExtent[2] }
+    .srcOffsets[0] = { srcOffset[0], srcOffset[1], src->layered ? 0 : srcOffset[2] },
+    .dstOffsets[0] = { dstOffset[0], dstOffset[1], dst->layered ? 0 : dstOffset[2] },
+    .srcOffsets[1] = { srcOffset[0] + srcExtent[0], srcOffset[1] + srcExtent[1], src->layered ? 1 : srcOffset[2] + srcExtent[2] },
+    .dstOffsets[1] = { dstOffset[0] + dstExtent[0], dstOffset[1] + dstExtent[1], dst->layered ? 1 : dstOffset[2] + dstExtent[2] }
   };
 
   static const VkFilter filters[] = {
@@ -1545,15 +1562,88 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t s
     [GPU_FILTER_LINEAR] = VK_FILTER_LINEAR
   };
 
-  vkCmdBlitImage(stream->commands, src->handle, src->layout, dst->handle, dst->layout, 1, &region, filters[filter]);
+  vkCmdBlitImage(stream->commands, src->handle, src->copyLayout, dst->handle, dst->copyLayout, 1, &region, filters[filter]);
 }
 
-void gpu_mipgen(gpu_stream* stream, gpu_texture* texture) {
-  // TODO
+void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, uint16_t firstLayer, uint16_t extent[4]) {
+  uint32_t w = extent[0];
+  uint32_t h = extent[1];
+  uint32_t layerCount = extent[2];
+  uint32_t levelCount = extent[3];
+  VkImage image = texture->handle;
+  VkImageLayout layout = VK_IMAGE_LAYOUT_GENERAL;
+  for (uint32_t i = 0, level = firstLevel; i < levelCount; i++, level++) {
+    VkImageMemoryBarrier barrier = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+      .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+      .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+      .image = image,
+      .subresourceRange = {
+        .aspectMask = texture->aspect,
+        .baseMipLevel = level,
+        .levelCount = 1,
+        .baseArrayLayer = firstLayer,
+        .layerCount = layerCount
+      }
+    };
+    VkPipelineStageFlags src = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    VkPipelineStageFlags dst = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    if (i > 0) vkCmdPipelineBarrier(stream->commands, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
+
+    VkImageBlit region = {
+      .srcSubresource = {
+        .aspectMask = texture->aspect,
+        .mipLevel = level - 1,
+        .baseArrayLayer = firstLayer,
+        .layerCount = layerCount
+      },
+      .dstSubresource = {
+        .aspectMask = texture->aspect,
+        .mipLevel = level,
+        .baseArrayLayer = firstLayer,
+        .layerCount = layerCount
+      },
+      .srcOffsets[0] = { 0, 0, 0 },
+      .dstOffsets[0] = { 0, 0, 0 },
+      .srcOffsets[1] = { MAX(w >> (level - 1), 1), MAX(h >> (level - 1), 1), 0 },
+      .dstOffsets[1] = { MAX(w >> level, 1), MAX(h >> level, 1), 0 }
+    };
+    vkCmdBlitImage(stream->commands, image, layout, image, layout, 1, &region, VK_FILTER_LINEAR);
+  }
 }
 
-void gpu_sync(gpu_stream* stream) {
-  //
+void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* textures, uint32_t bufferCount, uint32_t textureCount) {
+  VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+  VkPipelineStageFlags src = 0;
+  VkPipelineStageFlags dst = 0;
+
+  for (uint32_t i = 0; i < bufferCount; i++) {
+    gpu_buffer* buffer = buffers[i].buffer;
+    //
+  }
+
+  uint32_t barrierCount = 1;
+  uint32_t imageBarrierCount = 0;
+  VkImageMemoryBarriers imageBarriers[64];
+  while (textureCount > 0) {
+    uint32_t chunk = MIN(textureCount, COUNTOF(imageBarriers));
+    for (uint32_t i = 0; i < chunk; i++, textureCount--) {
+      //
+    }
+
+    if (src && dst) {
+      vkCmdPipelineBarrier(stream->commands, src, dst, 0, barrierCount, &barrier, 0, NULL, chunk, imageBarriers);
+      barrierCount = 0;
+      src = 0;
+      dst = 0;
+    }
+  }
+
+  if (src && dst) {
+    vkCmdPipelineBarrier(stream->commands, src, dst, 0, barrierCount, &barrier, 0, NULL, chunk, imageBarriers);
+  }
 }
 
 void gpu_label_push(gpu_stream* stream, const char* label) {
@@ -2030,7 +2120,7 @@ uint32_t gpu_begin() {
 void gpu_submit(gpu_stream** streams, uint32_t count) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
 
-  VkCommandBuffer commands[32];
+  VkCommandBuffer commands[COUNTOF(tick->streams)];
   for (uint32_t i = 0; i < count; i++) {
     commands[i] = streams[i]->commands;
   }
