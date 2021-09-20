@@ -481,6 +481,18 @@ typedef enum {
 } gpu_index_type;
 
 typedef struct {
+  gpu_buffer* buffer;
+  uint32_t usage;
+  uint32_t stage;
+} gpu_buffer_sync;
+
+typedef struct {
+  gpu_texture* texture;
+  uint32_t usage;
+  uint32_t stage;
+} gpu_texture_sync;
+
+typedef struct {
   gpu_texture* texture;
   gpu_texture* resolve;
   float clear[4];
@@ -525,8 +537,8 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, uint32_t value);
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]);
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], gpu_filter filter);
-void gpu_mipgen(gpu_stream* stream, gpu_texture* texture);
-void gpu_sync(gpu_stream* stream);
+void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, uint16_t firstLayer, uint16_t extent[4]);
+void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* textures, uint32_t bufferCount, uint32_t textureCount);
 void gpu_label_push(gpu_stream* stream, const char* label);
 void gpu_label_pop(gpu_stream* stream);
 void gpu_timer_write(gpu_stream* stream);
