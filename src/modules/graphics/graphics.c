@@ -1329,27 +1329,41 @@ void lovrGraphicsSetScissor(uint32_t scissor[4]) {
   gpu_set_scissor(state.pass->stream, scissor);
 }
 
-void lovrGraphicsPush(StackType type) {
-  if (type == STACK_TRANSFORM) {
-    state.matrix = state.matrixStack[++state.matrixIndex];
-    lovrCheck(state.matrixIndex < COUNTOF(state.matrixStack), "Transform stack overflow (more pushes than pops?)");
-    mat4_init(state.matrix, state.matrixStack[state.matrixIndex - 1]);
-  } else {
-    state.pipeline = &state.pipelineStack[++state.pipelineIndex];
-    lovrCheck(state.pipelineIndex < COUNTOF(state.pipelineStack), "Pipeline stack overflow (more pushes than pops?)");
-    memcpy(state.pipeline, &state.pipelineStack[state.pipelineIndex - 1], sizeof(Pipeline));
-    lovrRetain(state.pipeline->shader);
+void lovrGraphicsPush(StackType type, const char* label) {
+  switch (type) {
+    case STACK_TRANSFORM:
+      state.matrix = state.matrixStack[++state.matrixIndex];
+      lovrCheck(state.matrixIndex < COUNTOF(state.matrixStack), "Transform stack overflow (more pushes than pops?)");
+      mat4_init(state.matrix, state.matrixStack[state.matrixIndex - 1]);
+      break;
+    case STACK_PIPELINE:
+      state.pipeline = &state.pipelineStack[++state.pipelineIndex];
+      lovrCheck(state.pipelineIndex < COUNTOF(state.pipelineStack), "Pipeline stack overflow (more pushes than pops?)");
+      memcpy(state.pipeline, &state.pipelineStack[state.pipelineIndex - 1], sizeof(Pipeline));
+      lovrRetain(state.pipeline->shader);
+      break;
+    case STACK_LABEL:
+      lovrCheck(state.pass, "A pass must be active to push labels");
+      gpu_label_push(state.pass->stream, label);
+    default: break;
   }
 }
 
 void lovrGraphicsPop(StackType type) {
-  if (type == STACK_TRANSFORM) {
-    state.matrix = state.matrixStack[--state.matrixIndex];
-    lovrCheck(state.matrixIndex < COUNTOF(state.matrixStack), "Transform stack underflow (more pops than pushes?)");
-  } else {
-    lovrRelease(state.pipeline->shader, lovrShaderDestroy);
-    state.pipeline = &state.pipelineStack[--state.pipelineIndex];
-    lovrCheck(state.pipelineIndex < COUNTOF(state.pipelineStack), "Pipeline stack underflow (more pops than pushes?)");
+  switch (type) {
+    case STACK_TRANSFORM:
+      state.matrix = state.matrixStack[--state.matrixIndex];
+      lovrCheck(state.matrixIndex < COUNTOF(state.matrixStack), "Transform stack underflow (more pops than pushes?)");
+      break;
+    case STACK_PIPELINE:
+      lovrRelease(state.pipeline->shader, lovrShaderDestroy);
+      state.pipeline = &state.pipelineStack[--state.pipelineIndex];
+      lovrCheck(state.pipelineIndex < COUNTOF(state.pipelineStack), "Pipeline stack underflow (more pops than pushes?)");
+      break;
+    case STACK_LABEL:
+      lovrCheck(state.pass, "A pass must be active to pop labels");
+      gpu_label_pop(state.pass->stream);
+    default: break;
   }
 }
 

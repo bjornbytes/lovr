@@ -158,6 +158,7 @@ StringEntry lovrSortMode[] = {
 StringEntry lovrStackType[] = {
   [STACK_TRANSFORM] = ENTRY("transform"),
   [STACK_PIPELINE] = ENTRY("pipeline"),
+  [STACK_LABEL] = ENTRY("label"),
   { 0 }
 };
 
@@ -788,7 +789,8 @@ static int l_lovrGraphicsSetScissor(lua_State* L) {
 
 static int l_lovrGraphicsPush(lua_State* L) {
   StackType type = luax_checkenum(L, 1, StackType, "transform");
-  lovrGraphicsPush(type);
+  const char* label = lua_tostring(L, 2);
+  lovrGraphicsPush(type, label);
   return 0;
 }
 
