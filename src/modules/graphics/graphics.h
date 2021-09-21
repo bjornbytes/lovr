@@ -120,7 +120,8 @@ typedef struct {
 
 typedef enum {
   STACK_TRANSFORM,
-  STACK_PIPELINE
+  STACK_PIPELINE,
+  STACK_LABEL
 } StackType;
 
 typedef enum {
@@ -250,7 +251,7 @@ void lovrGraphicsSetProjection(uint32_t index, float* projection);
 void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]);
 void lovrGraphicsSetScissor(uint32_t scissor[4]);
 
-void lovrGraphicsPush(StackType type);
+void lovrGraphicsPush(StackType type, const char* label);
 void lovrGraphicsPop(StackType type);
 void lovrGraphicsOrigin(void);
 void lovrGraphicsTranslate(float* translation);
