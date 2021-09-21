@@ -991,18 +991,33 @@ static int l_lovrGraphicsMesh(lua_State* L) {
   if (indices) index++;
   float transform[16];
   index = luax_readmat4(L, index, transform, 1);
-  uint32_t start = luaL_optinteger(L, index++, 1) - 1;
-  uint32_t limit = lovrBufferGetInfo(indices ? indices : vertices)->length;
-  uint32_t count = luaL_optinteger(L, index++, limit);
-  uint32_t instances = luaL_optinteger(L, index++, 1);
-  uint32_t id = lovrGraphicsDraw(&(DrawInfo) {
-    .mode = mode,
-    .vertex.buffer = vertices,
-    .index.buffer = indices,
-    .start = start,
-    .count = count,
-    .instances = instances
-  }, transform);
+  Buffer* indirect = luax_totype(L, index, Buffer);
+  uint32_t id;
+  if (indirect) {
+    uint32_t count = luaL_optinteger(L, ++index, 1);
+    uint32_t offset = luaL_optinteger(L, ++index, 0);
+    id = lovrGraphicsDraw(&(DrawInfo) {
+      .mode = mode,
+      .vertex.buffer = vertices,
+      .index.buffer = indices,
+      .count = count,
+      .indirect = indirect,
+      .offset = offset
+    }, transform);
+  } else {
+    uint32_t start = luaL_optinteger(L, index++, 1) - 1;
+    uint32_t limit = lovrBufferGetInfo(indices ? indices : vertices)->length;
+    uint32_t count = luaL_optinteger(L, index++, limit);
+    uint32_t instances = luaL_optinteger(L, index++, 1);
+    id = lovrGraphicsDraw(&(DrawInfo) {
+      .mode = mode,
+      .vertex.buffer = vertices,
+      .index.buffer = indices,
+      .start = start,
+      .count = count,
+      .instances = instances
+    }, transform);
+  }
   lua_pushinteger(L, id);
   return 1;
 }

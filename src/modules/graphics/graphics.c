@@ -1900,6 +1900,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
 
   if (batch) {
     lovrCheck(batch->drawCount < batch->info.capacity, "Batch is out of draws, try creating it with a higher capacity");
+    lovrCheck(!info->indirect, "Indirect draws can not be recorded to a Batch");
 
     uint32_t id = batch->drawCount++;
     batch->activeDraws[batch->activeDrawCount++] = id;
@@ -1972,10 +1973,22 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
       state.boundIndexType = indexType;
     }
 
-    if (hasIndices) {
-      gpu_draw_indexed(state.pass->stream, count, instances, start, baseVertex, baseInstance);
+    if (info->indirect) {
+      lovrCheck(info->indirect->info.usage & BUFFER_INDIRECT, "Buffer must be created with the 'indirect' usage to use it for indirect rendering");
+      lovrCheck(info->offset % 4 == 0, "Indirect render offset must be a multiple of 4");
+      if (hasIndices) {
+        lovrCheck(info->offset + 20 <= info->indirect->size, "Indirect render offset overflows the Buffer");
+        gpu_draw_indirect_indexed(state.pass->stream, info->indirect->mega.gpu, info->offset, info->count);
+      } else {
+        lovrCheck(info->offset + 16 <= info->indirect->size, "Indirect render offset overflows the Buffer");
+        gpu_draw_indirect(state.pass->stream, info->indirect->mega.gpu, info->offset, info->count);
+      }
     } else {
-      gpu_draw(state.pass->stream, count, instances, start, baseInstance);
+      if (hasIndices) {
+        gpu_draw_indexed(state.pass->stream, count, instances, start, baseVertex, baseInstance);
+      } else {
+        gpu_draw(state.pass->stream, count, instances, start, baseInstance);
+      }
     }
 
     return state.drawCursor++;
@@ -2263,7 +2276,7 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
   }
 
   if (buffer) {
-    lovrCheck(buffer->info.usage & BUFFER_INDIRECT, "A Buffer must be created with the 'indirect' usage to use it for indirect compute");
+    lovrCheck(buffer->info.usage & BUFFER_INDIRECT, "Buffer must be created with the 'indirect' usage to use it for indirect compute");
     lovrCheck(offset % 4 == 0, "Indirect compute offset must be a multiple of 4");
     lovrCheck(offset + 12 <= buffer->size, "Indirect compute offset overflows the Buffer");
     gpu_compute_indirect(state.pass->stream, buffer->mega.gpu, buffer->mega.offset + offset);
