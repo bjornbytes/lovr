@@ -1615,12 +1615,13 @@ void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, u
 }
 
 void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* textures, uint32_t bufferCount, uint32_t textureCount) {
-  VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+  VkMemoryBarrier bufferBarrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
   VkPipelineStageFlags srcStage = 0;
   VkPipelineStageFlags dstStage = 0;
 
   for (uint32_t i = 0; i < bufferCount; i++) {
     gpu_buffer* buffer = buffers[i].buffer;
+    // TODO add ability to distinguish between read/write/readwrite for storage buffers, instead of using stage
     uint32_t writeMask = GPU_BUFFER_COPY_DST | ((buffers[i].stage & GPU_STAGE_COMPUTE) ? GPU_BUFFER_STORAGE : 0);
     uint32_t read = buffers[i].usage & ~writeMask;
     uint32_t write = buffers[i].usage & writeMask;
@@ -1673,9 +1674,9 @@ void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* te
     }
 
     // A write-after-write hazard exists if a write is followed by another write without any
-    // intermediate reads.  This requires a full memory/execution dependency, and also updates the
-    // writer.  If there were intermediate reads, they must have already flushed the write cache, so
-    // only an execution dependency is necessary, which is handled below.
+    // intermediate reads.  This requires a full memory/execution dependency.  If there were
+    // intermediate reads, they must have already flushed the write cache, so only an execution
+    // dependency is necessary, which is handled below.
     if (write && afterWrite && !afterRead) {
       if (buffer->write == GPU_BUFFER_STORAGE) {
         srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -1696,15 +1697,14 @@ void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* te
       }
 
       buffer->reads = 0;
-      buffer->write = write;
     }
 
     // For write-after-read, only an execution dependency is needed.  The read just needs to finish
     // before starting the write.  No memory dependency is needed because the read doesn't write to
     // any caches.  Also, even if there is a writer, no synchronization with it is needed, because
     // the resuts of the past write are already visible and avialable.  An execution dependency is
-    // all that is needed to ensure that this is also the case for the new wrte.  The writer is
-    // updated to the new write and existing readers are cleared.
+    // all that is needed to ensure that this is also the case for the new wrte.  Existing readers
+    // are cleared so future readers synchronize with this write.
     if (write && afterRead) {
       if (write & GPU_BUFFER_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
       if (write & GPU_BUFFER_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -1718,11 +1718,14 @@ void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* te
       if (buffer->reads & GPU_BUFFER_COPY_SRC) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 
       buffer->reads = 0;
+    }
+
+    if (write) {
       buffer->write = write;
     }
 
-    barrier.srcAccessMask |= srcCache;
-    barrier.dstAccessMask |= dstCache;
+    bufferBarrier.srcAccessMask |= srcCache;
+    bufferBarrier.dstAccessMask |= dstCache;
   }
 
   // Do image barriers in chunks
@@ -1732,15 +1735,21 @@ void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* te
     uint32_t chunk = MIN(textureCount, COUNTOF(imageBarriers));
 
     for (uint32_t i = 0; i < chunk; i++, textureCount--) {
+      VkImageMemoryBarrier* barrier = &imageBarriers[i];
+
       //
     }
 
     if (srcStage && dstStage) {
-      vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, barrierCount, &barrier, 0, NULL, chunk, imageBarriers);
+      vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, barrierCount, &bufferBarrier, 0, NULL, chunk, imageBarriers);
       barrierCount = 0;
       srcStage = 0;
       dstStage = 0;
     }
+  }
+
+  if (srcStage && dstStage) {
+    vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, 1, &bufferBarrier, 0, NULL, 0, NULL);
   }
 }
 
