@@ -211,6 +211,8 @@ typedef struct {
   uint32_t count;
   uint32_t instances;
   uint32_t base;
+  Buffer* indirect;
+  uint32_t offset;
 } DrawInfo;
 
 typedef enum {
