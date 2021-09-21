@@ -1274,10 +1274,6 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
       default: return luaL_error(L, "Expected Buffer usage to be a string, table, or nil");
     }
     lua_pop(L, 1);
-
-    lua_getfield(L, 3, "label");
-    info.label = lua_tostring(L, -1);
-    lua_pop(L, 1);
   }
 
   // Format
