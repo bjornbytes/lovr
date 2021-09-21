@@ -361,7 +361,6 @@ typedef struct {
   uint32_t offsets[16];
   FieldType types[16];
   uintptr_t handle;
-  const char* label;
 } BufferInfo;
 
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info);
