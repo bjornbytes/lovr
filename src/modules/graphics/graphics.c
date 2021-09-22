@@ -638,8 +638,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   // The abyss contains 0.f x 32 followed by 1.f x 32, used for fallback attribute/resource data
   state.abyss = lovrBufferCreate(&(BufferInfo) {
     .length = 256,
-    .usage = BUFFER_VERTEX | BUFFER_UNIFORM | BUFFER_STORAGE,
-    .label = "abyss"
+    .usage = BUFFER_VERTEX | BUFFER_UNIFORM | BUFFER_STORAGE
   });
 
   Megaview abyss = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256, 4);
@@ -761,8 +760,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     .fieldCount = 3,
     .locations = { 0, 1, 2 },
     .offsets = { offsetof(Vertex, position), offsetof(Vertex, normal), offsetof(Vertex, uv) },
-    .types = { FIELD_F32x3, FIELD_U10Nx3, FIELD_U16Nx2 },
-    .label = "shapes"
+    .types = { FIELD_F32x3, FIELD_U10Nx3, FIELD_U16Nx2 }
   });
   lovrCheck(state.shapes->hash == state.formatHash[VERTEX_STANDARD], "Unreachable");
 
@@ -1783,7 +1781,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
       start = info->start + vertexBuffer.offset / buffer->info.stride;
       count = info->count;
 
-      if (!buffer->transient) {
+      if (!buffer->transient && buffer != state.shapes) {
         BufferSync sync = { buffer, BUFFER_VERTEX, 0 };
         arr_buffersync_t* buffers = state.batch ? &state.batch->buffers : &state.pass->buffers;
         arr_push(buffers, sync);
@@ -2257,7 +2255,7 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
   }
 
   if (state.bindingsDirty && shader->resourceCount > 0) {
-    gpu_binding* bindings = talloc(shader->resourceCount * sizeof(gpu_binding));
+    gpu_binding bindings[32];
 
     for (uint32_t i = 0; i < shader->resourceCount; i++) {
       bindings[i] = state.bindings[shader->resourceSlots[i]];

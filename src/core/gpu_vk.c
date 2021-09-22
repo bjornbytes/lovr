@@ -23,8 +23,9 @@ struct gpu_texture {
   VkImageView view;
   VkFormat format;
   VkImageAspectFlagBits aspect;
-  VkImageLayout readLayout;
   VkImageLayout copyLayout;
+  VkImageLayout readLayout;
+  VkImageLayout layout;
   uint32_t reads;
   uint32_t write;
   bool layered;
@@ -1614,8 +1615,9 @@ void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, u
   }
 }
 
+// This is why automatic synchronization is bad
 void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* textures, uint32_t bufferCount, uint32_t textureCount) {
-  VkMemoryBarrier bufferBarrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+  VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
   VkPipelineStageFlags srcStage = 0;
   VkPipelineStageFlags dstStage = 0;
 
@@ -1635,7 +1637,7 @@ void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* te
     // after the write is finished. However, if all of the new readers are already tracked, this
     // means a barrier was already issued earlier for the incoming actions, so nothing needs to be
     // done. The existing writer is kept so future reads can synchronize against it.
-    if (read && afterWrite && !newReads) {
+    if (read && afterWrite && newReads) {
       if (buffer->write == GPU_BUFFER_STORAGE) {
         srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
         srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
@@ -1724,32 +1726,169 @@ void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* te
       buffer->write = write;
     }
 
-    bufferBarrier.srcAccessMask |= srcCache;
-    bufferBarrier.dstAccessMask |= dstCache;
+    barrier.srcAccessMask |= srcCache;
+    barrier.dstAccessMask |= dstCache;
   }
 
-  // Do image barriers in chunks
-  uint32_t barrierCount = 1;
-  VkImageMemoryBarrier imageBarriers[64];
-  while (textureCount > 0) {
-    uint32_t chunk = MIN(textureCount, COUNTOF(imageBarriers));
+  uint32_t transitionCount = 0;
+  VkImageMemoryBarrier transitions[64];
+  for (uint32_t i = 0; i < textureCount; i++) {
+    gpu_texture* texture = textures[i].texture;
+    uint32_t usage = textures[i].usage;
+    uint32_t writeMask = GPU_TEXTURE_COPY_DST | GPU_TEXTURE_RENDER | ((textures[i].stage & GPU_STAGE_COMPUTE) ? GPU_TEXTURE_STORAGE : 0);
+    uint32_t read = usage & ~writeMask;
+    uint32_t write = usage & writeMask;
+    uint32_t afterRead = texture->reads;
+    uint32_t afterWrite = texture->write;
+    uint32_t newReads = read & ~texture->reads;
+    VkAccessFlags srcCache = 0, dstCache = 0;
 
-    for (uint32_t i = 0; i < chunk; i++, textureCount--) {
-      VkImageMemoryBarrier* barrier = &imageBarriers[i];
+    // Read after write
+    if (read && afterWrite && newReads) {
+      if (texture->write == GPU_TEXTURE_STORAGE) {
+        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
+      } else if (texture->write == GPU_TEXTURE_COPY_DST) {
+        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        srcCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      } else if (texture->write == GPU_TEXTURE_RENDER) {
+        if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
+          srcStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+          srcCache |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        } else {
+          srcStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+          srcStage |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+          srcCache |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        }
+      }
 
-      //
+      if (newReads & (GPU_TEXTURE_SAMPLE | GPU_TEXTURE_STORAGE)) {
+        if (textures[i].stage & GPU_STAGE_VERTEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+        if (textures[i].stage & GPU_STAGE_FRAGMENT) dstStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dstCache |= VK_ACCESS_SHADER_READ_BIT;
+      }
+
+      if (newReads & GPU_TEXTURE_COPY_SRC) {
+        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dstCache |= VK_ACCESS_TRANSFER_READ_BIT;
+      }
+
+      texture->reads |= newReads;
     }
 
-    if (srcStage && dstStage) {
-      vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, barrierCount, &bufferBarrier, 0, NULL, chunk, imageBarriers);
-      barrierCount = 0;
-      srcStage = 0;
-      dstStage = 0;
+    // Write after write
+    if (write && afterWrite && !afterRead) {
+      if (texture->write == GPU_TEXTURE_STORAGE) {
+        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
+      } else if (texture->write == GPU_TEXTURE_COPY_DST) {
+        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        srcCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      } else if (texture->write == GPU_TEXTURE_RENDER) {
+        if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
+          srcStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+          srcCache |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        } else {
+          srcStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+          srcStage |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+          srcCache |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        }
+      }
+
+      if (write & GPU_TEXTURE_STORAGE) {
+        dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        dstCache |= VK_ACCESS_SHADER_WRITE_BIT;
+      }
+
+      if (write & GPU_TEXTURE_COPY_DST) {
+        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dstCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
+      }
+
+      if (write & GPU_TEXTURE_RENDER) {
+        if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
+          dstStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+          dstCache |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+        } else {
+          dstStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+          dstStage |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+          dstCache |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        }
+      }
+
+      texture->reads = 0;
+    }
+
+    // Write after read
+    if (write && afterRead) {
+      if (write & GPU_TEXTURE_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      if (write & GPU_TEXTURE_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+      if (texture->reads & (GPU_TEXTURE_SAMPLE | GPU_TEXTURE_STORAGE)) {
+        srcStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; // TODO track stages
+      }
+
+      if (texture->reads & GPU_TEXTURE_COPY_SRC) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+      texture->reads = 0;
+    }
+
+    if (write) {
+      texture->write = write;
+    }
+
+    // Layout transition
+    VkImageLayout newLayout;
+    if (usage & (GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST)) {
+      newLayout = texture->copyLayout;
+    } else if (usage & GPU_TEXTURE_RENDER) {
+      // TODO skip transitions if the attachment is known to transition from the undefined layout
+      // as part of its renderpass description (they have to tell us this).  regular barrier would
+      // still be needed
+      if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
+        newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      } else {
+        newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+      }
+    } else if (usage & GPU_TEXTURE_STORAGE) {
+      newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    } else if (usage & GPU_TEXTURE_SAMPLE) {
+      newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    } else {
+      newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+
+    if (texture->layout != newLayout) {
+      if (transitionCount >= COUNTOF(transitions)) {
+        vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, 1, &barrier, 0, NULL, transitionCount, transitions);
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = 0;
+        transitionCount = 0;
+        srcStage = 0;
+        dstStage = 0;
+      }
+
+      VkImageMemoryBarrier* transition = &transitions[transitionCount++];
+      transition->sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+      transition->srcAccessMask = srcCache;
+      transition->dstAccessMask = dstCache;
+      transition->oldLayout = texture->layout;
+      transition->newLayout = newLayout;
+      transition->image = texture->handle;
+      transition->subresourceRange.aspectMask = texture->aspect;
+      transition->subresourceRange.baseMipLevel = 0;
+      transition->subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+      transition->subresourceRange.baseArrayLayer = 0;
+      transition->subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+      texture->layout = newLayout;
+    } else {
+      barrier.srcAccessMask |= srcCache;
+      barrier.dstAccessMask |= dstCache;
     }
   }
 
-  if (srcStage && dstStage) {
-    vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, 1, &bufferBarrier, 0, NULL, 0, NULL);
+  if ((srcStage && dstStage) || transitionCount > 0) {
+    vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, 1, &barrier, 0, NULL, transitionCount, transitions);
   }
 }
 
