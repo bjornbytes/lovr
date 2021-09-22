@@ -23,9 +23,6 @@ struct gpu_texture {
   VkImageView view;
   VkFormat format;
   VkImageAspectFlagBits aspect;
-  VkImageLayout copyLayout;
-  VkImageLayout readLayout;
-  VkImageLayout layout;
   uint32_t reads;
   uint32_t write;
   bool layered;
@@ -468,19 +465,23 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  uint32_t both = GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST;
-  if ((info->usage & both) == both) {
-    texture->copyLayout = VK_IMAGE_LAYOUT_GENERAL;
-  } else if (info->usage & GPU_TEXTURE_COPY_DST) {
-    texture->copyLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-  } else {
-    texture->copyLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-  }
-
-  if (info->usage & GPU_TEXTURE_STORAGE) {
-    texture->readLayout = VK_IMAGE_LAYOUT_GENERAL;
-  } else if (info->usage & GPU_TEXTURE_SAMPLE) {
-    texture->readLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  if (info->stream) {
+    VkImageMemoryBarrier transition = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .srcAccessMask = 0,
+      .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+      .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+      .image = texture->handle,
+      .subresourceRange.aspectMask = texture->aspect,
+      .subresourceRange.baseMipLevel = 0,
+      .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+      .subresourceRange.baseArrayLayer = 0,
+      .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+    };
+    VkPipelineStageFlags src = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkPipelineStageFlags dst = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    vkCmdPipelineBarrier(info->stream->commands, src, dst, 0, 0, NULL, 0, NULL, 1, &transition);
   }
 
   return true;
@@ -817,7 +818,7 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
             textures[textureCount++] = (VkDescriptorImageInfo) {
               .sampler = binding->texture.sampler->handle,
               .imageView = binding->texture.object->view,
-              .imageLayout = binding->texture.object->readLayout
+              .imageLayout = VK_IMAGE_LAYOUT_GENERAL
             };
           }
         } else {
@@ -859,14 +860,14 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
 
   for (uint32_t i = 0; i < info->count; i++) {
     references[i].attachment = i;
-    references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    references[i].layout = VK_IMAGE_LAYOUT_GENERAL;
     attachments[i] = (VkAttachmentDescription) {
       .format = info->color[i].format == ~0u ? state.backbuffers[0].format : convertFormat(info->color[i].format, info->color[i].srgb),
       .samples = info->samples,
       .loadOp = loadOps[info->color[i].load],
       .storeOp = info->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->color[i].save],
-      .initialLayout = info->color[i].load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-      .finalLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+      .initialLayout = info->color[i].load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED,
+      .finalLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_GENERAL
     };
   }
 
@@ -889,7 +890,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   if (info->depth.format) { // You'll never catch me!
     uint32_t index = info->count << info->resolve;
     references[index].attachment = index;
-    references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    references[index].layout = VK_IMAGE_LAYOUT_GENERAL;
     attachments[index] = (VkAttachmentDescription) {
       .format = convertFormat(info->depth.format, LINEAR),
       .samples = info->samples,
@@ -897,8 +898,8 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       .storeOp = storeOps[info->depth.save],
       .stencilLoadOp = loadOps[info->depth.stencilLoad],
       .stencilStoreOp = storeOps[info->depth.stencilSave],
-      .initialLayout = info->depth.load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-      .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+      .initialLayout = info->depth.load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED,
+      .finalLayout = VK_IMAGE_LAYOUT_GENERAL
     };
   }
 
@@ -1473,7 +1474,7 @@ void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint
 }
 
 void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]) {
-  vkCmdCopyImage(stream->commands, src->handle, src->copyLayout, dst->handle, dst->copyLayout, 1, &(VkImageCopy) {
+  vkCmdCopyImage(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, VK_IMAGE_LAYOUT_GENERAL, 1, &(VkImageCopy) {
     .srcSubresource = {
       .aspectMask = src->aspect,
       .mipLevel = srcOffset[3],
@@ -1503,7 +1504,7 @@ void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* d
     .imageExtent = { extent[0], extent[1], dst->layered ? 1 : extent[2] }
   };
 
-  vkCmdCopyBufferToImage(stream->commands, src->handle, dst->handle, dst->copyLayout, 1, &region);
+  vkCmdCopyBufferToImage(stream->commands, src->handle, dst->handle, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
 }
 
 void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint16_t srcOffset[4], uint32_t dstOffset, uint16_t extent[3]) {
@@ -1517,7 +1518,7 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
     .imageExtent = { extent[0], extent[1], src->layered ? 1 : extent[2] }
   };
 
-  vkCmdCopyImageToBuffer(stream->commands, src->handle, src->copyLayout, dst->handle, 1, &region);
+  vkCmdCopyImageToBuffer(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, 1, &region);
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, uint32_t value) {
@@ -1535,7 +1536,7 @@ void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, uint16_t layer,
     .layerCount = layerCount
   };
 
-  vkCmdClearColorImage(stream->commands, texture->handle, texture->copyLayout, &clear, 1, &range);
+  vkCmdClearColorImage(stream->commands, texture->handle, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &range);
 }
 
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], gpu_filter filter) {
@@ -1563,7 +1564,7 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t s
     [GPU_FILTER_LINEAR] = VK_FILTER_LINEAR
   };
 
-  vkCmdBlitImage(stream->commands, src->handle, src->copyLayout, dst->handle, dst->copyLayout, 1, &region, filters[filter]);
+  vkCmdBlitImage(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, VK_IMAGE_LAYOUT_GENERAL, 1, &region, filters[filter]);
 }
 
 void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, uint16_t firstLayer, uint16_t extent[4]) {
@@ -1615,281 +1616,16 @@ void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, u
   }
 }
 
-// This is why automatic synchronization is bad
+// Full sync for now
 void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* textures, uint32_t bufferCount, uint32_t textureCount) {
-  VkMemoryBarrier barrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-  VkPipelineStageFlags srcStage = 0;
-  VkPipelineStageFlags dstStage = 0;
-
-  for (uint32_t i = 0; i < bufferCount; i++) {
-    gpu_buffer* buffer = buffers[i].buffer;
-    // TODO add ability to distinguish between read/write/readwrite for storage buffers, instead of using stage
-    uint32_t writeMask = GPU_BUFFER_COPY_DST | ((buffers[i].stage & GPU_STAGE_COMPUTE) ? GPU_BUFFER_STORAGE : 0);
-    uint32_t read = buffers[i].usage & ~writeMask;
-    uint32_t write = buffers[i].usage & writeMask;
-    uint32_t afterRead = buffer->reads;
-    uint32_t afterWrite = buffer->write;
-    uint32_t newReads = read & ~buffer->reads;
-    VkAccessFlags srcCache = 0, dstCache = 0;
-
-    // For read-after-write hazards, a memory dependency is needed to flush the write cache and
-    // invalidate the read cache.  An execution dependency is also needed to ensure the read starts
-    // after the write is finished. However, if all of the new readers are already tracked, this
-    // means a barrier was already issued earlier for the incoming actions, so nothing needs to be
-    // done. The existing writer is kept so future reads can synchronize against it.
-    if (read && afterWrite && newReads) {
-      if (buffer->write == GPU_BUFFER_STORAGE) {
-        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
-      } else if (buffer->write == GPU_BUFFER_COPY_DST) {
-        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        srcCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_INDIRECT) {
-        dstStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
-        dstCache |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_VERTEX) {
-        dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-        dstCache |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_INDEX) {
-        dstStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-        dstCache |= VK_ACCESS_INDEX_READ_BIT;
-      }
-
-      if (newReads & (GPU_BUFFER_UNIFORM | GPU_BUFFER_STORAGE)) {
-        if (buffers[i].stage & GPU_STAGE_VERTEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-        if (buffers[i].stage & GPU_STAGE_FRAGMENT) dstStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dstCache |= VK_ACCESS_SHADER_READ_BIT;
-      }
-
-      if (newReads & GPU_BUFFER_COPY_SRC) {
-        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        dstCache |= VK_ACCESS_TRANSFER_READ_BIT;
-      }
-
-      buffer->reads |= newReads;
-    }
-
-    // A write-after-write hazard exists if a write is followed by another write without any
-    // intermediate reads.  This requires a full memory/execution dependency.  If there were
-    // intermediate reads, they must have already flushed the write cache, so only an execution
-    // dependency is necessary, which is handled below.
-    if (write && afterWrite && !afterRead) {
-      if (buffer->write == GPU_BUFFER_STORAGE) {
-        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
-      } else if (buffer->write == GPU_BUFFER_COPY_DST) {
-        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        srcCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      }
-
-      if (write & GPU_BUFFER_STORAGE) {
-        dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        dstCache |= VK_ACCESS_SHADER_WRITE_BIT;
-      }
-
-      if (write & GPU_BUFFER_COPY_DST) {
-        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        dstCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      }
-
-      buffer->reads = 0;
-    }
-
-    // For write-after-read, only an execution dependency is needed.  The read just needs to finish
-    // before starting the write.  No memory dependency is needed because the read doesn't write to
-    // any caches.  Also, even if there is a writer, no synchronization with it is needed, because
-    // the resuts of the past write are already visible and avialable.  An execution dependency is
-    // all that is needed to ensure that this is also the case for the new wrte.  Existing readers
-    // are cleared so future readers synchronize with this write.
-    if (write && afterRead) {
-      if (write & GPU_BUFFER_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (write & GPU_BUFFER_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-      if (buffer->reads & GPU_BUFFER_INDIRECT) srcStage |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
-
-      // TODO maybe the fragment shader stages could be more granular if buffer tracks its stages
-      if (buffer->reads & (GPU_BUFFER_UNIFORM | GPU_BUFFER_STORAGE)) srcStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-      else if (buffer->reads & (GPU_BUFFER_VERTEX | GPU_BUFFER_INDEX)) srcStage |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-
-      if (buffer->reads & GPU_BUFFER_COPY_SRC) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-      buffer->reads = 0;
-    }
-
-    if (write) {
-      buffer->write = write;
-    }
-
-    barrier.srcAccessMask |= srcCache;
-    barrier.dstAccessMask |= dstCache;
-  }
-
-  uint32_t transitionCount = 0;
-  VkImageMemoryBarrier transitions[64];
-  for (uint32_t i = 0; i < textureCount; i++) {
-    gpu_texture* texture = textures[i].texture;
-    uint32_t usage = textures[i].usage;
-    uint32_t writeMask = GPU_TEXTURE_COPY_DST | GPU_TEXTURE_RENDER | ((textures[i].stage & GPU_STAGE_COMPUTE) ? GPU_TEXTURE_STORAGE : 0);
-    uint32_t read = usage & ~writeMask;
-    uint32_t write = usage & writeMask;
-    uint32_t afterRead = texture->reads;
-    uint32_t afterWrite = texture->write;
-    uint32_t newReads = read & ~texture->reads;
-    VkAccessFlags srcCache = 0, dstCache = 0;
-
-    // Read after write
-    if (read && afterWrite && newReads) {
-      if (texture->write == GPU_TEXTURE_STORAGE) {
-        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
-      } else if (texture->write == GPU_TEXTURE_COPY_DST) {
-        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        srcCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      } else if (texture->write == GPU_TEXTURE_RENDER) {
-        if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
-          srcStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-          srcCache |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        } else {
-          srcStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-          srcStage |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-          srcCache |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        }
-      }
-
-      if (newReads & (GPU_TEXTURE_SAMPLE | GPU_TEXTURE_STORAGE)) {
-        if (textures[i].stage & GPU_STAGE_VERTEX) dstStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-        if (textures[i].stage & GPU_STAGE_FRAGMENT) dstStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dstCache |= VK_ACCESS_SHADER_READ_BIT;
-      }
-
-      if (newReads & GPU_TEXTURE_COPY_SRC) {
-        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        dstCache |= VK_ACCESS_TRANSFER_READ_BIT;
-      }
-
-      texture->reads |= newReads;
-    }
-
-    // Write after write
-    if (write && afterWrite && !afterRead) {
-      if (texture->write == GPU_TEXTURE_STORAGE) {
-        srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        srcCache |= VK_ACCESS_SHADER_WRITE_BIT;
-      } else if (texture->write == GPU_TEXTURE_COPY_DST) {
-        srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        srcCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      } else if (texture->write == GPU_TEXTURE_RENDER) {
-        if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
-          srcStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-          srcCache |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        } else {
-          srcStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-          srcStage |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-          srcCache |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        }
-      }
-
-      if (write & GPU_TEXTURE_STORAGE) {
-        dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        dstCache |= VK_ACCESS_SHADER_WRITE_BIT;
-      }
-
-      if (write & GPU_TEXTURE_COPY_DST) {
-        dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-        dstCache |= VK_ACCESS_TRANSFER_WRITE_BIT;
-      }
-
-      if (write & GPU_TEXTURE_RENDER) {
-        if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
-          dstStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-          dstCache |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-        } else {
-          dstStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-          dstStage |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-          dstCache |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        }
-      }
-
-      texture->reads = 0;
-    }
-
-    // Write after read
-    if (write && afterRead) {
-      if (write & GPU_TEXTURE_STORAGE) dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      if (write & GPU_TEXTURE_COPY_DST) dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-      if (texture->reads & (GPU_TEXTURE_SAMPLE | GPU_TEXTURE_STORAGE)) {
-        srcStage |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; // TODO track stages
-      }
-
-      if (texture->reads & GPU_TEXTURE_COPY_SRC) srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-      texture->reads = 0;
-    }
-
-    if (write) {
-      texture->write = write;
-    }
-
-    // Layout transition
-    VkImageLayout newLayout;
-    if (usage & (GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST)) {
-      newLayout = texture->copyLayout;
-    } else if (usage & GPU_TEXTURE_RENDER) {
-      // TODO skip transitions if the attachment is known to transition from the undefined layout
-      // as part of its renderpass description (they have to tell us this).  regular barrier would
-      // still be needed
-      if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
-        newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-      } else {
-        newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-      }
-    } else if (usage & GPU_TEXTURE_STORAGE) {
-      newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    } else if (usage & GPU_TEXTURE_SAMPLE) {
-      newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    } else {
-      newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    }
-
-    if (texture->layout != newLayout) {
-      if (transitionCount >= COUNTOF(transitions)) {
-        vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, 1, &barrier, 0, NULL, transitionCount, transitions);
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = 0;
-        transitionCount = 0;
-        srcStage = 0;
-        dstStage = 0;
-      }
-
-      VkImageMemoryBarrier* transition = &transitions[transitionCount++];
-      transition->sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-      transition->srcAccessMask = srcCache;
-      transition->dstAccessMask = dstCache;
-      transition->oldLayout = texture->layout;
-      transition->newLayout = newLayout;
-      transition->image = texture->handle;
-      transition->subresourceRange.aspectMask = texture->aspect;
-      transition->subresourceRange.baseMipLevel = 0;
-      transition->subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-      transition->subresourceRange.baseArrayLayer = 0;
-      transition->subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-      texture->layout = newLayout;
-    } else {
-      barrier.srcAccessMask |= srcCache;
-      barrier.dstAccessMask |= dstCache;
-    }
-  }
-
-  if ((srcStage && dstStage) || transitionCount > 0) {
-    vkCmdPipelineBarrier(stream->commands, srcStage, dstStage, 0, 1, &barrier, 0, NULL, transitionCount, transitions);
-  }
+  VkPipelineStageFlags src = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+  VkMemoryBarrier barrier = {
+    .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+    .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+    .dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT
+  };
+  vkCmdPipelineBarrier(stream->commands, src, dst, 0, 1, &barrier, 0, NULL, 0, NULL);
 }
 
 void gpu_label_push(gpu_stream* stream, const char* label) {

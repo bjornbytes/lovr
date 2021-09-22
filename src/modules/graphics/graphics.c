@@ -269,8 +269,8 @@ static struct {
   uint32_t shapeOffset[SHAPE_MAX];
   Buffer* shapes;
   Buffer* abyss;
-  Texture* white;
   Texture* window;
+  Texture* defaultTexture;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   Sampler* defaultSamplers[DEFAULT_SAMPLER_COUNT];
   gpu_vertex_format formats[VERTEX_FORMAT_COUNT];
@@ -648,21 +648,6 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     f32[i + 32] = 1.f;
   }
 
-  state.white = lovrTextureCreate(&(TextureInfo) {
-    .type = TEXTURE_2D,
-    .usage = TEXTURE_SAMPLE | TEXTURE_COPYTO,
-    .format = FORMAT_RGBA8,
-    .width = 4,
-    .height = 4,
-    .depth = 1,
-    .mipmaps = 1,
-    .samples = 1,
-    .srgb = false,
-    .label = "white"
-  });
-
-  lovrTextureSetSampler(state.white, lovrGraphicsGetDefaultSampler(SAMPLER_NEAREST));
-
   gpu_slot defaultBindings[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Camera
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Transforms
@@ -774,7 +759,6 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   gpu_begin();
   gpu_stream* stream = gpu_stream_begin();
   gpu_copy_buffers(stream, abyss.gpu, state.abyss->mega.gpu, abyss.offset, state.abyss->mega.offset, 256);
-  //gpu_clear_texture(stream, state.white->gpu, 0, 1, 0, 1, (float[4]) { 1.f, 1.f, 1.f, 1.f });
   gpu_copy_buffers(stream, scratch.gpu, state.shapes->mega.gpu, scratch.offset, state.shapes->mega.offset, vertexCount * sizeof(Vertex));
   gpu_stream_end(stream);
   gpu_submit(&stream, 1);
@@ -814,7 +798,7 @@ void lovrGraphicsDestroy() {
   for (uint32_t i = 0; i < COUNTOF(state.defaultSamplers); i++) {
     lovrRelease(state.defaultSamplers[i], lovrSamplerDestroy);
   }
-  lovrRelease(state.white, lovrTextureDestroy);
+  lovrRelease(state.defaultTexture, lovrTextureDestroy);
   lovrRelease(state.window, lovrTextureDestroy);
   gpu_destroy();
   free(state.layouts[0]);
@@ -1560,9 +1544,10 @@ void lovrGraphicsSetShader(Shader* shader) {
           .extent = state.abyss->info.length
         };
       } else {
+        Texture* texture = lovrGraphicsGetDefaultTexture();
         state.bindings[i].texture = (gpu_texture_binding) {
-          .object = state.white->gpu,
-          .sampler = state.white->sampler->gpu
+          .object = texture->gpu,
+          .sampler = texture->sampler->gpu
         };
       }
 
@@ -2512,7 +2497,29 @@ Texture* lovrGraphicsGetWindowTexture() {
   return state.window;
 }
 
+Texture* lovrGraphicsGetDefaultTexture() {
+  if (state.defaultTexture) return state.defaultTexture;
+  lovrGraphicsPrepare();
+  state.defaultTexture = lovrTextureCreate(&(TextureInfo) {
+    .type = TEXTURE_2D,
+    .usage = TEXTURE_SAMPLE | TEXTURE_COPYTO,
+    .format = FORMAT_RGBA8,
+    .width = 4,
+    .height = 4,
+    .depth = 1,
+    .mipmaps = 1,
+    .samples = 1,
+    .srgb = false,
+    .label = "white"
+  });
+  lovrTextureSetSampler(state.defaultTexture, lovrGraphicsGetDefaultSampler(SAMPLER_NEAREST));
+  gpu_clear_texture(state.uploads->stream, state.defaultTexture->gpu, 0, 1, 0, 1, (float[4]) { 1.f, 1.f, 1.f, 1.f });
+  return state.defaultTexture;
+}
+
 Texture* lovrTextureCreate(TextureInfo* info) {
+  lovrGraphicsPrepare();
+
   uint32_t limits[] = {
     [TEXTURE_2D] = state.limits.textureSize2D,
     [TEXTURE_CUBE] = state.limits.textureSizeCube,
@@ -2555,15 +2562,22 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   texture->info = *info;
   texture->ref = 1;
 
+  if (texture->info.mipmaps == ~0u) {
+    texture->info.mipmaps = mips;
+  } else {
+    texture->info.mipmaps = MAX(texture->info.mipmaps, 1);
+  }
+
   gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
     .format = (gpu_texture_format) info->format,
     .size = { info->width, info->height, info->depth },
-    .mipmaps = info->mipmaps == ~0u ? mips : info->mipmaps + !info->mipmaps,
+    .mipmaps = texture->info.mipmaps,
     .samples = MAX(info->samples, 1),
     .usage = info->usage,
     .srgb = info->srgb,
     .handle = info->handle,
+    .stream = state.uploads->stream,
     .label = info->label
   });
 
