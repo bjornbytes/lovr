@@ -179,7 +179,6 @@ void os_on_permission(fn_permission* callback) {
 }
 
 // TODO EGL
-// TODO fullscreen
 // TODO resizable
 // TODO icon
 bool os_window_open(const os_window_config* config) {
@@ -196,8 +195,8 @@ bool os_window_open(const os_window_config* config) {
   uint8_t depth = XCB_COPY_FROM_PARENT;
   xcb_window_t window = xcb_generate_id(state.connection);
   xcb_window_t parent = screen->root;
-  uint16_t w = config->width;
-  uint16_t h = config->height;
+  uint16_t w = config->fullscreen ? screen->width_in_pixels : config->width;
+  uint16_t h = config->fullscreen ? screen->height_in_pixels : config->height;
   uint16_t border = 0;
   xcb_window_class_t class = XCB_WINDOW_CLASS_INPUT_OUTPUT;
   xcb_visualid_t visual = screen->root_visual;
