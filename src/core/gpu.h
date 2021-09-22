@@ -130,6 +130,7 @@ typedef struct {
   uint32_t usage;
   bool srgb;
   uintptr_t handle;
+  gpu_stream* stream;
   const char* label;
 } gpu_texture_info;
 
