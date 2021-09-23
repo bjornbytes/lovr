@@ -14,6 +14,8 @@ static os_key convertKey(uint8_t keycode);
 
 static struct {
   xcb_connection_t* connection;
+  xcb_window_t window;
+  xcb_cursor_t hiddenCursor;
   xcb_intern_atom_reply_t* deleteWindow;
   fn_quit* onQuit;
   fn_focus* onFocus;
@@ -31,6 +33,7 @@ bool os_init(void) {
 
 void os_destroy(void) {
   free(state.deleteWindow);
+  if (state.hiddenCursor) xcb_free_cursor(state.connection, state.hiddenCursor);
   xcb_disconnect(state.connection);
   memset(&state, 0, sizeof(state));
 }
@@ -193,7 +196,7 @@ bool os_window_open(const os_window_config* config) {
 
   // Create window
   uint8_t depth = XCB_COPY_FROM_PARENT;
-  xcb_window_t window = xcb_generate_id(state.connection);
+  state.window = xcb_generate_id(state.connection);
   xcb_window_t parent = screen->root;
   uint16_t w = config->fullscreen ? screen->width_in_pixels : config->width;
   uint16_t h = config->fullscreen ? screen->height_in_pixels : config->height;
@@ -211,23 +214,23 @@ bool os_window_open(const os_window_config* config) {
     XCB_EVENT_MASK_FOCUS_CHANGE
   };
 
-  xcb_create_window(state.connection, depth, window, parent, 0, 0, w, h, border, class, visual, keys, values);
+  xcb_create_window(state.connection, depth, state.window, parent, 0, 0, w, h, border, class, visual, keys, values);
 
   // Set up window close event
   xcb_intern_atom_cookie_t protocols = xcb_intern_atom(state.connection, 1, 12, "WM_PROTOCOLS");
   xcb_intern_atom_cookie_t delete = xcb_intern_atom(state.connection, 1, 16, "WM_DELETE_WINDOW");
   xcb_intern_atom_reply_t* protocolReply = xcb_intern_atom_reply(state.connection, protocols, 0);
   xcb_intern_atom_reply_t* deleteReply = xcb_intern_atom_reply(state.connection, delete, 0);
-  xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, window, protocolReply->atom, 4, 32, 1, &deleteReply->atom);
+  xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, state.window, protocolReply->atom, 4, 32, 1, &deleteReply->atom);
   state.deleteWindow = deleteReply;
   free(protocolReply);
 
   // Set title
-  xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
-  xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, window, XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
+  xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, state.window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
+  xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, state.window, XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
 
   // Show window and flush messages
-  xcb_map_window(state.connection, window);
+  xcb_map_window(state.connection, state.window);
   xcb_flush(state.connection);
   return true;
 }
@@ -331,7 +334,20 @@ void os_get_mouse_position(double* x, double* y) {
 }
 
 void os_set_mouse_mode(os_mouse_mode mode) {
-  // TODO
+  if (!state.connection) return;
+  if (mode == MOUSE_MODE_GRABBED) {
+    if (!state.hiddenCursor) {
+      state.hiddenCursor = xcb_generate_id(state.connection);
+      xcb_pixmap_t pixmap = xcb_generate_id(state.connection);
+      xcb_create_pixmap(state.connection, 1, pixmap, state.window, 1, 1);
+      xcb_create_cursor(state.connection, state.hiddenCursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
+      xcb_free_pixmap(state.connection, pixmap);
+    }
+    xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &state.hiddenCursor);
+  } else {
+    xcb_cursor_t cursor = XCB_CURSOR_NONE;
+    xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &cursor);
+  }
 }
 
 bool os_is_mouse_down(os_mouse_button button) {
