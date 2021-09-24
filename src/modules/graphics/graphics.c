@@ -268,7 +268,7 @@ static struct {
   gpu_index_type boundIndexType;
   uint32_t shapeOffset[SHAPE_MAX];
   Buffer* shapes;
-  Buffer* abyss;
+  Buffer* zeros;
   Texture* window;
   Texture* defaultTexture;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
@@ -635,18 +635,10 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   // Default resources
 
-  // The abyss contains 0.f x 32 followed by 1.f x 32, used for fallback attribute/resource data
-  state.abyss = lovrBufferCreate(&(BufferInfo) {
-    .length = 256,
+  state.zeros = lovrBufferCreate(&(BufferInfo) {
+    .length = 4096,
     .usage = BUFFER_VERTEX | BUFFER_UNIFORM | BUFFER_STORAGE
   });
-
-  Megaview abyss = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256, 4);
-  float* f32 = (float*) abyss.data;
-  for (uint32_t i = 0; i < 32; i++) {
-    f32[i] = 0.f;
-    f32[i + 32] = 1.f;
-  }
 
   gpu_slot defaultBindings[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Camera
@@ -758,7 +750,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   gpu_begin();
   gpu_stream* stream = gpu_stream_begin();
-  gpu_copy_buffers(stream, abyss.gpu, state.abyss->mega.gpu, abyss.offset, state.abyss->mega.offset, 256);
+  gpu_clear_buffer(stream, state.zeros->mega.gpu, state.zeros->mega.offset, state.zeros->size, 0);
   gpu_copy_buffers(stream, scratch.gpu, state.shapes->mega.gpu, scratch.offset, state.shapes->mega.offset, vertexCount * sizeof(Vertex));
   gpu_stream_end(stream);
   gpu_submit(&stream, 1);
@@ -1551,9 +1543,9 @@ void lovrGraphicsSetShader(Shader* shader) {
 
       if (shader->bufferMask) {
         state.bindings[i].buffer = (gpu_buffer_binding) {
-          .object = state.abyss->mega.gpu,
+          .object = state.zeros->mega.gpu,
           .offset = 0,
-          .extent = state.abyss->info.length
+          .extent = state.zeros->size
         };
       } else {
         Texture* texture = lovrGraphicsGetDefaultTexture();
@@ -1688,7 +1680,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
           vertex->attributes[vertex->attributeCount++] = (gpu_attribute) {
             .buffer = 1,
             .location = i,
-            .offset = i == ATTRIBUTE_COLOR ? 128 : 0, // abyss
+            .offset = 0,
             .type = GPU_TYPE_F32x4
           };
         }
@@ -1957,7 +1949,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
     }
 
     if (hasVertices && vertexBuffer.gpu != state.boundVertexBuffer) {
-      gpu_buffer* buffers[2] = { vertexBuffer.gpu, state.abyss->mega.gpu };
+      gpu_buffer* buffers[2] = { vertexBuffer.gpu, state.zeros->mega.gpu };
       gpu_bind_vertex_buffers(state.pass->stream, buffers, (uint32_t[2]) { 0, 0 }, 0, 2);
       state.boundVertexBuffer = vertexBuffer.gpu;
     }
@@ -2190,7 +2182,7 @@ void lovrGraphicsReplay(Batch* batch) {
 
     if (group->dirty & DIRTY_VERTEX) {
       uint32_t offsets[2] = { 0, 0 };
-      gpu_buffer* buffers[2] = { state.buffers.list[first->vertexBuffer].gpu, state.abyss->mega.gpu };
+      gpu_buffer* buffers[2] = { state.buffers.list[first->vertexBuffer].gpu, state.zeros->mega.gpu };
       gpu_bind_vertex_buffers(state.pass->stream, buffers, offsets, 0, 2);
       state.boundVertexBuffer = buffers[0];
     }
@@ -2970,6 +2962,7 @@ static bool checkShaderCapability(uint32_t capability) {
     case 57: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multiviewport");
     case 69: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "layered rendering");
     case 70: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multiviewport");
+    case 4427: break; // ShaderDrawParameters
     case 4437: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multigpu");
     case 4439: lovrCheck(state.limits.renderSize[2] > 1, "GPU does not support shader feature #%d: %s", capability, "multiview"); break;
     case 5301: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
