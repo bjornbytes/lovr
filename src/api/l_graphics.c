@@ -497,7 +497,6 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.cullDistance), lua_setfield(L, -2, "cullDistance");
   lua_pushboolean(L, features.fullIndexBufferRange), lua_setfield(L, -2, "fullIndexBufferRange");
   lua_pushboolean(L, features.indirectDrawFirstInstance), lua_setfield(L, -2, "indirectDrawFirstInstance");
-  lua_pushboolean(L, features.extraShaderInputs), lua_setfield(L, -2, "extraShaderInputs");
   lua_pushboolean(L, features.dynamicIndexing), lua_setfield(L, -2, "dynamicIndexing");
   lua_pushboolean(L, features.float64), lua_setfield(L, -2, "float64");
   lua_pushboolean(L, features.int64), lua_setfield(L, -2, "int64");
@@ -606,7 +605,7 @@ static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
   TextureFormat format = luax_checkenum(L, 1, TextureFormat, NULL);
   uint32_t features = 0;
   int top = lua_gettop(L);
-  for (uint32_t i = 2; i <= top; i++) {
+  for (int i = 2; i <= top; i++) {
     features |= 1 << luax_checkenum(L, i, TextureFeature, NULL);
   }
   bool supported = lovrGraphicsIsFormatSupported(format, features);

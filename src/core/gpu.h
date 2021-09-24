@@ -579,7 +579,6 @@ typedef struct {
   bool cullDistance;
   bool fullIndexBufferRange;
   bool indirectDrawFirstInstance;
-  bool extraShaderInputs;
   bool dynamicIndexing;
   bool nonUniformIndexing;
   bool float64;
