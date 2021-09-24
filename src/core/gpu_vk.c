@@ -1794,8 +1794,9 @@ bool gpu_init(gpu_config* config) {
       state.memoryTypes[i] = memoryProperties.memoryTypes[i].propertyFlags;
     }
 
-    VkPhysicalDeviceMultiviewProperties multiviewLimits = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES };
-    VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &multiviewLimits };
+    VkPhysicalDeviceMultiviewProperties multiviewProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES };
+    VkPhysicalDeviceSubgroupProperties subgroupProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, .pNext = &multiviewProperties };
+    VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &subgroupProperties };
     VkPhysicalDeviceLimits* deviceLimits = &properties2.properties.limits;
 
     if (config->limits || config->hardware) {
@@ -1810,6 +1811,7 @@ bool gpu_init(gpu_config* config) {
       config->hardware->driverMajor = VK_VERSION_MAJOR(properties->driverVersion);
       config->hardware->driverMinor = VK_VERSION_MINOR(properties->driverVersion);
       config->hardware->driverPatch = VK_VERSION_PATCH(properties->driverVersion);
+      config->hardware->subgroupSize = subgroupProperties.subgroupSize;
       config->hardware->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
     }
 
@@ -1820,7 +1822,7 @@ bool gpu_init(gpu_config* config) {
       config->limits->textureLayers = MIN(deviceLimits->maxImageArrayLayers, UINT16_MAX);
       config->limits->renderSize[0] = deviceLimits->maxFramebufferWidth;
       config->limits->renderSize[1] = deviceLimits->maxFramebufferHeight;
-      config->limits->renderSize[2] = multiviewLimits.maxMultiviewViewCount;
+      config->limits->renderSize[2] = multiviewProperties.maxMultiviewViewCount;
       config->limits->uniformBufferRange = deviceLimits->maxUniformBufferRange;
       config->limits->storageBufferRange = deviceLimits->maxStorageBufferRange;
       config->limits->uniformBufferAlign = deviceLimits->minUniformBufferOffsetAlignment;
@@ -1838,7 +1840,7 @@ bool gpu_init(gpu_config* config) {
       config->limits->computeWorkgroupVolume = deviceLimits->maxComputeWorkGroupInvocations;
       config->limits->computeSharedMemory = deviceLimits->maxComputeSharedMemorySize;
       config->limits->indirectDrawCount = deviceLimits->maxDrawIndirectCount;
-      config->limits->instances = multiviewLimits.maxMultiviewInstanceIndex;
+      config->limits->instances = multiviewProperties.maxMultiviewInstanceIndex;
       config->limits->anisotropy = deviceLimits->maxSamplerAnisotropy;
       config->limits->pointSize = deviceLimits->pointSizeRange[1];
     }

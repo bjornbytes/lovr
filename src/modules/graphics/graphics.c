@@ -817,6 +817,7 @@ void lovrGraphicsGetHardware(GraphicsHardware* hardware) {
   hardware->driverMajor = state.hardware.driverMajor;
   hardware->driverMinor = state.hardware.driverMinor;
   hardware->driverPatch = state.hardware.driverPatch;
+  hardware->subgroupSize = state.hardware.subgroupSize;
   hardware->discrete = state.hardware.discrete;
 #ifdef LOVR_VK
   hardware->renderer = "vulkan";
