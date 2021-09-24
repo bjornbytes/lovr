@@ -22,6 +22,7 @@ typedef struct {
   uint32_t driverMajor;
   uint32_t driverMinor;
   uint32_t driverPatch;
+  uint32_t subgroupSize;
   bool discrete;
 } GraphicsHardware;
 
