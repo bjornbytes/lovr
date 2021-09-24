@@ -173,6 +173,16 @@ StringEntry lovrStencilAction[] = {
   { 0 }
 };
 
+StringEntry lovrTextureFeature[] = {
+  [0] = ENTRY("sample"),
+  [1] = ENTRY("filter"),
+  [2] = ENTRY("render"),
+  [3] = ENTRY("blend"),
+  [4] = ENTRY("storage"),
+  [5] = ENTRY("blit"),
+  { 0 }
+};
+
 StringEntry lovrTextureType[] = {
   [TEXTURE_2D] = ENTRY("2d"),
   [TEXTURE_CUBE] = ENTRY("cube"),
@@ -589,6 +599,18 @@ static int l_lovrGraphicsGetStats(lua_State* L) {
   lua_pushnumber(L, stats.layouts), lua_setfield(L, -2, "layouts");
   lua_pushnumber(L, stats.bunches), lua_setfield(L, -2, "bunches");
   lua_setfield(L, -2, "internal");
+  return 1;
+}
+
+static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
+  TextureFormat format = luax_checkenum(L, 1, TextureFormat, NULL);
+  uint32_t features = 0;
+  int top = lua_gettop(L);
+  for (uint32_t i = 2; i <= top; i++) {
+    features |= 1 << luax_checkenum(L, i, TextureFeature, NULL);
+  }
+  bool supported = lovrGraphicsIsFormatSupported(format, features);
+  lua_pushboolean(L, supported);
   return 1;
 }
 
@@ -1624,6 +1646,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
   { "getStats", l_lovrGraphicsGetStats },
+  { "isFormatSupported", l_lovrGraphicsIsFormatSupported },
 
   { "init", l_lovrGraphicsInit },
   { "prepare", l_lovrGraphicsPrepare },

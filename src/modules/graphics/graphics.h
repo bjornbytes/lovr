@@ -91,6 +91,15 @@ typedef struct {
   float bunches;
 } GraphicsStats;
 
+enum {
+  TEXTURE_FEATURE_SAMPLE  = (1 << 0),
+  TEXTURE_FEATURE_FILTER  = (1 << 1),
+  TEXTURE_FEATURE_RENDER  = (1 << 2),
+  TEXTURE_FEATURE_BLEND   = (1 << 3),
+  TEXTURE_FEATURE_STORAGE = (1 << 4),
+  TEXTURE_FEATURE_BLIT    = (1 << 5)
+};
+
 typedef enum {
   PASS_RENDER,
   PASS_COMPUTE,
@@ -235,6 +244,7 @@ void lovrGraphicsGetHardware(GraphicsHardware* hardware);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsGetStats(GraphicsStats* stats);
+bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
 
 void lovrGraphicsPrepare(void);
 void lovrGraphicsBeginRender(Canvas* canvas, uint32_t order);
