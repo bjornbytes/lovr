@@ -1868,6 +1868,15 @@ bool gpu_init(gpu_config* config) {
       VkPhysicalDeviceFeatures* enable = &enabledFeatures.features;
       VkPhysicalDeviceFeatures* supports = &root.features;
 
+      // Required features
+      enableShaderDrawParameter.shaderDrawParameters = true;
+
+      // Internal features (they are exposed as limits)
+      enable->samplerAnisotropy = supports->samplerAnisotropy;
+      enable->multiDrawIndirect = supports->multiDrawIndirect;
+      enable->largePoints = supports->largePoints;
+
+      // Optional features (currently always enabled when supported)
       config->features->astc = enable->textureCompressionASTC_LDR = supports->textureCompressionASTC_LDR;
       config->features->bptc = enable->textureCompressionBC = supports->textureCompressionBC;
       config->features->wireframe = enable->fillModeNonSolid = supports->fillModeNonSolid;
@@ -1876,13 +1885,9 @@ bool gpu_init(gpu_config* config) {
       config->features->cullDistance = enable->shaderCullDistance = supports->shaderCullDistance;
       config->features->fullIndexBufferRange = enable->fullDrawIndexUint32 = supports->fullDrawIndexUint32;
       config->features->indirectDrawFirstInstance = enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance;
-      config->features->extraShaderInputs = enableShaderDrawParameter.shaderDrawParameters = supportsShaderDrawParameter.shaderDrawParameters;
       config->features->float64 = enable->shaderFloat64 = supports->shaderFloat64;
       config->features->int64 = enable->shaderInt64 = supports->shaderInt64;
       config->features->int16 = enable->shaderInt16 = supports->shaderInt16;
-      enable->samplerAnisotropy = supports->samplerAnisotropy;
-      enable->multiDrawIndirect = supports->multiDrawIndirect;
-      enable->largePoints = supports->largePoints;
 
       if (supports->shaderUniformBufferArrayDynamicIndexing && supports->shaderSampledImageArrayDynamicIndexing && supports->shaderStorageBufferArrayDynamicIndexing && supports->shaderStorageImageArrayDynamicIndexing) {
         enable->shaderUniformBufferArrayDynamicIndexing = true;
@@ -1892,6 +1897,7 @@ bool gpu_init(gpu_config* config) {
         config->features->dynamicIndexing = true;
       }
 
+      // Format features
       VkFormatProperties formatProperties;
       for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
         vkGetPhysicalDeviceFormatProperties(state.adapter, convertFormat(i, LINEAR), &formatProperties);

@@ -833,7 +833,6 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->cullDistance = state.features.cullDistance;
   features->fullIndexBufferRange = state.features.fullIndexBufferRange;
   features->indirectDrawFirstInstance = state.features.indirectDrawFirstInstance;
-  features->extraShaderInputs = state.features.extraShaderInputs;
   features->dynamicIndexing = state.features.dynamicIndexing;
   features->float64 = state.features.float64;
   features->int64 = state.features.int64;
@@ -2971,7 +2970,6 @@ static bool checkShaderCapability(uint32_t capability) {
     case 57: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multiviewport");
     case 69: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "layered rendering");
     case 70: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multiviewport");
-    case 4427: lovrCheck(state.features.extraShaderInputs, "GPU does not support shader feature #%d: %s", capability, "extra shader inputs"); break;
     case 4437: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "multigpu");
     case 4439: lovrCheck(state.limits.renderSize[2] > 1, "GPU does not support shader feature #%d: %s", capability, "multiview"); break;
     case 5301: lovrThrow("Shader uses unsupported feature #%d: %s", capability, "non-uniform indexing");
