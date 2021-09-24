@@ -873,6 +873,18 @@ void lovrGraphicsGetStats(GraphicsStats* stats) {
   *stats = state.stats;
 }
 
+bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t usage) {
+  uint32_t features = state.features.formats[format];
+  if (!usage) return features;
+  if ((usage & TEXTURE_FEATURE_SAMPLE) && !(features & GPU_FEATURE_SAMPLE)) return false;
+  if ((usage & TEXTURE_FEATURE_FILTER) && !(features & GPU_FEATURE_FILTER)) return false;
+  if ((usage & TEXTURE_FEATURE_RENDER) && !(features & GPU_FEATURE_RENDER)) return false;
+  if ((usage & TEXTURE_FEATURE_BLEND) && !(features & GPU_FEATURE_BLEND)) return false;
+  if ((usage & TEXTURE_FEATURE_STORAGE) && !(features & GPU_FEATURE_STORAGE)) return false;
+  if ((usage & TEXTURE_FEATURE_BLIT) && !(features & GPU_FEATURE_BLIT)) return false;
+  return true;
+}
+
 void lovrGraphicsPrepare() {
   if (state.active) return;
   state.active = true;
