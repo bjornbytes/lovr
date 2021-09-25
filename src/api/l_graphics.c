@@ -462,14 +462,9 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
 }
 
 static int l_lovrGraphicsGetHardware(lua_State* L) {
-  if (lua_istable(L, 1)) {
-    lua_settop(L, 1);
-  } else {
-    lua_newtable(L);
-  }
-
   GraphicsHardware hardware;
   lovrGraphicsGetHardware(&hardware);
+  lua_newtable(L);
   lua_pushinteger(L, hardware.deviceId), lua_setfield(L, -2, "id");
   lua_pushstring(L, hardware.deviceName), lua_setfield(L, -2, "name");
   lua_pushinteger(L, hardware.vendorId), lua_setfield(L, -2, "vendor");
@@ -481,14 +476,9 @@ static int l_lovrGraphicsGetHardware(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetFeatures(lua_State* L) {
-  if (lua_istable(L, 1)) {
-    lua_settop(L, 1);
-  } else {
-    lua_newtable(L);
-  }
-
   GraphicsFeatures features;
   lovrGraphicsGetFeatures(&features);
+  lua_newtable(L);
   lua_pushboolean(L, features.bptc), lua_setfield(L, -2, "bptc");
   lua_pushboolean(L, features.astc), lua_setfield(L, -2, "astc");
   lua_pushboolean(L, features.wireframe), lua_setfield(L, -2, "wireframe");
@@ -505,15 +495,10 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetLimits(lua_State* L) {
-  if (lua_istable(L, 1)) {
-    lua_settop(L, 1);
-  } else {
-    lua_newtable(L);
-  }
-
   GraphicsLimits limits;
   lovrGraphicsGetLimits(&limits);
 
+  lua_newtable(L);
   lua_pushinteger(L, limits.textureSize2D), lua_setfield(L, -2, "textureSize2D");
   lua_pushinteger(L, limits.textureSize3D), lua_setfield(L, -2, "textureSize3D");
   lua_pushinteger(L, limits.textureSizeCube), lua_setfield(L, -2, "textureSizeCube");
@@ -556,15 +541,10 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetStats(lua_State* L) {
-  if (lua_istable(L, 1)) {
-    lua_settop(L, 1);
-  } else {
-    lua_newtable(L);
-  }
-
   GraphicsStats stats;
   lovrGraphicsGetStats(&stats);
 
+  lua_newtable(L);
   lua_createtable(L, 0, 3);
   lua_pushinteger(L, stats.memory), lua_setfield(L, -2, "total");
   lua_pushinteger(L, stats.bufferMemory), lua_setfield(L, -2, "buffer");
