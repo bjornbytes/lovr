@@ -468,7 +468,7 @@ static int l_lovrGraphicsGetHardware(lua_State* L) {
   lua_pushinteger(L, hardware.deviceId), lua_setfield(L, -2, "id");
   lua_pushstring(L, hardware.deviceName), lua_setfield(L, -2, "name");
   lua_pushinteger(L, hardware.vendorId), lua_setfield(L, -2, "vendor");
-  lua_pushfstring(L, "%d.%d.%d", hardware.driverMajor, hardware.driverMinor, hardware.driverPatch), lua_setfield(L, -2, "version");
+  lua_pushfstring(L, "%d.%d.%d", hardware.driverMajor, hardware.driverMinor, hardware.driverPatch), lua_setfield(L, -2, "driver");
   lua_pushinteger(L, hardware.subgroupSize), lua_setfield(L, -2, "subgroupSize");
   lua_pushboolean(L, hardware.discrete), lua_setfield(L, -2, "discrete");
   lua_pushstring(L, hardware.renderer), lua_setfield(L, -2, "renderer");
