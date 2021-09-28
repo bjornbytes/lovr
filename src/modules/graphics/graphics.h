@@ -59,6 +59,7 @@ typedef struct {
   uint32_t computeWorkgroupSize[3];
   uint32_t computeWorkgroupVolume;
   uint32_t computeSharedMemory;
+  uint32_t shaderConstantSize;
   uint32_t indirectDrawCount;
   uint32_t instances;
   float anisotropy;

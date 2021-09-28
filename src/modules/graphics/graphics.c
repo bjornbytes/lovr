@@ -55,17 +55,21 @@ struct Shader {
   gpu_shader* gpu;
   uint32_t layout;
   uint32_t computePipelineIndex;
+  uint32_t constantCount;
+  uint32_t constantLookup[32];
+  uint8_t constantOffsets[32];
+  uint8_t constantTypes[32];
   uint32_t resourceCount;
   uint32_t bufferMask;
   uint32_t textureMask;
   uint32_t storageMask;
   uint8_t slotStages[32];
   uint8_t resourceSlots[32];
-  uint64_t resourceLookup[32];
-  uint64_t flagLookup[32];
-  gpu_shader_flag flags[32];
-  uint32_t activeFlagCount;
+  uint32_t resourceLookup[32];
   uint32_t flagCount;
+  uint32_t activeFlagCount;
+  uint32_t flagLookup[32];
+  gpu_shader_flag flags[32];
   uint32_t attributeMask;
 };
 
@@ -838,7 +842,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->textureLayers = state.limits.textureLayers;
   limits->renderSize[0] = state.limits.renderSize[0];
   limits->renderSize[1] = state.limits.renderSize[1];
-  limits->renderSize[2] = MIN(state.limits.renderSize[2], 6);
+  limits->renderSize[2] = MIN(state.limits.renderSize[2], COUNTOF(state.camera.view));
   limits->uniformBufferRange = state.limits.uniformBufferRange;
   limits->storageBufferRange = state.limits.storageBufferRange;
   limits->uniformBufferAlign = state.limits.uniformBufferAlign;
@@ -850,6 +854,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   memcpy(limits->computeWorkgroupSize, state.limits.computeWorkgroupSize, 3 * sizeof(uint32_t));
   limits->computeWorkgroupVolume = state.limits.computeWorkgroupVolume;
   limits->computeSharedMemory = state.limits.computeSharedMemory;
+  limits->shaderConstantSize = state.limits.pushConstantSize;
   limits->indirectDrawCount = state.limits.indirectDrawCount;
   limits->instances = state.limits.instances;
   limits->anisotropy = state.limits.anisotropy;
@@ -915,7 +920,7 @@ void lovrGraphicsPrepare() {
 
 static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
   uint16_t key[] = { size[0], size[1], layers, format, srgb, samples };
-  uint32_t hash = (uint32_t) hash64(key, sizeof(key));
+  uint32_t hash = hash32(key, sizeof(key));
 
   // Search for matching texture in cache table
   gpu_texture* texture;
@@ -1573,11 +1578,11 @@ void lovrGraphicsSetShader(Shader* shader) {
 
 void lovrGraphicsBind(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture) {
   Shader* shader = state.pipeline->shader;
-  lovrCheck(shader, "Batch:bind requires a Shader to be active");
+  lovrCheck(shader, "A Shader must be active to bind resources");
 
   if (name) {
+    uint32_t hash = hash32(name, length);
     bool found = false;
-    uint64_t hash = hash64(name, length);
     for (uint32_t i = 0; i < shader->resourceCount; i++) {
       if (shader->resourceLookup[i] == hash) {
         slot = shader->resourceSlots[i];
@@ -1585,7 +1590,7 @@ void lovrGraphicsBind(const char* name, size_t length, uint32_t slot, Buffer* bu
         break;
       }
     }
-    lovrCheck(found, "Active Shader has no variable named '%s'", name);
+    lovrCheck(found, "Active Shader has no resource named '%s'", name);
   }
 
   bool storage = shader->storageMask & (1 << slot);
@@ -1596,10 +1601,10 @@ void lovrGraphicsBind(const char* name, size_t length, uint32_t slot, Buffer* bu
 
     if (storage) {
       lovrCheck(buffer->info.usage & BUFFER_STORAGE, "Buffers must be created with the 'storage' usage to use them as storage buffers");
-      lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to limits.storageBufferAlign (%d)", offset, state.limits.storageBufferAlign);
+      lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to storageBufferAlign limit (%d)", offset, state.limits.storageBufferAlign);
     } else {
       lovrCheck(buffer->info.usage & BUFFER_UNIFORM, "Buffers must be created with the 'uniform' usage to use them as uniform buffers");
-      lovrCheck((offset & (state.limits.uniformBufferAlign - 1)) == 0, "Uniform buffer offset (%d) is not aligned to limits.uniformBufferAlign (%d)", offset, state.limits.uniformBufferAlign);
+      lovrCheck((offset & (state.limits.uniformBufferAlign - 1)) == 0, "Uniform buffer offset (%d) is not aligned to uniformBufferAlign limit (%d)", offset, state.limits.uniformBufferAlign);
     }
 
     state.bindings[slot].buffer.object = buffer->mega.gpu;
@@ -1625,7 +1630,7 @@ void lovrGraphicsBind(const char* name, size_t length, uint32_t slot, Buffer* bu
     arr_push(textures, sync);
     lovrRetain(texture);
   } else {
-    lovrThrow("Active Shader has no variable in slot %d", slot + 1);
+    lovrThrow("Active Shader has no resource in slot %d", slot + 1);
   }
 
   state.emptyBindingMask &= ~(1 << slot);
@@ -1691,7 +1696,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
   }
 
   if (state.pipeline->dirty) {
-    uint32_t hash = hash64(&state.pipeline->info, sizeof(gpu_pipeline_info)) & ~0u;
+    uint32_t hash = hash32(&state.pipeline->info, sizeof(gpu_pipeline_info));
     uint32_t mask = COUNTOF(state.pipelines) - 1;
     uint32_t bucket = hash & mask;
 
@@ -2301,7 +2306,7 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
     state.buffers.list[buffer->mega.index].refs++;
   }
   if (info->usage & BUFFER_VERTEX) {
-    lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds limits.vertexBufferStride (%d)", info->stride, state.limits.vertexBufferStride);
+    lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds vertexBufferStride limit (%d)", info->stride, state.limits.vertexBufferStride);
     buffer->mask = 0;
     buffer->format.bufferCount = 1;
     buffer->format.attributeCount = info->fieldCount;
@@ -2554,8 +2559,8 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
   lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
   lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this format");
-  lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds limits.renderSize");
-  lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds limits.renderSize");
+  lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds renderSize limit");
+  lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds renderSize limit");
   lovrCheck(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
   lovrCheck((info->format != FORMAT_BC6 && info->format != FORMAT_BC7) || state.features.bptc, "BC6/BC7 textures are not supported on this GPU");
   lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.astc, "ASTC textures are not supported on this GPU");
@@ -2832,7 +2837,7 @@ void lovrTextureGenerateMipmaps(Texture* texture) {
 
 Sampler* lovrSamplerCreate(SamplerInfo* info) {
   lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
-  lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds limits.anisotropy (%f)", info->anisotropy, state.limits.anisotropy);
+  lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds anisotropy limit (%f)", info->anisotropy, state.limits.anisotropy);
 
   Sampler* sampler = calloc(1, sizeof(Sampler) + gpu_sizeof_sampler());
   lovrAssert(sampler, "Out of memory");
@@ -2898,18 +2903,22 @@ typedef union {
     uint16_t name;
   } flag;
   struct {
-    uint16_t inner;
+    uint16_t word;
     uint16_t name;
   } type;
 } CacheData;
 
 typedef struct {
-  uint32_t attributeMask;
+  uint32_t constantCount;
+  uint32_t constantLookup[32];
+  uint8_t constantOffsets[32];
+  uint8_t constantTypes[32];
   gpu_slot slots[2][32];
-  uint64_t slotNames[32];
-  uint64_t flagNames[32];
+  uint32_t slotNames[32];
+  uint32_t flagNames[32];
   gpu_shader_flag flags[32];
   uint32_t flagCount;
+  uint32_t attributeMask;
 } ReflectionInfo;
 
 // Only an explicit set of spir-v capabilities are allowed
@@ -2976,7 +2985,7 @@ static bool checkShaderCapability(uint32_t capability) {
 }
 
 // Parse a slot type and array size from a variable instruction, throwing on failure
-static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, CacheData* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
+static void parseResourceType(const uint32_t* words, uint32_t wordCount, CacheData* cache, uint32_t bound, const uint32_t* instruction, gpu_slot_type* slotType, uint32_t* count) {
   const uint32_t* edge = words + wordCount - MIN_SPIRV_WORDS;
   uint32_t type = instruction[1];
   uint32_t id = instruction[2];
@@ -2984,24 +2993,24 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, CacheData* 
 
   // Follow the variable's type id to the OpTypePointer instruction that declares its pointer type
   // Then unwrap the pointer to get to the inner type of the variable
-  instruction = words + cache[type].type.inner;
+  instruction = words + cache[type].type.word;
   lovrCheck(instruction < edge && instruction[3] < bound, "Invalid Shader code: id overflow");
-  instruction = words + cache[instruction[3]].type.inner;
+  instruction = words + cache[instruction[3]].type.word;
   lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
 
   if ((instruction[0] & 0xffff) == 28) { // OpTypeArray
     // Read array size
-    lovrCheck(instruction[3] < bound && words + cache[instruction[3]].type.inner < edge, "Invalid Shader code: id overflow");
-    const uint32_t* size = words + cache[instruction[3]].type.inner;
+    lovrCheck(instruction[3] < bound && words + cache[instruction[3]].type.word < edge, "Invalid Shader code: id overflow");
+    const uint32_t* size = words + cache[instruction[3]].type.word;
     if ((size[0] & 0xffff) == 43 || (size[0] & 0xffff) == 50) { // OpConstant || OpSpecConstant
       *count = size[3];
     } else {
-      lovrThrow("Invalid Shader code: variable %d is an array, but the array size is not a constant", id);
+      lovrThrow("Invalid Shader code: resource %d is an array, but the array size is not a constant", id);
     }
 
     // Unwrap array to get to inner array type and keep going
-    lovrCheck(instruction[2] < bound && words + cache[instruction[2]].type.inner < edge, "Invalid Shader code: id overflow");
-    instruction = words + cache[instruction[2]].type.inner;
+    lovrCheck(instruction[2] < bound && words + cache[instruction[2]].type.word < edge, "Invalid Shader code: id overflow");
+    instruction = words + cache[instruction[2]].type.word;
   } else {
     *count = 1;
   }
@@ -3015,7 +3024,7 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, CacheData* 
 
   // If it's a sampled image, unwrap to get to the image type.  If it's not an image, fail
   if ((instruction[0] & 0xffff) == 27) { // OpTypeSampledImage
-    instruction = words + cache[instruction[2]].type.inner;
+    instruction = words + cache[instruction[2]].type.word;
     lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
   } else if ((instruction[0] & 0xffff) != 25) { // OpTypeImage
     lovrThrow("Invalid Shader code: variable %d is not recognized as a valid buffer or texture resource", id);
@@ -3034,6 +3043,9 @@ static void parseTypeInfo(const uint32_t* words, uint32_t wordCount, CacheData* 
   }
 }
 
+// Beware, this function is long and ugly.  It parses spirv bytecode.  Maybe it could be moved to
+// its own library or swapped out for spirv-reflect.  However, spirv-reflect would cost 6k+ lines
+// and require a bunch of work to parse *its* output and transform it into something useful.
 static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, ReflectionInfo* reflection) {
   const uint32_t* words = source;
   uint32_t wordCount = size / sizeof(uint32_t);
@@ -3046,7 +3058,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
   uint32_t bound = words[3];
   lovrCheck(bound < 0xffff, "Unsupported Shader code: id bound is too big (max is 65534)");
 
-  // The cache stores information for spirv ids, allowing everything to be parsed in a single pass
+  // The cache stores information for spirv ids
   // - For buffer/texture resources, stores the slot's group and binding number
   // - For vertex attributes, stores the attribute location decoration
   // - For specialization constants, stores the constant's name and its constant id
@@ -3056,12 +3068,25 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
   memset(cacheData, 0xff, cacheSize);
   CacheData* cache = cacheData;
 
+  uint32_t pushConstantStructId = ~0u;
+
   const uint32_t* instruction = words + 5;
 
+  // Performs a single pass over the spirv words, doing the following:
+  // - Validate declared capabilities
+  // - Gather metadata about slots (binding number, type, stage, count) in first 2 groups
+  // - Gather metadata about specialization constants
+  // - Parse struct layout of push constant block
+  // - Determine which attribute locations are defined (not the locations that are used, yet)
   while (instruction < words + wordCount) {
     uint16_t opcode = instruction[0] & 0xffff;
     uint16_t length = instruction[0] >> 16;
+
     uint32_t id;
+    uint32_t index;
+    uint32_t decoration;
+    uint32_t value;
+    const char* name;
 
     lovrCheck(length > 0, "Invalid Shader code: zero-length instruction");
     lovrCheck(instruction + length <= words + wordCount, "Invalid Shader code: instruction overflow");
@@ -3075,13 +3100,32 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         if (length < 3 || instruction[1] >= bound) break;
         id = instruction[1];
         cache[id].type.name = instruction - words + 2;
+        name = (char*) (instruction + 2);
+        // This is not technically correct, because it relies on the OpName for the push constant
+        // block to come before the OpMemberName's for its members.  It looks like most compilers
+        // output things in this order, and doing it the right way would require 2 passees over the
+        // words.  Can be improved when there's evidence of a compiler using the other order.
+        if (!strncmp(name, "Constants", sizeof("Constants"))) {
+          pushConstantStructId = id;
+        }
+        break;
+      case 6: // OpMemberName
+        if (length < 4 || instruction[1] >= bound) break;
+        id = instruction[1];
+        index = instruction[2];
+        name = (char*) (instruction + 3);
+        size_t nameLength = strnlen(name, (length - 3) * 4);
+        if (id == pushConstantStructId) {
+          lovrCheck(index < COUNTOF(reflection->constantLookup), "Too many constant fields");
+          reflection->constantLookup[index] = hash32(name, nameLength);
+        }
         break;
       case 71: // OpDecorate
         if (length < 4 || instruction[1] >= bound) break;
 
         id = instruction[1];
-        uint32_t decoration = instruction[2];
-        uint32_t value = instruction[3];
+        decoration = instruction[2];
+        value = instruction[3];
 
         if (decoration == 33) { // Binding
           lovrCheck(value < 32, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 32", id, value);
@@ -3093,8 +3137,19 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
           lovrCheck(value < 32, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
           cache[id].attribute.location = value;
         } else if (decoration == 1) { // SpecId
-          lovrCheck(value < 2000, "Unsupported Shader code: specialization constant id is too big (max is 2000)");
+          lovrCheck(value <= 2000, "Unsupported Shader code: specialization constant id is too big (max is 2000)");
           cache[id].flag.number = value;
+        }
+        break;
+      case 72: // OpMemberDecorate
+        if (length < 5 || instruction[1] >= bound) break;
+        id = instruction[1];
+        index = instruction[2];
+        decoration = instruction[3];
+        value = instruction[4];
+        if (id == pushConstantStructId && decoration == 35) { // Offset
+          lovrCheck(index < COUNTOF(reflection->constantOffsets), "Too many constants");
+          reflection->constantOffsets[index] = value;
         }
         break;
       case 19: // OpTypeVoid
@@ -3112,23 +3167,23 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
       case 31: // OpTypeOpaque
       case 32: // OpTypePointer
         if (length < 2 || instruction[1] >= bound) break;
-        cache[instruction[1]].type.inner = instruction - words;
+        cache[instruction[1]].type.word = instruction - words;
         break;
       case 48: // OpSpecConstantTrue
       case 49: // OpSpecConstantFalse
       case 50: // OpSpecConstant
         if (length < 2 || instruction[2] >= bound) break;
-        uint32_t id = instruction[2];
+        id = instruction[2];
 
         lovrCheck(reflection->flagCount < COUNTOF(reflection->flags), "Shader has too many flags");
-        uint32_t index = reflection->flagCount++;
+        index = reflection->flagCount++;
 
         lovrCheck(cache[id].flag.number != 0xffff, "Invalid Shader code: Specialization constant has no ID");
         reflection->flags[index].id = cache[id].flag.number;
 
         // If it's a regular SpecConstant, parse its type for i32/u32/f32, otherwise use b32
         if (opcode == 50) {
-          const uint32_t* type = words + cache[instruction[1]].type.inner;
+          const uint32_t* type = words + cache[instruction[1]].type.word;
           lovrCheck(type < edge, "Invalid Shader code: Specialization constant has invalid type");
           if ((type[0] & 0xffff) == 21 && type[2] == 32) { // OpTypeInt
             if (type[3] == 0) {
@@ -3147,13 +3202,14 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
 
         if (cache[id].flag.name != 0xffff) {
           uint32_t nameWord = cache[id].flag.name;
-          char* name = (char*) (words + nameWord);
-          size_t length = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
-          reflection->flagNames[index] = hash64(name, length);
+          name = (char*) (words + nameWord);
+          size_t nameLength = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
+          reflection->flagNames[index] = hash32(name, nameLength);
         }
         break;
       case 59: // OpVariable
         if (length < 4 || instruction[2] >= bound) break;
+
         id = instruction[2];
         uint32_t type = instruction[1];
         uint32_t storageClass = instruction[3];
@@ -3164,6 +3220,92 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
           break;
         }
 
+        // Parse push constant types (currently only scalars, vectors, and matrices are supported)
+        // Member count of OpTypeStruct is the instruction length - 2, type ids start at word #2
+        // TODO this needs to be hardened to check for valid ids / overflows
+        // TODO validate that no member goes over 128 byte limit
+        if (storageClass == 9 && reflection->constantCount == 0) {
+          uint32_t structId = (words + cache[type].type.word)[3];
+          const uint32_t* structType = words + cache[structId].type.word;
+          reflection->constantCount = (structType[0] >> 16) - 2;
+          for (uint32_t i = 0; i < reflection->constantCount; i++) {
+            uint32_t fieldId = structType[2 + i];
+            const uint32_t* fieldType = words + cache[fieldId].type.word;
+            uint32_t fieldOpcode = fieldType[0] & 0xffff;
+
+            bool matrix = false;
+            bool vector = false;
+            FieldType scalar;
+
+            uint32_t columnCount = 1;
+            uint32_t componentCount = 1;
+
+            if (fieldOpcode == 24) { // OpTypeMatrix
+              matrix = true;
+              columnCount = fieldType[3];
+              fieldId = fieldType[2];
+              fieldType = words + cache[fieldId].type.word;
+              fieldOpcode = fieldType[0] & 0xffff;
+            }
+
+            if (fieldOpcode == 23) { // OpTypeVector
+              vector = true;
+              componentCount = fieldType[3];
+              fieldId = fieldType[2];
+              fieldType = words + cache[fieldId].type.word;
+              fieldOpcode = fieldType[0] & 0xffff;
+            }
+
+            if (fieldOpcode == 22) { // OpTypeFloat
+              lovrCheck(fieldType[2] == 32, "Currently, push constant floats must be 32 bits");
+              scalar = FIELD_F32;
+            } else if (fieldOpcode == 21) { // OpTypeInt
+              lovrCheck(fieldType[2] == 32, "Currently, push constant integers must be 32 bits");
+              if (fieldType[3] > 0) {
+                scalar = FIELD_I32;
+              } else {
+                scalar = FIELD_U32;
+              }
+            } else { // OpTypeBool
+              lovrCheck(fieldOpcode == 20, "Unsupported push constant type");
+              scalar = FIELD_U32;
+            }
+
+            if (matrix) {
+              lovrCheck(vector, "Invalid shader code: Matrices must contain vectors");
+              lovrCheck(scalar == FIELD_F32, "Invalid shader code: Matrices must be floating point");
+              lovrCheck(columnCount == componentCount, "Currently, only square matrices are supported");
+              switch (columnCount) {
+                case 2: reflection->constantTypes[i] = FIELD_MAT2; break;
+                case 3: reflection->constantTypes[i] = FIELD_MAT3; break;
+                case 4: reflection->constantTypes[i] = FIELD_MAT4; break;
+                default: lovrThrow("Invalid shader code: Matrices must have 2, 3, or 4 columns");
+              }
+            } else if (vector) {
+              if (scalar == FIELD_I32) {
+                if (columnCount == 2) reflection->constantTypes[i] = FIELD_I32x2;
+                if (columnCount == 3) reflection->constantTypes[i] = FIELD_I32x3;
+                if (columnCount == 4) reflection->constantTypes[i] = FIELD_I32x4;
+              } else if (scalar == FIELD_U32) {
+                if (columnCount == 2) reflection->constantTypes[i] = FIELD_U32x2;
+                if (columnCount == 3) reflection->constantTypes[i] = FIELD_U32x3;
+                if (columnCount == 4) reflection->constantTypes[i] = FIELD_U32x4;
+              } else if (scalar == FIELD_F32) {
+                if (columnCount == 2) reflection->constantTypes[i] = FIELD_F32x2;
+                if (columnCount == 3) reflection->constantTypes[i] = FIELD_F32x3;
+                if (columnCount == 4) reflection->constantTypes[i] = FIELD_F32x4;
+              }
+            } else {
+              reflection->constantTypes[i] = scalar;
+            }
+
+            uint32_t totalSize = columnCount * componentCount * 4;
+            uint32_t limit = state.limits.pushConstantSize;
+            lovrCheck(reflection->constantOffsets[i] + totalSize <= limit, "Size of push constant block exceeds 'pushConstantSize' limit");
+          }
+          break;
+        }
+
         // Ignore inputs/outputs and variables that aren't decorated with a group and binding (e.g. globals)
         if (storageClass == 1 || storageClass == 3 || cache[id].resource.group == 0xff || cache[id].resource.binding == 0xff) {
           break;
@@ -3171,7 +3313,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
 
         uint32_t count;
         gpu_slot_type slotType;
-        parseTypeInfo(words, wordCount, cache, bound, instruction, &slotType, &count);
+        parseResourceType(words, wordCount, cache, bound, instruction, &slotType, &count);
 
         uint32_t group = cache[id].resource.group;
         uint32_t number = cache[id].resource.binding;
@@ -3179,12 +3321,12 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
 
         // Name (type of variable is pointer, follow pointer's inner type to get to struct type)
         // The struct type is what actually has the block name, used for the resource's name
-        uint32_t blockType = (words + cache[type].type.inner)[3];
+        uint32_t blockType = (words + cache[type].type.word)[3];
         if (group == 1 && !reflection->slotNames[number] && cache[blockType].type.name != 0xffff) {
           uint32_t nameWord = cache[blockType].type.name;
           char* name = (char*) (words + nameWord);
-          size_t length = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
-          reflection->slotNames[number] = hash64(name, length);
+          size_t nameLength = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
+          reflection->slotNames[number] = hash32(name, nameLength);
         }
 
         // Either merge our info into an existing slot, or add the slot
@@ -3234,6 +3376,10 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   }
 
   // Copy some of the reflection info (maybe it should just write directly to Shader*)?
+  shader->constantCount = reflection.constantCount;
+  memcpy(shader->constantOffsets, reflection.constantOffsets, sizeof(reflection.constantOffsets));
+  memcpy(shader->constantTypes, reflection.constantTypes, sizeof(reflection.constantTypes));
+  memcpy(shader->constantLookup, reflection.constantLookup, sizeof(reflection.constantLookup));
   memcpy(shader->flagLookup, reflection.flagNames, sizeof(reflection.flagNames));
   memcpy(shader->flags, reflection.flags, sizeof(reflection.flags));
   shader->flagCount = reflection.flagCount;
@@ -3257,7 +3403,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     shader->resourceLookup[index] = reflection.slotNames[i];
   }
 
-  // Filter empties from slots, so non-sparse slot list can be used to hash/create layout
+  // Filter empties from slots, so contiguous slot list can be used to hash/create layout
   for (uint32_t i = 0; i < shader->resourceCount; i++) {
     if (shader->resourceSlots[i] > i) {
       reflection.slots[1][i] = reflection.slots[1][shader->resourceSlots[i]];
@@ -3282,7 +3428,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->activeFlagCount = 0;
   for (uint32_t i = 0; i < info->flagCount; i++) {
     ShaderFlag* flag = &info->flags[i];
-    uint64_t hash = flag->name ? hash64(flag->name, strlen(flag->name)) : 0;
+    uint32_t hash = flag->name ? hash32(flag->name, strlen(flag->name)) : 0;
     for (uint32_t j = 0; j < shader->flagCount; j++) {
       if (hash ? (hash != shader->flagLookup[j]) : (flag->id != shader->flags[j].id)) continue;
       uint32_t index = shader->activeFlagCount++;
@@ -3339,7 +3485,7 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->activeFlagCount = 0;
   for (uint32_t i = 0; i < count; i++) {
     ShaderFlag* flag = &flags[i];
-    uint64_t hash = flag->name ? hash64(flag->name, strlen(flag->name)) : 0;
+    uint32_t hash = flag->name ? hash32(flag->name, strlen(flag->name)) : 0;
     for (uint32_t j = 0; j < shader->flagCount; j++) {
       if (hash ? (hash != shader->flagLookup[j]) : (flag->id != shader->flags[j].id)) continue;
       uint32_t index = shader->activeFlagCount++;
