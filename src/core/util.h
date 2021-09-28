@@ -59,6 +59,8 @@ static inline uint64_t hash64(const void* data, size_t length) {
   return hash;
 }
 
+#define hash32(...) (hash64(__VA_ARGS__) & ~0u)
+
 // Refcounting
 void lovrRetain(void* ref);
 void lovrRelease(void* ref, void (*destructor)(void*));
