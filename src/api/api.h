@@ -145,6 +145,7 @@ void* luax_readfile(const char* filename, size_t* bytesRead);
 struct Buffer;
 uint32_t luax_checkfieldtype(struct lua_State* L, int index);
 void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer);
+void luax_readbufferfield(struct lua_State* L, int index, int type, void* data);
 #endif
 
 #ifndef LOVR_DISABLE_MATH
