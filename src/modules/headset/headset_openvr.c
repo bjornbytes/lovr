@@ -17,12 +17,11 @@
 #include "resources/bindings_vive_tracker_camera.json.h"
 #include "resources/bindings_vive_tracker_keyboard.json.h"
 #include "data/blob.h"
+#include "data/image.h"
+#include "data/modelData.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
-#include "graphics/canvas.h"
-#include "graphics/model.h"
-#include "graphics/texture.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include <stdbool.h>
@@ -92,14 +91,14 @@ static struct {
   VRActionHandle_t hapticActions[2];
   VRInputValueHandle_t inputSources[3];
   TrackedDevicePose_t renderPoses[64];
-  Canvas* canvas;
+  Texture* texture;
   float* mask;
   float boundsGeometry[16];
   float clipNear;
   float clipFar;
   float supersample;
   float offset;
-  int msaa;
+  uint32_t msaa;
 } state;
 
 static TrackedDeviceIndex_t getDeviceIndex(Device device) {
@@ -109,6 +108,16 @@ static TrackedDeviceIndex_t getDeviceIndex(Device device) {
     case DEVICE_HAND_RIGHT: return state.system->GetTrackedDeviceIndexForControllerRole(ETrackedControllerRole_TrackedControllerRole_RightHand);
     default: return INVALID_DEVICE;
   }
+}
+
+static bool openvr_getVulkanInstanceExtensions(char* buffer, uint32_t size) {
+  return state.compositor->GetVulkanInstanceExtensionsRequired(buffer, size);
+}
+
+static uintptr_t gpu_vk_get_physical_device(void);
+
+static bool openvr_getVulkanDeviceExtensions(char* buffer, uint32_t size, uintptr_t physicalDevice) {
+  return state.compositor->GetVulkanDeviceExtensionsRequired((struct VkPhysicalDevice_T*) physicalDevice, buffer, size);
 }
 
 static bool openvr_getName(char* name, size_t length);
@@ -259,18 +268,20 @@ static void openvr_start(void) {
   state.system->GetRecommendedRenderTargetSize(&width, &height);
   width *= state.supersample;
   height *= state.supersample;
-  CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = true, .msaa = state.msaa };
-  state.canvas = lovrCanvasCreate(width, height, flags);
-  Texture* texture = lovrTextureCreate(TEXTURE_2D, NULL, 0, true, true, state.msaa);
-  lovrTextureAllocate(texture, width * 2, height, 1, FORMAT_RGBA);
-  lovrTextureSetFilter(texture, lovrGraphicsGetDefaultFilter());
-  lovrCanvasSetAttachments(state.canvas, &(Attachment) { texture, 0, 0 }, 1);
-  lovrRelease(texture, lovrTextureDestroy);
-  os_window_set_vsync(0);
+  state.texture = lovrTextureCreate(&(TextureInfo) {
+    .type = TEXTURE_ARRAY,
+    .format = FORMAT_RGBA8,
+    .width = width,
+    .height = height,
+    .depth = 2,
+    .mipmaps = 1,
+    .samples = 1,
+    .usage = TEXTURE_RENDER
+  });
 }
 
 static void openvr_destroy(void) {
-  lovrRelease(state.canvas, lovrCanvasDestroy);
+  lovrRelease(state.texture, lovrTextureDestroy);
   VR_ShutdownInternal();
   free(state.mask);
   memset(&state, 0, sizeof(state));
@@ -573,6 +584,7 @@ static bool loadRenderModel(char* name, RenderModel_t** model, RenderModel_Textu
 }
 
 static ModelData* openvr_newModelData(Device device, bool animated) {
+  /*
   TrackedDeviceIndex_t index = getDeviceIndex(device);
   if (index == INVALID_DEVICE) return NULL;
 
@@ -783,9 +795,12 @@ static ModelData* openvr_newModelData(Device device, bool animated) {
   }
 
   return model;
+  */
+  return NULL;
 }
 
 static bool openvr_animate(Device device, Model* model) {
+  /*
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
     return false;
   }
@@ -827,40 +842,22 @@ static bool openvr_animate(Device device, Model* model) {
   }
 
   return success;
+  */
+  return false;
 }
 
-static void openvr_renderTo(void (*callback)(void*), void* userdata) {
-  float head[16];
-  mat4_fromMat34(head, state.renderPoses[k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking.m);
-
-  for (int i = 0; i < 2; i++) {
-    float matrix[16], eye[16];
-    EVREye vrEye = (i == 0) ? EVREye_Eye_Left : EVREye_Eye_Right;
-    mat4_init(matrix, head);
-    mat4_mul(matrix, mat4_fromMat34(eye, state.system->GetEyeToHeadTransform(vrEye).m));
-    mat4_invert(matrix);
-    lovrGraphicsSetViewMatrix(i, matrix);
-    mat4_fromMat44(matrix, state.system->GetProjectionMatrix(vrEye, state.clipNear, state.clipFar).m);
-    lovrGraphicsSetProjection(i, matrix);
-  }
-
-  lovrGraphicsSetBackbuffer(state.canvas, true, true);
-  callback(userdata);
-  lovrGraphicsSetBackbuffer(NULL, false, false);
-
-  // Submit
-  const Attachment* attachments = lovrCanvasGetAttachments(state.canvas, NULL);
-  ptrdiff_t id = lovrTextureGetId(attachments[0].texture);
-  Texture_t eyeTexture = { (void*) id, ETextureType_TextureType_OpenGL, EColorSpace_ColorSpace_Linear };
-  VRTextureBounds_t left = { 0.f, 0.f, .5f, 1.f };
-  VRTextureBounds_t right = { .5f, 0.f, 1.f, 1.f };
-  state.compositor->Submit(EVREye_Eye_Left, &eyeTexture, &left, EVRSubmitFlags_Submit_Default);
-  state.compositor->Submit(EVREye_Eye_Right, &eyeTexture, &right, EVRSubmitFlags_Submit_Default);
-  lovrGpuDirtyTexture();
+static Texture* openvr_getTexture(void) {
+  return state.texture;
 }
 
-static Texture* openvr_getMirrorTexture(void) {
-  return lovrCanvasGetAttachments(state.canvas, NULL)[0].texture;
+static void openvr_submit(void) {
+  EVRSubmitFlags flags = EVRSubmitFlags_Submit_VulkanTextureWithArrayData;
+  // TODO somehow state.texture needs to get into TRANSFER_SRC_OPTIMAL
+  // TODO need a way to get the VkImage for a Texture
+  Texture_t texture = { (void*) 0 /* TODO */, ETextureType_TextureType_Vulkan, EColorSpace_ColorSpace_Linear };
+  VRTextureBounds_t bounds = { 0.f, 0.f, 1.f, 1.f };
+  state.compositor->Submit(EVREye_Eye_Left, &texture, &bounds, flags);
+  state.compositor->Submit(EVREye_Eye_Right, &texture, &bounds, flags);
 }
 
 static void openvr_update(float dt) {
@@ -889,6 +886,8 @@ static void openvr_update(float dt) {
 
 HeadsetInterface lovrHeadsetOpenVRDriver = {
   .driverType = DRIVER_OPENVR,
+  .getVulkanInstanceExtensions = openvr_getVulkanInstanceExtensions,
+  .getVulkanDeviceExtensions = openvr_getVulkanDeviceExtensions,
   .init = openvr_init,
   .start = openvr_start,
   .destroy = openvr_destroy,
@@ -914,7 +913,7 @@ HeadsetInterface lovrHeadsetOpenVRDriver = {
   .vibrate = openvr_vibrate,
   .newModelData = openvr_newModelData,
   .animate = openvr_animate,
-  .renderTo = openvr_renderTo,
-  .getMirrorTexture = openvr_getMirrorTexture,
+  .getTexture = openvr_getTexture,
+  .submit = openvr_submit,
   .update = openvr_update
 };
