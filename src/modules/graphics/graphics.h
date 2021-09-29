@@ -229,6 +229,7 @@ typedef enum {
 
 typedef enum {
   SHADER_UNLIT,
+  SHADER_FILL,
   DEFAULT_SHADER_COUNT
 } DefaultShader;
 
