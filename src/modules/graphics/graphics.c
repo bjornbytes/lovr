@@ -1003,6 +1003,9 @@ static void lovrGraphicsReset(gpu_pass* pass) {
   state.emptyBindingMask = ~0u;
   state.bindingsDirty = true;
 
+  memset(state.constantData, 0, sizeof(state.constantData));
+  state.constantsDirty = true;
+
   state.drawCursor = 0;
 
   state.boundPipeline = NULL;
@@ -2009,9 +2012,9 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
       state.boundIndexType = indexType;
     }
 
-    if (state.constantsDirty) {
-      state.constantsDirty = false;
+    if (state.constantsDirty && shader->constantSize > 0) {
       gpu_push_constants(state.pass->stream, pipeline, state.constantData, shader->constantSize);
+      state.constantsDirty = false;
     }
 
     if (info->indirect) {
@@ -2314,6 +2317,11 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
     gpu_bind_bundle(state.pass->stream, pipeline, 1, bundle, NULL, 0);
     state.boundBundle = bundle;
     state.bindingsDirty = false;
+  }
+
+  if (state.constantsDirty && shader->constantSize > 0) {
+    gpu_push_constants(state.pass->stream, pipeline, state.constantData, shader->constantSize);
+    state.constantsDirty = false;
   }
 
   if (buffer) {
