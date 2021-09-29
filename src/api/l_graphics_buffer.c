@@ -112,83 +112,85 @@ static int luax_pushbufferfield(lua_State* L, void* data, FieldType type) {
   return components;
 }
 
-static void luax_readbufferfield(lua_State* L, int index, FieldType type, int components, void* data) {
+void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
   FieldPointer p = { .raw = data };
-  for (int i = 0; i < components; i++) {
-    double x = lua_tonumber(L, index + i);
+  if (lua_isuserdata(L, index)) {
+    VectorType vectorType;
+    float* v = luax_tovector(L, index, &vectorType);
+    lovrCheck(vectorComponents[vectorType] == fieldComponents[type], "Vector type is incompatible with field type");
     switch (type) {
-      case FIELD_I8: p.i8[i] = (int8_t) x; break;
-      case FIELD_U8: p.u8[i] = (uint8_t) x; break;
-      case FIELD_I16: p.i16[i] = (int16_t) x; break;
-      case FIELD_U16: p.u16[i] = (uint16_t) x; break;
-      case FIELD_I32: p.i32[i] = (int32_t) x; break;
-      case FIELD_U32: p.u32[i] = (uint32_t) x; break;
-      case FIELD_F32: p.f32[i] = (float) x; break;
-      case FIELD_I8x2: p.i8[i] = (int8_t) x; break;
-      case FIELD_U8x2: p.u8[i] = (uint8_t) x; break;
-      case FIELD_I8Nx2: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
-      case FIELD_U8Nx2: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
-      case FIELD_I16x2: p.i16[i] = (int16_t) x; break;
-      case FIELD_U16x2: p.u16[i] = (uint16_t) x; break;
-      case FIELD_I16Nx2: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
-      case FIELD_U16Nx2: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
-      case FIELD_I32x2: p.i32[i] = (int32_t) x; break;
-      case FIELD_U32x2: p.u32[i] = (uint32_t) x; break;
-      case FIELD_F32x2: p.f32[i] = (float) x; break;
-      case FIELD_U10Nx3: p.u32[0] |= (uint32_t) (CLAMP(x, 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
-      case FIELD_I32x3: p.i32[i] = (int32_t) x; break;
-      case FIELD_U32x3: p.u32[i] = (uint32_t) x; break;
-      case FIELD_F32x3: p.f32[i] = (float) x; break;
-      case FIELD_I8x4: p.i8[i] = (int8_t) x; break;
-      case FIELD_U8x4: p.u8[i] = (uint8_t) x; break;
-      case FIELD_I8Nx4: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
-      case FIELD_U8Nx4: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
-      case FIELD_I16x4: p.i16[i] = (int16_t) x; break;
-      case FIELD_U16x4: p.u16[i] = (uint16_t) x; break;
-      case FIELD_I16Nx4: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
-      case FIELD_U16Nx4: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
-      case FIELD_I32x4: p.i32[i] = (int32_t) x; break;
-      case FIELD_U32x4: p.i32[i] = (uint32_t) x; break;
-      case FIELD_F32x4: p.f32[i] = (float) x; break;
-      case FIELD_MAT2: p.f32[i] = (float) x; break;
-      case FIELD_MAT3: p.f32[i] = (float) x; break;
-      case FIELD_MAT4: p.f32[i] = (float) x; break;
+      case FIELD_I8x2: for (int i = 0; i < 2; i++) p.i8[i] = (int8_t) v[i]; break;
+      case FIELD_U8x2: for (int i = 0; i < 2; i++) p.u8[i] = (uint8_t) v[i]; break;
+      case FIELD_I8Nx2: for (int i = 0; i < 2; i++) p.i8[i] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
+      case FIELD_U8Nx2: for (int i = 0; i < 2; i++) p.u8[i] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
+      case FIELD_I16x2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) v[i]; break;
+      case FIELD_U16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) v[i]; break;
+      case FIELD_I16Nx2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
+      case FIELD_U16Nx2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
+      case FIELD_I32x2: for (int i = 0; i < 2; i++) p.i32[i] = (int32_t) v[i]; break;
+      case FIELD_U32x2: for (int i = 0; i < 2; i++) p.u32[i] = (uint32_t) v[i]; break;
+      case FIELD_U10Nx3: for (int i = 0; i < 3; i++) p.u32[0] |= (uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
+      case FIELD_I32x3: for (int i = 0; i < 3; i++) p.i32[i] = (int32_t) v[i]; break;
+      case FIELD_U32x3: for (int i = 0; i < 3; i++) p.u32[i] = (uint32_t) v[i]; break;
+      case FIELD_I8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) v[i]; break;
+      case FIELD_U8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) v[i]; break;
+      case FIELD_I8Nx4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
+      case FIELD_U8Nx4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
+      case FIELD_I16x4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) v[i]; break;
+      case FIELD_U16x4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) v[i]; break;
+      case FIELD_I16Nx4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
+      case FIELD_U16Nx4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
+      case FIELD_I32x4: for (int i = 0; i < 4; i++) p.i32[i] = (int32_t) v[i]; break;
+      case FIELD_U32x4: for (int i = 0; i < 4; i++) p.u32[i] = (uint32_t) v[i]; break;
+      case FIELD_F32x2: memcpy(data, v, 2 * sizeof(float)); break;
+      case FIELD_F32x3: memcpy(data, v, 3 * sizeof(float)); break;
+      case FIELD_F32x4: memcpy(data, v, 4 * sizeof(float)); break;
+      case FIELD_MAT4: memcpy(data, v, 16 * sizeof(float)); break;
       default: lovrThrow("Unreachable");
     }
-  }
-}
-
-static void luax_readbufferfieldv(float* v, FieldType type, int c, void* data) {
-  FieldPointer p = { .raw = data };
-  switch (type) {
-    case FIELD_I8x2: for (int i = 0; i < 2; i++) p.i8[c] = (int8_t) v[i]; break;
-    case FIELD_U8x2: for (int i = 0; i < 2; i++) p.u8[c] = (uint8_t) v[i]; break;
-    case FIELD_I8Nx2: for (int i = 0; i < 2; i++) p.i8[c] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
-    case FIELD_U8Nx2: for (int i = 0; i < 2; i++) p.u8[c] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
-    case FIELD_I16x2: for (int i = 0; i < 2; i++) p.i16[c] = (int16_t) v[i]; break;
-    case FIELD_U16x2: for (int i = 0; i < 2; i++) p.u16[c] = (uint16_t) v[i]; break;
-    case FIELD_I16Nx2: for (int i = 0; i < 2; i++) p.i16[c] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
-    case FIELD_U16Nx2: for (int i = 0; i < 2; i++) p.u16[c] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
-    case FIELD_I32x2: for (int i = 0; i < 2; i++) p.i32[c] = (int32_t) v[i]; break;
-    case FIELD_U32x2: for (int i = 0; i < 2; i++) p.u32[c] = (uint32_t) v[i]; break;
-    case FIELD_U10Nx3: for (int i = 0; i < 3; i++) p.u32[0] |= (uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
-    case FIELD_I32x3: for (int i = 0; i < 3; i++) p.i32[c] = (int32_t) v[i]; break;
-    case FIELD_U32x3: for (int i = 0; i < 3; i++) p.u32[c] = (uint32_t) v[i]; break;
-    case FIELD_I8x4: for (int i = 0; i < 4; i++) p.i8[c] = (int8_t) v[i]; break;
-    case FIELD_U8x4: for (int i = 0; i < 4; i++) p.u8[c] = (uint8_t) v[i]; break;
-    case FIELD_I8Nx4: for (int i = 0; i < 4; i++) p.i8[c] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
-    case FIELD_U8Nx4: for (int i = 0; i < 4; i++) p.u8[c] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
-    case FIELD_I16x4: for (int i = 0; i < 4; i++) p.i16[c] = (int16_t) v[i]; break;
-    case FIELD_U16x4: for (int i = 0; i < 4; i++) p.u16[c] = (uint16_t) v[i]; break;
-    case FIELD_I16Nx4: for (int i = 0; i < 4; i++) p.i16[c] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
-    case FIELD_U16Nx4: for (int i = 0; i < 4; i++) p.u16[c] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
-    case FIELD_I32x4: for (int i = 0; i < 4; i++) p.i32[c] = (int32_t) v[i]; break;
-    case FIELD_U32x4: for (int i = 0; i < 4; i++) p.u32[c] = (uint32_t) v[i]; break;
-    case FIELD_F32x2: memcpy(data, v, 2 * sizeof(float)); break;
-    case FIELD_F32x3: memcpy(data, v, 3 * sizeof(float)); break;
-    case FIELD_F32x4: memcpy(data, v, 4 * sizeof(float)); break;
-    case FIELD_MAT4: memcpy(data, v, 16 * sizeof(float)); break;
-    default: lovrThrow("Unreachable");
+  } else {
+    for (int i = 0; i < fieldComponents[type]; i++) {
+      double x = lua_tonumber(L, index + i);
+      switch (type) {
+        case FIELD_I8: p.i8[i] = (int8_t) x; break;
+        case FIELD_U8: p.u8[i] = (uint8_t) x; break;
+        case FIELD_I16: p.i16[i] = (int16_t) x; break;
+        case FIELD_U16: p.u16[i] = (uint16_t) x; break;
+        case FIELD_I32: p.i32[i] = (int32_t) x; break;
+        case FIELD_U32: p.u32[i] = (uint32_t) x; break;
+        case FIELD_F32: p.f32[i] = (float) x; break;
+        case FIELD_I8x2: p.i8[i] = (int8_t) x; break;
+        case FIELD_U8x2: p.u8[i] = (uint8_t) x; break;
+        case FIELD_I8Nx2: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
+        case FIELD_U8Nx2: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
+        case FIELD_I16x2: p.i16[i] = (int16_t) x; break;
+        case FIELD_U16x2: p.u16[i] = (uint16_t) x; break;
+        case FIELD_I16Nx2: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
+        case FIELD_U16Nx2: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
+        case FIELD_I32x2: p.i32[i] = (int32_t) x; break;
+        case FIELD_U32x2: p.u32[i] = (uint32_t) x; break;
+        case FIELD_F32x2: p.f32[i] = (float) x; break;
+        case FIELD_U10Nx3: p.u32[0] |= (uint32_t) (CLAMP(x, 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
+        case FIELD_I32x3: p.i32[i] = (int32_t) x; break;
+        case FIELD_U32x3: p.u32[i] = (uint32_t) x; break;
+        case FIELD_F32x3: p.f32[i] = (float) x; break;
+        case FIELD_I8x4: p.i8[i] = (int8_t) x; break;
+        case FIELD_U8x4: p.u8[i] = (uint8_t) x; break;
+        case FIELD_I8Nx4: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
+        case FIELD_U8Nx4: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
+        case FIELD_I16x4: p.i16[i] = (int16_t) x; break;
+        case FIELD_U16x4: p.u16[i] = (uint16_t) x; break;
+        case FIELD_I16Nx4: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
+        case FIELD_U16Nx4: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
+        case FIELD_I32x4: p.i32[i] = (int32_t) x; break;
+        case FIELD_U32x4: p.i32[i] = (uint32_t) x; break;
+        case FIELD_F32x4: p.f32[i] = (float) x; break;
+        case FIELD_MAT2: p.f32[i] = (float) x; break;
+        case FIELD_MAT3: p.f32[i] = (float) x; break;
+        case FIELD_MAT4: p.f32[i] = (float) x; break;
+        default: lovrThrow("Unreachable");
+      }
+    }
   }
 }
 
@@ -229,26 +231,17 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
       lovrAssert(lua_type(L, -1) == LUA_TTABLE, "Expected table of tables");
       int j = 1;
       for (uint16_t f = 0; f < info->fieldCount; f++) {
-        uint16_t offset = info->offsets[f];
-        FieldType type = info->types[f];
-        VectorType vectorType;
+        uint32_t n = 1;
         lua_rawgeti(L, -1, j);
-        float* vector = luax_tovector(L, -1, &vectorType);
-        if (vector) {
-          uint16_t components = vectorComponents[vectorType];
-          lovrAssert(components == fieldComponents[type], "Vector type is incompatible with field type");
-          luax_readbufferfieldv(vector, type, components, base + offset);
-          lua_pop(L, 1);
-          j++;
-        } else {
-          uint16_t components = fieldComponents[type];
-          for (uint16_t c = 1; c < components; c++) {
+        if (!lua_isuserdata(L, -1)) {
+          n = fieldComponents[info->types[f]];
+          for (uint16_t c = 1; c < n; c++) {
             lua_rawgeti(L, -c - 1, j + c);
           }
-          luax_readbufferfield(L, -components, type, components, base + offset);
-          lua_pop(L, components);
-          j += components;
         }
+        luax_readbufferfield(L, -n, info->types[f], base + info->offsets[f]);
+        lua_pop(L, n);
+        j += n;
       }
       base += info->stride;
       lua_pop(L, 1);
@@ -256,26 +249,17 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
   } else {
     for (uint32_t i = 0, j = srcIndex + 1; i < count && j <= length; i++) {
       for (uint16_t f = 0; f < info->fieldCount; f++) {
-        uint16_t offset = info->offsets[f];
-        FieldType type = info->types[f];
-        VectorType vectorType;
+        uint32_t n = 1;
         lua_rawgeti(L, index, j);
-        float* vector = luax_tovector(L, -1, &vectorType);
-        if (vector) {
-          uint16_t components = vectorComponents[vectorType];
-          lovrAssert(components == fieldComponents[type], "Vector type is incompatible with field type");
-          luax_readbufferfieldv(vector, type, components, base + offset);
-          lua_pop(L, 1);
-          j++;
-        } else {
-          uint16_t components = fieldComponents[type];
-          for (uint16_t c = 1; c < components; c++) {
+        if (!lua_isuserdata(L, -1)) {
+          n = fieldComponents[info->types[f]];
+          for (uint16_t c = 1; c < n; c++) {
             lua_rawgeti(L, index, j + c);
           }
-          luax_readbufferfield(L, -components, type, components, base + offset);
-          lua_pop(L, components);
-          j += components;
         }
+        luax_readbufferfield(L, -n, info->types[f], base + info->offsets[f]);
+        lua_pop(L, n);
+        j += n;
       }
       base += info->stride;
     }
