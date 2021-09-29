@@ -2668,16 +2668,18 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   const TextureInfo* info = &texture->info;
-  lovrRelease(texture->info.parent, lovrTextureDestroy);
-  lovrRelease(texture->sampler, lovrSamplerDestroy);
-  if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
-  if (texture->gpu) gpu_texture_destroy(texture->gpu);
-  if (!info->parent && !info->handle && info->format != ~0u) {
-    uint32_t size = getTextureRegionSize(info->format, info->width, info->height, info->depth);
-    state.stats.memory -= size;
-    state.stats.textureMemory -= size;
+  if (texture != state.window) {
+    lovrRelease(texture->info.parent, lovrTextureDestroy);
+    lovrRelease(texture->sampler, lovrSamplerDestroy);
+    if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
+    if (texture->gpu) gpu_texture_destroy(texture->gpu);
+    if (!info->parent && !info->handle) {
+      uint32_t size = getTextureRegionSize(info->format, info->width, info->height, info->depth);
+      state.stats.memory -= size;
+      state.stats.textureMemory -= size;
+    }
+    state.stats.textures--;
   }
-  state.stats.textures--;
   free(texture);
 }
 
