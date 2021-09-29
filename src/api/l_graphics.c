@@ -958,7 +958,7 @@ static int l_lovrGraphicsSetShader(lua_State* L) {
   }
 }
 
-static int l_lovrGraphicsBind(lua_State* L) {
+static int l_lovrGraphicsSetBuffer(lua_State* L) {
   const char* name = NULL;
   size_t length = 0;
   uint32_t slot = ~0u;
@@ -969,20 +969,36 @@ static int l_lovrGraphicsBind(lua_State* L) {
     default: return luax_typeerror(L, 1, "string or number");
   }
 
-  Buffer* buffer = luax_totype(L, 2, Buffer);
-  Texture* texture = NULL;
-  uint32_t offset = 0;
+  Buffer* buffer = luax_checktype(L, 2, Buffer);
+  uint32_t offset = lua_tointeger(L, 3);
+  uint32_t extent = lua_tointeger(L, 4);
+  lovrGraphicsSetBuffer(name, length, slot, buffer, offset, extent);
+  return 0;
+}
 
-  if (buffer) {
-    offset = lua_tointeger(L, 3);
-  } else {
-    texture = luax_totype(L, 2, Texture);
-    if (!texture) {
-      return luax_typeerror(L, 2, "Buffer or Texture");
-    }
+static int l_lovrGraphicsSetTexture(lua_State* L) {
+  const char* name = NULL;
+  size_t length = 0;
+  uint32_t slot = ~0u;
+
+  switch (lua_type(L, 1)) {
+    case LUA_TSTRING: name = lua_tolstring(L, 1, &length); break;
+    case LUA_TNUMBER: slot = lua_tointeger(L, 1) - 1; break;
+    default: return luax_typeerror(L, 1, "string or number");
   }
 
-  lovrGraphicsBind(name, length, slot, buffer, offset, texture);
+  Texture* texture = luax_checktype(L, 2, Texture);
+  lovrGraphicsSetTexture(name, length, slot, texture);
+  return 0;
+}
+
+static int l_lovrGraphicsSetConstant(lua_State* L) {
+  size_t length;
+  const char* name = luaL_checklstring(L, 1, &length);
+  void* data;
+  FieldType type;
+  lovrGraphicsSetConstant(name, length, &data, &type);
+  luax_readbufferfield(L, 2, type, data);
   return 0;
 }
 
@@ -1667,7 +1683,9 @@ static const luaL_Reg lovrGraphics[] = {
   { "setWireframe", l_lovrGraphicsSetWireframe },
 
   { "setShader", l_lovrGraphicsSetShader },
-  { "bind", l_lovrGraphicsBind },
+  { "setBuffer", l_lovrGraphicsSetBuffer },
+  { "setTexture", l_lovrGraphicsSetTexture },
+  { "setConstant", l_lovrGraphicsSetConstant },
 
   { "mesh", l_lovrGraphicsMesh },
   { "points", l_lovrGraphicsPoints },

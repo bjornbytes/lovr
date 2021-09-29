@@ -55,6 +55,7 @@ struct Shader {
   gpu_shader* gpu;
   uint32_t layout;
   uint32_t computePipelineIndex;
+  uint32_t constantSize;
   uint32_t constantCount;
   uint32_t constantLookup[32];
   uint8_t constantOffsets[32];
@@ -261,6 +262,8 @@ static struct {
   gpu_binding bindings[32];
   uint32_t emptyBindingMask;
   bool bindingsDirty;
+  char constantData[128];
+  bool constantsDirty;
   Megaview cameraBuffer;
   Megaview transforms;
   Megaview colors;
@@ -1576,65 +1579,106 @@ void lovrGraphicsSetShader(Shader* shader) {
   state.pipeline->dirty = true;
 }
 
-void lovrGraphicsBind(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture) {
+void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent) {
   Shader* shader = state.pipeline->shader;
   lovrCheck(shader, "A Shader must be active to bind resources");
 
   if (name) {
+    slot = ~0u;
     uint32_t hash = hash32(name, length);
-    bool found = false;
     for (uint32_t i = 0; i < shader->resourceCount; i++) {
       if (shader->resourceLookup[i] == hash) {
         slot = shader->resourceSlots[i];
-        found = true;
         break;
       }
     }
-    lovrCheck(found, "Active Shader has no resource named '%s'", name);
+    lovrCheck(slot != ~0u, "Shader has no resource named '%s'", name);
   }
 
   bool storage = shader->storageMask & (1 << slot);
+  lovrCheck(shader->bufferMask & (1 << slot), "Shader slot %d is not a Buffer", slot + 1);
+  lovrCheck(offset < buffer->size, "Buffer bind offset is past the end of the Buffer");
 
-  if (shader->bufferMask & (1 << slot)) {
-    lovrCheck(buffer, "Unable to bind a Texture to a Buffer");
-    lovrCheck(offset < buffer->size, "Buffer bind offset is past the end of the Buffer");
-
-    if (storage) {
-      lovrCheck(buffer->info.usage & BUFFER_STORAGE, "Buffers must be created with the 'storage' usage to use them as storage buffers");
-      lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to storageBufferAlign limit (%d)", offset, state.limits.storageBufferAlign);
-    } else {
-      lovrCheck(buffer->info.usage & BUFFER_UNIFORM, "Buffers must be created with the 'uniform' usage to use them as uniform buffers");
-      lovrCheck((offset & (state.limits.uniformBufferAlign - 1)) == 0, "Uniform buffer offset (%d) is not aligned to uniformBufferAlign limit (%d)", offset, state.limits.uniformBufferAlign);
-    }
-
-    state.bindings[slot].buffer.object = buffer->mega.gpu;
-    state.bindings[slot].buffer.offset = buffer->mega.offset + offset;
-    state.bindings[slot].buffer.extent = MIN(buffer->size - offset, storage ? state.limits.storageBufferRange : state.limits.uniformBufferRange);
-    BufferSync sync = { buffer, storage ? GPU_BUFFER_STORAGE : GPU_BUFFER_UNIFORM, shader->slotStages[slot] };
-    arr_buffersync_t* buffers = state.batch ? &state.batch->buffers : &state.pass->buffers;
-    arr_push(buffers, sync);
-    lovrRetain(buffer);
-  } else if (shader->textureMask & (1 << slot)) {
-    lovrCheck(texture, "Unable to bind a Buffer to a Texture");
-
-    if (storage) {
-      lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' flag to use them as storage textures");
-    } else {
-      lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' flag to sample them in shaders");
-    }
-
-    state.bindings[slot].texture.object = texture->gpu;
-    state.bindings[slot].texture.sampler = texture->sampler->gpu;
-    TextureSync sync = { texture, storage ? GPU_TEXTURE_STORAGE : GPU_TEXTURE_SAMPLE, shader->slotStages[slot] };
-    arr_texturesync_t* textures = state.batch ? &state.batch->textures : &state.pass->textures;
-    arr_push(textures, sync);
-    lovrRetain(texture);
+  if (storage) {
+    lovrCheck(buffer->info.usage & BUFFER_STORAGE, "Buffers must be created with the 'storage' usage to use them as storage buffers");
+    lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to storageBufferAlign limit (%d)", offset, state.limits.storageBufferAlign);
   } else {
-    lovrThrow("Active Shader has no resource in slot %d", slot + 1);
+    lovrCheck(buffer->info.usage & BUFFER_UNIFORM, "Buffers must be created with the 'uniform' usage to use them as uniform buffers");
+    lovrCheck((offset & (state.limits.uniformBufferAlign - 1)) == 0, "Uniform buffer offset (%d) is not aligned to uniformBufferAlign limit (%d)", offset, state.limits.uniformBufferAlign);
   }
+
+  uint32_t limit = storage ? state.limits.storageBufferRange : state.limits.uniformBufferRange;
+
+  if (extent == 0) {
+    extent = MIN(buffer->size - offset, limit);
+  } else {
+    lovrCheck(offset + extent <= buffer->size, "Buffer bind range goes past the end of the Buffer");
+    lovrCheck(extent <= limit, "Buffer bind range exceeds storageBufferRange/uniformBufferRange limit");
+  }
+
+  state.bindings[slot].buffer.object = buffer->mega.gpu;
+  state.bindings[slot].buffer.offset = buffer->mega.offset + offset;
+  state.bindings[slot].buffer.extent = extent;
+  BufferSync sync = { buffer, storage ? GPU_BUFFER_STORAGE : GPU_BUFFER_UNIFORM, shader->slotStages[slot] };
+  arr_buffersync_t* buffers = state.batch ? &state.batch->buffers : &state.pass->buffers;
+  arr_push(buffers, sync);
+  lovrRetain(buffer);
 
   state.emptyBindingMask &= ~(1 << slot);
   state.bindingsDirty = true;
+}
+
+void lovrGraphicsSetTexture(const char* name, size_t length, uint32_t slot, Texture* texture) {
+  Shader* shader = state.pipeline->shader;
+  lovrCheck(shader, "A Shader must be active to bind resources");
+
+  if (name) {
+    slot = ~0u;
+    uint32_t hash = hash32(name, length);
+    for (uint32_t i = 0; i < shader->resourceCount; i++) {
+      if (shader->resourceLookup[i] == hash) {
+        slot = shader->resourceSlots[i];
+        break;
+      }
+    }
+    lovrCheck(slot != ~0u, "Shader has no resource named '%s'", name);
+  }
+
+  bool storage = shader->storageMask & (1 << slot);
+  lovrCheck(shader->textureMask & (1 << slot), "Shader slot %d is not a Texture", slot + 1);
+
+  if (storage) {
+    lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' flag to use them as storage textures");
+  } else {
+    lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' flag to sample them in shaders");
+  }
+
+  state.bindings[slot].texture.object = texture->gpu;
+  state.bindings[slot].texture.sampler = texture->sampler->gpu;
+  TextureSync sync = { texture, storage ? GPU_TEXTURE_STORAGE : GPU_TEXTURE_SAMPLE, shader->slotStages[slot] };
+  arr_texturesync_t* textures = state.batch ? &state.batch->textures : &state.pass->textures;
+  arr_push(textures, sync);
+  lovrRetain(texture);
+
+  state.emptyBindingMask &= ~(1 << slot);
+  state.bindingsDirty = true;
+}
+
+void lovrGraphicsSetConstant(const char* name, size_t length, void** data, FieldType* type) {
+  Shader* shader = state.pipeline->shader;
+  lovrCheck(shader, "A Shader must be active to set constants");
+  uint32_t hash = hash32(name, length);
+  uint32_t index = ~0u;
+  for (uint32_t i = 0; i < shader->constantCount; i++) {
+    if (shader->constantLookup[i] == hash) {
+      index = i;
+      break;
+    }
+  }
+  lovrCheck(index != ~0u, "Shader has no constant named '%s'", name);
+  *type = shader->constantTypes[index];
+  *data = &state.constantData[shader->constantOffsets[index]];
+  state.constantsDirty = true;
 }
 
 uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
@@ -1963,6 +2007,11 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
       gpu_bind_index_buffer(state.pass->stream, indexBuffer.gpu, 0, indexType);
       state.boundIndexBuffer = indexBuffer.gpu;
       state.boundIndexType = indexType;
+    }
+
+    if (state.constantsDirty) {
+      state.constantsDirty = false;
+      gpu_push_constants(state.pass->stream, pipeline, state.constantData, shader->constantSize);
     }
 
     if (info->indirect) {
@@ -2911,6 +2960,7 @@ typedef union {
 } CacheData;
 
 typedef struct {
+  uint32_t constantSize;
   uint32_t constantCount;
   uint32_t constantLookup[32];
   uint8_t constantOffsets[32];
@@ -3285,17 +3335,17 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
               }
             } else if (vector) {
               if (scalar == FIELD_I32) {
-                if (columnCount == 2) reflection->constantTypes[i] = FIELD_I32x2;
-                if (columnCount == 3) reflection->constantTypes[i] = FIELD_I32x3;
-                if (columnCount == 4) reflection->constantTypes[i] = FIELD_I32x4;
+                if (componentCount == 2) reflection->constantTypes[i] = FIELD_I32x2;
+                if (componentCount == 3) reflection->constantTypes[i] = FIELD_I32x3;
+                if (componentCount == 4) reflection->constantTypes[i] = FIELD_I32x4;
               } else if (scalar == FIELD_U32) {
-                if (columnCount == 2) reflection->constantTypes[i] = FIELD_U32x2;
-                if (columnCount == 3) reflection->constantTypes[i] = FIELD_U32x3;
-                if (columnCount == 4) reflection->constantTypes[i] = FIELD_U32x4;
+                if (componentCount == 2) reflection->constantTypes[i] = FIELD_U32x2;
+                if (componentCount == 3) reflection->constantTypes[i] = FIELD_U32x3;
+                if (componentCount == 4) reflection->constantTypes[i] = FIELD_U32x4;
               } else if (scalar == FIELD_F32) {
-                if (columnCount == 2) reflection->constantTypes[i] = FIELD_F32x2;
-                if (columnCount == 3) reflection->constantTypes[i] = FIELD_F32x3;
-                if (columnCount == 4) reflection->constantTypes[i] = FIELD_F32x4;
+                if (componentCount == 2) reflection->constantTypes[i] = FIELD_F32x2;
+                if (componentCount == 3) reflection->constantTypes[i] = FIELD_F32x3;
+                if (componentCount == 4) reflection->constantTypes[i] = FIELD_F32x4;
               }
             } else {
               reflection->constantTypes[i] = scalar;
@@ -3303,7 +3353,9 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
 
             uint32_t totalSize = columnCount * componentCount * 4;
             uint32_t limit = state.limits.pushConstantSize;
-            lovrCheck(reflection->constantOffsets[i] + totalSize <= limit, "Size of push constant block exceeds 'pushConstantSize' limit");
+            uint32_t offset = reflection->constantOffsets[i];
+            lovrCheck(offset + totalSize <= limit, "Size of push constant block exceeds 'pushConstantSize' limit");
+            reflection->constantSize = MAX(reflection->constantSize, offset + totalSize);
           }
           break;
         }
@@ -3378,6 +3430,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   }
 
   // Copy some of the reflection info (maybe it should just write directly to Shader*)?
+  shader->constantSize = reflection.constantSize;
   shader->constantCount = reflection.constantCount;
   memcpy(shader->constantOffsets, reflection.constantOffsets, sizeof(reflection.constantOffsets));
   memcpy(shader->constantTypes, reflection.constantTypes, sizeof(reflection.constantTypes));
@@ -3421,6 +3474,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     .stages[1] = { info->source[1], info->length[1] },
     .layouts[0] = state.layouts[0],
     .layouts[1] = state.layouts[shader->layout],
+    .pushConstantSize = reflection.constantSize,
     .label = info->label
   };
 
