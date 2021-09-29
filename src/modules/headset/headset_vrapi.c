@@ -42,7 +42,6 @@ static struct {
   ovrTextureSwapChain* swapchain;
   uint32_t swapchainLength;
   uint32_t swapchainIndex;
-  Canvas* canvas;
   Texture* textures[4];
   ovrTracking tracking[3];
   ovrHandPose handPose[2];
@@ -116,26 +115,10 @@ static void vrapi_start(void) {
       .depth = 2,
       .mipmaps = 1,
       .samples = 1,
-      .flags = TEXTURE_RENDER,
+      .usage = TEXTURE_RENDER,
       .handle = (uintptr_t) vrapi_GetTextureSwapChainBufferVulkan(state.swapchain, i)
     });
   }
-
-  state.canvas = lovrCanvasCreate(&(CanvasInfo) {
-    .color[0].texture = state.textures[0],
-    .color[0].load = LOAD_CLEAR,
-    .color[0].save = SAVE_KEEP,
-    .depth.enabled = true,
-    .depth.format = FORMAT_D24S8,
-    .depth.load = LOAD_CLEAR,
-    .depth.stencilLoad = LOAD_CLEAR,
-    .depth.save = SAVE_DISCARD,
-    .depth.stencilSave = SAVE_DISCARD,
-    .samples = 1,
-    .count = 1
-  });
-
-  lovrCanvasSetClear(state.canvas, &(float[4]) { 0.f, 0.f, 0.f, 1.f }, 1.f, 0);
 }
 
 static void vrapi_destroy() {
@@ -148,7 +131,6 @@ static void vrapi_destroy() {
   for (size_t i = 0; i < COUNTOF(state.textures); i++) {
     lovrRelease(state.textures[i], lovrTextureDestroy);
   }
-  lovrRelease(state.canvas, lovrCanvasDestroy);
   free(state.rawBoundaryPoints);
   free(state.boundaryPoints);
   memset(&state, 0, sizeof(state));
@@ -711,32 +693,15 @@ static bool vrapi_animate(Device device, struct Model* model) {
   return true;
 }
 
-static void vrapi_renderTo(Batch* batch) {
+static Texture* vrapi_getTexture(void) {
+  if (!state.session) return NULL;
+  return state.textures[state.swapchainIndex];
+}
+
+static void vrapi_submit(void) {
   if (!state.session) return;
 
   ovrTracking2 tracking = vrapi_GetPredictedTracking2(state.session, state.displayTime);
-
-  // Camera
-  for (uint32_t i = 0; i < 2; i++) {
-    float view[16];
-    mat4_init(view, &tracking.Eye[i].ViewMatrix.M[0][0]);
-    mat4_transpose(view);
-    view[13] -= state.offset;
-    //lovrCanvasSetViewMatrix(state.canvas, i, view);
-
-    float projection[16];
-    mat4_init(projection, &tracking.Eye[i].ProjectionMatrix.M[0][0]);
-    mat4_transpose(projection);
-    //lovrCanvasSetProjection(state.canvas, i, projection);
-  }
-
-  // Render
-  lovrCanvasSetTextures(state.canvas, (Texture*[1]) { state.textures[state.swapchainIndex] }, NULL);
-  lovrGraphicsBegin();
-  lovrGraphicsRender(state.canvas, &batch, 1);
-  lovrGraphicsSubmit();
-
-  // Submit a layer to VrApi
   ovrLayerProjection2 layer = vrapi_DefaultLayerProjection2();
   layer.HeadPose = tracking.HeadPose;
   layer.Textures[0].ColorSwapChain = state.swapchain;
@@ -764,7 +729,9 @@ static void vrapi_update(float dt) {
 
   // Session
   if (!state.session && appState == APP_CMD_RESUME && window) {
-    ovrModeParmsVulkan config = vrapi_DefaultModeParmsVulkan(&state.java, (unsigned long long) gpu_vk_get_queue());
+    uint32_t queueFamilyIndex, queueIndex;
+    uintptr_t queue = gpu_vk_get_queue(&queueFamilyIndex, &queueIndex);
+    ovrModeParmsVulkan config = vrapi_DefaultModeParmsVulkan(&state.java, (unsigned long long) queue);
     config.ModeParms.Flags &= ~VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN;
     config.ModeParms.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
     config.ModeParms.Flags |= VRAPI_MODE_FLAG_FRONT_BUFFER_SRGB;
@@ -888,6 +855,7 @@ HeadsetInterface lovrHeadsetVrApiDriver = {
   .vibrate = vrapi_vibrate,
   .newModelData = vrapi_newModelData,
   .animate = vrapi_animate,
-  .renderTo = vrapi_renderTo,
+  .getTexture = vrapi_getTexture,
+  .submit = vrapi_submit,
   .update = vrapi_update
 };
