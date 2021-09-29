@@ -2139,7 +2139,12 @@ uint32_t lovrGraphicsSkybox(Texture* texture) {
 }
 
 uint32_t lovrGraphicsFill(Texture* texture) {
-  lovrThrow("TODO");
+  return lovrGraphicsDraw(&(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .shader = SHADER_FILL,
+    .vertex.format = VERTEX_EMPTY,
+    .count = 3
+  }, NULL);
 }
 
 uint32_t lovrGraphicsModel(Model* model, mat4 transform, uint32_t node, bool children, uint32_t instances) {
@@ -3595,6 +3600,13 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
         .source = { lovr_shader_unlit_vert, lovr_shader_unlit_frag },
         .length = { sizeof(lovr_shader_unlit_vert), sizeof(lovr_shader_unlit_frag) },
         .label = "unlit"
+      });
+    case SHADER_FILL:
+      return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_GRAPHICS,
+        .source = { lovr_shader_fill_vert, lovr_shader_fill_frag },
+        .length = { sizeof(lovr_shader_fill_vert), sizeof(lovr_shader_fill_frag) },
+        .label = "fill"
       });
     default: lovrThrow("Unreachable");
   }
