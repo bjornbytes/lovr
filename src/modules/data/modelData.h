@@ -20,7 +20,7 @@ typedef enum {
   ATTR_BONES,
   ATTR_WEIGHTS,
   MAX_DEFAULT_ATTRIBUTES
-} DefaultAttribute2;
+} ModelAttributeType;
 
 typedef enum {
   TOPOLOGY_POINTS,
