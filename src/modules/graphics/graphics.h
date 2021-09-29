@@ -183,6 +183,45 @@ typedef enum {
 } Winding;
 
 typedef enum {
+  FIELD_I8,
+  FIELD_U8,
+  FIELD_I16,
+  FIELD_U16,
+  FIELD_I32,
+  FIELD_U32,
+  FIELD_F32,
+  FIELD_I8x2,
+  FIELD_U8x2,
+  FIELD_I8Nx2,
+  FIELD_U8Nx2,
+  FIELD_I16x2,
+  FIELD_U16x2,
+  FIELD_I16Nx2,
+  FIELD_U16Nx2,
+  FIELD_I32x2,
+  FIELD_U32x2,
+  FIELD_F32x2,
+  FIELD_U10Nx3,
+  FIELD_I32x3,
+  FIELD_U32x3,
+  FIELD_F32x3,
+  FIELD_I8x4,
+  FIELD_U8x4,
+  FIELD_I8Nx4,
+  FIELD_U8Nx4,
+  FIELD_I16x4,
+  FIELD_U16x4,
+  FIELD_I16Nx4,
+  FIELD_U16Nx4,
+  FIELD_I32x4,
+  FIELD_U32x4,
+  FIELD_F32x4,
+  FIELD_MAT2,
+  FIELD_MAT3,
+  FIELD_MAT4
+} FieldType;
+
+typedef enum {
   DRAW_POINTS,
   DRAW_LINES,
   DRAW_TRIANGLES
@@ -287,7 +326,9 @@ void lovrGraphicsSetWinding(Winding winding);
 void lovrGraphicsSetWireframe(bool wireframe);
 
 void lovrGraphicsSetShader(Shader* shader);
-void lovrGraphicsBind(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, Texture* texture);
+void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
+void lovrGraphicsSetTexture(const char* name, size_t length, uint32_t slot, Texture* texture);
+void lovrGraphicsSetConstant(const char* name, size_t length, void** data, FieldType* type);
 
 uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform);
 uint32_t lovrGraphicsPoints(uint32_t count, float** vertices);
@@ -323,45 +364,6 @@ typedef enum {
   ATTRIBUTE_TEXCOORD,
   ATTRIBUTE_COLOR
 } DefaultAttribute;
-
-typedef enum {
-  FIELD_I8,
-  FIELD_U8,
-  FIELD_I16,
-  FIELD_U16,
-  FIELD_I32,
-  FIELD_U32,
-  FIELD_F32,
-  FIELD_I8x2,
-  FIELD_U8x2,
-  FIELD_I8Nx2,
-  FIELD_U8Nx2,
-  FIELD_I16x2,
-  FIELD_U16x2,
-  FIELD_I16Nx2,
-  FIELD_U16Nx2,
-  FIELD_I32x2,
-  FIELD_U32x2,
-  FIELD_F32x2,
-  FIELD_U10Nx3,
-  FIELD_I32x3,
-  FIELD_U32x3,
-  FIELD_F32x3,
-  FIELD_I8x4,
-  FIELD_U8x4,
-  FIELD_I8Nx4,
-  FIELD_U8Nx4,
-  FIELD_I16x4,
-  FIELD_U16x4,
-  FIELD_I16Nx4,
-  FIELD_U16Nx4,
-  FIELD_I32x4,
-  FIELD_U32x4,
-  FIELD_F32x4,
-  FIELD_MAT2,
-  FIELD_MAT3,
-  FIELD_MAT4
-} FieldType;
 
 typedef struct {
   uint32_t usage;
