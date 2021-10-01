@@ -334,11 +334,11 @@ void lovrGraphicsSetConstant(const char* name, size_t length, void** data, Field
 uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform);
 uint32_t lovrGraphicsPoints(uint32_t count, float** vertices);
 uint32_t lovrGraphicsLine(uint32_t count, float** vertices);
-uint32_t lovrGraphicsPlane(float* transform, uint32_t segments);
+uint32_t lovrGraphicsPlane(float* transform, uint32_t detail);
 uint32_t lovrGraphicsBox(float* transform);
-uint32_t lovrGraphicsCircle(float* transform, uint32_t segments);
-uint32_t lovrGraphicsCylinder(float* transform, float r1, float r2, bool capped, uint32_t segments);
-uint32_t lovrGraphicsSphere(float* transform, uint32_t segments);
+uint32_t lovrGraphicsCircle(float* transform, uint32_t detail);
+uint32_t lovrGraphicsCylinder(float* transform, uint32_t detail, bool capped);
+uint32_t lovrGraphicsSphere(float* transform, uint32_t detail);
 uint32_t lovrGraphicsSkybox(Texture* texture);
 uint32_t lovrGraphicsFill(Texture* texture);
 uint32_t lovrGraphicsModel(Model* model, float* transform, uint32_t node, bool children, uint32_t instances);
