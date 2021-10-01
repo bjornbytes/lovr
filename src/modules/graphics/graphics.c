@@ -237,6 +237,7 @@ enum {
   SHAPE_QUAD,
   SHAPE_CUBE,
   SHAPE_DISK,
+  SHAPE_TUBE,
   SHAPE_MAX
 };
 
@@ -725,17 +726,28 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   };
 
   Vertex disk[256];
+  Vertex tube[1024];
   for (uint32_t i = 0; i < 256; i++) {
-    float theta = i / 256.f * 2.f * (float) M_PI;
+    float t = i / 256.f;
+    float theta = t * 2.f * (float) M_PI;
     float x = cosf(theta) * .5f;
     float y = sinf(theta) * .5f;
-    disk[i] = (Vertex) { { x, y, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { x * 0xffff, y * 0xffff } };
+    uint16_t nx = (x + .5f) * 0x3ff;
+    uint16_t ny = (y + .5f) * 0x3ff;
+    uint16_t u = (x + .5f) * 0xffff;
+    uint16_t v = (y + .5f) * 0xffff;
+    disk[i] = (Vertex) { { x, y, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+    tube[i + 0x0] = (Vertex) { { x, y, -.5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0xffff } };
+    tube[i + 256] = (Vertex) { { x, y,  .5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0x0000 } };
+    tube[i + 512] = (Vertex) { { x, y, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff - u, v } };
+    tube[i + 768] = (Vertex) { { x, y,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
   }
 
   uint32_t vertexCount = 0;
   state.shapeOffset[SHAPE_QUAD] = vertexCount, vertexCount += COUNTOF(quad);
   state.shapeOffset[SHAPE_CUBE] = vertexCount, vertexCount += COUNTOF(cube);
   state.shapeOffset[SHAPE_DISK] = vertexCount, vertexCount += COUNTOF(disk);
+  state.shapeOffset[SHAPE_TUBE] = vertexCount, vertexCount += COUNTOF(tube);
 
   state.shapes = lovrBufferCreate(&(BufferInfo) {
     .usage = BUFFER_VERTEX | BUFFER_COPYTO,
@@ -752,6 +764,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   memcpy(scratch.data, quad, sizeof(quad)), scratch.data += sizeof(quad);
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
   memcpy(scratch.data, disk, sizeof(disk)), scratch.data += sizeof(disk);
+  memcpy(scratch.data, tube, sizeof(tube)), scratch.data += sizeof(tube);
 
   // Uploads
 
@@ -2069,7 +2082,7 @@ uint32_t lovrGraphicsLine(uint32_t count, float** vertices) {
   return id;
 }
 
-uint32_t lovrGraphicsPlane(float* transform, uint32_t segments) {
+uint32_t lovrGraphicsPlane(float* transform, uint32_t detail) {
   static const uint16_t indices[] = { 0,  1,  2,  1, 2, 3 };
   return lovrGraphicsDraw(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
@@ -2126,11 +2139,57 @@ uint32_t lovrGraphicsCircle(float* transform, uint32_t detail) {
   return id;
 }
 
-uint32_t lovrGraphicsCylinder(mat4 transform, float r1, float r2, bool capped, uint32_t detail) {
-  lovrThrow("TODO");
+uint32_t lovrGraphicsCylinder(mat4 transform, uint32_t detail, bool capped) {
+  detail = MIN(detail, 6);
+  uint16_t vertexCount = 4 << detail;
+  uint16_t vertexSkip = 64 >> detail;
+  uint16_t tubeIndexCount = 6 * vertexCount;
+  uint16_t capIndexCount = 3 * (vertexCount - 2);
+
+  uint16_t* indices;
+  uint32_t id = lovrGraphicsDraw(&(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .vertex.buffer = state.shapes,
+    .index.pointer = (void**) &indices,
+    .index.count = tubeIndexCount + (capped ? 2 * capIndexCount : 0),
+    .index.stride = sizeof(uint16_t),
+    .base = state.shapeOffset[SHAPE_TUBE]
+  }, transform);
+
+  // Tube
+  for (uint16_t i = 0, j = 0; i < tubeIndexCount; i += 6, j = (j + vertexSkip) & 0xff) {
+    uint16_t k = (j + vertexSkip) & 0xff;
+    indices[i + 0] = j;
+    indices[i + 1] = k;
+    indices[i + 2] = j + 256;
+    indices[i + 3] = j + 256;
+    indices[i + 4] = k;
+    indices[i + 5] = k + 256;
+  }
+
+  indices += tubeIndexCount;
+
+  // Caps
+  if (capped) {
+    for (uint16_t i = 0, j = vertexSkip; i < capIndexCount; i += 3, j += vertexSkip) { // Forward
+      indices[i + 0] = 512;
+      indices[i + 1] = 768 - j;
+      indices[i + 2] = 768 - j - vertexSkip;
+    }
+
+    indices += capIndexCount;
+
+    for (uint16_t i = 0, j = vertexSkip; i < capIndexCount; i += 3, j += vertexSkip) { // Backward
+      indices[i + 0] = 768;
+      indices[i + 1] = 768 + j;
+      indices[i + 2] = 768 + j + vertexSkip;
+    }
+  }
+
+  return id;
 }
 
-uint32_t lovrGraphicsSphere(mat4 transform, uint32_t segments) {
+uint32_t lovrGraphicsSphere(mat4 transform, uint32_t detail) {
   lovrThrow("TODO");
 }
 

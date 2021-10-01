@@ -1120,8 +1120,8 @@ static int l_lovrGraphicsLine(lua_State* L) {
 static int l_lovrGraphicsPlane(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 1, transform, 2);
-  uint32_t segments = luaL_optinteger(L, index, 0);
-  uint32_t id = lovrGraphicsPlane(transform, segments);
+  uint32_t detail = luaL_optinteger(L, index, 0);
+  uint32_t id = lovrGraphicsPlane(transform, detail);
   lua_pushinteger(L, id);
   return 1;
 }
@@ -1145,20 +1145,18 @@ static int l_lovrGraphicsBox(lua_State* L) {
 static int l_lovrGraphicsCircle(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 1, transform, 1);
-  uint32_t segments = luaL_optinteger(L, index, 32);
-  uint32_t id = lovrGraphicsCircle(transform, segments);
+  uint32_t detail = luaL_optinteger(L, index, 64);
+  uint32_t id = lovrGraphicsCircle(transform, detail);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsCylinder(lua_State* L) {
   float transform[16];
-  int index = luax_readmat4(L, 1, transform, 1);
-  float r1 = luax_optfloat(L, index++, 1.f);
-  float r2 = luax_optfloat(L, index++, 1.f);
-  bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
-  uint32_t segments = luaL_optinteger(L, index, 32);
-  uint32_t id = lovrGraphicsCylinder(transform, r1, r2, capped, segments);
+  int index = luax_readmat4(L, 1, transform, -2);
+  uint32_t detail = luaL_optinteger(L, index++, 64);
+  bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index);
+  uint32_t id = lovrGraphicsCylinder(transform, detail, capped);
   lua_pushinteger(L, id);
   return 1;
 }
@@ -1166,8 +1164,8 @@ static int l_lovrGraphicsCylinder(lua_State* L) {
 static int l_lovrGraphicsSphere(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 1, transform, 1);
-  uint32_t segments = luaL_optinteger(L, index, 32);
-  uint32_t id = lovrGraphicsSphere(transform, segments);
+  uint32_t detail = luaL_optinteger(L, index, 64);
+  uint32_t id = lovrGraphicsSphere(transform, detail);
   lua_pushinteger(L, id);
   return 1;
 }
