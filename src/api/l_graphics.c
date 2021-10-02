@@ -31,8 +31,9 @@ StringEntry lovrBufferUsage[] = {
   [1] = ENTRY("index"),
   [2] = ENTRY("uniform"),
   [3] = ENTRY("storage"),
-  [4] = ENTRY("copyfrom"),
-  [5] = ENTRY("copyto"),
+  [4] = ENTRY("indirect"),
+  [5] = ENTRY("copyfrom"),
+  [6] = ENTRY("copyto"),
   { 0 }
 };
 
@@ -1279,15 +1280,16 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     lua_getfield(L, 3, "usage");
     switch (lua_type(L, -1)) {
       case LUA_TSTRING: info.usage = luax_checkenum(L, -1, BufferUsage, NULL); break;
-      case LUA_TTABLE: {
+      case LUA_TTABLE:
+        info.usage = 0;
         int length = luax_len(L, -1);
         for (int i = 0; i < length; i++) {
           lua_rawgeti(L, -1, i + 1);
           info.usage |= 1 << luax_checkenum(L, -1, BufferUsage, NULL);
           lua_pop(L, 1);
         }
-      }
-      case LUA_TNIL: info.usage = ~0u;
+        break;
+      case LUA_TNIL: info.usage = ~0u; break;
       default: return luaL_error(L, "Expected Buffer usage to be a string, table, or nil");
     }
     lua_pop(L, 1);
@@ -1297,7 +1299,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   luax_checkbufferformat(L, 2, &info);
 
   // std140 (only needed for uniform buffers, also as special case 'byte' formats skip this)
-  if (info.usage & BUFFER_UNIFORM && info.stride > 1) {
+  if ((info.usage & BUFFER_UNIFORM) && info.stride > 1) {
     info.stride = ALIGN(info.stride, 16);
   }
 
