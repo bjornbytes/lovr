@@ -238,6 +238,7 @@ enum {
   SHAPE_CUBE,
   SHAPE_DISK,
   SHAPE_TUBE,
+  SHAPE_BALL,
   SHAPE_MAX
 };
 
@@ -743,11 +744,38 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     tube[i + 768] = (Vertex) { { x, y,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
   }
 
+  Vertex ball[2145];
+  Vertex* vertices = ball;
+  uint32_t lats = 32;
+  uint32_t lons = 64;
+  for (uint32_t lat = 0; lat <= lats; lat++) {
+    float v = lat / (float) lats;
+    float phi = v * (float) M_PI;
+    float sinphi = sinf(phi);
+    float cosphi = cosf(phi);
+    for (uint32_t lon = 0; lon <= lons; lon++) {
+      float u = lon / (float) lons;
+      float theta = u * 2.f * (float) M_PI;
+      float sintheta = sinf(theta);
+      float costheta = cosf(theta);
+      float x = sintheta * sinphi;
+      float y = cosphi;
+      float z = -costheta * sinphi;
+      uint16_t nx = (x + .5) * 0x3ff;
+      uint16_t ny = (y + .5) * 0x3ff;
+      uint16_t nz = (z + .5) * 0x3ff;
+      Vertex vertex = { { x, y, z }, { nx, ny, nz, 0x0 }, { u, v } };
+      memcpy(vertices, &vertex, sizeof(vertex));
+      vertices++;
+    }
+  }
+
   uint32_t vertexCount = 0;
   state.shapeOffset[SHAPE_QUAD] = vertexCount, vertexCount += COUNTOF(quad);
   state.shapeOffset[SHAPE_CUBE] = vertexCount, vertexCount += COUNTOF(cube);
   state.shapeOffset[SHAPE_DISK] = vertexCount, vertexCount += COUNTOF(disk);
   state.shapeOffset[SHAPE_TUBE] = vertexCount, vertexCount += COUNTOF(tube);
+  state.shapeOffset[SHAPE_BALL] = vertexCount, vertexCount += COUNTOF(ball);
 
   state.shapes = lovrBufferCreate(&(BufferInfo) {
     .usage = BUFFER_VERTEX | BUFFER_COPYTO,
@@ -765,6 +793,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
   memcpy(scratch.data, disk, sizeof(disk)), scratch.data += sizeof(disk);
   memcpy(scratch.data, tube, sizeof(tube)), scratch.data += sizeof(tube);
+  memcpy(scratch.data, ball, sizeof(ball)), scratch.data += sizeof(ball);
 
   // Uploads
 
@@ -2190,7 +2219,39 @@ uint32_t lovrGraphicsCylinder(mat4 transform, uint32_t detail, bool capped) {
 }
 
 uint32_t lovrGraphicsSphere(mat4 transform, uint32_t detail) {
-  lovrThrow("TODO");
+  detail = MIN(detail, 4);
+  uint16_t lats = 2 << detail;
+  uint16_t lons = 4 << detail;
+  uint32_t indexCount = lats * lons * 6;
+
+  uint16_t* indices;
+  uint32_t id = lovrGraphicsDraw(&(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .vertex.buffer = state.shapes,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount,
+    .index.stride = sizeof(uint16_t),
+    .base = state.shapeOffset[SHAPE_BALL]
+  }, transform);
+
+  uint16_t jump = 16 >> detail;
+  uint16_t leap = 65 << (4 - detail);
+  for (uint16_t i = 0, base = 0; i < lats; i++, base += leap) {
+    for (uint16_t j = 0, index = base; j < lons; j++, index += jump) {
+      /* a---b
+       * | / |
+       * c---d */
+      uint16_t a = index;
+      uint16_t b = index + jump;
+      uint16_t c = index + leap;
+      uint16_t d = index + leap + jump;
+      uint16_t quad[6] = { a, b, c, b, d, c };
+      memcpy(indices, quad, sizeof(quad));
+      indices += COUNTOF(quad);
+    }
+  }
+
+  return id;
 }
 
 uint32_t lovrGraphicsSkybox(Texture* texture) {
