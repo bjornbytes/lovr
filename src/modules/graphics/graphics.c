@@ -2255,7 +2255,14 @@ uint32_t lovrGraphicsSphere(mat4 transform, uint32_t detail) {
 }
 
 uint32_t lovrGraphicsSkybox(Texture* texture) {
-  lovrThrow("TODO");
+  TextureType type = texture->info.type;
+  lovrAssert(type == TEXTURE_2D || type == TEXTURE_CUBE, "Skybox textures must be 2d or cube");
+  return lovrGraphicsDraw(&(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
+    .vertex.format = VERTEX_EMPTY,
+    .count = 3
+  }, NULL);
 }
 
 uint32_t lovrGraphicsFill(Texture* texture) {
@@ -3727,6 +3734,20 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
         .source = { lovr_shader_fill_vert, lovr_shader_fill_frag },
         .length = { sizeof(lovr_shader_fill_vert), sizeof(lovr_shader_fill_frag) },
         .label = "fill"
+      });
+    case SHADER_CUBE:
+      return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_GRAPHICS,
+        .source = { lovr_shader_cube_vert, lovr_shader_cube_frag },
+        .length = { sizeof(lovr_shader_cube_vert), sizeof(lovr_shader_cube_frag) },
+        .label = "fill"
+      });
+    case SHADER_PANO:
+      return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_GRAPHICS,
+        .source = { lovr_shader_pano_vert, lovr_shader_pano_frag },
+        .length = { sizeof(lovr_shader_pano_vert), sizeof(lovr_shader_pano_frag) },
+        .label = "pano"
       });
     default: lovrThrow("Unreachable");
   }
