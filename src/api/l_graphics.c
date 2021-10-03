@@ -377,7 +377,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
     luaL_checktype(L, index, LUA_TTABLE);
 
     for (uint32_t i = 0; i < 4; i++) {
-      lua_rawgeti(L, 1, index + 1);
+      lua_rawgeti(L, index, i + 1);
       if (lua_isnil(L, -1)) {
         break;
       } else if (lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "window")) {
