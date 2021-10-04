@@ -18,7 +18,6 @@ local function nogame()
     end
 
     lovr.graphics.setBackgroundColor(0x20232c)
-    lovr.graphics.setCullingEnabled(true)
 
     logo = lovr.graphics.newShader([[
       vec4 position(mat4 projection, mat4 transform, vec4 vertex) {
@@ -42,29 +41,27 @@ local function nogame()
         color = mix(color, vec3(.2, .2, .24), smoothstep(-.12 + w, -.12 - w, sdf));
         return vec4(pow(color, vec3(2.2)), alpha);
       }
-    ]], { flags = { highp = true } })
-
-    text = lovr.graphics.newShader('font', { flags = { highp = true } })
+    ]])
   end
 
   function lovr.draw()
-    lovr.graphics.setColor(0xffffff)
+    lovr.graphics.setCullMode('back')
 
     local padding = .1
-    local font = lovr.graphics.getFont()
+    local font = lovr.graphics.getDefaultFont()
     local fade = .315 + .685 * math.abs(math.sin(lovr.timer.getTime() * 2))
     local titlePosition = 1.4 - padding
     local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
     lovr.graphics.setShader(logo)
-    lovr.graphics.plane('fill', 0, 1.9, -3, 1, 1, 0, 0, 1)
+    lovr.graphics.plane(0, 1.9, -3, 1, 1, 0, 0, 1)
 
-    lovr.graphics.setShader(text)
-    lovr.graphics.setColor(0xffffff)
+    lovr.graphics.setShader('font')
     lovr.graphics.print('LÖVR', -.012, titlePosition, -3, .25, 0, 0, 1, 0, nil, 'center', 'top')
 
     lovr.graphics.setColor(.9, .9, .9, fade)
     lovr.graphics.print('No game :(', -.005, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
+
     lovr.graphics.setColor(0xffffff)
     lovr.graphics.setShader()
 
@@ -79,19 +76,17 @@ local function nogame()
             animated = animated or lovr.graphics.newShader('unlit', { flags = { animated = true } })
             lovr.graphics.setShader(animated)
             lovr.graphics.setColorMask()
-            models[hand]:draw(pose)
+            lovr.graphics.model(models[hand], pose)
             lovr.graphics.setColorMask(true, true, true, true)
             lovr.graphics.setColor(0, 0, 0, .5)
-            models[hand]:draw(pose)
+            lovr.graphics.model(models[hand], pose)
             lovr.graphics.setShader()
           else
-            models[hand]:draw(pose)
+            lovr.graphics.model(models[hand], pose)
           end
         end
       end
     end
-
-    lovr.graphics.setColor(0xffffff)
   end
 end
 
