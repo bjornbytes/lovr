@@ -376,8 +376,8 @@ typedef struct {
   uintptr_t handle;
 } BufferInfo;
 
-Buffer* lovrGraphicsGetBuffer(BufferInfo* info);
-Buffer* lovrBufferCreate(BufferInfo* info);
+Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data);
+Buffer* lovrBufferCreate(BufferInfo* info, void** data);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);

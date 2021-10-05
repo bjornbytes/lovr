@@ -47,7 +47,7 @@ typedef struct {
   uint32_t size;
   uint32_t usage;
   gpu_memory_type memory;
-  void** data;
+  void** mapping;
   uintptr_t handle;
   const char* label;
 } gpu_buffer_info;

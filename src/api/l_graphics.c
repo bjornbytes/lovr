@@ -1255,9 +1255,13 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
   luax_checkbufferformat(L, 3, &info);
 
   // Length/contents
+  char* data;
+  void** mapping = (void**) &data;
   int dataType = lua_type(L, 2);
   if (dataType == LUA_TNUMBER) {
     info.length = lua_tointeger(L, 2);
+    mapping = NULL;
+    data = NULL;
   } else if (dataType == LUA_TTABLE) {
     lua_rawgeti(L, 2, 1);
     if (lua_istable(L, -1)) {
@@ -1276,11 +1280,11 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
     return luax_typeerror(L, 2, "number or table");
   }
 
-  Buffer* buffer = lovrGraphicsGetBuffer(&info);
+  Buffer* buffer = lovrGraphicsGetBuffer(&info, mapping);
 
-  if (dataType != LUA_TNUMBER) {
+  if (data) {
     lua_settop(L, 2);
-    luax_readbufferdata(L, 2, buffer, NULL);
+    luax_readbufferdata(L, 2, buffer, data);
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -1295,9 +1299,13 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   luax_checkbufferformat(L, 3, &info);
 
   // Length/contents
+  char* data = NULL;
+  void** mapping = (void**) &data;
   switch (lua_type(L, 2)) {
     case LUA_TNUMBER:
       info.length = lua_tointeger(L, 2);
+      mapping = NULL;
+      data = NULL;
       break;
     case LUA_TTABLE: // Approximate
       lua_rawgeti(L, 2, 1);
@@ -1332,11 +1340,11 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     }
   }
 
-  Buffer* buffer = lovrBufferCreate(&info);
+  Buffer* buffer = lovrBufferCreate(&info, mapping);
 
-  if (!lua_isnumber(L, 2)) {
+  if (data) {
     lua_settop(L, 2);
-    luax_readbufferdata(L, 2, buffer, NULL);
+    luax_readbufferdata(L, 2, buffer, data);
   }
 
   luax_pushtype(L, Buffer, buffer);
