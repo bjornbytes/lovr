@@ -1043,7 +1043,7 @@ static int l_lovrGraphicsMesh(lua_State* L) {
     }, transform);
   } else {
     uint32_t start = luaL_optinteger(L, index++, 1) - 1;
-    uint32_t limit = lovrBufferGetInfo(indices ? indices : vertices)->length;
+    uint32_t limit = (vertices || indices) ? lovrBufferGetInfo(indices ? indices : vertices)->length : 0;
     uint32_t count = luaL_optinteger(L, index++, limit);
     uint32_t instances = luaL_optinteger(L, index++, 1);
     id = lovrGraphicsDraw(&(DrawInfo) {
