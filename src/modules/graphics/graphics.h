@@ -222,6 +222,13 @@ typedef enum {
 } FieldType;
 
 typedef enum {
+  ATTRIBUTE_POSITION,
+  ATTRIBUTE_NORMAL,
+  ATTRIBUTE_TEXCOORD,
+  ATTRIBUTE_COLOR
+} DefaultAttribute;
+
+typedef enum {
   DRAW_POINTS,
   DRAW_LINES,
   DRAW_TRIANGLES
@@ -351,25 +358,15 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
 
 // Buffer
 
-enum {
-  BUFFER_VERTEX   = (1 << 0),
-  BUFFER_INDEX    = (1 << 1),
-  BUFFER_UNIFORM  = (1 << 2),
-  BUFFER_STORAGE  = (1 << 3),
-  BUFFER_INDIRECT = (1 << 4),
-  BUFFER_COPYFROM = (1 << 5),
-  BUFFER_COPYTO   = (1 << 6)
-};
-
 typedef enum {
-  ATTRIBUTE_POSITION,
-  ATTRIBUTE_NORMAL,
-  ATTRIBUTE_TEXCOORD,
-  ATTRIBUTE_COLOR
-} DefaultAttribute;
+  BUFFER_VERTEX,
+  BUFFER_INDEX,
+  BUFFER_UNIFORM,
+  BUFFER_COMPUTE
+} BufferType;
 
 typedef struct {
-  uint32_t usage;
+  BufferType type;
   uint32_t length;
   uint32_t stride;
   uint32_t fieldCount;
