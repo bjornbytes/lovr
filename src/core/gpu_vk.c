@@ -231,7 +231,6 @@ static bool check(bool condition, const char* message);
   X(vkAllocateMemory)\
   X(vkFreeMemory)\
   X(vkMapMemory)\
-  X(vkUnmapMemory)\
   X(vkCreateSampler)\
   X(vkDestroySampler)\
   X(vkCreateRenderPass)\
@@ -370,10 +369,6 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
   if (!buffer->memory) return;
   condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
   condemn(buffer->memory, VK_OBJECT_TYPE_DEVICE_MEMORY);
-}
-
-void gpu_buffer_unmap(gpu_buffer* buffer) {
-  vkUnmapMemory(state.device, buffer->memory);
 }
 
 // Texture
