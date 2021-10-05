@@ -530,6 +530,40 @@ static uint32_t lookupLayout(gpu_slot* slots, uint32_t count) {
   return index;
 }
 
+static void lovrGraphicsReset(gpu_pass* pass) {
+  state.matrixIndex = 0;
+  state.matrix = state.matrixStack[0];
+  mat4_identity(state.matrix);
+
+  state.pipelineIndex = 0;
+  state.pipeline = &state.pipelineStack[0];
+  memset(&state.pipeline->info, 0, sizeof(state.pipeline->info));
+  state.pipeline->info.pass = pass;
+  state.pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
+  state.pipeline->info.depth.write = true;
+  state.pipeline->info.colorMask = 0xf;
+  state.pipeline->format = 0;
+  state.pipeline->color[0] = 1.f;
+  state.pipeline->color[1] = 1.f;
+  state.pipeline->color[2] = 1.f;
+  state.pipeline->color[3] = 1.f;
+  state.pipeline->shader = NULL;
+  state.pipeline->dirty = true;
+
+  state.emptyBindingMask = ~0u;
+  state.bindingsDirty = true;
+
+  memset(state.constantData, 0, sizeof(state.constantData));
+  state.constantsDirty = true;
+
+  state.drawCursor = 0;
+
+  state.boundPipeline = NULL;
+  state.boundBundle = NULL;
+  state.boundVertexBuffer = NULL;
+  state.boundIndexBuffer = NULL;
+}
+
 static void lovrBatchFinalize(Batch* batch);
 
 static void callback(void* context, const char* message, int severe) {
@@ -800,6 +834,8 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   memcpy(geometry, tube, sizeof(tube)), geometry += sizeof(tube);
   memcpy(geometry, ball, sizeof(ball)), geometry += sizeof(ball);
 
+  lovrGraphicsReset(NULL);
+
   return state.initialized = true;
 }
 
@@ -1016,40 +1052,6 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
   entry->hash = hash;
   entry->tick = state.tick;
   return texture;
-}
-
-static void lovrGraphicsReset(gpu_pass* pass) {
-  state.matrixIndex = 0;
-  state.matrix = state.matrixStack[0];
-  mat4_identity(state.matrix);
-
-  state.pipelineIndex = 0;
-  state.pipeline = &state.pipelineStack[0];
-  memset(&state.pipeline->info, 0, sizeof(state.pipeline->info));
-  state.pipeline->info.pass = pass;
-  state.pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
-  state.pipeline->info.depth.write = true;
-  state.pipeline->info.colorMask = 0xf;
-  state.pipeline->format = 0;
-  state.pipeline->color[0] = 1.f;
-  state.pipeline->color[1] = 1.f;
-  state.pipeline->color[2] = 1.f;
-  state.pipeline->color[3] = 1.f;
-  state.pipeline->shader = NULL;
-  state.pipeline->dirty = true;
-
-  state.emptyBindingMask = ~0u;
-  state.bindingsDirty = true;
-
-  memset(state.constantData, 0, sizeof(state.constantData));
-  state.constantsDirty = true;
-
-  state.drawCursor = 0;
-
-  state.boundPipeline = NULL;
-  state.boundBundle = NULL;
-  state.boundVertexBuffer = NULL;
-  state.boundIndexBuffer = NULL;
 }
 
 void lovrGraphicsBeginRender(Canvas* canvas, uint32_t order) {
