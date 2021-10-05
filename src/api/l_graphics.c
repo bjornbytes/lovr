@@ -1280,7 +1280,7 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 
   if (dataType != LUA_TNUMBER) {
     lua_settop(L, 2);
-    luax_readbufferdata(L, 2, buffer);
+    luax_readbufferdata(L, 2, buffer, NULL);
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -1336,7 +1336,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   if (!lua_isnumber(L, 2)) {
     lua_settop(L, 2);
-    luax_readbufferdata(L, 2, buffer);
+    luax_readbufferdata(L, 2, buffer, NULL);
   }
 
   luax_pushtype(L, Buffer, buffer);

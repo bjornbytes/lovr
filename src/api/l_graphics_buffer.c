@@ -194,7 +194,7 @@ void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
   }
 }
 
-void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
+void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   uint32_t stride = info->stride;
 
@@ -207,9 +207,9 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
     uint32_t count = luaL_optinteger(L, index + 3, limit);
     lovrAssert(srcIndex + count <= blob->size / stride, "Tried to read too many elements from the Blob");
     lovrAssert(dstIndex + count <= info->length, "Tried to write Buffer elements [%d,%d] but Buffer can only hold %d things", dstIndex + 1, dstIndex + count - 1, info->length);
-    char* dst = lovrBufferMap(buffer, dstIndex * stride, count * stride);
+    data = data ? data : lovrBufferMap(buffer, dstIndex * stride, count * stride);
     char* src = (char*) blob->data + srcIndex * stride;
-    memcpy(dst, src, count * stride);
+    memcpy(data, src, count * stride);
     return;
   }
 
@@ -223,7 +223,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
   uint32_t count = luaL_optinteger(L, index + 3, limit);
   lovrAssert(dstIndex + count <= info->length, "Tried to write Buffer elements [%d,%d] but Buffer can only hold %d things", dstIndex + 1, dstIndex + count - 1, info->length);
 
-  char* base = lovrBufferMap(buffer, dstIndex * stride, count * stride);
+  data = lovrBufferMap(buffer, dstIndex * stride, count * stride);
 
   if (nested) {
     for (uint32_t i = 0; i < count; i++) {
@@ -239,11 +239,11 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
             lua_rawgeti(L, -c - 1, j + c);
           }
         }
-        luax_readbufferfield(L, -n, info->types[f], base + info->offsets[f]);
+        luax_readbufferfield(L, -n, info->types[f], data + info->offsets[f]);
         lua_pop(L, n);
         j += n;
       }
-      base += info->stride;
+      data += info->stride;
       lua_pop(L, 1);
     }
   } else {
@@ -257,11 +257,11 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
             lua_rawgeti(L, index, j + c);
           }
         }
-        luax_readbufferfield(L, -n, info->types[f], base + info->offsets[f]);
+        luax_readbufferfield(L, -n, info->types[f], data + info->offsets[f]);
         lua_pop(L, n);
         j += n;
       }
-      base += info->stride;
+      data += info->stride;
     }
   }
 }
@@ -321,7 +321,7 @@ static int l_lovrBufferGetPointer(lua_State* L) {
 
 static int l_lovrBufferWrite(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  luax_readbufferdata(L, 2, buffer);
+  luax_readbufferdata(L, 2, buffer, NULL);
   return 0;
 }
 
