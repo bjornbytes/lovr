@@ -223,7 +223,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
   uint32_t count = luaL_optinteger(L, index + 3, limit);
   lovrAssert(dstIndex + count <= info->length, "Tried to write Buffer elements [%d,%d] but Buffer can only hold %d things", dstIndex + 1, dstIndex + count - 1, info->length);
 
-  data = lovrBufferMap(buffer, dstIndex * stride, count * stride);
+  data = data ? data : lovrBufferMap(buffer, dstIndex * stride, count * stride);
 
   if (nested) {
     for (uint32_t i = 0; i < count; i++) {

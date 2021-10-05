@@ -366,7 +366,8 @@ static Megaview allocateBuffer(gpu_memory_type type, uint32_t size, uint32_t ali
   if (active != ~0u && cursor + size <= state.buffers.list[active].size) {
     state.buffers.cursor[type] = cursor + size;
     Megabuffer* buffer = &state.buffers.list[active];
-    return (Megaview) { .gpu = buffer->gpu, .data = buffer->pointer + cursor, .index = active, .offset = cursor };
+    char* data = buffer->pointer ? (buffer->pointer + cursor) : NULL;
+    return (Megaview) { .gpu = buffer->gpu, .data = data, .index = active, .offset = cursor };
   }
 
   // If the active Megabuffer is full and has no users, it can be reused when GPU is done with it
@@ -407,7 +408,7 @@ static Megaview allocateBuffer(gpu_memory_type type, uint32_t size, uint32_t ali
     .size = buffer->size,
     .usage = usage[type],
     .memory = type,
-    .data = (void**) &buffer->pointer
+    .mapping = (void**) &buffer->pointer
   };
 
   lovrAssert(gpu_buffer_init(buffer->gpu, &info), "Failed to initialize Buffer");
@@ -646,6 +647,13 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   state.zeros = allocateBuffer(GPU_MEMORY_GPU, 4096, 4);
 
+  if (state.zeros.data) {
+    memset(state.zeros.data, 0, 4096);
+  } else {
+    lovrGraphicsPrepare();
+    gpu_clear_buffer(state.uploads->stream, state.zeros.gpu, state.zeros.offset, 4096, 0);
+  }
+
   gpu_slot defaultBindings[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Camera
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Transforms
@@ -774,6 +782,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   state.shapeOffset[SHAPE_TUBE] = vertexCount, vertexCount += COUNTOF(tube);
   state.shapeOffset[SHAPE_BALL] = vertexCount, vertexCount += COUNTOF(ball);
 
+  char* geometry;
   state.shapes = lovrBufferCreate(&(BufferInfo) {
     .type = BUFFER_VERTEX,
     .length = vertexCount,
@@ -782,24 +791,14 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     .locations = { 0, 1, 2 },
     .offsets = { offsetof(Vertex, position), offsetof(Vertex, normal), offsetof(Vertex, uv) },
     .types = { FIELD_F32x3, FIELD_U10Nx3, FIELD_U16Nx2 }
-  });
+  }, (void**) &geometry);
   lovrCheck(state.shapes->hash == state.formatHash[VERTEX_STANDARD], "Unreachable");
 
-  Megaview scratch = allocateBuffer(GPU_MEMORY_CPU_WRITE, vertexCount * sizeof(Vertex), 4);
-  memcpy(scratch.data, quad, sizeof(quad)), scratch.data += sizeof(quad);
-  memcpy(scratch.data, cube, sizeof(cube)), scratch.data += sizeof(cube);
-  memcpy(scratch.data, disk, sizeof(disk)), scratch.data += sizeof(disk);
-  memcpy(scratch.data, tube, sizeof(tube)), scratch.data += sizeof(tube);
-  memcpy(scratch.data, ball, sizeof(ball)), scratch.data += sizeof(ball);
-
-  // Uploads
-
-  gpu_begin();
-  gpu_stream* stream = gpu_stream_begin();
-  gpu_clear_buffer(stream, state.zeros.gpu, state.zeros.offset, 4096, 0);
-  gpu_copy_buffers(stream, scratch.gpu, state.shapes->mega.gpu, scratch.offset, state.shapes->mega.offset, vertexCount * sizeof(Vertex));
-  gpu_stream_end(stream);
-  gpu_submit(&stream, 1);
+  memcpy(geometry, quad, sizeof(quad)), geometry += sizeof(quad);
+  memcpy(geometry, cube, sizeof(cube)), geometry += sizeof(cube);
+  memcpy(geometry, disk, sizeof(disk)), geometry += sizeof(disk);
+  memcpy(geometry, tube, sizeof(tube)), geometry += sizeof(tube);
+  memcpy(geometry, ball, sizeof(ball)), geometry += sizeof(ball);
 
   return state.initialized = true;
 }
@@ -2465,7 +2464,7 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
 
 // Buffer
 
-Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
+Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
   size_t size = info->length * MAX(info->stride, 1);
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
@@ -2508,13 +2507,28 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
   return buffer;
 }
 
-Buffer* lovrGraphicsGetBuffer(BufferInfo* info) {
-  return lovrBufferInit(info, true);
+Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
+  Buffer* buffer = lovrBufferInit(info, true, data);
+  if (data) *data = buffer->mega.data;
+  return buffer;
 }
 
-Buffer* lovrBufferCreate(BufferInfo* info) {
+Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
   state.stats.buffers++;
-  return lovrBufferInit(info, false);
+  Buffer* buffer = lovrBufferInit(info, false, data);
+  if (data) {
+    if (buffer->mega.data) {
+      *data = buffer->mega.data;
+    } else {
+      // TODO maybe there is a way to use lovrBufferMap here (maybe transfer passes are optional)
+      lovrGraphicsPrepare();
+      Megaview scratch = allocateBuffer(GPU_MEMORY_CPU_WRITE, buffer->size, 4);
+      gpu_copy_buffers(state.pass->stream, scratch.gpu, buffer->mega.gpu, scratch.offset, buffer->mega.offset, buffer->size);
+      state.stats.copies++;
+      *data = scratch.data;
+    }
+  }
+  return buffer;
 }
 
 void lovrBufferDestroy(void* ref) {

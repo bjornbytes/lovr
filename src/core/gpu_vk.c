@@ -356,10 +356,15 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   }
 
   bool mappable = state.memoryTypes[memoryType] & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-  if (mappable && info->data && !try(vkMapMemory(state.device, buffer->memory, 0, VK_WHOLE_SIZE, 0, info->data), "Could not map memory")) {
-    vkDestroyBuffer(state.device, buffer->handle, NULL);
-    vkFreeMemory(state.device, buffer->memory, NULL);
-    return false;
+
+  if (info->mapping) {
+    if (!mappable) {
+      *info->mapping = NULL;
+    } else if (!try(vkMapMemory(state.device, buffer->memory, 0, VK_WHOLE_SIZE, 0, info->mapping), "Could not map memory")) {
+      vkDestroyBuffer(state.device, buffer->handle, NULL);
+      vkFreeMemory(state.device, buffer->memory, NULL);
+      return false;
+    }
   }
 
   return true;
