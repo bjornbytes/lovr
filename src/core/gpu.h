@@ -54,6 +54,7 @@ typedef struct {
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
+void gpu_buffer_unmap(gpu_buffer* buffer);
 
 // Texture
 
