@@ -277,7 +277,7 @@ static struct {
   gpu_index_type boundIndexType;
   uint32_t shapeOffset[SHAPE_MAX];
   Buffer* shapes;
-  Buffer* zeros;
+  Megaview zeros;
   Texture* window;
   Texture* defaultTexture;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
@@ -644,10 +644,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   // Default resources
 
-  state.zeros = lovrBufferCreate(&(BufferInfo) {
-    .length = 4096,
-    .usage = BUFFER_VERTEX | BUFFER_UNIFORM | BUFFER_STORAGE
-  });
+  state.zeros = allocateBuffer(GPU_MEMORY_GPU, 4096, 4);
 
   gpu_slot defaultBindings[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Camera
@@ -778,7 +775,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   state.shapeOffset[SHAPE_BALL] = vertexCount, vertexCount += COUNTOF(ball);
 
   state.shapes = lovrBufferCreate(&(BufferInfo) {
-    .usage = BUFFER_VERTEX | BUFFER_COPYTO,
+    .type = BUFFER_VERTEX,
     .length = vertexCount,
     .stride = sizeof(Vertex),
     .fieldCount = 3,
@@ -799,7 +796,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   gpu_begin();
   gpu_stream* stream = gpu_stream_begin();
-  gpu_clear_buffer(stream, state.zeros->mega.gpu, state.zeros->mega.offset, state.zeros->size, 0);
+  gpu_clear_buffer(stream, state.zeros.gpu, state.zeros.offset, 4096, 0);
   gpu_copy_buffers(stream, scratch.gpu, state.shapes->mega.gpu, scratch.offset, state.shapes->mega.offset, vertexCount * sizeof(Vertex));
   gpu_stream_end(stream);
   gpu_submit(&stream, 1);
@@ -1596,9 +1593,9 @@ void lovrGraphicsSetShader(Shader* shader) {
 
       if (shader->bufferMask) {
         state.bindings[i].buffer = (gpu_buffer_binding) {
-          .object = state.zeros->mega.gpu,
+          .object = state.zeros.gpu,
           .offset = 0,
-          .extent = state.zeros->size
+          .extent = 4096
         };
       } else {
         Texture* texture = lovrGraphicsGetDefaultTexture();
@@ -1645,10 +1642,10 @@ void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffe
   lovrCheck(offset < buffer->size, "Buffer bind offset is past the end of the Buffer");
 
   if (storage) {
-    lovrCheck(buffer->info.usage & BUFFER_STORAGE, "Buffers must be created with the 'storage' usage to use them as storage buffers");
+    lovrCheck(buffer->info.type == BUFFER_COMPUTE, "Bad Buffer type for slot #%d (expected compute)", slot + 1);
     lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to storageBufferAlign limit (%d)", offset, state.limits.storageBufferAlign);
   } else {
-    lovrCheck(buffer->info.usage & BUFFER_UNIFORM, "Buffers must be created with the 'uniform' usage to use them as uniform buffers");
+    lovrCheck(buffer->info.type == BUFFER_UNIFORM, "Bad Buffer type for slot #%d (expected uniform)", slot + 1);
     lovrCheck((offset & (state.limits.uniformBufferAlign - 1)) == 0, "Uniform buffer offset (%d) is not aligned to uniformBufferAlign limit (%d)", offset, state.limits.uniformBufferAlign);
   }
 
@@ -1858,7 +1855,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
   if (hasVertices) {
     if (info->vertex.buffer) {
       Buffer* buffer = info->vertex.buffer;
-      lovrCheck(buffer->info.usage & BUFFER_VERTEX, "Buffers must have the 'vertex' usage to use them as vertex buffers");
+      lovrCheck(buffer->info.type == BUFFER_VERTEX, "Buffers must have the 'vertex' type to use them for mesh vertices");
 
       vertexBuffer = buffer->mega;
       start = info->start + vertexBuffer.offset / buffer->info.stride;
@@ -1893,7 +1890,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
     baseVertex = info->base + (hasVertices ? start : 0);
     if (info->index.buffer) {
       Buffer* buffer = info->index.buffer;
-      lovrCheck(buffer->info.usage & BUFFER_INDEX, "Buffers must have the 'index' usage to use them as index buffers");
+      lovrCheck(buffer->info.type == BUFFER_INDEX, "Buffers must have the 'index' type to use them for mesh indices");
 
       indexBuffer = buffer->mega;
       indexType = buffer->info.stride == 4 ? GPU_INDEX_U32 : GPU_INDEX_U16;
@@ -2043,7 +2040,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
     }
 
     if (hasVertices && vertexBuffer.gpu != state.boundVertexBuffer) {
-      gpu_buffer* buffers[2] = { vertexBuffer.gpu, state.zeros->mega.gpu };
+      gpu_buffer* buffers[2] = { vertexBuffer.gpu, state.zeros.gpu };
       gpu_bind_vertex_buffers(state.pass->stream, buffers, (uint32_t[2]) { 0, 0 }, 0, 2);
       state.boundVertexBuffer = vertexBuffer.gpu;
     }
@@ -2060,7 +2057,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
     }
 
     if (info->indirect) {
-      lovrCheck(info->indirect->info.usage & BUFFER_INDIRECT, "Buffer must be created with the 'indirect' usage to use it for indirect rendering");
+      lovrCheck(info->indirect->info.type == BUFFER_COMPUTE, "Buffer must be created with the 'compute' type to use it for indirect rendering");
       lovrCheck(info->offset % 4 == 0, "Indirect render offset must be a multiple of 4");
       if (hasIndices) {
         lovrCheck(info->offset + 20 <= info->indirect->size, "Indirect render offset overflows the Buffer");
@@ -2371,7 +2368,7 @@ void lovrGraphicsReplay(Batch* batch) {
 
     if (group->dirty & DIRTY_VERTEX) {
       uint32_t offsets[2] = { 0, 0 };
-      gpu_buffer* buffers[2] = { state.buffers.list[first->vertexBuffer].gpu, state.zeros->mega.gpu };
+      gpu_buffer* buffers[2] = { state.buffers.list[first->vertexBuffer].gpu, state.zeros.gpu };
       gpu_bind_vertex_buffers(state.pass->stream, buffers, offsets, 0, 2);
       state.boundVertexBuffer = buffers[0];
     }
@@ -2457,7 +2454,7 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
   }
 
   if (buffer) {
-    lovrCheck(buffer->info.usage & BUFFER_INDIRECT, "Buffer must be created with the 'indirect' usage to use it for indirect compute");
+    lovrCheck(buffer->info.type == BUFFER_COMPUTE, "Buffer must be created with the 'compute' type to use it for indirect compute");
     lovrCheck(offset % 4 == 0, "Indirect compute offset must be a multiple of 4");
     lovrCheck(offset + 12 <= buffer->size, "Indirect compute offset overflows the Buffer");
     gpu_compute_indirect(state.pass->stream, buffer->mega.gpu, buffer->mega.offset + offset);
@@ -2469,7 +2466,6 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
 // Buffer
 
 Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
-  bool po2 = (info->stride & (info->stride - 1)) == 0;
   size_t size = info->length * MAX(info->stride, 1);
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
@@ -2478,15 +2474,11 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
   buffer->ref = 1;
   buffer->size = size;
   uint32_t align = 1;
-  if (info->usage & BUFFER_UNIFORM) align = MAX(align, state.limits.uniformBufferAlign);
-  if (info->usage & BUFFER_STORAGE) align = MAX(align, state.limits.storageBufferAlign);
-  if (info->usage & BUFFER_VERTEX) {
-    if (po2) {
-      align = MAX(align, info->stride);
-    } else {
-      lovrCheck(~info->usage & (BUFFER_UNIFORM | BUFFER_STORAGE), "Buffers with the 'vertex' usage and either 'uniform' or 'storage' must have a power of 2 stride");
-      align = info->stride;
-    }
+  switch (info->type) {
+    case BUFFER_VERTEX: align = info->stride; break;
+    case BUFFER_INDEX: align = 4; break;
+    case BUFFER_UNIFORM: align = state.limits.uniformBufferAlign; break;
+    case BUFFER_COMPUTE: align = state.limits.storageBufferAlign; break;
   }
   buffer->mega = allocateBuffer(transient ? GPU_MEMORY_CPU_WRITE : GPU_MEMORY_GPU, size, align);
   buffer->info = *info;
@@ -2494,8 +2486,8 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient) {
   if (!transient) {
     state.buffers.list[buffer->mega.index].refs++;
   }
-  if (info->usage & BUFFER_VERTEX) {
-    lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds vertexBufferStride limit (%d)", info->stride, state.limits.vertexBufferStride);
+  if (info->type == BUFFER_VERTEX) {
+    lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' type has a stride of %d bytes, which exceeds vertexBufferStride limit (%d)", info->stride, state.limits.vertexBufferStride);
     buffer->mask = 0;
     buffer->format.bufferCount = 1;
     buffer->format.attributeCount = info->fieldCount;
@@ -2547,10 +2539,9 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
     return buffer->mega.data + offset;
   } else {
     lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Writing to persistent buffers can only happen in a transfer pass");
-    lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to write to them");
     Megaview scratch = allocateBuffer(GPU_MEMORY_CPU_WRITE, size, 4);
     gpu_copy_buffers(state.pass->stream, scratch.gpu, buffer->mega.gpu, scratch.offset, buffer->mega.offset + offset, size);
-    BufferSync sync = { buffer, BUFFER_COPYTO, 0 };
+    BufferSync sync = { buffer, GPU_BUFFER_COPY_DST, 0 };
     arr_push(&state.pass->buffers, sync);
     lovrRetain(buffer);
     state.stats.copies++;
@@ -2566,9 +2557,8 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
     memset(buffer->mega.data + offset, 0, size);
   } else {
     lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Clearing persistent buffers can only happen in a transfer pass");
-    lovrCheck(buffer->info.usage & BUFFER_COPYTO, "Buffers must have the 'copyto' usage to clear them");
     gpu_clear_buffer(state.pass->stream, buffer->mega.gpu, buffer->mega.offset + offset, size, 0);
-    BufferSync sync = { buffer, BUFFER_COPYTO, 0 };
+    BufferSync sync = { buffer, GPU_BUFFER_COPY_DST, 0 };
     arr_push(&state.pass->buffers, sync);
     lovrRetain(buffer);
     state.stats.copies++;
@@ -2577,13 +2567,12 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Buffer copies can only happen in a transfer pass");
-  lovrCheck(src->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to copy from it");
-  lovrCheck(dst->info.usage & BUFFER_COPYTO, "Buffer must have the 'copyto' usage to copy to it");
+  lovrCheck(!dst->transient, "Unable to copy to transient Buffers");
   lovrCheck(srcOffset + size <= src->size, "Tried to read past the end of the source Buffer");
   lovrCheck(dstOffset + size <= dst->size, "Tried to copy past the end of the destination Buffer");
   gpu_copy_buffers(state.pass->stream, src->mega.gpu, dst->mega.gpu, src->mega.offset + srcOffset, dst->mega.offset + dstOffset, size);
-  BufferSync syncSrc = { src, BUFFER_COPYFROM, 0 };
-  BufferSync syncDst = { dst, BUFFER_COPYTO, 0 };
+  BufferSync syncSrc = { src, GPU_BUFFER_COPY_SRC, 0 };
+  BufferSync syncDst = { dst, GPU_BUFFER_COPY_DST, 0 };
   arr_push(&state.pass->buffers, syncSrc);
   arr_push(&state.pass->buffers, syncDst);
   lovrRetain(src);
@@ -2594,7 +2583,7 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
 void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callback)(void*, uint32_t, void*), void* userdata) {
   ReaderPool* readers = &state.readers;
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Reading buffer data can only happen in a transfer pass");
-  lovrCheck(buffer->info.usage & BUFFER_COPYFROM, "Buffer must have the 'copyfrom' usage to read from it");
+  lovrCheck(!buffer->transient, "Can not read from transient Buffers");
   lovrCheck(offset + size <= buffer->size, "Tried to read past the end of the Buffer");
   lovrCheck(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
   Megaview scratch = allocateBuffer(GPU_MEMORY_CPU_READ, size, 4);
@@ -2606,7 +2595,7 @@ void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callb
     .size = size,
     .tick = state.tick
   };
-  BufferSync sync = { buffer, BUFFER_COPYFROM, 0 };
+  BufferSync sync = { buffer, GPU_BUFFER_COPY_SRC, 0 };
   arr_push(&state.pass->buffers, sync);
   lovrRetain(buffer);
   state.stats.copies++;

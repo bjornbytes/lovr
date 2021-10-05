@@ -266,6 +266,13 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer) {
   }
 }
 
+static int l_lovrBufferGetType(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  const BufferInfo* info = lovrBufferGetInfo(buffer);
+  luax_pushenum(L, BufferType, info->type);
+  return 1;
+}
+
 static int l_lovrBufferGetSize(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
@@ -293,8 +300,8 @@ static int l_lovrBufferGetFormat(lua_State* L) {
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   lua_createtable(L, info->fieldCount, 0);
   for (uint32_t i = 0; i < info->fieldCount; i++) {
-    lua_createtable(L, 2, 0);
-    luax_pushenum(L, FieldType, info->locations[i]);
+    lua_createtable(L, 3, 0);
+    lua_pushinteger(L, info->locations[i]);
     lua_rawseti(L, -2, 1);
     luax_pushenum(L, FieldType, info->types[i]);
     lua_rawseti(L, -2, 2);
@@ -309,21 +316,6 @@ static int l_lovrBufferGetPointer(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   void* pointer = lovrBufferMap(buffer, 0, ~0u);
   lua_pushlightuserdata(L, pointer);
-  return 1;
-}
-
-static int l_lovrBufferHasUsage(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
-  const BufferInfo* info = lovrBufferGetInfo(buffer);
-  luaL_checkany(L, 2);
-  int top = lua_gettop(L);
-  for (int i = 2; i <= top; i++) {
-    int bit = luax_checkenum(L, i, BufferUsage, NULL);
-    if (~info->usage & (1 << bit)) {
-      lua_pushboolean(L, false);
-    }
-  }
-  lua_pushboolean(L, true);
   return 1;
 }
 
@@ -430,12 +422,12 @@ static int l_lovrBufferRead(lua_State* L) {
 }
 
 const luaL_Reg lovrBuffer[] = {
+  { "getType", l_lovrBufferGetType },
   { "getSize", l_lovrBufferGetSize },
   { "getLength", l_lovrBufferGetLength },
   { "getStride", l_lovrBufferGetStride },
   { "getFormat", l_lovrBufferGetFormat },
   { "getPointer", l_lovrBufferGetPointer },
-  { "hasUsage", l_lovrBufferHasUsage },
   { "write", l_lovrBufferWrite },
   { "clear", l_lovrBufferClear },
   { "copy", l_lovrBufferCopy },
