@@ -3858,7 +3858,8 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
   return material;
 }
 
-void lovrMaterialDestroy(Material* material) {
+void lovrMaterialDestroy(void* ref) {
+  Material* material = ref;
   free(material);
 }
 

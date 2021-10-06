@@ -537,7 +537,7 @@ typedef struct {
 } MaterialInfo;
 
 Material* lovrMaterialCreate(MaterialInfo* info);
-void lovrMaterialDestroy(Material* material);
+void lovrMaterialDestroy(void* ref);
 const MaterialInfo* lovrMaterialGetInfo(Material* material);
 
 // Batch
