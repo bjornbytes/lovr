@@ -392,7 +392,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
   };
 
   for (uint32_t i = 0; i < 4; i++) {
-    lovrGraphicsGetBackgroundColor(canvas.clears[i]);
+    lovrGraphicsGetBackground(canvas.clears[i]);
   }
 
   if (lua_type(L, index) == LUA_TSTRING && !strcmp(lua_tostring(L, index), "window")) {
@@ -680,9 +680,9 @@ static int l_lovrGraphicsWait(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
+static int l_lovrGraphicsGetBackground(lua_State* L) {
   float color[4];
-  lovrGraphicsGetBackgroundColor(color);
+  lovrGraphicsGetBackground(color);
   lua_pushnumber(L, color[0]);
   lua_pushnumber(L, color[1]);
   lua_pushnumber(L, color[2]);
@@ -690,10 +690,10 @@ static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {
   return 4;
 }
 
-static int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
+static int l_lovrGraphicsSetBackground(lua_State* L) {
   float color[4];
   luax_readcolor(L, 1, color);
-  lovrGraphicsSetBackgroundColor(color);
+  lovrGraphicsSetBackground(color);
   return 0;
 }
 
@@ -1666,8 +1666,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "submit", l_lovrGraphicsSubmit },
   { "wait", l_lovrGraphicsWait },
 
-  { "getBackgroundColor", l_lovrGraphicsGetBackgroundColor },
-  { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
+  { "getBackground", l_lovrGraphicsGetBackground },
+  { "setBackground", l_lovrGraphicsSetBackground },
   { "getViewPose", l_lovrGraphicsGetViewPose },
   { "setViewPose", l_lovrGraphicsSetViewPose },
   { "getProjection", l_lovrGraphicsGetProjection },

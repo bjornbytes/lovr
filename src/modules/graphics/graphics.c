@@ -1398,11 +1398,11 @@ void lovrGraphicsWait() {
   gpu_wait();
 }
 
-void lovrGraphicsGetBackgroundColor(float background[4]) {
+void lovrGraphicsGetBackground(float background[4]) {
   memcpy(background, state.background, 4 * sizeof(float));
 }
 
-void lovrGraphicsSetBackgroundColor(float background[4]) {
+void lovrGraphicsSetBackground(float background[4]) {
   memcpy(state.background, background, 4 * sizeof(float));
 }
 
