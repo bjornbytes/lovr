@@ -305,8 +305,8 @@ void lovrGraphicsFinish(void);
 void lovrGraphicsSubmit(void);
 void lovrGraphicsWait(void);
 
-void lovrGraphicsGetBackgroundColor(float background[4]);
-void lovrGraphicsSetBackgroundColor(float background[4]);
+void lovrGraphicsGetBackground(float background[4]);
+void lovrGraphicsSetBackground(float background[4]);
 void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix);
 void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix);
 void lovrGraphicsGetProjection(uint32_t index, float* projection);
