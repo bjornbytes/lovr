@@ -525,13 +525,13 @@ typedef struct {
   union {
     Texture* texture;
     float vector[4];
-    float scalar;
+    double scalar;
   } value;
 } MaterialProperty;
 
 typedef struct {
-  DefaultMaterial type;
   Shader* shader;
+  DefaultMaterial type;
   uint32_t propertyCount;
   MaterialProperty* properties;
 } MaterialInfo;
