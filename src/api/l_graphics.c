@@ -1635,6 +1635,87 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 
 static int l_lovrGraphicsNewMaterial(lua_State* L) {
   MaterialInfo info;
+  MaterialProperty properties[32];
+  info.properties = properties;
+
+  Texture* texture = luax_totype(L, 1, Texture);
+  if (texture) {
+    info.type = MATERIAL_SIMPLE;
+    info.propertyCount = 1;
+    info.properties[0] = (MaterialProperty) {
+      .name = "texture",
+      .type = PROPERTY_TEXTURE,
+      .value.texture = texture
+    };
+  } else if (lua_isnumber(L, 1)) {
+    info.type = MATERIAL_SIMPLE;
+    info.propertyCount = 1;
+    info.properties[0] = (MaterialProperty) {
+      .name = "color",
+      .type = PROPERTY_VECTOR
+    };
+    luax_readcolor(L, 1, info.properties[0].value.vector);
+  } else {
+    info.shader = luax_totype(L, 1, Shader);
+    if (!info.shader) info.type = luax_checkenum(L, 1, DefaultMaterial, NULL);
+    if (lua_isuserdata(L, 2)) {
+      info.propertyCount = 1;
+      properties[0] = (MaterialProperty) {
+        .name = "texture",
+        .type = PROPERTY_TEXTURE,
+        .value.texture = luax_checktype(L, 2, Texture)
+      };
+    } else {
+      luaL_checktype(L, 2, LUA_TTABLE);
+      lua_settop(L, 2);
+      lua_pushnil(L);
+      while (lua_next(L, 2) != 0) {
+        lovrCheck(info.propertyCount < COUNTOF(properties), "Too many material properties (max is %d), please report this encounter", COUNTOF(properties));
+        MaterialProperty* property = &properties[info.propertyCount++];
+        property->name = lua_tostring(L, -2);
+
+        if (!property->name) {
+          lua_pop(L, 1);
+          continue;
+        }
+
+        switch (lua_type(L, -1)) {
+          case LUA_TUSERDATA:
+            texture = luax_totype(L, -1, Texture);
+            if (texture) {
+              property->type = PROPERTY_TEXTURE;
+              property->value.texture = luax_checktype(L, -1, Texture);
+            } else {
+              property->type = PROPERTY_VECTOR;
+              VectorType type;
+              float* v = luax_tovector(L, -1, &type);
+              uint32_t components = 2 + (type - V_VEC2);
+              bool valid = v && (type == V_VEC2 || type == V_VEC3 || type == V_VEC4);
+              lovrAssert(valid, "Expected number, table, vec2, vec3, vec4, or Texture for Material property");
+              memcpy(property->value.vector, v, components * sizeof(float));
+            }
+            break;
+          case LUA_TTABLE:
+            property->type = PROPERTY_VECTOR;
+            int length = luax_len(L, -1);
+            for (int i = 0; i < length && i < 4; i++) {
+              lua_rawgeti(L, -1, i + 1);
+              property->value.vector[i] = luax_tofloat(L, -1);
+              lua_pop(L, 1);
+            }
+            break;
+          case LUA_TNUMBER:
+            property->type = PROPERTY_SCALAR;
+            property->value.scalar = lua_tonumber(L, -1);
+            break;
+          default: lovrThrow("Expected number, table, vec2, vec3, vec4, or Texture for Material property");
+        }
+
+        lua_pop(L, 1);
+      }
+    }
+  }
+
   Material* material = lovrMaterialCreate(&info);
   luax_pushtype(L, Material, material);
   return 1;
