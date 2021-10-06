@@ -10,6 +10,7 @@ typedef struct Buffer Buffer;
 typedef struct Texture Texture;
 typedef struct Sampler Sampler;
 typedef struct Shader Shader;
+typedef struct Material Material;
 typedef struct Batch Batch;
 typedef struct Model Model;
 typedef struct Font Font;
@@ -504,6 +505,40 @@ Shader* lovrShaderCreateDefault(DefaultShader type, ShaderFlag* flags, uint32_t 
 Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
+
+// Material
+
+typedef enum {
+  MATERIAL_SIMPLE,
+  MATERIAL_PHYSICAL
+} DefaultMaterial;
+
+typedef enum {
+  PROPERTY_TEXTURE,
+  PROPERTY_VECTOR,
+  PROPERTY_SCALAR
+} MaterialPropertyType;
+
+typedef struct {
+  const char* name;
+  MaterialPropertyType type;
+  union {
+    Texture* texture;
+    float vector[4];
+    float scalar;
+  } value;
+} MaterialProperty;
+
+typedef struct {
+  DefaultMaterial type;
+  Shader* shader;
+  uint32_t propertyCount;
+  MaterialProperty* properties;
+} MaterialInfo;
+
+Material* lovrMaterialCreate(MaterialInfo* info);
+void lovrMaterialDestroy(Material* material);
+const MaterialInfo* lovrMaterialGetInfo(Material* material);
 
 // Batch
 

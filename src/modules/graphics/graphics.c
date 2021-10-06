@@ -16,6 +16,7 @@
 #define MAX_BUNCHES 256
 #define BUNDLES_PER_BUNCH 1024
 #define MAX_LAYOUTS 64
+#define MAX_MATERIALS 16
 
 typedef struct {
   gpu_buffer* gpu;
@@ -54,6 +55,7 @@ struct Shader {
   ShaderInfo info;
   gpu_shader* gpu;
   uint32_t layout;
+  uint32_t material;
   uint32_t computePipelineIndex;
   uint32_t constantSize;
   uint32_t constantCount;
@@ -72,6 +74,26 @@ struct Shader {
   uint32_t flagLookup[32];
   gpu_shader_flag flags[32];
   uint32_t attributeMask;
+};
+
+typedef struct {
+  uint32_t size;
+  uint32_t propertyCount;
+  uint32_t propertyNames[32];
+  uint32_t propertyOffsets[32];
+  FieldType propertyTypes[32];
+  uint32_t textureCount;
+  uint32_t textureOffsets[12];
+  uint32_t textureMask;
+  uint32_t colorMask;
+} MaterialSchema;
+
+struct Material {
+  uint32_t ref;
+  MaterialInfo info;
+  uint32_t schema;
+  uint32_t index;
+  uint32_t page;
 };
 
 enum {
@@ -297,6 +319,8 @@ static struct {
   gpu_pass* gpuPasses[256];
   uint64_t layoutLookup[MAX_LAYOUTS];
   gpu_layout* layouts[MAX_LAYOUTS];
+  uint64_t materialLookup[MAX_MATERIALS];
+  MaterialSchema materials[MAX_MATERIALS];
   uint32_t blockSize;
   gpu_hardware hardware;
   gpu_features features;
@@ -530,6 +554,21 @@ static uint32_t lookupLayout(gpu_slot* slots, uint32_t count) {
   return index;
 }
 
+static uint32_t lookupMaterial(MaterialSchema* schema) {
+  uint64_t hash = 0xaaaaaaaa; // TODO compute material hash
+
+  uint32_t index;
+  for (index = 0; index < COUNTOF(state.materials) && state.materialLookup[index]; index++) {
+    if (state.materialLookup[index] == hash) {
+      return index;
+    }
+  }
+
+  state.materialLookup[index] = hash;
+  state.materials[index] = *schema;
+  return index;
+}
+
 static void lovrGraphicsReset(gpu_pass* pass) {
   state.matrixIndex = 0;
   state.matrix = state.matrixStack[0];
@@ -695,6 +734,41 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   };
 
   lookupLayout(defaultBindings, COUNTOF(defaultBindings));
+
+  MaterialSchema simpleMaterial = {
+    .size = 32,
+    .propertyCount = 3,
+    .propertyNames = {
+      hash32("texture", strlen("texture")),
+      hash32("uvOffset", strlen("uvOffset")),
+      hash32("uvScale", strlen("uvScale"))
+    },
+    .propertyOffsets = { 0, 8, 16 },
+    .propertyTypes = { FIELD_U32, FIELD_F32x2, FIELD_F32x2 },
+    .textureCount = 1,
+    .textureOffsets = { 0 },
+    .textureMask = 0x1
+  };
+
+  MaterialSchema physicalMaterial = {
+    .size = 32,
+    .propertyCount = 5,
+    .propertyNames = {
+      hash32("texture", strlen("texture")),
+      hash32("uvOffset", strlen("uvOffset")),
+      hash32("uvScale", strlen("uvScale")),
+      hash32("metalness", strlen("metalness")),
+      hash32("roughness", strlen("roughness"))
+    },
+    .propertyOffsets = { 0, 8, 16, 24, 28 },
+    .propertyTypes = { FIELD_U32, FIELD_F32x2, FIELD_F32x2, FIELD_F32, FIELD_F32 },
+    .textureCount = 1,
+    .textureOffsets = { 0 },
+    .textureMask = 0x1
+  };
+
+  lookupMaterial(&simpleMaterial);
+  lookupMaterial(&physicalMaterial);
 
   // Standard vertex formats
 
@@ -3116,6 +3190,7 @@ typedef struct {
   gpu_shader_flag flags[32];
   uint32_t flagCount;
   uint32_t attributeMask;
+  MaterialSchema material;
 } ReflectionInfo;
 
 // Only an explicit set of spir-v capabilities are allowed
@@ -3767,6 +3842,28 @@ void lovrShaderDestroy(void* ref) {
 
 const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
   return &shader->info;
+}
+
+// Material
+
+Material* lovrMaterialCreate(MaterialInfo* info) {
+  Material* material = calloc(1, sizeof(Batch));
+  lovrAssert(material, "Out of memory");
+  material->ref = 1;
+  material->info = *info;
+  material->schema = info->shader ? info->shader->material : info->type;
+  // find free slot for the schema, record index
+  // serialize properties into buffer
+  // put textures in the book, record page
+  return material;
+}
+
+void lovrMaterialDestroy(Material* material) {
+  free(material);
+}
+
+const MaterialInfo* lovrMaterialGetInfo(Material* material) {
+  return &material->info;
 }
 
 // Batch

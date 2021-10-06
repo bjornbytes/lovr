@@ -60,6 +60,12 @@ StringEntry lovrDefaultAttribute[] = {
   { 0 }
 };
 
+StringEntry lovrDefaultMaterial[] = {
+  [MATERIAL_SIMPLE] = ENTRY("simple"),
+  [MATERIAL_PHYSICAL] = ENTRY("physical"),
+  { 0 }
+};
+
 StringEntry lovrDefaultSampler[] = {
   [SAMPLER_NEAREST] = ENTRY("nearest"),
   [SAMPLER_BILINEAR] = ENTRY("bilinear"),
@@ -70,6 +76,9 @@ StringEntry lovrDefaultSampler[] = {
 
 StringEntry lovrDefaultShader[] = {
   [SHADER_UNLIT] = ENTRY("unlit"),
+  [SHADER_FILL] = ENTRY("fill"),
+  [SHADER_CUBE] = ENTRY("cube"),
+  [SHADER_PANO] = ENTRY("pano"),
   { 0 }
 };
 
@@ -1624,6 +1633,13 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewMaterial(lua_State* L) {
+  MaterialInfo info;
+  Material* material = lovrMaterialCreate(&info);
+  luax_pushtype(L, Material, material);
+  return 1;
+}
+
 static int l_lovrGraphicsNewBatch(lua_State* L) {
   BatchInfo info;
   Canvas canvas = luax_checkcanvas(L, 1);
@@ -1708,6 +1724,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newSampler", l_lovrGraphicsNewSampler },
   { "newShader", l_lovrGraphicsNewShader },
+  { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newBatch", l_lovrGraphicsNewBatch },
 
   { NULL, NULL }
@@ -1717,6 +1734,7 @@ extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrSampler[];
 extern const luaL_Reg lovrShader[];
+extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrBatch[];
 
 int luaopen_lovr_graphics(lua_State* L) {
@@ -1726,6 +1744,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Texture);
   luax_registertype(L, Sampler);
   luax_registertype(L, Shader);
+  luax_registertype(L, Material);
   luax_registertype(L, Batch);
   return 1;
 }
