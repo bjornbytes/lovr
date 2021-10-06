@@ -29,6 +29,7 @@ extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCullMode[];
 extern StringEntry lovrDefaultAttribute[];
 extern StringEntry lovrDefaultAttribute2[];
+extern StringEntry lovrDefaultMaterial[];
 extern StringEntry lovrDefaultSampler[];
 extern StringEntry lovrDefaultShader[];
 extern StringEntry lovrDevice[];
