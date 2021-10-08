@@ -25,6 +25,25 @@ static ModelNode* luax_checknode(lua_State* L, int index, ModelData* model) {
   }
 }
 
+static ModelMaterial* luax_checkmaterial(lua_State* L, int index, ModelData* model) {
+  switch (lua_type(L, index)) {
+    case LUA_TNUMBER: {
+      uint32_t material = lua_tointeger(L, index) - 1;
+      lovrCheck(material < model->materialCount, "Invalid material index '%d'", material + 1);
+      return &model->materials[material];
+    }
+    case LUA_TSTRING: {
+      size_t length;
+      const char* name = lua_tolstring(L, index, &length);
+      uint64_t hash = hash64(name, length);
+      uint64_t entry = map_get(&model->materialMap, hash);
+      lovrCheck(entry != MAP_NIL, "ModelData has no material named '%s'", name);
+      return &model->materials[(uint32_t) entry];
+    }
+    default: return luax_typeerror(L, index, "number or string"), NULL;
+  }
+}
+
 static int l_lovrModelDataGetBlobCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   lua_pushinteger(L, model->blobCount);
@@ -339,6 +358,51 @@ static int l_lovrModelDataGetMeshIndex(lua_State* L) {
   }
 }
 
+static int l_lovrModelDataGetMaterialCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  lua_pushinteger(L, model->materialCount);
+  return 1;
+}
+
+static int l_lovrModelDataGetMaterialName(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  lovrCheck(index < model->nodeCount, "Invalid material index '%d'", index + 1);
+  lua_pushstring(L, model->materials[index].name);
+  return 1;
+}
+
+static int l_lovrModelDataGetMaterialImage(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelMaterial* material = luax_checkmaterial(L, 2, model);
+  MaterialTexture type = luax_checkenum(L, 3, MaterialTexture, "diffuse");
+  if (material->images[type] == ~0u) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, material->images[type] + 1);
+  }
+  return 1;
+}
+
+static int l_lovrModelDataGetMaterialColor(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelMaterial* material = luax_checkmaterial(L, 2, model);
+  MaterialColor type = luax_checkenum(L, 3, MaterialColor, "diffuse");
+  lua_pushnumber(L, material->colors[type].r);
+  lua_pushnumber(L, material->colors[type].g);
+  lua_pushnumber(L, material->colors[type].b);
+  lua_pushnumber(L, material->colors[type].a);
+  return 4;
+}
+
+static int l_lovrModelDataGetMaterialValue(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelMaterial* material = luax_checkmaterial(L, 2, model);
+  MaterialScalar type = luax_checkenum(L, 3, MaterialScalar, NULL);
+  lua_pushnumber(L, material->scalars[type]);
+  return 1;
+}
+
 const luaL_Reg lovrModelData[] = {
   { "getBlobCount", l_lovrModelDataGetBlobCount },
   { "getBlob", l_lovrModelDataGetBlob },
@@ -364,5 +428,10 @@ const luaL_Reg lovrModelData[] = {
   { "getMeshVertex", l_lovrModelDataGetMeshVertex },
   { "getMeshIndex", l_lovrModelDataGetMeshIndex },
   { "getMeshIndex", l_lovrModelDataGetMeshIndex },
+  { "getMaterialCount", l_lovrModelDataGetMaterialCount },
+  { "getMaterialName", l_lovrModelDataGetMaterialName },
+  { "getMaterialImage", l_lovrModelDataGetMaterialImage },
+  { "getMaterialColor", l_lovrModelDataGetMaterialColor },
+  { "getMaterialValue", l_lovrModelDataGetMaterialValue },
   { NULL, NULL }
 };
