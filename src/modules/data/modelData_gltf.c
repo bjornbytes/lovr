@@ -504,7 +504,6 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     jsmntok_t* token = info.bufferViews;
     ModelBuffer* buffer = model->buffers;
     for (int i = (token++)->size; i > 0; i--, buffer++) {
-      size_t offset = 0;
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "buffer")) { buffer->blob = NOM_INT(json, token); }
