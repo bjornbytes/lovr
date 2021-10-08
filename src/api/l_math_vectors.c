@@ -4,6 +4,8 @@
 #include <lua.h>
 #include <lauxlib.h>
 
+#define EQ_THRESHOLD 1e-10f
+
 static const uint32_t* swizzles[5] = {
   [2] = (uint32_t[]) {
     ['x'] = 1,
@@ -143,6 +145,17 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
 }
 
 // vec2
+
+static int l_lovrVec2Equals(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC2, NULL);
+  float* u = luax_checkvector(L, 2, V_VEC2, NULL);
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  float distance2 = dx * dx + dy * dy;
+  bool equal = distance2 < EQ_THRESHOLD;
+  lua_pushboolean(L, equal);
+  return 1;
+}
 
 static int l_lovrVec2Unpack(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC2, NULL);
@@ -508,6 +521,7 @@ static int l_lovrVec2__index(lua_State* L) {
 }
 
 const luaL_Reg lovrVec2[] = {
+  { "equals", l_lovrVec2Equals },
   { "unpack", l_lovrVec2Unpack },
   { "set", l_lovrVec2Set },
   { "add", l_lovrVec2Add },
@@ -533,6 +547,18 @@ const luaL_Reg lovrVec2[] = {
 };
 
 // vec3
+
+static int l_lovrVec3Equals(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC3, NULL);
+  float* u = luax_checkvector(L, 2, V_VEC3, NULL);
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  float dz = v[2] - u[2];
+  float distance2 = dx * dx + dy * dy + dz * dz;
+  bool equal = distance2 < EQ_THRESHOLD;
+  lua_pushboolean(L, equal);
+  return 1;
+}
 
 static int l_lovrVec3Unpack(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
@@ -918,6 +944,7 @@ static int l_lovrVec3__index(lua_State* L) {
 }
 
 const luaL_Reg lovrVec3[] = {
+  { "equals", l_lovrVec3Equals },
   { "unpack", l_lovrVec3Unpack },
   { "set", l_lovrVec3Set },
   { "add", l_lovrVec3Add },
@@ -944,6 +971,19 @@ const luaL_Reg lovrVec3[] = {
 };
 
 // vec4
+
+static int l_lovrVec4Equals(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC4, NULL);
+  float* u = luax_checkvector(L, 2, V_VEC4, NULL);
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  float dz = v[2] - u[2];
+  float dw = v[3] - u[3];
+  float distance2 = dx * dx + dy * dy + dz * dz + dw * dw;
+  bool equal = distance2 < EQ_THRESHOLD;
+  lua_pushboolean(L, equal);
+  return 1;
+}
 
 static int l_lovrVec4Unpack(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC4, NULL);
@@ -1383,6 +1423,7 @@ static int l_lovrVec4__index(lua_State* L) {
 }
 
 const luaL_Reg lovrVec4[] = {
+  { "equals", l_lovrVec4Equals },
   { "unpack", l_lovrVec4Unpack },
   { "set", l_lovrVec4Set },
   { "add", l_lovrVec4Add },
@@ -1408,6 +1449,15 @@ const luaL_Reg lovrVec4[] = {
 };
 
 // quat
+
+static int l_lovrQuatEquals(lua_State* L) {
+  quat q = luax_checkvector(L, 1, V_QUAT, NULL);
+  quat r = luax_checkvector(L, 2, V_QUAT, NULL);
+  float dot = q[0] * r[0] + q[1] * r[1] + q[2] * r[2] + q[3] * r[3];
+  bool equal = fabsf(dot) >= 1.f - 1e-5f;
+  lua_pushboolean(L, equal);
+  return 1;
+}
 
 static int l_lovrQuatUnpack(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
@@ -1606,6 +1656,7 @@ static int l_lovrQuat__index(lua_State* L) {
 }
 
 const luaL_Reg lovrQuat[] = {
+  { "equals", l_lovrQuatEquals },
   { "unpack", l_lovrQuatUnpack },
   { "set", l_lovrQuatSet },
   { "mul", l_lovrQuatMul },
@@ -1623,6 +1674,24 @@ const luaL_Reg lovrQuat[] = {
 };
 
 // mat4
+
+static int l_lovrMat4Equals(lua_State* L) {
+  mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
+  mat4 n = luax_checkvector(L, 2, V_MAT4, NULL);
+  for (int i = 0; i < 16; i += 4) {
+    float dx = m[i + 0] - n[i + 0];
+    float dy = m[i + 1] - n[i + 1];
+    float dz = m[i + 2] - n[i + 2];
+    float dw = m[i + 3] - n[i + 3];
+    float distance2 = dx * dx + dy * dy + dz * dz + dw * dw;
+    if (distance2 > EQ_THRESHOLD) {
+      lua_pushboolean(L, false);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, true);
+  return 1;
+}
 
 static int l_lovrMat4Unpack(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
@@ -1924,6 +1993,7 @@ static int l_lovrMat4__index(lua_State* L) {
 }
 
 const luaL_Reg lovrMat4[] = {
+  { "equals", l_lovrMat4Equals },
   { "unpack", l_lovrMat4Unpack },
   { "set", l_lovrMat4Set },
   { "mul", l_lovrMat4Mul },
