@@ -403,6 +403,39 @@ static int l_lovrModelDataGetMaterialValue(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelDataGetSkinCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  lua_pushinteger(L, model->skinCount);
+  return 1;
+}
+
+static int l_lovrModelDataGetSkinJoints(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  lovrCheck(index < model->skinCount, "Invalid skin index '%d'", index + 1);
+  ModelSkin* skin = &model->skins[index];
+  lua_createtable(L, skin->jointCount, 0);
+  for (uint32_t i = 0; i < skin->jointCount; i++) {
+    lua_pushinteger(L, skin->joints[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
+static int l_lovrModelDataGetSkinInverseBindMatrix(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  lovrCheck(index < model->skinCount, "Invalid skin index '%d'", index + 1);
+  ModelSkin* skin = &model->skins[index];
+  uint32_t joint = luaL_checkinteger(L, 3) - 1;
+  lovrCheck(index < skin->jointCount, "Invalid joint index '%d'", joint + 1);
+  float* m = skin->inverseBindMatrices + joint * 16;
+  for (uint32_t i = 0; i < 16; i++) {
+    lua_pushnumber(L, m[i]);
+  }
+  return 16;
+}
+
 const luaL_Reg lovrModelData[] = {
   { "getBlobCount", l_lovrModelDataGetBlobCount },
   { "getBlob", l_lovrModelDataGetBlob },
@@ -433,5 +466,8 @@ const luaL_Reg lovrModelData[] = {
   { "getMaterialImage", l_lovrModelDataGetMaterialImage },
   { "getMaterialColor", l_lovrModelDataGetMaterialColor },
   { "getMaterialValue", l_lovrModelDataGetMaterialValue },
+  { "getSkinCount", l_lovrModelDataGetSkinCount },
+  { "getSkinJoints", l_lovrModelDataGetSkinJoints },
+  { "getSkinInverseBindMatrix", l_lovrModelDataGetSkinInverseBindMatrix },
   { NULL, NULL }
 };
