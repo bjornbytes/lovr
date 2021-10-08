@@ -17,6 +17,7 @@ typedef struct {
 
 #define ENTRY(s) { sizeof(s) - 1, s }
 
+extern StringEntry lovrAnimationProperty[];
 extern StringEntry lovrArcMode[];
 extern StringEntry lovrAttributeType[];
 extern StringEntry lovrAudioMaterial[];
@@ -49,6 +50,7 @@ extern StringEntry lovrPermission[];
 extern StringEntry lovrSampleFormat[];
 extern StringEntry lovrShaderType[];
 extern StringEntry lovrShapeType[];
+extern StringEntry lovrSmoothMode[];
 extern StringEntry lovrStencilAction[];
 extern StringEntry lovrTextureFormat[];
 extern StringEntry lovrTextureType[];

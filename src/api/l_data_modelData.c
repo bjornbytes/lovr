@@ -44,6 +44,25 @@ static ModelMaterial* luax_checkmaterial(lua_State* L, int index, ModelData* mod
   }
 }
 
+static ModelAnimation* luax_checkanimation(lua_State* L, int index, ModelData* model) {
+  switch (lua_type(L, index)) {
+    case LUA_TNUMBER: {
+      uint32_t animation = lua_tointeger(L, index) - 1;
+      lovrCheck(animation < model->animationCount, "Invalid animation index '%d'", animation + 1);
+      return &model->animations[animation];
+    }
+    case LUA_TSTRING: {
+      size_t length;
+      const char* name = lua_tolstring(L, index, &length);
+      uint64_t hash = hash64(name, length);
+      uint64_t entry = map_get(&model->animationMap, hash);
+      lovrCheck(entry != MAP_NIL, "ModelData has no animation named '%s'", name);
+      return &model->animations[(uint32_t) entry];
+    }
+    default: return luax_typeerror(L, index, "number or string"), NULL;
+  }
+}
+
 static int l_lovrModelDataGetBlobCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   lua_pushinteger(L, model->blobCount);
@@ -403,6 +422,91 @@ static int l_lovrModelDataGetMaterialValue(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelDataGetAnimationCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  lua_pushinteger(L, model->animationCount);
+  return 1;
+}
+
+static int l_lovrModelDataGetAnimationName(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  lovrCheck(index < model->animationCount, "Invalid animation index '%d'", index + 1);
+  lua_pushstring(L, model->animations[index].name);
+  return 1;
+}
+
+static int l_lovrModelDataGetAnimationDuration(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  lua_pushnumber(L, animation->duration);
+  return 1;
+}
+
+static int l_lovrModelDataGetAnimationChannelCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  lua_pushinteger(L, animation->channelCount);
+  return 1;
+}
+
+static int l_lovrModelDataGetAnimationChannelNode(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
+  ModelAnimationChannel* channel = &animation->channels[index];
+  lua_pushinteger(L, channel->nodeIndex);
+  return 1;
+}
+
+static int l_lovrModelDataGetAnimationChannelProperty(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
+  ModelAnimationChannel* channel = &animation->channels[index];
+  luax_pushenum(L, AnimationProperty, channel->property);
+  return 1;
+}
+
+static int l_lovrModelDataGetAnimationChannelSmoothMode(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
+  ModelAnimationChannel* channel = &animation->channels[index];
+  luax_pushenum(L, SmoothMode, channel->smoothing);
+  return 1;
+}
+
+static int l_lovrModelDataGetAnimationChannelKeyframeCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
+  ModelAnimationChannel* channel = &animation->channels[index];
+  lua_pushinteger(L, channel->keyframeCount);
+  return 1;
+}
+
+static int l_lovrModelDataGetAnimationChannelKeyframe(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
+  ModelAnimationChannel* channel = &animation->channels[index];
+  uint32_t keyframe = luaL_checkinteger(L, 4) - 1;
+  lovrCheck(keyframe < channel->keyframeCount, "Invalid keyframe index '%d'", keyframe + 1);
+  lua_pushnumber(L, channel->times[keyframe]);
+  size_t counts[] = { [PROP_TRANSLATION] = 3, [PROP_ROTATION] = 4, [PROP_SCALE] = 3 };
+  size_t count = counts[channel->property];
+  for (uint32_t i = 0; i < count; i++) {
+    lua_pushnumber(L, channel->data[keyframe * count + i]);
+  }
+  return count + 1;
+}
+
 static int l_lovrModelDataGetSkinCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   lua_pushinteger(L, model->skinCount);
@@ -466,6 +570,15 @@ const luaL_Reg lovrModelData[] = {
   { "getMaterialImage", l_lovrModelDataGetMaterialImage },
   { "getMaterialColor", l_lovrModelDataGetMaterialColor },
   { "getMaterialValue", l_lovrModelDataGetMaterialValue },
+  { "getAnimationCount", l_lovrModelDataGetAnimationCount },
+  { "getAnimationName", l_lovrModelDataGetAnimationName },
+  { "getAnimationDuration", l_lovrModelDataGetAnimationDuration },
+  { "getAnimationChannelCount", l_lovrModelDataGetAnimationChannelCount },
+  { "getAnimationChannelNode", l_lovrModelDataGetAnimationChannelNode },
+  { "getAnimationChannelProperty", l_lovrModelDataGetAnimationChannelProperty },
+  { "getAnimationChannelSmoothMode", l_lovrModelDataGetAnimationChannelSmoothMode },
+  { "getAnimationChannelKeyframeCount", l_lovrModelDataGetAnimationChannelKeyframeCount },
+  { "getAnimationChannelKeyframe", l_lovrModelDataGetAnimationChannelKeyframe },
   { "getSkinCount", l_lovrModelDataGetSkinCount },
   { "getSkinJoints", l_lovrModelDataGetSkinJoints },
   { "getSkinInverseBindMatrix", l_lovrModelDataGetSkinInverseBindMatrix },

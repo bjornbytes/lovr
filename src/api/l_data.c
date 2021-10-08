@@ -9,6 +9,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+StringEntry lovrAnimationProperty[] = {
+  [PROP_TRANSLATION] = ENTRY("translation"),
+  [PROP_ROTATION] = ENTRY("rotation"),
+  [PROP_SCALE] = ENTRY("scale"),
+  { 0 }
+};
+
+StringEntry lovrSmoothMode[] = {
+  [SMOOTH_STEP] = ENTRY("step"),
+  [SMOOTH_LINEAR] = ENTRY("linear"),
+  [SMOOTH_CUBIC] = ENTRY("cubic"),
+  { 0 }
+};
+
 static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;
   uint8_t* data = NULL;
