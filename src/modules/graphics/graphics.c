@@ -558,7 +558,7 @@ static uint32_t lookupMaterial(MaterialSchema* schema) {
   uint64_t hash = 0xaaaaaaaa; // TODO compute material hash
 
   uint32_t index;
-  for (index = 0; index < COUNTOF(state.materials) && state.materialLookup[index]; index++) {
+  for (index = 0; index < COUNTOF(state.materialLookup) && state.materialLookup[index]; index++) {
     if (state.materialLookup[index] == hash) {
       return index;
     }
