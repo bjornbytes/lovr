@@ -200,7 +200,7 @@ function lovr.run()
     if lovr.timer then dt = lovr.timer.step() end
     if lovr.headset then lovr.headset.update(dt) end
     if lovr.update then lovr.update(dt) end
-    if lovr.graphics and lovr.draw then
+    if lovr.graphics then
       lovr.graphics.prepare()
       if lovr.headset then
         lovr.graphics.begin('render', lovr.headset.getTexture())
@@ -208,7 +208,7 @@ function lovr.run()
           lovr.graphics.setViewPose(i, lovr.headset.getViewPose(i))
           lovr.graphics.setProjection(i, lovr.headset.getViewAngles(i))
         end
-        lovr.draw()
+        if lovr.draw then lovr.draw() end
         lovr.graphics.finish()
       end
       if lovr.system.isWindowOpen() then lovr.mirror() end
