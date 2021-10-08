@@ -480,36 +480,48 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
   model->blobs[1] = lovrBlobCreate(inverseBindMatrices, model->jointCount * 16 * sizeof(float), "Hand Mesh Inverse Bind Matrices");
 
   model->buffers[0] = (ModelBuffer) {
+    .blob = 0,
+    .offset = (char*) mesh->vertexPositions - (char*) mesh,
     .data = (char*) mesh->VertexPositions,
     .size = sizeof(mesh->VertexPositions),
     .stride = sizeof(mesh->VertexPositions[0])
   };
 
   model->buffers[1] = (ModelBuffer) {
+    .blob = 0,
+    .offset = (char*) mesh->vertexNormals - (char*) mesh,
     .data = (char*) mesh->VertexNormals,
     .size = sizeof(mesh->VertexNormals),
     .stride = sizeof(mesh->VertexNormals[0]),
   };
 
   model->buffers[2] = (ModelBuffer) {
+    .blob = 0,
+    .offset = (char*) mesh->vertexUV0 - (char*) mesh,
     .data = (char*) mesh->VertexUV0,
     .size = sizeof(mesh->VertexUV0),
     .stride = sizeof(mesh->VertexUV0[0]),
   };
 
   model->buffers[3] = (ModelBuffer) {
+    .blob = 0,
+    .offset = (char*) mesh->BlendIndices - (char*) mesh,
     .data = (char*) mesh->BlendIndices,
     .size = sizeof(mesh->BlendIndices),
     .stride = sizeof(mesh->BlendIndices[0]),
   };
 
   model->buffers[4] = (ModelBuffer) {
+    .blob = 0,
+    .offset = (char*) mesh->BlendWeights - (char*) mesh,
     .data = (char*) mesh->BlendWeights,
     .size = sizeof(mesh->BlendWeights),
     .stride = sizeof(mesh->BlendWeights[0]),
   };
 
   model->buffers[5] = (ModelBuffer) {
+    .blob = 0,
+    .offset = (char*) mesh->Indices - (char*) mesh,
     .data = (char*) mesh->Indices,
     .size = sizeof(mesh->Indices),
     .stride = sizeof(mesh->Indices[0])

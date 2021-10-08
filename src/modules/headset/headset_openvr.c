@@ -675,8 +675,19 @@ static ModelData* openvr_newModelData(Device device, bool animated) {
     memcpy(vertices, renderModels[i]->rVertexData, vertexCount * vertexSize);
     memcpy(indices, renderModels[i]->rIndexData, indexCount * sizeof(uint16_t));
 
-    model->buffers[2 * i + 0] = (ModelBuffer) { .data = (char*) vertices, .size = vertexCount * vertexSize, .stride = vertexSize };
-    model->buffers[2 * i + 1] = (ModelBuffer) { .data = (char*) indices, .size = indexCount * sizeof(uint16_t), .stride = sizeof(uint16_t) };
+    model->buffers[2 * i + 0] = (ModelBuffer) {
+      .blob = 0,
+      .size = vertexCount * vertexSize,
+      .stride = vertexSize
+      .data = (char*) vertices
+    };
+
+    model->buffers[2 * i + 1] = (ModelBuffer) {
+      .blob = 1,
+      .size = indexCount * sizeof(uint16_t),
+      .stride = sizeof(uint16_t),
+      .data = (char*) indices
+    };
 
     vertices += vertexCount * vertexSize / sizeof(float);
     indices += indexCount;

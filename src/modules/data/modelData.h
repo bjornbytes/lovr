@@ -103,9 +103,11 @@ typedef union {
 } AttributeData;
 
 typedef struct {
-  char* data;
+  uint32_t blob;
+  size_t offset;
   size_t size;
   size_t stride;
+  char* data;
 } ModelBuffer;
 
 typedef struct {

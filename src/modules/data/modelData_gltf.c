@@ -507,8 +507,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       size_t offset = 0;
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
-        if (STR_EQ(key, "buffer")) { buffer->data = model->blobs[NOM_INT(json, token)]->data; }
-        else if (STR_EQ(key, "byteOffset")) { offset = NOM_INT(json, token); }
+        if (STR_EQ(key, "buffer")) { buffer->blob = NOM_INT(json, token); }
+        else if (STR_EQ(key, "byteOffset")) { buffer->offset = NOM_INT(json, token); }
         else if (STR_EQ(key, "byteLength")) { buffer->size = NOM_INT(json, token); }
         else if (STR_EQ(key, "byteStride")) { buffer->stride = NOM_INT(json, token); }
         else { token += NOM_VALUE(json, token); }
@@ -516,10 +516,10 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
 
       // If this is the glb binary data, increment the offset to account for the file header
       if (buffer->data && buffer->data == source->data && glb) {
-        offset += binOffset;
+        buffer->offset += binOffset;
       }
 
-      buffer->data = (char*) buffer->data + offset;
+      buffer->data = (char*) model->blobs[buffer->blob]->data + buffer->offset;
     }
   }
 

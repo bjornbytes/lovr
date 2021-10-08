@@ -256,12 +256,14 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   model->blobs[1] = lovrBlobCreate(indexBlob.data, indexBlob.length * sizeof(int), "obj index data");
 
   model->buffers[0] = (ModelBuffer) {
+    .blob = 0,
     .data = model->blobs[0]->data,
     .size = model->blobs[0]->size,
     .stride = 8 * sizeof(float)
   };
 
   model->buffers[1] = (ModelBuffer) {
+    .blob = 1,
     .data = model->blobs[1]->data,
     .size = model->blobs[1]->size,
     .stride = sizeof(int)
