@@ -292,6 +292,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
 
   uint32_t capacity = lovrMeshGetVertexCount(mesh);
   uint32_t start = luaL_optinteger(L, 3, 1) - 1;
+  lovrAssert(start < capacity, "Starting vertex index must be in range [1, %d]", capacity);
   uint32_t count = luaL_optinteger(L, 4, capacity - start);
   size_t stride = firstAttribute->stride;
 
