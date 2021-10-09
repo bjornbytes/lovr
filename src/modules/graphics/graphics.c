@@ -1062,7 +1062,7 @@ void lovrGraphicsArc(DrawStyle style, ArcMode mode, Material* material, mat4 tra
     for (int i = 0; i <= segments; i++) {
       float x = cosf(theta);
       float y = sinf(theta);
-      memcpy(vertices, ((float[]) { x, y, 0.f, 0.f, 0.f, 1.f, x + .5f, 1.f - (y + .5f) }), 8 * sizeof(float));
+      memcpy(vertices, ((float[]) { x, y, 0.f, 0.f, 0.f, 1.f, (1.f + x) * .5f, (1.f - y) * .5f }), 8 * sizeof(float));
       vertices += 8;
       theta += angleShift;
     }
