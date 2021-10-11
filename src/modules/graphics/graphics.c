@@ -1480,20 +1480,6 @@ void lovrGraphicsSetProjection(uint32_t index, float* projection) {
   mat4_init(state.camera.projection[index], projection);
 }
 
-void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]) {
-  lovrCheck(state.pass && state.pass->type == PASS_RENDER, "The viewport can only be changed during a render pass");
-  lovrCheck(viewport[2] > 0.f && viewport[3] > 0.f, "Viewport dimensions must be greater than zero");
-  lovrCheck(depthRange[0] >= 0.f && depthRange[0] <= 1.f, "Depth range values must be between 0 and 1");
-  lovrCheck(depthRange[1] >= 0.f && depthRange[1] <= 1.f, "Depth range values must be between 0 and 1");
-  gpu_set_viewport(state.pass->stream, viewport, depthRange);
-}
-
-void lovrGraphicsSetScissor(uint32_t scissor[4]) {
-  lovrCheck(state.pass && state.pass->type == PASS_RENDER, "The scissor can only be changed during a render pass");
-  lovrCheck(scissor[2] > 0 && scissor[3] > 0, "Scissor dimensions must be greater than zero");
-  gpu_set_scissor(state.pass->stream, scissor);
-}
-
 void lovrGraphicsPush(StackType type, const char* label) {
   switch (type) {
     case STACK_TRANSFORM:
@@ -1643,6 +1629,12 @@ void lovrGraphicsSetDepthClamp(bool clamp) {
   }
 }
 
+void lovrGraphicsSetScissor(uint32_t scissor[4]) {
+  lovrCheck(state.pass && state.pass->type == PASS_RENDER, "The scissor can only be changed during a render pass");
+  lovrCheck(scissor[2] > 0 && scissor[3] > 0, "Scissor dimensions must be greater than zero");
+  gpu_set_scissor(state.pass->stream, scissor);
+}
+
 void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value, uint8_t mask) {
   bool hasReplace = false;
   hasReplace |= state.pipeline->info.stencil.failOp == GPU_STENCIL_REPLACE;
@@ -1676,6 +1668,14 @@ void lovrGraphicsSetStencilWrite(StencilAction actions[3], uint8_t value, uint8_
   state.pipeline->info.stencil.writeMask = mask;
   if (hasReplace) state.pipeline->info.stencil.value = value;
   state.pipeline->dirty = true;
+}
+
+void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]) {
+  lovrCheck(state.pass && state.pass->type == PASS_RENDER, "The viewport can only be changed during a render pass");
+  lovrCheck(viewport[2] > 0.f && viewport[3] > 0.f, "Viewport dimensions must be greater than zero");
+  lovrCheck(depthRange[0] >= 0.f && depthRange[0] <= 1.f, "Depth range values must be between 0 and 1");
+  lovrCheck(depthRange[1] >= 0.f && depthRange[1] <= 1.f, "Depth range values must be between 0 and 1");
+  gpu_set_viewport(state.pass->stream, viewport, depthRange);
 }
 
 void lovrGraphicsSetWinding(Winding winding) {
@@ -1860,7 +1860,7 @@ void lovrGraphicsSetConstant(const char* name, size_t length, void** data, Field
   state.constantsDirty = true;
 }
 
-uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
+uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
   lovrCheck(state.pass && (state.pass->type == PASS_RENDER || state.pass->type == PASS_BATCH), "Drawing can only happen inside of a render pass or batch pass");
   Shader* shader = state.pipeline->shader ? state.pipeline->shader : lovrGraphicsGetDefaultShader(info->shader);
   Batch* batch = state.batch;
@@ -2216,7 +2216,7 @@ uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform) {
 }
 
 uint32_t lovrGraphicsPoints(uint32_t count, float** vertices) {
-  return lovrGraphicsDraw(&(DrawInfo) {
+  return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_POINTS,
     .vertex.format = VERTEX_POSITION,
     .vertex.pointer = (void**) vertices,
@@ -2227,7 +2227,7 @@ uint32_t lovrGraphicsPoints(uint32_t count, float** vertices) {
 uint32_t lovrGraphicsLine(uint32_t count, float** vertices) {
   uint16_t* indices;
 
-  uint32_t id = lovrGraphicsDraw(&(DrawInfo) {
+  uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_LINES,
     .vertex.format = VERTEX_POSITION,
     .vertex.pointer = (void**) vertices,
@@ -2247,7 +2247,7 @@ uint32_t lovrGraphicsLine(uint32_t count, float** vertices) {
 
 uint32_t lovrGraphicsPlane(float* transform, uint32_t detail) {
   static const uint16_t indices[] = { 0,  1,  2,  1, 2, 3 };
-  return lovrGraphicsDraw(&(DrawInfo) {
+  return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.shapes,
     .index.data = indices,
@@ -2267,7 +2267,7 @@ uint32_t lovrGraphicsBox(float* transform) {
     20, 21, 22, 22, 21, 23
   };
 
-  return lovrGraphicsDraw(&(DrawInfo) {
+  return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.shapes,
     .index.data = indices,
@@ -2284,7 +2284,7 @@ uint32_t lovrGraphicsCircle(float* transform, uint32_t detail) {
   uint16_t indexCount = 3 * (vertexCount - 2);
 
   uint16_t* indices;
-  uint32_t id = lovrGraphicsDraw(&(DrawInfo) {
+  uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.shapes,
     .index.pointer = (void**) &indices,
@@ -2310,7 +2310,7 @@ uint32_t lovrGraphicsCylinder(mat4 transform, uint32_t detail, bool capped) {
   uint16_t capIndexCount = 3 * (vertexCount - 2);
 
   uint16_t* indices;
-  uint32_t id = lovrGraphicsDraw(&(DrawInfo) {
+  uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.shapes,
     .index.pointer = (void**) &indices,
@@ -2359,7 +2359,7 @@ uint32_t lovrGraphicsSphere(mat4 transform, uint32_t detail) {
   uint32_t indexCount = lats * lons * 6;
 
   uint16_t* indices;
-  uint32_t id = lovrGraphicsDraw(&(DrawInfo) {
+  uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.shapes,
     .index.pointer = (void**) &indices,
@@ -2391,7 +2391,7 @@ uint32_t lovrGraphicsSphere(mat4 transform, uint32_t detail) {
 uint32_t lovrGraphicsSkybox(Texture* texture) {
   TextureType type = texture->info.type;
   lovrAssert(type == TEXTURE_2D || type == TEXTURE_CUBE, "Skybox textures must be 2d or cube");
-  return lovrGraphicsDraw(&(DrawInfo) {
+  return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .vertex.format = VERTEX_EMPTY,
@@ -2400,7 +2400,7 @@ uint32_t lovrGraphicsSkybox(Texture* texture) {
 }
 
 uint32_t lovrGraphicsFill(Texture* texture) {
-  return lovrGraphicsDraw(&(DrawInfo) {
+  return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .shader = SHADER_FILL,
     .vertex.format = VERTEX_EMPTY,
