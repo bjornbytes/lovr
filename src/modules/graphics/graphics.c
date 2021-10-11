@@ -1,6 +1,8 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "data/modelData.h"
+#include "data/rasterizer.h"
 #include "headset/headset.h"
 #include "math/math.h"
 #include "core/gpu.h"
@@ -181,6 +183,19 @@ struct Batch {
   uint32_t stashCursor;
   arr_buffersync_t buffers;
   arr_texturesync_t textures;
+};
+
+struct Model {
+  uint32_t ref;
+  ModelData* data;
+  Buffer** buffers;
+  Texture** textures;
+  Material** materials;
+};
+
+struct Font {
+  uint32_t ref;
+  Rasterizer* rasterizer;
 };
 
 typedef struct {
@@ -4165,4 +4180,31 @@ static void lovrBatchFinalize(Batch* batch) {
   if (!batch->info.transient) {
     // Add stash/ubos to pass's sync arrays with BUFFER_COPY_DST usage
   }
+}
+
+// Model
+
+Model* lovrModelCreate(ModelData* data) {
+  Model* model = calloc(1, sizeof(Model));
+  lovrAssert(model, "Out of memory");
+  model->ref = 1;
+  model->data = data;
+  lovrRetain(data);
+  return model;
+}
+
+void lovrModelDestroy(void* ref) {
+  Model* model = ref;
+  free(model);
+}
+
+// Font
+
+Font* lovrFontCreate(Rasterizer* rasterizer) {
+  Font* font = calloc(1, sizeof(Font));
+  lovrAssert(font, "Out of memory");
+  font->ref = 1;
+  font->rasterizer = rasterizer;
+  lovrRetain(rasterizer);
+  return font;
 }
