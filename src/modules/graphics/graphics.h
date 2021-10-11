@@ -337,6 +337,7 @@ void lovrGraphicsSetWinding(Winding winding);
 void lovrGraphicsSetWireframe(bool wireframe);
 
 void lovrGraphicsSetShader(Shader* shader);
+void lovrGraphicsSetMaterial(Material* material);
 void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrGraphicsSetTexture(const char* name, size_t length, uint32_t slot, Texture* texture);
 void lovrGraphicsSetConstant(const char* name, size_t length, void** data, FieldType* type);
@@ -514,9 +515,9 @@ typedef enum {
 } DefaultMaterial;
 
 typedef enum {
-  PROPERTY_TEXTURE,
+  PROPERTY_SCALAR,
   PROPERTY_VECTOR,
-  PROPERTY_SCALAR
+  PROPERTY_TEXTURE
 } MaterialPropertyType;
 
 typedef struct {
@@ -538,7 +539,6 @@ typedef struct {
 
 Material* lovrMaterialCreate(MaterialInfo* info);
 void lovrMaterialDestroy(void* ref);
-const MaterialInfo* lovrMaterialGetInfo(Material* material);
 
 // Batch
 
