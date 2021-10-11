@@ -1470,9 +1470,14 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     if (info.type == TEXTURE_CUBE && info.depth == 0) {
       info.depth = 6;
       const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
+      const char* altFaces[6] = { "+x", "-x", "+y", "-y", "+z", "-z" };
       for (int i = 0; i < 6; i++) {
         lua_pushstring(L, faces[i]);
         lua_rawget(L, 1);
+        if (lua_isnil(L, -1)) {
+          lua_pop(L, 1);
+          lua_pushstring(L, altFaces[i]);
+        }
         lovrAssert(!lua_isnil(L, -1), "Could not load cubemap texture: missing '%s' face", faces[i]);
         lua_rawseti(L, 1, i + 1);
       }
