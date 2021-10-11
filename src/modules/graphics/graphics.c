@@ -16,7 +16,8 @@
 #define MAX_BUNCHES 256
 #define BUNDLES_PER_BUNCH 1024
 #define MAX_LAYOUTS 64
-#define MAX_MATERIALS 16
+#define MAX_MATERIAL_BLOCKS 16
+#define MATERIALS_PER_BLOCK 1024
 
 typedef struct {
   gpu_buffer* gpu;
@@ -76,25 +77,37 @@ struct Shader {
   uint32_t attributeMask;
 };
 
-typedef struct {
-  uint32_t size;
-  uint32_t propertyCount;
-  uint32_t propertyNames[32];
-  uint32_t propertyOffsets[32];
-  FieldType propertyTypes[32];
-  uint32_t textureCount;
-  uint32_t textureOffsets[12];
-  uint32_t textureMask;
-  uint32_t colorMask;
-} MaterialSchema;
-
 struct Material {
   uint32_t ref;
-  MaterialInfo info;
-  uint32_t schema;
+  uint32_t next;
+  uint32_t block;
   uint32_t index;
-  uint32_t page;
+  uint32_t tick;
 };
+
+typedef struct {
+  uint32_t size;
+  uint32_t count;
+  uint32_t names[32];
+  uint16_t offsets[32];
+  uint16_t types[32];
+  uint32_t textureCount;
+  uint32_t textures;
+  uint32_t scalars;
+  uint32_t vectors;
+  uint32_t colors;
+} MaterialFormat;
+
+typedef struct {
+  MaterialFormat format;
+  Material* instances;
+  gpu_bunch* bunch;
+  gpu_bundle* bundles;
+  Megaview buffer;
+  uint32_t layout;
+  uint32_t next;
+  uint32_t last;
+} MaterialBlock;
 
 enum {
   FLAG_VERTEX = (1 << 0),
@@ -286,6 +299,7 @@ static struct {
   gpu_binding bindings[32];
   uint32_t emptyBindingMask;
   bool bindingsDirty;
+  Material* material;
   char constantData[128];
   bool constantsDirty;
   Megaview cameraBuffer;
@@ -319,8 +333,8 @@ static struct {
   gpu_pass* gpuPasses[256];
   uint64_t layoutLookup[MAX_LAYOUTS];
   gpu_layout* layouts[MAX_LAYOUTS];
-  uint64_t materialLookup[MAX_MATERIALS];
-  MaterialSchema materials[MAX_MATERIALS];
+  uint64_t materialLookup[MAX_MATERIAL_BLOCKS];
+  MaterialBlock materials[MAX_MATERIAL_BLOCKS];
   uint32_t blockSize;
   gpu_hardware hardware;
   gpu_features features;
@@ -554,8 +568,8 @@ static uint32_t lookupLayout(gpu_slot* slots, uint32_t count) {
   return index;
 }
 
-static uint32_t lookupMaterial(MaterialSchema* schema) {
-  uint64_t hash = 0xaaaaaaaa; // TODO compute material hash
+static uint32_t lookupMaterialBlock(MaterialFormat* format) {
+  uint64_t hash = hash64(format, sizeof(*format));
 
   uint32_t index;
   for (index = 0; index < COUNTOF(state.materialLookup) && state.materialLookup[index]; index++) {
@@ -564,8 +578,44 @@ static uint32_t lookupMaterial(MaterialSchema* schema) {
     }
   }
 
+  lovrCheck(index < COUNTOF(state.materials), "Too many material types, try combining types, please report this encounter");
   state.materialLookup[index] = hash;
-  state.materials[index] = *schema;
+
+  MaterialBlock* block = &state.materials[index];
+  block->format = *format;
+  block->instances = malloc(MATERIALS_PER_BLOCK * sizeof(Material));
+  lovrAssert(block->instances, "Out of memory");
+  block->buffer = allocateBuffer(GPU_MEMORY_GPU, format->size * MATERIALS_PER_BLOCK, state.limits.uniformBufferAlign);
+  for (uint32_t i = 0; i < MATERIALS_PER_BLOCK; i++) {
+    Material* material = &block->instances[i];
+    material->ref = 0;
+    material->next = i + 1;
+    material->block = index;
+    material->index = i;
+    material->tick = state.tick - 0xff; // Some tick far in the past, so it can be used immediately
+  }
+  block->instances[MATERIALS_PER_BLOCK - 1].next = ~0u;
+  block->next = 0;
+
+  block->bunch = malloc(gpu_sizeof_bunch());
+  block->bundles = malloc(gpu_sizeof_bundle() * MATERIALS_PER_BLOCK);
+  lovrAssert(block->bunch && block->bundles, "Out of memory");
+
+  gpu_slot slots[2] = {
+    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_ALL, 1 },
+    { 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_ALL, format->textureCount }
+  };
+
+  block->layout = lookupLayout(slots, COUNTOF(slots));
+
+  gpu_bunch_info info = {
+    .bundles = block->bundles,
+    .layout = state.layouts[block->layout],
+    .count = MATERIALS_PER_BLOCK
+  };
+
+  lovrAssert(gpu_bunch_init(block->bunch, &info), "Failed to initialize bunch for material block");
+
   return index;
 }
 
@@ -735,40 +785,38 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   lookupLayout(defaultBindings, COUNTOF(defaultBindings));
 
-  MaterialSchema simpleMaterial = {
+  MaterialFormat simpleMaterial = {
     .size = 32,
-    .propertyCount = 3,
-    .propertyNames = {
+    .count = 3,
+    .names = {
       hash32("texture", strlen("texture")),
       hash32("uvOffset", strlen("uvOffset")),
       hash32("uvScale", strlen("uvScale"))
     },
-    .propertyOffsets = { 0, 8, 16 },
-    .propertyTypes = { FIELD_U32, FIELD_F32x2, FIELD_F32x2 },
+    .offsets = { 0, 8, 16 },
+    .types = { FIELD_U32, FIELD_F32x2, FIELD_F32x2 },
     .textureCount = 1,
-    .textureOffsets = { 0 },
-    .textureMask = 0x1
+    .textures = 0x1
   };
 
-  MaterialSchema physicalMaterial = {
+  MaterialFormat physicalMaterial = {
     .size = 32,
-    .propertyCount = 5,
-    .propertyNames = {
+    .count = 5,
+    .names = {
       hash32("texture", strlen("texture")),
       hash32("uvOffset", strlen("uvOffset")),
       hash32("uvScale", strlen("uvScale")),
       hash32("metalness", strlen("metalness")),
       hash32("roughness", strlen("roughness"))
     },
-    .propertyOffsets = { 0, 8, 16, 24, 28 },
-    .propertyTypes = { FIELD_U32, FIELD_F32x2, FIELD_F32x2, FIELD_F32, FIELD_F32 },
+    .offsets = { 0, 8, 16, 24, 28 },
+    .types = { FIELD_U32, FIELD_F32x2, FIELD_F32x2, FIELD_F32, FIELD_F32 },
     .textureCount = 1,
-    .textureOffsets = { 0 },
-    .textureMask = 0x1
+    .textures = 0x1
   };
 
-  lookupMaterial(&simpleMaterial);
-  lookupMaterial(&physicalMaterial);
+  lookupMaterialBlock(&simpleMaterial);
+  lookupMaterialBlock(&physicalMaterial);
 
   // Standard vertex formats
 
@@ -930,6 +978,12 @@ void lovrGraphicsDestroy() {
   }
   for (uint32_t i = 0; i < COUNTOF(state.layouts) && state.layoutLookup[i]; i++) {
     gpu_layout_destroy(state.layouts[i]);
+  }
+  for (uint32_t i = 0; i < COUNTOF(state.materials) && state.materialLookup[i]; i++) {
+    gpu_bunch_destroy(state.materials[i].bunch);
+    free(state.materials[i].bunch);
+    free(state.materials[i].bundles);
+    free(state.materials[i].instances);
   }
   for (uint32_t i = 0; i < COUNTOF(state.attachmentCache); i++) {
     for (uint32_t j = 0; j < COUNTOF(state.attachmentCache[0]); j++) {
@@ -1696,6 +1750,14 @@ void lovrGraphicsSetShader(Shader* shader) {
   state.pipeline->dirty = true;
 }
 
+void lovrGraphicsSetMaterial(Material* material) {
+  Shader* shader = state.pipeline->shader;
+  lovrCheck(material->block == (shader ? shader->material : 0), "Material is not compatible with the current shader");
+  lovrRelease(state.material, lovrMaterialDestroy);
+  lovrRetain(material);
+  state.material = material;
+}
+
 void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent) {
   Shader* shader = state.pipeline->shader;
   lovrCheck(shader, "A Shader must be active to bind resources");
@@ -2385,7 +2447,7 @@ void lovrGraphicsReplay(Batch* batch) {
   gpu_bundle_write(&uniformBundle, &uniforms, 1);
   uint32_t dynamicOffsets[3] = { 0 };
 
-  // Group draws
+  // Group draws (TODO verify that this is useful now compared to moving it into the below loop)
 
   if (batch->groupedCount == 0) {
     BatchGroup* group = &batch->groups[0];
@@ -2456,8 +2518,8 @@ void lovrGraphicsReplay(Batch* batch) {
     }
 
     if (group->dirty & DIRTY_CHUNK) {
-      dynamicOffsets[0] = (index >> 8) * 256 * 64;
-      dynamicOffsets[1] = (index >> 8) * 256 * 16;
+      dynamicOffsets[1] = (index >> 8) * 256 * 64;
+      dynamicOffsets[2] = (index >> 8) * 256 * 16;
       gpu_bind_bundle(state.pass->stream, pipeline, 0, uniformBundle, dynamicOffsets, 3);
     }
 
@@ -3190,7 +3252,7 @@ typedef struct {
   gpu_shader_flag flags[32];
   uint32_t flagCount;
   uint32_t attributeMask;
-  MaterialSchema material;
+  MaterialFormat material;
 } ReflectionInfo;
 
 // Only an explicit set of spir-v capabilities are allowed
@@ -3847,24 +3909,76 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
 // Material
 
 Material* lovrMaterialCreate(MaterialInfo* info) {
-  Material* material = calloc(1, sizeof(Batch));
-  lovrAssert(material, "Out of memory");
+  uint32_t blockIndex = info->shader ? info->shader->material : info->type;
+  MaterialBlock* block = &state.materials[blockIndex];
+  Material* material = &block->instances[block->next];
+  lovrAssert(block->next != ~0u && gpu_finished(material->tick), "Out of material memory");
+  if (block->next == block->last) block->last = ~0u;
+  block->next = material->next;
+  material->next = ~0u;
   material->ref = 1;
-  material->info = *info;
-  material->schema = info->shader ? info->shader->material : info->type;
-  // find free slot for the schema, record index
-  // serialize properties into buffer
-  // put textures in the book, record page
+
+  char* base;
+  if (block->buffer.data) {
+    base = block->buffer.data + block->format.size * material->index;
+  } else {
+    // 0xAAAAAAA staging buffer, g.begin and state.uploads or something
+    base = NULL;
+  }
+
+  // Oh no n^2
+  MaterialFormat* format = &block->format;
+  for (uint32_t i = 0; i < info->propertyCount; i++) {
+    MaterialProperty* property = &info->properties[i];
+    uint32_t hash = hash32(property->name, strlen(property->name));
+    for (uint32_t j = 0; j < format->count; j++) {
+      if (hash != format->names[j]) continue;
+
+      bool scalar = format->scalars & (1 << j);
+      bool vector = format->vectors & (1 << j);
+      bool texture = format->textures & (1 << j);
+
+      union {
+        char* raw;
+        int32_t* i32;
+        uint32_t* u32;
+        float* f32;
+      } data = { base + format->offsets[j] };
+
+      if (scalar) {
+        lovrCheck(property->type == PROPERTY_SCALAR, "Material property '%s' is a scalar, but the value provided is not a scalar", property->name);
+        switch (format->types[j]) {
+          case FIELD_I32: *data.i32 = (int32_t) property->value.scalar; break;
+          case FIELD_U32: *data.u32 = (uint32_t) property->value.scalar; break;
+          case FIELD_F32: *data.f32 = (float) property->value.scalar; break;
+          default: lovrThrow("Unreachable");
+        }
+      } else if (vector) {
+        lovrCheck(property->type == PROPERTY_VECTOR, "Material property '%s' is a vector, but the value provided is not a vector (or a hexcode)", property->name);
+        switch (format->types[j]) {
+          case FIELD_F32x2: memcpy(data.f32, property->value.vector, 2 * sizeof(float)); break;
+          case FIELD_F32x3: memcpy(data.f32, property->value.vector, 3 * sizeof(float)); break;
+          case FIELD_F32x4: memcpy(data.f32, property->value.vector, 4 * sizeof(float)); break;
+          default: lovrThrow("Unreachable");
+        }
+      } else if (texture) {
+        lovrCheck(property->type == PROPERTY_TEXTURE, "Material property '%s' is a texture, but the value provided is not a texture", property->name);
+        // oh no texture/bundle stuff
+      } else {
+        lovrThrow("Unreachable");
+      }
+    }
+  }
+
   return material;
 }
 
 void lovrMaterialDestroy(void* ref) {
   Material* material = ref;
-  free(material);
-}
-
-const MaterialInfo* lovrMaterialGetInfo(Material* material) {
-  return &material->info;
+  MaterialBlock* block = &state.materials[material->block];
+  material->tick = state.tick;
+  block->last = material->index;
+  if (block->next == ~0u) block->next = block->last;
 }
 
 // Batch

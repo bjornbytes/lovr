@@ -1685,6 +1685,19 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
         }
 
         switch (lua_type(L, -1)) {
+          case LUA_TNUMBER:
+            property->type = PROPERTY_SCALAR;
+            property->value.scalar = lua_tonumber(L, -1);
+            break;
+          case LUA_TTABLE:
+            property->type = PROPERTY_VECTOR;
+            int length = luax_len(L, -1);
+            for (int i = 0; i < length && i < 4; i++) {
+              lua_rawgeti(L, -1, i + 1);
+              property->value.vector[i] = luax_tofloat(L, -1);
+              lua_pop(L, 1);
+            }
+            break;
           case LUA_TUSERDATA:
             texture = luax_totype(L, -1, Texture);
             if (texture) {
@@ -1699,19 +1712,6 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
               lovrAssert(valid, "Expected number, table, vec2, vec3, vec4, or Texture for Material property");
               memcpy(property->value.vector, v, components * sizeof(float));
             }
-            break;
-          case LUA_TTABLE:
-            property->type = PROPERTY_VECTOR;
-            int length = luax_len(L, -1);
-            for (int i = 0; i < length && i < 4; i++) {
-              lua_rawgeti(L, -1, i + 1);
-              property->value.vector[i] = luax_tofloat(L, -1);
-              lua_pop(L, 1);
-            }
-            break;
-          case LUA_TNUMBER:
-            property->type = PROPERTY_SCALAR;
-            property->value.scalar = lua_tonumber(L, -1);
             break;
           default: lovrThrow("Expected number, table, vec2, vec3, vec4, or Texture for Material property");
         }
