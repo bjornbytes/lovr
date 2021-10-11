@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -32,3 +33,4 @@ bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
 bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
 void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, uint32_t padding, double spread, Glyph* glyph);
 int32_t lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);
+void lovrRasterizerMeasure(Rasterizer* rasterizer, const char* str, size_t length, float wrap, float* width, float* height, uint32_t* lineCount, uint32_t* glyphCount);

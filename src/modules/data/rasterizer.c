@@ -184,3 +184,54 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, uint32_
 int32_t lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right) {
   return stbtt_GetCodepointKernAdvance(&rasterizer->font, left, right) * rasterizer->scale;
 }
+
+void lovrRasterizerMeasure(Rasterizer* rasterizer, const char* str, size_t length, float wrap, float* width, float* height, uint32_t* lineCount, uint32_t* glyphCount) {
+  float x = 0.f;
+  const char* end = str + length;
+  size_t bytes;
+  unsigned int previous = '\0';
+  unsigned int codepoint;
+  *width = 0.f;
+  *lineCount = 0;
+  *glyphCount = 0;
+
+  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+    if (codepoint == '\n' || (wrap && x > wrap && codepoint == ' ')) {
+      *width = MAX(*width, x);
+      (*lineCount)++;
+      x = 0.f;
+      previous = '\0';
+      str += bytes;
+      continue;
+    }
+
+    // Tabs
+    if (codepoint == '\t') {
+      int glyphIndex = stbtt_FindGlyphIndex(&rasterizer->font, ' ');
+      int advance, bearing;
+      stbtt_GetGlyphHMetrics(&rasterizer->font, glyphIndex, &advance, &bearing);
+      x += advance * 4.f;
+      str += bytes;
+      continue;
+    }
+
+    int glyphIndex = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
+    int advance, bearing;
+    stbtt_GetGlyphHMetrics(&rasterizer->font, glyphIndex, &advance, &bearing);
+    int x0, y0, x1, y1;
+    stbtt_GetGlyphBox(&rasterizer->font, glyphIndex, &x0, &y0, &x1, &y1);
+    float w = ceilf((x1 - x0) * rasterizer->scale);
+    float h = ceilf((y1 - y0) * rasterizer->scale);
+
+    if (w > 0 && h > 0) {
+      (*glyphCount)++;
+    }
+
+    x += roundf(advance * rasterizer->scale) + lovrRasterizerGetKerning(rasterizer, previous, codepoint);
+    previous = codepoint;
+    str += bytes;
+  }
+
+  *width = MAX(*width, x);
+  *height = ((*lineCount + 1) * lovrRasterizerGetHeight(rasterizer));
+}
