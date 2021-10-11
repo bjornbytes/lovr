@@ -1576,8 +1576,8 @@ void lovrGraphicsSetDepthWrite(bool write) {
   state.pipeline->info.depth.write = write;
 }
 
-void lovrGraphicsSetDepthNudge(float nudge, float sloped) {
-  state.pipeline->info.rasterizer.depthOffset = nudge;
+void lovrGraphicsSetDepthOffset(float offset, float sloped) {
+  state.pipeline->info.rasterizer.depthOffset = offset;
   state.pipeline->info.rasterizer.depthOffsetSloped = sloped;
   state.pipeline->dirty = true;
 }
