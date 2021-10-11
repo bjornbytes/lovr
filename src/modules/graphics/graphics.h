@@ -311,8 +311,6 @@ void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix);
 void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix);
 void lovrGraphicsGetProjection(uint32_t index, float* projection);
 void lovrGraphicsSetProjection(uint32_t index, float* projection);
-void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]);
-void lovrGraphicsSetScissor(uint32_t scissor[4]);
 
 void lovrGraphicsPush(StackType type, const char* label);
 void lovrGraphicsPop(StackType type);
@@ -331,8 +329,10 @@ void lovrGraphicsSetDepthTest(CompareMode test);
 void lovrGraphicsSetDepthWrite(bool write);
 void lovrGraphicsSetDepthOffset(float offset, float sloped);
 void lovrGraphicsSetDepthClamp(bool clamp);
+void lovrGraphicsSetScissor(uint32_t scissor[4]);
 void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value, uint8_t mask);
 void lovrGraphicsSetStencilWrite(StencilAction actions[3], uint8_t value, uint8_t mask);
+void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]);
 void lovrGraphicsSetWinding(Winding winding);
 void lovrGraphicsSetWireframe(bool wireframe);
 
@@ -342,7 +342,7 @@ void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffe
 void lovrGraphicsSetTexture(const char* name, size_t length, uint32_t slot, Texture* texture);
 void lovrGraphicsSetConstant(const char* name, size_t length, void** data, FieldType* type);
 
-uint32_t lovrGraphicsDraw(DrawInfo* info, float* transform);
+uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform);
 uint32_t lovrGraphicsPoints(uint32_t count, float** vertices);
 uint32_t lovrGraphicsLine(uint32_t count, float** vertices);
 uint32_t lovrGraphicsPlane(float* transform, uint32_t detail);

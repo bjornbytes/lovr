@@ -795,28 +795,6 @@ static int l_lovrGraphicsSetProjection(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsSetViewport(lua_State* L) {
-  float viewport[4], depthRange[2];
-  viewport[0] = luax_checkfloat(L, 1);
-  viewport[1] = luax_checkfloat(L, 2);
-  viewport[2] = luax_checkfloat(L, 3);
-  viewport[3] = luax_checkfloat(L, 4);
-  depthRange[0] = luax_optfloat(L, 5, 0.f);
-  depthRange[1] = luax_optfloat(L, 6, 1.f);
-  lovrGraphicsSetViewport(viewport, depthRange);
-  return 0;
-}
-
-static int l_lovrGraphicsSetScissor(lua_State* L) {
-  uint32_t scissor[4];
-  scissor[0] = luaL_checkinteger(L, 1);
-  scissor[1] = luaL_checkinteger(L, 2);
-  scissor[2] = luaL_checkinteger(L, 3);
-  scissor[3] = luaL_checkinteger(L, 4);
-  lovrGraphicsSetScissor(scissor);
-  return 0;
-}
-
 static int l_lovrGraphicsPush(lua_State* L) {
   StackType type = luax_checkenum(L, 1, StackType, "transform");
   const char* label = lua_tostring(L, 2);
@@ -922,6 +900,16 @@ static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsSetScissor(lua_State* L) {
+  uint32_t scissor[4];
+  scissor[0] = luaL_checkinteger(L, 1);
+  scissor[1] = luaL_checkinteger(L, 2);
+  scissor[2] = luaL_checkinteger(L, 3);
+  scissor[3] = luaL_checkinteger(L, 4);
+  lovrGraphicsSetScissor(scissor);
+  return 0;
+}
+
 static int l_lovrGraphicsSetStencilTest(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrGraphicsSetStencilTest(COMPARE_NONE, 0, 0xff);
@@ -955,6 +943,18 @@ static int l_lovrGraphicsSetStencilWrite(lua_State* L) {
     uint8_t mask = luaL_optinteger(L, 3, 0xff);
     lovrGraphicsSetStencilWrite(actions, value, mask);
   }
+  return 0;
+}
+
+static int l_lovrGraphicsSetViewport(lua_State* L) {
+  float viewport[4], depthRange[2];
+  viewport[0] = luax_checkfloat(L, 1);
+  viewport[1] = luax_checkfloat(L, 2);
+  viewport[2] = luax_checkfloat(L, 3);
+  viewport[3] = luax_checkfloat(L, 4);
+  depthRange[0] = luax_optfloat(L, 5, 0.f);
+  depthRange[1] = luax_optfloat(L, 6, 1.f);
+  lovrGraphicsSetViewport(viewport, depthRange);
   return 0;
 }
 
@@ -1042,7 +1042,7 @@ static int l_lovrGraphicsMesh(lua_State* L) {
   if (indirect) {
     uint32_t count = luaL_optinteger(L, ++index, 1);
     uint32_t offset = luaL_optinteger(L, ++index, 0);
-    id = lovrGraphicsDraw(&(DrawInfo) {
+    id = lovrGraphicsMesh(&(DrawInfo) {
       .mode = mode,
       .vertex.buffer = vertices,
       .index.buffer = indices,
@@ -1055,7 +1055,7 @@ static int l_lovrGraphicsMesh(lua_State* L) {
     uint32_t limit = (vertices || indices) ? lovrBufferGetInfo(indices ? indices : vertices)->length : 0;
     uint32_t count = luaL_optinteger(L, index++, limit);
     uint32_t instances = luaL_optinteger(L, index++, 1);
-    id = lovrGraphicsDraw(&(DrawInfo) {
+    id = lovrGraphicsMesh(&(DrawInfo) {
       .mode = mode,
       .vertex.buffer = vertices,
       .index.buffer = indices,
@@ -1758,8 +1758,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "setViewPose", l_lovrGraphicsSetViewPose },
   { "getProjection", l_lovrGraphicsGetProjection },
   { "setProjection", l_lovrGraphicsSetProjection },
-  { "setViewport", l_lovrGraphicsSetViewport },
-  { "setScissor", l_lovrGraphicsSetScissor },
 
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
@@ -1778,8 +1776,10 @@ static const luaL_Reg lovrGraphics[] = {
   { "setDepthWrite", l_lovrGraphicsSetDepthWrite },
   { "setDepthOffset", l_lovrGraphicsSetDepthOffset },
   { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
+  { "setScissor", l_lovrGraphicsSetScissor },
   { "setStencilTest", l_lovrGraphicsSetStencilTest },
   { "setStencilWrite", l_lovrGraphicsSetStencilWrite },
+  { "setViewport", l_lovrGraphicsSetViewport },
   { "setWinding", l_lovrGraphicsSetWinding },
   { "setWireframe", l_lovrGraphicsSetWireframe },
 
