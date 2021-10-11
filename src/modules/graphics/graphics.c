@@ -668,8 +668,6 @@ static void lovrGraphicsReset(gpu_pass* pass) {
   state.boundIndexBuffer = NULL;
 }
 
-static void lovrBatchFinalize(Batch* batch);
-
 static void callback(void* context, const char* message, int severe) {
   if (severe) {
     lovrThrow(message);
@@ -1358,8 +1356,33 @@ void lovrGraphicsFinish() {
     case PASS_COMPUTE: gpu_compute_end(state.pass->stream); break;
     case PASS_TRANSFER: break;
     case PASS_BATCH: {
-      lovrBatchFinalize(state.batch);
-      lovrRelease(state.batch, lovrBatchDestroy);
+      Batch* batch = state.batch;
+
+      // Allocate bundles
+      if (batch->bundleCount > 0) {
+        if (batch->info.transient) {
+          for (uint32_t i = 0; i < batch->bundleCount; i++) {
+            uint32_t layoutIndex = ((char*) batch->bundleInfo[i].layout - (char*) state.layouts[0]) / gpu_sizeof_layout();
+            batch->bundles[i] = allocateBundle(layoutIndex);
+          }
+        } else {
+          gpu_bunch_info info = {
+            .bundles = batch->bundles[0],
+            .contents = batch->bundleInfo,
+            .count = batch->bundleCount
+          };
+
+          lovrAssert(gpu_bunch_init(batch->bunch, &info), "Failed to initialize bunch");
+        }
+
+        gpu_bundle_write(batch->bundles, batch->bundleInfo, batch->bundleCount);
+      }
+
+      if (!batch->info.transient) {
+        // Add stash/ubos to pass's sync arrays with BUFFER_COPY_DST usage
+      }
+
+      lovrRelease(batch, lovrBatchDestroy);
       state.batch = NULL;
       break;
     }
@@ -4154,32 +4177,6 @@ void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i),
     }
   }
   batch->groupedCount = 0;
-}
-
-static void lovrBatchFinalize(Batch* batch) {
-  // Allocate bundles
-  if (batch->bundleCount > 0) {
-    if (batch->info.transient) {
-      for (uint32_t i = 0; i < batch->bundleCount; i++) {
-        uint32_t layoutIndex = ((char*) batch->bundleInfo[i].layout - (char*) state.layouts[0]) / gpu_sizeof_layout();
-        batch->bundles[i] = allocateBundle(layoutIndex);
-      }
-    } else {
-      gpu_bunch_info info = {
-        .bundles = batch->bundles[0],
-        .contents = batch->bundleInfo,
-        .count = batch->bundleCount
-      };
-
-      lovrAssert(gpu_bunch_init(batch->bunch, &info), "Failed to initialize bunch");
-    }
-
-    gpu_bundle_write(batch->bundles, batch->bundleInfo, batch->bundleCount);
-  }
-
-  if (!batch->info.transient) {
-    // Add stash/ubos to pass's sync arrays with BUFFER_COPY_DST usage
-  }
 }
 
 // Model
