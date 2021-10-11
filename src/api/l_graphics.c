@@ -909,10 +909,10 @@ static int l_lovrGraphicsSetDepthWrite(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsSetDepthNudge(lua_State* L) {
-  float nudge = luax_optfloat(L, 1, 0.f);
+static int l_lovrGraphicsSetDepthOffset(lua_State* L) {
+  float offset = luax_optfloat(L, 1, 0.f);
   float sloped = luax_optfloat(L, 2, 0.f);
-  lovrGraphicsSetDepthNudge(nudge, sloped);
+  lovrGraphicsSetDepthOffset(offset, sloped);
   return 0;
 }
 
@@ -1771,7 +1771,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "setCullMode", l_lovrGraphicsSetCullMode },
   { "setDepthTest", l_lovrGraphicsSetDepthTest },
   { "setDepthWrite", l_lovrGraphicsSetDepthWrite },
-  { "setDepthNudge", l_lovrGraphicsSetDepthNudge },
+  { "setDepthOffset", l_lovrGraphicsSetDepthOffset },
   { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
   { "setStencilTest", l_lovrGraphicsSetStencilTest },
   { "setStencilWrite", l_lovrGraphicsSetStencilWrite },

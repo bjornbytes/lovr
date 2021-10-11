@@ -329,7 +329,7 @@ void lovrGraphicsSetColor(float color[4]);
 void lovrGraphicsSetCullMode(CullMode mode);
 void lovrGraphicsSetDepthTest(CompareMode test);
 void lovrGraphicsSetDepthWrite(bool write);
-void lovrGraphicsSetDepthNudge(float nudge, float sloped);
+void lovrGraphicsSetDepthOffset(float offset, float sloped);
 void lovrGraphicsSetDepthClamp(bool clamp);
 void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value, uint8_t mask);
 void lovrGraphicsSetStencilWrite(StencilAction actions[3], uint8_t value, uint8_t mask);
