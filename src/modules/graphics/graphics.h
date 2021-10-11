@@ -5,6 +5,8 @@
 #pragma once
 
 struct Image;
+struct ModelData;
+struct Rasterizer;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
@@ -561,3 +563,14 @@ uint32_t lovrBatchGetCount(Batch* batch);
 void lovrBatchReset(Batch* batch);
 void lovrBatchSort(Batch* batch, SortMode mode);
 void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i), void* context);
+
+// Model
+
+Model* lovrModelCreate(struct ModelData* data);
+void lovrModelDestroy(void* ref);
+struct ModelData* lovrModelGetModelData(Model* model);
+
+// Font
+
+Font* lovrFontCreate(struct Rasterizer* rasterizer);
+void lovrFontDestroy(void* ref);

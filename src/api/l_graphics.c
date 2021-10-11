@@ -2,6 +2,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "data/modelData.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include "core/util.h"
@@ -1738,6 +1739,28 @@ static int l_lovrGraphicsNewBatch(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewModel(lua_State* L) {
+  ModelData* modelData = luax_totype(L, 1, ModelData);
+
+  if (!modelData) {
+    Blob* blob = luax_readblob(L, 1, "Model");
+    modelData = lovrModelDataCreate(blob, luax_readfile);
+    lovrRelease(blob, lovrBlobDestroy);
+  } else {
+    lovrRetain(modelData);
+  }
+
+  Model* model = lovrModelCreate(modelData);
+  luax_pushtype(L, Model, model);
+  lovrRelease(modelData, lovrModelDataDestroy);
+  lovrRelease(model, lovrModelDestroy);
+  return 1;
+}
+
+static int l_lovrGraphicsNewFont(lua_State* L) {
+  return 0;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "getHardware", l_lovrGraphicsGetHardware },
   { "getFeatures", l_lovrGraphicsGetFeatures },
@@ -1812,6 +1835,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "newShader", l_lovrGraphicsNewShader },
   { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newBatch", l_lovrGraphicsNewBatch },
+  { "newModel", l_lovrGraphicsNewModel },
+  { "newFont", l_lovrGraphicsNewFont },
 
   { NULL, NULL }
 };
