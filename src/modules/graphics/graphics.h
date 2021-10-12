@@ -248,6 +248,8 @@ typedef enum {
 typedef enum {
   VERTEX_STANDARD,
   VERTEX_POSITION,
+  VERTEX_EXTENDED,
+  VERTEX_ANIMATED,
   VERTEX_EMPTY,
   VERTEX_FORMAT_COUNT
 } VertexFormat;
@@ -376,6 +378,7 @@ typedef struct {
   uint32_t locations[16];
   uint32_t offsets[16];
   FieldType types[16];
+  VertexFormat format;
   uintptr_t handle;
 } BufferInfo;
 
@@ -565,9 +568,16 @@ void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i),
 
 // Model
 
-Model* lovrModelCreate(struct ModelData* data);
+typedef struct {
+  struct ModelData* data;
+  DefaultMaterial material;
+  Shader* shader;
+} ModelInfo;
+
+Model* lovrModelCreate(ModelInfo* info);
 void lovrModelDestroy(void* ref);
 struct ModelData* lovrModelGetModelData(Model* model);
+void lovrModelResetPose(Model* model);
 
 // Font
 
