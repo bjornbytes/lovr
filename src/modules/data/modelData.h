@@ -6,8 +6,6 @@
 
 #pragma once
 
-#define MAX_BONES 48
-
 struct Blob;
 struct Image;
 
