@@ -62,7 +62,7 @@ StringEntry lovrDefaultAttribute[] = {
 };
 
 StringEntry lovrDefaultMaterial[] = {
-  [MATERIAL_SIMPLE] = ENTRY("simple"),
+  [MATERIAL_BASIC] = ENTRY("basic"),
   [MATERIAL_PHYSICAL] = ENTRY("physical"),
   { 0 }
 };
@@ -796,6 +796,28 @@ static int l_lovrGraphicsSetProjection(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsSetViewport(lua_State* L) {
+  float viewport[4], depthRange[2];
+  viewport[0] = luax_checkfloat(L, 1);
+  viewport[1] = luax_checkfloat(L, 2);
+  viewport[2] = luax_checkfloat(L, 3);
+  viewport[3] = luax_checkfloat(L, 4);
+  depthRange[0] = luax_optfloat(L, 5, 0.f);
+  depthRange[1] = luax_optfloat(L, 6, 1.f);
+  lovrGraphicsSetViewport(viewport, depthRange);
+  return 0;
+}
+
+static int l_lovrGraphicsSetScissor(lua_State* L) {
+  uint32_t scissor[4];
+  scissor[0] = luaL_checkinteger(L, 1);
+  scissor[1] = luaL_checkinteger(L, 2);
+  scissor[2] = luaL_checkinteger(L, 3);
+  scissor[3] = luaL_checkinteger(L, 4);
+  lovrGraphicsSetScissor(scissor);
+  return 0;
+}
+
 static int l_lovrGraphicsPush(lua_State* L) {
   StackType type = luax_checkenum(L, 1, StackType, "transform");
   const char* label = lua_tostring(L, 2);
@@ -854,13 +876,6 @@ static int l_lovrGraphicsSetBlendMode(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsSetColor(lua_State* L) {
-  float color[4];
-  luax_readcolor(L, 1, color);
-  lovrGraphicsSetColor(color);
-  return 0;
-}
-
 static int l_lovrGraphicsSetColorMask(lua_State* L) {
   bool r = lua_toboolean(L, 1);
   bool g = lua_toboolean(L, 2);
@@ -901,16 +916,6 @@ static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsSetScissor(lua_State* L) {
-  uint32_t scissor[4];
-  scissor[0] = luaL_checkinteger(L, 1);
-  scissor[1] = luaL_checkinteger(L, 2);
-  scissor[2] = luaL_checkinteger(L, 3);
-  scissor[3] = luaL_checkinteger(L, 4);
-  lovrGraphicsSetScissor(scissor);
-  return 0;
-}
-
 static int l_lovrGraphicsSetStencilTest(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrGraphicsSetStencilTest(COMPARE_NONE, 0, 0xff);
@@ -944,18 +949,6 @@ static int l_lovrGraphicsSetStencilWrite(lua_State* L) {
     uint8_t mask = luaL_optinteger(L, 3, 0xff);
     lovrGraphicsSetStencilWrite(actions, value, mask);
   }
-  return 0;
-}
-
-static int l_lovrGraphicsSetViewport(lua_State* L) {
-  float viewport[4], depthRange[2];
-  viewport[0] = luax_checkfloat(L, 1);
-  viewport[1] = luax_checkfloat(L, 2);
-  viewport[2] = luax_checkfloat(L, 3);
-  viewport[3] = luax_checkfloat(L, 4);
-  depthRange[0] = luax_optfloat(L, 5, 0.f);
-  depthRange[1] = luax_optfloat(L, 6, 1.f);
-  lovrGraphicsSetViewport(viewport, depthRange);
   return 0;
 }
 
@@ -1027,6 +1020,13 @@ static int l_lovrGraphicsSetConstant(lua_State* L) {
   FieldType type;
   lovrGraphicsSetConstant(name, length, &data, &type);
   luax_readbufferfield(L, 2, type, data);
+  return 0;
+}
+
+static int l_lovrGraphicsSetColor(lua_State* L) {
+  float color[4];
+  luax_readcolor(L, 1, color);
+  lovrGraphicsSetColor(color);
   return 0;
 }
 
@@ -1646,7 +1646,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
 
   Texture* texture = luax_totype(L, 1, Texture);
   if (texture) {
-    info.type = MATERIAL_SIMPLE;
+    info.type = MATERIAL_BASIC;
     info.propertyCount = 1;
     info.properties[0] = (MaterialProperty) {
       .name = "texture",
@@ -1654,7 +1654,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
       .value.texture = texture
     };
   } else if (lua_isnumber(L, 1)) {
-    info.type = MATERIAL_SIMPLE;
+    info.type = MATERIAL_BASIC;
     info.propertyCount = 1;
     info.properties[0] = (MaterialProperty) {
       .name = "color",
@@ -1781,6 +1781,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "setViewPose", l_lovrGraphicsSetViewPose },
   { "getProjection", l_lovrGraphicsGetProjection },
   { "setProjection", l_lovrGraphicsSetProjection },
+  { "setViewport", l_lovrGraphicsSetViewport },
+  { "setScissor", l_lovrGraphicsSetScissor },
 
   { "push", l_lovrGraphicsPush },
   { "pop", l_lovrGraphicsPop },
@@ -1792,17 +1794,14 @@ static const luaL_Reg lovrGraphics[] = {
 
   { "setAlphaToCoverage", l_lovrGraphicsSetAlphaToCoverage },
   { "setBlendMode", l_lovrGraphicsSetBlendMode },
-  { "setColor", l_lovrGraphicsSetColor },
   { "setColorMask", l_lovrGraphicsSetColorMask },
   { "setCullMode", l_lovrGraphicsSetCullMode },
   { "setDepthTest", l_lovrGraphicsSetDepthTest },
   { "setDepthWrite", l_lovrGraphicsSetDepthWrite },
   { "setDepthOffset", l_lovrGraphicsSetDepthOffset },
   { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
-  { "setScissor", l_lovrGraphicsSetScissor },
   { "setStencilTest", l_lovrGraphicsSetStencilTest },
   { "setStencilWrite", l_lovrGraphicsSetStencilWrite },
-  { "setViewport", l_lovrGraphicsSetViewport },
   { "setWinding", l_lovrGraphicsSetWinding },
   { "setWireframe", l_lovrGraphicsSetWireframe },
 
@@ -1810,6 +1809,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "setBuffer", l_lovrGraphicsSetBuffer },
   { "setTexture", l_lovrGraphicsSetTexture },
   { "setConstant", l_lovrGraphicsSetConstant },
+  { "setColor", l_lovrGraphicsSetColor },
 
   { "mesh", l_lovrGraphicsMesh },
   { "points", l_lovrGraphicsPoints },

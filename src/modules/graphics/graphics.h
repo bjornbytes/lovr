@@ -313,6 +313,8 @@ void lovrGraphicsGetViewMatrix(uint32_t index, float* viewMatrix);
 void lovrGraphicsSetViewMatrix(uint32_t index, float* viewMatrix);
 void lovrGraphicsGetProjection(uint32_t index, float* projection);
 void lovrGraphicsSetProjection(uint32_t index, float* projection);
+void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]);
+void lovrGraphicsSetScissor(uint32_t scissor[4]);
 
 void lovrGraphicsPush(StackType type, const char* label);
 void lovrGraphicsPop(StackType type);
@@ -325,24 +327,21 @@ void lovrGraphicsTransform(float* transform);
 void lovrGraphicsSetAlphaToCoverage(bool enabled);
 void lovrGraphicsSetBlendMode(BlendMode mode, BlendAlphaMode alphaMode);
 void lovrGraphicsSetColorMask(bool r, bool g, bool b, bool a);
-void lovrGraphicsSetColor(float color[4]);
 void lovrGraphicsSetCullMode(CullMode mode);
 void lovrGraphicsSetDepthTest(CompareMode test);
 void lovrGraphicsSetDepthWrite(bool write);
 void lovrGraphicsSetDepthOffset(float offset, float sloped);
 void lovrGraphicsSetDepthClamp(bool clamp);
-void lovrGraphicsSetScissor(uint32_t scissor[4]);
 void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value, uint8_t mask);
 void lovrGraphicsSetStencilWrite(StencilAction actions[3], uint8_t value, uint8_t mask);
-void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]);
 void lovrGraphicsSetWinding(Winding winding);
 void lovrGraphicsSetWireframe(bool wireframe);
 
 void lovrGraphicsSetShader(Shader* shader);
-void lovrGraphicsSetMaterial(Material* material);
 void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrGraphicsSetTexture(const char* name, size_t length, uint32_t slot, Texture* texture);
 void lovrGraphicsSetConstant(const char* name, size_t length, void** data, FieldType* type);
+void lovrGraphicsSetColor(float color[4]);
 
 uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform);
 uint32_t lovrGraphicsPoints(uint32_t count, float** vertices);
@@ -512,7 +511,7 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 // Material
 
 typedef enum {
-  MATERIAL_SIMPLE,
+  MATERIAL_BASIC,
   MATERIAL_PHYSICAL
 } DefaultMaterial;
 
