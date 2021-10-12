@@ -98,6 +98,7 @@ typedef struct {
   uint32_t scalars;
   uint32_t vectors;
   uint32_t colors;
+  uint32_t scales;
 } MaterialFormat;
 
 typedef struct {
@@ -178,7 +179,7 @@ struct Batch {
   uint32_t bundleCount;
   uint32_t lastBundleCount;
   Megaview transforms;
-  Megaview colors;
+  Megaview drawData;
   Megaview stash;
   uint32_t stashCursor;
   arr_buffersync_t buffers;
@@ -314,12 +315,11 @@ static struct {
   gpu_binding bindings[32];
   uint32_t emptyBindingMask;
   bool bindingsDirty;
-  Material* material;
   char constantData[128];
   bool constantsDirty;
   Megaview cameraBuffer;
   Megaview transforms;
-  Megaview colors;
+  Megaview drawData;
   uint32_t drawCursor;
   gpu_pipeline* boundPipeline;
   gpu_bundle* boundBundle;
@@ -617,8 +617,8 @@ static uint32_t lookupMaterialBlock(MaterialFormat* format) {
   lovrAssert(block->bunch && block->bundles, "Out of memory");
 
   gpu_slot slots[2] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_ALL, 1 },
-    { 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_ALL, format->textureCount }
+    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 },
+    { 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS, format->textureCount }
   };
 
   block->layout = lookupLayout(slots, COUNTOF(slots));
@@ -793,12 +793,12 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   gpu_slot defaultBindings[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Camera
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Transforms
-    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT, 1 } // Colors
+    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 } // Colors
   };
 
   lookupLayout(defaultBindings, COUNTOF(defaultBindings));
 
-  MaterialFormat simpleMaterial = {
+  MaterialFormat basicMaterial = {
     .size = 32,
     .count = 3,
     .names = {
@@ -828,7 +828,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     .textures = 0x1
   };
 
-  lookupMaterialBlock(&simpleMaterial);
+  lookupMaterialBlock(&basicMaterial);
   lookupMaterialBlock(&physicalMaterial);
 
   // Standard vertex formats
@@ -1339,9 +1339,9 @@ void lovrGraphicsBeginBatch(Batch* batch) {
   if (batch->info.transient) {
     lovrBatchReset(batch);
     batch->transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 64, state.limits.uniformBufferAlign);
-    batch->colors = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 16, state.limits.uniformBufferAlign);
+    batch->drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 32, state.limits.uniformBufferAlign);
     state.transforms = batch->transforms;
-    state.colors = batch->colors;
+    state.drawData = batch->drawData;
   }
 }
 
@@ -1635,10 +1635,6 @@ void lovrGraphicsSetColorMask(bool r, bool g, bool b, bool a) {
   state.pipeline->info.colorMask = mask;
 }
 
-void lovrGraphicsSetColor(float color[4]) {
-  memcpy(state.pipeline->color, color, 4 * sizeof(float));
-}
-
 void lovrGraphicsSetCullMode(CullMode mode) {
   state.pipeline->dirty |= state.pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
   state.pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
@@ -1788,14 +1784,6 @@ void lovrGraphicsSetShader(Shader* shader) {
   state.pipeline->dirty = true;
 }
 
-void lovrGraphicsSetMaterial(Material* material) {
-  Shader* shader = state.pipeline->shader;
-  lovrCheck(material->block == (shader ? shader->material : 0), "Material is not compatible with the current shader");
-  lovrRelease(state.material, lovrMaterialDestroy);
-  lovrRetain(material);
-  state.material = material;
-}
-
 void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent) {
   Shader* shader = state.pipeline->shader;
   lovrCheck(shader, "A Shader must be active to bind resources");
@@ -1896,6 +1884,14 @@ void lovrGraphicsSetConstant(const char* name, size_t length, void** data, Field
   *type = shader->constantTypes[index];
   *data = &state.constantData[shader->constantOffsets[index]];
   state.constantsDirty = true;
+}
+
+void lovrGraphicsSetColor(float color[4]) {
+  uint32_t r = (uint32_t) (color[0] * 255.f + .5f);
+  uint32_t g = (uint32_t) (color[1] * 255.f + .5f);
+  uint32_t b = (uint32_t) (color[2] * 255.f + .5f);
+  uint32_t a = (uint32_t) (color[3] * 255.f + .5f);
+  state.pipeline->color = (r << 24) | (g << 16) | (b << 8) | (a << 0);
 }
 
 uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
@@ -2125,13 +2121,13 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
       src = &state.transforms;
       dst = &batch->transforms;
       gpu_copy_buffers(state.pass->stream, src->gpu, dst->gpu, src->offset, dst->offset, 256 * 64);
-      src = &state.colors;
-      dst = &batch->colors;
+      src = &state.drawData;
+      dst = &batch->drawData;
       gpu_copy_buffers(state.pass->stream, src->gpu, dst->gpu, src->offset, dst->offset, 256 * 16);
     }
 
     state.transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 64, state.limits.uniformBufferAlign);
-    state.colors = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 16, state.limits.uniformBufferAlign);
+    state.drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 32, state.limits.uniformBufferAlign);
   }
 
   float m[16];
@@ -2142,9 +2138,9 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
   }
 
   memcpy(state.transforms.data, transform, 64);
-  memcpy(state.colors.data, state.pipeline->color, 16);
+  memcpy(state.drawData.data, &state.pipeline->color, 4);
   state.transforms.data += 64;
-  state.colors.data += 16;
+  state.drawData.data += 32;
 
   // Draw
 
@@ -2199,7 +2195,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
         .bindings = (gpu_binding[]) {
           [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
           [1].buffer = { state.transforms.gpu, state.transforms.offset, 256 * 64 },
-          [2].buffer = { state.colors.gpu, state.colors.offset, 256 * 16 }
+          [2].buffer = { state.drawData.gpu, state.drawData.offset, 256 * 32 }
         }
       };
       gpu_bundle* uniformBundle = allocateBundle(0);
@@ -2478,14 +2474,14 @@ void lovrGraphicsReplay(Batch* batch) {
     .bindings = (gpu_binding[]) {
       [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
       [1].buffer = { batch->transforms.gpu, batch->transforms.offset, 256 * 64 },
-      [2].buffer = { batch->colors.gpu, batch->colors.offset, 256 * 16 }
+      [2].buffer = { batch->drawData.gpu, batch->drawData.offset, 256 * 32 }
     }
   };
   gpu_bundle* uniformBundle = allocateBundle(0);
   gpu_bundle_write(&uniformBundle, &uniforms, 1);
   uint32_t dynamicOffsets[3] = { 0 };
 
-  // Group draws (TODO verify that this is useful now compared to moving it into the below loop)
+  // Group draws
 
   if (batch->groupedCount == 0) {
     BatchGroup* group = &batch->groups[0];
@@ -3273,6 +3269,9 @@ typedef union {
     uint16_t name;
   } flag;
   struct {
+    uint32_t word;
+  } constant;
+  struct {
     uint16_t word;
     uint16_t name;
   } type;
@@ -3284,7 +3283,7 @@ typedef struct {
   uint32_t constantLookup[32];
   uint8_t constantOffsets[32];
   uint8_t constantTypes[32];
-  gpu_slot slots[2][32];
+  gpu_slot slots[3][32];
   uint32_t slotNames[32];
   uint32_t flagNames[32];
   gpu_shader_flag flags[32];
@@ -3372,10 +3371,10 @@ static void parseResourceType(const uint32_t* words, uint32_t wordCount, CacheDa
 
   if ((instruction[0] & 0xffff) == 28) { // OpTypeArray
     // Read array size
-    lovrCheck(instruction[3] < bound && words + cache[instruction[3]].type.word < edge, "Invalid Shader code: id overflow");
+    lovrCheck(instruction[3] < bound && words + cache[instruction[3]].constant.word < edge, "Invalid Shader code: id overflow");
     const uint32_t* size = words + cache[instruction[3]].type.word;
     if ((size[0] & 0xffff) == 43 || (size[0] & 0xffff) == 50) { // OpConstant || OpSpecConstant
-      *count = size[3];
+      *count = size[3]; // Both constant instructions store their value in the 4th word
     } else {
       lovrThrow("Invalid Shader code: resource %d is an array, but the array size is not a constant", id);
     }
@@ -3578,6 +3577,14 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
           size_t nameLength = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
           reflection->flagNames[index] = hash32(name, nameLength);
         }
+
+        // Currently, the cache contains {number,name}.  It gets replaced with the index of this
+        // word so that other people using this constant (OpTypeArray) can find it later.
+        cache[id].constant.word = instruction - words;
+        break;
+      case 43: // OpConstant
+        if (length < 3 || instruction[2] >= bound) break;
+        cache[instruction[2]].constant.word = instruction - words;
         break;
       case 59: // OpVariable
         if (length < 4 || instruction[2] >= bound) break;
@@ -3696,7 +3703,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         // Name (type of variable is pointer, follow pointer's inner type to get to struct type)
         // The struct type is what actually has the block name, used for the resource's name
         uint32_t blockType = (words + cache[type].type.word)[3];
-        if (group == 1 && !reflection->slotNames[number] && cache[blockType].type.name != 0xffff) {
+        if (group == 2 && !reflection->slotNames[number] && cache[blockType].type.name != 0xffff) {
           uint32_t nameWord = cache[blockType].type.name;
           char* name = (char*) (words + nameWord);
           size_t nameLength = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
@@ -3764,8 +3771,8 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera matrices");
 
   // Preprocess user bindings
-  for (uint32_t i = 0; i < COUNTOF(reflection.slots[1]); i++) {
-    gpu_slot slot = reflection.slots[1][i];
+  for (uint32_t i = 0; i < COUNTOF(reflection.slots[2]); i++) {
+    gpu_slot slot = reflection.slots[2][i];
     if (!slot.stage) continue;
     uint32_t index = shader->resourceCount++;
     bool buffer = slot.type == GPU_SLOT_UNIFORM_BUFFER || slot.type == GPU_SLOT_STORAGE_BUFFER;
@@ -3781,12 +3788,12 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   // Filter empties from slots, so contiguous slot list can be used to hash/create layout
   for (uint32_t i = 0; i < shader->resourceCount; i++) {
     if (shader->resourceSlots[i] > i) {
-      reflection.slots[1][i] = reflection.slots[1][shader->resourceSlots[i]];
+      reflection.slots[2][i] = reflection.slots[2][shader->resourceSlots[i]];
     }
   }
 
   if (shader->resourceCount > 0) {
-    shader->layout = lookupLayout(reflection.slots[1], shader->resourceCount);
+    shader->layout = lookupLayout(reflection.slots[2], shader->resourceCount);
   }
 
   gpu_shader_info gpuInfo = {
@@ -4053,7 +4060,7 @@ Batch* lovrBatchCreate(BatchInfo* info) {
 
     uint32_t alignment = state.limits.uniformBufferAlign;
     batch->transforms = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 64, alignment);
-    batch->colors = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 16, alignment);
+    batch->drawData = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 32, alignment);
     batch->stash = allocateBuffer(GPU_MEMORY_GPU, info->bufferSize, 4);
   }
 
@@ -4076,7 +4083,7 @@ void lovrBatchDestroy(void* ref) {
     if (--state.buffers.list[batch->transforms.index].refs == 0) {
       recycleBuffer(batch->transforms.index, GPU_MEMORY_GPU);
     }
-    if (--state.buffers.list[batch->colors.index].refs == 0) {
+    if (--state.buffers.list[batch->drawData.index].refs == 0) {
       recycleBuffer(batch->transforms.index, GPU_MEMORY_GPU);
     }
     if (--state.buffers.list[batch->stash.index].refs == 0) {
