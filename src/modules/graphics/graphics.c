@@ -186,12 +186,22 @@ struct Batch {
   arr_texturesync_t textures;
 };
 
+typedef struct {
+  float properties[3][4];
+} NodeTransform;
+
 struct Model {
   uint32_t ref;
+  uint32_t material;
   ModelData* data;
-  Buffer** buffers;
+  DrawInfo* draws;
+  Buffer* vertices;
+  Buffer* indices;
   Texture** textures;
   Material** materials;
+  NodeTransform* localTransforms;
+  float* globalTransforms;
+  bool transformsDirty;
 };
 
 struct Font {
@@ -831,7 +841,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   lookupMaterialBlock(&basicMaterial);
   lookupMaterialBlock(&physicalMaterial);
 
-  // Standard vertex formats
+  // Builtin vertex formats
 
   typedef struct {
     struct { float x, y, z; } position;
@@ -853,6 +863,30 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     .attributeCount = 1,
     .bufferStrides[0] = 12,
     .attributes[0] = { 0, 0, 0, GPU_TYPE_F32x3 }
+  };
+
+  state.formats[VERTEX_EXTENDED] = (gpu_vertex_format) {
+    .bufferCount = 1,
+    .attributeCount = 5,
+    .bufferStrides[0] = 28,
+    .attributes[0] = { 0, 0, 0, GPU_TYPE_F32x3 },
+    .attributes[1] = { 0, 1, 12, GPU_TYPE_U10Nx3 },
+    .attributes[2] = { 0, 2, 16, GPU_TYPE_U16Nx2 },
+    .attributes[3] = { 0, 3, 20, GPU_TYPE_U8Nx4 }, // color
+    .attributes[4] = { 0, 3, 24, GPU_TYPE_U10Nx3 } // tangent
+  };
+
+  state.formats[VERTEX_ANIMATED] = (gpu_vertex_format) {
+    .bufferCount = 1,
+    .attributeCount = 7,
+    .bufferStrides[0] = 36,
+    .attributes[0] = { 0, 0, 0, GPU_TYPE_F32x3 },
+    .attributes[1] = { 0, 1, 12, GPU_TYPE_U10Nx3 },
+    .attributes[2] = { 0, 2, 16, GPU_TYPE_U16Nx2 },
+    .attributes[3] = { 0, 3, 20, GPU_TYPE_U8Nx4 },
+    .attributes[4] = { 0, 4, 24, GPU_TYPE_U10Nx3 },
+    .attributes[5] = { 0, 5, 28, GPU_TYPE_U8x4 },
+    .attributes[6] = { 0, 6, 32, GPU_TYPE_U8Nx4 }
   };
 
   state.formats[VERTEX_EMPTY] = (gpu_vertex_format) { 0 };
@@ -955,13 +989,8 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   state.shapes = lovrBufferCreate(&(BufferInfo) {
     .type = BUFFER_VERTEX,
     .length = vertexCount,
-    .stride = sizeof(Vertex),
-    .fieldCount = 3,
-    .locations = { 0, 1, 2 },
-    .offsets = { offsetof(Vertex, position), offsetof(Vertex, normal), offsetof(Vertex, uv) },
-    .types = { FIELD_F32x3, FIELD_U10Nx3, FIELD_U16Nx2 }
+    .format = VERTEX_STANDARD
   }, (void**) &geometry);
-  lovrCheck(state.shapes->hash == state.formatHash[VERTEX_STANDARD], "Unreachable");
 
   memcpy(geometry, quad, sizeof(quad)), geometry += sizeof(quad);
   memcpy(geometry, cube, sizeof(cube)), geometry += sizeof(cube);
@@ -1887,11 +1916,7 @@ void lovrGraphicsSetConstant(const char* name, size_t length, void** data, Field
 }
 
 void lovrGraphicsSetColor(float color[4]) {
-  uint32_t r = (uint32_t) (color[0] * 255.f + .5f);
-  uint32_t g = (uint32_t) (color[1] * 255.f + .5f);
-  uint32_t b = (uint32_t) (color[2] * 255.f + .5f);
-  uint32_t a = (uint32_t) (color[3] * 255.f + .5f);
-  state.pipeline->color = (r << 24) | (g << 16) | (b << 8) | (a << 0);
+  memcpy(state.pipeline->color, color, 4 * sizeof(float));
 }
 
 uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
@@ -2637,7 +2662,8 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
 // Buffer
 
 Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
-  size_t size = info->length * MAX(info->stride, 1);
+  uint32_t stride = info->stride ? info->stride : state.formats[info->format].bufferStrides[0];
+  uint32_t size = info->length * stride;
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
   Buffer* buffer = transient ? talloc(sizeof(Buffer)) : calloc(1, sizeof(Buffer));
@@ -2646,7 +2672,7 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
   buffer->size = size;
   uint32_t align = 1;
   switch (info->type) {
-    case BUFFER_VERTEX: align = info->stride; break;
+    case BUFFER_VERTEX: align = stride; break;
     case BUFFER_INDEX: align = 4; break;
     case BUFFER_UNIFORM: align = state.limits.uniformBufferAlign; break;
     case BUFFER_COMPUTE: align = state.limits.storageBufferAlign; break;
@@ -2658,23 +2684,29 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
     state.buffers.list[buffer->mega.index].refs++;
   }
   if (info->type == BUFFER_VERTEX) {
-    lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' type has a stride of %d bytes, which exceeds vertexBufferStride limit (%d)", info->stride, state.limits.vertexBufferStride);
-    buffer->mask = 0;
-    buffer->format.bufferCount = 1;
-    buffer->format.attributeCount = info->fieldCount;
-    buffer->format.bufferStrides[0] = info->stride;
-    for (uint32_t i = 0; i < info->fieldCount; i++) {
-      lovrCheck(info->locations[i] < 16, "Vertex buffer attribute location %d is too big (max is 15)", info->locations[i]);
-      lovrCheck(info->offsets[i] < 256, "Vertex buffer attribute offset %d is too big (max is 255)", info->offsets[i]);
-      buffer->format.attributes[i] = (gpu_attribute) {
-        .buffer = 0,
-        .location = info->locations[i],
-        .offset = info->offsets[i],
-        .type = (gpu_type) info->types[i]
-      };
-      buffer->mask |= 1 << info->locations[i];
+    if (info->format) {
+      buffer->format = state.formats[info->format];
+      buffer->mask = state.formatMask[info->format];
+      buffer->hash = state.formatHash[info->format];
+    } else {
+      lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' type has a stride of %d bytes, which exceeds vertexBufferStride limit (%d)", info->stride, state.limits.vertexBufferStride);
+      buffer->mask = 0;
+      buffer->format.bufferCount = 1;
+      buffer->format.attributeCount = info->fieldCount;
+      buffer->format.bufferStrides[0] = info->stride;
+      for (uint32_t i = 0; i < info->fieldCount; i++) {
+        lovrCheck(info->locations[i] < 16, "Vertex buffer attribute location %d is too big (max is 15)", info->locations[i]);
+        lovrCheck(info->offsets[i] < 256, "Vertex buffer attribute offset %d is too big (max is 255)", info->offsets[i]);
+        buffer->format.attributes[i] = (gpu_attribute) {
+          .buffer = 0,
+          .location = info->locations[i],
+          .offset = info->offsets[i],
+          .type = (gpu_type) info->types[i]
+        };
+        buffer->mask |= 1 << info->locations[i];
+      }
+      buffer->hash = hash64(&buffer->format, sizeof(buffer->format));
     }
-    buffer->hash = hash64(&buffer->format, sizeof(buffer->format));
   }
   return buffer;
 }
@@ -4188,18 +4220,148 @@ void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i),
 
 // Model
 
-Model* lovrModelCreate(ModelData* data) {
+Model* lovrModelCreate(ModelInfo* info) {
+  ModelData* data = info->data;
   Model* model = calloc(1, sizeof(Model));
   lovrAssert(model, "Out of memory");
   model->ref = 1;
   model->data = data;
   lovrRetain(data);
+
+  model->draws = calloc(data->primitiveCount, sizeof(DrawInfo));
+  lovrAssert(model->draws, "Out of memory");
+
+  model->materials = malloc(data->materialCount * sizeof(Material*));
+  lovrAssert(model->materials, "Out of memory");
+
+  // First pass: determine vertex format, count vertices and indices, validate meshes
+  uint32_t totalIndexCount = 0;
+  uint32_t totalVertexCount = 0;
+  VertexFormat format = VERTEX_STANDARD;
+  gpu_index_type indexType = GPU_INDEX_U16;
+  for (uint32_t i = 0; i < data->primitiveCount; i++) {
+    ModelPrimitive* primitive = &data->primitives[i];
+    bool extended = primitive->attributes[ATTR_COLOR] || primitive->attributes[ATTR_TANGENT];
+    bool animated = primitive->attributes[ATTR_BONES] || primitive->attributes[ATTR_WEIGHTS];
+    if (extended) format = MAX(format, VERTEX_EXTENDED);
+    if (animated) format = MAX(format, VERTEX_ANIMATED);
+
+    lovrCheck(primitive->attributes[ATTR_POSITION], "Sorry, currently I can not load models without position attributes!");
+    lovrCheck(primitive->topology != TOPOLOGY_LINE_LOOP, "Sorry, currently I can not load models with a 'line loop' draw mode (please report this!)");
+    lovrCheck(primitive->topology != TOPOLOGY_LINE_STRIP, "Sorry, currently I can not load models with a 'line strip' draw mode (please report this!)");
+    lovrCheck(primitive->topology != TOPOLOGY_TRIANGLE_STRIP, "Sorry, currently I can not load models with a 'triangle strip' draw mode (please report this!)");
+    lovrCheck(primitive->topology != TOPOLOGY_TRIANGLE_FAN, "Sorry, currently I can not load models with a 'triangle fan' draw mode (please report this!)");
+
+    totalVertexCount += primitive->attributes[ATTR_POSITION]->count;
+
+    if (primitive->indices) {
+      totalIndexCount += primitive->indices->count;
+      if (primitive->indices->type == U32) {
+        indexType = GPU_INDEX_U32;
+      }
+    }
+  }
+
+  // Create buffers
+
+  char* vertices;
+  char* indices;
+
+  model->vertices = lovrBufferCreate(&(BufferInfo) {
+    .type = BUFFER_VERTEX,
+    .length = totalVertexCount,
+    .format = format
+  }, (void**) &vertices);
+
+  uint32_t indexStride = 2 << (indexType == GPU_INDEX_U32);
+  if (totalIndexCount > 0) {
+    model->indices = lovrBufferCreate(&(BufferInfo) {
+      .type = BUFFER_INDEX,
+      .length = totalIndexCount,
+      .stride = indexStride,
+      .fieldCount = 1,
+      .types[0] = indexType == GPU_INDEX_U32 ? FIELD_U32 : FIELD_U16
+    }, (void**) &indices);
+  }
+
+  // Second pass: write draws, now that vertex format and buffers are known
+  uint32_t indexCursor = 0;
+  uint32_t vertexCursor = 0;
+  for (uint32_t i = 0; i < data->primitiveCount; i++) {
+    DrawInfo* draw = &model->draws[i];
+    ModelPrimitive* primitive = &data->primitives[i];
+    uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
+    uint32_t indexCount = primitive->indices ? primitive->indices->count : 0;
+
+    switch (primitive->topology) {
+      case TOPOLOGY_POINTS: draw->mode = DRAW_POINTS;
+      case TOPOLOGY_LINES: draw->mode = DRAW_LINES;
+      case TOPOLOGY_TRIANGLES: draw->mode = DRAW_TRIANGLES;
+      default: break;
+    }
+
+    draw->vertex.buffer = model->vertices;
+    draw->index.buffer = model->indices;
+    draw->index.stride = indexStride;
+
+    if (primitive->indices) {
+      draw->start = indexCursor;
+      draw->count = indexCount;
+      draw->base = vertexCursor;
+    } else {
+      draw->start = vertexCursor;
+      draw->count = vertexCount;
+    }
+
+    vertexCursor += vertexCount;
+    indexCursor += indexCount;
+  }
+
+  // Third pass: Write data to vertex and index buffers
+  indexCursor = 0;
+  vertexCursor = 0;
+  for (uint32_t i = 0; i < data->primitiveCount; i++) {
+    // TODO
+  }
+
+  for (uint32_t i = 0; i < data->skinCount; i++) {
+    uint32_t jointCount = data->skins[i].jointCount;
+    lovrAssert(jointCount <= 0xff, "ModelData skin #%d has too many joints (%d, max is %d)", i + 1, jointCount, 0xff);
+  }
+
+  // Allocate transform arrays
+  model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
+  model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
+  lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
+  lovrModelResetPose(model);
   return model;
 }
 
 void lovrModelDestroy(void* ref) {
   Model* model = ref;
+  lovrRelease(model->vertices, lovrBufferDestroy);
+  lovrRelease(model->indices, lovrBufferDestroy);
+  free(model->draws);
+  free(model->materials);
   free(model);
+}
+
+void lovrModelResetPose(Model* model) {
+  for (uint32_t i = 0; i < model->data->nodeCount; i++) {
+    vec3 position = model->localTransforms[i].properties[PROP_TRANSLATION];
+    quat orientation = model->localTransforms[i].properties[PROP_ROTATION];
+    vec3 scale = model->localTransforms[i].properties[PROP_SCALE];
+    if (model->data->nodes[i].matrix) {
+      mat4_getPosition(model->data->nodes[i].transform.matrix, position);
+      mat4_getOrientation(model->data->nodes[i].transform.matrix, orientation);
+      mat4_getScale(model->data->nodes[i].transform.matrix, scale);
+    } else {
+      vec3_init(position, model->data->nodes[i].transform.properties.translation);
+      vec3_init(orientation, model->data->nodes[i].transform.properties.rotation);
+      vec3_init(scale, model->data->nodes[i].transform.properties.scale);
+    }
+  }
+  model->transformsDirty = true;
 }
 
 // Font

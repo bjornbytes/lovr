@@ -1740,19 +1740,20 @@ static int l_lovrGraphicsNewBatch(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewModel(lua_State* L) {
-  ModelData* modelData = luax_totype(L, 1, ModelData);
+  ModelInfo info;
+  info.data = luax_totype(L, 1, ModelData);
 
-  if (!modelData) {
+  if (!info.data) {
     Blob* blob = luax_readblob(L, 1, "Model");
-    modelData = lovrModelDataCreate(blob, luax_readfile);
+    info.data = lovrModelDataCreate(blob, luax_readfile);
     lovrRelease(blob, lovrBlobDestroy);
   } else {
-    lovrRetain(modelData);
+    lovrRetain(info.data);
   }
 
-  Model* model = lovrModelCreate(modelData);
+  Model* model = lovrModelCreate(&info);
   luax_pushtype(L, Model, model);
-  lovrRelease(modelData, lovrModelDataDestroy);
+  lovrRelease(info.data, lovrModelDataDestroy);
   lovrRelease(model, lovrModelDestroy);
   return 1;
 }
