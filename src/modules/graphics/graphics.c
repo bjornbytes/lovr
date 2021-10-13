@@ -20,6 +20,7 @@
 #define MAX_LAYOUTS 64
 #define MAX_MATERIAL_BLOCKS 16
 #define MATERIALS_PER_BLOCK 1024
+#define MAX_DETAIL 8
 
 typedef struct {
   gpu_buffer* gpu;
@@ -295,13 +296,21 @@ typedef struct {
 } Allocator;
 
 enum {
-  SHAPE_QUAD,
+  SHAPE_GRID,
   SHAPE_CUBE,
   SHAPE_DISK,
   SHAPE_TUBE,
   SHAPE_BALL,
   SHAPE_MAX
 };
+
+typedef struct {
+  uint32_t start[SHAPE_MAX][MAX_DETAIL];
+  uint32_t count[SHAPE_MAX][MAX_DETAIL];
+  uint32_t base[SHAPE_MAX];
+  Buffer* vertices;
+  Buffer* indices;
+} Geometry;
 
 static struct {
   bool initialized;
@@ -336,8 +345,7 @@ static struct {
   gpu_buffer* boundVertexBuffer;
   gpu_buffer* boundIndexBuffer;
   gpu_index_type boundIndexType;
-  uint32_t shapeOffset[SHAPE_MAX];
-  Buffer* shapes;
+  Geometry geometry;
   Megaview zeros;
   Texture* window;
   Texture* defaultTexture;
@@ -898,15 +906,38 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     state.formatHash[i] = hash64(&state.formats[i], sizeof(state.formats[i]));
   }
 
-  // Shapes
+  // Vertices
 
-  Vertex quad[] = { // In 10 bit land, 0x200 is 0.0, 0x3ff is 1.0, 0x000 is -1.0
-    { { -.5f,  .5f, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0x0000 } },
-    { {  .5f,  .5f, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0x0000 } },
-    { { -.5f, -.5f, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0xffff } },
-    { {  .5f, -.5f, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0xffff } }
-  };
+  uint32_t total = 0;
+  uint32_t vertexCount[SHAPE_MAX];
+  state.geometry.base[SHAPE_GRID] = total, total += vertexCount[SHAPE_GRID] = 129 * 129;
+  state.geometry.base[SHAPE_CUBE] = total, total += vertexCount[SHAPE_CUBE] = 24;
+  state.geometry.base[SHAPE_DISK] = total, total += vertexCount[SHAPE_DISK] = 256;
+  state.geometry.base[SHAPE_TUBE] = total, total += vertexCount[SHAPE_TUBE] = 1024;
+  state.geometry.base[SHAPE_BALL] = total, total += vertexCount[SHAPE_BALL] = (32 + 1) * (64 + 1);
 
+  Vertex* vertices;
+  state.geometry.vertices = lovrBufferCreate(&(BufferInfo) {
+    .type = BUFFER_VERTEX,
+    .length = total,
+    .format = VERTEX_STANDARD
+  }, (void**) &vertices);
+
+  // Grid
+  uint32_t n = 0;
+  for (uint32_t i = 0; i <= 128; i++) {
+    for (uint32_t j = 0; j <= 128; j++) {
+      float x = j / 128.f - .5f;
+      float y = .5f - i / 128.f;
+      float z = 0.f;
+      uint16_t u = x * 0xffff;
+      uint16_t v = (1.f - y) * 0xffff;
+      *vertices++ = (Vertex) { { x, y, z }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+      n++;
+    }
+  }
+
+  // Cube
   Vertex cube[] = {
     { { -.5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0x0000 } }, // Front
     { { -.5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0xffff } },
@@ -933,7 +964,10 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     { {  .5f,  .5f, -.5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0xffff } },
     { {  .5f,  .5f,  .5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0x0000 } }
   };
+  memcpy(vertices, cube, sizeof(cube));
+  vertices += COUNTOF(cube);
 
+  // Disk and tube
   Vertex disk[256];
   Vertex tube[1024];
   for (uint32_t i = 0; i < 256; i++) {
@@ -951,9 +985,10 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     tube[i + 512] = (Vertex) { { x, y, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff - u, v } };
     tube[i + 768] = (Vertex) { { x, y,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
   }
+  memcpy(vertices, disk, sizeof(disk)), vertices += COUNTOF(disk);
+  memcpy(vertices, tube, sizeof(tube)), vertices += COUNTOF(tube);
 
-  Vertex ball[2145];
-  Vertex* vertices = ball;
+  // Ball
   uint32_t lats = 32;
   uint32_t lons = 64;
   for (uint32_t lat = 0; lat <= lats; lat++) {
@@ -972,34 +1007,159 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
       uint16_t nx = (x + .5) * 0x3ff;
       uint16_t ny = (y + .5) * 0x3ff;
       uint16_t nz = (z + .5) * 0x3ff;
-      Vertex vertex = { { x, y, z }, { nx, ny, nz, 0x0 }, { u, v } };
+      Vertex vertex = { { x, y, z }, { nx, ny, nz, 0x0 }, { u * 0xffff, v * 0xffff } };
       memcpy(vertices, &vertex, sizeof(vertex));
       vertices++;
     }
   }
 
-  uint32_t vertexCount = 0;
-  state.shapeOffset[SHAPE_QUAD] = vertexCount, vertexCount += COUNTOF(quad);
-  state.shapeOffset[SHAPE_CUBE] = vertexCount, vertexCount += COUNTOF(cube);
-  state.shapeOffset[SHAPE_DISK] = vertexCount, vertexCount += COUNTOF(disk);
-  state.shapeOffset[SHAPE_TUBE] = vertexCount, vertexCount += COUNTOF(tube);
-  state.shapeOffset[SHAPE_BALL] = vertexCount, vertexCount += COUNTOF(ball);
+  // Indices
 
-  char* geometry;
-  state.shapes = lovrBufferCreate(&(BufferInfo) {
-    .type = BUFFER_VERTEX,
-    .length = vertexCount,
-    .format = VERTEX_STANDARD
-  }, (void**) &geometry);
+  total = 0;
 
-  memcpy(geometry, quad, sizeof(quad)), geometry += sizeof(quad);
-  memcpy(geometry, cube, sizeof(cube)), geometry += sizeof(cube);
-  memcpy(geometry, disk, sizeof(disk)), geometry += sizeof(disk);
-  memcpy(geometry, tube, sizeof(tube)), geometry += sizeof(tube);
-  memcpy(geometry, ball, sizeof(ball)), geometry += sizeof(ball);
+  // The grid at detail n has (2^n)^2 cells, each cell is 2 triangles, each triangle is 3 indices
+  for (uint32_t detail = 0; detail < 8; detail++) {
+    uint32_t count = 6 * (1 << detail) * (1 << detail);
+    state.geometry.start[SHAPE_GRID][detail] = total;
+    state.geometry.count[SHAPE_GRID][detail] = count;
+    total += count;
+  }
+
+  // The cube is a cube
+  state.geometry.start[SHAPE_CUBE][0] = total;
+  state.geometry.count[SHAPE_CUBE][0] = 36;
+  total += 36;
+
+  // The disk has 4*2^n vertices arranged as a triangle fan (subtract 2 due to vertex sharing)
+  for (uint32_t detail = 0; detail < 7; detail++) {
+    uint32_t vertexCount = 4 << detail;
+    uint32_t count = (vertexCount - 2) * 3;
+    state.geometry.start[SHAPE_DISK][detail] = total;
+    state.geometry.count[SHAPE_DISK][detail] = count;
+    total += count;
+  }
+
+  // The tube is like a disk -- 4*2^n vertices for the rings, duplicated so that the tube and cap
+  // can have different normals.  The tube vertices on opposite ends are stitched together with
+  // quads, and the caps use the same triangle fan topology of the disk.
+  for (uint32_t detail = 0; detail < 7; detail++) {
+    uint32_t vertexCount = 4 << detail;
+    uint32_t tubeIndexCount = 6 * vertexCount;
+    uint32_t capIndexCount = 3 * (vertexCount - 2);
+    uint32_t count = tubeIndexCount + 2 * capIndexCount;
+    state.geometry.start[SHAPE_TUBE][detail] = total;
+    state.geometry.count[SHAPE_TUBE][detail] = count;
+    total += count;
+  }
+
+  // The ball has 2*2^n latitutdes (rows of quads) and 4*2^n longitudes, all are connected via quads
+  for (uint32_t detail = 0; detail < 5; detail++) {
+    uint32_t lats = 2 << detail;
+    uint32_t lons = 4 << detail;
+    uint32_t count = lats * lons * 6;
+    state.geometry.start[SHAPE_BALL][detail] = total;
+    state.geometry.count[SHAPE_BALL][detail] = count;
+    total += count;
+  }
+
+  uint16_t* indices;
+  state.geometry.indices = lovrBufferCreate(&(BufferInfo) {
+    .type = BUFFER_INDEX,
+    .length = total,
+    .stride = sizeof(uint16_t),
+    .fieldCount = 1,
+    .types[0] = FIELD_U16
+  }, (void**) &indices);
+
+  // Grid
+  for (uint32_t detail = 0; detail <= 7; detail++) {
+    uint32_t n = 1 << detail;
+    uint16_t skip = 1 << (7 - detail);
+    uint16_t jump = 129 << (7 - detail);
+    for (uint16_t row = 0, base = 0; row < n; row++, base += jump) {
+      for (uint16_t col = 0, index = base; col < n; col++, index += skip) {
+        /* a---b
+         * | / |
+         * c---d */
+        uint16_t a = index;
+        uint16_t b = index + skip;
+        uint16_t c = index + jump;
+        uint16_t d = index + jump + skip;
+        uint16_t cell[6] = { a, b, c, b, d, c };
+        memcpy(indices, cell, sizeof(cell));
+        indices += COUNTOF(cell);
+      }
+    }
+  }
+
+  // Cube
+  const uint16_t cubeIndex[] = {
+     0,  1,  2,  2,  1,  3,
+     4,  5,  6,  6,  5,  7,
+     8,  9, 10, 10,  9, 11,
+    12, 13, 14, 14, 13, 15,
+    16, 17, 18, 18, 17, 19,
+    20, 21, 22, 22, 21, 23
+  };
+  memcpy(indices, cubeIndex, sizeof(cubeIndex));
+  indices += COUNTOF(cubeIndex);
+
+  // Disk
+  for (uint32_t detail = 0; detail <= 6; detail++) {
+    uint16_t skip = 64 >> detail;
+    uint16_t vertexCount = 4 << detail;
+    uint16_t indexCount = 3 * (vertexCount - 2);
+    for (uint16_t i = 0, j = skip; i < indexCount; i += 3, j += skip) {
+      *indices++ = 0;
+      *indices++ = j;
+      *indices++ = j + skip;
+    }
+  }
+
+  // Tube
+  for (uint32_t detail = 0; detail <= 6; detail++) {
+    uint16_t skip = 64 >> detail;
+    uint16_t vertexCount = 4 << detail;
+    uint16_t tubeIndexCount = 6 * vertexCount;
+    uint16_t capIndexCount = 3 * (vertexCount - 2);
+    for (uint16_t i = 0, j = 0; i < tubeIndexCount; i += 6, j = (j + skip) & 0xff) { // Tube
+      uint16_t k = (j + skip) & 0xff;
+      uint16_t quad[6] = { j, k, j + 256, j + 256, k, k + 256 };
+      memcpy(indices, quad, sizeof(quad));
+      indices += COUNTOF(quad);
+    }
+    for (uint16_t i = 0, j = skip; i < capIndexCount; i += 3, j += skip) { // -z cap
+      *indices++ = 512;
+      *indices++ = 768 - j;
+      *indices++ = 768 - j - skip;
+    }
+    for (uint16_t i = 0, j = skip; i < capIndexCount; i += 3, j += skip) { // +z cap
+      *indices++ = 768;
+      *indices++ = 768 + j;
+      *indices++ = 768 + j + skip;
+    }
+  }
+
+  // Ball
+  for (uint32_t detail = 0; detail <= 4; detail++) {
+    uint16_t lats = 2 << detail;
+    uint16_t lons = 4 << detail;
+    uint16_t skip = 16 >> detail;
+    uint16_t jump = 65 << (4 - detail);
+    for (uint16_t i = 0, base = 0; i < lats; i++, base += jump) {
+      for (uint16_t j = 0, index = base; j < lons; j++, index += skip) {
+        uint16_t a = index;
+        uint16_t b = index + skip;
+        uint16_t c = index + jump;
+        uint16_t d = index + jump + skip;
+        uint16_t quad[6] = { a, b, c, b, d, c };
+        memcpy(indices, quad, sizeof(quad));
+        indices += COUNTOF(quad);
+      }
+    }
+  }
 
   lovrGraphicsReset(NULL);
-
   return state.initialized = true;
 }
 
@@ -2057,7 +2217,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
       start = info->start + vertexBuffer.offset / buffer->info.stride;
       count = info->count;
 
-      if (!buffer->transient && buffer != state.shapes) {
+      if (!buffer->transient && buffer != state.geometry.vertices) {
         BufferSync sync = { buffer, BUFFER_VERTEX, 0 };
         arr_buffersync_t* buffers = state.batch ? &state.batch->buffers : &state.pass->buffers;
         arr_push(buffers, sync);
@@ -2083,7 +2243,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
   }
 
   if (hasIndices) {
-    baseVertex = info->base + (hasVertices ? start : 0);
+    baseVertex = info->base + (hasVertices ? vertexBuffer.offset / format->bufferStrides[0] : 0);
     if (info->index.buffer) {
       Buffer* buffer = info->index.buffer;
       lovrCheck(buffer->info.type == BUFFER_INDEX, "Buffers must have the 'index' type to use them for mesh indices");
@@ -2100,7 +2260,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
         lovrRetain(buffer);
       }
     } else {
-      uint32_t stride = info->index.stride;
+      uint32_t stride = info->index.stride ? info->index.stride : sizeof(uint16_t);
       uint32_t size = info->index.count * stride;
 
       indexBuffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, size, stride);
@@ -2163,7 +2323,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
   }
 
   memcpy(state.transforms.data, transform, 64);
-  memcpy(state.drawData.data, &state.pipeline->color, 4);
+  memcpy(state.drawData.data, &state.pipeline->color, 16);
   state.transforms.data += 64;
   state.drawData.data += 32;
 
@@ -2292,8 +2452,7 @@ uint32_t lovrGraphicsLine(uint32_t count, float** vertices) {
     .vertex.pointer = (void**) vertices,
     .vertex.count = count,
     .index.pointer = (void**) &indices,
-    .index.count = 2 * (count - 1),
-    .index.stride = sizeof(*indices)
+    .index.count = 2 * (count - 1)
   }, NULL);
 
   for (uint32_t i = 0; i < count; i++) {
@@ -2305,146 +2464,63 @@ uint32_t lovrGraphicsLine(uint32_t count, float** vertices) {
 }
 
 uint32_t lovrGraphicsPlane(float* transform, uint32_t detail) {
-  static const uint16_t indices[] = { 0,  1,  2,  1, 2, 3 };
+  detail = MIN(detail, 7);
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
-    .vertex.buffer = state.shapes,
-    .index.data = indices,
-    .index.count = COUNTOF(indices),
-    .index.stride = sizeof(uint16_t),
-    .base = state.shapeOffset[SHAPE_QUAD]
+    .vertex.buffer = state.geometry.vertices,
+    .index.buffer = state.geometry.indices,
+    .start = state.geometry.start[SHAPE_GRID][detail],
+    .count = state.geometry.count[SHAPE_GRID][detail],
+    .base = state.geometry.base[SHAPE_GRID]
   }, transform);
 }
 
 uint32_t lovrGraphicsBox(float* transform) {
-  static const uint16_t indices[] = {
-     0,  1,  2,  2,  1,  3,
-     4,  5,  6,  6,  5,  7,
-     8,  9, 10, 10,  9, 11,
-    12, 13, 14, 14, 13, 15,
-    16, 17, 18, 18, 17, 19,
-    20, 21, 22, 22, 21, 23
-  };
-
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
-    .vertex.buffer = state.shapes,
-    .index.data = indices,
-    .index.count = COUNTOF(indices),
-    .index.stride = sizeof(uint16_t),
-    .base = state.shapeOffset[SHAPE_CUBE]
+    .vertex.buffer = state.geometry.vertices,
+    .index.buffer = state.geometry.indices,
+    .start = state.geometry.start[SHAPE_CUBE][0],
+    .count = state.geometry.count[SHAPE_CUBE][0],
+    .base = state.geometry.base[SHAPE_CUBE]
   }, transform);
 }
 
 uint32_t lovrGraphicsCircle(float* transform, uint32_t detail) {
   detail = MIN(detail, 6);
-  uint16_t vertexCount = 4 << detail; // 4, 8, 16, 32, 64, 128, 256
-  uint16_t vertexSkip = 64 >> detail; // 64, 32, 16, 8, 4, 2, 1
-  uint16_t indexCount = 3 * (vertexCount - 2);
-
-  uint16_t* indices;
-  uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
+  return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
-    .vertex.buffer = state.shapes,
-    .index.pointer = (void**) &indices,
-    .index.count = indexCount,
-    .index.stride = sizeof(uint16_t),
-    .base = state.shapeOffset[SHAPE_DISK]
+    .vertex.buffer = state.geometry.vertices,
+    .index.buffer = state.geometry.indices,
+    .start = state.geometry.start[SHAPE_DISK][detail],
+    .count = state.geometry.count[SHAPE_DISK][detail],
+    .base = state.geometry.base[SHAPE_DISK]
   }, transform);
-
-  for (uint16_t i = 0, j = vertexSkip; i < indexCount; i += 3, j += vertexSkip) {
-    indices[i + 0] = 0;
-    indices[i + 1] = j;
-    indices[i + 2] = j + vertexSkip;
-  }
-
-  return id;
 }
 
 uint32_t lovrGraphicsCylinder(mat4 transform, uint32_t detail, bool capped) {
   detail = MIN(detail, 6);
-  uint16_t vertexCount = 4 << detail;
-  uint16_t vertexSkip = 64 >> detail;
-  uint16_t tubeIndexCount = 6 * vertexCount;
-  uint16_t capIndexCount = 3 * (vertexCount - 2);
-
-  uint16_t* indices;
-  uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
+  uint32_t capIndexCount = 3 * ((4 << detail) - 2);
+  return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
-    .vertex.buffer = state.shapes,
-    .index.pointer = (void**) &indices,
-    .index.count = tubeIndexCount + (capped ? 2 * capIndexCount : 0),
-    .index.stride = sizeof(uint16_t),
-    .base = state.shapeOffset[SHAPE_TUBE]
+    .vertex.buffer = state.geometry.vertices,
+    .index.buffer = state.geometry.indices,
+    .start = state.geometry.start[SHAPE_TUBE][detail],
+    .count = state.geometry.count[SHAPE_TUBE][detail] - (capped ? 0 : 2 * capIndexCount),
+    .base = state.geometry.base[SHAPE_TUBE]
   }, transform);
-
-  // Tube
-  for (uint16_t i = 0, j = 0; i < tubeIndexCount; i += 6, j = (j + vertexSkip) & 0xff) {
-    uint16_t k = (j + vertexSkip) & 0xff;
-    indices[i + 0] = j;
-    indices[i + 1] = k;
-    indices[i + 2] = j + 256;
-    indices[i + 3] = j + 256;
-    indices[i + 4] = k;
-    indices[i + 5] = k + 256;
-  }
-
-  indices += tubeIndexCount;
-
-  // Caps
-  if (capped) {
-    for (uint16_t i = 0, j = vertexSkip; i < capIndexCount; i += 3, j += vertexSkip) { // Forward
-      indices[i + 0] = 512;
-      indices[i + 1] = 768 - j;
-      indices[i + 2] = 768 - j - vertexSkip;
-    }
-
-    indices += capIndexCount;
-
-    for (uint16_t i = 0, j = vertexSkip; i < capIndexCount; i += 3, j += vertexSkip) { // Backward
-      indices[i + 0] = 768;
-      indices[i + 1] = 768 + j;
-      indices[i + 2] = 768 + j + vertexSkip;
-    }
-  }
-
-  return id;
 }
 
 uint32_t lovrGraphicsSphere(mat4 transform, uint32_t detail) {
   detail = MIN(detail, 4);
-  uint16_t lats = 2 << detail;
-  uint16_t lons = 4 << detail;
-  uint32_t indexCount = lats * lons * 6;
-
-  uint16_t* indices;
-  uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
+  return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
-    .vertex.buffer = state.shapes,
-    .index.pointer = (void**) &indices,
-    .index.count = indexCount,
-    .index.stride = sizeof(uint16_t),
-    .base = state.shapeOffset[SHAPE_BALL]
+    .vertex.buffer = state.geometry.vertices,
+    .index.buffer = state.geometry.indices,
+    .start = state.geometry.start[SHAPE_BALL][detail],
+    .count = state.geometry.count[SHAPE_BALL][detail],
+    .base = state.geometry.base[SHAPE_BALL]
   }, transform);
-
-  uint16_t jump = 16 >> detail;
-  uint16_t leap = 65 << (4 - detail);
-  for (uint16_t i = 0, base = 0; i < lats; i++, base += leap) {
-    for (uint16_t j = 0, index = base; j < lons; j++, index += jump) {
-      /* a---b
-       * | / |
-       * c---d */
-      uint16_t a = index;
-      uint16_t b = index + jump;
-      uint16_t c = index + leap;
-      uint16_t d = index + leap + jump;
-      uint16_t quad[6] = { a, b, c, b, d, c };
-      memcpy(indices, quad, sizeof(quad));
-      indices += COUNTOF(quad);
-    }
-  }
-
-  return id;
 }
 
 uint32_t lovrGraphicsSkybox(Texture* texture) {
@@ -2662,8 +2738,8 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
 // Buffer
 
 Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
-  uint32_t stride = info->stride ? info->stride : state.formats[info->format].bufferStrides[0];
-  uint32_t size = info->length * stride;
+  info->stride = info->stride ? info->stride : state.formats[info->format].bufferStrides[0];
+  uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size must be positive");
   lovrCheck(size <= 1 << 30, "Max Buffer size is 1GB");
   Buffer* buffer = transient ? talloc(sizeof(Buffer)) : calloc(1, sizeof(Buffer));
@@ -2672,7 +2748,7 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
   buffer->size = size;
   uint32_t align = 1;
   switch (info->type) {
-    case BUFFER_VERTEX: align = stride; break;
+    case BUFFER_VERTEX: align = info->stride; break;
     case BUFFER_INDEX: align = 4; break;
     case BUFFER_UNIFORM: align = state.limits.uniformBufferAlign; break;
     case BUFFER_COMPUTE: align = state.limits.storageBufferAlign; break;
@@ -2684,7 +2760,7 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
     state.buffers.list[buffer->mega.index].refs++;
   }
   if (info->type == BUFFER_VERTEX) {
-    if (info->format) {
+    if (info->fieldCount == 0) {
       buffer->format = state.formats[info->format];
       buffer->mask = state.formatMask[info->format];
       buffer->hash = state.formatHash[info->format];
