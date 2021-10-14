@@ -21,8 +21,8 @@ struct Camera {
 
 struct DrawData {
   vec4 color;
-  uint material;
-  uint pad[3];
+  /*uint material;
+  uint pad[3];*/
 };
 
 layout(set = 0, binding = 0) uniform CameraBuffer { Camera camera; };
