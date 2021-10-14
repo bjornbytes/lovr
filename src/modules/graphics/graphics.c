@@ -36,14 +36,15 @@ typedef struct {
   struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
   struct { float u, v; } uv;
   struct { uint8_t r, g, b, a; } color;
-  struct { uint16_t x: 10, y: 10, z: 10, handedness: 2; } tangent;
+  struct { unsigned x: 10, y: 10, z: 10, handedness: 2; } tangent;
 } SupremeVertex;
 
 typedef struct {
   struct { float x, y, z; } position;
   struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
+  struct { float u, v; } uv;
   struct { uint8_t r, g, b, a; } color;
-  struct { uint16_t x: 10, y: 10, z: 10, handedness: 2; } tangent;
+  struct { unsigned x: 10, y: 10, z: 10, handedness: 2; } tangent;
   uint8_t joints[4];
   uint8_t weights[4];
 } SkinnedVertex;
