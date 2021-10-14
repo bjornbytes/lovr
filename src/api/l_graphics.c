@@ -58,6 +58,9 @@ StringEntry lovrDefaultAttribute[] = {
   [ATTRIBUTE_NORMAL] = ENTRY("normal"),
   [ATTRIBUTE_TEXCOORD] = ENTRY("texcoord"),
   [ATTRIBUTE_COLOR] = ENTRY("color"),
+  [ATTRIBUTE_TANGENT] = ENTRY("tangent"),
+  [ATTRIBUTE_JOINTS] = ENTRY("joints"),
+  [ATTRIBUTE_WEIGHTS] = ENTRY("weights"),
   { 0 }
 };
 
@@ -1849,6 +1852,8 @@ extern const luaL_Reg lovrSampler[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrBatch[];
+extern const luaL_Reg lovrModel[];
+extern const luaL_Reg lovrFont[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
@@ -1859,5 +1864,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Shader);
   luax_registertype(L, Material);
   luax_registertype(L, Batch);
+  luax_registertype(L, Model);
+  luax_registertype(L, Font);
   return 1;
 }
