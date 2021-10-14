@@ -655,6 +655,16 @@ static int l_lovrGraphicsPrepare(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsSubmit(lua_State* L) {
+  lovrGraphicsSubmit();
+  return 0;
+}
+
+static int l_lovrGraphicsWait(lua_State* L) {
+  lovrGraphicsWait();
+  return 0;
+}
+
 static int l_lovrGraphicsBegin(lua_State* L) {
   PassType type = luax_checkenum(L, 1, PassType, NULL);
   switch (type) {
@@ -668,16 +678,6 @@ static int l_lovrGraphicsBegin(lua_State* L) {
 
 static int l_lovrGraphicsFinish(lua_State* L) {
   lovrGraphicsFinish();
-  return 0;
-}
-
-static int l_lovrGraphicsSubmit(lua_State* L) {
-  lovrGraphicsSubmit();
-  return 0;
-}
-
-static int l_lovrGraphicsWait(lua_State* L) {
-  lovrGraphicsWait();
   return 0;
 }
 
@@ -1771,10 +1771,11 @@ static const luaL_Reg lovrGraphics[] = {
 
   { "init", l_lovrGraphicsInit },
   { "prepare", l_lovrGraphicsPrepare },
-  { "begin", l_lovrGraphicsBegin },
-  { "finish", l_lovrGraphicsFinish },
   { "submit", l_lovrGraphicsSubmit },
   { "wait", l_lovrGraphicsWait },
+
+  { "begin", l_lovrGraphicsBegin },
+  { "finish", l_lovrGraphicsFinish },
 
   { "getBackground", l_lovrGraphicsGetBackground },
   { "setBackground", l_lovrGraphicsSetBackground },

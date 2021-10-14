@@ -301,13 +301,14 @@ void lovrGraphicsGetStats(GraphicsStats* stats);
 bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
 
 void lovrGraphicsPrepare(void);
+void lovrGraphicsSubmit(void);
+void lovrGraphicsWait(void);
+
 void lovrGraphicsBeginRender(Canvas* canvas, uint32_t order);
 void lovrGraphicsBeginCompute(uint32_t order);
 void lovrGraphicsBeginTransfer(uint32_t order);
 void lovrGraphicsBeginBatch(Batch* batch);
 void lovrGraphicsFinish(void);
-void lovrGraphicsSubmit(void);
-void lovrGraphicsWait(void);
 
 void lovrGraphicsGetBackground(float background[4]);
 void lovrGraphicsSetBackground(float background[4]);
