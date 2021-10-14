@@ -437,6 +437,7 @@ static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint1
 static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint16_t extent[3]);
 static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, ReflectionInfo* reflection);
 static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
+static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 
 // Entry
 
@@ -586,25 +587,25 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   state.formats[VERTEX_SUPREME] = (gpu_vertex_format) {
     .bufferCount = 1,
     .attributeCount = 5,
-    .bufferStrides[0] = 28,
-    .attributes[0] = { 0, 0, 0, GPU_TYPE_F32x3 },
-    .attributes[1] = { 0, 1, 12, GPU_TYPE_U10Nx3 },
-    .attributes[2] = { 0, 2, 16, GPU_TYPE_F32x2 },
-    .attributes[3] = { 0, 3, 24, GPU_TYPE_U8Nx4 },
-    .attributes[4] = { 0, 4, 28, GPU_TYPE_U10Nx3 }
+    .bufferStrides[0] = sizeof(SupremeVertex),
+    .attributes[0] = { 0, 0, offsetof(SupremeVertex, position), GPU_TYPE_F32x3 },
+    .attributes[1] = { 0, 1, offsetof(SupremeVertex, normal), GPU_TYPE_U10Nx3 },
+    .attributes[2] = { 0, 2, offsetof(SupremeVertex, uv), GPU_TYPE_F32x2 },
+    .attributes[3] = { 0, 3, offsetof(SupremeVertex, color), GPU_TYPE_U8Nx4 },
+    .attributes[4] = { 0, 4, offsetof(SupremeVertex, tangent), GPU_TYPE_U10Nx3 }
   };
 
   state.formats[VERTEX_SKINNED] = (gpu_vertex_format) {
     .bufferCount = 1,
     .attributeCount = 7,
-    .bufferStrides[0] = 36,
-    .attributes[0] = { 0, 0, 0, GPU_TYPE_F32x3 },
-    .attributes[1] = { 0, 1, 12, GPU_TYPE_U10Nx3 },
-    .attributes[2] = { 0, 2, 16, GPU_TYPE_U16Nx2 },
-    .attributes[3] = { 0, 3, 20, GPU_TYPE_U8Nx4 },
-    .attributes[4] = { 0, 4, 24, GPU_TYPE_U10Nx3 },
-    .attributes[5] = { 0, 5, 28, GPU_TYPE_U8x4 },
-    .attributes[6] = { 0, 6, 32, GPU_TYPE_U8Nx4 }
+    .bufferStrides[0] = sizeof(SkinnedVertex),
+    .attributes[0] = { 0, 0, offsetof(SkinnedVertex, position), GPU_TYPE_F32x3 },
+    .attributes[1] = { 0, 1, offsetof(SkinnedVertex, normal), GPU_TYPE_U10Nx3 },
+    .attributes[2] = { 0, 2, offsetof(SkinnedVertex, uv), GPU_TYPE_F32x2 },
+    .attributes[3] = { 0, 3, offsetof(SkinnedVertex, color), GPU_TYPE_U8Nx4 },
+    .attributes[4] = { 0, 4, offsetof(SkinnedVertex, tangent), GPU_TYPE_U10Nx3 },
+    .attributes[5] = { 0, 5, offsetof(SkinnedVertex, joints), GPU_TYPE_U8x4 },
+    .attributes[6] = { 0, 6, offsetof(SkinnedVertex, weights), GPU_TYPE_U8Nx4 }
   };
 
   state.formats[VERTEX_EMPTY] = (gpu_vertex_format) { 0 };
@@ -1942,8 +1943,34 @@ uint32_t lovrGraphicsFill(Texture* texture) {
   }, NULL);
 }
 
-uint32_t lovrGraphicsModel(Model* model, mat4 transform, uint32_t node, bool children, uint32_t instances) {
-  lovrThrow("TODO");
+static void renderModelNode(Model* model, uint32_t index, bool children, uint32_t instances) {
+  ModelNode* node = &model->data->nodes[index];
+  mat4 globalTransform = model->globalTransforms + 16 * index;
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    DrawInfo draw = model->draws[node->primitiveIndex + i]; // Make a copy for thread safety
+    draw.instances = instances;
+    lovrGraphicsMesh(&draw, globalTransform);
+  }
+
+  if (children) {
+    for (uint32_t i = 0; i < node->childCount; i++) {
+      renderModelNode(model, node->children[i], true, instances);
+    }
+  }
+}
+
+void lovrGraphicsModel(Model* model, mat4 transform, uint32_t node, bool children, uint32_t instances) {
+  updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+
+  if (node == ~0u) {
+    node = model->data->rootNode;
+  }
+
+  lovrGraphicsPush(STACK_TRANSFORM, NULL);
+  lovrGraphicsTransform(transform);
+  renderModelNode(model, node, children, instances);
+  lovrGraphicsPop(STACK_TRANSFORM);
 }
 
 uint32_t lovrGraphicsPrint(Font* font, const char* text, uint32_t length, mat4 transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
@@ -3359,6 +3386,11 @@ Model* lovrModelCreate(ModelInfo* info) {
         } else {
           lovrThrow("Model uses unsupported data type for color attribute");
         }
+      } else {
+        SupremeVertex* vertex = (SupremeVertex*) vertices;
+        for (uint32_t i = 0; i < count; i++, vertex++) {
+          memset(&vertex->color, 0xff, sizeof(vertex->color));
+        }
       }
 
       if ((attribute = primitive->attributes[ATTR_TANGENT]) != NULL) {
@@ -3448,6 +3480,12 @@ Model* lovrModelCreate(ModelInfo* info) {
           vertex->weights[3] = 0;
         }
       }
+    }
+
+    if (primitive->indices) {
+      lovrCheck(data->buffers[primitive->indices->buffer].stride == indexStride, "Currently Model indices must be tightly packed");
+      char* src = data->buffers[primitive->indices->buffer].data + primitive->indices->offset;
+      memcpy(indices, src, primitive->indices->count * indexStride);
     }
   }
 
@@ -4692,4 +4730,26 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
   entry->hash = hash;
   entry->tick = state.tick;
   return texture;
+}
+
+static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent) {
+  if (!model->transformsDirty) return;
+
+  mat4 global = model->globalTransforms + 16 * nodeIndex;
+  NodeTransform* local = &model->localTransforms[nodeIndex];
+  vec3 T = local->properties[PROP_TRANSLATION];
+  quat R = local->properties[PROP_ROTATION];
+  vec3 S = local->properties[PROP_SCALE];
+
+  mat4_init(global, parent);
+  mat4_translate(global, T[0], T[1], T[2]);
+  mat4_rotateQuat(global, R);
+  mat4_scale(global, S[0], S[1], S[2]);
+
+  ModelNode* node = &model->data->nodes[nodeIndex];
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    updateModelTransforms(model, node->children[i], global);
+  }
+
+  model->transformsDirty = false;
 }

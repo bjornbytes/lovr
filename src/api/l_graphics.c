@@ -1222,9 +1222,8 @@ static int l_lovrGraphicsModel(lua_State* L) {
   uint32_t node = luaL_optinteger(L, index++, ~0u); // TODO string
   bool children = lua_isnil(L, index) ? (index++, true) : lua_toboolean(L, index++);
   uint32_t instances = luaL_optinteger(L, index++, 1);
-  uint32_t id = lovrGraphicsModel(model, transform, node, children, instances);
-  lua_pushinteger(L, id);
-  return 1;
+  lovrGraphicsModel(model, transform, node, children, instances);
+  return 0;
 }
 
 static int l_lovrGraphicsPrint(lua_State* L) {
