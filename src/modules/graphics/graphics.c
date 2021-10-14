@@ -23,6 +23,12 @@
 #define MAX_DETAIL 8
 
 typedef struct {
+  struct { float x, y, z; } position;
+  struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
+  struct { uint16_t u, v; } uv;
+} Vertex;
+
+typedef struct {
   gpu_buffer* gpu;
   char* data;
   uint32_t index;
@@ -851,12 +857,6 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
   // Builtin vertex formats
 
-  typedef struct {
-    struct { float x, y, z; } position;
-    struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
-    struct { uint16_t u, v; } uv;
-  } Vertex;
-
   state.formats[VERTEX_STANDARD] = (gpu_vertex_format) {
     .bufferCount = 1,
     .attributeCount = 3,
@@ -1528,7 +1528,7 @@ void lovrGraphicsBeginBatch(Batch* batch) {
   if (batch->info.transient) {
     lovrBatchReset(batch);
     batch->transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 64, state.limits.uniformBufferAlign);
-    batch->drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 32, state.limits.uniformBufferAlign);
+    batch->drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 16, state.limits.uniformBufferAlign);
     state.transforms = batch->transforms;
     state.drawData = batch->drawData;
   }
@@ -2312,7 +2312,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     }
 
     state.transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 64, state.limits.uniformBufferAlign);
-    state.drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 32, state.limits.uniformBufferAlign);
+    state.drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 16, state.limits.uniformBufferAlign);
   }
 
   float m[16];
@@ -2325,7 +2325,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
   memcpy(state.transforms.data, transform, 64);
   memcpy(state.drawData.data, &state.pipeline->color, 16);
   state.transforms.data += 64;
-  state.drawData.data += 32;
+  state.drawData.data += 16;
 
   // Draw
 
@@ -2380,7 +2380,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
         .bindings = (gpu_binding[]) {
           [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
           [1].buffer = { state.transforms.gpu, state.transforms.offset, 256 * 64 },
-          [2].buffer = { state.drawData.gpu, state.drawData.offset, 256 * 32 }
+          [2].buffer = { state.drawData.gpu, state.drawData.offset, 256 * 16 }
         }
       };
       gpu_bundle* uniformBundle = allocateBundle(0);
@@ -2575,7 +2575,7 @@ void lovrGraphicsReplay(Batch* batch) {
     .bindings = (gpu_binding[]) {
       [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
       [1].buffer = { batch->transforms.gpu, batch->transforms.offset, 256 * 64 },
-      [2].buffer = { batch->drawData.gpu, batch->drawData.offset, 256 * 32 }
+      [2].buffer = { batch->drawData.gpu, batch->drawData.offset, 256 * 16 }
     }
   };
   gpu_bundle* uniformBundle = allocateBundle(0);
@@ -4168,7 +4168,7 @@ Batch* lovrBatchCreate(BatchInfo* info) {
 
     uint32_t alignment = state.limits.uniformBufferAlign;
     batch->transforms = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 64, alignment);
-    batch->drawData = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 32, alignment);
+    batch->drawData = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 16, alignment);
     batch->stash = allocateBuffer(GPU_MEMORY_GPU, info->bufferSize, 4);
   }
 
@@ -4393,11 +4393,57 @@ Model* lovrModelCreate(ModelInfo* info) {
     indexCursor += indexCount;
   }
 
-  // Third pass: Write data to vertex and index buffers
+  // Third pass: Write data to buffers
   indexCursor = 0;
   vertexCursor = 0;
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
-    // TODO
+    ModelPrimitive* primitive = &data->primitives[i];
+    uint32_t count = primitive->attributes[ATTR_POSITION]->count;
+    ModelAttribute* attribute;
+
+    if ((attribute = primitive->attributes[ATTR_POSITION]) != NULL) {
+      Vertex* vertex = (Vertex*) vertices;
+      char* src = data->buffers[attribute->buffer].data + attribute->offset;
+      uint32_t stride = data->buffers[attribute->buffer].stride;
+      for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+        memcpy(&vertex->position, src, 3 * sizeof(float));
+      }
+    }
+
+    if ((attribute = primitive->attributes[ATTR_NORMAL]) != NULL) {
+      Vertex* vertex = (Vertex*) vertices;
+      char* src = data->buffers[attribute->buffer].data + attribute->offset;
+      uint32_t stride = data->buffers[attribute->buffer].stride;
+      for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+        float* normal = (float*) src;
+        vertex->normal.nx = (unsigned) ((normal[0] + 1.f) * .5f * 0x3ff);
+        vertex->normal.ny = (unsigned) ((normal[1] + 1.f) * .5f * 0x3ff);
+        vertex->normal.nz = (unsigned) ((normal[2] + 1.f) * .5f * 0x3ff);
+      }
+    }
+
+    if ((attribute = primitive->attributes[ATTR_TEXCOORD]) != NULL) {
+      Vertex* vertex = (Vertex*) vertices;
+      char* src = data->buffers[attribute->buffer].data + attribute->offset;
+      uint32_t stride = data->buffers[attribute->buffer].stride;
+      if (attribute->type == U8 && attribute->normalized) {
+        for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          uint8_t* uv = (uint8_t*) src;
+          vertex->uv.u = (uint16_t) uv[0];
+          vertex->uv.v = (uint16_t) uv[1];
+        }
+      } else if (attribute->type == U16 && attribute->normalized) {
+        for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          memcpy(&vertex->uv, src, 2 * sizeof(uint16_t));
+        }
+      } else if (attribute->type == F32) {
+        for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          // TODO uvsquish
+        }
+      } else {
+        lovrThrow("Unsupported data type for texcoord attribute");
+      }
+    }
   }
 
   for (uint32_t i = 0; i < data->skinCount; i++) {
@@ -4449,4 +4495,9 @@ Font* lovrFontCreate(Rasterizer* rasterizer) {
   font->rasterizer = rasterizer;
   lovrRetain(rasterizer);
   return font;
+}
+
+void lovrFontDestroy(void* ref) {
+  Font* font = ref;
+  free(font);
 }
