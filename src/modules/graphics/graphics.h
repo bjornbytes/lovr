@@ -359,7 +359,7 @@ uint32_t lovrGraphicsCylinder(float* transform, uint32_t detail, bool capped);
 uint32_t lovrGraphicsSphere(float* transform, uint32_t detail);
 uint32_t lovrGraphicsSkybox(Texture* texture);
 uint32_t lovrGraphicsFill(Texture* texture);
-uint32_t lovrGraphicsModel(Model* model, float* transform, uint32_t node, bool children, uint32_t instances);
+void lovrGraphicsModel(Model* model, float* transform, uint32_t node, bool children, uint32_t instances);
 uint32_t lovrGraphicsPrint(Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsReplay(Batch* batch);
 
