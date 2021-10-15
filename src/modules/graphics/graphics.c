@@ -3250,234 +3250,234 @@ Model* lovrModelCreate(ModelInfo* info) {
     indexCursor += indexCount;
   }
 
+  union {
+    char* raw;
+    Vertex* standard;
+    SupremeVertex* supreme;
+    SkinnedVertex* skinned;
+  } vertex;
+
   // Third pass: Write data to buffers, converting to the vertex format's types
   indexCursor = 0;
   vertexCursor = 0;
+  uint32_t vertexStride = state.formats[format].bufferStrides[0];
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
     ModelPrimitive* primitive = &data->primitives[i];
     uint32_t count = primitive->attributes[ATTR_POSITION]->count;
     ModelAttribute* attribute;
 
+    vertex.raw = vertices;
     if ((attribute = primitive->attributes[ATTR_POSITION]) != NULL) {
       lovrCheck(attribute->type == F32 && attribute->components == 3, "Model position attribute must be 3 floats");
-      Vertex* vertex = (Vertex*) vertices;
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
       uint32_t stride = data->buffers[attribute->buffer].stride;
-      for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
-        memcpy(&vertex->position, src, sizeof(vertex->position));
+      for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
+        memcpy(&vertex.standard->position, src, 3 * sizeof(float));
       }
     } else {
-      Vertex* vertex = (Vertex*) vertices;
-      for (uint32_t i = 0; i < count; i++, vertex++) {
-        memset(&vertex->position, 0, sizeof(vertex->position));
+      for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
+        memset(&vertex.standard->position, 0, 3 * sizeof(float));
       }
     }
 
+    vertex.raw = vertices;
     if ((attribute = primitive->attributes[ATTR_NORMAL]) != NULL) {
       lovrCheck(attribute->type == F32 && attribute->components == 3, "Model normal attribute must be 3 floats");
-      Vertex* vertex = (Vertex*) vertices;
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
       uint32_t stride = data->buffers[attribute->buffer].stride;
-      for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+      for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
         float* normal = (float*) src;
-        vertex->normal.nx = (unsigned) ((normal[0] + 1.f) * .5f * 0x3ff);
-        vertex->normal.ny = (unsigned) ((normal[1] + 1.f) * .5f * 0x3ff);
-        vertex->normal.nz = (unsigned) ((normal[2] + 1.f) * .5f * 0x3ff);
+        vertex.standard->normal.nx = (unsigned) ((normal[0] + 1.f) * .5f * 0x3ff);
+        vertex.standard->normal.ny = (unsigned) ((normal[1] + 1.f) * .5f * 0x3ff);
+        vertex.standard->normal.nz = (unsigned) ((normal[2] + 1.f) * .5f * 0x3ff);
       }
     } else {
-      Vertex* vertex = (Vertex*) vertices;
-      for (uint32_t i = 0; i < count; i++, vertex++) {
-        vertex->normal.nx = 0x200;
-        vertex->normal.ny = 0x200;
-        vertex->normal.nz = 0x200;
+      for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
+        vertex.standard->normal.nx = 0x200;
+        vertex.standard->normal.ny = 0x200;
+        vertex.standard->normal.nz = 0x200;
       }
     }
 
+    vertex.raw = vertices;
     if (format == VERTEX_STANDARD) {
       if ((attribute = primitive->attributes[ATTR_TEXCOORD]) != NULL) {
-        Vertex* vertex = (Vertex*) vertices;
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8 && attribute->normalized) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint8_t* uv = (uint8_t*) src;
-            vertex->uv.u = (uint16_t) uv[0];
-            vertex->uv.v = (uint16_t) uv[1];
+            vertex.standard->uv.u = (uint16_t) uv[0];
+            vertex.standard->uv.v = (uint16_t) uv[1];
           }
         } else if (attribute->type == U16 && attribute->normalized) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
-            memcpy(&vertex->uv, src, 2 * sizeof(uint16_t));
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
+            memcpy(&vertex.standard->uv, src, 2 * sizeof(uint16_t));
           }
         } else {
           lovrThrow("Model uses unsupported data type for texcoord attribute");
         }
       } else {
-        Vertex* vertex = (Vertex*) vertices;
-        for (uint32_t i = 0; i < count; i++, vertex++) {
-          vertex->uv.u = 0;
-          vertex->uv.v = 0;
+        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
+          vertex.standard->uv.u = 0;
+          vertex.standard->uv.v = 0;
         }
       }
     }
 
     if (format >= VERTEX_SUPREME) {
+      vertex.raw = vertices;
       if ((attribute = primitive->attributes[ATTR_TEXCOORD]) != NULL) {
-        SupremeVertex* vertex = (SupremeVertex*) vertices;
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8 && attribute->normalized) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint8_t* uv = (uint8_t*) src;
-            vertex->uv.u = uv[0] / 255.f;
-            vertex->uv.v = uv[1] / 255.f;
+            vertex.supreme->uv.u = uv[0] / 255.f;
+            vertex.supreme->uv.v = uv[1] / 255.f;
           }
         } else if (attribute->type == U16 && attribute->normalized) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint16_t* uv = (uint16_t*) src;
-            vertex->uv.u = uv[0] / 65535.f;
-            vertex->uv.v = uv[1] / 65535.f;
+            vertex.supreme->uv.u = uv[0] / 65535.f;
+            vertex.supreme->uv.v = uv[1] / 65535.f;
           }
         } else if (attribute->type == F32) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
-            memcpy(&vertex->uv, src, sizeof(vertex->uv));
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
+            memcpy(&vertex.supreme->uv, src, 2 * sizeof(float));
           }
         } else {
           lovrThrow("Model uses unsupported data type for texcoord attribute");
         }
       } else {
-        SupremeVertex* vertex = (SupremeVertex*) vertices;
-        for (uint32_t i = 0; i < count; i++, vertex++) {
-          vertex->uv.u = 0.f;
-          vertex->uv.v = 0.f;
+        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
+          vertex.supreme->uv.u = 0.f;
+          vertex.supreme->uv.v = 0.f;
         }
       }
 
+      vertex.raw = vertices;
       if ((attribute = primitive->attributes[ATTR_COLOR]) != NULL) {
-        SupremeVertex* vertex = (SupremeVertex*) vertices;
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8 && attribute->normalized) {
           if (attribute->components == 4) {
-            for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
-              memcpy(&vertex->color, src, 4);
+            for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
+              memcpy(&vertex.supreme->color, src, 4);
             }
           } else {
-            for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
-              memcpy(&vertex->color, src, 3);
-              vertex->color.a = 255;
+            for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
+              memcpy(&vertex.supreme->color, src, 3);
+              vertex.supreme->color.a = 255;
             }
           }
         } else if (attribute->type == U16 && attribute->normalized) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint16_t* color = (uint16_t*) src;
-            vertex->color.r = color[0] >> 8;
-            vertex->color.g = color[1] >> 8;
-            vertex->color.b = color[2] >> 8;
-            vertex->color.a = attribute->components == 3 ? 255 : (color[3] >> 8);
+            vertex.supreme->color.r = color[0] >> 8;
+            vertex.supreme->color.g = color[1] >> 8;
+            vertex.supreme->color.b = color[2] >> 8;
+            vertex.supreme->color.a = attribute->components == 3 ? 255 : (color[3] >> 8);
           }
         } else if (attribute->type == F32) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             float* color = (float*) src;
-            vertex->color.r = color[0] * 255.f + .5f;
-            vertex->color.g = color[1] * 255.f + .5f;
-            vertex->color.b = color[2] * 255.f + .5f;
-            vertex->color.a = attribute->components == 3 ? 255 : (color[3] * 255.f + .5f);
+            vertex.supreme->color.r = color[0] * 255.f + .5f;
+            vertex.supreme->color.g = color[1] * 255.f + .5f;
+            vertex.supreme->color.b = color[2] * 255.f + .5f;
+            vertex.supreme->color.a = attribute->components == 3 ? 255 : (color[3] * 255.f + .5f);
           }
         } else {
           lovrThrow("Model uses unsupported data type for color attribute");
         }
       } else {
-        SupremeVertex* vertex = (SupremeVertex*) vertices;
-        for (uint32_t i = 0; i < count; i++, vertex++) {
-          memset(&vertex->color, 0xff, sizeof(vertex->color));
+        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
+          memset(&vertex.supreme->color, 0xff, 4 * sizeof(uint8_t));
         }
       }
 
+      vertex.raw = vertices;
       if ((attribute = primitive->attributes[ATTR_TANGENT]) != NULL) {
         lovrCheck(attribute->type == F32 && attribute->components == 3, "Model tangent attribute must be 3 floats");
-        SupremeVertex* vertex = (SupremeVertex*) vertices;
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
-        for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+        for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
           float* tangent = (float*) src;
-          vertex->tangent.x = (unsigned) ((tangent[0] + 1.f) * .5f * 0x3ff);
-          vertex->tangent.y = (unsigned) ((tangent[1] + 1.f) * .5f * 0x3ff);
-          vertex->tangent.z = (unsigned) ((tangent[2] + 1.f) * .5f * 0x3ff);
-          vertex->tangent.handedness = (unsigned) (tangent[3] == -1.f ? 0x0 : 0x3);
+          vertex.supreme->tangent.x = (unsigned) ((tangent[0] + 1.f) * .5f * 0x3ff);
+          vertex.supreme->tangent.y = (unsigned) ((tangent[1] + 1.f) * .5f * 0x3ff);
+          vertex.supreme->tangent.z = (unsigned) ((tangent[2] + 1.f) * .5f * 0x3ff);
+          vertex.supreme->tangent.handedness = (unsigned) (tangent[3] == -1.f ? 0x0 : 0x3);
         }
       } else {
-        SupremeVertex* vertex = (SupremeVertex*) vertices;
-        for (uint32_t i = 0; i < count; i++, vertex++) {
-          vertex->tangent.x = 0x200;
-          vertex->tangent.y = 0x200;
-          vertex->tangent.z = 0x200;
-          vertex->tangent.handedness = 0;
+        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
+          vertex.supreme->tangent.x = 0x200;
+          vertex.supreme->tangent.y = 0x200;
+          vertex.supreme->tangent.z = 0x200;
+          vertex.supreme->tangent.handedness = 0;
         }
       }
     }
 
     if (format == VERTEX_SKINNED) {
+      vertex.raw = vertices;
       if ((attribute = primitive->attributes[ATTR_BONES]) != NULL) {
-        SkinnedVertex* vertex = (SkinnedVertex*) vertices;
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
-            memcpy(vertex->joints, src, 4);
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
+            memcpy(vertex.skinned->joints, src, 4);
           }
         } else if (attribute->type == U16) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint16_t* joints = (uint16_t*) src;
-            vertex->joints[0] = joints[0];
-            vertex->joints[1] = joints[1];
-            vertex->joints[2] = joints[2];
-            vertex->joints[3] = joints[3];
+            vertex.skinned->joints[0] = joints[0];
+            vertex.skinned->joints[1] = joints[1];
+            vertex.skinned->joints[2] = joints[2];
+            vertex.skinned->joints[3] = joints[3];
           }
         } else {
           lovrThrow("Model uses unsupported data type for joints attribute");
         }
       } else {
-        SkinnedVertex* vertex = (SkinnedVertex*) vertices;
-        for (uint32_t i = 0; i < count; i++, vertex++) {
-          memset(vertex->joints, 0, sizeof(vertex->joints));
+        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
+          memset(vertex.skinned->joints, 0, sizeof(vertex.skinned->joints));
         }
       }
 
+      vertex.raw = vertices;
       if ((attribute = primitive->attributes[ATTR_WEIGHTS]) != NULL) {
-        SkinnedVertex* vertex = (SkinnedVertex*) vertices;
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8 && attribute->normalized) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
-            memcpy(vertex->weights, src, 4);
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
+            memcpy(vertex.skinned->weights, src, 4);
           }
         } else if (attribute->type == U16 && attribute->normalized) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint16_t* weights = (uint16_t*) src;
-            vertex->weights[0] = weights[0] >> 8; // TODO am i doing this right
-            vertex->weights[1] = weights[1] >> 8;
-            vertex->weights[2] = weights[2] >> 8;
-            vertex->weights[3] = weights[3] >> 8;
+            vertex.skinned->weights[0] = weights[0] >> 8; // TODO am i doing this right
+            vertex.skinned->weights[1] = weights[1] >> 8;
+            vertex.skinned->weights[2] = weights[2] >> 8;
+            vertex.skinned->weights[3] = weights[3] >> 8;
           }
         } else if (attribute->type == F32) {
-          for (uint32_t i = 0; i < count; i++, vertex++, src += stride) {
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             float* weights = (float*) src;
             // TODO need to renormalize
-            vertex->weights[0] = (uint8_t) (weights[0] * 255.f + .5f);
-            vertex->weights[1] = (uint8_t) (weights[1] * 255.f + .5f);
-            vertex->weights[2] = (uint8_t) (weights[2] * 255.f + .5f);
-            vertex->weights[3] = (uint8_t) (weights[3] * 255.f + .5f);
+            vertex.skinned->weights[0] = (uint8_t) (weights[0] * 255.f + .5f);
+            vertex.skinned->weights[1] = (uint8_t) (weights[1] * 255.f + .5f);
+            vertex.skinned->weights[2] = (uint8_t) (weights[2] * 255.f + .5f);
+            vertex.skinned->weights[3] = (uint8_t) (weights[3] * 255.f + .5f);
           }
         } else {
           lovrThrow("Model uses unsupported data type for weights attribute");
         }
       } else {
-        SkinnedVertex* vertex = (SkinnedVertex*) vertices;
-        for (uint32_t i = 0; i < count; i++, vertex++) {
-          vertex->weights[0] = 255;
-          vertex->weights[1] = 0;
-          vertex->weights[2] = 0;
-          vertex->weights[3] = 0;
+        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
+          vertex.skinned->weights[0] = 255;
+          vertex.skinned->weights[1] = 0;
+          vertex.skinned->weights[2] = 0;
+          vertex.skinned->weights[3] = 0;
         }
       }
     }
