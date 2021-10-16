@@ -13,8 +13,6 @@
 struct gpu_buffer {
   VkBuffer handle;
   VkDeviceMemory memory;
-  uint32_t reads;
-  uint32_t write;
 };
 
 struct gpu_texture {
@@ -23,8 +21,6 @@ struct gpu_texture {
   VkImageView view;
   VkFormat format;
   VkImageAspectFlagBits aspect;
-  uint32_t reads;
-  uint32_t write;
   bool layered;
 };
 
@@ -741,7 +737,6 @@ bool gpu_bunch_init(gpu_bunch* bunch, gpu_bunch_info* info) {
     return false;
   }
 
-
   VkDescriptorSetLayout layouts[1024];
   for (uint32_t i = 0; i < info->count; i+= COUNTOF(layouts)) {
     uint32_t chunk = MIN(info->count - i, COUNTOF(layouts));
@@ -1426,8 +1421,7 @@ void gpu_bind_pipeline_compute(gpu_stream* stream, gpu_pipeline* pipeline) {
   vkCmdBindPipeline(stream->commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->handle);
 }
 
-void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount) {
-  bool compute = false; // TODO
+void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, bool compute, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount) {
   VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
   vkCmdBindDescriptorSets(stream->commands, bindPoint, pipeline->layout, group, 1, &bundle->handle, offsetCount, offsets);
 }
@@ -1621,16 +1615,116 @@ void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, u
   }
 }
 
-// Full sync for now
-void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* textures, uint32_t bufferCount, uint32_t textureCount) {
-  VkPipelineStageFlags src = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-  VkPipelineStageFlags dst = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-  VkMemoryBarrier barrier = {
-    .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
-    .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-    .dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT
+static VkPipelineStageFlags convertPhase(gpu_phase phase) {
+  VkPipelineStageFlags flags = 0;
+  if (phase & GPU_PHASE_INDIRECT) flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+  if (phase & GPU_PHASE_INPUT_INDEX) flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+  if (phase & GPU_PHASE_INPUT_VERTEX) flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+  if (phase & GPU_PHASE_SHADER_VERTEX) flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+  if (phase & GPU_PHASE_SHADER_FRAGMENT) flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  if (phase & GPU_PHASE_SHADER_COMPUTE) flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+  if (phase & GPU_PHASE_DEPTH_EARLY) flags |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  if (phase & GPU_PHASE_DEPTH_LATE) flags |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+  if (phase & GPU_PHASE_BLEND) flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  if (phase & GPU_PHASE_COPY) flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+  if (phase & GPU_PHASE_BLIT) flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+  if (phase & GPU_PHASE_CLEAR) flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+  return flags;
+}
+
+static VkAccessFlags convertCache(gpu_cache cache) {
+  VkAccessFlags flags = 0;
+  if (cache & GPU_CACHE_INDIRECT) flags |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+  if (cache & GPU_CACHE_INDEX) flags |= VK_ACCESS_INDEX_READ_BIT;
+  if (cache & GPU_CACHE_VERTEX) flags |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+  if (cache & GPU_CACHE_UNIFORM) flags |= VK_ACCESS_UNIFORM_READ_BIT;
+  if (cache & GPU_CACHE_TEXTURE) flags |= VK_ACCESS_SHADER_READ_BIT;
+  if (cache & GPU_CACHE_STORAGE_READ) flags |= VK_ACCESS_SHADER_READ_BIT;
+  if (cache & GPU_CACHE_STORAGE_WRITE) flags |= VK_ACCESS_SHADER_WRITE_BIT;
+  if (cache & GPU_CACHE_DEPTH_READ) flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+  if (cache & GPU_CACHE_DEPTH_WRITE) flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+  if (cache & GPU_CACHE_BLEND_READ) flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+  if (cache & GPU_CACHE_BLEND_WRITE) flags |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  if (cache & GPU_CACHE_TRANSFER_READ) flags |= VK_ACCESS_TRANSFER_READ_BIT;
+  if (cache & GPU_CACHE_TRANSFER_WRITE) flags |= VK_ACCESS_TRANSFER_WRITE_BIT;
+  return flags;
+}
+
+static VkImageLayout convertLayout(gpu_texture* texture, gpu_texture_layout layout) {
+  static const VkImageLayout layouts[] = {
+    [GPU_LAYOUT_DISCARD] = VK_IMAGE_LAYOUT_UNDEFINED,
+    [GPU_LAYOUT_GENERAL] = VK_IMAGE_LAYOUT_GENERAL,
+    [GPU_LAYOUT_READ_ONLY] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    [GPU_LAYOUT_ATTACHMENT] = 0,
+    [GPU_LAYOUT_COPY_SRC] = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    [GPU_LAYOUT_COPY_DST] = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    [GPU_LAYOUT_PRESENT] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
   };
-  vkCmdPipelineBarrier(stream->commands, src, dst, 0, 1, &barrier, 0, NULL, 0, NULL);
+
+  if (layout == GPU_LAYOUT_ATTACHMENT) {
+    if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
+      return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    } else {
+      return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    }
+  }
+
+  return layouts[layout];
+}
+
+void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count, gpu_texture_barrier* transitions, uint32_t transitionCount) {
+  VkPipelineStageFlags src = 0;
+  VkPipelineStageFlags dst = 0;
+
+  uint32_t barrierCount = 1;
+  VkMemoryBarrier memoryBarrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+
+  for (uint32_t i = 0; i < count; i++) {
+    gpu_barrier* barrier = &barriers[i];
+    src |= convertPhase(barrier->prev);
+    dst |= convertPhase(barrier->next);
+    memoryBarrier.srcAccessMask |= convertCache(barrier->flush);
+    memoryBarrier.dstAccessMask |= convertCache(barrier->invalidate);
+  }
+
+  VkImageMemoryBarrier imageBarriers[64];
+  while (transitionCount > 0) {
+    uint32_t chunk = MIN(COUNTOF(imageBarriers), transitionCount);
+    for (uint32_t i = 0; i < chunk; i++) {
+      gpu_texture_barrier* barrier = &transitions[i];
+
+      imageBarriers[i] = (VkImageMemoryBarrier) {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = convertCache(barrier->flush),
+        .dstAccessMask = convertCache(barrier->invalidate),
+        .oldLayout = convertLayout(barrier->texture, barrier->old),
+        .newLayout = convertLayout(barrier->texture, barrier->new),
+        .image = barrier->texture->handle,
+        .subresourceRange = {
+          .aspectMask = barrier->texture->aspect,
+          .baseMipLevel = barrier->levelIndex,
+          .levelCount = barrier->levelCount ? barrier->levelCount : VK_REMAINING_MIP_LEVELS,
+          .baseArrayLayer = barrier->layerIndex,
+          .layerCount = barrier->layerCount ? barrier->layerCount : VK_REMAINING_ARRAY_LAYERS
+        }
+      };
+
+      src |= convertPhase(barrier->prev);
+      dst |= convertPhase(barrier->next);
+    }
+
+    vkCmdPipelineBarrier(stream->commands, src, dst, 0, barrierCount, &memoryBarrier, 0, NULL, chunk, imageBarriers);
+    memoryBarrier.srcAccessMask = 0;
+    memoryBarrier.dstAccessMask = 0;
+    barrierCount = 0;
+    transitions += chunk;
+    src = 0;
+    dst = 0;
+  }
+
+  if (src && dst) {
+    vkCmdPipelineBarrier(stream->commands, src, dst, 0, barrierCount, &memoryBarrier, 0, NULL, 0, NULL);
+  }
 }
 
 void gpu_label_push(gpu_stream* stream, const char* label) {
