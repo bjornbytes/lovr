@@ -52,6 +52,9 @@ void lovrGraphicsDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
+const char** os_vk_get_instance_extensions(uint32_t* count);
+uint32_t os_vk_create_surface(void* instance, void** surface);
+
 void lovrGraphicsCreateWindow(os_window_config* window) {
   window->debug = state.debug;
   lovrAssert(!state.initialized, "Window is already created");
