@@ -31,7 +31,7 @@ config = {
     webxr = false
   },
   renderers = {
-    vulkan = false,
+    vulkan = true,
     webgpu = false
   },
   spatializers = {
