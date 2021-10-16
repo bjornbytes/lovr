@@ -482,17 +482,69 @@ typedef enum {
   GPU_INDEX_U32
 } gpu_index_type;
 
-typedef struct {
-  gpu_buffer* buffer;
-  uint32_t usage;
-  uint32_t stage;
-} gpu_buffer_sync;
+typedef enum {
+  GPU_PHASE_INDIRECT = (1 << 0),
+  GPU_PHASE_INPUT_INDEX = (1 << 1),
+  GPU_PHASE_INPUT_VERTEX = (1 << 2),
+  GPU_PHASE_SHADER_VERTEX = (1 << 3),
+  GPU_PHASE_SHADER_FRAGMENT = (1 << 4),
+  GPU_PHASE_SHADER_COMPUTE = (1 << 5),
+  GPU_PHASE_DEPTH_EARLY = (1 << 6),
+  GPU_PHASE_DEPTH_LATE = (1 << 7),
+  GPU_PHASE_BLEND = (1 << 8),
+  GPU_PHASE_COPY = (1 << 9),
+  GPU_PHASE_BLIT = (1 << 10),
+  GPU_PHASE_CLEAR = (1 << 11)
+} gpu_phase;
+
+typedef enum {
+  GPU_CACHE_INDIRECT = (1 << 0),
+  GPU_CACHE_INDEX = (1 << 1),
+  GPU_CACHE_VERTEX = (1 << 2),
+  GPU_CACHE_UNIFORM = (1 << 3),
+  GPU_CACHE_TEXTURE = (1 << 4),
+  GPU_CACHE_STORAGE_READ = (1 << 5),
+  GPU_CACHE_STORAGE_WRITE = (1 << 6),
+  GPU_CACHE_DEPTH_READ = (1 << 7),
+  GPU_CACHE_DEPTH_WRITE = (1 << 8),
+  GPU_CACHE_BLEND_READ = (1 << 9),
+  GPU_CACHE_BLEND_WRITE = (1 << 10),
+  GPU_CACHE_TRANSFER_READ = (1 << 11),
+  GPU_CACHE_TRANSFER_WRITE = (1 << 12),
+  GPU_CACHE_WRITE = GPU_CACHE_STORAGE_WRITE | GPU_CACHE_DEPTH_WRITE | GPU_CACHE_BLEND_WRITE | GPU_CACHE_TRANSFER_WRITE,
+  GPU_CACHE_READ = ~GPU_CACHE_WRITE
+} gpu_cache;
 
 typedef struct {
+  gpu_phase prev;
+  gpu_phase next;
+  gpu_cache flush;
+  gpu_cache invalidate;
+} gpu_barrier;
+
+typedef enum {
+  GPU_LAYOUT_DISCARD,
+  GPU_LAYOUT_GENERAL,
+  GPU_LAYOUT_READ_ONLY,
+  GPU_LAYOUT_ATTACHMENT,
+  GPU_LAYOUT_COPY_SRC,
+  GPU_LAYOUT_COPY_DST,
+  GPU_LAYOUT_PRESENT
+} gpu_texture_layout;
+
+typedef struct {
+  gpu_phase prev;
+  gpu_phase next;
+  gpu_cache flush;
+  gpu_cache invalidate;
   gpu_texture* texture;
-  uint32_t usage;
-  uint32_t stage;
-} gpu_texture_sync;
+  uint16_t layerIndex;
+  uint16_t layerCount;
+  uint16_t levelIndex;
+  uint16_t levelCount;
+  gpu_texture_layout old;
+  gpu_texture_layout new;
+} gpu_texture_barrier;
 
 typedef struct {
   gpu_texture* texture;
@@ -523,7 +575,7 @@ void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]);
 void gpu_push_constants(gpu_stream* stream, gpu_pipeline* pipeline, void* data, uint32_t size);
 void gpu_bind_pipeline_graphics(gpu_stream* stream, gpu_pipeline* pipeline);
 void gpu_bind_pipeline_compute(gpu_stream* stream, gpu_pipeline* pipeline);
-void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
+void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, bool compute, uint32_t group, gpu_bundle* bundle, uint32_t* offsets, uint32_t offsetCount);
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count);
 void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type);
 void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t baseInstance);
@@ -540,7 +592,7 @@ void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, u
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]);
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], gpu_filter filter);
 void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, uint16_t firstLayer, uint16_t extent[4]);
-void gpu_sync(gpu_stream* stream, gpu_buffer_sync* buffers, gpu_texture_sync* textures, uint32_t bufferCount, uint32_t textureCount);
+void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count, gpu_texture_barrier* transitions, uint32_t transitionCount);
 void gpu_label_push(gpu_stream* stream, const char* label);
 void gpu_label_pop(gpu_stream* stream);
 void gpu_timer_write(gpu_stream* stream);
