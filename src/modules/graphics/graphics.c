@@ -352,7 +352,7 @@ typedef struct {
 enum {
   SHAPE_GRID,
   SHAPE_CUBE,
-  SHAPE_DISK,
+  SHAPE_CONE,
   SHAPE_TUBE,
   SHAPE_BALL,
   SHAPE_MAX
@@ -1970,9 +1970,21 @@ uint32_t lovrGraphicsCircle(float* transform, uint32_t detail) {
     .mode = DRAW_TRIANGLES,
     .vertex.buffer = state.geometry.vertices,
     .index.buffer = state.geometry.indices,
-    .start = state.geometry.start[SHAPE_DISK][detail],
-    .count = state.geometry.count[SHAPE_DISK][detail],
-    .base = state.geometry.base[SHAPE_DISK]
+    .start = state.geometry.start[SHAPE_CONE][detail],
+    .count = 3 * ((4 << detail) - 2),
+    .base = state.geometry.base[SHAPE_CONE]
+  }, transform);
+}
+
+uint32_t lovrGraphicsCone(float* transform, uint32_t detail) {
+  detail = MIN(detail, 6);
+  return lovrGraphicsMesh(&(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .vertex.buffer = state.geometry.vertices,
+    .index.buffer = state.geometry.indices,
+    .start = state.geometry.start[SHAPE_CONE][detail],
+    .count = state.geometry.count[SHAPE_CONE][detail],
+    .base = state.geometry.base[SHAPE_CONE]
   }, transform);
 }
 
@@ -3912,7 +3924,7 @@ static void generateGeometry() {
   uint32_t vertexCount[SHAPE_MAX];
   state.geometry.base[SHAPE_GRID] = total, total += vertexCount[SHAPE_GRID] = 129 * 129;
   state.geometry.base[SHAPE_CUBE] = total, total += vertexCount[SHAPE_CUBE] = 24;
-  state.geometry.base[SHAPE_DISK] = total, total += vertexCount[SHAPE_DISK] = 256;
+  state.geometry.base[SHAPE_CONE] = total, total += vertexCount[SHAPE_CONE] = 768;
   state.geometry.base[SHAPE_TUBE] = total, total += vertexCount[SHAPE_TUBE] = 1024;
   state.geometry.base[SHAPE_BALL] = total, total += vertexCount[SHAPE_BALL] = (32 + 1) * (64 + 1);
 
@@ -3967,8 +3979,8 @@ static void generateGeometry() {
   memcpy(vertices, cube, sizeof(cube));
   vertices += COUNTOF(cube);
 
-  // Disk and tube
-  Vertex disk[256];
+  // Cone and tube
+  Vertex cone[768];
   Vertex tube[1024];
   for (uint32_t i = 0; i < 256; i++) {
     float t = i / 256.f;
@@ -3979,13 +3991,19 @@ static void generateGeometry() {
     uint16_t ny = (y + .5f) * 0x3ff;
     uint16_t u = (x + .5f) * 0xffff;
     uint16_t v = (y + .5f) * 0xffff;
-    disk[i] = (Vertex) { { x, y, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+    uint16_t oneOverRoot2 = 0x369;
+    uint16_t conenx = (x + .5f) * oneOverRoot2;
+    uint16_t coneny = (y + .5f) * oneOverRoot2;
+    uint16_t conenz = oneOverRoot2;
+    cone[i + 0x0] = (Vertex) { { x, y, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+    cone[i + 256] = (Vertex) { { x, y, 0.f }, { conenx, coneny, conenz, 0x0 }, { u, v } };
+    cone[i + 512] = (Vertex) { { 0.f, 0.f, -1.f }, { 0x200, 0x200, 0x200, 0x0 }, { u, v } };
     tube[i + 0x0] = (Vertex) { { x, y, -.5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0xffff } };
     tube[i + 256] = (Vertex) { { x, y,  .5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0x0000 } };
     tube[i + 512] = (Vertex) { { x, y, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff - u, v } };
     tube[i + 768] = (Vertex) { { x, y,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
   }
-  memcpy(vertices, disk, sizeof(disk)), vertices += COUNTOF(disk);
+  memcpy(vertices, cone, sizeof(cone)), vertices += COUNTOF(cone);
   memcpy(vertices, tube, sizeof(tube)), vertices += COUNTOF(tube);
 
   // Ball
@@ -4030,12 +4048,15 @@ static void generateGeometry() {
   state.geometry.count[SHAPE_CUBE][0] = 36;
   total += 36;
 
-  // The disk has 4*2^n vertices arranged as a triangle fan (subtract 2 due to vertex sharing)
+  // The cone base has 4*2^n vertices arranged as a triangle fan (subtract 2 due to vertex sharing)
+  // The cone tip has a triangle for each pair of the vertices, so 4*2^n extra triangles
   for (uint32_t detail = 0; detail < 7; detail++) {
     uint32_t vertexCount = 4 << detail;
-    uint32_t count = (vertexCount - 2) * 3;
-    state.geometry.start[SHAPE_DISK][detail] = total;
-    state.geometry.count[SHAPE_DISK][detail] = count;
+    uint32_t baseCount = (vertexCount - 2) * 3;
+    uint32_t tipCount = vertexCount * 3;
+    uint32_t count = baseCount + tipCount;
+    state.geometry.start[SHAPE_CONE][detail] = total;
+    state.geometry.count[SHAPE_CONE][detail] = count;
     total += count;
   }
 
@@ -4105,15 +4126,21 @@ static void generateGeometry() {
   memcpy(indices, cubeIndex, sizeof(cubeIndex));
   indices += COUNTOF(cubeIndex);
 
-  // Disk
+  // Cone
   for (uint32_t detail = 0; detail <= 6; detail++) {
     uint16_t skip = 64 >> detail;
     uint16_t vertexCount = 4 << detail;
-    uint16_t indexCount = 3 * (vertexCount - 2);
-    for (uint16_t i = 0, j = skip; i < indexCount; i += 3, j += skip) {
+    uint16_t baseIndexCount = 3 * (vertexCount - 2);
+    uint16_t tipIndexCount = 3 * vertexCount;
+    for (uint16_t i = 0, j = skip; i < baseIndexCount; i += 3, j += skip) {
       *indices++ = 0;
       *indices++ = j;
       *indices++ = j + skip;
+    }
+    for (uint16_t i = 0, j = 0; i < tipIndexCount; i += 3, j += skip) {
+      *indices++ = 256 + (j + skip) & 0xff;
+      *indices++ = 256 + j;
+      *indices++ = 512 + j;
     }
   }
 

@@ -355,6 +355,7 @@ uint32_t lovrGraphicsLine(uint32_t count, float** vertices);
 uint32_t lovrGraphicsPlane(float* transform, uint32_t detail);
 uint32_t lovrGraphicsBox(float* transform);
 uint32_t lovrGraphicsCircle(float* transform, uint32_t detail);
+uint32_t lovrGraphicsCone(float* transform, uint32_t detail);
 uint32_t lovrGraphicsCylinder(float* transform, uint32_t detail, bool capped);
 uint32_t lovrGraphicsSphere(float* transform, uint32_t detail);
 uint32_t lovrGraphicsSkybox(Texture* texture);
