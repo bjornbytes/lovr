@@ -1182,6 +1182,15 @@ static int l_lovrGraphicsCircle(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsCone(lua_State* L) {
+  float transform[16];
+  int index = luax_readmat4(L, 1, transform, -2);
+  uint32_t detail = luaL_optinteger(L, index, 64);
+  uint32_t id = lovrGraphicsCone(transform, detail);
+  lua_pushinteger(L, id);
+  return 1;
+}
+
 static int l_lovrGraphicsCylinder(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 1, transform, -2);
@@ -1822,6 +1831,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "cube", l_lovrGraphicsCube },
   { "box", l_lovrGraphicsBox },
   { "circle", l_lovrGraphicsCircle },
+  { "cone", l_lovrGraphicsCone },
   { "cylinder", l_lovrGraphicsCylinder },
   { "sphere", l_lovrGraphicsSphere },
   { "skybox", l_lovrGraphicsSkybox },
