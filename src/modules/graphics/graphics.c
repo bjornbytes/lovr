@@ -4784,7 +4784,6 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
   uint32_t hash = hash32(key, sizeof(key));
 
   // Search for matching texture in cache table
-  gpu_texture* texture;
   uint32_t rows = COUNTOF(state.attachmentCache);
   uint32_t cols = COUNTOF(state.attachmentCache[0]);
   ScratchTexture* row = state.attachmentCache[0] + (hash & (rows - 1)) * cols;
@@ -4802,7 +4801,6 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
     return entry->handle;
   }
 
-  // TODO this has bad malloc churn
   // Otherwise, create new texture, add to an empty slot, evicting oldest if needed
   gpu_texture_info info = {
     .type = GPU_TEXTURE_ARRAY,
@@ -4824,18 +4822,17 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
     }
   }
 
-  if (entry->handle) {
+  if (!entry->handle) {
+    entry->handle = calloc(1, gpu_sizeof_texture());
+    lovrAssert(entry->handle, "Out of memory");
+  } else {
     gpu_texture_destroy(entry->handle);
-    free(entry->handle);
   }
 
-  texture = calloc(1, gpu_sizeof_texture());
-  lovrAssert(texture, "Out of memory");
-  lovrAssert(gpu_texture_init(texture, &info), "Failed to create scratch texture");
-  entry->handle = texture;
+  lovrAssert(gpu_texture_init(entry->handle, &info), "Failed to create scratch texture");
   entry->hash = hash;
   entry->tick = state.tick;
-  return texture;
+  return entry->handle;
 }
 
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent) {
