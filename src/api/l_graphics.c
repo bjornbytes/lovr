@@ -919,6 +919,21 @@ static int l_lovrGraphicsSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsSetShader(lua_State* L) {
+  switch (lua_type(L, 1)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      lovrGraphicsSetShader(NULL);
+      return 0;
+    case LUA_TSTRING:
+      lovrGraphicsSetShader(lovrGraphicsGetDefaultShader(luax_checkenum(L, 1, DefaultShader, NULL)));
+      return 0;
+    default:
+      lovrGraphicsSetShader(luax_checktype(L, 1, Shader));
+      return 0;
+  }
+}
+
 static int l_lovrGraphicsSetStencilTest(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
     lovrGraphicsSetStencilTest(COMPARE_NONE, 0, 0xff);
@@ -967,21 +982,6 @@ static int l_lovrGraphicsSetWireframe(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsSetShader(lua_State* L) {
-  switch (lua_type(L, 1)) {
-    case LUA_TNONE:
-    case LUA_TNIL:
-      lovrGraphicsSetShader(NULL);
-      return 0;
-    case LUA_TSTRING:
-      lovrGraphicsSetShader(lovrGraphicsGetDefaultShader(luax_checkenum(L, 1, DefaultShader, NULL)));
-      return 0;
-    default:
-      lovrGraphicsSetShader(luax_checktype(L, 1, Shader));
-      return 0;
-  }
-}
-
 static int l_lovrGraphicsSetBuffer(lua_State* L) {
   const char* name = NULL;
   size_t length = 0;
@@ -1013,6 +1013,22 @@ static int l_lovrGraphicsSetTexture(lua_State* L) {
 
   Texture* texture = luax_checktype(L, 2, Texture);
   lovrGraphicsSetTexture(name, length, slot, texture);
+  return 0;
+}
+
+static int l_lovrGraphicsSetSampler(lua_State* L) {
+  const char* name = NULL;
+  size_t length = 0;
+  uint32_t slot = ~0u;
+
+  switch (lua_type(L, 1)) {
+    case LUA_TSTRING: name = lua_tolstring(L, 1, &length); break;
+    case LUA_TNUMBER: slot = lua_tointeger(L, 1) - 1; break;
+    default: return luax_typeerror(L, 1, "string or number");
+  }
+
+  Sampler* sampler = luax_checktype(L, 2, Sampler);
+  lovrGraphicsSetSampler(name, length, slot, sampler);
   return 0;
 }
 
@@ -1813,14 +1829,15 @@ static const luaL_Reg lovrGraphics[] = {
   { "setDepthWrite", l_lovrGraphicsSetDepthWrite },
   { "setDepthOffset", l_lovrGraphicsSetDepthOffset },
   { "setDepthClamp", l_lovrGraphicsSetDepthClamp },
+  { "setShader", l_lovrGraphicsSetShader },
   { "setStencilTest", l_lovrGraphicsSetStencilTest },
   { "setStencilWrite", l_lovrGraphicsSetStencilWrite },
   { "setWinding", l_lovrGraphicsSetWinding },
   { "setWireframe", l_lovrGraphicsSetWireframe },
 
-  { "setShader", l_lovrGraphicsSetShader },
   { "setBuffer", l_lovrGraphicsSetBuffer },
   { "setTexture", l_lovrGraphicsSetTexture },
+  { "setSampler", l_lovrGraphicsSetSampler },
   { "setConstant", l_lovrGraphicsSetConstant },
   { "setColor", l_lovrGraphicsSetColor },
 
