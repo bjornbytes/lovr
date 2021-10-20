@@ -435,6 +435,7 @@ typedef struct {
   uint32_t samples;
   bool srgb;
   uintptr_t handle;
+  struct Image** images;
   const char* label;
 } TextureInfo;
 

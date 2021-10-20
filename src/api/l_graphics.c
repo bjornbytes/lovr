@@ -9,6 +9,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <string.h>
+#include <stdlib.h>
 
 StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
@@ -1513,25 +1514,36 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
 
     lovrAssert(info.depth > 0, "No texture images specified");
 
+    Image* stack[6];
+    Image** images = info.depth > 6 ? malloc(info.depth * sizeof(Image*)) : stack;
+    lovrAssert(images, "Out of memory");
+
     for (uint32_t i = 0; i < info.depth; i++) {
       lua_rawgeti(L, 1, i + 1);
-      Image* image = luax_checkimage(L, -1, info.type != TEXTURE_CUBE);
-      if (i == 0) {
-        info.width = image->width;
-        info.height = image->height;
-        info.format = image->format;
-        texture = lovrTextureCreate(&info);
-      } else {
-        lovrAssert(image->width == info.width, "Image widths must match");
-        lovrAssert(image->height == info.height, "Image heights must match");
-        lovrAssert(image->format == info.format, "Image formats must match");
-      }
-      uint16_t srcOffset[4] = { 0, 0, i, 0 };
-      uint16_t dstOffset[2] = { 0, 0 };
-      uint16_t extent[3] = { info.width, info.height, 1 };
-      lovrTexturePaste(texture, image, srcOffset, dstOffset, extent);
-      lovrRelease(image, lovrImageDestroy);
+      images[i] = luax_checkimage(L, -1, info.type != TEXTURE_CUBE);
       lua_pop(L, 1);
+    }
+
+    for (uint32_t i = 1; i < info.depth; i++) {
+      Image* image = images[i];
+      lovrAssert(image->width == images[0]->width, "Image widths must match");
+      lovrAssert(image->height == images[0]->height, "Image heights must match");
+      lovrAssert(image->format == images[0]->format, "Image formats must match");
+      lovrAssert(image->mipmapCount == images[0]->mipmapCount, "Image mipmap counts must match");
+    }
+
+    info.images = images;
+    info.width = images[0]->width;
+    info.height = images[0]->height;
+    info.format = images[0]->format;
+    texture = lovrTextureCreate(&info);
+
+    for (uint32_t i = 0; i < info.depth; i++) {
+      lovrRelease(images[i], lovrImageDestroy);
+    }
+
+    if (images != stack) {
+      free(images);
     }
   }
 

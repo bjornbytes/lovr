@@ -2556,6 +2556,31 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     texture->info.mipmaps = MAX(texture->info.mipmaps, 1);
   }
 
+  uint32_t levelCount = 0;
+  uint32_t levelOffsets[16];
+  bool generateMipmaps = false;
+  Megaview buffer = { 0 };
+
+  if (info->images) {
+    levelCount = info->images[0]->mipmapCount;
+    generateMipmaps = levelCount < texture->info.mipmaps;
+    uint32_t total = 0;
+    for (uint32_t i = 0; i < levelCount; i++) {
+      levelOffsets[i] = total;
+      uint32_t w = MAX(info->width >> i, 1);
+      uint32_t h = MAX(info->height >> i, 1);
+      uint32_t d = MAX(info->depth >> i, 1);
+      uint32_t size = measureTexture(info->format, w, h, d);
+      lovrAssert(size == info->images[i]->blob->size, "Image byte size does not match expected size (internal error)");
+      total += size;
+    }
+    buffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, total, 64);
+    for (uint32_t i = 0; i < levelCount; i++) {
+      memcpy(buffer.data + levelOffsets[i], info->images[i]->blob->data, info->images[i]->blob->size);
+      levelOffsets[i] += buffer.offset;
+    }
+  }
+
   gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
     .format = (gpu_texture_format) info->format,
@@ -2565,13 +2590,13 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .usage = info->usage,
     .srgb = info->srgb,
     .handle = info->handle,
-    /*.upload = {
-      .stream = state.uploads->pass,
-      .buffer = uploadBuffer.gpu,
-      .offsets = offsets,
-      .levelCount = levels,
-      .generateMipmaps = levels < texture->info.mipmaps
-    },*/
+    .upload = {
+      .stream = state.uploads->stream,
+      .buffer = buffer.gpu,
+      .levelOffsets = levelOffsets,
+      .levelCount = levelCount,
+      .generateMipmaps = generateMipmaps
+    },
     .label = info->label
   });
 

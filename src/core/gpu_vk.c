@@ -510,7 +510,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
           .imageSubresource.aspectMask = texture->aspect,
           .imageSubresource.mipLevel = i,
           .imageSubresource.baseArrayLayer = 0,
-          .imageSubresource.layerCount = VK_REMAINING_ARRAY_LAYERS,
+          .imageSubresource.layerCount = texture->layered ? info->size[2] : 1,
           .imageExtent.width = MAX(info->size[0] >> i, 1),
           .imageExtent.height = MAX(info->size[1] >> i, 1),
           .imageExtent.depth = texture->layered ? 1 : MAX(info->size[2] >> i, 1)
@@ -543,17 +543,17 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
             .srcSubresource = {
               .aspectMask = texture->aspect,
               .mipLevel = i - 1,
-              .layerCount = VK_REMAINING_ARRAY_LAYERS
+              .layerCount = texture->layered ? info->size[2] : 1
             },
             .dstSubresource = {
               .aspectMask = texture->aspect,
               .mipLevel = i,
-              .layerCount = VK_REMAINING_ARRAY_LAYERS
+              .layerCount = texture->layered ? info->size[2] : 1
             },
-            .srcOffsets[1] = { MAX(info->size[0] >> (i - 1), 1), MAX(info->size[1] >> (i - 1), 1), 0 },
-            .dstOffsets[1] = { MAX(info->size[0] >> i, 1), MAX(info->size[1] >> i, 1), 0 }
+            .srcOffsets[1] = { MAX(info->size[0] >> (i - 1), 1), MAX(info->size[1] >> (i - 1), 1), 1 },
+            .dstOffsets[1] = { MAX(info->size[0] >> i, 1), MAX(info->size[1] >> i, 1), 1 }
           };
-          vkCmdBlitImage(commands, image, transition.oldLayout, image, transition.newLayout, 1, &region, VK_FILTER_LINEAR);
+          vkCmdBlitImage(commands, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_LINEAR);
           transition.subresourceRange.baseMipLevel = i;
           transition.subresourceRange.levelCount = 1;
           transition.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
