@@ -1480,7 +1480,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         }
         break;
       }
-      case LUA_TNIL: info.usage = ~0u; break;
+      case LUA_TNIL: info.usage = blank ? TEXTURE_RENDER | TEXTURE_SAMPLE : TEXTURE_SAMPLE; break;
       default: return luaL_error(L, "Expected Texture usage to be a string, table, or nil");
     }
     lua_pop(L, 1);
