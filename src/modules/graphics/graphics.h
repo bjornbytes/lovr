@@ -338,14 +338,15 @@ void lovrGraphicsSetDepthTest(CompareMode test);
 void lovrGraphicsSetDepthWrite(bool write);
 void lovrGraphicsSetDepthOffset(float offset, float sloped);
 void lovrGraphicsSetDepthClamp(bool clamp);
+void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value, uint8_t mask);
 void lovrGraphicsSetStencilWrite(StencilAction actions[3], uint8_t value, uint8_t mask);
 void lovrGraphicsSetWinding(Winding winding);
 void lovrGraphicsSetWireframe(bool wireframe);
 
-void lovrGraphicsSetShader(Shader* shader);
 void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrGraphicsSetTexture(const char* name, size_t length, uint32_t slot, Texture* texture);
+void lovrGraphicsSetSampler(const char* name, size_t length, uint32_t slot, Sampler* sampler);
 void lovrGraphicsSetConstant(const char* name, size_t length, void** data, FieldType* type);
 void lovrGraphicsSetColor(float color[4]);
 

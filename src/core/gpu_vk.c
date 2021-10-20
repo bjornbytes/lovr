@@ -21,6 +21,7 @@ struct gpu_texture {
   VkImageView view;
   VkFormat format;
   VkImageAspectFlagBits aspect;
+  VkImageLayout layout;
   bool layered;
 };
 
@@ -424,7 +425,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       ((info->usage & GPU_TEXTURE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
       ((info->usage & GPU_TEXTURE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
-      ((info->usage & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0)
+      ((info->usage & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0) |
+      (info->upload.levelCount > 0 ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
+      (info->upload.generateMipmaps ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0)
   };
 
   TRY(vkCreateImage(state.device, &imageInfo, NULL, &texture->handle), "Could not create texture") {
@@ -466,23 +469,110 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  if (info->stream) {
+  if (info->usage & (GPU_TEXTURE_STORAGE | GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST)) {
+    texture->layout = VK_IMAGE_LAYOUT_GENERAL;
+  } else if (info->usage & GPU_TEXTURE_SAMPLE) {
+    texture->layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  } else {
+    if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
+      texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    } else if (texture->aspect == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+      texture->layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    } else if (texture->aspect == VK_IMAGE_ASPECT_DEPTH_BIT) {
+      texture->layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    } else {
+      texture->layout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+  }
+
+  if (info->upload.stream) {
+    VkImage image = texture->handle;
+    VkBuffer buffer = info->upload.levelCount > 0 ? info->upload.buffer->handle : VK_NULL_HANDLE;
+    VkCommandBuffer commands = info->upload.stream->commands;
+
+    VkPipelineStageFlags prev, next;
+    VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageMemoryBarrier transition = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-      .srcAccessMask = 0,
-      .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-      .image = texture->handle,
+      .image = image,
       .subresourceRange.aspectMask = texture->aspect,
       .subresourceRange.baseMipLevel = 0,
       .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
       .subresourceRange.baseArrayLayer = 0,
       .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
     };
-    VkPipelineStageFlags src = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    VkPipelineStageFlags dst = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-    vkCmdPipelineBarrier(info->stream->commands, src, dst, 0, 0, NULL, 0, NULL, 1, &transition);
+
+    if (info->upload.levelCount > 0) {
+      VkBufferImageCopy regions[16];
+      for (uint32_t i = 0; i < info->upload.levelCount; i++) {
+        regions[i] = (VkBufferImageCopy) {
+          .bufferOffset = info->upload.levelOffsets[i],
+          .imageSubresource.aspectMask = texture->aspect,
+          .imageSubresource.mipLevel = i,
+          .imageSubresource.baseArrayLayer = 0,
+          .imageSubresource.layerCount = VK_REMAINING_ARRAY_LAYERS,
+          .imageExtent.width = MAX(info->size[0] >> i, 1),
+          .imageExtent.height = MAX(info->size[1] >> i, 1),
+          .imageExtent.depth = texture->layered ? 1 : MAX(info->size[2] >> i, 1)
+        };
+      }
+
+      // Upload initial contents
+      prev = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      next = VK_PIPELINE_STAGE_TRANSFER_BIT;
+      transition.srcAccessMask = 0;
+      transition.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      transition.oldLayout = layout;
+      transition.newLayout = layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      vkCmdPipelineBarrier(commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+      vkCmdCopyBufferToImage(commands, buffer, image, layout, info->upload.levelCount, regions);
+
+      // Generate mipmaps
+      if (info->upload.generateMipmaps) {
+        prev = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        next = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        transition.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        transition.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        transition.subresourceRange.baseMipLevel = 0;
+        transition.subresourceRange.levelCount = info->upload.levelCount;
+        transition.oldLayout = layout;
+        transition.newLayout = layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        vkCmdPipelineBarrier(commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+        for (uint32_t i = info->upload.levelCount; i < info->mipmaps; i++) {
+          VkImageBlit region = {
+            .srcSubresource = {
+              .aspectMask = texture->aspect,
+              .mipLevel = i - 1,
+              .layerCount = VK_REMAINING_ARRAY_LAYERS
+            },
+            .dstSubresource = {
+              .aspectMask = texture->aspect,
+              .mipLevel = i,
+              .layerCount = VK_REMAINING_ARRAY_LAYERS
+            },
+            .srcOffsets[1] = { MAX(info->size[0] >> (i - 1), 1), MAX(info->size[1] >> (i - 1), 1), 0 },
+            .dstOffsets[1] = { MAX(info->size[0] >> i, 1), MAX(info->size[1] >> i, 1), 0 }
+          };
+          vkCmdBlitImage(commands, image, transition.oldLayout, image, transition.newLayout, 1, &region, VK_FILTER_LINEAR);
+          transition.subresourceRange.baseMipLevel = i;
+          transition.subresourceRange.levelCount = 1;
+          transition.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+          transition.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+          vkCmdPipelineBarrier(commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+        }
+      }
+    }
+
+    // Transition to natural layout
+    prev = info->upload.levelCount > 0 ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    next = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    transition.srcAccessMask = info->upload.levelCount > 0 ? VK_ACCESS_TRANSFER_WRITE_BIT : 0;
+    transition.dstAccessMask = 0;
+    transition.oldLayout = layout;
+    transition.newLayout = texture->layout;
+    transition.subresourceRange.baseMipLevel = 0;
+    transition.subresourceRange.levelCount = info->mipmaps;
+    vkCmdPipelineBarrier(commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
   }
 
   return true;
@@ -767,10 +857,10 @@ void gpu_bunch_destroy(gpu_bunch* bunch) {
 
 void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t count) {
   VkDescriptorBufferInfo buffers[256];
-  VkDescriptorImageInfo textures[256];
+  VkDescriptorImageInfo images[256];
   VkWriteDescriptorSet writes[64];
   uint32_t bufferCount = 0;
-  uint32_t textureCount = 0;
+  uint32_t imageCount = 0;
   uint32_t writeCount = 0;
 
   static const VkDescriptorType types[] = {
@@ -778,8 +868,9 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
     [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
     [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+    [GPU_SLOT_SAMPLER] = VK_DESCRIPTOR_TYPE_SAMPLER
   };
 
   for (uint32_t i = 0; i < count; i++) {
@@ -787,18 +878,20 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
     gpu_binding* binding = infos[i].bindings;
     for (uint32_t j = 0; j < layout->slotCount; j++) {
       VkDescriptorType type = types[layout->slotTypes[j]];
-      bool texture = type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      bool texture = type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      bool sampler = type == VK_DESCRIPTOR_TYPE_SAMPLER;
+      bool image = texture || sampler;
       uint32_t length = layout->slotLengths[j];
       uint32_t number = layout->slotNumbers[j];
       uint32_t cursor = 0;
 
       while (cursor < length) {
-        if (texture ? textureCount >= COUNTOF(textures) : bufferCount >= COUNTOF(buffers)) {
+        if (image ? imageCount >= COUNTOF(images) : bufferCount >= COUNTOF(buffers)) {
           vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
-          bufferCount = textureCount = writeCount = 0;
+          bufferCount = imageCount = writeCount = 0;
         }
 
-        uint32_t available = texture ? COUNTOF(textures) - textureCount : COUNTOF(buffers) - bufferCount;
+        uint32_t available = image ? COUNTOF(images) - imageCount : COUNTOF(buffers) - bufferCount;
         uint32_t remaining = length - cursor;
         uint32_t chunk = MIN(available, remaining);
 
@@ -810,15 +903,20 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
           .descriptorCount = chunk,
           .descriptorType = type,
           .pBufferInfo = &buffers[bufferCount],
-          .pImageInfo = &textures[textureCount]
+          .pImageInfo = &images[imageCount]
         };
 
-        if (texture) {
+        if (sampler) {
           for (uint32_t k = 0; k < chunk; k++, binding++) {
-            textures[textureCount++] = (VkDescriptorImageInfo) {
-              .sampler = binding->texture.sampler->handle,
-              .imageView = binding->texture.object->view,
-              .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            images[imageCount++] = (VkDescriptorImageInfo) {
+              .sampler = binding->sampler->handle
+            };
+          }
+        } else if (texture) {
+          for (uint32_t k = 0; k < chunk; k++, binding++) {
+            images[imageCount++] = (VkDescriptorImageInfo) {
+              .imageView = binding->texture->view,
+              .imageLayout = binding->texture->layout
             };
           }
         } else {
@@ -1566,55 +1664,6 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t s
   vkCmdBlitImage(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, VK_IMAGE_LAYOUT_GENERAL, 1, &region, filters[filter]);
 }
 
-void gpu_mipgen(gpu_stream* stream, gpu_texture* texture, uint16_t firstLevel, uint16_t firstLayer, uint16_t extent[4]) {
-  uint32_t w = extent[0];
-  uint32_t h = extent[1];
-  uint32_t layerCount = extent[2];
-  uint32_t levelCount = extent[3];
-  VkImage image = texture->handle;
-  VkImageLayout layout = VK_IMAGE_LAYOUT_GENERAL;
-  for (uint32_t i = 0, level = firstLevel; i < levelCount; i++, level++) {
-    VkImageMemoryBarrier barrier = {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-      .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-      .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-      .image = image,
-      .subresourceRange = {
-        .aspectMask = texture->aspect,
-        .baseMipLevel = level,
-        .levelCount = 1,
-        .baseArrayLayer = firstLayer,
-        .layerCount = layerCount
-      }
-    };
-    VkPipelineStageFlags src = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    VkPipelineStageFlags dst = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    if (i > 0) vkCmdPipelineBarrier(stream->commands, src, dst, 0, 0, NULL, 0, NULL, 1, &barrier);
-
-    VkImageBlit region = {
-      .srcSubresource = {
-        .aspectMask = texture->aspect,
-        .mipLevel = level - 1,
-        .baseArrayLayer = firstLayer,
-        .layerCount = layerCount
-      },
-      .dstSubresource = {
-        .aspectMask = texture->aspect,
-        .mipLevel = level,
-        .baseArrayLayer = firstLayer,
-        .layerCount = layerCount
-      },
-      .srcOffsets[0] = { 0, 0, 0 },
-      .dstOffsets[0] = { 0, 0, 0 },
-      .srcOffsets[1] = { MAX(w >> (level - 1), 1), MAX(h >> (level - 1), 1), 0 },
-      .dstOffsets[1] = { MAX(w >> level, 1), MAX(h >> level, 1), 0 }
-    };
-    vkCmdBlitImage(stream->commands, image, layout, image, layout, 1, &region, VK_FILTER_LINEAR);
-  }
-}
-
 static VkPipelineStageFlags convertPhase(gpu_phase phase) {
   VkPipelineStageFlags flags = 0;
   if (phase & GPU_PHASE_INDIRECT) flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
@@ -1650,34 +1699,10 @@ static VkAccessFlags convertCache(gpu_cache cache) {
   return flags;
 }
 
-static VkImageLayout convertLayout(gpu_texture* texture, gpu_texture_layout layout) {
-  static const VkImageLayout layouts[] = {
-    [GPU_LAYOUT_DISCARD] = VK_IMAGE_LAYOUT_UNDEFINED,
-    [GPU_LAYOUT_GENERAL] = VK_IMAGE_LAYOUT_GENERAL,
-    [GPU_LAYOUT_READ_ONLY] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    [GPU_LAYOUT_ATTACHMENT] = 0,
-    [GPU_LAYOUT_COPY_SRC] = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    [GPU_LAYOUT_COPY_DST] = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-    [GPU_LAYOUT_PRESENT] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-  };
-
-  if (layout == GPU_LAYOUT_ATTACHMENT) {
-    if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
-      return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    } else {
-      return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    }
-  }
-
-  return layouts[layout];
-}
-
-void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count, gpu_texture_barrier* transitions, uint32_t transitionCount) {
+void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
+  VkMemoryBarrier memoryBarrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
   VkPipelineStageFlags src = 0;
   VkPipelineStageFlags dst = 0;
-
-  uint32_t barrierCount = 1;
-  VkMemoryBarrier memoryBarrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
 
   for (uint32_t i = 0; i < count; i++) {
     gpu_barrier* barrier = &barriers[i];
@@ -1687,43 +1712,8 @@ void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count, gpu_tex
     memoryBarrier.dstAccessMask |= convertCache(barrier->invalidate);
   }
 
-  VkImageMemoryBarrier imageBarriers[64];
-  while (transitionCount > 0) {
-    uint32_t chunk = MIN(COUNTOF(imageBarriers), transitionCount);
-    for (uint32_t i = 0; i < chunk; i++) {
-      gpu_texture_barrier* barrier = &transitions[i];
-
-      imageBarriers[i] = (VkImageMemoryBarrier) {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcAccessMask = convertCache(barrier->flush),
-        .dstAccessMask = convertCache(barrier->invalidate),
-        .oldLayout = convertLayout(barrier->texture, barrier->old),
-        .newLayout = convertLayout(barrier->texture, barrier->new),
-        .image = barrier->texture->handle,
-        .subresourceRange = {
-          .aspectMask = barrier->texture->aspect,
-          .baseMipLevel = barrier->levelIndex,
-          .levelCount = barrier->levelCount ? barrier->levelCount : VK_REMAINING_MIP_LEVELS,
-          .baseArrayLayer = barrier->layerIndex,
-          .layerCount = barrier->layerCount ? barrier->layerCount : VK_REMAINING_ARRAY_LAYERS
-        }
-      };
-
-      src |= convertPhase(barrier->prev);
-      dst |= convertPhase(barrier->next);
-    }
-
-    vkCmdPipelineBarrier(stream->commands, src, dst, 0, barrierCount, &memoryBarrier, 0, NULL, chunk, imageBarriers);
-    memoryBarrier.srcAccessMask = 0;
-    memoryBarrier.dstAccessMask = 0;
-    barrierCount = 0;
-    transitions += chunk;
-    src = 0;
-    dst = 0;
-  }
-
   if (src && dst) {
-    vkCmdPipelineBarrier(stream->commands, src, dst, 0, barrierCount, &memoryBarrier, 0, NULL, 0, NULL);
+    vkCmdPipelineBarrier(stream->commands, src, dst, 0, 1, &memoryBarrier, 0, NULL, 0, NULL);
   }
 }
 
@@ -2401,42 +2391,3 @@ static bool check(bool condition, const char* message) {
   }
   return condition;
 }
-
-/*
-Comments
-## General
-- Vulkan 1.1 is targeted.
-- The first physical device is used.
-- There's almost no error handling.  The intent is to use validation layers or handle the errors at
-  a higher level if needed, so they don't need to be duplicated for each backend.
-- There is no dynamic memory allocation in this layer.  All state is in ~9kb of static bss data.
-- Writing to storage resources from vertex/fragment shaders is currently not allowed.
-- Texel buffers are not supported.
-- ~0u aka -1 is commonly used as a "nil" value.
-## Threads
-- Currently, the API is not generally thread safe.
-## Ticks
-- There is no concept of a frame.  There are ticks.  Every sequence of commands between gpu_begin
-  and gpu_submit is a tick.  We keep track of the current CPU tick (the tick being recorded) and the
-  current GPU tick (the most recent tick the GPU has completed).  These are monotonically increasing
-  counters.
-- Each tick has a set of resources (see gpu_tick).  There is a ring buffer of ticks.  The size of
-  the ring buffer determines how many ticks can be in flight (currently 4).  A tick index can be
-  masked off to find the element of the ring buffer it corresponds to.  The tick's fence is used to
-  make sure that the GPU is done with a tick before recording a new one in the same slot.
-- In a lot of places (command buffers, descriptor pools, morgue, scratchpad) a tick is tracked to
-  know when the GPU is done with a resource so it can be recycled or destroyed.
-- I don't know what will happen if the tick counter wraps around or reaches UINT32_MAX.
-- In the future I'd like to use timeline semaphores instead of fences, but those are in Vulkan 1.2
-  and currently aren't widely supported.
-## Command buffers
-- Each tick has a cap on the number of primary command buffers it uses.
-- Each render or compute pass uses one primary command buffer.  This is purely for synchronization
-  reasons.  When starting a command buffer for a pass, the previous command buffer is left "open"
-  until the pass completes.  Once the pass completes, we know what resources were used during the
-  pass, which is used to figure out which barriers are required.  The barriers are recorded at the
-  end of the previous command buffer, after which it's closed.
-- If you run out of command buffers, the current recommendation is to split the workload into
-  multiple queue submissions.  In the future it may be possible to support an unbounded number of
-  command buffers using dynamic memory allocation.
-*/

@@ -14,40 +14,12 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define MAX_BUNDLES UINT16_MAX
 #define MAX_BUNCHES 256
 #define BUNDLES_PER_BUNCH 1024
 #define MAX_LAYOUTS 64
 #define MAX_MATERIAL_BLOCKS 16
 #define MATERIALS_PER_BLOCK 1024
 #define MAX_DETAIL 8
-
-uint32_t os_vk_create_surface(void* instance, void** surface);
-const char** os_vk_get_instance_extensions(uint32_t* count);
-
-typedef struct {
-  struct { float x, y, z; } position;
-  struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
-  struct { uint16_t u, v; } uv;
-} Vertex;
-
-typedef struct {
-  struct { float x, y, z; } position;
-  struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
-  struct { float u, v; } uv;
-  struct { uint8_t r, g, b, a; } color;
-  struct { unsigned x: 10, y: 10, z: 10, handedness: 2; } tangent;
-} SupremeVertex;
-
-typedef struct {
-  struct { float x, y, z; } position;
-  struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
-  struct { float u, v; } uv;
-  struct { uint8_t r, g, b, a; } color;
-  struct { unsigned x: 10, y: 10, z: 10, handedness: 2; } tangent;
-  uint8_t joints[4];
-  uint8_t weights[4];
-} SkinnedVertex;
 
 typedef struct {
   gpu_buffer* gpu;
@@ -82,7 +54,6 @@ struct Texture {
   gpu_phase writePhase;
   gpu_cache pendingReads;
   gpu_cache pendingWrite;
-  gpu_texture_layout layout;
   uint32_t lastWrite;
 };
 
@@ -136,6 +107,7 @@ struct Shader {
   uint32_t resourceCount;
   uint32_t bufferMask;
   uint32_t textureMask;
+  uint32_t samplerMask;
   uint32_t storageMask;
   uint8_t slotStages[32];
   uint8_t resourceSlots[32];
@@ -269,7 +241,6 @@ typedef struct {
   gpu_stream* stream;
   arr_bufferaccess_t buffers;
   arr_textureaccess_t textures;
-  arr_t(Batch*) batches;
   gpu_barrier barrier;
 } Pass;
 
@@ -348,6 +319,30 @@ typedef struct {
   uint32_t length;
   uint32_t limit;
 } Allocator;
+
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
+  struct { uint16_t u, v; } uv;
+} Vertex;
+
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
+  struct { float u, v; } uv;
+  struct { uint8_t r, g, b, a; } color;
+  struct { unsigned x: 10, y: 10, z: 10, handedness: 2; } tangent;
+} SupremeVertex;
+
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
+  struct { float u, v; } uv;
+  struct { uint8_t r, g, b, a; } color;
+  struct { unsigned x: 10, y: 10, z: 10, handedness: 2; } tangent;
+  uint8_t joints[4];
+  uint8_t weights[4];
+} SkinnedVertex;
 
 enum {
   SHAPE_GRID,
@@ -431,6 +426,9 @@ static struct {
 } state;
 
 // Helpers
+
+uint32_t os_vk_create_surface(void* instance, void** surface);
+const char** os_vk_get_instance_extensions(uint32_t* count);
 
 static void* talloc(size_t size);
 static void* tgrow(void* p, size_t n);
@@ -767,13 +765,17 @@ void lovrGraphicsPrepare() {
   state.tick = gpu_begin();
   state.passCount = 0;
 
+  Pass* syncPass = &state.passes[state.passCount++];
+  syncPass->type = PASS_TRANSFER;
+  syncPass->order = 0;
+  memset(&syncPass->barrier, 0, sizeof(gpu_barrier));
+
   state.uploads = &state.passes[state.passCount++];
   state.uploads->type = PASS_TRANSFER;
-  state.uploads->order = 0;
+  state.uploads->order = 1;
   state.uploads->stream = gpu_stream_begin();
   arr_init(&state.uploads->buffers, tgrow);
   arr_init(&state.uploads->textures, tgrow);
-  arr_init(&state.uploads->batches, tgrow);
 
   state.stats.scratchMemory = 0;
   state.stats.renderPasses = 0;
@@ -801,6 +803,18 @@ static int passcmp(const void* a, const void* b) {
   return (p->order > q->order) - (p->order < q->order);
 }
 
+static int buffercmp(const void* a, const void* b) {
+  const BufferAccess* x = a, *y = b;
+  const uintptr_t ba = (uintptr_t) (x->buffer), bb = (uintptr_t) (y->buffer);
+  return (ba > bb) - (ba < bb);
+}
+
+static int texturecmp(const void* a, const void* b) {
+  const TextureAccess* x = a, *y = b;
+  const uintptr_t ta = (uintptr_t) (x->texture), tb = (uintptr_t) (y->texture);
+  return (ta > tb) - (ta < tb);
+}
+
 void lovrGraphicsSubmit() {
   if (!state.active) return;
   if (state.pass) lovrGraphicsFinish();
@@ -815,10 +829,20 @@ void lovrGraphicsSubmit() {
 
   for (uint32_t i = 0; i < state.passCount; i++) {
     Pass* pass = &state.passes[i];
+
+    qsort(pass->buffers.data, pass->buffers.length, sizeof(BufferAccess), buffercmp);
+
     for (uint32_t j = 0; j < pass->buffers.length; j++) {
       BufferAccess* access = &pass->buffers.data[j];
       Buffer* buffer = access->buffer;
       Pass* writer = &state.passes[buffer->lastWrite];
+      gpu_barrier* barrier = &writer->barrier;
+
+      while (pass->buffers.data[j + 1].buffer == buffer) {
+        access->cache |= pass->buffers.data[j + 1].cache;
+        access->phase |= pass->buffers.data[j + 1].phase;
+        j++;
+      }
 
       uint32_t read = access->cache & GPU_CACHE_READ;
       uint32_t write = access->cache & GPU_CACHE_WRITE;
@@ -827,20 +851,20 @@ void lovrGraphicsSubmit() {
 
       // Read after write (memory + execution dependency, merges readers, only unsynced reads)
       if (read && buffer->pendingWrite && hasNewReads) {
-        writer->barrier.prev |= buffer->writePhase;
-        writer->barrier.next |= access->phase;
-        writer->barrier.flush |= buffer->pendingWrite;
-        writer->barrier.invalidate |= newReads;
+        barrier->prev |= buffer->writePhase;
+        barrier->next |= access->phase;
+        barrier->flush |= buffer->pendingWrite;
+        barrier->invalidate |= newReads;
         buffer->readPhase |= access->phase;
         buffer->pendingReads |= read;
       }
 
       // Write after write (memory + execution dependency, resets writer)
       if (write && buffer->pendingWrite && !buffer->pendingReads) {
-        writer->barrier.prev |= buffer->writePhase;
-        writer->barrier.next |= access->phase;
-        writer->barrier.flush |= buffer->pendingWrite;
-        writer->barrier.invalidate |= write;
+        barrier->prev |= buffer->writePhase;
+        barrier->next |= access->phase;
+        barrier->flush |= buffer->pendingWrite;
+        barrier->invalidate |= write;
         buffer->writePhase = access->phase;
         buffer->pendingWrite = write;
         buffer->lastWrite = i;
@@ -848,8 +872,8 @@ void lovrGraphicsSubmit() {
 
       // Write after read (execution dependency, resets writer and clears readers)
       if (write && buffer->pendingReads) {
-        writer->barrier.prev |= buffer->readPhase;
-        writer->barrier.next |= access->phase;
+        barrier->prev |= buffer->readPhase;
+        barrier->next |= access->phase;
         buffer->readPhase = 0;
         buffer->pendingReads = 0;
         buffer->writePhase = access->phase;
@@ -858,10 +882,19 @@ void lovrGraphicsSubmit() {
       }
     }
 
+    qsort(pass->textures.data, pass->textures.length, sizeof(TextureAccess), texturecmp);
+
     for (uint32_t j = 0; j < pass->textures.length; j++) {
       TextureAccess* access = &pass->textures.data[j];
       Texture* texture = access->texture;
       Pass* writer = &state.passes[texture->lastWrite];
+      gpu_barrier* barrier = &writer->barrier;
+
+      while (pass->textures.data[j + 1].texture == texture) {
+        access->cache |= pass->textures.data[j + 1].cache;
+        access->phase |= pass->textures.data[j + 1].phase;
+        j++;
+      }
 
       uint32_t read = access->cache & GPU_CACHE_READ;
       uint32_t write = access->cache & GPU_CACHE_WRITE;
@@ -870,20 +903,20 @@ void lovrGraphicsSubmit() {
 
       // Read after write (memory + execution dependency, merges readers, only unsynced reads)
       if (read && texture->pendingWrite && hasNewReads) {
-        writer->barrier.prev |= texture->writePhase;
-        writer->barrier.next |= access->phase;
-        writer->barrier.flush |= texture->pendingWrite;
-        writer->barrier.invalidate |= newReads;
+        barrier->prev |= texture->writePhase;
+        barrier->next |= access->phase;
+        barrier->flush |= texture->pendingWrite;
+        barrier->invalidate |= newReads;
         texture->readPhase |= access->phase;
         texture->pendingReads |= read;
       }
 
       // Write after write (memory + execution dependency, resets writer)
       if (write && texture->pendingWrite && !texture->pendingReads) {
-        writer->barrier.prev |= texture->writePhase;
-        writer->barrier.next |= access->phase;
-        writer->barrier.flush |= texture->pendingWrite;
-        writer->barrier.invalidate |= write;
+        barrier->prev |= texture->writePhase;
+        barrier->next |= access->phase;
+        barrier->flush |= texture->pendingWrite;
+        barrier->invalidate |= write;
         texture->writePhase = access->phase;
         texture->pendingWrite = write;
         texture->lastWrite = i;
@@ -891,49 +924,39 @@ void lovrGraphicsSubmit() {
 
       // Write after read (execution dependency, resets writer and clears readers)
       if (write && texture->pendingReads) {
-        writer->barrier.prev |= texture->readPhase;
-        writer->barrier.next |= access->phase;
+        barrier->prev |= texture->readPhase;
+        barrier->next |= access->phase;
         texture->readPhase = 0;
         texture->pendingReads = 0;
         texture->writePhase = access->phase;
         texture->pendingWrite = write;
         texture->lastWrite = i;
       }
-
-      gpu_texture_layout newLayout;
-      switch (access->cache) {
-        case GPU_CACHE_TEXTURE: newLayout = GPU_LAYOUT_READ_ONLY; break;
-        case GPU_CACHE_STORAGE_READ: newLayout = GPU_LAYOUT_GENERAL; break;
-        case GPU_CACHE_STORAGE_WRITE: newLayout = GPU_LAYOUT_GENERAL; break;
-        case GPU_CACHE_DEPTH_READ: newLayout = GPU_LAYOUT_ATTACHMENT; break;
-        case GPU_CACHE_DEPTH_WRITE: newLayout = GPU_LAYOUT_ATTACHMENT; break;
-        case GPU_CACHE_BLEND_READ: newLayout = GPU_LAYOUT_ATTACHMENT; break;
-        case GPU_CACHE_BLEND_WRITE: newLayout = GPU_LAYOUT_ATTACHMENT; break;
-        case GPU_CACHE_TRANSFER_READ: newLayout = GPU_LAYOUT_COPY_SRC; break;
-        case GPU_CACHE_TRANSFER_WRITE: newLayout = GPU_LAYOUT_COPY_DST; break;
-        default: newLayout = GPU_LAYOUT_GENERAL; break;
-      }
-
-      if (texture->layout != newLayout) {
-        // add texture barrier to pass's arr_texturebarrier_t list, also write all the barrier stuff
-        // to the texture barrier instead of merging into the pass's global barrier
-      }
     }
   }
 
-  // Finish streams
-  gpu_stream* streams[32];
-  uint32_t streamCount = 0;
-  for (uint32_t i = 0; i < state.passCount; i++) {
-    Pass* pass = &state.passes[i];
-    if (!pass->stream) continue;
-
-    gpu_stream_end(pass->stream);
-    streams[streamCount++] = pass->stream;
+  // If something needs to sync against work in the previous frame, set up the sync pass
+  if (state.passes[0].barrier.prev || state.passes[0].barrier.next) {
+    state.passes[0].stream = gpu_stream_begin();
   }
 
-  // Submit everything
-  gpu_submit(streams, streamCount);
+  // If there weren't any uploads, don't submit the upload pass
+  if (state.uploads->buffers.length == 0 && state.uploads->textures.length == 0) {
+    state.uploads->stream = NULL;
+  }
+
+  // Sync, finish, and submit streams
+  uint32_t count = 0;
+  gpu_stream* streams[32];
+  for (uint32_t i = 0; i < state.passCount; i++) {
+    if (!state.passes[i].stream) continue;
+    Pass* pass = &state.passes[i];
+    gpu_sync(pass->stream, &pass->barrier, 1);
+    gpu_stream_end(pass->stream);
+    streams[count++] = pass->stream;
+  }
+
+  gpu_submit(streams, count);
 
   // Release all tracked resources
   for (uint32_t i = 0; i < state.passCount; i++) {
@@ -946,9 +969,6 @@ void lovrGraphicsSubmit() {
       Texture* texture = state.passes[i].textures.data[j].texture;
       texture->lastWrite = 0;
       lovrRelease(texture, lovrTextureDestroy);
-    }
-    for (size_t j = 0; j < state.passes[i].batches.length; j++) {
-      lovrRelease(state.passes[i].batches.data[j], lovrBatchDestroy);
     }
   }
 }
@@ -1037,7 +1057,6 @@ void lovrGraphicsBeginRender(Canvas* canvas, uint32_t order) {
   state.pass->stream = gpu_stream_begin();
   arr_init(&state.pass->buffers, tgrow);
   arr_init(&state.pass->textures, tgrow);
-  arr_init(&state.pass->batches, tgrow);
   gpu_render_begin(state.pass->stream, &target);
 
   float viewport[4] = { 0.f, 0.f, (float) main->width, (float) main->height };
@@ -1179,6 +1198,20 @@ void lovrGraphicsGetProjection(uint32_t index, float* projection) {
 void lovrGraphicsSetProjection(uint32_t index, float* projection) {
   lovrCheck(index < COUNTOF(state.camera.projection), "Invalid view index %d", index);
   mat4_init(state.camera.projection[index], projection);
+}
+
+void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]) {
+  lovrCheck(state.pass && state.pass->type == PASS_RENDER, "The viewport can only be changed during a render pass");
+  lovrCheck(viewport[2] > 0.f && viewport[3] > 0.f, "Viewport dimensions must be greater than zero");
+  lovrCheck(depthRange[0] >= 0.f && depthRange[0] <= 1.f, "Depth range values must be between 0 and 1");
+  lovrCheck(depthRange[1] >= 0.f && depthRange[1] <= 1.f, "Depth range values must be between 0 and 1");
+  gpu_set_viewport(state.pass->stream, viewport, depthRange);
+}
+
+void lovrGraphicsSetScissor(uint32_t scissor[4]) {
+  lovrCheck(state.pass && state.pass->type == PASS_RENDER, "The scissor can only be changed during a render pass");
+  lovrCheck(scissor[2] > 0 && scissor[3] > 0, "Scissor dimensions must be greater than zero");
+  gpu_set_scissor(state.pass->stream, scissor);
 }
 
 void lovrGraphicsPush(StackType type, const char* label) {
@@ -1326,67 +1359,6 @@ void lovrGraphicsSetDepthClamp(bool clamp) {
   }
 }
 
-void lovrGraphicsSetScissor(uint32_t scissor[4]) {
-  lovrCheck(state.pass && state.pass->type == PASS_RENDER, "The scissor can only be changed during a render pass");
-  lovrCheck(scissor[2] > 0 && scissor[3] > 0, "Scissor dimensions must be greater than zero");
-  gpu_set_scissor(state.pass->stream, scissor);
-}
-
-void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value, uint8_t mask) {
-  bool hasReplace = false;
-  hasReplace |= state.pipeline->info.stencil.failOp == GPU_STENCIL_REPLACE;
-  hasReplace |= state.pipeline->info.stencil.depthFailOp == GPU_STENCIL_REPLACE;
-  hasReplace |= state.pipeline->info.stencil.passOp == GPU_STENCIL_REPLACE;
-  if (hasReplace && test != COMPARE_NONE) {
-    lovrCheck(value == state.pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
-  }
-  switch (test) { // (Reversed compare mode)
-    case COMPARE_NONE: default: state.pipeline->info.stencil.test = GPU_COMPARE_NONE; break;
-    case COMPARE_EQUAL: state.pipeline->info.stencil.test = GPU_COMPARE_EQUAL; break;
-    case COMPARE_NEQUAL: state.pipeline->info.stencil.test = GPU_COMPARE_NEQUAL; break;
-    case COMPARE_LESS: state.pipeline->info.stencil.test = GPU_COMPARE_GREATER; break;
-    case COMPARE_LEQUAL: state.pipeline->info.stencil.test = GPU_COMPARE_GEQUAL; break;
-    case COMPARE_GREATER: state.pipeline->info.stencil.test = GPU_COMPARE_LESS; break;
-    case COMPARE_GEQUAL: state.pipeline->info.stencil.test = GPU_COMPARE_LEQUAL; break;
-  }
-  state.pipeline->info.stencil.testMask = mask;
-  if (test != COMPARE_NONE) state.pipeline->info.stencil.value = value;
-  state.pipeline->dirty = true;
-}
-
-void lovrGraphicsSetStencilWrite(StencilAction actions[3], uint8_t value, uint8_t mask) {
-  bool hasReplace = actions[0] == STENCIL_REPLACE || actions[1] == STENCIL_REPLACE || actions[2] == STENCIL_REPLACE;
-  if (hasReplace && state.pipeline->info.stencil.test != GPU_COMPARE_NONE) {
-    lovrCheck(value == state.pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
-  }
-  state.pipeline->info.stencil.failOp = (gpu_stencil_op) actions[0];
-  state.pipeline->info.stencil.depthFailOp = (gpu_stencil_op) actions[1];
-  state.pipeline->info.stencil.passOp = (gpu_stencil_op) actions[2];
-  state.pipeline->info.stencil.writeMask = mask;
-  if (hasReplace) state.pipeline->info.stencil.value = value;
-  state.pipeline->dirty = true;
-}
-
-void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]) {
-  lovrCheck(state.pass && state.pass->type == PASS_RENDER, "The viewport can only be changed during a render pass");
-  lovrCheck(viewport[2] > 0.f && viewport[3] > 0.f, "Viewport dimensions must be greater than zero");
-  lovrCheck(depthRange[0] >= 0.f && depthRange[0] <= 1.f, "Depth range values must be between 0 and 1");
-  lovrCheck(depthRange[1] >= 0.f && depthRange[1] <= 1.f, "Depth range values must be between 0 and 1");
-  gpu_set_viewport(state.pass->stream, viewport, depthRange);
-}
-
-void lovrGraphicsSetWinding(Winding winding) {
-  state.pipeline->dirty |= state.pipeline->info.rasterizer.winding != (gpu_winding) winding;
-  state.pipeline->info.rasterizer.winding = (gpu_winding) winding;
-}
-
-void lovrGraphicsSetWireframe(bool wireframe) {
-  if (state.features.wireframe) {
-    state.pipeline->dirty |= state.pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
-    state.pipeline->info.rasterizer.wireframe = wireframe;
-  }
-}
-
 void lovrGraphicsSetShader(Shader* shader) {
   Shader* previous = state.pipeline->shader;
   if (shader == previous) return;
@@ -1425,10 +1397,7 @@ void lovrGraphicsSetShader(Shader* shader) {
         };
       } else {
         Texture* texture = lovrGraphicsGetDefaultTexture();
-        state.bindings[i].texture = (gpu_texture_binding) {
-          .object = texture->gpu,
-          .sampler = texture->sampler->gpu
-        };
+        state.bindings[i].texture = texture->gpu;
       }
 
       state.emptyBindingMask &= ~(1 << i);
@@ -1445,6 +1414,53 @@ void lovrGraphicsSetShader(Shader* shader) {
   state.pipeline->info.flags = shader ? shader->flags : NULL;
   state.pipeline->info.flagCount = shader ? shader->activeFlagCount : 0;
   state.pipeline->dirty = true;
+}
+
+void lovrGraphicsSetStencilTest(CompareMode test, uint8_t value, uint8_t mask) {
+  bool hasReplace = false;
+  hasReplace |= state.pipeline->info.stencil.failOp == GPU_STENCIL_REPLACE;
+  hasReplace |= state.pipeline->info.stencil.depthFailOp == GPU_STENCIL_REPLACE;
+  hasReplace |= state.pipeline->info.stencil.passOp == GPU_STENCIL_REPLACE;
+  if (hasReplace && test != COMPARE_NONE) {
+    lovrCheck(value == state.pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
+  }
+  switch (test) { // (Reversed compare mode)
+    case COMPARE_NONE: default: state.pipeline->info.stencil.test = GPU_COMPARE_NONE; break;
+    case COMPARE_EQUAL: state.pipeline->info.stencil.test = GPU_COMPARE_EQUAL; break;
+    case COMPARE_NEQUAL: state.pipeline->info.stencil.test = GPU_COMPARE_NEQUAL; break;
+    case COMPARE_LESS: state.pipeline->info.stencil.test = GPU_COMPARE_GREATER; break;
+    case COMPARE_LEQUAL: state.pipeline->info.stencil.test = GPU_COMPARE_GEQUAL; break;
+    case COMPARE_GREATER: state.pipeline->info.stencil.test = GPU_COMPARE_LESS; break;
+    case COMPARE_GEQUAL: state.pipeline->info.stencil.test = GPU_COMPARE_LEQUAL; break;
+  }
+  state.pipeline->info.stencil.testMask = mask;
+  if (test != COMPARE_NONE) state.pipeline->info.stencil.value = value;
+  state.pipeline->dirty = true;
+}
+
+void lovrGraphicsSetStencilWrite(StencilAction actions[3], uint8_t value, uint8_t mask) {
+  bool hasReplace = actions[0] == STENCIL_REPLACE || actions[1] == STENCIL_REPLACE || actions[2] == STENCIL_REPLACE;
+  if (hasReplace && state.pipeline->info.stencil.test != GPU_COMPARE_NONE) {
+    lovrCheck(value == state.pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
+  }
+  state.pipeline->info.stencil.failOp = (gpu_stencil_op) actions[0];
+  state.pipeline->info.stencil.depthFailOp = (gpu_stencil_op) actions[1];
+  state.pipeline->info.stencil.passOp = (gpu_stencil_op) actions[2];
+  state.pipeline->info.stencil.writeMask = mask;
+  if (hasReplace) state.pipeline->info.stencil.value = value;
+  state.pipeline->dirty = true;
+}
+
+void lovrGraphicsSetWinding(Winding winding) {
+  state.pipeline->dirty |= state.pipeline->info.rasterizer.winding != (gpu_winding) winding;
+  state.pipeline->info.rasterizer.winding = (gpu_winding) winding;
+}
+
+void lovrGraphicsSetWireframe(bool wireframe) {
+  if (state.features.wireframe) {
+    state.pipeline->dirty |= state.pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
+    state.pipeline->info.rasterizer.wireframe = wireframe;
+  }
 }
 
 void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent) {
@@ -1523,8 +1539,7 @@ void lovrGraphicsSetTexture(const char* name, size_t length, uint32_t slot, Text
     lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' flag to sample them in shaders");
   }
 
-  state.bindings[slot].texture.object = texture->gpu;
-  state.bindings[slot].texture.sampler = texture->sampler->gpu;
+  state.bindings[slot].texture = texture->gpu;
   gpu_phase phase = GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
   gpu_cache cache = GPU_CACHE_TEXTURE;
   TextureAccess access = { texture, phase, cache };
@@ -1532,6 +1547,29 @@ void lovrGraphicsSetTexture(const char* name, size_t length, uint32_t slot, Text
   arr_push(textures, access);
   lovrRetain(texture);
 
+  state.emptyBindingMask &= ~(1 << slot);
+  state.bindingsDirty = true;
+}
+
+void lovrGraphicsSetSampler(const char* name, size_t length, uint32_t slot, Sampler* sampler) {
+  Shader* shader = state.pipeline->shader;
+  lovrCheck(shader, "A Shader must be active to bind resources");
+
+  if (name) {
+    slot = ~0u;
+    uint32_t hash = hash32(name, length);
+    for (uint32_t i = 0; i < shader->resourceCount; i++) {
+      if (shader->resourceLookup[i] == hash) {
+        slot = shader->resourceSlots[i];
+        break;
+      }
+    }
+    lovrCheck(slot != ~0u, "Shader has no resource named '%s'", name);
+  }
+
+  lovrCheck(shader->samplerMask & (1 << slot), "Shader slot %d is not a Sampler", slot + 1);
+
+  state.bindings[slot].sampler = sampler->gpu;
   state.emptyBindingMask &= ~(1 << slot);
   state.bindingsDirty = true;
 }
@@ -2195,8 +2233,16 @@ void lovrGraphicsReplay(Batch* batch) {
     }
   }
 
-  lovrRetain(batch);
-  arr_push(&state.pass->batches, batch);
+  for (uint32_t i = 0; i < batch->buffers.length; i++) {
+    lovrRetain(batch->buffers.data[i].buffer);
+  }
+
+  for (uint32_t i = 0; i < batch->textures.length; i++) {
+    lovrRetain(batch->textures.data[i].texture);
+  }
+
+  arr_append(&state.pass->buffers, batch->buffers.data, batch->buffers.length);
+  arr_append(&state.pass->textures, batch->textures.data, batch->textures.length);
   state.stats.drawCalls += batch->activeDrawCount;
 }
 
@@ -2217,6 +2263,11 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
     state.boundPipeline = pipeline;
   }
 
+  if (state.constantsDirty && shader->constantSize > 0) {
+    gpu_push_constants(state.pass->stream, pipeline, state.constantData, shader->constantSize);
+    state.constantsDirty = false;
+  }
+
   if (state.bindingsDirty && shader->resourceCount > 0) {
     gpu_binding bindings[32];
 
@@ -2234,11 +2285,6 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
     gpu_bind_bundle(state.pass->stream, pipeline, true, 1, bundle, NULL, 0);
     state.boundBundle = bundle;
     state.bindingsDirty = false;
-  }
-
-  if (state.constantsDirty && shader->constantSize > 0) {
-    gpu_push_constants(state.pass->stream, pipeline, state.constantData, shader->constantSize);
-    state.constantsDirty = false;
   }
 
   if (buffer) {
@@ -2519,7 +2565,13 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .usage = info->usage,
     .srgb = info->srgb,
     .handle = info->handle,
-    .stream = state.uploads->stream,
+    /*.upload = {
+      .stream = state.uploads->pass,
+      .buffer = uploadBuffer.gpu,
+      .offsets = offsets,
+      .levelCount = levels,
+      .generateMipmaps = levels < texture->info.mipmaps
+    },*/
     .label = info->label
   });
 
@@ -2755,13 +2807,13 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 }
 
 void lovrTextureGenerateMipmaps(Texture* texture) {
+  lovrThrow("TODO");
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Texture mipmap generation can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Can not generate mipmaps on texture views");
   lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to generate mipmaps");
   lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to generate mipmaps");
   lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the texture's format, which is required for mipmap generation");
-  uint16_t extent[4] = { texture->info.width, texture->info.height, texture->info.depth, texture->info.mipmaps };
-  gpu_mipgen(state.pass->stream, texture->gpu, 1, 0, extent);
+  // TODO
   TextureAccess access = { texture, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE };
   arr_push(&state.pass->textures, access);
   lovrRetain(texture);
@@ -4644,7 +4696,6 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         // Parse push constant types (currently only scalars, vectors, and matrices are supported)
         // Member count of OpTypeStruct is the instruction length - 2, type ids start at word #2
         // TODO this needs to be hardened to check for valid ids / overflows
-        // TODO validate that no member goes over 128 byte limit
         if (storageClass == 9 && reflection->constantCount == 0) {
           uint32_t structId = (words + cache[type].type.word)[3];
           const uint32_t* structType = words + cache[structId].type.word;
