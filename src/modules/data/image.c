@@ -472,6 +472,7 @@ Image* lovrImageCreate(uint32_t width, uint32_t height, Blob* contents, uint8_t 
     memset(data, value, size);
   }
   image->blob = lovrBlobCreate(data, size, "Image");
+  image->mipmapCount = 1;
   return image;
 }
 
@@ -535,7 +536,7 @@ Image* lovrImageCreateFromBlob(Blob* blob, bool flip) {
 
   image->width = width;
   image->height = height;
-  image->mipmapCount = 0;
+  image->mipmapCount = 1;
   return image;
 }
 
