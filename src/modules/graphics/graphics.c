@@ -535,6 +535,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   } else {
     lovrGraphicsPrepare();
     gpu_clear_buffer(state.uploads->stream, state.zeros.gpu, state.zeros.offset, 4096, 0);
+    arr_push(&state.uploads->buffers, (BufferAccess) { 0 }); // TODO maybe better way to ensure upload stream gets submitted
   }
 
   for (uint32_t i = 0; i < DEFAULT_SAMPLER_COUNT; i++) {
@@ -849,6 +850,8 @@ void lovrGraphicsSubmit() {
     for (uint32_t j = 0; j < pass->buffers.length; j++) {
       BufferAccess* access = &pass->buffers.data[j];
       Buffer* buffer = access->buffer;
+      if (!buffer) continue; // TODO Maybe better way to ensure gets submitted
+
       Pass* writer = &state.passes[buffer->lastWrite];
       gpu_barrier* barrier = &writer->barrier;
 
@@ -901,6 +904,8 @@ void lovrGraphicsSubmit() {
     for (uint32_t j = 0; j < pass->textures.length; j++) {
       TextureAccess* access = &pass->textures.data[j];
       Texture* texture = access->texture;
+      if (!texture) continue; // TODO Maybe better way to ensure gets submitted
+
       Pass* writer = &state.passes[texture->lastWrite];
       gpu_barrier* barrier = &writer->barrier;
 
@@ -976,11 +981,13 @@ void lovrGraphicsSubmit() {
   for (uint32_t i = 0; i < state.passCount; i++) {
     for (size_t j = 0; j < state.passes[i].buffers.length; j++) {
       Buffer* buffer = state.passes[i].buffers.data[j].buffer;
+      if (!buffer) continue; // (TODO)
       buffer->lastWrite = 0;
       lovrRelease(buffer, lovrBufferDestroy);
     }
     for (size_t j = 0; j < state.passes[i].textures.length; j++) {
       Texture* texture = state.passes[i].textures.data[j].texture;
+      if (!texture) continue; // (TODO)
       texture->lastWrite = 0;
       lovrRelease(texture, lovrTextureDestroy);
     }
@@ -2526,6 +2533,7 @@ Texture* lovrGraphicsGetDefaultTexture() {
     .label = "white"
   });
   gpu_clear_texture(state.uploads->stream, state.defaultTexture->gpu, 0, 1, 0, 1, (float[4]) { 1.f, 1.f, 1.f, 1.f });
+  arr_push(&state.uploads->textures, (TextureAccess) { 0 }); // TODO maybe better way to ensure upload stream gets submitted
   return state.defaultTexture;
 }
 
@@ -2623,6 +2631,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     },
     .label = info->label
   });
+  arr_push(&state.uploads->textures, (TextureAccess) { 0 }); // TODO maybe better way to ensure upload stream gets submitted
 
   // Automatically create a renderable view for renderable non-volume textures
   if (info->usage & TEXTURE_RENDER && info->type != TEXTURE_VOLUME && info->depth <= 6) {
@@ -3879,20 +3888,9 @@ static gpu_bundle* allocateBundle(uint32_t layout) {
 }
 
 static gpu_pass* lookupPass(Canvas* canvas) {
-  uint64_t id = 0xaaa; // TODO get pass key
-
   Texture* texture = canvas->textures[0] ? canvas->textures[0] : canvas->depth.texture;
   bool resolve = texture->info.samples == 1 && canvas->samples > 1;
 
-  for (uint32_t i = 0; i < state.gpuPassCount; i++) {
-    if (state.passKeys[i] == id) {
-      return state.gpuPasses[i];
-    }
-  }
-
-  lovrCheck(state.gpuPassCount < COUNTOF(state.gpuPasses), "Too many passes, please report this encounter");
-
-  // Create new pass
   gpu_pass_info info = {
     .views = texture->info.depth,
     .samples = canvas->samples,
@@ -3904,6 +3902,7 @@ static gpu_pass* lookupPass(Canvas* canvas) {
       .format = (gpu_texture_format) canvas->textures[i]->info.format,
       .load = (gpu_load_op) canvas->loads[i],
       .save = (gpu_save_op) GPU_SAVE_OP_SAVE,
+      .usage = canvas->textures[i]->info.usage,
       .srgb = canvas->textures[i]->info.srgb
     };
   }
@@ -3914,12 +3913,23 @@ static gpu_pass* lookupPass(Canvas* canvas) {
       .load = (gpu_load_op) canvas->depth.load,
       .stencilLoad = (gpu_load_op) canvas->depth.load,
       .save = canvas->depth.texture ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD,
-      .stencilSave = canvas->depth.texture ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD
+      .stencilSave = canvas->depth.texture ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD,
+      .usage = canvas->depth.texture ? canvas->depth.texture->info.usage : 0
     };
   }
 
+  uint64_t hash = hash64(&info, sizeof(info));
+  for (uint32_t i = 0; i < state.gpuPassCount; i++) {
+    if (state.passKeys[i] == hash) {
+      return state.gpuPasses[i];
+    }
+  }
+
+  lovrCheck(state.gpuPassCount < COUNTOF(state.gpuPasses), "Too many passes, please report this encounter");
+
+  // Create new pass
   lovrAssert(gpu_pass_init(state.gpuPasses[state.gpuPassCount], &info), "Failed to initialize pass");
-  state.passKeys[state.gpuPassCount] = id;
+  state.passKeys[state.gpuPassCount] = hash;
   return state.gpuPasses[state.gpuPassCount++];
 }
 
@@ -4897,8 +4907,10 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
     .mipmaps = 1,
     .samples = samples,
     .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT,
+    .upload.stream = state.uploads->stream,
     .srgb = srgb
   };
+  arr_push(&state.uploads->textures, (TextureAccess) { 0 }); // TODO maybe better way to ensure upload stream gets submitted
 
   entry = &row[0];
   for (uint32_t i = 1; i < cols; i++) {
