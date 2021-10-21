@@ -207,8 +207,7 @@ StringEntry lovrTextureUsage[] = {
   [0] = ENTRY("sample"),
   [1] = ENTRY("render"),
   [2] = ENTRY("storage"),
-  [3] = ENTRY("copyfrom"),
-  [4] = ENTRY("copyto"),
+  [3] = ENTRY("copy"),
   { 0 }
 };
 

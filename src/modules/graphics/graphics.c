@@ -2522,7 +2522,7 @@ Texture* lovrGraphicsGetDefaultTexture() {
   lovrGraphicsPrepare();
   state.defaultTexture = lovrTextureCreate(&(TextureInfo) {
     .type = TEXTURE_2D,
-    .usage = TEXTURE_SAMPLE | TEXTURE_COPYTO,
+    .usage = TEXTURE_SAMPLE | TEXTURE_COPY,
     .format = FORMAT_RGBA8,
     .width = 4,
     .height = 4,
@@ -2619,7 +2619,11 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .size = { info->width, info->height, info->depth },
     .mipmaps = texture->info.mipmaps,
     .samples = MAX(info->samples, 1),
-    .usage = info->usage,
+    .usage =
+      ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
+      ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
+      ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
+      ((info->usage & TEXTURE_COPY) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
     .srgb = info->srgb,
     .handle = info->handle,
     .upload = {
@@ -2728,7 +2732,7 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Writing to a Texture can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Texture views can not be written to");
-  lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to write to it");
+  lovrCheck(texture->info.usage & TEXTURE_COPY, "Texture must have the 'copy' flag to write to it");
   lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be written to");
   checkTextureBounds(&texture->info, offset, extent);
 
@@ -2787,7 +2791,7 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
   ReaderPool* readers = &state.readers;
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Downloading a Texture can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Texture views can not be read");
-  lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to read from it");
+  lovrCheck(texture->info.usage & TEXTURE_COPY, "Texture must have the 'copy' flag to read from it");
   lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
   lovrCheck(readers->head - readers->tail != COUNTOF(readers->list), "Too many readbacks"); // TODO emergency waitIdle instead
@@ -2810,8 +2814,8 @@ void lovrTextureRead(Texture* texture, uint16_t offset[4], uint16_t extent[3], v
 void lovrTextureCopy(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t extent[3]) {
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Texture copies can only happen in a transfer pass");
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not copy Texture views");
-  lovrCheck(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to copy from it");
-  lovrCheck(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to copy to it");
+  lovrCheck(src->info.usage & TEXTURE_COPY, "Texture must have the 'copy' flag to copy from it");
+  lovrCheck(dst->info.usage & TEXTURE_COPY, "Texture must have the 'copy' flag to copy to it");
   lovrCheck(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
   lovrCheck(src->info.samples == dst->info.samples, "Textures must have the same sample counts to copy between them");
   checkTextureBounds(&src->info, srcOffset, extent);
@@ -2830,8 +2834,8 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Texture blits can only happen in a transfer pass");
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
   lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
-  lovrCheck(src->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to blit from it");
-  lovrCheck(dst->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to blit to it");
+  lovrCheck(src->info.usage & TEXTURE_COPY, "Texture must have the 'copy' flag to blit from it");
+  lovrCheck(dst->info.usage & TEXTURE_COPY, "Texture must have the 'copy' flag to blit to it");
   lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the source texture's format");
   lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the destination texture's format");
   lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
@@ -2850,8 +2854,7 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 void lovrTextureGenerateMipmaps(Texture* texture) {
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Texture mipmap generation can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Can not generate mipmaps on texture views");
-  lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to generate mipmaps");
-  lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to generate mipmaps");
+  lovrCheck(texture->info.usage & TEXTURE_COPY, "Texture must have the 'copy' flag to generate mipmaps");
   lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the texture's format, which is required for mipmap generation");
   bool volumetric = texture->info.type == TEXTURE_VOLUME;
   for (uint32_t i = 1; i < texture->info.mipmaps; i++) {
