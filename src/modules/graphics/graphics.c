@@ -2848,13 +2848,34 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint16_t srcOffset[4], uint16_t
 }
 
 void lovrTextureGenerateMipmaps(Texture* texture) {
-  lovrThrow("TODO");
   lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Texture mipmap generation can only happen in a transfer pass");
   lovrCheck(!texture->info.parent, "Can not generate mipmaps on texture views");
   lovrCheck(texture->info.usage & TEXTURE_COPYFROM, "Texture must have the 'copyfrom' flag to generate mipmaps");
   lovrCheck(texture->info.usage & TEXTURE_COPYTO, "Texture must have the 'copyto' flag to generate mipmaps");
   lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT, "This GPU does not support blits for the texture's format, which is required for mipmap generation");
-  // TODO
+  bool volumetric = texture->info.type == TEXTURE_VOLUME;
+  for (uint32_t i = 1; i < texture->info.mipmaps; i++) {
+    uint16_t srcOffset[4] = { 0, 0, 0, i - 1 };
+    uint16_t dstOffset[4] = { 0, 0, 0, i };
+    uint16_t srcExtent[3] = {
+      MAX(texture->info.width >> (i - 1), 1),
+      MAX(texture->info.height >> (i - 1), 1),
+      volumetric ? MAX(texture->info.depth >> (i - 1), 1) : 1
+    };
+    uint16_t dstExtent[3] = {
+      MAX(texture->info.width >> i, 1),
+      MAX(texture->info.height >> i, 1),
+      volumetric ? MAX(texture->info.depth >> i, 1) : 1
+    };
+    gpu_blit(state.pass->stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
+    gpu_barrier barrier = {
+      .prev = GPU_PHASE_BLIT,
+      .next = GPU_PHASE_BLIT,
+      .flush = GPU_CACHE_TRANSFER_WRITE,
+      .invalidate = GPU_CACHE_TRANSFER_READ
+    };
+    gpu_sync(state.pass->stream, &barrier, 1);
+  }
   TextureAccess access = { texture, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE };
   arr_push(&state.pass->textures, access);
   lovrRetain(texture);
