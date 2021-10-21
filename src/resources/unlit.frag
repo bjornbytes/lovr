@@ -8,6 +8,11 @@ layout(location = 1) in vec4 inVertexColor;
 
 layout(location = 0) out vec4 outColor;
 
+layout(set = 0, binding = 3) uniform sampler nearest;
+layout(set = 0, binding = 4) uniform sampler bilinear;
+layout(set = 0, binding = 5) uniform sampler trilinear;
+layout(set = 0, binding = 6) uniform sampler anisotropic;
+
 void main() {
   outColor = vec4(1.);
 

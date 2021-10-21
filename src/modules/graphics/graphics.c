@@ -537,10 +537,24 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     gpu_clear_buffer(state.uploads->stream, state.zeros.gpu, state.zeros.offset, 4096, 0);
   }
 
+  for (uint32_t i = 0; i < DEFAULT_SAMPLER_COUNT; i++) {
+    state.defaultSamplers[i] = lovrSamplerCreate(&(SamplerInfo) {
+      .min = i == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
+      .mag = i == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
+      .mip = i >= SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
+      .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
+      .anisotropy = i == SAMPLER_ANISOTROPIC ? state.limits.anisotropy : 0.f
+    });
+  }
+
   gpu_slot defaultBindings[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Camera
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Transforms
-    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 } // Colors
+    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // DrawData
+    { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Nearest
+    { 4, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Bilinear
+    { 5, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Trilinear
+    { 6, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 } // Anisotropic
   };
 
   lookupLayout(defaultBindings, COUNTOF(defaultBindings));
@@ -1373,7 +1387,10 @@ void lovrGraphicsSetShader(Shader* shader) {
       } else {
         // Either the bufferMask or textureMask will be set, so only need to check one
         uint32_t mask = 1 << shader->resourceSlots[j];
-        bool differentType = !(previous->bufferMask & mask) == !(shader->bufferMask & mask);
+        bool differentType = 0;
+        differentType |= (previous->bufferMask & mask) != (shader->bufferMask & mask);
+        differentType |= (previous->textureMask & mask) != (shader->textureMask & mask);
+        differentType |= (previous->samplerMask & mask) != (shader->samplerMask & mask);
         bool differentStorage = !(previous->storageMask & mask) == !(shader->storageMask & mask);
         state.emptyBindingMask |= (differentType || differentStorage) << shader->resourceSlots[j];
         i++;
@@ -1896,7 +1913,11 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
         .bindings = (gpu_binding[]) {
           [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
           [1].buffer = { state.transforms.gpu, state.transforms.offset, 256 * 64 },
-          [2].buffer = { state.drawData.gpu, state.drawData.offset, 256 * 16 }
+          [2].buffer = { state.drawData.gpu, state.drawData.offset, 256 * 16 },
+          [3].sampler = state.defaultSamplers[0]->gpu,
+          [4].sampler = state.defaultSamplers[1]->gpu,
+          [5].sampler = state.defaultSamplers[2]->gpu,
+          [6].sampler = state.defaultSamplers[3]->gpu
         }
       };
       gpu_bundle* uniformBundle = allocateBundle(0);
@@ -2129,7 +2150,11 @@ void lovrGraphicsReplay(Batch* batch) {
     .bindings = (gpu_binding[]) {
       [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
       [1].buffer = { batch->transforms.gpu, batch->transforms.offset, 256 * 64 },
-      [2].buffer = { batch->drawData.gpu, batch->drawData.offset, 256 * 16 }
+      [2].buffer = { batch->drawData.gpu, batch->drawData.offset, 256 * 16 },
+      [3].sampler = state.defaultSamplers[0]->gpu,
+      [4].sampler = state.defaultSamplers[1]->gpu,
+      [5].sampler = state.defaultSamplers[2]->gpu,
+      [6].sampler = state.defaultSamplers[3]->gpu
     }
   };
   gpu_bundle* uniformBundle = allocateBundle(0);
@@ -2500,7 +2525,6 @@ Texture* lovrGraphicsGetDefaultTexture() {
     .srgb = false,
     .label = "white"
   });
-  lovrTextureSetSampler(state.defaultTexture, lovrGraphicsGetDefaultSampler(SAMPLER_NEAREST));
   gpu_clear_texture(state.uploads->stream, state.defaultTexture->gpu, 0, 1, 0, 1, (float[4]) { 1.f, 1.f, 1.f, 1.f });
   return state.defaultTexture;
 }
@@ -2618,10 +2642,6 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     }
   }
 
-  if (info->usage & TEXTURE_SAMPLE) {
-    lovrTextureSetSampler(texture, lovrGraphicsGetDefaultSampler(SAMPLER_TRILINEAR));
-  }
-
   if (!info->handle) {
     uint32_t size = measureTexture(info->format, info->width, info->height, info->depth);
     state.stats.memory += size;
@@ -2680,7 +2700,6 @@ void lovrTextureDestroy(void* ref) {
   const TextureInfo* info = &texture->info;
   if (texture != state.window) {
     lovrRelease(texture->info.parent, lovrTextureDestroy);
-    lovrRelease(texture->sampler, lovrSamplerDestroy);
     if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
     if (texture->gpu) gpu_texture_destroy(texture->gpu);
     if (!info->parent && !info->handle) {
@@ -2695,18 +2714,6 @@ void lovrTextureDestroy(void* ref) {
 
 const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
-}
-
-Sampler* lovrTextureGetSampler(Texture* texture) {
-  if (~texture->info.usage & TEXTURE_SAMPLE) return NULL;
-  return texture->sampler;
-}
-
-void lovrTextureSetSampler(Texture* texture, Sampler* sampler) {
-  lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must have the 'sample' usage to apply Samplers to them");
-  lovrRetain(sampler);
-  lovrRelease(texture->sampler, lovrSamplerDestroy);
-  texture->sampler = sampler;
 }
 
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]) {
@@ -2874,18 +2881,6 @@ Sampler* lovrSamplerCreate(SamplerInfo* info) {
   return sampler;
 }
 
-Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type) {
-  if (state.defaultSamplers[type]) return state.defaultSamplers[type];
-  state.stats.samplers++;
-  return state.defaultSamplers[type] = lovrSamplerCreate(&(SamplerInfo) {
-    .min = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
-    .mag = type == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
-    .mip = type >= SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
-    .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
-    .anisotropy = type == SAMPLER_ANISOTROPIC ? MIN(2.f, state.limits.anisotropy) : 0.f
-  });
-}
-
 void lovrSamplerDestroy(void* ref) {
   Sampler* sampler = ref;
   gpu_sampler_destroy(sampler->gpu);
@@ -2965,7 +2960,13 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->attributeMask = reflection.attributeMask;
 
   // Validate built in bindings (can be as little or as much as we want really)
-  lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera matrices");
+  lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera (slot 0:0)");
+  lovrCheck(reflection.slots[0][1].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for transforms (slot 0:1)");
+  lovrCheck(reflection.slots[0][2].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draw data (slot 0:2)");
+  lovrCheck(reflection.slots[0][3].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0:3");
+  lovrCheck(reflection.slots[0][4].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0:4");
+  lovrCheck(reflection.slots[0][5].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0:5");
+  lovrCheck(reflection.slots[0][6].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0:6");
 
   // Preprocess user bindings
   for (uint32_t i = 0; i < COUNTOF(reflection.slots[2]); i++) {
@@ -2973,9 +2974,12 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     if (!slot.stage) continue;
     uint32_t index = shader->resourceCount++;
     bool buffer = slot.type == GPU_SLOT_UNIFORM_BUFFER || slot.type == GPU_SLOT_STORAGE_BUFFER;
+    bool texture = slot.type == GPU_SLOT_SAMPLED_TEXTURE || slot.type == GPU_SLOT_STORAGE_TEXTURE;
+    bool sampler = slot.type == GPU_SLOT_SAMPLER;
     bool storage = slot.type == GPU_SLOT_STORAGE_BUFFER || slot.type == GPU_SLOT_STORAGE_TEXTURE;
     shader->bufferMask |= (buffer << i);
-    shader->textureMask |= (!buffer << i);
+    shader->textureMask |= (texture << i);
+    shader->samplerMask |= (sampler << i);
     shader->storageMask |= (storage << i);
     shader->slotStages[i] = slot.stage;
     shader->resourceSlots[index] = i;
@@ -3020,6 +3024,7 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->resourceCount = parent->resourceCount;
   shader->bufferMask = parent->bufferMask;
   shader->textureMask = parent->textureMask;
+  shader->samplerMask = parent->samplerMask;
   shader->storageMask = parent->storageMask;
   memcpy(shader->resourceSlots, parent->resourceSlots, sizeof(shader->resourceSlots));
   memcpy(shader->resourceLookup, parent->resourceLookup, sizeof(shader->resourceLookup));
@@ -4512,10 +4517,15 @@ static void parseResourceType(const uint32_t* words, uint32_t wordCount, CacheDa
     default: break; // It's not a Buffer, keep going to see if it's a valid Texture
   }
 
-  // If it's a sampled image, unwrap to get to the image type.  If it's not an image, fail
+  // If it's a sampler type, we're done
+  if ((instruction[0] & 0xffff) == 26) { // OpTypeSampler
+    *slotType = GPU_SLOT_SAMPLER;
+    return;
+  }
+
+  // Combined image samplers are currently not supported (thank you webgpu)
   if ((instruction[0] & 0xffff) == 27) { // OpTypeSampledImage
-    instruction = words + cache[instruction[2]].type.word;
-    lovrCheck(instruction < edge, "Invalid Shader code: id overflow");
+    lovrThrow("Invalid Shader code: combined image samplers (e.g. sampler2D) are not currently supported");
   } else if ((instruction[0] & 0xffff) != 25) { // OpTypeImage
     lovrThrow("Invalid Shader code: variable %d is not recognized as a valid buffer or texture resource", id);
   }
@@ -4529,7 +4539,7 @@ static void parseResourceType(const uint32_t* words, uint32_t wordCount, CacheDa
   switch (instruction[7]) {
     case 1: *slotType = GPU_SLOT_SAMPLED_TEXTURE; return;
     case 2: *slotType = GPU_SLOT_STORAGE_TEXTURE; return;
-    default: lovrThrow("Unsupported Shader code: texture variable %d isn't a sampled texture or a storage texture", id);
+    default: lovrThrow("Unsupported Shader code: texture variable %d is not marked as a sampled image or storage image", id);
   }
 }
 
