@@ -28,6 +28,10 @@ struct DrawData {
 layout(set = 0, binding = 0) uniform CameraBuffer { Camera camera; };
 layout(set = 0, binding = 1) uniform TransformBuffer { mat4 transforms[256]; };
 layout(set = 0, binding = 2) uniform DrawDataBuffer { DrawData draws[256]; };
+layout(set = 0, binding = 3) uniform sampler nearest;
+layout(set = 0, binding = 4) uniform sampler bilinear;
+layout(set = 0, binding = 5) uniform sampler trilinear;
+layout(set = 0, binding = 6) uniform sampler anisotropic;
 
 struct BasicMaterial {
   uint color;
@@ -37,8 +41,8 @@ struct BasicMaterial {
 };
 
 #define Material(T) layout(set = 1, binding = 0) uniform Materials { T materials[materialCount]; };
-layout(set = 1, binding = 1) uniform sampler2D textures2d[textureCount];
-layout(set = 1, binding = 1) uniform samplerCube texturesCube[textureCount];
+layout(set = 1, binding = 1) uniform texture2D textures2d[textureCount];
+layout(set = 1, binding = 1) uniform textureCube texturesCube[textureCount];
 
 Material(BasicMaterial);
 

@@ -445,8 +445,6 @@ Texture* lovrTextureCreate(TextureInfo* info);
 Texture* lovrTextureCreateView(TextureViewInfo* view);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
-Sampler* lovrTextureGetSampler(Texture* texture);
-void lovrTextureSetSampler(Texture* texture, Sampler* sampler);
 void lovrTextureWrite(Texture* texture, uint16_t offset[4], uint16_t extent[3], void* data, uint32_t step[2]);
 void lovrTexturePaste(Texture* texture, struct Image* image, uint16_t srcOffset[4], uint16_t dstOffset[2], uint16_t extent[2]);
 void lovrTextureClear(Texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float color[4]);
@@ -485,7 +483,6 @@ typedef struct {
 } SamplerInfo;
 
 Sampler* lovrSamplerCreate(SamplerInfo* info);
-Sampler* lovrGraphicsGetDefaultSampler(DefaultSampler type);
 void lovrSamplerDestroy(void* ref);
 const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
