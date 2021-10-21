@@ -1,16 +1,17 @@
 #version 460
 #extension GL_EXT_multiview : require
 
-layout(constant_id = 1002) const uint materialCount = 1;
-layout(constant_id = 1003) const uint textureCount = 1;
+layout(constant_id = 1000) const uint materialCount = 1;
+layout(constant_id = 1001) const uint textureCount = 1;
 
 layout(location = 0) in vec4 inPosition;
 layout(location = 1) in vec4 inNormal;
 layout(location = 2) in vec2 inTexCoord;
 layout(location = 3) in vec4 inColor;
 
-layout(location = 0) out vec4 outGlobalColor;
+layout(location = 0) flat out uint outDrawIndex;
 layout(location = 1) out vec4 outVertexColor;
+layout(location = 2) out vec2 outUV;
 
 struct Camera {
   mat4 view[6];
@@ -21,8 +22,8 @@ struct Camera {
 
 struct DrawData {
   vec4 color;
-  /*uint material;
-  uint pad[3];*/
+  uint material;
+  uint pad[3];
 };
 
 layout(set = 0, binding = 0) uniform CameraBuffer { Camera camera; };
@@ -47,9 +48,9 @@ layout(set = 1, binding = 1) uniform textureCube texturesCube[textureCount];
 Material(BasicMaterial);
 
 void main() {
-  uint localIndex = gl_BaseInstance & 0xff;
-  outGlobalColor = draws[localIndex].color;
+  outDrawIndex = gl_BaseInstance & 0xff;
   outVertexColor = inColor;
-  gl_Position = camera.viewProjection[gl_ViewIndex] * transforms[localIndex] * inPosition;
+  outUV = inTexCoord;
+  gl_Position = camera.viewProjection[gl_ViewIndex] * transforms[outDrawIndex] * inPosition;
   gl_PointSize = 1.f;
 }

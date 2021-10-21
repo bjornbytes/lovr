@@ -260,6 +260,7 @@ typedef enum {
 typedef struct {
   DrawMode mode;
   DefaultShader shader;
+  Material* material;
   struct {
     Buffer* buffer;
     VertexFormat format;
