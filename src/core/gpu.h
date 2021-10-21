@@ -198,13 +198,15 @@ typedef struct {
   gpu_texture_format format;
   gpu_load_op load;
   gpu_save_op save;
-  bool srgb;
+  uint16_t usage;
+  uint16_t srgb;
 } gpu_pass_color_info;
 
 typedef struct {
   gpu_texture_format format;
   gpu_load_op load, stencilLoad;
   gpu_save_op save, stencilSave;
+  uint32_t usage;
 } gpu_pass_depth_info;
 
 typedef struct {
@@ -213,7 +215,7 @@ typedef struct {
   uint32_t count;
   uint32_t views;
   uint32_t samples;
-  bool resolve;
+  uint32_t resolve;
   const char* label;
 } gpu_pass_info;
 

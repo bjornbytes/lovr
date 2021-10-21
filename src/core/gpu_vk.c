@@ -147,6 +147,7 @@ enum { LINEAR, SRGB };
 static void hash32(uint32_t* hash, void* data, uint32_t size);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
+static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
 static void nickname(void* object, VkObjectType type, const char* name);
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* context);
@@ -469,21 +470,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  if (info->usage & (GPU_TEXTURE_STORAGE | GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST)) {
-    texture->layout = VK_IMAGE_LAYOUT_GENERAL;
-  } else if (info->usage & GPU_TEXTURE_SAMPLE) {
-    texture->layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  } else {
-    if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
-      texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    } else if (texture->aspect == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-      texture->layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    } else if (texture->aspect == VK_IMAGE_ASPECT_DEPTH_BIT) {
-      texture->layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    } else {
-      texture->layout = VK_IMAGE_LAYOUT_GENERAL;
-    }
-  }
+  texture->layout = getNaturalLayout(info->usage, texture->aspect);
 
   if (info->upload.stream) {
     VkImage image = texture->handle;
@@ -564,7 +551,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     }
 
     // Transition to natural layout
-    prev = info->upload.levelCount > 0 ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    prev = info->upload.levelCount > 0 ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     next = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     transition.srcAccessMask = info->upload.levelCount > 0 ? VK_ACCESS_TRANSFER_WRITE_BIT : 0;
     transition.dstAccessMask = 0;
@@ -960,14 +947,15 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
 
   for (uint32_t i = 0; i < info->count; i++) {
     references[i].attachment = i;
-    references[i].layout = VK_IMAGE_LAYOUT_GENERAL;
+    references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VkImageLayout naturalLayout = getNaturalLayout(info->color[i].usage, VK_IMAGE_ASPECT_COLOR_BIT);
     attachments[i] = (VkAttachmentDescription) {
       .format = info->color[i].format == ~0u ? state.backbuffers[0].format : convertFormat(info->color[i].format, info->color[i].srgb),
       .samples = info->samples,
       .loadOp = loadOps[info->color[i].load],
       .storeOp = info->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->color[i].save],
-      .initialLayout = info->color[i].load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED,
-      .finalLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_GENERAL
+      .initialLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_UNDEFINED : naturalLayout,
+      .finalLayout = info->color[i].format == ~0u && !info->resolve ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : naturalLayout
     };
   }
 
@@ -976,13 +964,14 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       uint32_t index = info->count + i;
       references[index].attachment = index;
       references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      VkImageLayout naturalLayout = getNaturalLayout(info->color[i].usage, VK_IMAGE_ASPECT_COLOR_BIT);
       attachments[index] = (VkAttachmentDescription) {
         .format = info->color[i].format == ~0u ? state.backbuffers[0].format : convertFormat(info->color[i].format, info->color[i].srgb),
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = storeOps[info->color[i].save],
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        .initialLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_UNDEFINED : naturalLayout,
+        .finalLayout = info->color[i].format == ~0u ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : naturalLayout
       };
     }
   }
@@ -990,7 +979,8 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
   if (info->depth.format) { // You'll never catch me!
     uint32_t index = info->count << info->resolve;
     references[index].attachment = index;
-    references[index].layout = VK_IMAGE_LAYOUT_GENERAL;
+    references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    VkImageLayout naturalLayout = getNaturalLayout(info->depth.usage, VK_IMAGE_ASPECT_DEPTH_BIT);
     attachments[index] = (VkAttachmentDescription) {
       .format = convertFormat(info->depth.format, LINEAR),
       .samples = info->samples,
@@ -998,8 +988,8 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       .storeOp = storeOps[info->depth.save],
       .stencilLoadOp = loadOps[info->depth.stencilLoad],
       .stencilStoreOp = storeOps[info->depth.stencilSave],
-      .initialLayout = info->depth.load == GPU_LOAD_OP_LOAD ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED,
-      .finalLayout = VK_IMAGE_LAYOUT_GENERAL
+      .initialLayout = info->depth.load == GPU_LOAD_OP_LOAD ? naturalLayout : VK_IMAGE_LAYOUT_UNDEFINED,
+      .finalLayout = naturalLayout
     };
   }
 
@@ -2297,6 +2287,21 @@ static void expunge() {
       default: check(false, "Unreachable"); break;
     }
   }
+}
+
+static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect) {
+  if (usage & (GPU_TEXTURE_STORAGE | GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST)) {
+    return VK_IMAGE_LAYOUT_GENERAL;
+  } else if (usage & GPU_TEXTURE_SAMPLE) {
+    return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  } else {
+    if (aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
+      return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    } else {
+      return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    }
+  }
+  return VK_IMAGE_LAYOUT_UNDEFINED; // Explode, hopefully
 }
 
 static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
