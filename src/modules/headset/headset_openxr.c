@@ -607,8 +607,13 @@ static void getViews(XrView views[2], uint32_t* count) {
     .space = state.referenceSpace
   };
 
+  for (uint32_t i = 0; i < 2; i++) {
+    views[i].type = XR_TYPE_VIEW;
+    views[i].next = NULL;
+  }
+
   XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
-  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2 * sizeof(XrView), count, views));
+  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, count, views));
 }
 
 static uint32_t openxr_getViewCount(void) {
