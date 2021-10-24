@@ -219,12 +219,12 @@ void lovrRasterizerMeasure(Rasterizer* rasterizer, const char* str, size_t lengt
     int advance, bearing;
     stbtt_GetGlyphHMetrics(&rasterizer->font, glyphIndex, &advance, &bearing);
     int x0, y0, x1, y1;
-    stbtt_GetGlyphBox(&rasterizer->font, glyphIndex, &x0, &y0, &x1, &y1);
-    float w = ceilf((x1 - x0) * rasterizer->scale);
-    float h = ceilf((y1 - y0) * rasterizer->scale);
-
-    if (w > 0 && h > 0) {
-      (*glyphCount)++;
+    if (stbtt_GetGlyphBox(&rasterizer->font, glyphIndex, &x0, &y0, &x1, &y1)) {
+      float w = ceilf((x1 - x0) * rasterizer->scale);
+      float h = ceilf((y1 - y0) * rasterizer->scale);
+      if (w > 0 && h > 0) {
+        (*glyphCount)++;
+      }
     }
 
     x += roundf(advance * rasterizer->scale) + lovrRasterizerGetKerning(rasterizer, previous, codepoint);
