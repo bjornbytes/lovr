@@ -3849,7 +3849,7 @@ static void* tgrow(void* p, size_t n) {
   if (n == 0) return NULL;
   void* new = talloc(n);
   if (!p) return new;
-  return memcpy(new, p, n);
+  return memcpy(new, p, n >> 1);
 }
 
 // Suballocates from a Megabuffer
