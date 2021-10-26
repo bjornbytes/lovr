@@ -1756,6 +1756,10 @@ bool gpu_init(gpu_config* config) {
   state.library = LoadLibraryA("vulkan-1.dll");
   CHECK(state.library, "Failed to load vulkan library") DIE();
   PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
+#elif __APPLE__
+  state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+  CHECK(state.library, "Failed to load vulkan library") DIE();
+  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #else
   state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
   CHECK(state.library, "Failed to load vulkan library") DIE();
