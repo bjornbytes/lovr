@@ -472,6 +472,9 @@ if(LOVR_ENABLE_GRAPHICS)
     src/api/l_graphics.c
     src/api/l_graphics_batch.c
     src/api/l_graphics_buffer.c
+    src/api/l_graphics_font.c
+    src/api/l_graphics_material.c
+    src/api/l_graphics_model.c
     src/api/l_graphics_sampler.c
     src/api/l_graphics_shader.c
     src/api/l_graphics_texture.c
