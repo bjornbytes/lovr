@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <pwd.h>
+#include <sys/mman.h>
 #import <AVFoundation/AVFoundation.h>
 
 #include "os_glfw.h"
@@ -48,6 +49,18 @@ void os_open_console() {
 
 double os_get_time() {
   return mach_absolute_time() / (double) state.frequency;
+}
+
+void* os_vm_init(size_t size) {
+  return mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+}
+
+bool os_vm_free(void* p, size_t size) {
+  return !munmap(p, size);
+}
+
+bool os_vm_commit(void* p, size_t size) {
+  return !mprotect(p, size, PROT_READ | PROT_WRITE);
 }
 
 void os_sleep(double seconds) {
