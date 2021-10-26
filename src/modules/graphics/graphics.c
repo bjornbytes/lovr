@@ -2397,7 +2397,7 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
       // TODO maybe there is a way to use lovrBufferMap here (maybe transfer passes are optional)
       lovrGraphicsPrepare();
       Megaview scratch = allocateBuffer(GPU_MEMORY_CPU_WRITE, buffer->size, 4);
-      gpu_copy_buffers(state.pass->stream, scratch.gpu, buffer->mega.gpu, scratch.offset, buffer->mega.offset, buffer->size);
+      gpu_copy_buffers(state.uploads->stream, scratch.gpu, buffer->mega.gpu, scratch.offset, buffer->mega.offset, buffer->size);
       state.stats.copies++;
       *data = scratch.data;
     }
