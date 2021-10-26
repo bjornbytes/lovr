@@ -66,15 +66,16 @@ struct Sampler {
 typedef struct {
   uint32_t size;
   uint32_t count;
-  uint32_t names[32];
-  uint16_t offsets[32];
-  uint16_t types[32];
+  uint32_t names[16];
+  uint16_t offsets[16];
+  uint8_t types[16];
+  uint16_t scalars;
+  uint16_t vectors;
+  uint16_t colors;
+  uint16_t scales;
   uint32_t textureCount;
-  uint32_t textures;
-  uint32_t scalars;
-  uint32_t vectors;
-  uint32_t colors;
-  uint32_t scales;
+  uint8_t textureSlots[16];
+  uint32_t textureNames[16];
 } MaterialFormat;
 
 typedef struct {
@@ -125,6 +126,7 @@ struct Material {
   uint32_t block;
   uint32_t index;
   uint32_t tick;
+  Texture** textures;
 };
 
 typedef struct {
@@ -148,8 +150,7 @@ typedef struct {
   float depth;
   uint16_t pipeline;
   uint16_t bundle;
-  uint8_t textures;
-  uint8_t chunk;
+  uint16_t material;
   uint8_t vertexBuffer;
   uint8_t indexBuffer;
   uint32_t flags;
@@ -383,7 +384,7 @@ static struct {
   gpu_binding bindings[32];
   uint32_t emptyBindingMask;
   bool bindingsDirty;
-  char constantData[128];
+  char* constantData;
   bool constantsDirty;
   Megaview cameraBuffer;
   Megaview transforms;
@@ -550,8 +551,8 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   }
 
   gpu_slot defaultBindings[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Camera
-    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_VERTEX, 1 }, // Transforms
+    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Camera
+    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Transforms
     { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // DrawData
     { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Nearest
     { 4, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Bilinear
@@ -562,34 +563,45 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   lookupLayout(defaultBindings, COUNTOF(defaultBindings));
 
   MaterialFormat basicMaterial = {
-    .size = 32,
+    .size = ALIGN(32, state.limits.uniformBufferAlign),
     .count = 3,
     .names = {
-      hash32("texture", strlen("texture")),
-      hash32("uvOffset", strlen("uvOffset")),
+      hash32("color", strlen("color")),
+      hash32("uvShift", strlen("uvShift")),
       hash32("uvScale", strlen("uvScale"))
     },
-    .offsets = { 0, 8, 16 },
-    .types = { FIELD_U32, FIELD_F32x2, FIELD_F32x2 },
+    .offsets = { 0, 16, 24 },
+    .types = { FIELD_F32x4, FIELD_F32x2, FIELD_F32x2 },
+    .vectors = (1 << 0) | (1 << 1) | (1 << 2),
+    .colors = (1 << 0),
+    .scales = (1 << 2),
     .textureCount = 1,
-    .textures = 0x1
+    .textureSlots[0] = 1,
+    .textureNames[0] = hash32("colorTexture", strlen("colorTexture"))
   };
 
   MaterialFormat physicalMaterial = {
-    .size = 32,
+    .size = ALIGN(48, state.limits.uniformBufferAlign),
     .count = 5,
     .names = {
-      hash32("texture", strlen("texture")),
-      hash32("uvOffset", strlen("uvOffset")),
+      hash32("color", strlen("color")),
+      hash32("uvShift", strlen("uvShift")),
       hash32("uvScale", strlen("uvScale")),
       hash32("metalness", strlen("metalness")),
-      hash32("roughness", strlen("roughness")),
-      // ...
+      hash32("roughness", strlen("roughness"))
     },
-    .offsets = { 0, 8, 16, 24, 28 },
-    .types = { FIELD_U32, FIELD_F32x2, FIELD_F32x2, FIELD_F32, FIELD_F32 },
+    .offsets = { 0, 16, 24, 32, 36 },
+    .types = { FIELD_F32x4, FIELD_F32x2, FIELD_F32x2, FIELD_F32, FIELD_F32 },
+    .scalars = (1 << 3) | (1 << 4),
+    .vectors = (1 << 0) | (1 << 1) | (1 << 2),
+    .colors = (1 << 0),
+    .scales = (1 << 2),
     .textureCount = 1,
-    .textures = 0x1
+    .textureSlots[0] = 1,
+    .textureNames = {
+      hash32("colorTexture", strlen("colorTexture"))
+      // ...
+    }
   };
 
   lookupMaterialBlock(&basicMaterial);
@@ -645,6 +657,8 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   }
 
   generateGeometry();
+  state.constantData = malloc(state.limits.pushConstantSize);
+  lovrAssert(state.constantData, "Out of memory");
   clearState(NULL);
   return state.initialized = true;
 }
@@ -695,6 +709,7 @@ void lovrGraphicsDestroy() {
   free(state.pipelines[0]);
   free(state.bunches.list[0].gpu);
   free(state.buffers.list[0].gpu);
+  free(state.constantData);
   os_vm_free(state.allocator.memory, state.allocator.limit);
   memset(&state, 0, sizeof(state));
 }
@@ -1028,11 +1043,11 @@ void lovrGraphicsBeginRender(Canvas* canvas, uint32_t order) {
 
   // Validate depth attachment
   if (canvas->depth.texture || canvas->depth.format) {
-    const TextureInfo* info = &canvas->depth.texture->info;
-    TextureFormat format = canvas->depth.texture ? info->format : canvas->depth.format;
+    TextureFormat format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format;
     bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER_DEPTH;
     lovrCheck(renderable, "This GPU does not support rendering to the Canvas depth buffer's format");
     if (canvas->depth.texture) {
+      const TextureInfo* info = &canvas->depth.texture->info;
       lovrCheck(info->usage & TEXTURE_RENDER, "Textures must be created with the 'render' flag to attach them to a Canvas");
       lovrCheck(info->width == main->width, "Canvas texture sizes must match");
       lovrCheck(info->height == main->height, "Canvas texture sizes must match");
@@ -1143,7 +1158,7 @@ void lovrGraphicsBeginBatch(Batch* batch) {
   if (batch->info.transient) {
     lovrBatchReset(batch);
     batch->transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 64, state.limits.uniformBufferAlign);
-    batch->drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 32, state.limits.uniformBufferAlign);
+    batch->drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 16, state.limits.uniformBufferAlign);
     state.transforms = batch->transforms;
     state.drawData = batch->drawData;
   }
@@ -1623,7 +1638,10 @@ void lovrGraphicsSetConstant(const char* name, size_t length, void** data, Field
 }
 
 void lovrGraphicsSetColor(float color[4]) {
-  memcpy(state.pipeline->color, color, 4 * sizeof(float));
+  state.pipeline->color[0] = lovrMathGammaToLinear(color[0]);
+  state.pipeline->color[1] = lovrMathGammaToLinear(color[1]);
+  state.pipeline->color[2] = lovrMathGammaToLinear(color[2]);
+  state.pipeline->color[3] = color[3];
 }
 
 uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
@@ -1671,7 +1689,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
       vertex->bufferCount++;
       vertex->bufferStrides[1] = 0;
       for (uint32_t i = 0; i < 32; i++) {
-        if (missingLocations & (1 << i)) {
+        if (missingLocations & (1u << i)) {
           vertex->attributes[vertex->attributeCount++] = (gpu_attribute) {
             .buffer = 1,
             .location = i,
@@ -1856,7 +1874,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
       gpu_copy_buffers(state.pass->stream, src->gpu, dst->gpu, src->offset, dst->offset, 256 * 64);
       src = &state.drawData;
       dst = &batch->drawData;
-      gpu_copy_buffers(state.pass->stream, src->gpu, dst->gpu, src->offset, dst->offset, 256 * 32);
+      gpu_copy_buffers(state.pass->stream, src->gpu, dst->gpu, src->offset, dst->offset, 256 * 16);
     }
 
     state.transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 64, state.limits.uniformBufferAlign);
@@ -1870,13 +1888,10 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     transform = state.matrix;
   }
 
-  uint32_t localMaterialIndex = material->index & (MIN(state.limits.uniformBufferAlign - 1, 0xffff));
-
   memcpy(state.transforms.data, transform, 64);
   memcpy(state.drawData.data, &state.pipeline->color, 16);
-  memcpy(state.drawData.data + 16, &localMaterialIndex, 4);
   state.transforms.data += 64;
-  state.drawData.data += 32;
+  state.drawData.data += 16;
 
   // Draw
 
@@ -1931,7 +1946,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
         .bindings = (gpu_binding[]) {
           [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
           [1].buffer = { state.transforms.gpu, state.transforms.offset, 256 * 64 },
-          [2].buffer = { state.drawData.gpu, state.drawData.offset, 256 * 32 },
+          [2].buffer = { state.drawData.gpu, state.drawData.offset, 256 * 16 },
           [3].sampler = state.defaultSamplers[0]->gpu,
           [4].sampler = state.defaultSamplers[1]->gpu,
           [5].sampler = state.defaultSamplers[2]->gpu,
@@ -1998,20 +2013,22 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
   }
 }
 
-uint32_t lovrGraphicsPoints(uint32_t count, float** vertices) {
+uint32_t lovrGraphicsPoints(Material* material, uint32_t count, float** vertices) {
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_POINTS,
+    .material = material,
     .vertex.format = VERTEX_POSITION,
     .vertex.pointer = (void**) vertices,
     .vertex.count = count
   }, NULL);
 }
 
-uint32_t lovrGraphicsLine(uint32_t count, float** vertices) {
+uint32_t lovrGraphicsLine(Material* material, uint32_t count, float** vertices) {
   uint16_t* indices;
 
   uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_LINES,
+    .material = material,
     .vertex.format = VERTEX_POSITION,
     .vertex.pointer = (void**) vertices,
     .vertex.count = count,
@@ -2027,10 +2044,11 @@ uint32_t lovrGraphicsLine(uint32_t count, float** vertices) {
   return id;
 }
 
-uint32_t lovrGraphicsPlane(float* transform, uint32_t detail) {
+uint32_t lovrGraphicsPlane(Material* material, float* transform, uint32_t detail) {
   detail = MIN(detail, 7);
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
+    .material = material,
     .vertex.buffer = state.geometry.vertices,
     .index.buffer = state.geometry.indices,
     .start = state.geometry.start[SHAPE_GRID][detail],
@@ -2039,9 +2057,10 @@ uint32_t lovrGraphicsPlane(float* transform, uint32_t detail) {
   }, transform);
 }
 
-uint32_t lovrGraphicsBox(float* transform) {
+uint32_t lovrGraphicsBox(Material* material, float* transform) {
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
+    .material = material,
     .vertex.buffer = state.geometry.vertices,
     .index.buffer = state.geometry.indices,
     .start = state.geometry.start[SHAPE_CUBE][0],
@@ -2050,10 +2069,11 @@ uint32_t lovrGraphicsBox(float* transform) {
   }, transform);
 }
 
-uint32_t lovrGraphicsCircle(float* transform, uint32_t detail) {
+uint32_t lovrGraphicsCircle(Material* material, float* transform, uint32_t detail) {
   detail = MIN(detail, 6);
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
+    .material = material,
     .vertex.buffer = state.geometry.vertices,
     .index.buffer = state.geometry.indices,
     .start = state.geometry.start[SHAPE_CONE][detail],
@@ -2062,10 +2082,11 @@ uint32_t lovrGraphicsCircle(float* transform, uint32_t detail) {
   }, transform);
 }
 
-uint32_t lovrGraphicsCone(float* transform, uint32_t detail) {
+uint32_t lovrGraphicsCone(Material* material, float* transform, uint32_t detail) {
   detail = MIN(detail, 6);
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
+    .material = material,
     .vertex.buffer = state.geometry.vertices,
     .index.buffer = state.geometry.indices,
     .start = state.geometry.start[SHAPE_CONE][detail],
@@ -2074,11 +2095,12 @@ uint32_t lovrGraphicsCone(float* transform, uint32_t detail) {
   }, transform);
 }
 
-uint32_t lovrGraphicsCylinder(mat4 transform, uint32_t detail, bool capped) {
+uint32_t lovrGraphicsCylinder(Material* material, mat4 transform, uint32_t detail, bool capped) {
   detail = MIN(detail, 6);
   uint32_t capIndexCount = 3 * ((4 << detail) - 2);
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
+    .material = material,
     .vertex.buffer = state.geometry.vertices,
     .index.buffer = state.geometry.indices,
     .start = state.geometry.start[SHAPE_TUBE][detail],
@@ -2087,10 +2109,11 @@ uint32_t lovrGraphicsCylinder(mat4 transform, uint32_t detail, bool capped) {
   }, transform);
 }
 
-uint32_t lovrGraphicsSphere(mat4 transform, uint32_t detail) {
+uint32_t lovrGraphicsSphere(Material* material, mat4 transform, uint32_t detail) {
   detail = MIN(detail, 4);
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
+    .material = material,
     .vertex.buffer = state.geometry.vertices,
     .index.buffer = state.geometry.indices,
     .start = state.geometry.start[SHAPE_BALL][detail],
@@ -2099,21 +2122,21 @@ uint32_t lovrGraphicsSphere(mat4 transform, uint32_t detail) {
   }, transform);
 }
 
-uint32_t lovrGraphicsSkybox(Texture* texture) {
-  TextureType type = texture->info.type;
-  lovrAssert(type == TEXTURE_2D || type == TEXTURE_CUBE, "Skybox textures must be 2d or cube");
+uint32_t lovrGraphicsSkybox(Material* material) {
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
-    .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
+    .shader = SHADER_CUBE, // TODO? type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
+    .material = material,
     .vertex.format = VERTEX_EMPTY,
     .count = 3
   }, NULL);
 }
 
-uint32_t lovrGraphicsFill(Texture* texture) {
+uint32_t lovrGraphicsFill(Material* material) {
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .shader = SHADER_FILL,
+    .material = material,
     .vertex.format = VERTEX_EMPTY,
     .count = 3
   }, NULL);
@@ -2177,7 +2200,7 @@ void lovrGraphicsReplay(Batch* batch) {
     .bindings = (gpu_binding[]) {
       [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
       [1].buffer = { batch->transforms.gpu, batch->transforms.offset, 256 * 64 },
-      [2].buffer = { batch->drawData.gpu, batch->drawData.offset, 256 * 32 },
+      [2].buffer = { batch->drawData.gpu, batch->drawData.offset, 256 * 16 },
       [3].sampler = state.defaultSamplers[0]->gpu,
       [4].sampler = state.defaultSamplers[1]->gpu,
       [5].sampler = state.defaultSamplers[2]->gpu,
@@ -3004,6 +3027,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   }
 
   // Copy some of the reflection info (maybe it should just write directly to Shader*)?
+  reflection.material.size = ALIGN(reflection.material.size, state.limits.uniformBufferAlign);
   shader->constantSize = reflection.constantSize;
   shader->constantCount = reflection.constantCount;
   memcpy(shader->constantOffsets, reflection.constantOffsets, sizeof(reflection.constantOffsets));
@@ -3048,7 +3072,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     }
   }
 
-  shader->material = 0;//lookupMaterialBlock(&reflection.material);
+  shader->material = lookupMaterialBlock(&reflection.material);
 
   if (shader->resourceCount > 0) {
     shader->layout = lookupLayout(reflection.slots[2], shader->resourceCount);
@@ -3175,11 +3199,9 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
 
   // Set up bindings (buffer points at (potentially offset) region of block UBO, + default texture)
   gpu_binding bindings[16];
-  uint32_t extent = MIN(state.limits.uniformBufferAlign, 1 << 16);
-  uint32_t offset = material->index & ~(extent - 1);
+  uint32_t extent = format->size;
+  uint32_t offset = material->index * format->size;
   bindings[0].buffer = (gpu_buffer_binding) { block->buffer.gpu, block->buffer.offset + offset, extent };
-  bindings[1].texture = lovrGraphicsGetDefaultTexture()->gpu;
-  uint32_t textureCount = 1;
 
   // Pre hash property names to avoid big oh no n^2 party
   uint32_t hashes[32];
@@ -3187,11 +3209,11 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
     hashes[i] = hash32(info->properties[i].name, strlen(info->properties[i].name));
   }
 
-  // Write properties to GPU memory, also collect texture bindings
+  // Write data to GPU memory
   for (uint32_t i = 0; i < format->count; i++) {
     bool scalar = format->scalars & (1 << i);
     bool vector = format->vectors & (1 << i);
-    bool texture = format->textures & (1 << i);
+    bool color = format->colors & (1 << i);
     bool scale = format->scales & (1 << i);
 
     union {
@@ -3219,19 +3241,23 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
           default: lovrThrow("Unreachable");
         }
       } else if (vector) {
-        lovrCheck(property->type == PROPERTY_VECTOR, "Material property '%s' is a vector, but the value provided is not a vector (or a hexcode)", property->name);
-        switch (format->types[i]) {
-          case FIELD_F32x2: memcpy(data.f32, property->value.vector, 2 * sizeof(float)); break;
-          case FIELD_F32x3: memcpy(data.f32, property->value.vector, 3 * sizeof(float)); break;
-          case FIELD_F32x4: memcpy(data.f32, property->value.vector, 4 * sizeof(float)); break;
-          default: lovrThrow("Unreachable");
+        if (property->type == PROPERTY_SCALAR && format->types[i] != FIELD_F32x2) {
+          uint32_t hex = (uint32_t) property->value.scalar;
+          data.f32[0] = ((hex >> 16) & 0xff) / 255.f;
+          data.f32[1] = ((hex >> 8) & 0xff) / 255.f;
+          data.f32[2] = ((hex >> 0) & 0xff) / 255.f;
+          if (format->types[i] == FIELD_F32x4) {
+            data.f32[3] = 1.f;
+          }
+        } else {
+          lovrCheck(property->type == PROPERTY_VECTOR, "Material property '%s' is a vector, but the value provided is not a vector (or a hexcode, for vec3/vec4)", property->name);
+          switch (format->types[i]) {
+            case FIELD_F32x2: memcpy(data.f32, property->value.vector, 2 * sizeof(float)); break;
+            case FIELD_F32x3: memcpy(data.f32, property->value.vector, 3 * sizeof(float)); break;
+            case FIELD_F32x4: memcpy(data.f32, property->value.vector, 4 * sizeof(float)); break;
+            default: lovrThrow("Unreachable");
+          }
         }
-      } else if (texture) {
-        lovrCheck(property->type == PROPERTY_TEXTURE, "Material property '%s' is a texture, but the value provided is not a texture", property->name);
-        uint32_t textureIndex = textureCount++;
-        uint32_t bindingIndex = textureIndex + 1;
-        bindings[bindingIndex].texture = property->value.texture->gpu;
-        memcpy(data.u32, &textureIndex, sizeof(uint32_t));
       } else {
         lovrThrow("Unreachable");
       }
@@ -3247,14 +3273,40 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
         float zero[4] = { 0.f, 0.f, 0.f, 0.f };
         float ones[4] = { 1.f, 1.f, 1.f, 1.f };
         switch (format->types[i]) {
-          case FIELD_F32x2: memcpy(data.f32, scale ? ones : zero, 2 * sizeof(float));
-          case FIELD_F32x3: memcpy(data.f32, scale ? ones : zero, 3 * sizeof(float));
-          case FIELD_F32x4: memcpy(data.f32, scale ? ones : zero, 4 * sizeof(float));
+          case FIELD_F32x2: memcpy(data.f32, (scale || color) ? ones : zero, 2 * sizeof(float)); break;
+          case FIELD_F32x3: memcpy(data.f32, (scale || color) ? ones : zero, 3 * sizeof(float)); break;
+          case FIELD_F32x4: memcpy(data.f32, (scale || color) ? ones : zero, 4 * sizeof(float)); break;
           default: lovrThrow("Unreachable");
         }
-      } else if (texture) {
-        *data.u32 = 0;
+      } else {
+        lovrThrow("Unreachable");
       }
+    }
+  }
+
+  if (!material->textures) {
+    material->textures = malloc(format->textureCount * sizeof(Texture*));
+    lovrAssert(material->textures, "Out of memory");
+  }
+
+  // Textures
+  for (uint32_t i = 0; i < format->textureCount; i++) {
+    MaterialProperty* property = NULL;
+    for (uint32_t j = 0; j < info->propertyCount; j++) {
+      if (hashes[j] == format->textureNames[i]) {
+        property = &info->properties[j];
+        break;
+      }
+    }
+
+    if (property) {
+      lovrCheck(property->type == PROPERTY_TEXTURE, "Material property '%s' is a texture, but the value provided is not a texture", property->name);
+      bindings[i + 1].texture = property->value.texture->gpu;
+      material->textures[i] = property->value.texture;
+      lovrRetain(property->value.texture);
+    } else {
+      bindings[i + 1].texture = lovrGraphicsGetDefaultTexture()->gpu;
+      material->textures[i] = NULL;
     }
   }
 
@@ -3271,6 +3323,9 @@ void lovrMaterialDestroy(void* ref) {
   material->tick = state.tick;
   block->last = material->index;
   if (block->next == ~0u) block->next = block->last;
+  for (uint32_t i = 0; i < block->format.textureCount; i++) {
+    lovrRelease(material->textures[i], lovrTextureDestroy);
+  }
 }
 
 // Batch
@@ -3307,7 +3362,7 @@ Batch* lovrBatchCreate(BatchInfo* info) {
 
     uint32_t alignment = state.limits.uniformBufferAlign;
     batch->transforms = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 64, alignment);
-    batch->drawData = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 32, alignment);
+    batch->drawData = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 16, alignment);
     batch->stash = allocateBuffer(GPU_MEMORY_GPU, info->bufferSize, 4);
   }
 
@@ -3446,10 +3501,30 @@ Model* lovrModelCreate(ModelInfo* info) {
   model->draws = calloc(data->primitiveCount, sizeof(DrawInfo));
   lovrAssert(model->draws, "Out of memory");
 
+  model->textures = malloc(data->imageCount * sizeof(Texture*));
+  lovrAssert(model->textures, "Out of memory");
+
+  for (uint32_t i = 0; i < data->imageCount; i++) {
+    Image* image = data->images[i];
+    model->textures[i] = lovrTextureCreate(&(TextureInfo) {
+      .type = TEXTURE_2D,
+      .usage = TEXTURE_SAMPLE,
+      .format = image->format,
+      .width = image->width,
+      .height = image->height,
+      .depth = 1,
+      .mipmaps = ~0u,
+      .samples = 1,
+      .srgb = true, // TODO modeldata can u pls tell me if this is used for diffuse/emissive or not
+      .images = &image
+    });
+  }
+
   model->materials = malloc(data->materialCount * sizeof(Material*));
   lovrAssert(model->materials, "Out of memory");
 
   // First pass: determine vertex format, count vertices and indices, validate meshes
+  // TODO modeldata can u pls tell me how many vertices/indices total
   uint32_t totalIndexCount = 0;
   uint32_t totalVertexCount = 0;
   VertexFormat format = VERTEX_STANDARD;
@@ -3541,6 +3616,7 @@ Model* lovrModelCreate(ModelInfo* info) {
   } vertex;
 
   // Third pass: Write data to buffers, converting to the vertex format's types
+  // TODO modeldata can u pls tell me the pointer/stride of each attr idc if it duplicates info
   indexCursor = 0;
   vertexCursor = 0;
   uint32_t vertexStride = state.formats[format].bufferStrides[0];
@@ -3787,10 +3863,15 @@ Model* lovrModelCreate(ModelInfo* info) {
 
 void lovrModelDestroy(void* ref) {
   Model* model = ref;
+  for (uint32_t i = 0; i < model->data->imageCount; i++) {
+    lovrRelease(model->textures[i], lovrTextureDestroy);
+  }
+  lovrRelease(model->data, lovrModelDataDestroy);
   lovrRelease(model->vertices, lovrBufferDestroy);
   lovrRelease(model->indices, lovrBufferDestroy);
   free(model->draws);
   free(model->materials);
+  free(model->textures);
   free(model);
 }
 
@@ -4091,12 +4172,13 @@ static uint32_t lookupMaterialBlock(MaterialFormat* format) {
   block->bundles = malloc(gpu_sizeof_bundle() * MATERIALS_PER_BLOCK);
   lovrAssert(block->bunch && block->bundles, "Out of memory");
 
-  gpu_slot slots[2] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS, 1 },
-    { 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS, format->textureCount }
-  };
+  gpu_slot slots[16];
+  slots[0] = (gpu_slot) { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS, 1 };
+  for (uint32_t i = 0; i < format->textureCount; i++) {
+    slots[i + 1] = (gpu_slot) { format->textureSlots[i], GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS, 1 };
+  }
 
-  block->layout = lookupLayout(slots, COUNTOF(slots));
+  block->layout = lookupLayout(slots, format->textureCount + 1);
 
   gpu_bunch_info info = {
     .bundles = block->bundles,
@@ -4136,8 +4218,8 @@ static void generateGeometry() {
       float x = j / 128.f - .5f;
       float y = .5f - i / 128.f;
       float z = 0.f;
-      uint16_t u = x * 0xffff;
-      uint16_t v = (1.f - y) * 0xffff;
+      uint16_t u = (x + .5f) * 0xffff;
+      uint16_t v = (.5f - y) * 0xffff;
       *vertices++ = (Vertex) { { x, y, z }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
       n++;
     }
@@ -4184,7 +4266,7 @@ static void generateGeometry() {
     uint16_t nx = (x + .5f) * 0x3ff;
     uint16_t ny = (y + .5f) * 0x3ff;
     uint16_t u = (x + .5f) * 0xffff;
-    uint16_t v = (y + .5f) * 0xffff;
+    uint16_t v = (.5f - y) * 0xffff;
     uint16_t oneOverRoot2 = 0x369;
     uint16_t conenx = (x + .5f) * oneOverRoot2;
     uint16_t coneny = (y + .5f) * oneOverRoot2;
@@ -4216,9 +4298,9 @@ static void generateGeometry() {
       float x = sintheta * sinphi;
       float y = cosphi;
       float z = -costheta * sinphi;
-      uint16_t nx = (x + .5) * 0x3ff;
-      uint16_t ny = (y + .5) * 0x3ff;
-      uint16_t nz = (z + .5) * 0x3ff;
+      uint16_t nx = (x * .5f + 1.f) * 0x3ff + .5f;
+      uint16_t ny = (y * .5f + 1.f) * 0x3ff + .5f;
+      uint16_t nz = (z * .5f + 1.f) * 0x3ff + .5f;
       Vertex vertex = { { x, y, z }, { nx, ny, nz, 0x0 }, { u * 0xffff, v * 0xffff } };
       memcpy(vertices, &vertex, sizeof(vertex));
       vertices++;
@@ -4405,7 +4487,7 @@ static void clearState(gpu_pass* pass) {
   state.emptyBindingMask = ~0u;
   state.bindingsDirty = true;
 
-  memset(state.constantData, 0, sizeof(state.constantData));
+  memset(state.constantData, 0, state.limits.pushConstantSize);
   state.constantsDirty = true;
 
   state.drawCursor = 0;
@@ -4513,8 +4595,9 @@ typedef union {
     uint16_t name;
   } attribute;
   struct {
-    uint16_t group;
-    uint16_t binding;
+    uint8_t group;
+    uint8_t binding;
+    uint16_t name;
   } resource;
   struct {
     uint16_t number;
@@ -4682,6 +4765,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
   CacheData* cache = cacheData;
 
   uint32_t pushConstantStructId = ~0u;
+  uint32_t materialStructId = ~0u;
 
   const uint32_t* instruction = words + 5;
 
@@ -4714,12 +4798,15 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         id = instruction[1];
         cache[id].type.name = instruction - words + 2;
         name = (char*) (instruction + 2);
-        // This is not technically correct, because it relies on the OpName for the push constant
-        // block to come before the OpMemberName's for its members.  It looks like most compilers
-        // output things in this order, and doing it the right way would require 2 passees over the
-        // words.  Can be improved when there's evidence of a compiler using the other order.
+        // This is not technically correct, because it relies on the OpName for the block to come
+        // before the OpMemberName's for its members.  It looks like most compilers output things in
+        // this order, and doing it the right way would require 2 passees over the words.  Can be
+        // improved if/when there's evidence of a compiler that uses the opposite order.
         if (!strncmp(name, "Constants", sizeof("Constants"))) {
           pushConstantStructId = id;
+        }
+        if (!strncmp(name, "Material", sizeof("Material"))) {
+          materialStructId = id;
         }
         break;
       case 6: // OpMemberName
@@ -4731,6 +4818,22 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         if (id == pushConstantStructId) {
           lovrCheck(index < COUNTOF(reflection->constantLookup), "Too many constant fields");
           reflection->constantLookup[index] = hash32(name, nameLength);
+        } else if (id == materialStructId) {
+          lovrCheck(index < COUNTOF(reflection->material.names), "Too many material fields");
+          reflection->material.names[index] = hash32(name, nameLength);
+          // There is a somewhat magical convention to make material properties more convenient
+          // - Vector fields ending with "color"/"scale" have a default value of 1s
+          // - Properties ending with "color" are gamma corrected
+          // The string comparisons are case insensitive
+          if (nameLength >= 5 && !memcmp(name + (nameLength - 5), "color", strlen("color"))) {
+            reflection->material.colors |= (1 << index);
+          } else if (nameLength >= 5 && !memcmp(name + (nameLength - 5), "scale", strlen("scale"))) {
+            reflection->material.scales |= (1 << index);
+          } else if (nameLength >= 5 && !memcmp(name + (nameLength - 5), "Color", strlen("Color"))) {
+            reflection->material.colors |= (1 << index);
+          } else if (nameLength >= 5 && !memcmp(name + (nameLength - 5), "Scale", strlen("Scale"))) {
+            reflection->material.scales |= (1 << index);
+          }
         }
         break;
       case 71: // OpDecorate
@@ -4760,9 +4863,15 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         index = instruction[2];
         decoration = instruction[3];
         value = instruction[4];
-        if (id == pushConstantStructId && decoration == 35) { // Offset
+        if (decoration != 35) { // Offset
+          break;
+        }
+        if (id == pushConstantStructId) {
           lovrCheck(index < COUNTOF(reflection->constantOffsets), "Too many constants");
           reflection->constantOffsets[index] = value;
+        } else if (id == materialStructId) {
+          lovrCheck(index < COUNTOF(reflection->material.offsets), "Too many material fields");
+          reflection->material.offsets[index] = value;
         }
         break;
       case 19: // OpTypeVoid
@@ -4922,14 +5031,85 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
             uint32_t totalSize = columnCount * componentCount * 4;
             uint32_t limit = state.limits.pushConstantSize;
             uint32_t offset = reflection->constantOffsets[i];
-            lovrCheck(offset + totalSize <= limit, "Size of push constant block exceeds 'pushConstantSize' limit");
+            lovrCheck(offset + totalSize <= limit, "Size of push constant block exceeds 'shaderConstantSize' limit");
             reflection->constantSize = MAX(reflection->constantSize, offset + totalSize);
           }
           break;
         }
 
+        uint32_t group = cache[id].resource.group;
+        uint32_t number = cache[id].resource.binding;
+
+        // Parse Material struct format
+        if (group == 1 && number == 0 && storageClass == 2) {
+          uint32_t structId = (words + cache[type].type.word)[3];
+          const uint32_t* structType = words + cache[structId].type.word;
+          reflection->material.count = (structType[0] >> 16) - 2;
+          for (uint32_t i = 0; i < reflection->material.count; i++) {
+            uint32_t fieldId = structType[2 + i];
+            const uint32_t* fieldType = words + cache[fieldId].type.word;
+            uint32_t fieldOpcode = fieldType[0] & 0xffff;
+            uint32_t totalSize = 4;
+
+            if (fieldOpcode == 23) { // OpTypeVector
+              uint32_t componentCount = fieldType[3];
+              totalSize *= componentCount;
+              switch (componentCount) {
+                case 2: reflection->material.types[i] = FIELD_F32x2; break;
+                case 3: reflection->material.types[i] = FIELD_F32x3; break;
+                case 4: reflection->material.types[i] = FIELD_F32x4; break;
+                default: lovrThrow("Invalid vector component count");
+              }
+              reflection->material.vectors |= (1 << i);
+              fieldId = fieldType[2];
+              fieldType = words + cache[fieldId].type.word;
+              fieldOpcode = fieldType[0] & 0xffff;
+              lovrCheck(fieldOpcode == 22, "Currently, material vectors must contain 32 bit floats");
+            } else if (fieldOpcode == 22) { // OpTypeFloat
+              lovrCheck(fieldType[2] == 32, "Currently, material floats must be 32 bits");
+              reflection->material.types[i] = FIELD_F32;
+              reflection->material.scalars |= (1 << i);
+            } else if (fieldOpcode == 21) { // OpTypeInt
+              lovrCheck(fieldType[2] == 32, "Currently, material integers must be 32 bits");
+              if (fieldType[3] > 0) {
+                reflection->material.types[i] = FIELD_I32;
+              } else {
+                reflection->material.types[i] = FIELD_U32;
+              }
+              reflection->material.scalars |= (1 << i);
+            } else if (fieldOpcode == 20) { // OpTypeBool
+              reflection->material.types[i] = FIELD_U32;
+              reflection->material.scalars |= (1 << i);
+            } else {
+              lovrThrow("Invalid material field type");
+            }
+
+            uint32_t offset = reflection->material.offsets[i];
+            lovrCheck(offset + totalSize <= 1024, "Currently, material data must be less than or equal to 1024 bytes");
+            reflection->material.size = MAX(reflection->material.size, offset + totalSize);
+          }
+        }
+
+        // Material textures
+        if (group == 1 && number > 0 && storageClass == 0) {
+          uint32_t imageId = (words + cache[type].type.word)[3];
+          const uint32_t* imageType = words + cache[imageId].type.word;
+          uint32_t imageOpcode = imageType[0] & 0xffff;
+          lovrCheck(imageOpcode == 25, "Materials can only contain textures (group 1, slot > 0)");
+
+          if (cache[id].resource.name != 0xffff) {
+            uint32_t nameWord = cache[id].resource.name;
+            char* name = (char*) (words + nameWord);
+            size_t nameLength = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
+            uint32_t hash = hash32(name, nameLength);
+            uint32_t textureIndex = reflection->material.textureCount++;
+            reflection->material.textureNames[textureIndex] = hash;
+            reflection->material.textureSlots[textureIndex] = number;
+          }
+        }
+
         // Ignore inputs/outputs and variables that aren't decorated with a group and binding (e.g. globals)
-        if (storageClass == 1 || storageClass == 3 || cache[id].resource.group == 0xff || cache[id].resource.binding == 0xff) {
+        if (storageClass == 1 || storageClass == 3 || group > 2 || number == 0xff) {
           break;
         }
 
@@ -4937,21 +5117,18 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         gpu_slot_type slotType;
         parseResourceType(words, wordCount, cache, bound, instruction, &slotType, &count);
 
-        uint32_t group = cache[id].resource.group;
-        uint32_t number = cache[id].resource.binding;
-        gpu_slot* slot = &reflection->slots[group][number];
-
-        // Name (type of variable is pointer, follow pointer's inner type to get to struct type)
-        // The struct type is what actually has the block name, used for the resource's name
-        uint32_t blockType = (words + cache[type].type.word)[3];
-        if (group == 2 && !reflection->slotNames[number] && cache[blockType].type.name != 0xffff) {
-          uint32_t nameWord = cache[blockType].type.name;
+        // Name (buffers need to be unwrapped to get the struct name, images/samplers are named directly)
+        bool buffer = slotType == GPU_SLOT_UNIFORM_BUFFER || slotType == GPU_SLOT_STORAGE_BUFFER;
+        uint32_t namedType = buffer ? (words + cache[type].type.word)[3] : type;
+        uint32_t nameWord = buffer ? cache[namedType].type.name : cache[namedType].resource.name;
+        if (group == 2 && !reflection->slotNames[number] && nameWord != 0xffff) {
           char* name = (char*) (words + nameWord);
           size_t nameLength = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
           reflection->slotNames[number] = hash32(name, nameLength);
         }
 
         // Either merge our info into an existing slot, or add the slot
+        gpu_slot* slot = &reflection->slots[group][number];
         if (slot->stage != 0) {
           lovrCheck(slot->type == slotType, "Variable (%d,%d) is in multiple shader stages with different types");
           lovrCheck(slot->count == count, "Variable (%d,%d) is in multiple shader stages with different array lengths");
@@ -4985,7 +5162,7 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
   // Search for matching texture in cache table
   uint32_t rows = COUNTOF(state.attachmentCache);
   uint32_t cols = COUNTOF(state.attachmentCache[0]);
-  ScratchTexture* row = state.attachmentCache[0] + (hash & (rows - 1)) * cols;
+  ScratchTexture* row = state.attachmentCache[hash & (rows - 1)];
   ScratchTexture* entry = NULL;
   for (uint32_t i = 0; i < cols; i++) {
     if (row[i].hash == hash) {

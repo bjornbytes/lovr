@@ -1426,7 +1426,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   VkFramebuffer framebuffer;
   uint32_t rows = COUNTOF(state.framebuffers);
   uint32_t cols = COUNTOF(state.framebuffers[0]);
-  gpu_cache_entry* row = state.framebuffers[0] + (hash & (rows - 1)) * cols;
+  gpu_cache_entry* row = state.framebuffers[hash & (rows - 1)];
   gpu_cache_entry* entry = NULL;
   for (uint32_t i = 0; i < cols; i++) {
     if (row[i].hash == hash) {

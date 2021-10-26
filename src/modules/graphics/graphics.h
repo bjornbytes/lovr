@@ -352,16 +352,16 @@ void lovrGraphicsSetConstant(const char* name, size_t length, void** data, Field
 void lovrGraphicsSetColor(float color[4]);
 
 uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform);
-uint32_t lovrGraphicsPoints(uint32_t count, float** vertices);
-uint32_t lovrGraphicsLine(uint32_t count, float** vertices);
-uint32_t lovrGraphicsPlane(float* transform, uint32_t detail);
-uint32_t lovrGraphicsBox(float* transform);
-uint32_t lovrGraphicsCircle(float* transform, uint32_t detail);
-uint32_t lovrGraphicsCone(float* transform, uint32_t detail);
-uint32_t lovrGraphicsCylinder(float* transform, uint32_t detail, bool capped);
-uint32_t lovrGraphicsSphere(float* transform, uint32_t detail);
-uint32_t lovrGraphicsSkybox(Texture* texture);
-uint32_t lovrGraphicsFill(Texture* texture);
+uint32_t lovrGraphicsPoints(Material* material, uint32_t count, float** vertices);
+uint32_t lovrGraphicsLine(Material* material, uint32_t count, float** vertices);
+uint32_t lovrGraphicsPlane(Material* material, float* transform, uint32_t detail);
+uint32_t lovrGraphicsBox(Material* material, float* transform);
+uint32_t lovrGraphicsCircle(Material* material, float* transform, uint32_t detail);
+uint32_t lovrGraphicsCone(Material* material, float* transform, uint32_t detail);
+uint32_t lovrGraphicsCylinder(Material* material, float* transform, uint32_t detail, bool capped);
+uint32_t lovrGraphicsSphere(Material* material, float* transform, uint32_t detail);
+uint32_t lovrGraphicsSkybox(Material* material);
+uint32_t lovrGraphicsFill(Material* material);
 void lovrGraphicsModel(Model* model, float* transform, uint32_t node, bool children, uint32_t instances);
 uint32_t lovrGraphicsPrint(Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrGraphicsReplay(Batch* batch);

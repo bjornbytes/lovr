@@ -492,6 +492,11 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
   return canvas;
 }
 
+static int luax_optmaterial(lua_State* L, int index, Material** material) {
+  *material = luax_totype(L, index, Material);
+  return index + !!*material;
+}
+
 static int l_lovrGraphicsGetHardware(lua_State* L) {
   GraphicsHardware hardware;
   lovrGraphicsGetHardware(&hardware);
@@ -1051,6 +1056,7 @@ static int l_lovrGraphicsSetColor(lua_State* L) {
 
 static int l_lovrGraphicsMesh(lua_State* L) {
   int index = 1;
+  Material* material = NULL;
   DrawMode mode = lua_type(L, index) == LUA_TSTRING ? luax_checkenum(L, index++, DrawMode, NULL) : DRAW_TRIANGLES;
   Buffer* vertices = luax_totype(L, index++, Buffer);
   Buffer* indices = luax_totype(L, index, Buffer);
@@ -1064,6 +1070,7 @@ static int l_lovrGraphicsMesh(lua_State* L) {
     uint32_t offset = luaL_optinteger(L, ++index, 0);
     id = lovrGraphicsMesh(&(DrawInfo) {
       .mode = mode,
+      .material = material,
       .vertex.buffer = vertices,
       .index.buffer = indices,
       .count = count,
@@ -1077,6 +1084,7 @@ static int l_lovrGraphicsMesh(lua_State* L) {
     uint32_t instances = luaL_optinteger(L, index++, 1);
     id = lovrGraphicsMesh(&(DrawInfo) {
       .mode = mode,
+      .material = material,
       .vertex.buffer = vertices,
       .index.buffer = indices,
       .start = start,
@@ -1147,95 +1155,124 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
 }
 
 static int l_lovrGraphicsPoints(lua_State* L) {
+  int index = 1;
   float* vertices;
-  uint32_t count = luax_getvertexcount(L, 1);
-  uint32_t id = lovrGraphicsPoints(count, &vertices);
-  luax_readvertices(L, 1, vertices, count);
+  Material* material;
+  index = luax_optmaterial(L, 1, &material);
+  uint32_t count = luax_getvertexcount(L, index);
+  uint32_t id = lovrGraphicsPoints(material, count, &vertices);
+  luax_readvertices(L, index, vertices, count);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsLine(lua_State* L) {
+  int index = 1;
   float* vertices;
-  uint32_t count = luax_getvertexcount(L, 1);
-  uint32_t id = lovrGraphicsLine(count, &vertices);
-  luax_readvertices(L, 1, vertices, count);
+  Material* material;
+  index = luax_optmaterial(L, index, &material);
+  uint32_t count = luax_getvertexcount(L, index);
+  uint32_t id = lovrGraphicsLine(material, count, &vertices);
+  luax_readvertices(L, index, vertices, count);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsPlane(lua_State* L) {
+  int index = 1;
+  Material* material;
   float transform[16];
-  int index = luax_readmat4(L, 1, transform, 2);
+  index = luax_optmaterial(L, index, &material);
+  index = luax_readmat4(L, index, transform, 2);
   uint32_t detail = luaL_optinteger(L, index, 0);
-  uint32_t id = lovrGraphicsPlane(transform, detail);
+  uint32_t id = lovrGraphicsPlane(material, transform, detail);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsCube(lua_State* L) {
+  int index = 1;
+  Material* material;
   float transform[16];
-  luax_readmat4(L, 1, transform, 1);
-  uint32_t id = lovrGraphicsBox(transform);
+  index = luax_optmaterial(L, index, &material);
+  index = luax_readmat4(L, index, transform, 1);
+  uint32_t id = lovrGraphicsBox(material, transform);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsBox(lua_State* L) {
+  int index = 1;
+  Material* material;
   float transform[16];
-  luax_readmat4(L, 1, transform, 3);
-  uint32_t id = lovrGraphicsBox(transform);
+  index = luax_optmaterial(L, index, &material);
+  index = luax_readmat4(L, index, transform, 3);
+  uint32_t id = lovrGraphicsBox(material, transform);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsCircle(lua_State* L) {
+  int index = 1;
+  Material* material;
   float transform[16];
-  int index = luax_readmat4(L, 1, transform, 1);
+  index = luax_optmaterial(L, index, &material);
+  index = luax_readmat4(L, index, transform, 1);
   uint32_t detail = luaL_optinteger(L, index, 64);
-  uint32_t id = lovrGraphicsCircle(transform, detail);
+  uint32_t id = lovrGraphicsCircle(material, transform, detail);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsCone(lua_State* L) {
+  int index = 1;
+  Material* material;
   float transform[16];
-  int index = luax_readmat4(L, 1, transform, -2);
+  index = luax_optmaterial(L, index, &material);
+  index = luax_readmat4(L, index, transform, -2);
   uint32_t detail = luaL_optinteger(L, index, 64);
-  uint32_t id = lovrGraphicsCone(transform, detail);
+  uint32_t id = lovrGraphicsCone(material, transform, detail);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsCylinder(lua_State* L) {
+  int index = 1;
+  Material* material;
   float transform[16];
-  int index = luax_readmat4(L, 1, transform, -2);
+  index = luax_optmaterial(L, index, &material);
+  index = luax_readmat4(L, index, transform, -2);
   uint32_t detail = luaL_optinteger(L, index++, 64);
   bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index);
-  uint32_t id = lovrGraphicsCylinder(transform, detail, capped);
+  uint32_t id = lovrGraphicsCylinder(material, transform, detail, capped);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsSphere(lua_State* L) {
+  int index = 1;
+  Material* material;
   float transform[16];
-  int index = luax_readmat4(L, 1, transform, 1);
+  index = luax_optmaterial(L, index, &material);
+  index = luax_readmat4(L, index, transform, 1);
   uint32_t detail = luaL_optinteger(L, index, 64);
-  uint32_t id = lovrGraphicsSphere(transform, detail);
+  uint32_t id = lovrGraphicsSphere(material, transform, detail);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsSkybox(lua_State* L) {
-  Texture* texture = luax_checktype(L, 1, Texture);
-  uint32_t id = lovrGraphicsSkybox(texture);
+  Material* material;
+  luax_optmaterial(L, 1, &material);
+  uint32_t id = lovrGraphicsSkybox(material);
   lua_pushinteger(L, id);
   return 1;
 }
 
 static int l_lovrGraphicsFill(lua_State* L) {
-  Texture* texture = luax_totype(L, 1, Texture);
-  uint32_t id = lovrGraphicsFill(texture);
+  Material* material;
+  luax_optmaterial(L, 1, &material);
+  uint32_t id = lovrGraphicsFill(material);
   lua_pushinteger(L, id);
   return 1;
 }
@@ -1519,7 +1556,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
 
     for (uint32_t i = 0; i < info.depth; i++) {
       lua_rawgeti(L, 1, i + 1);
-      images[i] = luax_checkimage(L, -1, info.type != TEXTURE_CUBE);
+      images[i] = luax_checkimage(L, -1, false);
       lua_pop(L, 1);
     }
 
@@ -1710,6 +1747,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
         .value.texture = luax_checktype(L, 2, Texture)
       };
     } else {
+      info.propertyCount = 0;
       luaL_checktype(L, 2, LUA_TTABLE);
       lua_settop(L, 2);
       lua_pushnil(L);
