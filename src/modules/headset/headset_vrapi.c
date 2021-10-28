@@ -481,7 +481,7 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
 
   model->buffers[0] = (ModelBuffer) {
     .blob = 0,
-    .offset = (char*) mesh->vertexPositions - (char*) mesh,
+    .offset = (char*) mesh->VertexPositions - (char*) mesh,
     .data = (char*) mesh->VertexPositions,
     .size = sizeof(mesh->VertexPositions),
     .stride = sizeof(mesh->VertexPositions[0])
@@ -489,7 +489,7 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
 
   model->buffers[1] = (ModelBuffer) {
     .blob = 0,
-    .offset = (char*) mesh->vertexNormals - (char*) mesh,
+    .offset = (char*) mesh->VertexNormals - (char*) mesh,
     .data = (char*) mesh->VertexNormals,
     .size = sizeof(mesh->VertexNormals),
     .stride = sizeof(mesh->VertexNormals[0]),
@@ -497,7 +497,7 @@ static struct ModelData* vrapi_newModelData(Device device, bool animated) {
 
   model->buffers[2] = (ModelBuffer) {
     .blob = 0,
-    .offset = (char*) mesh->vertexUV0 - (char*) mesh,
+    .offset = (char*) mesh->VertexUV0 - (char*) mesh,
     .data = (char*) mesh->VertexUV0,
     .size = sizeof(mesh->VertexUV0),
     .stride = sizeof(mesh->VertexUV0[0]),
