@@ -1,11 +1,13 @@
+-- All the values here can be overridden in tup.config, or by using tup variants
+-- To override subtables in tup.config, use singular subkeys (e.g. CONFIG_MODULE_AUDIO=n)
 config = {
-  target = 'native',
+  target = 'native', -- can be win32, macos, linux, android, wasm, or native
   debug = true,
   optimize = false,
-  supercharge = false,
-  sanitize = false,
-  strict = false,
-  luajit = false,
+  supercharge = false, -- enables dangerous optimizations, plus link time optimization
+  sanitize = false, -- adds runtime checks to detect memory leaks and undefined behavior (slower)
+  strict = false, -- makes warnings fail the build
+  luajit = false, -- path to folder with LuaJIT library, or false to use PUC Lua
   modules = {
     audio = true,
     data = true,
@@ -22,7 +24,7 @@ config = {
   headsets = {
     desktop = true,
     openvr = false,
-    openxr = false,
+    openxr = false, -- if provided, should be path to folder containing OpenXR loader library
     oculus = false,
     vrapi = false,
     pico = false,
@@ -34,17 +36,37 @@ config = {
     phonon = false
   },
   android = {
-    sdk = nil,
-    ndk = nil,
-    version = nil,
-    buildtools = nil,
-    keystore = nil,
-    keystorepass = nil,
-    manifest = nil,
-    package = nil,
-    project = nil
+    sdk = '/path/to/sdk',
+    ndk = '/path/to/ndk',
+    version = 29,
+    buildtools = '30.0.3',
+    keystore = '/path/to/keystore',
+    keystorepass = 'pass:password',
+    manifest = nil, -- path to custom AndroidManifest.xml
+    package = nil, -- package id, like org.lovr.app
+    project = nil -- path to LÖVR project to include in apk
   }
 }
+
+local function getConfig(key, default)
+  local value = tup.getconfig(key)
+  if value == 'y' then return true
+  elseif value == 'n' then return false
+  elseif #value > 0 then return value
+  else return default end
+end
+
+-- merge tup.config into config table
+for k, v in pairs(config) do
+  if type(v) == 'table' then
+    for kk, vv in pairs(v) do
+      local key = k:match('(.-)s?$'):upper() .. '_' .. kk:upper()
+      v[kk] = getConfig(key, v[kk])
+    end
+  else
+    config[k] = getConfig(k:upper(), config[k])
+  end
+end
 
 ---> setup
 
@@ -447,6 +469,11 @@ tup.rule(obj, '^ LD %o^ $(cc) $(base_flags) -o %o %f $(lflags)', output)
 ---> apk
 
 if target == 'android' then
+  for _, key in pairs({ 'manifest', 'package', 'project' }) do
+    local value = tup.getconfig('ANDROID_' .. key:upper())
+    config.android[key] = #value > 0 and value or config.android[key]
+  end
+
   activity =
     config.headsets.vrapi and 'src/resources/Activity_vrapi.java' or
     config.headsets.pico and 'src/resources/Activity_pico.java' or
@@ -463,8 +490,8 @@ if target == 'android' then
   classpathsep = tup.getconfig('TUP_PLATFORM') == 'win32' and ';' or ':'
   classpath = table.concat({ androidjar, extrajar }, classpathsep)
 
-  package = config.android.package and ('--rename-manifest-package ' .. config.android.package) or ''
-  project = config.android.project and ('-A ' .. config.android.project) or ''
+  package = #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
+  project = #config.android.project > 0 and ('-A ' .. config.android.project) or ''
 
   manifest = config.android.manifest or
     config.headsets.vrapi and 'src/resources/AndroidManifest_oculus.xml' or
