@@ -49,20 +49,20 @@ StringEntry lovrTopology[] = {
   { 0 }
 };
 
-StringEntry lovrMaterialColor[] = {
-  [COLOR_DIFFUSE] = ENTRY("diffuse"),
-  [COLOR_EMISSIVE] = ENTRY("emissive"),
-  { 0 }
-};
-
 StringEntry lovrMaterialScalar[] = {
   [SCALAR_METALNESS] = ENTRY("metalness"),
   [SCALAR_ROUGHNESS] = ENTRY("roughness"),
   { 0 }
 };
 
+StringEntry lovrMaterialColor[] = {
+  [COLOR_BASE] = ENTRY("base"),
+  [COLOR_EMISSIVE] = ENTRY("emissive"),
+  { 0 }
+};
+
 StringEntry lovrMaterialTexture[] = {
-  [TEXTURE_DIFFUSE] = ENTRY("diffuse"),
+  [TEXTURE_COLOR] = ENTRY("color"),
   [TEXTURE_EMISSIVE] = ENTRY("emissive"),
   [TEXTURE_METALNESS] = ENTRY("metalness"),
   [TEXTURE_ROUGHNESS] = ENTRY("roughness"),

@@ -48,12 +48,16 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
     if (STARTS_WITH(line, "newmtl ")) {
       map_set(names, hash64(line + 7, length - 7), materials->length);
       arr_push(materials, ((ModelMaterial) {
-        .scalars[SCALAR_METALNESS] = 1.f,
-        .scalars[SCALAR_ROUGHNESS] = 1.f,
-        .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
-        .colors[COLOR_EMISSIVE] = { 0.f, 0.f, 0.f, 0.f }
+        .metalness = 1.f,
+        .roughness = 1.f,
+        .color = { 1.f, 1.f, 1.f, 1.f },
+        .emissive = { 0.f, 0.f, 0.f },
+        .colorTexture = ~0u,
+        .emissiveTexture = ~0u,
+        .metalnessRoughnessTexture = ~0u,
+        .occlusionTexture = ~0u,
+        .normalTexture = ~0u
       }));
-      memset(&materials->data[materials->length - 1].images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(int));
     } else if (line[0] == 'K' && line[1] == 'd' && line[2] == ' ') {
       float r, g, b;
       char* s = line + 3;
@@ -61,10 +65,10 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       g = strtof(s, &s);
       b = strtof(s, &s);
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->colors[COLOR_DIFFUSE][0] = r;
-      material->colors[COLOR_DIFFUSE][1] = g;
-      material->colors[COLOR_DIFFUSE][2] = b;
-      material->colors[COLOR_DIFFUSE][3] = 1.f;
+      material->color[0] = r;
+      material->color[1] = g;
+      material->color[2] = b;
+      material->color[3] = 1.f;
     } else if (STARTS_WITH(line, "map_Kd ")) {
       lovrAssert(base - path + (length - 7) < 1024, "Bad OBJ: Material image filename is too long");
       memcpy(base, line + 7, length - 7);
@@ -78,7 +82,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       Image* image = lovrImageCreateFromBlob(blob, true);
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->images[TEXTURE_DIFFUSE] = (uint32_t) images->length;
+      material->colorTexture = (uint32_t) images->length;
       arr_push(images, image);
       lovrRelease(blob, lovrBlobDestroy);
     }
@@ -250,7 +254,6 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   model->primitiveCount = (uint32_t) groups.length;
   model->nodeCount = 1;
   model->imageCount = (uint32_t) images.length;
-  model->samplerCount = 1;
   model->materialCount = (uint32_t) materials.length;
   lovrModelDataAllocate(model);
 
@@ -275,11 +278,6 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   memcpy(model->materials, materials.data, model->materialCount * sizeof(ModelMaterial));
   memcpy(model->materialMap.hashes, materialMap.hashes, materialMap.size * sizeof(uint64_t));
   memcpy(model->materialMap.values, materialMap.values, materialMap.size * sizeof(uint64_t));
-
-  model->samplers[0] = (ModelSampler) {
-    MODEL_LINEAR, MODEL_LINEAR, MODEL_LINEAR,
-    MODEL_REPEAT, MODEL_REPEAT, MODEL_REPEAT
-  };
 
   float min[4] = { FLT_MAX };
   float max[4] = { FLT_MIN };

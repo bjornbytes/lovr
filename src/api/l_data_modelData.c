@@ -393,11 +393,21 @@ static int l_lovrModelDataGetMaterialName(lua_State* L) {
 static int l_lovrModelDataGetMaterialImage(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmaterial(L, 2, model);
-  MaterialTexture type = luax_checkenum(L, 3, MaterialTexture, "diffuse");
-  if (material->images[type] == ~0u) {
+  MaterialTexture type = luax_checkenum(L, 3, MaterialTexture, "color");
+  uint32_t index = ~0u;
+  switch (type) {
+    case TEXTURE_COLOR: index = material->colorTexture; break;
+    case TEXTURE_EMISSIVE: index = material->emissiveTexture; break;
+    case TEXTURE_METALNESS: index = material->metalnessRoughnessTexture; break;
+    case TEXTURE_ROUGHNESS: index = material->metalnessRoughnessTexture; break;
+    case TEXTURE_OCCLUSION: index = material->occlusionTexture; break;
+    case TEXTURE_NORMAL: index = material->normalTexture; break;
+    default: lovrThrow("Unreachable"); return 0;
+  }
+  if (index == ~0u) {
     lua_pushnil(L);
   } else {
-    lua_pushinteger(L, material->images[type] + 1);
+    lua_pushinteger(L, index + 1);
   }
   return 1;
 }
@@ -406,19 +416,32 @@ static int l_lovrModelDataGetMaterialColor(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmaterial(L, 2, model);
   MaterialColor type = luax_checkenum(L, 3, MaterialColor, "diffuse");
-  lua_pushnumber(L, material->colors[type][0]);
-  lua_pushnumber(L, material->colors[type][1]);
-  lua_pushnumber(L, material->colors[type][2]);
-  lua_pushnumber(L, material->colors[type][3]);
-  return 4;
+  switch (type) {
+    case COLOR_BASE:
+      lua_pushnumber(L, material->color[0]);
+      lua_pushnumber(L, material->color[1]);
+      lua_pushnumber(L, material->color[2]);
+      lua_pushnumber(L, material->color[3]);
+      return 4;
+    case COLOR_EMISSIVE:
+      lua_pushnumber(L, material->emissive[0]);
+      lua_pushnumber(L, material->emissive[1]);
+      lua_pushnumber(L, material->emissive[2]);
+      lua_pushnumber(L, 1.f);
+      return 4;
+    default: lovrThrow("Unreachable"); return 0;
+  }
 }
 
 static int l_lovrModelDataGetMaterialValue(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmaterial(L, 2, model);
   MaterialScalar type = luax_checkenum(L, 3, MaterialScalar, NULL);
-  lua_pushnumber(L, material->scalars[type]);
-  return 1;
+  switch (type) {
+    case SCALAR_METALNESS: lua_pushnumber(L, material->metalness); return 1;
+    case SCALAR_ROUGHNESS: lua_pushnumber(L, material->roughness); return 1;
+    default: lovrThrow("Unreachable"); return 0;
+  }
 }
 
 static int l_lovrModelDataGetAnimationCount(lua_State* L) {

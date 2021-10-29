@@ -50,7 +50,6 @@ typedef struct {
 
 typedef struct {
   uint32_t image;
-  uint32_t sampler;
 } gltfTexture;
 
 typedef struct {
@@ -72,6 +71,21 @@ static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
     case JSMN_ARRAY: return nomValue(data, token + 1, count - 1 + token->size, sum + 1);
     default: return nomValue(data, token + 1, count - 1, sum + 1);
   }
+}
+
+static jsmntok_t* nomTexture(const char* json, jsmntok_t* token, uint32_t* imageIndex, gltfTexture* textures) {
+  for (int k = (token++)->size; k > 0; k--) {
+    gltfString key = NOM_STR(json, token);
+    if (STR_EQ(key, "index")) {
+      uint32_t textureIndex = NOM_INT(json, token);
+      *imageIndex = textures[textureIndex].image;
+    } else if (STR_EQ(key, "texCoord")) {
+      lovrAssert(NOM_INT(json, token) == 0, "Only one set of texture coordinates is supported");
+    } else {
+      token += NOM_VALUE(json, token);
+    }
+  }
+  return token;
 }
 
 static void* decodeBase64(char* str, size_t length, size_t decodedSize) {
@@ -119,23 +133,6 @@ static void* decodeBase64(char* str, size_t length, size_t decodedSize) {
   }
 
   return data;
-}
-
-static jsmntok_t* resolveTexture(const char* json, jsmntok_t* token, ModelMaterial* material, MaterialTexture textureType, gltfTexture* textures) {
-  for (int k = (token++)->size; k > 0; k--) {
-    gltfString key = NOM_STR(json, token);
-    if (STR_EQ(key, "index")) {
-      uint32_t index = NOM_INT(json, token);
-      gltfTexture* texture = &textures[index];
-      material->images[textureType] = texture->image;
-      material->samplers[textureType] = texture->sampler;
-    } else if (STR_EQ(key, "texCoord")) {
-      lovrAssert(NOM_INT(json, token) == 0, "Only one set of texture coordinates is supported");
-    } else {
-      token += NOM_VALUE(json, token);
-    }
-  }
-  return token;
 }
 
 ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io) {
@@ -299,24 +296,16 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       model->imageCount = token->size;
       token += NOM_VALUE(json, token);
 
-    } else if (STR_EQ(key, "samplers")) {
-      info.samplers = token;
-      model->samplerCount = token->size;
-      token += NOM_VALUE(json, token);
-
     } else if (STR_EQ(key, "textures")) {
       textures = malloc(token->size * sizeof(gltfTexture));
       lovrAssert(textures, "Out of memory");
       gltfTexture* texture = textures;
       for (int i = (token++)->size; i > 0; i--, texture++) {
         texture->image = ~0u;
-        texture->sampler = ~0u;
         for (int k = (token++)->size; k > 0; k--) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "source")) {
             texture->image = NOM_INT(json, token);
-          } else if (STR_EQ(key, "sampler")) {
-            texture->sampler = NOM_INT(json, token);
           } else {
             token += NOM_VALUE(json, token);
           }
@@ -636,56 +625,20 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     }
   }
 
-  // Samplers
-  if (model->samplerCount > 0) {
-    jsmntok_t* token = info.samplers;
-    ModelSampler* sampler = model->samplers;
-    for (int i = (token++)->size; i > 0; i--, sampler++) {
-      sampler->min = sampler->mag = sampler->mip = MODEL_LINEAR;
-      sampler->u = sampler->v = sampler->w = MODEL_REPEAT;
-      int min = -1;
-      int mag = -1;
-
-      for (int k = (token++)->size; k > 0; k--) {
-        gltfString key = NOM_STR(json, token);
-        if (STR_EQ(key, "minFilter")) { min = NOM_INT(json, token); }
-        else if (STR_EQ(key, "magFilter")) { mag = NOM_INT(json, token); }
-        else if (STR_EQ(key, "wrapS")) {
-          switch (NOM_INT(json, token)) {
-            case 33071: sampler->u = MODEL_CLAMP; break;
-            case 10497: sampler->u = MODEL_REPEAT; break;
-            case 33648: sampler->u = MODEL_MIRROR; break;
-            default: lovrThrow("Unknown sampler wrapS mode for sampler %d", i);
-          }
-        } else if (STR_EQ(key, "wrapT")) {
-          switch (NOM_INT(json, token)) {
-            case 33071: sampler->v = MODEL_CLAMP; break;
-            case 10497: sampler->v = MODEL_REPEAT; break;
-            case 33648: sampler->v = MODEL_MIRROR; break;
-            default: lovrThrow("Unknown sampler wrapT mode for sampler %d", i);
-          }
-        } else {
-          token += NOM_VALUE(json, token);
-        }
-      }
-
-      sampler->mag = (mag == 9728) ? MODEL_NEAREST : MODEL_LINEAR;
-      sampler->min = (min == 9728 || min == 9984 || min == 9986) ? MODEL_NEAREST : MODEL_LINEAR;
-      sampler->mip = (min == 9728 || min == 9729 || min == 9984 || min == 9985) ? MODEL_NEAREST : MODEL_LINEAR;
-      sampler->w = sampler->u;
-    }
-  }
-
   // Materials
   if (model->materialCount > 0) {
     jsmntok_t* token = info.materials;
     ModelMaterial* material = model->materials;
     for (int i = (token++)->size; i > 0; i--, material++) {
-      material->scalars[SCALAR_METALNESS] = 1.f;
-      material->scalars[SCALAR_ROUGHNESS] = 1.f;
-      memcpy(material->colors[COLOR_DIFFUSE], (float[4]) { 1.f, 1.f, 1.f, 1.f }, 4 * sizeof(float));
-      memcpy(material->colors[COLOR_EMISSIVE], (float[4]) { 0.f }, 4 * sizeof(float));
-      memset(material->images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(uint32_t));
+      material->metalness = 1.f;
+      material->roughness = 1.f;
+      memcpy(material->color, (float[4]) { 1.f, 1.f, 1.f, 1.f }, 4 * sizeof(float));
+      memcpy(material->emissive, (float[3]) { 0.f, 0.f, 0.f }, 3 * sizeof(float));
+      material->colorTexture = ~0u;
+      material->emissiveTexture = ~0u;
+      material->metalnessRoughnessTexture = ~0u;
+      material->occlusionTexture = ~0u;
+      material->normalTexture = ~0u;
 
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
@@ -694,35 +647,33 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             gltfString key = NOM_STR(json, token);
             if (STR_EQ(key, "baseColorFactor")) {
               token++; // Enter array
-              material->colors[COLOR_DIFFUSE][0] = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE][1] = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE][2] = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE][3] = NOM_FLOAT(json, token);
+              material->color[0] = NOM_FLOAT(json, token);
+              material->color[1] = NOM_FLOAT(json, token);
+              material->color[2] = NOM_FLOAT(json, token);
+              material->color[3] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "baseColorTexture")) {
-              token = resolveTexture(json, token, material, TEXTURE_DIFFUSE, textures);
+              token = nomTexture(json, token, &material->colorTexture, textures);
             } else if (STR_EQ(key, "metallicFactor")) {
-              material->scalars[SCALAR_METALNESS] = NOM_FLOAT(json, token);
+              material->metalness = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "roughnessFactor")) {
-              material->scalars[SCALAR_ROUGHNESS] = NOM_FLOAT(json, token);
+              material->roughness = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "metallicRoughnessTexture")) {
-              token = resolveTexture(json, token, material, TEXTURE_METALNESS, textures);
-              material->images[TEXTURE_ROUGHNESS] = material->images[TEXTURE_METALNESS];
-              material->samplers[TEXTURE_ROUGHNESS] = material->samplers[TEXTURE_METALNESS];
+              token = nomTexture(json, token, &material->metalnessRoughnessTexture, textures);
             } else {
               token += NOM_VALUE(json, token);
             }
           }
         } else if (STR_EQ(key, "normalTexture")) {
-          token = resolveTexture(json, token, material, TEXTURE_NORMAL, textures);
+          token = nomTexture(json, token, &material->normalTexture, textures);
         } else if (STR_EQ(key, "occlusionTexture")) {
-          token = resolveTexture(json, token, material, TEXTURE_OCCLUSION, textures);
+          token = nomTexture(json, token, &material->occlusionTexture, textures);
         } else if (STR_EQ(key, "emissiveTexture")) {
-          token = resolveTexture(json, token, material, TEXTURE_EMISSIVE, textures);
+          token = nomTexture(json, token, &material->emissiveTexture, textures);
         } else if (STR_EQ(key, "emissiveFactor")) {
           token++; // Enter array
-          material->colors[COLOR_EMISSIVE][0] = NOM_FLOAT(json, token);
-          material->colors[COLOR_EMISSIVE][1] = NOM_FLOAT(json, token);
-          material->colors[COLOR_EMISSIVE][2] = NOM_FLOAT(json, token);
+          material->emissive[0] = NOM_FLOAT(json, token);
+          material->emissive[1] = NOM_FLOAT(json, token);
+          material->emissive[2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
           map_set(&model->materialMap, hash64(name.data, name.length), model->materialCount - i);
