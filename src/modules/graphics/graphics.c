@@ -3524,6 +3524,37 @@ Model* lovrModelCreate(ModelInfo* info) {
   model->materials = malloc(data->materialCount * sizeof(Material*));
   lovrAssert(model->materials, "Out of memory");
 
+  for (uint32_t i = 0; i < data->materialCount; i++) {
+    ModelMaterial* material = &data->materials[i];
+    MaterialProperty properties[] = {
+      [0] = { "metalness", PROPERTY_SCALAR, .value.scalar = material->metalness },
+      [1] = { "roughness", PROPERTY_SCALAR, .value.scalar = material->roughness },
+      [2] = { "color", PROPERTY_VECTOR, .value.vector = { 0.f } },
+      [3] = { "emissive", PROPERTY_VECTOR, .value.vector = { 0.f } },
+      [4] = { "colorTexture", PROPERTY_TEXTURE, .value.texture = model->textures[material->colorTexture] },
+      [5] = { "emissiveTexture", PROPERTY_TEXTURE, .value.texture = NULL },
+      [6] = { "metalnessRoughnessTexture", PROPERTY_TEXTURE, .value.texture = NULL },
+      [7] = { "occlusionTexture", PROPERTY_TEXTURE, .value.texture = NULL },
+      [8] = { "normalTexture", PROPERTY_TEXTURE, .value.texture = NULL }
+    };
+
+    // ew
+    memcpy(properties[2].value.vector, material->color, sizeof(material->color));
+    memcpy(properties[3].value.vector, material->emissive, sizeof(material->emissive));
+    if (material->colorTexture != ~0u) properties[4].value.texture = model->textures[material->colorTexture];
+    if (material->emissiveTexture != ~0u) properties[5].value.texture = model->textures[material->emissiveTexture];
+    if (material->metalnessRoughnessTexture != ~0u) properties[6].value.texture = model->textures[material->metalnessRoughnessTexture];
+    if (material->occlusionTexture != ~0u) properties[7].value.texture = model->textures[material->occlusionTexture];
+    if (material->normalTexture != ~0u) properties[8].value.texture = model->textures[material->normalTexture];
+
+    model->materials[i] = lovrMaterialCreate(&(MaterialInfo) {
+      .shader = info->shader,
+      .type = info->material,
+      .properties = properties,
+      .propertyCount = COUNTOF(properties)
+    });
+  }
+
   // First pass: determine vertex format, count vertices and indices, validate meshes
   // TODO modeldata can u pls tell me how many vertices/indices total
   uint32_t totalIndexCount = 0;
@@ -3591,6 +3622,8 @@ Model* lovrModelCreate(ModelInfo* info) {
       case TOPOLOGY_TRIANGLES: draw->mode = DRAW_TRIANGLES;
       default: break;
     }
+
+    draw->material = primitive->material == ~0u ? NULL : model->materials[primitive->material];
 
     draw->vertex.buffer = model->vertices;
     draw->index.buffer = model->indices;
@@ -3843,7 +3876,6 @@ Model* lovrModelCreate(ModelInfo* info) {
     }
 
     if (primitive->indices) {
-      lovrCheck(data->buffers[primitive->indices->buffer].stride == indexStride, "Currently Model indices must be tightly packed");
       char* src = data->buffers[primitive->indices->buffer].data + primitive->indices->offset;
       memcpy(indices, src, primitive->indices->count * indexStride);
     }
@@ -3866,6 +3898,9 @@ void lovrModelDestroy(void* ref) {
   Model* model = ref;
   for (uint32_t i = 0; i < model->data->imageCount; i++) {
     lovrRelease(model->textures[i], lovrTextureDestroy);
+  }
+  for (uint32_t i = 0; i < model->data->materialCount; i++) {
+    lovrRelease(model->materials[i], lovrMaterialDestroy);
   }
   lovrRelease(model->data, lovrModelDataDestroy);
   lovrRelease(model->vertices, lovrBufferDestroy);
