@@ -17,7 +17,7 @@ typedef struct {
   char* data;
 } ModelBuffer;
 
-typedef enum {
+enum {
   ATTR_POSITION,
   ATTR_NORMAL,
   ATTR_TEXCOORD,
@@ -25,27 +25,16 @@ typedef enum {
   ATTR_TANGENT,
   ATTR_BONES,
   ATTR_WEIGHTS,
-  MAX_DEFAULT_ATTRIBUTES
-} ModelAttributeType;
+  MAX_MODEL_ATTRIBUTES
+};
 
-typedef enum { I8, U8, I16, U16, I32, U32, F32 } AttributeType;
-
-typedef union {
-  void* raw;
-  int8_t* i8;
-  uint8_t* u8;
-  int16_t* i16;
-  uint16_t* u16;
-  int32_t* i32;
-  uint32_t* u32;
-  float* f32;
-} AttributeData;
+enum { I8, U8, I16, U16, I32, U32, F32 };
 
 typedef struct {
   uint32_t offset;
   uint32_t buffer;
   uint32_t count;
-  AttributeType type;
+  uint32_t type;
   unsigned components : 3;
   unsigned normalized : 1;
   unsigned matrix : 1;
@@ -66,7 +55,7 @@ typedef enum {
 } Topology;
 
 typedef struct {
-  ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
+  ModelAttribute* attributes[MAX_MODEL_ATTRIBUTES];
   ModelAttribute* indices;
   Topology topology;
   uint32_t material;

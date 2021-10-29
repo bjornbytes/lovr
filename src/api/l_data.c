@@ -17,17 +17,6 @@ StringEntry lovrAnimationProperty[] = {
 };
 
 StringEntry lovrAttributeType[] = {
-  [I8] = ENTRY("byte"),
-  [U8] = ENTRY("ubyte"),
-  [I16] = ENTRY("short"),
-  [U16] = ENTRY("ushort"),
-  [I32] = ENTRY("int"),
-  [U32] = ENTRY("uint"),
-  [F32] = ENTRY("float"),
-  { 0 }
-};
-
-StringEntry lovrDefaultAttribute2[] = {
   [ATTR_POSITION] = ENTRY("position"),
   [ATTR_NORMAL] = ENTRY("normal"),
   [ATTR_TEXCOORD] = ENTRY("texcoord"),
@@ -38,14 +27,14 @@ StringEntry lovrDefaultAttribute2[] = {
   { 0 }
 };
 
-StringEntry lovrTopology[] = {
-  [TOPOLOGY_POINTS] = ENTRY("points"),
-  [TOPOLOGY_LINES] = ENTRY("lines"),
-  [TOPOLOGY_LINE_LOOP] = ENTRY("lineloop"),
-  [TOPOLOGY_LINE_STRIP] = ENTRY("linestrip"),
-  [TOPOLOGY_TRIANGLES] = ENTRY("triangles"),
-  [TOPOLOGY_TRIANGLE_STRIP] = ENTRY("strip"),
-  [TOPOLOGY_TRIANGLE_FAN] = ENTRY("fan"),
+StringEntry lovrComponentType[] = {
+  [I8] = ENTRY("byte"),
+  [U8] = ENTRY("ubyte"),
+  [I16] = ENTRY("short"),
+  [U16] = ENTRY("ushort"),
+  [I32] = ENTRY("int"),
+  [U32] = ENTRY("uint"),
+  [F32] = ENTRY("float"),
   { 0 }
 };
 
@@ -75,6 +64,17 @@ StringEntry lovrSmoothMode[] = {
   [SMOOTH_STEP] = ENTRY("step"),
   [SMOOTH_LINEAR] = ENTRY("linear"),
   [SMOOTH_CUBIC] = ENTRY("cubic"),
+  { 0 }
+};
+
+StringEntry lovrTopology[] = {
+  [TOPOLOGY_POINTS] = ENTRY("points"),
+  [TOPOLOGY_LINES] = ENTRY("lines"),
+  [TOPOLOGY_LINE_LOOP] = ENTRY("lineloop"),
+  [TOPOLOGY_LINE_STRIP] = ENTRY("linestrip"),
+  [TOPOLOGY_TRIANGLES] = ENTRY("triangles"),
+  [TOPOLOGY_TRIANGLE_STRIP] = ENTRY("strip"),
+  [TOPOLOGY_TRIANGLE_FAN] = ENTRY("fan"),
   { 0 }
 };
 

@@ -282,16 +282,16 @@ static int l_lovrModelDataGetMeshVertexFormat(lua_State* L) {
   ModelPrimitive* mesh = &model->primitives[index];
   lua_newtable(L);
   uint32_t count = 0;
-  for (uint32_t i = 0; i < MAX_DEFAULT_ATTRIBUTES; i++) {
+  for (uint32_t i = 0; i < MAX_MODEL_ATTRIBUTES; i++) {
     ModelAttribute* attribute = mesh->attributes[i];
     if (!attribute) continue;
 
     lua_createtable(L, 6, 0);
 
-    luax_pushenum(L, DefaultAttribute2, i);
+    luax_pushenum(L, AttributeType, i);
     lua_rawseti(L, -2, 1);
 
-    luax_pushenum(L, AttributeType, attribute->type);
+    luax_pushenum(L, ComponentType, attribute->type);
     lua_rawseti(L, -2, 2);
 
     lua_pushinteger(L, attribute->components);
@@ -317,7 +317,7 @@ static int l_lovrModelDataGetMeshIndexFormat(lua_State* L) {
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
   if (!mesh->indices) return lua_pushnil(L), 1;
-  luax_pushenum(L, AttributeType, mesh->indices->type);
+  luax_pushenum(L, ComponentType, mesh->indices->type);
   lua_pushinteger(L, model->buffers[mesh->indices->buffer].blob + 1);
   lua_pushinteger(L, model->buffers[mesh->indices->buffer].offset + mesh->indices->offset);
   lua_pushinteger(L, model->buffers[mesh->indices->buffer].stride);
@@ -333,13 +333,23 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
   uint32_t vertexCount = mesh->attributes[ATTR_POSITION] ? mesh->attributes[ATTR_POSITION]->count : 0;
   lovrCheck(vertex < vertexCount, "Invalid vertex index '%d'", vertex + 1);
   uint32_t total = 0;
-  for (uint32_t i = 0; i < MAX_DEFAULT_ATTRIBUTES; i++) {
+  for (uint32_t i = 0; i < MAX_MODEL_ATTRIBUTES; i++) {
     ModelAttribute* attribute = mesh->attributes[i];
     if (!attribute) continue;
 
-    AttributeData data = { .raw = model->buffers[attribute->buffer].data };
-    data.u8 += attribute->offset;
-    data.u8 += vertex * model->buffers[attribute->buffer].stride;
+    union {
+      char* raw;
+      int8_t* i8;
+      uint8_t* u8;
+      int16_t* i16;
+      uint16_t* u16;
+      int32_t* i32;
+      uint32_t* u32;
+      float* f32;
+    } data = { .raw = model->buffers[attribute->buffer].data };
+
+    data.raw += attribute->offset;
+    data.raw += vertex * model->buffers[attribute->buffer].stride;
 
     for (uint32_t j = 0; j < attribute->components; j++) {
       switch (attribute->type) {
@@ -367,8 +377,11 @@ static int l_lovrModelDataGetMeshIndex(lua_State* L) {
   uint32_t index = luaL_checkinteger(L, 3) - 1;
   uint32_t indexCount = mesh->indices ? mesh->indices->count : 0;
   lovrCheck(index < indexCount, "Invalid index index '%d'", index + 1);
-  AttributeData data = { .raw = model->buffers[mesh->indices->buffer].data };
-  data.u8 += mesh->indices->offset;
+  union {
+    char* bytes;
+    uint16_t* u16;
+    uint32_t* u32;
+  } data = { .bytes = model->buffers[mesh->indices->buffer].data + mesh->indices->offset };
   switch (mesh->indices->type) {
     case U16: lua_pushinteger(L, data.u16[index]); return 1;
     case U32: lua_pushinteger(L, data.u32[index]); return 1;
