@@ -536,7 +536,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     memset(state.zeros.data, 0, 4096);
   } else {
     lovrGraphicsPrepare();
-    gpu_clear_buffer(state.uploads->stream, state.zeros.gpu, state.zeros.offset, 4096, 0);
+    gpu_clear_buffer(state.uploads->stream, state.zeros.gpu, state.zeros.offset, 4096);
     arr_push(&state.uploads->buffers, (BufferAccess) { 0 }); // TODO maybe better way to ensure upload stream gets submitted
   }
 
@@ -2490,7 +2490,7 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
     memset(buffer->mega.data + offset, 0, size);
   } else {
     lovrCheck(state.pass && state.pass->type == PASS_TRANSFER, "Clearing persistent buffers can only happen in a transfer pass");
-    gpu_clear_buffer(state.pass->stream, buffer->mega.gpu, buffer->mega.offset + offset, size, 0);
+    gpu_clear_buffer(state.pass->stream, buffer->mega.gpu, buffer->mega.offset + offset, size);
     BufferAccess access = { buffer, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE };
     arr_push(&state.pass->buffers, access);
     lovrRetain(buffer);
@@ -3284,12 +3284,13 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
     }
   }
 
+  // Textures
+
   if (!material->textures) {
     material->textures = malloc(format->textureCount * sizeof(Texture*));
     lovrAssert(material->textures, "Out of memory");
   }
 
-  // Textures
   for (uint32_t i = 0; i < format->textureCount; i++) {
     MaterialProperty* property = NULL;
     for (uint32_t j = 0; j < info->propertyCount; j++) {
