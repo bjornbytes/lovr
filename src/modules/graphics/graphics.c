@@ -3922,7 +3922,7 @@ void lovrModelResetPose(Model* model) {
       mat4_getScale(model->data->nodes[i].transform.matrix, scale);
     } else {
       vec3_init(position, model->data->nodes[i].transform.properties.translation);
-      vec3_init(orientation, model->data->nodes[i].transform.properties.rotation);
+      quat_init(orientation, model->data->nodes[i].transform.properties.rotation);
       vec3_init(scale, model->data->nodes[i].transform.properties.scale);
     }
   }
