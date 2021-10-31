@@ -8,16 +8,16 @@ static struct {
   float gain[MAX_SOURCES][2];
 } state;
 
-bool simple_init(void) {
+static bool simple_init(void) {
   mat4_identity(state.listener);
   return true;
 }
 
-void simple_destroy(void) {
+static void simple_destroy(void) {
   //
 }
 
-uint32_t simple_apply(Source* source, const float* input, float* output, uint32_t frames, uint32_t _frames) {
+static uint32_t simple_apply(Source* source, const float* input, float* output, uint32_t frames, uint32_t _frames) {
   float sourcePos[4], sourceOrientation[4];
   lovrSourceGetPose(source, sourcePos, sourceOrientation);
 
@@ -82,27 +82,27 @@ uint32_t simple_apply(Source* source, const float* input, float* output, uint32_
   return frames;
 }
 
-uint32_t simple_tail(float* scratch, float* output, uint32_t frames) {
+static uint32_t simple_tail(float* scratch, float* output, uint32_t frames) {
   return 0;
 }
 
-void simple_setListenerPose(float position[4], float orientation[4]) {
+static void simple_setListenerPose(float position[4], float orientation[4]) {
   mat4_identity(state.listener);
   mat4_translate(state.listener, position[0], position[1], position[2]);
   mat4_rotateQuat(state.listener, orientation);
 }
 
-bool simple_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material) {
+static bool simple_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material) {
   return false;
 }
 
-void simple_sourceCreate(Source* source) {
+static void simple_sourceCreate(Source* source) {
   uint32_t index = lovrSourceGetIndex(source);
   state.gain[index][0] = 0.f;
   state.gain[index][1] = 0.f;
 }
 
-void simple_sourceDestroy(Source* source) {
+static void simple_sourceDestroy(Source* source) {
   //
 }
 
