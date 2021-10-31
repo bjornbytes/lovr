@@ -3663,7 +3663,7 @@ Model* lovrModelCreate(ModelInfo* info) {
     if ((attribute = primitive->attributes[ATTR_POSITION]) != NULL) {
       lovrCheck(attribute->type == F32 && attribute->components == 3, "Model position attribute must be 3 floats");
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
-      uint32_t stride = data->buffers[attribute->buffer].stride;
+      uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
       for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
         memcpy(&vertex.standard->position, src, 3 * sizeof(float));
       }
@@ -3677,7 +3677,7 @@ Model* lovrModelCreate(ModelInfo* info) {
     if ((attribute = primitive->attributes[ATTR_NORMAL]) != NULL) {
       lovrCheck(attribute->type == F32 && attribute->components == 3, "Model normal attribute must be 3 floats");
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
-      uint32_t stride = data->buffers[attribute->buffer].stride;
+      uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
       for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
         float* normal = (float*) src;
         vertex.standard->normal.nx = (unsigned) ((normal[0] + 1.f) * .5f * 0x3ff);
@@ -3698,12 +3698,14 @@ Model* lovrModelCreate(ModelInfo* info) {
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8 && attribute->normalized) {
+          stride = stride ? stride : 2;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint8_t* uv = (uint8_t*) src;
             vertex.standard->uv.u = (uint16_t) uv[0];
             vertex.standard->uv.v = (uint16_t) uv[1];
           }
         } else if (attribute->type == U16 && attribute->normalized) {
+          stride = stride ? stride : 4;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             memcpy(&vertex.standard->uv, src, 2 * sizeof(uint16_t));
           }
@@ -3724,18 +3726,21 @@ Model* lovrModelCreate(ModelInfo* info) {
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8 && attribute->normalized) {
+          stride = stride ? stride : 2;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint8_t* uv = (uint8_t*) src;
             vertex.supreme->uv.u = uv[0] / 255.f;
             vertex.supreme->uv.v = uv[1] / 255.f;
           }
         } else if (attribute->type == U16 && attribute->normalized) {
+          stride = stride ? stride : 4;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint16_t* uv = (uint16_t*) src;
             vertex.supreme->uv.u = uv[0] / 65535.f;
             vertex.supreme->uv.v = uv[1] / 65535.f;
           }
         } else if (attribute->type == F32) {
+          stride = stride ? stride : 8;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             memcpy(&vertex.supreme->uv, src, 2 * sizeof(float));
           }
@@ -3755,16 +3760,19 @@ Model* lovrModelCreate(ModelInfo* info) {
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8 && attribute->normalized) {
           if (attribute->components == 4) {
+            stride = stride ? stride : 4;
             for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
               memcpy(&vertex.supreme->color, src, 4);
             }
           } else {
+            stride = stride ? stride : 3;
             for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
               memcpy(&vertex.supreme->color, src, 3);
               vertex.supreme->color.a = 255;
             }
           }
         } else if (attribute->type == U16 && attribute->normalized) {
+          stride = stride ? stride : (2 * attribute->components);
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint16_t* color = (uint16_t*) src;
             vertex.supreme->color.r = color[0] >> 8;
@@ -3773,6 +3781,7 @@ Model* lovrModelCreate(ModelInfo* info) {
             vertex.supreme->color.a = attribute->components == 3 ? 255 : (color[3] >> 8);
           }
         } else if (attribute->type == F32) {
+          stride = stride ? stride : (4 * attribute->components);
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             float* color = (float*) src;
             vertex.supreme->color.r = color[0] * 255.f + .5f;
@@ -3793,7 +3802,7 @@ Model* lovrModelCreate(ModelInfo* info) {
       if ((attribute = primitive->attributes[ATTR_TANGENT]) != NULL) {
         lovrCheck(attribute->type == F32 && attribute->components == 3, "Model tangent attribute must be 3 floats");
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
-        uint32_t stride = data->buffers[attribute->buffer].stride;
+        uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
         for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
           float* tangent = (float*) src;
           vertex.supreme->tangent.x = (unsigned) ((tangent[0] + 1.f) * .5f * 0x3ff);
@@ -3817,10 +3826,12 @@ Model* lovrModelCreate(ModelInfo* info) {
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8) {
+          stride = stride ? stride : 4;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             memcpy(vertex.skinned->joints, src, 4);
           }
         } else if (attribute->type == U16) {
+          stride = stride ? stride : 8;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint16_t* joints = (uint16_t*) src;
             vertex.skinned->joints[0] = joints[0];
@@ -3842,10 +3853,12 @@ Model* lovrModelCreate(ModelInfo* info) {
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == U8 && attribute->normalized) {
+          stride = stride ? stride : 4;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             memcpy(vertex.skinned->weights, src, 4);
           }
         } else if (attribute->type == U16 && attribute->normalized) {
+          stride = stride ? stride : 8;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             uint16_t* weights = (uint16_t*) src;
             vertex.skinned->weights[0] = weights[0] >> 8; // TODO am i doing this right
@@ -3854,6 +3867,7 @@ Model* lovrModelCreate(ModelInfo* info) {
             vertex.skinned->weights[3] = weights[3] >> 8;
           }
         } else if (attribute->type == F32) {
+          stride = stride ? stride : 16;
           for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
             float* weights = (float*) src;
             // TODO need to renormalize
