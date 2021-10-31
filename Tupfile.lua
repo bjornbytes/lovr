@@ -83,6 +83,7 @@ cflags = {
   '-Wextra',
   config.strict and '-Werror' or '',
   '-Wno-unused-parameter',
+  '-fdiagnostics-color=always',
   '-fvisibility=hidden',
   config.optimize and '-fdata-sections -ffunction-sections' or '',
   '-Isrc',
