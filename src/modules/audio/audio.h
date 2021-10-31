@@ -71,7 +71,7 @@ void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
 bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
 const char* lovrAudioGetSpatializer(void);
-uint32_t lovrAudioGetSampleRate();
+uint32_t lovrAudioGetSampleRate(void);
 void lovrAudioGetAbsorption(float absorption[3]);
 void lovrAudioSetAbsorption(float absorption[3]);
 
