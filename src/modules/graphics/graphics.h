@@ -572,6 +572,11 @@ void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i),
 
 // Model
 
+typedef enum {
+  SPACE_LOCAL,
+  SPACE_GLOBAL
+} CoordinateSpace;
+
 typedef struct {
   struct ModelData* data;
   DefaultMaterial material;
@@ -582,6 +587,18 @@ Model* lovrModelCreate(ModelInfo* info);
 void lovrModelDestroy(void* ref);
 struct ModelData* lovrModelGetModelData(Model* model);
 void lovrModelResetPose(Model* model);
+void lovrModelAnimate(Model* model, uint32_t animation, float time, float alpha);
+void lovrModelPose(Model* model, uint32_t node, float position[4], float rotation[4], float alpha);
+void lovrModelGetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], CoordinateSpace space);
+Texture* lovrModelGetTexture(Model* model, uint32_t index);
+Material* lovrModelGetMaterial(Model* model, uint32_t index);
+Buffer* lovrModelGetVertexBuffer(Model* model);
+Buffer* lovrModelGetIndexBuffer(Model* model);
+void lovrModelGetTriangles(Model* model, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount);
+uint32_t lovrModelGetTriangleCount(Model* model);
+uint32_t lovrModelGetVertexCount(Model* model);
+void lovrModelGetBoundingBox(Model* model, float bounds[6]);
+void lovrModelGetBoundingSphere(Model* model, float sphere[4]);
 
 // Font
 

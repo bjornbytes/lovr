@@ -24,10 +24,11 @@ struct DrawData {
 layout(set = 0, binding = 0) uniform CameraBuffer { Camera camera; };
 layout(set = 0, binding = 1) uniform TransformBuffer { mat4 transforms[256]; };
 layout(set = 0, binding = 2) uniform DrawDataBuffer { DrawData draws[256]; };
-layout(set = 0, binding = 3) uniform sampler nearest;
-layout(set = 0, binding = 4) uniform sampler bilinear;
+layout(set = 0, binding = 3) uniform JointTransformBuffer { mat4 jointTransforms[256]; };
+layout(set = 0, binding = 4) uniform sampler nearest;
+layout(set = 0, binding = 5) uniform sampler bilinear;
 layout(set = 0, binding = 5) uniform sampler trilinear;
-layout(set = 0, binding = 6) uniform sampler anisotropic;
+layout(set = 0, binding = 7) uniform sampler anisotropic;
 
 void main() {
   outDrawIndex = gl_BaseInstance & 0xff;

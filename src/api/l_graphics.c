@@ -47,6 +47,12 @@ StringEntry lovrCompareMode[] = {
   { 0 }
 };
 
+StringEntry lovrCoordinateSpace[] = {
+  [SPACE_LOCAL] = ENTRY("local"),
+  [SPACE_GLOBAL] = ENTRY("global"),
+  { 0 }
+};
+
 StringEntry lovrCullMode[] = {
   [CULL_NONE] = ENTRY("none"),
   [CULL_FRONT] = ENTRY("front"),
@@ -1172,6 +1178,7 @@ static int l_lovrGraphicsLine(lua_State* L) {
   Material* material;
   index = luax_optmaterial(L, index, &material);
   uint32_t count = luax_getvertexcount(L, index);
+  lovrAssert(count >= 2, "Need at least 2 points to draw a line");
   uint32_t id = lovrGraphicsLine(material, count, &vertices);
   luax_readvertices(L, index, vertices, count);
   lua_pushinteger(L, id);
@@ -1816,7 +1823,7 @@ static int l_lovrGraphicsNewBatch(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewModel(lua_State* L) {
-  ModelInfo info;
+  ModelInfo info = { 0 };
   info.data = luax_totype(L, 1, ModelData);
 
   if (!info.data) {
@@ -1825,6 +1832,16 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
     lovrRelease(blob, lovrBlobDestroy);
   } else {
     lovrRetain(info.data);
+  }
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "material");
+    if (lua_type(L, -1) == LUA_TSTRING) {
+      info.material = luax_checkenum(L, -1, DefaultMaterial, NULL);
+    } else {
+      info.shader = luax_totype(L, -1, Shader);
+    }
+    lua_pop(L, 1);
   }
 
   Model* model = lovrModelCreate(&info);

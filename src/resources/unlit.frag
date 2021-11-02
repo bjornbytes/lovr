@@ -17,10 +17,10 @@ struct DrawData {
 };
 
 layout(set = 0, binding = 2) uniform DrawDataBuffer { DrawData draws[256]; };
-layout(set = 0, binding = 3) uniform sampler nearest;
-layout(set = 0, binding = 4) uniform sampler bilinear;
-layout(set = 0, binding = 5) uniform sampler trilinear;
-layout(set = 0, binding = 6) uniform sampler anisotropic;
+layout(set = 0, binding = 4) uniform sampler nearest;
+layout(set = 0, binding = 5) uniform sampler bilinear;
+layout(set = 0, binding = 6) uniform sampler trilinear;
+layout(set = 0, binding = 7) uniform sampler anisotropic;
 
 layout(set = 1, binding = 0) uniform Material {
   vec4 color;

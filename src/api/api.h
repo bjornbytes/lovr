@@ -27,6 +27,7 @@ extern StringEntry lovrBufferType[];
 extern StringEntry lovrChannelLayout[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrComponentType[];
+extern StringEntry lovrCoordinateSpace[];
 extern StringEntry lovrCullMode[];
 extern StringEntry lovrDefaultAttribute[];
 extern StringEntry lovrDefaultMaterial[];

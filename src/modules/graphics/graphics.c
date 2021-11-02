@@ -222,10 +222,14 @@ struct Model {
   uint32_t material;
   ModelData* data;
   DrawInfo* draws;
-  Buffer* vertices;
-  Buffer* indices;
+  Buffer* vertexBuffer;
+  Buffer* indexBuffer;
   Texture** textures;
   Material** materials;
+  float* vertices;
+  uint32_t* indices;
+  uint32_t vertexCount;
+  uint32_t indexCount;
   NodeTransform* localTransforms;
   float* globalTransforms;
   bool transformsDirty;
@@ -3042,10 +3046,11 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera (slot 0.0)");
   lovrCheck(reflection.slots[0][1].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for transforms (slot 0.1)");
   lovrCheck(reflection.slots[0][2].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draw data (slot 0.2)");
-  lovrCheck(reflection.slots[0][3].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.3");
+  lovrCheck(reflection.slots[0][3].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draw data (slot 0.3)");
   lovrCheck(reflection.slots[0][4].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.4");
   lovrCheck(reflection.slots[0][5].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.5");
   lovrCheck(reflection.slots[0][6].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.6");
+  lovrCheck(reflection.slots[0][7].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.7");
 
   // Preprocess user bindings
   for (uint32_t i = 0; i < COUNTOF(reflection.slots[2]); i++) {
@@ -3505,6 +3510,9 @@ Model* lovrModelCreate(ModelInfo* info) {
   model->textures = malloc(data->imageCount * sizeof(Texture*));
   lovrAssert(model->textures, "Out of memory");
 
+  model->materials = malloc(data->materialCount * sizeof(Material*));
+  lovrAssert(model->materials, "Out of memory");
+
   for (uint32_t i = 0; i < data->imageCount; i++) {
     Image* image = data->images[i];
     model->textures[i] = lovrTextureCreate(&(TextureInfo) {
@@ -3520,9 +3528,6 @@ Model* lovrModelCreate(ModelInfo* info) {
       .images = &image
     });
   }
-
-  model->materials = malloc(data->materialCount * sizeof(Material*));
-  lovrAssert(model->materials, "Out of memory");
 
   for (uint32_t i = 0; i < data->materialCount; i++) {
     ModelMaterial* material = &data->materials[i];
@@ -3590,7 +3595,7 @@ Model* lovrModelCreate(ModelInfo* info) {
   char* vertices;
   char* indices;
 
-  model->vertices = lovrBufferCreate(&(BufferInfo) {
+  model->vertexBuffer = lovrBufferCreate(&(BufferInfo) {
     .type = BUFFER_VERTEX,
     .length = totalVertexCount,
     .format = format
@@ -3598,7 +3603,7 @@ Model* lovrModelCreate(ModelInfo* info) {
 
   uint32_t indexStride = 2 << (indexType == GPU_INDEX_U32);
   if (totalIndexCount > 0) {
-    model->indices = lovrBufferCreate(&(BufferInfo) {
+    model->indexBuffer = lovrBufferCreate(&(BufferInfo) {
       .type = BUFFER_INDEX,
       .length = totalIndexCount,
       .stride = indexStride,
@@ -3625,8 +3630,8 @@ Model* lovrModelCreate(ModelInfo* info) {
 
     draw->material = primitive->material == ~0u ? NULL : model->materials[primitive->material];
 
-    draw->vertex.buffer = model->vertices;
-    draw->index.buffer = model->indices;
+    draw->vertex.buffer = model->vertexBuffer;
+    draw->index.buffer = model->indexBuffer;
     draw->index.stride = indexStride;
 
     if (primitive->indices) {
@@ -3917,12 +3922,18 @@ void lovrModelDestroy(void* ref) {
     lovrRelease(model->materials[i], lovrMaterialDestroy);
   }
   lovrRelease(model->data, lovrModelDataDestroy);
-  lovrRelease(model->vertices, lovrBufferDestroy);
-  lovrRelease(model->indices, lovrBufferDestroy);
+  lovrRelease(model->vertexBuffer, lovrBufferDestroy);
+  lovrRelease(model->indexBuffer, lovrBufferDestroy);
   free(model->draws);
   free(model->materials);
   free(model->textures);
+  free(model->vertices);
+  free(model->indices);
   free(model);
+}
+
+ModelData* lovrModelGetModelData(Model* model) {
+  return model->data;
 }
 
 void lovrModelResetPose(Model* model) {
@@ -3941,6 +3952,283 @@ void lovrModelResetPose(Model* model) {
     }
   }
   model->transformsDirty = true;
+}
+
+void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha) {
+  if (alpha <= 0.f) return;
+
+  lovrAssert(animationIndex < model->data->animationCount, "Invalid animation index '%d' (Model has %d animation%s)", animationIndex + 1, model->data->animationCount, model->data->animationCount == 1 ? "" : "s");
+  ModelAnimation* animation = &model->data->animations[animationIndex];
+  time = fmodf(time, animation->duration);
+
+  for (uint32_t i = 0; i < animation->channelCount; i++) {
+    ModelAnimationChannel* channel = &animation->channels[i];
+    uint32_t node = channel->nodeIndex;
+    NodeTransform* transform = &model->localTransforms[node];
+
+    uint32_t keyframe = 0;
+    while (keyframe < channel->keyframeCount && channel->times[keyframe] < time) {
+      keyframe++;
+    }
+
+    float property[4];
+    bool rotate = channel->property == PROP_ROTATION;
+    size_t n = 3 + rotate;
+    float* (*lerp)(float* a, float* b, float t) = rotate ? quat_slerp : vec3_lerp;
+
+    // Handle the first/last keyframe case (no interpolation)
+    if (keyframe == 0 || keyframe >= channel->keyframeCount) {
+      size_t index = MIN(keyframe, channel->keyframeCount - 1);
+
+      // For cubic interpolation, each keyframe has 3 parts, and the actual data is in the middle
+      if (channel->smoothing == SMOOTH_CUBIC) {
+        index = 3 * index + 1;
+      }
+
+      memcpy(property, channel->data + index * n, n * sizeof(float));
+    } else {
+      float t1 = channel->times[keyframe - 1];
+      float t2 = channel->times[keyframe];
+      float z = (time - t1) / (t2 - t1);
+
+      switch (channel->smoothing) {
+        case SMOOTH_STEP:
+          memcpy(property, channel->data + (z >= .5f ? keyframe : keyframe - 1) * n, n * sizeof(float));
+          break;
+        case SMOOTH_LINEAR:
+          memcpy(property, channel->data + (keyframe - 1) * n, n * sizeof(float));
+          lerp(property, channel->data + keyframe * n, z);
+          break;
+        case SMOOTH_CUBIC: {
+          size_t stride = 3 * n;
+          float* p0 = channel->data + (keyframe - 1) * stride + 1 * n;
+          float* m0 = channel->data + (keyframe - 1) * stride + 2 * n;
+          float* p1 = channel->data + (keyframe - 0) * stride + 1 * n;
+          float* m1 = channel->data + (keyframe - 0) * stride + 0 * n;
+          float dt = t2 - t1;
+          float z2 = z * z;
+          float z3 = z2 * z;
+          float a = 2.f * z3 - 3.f * z2 + 1.f;
+          float b = 2.f * z3 - 3.f * z2 + 1.f;
+          float c = -2.f * z3 + 3.f * z2;
+          float d = (z3 * -z2) * dt;
+          for (size_t j = 0; j < n; j++) {
+            property[j] = a * p0[j] + b * m0[j] + c * p1[j] + d * m1[j];
+          }
+          break;
+        }
+        default: break;
+      }
+    }
+
+    if (alpha >= 1.f) {
+      memcpy(transform->properties[channel->property], property, n * sizeof(float));
+    } else {
+      lerp(transform->properties[channel->property], property, alpha);
+    }
+  }
+
+  model->transformsDirty = true;
+}
+
+void lovrModelPose(Model* model, uint32_t node, float position[4], float rotation[4], float alpha) {
+  if (alpha <= 0.f) return;
+
+  lovrAssert(node < model->data->nodeCount, "Invalid node index '%d' (Model has %d node%s)", node, model->data->nodeCount, model->data->nodeCount == 1 ? "" : "s");
+  NodeTransform* transform = &model->localTransforms[node];
+  if (alpha >= 1.f) {
+    vec3_init(transform->properties[PROP_TRANSLATION], position);
+    quat_init(transform->properties[PROP_ROTATION], rotation);
+  } else {
+    vec3_lerp(transform->properties[PROP_TRANSLATION], position, alpha);
+    quat_slerp(transform->properties[PROP_ROTATION], rotation, alpha);
+  }
+  model->transformsDirty = true;
+}
+
+void lovrModelGetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], CoordinateSpace space) {
+  lovrAssert(node < model->data->nodeCount, "Invalid node index '%d' (Model has %d node%s)", node, model->data->nodeCount, model->data->nodeCount == 1 ? "" : "s");
+  if (space == SPACE_LOCAL) {
+    vec3_init(position, model->localTransforms[node].properties[PROP_TRANSLATION]);
+    quat_init(rotation, model->localTransforms[node].properties[PROP_ROTATION]);
+  } else {
+    updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+    mat4_getPosition(model->globalTransforms + 16 * node, position);
+    mat4_getOrientation(model->globalTransforms + 16 * node, rotation);
+  }
+}
+
+Texture* lovrModelGetTexture(Model* model, uint32_t index) {
+  lovrAssert(index < model->data->imageCount, "Invalid texture index '%d' (Model has %d texture%s)", index, model->data->imageCount, model->data->imageCount == 1 ? "" : "s");
+  return model->textures[index];
+}
+
+Material* lovrModelGetMaterial(Model* model, uint32_t index) {
+  lovrAssert(index < model->data->materialCount, "Invalid material index '%d' (Model has %d material%s)", index, model->data->materialCount, model->data->materialCount == 1 ? "" : "s");
+  return model->materials[index];
+}
+
+Buffer* lovrModelGetVertexBuffer(Model* model) {
+  return model->vertexBuffer;
+}
+
+Buffer* lovrModelGetIndexBuffer(Model* model) {
+  return model->indexBuffer;
+}
+
+static void countVertices(Model* model, uint32_t nodeIndex, uint32_t* vertexCount, uint32_t* indexCount) {
+  if (model->vertices) return;
+
+  ModelNode* node = &model->data->nodes[nodeIndex];
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
+    ModelAttribute* positions = primitive->attributes[ATTR_POSITION];
+    ModelAttribute* indices = primitive->indices;
+    uint32_t count = positions ? positions->count : 0;
+    *vertexCount += count;
+    *indexCount += indices ? indices->count : count;
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    countVertices(model, node->children[i], vertexCount, indexCount);
+  }
+
+  if (nodeIndex == model->data->rootNode && !model->vertices) {
+    model->vertices = malloc(model->vertexCount * 3 * sizeof(float));
+    model->indices = malloc(model->indexCount * sizeof(uint32_t));
+    lovrAssert(model->vertices && model->indices, "Out of memory");
+  }
+}
+
+static void collectVertices(Model* model, uint32_t nodeIndex, float** vertices, uint32_t** indices, uint32_t* baseIndex) {
+  ModelNode* node = &model->data->nodes[nodeIndex];
+  mat4 transform = model->globalTransforms + 16 * nodeIndex;
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelPrimitive* primitive = &model->data->primitives[node->primitiveIndex + i];
+
+    ModelAttribute* positions = primitive->attributes[ATTR_POSITION];
+    if (!positions) continue;
+
+    ModelBuffer* buffer = &model->data->buffers[positions->buffer];
+    char* data = buffer->data + positions->offset;
+    size_t stride = buffer->stride == 0 ? 3 * sizeof(float) : buffer->stride;
+
+    for (uint32_t j = 0; j < positions->count; j++) {
+      float v[4];
+      memcpy(v, data, 3 * sizeof(float));
+      mat4_transform(transform, v);
+      memcpy(*vertices, v, 3 * sizeof(float));
+      *vertices += 3;
+      data += stride;
+    }
+
+    ModelAttribute* index = primitive->indices;
+    if (index) {
+      buffer = &model->data->buffers[index->buffer];
+      data = buffer->data + index->offset;
+
+      if (index->type == U16) {
+        uint16_t* u16 = (uint16_t*) data;
+        for (uint32_t j = 0; j < index->count; j++) {
+          **indices = (uint32_t) *u16 + *baseIndex;
+          *indices += 1;
+          u16++;
+        }
+      } else {
+        uint32_t* u32 = (uint32_t*) data;
+        for (uint32_t j = 0; j < index->count; j++) {
+          **indices = *u32 + *baseIndex;
+          *indices += 1;
+          u32++;
+        }
+      }
+    } else {
+      for (uint32_t j = 0; j < positions->count; j++) {
+        **indices = j + *baseIndex;
+        *indices += 1;
+      }
+    }
+  }
+}
+
+void lovrModelGetTriangles(Model* model, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount) {
+  updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+  countVertices(model, model->data->rootNode, &model->vertexCount, &model->indexCount);
+  *vertices = model->vertices;
+  *indices = model->indices;
+  uint32_t baseIndex = 0;
+  collectVertices(model, model->data->rootNode, vertices, indices, &baseIndex);
+  *vertexCount = model->vertexCount;
+  *indexCount = model->indexCount;
+  *vertices = model->vertices;
+  *indices = model->indices;
+}
+
+uint32_t lovrModelGetTriangleCount(Model* model) {
+  countVertices(model, model->data->rootNode, &model->vertexCount, &model->indexCount);
+  return model->indexCount / 3;
+}
+
+uint32_t lovrModelGetVertexCount(Model* model) {
+  countVertices(model, model->data->rootNode, &model->vertexCount, &model->indexCount);
+  return model->vertexCount;
+}
+
+static void applyAABB(Model* model, uint32_t nodeIndex, float bounds[6]) {
+  ModelNode* node = &model->data->nodes[nodeIndex];
+  mat4 m = model->globalTransforms + 16 * nodeIndex;
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelAttribute* position = model->data->primitives[node->primitiveIndex + i].attributes[ATTR_POSITION];
+
+    if (!position || !position->hasMin || !position->hasMax) {
+      continue;
+    }
+
+    float xa[3] = { position->min[0] * m[0], position->min[0] * m[1], position->min[0] * m[2] };
+    float xb[3] = { position->max[0] * m[0], position->max[0] * m[1], position->max[0] * m[2] };
+
+    float ya[3] = { position->min[1] * m[4], position->min[1] * m[5], position->min[1] * m[6] };
+    float yb[3] = { position->max[1] * m[4], position->max[1] * m[5], position->max[1] * m[6] };
+
+    float za[3] = { position->min[2] * m[8], position->min[2] * m[9], position->min[2] * m[10] };
+    float zb[3] = { position->max[2] * m[8], position->max[2] * m[9], position->max[2] * m[10] };
+
+    float min[3] = {
+      MIN(xa[0], xb[0]) + MIN(ya[0], yb[0]) + MIN(za[0], zb[0]) + m[12],
+      MIN(xa[1], xb[1]) + MIN(ya[1], yb[1]) + MIN(za[1], zb[1]) + m[13],
+      MIN(xa[2], xb[2]) + MIN(ya[2], yb[2]) + MIN(za[2], zb[2]) + m[14]
+    };
+
+    float max[3] = {
+      MAX(xa[0], xb[0]) + MAX(ya[0], yb[0]) + MAX(za[0], zb[0]) + m[12],
+      MAX(xa[1], xb[1]) + MAX(ya[1], yb[1]) + MAX(za[1], zb[1]) + m[13],
+      MAX(xa[2], xb[2]) + MAX(ya[2], yb[2]) + MAX(za[2], zb[2]) + m[14]
+    };
+
+    bounds[0] = MIN(bounds[0], min[0]);
+    bounds[1] = MAX(bounds[1], max[0]);
+    bounds[2] = MIN(bounds[2], min[1]);
+    bounds[3] = MAX(bounds[3], max[1]);
+    bounds[4] = MIN(bounds[4], min[2]);
+    bounds[5] = MAX(bounds[5], max[2]);
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    applyAABB(model, node->children[i], bounds);
+  }
+}
+
+void lovrModelGetBoundingBox(Model* model, float bounds[6]) {
+  updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+  bounds[0] = bounds[2] = bounds[4] = FLT_MAX;
+  bounds[1] = bounds[3] = bounds[5] = FLT_MIN;
+  applyAABB(model, model->data->rootNode, bounds);
+}
+
+void lovrModelGetBoundingSphere(Model* model, float sphere[4]) {
+  lovrThrow("TODO");
 }
 
 // Font
