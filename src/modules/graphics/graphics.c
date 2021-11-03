@@ -2650,8 +2650,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       levelOffsets[i] = total;
       uint32_t w = MAX(info->width >> i, 1);
       uint32_t h = MAX(info->height >> i, 1);
-      uint32_t d = MAX(info->depth >> i, 1);
-      uint32_t size = measureTexture(info->format, w, h, d);
+      uint32_t size = measureTexture(info->format, w, h, 1);
       lovrAssert(size == info->images[i]->blob->size, "Image byte size does not match expected size (internal error)");
       total += size;
     }
