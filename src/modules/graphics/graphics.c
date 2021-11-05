@@ -205,8 +205,7 @@ struct Batch {
   gpu_bunch* bunch;
   uint32_t bundleCount;
   uint32_t lastBundleCount;
-  Megaview transforms;
-  Megaview drawData;
+  Megaview drawBuffer;
   Megaview stash;
   uint32_t stashCursor;
   arr_bufferaccess_t buffers;
@@ -259,11 +258,17 @@ typedef struct {
 } Pipeline;
 
 typedef struct {
-  float view[6][16];
-  float projection[6][16];
-  float viewProjection[6][16];
-  float inverseViewProjection[6][16];
+  float view[16];
+  float projection[16];
+  float viewProjection[16];
+  float inverseViewProjection[16];
 } Camera;
+
+typedef struct {
+  float transform[16];
+  float normalMatrix[16];
+  float color[4];
+} DrawData;
 
 typedef struct {
   void (*callback)(void*, uint32_t, void*);
@@ -376,7 +381,7 @@ static struct {
   Pass* uploads;
   Batch* batch;
   float background[4];
-  Camera camera;
+  Camera cameras[6];
   uint32_t viewCount;
   bool cameraDirty;
   float* matrix;
@@ -391,8 +396,7 @@ static struct {
   char* constantData;
   bool constantsDirty;
   Megaview cameraBuffer;
-  Megaview transforms;
-  Megaview drawData;
+  Megaview drawBuffer;
   uint32_t drawCursor;
   gpu_pipeline* boundPipeline;
   gpu_bundle* boundBundle;
@@ -555,9 +559,9 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   }
 
   gpu_slot defaultBindings[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Camera
-    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Transforms
-    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // DrawData
+    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Cameras
+    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Draws
+    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Joints
     { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Nearest
     { 4, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Bilinear
     { 5, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Trilinear
@@ -608,8 +612,15 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     }
   };
 
+  MaterialFormat cubemapMaterial = {
+    .textureCount = 1,
+    .textureSlots[0] = 1,
+    .textureNames[0] = hash32("cubemap", strlen("cubemap"))
+  };
+
   lookupMaterialBlock(&basicMaterial);
   lookupMaterialBlock(&physicalMaterial);
+  lookupMaterialBlock(&cubemapMaterial);
 
   state.formats[VERTEX_STANDARD] = (gpu_vertex_format) {
     .bufferCount = 1,
@@ -754,7 +765,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->textureLayers = state.limits.textureLayers;
   limits->renderSize[0] = state.limits.renderSize[0];
   limits->renderSize[1] = state.limits.renderSize[1];
-  limits->renderSize[2] = MIN(state.limits.renderSize[2], COUNTOF(state.camera.view));
+  limits->renderSize[2] = MIN(state.limits.renderSize[2], COUNTOF(state.cameras));
   limits->uniformBufferRange = state.limits.uniformBufferRange;
   limits->storageBufferRange = state.limits.storageBufferRange;
   limits->uniformBufferAlign = state.limits.uniformBufferAlign;
@@ -1161,10 +1172,8 @@ void lovrGraphicsBeginBatch(Batch* batch) {
   clearState(batch->pass);
   if (batch->info.transient) {
     lovrBatchReset(batch);
-    batch->transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 64, state.limits.uniformBufferAlign);
-    batch->drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * 16, state.limits.uniformBufferAlign);
-    state.transforms = batch->transforms;
-    state.drawData = batch->drawData;
+    batch->drawBuffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, batch->info.capacity * sizeof(DrawData), state.limits.uniformBufferAlign);
+    state.drawBuffer = batch->drawBuffer;
   }
 }
 
@@ -1223,23 +1232,23 @@ void lovrGraphicsSetBackground(float background[4]) {
 }
 
 void lovrGraphicsGetViewMatrix(uint32_t index, float* view) {
-  lovrCheck(index < COUNTOF(state.camera.view), "Invalid view index %d", index);
-  mat4_init(view, state.camera.view[index]);
+  lovrCheck(index < COUNTOF(state.cameras), "Invalid view index %d", index);
+  mat4_init(view, state.cameras[index].view);
 }
 
 void lovrGraphicsSetViewMatrix(uint32_t index, float* view) {
-  lovrCheck(index < COUNTOF(state.camera.view), "Invalid view index %d", index);
-  mat4_init(state.camera.view[index], view);
+  lovrCheck(index < COUNTOF(state.cameras), "Invalid view index %d", index);
+  mat4_init(state.cameras[index].view, view);
 }
 
 void lovrGraphicsGetProjection(uint32_t index, float* projection) {
-  lovrCheck(index < COUNTOF(state.camera.projection), "Invalid view index %d", index);
-  mat4_init(projection, state.camera.projection[index]);
+  lovrCheck(index < COUNTOF(state.cameras), "Invalid view index %d", index);
+  mat4_init(projection, state.cameras[index].projection);
 }
 
 void lovrGraphicsSetProjection(uint32_t index, float* projection) {
-  lovrCheck(index < COUNTOF(state.camera.projection), "Invalid view index %d", index);
-  mat4_init(state.camera.projection[index], projection);
+  lovrCheck(index < COUNTOF(state.cameras), "Invalid view index %d", index);
+  mat4_init(state.cameras[index].projection, projection);
 }
 
 void lovrGraphicsSetViewport(float viewport[4], float depthRange[2]) {
@@ -1872,17 +1881,12 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
   // Grab new scratch buffers if they're full/non-existent (does not apply to transient batches)
   if ((state.drawCursor & 0xff) == 0 && (!batch || !batch->info.transient)) {
     if (batch) {
-      Megaview *src, *dst;
-      src = &state.transforms;
-      dst = &batch->transforms;
-      gpu_copy_buffers(state.pass->stream, src->gpu, dst->gpu, src->offset, dst->offset, 256 * 64);
-      src = &state.drawData;
-      dst = &batch->drawData;
-      gpu_copy_buffers(state.pass->stream, src->gpu, dst->gpu, src->offset, dst->offset, 256 * 16);
+      Megaview* src = &state.drawBuffer;
+      Megaview* dst = &batch->drawBuffer;
+      gpu_copy_buffers(state.pass->stream, src->gpu, dst->gpu, src->offset, dst->offset, 256 * sizeof(DrawData));
     }
 
-    state.transforms = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 64, state.limits.uniformBufferAlign);
-    state.drawData = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * 16, state.limits.uniformBufferAlign);
+    state.drawBuffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, 256 * sizeof(DrawData), state.limits.uniformBufferAlign);
   }
 
   float m[16];
@@ -1892,10 +1896,15 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     transform = state.matrix;
   }
 
-  memcpy(state.transforms.data, transform, 64);
-  memcpy(state.drawData.data, &state.pipeline->color, 16);
-  state.transforms.data += 64;
-  state.drawData.data += 16;
+  float normalMatrix[16];
+  mat4_init(normalMatrix, transform);
+  mat4_cofactor(normalMatrix);
+
+  DrawData* draw = (DrawData*) state.drawBuffer.data;
+  memcpy(draw->transform, transform, 64);
+  memcpy(draw->normalMatrix, normalMatrix, 64);
+  memcpy(draw->color, &state.pipeline->color, 16);
+  state.drawBuffer.data += sizeof(DrawData);
 
   // Draw
 
@@ -1934,27 +1943,27 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     if (state.cameraDirty || (state.drawCursor & 0xff) == 0) {
       if (state.cameraDirty) {
         for (uint32_t i = 0; i < state.viewCount; i++) {
-          mat4_init(state.camera.viewProjection[i], state.camera.projection[i]);
-          mat4_mul(state.camera.viewProjection[i], state.camera.view[i]);
-          mat4_init(state.camera.inverseViewProjection[i], state.camera.viewProjection[i]);
-          mat4_invert(state.camera.inverseViewProjection[i]);
+          mat4_init(state.cameras[i].viewProjection, state.cameras[i].projection);
+          mat4_mul(state.cameras[i].viewProjection, state.cameras[i].view);
+          mat4_init(state.cameras[i].inverseViewProjection, state.cameras[i].viewProjection);
+          mat4_invert(state.cameras[i].inverseViewProjection);
         }
 
-        state.cameraBuffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, sizeof(Camera), state.limits.uniformBufferAlign);
-        memcpy(state.cameraBuffer.data, &state.camera, sizeof(Camera));
+        uint32_t size = state.viewCount * sizeof(Camera);
+        state.cameraBuffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, size, state.limits.uniformBufferAlign);
+        memcpy(state.cameraBuffer.data, state.cameras, size);
         state.cameraDirty = false;
       }
 
       gpu_bundle_info uniforms = {
         .layout = state.layouts[0],
         .bindings = (gpu_binding[]) {
-          [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
-          [1].buffer = { state.transforms.gpu, state.transforms.offset, 256 * 64 },
-          [2].buffer = { state.drawData.gpu, state.drawData.offset, 256 * 16 },
-          [3].sampler = state.defaultSamplers[0]->gpu,
-          [4].sampler = state.defaultSamplers[1]->gpu,
-          [5].sampler = state.defaultSamplers[2]->gpu,
-          [6].sampler = state.defaultSamplers[3]->gpu
+          [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, state.viewCount * sizeof(Camera) },
+          [1].buffer = { state.drawBuffer.gpu, state.drawBuffer.offset, 256 * sizeof(DrawData) },
+          [2].sampler = state.defaultSamplers[0]->gpu,
+          [3].sampler = state.defaultSamplers[1]->gpu,
+          [4].sampler = state.defaultSamplers[2]->gpu,
+          [5].sampler = state.defaultSamplers[3]->gpu
         }
       };
       gpu_bundle* uniformBundle = allocateBundle(0);
@@ -2188,27 +2197,27 @@ void lovrGraphicsReplay(Batch* batch) {
 
   if (state.cameraDirty) {
     for (uint32_t i = 0; i < state.viewCount; i++) {
-      mat4_init(state.camera.viewProjection[i], state.camera.projection[i]);
-      mat4_mul(state.camera.viewProjection[i], state.camera.view[i]);
-      mat4_init(state.camera.inverseViewProjection[i], state.camera.viewProjection[i]);
-      mat4_invert(state.camera.inverseViewProjection[i]);
+      mat4_init(state.cameras[i].viewProjection, state.cameras[i].projection);
+      mat4_mul(state.cameras[i].viewProjection, state.cameras[i].view);
+      mat4_init(state.cameras[i].inverseViewProjection, state.cameras[i].viewProjection);
+      mat4_invert(state.cameras[i].inverseViewProjection);
     }
 
-    state.cameraBuffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, sizeof(Camera), state.limits.uniformBufferAlign);
-    memcpy(state.cameraBuffer.data, &state.camera, sizeof(Camera));
+    uint32_t size = state.viewCount * sizeof(Camera);
+    state.cameraBuffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, size, state.limits.uniformBufferAlign);
+    memcpy(state.cameraBuffer.data, state.cameras, state.viewCount * size);
     state.cameraDirty = false;
   }
 
   gpu_bundle_info uniforms = {
     .layout = state.layouts[0],
     .bindings = (gpu_binding[]) {
-      [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, sizeof(Camera) },
-      [1].buffer = { batch->transforms.gpu, batch->transforms.offset, 256 * 64 },
-      [2].buffer = { batch->drawData.gpu, batch->drawData.offset, 256 * 16 },
-      [3].sampler = state.defaultSamplers[0]->gpu,
-      [4].sampler = state.defaultSamplers[1]->gpu,
-      [5].sampler = state.defaultSamplers[2]->gpu,
-      [6].sampler = state.defaultSamplers[3]->gpu
+      [0].buffer = { state.cameraBuffer.gpu, state.cameraBuffer.offset, state.viewCount * sizeof(Camera) },
+      [1].buffer = { batch->drawBuffer.gpu, batch->drawBuffer.offset, 256 * sizeof(DrawData) },
+      [2].sampler = state.defaultSamplers[0]->gpu,
+      [3].sampler = state.defaultSamplers[1]->gpu,
+      [4].sampler = state.defaultSamplers[2]->gpu,
+      [5].sampler = state.defaultSamplers[3]->gpu
     }
   };
   gpu_bundle* uniformBundle = allocateBundle(0);
@@ -3043,13 +3052,12 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 
   // Validate built in bindings (can be as little or as much as we want really)
   lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera (slot 0.0)");
-  lovrCheck(reflection.slots[0][1].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for transforms (slot 0.1)");
-  lovrCheck(reflection.slots[0][2].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draw data (slot 0.2)");
-  lovrCheck(reflection.slots[0][3].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draw data (slot 0.3)");
+  lovrCheck(reflection.slots[0][1].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draws (slot 0.1)");
+  lovrCheck(reflection.slots[0][2].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for joints (slot 0.2)");
+  lovrCheck(reflection.slots[0][3].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.3");
   lovrCheck(reflection.slots[0][4].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.4");
   lovrCheck(reflection.slots[0][5].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.5");
   lovrCheck(reflection.slots[0][6].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.6");
-  lovrCheck(reflection.slots[0][7].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.7");
 
   // Preprocess user bindings
   for (uint32_t i = 0; i < COUNTOF(reflection.slots[2]); i++) {
@@ -3366,8 +3374,7 @@ Batch* lovrBatchCreate(BatchInfo* info) {
     }
 
     uint32_t alignment = state.limits.uniformBufferAlign;
-    batch->transforms = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 64, alignment);
-    batch->drawData = allocateBuffer(GPU_MEMORY_GPU, info->capacity * 16, alignment);
+    batch->drawBuffer = allocateBuffer(GPU_MEMORY_GPU, info->capacity * sizeof(DrawData), alignment);
     batch->stash = allocateBuffer(GPU_MEMORY_GPU, info->bufferSize, 4);
   }
 
@@ -3387,11 +3394,8 @@ void lovrBatchDestroy(void* ref) {
   arr_free(&batch->buffers);
   arr_free(&batch->textures);
   if (!batch->info.transient) {
-    if (--state.buffers.list[batch->transforms.index].refs == 0) {
-      recycleBuffer(batch->transforms.index, GPU_MEMORY_GPU);
-    }
-    if (--state.buffers.list[batch->drawData.index].refs == 0) {
-      recycleBuffer(batch->transforms.index, GPU_MEMORY_GPU);
+    if (--state.buffers.list[batch->drawBuffer.index].refs == 0) {
+      recycleBuffer(batch->drawBuffer.index, GPU_MEMORY_GPU);
     }
     if (--state.buffers.list[batch->stash.index].refs == 0) {
       recycleBuffer(batch->stash.index, GPU_MEMORY_GPU);
@@ -3474,7 +3478,7 @@ void lovrBatchSort(Batch* batch, SortMode mode) {
   for (uint32_t i = 0; i < batch->activeDrawCount; i++) {
     float v[4];
     vec3_init(v, batch->origins + 4 * batch->activeDraws[i]);
-    mat4_mulVec4(state.camera.view[0], v);
+    mat4_mulVec4(state.cameras[0].view, v);
     batch->draws[batch->activeDraws[i]].depth = -v[2];
   }
 
@@ -4501,6 +4505,7 @@ static uint32_t lookupMaterialBlock(MaterialFormat* format) {
     material->block = index;
     material->index = i;
     material->tick = state.tick >= 4 ? state.tick - 4 : 0; // Some tick "far" in the past, so it can be used immediately
+    material->textures = NULL;
   }
   block->instances[MATERIALS_PER_BLOCK - 1].next = ~0u;
   block->next = 0;
@@ -5382,6 +5387,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
           uint32_t structId = (words + cache[type].type.word)[3];
           const uint32_t* structType = words + cache[structId].type.word;
           reflection->material.count = (structType[0] >> 16) - 2;
+
           for (uint32_t i = 0; i < reflection->material.count; i++) {
             uint32_t fieldId = structType[2 + i];
             const uint32_t* fieldType = words + cache[fieldId].type.word;
