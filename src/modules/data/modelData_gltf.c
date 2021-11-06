@@ -513,12 +513,14 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         else { token += NOM_VALUE(json, token); }
       }
 
+      Blob* blob = model->blobs[buffer->blob];
+
       // If this is the glb binary data, increment the offset to account for the file header
-      if (buffer->data && buffer->data == source->data && glb) {
+      if (glb && blob == source) {
         buffer->offset += binOffset;
       }
 
-      buffer->data = (char*) model->blobs[buffer->blob]->data + buffer->offset;
+      buffer->data = (char*) blob->data + buffer->offset;
     }
   }
 
