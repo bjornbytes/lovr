@@ -66,8 +66,6 @@ StringEntry lovrDefaultAttribute[] = {
   [ATTRIBUTE_TEXCOORD] = ENTRY("texcoord"),
   [ATTRIBUTE_COLOR] = ENTRY("color"),
   [ATTRIBUTE_TANGENT] = ENTRY("tangent"),
-  [ATTRIBUTE_JOINTS] = ENTRY("joints"),
-  [ATTRIBUTE_WEIGHTS] = ENTRY("weights"),
   { 0 }
 };
 

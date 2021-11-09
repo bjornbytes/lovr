@@ -334,7 +334,7 @@ typedef struct {
   struct { float x, y, z; } position;
   struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
   struct { uint16_t u, v; } uv;
-} Vertex;
+} ShapeVertex;
 
 typedef struct {
   struct { float x, y, z; } position;
@@ -342,17 +342,7 @@ typedef struct {
   struct { float u, v; } uv;
   struct { uint8_t r, g, b, a; } color;
   struct { unsigned x: 10, y: 10, z: 10, handedness: 2; } tangent;
-} SupremeVertex;
-
-typedef struct {
-  struct { float x, y, z; } position;
-  struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
-  struct { float u, v; } uv;
-  struct { uint8_t r, g, b, a; } color;
-  struct { unsigned x: 10, y: 10, z: 10, handedness: 2; } tangent;
-  uint8_t joints[4];
-  uint8_t weights[4];
-} SkinnedVertex;
+} ModelVertex;
 
 enum {
   SHAPE_GRID,
@@ -561,11 +551,10 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   gpu_slot defaultBindings[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Cameras
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Draws
-    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS, 1 }, // Joints
-    { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Nearest
-    { 4, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Bilinear
-    { 5, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Trilinear
-    { 6, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 } // Anisotropic
+    { 2, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Nearest
+    { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Bilinear
+    { 4, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Trilinear
+    { 5, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 } // Anisotropic
   };
 
   lookupLayout(defaultBindings, COUNTOF(defaultBindings));
@@ -622,44 +611,31 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   lookupMaterialBlock(&physicalMaterial);
   lookupMaterialBlock(&cubemapMaterial);
 
-  state.formats[VERTEX_STANDARD] = (gpu_vertex_format) {
+  state.formats[VERTEX_SHAPE] = (gpu_vertex_format) {
     .bufferCount = 1,
     .attributeCount = 3,
-    .bufferStrides[0] = sizeof(Vertex),
-    .attributes[0] = { 0, 0, offsetof(Vertex, position), GPU_TYPE_F32x3 },
-    .attributes[1] = { 0, 1, offsetof(Vertex, normal), GPU_TYPE_U10Nx3 },
-    .attributes[2] = { 0, 2, offsetof(Vertex, uv), GPU_TYPE_U16Nx2 }
+    .bufferStrides[0] = sizeof(ShapeVertex),
+    .attributes[0] = { 0, 0, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
+    .attributes[1] = { 0, 1, offsetof(ShapeVertex, normal), GPU_TYPE_U10Nx3 },
+    .attributes[2] = { 0, 2, offsetof(ShapeVertex, uv), GPU_TYPE_U16Nx2 }
   };
 
-  state.formats[VERTEX_POSITION] = (gpu_vertex_format) {
+  state.formats[VERTEX_MODEL] = (gpu_vertex_format) {
+    .bufferCount = 1,
+    .attributeCount = 5,
+    .bufferStrides[0] = sizeof(ModelVertex),
+    .attributes[0] = { 0, 0, offsetof(ModelVertex, position), GPU_TYPE_F32x3 },
+    .attributes[1] = { 0, 1, offsetof(ModelVertex, normal), GPU_TYPE_U10Nx3 },
+    .attributes[2] = { 0, 2, offsetof(ModelVertex, uv), GPU_TYPE_F32x2 },
+    .attributes[3] = { 0, 3, offsetof(ModelVertex, color), GPU_TYPE_U8Nx4 },
+    .attributes[4] = { 0, 4, offsetof(ModelVertex, tangent), GPU_TYPE_U10Nx3 }
+  };
+
+  state.formats[VERTEX_POINT] = (gpu_vertex_format) {
     .bufferCount = 1,
     .attributeCount = 1,
     .bufferStrides[0] = 12,
     .attributes[0] = { 0, 0, 0, GPU_TYPE_F32x3 }
-  };
-
-  state.formats[VERTEX_SUPREME] = (gpu_vertex_format) {
-    .bufferCount = 1,
-    .attributeCount = 5,
-    .bufferStrides[0] = sizeof(SupremeVertex),
-    .attributes[0] = { 0, 0, offsetof(SupremeVertex, position), GPU_TYPE_F32x3 },
-    .attributes[1] = { 0, 1, offsetof(SupremeVertex, normal), GPU_TYPE_U10Nx3 },
-    .attributes[2] = { 0, 2, offsetof(SupremeVertex, uv), GPU_TYPE_F32x2 },
-    .attributes[3] = { 0, 3, offsetof(SupremeVertex, color), GPU_TYPE_U8Nx4 },
-    .attributes[4] = { 0, 4, offsetof(SupremeVertex, tangent), GPU_TYPE_U10Nx3 }
-  };
-
-  state.formats[VERTEX_SKINNED] = (gpu_vertex_format) {
-    .bufferCount = 1,
-    .attributeCount = 7,
-    .bufferStrides[0] = sizeof(SkinnedVertex),
-    .attributes[0] = { 0, 0, offsetof(SkinnedVertex, position), GPU_TYPE_F32x3 },
-    .attributes[1] = { 0, 1, offsetof(SkinnedVertex, normal), GPU_TYPE_U10Nx3 },
-    .attributes[2] = { 0, 2, offsetof(SkinnedVertex, uv), GPU_TYPE_F32x2 },
-    .attributes[3] = { 0, 3, offsetof(SkinnedVertex, color), GPU_TYPE_U8Nx4 },
-    .attributes[4] = { 0, 4, offsetof(SkinnedVertex, tangent), GPU_TYPE_U10Nx3 },
-    .attributes[5] = { 0, 5, offsetof(SkinnedVertex, joints), GPU_TYPE_U8x4 },
-    .attributes[6] = { 0, 6, offsetof(SkinnedVertex, weights), GPU_TYPE_U8Nx4 }
   };
 
   state.formats[VERTEX_EMPTY] = (gpu_vertex_format) { 0 };
@@ -2030,7 +2006,7 @@ uint32_t lovrGraphicsPoints(Material* material, uint32_t count, float** vertices
   return lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_POINTS,
     .material = material,
-    .vertex.format = VERTEX_POSITION,
+    .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) vertices,
     .vertex.count = count
   }, NULL);
@@ -2042,7 +2018,7 @@ uint32_t lovrGraphicsLine(Material* material, uint32_t count, float** vertices) 
   uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_LINES,
     .material = material,
-    .vertex.format = VERTEX_POSITION,
+    .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) vertices,
     .vertex.count = count,
     .index.pointer = (void**) &indices,
@@ -3053,11 +3029,10 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   // Validate built in bindings (can be as little or as much as we want really)
   lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera (slot 0.0)");
   lovrCheck(reflection.slots[0][1].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draws (slot 0.1)");
-  lovrCheck(reflection.slots[0][2].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for joints (slot 0.2)");
+  lovrCheck(reflection.slots[0][2].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.2");
   lovrCheck(reflection.slots[0][3].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.3");
   lovrCheck(reflection.slots[0][4].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.4");
   lovrCheck(reflection.slots[0][5].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.5");
-  lovrCheck(reflection.slots[0][6].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.6");
 
   // Preprocess user bindings
   for (uint32_t i = 0; i < COUNTOF(reflection.slots[2]); i++) {
@@ -3567,24 +3542,15 @@ Model* lovrModelCreate(ModelInfo* info) {
   // TODO modeldata can u pls tell me how many vertices/indices total
   uint32_t totalIndexCount = 0;
   uint32_t totalVertexCount = 0;
-  VertexFormat format = VERTEX_STANDARD;
   gpu_index_type indexType = GPU_INDEX_U16;
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
     ModelPrimitive* primitive = &data->primitives[i];
-    bool uvf32 = primitive->attributes[ATTR_TEXCOORD] && primitive->attributes[ATTR_TEXCOORD]->type == F32;
-    bool supreme = primitive->attributes[ATTR_COLOR] || primitive->attributes[ATTR_TANGENT] || uvf32;
-    bool skinned = primitive->attributes[ATTR_BONES] || primitive->attributes[ATTR_WEIGHTS];
-    if (supreme) format = MAX(format, VERTEX_SUPREME);
-    if (skinned) format = MAX(format, VERTEX_SKINNED);
-
     lovrCheck(primitive->attributes[ATTR_POSITION], "Sorry, currently I can not load models without position attributes!");
     lovrCheck(primitive->topology != TOPOLOGY_LINE_LOOP, "Sorry, currently I can not load models with a 'line loop' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_LINE_STRIP, "Sorry, currently I can not load models with a 'line strip' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_TRIANGLE_STRIP, "Sorry, currently I can not load models with a 'triangle strip' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_TRIANGLE_FAN, "Sorry, currently I can not load models with a 'triangle fan' draw mode (please report this!)");
-
     totalVertexCount += primitive->attributes[ATTR_POSITION]->count;
-
     if (primitive->indices) {
       totalIndexCount += primitive->indices->count;
       if (primitive->indices->type == U32) {
@@ -3595,14 +3561,14 @@ Model* lovrModelCreate(ModelInfo* info) {
 
   // Create buffers
 
-  char* vertices;
-  char* indices;
+  void* vertices;
+  void* indices;
 
   model->vertexBuffer = lovrBufferCreate(&(BufferInfo) {
     .type = BUFFER_VERTEX,
     .length = totalVertexCount,
-    .format = format
-  }, (void**) &vertices);
+    .format = VERTEX_MODEL
+  }, &vertices);
 
   uint32_t indexStride = 2 << (indexType == GPU_INDEX_U32);
   if (totalIndexCount > 0) {
@@ -3650,250 +3616,146 @@ Model* lovrModelCreate(ModelInfo* info) {
     indexCursor += indexCount;
   }
 
-  union {
-    char* raw;
-    Vertex* standard;
-    SupremeVertex* supreme;
-    SkinnedVertex* skinned;
-  } vertex;
-
   // Third pass: Write data to buffers, converting to the vertex format's types
   // TODO modeldata can u pls tell me the pointer/stride of each attr idc if it duplicates info
   indexCursor = 0;
   vertexCursor = 0;
-  uint32_t vertexStride = state.formats[format].bufferStrides[0];
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
     ModelPrimitive* primitive = &data->primitives[i];
     uint32_t count = primitive->attributes[ATTR_POSITION]->count;
     ModelAttribute* attribute;
 
-    vertex.raw = vertices;
+    // Position
+    ModelVertex* vertex = vertices;
     if ((attribute = primitive->attributes[ATTR_POSITION]) != NULL) {
       lovrCheck(attribute->type == F32 && attribute->components == 3, "Model position attribute must be 3 floats");
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
       uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
-      for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-        memcpy(&vertex.standard->position, src, 3 * sizeof(float));
+      for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+        memcpy(&vertex->position, src, 3 * sizeof(float));
       }
     } else {
-      for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
-        memset(&vertex.standard->position, 0, 3 * sizeof(float));
+      for (uint32_t i = 0; i < count; i++, vertex++) {
+        memset(&vertex->position, 0, 3 * sizeof(float));
       }
     }
 
-    vertex.raw = vertices;
+    // Normal
+    vertex = vertices;
     if ((attribute = primitive->attributes[ATTR_NORMAL]) != NULL) {
       lovrCheck(attribute->type == F32 && attribute->components == 3, "Model normal attribute must be 3 floats");
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
       uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
-      for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
+      for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
         float* normal = (float*) src;
-        vertex.standard->normal.nx = (unsigned) ((normal[0] + 1.f) * .5f * 0x3ff);
-        vertex.standard->normal.ny = (unsigned) ((normal[1] + 1.f) * .5f * 0x3ff);
-        vertex.standard->normal.nz = (unsigned) ((normal[2] + 1.f) * .5f * 0x3ff);
+        vertex->normal.nx = (unsigned) ((normal[0] + 1.f) * .5f * 0x3ff);
+        vertex->normal.ny = (unsigned) ((normal[1] + 1.f) * .5f * 0x3ff);
+        vertex->normal.nz = (unsigned) ((normal[2] + 1.f) * .5f * 0x3ff);
       }
     } else {
-      for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
-        vertex.standard->normal.nx = 0x200;
-        vertex.standard->normal.ny = 0x200;
-        vertex.standard->normal.nz = 0x200;
+      for (uint32_t i = 0; i < count; i++, vertex++) {
+        vertex->normal.nx = 0x200;
+        vertex->normal.ny = 0x200;
+        vertex->normal.nz = 0x200;
       }
     }
 
-    vertex.raw = vertices;
-    if (format == VERTEX_STANDARD) {
-      if ((attribute = primitive->attributes[ATTR_TEXCOORD]) != NULL) {
-        char* src = data->buffers[attribute->buffer].data + attribute->offset;
-        uint32_t stride = data->buffers[attribute->buffer].stride;
-        if (attribute->type == U8 && attribute->normalized) {
-          stride = stride ? stride : 2;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            uint8_t* uv = (uint8_t*) src;
-            vertex.standard->uv.u = (uint16_t) uv[0];
-            vertex.standard->uv.v = (uint16_t) uv[1];
-          }
-        } else if (attribute->type == U16 && attribute->normalized) {
-          stride = stride ? stride : 4;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            memcpy(&vertex.standard->uv, src, 2 * sizeof(uint16_t));
-          }
-        } else {
-          lovrThrow("Model uses unsupported data type for texcoord attribute");
+    // UV
+    vertex = vertices;
+    if ((attribute = primitive->attributes[ATTR_TEXCOORD]) != NULL) {
+      char* src = data->buffers[attribute->buffer].data + attribute->offset;
+      uint32_t stride = data->buffers[attribute->buffer].stride;
+      if (attribute->type == U8 && attribute->normalized) {
+        stride = stride ? stride : 2;
+        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+          uint8_t* uv = (uint8_t*) src;
+          vertex->uv.u = uv[0] / 255.f;
+          vertex->uv.v = uv[1] / 255.f;
+        }
+      } else if (attribute->type == U16 && attribute->normalized) {
+        stride = stride ? stride : 4;
+        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+          uint16_t* uv = (uint16_t*) src;
+          vertex->uv.u = uv[0] / 65535.f;
+          vertex->uv.v = uv[1] / 65535.f;
+        }
+      } else if (attribute->type == F32) {
+        stride = stride ? stride : 8;
+        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+          memcpy(&vertex->uv, src, 2 * sizeof(float));
         }
       } else {
-        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
-          vertex.standard->uv.u = 0;
-          vertex.standard->uv.v = 0;
-        }
+        lovrThrow("Model uses unsupported data type for texcoord attribute");
+      }
+    } else {
+      for (uint32_t i = 0; i < count; i++, vertex++) {
+        vertex->uv.u = 0.f;
+        vertex->uv.v = 0.f;
       }
     }
 
-    if (format >= VERTEX_SUPREME) {
-      vertex.raw = vertices;
-      if ((attribute = primitive->attributes[ATTR_TEXCOORD]) != NULL) {
-        char* src = data->buffers[attribute->buffer].data + attribute->offset;
-        uint32_t stride = data->buffers[attribute->buffer].stride;
-        if (attribute->type == U8 && attribute->normalized) {
-          stride = stride ? stride : 2;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            uint8_t* uv = (uint8_t*) src;
-            vertex.supreme->uv.u = uv[0] / 255.f;
-            vertex.supreme->uv.v = uv[1] / 255.f;
-          }
-        } else if (attribute->type == U16 && attribute->normalized) {
+    vertex = vertices;
+    if ((attribute = primitive->attributes[ATTR_COLOR]) != NULL) {
+      char* src = data->buffers[attribute->buffer].data + attribute->offset;
+      uint32_t stride = data->buffers[attribute->buffer].stride;
+      if (attribute->type == U8 && attribute->normalized) {
+        if (attribute->components == 4) {
           stride = stride ? stride : 4;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            uint16_t* uv = (uint16_t*) src;
-            vertex.supreme->uv.u = uv[0] / 65535.f;
-            vertex.supreme->uv.v = uv[1] / 65535.f;
-          }
-        } else if (attribute->type == F32) {
-          stride = stride ? stride : 8;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            memcpy(&vertex.supreme->uv, src, 2 * sizeof(float));
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+            memcpy(&vertex->color, src, 4);
           }
         } else {
-          lovrThrow("Model uses unsupported data type for texcoord attribute");
+          stride = stride ? stride : 3;
+          for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+            memcpy(&vertex->color, src, 3);
+            vertex->color.a = 255;
+          }
+        }
+      } else if (attribute->type == U16 && attribute->normalized) {
+        stride = stride ? stride : (2 * attribute->components);
+        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+          uint16_t* color = (uint16_t*) src;
+          vertex->color.r = color[0] >> 8;
+          vertex->color.g = color[1] >> 8;
+          vertex->color.b = color[2] >> 8;
+          vertex->color.a = attribute->components == 3 ? 255 : (color[3] >> 8);
+        }
+      } else if (attribute->type == F32) {
+        stride = stride ? stride : (4 * attribute->components);
+        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+          float* color = (float*) src;
+          vertex->color.r = color[0] * 255.f + .5f;
+          vertex->color.g = color[1] * 255.f + .5f;
+          vertex->color.b = color[2] * 255.f + .5f;
+          vertex->color.a = attribute->components == 3 ? 255 : (color[3] * 255.f + .5f);
         }
       } else {
-        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
-          vertex.supreme->uv.u = 0.f;
-          vertex.supreme->uv.v = 0.f;
-        }
+        lovrThrow("Model uses unsupported data type for color attribute");
       }
-
-      vertex.raw = vertices;
-      if ((attribute = primitive->attributes[ATTR_COLOR]) != NULL) {
-        char* src = data->buffers[attribute->buffer].data + attribute->offset;
-        uint32_t stride = data->buffers[attribute->buffer].stride;
-        if (attribute->type == U8 && attribute->normalized) {
-          if (attribute->components == 4) {
-            stride = stride ? stride : 4;
-            for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-              memcpy(&vertex.supreme->color, src, 4);
-            }
-          } else {
-            stride = stride ? stride : 3;
-            for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-              memcpy(&vertex.supreme->color, src, 3);
-              vertex.supreme->color.a = 255;
-            }
-          }
-        } else if (attribute->type == U16 && attribute->normalized) {
-          stride = stride ? stride : (2 * attribute->components);
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            uint16_t* color = (uint16_t*) src;
-            vertex.supreme->color.r = color[0] >> 8;
-            vertex.supreme->color.g = color[1] >> 8;
-            vertex.supreme->color.b = color[2] >> 8;
-            vertex.supreme->color.a = attribute->components == 3 ? 255 : (color[3] >> 8);
-          }
-        } else if (attribute->type == F32) {
-          stride = stride ? stride : (4 * attribute->components);
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            float* color = (float*) src;
-            vertex.supreme->color.r = color[0] * 255.f + .5f;
-            vertex.supreme->color.g = color[1] * 255.f + .5f;
-            vertex.supreme->color.b = color[2] * 255.f + .5f;
-            vertex.supreme->color.a = attribute->components == 3 ? 255 : (color[3] * 255.f + .5f);
-          }
-        } else {
-          lovrThrow("Model uses unsupported data type for color attribute");
-        }
-      } else {
-        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
-          memset(&vertex.supreme->color, 0xff, 4 * sizeof(uint8_t));
-        }
-      }
-
-      vertex.raw = vertices;
-      if ((attribute = primitive->attributes[ATTR_TANGENT]) != NULL) {
-        lovrCheck(attribute->type == F32 && attribute->components == 3, "Model tangent attribute must be 3 floats");
-        char* src = data->buffers[attribute->buffer].data + attribute->offset;
-        uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
-        for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-          float* tangent = (float*) src;
-          vertex.supreme->tangent.x = (unsigned) ((tangent[0] + 1.f) * .5f * 0x3ff);
-          vertex.supreme->tangent.y = (unsigned) ((tangent[1] + 1.f) * .5f * 0x3ff);
-          vertex.supreme->tangent.z = (unsigned) ((tangent[2] + 1.f) * .5f * 0x3ff);
-          vertex.supreme->tangent.handedness = (unsigned) (tangent[3] == -1.f ? 0x0 : 0x3);
-        }
-      } else {
-        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
-          vertex.supreme->tangent.x = 0x200;
-          vertex.supreme->tangent.y = 0x200;
-          vertex.supreme->tangent.z = 0x200;
-          vertex.supreme->tangent.handedness = 0;
-        }
+    } else {
+      for (uint32_t i = 0; i < count; i++, vertex++) {
+        memset(&vertex->color, 0xff, 4 * sizeof(uint8_t));
       }
     }
 
-    if (format == VERTEX_SKINNED) {
-      vertex.raw = vertices;
-      if ((attribute = primitive->attributes[ATTR_BONES]) != NULL) {
-        char* src = data->buffers[attribute->buffer].data + attribute->offset;
-        uint32_t stride = data->buffers[attribute->buffer].stride;
-        if (attribute->type == U8) {
-          stride = stride ? stride : 4;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            memcpy(vertex.skinned->joints, src, 4);
-          }
-        } else if (attribute->type == U16) {
-          stride = stride ? stride : 8;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            uint16_t* joints = (uint16_t*) src;
-            vertex.skinned->joints[0] = joints[0];
-            vertex.skinned->joints[1] = joints[1];
-            vertex.skinned->joints[2] = joints[2];
-            vertex.skinned->joints[3] = joints[3];
-          }
-        } else {
-          lovrThrow("Model uses unsupported data type for joints attribute");
-        }
-      } else {
-        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
-          memset(vertex.skinned->joints, 0, sizeof(vertex.skinned->joints));
-        }
+    vertex = vertices;
+    if ((attribute = primitive->attributes[ATTR_TANGENT]) != NULL) {
+      lovrCheck(attribute->type == F32 && attribute->components == 3, "Model tangent attribute must be 3 floats");
+      char* src = data->buffers[attribute->buffer].data + attribute->offset;
+      uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
+      for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+        float* tangent = (float*) src;
+        vertex->tangent.x = (unsigned) ((tangent[0] + 1.f) * .5f * 0x3ff);
+        vertex->tangent.y = (unsigned) ((tangent[1] + 1.f) * .5f * 0x3ff);
+        vertex->tangent.z = (unsigned) ((tangent[2] + 1.f) * .5f * 0x3ff);
+        vertex->tangent.handedness = (unsigned) (tangent[3] == -1.f ? 0x0 : 0x3);
       }
-
-      vertex.raw = vertices;
-      if ((attribute = primitive->attributes[ATTR_WEIGHTS]) != NULL) {
-        char* src = data->buffers[attribute->buffer].data + attribute->offset;
-        uint32_t stride = data->buffers[attribute->buffer].stride;
-        if (attribute->type == U8 && attribute->normalized) {
-          stride = stride ? stride : 4;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            memcpy(vertex.skinned->weights, src, 4);
-          }
-        } else if (attribute->type == U16 && attribute->normalized) {
-          stride = stride ? stride : 8;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            uint16_t* weights = (uint16_t*) src;
-            vertex.skinned->weights[0] = weights[0] >> 8; // TODO am i doing this right
-            vertex.skinned->weights[1] = weights[1] >> 8;
-            vertex.skinned->weights[2] = weights[2] >> 8;
-            vertex.skinned->weights[3] = weights[3] >> 8;
-          }
-        } else if (attribute->type == F32) {
-          stride = stride ? stride : 16;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex.raw += vertexStride) {
-            float* weights = (float*) src;
-            // TODO need to renormalize
-            vertex.skinned->weights[0] = (uint8_t) (weights[0] * 255.f + .5f);
-            vertex.skinned->weights[1] = (uint8_t) (weights[1] * 255.f + .5f);
-            vertex.skinned->weights[2] = (uint8_t) (weights[2] * 255.f + .5f);
-            vertex.skinned->weights[3] = (uint8_t) (weights[3] * 255.f + .5f);
-          }
-        } else {
-          lovrThrow("Model uses unsupported data type for weights attribute");
-        }
-      } else {
-        for (uint32_t i = 0; i < count; i++, vertex.raw += vertexStride) {
-          vertex.skinned->weights[0] = 255;
-          vertex.skinned->weights[1] = 0;
-          vertex.skinned->weights[2] = 0;
-          vertex.skinned->weights[3] = 0;
-        }
+    } else {
+      for (uint32_t i = 0; i < count; i++, vertex++) {
+        vertex->tangent.x = 0x200;
+        vertex->tangent.y = 0x200;
+        vertex->tangent.z = 0x200;
+        vertex->tangent.handedness = 0;
       }
     }
 
@@ -4546,11 +4408,11 @@ static void generateGeometry() {
   state.geometry.base[SHAPE_TUBE] = total, total += vertexCount[SHAPE_TUBE] = 1024;
   state.geometry.base[SHAPE_BALL] = total, total += vertexCount[SHAPE_BALL] = (32 + 1) * (64 + 1);
 
-  Vertex* vertices;
+  ShapeVertex* vertices;
   state.geometry.vertices = lovrBufferCreate(&(BufferInfo) {
     .type = BUFFER_VERTEX,
     .length = total,
-    .format = VERTEX_STANDARD
+    .format = VERTEX_SHAPE
   }, (void**) &vertices);
 
   // Grid
@@ -4562,13 +4424,13 @@ static void generateGeometry() {
       float z = 0.f;
       uint16_t u = (x + .5f) * 0xffff;
       uint16_t v = (.5f - y) * 0xffff;
-      *vertices++ = (Vertex) { { x, y, z }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+      *vertices++ = (ShapeVertex) { { x, y, z }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
       n++;
     }
   }
 
   // Cube
-  Vertex cube[] = {
+  ShapeVertex cube[] = {
     { { -.5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0x0000 } }, // Front
     { { -.5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0xffff } },
     { {  .5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0x0000 } },
@@ -4598,8 +4460,8 @@ static void generateGeometry() {
   vertices += COUNTOF(cube);
 
   // Cone and tube
-  Vertex cone[768];
-  Vertex tube[1024];
+  ShapeVertex cone[768];
+  ShapeVertex tube[1024];
   for (uint32_t i = 0; i < 256; i++) {
     float t = i / 256.f;
     float theta = t * 2.f * (float) M_PI;
@@ -4613,13 +4475,13 @@ static void generateGeometry() {
     uint16_t conenx = (x + .5f) * oneOverRoot2;
     uint16_t coneny = (y + .5f) * oneOverRoot2;
     uint16_t conenz = oneOverRoot2;
-    cone[i + 0x0] = (Vertex) { { x, y, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
-    cone[i + 256] = (Vertex) { { x, y, 0.f }, { conenx, coneny, conenz, 0x0 }, { u, v } };
-    cone[i + 512] = (Vertex) { { 0.f, 0.f, -1.f }, { 0x200, 0x200, 0x200, 0x0 }, { u, v } };
-    tube[i + 0x0] = (Vertex) { { x, y, -.5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0xffff } };
-    tube[i + 256] = (Vertex) { { x, y,  .5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0x0000 } };
-    tube[i + 512] = (Vertex) { { x, y, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff - u, v } };
-    tube[i + 768] = (Vertex) { { x, y,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+    cone[i + 0x0] = (ShapeVertex) { { x, y, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+    cone[i + 256] = (ShapeVertex) { { x, y, 0.f }, { conenx, coneny, conenz, 0x0 }, { u, v } };
+    cone[i + 512] = (ShapeVertex) { { 0.f, 0.f, -1.f }, { 0x200, 0x200, 0x200, 0x0 }, { u, v } };
+    tube[i + 0x0] = (ShapeVertex) { { x, y, -.5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0xffff } };
+    tube[i + 256] = (ShapeVertex) { { x, y,  .5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0x0000 } };
+    tube[i + 512] = (ShapeVertex) { { x, y, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff - u, v } };
+    tube[i + 768] = (ShapeVertex) { { x, y,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
   }
   memcpy(vertices, cone, sizeof(cone)), vertices += COUNTOF(cone);
   memcpy(vertices, tube, sizeof(tube)), vertices += COUNTOF(tube);
@@ -4643,7 +4505,7 @@ static void generateGeometry() {
       uint16_t nx = (x * .5f + 1.f) * 0x3ff + .5f;
       uint16_t ny = (y * .5f + 1.f) * 0x3ff + .5f;
       uint16_t nz = (z * .5f + 1.f) * 0x3ff + .5f;
-      Vertex vertex = { { x, y, z }, { nx, ny, nz, 0x0 }, { u * 0xffff, v * 0xffff } };
+      ShapeVertex vertex = { { x, y, z }, { nx, ny, nz, 0x0 }, { u * 0xffff, v * 0xffff } };
       memcpy(vertices, &vertex, sizeof(vertex));
       vertices++;
     }
