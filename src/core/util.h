@@ -89,3 +89,10 @@ static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t 
 // UTF-8
 size_t utf8_decode(const char *s, const char *e, unsigned *pch);
 void utf8_encode(uint32_t codepoint, char str[4]);
+
+// f16
+typedef float float32;
+typedef uint16_t float16;
+void float16Init(void);
+float16 float32to16(float32 f);
+float32 float16to32(float16 f);

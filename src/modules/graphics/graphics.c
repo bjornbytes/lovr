@@ -454,6 +454,7 @@ static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* paren
 bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
   lovrCheck(blockSize <= 1 << 30, "Block size can not exceed 1GB");
   state.blockSize = blockSize;
+  float16Init();
 
   // GPU
 

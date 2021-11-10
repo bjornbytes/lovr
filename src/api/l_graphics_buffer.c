@@ -30,6 +30,7 @@ static const uint16_t fieldComponents[] = {
   [FIELD_U16x2] = 2,
   [FIELD_I16Nx2] = 2,
   [FIELD_U16Nx2] = 2,
+  [FIELD_F16x2] = 2,
   [FIELD_I32x2] = 2,
   [FIELD_U32x2] = 2,
   [FIELD_F32x2] = 2,
@@ -45,6 +46,7 @@ static const uint16_t fieldComponents[] = {
   [FIELD_U16x4] = 4,
   [FIELD_I16Nx4] = 4,
   [FIELD_U16Nx4] = 4,
+  [FIELD_F16x4] = 4,
   [FIELD_I32x4] = 4,
   [FIELD_U32x4] = 4,
   [FIELD_F32x4] = 4,
@@ -85,6 +87,7 @@ static int luax_pushbufferfield(lua_State* L, void* data, FieldType type) {
       case FIELD_U16x2: lua_pushnumber(L, p.u16[c]); break;
       case FIELD_I16Nx2: lua_pushnumber(L, p.i16[c] / (double) INT16_MAX); break;
       case FIELD_U16Nx2: lua_pushnumber(L, p.u16[c] / (double) UINT16_MAX); break;
+      case FIELD_F16x2: lua_pushnumber(L, float16to32(p.u16[c])); break;
       case FIELD_I32x2: lua_pushnumber(L, p.i32[c]); break;
       case FIELD_U32x2: lua_pushnumber(L, p.u32[c]); break;
       case FIELD_F32x2: lua_pushnumber(L, p.f32[c]); break;
@@ -100,6 +103,7 @@ static int luax_pushbufferfield(lua_State* L, void* data, FieldType type) {
       case FIELD_U16x4: lua_pushnumber(L, p.u16[c]); break;
       case FIELD_I16Nx4: lua_pushnumber(L, p.i16[c] / (double) INT16_MAX); break;
       case FIELD_U16Nx4: lua_pushnumber(L, p.u16[c] / (double) UINT16_MAX); break;
+      case FIELD_F16x4: lua_pushnumber(L, float16to32(p.u16[c])); break;
       case FIELD_I32x4: lua_pushnumber(L, p.i32[c]); break;
       case FIELD_U32x4: lua_pushnumber(L, p.u32[c]); break;
       case FIELD_F32x4: lua_pushnumber(L, p.f32[c]); break;
@@ -127,6 +131,7 @@ void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
       case FIELD_U16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) v[i]; break;
       case FIELD_I16Nx2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
       case FIELD_U16Nx2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
+      case FIELD_F16x2: for (int i = 0; i < 2; i++) p.u16[i] = float32to16(v[i]); break;
       case FIELD_I32x2: for (int i = 0; i < 2; i++) p.i32[i] = (int32_t) v[i]; break;
       case FIELD_U32x2: for (int i = 0; i < 2; i++) p.u32[i] = (uint32_t) v[i]; break;
       case FIELD_U10Nx3: for (int i = 0; i < 3; i++) p.u32[0] |= (uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
@@ -140,6 +145,7 @@ void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
       case FIELD_U16x4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) v[i]; break;
       case FIELD_I16Nx4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
       case FIELD_U16Nx4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
+      case FIELD_F16x4: for (int i = 0; i < 4; i++) p.u16[i] = float32to16(v[i]); break;
       case FIELD_I32x4: for (int i = 0; i < 4; i++) p.i32[i] = (int32_t) v[i]; break;
       case FIELD_U32x4: for (int i = 0; i < 4; i++) p.u32[i] = (uint32_t) v[i]; break;
       case FIELD_F32x2: memcpy(data, v, 2 * sizeof(float)); break;
@@ -167,6 +173,7 @@ void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
         case FIELD_U16x2: p.u16[i] = (uint16_t) x; break;
         case FIELD_I16Nx2: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
         case FIELD_U16Nx2: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
+        case FIELD_F16x2: p.u16[i] = float32to16(x); break;
         case FIELD_I32x2: p.i32[i] = (int32_t) x; break;
         case FIELD_U32x2: p.u32[i] = (uint32_t) x; break;
         case FIELD_F32x2: p.f32[i] = (float) x; break;
@@ -182,6 +189,7 @@ void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
         case FIELD_U16x4: p.u16[i] = (uint16_t) x; break;
         case FIELD_I16Nx4: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
         case FIELD_U16Nx4: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
+        case FIELD_F16x4: p.u16[i] = float32to16(x); break;
         case FIELD_I32x4: p.i32[i] = (int32_t) x; break;
         case FIELD_U32x4: p.i32[i] = (uint32_t) x; break;
         case FIELD_F32x4: p.f32[i] = (float) x; break;
