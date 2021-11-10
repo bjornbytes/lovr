@@ -20,7 +20,7 @@ layout(constant_id = 1002) const bool applyMaterialColor = true;
 layout(constant_id = 1003) const bool applyMaterialTexture = true;
 layout(constant_id = 1004) const bool applyUVTransform = true;
 
-layout(location = 0) in vec4 inPosition;
+layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec4 inNormal;
 layout(location = 2) in vec2 inUV;
 layout(location = 3) in vec4 inColor;
@@ -44,6 +44,6 @@ void main() {
   if (applyVertexColors) outColor *= inColor;
   outUV = inUV;
 
-  gl_Position = cameras[gl_ViewIndex].viewProjection * (draws[drawId].transform * inPosition);
+  gl_Position = cameras[gl_ViewIndex].viewProjection * (draws[drawId].transform * vec4(inPosition, 1.));
   gl_PointSize = 1.f;
 }

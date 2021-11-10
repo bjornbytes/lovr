@@ -331,7 +331,7 @@ typedef struct {
 } Allocator;
 
 typedef struct {
-  struct { float x, y, z; } position;
+  struct { int16_t x, y, z; } position;
   struct { unsigned nx: 10, ny: 10, nz: 10, pad: 2; } normal;
   struct { uint16_t u, v; } uv;
 } ShapeVertex;
@@ -602,21 +602,14 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     }
   };
 
-  MaterialFormat cubemapMaterial = {
-    .textureCount = 1,
-    .textureSlots[0] = 1,
-    .textureNames[0] = hash32("cubemap", strlen("cubemap"))
-  };
-
   lookupMaterialBlock(&basicMaterial);
   lookupMaterialBlock(&physicalMaterial);
-  lookupMaterialBlock(&cubemapMaterial);
 
   state.formats[VERTEX_SHAPE] = (gpu_vertex_format) {
     .bufferCount = 1,
     .attributeCount = 3,
     .bufferStrides[0] = sizeof(ShapeVertex),
-    .attributes[0] = { 0, 0, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
+    .attributes[0] = { 0, 0, offsetof(ShapeVertex, position), GPU_TYPE_I16Nx4 },
     .attributes[1] = { 0, 1, offsetof(ShapeVertex, normal), GPU_TYPE_U10Nx3 },
     .attributes[2] = { 0, 2, offsetof(ShapeVertex, uv), GPU_TYPE_U16Nx2 }
   };
@@ -1945,8 +1938,8 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
       };
       gpu_bundle* uniformBundle = allocateBundle(0);
       gpu_bundle_write(&uniformBundle, &uniforms, 1);
-      uint32_t dynamicOffsets[3] = { 0 };
-      gpu_bind_bundle(state.pass->stream, pipeline, false, 0, uniformBundle, dynamicOffsets, 3);
+      uint32_t dynamicOffsets[2] = { 0 };
+      gpu_bind_bundle(state.pass->stream, pipeline, false, 0, uniformBundle, dynamicOffsets, 2);
       state.stats.bundleBinds++;
     }
 
@@ -4420,9 +4413,9 @@ static void generateGeometry() {
   uint32_t n = 0;
   for (uint32_t i = 0; i <= 128; i++) {
     for (uint32_t j = 0; j <= 128; j++) {
-      float x = j / 128.f - .5f;
-      float y = .5f - i / 128.f;
-      float z = 0.f;
+      int16_t x = (int16_t) ((j / 128.f - .5f) * 0x7fff + .5f);
+      int16_t y = (int16_t) ((.5f - i / 128.f) * 0x7fff + .5f);
+      int16_t z = 0x0000;
       uint16_t u = (x + .5f) * 0xffff;
       uint16_t v = (.5f - y) * 0xffff;
       *vertices++ = (ShapeVertex) { { x, y, z }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
@@ -4431,31 +4424,33 @@ static void generateGeometry() {
   }
 
   // Cube
+  int16_t min = INT16_MIN / 2;
+  int16_t max = INT16_MAX / 2;
   ShapeVertex cube[] = {
-    { { -.5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0x0000 } }, // Front
-    { { -.5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0xffff } },
-    { {  .5f, -.5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0x0000 } },
-    { {  .5f,  .5f, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0xffff } },
-    { {  .5f,  .5f, -.5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Right
-    { {  .5f,  .5f,  .5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0xffff, 0xffff } },
-    { {  .5f, -.5f, -.5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0x0000, 0x0000 } },
-    { {  .5f, -.5f,  .5f }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0xffff, 0x0000 } },
-    { {  .5f, -.5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0x0000 } }, // Back
-    { {  .5f,  .5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0xffff } },
-    { { -.5f, -.5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0x0000 } },
-    { { -.5f,  .5f,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0xffff } },
-    { { -.5f,  .5f,  .5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Left
-    { { -.5f,  .5f, -.5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0xffff, 0xffff } },
-    { { -.5f, -.5f,  .5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0x0000, 0x0000 } },
-    { { -.5f, -.5f, -.5f }, { 0x000, 0x200, 0x200, 0x0 }, { 0xffff, 0x0000 } },
-    { { -.5f, -.5f, -.5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0x0000, 0x0000 } }, // Bottom
-    { {  .5f, -.5f, -.5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0xffff, 0x0000 } },
-    { { -.5f, -.5f,  .5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0x0000, 0xffff } },
-    { {  .5f, -.5f,  .5f }, { 0x200, 0x000, 0x200, 0x0 }, { 0xffff, 0xffff } },
-    { { -.5f,  .5f, -.5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Top
-    { { -.5f,  .5f,  .5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0x0000, 0x0000 } },
-    { {  .5f,  .5f, -.5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0xffff } },
-    { {  .5f,  .5f,  .5f }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0x0000 } }
+    { { min, min, min }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0x0000 } }, // Front
+    { { min, max, min }, { 0x200, 0x200, 0x000, 0x0 }, { 0x0000, 0xffff } },
+    { { max, min, min }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0x0000 } },
+    { { max, max, min }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff, 0xffff } },
+    { { max, max, min }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Right
+    { { max, max, max }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0xffff, 0xffff } },
+    { { max, min, min }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0x0000, 0x0000 } },
+    { { max, min, max }, { 0x3ff, 0x200, 0x200, 0x0 }, { 0xffff, 0x0000 } },
+    { { max, min, max }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0x0000 } }, // Back
+    { { max, max, max }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0x0000, 0xffff } },
+    { { min, min, max }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0x0000 } },
+    { { min, max, max }, { 0x200, 0x200, 0x3ff, 0x0 }, { 0xffff, 0xffff } },
+    { { min, max, max }, { 0x000, 0x200, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Left
+    { { min, max, min }, { 0x000, 0x200, 0x200, 0x0 }, { 0xffff, 0xffff } },
+    { { min, min, max }, { 0x000, 0x200, 0x200, 0x0 }, { 0x0000, 0x0000 } },
+    { { min, min, min }, { 0x000, 0x200, 0x200, 0x0 }, { 0xffff, 0x0000 } },
+    { { min, min, min }, { 0x200, 0x000, 0x200, 0x0 }, { 0x0000, 0x0000 } }, // Bottom
+    { { max, min, min }, { 0x200, 0x000, 0x200, 0x0 }, { 0xffff, 0x0000 } },
+    { { min, min, max }, { 0x200, 0x000, 0x200, 0x0 }, { 0x0000, 0xffff } },
+    { { max, min, max }, { 0x200, 0x000, 0x200, 0x0 }, { 0xffff, 0xffff } },
+    { { min, max, min }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0x0000, 0xffff } }, // Top
+    { { min, max, max }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0x0000, 0x0000 } },
+    { { max, max, min }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0xffff } },
+    { { max, max, max }, { 0x200, 0x3ff, 0x200, 0x0 }, { 0xffff, 0x0000 } }
   };
   memcpy(vertices, cube, sizeof(cube));
   vertices += COUNTOF(cube);
@@ -4476,13 +4471,15 @@ static void generateGeometry() {
     uint16_t conenx = (x + .5f) * oneOverRoot2;
     uint16_t coneny = (y + .5f) * oneOverRoot2;
     uint16_t conenz = oneOverRoot2;
-    cone[i + 0x0] = (ShapeVertex) { { x, y, 0.f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
-    cone[i + 256] = (ShapeVertex) { { x, y, 0.f }, { conenx, coneny, conenz, 0x0 }, { u, v } };
-    cone[i + 512] = (ShapeVertex) { { 0.f, 0.f, -1.f }, { 0x200, 0x200, 0x200, 0x0 }, { u, v } };
-    tube[i + 0x0] = (ShapeVertex) { { x, y, -.5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0xffff } };
-    tube[i + 256] = (ShapeVertex) { { x, y,  .5f }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0x0000 } };
-    tube[i + 512] = (ShapeVertex) { { x, y, -.5f }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff - u, v } };
-    tube[i + 768] = (ShapeVertex) { { x, y,  .5f }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+    int16_t x16 = (int16_t) (x * 0x7fff + .5f);
+    int16_t y16 = (int16_t) (y * 0x7fff + .5f);
+    cone[i + 0x0] = (ShapeVertex) { { x16, y16, 0x0000 }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
+    cone[i + 256] = (ShapeVertex) { { x16, y16, 0x0000 }, { conenx, coneny, conenz, 0x0 }, { u, v } };
+    cone[i + 512] = (ShapeVertex) { { 0x0000, 0x0000, INT16_MIN }, { 0x200, 0x200, 0x200, 0x0 }, { u, v } };
+    tube[i + 0x0] = (ShapeVertex) { { x16, y16, INT16_MIN / 2 }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0xffff } };
+    tube[i + 256] = (ShapeVertex) { { x16, y16, INT16_MAX / 2 }, { nx, ny, 0x200, 0x0 }, { (1.f - t) * 0xffff, 0x0000 } };
+    tube[i + 512] = (ShapeVertex) { { x16, y16, INT16_MIN / 2 }, { 0x200, 0x200, 0x000, 0x0 }, { 0xffff - u, v } };
+    tube[i + 768] = (ShapeVertex) { { x16, y16, INT16_MAX / 2 }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
   }
   memcpy(vertices, cone, sizeof(cone)), vertices += COUNTOF(cone);
   memcpy(vertices, tube, sizeof(tube)), vertices += COUNTOF(tube);
@@ -4500,13 +4497,16 @@ static void generateGeometry() {
       float theta = u * 2.f * (float) M_PI;
       float sintheta = sinf(theta);
       float costheta = cosf(theta);
-      float x = sintheta * sinphi;
-      float y = cosphi;
-      float z = -costheta * sinphi;
+      float x = sintheta * sinphi * .5f;
+      float y = cosphi * .5f;
+      float z = -costheta * sinphi * .5f;
+      int16_t x16 = (int16_t) (x * 0x7fff + .5f);
+      int16_t y16 = (int16_t) (y * 0x7fff + .5f);
+      int16_t z16 = (int16_t) (z * 0x7fff + .5f);
       uint16_t nx = (x * .5f + 1.f) * 0x3ff + .5f;
       uint16_t ny = (y * .5f + 1.f) * 0x3ff + .5f;
       uint16_t nz = (z * .5f + 1.f) * 0x3ff + .5f;
-      ShapeVertex vertex = { { x, y, z }, { nx, ny, nz, 0x0 }, { u * 0xffff, v * 0xffff } };
+      ShapeVertex vertex = { { x16, y16, z16 }, { nx, ny, nz, 0x0 }, { u * 0xffff, v * 0xffff } };
       memcpy(vertices, &vertex, sizeof(vertex));
       vertices++;
     }
