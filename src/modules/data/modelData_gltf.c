@@ -1,12 +1,9 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "data/image.h"
-#include "core/maf.h"
 #include "lib/jsmn/jsmn.h"
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 #define MAX_STACK_TOKENS 1024
 
@@ -60,7 +57,7 @@ typedef struct {
 static uint32_t nomInt(const char* s) {
   uint32_t n = 0;
   lovrAssert(*s != '-', "Expected a positive number");
-  while (isdigit(*s)) { n = 10 * n + (*s++ - '0'); }
+  while (*s >= '0' && *s <= '9') { n = 10 * n + (*s++ - '0'); }
   return n;
 }
 
@@ -752,9 +749,12 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     jsmntok_t* token = info.nodes;
     ModelNode* node = model->nodes;
     for (int i = (token++)->size; i > 0; i--, node++) {
-      vec3 translation = vec3_set(node->transform.properties.translation, 0.f, 0.f, 0.f);
-      quat rotation = quat_set(node->transform.properties.rotation, 0.f, 0.f, 0.f, 1.f);
-      vec3 scale = vec3_set(node->transform.properties.scale, 1.f, 1.f, 1.f);
+      float* translation = node->transform.properties.translation;
+      float* rotation = node->transform.properties.rotation;
+      float* scale = node->transform.properties.rotation;
+      memcpy(translation, (float[3]) { 0.f, 0.f, 0.f }, 3 * sizeof(float));
+      memcpy(rotation, (float[4]) { 0.f, 0.f, 0.f, 1.f }, 4 * sizeof(float));
+      memcpy(scale, (float[3]) { 1.f, 1.f, 1.f }, 3 * sizeof(float));
       node->matrix = false;
       node->primitiveCount = 0;
       node->skin = ~0u;
@@ -841,10 +841,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     ModelNode* lastNode = &model->nodes[model->rootNode];
     lastNode->childCount = scenes[rootScene].nodeCount;
     lastNode->children = &model->children[childIndex];
-    mat4_identity(lastNode->transform.matrix);
-    lastNode->matrix = true;
     lastNode->primitiveCount = 0;
     lastNode->skin = ~0u;
+
+    float* matrix = lastNode->transform.matrix;
+    memset(matrix, 0, 16 * sizeof(float));
+    matrix[0] = matrix[5] = matrix[10] = matrix[15] = 1.f;
+    lastNode->matrix = true;
 
     jsmntok_t* token = info.scenes;
     int sceneCount = (token++)->size;

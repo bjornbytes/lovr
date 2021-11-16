@@ -38,7 +38,7 @@ void lovrModelDataDestroy(void* ref) {
 // Note: this code is a scary optimization
 void lovrModelDataAllocate(ModelData* model) {
   size_t totalSize = 0;
-  size_t sizes[14];
+  size_t sizes[13];
   size_t alignment = 8;
   totalSize += sizes[0] = ALIGN(model->blobCount * sizeof(Blob*), alignment);
   totalSize += sizes[1] = ALIGN(model->imageCount * sizeof(Image*), alignment);
