@@ -728,7 +728,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   else if (STR_EQ(name, "TEXCOORD_0")) { attribute = ATTR_TEXCOORD; }
                   else if (STR_EQ(name, "COLOR_0")) { attribute = ATTR_COLOR; }
                   else if (STR_EQ(name, "TANGENT")) { attribute = ATTR_TANGENT; }
-                  else if (STR_EQ(name, "JOINTS_0")) { attribute = ATTR_BONES; }
+                  else if (STR_EQ(name, "JOINTS_0")) { attribute = ATTR_JOINTS; }
                   else if (STR_EQ(name, "WEIGHTS_0")) { attribute = ATTR_WEIGHTS; }
                   if (attribute != ~0u) {
                     primitive->attributes[attribute] = &model->attributes[attributeIndex];
