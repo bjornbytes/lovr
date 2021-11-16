@@ -3,6 +3,7 @@
 #include "data/modelData.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
+#include "core/util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>

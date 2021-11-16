@@ -1,5 +1,4 @@
 #include "core/map.h"
-#include "core/util.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>

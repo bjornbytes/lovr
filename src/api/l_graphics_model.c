@@ -2,6 +2,7 @@
 #include "graphics/graphics.h"
 #include "data/modelData.h"
 #include "core/maf.h"
+#include "core/util.h"
 #include <lua.h>
 #include <lauxlib.h>
 
