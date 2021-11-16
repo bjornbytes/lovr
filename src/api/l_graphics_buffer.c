@@ -274,10 +274,18 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
   }
 }
 
-static int l_lovrBufferGetType(lua_State* L) {
+static int l_lovrBufferHasUsage(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
-  luax_pushenum(L, BufferType, info->type);
+  luaL_checkany(L, 2);
+  int top = lua_gettop(L);
+  for (int i = 2; i <= top; i++) {
+    int bit = luax_checkenum(L, i, BufferUsage, NULL);
+    if (~info->usage & (1 << bit)) {
+      lua_pushboolean(L, false);
+    }
+  }
+  lua_pushboolean(L, true);
   return 1;
 }
 
@@ -430,7 +438,7 @@ static int l_lovrBufferRead(lua_State* L) {
 }
 
 const luaL_Reg lovrBuffer[] = {
-  { "getType", l_lovrBufferGetType },
+  { "hasUsage", l_lovrBufferHasUsage },
   { "getSize", l_lovrBufferGetSize },
   { "getLength", l_lovrBufferGetLength },
   { "getStride", l_lovrBufferGetStride },

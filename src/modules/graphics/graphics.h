@@ -370,14 +370,14 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
 // Buffer
 
 typedef enum {
-  BUFFER_VERTEX,
-  BUFFER_INDEX,
-  BUFFER_UNIFORM,
-  BUFFER_COMPUTE
-} BufferType;
+  BUFFER_VERTEX  = (1 << 0),
+  BUFFER_INDEX   = (1 << 1),
+  BUFFER_UNIFORM = (1 << 2),
+  BUFFER_COMPUTE = (1 << 3)
+} BufferUsage;
 
 typedef struct {
-  BufferType type;
+  uint32_t usage;
   uint32_t length;
   uint32_t stride;
   uint32_t fieldCount;

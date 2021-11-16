@@ -1513,10 +1513,10 @@ void lovrGraphicsSetBuffer(const char* name, size_t length, uint32_t slot, Buffe
   lovrCheck(offset < buffer->size, "Buffer bind offset is past the end of the Buffer");
 
   if (storage) {
-    lovrCheck(buffer->info.type == BUFFER_COMPUTE, "Bad Buffer type for slot #%d (expected compute)", slot + 1);
+    lovrCheck(buffer->info.usage & BUFFER_COMPUTE, "Buffer must be created with 'storage' usage to bind it as a storage buffer (slot #%d)", slot + 1);
     lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to storageBufferAlign limit (%d)", offset, state.limits.storageBufferAlign);
   } else {
-    lovrCheck(buffer->info.type == BUFFER_UNIFORM, "Bad Buffer type for slot #%d (expected uniform)", slot + 1);
+    lovrCheck(buffer->info.usage & BUFFER_UNIFORM, "Buffer must be created with 'uniform' usage to bind it as a uniform buffer (slot #%d)", slot + 1);
     lovrCheck((offset & (state.limits.uniformBufferAlign - 1)) == 0, "Uniform buffer offset (%d) is not aligned to uniformBufferAlign limit (%d)", offset, state.limits.uniformBufferAlign);
   }
 
@@ -1760,7 +1760,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
   if (hasVertices) {
     if (info->vertex.buffer) {
       Buffer* buffer = info->vertex.buffer;
-      lovrCheck(buffer->info.type == BUFFER_VERTEX, "Buffers must have the 'vertex' type to use them for mesh vertices");
+      lovrCheck(buffer->info.usage & BUFFER_VERTEX, "Buffer must be created with 'vertex' usage to use it as a vertex buffer");
 
       vertexBuffer = buffer->mega;
       start = info->start + vertexBuffer.offset / buffer->info.stride;
@@ -1795,7 +1795,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     baseVertex = info->base + (hasVertices ? vertexBuffer.offset / format->bufferStrides[0] : 0);
     if (info->index.buffer) {
       Buffer* buffer = info->index.buffer;
-      lovrCheck(buffer->info.type == BUFFER_INDEX, "Buffers must have the 'index' type to use them for mesh indices");
+      lovrCheck(buffer->info.usage & BUFFER_INDEX, "Buffer must be created with 'index' usage to use it as an index buffer");
 
       indexBuffer = buffer->mega;
       indexType = buffer->info.stride == 4 ? GPU_INDEX_U32 : GPU_INDEX_U16;
@@ -1975,7 +1975,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     }
 
     if (info->indirect) {
-      lovrCheck(info->indirect->info.type == BUFFER_COMPUTE, "Buffer must be created with the 'compute' type to use it for indirect rendering");
+      lovrCheck(info->indirect->info.usage & BUFFER_COMPUTE, "Buffer must be created with 'compute' usage to use it for indirect rendering");
       lovrCheck(info->offset % 4 == 0, "Indirect render offset must be a multiple of 4");
       if (hasIndices) {
         lovrCheck(info->offset + 20 <= info->indirect->size, "Indirect render offset overflows the Buffer");
@@ -2348,7 +2348,7 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
   }
 
   if (buffer) {
-    lovrCheck(buffer->info.type == BUFFER_COMPUTE, "Buffer must be created with the 'compute' type to use it for indirect compute");
+    lovrCheck(buffer->info.usage & BUFFER_COMPUTE, "Buffer must be created with 'compute' usage to use it for indirect compute");
     lovrCheck(offset % 4 == 0, "Indirect compute offset must be a multiple of 4");
     lovrCheck(offset + 12 <= buffer->size, "Indirect compute offset overflows the Buffer");
     gpu_compute_indirect(state.pass->stream, buffer->mega.gpu, buffer->mega.offset + offset);
@@ -2359,6 +2359,10 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
 
 // Buffer
 
+static uint32_t gcd(uint32_t x, uint32_t y) {
+  return y > 0 ? gcd(y, x % y) : x;
+}
+
 Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
   info->stride = info->stride ? info->stride : state.formats[info->format].bufferStrides[0];
   uint32_t size = info->length * info->stride;
@@ -2368,26 +2372,23 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
   lovrAssert(buffer, "Out of memory");
   buffer->ref = 1;
   buffer->size = size;
-  uint32_t align = 1;
-  switch (info->type) {
-    case BUFFER_VERTEX: align = info->stride; break;
-    case BUFFER_INDEX: align = 4; break;
-    case BUFFER_UNIFORM: align = state.limits.uniformBufferAlign; break;
-    case BUFFER_COMPUTE: align = state.limits.storageBufferAlign; break;
-  }
+  uint32_t align = 4;
+  if (info->usage & BUFFER_UNIFORM) align = MAX(align, state.limits.uniformBufferAlign);
+  if (info->usage & BUFFER_COMPUTE) align = MAX(align, state.limits.storageBufferAlign);
+  if (info->usage & BUFFER_VERTEX) align = (align * info->stride) / gcd(align, info->stride);
   buffer->mega = allocateBuffer(transient ? GPU_MEMORY_CPU_WRITE : GPU_MEMORY_GPU, size, align);
   buffer->info = *info;
   buffer->transient = transient;
   if (!transient) {
     state.buffers.list[buffer->mega.index].refs++;
   }
-  if (info->type == BUFFER_VERTEX) {
+  if (info->usage & BUFFER_VERTEX) {
     if (info->fieldCount == 0) {
       buffer->format = state.formats[info->format];
       buffer->mask = state.formatMask[info->format];
       buffer->hash = state.formatHash[info->format];
     } else {
-      lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' type has a stride of %d bytes, which exceeds vertexBufferStride limit (%d)", info->stride, state.limits.vertexBufferStride);
+      lovrCheck(info->stride < state.limits.vertexBufferStride, "Buffer with 'vertex' usage has a stride of %d bytes, which exceeds vertexBufferStride limit (%d)", info->stride, state.limits.vertexBufferStride);
       buffer->mask = 0;
       buffer->format.bufferCount = 1;
       buffer->format.attributeCount = info->fieldCount;
@@ -2410,6 +2411,7 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
 }
 
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
+  lovrCheck(~info->usage & BUFFER_COMPUTE, "Transient buffers can not have the 'compute' usage");
   Buffer* buffer = lovrBufferInit(info, true, data);
   if (data) *data = buffer->mega.data;
   return buffer;
@@ -3559,15 +3561,15 @@ Model* lovrModelCreate(ModelInfo* info) {
   void* indices;
 
   model->vertexBuffer = lovrBufferCreate(&(BufferInfo) {
-    .type = BUFFER_VERTEX,
+    .usage = BUFFER_VERTEX | BUFFER_COMPUTE,
     .length = totalVertexCount,
     .format = VERTEX_MODEL
   }, &vertices);
 
-  uint32_t indexStride = 2 << (indexType == GPU_INDEX_U32);
+  uint32_t indexStride = indexType == GPU_INDEX_U32 ? 4 : 2;
   if (totalIndexCount > 0) {
     model->indexBuffer = lovrBufferCreate(&(BufferInfo) {
-      .type = BUFFER_INDEX,
+      .usage = BUFFER_INDEX,
       .length = totalIndexCount,
       .stride = indexStride,
       .fieldCount = 1,
@@ -4404,7 +4406,7 @@ static void generateGeometry() {
 
   ShapeVertex* vertices;
   state.geometry.vertices = lovrBufferCreate(&(BufferInfo) {
-    .type = BUFFER_VERTEX,
+    .usage = BUFFER_VERTEX,
     .length = total,
     .format = VERTEX_SHAPE
   }, (void**) &vertices);
@@ -4567,7 +4569,7 @@ static void generateGeometry() {
 
   uint16_t* indices;
   state.geometry.indices = lovrBufferCreate(&(BufferInfo) {
-    .type = BUFFER_INDEX,
+    .usage = BUFFER_INDEX,
     .length = total,
     .stride = sizeof(uint16_t),
     .fieldCount = 1,

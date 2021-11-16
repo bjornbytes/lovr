@@ -28,11 +28,11 @@ StringEntry lovrBlendMode[] = {
   { 0 }
 };
 
-StringEntry lovrBufferType[] = {
-  [BUFFER_VERTEX] = ENTRY("vertex"),
-  [BUFFER_INDEX] = ENTRY("index"),
-  [BUFFER_UNIFORM] = ENTRY("uniform"),
-  [BUFFER_COMPUTE] = ENTRY("compute"),
+StringEntry lovrBufferUsage[] = {
+  [0] = ENTRY("vertex"),
+  [1] = ENTRY("index"),
+  [2] = ENTRY("uniform"),
+  [3] = ENTRY("compute"),
   { 0 }
 };
 
@@ -324,7 +324,7 @@ uint32_t luax_checkfieldtype(lua_State* L, int index) {
 }
 
 static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
-  bool blocky = info->type == BUFFER_UNIFORM || info->type == BUFFER_COMPUTE;
+  bool blocky = info->usage & (BUFFER_UNIFORM | BUFFER_COMPUTE);
   uint32_t maxBaseAlign = 0;
 
   if (lua_isnoneornil(L, index)) {
@@ -387,9 +387,9 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
   }
 
   if (info->stride > 1) {
-    if (info->type == BUFFER_UNIFORM) {
+    if (info->usage & BUFFER_UNIFORM) {
       info->stride = ALIGN(info->stride, 16);
-    } else if (info->type == BUFFER_COMPUTE) {
+    } else if (info->usage & BUFFER_COMPUTE) {
       info->stride = ALIGN(info->stride, maxBaseAlign);
     }
   }
@@ -1333,42 +1333,71 @@ static int l_lovrGraphicsCompute(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetBuffer(lua_State* L) {
-  BufferInfo info;
+  BufferInfo info = { 0 };
 
-  info.type = luax_checkenum(L, 1, BufferType, NULL);
-  luax_checkbufferformat(L, 3, &info);
+  // Usage
+  switch (lua_type(L, 3)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      info.usage = ~0u;
+      break;
+    case LUA_TSTRING:
+      info.usage = 1 << luax_checkenum(L, 3, BufferUsage, NULL);
+      break;
+    case LUA_TTABLE:
+      lua_getfield(L, 3, "usage");
+      switch (lua_type(L, -1)) {
+        case LUA_TNIL: info.usage = ~0u; break;
+        case LUA_TSTRING: info.usage = 1 << luax_checkenum(L, -1, BufferUsage, NULL); break;
+        case LUA_TTABLE: {
+          int length = luax_len(L, -1);
+          for (int i = 0; i < length; i++) {
+            lua_rawgeti(L, -1, i + 1);
+            info.usage |= 1 << luax_checkenum(L, -1, BufferUsage, NULL);
+            lua_pop(L, 1);
+          }
+          break;
+        }
+        default: return luaL_error(L, "Expected Buffer usage to be a string or table");
+      }
+      lua_pop(L, 1);
+      break;
+    default: return luaL_error(L, "Expected Buffer options to be nil, string, or table");
+  }
+
+  luax_checkbufferformat(L, 2, &info);
 
   // Length/contents
   char* data;
   void** mapping = (void**) &data;
-  int dataType = lua_type(L, 2);
+  int dataType = lua_type(L, 1);
   if (dataType == LUA_TNUMBER) {
-    info.length = lua_tointeger(L, 2);
+    info.length = lua_tointeger(L, 1);
     mapping = NULL;
     data = NULL;
   } else if (dataType == LUA_TTABLE) {
-    lua_rawgeti(L, 2, 1);
+    lua_rawgeti(L, 1, 1);
     if (lua_istable(L, -1)) {
-      info.length = luax_len(L, 2);
+      info.length = luax_len(L, 1);
     } else if (lua_isuserdata(L, -1)) {
-      info.length = luax_len(L, 2) / info.fieldCount;
+      info.length = luax_len(L, 1) / info.fieldCount;
     } else {
       uint32_t totalComponents = 0;
       for (uint32_t i = 0; i < info.fieldCount; i++) {
         totalComponents += fieldInfo[info.types[i]].components;
       }
-      info.length = luax_len(L, 2) / totalComponents;
+      info.length = luax_len(L, 1) / totalComponents;
     }
     lua_pop(L, 1);
   } else {
-    return luax_typeerror(L, 2, "number or table");
+    return luax_typeerror(L, 1, "number or table");
   }
 
   Buffer* buffer = lovrGraphicsGetBuffer(&info, mapping);
 
   if (data) {
-    lua_settop(L, 2);
-    luax_readbufferdata(L, 2, buffer, data);
+    lua_settop(L, 1);
+    luax_readbufferdata(L, 1, buffer, data);
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -1377,58 +1406,87 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info;
+  BufferInfo info = { 0 };
 
-  info.type = luax_checkenum(L, 1, BufferType, NULL);
-  luax_checkbufferformat(L, 3, &info);
+  // Usage
+  switch (lua_type(L, 3)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      info.usage = ~0u;
+      break;
+    case LUA_TSTRING:
+      info.usage = 1 << luax_checkenum(L, 3, BufferUsage, NULL);
+      break;
+    case LUA_TTABLE:
+      lua_getfield(L, 3, "usage");
+      switch (lua_type(L, -1)) {
+        case LUA_TNIL: info.usage = ~0u; break;
+        case LUA_TSTRING: info.usage = 1 << luax_checkenum(L, -1, BufferUsage, NULL); break;
+        case LUA_TTABLE: {
+          int length = luax_len(L, -1);
+          for (int i = 0; i < length; i++) {
+            lua_rawgeti(L, -1, i + 1);
+            info.usage |= 1 << luax_checkenum(L, -1, BufferUsage, NULL);
+            lua_pop(L, 1);
+          }
+          break;
+        }
+        default: return luaL_error(L, "Expected Buffer usage to be a string or table");
+      }
+      lua_pop(L, 1);
+      break;
+    default: return luaL_error(L, "Expected Buffer options to be nil, string, or table");
+  }
+
+  luax_checkbufferformat(L, 2, &info);
 
   // Length/contents
   char* data = NULL;
   void** mapping = (void**) &data;
-  switch (lua_type(L, 2)) {
+  switch (lua_type(L, 1)) {
     case LUA_TNUMBER:
-      info.length = lua_tointeger(L, 2);
+      info.length = lua_tointeger(L, 1);
       mapping = NULL;
       data = NULL;
       break;
     case LUA_TTABLE: // Approximate
-      lua_rawgeti(L, 2, 1);
+      lua_rawgeti(L, 1, 1);
       if (lua_istable(L, -1)) {
-        info.length = luax_len(L, 2);
+        info.length = luax_len(L, 1);
       } else if (lua_isuserdata(L, -1)) {
-        info.length = luax_len(L, 2) / info.fieldCount;
+        info.length = luax_len(L, 1) / info.fieldCount;
       } else {
         uint32_t totalComponents = 0;
         for (uint32_t i = 0; i < info.fieldCount; i++) {
           totalComponents += fieldInfo[info.types[i]].components;
         }
-        info.length = luax_len(L, 2) / totalComponents;
+        info.length = luax_len(L, 1) / totalComponents;
       }
       lua_pop(L, 1);
       break;
     case LUA_TSTRING: {
-      Blob* blob = luax_readblob(L, 2, "Buffer data");
+      Blob* blob = luax_readblob(L, 1, "Buffer data");
       info.length = blob->size / info.stride;
       luax_pushtype(L, Blob, blob);
-      lua_replace(L, 2);
+      lua_replace(L, 1);
       lovrRelease(blob, lovrBlobDestroy);
       break;
     }
     default: {
-      Blob* blob = luax_totype(L, 2, Blob);
+      Blob* blob = luax_totype(L, 1, Blob);
       if (blob) {
         info.length = blob->size / info.stride;
         break;
       }
-      return luax_typeerror(L, 2, "number, table, or Blob");
+      return luax_typeerror(L, 1, "number, table, or Blob");
     }
   }
 
   Buffer* buffer = lovrBufferCreate(&info, mapping);
 
   if (data) {
-    lua_settop(L, 2);
-    luax_readbufferdata(L, 2, buffer, data);
+    lua_settop(L, 1);
+    luax_readbufferdata(L, 1, buffer, data);
   }
 
   luax_pushtype(L, Buffer, buffer);
