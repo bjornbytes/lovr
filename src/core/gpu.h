@@ -478,7 +478,7 @@ typedef struct {
   const char* label;
 } gpu_compute_pipeline_info;
 
-bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* infos, uint32_t count);
+bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info);
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 

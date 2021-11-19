@@ -1031,7 +1031,7 @@ void gpu_pass_destroy(gpu_pass* pass) {
 
 // Pipeline
 
-bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* infos, uint32_t count) {
+bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
   static const VkPrimitiveTopology topologies[] = {
     [GPU_DRAW_POINTS] = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
     [GPU_DRAW_LINES] = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
@@ -1129,191 +1129,176 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipelines, gpu_pipeline_info* info
     [GPU_BLEND_MAX] = VK_BLEND_OP_MAX
   };
 
-  VkGraphicsPipelineCreateInfo pipelineInfos[16];
+  VkVertexInputBindingDescription vertexBuffers[16];
+  for (uint32_t j = 0; j < info->vertex.bufferCount; j++) {
+    vertexBuffers[j] = (VkVertexInputBindingDescription) {
+      .binding = j,
+      .stride = info->vertex.bufferStrides[j],
+      .inputRate = (info->vertex.instancedBuffers & (1 << j)) ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX
+    };
+  }
 
-  do {
-    uint32_t chunk = MIN(count, COUNTOF(pipelineInfos));
+  VkVertexInputAttributeDescription vertexAttributes[COUNTOF(info->vertex.attributes)];
+  for (uint32_t j = 0; j < info->vertex.attributeCount; j++) {
+    vertexAttributes[j] = (VkVertexInputAttributeDescription) {
+      .location = info->vertex.attributes[j].location,
+      .binding = info->vertex.attributes[j].buffer,
+      .format = attributeTypes[info->vertex.attributes[j].type],
+      .offset = info->vertex.attributes[j].offset
+    };
+  }
 
-    for (uint32_t i = 0; i < chunk; i++) {
-      VkVertexInputBindingDescription vertexBuffers[16];
-      for (uint32_t j = 0; j < infos[i].vertex.bufferCount; j++) {
-        vertexBuffers[j] = (VkVertexInputBindingDescription) {
-          .binding = j,
-          .stride = infos[i].vertex.bufferStrides[j],
-          .inputRate = (infos[i].vertex.instancedBuffers & (1 << j)) ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX
-        };
-      }
+  VkPipelineVertexInputStateCreateInfo vertexInput = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+    .vertexBindingDescriptionCount = info->vertex.bufferCount,
+    .pVertexBindingDescriptions = vertexBuffers,
+    .vertexAttributeDescriptionCount = info->vertex.attributeCount,
+    .pVertexAttributeDescriptions = vertexAttributes
+  };
 
-      VkVertexInputAttributeDescription vertexAttributes[COUNTOF(infos[i].vertex.attributes)];
-      for (uint32_t j = 0; j < infos[i].vertex.attributeCount; j++) {
-        vertexAttributes[j] = (VkVertexInputAttributeDescription) {
-          .location = infos[i].vertex.attributes[j].location,
-          .binding = infos[i].vertex.attributes[j].buffer,
-          .format = attributeTypes[infos[i].vertex.attributes[j].type],
-          .offset = infos[i].vertex.attributes[j].offset
-        };
-      }
+  VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+    .topology = topologies[info->drawMode]
+  };
 
-      VkPipelineVertexInputStateCreateInfo vertexInput = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = infos[i].vertex.bufferCount,
-        .pVertexBindingDescriptions = vertexBuffers,
-        .vertexAttributeDescriptionCount = infos[i].vertex.attributeCount,
-        .pVertexAttributeDescriptions = vertexAttributes
-      };
+  VkPipelineViewportStateCreateInfo viewport = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+    .viewportCount = 1,
+    .scissorCount = 1
+  };
 
-      VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = topologies[infos[i].drawMode]
-      };
+  VkPipelineRasterizationStateCreateInfo rasterization = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+    .polygonMode = info->rasterizer.wireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
+    .cullMode = cullModes[info->rasterizer.cullMode],
+    .frontFace = frontFaces[info->rasterizer.winding],
+    .depthBiasEnable = info->rasterizer.depthOffset != 0.f || info->rasterizer.depthOffsetSloped != 0.f,
+    .depthBiasConstantFactor = info->rasterizer.depthOffset,
+    .depthBiasSlopeFactor = info->rasterizer.depthOffsetSloped,
+    .lineWidth = 1.f
+  };
 
-      VkPipelineViewportStateCreateInfo viewport = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .viewportCount = 1,
-        .scissorCount = 1
-      };
+  VkPipelineMultisampleStateCreateInfo multisample = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+    .rasterizationSamples = info->pass->samples,
+    .alphaToCoverageEnable = info->alphaToCoverage
+  };
 
-      VkPipelineRasterizationStateCreateInfo rasterization = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .polygonMode = infos[i].rasterizer.wireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
-        .cullMode = cullModes[infos[i].rasterizer.cullMode],
-        .frontFace = frontFaces[infos[i].rasterizer.winding],
-        .depthBiasEnable = infos[i].rasterizer.depthOffset != 0.f || infos[i].rasterizer.depthOffsetSloped != 0.f,
-        .depthBiasConstantFactor = infos[i].rasterizer.depthOffset,
-        .depthBiasSlopeFactor = infos[i].rasterizer.depthOffsetSloped,
-        .lineWidth = 1.f
-      };
+  VkStencilOpState stencil = {
+    .failOp = stencilOps[info->stencil.failOp],
+    .passOp = stencilOps[info->stencil.passOp],
+    .depthFailOp = stencilOps[info->stencil.depthFailOp],
+    .compareOp = compareOps[info->stencil.test],
+    .compareMask = info->stencil.testMask,
+    .writeMask = info->stencil.writeMask,
+    .reference = info->stencil.value
+  };
 
-      VkPipelineMultisampleStateCreateInfo multisample = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = infos[i].pass->samples,
-        .alphaToCoverageEnable = infos[i].alphaToCoverage
-      };
+  VkPipelineDepthStencilStateCreateInfo depthStencil = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+    .depthTestEnable = info->depth.test != GPU_COMPARE_NONE,
+    .depthWriteEnable = info->depth.write,
+    .depthCompareOp = compareOps[info->depth.test],
+    .stencilTestEnable = info->stencil.test != GPU_COMPARE_NONE,
+    .front = stencil,
+    .back = stencil
+  };
 
-      VkStencilOpState stencil = {
-        .failOp = stencilOps[infos[i].stencil.failOp],
-        .passOp = stencilOps[infos[i].stencil.passOp],
-        .depthFailOp = stencilOps[infos[i].stencil.depthFailOp],
-        .compareOp = compareOps[infos[i].stencil.test],
-        .compareMask = infos[i].stencil.testMask,
-        .writeMask = infos[i].stencil.writeMask,
-        .reference = infos[i].stencil.value
-      };
+  VkPipelineColorBlendAttachmentState colorAttachments[4];
+  for (uint32_t j = 0; j < info->pass->count; j++) {
+    colorAttachments[j] = (VkPipelineColorBlendAttachmentState) {
+      .blendEnable = info->blend.enabled,
+      .srcColorBlendFactor = blendFactors[info->blend.color.src],
+      .dstColorBlendFactor = blendFactors[info->blend.color.dst],
+      .colorBlendOp = blendOps[info->blend.color.op],
+      .srcAlphaBlendFactor = blendFactors[info->blend.alpha.src],
+      .dstAlphaBlendFactor = blendFactors[info->blend.alpha.dst],
+      .alphaBlendOp = blendOps[info->blend.alpha.op],
+      .colorWriteMask = info->colorMask
+    };
+  }
 
-      VkPipelineDepthStencilStateCreateInfo depthStencil = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthTestEnable = infos[i].depth.test != GPU_COMPARE_NONE,
-        .depthWriteEnable = infos[i].depth.write,
-        .depthCompareOp = compareOps[infos[i].depth.test],
-        .stencilTestEnable = infos[i].stencil.test != GPU_COMPARE_NONE,
-        .front = stencil,
-        .back = stencil
-      };
+  VkPipelineColorBlendStateCreateInfo colorBlend = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+    .attachmentCount = info->pass->count,
+    .pAttachments = colorAttachments
+  };
 
-      VkPipelineColorBlendAttachmentState colorAttachments[4];
-      for (uint32_t j = 0; j < infos[i].pass->count; j++) {
-        colorAttachments[j] = (VkPipelineColorBlendAttachmentState) {
-          .blendEnable = infos[i].blend.enabled,
-          .srcColorBlendFactor = blendFactors[infos[i].blend.color.src],
-          .dstColorBlendFactor = blendFactors[infos[i].blend.color.dst],
-          .colorBlendOp = blendOps[infos[i].blend.color.op],
-          .srcAlphaBlendFactor = blendFactors[infos[i].blend.alpha.src],
-          .dstAlphaBlendFactor = blendFactors[infos[i].blend.alpha.dst],
-          .alphaBlendOp = blendOps[infos[i].blend.alpha.op],
-          .colorWriteMask = infos[i].colorMask
-        };
-      }
+  VkDynamicState dynamicStates[] = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR
+  };
 
-      VkPipelineColorBlendStateCreateInfo colorBlend = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        .attachmentCount = infos[i].pass->count,
-        .pAttachments = colorAttachments
-      };
+  VkPipelineDynamicStateCreateInfo dynamicState = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+    .dynamicStateCount = COUNTOF(dynamicStates),
+    .pDynamicStates = dynamicStates
+  };
 
-      VkDynamicState dynamicStates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-      };
-
-      VkPipelineDynamicStateCreateInfo dynamicState = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-        .dynamicStateCount = COUNTOF(dynamicStates),
-        .pDynamicStates = dynamicStates
-      };
-
-      uint32_t constants[32];
-      VkSpecializationMapEntry entries[32];
-      CHECK(infos[i].flagCount <= COUNTOF(constants), "Too many specialization constants") return false;
-      for (uint32_t j = 0; j < infos[i].flagCount; j++) {
-        gpu_shader_flag* flag = &infos[i].flags[j];
-        switch (flag->type) {
-          case GPU_FLAG_B32: constants[j] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
-          case GPU_FLAG_I32: constants[j] = (uint32_t) flag->value; break;
-          case GPU_FLAG_U32: constants[j] = (uint32_t) flag->value; break;
-          case GPU_FLAG_F32: memcpy(&constants[j], &(float) { flag->value }, sizeof(float)); break;
-          default: flag->value = 0;
-        }
-        entries[j] = (VkSpecializationMapEntry) {
-          .constantID = infos[i].flags[j].id,
-          .offset = j * sizeof(uint32_t),
-          .size = sizeof(uint32_t)
-        };
-      }
-
-      VkSpecializationInfo specialization = {
-        .mapEntryCount = infos[i].flagCount,
-        .pMapEntries = entries,
-        .dataSize = sizeof(constants),
-        .pData = (const void*) constants
-      };
-
-      VkPipelineShaderStageCreateInfo shaders[2] = {
-        [0] = {
-          .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-          .stage = VK_SHADER_STAGE_VERTEX_BIT,
-          .module = infos[i].shader->handles[0],
-          .pName = "main",
-          .pSpecializationInfo = &specialization
-        },
-        [1] = {
-          .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-          .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-          .module = infos[i].shader->handles[1],
-          .pName = "main",
-          .pSpecializationInfo = &specialization
-        }
-      };
-
-      pipelineInfos[i] = (VkGraphicsPipelineCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = 2,
-        .pStages = shaders,
-        .pVertexInputState = &vertexInput,
-        .pInputAssemblyState = &inputAssembly,
-        .pViewportState = &viewport,
-        .pRasterizationState = &rasterization,
-        .pMultisampleState = &multisample,
-        .pDepthStencilState = &depthStencil,
-        .pColorBlendState = &colorBlend,
-        .pDynamicState = &dynamicState,
-        .layout = infos[i].shader->pipelineLayout,
-        .renderPass = infos[i].pass->handle
-      };
+  uint32_t constants[32];
+  VkSpecializationMapEntry entries[32];
+  CHECK(info->flagCount <= COUNTOF(constants), "Too many specialization constants") return false;
+  for (uint32_t j = 0; j < info->flagCount; j++) {
+    gpu_shader_flag* flag = &info->flags[j];
+    switch (flag->type) {
+      case GPU_FLAG_B32: constants[j] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
+      case GPU_FLAG_I32: constants[j] = (uint32_t) flag->value; break;
+      case GPU_FLAG_U32: constants[j] = (uint32_t) flag->value; break;
+      case GPU_FLAG_F32: memcpy(&constants[j], &(float) { flag->value }, sizeof(float)); break;
+      default: flag->value = 0;
     }
+    entries[j] = (VkSpecializationMapEntry) {
+      .constantID = info->flags[j].id,
+      .offset = j * sizeof(uint32_t),
+      .size = sizeof(uint32_t)
+    };
+  }
 
-    TRY(vkCreateGraphicsPipelines(state.device, state.pipelineCache, chunk, pipelineInfos, NULL, &pipelines[0].handle), "Could not create pipeline") {
-      return false;
+  VkSpecializationInfo specialization = {
+    .mapEntryCount = info->flagCount,
+    .pMapEntries = entries,
+    .dataSize = sizeof(constants),
+    .pData = (const void*) constants
+  };
+
+  VkPipelineShaderStageCreateInfo shaders[2] = {
+    [0] = {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+      .stage = VK_SHADER_STAGE_VERTEX_BIT,
+      .module = info->shader->handles[0],
+      .pName = "main",
+      .pSpecializationInfo = &specialization
+    },
+    [1] = {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+      .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+      .module = info->shader->handles[1],
+      .pName = "main",
+      .pSpecializationInfo = &specialization
     }
+  };
 
-    for (uint32_t i = 0; i < chunk; i++) {
-      pipelines[i].layout = infos[i].shader->pipelineLayout;
-    }
+  VkGraphicsPipelineCreateInfo pipelineInfo = (VkGraphicsPipelineCreateInfo) {
+    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+    .stageCount = 2,
+    .pStages = shaders,
+    .pVertexInputState = &vertexInput,
+    .pInputAssemblyState = &inputAssembly,
+    .pViewportState = &viewport,
+    .pRasterizationState = &rasterization,
+    .pMultisampleState = &multisample,
+    .pDepthStencilState = &depthStencil,
+    .pColorBlendState = &colorBlend,
+    .pDynamicState = &dynamicState,
+    .layout = info->shader->pipelineLayout,
+    .renderPass = info->pass->handle
+  };
 
-    pipelines += chunk;
-    infos += chunk;
-    count -= chunk;
-  } while (count > 0);
+  TRY(vkCreateGraphicsPipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle), "Could not create pipeline") {
+    return false;
+  }
 
+  pipeline->layout = info->shader->pipelineLayout;
   return true;
 }
 

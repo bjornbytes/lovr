@@ -1698,7 +1698,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     if (!state.pipelineLookup[bucket]) {
       uint32_t index = state.pipelineCount++;
       lovrCheck(index < COUNTOF(state.pipelines), "Too many pipelines, please report this encounter");
-      lovrAssert(gpu_pipeline_init_graphics(state.pipelines[index], &state.pipeline->info, 1), "Failed to initialize pipeline");
+      lovrAssert(gpu_pipeline_init_graphics(state.pipelines[index], &state.pipeline->info), "Failed to initialize pipeline");
       state.pipelineLookup[bucket] = ((uint64_t) hash << 32) | index;
       state.pipeline->index = pipelineIndex = index;
       pipeline = state.pipelines[pipelineIndex];
