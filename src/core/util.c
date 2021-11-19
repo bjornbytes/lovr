@@ -128,7 +128,7 @@ static uint16_t base[512];
 static uint8_t shift[512];
 
 // f16 to f32 tables
-static uint32_t mantissa[2028];
+static uint32_t mantissa[2048];
 static uint32_t exponent[64];
 static uint16_t offset[64];
 
