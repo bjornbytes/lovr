@@ -2105,14 +2105,21 @@ uint32_t lovrGraphicsSphere(Material* material, mat4 transform, uint32_t detail)
   }, transform);
 }
 
-uint32_t lovrGraphicsSkybox(Material* material) {
-  return lovrGraphicsMesh(&(DrawInfo) {
+uint32_t lovrGraphicsSkybox(Texture* texture) {
+  TextureType type = texture->info.type;
+  lovrCheck(type == TEXTURE_2D || type == TEXTURE_CUBE, "Skybox textures must be 2d or cube");
+  lovrGraphicsPush(STACK_PIPELINE, NULL);
+  Shader* shader = lovrGraphicsGetDefaultShader(type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO);
+  lovrGraphicsSetShader(shader);
+  lovrGraphicsSetTexture("lovrSkybox", strlen("lovrSkybox"), 0, texture);
+  uint32_t id = lovrGraphicsMesh(&(DrawInfo) {
     .mode = DRAW_TRIANGLES,
-    .shader = SHADER_CUBE, // TODO? type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
-    .material = material,
+    .shader = type == TEXTURE_CUBE ? SHADER_CUBE : SHADER_PANO,
     .vertex.format = VERTEX_EMPTY,
-    .count = 3
+    .count = 6
   }, NULL);
+  lovrGraphicsPop(STACK_PIPELINE);
+  return id;
 }
 
 uint32_t lovrGraphicsFill(Material* material) {

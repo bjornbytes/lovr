@@ -1272,9 +1272,8 @@ static int l_lovrGraphicsSphere(lua_State* L) {
 }
 
 static int l_lovrGraphicsSkybox(lua_State* L) {
-  Material* material;
-  luax_optmaterial(L, 1, &material);
-  uint32_t id = lovrGraphicsSkybox(material);
+  Texture* texture = luax_checktype(L, 1, Texture);
+  uint32_t id = lovrGraphicsSkybox(texture);
   lua_pushinteger(L, id);
   return 1;
 }
