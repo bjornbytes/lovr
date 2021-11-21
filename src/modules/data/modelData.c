@@ -16,6 +16,17 @@ ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
     return model;
   }
 
+  for (uint32_t i = 0; i < model->nodeCount; i++) {
+    model->nodes[i].parent = ~0u;
+  }
+
+  for (uint32_t i = 0; i < model->nodeCount; i++) {
+    ModelNode* node = &model->nodes[i];
+    for (uint32_t j = 0; j < node->childCount; j++) {
+      model->nodes[node->children[j]].parent = i;
+    }
+  }
+
   lovrThrow("Unable to load model from '%s'", source->name);
   return NULL;
 }

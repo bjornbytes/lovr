@@ -138,6 +138,7 @@ typedef struct {
   } transform;
   uint32_t* children;
   uint32_t childCount;
+  uint32_t parent;
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
   uint32_t skin;
