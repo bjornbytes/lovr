@@ -128,7 +128,7 @@ function lovr.boot()
       globals = true
     },
     window = {
-      width = 1080,
+      width = 800,
       height = 600,
       fullscreen = false,
       resizable = false,
