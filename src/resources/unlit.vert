@@ -5,7 +5,7 @@ struct Camera {
   mat4 view;
   mat4 projection;
   mat4 viewProjection;
-  mat4 inverseViewProjection;
+  mat4 inverseProjection;
 };
 
 struct Draw {
@@ -20,6 +20,13 @@ layout(constant_id = 1002) const bool applyMaterialColor = true;
 layout(constant_id = 1003) const bool applyMaterialTexture = true;
 layout(constant_id = 1004) const bool applyUVTransform = true;
 
+layout(set = 0, binding = 0) uniform Cameras { Camera cameras[6]; };
+layout(set = 0, binding = 1) uniform Draws { Draw draws[256]; };
+layout(set = 0, binding = 2) uniform sampler nearest;
+layout(set = 0, binding = 3) uniform sampler bilinear;
+layout(set = 0, binding = 4) uniform sampler trilinear;
+layout(set = 0, binding = 5) uniform sampler anisotropic;
+
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec4 inNormal;
 layout(location = 2) in vec2 inUV;
@@ -28,13 +35,6 @@ layout(location = 4) in vec4 inTangent;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec2 outUV;
-
-layout(set = 0, binding = 0) uniform Cameras { Camera cameras[6]; };
-layout(set = 0, binding = 1) uniform Draws { Draw draws[256]; };
-layout(set = 0, binding = 2) uniform sampler nearest;
-layout(set = 0, binding = 3) uniform sampler bilinear;
-layout(set = 0, binding = 4) uniform sampler trilinear;
-layout(set = 0, binding = 5) uniform sampler anisotropic;
 
 void main() {
   uint drawId = gl_BaseInstance & 0xff;

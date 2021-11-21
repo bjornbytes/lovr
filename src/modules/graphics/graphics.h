@@ -401,8 +401,8 @@ void lovrBufferRead(Buffer* buffer, uint32_t offset, uint32_t size, void (*callb
 
 typedef enum {
   TEXTURE_2D,
-  TEXTURE_CUBE,
   TEXTURE_VOLUME,
+  TEXTURE_CUBE,
   TEXTURE_ARRAY
 } TextureType;
 

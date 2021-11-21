@@ -261,7 +261,7 @@ typedef struct {
   float view[16];
   float projection[16];
   float viewProjection[16];
-  float inverseViewProjection[16];
+  float inverseProjection[16];
 } Camera;
 
 typedef struct {
@@ -650,6 +650,8 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
+  lovrRelease(state.geometry.vertices, lovrBufferDestroy);
+  lovrRelease(state.geometry.indices, lovrBufferDestroy);
   for (uint32_t i = 0; i < state.buffers.count; i++) {
     gpu_buffer_destroy(state.buffers.list[i].gpu);
   }
@@ -847,111 +849,115 @@ void lovrGraphicsSubmit() {
   for (uint32_t i = 0; i < state.passCount; i++) {
     Pass* pass = &state.passes[i];
 
-    qsort(pass->buffers.data, pass->buffers.length, sizeof(BufferAccess), buffercmp);
+    if (pass->buffers.length > 0) {
+      qsort(pass->buffers.data, pass->buffers.length, sizeof(BufferAccess), buffercmp);
 
-    for (uint32_t j = 0; j < pass->buffers.length; j++) {
-      BufferAccess* access = &pass->buffers.data[j];
-      Buffer* buffer = access->buffer;
-      if (!buffer) continue; // TODO Maybe better way to ensure gets submitted
+      for (uint32_t j = 0; j < pass->buffers.length; j++) {
+        BufferAccess* access = &pass->buffers.data[j];
+        Buffer* buffer = access->buffer;
+        if (!buffer) continue; // TODO Maybe better way to ensure gets submitted
 
-      Pass* writer = &state.passes[buffer->lastWrite];
-      gpu_barrier* barrier = &writer->barrier;
+        Pass* writer = &state.passes[buffer->lastWrite];
+        gpu_barrier* barrier = &writer->barrier;
 
-      while (pass->buffers.data[j + 1].buffer == buffer) {
-        access->cache |= pass->buffers.data[j + 1].cache;
-        access->phase |= pass->buffers.data[j + 1].phase;
-        j++;
-      }
+        while (pass->buffers.data[j + 1].buffer == buffer) {
+          access->cache |= pass->buffers.data[j + 1].cache;
+          access->phase |= pass->buffers.data[j + 1].phase;
+          j++;
+        }
 
-      uint32_t read = access->cache & GPU_CACHE_READ;
-      uint32_t write = access->cache & GPU_CACHE_WRITE;
-      uint32_t newReads = read & ~buffer->pendingReads;
-      bool hasNewReads = newReads || (access->phase & ~buffer->readPhase);
+        uint32_t read = access->cache & GPU_CACHE_READ;
+        uint32_t write = access->cache & GPU_CACHE_WRITE;
+        uint32_t newReads = read & ~buffer->pendingReads;
+        bool hasNewReads = newReads || (access->phase & ~buffer->readPhase);
 
-      // Read after write (memory + execution dependency, merges readers, only unsynced reads)
-      if (read && buffer->pendingWrite && hasNewReads) {
-        barrier->prev |= buffer->writePhase;
-        barrier->next |= access->phase;
-        barrier->flush |= buffer->pendingWrite;
-        barrier->invalidate |= newReads;
-        buffer->readPhase |= access->phase;
-        buffer->pendingReads |= read;
-      }
+        // Read after write (memory + execution dependency, merges readers, only unsynced reads)
+        if (read && buffer->pendingWrite && hasNewReads) {
+          barrier->prev |= buffer->writePhase;
+          barrier->next |= access->phase;
+          barrier->flush |= buffer->pendingWrite;
+          barrier->invalidate |= newReads;
+          buffer->readPhase |= access->phase;
+          buffer->pendingReads |= read;
+        }
 
-      // Write after write (memory + execution dependency, resets writer)
-      if (write && buffer->pendingWrite && !buffer->pendingReads) {
-        barrier->prev |= buffer->writePhase;
-        barrier->next |= access->phase;
-        barrier->flush |= buffer->pendingWrite;
-        barrier->invalidate |= write;
-        buffer->writePhase = access->phase;
-        buffer->pendingWrite = write;
-        buffer->lastWrite = i;
-      }
+        // Write after write (memory + execution dependency, resets writer)
+        if (write && buffer->pendingWrite && !buffer->pendingReads) {
+          barrier->prev |= buffer->writePhase;
+          barrier->next |= access->phase;
+          barrier->flush |= buffer->pendingWrite;
+          barrier->invalidate |= write;
+          buffer->writePhase = access->phase;
+          buffer->pendingWrite = write;
+          buffer->lastWrite = i;
+        }
 
-      // Write after read (execution dependency, resets writer and clears readers)
-      if (write && buffer->pendingReads) {
-        barrier->prev |= buffer->readPhase;
-        barrier->next |= access->phase;
-        buffer->readPhase = 0;
-        buffer->pendingReads = 0;
-        buffer->writePhase = access->phase;
-        buffer->pendingWrite = write;
-        buffer->lastWrite = i;
+        // Write after read (execution dependency, resets writer and clears readers)
+        if (write && buffer->pendingReads) {
+          barrier->prev |= buffer->readPhase;
+          barrier->next |= access->phase;
+          buffer->readPhase = 0;
+          buffer->pendingReads = 0;
+          buffer->writePhase = access->phase;
+          buffer->pendingWrite = write;
+          buffer->lastWrite = i;
+        }
       }
     }
 
-    qsort(pass->textures.data, pass->textures.length, sizeof(TextureAccess), texturecmp);
+    if (pass->textures.length > 0) {
+      qsort(pass->textures.data, pass->textures.length, sizeof(TextureAccess), texturecmp);
 
-    for (uint32_t j = 0; j < pass->textures.length; j++) {
-      TextureAccess* access = &pass->textures.data[j];
-      Texture* texture = access->texture;
-      if (!texture) continue; // TODO Maybe better way to ensure gets submitted
+      for (uint32_t j = 0; j < pass->textures.length; j++) {
+        TextureAccess* access = &pass->textures.data[j];
+        Texture* texture = access->texture;
+        if (!texture) continue; // TODO Maybe better way to ensure gets submitted
 
-      Pass* writer = &state.passes[texture->lastWrite];
-      gpu_barrier* barrier = &writer->barrier;
+        Pass* writer = &state.passes[texture->lastWrite];
+        gpu_barrier* barrier = &writer->barrier;
 
-      while (pass->textures.data[j + 1].texture == texture) {
-        access->cache |= pass->textures.data[j + 1].cache;
-        access->phase |= pass->textures.data[j + 1].phase;
-        j++;
-      }
+        while (pass->textures.data[j + 1].texture == texture) {
+          access->cache |= pass->textures.data[j + 1].cache;
+          access->phase |= pass->textures.data[j + 1].phase;
+          j++;
+        }
 
-      uint32_t read = access->cache & GPU_CACHE_READ;
-      uint32_t write = access->cache & GPU_CACHE_WRITE;
-      uint32_t newReads = read & ~texture->pendingReads;
-      bool hasNewReads = newReads || (access->phase & ~texture->readPhase);
+        uint32_t read = access->cache & GPU_CACHE_READ;
+        uint32_t write = access->cache & GPU_CACHE_WRITE;
+        uint32_t newReads = read & ~texture->pendingReads;
+        bool hasNewReads = newReads || (access->phase & ~texture->readPhase);
 
-      // Read after write (memory + execution dependency, merges readers, only unsynced reads)
-      if (read && texture->pendingWrite && hasNewReads) {
-        barrier->prev |= texture->writePhase;
-        barrier->next |= access->phase;
-        barrier->flush |= texture->pendingWrite;
-        barrier->invalidate |= newReads;
-        texture->readPhase |= access->phase;
-        texture->pendingReads |= read;
-      }
+        // Read after write (memory + execution dependency, merges readers, only unsynced reads)
+        if (read && texture->pendingWrite && hasNewReads) {
+          barrier->prev |= texture->writePhase;
+          barrier->next |= access->phase;
+          barrier->flush |= texture->pendingWrite;
+          barrier->invalidate |= newReads;
+          texture->readPhase |= access->phase;
+          texture->pendingReads |= read;
+        }
 
-      // Write after write (memory + execution dependency, resets writer)
-      if (write && texture->pendingWrite && !texture->pendingReads) {
-        barrier->prev |= texture->writePhase;
-        barrier->next |= access->phase;
-        barrier->flush |= texture->pendingWrite;
-        barrier->invalidate |= write;
-        texture->writePhase = access->phase;
-        texture->pendingWrite = write;
-        texture->lastWrite = i;
-      }
+        // Write after write (memory + execution dependency, resets writer)
+        if (write && texture->pendingWrite && !texture->pendingReads) {
+          barrier->prev |= texture->writePhase;
+          barrier->next |= access->phase;
+          barrier->flush |= texture->pendingWrite;
+          barrier->invalidate |= write;
+          texture->writePhase = access->phase;
+          texture->pendingWrite = write;
+          texture->lastWrite = i;
+        }
 
-      // Write after read (execution dependency, resets writer and clears readers)
-      if (write && texture->pendingReads) {
-        barrier->prev |= texture->readPhase;
-        barrier->next |= access->phase;
-        texture->readPhase = 0;
-        texture->pendingReads = 0;
-        texture->writePhase = access->phase;
-        texture->pendingWrite = write;
-        texture->lastWrite = i;
+        // Write after read (execution dependency, resets writer and clears readers)
+        if (write && texture->pendingReads) {
+          barrier->prev |= texture->readPhase;
+          barrier->next |= access->phase;
+          texture->readPhase = 0;
+          texture->pendingReads = 0;
+          texture->writePhase = access->phase;
+          texture->pendingWrite = write;
+          texture->lastWrite = i;
+        }
       }
     }
   }
@@ -1416,7 +1422,7 @@ void lovrGraphicsSetShader(Shader* shader) {
   // Assign default bindings to any empty slots used by the shader (TODO biterationtrinsics)
   if (empties) {
     for (uint32_t i = 0; i < 32; i++) {
-      if (~empties & (1 << i)) continue;
+      if (~empties & (1u << i)) continue;
 
       if (shader->bufferMask) {
         state.bindings[i].buffer = (gpu_buffer_binding) {
@@ -1915,8 +1921,8 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
         for (uint32_t i = 0; i < state.viewCount; i++) {
           mat4_init(state.cameras[i].viewProjection, state.cameras[i].projection);
           mat4_mul(state.cameras[i].viewProjection, state.cameras[i].view);
-          mat4_init(state.cameras[i].inverseViewProjection, state.cameras[i].viewProjection);
-          mat4_invert(state.cameras[i].inverseViewProjection);
+          mat4_init(state.cameras[i].inverseProjection, state.cameras[i].projection);
+          mat4_invert(state.cameras[i].inverseProjection);
         }
 
         uint32_t size = state.viewCount * sizeof(Camera);
@@ -2176,8 +2182,8 @@ void lovrGraphicsReplay(Batch* batch) {
     for (uint32_t i = 0; i < state.viewCount; i++) {
       mat4_init(state.cameras[i].viewProjection, state.cameras[i].projection);
       mat4_mul(state.cameras[i].viewProjection, state.cameras[i].view);
-      mat4_init(state.cameras[i].inverseViewProjection, state.cameras[i].viewProjection);
-      mat4_invert(state.cameras[i].inverseViewProjection);
+      mat4_init(state.cameras[i].inverseProjection, state.cameras[i].projection);
+      mat4_invert(state.cameras[i].inverseProjection);
     }
 
     uint32_t size = state.viewCount * sizeof(Camera);
@@ -2633,18 +2639,32 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   if (info->images) {
     levelCount = info->images[0]->mipmapCount;
     generateMipmaps = levelCount < texture->info.mipmaps;
+    lovrCheck(info->type != TEXTURE_VOLUME || levelCount == 1, "Images used to initialize volume textures can not have mipmaps");
     uint32_t total = 0;
     for (uint32_t i = 0; i < levelCount; i++) {
       levelOffsets[i] = total;
       uint32_t w = MAX(info->width >> i, 1);
       uint32_t h = MAX(info->height >> i, 1);
       uint32_t size = measureTexture(info->format, w, h, 1);
-      lovrAssert(size == info->images[i]->blob->size, "Image byte size does not match expected size (internal error)");
-      total += size;
+      for (uint32_t j = 0; j < info->depth; j++) {
+        if (info->images[j]->mipmaps) {
+          lovrCheck(info->images[j]->mipmaps[i].size == size, "Image mipmap byte size does not match expected size (internal error)");
+        } else {
+          lovrCheck(info->images[j]->blob->size == size, "Image byte size does not match expected size (internal error)");
+        }
+      }
+      total += size * info->depth;
     }
     buffer = allocateBuffer(GPU_MEMORY_CPU_WRITE, total, 64);
+    uint32_t cursor = 0;
     for (uint32_t i = 0; i < levelCount; i++) {
-      memcpy(buffer.data + levelOffsets[i], info->images[i]->blob->data, info->images[i]->blob->size);
+      for (uint32_t j = 0; j < info->depth; j++) {
+        Image* image = info->images[j];
+        void* data = image->mipmaps ? image->mipmaps[i].data : image->blob->data;
+        uint32_t size = image->mipmaps ? image->mipmaps[i].size : image->blob->size;
+        memcpy(buffer.data + cursor, data, size);
+        cursor += size;
+      }
       levelOffsets[i] += buffer.offset;
     }
   }
@@ -4188,7 +4208,7 @@ static Megaview allocateBuffer(gpu_memory_type type, uint32_t size, uint32_t ali
   state.buffers.cursor[type] = size;
 
   Megabuffer* buffer = &state.buffers.list[active];
-  buffer->size = type == GPU_MEMORY_GPU ? MAX(state.blockSize, size) : (1 << 24);
+  buffer->size = MAX(state.blockSize, size);
   buffer->next = ~0u;
 
   uint32_t usage[] = {
@@ -4425,8 +4445,8 @@ static void generateGeometry() {
       int16_t x = (int16_t) ((j / 128.f - .5f) * 0x7fff + .5f);
       int16_t y = (int16_t) ((.5f - i / 128.f) * 0x7fff + .5f);
       int16_t z = 0x0000;
-      uint16_t u = (x + .5f) * 0xffff;
-      uint16_t v = (.5f - y) * 0xffff;
+      uint16_t u = x + INT16_MIN;
+      uint16_t v = y + INT16_MIN;
       *vertices++ = (ShapeVertex) { { x, y, z }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
       n++;
     }
@@ -4988,6 +5008,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
   // - Gather metadata about slots (binding number, type, stage, count) in first 2 groups
   // - Gather metadata about specialization constants
   // - Parse struct layout of push constant block
+  // - Parse struct layout of material struct
   // - Determine which attribute locations are defined (not the locations that are used, yet)
   while (instruction < words + wordCount) {
     uint16_t opcode = instruction[0] & 0xffff;
@@ -5061,7 +5082,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
           lovrCheck(value < 32, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 32", id, value);
           cache[id].resource.binding = value;
         } else if (decoration == 34) { // Group
-          lovrCheck(value < 2, "Unsupported Shader code: variable %d is in group %d, but group must be less than 2", id, value);
+          lovrCheck(value < 3, "Unsupported Shader code: variable %d is in group %d, but group must be less than 3", id, value);
           cache[id].resource.group = value;
         } else if (decoration == 30) { // Location
           lovrCheck(value < 32, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
@@ -5334,8 +5355,8 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
 
         // Name (buffers need to be unwrapped to get the struct name, images/samplers are named directly)
         bool buffer = slotType == GPU_SLOT_UNIFORM_BUFFER || slotType == GPU_SLOT_STORAGE_BUFFER;
-        uint32_t namedType = buffer ? (words + cache[type].type.word)[3] : type;
-        uint32_t nameWord = buffer ? cache[namedType].type.name : cache[namedType].resource.name;
+        uint32_t namedId = buffer ? (words + cache[type].type.word)[3] : id;
+        uint32_t nameWord = buffer ? cache[namedId].type.name : cache[namedId].resource.name;
         if (group == 2 && !reflection->slotNames[number] && nameWord != 0xffff) {
           char* name = (char*) (words + nameWord);
           size_t nameLength = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
