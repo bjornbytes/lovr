@@ -141,6 +141,7 @@ typedef struct {
   uint32_t parent;
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
+  uint32_t skinfluence;
   uint32_t skin;
   bool matrix;
 } ModelNode;

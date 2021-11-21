@@ -221,8 +221,10 @@ struct Model {
   uint32_t material;
   ModelData* data;
   DrawInfo* draws;
+  Buffer* rawVertexBuffer;
   Buffer* vertexBuffer;
   Buffer* indexBuffer;
+  Buffer* skinBuffer;
   Texture** textures;
   Material** materials;
   float* vertices;
@@ -232,6 +234,10 @@ struct Model {
   NodeTransform* localTransforms;
   float* globalTransforms;
   bool transformsDirty;
+  uint32_t dirtySkins;
+  uint32_t* skinDispatchStart;
+  uint32_t* skinDispatchCount;
+  uint32_t* skinDispatches;
 };
 
 struct Font {
@@ -2158,6 +2164,15 @@ static void renderModelNode(Model* model, uint32_t index, bool children, uint32_
 void lovrGraphicsModel(Model* model, mat4 transform, uint32_t node, bool children, uint32_t instances) {
   updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
 
+  if (model->dirtySkins) {
+    for (uint32_t i = 0; i < model->data->skinCount; i++) {
+      if (model->dirtySkins & (1 << i)) { // TODO biterationtrinsics
+        // dispatch, CAS, URGGGG
+        model->dirtySkins &= ~(1 << i);
+      }
+    }
+  }
+
   if (node == ~0u) {
     node = model->data->rootNode;
   }
@@ -3505,13 +3520,12 @@ Model* lovrModelCreate(ModelInfo* info) {
   model->data = data;
   lovrRetain(data);
 
+  // Oh no
   model->draws = calloc(data->primitiveCount, sizeof(DrawInfo));
-  lovrAssert(model->draws, "Out of memory");
-
   model->textures = malloc(data->imageCount * sizeof(Texture*));
-  lovrAssert(model->textures, "Out of memory");
-
   model->materials = malloc(data->materialCount * sizeof(Material*));
+  lovrAssert(model->draws, "Out of memory");
+  lovrAssert(model->textures, "Out of memory");
   lovrAssert(model->materials, "Out of memory");
 
   for (uint32_t i = 0; i < data->imageCount; i++) {
@@ -3544,7 +3558,7 @@ Model* lovrModelCreate(ModelInfo* info) {
       [8] = { "normalTexture", PROPERTY_TEXTURE, .value.texture = NULL }
     };
 
-    // ew
+    // Oh no
     memcpy(properties[2].value.vector, material->color, sizeof(material->color));
     memcpy(properties[3].value.vector, material->emissive, sizeof(material->emissive));
     if (material->colorTexture != ~0u) properties[4].value.texture = model->textures[material->colorTexture];
@@ -3562,18 +3576,26 @@ Model* lovrModelCreate(ModelInfo* info) {
   }
 
   // First pass: determine vertex format, count vertices and indices, validate meshes
-  // TODO modeldata can u pls tell me how many vertices/indices total
+  // TODO modeldata can u pls tell me how many vertices/indices "total" (2 types of total)
+  // TODO actually potentially everything here should just go in ModelData and ModelData should just
+  // match the 'canonical lovr model format' more closely.  That way we don't have to compute a
+  // bunch of stuff and do format conversions.  Unclear.
   uint32_t totalIndexCount = 0;
   uint32_t totalVertexCount = 0;
+  uint32_t* baseVertex = talloc(data->primitiveCount * sizeof(uint32_t));
+  uint32_t* vertexCount = talloc(data->primitiveCount * sizeof(uint32_t));
   gpu_index_type indexType = GPU_INDEX_U16;
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
     ModelPrimitive* primitive = &data->primitives[i];
-    lovrCheck(primitive->attributes[ATTR_POSITION], "Sorry, currently I can not load models without position attributes!");
+    ModelAttribute* position = primitive->attributes[ATTR_POSITION];
+    lovrCheck(position, "Sorry, currently I can not load models without position attributes!");
     lovrCheck(primitive->topology != TOPOLOGY_LINE_LOOP, "Sorry, currently I can not load models with a 'line loop' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_LINE_STRIP, "Sorry, currently I can not load models with a 'line strip' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_TRIANGLE_STRIP, "Sorry, currently I can not load models with a 'triangle strip' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_TRIANGLE_FAN, "Sorry, currently I can not load models with a 'triangle fan' draw mode (please report this!)");
-    totalVertexCount += primitive->attributes[ATTR_POSITION]->count;
+    baseVertex[i] = totalVertexCount;
+    vertexCount[i] = position->count;
+    totalVertexCount += position->count;
     if (primitive->indices) {
       totalIndexCount += primitive->indices->count;
       if (primitive->indices->type == U32) {
@@ -3586,12 +3608,33 @@ Model* lovrModelCreate(ModelInfo* info) {
 
   void* vertices;
   void* indices;
+  void* skin;
 
-  model->vertexBuffer = lovrBufferCreate(&(BufferInfo) {
+  model->rawVertexBuffer = lovrBufferCreate(&(BufferInfo) {
     .usage = BUFFER_VERTEX | BUFFER_COMPUTE,
     .length = totalVertexCount,
     .format = VERTEX_MODEL
   }, &vertices);
+
+  if (data->skinCount > 0) {
+    model->vertexBuffer = lovrBufferCreate(&(BufferInfo) {
+      .usage = BUFFER_VERTEX | BUFFER_COMPUTE,
+      .length = totalVertexCount,
+      .format = VERTEX_MODEL
+    }, NULL);
+
+    model->skinBuffer = lovrBufferCreate(&(BufferInfo) {
+      .usage = BUFFER_COMPUTE,
+      .length = totalVertexCount,
+      .stride = 8,
+      .fieldCount = 2,
+      .offsets = { 0, 4 },
+      .types = { FIELD_U8x4, FIELD_U8Nx4 }
+    }, &skin);
+  } else {
+    model->vertexBuffer = model->rawVertexBuffer;
+    lovrRetain(model->vertexBuffer);
+  }
 
   uint32_t indexStride = indexType == GPU_INDEX_U32 ? 4 : 2;
   if (totalIndexCount > 0) {
@@ -3604,10 +3647,8 @@ Model* lovrModelCreate(ModelInfo* info) {
     }, (void**) &indices);
   }
 
-  // Second pass: write draws, now that vertex format and buffers are known
-  uint32_t indexCursor = 0;
-  uint32_t vertexCursor = 0;
-  for (uint32_t i = 0; i < data->primitiveCount; i++) {
+  // Second pass: write draws, now that buffers are known
+  for (uint32_t i = 0, vertexCursor = 0, indexCursor = 0; i < data->primitiveCount; i++) {
     DrawInfo* draw = &model->draws[i];
     ModelPrimitive* primitive = &data->primitives[i];
     uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
@@ -3641,8 +3682,6 @@ Model* lovrModelCreate(ModelInfo* info) {
 
   // Third pass: Write data to buffers, converting to the vertex format's types
   // TODO modeldata can u pls tell me the pointer/stride of each attr idc if it duplicates info
-  indexCursor = 0;
-  vertexCursor = 0;
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
     ModelPrimitive* primitive = &data->primitives[i];
     uint32_t count = primitive->attributes[ATTR_POSITION]->count;
@@ -3782,15 +3821,123 @@ Model* lovrModelCreate(ModelInfo* info) {
       }
     }
 
+    vertices = (char*) vertices + count * sizeof(ModelVertex);
+
+    if (skin) {
+      struct {
+        uint8_t indices[4];
+        uint8_t weights[4];
+      } *p;
+
+      p = skin;
+      if ((attribute = primitive->attributes[ATTR_JOINTS]) != NULL) {
+        lovrCheck(attribute->type == U8 && attribute->components == 4, "Currently, 16 bit joint indices are not supported");
+        char* src = data->buffers[attribute->buffer].data + attribute->offset;
+        uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 4;
+        for (uint32_t i = 0; i < count; i++, src += stride, p++) {
+          memcpy(p->indices, src, 4);
+        }
+      } else {
+        for (uint32_t i = 0; i < count; i++, p++) {
+          memset(p->indices, 0, 4 * sizeof(p->indices));
+        }
+      }
+
+      p = skin;
+      if ((attribute = primitive->attributes[ATTR_WEIGHTS]) != NULL) {
+        lovrCheck(attribute->components == 4, "Vertex weight attribute must have 4 components");
+        char* src = data->buffers[attribute->buffer].data + attribute->offset;
+        uint32_t stride = data->buffers[attribute->buffer].stride;
+        if (attribute->type == F32) {
+          stride = stride ? stride : 16;
+          for (uint32_t i = 0; i < count; i++, src += stride, p++) {
+            float* weights = (float*) src;
+            p->weights[0] = (uint8_t) (weights[0] * 255.f + .5f);
+            p->weights[1] = (uint8_t) (weights[1] * 255.f + .5f);
+            p->weights[2] = (uint8_t) (weights[2] * 255.f + .5f);
+            p->weights[3] = (uint8_t) (weights[3] * 255.f + .5f);
+          }
+        } else if (attribute->type == U16 && attribute->normalized) {
+          stride = stride ? stride : 8;
+          for (uint32_t i = 0; i < count; i++, src += stride, p++) {
+            uint16_t* weights = (uint16_t*) src;
+            p->weights[0] = (uint8_t) (weights[0] >> 8);
+            p->weights[1] = (uint8_t) (weights[1] >> 8);
+            p->weights[2] = (uint8_t) (weights[2] >> 8);
+            p->weights[3] = (uint8_t) (weights[3] >> 8);
+          }
+        } else if (attribute->type == U8 && attribute->normalized) {
+          for (uint32_t i = 0; i < count; i++, src += stride, p++) {
+            memcpy(p, src, 4);
+          }
+        } else {
+          lovrThrow("Model uses unsupported data type for vertex weights");
+        }
+      } else {
+        for (uint32_t i = 0; i < count; i++, p++) {
+          memset(p->weights, 0, 4 * sizeof(p->weights));
+        }
+      }
+
+      skin = (char*) skin + count * sizeof(*p);
+    }
+
     if (primitive->indices) {
       char* src = data->buffers[primitive->indices->buffer].data + primitive->indices->offset;
       memcpy(indices, src, primitive->indices->count * indexStride);
+      indices = (char*) indices + primitive->indices->count * indexStride;
     }
   }
 
+  lovrCheck(data->skinCount <= 32, "Currently, the max number of skins is 32 (Model has %d)", data->skinCount);
   for (uint32_t i = 0; i < data->skinCount; i++) {
     uint32_t jointCount = data->skins[i].jointCount;
-    lovrAssert(jointCount <= 0xff, "ModelData skin #%d has too many joints (%d, max is %d)", i + 1, jointCount, 0xff);
+    lovrAssert(jointCount <= 256, "Currently, the max number of joints per skin is 256 (skin #%d has %d)", i + 1, jointCount);
+  }
+
+  // Precompute compute shader dispatch ranges for vertex skinning
+  // Each skin stores a set of contiguous vertex ranges that need to be skinned
+  // The implementation below is optimized for simplicity and succinctness, not for performance
+
+  // First, compute the skin used by each primitive, and ensure that primitives only use 1 skin
+  // Also compute a very loose upper bound on the number of dispatches required
+  uint32_t* primitiveSkins = talloc(data->primitiveCount * sizeof(uint32_t));
+  memset(primitiveSkins, 0xAA, data->primitiveCount); // Sentinel
+  uint32_t maxDispatches = 0;
+  for (uint32_t i = 0; i < data->nodeCount; i++) {
+    ModelNode* node = &data->nodes[i];
+    for (uint32_t j = 0; j < node->primitiveCount; j++) {
+      uint32_t index = node->primitiveIndex + j;
+      if (primitiveSkins[index] == 0xAAAAAAAA) {
+        primitiveSkins[index] = node->skin;
+        maxDispatches += node->skin != ~0u;
+      } else {
+        lovrCheck(primitiveSkins[index] == node->skin, "Model has a mesh used with multiple skins, this is currently unsupported");
+      }
+    }
+  }
+
+  // Next, allocate a list of dispatches and write each skin's dispatches to the list
+  // Need 2 ints per skin (the first dispatch and dispatch count) and 2 per dispatch (vertex range)
+  // For each skin, find primitives using this skin and write ranges.
+  uint32_t* words = malloc((data->skinCount * 2 + maxDispatches * 2) * sizeof(uint32_t));
+  lovrAssert(words, "Out of memory");
+  model->skinDispatchStart = words, words += data->skinCount;
+  model->skinDispatchCount = words, words += data->skinCount;
+  model->skinDispatches = words;
+  for (uint32_t i = 0, cursor = 0; i < data->skinCount; i++) {
+    model->skinDispatchStart[i] = cursor;
+    for (uint32_t j = 0; j < data->primitiveCount; j++) {
+      if (primitiveSkins[j] != i) continue;
+      model->skinDispatches[cursor++] = baseVertex[j];
+      model->skinDispatches[cursor] = vertexCount[j];
+      while (j < data->primitiveCount && primitiveSkins[j + 1] == i) {
+        model->skinDispatches[cursor] += vertexCount[j];
+        j++;
+      }
+      model->skinDispatchCount[i]++;
+      cursor++;
+    }
   }
 
   // Allocate transform arrays
@@ -3810,8 +3957,10 @@ void lovrModelDestroy(void* ref) {
     lovrRelease(model->materials[i], lovrMaterialDestroy);
   }
   lovrRelease(model->data, lovrModelDataDestroy);
+  lovrRelease(model->rawVertexBuffer, lovrBufferDestroy);
   lovrRelease(model->vertexBuffer, lovrBufferDestroy);
   lovrRelease(model->indexBuffer, lovrBufferDestroy);
+  lovrRelease(model->skinBuffer, lovrBufferDestroy);
   free(model->draws);
   free(model->materials);
   free(model->textures);
@@ -3957,7 +4106,7 @@ Material* lovrModelGetMaterial(Model* model, uint32_t index) {
 }
 
 Buffer* lovrModelGetVertexBuffer(Model* model) {
-  return model->vertexBuffer;
+  return model->rawVertexBuffer;
 }
 
 Buffer* lovrModelGetIndexBuffer(Model* model) {

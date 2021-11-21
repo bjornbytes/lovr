@@ -16,6 +16,13 @@ ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
     return model;
   }
 
+  // Computed properties happen here, in one place
+
+  // TODO image srgb
+  // TODO attribute pointer/stride
+  // TODO total vertices/indices
+  // TODO max index stride/type (aka hasU32)
+
   for (uint32_t i = 0; i < model->nodeCount; i++) {
     model->nodes[i].parent = ~0u;
   }
@@ -24,6 +31,13 @@ ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
     ModelNode* node = &model->nodes[i];
     for (uint32_t j = 0; j < node->childCount; j++) {
       model->nodes[node->children[j]].parent = i;
+    }
+  }
+
+  for (uint32_t i = 0; i < model->skinCount; i++) {
+    ModelSkin* skin = &model->skins[i];
+    for (uint32_t j = 0; j < skin->jointCount; j++) {
+      model->nodes[skin->joints[j]].skinfluence |= (1 << i);
     }
   }
 
