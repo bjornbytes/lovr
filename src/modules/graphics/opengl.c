@@ -1500,6 +1500,11 @@ void lovrGpuPresent() {
 
 void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback callback, void* userdata) {
   lovrGraphicsFlush();
+
+  uint8_t lastColorMask = state.colorMask;
+  state.colorMask = 0;
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
   if (!state.stencilEnabled) {
     state.stencilEnabled = true;
     glEnable(GL_STENCIL_TEST);
@@ -1524,6 +1529,9 @@ void lovrGpuStencil(StencilAction action, int replaceValue, StencilCallback call
   lovrGraphicsFlush();
   state.stencilWriting = false;
   state.stencilMode = ~0; // Dirty
+
+  state.colorMask = lastColorMask;
+  glColorMask(state.colorMask & 0x8, state.colorMask & 0x4, state.colorMask & 0x2, state.colorMask & 0x1);
 }
 
 void lovrGpuDirtyTexture() {
