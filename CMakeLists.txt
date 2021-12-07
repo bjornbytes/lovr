@@ -700,7 +700,7 @@ elseif(ANDROID)
     # - Imported targets need to have their libraries manually copied to raw/lib/<ABI>
     # - Figure out which Java class (Activity) and AndroidManifest.xml to use
     # - Oculus uses the regular android os layer, pico implements its own in the headset backend
-    # - Some of the Pico SDK is in a jar that has to be added to the classpath and dx invocation
+    # - Some of the Pico SDK is in a jar that has to be added to the classpath and d8 invocation
     # TODO error (probably way earlier) if no headset API is defined, since everything will break
     if(LOVR_USE_OPENXR)
       set(MANIFEST "oculus")
@@ -756,7 +756,7 @@ elseif(ANDROID)
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
-      COMMAND ${ANDROID_TOOLS}/dx --dex --output raw/classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
+      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw ${EXTRA_JAR} org/lovr/app/Activity.class
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
