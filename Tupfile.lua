@@ -486,7 +486,8 @@ if target == 'android' then
   jar = 'bin/lovr.jar'
   dex = 'bin/apk/classes.dex'
 
-  androidjar = ('%s/platforms/android-%d/android.jar'):format(config.android.sdk, config.android.version)
+  androidversion = config.android.version
+  androidjar = ('%s/platforms/android-%d/android.jar'):format(config.android.sdk, androidversion)
   extrajar = config.headsets.pico and 'deps/pico/classes.jar' or nil
   classpathsep = tup.getconfig('TUP_PLATFORM') == 'win32' and ';' or ':'
   classpath = table.concat({ androidjar, extrajar }, classpathsep)
@@ -512,7 +513,7 @@ if target == 'android' then
   copy(activity, java)
   tup.rule(java, '^ JAVAC %b^ javac -classpath $(classpath) -d bin %f', binclass)
   tup.rule(binclass, '^ JAR %b^ jar -cf %o -C bin $(class)', jar)
-  tup.rule({ jar, extrajar }, '^ DX %b^ $(tools)/dx --dex --output %o %f', dex)
+  tup.rule({ jar, extrajar }, '^ D8 %b^ $(tools)/d8 --min-api $(androidversion) --output bin/apk %f', dex)
   tup.rule(
     { 'bin/AndroidManifest.xml', extra_inputs = { lib('*'), dex } },
     '^ AAPT %b^ $(tools)/aapt package $(package) -F %o -M %f -0 so -I $(androidjar) $(project) bin/apk',
