@@ -1298,6 +1298,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     return false;
   }
 
+  nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
   pipeline->layout = info->shader->pipelineLayout;
   return true;
 }
@@ -1347,6 +1348,7 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
   }
 
   nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
+  pipeline->layout = info->shader->pipelineLayout;
   return true;
 }
 
