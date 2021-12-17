@@ -21,7 +21,7 @@ static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
   }
 }
 
-static uint32_t luax_checknode(lua_State* L, int index, Model* model) {
+uint32_t luax_checknodeindex(lua_State* L, int index, Model* model) {
   switch (lua_type(L, index)) {
     case LUA_TSTRING: {
       size_t length;
@@ -62,7 +62,7 @@ static int l_lovrModelPose(lua_State* L) {
       return 0;
     case LUA_TNUMBER:
     case LUA_TSTRING:
-      node = luax_checknode(L, 2, model);
+      node = luax_checknodeindex(L, 2, model);
       break;
     default: return luax_typeerror(L, 2, "nil, number, or string");
   }
@@ -78,7 +78,7 @@ static int l_lovrModelPose(lua_State* L) {
 
 static int l_lovrModelGetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknode(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, model);
   float position[4], rotation[4], angle, ax, ay, az;
   CoordinateSpace space = luax_checkenum(L, 3, CoordinateSpace, "global");
   lovrModelGetNodePose(model, node, position, rotation, space);

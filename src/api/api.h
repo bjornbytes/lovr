@@ -145,9 +145,11 @@ void* luax_readfile(const char* filename, size_t* bytesRead);
 
 #ifndef LOVR_DISABLE_GRAPHICS
 struct Buffer;
+struct Model;
 uint32_t luax_checkfieldtype(struct lua_State* L, int index);
 void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer, char* data);
 void luax_readbufferfield(struct lua_State* L, int index, int type, void* data);
+uint32_t luax_checknodeindex(struct lua_State* L, int index, struct Model* model);
 #endif
 
 #ifndef LOVR_DISABLE_MATH

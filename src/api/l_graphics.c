@@ -1290,7 +1290,7 @@ static int l_lovrGraphicsModel(lua_State* L) {
   float transform[16];
   Model* model = luax_checktype(L, 1, Model);
   int index = luax_readmat4(L, 2, transform, 1);
-  uint32_t node = luaL_optinteger(L, index++, ~0u); // TODO string
+  uint32_t node = lua_isnoneornil(L, index) ? (index++, ~0u) : luax_checknodeindex(L, index++, model);
   bool children = lua_isnoneornil(L, index) ? (index++, true) : lua_toboolean(L, index++);
   uint32_t instances = luaL_optinteger(L, index++, 1);
   lovrGraphicsModel(model, transform, node, children, instances);
