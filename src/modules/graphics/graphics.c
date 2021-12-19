@@ -437,24 +437,24 @@ static struct {
 uint32_t os_vk_create_surface(void* instance, void** surface);
 const char** os_vk_get_instance_extensions(uint32_t* count);
 
+static void onMessage(void* context, const char* message, bool severe);
 static void* talloc(size_t size);
 static void* tgrow(void* p, size_t n);
 static Megaview allocateBuffer(gpu_memory_type type, uint32_t size, uint32_t align);
 static void recycleBuffer(uint8_t index, gpu_memory_type type);
 static gpu_bundle* allocateBundle(uint32_t layout);
 static gpu_pass* lookupPass(Canvas* canvas);
+static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static uint32_t lookupLayout(gpu_slot* slots, uint32_t count);
 static uint32_t lookupMaterialBlock(MaterialFormat* format);
+static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 static void generateGeometry(void);
 static void clearState(gpu_pass* pass);
-static void onMessage(void* context, const char* message, int severe);
 static bool getInstanceExtensions(char* buffer, uint32_t size);
 static bool isDepthFormat(TextureFormat format);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint16_t extent[3]);
 static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, uint32_t userGroup, ReflectionInfo* reflection);
-static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
-static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 
 // Entry
 
@@ -4391,7 +4391,15 @@ void lovrFontDestroy(void* ref) {
 
 // Helpers
 
-// Allocates temporary memory, reclaimed when the next frame starts
+static void onMessage(void* context, const char* message, bool severe) {
+  if (severe) {
+    lovrLog(LOG_ERROR, "GPU", message);
+  } else {
+    lovrLog(LOG_DEBUG, "GPU", message);
+  }
+}
+
+// Allocates temporary CPU memory, reclaimed when the next frame starts
 static void* talloc(size_t size) {
   while (state.allocator.cursor + size > state.allocator.length) {
     lovrAssert(state.allocator.length << 1 <= state.allocator.limit, "Out of memory");
@@ -4404,7 +4412,7 @@ static void* talloc(size_t size) {
   return state.allocator.memory + cursor;
 }
 
-// Like realloc for temporary memory, only supports growing, can be used as arr_t allocator
+// Like realloc for temporary memory, but only supports growing, can be used as arr_t allocator
 static void* tgrow(void* p, size_t n) {
   if (n == 0) return NULL;
   void* new = talloc(n);
@@ -4412,12 +4420,13 @@ static void* tgrow(void* p, size_t n) {
   return memcpy(new, p, n >> 1);
 }
 
-// Suballocates from a Megabuffer
+// Allocates GPU buffer memory, suballocating from a Megabuffer
 static Megaview allocateBuffer(gpu_memory_type type, uint32_t size, uint32_t align) {
   uint32_t active = state.buffers.active[type];
   uint32_t oldest = state.buffers.oldest[type];
   uint32_t cursor = state.buffers.cursor[type];
 
+  // The only reason the mod path is needed is because vertex buffers might not have PO2 stride
   if ((align & (align - 1)) == 0) {
     cursor = ALIGN(cursor, align);
   } else if (cursor % align != 0) {
@@ -4428,7 +4437,7 @@ static Megaview allocateBuffer(gpu_memory_type type, uint32_t size, uint32_t ali
     state.stats.scratchMemory += (cursor - state.buffers.cursor[type]) + size;
   }
 
-  // If there's an active Megabuffer and it has room, use it
+  // If there's an active Megabuffer and it has room, allocate from it
   if (active != ~0u && cursor + size <= state.buffers.list[active].size) {
     state.buffers.cursor[type] = cursor + size;
     Megabuffer* buffer = &state.buffers.list[active];
@@ -4436,16 +4445,18 @@ static Megaview allocateBuffer(gpu_memory_type type, uint32_t size, uint32_t ali
     return (Megaview) { .gpu = buffer->gpu, .data = data, .index = active, .offset = cursor };
   }
 
-  // If the active Megabuffer is full and has no users, it can be reused when GPU is done with it
+  // If the active buffer filled up, put it on the freelist if no one is holding a reference to it
+  // Note that only GPU_MEMORY_GPU buffers are the only ones that ever have references
   if (active != ~0u && state.buffers.list[active].refs == 0) {
     recycleBuffer(active, type);
   }
 
   // If the GPU is finished with the oldest Megabuffer, use it
-  // TODO can only use if big enough, search through all available ones
+  // FIXME can only use it if it's big enough!  Should search through all available ones
   if (oldest != ~0u && gpu_finished(state.buffers.list[oldest].tick)) {
 
     // Linked list madness (basically moving oldest -> active)
+    // FIXME do we need to wipe newest if oldest == newest?
     state.buffers.oldest[type] = state.buffers.list[oldest].next;
     state.buffers.list[oldest].next = ~0u;
     state.buffers.active[type] = oldest;
@@ -4489,22 +4500,23 @@ static void recycleBuffer(uint8_t index, gpu_memory_type type) {
   Megabuffer* buffer = &state.buffers.list[index];
   lovrCheck(buffer->refs == 0, "Trying to release a Buffer while people are still using it");
 
-  // If there's a "newest" Megabuffer, make it the second newest
+  // Chain the buffer after the "newest" buffer if possible
   if (state.buffers.newest[type] != ~0u) {
     state.buffers.list[state.buffers.newest[type]].next = index;
   }
 
-  // If the waitlist is completely empty, this Megabuffer should become both the oldest and newest
+  // If the waitlist is completely empty, this buffer is also the oldest
   if (state.buffers.oldest[type] == ~0u) {
     state.buffers.oldest[type] = index;
   }
 
-  // This Megabuffer is the newest
+  // This buffer is the newest
   state.buffers.newest[type] = index;
   buffer->next = ~0u;
   buffer->tick = state.tick;
 }
 
+// Allocates a temporary bundle of a given layout, these are suballocated from homogenous "bunches"
 static gpu_bundle* allocateBundle(uint32_t layout) {
   Bunch* bunch = state.bunches.head[layout];
 
@@ -4527,7 +4539,7 @@ static gpu_bundle* allocateBundle(uint32_t layout) {
     }
   }
 
-  // Otherwise, make a new one
+  // If there were no bunches or they were full or still being used by GPU, make a new bunch
   uint32_t index = state.bunches.count++;
   lovrCheck(index < MAX_BUNCHES, "Too many bunches, please report this encounter");
   bunch = &state.bunches.list[index];
@@ -4549,6 +4561,7 @@ static gpu_bundle* allocateBundle(uint32_t layout) {
   return bunch->bundles;
 }
 
+// Gets a cached render pass object
 static gpu_pass* lookupPass(Canvas* canvas) {
   Texture* texture = canvas->textures[0] ? canvas->textures[0] : canvas->depth.texture;
   bool resolve = texture->info.samples == 1 && canvas->samples > 1;
@@ -4595,6 +4608,65 @@ static gpu_pass* lookupPass(Canvas* canvas) {
   return state.gpuPasses[state.gpuPassCount++];
 }
 
+// Gets a temporary depth buffer or MSAA render target
+static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
+  uint16_t key[] = { size[0], size[1], layers, format, srgb, samples };
+  uint32_t hash = hash32(key, sizeof(key));
+
+  // Search for matching texture in cache table
+  uint32_t rows = COUNTOF(state.attachmentCache);
+  uint32_t cols = COUNTOF(state.attachmentCache[0]);
+  ScratchTexture* row = state.attachmentCache[hash & (rows - 1)];
+  ScratchTexture* entry = NULL;
+  for (uint32_t i = 0; i < cols; i++) {
+    if (row[i].hash == hash) {
+      entry = &row[i];
+      break;
+    }
+  }
+
+  // If there's a match, use it
+  if (entry) {
+    entry->tick = state.tick;
+    return entry->handle;
+  }
+
+  // Otherwise, create new texture, add to an empty slot, evicting oldest if needed
+  gpu_texture_info info = {
+    .type = GPU_TEXTURE_ARRAY,
+    .format = (gpu_texture_format) format,
+    .size[0] = size[0],
+    .size[1] = size[1],
+    .size[2] = layers,
+    .mipmaps = 1,
+    .samples = samples,
+    .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT,
+    .upload.stream = state.uploads->stream,
+    .srgb = srgb
+  };
+  arr_push(&state.uploads->textures, (TextureAccess) { 0 }); // TODO maybe better way to ensure upload stream gets submitted
+
+  entry = &row[0];
+  for (uint32_t i = 1; i < cols; i++) {
+    if (!row[i].handle || row[i].tick < entry->tick) {
+      entry = &row[i];
+      break;
+    }
+  }
+
+  if (!entry->handle) {
+    entry->handle = calloc(1, gpu_sizeof_texture());
+    lovrAssert(entry->handle, "Out of memory");
+  } else {
+    gpu_texture_destroy(entry->handle);
+  }
+
+  lovrAssert(gpu_texture_init(entry->handle, &info), "Failed to create scratch texture");
+  entry->hash = hash;
+  entry->tick = state.tick;
+  return entry->handle;
+}
+
 static uint32_t lookupLayout(gpu_slot* slots, uint32_t count) {
   uint64_t hash = hash64(slots, count * sizeof(gpu_slot));
 
@@ -4607,7 +4679,6 @@ static uint32_t lookupLayout(gpu_slot* slots, uint32_t count) {
 
   lovrCheck(index < COUNTOF(state.layouts), "Too many shader layouts, please report this encounter");
 
-  // Create new layout
   gpu_layout_info info = {
     .slots = slots,
     .count = count
@@ -4669,6 +4740,25 @@ static uint32_t lookupMaterialBlock(MaterialFormat* format) {
   lovrAssert(gpu_bunch_init(block->bunch, &info), "Failed to initialize bunch for material block");
   lovrMaterialCreate(&(MaterialInfo) { .type = index }); // Default material is always first in block
   return index;
+}
+
+// Refreshes global transforms of all model nodes
+static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent) {
+  mat4 global = model->globalTransforms + 16 * nodeIndex;
+  NodeTransform* local = &model->localTransforms[nodeIndex];
+  vec3 T = local->properties[PROP_TRANSLATION];
+  quat R = local->properties[PROP_ROTATION];
+  vec3 S = local->properties[PROP_SCALE];
+
+  mat4_init(global, parent);
+  mat4_translate(global, T[0], T[1], T[2]);
+  mat4_rotateQuat(global, R);
+  mat4_scale(global, S[0], S[1], S[2]);
+
+  ModelNode* node = &model->data->nodes[nodeIndex];
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    updateModelTransforms(model, node->children[i], global);
+  }
 }
 
 static void generateGeometry() {
@@ -4951,6 +5041,7 @@ static void generateGeometry() {
   }
 }
 
+// Clears all pass-related state
 static void clearState(gpu_pass* pass) {
   state.matrixIndex = 0;
   state.matrix = state.matrixStack[0];
@@ -4986,14 +5077,8 @@ static void clearState(gpu_pass* pass) {
   state.boundIndexBuffer = NULL;
 }
 
-static void onMessage(void* context, const char* message, int severe) {
-  if (severe) {
-    lovrLog(LOG_ERROR, "GPU", message);
-  } else {
-    lovrLog(LOG_DEBUG, "GPU", message);
-  }
-}
-
+// The set of required Vulkan instance extensions has to be merged from the OS and XR systems
+// Since only XR needs device extensions, no helper function is needed for them
 static bool getInstanceExtensions(char* buffer, uint32_t size) {
   uint32_t count;
   const char** extensions = os_vk_get_instance_extensions(&count);
@@ -5023,6 +5108,7 @@ static bool isDepthFormat(TextureFormat format) {
   return format == FORMAT_D16 || format == FORMAT_D24S8 || format == FORMAT_D32F;
 }
 
+// Returns number of bytes of a 3D texture region of a given format
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d) {
   switch (format) {
     case FORMAT_R8: return w * h * d;
@@ -5064,6 +5150,7 @@ static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint1
   }
 }
 
+// Errors if a 3D texture region exceeds the texture's bounds
 static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint16_t extent[3]) {
   uint16_t maxWidth = MAX(info->width >> offset[3], 1);
   uint16_t maxHeight = MAX(info->height >> offset[3], 1);
@@ -5073,6 +5160,8 @@ static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint
   lovrCheck(offset[2] + extent[2] <= maxDepth, "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], maxDepth);
   lovrCheck(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
 }
+
+// SPIR-V parsing
 
 #define MIN_SPIRV_WORDS 8
 
@@ -5244,7 +5333,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, uint32_
   // The cache stores information for spirv ids
   // - For buffer/texture resources, stores the slot's group and binding number
   // - For vertex attributes, stores the attribute location decoration
-  // - For specialization constants, stores the constant's name and its constant id
+  // - For specialization constants, stores the constant's name and its id (later, its word)
   // - For types, stores the id of its declaration instruction and its name (for block resources)
   size_t cacheSize = bound * sizeof(CacheData);
   void* cacheData = talloc(cacheSize);
@@ -5258,7 +5347,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, uint32_
 
   // Performs a single pass over the spirv words, doing the following:
   // - Validate declared capabilities
-  // - Gather metadata about slots (binding number, type, stage, count) in first 2 groups
+  // - Gather metadata about slots (binding number, type, stage, count)
   // - Gather metadata about specialization constants
   // - Parse struct layout of push constant block
   // - Parse struct layout of material struct
@@ -5640,80 +5729,4 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, uint32_
   }
 
   return true;
-}
-
-static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
-  uint16_t key[] = { size[0], size[1], layers, format, srgb, samples };
-  uint32_t hash = hash32(key, sizeof(key));
-
-  // Search for matching texture in cache table
-  uint32_t rows = COUNTOF(state.attachmentCache);
-  uint32_t cols = COUNTOF(state.attachmentCache[0]);
-  ScratchTexture* row = state.attachmentCache[hash & (rows - 1)];
-  ScratchTexture* entry = NULL;
-  for (uint32_t i = 0; i < cols; i++) {
-    if (row[i].hash == hash) {
-      entry = &row[i];
-      break;
-    }
-  }
-
-  // If there's a match, use it
-  if (entry) {
-    entry->tick = state.tick;
-    return entry->handle;
-  }
-
-  // Otherwise, create new texture, add to an empty slot, evicting oldest if needed
-  gpu_texture_info info = {
-    .type = GPU_TEXTURE_ARRAY,
-    .format = (gpu_texture_format) format,
-    .size[0] = size[0],
-    .size[1] = size[1],
-    .size[2] = layers,
-    .mipmaps = 1,
-    .samples = samples,
-    .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT,
-    .upload.stream = state.uploads->stream,
-    .srgb = srgb
-  };
-  arr_push(&state.uploads->textures, (TextureAccess) { 0 }); // TODO maybe better way to ensure upload stream gets submitted
-
-  entry = &row[0];
-  for (uint32_t i = 1; i < cols; i++) {
-    if (!row[i].handle || row[i].tick < entry->tick) {
-      entry = &row[i];
-      break;
-    }
-  }
-
-  if (!entry->handle) {
-    entry->handle = calloc(1, gpu_sizeof_texture());
-    lovrAssert(entry->handle, "Out of memory");
-  } else {
-    gpu_texture_destroy(entry->handle);
-  }
-
-  lovrAssert(gpu_texture_init(entry->handle, &info), "Failed to create scratch texture");
-  entry->hash = hash;
-  entry->tick = state.tick;
-  return entry->handle;
-}
-
-static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent) {
-  mat4 global = model->globalTransforms + 16 * nodeIndex;
-  NodeTransform* local = &model->localTransforms[nodeIndex];
-  vec3 T = local->properties[PROP_TRANSLATION];
-  quat R = local->properties[PROP_ROTATION];
-  vec3 S = local->properties[PROP_SCALE];
-
-  mat4_init(global, parent);
-  mat4_translate(global, T[0], T[1], T[2]);
-  mat4_rotateQuat(global, R);
-  mat4_scale(global, S[0], S[1], S[2]);
-
-  ModelNode* node = &model->data->nodes[nodeIndex];
-  for (uint32_t i = 0; i < node->childCount; i++) {
-    updateModelTransforms(model, node->children[i], global);
-  }
 }

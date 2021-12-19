@@ -652,7 +652,7 @@ typedef struct {
   gpu_hardware* hardware;
   gpu_features* features;
   gpu_limits* limits;
-  void (*callback)(void* userdata, const char* message, int level);
+  void (*callback)(void* userdata, const char* message, bool error);
   void* userdata;
   struct {
     bool surface;
