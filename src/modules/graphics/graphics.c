@@ -231,13 +231,12 @@ struct Model {
   uint32_t* indices;
   uint32_t vertexCount;
   uint32_t indexCount;
+  uint32_t* skinVertexCounts;
+  uint32_t skinnedVertexCount;
   NodeTransform* localTransforms;
   float* globalTransforms;
   bool transformsDirty;
-  uint32_t dirtySkins;
-  uint32_t* skinDispatchStart;
-  uint32_t* skinDispatchCount;
-  uint32_t* skinDispatches;
+  uint32_t lastReskin;
 };
 
 struct Font {
@@ -375,6 +374,7 @@ static struct {
   Pass passes[32];
   Pass* pass;
   Pass* uploads;
+  Pass* computes;
   Batch* batch;
   float background[4];
   Camera cameras[6];
@@ -404,6 +404,7 @@ static struct {
   Megaview zeros;
   Texture* window;
   Texture* defaultTexture;
+  Shader* animator;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   Sampler* defaultSamplers[DEFAULT_SAMPLER_COUNT];
   gpu_vertex_format formats[VERTEX_FORMAT_COUNT];
@@ -451,7 +452,7 @@ static bool getInstanceExtensions(char* buffer, uint32_t size);
 static bool isDepthFormat(TextureFormat format);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void checkTextureBounds(const TextureInfo* info, uint16_t offset[4], uint16_t extent[3]);
-static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, ReflectionInfo* reflection);
+static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, uint32_t userGroup, ReflectionInfo* reflection);
 static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 
@@ -561,7 +562,7 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
     { 2, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Nearest
     { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Bilinear
     { 4, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }, // Trilinear
-    { 5, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 } // Anisotropic
+    { 5, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS, 1 }  // Anisotropic
   };
 
   lookupLayout(defaultBindings, COUNTOF(defaultBindings));
@@ -688,6 +689,7 @@ void lovrGraphicsDestroy() {
       }
     }
   }
+  lovrRelease(state.animator, lovrShaderDestroy);
   for (uint32_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
     lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
   }
@@ -801,6 +803,13 @@ void lovrGraphicsPrepare() {
   state.uploads->stream = gpu_stream_begin();
   arr_init(&state.uploads->buffers, tgrow);
   arr_init(&state.uploads->textures, tgrow);
+
+  state.computes = &state.passes[state.passCount++];
+  state.computes->type = PASS_COMPUTE;
+  state.computes->order = 2;
+  state.computes->stream = gpu_stream_begin();
+  arr_init(&state.computes->buffers, tgrow);
+  arr_init(&state.computes->textures, tgrow);
 
   state.stats.scratchMemory = 0;
   state.stats.renderPasses = 0;
@@ -976,6 +985,11 @@ void lovrGraphicsSubmit() {
   // If there weren't any uploads, don't submit the upload pass
   if (state.uploads->buffers.length == 0 && state.uploads->textures.length == 0) {
     state.uploads->stream = NULL;
+  }
+
+  // Same for computes
+  if (state.computes->buffers.length == 0 && state.computes->textures.length == 0) {
+    state.computes->stream = NULL;
   }
 
   // Sync, finish, and submit streams
@@ -1916,7 +1930,7 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     return id;
   } else {
     if (pipeline != state.boundPipeline) {
-      gpu_bind_pipeline_graphics(state.pass->stream, pipeline);
+      gpu_bind_pipeline(state.pass->stream, pipeline, false);
       state.boundPipeline = pipeline;
       state.stats.pipelineBinds++;
     }
@@ -1982,7 +1996,8 @@ uint32_t lovrGraphicsMesh(DrawInfo* info, float* transform) {
     }
 
     if (state.constantsDirty && shader->constantSize > 0) {
-      gpu_push_constants(state.pass->stream, pipeline, state.constantData, shader->constantSize);
+      bool compute = false;
+      gpu_push_constants(state.pass->stream, pipeline, compute, state.constantData, shader->constantSize);
       state.constantsDirty = false;
     }
 
@@ -2162,15 +2177,71 @@ static void renderModelNode(Model* model, uint32_t index, bool children, uint32_
 }
 
 void lovrGraphicsModel(Model* model, mat4 transform, uint32_t node, bool children, uint32_t instances) {
-  updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+  if (model->transformsDirty) {
+    updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
 
-  if (model->dirtySkins) {
-    for (uint32_t i = 0; i < model->data->skinCount; i++) {
-      if (model->dirtySkins & (1 << i)) { // TODO biterationtrinsics
-        // dispatch, CAS, URGGGG
-        model->dirtySkins &= ~(1 << i);
+    if (model->data->skinCount > 0 && model->lastReskin != state.tick) {
+      if (!state.animator) {
+        state.animator = lovrShaderCreate(&(ShaderInfo) {
+          .type = SHADER_COMPUTE,
+          .source[0] = lovr_shader_animator,
+          .length[0] = sizeof(lovr_shader_animator),
+          .flags = &(ShaderFlag) { "local_size_x_id", 0, state.hardware.subgroupSize },
+          .flagCount = 1,
+          .label = "animator"
+        });
       }
+
+      gpu_pipeline* pipeline = state.pipelines[state.animator->computePipelineIndex];
+      gpu_bind_pipeline(state.computes->stream, pipeline, true);
+
+      gpu_binding bindings[4] = {
+        [0].buffer = { model->rawVertexBuffer->mega.gpu, model->rawVertexBuffer->mega.offset, model->skinnedVertexCount * sizeof(ModelVertex) },
+        [1].buffer = { model->vertexBuffer->mega.gpu, model->vertexBuffer->mega.offset, model->skinnedVertexCount * sizeof(ModelVertex) },
+        [2].buffer = { model->skinBuffer->mega.gpu, model->skinBuffer->mega.offset, model->skinnedVertexCount * 8 },
+        [3].buffer = { NULL, 0, 0 } // Filled in for each skin
+      };
+
+      uint32_t baseVertex = 0;
+      for (uint32_t i = 0; i < model->data->skinCount; i++) {
+        ModelSkin* skin = &model->data->skins[i];
+        uint32_t vertexCount = model->skinVertexCounts[i];
+
+        // Joint transforms
+        float transform[16];
+        uint32_t align = state.limits.uniformBufferAlign;
+        Megaview joints = allocateBuffer(GPU_MEMORY_CPU_WRITE, 64 * skin->jointCount, align);
+        bindings[3].buffer = (gpu_buffer_binding) { joints.gpu, joints.offset, 64 * skin->jointCount };
+        for (uint32_t j = 0; j < skin->jointCount; j++) {
+          mat4_init(transform, model->globalTransforms + 16 * skin->joints[j]);
+          mat4_mul(transform, skin->inverseBindMatrices + 16 * j);
+          memcpy(joints.data + 16 * j * sizeof(float), transform, sizeof(transform));
+        }
+
+        // Bindings
+        gpu_bundle* bundle = allocateBundle(state.animator->layout);
+        gpu_bundle_info info = { .layout = state.layouts[state.animator->layout], .bindings = bindings };
+        gpu_bundle_write(&bundle, &info, 1);
+        gpu_bind_bundle(state.computes->stream, pipeline, true, 0, bundle, NULL, 0);
+
+        // Constants
+        uint32_t constants[] = { baseVertex, vertexCount };
+        gpu_push_constants(state.computes->stream, pipeline, true, constants, sizeof(constants));
+
+        // Dispatch
+        uint32_t subgroupSize = state.hardware.subgroupSize;
+        uint32_t workgroupCount = (vertexCount + subgroupSize - 1) / subgroupSize;
+        gpu_compute(state.computes->stream, workgroupCount, 1, 1);
+        baseVertex += vertexCount;
+      }
+
+      BufferAccess access = { model->vertexBuffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE };
+      arr_push(&state.computes->buffers, access);
+      lovrRetain(model->vertexBuffer);
+      model->lastReskin = state.tick;
     }
+
+    model->transformsDirty = false;
   }
 
   if (node == ~0u) {
@@ -2273,7 +2344,7 @@ void lovrGraphicsReplay(Batch* batch) {
     gpu_pipeline* pipeline = state.pipelines[first->pipeline];
 
     if (group->dirty & DIRTY_PIPELINE) {
-      gpu_bind_pipeline_graphics(state.pass->stream, pipeline);
+      gpu_bind_pipeline(state.pass->stream, pipeline, false);
       state.boundPipeline = pipeline;
       state.stats.pipelineBinds++;
     }
@@ -2346,12 +2417,13 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
   gpu_pipeline* pipeline = state.pipelines[shader->computePipelineIndex];
 
   if (pipeline != state.boundPipeline) {
-    gpu_bind_pipeline_compute(state.pass->stream, pipeline);
+    gpu_bind_pipeline(state.pass->stream, pipeline, true);
     state.boundPipeline = pipeline;
   }
 
   if (state.constantsDirty && shader->constantSize > 0) {
-    gpu_push_constants(state.pass->stream, pipeline, state.constantData, shader->constantSize);
+    bool compute = true;
+    gpu_push_constants(state.pass->stream, pipeline, compute, state.constantData, shader->constantSize);
     state.constantsDirty = false;
   }
 
@@ -3042,14 +3114,15 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 
   ReflectionInfo reflection;
   memset(&reflection, 0, sizeof(reflection));
+  uint32_t userGroup = info->type == SHADER_GRAPHICS ? 2 : 0;
 
   if (info->type == SHADER_COMPUTE) {
     lovrCheck(info->source[0] && !info->source[1], "Compute shaders require one stage");
-    parseSpirv(info->source[0], info->length[0], GPU_STAGE_COMPUTE, &reflection);
+    parseSpirv(info->source[0], info->length[0], GPU_STAGE_COMPUTE, userGroup, &reflection);
   } else {
     lovrCheck(info->source[0] && info->source[1], "Currently, graphics shaders require two stages");
-    parseSpirv(info->source[0], info->length[0], GPU_STAGE_VERTEX, &reflection);
-    parseSpirv(info->source[1], info->length[1], GPU_STAGE_FRAGMENT, &reflection);
+    parseSpirv(info->source[0], info->length[0], GPU_STAGE_VERTEX, userGroup, &reflection);
+    parseSpirv(info->source[1], info->length[1], GPU_STAGE_FRAGMENT, userGroup, &reflection);
   }
 
   // Copy some of the reflection info (maybe it should just write directly to Shader*)?
@@ -3064,17 +3137,9 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->flagCount = reflection.flagCount;
   shader->attributeMask = reflection.attributeMask;
 
-  // Validate built in bindings (can be as little or as much as we want really)
-  lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera (slot 0.0)");
-  lovrCheck(reflection.slots[0][1].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draws (slot 0.1)");
-  lovrCheck(reflection.slots[0][2].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.2");
-  lovrCheck(reflection.slots[0][3].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.3");
-  lovrCheck(reflection.slots[0][4].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.4");
-  lovrCheck(reflection.slots[0][5].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.5");
-
   // Preprocess user bindings
-  for (uint32_t i = 0; i < COUNTOF(reflection.slots[2]); i++) {
-    gpu_slot slot = reflection.slots[2][i];
+  for (uint32_t i = 0; i < COUNTOF(reflection.slots[userGroup]); i++) {
+    gpu_slot slot = reflection.slots[userGroup][i];
     if (!slot.stage) continue;
     uint32_t index = shader->resourceCount++;
     bool buffer = slot.type == GPU_SLOT_UNIFORM_BUFFER || slot.type == GPU_SLOT_STORAGE_BUFFER;
@@ -3093,25 +3158,37 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   // Filter empties from slots, so contiguous slot list can be used to hash/create layout
   for (uint32_t i = 0; i < shader->resourceCount; i++) {
     if (shader->resourceSlots[i] > i) {
-      reflection.slots[2][i] = reflection.slots[2][shader->resourceSlots[i]];
+      reflection.slots[userGroup][i] = reflection.slots[userGroup][shader->resourceSlots[i]];
     }
   }
 
-  shader->material = lookupMaterialBlock(&reflection.material);
-
   if (shader->resourceCount > 0) {
-    shader->layout = lookupLayout(reflection.slots[2], shader->resourceCount);
+    shader->layout = lookupLayout(reflection.slots[userGroup], shader->resourceCount);
+  } else {
+    shader->layout = ~0u;
   }
 
   gpu_shader_info gpuInfo = {
     .stages[0] = { info->source[0], info->length[0] },
     .stages[1] = { info->source[1], info->length[1] },
-    .layouts[0] = state.layouts[0],
-    .layouts[1] = state.layouts[state.materials[shader->material].layout],
-    .layouts[2] = shader->resourceCount > 0 ? state.layouts[shader->layout] : NULL,
     .pushConstantSize = reflection.constantSize,
     .label = info->label
   };
+
+  if (info->type == SHADER_GRAPHICS) {
+    lovrCheck(reflection.slots[0][0].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for camera (slot 0.0)");
+    lovrCheck(reflection.slots[0][1].type == GPU_SLOT_UNIFORM_BUFFER, "Expected uniform buffer for draws (slot 0.1)");
+    lovrCheck(reflection.slots[0][2].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.2");
+    lovrCheck(reflection.slots[0][3].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.3");
+    lovrCheck(reflection.slots[0][4].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.4");
+    lovrCheck(reflection.slots[0][5].type == GPU_SLOT_SAMPLER, "Expected sampler at slot 0.5");
+    shader->material = lookupMaterialBlock(&reflection.material);
+    gpuInfo.layouts[0] = state.layouts[0];
+    gpuInfo.layouts[1] = state.layouts[state.materials[shader->material].layout];
+  }
+
+  // Graphics shaders have user resources in set #2, whereas compute shaders have them in set #0
+  gpuInfo.layouts[userGroup] = shader->resourceCount > 0 ? state.layouts[shader->layout] : NULL;
 
   lovrAssert(gpu_shader_init(shader->gpu, &gpuInfo), "Could not create Shader");
   lovrShaderInit(shader);
@@ -3465,7 +3542,7 @@ void lovrBatchReset(Batch* batch) {
 static LOVR_THREAD_LOCAL Batch* sortBatch;
 
 // Opaque sort groups by state change, and uses front-to-back depth as a tie breaker
-static int cmpOpaque(const void* a, const void* b) {
+static int opaquecmp(const void* a, const void* b) {
   uint32_t i = *(uint32_t*) a;
   uint32_t j = *(uint32_t*) b;
   uint64_t key1, key2;
@@ -3478,7 +3555,7 @@ static int cmpOpaque(const void* a, const void* b) {
 }
 
 // Transparent sort orders by depth and the 32 bits after depth (e.g. pipeline, doesn't matter much)
-static int cmpTransparent(const void* a, const void* b) {
+static int transparentcmp(const void* a, const void* b) {
   uint32_t i = *(uint32_t*) a;
   uint32_t j = *(uint32_t*) b;
   uint64_t key1, key2;
@@ -3496,7 +3573,7 @@ void lovrBatchSort(Batch* batch, SortMode mode) {
   }
 
   sortBatch = batch;
-  qsort(batch->activeDraws, batch->activeDrawCount, sizeof(uint32_t), mode == SORT_OPAQUE ? cmpOpaque : cmpTransparent);
+  qsort(batch->activeDraws, batch->activeDrawCount, sizeof(uint32_t), mode == SORT_OPAQUE ? opaquecmp : transparentcmp);
   batch->groupedCount = 0;
 }
 
@@ -3512,21 +3589,31 @@ void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i),
 
 // Model
 
+static int u32cmp(const void* a, const void* b) {
+  uint32_t x = *(uint32_t*) a, y = *(uint32_t*) b;
+  return (x > y) - (x < y);
+}
+
 Model* lovrModelCreate(ModelInfo* info) {
   ModelData* data = info->data;
   Model* model = calloc(1, sizeof(Model));
   lovrAssert(model, "Out of memory");
   model->ref = 1;
   model->data = data;
+  model->lastReskin = state.tick - 1;
   lovrRetain(data);
 
-  // Oh no
+  // Allocate
   model->draws = calloc(data->primitiveCount, sizeof(DrawInfo));
   model->textures = malloc(data->imageCount * sizeof(Texture*));
   model->materials = malloc(data->materialCount * sizeof(Material*));
+  model->skinVertexCounts = calloc(data->skinCount, sizeof(uint32_t));
   lovrAssert(model->draws, "Out of memory");
   lovrAssert(model->textures, "Out of memory");
   lovrAssert(model->materials, "Out of memory");
+  lovrAssert(model->skinVertexCounts, "Out of memory");
+
+  // Textures and materials
 
   for (uint32_t i = 0; i < data->imageCount; i++) {
     Image* image = data->images[i];
@@ -3575,27 +3662,51 @@ Model* lovrModelCreate(ModelInfo* info) {
     });
   }
 
+  // Vertex and index buffers, draws
+
+  // Vertices in the Model's buffers are ordered by their skin to simplify animation implementation
+  uint32_t* primitiveMap = talloc(data->primitiveCount * sizeof(uint32_t));
+  memset(primitiveMap, 0xff, data->primitiveCount * sizeof(uint32_t));
+  for (uint32_t i = 0; i < data->nodeCount; i++) {
+    ModelNode* node = &data->nodes[i];
+    for (uint32_t j = 0; j < node->primitiveCount; j++) {
+      uint32_t index = node->primitiveIndex + j;
+
+      // For easier qsorting, the high bits are the skin and the low bits are the primitive index
+      uint32_t entry = (node->skin << 16) | index;
+
+      // While building up the list, verify that each primitive is only used by a single skin
+      if (primitiveMap[index] != ~0u) {
+        bool skinsMatch = ((primitiveMap[index] & 0xffff) >> 16) == (node->skin & 0xffff);
+        lovrCheck(skinsMatch, "Model has a mesh used with multiple skins, this is currently unsupported");
+      }
+
+      primitiveMap[index] = entry;
+    }
+  }
+
+  qsort(primitiveMap, data->primitiveCount, sizeof(uint32_t), u32cmp);
+
   // First pass: determine vertex format, count vertices and indices, validate meshes
   // TODO modeldata can u pls tell me how many vertices/indices "total" (2 types of total)
-  // TODO actually potentially everything here should just go in ModelData and ModelData should just
-  // match the 'canonical lovr model format' more closely.  That way we don't have to compute a
-  // bunch of stuff and do format conversions.  Unclear.
   uint32_t totalIndexCount = 0;
   uint32_t totalVertexCount = 0;
-  uint32_t* baseVertex = talloc(data->primitiveCount * sizeof(uint32_t));
-  uint32_t* vertexCount = talloc(data->primitiveCount * sizeof(uint32_t));
   gpu_index_type indexType = GPU_INDEX_U16;
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
-    ModelPrimitive* primitive = &data->primitives[i];
+    uint32_t skin = primitiveMap[i] >> 16;
+    uint32_t index = primitiveMap[i] & 0xffff;
+    ModelPrimitive* primitive = &data->primitives[index];
     ModelAttribute* position = primitive->attributes[ATTR_POSITION];
     lovrCheck(position, "Sorry, currently I can not load models without position attributes!");
     lovrCheck(primitive->topology != TOPOLOGY_LINE_LOOP, "Sorry, currently I can not load models with a 'line loop' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_LINE_STRIP, "Sorry, currently I can not load models with a 'line strip' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_TRIANGLE_STRIP, "Sorry, currently I can not load models with a 'triangle strip' draw mode (please report this!)");
     lovrCheck(primitive->topology != TOPOLOGY_TRIANGLE_FAN, "Sorry, currently I can not load models with a 'triangle fan' draw mode (please report this!)");
-    baseVertex[i] = totalVertexCount;
-    vertexCount[i] = position->count;
     totalVertexCount += position->count;
+    if (skin != 0xffff) {
+      model->skinnedVertexCount += position->count;
+      model->skinVertexCounts[skin] += position->count;
+    }
     if (primitive->indices) {
       totalIndexCount += primitive->indices->count;
       if (primitive->indices->type == U32) {
@@ -3604,36 +3715,44 @@ Model* lovrModelCreate(ModelInfo* info) {
     }
   }
 
-  // Create buffers
-
   void* vertices;
   void* indices;
-  void* skin;
+  void* skinData;
 
-  model->rawVertexBuffer = lovrBufferCreate(&(BufferInfo) {
+  if (model->skinnedVertexCount > 0) {
+    // The skin buffer holds joint indices and weights
+    model->skinBuffer = lovrBufferCreate(&(BufferInfo) {
+      .usage = BUFFER_COMPUTE,
+      .length = model->skinnedVertexCount,
+      .stride = 8,
+      .fieldCount = 2,
+      .offsets = { 0, 4 },
+      .types = { FIELD_U8x4, FIELD_U8Nx4 }
+    }, &skinData);
+
+    // Each skinned vertex needs a copy of its initial (raw) data
+    model->rawVertexBuffer = lovrBufferCreate(&(BufferInfo) {
+      .usage = BUFFER_COMPUTE,
+      .length = model->skinnedVertexCount,
+      .format = VERTEX_MODEL
+    }, NULL);
+  }
+
+  model->vertexBuffer = lovrBufferCreate(&(BufferInfo) {
     .usage = BUFFER_VERTEX | BUFFER_COMPUTE,
     .length = totalVertexCount,
     .format = VERTEX_MODEL
   }, &vertices);
 
-  if (data->skinCount > 0) {
-    model->vertexBuffer = lovrBufferCreate(&(BufferInfo) {
-      .usage = BUFFER_VERTEX | BUFFER_COMPUTE,
-      .length = totalVertexCount,
-      .format = VERTEX_MODEL
-    }, NULL);
-
-    model->skinBuffer = lovrBufferCreate(&(BufferInfo) {
-      .usage = BUFFER_COMPUTE,
-      .length = totalVertexCount,
-      .stride = 8,
-      .fieldCount = 2,
-      .offsets = { 0, 4 },
-      .types = { FIELD_U8x4, FIELD_U8Nx4 }
-    }, &skin);
-  } else {
-    model->vertexBuffer = model->rawVertexBuffer;
-    lovrRetain(model->vertexBuffer);
+  // Issue a copy from the main vertex buffer to the raw buffer (the reason this isn't combined with
+  // the if above is so all of the skinning buffers are next to each other in the megabuffer)
+  if (model->skinnedVertexCount > 0) {
+    lovrGraphicsPrepare();
+    Megaview* src = &model->vertexBuffer->mega;
+    Megaview* dst = &model->rawVertexBuffer->mega;
+    uint32_t size = model->skinnedVertexCount * sizeof(ModelVertex);
+    gpu_copy_buffers(state.uploads->stream, src->gpu, dst->gpu, src->offset, dst->offset, size);
+    state.stats.copies++;
   }
 
   uint32_t indexStride = indexType == GPU_INDEX_U32 ? 4 : 2;
@@ -3644,13 +3763,14 @@ Model* lovrModelCreate(ModelInfo* info) {
       .stride = indexStride,
       .fieldCount = 1,
       .types[0] = indexType == GPU_INDEX_U32 ? FIELD_U32 : FIELD_U16
-    }, (void**) &indices);
+    }, &indices);
   }
 
-  // Second pass: write draws, now that buffers are known
+  // Second pass: write draws, now that buffer details are known
   for (uint32_t i = 0, vertexCursor = 0, indexCursor = 0; i < data->primitiveCount; i++) {
-    DrawInfo* draw = &model->draws[i];
-    ModelPrimitive* primitive = &data->primitives[i];
+    uint32_t index = primitiveMap[i] & 0xffff;
+    DrawInfo* draw = &model->draws[index];
+    ModelPrimitive* primitive = &data->primitives[index];
     uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
     uint32_t indexCount = primitive->indices ? primitive->indices->count : 0;
 
@@ -3683,7 +3803,8 @@ Model* lovrModelCreate(ModelInfo* info) {
   // Third pass: Write data to buffers, converting to the vertex format's types
   // TODO modeldata can u pls tell me the pointer/stride of each attr idc if it duplicates info
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
-    ModelPrimitive* primitive = &data->primitives[i];
+    uint32_t index = primitiveMap[i] & 0xffff;
+    ModelPrimitive* primitive = &data->primitives[index];
     uint32_t count = primitive->attributes[ATTR_POSITION]->count;
     ModelAttribute* attribute;
 
@@ -3693,11 +3814,11 @@ Model* lovrModelCreate(ModelInfo* info) {
       lovrCheck(attribute->type == F32 && attribute->components == 3, "Model position attribute must be 3 floats");
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
       uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
-      for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+      for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
         memcpy(&vertex->position, src, 3 * sizeof(float));
       }
     } else {
-      for (uint32_t i = 0; i < count; i++, vertex++) {
+      for (uint32_t j = 0; j < count; j++, vertex++) {
         memset(&vertex->position, 0, 3 * sizeof(float));
       }
     }
@@ -3705,17 +3826,17 @@ Model* lovrModelCreate(ModelInfo* info) {
     // Normal
     vertex = vertices;
     if ((attribute = primitive->attributes[ATTR_NORMAL]) != NULL) {
-      lovrCheck(attribute->type == F32 && attribute->components == 3, "Model normal attribute must be 3 floats");
+      lovrCheck(attribute->type == F32 && attribute->components == 3, "Model normal attribute must be 3 floats when present");
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
       uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
-      for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+      for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
         float* normal = (float*) src;
         vertex->normal.nx = (unsigned) ((normal[0] + 1.f) * .5f * 0x3ff);
         vertex->normal.ny = (unsigned) ((normal[1] + 1.f) * .5f * 0x3ff);
         vertex->normal.nz = (unsigned) ((normal[2] + 1.f) * .5f * 0x3ff);
       }
     } else {
-      for (uint32_t i = 0; i < count; i++, vertex++) {
+      for (uint32_t j = 0; j < count; j++, vertex++) {
         vertex->normal.nx = 0x200;
         vertex->normal.ny = 0x200;
         vertex->normal.nz = 0x200;
@@ -3729,28 +3850,28 @@ Model* lovrModelCreate(ModelInfo* info) {
       uint32_t stride = data->buffers[attribute->buffer].stride;
       if (attribute->type == U8 && attribute->normalized) {
         stride = stride ? stride : 2;
-        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+        for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
           uint8_t* uv = (uint8_t*) src;
           vertex->uv.u = uv[0] / 255.f;
           vertex->uv.v = uv[1] / 255.f;
         }
       } else if (attribute->type == U16 && attribute->normalized) {
         stride = stride ? stride : 4;
-        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+        for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
           uint16_t* uv = (uint16_t*) src;
           vertex->uv.u = uv[0] / 65535.f;
           vertex->uv.v = uv[1] / 65535.f;
         }
       } else if (attribute->type == F32) {
         stride = stride ? stride : 8;
-        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+        for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
           memcpy(&vertex->uv, src, 2 * sizeof(float));
         }
       } else {
         lovrThrow("Model uses unsupported data type for texcoord attribute");
       }
     } else {
-      for (uint32_t i = 0; i < count; i++, vertex++) {
+      for (uint32_t j = 0; j < count; j++, vertex++) {
         vertex->uv.u = 0.f;
         vertex->uv.v = 0.f;
       }
@@ -3763,19 +3884,19 @@ Model* lovrModelCreate(ModelInfo* info) {
       if (attribute->type == U8 && attribute->normalized) {
         if (attribute->components == 4) {
           stride = stride ? stride : 4;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+          for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
             memcpy(&vertex->color, src, 4);
           }
         } else {
           stride = stride ? stride : 3;
-          for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+          for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
             memcpy(&vertex->color, src, 3);
             vertex->color.a = 255;
           }
         }
       } else if (attribute->type == U16 && attribute->normalized) {
         stride = stride ? stride : (2 * attribute->components);
-        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+        for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
           uint16_t* color = (uint16_t*) src;
           vertex->color.r = color[0] >> 8;
           vertex->color.g = color[1] >> 8;
@@ -3784,7 +3905,7 @@ Model* lovrModelCreate(ModelInfo* info) {
         }
       } else if (attribute->type == F32) {
         stride = stride ? stride : (4 * attribute->components);
-        for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+        for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
           float* color = (float*) src;
           vertex->color.r = color[0] * 255.f + .5f;
           vertex->color.g = color[1] * 255.f + .5f;
@@ -3795,17 +3916,17 @@ Model* lovrModelCreate(ModelInfo* info) {
         lovrThrow("Model uses unsupported data type for color attribute");
       }
     } else {
-      for (uint32_t i = 0; i < count; i++, vertex++) {
+      for (uint32_t j = 0; j < count; j++, vertex++) {
         memset(&vertex->color, 0xff, 4 * sizeof(uint8_t));
       }
     }
 
     vertex = vertices;
     if ((attribute = primitive->attributes[ATTR_TANGENT]) != NULL) {
-      lovrCheck(attribute->type == F32 && attribute->components == 3, "Model tangent attribute must be 3 floats");
+      lovrCheck(attribute->type == F32 && attribute->components == 4, "Model tangent attribute must be 4 floats when present");
       char* src = data->buffers[attribute->buffer].data + attribute->offset;
-      uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 12;
-      for (uint32_t i = 0; i < count; i++, src += stride, vertex++) {
+      uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 16;
+      for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
         float* tangent = (float*) src;
         vertex->tangent.x = (unsigned) ((tangent[0] + 1.f) * .5f * 0x3ff);
         vertex->tangent.y = (unsigned) ((tangent[1] + 1.f) * .5f * 0x3ff);
@@ -3813,7 +3934,7 @@ Model* lovrModelCreate(ModelInfo* info) {
         vertex->tangent.handedness = (unsigned) (tangent[3] == -1.f ? 0x0 : 0x3);
       }
     } else {
-      for (uint32_t i = 0; i < count; i++, vertex++) {
+      for (uint32_t j = 0; j < count; j++, vertex++) {
         vertex->tangent.x = 0x200;
         vertex->tangent.y = 0x200;
         vertex->tangent.z = 0x200;
@@ -3823,63 +3944,78 @@ Model* lovrModelCreate(ModelInfo* info) {
 
     vertices = (char*) vertices + count * sizeof(ModelVertex);
 
-    if (skin) {
+    if (model->skinnedVertexCount > 0) {
       struct {
         uint8_t indices[4];
         uint8_t weights[4];
-      } *p;
+      } *vertex;
 
-      p = skin;
+      vertex = skinData;
       if ((attribute = primitive->attributes[ATTR_JOINTS]) != NULL) {
-        lovrCheck(attribute->type == U8 && attribute->components == 4, "Currently, 16 bit joint indices are not supported");
+        lovrCheck(attribute->components == 4, "Vertex joint attribute must have 4 components");
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
-        uint32_t stride = data->buffers[attribute->buffer].stride ? data->buffers[attribute->buffer].stride : 4;
-        for (uint32_t i = 0; i < count; i++, src += stride, p++) {
-          memcpy(p->indices, src, 4);
+        uint32_t stride = data->buffers[attribute->buffer].stride;
+        if (attribute->type == U16) {
+          stride = stride ? stride : 8;
+          // u16 joints are accepted, but they must only hold u8 values (checked elsewhere)
+          for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
+            uint16_t* indices = (uint16_t*) src;
+            vertex->indices[0] = (uint8_t) indices[0];
+            vertex->indices[1] = (uint8_t) indices[1];
+            vertex->indices[2] = (uint8_t) indices[2];
+            vertex->indices[3] = (uint8_t) indices[3];
+          }
+        } else if (attribute->type == U8) {
+          stride = stride ? stride : 4;
+          for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
+            memcpy(vertex->indices, src, 4);
+          }
+        } else {
+          lovrThrow("Model uses unsupported data type for vertex joints");
         }
       } else {
-        for (uint32_t i = 0; i < count; i++, p++) {
-          memset(p->indices, 0, 4 * sizeof(p->indices));
+        for (uint32_t j = 0; j < count; j++, vertex++) {
+          memset(vertex->indices, 0, 4 * sizeof(vertex->indices));
         }
       }
 
-      p = skin;
+      vertex = skinData;
       if ((attribute = primitive->attributes[ATTR_WEIGHTS]) != NULL) {
         lovrCheck(attribute->components == 4, "Vertex weight attribute must have 4 components");
         char* src = data->buffers[attribute->buffer].data + attribute->offset;
         uint32_t stride = data->buffers[attribute->buffer].stride;
         if (attribute->type == F32) {
           stride = stride ? stride : 16;
-          for (uint32_t i = 0; i < count; i++, src += stride, p++) {
+          for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
             float* weights = (float*) src;
-            p->weights[0] = (uint8_t) (weights[0] * 255.f + .5f);
-            p->weights[1] = (uint8_t) (weights[1] * 255.f + .5f);
-            p->weights[2] = (uint8_t) (weights[2] * 255.f + .5f);
-            p->weights[3] = (uint8_t) (weights[3] * 255.f + .5f);
+            vertex->weights[0] = (uint8_t) (weights[0] * 255.f + .5f);
+            vertex->weights[1] = (uint8_t) (weights[1] * 255.f + .5f);
+            vertex->weights[2] = (uint8_t) (weights[2] * 255.f + .5f);
+            vertex->weights[3] = (uint8_t) (weights[3] * 255.f + .5f);
           }
         } else if (attribute->type == U16 && attribute->normalized) {
           stride = stride ? stride : 8;
-          for (uint32_t i = 0; i < count; i++, src += stride, p++) {
+          for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
             uint16_t* weights = (uint16_t*) src;
-            p->weights[0] = (uint8_t) (weights[0] >> 8);
-            p->weights[1] = (uint8_t) (weights[1] >> 8);
-            p->weights[2] = (uint8_t) (weights[2] >> 8);
-            p->weights[3] = (uint8_t) (weights[3] >> 8);
+            vertex->weights[0] = (uint8_t) (weights[0] >> 8);
+            vertex->weights[1] = (uint8_t) (weights[1] >> 8);
+            vertex->weights[2] = (uint8_t) (weights[2] >> 8);
+            vertex->weights[3] = (uint8_t) (weights[3] >> 8);
           }
         } else if (attribute->type == U8 && attribute->normalized) {
-          for (uint32_t i = 0; i < count; i++, src += stride, p++) {
-            memcpy(p, src, 4);
+          for (uint32_t j = 0; j < count; j++, src += stride, vertex++) {
+            memcpy(vertex, src, 4);
           }
         } else {
           lovrThrow("Model uses unsupported data type for vertex weights");
         }
       } else {
-        for (uint32_t i = 0; i < count; i++, p++) {
-          memset(p->weights, 0, 4 * sizeof(p->weights));
+        for (uint32_t j = 0; j < count; j++, vertex++) {
+          memset(vertex->weights, 0, 4 * sizeof(vertex->weights));
         }
       }
 
-      skin = (char*) skin + count * sizeof(*p);
+      skinData = (char*) skinData + count * sizeof(*vertex);
     }
 
     if (primitive->indices) {
@@ -3889,62 +4025,19 @@ Model* lovrModelCreate(ModelInfo* info) {
     }
   }
 
+  // Skin limits
   lovrCheck(data->skinCount <= 32, "Currently, the max number of skins is 32 (Model has %d)", data->skinCount);
   for (uint32_t i = 0; i < data->skinCount; i++) {
     uint32_t jointCount = data->skins[i].jointCount;
     lovrAssert(jointCount <= 256, "Currently, the max number of joints per skin is 256 (skin #%d has %d)", i + 1, jointCount);
   }
 
-  // Precompute compute shader dispatch ranges for vertex skinning
-  // Each skin stores a set of contiguous vertex ranges that need to be skinned
-  // The implementation below is optimized for simplicity and succinctness, not for performance
-
-  // First, compute the skin used by each primitive, and ensure that primitives only use 1 skin
-  // Also compute a very loose upper bound on the number of dispatches required
-  uint32_t* primitiveSkins = talloc(data->primitiveCount * sizeof(uint32_t));
-  memset(primitiveSkins, 0xAA, data->primitiveCount); // Sentinel
-  uint32_t maxDispatches = 0;
-  for (uint32_t i = 0; i < data->nodeCount; i++) {
-    ModelNode* node = &data->nodes[i];
-    for (uint32_t j = 0; j < node->primitiveCount; j++) {
-      uint32_t index = node->primitiveIndex + j;
-      if (primitiveSkins[index] == 0xAAAAAAAA) {
-        primitiveSkins[index] = node->skin;
-        maxDispatches += node->skin != ~0u;
-      } else {
-        lovrCheck(primitiveSkins[index] == node->skin, "Model has a mesh used with multiple skins, this is currently unsupported");
-      }
-    }
-  }
-
-  // Next, allocate a list of dispatches and write each skin's dispatches to the list
-  // Need 2 ints per skin (the first dispatch and dispatch count) and 2 per dispatch (vertex range)
-  // For each skin, find primitives using this skin and write ranges.
-  uint32_t* words = malloc((data->skinCount * 2 + maxDispatches * 2) * sizeof(uint32_t));
-  lovrAssert(words, "Out of memory");
-  model->skinDispatchStart = words, words += data->skinCount;
-  model->skinDispatchCount = words, words += data->skinCount;
-  model->skinDispatches = words;
-  for (uint32_t i = 0, cursor = 0; i < data->skinCount; i++) {
-    model->skinDispatchStart[i] = cursor;
-    for (uint32_t j = 0; j < data->primitiveCount; j++) {
-      if (primitiveSkins[j] != i) continue;
-      model->skinDispatches[cursor++] = baseVertex[j];
-      model->skinDispatches[cursor] = vertexCount[j];
-      while (j < data->primitiveCount && primitiveSkins[j + 1] == i) {
-        model->skinDispatches[cursor] += vertexCount[j];
-        j++;
-      }
-      model->skinDispatchCount[i]++;
-      cursor++;
-    }
-  }
-
-  // Allocate transform arrays
+  // Transforms
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
   lovrModelResetPose(model);
+
   return model;
 }
 
@@ -3961,6 +4054,7 @@ void lovrModelDestroy(void* ref) {
   lovrRelease(model->vertexBuffer, lovrBufferDestroy);
   lovrRelease(model->indexBuffer, lovrBufferDestroy);
   lovrRelease(model->skinBuffer, lovrBufferDestroy);
+  free(model->skinVertexCounts);
   free(model->draws);
   free(model->materials);
   free(model->textures);
@@ -4089,7 +4183,10 @@ void lovrModelGetNodePose(Model* model, uint32_t node, float position[4], float 
     vec3_init(position, model->localTransforms[node].properties[PROP_TRANSLATION]);
     quat_init(rotation, model->localTransforms[node].properties[PROP_ROTATION]);
   } else {
-    updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+    if (model->transformsDirty) {
+      updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+      model->transformsDirty = false;
+    }
     mat4_getPosition(model->globalTransforms + 16 * node, position);
     mat4_getOrientation(model->globalTransforms + 16 * node, rotation);
   }
@@ -4190,7 +4287,10 @@ static void collectVertices(Model* model, uint32_t nodeIndex, float** vertices, 
 }
 
 void lovrModelGetTriangles(Model* model, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount) {
-  updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+  if (model->transformsDirty) {
+    updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+    model->transformsDirty = false;
+  }
   countVertices(model, model->data->rootNode, &model->vertexCount, &model->indexCount);
   *vertices = model->vertices;
   *indices = model->indices;
@@ -4258,7 +4358,10 @@ static void applyAABB(Model* model, uint32_t nodeIndex, float bounds[6]) {
 }
 
 void lovrModelGetBoundingBox(Model* model, float bounds[6]) {
-  updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+  if (model->transformsDirty) {
+    updateModelTransforms(model, model->data->rootNode, (float[]) MAT4_IDENTITY);
+    model->transformsDirty = false;
+  }
   bounds[0] = bounds[2] = bounds[4] = FLT_MAX;
   bounds[1] = bounds[3] = bounds[5] = FLT_MIN;
   applyAABB(model, model->data->rootNode, bounds);
@@ -4884,7 +4987,7 @@ static void clearState(gpu_pass* pass) {
 
 static void onMessage(void* context, const char* message, int severe) {
   if (severe) {
-    lovrThrow(message);
+    lovrLog(LOG_ERROR, "GPU", message);
   } else {
     lovrLog(LOG_DEBUG, "GPU", message);
   }
@@ -5089,7 +5192,7 @@ static void parseResourceType(const uint32_t* words, uint32_t wordCount, CacheDa
     *count = 1;
   }
 
-  // Use StorageClass to detect uniform/storage buffers
+  // Use StorageClass to detect buffer type (deprecated BlockBuffer decoration is not supported)
   switch (storageClass) {
     case 12: *slotType = GPU_SLOT_STORAGE_BUFFER; return;
     case 2: *slotType = GPU_SLOT_UNIFORM_BUFFER; return;
@@ -5125,7 +5228,7 @@ static void parseResourceType(const uint32_t* words, uint32_t wordCount, CacheDa
 // Beware, this function is long and ugly.  It parses spirv bytecode.  Maybe it could be moved to
 // its own library or swapped out for spirv-reflect.  However, spirv-reflect would cost 6k+ lines
 // and require a bunch of work to parse *its* output and transform it into something useful.
-static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, ReflectionInfo* reflection) {
+static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, uint32_t userGroup, ReflectionInfo* reflection) {
   const uint32_t* words = source;
   uint32_t wordCount = size / sizeof(uint32_t);
   const uint32_t* edge = words + wordCount - MIN_SPIRV_WORDS;
@@ -5228,10 +5331,8 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         value = instruction[3];
 
         if (decoration == 33) { // Binding
-          lovrCheck(value < 32, "Unsupported Shader code: variable %d uses binding %d, but the binding must be less than 32", id, value);
           cache[id].resource.binding = value;
         } else if (decoration == 34) { // Group
-          lovrCheck(value < 3, "Unsupported Shader code: variable %d is in group %d, but group must be less than 3", id, value);
           cache[id].resource.group = value;
         } else if (decoration == 30) { // Location
           lovrCheck(value < 32, "Unsupported Shader code: vertex shader uses attribute location %d, but locations must be less than 16", value);
@@ -5494,7 +5595,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         }
 
         // Ignore inputs/outputs and variables that aren't decorated with a group and binding (e.g. globals)
-        if (storageClass == 1 || storageClass == 3 || group > 2 || number == 0xff) {
+        if (storageClass == 1 || storageClass == 3 || group > 2 || number > 31) {
           break;
         }
 
@@ -5506,7 +5607,7 @@ static bool parseSpirv(const void* source, uint32_t size, uint8_t stage, Reflect
         bool buffer = slotType == GPU_SLOT_UNIFORM_BUFFER || slotType == GPU_SLOT_STORAGE_BUFFER;
         uint32_t namedId = buffer ? (words + cache[type].type.word)[3] : id;
         uint32_t nameWord = buffer ? cache[namedId].type.name : cache[namedId].resource.name;
-        if (group == 2 && !reflection->slotNames[number] && nameWord != 0xffff) {
+        if (group == userGroup && !reflection->slotNames[number] && nameWord != 0xffff) {
           char* name = (char*) (words + nameWord);
           size_t nameLength = strnlen(name, (wordCount - nameWord) * sizeof(uint32_t));
           reflection->slotNames[number] = hash32(name, nameLength);
@@ -5599,8 +5700,6 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
 }
 
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent) {
-  if (!model->transformsDirty) return;
-
   mat4 global = model->globalTransforms + 16 * nodeIndex;
   NodeTransform* local = &model->localTransforms[nodeIndex];
   vec3 T = local->properties[PROP_TRANSLATION];
@@ -5616,6 +5715,4 @@ static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* paren
   for (uint32_t i = 0; i < node->childCount; i++) {
     updateModelTransforms(model, node->children[i], global);
   }
-
-  model->transformsDirty = false;
 }

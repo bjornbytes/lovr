@@ -1,0 +1,46 @@
+#version 460
+
+layout(local_size_x = 32, local_size_x_id = 0) in;
+
+layout(push_constant) uniform Constants {
+  uint baseVertex;
+  uint vertexCount;
+};
+
+struct ModelVertex {
+  vec3 position;
+  uint normal;
+  vec2 uv;
+  uint color;
+  uint tangent;
+};
+
+struct SkinVertex {
+  uint indices;
+  uint weights;
+};
+
+layout(set = 0, binding = 0) readonly buffer VertexIn { ModelVertex vertexIn[]; };
+layout(set = 0, binding = 1) writeonly buffer VertexOut { ModelVertex vertexOut[]; };
+layout(set = 0, binding = 2) readonly buffer VertexWeights { SkinVertex skin[]; };
+layout(set = 0, binding = 3) uniform JointTransforms { mat4 joints[256]; };
+
+void main() {
+  if (gl_GlobalInvocationID.x >= vertexCount) return;
+  uint vertexIndex = baseVertex + gl_GlobalInvocationID.x;
+
+  uint indices = skin[vertexIndex].indices;
+  uint i0 = (indices >> 0) & 0xff;
+  uint i1 = (indices >> 8) & 0xff;
+  uint i2 = (indices >> 16) & 0xff;
+  uint i3 = (indices >> 24) & 0xff;
+  vec4 weights = unpackUnorm4x8(skin[vertexIndex].weights);
+
+  mat4 matrix = mat4(0);
+  matrix += joints[i0] * weights[0];
+  matrix += joints[i1] * weights[1];
+  matrix += joints[i2] * weights[2];
+  matrix += joints[i3] * weights[3];
+
+  vertexOut[vertexIndex].position = (matrix * vec4(vertexIn[vertexIndex].position, 1)).xyz;
+}

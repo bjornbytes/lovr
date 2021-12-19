@@ -464,9 +464,9 @@ vert = 'src/resources/*.vert'
 frag = 'src/resources/*.frag'
 comp = 'src/resources/*.comp'
 
-tup.foreach_rule(vert, 'glslangValidator -V --vn lovr_shader_%B_vert -o %o %f', '%f.h')
-tup.foreach_rule(frag, 'glslangValidator -V --vn lovr_shader_%B_frag -o %o %f', '%f.h')
-tup.foreach_rule(comp, 'glslangValidator -V --vn lovr_shader_%B -o %o %f', '%f.h')
+tup.foreach_rule(vert, 'glslangValidator --target-env vulkan1.1 --vn lovr_shader_%B_vert -o %o %f', '%f.h')
+tup.foreach_rule(frag, 'glslangValidator --target-env vulkan1.1 --vn lovr_shader_%B_frag -o %o %f', '%f.h')
+tup.foreach_rule(comp, 'glslangValidator --target-env vulkan1.1 --vn lovr_shader_%B -o %o %f', '%f.h')
 tup.rule({ vert .. '.h', frag .. '.h', comp .. '.h' }, "cat %f | sed '/\\/\\//d' | sed '/#/d' > %o", 'src/resources/shaders.h')
 src.extra_inputs += 'src/resources/shaders.h'
 

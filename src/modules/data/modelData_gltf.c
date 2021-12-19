@@ -751,7 +751,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     for (int i = (token++)->size; i > 0; i--, node++) {
       float* translation = node->transform.properties.translation;
       float* rotation = node->transform.properties.rotation;
-      float* scale = node->transform.properties.rotation;
+      float* scale = node->transform.properties.scale;
       memcpy(translation, (float[3]) { 0.f, 0.f, 0.f }, 3 * sizeof(float));
       memcpy(rotation, (float[4]) { 0.f, 0.f, 0.f, 1.f }, 4 * sizeof(float));
       memcpy(scale, (float[3]) { 1.f, 1.f, 1.f }, 3 * sizeof(float));
