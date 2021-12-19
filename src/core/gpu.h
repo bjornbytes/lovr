@@ -348,7 +348,7 @@ typedef enum {
   GPU_TYPE_I32x4,
   GPU_TYPE_U32x4,
   GPU_TYPE_F32x4
-} gpu_type;
+} gpu_attribute_type;
 
 typedef struct {
   uint8_t buffer;

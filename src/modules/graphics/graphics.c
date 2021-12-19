@@ -2501,7 +2501,7 @@ Buffer* lovrBufferInit(BufferInfo* info, bool transient, void** mapping) {
           .buffer = 0,
           .location = info->locations[i],
           .offset = info->offsets[i],
-          .type = (gpu_type) info->types[i]
+          .type = (gpu_attribute_type) info->types[i]
         };
         buffer->mask |= 1 << info->locations[i];
       }
