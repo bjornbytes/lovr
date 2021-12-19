@@ -1783,7 +1783,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 }
 
 static int l_lovrGraphicsNewMaterial(lua_State* L) {
-  MaterialInfo info;
+  MaterialInfo info = { 0 };
   MaterialProperty properties[32];
   info.properties = properties;
 
@@ -1792,7 +1792,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     info.type = MATERIAL_BASIC;
     info.propertyCount = 1;
     info.properties[0] = (MaterialProperty) {
-      .name = "texture",
+      .name = "colorTexture",
       .type = PROPERTY_TEXTURE,
       .value.texture = texture
     };
@@ -1810,7 +1810,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     if (lua_isuserdata(L, 2)) {
       info.propertyCount = 1;
       properties[0] = (MaterialProperty) {
-        .name = "texture",
+        .name = "colorTexture",
         .type = PROPERTY_TEXTURE,
         .value.texture = luax_checktype(L, 2, Texture)
       };
