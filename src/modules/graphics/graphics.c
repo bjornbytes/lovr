@@ -4698,8 +4698,8 @@ static void generateGeometry() {
       int16_t x = (int16_t) ((j / 128.f - .5f) * 0x7fff + .5f);
       int16_t y = (int16_t) ((.5f - i / 128.f) * 0x7fff + .5f);
       int16_t z = 0x0000;
-      uint16_t u = x + INT16_MIN;
-      uint16_t v = y + INT16_MIN;
+      uint16_t u = (uint16_t) (j / 128.f * 0xffff + .5f);
+      uint16_t v = (uint16_t) (i / 128.f * 0xffff + .5f);
       *vertices++ = (ShapeVertex) { { x, y, z }, { 0x200, 0x200, 0x3ff, 0x0 }, { u, v } };
       n++;
     }
