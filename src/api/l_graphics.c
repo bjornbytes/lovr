@@ -1868,6 +1868,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
 
   Material* material = lovrMaterialCreate(&info);
   luax_pushtype(L, Material, material);
+  lovrRelease(material, lovrMaterialDestroy);
   return 1;
 }
 
