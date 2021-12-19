@@ -552,7 +552,8 @@ bool lovrGraphicsInit(bool debug, bool vsync, uint32_t blockSize) {
       .mag = i == SAMPLER_NEAREST ? FILTER_NEAREST : FILTER_LINEAR,
       .mip = i >= SAMPLER_TRILINEAR ? FILTER_LINEAR : FILTER_NEAREST,
       .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
-      .anisotropy = i == SAMPLER_ANISOTROPIC ? state.limits.anisotropy : 0.f
+      .anisotropy = i == SAMPLER_ANISOTROPIC ? state.limits.anisotropy : 0.f,
+      .range[1] = -1.f
     });
   }
 
