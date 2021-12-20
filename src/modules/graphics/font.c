@@ -200,49 +200,11 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
 }
 
 void lovrFontMeasure(Font* font, const char* str, size_t length, float wrap, float* width, float* lastLineWidth, float* height, uint32_t* lineCount, uint32_t* glyphCount) {
-  float x = 0.f;
-  const char* end = str + length;
-  size_t bytes;
-  unsigned int previous = '\0';
-  unsigned int codepoint;
-  float scale = 1.f / font->pixelDensity;
-  *width = 0.f;
-  *lastLineWidth = 0.f;
-  *lineCount = 0;
-  *glyphCount = 0;
-
-  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
-    if (codepoint == '\n' || (wrap && x * scale > wrap && codepoint == ' ')) {
-      *width = MAX(*width, x * scale);
-      (*lineCount)++;
-      x = 0.f;
-      previous = '\0';
-      str += bytes;
-      continue;
-    }
-
-    // Tabs
-    if (codepoint == '\t') {
-      Glyph* space = lovrFontGetGlyph(font, ' ');
-      x += space->advance * 4.f;
-      str += bytes;
-      continue;
-    }
-
-    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
-
-    if (glyph->w > 0 && glyph->h > 0) {
-      (*glyphCount)++;
-    }
-
-    x += glyph->advance + lovrFontGetKerning(font, previous, codepoint);
-    previous = codepoint;
-    str += bytes;
-  }
-
-  *width = MAX(*width, x * scale);
-  *lastLineWidth = x * scale;
-  *height = ((*lineCount + 1) * lovrRasterizerGetHeight(font->rasterizer) * font->lineHeight) * (font->flip ? -1 : 1);
+  wrap *= font->pixelDensity;
+  lovrRasterizerMeasure(font->rasterizer, str, length, wrap, width, lastLineWidth, height, lineCount, glyphCount);
+  *width /= font->pixelDensity;
+  *lastLineWidth /= font->pixelDensity;
+  *height *= font->lineHeight * (font->flip ? -1 : 1);
 }
 
 uint32_t lovrFontGetPadding(Font* font) {

@@ -11,10 +11,10 @@
   <uses-permission android:name="android.permission.INTERNET" />
   <application android:allowBackup="false" android:label="LÖVR" android:extractNativeLibs="false" android:debuggable="true">
     <meta-data android:name="com.samsung.android.vr.application.mode" android:value="vr_only"/>
+    <meta-data android:name="com.oculus.supportedDevices" android:value="quest|quest2"/>
     <activity android:name="Activity" android:launchMode="singleTask" android:screenOrientation="landscape" android:excludeFromRecents="true">
       <meta-data android:name="android.app.lib_name" android:value="lovr"/>
       <meta-data android:name="com.oculus.vr.focusaware" android:value="true"/>
-      <meta-data android:name="com.oculus.supportedDevices" android:value="quest|quest2"/>
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="com.oculus.intent.category.VR"/>

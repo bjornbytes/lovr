@@ -54,6 +54,20 @@ static int l_lovrRasterizerHasGlyphs(lua_State* L) {
   return 1;
 }
 
+static int l_lovrRasterizerGetWidth(lua_State* L) {
+  Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
+  size_t length;
+  const char* string = luaL_checklstring(L, 2, &length);
+  float wrap = luax_optfloat(L, 4, 0.f);
+  float width, lastLineWidth, height;
+  uint32_t lineCount, glyphCount;
+  lovrRasterizerMeasure(rasterizer, string, length, wrap, &width, &lastLineWidth, &height, &lineCount, &glyphCount);
+  lua_pushnumber(L, width);
+  lua_pushnumber(L, lineCount + 1);
+  lua_pushnumber(L, lastLineWidth);
+  return 2;
+}
+
 const luaL_Reg lovrRasterizer[] = {
   { "getHeight", l_lovrRasterizerGetHeight },
   { "getAdvance", l_lovrRasterizerGetAdvance },
@@ -62,5 +76,6 @@ const luaL_Reg lovrRasterizer[] = {
   { "getLineHeight", l_lovrRasterizerGetLineHeight },
   { "getGlyphCount", l_lovrRasterizerGetGlyphCount },
   { "hasGlyphs", l_lovrRasterizerHasGlyphs },
+  { "getWidth", l_lovrRasterizerGetWidth },
   { NULL, NULL }
 };

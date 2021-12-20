@@ -90,7 +90,7 @@ JNIEXPORT void JNICALL Java_org_lovr_app_Activity_lovrPermissionEvent(JNIEnv* jn
   }
 }
 
-void os_request_permission(Permission permission) {
+void os_request_permission(os_permission permission) {
   // TODO
 }
 
@@ -114,7 +114,7 @@ void os_on_key(fn_key* callback) {
   //
 }
 
-void os_on_text*(fn_text* callback) {
+void os_on_text(fn_text* callback) {
   // TODO
 }
 
@@ -122,7 +122,7 @@ void os_on_permission(fn_permission* callback) {
   os.onPermissionEvent = callback;
 }
 
-bool os_window_open(const WindowFlags* flags) {
+bool os_window_open(const os_window_config* config) {
   return true;
 }
 
@@ -148,8 +148,8 @@ void os_window_swap() {
   //
 }
 
-void* os_get_gl_proc_address(const char* function) {
-  return (void*) eglGetProcAddress(function);
+fn_gl_proc* os_get_gl_proc_address(const char* function) {
+  return eglGetProcAddress(function);
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
@@ -457,8 +457,12 @@ HeadsetInterface lovrHeadsetPicoDriver = {
 
 // Activity callbacks
 
-static lua_State* L;
-static lua_State* T;
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+
+static struct lua_State* L;
+static struct lua_State* T;
 static Variant cookie;
 
 static void lovrPicoBoot(void) {
@@ -467,11 +471,7 @@ static void lovrPicoBoot(void) {
   L = luaL_newstate();
   luax_setmainthread(L);
   luaL_openlibs(L);
-
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "preload");
-  luax_register(L, lovrModules);
-  lua_pop(L, 2);
+  luax_preload(L);
 
   lua_pushcfunction(L, luax_getstack);
   if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {

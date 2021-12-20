@@ -120,7 +120,7 @@ static bool vrapi_getName(char* buffer, size_t length) {
 }
 
 static HeadsetOrigin vrapi_getOriginType(void) {
-  return vrapi_GetTrackingSpace(state.session) == VRAPI_TRACKING_SPACE_STAGE ? ORIGIN_FLOOR : ORIGIN_HEAD;
+  return vrapi_GetTrackingSpace(state.session) == VRAPI_TRACKING_SPACE_LOCAL_FLOOR ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
 static void vrapi_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -722,7 +722,7 @@ static void vrapi_update(float dt) {
     config.WindowSurface = (size_t) window;
     state.session = vrapi_EnterVrMode(&config);
     state.frameIndex = 0;
-    vrapi_SetTrackingSpace(state.session, VRAPI_TRACKING_SPACE_STAGE);
+    vrapi_SetTrackingSpace(state.session, VRAPI_TRACKING_SPACE_LOCAL_FLOOR);
     state.offset = 0.f;
   } else if (state.session && (appState != APP_CMD_RESUME || !window)) {
     vrapi_LeaveVrMode(state.session);

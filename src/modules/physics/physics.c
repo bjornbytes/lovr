@@ -184,7 +184,6 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
     contacts[c].surface.mode = 0;
     contacts[c].surface.mu = friction;
     contacts[c].surface.bounce = restitution;
-    contacts[c].surface.mu = dInfinity;
 
     if (restitution > 0) {
       contacts[c].surface.mode |= dContactBounce;
