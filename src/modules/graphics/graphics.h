@@ -185,6 +185,12 @@ typedef enum {
   WINDING_CLOCKWISE
 } Winding;
 
+// i | u | f for signed integer, unsigned integer, floating point
+// <bitcount>
+// n for normalized (signed integer goes to -1 to 1 in shader, unsigned integer goes to 0 - 1 in shader)
+// x<componentcount>
+// (or) matN for NxN matrix
+
 typedef enum {
   FIELD_I8,
   FIELD_U8,
@@ -243,8 +249,8 @@ typedef enum {
 typedef enum {
   SHADER_UNLIT,
   SHADER_FILL,
-  SHADER_CUBE,
-  SHADER_PANO,
+  SHADER_CUBE, // Cubemap-texture skybox
+  SHADER_PANO, // Spherical-coordinates/equirectangular skybox
   DEFAULT_SHADER_COUNT
 } DefaultShader;
 
