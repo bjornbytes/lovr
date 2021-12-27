@@ -10,6 +10,7 @@
 #if defined(_WIN32)
   #define XR_USE_PLATFORM_WIN32
   #define WIN32_LEAN_AND_MEAN
+  #include <unknwn.h>
   #include <windows.h>
 #elif defined(__ANDROID__)
   #define XR_USE_PLATFORM_ANDROID
