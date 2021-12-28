@@ -87,6 +87,7 @@ const char* lovrShaderFragmentPrefix = ""
 "out vec4 lovrCanvas[gl_MaxDrawBuffers]; \n"
 "uniform float lovrMetalness; \n"
 "uniform float lovrRoughness; \n"
+"uniform float lovrAlphaCutoff; \n"
 "uniform vec4 lovrDiffuseColor; \n"
 "uniform vec4 lovrEmissiveColor; \n"
 "uniform sampler2D lovrDiffuseTexture; \n"
@@ -124,7 +125,7 @@ const char* lovrShaderFragmentSuffix = ""
 "#else \n"
 "  lovrCanvas[0] = color(lovrGraphicsColor, lovrDiffuseTexture, lovrTexCoord); \n"
 "#ifdef FLAG_alphaCutoff \n"
-"  if (lovrCanvas[0].a < FLAG_alphaCutoff) { \n"
+"  if (lovrCanvas[0].a < lovrAlphaCutoff) { \n"
 "    discard; \n"
 "  } \n"
 "#endif \n"
@@ -372,7 +373,8 @@ const char* lovrFillVertexShader = ""
 
 const char* lovrShaderScalarUniforms[] = {
   "lovrMetalness",
-  "lovrRoughness"
+  "lovrRoughness",
+  "lovrAlphaCutoff"
 };
 
 const char* lovrShaderColorUniforms[] = {

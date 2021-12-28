@@ -58,6 +58,7 @@ typedef struct {
 typedef enum {
   SCALAR_METALNESS,
   SCALAR_ROUGHNESS,
+  SCALAR_ALPHA_CUTOFF,
   MAX_MATERIAL_SCALARS
 } MaterialScalar;
 

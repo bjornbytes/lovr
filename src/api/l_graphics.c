@@ -132,6 +132,7 @@ StringEntry lovrMaterialColor[] = {
 StringEntry lovrMaterialScalar[] = {
   [SCALAR_METALNESS] = ENTRY("metalness"),
   [SCALAR_ROUGHNESS] = ENTRY("roughness"),
+  [SCALAR_ALPHA_CUTOFF] = ENTRY("alphacutoff"),
   { 0 }
 };
 
