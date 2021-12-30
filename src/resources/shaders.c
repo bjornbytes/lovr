@@ -267,7 +267,7 @@ const char* lovrStandardFragmentShader = ""
 "  result = tonemap_ACES(result * lovrExposure); \n"
 "#endif \n"
 
-"  return lovrGraphicsColor * vec4(result, 1.); \n"
+"  return lovrGraphicsColor * vec4(result, lovrDiffuseColor.a ); \n"
 "}"
 
 // Helpers
