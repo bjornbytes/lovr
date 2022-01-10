@@ -1754,8 +1754,8 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
   lovrAssert(texture->type != TEXTURE_CUBE || width == height, "Cubemap images must be square");
   lovrAssert(texture->type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture");
   lovrAssert(texture->type != TEXTURE_2D || depth == 1, "2D textures can only contain a single image");
-  lovrAssert(width < maxSize, "Texture width %d exceeds max of %d", width, maxSize);
-  lovrAssert(height < maxSize, "Texture height %d exceeds max of %d", height, maxSize);
+  lovrAssert(width <= maxSize, "Texture width %d exceeds max of %d", width, maxSize);
+  lovrAssert(height <= maxSize, "Texture height %d exceeds max of %d", height, maxSize);
   lovrAssert(!texture->msaa || texture->type == TEXTURE_2D, "Only 2D textures can be created with MSAA");
 
   texture->allocated = true;
