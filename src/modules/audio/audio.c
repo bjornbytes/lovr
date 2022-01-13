@@ -31,6 +31,7 @@ struct Source {
   float radius;
   float dipoleWeight;
   float dipolePower;
+  float playbackRate;
   uint8_t effects;
   bool playing;
   bool looping;
@@ -422,6 +423,26 @@ void lovrAudioSetAbsorption(float absorption[3]) {
 
 // Source
 
+static void lovrSourceConfigureConverter(Source *source) {
+  ma_data_converter_config config = ma_data_converter_config_init_default();
+  config.formatIn = miniaudioFormats[lovrSoundGetFormat(source->sound)];
+  config.formatOut = miniaudioFormats[OUTPUT_FORMAT];
+  config.channelsIn = lovrSoundGetChannelCount(source->sound);
+  config.channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // See onPlayback
+  config.sampleRateIn = lovrSoundGetSampleRate(source->sound);
+  config.sampleRateOut = state.sampleRate;
+  config.resampling.allowDynamicSampleRate = true;
+
+  if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut || source->playbackRate != 1.0) {
+    if(!source->converter) {
+      source->converter = malloc(sizeof(ma_data_converter));
+      lovrAssert(source->converter, "Out of memory");
+    }
+    ma_result status = ma_data_converter_init(&config, source->converter);
+    lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
+  }
+}
+
 Source* lovrSourceCreate(Sound* sound, uint32_t effects) {
   lovrAssert(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
   Source* source = calloc(1, sizeof(Source));
@@ -435,23 +456,25 @@ Source* lovrSourceCreate(Sound* sound, uint32_t effects) {
   source->effects = effects;
   quat_identity(source->orientation);
 
-  ma_data_converter_config config = ma_data_converter_config_init_default();
-  config.formatIn = miniaudioFormats[lovrSoundGetFormat(sound)];
-  config.formatOut = miniaudioFormats[OUTPUT_FORMAT];
-  config.channelsIn = lovrSoundGetChannelCount(sound);
-  config.channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // See onPlayback
-  config.sampleRateIn = lovrSoundGetSampleRate(sound);
-  config.sampleRateOut = state.sampleRate;
-
-  if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
-    source->converter = malloc(sizeof(ma_data_converter));
-    lovrAssert(source->converter, "Out of memory");
-    ma_result status = ma_data_converter_init(&config, source->converter);
-    lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
-  }
+  lovrSourceConfigureConverter(source);
 
   return source;
 }
+
+void lovrSourceSetPlaybackRate(Source *source, float playbackRate) {
+  if (playbackRate == source->playbackRate) {
+    return;
+  }
+  ma_mutex_lock(&state.lock);
+  source->playbackRate = playbackRate;
+  if(!source->converter) {
+    lovrSourceConfigureConverter(source);
+  }
+  ma_data_converter_set_rate_ratio(source->converter, playbackRate);
+  ma_mutex_unlock(&state.lock);
+}
+
+
 
 Source* lovrSourceClone(Source* source) {
   Source* clone = calloc(1, sizeof(Source));

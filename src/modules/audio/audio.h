@@ -101,3 +101,4 @@ void lovrSourceGetDirectivity(Source* source, float* weight, float* power);
 void lovrSourceSetDirectivity(Source* source, float weight, float power);
 bool lovrSourceIsEffectEnabled(Source* source, Effect effect);
 void lovrSourceSetEffectEnabled(Source* Source, Effect effect, bool enabled);
+void lovrSourceSetPlaybackRate(Source *source, float playbackRate);

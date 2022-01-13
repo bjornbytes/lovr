@@ -208,6 +208,13 @@ static int l_lovrSourceSetEffectEnabled(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSourceSetPlaybackRate(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  double playbackRate = luaL_checknumber(L, 2);
+  lovrSourceSetPlaybackRate(source, playbackRate);
+  return 0;
+}
+
 const luaL_Reg lovrSource[] = {
   { "clone", l_lovrSourceClone },
   { "getSound", l_lovrSourceGetSound },
@@ -234,5 +241,6 @@ const luaL_Reg lovrSource[] = {
   { "setDirectivity", l_lovrSourceSetDirectivity },
   { "isEffectEnabled", l_lovrSourceIsEffectEnabled },
   { "setEffectEnabled", l_lovrSourceSetEffectEnabled },
+  { "setPlaybackRate", l_lovrSourceSetPlaybackRate },
   { NULL, NULL }
 };
