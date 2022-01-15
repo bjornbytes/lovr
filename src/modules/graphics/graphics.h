@@ -375,6 +375,7 @@ void lovrGraphicsCompute(uint32_t x, uint32_t y, uint32_t z, Buffer* buffer, uin
 
 // Buffer
 
+// See https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkBufferUsageFlagBits.html
 typedef enum {
   BUFFER_VERTEX  = (1 << 0),
   BUFFER_INDEX   = (1 << 1),
@@ -579,8 +580,8 @@ void lovrBatchFilter(Batch* batch, bool (*predicate)(void* context, uint32_t i),
 // Model
 
 typedef enum {
-  SPACE_LOCAL,
-  SPACE_GLOBAL
+  SPACE_LOCAL, // Coordinate relative to model
+  SPACE_GLOBAL // Coordinate relative to world
 } CoordinateSpace;
 
 typedef struct {
