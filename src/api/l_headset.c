@@ -114,9 +114,6 @@ static Device luax_optdevice(lua_State* L, int index) {
 }
 
 static int l_lovrHeadsetInit(lua_State* L) {
-  luax_pushconf(L);
-  lua_getfield(L, -1, "headset");
-
   size_t driverCount = 0;
   HeadsetDriver drivers[8];
   float supersample = 1.f;
@@ -124,48 +121,52 @@ static int l_lovrHeadsetInit(lua_State* L) {
   int msaa = 4;
   bool overlay = false;
 
+  luax_pushconf(L);
   if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "headset");
+    if (lua_istable(L, -1)) {
 
-    // Drivers
-    lua_getfield(L, -1, "drivers");
-    int n = luax_len(L, -1);
-    for (int i = 0; i < n; i++) {
-      lua_rawgeti(L, -1, i + 1);
-      drivers[driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
-      lovrAssert(driverCount < sizeof(drivers) / sizeof(drivers[0]), "Too many headset drivers specified in conf.lua");
+      // Drivers
+      lua_getfield(L, -1, "drivers");
+      int n = luax_len(L, -1);
+      for (int i = 0; i < n; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        drivers[driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
+        lovrAssert(driverCount < sizeof(drivers) / sizeof(drivers[0]), "Too many headset drivers specified in conf.lua");
+        lua_pop(L, 1);
+      }
+      lua_pop(L, 1);
+
+      // Supersample
+      lua_getfield(L, -1, "supersample");
+      if (lua_type(L, -1) == LUA_TBOOLEAN) {
+        supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
+      } else {
+        supersample = luax_optfloat(L, -1, 1.f);
+      }
+      lua_pop(L, 1);
+
+      // Offset
+      lua_getfield(L, -1, "offset");
+      offset = luax_optfloat(L, -1, 1.7f);
+      lua_pop(L, 1);
+
+      // MSAA
+      lua_getfield(L, -1, "msaa");
+      msaa = luaL_optinteger(L, -1, 4);
+      lua_pop(L, 1);
+
+      // Overlay
+      lua_getfield(L, -1, "overlay");
+      overlay = lua_toboolean(L, -1);
       lua_pop(L, 1);
     }
     lua_pop(L, 1);
-
-    // Supersample
-    lua_getfield(L, -1, "supersample");
-    if (lua_type(L, -1) == LUA_TBOOLEAN) {
-      supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
-    } else {
-      supersample = luax_optfloat(L, -1, 1.f);
-    }
-    lua_pop(L, 1);
-
-    // Offset
-    lua_getfield(L, -1, "offset");
-    offset = luax_optfloat(L, -1, 1.7f);
-    lua_pop(L, 1);
-
-    // MSAA
-    lua_getfield(L, -1, "msaa");
-    msaa = luaL_optinteger(L, -1, 4);
-    lua_pop(L, 1);
-
-    // Overlay
-    lua_getfield(L, -1, "overlay");
-    overlay = lua_toboolean(L, -1);
-    lua_pop(L, 1);
   }
+  lua_pop(L, 1);
 
   luax_atexit(L, lovrHeadsetDestroy); // Always make sure the headset module gets cleaned up
   lovrHeadsetInit(drivers, driverCount, supersample, offset, msaa, overlay);
-
-  lua_pop(L, 2);
   return 0;
 }
 
