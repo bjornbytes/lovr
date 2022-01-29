@@ -723,6 +723,7 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
 
   switch (button) {
     case BUTTON_TRIGGER: info.action = state.actions[ACTION_TRIGGER_DOWN + touch]; break;
+    case BUTTON_THUMBREST: info.action = state.actions[ACTION_THUMBREST_DOWN + touch]; break;
     case BUTTON_TOUCHPAD: info.action = state.actions[ACTION_TRACKPAD_DOWN + touch]; break;
     case BUTTON_MENU: info.action = state.actions[ACTION_MENU_DOWN + touch]; break;
     case BUTTON_GRIP: info.action = state.actions[ACTION_GRIP_DOWN + touch]; break;

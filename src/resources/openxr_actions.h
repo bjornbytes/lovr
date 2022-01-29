@@ -27,6 +27,8 @@ enum {
   ACTION_GRIP_DOWN,
   ACTION_GRIP_TOUCH,
   ACTION_GRIP_AXIS,
+  ACTION_THUMBREST_DOWN,
+  ACTION_THUMBREST_TOUCH,
   ACTION_VIBRATE,
   MAX_ACTIONS
 };
@@ -58,6 +60,7 @@ static XrActionCreateInfo actionCreateInfo[] = {
   [ACTION_GRIP_DOWN] = action("grip_down", "Grip Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
   [ACTION_GRIP_TOUCH] = action("grip_touch", "Grip Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
   [ACTION_GRIP_AXIS] = action("grip_axis", "Grip Axis", XR_ACTION_TYPE_FLOAT_INPUT),
+  [ACTION_THUMBREST_TOUCH] = action("thumbrest_touch", "Thumbrest Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
   [ACTION_VIBRATE] = action("vibrate", "Vibrate", XR_ACTION_TYPE_VIBRATION_OUTPUT),
 };
 #undef action
@@ -120,6 +123,8 @@ static const char* bindings[MAX_PROFILES][MAX_ACTIONS][2] = {
     [ACTION_GRIP_DOWN][1] = "/user/hand/right/input/squeeze/value",
     [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/squeeze/value",
     [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/squeeze/value",
+    [ACTION_THUMBREST_TOUCH][0] = "/user/hand/left/input/thumbrest/touch",
+    [ACTION_THUMBREST_TOUCH][1] = "/user/hand/right/input/thumbrest/touch",
     [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
     [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
   },

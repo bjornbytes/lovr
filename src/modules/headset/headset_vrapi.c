@@ -284,6 +284,7 @@ static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
   switch (button) {
     case BUTTON_TRIGGER: *touched = input->Touches & ovrTouch_IndexTrigger; return true;
     case BUTTON_THUMBSTICK: *touched = input->Touches & ovrTouch_Joystick; return true;
+    case BUTTON_THUMBREST: *touched = input->Touches & ovrTouch_ThumbRest; return true;
     case BUTTON_A: *touched = input->Touches & ovrTouch_A; return true;
     case BUTTON_B: *touched = input->Touches & ovrTouch_B; return true;
     case BUTTON_X: *touched = input->Touches & ovrTouch_X; return true;

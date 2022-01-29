@@ -56,6 +56,7 @@ StringEntry lovrDevice[] = {
 StringEntry lovrDeviceButton[] = {
   [BUTTON_TRIGGER] = ENTRY("trigger"),
   [BUTTON_THUMBSTICK] = ENTRY("thumbstick"),
+  [BUTTON_THUMBREST] = ENTRY("thumbrest"),
   [BUTTON_TOUCHPAD] = ENTRY("touchpad"),
   [BUTTON_GRIP] = ENTRY("grip"),
   [BUTTON_MENU] = ENTRY("menu"),
