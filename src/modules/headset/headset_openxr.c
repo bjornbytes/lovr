@@ -198,7 +198,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     XrExtensionProperties* extensions = calloc(extensionCount, sizeof(*extensions));
     lovrAssert(extensions, "Out of memory");
     for (uint32_t i = 0; i < extensionCount; i++) extensions[i].type = XR_TYPE_EXTENSION_PROPERTIES;
-    xrEnumerateInstanceExtensionProperties(NULL, 32, &extensionCount, extensions);
+    xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensions);
 
     const char* enabledExtensionNames[5];
     uint32_t enabledExtensionCount = 0;
