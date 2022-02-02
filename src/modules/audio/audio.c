@@ -562,12 +562,12 @@ bool lovrSourceUsesSpatializer(Source* source) {
   return source->effects != EFFECT_NONE; // Currently, all effects require the spatializer
 }
 
-void lovrSourceGetPose(Source *source, float position[4], float orientation[4]) {
+void lovrSourceGetPose(Source* source, float position[4], float orientation[4]) {
   memcpy(position, source->position, sizeof(source->position));
   memcpy(orientation, source->orientation, sizeof(source->orientation));
 }
 
-void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) {
+void lovrSourceSetPose(Source* source, float position[4], float orientation[4]) {
   ma_mutex_lock(&state.lock);
   memcpy(source->position, position, sizeof(source->position));
   memcpy(source->orientation, orientation, sizeof(source->orientation));

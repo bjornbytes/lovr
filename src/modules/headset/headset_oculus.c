@@ -51,7 +51,7 @@ static double oculus_getDisplayTime(void) {
   return ovr_GetPredictedDisplayTime(state.session, state.frameIndex);
 }
 
-static ovrTrackingState *refreshTracking(void) {
+static ovrTrackingState* refreshTracking(void) {
   static ovrTrackingState ts;
   if (!state.needRefreshTracking) {
     return &ts;
@@ -72,7 +72,7 @@ static ovrTrackingState *refreshTracking(void) {
   return &ts;
 }
 
-static ovrInputState *refreshButtons(void) {
+static ovrInputState* refreshButtons(void) {
   static ovrInputState is;
   if (!state.needRefreshButtons) {
     return &is;
@@ -248,7 +248,7 @@ static const float* oculus_getBoundsGeometry(uint32_t* count) {
 }
 
 ovrPoseStatef* getPose(Device device) {
-  ovrTrackingState *ts = refreshTracking();
+  ovrTrackingState* ts = refreshTracking();
   switch (device) {
     case DEVICE_HEAD: return &ts->HeadPose;
     case DEVICE_HAND_LEFT: return &ts->HandPoses[ovrHand_Left];

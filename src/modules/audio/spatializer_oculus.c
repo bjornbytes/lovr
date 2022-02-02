@@ -287,7 +287,7 @@ static void oculus_sourceCreate(Source* source) {
   *spatializerMemo = -1;
 }
 
-static void oculus_sourceDestroy(Source *source) {
+static void oculus_sourceDestroy(Source* source) {
   intptr_t* spatializerMemo = lovrSourceGetSpatializerMemoField(source);
   if (*spatializerMemo >= 0) {
     state.sources[*spatializerMemo].source = NULL;

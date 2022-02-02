@@ -642,7 +642,7 @@ static int l_lovrHeadsetGetTime(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
-  Texture *texture = NULL;
+  Texture* texture = NULL;
   if (lovrHeadsetDisplayDriver->getMirrorTexture)
     texture = lovrHeadsetDisplayDriver->getMirrorTexture();
   luax_pushtype(L, Texture, texture);

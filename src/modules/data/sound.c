@@ -447,6 +447,6 @@ uint32_t lovrSoundCopy(Sound* src, Sound* dst, uint32_t count, uint32_t srcOffse
   return frames;
 }
 
-void *lovrSoundGetCallbackMemo(Sound *sound) {
+void *lovrSoundGetCallbackMemo(Sound* sound) {
   return sound->callbackMemo;
 }
