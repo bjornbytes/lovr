@@ -287,6 +287,7 @@ if config.modules.physics then
   ode_cflags += '-Wno-undefined-var-template'
   ode_cflags += '-Wno-undefined-bool-conversion'
   ode_cflags += '-Wno-unused-value'
+  ode_cflags += '-Wno-null-dereference'
   ode_cflags += '-Ideps/ode/include'
   ode_cflags += '-Ideps/ode/ode/src'
   ode_c_src += 'deps/ode/ode/src/*.c'
