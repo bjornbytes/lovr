@@ -13,7 +13,7 @@ static int luax_checkattachment(lua_State* L, int index, Attachment* attachment)
     lua_pop(L, 1);
 
     lua_rawgeti(L, index, 2);
-    attachment->slice = luaL_optinteger(L, -1, 1) - 1;
+    attachment->slice = luax_optu32(L, -1, 1) - 1;
     lua_pop(L, 1);
 
     lua_rawgeti(L, index, 3);

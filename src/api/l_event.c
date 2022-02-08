@@ -184,7 +184,7 @@ static int l_lovrEventPush(lua_State* L) {
 }
 
 static int l_lovrEventQuit(lua_State* L) {
-  int exitCode = luaL_optinteger(L, 1, 0);
+  int exitCode = luaL_optint(L, 1, 0);
   Event event = { .type = EVENT_QUIT, .data.quit.exitCode = exitCode };
   lovrEventPush(event);
   return 0;

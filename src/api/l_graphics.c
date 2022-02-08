@@ -338,11 +338,11 @@ static int l_lovrGraphicsCreateWindow(lua_State* L) {
   luaL_checktype(L, 1, LUA_TTABLE);
 
   lua_getfield(L, 1, "width");
-  flags.width = luaL_optinteger(L, -1, 1080);
+  flags.width = luax_optu32(L, -1, 1080);
   lua_pop(L, 1);
 
   lua_getfield(L, 1, "height");
-  flags.height = luaL_optinteger(L, -1, 600);
+  flags.height = luax_optu32(L, -1, 600);
   lua_pop(L, 1);
 
   lua_getfield(L, 1, "fullscreen");
@@ -409,7 +409,7 @@ static int l_lovrGraphicsHasWindow(lua_State *L) {
 }
 
 static int l_lovrGraphicsGetViewPose(lua_State* L) {
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  uint32_t view = luax_checku32(L, 1) - 1;
   lovrAssert(view < 2, "Invalid view index %d", view + 1);
   if (lua_gettop(L) > 1) {
     float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
@@ -435,7 +435,7 @@ static int l_lovrGraphicsGetViewPose(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetViewPose(lua_State* L) {
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  uint32_t view = luax_checku32(L, 1) - 1;
   lovrAssert(view < 2, "Invalid view index %d", view + 1);
   VectorType t;
   float* m = luax_tovector(L, 2, &t);
@@ -459,7 +459,7 @@ static int l_lovrGraphicsSetViewPose(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetProjection(lua_State* L) {
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  uint32_t view = luax_checku32(L, 1) - 1;
   lovrAssert(view < 2, "Invalid view index %d", view + 1);
   if (lua_gettop(L) > 1) {
     float* matrix = luax_checkvector(L, 2, V_MAT4, NULL);
@@ -479,7 +479,7 @@ static int l_lovrGraphicsGetProjection(lua_State* L) {
 }
 
 static int l_lovrGraphicsSetProjection(lua_State* L) {
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  uint32_t view = luax_checku32(L, 1) - 1;
   lovrAssert(view < 2, "Invalid view index %d", view + 1);
   if (lua_type(L, 2) == LUA_TNUMBER) {
     float left = luax_checkfloat(L, 2);
@@ -1122,8 +1122,8 @@ static void luax_checkuniformtype(lua_State* L, int index, UniformType* baseType
 static int l_lovrGraphicsNewCanvas(lua_State* L) {
   Attachment attachments[MAX_CANVAS_ATTACHMENTS];
   int attachmentCount = 0;
-  int width = 0;
-  int height = 0;
+  uint32_t width = 0;
+  uint32_t height = 0;
   int index;
 
   if (luax_totype(L, 1, Texture)) {
@@ -1136,8 +1136,8 @@ static int l_lovrGraphicsNewCanvas(lua_State* L) {
     luax_readattachments(L, 1, attachments, &attachmentCount);
     index = 2;
   } else {
-    width = luaL_checkinteger(L, 1);
-    height = luaL_checkinteger(L, 2);
+    width = luax_checku32(L, 1);
+    height = luax_checku32(L, 2);
     index = 3;
   }
 
@@ -1292,12 +1292,12 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   Blob* blob = NULL;
 
   if (lua_isnumber(L, 1)) {
-    count = lua_tointeger(L, 1);
+    count = luax_checku32(L, 1);
   } else if (lua_istable(L, 1)) {
     if (lua_isnumber(L, 2)) {
       drawModeIndex++;
       formatIndex = 1;
-      count = lua_tointeger(L, 2);
+      count = luax_checku32(L, 2);
       dataIndex = 0;
     } else if (lua_istable(L, 2)) {
       drawModeIndex++;

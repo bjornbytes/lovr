@@ -83,10 +83,10 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
 static int l_lovrDataNewSound(lua_State* L) {
   int type = lua_type(L, 1);
   if (type == LUA_TNUMBER) {
-    uint64_t frames = luaL_checkinteger(L, 1);
+    uint32_t frames = luax_checku32(L, 1);
     SampleFormat format = luax_checkenum(L, 2, SampleFormat, "f32");
     ChannelLayout layout = luax_checkenum(L, 3, ChannelLayout, "stereo");
-    uint32_t sampleRate = luaL_optinteger(L, 4, 48000);
+    uint32_t sampleRate = luax_optu32(L, 4, 48000);
     Blob* blob = luax_totype(L, 5, Blob);
     const char* other = lua_tostring(L, 5);
     bool stream = other && !strcmp(other, "stream");
@@ -112,8 +112,8 @@ static int l_lovrDataNewSound(lua_State* L) {
 static int l_lovrDataNewImage(lua_State* L) {
   Image* image = NULL;
   if (lua_type(L, 1) == LUA_TNUMBER) {
-    int width = luaL_checkinteger(L, 1);
-    int height = luaL_checkinteger(L, 2);
+    uint32_t width = luax_checku32(L, 1);
+    uint32_t height = luax_checku32(L, 2);
     TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba");
     Blob* blob = lua_isnoneornil(L, 4) ? NULL : luax_checktype(L, 4, Blob);
     image = lovrImageCreate(width, height, blob, 0x0, format);

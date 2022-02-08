@@ -213,7 +213,7 @@ static int l_lovrHeadsetGetViewCount(lua_State* L) {
 
 static int l_lovrHeadsetGetViewPose(lua_State* L) {
   float position[4], orientation[4];
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  uint32_t view = luax_checku32(L, 1) - 1;
   if (!lovrHeadsetDisplayDriver->getViewPose(view, position, orientation)) {
     lua_pushnil(L);
     return 1;
@@ -232,7 +232,7 @@ static int l_lovrHeadsetGetViewPose(lua_State* L) {
 
 static int l_lovrHeadsetGetViewAngles(lua_State* L) {
   float left, right, up, down;
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
+  uint32_t view = luax_checku32(L, 1) - 1;
   if (!lovrHeadsetDisplayDriver->getViewAngles(view, &left, &right, &up, &down)) {
     lua_pushnil(L);
     return 1;

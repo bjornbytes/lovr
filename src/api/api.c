@@ -392,6 +392,21 @@ void luax_atexit(lua_State* L, voidFn* destructor) {
   lua_pop(L, 1);
 }
 
+uint32_t _luax_checku32(lua_State* L, int index) {
+  double x = lua_tonumber(L, index);
+
+  if (x == 0. && !lua_isnumber(L, index)) {
+    luaL_typerror(L, index, "number");
+  }
+
+  if (x < 0. || x > UINT32_MAX) {
+    const char* message = lua_pushfstring(L, "expected a number between 0 and %u, got %g", UINT32_MAX, x);
+    luaL_argerror(L, index, message);
+  }
+
+  return (uint32_t) x;
+}
+
 void luax_readcolor(lua_State* L, int index, Color* color) {
   color->r = color->g = color->b = color->a = 1.f;
 

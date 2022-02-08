@@ -47,7 +47,7 @@ static int l_lovrRasterizerHasGlyphs(lua_State* L) {
     if (lua_type(L, i) == LUA_TSTRING) {
       hasGlyphs &= lovrRasterizerHasGlyphs(rasterizer, lua_tostring(L, i));
     } else {
-      hasGlyphs &= lovrRasterizerHasGlyph(rasterizer, luaL_checkinteger(L, i));
+      hasGlyphs &= lovrRasterizerHasGlyph(rasterizer, luax_checku32(L, i));
     }
   }
   lua_pushboolean(L, hasGlyphs);

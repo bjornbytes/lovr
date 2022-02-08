@@ -82,6 +82,12 @@ typedef struct {
 #define LUA_RIDX_MAINTHREAD 1
 #endif
 
+#ifdef LOVR_UNCHECKED
+#define luax_checku32(L, i) (uint32_t) lua_tonumber(L, i)
+#else
+#define luax_checku32(L, i) _luax_checku32(L, i)
+#endif
+
 #define luax_registertype(L, T) _luax_registertype(L, #T, lovr ## T, lovr ## T ## Destroy)
 #define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, sizeof(#T) - 1))
 #define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, sizeof(#T) - 1), #T)
@@ -90,6 +96,7 @@ typedef struct {
 #define luax_pushenum(L, T, x) lua_pushlstring(L, (lovr ## T)[x].string, (lovr ## T)[x].length)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
+#define luax_optu32(L, i, x) lua_isnoneornil(L, i) ? (x) : luax_checku32(L, i)
 #define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
 #define luax_seterror(L) lua_setfield(L, LUA_REGISTRYINDEX, "_lovrerror")
 #define luax_clearerror(L) lua_pushnil(L), luax_seterror(L)
@@ -111,6 +118,7 @@ void luax_pushconf(struct lua_State* L);
 int luax_setconf(struct lua_State* L);
 void luax_setmainthread(struct lua_State* L);
 void luax_atexit(struct lua_State* L, void (*destructor)(void));
+uint32_t _luax_checku32(struct lua_State* L, int index);
 void luax_readcolor(struct lua_State* L, int index, struct Color* color);
 int luax_readmesh(struct lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
 
