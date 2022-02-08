@@ -320,7 +320,7 @@ int luaopen_lovr_audio(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "samplerate");
-    sampleRate = lua_isnil(L, -1) ? sampleRate : luaL_checkinteger(L, -1);
+    sampleRate = lua_isnil(L, -1) ? sampleRate : luax_checku32(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "start");

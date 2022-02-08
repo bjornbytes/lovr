@@ -39,20 +39,20 @@ static int l_lovrImageGetFormat(lua_State* L) {
 static int l_lovrImagePaste(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
   Image* source = luax_checktype(L, 2, Image);
-  uint32_t dx = luaL_optinteger(L, 3, 0);
-  uint32_t dy = luaL_optinteger(L, 4, 0);
-  uint32_t sx = luaL_optinteger(L, 5, 0);
-  uint32_t sy = luaL_optinteger(L, 6, 0);
-  uint32_t w = luaL_optinteger(L, 7, source->width);
-  uint32_t h = luaL_optinteger(L, 8, source->height);
+  uint32_t dx = luax_optu32(L, 3, 0);
+  uint32_t dy = luax_optu32(L, 4, 0);
+  uint32_t sx = luax_optu32(L, 5, 0);
+  uint32_t sy = luax_optu32(L, 6, 0);
+  uint32_t w = luax_optu32(L, 7, source->width);
+  uint32_t h = luax_optu32(L, 8, source->height);
   lovrImagePaste(image, source, dx, dy, sx, sy, w, h);
   return 0;
 }
 
 static int l_lovrImageGetPixel(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
-  int x = luaL_checkinteger(L, 2);
-  int y = luaL_checkinteger(L, 3);
+  int x = luax_checku32(L, 2);
+  int y = luax_checku32(L, 3);
   Color color = lovrImageGetPixel(image, x, y);
   lua_pushnumber(L, color.r);
   lua_pushnumber(L, color.g);
@@ -63,8 +63,8 @@ static int l_lovrImageGetPixel(lua_State* L) {
 
 static int l_lovrImageSetPixel(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
-  int x = luaL_checkinteger(L, 2);
-  int y = luaL_checkinteger(L, 3);
+  int x = luax_checku32(L, 2);
+  int y = luax_checku32(L, 3);
   Color color = {
     luax_optfloat(L, 4, 1.f),
     luax_optfloat(L, 5, 1.f),

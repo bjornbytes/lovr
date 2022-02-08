@@ -9,7 +9,7 @@
 static ModelNode* luax_checknode(lua_State* L, int index, ModelData* model) {
   switch (lua_type(L, index)) {
     case LUA_TNUMBER: {
-      uint32_t node = lua_tointeger(L, index) - 1;
+      uint32_t node = luax_checku32(L, index) - 1;
       lovrCheck(node < model->nodeCount, "Invalid node index '%d'", node + 1);
       return &model->nodes[node];
     }
@@ -28,7 +28,7 @@ static ModelNode* luax_checknode(lua_State* L, int index, ModelData* model) {
 static ModelMaterial* luax_checkmaterial(lua_State* L, int index, ModelData* model) {
   switch (lua_type(L, index)) {
     case LUA_TNUMBER: {
-      uint32_t material = lua_tointeger(L, index) - 1;
+      uint32_t material = luax_checku32(L, index) - 1;
       lovrCheck(material < model->materialCount, "Invalid material index '%d'", material + 1);
       return &model->materials[material];
     }
@@ -47,7 +47,7 @@ static ModelMaterial* luax_checkmaterial(lua_State* L, int index, ModelData* mod
 static ModelAnimation* luax_checkanimation(lua_State* L, int index, ModelData* model) {
   switch (lua_type(L, index)) {
     case LUA_TNUMBER: {
-      uint32_t animation = lua_tointeger(L, index) - 1;
+      uint32_t animation = luax_checku32(L, index) - 1;
       lovrCheck(animation < model->animationCount, "Invalid animation index '%d'", animation + 1);
       return &model->animations[animation];
     }
@@ -71,7 +71,7 @@ static int l_lovrModelDataGetBlobCount(lua_State* L) {
 
 static int l_lovrModelDataGetBlob(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->blobCount, "Invalid blob index '%d'", index + 1);
   luax_pushtype(L, Blob, model->blobs[index]);
   return 1;
@@ -85,7 +85,7 @@ static int l_lovrModelDataGetImageCount(lua_State* L) {
 
 static int l_lovrModelDataGetImage(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->imageCount, "Invalid image index '%d'", index + 1);
   luax_pushtype(L, Image, model->images[index]);
   return 1;
@@ -105,7 +105,7 @@ static int l_lovrModelDataGetRootNode(lua_State* L) {
 
 static int l_lovrModelDataGetNodeName(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->nodeCount, "Invalid node index '%d'", index + 1);
   lua_pushstring(L, model->nodes[index].name);
   return 1;
@@ -238,7 +238,7 @@ static int l_lovrModelDataGetMeshCount(lua_State* L) {
 
 static int l_lovrModelDataGetMeshDrawMode(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
   luax_pushenum(L, DrawMode, mesh->mode);
@@ -247,7 +247,7 @@ static int l_lovrModelDataGetMeshDrawMode(lua_State* L) {
 
 static int l_lovrModelDataGetMeshMaterial(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
   if (mesh->material == ~0u) {
@@ -260,7 +260,7 @@ static int l_lovrModelDataGetMeshMaterial(lua_State* L) {
 
 static int l_lovrModelDataGetMeshVertexCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
   lua_pushinteger(L, mesh->attributes[ATTR_POSITION] ? mesh->attributes[ATTR_POSITION]->count : 0);
@@ -269,7 +269,7 @@ static int l_lovrModelDataGetMeshVertexCount(lua_State* L) {
 
 static int l_lovrModelDataGetMeshIndexCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
   lua_pushinteger(L, mesh->indices ? mesh->indices->count : 0);
@@ -278,7 +278,7 @@ static int l_lovrModelDataGetMeshIndexCount(lua_State* L) {
 
 static int l_lovrModelDataGetMeshVertexFormat(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
   lua_newtable(L);
@@ -314,7 +314,7 @@ static int l_lovrModelDataGetMeshVertexFormat(lua_State* L) {
 
 static int l_lovrModelDataGetMeshIndexFormat(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
   if (!mesh->indices) return lua_pushnil(L), 1;
@@ -327,10 +327,10 @@ static int l_lovrModelDataGetMeshIndexFormat(lua_State* L) {
 
 static int l_lovrModelDataGetMeshVertex(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
-  uint32_t vertex = luaL_checkinteger(L, 3) - 1;
+  uint32_t vertex = luax_checku32(L, 3) - 1;
   uint32_t vertexCount = mesh->attributes[ATTR_POSITION] ? mesh->attributes[ATTR_POSITION]->count : 0;
   lovrCheck(vertex < vertexCount, "Invalid vertex index '%d'", vertex + 1);
   uint32_t total = 0;
@@ -362,10 +362,10 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
 
 static int l_lovrModelDataGetMeshIndex(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t meshIndex = luaL_checkinteger(L, 2) - 1;
+  uint32_t meshIndex = luax_checku32(L, 2) - 1;
   lovrCheck(meshIndex < model->primitiveCount, "Invalid mesh index '%d'", meshIndex + 1);
   ModelPrimitive* mesh = &model->primitives[meshIndex];
-  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  uint32_t index = luax_checku32(L, 3) - 1;
   uint32_t indexCount = mesh->indices ? mesh->indices->count : 0;
   lovrCheck(index < indexCount, "Invalid index index '%d'", index + 1);
   AttributeData data = { .raw = model->buffers[mesh->indices->buffer].data };
@@ -385,7 +385,7 @@ static int l_lovrModelDataGetMaterialCount(lua_State* L) {
 
 static int l_lovrModelDataGetMaterialName(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->nodeCount, "Invalid material index '%d'", index + 1);
   lua_pushstring(L, model->materials[index].name);
   return 1;
@@ -430,7 +430,7 @@ static int l_lovrModelDataGetAnimationCount(lua_State* L) {
 
 static int l_lovrModelDataGetAnimationName(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->animationCount, "Invalid animation index '%d'", index + 1);
   lua_pushstring(L, model->animations[index].name);
   return 1;
@@ -453,7 +453,7 @@ static int l_lovrModelDataGetAnimationChannelCount(lua_State* L) {
 static int l_lovrModelDataGetAnimationChannelNode(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
-  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
   lua_pushinteger(L, channel->nodeIndex);
@@ -463,7 +463,7 @@ static int l_lovrModelDataGetAnimationChannelNode(lua_State* L) {
 static int l_lovrModelDataGetAnimationChannelProperty(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
-  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
   luax_pushenum(L, AnimationProperty, channel->property);
@@ -473,7 +473,7 @@ static int l_lovrModelDataGetAnimationChannelProperty(lua_State* L) {
 static int l_lovrModelDataGetAnimationChannelSmoothMode(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
-  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
   luax_pushenum(L, SmoothMode, channel->smoothing);
@@ -483,7 +483,7 @@ static int l_lovrModelDataGetAnimationChannelSmoothMode(lua_State* L) {
 static int l_lovrModelDataGetAnimationChannelKeyframeCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
-  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
   lua_pushinteger(L, channel->keyframeCount);
@@ -493,10 +493,10 @@ static int l_lovrModelDataGetAnimationChannelKeyframeCount(lua_State* L) {
 static int l_lovrModelDataGetAnimationChannelKeyframe(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
-  uint32_t index = luaL_checkinteger(L, 3) - 1;
+  uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
-  uint32_t keyframe = luaL_checkinteger(L, 4) - 1;
+  uint32_t keyframe = luax_checku32(L, 4) - 1;
   lovrCheck(keyframe < channel->keyframeCount, "Invalid keyframe index '%d'", keyframe + 1);
   lua_pushnumber(L, channel->times[keyframe]);
   size_t counts[] = { [PROP_TRANSLATION] = 3, [PROP_ROTATION] = 4, [PROP_SCALE] = 3 };
@@ -515,7 +515,7 @@ static int l_lovrModelDataGetSkinCount(lua_State* L) {
 
 static int l_lovrModelDataGetSkinJoints(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->skinCount, "Invalid skin index '%d'", index + 1);
   ModelSkin* skin = &model->skins[index];
   lua_createtable(L, skin->jointCount, 0);
@@ -528,10 +528,10 @@ static int l_lovrModelDataGetSkinJoints(lua_State* L) {
 
 static int l_lovrModelDataGetSkinInverseBindMatrix(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  uint32_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->skinCount, "Invalid skin index '%d'", index + 1);
   ModelSkin* skin = &model->skins[index];
-  uint32_t joint = luaL_checkinteger(L, 3) - 1;
+  uint32_t joint = luax_checku32(L, 3) - 1;
   lovrCheck(index < skin->jointCount, "Invalid joint index '%d'", joint + 1);
   float* m = skin->inverseBindMatrices + joint * 16;
   for (uint32_t i = 0; i < 16; i++) {
