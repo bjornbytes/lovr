@@ -678,7 +678,7 @@ static ModelData* openvr_newModelData(Device device, bool animated) {
     model->buffers[2 * i + 0] = (ModelBuffer) {
       .blob = 0,
       .size = vertexCount * vertexSize,
-      .stride = vertexSize
+      .stride = vertexSize,
       .data = (char*) vertices
     };
 
