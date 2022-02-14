@@ -247,6 +247,14 @@ static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* c
     return false;
   }
 
+  if (device == DEVICE_HAND_LEFT && (button == BUTTON_A || button == BUTTON_B)) {
+    return false;
+  }
+
+  if (device == DEVICE_HAND_RIGHT && (button == BUTTON_X || button == BUTTON_Y)) {
+    return false;
+  }
+
   if (state.hands[device - DEVICE_HAND_LEFT].Type != ovrControllerType_TrackedRemote) {
     return false;
   }
@@ -272,6 +280,14 @@ static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* c
 
 static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
   if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+    return false;
+  }
+
+  if (device == DEVICE_HAND_LEFT && (button == BUTTON_A || button == BUTTON_B)) {
+    return false;
+  }
+
+  if (device == DEVICE_HAND_RIGHT && (button == BUTTON_X || button == BUTTON_Y)) {
     return false;
   }
 
