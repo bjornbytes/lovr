@@ -546,7 +546,7 @@ MAF void mat4_getAngleAxis(mat4 m, float* angle, float* ax, float* ay, float* az
   if (fabsf(cosangle) < 1.f - FLT_EPSILON) {
     *angle = acosf(cosangle);
   } else {
-    *angle = (float) M_PI;
+    *angle = cosangle > 0.f ? 0.f : (float) M_PI;
   }
   *ax = axis[0];
   *ay = axis[1];
