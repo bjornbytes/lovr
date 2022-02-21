@@ -44,7 +44,7 @@ static uint32_t lovrSoundReadStream(Sound* sound, uint32_t offset, uint32_t coun
   uint32_t frames = count;
   ma_pcm_rb_acquire_read(sound->stream, &frames, &p);
   memcpy(data, p, frames * lovrSoundGetStride(sound));
-  ma_pcm_rb_commit_read(sound->stream, frames, p);
+  ma_pcm_rb_commit_read(sound->stream, frames);
   return frames;
 }
 
@@ -400,7 +400,7 @@ uint32_t lovrSoundWrite(Sound* sound, uint32_t offset, uint32_t count, const voi
       uint32_t chunk = count - frames;
       ma_pcm_rb_acquire_write(sound->stream, &chunk, &pointer);
       memcpy(pointer, bytes, chunk * stride);
-      ma_pcm_rb_commit_write(sound->stream, chunk, pointer);
+      ma_pcm_rb_commit_write(sound->stream, chunk);
       if (chunk == 0) break;
       bytes += chunk * stride;
       frames += chunk;
@@ -428,7 +428,7 @@ uint32_t lovrSoundCopy(Sound* src, Sound* dst, uint32_t count, uint32_t srcOffse
       uint32_t available = count - frames;
       ma_pcm_rb_acquire_write(dst->stream, &available, &data);
       uint32_t read = src->read(src, srcOffset + frames, available, data);
-      ma_pcm_rb_commit_write(dst->stream, read, data);
+      ma_pcm_rb_commit_write(dst->stream, read);
       if (read == 0) break;
       frames += read;
     }

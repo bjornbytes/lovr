@@ -119,15 +119,15 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       float* cursor = buf; // Edge of processed frames
       uint32_t channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // If spatializer isn't converting to stereo, converter must do it
       uint32_t framesRemaining = BUFFER_SIZE;
-      uint32_t framesProcessed = 0;
       while (framesRemaining > 0) {
         uint32_t framesRead;
 
         if (source->converter) {
           uint32_t channelsIn = lovrSoundGetChannelCount(source->sound);
           uint32_t capacity = sizeof(raw) / (channelsIn * sizeof(float));
-          uint32_t chunk = MIN(ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining), capacity);
-          framesRead = lovrSoundRead(source->sound, source->offset, chunk, raw);
+          ma_uint64 chunk;
+          ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining, &chunk);
+          framesRead = lovrSoundRead(source->sound, source->offset, MIN(chunk, capacity), raw);
         } else {
           framesRead = lovrSoundRead(source->sound, source->offset, framesRemaining, cursor);
         }
@@ -151,11 +151,9 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
           ma_uint64 framesOut = framesRemaining;
           ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, cursor, &framesOut);
           cursor += framesOut * channelsOut;
-          framesProcessed += framesOut;
           framesRemaining -= framesOut;
         } else {
           cursor += framesRead * channelsOut;
-          framesProcessed += framesRead;
           framesRemaining -= framesRead;
         }
       }
@@ -213,7 +211,7 @@ static void onCapture(ma_device* device, void* output, const void* input, uint32
   lovrSoundWrite(state.sinks[AUDIO_CAPTURE], 0, count, input);
 }
 
-static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
+static const ma_device_data_proc callbacks[] = { onPlayback, onCapture };
 
 static Spatializer* spatializers[] = {
 #ifdef LOVR_ENABLE_PHONON_SPATIALIZER
@@ -272,7 +270,7 @@ void lovrAudioDestroy() {
   lovrRelease(state.sinks[AUDIO_PLAYBACK], lovrSoundDestroy);
   lovrRelease(state.sinks[AUDIO_CAPTURE], lovrSoundDestroy);
   if (state.spatializer) state.spatializer->destroy();
-  ma_data_converter_uninit(&state.playbackConverter);
+  ma_data_converter_uninit(&state.playbackConverter, NULL);
   memset(&state, 0, sizeof(state));
 }
 
@@ -339,11 +337,9 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
       converterConfig.channelsOut = lovrSoundGetChannelCount(sink);
       converterConfig.sampleRateIn = config.sampleRate;
       converterConfig.sampleRateOut = lovrSoundGetSampleRate(sink);
-      if (memcmp(&converterConfig, &state.playbackConverter.config, sizeof(ma_data_converter_config))) {
-        ma_data_converter_uninit(&state.playbackConverter);
-        ma_result status = ma_data_converter_init(&converterConfig, &state.playbackConverter);
-        lovrAssert(status == MA_SUCCESS, "Failed to create sink data converter");
-      }
+      ma_data_converter_uninit(&state.playbackConverter, NULL);
+      ma_result status = ma_data_converter_init(&converterConfig, NULL, &state.playbackConverter);
+      lovrAssert(status == MA_SUCCESS, "Failed to create sink data converter");
     }
   } else {
     config = ma_device_config_init(ma_device_type_capture);
@@ -446,7 +442,7 @@ Source* lovrSourceCreate(Sound* sound, uint32_t effects) {
   if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
     source->converter = malloc(sizeof(ma_data_converter));
     lovrAssert(source->converter, "Out of memory");
-    ma_result status = ma_data_converter_init(&config, source->converter);
+    ma_result status = ma_data_converter_init(&config, NULL, source->converter);
     lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
   }
 
@@ -471,7 +467,14 @@ Source* lovrSourceClone(Source* source) {
   if (source->converter) {
     clone->converter = malloc(sizeof(ma_data_converter));
     lovrAssert(clone->converter, "Out of memory");
-    ma_result status = ma_data_converter_init(&source->converter->config, clone->converter);
+    ma_data_converter_config config = ma_data_converter_config_init_default();
+    config.formatIn = source->converter->formatIn;
+    config.formatOut = source->converter->formatOut;
+    config.channelsIn = source->converter->channelsIn;
+    config.channelsOut = source->converter->channelsOut;
+    config.sampleRateIn = source->converter->sampleRateIn;
+    config.sampleRateOut = source->converter->sampleRateOut;
+    ma_result status = ma_data_converter_init(&config, NULL, clone->converter);
     lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
   }
   return clone;
@@ -480,7 +483,7 @@ Source* lovrSourceClone(Source* source) {
 void lovrSourceDestroy(void* ref) {
   Source* source = ref;
   lovrRelease(source->sound, lovrSoundDestroy);
-  ma_data_converter_uninit(source->converter);
+  ma_data_converter_uninit(source->converter, NULL);
   free(source->converter);
   free(source);
 }
