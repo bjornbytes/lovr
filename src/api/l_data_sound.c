@@ -49,6 +49,13 @@ static int l_lovrSoundGetSampleRate(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSoundGetByteStride(lua_State* L) {
+  Sound* sound = luax_checktype(L, 1, Sound);
+  uint32_t stride = lovrSoundGetStride(sound);
+  lua_pushinteger(L, stride);
+  return 1;
+}
+
 static int l_lovrSoundGetFrameCount(lua_State* L) {
   Sound* sound = luax_checktype(L, 1, Sound);
   uint32_t frames = lovrSoundGetFrameCount(sound);
@@ -247,6 +254,7 @@ const luaL_Reg lovrSound[] = {
   { "getChannelLayout", l_lovrSoundGetChannelLayout },
   { "getChannelCount", l_lovrSoundGetChannelCount },
   { "getSampleRate", l_lovrSoundGetSampleRate },
+  { "getByteStride", l_lovrSoundGetByteStride },
   { "getFrameCount", l_lovrSoundGetFrameCount },
   { "getCapacity", l_lovrSoundGetCapacity },
   { "getSampleCount", l_lovrSoundGetSampleCount },
