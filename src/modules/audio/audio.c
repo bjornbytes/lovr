@@ -47,9 +47,6 @@ static struct {
   float position[4];
   float orientation[4];
   Spatializer* spatializer;
-  uint32_t leftoverOffset;
-  uint32_t leftoverFrames;
-  float leftovers[BUFFER_SIZE * 2];
   float absorption[3];
   ma_data_converter playbackConverter;
   uint32_t sampleRate;
@@ -71,138 +68,103 @@ static float linearToDb(float linear) {
 // Device callbacks
 
 static void onPlayback(ma_device* device, void* out, const void* in, uint32_t count) {
+  lovrAssert(count == BUFFER_SIZE, "Unreachable");
   float raw[BUFFER_SIZE * 2];
   float aux[BUFFER_SIZE * 2];
   float mix[BUFFER_SIZE * 2];
-  uint32_t total = count;
-  float* output = out;
-
-  // Consume any leftovers from the previous callback
-  if (state.leftoverFrames > 0) {
-    uint32_t leftoverFrames = MIN(count, state.leftoverFrames);
-    memcpy(output, state.leftovers + state.leftoverOffset * OUTPUT_CHANNELS, leftoverFrames * OUTPUT_CHANNELS * sizeof(float));
-    state.leftoverOffset += leftoverFrames;
-    state.leftoverFrames -= leftoverFrames;
-    output += leftoverFrames * OUTPUT_CHANNELS;
-    count -= leftoverFrames;
-    if (count == 0) {
-      goto sink;
-    }
-  }
+  float* dst = out;
+  float* buf = NULL; // The "current" buffer (used for fast paths)
 
   ma_mutex_lock(&state.lock);
 
-  do {
-    float* dst = count >= BUFFER_SIZE ? output : state.leftovers;
-    float* buf = NULL; // The "current" buffer (used for fast paths)
-
-    if (dst == state.leftovers) {
-      memset(dst, 0, sizeof(state.leftovers));
+  Source* source;
+  FOREACH_SOURCE(source) {
+    if (!source->playing) {
+      state.sources[source->index] = NULL;
+      state.sourceMask &= ~(1ull << source->index);
+      state.spatializer->sourceDestroy(source);
+      source->index = ~0u;
+      lovrRelease(source, lovrSourceDestroy);
+      continue;
     }
 
-    Source* source;
-    FOREACH_SOURCE(source) {
-      if (!source->playing) {
-        state.sources[source->index] = NULL;
-        state.sourceMask &= ~(1ull << source->index);
-        state.spatializer->sourceDestroy(source);
-        source->index = ~0u;
-        lovrRelease(source, lovrSourceDestroy);
-        continue;
+    // Read and convert raw frames until there's BUFFER_SIZE converted frames
+    // - No converter: just read frames into raw (it has enough space for BUFFER_SIZE frames).
+    // - Converter: keep reading as many frames as possible/needed into raw and convert into aux.
+    // - If EOF is reached, rewind and continue for looping sources, otherwise pad end with zero.
+    buf = source->converter ? aux : raw;
+    float* cursor = buf; // Edge of processed frames
+    uint32_t channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // If spatializer isn't converting to stereo, converter must do it
+    uint32_t framesRemaining = BUFFER_SIZE;
+    while (framesRemaining > 0) {
+      uint32_t framesRead;
+
+      if (source->converter) {
+        uint32_t channelsIn = lovrSoundGetChannelCount(source->sound);
+        uint32_t capacity = sizeof(raw) / (channelsIn * sizeof(float));
+        ma_uint64 chunk;
+        ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining, &chunk);
+        framesRead = lovrSoundRead(source->sound, source->offset, MIN(chunk, capacity), raw);
+      } else {
+        framesRead = lovrSoundRead(source->sound, source->offset, framesRemaining, cursor);
       }
 
-      // Read and convert raw frames until there's BUFFER_SIZE converted frames
-      // - No converter: just read frames into raw (it has enough space for BUFFER_SIZE frames).
-      // - Converter: keep reading as many frames as possible/needed into raw and convert into aux.
-      // - If EOF is reached, rewind and continue for looping sources, otherwise pad end with zero.
-      buf = source->converter ? aux : raw;
-      float* cursor = buf; // Edge of processed frames
-      uint32_t channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // If spatializer isn't converting to stereo, converter must do it
-      uint32_t framesRemaining = BUFFER_SIZE;
-      while (framesRemaining > 0) {
-        uint32_t framesRead;
-
-        if (source->converter) {
-          uint32_t channelsIn = lovrSoundGetChannelCount(source->sound);
-          uint32_t capacity = sizeof(raw) / (channelsIn * sizeof(float));
-          ma_uint64 chunk;
-          ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining, &chunk);
-          framesRead = lovrSoundRead(source->sound, source->offset, MIN(chunk, capacity), raw);
+      if (framesRead == 0) {
+        if (source->looping) {
+          source->offset = 0;
+          continue;
         } else {
-          framesRead = lovrSoundRead(source->sound, source->offset, framesRemaining, cursor);
+          source->offset = 0;
+          source->playing = false;
+          memset(cursor, 0, framesRemaining * channelsOut * sizeof(float));
+          break;
         }
-
-        if (framesRead == 0) {
-          if (source->looping) {
-            source->offset = 0;
-            continue;
-          } else {
-            source->offset = 0;
-            source->playing = false;
-            memset(cursor, 0, framesRemaining * channelsOut * sizeof(float));
-            break;
-          }
-        } else {
-          source->offset += framesRead;
-        }
-
-        if (source->converter) {
-          ma_uint64 framesIn = framesRead;
-          ma_uint64 framesOut = framesRemaining;
-          ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, cursor, &framesOut);
-          cursor += framesOut * channelsOut;
-          framesRemaining -= framesOut;
-        } else {
-          cursor += framesRead * channelsOut;
-          framesRemaining -= framesRead;
-        }
+      } else {
+        source->offset += framesRead;
       }
 
-      // Spatialize
-      if (lovrSourceUsesSpatializer(source)) {
-        state.spatializer->apply(source, buf, mix, BUFFER_SIZE, BUFFER_SIZE);
-        buf = mix;
-      }
-
-      // Mix
-      float volume = source->volume;
-      for (uint32_t i = 0; i < OUTPUT_CHANNELS * BUFFER_SIZE; i++) {
-        dst[i] += buf[i] * volume;
+      if (source->converter) {
+        ma_uint64 framesIn = framesRead;
+        ma_uint64 framesOut = framesRemaining;
+        ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, cursor, &framesOut);
+        cursor += framesOut * channelsOut;
+        framesRemaining -= framesOut;
+      } else {
+        cursor += framesRead * channelsOut;
+        framesRemaining -= framesRead;
       }
     }
 
-    // Tail
-    uint32_t tailCount = state.spatializer->tail(aux, mix, BUFFER_SIZE);
-    for (uint32_t i = 0; i < tailCount * OUTPUT_CHANNELS; i++) {
-      dst[i] += mix[i];
+    // Spatialize
+    if (lovrSourceUsesSpatializer(source)) {
+      state.spatializer->apply(source, buf, mix, BUFFER_SIZE, BUFFER_SIZE);
+      buf = mix;
     }
 
-    // Copy some leftovers to output
-    if (dst == state.leftovers) {
-      memcpy(output, state.leftovers, count * OUTPUT_CHANNELS * sizeof(float));
-      state.leftoverFrames = BUFFER_SIZE - count;
-      state.leftoverOffset = count;
+    // Mix
+    float volume = source->volume;
+    for (uint32_t i = 0; i < OUTPUT_CHANNELS * BUFFER_SIZE; i++) {
+      dst[i] += buf[i] * volume;
     }
+  }
 
-    output += BUFFER_SIZE * OUTPUT_CHANNELS;
-    count -= MIN(count, BUFFER_SIZE);
-  } while (count > 0);
+  // Tail
+  uint32_t tailCount = state.spatializer->tail(aux, mix, BUFFER_SIZE);
+  for (uint32_t i = 0; i < tailCount * OUTPUT_CHANNELS; i++) {
+    dst[i] += mix[i];
+  }
 
   ma_mutex_unlock(&state.lock);
 
-sink:
   if (state.sinks[AUDIO_PLAYBACK]) {
-    uint64_t remaining = total;
     uint64_t capacity = sizeof(aux) / lovrSoundGetChannelCount(state.sinks[AUDIO_PLAYBACK]) / sizeof(float);
-    output = out;
-
-    while (remaining > 0) {
-      ma_uint64 framesConsumed = remaining;
+    while (count > 0) {
+      ma_uint64 framesConsumed = count;
       ma_uint64 framesWritten = capacity;
-      ma_data_converter_process_pcm_frames(&state.playbackConverter, output, &framesConsumed, aux, &framesWritten);
+      ma_data_converter_process_pcm_frames(&state.playbackConverter, dst, &framesConsumed, aux, &framesWritten);
       lovrSoundWrite(state.sinks[AUDIO_PLAYBACK], 0, framesWritten, aux);
-      output += framesConsumed * OUTPUT_CHANNELS;
-      remaining -= framesConsumed;
+      dst += framesConsumed * OUTPUT_CHANNELS;
+      count -= framesConsumed;
     }
   }
 }
@@ -350,9 +312,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
     config.sampleRate = lovrSoundGetSampleRate(sink);
   }
 
-#ifndef EMSCRIPTEN // Web needs to use the default bigger buffer size to prevent stutters
   config.periodSizeInFrames = BUFFER_SIZE;
-#endif
   config.dataCallback = callbacks[type];
 
   ma_result result = ma_device_init(&state.context, &config, &state.devices[type]);
