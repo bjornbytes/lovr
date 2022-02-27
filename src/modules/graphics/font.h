@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "data/modelData.h"
 
 #pragma once
 
@@ -20,7 +21,7 @@ typedef enum {
 } VerticalAlign;
 
 typedef struct Font Font;
-Font* lovrFontCreate(struct Rasterizer* rasterizer, uint32_t padding, double spread);
+Font* lovrFontCreate(struct Rasterizer* rasterizer, uint32_t padding, double spread, FilterMode filterMode);
 void lovrFontDestroy(void* ref);
 struct Rasterizer* lovrFontGetRasterizer(Font* font);
 struct Texture* lovrFontGetTexture(Font* font);
