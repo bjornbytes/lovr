@@ -483,7 +483,7 @@ Font* lovrGraphicsGetFont() {
   if (!state.font) {
     if (!state.defaultFont) {
       Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
-      state.defaultFont = lovrFontCreate(rasterizer, 1, 3.);
+      state.defaultFont = lovrFontCreate(rasterizer, 1, 3., state.defaultFilter.mode);
       lovrRelease(rasterizer, lovrRasterizerDestroy);
     }
 
