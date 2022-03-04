@@ -2123,8 +2123,9 @@ Image* lovrCanvasNewImage(Canvas* canvas, uint32_t index) {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->resolveBuffer);
   }
 
-#ifndef LOVR_WEBGL
   Texture* texture = canvas->attachments[index].texture;
+
+#ifndef LOVR_WEBGL
   if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
     lovrGpuSync(1 << BARRIER_TEXTURE);
   }
@@ -2134,8 +2135,10 @@ Image* lovrCanvasNewImage(Canvas* canvas, uint32_t index) {
     glReadBuffer(index);
   }
 
-  Image* image = lovrImageCreate(canvas->width, canvas->height, NULL, 0x0, FORMAT_RGBA);
-  glReadPixels(0, 0, canvas->width, canvas->height, GL_RGBA, GL_UNSIGNED_BYTE, image->blob->data);
+  Image* image = lovrImageCreate(canvas->width, canvas->height, NULL, 0x0, texture->format);
+  GLenum glFormat = convertTextureFormat(texture->format);
+  GLenum glFormatType = convertTextureFormatType(texture->format);
+  glReadPixels(0, 0, canvas->width, canvas->height, glFormat, glFormatType, image->blob->data);
 
   if (index != 0) {
     glReadBuffer(0);
