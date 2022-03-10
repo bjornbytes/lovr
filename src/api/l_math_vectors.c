@@ -1866,7 +1866,7 @@ static int l_lovrMat4__mul(lua_State* L) {
   } else if (type == V_VEC3) {
     vec3 out = luax_newtempvector(L, V_VEC3);
     vec3_init(out, n);
-    mat4_transform(m, n);
+    mat4_transform(m, out);
   } else if (type == V_VEC4) {
     float* out = luax_newtempvector(L, V_VEC4);
     memcpy(out, n, 4 * sizeof(float));
