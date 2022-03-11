@@ -123,6 +123,7 @@ if target == 'macos' then
   cflags_os_macos += '-xobjective-c'
   lflags += '-Wl,-rpath,@executable_path'
   lflags += '-lobjc'
+  lflags += '-framework AVFoundation'
 end
 
 if target == 'linux' then
@@ -227,12 +228,13 @@ if target == 'win32' or target == 'macos' or target == 'linux' then
   glfw_src += { 'init.c', 'context.c', 'input.c', 'monitor.c', 'vulkan.c', 'window.c' }
   glfw_src += ({
     win32 = { 'win32*.c', 'wgl*.c', 'egl*.c', 'osmesa*.c' },
-    macos = { 'cocoa*.c', 'posix*.c' },
+    macos = { 'cocoa*.c', 'cocoa*.m', 'posix_thread.c', 'egl*.c', 'nsgl*.m', 'osmesa*.c' },
     linux = { 'x11*.c', 'xkb*.c', 'posix*.c', 'glx*.c', 'egl*.c', 'linux*.c', 'osmesa*.c' }
   })[target]
   for i = 1, #glfw_src do glfw_src[i] = 'deps/glfw/src/' .. glfw_src[i] end
   glfw_lflags += '-shared'
   glfw_lflags += target == 'win32' and '-lgdi32' or ''
+  glfw_lflags += target == 'macos' and '-lobjc -framework Cocoa -framework IOKit -framework CoreFoundation' or ''
   tup.foreach_rule(glfw_src, '^ CC glfw/%b^ $(cc) $(base_flags) $(glfw_cflags) -c %f -o %o', '.obj/glfw/%B.o')
   tup.rule('.obj/glfw/*.o', '^ LD %o^ $(cc) $(base_flags) -o %o %f $(glfw_lflags)', lib('glfw'))
 end
