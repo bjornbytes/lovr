@@ -120,6 +120,7 @@ end
 
 if target == 'macos' then
   cflags += '-DLOVR_GL'
+  cflags_os_macos += '-xobjective-c'
   lflags += '-Wl,-rpath,@executable_path'
   lflags += '-lobjc'
 end
