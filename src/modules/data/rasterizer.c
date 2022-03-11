@@ -197,13 +197,15 @@ void lovrRasterizerMeasure(Rasterizer* rasterizer, const char* str, size_t lengt
   *glyphCount = 0;
 
   while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
-    if (codepoint == '\n' || (wrap && x > wrap && codepoint == ' ')) {
+    if (codepoint == '\n' || (wrap && x > wrap && (codepoint == ' ' || previous == ' '))) {
       *width = MAX(*width, x);
       (*lineCount)++;
       x = 0.f;
       previous = '\0';
-      str += bytes;
-      continue;
+      if (codepoint == ' ' || codepoint == '\n') {
+        str += bytes;
+        continue;
+      }
     }
 
     // Tabs
