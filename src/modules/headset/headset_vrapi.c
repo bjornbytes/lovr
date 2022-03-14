@@ -273,6 +273,14 @@ static bool vrapi_isDown(Device device, DeviceButton button, bool* down, bool* c
     return false;
   }
 
+  if (device == DEVICE_HAND_LEFT && (button == BUTTON_A || button == BUTTON_B)) {
+    return false;
+  }
+
+  if (device == DEVICE_HAND_RIGHT && (button == BUTTON_X || button == BUTTON_Y)) {
+    return false;
+  }
+
   if (state.hands[device - DEVICE_HAND_LEFT].Type != ovrControllerType_TrackedRemote) {
     return false;
   }
@@ -301,6 +309,14 @@ static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
     return false;
   }
 
+  if (device == DEVICE_HAND_LEFT && (button == BUTTON_A || button == BUTTON_B)) {
+    return false;
+  }
+
+  if (device == DEVICE_HAND_RIGHT && (button == BUTTON_X || button == BUTTON_Y)) {
+    return false;
+  }
+
   if (state.hands[device - DEVICE_HAND_LEFT].Type != ovrControllerType_TrackedRemote) {
     return false;
   }
@@ -310,6 +326,7 @@ static bool vrapi_isTouched(Device device, DeviceButton button, bool* touched) {
   switch (button) {
     case BUTTON_TRIGGER: *touched = input->Touches & ovrTouch_IndexTrigger; return true;
     case BUTTON_THUMBSTICK: *touched = input->Touches & ovrTouch_Joystick; return true;
+    case BUTTON_THUMBREST: *touched = input->Touches & ovrTouch_ThumbRest; return true;
     case BUTTON_A: *touched = input->Touches & ovrTouch_A; return true;
     case BUTTON_B: *touched = input->Touches & ovrTouch_B; return true;
     case BUTTON_X: *touched = input->Touches & ovrTouch_X; return true;

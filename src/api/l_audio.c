@@ -313,21 +313,24 @@ int luaopen_lovr_audio(lua_State* L) {
   const char *spatializer = NULL;
   uint32_t sampleRate = 48000; // Set default here
   luax_pushconf(L);
-  lua_getfield(L, -1, "audio");
   if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "spatializer");
-    spatializer = lua_tostring(L, -1);
-    lua_pop(L, 1);
+    lua_getfield(L, -1, "audio");
+    if (lua_istable(L, -1)) {
+      lua_getfield(L, -1, "spatializer");
+      spatializer = lua_tostring(L, -1);
+      lua_pop(L, 1);
 
-    lua_getfield(L, -1, "samplerate");
-    sampleRate = lua_isnil(L, -1) ? sampleRate : luax_checku32(L, -1);
-    lua_pop(L, 1);
+      lua_getfield(L, -1, "samplerate");
+      sampleRate = lua_isnil(L, -1) ? sampleRate : luax_checku32(L, -1);
+      lua_pop(L, 1);
 
-    lua_getfield(L, -1, "start");
-    start = lua_isnil(L, -1) || lua_toboolean(L, -1);
+      lua_getfield(L, -1, "start");
+      start = lua_isnil(L, -1) || lua_toboolean(L, -1);
+      lua_pop(L, 1);
+    }
     lua_pop(L, 1);
   }
-  lua_pop(L, 2);
+  lua_pop(L, 1);
 
   if (lovrAudioInit(spatializer, sampleRate)) {
     luax_atexit(L, lovrAudioDestroy);

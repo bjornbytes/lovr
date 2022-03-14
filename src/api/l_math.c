@@ -191,9 +191,10 @@ static int l_lovrMathGammaToLinear(lua_State* L) {
   if (lua_istable(L, 1)) {
     for (int i = 0; i < 3; i++) {
       lua_rawgeti(L, 1, i + 1);
-      lua_pushnumber(L, lovrMathGammaToLinear(luax_checkfloat(L, -1)));
+      float component = luax_checkfloat(L, -1);
+      lua_pop(L, 1);
+      lua_pushnumber(L, lovrMathGammaToLinear(component));
     }
-    lua_pop(L, 3);
     return 3;
   } else {
     int n = CLAMP(lua_gettop(L), 1, 3);
@@ -208,9 +209,10 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
   if (lua_istable(L, 1)) {
     for (int i = 0; i < 3; i++) {
       lua_rawgeti(L, 1, i + 1);
-      lua_pushnumber(L, lovrMathLinearToGamma(luax_checkfloat(L, -1)));
+      float component = luax_checkfloat(L, -1);
+      lua_pop(L, 1);
+      lua_pushnumber(L, lovrMathLinearToGamma(component));
     }
-    lua_pop(L, 3);
     return 3;
   } else {
     int n = CLAMP(lua_gettop(L), 1, 3);

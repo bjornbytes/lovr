@@ -153,7 +153,7 @@ static int l_lovrSoundGetFrames(lua_State* L) {
       Sound* other = luax_totype(L, 2, Sound);
       Blob* blob = luax_totype(L, 2, Blob);
       if (blob) {
-        lovrAssert(dstOffset + count * stride <= blob->size, "Tried to write samples past the end of the Blob");
+        lovrAssert(dstOffset + count * stride <= blob->size, "This Blob can hold %d bytes, which is not enough space to hold %d bytes of audio data at the requested offset (%d)", blob->size, count * stride, dstOffset);
         char* data = (char*) blob->data + dstOffset;
         uint32_t frames = 0;
         while (frames < count) {

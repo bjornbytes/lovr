@@ -21,7 +21,7 @@ Material* lovrMaterialCreate() {
   material->ref = 1;
 
   for (int i = 0; i < MAX_MATERIAL_SCALARS; i++) {
-    material->scalars[i] = 1.f;
+    material->scalars[i] = i == SCALAR_ALPHA_CUTOFF ? 0.f : 1.f;
   }
 
   for (int i = 0; i < MAX_MATERIAL_COLORS; i++) {

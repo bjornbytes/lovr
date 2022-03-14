@@ -11,6 +11,7 @@
 #if defined(_WIN32)
   #define XR_USE_PLATFORM_WIN32
   #define WIN32_LEAN_AND_MEAN
+  #include <unknwn.h>
   #include <windows.h>
 #elif defined(__ANDROID__)
   #define XR_USE_PLATFORM_ANDROID
@@ -200,7 +201,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     XrExtensionProperties* extensions = calloc(extensionCount, sizeof(*extensions));
     lovrAssert(extensions, "Out of memory");
     for (uint32_t i = 0; i < extensionCount; i++) extensions[i].type = XR_TYPE_EXTENSION_PROPERTIES;
-    xrEnumerateInstanceExtensionProperties(NULL, 32, &extensionCount, extensions);
+    xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensions);
 
     const char* enabledExtensionNames[5];
     uint32_t enabledExtensionCount = 0;
@@ -726,6 +727,7 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
 
   switch (button) {
     case BUTTON_TRIGGER: info.action = state.actions[ACTION_TRIGGER_DOWN + touch]; break;
+    case BUTTON_THUMBREST: info.action = state.actions[ACTION_THUMBREST_DOWN + touch]; break;
     case BUTTON_TOUCHPAD: info.action = state.actions[ACTION_TRACKPAD_DOWN + touch]; break;
     case BUTTON_MENU: info.action = state.actions[ACTION_MENU_DOWN + touch]; break;
     case BUTTON_GRIP: info.action = state.actions[ACTION_GRIP_DOWN + touch]; break;

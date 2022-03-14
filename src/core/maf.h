@@ -122,6 +122,15 @@ MAF vec3 vec3_max(vec3 v, const vec3 u) {
   return v;
 }
 
+MAF float vec3_angle(const vec3 v, const vec3 u) {
+  float denom = vec3_length(v) * vec3_length(u);
+  if (denom == 0.f) {
+    return (float) M_PI / 2;
+  } else {
+    return acosf(vec3_dot(v, u) / denom);
+  }
+}
+
 // quat
 
 MAF quat quat_set(quat q, float x, float y, float z, float w) {
@@ -546,7 +555,7 @@ MAF void mat4_getAngleAxis(mat4 m, float* angle, float* ax, float* ay, float* az
   if (fabsf(cosangle) < 1.f - FLT_EPSILON) {
     *angle = acosf(cosangle);
   } else {
-    *angle = (float) M_PI;
+    *angle = cosangle > 0.f ? 0.f : (float) M_PI;
   }
   *ax = axis[0];
   *ay = axis[1];

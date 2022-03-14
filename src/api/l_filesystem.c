@@ -127,9 +127,15 @@ static int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
   }
 
   lua_getglobal(L, "table");
-  lua_getfield(L, -1, "sort");
-  lua_pushvalue(L, 2);
-  lua_call(L, 1, 0);
+  if (lua_type(L, -1) == LUA_TTABLE) {
+    lua_getfield(L, -1, "sort");
+    if (lua_type(L, -1) == LUA_TFUNCTION) {
+      lua_pushvalue(L, 2);
+      lua_call(L, 1, 0);
+    } else {
+      lua_pop(L, 1);
+    }
+  }
   lua_pop(L, 1);
   return 1;
 }

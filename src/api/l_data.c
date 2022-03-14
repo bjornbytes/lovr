@@ -53,6 +53,31 @@ static int l_lovrDataNewBlob(lua_State* L) {
   return 1;
 }
 
+static int l_lovrDataNewImage(lua_State* L) {
+  Image* image = NULL;
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    uint32_t width = luax_checku32(L, 1);
+    uint32_t height = luax_checku32(L, 2);
+    TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba");
+    Blob* blob = lua_isnoneornil(L, 4) ? NULL : luax_checktype(L, 4, Blob);
+    image = lovrImageCreate(width, height, blob, 0x0, format);
+  } else {
+    Image* source = luax_totype(L, 1, Image);
+    if (source) {
+      image = lovrImageCreate(source->width, source->height, source->blob, 0x0, source->format);
+    } else {
+      Blob* blob = luax_readblob(L, 1, "Texture");
+      bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
+      image = lovrImageCreateFromBlob(blob, flip);
+      lovrRelease(blob, lovrBlobDestroy);
+    }
+  }
+
+  luax_pushtype(L, Image, image);
+  lovrRelease(image, lovrImageDestroy);
+  return 1;
+}
+
 static int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
   ModelData* modelData = lovrModelDataCreate(blob, luax_readfile);
@@ -106,31 +131,6 @@ static int l_lovrDataNewSound(lua_State* L) {
   luax_pushtype(L, Sound, sound);
   lovrRelease(blob, lovrBlobDestroy);
   lovrRelease(sound, lovrSoundDestroy);
-  return 1;
-}
-
-static int l_lovrDataNewImage(lua_State* L) {
-  Image* image = NULL;
-  if (lua_type(L, 1) == LUA_TNUMBER) {
-    uint32_t width = luax_checku32(L, 1);
-    uint32_t height = luax_checku32(L, 2);
-    TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba");
-    Blob* blob = lua_isnoneornil(L, 4) ? NULL : luax_checktype(L, 4, Blob);
-    image = lovrImageCreate(width, height, blob, 0x0, format);
-  } else {
-    Image* source = luax_totype(L, 1, Image);
-    if (source) {
-      image = lovrImageCreate(source->width, source->height, source->blob, 0x0, source->format);
-    } else {
-      Blob* blob = luax_readblob(L, 1, "Texture");
-      bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
-      image = lovrImageCreateFromBlob(blob, flip);
-      lovrRelease(blob, lovrBlobDestroy);
-    }
-  }
-
-  luax_pushtype(L, Image, image);
-  lovrRelease(image, lovrImageDestroy);
   return 1;
 }
 

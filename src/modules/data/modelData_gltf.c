@@ -689,6 +689,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     for (int i = (token++)->size; i > 0; i--, material++) {
       material->scalars[SCALAR_METALNESS] = 1.f;
       material->scalars[SCALAR_ROUGHNESS] = 1.f;
+      material->scalars[SCALAR_ALPHA_CUTOFF] = 0.f;
       material->colors[COLOR_DIFFUSE] = (Color) { 1.f, 1.f, 1.f, 1.f };
       material->colors[COLOR_EMISSIVE] = (Color) { 0.f, 0.f, 0.f, 0.f };
       memset(material->images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(uint32_t));
@@ -730,6 +731,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           material->colors[COLOR_EMISSIVE].r = NOM_FLOAT(json, token);
           material->colors[COLOR_EMISSIVE].g = NOM_FLOAT(json, token);
           material->colors[COLOR_EMISSIVE].b = NOM_FLOAT(json, token);
+        } else if (STR_EQ(key, "alphaCutoff")) {
+          material->scalars[SCALAR_ALPHA_CUTOFF] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
           map_set(&model->materialMap, hash64(name.data, name.length), model->materialCount - i);

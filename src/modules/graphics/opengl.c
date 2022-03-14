@@ -1763,8 +1763,8 @@ void lovrTextureAllocate(Texture* texture, uint32_t width, uint32_t height, uint
   lovrAssert(texture->type != TEXTURE_CUBE || width == height, "Cubemap images must be square");
   lovrAssert(texture->type != TEXTURE_CUBE || depth == 6, "6 images are required for a cube texture");
   lovrAssert(texture->type != TEXTURE_2D || depth == 1, "2D textures can only contain a single image");
-  lovrAssert(width < maxSize, "Texture width %d exceeds max of %d", width, maxSize);
-  lovrAssert(height < maxSize, "Texture height %d exceeds max of %d", height, maxSize);
+  lovrAssert(width <= maxSize, "Texture width %d exceeds max of %d", width, maxSize);
+  lovrAssert(height <= maxSize, "Texture height %d exceeds max of %d", height, maxSize);
   lovrAssert(!texture->msaa || texture->type == TEXTURE_2D, "Only 2D textures can be created with MSAA");
 
   texture->allocated = true;
@@ -2132,8 +2132,9 @@ Image* lovrCanvasNewImage(Canvas* canvas, uint32_t index) {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, canvas->resolveBuffer);
   }
 
-#ifndef LOVR_WEBGL
   Texture* texture = canvas->attachments[index].texture;
+
+#ifndef LOVR_WEBGL
   if ((texture->incoherent >> BARRIER_TEXTURE) & 1) {
     lovrGpuSync(1 << BARRIER_TEXTURE);
   }
@@ -2143,8 +2144,10 @@ Image* lovrCanvasNewImage(Canvas* canvas, uint32_t index) {
     glReadBuffer(index);
   }
 
-  Image* image = lovrImageCreate(canvas->width, canvas->height, NULL, 0x0, FORMAT_RGBA);
-  glReadPixels(0, 0, canvas->width, canvas->height, GL_RGBA, GL_UNSIGNED_BYTE, image->blob->data);
+  Image* image = lovrImageCreate(canvas->width, canvas->height, NULL, 0x0, texture->format);
+  GLenum glFormat = convertTextureFormat(texture->format);
+  GLenum glFormatType = convertTextureFormatType(texture->format);
+  glReadPixels(0, 0, canvas->width, canvas->height, glFormat, glFormatType, image->blob->data);
 
   if (index != 0) {
     glReadBuffer(0);

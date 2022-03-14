@@ -132,6 +132,7 @@ StringEntry lovrMaterialColor[] = {
 StringEntry lovrMaterialScalar[] = {
   [SCALAR_METALNESS] = ENTRY("metalness"),
   [SCALAR_ROUGHNESS] = ENTRY("roughness"),
+  [SCALAR_ALPHA_CUTOFF] = ENTRY("alphacutoff"),
   { 0 }
 };
 
@@ -1246,8 +1247,8 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
     padding = luaL_optinteger(L, 2, padding);
     spread = luaL_optnumber(L, 3, spread);
   }
-
-  Font* font = lovrFontCreate(rasterizer, padding, spread);
+  TextureFilter defaultFilter = lovrGraphicsGetDefaultFilter();
+  Font* font = lovrFontCreate(rasterizer, padding, spread, defaultFilter.mode);
   luax_pushtype(L, Font, font);
   lovrRelease(rasterizer, lovrRasterizerDestroy);
   lovrRelease(font, lovrFontDestroy);
@@ -1844,22 +1845,26 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, ShaderBlock);
   luax_registertype(L, Texture);
 
-  luax_pushconf(L);
-
   bool debug = false;
-  lua_getfield(L, -1, "graphics");
+
+  luax_pushconf(L);
   if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "debug");
-    debug = lua_toboolean(L, -1);
+    lua_getfield(L, -1, "graphics");
+    if (lua_istable(L, -1)) {
+      lua_getfield(L, -1, "debug");
+      debug = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+    }
     lua_pop(L, 1);
   }
-  lua_pop(L, 1);
 
   lovrGraphicsInit(debug);
 
-  lua_pushcfunction(L, l_lovrGraphicsCreateWindow);
-  lua_getfield(L, -2, "window");
-  lua_call(L, 1, 0);
+  if (lua_istable(L, -1)) {
+    lua_pushcfunction(L, l_lovrGraphicsCreateWindow);
+    lua_getfield(L, -2, "window");
+    lua_call(L, 1, 0);
+  }
   lua_pop(L, 1);
   return 1;
 }
