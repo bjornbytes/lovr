@@ -85,7 +85,7 @@ static ovrInputState* refreshButtons(void) {
 
 
 static bool oculus_init(float supersample, float offset, uint32_t msaa, bool overlay) {
-  arr_init(&state.textures, realloc);
+  arr_init(&state.textures, arr_alloc);
 
   ovrResult result = ovr_Initialize(NULL);
   if (OVR_FAILURE(result)) {

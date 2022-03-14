@@ -53,7 +53,7 @@ Curve* lovrCurveCreate(void) {
   Curve* curve = calloc(1, sizeof(Curve));
   lovrAssert(curve, "Out of memory");
   curve->ref = 1;
-  arr_init(&curve->points, realloc);
+  arr_init(&curve->points, arr_alloc);
   arr_reserve(&curve->points, 16);
   return curve;
 }

@@ -52,6 +52,17 @@ void lovrRelease(void* object, void (*destructor)(void*)) {
   }
 }
 
+// Dynamic Array
+// Default malloc-based allocator for arr_t (like realloc except well-defined when size is 0)
+void* arr_alloc(void* data, size_t size) {
+  if (size > 0) {
+    return realloc(data, size);
+  } else {
+    free(data);
+    return NULL;
+  }
+}
+
 // UTF-8
 // https://github.com/starwing/luautf8
 size_t utf8_decode(const char *s, const char *e, unsigned *pch) {

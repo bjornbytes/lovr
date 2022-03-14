@@ -82,7 +82,7 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
   world->space = dHashSpaceCreate(0);
   dHashSpaceSetLevels(world->space, -4, 8);
   world->contactGroup = dJointGroupCreate(0);
-  arr_init(&world->overlaps, realloc);
+  arr_init(&world->overlaps, arr_alloc);
   lovrWorldSetGravity(world, xg, yg, zg);
   lovrWorldSetSleepingAllowed(world, allowSleep);
   for (uint32_t i = 0; i < tagCount; i++) {
@@ -322,8 +322,8 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   collider->restitution = 0;
   collider->tag = NO_TAG;
   dBodySetData(collider->body, collider);
-  arr_init(&collider->shapes, realloc);
-  arr_init(&collider->joints, realloc);
+  arr_init(&collider->shapes, arr_alloc);
+  arr_init(&collider->joints, arr_alloc);
 
   lovrColliderSetPosition(collider, x, y, z);
 

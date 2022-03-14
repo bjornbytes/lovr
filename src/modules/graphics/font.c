@@ -73,7 +73,7 @@ Font* lovrFontCreate(Rasterizer* rasterizer, uint32_t padding, double spread, Fi
   font->atlas.width = 256;
   font->atlas.height = 256;
   font->atlas.padding = atlasPadding;
-  arr_init(&font->atlas.glyphs, realloc);
+  arr_init(&font->atlas.glyphs, arr_alloc);
   map_init(&font->atlas.glyphMap, 0);
 
   // Set initial atlas size
