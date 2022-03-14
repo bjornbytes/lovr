@@ -72,6 +72,8 @@ typedef void* arr_allocator(void* data, size_t size);
 #define arr_splice(a, i, n) memmove((a)->data + (i), (a)->data + ((i) + n), ((a)->length - (i) - (n)) * sizeof(*(a)->data)), (a)->length -= n
 #define arr_clear(a) (a)->length = 0
 
+void* arr_alloc(void* data, size_t size);
+
 static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t stride, arr_allocator* allocator) {
   if (*capacity >= n) return;
   if (*capacity == 0) *capacity = 1;

@@ -21,7 +21,7 @@ void lovrVariantDestroy(Variant* variant) {
 
 bool lovrEventInit() {
   if (state.initialized) return false;
-  arr_init(&state.events, realloc);
+  arr_init(&state.events, arr_alloc);
   return state.initialized = true;
 }
 

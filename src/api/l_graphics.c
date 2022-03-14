@@ -1581,7 +1581,7 @@ static int l_lovrGraphicsNewComputeShader(lua_State* L) {
 
 static int l_lovrGraphicsNewShaderBlock(lua_State* L) {
   arr_uniform_t uniforms;
-  arr_init(&uniforms, realloc);
+  arr_init(&uniforms, arr_alloc);
 
   BlockType type = luax_checkenum(L, 1, BlockType, NULL);
 
