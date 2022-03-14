@@ -723,11 +723,15 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
 
   switch (button) {
     case BUTTON_TRIGGER: info.action = state.actions[ACTION_TRIGGER_DOWN + touch]; break;
-    case BUTTON_THUMBREST: info.action = state.actions[ACTION_THUMBREST_DOWN + touch]; break;
+    case BUTTON_THUMBREST: info.action = touch ? state.actions[ACTION_THUMBREST_TOUCH] : XR_NULL_HANDLE; break;
     case BUTTON_TOUCHPAD: info.action = state.actions[ACTION_TRACKPAD_DOWN + touch]; break;
     case BUTTON_MENU: info.action = state.actions[ACTION_MENU_DOWN + touch]; break;
     case BUTTON_GRIP: info.action = state.actions[ACTION_GRIP_DOWN + touch]; break;
     default: return false;
+  }
+
+  if (!info.action) {
+    return false;
   }
 
   XrActionStateBoolean actionState = { .type = XR_TYPE_ACTION_STATE_BOOLEAN };
