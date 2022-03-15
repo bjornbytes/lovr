@@ -310,7 +310,7 @@ static int l_lovrVec2Angle(lua_State* L) {
   length_v = sqrtf(v[0] * v[0] + v[1] * v[1]);
   length_u = sqrtf(u[0] * u[0] + u[1] * u[1]);
   if ((length_v == 0.f) || (length_u == 0.f)) {
-    lua_pushnumber(L, (float) M_PI / 2);
+    lua_pushnumber(L, (float) M_PI / 2.f);
   } else {
     dot = v[0] * u[0] + v[1] * u[1];
     lua_pushnumber(L, acosf(dot / (length_v * length_u)));

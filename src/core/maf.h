@@ -125,7 +125,7 @@ MAF vec3 vec3_max(vec3 v, const vec3 u) {
 MAF float vec3_angle(const vec3 v, const vec3 u) {
   float denom = vec3_length(v) * vec3_length(u);
   if (denom == 0.f) {
-    return (float) M_PI / 2;
+    return (float) M_PI / 2.f;
   } else {
     return acosf(vec3_dot(v, u) / denom);
   }

@@ -209,7 +209,6 @@ bool os_window_open(const os_window_config* config) {
     return false;
   }
 
-
 #ifdef LOVR_LINUX_EGL
   glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
 #endif
