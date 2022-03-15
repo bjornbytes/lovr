@@ -362,7 +362,7 @@ static void openxr_start(void) {
 #if defined(_WIN32) && defined(LOVR_GL)
     XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {
       .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
-      .hDC = os_get_win32_window(),
+      .hDC = GetDC(os_get_win32_window()),
       .hGLRC = os_get_context()
     };
 #elif defined(__ANDROID__) && defined(LOVR_GLES)
