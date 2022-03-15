@@ -22,9 +22,10 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
     return;
   }
 
-  dContact contact;
-  if (dCollide(a, b, MAX_CONTACTS, &contact.geom, sizeof(dContact))) {
-    dContactGeom g = contact.geom;
+  dContact contact[MAX_CONTACTS];
+  int count = dCollide(a, b, MAX_CONTACTS, &contact->geom, sizeof(dContact));
+  for (int i = 0; i < count; i++) {
+    dContactGeom g = contact[i].geom;
     callback(shape, g.pos[0], g.pos[1], g.pos[2], g.normal[0], g.normal[1], g.normal[2], userdata);
   }
 }
