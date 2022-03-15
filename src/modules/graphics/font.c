@@ -1,4 +1,5 @@
 #include "graphics/font.h"
+#include "graphics/graphics.h"
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
 #include "data/image.h"
@@ -27,7 +28,7 @@ struct Font {
   uint32_t padding;
   float lineHeight;
   float pixelDensity;
-  FilterMode filterMode;
+  TextureFilter filter;
   bool flip;
 };
 
@@ -50,7 +51,7 @@ static void lovrFontAddGlyph(Font* font, Glyph* glyph);
 static void lovrFontExpandTexture(Font* font);
 static void lovrFontCreateTexture(Font* font);
 
-Font* lovrFontCreate(Rasterizer* rasterizer, uint32_t padding, double spread, FilterMode filterMode) {
+Font* lovrFontCreate(Rasterizer* rasterizer, uint32_t padding, double spread) {
   Font* font = calloc(1, sizeof(Font));
   lovrAssert(font, "Out of memory");
   font->ref = 1;
@@ -61,7 +62,7 @@ Font* lovrFontCreate(Rasterizer* rasterizer, uint32_t padding, double spread, Fi
   font->spread = spread;
   font->lineHeight = 1.f;
   font->pixelDensity = (float) lovrRasterizerGetHeight(rasterizer);
-  font->filterMode = filterMode;
+  font->filter = lovrGraphicsGetDefaultFilter();
   map_init(&font->kerning, 0);
 
   // Atlas
@@ -106,6 +107,17 @@ Rasterizer* lovrFontGetRasterizer(Font* font) {
 
 Texture* lovrFontGetTexture(Font* font) {
   return font->texture;
+}
+
+TextureFilter lovrFontGetFilter(Font* font) {
+  return font->filter;
+}
+
+void lovrFontSetFilter(Font* font, TextureFilter filter) {
+  if (font->filter.mode != filter.mode || font->filter.anisotropy != filter.anisotropy) {
+    font->filter = filter;
+    lovrTextureSetFilter(font->texture, filter);
+  }
 }
 
 void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float* vertices, uint16_t* indices, uint16_t baseVertex) {
@@ -357,7 +369,7 @@ static void lovrFontCreateTexture(Font* font) {
   lovrRelease(font->texture, lovrTextureDestroy);
   Image* image = lovrImageCreate(font->atlas.width, font->atlas.height, NULL, 0x0, FORMAT_RGBA16F);
   font->texture = lovrTextureCreate(TEXTURE_2D, &image, 1, false, false, 0);
-  lovrTextureSetFilter(font->texture, (TextureFilter) { .mode = font->filterMode });
+  lovrTextureSetFilter(font->texture, font->filter);
   lovrTextureSetWrap(font->texture, (TextureWrap) { .s = WRAP_CLAMP, .t = WRAP_CLAMP });
   lovrRelease(image, lovrImageDestroy);
 }

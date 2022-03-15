@@ -1247,8 +1247,7 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
     padding = luaL_optinteger(L, 2, padding);
     spread = luaL_optnumber(L, 3, spread);
   }
-  TextureFilter defaultFilter = lovrGraphicsGetDefaultFilter();
-  Font* font = lovrFontCreate(rasterizer, padding, spread, defaultFilter.mode);
+  Font* font = lovrFontCreate(rasterizer, padding, spread);
   luax_pushtype(L, Font, font);
   lovrRelease(rasterizer, lovrRasterizerDestroy);
   lovrRelease(font, lovrFontDestroy);

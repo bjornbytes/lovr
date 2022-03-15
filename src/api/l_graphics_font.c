@@ -109,6 +109,23 @@ static int l_lovrFontHasGlyphs(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFontGetFilter(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  TextureFilter filter = lovrFontGetFilter(font);
+  luax_pushenum(L, FilterMode, filter.mode);
+  lua_pushnumber(L, filter.anisotropy);
+  return 2;
+}
+
+static int l_lovrFontSetFilter(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  FilterMode mode = luax_checkenum(L, 2, FilterMode, NULL);
+  float anisotropy = luax_optfloat(L, 3, 1.f);
+  TextureFilter filter = { .mode = mode, .anisotropy = anisotropy };
+  lovrFontSetFilter(font, filter);
+  return 0;
+}
+
 const luaL_Reg lovrFont[] = {
   { "getWidth", l_lovrFontGetWidth },
   { "getHeight", l_lovrFontGetHeight },
@@ -123,5 +140,7 @@ const luaL_Reg lovrFont[] = {
   { "setPixelDensity", l_lovrFontSetPixelDensity },
   { "getRasterizer", l_lovrFontGetRasterizer},
   { "hasGlyphs", l_lovrFontHasGlyphs },
+  { "getFilter", l_lovrFontGetFilter },
+  { "setFilter", l_lovrFontSetFilter },
   { NULL, NULL }
 };
