@@ -46,7 +46,7 @@ static int l_lovrFontGetBaseline(lua_State* L) {
 
 static int l_lovrFontGetLineHeight(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
-  lua_pushinteger(L, lovrFontGetLineHeight(font));
+  lua_pushnumber(L, lovrFontGetLineHeight(font));
   return 1;
 }
 
