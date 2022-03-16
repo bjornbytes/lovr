@@ -324,8 +324,9 @@ end
 
 if config.headsets.openxr then
   if target == 'android' then
+    cflags_headset_openxr += '-Ideps/openxr/include'
     cflags_headset_openxr += '-Ideps/OpenXR-Oculus/Include'
-    lflags += 'lopenxr_loader'
+    lflags += '-lopenxr_loader'
     copy('deps/OpenXR-Oculus/Libs/Android/arm64-v8a/Release/libopenxr_loader.so', '$(bin)/%b')
   else
     if type(config.headsets.openxr) ~= 'string' then
