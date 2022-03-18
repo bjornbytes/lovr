@@ -469,6 +469,26 @@ static void openxr_start(void) {
     };
 
     XR(xrCreateActionSpace(state.session, &rightHandSpaceInfo, &state.spaces[DEVICE_HAND_RIGHT]));
+
+    // Left hand pointer space
+    XrActionSpaceCreateInfo leftPointerSpaceInfo = {
+      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
+      .action = state.actions[ACTION_POINTER_POSE],
+      .subactionPath = state.actionFilters[0],
+      .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
+    };
+
+    XR(xrCreateActionSpace(state.session, &leftPointerSpaceInfo, &state.spaces[DEVICE_HAND_LEFT_POINT]));
+
+    // Right hand pointer space
+    XrActionSpaceCreateInfo rightPointerSpaceInfo = {
+      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
+      .action = state.actions[ACTION_POINTER_POSE],
+      .subactionPath = state.actionFilters[1],
+      .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
+    };
+
+    XR(xrCreateActionSpace(state.session, &rightPointerSpaceInfo, &state.spaces[DEVICE_HAND_RIGHT_POINT]));
   }
 
   { // Swapchain

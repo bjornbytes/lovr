@@ -11,6 +11,7 @@ enum {
 
 enum {
   ACTION_HAND_POSE,
+  ACTION_POINTER_POSE,
   ACTION_TRIGGER_DOWN,
   ACTION_TRIGGER_TOUCH,
   ACTION_TRIGGER_AXIS,
@@ -51,6 +52,7 @@ static const char* interactionProfiles[] = {
 #define action(id, name, type) { XR_TYPE_ACTION_CREATE_INFO, NULL, id, type, 2, NULL, name }
 static XrActionCreateInfo actionCreateInfo[] = {
   [ACTION_HAND_POSE] = action("hand_pose", "Hand Pose", XR_ACTION_TYPE_POSE_INPUT),
+  [ACTION_POINTER_POSE] = action("pointer_pose", "Pointer Pose", XR_ACTION_TYPE_POSE_INPUT),
   [ACTION_TRIGGER_DOWN] = action("trigger_down", "Trigger Down", XR_ACTION_TYPE_BOOLEAN_INPUT),
   [ACTION_TRIGGER_TOUCH] = action("trigger_touch", "Trigger Touch", XR_ACTION_TYPE_BOOLEAN_INPUT),
   [ACTION_TRIGGER_AXIS] = action("trigger_axis", "Trigger Axis", XR_ACTION_TYPE_FLOAT_INPUT),
@@ -84,6 +86,8 @@ static const char* bindings[MAX_PROFILES][MAX_ACTIONS][2] = {
   [PROFILE_SIMPLE] = {
     [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
     [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
+    [ACTION_POINTER_POSE][0] = "/user/hand/left/input/aim/pose",
+    [ACTION_POINTER_POSE][1] = "/user/hand/right/input/aim/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/select/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/select/click",
     [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
@@ -95,6 +99,8 @@ static const char* bindings[MAX_PROFILES][MAX_ACTIONS][2] = {
   [PROFILE_VIVE] = {
     [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
     [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
+    [ACTION_POINTER_POSE][0] = "/user/hand/left/input/aim/pose",
+    [ACTION_POINTER_POSE][1] = "/user/hand/right/input/aim/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
     [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
@@ -118,6 +124,8 @@ static const char* bindings[MAX_PROFILES][MAX_ACTIONS][2] = {
   [PROFILE_TOUCH] = {
     [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
     [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
+    [ACTION_POINTER_POSE][0] = "/user/hand/left/input/aim/pose",
+    [ACTION_POINTER_POSE][1] = "/user/hand/right/input/aim/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/value",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/value",
     [ACTION_TRIGGER_TOUCH][0] = "/user/hand/left/input/trigger/touch",
@@ -155,6 +163,8 @@ static const char* bindings[MAX_PROFILES][MAX_ACTIONS][2] = {
   [PROFILE_GO] = {
     [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
     [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
+    [ACTION_POINTER_POSE][0] = "/user/hand/left/input/aim/pose",
+    [ACTION_POINTER_POSE][1] = "/user/hand/right/input/aim/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
     [ACTION_TRACKPAD_DOWN][0] = "/user/hand/left/input/trackpad/click",
@@ -170,6 +180,8 @@ static const char* bindings[MAX_PROFILES][MAX_ACTIONS][2] = {
   [PROFILE_INDEX] = {
     [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
     [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
+    [ACTION_POINTER_POSE][0] = "/user/hand/left/input/aim/pose",
+    [ACTION_POINTER_POSE][1] = "/user/hand/right/input/aim/pose",
     [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/click",
     [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/click",
     [ACTION_TRIGGER_TOUCH][0] = "/user/hand/left/input/trigger/touch",
