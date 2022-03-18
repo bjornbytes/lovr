@@ -55,7 +55,7 @@
 
 #if defined(_WIN32)
 HANDLE os_get_win32_window(void);
-HGLRC os_get_context(void);
+HGLRC os_get_win32_context(void);
 #elif defined(__ANDROID__)
 struct ANativeActivity* os_get_activity(void);
 EGLDisplay os_get_egl_display(void);
@@ -364,7 +364,7 @@ static void openxr_start(void) {
     XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {
       .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
       .hDC = GetDC(os_get_win32_window()),
-      .hGLRC = os_get_context()
+      .hGLRC = os_get_win32_context()
     };
 #elif defined(__ANDROID__) && defined(LOVR_GLES)
     XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {

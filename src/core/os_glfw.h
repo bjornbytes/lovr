@@ -346,7 +346,7 @@ HANDLE os_get_win32_window() {
   return (HANDLE) glfwGetWin32Window(glfwState.window);
 }
 
-HGLRC os_get_context() {
+HGLRC os_get_win32_context() {
   return glfwGetWGLContext(glfwState.window);
 }
 #endif
