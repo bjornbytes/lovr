@@ -6,6 +6,7 @@ enum {
   PROFILE_TOUCH,
   PROFILE_GO,
   PROFILE_INDEX,
+  PROFILE_WMR,
   MAX_PROFILES
 };
 
@@ -46,7 +47,8 @@ static const char* interactionProfiles[] = {
   [PROFILE_VIVE] = "/interaction_profiles/htc/vive_controller",
   [PROFILE_TOUCH] = "/interaction_profiles/oculus/touch_controller",
   [PROFILE_GO] = "/interaction_profiles/oculus/go_controller",
-  [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller"
+  [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller",
+  [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller"
 };
 
 #define action(id, name, type) { XR_TYPE_ACTION_CREATE_INFO, NULL, id, type, 2, NULL, name }
@@ -214,6 +216,39 @@ static const char* bindings[MAX_PROFILES][MAX_ACTIONS][2] = {
     [ACTION_B_DOWN][1] = "/user/hand/right/input/b/click",
     [ACTION_B_TOUCH][0] = "/user/hand/left/input/b/touch",
     [ACTION_B_TOUCH][1] = "/user/hand/right/input/b/touch",
+    [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
+    [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
+  },
+
+  [PROFILE_WMR] = {
+    [ACTION_HAND_POSE][0] = "/user/hand/left/input/grip/pose",
+    [ACTION_HAND_POSE][1] = "/user/hand/right/input/grip/pose",
+    [ACTION_POINTER_POSE][0] = "/user/hand/left/input/aim/pose",
+    [ACTION_POINTER_POSE][1] = "/user/hand/right/input/aim/pose",
+    [ACTION_TRIGGER_DOWN][0] = "/user/hand/left/input/trigger/value",
+    [ACTION_TRIGGER_DOWN][1] = "/user/hand/right/input/trigger/value",
+    [ACTION_TRIGGER_AXIS][0] = "/user/hand/left/input/trigger/value",
+    [ACTION_TRIGGER_AXIS][1] = "/user/hand/right/input/trigger/value",
+    [ACTION_TRACKPAD_DOWN][0] = "/user/hand/left/input/trackpad/click",
+    [ACTION_TRACKPAD_DOWN][1] = "/user/hand/right/input/trackpad/click",
+    [ACTION_TRACKPAD_TOUCH][0] = "/user/hand/left/input/trackpad/touch",
+    [ACTION_TRACKPAD_TOUCH][1] = "/user/hand/right/input/trackpad/touch",
+    [ACTION_TRACKPAD_X][0] = "/user/hand/left/input/trackpad/x",
+    [ACTION_TRACKPAD_X][1] = "/user/hand/right/input/trackpad/x",
+    [ACTION_TRACKPAD_Y][0] = "/user/hand/left/input/trackpad/y",
+    [ACTION_TRACKPAD_Y][1] = "/user/hand/right/input/trackpad/y",
+    [ACTION_THUMBSTICK_DOWN][0] = "/user/hand/left/input/thumbstick/click",
+    [ACTION_THUMBSTICK_DOWN][1] = "/user/hand/right/input/thumbstick/click",
+    [ACTION_THUMBSTICK_X][0] = "/user/hand/left/input/thumbstick/x",
+    [ACTION_THUMBSTICK_X][1] = "/user/hand/right/input/thumbstick/x",
+    [ACTION_THUMBSTICK_Y][0] = "/user/hand/left/input/thumbstick/y",
+    [ACTION_THUMBSTICK_Y][1] = "/user/hand/right/input/thumbstick/y",
+    [ACTION_MENU_DOWN][0] = "/user/hand/left/input/menu/click",
+    [ACTION_MENU_DOWN][1] = "/user/hand/right/input/menu/click",
+    [ACTION_GRIP_DOWN][0] = "/user/hand/left/input/squeeze/click",
+    [ACTION_GRIP_DOWN][1] = "/user/hand/right/input/squeeze/click",
+    [ACTION_GRIP_AXIS][0] = "/user/hand/left/input/squeeze/click",
+    [ACTION_GRIP_AXIS][1] = "/user/hand/right/input/squeeze/click",
     [ACTION_VIBRATE][0] = "/user/hand/left/output/haptic",
     [ACTION_VIBRATE][1] = "/user/hand/right/output/haptic"
   }
