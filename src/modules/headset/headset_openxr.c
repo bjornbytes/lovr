@@ -351,13 +351,13 @@ static void openxr_start(void) {
     PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR;
     XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
     xrGetOpenGLGraphicsRequirementsKHR(state.instance, state.system, &requirements);
-    // TODO validate OpenGL versions
+    // TODO validate OpenGL versions, potentially in init
 #elif defined(LOVR_GLES)
     XrGraphicsRequirementsOpenGLESKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR, NULL };
     PFN_xrGetOpenGLESGraphicsRequirementsKHR xrGetOpenGLESGraphicsRequirementsKHR;
     XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
     xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements);
-    // TODO validate OpenGLES versions
+    // TODO validate OpenGLES versions, potentially in init
 #endif
 
 #if defined(_WIN32) && defined(LOVR_GL)
@@ -539,8 +539,7 @@ static void openxr_start(void) {
     XrCompositionLayerFlags layerFlags = 0;
 
     if (state.features.overlay) {
-      layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT |
-                   XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+      layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
     }
 
     // Pre-init composition layer
@@ -598,9 +597,7 @@ static void openxr_destroy(void) {
 }
 
 static bool openxr_getName(char* name, size_t length) {
-  XrSystemProperties properties = {
-    .type = XR_TYPE_SYSTEM_PROPERTIES
-  };
+  XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
   XR(xrGetSystemProperties(state.instance, state.system, &properties));
   strncpy(name, properties.systemName, length - 1);
   name[length - 1] = '\0';
@@ -912,39 +909,42 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
       XR(xrReleaseSwapchainImage(state.swapchain, NULL));
     }
 
-    state.hasImage = true;
+    XrSwapchainImageWaitInfo waitInfo = {
+      XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO,
+      .timeout = XR_INFINITE_DURATION
+    };
+
     XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));
-    XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = 1e9 };
+    XR(xrWaitSwapchainImage(state.swapchain, &waitInfo));
+    state.hasImage = true;
 
-    if (XR(xrWaitSwapchainImage(state.swapchain, &waitInfo)) != XR_TIMEOUT_EXPIRED) {
-      uint32_t count;
-      XrView views[2];
-      getViews(views, &count);
+    uint32_t count;
+    XrView views[2];
+    getViews(views, &count);
 
-      for (int eye = 0; eye < 2; eye++) {
-        float viewMatrix[16];
-        XrView* view = &views[eye];
-        mat4_fromQuat(viewMatrix, &view->pose.orientation.x);
-        memcpy(viewMatrix + 12, &view->pose.position.x, 3 * sizeof(float));
-        mat4_invert(viewMatrix);
-        lovrGraphicsSetViewMatrix(eye, viewMatrix);
+    for (int eye = 0; eye < 2; eye++) {
+      float viewMatrix[16];
+      XrView* view = &views[eye];
+      mat4_fromQuat(viewMatrix, &view->pose.orientation.x);
+      memcpy(viewMatrix + 12, &view->pose.position.x, 3 * sizeof(float));
+      mat4_invert(viewMatrix);
+      lovrGraphicsSetViewMatrix(eye, viewMatrix);
 
-        float projection[16];
-        XrFovf* fov = &view->fov;
-        mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
-        lovrGraphicsSetProjection(eye, projection);
-      }
-
-      lovrGraphicsSetBackbuffer(state.canvases[state.imageIndex], true, true);
-      callback(userdata);
-      lovrGraphicsSetBackbuffer(NULL, false, false);
-
-      endInfo.layerCount = 1;
-      state.layerViews[0].pose = views[0].pose;
-      state.layerViews[0].fov = views[0].fov;
-      state.layerViews[1].pose = views[1].pose;
-      state.layerViews[1].fov = views[1].fov;
+      float projection[16];
+      XrFovf* fov = &view->fov;
+      mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
+      lovrGraphicsSetProjection(eye, projection);
     }
+
+    lovrGraphicsSetBackbuffer(state.canvases[state.imageIndex], true, true);
+    callback(userdata);
+    lovrGraphicsSetBackbuffer(NULL, false, false);
+
+    endInfo.layerCount = 1;
+    state.layerViews[0].pose = views[0].pose;
+    state.layerViews[0].fov = views[0].fov;
+    state.layerViews[1].pose = views[1].pose;
+    state.layerViews[1].fov = views[1].fov;
 
     XR(xrReleaseSwapchainImage(state.swapchain, NULL));
     state.hasImage = false;
