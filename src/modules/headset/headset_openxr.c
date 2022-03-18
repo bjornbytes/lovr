@@ -142,6 +142,7 @@ static struct {
   float clipNear;
   float clipFar;
   float offset;
+  bool hasImage;
   XrActionSet actionSet;
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[2];
@@ -907,6 +908,11 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
   XR(xrBeginFrame(state.session, &beginInfo));
 
   if (state.frameState.shouldRender) {
+    if (state.hasImage) {
+      XR(xrReleaseSwapchainImage(state.swapchain, NULL));
+    }
+
+    state.hasImage = true;
     XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));
     XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = 1e9 };
 
@@ -941,6 +947,7 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
     }
 
     XR(xrReleaseSwapchainImage(state.swapchain, NULL));
+    state.hasImage = false;
   }
 
   XR(xrEndFrame(state.session, &endInfo));
