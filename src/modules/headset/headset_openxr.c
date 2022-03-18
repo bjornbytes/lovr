@@ -910,7 +910,7 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
     }
 
     XrSwapchainImageWaitInfo waitInfo = {
-      XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO,
+      .type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO,
       .timeout = XR_INFINITE_DURATION
     };
 
