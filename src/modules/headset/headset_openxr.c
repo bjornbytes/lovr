@@ -1,8 +1,10 @@
 #include "headset/headset.h"
+#include "data/blob.h"
 #include "event/event.h"
 #include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
+#include "graphics/model.h"
 #include "graphics/texture.h"
 #include "core/os.h"
 #include "core/util.h"
@@ -108,11 +110,13 @@ EGLConfig os_get_egl_config(void);
   X(xrAttachSessionActionSets)\
   X(xrGetActionStateBoolean)\
   X(xrGetActionStateFloat)\
+  X(xrGetActionStatePose)\
   X(xrSyncActions)\
   X(xrApplyHapticFeedback)\
   X(xrCreateHandTrackerEXT)\
   X(xrDestroyHandTrackerEXT)\
-  X(xrLocateHandJointsEXT)
+  X(xrLocateHandJointsEXT)\
+  X(xrGetHandMeshFB)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -149,6 +153,7 @@ static struct {
   XrHandTrackerEXT handTrackers[2];
   struct {
     bool handTracking;
+    bool handTrackingMesh;
     bool overlay;
   } features;
 } state;
@@ -169,6 +174,30 @@ static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, cons
     }
   }
   return false;
+}
+
+// Hand trackers are created lazily because on some implementations xrCreateHandTrackerEXT will
+// return XR_ERROR_FEATURE_UNSUPPORTED if called too early.
+static XrHandTrackerEXT getHandTracker(Device device) {
+  if (!state.features.handTracking || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) {
+    return XR_NULL_HANDLE;
+  }
+
+  XrHandTrackerEXT* tracker = &state.handTrackers[device == DEVICE_HAND_RIGHT];
+
+  if (!*tracker) {
+    XrHandTrackerCreateInfoEXT info = {
+      .type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
+      .handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT,
+      .hand = device == DEVICE_HAND_RIGHT ? XR_HAND_RIGHT_EXT : XR_HAND_LEFT_EXT
+    };
+
+    if (XR_FAILED(xrCreateHandTrackerEXT(state.session, &info, tracker))) {
+      return XR_NULL_HANDLE;
+    }
+  }
+
+  return *tracker;
 }
 
 static void openxr_destroy();
@@ -216,6 +245,11 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     if (hasExtension(extensions, extensionCount, XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
       enabledExtensionNames[enabledExtensionCount++] = XR_EXT_HAND_TRACKING_EXTENSION_NAME;
       state.features.handTracking = true;
+    }
+
+    if (hasExtension(extensions, extensionCount, XR_FB_HAND_TRACKING_MESH_EXTENSION_NAME)) {
+      enabledExtensionNames[enabledExtensionCount++] = XR_FB_HAND_TRACKING_MESH_EXTENSION_NAME;
+      state.features.handTrackingMesh = true;
     }
 
 #ifdef XR_EXTX_overlay
@@ -705,7 +739,62 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
     return false;
   }
 
-  XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION, .next = NULL };
+  // If there's a pose action for this device, see if the action is active before locating its space
+  XrAction action = XR_NULL_HANDLE;
+  switch (device) {
+    case DEVICE_HAND_LEFT: action = state.actions[ACTION_HAND_POSE]; break;
+    case DEVICE_HAND_RIGHT: action = state.actions[ACTION_HAND_POSE]; break;
+    case DEVICE_HAND_LEFT_POINT: action = state.actions[ACTION_POINTER_POSE]; break;
+    case DEVICE_HAND_RIGHT_POINT: action = state.actions[ACTION_POINTER_POSE]; break;
+    default: break;
+  }
+
+  if (action) {
+    XrActionStateGetInfo info = {
+      .type = XR_TYPE_ACTION_STATE_GET_INFO,
+      .action = action,
+      .subactionPath = state.actionFilters[device == DEVICE_HAND_RIGHT || device == DEVICE_HAND_RIGHT_POINT]
+    };
+
+    XrActionStatePose poseState = {
+      .type = XR_TYPE_ACTION_STATE_POSE
+    };
+
+    XR(xrGetActionStatePose(state.session, &info, &poseState));
+
+    // If the action isn't active, try fallbacks for some devices (hand tracking)
+    if (!poseState.isActive) {
+      XrHandTrackerEXT tracker = getHandTracker(device);
+
+      if (!tracker) {
+        return false;
+      }
+
+      XrHandJointsLocateInfoEXT info = {
+        .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
+        .baseSpace = state.referenceSpace,
+        .time = state.frameState.predictedDisplayTime
+      };
+
+      XrHandJointLocationEXT joints[26];
+      XrHandJointLocationsEXT hand = {
+        .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
+        .jointCount = sizeof(joints) / sizeof(joints[0]),
+        .jointLocations = joints
+      };
+
+      if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
+        return false;
+      }
+
+      XrPosef* pose = &joints[XR_HAND_JOINT_WRIST_EXT].pose;
+      memcpy(orientation, &pose->orientation, 4 * sizeof(float));
+      memcpy(position, &pose->position, 3 * sizeof(float));
+      return true;
+    }
+  }
+
+  XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
   xrLocateSpace(state.spaces[device], state.referenceSpace, state.frameState.predictedDisplayTime, &location);
   memcpy(orientation, &location.pose.orientation, 4 * sizeof(float));
   memcpy(position, &location.pose.position, 3 * sizeof(float));
@@ -806,28 +895,10 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
 }
 
 static bool openxr_getSkeleton(Device device, float* poses) {
-  if (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT) {
+  XrHandTrackerEXT tracker = getHandTracker(device);
+
+  if (!tracker) {
     return false;
-  }
-
-  if (!state.features.handTracking) {
-    return false;
-  }
-
-  XrHandTrackerEXT* handTracker = &state.handTrackers[device - DEVICE_HAND_LEFT];
-
-  // Hand trackers are created lazily because on some implementations xrCreateHandTrackerEXT will
-  // return XR_ERROR_FEATURE_UNSUPPORTED if called too early.
-  if (!*handTracker) {
-    XrHandTrackerCreateInfoEXT info = {
-      .type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
-      .handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT,
-      .hand = device == DEVICE_HAND_LEFT ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT
-    };
-
-    if (XR_FAILED(xrCreateHandTrackerEXT(state.session, &info, handTracker))) {
-      return false;
-    }
   }
 
   XrHandJointsLocateInfoEXT info = {
@@ -843,7 +914,7 @@ static bool openxr_getSkeleton(Device device, float* poses) {
     .jointLocations = joints
   };
 
-  if (XR_FAILED(xrLocateHandJointsEXT(*handTracker, &info, &hand)) || !hand.isActive) {
+  if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
     return false;
   }
 
@@ -881,11 +952,286 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
 }
 
 static struct ModelData* openxr_newModelData(Device device, bool animated) {
-  return NULL;
+  if (!state.features.handTrackingMesh) {
+    return NULL;
+  }
+
+  XrHandTrackerEXT tracker = getHandTracker(device);
+
+  if (!tracker) {
+    return NULL;
+  }
+
+  XrHandTrackingMeshFB mesh = { .type = XR_TYPE_HAND_TRACKING_MESH_FB };
+  XrResult result = xrGetHandMeshFB(tracker, &mesh);
+
+  if (XR_FAILED(result)) {
+    return NULL;
+  }
+
+  uint32_t jointCount = mesh.jointCapacityInput = mesh.jointCountOutput;
+  uint32_t vertexCount = mesh.vertexCapacityInput = mesh.vertexCountOutput;
+  uint32_t indexCount = mesh.indexCapacityInput = mesh.indexCountOutput;
+
+  size_t sizes[10];
+  size_t totalSize = 0;
+  size_t alignment = 8;
+  totalSize += sizes[0] = ALIGN(jointCount * sizeof(XrPosef), alignment);
+  totalSize += sizes[1] = ALIGN(jointCount * sizeof(float), alignment);
+  totalSize += sizes[2] = ALIGN(jointCount * sizeof(XrHandJointEXT), alignment);
+  totalSize += sizes[3] = ALIGN(vertexCount * sizeof(XrVector3f), alignment);
+  totalSize += sizes[4] = ALIGN(vertexCount * sizeof(XrVector3f), alignment);
+  totalSize += sizes[5] = ALIGN(vertexCount * sizeof(XrVector2f), alignment);
+  totalSize += sizes[6] = ALIGN(vertexCount * sizeof(XrVector4sFB), alignment);
+  totalSize += sizes[7] = ALIGN(vertexCount * sizeof(XrVector4f), alignment);
+  totalSize += sizes[8] = ALIGN(indexCount * sizeof(int16_t), alignment);
+  totalSize += sizes[9] = ALIGN(jointCount * 16 * sizeof(float), alignment);
+
+  char* meshData = malloc(totalSize);
+  if (!meshData) return NULL;
+
+  size_t offset = 0;
+  mesh.jointBindPoses = (XrPosef*) (meshData + offset), offset += sizes[0];
+  mesh.jointRadii = (float*) (meshData + offset), offset += sizes[1];
+  mesh.jointParents = (XrHandJointEXT*) (meshData + offset), offset += sizes[2];
+  mesh.vertexPositions = (XrVector3f*) (meshData + offset), offset += sizes[3];
+  mesh.vertexNormals = (XrVector3f*) (meshData + offset), offset += sizes[4];
+  mesh.vertexUVs = (XrVector2f*) (meshData + offset), offset += sizes[5];
+  mesh.vertexBlendIndices = (XrVector4sFB*) (meshData + offset), offset += sizes[6];
+  mesh.vertexBlendWeights = (XrVector4f*) (meshData + offset), offset += sizes[7];
+  mesh.indices = (int16_t*) (meshData + offset), offset += sizes[8];
+  float* inverseBindMatrices = (float*) (meshData + offset); offset += sizes[9];
+  lovrAssert(offset == totalSize, "Unreachable");
+
+  result = xrGetHandMeshFB(tracker, &mesh);
+  if (XR_FAILED(result)) {
+    free(meshData);
+    return NULL;
+  }
+
+  ModelData* model = calloc(1, sizeof(ModelData));
+  lovrAssert(model, "Out of memory");
+  model->ref = 1;
+  model->blobCount = 1;
+  model->bufferCount = 6;
+  model->attributeCount = 6;
+  model->primitiveCount = 1;
+  model->skinCount = 1;
+  model->jointCount = jointCount;
+  model->childCount = jointCount + 1;
+  model->nodeCount = 2 + jointCount;
+  lovrModelDataAllocate(model);
+
+  model->blobs[0] = lovrBlobCreate(meshData, totalSize, "Hand Mesh Data");
+
+  model->buffers[0] = (ModelBuffer) {
+    .offset = (char*) mesh.vertexPositions - (char*) meshData,
+    .data = (char*) mesh.vertexPositions,
+    .size = sizeof(mesh.vertexPositions[0]) * vertexCount,
+    .stride = sizeof(mesh.vertexPositions[0])
+  };
+
+  model->buffers[1] = (ModelBuffer) {
+    .offset = (char*) mesh.vertexNormals - (char*) meshData,
+    .data = (char*) mesh.vertexNormals,
+    .size = sizeof(mesh.vertexNormals[0]) * vertexCount,
+    .stride = sizeof(mesh.vertexNormals[0])
+  };
+
+  model->buffers[2] = (ModelBuffer) {
+    .offset = (char*) mesh.vertexUVs - (char*) meshData,
+    .data = (char*) mesh.vertexUVs,
+    .size = sizeof(mesh.vertexUVs[0]) * vertexCount,
+    .stride = sizeof(mesh.vertexUVs[0])
+  };
+
+  model->buffers[3] = (ModelBuffer) {
+    .offset = (char*) mesh.vertexBlendIndices - (char*) meshData,
+    .data = (char*) mesh.vertexBlendIndices,
+    .size = sizeof(mesh.vertexBlendIndices[0]) * vertexCount,
+    .stride = sizeof(mesh.vertexBlendIndices[0])
+  };
+
+  model->buffers[4] = (ModelBuffer) {
+    .offset = (char*) mesh.vertexBlendWeights - (char*) meshData,
+    .data = (char*) mesh.vertexBlendWeights,
+    .size = sizeof(mesh.vertexBlendWeights[0]) * vertexCount,
+    .stride = sizeof(mesh.vertexBlendWeights[0])
+  };
+
+  model->buffers[5] = (ModelBuffer) {
+    .offset = (char*) mesh.indices - (char*) meshData,
+    .data = (char*) mesh.indices,
+    .size = sizeof(mesh.indices[0]) * indexCount,
+    .stride = sizeof(mesh.indices[0])
+  };
+
+  model->attributes[0] = (ModelAttribute) { .buffer = 0, .type = F32, .components = 3 };
+  model->attributes[1] = (ModelAttribute) { .buffer = 1, .type = F32, .components = 3 };
+  model->attributes[2] = (ModelAttribute) { .buffer = 2, .type = F32, .components = 2 };
+  model->attributes[3] = (ModelAttribute) { .buffer = 3, .type = I16, .components = 4 };
+  model->attributes[4] = (ModelAttribute) { .buffer = 4, .type = F32, .components = 4 };
+  model->attributes[5] = (ModelAttribute) { .buffer = 5, .type = U16, .count = indexCount };
+
+  model->primitives[0] = (ModelPrimitive) {
+    .mode = DRAW_TRIANGLES,
+    .attributes = {
+      [ATTR_POSITION] = &model->attributes[0],
+      [ATTR_NORMAL] = &model->attributes[1],
+      [ATTR_TEXCOORD] = &model->attributes[2],
+      [ATTR_BONES] = &model->attributes[3],
+      [ATTR_WEIGHTS] = &model->attributes[4]
+    },
+    .indices = &model->attributes[5],
+    .material = ~0u
+  };
+
+  // The nodes in the Model correspond directly to the joints in the skin, for convenience
+  uint32_t* children = model->children;
+  model->skins[0].joints = model->joints;
+  model->skins[0].jointCount = model->jointCount;
+  model->skins[0].inverseBindMatrices = inverseBindMatrices;
+  for (uint32_t i = 0; i < model->jointCount; i++) {
+    model->joints[i] = i;
+
+    // Joint node
+    model->nodes[i] = (ModelNode) {
+      .transform.properties.translation = { 0.f, 0.f, 0.f },
+      .transform.properties.rotation = { 0.f, 0.f, 0.f, 1.f },
+      .transform.properties.scale = { 1.f, 1.f, 1.f },
+      .skin = ~0u
+    };
+
+    // Inverse bind matrix
+    XrPosef* pose = &mesh.jointBindPoses[i];
+    float* inverseBindMatrix = inverseBindMatrices + 16 * i;
+    mat4_fromQuat(inverseBindMatrix, &pose->orientation.x);
+    memcpy(inverseBindMatrix + 12, &pose->position.x, 3 * sizeof(float));
+    mat4_invert(inverseBindMatrix);
+
+    // Add child bones by looking for any bones that have a parent of the current bone.
+    // This is somewhat slow; use the fact that bones are sorted to reduce the work a bit.
+    model->nodes[i].childCount = 0;
+    model->nodes[i].children = children;
+    for (uint32_t j = i + 1; j < jointCount; j++) {
+      if (mesh.jointParents[j] == i) {
+        model->nodes[i].children[model->nodes[i].childCount++] = j;
+        children++;
+      }
+    }
+  }
+
+  // Add a node that holds the skinned mesh
+  model->nodes[model->jointCount] = (ModelNode) {
+    .transform.properties.translation = { 0.f, 0.f, 0.f },
+    .transform.properties.rotation = { 0.f, 0.f, 0.f, 1.f },
+    .transform.properties.scale = { 1.f, 1.f, 1.f },
+    .primitiveIndex = 0,
+    .primitiveCount = 1,
+    .skin = 0
+  };
+
+  // The root node has the mesh node and root joint as children
+  model->rootNode = model->jointCount + 1;
+  model->nodes[model->rootNode] = (ModelNode) {
+    .matrix = true,
+    .transform = { MAT4_IDENTITY },
+    .childCount = 2,
+    .children = children,
+    .skin = ~0u
+  };
+
+  // Add the children to the root node
+  *children++ = XR_HAND_JOINT_WRIST_EXT;
+  *children++ = model->jointCount;
+
+  return model;
 }
 
 static bool openxr_animate(Device device, struct Model* model) {
-  return false;
+  XrHandTrackerEXT tracker = getHandTracker(device);
+
+  if (!tracker) {
+    return false;
+  }
+
+  // TODO might be nice to cache joints so getSkeleton/animate only locate joints once (profile)
+  XrHandJointsLocateInfoEXT info = {
+    .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
+    .baseSpace = state.referenceSpace,
+    .time = state.frameState.predictedDisplayTime
+  };
+
+  XrHandJointLocationEXT joints[26];
+  XrHandJointLocationsEXT hand = {
+    .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
+    .jointCount = sizeof(joints) / sizeof(joints[0]),
+    .jointLocations = joints
+  };
+
+  if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
+    return false;
+  }
+
+  lovrModelResetPose(model);
+
+  // This is kinda brittle, ideally we would use the jointParents from the actual mesh object
+  uint32_t jointParents[26] = {
+    XR_HAND_JOINT_WRIST_EXT,
+    ~0u,
+    XR_HAND_JOINT_WRIST_EXT,
+    XR_HAND_JOINT_THUMB_METACARPAL_EXT,
+    XR_HAND_JOINT_THUMB_PROXIMAL_EXT,
+    XR_HAND_JOINT_THUMB_DISTAL_EXT,
+    XR_HAND_JOINT_WRIST_EXT,
+    XR_HAND_JOINT_INDEX_METACARPAL_EXT,
+    XR_HAND_JOINT_INDEX_PROXIMAL_EXT,
+    XR_HAND_JOINT_INDEX_INTERMEDIATE_EXT,
+    XR_HAND_JOINT_INDEX_DISTAL_EXT,
+    XR_HAND_JOINT_WRIST_EXT,
+    XR_HAND_JOINT_MIDDLE_METACARPAL_EXT,
+    XR_HAND_JOINT_MIDDLE_PROXIMAL_EXT,
+    XR_HAND_JOINT_MIDDLE_INTERMEDIATE_EXT,
+    XR_HAND_JOINT_MIDDLE_DISTAL_EXT,
+    XR_HAND_JOINT_WRIST_EXT,
+    XR_HAND_JOINT_RING_METACARPAL_EXT,
+    XR_HAND_JOINT_RING_PROXIMAL_EXT,
+    XR_HAND_JOINT_RING_INTERMEDIATE_EXT,
+    XR_HAND_JOINT_RING_DISTAL_EXT,
+    XR_HAND_JOINT_WRIST_EXT,
+    XR_HAND_JOINT_LITTLE_METACARPAL_EXT,
+    XR_HAND_JOINT_LITTLE_PROXIMAL_EXT,
+    XR_HAND_JOINT_LITTLE_INTERMEDIATE_EXT,
+    XR_HAND_JOINT_LITTLE_DISTAL_EXT
+  };
+
+  // The following can be optimized a lot (ideally we would set the global transform for the nodes)
+  for (uint32_t i = 0; i < sizeof(joints) / sizeof(joints[0]); i++) {
+    if (jointParents[i] == ~0u) {
+      float position[4] = { 0.f, 0.f, 0.f };
+      float orientation[4] = { 0.f, 0.f, 0.f, 1.f };
+      lovrModelPose(model, i, position, orientation, 1.f);
+    } else {
+      XrPosef* parent = &joints[jointParents[i]].pose;
+      XrPosef* pose = &joints[i].pose;
+
+      // Convert global pose to parent-local pose (premultiply with inverse of parent pose)
+      // TODO there should be maf for this
+      float position[4], orientation[4];
+      vec3_init(position, &pose->position.x);
+      vec3_sub(position, &parent->position.x);
+
+      quat_init(orientation, &parent->orientation.x);
+      quat_conjugate(orientation);
+
+      quat_rotate(orientation, position);
+      quat_mul(orientation, orientation, &pose->orientation.x);
+
+      lovrModelPose(model, i, position, orientation, 1.f);
+    }
+  }
+
+  return true;
 }
 
 static void openxr_renderTo(void (*callback)(void*), void* userdata) {
