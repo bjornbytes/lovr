@@ -10,11 +10,9 @@
 #define LOVR_VERSION_ALIAS "Government Goop"
 
 #ifdef _MSC_VER
-#define LOVR_NORETURN __declspec(noreturn)
 #define LOVR_THREAD_LOCAL __declspec(thread)
 #define LOVR_RESTRICT __restrict
 #else
-#define LOVR_NORETURN __attribute__((noreturn))
 #define LOVR_THREAD_LOCAL __thread
 #define LOVR_RESTRICT restrict
 #endif
@@ -34,7 +32,7 @@ typedef struct Color { float r, g, b, a; } Color;
 // Error handling
 typedef void errorFn(void*, const char*, va_list);
 void lovrSetErrorCallback(errorFn* callback, void* userdata);
-void LOVR_NORETURN lovrThrow(const char* format, ...);
+void _Noreturn lovrThrow(const char* format, ...);
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 
 #ifdef LOVR_UNCHECKED
