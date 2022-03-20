@@ -11,10 +11,8 @@
 
 #ifdef _MSC_VER
 #define LOVR_THREAD_LOCAL __declspec(thread)
-#define LOVR_RESTRICT __restrict
 #else
 #define LOVR_THREAD_LOCAL __thread
-#define LOVR_RESTRICT restrict
 #endif
 
 #ifndef M_PI
