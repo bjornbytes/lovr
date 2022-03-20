@@ -162,6 +162,8 @@ int _tthread_timespec_get(struct timespec *ts, int base);
  #endif
 #elif defined(__GNUC__) && defined(__GNUC_MINOR__) && (((__GNUC__ << 8) | __GNUC_MINOR__) < ((4 << 8) | 9))
  #define _Thread_local __thread
+#elif defined(_MSC_VER) && (!defined(STDC_NO_THREADS) || defined(STDC_NO_THREADS) && STDC_NO_THREADS == 1)
+ #define _Thread_local __declspec(thread)
 #endif
 
 /* Macros */
