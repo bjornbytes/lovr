@@ -372,7 +372,7 @@ endif()
 
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
-set_target_properties(lovr PROPERTIES C_STANDARD 99)
+set_target_properties(lovr PROPERTIES C_STANDARD 11)
 target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic)
 target_link_libraries(lovr
   ${LOVR_GLFW}

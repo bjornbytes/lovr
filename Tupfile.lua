@@ -77,7 +77,7 @@ cc = 'clang'
 cxx = 'clang++'
 
 cflags = {
-  '-std=c99',
+  '-std=c11',
   '-pedantic',
   '-Wall',
   '-Wextra',
