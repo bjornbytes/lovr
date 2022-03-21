@@ -28,3 +28,6 @@
 [submodule "deps/oculus-pc"]
 	path = deps/oculus-pc
 	url = https://github.com/lovr-org/ovr_sdk_pc
+[submodule "deps/oculus-openxr"]
+	path = deps/oculus-openxr
+	url = https://github.com/lovr-org/ovr_openxr_mobile_sdk

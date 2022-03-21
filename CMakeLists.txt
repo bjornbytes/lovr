@@ -196,15 +196,11 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
 endif()
 
 # OpenXR
-# Currently, to use OpenXR, add the OpenXR SDK to the deps folder:
-#   git submodule add https://github.com/khronosgroup/openxr-sdk deps/openxr
-# On Android, download the Oculus OpenXR loader and place the "OpenXR" folder at "deps/OpenXR-Oculus"
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   include_directories(deps/openxr/include)
   if(ANDROID)
-    set(LOVR_OPENXR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/OpenXR-Oculus" CACHE STRING "The path to the Oculus OpenXR loader")
+    set(LOVR_OPENXR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr" CACHE STRING "The path to the Oculus OpenXR loader")
     add_library(openxr_loader SHARED IMPORTED)
-    include_directories("${LOVR_OPENXR_OCULUS_PATH}/Include")
     set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_OCULUS_PATH}/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
     set(LOVR_OPENXR openxr_loader)
   else()
