@@ -16,8 +16,8 @@ option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
-option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
-option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" OFF)
+option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" OFF)
+option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
@@ -60,7 +60,6 @@ if(EMSCRIPTEN)
   set(LOVR_USE_OPENVR OFF)
 elseif(ANDROID)
   find_package(Java REQUIRED)
-  set(LOVR_USE_OPENVR OFF)
   set(LOVR_USE_DESKTOP OFF)
   if(LOVR_BUILD_EXE)
     set(LOVR_BUILD_SHARED ON)
@@ -726,7 +725,6 @@ elseif(ANDROID)
     # - Figure out which Java class (Activity) and AndroidManifest.xml to use
     # - Oculus uses the regular android os layer, pico implements its own in the headset backend
     # - Some of the Pico SDK is in a jar that has to be added to the classpath and d8 invocation
-    # TODO error (probably way earlier) if no headset API is defined, since everything will break
     if(LOVR_USE_OPENXR)
       set(MANIFEST "oculus")
       set(ACTIVITY "openxr")
