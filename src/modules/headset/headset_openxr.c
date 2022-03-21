@@ -128,6 +128,7 @@ XR_FOREACH(XR_DECLARE)
 enum {
   ACTION_HAND_POSE,
   ACTION_POINTER_POSE,
+  ACTION_TRACKER_POSE,
   ACTION_TRIGGER_DOWN,
   ACTION_TRIGGER_TOUCH,
   ACTION_TRIGGER_AXIS,
@@ -181,12 +182,13 @@ static struct {
   bool hasImage;
   XrActionSet actionSet;
   XrAction actions[MAX_ACTIONS];
-  XrPath actionFilters[2];
+  XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
   struct {
     bool handTracking;
     bool handTrackingMesh;
     bool overlay;
+    bool viveTrackers;
   } features;
 } state;
 
@@ -206,6 +208,34 @@ static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, cons
     }
   }
   return false;
+}
+
+static XrAction getPoseActionForDevice(Device device) {
+  switch (device) {
+    case DEVICE_HEAD:
+      return XR_NULL_HANDLE; // Uses reference space
+    case DEVICE_HAND_LEFT:
+    case DEVICE_HAND_RIGHT:
+      return state.actions[ACTION_HAND_POSE];
+    case DEVICE_HAND_LEFT_POINT:
+    case DEVICE_HAND_RIGHT_POINT:
+      return state.actions[ACTION_POINTER_POSE];
+    case DEVICE_ELBOW_LEFT:
+    case DEVICE_ELBOW_RIGHT:
+    case DEVICE_SHOULDER_LEFT:
+    case DEVICE_SHOULDER_RIGHT:
+    case DEVICE_CHEST:
+    case DEVICE_WAIST:
+    case DEVICE_KNEE_LEFT:
+    case DEVICE_KNEE_RIGHT:
+    case DEVICE_FOOT_LEFT:
+    case DEVICE_FOOT_RIGHT:
+    case DEVICE_CAMERA:
+    case DEVICE_KEYBOARD:
+      return state.actions[ACTION_TRACKER_POSE];
+    default:
+      return XR_NULL_HANDLE;
+  }
 }
 
 // Hand trackers are created lazily because on some implementations xrCreateHandTrackerEXT will
@@ -265,7 +295,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     for (uint32_t i = 0; i < extensionCount; i++) extensions[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensions);
 
-    const char* enabledExtensionNames[5];
+    const char* enabledExtensionNames[7];
     uint32_t enabledExtensionCount = 0;
 
 #ifdef __ANDROID__
@@ -291,6 +321,11 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       state.features.overlay = true;
     }
 #endif
+
+    if (hasExtension(extensions, extensionCount, XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME)) {
+      enabledExtensionNames[enabledExtensionCount++] = XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME;
+      state.features.viveTrackers = true;
+    }
 
 #ifdef LOVR_LINUX_EGL
     enabledExtensionNames[enabledExtensionCount++] = XR_MNDX_EGL_ENABLE_EXTENSION_NAME;
@@ -373,17 +408,52 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
 
     XR_INIT(xrCreateActionSet(state.instance, &info, &state.actionSet));
 
-    XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[0]));
-    XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[1]));
+    // Subaction paths, for filtering actions by device
+    XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[DEVICE_HAND_LEFT]));
+    XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[DEVICE_HAND_RIGHT]));
+
+    state.actionFilters[DEVICE_HAND_LEFT_POINT] = state.actionFilters[DEVICE_HAND_LEFT];
+    state.actionFilters[DEVICE_HAND_RIGHT_POINT] = state.actionFilters[DEVICE_HAND_RIGHT];
+
+    if (state.features.viveTrackers) {
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_elbow", &state.actionFilters[DEVICE_ELBOW_LEFT]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_elbow", &state.actionFilters[DEVICE_ELBOW_RIGHT]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_shoulder", &state.actionFilters[DEVICE_SHOULDER_LEFT]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_shoulder", &state.actionFilters[DEVICE_SHOULDER_RIGHT]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/chest", &state.actionFilters[DEVICE_CHEST]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/waist", &state.actionFilters[DEVICE_WAIST]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_knee", &state.actionFilters[DEVICE_KNEE_LEFT]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_knee", &state.actionFilters[DEVICE_KNEE_RIGHT]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_foot", &state.actionFilters[DEVICE_FOOT_LEFT]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_foot", &state.actionFilters[DEVICE_FOOT_RIGHT]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/camera", &state.actionFilters[DEVICE_CAMERA]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/keyboard", &state.actionFilters[DEVICE_KEYBOARD]));
+    }
 
     XrPath hands[] = {
-      state.actionFilters[0],
-      state.actionFilters[1]
+      state.actionFilters[DEVICE_HAND_LEFT],
+      state.actionFilters[DEVICE_HAND_RIGHT]
+    };
+
+    XrPath trackers[] = {
+      state.actionFilters[DEVICE_ELBOW_LEFT],
+      state.actionFilters[DEVICE_ELBOW_RIGHT],
+      state.actionFilters[DEVICE_SHOULDER_LEFT],
+      state.actionFilters[DEVICE_SHOULDER_RIGHT],
+      state.actionFilters[DEVICE_CHEST],
+      state.actionFilters[DEVICE_WAIST],
+      state.actionFilters[DEVICE_KNEE_LEFT],
+      state.actionFilters[DEVICE_KNEE_RIGHT],
+      state.actionFilters[DEVICE_FOOT_LEFT],
+      state.actionFilters[DEVICE_FOOT_RIGHT],
+      state.actionFilters[DEVICE_CAMERA],
+      state.actionFilters[DEVICE_KEYBOARD]
     };
 
     XrActionCreateInfo actionInfo[] = {
       { 0, NULL, "hand_pose",        XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Hand Pose" },
       { 0, NULL, "pointer_pose",     XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Pointer Pose" },
+      { 0, NULL, "tracker_pose",     XR_ACTION_TYPE_POSE_INPUT,       12, trackers, "Tracker Pose" },
       { 0, NULL, "trigger_down",     XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trigger Down" },
       { 0, NULL, "trigger_touch",    XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trigger Touch" },
       { 0, NULL, "trigger_axis" ,    XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Trigger Axis" },
@@ -414,6 +484,10 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
 
     _Static_assert(sizeof(actionInfo) / sizeof(actionInfo[0]) == MAX_ACTIONS, "Unbalanced action table!");
 
+    if (!state.features.viveTrackers) {
+      actionInfo[ACTION_TRACKER_POSE].countSubactionPaths = 0;
+    }
+
     for (uint32_t i = 0; i < MAX_ACTIONS; i++) {
       actionInfo[i].type = XR_TYPE_ACTION_CREATE_INFO;
       XR_INIT(xrCreateAction(state.actionSet, &actionInfo[i], &state.actions[i]));
@@ -426,6 +500,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       PROFILE_GO,
       PROFILE_INDEX,
       PROFILE_WMR,
+      PROFILE_TRACKER,
       MAX_PROFILES
     };
 
@@ -435,7 +510,8 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       [PROFILE_TOUCH] = "/interaction_profiles/oculus/touch_controller",
       [PROFILE_GO] = "/interaction_profiles/oculus/go_controller",
       [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller",
-      [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller"
+      [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller",
+      [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx"
     };
 
     typedef struct {
@@ -611,8 +687,28 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
         { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
         { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
         { 0, NULL }
+      },
+      [PROFILE_TRACKER] = (Binding[]) {
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_elbow/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_elbow/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_shoulder/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_shoulder/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/chest/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/waist/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_knee/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_knee/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_foot/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_foot/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/camera/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/keyboard/input/grip/pose" },
+        { 0, NULL }
       }
     };
+
+    // Only suggest bindings for vive trackers if the extension is supported
+    if (!state.features.viveTrackers) {
+      bindings[PROFILE_TRACKER][0].path = NULL;
+    }
 
     XrPath path;
     XrActionSuggestedBinding suggestedBindings[40];
@@ -623,13 +719,15 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
         suggestedBindings[j].binding = path;
       }
 
-      XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path));
-      XR_INIT(xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
-        .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
-        .interactionProfile = path,
-        .countSuggestedBindings = count,
-        .suggestedBindings = suggestedBindings
-      }));
+      if (count > 0) {
+        XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path));
+        XR_INIT(xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
+          .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+          .interactionProfile = path,
+          .countSuggestedBindings = count,
+          .suggestedBindings = suggestedBindings
+        }));
+      }
     }
   }
 
@@ -698,11 +796,9 @@ static void openxr_start(void) {
     };
 
 #ifdef XR_EXTX_overlay
-    // Provisional extension.
     XrSessionCreateInfoOverlayEXTX overlayInfo = {
       .type = XR_TYPE_SESSION_CREATE_INFO_OVERLAY_EXTX,
-      .next = info.next,
-      // Fields may fluctuate, leave as auto initialised for now.
+      .next = info.next
     };
 
     if (state.features.overlay) {
@@ -726,7 +822,7 @@ static void openxr_start(void) {
     XrReferenceSpaceCreateInfo info = {
       .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
       .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE,
-      .poseInReferenceSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
+      .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
     };
 
     if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace))) {
@@ -741,50 +837,26 @@ static void openxr_start(void) {
     XrReferenceSpaceCreateInfo headSpaceInfo = {
       .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
       .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW,
-      .poseInReferenceSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
+      .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
     };
 
     XR(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]));
 
-    // Left hand space
-    XrActionSpaceCreateInfo leftHandSpaceInfo = {
+    XrActionSpaceCreateInfo actionSpaceInfo = {
       .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-      .action = state.actions[ACTION_HAND_POSE],
-      .subactionPath = state.actionFilters[0],
-      .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
+      .poseInActionSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
     };
 
-    XR(xrCreateActionSpace(state.session, &leftHandSpaceInfo, &state.spaces[DEVICE_HAND_LEFT]));
+    for (uint32_t i = 0; i < MAX_DEVICES; i++) {
+      actionSpaceInfo.action = getPoseActionForDevice(i);
+      actionSpaceInfo.subactionPath = state.actionFilters[i];
 
-    // Right hand space
-    XrActionSpaceCreateInfo rightHandSpaceInfo = {
-      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-      .action = state.actions[ACTION_HAND_POSE],
-      .subactionPath = state.actionFilters[1],
-      .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
-    };
+      if (!actionSpaceInfo.action || !actionSpaceInfo.subactionPath) {
+        continue;
+      }
 
-    XR(xrCreateActionSpace(state.session, &rightHandSpaceInfo, &state.spaces[DEVICE_HAND_RIGHT]));
-
-    // Left hand pointer space
-    XrActionSpaceCreateInfo leftPointerSpaceInfo = {
-      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-      .action = state.actions[ACTION_POINTER_POSE],
-      .subactionPath = state.actionFilters[0],
-      .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
-    };
-
-    XR(xrCreateActionSpace(state.session, &leftPointerSpaceInfo, &state.spaces[DEVICE_HAND_LEFT_POINT]));
-
-    // Right hand pointer space
-    XrActionSpaceCreateInfo rightPointerSpaceInfo = {
-      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-      .action = state.actions[ACTION_POINTER_POSE],
-      .subactionPath = state.actionFilters[1],
-      .poseInActionSpace = { .orientation = { 0.f, 0.f, 0.f, 1.f }, .position = { 0.f, 0.f, 0.f } }
-    };
-
-    XR(xrCreateActionSpace(state.session, &rightPointerSpaceInfo, &state.spaces[DEVICE_HAND_RIGHT_POINT]));
+      XR(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]));
+    }
   }
 
   { // Swapchain
@@ -1001,20 +1073,13 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
   }
 
   // If there's a pose action for this device, see if the action is active before locating its space
-  XrAction action = XR_NULL_HANDLE;
-  switch (device) {
-    case DEVICE_HAND_LEFT: action = state.actions[ACTION_HAND_POSE]; break;
-    case DEVICE_HAND_RIGHT: action = state.actions[ACTION_HAND_POSE]; break;
-    case DEVICE_HAND_LEFT_POINT: action = state.actions[ACTION_POINTER_POSE]; break;
-    case DEVICE_HAND_RIGHT_POINT: action = state.actions[ACTION_POINTER_POSE]; break;
-    default: break;
-  }
+  XrAction action = getPoseActionForDevice(device);
 
   if (action) {
     XrActionStateGetInfo info = {
       .type = XR_TYPE_ACTION_STATE_GET_INFO,
       .action = action,
-      .subactionPath = state.actionFilters[device == DEVICE_HAND_RIGHT || device == DEVICE_HAND_RIGHT_POINT]
+      .subactionPath = state.actionFilters[device]
     };
 
     XrActionStatePose poseState = {
@@ -1075,18 +1140,14 @@ static bool openxr_getVelocity(Device device, vec3 linearVelocity, vec3 angularV
   return velocity.velocityFlags & (XR_SPACE_VELOCITY_LINEAR_VALID_BIT | XR_SPACE_VELOCITY_ANGULAR_VALID_BIT);
 }
 
-static XrPath getActionFilter(Device device) {
-  switch (device) {
-    case DEVICE_HAND_LEFT: return state.actionFilters[0];
-    case DEVICE_HAND_RIGHT: return state.actionFilters[1];
-    default: return XR_NULL_PATH;
-  }
+static XrPath getInputActionFilter(Device device) {
+  return (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) ? state.actionFilters[device] : XR_NULL_PATH;
 }
 
 static bool getButtonState(Device device, DeviceButton button, bool* value, bool* changed, bool touch) {
   XrActionStateGetInfo info = {
     .type = XR_TYPE_ACTION_STATE_GET_INFO,
-    .subactionPath = getActionFilter(device)
+    .subactionPath = getInputActionFilter(device)
   };
 
   if (info.subactionPath == XR_NULL_PATH) {
@@ -1096,6 +1157,7 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
   switch (button) {
     case BUTTON_TRIGGER: info.action = state.actions[ACTION_TRIGGER_DOWN + touch]; break;
     case BUTTON_THUMBREST: info.action = touch ? state.actions[ACTION_THUMBREST_TOUCH] : XR_NULL_HANDLE; break;
+    case BUTTON_THUMBSTICK: info.action = state.actions[ACTION_THUMBSTICK_DOWN + touch]; break;
     case BUTTON_TOUCHPAD: info.action = state.actions[ACTION_TRACKPAD_DOWN + touch]; break;
     case BUTTON_MENU: info.action = state.actions[ACTION_MENU_DOWN + touch]; break;
     case BUTTON_GRIP: info.action = state.actions[ACTION_GRIP_DOWN + touch]; break;
@@ -1140,7 +1202,7 @@ static bool getFloatAction(uint32_t action, XrPath filter, float* value) {
 }
 
 static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
-  XrPath filter = getActionFilter(device);
+  XrPath filter = getInputActionFilter(device);
 
   if (filter == XR_NULL_PATH) {
     return false;
@@ -1194,7 +1256,7 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
   XrHapticActionInfo info = {
     .type = XR_TYPE_HAPTIC_ACTION_INFO,
     .action = state.actions[ACTION_VIBRATE],
-    .subactionPath = getActionFilter(device)
+    .subactionPath = getInputActionFilter(device)
   };
 
   if (info.subactionPath == XR_NULL_PATH) {
