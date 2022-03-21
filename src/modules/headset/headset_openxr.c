@@ -1,7 +1,6 @@
 #include "headset/headset.h"
 #include "data/blob.h"
 #include "event/event.h"
-#include "filesystem/filesystem.h"
 #include "graphics/graphics.h"
 #include "graphics/canvas.h"
 #include "graphics/model.h"
