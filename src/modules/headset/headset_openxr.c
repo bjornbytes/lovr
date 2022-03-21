@@ -126,6 +126,7 @@ enum {
   ACTION_HAND_POSE,
   ACTION_POINTER_POSE,
   ACTION_TRACKER_POSE,
+  ACTION_GAZE_POSE,
   ACTION_TRIGGER_DOWN,
   ACTION_TRIGGER_TOUCH,
   ACTION_TRIGGER_AXIS,
@@ -182,6 +183,7 @@ static struct {
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
   struct {
+    bool gaze;
     bool handTracking;
     bool handTrackingMesh;
     bool overlay;
@@ -231,6 +233,8 @@ static XrAction getPoseActionForDevice(Device device) {
     case DEVICE_CAMERA:
     case DEVICE_KEYBOARD:
       return state.actions[ACTION_TRACKER_POSE];
+    case DEVICE_EYE_GAZE:
+      return state.actions[ACTION_GAZE_POSE];
     default:
       return XR_NULL_HANDLE;
   }
@@ -293,7 +297,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     for (uint32_t i = 0; i < extensionCount; i++) extensions[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensions);
 
-    const char* enabledExtensionNames[7];
+    const char* enabledExtensionNames[8];
     uint32_t enabledExtensionCount = 0;
 
 #ifdef __ANDROID__
@@ -301,6 +305,11 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
 #endif
 
     enabledExtensionNames[enabledExtensionCount++] = GRAPHICS_EXTENSION;
+
+    if (hasExtension(extensions, extensionCount, XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
+      enabledExtensionNames[enabledExtensionCount++] = XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME;
+      state.features.gaze = true;
+    }
 
     if (hasExtension(extensions, extensionCount, XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
       enabledExtensionNames[enabledExtensionCount++] = XR_EXT_HAND_TRACKING_EXTENSION_NAME;
@@ -365,17 +374,32 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
 
     XR_INIT(xrGetSystem(state.instance, &info, &state.system));
 
+    XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = {
+      .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT,
+      .supportsEyeGazeInteraction = false
+    };
+
     XrSystemHandTrackingPropertiesEXT handTrackingProperties = {
       .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT,
       .supportsHandTracking = false
     };
 
     XrSystemProperties properties = {
-      .type = XR_TYPE_SYSTEM_PROPERTIES,
-      .next = state.features.handTracking ? &handTrackingProperties : NULL
+      .type = XR_TYPE_SYSTEM_PROPERTIES
     };
 
+    if (state.features.gaze) {
+      eyeGazeProperties.next = properties.next;
+      properties.next = &eyeGazeProperties;
+    }
+
+    if (state.features.handTracking) {
+      handTrackingProperties.next = properties.next;
+      properties.next = &handTrackingProperties;
+    }
+
     XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties));
+    state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
     state.features.handTracking = handTrackingProperties.supportsHandTracking;
 
     uint32_t viewConfigurationCount;
@@ -456,6 +480,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       { 0, NULL, "hand_pose",        XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Hand Pose" },
       { 0, NULL, "pointer_pose",     XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Pointer Pose" },
       { 0, NULL, "tracker_pose",     XR_ACTION_TYPE_POSE_INPUT,       12, trackers, "Tracker Pose" },
+      { 0, NULL, "gaze_pose",        XR_ACTION_TYPE_POSE_INPUT,       0, NULL, "Gaze Pose" },
       { 0, NULL, "trigger_down",     XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trigger Down" },
       { 0, NULL, "trigger_touch",    XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trigger Touch" },
       { 0, NULL, "trigger_axis" ,    XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Trigger Axis" },
@@ -490,6 +515,10 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       actionInfo[ACTION_TRACKER_POSE].countSubactionPaths = 0;
     }
 
+    if (!state.features.gaze) {
+      actionInfo[ACTION_GAZE_POSE].countSubactionPaths = 0;
+    }
+
     for (uint32_t i = 0; i < MAX_ACTIONS; i++) {
       actionInfo[i].type = XR_TYPE_ACTION_CREATE_INFO;
       XR_INIT(xrCreateAction(state.actionSet, &actionInfo[i], &state.actions[i]));
@@ -503,6 +532,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       PROFILE_INDEX,
       PROFILE_WMR,
       PROFILE_TRACKER,
+      PROFILE_GAZE,
       MAX_PROFILES
     };
 
@@ -513,7 +543,8 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       [PROFILE_GO] = "/interaction_profiles/oculus/go_controller",
       [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller",
       [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller",
-      [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx"
+      [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx",
+      [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction"
     };
 
     typedef struct {
@@ -704,12 +735,20 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
         { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/camera/input/grip/pose" },
         { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/keyboard/input/grip/pose" },
         { 0, NULL }
+      },
+      [PROFILE_GAZE] = (Binding[]) {
+        { ACTION_GAZE_POSE, "/user/eyes_ext/input/gaze_ext/pose" },
+        { 0, NULL }
       }
     };
 
-    // Only suggest bindings for vive trackers if the extension is supported
+    // Don't suggest bindings for unsupported input profiles
     if (!state.features.viveTrackers) {
       bindings[PROFILE_TRACKER][0].path = NULL;
+    }
+
+    if (!state.features.gaze) {
+      bindings[PROFILE_GAZE][0].path = NULL;
     }
 
     XrPath path;
@@ -853,7 +892,7 @@ static void openxr_start(void) {
       actionSpaceInfo.action = getPoseActionForDevice(i);
       actionSpaceInfo.subactionPath = state.actionFilters[i];
 
-      if (!actionSpaceInfo.action || !actionSpaceInfo.subactionPath) {
+      if (!actionSpaceInfo.action) {
         continue;
       }
 
