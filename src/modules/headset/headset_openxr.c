@@ -185,6 +185,7 @@ static struct {
   struct {
     bool gaze;
     bool handTracking;
+    bool handTrackingAim;
     bool handTrackingMesh;
     bool overlay;
     bool refreshRate;
@@ -297,7 +298,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     for (uint32_t i = 0; i < extensionCount; i++) extensions[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensions);
 
-    const char* enabledExtensionNames[8];
+    const char* enabledExtensionNames[10];
     uint32_t enabledExtensionCount = 0;
 
 #ifdef __ANDROID__
@@ -319,6 +320,11 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     if (hasExtension(extensions, extensionCount, XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME)) {
       enabledExtensionNames[enabledExtensionCount++] = XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME;
       state.features.refreshRate = true;
+    }
+
+    if (hasExtension(extensions, extensionCount, XR_FB_HAND_TRACKING_AIM_EXTENSION_NAME)) {
+      enabledExtensionNames[enabledExtensionCount++] = XR_FB_HAND_TRACKING_AIM_EXTENSION_NAME;
+      state.features.handTrackingAim = true;
     }
 
     if (hasExtension(extensions, extensionCount, XR_FB_HAND_TRACKING_MESH_EXTENSION_NAME)) {
@@ -1136,8 +1142,15 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
 
     XR(xrGetActionStatePose(state.session, &info, &poseState));
 
-    // If the action isn't active, try fallbacks for some devices (hand tracking)
+    // If the action isn't active, try fallbacks for some devices (hand tracking), pardon the mess
     if (!poseState.isActive) {
+      bool point = false;
+
+      if (state.features.handTrackingAim && (device == DEVICE_HAND_LEFT_POINT || device == DEVICE_HAND_RIGHT_POINT)) {
+        device = DEVICE_HAND_LEFT + (device == DEVICE_HAND_RIGHT_POINT);
+        point = true;
+      }
+
       XrHandTrackerEXT tracker = getHandTracker(device);
 
       if (!tracker) {
@@ -1157,11 +1170,19 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
         .jointLocations = joints
       };
 
+      XrHandTrackingAimStateFB aimState = {
+        .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
+      };
+
+      if (point) {
+        hand.next = &aimState;
+      }
+
       if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
         return false;
       }
 
-      XrPosef* pose = &joints[XR_HAND_JOINT_WRIST_EXT].pose;
+      XrPosef* pose = point ? &aimState.aimPose : &joints[XR_HAND_JOINT_WRIST_EXT].pose;
       memcpy(orientation, &pose->orientation, 4 * sizeof(float));
       memcpy(position, &pose->position, 3 * sizeof(float));
       return true;
@@ -1257,7 +1278,46 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
   }
 
   switch (axis) {
-    case AXIS_TRIGGER: return getFloatAction(ACTION_TRIGGER_AXIS, filter, &value[0]);
+    case AXIS_TRIGGER:
+      if (getFloatAction(ACTION_TRIGGER_AXIS, filter, &value[0])) {
+        return true;
+      }
+
+      // FB extension for pinch
+      if (!state.features.handTrackingAim) {
+        return false;
+      }
+
+      XrHandTrackerEXT tracker = getHandTracker(device);
+
+      if (!tracker) {
+        return false;
+      }
+
+      XrHandJointsLocateInfoEXT info = {
+        .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
+        .baseSpace = state.referenceSpace,
+        .time = state.frameState.predictedDisplayTime
+      };
+
+      XrHandTrackingAimStateFB aimState = {
+        .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
+      };
+
+      XrHandJointLocationEXT joints[26];
+      XrHandJointLocationsEXT hand = {
+        .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
+        .next = &aimState,
+        .jointCount = sizeof(joints) / sizeof(joints[0]),
+        .jointLocations = joints
+      };
+
+      if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand))) {
+        return false;
+      }
+
+      *value = aimState.pinchStrengthIndex;
+      return aimState.status & XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB;
     case AXIS_THUMBSTICK: return getFloatAction(ACTION_THUMBSTICK_X, filter, &value[0]) && getFloatAction(ACTION_THUMBSTICK_Y, filter, &value[1]);
     case AXIS_TOUCHPAD: return getFloatAction(ACTION_TRACKPAD_X, filter, &value[0]) && getFloatAction(ACTION_TRACKPAD_Y, filter, &value[1]);
     case AXIS_GRIP: return getFloatAction(ACTION_GRIP_AXIS, filter, &value[0]);
