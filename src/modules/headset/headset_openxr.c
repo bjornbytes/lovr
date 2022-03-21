@@ -116,7 +116,8 @@ EGLConfig os_get_egl_config(void);
   X(xrCreateHandTrackerEXT)\
   X(xrDestroyHandTrackerEXT)\
   X(xrLocateHandJointsEXT)\
-  X(xrGetHandMeshFB)
+  X(xrGetHandMeshFB)\
+  X(xrGetDisplayRefreshRateFB)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -188,6 +189,7 @@ static struct {
     bool handTracking;
     bool handTrackingMesh;
     bool overlay;
+    bool refreshRate;
     bool viveTrackers;
   } features;
 } state;
@@ -309,13 +311,17 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       state.features.handTracking = true;
     }
 
+    if (hasExtension(extensions, extensionCount, XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME)) {
+      enabledExtensionNames[enabledExtensionCount++] = XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME;
+      state.features.refreshRate = true;
+    }
+
     if (hasExtension(extensions, extensionCount, XR_FB_HAND_TRACKING_MESH_EXTENSION_NAME)) {
       enabledExtensionNames[enabledExtensionCount++] = XR_FB_HAND_TRACKING_MESH_EXTENSION_NAME;
       state.features.handTrackingMesh = true;
     }
 
 #ifdef XR_EXTX_overlay
-    // Provisional extension.
     if (overlay && hasExtension(extensions, extensionCount, XR_EXTX_OVERLAY_EXTENSION_NAME)) {
       enabledExtensionNames[enabledExtensionCount++] = XR_EXTX_OVERLAY_EXTENSION_NAME;
       state.features.overlay = true;
@@ -978,6 +984,13 @@ static HeadsetOrigin openxr_getOriginType(void) {
 static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *width = state.width;
   *height = state.height;
+}
+
+static float openxr_getDisplayFrequency(void) {
+  if (!state.features.refreshRate) return 0.f;
+  float frequency;
+  XR(xrGetDisplayRefreshRateFB(state.session, &frequency));
+  return frequency;
 }
 
 static const float* openxr_getDisplayMask(uint32_t* count) {
@@ -1696,6 +1709,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getName = openxr_getName,
   .getOriginType = openxr_getOriginType,
   .getDisplayDimensions = openxr_getDisplayDimensions,
+  .getDisplayFrequency = openxr_getDisplayFrequency,
   .getDisplayMask = openxr_getDisplayMask,
   .getDisplayTime = openxr_getDisplayTime,
   .getViewCount = openxr_getViewCount,
