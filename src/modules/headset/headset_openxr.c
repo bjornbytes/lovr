@@ -45,9 +45,6 @@ typedef XID GLXContext;
 #define XR_NO_PROTOTYPES
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
-#ifdef __ANDROID__
-#include <openxr/openxr_oculus.h>
-#endif
 
 #define XR(f) handleResult(f, __FILE__, __LINE__)
 #define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
