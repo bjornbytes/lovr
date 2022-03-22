@@ -129,7 +129,7 @@ const char* lovrShaderFragmentSuffix = ""
 "    discard; \n"
 "  } \n"
 "#endif \n"
-#if defined(LOVR_WEBGL) || defined(LOVR_USE_PICO)
+#if defined(LOVR_WEBGL)
 "  lovrCanvas[0].rgb = pow(lovrCanvas[0].rgb, vec3(.4545)); \n"
 #endif
 "#endif \n"

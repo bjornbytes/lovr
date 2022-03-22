@@ -401,7 +401,7 @@ Color lovrGraphicsGetBackgroundColor() {
 
 void lovrGraphicsSetBackgroundColor(Color color) {
   state.backgroundColor = state.linearBackgroundColor = color;
-#if !defined(LOVR_WEBGL) && !defined(LOVR_USE_PICO)
+#if !defined(LOVR_WEBGL)
   gammaCorrect(&state.linearBackgroundColor);
 #endif
 }
@@ -840,7 +840,7 @@ void lovrGraphicsFlushMesh(Mesh* mesh) {
 }
 
 void lovrGraphicsClear(Color* color, float* depth, int* stencil) {
-#if !defined(LOVR_WEBGL) && !defined(LOVR_USE_PICO)
+#if !defined(LOVR_WEBGL)
   if (color) gammaCorrect(color);
 #endif
   if (color || depth || stencil) lovrGraphicsFlush();

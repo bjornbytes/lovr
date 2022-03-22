@@ -1539,35 +1539,6 @@ void lovrGpuDirtyTexture() {
   state.textures[state.activeTexture] = NULL;
 }
 
-// This doesn't actually reset all state, just state that is known to be changed externally
-void lovrGpuResetState() {
-  if (state.vertexArray) {
-    glBindVertexArray(state.vertexArray->vao);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.vertexArray->ibo);
-  }
-
-  for (size_t i = 0; i < MAX_BUFFER_TYPES; i++) {
-    if (!state.vertexArray || i != BUFFER_INDEX) {
-      glBindBuffer(convertBufferType(i), state.buffers[i]);
-    }
-  }
-
-  glBindFramebuffer(GL_FRAMEBUFFER, state.framebuffer);
-  glUseProgram(state.program);
-
-  if (state.blendEnabled) {
-    glEnable(GL_BLEND);
-  } else {
-    glDisable(GL_BLEND);
-  }
-
-  if (state.depthEnabled) {
-    glEnable(GL_DEPTH_TEST);
-  } else {
-    glDisable(GL_DEPTH_TEST);
-  }
-}
-
 void lovrGpuTick(const char* label) {
 #ifdef LOVR_GL
   lovrAssert(state.activeTimer == ~0u, "Attempt to start a new GPU timer while one is already active!");

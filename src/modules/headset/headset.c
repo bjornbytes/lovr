@@ -21,9 +21,6 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, fl
 #ifdef LOVR_USE_OPENXR
       case DRIVER_OPENXR: interface = &lovrHeadsetOpenXRDriver; break;
 #endif
-#ifdef LOVR_USE_PICO
-      case DRIVER_PICO: interface = &lovrHeadsetPicoDriver; break;
-#endif
 #ifdef LOVR_USE_WEBXR
       case DRIVER_WEBXR: interface = &lovrHeadsetWebXRDriver; break;
 #endif

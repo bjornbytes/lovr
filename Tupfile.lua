@@ -24,7 +24,6 @@ config = {
   headsets = {
     desktop = true,
     openxr = false, -- if provided, should be path to folder containing OpenXR loader library
-    pico = false,
     webxr = false
   },
   spatializers = {
@@ -39,6 +38,7 @@ config = {
     buildtools = '30.0.3',
     keystore = '/path/to/keystore',
     keystorepass = 'pass:password',
+    flavor = 'oculus', -- or pico
     manifest = nil, -- path to custom AndroidManifest.xml
     package = nil, -- package id, like org.lovr.app
     project = nil -- path to LÖVR project to include in apk
@@ -156,7 +156,7 @@ if target == 'wasm' then
 end
 
 if target == 'android' then
-  assert(config.headsets.pico or config.headsets.openxr, 'Please enable pico or openxr')
+  assert(config.headsets.openxr, 'You probably want to enable OpenXR')
   hosts = { win32 = 'windows-x86_64', macos = 'darwin-x86_64', linux = 'linux-x86_64' }
   host = hosts[tup.getconfig('TUP_PLATFORM')]
   cc = ('%s/toolchains/llvm/prebuilt/%s/bin/clang'):format(config.android.ndk, host)
@@ -320,12 +320,6 @@ if config.headsets.openxr then
   end
 end
 
-if config.headsets.pico then
-  assert(target == 'android', 'Pico is not supported on this target')
-  lflags += '-lPvr_NativeSDK'
-  copy('deps/pico/jni/arm64-v8a/libPvr_NativeSDK.so', '$(bin)/%b')
-end
-
 if config.spatializers.oculus then
   cflags_headset_oculus += '-Ideps/AudioSDK/Include'
   ovraudio_libs = {
@@ -445,43 +439,30 @@ if target == 'android' then
     config.android[key] = #value > 0 and value or config.android[key]
   end
 
-  activity =
-    config.headsets.pico and 'src/resources/Activity_pico.java' or
-    config.headsets.openxr and 'src/resources/Activity_openxr.java'
-
   java = 'bin/Activity.java'
   class = 'org/lovr/app/Activity.class'
   binclass = 'bin/' .. class
   jar = 'bin/lovr.jar'
   dex = 'bin/apk/classes.dex'
-
-  androidversion = config.android.version
-  androidjar = ('%s/platforms/android-%d/android.jar'):format(config.android.sdk, androidversion)
-  extrajar = config.headsets.pico and 'deps/pico/classes.jar' or nil
-  classpathsep = tup.getconfig('TUP_PLATFORM') == 'win32' and ';' or ':'
-  classpath = table.concat({ androidjar, extrajar }, classpathsep)
-
-  package = #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
-  project = #config.android.project > 0 and ('-A ' .. config.android.project) or ''
-
-  manifest = config.android.manifest or
-    config.headsets.pico and 'src/resources/AndroidManifest_pico.xml' or
-    config.headsets.openxr and 'src/resources/AndroidManifest_oculus.xml'
-
-  tools = config.android.sdk .. '/build-tools/' .. config.android.buildtools
-
-  ks = config.android.keystore
-  kspass = config.android.keystorepass
-
   unaligned = 'bin/.lovr.apk.unaligned'
   unsigned = 'bin/.lovr.apk.unsigned'
   apk = 'bin/lovr.apk'
 
+  manifest = config.android.manifest or ('src/resources/AndroidManifest_%s.xml'):format(config.android.flavor)
+  package = #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
+  project = #config.android.project > 0 and ('-A ' .. config.android.project) or ''
+
+  version = config.android.version
+  ks = config.android.keystore
+  kspass = config.android.keystorepass
+  androidjar = ('%s/platforms/android-%d/android.jar'):format(config.android.sdk, version)
+  tools = config.android.sdk .. '/build-tools/' .. config.android.buildtools
+
   copy(manifest, 'bin/AndroidManifest.xml')
-  copy(activity, java)
-  tup.rule(java, '^ JAVAC %b^ javac -classpath $(classpath) -d bin %f', binclass)
+  copy('src/resources/Activity.java', java)
+  tup.rule(java, '^ JAVAC %b^ javac -classpath $(androidjar) -d bin %f', binclass)
   tup.rule(binclass, '^ JAR %b^ jar -cf %o -C bin $(class)', jar)
-  tup.rule({ jar, extrajar }, '^ D8 %b^ $(tools)/d8 --min-api $(androidversion) --output bin/apk %f', dex)
+  tup.rule(jar, '^ D8 %b^ $(tools)/d8 --min-api $(version) --output bin/apk %f', dex)
   tup.rule(
     { 'bin/AndroidManifest.xml', extra_inputs = { lib('*'), dex } },
     '^ AAPT %b^ $(tools)/aapt package $(package) -F %o -M %f -0 so -I $(androidjar) $(project) bin/apk',

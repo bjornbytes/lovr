@@ -12,7 +12,6 @@
 StringEntry lovrHeadsetDriver[] = {
   [DRIVER_DESKTOP] = ENTRY("desktop"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
-  [DRIVER_PICO] = ENTRY("pico"),
   [DRIVER_WEBXR] = ENTRY("webxr"),
   { 0 }
 };
@@ -74,32 +73,11 @@ StringEntry lovrDeviceAxis[] = {
   { 0 }
 };
 
-typedef struct {
-  lua_State* L;
-  int ref;
-} HeadsetRenderData;
-
-static HeadsetRenderData headsetRenderData;
-
 static void renderHelper(void* userdata) {
-  HeadsetRenderData* renderData = userdata;
-  lua_State* L = renderData->L;
-#ifdef LOVR_USE_PICO
-  luax_geterror(L);
-  if (lua_isnil(L, -1) && renderData->ref != LUA_REFNIL) {
-    lua_pushcfunction(L, luax_getstack);
-    lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
-    if (lua_pcall(L, 0, 0, -2)) {
-      luax_seterror(L);
-    }
-    lua_pop(L, 1); // pop luax_getstack
-  }
-  lua_pop(L, 1);
-#else
+  lua_State* L = userdata;
   if (lua_isfunction(L, -1)) {
     lua_call(L, 0, 0);
   }
-#endif
 }
 
 static Device luax_optdevice(lua_State* L, int index) {
@@ -596,20 +574,7 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
 
 static int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
-
-#ifdef LOVR_USE_PICO
-  if (headsetRenderData.ref != LUA_NOREF) {
-    luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
-  }
-
-  headsetRenderData.ref = luaL_ref(L, LUA_REGISTRYINDEX);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
-  headsetRenderData.L = lua_tothread(L, -1);
-  lua_pop(L, 1);
-#else
-  headsetRenderData.L = L;
-#endif
-  lovrHeadsetDisplayDriver->renderTo(renderHelper, &headsetRenderData);
+  lovrHeadsetDisplayDriver->renderTo(renderHelper, L);
   lovrGraphicsSetViewMatrix(0, NULL);
   lovrGraphicsSetViewMatrix(1, NULL);
   lovrGraphicsSetProjection(0, NULL);
@@ -769,7 +734,5 @@ int luaopen_lovr_headset(lua_State* L) {
 
   luax_atexit(L, lovrHeadsetDestroy);
   lovrHeadsetInit(drivers, driverCount, supersample, offset, msaa, overlay);
-
-  headsetRenderData.ref = LUA_NOREF;
   return 1;
 }

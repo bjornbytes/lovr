@@ -121,7 +121,7 @@ function lovr.boot()
       debug = false
     },
     headset = {
-      drivers = { 'openxr', 'pico', 'webxr', 'desktop' },
+      drivers = { 'openxr', 'webxr', 'desktop' },
       supersample = false,
       offset = 1.7,
       msaa = 4,

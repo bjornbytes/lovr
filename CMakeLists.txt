@@ -18,7 +18,6 @@ option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
-option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_STEAM_AUDIO "Enable the Steam Audio spatializer (be sure to also set LOVR_STEAM_AUDIO_PATH)" OFF)
 option(LOVR_USE_OCULUS_AUDIO "Enable the Oculus Audio spatializer (be sure to also set LOVR_OCULUS_AUDIO_PATH)" OFF)
@@ -55,6 +54,7 @@ if(EMSCRIPTEN)
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
   set(LOVR_USE_WEBXR ON)
 elseif(ANDROID)
+  set(ANDROID_FLAVOR "oculus" CACHE STRING "Which Android flavor to build (oculus or pico)")
   find_package(Java REQUIRED)
   set(LOVR_USE_DESKTOP OFF)
   if(LOVR_BUILD_EXE)
@@ -175,10 +175,17 @@ endif()
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   include_directories(deps/openxr/include)
   if(ANDROID)
-    set(LOVR_OPENXR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr" CACHE STRING "The path to the Oculus OpenXR loader")
     add_library(openxr_loader SHARED IMPORTED)
-    set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_OCULUS_PATH}/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
     set(LOVR_OPENXR openxr_loader)
+    if(ANDROID_FLAVOR STREQUAL "oculus")
+      set(LOVR_OPENXR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr" CACHE STRING "The path to the Oculus OpenXR loader")
+      set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_OCULUS_PATH}/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
+    elseif(ANDROID_FLAVOR STREQUAL "pico")
+      set(LOVR_OPENXR_PICO_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico-openxr" CACHE STRING "The path to the Pico OpenXR loader")
+      set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_PICO_PATH}/Libs/Android/${ANDROID_ABI}/libopenxr_loader.so")
+    else()
+      message(FATAL_ERROR "Unsupported Android flavor (expected: oculus or pico)")
+    endif()
   else()
     if(LOVR_SYSTEM_OPENXR)
       pkg_search_module(OPENXR openxr)
@@ -192,14 +199,6 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
       set(LOVR_OPENXR openxr_loader)
     endif()
   endif()
-endif()
-
-# Pico Native SDK (1.3.3)
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_PICO)
-  set(LOVR_PICO_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico/aar" CACHE STRING "The path to the Pico SDK folder")
-  add_library(Pvr_NativeSDK SHARED IMPORTED)
-  set_target_properties(Pvr_NativeSDK PROPERTIES IMPORTED_LOCATION "${LOVR_PICO_PATH}/jni/${ANDROID_ABI}/libPvr_NativeSDK.so")
-  set(LOVR_PICO Pvr_NativeSDK)
 endif()
 
 # pthreads
@@ -302,7 +301,7 @@ set(LOVR_SRC
   src/util.c
 )
 
-if(LOVR_BUILD_EXE AND NOT LOVR_USE_PICO)
+if(LOVR_BUILD_EXE)
   list(APPEND LOVR_SRC src/main.c)
 endif()
 
@@ -331,7 +330,6 @@ target_link_libraries(lovr
   ${LOVR_OPENGL}
   ${LOVR_OPENXR}
   ${LOVR_OCULUS_AUDIO}
-  ${LOVR_PICO}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
 )
@@ -448,10 +446,6 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_OPENXR)
     target_compile_definitions(lovr PRIVATE LOVR_USE_OPENXR)
     target_sources(lovr PRIVATE src/modules/headset/headset_openxr.c)
-  endif()
-  if(LOVR_USE_PICO)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_PICO)
-    target_sources(lovr PRIVATE src/modules/headset/headset_pico.c)
   endif()
   if(LOVR_USE_WEBXR)
     target_compile_definitions(lovr PRIVATE LOVR_USE_WEBXR)
@@ -636,6 +630,7 @@ elseif(EMSCRIPTEN)
   target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
   configure_file(src/resources/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
+  target_sources(lovr PRIVATE src/core/os_android.c)
   target_link_libraries(lovr log EGL GLESv3 android dl)
   target_compile_definitions(lovr PRIVATE LOVR_GLES)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
@@ -651,35 +646,20 @@ elseif(ANDROID)
   if(LOVR_BUILD_EXE)
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
+    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${ANDROID_FLAVOR}.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
     # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
     if(ANDROID_ASSETS)
       set(ANDROID_ASSETS -A ${ANDROID_ASSETS})
     endif()
 
-    # Flavor-specific config:
-    # - Imported targets need to have their libraries manually copied to raw/lib/<ABI>
-    # - Figure out which Java class (Activity) and AndroidManifest.xml to use
-    # - Oculus uses the regular android os layer, pico implements its own in the headset backend
-    # - Some of the Pico SDK is in a jar that has to be added to the classpath and d8 invocation
+    if(ANDROID_PACKAGE)
+      set(PACKAGE_RENAME "--rename-manifest-package" "${ANDROID_PACKAGE}")
+    endif()
+
     if(LOVR_USE_OPENXR)
-      set(MANIFEST "oculus")
-      set(ACTIVITY "openxr")
-      target_sources(lovr PRIVATE src/core/os_android.c)
       get_target_property(OPENXR_LIB ${LOVR_OPENXR} IMPORTED_LOCATION)
       file(COPY ${OPENXR_LIB} DESTINATION raw/lib/${ANDROID_ABI})
-      set(ANDROID_CLASSPATH "${ANDROID_JAR}")
-    elseif(LOVR_USE_PICO)
-      set(MANIFEST "pico")
-      set(ACTIVITY "pico")
-      get_target_property(PICO_LIB ${LOVR_PICO} IMPORTED_LOCATION)
-      file(COPY ${PICO_LIB} DESTINATION raw/lib/${ANDROID_ABI})
-      set(EXTRA_JAR "${LOVR_PICO_PATH}/classes.jar")
-      if(WIN32)
-        set(ANDROID_CLASSPATH "${ANDROID_JAR};${EXTRA_JAR}")
-      else()
-        set(ANDROID_CLASSPATH "${ANDROID_JAR}:${EXTRA_JAR}")
-      endif()
     endif()
 
     if(LOVR_USE_OCULUS_AUDIO)
@@ -692,20 +672,14 @@ elseif(ANDROID)
       file(COPY ${PHONON_LIB} DESTINATION raw/lib/${ANDROID_ABI})
     endif()
 
-    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${MANIFEST}.xml" CACHE STRING "The AndroidManifest.xml file to use")
-
-    if(ANDROID_PACKAGE)
-      set(PACKAGE_RENAME "--rename-manifest-package" "${ANDROID_PACKAGE}")
-    endif()
-
     # Make an apk
     add_custom_target(
       buildAPK ALL
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
-      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
-      COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
-      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw ${EXTRA_JAR} org/lovr/app/Activity.class
+      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity.java Activity.java
+      COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
+      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw org/lovr/app/Activity.class
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
