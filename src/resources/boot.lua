@@ -121,7 +121,7 @@ function lovr.boot()
       debug = false
     },
     headset = {
-      drivers = { 'openxr', 'oculus', 'vrapi', 'pico', 'webxr', 'desktop' },
+      drivers = { 'openxr', 'vrapi', 'pico', 'webxr', 'desktop' },
       supersample = false,
       offset = 1.7,
       msaa = 4,
@@ -214,11 +214,7 @@ function lovr.mirror()
     lovr.graphics.setBlendMode()
     local texture = lovr.headset.getMirrorTexture()
     if texture then    -- On some drivers, texture is printed directly to the window
-      if lovr.headset.getDriver() == 'oculus' then
-        lovr.graphics.fill(texture, 0, 1, 1, -1)
-      else
-        lovr.graphics.fill(texture)
-      end
+      lovr.graphics.fill(texture)
     end
     lovr.graphics.setBlendMode(blend, alpha)
   else

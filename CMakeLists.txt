@@ -18,7 +18,6 @@ option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
-option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
 option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
 option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP "Enable the keyboard/mouse backend for the headset module" ON)
@@ -196,19 +195,6 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   endif()
 endif()
 
-# Oculus SDK -- expects Oculus SDK 1.26.0 or later
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
-  set(LOVR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-pc" CACHE STRING "Location of the Oculus Desktop SDK folder")
-  set(OCULUS_BUILD_TYPE "Release")
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(OCULUS_ARCH "x64")
-  else()
-    set(OCULUS_ARCH "Win32")
-  endif()
-  include_directories("${LOVR_OCULUS_PATH}/LibOVR/Include")
-  set(LOVR_OCULUS "${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/${OCULUS_ARCH}/${OCULUS_BUILD_TYPE}/VS2017/LibOVR.lib")
-endif()
-
 # VrApi (Oculus Mobile SDK) -- tested on 1.34.0
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_VRAPI)
   set(LOVR_VRAPI_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-mobile/VrApi" CACHE STRING "The path to the VrApi folder of the Oculus Mobile SDK")
@@ -354,7 +340,6 @@ target_link_libraries(lovr
   ${LOVR_ODE}
   ${LOVR_OPENGL}
   ${LOVR_OPENXR}
-  ${LOVR_OCULUS}
   ${LOVR_OCULUS_AUDIO}
   ${LOVR_VRAPI}
   ${LOVR_PICO}
@@ -474,10 +459,6 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_OPENXR)
     target_compile_definitions(lovr PRIVATE LOVR_USE_OPENXR)
     target_sources(lovr PRIVATE src/modules/headset/headset_openxr.c)
-  endif()
-  if(LOVR_USE_OCULUS)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_OCULUS)
-    target_sources(lovr PRIVATE src/modules/headset/headset_oculus.c)
   endif()
   if(LOVR_USE_VRAPI)
     target_compile_definitions(lovr PRIVATE LOVR_USE_VRAPI)

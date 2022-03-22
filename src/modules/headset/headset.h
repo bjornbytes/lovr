@@ -12,7 +12,6 @@ struct Texture;
 
 typedef enum {
   DRIVER_DESKTOP,
-  DRIVER_OCULUS,
   DRIVER_OPENXR,
   DRIVER_VRAPI,
   DRIVER_PICO,
@@ -146,7 +145,6 @@ typedef struct HeadsetInterface {
 } HeadsetInterface;
 
 // Available drivers
-extern HeadsetInterface lovrHeadsetOculusDriver;
 extern HeadsetInterface lovrHeadsetOpenXRDriver;
 extern HeadsetInterface lovrHeadsetVrApiDriver;
 extern HeadsetInterface lovrHeadsetPicoDriver;

@@ -24,7 +24,6 @@ config = {
   headsets = {
     desktop = true,
     openxr = false, -- if provided, should be path to folder containing OpenXR loader library
-    oculus = false,
     vrapi = false,
     pico = false,
     webxr = false
@@ -321,12 +320,6 @@ if config.headsets.openxr then
     lflags += '-L' .. config.headsets.openxr
     lflags += '-lopenxr_loader'
   end
-end
-
-if config.headsets.oculus then
-  assert(target == 'windows', 'LibOVR is not supported on this target')
-  cflags_headset_oculus += '-Ideps/LibOVR/Include'
-  copy('deps/LibOVR/LibWindows/x64/Release/VS2017/LibOVR.dll', lib('LibOVR'))
 end
 
 if config.headsets.vrapi then
