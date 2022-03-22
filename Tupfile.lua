@@ -23,7 +23,6 @@ config = {
   },
   headsets = {
     desktop = true,
-    openvr = false,
     openxr = false, -- if provided, should be path to folder containing OpenXR loader library
     oculus = false,
     vrapi = false,
@@ -175,7 +174,6 @@ end
 overrides = {
   glad = '-Wno-pedantic',
   os_android = '-Wno-format-pedantic',
-  openvr = '-Wno-unused-variable -Wno-typedef-redefinition -Wno-pedantic',
   vrapi = '-Wno-c11-extensions -Wno-gnu-empty-initializer -Wno-pedantic',
   miniaudio = '-Wno-unused-function',
 }
@@ -310,18 +308,6 @@ if config.modules.physics then
   tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(base_flags) -shared -static-libstdc++ -o %o %f', lib('ode'))
 end
 
-if config.headsets.openvr then
-  cflags_openvr += '-Ideps/openvr/headers'
-  lflags += '-lopenvr_api'
-  openvr_libs = {
-    win32 = 'deps/openvr/bin/win64/openvr_api.dll',
-    macos = 'deps/openvr/bin/osx32/openvr_api.dll',
-    linux = 'deps/openvr/bin/linux64/libopenvr_api.so'
-  }
-  assert(openvr_libs[target], 'OpenVR is not supported on this target')
-  copy(openvr_libs[target], '$(bin)/%b')
-end
-
 if config.headsets.openxr then
   if target == 'android' then
     cflags_headset_openxr += '-Ideps/openxr/include'
@@ -444,7 +430,6 @@ src += config.modules.thread and 'src/lib/tinycthread/*.c' or nil
 
 res += 'src/resources/*.lua'
 res += 'src/resources/*.ttf'
-res += 'src/resources/*.json'
 
 for i = 1, #res do
   src.extra_inputs += res[i] .. '.h'

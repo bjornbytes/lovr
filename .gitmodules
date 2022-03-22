@@ -10,9 +10,6 @@
 [submodule "deps/ode"]
 	path = deps/ode
 	url = https://github.com/bjornbytes/ode
-[submodule "deps/openvr"]
-	path = deps/openvr
-	url = https://github.com/ValveSoftware/openvr
 [submodule "deps/luajit"]
 	path = deps/luajit
 	url = https://github.com/WohlSoft/LuaJIT

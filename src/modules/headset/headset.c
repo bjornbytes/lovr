@@ -21,9 +21,6 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, fl
 #ifdef LOVR_USE_OCULUS
       case DRIVER_OCULUS: interface = &lovrHeadsetOculusDriver; break;
 #endif
-#ifdef LOVR_USE_OPENVR
-      case DRIVER_OPENVR: interface = &lovrHeadsetOpenVRDriver; break;
-#endif
 #ifdef LOVR_USE_OPENXR
       case DRIVER_OPENXR: interface = &lovrHeadsetOpenXRDriver; break;
 #endif

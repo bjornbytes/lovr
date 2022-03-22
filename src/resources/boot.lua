@@ -121,7 +121,7 @@ function lovr.boot()
       debug = false
     },
     headset = {
-      drivers = { 'openxr', 'oculus', 'vrapi', 'pico', 'openvr', 'webxr', 'desktop' },
+      drivers = { 'openxr', 'oculus', 'vrapi', 'pico', 'webxr', 'desktop' },
       supersample = false,
       offset = 1.7,
       msaa = 4,

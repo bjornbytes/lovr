@@ -12,7 +12,6 @@
 StringEntry lovrHeadsetDriver[] = {
   [DRIVER_DESKTOP] = ENTRY("desktop"),
   [DRIVER_OCULUS] = ENTRY("oculus"),
-  [DRIVER_OPENVR] = ENTRY("openvr"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
   [DRIVER_VRAPI] = ENTRY("vrapi"),
   [DRIVER_PICO] = ENTRY("pico"),

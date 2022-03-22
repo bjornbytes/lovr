@@ -16,7 +16,6 @@ option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
-option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" OFF)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
@@ -57,7 +56,6 @@ if(EMSCRIPTEN)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
   set(LOVR_USE_WEBXR ON)
-  set(LOVR_USE_OPENVR OFF)
 elseif(ANDROID)
   find_package(Java REQUIRED)
   set(LOVR_USE_DESKTOP OFF)
@@ -173,25 +171,6 @@ if(NOT (WIN32 OR EMSCRIPTEN OR ANDROID))
   find_package(OpenGL REQUIRED)
   include_directories(${OPENGL_INCLUDE_DIRS})
   set(LOVR_OPENGL ${OPENGL_LIBRARIES})
-endif()
-
-# OpenVR
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
-  set(BUILD_SHARED ON CACHE BOOL "")
-  set(BUILD_UNIVERSAL OFF CACHE BOOL "")
-  include_directories(deps/openvr/headers)
-  include_directories(deps/openvr/src)
-  include_directories(deps/openvr/src/vrcommon)
-  if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(LOVR_OPENVR openvr_api64)
-  else()
-    set(LOVR_OPENVR openvr_api)
-  endif()
-  add_subdirectory(deps/openvr)
-  set_target_properties(${LOVR_OPENVR} PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
-  )
 endif()
 
 # OpenXR
@@ -374,7 +353,6 @@ target_link_libraries(lovr
   ${LOVR_MSDF}
   ${LOVR_ODE}
   ${LOVR_OPENGL}
-  ${LOVR_OPENVR}
   ${LOVR_OPENXR}
   ${LOVR_OCULUS}
   ${LOVR_OCULUS_AUDIO}
@@ -493,10 +471,6 @@ if(LOVR_ENABLE_HEADSET)
     src/modules/headset/headset.c
   )
 
-  if(LOVR_USE_OPENVR)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_OPENVR)
-    target_sources(lovr PRIVATE src/modules/headset/headset_openvr.c)
-  endif()
   if(LOVR_USE_OPENXR)
     target_compile_definitions(lovr PRIVATE LOVR_USE_OPENXR)
     target_sources(lovr PRIVATE src/modules/headset/headset_openxr.c)
@@ -583,7 +557,7 @@ else()
 endif()
 
 # Resources
-file(GLOB LOVR_RESOURCES "src/resources/*.ttf" "src/resources/*.json" "src/resources/*.lua")
+file(GLOB LOVR_RESOURCES "src/resources/*.ttf" "src/resources/*.lua")
 foreach(path ${LOVR_RESOURCES})
 
   # Turn the absolute path into a C variable like src_resources_boot_lua
@@ -634,7 +608,6 @@ if(WIN32)
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_ODE})
-  move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_MSDF})
   move_dll(${LOVR_OCULUS_AUDIO})
   move_dll(${LOVR_PHONON})
@@ -686,7 +659,6 @@ elseif(APPLE)
   move_lib(${LOVR_GLFW})
   move_lib(${LOVR_LUA})
   move_lib(${LOVR_ODE})
-  move_lib(${LOVR_OPENVR})
   move_lib(${LOVR_MSDF})
   move_lib(${LOVR_OCULUS_AUDIO})
   move_lib(${LOVR_PHONON})
@@ -860,7 +832,6 @@ elseif(UNIX)
   move_lib(${LOVR_GLFW})
   move_lib(${LOVR_LUA})
   move_lib(${LOVR_ODE})
-  move_lib(${LOVR_OPENVR})
   move_lib(${LOVR_MSDF})
   move_lib(${LOVR_OCULUS_AUDIO})
   foreach(target ${ALL_PLUGIN_TARGETS})
