@@ -515,7 +515,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       { 0, NULL, "vibrate",          XR_ACTION_TYPE_VIBRATION_OUTPUT, 2, hands, "Vibrate" }
     };
 
-    _Static_assert(sizeof(actionInfo) / sizeof(actionInfo[0]) == MAX_ACTIONS, "Unbalanced action table!");
+    _Static_assert(COUNTOF(actionInfo) == MAX_ACTIONS, "Unbalanced action table!");
 
     if (!state.features.viveTrackers) {
       actionInfo[ACTION_TRACKER_POSE].countSubactionPaths = 0;
@@ -1166,7 +1166,7 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
       XrHandJointLocationEXT joints[26];
       XrHandJointLocationsEXT hand = {
         .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-        .jointCount = sizeof(joints) / sizeof(joints[0]),
+        .jointCount = COUNTOF(joints),
         .jointLocations = joints
       };
 
@@ -1308,7 +1308,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
       XrHandJointLocationsEXT hand = {
         .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
         .next = &aimState,
-        .jointCount = sizeof(joints) / sizeof(joints[0]),
+        .jointCount = COUNTOF(joints),
         .jointLocations = joints
       };
 
@@ -1341,7 +1341,7 @@ static bool openxr_getSkeleton(Device device, float* poses) {
   XrHandJointLocationEXT joints[26];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-    .jointCount = sizeof(joints) / sizeof(joints[0]),
+    .jointCount = COUNTOF(joints),
     .jointLocations = joints
   };
 
@@ -1350,7 +1350,7 @@ static bool openxr_getSkeleton(Device device, float* poses) {
   }
 
   float* pose = poses;
-  for (uint32_t i = 0; i < sizeof(joints) / sizeof(joints[0]); i++) {
+  for (uint32_t i = 0; i < COUNTOF(joints); i++) {
     memcpy(pose, &joints[i].pose.position.x, 3 * sizeof(float));
     pose[3] = joints[i].radius;
     memcpy(pose + 4, &joints[i].pose.orientation.x, 4 * sizeof(float));
@@ -1596,7 +1596,7 @@ static bool openxr_animate(Device device, struct Model* model) {
   XrHandJointLocationEXT joints[26];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-    .jointCount = sizeof(joints) / sizeof(joints[0]),
+    .jointCount = COUNTOF(joints),
     .jointLocations = joints
   };
 
@@ -1637,7 +1637,7 @@ static bool openxr_animate(Device device, struct Model* model) {
   };
 
   // The following can be optimized a lot (ideally we would set the global transform for the nodes)
-  for (uint32_t i = 0; i < sizeof(joints) / sizeof(joints[0]); i++) {
+  for (uint32_t i = 0; i < COUNTOF(joints); i++) {
     if (jointParents[i] == ~0u) {
       float position[4] = { 0.f, 0.f, 0.f };
       float orientation[4] = { 0.f, 0.f, 0.f, 1.f };
