@@ -16,9 +16,6 @@
 [submodule "deps/openxr"]
 	path = deps/openxr
 	url = https://github.com/khronosgroup/openxr-sdk
-[submodule "deps/oculus-mobile"]
-	path = deps/oculus-mobile
-	url = https://github.com/lovr-org/ovr_sdk_mobile
 [submodule "deps/pico"]
 	path = deps/pico
 	url = https://github.com/lovr-org/pico_native_sdk

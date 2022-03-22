@@ -18,7 +18,6 @@ option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
-option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
 option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_STEAM_AUDIO "Enable the Steam Audio spatializer (be sure to also set LOVR_STEAM_AUDIO_PATH)" OFF)
@@ -195,15 +194,6 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   endif()
 endif()
 
-# VrApi (Oculus Mobile SDK) -- tested on 1.34.0
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_VRAPI)
-  set(LOVR_VRAPI_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-mobile/VrApi" CACHE STRING "The path to the VrApi folder of the Oculus Mobile SDK")
-  add_library(VrApi SHARED IMPORTED)
-  include_directories("${LOVR_VRAPI_PATH}/Include")
-  set_target_properties(VrApi PROPERTIES IMPORTED_LOCATION "${LOVR_VRAPI_PATH}/Libs/Android/${ANDROID_ABI}/Release/libvrapi.so")
-  set(LOVR_VRAPI VrApi)
-endif()
-
 # Pico Native SDK (1.3.3)
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_PICO)
   set(LOVR_PICO_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico/aar" CACHE STRING "The path to the Pico SDK folder")
@@ -341,7 +331,6 @@ target_link_libraries(lovr
   ${LOVR_OPENGL}
   ${LOVR_OPENXR}
   ${LOVR_OCULUS_AUDIO}
-  ${LOVR_VRAPI}
   ${LOVR_PICO}
   ${LOVR_PTHREADS}
   ${LOVR_EMSCRIPTEN_FLAGS}
@@ -459,10 +448,6 @@ if(LOVR_ENABLE_HEADSET)
   if(LOVR_USE_OPENXR)
     target_compile_definitions(lovr PRIVATE LOVR_USE_OPENXR)
     target_sources(lovr PRIVATE src/modules/headset/headset_openxr.c)
-  endif()
-  if(LOVR_USE_VRAPI)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_VRAPI)
-    target_sources(lovr PRIVATE src/modules/headset/headset_vrapi.c)
   endif()
   if(LOVR_USE_PICO)
     target_compile_definitions(lovr PRIVATE LOVR_USE_PICO)
@@ -683,13 +668,6 @@ elseif(ANDROID)
       target_sources(lovr PRIVATE src/core/os_android.c)
       get_target_property(OPENXR_LIB ${LOVR_OPENXR} IMPORTED_LOCATION)
       file(COPY ${OPENXR_LIB} DESTINATION raw/lib/${ANDROID_ABI})
-      set(ANDROID_CLASSPATH "${ANDROID_JAR}")
-    elseif(LOVR_USE_VRAPI)
-      set(MANIFEST "oculus")
-      set(ACTIVITY "vrapi")
-      target_sources(lovr PRIVATE src/core/os_android.c)
-      get_target_property(VRAPI_LIB ${LOVR_VRAPI} IMPORTED_LOCATION)
-      file(COPY ${VRAPI_LIB} DESTINATION raw/lib/${ANDROID_ABI})
       set(ANDROID_CLASSPATH "${ANDROID_JAR}")
     elseif(LOVR_USE_PICO)
       set(MANIFEST "pico")

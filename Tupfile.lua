@@ -24,7 +24,6 @@ config = {
   headsets = {
     desktop = true,
     openxr = false, -- if provided, should be path to folder containing OpenXR loader library
-    vrapi = false,
     pico = false,
     webxr = false
   },
@@ -157,7 +156,7 @@ if target == 'wasm' then
 end
 
 if target == 'android' then
-  assert(config.headsets.vrapi or config.headsets.pico or config.headsets.openxr, 'Please enable vrapi, pico, or openxr')
+  assert(config.headsets.pico or config.headsets.openxr, 'Please enable pico or openxr')
   hosts = { win32 = 'windows-x86_64', macos = 'darwin-x86_64', linux = 'linux-x86_64' }
   host = hosts[tup.getconfig('TUP_PLATFORM')]
   cc = ('%s/toolchains/llvm/prebuilt/%s/bin/clang'):format(config.android.ndk, host)
@@ -173,7 +172,6 @@ end
 overrides = {
   glad = '-Wno-pedantic',
   os_android = '-Wno-format-pedantic',
-  vrapi = '-Wno-c11-extensions -Wno-gnu-empty-initializer -Wno-pedantic',
   miniaudio = '-Wno-unused-function',
 }
 
@@ -322,16 +320,6 @@ if config.headsets.openxr then
   end
 end
 
-if config.headsets.vrapi then
-  assert(target == 'android', 'VrApi is not supported on this target')
-  cflags_headset_vrapi += '-Ideps/oculus-mobile/VrApi/Include'
-  cflags_headset_vrapi += '-Wno-gnu-empty-initializer'
-  cflags_headset_vrapi += '-Wno-c11-extensions'
-  cflags_headset_vrapi += '-Wno-pedantic'
-  lflags += '-lvrapi'
-  copy('deps/oculus-mobile/VrApi/Libs/Android/arm64-v8a/Release/libvrapi.so', '$(bin)/%b')
-end
-
 if config.headsets.pico then
   assert(target == 'android', 'Pico is not supported on this target')
   lflags += '-lPvr_NativeSDK'
@@ -458,7 +446,6 @@ if target == 'android' then
   end
 
   activity =
-    config.headsets.vrapi and 'src/resources/Activity_vrapi.java' or
     config.headsets.pico and 'src/resources/Activity_pico.java' or
     config.headsets.openxr and 'src/resources/Activity_openxr.java'
 
@@ -478,7 +465,6 @@ if target == 'android' then
   project = #config.android.project > 0 and ('-A ' .. config.android.project) or ''
 
   manifest = config.android.manifest or
-    config.headsets.vrapi and 'src/resources/AndroidManifest_oculus.xml' or
     config.headsets.pico and 'src/resources/AndroidManifest_pico.xml' or
     config.headsets.openxr and 'src/resources/AndroidManifest_oculus.xml'
 

@@ -75,7 +75,7 @@ local function nogame()
           lovr.headset.animate(hand, models[hand])
 
           local pose = mat4(lovr.headset.getPose(hand))
-          if lovr.headset.getDriver() == 'vrapi' then
+          if models[hand]:hasJoints() then
             animated = animated or lovr.graphics.newShader('unlit', { flags = { animated = true } })
             lovr.graphics.setShader(animated)
             lovr.graphics.setColorMask()
@@ -121,7 +121,7 @@ function lovr.boot()
       debug = false
     },
     headset = {
-      drivers = { 'openxr', 'vrapi', 'pico', 'webxr', 'desktop' },
+      drivers = { 'openxr', 'pico', 'webxr', 'desktop' },
       supersample = false,
       offset = 1.7,
       msaa = 4,
