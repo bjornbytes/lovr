@@ -1,6 +1,6 @@
 #include "data/sound.h"
 #include "data/blob.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/stb/stb_vorbis.h"
 #include "lib/miniaudio/miniaudio.h"
 #define MINIMP3_FLOAT_OUTPUT

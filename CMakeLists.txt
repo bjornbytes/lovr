@@ -341,12 +341,11 @@ endforeach()
 set(LOVR_SRC
   src/core/fs.c
   src/core/map.c
-  src/core/util.c
   src/core/zip.c
   src/api/api.c
   src/api/l_lovr.c
+  src/util.c
 )
-
 
 if(LOVR_BUILD_EXE AND NOT LOVR_USE_PICO)
   list(APPEND LOVR_SRC src/main.c)

@@ -1,6 +1,6 @@
 #include "spatializer.h"
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include <math.h>
 
 static struct {

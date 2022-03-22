@@ -10,7 +10,7 @@
 #include "math/math.h"
 #include "core/maf.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>

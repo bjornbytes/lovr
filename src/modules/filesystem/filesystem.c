@@ -2,7 +2,7 @@
 #include "core/fs.h"
 #include "core/map.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include "core/zip.h"
 #include "lib/stb/stb_image.h"
 #include <string.h>

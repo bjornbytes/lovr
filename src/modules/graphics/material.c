@@ -3,7 +3,7 @@
 #include "graphics/shader.h"
 #include "graphics/texture.h"
 #include "resources/shaders.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <math.h>
 

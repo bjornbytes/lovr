@@ -3,7 +3,7 @@
 #include "data/image.h"
 #include "core/maf.h"
 #include "core/map.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <float.h>
 #include <ctype.h>

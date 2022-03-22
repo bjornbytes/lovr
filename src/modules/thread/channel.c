@@ -1,6 +1,6 @@
 #include "thread/channel.h"
 #include "event/event.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <stdlib.h>
 #include <stddef.h>

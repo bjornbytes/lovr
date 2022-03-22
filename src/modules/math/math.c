@@ -1,6 +1,6 @@
 #include "math.h"
 #include "math/randomGenerator.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/noise1234/noise1234.h"
 #include <math.h>
 #include <string.h>

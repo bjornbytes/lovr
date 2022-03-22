@@ -11,7 +11,7 @@
 #include "data/rasterizer.h"
 #include "data/image.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <math.h>

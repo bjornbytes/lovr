@@ -3,7 +3,7 @@
 #include "graphics/graphics.h"
 #include "core/maf.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdbool.h>

@@ -6,7 +6,7 @@
 #include "api/api.h"
 #include "core/maf.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>

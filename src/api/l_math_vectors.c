@@ -1,6 +1,6 @@
 #include "api.h"
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 

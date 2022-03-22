@@ -1,7 +1,7 @@
 #include "api.h"
 #include "event/event.h"
 #include "thread/thread.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>

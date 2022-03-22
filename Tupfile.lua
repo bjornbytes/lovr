@@ -386,8 +386,8 @@ end
 
 src = {
   'src/main.c',
+  'src/util.c',
   'src/core/os_' .. target .. '.c',
-  'src/core/util.c',
   'src/core/fs.c',
   'src/core/map.c',
   'src/core/zip.c',

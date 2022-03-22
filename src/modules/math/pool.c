@@ -1,5 +1,5 @@
 #include "math/pool.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 
 static const size_t vectorComponents[] = {

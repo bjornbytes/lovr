@@ -2,7 +2,7 @@
 #include "audio/spatializer.h"
 #include "data/sound.h"
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/miniaudio/miniaudio.h"
 #include <string.h>
 #include <stdlib.h>

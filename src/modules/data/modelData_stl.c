@@ -1,7 +1,7 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 

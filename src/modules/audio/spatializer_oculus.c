@@ -1,6 +1,6 @@
 #include "spatializer.h"
 #include "audio/audio.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/miniaudio/miniaudio.h"
 #include <stdlib.h>
 #include <string.h>

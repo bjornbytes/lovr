@@ -1,5 +1,5 @@
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <ode/ode.h>

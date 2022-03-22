@@ -1,6 +1,6 @@
 #include "filesystem/file.h"
 #include "filesystem/filesystem.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 

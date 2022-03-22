@@ -6,7 +6,7 @@
 #include "graphics/model.h"
 #include "graphics/texture.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <math.h>
 

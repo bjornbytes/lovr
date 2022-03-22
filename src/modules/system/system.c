@@ -1,7 +1,7 @@
 #include "system/system.h"
 #include "event/event.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <string.h>
 
 static void onKeyboardEvent(os_button_action action, os_key key, uint32_t scancode, bool repeat) {

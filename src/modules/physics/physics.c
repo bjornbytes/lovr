@@ -1,5 +1,5 @@
 #include "physics.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <stdbool.h>
 
