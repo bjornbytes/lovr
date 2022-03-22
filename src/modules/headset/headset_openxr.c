@@ -293,62 +293,40 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
   { // Instance
     uint32_t extensionCount;
     XR_INIT(xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL));
-    XrExtensionProperties* extensions = calloc(extensionCount, sizeof(*extensions));
-    lovrAssert(extensions, "Out of memory");
-    for (uint32_t i = 0; i < extensionCount; i++) extensions[i].type = XR_TYPE_EXTENSION_PROPERTIES;
-    xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensions);
+    XrExtensionProperties* extensionProperties = calloc(extensionCount, sizeof(*extensionProperties));
+    lovrAssert(extensionProperties, "Out of memory");
+    for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
+    xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensionProperties);
 
-    const char* enabledExtensionNames[10];
-    uint32_t enabledExtensionCount = 0;
-
+    // Extensions without a feature are required
+    struct { const char* name; bool* feature; bool disable; } extensions[] = {
 #ifdef __ANDROID__
-    enabledExtensionNames[enabledExtensionCount++] = XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME;
+      { "XR_KHR_android_create_instance", NULL, false },
 #endif
-
-    enabledExtensionNames[enabledExtensionCount++] = GRAPHICS_EXTENSION;
-
-    if (hasExtension(extensions, extensionCount, XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
-      enabledExtensionNames[enabledExtensionCount++] = XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME;
-      state.features.gaze = true;
-    }
-
-    if (hasExtension(extensions, extensionCount, XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
-      enabledExtensionNames[enabledExtensionCount++] = XR_EXT_HAND_TRACKING_EXTENSION_NAME;
-      state.features.handTracking = true;
-    }
-
-    if (hasExtension(extensions, extensionCount, XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME)) {
-      enabledExtensionNames[enabledExtensionCount++] = XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME;
-      state.features.refreshRate = true;
-    }
-
-    if (hasExtension(extensions, extensionCount, XR_FB_HAND_TRACKING_AIM_EXTENSION_NAME)) {
-      enabledExtensionNames[enabledExtensionCount++] = XR_FB_HAND_TRACKING_AIM_EXTENSION_NAME;
-      state.features.handTrackingAim = true;
-    }
-
-    if (hasExtension(extensions, extensionCount, XR_FB_HAND_TRACKING_MESH_EXTENSION_NAME)) {
-      enabledExtensionNames[enabledExtensionCount++] = XR_FB_HAND_TRACKING_MESH_EXTENSION_NAME;
-      state.features.handTrackingMesh = true;
-    }
-
-#ifdef XR_EXTX_overlay
-    if (overlay && hasExtension(extensions, extensionCount, XR_EXTX_OVERLAY_EXTENSION_NAME)) {
-      enabledExtensionNames[enabledExtensionCount++] = XR_EXTX_OVERLAY_EXTENSION_NAME;
-      state.features.overlay = true;
-    }
-#endif
-
-    if (hasExtension(extensions, extensionCount, XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME)) {
-      enabledExtensionNames[enabledExtensionCount++] = XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME;
-      state.features.viveTrackers = true;
-    }
-
 #ifdef LOVR_LINUX_EGL
-    enabledExtensionNames[enabledExtensionCount++] = XR_MNDX_EGL_ENABLE_EXTENSION_NAME;
+      { "XR_MNDX_egl_enable", NULL, false },
 #endif
+      { GRAPHICS_EXTENSION, NULL, false },
+      { "XR_EXT_eye_gaze_interaction", &state.features.gaze, false },
+      { "XR_EXT_hand_tracking", &state.features.handTracking, false },
+      { "XR_FB_display_refresh_rate", &state.features.refreshRate, false },
+      { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, false },
+      { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, false },
+      { "XR_EXTX_overlay", &state.features.overlay, !overlay },
+      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, false },
+    };
 
-    free(extensions);
+    uint32_t enabledExtensionCount = 0;
+    const char* enabledExtensionNames[COUNTOF(extensions)];
+    for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
+      if (extensions[i].disable) continue;
+      if (!extensions[i].feature || hasExtension(extensionProperties, extensionCount, extensions[i].name)) {
+        enabledExtensionNames[enabledExtensionCount++] = extensions[i].name;
+        if (extensions[i].feature) *extensions[i].feature = true;
+      }
+    }
+
+    free(extensionProperties);
 
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
