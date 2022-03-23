@@ -43,10 +43,6 @@ StringEntry lovrDevice[] = {
   [DEVICE_EYE_LEFT] = ENTRY("eye/left"),
   [DEVICE_EYE_RIGHT] = ENTRY("eye/right"),
   [DEVICE_EYE_GAZE] = ENTRY("eye/gaze"),
-  [DEVICE_BEACON_1] = ENTRY("beacon/1"),
-  [DEVICE_BEACON_2] = ENTRY("beacon/2"),
-  [DEVICE_BEACON_3] = ENTRY("beacon/3"),
-  [DEVICE_BEACON_4] = ENTRY("beacon/4"),
   { 0 }
 };
 
