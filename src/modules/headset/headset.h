@@ -106,7 +106,6 @@ typedef enum {
 // - In general, most input results should be kept constant between calls to update.
 
 typedef struct HeadsetInterface {
-  struct HeadsetInterface* next;
   HeadsetDriver driverType;
   bool (*init)(float supersample, float offset, uint32_t msaa, bool overlay);
   void (*start)(void);
@@ -144,12 +143,8 @@ extern HeadsetInterface lovrHeadsetOpenXRDriver;
 extern HeadsetInterface lovrHeadsetWebXRDriver;
 extern HeadsetInterface lovrHeadsetDesktopDriver;
 
-// Active drivers
-extern HeadsetInterface* lovrHeadsetDisplayDriver;
-extern HeadsetInterface* lovrHeadsetTrackingDrivers;
-
-#define FOREACH_TRACKING_DRIVER(i)\
-  for (HeadsetInterface* i = lovrHeadsetTrackingDrivers; i != NULL; i = i->next)
+// Active driver
+extern HeadsetInterface* lovrHeadsetInterface;
 
 bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, float offset, uint32_t msaa, bool overlay);
 void lovrHeadsetDestroy(void);

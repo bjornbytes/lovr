@@ -328,5 +328,6 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .newModelData = desktop_newModelData,
   .animate = desktop_animate,
   .renderTo = desktop_renderTo,
+  .isFocused = desktop_isFocused,
   .update = desktop_update
 };

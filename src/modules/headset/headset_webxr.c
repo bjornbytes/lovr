@@ -31,30 +31,13 @@ extern double webxr_update(void);
 static bool webxrAttached = false;
 static HeadsetInterface* previousHeadsetDriver;
 
-static void setDriver(HeadsetInterface* new) {
-  if (lovrHeadsetTrackingDrivers == lovrHeadsetDisplayDriver) {
-    lovrHeadsetTrackingDrivers = new;
-  } else {
-    FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->next == lovrHeadsetDisplayDriver) {
-        driver->next = new;
-        break;
-      }
-    }
-  }
-
-  new->next = lovrHeadsetDisplayDriver->next;
-  lovrHeadsetDisplayDriver->next = NULL;
-  lovrHeadsetDisplayDriver = new;
-}
-
 void webxr_attach() {
-  if (webxrAttached || lovrHeadsetDisplayDriver == &lovrHeadsetWebXRDriver) {
+  if (webxrAttached || lovrHeadsetInterface == &lovrHeadsetWebXRDriver) {
     return;
   }
 
-  previousHeadsetDriver = lovrHeadsetDisplayDriver;
-  setDriver(&lovrHeadsetWebXRDriver);
+  previousHeadsetDriver = lovrHeadsetInterface;
+  lovrHeadsetInterface = &lovrHeadsetWebXRDriver;
   webxrAttached = true;
 }
 
@@ -63,7 +46,7 @@ void webxr_detach() {
     return;
   }
 
-  setDriver(previousHeadsetDriver);
+  lovrHeadsetInterface = previousHeadsetDriver;
   previousHeadsetDriver = NULL;
   webxrAttached = false;
 }
