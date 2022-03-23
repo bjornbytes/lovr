@@ -411,6 +411,10 @@ var webxr = {
     Module._lovrGraphicsSetBackbuffer(0, false, false);
   },
 
+  webxr_isFocused: function() {
+    return true;
+  },
+
   webxr_update: function() {
     return (state.displayTime - state.lastDisplayTime) / 1000.0;
   }

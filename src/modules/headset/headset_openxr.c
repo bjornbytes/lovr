@@ -1719,6 +1719,10 @@ static Texture* openxr_getMirrorTexture(void) {
   return canvas ? lovrCanvasGetAttachments(canvas, NULL)[0].texture : NULL;
 }
 
+static bool openxr_isFocused(void) {
+  return state.sessionState == XR_SESSION_STATE_FOCUSED;
+}
+
 static double openxr_update(void) {
   XrEventDataBuffer e; // Not using designated initializers here to avoid an implicit 4k zero
   e.type = XR_TYPE_EVENT_DATA_BUFFER;
@@ -1816,5 +1820,6 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .animate = openxr_animate,
   .renderTo = openxr_renderTo,
   .getMirrorTexture = openxr_getMirrorTexture,
+  .isFocused = openxr_isFocused,
   .update = openxr_update
 };

@@ -26,6 +26,7 @@ extern bool webxr_vibrate(Device device, float strength, float duration, float f
 extern struct ModelData* webxr_newModelData(Device device, bool animated);
 extern bool webxr_animate(Device device, struct Model* model);
 extern void webxr_renderTo(void (*callback)(void*), void* userdata);
+extern bool webxr_isFocused(void);
 extern double webxr_update(void);
 
 static bool webxrAttached = false;
@@ -95,5 +96,6 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .newModelData = webxr_newModelData,
   .animate = webxr_animate,
   .renderTo = webxr_renderTo,
+  .isFocused = webxr_isFocused,
   .update = webxr_update
 };

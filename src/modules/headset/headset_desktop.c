@@ -8,10 +8,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-static void onFocus(bool focused) {
-  lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { focused } });
-}
-
 static struct {
   bool initialized;
   float position[4];
@@ -26,12 +22,18 @@ static struct {
   double prevCursorY;
   bool mouseDown;
   bool prevMouseDown;
+  bool focused;
   float offset;
   float clipNear;
   float clipFar;
   float pitch;
   float yaw;
 } state;
+
+static void onFocus(bool focused) {
+  state.focused = focused;
+  lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { focused } });
+}
 
 static bool desktop_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   state.offset = offset;
@@ -46,6 +48,7 @@ static bool desktop_init(float supersample, float offset, uint32_t msaa, bool ov
     state.initialized = true;
   }
 
+  state.focused = true;
   os_on_focus(onFocus);
 
   return true;
@@ -204,6 +207,10 @@ static void desktop_renderTo(void (*callback)(void*), void* userdata) {
   lovrGraphicsSetBackbuffer(NULL, true, true);
   callback(userdata);
   lovrGraphicsSetBackbuffer(NULL, false, false);
+}
+
+static bool desktop_isFocused(void) {
+  return state.focused;
 }
 
 static double desktop_update(void) {

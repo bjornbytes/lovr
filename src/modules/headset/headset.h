@@ -136,6 +136,7 @@ typedef struct HeadsetInterface {
   bool (*animate)(Device device, struct Model* model);
   void (*renderTo)(void (*callback)(void*), void* userdata);
   struct Texture* (*getMirrorTexture)(void);
+  bool (*isFocused)(void);
   double (*update)(void);
 } HeadsetInterface;
 

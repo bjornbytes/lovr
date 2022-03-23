@@ -578,6 +578,11 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
   return 0;
 }
 
+static int l_lovrHeadsetIsFocused(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetDisplayDriver->isFocused());
+  return 1;
+}
+
 static int l_lovrHeadsetUpdate(lua_State* L) {
   double dt = 0.;
 
@@ -672,6 +677,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "animate", l_lovrHeadsetAnimate },
   { "getSkeleton", l_lovrHeadsetGetSkeleton },
   { "renderTo", l_lovrHeadsetRenderTo },
+  { "isFocused", l_lovrHeadsetIsFocused },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
   { "getDeltaTime", l_lovrHeadsetGetDeltaTime },
