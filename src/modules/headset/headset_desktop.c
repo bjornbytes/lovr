@@ -87,11 +87,6 @@ static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = (uint32_t) h;
 }
 
-static const float* desktop_getDisplayMask(uint32_t* count) {
-  *count = 0;
-  return NULL;
-}
-
 static uint32_t desktop_getViewCount(void) {
   return 2;
 }
@@ -316,7 +311,6 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getDisplayTime = desktop_getDisplayTime,
   .getDeltaTime = desktop_getDeltaTime,
   .getDisplayDimensions = desktop_getDisplayDimensions,
-  .getDisplayMask = desktop_getDisplayMask,
   .getViewCount = desktop_getViewCount,
   .getViewPose = desktop_getViewPose,
   .getViewAngles = desktop_getViewAngles,

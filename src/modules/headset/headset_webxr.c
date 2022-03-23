@@ -8,7 +8,6 @@ extern HeadsetOrigin webxr_getOriginType(void);
 extern double webxr_getDisplayTime(void);
 extern double webxr_getDeltaTime(void);
 extern void webxr_getDisplayDimensions(uint32_t* width, uint32_t* height);
-extern const float* webxr_getDisplayMask(uint32_t* count);
 extern uint32_t webxr_getViewCount(void);
 extern bool webxr_getViewPose(uint32_t view, float* position, float* orientation);
 extern bool webxr_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down);
@@ -78,7 +77,6 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .getOriginType = webxr_getOriginType,
   .getDisplayTime = webxr_getDisplayTime,
   .getDisplayDimensions = webxr_getDisplayDimensions,
-  .getDisplayMask = webxr_getDisplayMask,
   .getViewCount = webxr_getViewCount,
   .getViewPose = webxr_getViewPose,
   .getViewAngles = webxr_getViewAngles,

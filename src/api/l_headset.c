@@ -155,30 +155,6 @@ static int l_lovrHeadsetGetDisplayFrequency(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetGetDisplayMask(lua_State* L) {
-  uint32_t count;
-  const float* points = lovrHeadsetDisplayDriver->getDisplayMask(&count);
-
-  if (!points) {
-    lua_pushnil(L);
-    return 1;
-  }
-
-  lua_createtable(L, count, 0);
-  for (uint32_t i = 0; i < count; i += 2) {
-    lua_createtable(L, 2, 0);
-
-    lua_pushnumber(L, points[i + 0]);
-    lua_rawseti(L, -2, 1);
-    lua_pushnumber(L, points[i + 1]);
-    lua_rawseti(L, -2, 2);
-
-    lua_rawseti(L, -2, i / 2 + 1);
-  }
-
-  return 1;
-}
-
 static int l_lovrHeadsetGetViewCount(lua_State* L) {
   lua_pushinteger(L, lovrHeadsetDisplayDriver->getViewCount());
   return 1;
@@ -651,7 +627,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
   { "getDisplayFrequency", l_lovrHeadsetGetDisplayFrequency },
-  { "getDisplayMask", l_lovrHeadsetGetDisplayMask },
   { "getViewCount", l_lovrHeadsetGetViewCount },
   { "getViewPose", l_lovrHeadsetGetViewPose },
   { "getViewAngles", l_lovrHeadsetGetViewAngles },

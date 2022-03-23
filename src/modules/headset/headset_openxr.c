@@ -1013,11 +1013,6 @@ static float openxr_getDisplayFrequency(void) {
   return frequency;
 }
 
-static const float* openxr_getDisplayMask(uint32_t* count) {
-  *count = 0;
-  return NULL;
-}
-
 static double openxr_getDisplayTime(void) {
   return state.frameState.predictedDisplayTime / 1e9;
 }
@@ -1799,7 +1794,6 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getOriginType = openxr_getOriginType,
   .getDisplayDimensions = openxr_getDisplayDimensions,
   .getDisplayFrequency = openxr_getDisplayFrequency,
-  .getDisplayMask = openxr_getDisplayMask,
   .getDisplayTime = openxr_getDisplayTime,
   .getDeltaTime = openxr_getDeltaTime,
   .getViewCount = openxr_getViewCount,

@@ -115,7 +115,6 @@ typedef struct HeadsetInterface {
   HeadsetOrigin (*getOriginType)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   float (*getDisplayFrequency)(void);
-  const float* (*getDisplayMask)(uint32_t* count);
   double (*getDisplayTime)(void);
   double (*getDeltaTime)(void);
   uint32_t (*getViewCount)(void);

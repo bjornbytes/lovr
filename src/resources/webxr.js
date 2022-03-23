@@ -199,10 +199,6 @@ var webxr = {
     return 0.0;
   },
 
-  webxr_getDisplayMask: function() {
-    return 0; /* NULL */
-  },
-
   webxr_getViewCount: function() {
     return state.viewer ? state.viewer.views.length : 0;
   },
