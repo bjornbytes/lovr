@@ -31,8 +31,6 @@ static struct {
   float clipFar;
   float pitch;
   float yaw;
-  double prevTime;
-  double nextTime;
 } state;
 
 static bool desktop_init(float supersample, float offset, uint32_t msaa, bool overlay) {
