@@ -27,7 +27,7 @@ Shape* luax_checkshape(lua_State* L, int index) {
       hash64("MeshShape", strlen("MeshShape")),
     };
 
-    for (size_t i = 0; i < sizeof(hashes) / sizeof(hashes[0]); i++) {
+    for (size_t i = 0; i < COUNTOF(hashes); i++) {
       if (p->hash == hashes[i]) {
         return p->object;
       }

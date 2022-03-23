@@ -238,7 +238,7 @@ bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   result = ma_mutex_init(&state.lock);
   lovrAssert(result == MA_SUCCESS, "Failed to create audio mutex");
 
-  for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
+  for (size_t i = 0; i < COUNTOF(spatializers); i++) {
     if (spatializer && strcmp(spatializer, spatializers[i]->name)) {
       continue;
     }

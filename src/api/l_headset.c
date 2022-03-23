@@ -628,7 +628,7 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   int count = 0;
   float position[4], orientation[4];
   Device hands[] = { DEVICE_HAND_LEFT, DEVICE_HAND_RIGHT };
-  for (size_t i = 0; i < sizeof(hands) / sizeof(hands[0]); i++) {
+  for (size_t i = 0; i < COUNTOF(hands); i++) {
     FOREACH_TRACKING_DRIVER(driver) {
       if (driver->getPose(hands[i], position, orientation)) {
         luax_pushenum(L, Device, hands[i]);
@@ -706,7 +706,7 @@ int luaopen_lovr_headset(lua_State* L) {
       for (int i = 0; i < n; i++) {
         lua_rawgeti(L, -1, i + 1);
         drivers[driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
-        lovrAssert(driverCount < sizeof(drivers) / sizeof(drivers[0]), "Too many headset drivers specified in conf.lua");
+        lovrAssert(driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
         lua_pop(L, 1);
       }
       lua_pop(L, 1);

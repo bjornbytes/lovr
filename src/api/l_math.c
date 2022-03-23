@@ -380,7 +380,7 @@ int luaopen_lovr_math(lua_State* L) {
   lua_pushcfunction(L, l_lovrLightUserdata__index);
   lua_setfield(L, -2, "__index");
   const char* ops[] = { "__add", "__sub", "__mul", "__div", "__unm", "__len", "__tostring", "__newindex" };
-  for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
+  for (size_t i = 0; i < COUNTOF(ops); i++) {
     lua_pushstring(L, ops[i]);
     lua_pushcclosure(L, l_lovrLightUserdataOp, 1);
     lua_setfield(L, -2, ops[i]);
