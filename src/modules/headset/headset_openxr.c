@@ -169,6 +169,7 @@ static struct {
   XrCompositionLayerProjectionView layerViews[2];
   XrFrameState frameState;
   Canvas* canvases[MAX_IMAGES];
+  double lastDisplayTime;
   uint32_t imageIndex;
   uint32_t imageCount;
   uint32_t msaa;
@@ -1021,6 +1022,10 @@ static double openxr_getDisplayTime(void) {
   return state.frameState.predictedDisplayTime / 1e9;
 }
 
+static double openxr_getDeltaTime(void) {
+  return (state.frameState.predictedDisplayTime - state.lastDisplayTime) / 1e9;
+}
+
 static void getViews(XrView views[2], uint32_t* count) {
   XrViewLocateInfo viewLocateInfo = {
     .type = XR_TYPE_VIEW_LOCATE_INFO,
@@ -1714,7 +1719,7 @@ static Texture* openxr_getMirrorTexture(void) {
   return canvas ? lovrCanvasGetAttachments(canvas, NULL)[0].texture : NULL;
 }
 
-static void openxr_update(float dt) {
+static double openxr_update(void) {
   XrEventDataBuffer e; // Not using designated initializers here to avoid an implicit 4k zero
   e.type = XR_TYPE_EVENT_DATA_BUFFER;
   e.next = NULL;
@@ -1759,7 +1764,12 @@ static void openxr_update(float dt) {
   }
 
   if (SESSION_ACTIVE(state.sessionState)) {
+    state.lastDisplayTime = state.frameState.predictedDisplayTime;
     XR(xrWaitFrame(state.session, NULL, &state.frameState));
+
+    if (state.lastDisplayTime == 0.) {
+      state.lastDisplayTime = state.frameState.predictedDisplayTime - state.frameState.predictedDisplayPeriod;
+    }
 
     XrActionsSyncInfo syncInfo = {
       .type = XR_TYPE_ACTIONS_SYNC_INFO,
@@ -1772,6 +1782,8 @@ static void openxr_update(float dt) {
 
     XR(xrSyncActions(state.session, &syncInfo));
   }
+
+  return openxr_getDeltaTime();
 }
 
 HeadsetInterface lovrHeadsetOpenXRDriver = {
@@ -1785,6 +1797,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getDisplayFrequency = openxr_getDisplayFrequency,
   .getDisplayMask = openxr_getDisplayMask,
   .getDisplayTime = openxr_getDisplayTime,
+  .getDeltaTime = openxr_getDeltaTime,
   .getViewCount = openxr_getViewCount,
   .getViewPose = openxr_getViewPose,
   .getViewAngles = openxr_getViewAngles,

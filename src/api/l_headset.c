@@ -583,23 +583,29 @@ static int l_lovrHeadsetRenderTo(lua_State* L) {
 }
 
 static int l_lovrHeadsetUpdate(lua_State* L) {
-  float dt = luax_checkfloat(L, 1);
+  double dt = 0.;
 
   if (lovrHeadsetDisplayDriver->update) {
-    lovrHeadsetDisplayDriver->update(dt);
+    dt = lovrHeadsetDisplayDriver->update();
   }
 
   FOREACH_TRACKING_DRIVER(driver) {
     if (driver->update && driver != lovrHeadsetDisplayDriver) {
-      driver->update(dt);
+      driver->update();
     }
   }
 
-  return 0;
+  lua_pushnumber(L, dt);
+  return 1;
 }
 
 static int l_lovrHeadsetGetTime(lua_State* L) {
   lua_pushnumber(L, lovrHeadsetDisplayDriver->getDisplayTime());
+  return 1;
+}
+
+static int l_lovrHeadsetGetDeltaTime(lua_State* L) {
+  lua_pushnumber(L, lovrHeadsetDisplayDriver->getDeltaTime());
   return 1;
 }
 
@@ -672,6 +678,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "renderTo", l_lovrHeadsetRenderTo },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
+  { "getDeltaTime", l_lovrHeadsetGetDeltaTime },
   { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
   { "getHands", l_lovrHeadsetGetHands },
   { NULL, NULL }

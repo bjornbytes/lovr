@@ -6,6 +6,7 @@ extern void webxr_destroy(void);
 extern bool webxr_getName(char* name, size_t length);
 extern HeadsetOrigin webxr_getOriginType(void);
 extern double webxr_getDisplayTime(void);
+extern double webxr_getDeltaTime(void);
 extern void webxr_getDisplayDimensions(uint32_t* width, uint32_t* height);
 extern const float* webxr_getDisplayMask(uint32_t* count);
 extern uint32_t webxr_getViewCount(void);
@@ -25,7 +26,7 @@ extern bool webxr_vibrate(Device device, float strength, float duration, float f
 extern struct ModelData* webxr_newModelData(Device device, bool animated);
 extern bool webxr_animate(Device device, struct Model* model);
 extern void webxr_renderTo(void (*callback)(void*), void* userdata);
-extern void webxr_update(float dt);
+extern double webxr_update(void);
 
 static bool webxrAttached = false;
 static HeadsetInterface* previousHeadsetDriver;

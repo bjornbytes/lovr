@@ -20,6 +20,8 @@ static struct {
   float angularVelocity[4];
   float headTransform[16];
   float leftHandTransform[16];
+  double prevDisplayTime;
+  double nextDisplayTime;
   double prevCursorX;
   double prevCursorY;
   bool mouseDown;
@@ -29,12 +31,16 @@ static struct {
   float clipFar;
   float pitch;
   float yaw;
+  double prevTime;
+  double nextTime;
 } state;
 
 static bool desktop_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   state.offset = offset;
   state.clipNear = .1f;
   state.clipFar = 100.f;
+  state.prevDisplayTime = os_get_time();
+  state.nextDisplayTime = state.prevDisplayTime;
 
   if (!state.initialized) {
     mat4_identity(state.headTransform);
@@ -66,7 +72,11 @@ static HeadsetOrigin desktop_getOriginType(void) {
 }
 
 static double desktop_getDisplayTime(void) {
-  return os_get_time();
+  return state.nextDisplayTime;
+}
+
+static double desktop_getDeltaTime(void) {
+  return state.nextDisplayTime - state.prevDisplayTime;
 }
 
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -198,7 +208,7 @@ static void desktop_renderTo(void (*callback)(void*), void* userdata) {
   lovrGraphicsSetBackbuffer(NULL, false, false);
 }
 
-static void desktop_update(float dt) {
+static double desktop_update(void) {
   bool front = os_is_key_down(KEY_W) || os_is_key_down(KEY_UP);
   bool back = os_is_key_down(KEY_S) || os_is_key_down(KEY_DOWN);
   bool left = os_is_key_down(KEY_A) || os_is_key_down(KEY_LEFT);
@@ -206,9 +216,13 @@ static void desktop_update(float dt) {
   bool up = os_is_key_down(KEY_Q);
   bool down = os_is_key_down(KEY_E);
 
-  float movespeed = 3.f * dt;
-  float turnspeed = 3.f * dt;
-  float damping = MAX(1.f - 20.f * dt, 0);
+  state.prevDisplayTime = state.nextDisplayTime;
+  state.nextDisplayTime = os_get_time();
+  double dt = state.nextDisplayTime - state.prevDisplayTime;
+
+  float movespeed = 3.f * (float) dt;
+  float turnspeed = 3.f * (float) dt;
+  float damping = MAX(1.f - 20.f * (float) dt, 0);
 
   int width, height;
   double mx, my;
@@ -228,8 +242,8 @@ static void desktop_update(float dt) {
 
     float dx = (float) (mx - state.prevCursorX) / ((float) width);
     float dy = (float) (my - state.prevCursorY) / ((float) height * aspect);
-    state.angularVelocity[0] = dy / dt;
-    state.angularVelocity[1] = dx / dt;
+    state.angularVelocity[0] = dy / (float) dt;
+    state.angularVelocity[1] = dx / (float) dt;
     state.prevCursorX = mx;
     state.prevCursorY = my;
   } else {
@@ -284,6 +298,7 @@ static void desktop_update(float dt) {
   mat4_translate(state.leftHandTransform, 0, 0, -.20f);
   mat4_rotate(state.leftHandTransform, -px * xrange, 0, 1, 0);
   mat4_rotate(state.leftHandTransform, -py * yrange, 1, 0, 0);
+  return dt;
 }
 
 HeadsetInterface lovrHeadsetDesktopDriver = {
@@ -294,6 +309,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getName = desktop_getName,
   .getOriginType = desktop_getOriginType,
   .getDisplayTime = desktop_getDisplayTime,
+  .getDeltaTime = desktop_getDeltaTime,
   .getDisplayDimensions = desktop_getDisplayDimensions,
   .getDisplayMask = desktop_getDisplayMask,
   .getViewCount = desktop_getViewCount,

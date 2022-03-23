@@ -121,6 +121,7 @@ typedef struct HeadsetInterface {
   float (*getDisplayFrequency)(void);
   const float* (*getDisplayMask)(uint32_t* count);
   double (*getDisplayTime)(void);
+  double (*getDeltaTime)(void);
   uint32_t (*getViewCount)(void);
   bool (*getViewPose)(uint32_t view, float* position, float* orientation);
   bool (*getViewAngles)(uint32_t view, float* left, float* right, float* up, float* down);
@@ -139,7 +140,7 @@ typedef struct HeadsetInterface {
   bool (*animate)(Device device, struct Model* model);
   void (*renderTo)(void (*callback)(void*), void* userdata);
   struct Texture* (*getMirrorTexture)(void);
-  void (*update)(float dt);
+  double (*update)(void);
 } HeadsetInterface;
 
 // Available drivers

@@ -137,8 +137,9 @@ var webxr = {
           Module['_webxr_attach']();
           Browser.requestAnimationFrame = function(fn) {
             return session.requestAnimationFrame(function(t, frame) {
-              state.displayTime = t;
               state.frame = frame;
+              state.lastDisplayTime = state.displayTime || state.frame.predictedDisplayTime;
+              state.displayTime = state.frame.predictedDisplayTime;
               state.viewer = state.frame.getViewerPose(state.space);
               fn();
               state.hands.forEach(function(inputSource, i) {
@@ -183,6 +184,10 @@ var webxr = {
 
   webxr_getDisplayTime: function() {
     return state.displayTime / 1000.0;
+  },
+
+  webxr_getDeltaTime: function() {
+    return (state.displayTime - state.lastDisplayTime) / 1000.0;
   },
 
   webxr_getDisplayDimensions: function(width, height) {
@@ -406,8 +411,8 @@ var webxr = {
     Module._lovrGraphicsSetBackbuffer(0, false, false);
   },
 
-  webxr_update: function(dt) {
-    //
+  webxr_update: function() {
+    return (state.displayTime - state.lastDisplayTime) / 1000.0;
   }
 };
 

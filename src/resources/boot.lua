@@ -175,7 +175,6 @@ function lovr.boot()
 end
 
 function lovr.run()
-  local dt = 0
   if lovr.timer then lovr.timer.step() end
   if lovr.load then lovr.load(arg) end
   return function()
@@ -191,8 +190,9 @@ function lovr.run()
         if lovr.handlers[name] then lovr.handlers[name](a, b, c, d) end
       end
     end
+    local dt = 0
     if lovr.timer then dt = lovr.timer.step() end
-    if lovr.headset then lovr.headset.update(dt) end
+    if lovr.headset then dt = lovr.headset.update() end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
       lovr.graphics.origin()
@@ -258,7 +258,7 @@ function lovr.errhand(message, traceback)
     end
     lovr.graphics.origin()
     if lovr.headset then
-      lovr.headset.update(0)
+      lovr.headset.update()
       lovr.headset.renderTo(render)
     end
     if lovr.graphics.hasWindow() then
