@@ -230,8 +230,7 @@ void _luax_pushtype(lua_State* L, const char* type, uint64_t hash, void* object)
 
   // Allocate userdata
   Proxy* p = (Proxy*) lua_newuserdata(L, sizeof(Proxy));
-  luaL_getmetatable(L, type);
-  lovrAssert(lua_istable(L, -1), "Unknown type '%s' (maybe its module needs to be required)", type);
+  luaL_newmetatable(L, type);
   lua_setmetatable(L, -2);
   lovrRetain(object);
   p->object = object;
