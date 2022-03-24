@@ -116,7 +116,29 @@ bool lovrFilesystemInit(const char* archive) {
 
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
 
-  // First, try to mount a bundled archive
+  // On Android, the save directory is mounted early, because the identity is fixed to the package
+  // name and it is convenient to be able to load main.lua and conf.lua from the save directory,
+  // which requires it to be mounted early in the boot process.
+#ifdef __ANDROID__
+  size_t cursor = os_get_data_directory(state.savePath, sizeof(state.savePath));
+
+  // The data path ends in /package.id/files, so to extract the identity the '/files' is temporarily
+  // chopped off and everything from the last slash is copied to the identity buffer
+  if (cursor > 6) {
+    state.savePath[cursor - 6] = '\0';
+    char* id = strrchr(state.savePath, '/') + 1;
+    size_t length = strlen(id);
+    memcpy(state.identity, id, length);
+    state.identity[length] = '\0';
+    state.savePath[cursor - 6] = '/';
+    state.savePathLength = cursor;
+    if (!lovrFilesystemMount(state.savePath, NULL, false, NULL)) {
+      state.identity[0] = '\0';
+    }
+  }
+#endif
+
+  // Try to mount a bundled archive
   const char* root = NULL;
   if (os_get_bundle_path(state.source, LOVR_PATH_MAX, &root) && lovrFilesystemMount(state.source, NULL, true, root)) {
     state.fused = true;
@@ -292,20 +314,6 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
     return false;
   }
 
-#ifdef __ANDROID__
-  // On Android the data path is the save path, and the identity is always the package id.
-  // The data path ends in /package.id/files, so to extract the identity the '/files' is temporarily
-  // chopped off and everything from the last slash is copied to the identity buffer
-  // FIXME brittle?  could read package id from /proc/self/cmdline instead
-  state.savePath[cursor - 6] = '\0';
-  char* id = strrchr(state.savePath, '/') + 1;
-  length = strlen(id);
-  memcpy(state.identity, id, length);
-  state.identity[length] = '\0';
-  state.savePath[cursor - 6] = '/';
-  state.savePathLength = cursor;
-#else
-
   // Make sure there is enough room to tack on /LOVR/<identity>
   if (cursor + 1 + strlen("LOVR") + 1 + length >= sizeof(state.savePath)) {
     return false;
@@ -328,7 +336,6 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
 
   // Set the identity string
   memcpy(state.identity, identity, length + 1);
-#endif
 
   // Mount the fully resolved save path
   if (!lovrFilesystemMount(state.savePath, NULL, !precedence, NULL)) {

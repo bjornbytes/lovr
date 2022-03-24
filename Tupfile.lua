@@ -450,7 +450,7 @@ if target == 'android' then
 
   manifest = config.android.manifest or ('src/resources/AndroidManifest_%s.xml'):format(config.android.flavor)
   package = #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
-  project = #config.android.project > 0 and ('-A ' .. config.android.project) or ''
+  project = config.android.project and #config.android.project > 0 and ('-A ' .. config.android.project) or ''
 
   version = config.android.version
   ks = config.android.keystore
