@@ -3,6 +3,49 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+struct World {
+  uint32_t ref;
+  dWorldID id;
+  dSpaceID space;
+  dJointGroupID contactGroup;
+  arr_t(Shape*) overlaps;
+  char* tags[MAX_TAGS];
+  uint16_t masks[MAX_TAGS];
+  Collider* head;
+};
+
+struct Collider {
+  uint32_t ref;
+  dBodyID body;
+  World* world;
+  Collider* prev;
+  Collider* next;
+  void* userdata;
+  uint32_t tag;
+  arr_t(Shape*) shapes;
+  arr_t(Joint*) joints;
+  float friction;
+  float restitution;
+};
+
+struct Shape {
+  uint32_t ref;
+  ShapeType type;
+  dGeomID id;
+  Collider* collider;
+  void* vertices;
+  void* indices;
+  void* userdata;
+  bool sensor;
+};
+
+struct Joint {
+  uint32_t ref;
+  JointType type;
+  dJointID id;
+  void* userdata;
+};
+
 static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
   lovrWorldCollide((World*) data, dGeomGetData(a), dGeomGetData(b), -1, -1);
 }
@@ -389,6 +432,10 @@ void lovrColliderInitInertia(Collider* collider, Shape* shape) {
 
 World* lovrColliderGetWorld(Collider* collider) {
   return collider->world;
+}
+
+Collider* lovrColliderGetNext(Collider* collider) {
+  return collider->next;
 }
 
 void lovrColliderAddShape(Collider* collider, Shape* shape) {

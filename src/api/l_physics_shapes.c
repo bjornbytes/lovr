@@ -5,7 +5,7 @@
 #include <lauxlib.h>
 
 void luax_pushshape(lua_State* L, Shape* shape) {
-  switch (shape->type) {
+  switch (lovrShapeGetType(shape)) {
     case SHAPE_SPHERE: luax_pushtype(L, SphereShape, shape); break;
     case SHAPE_BOX: luax_pushtype(L, BoxShape, shape); break;
     case SHAPE_CAPSULE: luax_pushtype(L, CapsuleShape, shape); break;

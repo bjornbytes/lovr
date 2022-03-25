@@ -5,7 +5,7 @@
 #include <lauxlib.h>
 
 void luax_pushjoint(lua_State* L, Joint* joint) {
-  switch (joint->type) {
+  switch (lovrJointGetType(joint)) {
     case JOINT_BALL: luax_pushtype(L, BallJoint, joint); break;
     case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
     case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;

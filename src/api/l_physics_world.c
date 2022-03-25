@@ -161,7 +161,7 @@ static int l_lovrWorldGetColliders(lua_State* L) {
   while (collider) {
     luax_pushtype(L, Collider, collider);
     lua_rawseti(L, -2, index++);
-    collider = collider->next;
+    collider = lovrColliderGetNext(collider);
   }
 
   return 1;

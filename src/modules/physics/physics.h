@@ -25,58 +25,16 @@ typedef enum {
   JOINT_SLIDER
 } JointType;
 
+typedef struct World World;
 typedef struct Collider Collider;
 typedef struct Shape Shape;
 typedef struct Joint Joint;
-
-typedef struct {
-  uint32_t ref;
-  dWorldID id;
-  dSpaceID space;
-  dJointGroupID contactGroup;
-  arr_t(Shape*) overlaps;
-  char* tags[MAX_TAGS];
-  uint16_t masks[MAX_TAGS];
-  Collider* head;
-} World;
-
-struct Collider {
-  uint32_t ref;
-  dBodyID body;
-  World* world;
-  Collider* prev;
-  Collider* next;
-  void* userdata;
-  uint32_t tag;
-  arr_t(Shape*) shapes;
-  arr_t(Joint*) joints;
-  float friction;
-  float restitution;
-};
-
-struct Shape {
-  uint32_t ref;
-  ShapeType type;
-  dGeomID id;
-  Collider* collider;
-  void* vertices;
-  void* indices;
-  void* userdata;
-  bool sensor;
-};
 
 typedef Shape SphereShape;
 typedef Shape BoxShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
 typedef Shape MeshShape;
-
-struct Joint {
-  uint32_t ref;
-  JointType type;
-  dJointID id;
-  void* userdata;
-};
 
 typedef Joint BallJoint;
 typedef Joint DistanceJoint;
@@ -125,6 +83,7 @@ void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
 void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
+Collider* lovrColliderGetNext(Collider* collider);
 void lovrColliderAddShape(Collider* collider, Shape* shape);
 void lovrColliderRemoveShape(Collider* collider, Shape* shape);
 Shape** lovrColliderGetShapes(Collider* collider, size_t* count);
