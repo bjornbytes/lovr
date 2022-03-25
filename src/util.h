@@ -31,7 +31,7 @@ typedef struct Color { float r, g, b, a; } Color;
 // Error handling
 typedef void errorFn(void*, const char*, va_list);
 void lovrSetErrorCallback(errorFn* callback, void* userdata);
-void _Noreturn lovrThrow(const char* format, ...);
+_Noreturn void lovrThrow(const char* format, ...);
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 
 #ifdef LOVR_UNCHECKED
