@@ -88,7 +88,7 @@ static void* decodeBase64(char* str, size_t length, size_t* decodedLength) {
   }
 
   length -= s - str;
-  int padding = s[length - 1] == '=' + s[length - 2] == '=';
+  int padding = (s[length - 1] == '=') + (s[length - 2] == '=');
   *decodedLength = length / 4 * 3 - padding;
   uint8_t* data = malloc(*decodedLength);
   if (!data) {
