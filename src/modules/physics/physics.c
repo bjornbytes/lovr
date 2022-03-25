@@ -208,7 +208,7 @@ Collider* lovrWorldGetFirstCollider(World* world) {
 }
 
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z) {
-  dReal gravity[3];
+  dReal gravity[4];
   dWorldGetGravity(world->id, gravity);
   *x = gravity[0];
   *y = gravity[1];
@@ -548,7 +548,7 @@ void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz
   inertia[5] = m.I[9];
 }
 
-void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[]) {
+void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[6]) {
   dMass m;
   dBodyGetMass(collider->body, &m);
   dMassSetParameters(&m, mass, cx, cy, cz, inertia[0], inertia[1], inertia[2], inertia[3], inertia[4], inertia[5]);
@@ -639,7 +639,7 @@ void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z
 }
 
 void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
-  dReal local[3];
+  dReal local[4];
   dBodyGetPosRelPoint(collider->body, wx, wy, wz, local);
   *x = local[0];
   *y = local[1];
@@ -647,7 +647,7 @@ void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz,
 }
 
 void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
-  dReal world[3];
+  dReal world[4];
   dBodyGetRelPointPos(collider->body, x, y, z, world);
   *wx = world[0];
   *wy = world[1];
@@ -655,7 +655,7 @@ void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, fl
 }
 
 void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
-  dReal local[3];
+  dReal local[4];
   dBodyVectorFromWorld(collider->body, wx, wy, wz, local);
   *x = local[0];
   *y = local[1];
@@ -663,7 +663,7 @@ void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz
 }
 
 void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
-  dReal world[3];
+  dReal world[4];
   dBodyVectorToWorld(collider->body, x, y, z, world);
   *wx = world[0];
   *wy = world[1];
@@ -671,7 +671,7 @@ void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, f
 }
 
 void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, float y, float z, float* vx, float* vy, float* vz) {
-  dReal velocity[3];
+  dReal velocity[4];
   dBodyGetRelPointVel(collider->body, x, y, z, velocity);
   *vx = velocity[0];
   *vy = velocity[1];
@@ -679,7 +679,7 @@ void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, fl
 }
 
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz) {
-  dReal velocity[3];
+  dReal velocity[4];
   dBodyGetPointVel(collider->body, wx, wy, wz, velocity);
   *vx = velocity[0];
   *vy = velocity[1];
@@ -795,7 +795,7 @@ void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* 
     }
 
     case SHAPE_BOX: {
-      dReal lengths[3];
+      dReal lengths[4];
       dGeomBoxGetLengths(shape->id, lengths);
       dMassSetBox(&m, density, lengths[0], lengths[1], lengths[2]);
       break;
@@ -877,7 +877,7 @@ BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
 }
 
 void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
-  dReal dimensions[3];
+  dReal dimensions[4];
   dGeomBoxGetLengths(box->id, dimensions);
   *x = dimensions[0];
   *y = dimensions[1];
@@ -1028,7 +1028,7 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
 }
 
 void lovrBallJointGetAnchors(BallJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  dReal anchor[3];
+  dReal anchor[4];
   dJointGetBallAnchor(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1074,7 +1074,7 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float
 }
 
 void lovrDistanceJointGetAnchors(DistanceJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  dReal anchor[3];
+  dReal anchor[4];
   dJointGetDBallAnchor1(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1130,7 +1130,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, flo
 }
 
 void lovrHingeJointGetAnchors(HingeJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  dReal anchor[3];
+  dReal anchor[4];
   dJointGetHingeAnchor(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1146,7 +1146,7 @@ void lovrHingeJointSetAnchor(HingeJoint* joint, float x, float y, float z) {
 }
 
 void lovrHingeJointGetAxis(HingeJoint* joint, float* x, float* y, float* z) {
-  dReal axis[3];
+  dReal axis[4];
   dJointGetHingeAxis(joint->id, axis);
   *x = axis[0];
   *y = axis[1];
@@ -1192,7 +1192,7 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay,
 }
 
 void lovrSliderJointGetAxis(SliderJoint* joint, float* x, float* y, float* z) {
-  dReal axis[3];
+  dReal axis[4];
   dJointGetSliderAxis(joint->id, axis);
   *x = axis[0];
   *y = axis[1];
