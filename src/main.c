@@ -32,6 +32,17 @@ int main(int argc, char** argv) {
     exit(0);
   }
 
+  if (argc > 1 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+    os_open_console();
+    printf(
+      "usage: lovr [options] [<folder>]\n"
+      "  -h, --help\t\tShow help and exit\n"
+      "  -v, --version\t\tShow version and exit\n"
+      "  --console\t\tAttach Windows console\n"
+    );
+    exit(0);
+  }
+
   if (!os_init()) {
     fprintf(stderr, "Failed to initialize platform");
     exit(1);
