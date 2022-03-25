@@ -79,24 +79,27 @@ static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
   }
 }
 
-static void* decodeBase64(char* str, size_t length, size_t decodedSize) {
-  str = memchr(str, ',', length);
-  if (!str) {
+static void* decodeBase64(char* str, size_t length, size_t* decodedLength) {
+  char* s = memchr(str, ',', length);
+  if (!s) {
     return NULL;
   } else {
-    str++;
+    s++;
   }
 
-  uint8_t* data = malloc(decodedSize);
+  length -= s - str;
+  int padding = s[length - 1] == '=' + s[length - 2] == '=';
+  *decodedLength = length / 4 * 3 - padding;
+  uint8_t* data = malloc(*decodedLength);
   if (!data) {
     return NULL;
   }
 
   uint32_t num = 0;
   uint32_t bits = 0;
-  for (size_t i = 0; i < decodedSize; i++) {
+  for (size_t i = 0; i < *decodedLength; i++) {
     while (bits < 8) {
-      char c = *str++;
+      char c = *s++;
 
       uint32_t n;
       if (c >= 'A' && c <= 'Z') {
@@ -109,6 +112,8 @@ static void* decodeBase64(char* str, size_t length, size_t decodedSize) {
         n = 62;
       } else if (c == '/') {
         n = 63;
+      } else if (c == '=') {
+        break;
       } else {
         free(data);
         return NULL;
@@ -479,12 +484,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       }
 
       if (uri.data) {
-        size_t bytesRead;
         if (uri.length >= 5 && !strncmp("data:", uri.data, 5)) {
-          void* bufferData = decodeBase64(uri.data, uri.length, size);
-          lovrAssert(bufferData, "Could not decode base64 buffer");
+          size_t decodedLength;
+          void* bufferData = decodeBase64(uri.data, uri.length, &decodedLength);
+          lovrAssert(bufferData && decodedLength == size, "Could not decode base64 buffer");
           *blob = lovrBlobCreate(bufferData, size, NULL);
         } else {
+          size_t bytesRead;
           lovrAssert(uri.length < maxPathLength, "Buffer filename is too long");
           strncat(filename, uri.data, uri.length);
           *blob = lovrBlobCreate(io(filename, &bytesRead), size, NULL);
@@ -664,14 +670,21 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           blob->data = NULL; // XXX Blob data ownership
           lovrRelease(blob, lovrBlobDestroy);
         } else if (STR_EQ(key, "uri")) {
-          size_t size = 0;
+          void* data;
+          Blob* blob;
+          size_t size;
           gltfString uri = NOM_STR(json, token);
-          lovrAssert(uri.length < 5 || strncmp("data:", uri.data, 5), "Base64 images aren't supported yet");
-          lovrAssert(uri.length < maxPathLength, "Image filename is too long");
-          strncat(filename, uri.data, uri.length);
-          void* data = io(filename, &size);
-          lovrAssert(data && size > 0, "Unable to read image from '%s'", filename);
-          Blob* blob = lovrBlobCreate(data, size, NULL);
+          if (uri.length >= 5 && !strncmp("data:", uri.data, 5)) {
+            data = decodeBase64(uri.data, uri.length, &size);
+            lovrAssert(data, "Could not decode base64 image");
+            blob = lovrBlobCreate(data, size, NULL);
+          } else {
+            lovrAssert(uri.length < maxPathLength, "Image filename is too long");
+            strncat(filename, uri.data, uri.length);
+            data = io(filename, &size);
+            lovrAssert(data && size > 0, "Unable to read image from '%s'", filename);
+            blob = lovrBlobCreate(data, size, NULL);
+          }
           *image = lovrImageCreateFromBlob(blob, false);
           lovrRelease(blob, lovrBlobDestroy);
           *root = '\0';
