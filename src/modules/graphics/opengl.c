@@ -2090,6 +2090,11 @@ void lovrCanvasResolve(Canvas* canvas) {
         glGenerateMipmap(texture->target);
       }
     }
+
+    if (canvas->flags.depth.enabled && canvas->flags.depth.readable) {
+      lovrGpuBindTexture(canvas->depth.texture, 0);
+      glGenerateMipmap(canvas->depth.texture->target);
+    }
   }
 
   canvas->needsResolve = false;
