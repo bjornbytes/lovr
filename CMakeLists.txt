@@ -469,7 +469,7 @@ if(LOVR_ENABLE_MATH)
     src/api/l_math_curve.c
     src/api/l_math_randomGenerator.c
     src/api/l_math_vectors.c
-    src/lib/noise1234/noise1234.c
+    src/lib/noise/simplexnoise1234.c
   )
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_MATH)

@@ -1,7 +1,7 @@
 #include "math.h"
 #include "math/randomGenerator.h"
 #include "util.h"
-#include "lib/noise1234/noise1234.h"
+#include "lib/noise/simplexnoise1234.h"
 #include <math.h>
 #include <string.h>
 #include <time.h>
@@ -46,17 +46,17 @@ float lovrMathLinearToGamma(float x) {
 }
 
 float lovrMathNoise1(float x) {
-  return noise1(x) * .5f + .5f;
+  return snoise1(x) * .5f + .5f;
 }
 
 float lovrMathNoise2(float x, float y) {
-  return noise2(x, y) * .5f + .5f;
+  return snoise2(x, y) * .5f + .5f;
 }
 
 float lovrMathNoise3(float x, float y, float z) {
-  return noise3(x, y, z) * .5f + .5f;
+  return snoise3(x, y, z) * .5f + .5f;
 }
 
 float lovrMathNoise4(float x, float y, float z, float w) {
-  return noise4(x, y, z, w) * .5f + .5f;
+  return snoise4(x, y, z, w) * .5f + .5f;
 }
