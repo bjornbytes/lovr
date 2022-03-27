@@ -45,18 +45,18 @@ float lovrMathLinearToGamma(float x) {
   }
 }
 
-float lovrMathNoise1(float x) {
-  return snoise1(x) * .5f + .5f;
+double lovrMathNoise1(double x) {
+  return snoise1(x) * .5 + .5;
 }
 
-float lovrMathNoise2(float x, float y) {
-  return snoise2(x, y) * .5f + .5f;
+double lovrMathNoise2(double x, double y) {
+  return snoise2(x, y) * .5 + .5;
 }
 
-float lovrMathNoise3(float x, float y, float z) {
-  return snoise3(x, y, z) * .5f + .5f;
+double lovrMathNoise3(double x, double y, double z) {
+  return snoise3(x, y, z) * .5 + .5;
 }
 
-float lovrMathNoise4(float x, float y, float z, float w) {
-  return snoise4(x, y, z, w) * .5f + .5f;
+double lovrMathNoise4(double x, double y, double z, double w) {
+  return snoise4(x, y, z, w) * .5 + .5;
 }

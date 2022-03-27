@@ -25,7 +25,7 @@
 
 /** 1D, 2D, 3D and 4D float Perlin simplex noise
  */
-    float snoise1( float x );
-    float snoise2( float x, float y );
-    float snoise3( float x, float y, float z );
-    float snoise4( float x, float y, float z, float w );
+    double snoise1( double x );
+    double snoise2( double x, double y );
+    double snoise3( double x, double y, double z );
+    double snoise4( double x, double y, double z, double w );
