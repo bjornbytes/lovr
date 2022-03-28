@@ -17,9 +17,7 @@ typedef enum {
   EFFECT_OCCLUSION,
   EFFECT_REVERB,
   EFFECT_SPATIALIZATION,
-  EFFECT_TRANSMISSION,
-  EFFECT_ALL = 0x3f,
-  EFFECT_NONE = 0xff
+  EFFECT_TRANSMISSION
 } Effect;
 
 typedef enum {
@@ -77,7 +75,7 @@ void lovrAudioSetAbsorption(float absorption[3]);
 
 // Source
 
-Source* lovrSourceCreate(struct Sound* sound, uint32_t effects);
+Source* lovrSourceCreate(struct Sound* sound, bool spatial, uint32_t effects);
 Source* lovrSourceClone(Source* source);
 void lovrSourceDestroy(void* ref);
 struct Sound* lovrSourceGetSound(Source* source);
@@ -92,7 +90,7 @@ void lovrSourceSetVolume(Source* source, float volume, VolumeUnit units);
 void lovrSourceSeek(Source* source, double time, TimeUnit units);
 double lovrSourceTell(Source* source, TimeUnit units);
 double lovrSourceGetDuration(Source* source, TimeUnit units);
-bool lovrSourceUsesSpatializer(Source* source);
+bool lovrSourceIsSpatial(Source* source);
 void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
 float lovrSourceGetRadius(Source* source);

@@ -229,7 +229,8 @@ static int l_lovrAudioNewSource(lua_State* L) {
   Sound* sound = luax_totype(L, 1, Sound);
 
   bool decode = false;
-  uint32_t effects = EFFECT_ALL;
+  bool spatial = true;
+  uint32_t effects = ~0u;
   if (lua_gettop(L) >= 2) {
     luaL_checktype(L, 2, LUA_TTABLE);
 
@@ -238,29 +239,26 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "effects");
-    switch (lua_type(L, -1)) {
-      case LUA_TNIL: effects = EFFECT_ALL; break;
-      case LUA_TBOOLEAN: effects = lua_toboolean(L, -1) ? EFFECT_ALL : EFFECT_NONE; break;
-      case LUA_TTABLE:
-        effects = 0;
-        lua_pushnil(L);
-        while (lua_next(L, -2) != 0) {
-          if (lua_type(L, -2) == LUA_TSTRING) {
-            Effect effect = luax_checkenum(L, -2, Effect, NULL);
-            if (lua_toboolean(L, -1)) {
-              effects |= (1 << effect);
-            } else {
-              effects &= ~(1 << effect);
-            }
-          } else if (lua_type(L, -2) == LUA_TNUMBER) {
-            Effect effect = luax_checkenum(L, -1, Effect, NULL);
-            effects |= (1 << effect);
-          }
-          lua_pop(L, 1);
+    if (!lua_isnil(L, -1)) {
+      effects = 0;
+      lovrAssert(lua_istable(L, -1), "Source effects must be a table");
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        if (lua_type(L, -2) == LUA_TSTRING) {
+          Effect effect = luax_checkenum(L, -2, Effect, NULL);
+          bool enabled = lua_toboolean(L, -1);
+          effects |= enabled << effect;
+        } else if (lua_type(L, -2) == LUA_TNUMBER) {
+          Effect effect = luax_checkenum(L, -1, Effect, NULL);
+          effects |= 1 << effect;
         }
-        break;
-      default: break;
+        lua_pop(L, 1);
+      }
     }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "spatial");
+    spatial = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
 
@@ -272,7 +270,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lovrRetain(sound);
   }
 
-  Source* source = lovrSourceCreate(sound, effects);
+  Source* source = lovrSourceCreate(sound, spatial, effects);
   luax_pushtype(L, Source, source);
   lovrRelease(sound, lovrSoundDestroy);
   lovrRelease(source, lovrSourceDestroy);
