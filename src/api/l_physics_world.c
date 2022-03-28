@@ -367,6 +367,20 @@ static int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldGetStepCount(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  int iterations = lovrWorldGetStepCount(world);
+  lua_pushnumber(L, iterations);
+  return 1;
+}
+
+static int l_lovrWorldSetStepCount(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  int iterations = luaL_checkinteger(L, 2);
+  lovrWorldSetStepCount(world, iterations);
+  return 0;
+}
+
 const luaL_Reg lovrWorld[] = {
   { "newCollider", l_lovrWorldNewCollider },
   { "newBoxCollider", l_lovrWorldNewBoxCollider },
@@ -397,5 +411,7 @@ const luaL_Reg lovrWorld[] = {
   { "disableCollisionBetween", l_lovrWorldDisableCollisionBetween },
   { "enableCollisionBetween", l_lovrWorldEnableCollisionBetween },
   { "isCollisionEnabledBetween", l_lovrWorldIsCollisionEnabledBetween },
+  { "getStepCount", l_lovrWorldGetStepCount },
+  { "setStepCount", l_lovrWorldSetStepCount },
   { NULL, NULL }
 };

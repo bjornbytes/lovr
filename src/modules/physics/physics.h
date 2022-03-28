@@ -42,6 +42,8 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
 void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
+int lovrWorldGetStepCount(World* world);
+void lovrWorldSetStepCount(World* world, int iterations);
 void lovrWorldComputeOverlaps(World* world);
 int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
 int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
