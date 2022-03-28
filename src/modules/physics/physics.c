@@ -191,6 +191,14 @@ void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* u
   dJointGroupEmpty(world->contactGroup);
 }
 
+int lovrWorldGetStepCount(World* world) {
+  return dWorldGetQuickStepNumIterations(world->id);
+}
+
+void lovrWorldSetStepCount(World* world, int iterations) {
+  dWorldSetQuickStepNumIterations(world->id, iterations);
+}
+
 void lovrWorldComputeOverlaps(World* world) {
   arr_clear(&world->overlaps);
   dSpaceCollide(world->space, world, customNearCallback);
