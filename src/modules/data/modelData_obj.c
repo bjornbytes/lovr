@@ -167,20 +167,34 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
       arr_append(&uvs, vt, 2);
     } else if (line[0] == 'f' && line[1] == ' ') {
       char* s = line + 2;
-      for (size_t i = 0; i < 3; i++) {
+      objGroup* group = &groups.data[groups.length - 1];
+      for (size_t i = 0; *s; i++) {
 
-        // Find first number/slash
-        while (*s && !(*s >= '/' && *s <= '9')) s++;
+        // Find first non-space
+        while (*s && (*s == ' ' || *s == '\t')) s++;
+
+        if (*s == '\n') {
+          lovrAssert(i >= 3, "Bad OBJ: Face has no triangles");
+          break;
+        }
 
         // Find next non-number/non-slash
         char* t = s;
         while (*t && *t >= '/' && *t <= '9') t++;
 
-        // If the vertex already exists, add its index and skip
+        // Triangulate faces (triangle fan)
+        if (i >= 3) {
+          arr_push(&indexBlob, indexBlob.data[indexBlob.length - i]);
+          arr_push(&indexBlob, indexBlob.data[indexBlob.length - 2]);
+          group->count += 2;
+        }
+
+        // If the vertex already exists, add its index and continue
         uint64_t hash = hash64(s, t - s);
         uint64_t index = map_get(&vertexMap, hash);
         if (index != MAP_NIL) {
           arr_push(&indexBlob, index);
+          group->count++;
           s = t;
           continue;
         }
@@ -209,10 +223,10 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
         arr_append(&vertexBlob, positions.data + 3 * (v - 1), 3);
         arr_append(&vertexBlob, vn > 0 ? (normals.data + 3 * (vn - 1)) : empty, 3);
         arr_append(&vertexBlob, vt > 0 ? (uvs.data + 2 * (vt - 1)) : empty, 2);
+        group->count++;
 
         s = t;
       }
-      groups.data[groups.length - 1].count += 3;
     } else if (STARTS_WITH(line, "mtllib ")) {
       const char* filename = line + 7;
       size_t filenameLength = strlen(filename);
