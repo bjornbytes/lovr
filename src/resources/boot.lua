@@ -146,6 +146,14 @@ function lovr.boot()
   local hasConf, hasMain = lovr.filesystem.isFile('conf.lua'), lovr.filesystem.isFile('main.lua')
   if not lovr.filesystem.getSource() or not (hasConf or hasMain) then nogame() end
 
+  -- Shift args up in fused mode, instead of consuming one for the source path
+  if lovr.filesystem.isFused() then
+    for i = 1, #arg + 1 do
+      arg[i] = arg[i - 1]
+    end
+    arg[0] = lovr.filesystem.getSource()
+  end
+
   local confOk, confError = true
   if hasConf then confOk, confError = pcall(require, 'conf') end
   if confOk and lovr.conf then confOk, confError = pcall(lovr.conf, conf) end
