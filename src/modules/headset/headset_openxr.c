@@ -1760,6 +1760,7 @@ static double openxr_update(void) {
 
       default: break;
     }
+    e.type = XR_TYPE_EVENT_DATA_BUFFER;
   }
 
   if (SESSION_ACTIVE(state.sessionState)) {
