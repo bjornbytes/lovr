@@ -659,8 +659,12 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
         { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
         { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
         { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
-        { ACTION_GRIP_AXIS, "/user/hand/left/input/squeeze/value" },
-        { ACTION_GRIP_AXIS, "/user/hand/right/input/squeeze/value" },
+        { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/force" },
+        { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/force" },
+        { ACTION_GRIP_TOUCH, "/user/hand/left/input/squeeze/value" },
+        { ACTION_GRIP_TOUCH, "/user/hand/right/input/squeeze/value" },
+        { ACTION_GRIP_AXIS, "/user/hand/left/input/squeeze/force" },
+        { ACTION_GRIP_AXIS, "/user/hand/right/input/squeeze/force" },
         { ACTION_A_DOWN, "/user/hand/left/input/a/click" },
         { ACTION_A_DOWN, "/user/hand/right/input/a/click" },
         { ACTION_A_TOUCH, "/user/hand/left/input/a/touch" },
@@ -737,7 +741,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     }
 
     XrPath path;
-    XrActionSuggestedBinding suggestedBindings[40];
+    XrActionSuggestedBinding suggestedBindings[64];
     for (uint32_t i = 0, count = 0; i < MAX_PROFILES; i++, count = 0) {
       for (uint32_t j = 0; bindings[i][j].path; j++, count++) {
         XR_INIT(xrStringToPath(state.instance, bindings[i][j].path, &path));
