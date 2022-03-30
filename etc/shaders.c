@@ -219,7 +219,7 @@ const char* lovrStandardFragmentShader = ""
 "  vec3 result = vec3(0.); \n"
 
 // Parameters
-"  vec3 baseColor = texture(lovrDiffuseTexture, lovrTexCoord).rgb * lovrDiffuseColor.rgb; \n"
+"  vec4 baseColor = texture(lovrDiffuseTexture, lovrTexCoord) * lovrDiffuseColor; \n"
 "  float metalness = texture(lovrMetalnessTexture, lovrTexCoord).b * lovrMetalness; \n"
 "  float roughness = max(texture(lovrRoughnessTexture, lovrTexCoord).g * lovrRoughness, .05); \n"
 "#ifdef FLAG_normalMap \n"
@@ -237,12 +237,12 @@ const char* lovrStandardFragmentShader = ""
 "  float VoH = clamp(dot(V, H), 0., 1.); \n"
 
 // Direct lighting
-"  vec3 F0 = mix(vec3(.04), baseColor, metalness); \n"
+"  vec3 F0 = mix(vec3(.04), baseColor.rgb, metalness); \n"
 "  float D = D_GGX(NoH, roughness); \n"
 "  float G = G_SmithGGXCorrelated(NoV, NoL, roughness); \n"
 "  vec3 F = F_Schlick(F0, VoH); \n"
 "  vec3 specularDirect = vec3(D * G * F); \n"
-"  vec3 diffuseDirect = (vec3(1.) - F) * (1. - metalness) * baseColor; \n"
+"  vec3 diffuseDirect = (vec3(1.) - F) * (1. - metalness) * baseColor.rgb; \n"
 "  result += (diffuseDirect / PI + specularDirect) * NoL * lovrLightColor.rgb * lovrLightColor.a; \n"
 
 // Indirect lighting
@@ -267,7 +267,7 @@ const char* lovrStandardFragmentShader = ""
 "  result = tonemap_ACES(result * lovrExposure); \n"
 "#endif \n"
 
-"  return lovrGraphicsColor * vec4(result, 1.); \n"
+"  return lovrGraphicsColor * vec4(result, baseColor.a); \n"
 "}"
 
 // Helpers

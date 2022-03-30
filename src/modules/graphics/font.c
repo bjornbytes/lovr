@@ -121,12 +121,11 @@ void lovrFontSetFilter(Font* font, TextureFilter filter) {
 
 void lovrFontRender(Font* font, const char* str, size_t length, float wrap, HorizontalAlign halign, float* vertices, uint16_t* indices, uint16_t baseVertex) {
   FontAtlas* atlas = &font->atlas;
-  bool flip = font->flip;
 
   int height = lovrRasterizerGetHeight(font->rasterizer);
 
   float cx = 0.f;
-  float cy = -height * .8f * (flip ? -1.f : 1.f);
+  float cy = -height * .8f;
   float u = atlas->width;
   float v = atlas->height;
   float scale = 1.f / font->pixelDensity;
@@ -148,7 +147,7 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
     if (codepoint == '\n' || (wrap && cx * scale > wrap && (codepoint == ' ' || previous == ' '))) {
       lineStart = lovrFontAlignLine(lineStart, vertexCursor, cx, halign);
       cx = 0.f;
-      cy -= height * font->lineHeight * (flip ? -1.f : 1.f);
+      cy -= height * font->lineHeight;
       previous = '\0';
       if (codepoint == ' ' || codepoint == '\n') {
         str += bytes;
@@ -181,13 +180,20 @@ void lovrFontRender(Font* font, const char* str, size_t length, float wrap, Hori
     if (glyph->w > 0 && glyph->h > 0) {
       int32_t padding = font->padding;
       float x1 = cx + glyph->dx - padding;
-      float y1 = cy + (glyph->dy + padding) * (flip ? -1.f : 1.f);
+      float y1 = cy + (glyph->dy + padding);
       float x2 = x1 + glyph->tw;
-      float y2 = y1 - glyph->th * (flip ? -1.f : 1.f);
+      float y2 = y1 - glyph->th;
       float s1 = glyph->x / u;
       float t1 = (glyph->y + glyph->th) / v;
       float s2 = (glyph->x + glyph->tw) / u;
       float t2 = glyph->y / v;
+      
+      if (font->flip) {
+        float tmp = y1;
+        y1 = -y2; y2 = -tmp;
+        tmp = t1;
+        t1 = t2; t2 = tmp;
+      }
 
       memcpy(vertexCursor, (float[32]) {
         x1, y1, 0.f, 0.f, 0.f, 0.f, s1, t1,

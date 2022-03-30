@@ -101,7 +101,6 @@ bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str) {
 
 void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, uint32_t padding, double spread, Glyph* glyph) {
   int glyphIndex = stbtt_FindGlyphIndex(&rasterizer->font, character);
-  lovrAssert(glyphIndex, "No font glyph found for character code %d, try using Rasterizer:hasGlyphs", character);
 
   int advance, bearing;
   stbtt_GetGlyphHMetrics(&rasterizer->font, glyphIndex, &advance, &bearing);
