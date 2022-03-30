@@ -1775,13 +1775,14 @@ static double openxr_update(void) {
       state.lastDisplayTime = state.frameState.predictedDisplayTime - state.frameState.predictedDisplayPeriod;
     }
 
+    XrActiveActionSet activeSets[] = {
+      { state.actionSet, XR_NULL_PATH }
+    };
+
     XrActionsSyncInfo syncInfo = {
       .type = XR_TYPE_ACTIONS_SYNC_INFO,
-      .countActiveActionSets = 2,
-      .activeActionSets = (XrActiveActionSet[]) {
-        { state.actionSet, state.actionFilters[0] },
-        { state.actionSet, state.actionFilters[1] }
-      }
+      .countActiveActionSets = COUNTOF(activeSets),
+      .activeActionSets = activeSets
     };
 
     XR(xrSyncActions(state.session, &syncInfo));
