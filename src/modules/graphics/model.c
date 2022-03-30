@@ -4,8 +4,8 @@
 #include "graphics/material.h"
 #include "graphics/mesh.h"
 #include "graphics/texture.h"
-#include "resources/shaders.h"
 #include "core/maf.h"
+#include "shaders.h"
 #include <stdlib.h>
 #include <float.h>
 #include <math.h>

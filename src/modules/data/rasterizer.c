@@ -1,8 +1,8 @@
 #include "data/rasterizer.h"
 #include "data/blob.h"
 #include "data/image.h"
-#include "resources/VarelaRound.ttf.h"
 #include "util.h"
+#include "VarelaRound.ttf.h"
 #include "lib/stb/stb_truetype.h"
 #include <msdfgen-c.h>
 #include <stdlib.h>
@@ -28,7 +28,7 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
   rasterizer->ref = 1;
 
   stbtt_fontinfo* font = &rasterizer->font;
-  const unsigned char* data = blob ? blob->data : src_resources_VarelaRound_ttf;
+  const unsigned char* data = blob ? blob->data : etc_VarelaRound_ttf;
   if (!stbtt_InitFont(font, data, stbtt_GetFontOffsetForIndex(data, 0))) {
     lovrThrow("Problem loading font");
   }

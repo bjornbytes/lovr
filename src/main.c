@@ -1,8 +1,8 @@
-#include "resources/boot.lua.h"
 #include "api/api.h"
 #include "event/event.h"
 #include "core/os.h"
 #include "util.h"
+#include "boot.lua.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     lua_setglobal(L, "arg");
 
     lua_pushcfunction(L, luax_getstack);
-    if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
+    if (luaL_loadbuffer(L, (const char*) etc_boot_lua, etc_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
       fprintf(stderr, "%s\n", lua_tostring(L, -1));
       return 1;
     }

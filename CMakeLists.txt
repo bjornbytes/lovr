@@ -43,8 +43,8 @@ if(EMSCRIPTEN)
     "-s FORCE_FILESYSTEM=1 "
     "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
-    "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webxr.js\" "
-    "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.html\""
+    "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/etc/webxr.js\" "
+    "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/etc/lovr.html\""
   )
   if(LOVR_ENABLE_THREAD)
     set(LOVR_EMSCRIPTEN_FLAGS "${LOVR_EMSCRIPTEN_FLAGS} -s USE_PTHREADS=1")
@@ -321,7 +321,7 @@ endif()
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
 set_target_properties(lovr PROPERTIES C_STANDARD 11)
-target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic)
+target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic etc)
 target_link_libraries(lovr
   ${LOVR_GLFW}
   ${LOVR_LUA}
@@ -430,8 +430,8 @@ if(LOVR_ENABLE_GRAPHICS)
     src/api/l_graphics_shader.c
     src/api/l_graphics_shaderBlock.c
     src/api/l_graphics_texture.c
-    src/resources/shaders.c
     src/lib/glad/glad.c
+    etc/shaders.c
   )
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
@@ -517,10 +517,10 @@ else()
 endif()
 
 # Resources
-file(GLOB LOVR_RESOURCES "src/resources/*.ttf" "src/resources/*.lua")
+file(GLOB LOVR_RESOURCES "etc/*.ttf" "etc/*.lua")
 foreach(path ${LOVR_RESOURCES})
 
-  # Turn the absolute path into a C variable like src_resources_boot_lua
+  # Turn the absolute path into a C variable like etc_boot_lua
   file(RELATIVE_PATH identifier ${CMAKE_CURRENT_SOURCE_DIR} ${path})
   string(MAKE_C_IDENTIFIER ${identifier} identifier)
 
@@ -538,7 +538,7 @@ endforeach()
 # Platforms
 if(WIN32)
   target_sources(lovr PRIVATE src/core/os_win32.c)
-  target_sources(lovr PRIVATE src/resources/lovr.rc)
+  target_sources(lovr PRIVATE etc/lovr.rc)
   if (MSVC)
     set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244 /MP")
   else()
@@ -588,11 +588,11 @@ elseif(APPLE)
   )
   if(LOVR_BUILD_BUNDLE)
     set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/MacOS)
-    target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
+    target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/etc/lovr.icns")
     set_target_properties(lovr PROPERTIES
       MACOSX_BUNDLE TRUE
-      MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Info.plist"
-      RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns"
+      MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/etc/Info.plist"
+      RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/etc/lovr.icns"
     )
   else()
     set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
@@ -628,7 +628,7 @@ elseif(APPLE)
 elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_wasm.c)
   target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
-  configure_file(src/resources/lovr.ico favicon.ico COPYONLY)
+  configure_file(etc/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
   target_sources(lovr PRIVATE src/core/os_android.c)
   target_link_libraries(lovr log EGL GLESv3 android dl)
@@ -646,7 +646,7 @@ elseif(ANDROID)
   if(LOVR_BUILD_EXE)
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
-    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${ANDROID_FLAVOR}.xml" CACHE STRING "The AndroidManifest.xml file to use")
+    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/etc/AndroidManifest_${ANDROID_FLAVOR}.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
     # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
     if(ANDROID_ASSETS)
@@ -677,7 +677,7 @@ elseif(ANDROID)
       buildAPK ALL
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
-      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity.java Activity.java
+      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/etc/Activity.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
       COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw org/lovr/app/Activity.class
       COMMAND
@@ -755,7 +755,7 @@ elseif(UNIX)
     endif()
   endfunction()
   function(move_app_image_file)
-    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/${ARGV0}")
+    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/etc/${ARGV0}")
     set(DST "${CMAKE_BINARY_DIR}/bin/${ARGV0}")
     add_custom_command(TARGET lovr POST_BUILD
        DEPENDS ${SRC}

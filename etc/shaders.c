@@ -1,4 +1,4 @@
-#include "resources/shaders.h"
+#include "shaders.h"
 
 const char* lovrShaderVertexPrefix = ""
 "#define VERTEX VERTEX \n"

@@ -86,6 +86,7 @@ cflags = {
   '-Isrc',
   '-Isrc/modules',
   '-Isrc/lib/stdatomic',
+  '-Ietc',
 }
 
 bin = target == 'android' and 'bin/apk/lib/arm64-v8a' or 'bin'
@@ -144,9 +145,9 @@ if target == 'wasm' then
     '_lovrGraphicsSetProjection'
   ]"]]):gsub('\n', '')
   if config.headsets.webxr then
-    lflags += '--js-library src/resources/webxr.js'
+    lflags += '--js-library etc/webxr.js'
   end
-  lflags += '--shell-file src/resources/lovr.html'
+  lflags += '--shell-file etc/lovr.html'
   extra_outputs += { 'bin/lovr.js', 'bin/lovr.wasm' }
   if config.modules.thread then
     cflags += '-s USE_PTHREADS=1'
@@ -399,12 +400,12 @@ src += (config.modules.audio or config.modules.data) and 'src/lib/miniaudio/*.c'
 src += config.modules.data and 'src/lib/jsmn/*.c' or nil
 src += config.modules.data and 'src/lib/minimp3/*.c' or nil
 src += config.modules.graphics and 'src/lib/glad/*.c' or nil
-src += config.modules.graphics and 'src/resources/shaders.c' or nil
+src += config.modules.graphics and 'etc/shaders.c' or nil
 src += config.modules.math and 'src/lib/noise/*.c' or nil
 src += config.modules.thread and 'src/lib/tinycthread/*.c' or nil
 
-res += 'src/resources/*.lua'
-res += 'src/resources/*.ttf'
+res += 'etc/*.lua'
+res += 'etc/*.ttf'
 
 for i = 1, #res do
   src.extra_inputs += res[i] .. '.h'
@@ -448,7 +449,7 @@ if target == 'android' then
   unsigned = 'bin/.lovr.apk.unsigned'
   apk = 'bin/lovr.apk'
 
-  manifest = config.android.manifest or ('src/resources/AndroidManifest_%s.xml'):format(config.android.flavor)
+  manifest = config.android.manifest or ('etc/AndroidManifest_%s.xml'):format(config.android.flavor)
   package = #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
   project = config.android.project and #config.android.project > 0 and ('-A ' .. config.android.project) or ''
 
@@ -459,7 +460,7 @@ if target == 'android' then
   tools = config.android.sdk .. '/build-tools/' .. config.android.buildtools
 
   copy(manifest, 'bin/AndroidManifest.xml')
-  copy('src/resources/Activity.java', java)
+  copy('etc/Activity.java', java)
   tup.rule(java, '^ JAVAC %b^ javac -classpath $(androidjar) -d bin %f', binclass)
   tup.rule(binclass, '^ JAR %b^ jar -cf %o -C bin $(class)', jar)
   tup.rule(jar, '^ D8 %b^ $(tools)/d8 --min-api $(version) --output bin/apk %f', dex)

@@ -2,7 +2,7 @@
 #include "graphics/graphics.h"
 #include "graphics/shader.h"
 #include "graphics/texture.h"
-#include "resources/shaders.h"
+#include "shaders.h"
 #include "util.h"
 #include <stdlib.h>
 #include <math.h>

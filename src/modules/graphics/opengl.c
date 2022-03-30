@@ -5,10 +5,10 @@
 #include "graphics/mesh.h"
 #include "graphics/shader.h"
 #include "graphics/texture.h"
-#include "resources/shaders.h"
 #include "data/blob.h"
 #include "data/modelData.h"
 #include "math/math.h"
+#include "shaders.h"
 #include <math.h>
 #include <limits.h>
 #include <string.h>
