@@ -12,7 +12,6 @@
 #import <AVFoundation/AVFoundation.h>
 
 #include "os_glfw.h"
-#include "util.h"
 
 static struct {
   uint64_t frequency;
@@ -89,7 +88,7 @@ void os_request_permission(os_permission permission) {
         break;
     }
 #else
-    lovrThrow("Unreachable");
+#error "Unsupported macOS target"
 #endif
   }
 }
