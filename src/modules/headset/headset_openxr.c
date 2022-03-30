@@ -178,6 +178,7 @@ static struct {
   float clipNear;
   float clipFar;
   float offset;
+  bool waited;
   bool hasImage;
   XrActionSet actionSet;
   XrAction actions[MAX_ACTIONS];
@@ -1648,7 +1649,10 @@ static bool openxr_animate(Device device, struct Model* model) {
 }
 
 static void openxr_renderTo(void (*callback)(void*), void* userdata) {
-  if (!SESSION_ACTIVE(state.sessionState)) { return; }
+  if (!SESSION_ACTIVE(state.sessionState)) {
+    state.waited = false;
+    return;
+  }
 
   XrFrameBeginInfo beginInfo = {
     .type = XR_TYPE_FRAME_BEGIN_INFO
@@ -1711,6 +1715,7 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
 
   XR(xrEndFrame(state.session, &endInfo));
   lovrGpuDirtyTexture();
+  state.waited = false;
 }
 
 static Texture* openxr_getMirrorTexture(void) {
@@ -1723,6 +1728,8 @@ static bool openxr_isFocused(void) {
 }
 
 static double openxr_update(void) {
+  if (state.waited && !state.hasImage) return openxr_getDeltaTime();
+
   XrEventDataBuffer e; // Not using designated initializers here to avoid an implicit 4k zero
   e.type = XR_TYPE_EVENT_DATA_BUFFER;
   e.next = NULL;
@@ -1770,6 +1777,7 @@ static double openxr_update(void) {
   if (SESSION_ACTIVE(state.sessionState)) {
     state.lastDisplayTime = state.frameState.predictedDisplayTime;
     XR(xrWaitFrame(state.session, NULL, &state.frameState));
+    state.waited = true;
 
     if (state.lastDisplayTime == 0.) {
       state.lastDisplayTime = state.frameState.predictedDisplayTime - state.frameState.predictedDisplayPeriod;
