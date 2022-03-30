@@ -3,7 +3,6 @@
 #include "graphics/texture.h"
 #include "data/rasterizer.h"
 #include "data/image.h"
-#include "core/map.h"
 #include <string.h>
 #include <stdlib.h>
 

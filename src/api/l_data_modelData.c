@@ -1,7 +1,6 @@
 #include "api.h"
 #include "data/modelData.h"
 #include "core/maf.h"
-#include "core/map.h"
 #include "shaders.h"
 #include <lua.h>
 #include <lauxlib.h>
