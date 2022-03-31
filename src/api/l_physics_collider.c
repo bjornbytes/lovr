@@ -1,5 +1,7 @@
 #include "api.h"
 #include "physics/physics.h"
+#include "core/maf.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdbool.h>

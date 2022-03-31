@@ -1,8 +1,10 @@
 #include "api.h"
 #include "physics/physics.h"
+#include "core/maf.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <string.h>
 
 void luax_pushshape(lua_State* L, Shape* shape) {
   switch (lovrShapeGetType(shape)) {

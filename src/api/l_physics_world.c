@@ -3,7 +3,9 @@
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 static void collisionResolver(World* world, void* userdata) {
   lua_State* L = userdata;
@@ -205,6 +207,18 @@ static int l_lovrWorldCollide(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldRaycast(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float start[4], end[4];
+  int index;
+  index = luax_readvec3(L, 2, start, NULL);
+  index = luax_readvec3(L, index, end, NULL);
+  luaL_checktype(L, index, LUA_TFUNCTION);
+  lua_settop(L, index);
+  lovrWorldRaycast(world, start[0], start[1], start[2], end[0], end[1], end[2], raycastCallback, L);
+  return 0;
+}
+
 static int l_lovrWorldGetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float x, y, z;
@@ -300,18 +314,6 @@ static int l_lovrWorldSetSleepingAllowed(lua_State* L) {
   return 0;
 }
 
-static int l_lovrWorldRaycast(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float start[4], end[4];
-  int index;
-  index = luax_readvec3(L, 2, start, NULL);
-  index = luax_readvec3(L, index, end, NULL);
-  luaL_checktype(L, index, LUA_TFUNCTION);
-  lua_settop(L, index);
-  lovrWorldRaycast(world, start[0], start[1], start[2], end[0], end[1], end[2], raycastCallback, L);
-  return 0;
-}
-
 static int l_lovrWorldDisableCollisionBetween(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   const char* tag1 = luaL_checkstring(L, 2);
@@ -349,6 +351,7 @@ const luaL_Reg lovrWorld[] = {
   { "computeOverlaps", l_lovrWorldComputeOverlaps },
   { "overlaps", l_lovrWorldOverlaps },
   { "collide", l_lovrWorldCollide },
+  { "raycast", l_lovrWorldRaycast },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
   { "getTightness", l_lovrWorldGetTightness },
@@ -361,7 +364,6 @@ const luaL_Reg lovrWorld[] = {
   { "setAngularDamping", l_lovrWorldSetAngularDamping },
   { "isSleepingAllowed", l_lovrWorldIsSleepingAllowed },
   { "setSleepingAllowed", l_lovrWorldSetSleepingAllowed },
-  { "raycast", l_lovrWorldRaycast },
   { "disableCollisionBetween", l_lovrWorldDisableCollisionBetween },
   { "enableCollisionBetween", l_lovrWorldEnableCollisionBetween },
   { "isCollisionEnabledBetween", l_lovrWorldIsCollisionEnabledBetween },

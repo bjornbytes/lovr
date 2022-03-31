@@ -1,7 +1,8 @@
 #include "physics.h"
+#include "core/maf.h"
 #include "util.h"
+#include <ode/ode.h>
 #include <stdlib.h>
-#include <stdbool.h>
 
 struct World {
   uint32_t ref;
@@ -55,6 +56,11 @@ static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
   arr_push(&world->overlaps, dGeomGetData(shapeA));
   arr_push(&world->overlaps, dGeomGetData(shapeB));
 }
+
+typedef struct {
+  RaycastCallback callback;
+  void* userdata;
+} RaycastData;
 
 static void raycastCallback(void* data, dGeomID a, dGeomID b) {
   RaycastCallback callback = ((RaycastData*) data)->callback;
@@ -246,6 +252,18 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
   return contactCount;
 }
 
+void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
+  RaycastData data = { .callback = callback, .userdata = userdata };
+  float dx = x2 - x1;
+  float dy = y2 - y1;
+  float dz = z2 - z1;
+  float length = sqrtf(dx * dx + dy * dy + dz * dz);
+  dGeomID ray = dCreateRay(world->space, length);
+  dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
+  dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
+  dGeomDestroy(ray);
+}
+
 Collider* lovrWorldGetFirstCollider(World* world) {
   return world->head;
 }
@@ -304,18 +322,6 @@ bool lovrWorldIsSleepingAllowed(World* world) {
 
 void lovrWorldSetSleepingAllowed(World* world, bool allowed) {
   dWorldSetAutoDisableFlag(world->id, allowed);
-}
-
-void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
-  RaycastData data = { .callback = callback, .userdata = userdata };
-  float dx = x2 - x1;
-  float dy = y2 - y1;
-  float dz = z2 - z1;
-  float length = sqrtf(dx * dx + dy * dy + dz * dz);
-  dGeomID ray = dCreateRay(world->space, length);
-  dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
-  dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
-  dGeomDestroy(ray);
 }
 
 const char* lovrWorldGetTagName(World* world, uint32_t tag) {
