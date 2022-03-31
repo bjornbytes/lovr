@@ -86,7 +86,8 @@ static int l_lovrFilesystemAppend(lua_State* L) {
   } else {
     return luax_typeerror(L, 2, "string or Blob");
   }
-  lua_pushinteger(L, lovrFilesystemWrite(path, data, size, true));
+  bool success = lovrFilesystemWrite(path, data, size, true);
+  lua_pushboolean(L, success);
   return 1;
 }
 
@@ -334,7 +335,8 @@ static int l_lovrFilesystemWrite(lua_State* L) {
   } else {
     return luax_typeerror(L, 2, "string or Blob");
   }
-  lua_pushinteger(L, lovrFilesystemWrite(path, data, size, false));
+  bool success = lovrFilesystemWrite(path, data, size, false);
+  lua_pushboolean(L, success);
   return 1;
 }
 

@@ -376,20 +376,22 @@ bool lovrFilesystemRemove(const char* path) {
   return valid(path) && concat(resolved, state.savePath, state.savePathLength, path, strlen(path)) && fs_remove(resolved);
 }
 
-size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
+bool lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
   char resolved[LOVR_PATH_MAX];
   if (!valid(path) || !concat(resolved, state.savePath, state.savePathLength, path, strlen(path))) {
-    return 0;
+    return false;
   }
 
   fs_handle file;
   if (!fs_open(resolved, append ? OPEN_APPEND : OPEN_WRITE, &file)) {
-    return 0;
+    return false;
   }
 
-  fs_write(file, content, &size);
-  fs_close(file);
-  return size;
+  if (!fs_write(file, content, &size)) {
+    return false;
+  }
+
+  return fs_close(file);
 }
 
 // Paths
