@@ -207,6 +207,35 @@ static int l_lovrWorldCollide(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldGetContacts(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  Shape* a = luax_checkshape(L, 2);
+  Shape* b = luax_checkshape(L, 3);
+  uint32_t count;
+  Contact contacts[MAX_CONTACTS];
+  lovrWorldGetContacts(world, a, b, contacts, &count);
+  lua_createtable(L, count, 0);
+  for (uint32_t i = 0; i < count; i++) {
+    lua_createtable(L, 7, 0);
+    lua_pushnumber(L, contacts[i].x);
+    lua_rawseti(L, -2, 1);
+    lua_pushnumber(L, contacts[i].y);
+    lua_rawseti(L, -2, 2);
+    lua_pushnumber(L, contacts[i].z);
+    lua_rawseti(L, -2, 3);
+    lua_pushnumber(L, contacts[i].nx);
+    lua_rawseti(L, -2, 4);
+    lua_pushnumber(L, contacts[i].ny);
+    lua_rawseti(L, -2, 5);
+    lua_pushnumber(L, contacts[i].nz);
+    lua_rawseti(L, -2, 6);
+    lua_pushnumber(L, contacts[i].depth);
+    lua_rawseti(L, -2, 7);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
 static int l_lovrWorldRaycast(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float start[4], end[4];
@@ -351,6 +380,7 @@ const luaL_Reg lovrWorld[] = {
   { "computeOverlaps", l_lovrWorldComputeOverlaps },
   { "overlaps", l_lovrWorldOverlaps },
   { "collide", l_lovrWorldCollide },
+  { "getContacts", l_lovrWorldGetContacts },
   { "raycast", l_lovrWorldRaycast },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },

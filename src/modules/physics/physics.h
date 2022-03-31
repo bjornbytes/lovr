@@ -32,6 +32,12 @@ void lovrPhysicsDestroy(void);
 
 // World
 
+typedef struct {
+  float x, y, z;
+  float nx, ny, nz;
+  float depth;
+} Contact;
+
 World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount);
 void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
@@ -39,6 +45,7 @@ void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* u
 void lovrWorldComputeOverlaps(World* world);
 int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
 int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
+void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count);
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
 Collider* lovrWorldGetFirstCollider(World* world);
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z);

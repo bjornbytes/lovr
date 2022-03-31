@@ -252,6 +252,22 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
   return contactCount;
 }
 
+void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count) {
+  dContactGeom info[MAX_CONTACTS];
+  int c = *count = dCollide(a->id, b->id, MAX_CONTACTS, info, sizeof(info[0]));
+  for (int i = 0; i < c; i++) {
+    contacts[i] = (Contact) {
+      .x = info[i].pos[0],
+      .y = info[i].pos[1],
+      .z = info[i].pos[2],
+      .nx = info[i].normal[0],
+      .ny = info[i].normal[1],
+      .nz = info[i].normal[2],
+      .depth = info[i].depth
+    };
+  }
+}
+
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
   RaycastData data = { .callback = callback, .userdata = userdata };
   float dx = x2 - x1;
