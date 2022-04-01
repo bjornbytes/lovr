@@ -179,14 +179,14 @@ if target == 'android' then
   lflags += '-shared -landroid -lEGL -lGLESv3'
 end
 
-overrides = {
+troublemakers = {
   glad = '-Wno-pedantic',
   os_android = '-Wno-format-pedantic',
   miniaudio = '-Wno-unused-function',
 }
 
-for file, override in pairs(overrides) do
-  _G['cflags_' .. file] = override
+for file, flags in pairs(troublemakers) do
+  _G['cflags_' .. file] = flags
 end
 
 ---> deps
