@@ -1,13 +1,11 @@
--- All the values here can be overridden in tup.config, or by using tup variants
--- To override subtables in tup.config, use singular subkeys (e.g. CONFIG_MODULE_AUDIO=n)
 config = {
-  target = 'native', -- can be win32, macos, linux, android, wasm, or native
+  target = 'native',
   debug = true,
   optimize = false,
-  supercharge = false, -- enables dangerous optimizations, plus link time optimization
-  sanitize = false, -- adds runtime checks to detect memory leaks and undefined behavior (slower)
-  strict = false, -- makes warnings fail the build
-  luajit = false, -- path to folder with LuaJIT library, or false to use PUC Lua
+  supercharge = false,
+  sanitize = false,
+  strict = true,
+  luajit = false,
   modules = {
     audio = true,
     data = true,
@@ -23,7 +21,7 @@ config = {
   },
   headsets = {
     desktop = true,
-    openxr = false, -- if provided, should be path to folder containing OpenXR loader library
+    openxr = false,
     webxr = false
   },
   spatializers = {
@@ -38,12 +36,26 @@ config = {
     buildtools = '30.0.3',
     keystore = '/path/to/keystore',
     keystorepass = 'pass:password',
-    flavor = 'oculus', -- or pico
-    manifest = nil, -- path to custom AndroidManifest.xml
-    package = nil, -- package id, like org.lovr.app
-    project = nil -- path to LÖVR project to include in apk
+    flavor = 'oculus',
+    manifest = nil,
+    package = nil,
+    project = nil
   }
 }
+
+-- config notes:
+-- target can be native or win32/macos/linux/android/wasm
+-- supercharge adds dangerous/aggressive optimizations that may reduce stability
+-- sanitize adds checks for memory leaks and undefined behavior (reduces performance)
+-- strict will make warnings fail the build
+-- luajit and headsets.openxr should be a path to a folder with the lib (tup can't build them yet)
+-- android.flavor can be 'oculus' or 'pico'
+-- android.package should be something like 'org.lovr.app'
+-- android.project is a path to a lovr project folder that will be included in the apk
+-- tup.config can also be used to override properties without modifying this file:
+-- create a tup.config file and add lines like CONFIG_<KEY>=<val> to override properties
+-- boolean values use y and n, numbers and unquoted strings are also supported
+-- subtables should be formatted as CONFIG_MODULE_<m>=y, CONFIG_ANDROID_VERSION=29, etc.
 
 local function getConfig(key, default)
   local value = tup.getconfig(key)
@@ -67,39 +79,37 @@ end
 
 ---> setup
 
-target = config.target == 'native' and tup.getconfig('TUP_PLATFORM') or config.target
-if target == 'macosx' then target = 'macos' end
+host = tup.getconfig('TUP_PLATFORM'):gsub('macosx', 'macos')
+target = config.target == 'native' and host or config.target
 
 cc = 'clang'
 cxx = 'clang++'
 
-cflags = {
-  '-std=c11',
-  '-pedantic',
-  '-Wall',
-  '-Wextra',
-  config.strict and '-Werror' or '',
-  '-Wno-unused-parameter',
-  '-fdiagnostics-color=always',
-  '-fvisibility=hidden',
-  config.optimize and '-fdata-sections -ffunction-sections' or '',
-  '-Isrc',
-  '-Isrc/modules',
-  '-Isrc/lib/stdatomic',
-  '-Ietc',
-}
-
-bin = target == 'android' and 'bin/apk/lib/arm64-v8a' or 'bin'
-lflags = '-L' .. bin
-lflags += not config.debug and '-Wl,-s' or ''
-lflags += config.optimize and (target == 'macos' and '-Wl,-dead_strip' or '-Wl,--gc-sections') or ''
-
-base_flags = {
+flags = {
   config.debug and '-g' or '',
   config.optimize and '-Os' or '',
   config.supercharge and '-flto -march=native -DLOVR_UNCHECKED' or '',
   config.sanitize and '-fsanitize=address,undefined' or '',
 }
+
+cflags = {
+  '-std=c11 -pedantic',
+  '-Wall -Wextra -Wno-unused-parameter',
+  config.strict and '-Werror' or '',
+  config.optimize and '-fdata-sections -ffunction-sections' or '',
+  '-fdiagnostics-color=always',
+  '-fvisibility=hidden',
+  '-Ietc',
+  '-Isrc',
+  '-Isrc/modules',
+  '-Isrc/lib/stdatomic'
+}
+
+bin = target == 'android' and 'bin/apk/lib/arm64-v8a' or 'bin'
+
+lflags = '-L' .. bin
+lflags += not config.debug and '-Wl,-s' or ''
+lflags += config.optimize and (target == 'macos' and '-Wl,-dead_strip' or '-Wl,--gc-sections') or ''
 
 if target == 'win32' then
   cflags += '-DLOVR_GL'
@@ -109,9 +119,9 @@ if target == 'win32' then
   lflags += '-lshell32 -lole32 -luuid'
   lflags += config.debug and '-Wl,--subsystem,console' or '-Wl,--subsystem,windows'
   if not cc:match('mingw') then
-    extra_outputs += { 'bin/lovr.lib', 'bin/lovr.exp' }
+    extras += { 'bin/lovr.lib', 'bin/lovr.exp' }
     if config.debug then
-      extra_outputs += { 'bin/lovr.pdb', 'bin/lovr.ilk' }
+      extras += { 'bin/lovr.pdb', 'bin/lovr.ilk' }
     end
   end
 end
@@ -148,25 +158,24 @@ if target == 'wasm' then
     lflags += '--js-library etc/webxr.js'
   end
   lflags += '--shell-file etc/lovr.html'
-  extra_outputs += { 'bin/lovr.js', 'bin/lovr.wasm' }
+  extras += { 'bin/lovr.js', 'bin/lovr.wasm' }
   if config.modules.thread then
     cflags += '-s USE_PTHREADS=1'
     lflags += '-s USE_PTHREADS=1'
-    extra_outputs += 'bin/lovr.worker.js'
+    extras += 'bin/lovr.worker.js'
   end
 end
 
 if target == 'android' then
   assert(config.headsets.openxr, 'You probably want to enable OpenXR')
   hosts = { win32 = 'windows-x86_64', macos = 'darwin-x86_64', linux = 'linux-x86_64' }
-  host = hosts[tup.getconfig('TUP_PLATFORM')]
-  cc = ('%s/toolchains/llvm/prebuilt/%s/bin/clang'):format(config.android.ndk, host)
+  cc = ('%s/toolchains/llvm/prebuilt/%s/bin/clang'):format(config.android.ndk, hosts[host])
   cxx = cc .. '++'
-  base_flags += '--target=aarch64-linux-android' .. config.android.version
-  base_flags += config.debug and '-funwind-tables' or ''
+  flags += '--target=aarch64-linux-android' .. config.android.version
+  flags += config.debug and '-funwind-tables' or ''
   cflags += '-DLOVR_GLES'
   cflags += '-D_POSIX_C_SOURCE=200809L'
-  cflags += '-I' .. config.android.ndk .. '/sources/android/native_app_glue'
+  cflags += ('-I%s/sources/android/native_app_glue'):format(config.android.ndk)
   lflags += '-shared -landroid -lEGL -lGLESv3'
 end
 
@@ -211,8 +220,8 @@ else
     'ltable.c', 'ltablib.c', 'ltm.c', 'lundump.c', 'lvm.c', 'lzio.c'
   }
   for i = 1, #lua_src do lua_src[i] = 'deps/lua/' .. lua_src[i] end
-  tup.foreach_rule(lua_src, '^ CC lua/%b^ $(cc) $(base_flags) $(lua_cflags) -c %f -o %o', '.obj/lua/%B.o')
-  tup.rule('.obj/lua/*.o', '^ LD %o^ $(cc) $(base_flags) -o %o %f $(lua_lflags)', lib('lua'))
+  tup.foreach_rule(lua_src, '^ CC lua/%b^ $(cc) $(flags) $(lua_cflags) -c %f -o %o', '.obj/lua/%B.o')
+  tup.rule('.obj/lua/*.o', '^ LD %o^ $(cc) $(flags) -o %o %f $(lua_lflags)', lib('lua'))
 end
 
 if target == 'win32' or target == 'macos' or target == 'linux' then
@@ -231,8 +240,8 @@ if target == 'win32' or target == 'macos' or target == 'linux' then
   glfw_lflags += '-shared'
   glfw_lflags += target == 'win32' and '-lgdi32' or ''
   glfw_lflags += target == 'macos' and '-lobjc -framework Cocoa -framework IOKit -framework CoreFoundation' or ''
-  tup.foreach_rule(glfw_src, '^ CC glfw/%b^ $(cc) $(base_flags) $(glfw_cflags) -c %f -o %o', '.obj/glfw/%B.o')
-  tup.rule('.obj/glfw/*.o', '^ LD %o^ $(cc) $(base_flags) -o %o %f $(glfw_lflags)', lib('glfw'))
+  tup.foreach_rule(glfw_src, '^ CC glfw/%b^ $(cc) $(flags) $(glfw_cflags) -c %f -o %o', '.obj/glfw/%B.o')
+  tup.rule('.obj/glfw/*.o', '^ LD %o^ $(cc) $(flags) -o %o %f $(glfw_lflags)', lib('glfw'))
 end
 
 if config.modules.data then
@@ -241,8 +250,8 @@ if config.modules.data then
 
   msdfgen_cflags += '-fPIC'
   msdfgen_src += 'deps/msdfgen/core/*.cpp'
-  tup.foreach_rule(msdfgen_src, '^ CC msdfgen/%b^ $(cxx) $(base_flags) $(msdfgen_cflags) -c %f -o %o', '.obj/msdfgen/%B.o')
-  tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(base_flags) -shared -static-libstdc++ -o %o %f', lib('msdfgen'))
+  tup.foreach_rule(msdfgen_src, '^ CC msdfgen/%b^ $(cxx) $(flags) $(msdfgen_cflags) -c %f -o %o', '.obj/msdfgen/%B.o')
+  tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(flags) -shared -static-libstdc++ -o %o %f', lib('msdfgen'))
 end
 
 if config.modules.physics then
@@ -301,9 +310,9 @@ if config.modules.physics then
     end
   end
 
-  tup.foreach_rule(ode_c_src, '^ CC ode/%b^ $(cc) $(base_flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
-  tup.foreach_rule(ode_src, '^ CC ode/%b^ $(cxx) $(base_flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
-  tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(base_flags) -shared -static-libstdc++ -o %o %f', lib('ode'))
+  tup.foreach_rule(ode_c_src, '^ CC ode/%b^ $(cc) $(flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
+  tup.foreach_rule(ode_src, '^ CC ode/%b^ $(cxx) $(flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
+  tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(flags) -shared -static-libstdc++ -o %o %f', lib('ode'))
 end
 
 if config.headsets.openxr then
@@ -349,32 +358,18 @@ end
 src = {
   'src/main.c',
   'src/util.c',
-  'src/core/os_' .. target .. '.c',
   'src/core/fs.c',
+  ('src/core/os_%s.c'):format(target),
   'src/core/zip.c',
   'src/api/api.c',
   'src/api/l_lovr.c'
 }
 
--- TODO rearrange source so that things can be globbed/matched consistently
-module_src = {
-  audio = 'src/modules/audio/audio.c',
-  data = 'src/modules/data/*.c',
-  event = 'src/modules/event/*.c',
-  filesystem = 'src/modules/filesystem/*.c',
-  graphics = 'src/modules/graphics/*.c',
-  headset = 'src/modules/headset/headset.c',
-  math = 'src/modules/math/*.c',
-  physics = 'src/modules/physics/*.c',
-  system = 'src/modules/system/*.c',
-  thread = 'src/modules/thread/*.c',
-  timer = 'src/modules/timer/*.c'
-}
-
 for module, enabled in pairs(config.modules) do
   if enabled then
-    src += module_src[module]
-    src += 'src/api/l_' .. module .. '*.c'
+    override = { audio = 'src/modules/audio/audio.c', headset = 'src/modules/headset/headset.c' } -- TODO
+    src += override[module] or ('src/modules/%s/*.c'):format(module)
+    src += ('src/api/l_%s*.c'):format(module)
   else
     cflags += '-DLOVR_DISABLE_' .. module:upper()
   end
@@ -383,14 +378,14 @@ end
 for headset, enabled in pairs(config.headsets) do
   if enabled then
     cflags += '-DLOVR_USE_' .. headset:upper()
-    src += 'src/modules/headset/headset_' .. headset .. '.c'
+    src += ('src/modules/headset/headset_%s.c'):format(headset)
   end
 end
 
 for spatializer, enabled in pairs(config.spatializers) do
   if enabled then
-    cflags += '-DLOVR_ENABLE_' .. spatializer:upper() .. '_SPATIALIZER'
-    src += 'src/modules/audio/spatializer_' .. spatializer .. '.c'
+    cflags += ('-DLOVR_ENABLE_%s_SPATIALIZER'):format(spatializer:upper())
+    src += ('src/modules/audio/spatializer_%s.c'):format(spatializer)
   end
 end
 
@@ -403,33 +398,32 @@ src += config.modules.graphics and 'etc/shaders.c' or nil
 src += config.modules.math and 'src/lib/noise/*.c' or nil
 src += config.modules.thread and 'src/lib/tinycthread/*.c' or nil
 
-res += 'etc/*.lua'
-res += 'etc/*.ttf'
+-- embed resource files with xxd
 
-for i = 1, #res do
-  src.extra_inputs += res[i] .. '.h'
+res = { 'etc/*.lua', 'etc/*.ttf' }
+tup.foreach_rule(res, '^ XD %b^ xxd -i %f > %o', '%f.h')
+
+for i, pattern in ipairs(res) do
+  src.extra_inputs += pattern .. '.h'
 end
 
-src.extra_inputs += extra_inputs
+-- compile
 
-obj += '.obj/*.o'
-obj.extra_inputs = lib('*')
+tup.foreach_rule(src, '^ CC %b^ $(cc) $(flags) $(cflags) $(cflags_%B) -o %o -c %f', '.obj/%B.o')
 
----> build
+-- link final output
 
-output = {({
+outputs = {
   win32 = '$(bin)/lovr.exe',
   macos = '$(bin)/lovr',
   linux = '$(bin)/lovr',
   android = '$(bin)/liblovr.so',
   wasm = '$(bin)/lovr.html'
-})[target]}
+}
 
-output.extra_outputs = extra_outputs
-
-tup.foreach_rule(res, '^ XD %b^ xxd -i %f > %o', '%f.h')
-tup.foreach_rule(src, '^ CC %b^ $(cc) $(base_flags) $(cflags) $(cflags_%B) -o %o -c %f', '.obj/%B.o')
-tup.rule(obj, '^ LD %o^ $(cc) $(base_flags) -o %o %f $(lflags)', output)
+obj = { '.obj/*.o', extra_inputs = lib('*') }
+output = { outputs[target], extra_outputs = extras }
+tup.rule(obj, '^ LD %o^ $(cc) $(flags) -o %o %f $(lflags)', output)
 
 ---> apk
 
