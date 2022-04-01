@@ -57,25 +57,22 @@ config = {
 -- boolean values use y and n, numbers and unquoted strings are also supported
 -- subtables should be formatted as CONFIG_MODULE_<m>=y, CONFIG_ANDROID_VERSION=29, etc.
 
-local function getConfig(key, default)
-  local value = tup.getconfig(key)
-  if value == 'y' then return true
-  elseif value == 'n' then return false
-  elseif #value > 0 then return value
-  else return default end
-end
-
--- merge tup.config into config table
-for k, v in pairs(config) do
-  if type(v) == 'table' then
-    for kk, vv in pairs(v) do
-      local key = k:match('(.-)s?$'):upper() .. '_' .. kk:upper()
-      v[kk] = getConfig(key, v[kk])
+function merge(t, prefix)
+  for k, v in pairs(t) do
+    if type(v) == 'table' then
+      merge(v, k:gsub('s$', ''):upper() .. '_')
+    else
+      local str = tup.getconfig((prefix or '') .. k:upper())
+      if str == 'y' or str == 'n' then
+        t[k] = str == 'y'
+      elseif #str > 0 then
+        t[k] = str
+      end
     end
-  else
-    config[k] = getConfig(k:upper(), config[k])
   end
 end
+
+merge(config)
 
 ---> setup
 
