@@ -216,6 +216,7 @@ else
     'lobject.c', 'lopcodes.c', 'loslib.c', 'lparser.c', 'lstate.c', 'lstring.c', 'lstrlib.c',
     'ltable.c', 'ltablib.c', 'ltm.c', 'lundump.c', 'lvm.c', 'lzio.c'
   }
+  lua_cflags += ({ linux = '-DLUA_USE_LINUX', macos = '-DLUA_USE_MACOSX' })[target] or ''
   for i = 1, #lua_src do lua_src[i] = 'deps/lua/' .. lua_src[i] end
   tup.foreach_rule(lua_src, '^ CC lua/%b^ $(cc) $(flags) $(lua_cflags) -c %f -o %o', '.obj/lua/%B.o')
   tup.rule('.obj/lua/*.o', '^ LD %o^ $(cc) $(flags) -o %o %f $(lua_lflags)', lib('lua'))
