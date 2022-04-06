@@ -80,11 +80,14 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
     default: {
       VectorType type;
       float* u = luax_tovector(L, index++, &type);
-      if (type == V_VEC2 || type == V_VEC3) {
+      if (type == V_VEC2) {
+        v[0] = u[0];
+        v[1] = u[1];
         v[2] = 1.f;
+      } else if (type == V_VEC3) {
         vec3_init(v, u);
       } else {
-        return luax_typeerror(L, index, "vec3, vec2, or number");
+        return luax_typeerror(L, index, "vec2, vec3, or number");
       }
       return index;
     }
