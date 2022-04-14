@@ -1932,8 +1932,13 @@ void lovrTextureSetFilter(Texture* texture, TextureFilter filter) {
 
   switch (filter.mode) {
     case FILTER_NEAREST:
-      glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      if (texture->mipmaps) {
+        glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+        glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      } else {
+        glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      }
       break;
 
     case FILTER_BILINEAR:
