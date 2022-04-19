@@ -482,10 +482,6 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
 static int l_lovrHeadsetRenderTo(lua_State* L) {
   lua_settop(L, 1);
   lovrHeadsetInterface->renderTo(renderHelper, L);
-  lovrGraphicsSetViewMatrix(0, NULL);
-  lovrGraphicsSetViewMatrix(1, NULL);
-  lovrGraphicsSetProjection(0, NULL);
-  lovrGraphicsSetProjection(1, NULL);
   return 0;
 }
 
