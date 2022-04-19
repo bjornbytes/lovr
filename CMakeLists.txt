@@ -39,7 +39,6 @@ set(LOVR_SYMBOL_VISIBILITY "hidden" CACHE STRING "What should the C symbol visib
 if(EMSCRIPTEN)
   string(CONCAT LOVR_EMSCRIPTEN_FLAGS
     "-Os "
-    "-s USE_WEBGL2=1 "
     "-s FORCE_FILESYSTEM=1 "
     "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection']\" "
     "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
@@ -162,16 +161,6 @@ if(LOVR_ENABLE_PHYSICS)
     include_directories(deps/ode/include "${CMAKE_CURRENT_BINARY_DIR}/ode/include")
     set(LOVR_ODE ode)
   endif()
-endif()
-
-# OpenGL
-if(NOT (WIN32 OR EMSCRIPTEN OR ANDROID))
-  if(UNIX AND NOT APPLE)
-    set(OpenGL_GL_PREFERENCE "GLVND")
-  endif()
-  find_package(OpenGL REQUIRED)
-  include_directories(${OPENGL_INCLUDE_DIRS})
-  set(LOVR_OPENGL ${OPENGL_LIBRARIES})
 endif()
 
 # OpenXR
@@ -329,7 +318,6 @@ target_link_libraries(lovr
   ${LOVR_LUA}
   ${LOVR_MSDF}
   ${LOVR_ODE}
-  ${LOVR_OPENGL}
   ${LOVR_OPENXR}
   ${LOVR_OCULUS_AUDIO}
   ${LOVR_PTHREADS}
@@ -418,22 +406,8 @@ endif()
 
 if(LOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
-    src/modules/graphics/font.c
     src/modules/graphics/graphics.c
-    src/modules/graphics/material.c
-    src/modules/graphics/model.c
-    src/modules/graphics/opengl.c
     src/api/l_graphics.c
-    src/api/l_graphics_canvas.c
-    src/api/l_graphics_font.c
-    src/api/l_graphics_material.c
-    src/api/l_graphics_mesh.c
-    src/api/l_graphics_model.c
-    src/api/l_graphics_shader.c
-    src/api/l_graphics_shaderBlock.c
-    src/api/l_graphics_texture.c
-    src/lib/glad/glad.c
-    etc/shaders.c
   )
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
@@ -576,13 +550,11 @@ if(WIN32)
   foreach(target ${ALL_PLUGIN_TARGETS})
     move_dll(${target})
   endforeach()
-  target_compile_definitions(lovr PRIVATE LOVR_GL)
 elseif(APPLE)
   find_library(AVFOUNDATION AVFoundation)
   target_link_libraries(lovr objc ${AVFOUNDATION})
   target_sources(lovr PRIVATE src/core/os_macos.c)
   set_source_files_properties(src/core/os_macos.c PROPERTIES COMPILE_FLAGS -xobjective-c)
-  target_compile_definitions(lovr PRIVATE LOVR_GL)
   set_target_properties(lovr PROPERTIES
     MACOSX_RPATH TRUE
     BUILD_WITH_INSTALL_RPATH TRUE
@@ -629,12 +601,10 @@ elseif(APPLE)
   endforeach()
 elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_wasm.c)
-  target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
   configure_file(etc/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
   target_sources(lovr PRIVATE src/core/os_android.c)
-  target_link_libraries(lovr log EGL GLESv3 android dl)
-  target_compile_definitions(lovr PRIVATE LOVR_GLES)
+  target_link_libraries(lovr log EGL android dl)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
   # Dynamically linked targets output libraries in raw/lib/<ABI> for easy including in apk with aapt
@@ -732,7 +702,6 @@ elseif(UNIX)
     target_compile_definitions(lovr PRIVATE LOVR_LINUX_X11)
   endif()
   target_sources(lovr PRIVATE src/core/os_linux.c)
-  target_compile_definitions(lovr PRIVATE LOVR_GL)
   set_target_properties(lovr PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     BUILD_WITH_INSTALL_RPATH TRUE

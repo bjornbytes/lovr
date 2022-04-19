@@ -1,4 +1,5 @@
 #include "headset/headset.h"
+#include "data/modelData.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
@@ -188,20 +189,7 @@ static bool desktop_animate(Device device, struct Model* model) {
 }
 
 static void desktop_renderTo(void (*callback)(void*), void* userdata) {
-  float projection[16], left, right, up, down;
-  desktop_getViewAngles(0, &left, &right, &up, &down);
-  mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
-
-  float viewMatrix[16];
-  mat4_invert(mat4_init(viewMatrix, state.headTransform));
-
-  lovrGraphicsSetProjection(0, projection);
-  lovrGraphicsSetProjection(1, projection);
-  lovrGraphicsSetViewMatrix(0, viewMatrix);
-  lovrGraphicsSetViewMatrix(1, viewMatrix);
-  lovrGraphicsSetBackbuffer(NULL, true, true);
-  callback(userdata);
-  lovrGraphicsSetBackbuffer(NULL, false, false);
+  //
 }
 
 static bool desktop_isFocused(void) {

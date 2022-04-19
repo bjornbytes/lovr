@@ -1,7 +1,6 @@
 #include "api.h"
 #include "data/modelData.h"
 #include "core/maf.h"
-#include "shaders.h"
 #include <lua.h>
 #include <lauxlib.h>
 
@@ -288,7 +287,7 @@ static int l_lovrModelDataGetMeshVertexFormat(lua_State* L) {
 
     lua_createtable(L, 6, 0);
 
-    lua_pushstring(L, lovrShaderAttributeNames[i]);
+    luax_pushenum(L, DefaultAttribute, i);
     lua_rawseti(L, -2, 1);
 
     luax_pushenum(L, AttributeType, attribute->type);

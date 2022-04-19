@@ -1,10 +1,6 @@
 #include "headset/headset.h"
 #include "data/blob.h"
 #include "event/event.h"
-#include "graphics/graphics.h"
-#include "graphics/canvas.h"
-#include "graphics/model.h"
-#include "graphics/texture.h"
 #include "core/os.h"
 #include "util.h"
 #include <stdlib.h>
@@ -39,6 +35,8 @@ typedef XID GLXContext;
 #elif defined(LOVR_GLES)
 #define XR_USE_GRAPHICS_API_OPENGL_ES
 #define GRAPHICS_EXTENSION "XR_KHR_opengl_es_enable"
+#else
+#error "Unsupported renderer"
 #endif
 
 #define XR_NO_PROTOTYPES
@@ -782,6 +780,8 @@ static void openxr_start(void) {
     XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
     xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements);
     // TODO validate OpenGLES versions, potentially in init
+#else
+#error "Unsupported renderer"
 #endif
 
 #if defined(_WIN32) && defined(LOVR_GL)
@@ -1681,46 +1681,16 @@ static void openxr_renderTo(void (*callback)(void*), void* userdata) {
     XR(xrWaitSwapchainImage(state.swapchain, &waitInfo));
     state.hasImage = true;
 
-    uint32_t count;
-    XrView views[2];
-    getViews(views, &count);
-
-    for (int eye = 0; eye < 2; eye++) {
-      float viewMatrix[16];
-      XrView* view = &views[eye];
-      mat4_fromQuat(viewMatrix, &view->pose.orientation.x);
-      memcpy(viewMatrix + 12, &view->pose.position.x, 3 * sizeof(float));
-      mat4_invert(viewMatrix);
-      lovrGraphicsSetViewMatrix(eye, viewMatrix);
-
-      float projection[16];
-      XrFovf* fov = &view->fov;
-      mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
-      lovrGraphicsSetProjection(eye, projection);
-    }
-
-    lovrGraphicsSetBackbuffer(state.canvases[state.imageIndex], true, true);
-    callback(userdata);
-    lovrGraphicsSetBackbuffer(NULL, false, false);
-
-    endInfo.layerCount = 1;
-    state.layerViews[0].pose = views[0].pose;
-    state.layerViews[0].fov = views[0].fov;
-    state.layerViews[1].pose = views[1].pose;
-    state.layerViews[1].fov = views[1].fov;
-
     XR(xrReleaseSwapchainImage(state.swapchain, NULL));
     state.hasImage = false;
   }
 
   XR(xrEndFrame(state.session, &endInfo));
-  lovrGpuDirtyTexture();
   state.waited = false;
 }
 
 static Texture* openxr_getMirrorTexture(void) {
-  Canvas* canvas = state.canvases[state.imageIndex];
-  return canvas ? lovrCanvasGetAttachments(canvas, NULL)[0].texture : NULL;
+  return NULL;
 }
 
 static bool openxr_isFocused(void) {

@@ -1,9 +1,6 @@
 #include "api.h"
 #include "headset/headset.h"
 #include "data/modelData.h"
-#include "graphics/graphics.h"
-#include "graphics/model.h"
-#include "graphics/texture.h"
 #include "core/maf.h"
 #include <lua.h>
 #include <lauxlib.h>
@@ -472,26 +469,13 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
   }
 
   ModelData* modelData = lovrHeadsetInterface->newModelData(device, animated);
-
-  if (modelData) {
-    Model* model = lovrModelCreate(modelData);
-    luax_pushtype(L, Model, model);
-    lovrRelease(modelData, lovrModelDataDestroy);
-    lovrRelease(model, lovrModelDestroy);
-    return 1;
-  }
-
-  return 0;
+  lua_pushnil(L); // TODO
+  return 1;
 }
 
 static int l_lovrHeadsetAnimate(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  Model* model = luax_checktype(L, 2, Model);
-  if (lovrHeadsetInterface->animate(device, model)) {
-    lua_pushboolean(L, true);
-    return 1;
-  }
-  lua_pushboolean(L, false);
+  lua_pushboolean(L, false); // TODO
   return 1;
 }
 
@@ -532,12 +516,7 @@ static int l_lovrHeadsetGetDeltaTime(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
-  if (lovrHeadsetInterface->getMirrorTexture) {
-    Texture* texture = lovrHeadsetInterface->getMirrorTexture();
-    luax_pushtype(L, Texture, texture);
-    return 1;
-  }
-  return 0;
+  return 0; // TODO
 }
 
 static int l_lovrHeadsetGetHands(lua_State* L) {

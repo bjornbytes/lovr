@@ -109,7 +109,6 @@ lflags += not config.debug and '-Wl,-s' or ''
 lflags += config.optimize and (target == 'macos' and '-Wl,-dead_strip' or '-Wl,--gc-sections') or ''
 
 if target == 'win32' then
-  cflags += '-DLOVR_GL'
   cflags += '-D_CRT_SECURE_NO_WARNINGS'
   cflags += '-DWINVER=0x0600' -- Vista
   cflags += '-D_WIN32_WINNT=0x0600'
@@ -124,7 +123,6 @@ if target == 'win32' then
 end
 
 if target == 'macos' then
-  cflags += '-DLOVR_GL'
   cflags_os_macos += '-xobjective-c'
   lflags += '-Wl,-rpath,@executable_path'
   lflags += '-lobjc'
@@ -132,7 +130,6 @@ if target == 'macos' then
 end
 
 if target == 'linux' then
-  cflags += '-DLOVR_GL'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   cflags += '-D_DEFAULT_SOURCE'
   lflags += '-lm -lpthread -ldl'
@@ -143,15 +140,9 @@ if target == 'wasm' then
   cc = 'emcc'
   cxx = 'em++'
   cflags += '-std=gnu11'
-  cflags += '-DLOVR_WEBGL'
   cflags += '-D_POSIX_C_SOURCE=200809L'
-  lflags += '-s USE_WEBGL2'
   lflags += '-s FORCE_FILESYSTEM'
-  lflags += ([[-s EXPORTED_FUNCTIONS="[
-    '_main','_lovrDestroy','_webxr_attach','_webxr_detach',
-    '_lovrCanvasCreateFromHandle','_lovrCanvasDestroy',
-    '_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection'
-  ]"]]):gsub('%s', '')
+  lflags += ([[-s EXPORTED_FUNCTIONS="['_main','_lovrDestroy','_webxr_attach','_webxr_detach']"]])
   if config.headsets.webxr then
     lflags += '--js-library etc/webxr.js'
   end
@@ -171,14 +162,12 @@ if target == 'android' then
   cxx = cc .. '++'
   flags += '--target=aarch64-linux-android' .. config.android.version
   flags += config.debug and '-funwind-tables' or ''
-  cflags += '-DLOVR_GLES'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   cflags += ('-I%s/sources/android/native_app_glue'):format(config.android.ndk)
-  lflags += '-shared -landroid -lEGL -lGLESv3'
+  lflags += '-shared -landroid'
 end
 
 troublemakers = {
-  glad = '-Wno-pedantic',
   os_android = '-Wno-format-pedantic',
   miniaudio = '-Wno-unused-function -Wno-pedantic',
 }
@@ -392,8 +381,6 @@ src += 'src/lib/stb/*.c'
 src += (config.modules.audio or config.modules.data) and 'src/lib/miniaudio/*.c' or nil
 src += config.modules.data and 'src/lib/jsmn/*.c' or nil
 src += config.modules.data and 'src/lib/minimp3/*.c' or nil
-src += config.modules.graphics and 'src/lib/glad/*.c' or nil
-src += config.modules.graphics and 'etc/shaders.c' or nil
 src += config.modules.math and 'src/lib/noise/*.c' or nil
 src += config.modules.thread and 'src/lib/tinycthread/*.c' or nil
 
