@@ -459,22 +459,11 @@ static int l_lovrHeadsetVibrate(lua_State* L) {
 }
 
 static int l_lovrHeadsetNewModel(lua_State* L) {
-  Device device = luax_optdevice(L, 1);
-  bool animated = false;
-
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "animated");
-    animated = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  }
-
-  ModelData* modelData = lovrHeadsetInterface->newModelData(device, animated);
   lua_pushnil(L); // TODO
   return 1;
 }
 
 static int l_lovrHeadsetAnimate(lua_State* L) {
-  Device device = luax_optdevice(L, 1);
   lua_pushboolean(L, false); // TODO
   return 1;
 }
