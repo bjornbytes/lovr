@@ -666,7 +666,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         if (STR_EQ(key, "bufferView")) {
           ModelBuffer* buffer = &model->buffers[NOM_INT(json, token)];
           Blob* blob = lovrBlobCreate(buffer->data, buffer->size, NULL);
-          *image = lovrImageCreateFromBlob(blob, false);
+          *image = lovrImageCreateFromFile(blob);
           blob->data = NULL; // XXX Blob data ownership
           lovrRelease(blob, lovrBlobDestroy);
         } else if (STR_EQ(key, "uri")) {
@@ -685,7 +685,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             lovrAssert(data && size > 0, "Unable to read image from '%s'", filename);
             blob = lovrBlobCreate(data, size, NULL);
           }
-          *image = lovrImageCreateFromBlob(blob, false);
+          *image = lovrImageCreateFromFile(blob);
           lovrRelease(blob, lovrBlobDestroy);
           *root = '\0';
         } else {

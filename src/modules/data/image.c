@@ -1,12 +1,30 @@
 #include "data/image.h"
 #include "data/blob.h"
+#include "util.h"
 #include "lib/stb/stb_image.h"
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 
 #define FOUR_CC(a, b, c, d) ((uint32_t) (((d)<<24) | ((c)<<16) | ((b)<<8) | (a)))
 
+typedef struct {
+  void* data;
+  size_t size;
+} Mipmap;
+
+struct Image {
+  uint32_t ref;
+  uint32_t flags;
+  uint32_t width;
+  uint32_t height;
+  uint32_t layers;
+  uint32_t levels;
+  uint32_t format;
+  Mipmap* mipmaps;
+  Blob* blob;
+};
+
+/*
 static size_t getPixelSize(TextureFormat format) {
   switch (format) {
     case FORMAT_RGB: return 3;
@@ -606,6 +624,22 @@ void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color) {
   }
 }
 
+void lovrImageCopy(Image* image, Image* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h) {
+  lovrAssert(image->format == source->format, "Currently Image must have the same format to paste");
+  lovrAssert(image->format < FORMAT_DXT1, "Compressed Image cannot be pasted");
+  size_t pixelSize = getPixelSize(image->format);
+  lovrAssert(dx + w <= image->width && dy + h <= image->height, "Attempt to paste outside of destination Image bounds");
+  lovrAssert(sx + w <= source->width && sy + h <= source->height, "Attempt to paste from outside of source Image bounds");
+  uint8_t* src = (uint8_t*) source->blob->data + ((source->height - 1 - sy) * source->width + sx) * pixelSize;
+  uint8_t* dst = (uint8_t*) image->blob->data + ((image->height - 1 - dy) * image->width + sx) * pixelSize;
+  for (uint32_t y = 0; y < h; y++) {
+    memcpy(dst, src, w * pixelSize);
+    src -= source->width * pixelSize;
+    dst -= image->width * pixelSize;
+  }
+}
+*/
+
 static uint32_t crc_lookup[256];
 static bool crc_ready = false;
 static void crc_init(void) {
@@ -632,7 +666,7 @@ static uint32_t crc32(uint8_t* data, size_t length) {
 }
 
 Blob* lovrImageEncode(Image* image) {
-  lovrAssert(image->format == FORMAT_RGBA, "Only RGBA Image can be encoded");
+  lovrAssert(image->format == FORMAT_RGBA8, "Only images with the rgba8 format can be encoded");
   uint32_t w = image->width;
   uint32_t h = image->height;
   uint8_t* pixels = (uint8_t*) image->blob->data + (h - 1) * w * 4;
@@ -741,19 +775,4 @@ Blob* lovrImageEncode(Image* image) {
   data += 8 + 4;
 
   return lovrBlobCreate(data - size, size, "Encoded Image");
-}
-
-void lovrImagePaste(Image* image, Image* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h) {
-  lovrAssert(image->format == source->format, "Currently Image must have the same format to paste");
-  lovrAssert(image->format < FORMAT_DXT1, "Compressed Image cannot be pasted");
-  size_t pixelSize = getPixelSize(image->format);
-  lovrAssert(dx + w <= image->width && dy + h <= image->height, "Attempt to paste outside of destination Image bounds");
-  lovrAssert(sx + w <= source->width && sy + h <= source->height, "Attempt to paste from outside of source Image bounds");
-  uint8_t* src = (uint8_t*) source->blob->data + ((source->height - 1 - sy) * source->width + sx) * pixelSize;
-  uint8_t* dst = (uint8_t*) image->blob->data + ((image->height - 1 - dy) * image->width + sx) * pixelSize;
-  for (uint32_t y = 0; y < h; y++) {
-    memcpy(dst, src, w * pixelSize);
-    src -= source->width * pixelSize;
-    dst -= image->width * pixelSize;
-  }
 }

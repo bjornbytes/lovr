@@ -169,14 +169,14 @@ void lovrRasterizerLoadGlyph(Rasterizer* rasterizer, uint32_t character, uint32_
   glyph->dx = roundf(bearing * rasterizer->scale);
   glyph->dy = roundf(y1 * rasterizer->scale);
   glyph->advance = roundf(advance * rasterizer->scale);
-  glyph->data = lovrImageCreate(glyph->tw, glyph->th, NULL, 0, FORMAT_RGBA32F);
+  glyph->data = lovrImageCreateRaw(glyph->tw, glyph->th, FORMAT_RGBA32F);
 
   // Render SDF
   float tx = (float) padding + -glyph->dx;
   float ty = (float) padding + (float) glyph->h - glyph->dy;
   msShapeNormalize(shape);
   msEdgeColoringSimple(shape, 3., 0);
-  msGenerateMTSDF(glyph->data->blob->data, glyph->tw, glyph->th, shape, spread, 1.f, 1.f, tx, ty);
+  msGenerateMTSDF(lovrImageGetBlob(glyph->data)->data, glyph->tw, glyph->th, shape, spread, 1.f, 1.f, tx, ty);
   msShapeDestroy(shape);
 }
 

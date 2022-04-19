@@ -71,7 +71,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       lovrAssert(pixels && imageSize > 0, "Unable to read image from %s", path);
       Blob* blob = lovrBlobCreate(pixels, imageSize, NULL);
 
-      Image* image = lovrImageCreateFromBlob(blob, true);
+      Image* image = lovrImageCreateFromFile(blob);
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
       material->images[TEXTURE_DIFFUSE] = (uint32_t) images->length;

@@ -115,16 +115,25 @@ static int l_lovrDataNewImage(lua_State* L) {
     uint32_t width = luax_checku32(L, 1);
     uint32_t height = luax_checku32(L, 2);
     TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba");
-    Blob* blob = lua_isnoneornil(L, 4) ? NULL : luax_checktype(L, 4, Blob);
-    image = lovrImageCreate(width, height, blob, 0x0, format);
+    image = lovrImageCreateRaw(width, height, format);
+    if (lua_gettop(L) >= 4) {
+      Blob* blob = luax_checktype(L, 4, Blob);
+      void* data = lovrImageGetData(image, 0);
+      size_t size = lovrImageGetSize(image, 0);
+      lovrCheck(blob->size == size, "Blob size (%d) does not match the Image size (%d)", blob->size, size);
+      memcpy(data, blob->data, size);
+    }
   } else {
     Image* source = luax_totype(L, 1, Image);
     if (source) {
-      image = lovrImageCreate(source->width, source->height, source->blob, 0x0, source->format);
+      uint32_t width = lovrImageGetWidth(source);
+      uint32_t height = lovrImageGetHeight(source);
+      TextureFormat format = lovrImageGetFormat(source);
+      image = lovrImageCreateRaw(width, height, format);
+      memcpy(lovrImageGetData(image, 0), lovrImageGetData(source, 0), lovrImageGetSize(image, 0));
     } else {
       Blob* blob = luax_readblob(L, 1, "Texture");
-      bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
-      image = lovrImageCreateFromBlob(blob, flip);
+      image = lovrImageCreateFromFile(blob);
       lovrRelease(blob, lovrBlobDestroy);
     }
   }

@@ -1,33 +1,41 @@
-#include "util.h"
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
 struct Blob;
 
 typedef enum {
-  FORMAT_RGB,
-  FORMAT_RGBA,
-  FORMAT_RGBA4,
+  FORMAT_R8,
+  FORMAT_RG8,
+  FORMAT_RGBA8,
   FORMAT_R16,
   FORMAT_RG16,
   FORMAT_RGBA16,
-  FORMAT_RGBA16F,
-  FORMAT_RGBA32F,
   FORMAT_R16F,
-  FORMAT_R32F,
   FORMAT_RG16F,
+  FORMAT_RGBA16F,
+  FORMAT_R32F,
   FORMAT_RG32F,
+  FORMAT_RGBA32F,
+  FORMAT_RGB565,
   FORMAT_RGB5A1,
   FORMAT_RGB10A2,
   FORMAT_RG11B10F,
   FORMAT_D16,
-  FORMAT_D32F,
   FORMAT_D24S8,
-  FORMAT_DXT1,
-  FORMAT_DXT3,
-  FORMAT_DXT5,
+  FORMAT_D32F,
+  FORMAT_BC1,
+  FORMAT_BC2,
+  FORMAT_BC3,
+  FORMAT_BC4U,
+  FORMAT_BC4S,
+  FORMAT_BC5U,
+  FORMAT_BC5S,
+  FORMAT_BC6UF,
+  FORMAT_BC6SF,
+  FORMAT_BC7,
   FORMAT_ASTC_4x4,
   FORMAT_ASTC_5x4,
   FORMAT_ASTC_5x5,
@@ -44,28 +52,24 @@ typedef enum {
   FORMAT_ASTC_12x12
 } TextureFormat;
 
-typedef struct {
-  uint32_t width;
-  uint32_t height;
-  size_t size;
-  void* data;
-} Mipmap;
+typedef struct Image Image;
 
-typedef struct Image {
-  uint32_t ref;
-  struct Blob* blob;
-  uint32_t width;
-  uint32_t height;
-  struct Blob* source;
-  TextureFormat format;
-  Mipmap* mipmaps;
-  uint32_t mipmapCount;
-} Image;
-
-Image* lovrImageCreate(uint32_t width, uint32_t height, struct Blob* contents, uint8_t value, TextureFormat format);
-Image* lovrImageCreateFromBlob(struct Blob* blob, bool flip);
+Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format);
+Image* lovrImageCreateFromFile(struct Blob* blob);
 void lovrImageDestroy(void* ref);
-Color lovrImageGetPixel(Image* image, uint32_t x, uint32_t y);
-void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, Color color);
+bool lovrImageIsSRGB(Image* image);
+bool lovrImageIsDepth(Image* image);
+bool lovrImageIsCompressed(Image* image);
+struct Blob* lovrImageGetBlob(Image* image);
+uint32_t lovrImageGetWidth(Image* image);
+uint32_t lovrImageGetHeight(Image* image);
+uint32_t lovrImageGetLayerCount(Image* image);
+uint32_t lovrImageGetLevelCount(Image* image);
+TextureFormat lovrImageGetFormat(Image* image);
+void* lovrImageGetData(Image* image, uint32_t level);
+size_t lovrImageGetSize(Image* image, uint32_t level);
+void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]);
+void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]);
+void lovrImageCopy(Image* src, Image* dst, uint32_t srcOffset[2], uint32_t dstOffset[2], uint32_t extent[2]);
+void lovrImageClear(Image* image);
 struct Blob* lovrImageEncode(Image* image);
-void lovrImagePaste(Image* image, Image* source, uint32_t dx, uint32_t dy, uint32_t sx, uint32_t sy, uint32_t w, uint32_t h);
