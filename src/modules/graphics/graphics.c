@@ -1,4 +1,5 @@
 #include "graphics/graphics.h"
+#include <string.h>
 
 static struct {
   bool initialized;
