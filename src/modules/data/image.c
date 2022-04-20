@@ -800,7 +800,68 @@ static Image* loadDDS(Blob* blob) {
 }
 
 static Image* loadASTC(Blob* blob) {
-  return NULL;
+  typedef struct {
+    uint32_t magic;
+    uint8_t blockX;
+    uint8_t blockY;
+    uint8_t blockZ;
+    uint8_t width[3];
+    uint8_t height[3];
+    uint8_t depth[3];
+  } ASTCHeader;
+
+  union {
+    uint8_t* u8;
+    uint32_t* u32;
+    ASTCHeader* astc;
+  } data = { .u8 = blob->data };
+
+  uint32_t magic = 0x5ca1ab13;
+
+  if (blob->size <= sizeof(*data.astc) || data.astc->magic != magic) {
+    return NULL;
+  }
+
+  TextureFormat format;
+
+  uint32_t bx = data.astc->blockX, by = data.astc->blockY, bz = data.astc->blockZ;
+  if (bx == 4 && by == 4 && bz == 1) { format = FORMAT_ASTC_4x4; }
+  else if (bx == 5 && by == 4 && bz == 1) { format = FORMAT_ASTC_5x4; }
+  else if (bx == 5 && by == 5 && bz == 1) { format = FORMAT_ASTC_5x5; }
+  else if (bx == 6 && by == 5 && bz == 1) { format = FORMAT_ASTC_6x5; }
+  else if (bx == 6 && by == 6 && bz == 1) { format = FORMAT_ASTC_6x6; }
+  else if (bx == 8 && by == 5 && bz == 1) { format = FORMAT_ASTC_8x5; }
+  else if (bx == 8 && by == 6 && bz == 1) { format = FORMAT_ASTC_8x6; }
+  else if (bx == 8 && by == 8 && bz == 1) { format = FORMAT_ASTC_8x8; }
+  else if (bx == 10 && by == 5 && bz == 1) { format = FORMAT_ASTC_10x5; }
+  else if (bx == 10 && by == 6 && bz == 1) { format = FORMAT_ASTC_10x6; }
+  else if (bx == 10 && by == 8 && bz == 1) { format = FORMAT_ASTC_10x8; }
+  else if (bx == 10 && by == 10 && bz == 1) { format = FORMAT_ASTC_10x10; }
+  else if (bx == 12 && by == 10 && bz == 1) { format = FORMAT_ASTC_12x10; }
+  else if (bx == 12 && by == 12 && bz == 1) { format = FORMAT_ASTC_12x12; }
+  else { lovrThrow("Unsupported ASTC format %dx%dx%d", bx, by, bz); }
+
+  uint32_t width = data.astc->width[0] + (data.astc->width[1] << 8) + (data.astc->width[2] << 16);
+  uint32_t height = data.astc->height[0] + (data.astc->height[1] << 8) + (data.astc->height[2] << 16);
+
+  size_t imageSize = ((width + bx - 1) / bx) * ((height + by - 1) / by) * (128 / 8);
+
+  if (imageSize > blob->size - sizeof(ASTCHeader)) {
+    return NULL;
+  }
+
+  Image* image = calloc(1, sizeof(Image));
+  lovrAssert(image, "Out of memory");
+  image->ref = 1;
+  image->width = width;
+  image->height = height;
+  image->format = format;
+  image->layers = 1;
+  image->levels = 1;
+  image->blob = blob;
+  lovrRetain(blob);
+  image->mipmaps[0] = (Mipmap) { data.u8 + sizeof(ASTCHeader), imageSize };
+  return image;
 }
 
 static Image* loadKTX1(Blob* blob) {
@@ -924,63 +985,5 @@ static bool parseKTX(uint8_t* bytes, size_t size, Image* image) {
 }
 
 static bool parseASTC(uint8_t* bytes, size_t size, Image* image) {
-  typedef struct {
-    uint32_t magic;
-    uint8_t blockX;
-    uint8_t blockY;
-    uint8_t blockZ;
-    uint8_t width[3];
-    uint8_t height[3];
-    uint8_t depth[3];
-  } ASTCHeader;
-
-  union {
-    uint8_t* u8;
-    uint32_t* u32;
-    ASTCHeader* astc;
-  } data = { .u8 = bytes };
-
-  uint32_t magic = 0x5ca1ab13;
-
-  if (size <= sizeof(*data.astc) || data.astc->magic != magic) {
-    return false;
-  }
-
-  uint32_t bx = data.astc->blockX, by = data.astc->blockY, bz = data.astc->blockZ;
-  if (bx == 4 && by == 4 && bz == 1) { image->format = FORMAT_ASTC_4x4; }
-  else if (bx == 5 && by == 4 && bz == 1) { image->format = FORMAT_ASTC_5x4; }
-  else if (bx == 5 && by == 5 && bz == 1) { image->format = FORMAT_ASTC_5x5; }
-  else if (bx == 6 && by == 5 && bz == 1) { image->format = FORMAT_ASTC_6x5; }
-  else if (bx == 6 && by == 6 && bz == 1) { image->format = FORMAT_ASTC_6x6; }
-  else if (bx == 8 && by == 5 && bz == 1) { image->format = FORMAT_ASTC_8x5; }
-  else if (bx == 8 && by == 6 && bz == 1) { image->format = FORMAT_ASTC_8x6; }
-  else if (bx == 8 && by == 8 && bz == 1) { image->format = FORMAT_ASTC_8x8; }
-  else if (bx == 10 && by == 5 && bz == 1) { image->format = FORMAT_ASTC_10x5; }
-  else if (bx == 10 && by == 6 && bz == 1) { image->format = FORMAT_ASTC_10x6; }
-  else if (bx == 10 && by == 8 && bz == 1) { image->format = FORMAT_ASTC_10x8; }
-  else if (bx == 10 && by == 10 && bz == 1) { image->format = FORMAT_ASTC_10x10; }
-  else if (bx == 12 && by == 10 && bz == 1) { image->format = FORMAT_ASTC_12x10; }
-  else if (bx == 12 && by == 12 && bz == 1) { image->format = FORMAT_ASTC_12x12; }
-  else { lovrThrow("Unsupported ASTC format %dx%dx%d", bx, by, bz); }
-
-  image->width = data.astc->width[0] + (data.astc->width[1] << 8) + (data.astc->width[2] << 16);
-  image->height = data.astc->height[0] + (data.astc->height[1] << 8) + (data.astc->height[2] << 16);
-
-  size_t imageSize = ((image->width + bx - 1) / bx) * ((image->height + by - 1) / by) * (128 / 8);
-
-  if (imageSize > size - sizeof(ASTCHeader)) {
-    return false;
-  }
-
-  image->mipmapCount = 1;
-  image->mipmaps = malloc(sizeof(Mipmap));
-  image->mipmaps[0] = (Mipmap) {
-    .width = image->width,
-    .height = image->height,
-    .data = data.u8 + sizeof(ASTCHeader),
-    .size = imageSize
-  };
-
-  return true;
 }
 */
