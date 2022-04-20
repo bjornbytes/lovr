@@ -800,19 +800,54 @@ static Image* loadDDS(Blob* blob) {
 }
 
 static Image* loadASTC(Blob* blob) {
-  return false;
+  return NULL;
 }
 
 static Image* loadKTX1(Blob* blob) {
-  return false;
+  return NULL;
 }
 
 static Image* loadKTX2(Blob* blob) {
-  return false;
+  return NULL;
 }
 
 static Image* loadSTB(Blob* blob) {
-  return false;
+  void* data;
+  TextureFormat format;
+  int width, height, channels;
+  if (stbi_is_16_bit_from_memory(blob->data, (int) blob->size)) {
+    data = stbi_load_16_from_memory(blob->data, (int) blob->size, &width, &height, &channels, 0);
+    switch (channels) {
+      case 1: format = FORMAT_R16; break;
+      case 2: format = FORMAT_RG16; break;
+      case 4: format = FORMAT_RGBA16; break;
+      default: lovrThrow("Unsupported channel count for 16 bit image: %d", channels);
+    }
+  } else if (stbi_is_hdr_from_memory(blob->data, (int) blob->size)) {
+    data = stbi_loadf_from_memory(blob->data, (int) blob->size, &width, &height, NULL, 4);
+    format = FORMAT_RGBA32F;
+  } else {
+    data = stbi_load_from_memory(blob->data, (int) blob->size, &width, &height, NULL, 4);
+    format = FORMAT_RGBA8;
+  }
+
+  if (!data) {
+    return NULL;
+  }
+
+  size_t size = width * height * getBlockSize(format);
+
+  Image* image = calloc(1, sizeof(Image));
+  lovrAssert(image, "Out of memory");
+  image->ref = 1;
+  image->width = width;
+  image->height = height;
+  image->format = format;
+  image->layers = 1;
+  image->levels = 1;
+  image->blob = lovrBlobCreate(data, size, blob->name);
+  image->mipmaps[0] = (Mipmap) { data, size };
+  return image;
 }
 
 /*
@@ -947,69 +982,5 @@ static bool parseASTC(uint8_t* bytes, size_t size, Image* image) {
   };
 
   return true;
-}
-
-Image* lovrImageCreateFromBlob(Blob* blob, bool flip) {
-  Image* image = calloc(1, sizeof(Image));
-  lovrAssert(image, "Out of memory");
-  image->ref = 1;
-  image->blob = lovrBlobCreate(NULL, 0, NULL);
-  if (parseDDS(blob->data, blob->size, image)) {
-    image->source = blob;
-    lovrRetain(blob);
-    return image;
-  } else if (parseKTX(blob->data, blob->size, image)) {
-    image->source = blob;
-    lovrRetain(blob);
-    return image;
-  } else if (parseASTC(blob->data, blob->size, image)) {
-    image->source = blob;
-    lovrRetain(blob);
-    return image;
-  }
-
-  int width, height;
-  int length = (int) blob->size;
-  stbi_set_flip_vertically_on_load_thread(flip);
-  if (stbi_is_16_bit_from_memory(blob->data, length)) {
-    int channels;
-    image->blob->data = stbi_load_16_from_memory(blob->data, length, &width, &height, &channels, 0);
-    switch (channels) {
-      case 1:
-        image->format = FORMAT_R16;
-        image->blob->size = 2 * width * height;
-        break;
-      case 2:
-        image->format = FORMAT_RG16;
-        image->blob->size = 4 * width * height;
-        break;
-      case 4:
-        image->format = FORMAT_RGBA16;
-        image->blob->size = 8 * width * height;
-        break;
-      default:
-        lovrThrow("Unsupported channel count for 16 bit image: %d", channels);
-    }
-  } else if (stbi_is_hdr_from_memory(blob->data, length)) {
-    image->format = FORMAT_RGBA32F;
-    image->blob->data = stbi_loadf_from_memory(blob->data, length, &width, &height, NULL, 4);
-    image->blob->size = 16 * width * height;
-  } else {
-    image->format = FORMAT_RGBA;
-    image->blob->data = stbi_load_from_memory(blob->data, length, &width, &height, NULL, 4);
-    image->blob->size = 4 * width * height;
-  }
-
-  if (!image->blob->data) {
-    lovrThrow("Could not load image from '%s'", blob->name);
-    lovrRelease(image->blob, lovrBlobDestroy);
-    free(image);
-    return NULL;
-  }
-
-  image->width = width;
-  image->height = height;
-  image->mipmapCount = 0;
-  return image;
 }
 */
