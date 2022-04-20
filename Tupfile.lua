@@ -148,10 +148,10 @@ if target == 'wasm' then
   lflags += '-s USE_WEBGL2'
   lflags += '-s FORCE_FILESYSTEM'
   lflags += ([[-s EXPORTED_FUNCTIONS="[
-    '_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle',
-    '_lovrCanvasDestroy','_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix',
-    '_lovrGraphicsSetProjection'
-  ]"]]):gsub('\n', '')
+    '_main','_lovrDestroy','_webxr_attach','_webxr_detach',
+    '_lovrCanvasCreateFromHandle','_lovrCanvasDestroy',
+    '_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection'
+  ]"]]):gsub('%s', '')
   if config.headsets.webxr then
     lflags += '--js-library etc/webxr.js'
   end
