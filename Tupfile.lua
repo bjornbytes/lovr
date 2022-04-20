@@ -142,6 +142,7 @@ end
 if target == 'wasm' then
   cc = 'emcc'
   cxx = 'em++'
+  cflags += '-std=gnu11'
   cflags += '-DLOVR_WEBGL'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   lflags += '-s USE_WEBGL2'
