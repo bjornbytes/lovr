@@ -180,7 +180,7 @@ end
 troublemakers = {
   glad = '-Wno-pedantic',
   os_android = '-Wno-format-pedantic',
-  miniaudio = '-Wno-unused-function',
+  miniaudio = '-Wno-unused-function -Wno-pedantic',
 }
 
 for file, flags in pairs(troublemakers) do
