@@ -118,8 +118,8 @@ static int l_lovrDataNewImage(lua_State* L) {
     image = lovrImageCreateRaw(width, height, format);
     if (lua_gettop(L) >= 4) {
       Blob* blob = luax_checktype(L, 4, Blob);
-      void* data = lovrImageGetData(image, 0, 0);
-      size_t size = lovrImageGetSize(image, 0, 0);
+      size_t size = lovrImageGetLayerSize(image, 0);
+      void* data = lovrImageGetLayerData(image, 0, 0);
       lovrCheck(blob->size == size, "Blob size (%d) does not match the Image size (%d)", blob->size, size);
       memcpy(data, blob->data, size);
     }
@@ -130,7 +130,7 @@ static int l_lovrDataNewImage(lua_State* L) {
       uint32_t height = lovrImageGetHeight(source);
       TextureFormat format = lovrImageGetFormat(source);
       image = lovrImageCreateRaw(width, height, format);
-      memcpy(lovrImageGetData(image, 0, 0), lovrImageGetData(source, 0, 0), lovrImageGetSize(image, 0, 0));
+      memcpy(lovrImageGetLayerData(image, 0, 0), lovrImageGetLayerData(source, 0, 0), lovrImageGetLayerSize(image, 0));
     } else {
       Blob* blob = luax_readblob(L, 1, "Texture");
       image = lovrImageCreateFromFile(blob);

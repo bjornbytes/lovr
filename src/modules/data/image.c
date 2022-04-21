@@ -14,6 +14,7 @@ enum {
 typedef struct {
   void* data;
   size_t size;
+  size_t stride;
 } Mipmap;
 
 struct Image {
@@ -25,49 +26,62 @@ struct Image {
   uint32_t layers;
   uint32_t levels;
   struct Blob* blob;
-  size_t layerStride;
   Mipmap mipmaps[1];
 };
 
-static size_t getBlockSize(TextureFormat format) {
+static size_t measure(uint32_t w, uint32_t h, TextureFormat format) {
   switch (format) {
-    case FORMAT_R8: return 1;
-    case FORMAT_RG8: return 2;
-    case FORMAT_RGBA8: return 4;
-    case FORMAT_R16: return 2;
-    case FORMAT_RG16: return 4;
-    case FORMAT_RGBA16: return 8;
-    case FORMAT_R16F: return 2;
-    case FORMAT_RG16F: return 4;
-    case FORMAT_RGBA16F: return 8;
-    case FORMAT_R32F: return 4;
-    case FORMAT_RG32F: return 8;
-    case FORMAT_RGBA32F: return 16;
-    case FORMAT_RGB565: return 2;
-    case FORMAT_RGB5A1: return 2;
-    case FORMAT_RGB10A2: return 4;
-    case FORMAT_RG11B10F: return 4;
-    case FORMAT_D16: return 2;
-    case FORMAT_D24S8: return 4;
-    case FORMAT_D32F: return 4;
-    case FORMAT_BC1: return 8;
-    case FORMAT_BC2: return 16;
-    case FORMAT_BC3: return 16;
-    case FORMAT_BC4U: return 8;
-    case FORMAT_BC4S: return 8;
-    case FORMAT_BC5U: return 16;
-    case FORMAT_BC5S: return 16;
-    case FORMAT_BC6UF: return 16;
-    case FORMAT_BC6SF: return 16;
-    case FORMAT_BC7: return 16;
-    default: return 0; // Not used for ASTC
+    case FORMAT_R8: return w * h * 1;
+    case FORMAT_RG8: return w * h * 2;
+    case FORMAT_RGBA8: return w * h * 4;
+    case FORMAT_R16: return w * h * 2;
+    case FORMAT_RG16: return w * h * 4;
+    case FORMAT_RGBA16: return w * h * 8;
+    case FORMAT_R16F: return w * h * 2;
+    case FORMAT_RG16F: return w * h * 4;
+    case FORMAT_RGBA16F: return w * h * 8;
+    case FORMAT_R32F: return w * h * 4;
+    case FORMAT_RG32F: return w * h * 8;
+    case FORMAT_RGBA32F: return w * h * 16;
+    case FORMAT_RGB565: return w * h * 2;
+    case FORMAT_RGB5A1: return w * h * 2;
+    case FORMAT_RGB10A2: return w * h * 4;
+    case FORMAT_RG11B10F: return w * h * 4;
+    case FORMAT_D16: return w * h * 2;
+    case FORMAT_D24S8: return w * h * 4;
+    case FORMAT_D32F: return w * h * 4;
+    case FORMAT_BC1: return ((w + 3) / 4) * ((h + 3) / 4) * 8;
+    case FORMAT_BC2:
+    case FORMAT_BC3:
+    case FORMAT_BC4U:
+    case FORMAT_BC4S:
+    case FORMAT_BC5U:
+    case FORMAT_BC5S:
+    case FORMAT_BC6UF:
+    case FORMAT_BC6SF:
+    case FORMAT_BC7: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
+    case FORMAT_ASTC_4x4: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
+    case FORMAT_ASTC_5x4: return ((w + 4) / 5) * ((h + 3) / 4) * 16;
+    case FORMAT_ASTC_5x5: return ((w + 4) / 5) * ((h + 4) / 5) * 16;
+    case FORMAT_ASTC_6x5: return ((w + 5) / 6) * ((h + 4) / 5) * 16;
+    case FORMAT_ASTC_6x6: return ((w + 5) / 6) * ((h + 5) / 6) * 16;
+    case FORMAT_ASTC_8x5: return ((w + 7) / 8) * ((h + 4) / 5) * 16;
+    case FORMAT_ASTC_8x6: return ((w + 7) / 8) * ((h + 5) / 6) * 16;
+    case FORMAT_ASTC_8x8: return ((w + 7) / 8) * ((h + 7) / 8) * 16;
+    case FORMAT_ASTC_10x5: return ((w + 9) / 10) * ((h + 4) / 5) * 16;
+    case FORMAT_ASTC_10x6: return ((w + 9) / 10) * ((h + 5) / 6) * 16;
+    case FORMAT_ASTC_10x8: return ((w + 9) / 10) * ((h + 7) / 8) * 16;
+    case FORMAT_ASTC_10x10: return ((w + 9) / 10) * ((h + 9) / 10) * 16;
+    case FORMAT_ASTC_12x10: return ((w + 11) / 12) * ((h + 9) / 10) * 16;
+    case FORMAT_ASTC_12x12: return ((w + 11) / 12) * ((h + 11) / 12) * 16;
+    default: lovrThrow("Unreachable");
   }
 }
 
 Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format) {
   lovrCheck(width > 0 && height > 0, "Image dimensions must be positive");
   lovrCheck(format < FORMAT_BC1, "Blank images cannot be compressed");
-  size_t size = width * height * getBlockSize(format);
+  size_t size = measure(format, width, height);
   void* data = malloc(size);
   Image* image = calloc(1, sizeof(Image));
   lovrAssert(image && data, "Out of memory");
@@ -78,7 +92,7 @@ Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format)
   image->layers = 1;
   image->levels = 1;
   image->blob = lovrBlobCreate(data, size, "Image");
-  image->mipmaps[0] = (Mipmap) { data, size };
+  image->mipmaps[0] = (Mipmap) { data, size, 0 };
   return image;
 }
 
@@ -151,20 +165,20 @@ TextureFormat lovrImageGetFormat(Image* image) {
   return image->format;
 }
 
-void* lovrImageGetData(Image* image, uint32_t layer, uint32_t level) {
-  if (layer >= image->layers || level >= image->levels) return NULL;
-  return (uint8_t*) image->mipmaps[level].data + layer * image->layerStride;
+size_t lovrImageGetLayerSize(Image* image, uint32_t level) {
+  if (level >= image->levels) return 0;
+  return image->mipmaps[level].size;
 }
 
-size_t lovrImageGetSize(Image* image, uint32_t layer, uint32_t level) {
-  if (layer >= image->layers || level >= image->levels) return 0;
-  return image->mipmaps[level].size;
+void* lovrImageGetLayerData(Image* image, uint32_t level, uint32_t layer) {
+  if (layer >= image->layers || level >= image->levels) return NULL;
+  return (uint8_t*) image->mipmaps[level].data + layer * image->mipmaps[level].stride;
 }
 
 void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
-  size_t offset = ((image->height - (y + 1)) * image->width + x) * getBlockSize(image->format);
+  size_t offset = measure(image->format, y * image->width + x, 1);
   uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + offset;
   uint16_t* u16 = (uint16_t*) u8;
   float* f32 = (float*) u8;
@@ -215,7 +229,7 @@ void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
 void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
-  size_t offset = ((image->height - (y + 1)) * image->width + x) * getBlockSize(image->format);
+  size_t offset = measure(y * image->width + x, 1, image->format);
   uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + offset;
   uint16_t* u16 = (uint16_t*) u8;
   float* f32 = (float*) u8;
@@ -270,9 +284,9 @@ void lovrImageCopy(Image* src, Image* dst, uint32_t srcOffset[2], uint32_t dstOf
   lovrAssert(dstOffset[1] + extent[1] <= dst->height, "Image copy region extends past the destination image height");
   lovrAssert(srcOffset[0] + extent[0] <= src->width, "Image copy region extends past the source image width");
   lovrAssert(srcOffset[1] + extent[1] <= src->height, "Image copy region extends past the source image height");
-  size_t pixelSize = getBlockSize(src->format);
-  uint8_t* p = (uint8_t*) lovrImageGetData(src, 0, 0) + (srcOffset[1] * src->width + srcOffset[0]) * pixelSize;
-  uint8_t* q = (uint8_t*) lovrImageGetData(dst, 0, 0) + (dstOffset[1] * dst->width + dstOffset[0]) * pixelSize;
+  size_t pixelSize = measure(1, 1, src->format);
+  uint8_t* p = (uint8_t*) lovrImageGetLayerData(src, 0, 0) + (srcOffset[1] * src->width + srcOffset[0]) * pixelSize;
+  uint8_t* q = (uint8_t*) lovrImageGetLayerData(dst, 0, 0) + (dstOffset[1] * dst->width + dstOffset[0]) * pixelSize;
   for (uint32_t y = 0; y < extent[1]; y++) {
     memcpy(q, p, extent[0] * pixelSize);
     p += src->width * pixelSize;
@@ -783,17 +797,20 @@ static Image* loadDDS(Blob* blob) {
   image->blob = blob;
   lovrRetain(blob);
 
-  bool blocky = format >= FORMAT_BC1;
-  size_t blockSize = getBlockSize(format);
+  size_t stride = 0;
   for (uint32_t i = 0, width = image->width, height = image->height; i < levels; i++) {
-    size_t size = blocky ? ((width + 3) / 4) * ((height + 3) / 4) * blockSize : blockSize;
+    size_t size = measure(format, width, height);
     lovrAssert(length >= size, "DDS file overflow");
-    image->mipmaps[i] = (Mipmap) { data, size };
+    image->mipmaps[i] = (Mipmap) { data, size, 0 };
     width = MAX(width >> 1, 1);
     height = MAX(height >> 1, 1);
-    image->layerStride += size;
+    stride += size;
     length -= size;
     data += size;
+  }
+
+  for (uint32_t i = 0; i < levels; i++) {
+    image->mipmaps[i].stride = stride;
   }
 
   return image;
@@ -860,16 +877,266 @@ static Image* loadASTC(Blob* blob) {
   image->levels = 1;
   image->blob = blob;
   lovrRetain(blob);
-  image->mipmaps[0] = (Mipmap) { data.u8 + sizeof(ASTCHeader), imageSize };
+  image->mipmaps[0] = (Mipmap) { data.u8 + sizeof(ASTCHeader), imageSize, 0 };
   return image;
 }
 
 static Image* loadKTX1(Blob* blob) {
-  return NULL;
+  typedef struct {
+    uint8_t magic[12];
+    uint32_t endianness;
+    uint32_t glType;
+    uint32_t glTypeSize;
+    uint32_t glFormat;
+    uint32_t glInternalFormat;
+    uint32_t glBaseInternalFormat;
+    uint32_t pixelWidth;
+    uint32_t pixelHeight;
+    uint32_t pixelDepth;
+    uint32_t numberOfArrayElements;
+    uint32_t numberOfFaces;
+    uint32_t numberOfMipmapLevels;
+    uint32_t bytesOfKeyValueData;
+  } KTX1Header;
+
+  char* data = blob->data;
+  size_t length = blob->size;
+  KTX1Header* header = (KTX1Header*) data;
+  data += sizeof(KTX1Header) + header->bytesOfKeyValueData;
+  length -= sizeof(KTX1Header) + header->bytesOfKeyValueData;
+
+  uint8_t magic[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
+
+  if (length < sizeof(KTX1Header) || memcmp(header->magic, magic, sizeof(magic)) || header->endianness != 0x04030201) {
+    return NULL;
+  }
+
+  lovrAssert(header->pixelWidth > 0, "KTX image dimensions must be positive");
+  lovrAssert(header->pixelHeight > 0, "Unable to load 1D KTX images");
+  lovrAssert(header->pixelDepth == 0, "Unable to load 3D KTX images");
+
+  Image* image = calloc(1, sizeof(Image));
+  lovrAssert(image, "Out of memory");
+  image->ref = 1;
+  image->width = header->pixelWidth;
+  image->height = header->pixelHeight;
+  image->layers = MAX(header->numberOfArrayElements, 1);
+  image->levels = MAX(header->numberOfMipmapLevels, 1);
+  image->blob = blob;
+  lovrRetain(blob);
+
+  if (header->numberOfFaces > 1) {
+    lovrAssert(header->numberOfFaces == 6, "KTX files must have 1 or 6 faces");
+    lovrAssert(header->numberOfArrayElements == 0, "KTX files with cubemap arrays are not supported");
+    image->flags |= IMAGE_CUBEMAP;
+    image->layers = 6;
+  }
+
+  // Format
+
+  struct { uint32_t type, format, internalFormat, srgbInternalFormat; } lookup[] = {
+    [FORMAT_R8]         = { 0x1401, 0x1903, 0x8229, 0 },
+    [FORMAT_RG8]        = { 0x1401, 0x8227, 0x822B, 0 },
+    [FORMAT_RGBA8]      = { 0x1401, 0x1908, 0x8058, 0x8C43 },
+    [FORMAT_R16]        = { 0x1403, 0x1903, 0x822A, 0 },
+    [FORMAT_RG16]       = { 0x1403, 0x8227, 0x822C, 0 },
+    [FORMAT_RGBA16]     = { 0x1403, 0x1908, 0x805B, 0 },
+    [FORMAT_R16F]       = { 0x140B, 0x1903, 0x822D, 0 },
+    [FORMAT_RG16F]      = { 0x140B, 0x8227, 0x822F, 0 },
+    [FORMAT_RGBA16F]    = { 0x140B, 0x1908, 0x881A, 0 },
+    [FORMAT_R32F]       = { 0x1406, 0x1903, 0x822E, 0 },
+    [FORMAT_RG32F]      = { 0x1406, 0x8227, 0x8230, 0 },
+    [FORMAT_RGBA32F]    = { 0x1406, 0x1908, 0x8814, 0 },
+    [FORMAT_RGB565]     = { 0x8363, 0x1907, 0x8D62, 0 },
+    [FORMAT_RGB5A1]     = { 0x8034, 0x1908, 0x8057, 0 },
+    [FORMAT_RGB10A2]    = { 0x8368, 0x1908, 0x8059, 0 },
+    [FORMAT_RG11B10F]   = { 0x8C3B, 0x1907, 0x8C3A, 0 },
+    [FORMAT_D16]        = { 0x1403, 0x1902, 0x81A5, 0 },
+    [FORMAT_D24S8]      = { 0x84FA, 0x84F9, 0x88F0, 0 },
+    [FORMAT_D32F]       = { 0x1406, 0x1902, 0x8CAC, 0 },
+    [FORMAT_BC1]        = { 0x0000, 0x0000, 0x83F1, 0x8C4D },
+    [FORMAT_BC2]        = { 0x0000, 0x0000, 0x83F2, 0x8C4E },
+    [FORMAT_BC3]        = { 0x0000, 0x0000, 0x83F3, 0x8C4F },
+    [FORMAT_BC4U]       = { 0x0000, 0x0000, 0x8DBB, 0 },
+    [FORMAT_BC4S]       = { 0x0000, 0x0000, 0x8DBC, 0 },
+    [FORMAT_BC5U]       = { 0x0000, 0x0000, 0x8DBD, 0 },
+    [FORMAT_BC5S]       = { 0x0000, 0x0000, 0x8DBE, 0 },
+    [FORMAT_BC6UF]      = { 0x0000, 0x0000, 0x8E8F, 0 },
+    [FORMAT_BC6SF]      = { 0x0000, 0x0000, 0x8E8E, 0 },
+    [FORMAT_BC7]        = { 0x0000, 0x0000, 0x8E8C, 0x8E8D },
+    [FORMAT_ASTC_4x4]   = { 0x0000, 0x0000, 0x93B0, 0x93D0 },
+    [FORMAT_ASTC_5x4]   = { 0x0000, 0x0000, 0x93B1, 0x93D1 },
+    [FORMAT_ASTC_5x5]   = { 0x0000, 0x0000, 0x93B2, 0x93D2 },
+    [FORMAT_ASTC_6x5]   = { 0x0000, 0x0000, 0x93B3, 0x93D3 },
+    [FORMAT_ASTC_6x6]   = { 0x0000, 0x0000, 0x93B4, 0x93D4 },
+    [FORMAT_ASTC_8x5]   = { 0x0000, 0x0000, 0x93B5, 0x93D5 },
+    [FORMAT_ASTC_8x6]   = { 0x0000, 0x0000, 0x93B6, 0x93D6 },
+    [FORMAT_ASTC_8x8]   = { 0x0000, 0x0000, 0x93B7, 0x93D7 },
+    [FORMAT_ASTC_10x5]  = { 0x0000, 0x0000, 0x93B8, 0x93D8 },
+    [FORMAT_ASTC_10x6]  = { 0x0000, 0x0000, 0x93B9, 0x93D9 },
+    [FORMAT_ASTC_10x8]  = { 0x0000, 0x0000, 0x93BA, 0x93DA },
+    [FORMAT_ASTC_10x10] = { 0x0000, 0x0000, 0x93BB, 0x93DB },
+    [FORMAT_ASTC_12x10] = { 0x0000, 0x0000, 0x93BC, 0x93DC },
+    [FORMAT_ASTC_12x12] = { 0x0000, 0x0000, 0x93BD, 0x93DD }
+  };
+
+  image->format = ~0u;
+  for (uint32_t i = 0; i < COUNTOF(lookup); i++) {
+    if (header->glType == lookup[i].type && header->glFormat == lookup[i].format) {
+      if (header->glInternalFormat == lookup[i].internalFormat) {
+        image->format = i;
+        break;
+      } else if (lookup[i].srgbInternalFormat && header->glInternalFormat == lookup[i].srgbInternalFormat) {
+        image->format = i;
+        image->flags |= IMAGE_SRGB;
+        break;
+      }
+    }
+  }
+  lovrAssert(image->format != ~0u, "KTX file uses an unsupported image format");
+
+  // Mipmaps
+  uint32_t width = image->width;
+  uint32_t height = image->height;
+  size_t divisor = (image->flags & IMAGE_CUBEMAP) ? 1 : image->layers;
+  for (uint32_t i = 0; i < image->levels; i++) {
+    size_t levelSize = *(uint32_t*) data;
+    size_t size = measure(width, height, image->format);
+    lovrAssert(levelSize / divisor == size, "KTX size mismatch");
+    length -= 4;
+    data += 4;
+
+    lovrAssert(length >= size, "KTX file overflow");
+    image->mipmaps[i] = (Mipmap) { data, size, size };
+    width = MAX(width >> 1, 1);
+    height = MAX(height >> 1, 1);
+    length -= size;
+    data += size;
+  }
+
+  return image;
 }
 
 static Image* loadKTX2(Blob* blob) {
-  return NULL;
+  typedef struct {
+    uint8_t magic[12];
+    uint32_t vkFormat;
+    uint32_t typeSize;
+    uint32_t pixelWidth;
+    uint32_t pixelHeight;
+    uint32_t pixelDepth;
+    uint32_t layerCount;
+    uint32_t faceCount;
+    uint32_t levelCount;
+    uint32_t compression;
+    uint32_t dfdByteOffset;
+    uint32_t dfdByteLength;
+    uint32_t kvdByteOffset;
+    uint32_t kvdByteLength;
+    uint64_t sgdByteOffset;
+    uint64_t sgdByteLength;
+    struct {
+      uint64_t byteOffset;
+      uint64_t byteLength;
+      uint64_t uncompressedLength;
+    } levels[1];
+  } KTX2Header;
+
+  char* data = blob->data;
+  size_t length = blob->size;
+  KTX2Header* header = (KTX2Header*) data;
+
+  uint8_t magic[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
+
+  if (length < sizeof(KTX2Header) || memcmp(header->magic, magic, sizeof(magic))) {
+    return NULL;
+  }
+
+  lovrAssert(header->pixelWidth > 0, "KTX image dimensions must be positive");
+  lovrAssert(header->pixelHeight > 0, "Unable to load 1D KTX images");
+  lovrAssert(header->pixelDepth == 0, "Unable to load 3D KTX images");
+  lovrAssert(header->faceCount == 1 || header->faceCount == 6, "Invalid KTX file (faceCount must be 1 or 6)");
+  lovrAssert(header->layerCount == 0 || header->faceCount == 1, "Unable to load cubemap array KTX images");
+  lovrAssert(!header->compression, "Supercompressed KTX files are not currently supported");
+
+  Image* image = calloc(1, sizeof(Image));
+  lovrAssert(image, "Out of memory");
+  image->ref = 1;
+  image->width = header->pixelWidth;
+  image->height = header->pixelHeight;
+  image->layers = MAX(header->layerCount, 1);
+  image->levels = MAX(header->levelCount, 1);
+  image->blob = blob;
+  lovrRetain(blob);
+
+  if (header->faceCount == 6) {
+    image->flags |= IMAGE_CUBEMAP;
+    image->layers = 6;
+  }
+
+  // Format
+  switch (header->vkFormat) {
+    case 9:   image->format = FORMAT_R8; break;
+    case 16:  image->format = FORMAT_RG8; break;
+    case 37:  image->format = FORMAT_RGBA8; break;
+    case 43:  image->format = FORMAT_RGBA8, image->flags |= IMAGE_SRGB; break;
+    case 70:  image->format = FORMAT_R16; break;
+    case 77:  image->format = FORMAT_RG16; break;
+    case 91:  image->format = FORMAT_RGBA16; break;
+    case 76:  image->format = FORMAT_R16F; break;
+    case 83:  image->format = FORMAT_RG16F; break;
+    case 97:  image->format = FORMAT_RGBA16F; break;
+    case 100: image->format = FORMAT_R32F; break;
+    case 103: image->format = FORMAT_RG32F; break;
+    case 4:   image->format = FORMAT_RGB565; break;
+    case 6:   image->format = FORMAT_RGB5A1; break;
+    case 64:  image->format = FORMAT_RGB10A2; break;
+    case 122: image->format = FORMAT_RG11B10F; break;
+    case 124: image->format = FORMAT_D16; break;
+    case 129: image->format = FORMAT_D24S8; break;
+    case 126: image->format = FORMAT_D32F; break;
+    case 132: image->flags |= IMAGE_SRGB; case 131: image->format = FORMAT_BC1; break;
+    case 136: image->flags |= IMAGE_SRGB; case 135: image->format = FORMAT_BC2; break;
+    case 138: image->flags |= IMAGE_SRGB; case 137: image->format = FORMAT_BC3; break;
+    case 139: image->format = FORMAT_BC4U; break;
+    case 140: image->format = FORMAT_BC4S; break;
+    case 141: image->format = FORMAT_BC5U; break;
+    case 142: image->format = FORMAT_BC5S; break;
+    case 143: image->format = FORMAT_BC6UF; break;
+    case 144: image->format = FORMAT_BC6SF; break;
+    case 146: image->flags |= IMAGE_SRGB; case 145: image->format = FORMAT_BC7; break;
+    case 158: image->flags |= IMAGE_SRGB; case 157: image->format = FORMAT_ASTC_4x4; break;
+    case 160: image->flags |= IMAGE_SRGB; case 159: image->format = FORMAT_ASTC_5x4; break;
+    case 162: image->flags |= IMAGE_SRGB; case 161: image->format = FORMAT_ASTC_5x5; break;
+    case 164: image->flags |= IMAGE_SRGB; case 163: image->format = FORMAT_ASTC_6x5; break;
+    case 166: image->flags |= IMAGE_SRGB; case 165: image->format = FORMAT_ASTC_6x6; break;
+    case 168: image->flags |= IMAGE_SRGB; case 167: image->format = FORMAT_ASTC_8x5; break;
+    case 170: image->flags |= IMAGE_SRGB; case 169: image->format = FORMAT_ASTC_8x6; break;
+    case 172: image->flags |= IMAGE_SRGB; case 171: image->format = FORMAT_ASTC_8x8; break;
+    case 174: image->flags |= IMAGE_SRGB; case 173: image->format = FORMAT_ASTC_10x5; break;
+    case 176: image->flags |= IMAGE_SRGB; case 175: image->format = FORMAT_ASTC_10x6; break;
+    case 178: image->flags |= IMAGE_SRGB; case 177: image->format = FORMAT_ASTC_10x8; break;
+    case 180: image->flags |= IMAGE_SRGB; case 179: image->format = FORMAT_ASTC_10x10; break;
+    case 182: image->flags |= IMAGE_SRGB; case 181: image->format = FORMAT_ASTC_12x10; break;
+    case 184: image->flags |= IMAGE_SRGB; case 183: image->format = FORMAT_ASTC_12x12; break;
+    default: lovrThrow("KTX file uses an unsupported image format");
+  }
+
+  // Mipmaps
+  uint32_t width = width;
+  uint32_t height = height;
+  for (uint32_t i = 0; i < image->levels; i++) {
+    uint64_t offset = header->levels[i].byteOffset;
+    uint64_t size = header->levels[i].byteLength;
+    size_t stride = size / image->layers;
+    lovrAssert(offset + size <= blob->size, "KTX file overflow");
+    lovrAssert(measure(width, height, image->format) == size, "KTX size mismatch");
+    image->mipmaps[i] = (Mipmap) { data + offset, stride, stride };
+    width = MAX(width >> 1, 1);
+    height = MAX(height >> 1, 1);
+  }
+
+  return image;
 }
 
 static Image* loadSTB(Blob* blob) {
@@ -896,7 +1163,7 @@ static Image* loadSTB(Blob* blob) {
     return NULL;
   }
 
-  size_t size = width * height * getBlockSize(format);
+  size_t size = measure(width, height, format);
 
   Image* image = calloc(1, sizeof(Image));
   lovrAssert(image, "Out of memory");
@@ -907,83 +1174,6 @@ static Image* loadSTB(Blob* blob) {
   image->layers = 1;
   image->levels = 1;
   image->blob = lovrBlobCreate(data, size, blob->name);
-  image->mipmaps[0] = (Mipmap) { data, size };
+  image->mipmaps[0] = (Mipmap) { data, size, 0 };
   return image;
 }
-
-/*
-static bool parseKTX(uint8_t* bytes, size_t size, Image* image) {
-  typedef struct {
-    uint8_t magic[12];
-    uint32_t endianness;
-    uint32_t glType;
-    uint32_t glTypeSize;
-    uint32_t glFormat;
-    uint32_t glInternalFormat;
-    uint32_t glBaseInternalFormat;
-    uint32_t pixelWidth;
-    uint32_t pixelHeight;
-    uint32_t pixelDepth;
-    uint32_t numberOfArrayElements;
-    uint32_t numberOfFaces;
-    uint32_t numberOfMipmapLevels;
-    uint32_t bytesOfKeyValueData;
-  } KTXHeader;
-
-  union {
-    uint8_t* u8;
-    uint32_t* u32;
-    KTXHeader* ktx;
-  } data = { .u8 = bytes };
-
-  uint8_t magic[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
-
-  if (size < sizeof(magic) || memcmp(data.ktx->magic, magic, sizeof(magic))) {
-    return false;
-  }
-
-  if (data.ktx->endianness != 0x04030201 || data.ktx->numberOfArrayElements > 0 || data.ktx->numberOfFaces > 1 || data.ktx->pixelDepth > 1) {
-    return false;
-  }
-
-  // TODO MOAR FORMATS, GIMME COOOBMAPS
-  switch (data.ktx->glInternalFormat) {
-    case 0x83F0: image->format = FORMAT_DXT1; break;
-    case 0x83F2: image->format = FORMAT_DXT3; break;
-    case 0x83F3: image->format = FORMAT_DXT5; break;
-    case 0x93B0: case 0x93D0: image->format = FORMAT_ASTC_4x4; break;
-    case 0x93B1: case 0x93D1: image->format = FORMAT_ASTC_5x4; break;
-    case 0x93B2: case 0x93D2: image->format = FORMAT_ASTC_5x5; break;
-    case 0x93B3: case 0x93D3: image->format = FORMAT_ASTC_6x5; break;
-    case 0x93B4: case 0x93D4: image->format = FORMAT_ASTC_6x6; break;
-    case 0x93B5: case 0x93D5: image->format = FORMAT_ASTC_8x5; break;
-    case 0x93B6: case 0x93D6: image->format = FORMAT_ASTC_8x6; break;
-    case 0x93B7: case 0x93D7: image->format = FORMAT_ASTC_8x8; break;
-    case 0x93B8: case 0x93D8: image->format = FORMAT_ASTC_10x5; break;
-    case 0x93B9: case 0x93D9: image->format = FORMAT_ASTC_10x6; break;
-    case 0x93BA: case 0x93DA: image->format = FORMAT_ASTC_10x8; break;
-    case 0x93BB: case 0x93DB: image->format = FORMAT_ASTC_10x10; break;
-    case 0x93BC: case 0x93DC: image->format = FORMAT_ASTC_12x10; break;
-    case 0x93BD: case 0x93DD: image->format = FORMAT_ASTC_12x12; break;
-    default: lovrThrow("Unsupported KTX format '%d' (please open an issue)", data.ktx->glInternalFormat);
-  }
-
-  uint32_t width = image->width = data.ktx->pixelWidth;
-  uint32_t height = image->height = data.ktx->pixelHeight;
-  uint32_t mipmapCount = image->mipmapCount = data.ktx->numberOfMipmapLevels;
-  image->mipmaps = malloc(mipmapCount * sizeof(Mipmap));
-
-  data.u8 += sizeof(KTXHeader) + data.ktx->bytesOfKeyValueData;
-  for (uint32_t i = 0; i < mipmapCount; i++) {
-    image->mipmaps[i] = (Mipmap) { .width = width, .height = height, .data = data.u8 + sizeof(uint32_t), .size = *data.u32 };
-    width = MAX(width >> 1, 1u);
-    height = MAX(height >> 1, 1u);
-    data.u8 = (uint8_t*) ALIGN(data.u8 + sizeof(uint32_t) + *data.u32, 4);
-  }
-
-  return true;
-}
-
-static bool parseASTC(uint8_t* bytes, size_t size, Image* image) {
-}
-*/
