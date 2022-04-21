@@ -2,5 +2,5 @@
 
 #pragma once
 
-bool lovrGraphicsInit(void);
+bool lovrGraphicsInit(bool debug);
 void lovrGraphicsDestroy(void);

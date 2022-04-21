@@ -94,6 +94,10 @@ function lovr.boot()
     end
   end
 
+  if lovr.graphics then
+    lovr.graphics.init()
+  end
+
   if lovr.headset and lovr.graphics and conf.window then
     lovr.headset.start()
   end

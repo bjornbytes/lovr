@@ -16,6 +16,7 @@ option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
+option(LOVR_USE_VULKAN "Use the Vulkan renderer" ON)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP "Enable the keyboard/mouse backend for the headset module" ON)
@@ -161,6 +162,12 @@ if(LOVR_ENABLE_PHYSICS)
     include_directories(deps/ode/include "${CMAKE_CURRENT_BINARY_DIR}/ode/include")
     set(LOVR_ODE ode)
   endif()
+endif()
+
+# Vulkan
+if(LOVR_USE_VULKAN)
+  find_package(Vulkan REQUIRED)
+  include_directories(${Vulkan_INCLUDE_DIRS})
 endif()
 
 # OpenXR
@@ -409,6 +416,11 @@ if(LOVR_ENABLE_GRAPHICS)
     src/modules/graphics/graphics.c
     src/api/l_graphics.c
   )
+
+  if(LOVR_USE_VULKAN)
+    target_compile_definitions(lovr PRIVATE LOVR_VK)
+    target_sources(lovr PRIVATE src/core/gpu_vk.c)
+  endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
 endif()

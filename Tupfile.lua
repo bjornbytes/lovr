@@ -24,6 +24,9 @@ config = {
     openxr = false,
     webxr = false
   },
+  renderers = {
+    vulkan = true
+  },
   spatializers = {
     simple = true,
     oculus = false,
@@ -367,6 +370,14 @@ for headset, enabled in pairs(config.headsets) do
   if enabled then
     cflags += '-DLOVR_USE_' .. headset:upper()
     src += ('src/modules/headset/headset_%s.c'):format(headset)
+  end
+end
+
+for renderer, enabled in pairs(config.renderers) do
+  if enabled then
+    local code = renderer:gsub('vulkan', 'vk')
+    cflags += '-DLOVR_' .. code:upper()
+    src += 'src/core/gpu_' .. code .. '.c'
   end
 end
 
