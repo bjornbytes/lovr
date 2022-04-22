@@ -17,6 +17,7 @@ option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_VULKAN "Use the Vulkan renderer" ON)
+option(LOVR_USE_WEBGPU "Use the WebGPU renderer" OFF)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP "Enable the keyboard/mouse backend for the headset module" ON)
@@ -38,21 +39,26 @@ set(LOVR_SYMBOL_VISIBILITY "hidden" CACHE STRING "What should the C symbol visib
 
 # Setup
 if(EMSCRIPTEN)
-  string(CONCAT LOVR_EMSCRIPTEN_FLAGS
+  string(CONCAT EMSCRIPTEN_LINKER_FLAGS
     "-Os "
+    "-s USE_WEBGPU=1 "
     "-s FORCE_FILESYSTEM=1 "
-    "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection']\" "
-    "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
+    "-s EXPORTED_FUNCTIONS=_main,_lovrDestroy,_webxr_attach,_webxr_detach "
+    "-s \"EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/etc/webxr.js\" "
     "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/etc/lovr.html\""
   )
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os")
   if(LOVR_ENABLE_THREAD)
-    set(LOVR_EMSCRIPTEN_FLAGS "${LOVR_EMSCRIPTEN_FLAGS} -s USE_PTHREADS=1")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   endif()
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
   set(LOVR_USE_WEBXR ON)
+  set(LOVR_USE_OPENXR OFF)
+  set(LOVR_USE_WEBGPU ON)
+  set(LOVR_USE_VULKAN OFF)
 elseif(ANDROID)
   set(ANDROID_FLAVOR "oculus" CACHE STRING "Which Android flavor to build (oculus or pico)")
   find_package(Java REQUIRED)
@@ -328,7 +334,7 @@ target_link_libraries(lovr
   ${LOVR_OPENXR}
   ${LOVR_OCULUS_AUDIO}
   ${LOVR_PTHREADS}
-  ${LOVR_EMSCRIPTEN_FLAGS}
+  ${EMSCRIPTEN_LINKER_FLAGS}
 )
 
 if (LOVR_SANITIZE)
@@ -420,6 +426,11 @@ if(LOVR_ENABLE_GRAPHICS)
   if(LOVR_USE_VULKAN)
     target_compile_definitions(lovr PRIVATE LOVR_VK)
     target_sources(lovr PRIVATE src/core/gpu_vk.c)
+  endif()
+
+  if(LOVR_USE_WEBGPU)
+    target_compile_definitions(lovr PRIVATE LOVR_WGPU)
+    target_sources(lovr PRIVATE src/core/gpu_webgpu.c)
   endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
