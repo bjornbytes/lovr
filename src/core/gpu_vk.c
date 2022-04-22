@@ -230,13 +230,12 @@ bool gpu_init(gpu_config* config) {
 
     if (config->device) {
       VkPhysicalDeviceProperties* properties = &properties2.properties;
-      config->device->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-      config->device->serial = properties->deviceID;
-      config->device->vendor = properties->vendorID;
-      config->device->version = properties->driverVersion;
-      memcpy(config->device->name, properties->deviceName, MIN(sizeof(config->device->name), sizeof(properties->deviceName)));
+      config->device->deviceId = properties->deviceID;
+      config->device->vendorId = properties->vendorID;
+      memcpy(config->device->deviceName, properties->deviceName, MIN(sizeof(config->device->deviceName), sizeof(properties->deviceName)));
       config->device->renderer = "Vulkan";
       config->device->subgroupSize = subgroupProperties.subgroupSize;
+      config->device->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
     }
 
     if (config->limits) {

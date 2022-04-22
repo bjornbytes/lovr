@@ -4,13 +4,12 @@
 #pragma once
 
 typedef struct {
-  bool discrete;
-  uint32_t serial;
-  uint32_t vendor;
-  uint32_t version;
+  uint32_t deviceId;
+  uint32_t vendorId;
   const char* name;
   const char* renderer;
   uint32_t subgroupSize;
+  bool discrete;
 } GraphicsDevice;
 
 typedef struct {

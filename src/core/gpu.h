@@ -2,14 +2,13 @@
 #include <stdint.h>
 
 typedef struct {
-  bool discrete;
-  uint32_t serial;
-  uint32_t vendor;
-  uint32_t version;
-  char name[256];
+  uint32_t deviceId;
+  uint32_t vendorId;
+  char deviceName[256];
   const char* renderer;
   uint32_t subgroupSize;
-} gpu_device;
+  bool discrete;
+} gpu_device_info;
 
 typedef struct {
   bool bptc;
@@ -54,7 +53,7 @@ typedef struct {
   bool debug;
   void* userdata;
   void (*callback)(void* userdata, const char* message, bool error);
-  gpu_device* device;
+  gpu_device_info* device;
   gpu_features* features;
   gpu_limits* limits;
 } gpu_config;

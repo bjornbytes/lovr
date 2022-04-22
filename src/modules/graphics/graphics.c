@@ -5,7 +5,7 @@
 
 static struct {
   bool initialized;
-  gpu_device device;
+  gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
 } state;
@@ -42,13 +42,12 @@ void lovrGraphicsDestroy() {
 }
 
 void lovrGraphicsGetDevice(GraphicsDevice* device) {
-  device->discrete = state.device.discrete;
-  device->serial = state.device.serial;
-  device->vendor = state.device.vendor;
-  device->version = state.device.version;
-  device->name = state.device.name;
+  device->deviceId = state.device.deviceId;
+  device->vendorId = state.device.vendorId;
+  device->name = state.device.deviceName;
   device->renderer = state.device.renderer;
   device->subgroupSize = state.device.subgroupSize;
+  device->discrete = state.device.discrete;
 }
 
 void lovrGraphicsGetFeatures(GraphicsFeatures* features) {

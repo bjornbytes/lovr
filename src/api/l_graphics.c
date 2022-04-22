@@ -26,13 +26,12 @@ static int l_lovrGraphicsGetDevice(lua_State* L) {
   GraphicsDevice device;
   lovrGraphicsGetDevice(&device);
   lua_newtable(L);
-  lua_pushboolean(L, device.discrete), lua_setfield(L, -2, "discrete");
-  lua_pushinteger(L, device.serial), lua_setfield(L, -2, "id");
-  lua_pushinteger(L, device.vendor), lua_setfield(L, -2, "vendor");
-  lua_pushinteger(L, device.version), lua_setfield(L, -2, "driver");
+  lua_pushinteger(L, device.deviceId), lua_setfield(L, -2, "id");
+  lua_pushinteger(L, device.vendorId), lua_setfield(L, -2, "vendor");
   lua_pushstring(L, device.name), lua_setfield(L, -2, "name");
   lua_pushstring(L, device.renderer), lua_setfield(L, -2, "renderer");
   lua_pushinteger(L, device.subgroupSize), lua_setfield(L, -2, "subgroupSize");
+  lua_pushboolean(L, device.discrete), lua_setfield(L, -2, "discrete");
   return 1;
 }
 
