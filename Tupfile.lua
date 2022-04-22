@@ -154,6 +154,9 @@ if target == 'wasm' then
   lflags += '--shell-file etc/lovr.html'
   lflags += '-s EXPORTED_FUNCTIONS=' .. table.concat(exported_functions, ',')
   extras += { 'bin/lovr.js', 'bin/lovr.wasm' }
+  if config.renderers.webgpu then
+    lflags += '-s USE_WEBGPU=1'
+  end
   if config.modules.thread then
     cflags += '-s USE_PTHREADS=1'
     lflags += '-s USE_PTHREADS=1'
