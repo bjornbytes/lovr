@@ -6,7 +6,7 @@ typedef struct {
   uint32_t serial;
   uint32_t vendor;
   uint32_t version;
-  const char name[256];
+  char name[256];
   const char* renderer;
   uint32_t subgroupSize;
 } gpu_device;
@@ -18,7 +18,6 @@ typedef struct {
   bool depthClamp;
   bool clipDistance;
   bool cullDistance;
-  bool fullIndexBufferRange;
   bool indirectDrawFirstInstance;
   bool dynamicIndexing;
   bool float64;

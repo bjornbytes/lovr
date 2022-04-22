@@ -46,7 +46,6 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.depthClamp), lua_setfield(L, -2, "depthClamp");
   lua_pushboolean(L, features.clipDistance), lua_setfield(L, -2, "clipDistance");
   lua_pushboolean(L, features.cullDistance), lua_setfield(L, -2, "cullDistance");
-  lua_pushboolean(L, features.fullIndexBufferRange), lua_setfield(L, -2, "fullIndexBufferRange");
   lua_pushboolean(L, features.indirectDrawFirstInstance), lua_setfield(L, -2, "indirectDrawFirstInstance");
   lua_pushboolean(L, features.dynamicIndexing), lua_setfield(L, -2, "dynamicIndexing");
   lua_pushboolean(L, features.float64), lua_setfield(L, -2, "float64");

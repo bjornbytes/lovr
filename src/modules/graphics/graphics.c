@@ -58,7 +58,6 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->depthClamp = state.features.depthClamp;
   features->clipDistance = state.features.clipDistance;
   features->cullDistance = state.features.cullDistance;
-  features->fullIndexBufferRange = state.features.fullIndexBufferRange;
   features->indirectDrawFirstInstance = state.features.indirectDrawFirstInstance;
   features->dynamicIndexing = state.features.dynamicIndexing;
   features->float64 = state.features.float64;

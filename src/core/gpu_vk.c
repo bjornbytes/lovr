@@ -272,14 +272,12 @@ bool gpu_init(gpu_config* config) {
     }
 
     VkPhysicalDeviceShaderDrawParameterFeatures shaderDrawParameterFeatures = {
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES,
-      .shaderDrawParameters = true
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES
     };
 
     VkPhysicalDeviceMultiviewFeatures multiviewFeatures = {
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
-      .pNext = &shaderDrawParameterFeatures,
-      .multiview = true
+      .pNext = &shaderDrawParameterFeatures
     };
 
     VkPhysicalDeviceFeatures2 enabledFeatures = {
@@ -293,7 +291,12 @@ bool gpu_init(gpu_config* config) {
       VkPhysicalDeviceFeatures* supports = &features2.features;
       vkGetPhysicalDeviceFeatures2(state.adapter, &features2);
 
-      // Internal features (they are exposed as limits)
+      // Required features
+      enable->fullDrawIndexUint32 = true;
+      multiviewFeatures.multiview = true;
+      shaderDrawParameterFeatures.shaderDrawParameters = true;
+
+      // Internal features (exposed as limits)
       enable->samplerAnisotropy = supports->samplerAnisotropy;
       enable->multiDrawIndirect = supports->multiDrawIndirect;
       enable->largePoints = supports->largePoints;
@@ -305,7 +308,6 @@ bool gpu_init(gpu_config* config) {
       config->features->depthClamp = enable->depthClamp = supports->depthClamp;
       config->features->clipDistance = enable->shaderClipDistance = supports->shaderClipDistance;
       config->features->cullDistance = enable->shaderCullDistance = supports->shaderCullDistance;
-      config->features->fullIndexBufferRange = enable->fullDrawIndexUint32 = supports->fullDrawIndexUint32;
       config->features->indirectDrawFirstInstance = enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance;
       config->features->float64 = enable->shaderFloat64 = supports->shaderFloat64;
       config->features->int64 = enable->shaderInt64 = supports->shaderInt64;
