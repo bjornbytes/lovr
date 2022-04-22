@@ -145,11 +145,13 @@ if target == 'wasm' then
   cflags += '-std=gnu11'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   lflags += '-s FORCE_FILESYSTEM'
-  lflags += ([[-s EXPORTED_FUNCTIONS="['_main','_lovrDestroy','_webxr_attach','_webxr_detach']"]])
+  exported_functions = { '_main', '_lovrDestroy' }
   if config.headsets.webxr then
+    exported_functions += { '_webxr_attach', '_webxr_detach' }
     lflags += '--js-library etc/webxr.js'
   end
   lflags += '--shell-file etc/lovr.html'
+  lflags += '-s EXPORTED_FUNCTIONS=' .. table.concat(exported_functions, ',')
   extras += { 'bin/lovr.js', 'bin/lovr.wasm' }
   if config.modules.thread then
     cflags += '-s USE_PTHREADS=1'
