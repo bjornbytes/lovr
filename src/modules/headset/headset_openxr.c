@@ -495,7 +495,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       { 0, NULL, "vibrate",          XR_ACTION_TYPE_VIBRATION_OUTPUT, 2, hands, "Vibrate" }
     };
 
-    _Static_assert(COUNTOF(actionInfo) == MAX_ACTIONS, "Unbalanced action table!");
+    static_assert(COUNTOF(actionInfo) == MAX_ACTIONS, "Unbalanced action table!");
 
     if (!state.features.viveTrackers) {
       actionInfo[ACTION_TRACKER_POSE].countSubactionPaths = 0;
