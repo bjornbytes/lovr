@@ -18,6 +18,7 @@ StringEntry lovrJointType[] = {
   [JOINT_DISTANCE] = ENTRY("distance"),
   [JOINT_HINGE] = ENTRY("hinge"),
   [JOINT_SLIDER] = ENTRY("slider"),
+  [JOINT_PISTON] = ENTRY("piston"),
   { 0 }
 };
 
@@ -122,6 +123,17 @@ static int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   return 1;
 }
 
+static int l_lovrPhysicsNewPistonJoint(lua_State* L) {
+  Collider* a = luax_checktype(L, 1, Collider);
+  Collider* b = luax_checktype(L, 2, Collider);
+  float axis[4];
+  luax_readvec3(L, 3, axis, NULL);
+  PistonJoint* joint = lovrPistonJointCreate(a, b, axis[0], axis[1], axis[2]);
+  luax_pushtype(L, PistonJoint, joint);
+  lovrRelease(joint, lovrJointDestroy);
+  return 1;
+}
+
 static int l_lovrPhysicsNewSphereShape(lua_State* L) {
   float radius = luax_optfloat(L, 1, 1.f);
   SphereShape* sphere = lovrSphereShapeCreate(radius);
@@ -139,6 +151,7 @@ static const luaL_Reg lovrPhysics[] = {
   { "newDistanceJoint", l_lovrPhysicsNewDistanceJoint },
   { "newHingeJoint", l_lovrPhysicsNewHingeJoint },
   { "newSliderJoint", l_lovrPhysicsNewSliderJoint },
+  { "newPistonJoint", l_lovrPhysicsNewPistonJoint },
   { "newSphereShape", l_lovrPhysicsNewSphereShape },
   { NULL, NULL }
 };
@@ -149,6 +162,7 @@ extern const luaL_Reg lovrBallJoint[];
 extern const luaL_Reg lovrDistanceJoint[];
 extern const luaL_Reg lovrHingeJoint[];
 extern const luaL_Reg lovrSliderJoint[];
+extern const luaL_Reg lovrPistonJoint[];
 extern const luaL_Reg lovrSphereShape[];
 extern const luaL_Reg lovrBoxShape[];
 extern const luaL_Reg lovrCapsuleShape[];
@@ -164,6 +178,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, DistanceJoint);
   luax_registertype(L, HingeJoint);
   luax_registertype(L, SliderJoint);
+  luax_registertype(L, PistonJoint);
   luax_registertype(L, SphereShape);
   luax_registertype(L, BoxShape);
   luax_registertype(L, CapsuleShape);

@@ -1299,3 +1299,57 @@ float lovrSliderJointGetUpperLimit(SliderJoint* joint) {
 void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit) {
   dJointSetSliderParam(joint->id, dParamHiStop, limit);
 }
+
+PistonJoint* lovrPistonJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
+  lovrAssert(a->world == b->world, "Joint bodies must exist in the same world");
+  PistonJoint* joint = calloc(1, sizeof(PistonJoint));
+  lovrAssert(joint, "Out of memory");
+  joint->ref = 1;
+  joint->type = JOINT_PISTON;
+  joint->id = dJointCreatePiston(a->world->id, 0);
+  dJointSetData(joint->id, joint);
+  dJointAttach(joint->id, a->body, b->body);
+  lovrPistonJointSetAxis(joint, ax, ay, az);
+  lovrRetain(joint);
+  return joint;
+}
+
+void lovrPistonJointGetAnchors(PistonJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+  dReal anchor[4];
+  dJointGetPistonAnchor(joint->id, anchor);
+  *x1 = anchor[0];
+  *y1 = anchor[1];
+  *z1 = anchor[2];
+  dJointGetPistonAnchor2(joint->id, anchor);
+  *x2 = anchor[0];
+  *y2 = anchor[1];
+  *z2 = anchor[2];
+}
+
+void lovrPistonJointSetAnchor(PistonJoint* joint, float x, float y, float z) {
+  dJointSetPistonAnchor(joint->id, x, y, z);
+}
+
+void lovrPistonJointGetAxis(PistonJoint* joint, float* x, float* y, float* z) {
+  dReal axis[4];
+  dJointGetPistonAxis(joint->id, axis);
+  *x = axis[0];
+  *y = axis[1];
+  *z = axis[2];
+}
+
+void lovrPistonJointSetAxis(PistonJoint* joint, float x, float y, float z) {
+  dJointSetPistonAxis(joint->id, x, y, z);
+}
+
+float lovrPistonJointGetPosition(PistonJoint* joint) {
+  return dJointGetPistonPosition(joint->id);
+}
+
+float lovrPistonJointGetAngle(PistonJoint* joint) {
+  return dJointGetPistonAngle(joint->id);
+}
+
+void lovrPistonJointApplyForce(PistonJoint* joint, float force) {
+  dJointAddPistonForce(joint->id, force);
+}

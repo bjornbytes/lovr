@@ -11,6 +11,7 @@ void luax_pushjoint(lua_State* L, Joint* joint) {
     case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
     case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
     case JOINT_SLIDER: luax_pushtype(L, SliderJoint, joint); break;
+    case JOINT_PISTON: luax_pushtype(L, PistonJoint, joint); break;
     default: lovrThrow("Unreachable");
   }
 }
@@ -23,7 +24,8 @@ Joint* luax_checkjoint(lua_State* L, int index) {
       hash64("BallJoint", strlen("BallJoint")),
       hash64("DistanceJoint", strlen("DistanceJoint")),
       hash64("HingeJoint", strlen("HingeJoint")),
-      hash64("SliderJoint", strlen("SliderJoint"))
+      hash64("SliderJoint", strlen("SliderJoint")),
+      hash64("PistonJoint", strlen("PistonJoint"))
     };
 
     for (size_t i = 0; i < COUNTOF(hashes); i++) {
@@ -425,5 +427,68 @@ const luaL_Reg lovrSliderJoint[] = {
   { "setUpperLimit", l_lovrSliderJointSetUpperLimit },
   { "getLimits", l_lovrSliderJointGetLimits },
   { "setLimits", l_lovrSliderJointSetLimits },
+  { NULL, NULL }
+};
+
+static int l_lovrPistonJointGetAxis(lua_State* L) {
+  PistonJoint* joint = luax_checktype(L, 1, PistonJoint);
+  float x, y, z;
+  lovrPistonJointGetAxis(joint, &x, &y, &z);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  lua_pushnumber(L, z);
+  return 3;
+}
+
+static int l_lovrPistonJointSetAxis(lua_State* L) {
+  PistonJoint* joint = luax_checktype(L, 1, PistonJoint);
+  float axis[4];
+  luax_readvec3(L, 2, axis, NULL);
+  lovrPistonJointSetAxis(joint, axis[0], axis[1], axis[2]);
+  return 0;
+}
+
+static int l_lovrPistonJointGetPosition(lua_State* L) {
+  PistonJoint* joint = luax_checktype(L, 1, PistonJoint);
+  lua_pushnumber(L, lovrPistonJointGetPosition(joint));
+  return 1;
+}
+
+static int l_lovrPistonJointGetAnchors(lua_State* L) {
+  PistonJoint* joint = luax_checktype(L, 1, PistonJoint);
+  float x1, y1, z1, x2, y2, z2;
+  lovrPistonJointGetAnchors(joint, &x1, &y1, &z1, &x2, &y2, &z2);
+  lua_pushnumber(L, x1);
+  lua_pushnumber(L, y1);
+  lua_pushnumber(L, z1);
+  lua_pushnumber(L, x2);
+  lua_pushnumber(L, y2);
+  lua_pushnumber(L, z2);
+  return 6;
+}
+
+static int l_lovrPistonJointSetAnchor(lua_State* L) {
+  PistonJoint* joint = luax_checktype(L, 1, PistonJoint);
+  float anchor[4];
+  luax_readvec3(L, 2, anchor, NULL);
+  lovrPistonJointSetAnchor(joint, anchor[0], anchor[1], anchor[2]);
+  return 0;
+}
+
+static int l_lovrPistonJointApplyForce(lua_State* L) {
+  PistonJoint* joint = luax_checktype(L, 1, PistonJoint);
+  float force = luax_checkfloat(L, 2);
+  lovrPistonJointApplyForce(joint, force);
+  return 0;
+}
+
+const luaL_Reg lovrPistonJoint[] = {
+  lovrJoint,
+  { "getAxis", l_lovrPistonJointGetAxis },
+  { "setAxis", l_lovrPistonJointSetAxis },
+  { "getAnchors", l_lovrPistonJointGetAnchors },
+  { "setAnchor", l_lovrPistonJointSetAnchor },
+  { "getPosition", l_lovrPistonJointGetPosition },
+  { "applyForce", l_lovrPistonJointApplyForce },
   { NULL, NULL }
 };

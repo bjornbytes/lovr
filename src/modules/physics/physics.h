@@ -23,6 +23,7 @@ typedef Joint BallJoint;
 typedef Joint DistanceJoint;
 typedef Joint HingeJoint;
 typedef Joint SliderJoint;
+typedef Joint PistonJoint;
 
 typedef void (*CollisionResolver)(World* world, void* userdata);
 typedef void (*RaycastCallback)(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata);
@@ -185,7 +186,8 @@ typedef enum {
   JOINT_BALL,
   JOINT_DISTANCE,
   JOINT_HINGE,
-  JOINT_SLIDER
+  JOINT_SLIDER,
+  JOINT_PISTON
 } JointType;
 
 void lovrJointDestroy(void* ref);
@@ -239,8 +241,18 @@ void lovrSliderJointSetLowerLimit(SliderJoint* joint, float limit);
 float lovrSliderJointGetUpperLimit(SliderJoint* joint);
 void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit);
 
+PistonJoint* lovrPistonJointCreate(Collider* a, Collider* b, float ax, float ay, float az);
+void lovrPistonJointGetAnchors(PistonJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
+void lovrPistonJointSetAnchor(PistonJoint* joint, float x, float y, float z);
+void lovrPistonJointGetAxis(PistonJoint* joint, float* x, float* y, float* z);
+void lovrPistonJointSetAxis(PistonJoint* joint, float x, float y, float z);
+float lovrPistonJointGetPosition(PistonJoint* joint);
+float lovrPistonJointGetAngle(PistonJoint* joint);
+void lovrPistonJointApplyForce(PistonJoint* joint, float force);
+
 // These tokens need to exist for Lua bindings
 #define lovrBallJointDestroy lovrJointDestroy
 #define lovrDistanceJointDestroy lovrJointDestroy
 #define lovrHingeJointDestroy lovrJointDestroy
 #define lovrSliderJointDestroy lovrJointDestroy
+#define lovrPistonJointDestroy lovrJointDestroy
