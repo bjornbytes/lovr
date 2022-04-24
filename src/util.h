@@ -15,6 +15,12 @@
 #define LOVR_THREAD_LOCAL __thread
 #endif
 
+#ifdef _MSC_VER
+#define LOVR_NO_RETURN_LOCAL __declspec(noreturn)
+#else
+#define LOVR_NO_RETURN_LOCAL _Noreturn
+#endif
+
 #ifndef M_PI
 #define M_PI 3.14159265358979
 #endif
@@ -31,7 +37,7 @@ typedef struct Color { float r, g, b, a; } Color;
 // Error handling
 typedef void errorFn(void*, const char*, va_list);
 void lovrSetErrorCallback(errorFn* callback, void* userdata);
-_Noreturn void lovrThrow(const char* format, ...);
+LOVR_NO_RETURN_LOCAL  void lovrThrow(const char* format, ...);
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 
 #ifdef LOVR_UNCHECKED
