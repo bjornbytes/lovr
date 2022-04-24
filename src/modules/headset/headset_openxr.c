@@ -7,6 +7,7 @@
 #include "graphics/texture.h"
 #include "core/os.h"
 #include "util.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <math.h>
 
