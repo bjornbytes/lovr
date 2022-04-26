@@ -13,16 +13,11 @@ typedef struct {
 } GraphicsDevice;
 
 typedef struct {
-  bool bptc;
-  bool astc;
+  bool textureBC;
+  bool textureASTC;
   bool wireframe;
   bool depthClamp;
-  bool clipDistance;
-  bool cullDistance;
-  bool fullIndexBufferRange;
   bool indirectDrawFirstInstance;
-  bool dynamicIndexing;
-  bool nonUniformIndexing;
   bool float64;
   bool int64;
   bool int16;
@@ -41,6 +36,9 @@ typedef struct {
   uint32_t vertexAttributes;
   uint32_t vertexBufferStride;
   uint32_t vertexShaderOutputs;
+  uint32_t clipDistances;
+  uint32_t cullDistances;
+  uint32_t clipAndCullDistances;
   uint32_t computeDispatchCount[3];
   uint32_t computeWorkgroupSize[3];
   uint32_t computeWorkgroupVolume;

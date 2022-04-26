@@ -51,14 +51,11 @@ void lovrGraphicsGetDevice(GraphicsDevice* device) {
 }
 
 void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
-  features->bptc = state.features.bptc;
-  features->astc = state.features.astc;
+  features->textureBC = state.features.textureBC;
+  features->textureASTC = state.features.textureASTC;
   features->wireframe = state.features.wireframe;
   features->depthClamp = state.features.depthClamp;
-  features->clipDistance = state.features.clipDistance;
-  features->cullDistance = state.features.cullDistance;
   features->indirectDrawFirstInstance = state.features.indirectDrawFirstInstance;
-  features->dynamicIndexing = state.features.dynamicIndexing;
   features->float64 = state.features.float64;
   features->int64 = state.features.int64;
   features->int16 = state.features.int16;
@@ -79,6 +76,9 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->vertexAttributes = state.limits.vertexAttributes;
   limits->vertexBufferStride = state.limits.vertexBufferStride;
   limits->vertexShaderOutputs = state.limits.vertexShaderOutputs;
+  limits->clipDistances = state.limits.clipDistances;
+  limits->cullDistances = state.limits.cullDistances;
+  limits->clipAndCullDistances = state.limits.clipAndCullDistances;
   memcpy(limits->computeDispatchCount, state.limits.computeDispatchCount, 3 * sizeof(uint32_t));
   memcpy(limits->computeWorkgroupSize, state.limits.computeWorkgroupSize, 3 * sizeof(uint32_t));
   limits->computeWorkgroupVolume = state.limits.computeWorkgroupVolume;

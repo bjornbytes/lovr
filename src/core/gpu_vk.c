@@ -255,6 +255,9 @@ bool gpu_init(gpu_config* config) {
       config->limits->vertexBuffers = limits->maxVertexInputBindings;
       config->limits->vertexBufferStride = MIN(limits->maxVertexInputBindingStride, UINT16_MAX);
       config->limits->vertexShaderOutputs = limits->maxVertexOutputComponents;
+      config->limits->clipDistances = limits->maxClipDistances;
+      config->limits->cullDistances = limits->maxCullDistances;
+      config->limits->clipAndCullDistances = limits->maxCombinedClipAndCullDistances;
       config->limits->computeDispatchCount[0] = limits->maxComputeWorkGroupCount[0];
       config->limits->computeDispatchCount[1] = limits->maxComputeWorkGroupCount[1];
       config->limits->computeDispatchCount[2] = limits->maxComputeWorkGroupCount[2];
@@ -298,33 +301,19 @@ bool gpu_init(gpu_config* config) {
       // Internal features (exposed as limits)
       enable->samplerAnisotropy = supports->samplerAnisotropy;
       enable->multiDrawIndirect = supports->multiDrawIndirect;
+      enable->shaderClipDistance = supports->shaderClipDistance;
+      enable->shaderCullDistance = supports->shaderCullDistance;
       enable->largePoints = supports->largePoints;
 
       // Optional features (currently always enabled when supported)
-      config->features->astc = enable->textureCompressionASTC_LDR = supports->textureCompressionASTC_LDR;
-      config->features->bptc = enable->textureCompressionBC = supports->textureCompressionBC;
+      config->features->textureBC = enable->textureCompressionBC = supports->textureCompressionBC;
+      config->features->textureASTC = enable->textureCompressionASTC_LDR = supports->textureCompressionASTC_LDR;
       config->features->wireframe = enable->fillModeNonSolid = supports->fillModeNonSolid;
       config->features->depthClamp = enable->depthClamp = supports->depthClamp;
-      config->features->clipDistance = enable->shaderClipDistance = supports->shaderClipDistance;
-      config->features->cullDistance = enable->shaderCullDistance = supports->shaderCullDistance;
       config->features->indirectDrawFirstInstance = enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance;
       config->features->float64 = enable->shaderFloat64 = supports->shaderFloat64;
       config->features->int64 = enable->shaderInt64 = supports->shaderInt64;
       config->features->int16 = enable->shaderInt16 = supports->shaderInt16;
-
-      bool dynamicIndexing =
-        supports->shaderUniformBufferArrayDynamicIndexing &&
-        supports->shaderSampledImageArrayDynamicIndexing &&
-        supports->shaderStorageBufferArrayDynamicIndexing &&
-        supports->shaderStorageImageArrayDynamicIndexing;
-
-      if (dynamicIndexing) {
-        enable->shaderUniformBufferArrayDynamicIndexing = true;
-        enable->shaderSampledImageArrayDynamicIndexing = true;
-        enable->shaderStorageBufferArrayDynamicIndexing = true;
-        enable->shaderStorageImageArrayDynamicIndexing = true;
-        config->features->dynamicIndexing = true;
-      }
     }
 
     state.queueFamilyIndex = ~0u;

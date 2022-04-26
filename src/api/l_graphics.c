@@ -39,14 +39,11 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   GraphicsFeatures features;
   lovrGraphicsGetFeatures(&features);
   lua_newtable(L);
-  lua_pushboolean(L, features.bptc), lua_setfield(L, -2, "bptc");
-  lua_pushboolean(L, features.astc), lua_setfield(L, -2, "astc");
+  lua_pushboolean(L, features.textureBC), lua_setfield(L, -2, "textureBC");
+  lua_pushboolean(L, features.textureASTC), lua_setfield(L, -2, "textureASTC");
   lua_pushboolean(L, features.wireframe), lua_setfield(L, -2, "wireframe");
   lua_pushboolean(L, features.depthClamp), lua_setfield(L, -2, "depthClamp");
-  lua_pushboolean(L, features.clipDistance), lua_setfield(L, -2, "clipDistance");
-  lua_pushboolean(L, features.cullDistance), lua_setfield(L, -2, "cullDistance");
   lua_pushboolean(L, features.indirectDrawFirstInstance), lua_setfield(L, -2, "indirectDrawFirstInstance");
-  lua_pushboolean(L, features.dynamicIndexing), lua_setfield(L, -2, "dynamicIndexing");
   lua_pushboolean(L, features.float64), lua_setfield(L, -2, "float64");
   lua_pushboolean(L, features.int64), lua_setfield(L, -2, "int64");
   lua_pushboolean(L, features.int16), lua_setfield(L, -2, "int16");
@@ -76,6 +73,10 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.vertexAttributes), lua_setfield(L, -2, "vertexAttributes");
   lua_pushinteger(L, limits.vertexBufferStride), lua_setfield(L, -2, "vertexBufferStride");
   lua_pushinteger(L, limits.vertexShaderOutputs), lua_setfield(L, -2, "vertexShaderOutputs");
+
+  lua_pushinteger(L, limits.clipDistances), lua_setfield(L, -2, "clipDistances");
+  lua_pushinteger(L, limits.cullDistances), lua_setfield(L, -2, "cullDistances");
+  lua_pushinteger(L, limits.clipAndCullDistances), lua_setfield(L, -2, "clipAndCullDistances");
 
   lua_createtable(L, 3, 0);
   lua_pushinteger(L, limits.computeDispatchCount[0]), lua_rawseti(L, -2, 1);
