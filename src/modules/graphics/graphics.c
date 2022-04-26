@@ -1,7 +1,15 @@
 #include "graphics/graphics.h"
 #include "core/gpu.h"
 #include "util.h"
+#include <stdlib.h>
 #include <string.h>
+
+struct Buffer {
+  uint32_t ref;
+  uint32_t size;
+  gpu_buffer* gpu;
+  BufferInfo info;
+};
 
 static struct {
   bool initialized;
@@ -88,6 +96,39 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->instances = state.limits.instances;
   limits->anisotropy = state.limits.anisotropy;
   limits->pointSize = state.limits.pointSize;
+}
+
+// Buffer
+
+Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
+  uint32_t size = info->length * MAX(info->stride, 1);
+  lovrCheck(size > 0, "Buffer size can not be zero");
+  lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
+
+  Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
+  lovrAssert(buffer, "Out of memory");
+  buffer->ref = 1;
+  buffer->size = size;
+  buffer->gpu = (gpu_buffer*) (buffer + 1);
+  buffer->info = *info;
+
+  gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
+    .size = buffer->size,
+    .label = info->label,
+    .pointer = data
+  });
+
+  return buffer;
+}
+
+void lovrBufferDestroy(void* ref) {
+  Buffer* buffer = ref;
+  gpu_buffer_destroy(buffer->gpu);
+  free(buffer);
+}
+
+const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
+  return &buffer->info;
 }
 
 // Helpers

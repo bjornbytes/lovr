@@ -1,5 +1,24 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
+
+typedef struct gpu_buffer gpu_buffer;
+
+size_t gpu_sizeof_buffer(void);
+
+// Buffer
+
+typedef struct {
+  uint32_t size;
+  void** pointer;
+  uintptr_t handle;
+  const char* label;
+} gpu_buffer_info;
+
+bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
+void gpu_buffer_destroy(gpu_buffer* buffer);
+
+// Entry
 
 typedef struct {
   uint32_t deviceId;

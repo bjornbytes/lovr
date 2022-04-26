@@ -3,6 +3,8 @@
 
 #pragma once
 
+typedef struct Buffer Buffer;
+
 typedef struct {
   uint32_t deviceId;
   uint32_t vendorId;
@@ -56,3 +58,65 @@ void lovrGraphicsDestroy(void);
 void lovrGraphicsGetDevice(GraphicsDevice* device);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
+
+// Buffer
+
+typedef enum {
+  FIELD_I8x4,
+  FIELD_U8x4,
+  FIELD_SN8x4,
+  FIELD_UN8x4,
+  FIELD_UN10x3,
+  FIELD_I16,
+  FIELD_I16x2,
+  FIELD_I16x4,
+  FIELD_U16,
+  FIELD_U16x2,
+  FIELD_U16x4,
+  FIELD_SN16x2,
+  FIELD_SN16x4,
+  FIELD_UN16x2,
+  FIELD_UN16x4,
+  FIELD_I32,
+  FIELD_I32x2,
+  FIELD_I32x3,
+  FIELD_I32x4,
+  FIELD_U32,
+  FIELD_U32x2,
+  FIELD_U32x3,
+  FIELD_U32x4,
+  FIELD_F16x2,
+  FIELD_F16x4,
+  FIELD_F32,
+  FIELD_F32x2,
+  FIELD_F32x3,
+  FIELD_F32x4,
+  FIELD_MAT2,
+  FIELD_MAT3,
+  FIELD_MAT4
+} FieldType;
+
+typedef struct {
+  uint16_t offset;
+  uint8_t location;
+  uint8_t type;
+} BufferField;
+
+typedef enum {
+  LAYOUT_PACKED,
+  LAYOUT_STD140,
+  LAYOUT_STD430
+} BufferLayout;
+
+typedef struct {
+  uint32_t length;
+  uint32_t stride;
+  uint32_t fieldCount;
+  BufferField fields[16];
+  const char* label;
+  uintptr_t handle;
+} BufferInfo;
+
+Buffer* lovrBufferCreate(BufferInfo* info, void** data);
+void lovrBufferDestroy(void* ref);
+const BufferInfo* lovrBufferGetInfo(Buffer* buffer);

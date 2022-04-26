@@ -421,6 +421,7 @@ if(LOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
     src/modules/graphics/graphics.c
     src/api/l_graphics.c
+    src/api/l_graphics_buffer.c
   )
 
   if(LOVR_USE_VULKAN)
