@@ -228,3 +228,88 @@ void utf8_encode(uint32_t c, char s[4]) {
     s[3] = (0x80 | (c & 0x3f));
   }
 }
+
+// f16
+// http://fox-toolkit.org/ftp/fasthalffloatconversion.pdf
+
+// f32 to f16 tables
+static uint16_t base[512];
+static uint8_t shift[512];
+
+// f16 to f32 tables
+static uint32_t mantissa[2048];
+static uint32_t exponent[64];
+static uint16_t offset[64];
+
+void float16Init() {
+  for (uint32_t i = 0; i < 256; i++) {
+    int e = i - 127;
+    if (e < -24) {
+      base[i | 0x000] = 0x0000;
+      base[i | 0x100] = 0x8000;
+      shift[i | 0x000] = 24;
+      shift[i | 0x100] = 24;
+    } else if (e < -14) {
+      base[i | 0x000] = (0x0400 >> (-e - 14));
+      base[i | 0x100] = (0x0400 >> (-e - 14)) | 0x8000;
+      shift[i | 0x000] = -e - 1;
+      shift[i | 0x100] = -e - 1;
+    } else if (e <= 15) {
+      base[i | 0x000] = ((e + 15) << 10);
+      base[i | 0x100] = ((e + 15) << 10) | 0x8000;
+      shift[i | 0x000] = 13;
+      shift[i | 0x100] = 13;
+    } else if (e < 128) {
+      base[i | 0x000] = 0x7C00;
+      base[i | 0x100] = 0xFC00;
+      shift[i | 0x000] = 24;
+      shift[i | 0x100] = 24;
+    } else {
+      base[i | 0x000] = 0x7C00;
+      base[i | 0x100] = 0xFC00;
+      shift[i | 0x000] = 13;
+      shift[i | 0x100] = 13;
+    }
+  }
+
+  for (uint32_t i = 0; i < 2048; i++) {
+    if (i == 0) {
+      mantissa[i] = 0;
+    } else if (i < 1024) {
+      uint32_t m = i << 13;
+      uint32_t e = 0;
+      while ((m & 0x00800000) == 0) {
+        e -= 0x00800000;
+        m <<= 1;
+      }
+      e += 0x38800000;
+      m &= ~0x00800000;
+      mantissa[i] = e | m;
+    } else {
+      mantissa[i] = 0x38000000 + ((i - 1024) << 13);
+    }
+  }
+
+  for (uint32_t i = 0; i < 64; i++) {
+    if (i == 0) exponent[i] = 0;
+    else if (i < 31) exponent[i] = i << 23;
+    else if (i == 31) exponent[i] = 0x47800000;
+    else if (i == 32) exponent[i] = 0x80000000;
+    else if (i < 63) exponent[i] = 0x80000000 + ((i - 32) << 23);
+    else exponent[i] = 0xC7800000;
+  }
+
+  for (uint32_t i = 0; i < 64; i++) {
+    offset[i] = (i == 0 || i == 32) ? 0 : 1024;
+  }
+}
+
+float16 float32to16(float32 f) {
+  uint32_t u = ((union { float f; uint32_t u; }) { f }).u;
+  return base[(u >> 23) & 0x1ff] + ((u & 0x7fffff) >> shift[(u >> 23) & 0x1ff]);
+}
+
+float32 float16to32(float16 f) {
+  uint32_t u = mantissa[offset[f >> 10] + (f & 0x3ff)] + exponent[f >> 10];
+  return ((union { uint32_t u; float f; }) { u }).f;
+}
