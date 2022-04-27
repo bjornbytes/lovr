@@ -1,5 +1,6 @@
 #include "graphics/graphics.h"
 #include "core/gpu.h"
+#include "core/os.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
