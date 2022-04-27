@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_FRAME_MEMORY (1 << 30)
+
 struct Buffer {
   uint32_t ref;
   uint32_t size;
@@ -11,15 +13,23 @@ struct Buffer {
   BufferInfo info;
 };
 
+typedef struct {
+  char* memory;
+  uint32_t cursor;
+  uint32_t length;
+} Allocator;
+
 static struct {
   bool initialized;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
+  Allocator allocator;
 } state;
 
 // Helpers
 
+static void* fralloc(size_t size);
 static void onMessage(void* context, const char* message, bool severe);
 
 // Entry
@@ -39,6 +49,11 @@ bool lovrGraphicsInit(bool debug) {
     lovrThrow("Failed to initialize GPU");
   }
 
+  // Temporary frame memory uses a large 1GB virtual memory allocation, committing pages as needed
+  state.allocator.length = 1 << 14;
+  state.allocator.memory = os_vm_init(MAX_FRAME_MEMORY);
+  os_vm_commit(state.allocator.memory, state.allocator.length);
+
   state.initialized = true;
   return true;
 }
@@ -46,6 +61,7 @@ bool lovrGraphicsInit(bool debug) {
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
   gpu_destroy();
+  os_vm_free(state.allocator.memory, MAX_FRAME_MEMORY);
   memset(&state, 0, sizeof(state));
 }
 
@@ -132,6 +148,18 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
 }
 
 // Helpers
+
+static void* fralloc(size_t size) {
+  while (state.allocator.cursor + size > state.allocator.length) {
+    lovrAssert(state.allocator.length << 1 <= MAX_FRAME_MEMORY, "Out of memory");
+    os_vm_commit(state.allocator.memory + state.allocator.length, state.allocator.length);
+    state.allocator.length <<= 1;
+  }
+
+  uint32_t cursor = ALIGN(state.allocator.cursor, 8);
+  state.allocator.cursor = cursor + size;
+  return state.allocator.memory + cursor;
+}
 
 static void onMessage(void* context, const char* message, bool severe) {
   if (severe) {
