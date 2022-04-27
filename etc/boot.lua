@@ -42,6 +42,9 @@ function lovr.boot()
       start = true,
       spatializer = nil
     },
+    graphics = {
+      debug = false
+    },
     headset = {
       drivers = { 'openxr', 'webxr', 'desktop' },
       supersample = false,
