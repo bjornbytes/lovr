@@ -1,5 +1,6 @@
 #include "api.h"
 #include "graphics/graphics.h"
+#include "data/blob.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
@@ -83,7 +84,7 @@ static struct { uint32_t size, scalarAlign, baseAlign, components; } fieldInfo[]
   [FIELD_MAT4] = { 64, 4, 16, 16 }
 };
 
-uint32_t luax_checkfieldtype(lua_State* L, int index) {
+static uint32_t luax_checkfieldtype(lua_State* L, int index) {
   size_t length;
   const char* string = luaL_checklstring(L, index, &length);
 
@@ -139,6 +140,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
   switch (lua_type(L, index)) {
     case LUA_TNONE:
     case LUA_TNIL:
+      info->stride = 1;
       break;
     case LUA_TSTRING:
       info->fieldCount = 1;
@@ -307,12 +309,66 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsGetBuffer(lua_State* L) {
+  BufferInfo info = { 0 };
+
+  luax_checkbufferformat(L, 2, &info);
+
+  switch (lua_type(L, 1)) {
+    case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
+    case LUA_TTABLE: info.length = luax_len(L, -1); break;
+    default: {
+      Blob* blob = luax_totype(L, 1, Blob);
+      if (blob) {
+        info.length = blob->size / info.stride;
+        break;
+      } else {
+        return luax_typeerror(L, 1, "number, table, or Blob");
+      }
+    }
+  }
+
+  void* pointer;
+  bool hasData = !lua_isnumber(L, 1);
+  Buffer* buffer = lovrGraphicsGetBuffer(&info, hasData ? &pointer : NULL);
+
+  if (hasData) {
+    lua_settop(L, 1);
+    luax_readbufferdata(L, 1, buffer, pointer);
+  }
+
+  luax_pushtype(L, Buffer, buffer);
+  lovrRelease(buffer, lovrBufferDestroy);
+  return 1;
+}
+
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
   BufferInfo info = { 0 };
 
   luax_checkbufferformat(L, 2, &info);
 
-  Buffer* buffer = lovrBufferCreate(&info, NULL);
+  switch (lua_type(L, 1)) {
+    case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
+    case LUA_TTABLE: info.length = luax_len(L, -1); break;
+    default: {
+      Blob* blob = luax_totype(L, 1, Blob);
+      if (blob) {
+        info.length = blob->size / info.stride;
+        break;
+      } else {
+        return luax_typeerror(L, 1, "number, table, or Blob");
+      }
+    }
+  }
+
+  void* pointer;
+  bool hasData = !lua_isnumber(L, 1);
+  Buffer* buffer = lovrBufferCreate(&info, hasData ? &pointer : NULL);
+
+  if (hasData) {
+    lua_settop(L, 1);
+    luax_readbufferdata(L, 1, buffer, pointer);
+  }
 
   luax_pushtype(L, Buffer, buffer);
   lovrRelease(buffer, lovrBufferDestroy);
@@ -324,6 +380,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getDevice", l_lovrGraphicsGetDevice },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
+  { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { NULL, NULL }
 };

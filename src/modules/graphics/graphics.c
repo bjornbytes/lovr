@@ -12,6 +12,7 @@ struct Buffer {
   uint32_t size;
   gpu_buffer* gpu;
   BufferInfo info;
+  void* pointer;
 };
 
 typedef struct {
@@ -37,6 +38,8 @@ static void onMessage(void* context, const char* message, bool severe);
 
 bool lovrGraphicsInit(bool debug) {
   if (state.initialized) return false;
+
+  float16Init();
 
   gpu_config config = {
     .debug = debug,
@@ -119,6 +122,26 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
 
 // Buffer
 
+Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
+  uint32_t size = info->length * MAX(info->stride, 1);
+  lovrCheck(size > 0, "Buffer size can not be zero");
+  lovrCheck(size <= 1 << 30, "Max buffer size is 16GB");
+
+  Buffer* buffer = fralloc(sizeof(Buffer) + gpu_sizeof_buffer());
+  buffer->ref = 1;
+  buffer->size = size;
+  buffer->gpu = (gpu_buffer*) (buffer + 1);
+  buffer->info = *info;
+
+  buffer->pointer = gpu_map(buffer->gpu, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+
+  if (data) {
+    *data = buffer->pointer;
+  }
+
+  return buffer;
+}
+
 Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
   uint32_t size = info->length * MAX(info->stride, 1);
   lovrCheck(size > 0, "Buffer size can not be zero");
@@ -137,17 +160,54 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
     .pointer = data
   });
 
+  if (data && *data == NULL) {
+    gpu_buffer* scratchpad = fralloc(gpu_sizeof_buffer());
+    *data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
+    // TODO copy scratchpad to buffer
+  }
+
   return buffer;
 }
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
+  if (buffer->pointer) return;
   gpu_buffer_destroy(buffer->gpu);
   free(buffer);
 }
 
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
+}
+
+bool lovrBufferIsTemporary(Buffer* buffer) {
+  return !!buffer->pointer;
+}
+
+void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
+  if (size == ~0u) {
+    size = buffer->size - offset;
+  }
+
+  lovrCheck(offset + size <= buffer->size, "Buffer write range [%d,%d] exceeds buffer size", offset, offset + size);
+
+  if (buffer->pointer) {
+    return (char*) buffer->pointer + offset;
+  }
+
+  // TODO stage copy once commands exist
+  return NULL;
+}
+
+void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
+  lovrCheck(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
+  if (buffer->pointer) {
+    memset((char*) buffer->pointer + offset, 0, size);
+  } else {
+    lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
+    lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
+    // TODO clear once commands exist
+  }
 }
 
 // Helpers

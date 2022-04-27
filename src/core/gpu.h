@@ -18,6 +18,13 @@ typedef struct {
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
 
+typedef enum {
+  GPU_MAP_WRITE,
+  GPU_MAP_READ
+} gpu_map_mode;
+
+void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode);
+
 // Entry
 
 typedef struct {

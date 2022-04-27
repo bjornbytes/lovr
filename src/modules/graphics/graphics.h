@@ -113,10 +113,15 @@ typedef struct {
   uint32_t stride;
   uint32_t fieldCount;
   BufferField fields[16];
+  void** pointer;
   const char* label;
   uintptr_t handle;
 } BufferInfo;
 
+Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data);
 Buffer* lovrBufferCreate(BufferInfo* info, void** data);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
+bool lovrBufferIsTemporary(Buffer* buffer);
+void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
+void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);

@@ -142,12 +142,8 @@ void* luax_readfile(const char* filename, size_t* bytesRead);
 #endif
 
 #ifndef LOVR_DISABLE_GRAPHICS
-struct Attachment;
-struct Texture;
-struct Uniform;
-int luax_checkuniform(struct lua_State* L, int index, const struct Uniform* uniform, void* dest, const char* debug);
-int luax_optmipmap(struct lua_State* L, int index, struct Texture* texture);
-void luax_readattachments(struct lua_State* L, int index, struct Attachment* attachments, int* count);
+struct Buffer;
+void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer, char* data);
 #endif
 
 #ifndef LOVR_DISABLE_MATH

@@ -15,12 +15,13 @@ typedef struct gpu_memory gpu_memory;
 
 struct gpu_buffer {
   VkBuffer handle;
-  gpu_memory* memory;
+  uint32_t memory;
+  uint32_t offset;
 };
 
 size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
 
-// Pools
+// Internals
 
 struct gpu_memory {
   VkDeviceMemory handle;
@@ -30,6 +31,8 @@ struct gpu_memory {
 
 typedef enum {
   GPU_MEMORY_BUFFER_GPU,
+  GPU_MEMORY_BUFFER_CPU_WRITE,
+  GPU_MEMORY_BUFFER_CPU_READ,
   GPU_MEMORY_COUNT
 } gpu_memory_type;
 
@@ -53,6 +56,14 @@ typedef struct {
 } gpu_morgue;
 
 typedef struct {
+  gpu_memory* memory;
+  VkBuffer buffer;
+  uint32_t cursor;
+  uint32_t size;
+  char* pointer;
+} gpu_scratchpad;
+
+typedef struct {
   VkCommandPool pool;
   VkSemaphore semaphores[2];
   VkFence fence;
@@ -71,9 +82,10 @@ static struct {
   VkDebugUtilsMessengerEXT messenger;
   gpu_allocator allocators[GPU_MEMORY_COUNT];
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
+  gpu_scratchpad scratchpad[2];
   gpu_memory memory[256];
   gpu_morgue morgue;
-  gpu_tick ticks[2];
+  gpu_tick ticks[4];
   uint32_t tick[2];
 } state;
 
@@ -252,24 +264,94 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkDeviceSize offset;
   VkMemoryRequirements requirements;
   vkGetBufferMemoryRequirements(state.device, buffer->handle, &requirements);
-  buffer->memory = gpu_allocate(GPU_MEMORY_BUFFER_GPU, requirements, &offset);
+  gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_GPU, requirements, &offset);
 
-  VK(vkBindBufferMemory(state.device, buffer->handle, buffer->memory->handle, offset), "Could not bind buffer memory") {
+  VK(vkBindBufferMemory(state.device, buffer->handle, memory->handle, offset), "Could not bind buffer memory") {
     vkDestroyBuffer(state.device, buffer->handle, NULL);
-    gpu_release(buffer->memory);
+    gpu_release(memory);
     return false;
   }
 
   if (info->pointer) {
-    *info->pointer = buffer->memory->pointer ? (char*) buffer->memory->pointer + offset : NULL;
+    *info->pointer = memory->pointer ? (char*) memory->pointer + offset : NULL;
   }
 
+  buffer->memory = memory - state.memory;
   return true;
 }
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
   condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
-  gpu_release(buffer->memory);
+  gpu_release(&state.memory[buffer->memory]);
+}
+
+void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode) {
+  gpu_scratchpad* pool = &state.scratchpad[mode];
+
+  uint32_t zone = state.tick[CPU] & TICK_MASK;
+  uint32_t cursor = ALIGN(pool->cursor, align);
+  bool oversized = size > (1 << 26); // "Big" buffers don't pollute the scratchpad (heuristic)
+
+  if (oversized || cursor + size > pool->size) {
+    uint32_t bufferSize;
+
+    if (oversized) {
+      bufferSize = size;
+    } else {
+      while (pool->size < size) {
+        pool->size = bufferSize = pool->size ? (pool->size << 1) : (1 << 22);
+      }
+    }
+
+    VkBufferCreateInfo info = {
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+      .size = bufferSize,
+      .usage = mode == GPU_MAP_WRITE ?
+        (VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT) :
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT
+    };
+
+    VkBuffer handle;
+    VK(vkCreateBuffer(state.device, &info, NULL, &handle), "Could not create scratch buffer") return NULL;
+    nickname(handle, VK_OBJECT_TYPE_BUFFER, mode == GPU_MAP_WRITE ? "Write Scratchpad" : "Read Scratchpad");
+
+    VkDeviceSize offset;
+    VkMemoryRequirements requirements;
+    vkGetBufferMemoryRequirements(state.device, handle, &requirements);
+    gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_CPU_WRITE + mode, requirements, &offset);
+
+    VK(vkBindBufferMemory(state.device, handle, memory->handle, offset), "Could not bind scratchpad memory") {
+      vkDestroyBuffer(state.device, handle, NULL);
+      gpu_release(memory);
+      return NULL;
+    }
+
+    if (oversized) {
+      gpu_release(memory);
+      condemn(handle, VK_OBJECT_TYPE_BUFFER);
+      buffer->handle = handle;
+      buffer->memory = ~0u;
+      buffer->offset = 0;
+      return memory->pointer;
+    } else {
+      gpu_release(pool->memory);
+      condemn(pool->buffer, VK_OBJECT_TYPE_BUFFER);
+      pool->memory = memory;
+      pool->buffer = handle;
+      pool->cursor = cursor = 0;
+      pool->pointer = (char*) pool->memory->pointer + pool->size * zone;
+    }
+  }
+
+  pool->cursor = cursor + size;
+  buffer->handle = pool->buffer;
+  buffer->memory = ~0u;
+  buffer->offset = cursor + pool->size * zone;
+
+  return pool->pointer + cursor;
 }
 
 // Entry
@@ -456,6 +538,8 @@ bool gpu_init(gpu_config* config) {
     vkGetPhysicalDeviceMemoryProperties(state.adapter, &memoryProperties);
     VkMemoryType* memoryTypes = memoryProperties.memoryTypes;
 
+    VkMemoryPropertyFlags hostVisible = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
     struct { VkBufferUsageFlags usage; VkMemoryPropertyFlags flags; } bufferFlags[] = {
       [GPU_MEMORY_BUFFER_GPU] = {
         .usage =
@@ -467,6 +551,18 @@ bool gpu_init(gpu_config* config) {
           VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
           VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+      },
+      [GPU_MEMORY_BUFFER_CPU_WRITE] = {
+        .usage =
+          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+          VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+          VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .flags = hostVisible | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+      },
+      [GPU_MEMORY_BUFFER_CPU_READ] = {
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .flags = hostVisible | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
       }
     };
 
@@ -486,7 +582,7 @@ bool gpu_init(gpu_config* config) {
       vkGetBufferMemoryRequirements(state.device, buffer, &requirements);
       vkDestroyBuffer(state.device, buffer, NULL);
 
-      uint32_t fallback = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+      uint32_t fallback = i == GPU_MEMORY_BUFFER_GPU ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : hostVisible;
 
       for (uint32_t j = 0; j < memoryProperties.memoryTypeCount; j++) {
         if (~requirements.memoryTypeBits & (1 << i)) {
@@ -530,7 +626,9 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
   gpu_allocator* allocator = &state.allocators[state.allocatorLookup[type]];
 
   static const uint32_t blockSizes[] = {
-    [GPU_MEMORY_BUFFER_GPU] = 1 << 26
+    [GPU_MEMORY_BUFFER_GPU] = 1 << 26,
+    [GPU_MEMORY_BUFFER_CPU_WRITE] = 0,
+    [GPU_MEMORY_BUFFER_CPU_READ] = 0
   };
 
   uint32_t blockSize = blockSizes[type];
@@ -579,7 +677,7 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 }
 
 static void gpu_release(gpu_memory* memory) {
-  if (--memory->refs == 0) {
+  if (memory && --memory->refs == 0) {
     condemn(memory->handle, VK_OBJECT_TYPE_DEVICE_MEMORY);
   }
 }
