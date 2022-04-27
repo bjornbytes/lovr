@@ -104,6 +104,22 @@ void os_request_permission(os_permission permission) {
   //
 }
 
+void* os_vm_init(size_t size) {
+  return VirtualAlloc(NULL, size, MEM_RESERVE, PAGE_NOACCESS);
+}
+
+bool os_vm_free(void* p, size_t size) {
+  return VirtualFree(p, 0, MEM_RELEASE);
+}
+
+bool os_vm_commit(void* p, size_t size) {
+  return VirtualAlloc(p, size, MEM_COMMIT, PAGE_READWRITE);
+}
+
+bool os_vm_release(void* p, size_t size) {
+  return VirtualFree(p, 0, MEM_DECOMMIT);
+}
+
 void os_on_permission(fn_permission* callback) {
   //
 }
