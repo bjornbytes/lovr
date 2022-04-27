@@ -9,8 +9,6 @@
 #include <dlfcn.h>
 #endif
 
-typedef struct gpu_memory gpu_memory;
-
 // Objects
 
 struct gpu_buffer {
@@ -23,11 +21,11 @@ size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
 
 // Internals
 
-struct gpu_memory {
+typedef struct {
   VkDeviceMemory handle;
   void* pointer;
   uint32_t refs;
-};
+} gpu_memory;
 
 typedef enum {
   GPU_MEMORY_BUFFER_GPU,
