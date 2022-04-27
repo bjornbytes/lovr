@@ -41,6 +41,8 @@ bool lovrGraphicsInit(bool debug) {
   gpu_config config = {
     .debug = debug,
     .callback = onMessage,
+    .engineName = "LOVR",
+    .engineVersion = { LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH },
     .device = &state.device,
     .features = &state.features,
     .limits = &state.limits

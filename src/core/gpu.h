@@ -72,6 +72,8 @@ typedef struct {
   bool debug;
   void* userdata;
   void (*callback)(void* userdata, const char* message, bool error);
+  const char* engineName;
+  uint32_t engineVersion[3];
   gpu_device_info* device;
   gpu_features* features;
   gpu_limits* limits;

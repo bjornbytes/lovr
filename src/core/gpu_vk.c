@@ -298,6 +298,8 @@ bool gpu_init(gpu_config* config) {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pEngineName = config->engineName,
+        .engineVersion = VK_MAKE_VERSION(config->engineVersion[0], config->engineVersion[1], config->engineVersion[3]),
         .apiVersion = VK_MAKE_VERSION(1, 1, 0)
       },
       .enabledLayerCount = state.config.debug ? 1 : 0,
