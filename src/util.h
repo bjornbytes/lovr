@@ -33,6 +33,7 @@ typedef void errorFn(void*, const char*, va_list);
 void lovrSetErrorCallback(errorFn* callback, void* userdata);
 _Noreturn void lovrThrow(const char* format, ...);
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
+#define lovrUnreachable() lovrThrow("Unreachable")
 
 #ifdef LOVR_UNCHECKED
 #define lovrCheck(c, ...) ((void) 0)

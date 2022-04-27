@@ -13,7 +13,7 @@ void luax_pushshape(lua_State* L, Shape* shape) {
     case SHAPE_CAPSULE: luax_pushtype(L, CapsuleShape, shape); break;
     case SHAPE_CYLINDER: luax_pushtype(L, CylinderShape, shape); break;
     case SHAPE_MESH: luax_pushtype(L, MeshShape, shape); break;
-    default: lovrThrow("Unreachable");
+    default: lovrUnreachable();
   }
 }
 

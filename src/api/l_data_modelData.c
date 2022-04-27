@@ -371,7 +371,7 @@ static int l_lovrModelDataGetMeshIndex(lua_State* L) {
   switch (mesh->indices->type) {
     case U16: lua_pushinteger(L, data.u16[index]); return 1;
     case U32: lua_pushinteger(L, data.u32[index]); return 1;
-    default: lovrThrow("Unreachable");
+    default: lovrUnreachable();
   }
 }
 

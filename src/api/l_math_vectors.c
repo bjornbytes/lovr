@@ -1943,7 +1943,7 @@ static int l_lovrMat4__mul(lua_State* L) {
     memcpy(out, n, 4 * sizeof(float));
     mat4_mulVec4(m, out);
   } else {
-    lovrThrow("Unreachable");
+    lovrUnreachable();
   }
   return 1;
 }

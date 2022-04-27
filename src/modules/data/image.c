@@ -74,7 +74,7 @@ static size_t measure(uint32_t w, uint32_t h, TextureFormat format) {
     case FORMAT_ASTC_10x10: return ((w + 9) / 10) * ((h + 9) / 10) * 16;
     case FORMAT_ASTC_12x10: return ((w + 11) / 12) * ((h + 9) / 10) * 16;
     case FORMAT_ASTC_12x12: return ((w + 11) / 12) * ((h + 11) / 12) * 16;
-    default: lovrThrow("Unreachable");
+    default: lovrUnreachable();
   }
 }
 

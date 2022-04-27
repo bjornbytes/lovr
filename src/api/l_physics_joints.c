@@ -11,7 +11,7 @@ void luax_pushjoint(lua_State* L, Joint* joint) {
     case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
     case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
     case JOINT_SLIDER: luax_pushtype(L, SliderJoint, joint); break;
-    default: lovrThrow("Unreachable");
+    default: lovrUnreachable();
   }
 }
 
