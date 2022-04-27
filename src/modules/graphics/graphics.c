@@ -12,7 +12,7 @@ struct Buffer {
   uint32_t size;
   gpu_buffer* gpu;
   BufferInfo info;
-  void* pointer;
+  char* pointer;
 };
 
 typedef struct {
@@ -192,7 +192,7 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrCheck(offset + size <= buffer->size, "Buffer write range [%d,%d] exceeds buffer size", offset, offset + size);
 
   if (buffer->pointer) {
-    return (char*) buffer->pointer + offset;
+    return buffer->pointer + offset;
   }
 
   // TODO stage copy once commands exist
@@ -202,7 +202,7 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrCheck(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
   if (buffer->pointer) {
-    memset((char*) buffer->pointer + offset, 0, size);
+    memset(buffer->pointer + offset, 0, size);
   } else {
     lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
     lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
