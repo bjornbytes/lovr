@@ -156,6 +156,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
       lovrAssert(info->fieldCount <= COUNTOF(info->fields), "Too many buffer fields (max is %d)", COUNTOF(info->fields));
 
       uint32_t offset = 0;
+      uint32_t extent = 0;
       uint32_t location = 0;
       uint32_t maxAlign = 1;
       for (int i = 0; i < length; i++) {
@@ -192,6 +193,8 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
           maxAlign = MAX(maxAlign, align);
         }
         lua_pop(L, 1);
+
+        extent = MAX(extent, field->offset + fieldInfo[field->type].size);
       }
 
       lua_getfield(L, index, "stride");
@@ -203,7 +206,9 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
           default: break;
         }
       } else {
-        info->stride = luaL_checkinteger(L, -1);
+        info->stride = luax_checku32(L, -1);
+        lovrCheck(info->stride > 0, "Buffer stride can not be zero");
+        lovrCheck(info->stride <= extent, "Buffer stride can not be smaller than the size of a single item");
       }
       lua_pop(L, 1);
       break;

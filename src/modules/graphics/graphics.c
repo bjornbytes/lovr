@@ -123,7 +123,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
 // Buffer
 
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
-  uint32_t size = info->length * MAX(info->stride, 1);
+  uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
   lovrCheck(size <= 1 << 30, "Max buffer size is 16GB");
 
@@ -143,7 +143,7 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
 }
 
 Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
-  uint32_t size = info->length * MAX(info->stride, 1);
+  uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
   lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
 
