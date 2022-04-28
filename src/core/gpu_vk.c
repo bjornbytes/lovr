@@ -1787,6 +1787,11 @@ bool gpu_init(gpu_config* config) {
       .pNext = &multiviewFeatures
     };
 
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR enableAccelerationStructure = { // Raytracing (will be linked in later)
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+      .accelerationStructure = true
+    };
+
     if (config->features) {
       // Check required extensions for raytracing
       enum { raytraceExtensionCount = 2 };
@@ -1890,6 +1895,11 @@ bool gpu_init(gpu_config* config) {
 
     if (state.surface) {
       extensions[extensionCount++] = "VK_KHR_swapchain";
+      if (config->features && config->features->rayTracing) {
+        extensions[extensionCount++] = "VK_KHR_ray_tracing_pipeline";
+        extensions[extensionCount++] = "VK_KHR_acceleration_structure";
+        enableMultiview.pNext = &enableAccelerationStructure;
+      }
     }
 
     VkDeviceCreateInfo deviceInfo = {
