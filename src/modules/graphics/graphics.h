@@ -34,6 +34,7 @@ typedef struct {
   bool float64;
   bool int64;
   bool int16;
+  bool rayTracing;
 } GraphicsFeatures;
 
 typedef struct {

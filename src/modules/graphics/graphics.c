@@ -574,6 +574,7 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->float64 = state.features.float64;
   features->int64 = state.features.int64;
   features->int16 = state.features.int16;
+  features->rayTracing = state.features.rayTracing;
 }
 
 void lovrGraphicsGetLimits(GraphicsLimits* limits) {
