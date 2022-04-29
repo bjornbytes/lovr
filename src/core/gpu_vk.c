@@ -741,6 +741,10 @@ bool gpu_finished(uint32_t tick) {
   return state.tick[GPU] >= tick;
 }
 
+void gpu_wait() {
+  vkDeviceWaitIdle(state.device);
+}
+
 // Helpers
 
 static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info, VkDeviceSize* offset) {

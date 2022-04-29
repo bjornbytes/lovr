@@ -159,6 +159,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   state.active = false;
 }
 
+void lovrGraphicsWait() {
+  gpu_wait();
+}
+
 // Buffer
 
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {

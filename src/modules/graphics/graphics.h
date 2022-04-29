@@ -61,6 +61,7 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count);
+void lovrGraphicsWait(void);
 
 // Buffer
 
