@@ -238,13 +238,13 @@ static int l_lovrBufferGetFormat(lua_State* L) {
   lua_createtable(L, info->fieldCount, 0);
   for (uint32_t i = 0; i < info->fieldCount; i++) {
     const BufferField* field = &info->fields[i];
-    lua_createtable(L, 3, 0);
-    lua_pushinteger(L, field->location);
-    lua_rawseti(L, -2, 1);
+    lua_createtable(L, 0, 3);
     luax_pushenum(L, FieldType, field->type);
-    lua_rawseti(L, -2, 2);
+    lua_setfield(L, -2, "type");
     lua_pushinteger(L, field->offset);
-    lua_rawseti(L, -2, 3);
+    lua_setfield(L, -2, "offset");
+    lua_pushinteger(L, field->location);
+    lua_setfield(L, -2, "location");
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
