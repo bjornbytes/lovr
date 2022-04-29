@@ -184,7 +184,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
           field->location = lua_isnil(L, -1) ? location++ : luaL_checkinteger(L, -1); // TODO names
           lua_pop(L, 1);
         } else if (lua_isstring(L, -1)) {
-          FieldType type = luax_checkfieldtype(L, index);
+          FieldType type = luax_checkfieldtype(L, -1);
           uint32_t align = layout == LAYOUT_PACKED ? fieldInfo[type].scalarAlign : fieldInfo[type].baseAlign;
           field->offset = ALIGN(offset, align);
           field->location = location++;
