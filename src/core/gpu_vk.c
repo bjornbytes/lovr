@@ -1718,7 +1718,8 @@ bool gpu_init(gpu_config* config) {
       VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "Physical device enumeration failed") return gpu_destroy(), false;
     }
 
-    VkPhysicalDeviceMultiviewProperties multiviewProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES };
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytraceProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR }; 
+    VkPhysicalDeviceMultiviewProperties multiviewProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES, .pNext = &raytraceProperties };
     VkPhysicalDeviceSubgroupProperties subgroupProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, .pNext = &multiviewProperties };
     VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &subgroupProperties };
     vkGetPhysicalDeviceProperties2(state.adapter, &properties2);
@@ -1787,6 +1788,13 @@ bool gpu_init(gpu_config* config) {
       .pNext = &multiviewFeatures
     };
 
+    enum { raytraceExtensionCount = 3 };
+    struct { const char *name; bool present; } raytraceExtensions[raytraceExtensionCount] = {
+      { .name="VK_KHR_ray_tracing_pipeline" },
+      { .name="VK_KHR_acceleration_structure" },
+      { .name="VK_KHR_deferred_host_operations" },
+    };
+
     VkPhysicalDeviceAccelerationStructureFeaturesKHR enableAccelerationStructure = { // Raytracing (will be linked in later)
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
       .accelerationStructure = true
@@ -1794,11 +1802,6 @@ bool gpu_init(gpu_config* config) {
 
     if (config->features) {
       // Check required extensions for raytracing
-      enum { raytraceExtensionCount = 2 };
-      struct { const char *name; bool present; } raytraceExtensions[raytraceExtensionCount] = {
-        { .name="VK_KHR_ray_tracing_pipeline" },
-        { .name="VK_KHR_acceleration_structure" },
-      };
       bool canRaytrace = true;
       uint32_t deviceExtensionCount = 0;
       vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &deviceExtensionCount, NULL);
@@ -1895,10 +1898,26 @@ bool gpu_init(gpu_config* config) {
 
     if (state.surface) {
       extensions[extensionCount++] = "VK_KHR_swapchain";
+
       if (config->features && config->features->rayTracing) {
-        extensions[extensionCount++] = "VK_KHR_ray_tracing_pipeline";
-        extensions[extensionCount++] = "VK_KHR_acceleration_structure";
+        // Copy extension names
+        for(int check = 0; check < raytraceExtensionCount; check++) {
+          extensions[extensionCount++] = raytraceExtensions[check].name;
+        }
+
+        // Set up acceleration structure features
         enableMultiview.pNext = &enableAccelerationStructure;
+
+        // Only save raytrace limits if we got this far
+        if (config->limits) {
+          config->limits->raytrace.shaderGroupHandleSize = raytraceProperties.shaderGroupHandleSize;
+          config->limits->raytrace.maxRayRecursionDepth = raytraceProperties.maxRayRecursionDepth;
+          config->limits->raytrace.maxShaderGroupStride = raytraceProperties.maxShaderGroupStride;
+          config->limits->raytrace.shaderGroupBaseAlignment = raytraceProperties.shaderGroupBaseAlignment;
+          config->limits->raytrace.maxRayDispatchInvocationCount = raytraceProperties.maxRayDispatchInvocationCount;
+          config->limits->raytrace.shaderGroupHandleAlignment = raytraceProperties.shaderGroupHandleAlignment;
+          config->limits->raytrace.maxRayHitAttributeSize = raytraceProperties.maxRayHitAttributeSize;
+        }
       }
     }
 

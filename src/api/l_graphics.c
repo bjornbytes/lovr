@@ -615,6 +615,8 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
 static int l_lovrGraphicsGetLimits(lua_State* L) {
   GraphicsLimits limits;
   lovrGraphicsGetLimits(&limits);
+  GraphicsFeatures features; // Only needed to decide whether to populate raytrace table
+  lovrGraphicsGetFeatures(&features);
 
   lua_newtable(L);
   lua_pushinteger(L, limits.textureSize2D), lua_setfield(L, -2, "textureSize2D");
@@ -667,6 +669,19 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
 
   lua_pushnumber(L, limits.anisotropy), lua_setfield(L, -2, "anisotropy");
   lua_pushnumber(L, limits.pointSize), lua_setfield(L, -2, "pointSize");
+
+  if (features.rayTracing) {
+    lua_createtable(L, 7, 0);
+    lua_pushinteger(L, limits.raytrace.shaderGroupHandleSize), lua_setfield(L, -2, "shaderGroupHandleSize");
+    lua_pushinteger(L, limits.raytrace.maxRayRecursionDepth), lua_setfield(L, -2, "maxRayRecursionDepth");
+    lua_pushinteger(L, limits.raytrace.maxShaderGroupStride), lua_setfield(L, -2, "maxShaderGroupStride");
+    lua_pushinteger(L, limits.raytrace.shaderGroupBaseAlignment), lua_setfield(L, -2, "shaderGroupBaseAlignment");
+    lua_pushinteger(L, limits.raytrace.maxRayDispatchInvocationCount), lua_setfield(L, -2, "maxRayDispatchInvocationCount");
+    lua_pushinteger(L, limits.raytrace.shaderGroupHandleAlignment), lua_setfield(L, -2, "shaderGroupHandleAlignment");
+    lua_pushinteger(L, limits.raytrace.maxRayHitAttributeSize), lua_setfield(L, -2, "maxRayHitAttributeSize");
+    lua_setfield(L, -2, "raytrace");
+  }
+
   return 1;
 }
 

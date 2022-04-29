@@ -610,6 +610,13 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->instances = state.limits.instances;
   limits->anisotropy = state.limits.anisotropy;
   limits->pointSize = state.limits.pointSize;
+  limits->raytrace.shaderGroupHandleSize = state.limits.raytrace.shaderGroupHandleSize;
+  limits->raytrace.maxRayRecursionDepth = state.limits.raytrace.maxRayRecursionDepth;
+  limits->raytrace.maxShaderGroupStride = state.limits.raytrace.maxShaderGroupStride;
+  limits->raytrace.shaderGroupBaseAlignment = state.limits.raytrace.shaderGroupBaseAlignment;
+  limits->raytrace.maxRayDispatchInvocationCount = state.limits.raytrace.maxRayDispatchInvocationCount;
+  limits->raytrace.shaderGroupHandleAlignment = state.limits.raytrace.shaderGroupHandleAlignment;
+  limits->raytrace.maxRayHitAttributeSize = state.limits.raytrace.maxRayHitAttributeSize;
 }
 
 bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features) {

@@ -618,6 +618,15 @@ typedef struct {
   uint32_t instances;
   float anisotropy;
   float pointSize;
+  struct { // ALl members of VkPhysicalDeviceRayTracingPipelinePropertiesKHR except shaderGroupHandleCaptureReplaySize
+    uint32_t shaderGroupHandleSize;
+    uint32_t maxRayRecursionDepth;
+    uint32_t maxShaderGroupStride;
+    uint32_t shaderGroupBaseAlignment;
+    uint32_t maxRayDispatchInvocationCount;
+    uint32_t shaderGroupHandleAlignment;
+    uint32_t maxRayHitAttributeSize;
+  } raytrace;
 } gpu_limits;
 
 typedef struct {
