@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 typedef struct gpu_buffer gpu_buffer;
+typedef struct gpu_texture gpu_texture;
 typedef struct gpu_stream gpu_stream;
 
 size_t gpu_sizeof_buffer(void);
@@ -25,6 +26,103 @@ typedef enum {
 } gpu_map_mode;
 
 void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode);
+
+// Texture
+
+enum {
+  GPU_TEXTURE_SAMPLE    = (1 << 0),
+  GPU_TEXTURE_RENDER    = (1 << 1),
+  GPU_TEXTURE_STORAGE   = (1 << 2),
+  GPU_TEXTURE_COPY_SRC  = (1 << 3),
+  GPU_TEXTURE_COPY_DST  = (1 << 4),
+  GPU_TEXTURE_TRANSIENT = (1 << 5)
+};
+
+typedef enum {
+  GPU_TEXTURE_2D,
+  GPU_TEXTURE_3D,
+  GPU_TEXTURE_CUBE,
+  GPU_TEXTURE_ARRAY
+} gpu_texture_type;
+
+typedef enum {
+  GPU_FORMAT_R8,
+  GPU_FORMAT_RG8,
+  GPU_FORMAT_RGBA8,
+  GPU_FORMAT_R16,
+  GPU_FORMAT_RG16,
+  GPU_FORMAT_RGBA16,
+  GPU_FORMAT_R16F,
+  GPU_FORMAT_RG16F,
+  GPU_FORMAT_RGBA16F,
+  GPU_FORMAT_R32F,
+  GPU_FORMAT_RG32F,
+  GPU_FORMAT_RGBA32F,
+  GPU_FORMAT_RGB565,
+  GPU_FORMAT_RGB5A1,
+  GPU_FORMAT_RGB10A2,
+  GPU_FORMAT_RG11B10F,
+  GPU_FORMAT_D16,
+  GPU_FORMAT_D24S8,
+  GPU_FORMAT_D32F,
+  GPU_FORMAT_BC1,
+  GPU_FORMAT_BC2,
+  GPU_FORMAT_BC3,
+  GPU_FORMAT_BC4U,
+  GPU_FORMAT_BC4S,
+  GPU_FORMAT_BC5U,
+  GPU_FORMAT_BC5S,
+  GPU_FORMAT_BC6UF,
+  GPU_FORMAT_BC6SF,
+  GPU_FORMAT_BC7,
+  GPU_FORMAT_ASTC_4x4,
+  GPU_FORMAT_ASTC_5x4,
+  GPU_FORMAT_ASTC_5x5,
+  GPU_FORMAT_ASTC_6x5,
+  GPU_FORMAT_ASTC_6x6,
+  GPU_FORMAT_ASTC_8x5,
+  GPU_FORMAT_ASTC_8x6,
+  GPU_FORMAT_ASTC_8x8,
+  GPU_FORMAT_ASTC_10x5,
+  GPU_FORMAT_ASTC_10x6,
+  GPU_FORMAT_ASTC_10x8,
+  GPU_FORMAT_ASTC_10x10,
+  GPU_FORMAT_ASTC_12x10,
+  GPU_FORMAT_ASTC_12x12,
+  GPU_FORMAT_COUNT
+} gpu_texture_format;
+
+typedef struct {
+  gpu_texture* source;
+  gpu_texture_type type;
+  uint32_t layerIndex;
+  uint32_t layerCount;
+  uint32_t levelIndex;
+  uint32_t levelCount;
+} gpu_texture_view_info;
+
+typedef struct {
+  gpu_texture_type type;
+  gpu_texture_format format;
+  uint32_t size[3];
+  uint32_t mipmaps;
+  uint32_t samples;
+  uint32_t usage;
+  bool srgb;
+  uintptr_t handle;
+  const char* label;
+  struct {
+    gpu_stream* stream;
+    gpu_buffer* buffer;
+    uint32_t* levelOffsets;
+    uint32_t levelCount;
+    bool generateMipmaps;
+  } upload;
+} gpu_texture_info;
+
+bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
+bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
+void gpu_texture_destroy(gpu_texture* texture);
 
 // Stream
 
