@@ -17,6 +17,10 @@ struct gpu_buffer {
   uint32_t offset;
 };
 
+struct gpu_stream {
+  VkCommandBuffer commands;
+};
+
 size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
 
 // Internals
@@ -63,6 +67,7 @@ typedef struct {
 
 typedef struct {
   VkCommandPool pool;
+  gpu_stream streams[64];
   VkSemaphore semaphores[2];
   VkFence fence;
 } gpu_tick;
@@ -82,9 +87,10 @@ static struct {
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
   gpu_scratchpad scratchpad[2];
   gpu_memory memory[256];
-  gpu_morgue morgue;
-  gpu_tick ticks[4];
+  uint32_t streamCount;
   uint32_t tick[2];
+  gpu_tick ticks[4];
+  gpu_morgue morgue;
 } state;
 
 // Helpers
@@ -352,6 +358,35 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
   return pool->pointer + cursor;
 }
 
+// Stream
+
+gpu_stream* gpu_stream_begin() {
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
+  CHECK(state.streamCount < COUNTOF(tick->streams), "Too many streams") return NULL;
+  gpu_stream* stream = &tick->streams[state.streamCount];
+
+  VkCommandBufferBeginInfo beginfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+  };
+
+  VK(vkBeginCommandBuffer(stream->commands, &beginfo), "Failed to begin stream") return NULL;
+  state.streamCount++;
+  return stream;
+}
+
+void gpu_stream_end(gpu_stream* stream) {
+  VK(vkEndCommandBuffer(stream->commands), "Failed to end stream") return;
+}
+
+void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
+  vkCmdCopyBuffer(stream->commands, src->handle, dst->handle, 1, &(VkBufferCopy) {
+    .srcOffset = src->offset + srcOffset,
+    .dstOffset = dst->offset + dstOffset,
+    .size = size
+  });
+}
+
 // Entry
 
 bool gpu_init(gpu_config* config) {
@@ -602,11 +637,56 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
+  // Ticks
+  for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
+    VkCommandPoolCreateInfo poolInfo = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+      .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+      .queueFamilyIndex = state.queueFamilyIndex
+    };
+
+    VK(vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool), "Command pool creation failed") return gpu_destroy(), false;
+
+    VkCommandBufferAllocateInfo allocateInfo = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+      .commandPool = state.ticks[i].pool,
+      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+      .commandBufferCount = COUNTOF(state.ticks[i].streams)
+    };
+
+    VkCommandBuffer* commandBuffers = &state.ticks[i].streams[0].commands;
+    VK(vkAllocateCommandBuffers(state.device, &allocateInfo, commandBuffers), "Commmand buffer allocation failed") return gpu_destroy(), false;
+
+    VkSemaphoreCreateInfo semaphoreInfo = {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+    };
+
+    VK(vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[0]), "Semaphore creation failed") return gpu_destroy(), false;
+    VK(vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[1]), "Semaphore creation failed") return gpu_destroy(), false;
+
+    VkFenceCreateInfo fenceInfo = {
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+      .flags = VK_FENCE_CREATE_SIGNALED_BIT
+    };
+
+    VK(vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence), "Fence creation failed") return gpu_destroy(), false;
+  }
+
+  state.tick[CPU] = COUNTOF(state.ticks) - 1;
   return true;
 }
 
 void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
+  state.tick[GPU] = state.tick[CPU];
+  expunge();
+  for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
+    gpu_tick* tick = &state.ticks[i];
+    if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
+    if (tick->semaphores[0]) vkDestroySemaphore(state.device, tick->semaphores[0], NULL);
+    if (tick->semaphores[1]) vkDestroySemaphore(state.device, tick->semaphores[1], NULL);
+    if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
+  }
   if (state.device) vkDestroyDevice(state.device, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
@@ -616,6 +696,38 @@ void gpu_destroy(void) {
   if (state.library) dlclose(state.library);
 #endif
   memset(&state, 0, sizeof(state));
+}
+
+uint32_t gpu_begin() {
+  gpu_tick* tick = &state.ticks[++state.tick[CPU] & TICK_MASK];
+  VK(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull), "Fence wait failed") return 0;
+  VK(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
+  VK(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return 0;
+  state.tick[GPU] = MAX(state.tick[GPU], state.tick[CPU] - COUNTOF(state.ticks));
+  state.streamCount = 0;
+  expunge();
+  return state.tick[CPU];
+}
+
+void gpu_submit(gpu_stream** streams, uint32_t count) {
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
+
+  VkCommandBuffer commands[COUNTOF(tick->streams)];
+  for (uint32_t i = 0; i < count; i++) {
+    commands[i] = streams[i]->commands;
+  }
+
+  VkSubmitInfo submit = {
+    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .commandBufferCount = count,
+    .pCommandBuffers = commands
+  };
+
+  VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") return;
+}
+
+bool gpu_finished(uint32_t tick) {
+  return state.tick[GPU] >= tick;
 }
 
 // Helpers

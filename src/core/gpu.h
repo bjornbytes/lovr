@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 typedef struct gpu_buffer gpu_buffer;
+typedef struct gpu_stream gpu_stream;
 
 size_t gpu_sizeof_buffer(void);
 
@@ -24,6 +25,12 @@ typedef enum {
 } gpu_map_mode;
 
 void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode);
+
+// Stream
+
+gpu_stream* gpu_stream_begin(void);
+void gpu_stream_end(gpu_stream* stream);
+void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
 
 // Entry
 
@@ -88,3 +95,6 @@ typedef struct {
 
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
+uint32_t gpu_begin(void);
+void gpu_submit(gpu_stream** streams, uint32_t count);
+bool gpu_finished(uint32_t tick);
