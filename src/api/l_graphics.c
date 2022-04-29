@@ -314,39 +314,6 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsGetBuffer(lua_State* L) {
-  BufferInfo info = { 0 };
-
-  luax_checkbufferformat(L, 2, &info);
-
-  switch (lua_type(L, 1)) {
-    case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
-    case LUA_TTABLE: info.length = luax_len(L, -1); break;
-    default: {
-      Blob* blob = luax_totype(L, 1, Blob);
-      if (blob) {
-        info.length = blob->size / info.stride;
-        break;
-      } else {
-        return luax_typeerror(L, 1, "number, table, or Blob");
-      }
-    }
-  }
-
-  void* pointer;
-  bool hasData = !lua_isnumber(L, 1);
-  Buffer* buffer = lovrGraphicsGetBuffer(&info, hasData ? &pointer : NULL);
-
-  if (hasData) {
-    lua_settop(L, 1);
-    luax_readbufferdata(L, 1, buffer, pointer);
-  }
-
-  luax_pushtype(L, Buffer, buffer);
-  lovrRelease(buffer, lovrBufferDestroy);
-  return 1;
-}
-
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
   BufferInfo info = { 0 };
 
@@ -380,13 +347,46 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsBuffer(lua_State* L) {
+  BufferInfo info = { 0 };
+
+  luax_checkbufferformat(L, 2, &info);
+
+  switch (lua_type(L, 1)) {
+    case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
+    case LUA_TTABLE: info.length = luax_len(L, -1); break;
+    default: {
+      Blob* blob = luax_totype(L, 1, Blob);
+      if (blob) {
+        info.length = blob->size / info.stride;
+        break;
+      } else {
+        return luax_typeerror(L, 1, "number, table, or Blob");
+      }
+    }
+  }
+
+  void* pointer;
+  bool hasData = !lua_isnumber(L, 1);
+  Buffer* buffer = lovrGraphicsGetBuffer(&info, hasData ? &pointer : NULL);
+
+  if (hasData) {
+    lua_settop(L, 1);
+    luax_readbufferdata(L, 1, buffer, pointer);
+  }
+
+  luax_pushtype(L, Buffer, buffer);
+  lovrRelease(buffer, lovrBufferDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
   { "getDevice", l_lovrGraphicsGetDevice },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
-  { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
+  { "buffer", l_lovrGraphicsBuffer },
   { NULL, NULL }
 };
 
