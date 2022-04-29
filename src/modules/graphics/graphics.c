@@ -15,6 +15,12 @@ struct Buffer {
   char* pointer;
 };
 
+struct Pass {
+  uint32_t ref;
+  PassInfo info;
+  gpu_stream* stream;
+};
+
 typedef struct {
   char* memory;
   uint32_t cursor;
@@ -23,6 +29,9 @@ typedef struct {
 
 static struct {
   bool initialized;
+  bool active;
+  uint32_t tick;
+  Pass* transfers;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
@@ -31,7 +40,9 @@ static struct {
 
 // Helpers
 
-static void* fralloc(size_t size);
+static void* tempAlloc(size_t size);
+static void beginFrame(void);
+static gpu_stream* getTransfers(void);
 static void onMessage(void* context, const char* message, bool severe);
 
 // Entry
@@ -120,6 +131,34 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->pointSize = state.limits.pointSize;
 }
 
+void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
+  if (!state.active) {
+    return;
+  }
+
+  // Allocate a few extra stream handles for any internal passes we sneak in
+  gpu_stream** streams = tempAlloc((count + 3) * sizeof(gpu_stream*));
+
+  uint32_t extraPassCount = 0;
+
+  if (state.transfers) {
+    streams[extraPassCount++] = state.transfers->stream;
+  }
+
+  for (uint32_t i = 0; i < count; i++) {
+    streams[extraPassCount + i] = passes[i]->stream;
+  }
+
+  for (uint32_t i = 0; i < extraPassCount + count; i++) {
+    gpu_stream_end(streams[i]);
+  }
+
+  gpu_submit(streams, extraPassCount + count);
+
+  state.transfers = NULL;
+  state.active = false;
+}
+
 // Buffer
 
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
@@ -127,7 +166,7 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   lovrCheck(size > 0, "Buffer size can not be zero");
   lovrCheck(size <= 1 << 30, "Max buffer size is 16GB");
 
-  Buffer* buffer = fralloc(sizeof(Buffer) + gpu_sizeof_buffer());
+  Buffer* buffer = tempAlloc(sizeof(Buffer) + gpu_sizeof_buffer());
   buffer->ref = 1;
   buffer->size = size;
   buffer->gpu = (gpu_buffer*) (buffer + 1);
@@ -161,7 +200,7 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
   });
 
   if (data && *data == NULL) {
-    gpu_buffer* scratchpad = fralloc(gpu_sizeof_buffer());
+    gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
     *data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
     // TODO copy scratchpad to buffer
   }
@@ -195,24 +234,47 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
     return buffer->pointer + offset;
   }
 
-  // TODO stage copy once commands exist
-  return NULL;
+  gpu_stream* transfers = getTransfers();
+  gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
+  void* data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
+  gpu_copy_buffers(transfers, scratchpad, buffer->gpu, 0, offset, size);
+  return data;
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
+  lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
+  lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrCheck(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
   if (buffer->pointer) {
     memset(buffer->pointer + offset, 0, size);
   } else {
-    lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
-    lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
-    // TODO clear once commands exist
+    gpu_stream* transfers = getTransfers();
+    gpu_clear_buffer(transfers, buffer->gpu, offset, size);
   }
+}
+
+// Pass
+
+Pass* lovrGraphicsGetPass(PassInfo* info) {
+  beginFrame();
+  Pass* pass = tempAlloc(sizeof(Pass));
+  pass->ref = 1;
+  pass->info = *info;
+  pass->stream = gpu_stream_begin(info->label);
+  return pass;
+}
+
+void lovrPassDestroy(void* ref) {
+  //
+}
+
+const PassInfo* lovrPassGetInfo(Pass* pass) {
+  return &pass->info;
 }
 
 // Helpers
 
-static void* fralloc(size_t size) {
+static void* tempAlloc(size_t size) {
   while (state.allocator.cursor + size > state.allocator.length) {
     lovrAssert(state.allocator.length << 1 <= MAX_FRAME_MEMORY, "Out of memory");
     os_vm_commit(state.allocator.memory + state.allocator.length, state.allocator.length);
@@ -222,6 +284,26 @@ static void* fralloc(size_t size) {
   uint32_t cursor = ALIGN(state.allocator.cursor, 8);
   state.allocator.cursor = cursor + size;
   return state.allocator.memory + cursor;
+}
+
+static void beginFrame(void) {
+  if (state.active) {
+    return;
+  }
+
+  state.active = true;
+  state.tick = gpu_begin();
+}
+
+static gpu_stream* getTransfers(void) {
+  if (!state.transfers) {
+    state.transfers = lovrGraphicsGetPass(&(PassInfo) {
+      .type = PASS_TRANSFER,
+      .label = "Internal Transfers"
+    });
+  }
+
+  return state.transfers->stream;
 }
 
 static void onMessage(void* context, const char* message, bool severe) {

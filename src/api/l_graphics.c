@@ -235,6 +235,11 @@ static int l_lovrGraphicsInit(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsSubmit(lua_State* L) {
+  lovrGraphicsSubmit(NULL, 0);
+  return 0;
+}
+
 static int l_lovrGraphicsGetDevice(lua_State* L) {
   GraphicsDevice device;
   lovrGraphicsGetDevice(&device);
@@ -382,6 +387,7 @@ static int l_lovrGraphicsBuffer(lua_State* L) {
 
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
+  { "submit", l_lovrGraphicsSubmit },
   { "getDevice", l_lovrGraphicsGetDevice },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },

@@ -28,9 +28,10 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
 
 // Stream
 
-gpu_stream* gpu_stream_begin(void);
+gpu_stream* gpu_stream_begin(const char* label);
 void gpu_stream_end(gpu_stream* stream);
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
+void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size);
 
 // Entry
 

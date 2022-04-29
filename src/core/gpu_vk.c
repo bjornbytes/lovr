@@ -303,8 +303,9 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
       bufferSize = size;
     } else {
       while (pool->size < size) {
-        pool->size = bufferSize = pool->size ? (pool->size << 1) : (1 << 22);
+        pool->size = pool->size ? (pool->size << 1) : (1 << 22);
       }
+      bufferSize = pool->size * COUNTOF(state.ticks);
     }
 
     VkBufferCreateInfo info = {
@@ -320,7 +321,7 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
 
     VkBuffer handle;
     VK(vkCreateBuffer(state.device, &info, NULL, &handle), "Could not create scratch buffer") return NULL;
-    nickname(handle, VK_OBJECT_TYPE_BUFFER, mode == GPU_MAP_WRITE ? "Write Scratchpad" : "Read Scratchpad");
+    nickname(handle, VK_OBJECT_TYPE_BUFFER, "Scratchpad");
 
     VkDeviceSize offset;
     VkMemoryRequirements requirements;
@@ -346,24 +347,25 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
       pool->memory = memory;
       pool->buffer = handle;
       pool->cursor = cursor = 0;
-      pool->pointer = (char*) pool->memory->pointer + pool->size * zone;
+      pool->pointer = pool->memory->pointer;
     }
   }
 
   pool->cursor = cursor + size;
   buffer->handle = pool->buffer;
   buffer->memory = ~0u;
-  buffer->offset = cursor + pool->size * zone;
+  buffer->offset = pool->size * zone + cursor;
 
-  return pool->pointer + cursor;
+  return pool->pointer + pool->size * zone + cursor;
 }
 
 // Stream
 
-gpu_stream* gpu_stream_begin() {
+gpu_stream* gpu_stream_begin(const char* label) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   CHECK(state.streamCount < COUNTOF(tick->streams), "Too many streams") return NULL;
   gpu_stream* stream = &tick->streams[state.streamCount];
+  nickname(stream->commands, VK_OBJECT_TYPE_COMMAND_BUFFER, label);
 
   VkCommandBufferBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -385,6 +387,10 @@ void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint
     .dstOffset = dst->offset + dstOffset,
     .size = size
   });
+}
+
+void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
+  vkCmdFillBuffer(stream->commands, buffer->handle, offset, size, 0);
 }
 
 // Entry
@@ -615,20 +621,20 @@ bool gpu_init(gpu_config* config) {
       vkGetBufferMemoryRequirements(state.device, buffer, &requirements);
       vkDestroyBuffer(state.device, buffer, NULL);
 
-      uint32_t fallback = i == GPU_MEMORY_BUFFER_GPU ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : hostVisible;
+      VkMemoryPropertyFlags fallback = i == GPU_MEMORY_BUFFER_GPU ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : hostVisible;
 
       for (uint32_t j = 0; j < memoryProperties.memoryTypeCount; j++) {
-        if (~requirements.memoryTypeBits & (1 << i)) {
+        if (~requirements.memoryTypeBits & (1 << j)) {
           continue;
         }
 
-        if ((memoryTypes[i].propertyFlags & fallback) == fallback) {
+        if ((memoryTypes[j].propertyFlags & fallback) == fallback) {
           allocator->memoryFlags = memoryTypes[j].propertyFlags;
           allocator->memoryType = j;
           continue;
         }
 
-        if ((memoryTypes[i].propertyFlags & bufferFlags[i].flags) == bufferFlags[i].flags) {
+        if ((memoryTypes[j].propertyFlags & bufferFlags[i].flags) == bufferFlags[i].flags) {
           allocator->memoryFlags = memoryTypes[j].propertyFlags;
           allocator->memoryType = j;
           break;
@@ -680,12 +686,17 @@ void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
   state.tick[GPU] = state.tick[CPU];
   expunge();
+  if (state.scratchpad[0].buffer) vkDestroyBuffer(state.device, state.scratchpad[0].buffer, NULL);
+  if (state.scratchpad[1].buffer) vkDestroyBuffer(state.device, state.scratchpad[0].buffer, NULL);
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
     if (tick->semaphores[0]) vkDestroySemaphore(state.device, tick->semaphores[0], NULL);
     if (tick->semaphores[1]) vkDestroySemaphore(state.device, tick->semaphores[1], NULL);
     if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
+  }
+  for (uint32_t i = 0; i < COUNTOF(state.memory); i++) {
+    if (state.memory[i].handle) vkFreeMemory(state.device, state.memory[i].handle, NULL);
   }
   if (state.device) vkDestroyDevice(state.device, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
@@ -789,6 +800,7 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 static void gpu_release(gpu_memory* memory) {
   if (memory && --memory->refs == 0) {
     condemn(memory->handle, VK_OBJECT_TYPE_DEVICE_MEMORY);
+    memory->handle = NULL;
   }
 }
 

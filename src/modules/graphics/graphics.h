@@ -4,6 +4,7 @@
 #pragma once
 
 typedef struct Buffer Buffer;
+typedef struct Pass Pass;
 
 typedef struct {
   uint32_t deviceId;
@@ -58,6 +59,8 @@ void lovrGraphicsDestroy(void);
 void lovrGraphicsGetDevice(GraphicsDevice* device);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
+
+void lovrGraphicsSubmit(Pass** passes, uint32_t count);
 
 // Buffer
 
@@ -125,3 +128,20 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 bool lovrBufferIsTemporary(Buffer* buffer);
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
+
+// Pass
+
+typedef enum {
+  PASS_RENDER,
+  PASS_COMPUTE,
+  PASS_TRANSFER
+} PassType;
+
+typedef struct {
+  PassType type;
+  const char* label;
+} PassInfo;
+
+Pass* lovrGraphicsGetPass(PassInfo* info);
+void lovrPassDestroy(void* ref);
+const PassInfo* lovrPassGetInfo(Pass* pass);
