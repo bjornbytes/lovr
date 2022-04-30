@@ -173,13 +173,13 @@ typedef struct {
 typedef struct {
   Texture* parent;
   TextureType type;
-  uint32_t usage;
   uint32_t format;
   uint32_t width;
   uint32_t height;
   uint32_t depth;
   uint32_t mipmaps;
   uint32_t samples;
+  uint32_t usage;
   bool srgb;
   uintptr_t handle;
   struct Image** images;

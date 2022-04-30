@@ -387,12 +387,12 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
 
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   VkImageType type;
-  VkImageCreateFlags flags;
+  VkImageCreateFlags flags = 0;
 
   switch (info->type) {
     case GPU_TEXTURE_2D: type = VK_IMAGE_TYPE_2D; break;
-    case GPU_TEXTURE_3D: type = VK_IMAGE_TYPE_3D, flags = VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT; break;
-    case GPU_TEXTURE_CUBE: type = VK_IMAGE_TYPE_2D, flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; break;
+    case GPU_TEXTURE_3D: type = VK_IMAGE_TYPE_3D, flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT; break;
+    case GPU_TEXTURE_CUBE: type = VK_IMAGE_TYPE_2D, flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; break;
     case GPU_TEXTURE_ARRAY: type = VK_IMAGE_TYPE_2D; break;
     default: return false;
   }
@@ -831,15 +831,17 @@ bool gpu_init(gpu_config* config) {
 
     // Textures
 
+    VkImageUsageFlags transient = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+
     struct { VkFormat format; VkImageUsageFlags usage; } imageFlags[] = {
-      [GPU_MEMORY_TEXTURE_COLOR] = { VK_FORMAT_R8_UNORM, 0 },
-      [GPU_MEMORY_TEXTURE_D16] = { VK_FORMAT_D16_UNORM, 0 },
-      [GPU_MEMORY_TEXTURE_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, 0 },
-      [GPU_MEMORY_TEXTURE_D32F] = { VK_FORMAT_D32_SFLOAT, 0 },
-      [GPU_MEMORY_TEXTURE_LAZY_COLOR] = { VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT },
-      [GPU_MEMORY_TEXTURE_LAZY_D16] = { VK_FORMAT_D16_UNORM, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT },
-      [GPU_MEMORY_TEXTURE_LAZY_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT },
-      [GPU_MEMORY_TEXTURE_LAZY_D32F] = { VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT }
+      [GPU_MEMORY_TEXTURE_COLOR] = { VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT },
+      [GPU_MEMORY_TEXTURE_D16] = { VK_FORMAT_D16_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT },
+      [GPU_MEMORY_TEXTURE_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_SAMPLED_BIT },
+      [GPU_MEMORY_TEXTURE_D32F] = { VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT },
+      [GPU_MEMORY_TEXTURE_LAZY_COLOR] = { VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | transient },
+      [GPU_MEMORY_TEXTURE_LAZY_D16] = { VK_FORMAT_D16_UNORM, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | transient },
+      [GPU_MEMORY_TEXTURE_LAZY_D24S8] = { VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | transient },
+      [GPU_MEMORY_TEXTURE_LAZY_D32F] = { VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | transient }
     };
 
     uint32_t allocatorCount = GPU_MEMORY_TEXTURE_COLOR;
@@ -853,7 +855,7 @@ bool gpu_init(gpu_config* config) {
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
-        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | imageFlags[i].usage
+        .usage = imageFlags[i].usage
       };
 
       VkImage image;

@@ -79,6 +79,21 @@ StringEntry lovrSmoothMode[] = {
   { 0 }
 };
 
+// Must be released when done
+Image* luax_checkimage(lua_State* L, int index) {
+  Image* image = luax_totype(L, index, Image);
+
+  if (image) {
+    lovrRetain(image);
+  } else {
+    Blob* blob = luax_readblob(L, index, "Image");
+    image = lovrImageCreateFromFile(blob);
+    lovrRelease(blob, lovrBlobDestroy);
+  }
+
+  return image;
+}
+
 static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;
   uint8_t* data = NULL;

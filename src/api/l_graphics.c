@@ -365,39 +365,6 @@ static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  BufferInfo info = { 0 };
-
-  luax_checkbufferformat(L, 2, &info);
-
-  switch (lua_type(L, 1)) {
-    case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
-    case LUA_TTABLE: info.length = luax_len(L, -1); break;
-    default: {
-      Blob* blob = luax_totype(L, 1, Blob);
-      if (blob) {
-        info.length = blob->size / info.stride;
-        break;
-      } else {
-        return luax_typeerror(L, 1, "number, table, or Blob");
-      }
-    }
-  }
-
-  void* pointer;
-  bool hasData = !lua_isnumber(L, 1);
-  Buffer* buffer = lovrBufferCreate(&info, hasData ? &pointer : NULL);
-
-  if (hasData) {
-    lua_settop(L, 1);
-    luax_readbufferdata(L, 1, buffer, pointer);
-  }
-
-  luax_pushtype(L, Buffer, buffer);
-  lovrRelease(buffer, lovrBufferDestroy);
-  return 1;
-}
-
 static int l_lovrGraphicsBuffer(lua_State* L) {
   BufferInfo info = { 0 };
 
@@ -431,6 +398,183 @@ static int l_lovrGraphicsBuffer(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewBuffer(lua_State* L) {
+  BufferInfo info = { 0 };
+
+  luax_checkbufferformat(L, 2, &info);
+
+  switch (lua_type(L, 1)) {
+    case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
+    case LUA_TTABLE: info.length = luax_len(L, -1); break;
+    default: {
+      Blob* blob = luax_totype(L, 1, Blob);
+      if (blob) {
+        info.length = blob->size / info.stride;
+        break;
+      } else {
+        return luax_typeerror(L, 1, "number, table, or Blob");
+      }
+    }
+  }
+
+  void* pointer;
+  bool hasData = !lua_isnumber(L, 1);
+  Buffer* buffer = lovrBufferCreate(&info, hasData ? &pointer : NULL);
+
+  if (hasData) {
+    lua_settop(L, 1);
+    luax_readbufferdata(L, 1, buffer, pointer);
+  }
+
+  luax_pushtype(L, Buffer, buffer);
+  lovrRelease(buffer, lovrBufferDestroy);
+  return 1;
+}
+
+static int l_lovrGraphicsNewTexture(lua_State* L) {
+  TextureInfo info = {
+    .type = TEXTURE_2D,
+    .format = FORMAT_RGBA8,
+    .mipmaps = ~0u,
+    .samples = 1,
+    .usage = TEXTURE_SAMPLE,
+    .srgb = true
+  };
+
+  int index = 1;
+  Image* stack[6];
+  Image** images = stack;
+  uint32_t imageCount = 0;
+
+  if (lua_isnumber(L, 1)) {
+    info.width = luax_checku32(L, index++);
+    info.height = luax_checku32(L, index++);
+    if (lua_isnumber(L, index)) {
+      info.depth = luax_checku32(L, index++);
+      info.type = TEXTURE_ARRAY;
+    }
+  } else if (lua_istable(L, 1)) {
+    imageCount = luax_len(L, index++);
+    images = imageCount > COUNTOF(stack) ? malloc(imageCount * sizeof(Image*)) : stack;
+    lovrAssert(images, "Out of memory");
+    info.type = TEXTURE_ARRAY;
+    info.depth = imageCount;
+
+    if (imageCount == 0) {
+      imageCount = 6;
+      info.type = TEXTURE_CUBE;
+      const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
+      const char* altFaces[6] = { "px", "nx", "py", "ny", "pz", "nz" };
+      for (int i = 0; i < 6; i++) {
+        lua_pushstring(L, faces[i]);
+        lua_rawget(L, 1);
+        if (lua_isnil(L, -1)) {
+          lua_pop(L, 1);
+          lua_pushstring(L, altFaces[i]);
+          lua_rawget(L, 1);
+        }
+        lovrAssert(!lua_isnil(L, -1), "No array texture layers given and cubemap face '%s' missing", faces[i]);
+        images[i] = luax_checkimage(L, -1);
+      }
+    }
+  } else {
+    imageCount = 1;
+    images[0] = luax_checkimage(L, index++);
+    info.depth = lovrImageGetLayerCount(images[0]);
+    if (lovrImageIsCube(images[0])) {
+      info.type = TEXTURE_CUBE;
+    } else if (info.depth > 1) {
+      info.type = TEXTURE_ARRAY;
+    }
+  }
+
+  if (imageCount > 0) {
+    Image* image = images[0];
+    uint32_t layers = lovrImageGetLayerCount(image);
+    uint32_t levels = lovrImageGetLevelCount(image);
+    info.format = lovrImageGetFormat(image);
+    info.width = lovrImageGetWidth(image);
+    info.height = lovrImageGetHeight(image);
+    info.mipmaps = levels == 1 ? ~0u : levels;
+    info.srgb = lovrImageIsSRGB(image);
+    for (uint32_t i = 1; i < imageCount; i++) {
+      lovrAssert(lovrImageGetWidth(images[0]) == lovrImageGetWidth(images[i]), "Image widths must match");
+      lovrAssert(lovrImageGetHeight(images[0]) == lovrImageGetHeight(images[i]), "Image heights must match");
+      lovrAssert(lovrImageGetFormat(images[0]) == lovrImageGetFormat(images[i]), "Image formats must match");
+      lovrAssert(lovrImageGetLevelCount(images[0]) == lovrImageGetLevelCount(images[i]), "Image mipmap counts must match");
+    }
+  }
+
+  if (lua_istable(L, index)) {
+    lua_getfield(L, index, "type");
+    info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, TextureType, NULL);
+    lua_pop(L, 1);
+
+    if (imageCount == 0) {
+      lua_getfield(L, index, "format");
+      info.format = lua_isnil(L, -1) ? info.format : luax_checkenum(L, -1, TextureFormat, NULL);
+      lua_pop(L, 1);
+
+      lua_getfield(L, index, "samples");
+      info.samples = lua_isnil(L, -1) ? info.samples : luax_checku32(L, -1);
+      lua_pop(L, 1);
+    }
+
+    lua_getfield(L, index, "linear");
+    info.srgb = lua_isnil(L, -1) ? info.srgb : !lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "mipmaps");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+      info.mipmaps = lua_tonumber(L, -1);
+    } else if (!lua_isnil(L, -1)) {
+      info.mipmaps = lua_toboolean(L, -1) ? ~0u : 1;
+    } else {
+      info.mipmaps = info.samples > 1 ? 1 : ~0u;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "usage");
+    switch (lua_type(L, -1)) {
+      case LUA_TSTRING: info.usage = 1 << luax_checkenum(L, -1, TextureUsage, NULL); break;
+      case LUA_TTABLE: {
+        int length = luax_len(L, -1);
+        for (int i = 0; i < length; i++) {
+          lua_rawgeti(L, -1, i + 1);
+          info.usage |= 1 << luax_checkenum(L, -1, TextureUsage, NULL);
+          lua_pop(L, 1);
+        }
+        break;
+      }
+      case LUA_TNIL: info.usage = (imageCount == 0) ? TEXTURE_RENDER | TEXTURE_SAMPLE : TEXTURE_SAMPLE; break;
+      default: return luaL_error(L, "Expected Texture usage to be a string, table, or nil");
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "label");
+    info.label = lua_tostring(L, -1);
+    lua_pop(L, 1);
+  }
+
+  if (imageCount == 0 && info.depth == 0) {
+    info.depth = info.type == TEXTURE_CUBE ? 6 : 1;
+  }
+
+  Texture* texture = lovrTextureCreate(&info);
+
+  for (uint32_t i = 0; i < imageCount; i++) {
+    lovrRelease(info.images[i], lovrImageDestroy);
+  }
+
+  if (info.images != stack) {
+    free(info.images);
+  }
+
+  luax_pushtype(L, Texture, texture);
+  lovrRelease(texture, lovrTextureDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
   { "submit", l_lovrGraphicsSubmit },
@@ -439,8 +583,9 @@ static const luaL_Reg lovrGraphics[] = {
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
   { "isFormatSupported", l_lovrGraphicsIsFormatSupported },
-  { "newBuffer", l_lovrGraphicsNewBuffer },
   { "buffer", l_lovrGraphicsBuffer },
+  { "newBuffer", l_lovrGraphicsNewBuffer },
+  { "newTexture", l_lovrGraphicsNewTexture },
   { NULL, NULL }
 };
 
