@@ -131,6 +131,20 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->pointSize = state.limits.pointSize;
 }
 
+bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features) {
+  uint8_t supports = state.features.formats[format];
+  if (!features) return supports;
+  if ((features & TEXTURE_FEATURE_SAMPLE) && !(supports & GPU_FEATURE_SAMPLE)) return false;
+  if ((features & TEXTURE_FEATURE_FILTER) && !(supports & GPU_FEATURE_FILTER)) return false;
+  if ((features & TEXTURE_FEATURE_RENDER) && !(supports & GPU_FEATURE_RENDER)) return false;
+  if ((features & TEXTURE_FEATURE_BLEND) && !(supports & GPU_FEATURE_BLEND)) return false;
+  if ((features & TEXTURE_FEATURE_STORAGE) && !(supports & GPU_FEATURE_STORAGE)) return false;
+  if ((features & TEXTURE_FEATURE_ATOMIC) && !(supports & GPU_FEATURE_ATOMIC)) return false;
+  if ((features & TEXTURE_FEATURE_BLIT_SRC) && !(supports & GPU_FEATURE_BLIT_SRC)) return false;
+  if ((features & TEXTURE_FEATURE_BLIT_DST) && !(supports & GPU_FEATURE_BLIT_DST)) return false;
+  return true;
+}
+
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   if (!state.active) {
     return;

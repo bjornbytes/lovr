@@ -1,6 +1,7 @@
 #include "api.h"
 #include "graphics/graphics.h"
 #include "data/blob.h"
+#include "data/image.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
@@ -46,6 +47,18 @@ StringEntry lovrFieldType[] = {
   [FIELD_MAT2] = ENTRY("mat2"),
   [FIELD_MAT3] = ENTRY("mat3"),
   [FIELD_MAT4] = ENTRY("mat4"),
+  { 0 }
+};
+
+StringEntry lovrTextureFeature[] = {
+  [0] = ENTRY("sample"),
+  [1] = ENTRY("filter"),
+  [2] = ENTRY("render"),
+  [3] = ENTRY("blend"),
+  [4] = ENTRY("storage"),
+  [5] = ENTRY("atomic"),
+  [6] = ENTRY("blitsrc"),
+  [7] = ENTRY("blitdst"),
   { 0 }
 };
 
@@ -324,6 +337,18 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
+  TextureFormat format = luax_checkenum(L, 1, TextureFormat, NULL);
+  uint32_t features = 0;
+  int top = lua_gettop(L);
+  for (int i = 2; i <= top; i++) {
+    features |= 1 << luax_checkenum(L, i, TextureFeature, NULL);
+  }
+  bool supported = lovrGraphicsIsFormatSupported(format, features);
+  lua_pushboolean(L, supported);
+  return 1;
+}
+
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
   BufferInfo info = { 0 };
 
@@ -397,6 +422,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getDevice", l_lovrGraphicsGetDevice },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
+  { "isFormatSupported", l_lovrGraphicsIsFormatSupported },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "buffer", l_lovrGraphicsBuffer },
   { NULL, NULL }

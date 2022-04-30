@@ -142,7 +142,19 @@ typedef struct {
   bool discrete;
 } gpu_device_info;
 
+enum {
+  GPU_FEATURE_SAMPLE   = (1 << 0),
+  GPU_FEATURE_RENDER   = (1 << 1),
+  GPU_FEATURE_BLEND    = (1 << 2),
+  GPU_FEATURE_FILTER   = (1 << 3),
+  GPU_FEATURE_STORAGE  = (1 << 4),
+  GPU_FEATURE_ATOMIC   = (1 << 5),
+  GPU_FEATURE_BLIT_SRC = (1 << 6),
+  GPU_FEATURE_BLIT_DST = (1 << 7)
+};
+
 typedef struct {
+  uint8_t formats[GPU_FORMAT_COUNT];
   bool textureBC;
   bool textureASTC;
   bool wireframe;
