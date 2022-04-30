@@ -7,6 +7,7 @@ typedef struct gpu_texture gpu_texture;
 typedef struct gpu_stream gpu_stream;
 
 size_t gpu_sizeof_buffer(void);
+size_t gpu_sizeof_texture(void);
 
 // Buffer
 

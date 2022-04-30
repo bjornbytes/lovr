@@ -3,7 +3,10 @@
 
 #pragma once
 
+struct Image;
+
 typedef struct Buffer Buffer;
+typedef struct Texture Texture;
 typedef struct Pass Pass;
 
 typedef struct {
@@ -141,6 +144,52 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 bool lovrBufferIsTemporary(Buffer* buffer);
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
+
+// Texture
+
+typedef enum {
+  TEXTURE_2D,
+  TEXTURE_VOLUME,
+  TEXTURE_CUBE,
+  TEXTURE_ARRAY
+} TextureType;
+
+enum {
+  TEXTURE_SAMPLE  = (1 << 0),
+  TEXTURE_RENDER  = (1 << 1),
+  TEXTURE_STORAGE = (1 << 2),
+  TEXTURE_COPY    = (1 << 3)
+};
+
+typedef struct {
+  Texture* parent;
+  TextureType type;
+  uint32_t layerIndex;
+  uint32_t layerCount;
+  uint32_t levelIndex;
+  uint32_t levelCount;
+} TextureViewInfo;
+
+typedef struct {
+  Texture* parent;
+  TextureType type;
+  uint32_t usage;
+  uint32_t format;
+  uint32_t width;
+  uint32_t height;
+  uint32_t depth;
+  uint32_t mipmaps;
+  uint32_t samples;
+  bool srgb;
+  uintptr_t handle;
+  struct Image** images;
+  const char* label;
+} TextureInfo;
+
+Texture* lovrTextureCreate(TextureInfo* info);
+Texture* lovrTextureCreateView(TextureViewInfo* view);
+void lovrTextureDestroy(void* ref);
+const TextureInfo* lovrTextureGetInfo(Texture* texture);
 
 // Pass
 

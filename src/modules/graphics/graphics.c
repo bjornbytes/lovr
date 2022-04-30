@@ -1,7 +1,9 @@
 #include "graphics/graphics.h"
+#include "data/image.h"
 #include "core/gpu.h"
 #include "core/os.h"
 #include "util.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -13,6 +15,13 @@ struct Buffer {
   gpu_buffer* gpu;
   BufferInfo info;
   char* pointer;
+};
+
+struct Texture {
+  uint32_t ref;
+  gpu_texture* gpu;
+  gpu_texture* renderView;
+  TextureInfo info;
 };
 
 struct Pass {
@@ -43,6 +52,7 @@ static struct {
 static void* tempAlloc(size_t size);
 static void beginFrame(void);
 static gpu_stream* getTransfers(void);
+static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void onMessage(void* context, const char* message, bool severe);
 
 // Entry
@@ -182,7 +192,7 @@ void lovrGraphicsWait() {
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
-  lovrCheck(size <= 1 << 30, "Max buffer size is 16GB");
+  lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
 
   Buffer* buffer = tempAlloc(sizeof(Buffer) + gpu_sizeof_buffer());
   buffer->ref = 1;
@@ -271,6 +281,97 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   }
 }
 
+// Texture
+
+Texture* lovrTextureCreate(TextureInfo* info) {
+  uint32_t limits[] = {
+    [TEXTURE_2D] = state.limits.textureSize2D,
+    [TEXTURE_CUBE] = state.limits.textureSizeCube,
+    [TEXTURE_ARRAY] = state.limits.textureSize2D,
+    [TEXTURE_VOLUME] = state.limits.textureSize3D
+  };
+
+  uint32_t limit = limits[info->type];
+  uint32_t mips = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_VOLUME ? info->depth : 1))) + 1;
+  uint8_t supports = state.features.formats[info->format];
+
+  lovrCheck(info->width > 0, "Texture width must be greater than zero");
+  lovrCheck(info->height > 0, "Texture height must be greater than zero");
+  lovrCheck(info->depth > 0, "Texture depth must be greater than zero");
+  lovrCheck(info->width <= limit, "Texture %s exceeds the limit for this texture type (%d)", "width", limit);
+  lovrCheck(info->height <= limit, "Texture %s exceeds the limit for this texture type (%d)", "height", limit);
+  lovrCheck(info->depth <= limit || info->type != TEXTURE_VOLUME, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
+  lovrCheck(info->depth <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
+  lovrCheck(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
+  lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
+  lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
+  lovrCheck(measureTexture(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB");
+  lovrCheck(info->samples == 1 || info->samples == 4, "Currently, Texture multisample count must be 1 or 4");
+  lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
+  lovrCheck(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
+  lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'storage' flag can not be multisampled");
+  lovrCheck(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
+  lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
+  lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
+  lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this format");
+  lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds the renderSize limit");
+  lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds the renderSize limit");
+  lovrCheck(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
+  lovrCheck((info->format < FORMAT_BC1 || info->format > FORMAT_BC7) || state.features.textureBC, "%s textures are not supported on this GPU", "BC");
+  lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.textureASTC, "%s textures are not supported on this GPU", "ASTC");
+
+  Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
+  lovrAssert(texture, "Out of memory");
+  texture->ref = 1;
+  texture->gpu = (gpu_texture*) (texture + 1);
+  texture->info = *info;
+  texture->info.mipmaps = CLAMP(texture->info.mipmaps, 1, mips);
+
+  gpu_texture_init(texture->gpu, &(gpu_texture_info) {
+    .type = (gpu_texture_type) info->type,
+    .format = (gpu_texture_format) info->format,
+    .size = { info->width, info->height, info->depth },
+    .mipmaps = texture->info.mipmaps,
+    .samples = MAX(info->samples, 1),
+    .usage =
+      ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
+      ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
+      ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
+      ((info->usage & TEXTURE_COPY) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
+    .srgb = info->srgb,
+    .handle = info->handle,
+    .label = info->label
+  });
+
+  // Automatically create a renderable view for renderable non-volume textures
+  if (info->usage & TEXTURE_RENDER && info->type != TEXTURE_VOLUME && info->depth <= state.limits.renderSize[2]) {
+    if (info->mipmaps == 1) {
+      texture->renderView = texture->gpu;
+    } else {
+      gpu_texture_view_info view = {
+        .source = texture->gpu,
+        .type = GPU_TEXTURE_ARRAY,
+        .layerCount = info->depth,
+        .levelCount = 1
+      };
+
+      texture->renderView = malloc(gpu_sizeof_texture());
+      lovrAssert(texture->renderView, "Out of memory");
+      lovrAssert(gpu_texture_init_view(texture->renderView, &view), "Failed to create texture view");
+    }
+  }
+
+  return texture;
+}
+
+void lovrTextureDestroy(void* ref) {
+  Texture* texture = ref;
+  lovrRelease(texture->info.parent, lovrTextureDestroy);
+  if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
+  if (texture->gpu) gpu_texture_destroy(texture->gpu);
+  free(texture);
+}
+
 // Pass
 
 Pass* lovrGraphicsGetPass(PassInfo* info) {
@@ -322,6 +423,56 @@ static gpu_stream* getTransfers(void) {
   }
 
   return state.transfers->stream;
+}
+
+// Returns number of bytes of a 3D texture region of a given format
+static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d) {
+  switch (format) {
+    case FORMAT_R8: return w * h * d;
+    case FORMAT_RG8:
+    case FORMAT_R16:
+    case FORMAT_R16F:
+    case FORMAT_RGB565:
+    case FORMAT_RGB5A1:
+    case FORMAT_D16: return w * h * d * 2;
+    case FORMAT_RGBA8:
+    case FORMAT_RG16:
+    case FORMAT_RG16F:
+    case FORMAT_R32F:
+    case FORMAT_RG11B10F:
+    case FORMAT_RGB10A2:
+    case FORMAT_D24S8:
+    case FORMAT_D32F: return w * h * d * 4;
+    case FORMAT_RGBA16:
+    case FORMAT_RGBA16F:
+    case FORMAT_RG32F: return w * h * d * 8;
+    case FORMAT_RGBA32F: return w * h * d * 16;
+    case FORMAT_BC1:
+    case FORMAT_BC2:
+    case FORMAT_BC3:
+    case FORMAT_BC4U:
+    case FORMAT_BC4S:
+    case FORMAT_BC5U:
+    case FORMAT_BC5S:
+    case FORMAT_BC6UF:
+    case FORMAT_BC6SF:
+    case FORMAT_BC7:
+    case FORMAT_ASTC_4x4: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
+    case FORMAT_ASTC_5x4: return ((w + 4) / 5) * ((h + 3) / 4) * d * 16;
+    case FORMAT_ASTC_5x5: return ((w + 4) / 5) * ((h + 4) / 5) * d * 16;
+    case FORMAT_ASTC_6x5: return ((w + 5) / 6) * ((h + 4) / 5) * d * 16;
+    case FORMAT_ASTC_6x6: return ((w + 5) / 6) * ((h + 5) / 6) * d * 16;
+    case FORMAT_ASTC_8x5: return ((w + 7) / 8) * ((h + 4) / 5) * d * 16;
+    case FORMAT_ASTC_8x6: return ((w + 7) / 8) * ((h + 5) / 6) * d * 16;
+    case FORMAT_ASTC_8x8: return ((w + 7) / 8) * ((h + 7) / 8) * d * 16;
+    case FORMAT_ASTC_10x5: return ((w + 9) / 10) * ((h + 4) / 5) * d * 16;
+    case FORMAT_ASTC_10x6: return ((w + 9) / 10) * ((h + 5) / 6) * d * 16;
+    case FORMAT_ASTC_10x8: return ((w + 9) / 10) * ((h + 7) / 8) * d * 16;
+    case FORMAT_ASTC_10x10: return ((w + 9) / 10) * ((h + 9) / 10) * d * 16;
+    case FORMAT_ASTC_12x10: return ((w + 11) / 12) * ((h + 9) / 10) * d * 16;
+    case FORMAT_ASTC_12x12: return ((w + 11) / 12) * ((h + 11) / 12) * d * 16;
+    default: lovrUnreachable();
+  }
 }
 
 static void onMessage(void* context, const char* message, bool severe) {
