@@ -344,7 +344,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   });
 
   // Automatically create a renderable view for renderable non-volume textures
-  if (info->usage & TEXTURE_RENDER && info->type != TEXTURE_3D && info->depth <= state.limits.renderSize[2]) {
+  if ((info->usage & TEXTURE_RENDER) && info->type != TEXTURE_3D && info->depth <= state.limits.renderSize[2]) {
     if (info->mipmaps == 1) {
       texture->renderView = texture->gpu;
     } else {
