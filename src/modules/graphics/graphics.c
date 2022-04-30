@@ -286,13 +286,13 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
 Texture* lovrTextureCreate(TextureInfo* info) {
   uint32_t limits[] = {
     [TEXTURE_2D] = state.limits.textureSize2D,
+    [TEXTURE_3D] = state.limits.textureSize3D,
     [TEXTURE_CUBE] = state.limits.textureSizeCube,
-    [TEXTURE_ARRAY] = state.limits.textureSize2D,
-    [TEXTURE_VOLUME] = state.limits.textureSize3D
+    [TEXTURE_ARRAY] = state.limits.textureSize2D
   };
 
   uint32_t limit = limits[info->type];
-  uint32_t mips = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_VOLUME ? info->depth : 1))) + 1;
+  uint32_t mips = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_3D ? info->depth : 1))) + 1;
   uint8_t supports = state.features.formats[info->format];
 
   lovrCheck(info->width > 0, "Texture width must be greater than zero");
@@ -300,7 +300,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck(info->depth > 0, "Texture depth must be greater than zero");
   lovrCheck(info->width <= limit, "Texture %s exceeds the limit for this texture type (%d)", "width", limit);
   lovrCheck(info->height <= limit, "Texture %s exceeds the limit for this texture type (%d)", "height", limit);
-  lovrCheck(info->depth <= limit || info->type != TEXTURE_VOLUME, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
+  lovrCheck(info->depth <= limit || info->type != TEXTURE_3D, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
   lovrCheck(info->depth <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
   lovrCheck(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
   lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
@@ -308,7 +308,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck(measureTexture(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB");
   lovrCheck(info->samples == 1 || info->samples == 4, "Currently, Texture multisample count must be 1 or 4");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
-  lovrCheck(info->samples == 1 || info->type != TEXTURE_VOLUME, "Volume textures can not be multisampled");
+  lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "Volume textures can not be multisampled");
   lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'storage' flag can not be multisampled");
   lovrCheck(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
@@ -344,7 +344,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   });
 
   // Automatically create a renderable view for renderable non-volume textures
-  if (info->usage & TEXTURE_RENDER && info->type != TEXTURE_VOLUME && info->depth <= state.limits.renderSize[2]) {
+  if (info->usage & TEXTURE_RENDER && info->type != TEXTURE_3D && info->depth <= state.limits.renderSize[2]) {
     if (info->mipmaps == 1) {
       texture->renderView = texture->gpu;
     } else {
@@ -364,12 +364,58 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   return texture;
 }
 
+Texture* lovrTextureCreateView(TextureViewInfo* view) {
+  const TextureInfo* info = &view->parent->info;
+  uint32_t maxDepth = info->type == TEXTURE_3D ? MAX(info->depth >> view->levelIndex, 1) : info->depth;
+  lovrCheck(!info->parent, "Can't nest texture views");
+  lovrCheck(view->type != TEXTURE_3D, "Texture views may not be volume textures");
+  lovrCheck(view->layerCount > 0, "Texture view must have at least one layer");
+  lovrCheck(view->levelCount > 0, "Texture view must have at least one mipmap");
+  lovrCheck(view->layerIndex + view->layerCount <= maxDepth, "Texture view layer range exceeds depth of parent texture");
+  lovrCheck(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
+  lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D texture can only have a single layer");
+  lovrCheck(view->levelCount == 1 || info->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
+  lovrCheck(view->layerCount == 6 || view->type != TEXTURE_CUBE, "Cubemaps can only have a six layers");
+
+  Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
+  lovrAssert(texture, "Out of memory");
+  texture->ref = 1;
+  texture->gpu = (gpu_texture*) (texture + 1);
+  texture->info = *info;
+
+  texture->info.parent = view->parent;
+  texture->info.mipmaps = view->levelCount;
+  texture->info.width = MAX(info->width >> view->levelIndex, 1);
+  texture->info.height = MAX(info->height >> view->levelIndex, 1);
+  texture->info.depth = view->layerCount;
+
+  gpu_texture_init_view(texture->gpu, &(gpu_texture_view_info) {
+    .source = view->parent->gpu,
+    .type = (gpu_texture_type) view->type,
+    .layerIndex = view->layerIndex,
+    .layerCount = view->layerCount,
+    .levelIndex = view->levelIndex,
+    .levelCount = view->levelCount
+  });
+
+  if (view->levelCount == 1 && view->type != TEXTURE_3D && view->layerCount <= 6) {
+    texture->renderView = texture->gpu;
+  }
+
+  lovrRetain(view->parent);
+  return texture;
+}
+
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   lovrRelease(texture->info.parent, lovrTextureDestroy);
   if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
   if (texture->gpu) gpu_texture_destroy(texture->gpu);
   free(texture);
+}
+
+const TextureInfo* lovrTextureGetInfo(Texture* texture) {
+  return &texture->info;
 }
 
 // Pass

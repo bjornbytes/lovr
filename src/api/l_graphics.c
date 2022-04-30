@@ -62,6 +62,22 @@ StringEntry lovrTextureFeature[] = {
   { 0 }
 };
 
+StringEntry lovrTextureType[] = {
+  [TEXTURE_2D] = ENTRY("2d"),
+  [TEXTURE_3D] = ENTRY("3d"),
+  [TEXTURE_CUBE] = ENTRY("cube"),
+  [TEXTURE_ARRAY] = ENTRY("array"),
+  { 0 }
+};
+
+StringEntry lovrTextureUsage[] = {
+  [0] = ENTRY("sample"),
+  [1] = ENTRY("render"),
+  [2] = ENTRY("storage"),
+  [3] = ENTRY("copy"),
+  { 0 }
+};
+
 static struct { uint32_t size, scalarAlign, baseAlign, components; } fieldInfo[] = {
   [FIELD_I8x4] = { 4, 1, 4, 4 },
   [FIELD_U8x4] = { 4, 1, 4, 4 },
@@ -429,10 +445,12 @@ static const luaL_Reg lovrGraphics[] = {
 };
 
 extern const luaL_Reg lovrBuffer[];
+extern const luaL_Reg lovrTexture[];
 
 int luaopen_lovr_graphics(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrGraphics);
   luax_registertype(L, Buffer);
+  luax_registertype(L, Texture);
   return 1;
 }

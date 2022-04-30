@@ -149,7 +149,7 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
 
 typedef enum {
   TEXTURE_2D,
-  TEXTURE_VOLUME,
+  TEXTURE_3D,
   TEXTURE_CUBE,
   TEXTURE_ARRAY
 } TextureType;

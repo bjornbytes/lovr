@@ -56,6 +56,7 @@ extern StringEntry lovrStencilAction[];
 extern StringEntry lovrTextureFeature[];
 extern StringEntry lovrTextureFormat[];
 extern StringEntry lovrTextureType[];
+extern StringEntry lovrTextureUsage[];
 extern StringEntry lovrTimeUnit[];
 extern StringEntry lovrUniformAccess[];
 extern StringEntry lovrVerticalAlign[];
