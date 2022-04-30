@@ -11,6 +11,7 @@ static const uint32_t vectorComponents[MAX_VECTOR_TYPES] = {
   [V_VEC2] = 2,
   [V_VEC3] = 3,
   [V_VEC4] = 4,
+  [V_QUAT] = 4,
   [V_MAT4] = 16
 };
 
