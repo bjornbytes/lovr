@@ -166,8 +166,6 @@ static bool check(bool condition, const char* message);
 // Functions that require a device
 #define GPU_FOREACH_DEVICE(X)\
   X(vkSetDebugUtilsObjectNameEXT)\
-  X(vkCmdBeginDebugUtilsLabelEXT)\
-  X(vkCmdEndDebugUtilsLabelEXT)\
   X(vkDeviceWaitIdle)\
   X(vkQueueSubmit)\
   X(vkQueuePresentKHR)\
@@ -209,6 +207,7 @@ static bool check(bool condition, const char* message);
   X(vkCmdCopyImageToBuffer)\
   X(vkCmdFillBuffer)\
   X(vkCmdClearColorImage)\
+  X(vkCmdClearDepthStencilImage)\
   X(vkAllocateMemory)\
   X(vkFreeMemory)\
   X(vkMapMemory)\
@@ -557,8 +556,105 @@ void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint
   });
 }
 
+void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]) {
+  vkCmdCopyImage(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, VK_IMAGE_LAYOUT_GENERAL, 1, &(VkImageCopy) {
+    .srcSubresource = {
+      .aspectMask = src->aspect,
+      .mipLevel = srcOffset[3],
+      .baseArrayLayer = src->layered ? srcOffset[2] : 0,
+      .layerCount = src->layered ? size[2] : 1
+    },
+    .dstSubresource = {
+      .aspectMask = dst->aspect,
+      .mipLevel = dstOffset[3],
+      .baseArrayLayer = dst->layered ? dstOffset[2] : 0,
+      .layerCount = dst->layered ? size[2] : 1
+    },
+    .srcOffset = { srcOffset[0], srcOffset[1], src->layered ? 0 : srcOffset[2] },
+    .dstOffset = { dstOffset[0], dstOffset[1], dst->layered ? 0 : dstOffset[2] },
+    .extent = { size[0], size[1], size[2] }
+  });
+}
+
+void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint16_t dstOffset[4], uint16_t extent[3]) {
+  VkBufferImageCopy region = {
+    .bufferOffset = src->offset + srcOffset,
+    .imageSubresource.aspectMask = dst->aspect,
+    .imageSubresource.mipLevel = dstOffset[3],
+    .imageSubresource.baseArrayLayer = dst->layered ? dstOffset[2] : 0,
+    .imageSubresource.layerCount = dst->layered ? extent[2] : 1,
+    .imageOffset = { dstOffset[0], dstOffset[1], dst->layered ? 0 : dstOffset[2] },
+    .imageExtent = { extent[0], extent[1], dst->layered ? 1 : extent[2] }
+  };
+
+  vkCmdCopyBufferToImage(stream->commands, src->handle, dst->handle, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+}
+
+void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint16_t srcOffset[4], uint32_t dstOffset, uint16_t extent[3]) {
+  VkBufferImageCopy region = {
+    .bufferOffset = dst->offset + dstOffset,
+    .imageSubresource.aspectMask = src->aspect,
+    .imageSubresource.mipLevel = srcOffset[3],
+    .imageSubresource.baseArrayLayer = src->layered ? srcOffset[2] : 0,
+    .imageSubresource.layerCount = src->layered ? extent[2] : 1,
+    .imageOffset = { srcOffset[0], srcOffset[1], src->layered ? 0 : srcOffset[2] },
+    .imageExtent = { extent[0], extent[1], src->layered ? 1 : extent[2] }
+  };
+
+  vkCmdCopyImageToBuffer(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, 1, &region);
+}
+
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
-  vkCmdFillBuffer(stream->commands, buffer->handle, offset, size, 0);
+  vkCmdFillBuffer(stream->commands, buffer->handle, buffer->offset + offset, size, 0);
+}
+
+void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float value[4]) {
+  VkImageSubresourceRange range = {
+    .aspectMask = texture->aspect,
+    .baseMipLevel = level,
+    .levelCount = levelCount,
+    .baseArrayLayer = layer,
+    .layerCount = layerCount
+  };
+
+  if (texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
+    VkClearColorValue clear;
+    memcpy(&clear.float32, value, sizeof(clear.float32));
+    vkCmdClearColorImage(stream->commands, texture->handle, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &range);
+  } else {
+    VkClearDepthStencilValue clear;
+    clear.depth = value[0];
+    clear.stencil = (uint8_t) value[1];
+    vkCmdClearDepthStencilImage(stream->commands, texture->handle, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &range);
+  }
+}
+
+void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t srcExtent[3], uint16_t dstExtent[3], gpu_filter filter) {
+  VkImageBlit region = {
+    .srcSubresource = {
+      .aspectMask = src->aspect,
+      .mipLevel = srcOffset[3],
+      .baseArrayLayer = src->layered ? srcOffset[2] : 0,
+      .layerCount = src->layered ? srcExtent[2] : 1
+    },
+    .dstSubresource = {
+      .aspectMask = dst->aspect,
+      .mipLevel = dstOffset[3],
+      .baseArrayLayer = dst->layered ? dstOffset[2] : 0,
+      .layerCount = dst->layered ? dstExtent[2] : 1
+    },
+    .srcOffsets[0] = { srcOffset[0], srcOffset[1], src->layered ? 0 : srcOffset[2] },
+    .dstOffsets[0] = { dstOffset[0], dstOffset[1], dst->layered ? 0 : dstOffset[2] },
+    .srcOffsets[1] = { srcOffset[0] + srcExtent[0], srcOffset[1] + srcExtent[1], src->layered ? 1 : srcOffset[2] + srcExtent[2] },
+    .dstOffsets[1] = { dstOffset[0] + dstExtent[0], dstOffset[1] + dstExtent[1], dst->layered ? 1 : dstOffset[2] + dstExtent[2] }
+  };
+
+  static const VkFilter filters[] = {
+    [GPU_FILTER_NEAREST] = VK_FILTER_NEAREST,
+    [GPU_FILTER_LINEAR] = VK_FILTER_LINEAR
+  };
+
+  vkCmdBlitImage(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, VK_IMAGE_LAYOUT_GENERAL, 1, &region, filters[filter]);
 }
 
 // Entry
