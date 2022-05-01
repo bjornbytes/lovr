@@ -75,8 +75,6 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
       material->images[TEXTURE_DIFFUSE] = (uint32_t) images->length;
-      material->filters[TEXTURE_DIFFUSE].mode = FILTER_TRILINEAR;
-      material->wraps[TEXTURE_DIFFUSE] = (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT };
       arr_push(images, image);
       lovrRelease(blob, lovrBlobDestroy);
     }

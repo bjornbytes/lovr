@@ -32,29 +32,6 @@ typedef enum {
 } DrawMode;
 
 typedef enum {
-  FILTER_NEAREST,
-  FILTER_BILINEAR,
-  FILTER_TRILINEAR
-} FilterMode;
-
-typedef struct {
-  FilterMode mode;
-  float anisotropy;
-} TextureFilter;
-
-typedef enum {
-  WRAP_CLAMP,
-  WRAP_REPEAT,
-  WRAP_MIRRORED_REPEAT
-} WrapMode;
-
-typedef struct {
-  WrapMode s;
-  WrapMode t;
-  WrapMode r;
-} TextureWrap;
-
-typedef enum {
   SCALAR_METALNESS,
   SCALAR_ROUGHNESS,
   SCALAR_ALPHA_CUTOFF,
@@ -145,8 +122,6 @@ typedef struct {
   float scalars[MAX_MATERIAL_SCALARS];
   float colors[MAX_MATERIAL_COLORS][4];
   uint32_t images[MAX_MATERIAL_TEXTURES];
-  TextureFilter filters[MAX_MATERIAL_TEXTURES];
-  TextureWrap wraps[MAX_MATERIAL_TEXTURES];
 } ModelMaterial;
 
 typedef struct {
