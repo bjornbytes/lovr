@@ -24,6 +24,12 @@ struct Texture {
   TextureInfo info;
 };
 
+struct Sampler {
+  uint32_t ref;
+  gpu_sampler* gpu;
+  SamplerInfo info;
+};
+
 struct Pass {
   uint32_t ref;
   PassInfo info;
@@ -458,6 +464,44 @@ void lovrTextureDestroy(void* ref) {
 
 const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
+}
+
+// Sampler
+
+Sampler* lovrSamplerCreate(SamplerInfo* info) {
+  lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
+  lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds anisotropy limit (%f)", info->anisotropy, state.limits.anisotropy);
+
+  Sampler* sampler = calloc(1, sizeof(Sampler) + gpu_sizeof_sampler());
+  lovrAssert(sampler, "Out of memory");
+  sampler->gpu = (gpu_sampler*) (sampler + 1);
+  sampler->info = *info;
+  sampler->ref = 1;
+
+  gpu_sampler_info gpu = {
+    .min = (gpu_filter) info->min,
+    .mag = (gpu_filter) info->mag,
+    .mip = (gpu_filter) info->mip,
+    .wrap[0] = (gpu_wrap) info->wrap[0],
+    .wrap[1] = (gpu_wrap) info->wrap[1],
+    .wrap[2] = (gpu_wrap) info->wrap[2],
+    .compare = (gpu_compare_mode) info->compare,
+    .anisotropy = MIN(info->anisotropy, state.limits.anisotropy),
+    .lodClamp = { info->range[0], info->range[1] }
+  };
+
+  lovrAssert(gpu_sampler_init(sampler->gpu, &gpu), "Failed to initialize sampler");
+  return sampler;
+}
+
+void lovrSamplerDestroy(void* ref) {
+  Sampler* sampler = ref;
+  gpu_sampler_destroy(sampler->gpu);
+  free(sampler);
+}
+
+const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
+  return &sampler->info;
 }
 
 // Pass

@@ -7,6 +7,7 @@ struct Image;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
+typedef struct Sampler Sampler;
 typedef struct Pass Pass;
 
 typedef struct {
@@ -191,6 +192,41 @@ Texture* lovrTextureCreate(TextureInfo* info);
 Texture* lovrTextureCreateView(TextureViewInfo* view);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
+
+// Sampler
+
+typedef enum {
+  FILTER_NEAREST,
+  FILTER_LINEAR
+} FilterMode;
+
+typedef enum {
+  WRAP_CLAMP,
+  WRAP_REPEAT,
+  WRAP_MIRROR
+} WrapMode;
+
+typedef enum {
+  COMPARE_NONE,
+  COMPARE_EQUAL,
+  COMPARE_NEQUAL,
+  COMPARE_LESS,
+  COMPARE_LEQUAL,
+  COMPARE_GREATER,
+  COMPARE_GEQUAL
+} CompareMode;
+
+typedef struct {
+  FilterMode min, mag, mip;
+  WrapMode wrap[3];
+  CompareMode compare;
+  float anisotropy;
+  float range[2];
+} SamplerInfo;
+
+Sampler* lovrSamplerCreate(SamplerInfo* info);
+void lovrSamplerDestroy(void* ref);
+const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
 // Pass
 

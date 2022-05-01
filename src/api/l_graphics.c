@@ -15,6 +15,17 @@ StringEntry lovrBufferLayout[] = {
   { 0 }
 };
 
+StringEntry lovrCompareMode[] = {
+  [COMPARE_NONE] = ENTRY("none"),
+  [COMPARE_EQUAL] = ENTRY("equal"),
+  [COMPARE_NEQUAL] = ENTRY("notequal"),
+  [COMPARE_LESS] = ENTRY("less"),
+  [COMPARE_LEQUAL] = ENTRY("lequal"),
+  [COMPARE_GREATER] = ENTRY("greater"),
+  [COMPARE_GEQUAL] = ENTRY("gequal"),
+  { 0 }
+};
+
 StringEntry lovrFieldType[] = {
   [FIELD_I8x4] = ENTRY("i8x4"),
   [FIELD_U8x4] = ENTRY("u8x4"),
@@ -51,6 +62,12 @@ StringEntry lovrFieldType[] = {
   { 0 }
 };
 
+StringEntry lovrFilterMode[] = {
+  [FILTER_NEAREST] = ENTRY("nearest"),
+  [FILTER_LINEAR] = ENTRY("linear"),
+  { 0 }
+};
+
 StringEntry lovrPassType[] = {
   [PASS_RENDER] = ENTRY("render"),
   [PASS_COMPUTE] = ENTRY("compute"),
@@ -83,6 +100,12 @@ StringEntry lovrTextureUsage[] = {
   [1] = ENTRY("render"),
   [2] = ENTRY("storage"),
   [3] = ENTRY("copy"),
+  { 0 }
+};
+
+StringEntry lovrWrapMode[] = {
+  [WRAP_CLAMP] = ENTRY("clamp"),
+  [WRAP_REPEAT] = ENTRY("repeat"),
   { 0 }
 };
 
@@ -705,6 +728,74 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewSampler(lua_State* L) {
+  SamplerInfo info = {
+    .min = FILTER_LINEAR,
+    .mag = FILTER_LINEAR,
+    .mip = FILTER_LINEAR,
+    .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
+    .range = { 0.f, -1.f }
+  };
+
+  luaL_checktype(L, 1, LUA_TTABLE);
+
+  lua_getfield(L, 1, "filter");
+  if (lua_isstring(L, -1)) {
+    info.min = info.mag = info.mip = luax_checkenum(L, -1, FilterMode, NULL);
+  } else if (lua_istable(L, -1)) {
+    lua_rawgeti(L, -1, 1);
+    lua_rawgeti(L, -2, 2);
+    lua_rawgeti(L, -3, 3);
+    info.min = luax_checkenum(L, -3, FilterMode, NULL);
+    info.mag = luax_checkenum(L, -2, FilterMode, NULL);
+    info.mip = luax_checkenum(L, -1, FilterMode, NULL);
+    lua_pop(L, 3);
+  } else if (!lua_isnil(L, -1)) {
+    lovrThrow("Expected string or table for Sampler filter");
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "wrap");
+  if (lua_isstring(L, -1)) {
+    info.wrap[0] = info.wrap[1] = info.wrap[2] = luax_checkenum(L, -1, WrapMode, NULL);
+  } else if (lua_istable(L, -1)) {
+    lua_rawgeti(L, -1, 1);
+    lua_rawgeti(L, -2, 2);
+    lua_rawgeti(L, -3, 3);
+    info.wrap[0] = luax_checkenum(L, -3, WrapMode, NULL);
+    info.wrap[1] = luax_checkenum(L, -2, WrapMode, NULL);
+    info.wrap[2] = luax_checkenum(L, -1, WrapMode, NULL);
+    lua_pop(L, 3);
+  } else if (!lua_isnil(L, -1)) {
+    lovrThrow("Expected string or table for Sampler wrap");
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "compare");
+  info.compare = luax_checkenum(L, -1, CompareMode, "none");
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "anisotropy");
+  info.anisotropy = luax_optfloat(L, -1, 0.f);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "mipmaprange");
+  if (!lua_isnil(L, -1)) {
+    lovrAssert(lua_istable(L, -1), "Sampler mipmap range must be nil or a table");
+    lua_rawgeti(L, -1, 1);
+    lua_rawgeti(L, -2, 2);
+    info.range[0] = luax_checkfloat(L, -2);
+    info.range[1] = luax_checkfloat(L, -1);
+    lua_pop(L, 2);
+  }
+  lua_pop(L, 1);
+
+  Sampler* sampler = lovrSamplerCreate(&info);
+  luax_pushtype(L, Sampler, sampler);
+  lovrRelease(sampler, lovrSamplerDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
   { "submit", l_lovrGraphicsSubmit },
@@ -716,6 +807,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "buffer", l_lovrGraphicsBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
+  { "newSampler", l_lovrGraphicsNewSampler },
   { "pass", l_lovrGraphicsPass },
   { NULL, NULL }
 };

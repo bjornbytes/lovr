@@ -27,12 +27,17 @@ struct gpu_texture {
   bool layered;
 };
 
+struct gpu_sampler {
+  VkSampler handle;
+};
+
 struct gpu_stream {
   VkCommandBuffer commands;
 };
 
 size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture() { return sizeof(gpu_texture); }
+size_t gpu_sizeof_sampler() { return sizeof(gpu_sampler); }
 
 // Internals
 
@@ -615,6 +620,62 @@ void gpu_texture_destroy(gpu_texture* texture) {
   if (texture->memory == 0xffff) return;
   condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
   gpu_release(state.memory + texture->memory);
+}
+
+// Sampler
+
+bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
+  static const VkFilter filters[] = {
+    [GPU_FILTER_NEAREST] = VK_FILTER_NEAREST,
+    [GPU_FILTER_LINEAR] = VK_FILTER_LINEAR
+  };
+
+  static const VkSamplerMipmapMode mipFilters[] = {
+    [GPU_FILTER_NEAREST] = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+    [GPU_FILTER_LINEAR] = VK_SAMPLER_MIPMAP_MODE_LINEAR
+  };
+
+  static const VkSamplerAddressMode wraps[] = {
+    [GPU_WRAP_CLAMP] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    [GPU_WRAP_REPEAT] = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    [GPU_WRAP_MIRROR] = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
+  };
+
+  static const VkCompareOp compareOps[] = {
+    [GPU_COMPARE_NONE] = VK_COMPARE_OP_ALWAYS,
+    [GPU_COMPARE_EQUAL] = VK_COMPARE_OP_EQUAL,
+    [GPU_COMPARE_NEQUAL] = VK_COMPARE_OP_NOT_EQUAL,
+    [GPU_COMPARE_LESS] = VK_COMPARE_OP_LESS,
+    [GPU_COMPARE_LEQUAL] = VK_COMPARE_OP_LESS_OR_EQUAL,
+    [GPU_COMPARE_GREATER] = VK_COMPARE_OP_GREATER,
+    [GPU_COMPARE_GEQUAL] = VK_COMPARE_OP_GREATER_OR_EQUAL
+  };
+
+  VkSamplerCreateInfo samplerInfo = {
+    .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+    .magFilter = filters[info->mag],
+    .minFilter = filters[info->min],
+    .mipmapMode = mipFilters[info->mip],
+    .addressModeU = wraps[info->wrap[0]],
+    .addressModeV = wraps[info->wrap[1]],
+    .addressModeW = wraps[info->wrap[2]],
+    .anisotropyEnable = info->anisotropy >= 1.f,
+    .maxAnisotropy = info->anisotropy,
+    .compareEnable = info->compare != GPU_COMPARE_NONE,
+    .compareOp = compareOps[info->compare],
+    .minLod = info->lodClamp[0],
+    .maxLod = info->lodClamp[1] < 0.f ? VK_LOD_CLAMP_NONE : info->lodClamp[1]
+  };
+
+  VK(vkCreateSampler(state.device, &samplerInfo, NULL, &sampler->handle), "Could not create sampler") {
+    return false;
+  }
+
+  return true;
+}
+
+void gpu_sampler_destroy(gpu_sampler* sampler) {
+  condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER);
 }
 
 // Stream

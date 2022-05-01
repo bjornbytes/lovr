@@ -4,10 +4,12 @@
 
 typedef struct gpu_buffer gpu_buffer;
 typedef struct gpu_texture gpu_texture;
+typedef struct gpu_sampler gpu_sampler;
 typedef struct gpu_stream gpu_stream;
 
 size_t gpu_sizeof_buffer(void);
 size_t gpu_sizeof_texture(void);
+size_t gpu_sizeof_sampler(void);
 
 // Buffer
 
@@ -131,6 +133,35 @@ typedef enum {
   GPU_FILTER_NEAREST,
   GPU_FILTER_LINEAR
 } gpu_filter;
+
+typedef enum {
+  GPU_WRAP_CLAMP,
+  GPU_WRAP_REPEAT,
+  GPU_WRAP_MIRROR
+} gpu_wrap;
+
+typedef enum {
+  GPU_COMPARE_NONE,
+  GPU_COMPARE_EQUAL,
+  GPU_COMPARE_NEQUAL,
+  GPU_COMPARE_LESS,
+  GPU_COMPARE_LEQUAL,
+  GPU_COMPARE_GREATER,
+  GPU_COMPARE_GEQUAL
+} gpu_compare_mode;
+
+typedef struct {
+  gpu_filter min;
+  gpu_filter mag;
+  gpu_filter mip;
+  gpu_wrap wrap[3];
+  gpu_compare_mode compare;
+  float anisotropy;
+  float lodClamp[2];
+} gpu_sampler_info;
+
+bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info);
+void gpu_sampler_destroy(gpu_sampler* sampler);
 
 // Stream
 
