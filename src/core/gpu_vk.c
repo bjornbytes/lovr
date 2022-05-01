@@ -1192,7 +1192,15 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
   static const uint32_t blockSizes[] = {
     [GPU_MEMORY_BUFFER_GPU] = 1 << 26,
     [GPU_MEMORY_BUFFER_CPU_WRITE] = 0,
-    [GPU_MEMORY_BUFFER_CPU_READ] = 0
+    [GPU_MEMORY_BUFFER_CPU_READ] = 0,
+    [GPU_MEMORY_TEXTURE_COLOR] = 1 << 28,
+    [GPU_MEMORY_TEXTURE_D16] = 1 << 28,
+    [GPU_MEMORY_TEXTURE_D24S8] = 1 << 28,
+    [GPU_MEMORY_TEXTURE_D32F] = 1 << 28,
+    [GPU_MEMORY_TEXTURE_LAZY_COLOR] = 1 << 28,
+    [GPU_MEMORY_TEXTURE_LAZY_D16] = 1 << 28,
+    [GPU_MEMORY_TEXTURE_LAZY_D24S8] = 1 << 28,
+    [GPU_MEMORY_TEXTURE_LAZY_D32F] = 1 << 28
   };
 
   uint32_t blockSize = blockSizes[type];
