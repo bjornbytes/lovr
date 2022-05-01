@@ -200,8 +200,30 @@ typedef enum {
   PASS_TRANSFER
 } PassType;
 
+typedef enum {
+  LOAD_KEEP,
+  LOAD_CLEAR,
+  LOAD_DISCARD
+} LoadAction;
+
+typedef struct {
+  Texture* texture;
+  uint32_t format;
+  LoadAction load;
+  float clear;
+} DepthBuffer;
+
+typedef struct {
+  Texture* textures[4];
+  LoadAction loads[4];
+  float clears[4][4];
+  DepthBuffer depth;
+  uint32_t samples;
+} Canvas;
+
 typedef struct {
   PassType type;
+  Canvas canvas;
   const char* label;
 } PassInfo;
 

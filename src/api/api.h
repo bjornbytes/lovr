@@ -47,6 +47,7 @@ extern StringEntry lovrKeyboardKey[];
 extern StringEntry lovrMaterialColor[];
 extern StringEntry lovrMaterialScalar[];
 extern StringEntry lovrMaterialTexture[];
+extern StringEntry lovrPassType[];
 extern StringEntry lovrPermission[];
 extern StringEntry lovrSampleFormat[];
 extern StringEntry lovrShaderType[];

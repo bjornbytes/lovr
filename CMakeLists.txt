@@ -423,6 +423,7 @@ if(LOVR_ENABLE_GRAPHICS)
     src/api/l_graphics.c
     src/api/l_graphics_buffer.c
     src/api/l_graphics_texture.c
+    src/api/l_graphics_pass.c
   )
 
   if(LOVR_USE_VULKAN)
