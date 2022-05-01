@@ -477,6 +477,97 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
+  if (info->upload.stream) {
+    VkImage image = texture->handle;
+    VkCommandBuffer commands = info->upload.stream->commands;
+    uint32_t levelCount = info->upload.levelCount;
+    gpu_buffer* buffer = info->upload.buffer;
+
+    VkPipelineStageFlags prev, next;
+    VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImageMemoryBarrier transition = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .image = image,
+      .subresourceRange.aspectMask = texture->aspect,
+      .subresourceRange.baseMipLevel = 0,
+      .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+      .subresourceRange.baseArrayLayer = 0,
+      .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+    };
+
+    if (levelCount > 0) {
+      VkBufferImageCopy regions[16];
+      for (uint32_t i = 0; i < levelCount; i++) {
+        regions[i] = (VkBufferImageCopy) {
+          .bufferOffset = buffer->offset + info->upload.levelOffsets[i],
+          .imageSubresource.aspectMask = texture->aspect,
+          .imageSubresource.mipLevel = i,
+          .imageSubresource.baseArrayLayer = 0,
+          .imageSubresource.layerCount = texture->layered ? info->size[2] : 1,
+          .imageExtent.width = MAX(info->size[0] >> i, 1),
+          .imageExtent.height = MAX(info->size[1] >> i, 1),
+          .imageExtent.depth = texture->layered ? 1 : MAX(info->size[2] >> i, 1)
+        };
+      }
+
+      // Upload initial contents
+      prev = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      next = VK_PIPELINE_STAGE_TRANSFER_BIT;
+      transition.srcAccessMask = 0;
+      transition.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      transition.oldLayout = layout;
+      transition.newLayout = layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      vkCmdPipelineBarrier(commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+      vkCmdCopyBufferToImage(commands, buffer->handle, image, layout, levelCount, regions);
+
+      // Generate mipmaps
+      if (info->upload.generateMipmaps) {
+        prev = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        next = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        transition.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        transition.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        transition.subresourceRange.baseMipLevel = 0;
+        transition.subresourceRange.levelCount = levelCount;
+        transition.oldLayout = layout;
+        transition.newLayout = layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        vkCmdPipelineBarrier(commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+        for (uint32_t i = levelCount; i < info->mipmaps; i++) {
+          VkImageBlit region = {
+            .srcSubresource = {
+              .aspectMask = texture->aspect,
+              .mipLevel = i - 1,
+              .layerCount = texture->layered ? info->size[2] : 1
+            },
+            .dstSubresource = {
+              .aspectMask = texture->aspect,
+              .mipLevel = i,
+              .layerCount = texture->layered ? info->size[2] : 1
+            },
+            .srcOffsets[1] = { MAX(info->size[0] >> (i - 1), 1), MAX(info->size[1] >> (i - 1), 1), 1 },
+            .dstOffsets[1] = { MAX(info->size[0] >> i, 1), MAX(info->size[1] >> i, 1), 1 }
+          };
+          vkCmdBlitImage(commands, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_LINEAR);
+          transition.subresourceRange.baseMipLevel = i;
+          transition.subresourceRange.levelCount = 1;
+          transition.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+          transition.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+          vkCmdPipelineBarrier(commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+        }
+      }
+    }
+
+    // Transition to natural layout
+    prev = levelCount > 0 ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    next = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    transition.srcAccessMask = levelCount > 0 ? VK_ACCESS_TRANSFER_WRITE_BIT : 0;
+    transition.dstAccessMask = 0;
+    transition.oldLayout = layout;
+    transition.newLayout = texture->layout;
+    transition.subresourceRange.baseMipLevel = 0;
+    transition.subresourceRange.levelCount = info->mipmaps;
+    vkCmdPipelineBarrier(commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+  }
+
   texture->memory = memory - state.memory;
 
   return true;

@@ -5,6 +5,7 @@
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <stdlib.h>
 #include <string.h>
 
 StringEntry lovrBufferLayout[] = {
@@ -444,7 +445,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   int index = 1;
   Image* stack[6];
   Image** images = stack;
-  uint32_t imageCount = 0;
 
   if (lua_isnumber(L, 1)) {
     info.width = luax_checku32(L, index++);
@@ -454,14 +454,14 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
       info.type = TEXTURE_ARRAY;
     }
   } else if (lua_istable(L, 1)) {
-    imageCount = luax_len(L, index++);
-    images = imageCount > COUNTOF(stack) ? malloc(imageCount * sizeof(Image*)) : stack;
+    info.imageCount = luax_len(L, index++);
+    images = info.imageCount > COUNTOF(stack) ? malloc(info.imageCount * sizeof(Image*)) : stack;
     lovrAssert(images, "Out of memory");
     info.type = TEXTURE_ARRAY;
-    info.depth = imageCount;
+    info.depth = info.imageCount;
 
-    if (imageCount == 0) {
-      imageCount = 6;
+    if (info.imageCount == 0) {
+      info.imageCount = 6;
       info.type = TEXTURE_CUBE;
       const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
       const char* altFaces[6] = { "px", "nx", "py", "ny", "pz", "nz" };
@@ -477,8 +477,10 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         images[i] = luax_checkimage(L, -1);
       }
     }
+
+    lovrCheck(lovrImageGetLayerCount(images[0]) == 1, "When a list of images is provided, each must have a single layer");
   } else {
-    imageCount = 1;
+    info.imageCount = 1;
     images[0] = luax_checkimage(L, index++);
     info.depth = lovrImageGetLayerCount(images[0]);
     if (lovrImageIsCube(images[0])) {
@@ -488,7 +490,8 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     }
   }
 
-  if (imageCount > 0) {
+  if (info.imageCount > 0) {
+    info.images = images;
     Image* image = images[0];
     uint32_t layers = lovrImageGetLayerCount(image);
     uint32_t levels = lovrImageGetLevelCount(image);
@@ -497,11 +500,12 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.height = lovrImageGetHeight(image);
     info.mipmaps = levels == 1 ? ~0u : levels;
     info.srgb = lovrImageIsSRGB(image);
-    for (uint32_t i = 1; i < imageCount; i++) {
+    for (uint32_t i = 1; i < info.imageCount; i++) {
       lovrAssert(lovrImageGetWidth(images[0]) == lovrImageGetWidth(images[i]), "Image widths must match");
       lovrAssert(lovrImageGetHeight(images[0]) == lovrImageGetHeight(images[i]), "Image heights must match");
       lovrAssert(lovrImageGetFormat(images[0]) == lovrImageGetFormat(images[i]), "Image formats must match");
       lovrAssert(lovrImageGetLevelCount(images[0]) == lovrImageGetLevelCount(images[i]), "Image mipmap counts must match");
+      lovrAssert(lovrImageGetLayerCount(images[i]) == 1, "When a list of images are provided, each must have a single layer");
     }
   }
 
@@ -510,7 +514,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, TextureType, NULL);
     lua_pop(L, 1);
 
-    if (imageCount == 0) {
+    if (info.imageCount == 0) {
       lua_getfield(L, index, "format");
       info.format = lua_isnil(L, -1) ? info.format : luax_checkenum(L, -1, TextureFormat, NULL);
       lua_pop(L, 1);
@@ -546,7 +550,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         }
         break;
       }
-      case LUA_TNIL: info.usage = (imageCount == 0) ? TEXTURE_RENDER | TEXTURE_SAMPLE : TEXTURE_SAMPLE; break;
+      case LUA_TNIL: info.usage = (info.imageCount == 0) ? TEXTURE_RENDER | TEXTURE_SAMPLE : TEXTURE_SAMPLE; break;
       default: return luaL_error(L, "Expected Texture usage to be a string, table, or nil");
     }
     lua_pop(L, 1);
@@ -556,18 +560,18 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  if (imageCount == 0 && info.depth == 0) {
+  if (info.imageCount == 0 && info.depth == 0) {
     info.depth = info.type == TEXTURE_CUBE ? 6 : 1;
   }
 
   Texture* texture = lovrTextureCreate(&info);
 
-  for (uint32_t i = 0; i < imageCount; i++) {
-    lovrRelease(info.images[i], lovrImageDestroy);
+  for (uint32_t i = 0; i < info.imageCount; i++) {
+    lovrRelease(images[i], lovrImageDestroy);
   }
 
-  if (info.images != stack) {
-    free(info.images);
+  if (images != stack) {
+    free(images);
   }
 
   luax_pushtype(L, Texture, texture);

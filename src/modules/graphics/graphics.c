@@ -292,7 +292,8 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   };
 
   uint32_t limit = limits[info->type];
-  uint32_t mips = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_3D ? info->depth : 1))) + 1;
+  uint32_t mipmapCap = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_3D ? info->depth : 1))) + 1;
+  uint32_t mipmaps = CLAMP(info->mipmaps, 1, mipmapCap);
   uint8_t supports = state.features.formats[info->format];
 
   lovrCheck(info->width > 0, "Texture width must be greater than zero");
@@ -305,18 +306,18 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
   lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
   lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
-  lovrCheck(measureTexture(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB");
+  lovrCheck(measureTexture(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB"); // TODO mip?
   lovrCheck(info->samples == 1 || info->samples == 4, "Currently, Texture multisample count must be 1 or 4");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "Volume textures can not be multisampled");
   lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'storage' flag can not be multisampled");
-  lovrCheck(info->samples == 1 || info->mipmaps == 1, "Multisampled textures can only have 1 mipmap");
+  lovrCheck(info->samples == 1 || mipmaps == 1, "Multisampled textures can only have 1 mipmap");
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
   lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
   lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this format");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds the renderSize limit");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds the renderSize limit");
-  lovrCheck(info->mipmaps == ~0u || info->mipmaps <= mips, "Texture has more than the max number of mipmap levels for its size (%d)", mips);
+  lovrCheck(mipmaps <= mipmapCap, "Texture has more than the max number of mipmap levels for its size (%d)", mipmapCap);
   lovrCheck((info->format < FORMAT_BC1 || info->format > FORMAT_BC7) || state.features.textureBC, "%s textures are not supported on this GPU", "BC");
   lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.textureASTC, "%s textures are not supported on this GPU", "ASTC");
 
@@ -325,7 +326,41 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   texture->ref = 1;
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
-  texture->info.mipmaps = CLAMP(texture->info.mipmaps, 1, mips);
+  texture->info.mipmaps = mipmaps;
+
+  uint32_t levelCount = 0;
+  uint32_t levelOffsets[16];
+  uint32_t levelSizes[16];
+  gpu_buffer* scratchpad;
+
+  if (info->imageCount > 0) {
+    levelCount = lovrImageGetLevelCount(info->images[0]);
+    lovrCheck(info->type != TEXTURE_3D || levelCount == 1, "Images used to initialize 3D textures can not have mipmaps");
+
+    uint32_t total = 0;
+    for (uint32_t level = 0; level < levelCount; level++) {
+      levelOffsets[level] = total;
+      uint32_t width = MAX(info->width >> level, 1);
+      uint32_t height = MAX(info->height >> level, 1);
+      levelSizes[level] = measureTexture(info->format, width, height, info->depth);
+      total += levelSizes[level];
+    }
+
+    scratchpad = tempAlloc(gpu_sizeof_buffer());
+    char* data = gpu_map(scratchpad, total, 64, GPU_MAP_WRITE);
+
+    for (uint32_t level = 0; level < levelCount; level++) {
+      for (uint32_t layer = 0; layer < info->depth; layer++) {
+        Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
+        uint32_t slice = info->imageCount == 1 ? layer : 0;
+        uint32_t size = lovrImageGetLayerSize(image, level);
+        lovrCheck(size == levelSizes[level], "Texture/Image size mismatch!");
+        void* pixels = lovrImageGetLayerData(image, level, layer);
+        memcpy(data, pixels, size);
+        data += size;
+      }
+    }
+  }
 
   gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
@@ -340,7 +375,14 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       ((info->usage & TEXTURE_COPY) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
     .srgb = info->srgb,
     .handle = info->handle,
-    .label = info->label
+    .label = info->label,
+    .upload = {
+      .stream = getTransfers(),
+      .buffer = scratchpad,
+      .levelCount = levelCount,
+      .levelOffsets = levelOffsets,
+      .generateMipmaps = levelCount < mipmaps
+    }
   });
 
   // Automatically create a renderable view for renderable non-volume textures
