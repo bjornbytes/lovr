@@ -814,6 +814,7 @@ static const luaL_Reg lovrGraphics[] = {
 
 extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
+extern const luaL_Reg lovrSampler[];
 extern const luaL_Reg lovrPass[];
 
 int luaopen_lovr_graphics(lua_State* L) {
@@ -821,6 +822,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_register(L, lovrGraphics);
   luax_registertype(L, Buffer);
   luax_registertype(L, Texture);
+  luax_registertype(L, Sampler);
   luax_registertype(L, Pass);
   return 1;
 }
