@@ -105,6 +105,9 @@ static int l_lovrTextureHasUsage(lua_State* L) {
 }
 
 const luaL_Reg lovrTexture[] = {
+  { "newView", l_lovrTextureNewView },
+  { "isView", l_lovrTextureIsView },
+  { "getParent", l_lovrTextureGetParent },
   { "getType", l_lovrTextureGetType },
   { "getFormat", l_lovrTextureGetFormat },
   { "getWidth", l_lovrTextureGetWidth },
@@ -113,5 +116,6 @@ const luaL_Reg lovrTexture[] = {
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getSampleCount", l_lovrTextureGetSampleCount },
+  { "hasUsage ", l_lovrTextureHasUsage },
   { NULL, NULL }
 };

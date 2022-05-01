@@ -620,7 +620,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   if (info.imageCount > 0) {
     info.images = images;
     Image* image = images[0];
-    uint32_t layers = lovrImageGetLayerCount(image);
     uint32_t levels = lovrImageGetLevelCount(image);
     info.format = lovrImageGetFormat(image);
     info.width = lovrImageGetWidth(image);

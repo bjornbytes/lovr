@@ -331,7 +331,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   uint32_t levelCount = 0;
   uint32_t levelOffsets[16];
   uint32_t levelSizes[16];
-  gpu_buffer* scratchpad;
+  gpu_buffer* scratchpad = NULL;
 
   if (info->imageCount > 0) {
     levelCount = lovrImageGetLevelCount(info->images[0]);
@@ -355,7 +355,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
         uint32_t slice = info->imageCount == 1 ? layer : 0;
         uint32_t size = lovrImageGetLayerSize(image, level);
         lovrCheck(size == levelSizes[level], "Texture/Image size mismatch!");
-        void* pixels = lovrImageGetLayerData(image, level, layer);
+        void* pixels = lovrImageGetLayerData(image, level, slice);
         memcpy(data, pixels, size);
         data += size;
       }
