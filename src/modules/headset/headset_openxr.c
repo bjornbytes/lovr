@@ -114,7 +114,9 @@ EGLConfig os_get_egl_config(void);
   X(xrDestroyHandTrackerEXT)\
   X(xrLocateHandJointsEXT)\
   X(xrGetHandMeshFB)\
-  X(xrGetDisplayRefreshRateFB)
+  X(xrGetDisplayRefreshRateFB) \
+  X(xrEnumerateDisplayRefreshRatesFB) \
+  X(xrRequestDisplayRefreshRateFB)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -1024,6 +1026,20 @@ static float openxr_getDisplayFrequency(void) {
   return frequency;
 }
 
+static float* openxr_getDisplayFrequencies(uint32_t* count) {
+  if (!state.features.refreshRate || !count) return NULL;
+  XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, count, NULL));
+  float *frequencies = malloc(*count * sizeof(float));
+  lovrAssert(frequencies, "Out of Memory");
+  XR(xrEnumerateDisplayRefreshRatesFB(state.session, *count, count, frequencies));
+  return frequencies;
+}
+
+static bool openxr_setDisplayFrequency(float frequency) {
+  if (!state.features.refreshRate) return false;
+  XR(xrRequestDisplayRefreshRateFB(state.session, frequency));
+  return true;
+}
 static double openxr_getDisplayTime(void) {
   return state.frameState.predictedDisplayTime / 1e9;
 }
@@ -1814,6 +1830,8 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getOriginType = openxr_getOriginType,
   .getDisplayDimensions = openxr_getDisplayDimensions,
   .getDisplayFrequency = openxr_getDisplayFrequency,
+  .getDisplayFrequencies = openxr_getDisplayFrequencies,
+  .setDisplayFrequency = openxr_setDisplayFrequency,
   .getDisplayTime = openxr_getDisplayTime,
   .getDeltaTime = openxr_getDeltaTime,
   .getViewCount = openxr_getViewCount,
