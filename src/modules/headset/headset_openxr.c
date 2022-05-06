@@ -301,10 +301,14 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensionProperties);
 
+#ifdef __ANDROID__
+    bool androidCreateInstanceExtension = false;
+#endif
+
     // Extensions without a feature are required
     struct { const char* name; bool* feature; bool disable; } extensions[] = {
 #ifdef __ANDROID__
-      { "XR_KHR_android_create_instance", NULL, false },
+      { "XR_KHR_android_create_instance", &androidCreateInstanceExtension, false },
 #endif
 #ifdef LOVR_LINUX_EGL
       { "XR_MNDX_egl_enable", NULL, false },
@@ -334,6 +338,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
 #ifdef __ANDROID__
+      // harmless to include even if not available from runtime
       .next = &(XrInstanceCreateInfoAndroidKHR) {
         .type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR,
         .applicationVM = activity->vm,
