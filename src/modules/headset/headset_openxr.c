@@ -1031,10 +1031,19 @@ static float* openxr_getDisplayFrequencies(uint32_t* count) {
 }
 
 static bool openxr_setDisplayFrequency(float frequency) {
-  if (!state.features.refreshRate) return false;
-  XR(xrRequestDisplayRefreshRateFB(state.session, frequency));
+  if (!state.features.refreshRate) {
+    return false;
+  }
+
+  XrResult res = xrRequestDisplayRefreshRateFB(state.session, frequency);
+  if (res == XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB) {
+    return false;
+  }
+  XR(res);
+
   return true;
 }
+
 static double openxr_getDisplayTime(void) {
   return state.frameState.predictedDisplayTime / 1e9;
 }
