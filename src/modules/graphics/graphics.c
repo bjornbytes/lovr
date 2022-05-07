@@ -1,6 +1,7 @@
 #include "graphics/graphics.h"
 #include "data/image.h"
 #include "core/gpu.h"
+#include "core/maf.h"
 #include "core/os.h"
 #include "util.h"
 #include <math.h>
@@ -34,6 +35,9 @@ struct Pass {
   uint32_t ref;
   PassInfo info;
   gpu_stream* stream;
+  float* transform;
+  uint32_t transformIndex;
+  float transforms[16][16];
 };
 
 typedef struct {
@@ -521,6 +525,43 @@ void lovrPassDestroy(void* ref) {
 
 const PassInfo* lovrPassGetInfo(Pass* pass) {
   return &pass->info;
+}
+
+void lovrPassPush(Pass* pass, StackType stack) {
+  lovrCheck(pass->info.type == PASS_RENDER, "This function can only be called on a render pass");
+  if (stack == STACK_TRANSFORM) {
+    pass->transform = pass->transforms[++pass->transformIndex];
+    lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "Transform stack overflow (more pushes than pops?)");
+    mat4_init(pass->transforms[pass->transformIndex], pass->transforms[pass->transformIndex - 1]);
+  }
+}
+
+void lovrPassPop(Pass* pass, StackType stack) {
+  lovrCheck(pass->info.type == PASS_RENDER, "This function can only be called on a render pass");
+  if (stack == STACK_TRANSFORM) {
+    pass->transform = pass->transforms[--pass->transformIndex];
+    lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "Transform stack underflow (more pops than pushes?)");
+  }
+}
+
+void lovrPassOrigin(Pass* pass) {
+  mat4_identity(pass->transform);
+}
+
+void lovrPassTranslate(Pass* pass, vec3 translation) {
+  mat4_translate(pass->transform, translation[0], translation[1], translation[2]);
+}
+
+void lovrPassRotate(Pass* pass, quat rotation) {
+  mat4_rotateQuat(pass->transform, rotation);
+}
+
+void lovrPassScale(Pass* pass, vec3 scale) {
+  mat4_scale(pass->transform, scale[0], scale[1], scale[2]);
+}
+
+void lovrPassTransform(Pass* pass, mat4 transform) {
+  mat4_mul(pass->transform, transform);
 }
 
 // Helpers

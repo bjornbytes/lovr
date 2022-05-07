@@ -237,6 +237,11 @@ typedef enum {
 } PassType;
 
 typedef enum {
+  STACK_TRANSFORM,
+  STACK_PIPELINE
+} StackType;
+
+typedef enum {
   LOAD_KEEP,
   LOAD_CLEAR,
   LOAD_DISCARD
@@ -266,3 +271,12 @@ typedef struct {
 Pass* lovrGraphicsGetPass(PassInfo* info);
 void lovrPassDestroy(void* ref);
 const PassInfo* lovrPassGetInfo(Pass* pass);
+
+// Render
+void lovrPassPush(Pass* pass, StackType stack);
+void lovrPassPop(Pass* pass, StackType stack);
+void lovrPassOrigin(Pass* pass);
+void lovrPassTranslate(Pass* pass, float* translation);
+void lovrPassRotate(Pass* pass, float* rotation);
+void lovrPassScale(Pass* pass, float* scale);
+void lovrPassTransform(Pass* pass, float* transform);

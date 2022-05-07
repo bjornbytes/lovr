@@ -75,6 +75,12 @@ StringEntry lovrPassType[] = {
   { 0 }
 };
 
+StringEntry lovrStackType[] = {
+  [STACK_TRANSFORM] = ENTRY("transform"),
+  [STACK_PIPELINE] = ENTRY("pipeline"),
+  { 0 }
+};
+
 StringEntry lovrTextureFeature[] = {
   [0] = ENTRY("sample"),
   [1] = ENTRY("filter"),
