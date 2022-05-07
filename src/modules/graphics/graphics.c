@@ -382,7 +382,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
-      ((info->usage & TEXTURE_COPY) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
+      ((info->usage & TEXTURE_TRANSFER) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
     .srgb = info->srgb,
     .handle = info->handle,
     .label = info->label,
