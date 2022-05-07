@@ -35,9 +35,15 @@ struct gpu_stream {
   VkCommandBuffer commands;
 };
 
+struct gpu_layout {
+  VkDescriptorSetLayout handle;
+  uint32_t descriptorCounts[7];
+};
+
 size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture() { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler() { return sizeof(gpu_sampler); }
+size_t gpu_sizeof_layout() { return sizeof(gpu_layout); }
 
 // Internals
 
@@ -676,6 +682,55 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
 
 void gpu_sampler_destroy(gpu_sampler* sampler) {
   condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER);
+}
+
+// Layout
+
+bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
+  static const VkDescriptorType types[] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+    [GPU_SLOT_SAMPLER] = VK_DESCRIPTOR_TYPE_SAMPLER
+  };
+
+  VkDescriptorSetLayoutBinding bindings[32];
+  for (uint32_t i = 0; i < info->count; i++) {
+    bindings[i] = (VkDescriptorSetLayoutBinding) {
+      .binding = info->slots[i].number,
+      .descriptorType = types[info->slots[i].type],
+      .descriptorCount = info->slots[i].count,
+      .stageFlags = info->slots[i].stage == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
+        (((info->slots[i].stage & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
+        ((info->slots[i].stage & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
+        ((info->slots[i].stage & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
+    };
+  }
+
+  VkDescriptorSetLayoutCreateInfo layoutInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    .bindingCount = info->count,
+    .pBindings = bindings
+  };
+
+  VK(vkCreateDescriptorSetLayout(state.device, &layoutInfo, NULL, &layout->handle), "Failed to create layout") {
+    return false;
+  }
+
+  memset(layout->descriptorCounts, 0, sizeof(layout->descriptorCounts));
+
+  for (uint32_t i = 0; i < info->count; i++) {
+    layout->descriptorCounts[info->slots[i].type] += MAX(info->slots[i].count, 1);
+  }
+
+  return true;
+}
+
+void gpu_layout_destroy(gpu_layout* layout) {
+  condemn(layout->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT);
 }
 
 // Stream
@@ -1336,6 +1391,10 @@ static void expunge() {
     gpu_victim* victim = &morgue->data[morgue->tail++ & MORGUE_MASK];
     switch (victim->type) {
       case VK_OBJECT_TYPE_BUFFER: vkDestroyBuffer(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_IMAGE: vkDestroyImage(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_IMAGE_VIEW: vkDestroyImageView(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkDestroyDescriptorSetLayout(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, victim->handle, NULL); break;
       default: break;
     }

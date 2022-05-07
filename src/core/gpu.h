@@ -5,11 +5,13 @@
 typedef struct gpu_buffer gpu_buffer;
 typedef struct gpu_texture gpu_texture;
 typedef struct gpu_sampler gpu_sampler;
+typedef struct gpu_layout gpu_layout;
 typedef struct gpu_stream gpu_stream;
 
 size_t gpu_sizeof_buffer(void);
 size_t gpu_sizeof_texture(void);
 size_t gpu_sizeof_sampler(void);
+size_t gpu_sizeof_layout(void);
 
 // Buffer
 
@@ -162,6 +164,41 @@ typedef struct {
 
 bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info);
 void gpu_sampler_destroy(gpu_sampler* sampler);
+
+// Layout
+
+typedef enum {
+  GPU_SLOT_UNIFORM_BUFFER,
+  GPU_SLOT_STORAGE_BUFFER,
+  GPU_SLOT_UNIFORM_BUFFER_DYNAMIC,
+  GPU_SLOT_STORAGE_BUFFER_DYNAMIC,
+  GPU_SLOT_SAMPLED_TEXTURE,
+  GPU_SLOT_STORAGE_TEXTURE,
+  GPU_SLOT_SAMPLER
+} gpu_slot_type;
+
+enum {
+  GPU_STAGE_ALL = 0,
+  GPU_STAGE_VERTEX = (1 << 0),
+  GPU_STAGE_FRAGMENT = (1 << 1),
+  GPU_STAGE_COMPUTE = (1 << 2),
+  GPU_STAGE_GRAPHICS = GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT
+};
+
+typedef struct {
+  uint8_t number;
+  uint8_t type;
+  uint8_t stage;
+  uint8_t count;
+} gpu_slot;
+
+typedef struct {
+  uint32_t count;
+  gpu_slot* slots;
+} gpu_layout_info;
+
+bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info);
+void gpu_layout_destroy(gpu_layout* layout);
 
 // Stream
 
