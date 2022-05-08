@@ -16,6 +16,7 @@ option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
+option(LOVR_USE_GLSLANG "Use glslang to compile GLSL shaders" ON)
 option(LOVR_USE_VULKAN "Use the Vulkan renderer" ON)
 option(LOVR_USE_WEBGPU "Use the WebGPU renderer" OFF)
 option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
@@ -170,6 +171,20 @@ if(LOVR_ENABLE_PHYSICS)
   endif()
 endif()
 
+# glslang
+if(LOVR_USE_GLSLANG)
+  set(ENABLE_HLSL OFF CACHE BOOL "")
+  set(ENABLE_SPVREMAPPER OFF CACHE BOOL "")
+  set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "")
+  set(ENABLE_GLSLANG_INSTALL OFF CACHE BOOL "")
+  set(ENABLE_OPT OFF CACHE BOOL "")
+  set(ENABLE_CTEST OFF CACHE BOOL "")
+  set(BUILD_EXTERNAL OFF CACHE BOOL "")
+  add_subdirectory(deps/glslang glslang)
+  set_target_properties(SPIRV PROPERTIES EXCLUDE_FROM_ALL 1)
+  set(LOVR_GLSLANG glslang)
+endif()
+
 # Vulkan
 if(LOVR_USE_VULKAN)
   find_package(Vulkan REQUIRED)
@@ -322,7 +337,6 @@ if(NOT LOVR_BUILD_EXE)
   target_compile_definitions(lovr PUBLIC LOVR_OMIT_MAIN) # specifically for win32 WinMain
 endif()
 
-
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
 set_target_properties(lovr PROPERTIES C_STANDARD 11)
 target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic etc)
@@ -331,6 +345,7 @@ target_link_libraries(lovr
   ${LOVR_LUA}
   ${LOVR_MSDF}
   ${LOVR_ODE}
+  ${LOVR_GLSLANG}
   ${LOVR_OPENXR}
   ${LOVR_OCULUS_AUDIO}
   ${LOVR_PTHREADS}

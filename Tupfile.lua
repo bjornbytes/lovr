@@ -6,6 +6,7 @@ config = {
   sanitize = false,
   strict = true,
   luajit = false,
+  glslang = true,
   modules = {
     audio = true,
     data = true,
@@ -239,6 +240,38 @@ if target == 'win32' or target == 'macos' or target == 'linux' then
   glfw_lflags += target == 'macos' and '-lobjc -framework Cocoa -framework IOKit -framework CoreFoundation' or ''
   tup.foreach_rule(glfw_src, '^ CC glfw/%b^ $(cc) $(flags) $(glfw_cflags) -c %f -o %o', '.obj/glfw/%B.o')
   tup.rule('.obj/glfw/*.o', '^ LD %o^ $(cc) $(flags) -o %o %f $(glfw_lflags)', lib('glfw'))
+end
+
+if config.modules.graphics and config.glslang then
+  cflags_graphics += '-Ideps/glslang/glslang/Include'
+  cflags_graphics += '-Ideps/glslang/StandAlone'
+  cflags += '-DLOVR_USE_GLSLANG'
+  lflags += '-lglslang'
+
+  glslang_cflags += '-fPIC'
+  glslang_cflags += '-fno-exceptions'
+  glslang_cflags += '-fno-rtti'
+  glslang_cflags += '-Ideps/glslang'
+  glslang_lflags += '-shared'
+  glslang_lflags += '-lstdc++'
+  glslang_src += 'deps/glslang/OGLCompilersDLL/*.cpp'
+  glslang_src += 'deps/glslang/glslang/CInterface/*.cpp'
+  glslang_src += 'deps/glslang/glslang/MachineIndependent/*.cpp'
+  glslang_src += 'deps/glslang/glslang/MachineIndependent/preprocessor/*.cpp'
+  glslang_src += ('deps/glslang/glslang/OSDependent/%s/ossource.cpp'):format(target == 'win32' and 'Windows' or 'Unix')
+  glslang_src += 'deps/glslang/glslang/GenericCodeGen/*.cpp'
+  glslang_src += 'deps/glslang/SPIRV/GlslangToSpv.cpp'
+  glslang_src += 'deps/glslang/SPIRV/Logger.cpp'
+  glslang_src += 'deps/glslang/SPIRV/SpvTools.cpp'
+  glslang_src += 'deps/glslang/SPIRV/SpvBuilder.cpp'
+  glslang_src += 'deps/glslang/SPIRV/SpvPostProcess.cpp'
+  glslang_src += 'deps/glslang/SPIRV/InReadableOrder.cpp'
+  glslang_src += 'deps/glslang/SPIRV/CInterface/spirv_c_interface.cpp'
+  glslang_src += 'deps/glslang/StandAlone/resource_limits_c.cpp'
+  glslang_src += 'deps/glslang/StandAlone/ResourceLimits.cpp'
+
+  tup.foreach_rule(glslang_src, '^ CC glslang/%b^ $(cc) $(flags) $(glslang_cflags) -c %f -o %o', '.obj/glslang/%B.o')
+  tup.rule('.obj/glslang/*.o', '^ LD %o^ $(cxx) $(flags) -o %o %f $(glslang_lflags)', lib('glslang'))
 end
 
 if config.modules.data then
