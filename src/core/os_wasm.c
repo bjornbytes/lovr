@@ -279,7 +279,6 @@ bool os_window_open(const os_window_config* flags) {
   attributes.alpha = false;
   attributes.depth = true;
   attributes.stencil = true;
-  attributes.antialias = flags->msaa > 1;
   attributes.preserveDrawingBuffer = false;
   attributes.majorVersion = 2;
   attributes.minorVersion = 0;
@@ -307,19 +306,6 @@ void os_window_get_size(int* width, int* height) {
 void os_window_get_fbsize(int* width, int* height) {
   *width = state.framebufferWidth;
   *height = state.framebufferHeight;
-}
-
-void os_window_set_vsync(int interval) {
-  //
-}
-
-void os_window_swap() {
-  //
-}
-
-fn_gl_proc* os_get_gl_proc_address(const char* function) {
-  emscripten_webgl_enable_extension(state.context, function);
-  return NULL;
 }
 
 void os_on_quit(fn_quit* callback) {

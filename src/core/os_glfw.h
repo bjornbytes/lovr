@@ -1,5 +1,9 @@
 #include <stdio.h>
 
+#ifdef LOVR_VK
+#include <vulkan/vulkan.h>
+#endif
+
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -209,6 +213,10 @@ bool os_window_open(const os_window_config* config) {
     return false;
   }
 
+#ifdef LOVR_VK
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+#endif
+
 #ifdef LOVR_LINUX_EGL
   glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
 #endif
@@ -216,11 +224,6 @@ bool os_window_open(const os_window_config* config) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-  glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, config->debug);
-#ifndef LOVR_LINUX_EGL
-  glfwWindowHint(GLFW_CONTEXT_NO_ERROR, !config->debug);
-#endif
-  glfwWindowHint(GLFW_SAMPLES, config->msaa);
   glfwWindowHint(GLFW_RESIZABLE, config->resizable);
   glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
@@ -250,13 +253,14 @@ bool os_window_open(const os_window_config* config) {
     });
   }
 
+#ifndef LOVR_VK
   glfwMakeContextCurrent(glfwState.window);
+#endif
   glfwSetWindowCloseCallback(glfwState.window, onWindowClose);
   glfwSetWindowFocusCallback(glfwState.window, onWindowFocus);
   glfwSetWindowSizeCallback(glfwState.window, onWindowResize);
   glfwSetKeyCallback(glfwState.window, onKeyboardEvent);
   glfwSetCharCallback(glfwState.window, onTextEvent);
-  os_window_set_vsync(config->vsync);
   return true;
 }
 
@@ -280,22 +284,6 @@ void os_window_get_fbsize(int* width, int* height) {
     if (*width) *width = 0;
     if (*height) *height = 0;
   }
-}
-
-void os_window_set_vsync(int interval) {
-#if EMSCRIPTEN
-  glfwSwapInterval(1);
-#else
-  glfwSwapInterval(interval);
-#endif
-}
-
-void os_window_swap() {
-  glfwSwapBuffers(glfwState.window);
-}
-
-fn_gl_proc* os_get_gl_proc_address(const char* function) {
-  return (fn_gl_proc*) glfwGetProcAddress(function);
 }
 
 void os_on_quit(fn_quit* callback) {

@@ -56,14 +56,12 @@ function lovr.boot()
       globals = true
     },
     window = {
-      width = 1080,
+      width = 800,
       height = 600,
       fullscreen = false,
       resizable = false,
-      msaa = 0,
       title = 'LÖVR',
-      icon = nil,
-      vsync = 1
+      icon = nil
     }
   }
 
@@ -95,6 +93,10 @@ function lovr.boot()
         lovr[module] = result
       end
     end
+  end
+
+  if lovr.system and conf.window then
+    lovr.system.openWindow(conf.window)
   end
 
   if lovr.graphics then
