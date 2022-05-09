@@ -75,6 +75,19 @@ StringEntry lovrPassType[] = {
   { 0 }
 };
 
+StringEntry lovrShaderStage[] = {
+  [STAGE_VERTEX] = ENTRY("vertex"),
+  [STAGE_FRAGMENT] = ENTRY("fragment"),
+  [STAGE_COMPUTE] = ENTRY("compute"),
+  { 0 }
+};
+
+StringEntry lovrShaderType[] = {
+  [SHADER_GRAPHICS] = ENTRY("graphics"),
+  [SHADER_COMPUTE] = ENTRY("compute"),
+  { 0 }
+};
+
 StringEntry lovrStackType[] = {
   [STACK_TRANSFORM] = ENTRY("transform"),
   [STACK_PIPELINE] = ENTRY("pipeline"),
@@ -802,6 +815,88 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
   return 1;
 }
 
+static Blob* luax_checkshadercode(lua_State* L, int index, ShaderStage stage) {
+  Blob* source;
+  size_t length;
+  const char* string = lua_tolstring(L, index, &length);
+  if (string && memchr(string, '\n', MIN(256, length))) {
+    void* data = malloc(length);
+    lovrAssert(data, "Out of memory");
+    memcpy(data, string, length);
+    source = lovrBlobCreate(data, length, "Shader code");
+  } else {
+    source = luax_readblob(L, index, "Shader");
+  }
+
+  Blob* code = lovrGraphicsCompileShader(stage, source);
+  lovrRelease(source, lovrBlobDestroy);
+  return code;
+}
+
+static int l_lovrGraphicsCompileShader(lua_State* L) {
+  ShaderStage stage = luax_checkenum(L, 1, ShaderStage, NULL);
+  Blob* source = luax_checkshadercode(L, 2, stage);
+  Blob* output = lovrGraphicsCompileShader(stage, source);
+  luax_pushtype(L, Blob, output);
+  lovrRelease(output, lovrBlobDestroy);
+  lovrRelease(source, lovrBlobDestroy);
+  return 1;
+}
+
+static int l_lovrGraphicsNewShader(lua_State* L) {
+  ShaderInfo info = { 0 };
+  int index;
+
+  if (lua_gettop(L) == 1 || lua_istable(L, 2)) {
+    info.type = SHADER_COMPUTE;
+    info.stages[0] = luax_checkshadercode(L, 1, STAGE_COMPUTE);
+    index = 2;
+  } else {
+    info.type = SHADER_GRAPHICS;
+    info.stages[0] = luax_checkshadercode(L, 1, STAGE_VERTEX);
+    info.stages[1] = luax_checkshadercode(L, 2, STAGE_FRAGMENT);
+    index = 3;
+  }
+
+  arr_t(ShaderFlag) flags;
+  arr_init(&flags, realloc);
+
+  if (lua_istable(L, index)) {
+    lua_getfield(L, index, "flags");
+    if (!lua_isnil(L, -1)) {
+      luaL_checktype(L, -1, LUA_TTABLE);
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        ShaderFlag flag = { 0 };
+        flag.value = lua_isboolean(L, -1) ? (double) lua_toboolean(L, -1) : lua_tonumber(L, -1);
+        switch (lua_type(L, -2)) {
+          case LUA_TSTRING: flag.name = lua_tostring(L, -2); break;
+          case LUA_TNUMBER: flag.id = lua_tointeger(L, -2); break;
+          default: lovrThrow("Unexpected ShaderFlag key type (%s)", lua_typename(L, lua_type(L, -2)));
+        }
+        arr_push(&flags, flag);
+        lua_pop(L, 1);
+      }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "label");
+    info.label = lua_tostring(L, -1);
+    lua_pop(L, 1);
+  }
+
+  info.flags = flags.data;
+  info.flagCount = flags.length;
+  Shader* shader = lovrShaderCreate(&info);
+  lovrRelease(info.stages[0], lovrBlobDestroy);
+  lovrRelease(info.stages[1], lovrBlobDestroy);
+  arr_free(&flags);
+
+  luax_pushtype(L, Shader, shader);
+  lovrRelease(shader, lovrShaderDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
   { "submit", l_lovrGraphicsSubmit },
@@ -814,6 +909,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newSampler", l_lovrGraphicsNewSampler },
+  { "compileShader", l_lovrGraphicsCompileShader },
+  { "newShader", l_lovrGraphicsNewShader },
   { "pass", l_lovrGraphicsPass },
   { NULL, NULL }
 };
@@ -821,6 +918,7 @@ static const luaL_Reg lovrGraphics[] = {
 extern const luaL_Reg lovrBuffer[];
 extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrSampler[];
+extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrPass[];
 
 int luaopen_lovr_graphics(lua_State* L) {
@@ -829,6 +927,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Buffer);
   luax_registertype(L, Texture);
   luax_registertype(L, Sampler);
+  luax_registertype(L, Shader);
   luax_registertype(L, Pass);
   return 1;
 }

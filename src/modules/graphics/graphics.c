@@ -1,4 +1,5 @@
 #include "graphics/graphics.h"
+#include "data/blob.h"
 #include "data/image.h"
 #include "core/gpu.h"
 #include "core/maf.h"
@@ -7,6 +8,10 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef LOVR_USE_GLSLANG
+#include "glslang_c_interface.h"
+#include "resource_limits_c.h"
+#endif
 
 #define MAX_FRAME_MEMORY (1 << 30)
 
@@ -29,6 +34,12 @@ struct Sampler {
   uint32_t ref;
   gpu_sampler* gpu;
   SamplerInfo info;
+};
+
+struct Shader {
+  uint32_t ref;
+  gpu_shader* gpu;
+  ShaderInfo info;
 };
 
 struct Pass {
@@ -70,6 +81,7 @@ static void onMessage(void* context, const char* message, bool severe);
 bool lovrGraphicsInit(bool debug) {
   if (state.initialized) return false;
 
+  glslang_initialize_process();
   float16Init();
 
   gpu_config config = {
@@ -98,6 +110,7 @@ bool lovrGraphicsInit(bool debug) {
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
   gpu_destroy();
+  glslang_finalize_process();
   os_vm_free(state.allocator.memory, MAX_FRAME_MEMORY);
   memset(&state, 0, sizeof(state));
 }
@@ -478,9 +491,9 @@ Sampler* lovrSamplerCreate(SamplerInfo* info) {
 
   Sampler* sampler = calloc(1, sizeof(Sampler) + gpu_sizeof_sampler());
   lovrAssert(sampler, "Out of memory");
+  sampler->ref = 1;
   sampler->gpu = (gpu_sampler*) (sampler + 1);
   sampler->info = *info;
-  sampler->ref = 1;
 
   gpu_sampler_info gpu = {
     .min = (gpu_filter) info->min,
@@ -494,7 +507,8 @@ Sampler* lovrSamplerCreate(SamplerInfo* info) {
     .lodClamp = { info->range[0], info->range[1] }
   };
 
-  lovrAssert(gpu_sampler_init(sampler->gpu, &gpu), "Failed to initialize sampler");
+  gpu_sampler_init(sampler->gpu, &gpu);
+
   return sampler;
 }
 
@@ -506,6 +520,95 @@ void lovrSamplerDestroy(void* ref) {
 
 const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
   return &sampler->info;
+}
+
+// Shader
+
+Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
+#ifdef LOVR_USE_GLSLANG
+  const glslang_stage_t stages[] = {
+    [STAGE_VERTEX] = GLSLANG_STAGE_VERTEX,
+    [STAGE_FRAGMENT] = GLSLANG_STAGE_FRAGMENT,
+    [STAGE_COMPUTE] = GLSLANG_STAGE_COMPUTE
+  };
+
+  const glslang_resource_t* resource = glslang_default_resource();
+
+  glslang_input_t input = {
+    .language = GLSLANG_SOURCE_GLSL,
+    .stage = stages[stage],
+    .client = GLSLANG_CLIENT_VULKAN,
+    .client_version = GLSLANG_TARGET_VULKAN_1_1,
+    .target_language = GLSLANG_TARGET_SPV,
+    .target_language_version = GLSLANG_TARGET_SPV_1_3,
+    .code = source->data,
+    .default_version = 460,
+    .default_profile = GLSLANG_NO_PROFILE,
+    .resource = resource
+  };
+
+  glslang_shader_t* shader = glslang_shader_create(&input);
+
+  if (!glslang_shader_preprocess(shader, &input)) {
+    lovrLog(LOG_INFO, "Could not preprocess shader: %s", glslang_shader_get_info_log(shader));
+    return NULL;
+  }
+
+  if (!glslang_shader_parse(shader, &input)) {
+    lovrLog(LOG_INFO, "Could not parse shader: %s", glslang_shader_get_info_log(shader));
+    return NULL;
+  }
+
+  glslang_program_t* program = glslang_program_create();
+  glslang_program_add_shader(program, shader);
+
+  if (!glslang_program_link(program, 0)) {
+    lovrLog(LOG_INFO, "Could not link shader: %s", glslang_program_get_info_log(program));
+    return NULL;
+  }
+
+  glslang_program_SPIRV_generate(program, stages[stage]);
+
+  void* words = glslang_program_SPIRV_get_ptr(program);
+  size_t size = glslang_program_SPIRV_get_size(program) * 4;
+  void* data = malloc(size);
+  lovrAssert(data, "Out of memory");
+  memcpy(data, words, size);
+  Blob* blob = lovrBlobCreate(data, size, "SPIRV");
+
+  glslang_program_delete(program);
+  glslang_shader_delete(shader);
+
+  return blob;
+#endif
+  return NULL;
+}
+
+Shader* lovrShaderCreate(ShaderInfo* info) {
+  Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
+  lovrAssert(shader, "Out of memory");
+  shader->ref = 1;
+  shader->gpu = (gpu_shader*) (shader + 1);
+  shader->info = *info;
+
+  gpu_shader_info gpu = {
+    .stages[0] = { info->stages[0]->data, info->stages[0]->size },
+    .stages[1] = { info->stages[1]->data, info->stages[1]->size }
+  };
+
+  gpu_shader_init(shader->gpu, &gpu);
+
+  return shader;
+}
+
+void lovrShaderDestroy(void* ref) {
+  Shader* shader = ref;
+  gpu_shader_destroy(shader->gpu);
+  free(shader);
+}
+
+const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
+  return &shader->info;
 }
 
 // Pass

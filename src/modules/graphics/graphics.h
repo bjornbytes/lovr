@@ -3,11 +3,13 @@
 
 #pragma once
 
+struct Blob;
 struct Image;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
 typedef struct Sampler Sampler;
+typedef struct Shader Shader;
 typedef struct Pass Pass;
 
 typedef struct {
@@ -227,6 +229,38 @@ typedef struct {
 Sampler* lovrSamplerCreate(SamplerInfo* info);
 void lovrSamplerDestroy(void* ref);
 const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
+
+// Shader
+
+typedef enum {
+  SHADER_GRAPHICS,
+  SHADER_COMPUTE
+} ShaderType;
+
+typedef enum {
+  STAGE_VERTEX,
+  STAGE_FRAGMENT,
+  STAGE_COMPUTE
+} ShaderStage;
+
+typedef struct {
+  const char* name;
+  uint32_t id;
+  double value;
+} ShaderFlag;
+
+typedef struct {
+  ShaderType type;
+  struct Blob* stages[2];
+  uint32_t flagCount;
+  ShaderFlag* flags;
+  const char* label;
+} ShaderInfo;
+
+struct Blob* lovrGraphicsCompileShader(ShaderStage stage, struct Blob* source);
+Shader* lovrShaderCreate(ShaderInfo* info);
+void lovrShaderDestroy(void* ref);
+const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 
 // Pass
 

@@ -6,12 +6,14 @@ typedef struct gpu_buffer gpu_buffer;
 typedef struct gpu_texture gpu_texture;
 typedef struct gpu_sampler gpu_sampler;
 typedef struct gpu_layout gpu_layout;
+typedef struct gpu_shader gpu_shader;
 typedef struct gpu_stream gpu_stream;
 
 size_t gpu_sizeof_buffer(void);
 size_t gpu_sizeof_texture(void);
 size_t gpu_sizeof_sampler(void);
 size_t gpu_sizeof_layout(void);
+size_t gpu_sizeof_shader(void);
 
 // Buffer
 
@@ -199,6 +201,23 @@ typedef struct {
 
 bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info);
 void gpu_layout_destroy(gpu_layout* layout);
+
+// Shader
+
+typedef struct {
+  const void* code;
+  uint32_t length;
+} gpu_shader_stage;
+
+typedef struct {
+  gpu_shader_stage stages[2];
+  gpu_layout* layouts[4];
+  uint32_t pushConstantSize;
+  const char* label;
+} gpu_shader_info;
+
+bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info);
+void gpu_shader_destroy(gpu_shader* shader);
 
 // Stream
 

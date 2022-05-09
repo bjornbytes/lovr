@@ -31,19 +31,25 @@ struct gpu_sampler {
   VkSampler handle;
 };
 
-struct gpu_stream {
-  VkCommandBuffer commands;
-};
-
 struct gpu_layout {
   VkDescriptorSetLayout handle;
   uint32_t descriptorCounts[7];
+};
+
+struct gpu_shader {
+  VkShaderModule handles[2];
+  VkPipelineLayout pipelineLayout;
+};
+
+struct gpu_stream {
+  VkCommandBuffer commands;
 };
 
 size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture() { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler() { return sizeof(gpu_sampler); }
 size_t gpu_sizeof_layout() { return sizeof(gpu_layout); }
+size_t gpu_sizeof_shader() { return sizeof(gpu_shader); }
 
 // Internals
 
@@ -733,6 +739,55 @@ void gpu_layout_destroy(gpu_layout* layout) {
   condemn(layout->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT);
 }
 
+// Shader
+
+bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
+  for (uint32_t i = 0; i < COUNTOF(info->stages) && info->stages[i].code; i++) {
+    VkShaderModuleCreateInfo moduleInfo = {
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .codeSize = info->stages[i].length,
+      .pCode = info->stages[i].code
+    };
+
+    VK(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "Failed to load shader") {
+      return false;
+    }
+  }
+
+  VkDescriptorSetLayout layouts[4];
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+    .pSetLayouts = layouts,
+    .pushConstantRangeCount = info->pushConstantSize > 0,
+    .pPushConstantRanges = &(VkPushConstantRange) {
+      .stageFlags = info->stages[1].code ?
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT :
+        VK_SHADER_STAGE_COMPUTE_BIT,
+      .offset = 0,
+      .size = info->pushConstantSize
+    }
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(info->layouts) && info->layouts[i]; i++) {
+    layouts[i] = info->layouts[i]->handle;
+    pipelineLayoutInfo.setLayoutCount++;
+  }
+
+  VK(vkCreatePipelineLayout(state.device, &pipelineLayoutInfo, NULL, &shader->pipelineLayout), "Failed to create pipeline layout") {
+    gpu_shader_destroy(shader);
+    return false;
+  }
+
+  return true;
+}
+
+void gpu_shader_destroy(gpu_shader* shader) {
+  // The spec says it's safe to destroy shaders while still in use
+  if (shader->handles[0]) vkDestroyShaderModule(state.device, shader->handles[0], NULL);
+  if (shader->handles[1]) vkDestroyShaderModule(state.device, shader->handles[1], NULL);
+  condemn(shader->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT);
+}
+
 // Stream
 
 gpu_stream* gpu_stream_begin(const char* label) {
@@ -1395,6 +1450,7 @@ static void expunge() {
       case VK_OBJECT_TYPE_IMAGE_VIEW: vkDestroyImageView(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkDestroyDescriptorSetLayout(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_PIPELINE_LAYOUT: vkDestroyPipelineLayout(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, victim->handle, NULL); break;
       default: break;
     }
