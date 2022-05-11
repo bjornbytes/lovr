@@ -14,6 +14,9 @@
 #include "resource_limits_c.h"
 #endif
 
+uint32_t os_vk_create_surface(void* instance, void** surface);
+const char** os_vk_get_instance_extensions(uint32_t* count);
+
 #define MAX_FRAME_MEMORY (1 << 30)
 
 struct Buffer {
@@ -63,10 +66,10 @@ struct Pass {
 };
 
 typedef struct {
-  gpu_texture* handle;
+  gpu_texture* texture;
   uint32_t hash;
   uint32_t tick;
-} ScratchTexture;
+} Attachment;
 
 typedef struct {
   char* memory;
@@ -82,7 +85,8 @@ static struct {
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
-  ScratchTexture scratchTextures[16];
+  Texture* window;
+  Attachment attachments[16];
   Allocator allocator;
 } state;
 
@@ -91,13 +95,13 @@ static struct {
 static void* tempAlloc(size_t size);
 static void beginFrame(void);
 static gpu_stream* getTransfers(void);
-static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
+static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void onMessage(void* context, const char* message, bool severe);
 
 // Entry
 
-bool lovrGraphicsInit(bool debug) {
+bool lovrGraphicsInit(bool debug, bool vsync) {
   if (state.initialized) return false;
 
   glslang_initialize_process();
@@ -112,6 +116,15 @@ bool lovrGraphicsInit(bool debug) {
     .features = &state.features,
     .limits = &state.limits
   };
+
+#ifdef LOVR_VK
+  if (os_window_is_open()) {
+    config.vk.getInstanceExtensions = os_vk_get_instance_extensions;
+    config.vk.createSurface = os_vk_create_surface;
+    config.vk.surface = true;
+    config.vk.vsync = vsync;
+  }
+#endif
 
   if (!gpu_init(&config)) {
     lovrThrow("Failed to initialize GPU");
@@ -128,12 +141,13 @@ bool lovrGraphicsInit(bool debug) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
-  for (uint32_t i = 0; i < COUNTOF(state.scratchTextures); i++) {
-    if (state.scratchTextures[i].handle) {
-      gpu_texture_destroy(state.scratchTextures[i].handle);
-      free(state.scratchTextures[i].handle);
+  for (uint32_t i = 0; i < COUNTOF(state.attachments); i++) {
+    if (state.attachments[i].texture) {
+      gpu_texture_destroy(state.attachments[i].texture);
+      free(state.attachments[i].texture);
     }
   }
+  lovrRelease(state.window, lovrTextureDestroy);
   gpu_destroy();
   glslang_finalize_process();
   os_vm_free(state.allocator.memory, MAX_FRAME_MEMORY);
@@ -206,6 +220,10 @@ bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features) {
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   if (!state.active) {
     return;
+  }
+
+  if (state.window) {
+    state.window->gpu = state.window->renderView = NULL;
   }
 
   // Allocate a few extra stream handles for any internal passes we sneak in
@@ -333,6 +351,37 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
 }
 
 // Texture
+
+Texture* lovrGraphicsGetWindowTexture() {
+  if (!state.window) {
+    state.window = malloc(sizeof(Texture));
+    lovrAssert(state.window, "Out of memory");
+    int width, height;
+    os_window_get_fbsize(&width, &height);
+    state.window->ref = 1;
+    state.window->gpu = NULL;
+    state.window->renderView = NULL;
+    state.window->info = (TextureInfo) {
+      .type = TEXTURE_2D,
+      .format = GPU_FORMAT_SURFACE,
+      .width = width,
+      .height = height,
+      .depth = 1,
+      .mipmaps = 1,
+      .samples = 1,
+      .usage = TEXTURE_RENDER,
+      .srgb = true
+    };
+  }
+
+  if (!state.window->gpu) {
+    beginFrame();
+    state.window->gpu = gpu_surface_acquire();
+    state.window->renderView = state.window->gpu;
+  }
+
+  return state.window;
+}
 
 Texture* lovrTextureCreate(TextureInfo* info) {
   uint32_t limits[] = {
@@ -501,9 +550,11 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
-  lovrRelease(texture->info.parent, lovrTextureDestroy);
-  if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
-  if (texture->gpu) gpu_texture_destroy(texture->gpu);
+  if (texture != state.window) {
+    lovrRelease(texture->info.parent, lovrTextureDestroy);
+    if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
+    if (texture->gpu) gpu_texture_destroy(texture->gpu);
+  }
   free(texture);
 }
 
@@ -660,7 +711,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     uint32_t colorTextureCount = 0;
     for (uint32_t i = 0; i < COUNTOF(canvas->textures) && canvas->textures[i]; i++, colorTextureCount++) {
       const TextureInfo* texture = &canvas->textures[i]->info;
-      bool renderable = state.features.formats[texture->format] & GPU_FEATURE_RENDER;
+      bool renderable = texture->format == GPU_FORMAT_SURFACE || (state.features.formats[texture->format] & GPU_FEATURE_RENDER);
       lovrCheck(renderable, "This GPU does not support rendering to the texture format used by Canvas texture #%d", i + 1);
       lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
       lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
@@ -692,7 +743,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
       if (main->samples == 1 && canvas->samples > 1) {
         TextureFormat format = canvas->textures[i]->info.format;
         bool srgb = canvas->textures[i]->info.srgb;
-        target.color[i].texture = getScratchTexture(target.size, main->depth, format, srgb, canvas->samples);
+        target.color[i].texture = getAttachment(target.size, main->depth, format, srgb, canvas->samples);
         target.color[i].resolve = canvas->textures[i]->renderView;
       } else {
         target.color[i].texture = canvas->textures[i]->renderView;
@@ -709,7 +760,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     if (canvas->depth.texture) {
       target.depth.texture = canvas->depth.texture->renderView;
     } else {
-      target.depth.texture = getScratchTexture(target.size, main->depth, canvas->depth.format, false, canvas->samples);
+      target.depth.texture = getAttachment(target.size, main->depth, canvas->depth.format, false, canvas->samples);
     }
 
     target.depth.load = target.depth.stencilLoad = (gpu_load_op) canvas->depth.load;
@@ -971,15 +1022,15 @@ static gpu_stream* getTransfers(void) {
   return state.transfers->stream;
 }
 
-static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
-  ScratchTexture* textures = state.scratchTextures;
+static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
   uint16_t key[] = { size[0], size[1], layers, format, srgb, samples };
   uint32_t hash = hash64(key, sizeof(key));
 
-  for (uint32_t i = 0; i < COUNTOF(state.scratchTextures) && textures[i].handle; i++) {
-    if (textures[i].hash == hash && textures[i].tick != state.tick) {
-      textures[i].tick = state.tick;
-      return textures[i].handle;
+  Attachment* attachment = state.attachments;
+  for (uint32_t i = 0; i < COUNTOF(state.attachments) && attachment->texture; i++, attachment++) {
+    if (attachment->hash == hash && attachment->tick != state.tick) {
+      attachment->tick = state.tick;
+      return attachment->texture;
     }
   }
 
@@ -997,29 +1048,28 @@ static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, Texture
     .srgb = srgb
   };
 
-  uint32_t slot = 0;
   uint32_t oldest = ~0u;
-  for (uint32_t i = 0; i < COUNTOF(state.scratchTextures); i++) {
-    if (!textures[i].handle) {
-      slot = i;
+  for (uint32_t i = 0; i < COUNTOF(state.attachments); i++) {
+    if (!state.attachments[i].texture) {
+      attachment = &state.attachments[i];
       break;
-    } else if (textures[i].tick < oldest) {
-      oldest = textures[i].tick;
-      slot = i;
+    } else if (state.attachments[i].tick < oldest) {
+      attachment = &state.attachments[i];
+      oldest = attachment->tick;
     }
   }
 
-  if (!textures[slot].handle) {
-    textures[slot].handle = calloc(1, gpu_sizeof_texture());
-    lovrAssert(textures[slot].handle, "Out of memory");
+  if (!attachment->texture) {
+    attachment->texture = calloc(1, gpu_sizeof_texture());
+    lovrAssert(attachment->texture, "Out of memory");
   } else {
-    gpu_texture_destroy(textures[slot].handle);
+    gpu_texture_destroy(attachment->texture);
   }
 
-  lovrAssert(gpu_texture_init(textures[slot].handle, &info), "Failed to create scratch texture");
-  textures[slot].hash = hash;
-  textures[slot].tick = state.tick;
-  return textures[slot].handle;
+  lovrAssert(gpu_texture_init(attachment->texture, &info), "Failed to create scratch texture");
+  attachment->hash = hash;
+  attachment->tick = state.tick;
+  return attachment->texture;
 }
 
 // Returns number of bytes of a 3D texture region of a given format

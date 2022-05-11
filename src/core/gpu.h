@@ -98,7 +98,8 @@ typedef enum {
   GPU_FORMAT_ASTC_10x10,
   GPU_FORMAT_ASTC_12x10,
   GPU_FORMAT_ASTC_12x12,
-  GPU_FORMAT_COUNT
+  GPU_FORMAT_COUNT,
+  GPU_FORMAT_SURFACE = 0xff
 } gpu_texture_format;
 
 typedef struct {
@@ -132,6 +133,7 @@ typedef struct {
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
+gpu_texture* gpu_surface_acquire(void);
 
 // Sampler
 
@@ -526,6 +528,12 @@ typedef struct {
   gpu_device_info* device;
   gpu_features* features;
   gpu_limits* limits;
+  struct {
+    const char** (*getInstanceExtensions)(uint32_t* count);
+    uint32_t (*createSurface)(void* instance, void** surface);
+    bool surface;
+    int vsync;
+  } vk;
 } gpu_config;
 
 bool gpu_init(gpu_config* config);

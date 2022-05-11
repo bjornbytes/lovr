@@ -350,7 +350,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
   }
 
   if (lua_type(L, index) == LUA_TSTRING && !strcmp(lua_tostring(L, index), "window")) {
-    // canvas.textures[0] = lovrGraphicsGetWindowTexture();
+    canvas.textures[0] = lovrGraphicsGetWindowTexture();
   } else if (lua_isuserdata(L, index)) {
     canvas.textures[0] = luax_checktype(L, index, Texture);
   } else if (!lua_istable(L, index)) {
@@ -361,7 +361,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
       if (lua_isnil(L, -1)) {
         break;
       } else if (lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "window")) {
-        // canvas.textures[i] = lovrGraphicsGetWindowTexture();
+        canvas.textures[i] = lovrGraphicsGetWindowTexture();
       } else {
         canvas.textures[i] = luax_checktype(L, -1, Texture);
       }
@@ -444,6 +444,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
 
 static int l_lovrGraphicsInit(lua_State* L) {
   bool debug = false;
+  bool vsync = false;
 
   luax_pushconf(L);
   lua_getfield(L, -1, "graphics");
@@ -451,10 +452,14 @@ static int l_lovrGraphicsInit(lua_State* L) {
     lua_getfield(L, -1, "debug");
     debug = lua_toboolean(L, -1);
     lua_pop(L, 1);
+
+    lua_getfield(L, -1, "vsync");
+    vsync = lua_toboolean(L, -1);
+    lua_pop(L, 1);
   }
   lua_pop(L, 2);
 
-  if (lovrGraphicsInit(debug)) {
+  if (lovrGraphicsInit(debug, vsync)) {
     luax_atexit(L, lovrGraphicsDestroy);
   }
 

@@ -70,7 +70,7 @@ enum {
   TEXTURE_FEATURE_BLIT_DST = (1 << 7)
 };
 
-bool lovrGraphicsInit(bool debug);
+bool lovrGraphicsInit(bool debug, bool vsync);
 void lovrGraphicsDestroy(void);
 
 void lovrGraphicsGetDevice(GraphicsDevice* device);
@@ -190,6 +190,7 @@ typedef struct {
   const char* label;
 } TextureInfo;
 
+Texture* lovrGraphicsGetWindowTexture(void);
 Texture* lovrTextureCreate(TextureInfo* info);
 Texture* lovrTextureCreateView(TextureViewInfo* view);
 void lovrTextureDestroy(void* ref);

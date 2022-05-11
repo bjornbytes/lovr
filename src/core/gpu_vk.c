@@ -150,6 +150,11 @@ static struct {
   VkDevice device;
   VkQueue queue;
   uint32_t queueFamilyIndex;
+  VkSurfaceKHR surface;
+  VkSwapchainKHR swapchain;
+  VkFormat surfaceFormat;
+  uint32_t currentSurfaceTexture;
+  gpu_texture surfaceTextures[8];
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
   gpu_cache_entry renderpasses[16][4];
@@ -676,6 +681,12 @@ void gpu_texture_destroy(gpu_texture* texture) {
   if (texture->memory == ~0u) return;
   condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
   gpu_release(state.memory + texture->memory);
+}
+
+gpu_texture* gpu_surface_acquire(void) {
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
+  VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &state.currentSurfaceTexture), "Surface image acquisition failed") return NULL;
+  return &state.surfaceTextures[state.currentSurfaceTexture];
 }
 
 // Sampler
@@ -1398,6 +1409,22 @@ bool gpu_init(gpu_config* config) {
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
   { // Instance
+    const char* extensions[16];
+    uint32_t extensionCount = 0;
+
+    if (state.config.vk.getInstanceExtensions) {
+      const char** instanceExtensions = state.config.vk.getInstanceExtensions(&extensionCount);
+      CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
+      for (uint32_t i = 0; i < extensionCount; i++) {
+        extensions[i] = instanceExtensions[i];
+      }
+    }
+
+    if (state.config.debug) {
+      CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
+      extensions[extensionCount++] = "VK_EXT_debug_utils";
+    }
+
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
       .pApplicationInfo = &(VkApplicationInfo) {
@@ -1408,8 +1435,8 @@ bool gpu_init(gpu_config* config) {
       },
       .enabledLayerCount = state.config.debug ? 1 : 0,
       .ppEnabledLayerNames = (const char*[]) { "VK_LAYER_KHRONOS_validation" },
-      .enabledExtensionCount = state.config.debug ? 1 : 0,
-      .ppEnabledExtensionNames = (const char*[]) { "VK_EXT_debug_utils" }
+      .enabledExtensionCount = extensionCount,
+      .ppEnabledExtensionNames = extensions
     };
 
     VK(vkCreateInstance(&instanceInfo, NULL, &state.instance), "Instance creation failed") return gpu_destroy(), false;
@@ -1426,6 +1453,11 @@ bool gpu_init(gpu_config* config) {
 
       VK(vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger), "Debug hook setup failed") return gpu_destroy(), false;
     }
+  }
+
+  // Surface
+  if (state.config.vk.surface && state.config.vk.createSurface) {
+    VK(state.config.vk.createSurface(state.instance, (void**) &state.surface), "Surface creation failed") return gpu_destroy(), false;
   }
 
   { // Device
@@ -1545,15 +1577,28 @@ bool gpu_init(gpu_config* config) {
     state.queueFamilyIndex = ~0u;
     VkQueueFamilyProperties queueFamilies[8];
     uint32_t queueFamilyCount = COUNTOF(queueFamilies);
+    uint32_t requiredQueueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
     vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, queueFamilies);
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
-      uint32_t mask = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-      if ((queueFamilies[i].queueFlags & mask) == mask) {
+      VkBool32 presentable = VK_TRUE;
+
+      if (state.surface) {
+        vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, i, state.surface, &presentable);
+      }
+
+      if (presentable && (queueFamilies[i].queueFlags & requiredQueueFlags) == requiredQueueFlags) {
         state.queueFamilyIndex = i;
         break;
       }
     }
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
+
+    const char* extensions[1];
+    uint32_t extensionCount = 0;
+
+    if (state.surface) {
+      extensions[extensionCount++] = "VK_KHR_swapchain";
+    }
 
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -1564,7 +1609,9 @@ bool gpu_init(gpu_config* config) {
         .queueFamilyIndex = state.queueFamilyIndex,
         .pQueuePriorities = &(float) { 1.f },
         .queueCount = 1
-      }
+      },
+      .enabledExtensionCount = extensionCount,
+      .ppEnabledExtensionNames = extensions
     };
 
     VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") return gpu_destroy(), false;
@@ -1710,6 +1757,70 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
+  // Swapchain
+  if (state.surface) {
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, state.surface, &surfaceCapabilities);
+
+    VkSurfaceFormatKHR formats[16];
+    uint32_t formatCount = COUNTOF(formats);
+    VkSurfaceFormatKHR surfaceFormat = { .format = VK_FORMAT_UNDEFINED };
+    vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, state.surface, &formatCount, formats);
+
+    for (uint32_t i = 0; i < formatCount; i++) {
+      if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+        surfaceFormat = formats[i];
+        break;
+      }
+    }
+
+    VK(surfaceFormat.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
+    state.surfaceFormat = surfaceFormat.format;
+
+    VkSwapchainCreateInfoKHR swapchainInfo = {
+      .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+      .surface = state.surface,
+      .minImageCount = surfaceCapabilities.minImageCount,
+      .imageFormat = surfaceFormat.format,
+      .imageColorSpace = surfaceFormat.colorSpace,
+      .imageExtent = surfaceCapabilities.currentExtent,
+      .imageArrayLayers = 1,
+      .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+      .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+      .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+      .presentMode = state.config.vk.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
+      .clipped = VK_TRUE
+    };
+
+    VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain), "Swapchain creation failed") return gpu_destroy(), false;
+
+    uint32_t imageCount;
+    VkImage images[COUNTOF(state.surfaceTextures)];
+    VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL), "Failed to get swapchain images") return gpu_destroy(), false;
+    VK(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") return gpu_destroy(), false;
+    VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images), "Failed to get swapchain images") return gpu_destroy(), false;
+
+    for (uint32_t i = 0; i < imageCount; i++) {
+      gpu_texture* texture = &state.surfaceTextures[i];
+
+      texture->handle = images[i];
+      texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+      texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+      texture->samples = 1;
+      texture->memory = ~0u;
+      texture->layers = 1;
+      texture->format = GPU_FORMAT_SURFACE;
+      texture->srgb = true;
+
+      gpu_texture_view_info view = {
+        .source = texture,
+        .type = GPU_TEXTURE_2D
+      };
+
+      CHECK(gpu_texture_init_view(texture, &view), "Swapchain texture view creation failed") return gpu_destroy(), false;
+    }
+  }
+
   // Ticks
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     VkCommandPoolCreateInfo poolInfo = {
@@ -1750,6 +1861,7 @@ bool gpu_init(gpu_config* config) {
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "Pipeline cache creation failed") return gpu_destroy(), false;
 
   state.tick[CPU] = COUNTOF(state.ticks) - 1;
+  state.currentSurfaceTexture = ~0u;
   return true;
 }
 
@@ -1757,6 +1869,7 @@ void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
   state.tick[GPU] = state.tick[CPU];
   expunge();
+  if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
   if (state.scratchpad[0].buffer) vkDestroyBuffer(state.device, state.scratchpad[0].buffer, NULL);
   if (state.scratchpad[1].buffer) vkDestroyBuffer(state.device, state.scratchpad[0].buffer, NULL);
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
@@ -1781,8 +1894,12 @@ void gpu_destroy(void) {
   for (uint32_t i = 0; i < COUNTOF(state.memory); i++) {
     if (state.memory[i].handle) vkFreeMemory(state.device, state.memory[i].handle, NULL);
   }
-  if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
+  for (uint32_t i = 0; i < COUNTOF(state.surfaceTextures); i++) {
+    if (state.surfaceTextures[i].view) vkDestroyImageView(state.device, state.surfaceTextures[i].view, NULL);
+  }
+  if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
+  if (state.surface) vkDestroySurfaceKHR(state.instance, state.surface, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
 #ifdef _WIN32
@@ -1812,13 +1929,35 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
     commands[i] = streams[i]->commands;
   }
 
+  VkPipelineStageFlags waitMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  bool present = state.currentSurfaceTexture != ~0u;
+
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .waitSemaphoreCount = present,
+    .pWaitSemaphores = &tick->semaphores[0],
+    .pWaitDstStageMask = &waitMask,
     .commandBufferCount = count,
-    .pCommandBuffers = commands
+    .pCommandBuffers = commands,
+    .signalSemaphoreCount = present,
+    .pSignalSemaphores = &tick->semaphores[1]
   };
 
-  VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") return;
+  VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") {}
+
+  if (present) {
+    VkPresentInfoKHR presentInfo = {
+      .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &tick->semaphores[1],
+      .swapchainCount = 1,
+      .pSwapchains = &state.swapchain,
+      .pImageIndices = &state.currentSurfaceTexture
+    };
+
+    VK(vkQueuePresentKHR(state.queue, &presentInfo), "Queue present failed") {}
+    state.currentSurfaceTexture = ~0u;
+  }
 }
 
 bool gpu_finished(uint32_t tick) {
@@ -1941,6 +2080,7 @@ static void expunge() {
   }
 }
 
+#include <stdio.h>
 // Ugliness until we can use dynamic rendering
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
   bool depth = pass->depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
@@ -2020,13 +2160,14 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
   for (uint32_t i = 0; i < count; i++) {
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    bool surface = pass->color[i].format == state.surfaceFormat;
     attachments[i] = (VkAttachmentDescription) {
       .format = pass->color[i].format,
       .samples = pass->samples,
       .loadOp = loadOps[pass->color[i].load],
       .storeOp = pass->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->color[i].save],
-      .initialLayout = pass->color[i].layout,
-      .finalLayout = pass->color[i].layout
+      .initialLayout = surface ? VK_IMAGE_LAYOUT_UNDEFINED : pass->color[i].layout,
+      .finalLayout = surface && !pass->resolve ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
     };
   }
 
@@ -2035,13 +2176,14 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
       uint32_t index = count + i;
       references[index].attachment = index;
       references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      bool surface = pass->color[i].format == state.surfaceFormat;
       attachments[index] = (VkAttachmentDescription) {
         .format = pass->color[i].format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = storeOps[pass->color[i].save],
-        .initialLayout = pass->color[i].layout,
-        .finalLayout = pass->color[i].layout
+        .initialLayout = surface ? VK_IMAGE_LAYOUT_UNDEFINED : pass->color[i].layout,
+        .finalLayout = surface ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
       };
     }
   }
@@ -2209,6 +2351,10 @@ static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
     [GPU_FORMAT_ASTC_12x10] = { VK_FORMAT_ASTC_12x10_UNORM_BLOCK, VK_FORMAT_ASTC_12x10_SRGB_BLOCK },
     [GPU_FORMAT_ASTC_12x12] = { VK_FORMAT_ASTC_12x12_UNORM_BLOCK, VK_FORMAT_ASTC_12x12_SRGB_BLOCK }
   };
+
+  if (format == GPU_FORMAT_SURFACE) {
+    return state.surfaceFormat;
+  }
 
   return formats[format][colorspace];
 }

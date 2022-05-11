@@ -384,3 +384,13 @@ GLXContext os_get_glx_context() {
   return glfwGetGLXContext(glfwState.window);
 }
 #endif
+
+#ifdef LOVR_VK
+const char** os_vk_get_instance_extensions(uint32_t* count) {
+  return glfwGetRequiredInstanceExtensions(count);
+}
+
+uint32_t os_vk_create_surface(void* instance, void** surface) {
+  return glfwCreateWindowSurface(instance, glfwState.window, NULL, (VkSurfaceKHR*) surface);
+}
+#endif

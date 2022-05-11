@@ -43,7 +43,8 @@ function lovr.boot()
       spatializer = nil
     },
     graphics = {
-      debug = false
+      debug = false,
+      vsync = false
     },
     headset = {
       drivers = { 'openxr', 'webxr', 'desktop' },
