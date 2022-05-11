@@ -78,6 +78,9 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
 
+void lovrGraphicsGetBackground(float background[4]);
+void lovrGraphicsSetBackground(float background[4]);
+
 void lovrGraphicsSubmit(Pass** passes, uint32_t count);
 void lovrGraphicsWait(void);
 

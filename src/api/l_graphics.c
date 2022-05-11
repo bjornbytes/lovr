@@ -346,7 +346,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
   };
 
   for (uint32_t i = 0; i < 4; i++) {
-    // lovrGraphicsGetBackground(canvas.clears[i]);
+    lovrGraphicsGetBackground(canvas.clears[i]); // srgb conversion here does not spark joy
   }
 
   if (lua_type(L, index) == LUA_TSTRING && !strcmp(lua_tostring(L, index), "window")) {
@@ -585,6 +585,23 @@ static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
   bool supported = lovrGraphicsIsFormatSupported(format, features);
   lua_pushboolean(L, supported);
   return 1;
+}
+
+static int l_lovrGraphicsGetBackground(lua_State* L) {
+  float color[4];
+  lovrGraphicsGetBackground(color);
+  lua_pushnumber(L, color[0]);
+  lua_pushnumber(L, color[1]);
+  lua_pushnumber(L, color[2]);
+  lua_pushnumber(L, color[3]);
+  return 4;
+}
+
+static int l_lovrGraphicsSetBackground(lua_State* L) {
+  float color[4];
+  luax_readcolor(L, 1, color);
+  lovrGraphicsSetBackground(color);
+  return 0;
 }
 
 static int l_lovrGraphicsPass(lua_State* L) {
@@ -970,6 +987,8 @@ static const luaL_Reg lovrGraphics[] = {
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
   { "isFormatSupported", l_lovrGraphicsIsFormatSupported },
+  { "getBackground", l_lovrGraphicsGetBackground },
+  { "setBackground", l_lovrGraphicsSetBackground },
   { "buffer", l_lovrGraphicsBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },

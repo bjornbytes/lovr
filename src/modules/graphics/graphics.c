@@ -85,6 +85,7 @@ static struct {
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
+  float background[4];
   Texture* window;
   Attachment attachments[16];
   Allocator allocator;
@@ -215,6 +216,20 @@ bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features) {
   if ((features & TEXTURE_FEATURE_BLIT_SRC) && !(supports & GPU_FEATURE_BLIT_SRC)) return false;
   if ((features & TEXTURE_FEATURE_BLIT_DST) && !(supports & GPU_FEATURE_BLIT_DST)) return false;
   return true;
+}
+
+void lovrGraphicsGetBackground(float background[4]) {
+  background[0] = lovrMathLinearToGamma(state.background[0]);
+  background[1] = lovrMathLinearToGamma(state.background[1]);
+  background[2] = lovrMathLinearToGamma(state.background[2]);
+  background[3] = state.background[3];
+}
+
+void lovrGraphicsSetBackground(float background[4]) {
+  state.background[0] = lovrMathGammaToLinear(background[0]);
+  state.background[1] = lovrMathGammaToLinear(background[1]);
+  state.background[2] = lovrMathGammaToLinear(background[2]);
+  state.background[3] = background[3];
 }
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
