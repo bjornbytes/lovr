@@ -8,6 +8,23 @@
 #include <stdlib.h>
 #include <string.h>
 
+StringEntry lovrBlendAlphaMode[] = {
+  [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
+  [BLEND_PREMULTIPLIED] = ENTRY("premultiplied"),
+  { 0 }
+};
+
+StringEntry lovrBlendMode[] = {
+  [BLEND_ALPHA] = ENTRY("alpha"),
+  [BLEND_ADD] = ENTRY("add"),
+  [BLEND_SUBTRACT] = ENTRY("subtract"),
+  [BLEND_MULTIPLY] = ENTRY("multiply"),
+  [BLEND_LIGHTEN] = ENTRY("lighten"),
+  [BLEND_DARKEN] = ENTRY("darken"),
+  [BLEND_SCREEN] = ENTRY("screen"),
+  { 0 }
+};
+
 StringEntry lovrBufferLayout[] = {
   [LAYOUT_PACKED] = ENTRY("packed"),
   [LAYOUT_STD140] = ENTRY("std140"),
@@ -23,6 +40,13 @@ StringEntry lovrCompareMode[] = {
   [COMPARE_LEQUAL] = ENTRY("lequal"),
   [COMPARE_GREATER] = ENTRY("greater"),
   [COMPARE_GEQUAL] = ENTRY("gequal"),
+  { 0 }
+};
+
+StringEntry lovrCullMode[] = {
+  [CULL_NONE] = ENTRY("none"),
+  [CULL_FRONT] = ENTRY("front"),
+  [CULL_BACK] = ENTRY("back"),
   { 0 }
 };
 
@@ -94,6 +118,17 @@ StringEntry lovrStackType[] = {
   { 0 }
 };
 
+StringEntry lovrStencilAction[] = {
+  [STENCIL_KEEP] = ENTRY("keep"),
+  [STENCIL_REPLACE] = ENTRY("replace"),
+  [STENCIL_INCREMENT] = ENTRY("increment"),
+  [STENCIL_DECREMENT] = ENTRY("decrement"),
+  [STENCIL_INCREMENT_WRAP] = ENTRY("incrementwrap"),
+  [STENCIL_DECREMENT_WRAP] = ENTRY("decrementwrap"),
+  [STENCIL_INVERT] = ENTRY("invert"),
+  { 0 }
+};
+
 StringEntry lovrTextureFeature[] = {
   [0] = ENTRY("sample"),
   [1] = ENTRY("filter"),
@@ -119,6 +154,12 @@ StringEntry lovrTextureUsage[] = {
   [1] = ENTRY("render"),
   [2] = ENTRY("storage"),
   [3] = ENTRY("transfer"),
+  { 0 }
+};
+
+StringEntry lovrWinding[] = {
+  [WINDING_COUNTERCLOCKWISE] = ENTRY("counterclockwise"),
+  [WINDING_CLOCKWISE] = ENTRY("clockwise"),
   { 0 }
 };
 

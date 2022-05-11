@@ -276,6 +276,44 @@ typedef enum {
 } StackType;
 
 typedef enum {
+  BLEND_ALPHA_MULTIPLY,
+  BLEND_PREMULTIPLIED
+} BlendAlphaMode;
+
+typedef enum {
+  BLEND_ALPHA,
+  BLEND_ADD,
+  BLEND_SUBTRACT,
+  BLEND_MULTIPLY,
+  BLEND_LIGHTEN,
+  BLEND_DARKEN,
+  BLEND_SCREEN,
+  BLEND_NONE
+} BlendMode;
+
+typedef enum {
+  CULL_NONE,
+  CULL_FRONT,
+  CULL_BACK
+} CullMode;
+
+typedef enum {
+  STENCIL_KEEP,
+  STENCIL_ZERO,
+  STENCIL_REPLACE,
+  STENCIL_INCREMENT,
+  STENCIL_DECREMENT,
+  STENCIL_INCREMENT_WRAP,
+  STENCIL_DECREMENT_WRAP,
+  STENCIL_INVERT
+} StencilAction;
+
+typedef enum {
+  WINDING_COUNTERCLOCKWISE,
+  WINDING_CLOCKWISE
+} Winding;
+
+typedef enum {
   LOAD_KEEP,
   LOAD_CLEAR,
   LOAD_DISCARD
@@ -314,3 +352,16 @@ void lovrPassTranslate(Pass* pass, float* translation);
 void lovrPassRotate(Pass* pass, float* rotation);
 void lovrPassScale(Pass* pass, float* scale);
 void lovrPassTransform(Pass* pass, float* transform);
+void lovrPassSetAlphaToCoverage(Pass* pass, bool enabled);
+void lovrPassSetBlendMode(Pass* pass, BlendMode mode, BlendAlphaMode alphaMode);
+void lovrPassSetColorMask(Pass* pass, bool r, bool g, bool b, bool a);
+void lovrPassSetCullMode(Pass* pass, CullMode mode);
+void lovrPassSetDepthTest(Pass* pass, CompareMode test);
+void lovrPassSetDepthWrite(Pass* pass, bool write);
+void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
+void lovrPassSetDepthClamp(Pass* pass, bool clamp);
+void lovrPassSetShader(Pass* pass, Shader* shader);
+void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
+void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask);
+void lovrPassSetWinding(Pass* pass, Winding winding);
+void lovrPassSetWireframe(Pass* pass, bool wireframe);

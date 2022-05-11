@@ -42,13 +42,23 @@ struct Shader {
   ShaderInfo info;
 };
 
+typedef struct {
+  float color[4];
+  Shader* shader;
+  gpu_pipeline_info info;
+  bool dirty;
+} Pipeline;
+
 struct Pass {
   uint32_t ref;
   PassInfo info;
   gpu_stream* stream;
   float* transform;
-  uint32_t transformIndex;
   float transforms[16][16];
+  uint32_t transformIndex;
+  Pipeline* pipeline;
+  Pipeline pipelines[4];
+  uint32_t pipelineIndex;
 };
 
 typedef struct {
@@ -631,7 +641,6 @@ const PassInfo* lovrPassGetInfo(Pass* pass) {
 }
 
 void lovrPassPush(Pass* pass, StackType stack) {
-  lovrCheck(pass->info.type == PASS_RENDER, "This function can only be called on a render pass");
   if (stack == STACK_TRANSFORM) {
     pass->transform = pass->transforms[++pass->transformIndex];
     lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "Transform stack overflow (more pushes than pops?)");
@@ -640,7 +649,6 @@ void lovrPassPush(Pass* pass, StackType stack) {
 }
 
 void lovrPassPop(Pass* pass, StackType stack) {
-  lovrCheck(pass->info.type == PASS_RENDER, "This function can only be called on a render pass");
   if (stack == STACK_TRANSFORM) {
     pass->transform = pass->transforms[--pass->transformIndex];
     lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "Transform stack underflow (more pops than pushes?)");
@@ -665,6 +673,178 @@ void lovrPassScale(Pass* pass, vec3 scale) {
 
 void lovrPassTransform(Pass* pass, mat4 transform) {
   mat4_mul(pass->transform, transform);
+}
+
+void lovrPassSetAlphaToCoverage(Pass* pass, bool enabled) {
+  pass->pipeline->dirty |= enabled != pass->pipeline->info.multisample.alphaToCoverage;
+  pass->pipeline->info.multisample.alphaToCoverage = enabled;
+}
+
+void lovrPassSetBlendMode(Pass* pass, BlendMode mode, BlendAlphaMode alphaMode) {
+  if (mode == BLEND_NONE) {
+    pass->pipeline->dirty |= pass->pipeline->info.color[0].blend.enabled;
+    memset(&pass->pipeline->info.color[0].blend, 0, sizeof(gpu_blend_state));
+    return;
+  }
+
+  gpu_blend_state* blend = &pass->pipeline->info.color[0].blend;
+
+  switch (mode) {
+    case BLEND_ALPHA:
+      blend->color.src = GPU_BLEND_SRC_ALPHA;
+      blend->color.dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA;
+      blend->color.op = GPU_BLEND_ADD;
+      blend->alpha.src = GPU_BLEND_ONE;
+      blend->alpha.dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA;
+      blend->alpha.op = GPU_BLEND_ADD;
+      break;
+    case BLEND_ADD:
+      blend->color.src = GPU_BLEND_SRC_ALPHA;
+      blend->color.dst = GPU_BLEND_ONE;
+      blend->color.op = GPU_BLEND_ADD;
+      blend->alpha.src = GPU_BLEND_ZERO;
+      blend->alpha.dst = GPU_BLEND_ONE;
+      blend->alpha.op = GPU_BLEND_ADD;
+      break;
+    case BLEND_SUBTRACT:
+      blend->color.src = GPU_BLEND_SRC_ALPHA;
+      blend->color.dst = GPU_BLEND_ONE;
+      blend->color.op = GPU_BLEND_RSUB;
+      blend->alpha.src = GPU_BLEND_ZERO;
+      blend->alpha.dst = GPU_BLEND_ONE;
+      blend->alpha.op = GPU_BLEND_RSUB;
+      break;
+    case BLEND_MULTIPLY:
+      blend->color.src = GPU_BLEND_DST_COLOR;
+      blend->color.dst = GPU_BLEND_ZERO;
+      blend->color.op = GPU_BLEND_ADD;
+      blend->alpha.src = GPU_BLEND_DST_COLOR;
+      blend->alpha.dst = GPU_BLEND_ZERO;
+      blend->alpha.op = GPU_BLEND_ADD;
+      break;
+    case BLEND_LIGHTEN:
+      blend->color.src = GPU_BLEND_SRC_ALPHA;
+      blend->color.dst = GPU_BLEND_ZERO;
+      blend->color.op = GPU_BLEND_MAX;
+      blend->alpha.src = GPU_BLEND_ONE;
+      blend->alpha.dst = GPU_BLEND_ZERO;
+      blend->alpha.op = GPU_BLEND_MAX;
+      break;
+    case BLEND_DARKEN:
+      blend->color.src = GPU_BLEND_SRC_ALPHA;
+      blend->color.dst = GPU_BLEND_ZERO;
+      blend->color.op = GPU_BLEND_MIN;
+      blend->alpha.src = GPU_BLEND_ONE;
+      blend->alpha.dst = GPU_BLEND_ZERO;
+      blend->alpha.op = GPU_BLEND_MIN;
+      break;
+    case BLEND_SCREEN:
+      blend->color.src = GPU_BLEND_SRC_ALPHA;
+      blend->color.dst = GPU_BLEND_ONE_MINUS_SRC_COLOR;
+      blend->color.op = GPU_BLEND_ADD;
+      blend->alpha.src = GPU_BLEND_ONE;
+      blend->alpha.dst = GPU_BLEND_ONE_MINUS_SRC_COLOR;
+      blend->alpha.op = GPU_BLEND_ADD;
+      break;
+    default: lovrUnreachable();
+  };
+
+  if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
+    blend->color.src = GPU_BLEND_ONE;
+  }
+
+  blend->enabled = true;
+  pass->pipeline->dirty = true;
+}
+
+void lovrPassSetColorMask(Pass* pass, bool r, bool g, bool b, bool a) {
+  uint8_t mask = (r << 0) | (g << 1) | (b << 2) | (a << 3);
+  pass->pipeline->dirty |= pass->pipeline->info.color[0].mask != mask;
+  pass->pipeline->info.color[0].mask = mask;
+}
+
+void lovrPassSetCullMode(Pass* pass, CullMode mode) {
+  pass->pipeline->dirty |= pass->pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
+  pass->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
+}
+
+void lovrPassSetDepthTest(Pass* pass, CompareMode test) {
+  pass->pipeline->dirty |= pass->pipeline->info.depth.test != (gpu_compare_mode) test;
+  pass->pipeline->info.depth.test = (gpu_compare_mode) test;
+}
+
+void lovrPassSetDepthWrite(Pass* pass, bool write) {
+  pass->pipeline->dirty |= pass->pipeline->info.depth.write != write;
+  pass->pipeline->info.depth.write = write;
+}
+
+void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped) {
+  pass->pipeline->info.rasterizer.depthOffset = offset;
+  pass->pipeline->info.rasterizer.depthOffsetSloped = sloped;
+  pass->pipeline->dirty = true;
+}
+
+void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
+  if (state.features.depthClamp) {
+    pass->pipeline->dirty |= pass->pipeline->info.rasterizer.depthClamp != clamp;
+    pass->pipeline->info.rasterizer.depthClamp = clamp;
+  }
+}
+
+void lovrPassSetShader(Pass* pass, Shader* shader) {
+  lovrRetain(shader);
+  lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
+
+  pass->pipeline->shader = shader;
+  pass->pipeline->info.shader = shader ? shader->gpu : NULL;
+  pass->pipeline->dirty = true;
+}
+
+void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask) {
+  bool hasReplace = false;
+  hasReplace |= pass->pipeline->info.stencil.failOp == GPU_STENCIL_REPLACE;
+  hasReplace |= pass->pipeline->info.stencil.depthFailOp == GPU_STENCIL_REPLACE;
+  hasReplace |= pass->pipeline->info.stencil.passOp == GPU_STENCIL_REPLACE;
+  if (hasReplace && test != COMPARE_NONE) {
+    lovrCheck(value == pass->pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
+  }
+  switch (test) { // (Reversed compare mode)
+    case COMPARE_NONE: default: pass->pipeline->info.stencil.test = GPU_COMPARE_NONE; break;
+    case COMPARE_EQUAL: pass->pipeline->info.stencil.test = GPU_COMPARE_EQUAL; break;
+    case COMPARE_NEQUAL: pass->pipeline->info.stencil.test = GPU_COMPARE_NEQUAL; break;
+    case COMPARE_LESS: pass->pipeline->info.stencil.test = GPU_COMPARE_GREATER; break;
+    case COMPARE_LEQUAL: pass->pipeline->info.stencil.test = GPU_COMPARE_GEQUAL; break;
+    case COMPARE_GREATER: pass->pipeline->info.stencil.test = GPU_COMPARE_LESS; break;
+    case COMPARE_GEQUAL: pass->pipeline->info.stencil.test = GPU_COMPARE_LEQUAL; break;
+  }
+  pass->pipeline->info.stencil.testMask = mask;
+  if (test != COMPARE_NONE) pass->pipeline->info.stencil.value = value;
+  pass->pipeline->dirty = true;
+}
+
+void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask) {
+  bool hasReplace = actions[0] == STENCIL_REPLACE || actions[1] == STENCIL_REPLACE || actions[2] == STENCIL_REPLACE;
+  if (hasReplace && pass->pipeline->info.stencil.test != GPU_COMPARE_NONE) {
+    lovrCheck(value == pass->pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
+  }
+  pass->pipeline->info.stencil.failOp = (gpu_stencil_op) actions[0];
+  pass->pipeline->info.stencil.depthFailOp = (gpu_stencil_op) actions[1];
+  pass->pipeline->info.stencil.passOp = (gpu_stencil_op) actions[2];
+  pass->pipeline->info.stencil.writeMask = mask;
+  if (hasReplace) pass->pipeline->info.stencil.value = value;
+  pass->pipeline->dirty = true;
+}
+
+void lovrPassSetWinding(Pass* pass, Winding winding) {
+  pass->pipeline->dirty |= pass->pipeline->info.rasterizer.winding != (gpu_winding) winding;
+  pass->pipeline->info.rasterizer.winding = (gpu_winding) winding;
+}
+
+void lovrPassSetWireframe(Pass* pass, bool wireframe) {
+  if (state.features.wireframe) {
+    pass->pipeline->dirty |= pass->pipeline->info.rasterizer.wireframe != (gpu_winding) wireframe;
+    pass->pipeline->info.rasterizer.wireframe = wireframe;
+  }
 }
 
 // Helpers
