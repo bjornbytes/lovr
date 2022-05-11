@@ -7,6 +7,7 @@ typedef struct gpu_texture gpu_texture;
 typedef struct gpu_sampler gpu_sampler;
 typedef struct gpu_layout gpu_layout;
 typedef struct gpu_shader gpu_shader;
+typedef struct gpu_pipeline gpu_pipeline;
 typedef struct gpu_stream gpu_stream;
 
 size_t gpu_sizeof_buffer(void);
@@ -14,6 +15,7 @@ size_t gpu_sizeof_texture(void);
 size_t gpu_sizeof_sampler(void);
 size_t gpu_sizeof_layout(void);
 size_t gpu_sizeof_shader(void);
+size_t gpu_sizeof_pipeline(void);
 
 // Buffer
 
@@ -218,6 +220,192 @@ typedef struct {
 
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info);
 void gpu_shader_destroy(gpu_shader* shader);
+
+// Pipeline
+
+typedef enum {
+  GPU_FLAG_B32,
+  GPU_FLAG_I32,
+  GPU_FLAG_U32,
+  GPU_FLAG_F32
+} gpu_flag_type;
+
+typedef struct {
+  uint32_t id;
+  gpu_flag_type type;
+  double value;
+} gpu_shader_flag;
+
+typedef enum {
+  GPU_DRAW_POINTS,
+  GPU_DRAW_LINES,
+  GPU_DRAW_TRIANGLES
+} gpu_draw_mode;
+
+typedef enum {
+  GPU_TYPE_I8x4,
+  GPU_TYPE_U8x4,
+  GPU_TYPE_SN8x4,
+  GPU_TYPE_UN8x4,
+  GPU_TYPE_UN10x3,
+  GPU_TYPE_I16,
+  GPU_TYPE_I16x2,
+  GPU_TYPE_I16x4,
+  GPU_TYPE_U16,
+  GPU_TYPE_U16x2,
+  GPU_TYPE_U16x4,
+  GPU_TYPE_SN16x2,
+  GPU_TYPE_SN16x4,
+  GPU_TYPE_UN16x2,
+  GPU_TYPE_UN16x4,
+  GPU_TYPE_I32,
+  GPU_TYPE_I32x2,
+  GPU_TYPE_I32x3,
+  GPU_TYPE_I32x4,
+  GPU_TYPE_U32,
+  GPU_TYPE_U32x2,
+  GPU_TYPE_U32x3,
+  GPU_TYPE_U32x4,
+  GPU_TYPE_F16x2,
+  GPU_TYPE_F16x4,
+  GPU_TYPE_F32,
+  GPU_TYPE_F32x2,
+  GPU_TYPE_F32x3,
+  GPU_TYPE_F32x4,
+} gpu_attribute_type;
+
+typedef struct {
+  uint8_t buffer;
+  uint8_t location;
+  uint8_t offset;
+  uint8_t type;
+} gpu_attribute;
+
+typedef struct {
+  uint32_t bufferCount;
+  uint32_t attributeCount;
+  uint16_t instancedBuffers;
+  uint16_t bufferStrides[16];
+  gpu_attribute attributes[16];
+} gpu_vertex_format;
+
+typedef enum {
+  GPU_CULL_NONE,
+  GPU_CULL_FRONT,
+  GPU_CULL_BACK
+} gpu_cull_mode;
+
+typedef enum {
+  GPU_WINDING_CCW,
+  GPU_WINDING_CW
+} gpu_winding;
+
+typedef struct {
+  gpu_cull_mode cullMode;
+  gpu_winding winding;
+  float depthOffset;
+  float depthOffsetSloped;
+  float depthOffsetClamp;
+  bool depthClamp;
+  bool wireframe;
+} gpu_rasterizer_state;
+
+typedef struct {
+  uint32_t count;
+  bool alphaToCoverage;
+  bool alphaToOne;
+} gpu_multisample_state;
+
+typedef struct {
+  gpu_texture_format format;
+  gpu_compare_mode test;
+  bool write;
+} gpu_depth_state;
+
+typedef enum {
+  GPU_STENCIL_KEEP,
+  GPU_STENCIL_ZERO,
+  GPU_STENCIL_REPLACE,
+  GPU_STENCIL_INCREMENT,
+  GPU_STENCIL_DECREMENT,
+  GPU_STENCIL_INCREMENT_WRAP,
+  GPU_STENCIL_DECREMENT_WRAP,
+  GPU_STENCIL_INVERT
+} gpu_stencil_op;
+
+typedef struct {
+  gpu_stencil_op failOp;
+  gpu_stencil_op depthFailOp;
+  gpu_stencil_op passOp;
+  gpu_compare_mode test;
+  uint8_t testMask;
+  uint8_t writeMask;
+  uint8_t value;
+} gpu_stencil_state;
+
+typedef enum {
+  GPU_BLEND_ZERO,
+  GPU_BLEND_ONE,
+  GPU_BLEND_SRC_COLOR,
+  GPU_BLEND_ONE_MINUS_SRC_COLOR,
+  GPU_BLEND_SRC_ALPHA,
+  GPU_BLEND_ONE_MINUS_SRC_ALPHA,
+  GPU_BLEND_DST_COLOR,
+  GPU_BLEND_ONE_MINUS_DST_COLOR,
+  GPU_BLEND_DST_ALPHA,
+  GPU_BLEND_ONE_MINUS_DST_ALPHA
+} gpu_blend_factor;
+
+typedef enum {
+  GPU_BLEND_ADD,
+  GPU_BLEND_SUB,
+  GPU_BLEND_RSUB,
+  GPU_BLEND_MIN,
+  GPU_BLEND_MAX
+} gpu_blend_op;
+
+typedef struct {
+  struct {
+    gpu_blend_factor src;
+    gpu_blend_factor dst;
+    gpu_blend_op op;
+  } color, alpha;
+  bool enabled;
+} gpu_blend_state;
+
+typedef struct {
+  gpu_texture_format format;
+  bool srgb;
+  gpu_blend_state blend;
+  uint8_t mask;
+} gpu_color_state;
+
+typedef struct {
+  gpu_shader* shader;
+  gpu_shader_flag* flags;
+  uint32_t flagCount;
+  gpu_draw_mode drawMode;
+  gpu_vertex_format vertex;
+  gpu_rasterizer_state rasterizer;
+  gpu_multisample_state multisample;
+  gpu_depth_state depth;
+  gpu_stencil_state stencil;
+  gpu_color_state color[4];
+  uint32_t colorCount;
+  uint32_t viewCount;
+  const char* label;
+} gpu_pipeline_info;
+
+typedef struct {
+  gpu_shader* shader;
+  gpu_shader_flag* flags;
+  uint32_t flagCount;
+  const char* label;
+} gpu_compute_pipeline_info;
+
+bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info);
+bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info);
+void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
 // Stream
 
