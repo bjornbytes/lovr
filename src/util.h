@@ -25,6 +25,7 @@
 #define ALIGN(p, n) (((uintptr_t) (p) + (n - 1)) & ~(n - 1))
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
+#define BREAK() __asm("int $3")
 
 // Error handling
 typedef void errorFn(void*, const char*, va_list);
