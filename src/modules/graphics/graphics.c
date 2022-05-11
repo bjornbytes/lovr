@@ -1,6 +1,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "math/math.h"
 #include "core/gpu.h"
 #include "core/maf.h"
 #include "core/os.h"
@@ -62,6 +63,12 @@ struct Pass {
 };
 
 typedef struct {
+  gpu_texture* handle;
+  uint32_t hash;
+  uint32_t tick;
+} ScratchTexture;
+
+typedef struct {
   char* memory;
   uint32_t cursor;
   uint32_t length;
@@ -75,6 +82,7 @@ static struct {
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
+  ScratchTexture scratchTextures[16];
   Allocator allocator;
 } state;
 
@@ -83,6 +91,7 @@ static struct {
 static void* tempAlloc(size_t size);
 static void beginFrame(void);
 static gpu_stream* getTransfers(void);
+static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void onMessage(void* context, const char* message, bool severe);
 
@@ -119,6 +128,12 @@ bool lovrGraphicsInit(bool debug) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
+  for (uint32_t i = 0; i < COUNTOF(state.scratchTextures); i++) {
+    if (state.scratchTextures[i].handle) {
+      gpu_texture_destroy(state.scratchTextures[i].handle);
+      free(state.scratchTextures[i].handle);
+    }
+  }
   gpu_destroy();
   glslang_finalize_process();
   os_vm_free(state.allocator.memory, MAX_FRAME_MEMORY);
@@ -204,6 +219,9 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   for (uint32_t i = 0; i < count; i++) {
     streams[extraPassCount + i] = passes[i]->stream;
+    if (passes[i]->info.type == PASS_RENDER) {
+      gpu_render_end(passes[i]->stream);
+    }
   }
 
   for (uint32_t i = 0; i < extraPassCount + count; i++) {
@@ -629,6 +647,78 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->ref = 1;
   pass->info = *info;
   pass->stream = gpu_stream_begin(info->label);
+
+  if (info->type == PASS_RENDER) {
+    Canvas* canvas = &info->canvas;
+    const TextureInfo* main = canvas->textures[0] ? &canvas->textures[0]->info : &canvas->depth.texture->info;
+    lovrCheck(canvas->textures[0] || canvas->depth.texture, "Render pass must have at least one color or depth texture");
+    lovrCheck(main->width <= state.limits.renderSize[0], "Render pass width (%d) exceeds the renderSize limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
+    lovrCheck(main->height <= state.limits.renderSize[1], "Render pass height (%d) exceeds the renderSize limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
+    lovrCheck(main->depth <= state.limits.renderSize[2], "Render pass view count (%d) exceeds the renderSize limit of this GPU (%d)", main->depth, state.limits.renderSize[2]);
+    lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Currently, render pass sample count must be 1 or 4");
+
+    uint32_t colorTextureCount = 0;
+    for (uint32_t i = 0; i < COUNTOF(canvas->textures) && canvas->textures[i]; i++, colorTextureCount++) {
+      const TextureInfo* texture = &canvas->textures[i]->info;
+      bool renderable = state.features.formats[texture->format] & GPU_FEATURE_RENDER;
+      lovrCheck(renderable, "This GPU does not support rendering to the texture format used by Canvas texture #%d", i + 1);
+      lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
+      lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
+      lovrCheck(texture->height == main->height, "Render pass texture sizes must match");
+      lovrCheck(texture->depth == main->depth, "Render pass texture sizes must match");
+      lovrCheck(texture->samples == main->samples, "Render pass texture sample counts must match");
+    }
+
+    if (canvas->depth.texture || canvas->depth.format) {
+      TextureFormat format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format;
+      bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER;
+      lovrCheck(format == FORMAT_D16 || format == FORMAT_D24S8 || format == FORMAT_D32F, "Depth buffer must use a depth format");
+      lovrCheck(renderable, "This GPU does not support depth buffers with this texture format");
+      if (canvas->depth.texture) {
+        const TextureInfo* texture = &canvas->depth.texture->info;
+        lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
+        lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
+        lovrCheck(texture->height == main->height, "Render pass texture sizes must match");
+        lovrCheck(texture->depth == main->depth, "Render pass texture sizes must match");
+        lovrCheck(texture->samples == main->samples, "Currently, depth buffer sample count must match the main render pass sample count");
+      }
+    }
+
+    gpu_canvas target = {
+      .size = { main->width, main->height }
+    };
+
+    for (uint32_t i = 0; i < colorTextureCount; i++) {
+      if (main->samples == 1 && canvas->samples > 1) {
+        TextureFormat format = canvas->textures[i]->info.format;
+        bool srgb = canvas->textures[i]->info.srgb;
+        target.color[i].texture = getScratchTexture(target.size, main->depth, format, srgb, canvas->samples);
+        target.color[i].resolve = canvas->textures[i]->renderView;
+      } else {
+        target.color[i].texture = canvas->textures[i]->renderView;
+      }
+
+      target.color[i].load = (gpu_load_op) canvas->loads[i];
+      target.color[i].save = GPU_SAVE_OP_SAVE;
+      target.color[i].clear[0] = lovrMathGammaToLinear(canvas->clears[i][0]);
+      target.color[i].clear[1] = lovrMathGammaToLinear(canvas->clears[i][1]);
+      target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clears[i][2]);
+      target.color[i].clear[3] = canvas->clears[i][2];
+    }
+
+    if (canvas->depth.texture) {
+      target.depth.texture = canvas->depth.texture->renderView;
+    } else {
+      target.depth.texture = getScratchTexture(target.size, main->depth, canvas->depth.format, false, canvas->samples);
+    }
+
+    target.depth.load = target.depth.stencilLoad = (gpu_load_op) canvas->depth.load;
+    target.depth.save = canvas->depth.texture ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD;
+    target.depth.clear.depth = canvas->depth.clear;
+
+    gpu_render_begin(pass->stream, &target);
+  }
+
   return pass;
 }
 
@@ -879,6 +969,57 @@ static gpu_stream* getTransfers(void) {
   }
 
   return state.transfers->stream;
+}
+
+static gpu_texture* getScratchTexture(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
+  ScratchTexture* textures = state.scratchTextures;
+  uint16_t key[] = { size[0], size[1], layers, format, srgb, samples };
+  uint32_t hash = hash64(key, sizeof(key));
+
+  for (uint32_t i = 0; i < COUNTOF(state.scratchTextures) && textures[i].handle; i++) {
+    if (textures[i].hash == hash && textures[i].tick != state.tick) {
+      textures[i].tick = state.tick;
+      return textures[i].handle;
+    }
+  }
+
+  // Otherwise, create new texture, add to an empty slot, evicting oldest if needed
+  gpu_texture_info info = {
+    .type = GPU_TEXTURE_ARRAY,
+    .format = (gpu_texture_format) format,
+    .size[0] = size[0],
+    .size[1] = size[1],
+    .size[2] = layers,
+    .mipmaps = 1,
+    .samples = samples,
+    .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT,
+    .upload.stream = getTransfers(),
+    .srgb = srgb
+  };
+
+  uint32_t slot = 0;
+  uint32_t oldest = ~0u;
+  for (uint32_t i = 0; i < COUNTOF(state.scratchTextures); i++) {
+    if (!textures[i].handle) {
+      slot = i;
+      break;
+    } else if (textures[i].tick < oldest) {
+      oldest = textures[i].tick;
+      slot = i;
+    }
+  }
+
+  if (!textures[slot].handle) {
+    textures[slot].handle = calloc(1, gpu_sizeof_texture());
+    lovrAssert(textures[slot].handle, "Out of memory");
+  } else {
+    gpu_texture_destroy(textures[slot].handle);
+  }
+
+  lovrAssert(gpu_texture_init(textures[slot].handle, &info), "Failed to create scratch texture");
+  textures[slot].hash = hash;
+  textures[slot].tick = state.tick;
+  return textures[slot].handle;
 }
 
 // Returns number of bytes of a 3D texture region of a given format

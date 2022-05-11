@@ -409,9 +409,44 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
 // Stream
 
+typedef enum {
+  GPU_LOAD_OP_LOAD,
+  GPU_LOAD_OP_CLEAR,
+  GPU_LOAD_OP_DISCARD
+} gpu_load_op;
+
+typedef enum {
+  GPU_SAVE_OP_SAVE,
+  GPU_SAVE_OP_DISCARD
+} gpu_save_op;
+
+typedef struct {
+  gpu_texture* texture;
+  gpu_texture* resolve;
+  gpu_load_op load;
+  gpu_save_op save;
+  float clear[4];
+} gpu_color_attachment;
+
+typedef struct {
+  gpu_texture* texture;
+  gpu_load_op load, stencilLoad;
+  gpu_save_op save, stencilSave;
+  struct { float depth; uint8_t stencil; } clear;
+} gpu_depth_attachment;
+
+typedef struct {
+  gpu_color_attachment color[4];
+  gpu_depth_attachment depth;
+  uint32_t size[2];
+} gpu_canvas;
+
 gpu_stream* gpu_stream_begin(const char* label);
 void gpu_stream_end(gpu_stream* stream);
-
+void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas);
+void gpu_render_end(gpu_stream* stream);
+void gpu_compute_begin(gpu_stream* stream);
+void gpu_compute_end(gpu_stream* stream);
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
 void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint16_t srcOffset[4], uint16_t dstOffset[4], uint16_t size[3]);
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint16_t dstOffset[4], uint16_t extent[3]);

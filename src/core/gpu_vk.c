@@ -153,6 +153,7 @@ static struct {
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
   gpu_cache_entry renderpasses[16][4];
+  gpu_cache_entry framebuffers[16][4];
   gpu_allocator allocators[GPU_MEMORY_COUNT];
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
   gpu_scratchpad scratchpad[2];
@@ -184,6 +185,7 @@ static void gpu_release(gpu_memory* memory);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible);
+static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
@@ -1198,6 +1200,73 @@ void gpu_stream_end(gpu_stream* stream) {
   VK(vkEndCommandBuffer(stream->commands), "Failed to end stream") return;
 }
 
+void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
+  gpu_texture* texture = canvas->color[0].texture ? canvas->color[0].texture : canvas->depth.texture;
+
+  gpu_pass_info pass = {
+    .views = texture->layers,
+    .samples = texture->samples,
+    .resolve = !!canvas->color[0].resolve
+  };
+
+  VkImageView images[9];
+  VkClearValue clears[9];
+
+  for (uint32_t i = 0; i < COUNTOF(canvas->color) && canvas->color[i].texture; i++) {
+    images[i] = canvas->color[i].texture->view;
+    memcpy(clears[i].color.float32, canvas->color[i].clear, 4 * sizeof(float));
+    pass.color[i].format = convertFormat(canvas->color[i].texture->format, canvas->color[i].texture->srgb);
+    pass.color[i].layout = canvas->color[i].texture->layout;
+    pass.color[i].load = canvas->color[i].load;
+    pass.color[i].save = canvas->color[i].save;
+    pass.count++;
+  }
+
+  if (pass.resolve) {
+    for (uint32_t i = 0; i < pass.count; i++) {
+      images[pass.count + i] = canvas->color[i].resolve->view;
+    }
+    pass.count <<= 1;
+  }
+
+  if (canvas->depth.texture) {
+    uint32_t index = pass.count++;
+    images[index] = canvas->depth.texture->view;
+    clears[index].depthStencil.depth = canvas->depth.clear.depth;
+    clears[index].depthStencil.stencil = canvas->depth.clear.stencil;
+    pass.depth.format = convertFormat(canvas->depth.texture->format, LINEAR);
+    pass.depth.layout = canvas->depth.texture->layout;
+    pass.depth.load = canvas->depth.load;
+    pass.depth.save = canvas->depth.save;
+  }
+
+  VkRenderPass renderPass = getCachedRenderPass(&pass, false);
+  VkFramebuffer framebuffer = getCachedFramebuffer(renderPass, images, pass.count, canvas->size);
+
+  VkRenderPassBeginInfo beginfo = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+    .renderPass = renderPass,
+    .framebuffer = framebuffer,
+    .renderArea = { { 0, 0 }, { canvas->size[0], canvas->size[1] } },
+    .clearValueCount = pass.count,
+    .pClearValues = clears
+  };
+
+  vkCmdBeginRenderPass(stream->commands, &beginfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void gpu_render_end(gpu_stream* stream) {
+  vkCmdEndRenderPass(stream->commands);
+}
+
+void gpu_compute_begin(gpu_stream* stream) {
+  //
+}
+
+void gpu_compute_end(gpu_stream* stream) {
+  //
+}
+
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   vkCmdCopyBuffer(stream->commands, src->handle, dst->handle, 1, &(VkBufferCopy) {
     .srcOffset = src->offset + srcOffset,
@@ -1697,6 +1766,12 @@ void gpu_destroy(void) {
     if (tick->semaphores[1]) vkDestroySemaphore(state.device, tick->semaphores[1], NULL);
     if (tick->fence) vkDestroyFence(state.device, tick->fence, NULL);
   }
+  for (uint32_t i = 0; i < COUNTOF(state.framebuffers); i++) {
+    for (uint32_t j = 0; j < COUNTOF(state.framebuffers[0]); j++) {
+      VkFramebuffer framebuffer = state.framebuffers[i][j].object;
+      if (framebuffer) vkDestroyFramebuffer(state.device, framebuffer, NULL);
+    }
+  }
   for (uint32_t i = 0; i < COUNTOF(state.renderpasses); i++) {
     for (uint32_t j = 0; j < COUNTOF(state.renderpasses[0]); j++) {
       VkRenderPass pass = state.renderpasses[i][j].object;
@@ -2021,6 +2096,56 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
   row[0].hash = hash;
 
   return handle;
+}
+
+VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]) {
+  uint32_t hash = HASH_SEED;
+  hash = hash32(hash, images, imageCount * sizeof(images[0]));
+  hash = hash32(hash, size, 2 * sizeof(uint32_t));
+  hash = hash32(hash, &pass, sizeof(pass));
+
+  uint32_t rows = COUNTOF(state.framebuffers);
+  uint32_t cols = COUNTOF(state.framebuffers[0]);
+  gpu_cache_entry* row = state.framebuffers[hash & (rows - 1)];
+  for (uint32_t i = 0; i < cols; i++) {
+    if ((row[i].hash & ~0u) == hash) {
+      row[i].hash = ((uint64_t) state.tick[CPU] << 32) | hash;
+      return row[i].object;
+    }
+  }
+
+  VkFramebufferCreateInfo info = {
+    .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+    .renderPass = pass,
+    .attachmentCount = imageCount,
+    .pAttachments = images,
+    .width = size[0],
+    .height = size[1],
+    .layers = 1
+  };
+
+  gpu_cache_entry* entry = &row[0];
+  for (uint32_t i = 1; i < cols; i++) {
+    if (!row[i].object || row[i].hash < entry->hash) {
+      entry = &row[i];
+    }
+  }
+
+  if (entry->object && gpu_finished(entry->hash >> 32)) {
+    vkDestroyFramebuffer(state.device, entry->object, NULL);
+  } else {
+    condemn(entry->object, VK_OBJECT_TYPE_FRAMEBUFFER);
+  }
+
+  VkFramebuffer framebuffer;
+  VK(vkCreateFramebuffer(state.device, &info, NULL, &framebuffer), "Failed to create framebuffer") {
+    return VK_NULL_HANDLE;
+  }
+
+  entry->object = framebuffer;
+  entry->hash = ((uint64_t) state.tick[CPU] << 32) | hash;
+
+  return framebuffer;
 }
 
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect) {

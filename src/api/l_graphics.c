@@ -336,7 +336,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
   }
 }
 
-static int luax_checkcanvas(lua_State* L, int index, PassInfo* info) {
+static Canvas luax_checkcanvas(lua_State* L, int index) {
   Canvas canvas = {
     .loads = { LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR },
     .depth.format = FORMAT_D32F,
@@ -354,7 +354,7 @@ static int luax_checkcanvas(lua_State* L, int index, PassInfo* info) {
   } else if (lua_isuserdata(L, index)) {
     canvas.textures[0] = luax_checktype(L, index, Texture);
   } else if (!lua_istable(L, index)) {
-    return luax_typeerror(L, index, "Texture or table");
+    luax_typeerror(L, index, "Texture or table");
   } else {
     for (uint32_t i = 0; i < 4; i++) {
       lua_rawgeti(L, index, i + 1);
@@ -439,7 +439,7 @@ static int luax_checkcanvas(lua_State* L, int index, PassInfo* info) {
     lua_pop(L, 1);
   }
 
-  return index + 1;
+  return canvas;
 }
 
 static int l_lovrGraphicsInit(lua_State* L) {
@@ -584,11 +584,9 @@ static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
 
 static int l_lovrGraphicsPass(lua_State* L) {
   PassInfo info;
-
-  int index = 1;
-  info.type = luax_checkenum(L, index++, PassType, NULL);
-  if (info.type == PASS_RENDER) index = luax_checkcanvas(L, 2, &info);
-  info.label = lua_tostring(L, index++);
+  info.type = luax_checkenum(L, 1, PassType, NULL);
+  if (info.type == PASS_RENDER) info.canvas = luax_checkcanvas(L, 2);
+  info.label = lua_tostring(L, info.type == PASS_RENDER ? 3 : 2);
 
   Pass* pass = lovrGraphicsGetPass(&info);
   luax_pushtype(L, Pass, pass);
@@ -683,6 +681,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
       info.depth = luax_checku32(L, index++);
       info.type = TEXTURE_ARRAY;
     }
+    info.usage |= TEXTURE_RENDER;
   } else if (lua_istable(L, 1)) {
     info.imageCount = luax_len(L, index++);
     images = info.imageCount > COUNTOF(stack) ? malloc(info.imageCount * sizeof(Image*)) : stack;
@@ -779,7 +778,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         }
         break;
       }
-      case LUA_TNIL: info.usage = (info.imageCount == 0) ? TEXTURE_RENDER | TEXTURE_SAMPLE : TEXTURE_SAMPLE; break;
+      case LUA_TNIL: break;
       default: return luaL_error(L, "Expected Texture usage to be a string, table, or nil");
     }
     lua_pop(L, 1);
