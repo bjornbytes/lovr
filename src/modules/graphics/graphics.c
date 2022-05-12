@@ -913,7 +913,14 @@ void lovrPassSetBlendMode(Pass* pass, BlendMode mode, BlendAlphaMode alphaMode) 
   pass->pipeline->dirty = true;
 }
 
-void lovrPassSetColorMask(Pass* pass, bool r, bool g, bool b, bool a) {
+void lovrPassSetColor(Pass* pass, float color[4]) {
+  pass->pipeline->color[0] = lovrMathGammaToLinear(color[0]);
+  pass->pipeline->color[1] = lovrMathGammaToLinear(color[1]);
+  pass->pipeline->color[2] = lovrMathGammaToLinear(color[2]);
+  pass->pipeline->color[3] = color[3];
+}
+
+void lovrPassSetColorWrite(Pass* pass, bool r, bool g, bool b, bool a) {
   uint8_t mask = (r << 0) | (g << 1) | (b << 2) | (a << 3);
   pass->pipeline->dirty |= pass->pipeline->info.color[0].mask != mask;
   pass->pipeline->info.color[0].mask = mask;

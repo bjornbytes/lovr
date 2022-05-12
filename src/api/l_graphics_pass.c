@@ -77,13 +77,26 @@ static int l_lovrPassSetBlendMode(lua_State* L) {
   return 0;
 }
 
-static int l_lovrPassSetColorMask(lua_State* L) {
+static int l_lovrPassSetColor(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  bool r = lua_toboolean(L, 2);
-  bool g = lua_toboolean(L, 3);
-  bool b = lua_toboolean(L, 4);
-  bool a = lua_toboolean(L, 5);
-  lovrPassSetColorMask(pass, r, g, b, a);
+  float color[4];
+  luax_readcolor(L, 2, color);
+  lovrPassSetColor(pass, color);
+  return 0;
+}
+
+static int l_lovrPassSetColorWrite(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  bool r, g, b, a;
+  if (lua_gettop(L) <= 1) {
+    r = g = b = a = lua_toboolean(L, 2);
+  } else {
+    r = lua_toboolean(L, 2);
+    g = lua_toboolean(L, 3);
+    b = lua_toboolean(L, 4);
+    a = lua_toboolean(L, 5);
+  }
+  lovrPassSetColorWrite(pass, r, g, b, a);
   return 0;
 }
 
@@ -194,7 +207,8 @@ const luaL_Reg lovrPass[] = {
   { "transform", l_lovrPassTransform },
   { "setAlphaToCoverage", l_lovrPassSetAlphaToCoverage },
   { "setBlendMode", l_lovrPassSetBlendMode },
-  { "setColorMask", l_lovrPassSetColorMask },
+  { "setColor", l_lovrPassSetColor },
+  { "setColorWrite", l_lovrPassSetColorWrite },
   { "setCullMode", l_lovrPassSetCullMode },
   { "setDepthTest", l_lovrPassSetDepthTest },
   { "setDepthWrite", l_lovrPassSetDepthWrite },
