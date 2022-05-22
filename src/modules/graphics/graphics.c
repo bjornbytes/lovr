@@ -619,6 +619,12 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
 // Shader
 
 Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
+  uint32_t spirv = 0x07230203;
+
+  if (source->size % 4 == 0 && source->size >= 4 && !memcmp(source->data, &spirv, 4)) {
+    return lovrRetain(source), source;
+  }
+
 #ifdef LOVR_USE_GLSLANG
   const glslang_stage_t stages[] = {
     [STAGE_VERTEX] = GLSLANG_STAGE_VERTEX,
@@ -636,6 +642,7 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
     .target_language = GLSLANG_TARGET_SPV,
     .target_language_version = GLSLANG_TARGET_SPV_1_3,
     .code = source->data,
+    .length = source->size,
     .default_version = 460,
     .default_profile = GLSLANG_NO_PROFILE,
     .resource = resource

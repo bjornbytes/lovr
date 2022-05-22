@@ -21,4 +21,4 @@
 	url = https://github.com/lovr-org/ovr_openxr_mobile_sdk
 [submodule "deps/glslang"]
 	path = deps/glslang
-	url = https://github.com/KhronosGroup/glslang
+	url = https://github.com/bjornbytes/glslang

@@ -180,9 +180,12 @@ if(LOVR_USE_GLSLANG)
   set(ENABLE_OPT OFF CACHE BOOL "")
   set(ENABLE_CTEST OFF CACHE BOOL "")
   set(BUILD_EXTERNAL OFF CACHE BOOL "")
+  set(BUILD_SHARED_LIBS OFF)
+  include_directories(deps/glslang/glslang/Include deps/glslang/StandAlone)
   add_subdirectory(deps/glslang glslang)
-  set_target_properties(SPIRV PROPERTIES EXCLUDE_FROM_ALL 1)
-  set(LOVR_GLSLANG glslang)
+  target_sources(glslang PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps/glslang/StandAlone/ResourceLimits.cpp")
+  target_sources(glslang PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps/glslang/StandAlone/resource_limits_c.cpp")
+  set(LOVR_GLSLANG glslang SPIRV)
 endif()
 
 # Vulkan
@@ -442,6 +445,10 @@ if(LOVR_ENABLE_GRAPHICS)
     src/api/l_graphics_shader.c
     src/api/l_graphics_pass.c
   )
+
+  if(LOVR_USE_GLSLANG)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_GLSLANG)
+  endif()
 
   if(LOVR_USE_VULKAN)
     target_compile_definitions(lovr PRIVATE LOVR_VK)
