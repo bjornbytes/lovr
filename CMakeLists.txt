@@ -437,6 +437,7 @@ endif()
 
 if(LOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
+    src/core/spv.c
     src/modules/graphics/graphics.c
     src/api/l_graphics.c
     src/api/l_graphics_buffer.c
