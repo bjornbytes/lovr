@@ -56,8 +56,11 @@ typedef struct {
 
 struct Shader {
   uint32_t ref;
+  Shader* parent;
   gpu_shader* gpu;
   ShaderInfo info;
+  uint32_t layout;
+  uint32_t computePipeline;
   uint32_t attributeMask;
   uint32_t constantSize;
   uint32_t constantCount;
@@ -912,7 +915,33 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 
   gpu_shader_init(shader->gpu, &gpu);
   lovrShaderInit(shader);
+  return shader;
+}
 
+Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
+  Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
+  lovrAssert(shader, "Out of memory");
+  shader->ref = 1;
+  lovrRetain(parent);
+  shader->parent = parent;
+  shader->gpu = parent->gpu;
+  shader->info = parent->info;
+  shader->info.flags = flags;
+  shader->info.flagCount = count;
+  shader->layout = parent->layout;
+  shader->attributeMask = parent->attributeMask;
+  shader->constantSize = parent->constantSize;
+  shader->constantCount = parent->constantCount;
+  shader->resourceCount = parent->resourceCount;
+  shader->flagCount = parent->flagCount;
+  shader->constants = parent->constants;
+  shader->resources = parent->resources;
+  shader->flags = malloc(shader->flagCount * sizeof(gpu_shader_flag));
+  shader->flagLookup = malloc(shader->flagCount * sizeof(uint32_t));
+  lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
+  memcpy(shader->flags, parent->flags, shader->flagCount * sizeof(gpu_shader_flag));
+  memcpy(shader->flagLookup, parent->flagLookup, shader->flagCount * sizeof(uint32_t));
+  lovrShaderInit(shader);
   return shader;
 }
 

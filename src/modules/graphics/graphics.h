@@ -263,6 +263,7 @@ typedef struct {
 
 struct Blob* lovrGraphicsCompileShader(ShaderStage stage, struct Blob* source);
 Shader* lovrShaderCreate(ShaderInfo* info);
+Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 
