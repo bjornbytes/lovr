@@ -4,6 +4,7 @@
 #include "math/math.h"
 #include "core/gpu.h"
 #include "core/maf.h"
+#include "core/spv.h"
 #include "core/os.h"
 #include "util.h"
 #include <math.h>
@@ -40,10 +41,33 @@ struct Sampler {
   SamplerInfo info;
 };
 
+typedef struct {
+  uint32_t hash;
+  uint32_t offset;
+  FieldType type;
+} ShaderConstant;
+
+typedef struct {
+  uint32_t hash;
+  uint32_t binding;
+  uint32_t stageMask;
+  gpu_slot_type type;
+} ShaderResource;
+
 struct Shader {
   uint32_t ref;
   gpu_shader* gpu;
   ShaderInfo info;
+  uint32_t attributeMask;
+  uint32_t constantSize;
+  uint32_t constantCount;
+  uint32_t resourceCount;
+  ShaderConstant* constants;
+  ShaderResource* resources;
+  uint32_t flagCount;
+  uint32_t overrideCount;
+  gpu_shader_flag* flags;
+  uint32_t* flagLookup;
 };
 
 typedef struct {
@@ -98,6 +122,7 @@ static void beginFrame(void);
 static gpu_stream* getTransfers(void);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
+static void checkShaderFeatures(uint32_t* features, uint32_t count);
 static void onMessage(void* context, const char* message, bool severe);
 
 // Entry
@@ -681,23 +706,212 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
   glslang_shader_delete(shader);
 
   return blob;
-#endif
+#else
   return NULL;
+#endif
+}
+
+static void lovrShaderInit(Shader* shader) {
+
+  // Shaders store the full list of their flags so clones can override them, but they are reordered
+  // to put overridden (active) ones first, so a contiguous list can be used to create pipelines
+  for (uint32_t i = 0; i < shader->info.flagCount; i++) {
+    ShaderFlag* flag = &shader->info.flags[i];
+    uint32_t hash = flag->name ? (uint32_t) hash64(flag->name, strlen(flag->name)) : 0;
+    for (uint32_t j = 0; j < shader->flagCount; j++) {
+      if (hash ? (hash != shader->flagLookup[j]) : (flag->id != shader->flags[j].id)) continue;
+
+      uint32_t index = shader->overrideCount++;
+
+      if (index != j) {
+        gpu_shader_flag temp = shader->flags[index];
+        shader->flags[index] = shader->flags[j];
+        shader->flags[j] = temp;
+
+        uint32_t tempHash = shader->flagLookup[index];
+        shader->flagLookup[index] = shader->flagLookup[j];
+        shader->flagLookup[j] = tempHash;
+      }
+
+      shader->flags[index].value = flag->value;
+    }
+  }
 }
 
 Shader* lovrShaderCreate(ShaderInfo* info) {
   Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
   lovrAssert(shader, "Out of memory");
+
+  uint32_t stageCount = info->type == SHADER_GRAPHICS ? 2 : 1;
+  uint32_t firstStage = info->type == SHADER_GRAPHICS ? GPU_STAGE_VERTEX : GPU_STAGE_COMPUTE;
+  uint32_t userSet = info->type == SHADER_GRAPHICS ? 2 : 0;
+
+  spv_result result;
+  spv_info spv[2] = { 0 };
+  for (uint32_t i = 0; i < stageCount; i++) {
+    result = spv_parse(info->stages[i]->data, info->stages[i]->size, &spv[i]);
+    lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
+
+    spv[i].features = tempAlloc(spv[i].featureCount * sizeof(uint32_t));
+    spv[i].specConstants = tempAlloc(spv[i].specConstantCount * sizeof(spv_spec_constant));
+    spv[i].pushConstants = tempAlloc(spv[i].pushConstantCount * sizeof(spv_push_constant));
+    spv[i].resources = tempAlloc(spv[i].resourceCount * sizeof(spv_resource));
+
+    result = spv_parse(info->stages[i]->data, info->stages[i]->size, &spv[i]);
+    lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
+
+    checkShaderFeatures(spv[i].features, spv[i].featureCount);
+  }
+
+  uint32_t constantStage = spv[0].pushConstantSize > spv[1].pushConstantSize ? 0 : 1;
+  uint32_t maxFlags = spv[0].specConstantCount + spv[1].specConstantCount;
+
+  shader->attributeMask = spv[0].inputLocationMask;
+  shader->constantSize = MAX(spv[0].pushConstantSize, spv[1].pushConstantSize);
+  shader->constants = malloc(spv[constantStage].pushConstantCount * sizeof(ShaderConstant));
+  shader->resources = malloc((spv[0].resourceCount + spv[1].resourceCount) * sizeof(ShaderResource));
+  gpu_slot* slots = tempAlloc((spv[0].resourceCount + spv[1].resourceCount) * sizeof(gpu_slot));
+  shader->flags = malloc(maxFlags * sizeof(gpu_shader_flag));
+  shader->flagLookup = malloc(maxFlags * sizeof(uint32_t));
+  lovrAssert(shader->constants && shader->resources && shader->flags && shader->flagLookup, "Out of memory");
+
+  // Push constants
+  for (uint32_t i = 0; i < spv[constantStage].pushConstantCount; i++) {
+    static const FieldType constantTypes[] = {
+      [SPV_B32] = FIELD_U32,
+      [SPV_I32] = FIELD_I32,
+      [SPV_I32x2] = FIELD_I32x2,
+      [SPV_I32x3] = FIELD_I32x3,
+      [SPV_I32x4] = FIELD_I32x4,
+      [SPV_U32] = FIELD_U32,
+      [SPV_U32x2] = FIELD_U32x2,
+      [SPV_U32x3] = FIELD_U32x3,
+      [SPV_U32x4] = FIELD_U32x4,
+      [SPV_F32] = FIELD_F32,
+      [SPV_F32x2] = FIELD_F32x2,
+      [SPV_F32x3] = FIELD_F32x3,
+      [SPV_F32x4] = FIELD_F32x4,
+      [SPV_MAT2] = FIELD_MAT2,
+      [SPV_MAT3] = FIELD_MAT3,
+      [SPV_MAT4] = FIELD_MAT4
+    };
+
+    spv_push_constant* constant = &spv[constantStage].pushConstants[i];
+
+    shader->constants[i] = (ShaderConstant) {
+      .hash = (uint32_t) hash64(constant->name, strlen(constant->name)),
+      .offset = constant->offset,
+      .type = constantTypes[constant->type]
+    };
+  }
+
+  // Resources
+  for (uint32_t s = 0; s < stageCount; s++) {
+    for (uint32_t i = 0; i < spv[s].resourceCount; i++) {
+      spv_resource* resource = &spv[s].resources[i];
+
+      if (resource->set != userSet) {
+        continue;
+      }
+
+      static const gpu_slot_type resourceTypes[] = {
+        [SPV_UNIFORM_BUFFER] = GPU_SLOT_UNIFORM_BUFFER,
+        [SPV_STORAGE_BUFFER] = GPU_SLOT_STORAGE_BUFFER,
+        [SPV_SAMPLED_TEXTURE] = GPU_SLOT_SAMPLED_TEXTURE,
+        [SPV_STORAGE_TEXTURE] = GPU_SLOT_STORAGE_TEXTURE,
+        [SPV_SAMPLER] = GPU_SLOT_SAMPLER
+      };
+
+      uint32_t hash = (uint32_t) hash64(resource->name, strlen(resource->name));
+      uint32_t stage = s == 0 ? firstStage : GPU_STAGE_FRAGMENT;
+      bool append = true;
+
+      if (s > 0) {
+        for (uint32_t j = 0; j < shader->resourceCount; j++) {
+          ShaderResource* other = &shader->resources[j];
+          if (other->binding == resource->binding) {
+            lovrCheck(other->type == resourceTypes[resource->type], "Shader variable (%d) does not use a consistent type", resource->binding);
+            shader->resources[j].stageMask |= stage;
+            append = false;
+            break;
+          }
+        }
+      }
+
+      if (!append) {
+        continue;
+      }
+
+      uint32_t index = shader->resourceCount++;
+
+      slots[index] = (gpu_slot) {
+        .number = resource->binding,
+        .type = resourceTypes[resource->type],
+        .stage = stage,
+        .count = resource->arraySize
+      };
+
+      shader->resources[index] = (ShaderResource) {
+        .hash = hash,
+        .binding = resource->binding,
+        .stageMask = stage,
+        .type = resourceTypes[resource->type]
+      };
+    }
+  }
+
+  // Specialization constants
+  for (uint32_t s = 0; s < stageCount; s++) {
+    for (uint32_t i = 0; i < spv[s].specConstantCount; i++) {
+      spv_spec_constant* constant = &spv[s].specConstants[i];
+
+      bool append = true;
+
+      if (s > 0) {
+        for (uint32_t j = 0; j < spv[0].specConstantCount; j++) {
+          spv_spec_constant* other = &spv[0].specConstants[j];
+          if (other->id == constant->id) {
+            lovrCheck(other->type == constant->type, "Shader flag (%d) does not use a consistent type", constant->id);
+            lovrCheck(!strcmp(constant->name, other->name), "Shader flag (%d) does not use a consistent name", constant->id);
+            append = false;
+            break;
+          }
+        }
+      }
+
+      if (!append) {
+        break;
+      }
+
+      static const gpu_flag_type flagTypes[] = {
+        [SPV_B32] = GPU_FLAG_B32,
+        [SPV_I32] = GPU_FLAG_I32,
+        [SPV_U32] = GPU_FLAG_U32,
+        [SPV_F32] = GPU_FLAG_F32
+      };
+
+      uint32_t index = shader->flagCount++;
+      shader->flagLookup[index] = (uint32_t) hash64(constant->name, strlen(constant->name));
+      shader->flags[index] = (gpu_shader_flag) {
+        .id = constant->id,
+        .type = flagTypes[constant->type]
+      };
+    }
+  }
+
   shader->ref = 1;
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
 
   gpu_shader_info gpu = {
     .stages[0] = { info->stages[0]->data, info->stages[0]->size },
-    .stages[1] = { info->stages[1]->data, info->stages[1]->size }
+    .stages[1] = { info->stages[1]->data, info->stages[1]->size },
+    .pushConstantSize = shader->constantSize,
+    .label = info->label
   };
 
   gpu_shader_init(shader->gpu, &gpu);
+  lovrShaderInit(shader);
 
   return shader;
 }
@@ -705,6 +919,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   gpu_shader_destroy(shader->gpu);
+  lovrRelease(shader->parent, lovrShaderDestroy);
   free(shader);
 }
 
@@ -1148,6 +1363,66 @@ static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint1
     case FORMAT_ASTC_12x10: return ((w + 11) / 12) * ((h + 9) / 10) * d * 16;
     case FORMAT_ASTC_12x12: return ((w + 11) / 12) * ((h + 11) / 12) * d * 16;
     default: lovrUnreachable();
+  }
+}
+
+// Only an explicit set of SPIR-V capabilities are allowed
+// Some capabilities require a GPU feature to be supported
+// Some common unsupported capabilities are checked directly, to provide better error messages
+static void checkShaderFeatures(uint32_t* features, uint32_t count) {
+  for (uint32_t i = 0; i < count; i++) {
+    switch (features[i]) {
+      case 0: break; // Matrix
+      case 1: break; // Shader
+      case 2: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "geometry shading");
+      case 3: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "tessellation shading");
+      case 5: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "linkage");
+      case 9: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "half floats");
+      case 10: lovrCheck(state.features.float64, "GPU does not support shader feature #%d: %s", features[i], "64 bit floats"); break;
+      case 11: lovrCheck(state.features.int64, "GPU does not support shader feature #%d: %s", features[i], "64 bit integers"); break;
+      case 12: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "64 bit atomics");
+      case 22: lovrCheck(state.features.int16, "GPU does not support shader feature #%d: %s", features[i], "16 bit integers"); break;
+      case 23: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "tessellation shading");
+      case 24: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "geometry shading");
+      case 25: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "extended image gather");
+      case 27: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "multisample storage textures");
+      case 32: lovrCheck(state.limits.clipDistances > 0, "GPU does not support shader feature #%d: %s", features[i], "clip distance"); break;
+      case 33: lovrCheck(state.limits.cullDistances > 0, "GPU does not support shader feature #%d: %s", features[i], "cull distance"); break;
+      case 34: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "cubemap array textures");
+      case 35: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "sample rate shading");
+      case 36: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "rectangle textures");
+      case 37: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "rectangle textures");
+      case 39: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "8 bit integers");
+      case 40: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "input attachments");
+      case 41: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "sparse residency");
+      case 42: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "min LOD");
+      case 43: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "1D textures");
+      case 44: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "1D textures");
+      case 45: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "cubemap array textures");
+      case 46: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "texel buffers");
+      case 47: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "texel buffers");
+      case 48: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "multisampled storage textures");
+      case 49: break; // StorageImageExtendedFormats (?)
+      case 50: break; // ImageQuery
+      case 51: break; // DerivativeControl
+      case 52: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "sample rate shading");
+      case 53: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "transform feedback");
+      case 54: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "geometry shading");
+      case 55: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "autoformat storage textures");
+      case 56: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "autoformat storage textures");
+      case 57: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "multiviewport");
+      case 69: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "layered rendering");
+      case 70: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "multiviewport");
+      case 4427: break; // ShaderDrawParameters
+      case 4437: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "multigpu");
+      case 4439: lovrCheck(state.limits.renderSize[2] > 1, "GPU does not support shader feature #%d: %s", features[i], "multiview"); break;
+      case 5301: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "non-uniform indexing");
+      case 5306: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "non-uniform indexing");
+      case 5307: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "non-uniform indexing");
+      case 5308: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "non-uniform indexing");
+      case 5309: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "non-uniform indexing");
+      default: lovrThrow("Shader uses unknown feature #%d", features[i]);
+    }
   }
 }
 
