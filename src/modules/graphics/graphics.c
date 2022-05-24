@@ -155,6 +155,7 @@ static gpu_stream* getTransfers(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
+static uint32_t findShaderSlot(Shader* shader, const char* name, size_t length);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
 static void onMessage(void* context, const char* message, bool severe);
 
@@ -256,9 +257,9 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
-  lovrRelease(&state.defaultBuffer, lovrBufferDestroy);
-  lovrRelease(&state.defaultTexture, lovrTextureDestroy);
-  lovrRelease(&state.defaultSampler, lovrSamplerDestroy);
+  lovrRelease(state.defaultBuffer, lovrBufferDestroy);
+  lovrRelease(state.defaultTexture, lovrTextureDestroy);
+  lovrRelease(state.defaultSampler, lovrSamplerDestroy);
   for (uint32_t i = 0; i < COUNTOF(state.attachments); i++) {
     if (state.attachments[i].texture) {
       gpu_texture_destroy(state.attachments[i].texture);
@@ -379,6 +380,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   }
 
   for (uint32_t i = 0; i < count; i++) {
+    for (uint32_t j = 0; j <= passes[i]->pipelineIndex; j++) {
+      lovrRelease(passes[i]->pipelines[j].shader, lovrShaderDestroy);
+      passes[i]->pipelines[j].shader = NULL;
+    }
     streams[extraPassCount + i] = passes[i]->stream;
     if (passes[i]->info.type == PASS_RENDER) {
       gpu_render_end(passes[i]->stream);
@@ -1169,11 +1174,18 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     gpu_render_begin(pass->stream, &target);
   }
 
+  pass->transform = pass->transforms[0];
+  pass->pipeline = &pass->pipelines[0];
+
   return pass;
 }
 
 void lovrPassDestroy(void* ref) {
-  //
+  Pass* pass = ref;
+  for (uint32_t i = 0; i <= pass->pipelineIndex; i++) {
+    lovrRelease(pass->pipelines[i].shader, lovrShaderDestroy);
+    pass->pipelines[i].shader = NULL;
+  }
 }
 
 const PassInfo* lovrPassGetInfo(Pass* pass) {
@@ -1445,6 +1457,69 @@ void lovrPassSetWireframe(Pass* pass, bool wireframe) {
   }
 }
 
+void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent) {
+  Shader* shader = pass->pipeline->shader;
+  lovrCheck(shader, "A Shader must be active to send resources");
+  slot = name ? findShaderSlot(shader, name, length) : slot;
+
+  lovrCheck(shader->bufferMask & (1 << slot), "Trying to send a Buffer to slot %d, but the active Shader doesn't have a Buffer in that slot");
+  lovrCheck(offset < buffer->size, "Buffer offset is past the end of the Buffer");
+
+  uint32_t limit;
+
+  if (shader->storageMask & (1 << slot)) {
+    lovrCheck(!buffer->pointer, "Temporary buffers can not be sent to storage buffer variables", slot + 1);
+    lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to storageBufferAlign limit (%d)", offset, state.limits.storageBufferAlign);
+    limit = state.limits.storageBufferRange;
+  } else {
+    lovrCheck((offset & (state.limits.uniformBufferAlign - 1)) == 0, "Uniform buffer offset (%d) is not aligned to uniformBufferAlign limit (%d)", offset, state.limits.uniformBufferAlign);
+    limit = state.limits.uniformBufferRange;
+  }
+
+  if (extent == 0) {
+    extent = MIN(buffer->size - offset, limit);
+  } else {
+    lovrCheck(offset + extent <= buffer->size, "Buffer range goes past the end of the Buffer");
+    lovrCheck(extent <= limit, "Buffer range exceeds storageBufferRange/uniformBufferRange limit");
+  }
+
+  pass->bindings[slot].buffer.object = buffer->gpu;
+  pass->bindings[slot].buffer.offset = offset;
+  pass->bindings[slot].buffer.extent = extent;
+  pass->bindingMask |= (1 << slot);
+  pass->bindingsDirty = true;
+}
+
+void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture) {
+  Shader* shader = pass->pipeline->shader;
+  lovrCheck(shader, "A Shader must be active to send resources");
+  slot = name ? findShaderSlot(shader, name, length) : slot;
+
+  lovrCheck(shader->textureMask & (1 << slot), "Trying to send a Texture to slot %d, but the active Shader doesn't have a Texture in that slot");
+
+  if (shader->storageMask & (1 << slot)) {
+    lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' flag to send them to image variables in shaders");
+  } else {
+    lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' flag to send them to sampler variables in shaders");
+  }
+
+  pass->bindings[slot].texture = texture->gpu;
+  pass->bindingMask |= (1 << slot);
+  pass->bindingsDirty = true;
+}
+
+void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler) {
+  Shader* shader = pass->pipeline->shader;
+  lovrCheck(shader, "A Shader must be active to send resources");
+  slot = name ? findShaderSlot(shader, name, length) : slot;
+
+  lovrCheck(shader->samplerMask & (1 << slot), "Trying to send a Sampler to slot %d, but the active Shader doesn't have a Sampler in that slot");
+
+  pass->bindings[slot].sampler = sampler->gpu;
+  pass->bindingMask |= (1 << slot);
+  pass->bindingsDirty = true;
+}
+
 // Helpers
 
 static void* tempAlloc(size_t size) {
@@ -1606,6 +1681,16 @@ static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint1
     case FORMAT_ASTC_12x12: return ((w + 11) / 12) * ((h + 11) / 12) * d * 16;
     default: lovrUnreachable();
   }
+}
+
+uint32_t findShaderSlot(Shader* shader, const char* name, size_t length) {
+  uint32_t hash = (uint32_t) hash64(name, length);
+  for (uint32_t i = 0; i < shader->resourceCount; i++) {
+    if (shader->resources[i].hash == hash) {
+      return shader->resources[i].binding;
+    }
+  }
+  lovrThrow("Shader has no variable named '%s'", name);
 }
 
 // Only an explicit set of SPIR-V capabilities are allowed

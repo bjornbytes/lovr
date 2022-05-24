@@ -196,6 +196,44 @@ static int l_lovrPassSetWireframe(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSend(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  const char* name = NULL;
+  size_t length = 0;
+  uint32_t slot = ~0u;
+
+  switch (lua_type(L, 2)) {
+    case LUA_TSTRING: name = lua_tolstring(L, 2, &length); break;
+    case LUA_TNUMBER: slot = lua_tointeger(L, 2) - 1; break;
+    default: return luax_typeerror(L, 2, "string or number");
+  }
+
+  Buffer* buffer = luax_totype(L, 3, Buffer);
+
+  if (buffer) {
+    uint32_t offset = lua_tointeger(L, 4);
+    uint32_t extent = lua_tointeger(L, 5);
+    lovrPassSendBuffer(pass, name, length, slot, buffer, offset, extent);
+    return 0;
+  }
+
+  Texture* texture = luax_totype(L, 4, Texture);
+
+  if (texture) {
+    lovrPassSendTexture(pass, name, length, slot, texture);
+    return 0;
+  }
+
+  Sampler* sampler = luax_totype(L, 4, Sampler);
+
+  if (sampler) {
+    lovrPassSendSampler(pass, name, length, slot, sampler);
+    return 0;
+  }
+
+  return luax_typeerror(L, 3, "Buffer, Texture, Sampler, or number/vector");
+}
+
 const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
   { "push", l_lovrPassPush },
@@ -219,5 +257,6 @@ const luaL_Reg lovrPass[] = {
   { "setStencilWrite", l_lovrPassSetStencilWrite },
   { "setWinding", l_lovrPassSetWinding },
   { "setWireframe", l_lovrPassSetWireframe },
+  { "send", l_lovrPassSend },
   { NULL, NULL }
 };

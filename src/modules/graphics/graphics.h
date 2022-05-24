@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -138,7 +139,6 @@ typedef struct {
   uint32_t stride;
   uint32_t fieldCount;
   BufferField fields[16];
-  void** pointer;
   const char* label;
   uintptr_t handle;
 } BufferInfo;
@@ -348,8 +348,6 @@ typedef struct {
 Pass* lovrGraphicsGetPass(PassInfo* info);
 void lovrPassDestroy(void* ref);
 const PassInfo* lovrPassGetInfo(Pass* pass);
-
-// Render
 void lovrPassPush(Pass* pass, StackType stack);
 void lovrPassPop(Pass* pass, StackType stack);
 void lovrPassOrigin(Pass* pass);
@@ -371,3 +369,6 @@ void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t
 void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);
+void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
+void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture);
+void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler);

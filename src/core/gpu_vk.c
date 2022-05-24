@@ -979,7 +979,7 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
       } else {
         buffers[bufferCount++] = (VkDescriptorBufferInfo) {
           .buffer = binding->buffer.object->handle,
-          .offset = binding->buffer.offset,
+          .offset = binding->buffer.offset + binding->buffer.object->offset,
           .range = binding->buffer.extent
         };
       }
