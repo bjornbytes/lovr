@@ -130,6 +130,9 @@ static struct {
   float background[4];
   Texture* window;
   Attachment attachments[16];
+  Buffer* defaultBuffer;
+  Texture* defaultTexture;
+  Sampler* defaultSampler;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
@@ -196,12 +199,59 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   state.allocator.memory = os_vm_init(MAX_FRAME_MEMORY);
   os_vm_commit(state.allocator.memory, state.allocator.length);
 
+  BufferInfo defaultBufferInfo = {
+    .length = 4096,
+    .stride = 1,
+    .label = "Default Buffer"
+  };
+
+  TextureInfo defaultTextureInfo = {
+    .type = TEXTURE_2D,
+    .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
+    .format = FORMAT_RGBA8,
+    .width = 4,
+    .height = 4,
+    .depth = 1,
+    .mipmaps = 1,
+    .samples = 1,
+    .srgb = true,
+    .label = "Default Texture"
+  };
+
+  SamplerInfo defaultSamplerInfo = {
+    .min = FILTER_LINEAR,
+    .mag = FILTER_LINEAR,
+    .mip = FILTER_LINEAR,
+    .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
+  };
+
+  void* zeros;
+  state.defaultBuffer = lovrBufferCreate(&defaultBufferInfo, &zeros);
+  state.defaultTexture = lovrTextureCreate(&defaultTextureInfo);
+  state.defaultSampler = lovrSamplerCreate(&defaultSamplerInfo);
+
+  gpu_stream* transfers = getTransfers();
+
+  float white[4] = { 1.f, 1.f, 1.f, 1.f };
+  gpu_clear_texture(transfers, state.defaultTexture->gpu, 0, 1, 0, 1, white);
+
+  if (!zeros) {
+    gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
+    zeros = gpu_map(scratchpad, defaultBufferInfo.length, 4, GPU_MAP_WRITE);
+    gpu_copy_buffers(transfers, scratchpad, state.defaultBuffer->gpu, 0, 0, defaultBufferInfo.length);
+  }
+
+  memset(zeros, 0, defaultBufferInfo.length);
+
   state.initialized = true;
   return true;
 }
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
+  lovrRelease(&state.defaultBuffer, lovrBufferDestroy);
+  lovrRelease(&state.defaultTexture, lovrTextureDestroy);
+  lovrRelease(&state.defaultSampler, lovrSamplerDestroy);
   for (uint32_t i = 0; i < COUNTOF(state.attachments); i++) {
     if (state.attachments[i].texture) {
       gpu_texture_destroy(state.attachments[i].texture);
