@@ -43,6 +43,14 @@ struct gpu_shader {
   VkPipelineLayout pipelineLayout;
 };
 
+struct gpu_bundle_pool {
+  VkDescriptorPool handle;
+};
+
+struct gpu_bundle {
+  VkDescriptorSet handle;
+};
+
 struct gpu_pipeline {
   VkPipeline handle;
   VkPipelineLayout layout;
@@ -57,6 +65,8 @@ size_t gpu_sizeof_texture() { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler() { return sizeof(gpu_sampler); }
 size_t gpu_sizeof_layout() { return sizeof(gpu_layout); }
 size_t gpu_sizeof_shader() { return sizeof(gpu_shader); }
+size_t gpu_sizeof_bundle_pool() { return sizeof(gpu_bundle_pool); }
+size_t gpu_sizeof_bundle() { return sizeof(gpu_bundle); }
 size_t gpu_sizeof_pipeline() { return sizeof(gpu_pipeline); }
 
 // Internals
@@ -763,11 +773,11 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     bindings[i] = (VkDescriptorSetLayoutBinding) {
       .binding = info->slots[i].number,
       .descriptorType = types[info->slots[i].type],
-      .descriptorCount = info->slots[i].count,
-      .stageFlags = info->slots[i].stage == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
-        (((info->slots[i].stage & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
-        ((info->slots[i].stage & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
-        ((info->slots[i].stage & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
+      .descriptorCount = 1,
+      .stageFlags = info->slots[i].stages == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
+        (((info->slots[i].stages & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
+        ((info->slots[i].stages & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
+        ((info->slots[i].stages & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
     };
   }
 
@@ -784,7 +794,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
   memset(layout->descriptorCounts, 0, sizeof(layout->descriptorCounts));
 
   for (uint32_t i = 0; i < info->count; i++) {
-    layout->descriptorCounts[info->slots[i].type] += MAX(info->slots[i].count, 1);
+    layout->descriptorCounts[info->slots[i].type]++;
   }
 
   return true;
@@ -841,6 +851,149 @@ void gpu_shader_destroy(gpu_shader* shader) {
   if (shader->handles[0]) vkDestroyShaderModule(state.device, shader->handles[0], NULL);
   if (shader->handles[1]) vkDestroyShaderModule(state.device, shader->handles[1], NULL);
   condemn(shader->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT);
+}
+
+// Bundles
+
+bool gpu_bundle_pool_init(gpu_bundle_pool* pool, gpu_bundle_pool_info* info) {
+  VkDescriptorPoolSize sizes[7] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0 },
+    [GPU_SLOT_STORAGE_BUFFER] = { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0 },
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0 },
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 0 },
+    [GPU_SLOT_SAMPLED_TEXTURE] = { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 0 },
+    [GPU_SLOT_STORAGE_TEXTURE] = { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0 },
+    [GPU_SLOT_SAMPLER] = { VK_DESCRIPTOR_TYPE_SAMPLER, 0 }
+  };
+
+  if (info->layout) {
+    for (uint32_t i = 0; i < COUNTOF(sizes); i++) {
+      sizes[i].descriptorCount = info->layout->descriptorCounts[i] * info->count;
+    }
+  } else {
+    for (uint32_t i = 0; i < info->count; i++) {
+      for (uint32_t j = 0; j < COUNTOF(sizes); j++) {
+        sizes[j].descriptorCount += info->contents[i].layout->descriptorCounts[j];
+      }
+    }
+  }
+
+  // Descriptor counts of zero are forbidden, so swap any zero-sized sizes with the last entry
+  uint32_t poolSizeCount = COUNTOF(sizes);
+  for (uint32_t i = 0; i < poolSizeCount; i++) {
+    if (sizes[i].descriptorCount == 0) {
+      VkDescriptorPoolSize last = sizes[poolSizeCount - 1];
+      sizes[poolSizeCount - 1] = sizes[i];
+      sizes[i] = last;
+      poolSizeCount--;
+      i--;
+    }
+  }
+
+  VkDescriptorPoolCreateInfo poolInfo = {
+    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+    .maxSets = info->count,
+    .poolSizeCount = poolSizeCount,
+    .pPoolSizes = sizes
+  };
+
+  VK(vkCreateDescriptorPool(state.device, &poolInfo, NULL, &pool->handle), "Could not create bundle pool") {
+    return false;
+  }
+
+  VkDescriptorSetLayout layouts[256];
+  for (uint32_t i = 0; i < info->count; i+= COUNTOF(layouts)) {
+    uint32_t chunk = MIN(info->count - i, COUNTOF(layouts));
+
+    for (uint32_t j = 0; j < chunk; j++) {
+      layouts[j] = info->layout ? info->layout->handle : info->contents[i + j].layout->handle;
+    }
+
+    VkDescriptorSetAllocateInfo allocateInfo = {
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+      .descriptorPool = pool->handle,
+      .descriptorSetCount = chunk,
+      .pSetLayouts = layouts
+    };
+
+    VK(vkAllocateDescriptorSets(state.device, &allocateInfo, &info->bundles[i].handle), "Could not allocate descriptor sets") {
+      gpu_bundle_pool_destroy(pool);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+void gpu_bundle_pool_destroy(gpu_bundle_pool* pool) {
+  condemn(pool->handle, VK_OBJECT_TYPE_DESCRIPTOR_POOL);
+}
+
+void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t count) {
+  VkDescriptorBufferInfo buffers[256];
+  VkDescriptorImageInfo images[256];
+  VkWriteDescriptorSet writes[256];
+  uint32_t bufferCount = 0;
+  uint32_t imageCount = 0;
+  uint32_t writeCount = 0;
+
+  static const VkDescriptorType types[] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    [GPU_SLOT_STORAGE_BUFFER] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+    [GPU_SLOT_SAMPLED_TEXTURE] = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+    [GPU_SLOT_STORAGE_TEXTURE] = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+    [GPU_SLOT_SAMPLER] = VK_DESCRIPTOR_TYPE_SAMPLER
+  };
+
+  for (uint32_t i = 0; i < count; i++) {
+    gpu_bundle_info* info = &infos[i];
+    for (uint32_t j = 0; j < info->count; j++) {
+      gpu_binding* binding = &info->bindings[j];
+      VkDescriptorType type = types[binding->type];
+      bool texture = type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      bool sampler = type == VK_DESCRIPTOR_TYPE_SAMPLER;
+      bool image = texture || sampler;
+
+      writes[writeCount++] = (VkWriteDescriptorSet) {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = bundles[i]->handle,
+        .dstBinding = binding->number,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = type,
+        .pBufferInfo = &buffers[bufferCount],
+        .pImageInfo = &images[imageCount]
+      };
+
+      if (sampler) {
+        images[imageCount++] = (VkDescriptorImageInfo) {
+          .sampler = binding->sampler->handle
+        };
+      } else if (texture) {
+        images[imageCount++] = (VkDescriptorImageInfo) {
+          .imageView = binding->texture->view,
+          .imageLayout = binding->texture->layout
+        };
+      } else {
+        buffers[bufferCount++] = (VkDescriptorBufferInfo) {
+          .buffer = binding->buffer.object->handle,
+          .offset = binding->buffer.offset,
+          .range = binding->buffer.extent
+        };
+      }
+
+      if ((image ? imageCount >= COUNTOF(images) : bufferCount >= COUNTOF(buffers)) || writeCount >= COUNTOF(writes)) {
+        vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
+        bufferCount = imageCount = writeCount = 0;
+      }
+    }
+  }
+
+  if (writeCount > 0) {
+    vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
+  }
 }
 
 // Pipeline

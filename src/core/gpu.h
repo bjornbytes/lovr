@@ -7,6 +7,8 @@ typedef struct gpu_texture gpu_texture;
 typedef struct gpu_sampler gpu_sampler;
 typedef struct gpu_layout gpu_layout;
 typedef struct gpu_shader gpu_shader;
+typedef struct gpu_bundle_pool gpu_bundle_pool;
+typedef struct gpu_bundle gpu_bundle;
 typedef struct gpu_pipeline gpu_pipeline;
 typedef struct gpu_stream gpu_stream;
 
@@ -15,6 +17,8 @@ size_t gpu_sizeof_texture(void);
 size_t gpu_sizeof_sampler(void);
 size_t gpu_sizeof_layout(void);
 size_t gpu_sizeof_shader(void);
+size_t gpu_sizeof_bundle_pool(void);
+size_t gpu_sizeof_bundle(void);
 size_t gpu_sizeof_pipeline(void);
 
 // Buffer
@@ -192,10 +196,9 @@ enum {
 };
 
 typedef struct {
-  uint8_t number;
-  uint8_t type;
-  uint8_t stage;
-  uint8_t count;
+  uint32_t number;
+  gpu_slot_type type;
+  uint32_t stages;
 } gpu_slot;
 
 typedef struct {
@@ -222,6 +225,41 @@ typedef struct {
 
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info);
 void gpu_shader_destroy(gpu_shader* shader);
+
+// Bundles
+
+typedef struct {
+  gpu_buffer* object;
+  uint32_t offset;
+  uint32_t extent;
+} gpu_buffer_binding;
+
+typedef struct {
+  uint32_t number;
+  gpu_slot_type type;
+  union {
+    gpu_buffer_binding buffer;
+    gpu_texture* texture;
+    gpu_sampler* sampler;
+  };
+} gpu_binding;
+
+typedef struct {
+  gpu_layout* layout;
+  gpu_binding* bindings;
+  uint32_t count;
+} gpu_bundle_info;
+
+typedef struct {
+  gpu_bundle* bundles;
+  gpu_bundle_info* contents;
+  gpu_layout* layout;
+  uint32_t count;
+} gpu_bundle_pool_info;
+
+bool gpu_bundle_pool_init(gpu_bundle_pool* pool, gpu_bundle_pool_info* info);
+void gpu_bundle_pool_destroy(gpu_bundle_pool* pool);
+void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* info, uint32_t count);
 
 // Pipeline
 

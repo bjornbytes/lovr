@@ -93,6 +93,21 @@ struct Pass {
 };
 
 typedef struct {
+  void* next;
+  gpu_bundle_pool* gpu;
+  gpu_bundle* bundles;
+  uint32_t cursor;
+  uint32_t tick;
+} BundlePool;
+
+typedef struct {
+  uint64_t hash;
+  gpu_layout* gpu;
+  BundlePool* head;
+  BundlePool* tail;
+} Layout;
+
+typedef struct {
   gpu_texture* texture;
   uint32_t hash;
   uint32_t tick;
@@ -115,6 +130,8 @@ static struct {
   float background[4];
   Texture* window;
   Attachment attachments[16];
+  arr_t(Layout) layouts;
+  uint32_t builtinLayout;
   Allocator allocator;
 } state;
 
@@ -123,6 +140,7 @@ static struct {
 static void* tempAlloc(size_t size);
 static void beginFrame(void);
 static gpu_stream* getTransfers(void);
+static uint32_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
@@ -159,6 +177,16 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     lovrThrow("Failed to initialize GPU");
   }
 
+  arr_init(&state.layouts, realloc);
+
+  gpu_slot builtins[] = {
+    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_ALL },
+    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_ALL },
+    { 2, GPU_SLOT_SAMPLER, GPU_STAGE_ALL }
+  };
+
+  state.builtinLayout = getLayout(builtins, COUNTOF(builtins));
+
   // Temporary frame memory uses a large 1GB virtual memory allocation, committing pages as needed
   state.allocator.length = 1 << 14;
   state.allocator.memory = os_vm_init(MAX_FRAME_MEMORY);
@@ -176,6 +204,11 @@ void lovrGraphicsDestroy() {
       free(state.attachments[i].texture);
     }
   }
+  for (uint32_t i = 0; i < state.layouts.length; i++) {
+    gpu_layout_destroy(state.layouts.data[i].gpu);
+    free(state.layouts.data[i].gpu);
+  }
+  arr_free(&state.layouts);
   lovrRelease(state.window, lovrTextureDestroy);
   gpu_destroy();
   glslang_finalize_process();
@@ -850,8 +883,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
       slots[index] = (gpu_slot) {
         .number = resource->binding,
         .type = resourceTypes[resource->type],
-        .stage = stage,
-        .count = resource->arraySize
+        .stages = stage
       };
 
       shader->resources[index] = (ShaderResource) {
@@ -905,6 +937,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->ref = 1;
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
+  shader->layout = getLayout(slots, shader->resourceCount);
 
   gpu_shader_info gpu = {
     .stages[0] = { info->stages[0]->data, info->stages[0]->size },
@@ -912,6 +945,12 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     .pushConstantSize = shader->constantSize,
     .label = info->label
   };
+
+  if (info->type == SHADER_GRAPHICS) {
+    gpu.layouts[0] = state.layouts.data[state.builtinLayout].gpu;
+  }
+
+  gpu.layouts[userSet] = shader->resourceCount > 0 ? state.layouts.data[shader->layout].gpu : NULL;
 
   gpu_shader_init(shader->gpu, &gpu);
   lovrShaderInit(shader);
@@ -1293,6 +1332,35 @@ static gpu_stream* getTransfers(void) {
   }
 
   return state.transfers->stream;
+}
+
+static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
+  uint64_t hash = hash64(slots, count * sizeof(gpu_slot));
+
+  uint32_t index;
+  for (uint32_t index = 0; index < state.layouts.length; index++) {
+    if (state.layouts.data[index].hash == hash) {
+      return index;
+    }
+  }
+
+  gpu_layout_info info = {
+    .slots = slots,
+    .count = count
+  };
+
+  gpu_layout* handle = malloc(gpu_sizeof_layout());
+  lovrAssert(handle, "Out of memory");
+  gpu_layout_init(handle, &info);
+
+  Layout layout = {
+    .hash = hash,
+    .gpu = handle
+  };
+
+  index = state.layouts.length;
+  arr_push(&state.layouts, layout);
+  return index;
 }
 
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
