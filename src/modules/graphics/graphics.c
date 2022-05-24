@@ -62,6 +62,10 @@ struct Shader {
   uint32_t layout;
   uint32_t computePipeline;
   uint32_t attributeMask;
+  uint32_t bufferMask;
+  uint32_t textureMask;
+  uint32_t samplerMask;
+  uint32_t storageMask;
   uint32_t constantSize;
   uint32_t constantCount;
   uint32_t resourceCount;
@@ -90,6 +94,9 @@ struct Pass {
   Pipeline* pipeline;
   Pipeline pipelines[4];
   uint32_t pipelineIndex;
+  gpu_binding bindings[32];
+  uint32_t bindingMask;
+  bool bindingsDirty;
 };
 
 typedef struct {
@@ -966,6 +973,15 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
         .stageMask = stage,
         .type = resourceTypes[resource->type]
       };
+
+      bool buffer = resource->type == SPV_UNIFORM_BUFFER || resource->type == SPV_STORAGE_BUFFER;
+      bool texture = resource->type == SPV_SAMPLED_TEXTURE || resource->type == SPV_STORAGE_TEXTURE;
+      bool sampler = resource->type == SPV_SAMPLER;
+      bool storage = resource->type == SPV_STORAGE_BUFFER || resource->type == SPV_STORAGE_TEXTURE;
+      shader->bufferMask |= (buffer << resource->binding);
+      shader->textureMask |= (texture << resource->binding);
+      shader->samplerMask |= (sampler << resource->binding);
+      shader->storageMask |= (storage << resource->binding);
     }
   }
 
@@ -1043,6 +1059,10 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->info.flagCount = count;
   shader->layout = parent->layout;
   shader->attributeMask = parent->attributeMask;
+  shader->bufferMask = parent->bufferMask;
+  shader->textureMask = parent->textureMask;
+  shader->samplerMask = parent->samplerMask;
+  shader->storageMask = parent->storageMask;
   shader->constantSize = parent->constantSize;
   shader->constantCount = parent->constantCount;
   shader->resourceCount = parent->resourceCount;
@@ -1319,11 +1339,62 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
 }
 
 void lovrPassSetShader(Pass* pass, Shader* shader) {
+  Shader* previous = pass->pipeline->shader;
+  if (shader == previous) return;
+
+  // Clear any bindings for resources that share the same slot but have different types
+  if (previous) {
+    for (uint32_t i = 0, j = 0; i < previous->resourceCount && j < shader->resourceCount;) {
+      if (previous->resources[i].binding < shader->resources[j].binding) {
+        i++;
+      } else if (previous->resources[i].binding > shader->resources[j].binding) {
+        j++;
+      } else {
+        if (previous->resources[i].type != shader->resources[j].type) {
+          pass->bindingMask &= ~(1 << shader->resources[j].binding);
+        }
+        i++;
+        j++;
+      }
+    }
+  }
+
+  uint32_t shaderSlots = (shader->bufferMask | shader->textureMask | shader->samplerMask);
+  uint32_t missingResources = shaderSlots & ~pass->bindingMask;
+
+  // Assign default bindings to any slots used by the shader that are missing resources
+  if (missingResources) {
+    for (uint32_t i = 0; i < 32; i++) { // TODO biterationtrinsics
+      uint32_t bit = (1u << i);
+
+      if (~missingResources & bit) {
+        continue;
+      }
+
+      pass->bindings[i].number = i;
+      pass->bindings[i].type = shader->resources[i].type;
+
+      if (shader->bufferMask & bit) {
+        pass->bindings[i].buffer = (gpu_buffer_binding) { state.defaultBuffer->gpu, 0, 4096 };
+      } else if (shader->textureMask & bit) {
+        pass->bindings[i].texture = state.defaultTexture->gpu;
+      } else if (shader->samplerMask & bit) {
+        pass->bindings[i].sampler = state.defaultSampler->gpu;
+      }
+
+      pass->bindingMask |= bit;
+    }
+
+    pass->bindingsDirty = true;
+  }
+
   lovrRetain(shader);
-  lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
+  lovrRelease(previous, lovrShaderDestroy);
 
   pass->pipeline->shader = shader;
-  pass->pipeline->info.shader = shader ? shader->gpu : NULL;
+  pass->pipeline->info.shader = shader->gpu;
+  pass->pipeline->info.flags = shader->flags;
+  pass->pipeline->info.flagCount = shader->overrideCount;
   pass->pipeline->dirty = true;
 }
 
