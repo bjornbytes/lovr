@@ -130,6 +130,8 @@ static struct {
   float background[4];
   Texture* window;
   Attachment attachments[16];
+  map_t pipelineLookup;
+  arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
   uint32_t builtinLayout;
   Allocator allocator;
@@ -177,6 +179,8 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     lovrThrow("Failed to initialize GPU");
   }
 
+  map_init(&state.pipelineLookup, 64);
+  arr_init(&state.pipelines, realloc);
   arr_init(&state.layouts, realloc);
 
   gpu_slot builtins[] = {
@@ -204,10 +208,16 @@ void lovrGraphicsDestroy() {
       free(state.attachments[i].texture);
     }
   }
+  for (uint32_t i = 0; i < state.pipelines.length; i++) {
+    gpu_pipeline_destroy(state.pipelines.data[i]);
+    free(state.pipelines.data[i]);
+  }
   for (uint32_t i = 0; i < state.layouts.length; i++) {
     gpu_layout_destroy(state.layouts.data[i].gpu);
     free(state.layouts.data[i].gpu);
   }
+  map_free(&state.pipelineLookup);
+  arr_free(&state.pipelines);
   arr_free(&state.layouts);
   lovrRelease(state.window, lovrTextureDestroy);
   gpu_destroy();
@@ -771,6 +781,20 @@ static void lovrShaderInit(Shader* shader) {
 
       shader->flags[index].value = flag->value;
     }
+  }
+
+  if (shader->info.type == SHADER_COMPUTE) {
+    gpu_compute_pipeline_info pipelineInfo = {
+      .shader = shader->gpu,
+      .flags = shader->flags,
+      .flagCount = shader->overrideCount
+    };
+
+    gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
+    lovrAssert(pipeline, "Out of memory");
+    gpu_pipeline_init_compute(pipeline, &pipelineInfo);
+    shader->computePipeline = state.pipelines.length;
+    arr_push(&state.pipelines, pipeline);
   }
 }
 
