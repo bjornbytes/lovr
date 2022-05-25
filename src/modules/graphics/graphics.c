@@ -445,9 +445,10 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
   });
 
   if (data && *data == NULL) {
+    gpu_stream* transfers = getTransfers();
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
     *data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
-    // TODO copy scratchpad to buffer
+    gpu_copy_buffers(transfers, scratchpad, buffer->gpu, 0, 0, size);
   }
 
   return buffer;
