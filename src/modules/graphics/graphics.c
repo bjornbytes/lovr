@@ -1500,9 +1500,9 @@ void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t s
   lovrCheck(shader->textureMask & (1 << slot), "Trying to send a Texture to slot %d, but the active Shader doesn't have a Texture in that slot");
 
   if (shader->storageMask & (1 << slot)) {
-    lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' flag to send them to image variables in shaders");
+    lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' usage to send them to image variables in shaders");
   } else {
-    lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' flag to send them to sampler variables in shaders");
+    lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to send them to sampler variables in shaders");
   }
 
   pass->bindings[slot].texture = texture->gpu;
@@ -1617,8 +1617,8 @@ void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4],
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
   lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
-  lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must have the 'copy' flag to blit %s it", "from");
-  lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must have the 'copy' flag to blit %s it", "to");
+  lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "from");
+  lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "to");
   lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting from the source texture's format");
   lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting to the destination texture's format");
   lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
@@ -1626,6 +1626,34 @@ void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4],
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_blit(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
+}
+
+void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count) {
+  if (count == ~0u) count = texture->info.mipmaps - (base + 1);
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!texture->info.parent, "Can not mipmap a Texture view");
+  lovrCheck(texture->info.samples == 1, "Can not mipmap a multisampled texture");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap %s it", "from");
+  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "from");
+  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "to");
+  lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
+  bool volumetric = texture->info.type == TEXTURE_3D;
+  for (uint32_t i = 0; i < count; i++) {
+    uint32_t level = base + i + 1;
+    uint32_t srcOffset[4] = { 0, 0, 0, level - 1 };
+    uint32_t dstOffset[4] = { 0, 0, 0, level };
+    uint32_t srcExtent[3] = {
+      MAX(texture->info.width >> (level - 1), 1),
+      MAX(texture->info.height >> (level - 1), 1),
+      volumetric ? MAX(texture->info.depth >> (level - 1), 1) : 1
+    };
+    uint32_t dstExtent[3] = {
+      MAX(texture->info.width >> level, 1),
+      MAX(texture->info.height >> level, 1),
+      volumetric ? MAX(texture->info.depth >> level, 1) : 1
+    };
+    gpu_blit(pass->stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
+  }
 }
 
 // Helpers

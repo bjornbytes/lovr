@@ -369,6 +369,15 @@ static int l_lovrPassBlit(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassMipmap(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Texture* texture = luax_checktype(L, 2, Texture);
+  uint32_t base = luax_optu32(L, 3, 0);
+  uint32_t count = luax_optu32(L, 4, ~0u);
+  lovrPassMipmap(pass, texture, base, count);
+  return 0;
+}
+
 const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
   { "push", l_lovrPassPush },
@@ -396,5 +405,6 @@ const luaL_Reg lovrPass[] = {
   { "clear", l_lovrPassClear },
   { "copy", l_lovrPassCopy },
   { "blit", l_lovrPassBlit },
+  { "mipmap", l_lovrPassMipmap },
   { NULL, NULL }
 };
