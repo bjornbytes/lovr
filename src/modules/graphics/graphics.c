@@ -456,7 +456,7 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
-  if (buffer->pointer) return;
+  if (lovrBufferIsTemporary(buffer)) return;
   gpu_buffer_destroy(buffer->gpu);
   free(buffer);
 }
@@ -466,7 +466,7 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
 }
 
 bool lovrBufferIsTemporary(Buffer* buffer) {
-  return !!buffer->pointer;
+  return buffer->pointer != NULL;
 }
 
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
@@ -476,7 +476,7 @@ void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
 
   lovrCheck(offset + size <= buffer->size, "Buffer write range [%d,%d] exceeds buffer size", offset, offset + size);
 
-  if (buffer->pointer) {
+  if (lovrBufferIsTemporary(buffer)) {
     return buffer->pointer + offset;
   }
 
@@ -491,7 +491,7 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
   lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrCheck(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
-  if (buffer->pointer) {
+  if (lovrBufferIsTemporary(buffer)) {
     memset(buffer->pointer + offset, 0, size);
   } else {
     gpu_stream* transfers = getTransfers();
@@ -1469,7 +1469,7 @@ void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t sl
   uint32_t limit;
 
   if (shader->storageMask & (1 << slot)) {
-    lovrCheck(!buffer->pointer, "Temporary buffers can not be sent to storage buffer variables", slot + 1);
+    lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be sent to storage buffer variables", slot + 1);
     lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to storageBufferAlign limit (%d)", offset, state.limits.storageBufferAlign);
     limit = state.limits.storageBufferRange;
   } else {
