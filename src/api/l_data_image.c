@@ -61,22 +61,22 @@ static int l_lovrImageGetBlob(lua_State* L) {
 
 static int l_lovrImageGetWidth(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
-  uint32_t width = lovrImageGetWidth(image);
+  uint32_t width = lovrImageGetWidth(image, 0);
   lua_pushinteger(L, width);
   return 1;
 }
 
 static int l_lovrImageGetHeight(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
-  uint32_t height = lovrImageGetHeight(image);
+  uint32_t height = lovrImageGetHeight(image, 0);
   lua_pushinteger(L, height);
   return 1;
 }
 
 static int l_lovrImageGetDimensions(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
-  uint32_t width = lovrImageGetWidth(image);
-  uint32_t height = lovrImageGetHeight(image);
+  uint32_t width = lovrImageGetWidth(image, 0);
+  uint32_t height = lovrImageGetHeight(image, 0);
   lua_pushinteger(L, width);
   lua_pushinteger(L, height);
   return 2;
@@ -124,8 +124,8 @@ static int l_lovrImagePaste(lua_State* L) {
   dstOffset[1] = luax_optu32(L, 4, 0);
   srcOffset[0] = luax_optu32(L, 5, 0);
   srcOffset[1] = luax_optu32(L, 6, 0);
-  extent[0] = luax_optu32(L, 7, lovrImageGetWidth(src));
-  extent[1] = luax_optu32(L, 8, lovrImageGetWidth(dst));
+  extent[0] = luax_optu32(L, 7, lovrImageGetWidth(src, 0));
+  extent[1] = luax_optu32(L, 8, lovrImageGetHeight(src, 0));
   lovrImageCopy(src, dst, srcOffset, dstOffset, extent);
   return 0;
 }

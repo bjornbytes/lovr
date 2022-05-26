@@ -145,12 +145,12 @@ Blob* lovrImageGetBlob(Image* image) {
   return image->blob;
 }
 
-uint32_t lovrImageGetWidth(Image* image) {
-  return image->width;
+uint32_t lovrImageGetWidth(Image* image, uint32_t level) {
+  return MAX(image->width >> level, 1);
 }
 
-uint32_t lovrImageGetHeight(Image* image) {
-  return image->height;
+uint32_t lovrImageGetHeight(Image* image, uint32_t level) {
+  return MAX(image->height >> level, 1);
 }
 
 uint32_t lovrImageGetLayerCount(Image* image) {

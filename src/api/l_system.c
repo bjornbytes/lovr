@@ -152,8 +152,8 @@ static int l_lovrSystemOpenWindow(lua_State* L) {
   if (!lua_isnil(L, -1)) {
     image = luax_checkimage(L, -1);
     window.icon.data = lovrImageGetLayerData(image, 0, 0);
-    window.icon.width = lovrImageGetWidth(image);
-    window.icon.height = lovrImageGetHeight(image);
+    window.icon.width = lovrImageGetWidth(image, 0);
+    window.icon.height = lovrImageGetHeight(image, 0);
   }
   lua_pop(L, 1);
 

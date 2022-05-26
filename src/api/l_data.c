@@ -141,8 +141,8 @@ static int l_lovrDataNewImage(lua_State* L) {
   } else {
     Image* source = luax_totype(L, 1, Image);
     if (source) {
-      uint32_t width = lovrImageGetWidth(source);
-      uint32_t height = lovrImageGetHeight(source);
+      uint32_t width = lovrImageGetWidth(source, 0);
+      uint32_t height = lovrImageGetHeight(source, 0);
       TextureFormat format = lovrImageGetFormat(source);
       image = lovrImageCreateRaw(width, height, format);
       memcpy(lovrImageGetLayerData(image, 0, 0), lovrImageGetLayerData(source, 0, 0), lovrImageGetLayerSize(image, 0));

@@ -746,13 +746,13 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     Image* image = images[0];
     uint32_t levels = lovrImageGetLevelCount(image);
     info.format = lovrImageGetFormat(image);
-    info.width = lovrImageGetWidth(image);
-    info.height = lovrImageGetHeight(image);
+    info.width = lovrImageGetWidth(image, 0);
+    info.height = lovrImageGetHeight(image, 0);
     info.mipmaps = levels == 1 ? ~0u : levels;
     info.srgb = lovrImageIsSRGB(image);
     for (uint32_t i = 1; i < info.imageCount; i++) {
-      lovrAssert(lovrImageGetWidth(images[0]) == lovrImageGetWidth(images[i]), "Image widths must match");
-      lovrAssert(lovrImageGetHeight(images[0]) == lovrImageGetHeight(images[i]), "Image heights must match");
+      lovrAssert(lovrImageGetWidth(images[0], 0) == lovrImageGetWidth(images[i], 0), "Image widths must match");
+      lovrAssert(lovrImageGetHeight(images[0], 0) == lovrImageGetHeight(images[i], 0), "Image heights must match");
       lovrAssert(lovrImageGetFormat(images[0]) == lovrImageGetFormat(images[i]), "Image formats must match");
       lovrAssert(lovrImageGetLevelCount(images[0]) == lovrImageGetLevelCount(images[i]), "Image mipmap counts must match");
       lovrAssert(lovrImageGetLayerCount(images[i]) == 1, "When a list of images are provided, each must have a single layer");
