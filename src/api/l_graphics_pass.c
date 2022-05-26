@@ -278,8 +278,8 @@ static int l_lovrPassCopy(lua_State* L) {
     const BufferInfo* info = lovrBufferGetInfo(buffer);
     uint32_t limit = MIN(blob->size - srcOffset, info->length * info->stride - dstOffset);
     uint32_t extent = luax_optu32(L, 6, limit);
-    lovrCheck(extent < blob->size - srcOffset, "Buffer copy range exceeds Blob size");
-    lovrCheck(extent < info->length * info->stride, "Buffer copy offset exceeds Buffer size");
+    lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds Blob size");
+    lovrCheck(extent <= info->length * info->stride - dstOffset, "Buffer copy offset exceeds Buffer size");
     lovrPassCopyDataToBuffer(pass, (char*) blob->data + srcOffset, buffer, dstOffset, extent);
     return 0;
   }
