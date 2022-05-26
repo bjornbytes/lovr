@@ -1491,7 +1491,7 @@ void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, u
   vkCmdFillBuffer(stream->commands, buffer->handle, buffer->offset + offset, size, 0);
 }
 
-void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, uint16_t layer, uint16_t layerCount, uint16_t level, uint16_t levelCount, float value[4]) {
+void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
   VkImageSubresourceRange range = {
     .aspectMask = texture->aspect,
     .baseMipLevel = level,

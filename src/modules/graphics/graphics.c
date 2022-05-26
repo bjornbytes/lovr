@@ -241,7 +241,7 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   gpu_stream* transfers = getTransfers();
 
   float white[4] = { 1.f, 1.f, 1.f, 1.f };
-  gpu_clear_texture(transfers, state.defaultTexture->gpu, 0, 1, 0, 1, white);
+  gpu_clear_texture(transfers, state.defaultTexture->gpu, white, 0, ~0u, 0, ~0u);
 
   if (!zeros) {
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
@@ -1519,6 +1519,25 @@ void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t s
   pass->bindings[slot].sampler = sampler->gpu;
   pass->bindingMask |= (1 << slot);
   pass->bindingsDirty = true;
+}
+
+void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent) {
+  if (extent == 0) return;
+  if (extent == ~0u) extent = buffer->size - offset;
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be cleared");
+  lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
+  lovrCheck(extent % 4 == 0, "Buffer clear extent must be a multiple of 4");
+  lovrCheck(offset + extent <= buffer->size, "Buffer clear range goes past the end of the Buffer");
+  gpu_clear_buffer(pass->stream, buffer->gpu, offset, extent);
+}
+
+void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!texture->info.parent, "Texture views can not be cleared");
+  lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
+  lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
+  gpu_clear_texture(pass->stream, texture->gpu, value, layer, layerCount, level, levelCount);
 }
 
 // Helpers

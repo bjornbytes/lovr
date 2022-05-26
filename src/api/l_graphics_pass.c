@@ -234,6 +234,35 @@ static int l_lovrPassSend(lua_State* L) {
   return luax_typeerror(L, 3, "Buffer, Texture, Sampler, or number/vector");
 }
 
+static int l_lovrPassClear(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+
+  Buffer* buffer = luax_totype(L, 2, Buffer);
+
+  if (buffer) {
+    uint32_t offset = luax_optu32(L, 3, 0);
+    uint32_t extent = luax_optu32(L, 4, ~0u);
+    lovrPassClearBuffer(pass, buffer, offset, extent);
+    return 0;
+  }
+
+  Texture* texture = luax_totype(L, 2, Texture);
+
+  if (texture) {
+    float value[4];
+    luax_readcolor(L, 3, value);
+    int index = lua_istable(L, 3) ? 4 : 6;
+    uint32_t layer = luax_optu32(L, index++, 1) - 1;
+    uint32_t layerCount = luax_optu32(L, index++, ~0u);
+    uint32_t level = luax_optu32(L, index++, 1) - 1;
+    uint32_t levelCount = luax_optu32(L, index++, ~0u);
+    lovrPassClearTexture(pass, texture, value, layer, layerCount, level, levelCount);
+    return 0;
+  }
+
+  return luax_typeerror(L, 2, "Buffer or Texture");
+}
+
 const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
   { "push", l_lovrPassPush },
@@ -258,5 +287,6 @@ const luaL_Reg lovrPass[] = {
   { "setWinding", l_lovrPassSetWinding },
   { "setWireframe", l_lovrPassSetWireframe },
   { "send", l_lovrPassSend },
+  { "clear", l_lovrPassClear },
   { NULL, NULL }
 };
