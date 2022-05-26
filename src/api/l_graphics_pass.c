@@ -1,8 +1,11 @@
 #include "api.h"
 #include "graphics/graphics.h"
+#include "data/blob.h"
+#include "data/image.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <string.h>
 
 static int l_lovrPassGetType(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
@@ -263,6 +266,109 @@ static int l_lovrPassClear(lua_State* L) {
   return luax_typeerror(L, 2, "Buffer or Texture");
 }
 
+static int l_lovrPassCopy(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+
+  Blob* blob = luax_totype(L, 2, Blob);
+
+  if (blob) {
+    Buffer* buffer = luax_checktype(L, 3, Buffer);
+    uint32_t srcOffset = luax_optu32(L, 4, 0);
+    uint32_t dstOffset = luax_optu32(L, 5, 0);
+    const BufferInfo* info = lovrBufferGetInfo(buffer);
+    uint32_t limit = MIN(blob->size - srcOffset, info->length * info->stride - dstOffset);
+    uint32_t extent = luax_optu32(L, 6, limit);
+    lovrCheck(extent < blob->size - srcOffset, "Buffer copy range exceeds Blob size");
+    lovrCheck(extent < info->length * info->stride, "Buffer copy offset exceeds Buffer size");
+    lovrPassCopyDataToBuffer(pass, (char*) blob->data + srcOffset, buffer, dstOffset, extent);
+    return 0;
+  }
+
+  Buffer* buffer = luax_totype(L, 2, Buffer);
+
+  if (buffer) {
+    Buffer* dst = luax_checktype(L, 3, Buffer);
+    uint32_t srcOffset = luax_optu32(L, 4, 0);
+    uint32_t dstOffset = luax_optu32(L, 5, 0);
+    const BufferInfo* srcInfo = lovrBufferGetInfo(buffer);
+    const BufferInfo* dstInfo = lovrBufferGetInfo(dst);
+    uint32_t limit = MIN(srcInfo->length * srcInfo->stride - srcOffset, dstInfo->length * dstInfo->stride - dstOffset);
+    uint32_t extent = luax_optu32(L, 6, limit);
+    lovrPassCopyBufferToBuffer(pass, buffer, dst, srcOffset, dstOffset, extent);
+    return 0;
+  }
+
+  Image* image = luax_checktype(L, 2, Image);
+
+  if (image) {
+    Texture* texture = luax_checktype(L, 3, Texture);
+    uint32_t srcOffset[4];
+    uint32_t dstOffset[4];
+    uint32_t extent[3];
+    srcOffset[0] = luax_optu32(L, 4, 0);
+    srcOffset[1] = luax_optu32(L, 5, 0);
+    dstOffset[0] = luax_optu32(L, 6, 0);
+    srcOffset[1] = luax_optu32(L, 7, 0);
+    extent[0] = luax_optu32(L, 8, ~0u);
+    extent[1] = luax_optu32(L, 9, ~0u);
+    srcOffset[2] = luax_optu32(L, 10, 1) - 1;
+    dstOffset[2] = luax_optu32(L, 11, 1) - 1;
+    extent[2] = luax_optu32(L, 12, ~0u);
+    srcOffset[3] = luax_optu32(L, 13, 1) - 1;
+    dstOffset[3] = luax_optu32(L, 14, 1) - 1;
+    lovrPassCopyImageToTexture(pass, image, texture, srcOffset, dstOffset, extent);
+    return 0;
+  }
+
+  Texture* texture = luax_checktype(L, 2, Texture);
+
+  if (texture) {
+    Texture* dst = luax_checktype(L, 3, Texture);
+    uint32_t srcOffset[4];
+    uint32_t dstOffset[4];
+    uint32_t extent[3];
+    srcOffset[0] = luax_optu32(L, 4, 0);
+    srcOffset[1] = luax_optu32(L, 5, 0);
+    dstOffset[0] = luax_optu32(L, 6, 0);
+    srcOffset[1] = luax_optu32(L, 7, 0);
+    extent[0] = luax_optu32(L, 8, ~0u);
+    extent[1] = luax_optu32(L, 9, ~0u);
+    srcOffset[2] = luax_optu32(L, 10, 1) - 1;
+    dstOffset[2] = luax_optu32(L, 11, 1) - 1;
+    extent[2] = luax_optu32(L, 12, ~0u);
+    srcOffset[3] = luax_optu32(L, 13, 1) - 1;
+    dstOffset[3] = luax_optu32(L, 14, 1) - 1;
+    lovrPassCopyTextureToTexture(pass, texture, dst, srcOffset, dstOffset, extent);
+    return 0;
+  }
+
+  return luax_typeerror(L, 2, "Blob, Buffer, Image, or Texture");
+}
+
+static int l_lovrPassBlit(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Texture* src = luax_checktype(L, 2, Texture);
+  Texture* dst = luax_checktype(L, 3, Texture);
+  uint32_t srcOffset[4], dstOffset[4], srcExtent[3], dstExtent[3];
+  srcOffset[0] = luax_optu32(L, 4, 0);
+  srcOffset[1] = luax_optu32(L, 5, 0);
+  srcOffset[2] = luax_optu32(L, 6, 0);
+  dstOffset[0] = luax_optu32(L, 7, 0);
+  dstOffset[1] = luax_optu32(L, 8, 0);
+  dstOffset[2] = luax_optu32(L, 9, 0);
+  srcExtent[0] = luax_optu32(L, 10, ~0u);
+  srcExtent[1] = luax_optu32(L, 11, ~0u);
+  srcExtent[2] = luax_optu32(L, 12, ~0u);
+  dstExtent[0] = luax_optu32(L, 13, ~0u);
+  dstExtent[1] = luax_optu32(L, 14, ~0u);
+  dstExtent[2] = luax_optu32(L, 15, ~0u);
+  srcOffset[3] = luax_optu32(L, 16, 1) - 1;
+  dstOffset[3] = luax_optu32(L, 17, 1) - 1;
+  FilterMode filter = luax_checkenum(L, 18, FilterMode, "linear");
+  lovrPassBlit(pass, src, dst, srcOffset, dstOffset, srcExtent, dstExtent, filter);
+  return 0;
+}
+
 const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
   { "push", l_lovrPassPush },
@@ -288,5 +394,7 @@ const luaL_Reg lovrPass[] = {
   { "setWireframe", l_lovrPassSetWireframe },
   { "send", l_lovrPassSend },
   { "clear", l_lovrPassClear },
+  { "copy", l_lovrPassCopy },
+  { "blit", l_lovrPassBlit },
   { NULL, NULL }
 };

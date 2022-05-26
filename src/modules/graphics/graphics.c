@@ -155,6 +155,7 @@ static gpu_stream* getTransfers(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
+static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
 static uint32_t findShaderSlot(Shader* shader, const char* name, size_t length);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
 static void onMessage(void* context, const char* message, bool severe);
@@ -556,10 +557,10 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
   lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
   lovrCheck(measureTexture(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB"); // TODO mip?
-  lovrCheck(info->samples == 1 || info->samples == 4, "Currently, Texture multisample count must be 1 or 4");
+  lovrCheck(info->samples == 1 || info->samples == 4, "Texture multisample count must be 1 or 4...for now");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "Volume textures can not be multisampled");
-  lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, Textures with the 'storage' flag can not be multisampled");
+  lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Textures with the 'storage' flag can not be multisampled...for now");
   lovrCheck(info->samples == 1 || mipmaps == 1, "Multisampled textures can only have 1 mipmap");
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
   lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
@@ -1111,7 +1112,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     lovrCheck(main->width <= state.limits.renderSize[0], "Render pass width (%d) exceeds the renderSize limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
     lovrCheck(main->height <= state.limits.renderSize[1], "Render pass height (%d) exceeds the renderSize limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
     lovrCheck(main->depth <= state.limits.renderSize[2], "Render pass view count (%d) exceeds the renderSize limit of this GPU (%d)", main->depth, state.limits.renderSize[2]);
-    lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Currently, render pass sample count must be 1 or 4");
+    lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Render pass sample count must be 1 or 4...for now");
 
     uint32_t colorTextureCount = 0;
     for (uint32_t i = 0; i < COUNTOF(canvas->textures) && canvas->textures[i]; i++, colorTextureCount++) {
@@ -1136,7 +1137,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
         lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
         lovrCheck(texture->height == main->height, "Render pass texture sizes must match");
         lovrCheck(texture->depth == main->depth, "Render pass texture sizes must match");
-        lovrCheck(texture->samples == main->samples, "Currently, depth buffer sample count must match the main render pass sample count");
+        lovrCheck(texture->samples == main->samples, "Depth buffer sample count must match the main render pass sample count...for now");
       }
     }
 
@@ -1535,9 +1536,96 @@ void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t e
 void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(!texture->info.parent, "Texture views can not be cleared");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with 'transfer' usage to clear it");
   lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
   lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
   gpu_clear_texture(pass->stream, texture->gpu, value, layer, layerCount, level, levelCount);
+}
+
+void lovrPassCopyDataToBuffer(Pass* pass, void* data, Buffer* buffer, uint32_t offset, uint32_t extent) {
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be copied to, use Buffer:setData");
+  lovrCheck(offset + extent <= buffer->size, "Buffer copy range goes past the end of the Buffer");
+  gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
+  void* pointer = gpu_map(scratchpad, extent, 4, GPU_MAP_WRITE);
+  gpu_copy_buffers(pass->stream, scratchpad, buffer->gpu, 0, offset, extent);
+  memcpy(pointer, data, extent);
+}
+
+void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!lovrBufferIsTemporary(dst), "Temporary buffers can not be copied to");
+  lovrCheck(srcOffset + extent <= src->size, "Buffer copy range goes past the end of the source Buffer");
+  lovrCheck(dstOffset + extent <= dst->size, "Buffer copy range goes past the end of the destination Buffer");
+  gpu_copy_buffers(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+}
+
+void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[4]) {
+  if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
+  if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
+  if (extent[2] == ~0u) extent[2] = MIN(texture->info.depth - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy to it");
+  lovrCheck(!texture->info.parent, "Texture views can not be written to");
+  lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be written to");
+  lovrCheck(lovrImageGetFormat(image) == texture->info.format, "Image and Texture formats must match");
+  lovrCheck(srcOffset[0] + extent[0] <= lovrImageGetWidth(image, srcOffset[3]), "Image copy region exceeds its %s", "width");
+  lovrCheck(srcOffset[1] + extent[1] <= lovrImageGetHeight(image, srcOffset[3]), "Image copy region exceeds its %s", "height");
+  lovrCheck(srcOffset[2] + extent[2] <= lovrImageGetLayerCount(image), "Image copy region exceeds its %s", "layer count");
+  lovrCheck(srcOffset[3] < lovrImageGetLevelCount(image), "Image copy region exceeds its %s", "mipmap count");
+  checkTextureBounds(&texture->info, dstOffset, extent);
+  size_t rowSize = measureTexture(texture->info.format, extent[0], 1, 1);
+  size_t totalSize = measureTexture(texture->info.format, extent[0], extent[1], 1) * extent[2];
+  size_t layerOffset = measureTexture(texture->info.format, extent[0], srcOffset[1], 1);
+  layerOffset += measureTexture(texture->info.format, srcOffset[0], 1, 1);
+  size_t pitch = measureTexture(texture->info.format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
+  gpu_buffer* buffer = tempAlloc(gpu_sizeof_buffer());
+  char* dst = gpu_map(buffer, totalSize, 64, GPU_MAP_WRITE);
+  for (uint32_t z = 0; z < extent[2]; z++) {
+    const char* src = (char*) lovrImageGetLayerData(image, srcOffset[3], z) + layerOffset;
+    for (uint32_t y = 0; y < extent[1]; y++) {
+      memcpy(dst, src, rowSize);
+      dst += rowSize;
+      src += pitch;
+    }
+  }
+  gpu_copy_buffer_texture(pass->stream, buffer, texture->gpu, 0, dstOffset, extent);
+}
+
+void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
+  if (extent[0] == ~0u) extent[0] = MIN(src->info.width - srcOffset[0], dst->info.width - dstOffset[0]);
+  if (extent[1] == ~0u) extent[1] = MIN(src->info.height - srcOffset[1], dst->info.height - dstOffset[0]);
+  if (extent[2] == ~0u) extent[2] = MIN(src->info.depth - srcOffset[2], dst->info.depth - dstOffset[0]);
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "from");
+  lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
+  lovrCheck(!src->info.parent && !dst->info.parent, "Can not copy texture views");
+  lovrCheck(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
+  lovrCheck(src->info.samples == dst->info.samples, "Texture sample counts must match to copy between them");
+  checkTextureBounds(&src->info, srcOffset, extent);
+  checkTextureBounds(&dst->info, dstOffset, extent);
+  gpu_copy_textures(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+}
+
+void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter) {
+  if (srcExtent[0] == ~0u) srcExtent[0] = src->info.width - srcOffset[0];
+  if (srcExtent[1] == ~0u) srcExtent[1] = src->info.height - srcOffset[1];
+  if (srcExtent[2] == ~0u) srcExtent[2] = src->info.depth - srcOffset[2];
+  if (dstExtent[0] == ~0u) dstExtent[0] = dst->info.width - dstOffset[0];
+  if (dstExtent[1] == ~0u) dstExtent[1] = dst->info.height - dstOffset[1];
+  if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.depth - dstOffset[2];
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
+  lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
+  lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must have the 'copy' flag to blit %s it", "from");
+  lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must have the 'copy' flag to blit %s it", "to");
+  lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting from the source texture's format");
+  lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting to the destination texture's format");
+  lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
+  // FIXME if src or dst is 3D you can only blit 1 layer or something!
+  checkTextureBounds(&src->info, srcOffset, srcExtent);
+  checkTextureBounds(&dst->info, dstOffset, dstExtent);
+  gpu_blit(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
 }
 
 // Helpers
@@ -1701,6 +1789,17 @@ static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint1
     case FORMAT_ASTC_12x12: return ((w + 11) / 12) * ((h + 11) / 12) * d * 16;
     default: lovrUnreachable();
   }
+}
+
+// Errors if a 3D texture region exceeds the texture's bounds
+static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]) {
+  uint32_t maxWidth = MAX(info->width >> offset[3], 1);
+  uint32_t maxHeight = MAX(info->height >> offset[3], 1);
+  uint32_t maxDepth = info->type == TEXTURE_3D ? MAX(info->depth >> offset[3], 1) : info->depth;
+  lovrCheck(offset[0] + extent[0] <= maxWidth, "Texture x range [%d,%d] exceeds width (%d)", offset[0], offset[0] + extent[0], maxWidth);
+  lovrCheck(offset[1] + extent[1] <= maxHeight, "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], maxHeight);
+  lovrCheck(offset[2] + extent[2] <= maxDepth, "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], maxDepth);
+  lovrCheck(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
 }
 
 uint32_t findShaderSlot(Shader* shader, const char* name, size_t length) {
