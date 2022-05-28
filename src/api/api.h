@@ -31,6 +31,7 @@ extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCoordinateSpace[];
 extern StringEntry lovrCullMode[];
 extern StringEntry lovrDefaultAttribute[];
+extern StringEntry lovrDefaultShader[];
 extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];

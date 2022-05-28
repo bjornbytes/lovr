@@ -142,8 +142,16 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
 static int l_lovrPassSetShader(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   switch (lua_type(L, 2)) {
-    case LUA_TNONE: case LUA_TNIL: lovrPassSetShader(pass, NULL); return 0;
-    default: lovrPassSetShader(pass, luax_checktype(L, 2, Shader)); return 0;
+    case LUA_TNONE:
+    case LUA_TNIL:
+      lovrPassSetShader(pass, NULL);
+      return 0;
+    case LUA_TSTRING:
+      lovrPassSetShader(pass, lovrGraphicsGetDefaultShader(luax_checkenum(L, 2, DefaultShader, NULL)));
+      return 0;
+    default:
+      lovrPassSetShader(pass, luax_checktype(L, 2, Shader));
+      return 0;
   }
 }
 

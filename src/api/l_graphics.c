@@ -50,6 +50,11 @@ StringEntry lovrCullMode[] = {
   { 0 }
 };
 
+StringEntry lovrDefaultShader[] = {
+  [SHADER_UNLIT] = ENTRY("unlit"),
+  { 0 }
+};
+
 StringEntry lovrFieldType[] = {
   [FIELD_I8x4] = ENTRY("i8x4"),
   [FIELD_U8x4] = ENTRY("u8x4"),

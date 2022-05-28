@@ -444,6 +444,23 @@ for i, pattern in ipairs(res) do
   src.extra_inputs += pattern .. '.h'
 end
 
+-- shaders
+
+vert = 'etc/shaders/*.vert'
+frag = 'etc/shaders/*.frag'
+comp = 'etc/shaders/*.comp'
+
+function compileShaders(stage)
+  pattern = 'etc/shaders/*.' .. stage
+  symbol = 'lovr_shader_%B_' .. stage
+  tup.foreach_rule(pattern, 'glslangValidator --target-env vulkan1.1 --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
+end
+
+compileShaders('vert')
+compileShaders('frag')
+compileShaders('comp')
+src.extra_inputs += 'etc/shaders/*.h'
+
 -- compile
 
 tup.foreach_rule(src, '^ CC %b^ $(cc) $(flags) $(cflags) $(cflags_%B) -o %o -c %f', '.obj/%B.o')

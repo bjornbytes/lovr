@@ -7,6 +7,7 @@
 #include "core/spv.h"
 #include "core/os.h"
 #include "util.h"
+#include "shaders.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -140,6 +141,7 @@ static struct {
   Buffer* defaultBuffer;
   Texture* defaultTexture;
   Sampler* defaultSampler;
+  Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
@@ -261,6 +263,9 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultBuffer, lovrBufferDestroy);
   lovrRelease(state.defaultTexture, lovrTextureDestroy);
   lovrRelease(state.defaultSampler, lovrSamplerDestroy);
+  for (uint32_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
+    lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
+  }
   for (uint32_t i = 0; i < COUNTOF(state.attachments); i++) {
     if (state.attachments[i].texture) {
       gpu_texture_destroy(state.attachments[i].texture);
@@ -860,6 +865,28 @@ static void lovrShaderInit(Shader* shader) {
     shader->computePipeline = state.pipelines.length;
     arr_push(&state.pipelines, pipeline);
   }
+}
+
+Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
+  if (state.defaultShaders[type]) {
+    return state.defaultShaders[type];
+  }
+
+  ShaderInfo info = { .type = SHADER_GRAPHICS };
+
+  switch (type) {
+    case SHADER_UNLIT:
+      info.stages[0] = lovrBlobCreate((void*) lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert), "Unlit Vertex Shader");
+      info.stages[1] = lovrBlobCreate((void*) lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag), "Unlit Fragment Shader");
+      info.label = "unlit";
+      break;
+    default: lovrUnreachable();
+  }
+
+  state.defaultShaders[type] = lovrShaderCreate(&info);
+  lovrRelease(info.stages[0], lovrBlobDestroy);
+  lovrRelease(info.stages[1], lovrBlobDestroy);
+  return state.defaultShaders[type];
 }
 
 Shader* lovrShaderCreate(ShaderInfo* info) {

@@ -237,6 +237,11 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 // Shader
 
 typedef enum {
+  SHADER_UNLIT,
+  DEFAULT_SHADER_COUNT
+} DefaultShader;
+
+typedef enum {
   SHADER_GRAPHICS,
   SHADER_COMPUTE
 } ShaderType;
@@ -262,6 +267,7 @@ typedef struct {
 } ShaderInfo;
 
 struct Blob* lovrGraphicsCompileShader(ShaderStage stage, struct Blob* source);
+Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
 Shader* lovrShaderCreate(ShaderInfo* info);
 Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count);
 void lovrShaderDestroy(void* ref);
