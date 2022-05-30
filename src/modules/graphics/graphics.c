@@ -1856,7 +1856,6 @@ static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
   return index;
 }
 
-
 static gpu_bundle* getBundle(uint32_t layoutIndex) {
   Layout* layout = &state.layouts.data[layoutIndex];
   BundlePool* pool = layout->head;
@@ -1888,7 +1887,7 @@ static gpu_bundle* getBundle(uint32_t layoutIndex) {
   lovrAssert(pool && gpu && bundles, "Out of memory");
   pool->gpu = gpu;
   pool->bundles = bundles;
-  pool->cursor = 0;
+  pool->cursor = 1;
   pool->next = layout->head;
 
   gpu_bundle_pool_info info = {
