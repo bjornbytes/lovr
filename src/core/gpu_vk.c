@@ -1242,11 +1242,14 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     }
   };
 
+  bool resolve = info->multisample.count > 1;
+  bool depth = info->depth.format;
+
   gpu_pass_info pass = {
-    .count = info->colorCount,
+    .count = (info->colorCount << resolve) + depth,
     .views = info->viewCount,
     .samples = info->multisample.count,
-    .resolve = info->multisample.count > 1,
+    .resolve = resolve,
     .depth.format = convertFormat(info->depth.format, LINEAR),
     .depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     .depth.load = GPU_LOAD_OP_CLEAR,
@@ -1256,7 +1259,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   for (uint32_t i = 0; i < info->colorCount; i++) {
     pass.color[i].format = convertFormat(info->color[i].format, info->color[i].srgb);
     pass.color[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    pass.color[i].load = GPU_LOAD_OP_LOAD;
+    pass.color[i].load = GPU_LOAD_OP_CLEAR;
     pass.color[i].save = GPU_SAVE_OP_SAVE;
   }
 
