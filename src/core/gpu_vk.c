@@ -1431,6 +1431,45 @@ void gpu_compute_end(gpu_stream* stream) {
   //
 }
 
+void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[4]) {
+  VkViewport viewport = { view[0], view[1], view[2], view[3], depthRange[0], depthRange[1] };
+  vkCmdSetViewport(stream->commands, 0, 1, &viewport);
+}
+
+void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]) {
+  VkRect2D rect = { { scissor[0], scissor[1] }, { scissor[2], scissor[3] } };
+  vkCmdSetScissor(stream->commands, 0, 1, &rect);
+}
+
+void gpu_push_constants(gpu_stream* stream, gpu_pipeline* pipeline, bool compute, void* data, uint32_t size) {
+  VkShaderStageFlags stages = compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+  vkCmdPushConstants(stream->commands, pipeline->layout, stages, 0, size, data);
+}
+
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
+  VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
+  vkCmdBindPipeline(stream->commands, bindPoint, pipeline->handle);
+}
+
+void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, bool compute, uint32_t set, gpu_bundle* bundle, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {
+  VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
+  vkCmdBindDescriptorSets(stream->commands, bindPoint, pipeline->layout, group, 1, &bundle->handle, dynamicOffsetCount, dynamicOffsets);
+}
+
+void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t count) {
+  VkBuffer handles[COUNTOF(((gpu_pipeline_info*) NULL)->vertex.bufferStrides)];
+  uint64_t offsets64[COUNTOF(handles)];
+  for (uint32_t i = 0; i < count; i++) {
+    handles[i] = buffers[i]->handle;
+    offsets64[i] = offsets[i];
+  }
+  vkCmdBindVertexBuffers(stream->commands, first, count, handles, offsets64);
+}
+
+void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type) {
+  vkCmdBindIndexBuffer(stream->commands, buffer->handle, offset, (VkIndexType) type);
+}
+
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   vkCmdCopyBuffer(stream->commands, src->handle, dst->handle, 1, &(VkBufferCopy) {
     .srcOffset = src->offset + srcOffset,

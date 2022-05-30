@@ -481,12 +481,24 @@ typedef struct {
   uint32_t size[2];
 } gpu_canvas;
 
+typedef enum {
+  GPU_INDEX_U16,
+  GPU_INDEX_U32
+} gpu_index_type;
+
 gpu_stream* gpu_stream_begin(const char* label);
 void gpu_stream_end(gpu_stream* stream);
 void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas);
 void gpu_render_end(gpu_stream* stream);
 void gpu_compute_begin(gpu_stream* stream);
 void gpu_compute_end(gpu_stream* stream);
+void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[4]);
+void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]);
+void gpu_push_constants(gpu_stream* stream, gpu_pipeline* pipeline, bool compute, void* data, uint32_t size);
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute);
+void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, bool compute, uint32_t set, gpu_bundle* bundle, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount);
+void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t count);
+void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type);
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
 void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t size[3]);
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]);
