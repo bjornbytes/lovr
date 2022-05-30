@@ -21,12 +21,19 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 
 #define MAX_FRAME_MEMORY (1 << 30)
 
+typedef struct {
+  gpu_vertex_format gpu;
+  uint64_t hash;
+  uint32_t mask;
+} VertexFormat;
+
 struct Buffer {
   uint32_t ref;
   uint32_t size;
+  char* pointer;
   gpu_buffer* gpu;
   BufferInfo info;
-  char* pointer;
+  VertexFormat format;
 };
 
 struct Texture {
@@ -100,6 +107,15 @@ struct Pass {
   bool bindingsDirty;
 };
 
+typedef enum {
+  VERTEX_SHAPE,
+  VERTEX_POINT,
+  VERTEX_MODEL,
+  VERTEX_GLYPH,
+  VERTEX_EMPTY,
+  DEFAULT_FORMAT_COUNT
+} DefaultFormat;
+
 typedef struct {
   void* next;
   gpu_bundle_pool* gpu;
@@ -142,6 +158,7 @@ static struct {
   Texture* defaultTexture;
   Sampler* defaultSampler;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
+  VertexFormat vertexFormats[DEFAULT_FORMAT_COUNT];
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
@@ -413,6 +430,22 @@ void lovrGraphicsWait() {
 
 // Buffer
 
+static void lovrBufferInitFormat(VertexFormat* format, BufferInfo* info) {
+  format->mask = 0;
+  format->gpu.bufferCount = 1;
+  format->gpu.bufferStrides[0] = info->stride;
+  format->gpu.attributeCount = info->fieldCount;
+  for (uint32_t i = 0; i < info->fieldCount; i++) {
+    format->gpu.attributes[i] = (gpu_attribute) {
+      .location = info->fields[i].location,
+      .offset = info->fields[i].offset,
+      .type = (gpu_attribute_type) info->fields[i].type
+    };
+    format->mask |= (1 << i);
+  }
+  format->hash = hash64(&format->gpu, sizeof(format->gpu));
+}
+
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
@@ -425,6 +458,8 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   buffer->info = *info;
 
   buffer->pointer = gpu_map(buffer->gpu, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+
+  lovrBufferInitFormat(&buffer->format, info);
 
   if (data) {
     *data = buffer->pointer;
@@ -450,6 +485,8 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
     .label = info->label,
     .pointer = data
   });
+
+  lovrBufferInitFormat(&buffer->format, info);
 
   if (data && *data == NULL) {
     gpu_stream* transfers = getTransfers();
