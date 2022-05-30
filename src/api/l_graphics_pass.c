@@ -344,6 +344,80 @@ static int l_lovrPassSend(lua_State* L) {
   return luax_typeerror(L, 3, "Buffer, Texture, Sampler, or number/vector");
 }
 
+static uint32_t luax_getvertexcount(lua_State* L, int index) {
+  switch (lua_type(L, index)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      return 0;
+    case LUA_TNUMBER:
+      return (lua_gettop(L) - index + 1) / 3;
+    case LUA_TTABLE:
+      lua_rawgeti(L, index, 1);
+      int innerType = lua_type(L, -1);
+      lua_pop(L, 1);
+      return luax_len(L, index) / (innerType == LUA_TNUMBER ? 3 : 1);
+    case LUA_TUSERDATA:
+      return lua_gettop(L) - index + 1;
+    default:
+      return luax_typeerror(L, index, "number, table, or vector");
+  }
+}
+
+static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t count) {
+  switch (lua_type(L, index)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+    default:
+      break;
+    case LUA_TNUMBER:
+      for (uint32_t i = 0; i < 3 * count; i++) {
+        *vertices++ = luax_tofloat(L, index + i);
+      }
+      break;
+    case LUA_TTABLE:
+      lua_rawgeti(L, index, 1);
+      int innerType = lua_type(L, -1);
+      lua_pop(L, 1);
+      if (innerType == LUA_TNUMBER) {
+        for (uint32_t i = 0; i < 3 * count; i++) {
+          lua_rawgeti(L, index, i + 1);
+          *vertices++ = luax_tofloat(L, -1);
+          lua_pop(L, 1);
+        }
+      } else if (innerType == LUA_TUSERDATA) {
+        for (uint32_t i = 0; i < count; i++) {
+          lua_rawgeti(L, index, i + 1);
+          vec3_init(vertices, luax_checkvector(L, -1, V_VEC3, NULL));
+          lua_pop(L, 1);
+          vertices += 3;
+        }
+      }
+      break;
+    case LUA_TUSERDATA:
+      for (uint32_t i = 0; i < count; i++) {
+        vec3_init(vertices, luax_checkvector(L, index + i, V_VEC3, NULL));
+        vertices += 3;
+      }
+      break;
+  }
+}
+
+static int l_lovrPassPoints(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Buffer* buffer = luax_totype(L, 2, Buffer);
+
+  if (buffer || !lua_toboolean(L, 2)) {
+    //
+  } else {
+    float* vertices;
+    uint32_t count = luax_getvertexcount(L, 2);
+    lovrPassPoints(pass, count, &vertices);
+    luax_readvertices(L, 2, vertices, count);
+  }
+
+  return 0;
+}
+
 static int l_lovrPassClear(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
 
@@ -518,6 +592,8 @@ const luaL_Reg lovrPass[] = {
   { "setWireframe", l_lovrPassSetWireframe },
 
   { "send", l_lovrPassSend },
+
+  { "points", l_lovrPassPoints },
 
   { "clear", l_lovrPassClear },
   { "copy", l_lovrPassCopy },
