@@ -1461,13 +1461,13 @@ void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t*
   uint64_t offsets64[COUNTOF(handles)];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
-    offsets64[i] = offsets[i];
+    offsets64[i] = buffers[i]->offset + offsets[i];
   }
   vkCmdBindVertexBuffers(stream->commands, first, count, handles, offsets64);
 }
 
 void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type) {
-  vkCmdBindIndexBuffer(stream->commands, buffer->handle, offset, (VkIndexType) type);
+  vkCmdBindIndexBuffer(stream->commands, buffer->handle, buffer->offset + offset, (VkIndexType) type);
 }
 
 void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t baseInstance) {
@@ -1479,11 +1479,11 @@ void gpu_draw_indexed(gpu_stream* stream, uint32_t indexCount, uint32_t instance
 }
 
 void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount) {
-  vkCmdDrawIndirect(stream->commands, buffer->handle, offset, drawCount, 16);
+  vkCmdDrawIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, 16);
 }
 
 void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount) {
-  vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, offset, drawCount, 20);
+  vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, 20);
 }
 
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
