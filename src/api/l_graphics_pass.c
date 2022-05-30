@@ -2,6 +2,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "core/maf.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
@@ -18,6 +19,104 @@ static int l_lovrPassPush(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   StackType stack = luax_checkenum(L, 2, StackType, "transform");
   lovrPassPush(pass, stack);
+  return 0;
+}
+
+static int l_lovrPassGetViewPose(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t view = luaL_checkinteger(L, 2) - 1;
+  if (lua_gettop(L) > 2) {
+    float* matrix = luax_checkvector(L, 3, V_MAT4, NULL);
+    bool invert = lua_toboolean(L, 4);
+    lovrPassGetViewMatrix(pass, view, matrix);
+    if (!invert) mat4_invert(matrix);
+    lua_settop(L, 3);
+    return 1;
+  } else {
+    float matrix[16], angle, ax, ay, az;
+    lovrPassGetViewMatrix(pass, view, matrix);
+    mat4_invert(matrix);
+    mat4_getAngleAxis(matrix, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, matrix[12]);
+    lua_pushnumber(L, matrix[13]);
+    lua_pushnumber(L, matrix[14]);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+    return 7;
+  }
+}
+
+static int l_lovrPassSetViewPose(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t view = luaL_checkinteger(L, 2) - 1;
+  VectorType type;
+  float* p = luax_tovector(L, 3, &type);
+  if (p && type == V_MAT4) {
+    float matrix[16];
+    mat4_init(matrix, p);
+    bool inverted = lua_toboolean(L, 4);
+    if (!inverted) mat4_invert(matrix);
+    lovrPassSetViewMatrix(pass, view, matrix);
+  } else {
+    int index = 3;
+    float position[4], orientation[4], matrix[16];
+    index = luax_readvec3(L, index, position, "vec3, number, or mat4");
+    index = luax_readquat(L, index, orientation, NULL);
+    mat4_fromQuat(matrix, orientation);
+    memcpy(matrix + 12, position, 3 * sizeof(float));
+    mat4_invert(matrix);
+    lovrPassSetViewMatrix(pass, view, matrix);
+  }
+  return 0;
+}
+
+static int l_lovrPassGetProjection(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t view = luaL_checkinteger(L, 2) - 1;
+  if (lua_gettop(L) > 2) {
+    float* matrix = luax_checkvector(L, 3, V_MAT4, NULL);
+    lovrPassGetProjection(pass, view, matrix);
+    lua_settop(L, 3);
+    return 1;
+  } else {
+    float matrix[16], left, right, up, down;
+    lovrPassGetProjection(pass, view, matrix);
+    mat4_getFov(matrix, &left, &right, &up, &down);
+    lua_pushnumber(L, left);
+    lua_pushnumber(L, right);
+    lua_pushnumber(L, up);
+    lua_pushnumber(L, down);
+    return 4;
+  }
+}
+
+static int l_lovrPassSetProjection(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t view = luaL_checkinteger(L, 2) - 1;
+  if (lua_type(L, 3) == LUA_TSTRING && !strcmp(lua_tostring(L, 3), "orthographic")) {
+    float ortho[16];
+    float width = luax_checkfloat(L, 4);
+    float height = luax_checkfloat(L, 5);
+    float near = luax_optfloat(L, 6, -1.f);
+    float far = luax_optfloat(L, 7, 1.f);
+    mat4_orthographic(ortho, 0.f, width, 0.f, height, near, far);
+    lovrPassSetProjection(pass, view, ortho);
+  } else if (lua_type(L, 3) == LUA_TNUMBER) {
+    float left = luax_checkfloat(L, 3);
+    float right = luax_checkfloat(L, 4);
+    float up = luax_checkfloat(L, 5);
+    float down = luax_checkfloat(L, 6);
+    float clipNear = luax_optfloat(L, 7, .01f);
+    float clipFar = luax_optfloat(L, 8, 100.f);
+    float matrix[16];
+    mat4_fov(matrix, left, right, up, down, clipNear, clipFar);
+    lovrPassSetProjection(pass, view, matrix);
+  } else {
+    float* matrix = luax_checkvector(L, 3, V_MAT4, "mat4 or number");
+    lovrPassSetProjection(pass, view, matrix);
+  }
   return 0;
 }
 
@@ -388,13 +487,21 @@ static int l_lovrPassMipmap(lua_State* L) {
 
 const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
+
+  { "getViewPose", l_lovrPassGetViewPose },
+  { "setViewPose", l_lovrPassSetViewPose },
+  { "getProjection", l_lovrPassGetProjection },
+  { "setProjection", l_lovrPassSetProjection },
+
   { "push", l_lovrPassPush },
   { "pop", l_lovrPassPop },
+
   { "origin", l_lovrPassOrigin },
   { "translate", l_lovrPassTranslate },
   { "rotate", l_lovrPassRotate },
   { "scale", l_lovrPassScale },
   { "transform", l_lovrPassTransform },
+
   { "setAlphaToCoverage", l_lovrPassSetAlphaToCoverage },
   { "setBlendMode", l_lovrPassSetBlendMode },
   { "setColor", l_lovrPassSetColor },
@@ -409,10 +516,13 @@ const luaL_Reg lovrPass[] = {
   { "setStencilWrite", l_lovrPassSetStencilWrite },
   { "setWinding", l_lovrPassSetWinding },
   { "setWireframe", l_lovrPassSetWireframe },
+
   { "send", l_lovrPassSend },
+
   { "clear", l_lovrPassClear },
   { "copy", l_lovrPassCopy },
   { "blit", l_lovrPassBlit },
   { "mipmap", l_lovrPassMipmap },
+
   { NULL, NULL }
 };

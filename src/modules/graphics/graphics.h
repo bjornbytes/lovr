@@ -354,6 +354,10 @@ typedef struct {
 Pass* lovrGraphicsGetPass(PassInfo* info);
 void lovrPassDestroy(void* ref);
 const PassInfo* lovrPassGetInfo(Pass* pass);
+void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
+void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
+void lovrPassGetProjection(Pass* pass, uint32_t index, float projection[16]);
+void lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]);
 void lovrPassPush(Pass* pass, StackType stack);
 void lovrPassPop(Pass* pass, StackType stack);
 void lovrPassOrigin(Pass* pass);

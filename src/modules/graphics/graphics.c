@@ -86,6 +86,13 @@ struct Shader {
 };
 
 typedef struct {
+  float view[16];
+  float projection[16];
+  float viewProjection[16];
+  float inverseProjection[16];
+} Camera;
+
+typedef struct {
   float color[4];
   Shader* shader;
   gpu_pipeline_info info;
@@ -105,6 +112,9 @@ struct Pass {
   gpu_binding bindings[32];
   uint32_t bindingMask;
   bool bindingsDirty;
+  Camera* cameras;
+  uint32_t cameraCount;
+  bool cameraDirty;
 };
 
 typedef enum {
@@ -216,9 +226,9 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   arr_init(&state.layouts, realloc);
 
   gpu_slot builtins[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_ALL },
-    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_ALL },
-    { 2, GPU_SLOT_SAMPLER, GPU_STAGE_ALL }
+    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Cameras
+    { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Draw data
+    { 2, GPU_SLOT_SAMPLER, GPU_STAGE_ALL } // Default sampler
   };
 
   state.builtinLayout = getLayout(builtins, COUNTOF(builtins));
@@ -1170,79 +1180,110 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->info = *info;
   pass->stream = gpu_stream_begin(info->label);
 
-  if (info->type == PASS_RENDER) {
-    Canvas* canvas = &info->canvas;
-    const TextureInfo* main = canvas->textures[0] ? &canvas->textures[0]->info : &canvas->depth.texture->info;
-    lovrCheck(canvas->textures[0] || canvas->depth.texture, "Render pass must have at least one color or depth texture");
-    lovrCheck(main->width <= state.limits.renderSize[0], "Render pass width (%d) exceeds the renderSize limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
-    lovrCheck(main->height <= state.limits.renderSize[1], "Render pass height (%d) exceeds the renderSize limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
-    lovrCheck(main->depth <= state.limits.renderSize[2], "Render pass view count (%d) exceeds the renderSize limit of this GPU (%d)", main->depth, state.limits.renderSize[2]);
-    lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Render pass sample count must be 1 or 4...for now");
+  if (info->type != PASS_RENDER) {
+    return pass;
+  }
 
-    uint32_t colorTextureCount = 0;
-    for (uint32_t i = 0; i < COUNTOF(canvas->textures) && canvas->textures[i]; i++, colorTextureCount++) {
-      const TextureInfo* texture = &canvas->textures[i]->info;
-      bool renderable = texture->format == GPU_FORMAT_SURFACE || (state.features.formats[texture->format] & GPU_FEATURE_RENDER);
-      lovrCheck(renderable, "This GPU does not support rendering to the texture format used by Canvas texture #%d", i + 1);
+  Canvas* canvas = &info->canvas;
+  const TextureInfo* main = canvas->textures[0] ? &canvas->textures[0]->info : &canvas->depth.texture->info;
+  lovrCheck(canvas->textures[0] || canvas->depth.texture, "Render pass must have at least one color or depth texture");
+  lovrCheck(main->width <= state.limits.renderSize[0], "Render pass width (%d) exceeds the renderSize limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
+  lovrCheck(main->height <= state.limits.renderSize[1], "Render pass height (%d) exceeds the renderSize limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
+  lovrCheck(main->depth <= state.limits.renderSize[2], "Render pass view count (%d) exceeds the renderSize limit of this GPU (%d)", main->depth, state.limits.renderSize[2]);
+  lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Render pass sample count must be 1 or 4...for now");
+
+  uint32_t colorTextureCount = 0;
+  for (uint32_t i = 0; i < COUNTOF(canvas->textures) && canvas->textures[i]; i++, colorTextureCount++) {
+    const TextureInfo* texture = &canvas->textures[i]->info;
+    bool renderable = texture->format == GPU_FORMAT_SURFACE || (state.features.formats[texture->format] & GPU_FEATURE_RENDER);
+    lovrCheck(renderable, "This GPU does not support rendering to the texture format used by Canvas texture #%d", i + 1);
+    lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
+    lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
+    lovrCheck(texture->height == main->height, "Render pass texture sizes must match");
+    lovrCheck(texture->depth == main->depth, "Render pass texture sizes must match");
+    lovrCheck(texture->samples == main->samples, "Render pass texture sample counts must match");
+  }
+
+  if (canvas->depth.texture || canvas->depth.format) {
+    TextureFormat format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format;
+    bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER;
+    lovrCheck(format == FORMAT_D16 || format == FORMAT_D24S8 || format == FORMAT_D32F, "Depth buffer must use a depth format");
+    lovrCheck(renderable, "This GPU does not support depth buffers with this texture format");
+    if (canvas->depth.texture) {
+      const TextureInfo* texture = &canvas->depth.texture->info;
       lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
       lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
       lovrCheck(texture->height == main->height, "Render pass texture sizes must match");
       lovrCheck(texture->depth == main->depth, "Render pass texture sizes must match");
-      lovrCheck(texture->samples == main->samples, "Render pass texture sample counts must match");
+      lovrCheck(texture->samples == main->samples, "Depth buffer sample count must match the main render pass sample count...for now");
     }
-
-    if (canvas->depth.texture || canvas->depth.format) {
-      TextureFormat format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format;
-      bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER;
-      lovrCheck(format == FORMAT_D16 || format == FORMAT_D24S8 || format == FORMAT_D32F, "Depth buffer must use a depth format");
-      lovrCheck(renderable, "This GPU does not support depth buffers with this texture format");
-      if (canvas->depth.texture) {
-        const TextureInfo* texture = &canvas->depth.texture->info;
-        lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
-        lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
-        lovrCheck(texture->height == main->height, "Render pass texture sizes must match");
-        lovrCheck(texture->depth == main->depth, "Render pass texture sizes must match");
-        lovrCheck(texture->samples == main->samples, "Depth buffer sample count must match the main render pass sample count...for now");
-      }
-    }
-
-    gpu_canvas target = {
-      .size = { main->width, main->height }
-    };
-
-    for (uint32_t i = 0; i < colorTextureCount; i++) {
-      if (main->samples == 1 && canvas->samples > 1) {
-        TextureFormat format = canvas->textures[i]->info.format;
-        bool srgb = canvas->textures[i]->info.srgb;
-        target.color[i].texture = getAttachment(target.size, main->depth, format, srgb, canvas->samples);
-        target.color[i].resolve = canvas->textures[i]->renderView;
-      } else {
-        target.color[i].texture = canvas->textures[i]->renderView;
-      }
-
-      target.color[i].load = (gpu_load_op) canvas->loads[i];
-      target.color[i].save = GPU_SAVE_OP_SAVE;
-      target.color[i].clear[0] = lovrMathGammaToLinear(canvas->clears[i][0]);
-      target.color[i].clear[1] = lovrMathGammaToLinear(canvas->clears[i][1]);
-      target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clears[i][2]);
-      target.color[i].clear[3] = canvas->clears[i][2];
-    }
-
-    if (canvas->depth.texture) {
-      target.depth.texture = canvas->depth.texture->renderView;
-    } else {
-      target.depth.texture = getAttachment(target.size, main->depth, canvas->depth.format, false, canvas->samples);
-    }
-
-    target.depth.load = target.depth.stencilLoad = (gpu_load_op) canvas->depth.load;
-    target.depth.save = canvas->depth.texture ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD;
-    target.depth.clear.depth = canvas->depth.clear;
-
-    gpu_render_begin(pass->stream, &target);
   }
 
+  gpu_canvas target = {
+    .size = { main->width, main->height }
+  };
+
+  for (uint32_t i = 0; i < colorTextureCount; i++) {
+    if (main->samples == 1 && canvas->samples > 1) {
+      TextureFormat format = canvas->textures[i]->info.format;
+      bool srgb = canvas->textures[i]->info.srgb;
+      target.color[i].texture = getAttachment(target.size, main->depth, format, srgb, canvas->samples);
+      target.color[i].resolve = canvas->textures[i]->renderView;
+    } else {
+      target.color[i].texture = canvas->textures[i]->renderView;
+    }
+
+    target.color[i].load = (gpu_load_op) canvas->loads[i];
+    target.color[i].save = GPU_SAVE_OP_SAVE;
+    target.color[i].clear[0] = lovrMathGammaToLinear(canvas->clears[i][0]);
+    target.color[i].clear[1] = lovrMathGammaToLinear(canvas->clears[i][1]);
+    target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clears[i][2]);
+    target.color[i].clear[3] = canvas->clears[i][2];
+  }
+
+  if (canvas->depth.texture) {
+    target.depth.texture = canvas->depth.texture->renderView;
+  } else {
+    target.depth.texture = getAttachment(target.size, main->depth, canvas->depth.format, false, canvas->samples);
+  }
+
+  target.depth.load = target.depth.stencilLoad = (gpu_load_op) canvas->depth.load;
+  target.depth.save = canvas->depth.texture ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD;
+  target.depth.clear.depth = canvas->depth.clear;
+
+  gpu_render_begin(pass->stream, &target);
+
+  float viewport[4] = { 0.f, 0.f, (float) main->width, (float) main->height };
+  float depthRange[2] = { 0.f, 1.f };
+  gpu_set_viewport(pass->stream, viewport, depthRange);
+
+  uint32_t scissor[4] = { 0, 0, main->width, main->height };
+  gpu_set_scissor(pass->stream, scissor);
+
   pass->transform = pass->transforms[0];
+  mat4_identity(pass->transform);
+
   pass->pipeline = &pass->pipelines[0];
+  memset(&pass->pipeline->info, 0, sizeof(pass->pipeline->info));
+  pass->pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
+  pass->pipeline->info.depth.write = true;
+  pass->pipeline->info.color[0].mask = 0xf;
+  pass->pipeline->info.color[1].mask = 0xf;
+  pass->pipeline->info.color[2].mask = 0xf;
+  pass->pipeline->info.color[3].mask = 0xf;
+  pass->pipeline->color[0] = 1.f;
+  pass->pipeline->color[1] = 1.f;
+  pass->pipeline->color[2] = 1.f;
+  pass->pipeline->color[3] = 1.f;
+  pass->pipeline->shader = NULL;
+  pass->pipeline->dirty = true;
+
+  pass->bindingMask = 0;
+  pass->bindingsDirty = true;
+
+  pass->cameraCount = main->depth;
+  pass->cameras = tempAlloc(pass->cameraCount * sizeof(Camera));
+  pass->cameraDirty = true;
 
   return pass;
 }
@@ -1257,6 +1298,28 @@ void lovrPassDestroy(void* ref) {
 
 const PassInfo* lovrPassGetInfo(Pass* pass) {
   return &pass->info;
+}
+
+void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
+  lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
+  mat4_init(viewMatrix, pass->cameras[index].view);
+}
+
+void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
+  lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
+  mat4_init(pass->cameras[index].view, viewMatrix);
+  pass->cameraDirty = true;
+}
+
+void lovrPassGetProjection(Pass* pass, uint32_t index, float* projection) {
+  lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
+  mat4_init(projection, pass->cameras[index].projection);
+}
+
+void lovrPassSetProjection(Pass* pass, uint32_t index, float* projection) {
+  lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
+  mat4_init(pass->cameras[index].projection, projection);
+  pass->cameraDirty = true;
 }
 
 void lovrPassPush(Pass* pass, StackType stack) {
