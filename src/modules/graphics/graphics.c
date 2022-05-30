@@ -155,6 +155,7 @@ static void* tempAlloc(size_t size);
 static void beginFrame(void);
 static gpu_stream* getTransfers(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
+static gpu_bundle* getBundle(uint32_t layout);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
@@ -1744,6 +1745,54 @@ static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
   index = state.layouts.length;
   arr_push(&state.layouts, layout);
   return index;
+}
+
+
+static gpu_bundle* getBundle(uint32_t layoutIndex) {
+  Layout* layout = &state.layouts.data[layoutIndex];
+  BundlePool* pool = layout->head;
+  const uint32_t POOL_SIZE = 512;
+
+  if (pool) {
+    if (pool->cursor < POOL_SIZE) {
+      return (gpu_bundle*) ((char*) pool->bundles + gpu_sizeof_bundle() * pool->cursor++);
+    }
+
+    // If the pool's closed, move it to the end of the list and try to use the next pool
+    layout->tail->next = pool;
+    layout->tail = pool;
+    layout->head = pool->next;
+    pool->next = NULL;
+    pool->tick = state.tick;
+    pool = layout->head;
+
+    if (pool && gpu_finished(pool->tick)) {
+      pool->cursor = 1;
+      return pool->bundles;
+    }
+  }
+
+  // If no pool was available, make a new one
+  pool = malloc(sizeof(BundlePool));
+  gpu_bundle_pool* gpu = malloc(gpu_sizeof_bundle_pool());
+  gpu_bundle* bundles = malloc(POOL_SIZE * gpu_sizeof_bundle());
+  lovrAssert(pool && gpu && bundles, "Out of memory");
+  pool->gpu = gpu;
+  pool->bundles = bundles;
+  pool->cursor = 0;
+  pool->next = layout->head;
+
+  gpu_bundle_pool_info info = {
+    .bundles = pool->bundles,
+    .layout = layout->gpu,
+    .count = POOL_SIZE
+  };
+
+  gpu_bundle_pool_init(pool->gpu, &info);
+
+  layout->head = pool;
+  if (!layout->tail) layout->tail = pool;
+  return pool->bundles;
 }
 
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
