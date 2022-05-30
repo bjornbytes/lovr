@@ -291,7 +291,7 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
     uint32_t location = spv->cache[variableId].input.location;
 
     if (location == 0xff) {
-      return SPV_INVALID;
+      return SPV_OK;
     } else if (location > 31) {
       return SPV_LOCATION_TOO_BIG;
     } else {
