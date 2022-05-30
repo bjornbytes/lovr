@@ -53,7 +53,6 @@ struct gpu_bundle {
 
 struct gpu_pipeline {
   VkPipeline handle;
-  VkPipelineLayout layout;
 };
 
 struct gpu_stream {
@@ -1282,7 +1281,6 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   }
 
   nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
-  pipeline->layout = info->shader->pipelineLayout;
   return true;
 }
 
@@ -1334,7 +1332,6 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
   }
 
   nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
-  pipeline->layout = info->shader->pipelineLayout;
   return true;
 }
 
@@ -1431,7 +1428,7 @@ void gpu_compute_end(gpu_stream* stream) {
   //
 }
 
-void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[4]) {
+void gpu_set_viewport(gpu_stream* stream, float view[4], float depthRange[4]) {
   VkViewport viewport = { view[0], view[1], view[2], view[3], depthRange[0], depthRange[1] };
   vkCmdSetViewport(stream->commands, 0, 1, &viewport);
 }
@@ -1441,9 +1438,9 @@ void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]) {
   vkCmdSetScissor(stream->commands, 0, 1, &rect);
 }
 
-void gpu_push_constants(gpu_stream* stream, gpu_pipeline* pipeline, bool compute, void* data, uint32_t size) {
-  VkShaderStageFlags stages = compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-  vkCmdPushConstants(stream->commands, pipeline->layout, stages, 0, size, data);
+void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size) {
+  VkShaderStageFlags stages = shader->handles[1] ? (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) : VK_SHADER_STAGE_COMPUTE_BIT;
+  vkCmdPushConstants(stream->commands, shader->pipelineLayout, stages, 0, size, data);
 }
 
 void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
@@ -1451,12 +1448,12 @@ void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute)
   vkCmdBindPipeline(stream->commands, bindPoint, pipeline->handle);
 }
 
-void gpu_bind_bundle(gpu_stream* stream, gpu_pipeline* pipeline, bool compute, uint32_t set, gpu_bundle* bundle, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {
-  VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
-  vkCmdBindDescriptorSets(stream->commands, bindPoint, pipeline->layout, group, 1, &bundle->handle, dynamicOffsetCount, dynamicOffsets);
+void gpu_bind_bundle(gpu_stream* stream, gpu_shader* shader, uint32_t set, gpu_bundle* bundle, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {
+  VkPipelineBindPoint bindPoint = shader->handles[1] ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
+  vkCmdBindDescriptorSets(stream->commands, bindPoint, shader->pipelineLayout, set, 1, &bundle->handle, dynamicOffsetCount, dynamicOffsets);
 }
 
-void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t count) {
+void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count) {
   VkBuffer handles[COUNTOF(((gpu_pipeline_info*) NULL)->vertex.bufferStrides)];
   uint64_t offsets64[COUNTOF(handles)];
   for (uint32_t i = 0; i < count; i++) {
