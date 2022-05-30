@@ -134,12 +134,17 @@ function lovr.run()
     if lovr.timer then dt = lovr.timer.step() end
     if lovr.headset then dt = lovr.headset.update() end
     if lovr.update then lovr.update(dt) end
+    if lovr.graphics then
+      if lovr.system.isWindowOpen() then lovr.mirror() end
+    end
     if lovr.math then lovr.math.drain() end
   end
 end
 
 function lovr.mirror()
-  --
+  local pass = lovr.graphics.pass('render', 'window')
+  lovr.draw(pass)
+  lovr.graphics.submit(pass)
 end
 
 local function formatTraceback(s)
