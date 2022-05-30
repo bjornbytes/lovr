@@ -32,7 +32,6 @@ void main() {
 
   outColor = vec4(1.);
   outColor *= draws[drawId].color;
-  outColor *= inColor;
 
   outUV = inUV;
 
