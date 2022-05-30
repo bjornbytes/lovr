@@ -609,8 +609,8 @@ MAF mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, flo
   float range = tanf(fovy * .5f) * clipNear;
   float sx = (2.f * clipNear) / (range * aspect + range * aspect);
   float sy = clipNear / range;
-  float sz = -(clipFar + clipNear) / (clipFar - clipNear);
-  float pz = (-2.f * clipFar * clipNear) / (clipFar - clipNear);
+  float sz = -clipFar / (clipFar - clipNear);
+  float pz = (-clipFar * clipNear) / (clipFar - clipNear);
   memset(m, 0, 16 * sizeof(float));
   m[0] = sx;
   m[5] = sy;
@@ -621,14 +621,14 @@ MAF mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, flo
   return m;
 }
 
-// This is currently specific to OpenGL
+// This is currently specific to Vulkan
 MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float clipNear, float clipFar) {
   left = -tanf(left);
   right = tanf(right);
   up = tanf(up);
   down = -tanf(down);
   float idx = 1.f / (right - left);
-  float idy = 1.f / (up - down);
+  float idy = 1.f / (down - up);
   float idz = 1.f / (clipFar - clipNear);
   float sx = right + left;
   float sy = down + up;
@@ -637,9 +637,9 @@ MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float c
   m[5] = 2.f * idy;
   m[8] = sx * idx;
   m[9] = sy * idy;
-  m[10] = -(clipFar + clipNear) * idz;
+  m[10] = -clipFar * idz;
   m[11] = -1.f;
-  m[14] = -(clipFar * 2.f * clipNear) * idz;
+  m[14] = -(clipFar * clipNear) * idz;
   return m;
 }
 
