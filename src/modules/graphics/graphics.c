@@ -305,6 +305,15 @@ void lovrGraphicsDestroy() {
     free(state.pipelines.data[i]);
   }
   for (uint32_t i = 0; i < state.layouts.length; i++) {
+    BundlePool* pool = state.layouts.data[i].head;
+    while (pool) {
+      BundlePool* next = pool->next;
+      gpu_bundle_pool_destroy(pool->gpu);
+      free(pool->gpu);
+      free(pool->bundles);
+      free(pool);
+      pool = next;
+    }
     gpu_layout_destroy(state.layouts.data[i].gpu);
     free(state.layouts.data[i].gpu);
   }

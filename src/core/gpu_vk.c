@@ -2277,6 +2277,7 @@ static void expunge() {
       case VK_OBJECT_TYPE_IMAGE_VIEW: vkDestroyImageView(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkDestroyDescriptorSetLayout(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_DESCRIPTOR_POOL: vkDestroyDescriptorPool(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_PIPELINE_LAYOUT: vkDestroyPipelineLayout(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, victim->handle, NULL); break;
@@ -2285,7 +2286,6 @@ static void expunge() {
   }
 }
 
-#include <stdio.h>
 // Ugliness until we can use dynamic rendering
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
   bool depth = pass->depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
