@@ -104,6 +104,7 @@ typedef struct {
 #define luax_pushenum(L, T, x) lua_pushlstring(L, (lovr ## T)[x].string, (lovr ## T)[x].length)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
+#define luax_tofloat(L, i) (float) lua_tonumber(L, i)
 #define luax_optu32(L, i, x) lua_isnoneornil(L, i) ? (x) : luax_checku32(L, i)
 #define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
 #define luax_seterror(L) lua_setfield(L, LUA_REGISTRYINDEX, "_lovrerror")
