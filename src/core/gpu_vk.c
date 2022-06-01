@@ -1709,8 +1709,8 @@ bool gpu_init(gpu_config* config) {
       config->limits->storageBufferRange = limits->maxStorageBufferRange;
       config->limits->uniformBufferAlign = limits->minUniformBufferOffsetAlignment;
       config->limits->storageBufferAlign = limits->minStorageBufferOffsetAlignment;
-      config->limits->vertexAttributes = limits->maxVertexInputAttributes;
-      config->limits->vertexBuffers = limits->maxVertexInputBindings;
+      config->limits->vertexAttributes = MIN(limits->maxVertexInputAttributes, COUNTOF(((gpu_pipeline_info*) NULL)->vertex.attributes));
+      config->limits->vertexBuffers = MIN(limits->maxVertexInputBindings, COUNTOF(((gpu_pipeline_info*) NULL)->vertex.bufferStrides));
       config->limits->vertexBufferStride = MIN(limits->maxVertexInputBindingStride, UINT16_MAX);
       config->limits->vertexShaderOutputs = limits->maxVertexOutputComponents;
       config->limits->clipDistances = limits->maxClipDistances;
