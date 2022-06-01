@@ -1121,6 +1121,8 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
         lovrThrow("Shader resource count exceeds resourcesPerShader limit (%d)", MAX_RESOURCES_PER_SHADER);
       }
 
+      lovrCheck(resource->binding < 32, "Max resource binding number is %d", 32 - 1);
+
       slots[index] = (gpu_slot) {
         .number = resource->binding,
         .type = resourceTypes[resource->type],
