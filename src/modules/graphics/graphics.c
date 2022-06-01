@@ -236,9 +236,6 @@ static void onMessage(void* context, const char* message, bool severe);
 bool lovrGraphicsInit(bool debug, bool vsync) {
   if (state.initialized) return false;
 
-  glslang_initialize_process();
-  float16Init();
-
   gpu_config config = {
     .debug = debug,
     .callback = onMessage,
@@ -316,35 +313,40 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     .attributes[0] = { 1, 0, 0, GPU_TYPE_F32x3 }
   };
 
-  for (uint32_t i = 0; i < DEFAULT_FORMAT_COUNT; i++) {
+  for (uint32_t i = 0; i < COUNTOF(state.vertexFormats); i++) {
     for (uint32_t j = 0; j < state.vertexFormats[i].gpu.attributeCount; j++) {
       state.vertexFormats[i].mask |= (1 << state.vertexFormats[i].gpu.attributes[j].location);
     }
     state.vertexFormats[i].hash = hash64(&state.vertexFormats[i].gpu, sizeof(gpu_vertex_format));
   }
 
+  float16Init();
+  glslang_initialize_process();
   state.initialized = true;
   return true;
 }
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
-  lovrRelease(state.defaultBuffer, lovrBufferDestroy);
-  lovrRelease(state.defaultTexture, lovrTextureDestroy);
-  lovrRelease(state.defaultSampler, lovrSamplerDestroy);
-  for (uint32_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
-    lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
-  }
+  lovrRelease(state.window, lovrTextureDestroy);
   for (uint32_t i = 0; i < COUNTOF(state.attachments); i++) {
     if (state.attachments[i].texture) {
       gpu_texture_destroy(state.attachments[i].texture);
       free(state.attachments[i].texture);
     }
   }
+  lovrRelease(state.defaultBuffer, lovrBufferDestroy);
+  lovrRelease(state.defaultTexture, lovrTextureDestroy);
+  lovrRelease(state.defaultSampler, lovrSamplerDestroy);
+  for (uint32_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
+    lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
+  }
   for (uint32_t i = 0; i < state.pipelines.length; i++) {
     gpu_pipeline_destroy(state.pipelines.data[i]);
     free(state.pipelines.data[i]);
   }
+  map_free(&state.pipelineLookup);
+  arr_free(&state.pipelines);
   for (uint32_t i = 0; i < state.layouts.length; i++) {
     BundlePool* pool = state.layouts.data[i].head;
     while (pool) {
@@ -358,10 +360,7 @@ void lovrGraphicsDestroy() {
     gpu_layout_destroy(state.layouts.data[i].gpu);
     free(state.layouts.data[i].gpu);
   }
-  map_free(&state.pipelineLookup);
-  arr_free(&state.pipelines);
   arr_free(&state.layouts);
-  lovrRelease(state.window, lovrTextureDestroy);
   gpu_destroy();
   glslang_finalize_process();
   os_vm_free(state.allocator.memory, MAX_FRAME_MEMORY);
