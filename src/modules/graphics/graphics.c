@@ -326,10 +326,10 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   memset(zeros, 0, defaultBufferInfo.length);
 
   state.vertexFormats[VERTEX_POINT].gpu = (gpu_vertex_format) {
-    .bufferCount = 1,
+    .bufferCount = 2,
     .attributeCount = 1,
-    .bufferStrides[0] = 12,
-    .attributes[0] = { 0, 0, 0, GPU_TYPE_F32x3 }
+    .bufferStrides[1] = 12,
+    .attributes[0] = { 1, 0, 0, GPU_TYPE_F32x3 }
   };
 
   for (uint32_t i = 0; i < DEFAULT_FORMAT_COUNT; i++) {
@@ -514,11 +514,12 @@ void lovrGraphicsWait() {
 
 static void lovrBufferInitFormat(VertexFormat* format, BufferInfo* info) {
   format->mask = 0;
-  format->gpu.bufferCount = 1;
-  format->gpu.bufferStrides[0] = info->stride;
+  format->gpu.bufferCount = 2;
+  format->gpu.bufferStrides[1] = info->stride;
   format->gpu.attributeCount = info->fieldCount;
   for (uint32_t i = 0; i < info->fieldCount; i++) {
     format->gpu.attributes[i] = (gpu_attribute) {
+      .buffer = 1,
       .location = info->fields[i].location,
       .offset = info->fields[i].offset,
       .type = (gpu_attribute_type) info->fields[i].type
@@ -1334,6 +1335,9 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   gpu_render_begin(pass->stream, &target);
 
+  uint32_t offset = 0;
+  gpu_bind_vertex_buffers(pass->stream, &state.defaultBuffer->gpu, &offset, 0, 1);
+
   float viewport[4] = { 0.f, 0.f, (float) main->width, (float) main->height };
   float depthRange[2] = { 0.f, 1.f };
   gpu_set_viewport(pass->stream, viewport, depthRange);
@@ -1787,13 +1791,12 @@ static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
     uint32_t missingAttributes = shader->attributeMask & ~format->mask;
 
     if (missingAttributes) {
-      vertex->bufferCount++;
-      vertex->bufferStrides[1] = 0;
+      vertex->bufferStrides[0] = 0;
       for (uint32_t i = 0; i < 32 && missingAttributes; i++) {
         if (missingAttributes & (1 << i)) { // TODO clz
           missingAttributes &= ~(1 << i);
           vertex->attributes[vertex->attributeCount++] = (gpu_attribute) {
-            .buffer = 1,
+            .buffer = 0,
             .location = i,
             .offset = 0,
             .type = GPU_TYPE_F32x4
@@ -1910,10 +1913,10 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
 }
 
 static void flushBuffers(Pass* pass, Draw* draw) {
-  uint32_t vertexOffsets[2] = { 0, 0 };
+  uint32_t vertexOffset = 0;
 
   if (!draw->vertex.buffer && draw->vertex.count > 0) {
-    uint32_t stride = state.vertexFormats[draw->vertex.format].gpu.bufferStrides[0];
+    uint32_t stride = state.vertexFormats[draw->vertex.format].gpu.bufferStrides[1];
     uint32_t size = draw->vertex.count * stride;
 
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
@@ -1925,13 +1928,11 @@ static void flushBuffers(Pass* pass, Draw* draw) {
       memcpy(pointer, draw->vertex.data, size);
     }
 
-    gpu_buffer* buffers[2] = { scratchpad, state.defaultBuffer->gpu };
-    gpu_bind_vertex_buffers(pass->stream, buffers, vertexOffsets, 0, 2);
+    gpu_bind_vertex_buffers(pass->stream, &scratchpad, &vertexOffset, 1, 1);
     pass->vertexBuffer = NULL;
   } else if (draw->vertex.buffer && draw->vertex.buffer->gpu != pass->vertexBuffer) {
     lovrCheck(draw->vertex.buffer->info.stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
-    gpu_buffer* buffers[2] = { draw->vertex.buffer->gpu, state.defaultBuffer->gpu };
-    gpu_bind_vertex_buffers(pass->stream, buffers, vertexOffsets, 0, 2);
+    gpu_bind_vertex_buffers(pass->stream, &draw->vertex.buffer->gpu, &vertexOffset, 1, 1);
     pass->vertexBuffer = draw->vertex.buffer->gpu;
   }
 
