@@ -262,11 +262,15 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     lovrThrow("Failed to initialize GPU");
   }
 
+  // Temporary frame memory uses a large 1GB virtual memory allocation, committing pages as needed
+  state.allocator.length = 1 << 14;
+  state.allocator.memory = os_vm_init(MAX_FRAME_MEMORY);
+  os_vm_commit(state.allocator.memory, state.allocator.length);
+
   map_init(&state.pipelineLookup, 64);
   arr_init(&state.pipelines, realloc);
   arr_init(&state.layouts, realloc);
 
-  // Layout for builtin bindings
   gpu_slot builtins[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Cameras
     { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Draw data
@@ -275,19 +279,13 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
 
   state.builtinLayout = getLayout(builtins, COUNTOF(builtins));
 
-  // Temporary frame memory uses a large 1GB virtual memory allocation, committing pages as needed
-  state.allocator.length = 1 << 14;
-  state.allocator.memory = os_vm_init(MAX_FRAME_MEMORY);
-  os_vm_commit(state.allocator.memory, state.allocator.length);
-
-  // Default resources
-  BufferInfo defaultBufferInfo = {
+  state.defaultBuffer = lovrBufferCreate(&(BufferInfo) {
     .length = 4096,
     .stride = 1,
     .label = "Default Buffer"
-  };
+  }, NULL);
 
-  TextureInfo defaultTextureInfo = {
+  state.defaultTexture = lovrTextureCreate(&(TextureInfo) {
     .type = TEXTURE_2D,
     .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
     .format = FORMAT_RGBA8,
@@ -298,32 +296,18 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     .samples = 1,
     .srgb = true,
     .label = "Default Texture"
-  };
+  });
 
-  SamplerInfo defaultSamplerInfo = {
+  state.defaultSampler = lovrSamplerCreate(&(SamplerInfo) {
     .min = FILTER_LINEAR,
     .mag = FILTER_LINEAR,
     .mip = FILTER_LINEAR,
     .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
-  };
-
-  void* zeros;
-  state.defaultBuffer = lovrBufferCreate(&defaultBufferInfo, &zeros);
-  state.defaultTexture = lovrTextureCreate(&defaultTextureInfo);
-  state.defaultSampler = lovrSamplerCreate(&defaultSamplerInfo);
+  });
 
   gpu_stream* transfers = getTransfers();
-
-  float white[4] = { 1.f, 1.f, 1.f, 1.f };
-  gpu_clear_texture(transfers, state.defaultTexture->gpu, white, 0, ~0u, 0, ~0u);
-
-  if (!zeros) {
-    gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
-    zeros = gpu_map(scratchpad, defaultBufferInfo.length, 4, GPU_MAP_WRITE);
-    gpu_copy_buffers(transfers, scratchpad, state.defaultBuffer->gpu, 0, 0, defaultBufferInfo.length);
-  }
-
-  memset(zeros, 0, defaultBufferInfo.length);
+  gpu_clear_buffer(transfers, state.defaultBuffer->gpu, 0, 4096);
+  gpu_clear_texture(transfers, state.defaultTexture->gpu, (float[4]) { 1.f, 1.f, 1.f, 1.f }, 0, ~0u, 0, ~0u);
 
   state.vertexFormats[VERTEX_POINT].gpu = (gpu_vertex_format) {
     .bufferCount = 2,
