@@ -50,6 +50,7 @@ typedef struct {
 } spv_resource;
 
 typedef struct {
+  uint32_t version;
   uint32_t inputLocationMask;
   uint32_t featureCount;
   uint32_t specConstantCount;

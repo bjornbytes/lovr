@@ -1024,6 +1024,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   for (uint32_t i = 0; i < stageCount; i++) {
     result = spv_parse(info->stages[i]->data, info->stages[i]->size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
+    lovrCheck(spv[i].version <= 0x00010300, "Invalid SPIR-V version (up to 1.3 is supported)");
 
     spv[i].features = tempAlloc(spv[i].featureCount * sizeof(uint32_t));
     spv[i].specConstants = tempAlloc(spv[i].specConstantCount * sizeof(spv_spec_constant));

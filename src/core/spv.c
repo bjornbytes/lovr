@@ -68,6 +68,8 @@ spv_result spv_parse(const void* source, uint32_t size, spv_info* info) {
     return SPV_INVALID;
   }
 
+  info->version = spv.words[1];
+
   spv.bound = spv.words[3];
 
   if (spv.bound >= 0xffff) {
