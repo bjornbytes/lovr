@@ -486,6 +486,47 @@ typedef enum {
   GPU_INDEX_U32
 } gpu_index_type;
 
+typedef enum {
+  GPU_PHASE_INDIRECT = (1 << 0),
+  GPU_PHASE_INPUT_INDEX = (1 << 1),
+  GPU_PHASE_INPUT_VERTEX = (1 << 2),
+  GPU_PHASE_SHADER_VERTEX = (1 << 3),
+  GPU_PHASE_SHADER_FRAGMENT = (1 << 4),
+  GPU_PHASE_SHADER_COMPUTE = (1 << 5),
+  GPU_PHASE_DEPTH_EARLY = (1 << 6),
+  GPU_PHASE_DEPTH_LATE = (1 << 7),
+  GPU_PHASE_BLEND = (1 << 8),
+  GPU_PHASE_COPY = (1 << 9),
+  GPU_PHASE_BLIT = (1 << 10),
+  GPU_PHASE_CLEAR = (1 << 11)
+} gpu_phase;
+
+typedef enum {
+  GPU_CACHE_INDIRECT = (1 << 0),
+  GPU_CACHE_INDEX = (1 << 1),
+  GPU_CACHE_VERTEX = (1 << 2),
+  GPU_CACHE_UNIFORM = (1 << 3),
+  GPU_CACHE_TEXTURE = (1 << 4),
+  GPU_CACHE_STORAGE_READ = (1 << 5),
+  GPU_CACHE_STORAGE_WRITE = (1 << 6),
+  GPU_CACHE_DEPTH_READ = (1 << 7),
+  GPU_CACHE_DEPTH_WRITE = (1 << 8),
+  GPU_CACHE_BLEND_READ = (1 << 9),
+  GPU_CACHE_BLEND_WRITE = (1 << 10),
+  GPU_CACHE_TRANSFER_READ = (1 << 11),
+  GPU_CACHE_TRANSFER_WRITE = (1 << 12),
+  GPU_CACHE_ATTACHMENT = GPU_CACHE_DEPTH_READ | GPU_CACHE_DEPTH_WRITE | GPU_CACHE_BLEND_READ | GPU_CACHE_BLEND_WRITE,
+  GPU_CACHE_WRITE = GPU_CACHE_STORAGE_WRITE | GPU_CACHE_DEPTH_WRITE | GPU_CACHE_BLEND_WRITE | GPU_CACHE_TRANSFER_WRITE,
+  GPU_CACHE_READ = ~GPU_CACHE_WRITE
+} gpu_cache;
+
+typedef struct {
+  gpu_phase prev;
+  gpu_phase next;
+  gpu_cache flush;
+  gpu_cache invalidate;
+} gpu_barrier;
+
 gpu_stream* gpu_stream_begin(const char* label);
 void gpu_stream_end(gpu_stream* stream);
 void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas);
@@ -510,6 +551,7 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size);
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter);
+void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count);
 
 // Entry
 

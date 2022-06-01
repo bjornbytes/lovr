@@ -202,6 +202,8 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible);
 static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
+static VkPipelineStageFlags convertPhase(gpu_phase phase);
+static VkAccessFlags convertCache(gpu_cache cache);
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
 static void nickname(void* object, VkObjectType type, const char* name);
 static bool vcheck(VkResult result, const char* message);
@@ -1599,6 +1601,24 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
   vkCmdBlitImage(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, VK_IMAGE_LAYOUT_GENERAL, 1, &region, filters[filter]);
 }
 
+void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
+  VkMemoryBarrier memoryBarrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+  VkPipelineStageFlags src = 0;
+  VkPipelineStageFlags dst = 0;
+
+  for (uint32_t i = 0; i < count; i++) {
+    gpu_barrier* barrier = &barriers[i];
+    src |= convertPhase(barrier->prev);
+    dst |= convertPhase(barrier->next);
+    memoryBarrier.srcAccessMask |= convertCache(barrier->flush);
+    memoryBarrier.dstAccessMask |= convertCache(barrier->invalidate);
+  }
+
+  if (src && dst) {
+    vkCmdPipelineBarrier(stream->commands, src, dst, 0, 1, &memoryBarrier, 0, NULL, 0, NULL);
+  }
+}
+
 // Entry
 
 bool gpu_init(gpu_config* config) {
@@ -2576,6 +2596,41 @@ static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
   }
 
   return formats[format][colorspace];
+}
+
+static VkPipelineStageFlags convertPhase(gpu_phase phase) {
+  VkPipelineStageFlags flags = 0;
+  if (phase & GPU_PHASE_INDIRECT) flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+  if (phase & GPU_PHASE_INPUT_INDEX) flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+  if (phase & GPU_PHASE_INPUT_VERTEX) flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+  if (phase & GPU_PHASE_SHADER_VERTEX) flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+  if (phase & GPU_PHASE_SHADER_FRAGMENT) flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  if (phase & GPU_PHASE_SHADER_COMPUTE) flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+  if (phase & GPU_PHASE_DEPTH_EARLY) flags |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  if (phase & GPU_PHASE_DEPTH_LATE) flags |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+  if (phase & GPU_PHASE_BLEND) flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  if (phase & GPU_PHASE_COPY) flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+  if (phase & GPU_PHASE_BLIT) flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+  if (phase & GPU_PHASE_CLEAR) flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+  return flags;
+}
+
+static VkAccessFlags convertCache(gpu_cache cache) {
+  VkAccessFlags flags = 0;
+  if (cache & GPU_CACHE_INDIRECT) flags |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+  if (cache & GPU_CACHE_INDEX) flags |= VK_ACCESS_INDEX_READ_BIT;
+  if (cache & GPU_CACHE_VERTEX) flags |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+  if (cache & GPU_CACHE_UNIFORM) flags |= VK_ACCESS_UNIFORM_READ_BIT;
+  if (cache & GPU_CACHE_TEXTURE) flags |= VK_ACCESS_SHADER_READ_BIT;
+  if (cache & GPU_CACHE_STORAGE_READ) flags |= VK_ACCESS_SHADER_READ_BIT;
+  if (cache & GPU_CACHE_STORAGE_WRITE) flags |= VK_ACCESS_SHADER_WRITE_BIT;
+  if (cache & GPU_CACHE_DEPTH_READ) flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+  if (cache & GPU_CACHE_DEPTH_WRITE) flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+  if (cache & GPU_CACHE_BLEND_READ) flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+  if (cache & GPU_CACHE_BLEND_WRITE) flags |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  if (cache & GPU_CACHE_TRANSFER_READ) flags |= VK_ACCESS_TRANSFER_READ_BIT;
+  if (cache & GPU_CACHE_TRANSFER_WRITE) flags |= VK_ACCESS_TRANSFER_WRITE_BIT;
+  return flags;
 }
 
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata) {
