@@ -384,11 +384,15 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
 
 void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode) {
   gpu_scratchpad* pool = &state.scratchpad[mode];
-
-  uint32_t zone = state.tick[CPU] & TICK_MASK;
   uint32_t cursor = ALIGN(pool->cursor, align);
-  bool oversized = size > (1 << 26); // "Big" buffers don't pollute the scratchpad (heuristic)
 
+  // "Big" buffers don't pollute the scratchpad (heuristic)
+  bool oversized = size > (1 << 26);
+
+  // There's only 1 buffer per mode, split into a zone for each tick.
+  uint32_t zone = state.tick[CPU] & TICK_MASK;
+
+  // If the scratchpad buffer fills up, condemn it and allocate a bigger one to use.
   if (oversized || cursor + size > pool->size) {
     uint32_t bufferSize;
 
@@ -2129,6 +2133,8 @@ uint32_t gpu_begin() {
   VK(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
   VK(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return 0;
   state.tick[GPU] = MAX(state.tick[GPU], state.tick[CPU] - COUNTOF(state.ticks));
+  state.scratchpad[GPU_MAP_WRITE].cursor = 0;
+  state.scratchpad[GPU_MAP_READ].cursor = 0;
   state.streamCount = 0;
   expunge();
   return state.tick[CPU];
