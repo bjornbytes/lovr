@@ -1424,17 +1424,34 @@ void lovrPassSetProjection(Pass* pass, uint32_t index, float* projection) {
 }
 
 void lovrPassPush(Pass* pass, StackType stack) {
-  if (stack == STACK_TRANSFORM) {
-    pass->transform = pass->transforms[++pass->transformIndex];
-    lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "Transform stack overflow (more pushes than pops?)");
-    mat4_init(pass->transforms[pass->transformIndex], pass->transforms[pass->transformIndex - 1]);
+  switch (stack) {
+    case STACK_TRANSFORM:
+      pass->transform = pass->transforms[++pass->transformIndex];
+      lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "%s stack overflow (more pushes than pops?)", "Transform");
+      mat4_init(pass->transforms[pass->transformIndex], pass->transforms[pass->transformIndex - 1]);
+      break;
+    case STACK_PIPELINE:
+      pass->pipeline = &pass->pipelines[++pass->pipelineIndex];
+      lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack overflow (more pushes than pops?)", "Pipeline");
+      memcpy(pass->pipeline, &pass->pipelines[pass->pipelineIndex - 1], sizeof(Pipeline));
+      lovrRetain(pass->pipeline->shader);
+      break;
+    default: break;
   }
 }
 
 void lovrPassPop(Pass* pass, StackType stack) {
-  if (stack == STACK_TRANSFORM) {
-    pass->transform = pass->transforms[--pass->transformIndex];
-    lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "Transform stack underflow (more pops than pushes?)");
+  switch (stack) {
+    case STACK_TRANSFORM:
+      pass->transform = pass->transforms[--pass->transformIndex];
+      lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "%s stack underflow (more pops than pushes?)", "Transform");
+      break;
+    case STACK_PIPELINE:
+      lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
+      pass->pipeline = &pass->pipelines[--pass->pipelineIndex];
+      lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack underflow (more pops than pushes?)", "Pipeline");
+      break;
+    default: break;
   }
 }
 
