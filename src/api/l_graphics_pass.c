@@ -211,7 +211,7 @@ static int l_lovrPassSetCullMode(lua_State* L) {
 
 static int l_lovrPassSetDepthTest(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  CompareMode test = lua_isnoneornil(L, 2) ? COMPARE_NONE : luax_checkenum(L, 2, CompareMode, NULL);
+  CompareMode test = luax_checkcomparemode(L, 2);
   lovrPassSetDepthTest(pass, test);
   return 0;
 }
@@ -256,14 +256,10 @@ static int l_lovrPassSetShader(lua_State* L) {
 
 static int l_lovrPassSetStencilTest(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  if (lua_isnoneornil(L, 2)) {
-    lovrPassSetStencilTest(pass, COMPARE_NONE, 0, 0xff);
-  } else {
-    CompareMode test = luax_checkenum(L, 2, CompareMode, NULL);
-    uint8_t value = luaL_checkinteger(L, 3);
-    uint8_t mask = luaL_optinteger(L, 4, 0xff);
-    lovrPassSetStencilTest(pass, test, value, mask);
-  }
+  CompareMode test = luax_checkcomparemode(L, 2);
+  uint8_t value = lua_tointeger(L, 3);
+  uint8_t mask = luaL_optinteger(L, 4, 0xff);
+  lovrPassSetStencilTest(pass, test, value, mask);
   return 0;
 }
 

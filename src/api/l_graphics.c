@@ -447,6 +447,39 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
   return canvas;
 }
 
+uint32_t luax_checkcomparemode(lua_State* L, int index) {
+  size_t length;
+  const char* string = lua_tolstring(L, index, &length);
+
+  if (string && length <= 2) {
+    if (string[0] == '=' && (length == 1 || string[1] == '=')) {
+      return COMPARE_EQUAL;
+    }
+
+    if ((string[0] == '~' || string[0] == '!') && string[1] == '=') {
+      return COMPARE_NEQUAL;
+    }
+
+    if (string[0] == '<' && length == 1) {
+      return COMPARE_LESS;
+    }
+
+    if (string[0] == '<' && string[1] == '=') {
+      return COMPARE_LEQUAL;
+    }
+
+    if (string[0] == '>' && length == 1) {
+      return COMPARE_GREATER;
+    }
+
+    if (string[0] == '>' && string[1] == '=') {
+      return COMPARE_GEQUAL;
+    }
+  }
+
+  return luax_checkenum(L, index, CompareMode, "none");
+}
+
 static int l_lovrGraphicsInit(lua_State* L) {
   bool debug = false;
   bool vsync = false;
@@ -885,7 +918,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
   lua_pop(L, 1);
 
   lua_getfield(L, 1, "compare");
-  info.compare = luax_checkenum(L, -1, CompareMode, "none");
+  info.compare = luax_checkcomparemode(L, -1);
   lua_pop(L, 1);
 
   lua_getfield(L, 1, "anisotropy");
