@@ -551,6 +551,11 @@ typedef struct {
   uint32_t textureSizeCube;
   uint32_t textureLayers;
   uint32_t renderSize[3];
+  uint32_t uniformBuffersPerStage;
+  uint32_t storageBuffersPerStage;
+  uint32_t sampledTexturesPerStage;
+  uint32_t storageTexturesPerStage;
+  uint32_t samplersPerStage;
   uint32_t uniformBufferRange;
   uint32_t storageBufferRange;
   uint32_t uniformBufferAlign;

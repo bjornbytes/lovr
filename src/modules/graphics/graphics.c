@@ -20,6 +20,7 @@ uint32_t os_vk_create_surface(void* instance, void** surface);
 const char** os_vk_get_instance_extensions(uint32_t* count);
 
 #define MAX_FRAME_MEMORY (1 << 30)
+#define MAX_RESOURCES_PER_SHADER 32
 
 typedef struct {
   gpu_vertex_format gpu;
@@ -411,6 +412,12 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->renderSize[0] = state.limits.renderSize[0];
   limits->renderSize[1] = state.limits.renderSize[1];
   limits->renderSize[2] = state.limits.renderSize[2];
+  limits->uniformBuffersPerStage = MIN(state.limits.uniformBuffersPerStage - 2, MAX_RESOURCES_PER_SHADER);
+  limits->storageBuffersPerStage = MIN(state.limits.storageBuffersPerStage, MAX_RESOURCES_PER_SHADER);
+  limits->sampledTexturesPerStage = MIN(state.limits.sampledTexturesPerStage, MAX_RESOURCES_PER_SHADER);
+  limits->storageTexturesPerStage = MIN(state.limits.storageTexturesPerStage, MAX_RESOURCES_PER_SHADER);
+  limits->samplersPerStage = MIN(state.limits.samplersPerStage - 1, MAX_RESOURCES_PER_SHADER);
+  limits->resourcesPerShader = MAX_RESOURCES_PER_SHADER;
   limits->uniformBufferRange = state.limits.uniformBufferRange;
   limits->storageBufferRange = state.limits.storageBufferRange;
   limits->uniformBufferAlign = state.limits.uniformBufferAlign;
@@ -1109,6 +1116,10 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
       }
 
       uint32_t index = shader->resourceCount++;
+
+      if (shader->resourceCount > MAX_RESOURCES_PER_SHADER) {
+        lovrThrow("Shader resource count exceeds resourcesPerShader limit (%d)", MAX_RESOURCES_PER_SHADER);
+      }
 
       slots[index] = (gpu_slot) {
         .number = resource->binding,

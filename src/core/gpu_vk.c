@@ -900,7 +900,7 @@ bool gpu_bundle_pool_init(gpu_bundle_pool* pool, gpu_bundle_pool_info* info) {
     return false;
   }
 
-  VkDescriptorSetLayout layouts[256];
+  VkDescriptorSetLayout layouts[512];
   for (uint32_t i = 0; i < info->count; i+= COUNTOF(layouts)) {
     uint32_t chunk = MIN(info->count - i, COUNTOF(layouts));
 
@@ -1689,13 +1689,18 @@ bool gpu_init(gpu_config* config) {
 
     if (config->limits) {
       VkPhysicalDeviceLimits* limits = &properties2.properties.limits;
-      config->limits->textureSize2D = MIN(limits->maxImageDimension2D, UINT16_MAX);
-      config->limits->textureSize3D = MIN(limits->maxImageDimension3D, UINT16_MAX);
-      config->limits->textureSizeCube = MIN(limits->maxImageDimensionCube, UINT16_MAX);
-      config->limits->textureLayers = MIN(limits->maxImageArrayLayers, UINT16_MAX);
+      config->limits->textureSize2D = limits->maxImageDimension2D;
+      config->limits->textureSize3D = limits->maxImageDimension3D;
+      config->limits->textureSizeCube = limits->maxImageDimensionCube;
+      config->limits->textureLayers = limits->maxImageArrayLayers;
       config->limits->renderSize[0] = limits->maxFramebufferWidth;
       config->limits->renderSize[1] = limits->maxFramebufferHeight;
       config->limits->renderSize[2] = multiviewProperties.maxMultiviewViewCount;
+      config->limits->uniformBuffersPerStage = limits->maxPerStageDescriptorUniformBuffers;
+      config->limits->storageBuffersPerStage = limits->maxPerStageDescriptorStorageBuffers;
+      config->limits->sampledTexturesPerStage = limits->maxPerStageDescriptorSampledImages;
+      config->limits->storageTexturesPerStage = limits->maxPerStageDescriptorStorageImages;
+      config->limits->samplersPerStage = limits->maxPerStageDescriptorSamplers;
       config->limits->uniformBufferRange = limits->maxUniformBufferRange;
       config->limits->storageBufferRange = limits->maxStorageBufferRange;
       config->limits->uniformBufferAlign = limits->minUniformBufferOffsetAlignment;

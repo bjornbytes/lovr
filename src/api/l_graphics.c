@@ -545,6 +545,13 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.renderSize[2]), lua_rawseti(L, -2, 3);
   lua_setfield(L, -2, "renderSize");
 
+  lua_pushinteger(L, limits.uniformBuffersPerStage), lua_setfield(L, -2, "uniformBuffersPerStage");
+  lua_pushinteger(L, limits.storageBuffersPerStage), lua_setfield(L, -2, "storageBuffersPerStage");
+  lua_pushinteger(L, limits.sampledTexturesPerStage), lua_setfield(L, -2, "sampledTexturesPerStage");
+  lua_pushinteger(L, limits.storageTexturesPerStage), lua_setfield(L, -2, "storageTexturesPerStage");
+  lua_pushinteger(L, limits.samplersPerStage), lua_setfield(L, -2, "samplersPerStage");
+  lua_pushinteger(L, limits.resourcesPerShader), lua_setfield(L, -2, "resourcesPerShader");
+
   lua_pushinteger(L, limits.uniformBufferRange), lua_setfield(L, -2, "uniformBufferRange");
   lua_pushinteger(L, limits.storageBufferRange), lua_setfield(L, -2, "storageBufferRange");
   lua_pushinteger(L, limits.uniformBufferAlign), lua_setfield(L, -2, "uniformBufferAlign");
