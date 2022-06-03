@@ -321,7 +321,6 @@ if(NOT LOVR_BUILD_EXE)
   target_compile_definitions(lovr PUBLIC LOVR_OMIT_MAIN) # specifically for win32 WinMain
 endif()
 
-
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
 set_target_properties(lovr PROPERTIES C_STANDARD 11)
 set_target_properties(lovr PROPERTIES C_STANDARD_REQUIRED ON)
@@ -539,6 +538,9 @@ foreach(path ${LOVR_RESOURCES})
   file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
 endforeach()
 
+# Add a custom target that is always out of date so libraries are always moved
+add_custom_target(move_libraries ALL)
+
 # Platforms
 if(WIN32)
   target_sources(lovr PRIVATE src/core/os_win32.c)
@@ -561,7 +563,7 @@ if(WIN32)
 
   function(move_dll)
     if(TARGET ${ARGV0})
-      add_custom_command(TARGET lovr POST_BUILD
+      add_custom_command(TARGET move_libraries POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:${ARGV0}>
         $<TARGET_FILE_DIR:lovr>/$<TARGET_FILE_NAME:${ARGV0}>
@@ -606,13 +608,13 @@ elseif(APPLE)
     if(TARGET ${ARGV0})
       get_target_property(TARGET_TYPE ${ARGV0} TYPE)
       if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${ARGV0}>
           ${EXE_DIR}/$<TARGET_FILE_NAME:${ARGV0}>
         )
       else()
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
           ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
@@ -720,12 +722,13 @@ elseif(ANDROID)
 
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
-      add_custom_command(TARGET lovr POST_BUILD
+      add_custom_command(TARGET move_libraries POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${target}>
           raw/lib/${ANDROID_ABI}/$<TARGET_FILE_NAME:${target}>
       )
     endforeach()
+    add_dependencies(buildAPK move_libraries)
   endif()
 elseif(UNIX)
   if(LOVR_USE_LINUX_EGL)
@@ -744,13 +747,13 @@ elseif(UNIX)
     if(TARGET ${ARGV0})
       get_target_property(TARGET_TYPE ${ARGV0} TYPE)
       if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:${ARGV0}>
         )
       else()
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
