@@ -456,7 +456,8 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   }
 
   if (state.window) {
-    state.window->gpu = state.window->renderView = NULL;
+    state.window->gpu = NULL;
+    state.window->renderView = NULL;
   }
 
   // Allocate a few extra stream handles for any internal passes we sneak in
@@ -1308,13 +1309,15 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   if (canvas->depth.texture) {
     target.depth.texture = canvas->depth.texture->renderView;
-  } else {
+  } else if (canvas->depth.format) {
     target.depth.texture = getAttachment(target.size, main->depth, canvas->depth.format, false, canvas->samples);
   }
 
-  target.depth.load = target.depth.stencilLoad = (gpu_load_op) canvas->depth.load;
-  target.depth.save = canvas->depth.texture ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD;
-  target.depth.clear.depth = canvas->depth.clear;
+  if (target.depth.texture) {
+    target.depth.load = target.depth.stencilLoad = (gpu_load_op) canvas->depth.load;
+    target.depth.save = canvas->depth.texture ? GPU_SAVE_OP_SAVE : GPU_SAVE_OP_DISCARD;
+    target.depth.clear.depth = canvas->depth.clear;
+  }
 
   gpu_render_begin(pass->stream, &target);
 
