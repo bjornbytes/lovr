@@ -20,13 +20,21 @@ uint32_t os_vk_create_surface(void* instance, void** surface);
 const char** os_vk_get_instance_extensions(uint32_t* count);
 
 #define MAX_FRAME_MEMORY (1 << 30)
-#define MAX_RESOURCES_PER_SHADER 32
+#define MAX_SHADER_RESOURCES 32
 
 typedef struct {
   gpu_vertex_format gpu;
   uint64_t hash;
   uint32_t mask;
 } VertexFormat;
+
+typedef struct {
+  gpu_phase readPhase;
+  gpu_phase writePhase;
+  gpu_cache pendingReads;
+  gpu_cache pendingWrites;
+  uint32_t lastWriteIndex;
+} Sync;
 
 struct Buffer {
   uint32_t ref;
@@ -35,6 +43,7 @@ struct Buffer {
   gpu_buffer* gpu;
   BufferInfo info;
   VertexFormat format;
+  Sync sync;
 };
 
 struct Texture {
@@ -42,6 +51,7 @@ struct Texture {
   gpu_texture* gpu;
   gpu_texture* renderView;
   TextureInfo info;
+  Sync sync;
 };
 
 struct Sampler {
@@ -107,6 +117,14 @@ typedef struct {
   float color[4];
 } DrawData;
 
+typedef struct {
+  Sync* sync;
+  Buffer* buffer;
+  Texture* texture;
+  gpu_phase phase;
+  gpu_cache cache;
+} Access;
+
 struct Pass {
   uint32_t ref;
   PassInfo info;
@@ -130,6 +148,7 @@ struct Pass {
   gpu_binding builtins[3];
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
+  arr_t(Access) access;
 };
 
 typedef enum {
@@ -226,6 +245,7 @@ static struct {
 // Helpers
 
 static void* tempAlloc(size_t size);
+static void* tempGrow(void* p, size_t size);
 static void beginFrame(void);
 static gpu_stream* getTransfers(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
@@ -233,7 +253,9 @@ static gpu_bundle* getBundle(uint32_t layout);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
-static uint32_t findShaderSlot(Shader* shader, const char* name, size_t length);
+static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot);
+static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
+static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
 static void onMessage(void* context, const char* message, bool severe);
 
@@ -410,12 +432,12 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->renderSize[0] = state.limits.renderSize[0];
   limits->renderSize[1] = state.limits.renderSize[1];
   limits->renderSize[2] = state.limits.renderSize[2];
-  limits->uniformBuffersPerStage = MIN(state.limits.uniformBuffersPerStage - 2, MAX_RESOURCES_PER_SHADER);
-  limits->storageBuffersPerStage = MIN(state.limits.storageBuffersPerStage, MAX_RESOURCES_PER_SHADER);
-  limits->sampledTexturesPerStage = MIN(state.limits.sampledTexturesPerStage, MAX_RESOURCES_PER_SHADER);
-  limits->storageTexturesPerStage = MIN(state.limits.storageTexturesPerStage, MAX_RESOURCES_PER_SHADER);
-  limits->samplersPerStage = MIN(state.limits.samplersPerStage - 1, MAX_RESOURCES_PER_SHADER);
-  limits->resourcesPerShader = MAX_RESOURCES_PER_SHADER;
+  limits->uniformBuffersPerStage = MIN(state.limits.uniformBuffersPerStage - 2, MAX_SHADER_RESOURCES);
+  limits->storageBuffersPerStage = MIN(state.limits.storageBuffersPerStage, MAX_SHADER_RESOURCES);
+  limits->sampledTexturesPerStage = MIN(state.limits.sampledTexturesPerStage, MAX_SHADER_RESOURCES);
+  limits->storageTexturesPerStage = MIN(state.limits.storageTexturesPerStage, MAX_SHADER_RESOURCES);
+  limits->samplersPerStage = MIN(state.limits.samplersPerStage - 1, MAX_SHADER_RESOURCES);
+  limits->resourcesPerShader = MAX_SHADER_RESOURCES;
   limits->uniformBufferRange = state.limits.uniformBufferRange;
   limits->storageBufferRange = state.limits.storageBufferRange;
   limits->uniformBufferAlign = state.limits.uniformBufferAlign;
@@ -1120,8 +1142,8 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 
       uint32_t index = shader->resourceCount++;
 
-      if (shader->resourceCount > MAX_RESOURCES_PER_SHADER) {
-        lovrThrow("Shader resource count exceeds resourcesPerShader limit (%d)", MAX_RESOURCES_PER_SHADER);
+      if (shader->resourceCount > MAX_SHADER_RESOURCES) {
+        lovrThrow("Shader resource count exceeds resourcesPerShader limit (%d)", MAX_SHADER_RESOURCES);
       }
 
       lovrCheck(resource->binding < 32, "Max resource binding number is %d", 32 - 1);
@@ -1262,6 +1284,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->ref = 1;
   pass->info = *info;
   pass->stream = gpu_stream_begin(info->label);
+  arr_init(&pass->access, tempGrow);
 
   if (info->type == PASS_TRANSFER) {
     return pass;
@@ -1328,6 +1351,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   for (uint32_t i = 0; i < colorTextureCount; i++) {
     if (main->samples == 1 && canvas->samples > 1) {
+      lovrCheck(canvas->loads[i] != LOAD_KEEP, "When internal multisampling is used, render pass textures must be cleared");
       TextureFormat format = canvas->textures[i]->info.format;
       bool srgb = canvas->textures[i]->info.srgb;
       target.color[i].texture = getAttachment(target.size, main->depth, format, srgb, canvas->samples);
@@ -1342,10 +1366,16 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     target.color[i].clear[1] = lovrMathGammaToLinear(canvas->clears[i][1]);
     target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clears[i][2]);
     target.color[i].clear[3] = canvas->clears[i][2];
+
+    gpu_cache cache = GPU_CACHE_BLEND_WRITE | (canvas->loads[i] == LOAD_KEEP ? GPU_CACHE_BLEND_READ : 0);
+    trackTexture(pass, canvas->textures[i], GPU_PHASE_BLEND, cache);
   }
 
   if (canvas->depth.texture) {
     target.depth.texture = canvas->depth.texture->renderView;
+    gpu_phase phase = canvas->depth.load == LOAD_KEEP ? GPU_PHASE_DEPTH_EARLY : GPU_PHASE_DEPTH_LATE;
+    gpu_cache cache = GPU_CACHE_DEPTH_WRITE | (canvas->depth.load == LOAD_KEEP ? GPU_CACHE_DEPTH_READ : 0);
+    trackTexture(pass, canvas->depth.texture, phase, cache);
   } else if (canvas->depth.format) {
     target.depth.texture = getAttachment(target.size, main->depth, canvas->depth.format, false, canvas->samples);
   }
@@ -1428,11 +1458,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 }
 
 void lovrPassDestroy(void* ref) {
-  Pass* pass = ref;
-  for (uint32_t i = 0; i <= pass->pipelineIndex; i++) {
-    lovrRelease(pass->pipelines[i].shader, lovrShaderDestroy);
-    pass->pipelines[i].shader = NULL;
-  }
+  //
 }
 
 const PassInfo* lovrPassGetInfo(Pass* pass) {
@@ -1746,7 +1772,8 @@ void lovrPassSetWireframe(Pass* pass, bool wireframe) {
 void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent) {
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A Shader must be active to send resources");
-  slot = name ? findShaderSlot(shader, name, length) : slot;
+  ShaderResource* resource = findShaderResource(shader, name, length, slot);
+  slot = resource->binding;
 
   lovrCheck(shader->bufferMask & (1 << slot), "Trying to send a Buffer to slot %d, but the active Shader doesn't have a Buffer in that slot");
   lovrCheck(offset < buffer->size, "Buffer offset is past the end of the Buffer");
@@ -1774,12 +1801,27 @@ void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t sl
   pass->bindings[slot].buffer.extent = extent;
   pass->bindingMask |= (1 << slot);
   pass->bindingsDirty = true;
+
+  gpu_phase phase = 0;
+  gpu_cache cache = 0;
+
+  if (pass->info.type == PASS_RENDER) {
+    if (resource->stageMask & GPU_STAGE_VERTEX) phase |= GPU_PHASE_SHADER_VERTEX;
+    if (resource->stageMask & GPU_STAGE_FRAGMENT) phase |= GPU_PHASE_SHADER_FRAGMENT;
+    cache = (shader->storageMask & (1 << slot)) ? GPU_CACHE_STORAGE_READ : GPU_CACHE_UNIFORM;
+  } else {
+    phase = GPU_PHASE_SHADER_COMPUTE;
+    cache = (shader->storageMask & (1 << slot)) ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_UNIFORM; // TODO readonly
+  }
+
+  trackBuffer(pass, buffer, phase, cache);
 }
 
 void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture) {
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A Shader must be active to send resources");
-  slot = name ? findShaderSlot(shader, name, length) : slot;
+  ShaderResource* resource = findShaderResource(shader, name, length, slot);
+  slot = resource->binding;
 
   lovrCheck(shader->textureMask & (1 << slot), "Trying to send a Texture to slot %d, but the active Shader doesn't have a Texture in that slot");
 
@@ -1792,12 +1834,27 @@ void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t s
   pass->bindings[slot].texture = texture->gpu;
   pass->bindingMask |= (1 << slot);
   pass->bindingsDirty = true;
+
+  gpu_phase phase = 0;
+  gpu_cache cache = 0;
+
+  if (pass->info.type == PASS_RENDER) {
+    if (resource->stageMask & GPU_STAGE_VERTEX) phase |= GPU_PHASE_SHADER_VERTEX;
+    if (resource->stageMask & GPU_STAGE_FRAGMENT) phase |= GPU_PHASE_SHADER_FRAGMENT;
+    cache = (shader->storageMask & (1 << slot)) ? GPU_CACHE_STORAGE_READ : GPU_CACHE_TEXTURE;
+  } else {
+    phase = GPU_PHASE_SHADER_COMPUTE;
+    cache = (shader->storageMask & (1 << slot)) ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_TEXTURE; // TODO readonly
+  }
+
+  trackTexture(pass, texture, phase, cache);
 }
 
 void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler) {
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A Shader must be active to send resources");
-  slot = name ? findShaderSlot(shader, name, length) : slot;
+  ShaderResource* resource = findShaderResource(shader, name, length, slot);
+  slot = resource->binding;
 
   lovrCheck(shader->samplerMask & (1 << slot), "Trying to send a Sampler to slot %d, but the active Shader doesn't have a Sampler in that slot");
 
@@ -1974,6 +2031,7 @@ static void flushBuffers(Pass* pass, Draw* draw) {
     lovrCheck(draw->vertex.buffer->info.stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
     gpu_bind_vertex_buffers(pass->stream, &draw->vertex.buffer->gpu, &vertexOffset, 1, 1);
     pass->vertexBuffer = draw->vertex.buffer->gpu;
+    trackBuffer(pass, draw->vertex.buffer, GPU_PHASE_INPUT_VERTEX, GPU_CACHE_VERTEX);
   }
 
   if (!draw->index.buffer && draw->index.count > 0) {
@@ -1996,6 +2054,7 @@ static void flushBuffers(Pass* pass, Draw* draw) {
     gpu_index_type type = draw->index.buffer->info.stride == 4 ? GPU_INDEX_U32 : GPU_INDEX_U16;
     gpu_bind_index_buffer(pass->stream, draw->index.buffer->gpu, 0, type);
     pass->indexBuffer = draw->index.buffer->gpu;
+    trackBuffer(pass, draw->index.buffer, GPU_PHASE_INPUT_INDEX, GPU_CACHE_INDEX);
   }
 }
 
@@ -2016,6 +2075,7 @@ static void lovrPassDraw(Pass* pass, Draw* draw) {
   uint32_t id = pass->drawCount & 0xff;
 
   if (draw->indirect) {
+    trackBuffer(pass, draw->indirect, GPU_PHASE_INDIRECT, GPU_CACHE_INDIRECT);
     if (indexed) {
       gpu_draw_indirect_indexed(pass->stream, draw->indirect->gpu, draw->offset, count);
     } else {
@@ -2177,6 +2237,7 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   if (indirect) {
     lovrCheck(offset % 4 == 0, "Indirect compute offset must be a multiple of 4");
     lovrCheck(offset <= indirect->size - 12, "Indirect compute offset overflows the Buffer");
+    trackBuffer(pass, indirect, GPU_PHASE_INDIRECT, GPU_CACHE_INDIRECT);
     gpu_compute_indirect(pass->stream, indirect->gpu, offset);
   } else {
     gpu_compute(pass->stream, x, y, z);
@@ -2192,6 +2253,7 @@ void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t e
   lovrCheck(extent % 4 == 0, "Buffer clear extent must be a multiple of 4");
   lovrCheck(offset + extent <= buffer->size, "Buffer clear range goes past the end of the Buffer");
   gpu_clear_buffer(pass->stream, buffer->gpu, offset, extent);
+  trackBuffer(pass, buffer, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
@@ -2201,6 +2263,7 @@ void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t
   lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
   lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
   gpu_clear_texture(pass->stream, texture->gpu, value, layer, layerCount, level, levelCount);
+  trackTexture(pass, texture, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassCopyDataToBuffer(Pass* pass, void* data, Buffer* buffer, uint32_t offset, uint32_t extent) {
@@ -2210,6 +2273,7 @@ void lovrPassCopyDataToBuffer(Pass* pass, void* data, Buffer* buffer, uint32_t o
   gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
   void* pointer = gpu_map(scratchpad, extent, 4, GPU_MAP_WRITE);
   gpu_copy_buffers(pass->stream, scratchpad, buffer->gpu, 0, offset, extent);
+  trackBuffer(pass, buffer, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   memcpy(pointer, data, extent);
 }
 
@@ -2219,6 +2283,8 @@ void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t s
   lovrCheck(srcOffset + extent <= src->size, "Buffer copy range goes past the end of the source Buffer");
   lovrCheck(dstOffset + extent <= dst->size, "Buffer copy range goes past the end of the destination Buffer");
   gpu_copy_buffers(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+  trackBuffer(pass, src, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
+  trackBuffer(pass, dst, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[4]) {
@@ -2251,6 +2317,7 @@ void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint
     }
   }
   gpu_copy_buffer_texture(pass->stream, buffer, texture->gpu, 0, dstOffset, extent);
+  trackTexture(pass, texture, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
@@ -2266,6 +2333,8 @@ void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32
   checkTextureBounds(&src->info, srcOffset, extent);
   checkTextureBounds(&dst->info, dstOffset, extent);
   gpu_copy_textures(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+  trackTexture(pass, src, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
+  trackTexture(pass, dst, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter) {
@@ -2287,6 +2356,8 @@ void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4],
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_blit(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
+  trackTexture(pass, src, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ);
+  trackTexture(pass, dst, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count) {
@@ -2314,7 +2385,14 @@ void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count)
       volumetric ? MAX(texture->info.depth >> level, 1) : 1
     };
     gpu_blit(pass->stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
+    gpu_sync(pass->stream, &(gpu_barrier) {
+      .prev = GPU_PHASE_BLIT,
+      .next = GPU_PHASE_BLIT,
+      .flush = GPU_CACHE_TRANSFER_WRITE,
+      .invalidate = GPU_CACHE_TRANSFER_READ
+    }, 1);
   }
+  trackTexture(pass, texture, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
 }
 
 // Helpers
@@ -2329,6 +2407,13 @@ static void* tempAlloc(size_t size) {
   uint32_t cursor = ALIGN(state.allocator.cursor, 8);
   state.allocator.cursor = cursor + size;
   return state.allocator.memory + cursor;
+}
+
+static void* tempGrow(void* p, size_t size) {
+  if (size == 0) return NULL;
+  void* new = tempAlloc(size);
+  if (!p) return new;
+  return memcpy(new, p, size >> 1);
 }
 
 static void beginFrame(void) {
@@ -2538,14 +2623,47 @@ static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint
   lovrCheck(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
 }
 
-static uint32_t findShaderSlot(Shader* shader, const char* name, size_t length) {
-  uint32_t hash = (uint32_t) hash64(name, length);
-  for (uint32_t i = 0; i < shader->resourceCount; i++) {
-    if (shader->resources[i].hash == hash) {
-      return shader->resources[i].binding;
+static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot) {
+  if (name) {
+    uint32_t hash = (uint32_t) hash64(name, length);
+    for (uint32_t i = 0; i < shader->resourceCount; i++) {
+      if (shader->resources[i].hash == hash) {
+        return &shader->resources[i];
+      }
     }
+    lovrThrow("Shader has no variable named '%s'", name);
+  } else {
+    for (uint32_t i = 0; i < shader->resourceCount; i++) {
+      if (shader->resources[i].binding == slot) {
+        return &shader->resources[i];
+      }
+    }
+    lovrThrow("Shader has no variable in slot '%d'", slot);
   }
-  lovrThrow("Shader has no variable named '%s'", name);
+}
+
+static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache) {
+  Access access = {
+    .buffer = buffer,
+    .sync = &buffer->sync,
+    .phase = phase,
+    .cache = cache
+  };
+
+  arr_push(&pass->access, access);
+  lovrRetain(buffer);
+}
+
+static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
+  Access access = {
+    .texture = texture,
+    .sync = &texture->sync,
+    .phase = phase,
+    .cache = cache
+  };
+
+  arr_push(&pass->access, access);
+  lovrRetain(texture);
 }
 
 // Only an explicit set of SPIR-V capabilities are allowed
