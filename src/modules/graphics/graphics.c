@@ -224,6 +224,7 @@ static struct {
   bool active;
   uint32_t tick;
   Pass* transfers;
+  bool syncTextureUpload;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
@@ -310,9 +311,18 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     .label = "Default Buffer"
   }, NULL);
 
+  Image* image = lovrImageCreateRaw(4, 4, FORMAT_RGBA8);
+
+  float white[4] = { 1.f, 1.f, 1.f, 1.f };
+  for (uint32_t y = 0; y < 4; y++) {
+    for (uint32_t x = 0; x < 4; x++) {
+      lovrImageSetPixel(image, x, y, white);
+    }
+  }
+
   state.defaultTexture = lovrTextureCreate(&(TextureInfo) {
     .type = TEXTURE_2D,
-    .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
+    .usage = TEXTURE_SAMPLE,
     .format = FORMAT_RGBA8,
     .width = 4,
     .height = 4,
@@ -320,8 +330,12 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     .mipmaps = 1,
     .samples = 1,
     .srgb = true,
+    .imageCount = 1,
+    .images = &image,
     .label = "Default Texture"
   });
+
+  lovrRelease(image, lovrImageDestroy);
 
   state.defaultSampler = lovrSamplerCreate(&(SamplerInfo) {
     .min = FILTER_LINEAR,
@@ -332,7 +346,6 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
 
   gpu_stream* transfers = getTransfers();
   gpu_clear_buffer(transfers, state.defaultBuffer->gpu, 0, 4096);
-  gpu_clear_texture(transfers, state.defaultTexture->gpu, (float[4]) { 1.f, 1.f, 1.f, 1.f }, 0, ~0u, 0, ~0u);
 
   state.vertexFormats[VERTEX_SHAPE].gpu = (gpu_vertex_format) {
     .bufferCount = 2,
@@ -504,6 +517,15 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   if (state.transfers) {
     streams[extraPassCount++] = state.transfers->stream;
+
+    if (state.syncTextureUpload) {
+      gpu_barrier barrier;
+      barrier.prev = GPU_PHASE_COPY;
+      barrier.next = GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
+      barrier.flush = GPU_CACHE_TRANSFER_WRITE;
+      barrier.invalidate = GPU_CACHE_TEXTURE;
+      gpu_sync(state.transfers->stream, &barrier, 1);
+    }
   }
 
   for (uint32_t i = 0; i < count; i++) {
@@ -800,6 +822,10 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       lovrAssert(texture->renderView, "Out of memory");
       lovrAssert(gpu_texture_init_view(texture->renderView, &view), "Failed to create texture view");
     }
+  }
+
+  if (info->usage == TEXTURE_SAMPLE && info->imageCount > 0) {
+    state.syncTextureUpload = true;
   }
 
   return texture;
@@ -2427,6 +2453,7 @@ static void beginFrame(void) {
 
 static gpu_stream* getTransfers(void) {
   if (!state.transfers) {
+    state.syncTextureUpload = false;
     state.transfers = lovrGraphicsGetPass(&(PassInfo) {
       .type = PASS_TRANSFER,
       .label = "Internal Transfers"
@@ -2643,6 +2670,10 @@ static ShaderResource* findShaderResource(Shader* shader, const char* name, size
 }
 
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache) {
+  if (lovrBufferIsTemporary(buffer)) {
+    return; // Scratch buffers are write-only from CPU and read-only from GPU, no sync needed
+  }
+
   Access access = {
     .buffer = buffer,
     .sync = &buffer->sync,
@@ -2655,6 +2686,10 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
 }
 
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
+  if (texture->info.usage == TEXTURE_SAMPLE) {
+    return; // If the texture is sample-only, no sync needed (initial upload is handled manually)
+  }
+
   Access access = {
     .texture = texture,
     .sync = &texture->sync,
