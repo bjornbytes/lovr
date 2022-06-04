@@ -477,19 +477,19 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   switch (info->format) {
     case GPU_FORMAT_D16:
       texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-      memoryType = GPU_MEMORY_TEXTURE_D16;
+      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_D16 : GPU_MEMORY_TEXTURE_D16;
       break;
     case GPU_FORMAT_D24S8:
       texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-      memoryType = GPU_MEMORY_TEXTURE_D24S8;
+      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_D24S8 : GPU_MEMORY_TEXTURE_D24S8;
       break;
     case GPU_FORMAT_D32F:
       texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-      memoryType = GPU_MEMORY_TEXTURE_D32F;
+      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_D32F : GPU_MEMORY_TEXTURE_D32F;
       break;
     default:
       texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-      memoryType = GPU_MEMORY_TEXTURE_COLOR;
+      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_COLOR : GPU_MEMORY_TEXTURE_COLOR;
       break;
   }
 
@@ -543,7 +543,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   vkGetImageMemoryRequirements(state.device, texture->handle, &requirements);
   gpu_memory* memory = gpu_allocate(memoryType, requirements, &offset);
 
-  VK(vkBindImageMemory(state.device, texture->handle, memory->handle, 0), "Could not bind texture memory") {
+  VK(vkBindImageMemory(state.device, texture->handle, memory->handle, offset), "Could not bind texture memory") {
     vkDestroyImage(state.device, texture->handle, NULL);
     gpu_release(memory);
     return false;
