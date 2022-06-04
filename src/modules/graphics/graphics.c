@@ -143,8 +143,8 @@ typedef enum {
 
 typedef struct {
   struct { float x, y, z; } position;
-  uint32_t normal;
-  struct { uint16_t u, v; } uv;
+  struct { float x, y, z; } normal;
+  struct { float u, v; } uv;
 } ShapeVertex;
 
 typedef struct {
@@ -317,8 +317,8 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     .attributeCount = 3,
     .bufferStrides[1] = sizeof(ShapeVertex),
     .attributes[0] = { 1, 0, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
-    .attributes[1] = { 1, 1, offsetof(ShapeVertex, normal), GPU_TYPE_UN10x3 },
-    .attributes[2] = { 1, 2, offsetof(ShapeVertex, uv), GPU_TYPE_UN16x2 }
+    .attributes[1] = { 1, 1, offsetof(ShapeVertex, normal), GPU_TYPE_F32x3 },
+    .attributes[2] = { 1, 2, offsetof(ShapeVertex, uv), GPU_TYPE_F32x2 }
   };
 
   state.vertexFormats[VERTEX_POINT].gpu = (gpu_vertex_format) {
@@ -1936,6 +1936,7 @@ static void flushBuffers(Pass* pass, Draw* draw) {
   uint32_t vertexOffset = 0;
 
   if (!draw->vertex.buffer && draw->vertex.count > 0) {
+    lovrCheck(draw->vertex.count < UINT16_MAX, "This draw has too many vertices (max is 65534), try splitting it up into multiple draws or using a Buffer");
     uint32_t stride = state.vertexFormats[draw->vertex.format].gpu.bufferStrides[1];
     uint32_t size = draw->vertex.count * stride;
 
@@ -2039,20 +2040,12 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
   }
 }
 
-static inline uint32_t packNormal(float nx, float ny, float nz) {
-  uint32_t n = 0;
-  n |= (uint32_t) (nx * 1023.f) << 20;
-  n |= (uint32_t) (ny * 1023.f) << 10;
-  n |= (uint32_t) (nz * 1023.f) << 0;
-  return n;
-}
-
-void lovrPassPlane(Pass* pass, float* transform, uint32_t hsegments, uint32_t vsegments) {
+void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows) {
   ShapeVertex* vertices;
   uint16_t* indices;
 
-  uint32_t vertexCount = (hsegments + 1) * (vsegments + 1);
-  uint32_t indexCount = (hsegments * vsegments) * 6;
+  uint32_t vertexCount = (cols + 1) * (rows + 1);
+  uint32_t indexCount = (cols * rows) * 6;
 
   lovrPassDraw(pass, &(Draw) {
     .mode = GPU_DRAW_TRIANGLES,
@@ -2064,24 +2057,24 @@ void lovrPassPlane(Pass* pass, float* transform, uint32_t hsegments, uint32_t vs
     .index.count = indexCount
   });
 
-  for (uint32_t y = 0, v = 0; y <= vsegments; y++) {
-    for (uint32_t x = 0; x <= hsegments; x++, v++) {
-      vertices[v].position.x = -.5f + (float) x / hsegments;
-      vertices[v].position.y = .5f - (float) y / vsegments;
-      vertices[v].position.z = 0.f;
-      vertices[v].normal = packNormal(0.f, 0.f, 1.f);
-      vertices[v].uv.u = (uint16_t) ((float) x / hsegments * 65535.f);
-      vertices[v].uv.v = (uint16_t) ((float) y / vsegments * 65535.f);
+  for (uint32_t y = 0; y <= rows; y++) {
+    float v = y * (1.f / rows);
+    for (uint32_t x = 0; x <= cols; x++) {
+      float u = x * (1.f / cols);
+      *vertices++ = (ShapeVertex) {
+        .position = { u - .5f, .5f - v, 0.f },
+        .normal = { 0.f, 0.f, 1.f },
+        .uv = { u, v }
+      };
     }
   }
 
-  uint16_t skip = hsegments + 1;
-  for (uint32_t y = 0; y < vsegments; y++) {
-    for (uint32_t x = 0; x < hsegments; x++) {
-      uint16_t a = ((y + 0) * skip) + x + 0;
-      uint16_t b = ((y + 0) * skip) + x + 1;
-      uint16_t c = ((y + 1) * skip) + x + 0;
-      uint16_t d = ((y + 1) * skip) + x + 1;
+  for (uint32_t y = 0; y < rows; y++) {
+    for (uint32_t x = 0; x < cols; x++) {
+      uint16_t a = (y * (cols + 1)) + x;
+      uint16_t b = a + 1;
+      uint16_t c = a + cols + 1;
+      uint16_t d = a + cols + 2;
       uint16_t cell[] = { a, b, c, c, b, d };
       memcpy(indices, cell, sizeof(cell));
       indices += COUNTOF(cell);
@@ -2444,7 +2437,7 @@ static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint
   lovrCheck(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
 }
 
-uint32_t findShaderSlot(Shader* shader, const char* name, size_t length) {
+static uint32_t findShaderSlot(Shader* shader, const char* name, size_t length) {
   uint32_t hash = (uint32_t) hash64(name, length);
   for (uint32_t i = 0; i < shader->resourceCount; i++) {
     if (shader->resources[i].hash == hash) {

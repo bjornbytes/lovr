@@ -420,9 +420,9 @@ static int l_lovrPassPlane(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 2);
-  uint32_t hsegments = luax_optu32(L, index++, 1);
-  uint32_t vsegments = luax_optu32(L, index, hsegments);
-  lovrPassPlane(pass, transform, hsegments, vsegments);
+  uint32_t cols = luax_optu32(L, index++, 1);
+  uint32_t rows = luax_optu32(L, index, cols);
+  lovrPassPlane(pass, transform, cols, rows);
   return 0;
 }
 
