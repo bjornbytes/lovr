@@ -142,6 +142,12 @@ typedef enum {
 } DefaultFormat;
 
 typedef struct {
+  struct { float x, y, z; } position;
+  uint32_t normal;
+  struct { uint16_t u, v; } uv;
+} ShapeVertex;
+
+typedef struct {
   gpu_draw_mode mode;
   DefaultShader shader;
   float* transform;
@@ -305,6 +311,15 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   gpu_stream* transfers = getTransfers();
   gpu_clear_buffer(transfers, state.defaultBuffer->gpu, 0, 4096);
   gpu_clear_texture(transfers, state.defaultTexture->gpu, (float[4]) { 1.f, 1.f, 1.f, 1.f }, 0, ~0u, 0, ~0u);
+
+  state.vertexFormats[VERTEX_SHAPE].gpu = (gpu_vertex_format) {
+    .bufferCount = 2,
+    .attributeCount = 3,
+    .bufferStrides[1] = sizeof(ShapeVertex),
+    .attributes[0] = { 1, 0, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
+    .attributes[1] = { 1, 1, offsetof(ShapeVertex, normal), GPU_TYPE_UN10x3 },
+    .attributes[2] = { 1, 2, offsetof(ShapeVertex, uv), GPU_TYPE_UN16x2 }
+  };
 
   state.vertexFormats[VERTEX_POINT].gpu = (gpu_vertex_format) {
     .bufferCount = 2,
@@ -2019,6 +2034,56 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
   for (uint32_t i = 0; i < count - 1; i++) {
     indices[2 * i + 0] = i;
     indices[2 * i + 1] = i + 1;
+  }
+}
+
+static inline uint32_t packNormal(float nx, float ny, float nz) {
+  uint32_t n = 0;
+  n |= (uint32_t) (nx * 1023.f) << 20;
+  n |= (uint32_t) (ny * 1023.f) << 10;
+  n |= (uint32_t) (nz * 1023.f) << 0;
+  return n;
+}
+
+void lovrPassPlane(Pass* pass, float* transform, uint32_t hsegments, uint32_t vsegments) {
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  uint32_t vertexCount = (hsegments + 1) * (vsegments + 1);
+  uint32_t indexCount = (hsegments * vsegments) * 6;
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = GPU_DRAW_TRIANGLES,
+    .transform = transform,
+    .vertex.format = VERTEX_SHAPE,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  for (uint32_t y = 0, v = 0; y <= vsegments; y++) {
+    for (uint32_t x = 0; x <= hsegments; x++, v++) {
+      vertices[v].position.x = -.5f + (float) x / hsegments;
+      vertices[v].position.y = .5f - (float) y / vsegments;
+      vertices[v].position.z = 0.f;
+      vertices[v].normal = packNormal(0.f, 0.f, 1.f);
+      vertices[v].uv.u = (uint16_t) ((float) x / hsegments * 65535.f);
+      vertices[v].uv.v = (uint16_t) ((float) y / vsegments * 65535.f);
+    }
+  }
+
+  uint16_t skip = hsegments + 1;
+  for (uint32_t y = 0; y < vsegments; y++) {
+    for (uint32_t x = 0; x < hsegments; x++) {
+      uint16_t a = ((y + 0) * skip) + x + 0;
+      uint16_t b = ((y + 0) * skip) + x + 1;
+      uint16_t c = ((y + 1) * skip) + x + 0;
+      uint16_t d = ((y + 1) * skip) + x + 1;
+      uint16_t cell[] = { a, b, c, c, b, d };
+      memcpy(indices, cell, sizeof(cell));
+      indices += COUNTOF(cell);
+    }
   }
 }
 

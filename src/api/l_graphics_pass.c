@@ -416,6 +416,13 @@ static int l_lovrPassLine(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassPlane(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float transform[16];
+  int index = luax_readmat4(L, 2, transform, 2);
+  uint32_t hsegments = luax_optu32(L, index++, 1);
+  uint32_t vsegments = luax_optu32(L, index, hsegments);
+  lovrPassPlane(pass, transform, hsegments, vsegments);
   return 0;
 }
 
@@ -596,6 +603,7 @@ const luaL_Reg lovrPass[] = {
 
   { "points", l_lovrPassPoints },
   { "line", l_lovrPassLine },
+  { "plane", l_lovrPassPlane },
 
   { "clear", l_lovrPassClear },
   { "copy", l_lovrPassCopy },
