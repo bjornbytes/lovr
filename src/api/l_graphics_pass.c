@@ -426,6 +426,22 @@ static int l_lovrPassPlane(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassCube(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float transform[16];
+  luax_readmat4(L, 2, transform, 1);
+  lovrPassBox(pass, transform);
+  return 0;
+}
+
+static int l_lovrPassBox(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float transform[16];
+  luax_readmat4(L, 2, transform, 3);
+  lovrPassBox(pass, transform);
+  return 0;
+}
+
 static int l_lovrPassClear(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
 
@@ -604,6 +620,8 @@ const luaL_Reg lovrPass[] = {
   { "points", l_lovrPassPoints },
   { "line", l_lovrPassLine },
   { "plane", l_lovrPassPlane },
+  { "cube", l_lovrPassCube },
+  { "box", l_lovrPassBox },
 
   { "clear", l_lovrPassClear },
   { "copy", l_lovrPassCopy },

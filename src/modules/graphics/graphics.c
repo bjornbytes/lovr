@@ -2082,6 +2082,60 @@ void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows) {
   }
 }
 
+void lovrPassBox(Pass* pass, float* transform) {
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  ShapeVertex vertexData[] = {
+    { { -.5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 0.f } }, // Front
+    { { -.5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 1.f } },
+    { {  .5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 0.f } },
+    { {  .5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 1.f } },
+    { {  .5f,  .5f, -.5f }, {  1.f,  0.f,  0.f }, { 0.f, 1.f } }, // Right
+    { {  .5f,  .5f,  .5f }, {  1.f,  0.f,  0.f }, { 1.f, 1.f } },
+    { {  .5f, -.5f, -.5f }, {  1.f,  0.f,  0.f }, { 0.f, 0.f } },
+    { {  .5f, -.5f,  .5f }, {  1.f,  0.f,  0.f }, { 1.f, 0.f } },
+    { {  .5f, -.5f,  .5f }, {  0.f,  0.f,  1.f }, { 0.f, 0.f } }, // Back
+    { {  .5f,  .5f,  .5f }, {  0.f,  0.f,  1.f }, { 0.f, 1.f } },
+    { { -.5f, -.5f,  .5f }, {  0.f,  0.f,  1.f }, { 1.f, 0.f } },
+    { { -.5f,  .5f,  .5f }, {  0.f,  0.f,  1.f }, { 1.f, 1.f } },
+    { { -.5f,  .5f,  .5f }, { -1.f,  0.f,  0.f }, { 0.f, 1.f } }, // Left
+    { { -.5f,  .5f, -.5f }, { -1.f,  0.f,  0.f }, { 1.f, 1.f } },
+    { { -.5f, -.5f,  .5f }, { -1.f,  0.f,  0.f }, { 0.f, 0.f } },
+    { { -.5f, -.5f, -.5f }, { -1.f,  0.f,  0.f }, { 1.f, 0.f } },
+    { { -.5f, -.5f, -.5f }, {  0.f, -1.f,  0.f }, { 0.f, 0.f } }, // Bottom
+    { {  .5f, -.5f, -.5f }, {  0.f, -1.f,  0.f }, { 1.f, 0.f } },
+    { { -.5f, -.5f,  .5f }, {  0.f, -1.f,  0.f }, { 0.f, 1.f } },
+    { {  .5f, -.5f,  .5f }, {  0.f, -1.f,  0.f }, { 1.f, 1.f } },
+    { { -.5f,  .5f, -.5f }, {  0.f,  1.f,  0.f }, { 0.f, 1.f } }, // Top
+    { { -.5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 0.f, 0.f } },
+    { {  .5f,  .5f, -.5f }, {  0.f,  1.f,  0.f }, { 1.f, 1.f } },
+    { {  .5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 1.f, 0.f } }
+  };
+
+  uint16_t indexData[] = {
+    0,  1,   2,  2,  1,  3,
+    4,  5,   6,  6,  5,  7,
+    8,  9,  10, 10,  9, 11,
+    12, 13, 14, 14, 13, 15,
+    16, 17, 18, 18, 17, 19,
+    20, 21, 22, 22, 21, 23
+  };
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = GPU_DRAW_TRIANGLES,
+    .transform = transform,
+    .vertex.format = VERTEX_SHAPE,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = COUNTOF(vertexData),
+    .index.pointer = (void**) &indices,
+    .index.count = COUNTOF(indexData)
+  });
+
+  memcpy(vertices, vertexData, sizeof(vertexData));
+  memcpy(indices, indexData, sizeof(indexData));
+}
+
 void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent == 0) return;
   if (extent == ~0u) extent = buffer->size - offset;
