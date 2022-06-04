@@ -1257,7 +1257,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .samples = info->multisample.count,
     .resolve = resolve,
     .depth.format = convertFormat(info->depth.format, LINEAR),
-    .depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    .depth.layout = info->depth.format ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
     .depth.load = GPU_LOAD_OP_CLEAR,
     .depth.save = GPU_SAVE_OP_DISCARD
   };
@@ -2445,9 +2445,9 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
 
   VkSubpassDescription subpass = {
     .colorAttachmentCount = count,
-    .pColorAttachments = references + 0,
-    .pResolveAttachments = pass->resolve ? references + count : NULL,
-    .pDepthStencilAttachment = depth ? references + pass->count - 1 : NULL
+    .pColorAttachments = &references[0],
+    .pResolveAttachments = pass->resolve ? &references[count] : NULL,
+    .pDepthStencilAttachment = depth ? &references[pass->count - 1] : NULL
   };
 
   VkRenderPassMultiviewCreateInfo multiview = {
