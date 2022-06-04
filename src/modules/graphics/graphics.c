@@ -1265,6 +1265,8 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     return pass;
   }
 
+  // Validation
+
   Canvas* canvas = &info->canvas;
   const TextureInfo* main = canvas->textures[0] ? &canvas->textures[0]->info : &canvas->depth.texture->info;
   lovrCheck(canvas->textures[0] || canvas->depth.texture, "Render pass must have at least one color or depth texture");
@@ -1300,6 +1302,8 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     }
   }
 
+  // Render target
+
   gpu_canvas target = {
     .size = { main->width, main->height }
   };
@@ -1334,10 +1338,9 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     target.depth.clear.depth = canvas->depth.clear;
   }
 
-  gpu_render_begin(pass->stream, &target);
+  // Begin render pass
 
-  uint32_t offset = 0;
-  gpu_bind_vertex_buffers(pass->stream, &state.defaultBuffer->gpu, &offset, 0, 1);
+  gpu_render_begin(pass->stream, &target);
 
   float viewport[4] = { 0.f, 0.f, (float) main->width, (float) main->height };
   float depthRange[2] = { 0.f, 1.f };
@@ -1346,32 +1349,34 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   uint32_t scissor[4] = { 0, 0, main->width, main->height };
   gpu_set_scissor(pass->stream, scissor);
 
+  // The default Buffer (filled with zero) is always at slot #0, used for missing vertex attributes
+  uint32_t offset = 0;
+  gpu_bind_vertex_buffers(pass->stream, &state.defaultBuffer->gpu, &offset, 0, 1);
+
+  // Reset state
+
   pass->transform = pass->transforms[0];
   mat4_identity(pass->transform);
 
   pass->pipeline = &pass->pipelines[0];
-  memset(&pass->pipeline->info, 0, sizeof(pass->pipeline->info));
+  pass->pipeline->info = (gpu_pipeline_info) {
+    .colorCount = colorTextureCount,
+    .depth.format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format,
+    .multisample.count = canvas->samples,
+    .viewCount = main->depth,
+    .depth.test = GPU_COMPARE_LEQUAL,
+    .depth.write = true
+  };
 
-  pass->pipeline->info.colorCount = colorTextureCount;
   for (uint32_t i = 0; i < colorTextureCount; i++) {
     pass->pipeline->info.color[i].format = canvas->textures[i]->info.format;
     pass->pipeline->info.color[i].srgb = canvas->textures[i]->info.srgb;
+    pass->pipeline->info.color[i].mask = 0xf;
   }
 
-  pass->pipeline->info.depth.format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format;
-  pass->pipeline->info.viewCount = main->depth;
-  pass->pipeline->info.multisample.count = canvas->samples;
-
-  pass->pipeline->info.depth.test = GPU_COMPARE_LEQUAL;
-  pass->pipeline->info.depth.write = true;
-  pass->pipeline->info.color[0].mask = 0xf;
-  pass->pipeline->info.color[1].mask = 0xf;
-  pass->pipeline->info.color[2].mask = 0xf;
-  pass->pipeline->info.color[3].mask = 0xf;
-  pass->pipeline->color[0] = 1.f;
-  pass->pipeline->color[1] = 1.f;
-  pass->pipeline->color[2] = 1.f;
-  pass->pipeline->color[3] = 1.f;
+  float defaultColor[4] = { 1.f, 1.f, 1.f, 1.f };
+  memcpy(pass->pipeline->color, defaultColor, sizeof(defaultColor));
+  pass->pipeline->formatHash = 0;
   pass->pipeline->shader = NULL;
   pass->pipeline->dirty = true;
 
@@ -1383,12 +1388,9 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   pass->cameraCount = main->depth;
   pass->cameras = tempAlloc(pass->cameraCount * sizeof(Camera));
-
   for (uint32_t i = 0; i < pass->cameraCount; i++) {
     mat4_identity(pass->cameras[i].view);
-    float fov = 1.0f;
-    float aspect = (float) main->width / main->height;
-    mat4_perspective(pass->cameras[i].projection, .01f, 100.f, fov, aspect);
+    mat4_perspective(pass->cameras[i].projection, .01f, 100.f, 1.0f, (float) main->width / main->height);
   }
   pass->cameraDirty = true;
 
