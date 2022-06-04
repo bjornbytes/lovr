@@ -400,16 +400,21 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
 
 static int l_lovrPassPoints(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Buffer* buffer = luax_totype(L, 2, Buffer);
+  float* vertices;
+  uint32_t count = luax_getvertexcount(L, 2);
+  lovrPassPoints(pass, count, &vertices);
+  luax_readvertices(L, 2, vertices, count);
+  return 0;
+}
 
-  if (buffer || !lua_toboolean(L, 2)) {
-    //
-  } else {
-    float* vertices;
-    uint32_t count = luax_getvertexcount(L, 2);
-    lovrPassPoints(pass, count, &vertices);
-    luax_readvertices(L, 2, vertices, count);
-  }
+static int l_lovrPassLine(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float* vertices;
+  uint32_t count = luax_getvertexcount(L, 2);
+  lovrPassLine(pass, count, &vertices);
+  luax_readvertices(L, 2, vertices, count);
+  return 0;
+}
 
   return 0;
 }
@@ -590,6 +595,7 @@ const luaL_Reg lovrPass[] = {
   { "send", l_lovrPassSend },
 
   { "points", l_lovrPassPoints },
+  { "line", l_lovrPassLine },
 
   { "clear", l_lovrPassClear },
   { "copy", l_lovrPassCopy },

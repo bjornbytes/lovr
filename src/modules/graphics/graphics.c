@@ -1995,13 +1995,31 @@ static void lovrPassDraw(Pass* pass, Draw* draw) {
   pass->drawCount++;
 }
 
-void lovrPassPoints(Pass* pass, uint32_t count, float** vertices) {
+void lovrPassPoints(Pass* pass, uint32_t count, float** points) {
   lovrPassDraw(pass, &(Draw) {
     .mode = GPU_DRAW_POINTS,
     .vertex.format = VERTEX_POINT,
-    .vertex.pointer = (void**) vertices,
+    .vertex.pointer = (void**) points,
     .vertex.count = count
   });
+}
+
+void lovrPassLine(Pass* pass, uint32_t count, float** points) {
+  uint16_t* indices;
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = GPU_DRAW_LINES,
+    .vertex.format = VERTEX_POINT,
+    .vertex.pointer = (void**) points,
+    .vertex.count = count,
+    .index.pointer = (void**) &indices,
+    .index.count = 2 * (count - 1)
+  });
+
+  for (uint32_t i = 0; i < count - 1; i++) {
+    indices[2 * i + 0] = i;
+    indices[2 * i + 1] = i + 1;
+  }
 }
 
 void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent) {
