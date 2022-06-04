@@ -135,8 +135,8 @@ static int l_lovrPassOrigin(lua_State* L) {
 
 static int l_lovrPassTranslate(lua_State* L) {
   float translation[4];
-  Pass* pass = luax_checktype(L, 2, Pass);
-  luax_readvec3(L, 1, translation, NULL);
+  Pass* pass = luax_checktype(L, 1, Pass);
+  luax_readvec3(L, 2, translation, NULL);
   lovrPassTranslate(pass, translation);
   return 0;
 }
