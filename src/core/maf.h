@@ -608,7 +608,7 @@ MAF mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bot
 MAF mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float aspect) {
   float range = tanf(fovy * .5f) * clipNear;
   float sx = (2.f * clipNear) / (range * aspect + range * aspect);
-  float sy = clipNear / range;
+  float sy = -clipNear / range;
   float sz = -clipFar / (clipFar - clipNear);
   float pz = (-clipFar * clipNear) / (clipFar - clipNear);
   memset(m, 0, 16 * sizeof(float));
