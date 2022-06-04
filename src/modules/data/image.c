@@ -81,7 +81,7 @@ static size_t measure(uint32_t w, uint32_t h, TextureFormat format) {
 Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format) {
   lovrCheck(width > 0 && height > 0, "Image dimensions must be positive");
   lovrCheck(format < FORMAT_BC1, "Blank images cannot be compressed");
-  size_t size = measure(format, width, height);
+  size_t size = measure(width, height, format);
   void* data = malloc(size);
   Image* image = calloc(1, sizeof(Image));
   lovrAssert(image && data, "Out of memory");
@@ -178,7 +178,7 @@ void* lovrImageGetLayerData(Image* image, uint32_t level, uint32_t layer) {
 void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
-  size_t offset = measure(image->format, y * image->width + x, 1);
+  size_t offset = measure(y * image->width + x, 1, image->format);
   uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + offset;
   uint16_t* u16 = (uint16_t*) u8;
   float* f32 = (float*) u8;
@@ -799,7 +799,7 @@ static Image* loadDDS(Blob* blob) {
 
   size_t stride = 0;
   for (uint32_t i = 0, width = image->width, height = image->height; i < levels; i++) {
-    size_t size = measure(format, width, height);
+    size_t size = measure(width, height, format);
     lovrAssert(length >= size, "DDS file overflow");
     image->mipmaps[i] = (Mipmap) { data, size, 0 };
     width = MAX(width >> 1, 1);
