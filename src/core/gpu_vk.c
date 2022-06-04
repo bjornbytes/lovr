@@ -1492,6 +1492,14 @@ void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t 
   vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, 20);
 }
 
+void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z) {
+  vkCmdDispatch(stream->commands, x, y, z);
+}
+
+void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset) {
+  vkCmdDispatchIndirect(stream->commands, buffer->handle, buffer->offset + offset);
+}
+
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   vkCmdCopyBuffer(stream->commands, src->handle, dst->handle, 1, &(VkBufferCopy) {
     .srcOffset = src->offset + srcOffset,
