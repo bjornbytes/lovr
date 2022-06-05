@@ -2155,7 +2155,6 @@ void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows) {
   lovrPassDraw(pass, &(Draw) {
     .mode = GPU_DRAW_TRIANGLES,
     .transform = transform,
-    .vertex.format = VERTEX_SHAPE,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -2230,7 +2229,6 @@ void lovrPassBox(Pass* pass, float* transform) {
   lovrPassDraw(pass, &(Draw) {
     .mode = GPU_DRAW_TRIANGLES,
     .transform = transform,
-    .vertex.format = VERTEX_SHAPE,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = COUNTOF(vertexData),
     .index.pointer = (void**) &indices,
@@ -2239,6 +2237,45 @@ void lovrPassBox(Pass* pass, float* transform) {
 
   memcpy(vertices, vertexData, sizeof(vertexData));
   memcpy(indices, indexData, sizeof(indexData));
+}
+
+void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, uint32_t segments) {
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  if (fabsf(angle1 - angle2) >= 2.f * (float) M_PI) {
+    angle1 = 0.f;
+    angle2 = 2.f * (float) M_PI;
+  }
+
+  uint32_t vertexCount = segments + 2;
+  uint32_t indexCount = segments * 3;
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = GPU_DRAW_TRIANGLES,
+    .transform = transform,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  // Center
+  *vertices++ = (ShapeVertex) { { 0.f, 0.f, 0.f }, { 0.f, 0.f, 1.f }, { .5f, .5f } };
+
+  float angleShift = (angle2 - angle1) / segments;
+  for (uint32_t i = 0; i <= segments; i++) {
+    float theta = angle1 + i * angleShift;
+    float x = cosf(theta) * .5f;
+    float y = sinf(theta) * .5f;
+    *vertices++ = (ShapeVertex) { { x, y, 0.f }, { 0.f, 0.f, 1.f }, { x + .5f, .5f - y } };
+  }
+
+  for (uint32_t i = 0; i < segments; i++) {
+    uint16_t wedge[] = { 0, i + 1, i + 2 };
+    memcpy(indices, wedge, sizeof(wedge));
+    indices += COUNTOF(wedge);
+  }
 }
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
