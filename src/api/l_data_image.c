@@ -59,6 +59,15 @@ static int l_lovrImageGetBlob(lua_State* L) {
   return 1;
 }
 
+static int l_lovrImageGetPointer(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  uint32_t level = luax_optu32(L, 2, 1) - 1;
+  uint32_t layer = luax_optu32(L, 3, 1) - 1;
+  void* pointer = lovrImageGetLayerData(image, level, layer);
+  lua_pushlightuserdata(L, pointer);
+  return 1;
+}
+
 static int l_lovrImageGetWidth(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
   uint32_t width = lovrImageGetWidth(image, 0);
@@ -139,6 +148,7 @@ static int l_lovrImageEncode(lua_State* L) {
 
 const luaL_Reg lovrImage[] = {
   { "getBlob", l_lovrImageGetBlob },
+  { "getPointer", l_lovrImageGetPointer },
   { "getWidth", l_lovrImageGetWidth },
   { "getHeight", l_lovrImageGetHeight },
   { "getDimensions", l_lovrImageGetDimensions },
