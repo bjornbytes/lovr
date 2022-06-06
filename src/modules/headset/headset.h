@@ -107,6 +107,9 @@ typedef enum {
 
 typedef struct HeadsetInterface {
   HeadsetDriver driverType;
+  void (*getVulkanPhysicalDevice)(void* instance, uintptr_t physicalDevice);
+  uint32_t (*createVulkanInstance)(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
+  uint32_t (*createVulkanDevice)(void* instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
   bool (*init)(float supersample, float offset, uint32_t msaa, bool overlay);
   void (*start)(void);
   void (*destroy)(void);
@@ -132,8 +135,8 @@ typedef struct HeadsetInterface {
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(Device device, struct Model* model);
-  void (*renderTo)(void (*callback)(void*), void* userdata);
-  struct Texture* (*getMirrorTexture)(void);
+  struct Texture* (*getTexture)(void);
+  void (*submit)(void);
   bool (*isFocused)(void);
   double (*update)(void);
 } HeadsetInterface;

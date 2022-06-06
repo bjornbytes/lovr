@@ -135,16 +135,33 @@ function lovr.run()
     if lovr.headset then dt = lovr.headset.update() end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
-      if lovr.system.isWindowOpen() then lovr.mirror() end
+      local headset = lovr.headset and lovr.headset.getTexture()
+      if headset then
+        local pass = lovr.graphics.getPass('render', headset)
+        for i = 1, lovr.headset.getViewCount() do
+          pass:setViewPose(i, lovr.headset.getViewPose(i))
+          pass:setProjection(i, lovr.headset.getViewAngles(i))
+        end
+        if lovr.draw then lovr.draw(pass) end
+        lovr.graphics.submit(pass)
+      end
+      if lovr.system.isWindowOpen() then
+        lovr.mirror(pass)
+      end
     end
+    if lovr.headset then lovr.headset.submit() end
     if lovr.math then lovr.math.drain() end
   end
 end
 
-function lovr.mirror()
-  local pass = lovr.graphics.getPass('render', 'window')
-  lovr.draw(pass)
-  lovr.graphics.submit(pass)
+function lovr.mirror(pass)
+  if lovr.headset then
+    --
+  else
+    local pass = lovr.graphics.getPass('render', 'window')
+    lovr.draw(pass)
+    lovr.graphics.submit(pass)
+  end
 end
 
 local function formatTraceback(s)

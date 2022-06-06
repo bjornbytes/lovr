@@ -1,9 +1,14 @@
 #include "headset/headset.h"
 #include "data/blob.h"
+#include "data/image.h"
+#include "data/modelData.h"
 #include "event/event.h"
+#include "graphics/graphics.h"
+#include "core/maf.h"
 #include "core/os.h"
 #include "util.h"
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #if defined(_WIN32)
@@ -13,30 +18,18 @@
 #include <windows.h>
 #elif defined(__ANDROID__)
 #define XR_USE_PLATFORM_ANDROID
+struct ANativeActivity* os_get_activity(void);
 #include <android_native_app_glue.h>
-#include <EGL/egl.h>
 #include <jni.h>
-#elif defined(LOVR_LINUX_X11)
-#define XR_USE_PLATFORM_XLIB
-typedef unsigned long XID;
-typedef struct Display Display;
-typedef XID GLXFBConfig;
-typedef XID GLXDrawable;
-typedef XID GLXContext;
-#elif defined(LOVR_LINUX_EGL)
-#define XR_USE_PLATFORM_EGL
-#define EGL_NO_X11
-#include <EGL/egl.h>
 #endif
 
-#if defined(LOVR_GL)
-#define XR_USE_GRAPHICS_API_OPENGL
-#define GRAPHICS_EXTENSION "XR_KHR_opengl_enable"
-#elif defined(LOVR_GLES)
-#define XR_USE_GRAPHICS_API_OPENGL_ES
-#define GRAPHICS_EXTENSION "XR_KHR_opengl_es_enable"
-#else
-#error "Unsupported renderer"
+#ifdef LOVR_VK
+#define XR_USE_GRAPHICS_API_VULKAN
+uintptr_t gpu_vk_get_instance(void);
+uintptr_t gpu_vk_get_physical_device(void);
+uintptr_t gpu_vk_get_device(void);
+uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
+#include <vulkan/vulkan.h>
 #endif
 
 #define XR_NO_PROTOTYPES
@@ -46,27 +39,7 @@ typedef XID GLXContext;
 #define XR(f) handleResult(f, __FILE__, __LINE__)
 #define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
 #define SESSION_ACTIVE(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
-#define GL_SRGB8_ALPHA8 0x8C43
 #define MAX_IMAGES 4
-
-#if defined(_WIN32)
-HANDLE os_get_win32_window(void);
-HGLRC os_get_win32_context(void);
-#elif defined(__ANDROID__)
-struct ANativeActivity* os_get_activity(void);
-EGLDisplay os_get_egl_display(void);
-EGLContext os_get_egl_context(void);
-EGLConfig os_get_egl_config(void);
-#elif defined(LOVR_LINUX_X11)
-Display* os_get_x11_display(void);
-GLXDrawable os_get_glx_drawable(void);
-GLXContext os_get_glx_context(void);
-#elif defined(LOVR_LINUX_EGL)
-PFNEGLGETPROCADDRESSPROC os_get_egl_proc_addr(void);
-EGLDisplay os_get_egl_display(void);
-EGLContext os_get_egl_context(void);
-EGLConfig os_get_egl_config(void);
-#endif
 
 #define XR_FOREACH(X)\
   X(xrDestroyInstance)\
@@ -74,6 +47,9 @@ EGLConfig os_get_egl_config(void);
   X(xrResultToString)\
   X(xrGetSystem)\
   X(xrGetSystemProperties)\
+  X(xrCreateVulkanInstanceKHR)\
+  X(xrGetVulkanGraphicsDevice2KHR)\
+  X(xrCreateVulkanDeviceKHR)\
   X(xrCreateSession)\
   X(xrDestroySession)\
   X(xrCreateReferenceSpace)\
@@ -166,7 +142,7 @@ static struct {
   XrCompositionLayerProjection layers[1];
   XrCompositionLayerProjectionView layerViews[2];
   XrFrameState frameState;
-  Canvas* canvases[MAX_IMAGES];
+  Texture* textures[MAX_IMAGES];
   double lastDisplayTime;
   uint32_t imageIndex;
   uint32_t imageCount;
@@ -265,6 +241,45 @@ static XrHandTrackerEXT getHandTracker(Device device) {
   return *tracker;
 }
 
+static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice) {
+  XrVulkanGraphicsDeviceGetInfoKHR info = {
+    .type = XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR,
+    .systemId = state.system,
+    .vulkanInstance = (VkInstance) instance
+  };
+
+  XR(xrGetVulkanGraphicsDevice2KHR(state.instance, &info, (VkPhysicalDevice*) physicalDevice));
+}
+
+static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr) {
+  XrVulkanInstanceCreateInfoKHR info = {
+    .type = XR_TYPE_VULKAN_INSTANCE_CREATE_INFO_KHR,
+    .systemId = state.system,
+    .pfnGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) getInstanceProcAddr,
+    .vulkanCreateInfo = instanceCreateInfo,
+    .vulkanAllocator = allocator
+  };
+
+  VkResult result;
+  XR(xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result));
+  return result;
+}
+
+static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr) {
+  XrVulkanDeviceCreateInfoKHR info = {
+    .type = XR_TYPE_VULKAN_DEVICE_CREATE_INFO_KHR,
+    .systemId = state.system,
+    .pfnGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) getInstanceProcAddr,
+    .vulkanPhysicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device(),
+    .vulkanCreateInfo = deviceCreateInfo,
+    .vulkanAllocator = allocator
+  };
+
+  VkResult result;
+  XR(xrCreateVulkanDeviceKHR(state.instance, &info, (VkDevice*) device, &result));
+  return result;
+}
+
 static void openxr_destroy();
 
 static bool openxr_init(float supersample, float offset, uint32_t msaa, bool overlay) {
@@ -303,10 +318,9 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
 #ifdef __ANDROID__
       { "XR_KHR_android_create_instance", NULL, false },
 #endif
-#ifdef LOVR_LINUX_EGL
-      { "XR_MNDX_egl_enable", NULL, false },
+#ifdef LOVR_VK
+      { "XR_KHR_vulkan_enable2", NULL, false },
 #endif
-      { GRAPHICS_EXTENSION, NULL, false },
       { "XR_EXT_eye_gaze_interaction", &state.features.gaze, false },
       { "XR_EXT_hand_tracking", &state.features.handTracking, false },
       { "XR_FB_display_refresh_rate", &state.features.refreshRate, false },
@@ -768,56 +782,28 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
 
 static void openxr_start(void) {
   { // Session
-#if defined(LOVR_GL)
-    XrGraphicsRequirementsOpenGLKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR, NULL };
-    PFN_xrGetOpenGLGraphicsRequirementsKHR xrGetOpenGLGraphicsRequirementsKHR;
-    XR_LOAD(xrGetOpenGLGraphicsRequirementsKHR);
-    xrGetOpenGLGraphicsRequirementsKHR(state.instance, state.system, &requirements);
-    // TODO validate OpenGL versions, potentially in init
-#elif defined(LOVR_GLES)
-    XrGraphicsRequirementsOpenGLESKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR, NULL };
-    PFN_xrGetOpenGLESGraphicsRequirementsKHR xrGetOpenGLESGraphicsRequirementsKHR;
-    XR_LOAD(xrGetOpenGLESGraphicsRequirementsKHR);
-    xrGetOpenGLESGraphicsRequirementsKHR(state.instance, state.system, &requirements);
-    // TODO validate OpenGLES versions, potentially in init
+#ifdef LOVR_VK
+    XrGraphicsRequirementsVulkanKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR, NULL };
+    PFN_xrGetVulkanGraphicsRequirements2KHR xrGetVulkanGraphicsRequirements2KHR;
+    XR_LOAD(xrGetVulkanGraphicsRequirements2KHR);
+    XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements));
+    if (XR_VERSION_MAJOR(requirements.minApiVersionSupported) > 1 || XR_VERSION_MINOR(requirements.minApiVersionSupported) > 1) {
+      lovrThrow("OpenXR Vulkan version not supported");
+    }
+
+    uint32_t queueFamilyIndex, queueIndex;
+    gpu_vk_get_queue(&queueFamilyIndex, &queueIndex);
+
+    XrGraphicsBindingVulkanKHR graphicsBinding = {
+      .type = XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
+      .instance = (VkInstance) gpu_vk_get_instance(),
+      .physicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device(),
+      .device = (VkDevice) gpu_vk_get_device(),
+      .queueFamilyIndex = queueFamilyIndex,
+      .queueIndex = queueIndex
+    };
 #else
 #error "Unsupported renderer"
-#endif
-
-#if defined(_WIN32) && defined(LOVR_GL)
-    XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
-      .hDC = GetDC(os_get_win32_window()),
-      .hGLRC = os_get_win32_context()
-    };
-#elif defined(__ANDROID__) && defined(LOVR_GLES)
-    XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
-      .display = os_get_egl_display(),
-      .config = os_get_egl_config(),
-      .context = os_get_egl_context()
-    };
-#elif defined(LOVR_LINUX_X11)
-    XrGraphicsBindingOpenGLXlibKHR graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
-      .next = NULL,
-      .xDisplay = os_get_x11_display(),
-      .visualid = 0,
-      .glxFBConfig = 0,
-      .glxDrawable = os_get_glx_drawable(),
-      .glxContext = os_get_glx_context(),
-    };
-#elif defined(LOVR_LINUX_EGL)
-    XrGraphicsBindingEGLMNDX graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_EGL_MNDX,
-      .next = NULL,
-      .getProcAddress = os_get_egl_proc_addr(),
-      .display = os_get_egl_display(),
-      .config = os_get_egl_config(),
-      .context = os_get_egl_context(),
-    };
-#else
-#error "Unsupported OpenXR platform/graphics combination"
 #endif
 
     XrSessionCreateInfo info = {
@@ -891,47 +877,42 @@ static void openxr_start(void) {
   }
 
   { // Swapchain
-#if defined(XR_USE_GRAPHICS_API_OPENGL)
-    TextureType textureType = TEXTURE_2D;
-    uint32_t width = state.width * 2;
-    uint32_t arraySize = 1;
-    XrSwapchainImageOpenGLKHR images[MAX_IMAGES];
+#ifdef LOVR_VK
+    XrSwapchainImageVulkanKHR images[MAX_IMAGES];
     for (uint32_t i = 0; i < MAX_IMAGES; i++) {
-      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR;
-      images[i].next = NULL;
-    }
-#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-    TextureType textureType = TEXTURE_ARRAY;
-    uint32_t width = state.width;
-    uint32_t arraySize = 2;
-    XrSwapchainImageOpenGLESKHR images[MAX_IMAGES];
-    for (uint32_t i = 0; i < MAX_IMAGES; i++) {
-      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR;
+      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
       images[i].next = NULL;
     }
 #endif
 
     XrSwapchainCreateInfo info = {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
-      .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
-      .format = GL_SRGB8_ALPHA8,
-      .width = width,
+      .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT,
+      .format = VK_FORMAT_R8G8B8A8_SRGB,
+      .width = state.width,
       .height = state.height,
       .sampleCount = 1,
       .faceCount = 1,
-      .arraySize = arraySize,
+      .arraySize = 2,
       .mipCount = 1
     };
 
     XR(xrCreateSwapchain(state.session, &info, &state.swapchain));
     XR(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
 
-    CanvasFlags flags = { .depth = { true, false, FORMAT_D24S8 }, .stereo = true, .mipmaps = false, .msaa = state.msaa };
     for (uint32_t i = 0; i < state.imageCount; i++) {
-      Texture* texture = lovrTextureCreateFromHandle(images[i].image, textureType, arraySize, state.msaa);
-      state.canvases[i] = lovrCanvasCreate(state.width, state.height, flags);
-      lovrCanvasSetAttachments(state.canvases[i], &(Attachment) { texture, 0, 0 }, 1);
-      lovrRelease(texture, lovrTextureDestroy);
+      state.textures[i] = lovrTextureCreate(&(TextureInfo) {
+        .type = TEXTURE_ARRAY,
+        .format = FORMAT_RGBA8,
+        .srgb = true,
+        .width = state.width,
+        .height = state.height,
+        .depth = 2,
+        .mipmaps = 1,
+        .samples = 1,
+        .usage = TEXTURE_RENDER,
+        .handle = (uintptr_t) images[i].image
+      });
     }
 
     XrCompositionLayerFlags layerFlags = 0;
@@ -955,21 +936,16 @@ static void openxr_start(void) {
       .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 0 }
     };
 
-    // Copy the left view to the right view and offset either the viewport or array index
-    state.layerViews[1] = state.layerViews[0];
-#if defined(XR_USE_GRAPHICS_API_OPENGL)
-    state.layerViews[1].subImage.imageRect.offset.x += state.width;
-#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-    state.layerViews[1].subImage.imageArrayIndex = 1;
-#endif
+    state.layerViews[1] = (XrCompositionLayerProjectionView) {
+      .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+      .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 1 }
+    };
   }
-
-  os_window_set_vsync(0);
 }
 
 static void openxr_destroy(void) {
   for (uint32_t i = 0; i < state.imageCount; i++) {
-    lovrRelease(state.canvases[i], lovrCanvasDestroy);
+    lovrRelease(state.textures[i], lovrTextureDestroy);
   }
 
   for (size_t i = 0; i < MAX_ACTIONS; i++) {
@@ -1104,7 +1080,7 @@ static const float* openxr_getBoundsGeometry(uint32_t* count) {
   return NULL;
 }
 
-static bool openxr_getPose(Device device, vec3 position, quat orientation) {
+static bool openxr_getPose(Device device, float* position, float* orientation) {
   if (!state.spaces[device]) {
     return false;
   }
@@ -1179,7 +1155,7 @@ static bool openxr_getPose(Device device, vec3 position, quat orientation) {
   return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
 }
 
-static bool openxr_getVelocity(Device device, vec3 linearVelocity, vec3 angularVelocity) {
+static bool openxr_getVelocity(Device device, float* linearVelocity, float* angularVelocity) {
   if (!state.spaces[device]) {
     return false;
   }
@@ -1563,7 +1539,7 @@ static struct ModelData* openxr_newModelData(Device device, bool animated) {
 }
 
 static bool openxr_animate(Device device, struct Model* model) {
-  XrHandTrackerEXT tracker = getHandTracker(device);
+  /*XrHandTrackerEXT tracker = getHandTracker(device);
 
   if (!tracker) {
     return false;
@@ -1643,54 +1619,60 @@ static bool openxr_animate(Device device, struct Model* model) {
 
       lovrModelPose(model, i, position, orientation, 1.f);
     }
-  }
+  }*/
 
   return true;
 }
 
-static void openxr_renderTo(void (*callback)(void*), void* userdata) {
+static Texture* openxr_getTexture(void) {
+  if (!SESSION_ACTIVE(state.sessionState)) {
+    return NULL;
+  }
+
+  if (state.hasImage) {
+    return state.textures[state.imageIndex];
+  }
+
+  XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
+  XR(xrBeginFrame(state.session, &beginfo));
+
+  XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
+  XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));
+  XR(xrWaitSwapchainImage(state.swapchain, &waitInfo));
+
+  uint32_t count;
+  XrView views[2];
+  getViews(views, &count);
+  state.layerViews[0].pose = views[0].pose;
+  state.layerViews[0].fov = views[0].fov;
+  state.layerViews[1].pose = views[1].pose;
+  state.layerViews[1].fov = views[1].fov;
+  state.hasImage = true;
+
+  return state.textures[state.imageIndex];
+}
+
+static void openxr_submit(void) {
   if (!SESSION_ACTIVE(state.sessionState)) {
     state.waited = false;
     return;
   }
 
-  XrFrameBeginInfo beginInfo = {
-    .type = XR_TYPE_FRAME_BEGIN_INFO
-  };
-
   XrFrameEndInfo endInfo = {
     .type = XR_TYPE_FRAME_END_INFO,
     .displayTime = state.frameState.predictedDisplayTime,
     .environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE,
-    .layers = (const XrCompositionLayerBaseHeader*[1]) { (XrCompositionLayerBaseHeader*) &state.layers[0] }
+    .layers = (const XrCompositionLayerBaseHeader*[1]) { (XrCompositionLayerBaseHeader*) &state.layers[0] },
+    .layerCount = state.hasImage ? 1 : 0
   };
 
-  XR(xrBeginFrame(state.session, &beginInfo));
-
-  if (state.frameState.shouldRender) {
-    if (state.hasImage) {
-      XR(xrReleaseSwapchainImage(state.swapchain, NULL));
-    }
-
-    XrSwapchainImageWaitInfo waitInfo = {
-      .type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO,
-      .timeout = XR_INFINITE_DURATION
-    };
-
-    XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));
-    XR(xrWaitSwapchainImage(state.swapchain, &waitInfo));
-    state.hasImage = true;
-
+  if (state.hasImage) {
     XR(xrReleaseSwapchainImage(state.swapchain, NULL));
     state.hasImage = false;
   }
 
   XR(xrEndFrame(state.session, &endInfo));
   state.waited = false;
-}
-
-static Texture* openxr_getMirrorTexture(void) {
-  return NULL;
 }
 
 static bool openxr_isFocused(void) {
@@ -1771,6 +1753,9 @@ static double openxr_update(void) {
 
 HeadsetInterface lovrHeadsetOpenXRDriver = {
   .driverType = DRIVER_OPENXR,
+  .getVulkanPhysicalDevice = openxr_getVulkanPhysicalDevice,
+  .createVulkanInstance = openxr_createVulkanInstance,
+  .createVulkanDevice = openxr_createVulkanDevice,
   .init = openxr_init,
   .start = openxr_start,
   .destroy = openxr_destroy,
@@ -1796,8 +1781,8 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .vibrate = openxr_vibrate,
   .newModelData = openxr_newModelData,
   .animate = openxr_animate,
-  .renderTo = openxr_renderTo,
-  .getMirrorTexture = openxr_getMirrorTexture,
+  .getTexture = openxr_getTexture,
+  .submit = openxr_submit,
   .isFocused = openxr_isFocused,
   .update = openxr_update
 };

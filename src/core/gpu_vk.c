@@ -1679,7 +1679,11 @@ bool gpu_init(gpu_config* config) {
       .ppEnabledExtensionNames = extensions
     };
 
-    VK(vkCreateInstance(&instanceInfo, NULL, &state.instance), "Instance creation failed") return gpu_destroy(), false;
+    if (state.config.vk.createInstance) {
+      VK(state.config.vk.createInstance(&instanceInfo, NULL, (uintptr_t) &state.instance, (void*) vkGetInstanceProcAddr), "Instance creation failed") return gpu_destroy(), false;
+    } else {
+      VK(vkCreateInstance(&instanceInfo, NULL, &state.instance), "Instance creation failed") return gpu_destroy(), false;
+    }
 
     GPU_FOREACH_INSTANCE(GPU_LOAD_INSTANCE);
 
@@ -1701,8 +1705,12 @@ bool gpu_init(gpu_config* config) {
   }
 
   { // Device
-    uint32_t deviceCount = 1;
-    VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "Physical device enumeration failed") return gpu_destroy(), false;
+    if (state.config.vk.getPhysicalDevice) {
+      state.config.vk.getPhysicalDevice(state.instance, (uintptr_t) &state.adapter);
+    } else {
+      uint32_t deviceCount = 1;
+      VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "Physical device enumeration failed") return gpu_destroy(), false;
+    }
 
     VkPhysicalDeviceMultiviewProperties multiviewProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES };
     VkPhysicalDeviceSubgroupProperties subgroupProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, .pNext = &multiviewProperties };
@@ -2213,6 +2221,22 @@ bool gpu_finished(uint32_t tick) {
 
 void gpu_wait() {
   vkDeviceWaitIdle(state.device);
+}
+
+uintptr_t gpu_vk_get_instance() {
+  return (uintptr_t) state.instance;
+}
+
+uintptr_t gpu_vk_get_physical_device() {
+  return (uintptr_t) state.adapter;
+}
+
+uintptr_t gpu_vk_get_device() {
+  return (uintptr_t) state.device;
+}
+
+uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex) {
+  return *queueFamilyIndex = state.queueFamilyIndex, *queueIndex = 0, (uintptr_t) state.queue;
 }
 
 // Helpers

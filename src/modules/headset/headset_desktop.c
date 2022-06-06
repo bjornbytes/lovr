@@ -84,19 +84,19 @@ static double desktop_getDeltaTime(void) {
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   int w, h;
   os_window_get_fbsize(&w, &h);
-  *width = (uint32_t) w / 2;
+  *width = (uint32_t) w;
   *height = (uint32_t) h;
 }
 
 static uint32_t desktop_getViewCount(void) {
-  return 2;
+  return 1;
 }
 
 static bool desktop_getViewPose(uint32_t view, float* position, float* orientation) {
   vec3_init(position, state.position);
   quat_fromMat4(orientation, state.headTransform);
   position[1] += state.offset;
-  return view < 2;
+  return view == 0;
 }
 
 static bool desktop_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
@@ -104,12 +104,12 @@ static bool desktop_getViewAngles(uint32_t view, float* left, float* right, floa
   uint32_t width, height;
   desktop_getDisplayDimensions(&width, &height);
   aspect = (float) width / height;
-  fov = 67.f * (float) M_PI / 180.f * .5f;
-  *left = fov * aspect;
-  *right = fov * aspect;
+  fov = .5f;
+  *left = atanf(tanf(fov) * aspect);
+  *right = atanf(tanf(fov) * aspect);
   *up = fov;
   *down = fov;
-  return view < 2;
+  return view == 0;
 }
 
 static void desktop_getClipDistance(float* clipNear, float* clipFar) {
@@ -188,7 +188,11 @@ static bool desktop_animate(Device device, struct Model* model) {
   return false;
 }
 
-static void desktop_renderTo(void (*callback)(void*), void* userdata) {
+static Texture* desktop_getTexture(void) {
+  return lovrGraphicsGetWindowTexture();
+}
+
+static void desktop_submit(void) {
   //
 }
 
@@ -214,7 +218,7 @@ static double desktop_update(void) {
 
   int width, height;
   double mx, my;
-  os_window_get_size(&width, &height);
+  os_window_get_fbsize(&width, &height);
   os_get_mouse_position(&mx, &my);
 
   double aspect = (width > 0 && height > 0) ? ((double) width / height) : 1.;
@@ -315,7 +319,8 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .vibrate = desktop_vibrate,
   .newModelData = desktop_newModelData,
   .animate = desktop_animate,
-  .renderTo = desktop_renderTo,
+  .getTexture = desktop_getTexture,
+  .submit = desktop_submit,
   .isFocused = desktop_isFocused,
   .update = desktop_update
 };

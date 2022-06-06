@@ -1,6 +1,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "headset/headset.h"
 #include "math/math.h"
 #include "core/gpu.h"
 #include "core/maf.h"
@@ -281,6 +282,14 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     config.vk.createSurface = os_vk_create_surface;
     config.vk.surface = true;
     config.vk.vsync = vsync;
+  }
+#endif
+
+#if defined LOVR_VK && !defined LOVR_DISABLE_HEADSET
+  if (lovrHeadsetInterface) {
+    config.vk.getPhysicalDevice = lovrHeadsetInterface->getVulkanPhysicalDevice;
+    config.vk.createInstance = lovrHeadsetInterface->createVulkanInstance;
+    config.vk.createDevice = lovrHeadsetInterface->createVulkanDevice;
   }
 #endif
 

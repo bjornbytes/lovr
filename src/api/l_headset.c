@@ -1,6 +1,7 @@
 #include "api.h"
 #include "headset/headset.h"
 #include "data/modelData.h"
+#include "graphics/graphics.h"
 #include "core/maf.h"
 #include <lua.h>
 #include <lauxlib.h>
@@ -65,13 +66,6 @@ StringEntry lovrDeviceAxis[] = {
   [AXIS_GRIP] = ENTRY("grip"),
   { 0 }
 };
-
-static void renderHelper(void* userdata) {
-  lua_State* L = userdata;
-  if (lua_isfunction(L, -1)) {
-    lua_call(L, 0, 0);
-  }
-}
 
 static Device luax_optdevice(lua_State* L, int index) {
   const char* str = luaL_optstring(L, 1, "head");
@@ -468,9 +462,14 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetRenderTo(lua_State* L) {
-  lua_settop(L, 1);
-  lovrHeadsetInterface->renderTo(renderHelper, L);
+static int l_lovrHeadsetGetTexture(lua_State* L) {
+  Texture* texture = lovrHeadsetInterface->getTexture();
+  luax_pushtype(L, Texture, texture);
+  return 1;
+}
+
+static int l_lovrHeadsetSubmit(lua_State* L) {
+  lovrHeadsetInterface->submit();
   return 0;
 }
 
@@ -498,10 +497,6 @@ static int l_lovrHeadsetGetTime(lua_State* L) {
 static int l_lovrHeadsetGetDeltaTime(lua_State* L) {
   lua_pushnumber(L, lovrHeadsetInterface->getDeltaTime());
   return 1;
-}
-
-static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
-  return 0; // TODO
 }
 
 static int l_lovrHeadsetGetHands(lua_State* L) {
@@ -554,16 +549,16 @@ static const luaL_Reg lovrHeadset[] = {
   { "wasReleased", l_lovrHeadsetWasReleased },
   { "isTouched", l_lovrHeadsetIsTouched },
   { "getAxis", l_lovrHeadsetGetAxis },
+  { "getSkeleton", l_lovrHeadsetGetSkeleton },
   { "vibrate", l_lovrHeadsetVibrate },
   { "newModel", l_lovrHeadsetNewModel },
   { "animate", l_lovrHeadsetAnimate },
-  { "getSkeleton", l_lovrHeadsetGetSkeleton },
-  { "renderTo", l_lovrHeadsetRenderTo },
+  { "getTexture", l_lovrHeadsetGetTexture },
+  { "submit", l_lovrHeadsetSubmit },
   { "isFocused", l_lovrHeadsetIsFocused },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
   { "getDeltaTime", l_lovrHeadsetGetDeltaTime },
-  { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
   { "getHands", l_lovrHeadsetGetHands },
   { NULL, NULL }
 };
