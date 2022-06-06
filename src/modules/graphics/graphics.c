@@ -109,6 +109,9 @@ typedef struct {
   Shader* shader;
   uint64_t formatHash;
   gpu_pipeline_info info;
+  float viewport[4];
+  float depthRange[2];
+  uint32_t scissor[4];
   bool dirty;
 } Pipeline;
 
@@ -1425,13 +1428,6 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   gpu_render_begin(pass->stream, &target);
 
-  float viewport[4] = { 0.f, 0.f, (float) main->width, (float) main->height };
-  float depthRange[2] = { 0.f, 1.f };
-  gpu_set_viewport(pass->stream, viewport, depthRange);
-
-  uint32_t scissor[4] = { 0, 0, main->width, main->height };
-  gpu_set_scissor(pass->stream, scissor);
-
   // The default Buffer (filled with zero) is always at slot #0, used for missing vertex attributes
   uint32_t offset = 0;
   gpu_bind_vertex_buffers(pass->stream, &state.defaultBuffer->gpu, &offset, 0, 1);
@@ -1488,6 +1484,12 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   pass->vertexBuffer = NULL;
   pass->indexBuffer = NULL;
+
+  float viewport[6] = { 0.f, 0.f, (float) main->width, (float) main->height, 0.f, 1.f };
+  lovrPassSetViewport(pass, viewport, viewport + 4);
+
+  uint32_t scissor[4] = { 0, 0, main->width, main->height };
+  lovrPassSetScissor(pass, scissor);
 
   return pass;
 }
@@ -1549,6 +1551,8 @@ void lovrPassPop(Pass* pass, StackType stack) {
       lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
       pass->pipeline = &pass->pipelines[--pass->pipelineIndex];
       lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack underflow (more pops than pushes?)", "Pipeline");
+      gpu_set_viewport(pass->stream, pass->pipeline->viewport, pass->pipeline->depthRange);
+      gpu_set_scissor(pass->stream, pass->pipeline->scissor);
       break;
     default: break;
   }
@@ -1697,6 +1701,11 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
   }
 }
 
+void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]) {
+  gpu_set_scissor(pass->stream, scissor);
+  memcpy(pass->pipeline->scissor, scissor, 4 * sizeof(uint32_t));
+}
+
 void lovrPassSetShader(Pass* pass, Shader* shader) {
   Shader* previous = pass->pipeline->shader;
   if (shader == previous) return;
@@ -1790,6 +1799,12 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
   pass->pipeline->info.stencil.writeMask = mask;
   if (hasReplace) pass->pipeline->info.stencil.value = value;
   pass->pipeline->dirty = true;
+}
+
+void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]) {
+  gpu_set_viewport(pass->stream, viewport, depthRange);
+  memcpy(pass->pipeline->viewport, viewport, 4 * sizeof(float));
+  memcpy(pass->pipeline->depthRange, depthRange, 2 * sizeof(float));
 }
 
 void lovrPassSetWinding(Pass* pass, Winding winding) {

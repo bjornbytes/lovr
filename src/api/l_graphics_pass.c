@@ -238,6 +238,17 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSetScissor(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t scissor[4];
+  scissor[0] = luax_checku32(L, 2);
+  scissor[1] = luax_checku32(L, 3);
+  scissor[2] = luax_checku32(L, 4);
+  scissor[3] = luax_checku32(L, 5);
+  lovrPassSetScissor(pass, scissor);
+  return 0;
+}
+
 static int l_lovrPassSetShader(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   switch (lua_type(L, 2)) {
@@ -285,6 +296,20 @@ static int l_lovrPassSetStencilWrite(lua_State* L) {
     uint8_t mask = luaL_optinteger(L, 4, 0xff);
     lovrPassSetStencilWrite(pass, actions, value, mask);
   }
+  return 0;
+}
+
+static int l_lovrPassSetViewport(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float viewport[4];
+  float depthRange[2];
+  viewport[0] = luax_checkfloat(L, 2);
+  viewport[1] = luax_checkfloat(L, 3);
+  viewport[2] = luax_checkfloat(L, 4);
+  viewport[3] = luax_checkfloat(L, 5);
+  depthRange[0] = luax_optfloat(L, 6, 0.f);
+  depthRange[1] = luax_optfloat(L, 7, 1.f);
+  lovrPassSetViewport(pass, viewport, depthRange);
   return 0;
 }
 
@@ -643,9 +668,11 @@ const luaL_Reg lovrPass[] = {
   { "setDepthWrite", l_lovrPassSetDepthWrite },
   { "setDepthOffset", l_lovrPassSetDepthOffset },
   { "setDepthClamp", l_lovrPassSetDepthClamp },
+  { "setScissor", l_lovrPassSetScissor },
   { "setShader", l_lovrPassSetShader },
   { "setStencilTest", l_lovrPassSetStencilTest },
   { "setStencilWrite", l_lovrPassSetStencilWrite },
+  { "setViewport", l_lovrPassSetViewport },
   { "setWinding", l_lovrPassSetWinding },
   { "setWireframe", l_lovrPassSetWireframe },
 
