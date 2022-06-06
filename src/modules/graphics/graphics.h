@@ -388,6 +388,7 @@ void lovrPassSetWireframe(Pass* pass, bool wireframe);
 void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture);
 void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler);
+void lovrPassSendValue(Pass* pass, const char* name, size_t length, void** data, FieldType* type);
 void lovrPassPoints(Pass* pass, uint32_t count, float** vertices);
 void lovrPassLine(Pass* pass, uint32_t count, float** vertices);
 void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows);

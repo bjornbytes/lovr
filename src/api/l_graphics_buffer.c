@@ -61,7 +61,7 @@ typedef union {
   float* f32;
 } FieldPointer;
 
-static void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
+void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
   FieldPointer p = { .raw = data };
   if (lua_isuserdata(L, index)) {
     VectorType vectorType;

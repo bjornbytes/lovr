@@ -1889,6 +1889,22 @@ void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t s
   pass->bindingsDirty = true;
 }
 
+void lovrPassSendValue(Pass* pass, const char* name, size_t length, void** data, FieldType* type) {
+  Shader* shader = pass->pipeline->shader;
+  lovrCheck(shader, "A Shader must be active to send resources");
+
+  uint32_t hash = (uint32_t) hash64(name, length);
+  for (uint32_t i = 0; i < shader->constantCount; i++) {
+    if (shader->constants[i].hash == hash) {
+      *data = (char*) pass->constants + shader->constants[i].offset;
+      *type = shader->constants[i].type;
+      pass->constantsDirty = true;
+    }
+  }
+
+  lovrThrow("Shader has no push constant named '%s'", name);
+}
+
 static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
   Pipeline* pipeline = pass->pipeline;
 

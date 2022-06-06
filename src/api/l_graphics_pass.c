@@ -337,7 +337,15 @@ static int l_lovrPassSend(lua_State* L) {
     return 0;
   }
 
-  return luax_typeerror(L, 3, "Buffer, Texture, Sampler, or number/vector");
+  if (!name) {
+    return luax_typeerror(L, 3, "Buffer, Texture, or Sampler");
+  }
+
+  void* data;
+  FieldType type;
+  lovrPassSendValue(pass, name, length, &data, &type);
+  luax_readbufferfield(L, 3, type, data);
+  return 0;
 }
 
 static uint32_t luax_getvertexcount(lua_State* L, int index) {
