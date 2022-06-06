@@ -142,7 +142,7 @@ function lovr.run()
 end
 
 function lovr.mirror()
-  local pass = lovr.graphics.pass('render', 'window')
+  local pass = lovr.graphics.getPass('render', 'window')
   lovr.draw(pass)
   lovr.graphics.submit(pass)
 end

@@ -649,7 +649,7 @@ static int l_lovrGraphicsSetBackground(lua_State* L) {
   return 0;
 }
 
-static int l_lovrGraphicsPass(lua_State* L) {
+static int l_lovrGraphicsGetPass(lua_State* L) {
   PassInfo info;
   info.type = luax_checkenum(L, 1, PassType, NULL);
   if (info.type == PASS_RENDER) info.canvas = luax_checkcanvas(L, 2);
@@ -661,7 +661,7 @@ static int l_lovrGraphicsPass(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsBuffer(lua_State* L) {
+static int l_lovrGraphicsGetBuffer(lua_State* L) {
   BufferInfo info = { 0 };
 
   luax_checkbufferformat(L, 2, &info);
@@ -1034,13 +1034,13 @@ static const luaL_Reg lovrGraphics[] = {
   { "isFormatSupported", l_lovrGraphicsIsFormatSupported },
   { "getBackground", l_lovrGraphicsGetBackground },
   { "setBackground", l_lovrGraphicsSetBackground },
-  { "buffer", l_lovrGraphicsBuffer },
+  { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newSampler", l_lovrGraphicsNewSampler },
   { "compileShader", l_lovrGraphicsCompileShader },
   { "newShader", l_lovrGraphicsNewShader },
-  { "pass", l_lovrGraphicsPass },
+  { "getPass", l_lovrGraphicsGetPass },
   { NULL, NULL }
 };
 
