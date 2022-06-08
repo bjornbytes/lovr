@@ -460,6 +460,30 @@ if(LOVR_ENABLE_GRAPHICS)
     target_compile_definitions(lovr PRIVATE LOVR_WGPU)
     target_sources(lovr PRIVATE src/core/gpu_webgpu.c)
   endif()
+
+  add_custom_target(compile_shaders ALL)
+  add_dependencies(lovr compile_shaders)
+
+  function(compile_shaders)
+    file(GLOB shader_files "etc/shaders/*.${ARGV0}")
+    foreach(shader_file ${shader_files})
+      string(REGEX MATCH "([^\/]+)\.${ARGV0}" shader ${shader_file})
+      string(REPLACE ".${ARGV0}" "" shader ${shader})
+      add_custom_command(TARGET compile_shaders POST_BUILD
+        COMMAND
+        glslangValidator
+        --quiet
+        --target-env vulkan1.1
+        --vn lovr_shader_${shader}_${ARGV0}
+        -o ${shader_file}.h
+        ${shader_file}
+      )
+    endforeach()
+  endfunction()
+
+  compile_shaders("vert")
+  compile_shaders("frag")
+  compile_shaders("comp")
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
 endif()
