@@ -452,7 +452,6 @@ comp = 'etc/shaders/*.comp'
 
 function compileShaders(stage)
   pattern = 'etc/shaders/*.' .. stage
-  symbol = 'lovr_shader_%B_' .. stage
   tup.foreach_rule(pattern, 'glslangValidator --target-env vulkan1.1 --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
 end
 

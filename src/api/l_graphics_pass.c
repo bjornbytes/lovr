@@ -15,13 +15,6 @@ static int l_lovrPassGetType(lua_State* L) {
   return 1;
 }
 
-static int l_lovrPassPush(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  StackType stack = luax_checkenum(L, 2, StackType, "transform");
-  lovrPassPush(pass, stack);
-  return 0;
-}
-
 static int l_lovrPassGetViewPose(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
@@ -117,6 +110,13 @@ static int l_lovrPassSetProjection(lua_State* L) {
     float* matrix = luax_checkvector(L, 3, V_MAT4, "mat4 or number");
     lovrPassSetProjection(pass, view, matrix);
   }
+  return 0;
+}
+
+static int l_lovrPassPush(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  StackType stack = luax_checkenum(L, 2, StackType, "transform");
+  lovrPassPush(pass, stack);
   return 0;
 }
 
