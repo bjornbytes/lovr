@@ -107,6 +107,7 @@ typedef struct {
 typedef struct {
   float color[4];
   Shader* shader;
+  Sampler* sampler;
   uint64_t formatHash;
   gpu_pipeline_info info;
   float viewport[4];
@@ -139,6 +140,7 @@ struct Pass {
   Pipeline* pipeline;
   Pipeline pipelines[4];
   uint32_t pipelineIndex;
+  bool samplerDirty;
   char constants[256];
   bool constantsDirty;
   gpu_binding bindings[32];
@@ -237,7 +239,7 @@ static struct {
   Attachment attachments[16];
   Buffer* defaultBuffer;
   Texture* defaultTexture;
-  Sampler* defaultSampler;
+  Sampler* defaultSamplers[2];
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   VertexFormat vertexFormats[DEFAULT_FORMAT_COUNT];
   map_t pipelineLookup;
@@ -349,12 +351,14 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
 
   lovrRelease(image, lovrImageDestroy);
 
-  state.defaultSampler = lovrSamplerCreate(&(SamplerInfo) {
-    .min = FILTER_LINEAR,
-    .mag = FILTER_LINEAR,
-    .mip = FILTER_LINEAR,
-    .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
-  });
+  for (uint32_t i = 0; i < 2; i++) {
+    state.defaultSamplers[i] = lovrSamplerCreate(&(SamplerInfo) {
+      .min = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
+      .mag = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
+      .mip = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
+      .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
+    });
+  }
 
   gpu_stream* transfers = getTransfers();
   gpu_clear_buffer(transfers, state.defaultBuffer->gpu, 0, 4096);
@@ -399,7 +403,8 @@ void lovrGraphicsDestroy() {
   }
   lovrRelease(state.defaultBuffer, lovrBufferDestroy);
   lovrRelease(state.defaultTexture, lovrTextureDestroy);
-  lovrRelease(state.defaultSampler, lovrSamplerDestroy);
+  lovrRelease(state.defaultSamplers[0], lovrSamplerDestroy);
+  lovrRelease(state.defaultSamplers[1], lovrSamplerDestroy);
   for (uint32_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
     lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
   }
@@ -900,6 +905,10 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 }
 
 // Sampler
+
+Sampler* lovrGraphicsGetDefaultSampler(FilterMode mode) {
+  return state.defaultSamplers[mode];
+}
 
 Sampler* lovrSamplerCreate(SamplerInfo* info) {
   lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
@@ -1458,6 +1467,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->pipeline->formatHash = 0;
   pass->pipeline->shader = NULL;
   pass->pipeline->dirty = true;
+  pass->samplerDirty = true;
 
   memset(pass->constants, 0, sizeof(pass->constants));
   pass->constantsDirty = true;
@@ -1480,7 +1490,9 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   pass->builtins[0] = (gpu_binding) { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = cameras };
   pass->builtins[1] = (gpu_binding) { 1, GPU_SLOT_UNIFORM_BUFFER, .buffer = draws };
-  pass->builtins[2] = (gpu_binding) { 2, GPU_SLOT_SAMPLER, .sampler = state.defaultSampler->gpu };
+  pass->builtins[2] = (gpu_binding) { 2, GPU_SLOT_SAMPLER, .sampler = NULL };
+  pass->pipeline->sampler = state.defaultSamplers[FILTER_LINEAR];
+  pass->samplerDirty = true;
 
   pass->vertexBuffer = NULL;
   pass->indexBuffer = NULL;
@@ -1536,6 +1548,7 @@ void lovrPassPush(Pass* pass, StackType stack) {
       lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack overflow (more pushes than pops?)", "Pipeline");
       memcpy(pass->pipeline, &pass->pipelines[pass->pipelineIndex - 1], sizeof(Pipeline));
       lovrRetain(pass->pipeline->shader);
+      lovrRetain(pass->pipeline->sampler);
       break;
     default: break;
   }
@@ -1553,6 +1566,8 @@ void lovrPassPop(Pass* pass, StackType stack) {
       lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack underflow (more pops than pushes?)", "Pipeline");
       gpu_set_viewport(pass->stream, pass->pipeline->viewport, pass->pipeline->depthRange);
       gpu_set_scissor(pass->stream, pass->pipeline->scissor);
+      pass->pipeline->dirty = true;
+      pass->samplerDirty = true;
       break;
     default: break;
   }
@@ -1701,6 +1716,15 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
   }
 }
 
+void lovrPassSetSampler(Pass* pass, Sampler* sampler) {
+  if (sampler != pass->pipeline->sampler) {
+    lovrRetain(sampler);
+    lovrRelease(pass->pipeline->sampler, lovrSamplerDestroy);
+    pass->pipeline->sampler = sampler;
+    pass->samplerDirty = true;
+  }
+}
+
 void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]) {
   gpu_set_scissor(pass->stream, scissor);
   memcpy(pass->pipeline->scissor, scissor, 4 * sizeof(uint32_t));
@@ -1747,7 +1771,7 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
       } else if (shader->textureMask & bit) {
         pass->bindings[i].texture = state.defaultTexture->gpu;
       } else if (shader->samplerMask & bit) {
-        pass->bindings[i].sampler = state.defaultSampler->gpu;
+        pass->bindings[i].sampler = state.defaultSamplers[FILTER_LINEAR]->gpu;
       }
 
       pass->bindingMask |= bit;
@@ -2041,6 +2065,12 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
   if (pass->drawCount % 256 == 0) {
     uint32_t size = 256 * sizeof(DrawData);
     pass->drawData = gpu_map(pass->builtins[1].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+    rebind = true;
+  }
+
+  if (pass->samplerDirty) {
+    pass->builtins[2].sampler = pass->pipeline->sampler->gpu;
+    pass->samplerDirty = false;
     rebind = true;
   }
 

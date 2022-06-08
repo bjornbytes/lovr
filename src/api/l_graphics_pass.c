@@ -238,6 +238,19 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSetSampler(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  if (lua_type(L, 2) != LUA_TUSERDATA) {
+    FilterMode filter = luax_checkenum(L, 2, FilterMode, "linear");
+    Sampler* sampler = lovrGraphicsGetDefaultSampler(filter);
+    lovrPassSetSampler(pass, sampler);
+  } else {
+    Sampler* sampler = luax_checktype(L, 2, Sampler);
+    lovrPassSetSampler(pass, sampler);
+  }
+  return 0;
+}
+
 static int l_lovrPassSetScissor(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t scissor[4];
@@ -668,6 +681,7 @@ const luaL_Reg lovrPass[] = {
   { "setDepthWrite", l_lovrPassSetDepthWrite },
   { "setDepthOffset", l_lovrPassSetDepthOffset },
   { "setDepthClamp", l_lovrPassSetDepthClamp },
+  { "setSampler", l_lovrPassSetSampler },
   { "setScissor", l_lovrPassSetScissor },
   { "setShader", l_lovrPassSetShader },
   { "setStencilTest", l_lovrPassSetStencilTest },

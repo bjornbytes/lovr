@@ -236,6 +236,7 @@ typedef struct {
   float range[2];
 } SamplerInfo;
 
+Sampler* lovrGraphicsGetDefaultSampler(FilterMode mode);
 Sampler* lovrSamplerCreate(SamplerInfo* info);
 void lovrSamplerDestroy(void* ref);
 const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
@@ -380,6 +381,7 @@ void lovrPassSetDepthTest(Pass* pass, CompareMode test);
 void lovrPassSetDepthWrite(Pass* pass, bool write);
 void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
+void lovrPassSetSampler(Pass* pass, Sampler* sampler);
 void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 void lovrPassSetShader(Pass* pass, Shader* shader);
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
