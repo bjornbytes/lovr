@@ -1352,7 +1352,7 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
 
 gpu_stream* gpu_stream_begin(const char* label) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
-  CHECK(state.streamCount < COUNTOF(tick->streams), "Too many streams") return NULL;
+  CHECK(state.streamCount < COUNTOF(tick->streams), "Too many passes") return NULL;
   gpu_stream* stream = &tick->streams[state.streamCount];
   nickname(stream->commands, VK_OBJECT_TYPE_COMMAND_BUFFER, label);
 
@@ -2691,7 +2691,7 @@ static void nickname(void* handle, VkObjectType type, const char* name) {
 static bool vcheck(VkResult result, const char* message) {
   if (result >= 0) return true;
   if (!state.config.callback) return false;
-#define CASE(x) case x: state.config.callback(state.config.userdata, "Vulkan error: " #x, false); break;
+#define CASE(x) case x: state.config.callback(state.config.userdata, "Vulkan error: " #x, true); break;
   switch (result) {
     CASE(VK_ERROR_OUT_OF_HOST_MEMORY);
     CASE(VK_ERROR_OUT_OF_DEVICE_MEMORY);

@@ -2861,7 +2861,7 @@ static void checkShaderFeatures(uint32_t* features, uint32_t count) {
 
 static void onMessage(void* context, const char* message, bool severe) {
   if (severe) {
-    lovrLog(LOG_ERROR, "GPU", message);
+    lovrThrow("GPU error: %s", message);
   } else {
     lovrLog(LOG_DEBUG, "GPU", message);
   }
