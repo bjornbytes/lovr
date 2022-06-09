@@ -2667,8 +2667,7 @@ static VkAccessFlags convertCache(gpu_cache cache) {
 
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata) {
   if (state.config.callback) {
-    bool severe = severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    state.config.callback(state.config.userdata, data->pMessage, severe);
+    state.config.callback(state.config.userdata, data->pMessage, false);
   }
   return VK_FALSE;
 }
