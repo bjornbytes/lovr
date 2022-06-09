@@ -142,8 +142,8 @@ function lovr.run()
           pass:setViewPose(i, lovr.headset.getViewPose(i))
           pass:setProjection(i, lovr.headset.getViewAngles(i))
         end
-        if lovr.draw then lovr.draw(pass) end
-        lovr.graphics.submit(pass)
+        local skip = lovr.draw and lovr.draw(pass)
+        if not skip then lovr.graphics.submit(pass) end
       end
       if lovr.system.isWindowOpen() then
         lovr.mirror(pass)
@@ -159,8 +159,8 @@ function lovr.mirror(pass)
     --
   else
     local pass = lovr.graphics.getPass('render', 'window')
-    lovr.draw(pass)
-    lovr.graphics.submit(pass)
+    local skip = lovr.draw and lovr.draw(pass)
+    if not skip then lovr.graphics.submit(pass) end
   end
 end
 

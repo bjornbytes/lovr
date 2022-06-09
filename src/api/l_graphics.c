@@ -526,7 +526,8 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
 
   lovrGraphicsSubmit(passes, count);
   if (passes != stack) free(passes);
-  return 0;
+  lua_pushboolean(L, true);
+  return 1;
 }
 
 static int l_lovrGraphicsWait(lua_State* L) {
