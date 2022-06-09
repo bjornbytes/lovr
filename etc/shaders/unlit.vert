@@ -15,7 +15,7 @@ struct PerDraw {
 };
 
 layout(set = 0, binding = 0) uniform Cameras { Camera cameras[6]; };
-layout(set = 0, binding = 1) uniform Draws { PerDraw draws[6]; };
+layout(set = 0, binding = 1) uniform Draws { PerDraw draws[256]; };
 layout(set = 0, binding = 2) uniform sampler defaultSampler;
 
 layout(location = 0) in vec4 inPosition;

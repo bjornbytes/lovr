@@ -230,7 +230,6 @@ static struct {
   bool active;
   uint32_t tick;
   Pass* transfers;
-  bool syncTextureUpload;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
@@ -533,16 +532,13 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   uint32_t extraPassCount = 0;
 
   if (state.transfers) {
+    gpu_barrier barrier;
+    barrier.prev = GPU_PHASE_COPY;
+    barrier.next = ~0u;
+    barrier.flush = GPU_CACHE_TRANSFER_WRITE;
+    barrier.invalidate = ~0u;
+    gpu_sync(state.transfers->stream, &barrier, 1);
     streams[extraPassCount++] = state.transfers->stream;
-
-    if (state.syncTextureUpload) {
-      gpu_barrier barrier;
-      barrier.prev = GPU_PHASE_COPY;
-      barrier.next = GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
-      barrier.flush = GPU_CACHE_TRANSFER_WRITE;
-      barrier.invalidate = GPU_CACHE_TEXTURE;
-      gpu_sync(state.transfers->stream, &barrier, 1);
-    }
   }
 
   for (uint32_t i = 0; i < count; i++) {
@@ -839,10 +835,6 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       lovrAssert(texture->renderView, "Out of memory");
       lovrAssert(gpu_texture_init_view(texture->renderView, &view), "Failed to create texture view");
     }
-  }
-
-  if (info->usage == TEXTURE_SAMPLE && info->imageCount > 0) {
-    state.syncTextureUpload = true;
   }
 
   return texture;
@@ -2560,7 +2552,6 @@ static void beginFrame(void) {
 
 static gpu_stream* getTransfers(void) {
   if (!state.transfers) {
-    state.syncTextureUpload = false;
     state.transfers = lovrGraphicsGetPass(&(PassInfo) {
       .type = PASS_TRANSFER,
       .label = "Internal Transfers"
