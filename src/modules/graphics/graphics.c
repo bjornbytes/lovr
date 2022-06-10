@@ -217,7 +217,7 @@ typedef struct {
   gpu_texture* texture;
   uint32_t hash;
   uint32_t tick;
-} Attachment;
+} TempAttachment;
 
 typedef struct {
   char* memory;
@@ -235,12 +235,12 @@ static struct {
   gpu_limits limits;
   float background[4];
   Texture* window;
-  Attachment attachments[16];
   Buffer* defaultBuffer;
   Texture* defaultTexture;
   Sampler* defaultSamplers[2];
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   VertexFormat vertexFormats[DEFAULT_FORMAT_COUNT];
+  arr_t(TempAttachment) attachments;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
@@ -309,6 +309,7 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   map_init(&state.pipelineLookup, 64);
   arr_init(&state.pipelines, realloc);
   arr_init(&state.layouts, realloc);
+  arr_init(&state.attachments, realloc);
 
   gpu_slot builtins[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Cameras
@@ -394,12 +395,11 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
   lovrRelease(state.window, lovrTextureDestroy);
-  for (uint32_t i = 0; i < COUNTOF(state.attachments); i++) {
-    if (state.attachments[i].texture) {
-      gpu_texture_destroy(state.attachments[i].texture);
-      free(state.attachments[i].texture);
-    }
+  for (uint32_t i = 0; i < state.attachments.length; i++) {
+    gpu_texture_destroy(state.attachments.data[i].texture);
+    free(state.attachments.data[i].texture);
   }
+  arr_free(&state.attachments);
   lovrRelease(state.defaultBuffer, lovrBufferDestroy);
   lovrRelease(state.defaultTexture, lovrTextureDestroy);
   lovrRelease(state.defaultSamplers[0], lovrSamplerDestroy);
@@ -2646,19 +2646,37 @@ static gpu_bundle* getBundle(uint32_t layoutIndex) {
   return pool->bundles;
 }
 
+// Note that we are technically not doing synchronization correctly for temporary attachments.  It
+// is very unlikely to be a problem in practice, though it should still be fixed for correctness.
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples) {
   uint16_t key[] = { size[0], size[1], layers, format, srgb, samples };
-  uint32_t hash = hash64(key, sizeof(key));
+  uint32_t hash = (uint32_t) hash64(key, sizeof(key));
 
-  Attachment* attachment = state.attachments;
-  for (uint32_t i = 0; i < COUNTOF(state.attachments) && attachment->texture; i++, attachment++) {
-    if (attachment->hash == hash && attachment->tick != state.tick) {
-      attachment->tick = state.tick;
-      return attachment->texture;
+  // Find a matching attachment that hasn't been used this frame
+  for (uint32_t i = 0; i < state.attachments.length; i++) {
+    if (state.attachments.data[i].hash == hash && state.attachments.data[i].tick != state.tick) {
+      return state.attachments.data[i].texture;
     }
   }
 
-  // Otherwise, create new texture, add to an empty slot, evicting oldest if needed
+  // Find something to evict
+  TempAttachment* attachment = NULL;
+  for (uint32_t i = 0; i < state.attachments.length; i++) {
+    if (state.tick - state.attachments.data[i].tick > 16) {
+      attachment = &state.attachments.data[i];
+      break;
+    }
+  }
+
+  if (attachment) {
+    gpu_texture_destroy(attachment->texture);
+  } else {
+    arr_expand(&state.attachments, 1);
+    attachment = &state.attachments.data[state.attachments.length++];
+    attachment->texture = calloc(1, gpu_sizeof_texture());
+    lovrAssert(attachment->texture, "Out of memory");
+  }
+
   gpu_texture_info info = {
     .type = GPU_TEXTURE_ARRAY,
     .format = (gpu_texture_format) format,
@@ -2668,27 +2686,8 @@ static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureForm
     .mipmaps = 1,
     .samples = samples,
     .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT,
-    .upload.stream = getTransfers(),
     .srgb = srgb
   };
-
-  uint32_t oldest = ~0u;
-  for (uint32_t i = 0; i < COUNTOF(state.attachments); i++) {
-    if (!state.attachments[i].texture) {
-      attachment = &state.attachments[i];
-      break;
-    } else if (state.attachments[i].tick < oldest) {
-      attachment = &state.attachments[i];
-      oldest = attachment->tick;
-    }
-  }
-
-  if (!attachment->texture) {
-    attachment->texture = calloc(1, gpu_sizeof_texture());
-    lovrAssert(attachment->texture, "Out of memory");
-  } else {
-    gpu_texture_destroy(attachment->texture);
-  }
 
   lovrAssert(gpu_texture_init(attachment->texture, &info), "Failed to create scratch texture");
   attachment->hash = hash;
