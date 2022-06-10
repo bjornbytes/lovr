@@ -406,6 +406,7 @@ void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows);
 void lovrPassBox(Pass* pass, float* transform);
 void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, uint32_t segments);
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances);
+void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
 void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);

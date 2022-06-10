@@ -519,6 +519,18 @@ static int l_lovrPassMesh(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassMultimesh(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_totype(L, 2, Buffer);
+  Buffer* indices = luax_totype(L, 3, Buffer);
+  Buffer* draws = luax_checktype(L, 4, Buffer);
+  uint32_t count = luax_optu32(L, 5, 1);
+  uint32_t offset = luax_optu32(L, 6, 0);
+  uint32_t stride = luax_optu32(L, 7, 0);
+  lovrPassMultimesh(pass, vertices, indices, draws, count, offset, stride);
+  return 0;
+}
+
 static int l_lovrPassCompute(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Buffer* buffer = luax_totype(L, 2, Buffer);
@@ -720,6 +732,7 @@ const luaL_Reg lovrPass[] = {
   { "box", l_lovrPassBox },
   { "circle", l_lovrPassCircle },
   { "mesh", l_lovrPassMesh },
+  { "multimesh", l_lovrPassMultimesh },
 
   { "compute", l_lovrPassCompute },
 

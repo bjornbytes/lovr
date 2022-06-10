@@ -195,8 +195,6 @@ typedef struct {
   uint32_t count;
   uint32_t instances;
   uint32_t base;
-  Buffer* indirect;
-  uint32_t offset;
 } Draw;
 
 typedef struct {
@@ -2154,25 +2152,15 @@ static void lovrPassDraw(Pass* pass, Draw* draw) {
   flushBuiltins(pass, draw, shader);
   flushBuffers(pass, draw);
 
-  bool indexed = draw->index.buffer || draw->index.count > 0;
   uint32_t defaultCount = draw->index.count > 0 ? draw->index.count : draw->vertex.count;
   uint32_t count = draw->count > 0 ? draw->count : defaultCount;
   uint32_t instances = MAX(draw->instances, 1);
   uint32_t id = pass->drawCount & 0xff;
 
-  if (draw->indirect) {
-    trackBuffer(pass, draw->indirect, GPU_PHASE_INDIRECT, GPU_CACHE_INDIRECT);
-    if (indexed) {
-      gpu_draw_indirect_indexed(pass->stream, draw->indirect->gpu, draw->offset, count);
-    } else {
-      gpu_draw_indirect(pass->stream, draw->indirect->gpu, draw->offset, count);
-    }
+  if (draw->index.buffer || draw->index.count > 0) {
+    gpu_draw_indexed(pass->stream, count, instances, draw->start, draw->base, id);
   } else {
-    if (indexed) {
-      gpu_draw_indexed(pass->stream, count, instances, draw->start, draw->base, id);
-    } else {
-      gpu_draw(pass->stream, count, instances, draw->start, id);
-    }
+    gpu_draw(pass->stream, count, instances, draw->start, id);
   }
 
   pass->drawCount++;
@@ -2358,6 +2346,38 @@ void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transfor
     .count = count,
     .instances = instances
   });
+}
+
+void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* draws, uint32_t count, uint32_t offset, uint32_t stride) {
+  lovrCheck(pass->info.type == PASS_RENDER, "This function can only be called on a render pass");
+  lovrCheck(offset % 4 == 0, "Multimesh draw buffer offset must be a multiple of 4");
+  uint32_t commandSize = indices ? 20 : 16;
+  stride = stride ? stride : commandSize;
+  uint32_t totalSize = stride * (count - 1) + commandSize;
+  lovrCheck(offset + totalSize < draws->size, "Multimesh draw range exceeds size of draw buffer");
+
+  Draw draw = (Draw) {
+    .mode = pass->pipeline->drawMode,
+    .vertex.buffer = vertices,
+    .index.buffer = indices
+  };
+
+  Shader* shader = pass->pipeline->shader;
+  lovrCheck(shader, "A custom Shader must be bound to draw a multimesh");
+
+  flushPipeline(pass, &draw, shader);
+  flushConstants(pass, shader);
+  flushBindings(pass, shader);
+  flushBuiltins(pass, &draw, shader);
+  flushBuffers(pass, &draw);
+
+  if (indices) {
+    gpu_draw_indirect_indexed(pass->stream, draws->gpu, offset, count, stride);
+  } else {
+    gpu_draw_indirect(pass->stream, draws->gpu, offset, count, stride);
+  }
+
+  trackBuffer(pass, draws, GPU_PHASE_INDIRECT, GPU_CACHE_INDIRECT);
 }
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
