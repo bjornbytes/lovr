@@ -238,6 +238,13 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSetMeshMode(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  MeshMode mode = luax_checkenum(L, 2, MeshMode, NULL);
+  lovrPassSetMeshMode(pass, mode);
+  return 0;
+}
+
 static int l_lovrPassSetSampler(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   if (lua_type(L, 2) != LUA_TUSERDATA) {
@@ -499,6 +506,19 @@ static int l_lovrPassCircle(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassMesh(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_totype(L, 2, Buffer);
+  Buffer* indices = luax_totype(L, 3, Buffer);
+  float transform[16];
+  int index = luax_readmat4(L, indices ? 4 : 3, transform, 1);
+  uint32_t start = luax_optu32(L, index++, 1) - 1;
+  uint32_t count = luax_optu32(L, index++, ~0u);
+  uint32_t instances = luax_optu32(L, index, 1);
+  lovrPassMesh(pass, vertices, indices, transform, start, count, instances);
+  return 0;
+}
+
 static int l_lovrPassCompute(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Buffer* buffer = luax_totype(L, 2, Buffer);
@@ -681,6 +701,7 @@ const luaL_Reg lovrPass[] = {
   { "setDepthWrite", l_lovrPassSetDepthWrite },
   { "setDepthOffset", l_lovrPassSetDepthOffset },
   { "setDepthClamp", l_lovrPassSetDepthClamp },
+  { "setMeshMode", l_lovrPassSetMeshMode },
   { "setSampler", l_lovrPassSetSampler },
   { "setScissor", l_lovrPassSetScissor },
   { "setShader", l_lovrPassSetShader },
@@ -698,6 +719,7 @@ const luaL_Reg lovrPass[] = {
   { "cube", l_lovrPassCube },
   { "box", l_lovrPassBox },
   { "circle", l_lovrPassCircle },
+  { "mesh", l_lovrPassMesh },
 
   { "compute", l_lovrPassCompute },
 

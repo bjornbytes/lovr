@@ -113,6 +113,7 @@ typedef struct {
   float viewport[4];
   float depthRange[2];
   uint32_t scissor[4];
+  MeshMode drawMode;
   bool dirty;
 } Pipeline;
 
@@ -173,7 +174,7 @@ typedef struct {
 } ShapeVertex;
 
 typedef struct {
-  gpu_draw_mode mode;
+  MeshMode mode;
   DefaultShader shader;
   float* transform;
   struct {
@@ -1450,6 +1451,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   memcpy(pass->pipeline->color, defaultColor, sizeof(defaultColor));
   pass->pipeline->formatHash = 0;
   pass->pipeline->shader = NULL;
+  pass->pipeline->drawMode = MESH_TRIANGLES;
   pass->pipeline->dirty = true;
   pass->samplerDirty = true;
 
@@ -1700,6 +1702,10 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
   }
 }
 
+void lovrPassSetMeshMode(Pass* pass, MeshMode mode) {
+  pass->pipeline->drawMode = mode;
+}
+
 void lovrPassSetSampler(Pass* pass, Sampler* sampler) {
   if (sampler != pass->pipeline->sampler) {
     lovrRetain(sampler);
@@ -1940,8 +1946,8 @@ void lovrPassSendValue(Pass* pass, const char* name, size_t length, void** data,
 static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
   Pipeline* pipeline = pass->pipeline;
 
-  if (pipeline->info.drawMode != draw->mode) {
-    pipeline->info.drawMode = draw->mode;
+  if (pipeline->info.drawMode != (gpu_draw_mode) draw->mode) {
+    pipeline->info.drawMode = (gpu_draw_mode) draw->mode;
     pipeline->dirty = true;
   }
 
@@ -2174,7 +2180,7 @@ static void lovrPassDraw(Pass* pass, Draw* draw) {
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** points) {
   lovrPassDraw(pass, &(Draw) {
-    .mode = GPU_DRAW_POINTS,
+    .mode = MESH_POINTS,
     .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) points,
     .vertex.count = count
@@ -2185,7 +2191,7 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
   uint16_t* indices;
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = GPU_DRAW_LINES,
+    .mode = MESH_LINES,
     .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) points,
     .vertex.count = count,
@@ -2207,7 +2213,7 @@ void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows) {
   uint32_t indexCount = (cols * rows) * 6;
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = GPU_DRAW_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
@@ -2281,7 +2287,7 @@ void lovrPassBox(Pass* pass, float* transform) {
   };
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = GPU_DRAW_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = COUNTOF(vertexData),
@@ -2306,7 +2312,7 @@ void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, ui
   uint32_t indexCount = segments * 3;
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = GPU_DRAW_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
@@ -2330,6 +2336,28 @@ void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, ui
     memcpy(indices, wedge, sizeof(wedge));
     indices += COUNTOF(wedge);
   }
+}
+
+void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances) {
+  if (count == ~0u) {
+    count = (indices ? indices : vertices)->info.length - start;
+  }
+
+  if (indices) {
+    lovrCheck(count <= indices->info.length - start, "Mesh draw range exceeds index buffer size");
+  } else {
+    lovrCheck(count <= vertices->info.length - start, "Mesh draw range exceeds vertex buffer size");
+  }
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = pass->pipeline->drawMode,
+    .vertex.buffer = vertices,
+    .index.buffer = indices,
+    .transform = transform,
+    .start = start,
+    .count = count,
+    .instances = instances
+  });
 }
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {

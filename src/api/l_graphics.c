@@ -97,6 +97,13 @@ StringEntry lovrFilterMode[] = {
   { 0 }
 };
 
+StringEntry lovrMeshMode[] = {
+  [MESH_POINTS] = ENTRY("points"),
+  [MESH_LINES] = ENTRY("lines"),
+  [MESH_TRIANGLES] = ENTRY("triangles"),
+  { 0 }
+};
+
 StringEntry lovrPassType[] = {
   [PASS_RENDER] = ENTRY("render"),
   [PASS_COMPUTE] = ENTRY("compute"),
@@ -682,7 +689,7 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 
   switch (lua_type(L, 1)) {
     case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
-    case LUA_TTABLE: info.length = luax_len(L, -1); break;
+    case LUA_TTABLE: info.length = luax_len(L, 1); break;
     default: {
       Blob* blob = luax_totype(L, 1, Blob);
       if (blob) {
