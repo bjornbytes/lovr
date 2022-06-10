@@ -433,6 +433,19 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
           lua_pop(L, 1);
         }
       }
+    } else if (lua_isnumber(L, -1)) {
+      float color[4];
+      uint32_t x = lua_tointeger(L, -1);
+      color[0] = ((x >> 16) & 0xff) / 255.f;
+      color[1] = ((x >> 8) & 0xff) / 255.f;
+      color[2] = ((x >> 0) & 0xff) / 255.f;
+      color[3] = 1.f;
+      for (uint32_t i = 0; i < 4; i++) {
+        canvas.clears[i][0] = color[0];
+        canvas.clears[i][1] = color[1];
+        canvas.clears[i][2] = color[2];
+        canvas.clears[i][3] = color[3];
+      }
     } else if (!lua_isnil(L, -1)) {
       LoadAction load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
       canvas.loads[0] = canvas.loads[1] = canvas.loads[2] = canvas.loads[3] = load;
