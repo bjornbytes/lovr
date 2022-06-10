@@ -229,7 +229,7 @@ static struct {
   bool initialized;
   bool active;
   uint32_t tick;
-  Pass* transfers;
+  Pass* uploads;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
@@ -253,7 +253,7 @@ static struct {
 static void* tempAlloc(size_t size);
 static void* tempGrow(void* p, size_t size);
 static void beginFrame(void);
-static gpu_stream* getTransfers(void);
+static gpu_stream* getUploads(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(uint32_t layout);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
@@ -360,8 +360,8 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     });
   }
 
-  gpu_stream* transfers = getTransfers();
-  gpu_clear_buffer(transfers, state.defaultBuffer->gpu, 0, 4096);
+  gpu_stream* uploads = getUploads();
+  gpu_clear_buffer(uploads, state.defaultBuffer->gpu, 0, 4096);
 
   state.vertexFormats[VERTEX_SHAPE].gpu = (gpu_vertex_format) {
     .bufferCount = 2,
@@ -531,14 +531,14 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   uint32_t extraPassCount = 0;
 
-  if (state.transfers) {
+  if (state.uploads) {
     gpu_barrier barrier;
     barrier.prev = GPU_PHASE_COPY;
     barrier.next = ~0u;
     barrier.flush = GPU_CACHE_TRANSFER_WRITE;
     barrier.invalidate = ~0u;
-    gpu_sync(state.transfers->stream, &barrier, 1);
-    streams[extraPassCount++] = state.transfers->stream;
+    gpu_sync(state.uploads->stream, &barrier, 1);
+    streams[extraPassCount++] = state.uploads->stream;
   }
 
   for (uint32_t i = 0; i < count; i++) {
@@ -560,7 +560,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   gpu_submit(streams, extraPassCount + count);
 
-  state.transfers = NULL;
+  state.uploads = NULL;
   state.active = false;
 }
 
@@ -630,10 +630,10 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
   lovrBufferInitFormat(&buffer->format, info);
 
   if (data && *data == NULL) {
-    gpu_stream* transfers = getTransfers();
+    gpu_stream* uploads = getUploads();
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
     *data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
-    gpu_copy_buffers(transfers, scratchpad, buffer->gpu, 0, 0, size);
+    gpu_copy_buffers(uploads, scratchpad, buffer->gpu, 0, 0, size);
   }
 
   return buffer;
@@ -655,33 +655,16 @@ bool lovrBufferIsTemporary(Buffer* buffer) {
 }
 
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
-  if (size == ~0u) {
-    size = buffer->size - offset;
-  }
-
-  lovrCheck(offset + size <= buffer->size, "Buffer write range [%d,%d] exceeds buffer size", offset, offset + size);
-
-  if (lovrBufferIsTemporary(buffer)) {
-    return buffer->pointer + offset;
-  }
-
-  gpu_stream* transfers = getTransfers();
-  gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
-  void* data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
-  gpu_copy_buffers(transfers, scratchpad, buffer->gpu, 0, offset, size);
-  return data;
+  lovrAssert(buffer->pointer, "This function can only be called on temporary buffers");
+  return buffer->pointer + offset;
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
+  lovrAssert(buffer->pointer, "This function can only be called on temporary buffers");
   lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
   lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrCheck(offset + size <= buffer->size, "Tried to clear past the end of the Buffer");
-  if (lovrBufferIsTemporary(buffer)) {
-    memset(buffer->pointer + offset, 0, size);
-  } else {
-    gpu_stream* transfers = getTransfers();
-    gpu_clear_buffer(transfers, buffer->gpu, offset, size);
-  }
+  memset(buffer->pointer + offset, 0, size);
 }
 
 // Texture
@@ -811,7 +794,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .handle = info->handle,
     .label = info->label,
     .upload = {
-      .stream = getTransfers(),
+      .stream = getUploads(),
       .buffer = scratchpad,
       .levelCount = levelCount,
       .levelOffsets = levelOffsets,
@@ -2559,15 +2542,15 @@ static void beginFrame(void) {
   state.tick = gpu_begin();
 }
 
-static gpu_stream* getTransfers(void) {
-  if (!state.transfers) {
-    state.transfers = lovrGraphicsGetPass(&(PassInfo) {
+static gpu_stream* getUploads(void) {
+  if (!state.uploads) {
+    state.uploads = lovrGraphicsGetPass(&(PassInfo) {
       .type = PASS_TRANSFER,
-      .label = "Internal Transfers"
+      .label = "Internal Uploads"
     });
   }
 
-  return state.transfers->stream;
+  return state.uploads->stream;
 }
 
 static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
