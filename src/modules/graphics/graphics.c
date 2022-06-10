@@ -957,6 +957,14 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
 
   const glslang_resource_t* resource = glslang_default_resource();
 
+  const char* strings[] = {
+    source->data
+  };
+
+  int lengths[] = {
+    source->size
+  };
+
   glslang_input_t input = {
     .language = GLSLANG_SOURCE_GLSL,
     .stage = stages[stage],
@@ -964,8 +972,9 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
     .client_version = GLSLANG_TARGET_VULKAN_1_1,
     .target_language = GLSLANG_TARGET_SPV,
     .target_language_version = GLSLANG_TARGET_SPV_1_3,
-    .code = source->data,
-    .length = source->size,
+    .strings = strings,
+    .lengths = lengths,
+    .string_count = 1,
     .default_version = 460,
     .default_profile = GLSLANG_NO_PROFILE,
     .resource = resource
