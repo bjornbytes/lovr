@@ -2432,12 +2432,13 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     bool surface = pass->color[i].format == state.surfaceFormat;
+    bool discard = surface || pass->resolve || pass->color[i].load != GPU_LOAD_OP_LOAD;
     attachments[i] = (VkAttachmentDescription) {
       .format = pass->color[i].format,
       .samples = pass->samples,
       .loadOp = loadOps[pass->color[i].load],
       .storeOp = pass->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->color[i].save],
-      .initialLayout = surface ? VK_IMAGE_LAYOUT_UNDEFINED : pass->color[i].layout,
+      .initialLayout = discard ? VK_IMAGE_LAYOUT_UNDEFINED : pass->color[i].layout,
       .finalLayout = surface && !pass->resolve ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
     };
   }
@@ -2453,7 +2454,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = storeOps[pass->color[i].save],
-        .initialLayout = surface ? VK_IMAGE_LAYOUT_UNDEFINED : pass->color[i].layout,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .finalLayout = surface ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
       };
     }
