@@ -1484,12 +1484,12 @@ void gpu_draw_indexed(gpu_stream* stream, uint32_t indexCount, uint32_t instance
   vkCmdDrawIndexed(stream->commands, indexCount, instanceCount, firstIndex, baseVertex, baseInstance);
 }
 
-void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount) {
-  vkCmdDrawIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, 16);
+void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+  vkCmdDrawIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, stride ? stride : 16);
 }
 
-void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount) {
-  vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, 20);
+void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+  vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, stride ? stride : 20);
 }
 
 void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z) {
