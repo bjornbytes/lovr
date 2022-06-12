@@ -123,6 +123,39 @@ typedef struct {
   float color[4];
 } DrawData;
 
+typedef enum {
+  VERTEX_SHAPE,
+  VERTEX_POINT,
+  VERTEX_MODEL,
+  VERTEX_GLYPH,
+  VERTEX_EMPTY,
+  DEFAULT_FORMAT_COUNT
+} DefaultFormat;
+
+typedef struct {
+  MeshMode mode;
+  DefaultShader shader;
+  float* transform;
+  struct {
+    Buffer* buffer;
+    DefaultFormat format;
+    const void* data;
+    void** pointer;
+    uint32_t count;
+  } vertex;
+  struct {
+    Buffer* buffer;
+    const void* data;
+    void** pointer;
+    uint32_t count;
+    uint32_t stride;
+  } index;
+  uint32_t start;
+  uint32_t count;
+  uint32_t instances;
+  uint32_t base;
+} Draw;
+
 typedef struct {
   Sync* sync;
   Buffer* buffer;
@@ -158,44 +191,11 @@ struct Pass {
   arr_t(Access) access;
 };
 
-typedef enum {
-  VERTEX_SHAPE,
-  VERTEX_POINT,
-  VERTEX_MODEL,
-  VERTEX_GLYPH,
-  VERTEX_EMPTY,
-  DEFAULT_FORMAT_COUNT
-} DefaultFormat;
-
 typedef struct {
   struct { float x, y, z; } position;
   struct { float x, y, z; } normal;
   struct { float u, v; } uv;
 } ShapeVertex;
-
-typedef struct {
-  MeshMode mode;
-  DefaultShader shader;
-  float* transform;
-  struct {
-    Buffer* buffer;
-    DefaultFormat format;
-    const void* data;
-    void** pointer;
-    uint32_t count;
-  } vertex;
-  struct {
-    Buffer* buffer;
-    const void* data;
-    void** pointer;
-    uint32_t count;
-    uint32_t stride;
-  } index;
-  uint32_t start;
-  uint32_t count;
-  uint32_t instances;
-  uint32_t base;
-} Draw;
 
 typedef struct {
   void* next;
@@ -229,6 +229,7 @@ static struct {
   bool active;
   uint32_t tick;
   Pass* uploads;
+  bool hasTextureUpload;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
@@ -520,32 +521,34 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     return;
   }
 
-  if (state.window) {
-    state.window->gpu = NULL;
-    state.window->renderView = NULL;
+  if (state.uploads) {
+    count++;
   }
 
-  // Allocate a few extra stream handles for any internal passes we sneak in
-  gpu_stream** streams = tempAlloc((count + 3) * sizeof(gpu_stream*));
+  gpu_stream** streams = tempAlloc(count * sizeof(gpu_stream*));
+  gpu_barrier* barriers = tempAlloc(count * sizeof(gpu_barrier));
+  memset(barriers, 0, count * sizeof(gpu_barrier));
 
-  uint32_t extraPassCount = 0;
+  uint32_t base = 0;
 
   if (state.uploads) {
-    gpu_barrier barrier;
-    barrier.prev = GPU_PHASE_COPY;
-    barrier.next = ~0u;
-    barrier.flush = GPU_CACHE_TRANSFER_WRITE;
-    barrier.invalidate = ~0u;
-    gpu_sync(state.uploads->stream, &barrier, 1);
-    streams[extraPassCount++] = state.uploads->stream;
+    uint32_t index = base++;
+    streams[index] = state.uploads->stream;
+
+    if (state.hasTextureUpload) {
+      barriers[index].prev |= GPU_PHASE_TRANSFER;
+      barriers[index].next |= GPU_PHASE_SHADER_VERTEX;
+      barriers[index].next |= GPU_PHASE_SHADER_FRAGMENT;
+      barriers[index].next |= GPU_PHASE_SHADER_COMPUTE;
+      barriers[index].flush |= GPU_CACHE_TRANSFER_WRITE;
+      barriers[index].invalidate |= GPU_CACHE_TEXTURE;
+      state.hasTextureUpload = false;
+    }
   }
 
-  for (uint32_t i = 0; i < count; i++) {
-    for (uint32_t j = 0; j <= passes[i]->pipelineIndex; j++) {
-      lovrRelease(passes[i]->pipelines[j].shader, lovrShaderDestroy);
-      passes[i]->pipelines[j].shader = NULL;
-    }
-    streams[extraPassCount + i] = passes[i]->stream;
+  for (uint32_t i = 0; i < count - base; i++) {
+    streams[base + i] = passes[i]->stream;
+
     if (passes[i]->info.type == PASS_RENDER) {
       gpu_render_end(passes[i]->stream);
     } else if (passes[i]->info.type == PASS_COMPUTE) {
@@ -553,11 +556,20 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     }
   }
 
-  for (uint32_t i = 0; i < extraPassCount + count; i++) {
+  for (uint32_t i = 0; i < count - 1; i++) {
+    gpu_sync(streams[i], &barriers[i], 1);
+  }
+
+  for (uint32_t i = 0; i < count; i++) {
     gpu_stream_end(streams[i]);
   }
 
-  gpu_submit(streams, extraPassCount + count);
+  gpu_submit(streams, count);
+
+  if (state.window) {
+    state.window->gpu = NULL;
+    state.window->renderView = NULL;
+  }
 
   state.uploads = NULL;
   state.active = false;
@@ -633,6 +645,8 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
     *data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
     gpu_copy_buffers(uploads, scratchpad, buffer->gpu, 0, 0, size);
+    buffer->sync.writePhase = GPU_PHASE_TRANSFER;
+    buffer->sync.pendingWrites = GPU_CACHE_TRANSFER_WRITE;
   }
 
   return buffer;
@@ -788,7 +802,8 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
-      ((info->usage & TEXTURE_TRANSFER) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
+      ((info->usage & TEXTURE_TRANSFER) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
+      ((info->usage == TEXTURE_RENDER) ? GPU_TEXTURE_TRANSIENT : 0),
     .srgb = info->srgb,
     .handle = info->handle,
     .label = info->label,
@@ -817,6 +832,15 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       lovrAssert(texture->renderView, "Out of memory");
       lovrAssert(gpu_texture_init_view(texture->renderView, &view), "Failed to create texture view");
     }
+  }
+
+  // Sample-only textures are exempt from sync tracking to reduce overhead.  Instead, they are
+  // manually synchronized with a single barrier after the upload stream.
+  if (info->usage == TEXTURE_SAMPLE) {
+    state.hasTextureUpload = true;
+  } else if (levelCount > 0) {
+    texture->sync.writePhase = GPU_PHASE_TRANSFER;
+    texture->sync.pendingWrites = GPU_CACHE_TRANSFER_WRITE;
   }
 
   return texture;
@@ -1397,8 +1421,8 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clears[i][2]);
     target.color[i].clear[3] = canvas->clears[i][2];
 
-    gpu_cache cache = GPU_CACHE_BLEND_WRITE | (canvas->loads[i] == LOAD_KEEP ? GPU_CACHE_BLEND_READ : 0);
-    trackTexture(pass, canvas->textures[i], GPU_PHASE_BLEND, cache);
+    gpu_cache cache = GPU_CACHE_COLOR_WRITE | (canvas->loads[i] == LOAD_KEEP ? GPU_CACHE_COLOR_READ : 0);
+    trackTexture(pass, canvas->textures[i], GPU_PHASE_COLOR, cache);
   }
 
   if (canvas->depth.texture) {
@@ -2418,7 +2442,7 @@ void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t e
   lovrCheck(extent % 4 == 0, "Buffer clear extent must be a multiple of 4");
   lovrCheck(offset + extent <= buffer->size, "Buffer clear range goes past the end of the Buffer");
   gpu_clear_buffer(pass->stream, buffer->gpu, offset, extent);
-  trackBuffer(pass, buffer, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
+  trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
@@ -2428,7 +2452,7 @@ void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t
   lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
   lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
   gpu_clear_texture(pass->stream, texture->gpu, value, layer, layerCount, level, levelCount);
-  trackTexture(pass, texture, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
+  trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassCopyDataToBuffer(Pass* pass, void* data, Buffer* buffer, uint32_t offset, uint32_t extent) {
@@ -2438,7 +2462,7 @@ void lovrPassCopyDataToBuffer(Pass* pass, void* data, Buffer* buffer, uint32_t o
   gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
   void* pointer = gpu_map(scratchpad, extent, 4, GPU_MAP_WRITE);
   gpu_copy_buffers(pass->stream, scratchpad, buffer->gpu, 0, offset, extent);
-  trackBuffer(pass, buffer, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
+  trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
   memcpy(pointer, data, extent);
 }
 
@@ -2448,8 +2472,8 @@ void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t s
   lovrCheck(srcOffset + extent <= src->size, "Buffer copy range goes past the end of the source Buffer");
   lovrCheck(dstOffset + extent <= dst->size, "Buffer copy range goes past the end of the destination Buffer");
   gpu_copy_buffers(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
-  trackBuffer(pass, src, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
-  trackBuffer(pass, dst, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
+  trackBuffer(pass, src, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
+  trackBuffer(pass, dst, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[4]) {
@@ -2482,7 +2506,7 @@ void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint
     }
   }
   gpu_copy_buffer_texture(pass->stream, buffer, texture->gpu, 0, dstOffset, extent);
-  trackTexture(pass, texture, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
+  trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
@@ -2498,8 +2522,8 @@ void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32
   checkTextureBounds(&src->info, srcOffset, extent);
   checkTextureBounds(&dst->info, dstOffset, extent);
   gpu_copy_textures(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
-  trackTexture(pass, src, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
-  trackTexture(pass, dst, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
+  trackTexture(pass, src, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
+  trackTexture(pass, dst, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter) {
@@ -2521,8 +2545,8 @@ void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4],
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_blit(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
-  trackTexture(pass, src, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ);
-  trackTexture(pass, dst, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_WRITE);
+  trackTexture(pass, src, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
+  trackTexture(pass, dst, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
 }
 
 void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count) {
@@ -2551,13 +2575,13 @@ void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count)
     };
     gpu_blit(pass->stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
     gpu_sync(pass->stream, &(gpu_barrier) {
-      .prev = GPU_PHASE_BLIT,
-      .next = GPU_PHASE_BLIT,
+      .prev = GPU_PHASE_TRANSFER,
+      .next = GPU_PHASE_TRANSFER,
       .flush = GPU_CACHE_TRANSFER_WRITE,
       .invalidate = GPU_CACHE_TRANSFER_READ
     }, 1);
   }
-  trackTexture(pass, texture, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
+  trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
 }
 
 // Helpers
@@ -2823,6 +2847,10 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
 }
 
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
+  if (texture->info.parent) {
+    texture = texture->info.parent;
+  }
+
   if (texture->info.usage == TEXTURE_SAMPLE) {
     return; // If the texture is sample-only, no sync needed (initial upload is handled manually)
   }
