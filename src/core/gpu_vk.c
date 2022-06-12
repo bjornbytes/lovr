@@ -1619,7 +1619,7 @@ void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
     src |= convertPhase(barrier->prev);
     dst |= convertPhase(barrier->next);
     memoryBarrier.srcAccessMask |= convertCache(barrier->flush);
-    memoryBarrier.dstAccessMask |= convertCache(barrier->invalidate);
+    memoryBarrier.dstAccessMask |= convertCache(barrier->clear);
   }
 
   if (src && dst) {

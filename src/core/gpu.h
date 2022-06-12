@@ -521,7 +521,7 @@ typedef struct {
   gpu_phase prev;
   gpu_phase next;
   gpu_cache flush;
-  gpu_cache invalidate;
+  gpu_cache clear;
 } gpu_barrier;
 
 gpu_stream* gpu_stream_begin(const char* label);

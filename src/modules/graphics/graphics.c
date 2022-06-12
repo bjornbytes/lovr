@@ -33,7 +33,7 @@ typedef struct {
   gpu_phase readPhase;
   gpu_phase writePhase;
   gpu_cache pendingReads;
-  gpu_cache pendingWrites;
+  gpu_cache pendingWrite;
   uint32_t lastWriteIndex;
 } Sync;
 
@@ -228,7 +228,7 @@ static struct {
   bool initialized;
   bool active;
   uint32_t tick;
-  Pass* uploads;
+  gpu_stream* stream;
   bool hasTextureUpload;
   gpu_device_info device;
   gpu_features features;
@@ -253,7 +253,6 @@ static struct {
 static void* tempAlloc(size_t size);
 static void* tempGrow(void* p, size_t size);
 static void beginFrame(void);
-static gpu_stream* getUploads(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(uint32_t layout);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
@@ -360,8 +359,8 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     });
   }
 
-  gpu_stream* uploads = getUploads();
-  gpu_clear_buffer(uploads, state.defaultBuffer->gpu, 0, 4096);
+  beginFrame();
+  gpu_clear_buffer(state.stream, state.defaultBuffer->gpu, 0, 4096);
 
   state.vertexFormats[VERTEX_SHAPE].gpu = (gpu_vertex_format) {
     .bufferCount = 2,
@@ -521,33 +520,26 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     return;
   }
 
-  if (state.uploads) {
-    count++;
-  }
-
-  gpu_stream** streams = tempAlloc(count * sizeof(gpu_stream*));
+  uint32_t total = count + 1;
+  gpu_stream** streams = tempAlloc(total * sizeof(gpu_stream*));
   gpu_barrier* barriers = tempAlloc(count * sizeof(gpu_barrier));
   memset(barriers, 0, count * sizeof(gpu_barrier));
 
-  uint32_t base = 0;
+  streams[0] = state.stream;
 
-  if (state.uploads) {
-    uint32_t index = base++;
-    streams[index] = state.uploads->stream;
-
-    if (state.hasTextureUpload) {
-      barriers[index].prev |= GPU_PHASE_TRANSFER;
-      barriers[index].next |= GPU_PHASE_SHADER_VERTEX;
-      barriers[index].next |= GPU_PHASE_SHADER_FRAGMENT;
-      barriers[index].next |= GPU_PHASE_SHADER_COMPUTE;
-      barriers[index].flush |= GPU_CACHE_TRANSFER_WRITE;
-      barriers[index].invalidate |= GPU_CACHE_TEXTURE;
-      state.hasTextureUpload = false;
-    }
+  if (state.hasTextureUpload) {
+    barriers[0].prev |= GPU_PHASE_TRANSFER;
+    barriers[0].next |= GPU_PHASE_SHADER_VERTEX;
+    barriers[0].next |= GPU_PHASE_SHADER_FRAGMENT;
+    barriers[0].next |= GPU_PHASE_SHADER_COMPUTE;
+    barriers[0].flush |= GPU_CACHE_TRANSFER_WRITE;
+    barriers[0].clear |= GPU_CACHE_TEXTURE;
+    state.hasTextureUpload = false;
   }
 
-  for (uint32_t i = 0; i < count - base; i++) {
-    streams[base + i] = passes[i]->stream;
+  // End passes
+  for (uint32_t i = 0; i < count; i++) {
+    streams[i + 1] = passes[i]->stream;
 
     if (passes[i]->info.type == PASS_RENDER) {
       gpu_render_end(passes[i]->stream);
@@ -556,22 +548,112 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     }
   }
 
-  for (uint32_t i = 0; i < count - 1; i++) {
-    gpu_sync(streams[i], &barriers[i], 1);
+  // Synchronization
+  for (uint32_t i = 0; i < count; i++) {
+    Pass* pass = passes[i];
+
+    for (uint32_t j = 0; j < pass->access.length; j++) {
+      // access is the incoming resource access performed by the pass
+      Access* access = &pass->access.data[j];
+
+      // sync is the existing state of the resource at the time of the access
+      Sync* sync = access->sync;
+
+      // barrier is a barrier that will be emitted at the end of the last pass that wrote to the
+      // resource (or the first pass if the last write was in a previous frame).  The barrier
+      // specifies 'phases' and 'caches'.  The 'next' phase will wait for the 'prev' phase to
+      // finish.  In between, the 'flush' cache is flushed and the 'clear' cache is cleared.
+      gpu_barrier* barrier = &barriers[sync->lastWriteIndex];
+
+      // Only the first write in a pass is considered, because each pass can only perform one type
+      // of write to a resource, and there is not currently any intra-pass synchronization.
+      if (sync->lastWriteIndex == i + 1) {
+        continue;
+      }
+
+      // There are 4 types of access patterns:
+      // - read after read:
+      //   - no hazard, no barrier necessary
+      // - read after write:
+      //   - needs execution dependency to ensure the read happens after the write
+      //   - needs to flush the writes from the cache
+      //   - needs to clear the cache for the read so it gets the new data
+      //   - only needs to happen once for each type of read after a write (tracked by pendingReads)
+      //     - if a second read happens, the first read would have already synchronized (transitive)
+      // - write after write:
+      //   - needs execution dependency to ensure writes don't overlap
+      //   - needs to flush and clear the cache
+      //   - resets the 'last write' and clears pendingReads
+      // - write after read:
+      //   - needs execution dependency to ensure write starts after read is finished
+      //   - does not need to flush any caches
+      //   - does clear the write cache
+      //   - resets the 'last write' and clears pendingReads
+
+      uint32_t read = access->cache & GPU_CACHE_READ;
+      uint32_t write = access->cache & GPU_CACHE_WRITE;
+      uint32_t newReads = read & ~sync->pendingReads;
+      bool hasNewReads = newReads || (access->phase & ~sync->readPhase);
+      bool readAfterWrite = read && sync->pendingWrite && hasNewReads;
+      bool writeAfterWrite = write && sync->pendingWrite && !sync->pendingReads;
+      bool writeAfterRead = write && sync->pendingReads;
+
+      if (readAfterWrite) {
+        barrier->prev |= sync->writePhase;
+        barrier->next |= access->phase;
+        barrier->flush |= sync->pendingWrite;
+        barrier->clear |= newReads;
+        sync->readPhase |= access->phase;
+        sync->pendingReads |= read;
+      }
+
+      if (writeAfterWrite) {
+        barrier->prev |= sync->writePhase;
+        barrier->next |= access->phase;
+        barrier->flush |= sync->pendingWrite;
+        barrier->clear |= write;
+      }
+
+      if (writeAfterRead) {
+        barrier->prev |= sync->readPhase;
+        barrier->next |= access->phase;
+        sync->readPhase = 0;
+        sync->pendingReads = 0;
+      }
+
+      if (write) {
+        sync->writePhase = access->phase;
+        sync->pendingWrite = write;
+        sync->lastWriteIndex = i + 1;
+      }
+
+      lovrRelease(access->buffer, lovrBufferDestroy);
+      lovrRelease(access->texture, lovrTextureDestroy);
+    }
   }
 
   for (uint32_t i = 0; i < count; i++) {
+    for (uint32_t j = 0; j < passes[i]->access.length; j++) {
+      passes[i]->access.data[j].sync->lastWriteIndex = 0;
+    }
+  }
+
+  for (uint32_t i = 0; i < count; i++) {
+    gpu_sync(streams[i], &barriers[i], 1);
+  }
+
+  for (uint32_t i = 0; i < total; i++) {
     gpu_stream_end(streams[i]);
   }
 
-  gpu_submit(streams, count);
+  gpu_submit(streams, total);
 
   if (state.window) {
     state.window->gpu = NULL;
     state.window->renderView = NULL;
   }
 
-  state.uploads = NULL;
+  state.stream = NULL;
   state.active = false;
 }
 
@@ -641,12 +723,12 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
   lovrBufferInitFormat(&buffer->format, info);
 
   if (data && *data == NULL) {
-    gpu_stream* uploads = getUploads();
+    beginFrame();
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
     *data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
-    gpu_copy_buffers(uploads, scratchpad, buffer->gpu, 0, 0, size);
+    gpu_copy_buffers(state.stream, scratchpad, buffer->gpu, 0, 0, size);
     buffer->sync.writePhase = GPU_PHASE_TRANSFER;
-    buffer->sync.pendingWrites = GPU_CACHE_TRANSFER_WRITE;
+    buffer->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
   }
 
   return buffer;
@@ -792,6 +874,8 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     }
   }
 
+  beginFrame();
+
   gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
     .format = (gpu_texture_format) info->format,
@@ -808,7 +892,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     .handle = info->handle,
     .label = info->label,
     .upload = {
-      .stream = getUploads(),
+      .stream = state.stream,
       .buffer = scratchpad,
       .levelCount = levelCount,
       .levelOffsets = levelOffsets,
@@ -840,7 +924,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     state.hasTextureUpload = true;
   } else if (levelCount > 0) {
     texture->sync.writePhase = GPU_PHASE_TRANSFER;
-    texture->sync.pendingWrites = GPU_CACHE_TRANSFER_WRITE;
+    texture->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
   }
 
   return texture;
@@ -2578,7 +2662,7 @@ void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count)
       .prev = GPU_PHASE_TRANSFER,
       .next = GPU_PHASE_TRANSFER,
       .flush = GPU_CACHE_TRANSFER_WRITE,
-      .invalidate = GPU_CACHE_TRANSFER_READ
+      .clear = GPU_CACHE_TRANSFER_READ
     }, 1);
   }
   trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
@@ -2612,17 +2696,7 @@ static void beginFrame(void) {
 
   state.active = true;
   state.tick = gpu_begin();
-}
-
-static gpu_stream* getUploads(void) {
-  if (!state.uploads) {
-    state.uploads = lovrGraphicsGetPass(&(PassInfo) {
-      .type = PASS_TRANSFER,
-      .label = "Internal Uploads"
-    });
-  }
-
-  return state.uploads->stream;
+  state.stream = gpu_stream_begin("Internal uploads");
 }
 
 static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
@@ -2847,6 +2921,10 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
 }
 
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
+  if (texture == state.window) {
+    return;
+  }
+
   if (texture->info.parent) {
     texture = texture->info.parent;
   }
