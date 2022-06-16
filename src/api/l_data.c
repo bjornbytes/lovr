@@ -50,7 +50,7 @@ StringEntry lovrDrawMode[] = {
 };
 
 StringEntry lovrMaterialColor[] = {
-  [COLOR_DIFFUSE] = ENTRY("diffuse"),
+  [COLOR_BASE] = ENTRY("base"),
   [COLOR_EMISSIVE] = ENTRY("emissive"),
   { 0 }
 };
@@ -63,7 +63,7 @@ StringEntry lovrMaterialScalar[] = {
 };
 
 StringEntry lovrMaterialTexture[] = {
-  [TEXTURE_DIFFUSE] = ENTRY("diffuse"),
+  [TEXTURE_COLOR] = ENTRY("color"),
   [TEXTURE_EMISSIVE] = ENTRY("emissive"),
   [TEXTURE_METALNESS] = ENTRY("metalness"),
   [TEXTURE_ROUGHNESS] = ENTRY("roughness"),

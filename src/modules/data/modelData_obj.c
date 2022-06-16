@@ -47,12 +47,17 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
     if (STARTS_WITH(line, "newmtl ")) {
       map_set(names, hash64(line + 7, length - 7), materials->length);
       arr_push(materials, ((ModelMaterial) {
-        .scalars[SCALAR_METALNESS] = 1.f,
-        .scalars[SCALAR_ROUGHNESS] = 1.f,
-        .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
-        .colors[COLOR_EMISSIVE] = { 0.f, 0.f, 0.f, 0.f }
+        .metalness = 1.f,
+        .roughness = 1.f,
+        .alphaCutoff = 0.f,
+        .baseColor = { 1.f, 1.f, 1.f, 1.f },
+        .emissiveColor = { 0.f, 0.f, 0.f, 0.f },
+        .colorTexture = ~0u,
+        .emissiveTexture = ~0u,
+        .metalnessRoughnessTexture = ~0u,
+        .occlusionTexture = ~0u,
+        .normalTexture = ~0u
       }));
-      memset(&materials->data[materials->length - 1].images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(int));
     } else if (line[0] == 'K' && line[1] == 'd' && line[2] == ' ') {
       float r, g, b;
       char* s = line + 3;
@@ -60,7 +65,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       g = strtof(s, &s);
       b = strtof(s, &s);
       ModelMaterial* material = &materials->data[materials->length - 1];
-      memcpy(material->colors[COLOR_DIFFUSE], (float[4]) { r, g, b, 1.f }, 16);
+      memcpy(material->baseColor, (float[4]) { r, g, b, 1.f }, 16);
     } else if (STARTS_WITH(line, "map_Kd ")) {
       lovrAssert(base - path + (length - 7) < 1024, "Bad OBJ: Material image filename is too long");
       memcpy(base, line + 7, length - 7);
@@ -74,7 +79,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       Image* image = lovrImageCreateFromFile(blob);
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->images[TEXTURE_DIFFUSE] = (uint32_t) images->length;
+      material->colorTexture = (uint32_t) images->length;
       arr_push(images, image);
       lovrRelease(blob, lovrBlobDestroy);
     }

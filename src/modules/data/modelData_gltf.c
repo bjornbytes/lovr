@@ -73,15 +73,15 @@ static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
   }
 }
 
-static jsmntok_t* nomTexture(const char* json, jsmntok_t* token, ModelMaterial* material, MaterialTexture textureType, gltfTexture* textures) {
+static jsmntok_t* nomTexture(const char* json, jsmntok_t* token, uint32_t* imageIndex, gltfTexture* textures) {
   for (int k = (token++)->size; k > 0; k--) {
     gltfString key = NOM_STR(json, token);
     if (STR_EQ(key, "index")) {
       uint32_t index = NOM_INT(json, token);
       gltfTexture* texture = &textures[index];
-      material->images[textureType] = texture->image;
+      *imageIndex = texture->image;
     } else if (STR_EQ(key, "texCoord")) {
-      lovrAssert(NOM_INT(json, token) == 0, "Only one set of texture coordinates is supported");
+      lovrAssert(NOM_INT(json, token) == 0, "Currently, only one set of texture coordinates is supported");
     } else {
       token += NOM_VALUE(json, token);
     }
@@ -643,12 +643,16 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     jsmntok_t* token = info.materials;
     ModelMaterial* material = model->materials;
     for (int i = (token++)->size; i > 0; i--, material++) {
-      material->scalars[SCALAR_METALNESS] = 1.f;
-      material->scalars[SCALAR_ROUGHNESS] = 1.f;
-      material->scalars[SCALAR_ALPHA_CUTOFF] = 0.f;
-      memcpy(material->colors[COLOR_DIFFUSE], (float[4]) { 1.f, 1.f, 1.f, 1.f }, 16);
-      memcpy(material->colors[COLOR_EMISSIVE], (float[4]) { 0.f, 0.f, 0.f, 0.f }, 16);
-      memset(material->images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(uint32_t));
+      material->metalness = 1.f;
+      material->roughness = 1.f;
+      material->alphaCutoff = 0.f;
+      memcpy(material->baseColor, (float[4]) { 1.f, 1.f, 1.f, 1.f }, 16);
+      memcpy(material->emissiveColor, (float[4]) { 0.f, 0.f, 0.f, 0.f }, 16);
+      material->colorTexture = ~0u;
+      material->emissiveTexture = ~0u;
+      material->metalnessRoughnessTexture = ~0u;
+      material->occlusionTexture = ~0u;
+      material->normalTexture = ~0u;
 
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
@@ -657,36 +661,35 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             gltfString key = NOM_STR(json, token);
             if (STR_EQ(key, "baseColorFactor")) {
               token++; // Enter array
-              material->colors[COLOR_DIFFUSE][0] = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE][1] = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE][2] = NOM_FLOAT(json, token);
-              material->colors[COLOR_DIFFUSE][3] = NOM_FLOAT(json, token);
+              material->baseColor[0] = NOM_FLOAT(json, token);
+              material->baseColor[1] = NOM_FLOAT(json, token);
+              material->baseColor[2] = NOM_FLOAT(json, token);
+              material->baseColor[3] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "baseColorTexture")) {
-              token = nomTexture(json, token, material, TEXTURE_DIFFUSE, textures);
+              token = nomTexture(json, token, &material->colorTexture, textures);
             } else if (STR_EQ(key, "metallicFactor")) {
-              material->scalars[SCALAR_METALNESS] = NOM_FLOAT(json, token);
+              material->metalness = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "roughnessFactor")) {
-              material->scalars[SCALAR_ROUGHNESS] = NOM_FLOAT(json, token);
+              material->roughness = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "metallicRoughnessTexture")) {
-              token = nomTexture(json, token, material, TEXTURE_METALNESS, textures);
-              material->images[TEXTURE_ROUGHNESS] = material->images[TEXTURE_METALNESS];
+              token = nomTexture(json, token, &material->metalnessRoughnessTexture, textures);
             } else {
               token += NOM_VALUE(json, token);
             }
           }
         } else if (STR_EQ(key, "normalTexture")) {
-          token = nomTexture(json, token, material, TEXTURE_NORMAL, textures);
+          token = nomTexture(json, token, &material->normalTexture, textures);
         } else if (STR_EQ(key, "occlusionTexture")) {
-          token = nomTexture(json, token, material, TEXTURE_OCCLUSION, textures);
+          token = nomTexture(json, token, &material->occlusionTexture, textures);
         } else if (STR_EQ(key, "emissiveTexture")) {
-          token = nomTexture(json, token, material, TEXTURE_EMISSIVE, textures);
+          token = nomTexture(json, token, &material->emissiveTexture, textures);
         } else if (STR_EQ(key, "emissiveFactor")) {
           token++; // Enter array
-          material->colors[COLOR_EMISSIVE][0] = NOM_FLOAT(json, token);
-          material->colors[COLOR_EMISSIVE][1] = NOM_FLOAT(json, token);
-          material->colors[COLOR_EMISSIVE][2] = NOM_FLOAT(json, token);
+          material->emissiveColor[0] = NOM_FLOAT(json, token);
+          material->emissiveColor[1] = NOM_FLOAT(json, token);
+          material->emissiveColor[2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "alphaCutoff")) {
-          material->scalars[SCALAR_ALPHA_CUTOFF] = NOM_FLOAT(json, token);
+          material->alphaCutoff = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
           map_set(&model->materialMap, hash64(name.data, name.length), model->materialCount - i);
