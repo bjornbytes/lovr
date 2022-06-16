@@ -33,6 +33,11 @@ typedef struct {
   spv_type type;
 } spv_push_constant;
 
+typedef struct {
+  const char* name;
+  uint32_t location;
+} spv_attribute;
+
 typedef enum {
   SPV_UNIFORM_BUFFER,
   SPV_STORAGE_BUFFER,
@@ -51,15 +56,16 @@ typedef struct {
 
 typedef struct {
   uint32_t version;
-  uint32_t inputLocationMask;
   uint32_t featureCount;
   uint32_t specConstantCount;
   uint32_t pushConstantCount;
   uint32_t pushConstantSize;
+  uint32_t attributeCount;
   uint32_t resourceCount;
   uint32_t* features;
   spv_spec_constant* specConstants;
   spv_push_constant* pushConstants;
+  spv_attribute* attributes;
   spv_resource* resources;
 } spv_info;
 
@@ -67,7 +73,6 @@ typedef enum {
   SPV_OK,
   SPV_INVALID,
   SPV_TOO_BIG,
-  SPV_LOCATION_TOO_BIG,
   SPV_UNSUPPORTED_IMAGE_TYPE,
   SPV_UNSUPPORTED_SPEC_CONSTANT_TYPE,
   SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE

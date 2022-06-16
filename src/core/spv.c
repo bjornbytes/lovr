@@ -16,13 +16,14 @@
 
 typedef union {
   struct {
-    uint8_t location;
-  } input;
+    uint16_t location;
+    uint16_t name;
+  } attribute;
   struct {
     uint8_t set;
     uint8_t binding;
     uint16_t name;
-  } resource;
+  } variable;
   struct {
     uint16_t number;
     uint16_t name;
@@ -72,19 +73,19 @@ spv_result spv_parse(const void* source, uint32_t size, spv_info* info) {
 
   spv.bound = spv.words[3];
 
-  if (spv.bound >= 0xffff) {
+  if (spv.bound >= 8192) {
     return SPV_TOO_BIG;
   }
 
-  spv_cache cache[65536];
+  spv_cache cache[8192];
   memset(cache, 0xff, spv.bound * sizeof(spv_cache));
   spv.cache = cache;
 
-  info->inputLocationMask = 0;
   info->featureCount = 0;
   info->specConstantCount = 0;
   info->pushConstantCount = 0;
   info->pushConstantSize = 0;
+  info->attributeCount = 0;
   info->resourceCount = 0;
 
   const uint32_t* op = spv.words + 5;
@@ -157,7 +158,6 @@ const char* spv_result_to_string(spv_result result) {
     case SPV_OK: return "OK";
     case SPV_INVALID: return "Invalid SPIR-V";
     case SPV_TOO_BIG: return "SPIR-V contains too many types/variables (max ID is 65534)";
-    case SPV_LOCATION_TOO_BIG: return "Max location is 31";
     case SPV_UNSUPPORTED_IMAGE_TYPE: return "This type of image variable is not supported";
     case SPV_UNSUPPORTED_SPEC_CONSTANT_TYPE: return "This type of specialization constant is not supported";
     case SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE: return "Push constants must be square matrices, vectors, 32 bit numbers, or bools";
@@ -199,9 +199,9 @@ static spv_result spv_parse_decoration(spv_context* spv, const uint32_t* op, spv
   }
 
   switch (decoration) {
-    case 33: spv->cache[id].resource.binding = op[3]; break; // Binding
-    case 34: spv->cache[id].resource.set = op[3]; break; // Set
-    case 30: spv->cache[id].input.location = op[3]; break; // Location
+    case 33: spv->cache[id].variable.binding = op[3]; break; // Binding
+    case 34: spv->cache[id].variable.set = op[3]; break; // Set
+    case 30: spv->cache[id].attribute.location = op[3]; break; // Location
     case 1: spv->cache[id].flag.number = op[3]; break; // SpecID
     default: break;
   }
@@ -290,14 +290,17 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
   uint32_t storageClass = op[3];
 
   if (storageClass == 1) { // Input
-    uint32_t location = spv->cache[variableId].input.location;
+    if (spv->cache[variableId].attribute.location == 0xffff) {
+      return SPV_OK; // Not all input variables are attributes
+    }
 
-    if (location == 0xff) {
+    if (info->attributes) {
+      spv_attribute* attribute = &info->attributes[info->attributeCount++];
+      attribute->location = spv->cache[variableId].attribute.location;
+      attribute->name = (char*) (spv->words + spv->cache[variableId].attribute.name);
       return SPV_OK;
-    } else if (location > 31) {
-      return SPV_LOCATION_TOO_BIG;
     } else {
-      info->inputLocationMask |= (1 << location);
+      info->attributeCount++;
       return SPV_OK;
     }
   }
@@ -306,8 +309,8 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
     return spv_parse_push_constants(spv, op, info);
   }
 
-  uint32_t set = spv->cache[variableId].resource.set;
-  uint32_t binding = spv->cache[variableId].resource.binding;
+  uint32_t set = spv->cache[variableId].variable.set;
+  uint32_t binding = spv->cache[variableId].variable.binding;
 
   // Ignore output variables (storageClass 3) and anything without a set/binding decoration
   if (storageClass == 3 || set == 0xff || binding == 0xff) {
@@ -370,8 +373,8 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
   }
 
   // Sampler and texture variables are named directly
-  if (spv->cache[variableId].resource.name != 0xffff) {
-    resource->name = (char*) (spv->words + spv->cache[variableId].resource.name);
+  if (spv->cache[variableId].variable.name != 0xffff) {
+    resource->name = (char*) (spv->words + spv->cache[variableId].variable.name);
   }
 
   if (OP_CODE(type) == 26) { // OpTypeSampler

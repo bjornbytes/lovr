@@ -129,9 +129,10 @@ typedef enum {
 } FieldType;
 
 typedef struct {
-  uint16_t offset;
-  uint8_t location;
-  uint8_t type;
+  uint32_t hash;
+  uint32_t location;
+  uint32_t type;
+  uint32_t offset;
 } BufferField;
 
 typedef enum {

@@ -1,11 +1,9 @@
 #version 460
 #extension GL_EXT_multiview : require
+#extension GL_GOOGLE_include_directive : require
 
-layout(location = 0) in vec4 inColor;
-layout(location = 1) in vec2 inUV;
-
-layout(location = 0) out vec4 outColor;
+#include "lovr.glsl"
 
 void main() {
-  outColor = inColor;
+  PixelColors[0] = FragColor;
 }

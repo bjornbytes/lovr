@@ -24,12 +24,6 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 #define MAX_SHADER_RESOURCES 32
 
 typedef struct {
-  gpu_vertex_format gpu;
-  uint64_t hash;
-  uint32_t mask;
-} VertexFormat;
-
-typedef struct {
   gpu_phase readPhase;
   gpu_phase writePhase;
   gpu_cache pendingReads;
@@ -43,7 +37,7 @@ struct Buffer {
   char* pointer;
   gpu_buffer* gpu;
   BufferInfo info;
-  VertexFormat format;
+  uint64_t hash;
   Sync sync;
 };
 
@@ -74,6 +68,11 @@ typedef struct {
   gpu_slot_type type;
 } ShaderResource;
 
+typedef struct {
+  uint32_t location;
+  uint32_t hash;
+} ShaderAttribute;
+
 struct Shader {
   uint32_t ref;
   Shader* parent;
@@ -81,7 +80,6 @@ struct Shader {
   ShaderInfo info;
   uint32_t layout;
   uint32_t computePipeline;
-  uint32_t attributeMask;
   uint32_t bufferMask;
   uint32_t textureMask;
   uint32_t samplerMask;
@@ -89,12 +87,15 @@ struct Shader {
   uint32_t constantSize;
   uint32_t constantCount;
   uint32_t resourceCount;
+  uint32_t attributeCount;
   ShaderConstant* constants;
   ShaderResource* resources;
+  ShaderAttribute* attributes;
   uint32_t flagCount;
   uint32_t overrideCount;
   gpu_shader_flag* flags;
   uint32_t* flagLookup;
+  bool hasCustomAttributes;
 };
 
 typedef struct {
@@ -239,7 +240,7 @@ static struct {
   Texture* defaultTexture;
   Sampler* defaultSamplers[2];
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
-  VertexFormat vertexFormats[DEFAULT_FORMAT_COUNT];
+  gpu_vertex_format vertexFormats[DEFAULT_FORMAT_COUNT];
   arr_t(TempAttachment) attachments;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
@@ -362,28 +363,27 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   beginFrame();
   gpu_clear_buffer(state.stream, state.defaultBuffer->gpu, 0, 4096);
 
-  state.vertexFormats[VERTEX_SHAPE].gpu = (gpu_vertex_format) {
+  state.vertexFormats[VERTEX_SHAPE] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 3,
+    .attributeCount = 5,
     .bufferStrides[1] = sizeof(ShapeVertex),
-    .attributes[0] = { 1, 0, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
-    .attributes[1] = { 1, 1, offsetof(ShapeVertex, normal), GPU_TYPE_F32x3 },
-    .attributes[2] = { 1, 2, offsetof(ShapeVertex, uv), GPU_TYPE_F32x2 }
+    .attributes[0] = { 1, 10, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
+    .attributes[1] = { 1, 11, offsetof(ShapeVertex, normal), GPU_TYPE_F32x3 },
+    .attributes[2] = { 1, 12, offsetof(ShapeVertex, uv), GPU_TYPE_F32x2 },
+    .attributes[3] = { 0, 13, 0, GPU_TYPE_F32x4 },
+    .attributes[4] = { 0, 14, 0, GPU_TYPE_F32x4 }
   };
 
-  state.vertexFormats[VERTEX_POINT].gpu = (gpu_vertex_format) {
+  state.vertexFormats[VERTEX_POINT] = (gpu_vertex_format) {
     .bufferCount = 2,
     .attributeCount = 1,
     .bufferStrides[1] = 12,
-    .attributes[0] = { 1, 0, 0, GPU_TYPE_F32x3 }
+    .attributes[0] = { 1, 10, 0, GPU_TYPE_F32x3 },
+    .attributes[1] = { 0, 11, 0, GPU_TYPE_F32x4 },
+    .attributes[2] = { 0, 12, 0, GPU_TYPE_F32x4 },
+    .attributes[3] = { 0, 13, 0, GPU_TYPE_F32x4 },
+    .attributes[4] = { 0, 14, 0, GPU_TYPE_F32x4 }
   };
-
-  for (uint32_t i = 0; i < COUNTOF(state.vertexFormats); i++) {
-    for (uint32_t j = 0; j < state.vertexFormats[i].gpu.attributeCount; j++) {
-      state.vertexFormats[i].mask |= (1 << state.vertexFormats[i].gpu.attributes[j].location);
-    }
-    state.vertexFormats[i].hash = hash64(&state.vertexFormats[i].gpu, sizeof(gpu_vertex_format));
-  }
 
   float16Init();
   glslang_initialize_process();
@@ -470,9 +470,9 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->storageBufferRange = state.limits.storageBufferRange;
   limits->uniformBufferAlign = state.limits.uniformBufferAlign;
   limits->storageBufferAlign = state.limits.storageBufferAlign;
-  limits->vertexAttributes = state.limits.vertexAttributes;
+  limits->vertexAttributes = 10;
   limits->vertexBufferStride = state.limits.vertexBufferStride;
-  limits->vertexShaderOutputs = state.limits.vertexShaderOutputs;
+  limits->vertexShaderOutputs = 10;
   limits->clipDistances = state.limits.clipDistances;
   limits->cullDistances = state.limits.cullDistances;
   limits->clipAndCullDistances = state.limits.clipAndCullDistances;
@@ -663,23 +663,6 @@ void lovrGraphicsWait() {
 
 // Buffer
 
-static void lovrBufferInitFormat(VertexFormat* format, BufferInfo* info) {
-  format->mask = 0;
-  format->gpu.bufferCount = 2;
-  format->gpu.bufferStrides[1] = info->stride;
-  format->gpu.attributeCount = info->fieldCount;
-  for (uint32_t i = 0; i < info->fieldCount; i++) {
-    format->gpu.attributes[i] = (gpu_attribute) {
-      .buffer = 1,
-      .location = info->fields[i].location,
-      .offset = info->fields[i].offset,
-      .type = (gpu_attribute_type) info->fields[i].type
-    };
-    format->mask |= (1 << i);
-  }
-  format->hash = hash64(&format->gpu, sizeof(format->gpu));
-}
-
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
@@ -690,10 +673,9 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   buffer->size = size;
   buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->info = *info;
+  buffer->hash = hash64(info->fields, info->fieldCount * sizeof(BufferField));
 
   buffer->pointer = gpu_map(buffer->gpu, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
-
-  lovrBufferInitFormat(&buffer->format, info);
 
   if (data) {
     *data = buffer->pointer;
@@ -713,14 +695,13 @@ Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
   buffer->size = size;
   buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->info = *info;
+  buffer->hash = hash64(info->fields, info->fieldCount * sizeof(BufferField));
 
   gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
     .size = buffer->size,
     .label = info->label,
     .pointer = data
   });
-
-  lovrBufferInitFormat(&buffer->format, info);
 
   if (data && *data == NULL) {
     beginFrame();
@@ -1045,15 +1026,32 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
     [STAGE_COMPUTE] = GLSLANG_STAGE_COMPUTE
   };
 
-  const glslang_resource_t* resource = glslang_default_resource();
+  const char* prefix = ""
+    "#version 460\n"
+    "#extension GL_EXT_multiview : require\n"
+    "#extension GL_GOOGLE_include_directive : require\n";
+
+  const char* suffixes[] = {
+    [STAGE_VERTEX] = "void main() { FragColor = Color * VertexColor, FragUV = VertexUV, Position = lovrmain(); }",
+    [STAGE_FRAGMENT] = "void main() { PixelColors[0] = lovrmain(); }",
+    [STAGE_COMPUTE] = "void main() { lovrmain(); }"
+  };
 
   const char* strings[] = {
-    source->data
+    prefix,
+    (const char*) etc_shaders_lovr_glsl,
+    source->data,
+    suffixes[stage]
   };
 
   int lengths[] = {
-    source->size
+    -1,
+    etc_shaders_lovr_glsl_len,
+    source->size,
+    -1
   };
+
+  const glslang_resource_t* resource = glslang_default_resource();
 
   glslang_input_t input = {
     .language = GLSLANG_SOURCE_GLSL,
@@ -1064,7 +1062,7 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
     .target_language_version = GLSLANG_TARGET_SPV_1_3,
     .strings = strings,
     .lengths = lengths,
-    .string_count = 1,
+    .string_count = COUNTOF(strings),
     .default_version = 460,
     .default_profile = GLSLANG_NO_PROFILE,
     .resource = resource
@@ -1191,6 +1189,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     spv[i].features = tempAlloc(spv[i].featureCount * sizeof(uint32_t));
     spv[i].specConstants = tempAlloc(spv[i].specConstantCount * sizeof(spv_spec_constant));
     spv[i].pushConstants = tempAlloc(spv[i].pushConstantCount * sizeof(spv_push_constant));
+    spv[i].attributes = tempAlloc(spv[i].attributeCount * sizeof(spv_attribute));
     spv[i].resources = tempAlloc(spv[i].resourceCount * sizeof(spv_resource));
 
     result = spv_parse(info->stages[i]->data, info->stages[i]->size, &spv[i]);
@@ -1201,15 +1200,19 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 
   uint32_t constantStage = spv[0].pushConstantSize > spv[1].pushConstantSize ? 0 : 1;
   uint32_t maxFlags = spv[0].specConstantCount + spv[1].specConstantCount;
+  shader->constantCount = spv[constantStage].pushConstantCount;
+  shader->attributeCount = spv[0].attributeCount;
 
-  shader->attributeMask = spv[0].inputLocationMask;
   shader->constantSize = MAX(spv[0].pushConstantSize, spv[1].pushConstantSize);
   shader->constants = malloc(spv[constantStage].pushConstantCount * sizeof(ShaderConstant));
   shader->resources = malloc((spv[0].resourceCount + spv[1].resourceCount) * sizeof(ShaderResource));
+  shader->attributes = malloc(spv[0].attributeCount * sizeof(ShaderAttribute));
   gpu_slot* slots = tempAlloc((spv[0].resourceCount + spv[1].resourceCount) * sizeof(gpu_slot));
   shader->flags = malloc(maxFlags * sizeof(gpu_shader_flag));
   shader->flagLookup = malloc(maxFlags * sizeof(uint32_t));
-  lovrAssert(shader->constants && shader->resources && shader->flags && shader->flagLookup, "Out of memory");
+  lovrAssert(shader->constants && shader->resources && shader->attributes, "Out of memory");
+  lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
+
 
   // Push constants
   for (uint32_t i = 0; i < spv[constantStage].pushConstantCount; i++) {
@@ -1310,6 +1313,13 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     }
   }
 
+  // Attributes
+  for (uint32_t i = 0; i < spv[0].attributeCount; i++) {
+    shader->attributes[i].location = spv[0].attributes[i].location;
+    shader->attributes[i].hash = (uint32_t) hash64(spv[0].attributes[i].name, strlen(spv[0].attributes[i].name));
+    shader->hasCustomAttributes |= shader->attributes[i].location < 10;
+  }
+
   // Specialization constants
   for (uint32_t s = 0; s < stageCount; s++) {
     for (uint32_t i = 0; i < spv[s].specConstantCount; i++) {
@@ -1383,7 +1393,6 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->info.flags = flags;
   shader->info.flagCount = count;
   shader->layout = parent->layout;
-  shader->attributeMask = parent->attributeMask;
   shader->bufferMask = parent->bufferMask;
   shader->textureMask = parent->textureMask;
   shader->samplerMask = parent->samplerMask;
@@ -2064,30 +2073,62 @@ static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
     pipeline->dirty = true;
   }
 
-  VertexFormat* format = draw->vertex.buffer ? &draw->vertex.buffer->format : &state.vertexFormats[draw->vertex.format];
+  // Builtin vertex format
+  if (!draw->vertex.buffer && pipeline->formatHash != 1 + draw->vertex.format) {
+    pipeline->formatHash = 1 + draw->vertex.format;
+    pipeline->info.vertex = state.vertexFormats[draw->vertex.format];
+    pipeline->dirty = true;
 
-  if (format->hash != pipeline->formatHash) {
-    pipeline->info.vertex = format->gpu;
-    gpu_vertex_format* vertex = &pipeline->info.vertex;
-    uint32_t missingAttributes = shader->attributeMask & ~format->mask;
-
-    if (missingAttributes) {
-      vertex->bufferStrides[0] = 0;
-      for (uint32_t i = 0; i < 32 && missingAttributes; i++) {
-        if (missingAttributes & (1 << i)) { // TODO clz
-          missingAttributes &= ~(1 << i);
-          vertex->attributes[vertex->attributeCount++] = (gpu_attribute) {
+    if (shader->hasCustomAttributes) {
+      for (uint32_t i = 0; i < shader->attributeCount; i++) {
+        if (shader->attributes[i].location < 10) {
+          pipeline->info.vertex.attributes[pipeline->info.vertex.attributeCount++] = (gpu_attribute) {
             .buffer = 0,
-            .location = i,
-            .offset = 0,
-            .type = GPU_TYPE_F32x4
+            .location = shader->attributes[i].location,
+            .type = GPU_TYPE_F32x4,
+            .offset = 0
           };
         }
       }
     }
+  }
 
-    pipeline->formatHash = format->hash;
+  // Custom vertex format
+  if (draw->vertex.buffer && pipeline->formatHash != draw->vertex.buffer->hash) {
+    pipeline->formatHash = draw->vertex.buffer->hash;
+    pipeline->info.vertex.bufferCount = 2;
+    pipeline->info.vertex.attributeCount = shader->attributeCount;
+    pipeline->info.vertex.bufferStrides[0] = 0;
+    pipeline->info.vertex.bufferStrides[1] = draw->vertex.buffer->info.stride;
     pipeline->dirty = true;
+
+    for (uint32_t i = 0; i < shader->attributeCount; i++) {
+      ShaderAttribute* attribute = &shader->attributes[i];
+
+      bool found = false;
+      for (uint32_t j = 0; j < draw->vertex.buffer->info.fieldCount; j++) {
+        BufferField field = draw->vertex.buffer->info.fields[j];
+        if (field.hash ? (field.hash == attribute->hash) : (field.location == attribute->location)) {
+          pipeline->info.vertex.attributes[i] = (gpu_attribute) {
+            .buffer = 1,
+            .location = attribute->location,
+            .offset = field.offset,
+            .type = field.type
+          };
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        pipeline->info.vertex.attributes[i] = (gpu_attribute) {
+          .buffer = 0,
+          .location = attribute->location,
+          .offset = 0,
+          .type = GPU_TYPE_F32x4
+        };
+      }
+    }
   }
 
   if (!pipeline->dirty) {
@@ -2205,7 +2246,7 @@ static void flushBuffers(Pass* pass, Draw* draw) {
 
   if (!draw->vertex.buffer && draw->vertex.count > 0) {
     lovrCheck(draw->vertex.count < UINT16_MAX, "This draw has too many vertices (max is 65534), try splitting it up into multiple draws or using a Buffer");
-    uint32_t stride = state.vertexFormats[draw->vertex.format].gpu.bufferStrides[1];
+    uint32_t stride = state.vertexFormats[draw->vertex.format].bufferStrides[1];
     uint32_t size = draw->vertex.count * stride;
 
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());

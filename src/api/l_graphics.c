@@ -216,9 +216,18 @@ static struct { uint32_t size, scalarAlign, baseAlign, components; } fieldInfo[]
   [FIELD_MAT4] = { 64, 4, 16, 16 }
 };
 
-static uint32_t luax_checkfieldtype(lua_State* L, int index) {
+static uint32_t luax_checkfieldtype(lua_State* L, int index, uint32_t* nameHash) {
   size_t length;
   const char* string = luaL_checklstring(L, index, &length);
+
+  char* colon = strchr(string, ':');
+
+  if (colon) {
+    *nameHash = (uint32_t) hash64(colon + 1, length - (colon + 1 - string));
+    length = colon - string;
+  } else {
+    *nameHash = 0;
+  }
 
   if (length < 3) {
     return luaL_error(L, "invalid FieldType '%s'", string), 0;
@@ -255,10 +264,6 @@ static uint32_t luax_checkfieldtype(lua_State* L, int index) {
     return FIELD_UN8x4;
   }
 
-  if (length == 6 && !memcmp(string, "normal", length)) {
-    return FIELD_UN10x3;
-  }
-
   for (int i = 0; lovrFieldType[i].length; i++) {
     if (length == lovrFieldType[i].length && !memcmp(string, lovrFieldType[i].string, length)) {
       return i;
@@ -276,7 +281,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
       break;
     case LUA_TSTRING:
       info->fieldCount = 1;
-      info->fields[0].type = luax_checkfieldtype(L, index);
+      info->fields[0].type = luax_checkfieldtype(L, index, &info->fields[0].hash);
       info->stride = fieldInfo[info->fields[0].type].size;
       break;
     case LUA_TTABLE:
@@ -297,7 +302,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
         lua_rawgeti(L, index, i + 1);
         if (lua_istable(L, -1)) {
           lua_getfield(L, -1, "type");
-          field->type = luax_checkenum(L, -1, FieldType, NULL);
+          field->type = luax_checkfieldtype(L, -1, &field->hash);
           lua_pop(L, 1);
 
           uint32_t align = layout == LAYOUT_PACKED ? fieldInfo[field->type].scalarAlign : fieldInfo[field->type].baseAlign;
@@ -313,10 +318,18 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
           lua_pop(L, 1);
 
           lua_getfield(L, -1, "location");
-          field->location = lua_isnil(L, -1) ? location++ : luaL_checkinteger(L, -1); // TODO names
+          field->location = lua_isnil(L, -1) ? location++ : luaL_checkinteger(L, -1);
+          lua_pop(L, 1);
+
+          lua_getfield(L, -1, "name");
+          if (lua_type(L, -1) == LUA_TSTRING) {
+            size_t nameLength;
+            const char* name = lua_tolstring(L, -1, &nameLength);
+            field->hash = (uint32_t) hash64(name, nameLength);
+          }
           lua_pop(L, 1);
         } else if (lua_isstring(L, -1)) {
-          FieldType type = luax_checkfieldtype(L, -1);
+          FieldType type = luax_checkfieldtype(L, -1, &field->hash);
           uint32_t align = layout == LAYOUT_PACKED ? fieldInfo[type].scalarAlign : fieldInfo[type].baseAlign;
           field->offset = ALIGN(offset, align);
           field->location = location++;
