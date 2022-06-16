@@ -99,6 +99,8 @@ typedef struct {
   float metalness;
   float roughness;
   float alphaCutoff;
+  float uvShift[2];
+  float uvScale[2];
   float baseColor[4];
   float emissiveColor[4];
   uint32_t colorTexture;
