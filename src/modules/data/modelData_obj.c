@@ -47,15 +47,25 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
     if (STARTS_WITH(line, "newmtl ")) {
       map_set(names, hash64(line + 7, length - 7), materials->length);
       arr_push(materials, ((ModelMaterial) {
+        .color = { 1.f, 1.f, 1.f, 1.f },
+        .glow = { 0.f, 0.f, 0.f, 0.f },
+        .uvShift = { 0.f, 0.f },
+        .uvScale = { 1.f, 1.f },
         .metalness = 1.f,
         .roughness = 1.f,
+        .clearcoat = 0.f,
+        .clearcoatRoughness = 0.f,
+        .occlusionStrength = 1.f,
+        .glowStrength = 1.f,
+        .normalScale = 1.f,
         .alphaCutoff = 0.f,
-        .baseColor = { 1.f, 1.f, 1.f, 1.f },
-        .emissiveColor = { 0.f, 0.f, 0.f, 0.f },
-        .colorTexture = ~0u,
-        .emissiveTexture = ~0u,
-        .metalnessRoughnessTexture = ~0u,
+        .pointSize = 1.f,
+        .texture = ~0u,
+        .glowTexture = ~0u,
         .occlusionTexture = ~0u,
+        .metalnessTexture = ~0u,
+        .roughnessTexture = ~0u,
+        .clearcoatTexture = ~0u,
         .normalTexture = ~0u
       }));
     } else if (line[0] == 'K' && line[1] == 'd' && line[2] == ' ') {
@@ -65,7 +75,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       g = strtof(s, &s);
       b = strtof(s, &s);
       ModelMaterial* material = &materials->data[materials->length - 1];
-      memcpy(material->baseColor, (float[4]) { r, g, b, 1.f }, 16);
+      memcpy(material->color, (float[4]) { r, g, b, 1.f }, 16);
     } else if (STARTS_WITH(line, "map_Kd ")) {
       lovrAssert(base - path + (length - 7) < 1024, "Bad OBJ: Material image filename is too long");
       memcpy(base, line + 7, length - 7);
@@ -79,7 +89,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       Image* image = lovrImageCreateFromFile(blob);
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->colorTexture = (uint32_t) images->length;
+      material->texture = (uint32_t) images->length;
       arr_push(images, image);
       lovrRelease(blob, lovrBlobDestroy);
     }

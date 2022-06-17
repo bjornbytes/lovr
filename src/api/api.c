@@ -429,6 +429,48 @@ void luax_readcolor(lua_State* L, int index, float color[4]) {
   }
 }
 
+// Like readcolor, but only consumes 1 argument (nil, hex, table, vec3, vec4), useful for table keys
+void luax_optcolor(lua_State* L, int index, float color[4]) {
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+      color[0] = color[1] = color[2] = color[3] = 1.f;
+      break;
+    case LUA_TNUMBER: {
+      uint32_t x = lua_tonumber(L, -1);
+      color[0] = ((x >> 16) & 0xff) / 255.f;
+      color[1] = ((x >> 8) & 0xff) / 255.f;
+      color[2] = ((x >> 0) & 0xff) / 255.f;
+      color[3] = 1.f;
+      break;
+    }
+    case LUA_TTABLE:
+      index = index > 0 ? index : (index + lua_gettop(L) + 1);
+      for (int i = 1; i <= 4; i++) {
+        lua_rawgeti(L, index, i);
+      }
+      color[0] = luax_checkfloat(L, -4);
+      color[1] = luax_checkfloat(L, -3);
+      color[2] = luax_checkfloat(L, -2);
+      color[3] = luax_optfloat(L, -1, 1.);
+      lua_pop(L, 4);
+      break;
+    case LUA_TUSERDATA: {
+      VectorType type;
+      float* v = luax_tovector(L, index, &type);
+      if (type == V_VEC3) {
+        memcpy(color, v, 3 * sizeof(float));
+        color[3] = 1.f;
+        break;
+      } else if (type == V_VEC4) {
+        memcpy(color, v, 4 * sizeof(float));
+        break;
+      }
+      /* fallthrough */
+    }
+    default: lovrThrow("Expected nil, number, table, vec3, or vec4 for color value");
+  }
+}
+
 int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree) {
   if (lua_istable(L, index)) {
     luaL_checktype(L, index + 1, LUA_TTABLE);

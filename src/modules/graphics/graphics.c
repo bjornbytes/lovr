@@ -22,6 +22,7 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 
 #define MAX_FRAME_MEMORY (1 << 30)
 #define MAX_SHADER_RESOURCES 32
+#define MATERIALS_PER_BLOCK 1024
 
 typedef struct {
   gpu_phase readPhase;
@@ -98,6 +99,16 @@ struct Shader {
   bool hasCustomAttributes;
 };
 
+struct Material {
+  uint32_t ref;
+  uint32_t next;
+  uint32_t tick;
+  uint16_t index;
+  uint16_t block;
+  gpu_bundle* bundle;
+  MaterialInfo info;
+};
+
 typedef struct {
   float view[16];
   float projection[16];
@@ -109,12 +120,13 @@ typedef struct {
   float color[4];
   Shader* shader;
   Sampler* sampler;
+  Material* material;
   uint64_t formatHash;
   gpu_pipeline_info info;
   float viewport[4];
   float depthRange[2];
   uint32_t scissor[4];
-  MeshMode drawMode;
+  VertexMode drawMode;
   bool dirty;
 } Pipeline;
 
@@ -130,16 +142,17 @@ typedef enum {
   VERTEX_MODEL,
   VERTEX_GLYPH,
   VERTEX_EMPTY,
-  DEFAULT_FORMAT_COUNT
-} DefaultFormat;
+  VERTEX_FORMAT_COUNT
+} VertexFormat;
 
 typedef struct {
-  MeshMode mode;
+  VertexMode mode;
   DefaultShader shader;
+  Material* material;
   float* transform;
   struct {
     Buffer* buffer;
-    DefaultFormat format;
+    VertexFormat format;
     const void* data;
     void** pointer;
     uint32_t count;
@@ -176,6 +189,7 @@ struct Pass {
   Pipeline pipelines[4];
   uint32_t pipelineIndex;
   bool samplerDirty;
+  bool materialDirty;
   char constants[256];
   bool constantsDirty;
   gpu_binding bindings[32];
@@ -199,6 +213,22 @@ typedef struct {
 } ShapeVertex;
 
 typedef struct {
+  Material* list;
+  gpu_buffer* buffer;
+  void* pointer;
+  gpu_bundle_pool* bundlePool;
+  gpu_bundle* bundles;
+  uint32_t head;
+  uint32_t tail;
+} MaterialBlock;
+
+typedef struct {
+  gpu_texture* texture;
+  uint32_t hash;
+  uint32_t tick;
+} TempAttachment;
+
+typedef struct {
   void* next;
   gpu_bundle_pool* gpu;
   gpu_bundle* bundles;
@@ -214,12 +244,6 @@ typedef struct {
 } Layout;
 
 typedef struct {
-  gpu_texture* texture;
-  uint32_t hash;
-  uint32_t tick;
-} TempAttachment;
-
-typedef struct {
   char* memory;
   uint32_t cursor;
   uint32_t length;
@@ -231,6 +255,7 @@ static struct {
   uint32_t tick;
   gpu_stream* stream;
   bool hasTextureUpload;
+  bool hasMaterialUpload;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
@@ -240,12 +265,16 @@ static struct {
   Texture* defaultTexture;
   Sampler* defaultSamplers[2];
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
-  gpu_vertex_format vertexFormats[DEFAULT_FORMAT_COUNT];
+  gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
+  Material* defaultMaterial;
+  MaterialBlock* materials;
+  arr_t(MaterialBlock) materialBlocks;
   arr_t(TempAttachment) attachments;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
   uint32_t builtinLayout;
+  uint32_t materialLayout;
   Allocator allocator;
 } state;
 
@@ -309,15 +338,29 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   map_init(&state.pipelineLookup, 64);
   arr_init(&state.pipelines, realloc);
   arr_init(&state.layouts, realloc);
+  arr_init(&state.materialBlocks, realloc);
   arr_init(&state.attachments, realloc);
 
-  gpu_slot builtins[] = {
+  gpu_slot builtinSlots[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Cameras
     { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Draw data
     { 2, GPU_SLOT_SAMPLER, GPU_STAGE_ALL } // Default sampler
   };
 
-  state.builtinLayout = getLayout(builtins, COUNTOF(builtins));
+  state.builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
+
+  gpu_slot materialSlots[] = {
+    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Data
+    { 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Color
+    { 2, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Glow
+    { 3, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Occlusion
+    { 4, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Metalness
+    { 5, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Roughness
+    { 6, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Clearcoat
+    { 7, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT } // Normal
+  };
+
+  state.materialLayout = getLayout(materialSlots, COUNTOF(materialSlots));
 
   state.defaultBuffer = lovrBufferCreate(&(BufferInfo) {
     .length = 4096,
@@ -385,6 +428,10 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     .attributes[4] = { 0, 14, 0, GPU_TYPE_F32x4 }
   };
 
+  state.defaultMaterial = lovrMaterialCreate(&(MaterialInfo) {
+    .data.color = { 1.f, 1.f, 1.f, 1.f }
+  });
+
   float16Init();
   glslang_initialize_process();
   state.initialized = true;
@@ -406,6 +453,17 @@ void lovrGraphicsDestroy() {
   for (uint32_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
     lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
   }
+  lovrRelease(state.defaultMaterial, lovrMaterialDestroy);
+  for (uint32_t i = 0; i < state.materialBlocks.length; i++) {
+    MaterialBlock* block = &state.materialBlocks.data[i];
+    gpu_buffer_destroy(block->buffer);
+    gpu_bundle_pool_destroy(block->bundlePool);
+    free(block->list);
+    free(block->buffer);
+    free(block->bundlePool);
+    free(block->bundles);
+  }
+  arr_free(&state.materialBlocks);
   for (uint32_t i = 0; i < state.pipelines.length; i++) {
     gpu_pipeline_destroy(state.pipelines.data[i]);
     free(state.pipelines.data[i]);
@@ -535,6 +593,15 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     barriers[0].flush |= GPU_CACHE_TRANSFER_WRITE;
     barriers[0].clear |= GPU_CACHE_TEXTURE;
     state.hasTextureUpload = false;
+  }
+
+  if (state.hasMaterialUpload) {
+    barriers[0].prev |= GPU_PHASE_TRANSFER;
+    barriers[0].next |= GPU_PHASE_SHADER_VERTEX;
+    barriers[0].next |= GPU_PHASE_SHADER_FRAGMENT;
+    barriers[0].flush |= GPU_CACHE_TRANSFER_WRITE;
+    barriers[0].clear |= GPU_CACHE_UNIFORM;
+    state.hasMaterialUpload = false;
   }
 
   // End passes
@@ -1373,6 +1440,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
 
   if (info->type == SHADER_GRAPHICS) {
     gpu.layouts[0] = state.layouts.data[state.builtinLayout].gpu;
+    gpu.layouts[1] = state.layouts.data[state.materialLayout].gpu;
   }
 
   gpu.layouts[userSet] = shader->resourceCount > 0 ? state.layouts.data[shader->layout].gpu : NULL;
@@ -1421,6 +1489,133 @@ void lovrShaderDestroy(void* ref) {
 
 const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
   return &shader->info;
+}
+
+// Material
+
+Material* lovrMaterialCreate(MaterialInfo* info) {
+  MaterialBlock* block = state.materials;
+
+  if (!block || block->head == ~0u || !gpu_finished(block->list[block->head].tick)) {
+    bool found = false;
+
+    for (size_t i = 0; i < state.materialBlocks.length; i++) {
+      block = &state.materialBlocks.data[i];
+      if (block->head != ~0u && gpu_finished(block->list[block->head].tick)) {
+        state.materials = block;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      arr_expand(&state.materialBlocks, 1);
+      uint32_t blockIndex = state.materialBlocks.length++;
+      block = state.materials = &state.materialBlocks.data[blockIndex];
+      block->list = malloc(MATERIALS_PER_BLOCK * sizeof(Material));
+      block->buffer = malloc(gpu_sizeof_buffer());
+      block->bundlePool = malloc(gpu_sizeof_bundle_pool());
+      block->bundles = malloc(MATERIALS_PER_BLOCK * gpu_sizeof_bundle());
+      lovrAssert(block->list && block->buffer && block->bundlePool && block->bundles, "Out of memory");
+
+      for (uint32_t i = 0; i < MATERIALS_PER_BLOCK; i++) {
+        block->list[i].next = i + 1;
+        block->list[i].tick = state.tick - 4;
+        block->list[i].block = blockIndex;
+        block->list[i].index = i;
+        block->list[i].bundle = (gpu_bundle*) ((char*) block->bundles + i * gpu_sizeof_bundle());
+      }
+      block->list[MATERIALS_PER_BLOCK - 1].next = ~0u;
+      block->tail = MATERIALS_PER_BLOCK - 1;
+      block->head = 0;
+
+      gpu_buffer_init(block->buffer, &(gpu_buffer_info) {
+        .size = MATERIALS_PER_BLOCK * ALIGN(sizeof(MaterialData), state.limits.uniformBufferAlign),
+        .pointer = &block->pointer,
+        .label = "Material Block"
+      });
+
+      gpu_bundle_pool_info poolInfo = {
+        .bundles = block->bundles,
+        .layout = state.layouts.data[state.materialLayout].gpu,
+        .count = MATERIALS_PER_BLOCK
+      };
+
+      gpu_bundle_pool_init(block->bundlePool, &poolInfo);
+    }
+  }
+
+  Material* material = &block->list[block->head];
+  block->head = material->next;
+  material->next = ~0u;
+  material->ref = 1;
+
+  MaterialData* data;
+  uint32_t stride = ALIGN(sizeof(MaterialData), state.limits.uniformBufferAlign);
+
+  if (block->pointer) {
+    data = (MaterialData*) ((char*) block->pointer + material->index * stride);
+  } else {
+    beginFrame();
+    uint32_t size = stride * MATERIALS_PER_BLOCK;
+    gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
+    data = gpu_map(scratchpad, size, 4, GPU_MAP_WRITE);
+    gpu_copy_buffers(state.stream, scratchpad, block->buffer, 0, stride * material->index, stride);
+    state.hasMaterialUpload = true;
+  }
+
+  memcpy(data, info, sizeof(MaterialData));
+
+  gpu_buffer_binding buffer = {
+    .object = block->buffer,
+    .offset = material->index * stride,
+    .extent = stride
+  };
+
+  gpu_binding bindings[8] = {
+    { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = buffer }
+  };
+
+  Texture* textures[] = {
+    info->texture,
+    info->glowTexture,
+    info->occlusionTexture,
+    info->metalnessTexture,
+    info->roughnessTexture,
+    info->clearcoatTexture,
+    info->normalTexture
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(textures); i++) {
+    Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
+    lovrCheck(texture->info.type == TEXTURE_2D, "Material textures must be 2D");
+    bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture = texture->gpu };
+    lovrRetain(texture);
+  }
+
+  gpu_bundle_info bundleInfo = {
+    .layout = state.layouts.data[state.materialLayout].gpu,
+    .bindings = bindings,
+    .count = COUNTOF(bindings)
+  };
+
+  gpu_bundle_write(&material->bundle, &bundleInfo, 1);
+
+  return material;
+}
+
+void lovrMaterialDestroy(void* ref) {
+  Material* material = ref;
+  MaterialBlock* block = &state.materialBlocks.data[material->block];
+  material->tick = state.tick;
+  block->tail = material->index;
+  if (block->head == ~0u) block->head = block->tail;
+  lovrRelease(material->info.texture, lovrTextureDestroy);
+  lovrRelease(material->info.glowTexture, lovrTextureDestroy);
+}
+
+const MaterialInfo* lovrMaterialGetInfo(Material* material) {
+  return &material->info;
 }
 
 // Pass
@@ -1566,9 +1761,10 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   memcpy(pass->pipeline->color, defaultColor, sizeof(defaultColor));
   pass->pipeline->formatHash = 0;
   pass->pipeline->shader = NULL;
-  pass->pipeline->drawMode = MESH_TRIANGLES;
+  pass->pipeline->material = state.defaultMaterial;
+  pass->pipeline->drawMode = VERTEX_TRIANGLES;
   pass->pipeline->dirty = true;
-  pass->samplerDirty = true;
+  pass->materialDirty = true;
 
   memset(pass->constants, 0, sizeof(pass->constants));
   pass->constantsDirty = true;
@@ -1669,6 +1865,7 @@ void lovrPassPop(Pass* pass, StackType stack) {
       gpu_set_scissor(pass->stream, pass->pipeline->scissor);
       pass->pipeline->dirty = true;
       pass->samplerDirty = true;
+      pass->materialDirty = true;
       break;
     default: break;
   }
@@ -1817,8 +2014,15 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
   }
 }
 
-void lovrPassSetMeshMode(Pass* pass, MeshMode mode) {
-  pass->pipeline->drawMode = mode;
+void lovrPassSetMaterial(Pass* pass, Material* material) {
+  material = material ? material : state.defaultMaterial;
+
+  if (pass->pipeline->material != material) {
+    lovrRetain(material);
+    lovrRelease(pass->pipeline->material, lovrMaterialDestroy);
+    pass->pipeline->material = material;
+    pass->materialDirty = true;
+  }
 }
 
 void lovrPassSetSampler(Pass* pass, Sampler* sampler) {
@@ -1928,6 +2132,10 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
   pass->pipeline->info.stencil.writeMask = mask;
   if (hasReplace) pass->pipeline->info.stencil.value = value;
   pass->pipeline->dirty = true;
+}
+
+void lovrPassSetVertexMode(Pass* pass, VertexMode mode) {
+  pass->pipeline->drawMode = mode;
 }
 
 void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]) {
@@ -2241,6 +2449,16 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
   pass->drawData++;
 }
 
+static void flushMaterial(Pass* pass, Draw* draw, Shader* shader) {
+  if (draw->material && draw->material != pass->pipeline->material) {
+    gpu_bind_bundle(pass->stream, shader->gpu, 1, draw->material->bundle, NULL, 0);
+    pass->materialDirty = true;
+  } else if (pass->materialDirty) {
+    gpu_bind_bundle(pass->stream, shader->gpu, 1, pass->pipeline->material->bundle, NULL, 0);
+    pass->materialDirty = false;
+  }
+}
+
 static void flushBuffers(Pass* pass, Draw* draw) {
   uint32_t vertexOffset = 0;
 
@@ -2299,6 +2517,7 @@ static void lovrPassDraw(Pass* pass, Draw* draw) {
   flushConstants(pass, shader);
   flushBindings(pass, shader);
   flushBuiltins(pass, draw, shader);
+  flushMaterial(pass, draw, shader);
   flushBuffers(pass, draw);
 
   uint32_t defaultCount = draw->index.count > 0 ? draw->index.count : draw->vertex.count;
@@ -2317,7 +2536,7 @@ static void lovrPassDraw(Pass* pass, Draw* draw) {
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** points) {
   lovrPassDraw(pass, &(Draw) {
-    .mode = MESH_POINTS,
+    .mode = VERTEX_POINTS,
     .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) points,
     .vertex.count = count
@@ -2328,7 +2547,7 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
   uint16_t* indices;
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = MESH_LINES,
+    .mode = VERTEX_LINES,
     .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) points,
     .vertex.count = count,
@@ -2350,7 +2569,7 @@ void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows) {
   uint32_t indexCount = (cols * rows) * 6;
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = MESH_TRIANGLES,
+    .mode = VERTEX_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
@@ -2424,7 +2643,7 @@ void lovrPassBox(Pass* pass, float* transform) {
   };
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = MESH_TRIANGLES,
+    .mode = VERTEX_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = COUNTOF(vertexData),
@@ -2449,7 +2668,7 @@ void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, ui
   uint32_t indexCount = segments * 3;
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = MESH_TRIANGLES,
+    .mode = VERTEX_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,

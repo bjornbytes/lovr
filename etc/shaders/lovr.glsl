@@ -16,6 +16,32 @@ struct Draw {
 layout(set = 0, binding = 0) uniform Cameras { Camera cameras[6]; };
 layout(set = 0, binding = 1) uniform Draws { Draw draws[256]; };
 layout(set = 0, binding = 2) uniform sampler Sampler;
+
+struct MaterialData {
+  vec4 color;
+  vec4 glow;
+  vec2 uvShift;
+  vec2 uvScale;
+  float metalness;
+  float roughness;
+  float clearcoat;
+  float clearcoatRoughness;
+  float occlusionStrength;
+  float glowStrength;
+  float normalScale;
+  float alphaCutoff;
+  float pointSize;
+  float sdfRange;
+};
+
+layout(set = 1, binding = 0) uniform MaterialBlock { MaterialData Material; };
+layout(set = 1, binding = 1) uniform texture2D Texture;
+layout(set = 1, binding = 2) uniform texture2D GlowTexture;
+layout(set = 1, binding = 3) uniform texture2D OcclusionTexture;
+layout(set = 1, binding = 4) uniform texture2D MetalnessTexture;
+layout(set = 1, binding = 5) uniform texture2D RoughnessTexture;
+layout(set = 1, binding = 6) uniform texture2D ClearcoatTexture;
+layout(set = 1, binding = 7) uniform texture2D NormalTexture;
 #endif
 
 // Attributes

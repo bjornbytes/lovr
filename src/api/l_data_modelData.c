@@ -395,11 +395,11 @@ static int l_lovrModelDataGetMaterialImage(lua_State* L) {
   MaterialTexture type = luax_checkenum(L, 3, MaterialTexture, "color");
   uint32_t index = ~0u;
   switch (type) {
-    case TEXTURE_COLOR: index = material->colorTexture; break;
-    case TEXTURE_EMISSIVE: index = material->emissiveTexture; break;
-    case TEXTURE_METALNESS: index = material->metalnessRoughnessTexture; break;
-    case TEXTURE_ROUGHNESS: index = material->metalnessRoughnessTexture; break;
+    case TEXTURE_COLOR: index = material->texture; break;
+    case TEXTURE_EMISSIVE: index = material->glowTexture; break;
     case TEXTURE_OCCLUSION: index = material->occlusionTexture; break;
+    case TEXTURE_METALNESS: index = material->metalnessTexture; break;
+    case TEXTURE_ROUGHNESS: index = material->roughnessTexture; break;
     case TEXTURE_NORMAL: index = material->normalTexture; break;
     default: lovrUnreachable(); return 0;
   }
@@ -417,15 +417,15 @@ static int l_lovrModelDataGetMaterialColor(lua_State* L) {
   MaterialColor type = luax_checkenum(L, 3, MaterialColor, "base");
   switch (type) {
     case COLOR_BASE:
-      lua_pushnumber(L, material->baseColor[0]);
-      lua_pushnumber(L, material->baseColor[1]);
-      lua_pushnumber(L, material->baseColor[2]);
-      lua_pushnumber(L, material->baseColor[3]);
+      lua_pushnumber(L, material->color[0]);
+      lua_pushnumber(L, material->color[1]);
+      lua_pushnumber(L, material->color[2]);
+      lua_pushnumber(L, material->color[3]);
       return 4;
     case COLOR_EMISSIVE:
-      lua_pushnumber(L, material->emissiveColor[0]);
-      lua_pushnumber(L, material->emissiveColor[1]);
-      lua_pushnumber(L, material->emissiveColor[2]);
+      lua_pushnumber(L, material->glow[0]);
+      lua_pushnumber(L, material->glow[1]);
+      lua_pushnumber(L, material->glow[2]);
       lua_pushnumber(L, 1.f);
       return 4;
     default: lovrUnreachable(); return 0;

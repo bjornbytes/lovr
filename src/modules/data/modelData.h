@@ -95,19 +95,28 @@ typedef enum {
 } MaterialTexture;
 
 typedef struct {
-  const char* name;
-  float metalness;
-  float roughness;
-  float alphaCutoff;
+  float color[4];
+  float glow[4];
   float uvShift[2];
   float uvScale[2];
-  float baseColor[4];
-  float emissiveColor[4];
-  uint32_t colorTexture;
-  uint32_t emissiveTexture;
-  uint32_t metalnessRoughnessTexture;
+  float metalness;
+  float roughness;
+  float clearcoat;
+  float clearcoatRoughness;
+  float occlusionStrength;
+  float glowStrength;
+  float normalScale;
+  float alphaCutoff;
+  float pointSize;
+  float sdfRange;
+  uint32_t texture;
+  uint32_t glowTexture;
   uint32_t occlusionTexture;
+  uint32_t metalnessTexture;
+  uint32_t roughnessTexture;
+  uint32_t clearcoatTexture;
   uint32_t normalTexture;
+  const char* name;
 } ModelMaterial;
 
 typedef enum {

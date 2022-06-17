@@ -49,7 +49,6 @@ extern StringEntry lovrKeyboardKey[];
 extern StringEntry lovrMaterialColor[];
 extern StringEntry lovrMaterialScalar[];
 extern StringEntry lovrMaterialTexture[];
-extern StringEntry lovrMeshMode[];
 extern StringEntry lovrPassType[];
 extern StringEntry lovrPermission[];
 extern StringEntry lovrSampleFormat[];
@@ -65,6 +64,7 @@ extern StringEntry lovrTextureType[];
 extern StringEntry lovrTextureUsage[];
 extern StringEntry lovrTimeUnit[];
 extern StringEntry lovrUniformAccess[];
+extern StringEntry lovrVertexMode[];
 extern StringEntry lovrVerticalAlign[];
 extern StringEntry lovrVolumeUnit[];
 extern StringEntry lovrWinding[];
@@ -130,6 +130,7 @@ void luax_setmainthread(struct lua_State* L);
 void luax_atexit(struct lua_State* L, void (*destructor)(void));
 uint32_t _luax_checku32(struct lua_State* L, int index);
 void luax_readcolor(struct lua_State* L, int index, float color[4]);
+void luax_optcolor(struct lua_State* L, int index, float color[4]);
 int luax_readmesh(struct lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
 
 // Module helpers

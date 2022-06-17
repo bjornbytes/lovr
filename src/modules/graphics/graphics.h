@@ -11,6 +11,7 @@ typedef struct Buffer Buffer;
 typedef struct Texture Texture;
 typedef struct Sampler Sampler;
 typedef struct Shader Shader;
+typedef struct Material Material;
 typedef struct Pass Pass;
 
 typedef struct {
@@ -281,6 +282,40 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 
+// Material
+
+typedef struct {
+  float color[4];
+  float glow[4];
+  float uvShift[2];
+  float uvScale[2];
+  float metalness;
+  float roughness;
+  float clearcoat;
+  float clearcoatRoughness;
+  float occlusionStrength;
+  float glowStrength;
+  float normalScale;
+  float alphaCutoff;
+  float pointSize;
+  float sdfRange;
+} MaterialData;
+
+typedef struct {
+  MaterialData data;
+  Texture* texture;
+  Texture* glowTexture;
+  Texture* occlusionTexture;
+  Texture* metalnessTexture;
+  Texture* roughnessTexture;
+  Texture* clearcoatTexture;
+  Texture* normalTexture;
+} MaterialInfo;
+
+Material* lovrMaterialCreate(MaterialInfo* info);
+void lovrMaterialDestroy(void* ref);
+const MaterialInfo* lovrMaterialGetInfo(Material* material);
+
 // Pass
 
 typedef enum {
@@ -317,12 +352,6 @@ typedef enum {
 } CullMode;
 
 typedef enum {
-  MESH_POINTS,
-  MESH_LINES,
-  MESH_TRIANGLES
-} MeshMode;
-
-typedef enum {
   STENCIL_KEEP,
   STENCIL_ZERO,
   STENCIL_REPLACE,
@@ -332,6 +361,12 @@ typedef enum {
   STENCIL_DECREMENT_WRAP,
   STENCIL_INVERT
 } StencilAction;
+
+typedef enum {
+  VERTEX_POINTS,
+  VERTEX_LINES,
+  VERTEX_TRIANGLES
+} VertexMode;
 
 typedef enum {
   WINDING_COUNTERCLOCKWISE,
@@ -388,12 +423,13 @@ void lovrPassSetDepthTest(Pass* pass, CompareMode test);
 void lovrPassSetDepthWrite(Pass* pass, bool write);
 void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
-void lovrPassSetMeshMode(Pass* pass, MeshMode mode);
+void lovrPassSetMaterial(Pass* pass, Material* material);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
 void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 void lovrPassSetShader(Pass* pass, Shader* shader);
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
 void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask);
+void lovrPassSetVertexMode(Pass* pass, VertexMode mode);
 void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);

@@ -663,15 +663,27 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     jsmntok_t* token = info.materials;
     ModelMaterial* material = model->materials;
     for (int i = (token++)->size; i > 0; i--, material++) {
+      memcpy(material->color, (float[4]) { 1.f, 1.f, 1.f, 1.f }, 16);
+      memcpy(material->glow, (float[4]) { 0.f, 0.f, 0.f, 0.f }, 16);
+      material->uvShift[0] = 0.f;
+      material->uvShift[1] = 0.f;
+      material->uvScale[0] = 1.f;
+      material->uvScale[1] = 1.f;
       material->metalness = 1.f;
       material->roughness = 1.f;
+      material->clearcoat = 0.f;
+      material->clearcoatRoughness = 0.f;
+      material->occlusionStrength = 1.f;
+      material->glowStrength = 1.f;
+      material->normalScale = 1.f;
       material->alphaCutoff = 0.f;
-      memcpy(material->baseColor, (float[4]) { 1.f, 1.f, 1.f, 1.f }, 16);
-      memcpy(material->emissiveColor, (float[4]) { 0.f, 0.f, 0.f, 0.f }, 16);
-      material->colorTexture = ~0u;
-      material->emissiveTexture = ~0u;
-      material->metalnessRoughnessTexture = ~0u;
+      material->pointSize = 1.f;
+      material->texture = ~0u;
+      material->glowTexture = ~0u;
       material->occlusionTexture = ~0u;
+      material->metalnessTexture = ~0u;
+      material->roughnessTexture = ~0u;
+      material->clearcoatTexture = ~0u;
       material->normalTexture = ~0u;
 
       for (int k = (token++)->size; k > 0; k--) {
@@ -681,18 +693,19 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             gltfString key = NOM_STR(json, token);
             if (STR_EQ(key, "baseColorFactor")) {
               token++; // Enter array
-              material->baseColor[0] = NOM_FLOAT(json, token);
-              material->baseColor[1] = NOM_FLOAT(json, token);
-              material->baseColor[2] = NOM_FLOAT(json, token);
-              material->baseColor[3] = NOM_FLOAT(json, token);
+              material->color[0] = NOM_FLOAT(json, token);
+              material->color[1] = NOM_FLOAT(json, token);
+              material->color[2] = NOM_FLOAT(json, token);
+              material->color[3] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "baseColorTexture")) {
-              token = nomTexture(json, token, &material->colorTexture, textures, material);
+              token = nomTexture(json, token, &material->texture, textures, material);
             } else if (STR_EQ(key, "metallicFactor")) {
               material->metalness = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "roughnessFactor")) {
               material->roughness = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "metallicRoughnessTexture")) {
-              token = nomTexture(json, token, &material->metalnessRoughnessTexture, textures, NULL);
+              token = nomTexture(json, token, &material->metalnessTexture, textures, NULL);
+              material->roughnessTexture = material->metalnessTexture;
             } else {
               token += NOM_VALUE(json, token);
             }
@@ -702,12 +715,12 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         } else if (STR_EQ(key, "occlusionTexture")) {
           token = nomTexture(json, token, &material->occlusionTexture, textures, NULL);
         } else if (STR_EQ(key, "emissiveTexture")) {
-          token = nomTexture(json, token, &material->emissiveTexture, textures, NULL);
+          token = nomTexture(json, token, &material->glowTexture, textures, NULL);
         } else if (STR_EQ(key, "emissiveFactor")) {
           token++; // Enter array
-          material->emissiveColor[0] = NOM_FLOAT(json, token);
-          material->emissiveColor[1] = NOM_FLOAT(json, token);
-          material->emissiveColor[2] = NOM_FLOAT(json, token);
+          material->glow[0] = NOM_FLOAT(json, token);
+          material->glow[1] = NOM_FLOAT(json, token);
+          material->glow[2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "alphaCutoff")) {
           material->alphaCutoff = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
