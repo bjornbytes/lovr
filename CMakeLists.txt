@@ -303,14 +303,15 @@ endif()
 set(LOVR 1)
 link_libraries(${LOVR_LUA})
 file(GLOB LOVR_PLUGINS ${CMAKE_SOURCE_DIR}/plugins/*)
-foreach(plugin ${LOVR_PLUGINS})
-  if(IS_DIRECTORY ${plugin} AND EXISTS ${plugin}/CMakeLists.txt)
-    add_subdirectory(${plugin} "${CMAKE_CURRENT_BINARY_DIR}/plugins/lib")
-    get_directory_property(PLUGIN_TARGETS DIRECTORY ${plugin} DEFINITION LOVR_PLUGIN_TARGETS)
+foreach(PLUGIN_PATH ${LOVR_PLUGINS})
+  if(IS_DIRECTORY ${PLUGIN_PATH} AND EXISTS ${PLUGIN_PATH}/CMakeLists.txt)
+    get_filename_component(PLUGIN "${PLUGIN_PATH}" NAME)
+    add_subdirectory(${PLUGIN_PATH} "${CMAKE_CURRENT_BINARY_DIR}/plugins/${PLUGIN}")
+    get_directory_property(PLUGIN_TARGETS DIRECTORY ${PLUGIN_PATH} DEFINITION LOVR_PLUGIN_TARGETS)
     if(NOT PLUGIN_TARGETS)
-      get_directory_property(PLUGIN_TARGETS DIRECTORY ${plugin} BUILDSYSTEM_TARGETS)
+      get_directory_property(PLUGIN_TARGETS DIRECTORY ${PLUGIN_PATH} BUILDSYSTEM_TARGETS)
     endif()
-    set_target_properties(${PLUGIN_TARGETS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/lib")
+    set_target_properties(${PLUGIN_TARGETS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/${PLUGIN}")
     list(APPEND ALL_PLUGIN_TARGETS ${PLUGIN_TARGETS})
   endif()
 endforeach()
@@ -342,6 +343,7 @@ endif()
 
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
 set_target_properties(lovr PROPERTIES C_STANDARD 11)
+set_target_properties(lovr PROPERTIES C_STANDARD_REQUIRED ON)
 target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic etc)
 target_link_libraries(lovr
   ${LOVR_GLFW}
@@ -586,6 +588,9 @@ foreach(path ${LOVR_RESOURCES})
   file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
 endforeach()
 
+# Add a custom target that is always out of date so libraries are always moved
+add_custom_target(move_libraries ALL)
+
 # Platforms
 if(WIN32)
   target_sources(lovr PRIVATE src/core/os_win32.c)
@@ -608,7 +613,7 @@ if(WIN32)
 
   function(move_dll)
     if(TARGET ${ARGV0})
-      add_custom_command(TARGET lovr POST_BUILD
+      add_custom_command(TARGET move_libraries POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:${ARGV0}>
         $<TARGET_FILE_DIR:lovr>/$<TARGET_FILE_NAME:${ARGV0}>
@@ -651,13 +656,13 @@ elseif(APPLE)
     if(TARGET ${ARGV0})
       get_target_property(TARGET_TYPE ${ARGV0} TYPE)
       if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${ARGV0}>
           ${EXE_DIR}/$<TARGET_FILE_NAME:${ARGV0}>
         )
       else()
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
           ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
@@ -763,12 +768,13 @@ elseif(ANDROID)
 
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
-      add_custom_command(TARGET lovr POST_BUILD
+      add_custom_command(TARGET move_libraries POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${target}>
           raw/lib/${ANDROID_ABI}/$<TARGET_FILE_NAME:${target}>
       )
     endforeach()
+    add_dependencies(buildAPK move_libraries)
   endif()
 elseif(UNIX)
   if(LOVR_USE_LINUX_EGL)
@@ -786,13 +792,13 @@ elseif(UNIX)
     if(TARGET ${ARGV0})
       get_target_property(TARGET_TYPE ${ARGV0} TYPE)
       if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:${ARGV0}>
         )
       else()
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_SONAME_FILE_NAME:${ARGV0}>

@@ -65,15 +65,6 @@ void* arr_alloc(void* data, size_t size) {
 }
 
 // Hashmap
-static uint32_t prevpo2(uint32_t x) {
-  x |= x >> 1;
-  x |= x >> 2;
-  x |= x >> 4;
-  x |= x >> 8;
-  x |= x >> 16;
-  return x - (x >> 1);
-}
-
 static void map_rehash(map_t* map) {
   map_t old = *map;
   map->size <<= 1;
@@ -110,7 +101,10 @@ static inline uint64_t map_find(map_t* map, uint64_t hash) {
 }
 
 void map_init(map_t* map, uint32_t n) {
-  map->size = prevpo2(n) + !n;
+  map->size = 1;
+  while (map->size + (map->size >> 1) < n) {
+    map->size <<= 1;
+  }
   map->used = 0;
   map->hashes = NULL;
   map_rehash(map);

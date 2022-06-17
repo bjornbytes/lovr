@@ -148,6 +148,22 @@ bool lovrFilesystemInit(const char* archive) {
   if (archive) {
     state.source[LOVR_PATH_MAX - 1] = '\0';
     strncpy(state.source, archive, LOVR_PATH_MAX - 1);
+
+    // If the command line parameter is a file, use its containing folder as the source
+    size_t length = strlen(state.source);
+    if (length > 4 && !memcmp(state.source + length - 4, ".lua", 4)) {
+      char* slash = strrchr(state.source, '/');
+
+      if (slash) {
+        *slash = '\0';
+      } else if ((slash = strrchr(state.source, '\\')) != NULL) {
+        *slash = '\0';
+      } else {
+        state.source[0] = '.';
+        state.source[1] = '\0';
+      }
+    }
+
     if (lovrFilesystemMount(state.source, NULL, true, NULL)) {
       return true;
     }

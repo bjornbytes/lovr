@@ -214,7 +214,7 @@ bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   // SteamAudio's default frequency-dependent absorption coefficients for air
   state.absorption[0] = .0002f;
   state.absorption[1] = .0017f;
-  state.absorption[1] = .0182f;
+  state.absorption[2] = .0182f;
 
   quat_identity(state.orientation);
 

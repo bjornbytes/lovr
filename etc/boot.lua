@@ -67,7 +67,8 @@ function lovr.boot()
   }
 
   lovr.filesystem = require('lovr.filesystem')
-  local hasConf, hasMain = lovr.filesystem.isFile('conf.lua'), lovr.filesystem.isFile('main.lua')
+  local main = arg[0] and arg[0]:match('[^\\/]-%.lua$') or 'main.lua'
+  local hasConf, hasMain = lovr.filesystem.isFile('conf.lua'), lovr.filesystem.isFile(main)
   if not lovr.filesystem.getSource() or not (hasConf or hasMain) then nogame() end
 
   -- Shift args up in fused mode, instead of consuming one for the source path
@@ -110,7 +111,7 @@ function lovr.boot()
 
   lovr.handlers = setmetatable({}, { __index = lovr })
   if not confOk then error(confError) end
-  if hasMain then require 'main' end
+  if hasMain then require(main:gsub('%.lua$', '')) end
   return lovr.run()
 end
 

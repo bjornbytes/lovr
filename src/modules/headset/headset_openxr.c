@@ -7,6 +7,7 @@
 #include "core/maf.h"
 #include "core/os.h"
 #include "util.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -87,7 +88,9 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrDestroyHandTrackerEXT)\
   X(xrLocateHandJointsEXT)\
   X(xrGetHandMeshFB)\
-  X(xrGetDisplayRefreshRateFB)
+  X(xrGetDisplayRefreshRateFB) \
+  X(xrEnumerateDisplayRefreshRatesFB) \
+  X(xrRequestDisplayRefreshRateFB)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -313,10 +316,14 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensionProperties);
 
+#ifdef __ANDROID__
+    bool androidCreateInstanceExtension = false;
+#endif
+
     // Extensions without a feature are required
     struct { const char* name; bool* feature; bool disable; } extensions[] = {
 #ifdef __ANDROID__
-      { "XR_KHR_android_create_instance", NULL, false },
+      { "XR_KHR_android_create_instance", &androidCreateInstanceExtension, false },
 #endif
 #ifdef LOVR_VK
       { "XR_KHR_vulkan_enable2", NULL, false },
@@ -345,6 +352,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
 #ifdef __ANDROID__
+      // harmless to include even if not available from runtime
       .next = &(XrInstanceCreateInfoAndroidKHR) {
         .type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR,
         .applicationVM = activity->vm,
@@ -507,7 +515,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       { 0, NULL, "vibrate",          XR_ACTION_TYPE_VIBRATION_OUTPUT, 2, hands, "Vibrate" }
     };
 
-    _Static_assert(COUNTOF(actionInfo) == MAX_ACTIONS, "Unbalanced action table!");
+    static_assert(COUNTOF(actionInfo) == MAX_ACTIONS, "Unbalanced action table!");
 
     if (!state.features.viveTrackers) {
       actionInfo[ACTION_TRACKER_POSE].countSubactionPaths = 0;
@@ -992,6 +1000,23 @@ static float openxr_getDisplayFrequency(void) {
   float frequency;
   XR(xrGetDisplayRefreshRateFB(state.session, &frequency));
   return frequency;
+}
+
+static float* openxr_getDisplayFrequencies(uint32_t* count) {
+  if (!state.features.refreshRate || !count) return NULL;
+  XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, count, NULL));
+  float *frequencies = malloc(*count * sizeof(float));
+  lovrAssert(frequencies, "Out of Memory");
+  XR(xrEnumerateDisplayRefreshRatesFB(state.session, *count, count, frequencies));
+  return frequencies;
+}
+
+static bool openxr_setDisplayFrequency(float frequency) {
+  if (!state.features.refreshRate) return false;
+  XrResult res = xrRequestDisplayRefreshRateFB(state.session, frequency);
+  if (res == XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB) return false;
+  XR(res);
+  return true;
 }
 
 static double openxr_getDisplayTime(void) {
@@ -1763,6 +1788,8 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getOriginType = openxr_getOriginType,
   .getDisplayDimensions = openxr_getDisplayDimensions,
   .getDisplayFrequency = openxr_getDisplayFrequency,
+  .getDisplayFrequencies = openxr_getDisplayFrequencies,
+  .setDisplayFrequency = openxr_setDisplayFrequency,
   .getDisplayTime = openxr_getDisplayTime,
   .getDeltaTime = openxr_getDeltaTime,
   .getViewCount = openxr_getViewCount,

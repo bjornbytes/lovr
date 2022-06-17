@@ -191,6 +191,14 @@ void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* u
   dJointGroupEmpty(world->contactGroup);
 }
 
+int lovrWorldGetStepCount(World* world) {
+  return dWorldGetQuickStepNumIterations(world->id);
+}
+
+void lovrWorldSetStepCount(World* world, int iterations) {
+  dWorldSetQuickStepNumIterations(world->id, iterations);
+}
+
 void lovrWorldComputeOverlaps(World* world) {
   arr_clear(&world->overlaps);
   dSpaceCollide(world->space, world, customNearCallback);
@@ -918,6 +926,7 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
+  lovrCheck(radius > 0.f, "SphereShape radius must be positive");
   SphereShape* sphere = calloc(1, sizeof(SphereShape));
   lovrAssert(sphere, "Out of memory");
   sphere->ref = 1;
@@ -932,6 +941,7 @@ float lovrSphereShapeGetRadius(SphereShape* sphere) {
 }
 
 void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
+  lovrCheck(radius > 0.f, "SphereShape radius must be positive");
   dGeomSphereSetRadius(sphere->id, radius);
 }
 
@@ -954,10 +964,12 @@ void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
 }
 
 void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
+  lovrCheck(x > 0.f && y > 0.f && z > 0.f, "BoxShape dimensions must be positive");
   dGeomBoxSetLengths(box->id, x, y, z);
 }
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
+  lovrCheck(radius > 0.f && length > 0.f, "CapsuleShape dimensions must be positive");
   CapsuleShape* capsule = calloc(1, sizeof(CapsuleShape));
   lovrAssert(capsule, "Out of memory");
   capsule->ref = 1;
@@ -974,6 +986,7 @@ float lovrCapsuleShapeGetRadius(CapsuleShape* capsule) {
 }
 
 void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius) {
+  lovrCheck(radius > 0.f, "CapsuleShape dimensions must be positive");
   dGeomCapsuleSetParams(capsule->id, radius, lovrCapsuleShapeGetLength(capsule));
 }
 
@@ -984,10 +997,12 @@ float lovrCapsuleShapeGetLength(CapsuleShape* capsule) {
 }
 
 void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
+  lovrCheck(length > 0.f, "CapsuleShape dimensions must be positive");
   dGeomCapsuleSetParams(capsule->id, lovrCapsuleShapeGetRadius(capsule), length);
 }
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
+  lovrCheck(radius > 0.f && length > 0.f, "CylinderShape dimensions must be positive");
   CylinderShape* cylinder = calloc(1, sizeof(CylinderShape));
   lovrAssert(cylinder, "Out of memory");
   cylinder->ref = 1;
@@ -1004,6 +1019,7 @@ float lovrCylinderShapeGetRadius(CylinderShape* cylinder) {
 }
 
 void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius) {
+  lovrCheck(radius > 0.f, "CylinderShape dimensions must be positive");
   dGeomCylinderSetParams(cylinder->id, radius, lovrCylinderShapeGetLength(cylinder));
 }
 
@@ -1014,6 +1030,7 @@ float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
 }
 
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
+  lovrCheck(length > 0.f, "CylinderShape dimensions must be positive");
   dGeomCylinderSetParams(cylinder->id, lovrCylinderShapeGetRadius(cylinder), length);
 }
 

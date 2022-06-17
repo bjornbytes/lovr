@@ -35,10 +35,12 @@ int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
     os_open_console();
     printf(
-      "usage: lovr [options] [<folder>]\n"
+      "usage: lovr [options] [<source>]\n\n"
+      "options:\n"
       "  -h, --help\t\tShow help and exit\n"
       "  -v, --version\t\tShow version and exit\n"
-      "  --console\t\tAttach Windows console\n"
+      "  --console\t\tAttach Windows console\n\n"
+      "<source> can be a Lua file, a folder, or a zip archive\n"
     );
     exit(0);
   }
