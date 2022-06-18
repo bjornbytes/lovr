@@ -7,30 +7,20 @@
 struct Blob;
 struct Image;
 
-typedef struct {
-  uint32_t x;
-  uint32_t y;
-  uint32_t w;
-  uint32_t h;
-  uint32_t tw;
-  uint32_t th;
-  int32_t dx;
-  int32_t dy;
-  int32_t advance;
-  struct Image* data;
-} Glyph;
-
 typedef struct Rasterizer Rasterizer;
 Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size);
 void lovrRasterizerDestroy(void* ref);
-float lovrRasterizerGetSize(Rasterizer* rasterizer);
-int lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
-int lovrRasterizerGetHeight(Rasterizer* rasterizer);
-int lovrRasterizerGetAdvance(Rasterizer* rasterizer);
-int lovrRasterizerGetAscent(Rasterizer* rasterizer);
-int lovrRasterizerGetDescent(Rasterizer* rasterizer);
-bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
-bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
-void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, uint32_t padding, double spread, Glyph* glyph);
-int32_t lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);
-void lovrRasterizerMeasure(Rasterizer* rasterizer, const char* str, size_t length, float wrap, float* width, float* lastLineWidth, float* height, uint32_t* lineCount, uint32_t* glyphCount);
+float lovrRasterizerGetFontSize(Rasterizer* rasterizer);
+uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
+bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t codepoint);
+bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t length);
+float lovrRasterizerGetAscent(Rasterizer* rasterizer);
+float lovrRasterizerGetDescent(Rasterizer* rasterizer);
+float lovrRasterizerGetLineGap(Rasterizer* rasterizer);
+float lovrRasterizerGetLeading(Rasterizer* rasterizer);
+float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t prev, uint32_t next);
+float lovrRasterizerGetGlyphAdvance(Rasterizer* rasterizer, uint32_t codepoint);
+float lovrRasterizerGetGlyphBearing(Rasterizer* rasterizer, uint32_t codepoint);
+void lovrRasterizerGetGlyphBoundingBox(Rasterizer* rasterizer, uint32_t codepoint, float box[4]);
+bool lovrRasterizerIsGlyphEmpty(Rasterizer* rasterizer, uint32_t codepoint);
+void lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context);
