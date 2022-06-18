@@ -267,9 +267,10 @@ static struct {
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
   Material* defaultMaterial;
-  MaterialBlock* materials;
+  uint32_t materialBlock;
   arr_t(MaterialBlock) materialBlocks;
   arr_t(TempAttachment) attachments;
+  arr_t(Pass*) passes;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
@@ -340,6 +341,7 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   arr_init(&state.layouts, realloc);
   arr_init(&state.materialBlocks, realloc);
   arr_init(&state.attachments, realloc);
+  arr_init(&state.passes, realloc);
 
   gpu_slot builtinSlots[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Cameras
@@ -619,7 +621,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   for (uint32_t i = 0; i < count; i++) {
     Pass* pass = passes[i];
 
-    for (uint32_t j = 0; j < pass->access.length; j++) {
+    for (size_t j = 0; j < pass->access.length; j++) {
       // access is the incoming resource access performed by the pass
       Access* access = &pass->access.data[j];
 
@@ -693,9 +695,6 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         sync->pendingWrite = write;
         sync->lastWriteIndex = i + 1;
       }
-
-      lovrRelease(access->buffer, lovrBufferDestroy);
-      lovrRelease(access->texture, lovrTextureDestroy);
     }
   }
 
@@ -714,6 +713,26 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   }
 
   gpu_submit(streams, total);
+
+  // Clean up ALL passes created during the frame
+  for (size_t i = 0; i < state.passes.length; i++) {
+    Pass* pass = state.passes.data[i];
+
+    for (size_t j = 0; j < pass->access.length; j++) {
+      Access* access = &pass->access.data[j];
+      lovrRelease(access->buffer, lovrBufferDestroy);
+      lovrRelease(access->texture, lovrTextureDestroy);
+    }
+
+    for (size_t j = 0; j <= pass->pipelineIndex; j++) {
+      lovrRelease(pass->pipelines[j].sampler, lovrSamplerDestroy);
+      lovrRelease(pass->pipelines[j].shader, lovrShaderDestroy);
+      lovrRelease(pass->pipelines[j].material, lovrMaterialDestroy);
+      pass->pipelines[j].sampler = NULL;
+      pass->pipelines[j].shader = NULL;
+      pass->pipelines[j].material = NULL;
+    }
+  }
 
   if (state.window) {
     state.window->gpu = NULL;
@@ -1494,7 +1513,7 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
 // Material
 
 Material* lovrMaterialCreate(MaterialInfo* info) {
-  MaterialBlock* block = state.materials;
+  MaterialBlock* block = &state.materialBlocks.data[state.materialBlock];
 
   if (!block || block->head == ~0u || !gpu_finished(block->list[block->head].tick)) {
     bool found = false;
@@ -1502,7 +1521,7 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
     for (size_t i = 0; i < state.materialBlocks.length; i++) {
       block = &state.materialBlocks.data[i];
       if (block->head != ~0u && gpu_finished(block->list[block->head].tick)) {
-        state.materials = block;
+        state.materialBlock = i;
         found = true;
         break;
       }
@@ -1510,8 +1529,8 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
 
     if (!found) {
       arr_expand(&state.materialBlocks, 1);
-      uint32_t blockIndex = state.materialBlocks.length++;
-      block = state.materials = &state.materialBlocks.data[blockIndex];
+      state.materialBlock = state.materialBlocks.length++;
+      block = &state.materialBlocks.data[state.materialBlock];
       block->list = malloc(MATERIALS_PER_BLOCK * sizeof(Material));
       block->buffer = malloc(gpu_sizeof_buffer());
       block->bundlePool = malloc(gpu_sizeof_bundle_pool());
@@ -1521,7 +1540,7 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
       for (uint32_t i = 0; i < MATERIALS_PER_BLOCK; i++) {
         block->list[i].next = i + 1;
         block->list[i].tick = state.tick - 4;
-        block->list[i].block = blockIndex;
+        block->list[i].block = state.materialBlock;
         block->list[i].index = i;
         block->list[i].bundle = (gpu_bundle*) ((char*) block->bundles + i * gpu_sizeof_bundle());
       }
@@ -1549,6 +1568,7 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
   block->head = material->next;
   material->next = ~0u;
   material->ref = 1;
+  material->info = *info;
 
   MaterialData* data;
   uint32_t stride = ALIGN(sizeof(MaterialData), state.limits.uniformBufferAlign);
@@ -1587,10 +1607,10 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
   };
 
   for (uint32_t i = 0; i < COUNTOF(textures); i++) {
+    lovrRetain(textures[i]);
     Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
     lovrCheck(texture->info.type == TEXTURE_2D, "Material textures must be 2D");
     bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture = texture->gpu };
-    lovrRetain(texture);
   }
 
   gpu_bundle_info bundleInfo = {
@@ -1612,6 +1632,11 @@ void lovrMaterialDestroy(void* ref) {
   if (block->head == ~0u) block->head = block->tail;
   lovrRelease(material->info.texture, lovrTextureDestroy);
   lovrRelease(material->info.glowTexture, lovrTextureDestroy);
+  lovrRelease(material->info.occlusionTexture, lovrTextureDestroy);
+  lovrRelease(material->info.metalnessTexture, lovrTextureDestroy);
+  lovrRelease(material->info.roughnessTexture, lovrTextureDestroy);
+  lovrRelease(material->info.clearcoatTexture, lovrTextureDestroy);
+  lovrRelease(material->info.normalTexture, lovrTextureDestroy);
 }
 
 const MaterialInfo* lovrMaterialGetInfo(Material* material) {
@@ -1627,6 +1652,8 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->info = *info;
   pass->stream = gpu_stream_begin(info->label);
   arr_init(&pass->access, tempGrow);
+  arr_push(&state.passes, pass);
+  lovrRetain(pass);
 
   if (info->type == PASS_TRANSFER) {
     return pass;
@@ -1761,9 +1788,10 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   memcpy(pass->pipeline->color, defaultColor, sizeof(defaultColor));
   pass->pipeline->formatHash = 0;
   pass->pipeline->shader = NULL;
-  pass->pipeline->material = state.defaultMaterial;
   pass->pipeline->drawMode = VERTEX_TRIANGLES;
   pass->pipeline->dirty = true;
+  pass->pipeline->material = state.defaultMaterial;
+  lovrRetain(pass->pipeline->material);
   pass->materialDirty = true;
 
   memset(pass->constants, 0, sizeof(pass->constants));
@@ -1790,6 +1818,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->builtins[2] = (gpu_binding) { 2, GPU_SLOT_SAMPLER, .sampler = NULL };
   pass->pipeline->sampler = state.defaultSamplers[FILTER_LINEAR];
   pass->samplerDirty = true;
+  lovrRetain(pass->pipeline->sampler);
 
   pass->vertexBuffer = NULL;
   pass->indexBuffer = NULL;
@@ -1844,8 +1873,9 @@ void lovrPassPush(Pass* pass, StackType stack) {
       pass->pipeline = &pass->pipelines[++pass->pipelineIndex];
       lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack overflow (more pushes than pops?)", "Pipeline");
       memcpy(pass->pipeline, &pass->pipelines[pass->pipelineIndex - 1], sizeof(Pipeline));
-      lovrRetain(pass->pipeline->shader);
       lovrRetain(pass->pipeline->sampler);
+      lovrRetain(pass->pipeline->shader);
+      lovrRetain(pass->pipeline->material);
       break;
     default: break;
   }
@@ -1858,7 +1888,9 @@ void lovrPassPop(Pass* pass, StackType stack) {
       lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "%s stack underflow (more pops than pushes?)", "Transform");
       break;
     case STACK_PIPELINE:
+      lovrRelease(pass->pipeline->sampler, lovrSamplerDestroy);
       lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
+      lovrRelease(pass->pipeline->material, lovrMaterialDestroy);
       pass->pipeline = &pass->pipelines[--pass->pipelineIndex];
       lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack underflow (more pops than pushes?)", "Pipeline");
       gpu_set_viewport(pass->stream, pass->pipeline->viewport, pass->pipeline->depthRange);
@@ -2957,6 +2989,7 @@ static void beginFrame(void) {
   state.active = true;
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin("Internal uploads");
+  arr_clear(&state.passes);
 }
 
 static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
