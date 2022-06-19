@@ -2,3 +2,9 @@
 #include "shaders/unlit.frag.h"
 
 #include "shaders/lovr.glsl.h"
+
+#define LOCATION_POSITION 10
+#define LOCATION_NORMAL 11
+#define LOCATION_UV 12
+#define LOCATION_COLOR 13
+#define LOCATION_TANGENT 14

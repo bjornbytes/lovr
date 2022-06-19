@@ -1467,7 +1467,7 @@ void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t*
   uint64_t offsets64[COUNTOF(handles)];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
-    offsets64[i] = buffers[i]->offset + offsets[i];
+    offsets64[i] = buffers[i]->offset + (offsets ? offsets[i] : 0);
   }
   vkCmdBindVertexBuffers(stream->commands, first, count, handles, offsets64);
 }
