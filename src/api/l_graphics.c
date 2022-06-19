@@ -97,10 +97,10 @@ StringEntry lovrFilterMode[] = {
   { 0 }
 };
 
-StringEntry lovrVertexMode[] = {
-  [VERTEX_POINTS] = ENTRY("points"),
-  [VERTEX_LINES] = ENTRY("lines"),
-  [VERTEX_TRIANGLES] = ENTRY("triangles"),
+StringEntry lovrHorizontalAlign[] = {
+  [ALIGN_LEFT] = ENTRY("left"),
+  [ALIGN_CENTER] = ENTRY("center"),
+  [ALIGN_RIGHT] = ENTRY("right"),
   { 0 }
 };
 
@@ -166,6 +166,20 @@ StringEntry lovrTextureUsage[] = {
   [1] = ENTRY("render"),
   [2] = ENTRY("storage"),
   [3] = ENTRY("transfer"),
+  { 0 }
+};
+
+StringEntry lovrVertexMode[] = {
+  [VERTEX_POINTS] = ENTRY("points"),
+  [VERTEX_LINES] = ENTRY("lines"),
+  [VERTEX_TRIANGLES] = ENTRY("triangles"),
+  { 0 }
+};
+
+StringEntry lovrVerticalAlign[] = {
+  [ALIGN_TOP] = ENTRY("top"),
+  [ALIGN_MIDDLE] = ENTRY("middle"),
+  [ALIGN_BOTTOM] = ENTRY("bottom"),
   { 0 }
 };
 
