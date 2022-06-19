@@ -6,12 +6,14 @@
 
 struct Blob;
 struct Image;
+struct Rasterizer;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
 typedef struct Sampler Sampler;
 typedef struct Shader Shader;
 typedef struct Material Material;
+typedef struct Font Font;
 typedef struct Pass Pass;
 
 typedef struct {
@@ -316,6 +318,20 @@ Material* lovrMaterialCreate(MaterialInfo* info);
 void lovrMaterialDestroy(void* ref);
 const MaterialInfo* lovrMaterialGetInfo(Material* material);
 
+// Font
+
+typedef struct {
+  struct Rasterizer* rasterizer;
+  uint32_t padding;
+  double spread;
+} FontInfo;
+
+Font* lovrFontCreate(FontInfo* info);
+void lovrFontDestroy(void* ref);
+const FontInfo* lovrFontGetInfo(Font* font);
+float lovrFontGetPixelDensity(Font* font);
+void lovrFontSetPixelDensity(Font* font, float pixelDensity);
+
 // Pass
 
 typedef enum {
@@ -352,6 +368,12 @@ typedef enum {
 } CullMode;
 
 typedef enum {
+  ALIGN_LEFT,
+  ALIGN_CENTER,
+  ALIGN_RIGHT
+} HorizontalAlign;
+
+typedef enum {
   STENCIL_KEEP,
   STENCIL_ZERO,
   STENCIL_REPLACE,
@@ -367,6 +389,12 @@ typedef enum {
   VERTEX_LINES,
   VERTEX_TRIANGLES
 } VertexMode;
+
+typedef enum {
+  ALIGN_TOP,
+  ALIGN_MIDDLE,
+  ALIGN_BOTTOM
+} VerticalAlign;
 
 typedef enum {
   WINDING_COUNTERCLOCKWISE,

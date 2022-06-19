@@ -1,6 +1,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "data/rasterizer.h"
 #include "headset/headset.h"
 #include "math/math.h"
 #include "core/gpu.h"
@@ -23,6 +24,18 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 #define MAX_FRAME_MEMORY (1 << 30)
 #define MAX_SHADER_RESOURCES 32
 #define MATERIALS_PER_BLOCK 1024
+
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { float x, y, z; } normal;
+  struct { float u, v; } uv;
+} ShapeVertex;
+
+typedef struct {
+  struct { float x, y; } position;
+  struct { uint8_t r, g, b, a; } color;
+  struct { uint16_t u, v; } uv;
+} GlyphVertex;
 
 typedef struct {
   gpu_phase readPhase;
@@ -110,6 +123,31 @@ struct Material {
 };
 
 typedef struct {
+  uint32_t codepoint;
+  uint16_t atlas[4];
+  float width;
+  float height;
+  float advance;
+  float offsetX;
+  float offsetY;
+} Glyph;
+
+struct Font {
+  uint32_t ref;
+  FontInfo info;
+  Material* material;
+  arr_t(Glyph) glyphs;
+  map_t glyphLookup;
+  float pixelDensity;
+  Texture* atlas;
+  uint32_t atlasWidth;
+  uint32_t atlasHeight;
+  uint32_t rowHeight;
+  uint32_t atlasX;
+  uint32_t atlasY;
+};
+
+typedef struct {
   float view[16];
   float projection[16];
   float viewProjection[16];
@@ -139,9 +177,7 @@ typedef struct {
 typedef enum {
   VERTEX_SHAPE,
   VERTEX_POINT,
-  VERTEX_MODEL,
   VERTEX_GLYPH,
-  VERTEX_EMPTY,
   VERTEX_FORMAT_COUNT
 } VertexFormat;
 
@@ -205,12 +241,6 @@ struct Pass {
   gpu_buffer* indexBuffer;
   arr_t(Access) access;
 };
-
-typedef struct {
-  struct { float x, y, z; } position;
-  struct { float x, y, z; } normal;
-  struct { float u, v; } uv;
-} ShapeVertex;
 
 typedef struct {
   Material* list;
@@ -421,12 +451,23 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
 
   state.vertexFormats[VERTEX_POINT] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 1,
+    .attributeCount = 5,
     .bufferStrides[1] = 12,
     .attributes[0] = { 1, 10, 0, GPU_TYPE_F32x3 },
     .attributes[1] = { 0, 11, 0, GPU_TYPE_F32x4 },
     .attributes[2] = { 0, 12, 0, GPU_TYPE_F32x4 },
     .attributes[3] = { 0, 13, 0, GPU_TYPE_F32x4 },
+    .attributes[4] = { 0, 14, 0, GPU_TYPE_F32x4 }
+  };
+
+  state.vertexFormats[VERTEX_GLYPH] = (gpu_vertex_format) {
+    .bufferCount = 2,
+    .attributeCount = 5,
+    .bufferStrides[1] = 16,
+    .attributes[0] = { 1, 10, offsetof(GlyphVertex, position), GPU_TYPE_F32x2 },
+    .attributes[1] = { 1, 13, offsetof(GlyphVertex, color), GPU_TYPE_UN8x4 },
+    .attributes[2] = { 1, 12, offsetof(GlyphVertex, uv), GPU_TYPE_UN16x2 },
+    .attributes[3] = { 0, 11, 0, GPU_TYPE_F32x4 },
     .attributes[4] = { 0, 14, 0, GPU_TYPE_F32x4 }
   };
 
@@ -1641,6 +1682,37 @@ void lovrMaterialDestroy(void* ref) {
 
 const MaterialInfo* lovrMaterialGetInfo(Material* material) {
   return &material->info;
+}
+
+// Font
+
+Font* lovrFontCreate(FontInfo* info) {
+  Font* font = calloc(1, sizeof(Font));
+  lovrAssert(font, "Out of memory");
+  font->ref = 1;
+  font->info = *info;
+  lovrRetain(info->rasterizer);
+  map_init(&font->glyphLookup, 36);
+  arr_init(&font->glyphs, realloc);
+  return font;
+}
+
+void lovrFontDestroy(void* ref) {
+  Font* font = ref;
+  lovrRelease(font->info.rasterizer, lovrRasterizerDestroy);
+  lovrRelease(font->material, lovrMaterialDestroy);
+  lovrRelease(font->atlas, lovrTextureDestroy);
+  map_free(&font->glyphLookup);
+  arr_free(&font->glyphs);
+  free(font);
+}
+
+float lovrFontGetPixelDensity(Font* font) {
+  return font->pixelDensity;
+}
+
+void lovrFontSetPixelDensity(Font* font, float pixelDensity) {
+  font->pixelDensity = pixelDensity;
 }
 
 // Pass
@@ -2989,6 +3061,7 @@ static void beginFrame(void) {
   state.active = true;
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin("Internal uploads");
+  state.allocator.cursor = 0;
   arr_clear(&state.passes);
 }
 

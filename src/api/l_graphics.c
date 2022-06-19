@@ -2,6 +2,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "data/rasterizer.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
@@ -1206,6 +1207,42 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewFont(lua_State* L) {
+  FontInfo info = { 0 };
+
+  info.rasterizer = luax_totype(L, 1, Rasterizer);
+  info.padding = 1;
+  info.spread = 4.;
+
+  if (!info.rasterizer) {
+    Blob* blob = NULL;
+    float size;
+
+    if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
+      size = luax_optfloat(L, 1, 32.f);
+      info.padding = luaL_optinteger(L, 2, info.padding);
+      info.spread = luaL_optnumber(L, 3, info.spread);
+    } else {
+      blob = luax_readblob(L, 1, "Font");
+      size = luax_optfloat(L, 2, 32.f);
+      info.padding = luaL_optinteger(L, 3, info.padding);
+      info.spread = luaL_optnumber(L, 4, info.spread);
+    }
+
+    info.rasterizer = lovrRasterizerCreate(blob, size);
+    lovrRelease(blob, lovrBlobDestroy);
+  } else {
+    info.padding = luaL_optinteger(L, 2, info.padding);
+    info.spread = luaL_optnumber(L, 3, info.spread);
+  }
+
+  Font* font = lovrFontCreate(&info);
+  luax_pushtype(L, Font, font);
+  lovrRelease(info.rasterizer, lovrRasterizerDestroy);
+  lovrRelease(font, lovrFontDestroy);
+  return 1;
+}
+
 static int l_lovrGraphicsGetPass(lua_State* L) {
   PassInfo info;
   info.type = luax_checkenum(L, 1, PassType, NULL);
@@ -1235,6 +1272,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "compileShader", l_lovrGraphicsCompileShader },
   { "newShader", l_lovrGraphicsNewShader },
   { "newMaterial", l_lovrGraphicsNewMaterial },
+  { "newFont", l_lovrGraphicsNewFont },
   { "getPass", l_lovrGraphicsGetPass },
   { NULL, NULL }
 };
@@ -1244,6 +1282,7 @@ extern const luaL_Reg lovrTexture[];
 extern const luaL_Reg lovrSampler[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrMaterial[];
+extern const luaL_Reg lovrFont[];
 extern const luaL_Reg lovrPass[];
 
 int luaopen_lovr_graphics(lua_State* L) {
@@ -1254,6 +1293,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Sampler);
   luax_registertype(L, Shader);
   luax_registertype(L, Material);
+  luax_registertype(L, Font);
   luax_registertype(L, Pass);
   return 1;
 }
