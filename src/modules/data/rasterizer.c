@@ -54,6 +54,15 @@ float lovrRasterizerGetFontSize(Rasterizer* rasterizer) {
   return rasterizer->size;
 }
 
+void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]) {
+  int x0, y0, x1, y1;
+  stbtt_GetFontBoundingBox(&rasterizer->font, &x0, &y0, &x1, &y1);
+  box[0] = x0 * rasterizer->scale;
+  box[1] = y0 * rasterizer->scale;
+  box[2] = x1 * rasterizer->scale;
+  box[3] = y1 * rasterizer->scale;
+}
+
 uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer) {
   return rasterizer->font.numGlyphs;
 }

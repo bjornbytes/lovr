@@ -11,6 +11,17 @@ static int l_lovrRasterizerGetFontSize(lua_State* L) {
   return 1;
 }
 
+static int l_lovrRasterizerGetBoundingBox(lua_State* L) {
+  Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
+  float box[4];
+  lovrRasterizerGetBoundingBox(rasterizer, box);
+  lua_pushnumber(L, box[0]);
+  lua_pushnumber(L, box[1]);
+  lua_pushnumber(L, box[2]);
+  lua_pushnumber(L, box[3]);
+  return 4;
+}
+
 static int l_lovrRasterizerGetGlyphCount(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   uint32_t count = lovrRasterizerGetGlyphCount(rasterizer);
@@ -187,6 +198,7 @@ static int l_lovrRasterizerGetGlyphCurves(lua_State* L) {
 
 const luaL_Reg lovrRasterizer[] = {
   { "getFontSize", l_lovrRasterizerGetFontSize },
+  { "getBoundingBox", l_lovrRasterizerGetBoundingBox },
   { "getGlyphCount", l_lovrRasterizerGetGlyphCount },
   { "hasGlyphs", l_lovrRasterizerHasGlyphs },
   { "getAscent", l_lovrRasterizerGetAscent },

@@ -11,6 +11,7 @@ typedef struct Rasterizer Rasterizer;
 Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size);
 void lovrRasterizerDestroy(void* ref);
 float lovrRasterizerGetFontSize(Rasterizer* rasterizer);
+void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]);
 uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t codepoint);
 bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t length);
