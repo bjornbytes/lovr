@@ -1069,10 +1069,10 @@ static bool openxr_getViewAngles(uint32_t view, float* left, float* right, float
   XrView views[2];
   getViews(views, &count);
   if (view < count) {
-    *left = views[view].fov.angleLeft;
+    *left = -views[view].fov.angleLeft;
     *right = views[view].fov.angleRight;
     *up = views[view].fov.angleUp;
-    *down = views[view].fov.angleDown;
+    *down = -views[view].fov.angleDown;
     return true;
   } else {
     return false;
@@ -1660,6 +1660,10 @@ static Texture* openxr_getTexture(void) {
 
   XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
   XR(xrBeginFrame(state.session, &beginfo));
+
+  if (!state.frameState.shouldRender) {
+    return NULL;
+  }
 
   XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
   XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));

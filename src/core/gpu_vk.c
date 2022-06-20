@@ -338,8 +338,9 @@ GPU_FOREACH_DEVICE(GPU_DECLARE)
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   if (info->handle) {
-    buffer->memory = ~0u;
     buffer->handle = (VkBuffer) info->handle;
+    buffer->memory = ~0u;
+    buffer->offset = 0;
     return true;
   }
 
@@ -375,6 +376,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   }
 
   buffer->memory = memory - state.memory;
+  buffer->offset = 0;
   return true;
 }
 
@@ -1867,7 +1869,11 @@ bool gpu_init(gpu_config* config) {
       .ppEnabledExtensionNames = extensions
     };
 
-    VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") return gpu_destroy(), false;
+    if (state.config.vk.createDevice) {
+      VK(state.config.vk.createDevice(state.instance, &deviceInfo, NULL, &state.device, (void*) vkGetInstanceProcAddr), "Device creation failed") return gpu_destroy(), false;
+    } else {
+      VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") return gpu_destroy(), false;
+    }
     vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
   }

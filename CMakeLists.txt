@@ -446,6 +446,8 @@ if(LOVR_ENABLE_GRAPHICS)
     src/api/l_graphics_texture.c
     src/api/l_graphics_sampler.c
     src/api/l_graphics_shader.c
+    src/api/l_graphics_material.c
+    src/api/l_graphics_font.c
     src/api/l_graphics_pass.c
   )
 
@@ -570,7 +572,7 @@ else()
 endif()
 
 # Resources
-file(GLOB LOVR_RESOURCES "etc/*.ttf" "etc/*.lua")
+file(GLOB LOVR_RESOURCES "etc/*.ttf" "etc/*.lua" "etc/shaders/*.glsl")
 foreach(path ${LOVR_RESOURCES})
 
   # Turn the absolute path into a C variable like etc_boot_lua
