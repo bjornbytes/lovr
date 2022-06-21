@@ -99,6 +99,7 @@ typedef struct {
   float glow[4];
   float uvShift[2];
   float uvScale[2];
+  float sdfRange[2];
   float metalness;
   float roughness;
   float clearcoat;
@@ -108,7 +109,6 @@ typedef struct {
   float normalScale;
   float alphaCutoff;
   float pointSize;
-  float sdfRange;
   uint32_t texture;
   uint32_t glowTexture;
   uint32_t occlusionTexture;

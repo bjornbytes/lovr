@@ -22,6 +22,7 @@ struct MaterialData {
   vec4 glow;
   vec2 uvShift;
   vec2 uvScale;
+  vec2 sdfRange;
   float metalness;
   float roughness;
   float clearcoat;
@@ -31,7 +32,6 @@ struct MaterialData {
   float normalScale;
   float alphaCutoff;
   float pointSize;
-  float sdfRange;
 };
 
 layout(set = 1, binding = 0) uniform MaterialBlock { MaterialData Material; };
