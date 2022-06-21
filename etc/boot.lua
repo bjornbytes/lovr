@@ -173,7 +173,47 @@ function lovr.errhand(message, traceback)
   message = tostring(message)
   message = message .. formatTraceback(traceback or debug.traceback('', 4))
   print('Error:\n' .. message)
-  return function() return 1 end
+  if not lovr.graphics then return function() return 1 end end
+
+  local function render(pass)
+    pass:setBlendMode('alpha')
+    pass:text('Error', 0, .3, -1, .1)
+    pass:text(message, 0, 0, -1, .05)
+  end
+
+  lovr.graphics.submit()
+  lovr.graphics.setBackground(.11, .10, .14)
+  return function()
+    lovr.event.pump()
+    for name, a in lovr.event.poll() do
+      if name == 'quit' then return a or 1
+      elseif name == 'restart' then return 'restart', lovr.event.restart and lovr.restart() end
+    end
+    local passes = {}
+    if lovr.headset then
+      lovr.headset.update()
+      local texture = lovr.headset.getTexture()
+      if texture then
+        local pass = lovr.graphics.getPass('render', texture)
+        for i = 1, lovr.headset.getViewCount() do
+          pass:setViewPose(i, lovr.headset.getViewPose(i))
+          pass:setProjection(i, lovr.headset.getViewAngles(i))
+        end
+        render(pass)
+        passes[#passes + 1] = pass
+      end
+    end
+    if lovr.system.isWindowOpen() then
+      local pass = lovr.graphics.getPass('render', 'window')
+      local width, height = lovr.system.getWindowDimensions()
+      local projection = lovr.math.mat4():perspective(0.1, 100.0, 1.0, width / height)
+      pass:setProjection(1, projection)
+      render(pass)
+      passes[#passes + 1] = pass
+    end
+    lovr.graphics.submit(passes)
+    if lovr.math then lovr.math.drain() end
+  end
 end
 
 function lovr.threaderror(thread, err)
