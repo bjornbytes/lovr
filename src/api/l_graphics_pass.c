@@ -173,7 +173,7 @@ static int l_lovrPassSetAlphaToCoverage(lua_State* L) {
 
 static int l_lovrPassSetBlendMode(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  BlendMode mode = lua_isnoneornil(L, 2) ? BLEND_NONE : luax_checkenum(L, 1, BlendMode, NULL);
+  BlendMode mode = lua_isnoneornil(L, 2) ? BLEND_NONE : luax_checkenum(L, 2, BlendMode, NULL);
   BlendAlphaMode alphaMode = luax_checkenum(L, 3, BlendAlphaMode, "alphamultiply");
   lovrPassSetBlendMode(pass, mode, alphaMode);
   return 0;
@@ -240,7 +240,7 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
 
 static int l_lovrPassSetMaterial(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Material* material = luax_checktype(L, 2, Material);
+  Material* material = luax_totype(L, 2, Material);
   lovrPassSetMaterial(pass, material);
   return 0;
 }
