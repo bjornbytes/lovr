@@ -1,25 +1,16 @@
 #include "api.h"
 #include "data/rasterizer.h"
+#include "data/image.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <math.h>
 
 static int l_lovrRasterizerGetFontSize(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   float size = lovrRasterizerGetFontSize(rasterizer);
   lua_pushnumber(L, size);
   return 1;
-}
-
-static int l_lovrRasterizerGetBoundingBox(lua_State* L) {
-  Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  float box[4];
-  lovrRasterizerGetBoundingBox(rasterizer, box);
-  lua_pushnumber(L, box[0]);
-  lua_pushnumber(L, box[1]);
-  lua_pushnumber(L, box[2]);
-  lua_pushnumber(L, box[3]);
-  return 4;
 }
 
 static int l_lovrRasterizerGetGlyphCount(lua_State* L) {
@@ -124,27 +115,39 @@ static int l_lovrRasterizerGetGlyphBearing(lua_State* L) {
 
 static int l_lovrRasterizerGetGlyphWidth(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  uint32_t codepoint = luax_checkcodepoint(L, 2);
   float box[4];
-  lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  if (lua_isnoneornil(L, 2)) {
+    lovrRasterizerGetBoundingBox(rasterizer, box);
+  } else {
+    uint32_t codepoint = luax_checkcodepoint(L, 2);
+    lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  }
   lua_pushnumber(L, box[2] - box[0]);
   return 1;
 }
 
 static int l_lovrRasterizerGetGlyphHeight(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  uint32_t codepoint = luax_checkcodepoint(L, 2);
   float box[4];
-  lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  if (lua_isnoneornil(L, 2)) {
+    lovrRasterizerGetBoundingBox(rasterizer, box);
+  } else {
+    uint32_t codepoint = luax_checkcodepoint(L, 2);
+    lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  }
   lua_pushnumber(L, box[3] - box[1]);
   return 1;
 }
 
 static int l_lovrRasterizerGetGlyphDimensions(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  uint32_t codepoint = luax_checkcodepoint(L, 2);
   float box[4];
-  lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  if (lua_isnoneornil(L, 2)) {
+    lovrRasterizerGetBoundingBox(rasterizer, box);
+  } else {
+    uint32_t codepoint = luax_checkcodepoint(L, 2);
+    lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  }
   lua_pushnumber(L, box[2] - box[0]);
   lua_pushnumber(L, box[3] - box[1]);
   return 2;
@@ -152,9 +155,13 @@ static int l_lovrRasterizerGetGlyphDimensions(lua_State* L) {
 
 static int l_lovrRasterizerGetGlyphBoundingBox(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  uint32_t codepoint = luax_checkcodepoint(L, 2);
   float box[4];
-  lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  if (lua_isnoneornil(L, 2)) {
+    lovrRasterizerGetBoundingBox(rasterizer, box);
+  } else {
+    uint32_t codepoint = luax_checkcodepoint(L, 2);
+    lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  }
   lua_pushnumber(L, box[0]);
   lua_pushnumber(L, box[1]);
   lua_pushnumber(L, box[2]);
@@ -196,9 +203,23 @@ static int l_lovrRasterizerGetGlyphCurves(lua_State* L) {
   return 1;
 }
 
+static int l_lovrRasterizerGetGlyphImage(lua_State* L) {
+  Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
+  uint32_t codepoint = luax_checkcodepoint(L, 2);
+  float box[4];
+  lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
+  uint32_t width = 2 + (uint32_t) ceilf(box[2] - box[0]);
+  uint32_t height = 2 + (uint32_t) ceilf(box[3] - box[1]);
+  Image* image = lovrImageCreateRaw(width, height, FORMAT_RGBA32F);
+  void* pixels = lovrImageGetLayerData(image, 0, 0);
+  lovrRasterizerGetGlyphPixels(rasterizer, codepoint, pixels, width, height, 4.);
+  luax_pushtype(L, Image, image);
+  lovrRelease(image, lovrImageDestroy);
+  return 1;
+}
+
 const luaL_Reg lovrRasterizer[] = {
   { "getFontSize", l_lovrRasterizerGetFontSize },
-  { "getBoundingBox", l_lovrRasterizerGetBoundingBox },
   { "getGlyphCount", l_lovrRasterizerGetGlyphCount },
   { "hasGlyphs", l_lovrRasterizerHasGlyphs },
   { "getAscent", l_lovrRasterizerGetAscent },
@@ -213,5 +234,6 @@ const luaL_Reg lovrRasterizer[] = {
   { "getGlyphDimensions", l_lovrRasterizerGetGlyphDimensions },
   { "getGlyphBoundingBox", l_lovrRasterizerGetGlyphBoundingBox },
   { "getGlyphCurves", l_lovrRasterizerGetGlyphCurves },
+  { "getGlyphImage", l_lovrRasterizerGetGlyphImage },
   { NULL, NULL }
 };

@@ -5,6 +5,7 @@
 #include "lib/stb/stb_truetype.h"
 #include <msdfgen-c.h>
 #include <stdlib.h>
+#include <math.h>
 
 struct Rasterizer {
   uint32_t ref;
@@ -129,11 +130,11 @@ bool lovrRasterizerIsGlyphEmpty(Rasterizer* rasterizer, uint32_t codepoint) {
   return stbtt_IsGlyphEmpty(&rasterizer->font, stbtt_FindGlyphIndex(&rasterizer->font, codepoint));
 }
 
-void lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context) {
+bool lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context) {
   uint32_t id = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
 
   if (stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
-    return;
+    return false;
   }
 
   stbtt_vertex* vertices;
@@ -168,4 +169,68 @@ void lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, vo
   }
 
   stbtt_FreeShape(&rasterizer->font, vertices);
+  return true;
+}
+
+#include <stdio.h>
+bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread) {
+  int id = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
+
+  if (stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
+    return false;
+  }
+
+  stbtt_vertex* vertices;
+  int count = stbtt_GetGlyphShape(&rasterizer->font, id, &vertices);
+
+  msShape* shape = msShapeCreate();
+  msContour* contour = NULL;
+
+  float x = 0.f;
+  float y = 0.f;
+  for (int i = 0; i < count; i++) {
+    stbtt_vertex vertex = vertices[i];
+    float x2 = vertex.x;
+    float y2 = vertex.y;
+
+    if (vertex.type == STBTT_vmove) {
+      contour = msShapeAddContour(shape);
+    } else if (vertex.type == STBTT_vline) {
+      msContourAddLinearEdge(contour, x, y, x2, y2);
+    } else if (vertex.type == STBTT_vcurve) {
+      float cx = vertex.cx;
+      float cy = vertex.cy;
+      msContourAddQuadraticEdge(contour, x, y, cx, cy, x2, y2);
+    } else if (vertex.type == STBTT_vcubic) {
+      float cx1 = vertex.cx;
+      float cy1 = vertex.cy;
+      float cx2 = vertex.cx1;
+      float cy2 = vertex.cy1;
+      msContourAddCubicEdge(contour, x, y, cx1, cy1, cx2, cy2, x2, y2);
+    }
+
+    x = x2;
+    y = y2;
+  }
+
+  stbtt_FreeShape(&rasterizer->font, vertices);
+
+  int x0, y0, x1, y1;
+  stbtt_GetGlyphBox(&rasterizer->font, id, &x0, &y0, &x1, &y1);
+
+  double unused;
+  float scale = rasterizer->scale;
+  float centerOffsetX = (1.f - modf((x1 - x0) * scale, &unused)) / 2.f;
+  float centerOffsetY = (1.f - modf((y1 - y0) * scale, &unused)) / 2.f;
+
+  uint32_t padding = 1;
+  float offsetX = -x0 + ((padding + centerOffsetX) / rasterizer->scale);
+  float offsetY = -y1 - ((padding + centerOffsetY) / rasterizer->scale);
+
+  msShapeNormalize(shape);
+  msEdgeColoringSimple(shape, 3., 0);
+  msGenerateMTSDF(pixels, width, height, shape, spread / rasterizer->scale, scale, -scale, offsetX, offsetY);
+  msShapeDestroy(shape);
+
+  return true;
 }
