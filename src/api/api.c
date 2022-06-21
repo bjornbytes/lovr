@@ -403,6 +403,10 @@ uint32_t _luax_checku32(lua_State* L, int index) {
   return (uint32_t) x;
 }
 
+uint32_t _luax_optu32(lua_State* L, int index, uint32_t fallback) {
+  return luaL_opt(L, luax_checku32, index, fallback);
+}
+
 void luax_readcolor(lua_State* L, int index, float color[4]) {
   color[0] = color[1] = color[2] = color[3] = 1.f;
 
