@@ -687,6 +687,12 @@ static int l_lovrGraphicsSetBackground(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsGetDefaultFont(lua_State* L) {
+  Font* font = lovrGraphicsGetDefaultFont();
+  luax_pushtype(L, Font, font);
+  return 1;
+}
+
 static int l_lovrGraphicsGetBuffer(lua_State* L) {
   BufferInfo info = { 0 };
 
@@ -1266,6 +1272,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "isFormatSupported", l_lovrGraphicsIsFormatSupported },
   { "getBackground", l_lovrGraphicsGetBackground },
   { "setBackground", l_lovrGraphicsSetBackground },
+  { "getDefaultFont", l_lovrGraphicsGetDefaultFont },
   { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },

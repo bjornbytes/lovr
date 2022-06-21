@@ -625,6 +625,18 @@ void lovrGraphicsSetBackground(float background[4]) {
   state.background[3] = background[3];
 }
 
+Font* lovrGraphicsGetDefaultFont() {
+  if (!state.defaultFont) {
+    state.defaultFont = lovrFontCreate(&(FontInfo) {
+      .rasterizer = lovrRasterizerCreate(NULL, 48),
+      .padding = 1,
+      .spread = 4.
+    });
+  }
+
+  return state.defaultFont;
+}
+
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   if (!state.active) {
     return;
@@ -2818,15 +2830,7 @@ void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, ui
 
 void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   if (!font) {
-    if (!state.defaultFont) {
-      state.defaultFont = lovrFontCreate(&(FontInfo) {
-        .rasterizer = lovrRasterizerCreate(NULL, 48),
-        .padding = 1,
-        .spread = 4.
-      });
-    }
-
-    font = state.defaultFont;
+    font = lovrGraphicsGetDefaultFont();
   }
 
   uint32_t originalGlyphsLength = font->glyphs.length;
