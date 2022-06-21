@@ -628,7 +628,7 @@ void lovrGraphicsSetBackground(float background[4]) {
 Font* lovrGraphicsGetDefaultFont() {
   if (!state.defaultFont) {
     state.defaultFont = lovrFontCreate(&(FontInfo) {
-      .rasterizer = lovrRasterizerCreate(NULL, 48),
+      .rasterizer = lovrRasterizerCreate(NULL, 32),
       .padding = 1,
       .spread = 4.
     });
@@ -1736,6 +1736,10 @@ void lovrFontDestroy(void* ref) {
   map_free(&font->glyphLookup);
   map_free(&font->kerning);
   free(font);
+}
+
+const FontInfo* lovrFontGetInfo(Font* font) {
+  return &font->info;
 }
 
 float lovrFontGetPixelDensity(Font* font) {
