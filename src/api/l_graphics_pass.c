@@ -513,6 +513,21 @@ static int l_lovrPassCircle(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassText(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Font* font = luax_totype(L, 2, Font);
+  int index = font ? 3 : 2;
+  size_t length;
+  const char* text = luaL_checklstring(L, index++, &length);
+  float transform[16];
+  index = luax_readmat4(L, index++, transform, 1);
+  float wrap = luax_optfloat(L, index++, 0.);
+  HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
+  VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
+  lovrPassText(pass, font, text, length, transform, wrap, halign, valign);
+  return 0;
+}
+
 static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_totype(L, 2, Buffer);
@@ -739,6 +754,7 @@ const luaL_Reg lovrPass[] = {
   { "cube", l_lovrPassCube },
   { "box", l_lovrPassBox },
   { "circle", l_lovrPassCircle },
+  { "text", l_lovrPassText },
   { "mesh", l_lovrPassMesh },
   { "multimesh", l_lovrPassMultimesh },
 

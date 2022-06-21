@@ -33,8 +33,7 @@ typedef struct {
 
 typedef struct {
   struct { float x, y; } position;
-  struct { uint8_t r, g, b, a; } color;
-  struct { uint16_t u, v; } uv;
+  struct { float u, v; } uv;
 } GlyphVertex;
 
 typedef struct {
@@ -125,11 +124,9 @@ struct Material {
 typedef struct {
   uint32_t codepoint;
   uint16_t atlas[4];
-  float width;
-  float height;
   float advance;
-  float offsetX;
-  float offsetY;
+  float box[4];
+  float uv[4];
 } Glyph;
 
 struct Font {
@@ -138,6 +135,7 @@ struct Font {
   Material* material;
   arr_t(Glyph) glyphs;
   map_t glyphLookup;
+  map_t kerning;
   float pixelDensity;
   Texture* atlas;
   uint32_t atlasWidth;
@@ -286,11 +284,13 @@ static struct {
   gpu_stream* stream;
   bool hasTextureUpload;
   bool hasMaterialUpload;
+  bool hasGlyphUpload;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
   float background[4];
   Texture* window;
+  Font* defaultFont;
   Buffer* defaultBuffer;
   Texture* defaultTexture;
   Sampler* defaultSamplers[2];
@@ -314,6 +314,7 @@ static struct {
 static void* tempAlloc(size_t size);
 static void* tempGrow(void* p, size_t size);
 static void beginFrame(void);
+static void cleanupPasses(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(uint32_t layout);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
@@ -457,7 +458,7 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   state.vertexFormats[VERTEX_POINT] = (gpu_vertex_format) {
     .bufferCount = 2,
     .attributeCount = 5,
-    .bufferStrides[2] = 12,
+    .bufferStrides[0] = 12,
     .attributes[0] = { 0, 10, 0, GPU_TYPE_F32x3 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x4 },
     .attributes[2] = { 1, 12, 0, GPU_TYPE_F32x4 },
@@ -468,11 +469,11 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
   state.vertexFormats[VERTEX_GLYPH] = (gpu_vertex_format) {
     .bufferCount = 2,
     .attributeCount = 5,
-    .bufferStrides[2] = 16,
+    .bufferStrides[0] = sizeof(GlyphVertex),
     .attributes[0] = { 0, 10, offsetof(GlyphVertex, position), GPU_TYPE_F32x2 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x4 },
-    .attributes[2] = { 0, 12, offsetof(GlyphVertex, uv), GPU_TYPE_UN16x2 },
-    .attributes[3] = { 0, 13, offsetof(GlyphVertex, color), GPU_TYPE_UN8x4 },
+    .attributes[2] = { 0, 12, offsetof(GlyphVertex, uv), GPU_TYPE_F32x2 },
+    .attributes[3] = { 1, 13, 16, GPU_TYPE_F32x4 },
     .attributes[4] = { 1, 14, 0, GPU_TYPE_F32x4 }
   };
 
@@ -489,12 +490,14 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
+  cleanupPasses();
   lovrRelease(state.window, lovrTextureDestroy);
   for (uint32_t i = 0; i < state.attachments.length; i++) {
     gpu_texture_destroy(state.attachments.data[i].texture);
     free(state.attachments.data[i].texture);
   }
   arr_free(&state.attachments);
+  lovrRelease(state.defaultFont, lovrFontDestroy);
   lovrRelease(state.defaultBuffer, lovrBufferDestroy);
   lovrRelease(state.defaultTexture, lovrTextureDestroy);
   lovrRelease(state.defaultSamplers[0], lovrSamplerDestroy);
@@ -653,6 +656,14 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     state.hasMaterialUpload = false;
   }
 
+  if (state.hasGlyphUpload) {
+    barriers[0].prev |= GPU_PHASE_TRANSFER;
+    barriers[0].next |= GPU_PHASE_SHADER_FRAGMENT;
+    barriers[0].flush |= GPU_CACHE_TRANSFER_WRITE;
+    barriers[0].clear |= GPU_CACHE_TEXTURE;
+    state.hasGlyphUpload = false;
+  }
+
   // End passes
   for (uint32_t i = 0; i < count; i++) {
     streams[i + 1] = passes[i]->stream;
@@ -761,25 +772,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   gpu_submit(streams, total);
 
-  // Clean up ALL passes created during the frame
-  for (size_t i = 0; i < state.passes.length; i++) {
-    Pass* pass = state.passes.data[i];
-
-    for (size_t j = 0; j < pass->access.length; j++) {
-      Access* access = &pass->access.data[j];
-      lovrRelease(access->buffer, lovrBufferDestroy);
-      lovrRelease(access->texture, lovrTextureDestroy);
-    }
-
-    for (size_t j = 0; j <= pass->pipelineIndex; j++) {
-      lovrRelease(pass->pipelines[j].sampler, lovrSamplerDestroy);
-      lovrRelease(pass->pipelines[j].shader, lovrShaderDestroy);
-      lovrRelease(pass->pipelines[j].material, lovrMaterialDestroy);
-      pass->pipelines[j].sampler = NULL;
-      pass->pipelines[j].shader = NULL;
-      pass->pipelines[j].material = NULL;
-    }
-  }
+  cleanupPasses();
 
   if (state.window) {
     state.window->gpu = NULL;
@@ -1293,6 +1286,11 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
       info.stages[1] = lovrBlobCreate((void*) lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag), "Unlit Fragment Shader");
       info.label = "unlit";
       break;
+    case SHADER_FONT:
+      info.stages[0] = lovrBlobCreate((void*) lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert), "Unlit Vertex Shader");
+      info.stages[1] = lovrBlobCreate((void*) lovr_shader_font_frag, sizeof(lovr_shader_font_frag), "Font Fragment Shader");
+      info.label = "font";
+      break;
     default: lovrUnreachable();
   }
 
@@ -1698,8 +1696,22 @@ Font* lovrFontCreate(FontInfo* info) {
   font->ref = 1;
   font->info = *info;
   lovrRetain(info->rasterizer);
-  map_init(&font->glyphLookup, 36);
   arr_init(&font->glyphs, realloc);
+  map_init(&font->glyphLookup, 36);
+  map_init(&font->kerning, 36);
+
+  // Initial atlas size must be big enough to hold any of the glyphs
+  float box[4];
+  font->atlasWidth = 1;
+  font->atlasHeight = 1;
+  lovrRasterizerGetBoundingBox(info->rasterizer, box);
+  uint32_t width = (uint32_t) ceilf(box[2] - box[0]);
+  uint32_t height = (uint32_t) ceilf(box[3] - box[1]);
+  while (font->atlasWidth < 2 * width || font->atlasHeight < 2 * height) {
+    font->atlasWidth <<= 1;
+    font->atlasHeight <<= 1;
+  }
+
   return font;
 }
 
@@ -1708,8 +1720,9 @@ void lovrFontDestroy(void* ref) {
   lovrRelease(font->info.rasterizer, lovrRasterizerDestroy);
   lovrRelease(font->material, lovrMaterialDestroy);
   lovrRelease(font->atlas, lovrTextureDestroy);
-  map_free(&font->glyphLookup);
   arr_free(&font->glyphs);
+  map_free(&font->glyphLookup);
+  map_free(&font->kerning);
   free(font);
 }
 
@@ -2803,6 +2816,312 @@ void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, ui
   }
 }
 
+void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+  if (!font) {
+    if (!state.defaultFont) {
+      state.defaultFont = lovrFontCreate(&(FontInfo) {
+        .rasterizer = lovrRasterizerCreate(NULL, 48),
+        .padding = 1,
+        .spread = 4.
+      });
+    }
+
+    font = state.defaultFont;
+  }
+
+  uint32_t originalGlyphsLength = font->glyphs.length;
+
+  GlyphVertex* vertices = tempAlloc(length * 4 * sizeof(GlyphVertex));
+  uint32_t vertexCount = 0;
+  uint32_t glyphCount = 0;
+  uint32_t lineCount = 1;
+
+  // Track vertex indices for align/wrap
+  uint32_t lineStart = 0;
+  uint32_t wordStart = 0;
+
+  // Cursor
+  float x = 0.f;
+  float y = 0.f;
+  float leading = lovrRasterizerGetLeading(font->info.rasterizer) * .8f;
+  float ascent = lovrRasterizerGetAscent(font->info.rasterizer) * .8f;
+  float scale = 1.f / ascent;
+  wrap /= scale;
+
+  size_t bytes;
+  uint32_t codepoint;
+  uint32_t previous = '\0';
+  const char* end = text + length;
+  while ((bytes = utf8_decode(text, end, &codepoint)) > 0) {
+    uint64_t hash = hash64(&codepoint, 4);
+    uint64_t index = map_get(&font->glyphLookup, hash);
+    Glyph* glyph;
+
+    if (index == MAP_NIL) { // New glyph just dropped
+      map_set(&font->glyphLookup, hash, font->glyphs.length);
+      arr_expand(&font->glyphs, 1);
+      glyph = &font->glyphs.data[font->glyphs.length++];
+
+      glyph->codepoint = codepoint;
+      glyph->advance = lovrRasterizerGetGlyphAdvance(font->info.rasterizer, codepoint);
+
+      if (lovrRasterizerIsGlyphEmpty(font->info.rasterizer, codepoint)) {
+        memset(glyph->atlas, 0, sizeof(glyph->atlas));
+        memset(glyph->box, 0, sizeof(glyph->atlas));
+        memset(glyph->uv, 0, sizeof(glyph->atlas));
+      } else {
+        lovrRasterizerGetGlyphBoundingBox(font->info.rasterizer, codepoint, glyph->box);
+
+        float width = glyph->box[2] - glyph->box[0];
+        float height = glyph->box[3] - glyph->box[1];
+
+        uint32_t pixelWidth = 2 * font->info.padding + (uint32_t) ceilf(width);
+        uint32_t pixelHeight = 2 * font->info.padding + (uint32_t) ceilf(height);
+
+        if (font->atlasX + pixelWidth > font->atlasWidth) {
+          font->atlasX = font->atlasWidth == font->atlasHeight ? 0 : font->atlasWidth >> 1;
+          font->atlasY += font->rowHeight;
+          if (font->atlasY + pixelHeight > font->atlasHeight) {
+            if (font->atlasWidth == font->atlasHeight) {
+              font->atlasX = font->atlasWidth;
+              font->atlasY = 0;
+              font->atlasWidth <<= 1;
+              font->rowHeight = 0;
+            } else {
+              font->atlasX = 0;
+              font->atlasY = font->atlasHeight;
+              font->atlasHeight <<= 1;
+              font->rowHeight = 0;
+            }
+          }
+        }
+
+        glyph->atlas[0] = font->atlasX;
+        glyph->atlas[1] = font->atlasY;
+        glyph->atlas[2] = pixelWidth;
+        glyph->atlas[3] = pixelHeight;
+
+        double unused;
+        glyph->uv[0] = font->atlasX + font->info.padding + (1.f - modf(width, &unused)) / 2.f;
+        glyph->uv[1] = font->atlasY + font->info.padding + (1.f - modf(height, &unused)) / 2.f;
+        glyph->uv[2] = glyph->uv[0] + width;
+        glyph->uv[3] = glyph->uv[1] + height;
+
+        font->atlasX += pixelWidth;
+        font->rowHeight = MAX(font->rowHeight, font->atlasY + pixelHeight);
+      }
+    } else {
+      glyph = &font->glyphs.data[index];
+    }
+
+    if (codepoint == ' ') {
+      wordStart = vertexCount;
+      x += glyph->advance;
+      previous = '\0';
+      text += bytes;
+      continue;
+    } else if (codepoint == '\n') {
+      if (halign != ALIGN_LEFT) {
+        float lineWidth = vertices[vertexCount - 1].position.x;
+        float align = (float) halign / 2.f * lineWidth; // Sneakily compute shift ratio from halign
+        for (uint32_t i = lineStart; i < vertexCount; i++) {
+          vertices[i].position.x -= align;
+        }
+      }
+
+      lineStart = vertexCount;
+      wordStart = vertexCount;
+      previous = '\0';
+      text += bytes;
+      y -= leading;
+      lineCount++;
+      x = 0.f;
+      continue;
+    }
+
+    // Keming
+    if (previous != '\0') {
+      uint32_t codepoints[] = { previous, codepoint };
+      hash = hash64(codepoints, sizeof(codepoints));
+      union { float f32; uint64_t u64; } kerning = { .u64 = map_get(&font->kerning, hash) };
+
+      if (kerning.u64 == MAP_NIL) {
+        kerning.f32 = lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
+        map_set(&font->kerning, hash, kerning.u64);
+      }
+
+      x += kerning.f32;
+    }
+
+    previous = codepoint;
+
+    // Wrap
+    if (wrap > 0.f && x + glyph->box[2] > wrap && wordStart != lineStart) {
+      if (halign != ALIGN_LEFT) {
+        float lineWidth = vertices[wordStart - 1].position.x; // Edge of last glyph before this word
+        float align = (float) halign / 2.f * lineWidth; // Sneakily compute shift ratio from halign
+        for (uint32_t i = lineStart; i < wordStart; i++) {
+          vertices[i].position.x -= align;
+        }
+      }
+
+      float dx = wordStart == vertexCount ? x : vertices[wordStart].position.x;
+      float dy = leading;
+
+      // Shift the vertices of the overflowing word down a line and back to the beginning
+      for (uint32_t i = wordStart; i < vertexCount; i++) {
+        vertices[i].position.x -= dx;
+        vertices[i].position.y -= dy;
+      }
+
+      lineStart = wordStart;
+      lineCount++;
+      x -= dx;
+      y -= dy;
+    }
+
+    // Vertices
+    if (glyph->atlas[2] > 0 && glyph->atlas[3] > 0) {
+      if (vertexCount == lineStart) {
+        x -= glyph->box[0];
+      }
+
+      vertices[vertexCount++] = (GlyphVertex) {
+        .position = { x + glyph->box[0], y + glyph->box[3] },
+        .uv = { glyph->uv[0], glyph->uv[1] }
+      };
+
+      vertices[vertexCount++] = (GlyphVertex) {
+        .position = { x + glyph->box[2], y + glyph->box[3] },
+        .uv = { glyph->uv[2], glyph->uv[1] }
+      };
+
+      vertices[vertexCount++] = (GlyphVertex) {
+        .position = { x + glyph->box[0], y + glyph->box[1] },
+        .uv = { glyph->uv[0], glyph->uv[3] }
+      };
+
+      vertices[vertexCount++] = (GlyphVertex) {
+        .position = { x + glyph->box[2], y + glyph->box[1] },
+        .uv = { glyph->uv[2], glyph->uv[3] }
+      };
+
+      glyphCount++;
+    }
+
+    // Advance
+    x += glyph->advance;
+    text += bytes;
+  }
+
+  if (halign != ALIGN_LEFT) { // Align last line
+    float lineWidth = vertices[vertexCount - 1].position.x;
+    float align = (float) halign / 2.f * lineWidth;
+    for (uint32_t i = lineStart; i < vertexCount; i++) {
+      vertices[i].position.x -= align;
+    }
+  }
+
+  for (uint32_t i = 0; i < vertexCount; i++) { // Normalize UVs now that final atlas size is known
+    vertices[i].uv.u /= font->atlasWidth;
+    vertices[i].uv.v /= font->atlasHeight;
+  }
+
+  // If any glyphs were added, resize texture if needed and paste new glyphs (the slow part)
+  if (font->glyphs.length > originalGlyphsLength) {
+    if (!font->atlas || font->atlasWidth > font->atlas->info.width || font->atlasHeight > font->atlas->info.height) {
+      lovrCheck(font->atlasWidth <= 65536, "Font atlas is too big!");
+
+      Texture* atlas = lovrTextureCreate(&(TextureInfo) {
+        .type = TEXTURE_2D,
+        .format = FORMAT_RGBA32F,
+        .width = font->atlasWidth,
+        .height = font->atlasHeight,
+        .depth = 1,
+        .mipmaps = 1,
+        .samples = 1,
+        .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
+        .label = "Font Atlas"
+      });
+
+      float clear[4] = { 0.f, 0.f, 0.f, 0.f };
+      gpu_clear_texture(state.stream, atlas->gpu, clear, 0, ~0u, 0, ~0u);
+
+      // This barrier serves 2 purposes:
+      // - Ensure new atlas clear is finished/flushed before copying to it
+      // - Ensure any unsynchronized pending uploads to old atlas finish before copying to new atlas
+      gpu_barrier barrier;
+      barrier.prev = GPU_PHASE_TRANSFER;
+      barrier.next = GPU_PHASE_TRANSFER;
+      barrier.flush = GPU_CACHE_TRANSFER_WRITE;
+      barrier.clear = GPU_CACHE_TRANSFER_READ;
+      gpu_sync(state.stream, &barrier, 1);
+
+      if (font->atlas) {
+        uint32_t srcOffset[4] = { 0, 0, 0, 0 };
+        uint32_t dstOffset[4] = { 0, 0, 0, 0 };
+        uint32_t extent[3] = { font->atlas->info.width, font->atlas->info.height, 1 };
+        gpu_copy_textures(state.stream, font->atlas->gpu, atlas->gpu, srcOffset, dstOffset, extent);
+        lovrRelease(font->atlas, lovrTextureDestroy);
+      }
+
+      font->atlas = atlas;
+
+      lovrRelease(font->material, lovrMaterialDestroy);
+      font->material = lovrMaterialCreate(&(MaterialInfo) {
+        .data.color = { 1.f, 1.f, 1.f, 1.f },
+        .data.uvScale = { 1.f, 1.f },
+        .data.sdfRange = { font->info.spread / font->atlasWidth, font->info.spread / font->atlasHeight },
+        .texture = font->atlas
+      });
+    }
+
+    gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
+
+    for (uint32_t i = originalGlyphsLength; i < font->glyphs.length; i++) {
+      Glyph* glyph = &font->glyphs.data[i];
+      uint32_t width = glyph->atlas[2];
+      uint32_t height = glyph->atlas[3];
+
+      if (width == 0 || height == 0) {
+        continue;
+      }
+
+      void* pixels = gpu_map(scratchpad, width * height * 16, 16, GPU_MAP_WRITE);
+      lovrRasterizerGetGlyphPixels(font->info.rasterizer, glyph->codepoint, pixels, width, height, font->info.spread);
+      uint32_t dstOffset[4] = { glyph->atlas[0], glyph->atlas[1], 0, 0 };
+      uint32_t extent[3] = { width, height, 1 };
+      gpu_copy_buffer_texture(state.stream, scratchpad, font->atlas->gpu, 0, dstOffset, extent);
+    }
+
+    state.hasGlyphUpload = true;
+  }
+
+  mat4_scale(transform, scale, scale, scale);
+
+  float totalHeight = ascent + leading * (lineCount - 1);
+  mat4_translate(transform, 0.f, -ascent + valign / 2.f * totalHeight, 0.f);
+
+  uint16_t* indices;
+  lovrPassDraw(pass, &(Draw) {
+    .mode = VERTEX_TRIANGLES,
+    .shader = SHADER_FONT,
+    .material = font->material,
+    .transform = transform,
+    .vertex.format = VERTEX_GLYPH,
+    .vertex.count = vertexCount,
+    .vertex.data = vertices,
+    .index.count = glyphCount * 6,
+    .index.pointer = (void**) &indices
+  });
+
+  for (uint32_t i = 0; i < vertexCount; i += 4) {
+    uint16_t quad[] = { i + 0, i + 2, i + 1, i + 1, i + 2, i + 3 };
+    memcpy(indices, quad, sizeof(quad));
+    indices += COUNTOF(quad);
+  }
+}
+
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances) {
   if (count == ~0u) {
     count = (indices ? indices : vertices)->info.length - start;
@@ -3068,6 +3387,28 @@ static void beginFrame(void) {
   state.stream = gpu_stream_begin("Internal uploads");
   state.allocator.cursor = 0;
   arr_clear(&state.passes);
+}
+
+// Clean up ALL passes created during the frame, even unsubmitted ones
+static void cleanupPasses(void) {
+  for (size_t i = 0; i < state.passes.length; i++) {
+    Pass* pass = state.passes.data[i];
+
+    for (size_t j = 0; j < pass->access.length; j++) {
+      Access* access = &pass->access.data[j];
+      lovrRelease(access->buffer, lovrBufferDestroy);
+      lovrRelease(access->texture, lovrTextureDestroy);
+    }
+
+    for (size_t j = 0; j <= pass->pipelineIndex; j++) {
+      lovrRelease(pass->pipelines[j].sampler, lovrSamplerDestroy);
+      lovrRelease(pass->pipelines[j].shader, lovrShaderDestroy);
+      lovrRelease(pass->pipelines[j].material, lovrMaterialDestroy);
+      pass->pipelines[j].sampler = NULL;
+      pass->pipelines[j].shader = NULL;
+      pass->pipelines[j].material = NULL;
+    }
+  }
 }
 
 static uint32_t getLayout(gpu_slot* slots, uint32_t count) {

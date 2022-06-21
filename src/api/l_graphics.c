@@ -1080,7 +1080,8 @@ static Texture* luax_opttexture(lua_State* L, int index) {
 }
 
 static int l_lovrGraphicsNewMaterial(lua_State* L) {
-  MaterialInfo info = { 0 };
+  MaterialInfo info;
+  memset(&info, 0, sizeof(info));
 
   Texture* texture = luax_totype(L, 1, Texture);
 
