@@ -2920,6 +2920,12 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
       previous = '\0';
       text += bytes;
       continue;
+    } else if (codepoint == '\t') {
+      wordStart = vertexCount;
+      x += lovrRasterizerGetGlyphAdvance(font->info.rasterizer, ' ') * 4.f;
+      previous = '\0';
+      text += bytes;
+      continue;
     } else if (codepoint == '\n') {
       if (halign != ALIGN_LEFT) {
         float lineWidth = vertices[vertexCount - 1].position.x;
