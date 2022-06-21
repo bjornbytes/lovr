@@ -172,8 +172,7 @@ bool lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, vo
   return true;
 }
 
-#include <stdio.h>
-bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread) {
+bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread, uint32_t padding) {
   int id = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
 
   if (stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
@@ -223,7 +222,6 @@ bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, fl
   float centerOffsetX = (1.f - modf((x1 - x0) * scale, &unused)) / 2.f;
   float centerOffsetY = (1.f - modf((y1 - y0) * scale, &unused)) / 2.f;
 
-  uint32_t padding = 1;
   float offsetX = -x0 + ((padding + centerOffsetX) / rasterizer->scale);
   float offsetY = -y1 - ((padding + centerOffsetY) / rasterizer->scale);
 

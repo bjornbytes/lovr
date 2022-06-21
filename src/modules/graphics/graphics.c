@@ -2876,6 +2876,11 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
       } else {
         lovrRasterizerGetGlyphBoundingBox(font->info.rasterizer, codepoint, glyph->box);
 
+        glyph->box[0] -= font->info.padding;
+        glyph->box[1] -= font->info.padding;
+        glyph->box[2] += font->info.padding;
+        glyph->box[3] += font->info.padding;
+
         float width = glyph->box[2] - glyph->box[0];
         float height = glyph->box[3] - glyph->box[1];
 
@@ -3098,7 +3103,7 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
       }
 
       void* pixels = gpu_map(scratchpad, width * height * 16, 16, GPU_MAP_WRITE);
-      lovrRasterizerGetGlyphPixels(font->info.rasterizer, glyph->codepoint, pixels, width, height, font->info.spread);
+      lovrRasterizerGetGlyphPixels(font->info.rasterizer, glyph->codepoint, pixels, width, height, font->info.spread, font->info.padding);
       uint32_t dstOffset[4] = { glyph->atlas[0], glyph->atlas[1], 0, 0 };
       uint32_t extent[3] = { width, height, 1 };
       gpu_copy_buffer_texture(state.stream, scratchpad, font->atlas->gpu, 0, dstOffset, extent);
