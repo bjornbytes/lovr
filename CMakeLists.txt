@@ -24,7 +24,6 @@ option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
 option(LOVR_USE_DESKTOP "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_STEAM_AUDIO "Enable the Steam Audio spatializer (be sure to also set LOVR_STEAM_AUDIO_PATH)" OFF)
 option(LOVR_USE_OCULUS_AUDIO "Enable the Oculus Audio spatializer (be sure to also set LOVR_OCULUS_AUDIO_PATH)" OFF)
-option(LOVR_USE_LINUX_EGL "Use the EGL graphics extension on Linux" OFF)
 option(LOVR_SANITIZE "Enable Address Sanitizer" OFF)
 
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
@@ -686,7 +685,7 @@ elseif(EMSCRIPTEN)
   configure_file(etc/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
   target_sources(lovr PRIVATE src/core/os_android.c)
-  target_link_libraries(lovr log EGL android dl)
+  target_link_libraries(lovr log android dl)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
   # Dynamically linked targets output libraries in raw/lib/<ABI> for easy including in apk with aapt
@@ -779,11 +778,6 @@ elseif(ANDROID)
     add_dependencies(buildAPK move_libraries)
   endif()
 elseif(UNIX)
-  if(LOVR_USE_LINUX_EGL)
-    target_compile_definitions(lovr PRIVATE LOVR_LINUX_EGL)
-  else()
-    target_compile_definitions(lovr PRIVATE LOVR_LINUX_X11)
-  endif()
   target_sources(lovr PRIVATE src/core/os_linux.c)
   set_target_properties(lovr PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
