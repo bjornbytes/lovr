@@ -9,6 +9,7 @@
 #include "core/spv.h"
 #include "core/os.h"
 #include "util.h"
+#include "monkey.h"
 #include "shaders.h"
 #include <math.h>
 #include <stdlib.h>
@@ -3494,6 +3495,32 @@ void lovrPassFill(Pass* pass, Texture* texture) {
     .vertex.format = VERTEX_EMPTY,
     .count = 3
   });
+}
+
+void lovrPassMonkey(Pass* pass, float* transform) {
+  uint32_t vertexCount = COUNTOF(monkey_vertices) / 6;
+
+  ShapeVertex* vertices;
+  lovrPassDraw(pass, &(Draw) {
+    .mode = VERTEX_TRIANGLES,
+    .vertex.count = vertexCount,
+    .vertex.pointer = (void**) &vertices,
+    .index.count = COUNTOF(monkey_indices),
+    .index.data = monkey_indices,
+    .transform = transform
+  });
+
+  // Manual vertex format conversion to avoid another format (and sn8x3 isn't always supported)
+  for (uint32_t i = 0; i < vertexCount; i++) {
+    vertices[i] = (ShapeVertex) {
+      .position.x = monkey_vertices[6 * i + 0] / 255.f * monkey_size[0] + monkey_offset[0],
+      .position.y = monkey_vertices[6 * i + 1] / 255.f * monkey_size[1] + monkey_offset[1],
+      .position.z = monkey_vertices[6 * i + 2] / 255.f * monkey_size[2] + monkey_offset[2],
+      .normal.x = monkey_vertices[6 * i + 3] / 255.f * 2.f - 1.f,
+      .normal.y = monkey_vertices[6 * i + 4] / 255.f * 2.f - 1.f,
+      .normal.z = monkey_vertices[6 * i + 5] / 255.f * 2.f - 1.f,
+    };
+  }
 }
 
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances) {

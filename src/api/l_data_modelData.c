@@ -336,9 +336,20 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
     ModelAttribute* attribute = mesh->attributes[i];
     if (!attribute) continue;
 
+    uint32_t stride = model->buffers[attribute->buffer].stride;
+
+    if (!stride) {
+      switch (attribute->type) {
+        case I8: case U8: stride = attribute->components * 1; break;
+        case I16: case U16: stride = attribute->components * 2; break;
+        case I32: case U32: case F32: stride = attribute->components * 4; break;
+        default: break;
+      }
+    }
+
     AttributeData data = { .raw = model->buffers[attribute->buffer].data };
     data.u8 += attribute->offset;
-    data.u8 += vertex * model->buffers[attribute->buffer].stride;
+    data.u8 += vertex * stride;
 
     for (uint32_t j = 0; j < attribute->components; j++) {
       switch (attribute->type) {

@@ -573,6 +573,14 @@ static int l_lovrPassFill(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassMonkey(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float transform[16];
+  luax_readmat4(L, 2, transform, 1);
+  lovrPassMonkey(pass, transform);
+  return 0;
+}
+
 static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_totype(L, 2, Buffer);
@@ -825,6 +833,7 @@ const luaL_Reg lovrPass[] = {
   { "cylinder", l_lovrPassCylinder },
   { "text", l_lovrPassText },
   { "fill", l_lovrPassFill },
+  { "monkey", l_lovrPassMonkey },
   { "mesh", l_lovrPassMesh },
   { "multimesh", l_lovrPassMultimesh },
 
