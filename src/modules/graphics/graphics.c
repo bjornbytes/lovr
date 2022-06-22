@@ -3323,7 +3323,7 @@ void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t
   trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
 }
 
-void lovrPassCopyDataToBuffer(Pass* pass, void* data, Buffer* buffer, uint32_t offset, uint32_t extent) {
+void* lovrPassCopyDataToBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent) {
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be copied to, use Buffer:setData");
   lovrCheck(offset + extent <= buffer->size, "Buffer copy range goes past the end of the Buffer");
@@ -3331,7 +3331,7 @@ void lovrPassCopyDataToBuffer(Pass* pass, void* data, Buffer* buffer, uint32_t o
   void* pointer = gpu_map(scratchpad, extent, 4, GPU_MAP_WRITE);
   gpu_copy_buffers(pass->stream, scratchpad, buffer->gpu, 0, offset, extent);
   trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-  memcpy(pointer, data, extent);
+  return pointer;
 }
 
 void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {

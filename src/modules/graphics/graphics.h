@@ -483,7 +483,7 @@ void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* in
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
 void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
-void lovrPassCopyDataToBuffer(Pass* pass, void* data, Buffer* buffer, uint32_t offset, uint32_t size);
+void* lovrPassCopyDataToBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);
 void lovrPassCopyImageToTexture(Pass* pass, struct Image* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);

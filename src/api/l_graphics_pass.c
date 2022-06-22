@@ -604,6 +604,26 @@ static int l_lovrPassClear(lua_State* L) {
 static int l_lovrPassCopy(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
 
+  if (lua_istable(L, 2)) {
+    Buffer* buffer = luax_checktype(L, 3, Buffer);
+    uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
+    uint32_t dstIndex = luax_optu32(L, 5, 1) - 1;
+
+    lua_rawgeti(L, 2, 1);
+    bool nested = lua_istable(L, -1);
+    lua_pop(L, 1);
+
+    uint32_t length = luax_len(L, 2);
+    const BufferInfo* info = lovrBufferGetInfo(buffer);
+    uint32_t limit = nested ? MIN(length - srcIndex, info->length - dstIndex) : info->length - dstIndex;
+    uint32_t count = luax_optu32(L, 6, limit);
+
+    void* data = lovrPassCopyDataToBuffer(pass, buffer, dstIndex * info->stride, count * info->stride);
+    lua_remove(L, 3); // table, srcIndex, dstIndex, count
+    luax_readbufferdata(L, 2, buffer, data);
+    return 0;
+  }
+
   Blob* blob = luax_totype(L, 2, Blob);
 
   if (blob) {
@@ -615,7 +635,8 @@ static int l_lovrPassCopy(lua_State* L) {
     uint32_t extent = luax_optu32(L, 6, limit);
     lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds Blob size");
     lovrCheck(extent <= info->length * info->stride - dstOffset, "Buffer copy offset exceeds Buffer size");
-    lovrPassCopyDataToBuffer(pass, (char*) blob->data + srcOffset, buffer, dstOffset, extent);
+    void* data = lovrPassCopyDataToBuffer(pass, buffer, dstOffset, extent);
+    memcpy(data, (char*) blob->data + srcOffset, extent);
     return 0;
   }
 
