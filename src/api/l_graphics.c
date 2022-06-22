@@ -53,6 +53,13 @@ StringEntry lovrCullMode[] = {
 
 StringEntry lovrDefaultShader[] = {
   [SHADER_UNLIT] = ENTRY("unlit"),
+  [SHADER_FONT] = ENTRY("font"),
+  { 0 }
+};
+
+StringEntry lovrDrawStyle[] = {
+  [STYLE_FILL] = ENTRY("fill"),
+  [STYLE_LINE] = ENTRY("line"),
   { 0 }
 };
 

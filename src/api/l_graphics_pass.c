@@ -480,25 +480,28 @@ static int l_lovrPassPlane(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 2);
+  DrawStyle style = luax_checkenum(L, index++, DrawStyle, "fill");
   uint32_t cols = luax_optu32(L, index++, 1);
   uint32_t rows = luax_optu32(L, index, cols);
-  lovrPassPlane(pass, transform, cols, rows);
+  lovrPassPlane(pass, transform, style, cols, rows);
   return 0;
 }
 
 static int l_lovrPassCube(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
-  luax_readmat4(L, 2, transform, 1);
-  lovrPassBox(pass, transform);
+  int index = luax_readmat4(L, 2, transform, 1);
+  DrawStyle style = luax_checkenum(L, index, DrawStyle, "fill");
+  lovrPassBox(pass, transform, style);
   return 0;
 }
 
 static int l_lovrPassBox(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
-  luax_readmat4(L, 2, transform, 3);
-  lovrPassBox(pass, transform);
+  int index = luax_readmat4(L, 2, transform, 3);
+  DrawStyle style = luax_checkenum(L, index, DrawStyle, "fill");
+  lovrPassBox(pass, transform, style);
   return 0;
 }
 
@@ -506,10 +509,11 @@ static int l_lovrPassCircle(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
   int index = luax_readmat4(L, 2, transform, 1);
+  DrawStyle style = luax_checkenum(L, index++, DrawStyle, "fill");
   float angle1 = luax_optfloat(L, index++, 0.f);
   float angle2 = luax_optfloat(L, index++, 2.f * (float) M_PI);
   uint32_t segments = luax_optu32(L, index++, 64);
-  lovrPassCircle(pass, transform, angle1, angle2, segments);
+  lovrPassCircle(pass, transform, style, angle1, angle2, segments);
   return 0;
 }
 

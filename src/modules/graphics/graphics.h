@@ -370,6 +370,11 @@ typedef enum {
 } CullMode;
 
 typedef enum {
+  STYLE_FILL,
+  STYLE_LINE
+} DrawStyle;
+
+typedef enum {
   ALIGN_LEFT,
   ALIGN_CENTER,
   ALIGN_RIGHT
@@ -469,9 +474,9 @@ void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t s
 void lovrPassSendValue(Pass* pass, const char* name, size_t length, void** data, FieldType* type);
 void lovrPassPoints(Pass* pass, uint32_t count, float** vertices);
 void lovrPassLine(Pass* pass, uint32_t count, float** vertices);
-void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows);
-void lovrPassBox(Pass* pass, float* transform);
-void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, uint32_t segments);
+void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols, uint32_t rows);
+void lovrPassBox(Pass* pass, float* transform, DrawStyle style);
+void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1, float angle2, uint32_t segments);
 void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances);
 void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);

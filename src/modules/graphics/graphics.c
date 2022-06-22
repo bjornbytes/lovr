@@ -2699,21 +2699,36 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
   }
 }
 
-void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows) {
+void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols, uint32_t rows) {
   ShapeVertex* vertices;
   uint16_t* indices;
 
   uint32_t vertexCount = (cols + 1) * (rows + 1);
-  uint32_t indexCount = (cols * rows) * 6;
+  uint32_t indexCount;
 
-  lovrPassDraw(pass, &(Draw) {
-    .mode = VERTEX_TRIANGLES,
-    .transform = transform,
-    .vertex.pointer = (void**) &vertices,
-    .vertex.count = vertexCount,
-    .index.pointer = (void**) &indices,
-    .index.count = indexCount
-  });
+  if (style == STYLE_LINE) {
+    indexCount = 2 * (rows + 1) + 2 * (cols + 1);
+
+    lovrPassDraw(pass, &(Draw) {
+      .mode = VERTEX_LINES,
+      .transform = transform,
+      .vertex.pointer = (void**) &vertices,
+      .vertex.count = vertexCount,
+      .index.pointer = (void**) &indices,
+      .index.count = indexCount
+    });
+  } else {
+    indexCount = (cols * rows) * 6;
+
+    lovrPassDraw(pass, &(Draw) {
+      .mode = VERTEX_TRIANGLES,
+      .transform = transform,
+      .vertex.pointer = (void**) &vertices,
+      .vertex.count = vertexCount,
+      .index.pointer = (void**) &indices,
+      .index.count = indexCount
+    });
+  }
 
   for (uint32_t y = 0; y <= rows; y++) {
     float v = y * (1.f / rows);
@@ -2727,73 +2742,113 @@ void lovrPassPlane(Pass* pass, float* transform, uint32_t cols, uint32_t rows) {
     }
   }
 
-  for (uint32_t y = 0; y < rows; y++) {
-    for (uint32_t x = 0; x < cols; x++) {
-      uint16_t a = (y * (cols + 1)) + x;
-      uint16_t b = a + 1;
-      uint16_t c = a + cols + 1;
-      uint16_t d = a + cols + 2;
-      uint16_t cell[] = { a, b, c, c, b, d };
-      memcpy(indices, cell, sizeof(cell));
-      indices += COUNTOF(cell);
+  if (style == STYLE_LINE) {
+    for (uint32_t y = 0; y <= rows; y++) {
+      uint16_t a = y * (cols + 1);
+      uint16_t b = a + cols;
+      uint16_t line[] = { a, b };
+      memcpy(indices, line, sizeof(line));
+      indices += COUNTOF(line);
+    }
+
+    for (uint32_t x = 0; x <= cols; x++) {
+      uint16_t a = x;
+      uint16_t b = x + ((cols + 1) * rows);
+      uint16_t line[] = { a, b };
+      memcpy(indices, line, sizeof(line));
+      indices += COUNTOF(line);
+    }
+  } else {
+    for (uint32_t y = 0; y < rows; y++) {
+      for (uint32_t x = 0; x < cols; x++) {
+        uint16_t a = (y * (cols + 1)) + x;
+        uint16_t b = a + 1;
+        uint16_t c = a + cols + 1;
+        uint16_t d = a + cols + 2;
+        uint16_t cell[] = { a, b, c, c, b, d };
+        memcpy(indices, cell, sizeof(cell));
+        indices += COUNTOF(cell);
+      }
     }
   }
 }
 
-void lovrPassBox(Pass* pass, float* transform) {
-  ShapeVertex* vertices;
-  uint16_t* indices;
+void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
+  if (style == STYLE_LINE) {
+    static ShapeVertex vertices[] = {
+      { { -.5f,  .5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } }, // Front
+      { {  .5f,  .5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
+      { {  .5f, -.5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
+      { { -.5f, -.5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
+      { { -.5f,  .5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } }, // Back
+      { {  .5f,  .5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
+      { {  .5f, -.5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
+      { { -.5f, -.5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } }
+    };
 
-  ShapeVertex vertexData[] = {
-    { { -.5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 0.f } }, // Front
-    { { -.5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 1.f } },
-    { {  .5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 0.f } },
-    { {  .5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 1.f } },
-    { {  .5f,  .5f, -.5f }, {  1.f,  0.f,  0.f }, { 0.f, 1.f } }, // Right
-    { {  .5f,  .5f,  .5f }, {  1.f,  0.f,  0.f }, { 1.f, 1.f } },
-    { {  .5f, -.5f, -.5f }, {  1.f,  0.f,  0.f }, { 0.f, 0.f } },
-    { {  .5f, -.5f,  .5f }, {  1.f,  0.f,  0.f }, { 1.f, 0.f } },
-    { {  .5f, -.5f,  .5f }, {  0.f,  0.f,  1.f }, { 0.f, 0.f } }, // Back
-    { {  .5f,  .5f,  .5f }, {  0.f,  0.f,  1.f }, { 0.f, 1.f } },
-    { { -.5f, -.5f,  .5f }, {  0.f,  0.f,  1.f }, { 1.f, 0.f } },
-    { { -.5f,  .5f,  .5f }, {  0.f,  0.f,  1.f }, { 1.f, 1.f } },
-    { { -.5f,  .5f,  .5f }, { -1.f,  0.f,  0.f }, { 0.f, 1.f } }, // Left
-    { { -.5f,  .5f, -.5f }, { -1.f,  0.f,  0.f }, { 1.f, 1.f } },
-    { { -.5f, -.5f,  .5f }, { -1.f,  0.f,  0.f }, { 0.f, 0.f } },
-    { { -.5f, -.5f, -.5f }, { -1.f,  0.f,  0.f }, { 1.f, 0.f } },
-    { { -.5f, -.5f, -.5f }, {  0.f, -1.f,  0.f }, { 0.f, 0.f } }, // Bottom
-    { {  .5f, -.5f, -.5f }, {  0.f, -1.f,  0.f }, { 1.f, 0.f } },
-    { { -.5f, -.5f,  .5f }, {  0.f, -1.f,  0.f }, { 0.f, 1.f } },
-    { {  .5f, -.5f,  .5f }, {  0.f, -1.f,  0.f }, { 1.f, 1.f } },
-    { { -.5f,  .5f, -.5f }, {  0.f,  1.f,  0.f }, { 0.f, 1.f } }, // Top
-    { { -.5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 0.f, 0.f } },
-    { {  .5f,  .5f, -.5f }, {  0.f,  1.f,  0.f }, { 1.f, 1.f } },
-    { {  .5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 1.f, 0.f } }
-  };
+    static uint16_t indices[] = {
+      0, 1, 1, 2, 2, 3, 3, 0, // Front
+      4, 5, 5, 6, 6, 7, 7, 4, // Back
+      0, 4, 1, 5, 2, 6, 3, 7  // Connections
+    };
 
-  uint16_t indexData[] = {
-    0,  1,   2,  2,  1,  3,
-    4,  5,   6,  6,  5,  7,
-    8,  9,  10, 10,  9, 11,
-    12, 13, 14, 14, 13, 15,
-    16, 17, 18, 18, 17, 19,
-    20, 21, 22, 22, 21, 23
-  };
+    lovrPassDraw(pass, &(Draw) {
+      .mode = VERTEX_LINES,
+      .transform = transform,
+      .vertex.data = vertices,
+      .vertex.count = COUNTOF(vertices),
+      .index.data = indices,
+      .index.count = COUNTOF(indices)
+    });
+  } else {
+    ShapeVertex vertices[] = {
+      { { -.5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 0.f } }, // Front
+      { { -.5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 1.f } },
+      { {  .5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 0.f } },
+      { {  .5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 1.f } },
+      { {  .5f,  .5f, -.5f }, {  1.f,  0.f,  0.f }, { 0.f, 1.f } }, // Right
+      { {  .5f,  .5f,  .5f }, {  1.f,  0.f,  0.f }, { 1.f, 1.f } },
+      { {  .5f, -.5f, -.5f }, {  1.f,  0.f,  0.f }, { 0.f, 0.f } },
+      { {  .5f, -.5f,  .5f }, {  1.f,  0.f,  0.f }, { 1.f, 0.f } },
+      { {  .5f, -.5f,  .5f }, {  0.f,  0.f,  1.f }, { 0.f, 0.f } }, // Back
+      { {  .5f,  .5f,  .5f }, {  0.f,  0.f,  1.f }, { 0.f, 1.f } },
+      { { -.5f, -.5f,  .5f }, {  0.f,  0.f,  1.f }, { 1.f, 0.f } },
+      { { -.5f,  .5f,  .5f }, {  0.f,  0.f,  1.f }, { 1.f, 1.f } },
+      { { -.5f,  .5f,  .5f }, { -1.f,  0.f,  0.f }, { 0.f, 1.f } }, // Left
+      { { -.5f,  .5f, -.5f }, { -1.f,  0.f,  0.f }, { 1.f, 1.f } },
+      { { -.5f, -.5f,  .5f }, { -1.f,  0.f,  0.f }, { 0.f, 0.f } },
+      { { -.5f, -.5f, -.5f }, { -1.f,  0.f,  0.f }, { 1.f, 0.f } },
+      { { -.5f, -.5f, -.5f }, {  0.f, -1.f,  0.f }, { 0.f, 0.f } }, // Bottom
+      { {  .5f, -.5f, -.5f }, {  0.f, -1.f,  0.f }, { 1.f, 0.f } },
+      { { -.5f, -.5f,  .5f }, {  0.f, -1.f,  0.f }, { 0.f, 1.f } },
+      { {  .5f, -.5f,  .5f }, {  0.f, -1.f,  0.f }, { 1.f, 1.f } },
+      { { -.5f,  .5f, -.5f }, {  0.f,  1.f,  0.f }, { 0.f, 1.f } }, // Top
+      { { -.5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 0.f, 0.f } },
+      { {  .5f,  .5f, -.5f }, {  0.f,  1.f,  0.f }, { 1.f, 1.f } },
+      { {  .5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 1.f, 0.f } }
+    };
 
-  lovrPassDraw(pass, &(Draw) {
-    .mode = VERTEX_TRIANGLES,
-    .transform = transform,
-    .vertex.pointer = (void**) &vertices,
-    .vertex.count = COUNTOF(vertexData),
-    .index.pointer = (void**) &indices,
-    .index.count = COUNTOF(indexData)
-  });
+    uint16_t indices[] = {
+      0,  1,   2,  2,  1,  3,
+      4,  5,   6,  6,  5,  7,
+      8,  9,  10, 10,  9, 11,
+      12, 13, 14, 14, 13, 15,
+      16, 17, 18, 18, 17, 19,
+      20, 21, 22, 22, 21, 23
+    };
 
-  memcpy(vertices, vertexData, sizeof(vertexData));
-  memcpy(indices, indexData, sizeof(indexData));
+    lovrPassDraw(pass, &(Draw) {
+      .mode = VERTEX_TRIANGLES,
+      .transform = transform,
+      .vertex.data = vertices,
+      .vertex.count = COUNTOF(vertices),
+      .index.data = indices,
+      .index.count = COUNTOF(indices)
+    });
+  }
 }
 
-void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, uint32_t segments) {
+void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1, float angle2, uint32_t segments) {
   ShapeVertex* vertices;
   uint16_t* indices;
 
@@ -2802,20 +2857,34 @@ void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, ui
     angle2 = 2.f * (float) M_PI;
   }
 
-  uint32_t vertexCount = segments + 2;
-  uint32_t indexCount = segments * 3;
+  if (style == STYLE_LINE) {
+    uint32_t vertexCount = segments + 1;
+    uint32_t indexCount = segments * 2;
 
-  lovrPassDraw(pass, &(Draw) {
-    .mode = VERTEX_TRIANGLES,
-    .transform = transform,
-    .vertex.pointer = (void**) &vertices,
-    .vertex.count = vertexCount,
-    .index.pointer = (void**) &indices,
-    .index.count = indexCount
-  });
+    lovrPassDraw(pass, &(Draw) {
+      .mode = VERTEX_LINES,
+      .transform = transform,
+      .vertex.pointer = (void**) &vertices,
+      .vertex.count = vertexCount,
+      .index.pointer = (void**) &indices,
+      .index.count = indexCount
+    });
+  } else {
+    uint32_t vertexCount = segments + 2;
+    uint32_t indexCount = segments * 3;
 
-  // Center
-  *vertices++ = (ShapeVertex) { { 0.f, 0.f, 0.f }, { 0.f, 0.f, 1.f }, { .5f, .5f } };
+    lovrPassDraw(pass, &(Draw) {
+      .mode = VERTEX_TRIANGLES,
+      .transform = transform,
+      .vertex.pointer = (void**) &vertices,
+      .vertex.count = vertexCount,
+      .index.pointer = (void**) &indices,
+      .index.count = indexCount
+    });
+
+    // Center
+    *vertices++ = (ShapeVertex) { { 0.f, 0.f, 0.f }, { 0.f, 0.f, 1.f }, { .5f, .5f } };
+  }
 
   float angleShift = (angle2 - angle1) / segments;
   for (uint32_t i = 0; i <= segments; i++) {
@@ -2825,10 +2894,18 @@ void lovrPassCircle(Pass* pass, float* transform, float angle1, float angle2, ui
     *vertices++ = (ShapeVertex) { { x, y, 0.f }, { 0.f, 0.f, 1.f }, { x + .5f, .5f - y } };
   }
 
-  for (uint32_t i = 0; i < segments; i++) {
-    uint16_t wedge[] = { 0, i + 1, i + 2 };
-    memcpy(indices, wedge, sizeof(wedge));
-    indices += COUNTOF(wedge);
+  if (style == STYLE_LINE) {
+    for (uint32_t i = 0; i < segments; i++) {
+      uint16_t segment[] = { i, i + 1 };
+      memcpy(indices, segment, sizeof(segment));
+      indices += COUNTOF(segment);
+    }
+  } else {
+    for (uint32_t i = 0; i < segments; i++) {
+      uint16_t wedge[] = { 0, i + 1, i + 2 };
+      memcpy(indices, wedge, sizeof(wedge));
+      indices += COUNTOF(wedge);
+    }
   }
 }
 
