@@ -486,6 +486,10 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
     lua_getfield(L, index, "samples");
     canvas.samples = lua_isnil(L, -1) ? canvas.samples : lua_tointeger(L, -1);
     lua_pop(L, 1);
+
+    lua_getfield(L, index, "mipmaps");
+    canvas.mipmap = lua_toboolean(L, -1);
+    lua_pop(L, 1);
   }
 
   return canvas;

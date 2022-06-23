@@ -427,6 +427,7 @@ typedef struct {
   float clears[4][4];
   DepthBuffer depth;
   uint32_t samples;
+  bool mipmap;
 } Canvas;
 
 typedef struct {

@@ -320,6 +320,7 @@ static gpu_bundle* getBundle(uint32_t layout);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
 static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
+static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot);
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
@@ -682,6 +683,30 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
     if (passes[i]->info.type == PASS_RENDER) {
       gpu_render_end(passes[i]->stream);
+
+      if (!passes[i]->info.canvas.mipmap) {
+        continue;
+      }
+
+      Canvas* canvas = &passes[i]->info.canvas;
+
+      for (uint32_t j = 0; j < 4 && canvas->textures[j]; j++) {
+        if (canvas->textures[i]->info.mipmaps > 1) {
+          barriers[i].prev |= GPU_PHASE_COLOR;
+          barriers[i].next |= GPU_PHASE_TRANSFER;
+          barriers[i].flush |= GPU_CACHE_COLOR_WRITE;
+          barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
+          mipmapTexture(passes[i]->stream, canvas->textures[i], 0, ~0u);
+        }
+      }
+
+      if (canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
+        barriers[i].prev |= GPU_PHASE_DEPTH_LATE;
+        barriers[i].next |= GPU_PHASE_TRANSFER;
+        barriers[i].flush |= GPU_CACHE_DEPTH_WRITE;
+        barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
+        mipmapTexture(passes[i]->stream, canvas->depth.texture, 0, ~0u);
+      }
     } else if (passes[i]->info.type == PASS_COMPUTE) {
       gpu_compute_end(passes[i]->stream);
     }
@@ -1843,15 +1868,23 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clears[i][2]);
     target.color[i].clear[3] = canvas->clears[i][2];
 
-    gpu_cache cache = GPU_CACHE_COLOR_WRITE | (canvas->loads[i] == LOAD_KEEP ? GPU_CACHE_COLOR_READ : 0);
-    trackTexture(pass, canvas->textures[i], GPU_PHASE_COLOR, cache);
+    if (info->canvas.mipmap && canvas->textures[i]->info.mipmaps > 1) {
+      trackTexture(pass, canvas->textures[i], GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
+    } else {
+      gpu_cache cache = GPU_CACHE_COLOR_WRITE | (canvas->loads[i] == LOAD_KEEP ? GPU_CACHE_COLOR_READ : 0);
+      trackTexture(pass, canvas->textures[i], GPU_PHASE_COLOR, cache);
+    }
   }
 
   if (canvas->depth.texture) {
     target.depth.texture = canvas->depth.texture->renderView;
-    gpu_phase phase = canvas->depth.load == LOAD_KEEP ? GPU_PHASE_DEPTH_EARLY : GPU_PHASE_DEPTH_LATE;
-    gpu_cache cache = GPU_CACHE_DEPTH_WRITE | (canvas->depth.load == LOAD_KEEP ? GPU_CACHE_DEPTH_READ : 0);
-    trackTexture(pass, canvas->depth.texture, phase, cache);
+    if (info->canvas.mipmap && canvas->depth.texture->info.mipmaps > 1) {
+      trackTexture(pass, canvas->depth.texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
+    } else {
+      gpu_phase phase = canvas->depth.load == LOAD_KEEP ? GPU_PHASE_DEPTH_EARLY : GPU_PHASE_DEPTH_LATE;
+      gpu_cache cache = GPU_CACHE_DEPTH_WRITE | (canvas->depth.load == LOAD_KEEP ? GPU_CACHE_DEPTH_READ : 0);
+      trackTexture(pass, canvas->depth.texture, phase, cache);
+    }
   } else if (canvas->depth.format) {
     target.depth.texture = getAttachment(target.size, main->depth, canvas->depth.format, false, canvas->samples);
   }
@@ -3426,29 +3459,7 @@ void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count)
   lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "from");
   lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "to");
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
-  bool volumetric = texture->info.type == TEXTURE_3D;
-  for (uint32_t i = 0; i < count; i++) {
-    uint32_t level = base + i + 1;
-    uint32_t srcOffset[4] = { 0, 0, 0, level - 1 };
-    uint32_t dstOffset[4] = { 0, 0, 0, level };
-    uint32_t srcExtent[3] = {
-      MAX(texture->info.width >> (level - 1), 1),
-      MAX(texture->info.height >> (level - 1), 1),
-      volumetric ? MAX(texture->info.depth >> (level - 1), 1) : 1
-    };
-    uint32_t dstExtent[3] = {
-      MAX(texture->info.width >> level, 1),
-      MAX(texture->info.height >> level, 1),
-      volumetric ? MAX(texture->info.depth >> level, 1) : 1
-    };
-    gpu_blit(pass->stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
-    gpu_sync(pass->stream, &(gpu_barrier) {
-      .prev = GPU_PHASE_TRANSFER,
-      .next = GPU_PHASE_TRANSFER,
-      .flush = GPU_CACHE_TRANSFER_WRITE,
-      .clear = GPU_CACHE_TRANSFER_READ
-    }, 1);
-  }
+  mipmapTexture(pass->stream, texture, base, count);
   trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
 }
 
@@ -3691,6 +3702,33 @@ static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint
   lovrCheck(offset[1] + extent[1] <= maxHeight, "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], maxHeight);
   lovrCheck(offset[2] + extent[2] <= maxDepth, "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], maxDepth);
   lovrCheck(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
+}
+
+static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count) {
+  if (count == ~0u) count = texture->info.mipmaps - (base + 1);
+  bool volumetric = texture->info.type == TEXTURE_3D;
+  for (uint32_t i = 0; i < count; i++) {
+    uint32_t level = base + i + 1;
+    uint32_t srcOffset[4] = { 0, 0, 0, level - 1 };
+    uint32_t dstOffset[4] = { 0, 0, 0, level };
+    uint32_t srcExtent[3] = {
+      MAX(texture->info.width >> (level - 1), 1),
+      MAX(texture->info.height >> (level - 1), 1),
+      volumetric ? MAX(texture->info.depth >> (level - 1), 1) : 1
+    };
+    uint32_t dstExtent[3] = {
+      MAX(texture->info.width >> level, 1),
+      MAX(texture->info.height >> level, 1),
+      volumetric ? MAX(texture->info.depth >> level, 1) : 1
+    };
+    gpu_blit(stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
+    gpu_sync(stream, &(gpu_barrier) {
+      .prev = GPU_PHASE_TRANSFER,
+      .next = GPU_PHASE_TRANSFER,
+      .flush = GPU_CACHE_TRANSFER_WRITE,
+      .clear = GPU_CACHE_TRANSFER_READ
+    }, 1);
+  }
 }
 
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot) {
