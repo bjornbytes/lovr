@@ -2882,13 +2882,13 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
 }
 
 void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1, float angle2, uint32_t segments) {
-  ShapeVertex* vertices;
-  uint16_t* indices;
-
   if (fabsf(angle1 - angle2) >= 2.f * (float) M_PI) {
     angle1 = 0.f;
     angle2 = 2.f * (float) M_PI;
   }
+
+  ShapeVertex* vertices;
+  uint16_t* indices;
 
   if (style == STYLE_LINE) {
     uint32_t vertexCount = segments + 1;
@@ -2938,6 +2938,59 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
       uint16_t wedge[] = { 0, i + 1, i + 2 };
       memcpy(indices, wedge, sizeof(wedge));
       indices += COUNTOF(wedge);
+    }
+  }
+}
+
+void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t segmentsP) {
+  float sx = vec3_length(transform + 0);
+  float sy = vec3_length(transform + 4);
+  float sz = vec3_length(transform + 8);
+  vec3_scale(transform + 0, 1.f / sx);
+  vec3_scale(transform + 4, 1.f / sy);
+  vec3_scale(transform + 8, 1.f / sz);
+  float radius = sx * .5f;
+  float thickness = sz * .5f;
+
+  uint32_t vertexCount = segmentsT * segmentsP;
+  uint32_t indexCount = segmentsT * segmentsP * 6;
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = VERTEX_TRIANGLES,
+    .transform = transform,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  // T and P stand for toroidal and poloidal, or theta and phi
+  float dt = (2.f * (float) M_PI) / segmentsT;
+  float dp = (2.f * (float) M_PI) / segmentsP;
+  for (uint32_t t = 0; t < segmentsT; t++) {
+    float theta = t * dt;
+    float tx = cosf(theta);
+    float ty = sinf(theta);
+    for (uint32_t p = 0; p < segmentsP; p++) {
+      float phi = p * dp;
+      float nx = cosf(phi) * tx;
+      float ny = cosf(phi) * ty;
+      float nz = sinf(phi);
+
+      *vertices++ = (ShapeVertex) {
+        .position = { tx * radius + nx * thickness, ty * radius + ny * thickness, nz * thickness },
+        .normal = { nx, ny, nz }
+      };
+
+      uint16_t a = (t + 0) * segmentsP + p;
+      uint16_t b = (t + 1) % segmentsT * segmentsP + p;
+      uint16_t c = (t + 0) * segmentsP + (p + 1) % segmentsP;
+      uint16_t d = (t + 1) % segmentsT * segmentsP + (p + 1) % segmentsP;
+      uint16_t quad[] = { a, b, c, b, c, d };
+      memcpy(indices, quad, sizeof(quad));
+      indices += COUNTOF(quad);
     }
   }
 }
