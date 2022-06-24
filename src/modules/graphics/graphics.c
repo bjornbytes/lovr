@@ -2922,8 +2922,8 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
   float angleShift = (angle2 - angle1) / segments;
   for (uint32_t i = 0; i <= segments; i++) {
     float theta = angle1 + i * angleShift;
-    float x = cosf(theta) * .5f;
-    float y = sinf(theta) * .5f;
+    float x = cosf(theta);
+    float y = sinf(theta);
     *vertices++ = (ShapeVertex) { { x, y, 0.f }, { 0.f, 0.f, 1.f }, { x + .5f, .5f - y } };
   }
 
@@ -2939,6 +2939,73 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
       memcpy(indices, wedge, sizeof(wedge));
       indices += COUNTOF(wedge);
     }
+  }
+}
+
+void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t segmentsV) {
+  uint32_t vertexCount = 2 + (segmentsH + 1) * (segmentsV - 1);
+  uint32_t indexCount = 2 * 3 * segmentsH + segmentsH * (segmentsV - 2) * 6;
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = VERTEX_TRIANGLES,
+    .transform = transform,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  // Top
+  *vertices++ = (ShapeVertex) { { 0.f, 1.f, 0.f }, { 0.f, 1.f, 0.f }, { .5f, 0.f } };
+
+  // Rings
+  for (uint32_t i = 1; i < segmentsV; i++) {
+    float v = i / (float) segmentsV;
+    float phi = v * (float) M_PI;
+    float sinphi = sinf(phi);
+    float cosphi = cosf(phi);
+    for (uint32_t j = 0; j <= segmentsH; j++) {
+      float u = j / (float) segmentsH;
+      float theta = u * 2.f * (float) M_PI;
+      float sintheta = sinf(theta);
+      float costheta = cosf(theta);
+      float x = sintheta * sinphi;
+      float y = cosphi;
+      float z = -costheta * sinphi;
+      *vertices++ = (ShapeVertex) { { x, y, z }, { x, y, z }, { u, v } };
+    }
+  }
+
+  // Bottom
+  *vertices++ = (ShapeVertex) { { 0.f, -1.f, 0.f }, { 0.f, -1.f, 0.f }, { .5f, 1.f } };
+
+  // Top
+  for (uint32_t i = 0; i < segmentsH; i++) {
+    uint16_t wedge[] = { 0, i + 2, i + 1 };
+    memcpy(indices, wedge, sizeof(wedge));
+    indices += COUNTOF(wedge);
+  }
+
+  // Rings
+  for (uint32_t i = 0; i < segmentsV - 2; i++) {
+    for (uint32_t j = 0; j < segmentsH; j++) {
+      uint16_t a = 1 + i * (segmentsH + 1) + 0 + j;
+      uint16_t b = 1 + i * (segmentsH + 1) + 1 + j;
+      uint16_t c = 1 + i * (segmentsH + 1) + 0 + segmentsH + 1 + j;
+      uint16_t d = 1 + i * (segmentsH + 1) + 1 + segmentsH + 1 + j;
+      uint16_t quad[] = { a, b, c, c, b, d };
+      memcpy(indices, quad, sizeof(quad));
+      indices += COUNTOF(quad);
+    }
+  }
+
+  // Bottom
+  for (uint32_t i = 0; i < segmentsH; i++) {
+    uint16_t wedge[] = { vertexCount - 1, vertexCount - 1 - (i + 2), vertexCount - 1 - (i + 1) };
+    memcpy(indices, wedge, sizeof(wedge));
+    indices += COUNTOF(wedge);
   }
 }
 
