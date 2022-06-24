@@ -2447,7 +2447,7 @@ static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
     pipeline->dirty = true;
   }
 
-  if (!pipeline->info.shader && pipeline->info.shader != shader->gpu) {
+  if (!pipeline->shader && pipeline->info.shader != shader->gpu) {
     pipeline->info.shader = shader->gpu;
     pipeline->info.flags = NULL;
     pipeline->info.flagCount = 0;
