@@ -1795,6 +1795,7 @@ bool gpu_init(gpu_config* config) {
       { .name="VK_KHR_deferred_host_operations" },
     };
 
+    // Note: always defined but sometimes not used
     VkPhysicalDeviceAccelerationStructureFeaturesKHR enableAccelerationStructure = { // Raytracing (will be linked in later)
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
       .accelerationStructure = true
@@ -1823,8 +1824,7 @@ bool gpu_init(gpu_config* config) {
       }
 
       VkPhysicalDeviceAccelerationStructureFeaturesKHR supportsAccelerationStructure = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR }; // Raytracing
-      VkPhysicalDeviceShaderDrawParameterFeatures supportsShaderDrawParameter = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES, .pNext = &supportsAccelerationStructure };
-      VkPhysicalDeviceFeatures2 features2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &supportsShaderDrawParameter };
+      VkPhysicalDeviceFeatures2 features2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &supportsAccelerationStructure };
       VkPhysicalDeviceFeatures* enable = &enabledFeatures.features;
       VkPhysicalDeviceFeatures* supports = &features2.features;
       vkGetPhysicalDeviceFeatures2(state.adapter, &features2);
@@ -1905,8 +1905,9 @@ bool gpu_init(gpu_config* config) {
           extensions[extensionCount++] = raytraceExtensions[check].name;
         }
 
-        // Set up acceleration structure features
-        enableMultiview.pNext = &enableAccelerationStructure;
+        // Set up acceleration structure feature query by piggypacking on VkPhysicalDeviceFeatures2 chain
+        lovrAssert(!shaderDrawParameterFeatures.pNext, "Acceleration structure query must be appended to end of chain, not middle");
+        shaderDrawParameterFeatures.pNext = &enableAccelerationStructure;
 
         // Only save raytrace limits if we got this far
         if (config->limits) {
