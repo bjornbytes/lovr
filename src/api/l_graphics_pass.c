@@ -538,6 +538,19 @@ static int l_lovrPassTorus(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassCylinder(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float transform[16];
+  // TODO vec3+vec3
+  int index = luax_readmat4(L, 2, transform, -2);
+  bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
+  float angle1 = luax_optfloat(L, index++, 0.f);
+  float angle2 = luax_optfloat(L, index++, 2.f * (float) M_PI);
+  uint32_t segments = luax_optu32(L, index++, 64);
+  lovrPassCylinder(pass, transform, capped, angle1, angle2, segments);
+  return 0;
+}
+
 static int l_lovrPassText(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Font* font = luax_totype(L, 2, Font);
@@ -809,6 +822,7 @@ const luaL_Reg lovrPass[] = {
   { "circle", l_lovrPassCircle },
   { "sphere", l_lovrPassSphere },
   { "torus", l_lovrPassTorus },
+  { "cylinder", l_lovrPassCylinder },
   { "text", l_lovrPassText },
   { "fill", l_lovrPassFill },
   { "mesh", l_lovrPassMesh },

@@ -3047,6 +3047,83 @@ void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t s
   }
 }
 
+void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, float angle2, uint32_t segments) {
+  if (fabsf(angle1 - angle2) >= 2.f * (float) M_PI) {
+    angle1 = 0.f;
+    angle2 = 2.f * (float) M_PI;
+  }
+
+  uint32_t vertexCount = 2 * (segments + 1);
+  uint32_t indexCount = 6 * segments;
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  if (capped) {
+    vertexCount *= 2;
+    vertexCount += 2;
+    indexCount += 3 * segments * 2;
+  }
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = VERTEX_TRIANGLES,
+    .transform = transform,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  float angleShift = (angle2 - angle1) / segments;
+
+  // Tube
+  for (uint32_t i = 0; i <= segments; i++) {
+    float theta = angle1 + i * angleShift;
+    float x = cosf(theta);
+    float y = sinf(theta);
+    *vertices++ = (ShapeVertex) { { x, y, -.5f }, { x, y, 0.f }, { x + .5f, .5f - y } };
+    *vertices++ = (ShapeVertex) { { x, y,  .5f }, { x, y, 0.f }, { x + .5f, .5f - y } };
+  }
+
+  // Tube quads
+  for (uint32_t i = 0; i < segments; i++) {
+    uint16_t a = i * 2 + 0;
+    uint16_t b = i * 2 + 1;
+    uint16_t c = i * 2 + 2;
+    uint16_t d = i * 2 + 3;
+    uint16_t quad[] = { a, b, c, c, b, d };
+    memcpy(indices, quad, sizeof(quad));
+    indices += COUNTOF(quad);
+  }
+
+  if (capped) {
+    // Cap centers
+    *vertices++ = (ShapeVertex) { { 0.f, 0.f, -.5f }, { 0.f, 0.f, -.5f }, { .5f, .5f } };
+    *vertices++ = (ShapeVertex) { { 0.f, 0.f,  .5f }, { 0.f, 0.f,  .5f }, { .5f, .5f } };
+
+    // Caps
+    for (uint32_t i = 0; i <= segments; i++) {
+      float theta = angle1 + i * angleShift;
+      float x = cosf(theta);
+      float y = sinf(theta);
+      *vertices++ = (ShapeVertex) { { x, y, -.5f }, { 0.f, 0.f, -.5f }, { x + .5f, y - .5f } };
+      *vertices++ = (ShapeVertex) { { x, y,  .5f }, { 0.f, 0.f,  .5f }, { x + .5f, y - .5f } };
+    }
+
+    // Cap wedges
+    uint16_t base = 2 * (segments + 1);
+    for (uint32_t i = 0; i < segments; i++) {
+      uint16_t a = base + 0;
+      uint16_t b = base + (i + 1) * 2;
+      uint16_t c = base + (i + 2) * 2;
+      uint16_t wedge1[] = { a + 0, b + 0, c + 0 };
+      uint16_t wedge2[] = { a + 1, b + 1, c + 1 };
+      memcpy(indices + 0, wedge1, sizeof(wedge1));
+      memcpy(indices + 3, wedge2, sizeof(wedge2));
+      indices += 6;
+    }
+  }
+}
+
 void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t segmentsP) {
   float sx = vec3_length(transform + 0);
   float sy = vec3_length(transform + 4);

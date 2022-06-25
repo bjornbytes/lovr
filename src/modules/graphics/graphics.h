@@ -480,6 +480,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
 void lovrPassBox(Pass* pass, float* transform, DrawStyle style);
 void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1, float angle2, uint32_t segments);
 void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t segmentsV);
+void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, float angle2, uint32_t segments);
 void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t segmentsP);
 void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrPassFill(Pass* pass, Texture* texture);
