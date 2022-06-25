@@ -1104,6 +1104,12 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
 
   if (texture) {
     info.texture = texture;
+    info.data.color[0] = 1.f;
+    info.data.color[1] = 1.f;
+    info.data.color[2] = 1.f;
+    info.data.color[3] = 1.f;
+    info.data.uvScale[0] = 1.f;
+    info.data.uvScale[1] = 1.f;
   } else {
     luaL_checktype(L, 1, LUA_TTABLE);
 
