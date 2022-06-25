@@ -1810,6 +1810,163 @@ void lovrFontSetPixelDensity(Font* font, float pixelDensity) {
   font->pixelDensity = pixelDensity;
 }
 
+static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
+  uint64_t hash = hash64(&codepoint, 4);
+  uint64_t index = map_get(&font->glyphLookup, hash);
+
+  if (index != MAP_NIL) {
+    return &font->glyphs.data[index];
+  }
+
+  arr_expand(&font->glyphs, 1);
+  map_set(&font->glyphLookup, hash, font->glyphs.length);
+  Glyph* glyph = &font->glyphs.data[font->glyphs.length++];
+
+  glyph->codepoint = codepoint;
+  glyph->advance = lovrRasterizerGetGlyphAdvance(font->info.rasterizer, codepoint);
+
+  if (lovrRasterizerIsGlyphEmpty(font->info.rasterizer, codepoint)) {
+    memset(glyph->atlas, 0, sizeof(glyph->atlas));
+    memset(glyph->box, 0, sizeof(glyph->atlas));
+    memset(glyph->uv, 0, sizeof(glyph->atlas));
+    return glyph;
+  }
+
+  lovrRasterizerGetGlyphBoundingBox(font->info.rasterizer, codepoint, glyph->box);
+
+  glyph->box[0] -= font->info.padding;
+  glyph->box[1] -= font->info.padding;
+  glyph->box[2] += font->info.padding;
+  glyph->box[3] += font->info.padding;
+
+  float width = glyph->box[2] - glyph->box[0];
+  float height = glyph->box[3] - glyph->box[1];
+
+  uint32_t pixelWidth = 2 * font->info.padding + (uint32_t) ceilf(width);
+  uint32_t pixelHeight = 2 * font->info.padding + (uint32_t) ceilf(height);
+
+  if (font->atlasX + pixelWidth > font->atlasWidth) {
+    font->atlasX = font->atlasWidth == font->atlasHeight ? 0 : font->atlasWidth >> 1;
+    font->atlasY += font->rowHeight;
+    if (font->atlasY + pixelHeight > font->atlasHeight) {
+      if (font->atlasWidth == font->atlasHeight) {
+        font->atlasX = font->atlasWidth;
+        font->atlasY = 0;
+        font->atlasWidth <<= 1;
+        font->rowHeight = 0;
+      } else {
+        font->atlasX = 0;
+        font->atlasY = font->atlasHeight;
+        font->atlasHeight <<= 1;
+        font->rowHeight = 0;
+      }
+    }
+  }
+
+  glyph->atlas[0] = font->atlasX;
+  glyph->atlas[1] = font->atlasY;
+  glyph->atlas[2] = pixelWidth;
+  glyph->atlas[3] = pixelHeight;
+
+  double unused;
+  // The glyph is centered in its rasterized rectangle (needs to be kept in sync with Rasterizer)
+  glyph->uv[0] = font->atlasX + font->info.padding + (1.f - modf(width, &unused)) / 2.f;
+  glyph->uv[1] = font->atlasY + font->info.padding + (1.f - modf(height, &unused)) / 2.f;
+  glyph->uv[2] = glyph->uv[0] + width;
+  glyph->uv[3] = glyph->uv[1] + height;
+
+  font->atlasX += pixelWidth;
+  font->rowHeight = MAX(font->rowHeight, font->atlasY + pixelHeight);
+
+  return glyph;
+}
+
+static void lovrFontUploadNewGlyphs(Font* font, uint32_t start) {
+  if (start >= font->glyphs.length) {
+    return;
+  }
+
+  if (!font->atlas || font->atlasWidth > font->atlas->info.width || font->atlasHeight > font->atlas->info.height) {
+    lovrCheck(font->atlasWidth <= 65536, "Font atlas is too big!");
+
+    Texture* atlas = lovrTextureCreate(&(TextureInfo) {
+      .type = TEXTURE_2D,
+      .format = FORMAT_RGBA32F,
+      .width = font->atlasWidth,
+      .height = font->atlasHeight,
+      .depth = 1,
+      .mipmaps = 1,
+      .samples = 1,
+      .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
+      .label = "Font Atlas"
+    });
+
+    float clear[4] = { 0.f, 0.f, 0.f, 0.f };
+    gpu_clear_texture(state.stream, atlas->gpu, clear, 0, ~0u, 0, ~0u);
+
+    // This barrier serves 2 purposes:
+    // - Ensure new atlas clear is finished/flushed before copying to it
+    // - Ensure any unsynchronized pending uploads to old atlas finish before copying to new atlas
+    gpu_barrier barrier;
+    barrier.prev = GPU_PHASE_TRANSFER;
+    barrier.next = GPU_PHASE_TRANSFER;
+    barrier.flush = GPU_CACHE_TRANSFER_WRITE;
+    barrier.clear = GPU_CACHE_TRANSFER_READ;
+    gpu_sync(state.stream, &barrier, 1);
+
+    if (font->atlas) {
+      uint32_t srcOffset[4] = { 0, 0, 0, 0 };
+      uint32_t dstOffset[4] = { 0, 0, 0, 0 };
+      uint32_t extent[3] = { font->atlas->info.width, font->atlas->info.height, 1 };
+      gpu_copy_textures(state.stream, font->atlas->gpu, atlas->gpu, srcOffset, dstOffset, extent);
+      lovrRelease(font->atlas, lovrTextureDestroy);
+    }
+
+    font->atlas = atlas;
+
+    lovrRelease(font->material, lovrMaterialDestroy);
+    font->material = lovrMaterialCreate(&(MaterialInfo) {
+      .data.color = { 1.f, 1.f, 1.f, 1.f },
+      .data.uvScale = { 1.f, 1.f },
+      .data.sdfRange = { font->info.spread / font->atlasWidth, font->info.spread / font->atlasHeight },
+      .texture = font->atlas
+    });
+  }
+
+  gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
+
+  for (uint32_t i = start; i < font->glyphs.length; i++) {
+    Glyph* glyph = &font->glyphs.data[i];
+    uint32_t width = glyph->atlas[2];
+    uint32_t height = glyph->atlas[3];
+
+    if (width == 0 || height == 0) {
+      continue;
+    }
+
+    void* pixels = gpu_map(scratchpad, width * height * 16, 16, GPU_MAP_WRITE);
+    lovrRasterizerGetGlyphPixels(font->info.rasterizer, glyph->codepoint, pixels, width, height, font->info.spread, font->info.padding);
+    uint32_t dstOffset[4] = { glyph->atlas[0], glyph->atlas[1], 0, 0 };
+    uint32_t extent[3] = { width, height, 1 };
+    gpu_copy_buffer_texture(state.stream, scratchpad, font->atlas->gpu, 0, dstOffset, extent);
+  }
+
+  state.hasGlyphUpload = true;
+}
+
+static float lovrFontGetKerning(Font* font, uint32_t previous, uint32_t codepoint) {
+  uint32_t codepoints[] = { previous, codepoint };
+  uint64_t hash = hash64(codepoints, sizeof(codepoints));
+  union { float f32; uint64_t u64; } kerning = { .u64 = map_get(&font->kerning, hash) };
+
+  if (kerning.u64 == MAP_NIL) {
+    kerning.f32 = lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
+    map_set(&font->kerning, hash, kerning.u64);
+  }
+
+  return kerning.f32;
+}
+
 // Pass
 
 Pass* lovrGraphicsGetPass(PassInfo* info) {
@@ -3178,23 +3335,25 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
   }
 }
 
-void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
-  if (!font) {
-    font = lovrGraphicsGetDefaultFont();
+static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, HorizontalAlign align) {
+  if (align == ALIGN_LEFT) return;
+  float shift = align / 2.f * vertices[tail - 1].position.x;
+  for (uint32_t i = head; i < tail; i++) {
+    vertices[i].position.x -= shift;
   }
+}
 
-  uint32_t originalGlyphsLength = font->glyphs.length;
+void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+  font = font ? font : lovrGraphicsGetDefaultFont();
+  uint32_t originalGlyphCount = font->glyphs.length;
 
   GlyphVertex* vertices = tempAlloc(length * 4 * sizeof(GlyphVertex));
   uint32_t vertexCount = 0;
   uint32_t glyphCount = 0;
   uint32_t lineCount = 1;
-
-  // Track vertex indices for align/wrap
   uint32_t lineStart = 0;
   uint32_t wordStart = 0;
 
-  // Cursor
   float x = 0.f;
   float y = 0.f;
   float leading = lovrRasterizerGetLeading(font->info.rasterizer) * .8f;
@@ -3207,129 +3366,33 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
   uint32_t previous = '\0';
   const char* end = text + length;
   while ((bytes = utf8_decode(text, end, &codepoint)) > 0) {
-    uint64_t hash = hash64(&codepoint, 4);
-    uint64_t index = map_get(&font->glyphLookup, hash);
-    Glyph* glyph;
-
-    if (index == MAP_NIL) { // New glyph just dropped
-      map_set(&font->glyphLookup, hash, font->glyphs.length);
-      arr_expand(&font->glyphs, 1);
-      glyph = &font->glyphs.data[font->glyphs.length++];
-
-      glyph->codepoint = codepoint;
-      glyph->advance = lovrRasterizerGetGlyphAdvance(font->info.rasterizer, codepoint);
-
-      if (lovrRasterizerIsGlyphEmpty(font->info.rasterizer, codepoint)) {
-        memset(glyph->atlas, 0, sizeof(glyph->atlas));
-        memset(glyph->box, 0, sizeof(glyph->atlas));
-        memset(glyph->uv, 0, sizeof(glyph->atlas));
-      } else {
-        lovrRasterizerGetGlyphBoundingBox(font->info.rasterizer, codepoint, glyph->box);
-
-        glyph->box[0] -= font->info.padding;
-        glyph->box[1] -= font->info.padding;
-        glyph->box[2] += font->info.padding;
-        glyph->box[3] += font->info.padding;
-
-        float width = glyph->box[2] - glyph->box[0];
-        float height = glyph->box[3] - glyph->box[1];
-
-        uint32_t pixelWidth = 2 * font->info.padding + (uint32_t) ceilf(width);
-        uint32_t pixelHeight = 2 * font->info.padding + (uint32_t) ceilf(height);
-
-        if (font->atlasX + pixelWidth > font->atlasWidth) {
-          font->atlasX = font->atlasWidth == font->atlasHeight ? 0 : font->atlasWidth >> 1;
-          font->atlasY += font->rowHeight;
-          if (font->atlasY + pixelHeight > font->atlasHeight) {
-            if (font->atlasWidth == font->atlasHeight) {
-              font->atlasX = font->atlasWidth;
-              font->atlasY = 0;
-              font->atlasWidth <<= 1;
-              font->rowHeight = 0;
-            } else {
-              font->atlasX = 0;
-              font->atlasY = font->atlasHeight;
-              font->atlasHeight <<= 1;
-              font->rowHeight = 0;
-            }
-          }
-        }
-
-        glyph->atlas[0] = font->atlasX;
-        glyph->atlas[1] = font->atlasY;
-        glyph->atlas[2] = pixelWidth;
-        glyph->atlas[3] = pixelHeight;
-
-        double unused;
-        glyph->uv[0] = font->atlasX + font->info.padding + (1.f - modf(width, &unused)) / 2.f;
-        glyph->uv[1] = font->atlasY + font->info.padding + (1.f - modf(height, &unused)) / 2.f;
-        glyph->uv[2] = glyph->uv[0] + width;
-        glyph->uv[3] = glyph->uv[1] + height;
-
-        font->atlasX += pixelWidth;
-        font->rowHeight = MAX(font->rowHeight, font->atlasY + pixelHeight);
-      }
-    } else {
-      glyph = &font->glyphs.data[index];
-    }
-
-    if (codepoint == ' ') {
+    if (codepoint == ' ' || codepoint == '\t') {
+      Glyph* glyph = lovrFontGetGlyph(font, ' ');
       wordStart = vertexCount;
-      x += glyph->advance;
-      previous = '\0';
-      text += bytes;
-      continue;
-    } else if (codepoint == '\t') {
-      wordStart = vertexCount;
-      x += lovrRasterizerGetGlyphAdvance(font->info.rasterizer, ' ') * 4.f;
+      x += codepoint == '\t' ? glyph->advance * 4.f : glyph->advance;
       previous = '\0';
       text += bytes;
       continue;
     } else if (codepoint == '\n') {
-      if (halign != ALIGN_LEFT) {
-        float lineWidth = vertices[vertexCount - 1].position.x;
-        float align = (float) halign / 2.f * lineWidth; // Sneakily compute shift ratio from halign
-        for (uint32_t i = lineStart; i < vertexCount; i++) {
-          vertices[i].position.x -= align;
-        }
-      }
-
+      aline(vertices, lineStart, vertexCount, halign);
       lineStart = vertexCount;
       wordStart = vertexCount;
-      previous = '\0';
-      text += bytes;
+      x = 0.f;
       y -= leading;
       lineCount++;
-      x = 0.f;
+      previous = '\0';
+      text += bytes;
       continue;
     }
 
+    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
+
     // Keming
-    if (previous != '\0') {
-      uint32_t codepoints[] = { previous, codepoint };
-      hash = hash64(codepoints, sizeof(codepoints));
-      union { float f32; uint64_t u64; } kerning = { .u64 = map_get(&font->kerning, hash) };
-
-      if (kerning.u64 == MAP_NIL) {
-        kerning.f32 = lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
-        map_set(&font->kerning, hash, kerning.u64);
-      }
-
-      x += kerning.f32;
-    }
-
+    if (previous) x += lovrFontGetKerning(font, previous, codepoint);
     previous = codepoint;
 
     // Wrap
     if (wrap > 0.f && x + glyph->box[2] > wrap && wordStart != lineStart) {
-      if (halign != ALIGN_LEFT) {
-        float lineWidth = vertices[wordStart - 1].position.x; // Edge of last glyph before this word
-        float align = (float) halign / 2.f * lineWidth; // Sneakily compute shift ratio from halign
-        for (uint32_t i = lineStart; i < wordStart; i++) {
-          vertices[i].position.x -= align;
-        }
-      }
-
       float dx = wordStart == vertexCount ? x : vertices[wordStart].position.x;
       float dy = leading;
 
@@ -3339,131 +3402,45 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
         vertices[i].position.y -= dy;
       }
 
+      aline(vertices, lineStart, wordStart, halign);
       lineStart = wordStart;
       lineCount++;
       x -= dx;
       y -= dy;
     }
 
-    // Vertices
-    if (glyph->atlas[2] > 0 && glyph->atlas[3] > 0) {
-      if (vertexCount == lineStart) {
-        x -= glyph->box[0];
-      }
-
-      vertices[vertexCount++] = (GlyphVertex) {
-        .position = { x + glyph->box[0], y + glyph->box[3] },
-        .uv = { glyph->uv[0], glyph->uv[1] }
-      };
-
-      vertices[vertexCount++] = (GlyphVertex) {
-        .position = { x + glyph->box[2], y + glyph->box[3] },
-        .uv = { glyph->uv[2], glyph->uv[1] }
-      };
-
-      vertices[vertexCount++] = (GlyphVertex) {
-        .position = { x + glyph->box[0], y + glyph->box[1] },
-        .uv = { glyph->uv[0], glyph->uv[3] }
-      };
-
-      vertices[vertexCount++] = (GlyphVertex) {
-        .position = { x + glyph->box[2], y + glyph->box[1] },
-        .uv = { glyph->uv[2], glyph->uv[3] }
-      };
-
-      glyphCount++;
+    // Ignore bearing for the first character on a line so it lines up perfectly (questionable)
+    if (vertexCount == lineStart) {
+      x -= glyph->box[0];
     }
+
+    // Vertices
+    float* bb = glyph->box;
+    float* uv = glyph->uv;
+    vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[3] }, { uv[0], uv[1] } };
+    vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[3] }, { uv[2], uv[1] } };
+    vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[1] }, { uv[0], uv[3] } };
+    vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[1] }, { uv[2], uv[3] } };
+    glyphCount++;
 
     // Advance
     x += glyph->advance;
     text += bytes;
   }
 
-  if (halign != ALIGN_LEFT) { // Align last line
-    float lineWidth = vertices[vertexCount - 1].position.x;
-    float align = (float) halign / 2.f * lineWidth;
-    for (uint32_t i = lineStart; i < vertexCount; i++) {
-      vertices[i].position.x -= align;
-    }
-  }
+  // Align last line
+  aline(vertices, lineStart, vertexCount, halign);
 
-  for (uint32_t i = 0; i < vertexCount; i++) { // Normalize UVs now that final atlas size is known
+  // Normalize UVs now that final atlas size is known
+  for (uint32_t i = 0; i < vertexCount; i++) {
     vertices[i].uv.u /= font->atlasWidth;
     vertices[i].uv.v /= font->atlasHeight;
   }
 
-  // If any glyphs were added, resize texture if needed and paste new glyphs (the slow part)
-  if (font->glyphs.length > originalGlyphsLength) {
-    if (!font->atlas || font->atlasWidth > font->atlas->info.width || font->atlasHeight > font->atlas->info.height) {
-      lovrCheck(font->atlasWidth <= 65536, "Font atlas is too big!");
-
-      Texture* atlas = lovrTextureCreate(&(TextureInfo) {
-        .type = TEXTURE_2D,
-        .format = FORMAT_RGBA32F,
-        .width = font->atlasWidth,
-        .height = font->atlasHeight,
-        .depth = 1,
-        .mipmaps = 1,
-        .samples = 1,
-        .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
-        .label = "Font Atlas"
-      });
-
-      float clear[4] = { 0.f, 0.f, 0.f, 0.f };
-      gpu_clear_texture(state.stream, atlas->gpu, clear, 0, ~0u, 0, ~0u);
-
-      // This barrier serves 2 purposes:
-      // - Ensure new atlas clear is finished/flushed before copying to it
-      // - Ensure any unsynchronized pending uploads to old atlas finish before copying to new atlas
-      gpu_barrier barrier;
-      barrier.prev = GPU_PHASE_TRANSFER;
-      barrier.next = GPU_PHASE_TRANSFER;
-      barrier.flush = GPU_CACHE_TRANSFER_WRITE;
-      barrier.clear = GPU_CACHE_TRANSFER_READ;
-      gpu_sync(state.stream, &barrier, 1);
-
-      if (font->atlas) {
-        uint32_t srcOffset[4] = { 0, 0, 0, 0 };
-        uint32_t dstOffset[4] = { 0, 0, 0, 0 };
-        uint32_t extent[3] = { font->atlas->info.width, font->atlas->info.height, 1 };
-        gpu_copy_textures(state.stream, font->atlas->gpu, atlas->gpu, srcOffset, dstOffset, extent);
-        lovrRelease(font->atlas, lovrTextureDestroy);
-      }
-
-      font->atlas = atlas;
-
-      lovrRelease(font->material, lovrMaterialDestroy);
-      font->material = lovrMaterialCreate(&(MaterialInfo) {
-        .data.color = { 1.f, 1.f, 1.f, 1.f },
-        .data.uvScale = { 1.f, 1.f },
-        .data.sdfRange = { font->info.spread / font->atlasWidth, font->info.spread / font->atlasHeight },
-        .texture = font->atlas
-      });
-    }
-
-    gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
-
-    for (uint32_t i = originalGlyphsLength; i < font->glyphs.length; i++) {
-      Glyph* glyph = &font->glyphs.data[i];
-      uint32_t width = glyph->atlas[2];
-      uint32_t height = glyph->atlas[3];
-
-      if (width == 0 || height == 0) {
-        continue;
-      }
-
-      void* pixels = gpu_map(scratchpad, width * height * 16, 16, GPU_MAP_WRITE);
-      lovrRasterizerGetGlyphPixels(font->info.rasterizer, glyph->codepoint, pixels, width, height, font->info.spread, font->info.padding);
-      uint32_t dstOffset[4] = { glyph->atlas[0], glyph->atlas[1], 0, 0 };
-      uint32_t extent[3] = { width, height, 1 };
-      gpu_copy_buffer_texture(state.stream, scratchpad, font->atlas->gpu, 0, dstOffset, extent);
-    }
-
-    state.hasGlyphUpload = true;
-  }
+  // Resize atlas, rasterize new glyphs, upload them into atlas, recreate material
+  lovrFontUploadNewGlyphs(font, originalGlyphCount);
 
   mat4_scale(transform, scale, scale, scale);
-
   float totalHeight = ascent + leading * (lineCount - 1);
   mat4_translate(transform, 0.f, -ascent + valign / 2.f * totalHeight, 0.f);
 
