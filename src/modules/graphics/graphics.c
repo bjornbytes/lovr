@@ -177,6 +177,7 @@ typedef enum {
   VERTEX_SHAPE,
   VERTEX_POINT,
   VERTEX_GLYPH,
+  VERTEX_EMPTY,
   VERTEX_FORMAT_COUNT
 } VertexFormat;
 
@@ -475,6 +476,16 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     .attributes[0] = { 0, 10, offsetof(GlyphVertex, position), GPU_TYPE_F32x2 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x4 },
     .attributes[2] = { 0, 12, offsetof(GlyphVertex, uv), GPU_TYPE_F32x2 },
+    .attributes[3] = { 1, 13, 16, GPU_TYPE_F32x4 },
+    .attributes[4] = { 1, 14, 0, GPU_TYPE_F32x4 }
+  };
+
+  state.vertexFormats[VERTEX_EMPTY] = (gpu_vertex_format) {
+    .bufferCount = 2,
+    .attributeCount = 5,
+    .attributes[0] = { 1, 10, 0, GPU_TYPE_F32x2 },
+    .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x4 },
+    .attributes[2] = { 1, 12, 0, GPU_TYPE_F32x2 },
     .attributes[3] = { 1, 13, 16, GPU_TYPE_F32x4 },
     .attributes[4] = { 1, 14, 0, GPU_TYPE_F32x4 }
   };
@@ -1345,6 +1356,11 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
       info.stages[0] = lovrBlobCreate((void*) lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert), "Unlit Vertex Shader");
       info.stages[1] = lovrBlobCreate((void*) lovr_shader_font_frag, sizeof(lovr_shader_font_frag), "Font Fragment Shader");
       info.label = "font";
+      break;
+    case SHADER_FILL:
+      info.stages[0] = lovrBlobCreate((void*) lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert), "Fill Vertex Shader");
+      info.stages[1] = lovrBlobCreate((void*) lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag), "Unlit Fragment Shader");
+      info.label = "fill";
       break;
     default: lovrUnreachable();
   }
@@ -3391,6 +3407,16 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
     memcpy(indices, quad, sizeof(quad));
     indices += COUNTOF(quad);
   }
+}
+
+void lovrPassFill(Pass* pass, Texture* texture) {
+  lovrPassDraw(pass, &(Draw) {
+    .mode = VERTEX_TRIANGLES,
+    .shader = SHADER_FILL,
+    .material = texture ? lovrTextureGetMaterial(texture) : NULL,
+    .vertex.format = VERTEX_EMPTY,
+    .count = 3
+  });
 }
 
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances) {

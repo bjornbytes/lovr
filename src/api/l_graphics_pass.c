@@ -553,6 +553,13 @@ static int l_lovrPassText(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassFill(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Texture* texture = luax_totype(L, 2, Texture);
+  lovrPassFill(pass, texture);
+  return 0;
+}
+
 static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_totype(L, 2, Buffer);
@@ -803,6 +810,7 @@ const luaL_Reg lovrPass[] = {
   { "sphere", l_lovrPassSphere },
   { "torus", l_lovrPassTorus },
   { "text", l_lovrPassText },
+  { "fill", l_lovrPassFill },
   { "mesh", l_lovrPassMesh },
   { "multimesh", l_lovrPassMultimesh },
 
