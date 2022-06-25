@@ -14,6 +14,7 @@ typedef struct Sampler Sampler;
 typedef struct Shader Shader;
 typedef struct Material Material;
 typedef struct Font Font;
+typedef struct Tally Tally;
 typedef struct Pass Pass;
 
 typedef struct {
@@ -357,6 +358,24 @@ float lovrFontGetKerning(Font* font, uint32_t left, uint32_t right);
 float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count);
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context);
 
+// Tally
+
+typedef enum {
+  TALLY_TIMER,
+  TALLY_PIXEL,
+  TALLY_PIPELINE
+} TallyType;
+
+typedef struct {
+  TallyType type;
+  uint32_t count;
+  uint32_t views;
+} TallyInfo;
+
+Tally* lovrTallyCreate(TallyInfo* info);
+void lovrTallyDestroy(void* ref);
+const TallyInfo* lovrTallyGetInfo(Tally* tally);
+
 // Pass
 
 typedef enum {
@@ -506,3 +525,5 @@ void lovrPassCopyImageToTexture(Pass* pass, struct Image* src, Texture* dst, uin
 void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
 void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count);
+void lovrPassTick(Pass* pass, Tally* tally, uint32_t index);
+void lovrPassTock(Pass* pass, Tally* tally, uint32_t index);

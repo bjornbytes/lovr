@@ -10,6 +10,7 @@ typedef struct gpu_shader gpu_shader;
 typedef struct gpu_bundle_pool gpu_bundle_pool;
 typedef struct gpu_bundle gpu_bundle;
 typedef struct gpu_pipeline gpu_pipeline;
+typedef struct gpu_tally gpu_tally;
 typedef struct gpu_stream gpu_stream;
 
 size_t gpu_sizeof_buffer(void);
@@ -20,6 +21,7 @@ size_t gpu_sizeof_shader(void);
 size_t gpu_sizeof_bundle_pool(void);
 size_t gpu_sizeof_bundle(void);
 size_t gpu_sizeof_pipeline(void);
+size_t gpu_sizeof_tally(void);
 
 // Buffer
 
@@ -447,6 +449,22 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
+// Tally
+
+typedef enum {
+  GPU_TALLY_TIMER,
+  GPU_TALLY_PIXEL,
+  GPU_TALLY_PIPELINE
+} gpu_tally_type;
+
+typedef struct {
+  gpu_tally_type type;
+  uint32_t count;
+} gpu_tally_info;
+
+bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info);
+void gpu_tally_destroy(gpu_tally* tally);
+
 // Stream
 
 typedef enum {
@@ -547,10 +565,15 @@ void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint
 void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t size[3]);
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]);
 void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint32_t srcOffset[4], uint32_t dstOffset, uint32_t extent[3]);
+void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride);
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size);
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
+void gpu_clear_tally(gpu_stream* stream, gpu_tally* tally, uint32_t index, uint32_t count);
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter);
 void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count);
+void gpu_tally_begin(gpu_stream* stream, gpu_tally* tally, uint32_t index);
+void gpu_tally_end(gpu_stream* stream, gpu_tally* tally, uint32_t index);
+void gpu_tally_mark(gpu_stream* stream, gpu_tally* tally, uint32_t index);
 
 // Entry
 

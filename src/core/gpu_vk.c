@@ -55,6 +55,10 @@ struct gpu_pipeline {
   VkPipeline handle;
 };
 
+struct gpu_tally {
+  VkQueryPool handle;
+};
+
 struct gpu_stream {
   VkCommandBuffer commands;
 };
@@ -67,6 +71,7 @@ size_t gpu_sizeof_shader() { return sizeof(gpu_shader); }
 size_t gpu_sizeof_bundle_pool() { return sizeof(gpu_bundle_pool); }
 size_t gpu_sizeof_bundle() { return sizeof(gpu_bundle); }
 size_t gpu_sizeof_pipeline() { return sizeof(gpu_pipeline); }
+size_t gpu_sizeof_tally() { return sizeof(gpu_tally); }
 
 // Internals
 
@@ -262,6 +267,8 @@ static bool check(bool condition, const char* message);
   X(vkCreateQueryPool)\
   X(vkDestroyQueryPool)\
   X(vkCmdResetQueryPool)\
+  X(vkCmdBeginQuery)\
+  X(vkCmdEndQuery)\
   X(vkCmdWriteTimestamp)\
   X(vkCmdCopyQueryPoolResults)\
   X(vkCreateBuffer)\
@@ -1350,6 +1357,40 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
   condemn(pipeline->handle, VK_OBJECT_TYPE_PIPELINE);
 }
 
+// Tally
+
+bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
+  VkQueryType queryTypes[] = {
+    [GPU_TALLY_TIMER] = VK_QUERY_TYPE_TIMESTAMP,
+    [GPU_TALLY_PIXEL] = VK_QUERY_TYPE_OCCLUSION,
+    [GPU_TALLY_PIPELINE] = VK_QUERY_TYPE_PIPELINE_STATISTICS
+  };
+
+  VkQueryPoolCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+    .queryType = queryTypes[info->type],
+    .queryCount = info->count,
+    .pipelineStatistics = info->type == GPU_TALLY_PIPELINE ? (
+      VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
+      VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
+      VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
+      VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT |
+      VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
+      VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT
+    ) : 0
+  };
+
+  VK(vkCreateQueryPool(state.device, &createInfo, NULL, &tally->handle), "Could not create query pool") {
+    return false;
+  }
+
+  return true;
+}
+
+void gpu_tally_destroy(gpu_tally* tally) {
+  condemn(tally->handle, VK_OBJECT_TYPE_QUERY_POOL);
+}
+
 // Stream
 
 gpu_stream* gpu_stream_begin(const char* label) {
@@ -1558,6 +1599,10 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
   vkCmdCopyImageToBuffer(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, 1, &region);
 }
 
+void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride) {
+  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, stride, 0);
+}
+
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
   vkCmdFillBuffer(stream->commands, buffer->handle, buffer->offset + offset, size, 0);
 }
@@ -1581,6 +1626,10 @@ void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4],
     clear.stencil = (uint8_t) value[1];
     vkCmdClearDepthStencilImage(stream->commands, texture->handle, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &range);
   }
+}
+
+void gpu_clear_tally(gpu_stream* stream, gpu_tally* tally, uint32_t index, uint32_t count) {
+  vkCmdResetQueryPool(stream->commands, tally->handle, index, count);
 }
 
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter) {
@@ -1627,6 +1676,18 @@ void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
   if (src && dst) {
     vkCmdPipelineBarrier(stream->commands, src, dst, 0, 1, &memoryBarrier, 0, NULL, 0, NULL);
   }
+}
+
+void gpu_tally_begin(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
+  vkCmdBeginQuery(stream->commands, tally->handle, index, 0);
+}
+
+void gpu_tally_end(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
+  vkCmdEndQuery(stream->commands, tally->handle, index);
+}
+
+void gpu_tally_mark(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
+  vkCmdWriteTimestamp(stream->commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, tally->handle, index);
 }
 
 // Entry
@@ -2352,6 +2413,7 @@ static void expunge() {
       case VK_OBJECT_TYPE_DESCRIPTOR_POOL: vkDestroyDescriptorPool(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_PIPELINE_LAYOUT: vkDestroyPipelineLayout(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
+      case VK_OBJECT_TYPE_QUERY_POOL: vkDestroyQueryPool(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, victim->handle, NULL); break;

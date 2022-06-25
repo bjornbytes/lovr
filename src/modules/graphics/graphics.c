@@ -150,6 +150,14 @@ struct Font {
   uint32_t atlasY;
 };
 
+struct Tally {
+  uint32_t ref;
+  uint32_t tick;
+  TallyInfo info;
+  gpu_tally* gpu;
+  uint64_t* masks;
+};
+
 typedef struct {
   float view[16];
   float projection[16];
@@ -2111,6 +2119,37 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
   tempPop(stack);
 }
 
+// Tally
+
+Tally* lovrTallyCreate(TallyInfo* info) {
+  lovrCheck(info->count > 0, "Tally count must be greater than zero");
+  lovrCheck(info->views <= state.limits.renderSize[2], "Tally view count can not exceed the maximum view count");
+  Tally* tally = calloc(1, sizeof(Tally) + gpu_sizeof_tally());
+  lovrAssert(tally, "Out of memory");
+  tally->ref = 1;
+  tally->tick = state.tick;
+  tally->info = *info;
+  tally->gpu = (gpu_tally*) (tally + 1);
+  tally->masks = calloc((info->count + 63) / 64, sizeof(uint64_t));
+  lovrAssert(tally->masks, "Out of memory");
+
+  uint32_t total = info->count * (info->type == TALLY_TIMER ? 2 * info->views : 1);
+
+  gpu_tally_init(tally->gpu, &(gpu_tally_info) {
+    .type = (gpu_tally_type) info->type,
+    .count = total
+  });
+
+  return tally;
+}
+
+void lovrTallyDestroy(void* ref) {
+  Tally* tally = ref;
+  gpu_tally_destroy(tally->gpu);
+  free(tally->masks);
+  free(tally);
+}
+
 // Pass
 
 Pass* lovrGraphicsGetPass(PassInfo* info) {
@@ -3873,6 +3912,34 @@ void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count)
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
   mipmapTexture(pass->stream, texture, base, count);
   trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
+}
+
+void lovrPassTick(Pass* pass, Tally* tally, uint32_t index) {
+  lovrCheck(index < tally->info.count, "Trying to use tally slot #%d, but the tally only has %d slots", index + 1, tally->info.count);
+  lovrCheck(~tally->masks[index / 64] & (1 << (index % 64)), "Tally slot #%d has already been used", index + 1);
+
+  if (tally->tick != state.tick) {
+    gpu_clear_tally(state.stream, tally->gpu, 0, tally->info.count * 2 * tally->info.views);
+    memset(tally->masks, 0, (tally->info.count + 63) / 64 * sizeof(uint64_t));
+    tally->tick = state.tick;
+  }
+
+  if (tally->info.type == TALLY_TIMER) {
+    gpu_tally_mark(pass->stream, tally->gpu, index * 2 * tally->info.views);
+  } else {
+    gpu_tally_begin(pass->stream, tally->gpu, index);
+  }
+}
+
+void lovrPassTock(Pass* pass, Tally* tally, uint32_t index) {
+  lovrCheck(index < tally->info.count, "Trying to use tally slot #%d, but the tally only has %d slots", index + 1, tally->info.count);
+  lovrCheck(tally->masks[index / 64] & (1 << (index % 64)), "Tally slot #%d has not been started yet", index + 1);
+
+  if (tally->info.type == TALLY_TIMER) {
+    gpu_tally_mark(pass->stream, tally->gpu, index * 2 * tally->info.views + tally->info.views);
+  } else {
+    gpu_tally_end(pass->stream, tally->gpu, index);
+  }
 }
 
 // Helpers
