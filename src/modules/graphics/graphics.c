@@ -58,6 +58,7 @@ struct Texture {
   uint32_t ref;
   gpu_texture* gpu;
   gpu_texture* renderView;
+  Material* material;
   TextureInfo info;
   Sync sync;
 };
@@ -1119,6 +1120,7 @@ Texture* lovrTextureCreateView(TextureViewInfo* view) {
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   if (texture != state.window) {
+    lovrRelease(texture->material, lovrMaterialDestroy);
     lovrRelease(texture->info.parent, lovrTextureDestroy);
     if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
     if (texture->gpu) gpu_texture_destroy(texture->gpu);
@@ -1128,6 +1130,22 @@ void lovrTextureDestroy(void* ref) {
 
 const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
+}
+
+static Material* lovrTextureGetMaterial(Texture* texture) {
+  if (!texture->material) {
+    texture->material = lovrMaterialCreate(&(MaterialInfo) {
+      .data.color = { 1.f, 1.f, 1.f, 1.f },
+      .data.uvScale = { 1.f, 1.f },
+      .texture = texture
+    });
+
+    // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
+    // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
+    lovrRelease(texture, lovrTextureDestroy);
+  }
+
+  return texture->material;
 }
 
 // Sampler
@@ -2185,7 +2203,11 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
   }
 }
 
-void lovrPassSetMaterial(Pass* pass, Material* material) {
+void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture) {
+  if (texture) {
+    material = lovrTextureGetMaterial(texture);
+  }
+
   material = material ? material : state.defaultMaterial;
 
   if (pass->pipeline->material != material) {

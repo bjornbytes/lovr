@@ -241,7 +241,8 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
 static int l_lovrPassSetMaterial(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Material* material = luax_totype(L, 2, Material);
-  lovrPassSetMaterial(pass, material);
+  Texture* texture = luax_totype(L, 2, Texture);
+  lovrPassSetMaterial(pass, material, texture);
   return 0;
 }
 

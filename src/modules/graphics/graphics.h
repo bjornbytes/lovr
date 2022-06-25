@@ -459,7 +459,7 @@ void lovrPassSetDepthTest(Pass* pass, CompareMode test);
 void lovrPassSetDepthWrite(Pass* pass, bool write);
 void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
-void lovrPassSetMaterial(Pass* pass, Material* material);
+void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
 void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 void lovrPassSetShader(Pass* pass, Shader* shader);
