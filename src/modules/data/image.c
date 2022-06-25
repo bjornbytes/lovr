@@ -1141,6 +1141,7 @@ static Image* loadKTX2(Blob* blob) {
 
 static Image* loadSTB(Blob* blob) {
   void* data;
+  uint32_t flags;
   TextureFormat format;
   int width, height, channels;
   if (stbi_is_16_bit_from_memory(blob->data, (int) blob->size)) {
@@ -1151,12 +1152,14 @@ static Image* loadSTB(Blob* blob) {
       case 4: format = FORMAT_RGBA16; break;
       default: lovrThrow("Unsupported channel count for 16 bit image: %d", channels);
     }
+    flags = IMAGE_SRGB;
   } else if (stbi_is_hdr_from_memory(blob->data, (int) blob->size)) {
     data = stbi_loadf_from_memory(blob->data, (int) blob->size, &width, &height, NULL, 4);
     format = FORMAT_RGBA32F;
   } else {
     data = stbi_load_from_memory(blob->data, (int) blob->size, &width, &height, NULL, 4);
     format = FORMAT_RGBA8;
+    flags = IMAGE_SRGB;
   }
 
   if (!data) {
@@ -1168,6 +1171,7 @@ static Image* loadSTB(Blob* blob) {
   Image* image = calloc(1, sizeof(Image));
   lovrAssert(image, "Out of memory");
   image->ref = 1;
+  image->flags = flags;
   image->width = width;
   image->height = height;
   image->format = format;
