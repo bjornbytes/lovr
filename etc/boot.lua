@@ -139,9 +139,11 @@ function lovr.run()
       local headset = lovr.headset and lovr.headset.getTexture()
       if headset then
         local pass = lovr.graphics.getPass('render', headset)
+        local near, far = lovr.headset.getClipDistance()
         for i = 1, lovr.headset.getViewCount() do
           pass:setViewPose(i, lovr.headset.getViewPose(i))
-          pass:setProjection(i, lovr.headset.getViewAngles(i))
+          local left, right, up, down = lovr.headset.getViewAngles(i)
+          pass:setProjection(i, left, right, up, down, near, far)
         end
         local skip = lovr.draw and lovr.draw(pass)
         if not skip then lovr.graphics.submit(pass) end
@@ -195,9 +197,11 @@ function lovr.errhand(message, traceback)
       local texture = lovr.headset.getTexture()
       if texture then
         local pass = lovr.graphics.getPass('render', texture)
+        local near, far = lovr.headset.getClipDistance()
         for i = 1, lovr.headset.getViewCount() do
           pass:setViewPose(i, lovr.headset.getViewPose(i))
-          pass:setProjection(i, lovr.headset.getViewAngles(i))
+          local left, right, up, down = lovr.headset.getViewAngles(i)
+          pass:setProjection(i, left, right, up, down, near, far)
         end
         render(pass)
         passes[#passes + 1] = pass
