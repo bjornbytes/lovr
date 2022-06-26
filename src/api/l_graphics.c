@@ -324,6 +324,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
         lua_rawgeti(L, index, i + 1);
         if (lua_istable(L, -1)) {
           lua_getfield(L, -1, "type");
+          lovrAssert(lua_type(L, -1) == LUA_TSTRING, "When given as a table, Buffer fields must have a 'type' key.");
           field->type = luax_checkfieldtype(L, -1, &field->hash);
           lua_pop(L, 1);
 
