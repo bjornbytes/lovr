@@ -1870,7 +1870,7 @@ bool gpu_init(gpu_config* config) {
     };
 
     if (state.config.vk.createDevice) {
-      VK(state.config.vk.createDevice(state.instance, &deviceInfo, NULL, &state.device, (void*) vkGetInstanceProcAddr), "Device creation failed") return gpu_destroy(), false;
+      VK(state.config.vk.createDevice(state.instance, &deviceInfo, NULL, (uintptr_t) &state.device, (void*) vkGetInstanceProcAddr), "Device creation failed") return gpu_destroy(), false;
     } else {
       VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") return gpu_destroy(), false;
     }
