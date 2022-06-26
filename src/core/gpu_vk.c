@@ -1806,19 +1806,17 @@ bool gpu_init(gpu_config* config) {
       bool canRaytrace = true;
       uint32_t deviceExtensionCount = 0;
       vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &deviceExtensionCount, NULL);
-      lovrLog(1, "gpu_vk", "Extensions: %u\n", deviceExtensionCount);
       VkExtensionProperties *extensionProperties = malloc(sizeof(VkExtensionProperties)*deviceExtensionCount);
       vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &deviceExtensionCount, extensionProperties);
       for(unsigned int idx = 0; idx < deviceExtensionCount; idx++) {
         VkExtensionProperties *property = &extensionProperties[idx];
-        lovrLog(1, "gpu_vk", "Extension: %s v %x\n", property->extensionName, property->specVersion);
         for(int check = 0; check < raytraceExtensionCount; check++) {
           if (strncmp(raytraceExtensions[check].name, property->extensionName, VK_MAX_EXTENSION_NAME_SIZE)) {
             raytraceExtensions[check].present = true;
           }
         }
       }
-      free(extensionProperties); // TODO save in extensions
+      free(extensionProperties);
       for(int check = 0; check < raytraceExtensionCount; check++) {
         canRaytrace = canRaytrace && raytraceExtensions[check].present;
       }
@@ -1853,7 +1851,6 @@ bool gpu_init(gpu_config* config) {
 
       // Combine extensions + features to ensure raytracing availability
       canRaytrace = canRaytrace && supportsAccelerationStructure.accelerationStructure;
-      lovrLog(1, "gpu_vk", "Can raytrace? %s (accel structure? %s)\n", canRaytrace?"Y":"N", supportsAccelerationStructure.accelerationStructure?"Y":"N");
       config->features->rayTracing = canRaytrace;
 
       // Format features
