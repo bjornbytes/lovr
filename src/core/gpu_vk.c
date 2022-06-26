@@ -9,6 +9,9 @@
 #include <dlfcn.h>
 #endif
 
+// Malloc needed exactly once, to scan extensions
+#include <stdlib.h>
+
 // Objects
 
 struct gpu_buffer {
@@ -1890,7 +1893,7 @@ bool gpu_init(gpu_config* config) {
     }
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
 
-    const char* extensions[1];
+    const char* extensions[1 + raytraceExtensionCount];
     uint32_t extensionCount = 0;
 
     if (state.surface) {
