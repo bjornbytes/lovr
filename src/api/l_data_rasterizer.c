@@ -46,6 +46,13 @@ static int l_lovrRasterizerHasGlyphs(lua_State* L) {
   return 1;
 }
 
+static int l_lovrRasterizerGetHeight(lua_State* L) {
+  Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
+  float height = lovrRasterizerGetHeight(rasterizer);
+  lua_pushnumber(L, height);
+  return 1;
+}
+
 static int l_lovrRasterizerGetAscent(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   float ascent = lovrRasterizerGetAscent(rasterizer);
@@ -222,6 +229,7 @@ const luaL_Reg lovrRasterizer[] = {
   { "getFontSize", l_lovrRasterizerGetFontSize },
   { "getGlyphCount", l_lovrRasterizerGetGlyphCount },
   { "hasGlyphs", l_lovrRasterizerHasGlyphs },
+  { "getHeight", l_lovrRasterizerGetHeight },
   { "getAscent", l_lovrRasterizerGetAscent },
   { "getDescent", l_lovrRasterizerGetDescent },
   { "getLineGap", l_lovrRasterizerGetLineGap },

@@ -334,6 +334,8 @@ void lovrFontDestroy(void* ref);
 const FontInfo* lovrFontGetInfo(Font* font);
 float lovrFontGetPixelDensity(Font* font);
 void lovrFontSetPixelDensity(Font* font, float pixelDensity);
+float lovrFontGetLineSpacing(Font* font);
+void lovrFontSetLineSpacing(Font* font, float spacing);
 
 // Pass
 

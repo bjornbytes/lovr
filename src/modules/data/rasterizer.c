@@ -85,6 +85,10 @@ bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t len
   return true;
 }
 
+float lovrRasterizerGetHeight(Rasterizer* rasterizer) {
+  return rasterizer->ascent - rasterizer->descent;
+}
+
 float lovrRasterizerGetAscent(Rasterizer* rasterizer) {
   return rasterizer->ascent;
 }

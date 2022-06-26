@@ -15,6 +15,7 @@ void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]);
 uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t codepoint);
 bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t length);
+float lovrRasterizerGetHeight(Rasterizer* rasterizer);
 float lovrRasterizerGetAscent(Rasterizer* rasterizer);
 float lovrRasterizerGetDescent(Rasterizer* rasterizer);
 float lovrRasterizerGetLineGap(Rasterizer* rasterizer);

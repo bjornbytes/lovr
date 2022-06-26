@@ -139,6 +139,7 @@ struct Font {
   map_t glyphLookup;
   map_t kerning;
   float pixelDensity;
+  float lineSpacing;
   Texture* atlas;
   uint32_t atlasWidth;
   uint32_t atlasHeight;
@@ -1784,6 +1785,9 @@ Font* lovrFontCreate(FontInfo* info) {
     font->atlasHeight <<= 1;
   }
 
+  font->pixelDensity = lovrRasterizerGetHeight(info->rasterizer);
+  font->lineSpacing = 1.f;
+
   return font;
 }
 
@@ -1810,6 +1814,14 @@ void lovrFontSetPixelDensity(Font* font, float pixelDensity) {
   font->pixelDensity = pixelDensity;
 }
 
+float lovrFontGetLineSpacing(Font* font) {
+  return font->lineSpacing;
+}
+
+void lovrFontSetLineSpacing(Font* font, float spacing) {
+  font->lineSpacing = spacing;
+}
+
 static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   uint64_t hash = hash64(&codepoint, 4);
   uint64_t index = map_get(&font->glyphLookup, hash);
@@ -1833,11 +1845,6 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   }
 
   lovrRasterizerGetGlyphBoundingBox(font->info.rasterizer, codepoint, glyph->box);
-
-  glyph->box[0] -= font->info.padding;
-  glyph->box[1] -= font->info.padding;
-  glyph->box[2] += font->info.padding;
-  glyph->box[3] += font->info.padding;
 
   float width = glyph->box[2] - glyph->box[0];
   float height = glyph->box[3] - glyph->box[1];
@@ -3356,9 +3363,10 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
 
   float x = 0.f;
   float y = 0.f;
-  float leading = lovrRasterizerGetLeading(font->info.rasterizer) * .8f;
-  float ascent = lovrRasterizerGetAscent(font->info.rasterizer) * .8f;
-  float scale = 1.f / ascent;
+  float leading = lovrRasterizerGetLeading(font->info.rasterizer) * font->lineSpacing;
+  float height = lovrRasterizerGetHeight(font->info.rasterizer);
+  float ascent = lovrRasterizerGetAscent(font->info.rasterizer);
+  float scale = 1.f / font->pixelDensity;
   wrap /= scale;
 
   size_t bytes;
@@ -3441,7 +3449,7 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
   lovrFontUploadNewGlyphs(font, originalGlyphCount);
 
   mat4_scale(transform, scale, scale, scale);
-  float totalHeight = ascent + leading * (lineCount - 1);
+  float totalHeight = height + leading * (lineCount - 1);
   mat4_translate(transform, 0.f, -ascent + valign / 2.f * totalHeight, 0.f);
 
   uint16_t* indices;
