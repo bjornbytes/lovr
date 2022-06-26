@@ -555,21 +555,26 @@ static int l_lovrGraphicsInit(lua_State* L) {
 
 static int l_lovrGraphicsSubmit(lua_State* L) {
   bool table = lua_istable(L, 1);
-  int count = table ? luax_len(L, 1) : lua_gettop(L);
+  int length = table ? luax_len(L, 1) : lua_gettop(L);
+  uint32_t count = 0;
 
   Pass* stack[8];
-  Pass** passes = (size_t) count > COUNTOF(stack) ? malloc(count * sizeof(Pass*)) : stack;
+  Pass** passes = (size_t) length > COUNTOF(stack) ? malloc(length * sizeof(Pass*)) : stack;
   lovrAssert(passes, "Out of memory");
 
   if (table) {
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < length; i++) {
       lua_rawgeti(L, 1, i + 1);
-      passes[i] = luax_checktype(L, -1, Pass);
+      if (lua_toboolean(L, -1)) {
+        passes[count++] = luax_checktype(L, -1, Pass);
+      }
       lua_pop(L, 1);
     }
   } else {
-    for (int i = 0; i < count; i++) {
-      passes[i] = luax_checktype(L, i + 1, Pass);
+    for (int i = 0; i < length; i++) {
+      if (lua_toboolean(L, i + 1)) {
+        passes[count++] = luax_checktype(L, i + 1, Pass);
+      }
     }
   }
 
