@@ -9,9 +9,6 @@
 #include <dlfcn.h>
 #endif
 
-// Only needed for logging -- can be removed before merge
-#include "util.h"
-
 // Objects
 
 struct gpu_buffer {
@@ -1806,12 +1803,12 @@ bool gpu_init(gpu_config* config) {
       bool canRaytrace = true;
       uint32_t deviceExtensionCount = 0;
       vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &deviceExtensionCount, NULL);
-      lovrLog(LOG_INFO, "gpu_vk", "Extensions: %u\n", deviceExtensionCount);
+      lovrLog(1, "gpu_vk", "Extensions: %u\n", deviceExtensionCount);
       VkExtensionProperties *extensionProperties = malloc(sizeof(VkExtensionProperties)*deviceExtensionCount);
       vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &deviceExtensionCount, extensionProperties);
       for(unsigned int idx = 0; idx < deviceExtensionCount; idx++) {
         VkExtensionProperties *property = &extensionProperties[idx];
-        lovrLog(LOG_INFO, "gpu_vk", "Extension: %s v %x\n", property->extensionName, property->specVersion);
+        lovrLog(1, "gpu_vk", "Extension: %s v %x\n", property->extensionName, property->specVersion);
         for(int check = 0; check < raytraceExtensionCount; check++) {
           if (strncmp(raytraceExtensions[check].name, property->extensionName, VK_MAX_EXTENSION_NAME_SIZE)) {
             raytraceExtensions[check].present = true;
@@ -1853,7 +1850,7 @@ bool gpu_init(gpu_config* config) {
 
       // Combine extensions + features to ensure raytracing availability
       canRaytrace = canRaytrace && supportsAccelerationStructure.accelerationStructure;
-      lovrLog(LOG_INFO, "gpu_vk", "Can raytrace? %s (accel structure? %s)\n", canRaytrace?"Y":"N", supportsAccelerationStructure.accelerationStructure?"Y":"N");
+      lovrLog(1, "gpu_vk", "Can raytrace? %s (accel structure? %s)\n", canRaytrace?"Y":"N", supportsAccelerationStructure.accelerationStructure?"Y":"N");
       config->features->rayTracing = canRaytrace;
 
       // Format features
@@ -1906,7 +1903,7 @@ bool gpu_init(gpu_config* config) {
         }
 
         // Set up acceleration structure feature query by piggypacking on VkPhysicalDeviceFeatures2 chain
-        lovrAssert(!shaderDrawParameterFeatures.pNext, "Acceleration structure query must be appended to end of chain, not middle");
+        CHECK(!shaderDrawParameterFeatures.pNext, "Acceleration structure query must be appended to end of chain, not middle");
         shaderDrawParameterFeatures.pNext = &enableAccelerationStructure;
 
         // Only save raytrace limits if we got this far
