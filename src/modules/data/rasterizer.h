@@ -26,4 +26,4 @@ float lovrRasterizerGetGlyphBearing(Rasterizer* rasterizer, uint32_t codepoint);
 void lovrRasterizerGetGlyphBoundingBox(Rasterizer* rasterizer, uint32_t codepoint, float box[4]);
 bool lovrRasterizerIsGlyphEmpty(Rasterizer* rasterizer, uint32_t codepoint);
 bool lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context);
-bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread, uint32_t padding);
+bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread);

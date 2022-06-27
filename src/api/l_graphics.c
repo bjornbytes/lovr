@@ -1241,7 +1241,6 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
   FontInfo info = { 0 };
 
   info.rasterizer = luax_totype(L, 1, Rasterizer);
-  info.padding = 1;
   info.spread = 4.;
 
   if (!info.rasterizer) {
@@ -1250,20 +1249,17 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
 
     if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
       size = luax_optfloat(L, 1, 32.f);
-      info.padding = luaL_optinteger(L, 2, info.padding);
-      info.spread = luaL_optnumber(L, 3, info.spread);
+      info.spread = luaL_optnumber(L, 2, info.spread);
     } else {
       blob = luax_readblob(L, 1, "Font");
       size = luax_optfloat(L, 2, 32.f);
-      info.padding = luaL_optinteger(L, 3, info.padding);
-      info.spread = luaL_optnumber(L, 4, info.spread);
+      info.spread = luaL_optnumber(L, 3, info.spread);
     }
 
     info.rasterizer = lovrRasterizerCreate(blob, size);
     lovrRelease(blob, lovrBlobDestroy);
   } else {
-    info.padding = luaL_optinteger(L, 2, info.padding);
-    info.spread = luaL_optnumber(L, 3, info.spread);
+    info.spread = luaL_optnumber(L, 2, info.spread);
   }
 
   Font* font = lovrFontCreate(&info);

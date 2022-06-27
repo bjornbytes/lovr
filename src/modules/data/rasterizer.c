@@ -176,7 +176,7 @@ bool lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, vo
   return true;
 }
 
-bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread, uint32_t padding) {
+bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread) {
   int id = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
 
   if (stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
@@ -221,13 +221,10 @@ bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, fl
   int x0, y0, x1, y1;
   stbtt_GetGlyphBox(&rasterizer->font, id, &x0, &y0, &x1, &y1);
 
-  double unused;
   float scale = rasterizer->scale;
-  float centerOffsetX = (1.f - modf((x1 - x0) * scale, &unused)) / 2.f;
-  float centerOffsetY = (1.f - modf((y1 - y0) * scale, &unused)) / 2.f;
-
-  float offsetX = -x0 + ((padding + centerOffsetX) / rasterizer->scale);
-  float offsetY = -y1 - ((padding + centerOffsetY) / rasterizer->scale);
+  uint32_t padding = ceil(spread / 2.);
+  float offsetX = -x0 + padding / scale;
+  float offsetY = -y1 - padding / scale;
 
   msShapeNormalize(shape);
   msEdgeColoringSimple(shape, 3., 0);

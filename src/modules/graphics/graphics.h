@@ -325,7 +325,6 @@ const MaterialInfo* lovrMaterialGetInfo(Material* material);
 
 typedef struct {
   struct Rasterizer* rasterizer;
-  uint32_t padding;
   double spread;
 } FontInfo;
 
