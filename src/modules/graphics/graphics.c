@@ -648,7 +648,7 @@ Font* lovrGraphicsGetDefaultFont() {
   if (!state.defaultFont) {
     state.defaultFont = lovrFontCreate(&(FontInfo) {
       .rasterizer = lovrRasterizerCreate(NULL, 32),
-      .spread = 2.
+      .spread = 4.
     });
   }
 
@@ -1895,7 +1895,7 @@ static void lovrFontUploadNewGlyphs(Font* font, uint32_t start, const char* str,
 
     Texture* atlas = lovrTextureCreate(&(TextureInfo) {
       .type = TEXTURE_2D,
-      .format = FORMAT_RGBA32F,
+      .format = FORMAT_RGBA8,
       .width = font->atlasWidth,
       .height = font->atlasHeight,
       .depth = 1,
@@ -1981,8 +1981,25 @@ static void lovrFontUploadNewGlyphs(Font* font, uint32_t start, const char* str,
 
     uint32_t w = 2 * font->padding + ceilf(width);
     uint32_t h = 2 * font->padding + ceilf(height);
-    void* pixels = gpu_map(scratchpad, w * h * 16, 16, GPU_MAP_WRITE);
+
+    uint32_t stack = tempPush();
+    float* pixels = tempAlloc(w * h * 4 * sizeof(float));
+
     lovrRasterizerGetGlyphPixels(font->info.rasterizer, glyph->codepoint, pixels, w, h, font->info.spread);
+    uint8_t* dst = gpu_map(scratchpad, w * h * 4 * sizeof(uint8_t), 4, GPU_MAP_WRITE);
+
+    float* src = pixels;
+    for (uint32_t y = 0; y < h; y++) {
+      for (uint32_t x = 0; x < w; x++) {
+        for (uint32_t c = 0; c < 4; c++) {
+          float f = *src++; // CLAMP evaluates multiple times
+          *dst++ = (uint8_t) (CLAMP(f, 0.f, 1.f) * 255.f + .5f);
+        }
+      }
+    }
+
+    tempPop(stack);
+
     uint32_t dstOffset[4] = { glyph->x - font->padding, glyph->y - font->padding, 0, 0 };
     uint32_t extent[3] = { w, h, 1 };
     gpu_copy_buffer_texture(state.stream, scratchpad, font->atlas->gpu, 0, dstOffset, extent);
