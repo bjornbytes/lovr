@@ -1776,21 +1776,21 @@ Font* lovrFontCreate(FontInfo* info) {
   map_init(&font->glyphLookup, 36);
   map_init(&font->kerning, 36);
 
+  font->pixelDensity = lovrRasterizerGetHeight(info->rasterizer);
+  font->lineSpacing = 1.f;
+  font->padding = (uint32_t) ceil(info->spread / 2.);
+
   // Initial atlas size must be big enough to hold any of the glyphs
   float box[4];
   font->atlasWidth = 1;
   font->atlasHeight = 1;
   lovrRasterizerGetBoundingBox(info->rasterizer, box);
-  uint32_t width = (uint32_t) ceilf(box[2] - box[0]);
-  uint32_t height = (uint32_t) ceilf(box[3] - box[1]);
-  while (font->atlasWidth < 2 * width || font->atlasHeight < 2 * height) {
+  uint32_t maxWidth = (uint32_t) ceilf(box[2] - box[0]) + 2 * font->padding;
+  uint32_t maxHeight = (uint32_t) ceilf(box[3] - box[1]) + 2 * font->padding;
+  while (font->atlasWidth < 2 * maxWidth || font->atlasHeight < 2 * maxHeight) {
     font->atlasWidth <<= 1;
     font->atlasHeight <<= 1;
   }
-
-  font->pixelDensity = lovrRasterizerGetHeight(info->rasterizer);
-  font->lineSpacing = 1.f;
-  font->padding = (uint32_t) ceil(info->spread / 2.);
 
   return font;
 }
@@ -1853,21 +1853,24 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   uint32_t pixelWidth = 2 * font->padding + (uint32_t) ceilf(width);
   uint32_t pixelHeight = 2 * font->padding + (uint32_t) ceilf(height);
 
+  // If the glyph exceeds the width, start a new row
   if (font->atlasX + pixelWidth > font->atlasWidth) {
     font->atlasX = font->atlasWidth == font->atlasHeight ? 0 : font->atlasWidth >> 1;
     font->atlasY += font->rowHeight;
-    if (font->atlasY + pixelHeight > font->atlasHeight) {
-      if (font->atlasWidth == font->atlasHeight) {
-        font->atlasX = font->atlasWidth;
-        font->atlasY = 0;
-        font->atlasWidth <<= 1;
-        font->rowHeight = 0;
-      } else {
-        font->atlasX = 0;
-        font->atlasY = font->atlasHeight;
-        font->atlasHeight <<= 1;
-        font->rowHeight = 0;
-      }
+  }
+
+  // If the glyph exceeds the height, expand the atlas
+  if (font->atlasY + pixelHeight > font->atlasHeight) {
+    if (font->atlasWidth == font->atlasHeight) {
+      font->atlasX = font->atlasWidth;
+      font->atlasY = 0;
+      font->atlasWidth <<= 1;
+      font->rowHeight = 0;
+    } else {
+      font->atlasX = 0;
+      font->atlasY = font->atlasHeight;
+      font->atlasHeight <<= 1;
+      font->rowHeight = 0;
     }
   }
 
@@ -1879,7 +1882,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   glyph->uv[3] = (uint16_t) ((float) (glyph->y + height) / font->atlasHeight * 65535.f + .5f);
 
   font->atlasX += pixelWidth;
-  font->rowHeight = MAX(font->rowHeight, font->atlasY + pixelHeight);
+  font->rowHeight = MAX(font->rowHeight, pixelHeight);
 
   return glyph;
 }
