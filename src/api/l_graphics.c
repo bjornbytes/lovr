@@ -721,7 +721,7 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
     default: {
       Blob* blob = luax_totype(L, 1, Blob);
       if (blob) {
-        info.length = blob->size / info.stride;
+        info.length = (graphics_size)blob->size / info.stride;
         break;
       } else {
         return luax_typeerror(L, 1, "number, table, or Blob");
@@ -754,7 +754,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     default: {
       Blob* blob = luax_totype(L, 1, Blob);
       if (blob) {
-        info.length = blob->size / info.stride;
+        info.length = (graphics_size)(blob->size / info.stride);
         break;
       } else {
         return luax_typeerror(L, 1, "number, table, or Blob");
@@ -1062,7 +1062,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   }
 
   info.flags = flags.data;
-  info.flagCount = flags.length;
+  info.flagCount = (graphics_size)(flags.length);
   Shader* shader = lovrShaderCreate(&info);
   lovrRelease(info.stages[0], lovrBlobDestroy);
   lovrRelease(info.stages[1], lovrBlobDestroy);

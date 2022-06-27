@@ -562,7 +562,7 @@ static int l_lovrPassText(lua_State* L) {
   float wrap = luax_optfloat(L, index++, 0.);
   HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
-  lovrPassText(pass, font, text, length, transform, wrap, halign, valign);
+  lovrPassText(pass, font, text, (uint32_t)length, transform, wrap, halign, valign);
   return 0;
 }
 
@@ -677,11 +677,11 @@ static int l_lovrPassCopy(lua_State* L) {
 
   if (blob) {
     Buffer* buffer = luax_checktype(L, 3, Buffer);
-    uint32_t srcOffset = luax_optu32(L, 4, 0);
-    uint32_t dstOffset = luax_optu32(L, 5, 0);
+    graphics_size srcOffset = luax_optgraphics_size(L, 4, 0);
+    graphics_size dstOffset = luax_optgraphics_size(L, 5, 0);
     const BufferInfo* info = lovrBufferGetInfo(buffer);
-    uint32_t limit = MIN(blob->size - srcOffset, info->length * info->stride - dstOffset);
-    uint32_t extent = luax_optu32(L, 6, limit);
+    graphics_size limit = (graphics_size)(MIN(blob->size - srcOffset, info->length * info->stride - dstOffset));
+    graphics_size extent = luax_optgraphics_size(L, 6, limit);
     lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds Blob size");
     lovrCheck(extent <= info->length * info->stride - dstOffset, "Buffer copy offset exceeds Buffer size");
     void* data = lovrPassCopyDataToBuffer(pass, buffer, dstOffset, extent);

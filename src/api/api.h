@@ -91,6 +91,8 @@ typedef struct {
 #define LUA_RIDX_MAINTHREAD 1
 #endif
 
+#define luax_checkgraphics_size luax_checku32
+#define luax_optgraphics_size luax_optu32
 #ifdef LOVR_UNCHECKED
 #define luax_checku32(L, i) (uint32_t) lua_tonumber(L, i)
 #define luax_optu32(L, i, x) (uint32_t) luaL_optnumber(L, i, x)

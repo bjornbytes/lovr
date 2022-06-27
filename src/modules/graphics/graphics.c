@@ -315,6 +315,14 @@ static struct {
   Allocator allocator;
 } state;
 
+// GPU pointers may be of a different size from CPU ABI pointers.
+// Currently lovr limits GPU sizes to a 32-bit safe 1GB, but in case
+// this increases later, graphics-related sizes are represented
+// using graphics_size here, a separate gpu_size in gpu, and
+// a luax_checkgraphics_size/luax_optgraphics_size in api.h.
+// graphics.c is responsible for ensuring these types are in sync:
+_Static_assert (sizeof(graphics_size) == sizeof(gpu_size), "graphics_size and gpu_size types must always be the same size");
+
 // Helpers
 
 static void* tempAlloc(size_t size);
@@ -1002,8 +1010,8 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   texture->info.mipmaps = mipmaps;
 
   uint32_t levelCount = 0;
-  uint32_t levelOffsets[16];
-  uint32_t levelSizes[16];
+  graphics_size levelOffsets[16];
+  graphics_size levelSizes[16];
   gpu_buffer* scratchpad = NULL;
 
   if (info->imageCount > 0) {
@@ -1015,7 +1023,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       levelOffsets[level] = total;
       uint32_t width = MAX(info->width >> level, 1);
       uint32_t height = MAX(info->height >> level, 1);
-      levelSizes[level] = measureTexture(info->format, width, height, info->depth);
+      levelSizes[level] = (graphics_size)measureTexture(info->format, width, height, info->depth);
       total += levelSizes[level];
     }
 

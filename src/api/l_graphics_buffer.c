@@ -146,8 +146,8 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
   uint32_t dstIndex = luax_optu32(L, index + 2, 1) - 1;
 
   if (blob) {
-    uint32_t limit = MIN(blob->size / stride - srcIndex, info->length - dstIndex);
-    uint32_t count = luax_optu32(L, index + 3, limit);
+    graphics_size limit = (graphics_size)(MIN(blob->size / stride - srcIndex, info->length - dstIndex));
+    graphics_size count = luax_optgraphics_size(L, index + 3, limit);
     lovrCheck(srcIndex + count <= blob->size / stride, "Tried to read too many elements from the Blob");
     lovrCheck(dstIndex + count <= info->length, "Tried to write Buffer elements [%d,%d] but Buffer can only hold %d things", dstIndex + 1, dstIndex + count - 1, info->length);
     data = data ? data : lovrBufferMap(buffer, dstIndex * stride, count * stride);

@@ -21,10 +21,12 @@ size_t gpu_sizeof_bundle_pool(void);
 size_t gpu_sizeof_bundle(void);
 size_t gpu_sizeof_pipeline(void);
 
+typedef uint32_t gpu_size;
+
 // Buffer
 
 typedef struct {
-  uint32_t size;
+  gpu_size size;
   void** pointer;
   uintptr_t handle;
   const char* label;
@@ -423,7 +425,7 @@ typedef struct {
 typedef struct {
   gpu_shader* shader;
   gpu_shader_flag* flags;
-  uint32_t flagCount;
+  gpu_size flagCount;
   gpu_draw_mode drawMode;
   gpu_vertex_format vertex;
   gpu_rasterizer_state rasterizer;

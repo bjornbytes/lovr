@@ -16,6 +16,8 @@ typedef struct Material Material;
 typedef struct Font Font;
 typedef struct Pass Pass;
 
+typedef uint32_t graphics_size;
+
 typedef struct {
   uint32_t deviceId;
   uint32_t vendorId;
