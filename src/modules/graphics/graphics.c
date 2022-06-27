@@ -319,6 +319,8 @@ static struct {
 
 static void* tempAlloc(size_t size);
 static void* tempGrow(void* p, size_t size);
+static uint32_t tempPush(void);
+static void tempPop(uint32_t stack);
 static void beginFrame(void);
 static void cleanupPasses(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
@@ -3762,6 +3764,14 @@ static void* tempGrow(void* p, size_t size) {
   void* new = tempAlloc(size);
   if (!p) return new;
   return memcpy(new, p, size >> 1);
+}
+
+static uint32_t tempPush(void) {
+  return state.allocator.cursor;
+}
+
+static void tempPop(uint32_t stack) {
+  state.allocator.cursor = stack;
 }
 
 static void beginFrame(void) {
