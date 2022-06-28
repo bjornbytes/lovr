@@ -440,7 +440,7 @@ void luax_optcolor(lua_State* L, int index, float color[4]) {
       color[0] = color[1] = color[2] = color[3] = 1.f;
       break;
     case LUA_TNUMBER: {
-      uint32_t x = lua_tonumber(L, -1);
+      uint32_t x = lua_tonumber(L, index);
       color[0] = ((x >> 16) & 0xff) / 255.f;
       color[1] = ((x >> 8) & 0xff) / 255.f;
       color[2] = ((x >> 0) & 0xff) / 255.f;
