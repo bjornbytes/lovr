@@ -155,6 +155,7 @@ struct Tally {
   uint32_t tick;
   TallyInfo info;
   gpu_tally* gpu;
+  gpu_buffer* buffer;
   uint64_t* masks;
 };
 
@@ -2123,6 +2124,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
 
 Tally* lovrTallyCreate(TallyInfo* info) {
   lovrCheck(info->count > 0, "Tally count must be greater than zero");
+  lovrCheck(info->count <= 4096, "Maximum Tally count is 4096");
   lovrCheck(info->views <= state.limits.renderSize[2], "Tally view count can not exceed the maximum view count");
   Tally* tally = calloc(1, sizeof(Tally) + gpu_sizeof_tally());
   lovrAssert(tally, "Out of memory");
@@ -2140,12 +2142,22 @@ Tally* lovrTallyCreate(TallyInfo* info) {
     .count = total
   });
 
+  if (info->type == TALLY_TIMER) {
+    tally->buffer = calloc(1, gpu_sizeof_buffer());
+    lovrAssert(tally->buffer, "Out of memory");
+    gpu_buffer_init(tally->buffer, &(gpu_buffer_info) {
+      .size = info->count * 2 * info->views * sizeof(uint32_t)
+    });
+  }
+
   return tally;
 }
 
 void lovrTallyDestroy(void* ref) {
   Tally* tally = ref;
   gpu_tally_destroy(tally->gpu);
+  if (tally->buffer) gpu_buffer_destroy(tally->buffer);
+  free(tally->buffer);
   free(tally->masks);
   free(tally);
 }
@@ -3826,6 +3838,55 @@ void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t s
   gpu_copy_buffers(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
   trackBuffer(pass, src, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
   trackBuffer(pass, dst, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
+}
+
+void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be copied to");
+  lovrCheck(srcIndex + count <= tally->info.count, "Tally copy range exceeds the number of slots in the Tally");
+  lovrCheck(dstOffset + count * 4 <= buffer->size, "Buffer copy range goes past the end of the destination Buffer");
+  lovrCheck(dstOffset % 4 == 0, "Buffer copy offset must be a multiple of 4");
+  if (tally->info.type == TALLY_TIMER) {
+    gpu_copy_tally_buffer(pass->stream, tally->gpu, tally->buffer, srcIndex, 0, count, 4);
+
+    // Wait for transfer to finish, then dispatch a compute shader to fixup timestamps
+    gpu_sync(pass->stream, &(gpu_barrier) {
+      .prev = GPU_PHASE_TRANSFER,
+      .next = GPU_PHASE_SHADER_COMPUTE,
+      .flush = GPU_CACHE_TRANSFER_WRITE,
+      .clear = GPU_CACHE_STORAGE_READ
+    }, 1);
+
+    gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipeline];
+    gpu_layout* layout = state.layouts.data[state.timeWizard->layout].gpu;
+    gpu_shader* shader = state.timeWizard->gpu;
+
+    gpu_binding bindings[] = {
+      [0].buffer = { tally->buffer, 0, ~0u },
+      [1].buffer = { buffer->gpu, dstOffset, count * sizeof(uint32_t) },
+    };
+
+    gpu_bundle* bundle = getBundle(state.timeWizard->layout);
+    gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
+    gpu_bundle_write(&bundle, &bundleInfo, 1);
+
+    struct { float timestampPeriod; uint32_t viewCount; } constants = {
+      .timestampPeriod = state.limits.timestampPeriod,
+      .viewCount = tally->info.views
+    };
+
+    gpu_compute_begin(pass->stream);
+    gpu_bind_pipeline(pass->stream, pipeline, true);
+    gpu_bind_bundle(pass->stream, shader, 0, bundle, NULL, 0);
+    gpu_push_constants(pass->stream, shader, &constants, sizeof(constants));
+    gpu_compute(pass->stream, 0, 0, 0); // TODO use brain
+    gpu_compute_end(pass->stream);
+
+    trackBuffer(pass, buffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE);
+  } else {
+    gpu_copy_tally_buffer(pass->stream, tally->gpu, buffer->gpu, srcIndex, dstOffset, count, 4);
+    trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
+  }
 }
 
 void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[4]) {
