@@ -328,6 +328,24 @@ typedef struct {
   double spread;
 } FontInfo;
 
+typedef struct {
+  float color[4];
+  const char* string;
+  size_t length;
+} MulticolorString;
+
+typedef enum {
+  ALIGN_LEFT,
+  ALIGN_CENTER,
+  ALIGN_RIGHT
+} HorizontalAlign;
+
+typedef enum {
+  ALIGN_TOP,
+  ALIGN_MIDDLE,
+  ALIGN_BOTTOM
+} VerticalAlign;
+
 Font* lovrFontCreate(FontInfo* info);
 void lovrFontDestroy(void* ref);
 const FontInfo* lovrFontGetInfo(Font* font);
@@ -377,12 +395,6 @@ typedef enum {
 } DrawStyle;
 
 typedef enum {
-  ALIGN_LEFT,
-  ALIGN_CENTER,
-  ALIGN_RIGHT
-} HorizontalAlign;
-
-typedef enum {
   STENCIL_KEEP,
   STENCIL_ZERO,
   STENCIL_REPLACE,
@@ -398,12 +410,6 @@ typedef enum {
   VERTEX_LINES,
   VERTEX_TRIANGLES
 } VertexMode;
-
-typedef enum {
-  ALIGN_TOP,
-  ALIGN_MIDDLE,
-  ALIGN_BOTTOM
-} VerticalAlign;
 
 typedef enum {
   WINDING_COUNTERCLOCKWISE,
@@ -483,7 +489,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
 void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t segmentsV);
 void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, float angle2, uint32_t segments);
 void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t segmentsP);
-void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrPassFill(Pass* pass, Texture* texture);
 void lovrPassMonkey(Pass* pass, float* transform);
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances);

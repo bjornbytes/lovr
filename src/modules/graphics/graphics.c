@@ -1887,7 +1887,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   return glyph;
 }
 
-static void lovrFontUploadNewGlyphs(Font* font, uint32_t start, const char* str, uint32_t length, GlyphVertex* vertices) {
+static void lovrFontUploadNewGlyphs(Font* font, uint32_t start, ColoredString* strings, uint32_t count, GlyphVertex* vertices) {
   if (start >= font->glyphs.length) {
     return;
   }
@@ -1950,23 +1950,26 @@ static void lovrFontUploadNewGlyphs(Font* font, uint32_t start, const char* str,
     }
 
     // Adjust current vertex uvs
-    size_t bytes;
-    uint32_t codepoint;
-    const char* end = str + length;
-    while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
-      Glyph* glyph = lovrFontGetGlyph(font, codepoint);
-      if (glyph->box[2] - glyph->box[0] != 0.f) {
-        vertices[0].uv.u = glyph->uv[0];
-        vertices[0].uv.v = glyph->uv[1];
-        vertices[1].uv.u = glyph->uv[2];
-        vertices[1].uv.v = glyph->uv[1];
-        vertices[2].uv.u = glyph->uv[0];
-        vertices[2].uv.v = glyph->uv[3];
-        vertices[3].uv.u = glyph->uv[2];
-        vertices[3].uv.v = glyph->uv[3];
-        vertices += 4;
+    for (uint32_t i = 0; i < count; i++) {
+      size_t bytes;
+      uint32_t codepoint;
+      const char* str = strings[i].string;
+      const char* end = strings[i].string + strings[i].length;
+      while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+        Glyph* glyph = lovrFontGetGlyph(font, codepoint);
+        if (glyph->box[2] - glyph->box[0] != 0.f) {
+          vertices[0].uv.u = glyph->uv[0];
+          vertices[0].uv.v = glyph->uv[1];
+          vertices[1].uv.u = glyph->uv[2];
+          vertices[1].uv.v = glyph->uv[1];
+          vertices[2].uv.u = glyph->uv[0];
+          vertices[2].uv.v = glyph->uv[3];
+          vertices[3].uv.u = glyph->uv[2];
+          vertices[3].uv.v = glyph->uv[3];
+          vertices += 4;
+        }
+        str += bytes;
       }
-      str += bytes;
     }
   }
 
@@ -3400,11 +3403,16 @@ static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, Horizonta
   }
 }
 
-void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   font = font ? font : lovrGraphicsGetDefaultFont();
   uint32_t originalGlyphCount = font->glyphs.length;
 
-  GlyphVertex* vertices = tempAlloc(length * 4 * sizeof(GlyphVertex));
+  uint32_t maxGlyphCount = 0;
+  for (uint32_t i = 0; i < count; i++) {
+    maxGlyphCount += strings[i].length;
+  }
+
+  GlyphVertex* vertices = tempAlloc(maxGlyphCount * 4 * sizeof(GlyphVertex));
   uint32_t vertexCount = 0;
   uint32_t glyphCount = 0;
   uint32_t lineCount = 1;
@@ -3419,79 +3427,86 @@ void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, flo
   float scale = 1.f / font->pixelDensity;
   wrap /= scale;
 
-  size_t bytes;
-  uint32_t codepoint;
-  uint32_t previous = '\0';
-  const char* str = text;
-  const char* end = text + length;
-  while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
-    if (codepoint == ' ' || codepoint == '\t') {
-      Glyph* glyph = lovrFontGetGlyph(font, ' ');
-      wordStart = vertexCount;
-      x += codepoint == '\t' ? glyph->advance * 4.f : glyph->advance;
-      previous = '\0';
-      str += bytes;
-      continue;
-    } else if (codepoint == '\n') {
-      aline(vertices, lineStart, vertexCount, halign);
-      lineStart = vertexCount;
-      wordStart = vertexCount;
-      x = 0.f;
-      y -= leading;
-      lineCount++;
-      previous = '\0';
-      str += bytes;
-      continue;
-    }
+  for (uint32_t i = 0; i < count; i++) {
+    size_t bytes;
+    uint32_t codepoint;
+    uint32_t previous = '\0';
+    const char* str = strings[i].string;
+    const char* end = strings[i].string + strings[i].length;
+    uint8_t r = (uint8_t) (CLAMP(strings[i].color[0], 0.f, 1.f) * 255.f);
+    uint8_t g = (uint8_t) (CLAMP(strings[i].color[1], 0.f, 1.f) * 255.f);
+    uint8_t b = (uint8_t) (CLAMP(strings[i].color[2], 0.f, 1.f) * 255.f);
+    uint8_t a = (uint8_t) (CLAMP(strings[i].color[3], 0.f, 1.f) * 255.f);
 
-    Glyph* glyph = lovrFontGetGlyph(font, codepoint);
-
-    // Keming
-    if (previous) x += lovrFontGetKerning(font, previous, codepoint);
-    previous = codepoint;
-
-    // Wrap
-    if (wrap > 0.f && x + glyph->box[2] > wrap && wordStart != lineStart) {
-      float dx = wordStart == vertexCount ? x : vertices[wordStart].position.x;
-      float dy = leading;
-
-      // Shift the vertices of the overflowing word down a line and back to the beginning
-      for (uint32_t i = wordStart; i < vertexCount; i++) {
-        vertices[i].position.x -= dx;
-        vertices[i].position.y -= dy;
+    while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+      if (codepoint == ' ' || codepoint == '\t') {
+        Glyph* glyph = lovrFontGetGlyph(font, ' ');
+        wordStart = vertexCount;
+        x += codepoint == '\t' ? glyph->advance * 4.f : glyph->advance;
+        previous = '\0';
+        str += bytes;
+        continue;
+      } else if (codepoint == '\n') {
+        aline(vertices, lineStart, vertexCount, halign);
+        lineStart = vertexCount;
+        wordStart = vertexCount;
+        x = 0.f;
+        y -= leading;
+        lineCount++;
+        previous = '\0';
+        str += bytes;
+        continue;
       }
 
-      aline(vertices, lineStart, wordStart, halign);
-      lineStart = wordStart;
-      lineCount++;
-      x -= dx;
-      y -= dy;
+      Glyph* glyph = lovrFontGetGlyph(font, codepoint);
+
+      // Keming
+      if (previous) x += lovrFontGetKerning(font, previous, codepoint);
+      previous = codepoint;
+
+      // Wrap
+      if (wrap > 0.f && x + glyph->box[2] > wrap && wordStart != lineStart) {
+        float dx = wordStart == vertexCount ? x : vertices[wordStart].position.x;
+        float dy = leading;
+
+        // Shift the vertices of the overflowing word down a line and back to the beginning
+        for (uint32_t v = wordStart; v < vertexCount; v++) {
+          vertices[v].position.x -= dx;
+          vertices[v].position.y -= dy;
+        }
+
+        aline(vertices, lineStart, wordStart, halign);
+        lineStart = wordStart;
+        lineCount++;
+        x -= dx;
+        y -= dy;
+      }
+
+      // Ignore bearing for the first character on a line so it lines up perfectly (questionable)
+      if (vertexCount == lineStart) {
+        x -= glyph->box[0];
+      }
+
+      // Vertices
+      float* bb = glyph->box;
+      uint16_t* uv = glyph->uv;
+      vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[3] }, { uv[0], uv[1] }, { r, g, b, a } };
+      vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[3] }, { uv[2], uv[1] }, { r, g, b, a } };
+      vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[1] }, { uv[0], uv[3] }, { r, g, b, a } };
+      vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[1] }, { uv[2], uv[3] }, { r, g, b, a } };
+      glyphCount++;
+
+      // Advance
+      x += glyph->advance;
+      str += bytes;
     }
-
-    // Ignore bearing for the first character on a line so it lines up perfectly (questionable)
-    if (vertexCount == lineStart) {
-      x -= glyph->box[0];
-    }
-
-    // Vertices
-    float* bb = glyph->box;
-    uint16_t* uv = glyph->uv;
-    vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[3] }, { uv[0], uv[1] }, { 255, 255, 255, 255 } };
-    vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[3] }, { uv[2], uv[1] }, { 255, 255, 255, 255 } };
-    vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[1] }, { uv[0], uv[3] }, { 255, 255, 255, 255 } };
-    vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[1] }, { uv[2], uv[3] }, { 255, 255, 255, 255 } };
-    glyphCount++;
-
-    // Advance
-    x += glyph->advance;
-    str += bytes;
   }
 
   // Align last line
   aline(vertices, lineStart, vertexCount, halign);
 
   // Resize atlas, rasterize new glyphs, upload them into atlas, recreate material
-  lovrFontUploadNewGlyphs(font, originalGlyphCount, text, length, vertices);
+  lovrFontUploadNewGlyphs(font, originalGlyphCount, strings, count, vertices);
 
   mat4_scale(transform, scale, scale, scale);
   float totalHeight = height + leading * (lineCount - 1);
