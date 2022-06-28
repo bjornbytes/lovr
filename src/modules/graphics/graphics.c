@@ -1956,6 +1956,11 @@ static void lovrFontUploadNewGlyphs(Font* font, uint32_t start, ColoredString* s
       const char* str = strings[i].string;
       const char* end = strings[i].string + strings[i].length;
       while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+        if (codepoint == ' ' || codepoint == '\n' || codepoint == '\r' || codepoint== '\t') {
+          str += bytes;
+          continue;
+        }
+
         Glyph* glyph = lovrFontGetGlyph(font, codepoint);
         if (glyph->box[2] - glyph->box[0] != 0.f) {
           vertices[0].uv.u = glyph->uv[0];
@@ -3458,6 +3463,9 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
         previous = '\0';
         str += bytes;
         continue;
+      } else if (codepoint == '\r') {
+        str += bytes;
+        continue;
       }
 
       Glyph* glyph = lovrFontGetGlyph(font, codepoint);
@@ -3511,8 +3519,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
   lovrFontUploadNewGlyphs(font, originalGlyphCount, strings, count, vertices);
 
   mat4_scale(transform, scale, scale, scale);
-  float totalHeight = height + leading * (lineCount - 1);
-  mat4_translate(transform, 0.f, -ascent + valign / 2.f * totalHeight, 0.f);
+  mat4_translate(transform, 0.f, -ascent + valign / 2.f * (height * lineCount), 0.f);
 
   uint16_t* indices;
   lovrPassDraw(pass, &(Draw) {
