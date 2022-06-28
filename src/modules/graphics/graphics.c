@@ -2471,60 +2471,62 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   if (shader == previous) return;
 
   // Clear any bindings for resources that share the same slot but have different types
-  if (previous) {
-    for (uint32_t i = 0, j = 0; i < previous->resourceCount && j < shader->resourceCount;) {
-      if (previous->resources[i].binding < shader->resources[j].binding) {
-        i++;
-      } else if (previous->resources[i].binding > shader->resources[j].binding) {
-        j++;
-      } else {
-        if (previous->resources[i].type != shader->resources[j].type) {
-          pass->bindingMask &= ~(1 << shader->resources[j].binding);
+  if (shader) {
+    if (previous) {
+      for (uint32_t i = 0, j = 0; i < previous->resourceCount && j < shader->resourceCount;) {
+        if (previous->resources[i].binding < shader->resources[j].binding) {
+          i++;
+        } else if (previous->resources[i].binding > shader->resources[j].binding) {
+          j++;
+        } else {
+          if (previous->resources[i].type != shader->resources[j].type) {
+            pass->bindingMask &= ~(1 << shader->resources[j].binding);
+          }
+          i++;
+          j++;
         }
-        i++;
-        j++;
       }
     }
-  }
 
-  uint32_t shaderSlots = (shader->bufferMask | shader->textureMask | shader->samplerMask);
-  uint32_t missingResources = shaderSlots & ~pass->bindingMask;
+    uint32_t shaderSlots = (shader->bufferMask | shader->textureMask | shader->samplerMask);
+    uint32_t missingResources = shaderSlots & ~pass->bindingMask;
 
-  // Assign default bindings to any slots used by the shader that are missing resources
-  if (missingResources) {
-    for (uint32_t i = 0; i < 32; i++) { // TODO biterationtrinsics
-      uint32_t bit = (1u << i);
+    // Assign default bindings to any slots used by the shader that are missing resources
+    if (missingResources) {
+      for (uint32_t i = 0; i < 32; i++) { // TODO biterationtrinsics
+        uint32_t bit = (1u << i);
 
-      if (~missingResources & bit) {
-        continue;
+        if (~missingResources & bit) {
+          continue;
+        }
+
+        pass->bindings[i].number = i;
+        pass->bindings[i].type = shader->resources[i].type;
+
+        if (shader->bufferMask & bit) {
+          pass->bindings[i].buffer.object = state.defaultBuffer->gpu;
+          pass->bindings[i].buffer.offset = 0;
+          pass->bindings[i].buffer.extent = state.defaultBuffer->size;
+        } else if (shader->textureMask & bit) {
+          pass->bindings[i].texture = state.defaultTexture->gpu;
+        } else if (shader->samplerMask & bit) {
+          pass->bindings[i].sampler = state.defaultSamplers[FILTER_LINEAR]->gpu;
+        }
+
+        pass->bindingMask |= bit;
       }
 
-      pass->bindings[i].number = i;
-      pass->bindings[i].type = shader->resources[i].type;
-
-      if (shader->bufferMask & bit) {
-        pass->bindings[i].buffer.object = state.defaultBuffer->gpu;
-        pass->bindings[i].buffer.offset = 0;
-        pass->bindings[i].buffer.extent = state.defaultBuffer->size;
-      } else if (shader->textureMask & bit) {
-        pass->bindings[i].texture = state.defaultTexture->gpu;
-      } else if (shader->samplerMask & bit) {
-        pass->bindings[i].sampler = state.defaultSamplers[FILTER_LINEAR]->gpu;
-      }
-
-      pass->bindingMask |= bit;
+      pass->bindingsDirty = true;
     }
 
-    pass->bindingsDirty = true;
+    pass->pipeline->info.shader = shader->gpu;
+    pass->pipeline->info.flags = shader->flags;
+    pass->pipeline->info.flagCount = shader->overrideCount;
   }
 
   lovrRetain(shader);
   lovrRelease(previous, lovrShaderDestroy);
-
   pass->pipeline->shader = shader;
-  pass->pipeline->info.shader = shader->gpu;
-  pass->pipeline->info.flags = shader->flags;
-  pass->pipeline->info.flagCount = shader->overrideCount;
   pass->pipeline->dirty = true;
 }
 
