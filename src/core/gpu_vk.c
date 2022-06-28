@@ -1826,6 +1826,7 @@ bool gpu_init(gpu_config* config) {
       config->limits->pushConstantSize = limits->maxPushConstantsSize;
       config->limits->indirectDrawCount = limits->maxDrawIndirectCount;
       config->limits->instances = multiviewProperties.maxMultiviewInstanceIndex;
+      config->limits->timestampPeriod = limits->timestampPeriod;
       config->limits->anisotropy = limits->maxSamplerAnisotropy;
       config->limits->pointSize = limits->pointSizeRange[1];
     }

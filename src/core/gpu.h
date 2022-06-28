@@ -638,6 +638,7 @@ typedef struct {
   uint32_t pushConstantSize;
   uint32_t indirectDrawCount;
   uint32_t instances;
+  float timestampPeriod;
   float anisotropy;
   float pointSize;
 } gpu_limits;
