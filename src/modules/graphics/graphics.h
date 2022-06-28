@@ -332,7 +332,7 @@ typedef struct {
   float color[4];
   const char* string;
   size_t length;
-} MulticolorString;
+} ColoredString;
 
 typedef enum {
   ALIGN_LEFT,
