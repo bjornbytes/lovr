@@ -1776,7 +1776,7 @@ Font* lovrFontCreate(FontInfo* info) {
   map_init(&font->glyphLookup, 36);
   map_init(&font->kerning, 36);
 
-  font->pixelDensity = lovrRasterizerGetHeight(info->rasterizer);
+  font->pixelDensity = lovrRasterizerGetLeading(info->rasterizer);
   font->lineSpacing = 1.f;
   font->padding = (uint32_t) ceil(info->spread / 2.);
 
@@ -1839,7 +1839,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint) {
   Glyph* glyph = &font->glyphs.data[font->glyphs.length++];
 
   glyph->codepoint = codepoint;
-  glyph->advance = lovrRasterizerGetGlyphAdvance(font->info.rasterizer, codepoint);
+  glyph->advance = lovrRasterizerGetAdvance(font->info.rasterizer, codepoint);
 
   if (lovrRasterizerIsGlyphEmpty(font->info.rasterizer, codepoint)) {
     memset(glyph->box, 0, sizeof(glyph->box));
@@ -1996,7 +1996,7 @@ static void lovrFontUploadNewGlyphs(Font* font, uint32_t start, ColoredString* s
     uint32_t stack = tempPush();
     float* pixels = tempAlloc(w * h * 4 * sizeof(float));
 
-    lovrRasterizerGetGlyphPixels(font->info.rasterizer, glyph->codepoint, pixels, w, h, font->info.spread);
+    lovrRasterizerGetPixels(font->info.rasterizer, glyph->codepoint, pixels, w, h, font->info.spread);
     uint8_t* dst = gpu_map(scratchpad, w * h * 4 * sizeof(uint8_t), 4, GPU_MAP_WRITE);
 
     float* src = pixels;
@@ -3429,7 +3429,6 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
   float x = 0.f;
   float y = 0.f;
   float leading = lovrRasterizerGetLeading(font->info.rasterizer) * font->lineSpacing;
-  float height = lovrRasterizerGetHeight(font->info.rasterizer);
   float ascent = lovrRasterizerGetAscent(font->info.rasterizer);
   float scale = 1.f / font->pixelDensity;
   wrap /= scale;
@@ -3519,7 +3518,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
   lovrFontUploadNewGlyphs(font, originalGlyphCount, strings, count, vertices);
 
   mat4_scale(transform, scale, scale, scale);
-  mat4_translate(transform, 0.f, -ascent + valign / 2.f * (height * lineCount), 0.f);
+  mat4_translate(transform, 0.f, -ascent + valign / 2.f * (leading * lineCount), 0.f);
 
   uint16_t* indices;
   lovrPassDraw(pass, &(Draw) {

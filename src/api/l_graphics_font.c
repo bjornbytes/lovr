@@ -40,15 +40,6 @@ static int l_lovrFontSetLineSpacing(lua_State* L) {
   return 0;
 }
 
-static int l_lovrFontGetHeight(lua_State* L) {
-  Font* font = luax_checktype(L, 1, Font);
-  const FontInfo* info = lovrFontGetInfo(font);
-  float density = lovrFontGetPixelDensity(font);
-  float height = lovrRasterizerGetHeight(info->rasterizer);
-  lua_pushnumber(L, height / density);
-  return 1;
-}
-
 static int l_lovrFontGetAscent(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   const FontInfo* info = lovrFontGetInfo(font);
@@ -67,21 +58,12 @@ static int l_lovrFontGetDescent(lua_State* L) {
   return 1;
 }
 
-static int l_lovrFontGetLineGap(lua_State* L) {
+static int l_lovrFontGetHeight(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   const FontInfo* info = lovrFontGetInfo(font);
   float density = lovrFontGetPixelDensity(font);
-  float lineGap = lovrRasterizerGetLineGap(info->rasterizer);
-  lua_pushnumber(L, lineGap / density);
-  return 1;
-}
-
-static int l_lovrFontGetLeading(lua_State* L) {
-  Font* font = luax_checktype(L, 1, Font);
-  const FontInfo* info = lovrFontGetInfo(font);
-  float density = lovrFontGetPixelDensity(font);
-  float leading = lovrRasterizerGetLeading(info->rasterizer);
-  lua_pushnumber(L, leading / density);
+  float height = lovrRasterizerGetLeading(info->rasterizer);
+  lua_pushnumber(L, height / density);
   return 1;
 }
 
@@ -91,10 +73,8 @@ const luaL_Reg lovrFont[] = {
   { "setPixelDensity", l_lovrFontSetPixelDensity },
   { "getLineSpacing", l_lovrFontGetLineSpacing },
   { "setLineSpacing", l_lovrFontSetLineSpacing },
-  { "getHeight", l_lovrFontGetHeight },
   { "getAscent", l_lovrFontGetAscent },
   { "getDescent", l_lovrFontGetDescent },
-  { "getLineGap", l_lovrFontGetLineGap },
-  { "getLeading", l_lovrFontGetLeading },
+  { "getHeight", l_lovrFontGetHeight },
   { NULL, NULL }
 };
