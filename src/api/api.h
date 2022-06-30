@@ -142,6 +142,7 @@ struct Blob;
 struct Image;
 struct Blob* luax_readblob(struct lua_State* L, int index, const char* debug);
 struct Image* luax_checkimage(struct lua_State* L, int index);
+uint32_t luax_checkcodepoint(struct lua_State* L, int index);
 #endif
 
 #ifndef LOVR_DISABLE_EVENT

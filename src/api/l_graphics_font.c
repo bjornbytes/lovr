@@ -89,6 +89,16 @@ static int l_lovrFontGetHeight(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFontGetKerning(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  uint32_t left = luax_checkcodepoint(L, 2);
+  uint32_t right = luax_checkcodepoint(L, 3);
+  float kerning = lovrFontGetKerning(font, left, right);
+  float density = lovrFontGetPixelDensity(font);
+  lua_pushnumber(L, kerning / density);
+  return 1;
+}
+
 static void online(void* context, const char* string, size_t length) {
   lua_State* L = context;
   int index = luax_len(L, -1) + 1;
@@ -117,6 +127,7 @@ const luaL_Reg lovrFont[] = {
   { "getAscent", l_lovrFontGetAscent },
   { "getDescent", l_lovrFontGetDescent },
   { "getHeight", l_lovrFontGetHeight },
+  { "getKerning", l_lovrFontGetKerning },
   { "getWrap", l_lovrFontGetWrap },
   { NULL, NULL }
 };

@@ -1970,13 +1970,13 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   return glyph;
 }
 
-static float lovrFontGetKerning(Font* font, uint32_t previous, uint32_t codepoint) {
-  uint32_t codepoints[] = { previous, codepoint };
+float lovrFontGetKerning(Font* font, uint32_t left, uint32_t right) {
+  uint32_t codepoints[] = { left, right };
   uint64_t hash = hash64(codepoints, sizeof(codepoints));
   union { float f32; uint64_t u64; } kerning = { .u64 = map_get(&font->kerning, hash) };
 
   if (kerning.u64 == MAP_NIL) {
-    kerning.f32 = lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
+    kerning.f32 = lovrRasterizerGetKerning(font->info.rasterizer, left, right);
     map_set(&font->kerning, hash, kerning.u64);
   }
 

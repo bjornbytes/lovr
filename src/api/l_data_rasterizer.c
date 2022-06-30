@@ -6,6 +6,20 @@
 #include <lauxlib.h>
 #include <math.h>
 
+uint32_t luax_checkcodepoint(lua_State* L, int index) {
+  size_t length;
+  const char* str;
+  uint32_t codepoint;
+  switch (lua_type(L, index)) {
+    case LUA_TSTRING:
+      str = lua_tolstring(L, index, &length);
+      return utf8_decode(str, str + length, &codepoint) ? codepoint : 0;
+    case LUA_TNUMBER:
+      return luax_checku32(L, index);
+    default: return luax_typeerror(L, index, "string or number"), 0;
+  }
+}
+
 static int l_lovrRasterizerGetFontSize(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   float size = lovrRasterizerGetFontSize(rasterizer);
@@ -65,20 +79,6 @@ static int l_lovrRasterizerGetLeading(lua_State* L) {
   float leading = lovrRasterizerGetLeading(rasterizer);
   lua_pushnumber(L, leading);
   return 1;
-}
-
-static uint32_t luax_checkcodepoint(lua_State* L, int index) {
-  size_t length;
-  const char* str;
-  uint32_t codepoint;
-  switch (lua_type(L, index)) {
-    case LUA_TSTRING:
-      str = lua_tolstring(L, index, &length);
-      return utf8_decode(str, str + length, &codepoint) ? codepoint : 0;
-    case LUA_TNUMBER:
-      return luax_checku32(L, index);
-    default: return luax_typeerror(L, index, "string or number"), 0;
-  }
 }
 
 static int l_lovrRasterizerGetAdvance(lua_State* L) {
