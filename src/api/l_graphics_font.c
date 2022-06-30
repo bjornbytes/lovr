@@ -4,6 +4,28 @@
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <stdlib.h>
+
+ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, ColoredString* stack) {
+  if (lua_istable(L, index)) {
+    *count = luax_len(L, index) / 2;
+    ColoredString* strings = malloc(*count * sizeof(*strings));
+    lovrAssert(strings, "Out of memory");
+    for (uint32_t i = 0; i < *count; i++) {
+      lua_rawgeti(L, index, i * 2 + 1);
+      lua_rawgeti(L, index, i * 2 + 2);
+      luax_optcolor(L, -2, strings[i].color);
+      lovrCheck(lua_isstring(L, -1), "Expected a string to print");
+      strings[i].string = luaL_checklstring(L, -1, &strings[i].length);
+      lua_pop(L, 2);
+    }
+    return strings;
+  } else {
+    stack->string = luaL_checklstring(L, index, &stack->length);
+    stack->color[0] = stack->color[1] = stack->color[2] = stack->color[3] = 1.f;
+    return *count = 1, stack;
+  }
+}
 
 static int l_lovrFontGetRasterizer(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
@@ -67,6 +89,27 @@ static int l_lovrFontGetHeight(lua_State* L) {
   return 1;
 }
 
+static void online(void* context, const char* string, size_t length) {
+  lua_State* L = context;
+  int index = luax_len(L, -1) + 1;
+  lua_pushlstring(L, string, length);
+  lua_rawseti(L, -2, index);
+}
+
+static int l_lovrFontGetWrap(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  uint32_t count;
+  ColoredString stack;
+  ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
+  float wrap = luax_checkfloat(L, 3);
+  lua_newtable(L);
+  float maxWidth = lovrFontGetWrap(font, strings, 1, wrap, online, L);
+  if (strings != &stack) free(strings);
+  lua_pushnumber(L, maxWidth);
+  lua_insert(L, -2);
+  return 2;
+}
+
 const luaL_Reg lovrFont[] = {
   { "getRasterizer", l_lovrFontGetRasterizer },
   { "getPixelDensity", l_lovrFontGetPixelDensity },
@@ -76,5 +119,6 @@ const luaL_Reg lovrFont[] = {
   { "getAscent", l_lovrFontGetAscent },
   { "getDescent", l_lovrFontGetDescent },
   { "getHeight", l_lovrFontGetHeight },
+  { "getWrap", l_lovrFontGetWrap },
   { NULL, NULL }
 };

@@ -328,7 +328,7 @@ typedef struct {
   double spread;
 } FontInfo;
 
-typedef struct {
+typedef struct ColoredString {
   float color[4];
   const char* string;
   size_t length;
@@ -353,6 +353,7 @@ float lovrFontGetPixelDensity(Font* font);
 void lovrFontSetPixelDensity(Font* font, float pixelDensity);
 float lovrFontGetLineSpacing(Font* font);
 void lovrFontSetLineSpacing(Font* font, float spacing);
+float lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context);
 
 // Pass
 

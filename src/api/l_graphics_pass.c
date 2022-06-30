@@ -556,35 +556,16 @@ static int l_lovrPassText(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Font* font = luax_totype(L, 2, Font);
   int index = font ? 3 : 2;
-  uint32_t count = 0;
-  ColoredString string;
-  ColoredString* strings = &string;
-  if (lua_istable(L, index)) {
-    count = luax_len(L, index) / 2;
-    strings = malloc(count * sizeof(*strings));
-    lovrAssert(strings, "Out of memory");
-    for (uint32_t i = 0; i < count; i++) {
-      lua_rawgeti(L, index, i * 2 + 1);
-      lua_rawgeti(L, index, i * 2 + 2);
-      luax_optcolor(L, -2, strings[i].color);
-      lovrCheck(lua_isstring(L, -1), "Expected a string to print");
-      strings[i].string = luaL_checklstring(L, -1, &strings[i].length);
-      lua_pop(L, 2);
-    }
-    index++;
-  } else {
-    strings[0].string = luaL_checklstring(L, index, &strings[0].length);
-    strings[0].color[0] = strings[0].color[1] = strings[0].color[2] = strings[0].color[3] = 1.f;
-    count = 1;
-    index++;
-  }
+  uint32_t count;
+  ColoredString stack;
+  ColoredString* strings = luax_checkcoloredstrings(L, index++, &count, &stack);
   float transform[16];
   index = luax_readmat4(L, index++, transform, 1);
   float wrap = luax_optfloat(L, index++, 0.);
   HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
   lovrPassText(pass, font, strings, count, transform, wrap, halign, valign);
-  if (strings != &string) free(strings);
+  if (strings != &stack) free(strings);
   return 0;
 }
 
