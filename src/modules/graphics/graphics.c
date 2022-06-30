@@ -646,10 +646,12 @@ void lovrGraphicsSetBackground(float background[4]) {
 
 Font* lovrGraphicsGetDefaultFont() {
   if (!state.defaultFont) {
+    Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
     state.defaultFont = lovrFontCreate(&(FontInfo) {
-      .rasterizer = lovrRasterizerCreate(NULL, 32),
+      .rasterizer = rasterizer,
       .spread = 4.
     });
+    lovrRelease(rasterizer, lovrRasterizerDestroy);
   }
 
   return state.defaultFont;
@@ -1624,6 +1626,11 @@ void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
   gpu_shader_destroy(shader->gpu);
   lovrRelease(shader->parent, lovrShaderDestroy);
+  free(shader->constants);
+  free(shader->resources);
+  free(shader->attributes);
+  free(shader->flags);
+  free(shader->flagLookup);
   free(shader);
 }
 
@@ -1937,10 +1944,12 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
     // Recompute all glyph uvs after atlas resize
     for (size_t i = 0; i < font->glyphs.length; i++) {
       Glyph* g = &font->glyphs.data[i];
-      g->uv[0] = (uint16_t) ((float) g->x / font->atlasWidth * 65535.f + .5f);
-      g->uv[1] = (uint16_t) ((float) g->y / font->atlasHeight * 65535.f + .5f);
-      g->uv[2] = (uint16_t) ((float) (g->x + g->box[2] - g->box[0]) / font->atlasWidth * 65535.f + .5f);
-      g->uv[3] = (uint16_t) ((float) (g->y + g->box[3] - g->box[1]) / font->atlasHeight * 65535.f + .5f);
+      if (g->box[2] - g->box[0] > 0.f) {
+        g->uv[0] = (uint16_t) ((float) g->x / font->atlasWidth * 65535.f + .5f);
+        g->uv[1] = (uint16_t) ((float) g->y / font->atlasHeight * 65535.f + .5f);
+        g->uv[2] = (uint16_t) ((float) (g->x + g->box[2] - g->box[0]) / font->atlasWidth * 65535.f + .5f);
+        g->uv[3] = (uint16_t) ((float) (g->y + g->box[3] - g->box[1]) / font->atlasHeight * 65535.f + .5f);
+      }
     }
 
     if (resized) *resized = true;
@@ -1993,7 +2002,7 @@ void lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float w
   char* string = tempAlloc(totalLength + 1);
   string[totalLength] = '\0';
 
-  for (uint32_t i = 0, cursor = 0; i < count; i++, cursor += strings[i].length) {
+  for (uint32_t i = 0, cursor = 0; i < count; cursor += strings[i].length, i++) {
     memcpy(string + cursor, strings[i].string, strings[i].length);
   }
 
@@ -2007,10 +2016,10 @@ void lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float w
   const char* lineStart = string;
   const char* wordStart = string;
   const char* end = string + totalLength;
-  Glyph* space = lovrFontGetGlyph(font, ' ', NULL);
+  float space = lovrFontGetGlyph(font, ' ', NULL)->advance;
   while ((bytes = utf8_decode(string, end, &codepoint)) > 0) {
     if (codepoint == ' ' || codepoint == '\t') {
-      x += codepoint == '\t' ? space->advance * 4.f : space->advance;
+      x += codepoint == '\t' ? space * 4.f : space;
       nextWordStartX = x;
       previous = '\0';
       string += bytes;
@@ -3448,7 +3457,7 @@ static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, Horizonta
 
 void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   font = font ? font : lovrGraphicsGetDefaultFont();
-  Glyph* space = lovrFontGetGlyph(font, ' ', NULL);
+  float space = lovrFontGetGlyph(font, ' ', NULL)->advance;
 
   size_t totalLength = 0;
   for (uint32_t i = 0; i < count; i++) {
@@ -3484,7 +3493,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
     while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
       if (codepoint == ' ' || codepoint == '\t') {
         wordStart = vertexCount;
-        x += codepoint == '\t' ? space->advance * 4.f : space->advance;
+        x += codepoint == '\t' ? space * 4.f : space;
         previous = '\0';
         str += bytes;
         continue;
