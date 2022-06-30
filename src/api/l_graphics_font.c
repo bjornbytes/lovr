@@ -103,11 +103,9 @@ static int l_lovrFontGetWrap(lua_State* L) {
   ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
   float wrap = luax_checkfloat(L, 3);
   lua_newtable(L);
-  float maxWidth = lovrFontGetWrap(font, strings, 1, wrap, online, L);
+  lovrFontGetWrap(font, strings, 1, wrap, online, L);
   if (strings != &stack) free(strings);
-  lua_pushnumber(L, maxWidth);
-  lua_insert(L, -2);
-  return 2;
+  return 1;
 }
 
 const luaL_Reg lovrFont[] = {

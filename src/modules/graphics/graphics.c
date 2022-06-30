@@ -1983,7 +1983,7 @@ static float lovrFontGetKerning(Font* font, uint32_t previous, uint32_t codepoin
   return kerning.f32;
 }
 
-float lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context) {
+void lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context) {
   size_t totalLength = 0;
   for (uint32_t i = 0; i < count; i++) {
     totalLength += strings[i].length;
@@ -1998,9 +1998,6 @@ float lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float 
   }
 
   float x = 0.f;
-  float width = 0.f;
-  float maxWidth = 0.f;
-  float prevWordEndX = 0.f;
   float nextWordStartX = 0.f;
   wrap *= font->pixelDensity;
 
@@ -2010,11 +2007,10 @@ float lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float 
   const char* lineStart = string;
   const char* wordStart = string;
   const char* end = string + totalLength;
+  Glyph* space = lovrFontGetGlyph(font, ' ', NULL);
   while ((bytes = utf8_decode(string, end, &codepoint)) > 0) {
     if (codepoint == ' ' || codepoint == '\t') {
-      if (previous) prevWordEndX = width;
-      Glyph* glyph = lovrFontGetGlyph(font, ' ', NULL);
-      x += codepoint == '\t' ? glyph->advance * 4.f : glyph->advance;
+      x += codepoint == '\t' ? space->advance * 4.f : space->advance;
       nextWordStartX = x;
       previous = '\0';
       string += bytes;
@@ -2024,10 +2020,7 @@ float lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float 
       size_t length = string - lineStart;
       while (string[length] == ' ' || string[length] == '\t') length--;
       callback(context, lineStart, length);
-      maxWidth = MAX(maxWidth, width);
       nextWordStartX = 0.f;
-      prevWordEndX = 0.f;
-      width = 0.f;
       x = 0.f;
       previous = '\0';
       string += bytes;
@@ -2045,7 +2038,7 @@ float lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float 
     if (previous) x += lovrFontGetKerning(font, previous, codepoint);
     previous = codepoint;
 
-    // Ignore bearing for the first character on a line so it lines up perfectly (questionable)
+    // Ignore bearing for the first character on a line (questionable)
     if (string == lineStart) {
       x -= glyph->box[0];
     } else if (string == wordStart) {
@@ -2058,16 +2051,10 @@ float lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float 
       while (string[length] == ' ' || string[length] == '\t') length--;
       callback(context, lineStart, length);
       lineStart = wordStart;
-
-      maxWidth = MAX(maxWidth, prevWordEndX);
-      width -= nextWordStartX;
       x -= nextWordStartX;
       nextWordStartX = 0.f;
-      prevWordEndX = 0.f;
       previous = '\0';
     }
-
-    width = x + glyph->box[2];
 
     // Advance
     x += glyph->advance;
@@ -2076,11 +2063,9 @@ float lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float 
 
   if (end - lineStart > 0) {
     callback(context, lineStart, end - lineStart);
-    maxWidth = MAX(maxWidth, width);
   }
 
   tempPop(stack);
-  return maxWidth / font->pixelDensity;
 }
 
 // Pass
@@ -3463,6 +3448,7 @@ static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, Horizonta
 
 void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   font = font ? font : lovrGraphicsGetDefaultFont();
+  Glyph* space = lovrFontGetGlyph(font, ' ', NULL);
 
   size_t totalLength = 0;
   for (uint32_t i = 0; i < count; i++) {
@@ -3497,9 +3483,8 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
 
     while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
       if (codepoint == ' ' || codepoint == '\t') {
-        Glyph* glyph = lovrFontGetGlyph(font, ' ', NULL);
         wordStart = vertexCount;
-        x += codepoint == '\t' ? glyph->advance * 4.f : glyph->advance;
+        x += codepoint == '\t' ? space->advance * 4.f : space->advance;
         previous = '\0';
         str += bytes;
         continue;
@@ -3549,7 +3534,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
         y -= dy;
       }
 
-      // Ignore bearing for the first character on a line so it lines up perfectly (questionable)
+      // Ignore bearing for the first character on a line (questionable)
       if (vertexCount == lineStart) {
         x -= glyph->box[0];
       }
