@@ -144,6 +144,7 @@ struct Blob;
 struct Image;
 struct Blob* luax_readblob(struct lua_State* L, int index, const char* debug);
 struct Image* luax_checkimage(struct lua_State* L, int index);
+uint32_t luax_checkcodepoint(struct lua_State* L, int index);
 #endif
 
 #ifndef LOVR_DISABLE_EVENT
@@ -158,9 +159,11 @@ void* luax_readfile(const char* filename, size_t* bytesRead);
 
 #ifndef LOVR_DISABLE_GRAPHICS
 struct Buffer;
+struct ColoredString;
 void luax_readbufferfield(struct lua_State* L, int index, int type, void* data);
 void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer, char* data);
 uint32_t luax_checkcomparemode(struct lua_State* L, int index);
+struct ColoredString* luax_checkcoloredstrings(struct lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
 #endif
 
 #ifndef LOVR_DISABLE_MATH

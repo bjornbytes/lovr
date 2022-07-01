@@ -4,6 +4,28 @@
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <stdlib.h>
+
+ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, ColoredString* stack) {
+  if (lua_istable(L, index)) {
+    *count = luax_len(L, index) / 2;
+    ColoredString* strings = malloc(*count * sizeof(*strings));
+    lovrAssert(strings, "Out of memory");
+    for (uint32_t i = 0; i < *count; i++) {
+      lua_rawgeti(L, index, i * 2 + 1);
+      lua_rawgeti(L, index, i * 2 + 2);
+      luax_optcolor(L, -2, strings[i].color);
+      lovrCheck(lua_isstring(L, -1), "Expected a string to print");
+      strings[i].string = luaL_checklstring(L, -1, &strings[i].length);
+      lua_pop(L, 2);
+    }
+    return strings;
+  } else {
+    stack->string = luaL_checklstring(L, index, &stack->length);
+    stack->color[0] = stack->color[1] = stack->color[2] = stack->color[3] = 1.f;
+    return *count = 1, stack;
+  }
+}
 
 static int l_lovrFontGetRasterizer(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
@@ -40,15 +62,6 @@ static int l_lovrFontSetLineSpacing(lua_State* L) {
   return 0;
 }
 
-static int l_lovrFontGetHeight(lua_State* L) {
-  Font* font = luax_checktype(L, 1, Font);
-  const FontInfo* info = lovrFontGetInfo(font);
-  float density = lovrFontGetPixelDensity(font);
-  float height = lovrRasterizerGetHeight(info->rasterizer);
-  lua_pushnumber(L, height / density);
-  return 1;
-}
-
 static int l_lovrFontGetAscent(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   const FontInfo* info = lovrFontGetInfo(font);
@@ -67,21 +80,51 @@ static int l_lovrFontGetDescent(lua_State* L) {
   return 1;
 }
 
-static int l_lovrFontGetLineGap(lua_State* L) {
+static int l_lovrFontGetHeight(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   const FontInfo* info = lovrFontGetInfo(font);
   float density = lovrFontGetPixelDensity(font);
-  float lineGap = lovrRasterizerGetLineGap(info->rasterizer);
-  lua_pushnumber(L, lineGap / density);
+  float height = lovrRasterizerGetLeading(info->rasterizer);
+  lua_pushnumber(L, height / density);
   return 1;
 }
 
-static int l_lovrFontGetLeading(lua_State* L) {
+static int l_lovrFontGetKerning(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
-  const FontInfo* info = lovrFontGetInfo(font);
+  uint32_t left = luax_checkcodepoint(L, 2);
+  uint32_t right = luax_checkcodepoint(L, 3);
+  float kerning = lovrFontGetKerning(font, left, right);
   float density = lovrFontGetPixelDensity(font);
-  float leading = lovrRasterizerGetLeading(info->rasterizer);
-  lua_pushnumber(L, leading / density);
+  lua_pushnumber(L, kerning / density);
+  return 1;
+}
+
+static void online(void* context, const char* string, size_t length) {
+  lua_State* L = context;
+  int index = luax_len(L, -1) + 1;
+  lua_pushlstring(L, string, length);
+  lua_rawseti(L, -2, index);
+}
+
+static int l_lovrFontGetLines(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  uint32_t count;
+  ColoredString stack;
+  ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
+  float wrap = luax_checkfloat(L, 3);
+  lua_newtable(L);
+  lovrFontGetLines(font, strings, 1, wrap, online, L);
+  if (strings != &stack) free(strings);
+  return 1;
+}
+
+static int l_lovrFontGetWidth(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  uint32_t count;
+  ColoredString stack;
+  ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
+  float width = lovrFontGetWidth(font, strings, count);
+  lua_pushnumber(L, width);
   return 1;
 }
 
@@ -91,10 +134,11 @@ const luaL_Reg lovrFont[] = {
   { "setPixelDensity", l_lovrFontSetPixelDensity },
   { "getLineSpacing", l_lovrFontGetLineSpacing },
   { "setLineSpacing", l_lovrFontSetLineSpacing },
-  { "getHeight", l_lovrFontGetHeight },
   { "getAscent", l_lovrFontGetAscent },
   { "getDescent", l_lovrFontGetDescent },
-  { "getLineGap", l_lovrFontGetLineGap },
-  { "getLeading", l_lovrFontGetLeading },
+  { "getHeight", l_lovrFontGetHeight },
+  { "getKerning", l_lovrFontGetKerning },
+  { "getWidth", l_lovrFontGetWidth },
+  { "getLines", l_lovrFontGetLines },
   { NULL, NULL }
 };

@@ -6,6 +6,7 @@
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int l_lovrPassGetType(lua_State* L) {
@@ -555,14 +556,16 @@ static int l_lovrPassText(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Font* font = luax_totype(L, 2, Font);
   int index = font ? 3 : 2;
-  size_t length;
-  const char* text = luaL_checklstring(L, index++, &length);
+  uint32_t count;
+  ColoredString stack;
+  ColoredString* strings = luax_checkcoloredstrings(L, index++, &count, &stack);
   float transform[16];
   index = luax_readmat4(L, index++, transform, 1);
   float wrap = luax_optfloat(L, index++, 0.);
   HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
-  lovrPassText(pass, font, text, (uint32_t)length, transform, wrap, halign, valign);
+  lovrPassText(pass, font, strings, count, transform, wrap, halign, valign);
+  if (strings != &stack) free(strings);
   return 0;
 }
 
@@ -703,7 +706,7 @@ static int l_lovrPassCopy(lua_State* L) {
     return 0;
   }
 
-  Image* image = luax_checktype(L, 2, Image);
+  Image* image = luax_totype(L, 2, Image);
 
   if (image) {
     Texture* texture = luax_checktype(L, 3, Texture);
@@ -725,7 +728,7 @@ static int l_lovrPassCopy(lua_State* L) {
     return 0;
   }
 
-  Texture* texture = luax_checktype(L, 2, Texture);
+  Texture* texture = luax_totype(L, 2, Texture);
 
   if (texture) {
     Texture* dst = luax_checktype(L, 3, Texture);
@@ -747,7 +750,18 @@ static int l_lovrPassCopy(lua_State* L) {
     return 0;
   }
 
-  return luax_typeerror(L, 2, "Blob, Buffer, Image, or Texture");
+  Tally* tally = luax_totype(L, 2, Tally);
+
+  if (tally) {
+    Buffer* buffer = luax_checktype(L, 3, Buffer);
+    uint32_t srcIndex = luax_optu32(L, 4, 0);
+    uint32_t dstOffset = luax_optu32(L, 5, 0);
+    uint32_t count = luax_optu32(L, 5, ~0u);
+    lovrPassCopyTallyToBuffer(pass, tally, buffer, srcIndex, dstOffset, count);
+    return 0;
+  }
+
+  return luax_typeerror(L, 2, "table, Blob, Buffer, Image, Texture, or Tally");
 }
 
 static int l_lovrPassBlit(lua_State* L) {

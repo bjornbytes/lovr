@@ -14,6 +14,7 @@ typedef struct Sampler Sampler;
 typedef struct Shader Shader;
 typedef struct Material Material;
 typedef struct Font Font;
+typedef struct Tally Tally;
 typedef struct Pass Pass;
 
 typedef uint32_t graphics_size;
@@ -331,6 +332,24 @@ typedef struct {
   double spread;
 } FontInfo;
 
+typedef struct ColoredString {
+  float color[4];
+  const char* string;
+  size_t length;
+} ColoredString;
+
+typedef enum {
+  ALIGN_LEFT,
+  ALIGN_CENTER,
+  ALIGN_RIGHT
+} HorizontalAlign;
+
+typedef enum {
+  ALIGN_TOP,
+  ALIGN_MIDDLE,
+  ALIGN_BOTTOM
+} VerticalAlign;
+
 Font* lovrFontCreate(FontInfo* info);
 void lovrFontDestroy(void* ref);
 const FontInfo* lovrFontGetInfo(Font* font);
@@ -338,6 +357,27 @@ float lovrFontGetPixelDensity(Font* font);
 void lovrFontSetPixelDensity(Font* font, float pixelDensity);
 float lovrFontGetLineSpacing(Font* font);
 void lovrFontSetLineSpacing(Font* font, float spacing);
+float lovrFontGetKerning(Font* font, uint32_t left, uint32_t right);
+float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count);
+void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context);
+
+// Tally
+
+typedef enum {
+  TALLY_TIMER,
+  TALLY_PIXEL,
+  TALLY_PIPELINE
+} TallyType;
+
+typedef struct {
+  TallyType type;
+  uint32_t count;
+  uint32_t views;
+} TallyInfo;
+
+Tally* lovrTallyCreate(TallyInfo* info);
+void lovrTallyDestroy(void* ref);
+const TallyInfo* lovrTallyGetInfo(Tally* tally);
 
 // Pass
 
@@ -380,12 +420,6 @@ typedef enum {
 } DrawStyle;
 
 typedef enum {
-  ALIGN_LEFT,
-  ALIGN_CENTER,
-  ALIGN_RIGHT
-} HorizontalAlign;
-
-typedef enum {
   STENCIL_KEEP,
   STENCIL_ZERO,
   STENCIL_REPLACE,
@@ -401,12 +435,6 @@ typedef enum {
   VERTEX_LINES,
   VERTEX_TRIANGLES
 } VertexMode;
-
-typedef enum {
-  ALIGN_TOP,
-  ALIGN_MIDDLE,
-  ALIGN_BOTTOM
-} VerticalAlign;
 
 typedef enum {
   WINDING_COUNTERCLOCKWISE,
@@ -486,7 +514,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
 void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t segmentsV);
 void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, float angle2, uint32_t segments);
 void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t segmentsP);
-void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrPassFill(Pass* pass, Texture* texture);
 void lovrPassMonkey(Pass* pass, float* transform);
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances);
@@ -496,7 +524,10 @@ void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t e
 void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
 void* lovrPassCopyDataToBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);
+void lovrPassCopyTallyToBuffer(Pass* pass, Tally* src, Buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count);
 void lovrPassCopyImageToTexture(Pass* pass, struct Image* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
 void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count);
+void lovrPassTick(Pass* pass, Tally* tally, uint32_t index);
+void lovrPassTock(Pass* pass, Tally* tally, uint32_t index);

@@ -9,13 +9,12 @@
 
 struct Rasterizer {
   uint32_t ref;
-  struct Blob* blob;
   float size;
   float scale;
   float ascent;
   float descent;
-  float lineGap;
   float leading;
+  struct Blob* blob;
   stbtt_fontinfo font;
 };
 
@@ -35,11 +34,11 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
   rasterizer->size = size;
   rasterizer->scale = stbtt_ScaleForMappingEmToPixels(font, size);
 
+  // Even though line gap is a thing, it's usually zero so we pretend it isn't real
   int ascent, descent, lineGap;
   stbtt_GetFontVMetrics(font, &ascent, &descent, &lineGap);
   rasterizer->ascent = ascent * rasterizer->scale;
   rasterizer->descent = descent * rasterizer->scale;
-  rasterizer->lineGap = lineGap * rasterizer->scale;
   rasterizer->leading = (ascent - descent + lineGap) * rasterizer->scale;
 
   return rasterizer;
@@ -53,15 +52,6 @@ void lovrRasterizerDestroy(void* ref) {
 
 float lovrRasterizerGetFontSize(Rasterizer* rasterizer) {
   return rasterizer->size;
-}
-
-void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]) {
-  int x0, y0, x1, y1;
-  stbtt_GetFontBoundingBox(&rasterizer->font, &x0, &y0, &x1, &y1);
-  box[0] = x0 * rasterizer->scale;
-  box[1] = y0 * rasterizer->scale;
-  box[2] = x1 * rasterizer->scale;
-  box[3] = y1 * rasterizer->scale;
 }
 
 uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer) {
@@ -85,8 +75,8 @@ bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t len
   return true;
 }
 
-float lovrRasterizerGetHeight(Rasterizer* rasterizer) {
-  return rasterizer->ascent - rasterizer->descent;
+bool lovrRasterizerIsGlyphEmpty(Rasterizer* rasterizer, uint32_t codepoint) {
+  return stbtt_IsGlyphEmpty(&rasterizer->font, stbtt_FindGlyphIndex(&rasterizer->font, codepoint));
 }
 
 float lovrRasterizerGetAscent(Rasterizer* rasterizer) {
@@ -97,28 +87,33 @@ float lovrRasterizerGetDescent(Rasterizer* rasterizer) {
   return rasterizer->descent;
 }
 
-float lovrRasterizerGetLineGap(Rasterizer* rasterizer) {
-  return rasterizer->lineGap;
-}
-
 float lovrRasterizerGetLeading(Rasterizer* rasterizer) {
   return rasterizer->leading;
 }
 
-float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t prev, uint32_t next) {
-  return stbtt_GetCodepointKernAdvance(&rasterizer->font, prev, next) * rasterizer->scale;
-}
-
-float lovrRasterizerGetGlyphAdvance(Rasterizer* rasterizer, uint32_t codepoint) {
+float lovrRasterizerGetAdvance(Rasterizer* rasterizer, uint32_t codepoint) {
   int advance, bearing;
   stbtt_GetCodepointHMetrics(&rasterizer->font, codepoint, &advance, &bearing);
   return advance * rasterizer->scale;
 }
 
-float lovrRasterizerGetGlyphBearing(Rasterizer* rasterizer, uint32_t codepoint) {
+float lovrRasterizerGetBearing(Rasterizer* rasterizer, uint32_t codepoint) {
   int advance, bearing;
   stbtt_GetCodepointHMetrics(&rasterizer->font, codepoint, &advance, &bearing);
   return bearing * rasterizer->scale;
+}
+
+float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right) {
+  return stbtt_GetCodepointKernAdvance(&rasterizer->font, left, right) * rasterizer->scale;
+}
+
+void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]) {
+  int x0, y0, x1, y1;
+  stbtt_GetFontBoundingBox(&rasterizer->font, &x0, &y0, &x1, &y1);
+  box[0] = x0 * rasterizer->scale;
+  box[1] = y0 * rasterizer->scale;
+  box[2] = x1 * rasterizer->scale;
+  box[3] = y1 * rasterizer->scale;
 }
 
 void lovrRasterizerGetGlyphBoundingBox(Rasterizer* rasterizer, uint32_t codepoint, float box[4]) {
@@ -130,11 +125,7 @@ void lovrRasterizerGetGlyphBoundingBox(Rasterizer* rasterizer, uint32_t codepoin
   box[3] = y1 * rasterizer->scale;
 }
 
-bool lovrRasterizerIsGlyphEmpty(Rasterizer* rasterizer, uint32_t codepoint) {
-  return stbtt_IsGlyphEmpty(&rasterizer->font, stbtt_FindGlyphIndex(&rasterizer->font, codepoint));
-}
-
-bool lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context) {
+bool lovrRasterizerGetCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context) {
   uint32_t id = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
 
   if (stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
@@ -176,10 +167,10 @@ bool lovrRasterizerGetGlyphCurves(Rasterizer* rasterizer, uint32_t codepoint, vo
   return true;
 }
 
-bool lovrRasterizerGetGlyphPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread) {
+bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread) {
   int id = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
 
-  if (stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
+  if (!id || stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
     return false;
   }
 
