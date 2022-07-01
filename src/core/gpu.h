@@ -427,7 +427,7 @@ typedef struct {
 typedef struct {
   gpu_shader* shader;
   gpu_shader_flag* flags;
-  gpu_size flagCount;
+  uint32_t flagCount;
   gpu_draw_mode drawMode;
   gpu_vertex_format vertex;
   gpu_rasterizer_state rasterizer;

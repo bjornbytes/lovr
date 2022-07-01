@@ -23,12 +23,13 @@ uint32_t os_vk_create_surface(void* instance, void** surface);
 const char** os_vk_get_instance_extensions(uint32_t* count);
 
 #define MAX_FRAME_MEMORY (1 << 30)
+#define MAX_FRAME_MEMORY_STR "1 GiB"
 #define MAX_SHADER_RESOURCES 32
 #define MATERIALS_PER_BLOCK 1024
 
 // 1GB is a very specific number because the gpu.h limits are always at least this large.
 // If this constant ever goes up, we will need to fetch the gpu limit and compare.
-#define MAX_BUFFER_SIZE (MAX_FRAME_MEMORY)
+#define MAX_BUFFER_SIZE (1 << 30)
 #define MAX_BUFFER_SIZE_STR "1 GiB"
 
 typedef struct {
@@ -1603,7 +1604,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->info = *info;
   shader->layout = getLayout(slots, shader->resourceCount);
 
-  // Size conversion checked safe earlier in
+  // Size conversion checked safe earlier in function
   gpu_shader_info gpu = {
     .stages[0] = { info->stages[0]->data, (uint32_t)info->stages[0]->size },
     .stages[1] = { info->stages[1]->data, (uint32_t)info->stages[1]->size },
@@ -4049,7 +4050,7 @@ void lovrPassTock(Pass* pass, Tally* tally, uint32_t index) {
 // Helpers
 
 static void* tempAlloc(size_t size) {
-  lovrCheck(size < SIZE_MAX-MAX_FRAME_MEMORY, "Allocation over " MAX_BUFFER_SIZE_STR);
+  lovrCheck(size < SIZE_MAX-MAX_FRAME_MEMORY, "Allocation over " MAX_FRAME_MEMORY_STR);
   while (state.allocator.cursor + size > state.allocator.length) {
     lovrAssert(state.allocator.length << 1 <= MAX_FRAME_MEMORY, "Out of memory");
     os_vm_commit(state.allocator.memory + state.allocator.length, state.allocator.length);

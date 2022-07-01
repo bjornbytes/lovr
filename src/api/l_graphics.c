@@ -1050,7 +1050,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
           case LUA_TNUMBER: flag.id = lua_tointeger(L, -2); break;
           default: lovrThrow("Unexpected ShaderFlag key type (%s)", lua_typename(L, lua_type(L, -2)));
         }
-        lovrCheck(flags.length < ~((uint32_t)0), "Too many flags");
+        lovrCheck(flags.length < UINT32_MAX, "Too many flags");
         arr_push(&flags, flag);
         lua_pop(L, 1);
       }
