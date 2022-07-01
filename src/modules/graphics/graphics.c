@@ -1992,6 +1992,47 @@ float lovrFontGetKerning(Font* font, uint32_t left, uint32_t right) {
   return kerning.f32;
 }
 
+float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count) {
+  float x = 0.f;
+  float maxWidth = 0.f;
+  float space = lovrFontGetGlyph(font, ' ', NULL)->advance;
+
+  for (uint32_t i = 0; i < count; i++) {
+    size_t bytes;
+    uint32_t codepoint;
+    uint32_t previous = '\0';
+    const char* str = strings[i].string;
+    const char* end = strings[i].string + strings[i].length;
+    while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+      if (codepoint == ' ' || codepoint == '\t') {
+        x += codepoint == '\t' ? space * 4.f : space;
+        previous = '\0';
+        str += bytes;
+        continue;
+      } else if (codepoint == '\n') {
+        maxWidth = MAX(maxWidth, x);
+        x = 0.f;
+        previous = '\0';
+        str += bytes;
+        continue;
+      } else if (codepoint == '\r') {
+        str += bytes;
+        continue;
+      }
+
+      Glyph* glyph = lovrFontGetGlyph(font, codepoint, NULL);
+
+      if (previous) x += lovrFontGetKerning(font, previous, codepoint);
+      previous = codepoint;
+
+      x += glyph->advance;
+      str += bytes;
+    }
+  }
+
+  return MAX(maxWidth, x) / font->pixelDensity;
+}
+
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context) {
   size_t totalLength = 0;
   for (uint32_t i = 0; i < count; i++) {

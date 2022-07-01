@@ -118,6 +118,16 @@ static int l_lovrFontGetLines(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFontGetWidth(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  uint32_t count;
+  ColoredString stack;
+  ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
+  float width = lovrFontGetWidth(font, strings, count);
+  lua_pushnumber(L, width);
+  return 1;
+}
+
 const luaL_Reg lovrFont[] = {
   { "getRasterizer", l_lovrFontGetRasterizer },
   { "getPixelDensity", l_lovrFontGetPixelDensity },
@@ -128,6 +138,7 @@ const luaL_Reg lovrFont[] = {
   { "getDescent", l_lovrFontGetDescent },
   { "getHeight", l_lovrFontGetHeight },
   { "getKerning", l_lovrFontGetKerning },
+  { "getWidth", l_lovrFontGetWidth },
   { "getLines", l_lovrFontGetLines },
   { NULL, NULL }
 };
