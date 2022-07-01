@@ -1992,7 +1992,7 @@ float lovrFontGetKerning(Font* font, uint32_t left, uint32_t right) {
   return kerning.f32;
 }
 
-void lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context) {
+void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context) {
   size_t totalLength = 0;
   for (uint32_t i = 0; i < count; i++) {
     totalLength += strings[i].length;
@@ -2047,15 +2047,8 @@ void lovrFontGetWrap(Font* font, ColoredString* strings, uint32_t count, float w
     if (previous) x += lovrFontGetKerning(font, previous, codepoint);
     previous = codepoint;
 
-    // Ignore bearing for the first character on a line (questionable)
-    if (string == lineStart) {
-      x -= glyph->box[0];
-    } else if (string == wordStart) {
-      nextWordStartX += glyph->box[0]; // So wrapping accounts for bearing of first glyph
-    }
-
     // Wrap
-    if (wordStart != lineStart && x + glyph->box[2] > wrap) {
+    if (wordStart != lineStart && x + glyph->advance > wrap) {
       size_t length = wordStart - lineStart;
       while (string[length] == ' ' || string[length] == '\t') length--;
       callback(context, lineStart, length);
@@ -3447,9 +3440,9 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
   }
 }
 
-static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, HorizontalAlign align) {
+static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, float width, HorizontalAlign align) {
   if (align == ALIGN_LEFT) return;
-  float shift = align / 2.f * vertices[tail - 1].position.x;
+  float shift = align / 2.f * width;
   for (uint32_t i = head; i < tail; i++) {
     vertices[i].position.x -= shift;
   }
@@ -3474,6 +3467,8 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
 
   float x = 0.f;
   float y = 0.f;
+  float wordStartX = 0.f;
+  float prevWordEndX = 0.f;
   float leading = lovrRasterizerGetLeading(font->info.rasterizer) * font->lineSpacing;
   float ascent = lovrRasterizerGetAscent(font->info.rasterizer);
   float scale = 1.f / font->pixelDensity;
@@ -3492,17 +3487,21 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
 
     while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
       if (codepoint == ' ' || codepoint == '\t') {
+        if (previous) prevWordEndX = x;
         wordStart = vertexCount;
         x += codepoint == '\t' ? space * 4.f : space;
+        wordStartX = x;
         previous = '\0';
         str += bytes;
         continue;
       } else if (codepoint == '\n') {
-        aline(vertices, lineStart, vertexCount, halign);
+        aline(vertices, lineStart, vertexCount, x, halign);
         lineStart = vertexCount;
         wordStart = vertexCount;
         x = 0.f;
         y -= leading;
+        wordStartX = 0.f;
+        prevWordEndX = 0.f;
         lineCount++;
         previous = '\0';
         str += bytes;
@@ -3526,8 +3525,8 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
       previous = codepoint;
 
       // Wrap
-      if (wrap > 0.f && x + glyph->box[2] > wrap && wordStart != lineStart) {
-        float dx = wordStart == vertexCount ? x : vertices[wordStart].position.x;
+      if (wrap > 0.f && x + glyph->advance > wrap && wordStart != lineStart) {
+        float dx = wordStartX;
         float dy = leading;
 
         // Shift the vertices of the overflowing word down a line and back to the beginning
@@ -3536,16 +3535,12 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
           vertices[v].position.y -= dy;
         }
 
-        aline(vertices, lineStart, wordStart, halign);
+        aline(vertices, lineStart, wordStart, prevWordEndX, halign);
         lineStart = wordStart;
+        wordStartX = 0.f;
         lineCount++;
         x -= dx;
         y -= dy;
-      }
-
-      // Ignore bearing for the first character on a line (questionable)
-      if (vertexCount == lineStart) {
-        x -= glyph->box[0];
       }
 
       // Vertices
@@ -3564,7 +3559,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
   }
 
   // Align last line
-  aline(vertices, lineStart, vertexCount, halign);
+  aline(vertices, lineStart, vertexCount, x, halign);
 
   mat4_scale(transform, scale, scale, scale);
   mat4_translate(transform, 0.f, -ascent + valign / 2.f * (leading * lineCount), 0.f);

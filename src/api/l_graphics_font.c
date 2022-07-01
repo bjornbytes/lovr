@@ -106,14 +106,14 @@ static void online(void* context, const char* string, size_t length) {
   lua_rawseti(L, -2, index);
 }
 
-static int l_lovrFontGetWrap(lua_State* L) {
+static int l_lovrFontGetLines(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   uint32_t count;
   ColoredString stack;
   ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
   float wrap = luax_checkfloat(L, 3);
   lua_newtable(L);
-  lovrFontGetWrap(font, strings, 1, wrap, online, L);
+  lovrFontGetLines(font, strings, 1, wrap, online, L);
   if (strings != &stack) free(strings);
   return 1;
 }
@@ -128,6 +128,6 @@ const luaL_Reg lovrFont[] = {
   { "getDescent", l_lovrFontGetDescent },
   { "getHeight", l_lovrFontGetHeight },
   { "getKerning", l_lovrFontGetKerning },
-  { "getWrap", l_lovrFontGetWrap },
+  { "getLines", l_lovrFontGetLines },
   { NULL, NULL }
 };
