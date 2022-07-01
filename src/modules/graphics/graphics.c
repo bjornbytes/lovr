@@ -3843,11 +3843,18 @@ void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t s
 }
 
 void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
+  if (count == ~0u) count = tally->info.count;
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be copied to");
   lovrCheck(srcIndex + count <= tally->info.count, "Tally copy range exceeds the number of slots in the Tally");
   lovrCheck(dstOffset + count * 4 <= buffer->size, "Buffer copy range goes past the end of the destination Buffer");
   lovrCheck(dstOffset % 4 == 0, "Buffer copy offset must be a multiple of 4");
+
+  for (uint32_t i = 0; i < count; i++) {
+    uint32_t index = srcIndex + i;
+    lovrCheck(tally->masks[index / 64] & (1 << (index % 64)), "Trying to copy Tally slot %d, but it hasn't been marked yet", index + 1);
+  }
+
   if (tally->info.type == TALLY_TIMER) {
     gpu_copy_tally_buffer(pass->stream, tally->gpu, tally->buffer, srcIndex, 0, count, 4);
 

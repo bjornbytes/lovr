@@ -706,7 +706,7 @@ static int l_lovrPassCopy(lua_State* L) {
     return 0;
   }
 
-  Image* image = luax_checktype(L, 2, Image);
+  Image* image = luax_totype(L, 2, Image);
 
   if (image) {
     Texture* texture = luax_checktype(L, 3, Texture);
@@ -728,7 +728,7 @@ static int l_lovrPassCopy(lua_State* L) {
     return 0;
   }
 
-  Texture* texture = luax_checktype(L, 2, Texture);
+  Texture* texture = luax_totype(L, 2, Texture);
 
   if (texture) {
     Texture* dst = luax_checktype(L, 3, Texture);
@@ -750,7 +750,18 @@ static int l_lovrPassCopy(lua_State* L) {
     return 0;
   }
 
-  return luax_typeerror(L, 2, "Blob, Buffer, Image, or Texture");
+  Tally* tally = luax_totype(L, 2, Tally);
+
+  if (tally) {
+    Buffer* buffer = luax_checktype(L, 3, Buffer);
+    uint32_t srcIndex = luax_optu32(L, 4, 0);
+    uint32_t dstOffset = luax_optu32(L, 5, 0);
+    uint32_t count = luax_optu32(L, 5, ~0u);
+    lovrPassCopyTallyToBuffer(pass, tally, buffer, srcIndex, dstOffset, count);
+    return 0;
+  }
+
+  return luax_typeerror(L, 2, "table, Blob, Buffer, Image, Texture, or Tally");
 }
 
 static int l_lovrPassBlit(lua_State* L) {
