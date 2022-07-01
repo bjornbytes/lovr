@@ -26,6 +26,11 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 #define MAX_SHADER_RESOURCES 32
 #define MATERIALS_PER_BLOCK 1024
 
+// 1GB is a very specific number because the gpu.h limits are always at least this large.
+// If this constant ever goes up, we will need to fetch the gpu limit and compare.
+#define MAX_BUFFER_SIZE (MAX_FRAME_MEMORY)
+#define MAX_BUFFER_SIZE_STR "1 GiB"
+
 typedef struct {
   struct { float x, y, z; } position;
   struct { float x, y, z; } normal;
@@ -95,7 +100,7 @@ struct Shader {
   gpu_shader* gpu;
   ShaderInfo info;
   uint32_t layout;
-  uint32_t computePipeline;
+  size_t computePipeline;
   uint32_t bufferMask;
   uint32_t textureMask;
   uint32_t samplerMask;
@@ -266,7 +271,7 @@ typedef struct {
   void* next;
   gpu_bundle_pool* gpu;
   gpu_bundle* bundles;
-  uint32_t cursor;
+  graphics_size cursor;
   uint32_t tick;
 } BundlePool;
 
@@ -304,12 +309,12 @@ static struct {
   gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
   Material* defaultMaterial;
   uint32_t materialBlock;
-  arr_t(MaterialBlock) materialBlocks;
+  arr_t(MaterialBlock) materialBlocks; // When adding elements must not exceed UINT32_MAX
   arr_t(TempAttachment) attachments;
   arr_t(Pass*) passes;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
-  arr_t(Layout) layouts;
+  arr_t(Layout) layouts;  // When adding elements must not exceed UINT32_MAX
   uint32_t builtinLayout;
   uint32_t materialLayout;
   Allocator allocator;
@@ -620,6 +625,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->shaderConstantSize = MIN(state.limits.pushConstantSize, 256);
   limits->indirectDrawCount = state.limits.indirectDrawCount;
   limits->instances = state.limits.instances;
+  limits->maxBufferSize = MAX_BUFFER_SIZE;
   limits->anisotropy = state.limits.anisotropy;
   limits->pointSize = state.limits.pointSize;
 }
@@ -854,7 +860,7 @@ void lovrGraphicsWait() {
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
-  lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
+  lovrCheck(size <= MAX_BUFFER_SIZE, "Max buffer size is " MAX_BUFFER_SIZE_STR);
 
   Buffer* buffer = tempAlloc(sizeof(Buffer) + gpu_sizeof_buffer());
   buffer->ref = 1;
@@ -875,7 +881,7 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
 Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
   uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
-  lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
+  lovrCheck(size <= MAX_BUFFER_SIZE, "Max buffer size is " MAX_BUFFER_SIZE_STR);
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
   lovrAssert(buffer, "Out of memory");
@@ -987,7 +993,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   lovrCheck(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
   lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
   lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
-  lovrCheck(measureTexture(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB"); // TODO mip?
+  lovrCheck(measureTexture(info->format, info->width, info->height, info->depth) < MAX_BUFFER_SIZE, "Memory for a Texture can not exceed " MAX_BUFFER_SIZE_STR); // TODO mip?
   lovrCheck(info->samples == 1 || info->samples == 4, "Texture multisample count must be 1 or 4...for now");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "Volume textures can not be multisampled");
@@ -1018,13 +1024,16 @@ Texture* lovrTextureCreate(TextureInfo* info) {
     levelCount = lovrImageGetLevelCount(info->images[0]);
     lovrCheck(info->type != TEXTURE_3D || levelCount == 1, "Images used to initialize 3D textures can not have mipmaps");
 
-    uint32_t total = 0;
+    graphics_size total = 0;
     for (uint32_t level = 0; level < levelCount; level++) {
       levelOffsets[level] = total;
       uint32_t width = MAX(info->width >> level, 1);
       uint32_t height = MAX(info->height >> level, 1);
       levelSizes[level] = (graphics_size)measureTexture(info->format, width, height, info->depth);
+
+      graphics_size totalWas = total; // Check for overflow
       total += levelSizes[level];
+      lovrCheck(total >= totalWas && total < MAX_BUFFER_SIZE, "Max texture size is " MAX_BUFFER_SIZE_STR)
     }
 
     scratchpad = tempAlloc(gpu_sizeof_buffer());
@@ -1034,7 +1043,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
       for (uint32_t layer = 0; layer < info->depth; layer++) {
         Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
         uint32_t slice = info->imageCount == 1 ? layer : 0;
-        uint32_t size = lovrImageGetLayerSize(image, level);
+        size_t size = lovrImageGetLayerSize(image, level);
         lovrCheck(size == levelSizes[level], "Texture/Image size mismatch!");
         void* pixels = lovrImageGetLayerData(image, level, slice);
         memcpy(data, pixels, size);
@@ -1220,6 +1229,7 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
 Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
   uint32_t spirv = 0x07230203;
 
+  lovrCheck(source->size < INT_MAX, "Shader cannot be more than 2 GiB");
   if (source->size % 4 == 0 && source->size >= 4 && !memcmp(source->data, &spirv, 4)) {
     return lovrRetain(source), source;
   }
@@ -1252,7 +1262,7 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
   int lengths[] = {
     -1,
     etc_shaders_lovr_glsl_len,
-    source->size,
+    (int)source->size,
     -1
   };
 
@@ -1397,7 +1407,8 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   spv_result result;
   spv_info spv[2] = { 0 };
   for (uint32_t i = 0; i < stageCount; i++) {
-    result = spv_parse(info->stages[i]->data, info->stages[i]->size, &spv[i]);
+    lovrCheck(info->stages[i]->size < UINT32_MAX, "Shader too large");
+    result = spv_parse(info->stages[i]->data, (uint32_t)info->stages[i]->size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
     lovrCheck(spv[i].version <= 0x00010300, "Invalid SPIR-V version (up to 1.3 is supported)");
 
@@ -1407,7 +1418,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     spv[i].attributes = tempAlloc(spv[i].attributeCount * sizeof(spv_attribute));
     spv[i].resources = tempAlloc(spv[i].resourceCount * sizeof(spv_resource));
 
-    result = spv_parse(info->stages[i]->data, info->stages[i]->size, &spv[i]);
+    result = spv_parse(info->stages[i]->data, (uint32_t)info->stages[i]->size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
 
     checkShaderFeatures(spv[i].features, spv[i].featureCount);
@@ -1579,9 +1590,10 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->info = *info;
   shader->layout = getLayout(slots, shader->resourceCount);
 
+  // Size conversion checked safe earlier in
   gpu_shader_info gpu = {
-    .stages[0] = { info->stages[0]->data, info->stages[0]->size },
-    .stages[1] = { info->stages[1]->data, info->stages[1]->size },
+    .stages[0] = { info->stages[0]->data, (uint32_t)info->stages[0]->size },
+    .stages[1] = { info->stages[1]->data, (uint32_t)info->stages[1]->size },
     .pushConstantSize = shader->constantSize,
     .label = info->label
   };
@@ -1650,15 +1662,16 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
     for (size_t i = 0; i < state.materialBlocks.length; i++) {
       block = &state.materialBlocks.data[i];
       if (block->head != ~0u && gpu_finished(block->list[block->head].tick)) {
-        state.materialBlock = i;
+        state.materialBlock = (uint32_t)i;
         found = true;
         break;
       }
     }
 
     if (!found) {
+      lovrAssert(state.materialBlocks.length < UINT32_MAX, "Too many material blocks in system");
       arr_expand(&state.materialBlocks, 1);
-      state.materialBlock = state.materialBlocks.length++;
+      state.materialBlock = (uint32_t)state.materialBlocks.length++;
       block = &state.materialBlocks.data[state.materialBlock];
       block->list = malloc(MATERIALS_PER_BLOCK * sizeof(Material));
       block->buffer = malloc(gpu_sizeof_buffer());
@@ -3410,7 +3423,8 @@ static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, Horizonta
 
 void lovrPassText(Pass* pass, Font* font, const char* text, uint32_t length, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
   font = font ? font : lovrGraphicsGetDefaultFont();
-  uint32_t originalGlyphCount = font->glyphs.length;
+  lovrCheck(font->glyphs.length <= UINT32_MAX, "Font has impossibly large number of glyphs");
+  uint32_t originalGlyphCount = (uint32_t)font->glyphs.length;
 
   GlyphVertex* vertices = tempAlloc(length * 4 * sizeof(GlyphVertex));
   uint32_t vertexCount = 0;
@@ -3707,7 +3721,7 @@ void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint
   layerOffset += measureTexture(texture->info.format, srcOffset[0], 1, 1);
   size_t pitch = measureTexture(texture->info.format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
   gpu_buffer* buffer = tempAlloc(gpu_sizeof_buffer());
-  char* dst = gpu_map(buffer, totalSize, 64, GPU_MAP_WRITE);
+  char* dst = gpu_map(buffer, (gpu_size)totalSize, 64, GPU_MAP_WRITE);
   for (uint32_t z = 0; z < extent[2]; z++) {
     const char* src = (char*) lovrImageGetLayerData(image, srcOffset[3], z) + layerOffset;
     for (uint32_t y = 0; y < extent[1]; y++) {
@@ -3776,14 +3790,15 @@ void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count)
 // Helpers
 
 static void* tempAlloc(size_t size) {
+  lovrCheck(size < SIZE_MAX-MAX_FRAME_MEMORY, "Allocation over " MAX_BUFFER_SIZE_STR);
   while (state.allocator.cursor + size > state.allocator.length) {
     lovrAssert(state.allocator.length << 1 <= MAX_FRAME_MEMORY, "Out of memory");
     os_vm_commit(state.allocator.memory + state.allocator.length, state.allocator.length);
     state.allocator.length <<= 1;
   }
 
-  uint32_t cursor = ALIGN(state.allocator.cursor, 8);
-  state.allocator.cursor = cursor + size;
+  graphics_size cursor = ALIGN(state.allocator.cursor, 8);
+  state.allocator.cursor = (graphics_size)(cursor + size);
   return state.allocator.memory + cursor;
 }
 
@@ -3860,7 +3875,8 @@ static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
     .gpu = handle
   };
 
-  index = state.layouts.length;
+  lovrCheck(state.layouts.length < UINT32_MAX, "Too many layouts in system");
+  index = (uint32_t)state.layouts.length;
   arr_push(&state.layouts, layout);
   return index;
 }

@@ -1050,6 +1050,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
           case LUA_TNUMBER: flag.id = lua_tointeger(L, -2); break;
           default: lovrThrow("Unexpected ShaderFlag key type (%s)", lua_typename(L, lua_type(L, -2)));
         }
+        lovrCheck(flags.length < ~((uint32_t)0), "Too many flags");
         arr_push(&flags, flag);
         lua_pop(L, 1);
       }
@@ -1062,7 +1063,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   }
 
   info.flags = flags.data;
-  info.flagCount = (graphics_size)(flags.length);
+  info.flagCount = (uint32_t)(flags.length);
   Shader* shader = lovrShaderCreate(&info);
   lovrRelease(info.stages[0], lovrBlobDestroy);
   lovrRelease(info.stages[1], lovrBlobDestroy);

@@ -40,7 +40,7 @@ typedef enum {
   GPU_MAP_READ
 } gpu_map_mode;
 
-void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode);
+void* gpu_map(gpu_buffer* buffer, gpu_size size, gpu_size align, gpu_map_mode mode);
 
 // Texture
 

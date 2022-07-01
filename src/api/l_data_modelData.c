@@ -336,7 +336,8 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
     ModelAttribute* attribute = mesh->attributes[i];
     if (!attribute) continue;
 
-    uint32_t stride = model->buffers[attribute->buffer].stride;
+    lovrCheck(model->buffers[attribute->buffer].stride < UINT32_MAX, "Model buffer stride is impossibly large");
+    uint32_t stride = (uint32_t)model->buffers[attribute->buffer].stride;
 
     if (!stride) {
       switch (attribute->type) {
@@ -536,7 +537,7 @@ static int l_lovrModelDataGetAnimationChannelKeyframe(lua_State* L) {
   for (uint32_t i = 0; i < count; i++) {
     lua_pushnumber(L, channel->data[keyframe * count + i]);
   }
-  return count + 1;
+  return (int)(count + 1);
 }
 
 static int l_lovrModelDataGetSkinCount(lua_State* L) {

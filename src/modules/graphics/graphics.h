@@ -67,6 +67,7 @@ typedef struct {
   uint32_t shaderConstantSize;
   uint32_t indirectDrawCount;
   uint32_t instances;
+  graphics_size maxBufferSize;
   float anisotropy;
   float pointSize;
 } GraphicsLimits;
