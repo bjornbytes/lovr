@@ -36,7 +36,7 @@ static void onPermission(os_permission permission, bool granted) {
   });
 }
 
-static void onQuit() {
+static void onQuit(void) {
   lovrEventPush((Event) {
     .type = EVENT_QUIT,
     .data.quit.exitCode = 0

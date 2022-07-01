@@ -68,8 +68,10 @@ static uint32_t lovrSoundReadMp3(Sound* sound, uint32_t offset, uint32_t count, 
   }
 
   uint32_t channels = lovrSoundGetChannelCount(sound);
-  size_t samples = mp3dec_ex_read(sound->decoder, data, count * channels);
-  uint32_t frames = samples / channels;
+  uint32_t readSamples = (uint32_t)(count * channels);
+  lovrCheck(readSamples/count == channels, "Cannot request more than 2^32-1 samples of sound data at a time"); // Check for overflow
+  size_t samples = mp3dec_ex_read(sound->decoder, data, readSamples);
+  uint32_t frames = ((uint32_t)samples / channels);
   sound->cursor += frames;
   return frames;
 }
@@ -135,7 +137,9 @@ static bool loadOgg(Sound* sound, Blob* blob, bool decode) {
     void* data = calloc(1, size);
     lovrAssert(data, "Out of memory");
     sound->blob = lovrBlobCreate(data, size, "Sound");
-    if (stb_vorbis_get_samples_float_interleaved(sound->decoder, lovrSoundGetChannelCount(sound), data, size / sizeof(float)) < (int) sound->frames) {
+    size_t samples = size / sizeof(float);
+    lovrCheck(samples < INT_MAX, "Sound is too big to work with (somewhere over 2 GiB)");
+    if (stb_vorbis_get_samples_float_interleaved(sound->decoder, lovrSoundGetChannelCount(sound), data, (int)(samples)) < (int) sound->frames) {
       lovrThrow("Could not decode vorbis from '%s'", blob->name);
     }
     stb_vorbis_close(sound->decoder);
@@ -285,7 +289,9 @@ static bool loadMP3(Sound* sound, Blob* blob, bool decode) {
     sound->format = SAMPLE_F32;
     sound->sampleRate = info.hz;
     sound->layout = info.channels == 2 ? CHANNEL_STEREO : CHANNEL_MONO;
-    sound->frames = info.samples / info.channels;
+    size_t frames = info.samples / info.channels;
+    lovrCheck(frames < UINT32_MAX, "Sound is too long (2^32 or more samples)")
+    sound->frames = (uint32_t)frames;
     sound->read = lovrSoundReadRaw;
     return true;
   } else {

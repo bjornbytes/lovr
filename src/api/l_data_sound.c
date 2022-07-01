@@ -51,8 +51,9 @@ static int l_lovrSoundGetSampleRate(lua_State* L) {
 
 static int l_lovrSoundGetByteStride(lua_State* L) {
   Sound* sound = luax_checktype(L, 1, Sound);
-  uint32_t stride = lovrSoundGetStride(sound);
-  lua_pushinteger(L, stride);
+  size_t stride = lovrSoundGetStride(sound);
+  lovrCheck(stride < UINT32_MAX, "Sound contains impossibly many channels");
+  lua_pushinteger(L, (uint32_t)stride);
   return 1;
 }
 
@@ -125,7 +126,7 @@ static int l_lovrSoundGetFrames(lua_State* L) {
       uint32_t frames = 0;
       while (frames < count) {
         char buffer[4096];
-        uint32_t chunk = MIN(sizeof(buffer) / stride, count - frames);
+        uint32_t chunk = MIN((uint32_t)(sizeof(buffer) / stride), count - frames);
         uint32_t read = lovrSoundRead(sound, srcOffset + frames, chunk, buffer);
         uint32_t samples = read * channels;
         if (read == 0) break;
@@ -189,7 +190,9 @@ static int l_lovrSoundSetFrames(lua_State* L) {
     if (blob) {
       uint32_t srcOffset = luax_optu32(L, 5, 0);
       uint32_t dstOffset = luax_optu32(L, 4, 0);
-      uint32_t count = luax_optu32(L, 3, (blob->size - srcOffset) / stride);
+      size_t defaultCount = (blob->size - srcOffset) / stride;
+      lovrCheck(defaultCount <= UINT32_MAX, "Sound is too big to work with (somewhere over 4 GiB)");
+      uint32_t count = luax_optu32(L, 3, (uint32_t)defaultCount);
       uint32_t frames = lovrSoundWrite(sound, dstOffset, count, (char*) blob->data + srcOffset);
       lua_pushinteger(L, frames);
       return 1;
@@ -221,7 +224,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
   uint32_t frames = 0;
   while (frames < count) {
     char buffer[4096];
-    uint32_t chunk = MIN(sizeof(buffer) / stride, count - frames);
+    uint32_t chunk = MIN((uint32_t)(sizeof(buffer) / stride), count - frames);
     uint32_t samples = chunk * channels;
 
     if (format == SAMPLE_I16) {
