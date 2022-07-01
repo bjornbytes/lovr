@@ -309,6 +309,7 @@ static struct {
   Buffer* defaultBuffer;
   Texture* defaultTexture;
   Sampler* defaultSamplers[2];
+  Shader* timeWizard;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
   Material* defaultMaterial;
@@ -530,6 +531,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultTexture, lovrTextureDestroy);
   lovrRelease(state.defaultSamplers[0], lovrSamplerDestroy);
   lovrRelease(state.defaultSamplers[1], lovrSamplerDestroy);
+  lovrRelease(state.timeWizard, lovrShaderDestroy);
   for (uint32_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
     lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
   }
@@ -3857,6 +3859,16 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
       .clear = GPU_CACHE_STORAGE_READ
     }, 1);
 
+    if (!state.timeWizard) {
+      Blob* source = lovrBlobCreate((void*) lovr_shader_timewizard_comp, sizeof(lovr_shader_timewizard_comp), NULL);
+      state.timeWizard = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_COMPUTE,
+        .stages[0] = source,
+        .label = "Chronophage"
+      });
+      lovrRelease(source, lovrBlobDestroy);
+    }
+
     gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipeline];
     gpu_layout* layout = state.layouts.data[state.timeWizard->layout].gpu;
     gpu_shader* shader = state.timeWizard->gpu;
@@ -3870,16 +3882,18 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
     gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
     gpu_bundle_write(&bundle, &bundleInfo, 1);
 
-    struct { float timestampPeriod; uint32_t viewCount; } constants = {
-      .timestampPeriod = state.limits.timestampPeriod,
-      .viewCount = tally->info.views
+    struct { uint32_t first, count, views; float period; } constants = {
+      .first = srcIndex,
+      .count = count,
+      .views = tally->info.views,
+      .period = state.limits.timestampPeriod
     };
 
     gpu_compute_begin(pass->stream);
     gpu_bind_pipeline(pass->stream, pipeline, true);
     gpu_bind_bundle(pass->stream, shader, 0, bundle, NULL, 0);
     gpu_push_constants(pass->stream, shader, &constants, sizeof(constants));
-    gpu_compute(pass->stream, 0, 0, 0); // TODO use brain
+    gpu_compute(pass->stream, (count + 31) / 32, 0, 0);
     gpu_compute_end(pass->stream);
 
     trackBuffer(pass, buffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE);
