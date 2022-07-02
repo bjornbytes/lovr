@@ -189,9 +189,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
     if (blob) {
       uint32_t srcOffset = luax_optu32(L, 5, 0);
       uint32_t dstOffset = luax_optu32(L, 4, 0);
-      size_t defaultCount = (blob->size - srcOffset) / stride;
-      lovrCheck(defaultCount <= UINT32_MAX, "Sound is too big to work with (somewhere over 4 GiB)");
-      uint32_t count = luax_optu32(L, 3, (uint32_t)defaultCount);
+      lua_Integer count = luax_optinteger(L, 3, (blob->size - srcOffset) / stride);
       uint32_t frames = lovrSoundWrite(sound, dstOffset, count, (char*) blob->data + srcOffset);
       lua_pushinteger(L, frames);
       return 1;
