@@ -600,7 +600,8 @@ if(WIN32)
     set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244 /MP")
   else()
     set_target_properties(lovr PROPERTIES COMPILE_FLAGS "-MP")
-    # Excuse anonymous union for type punning    set_source_files_properties(src/util.c PROPERTIES COMPILE_FLAGS /wd4146)
+    # Excuse anonymous union for type punning
+    set_source_files_properties(src/util.c PROPERTIES COMPILE_FLAGS /wd4146)
     # Excuse unsigned negation for flag-magic bit math
     set_source_files_properties(src/modules/audio/audio.c PROPERTIES COMPILE_FLAGS /wd4116)
   endif()
