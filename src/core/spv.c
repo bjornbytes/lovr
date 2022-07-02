@@ -500,10 +500,35 @@ static spv_result spv_parse_push_constants(spv_context* spv, const uint32_t* op,
         }
         break;
       case 72: // OpMemberDecorate
-        if (length < 5 || op[1] > spv->bound) {
+        if (op[1] > spv->bound) {
           return SPV_INVALID;
-        } else if (op[1] == structure[1] && op[2] < info->pushConstantCount && op[3] == 35) { // Offset
+        } else if (length == 5 && op[1] == structure[1] && op[2] < info->pushConstantCount && op[3] == 35) { // Offset
           info->pushConstants[op[2]].offset = op[4];
+
+          uint32_t size = 0;
+          switch (info->pushConstants[op[2]].type) {
+            case SPV_B32: size = 4; break;
+            case SPV_I32: size = 4; break;
+            case SPV_I32x2: size = 8; break;
+            case SPV_I32x3: size = 12; break;
+            case SPV_I32x4: size = 16; break;
+            case SPV_U32: size = 4; break;
+            case SPV_U32x2: size = 8; break;
+            case SPV_U32x3: size = 12; break;
+            case SPV_U32x4: size = 16; break;
+            case SPV_F32: size = 4; break;
+            case SPV_F32x2: size = 8; break;
+            case SPV_F32x3: size = 12; break;
+            case SPV_F32x4: size = 16; break;
+            case SPV_MAT2: size = 16; break;
+            case SPV_MAT3: size = 36; break;
+            case SPV_MAT4: size = 64; break;
+            default: break;
+          }
+
+          if (info->pushConstantSize < op[4] + size) {
+            info->pushConstantSize = op[4] + size;
+          }
         }
         break;
       case 59: // OpVariable, can exit

@@ -1433,7 +1433,6 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   lovrAssert(shader->constants && shader->resources && shader->attributes, "Out of memory");
   lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
 
-
   // Push constants
   for (uint32_t i = 0; i < spv[constantStage].pushConstantCount; i++) {
     static const FieldType constantTypes[] = {
@@ -2828,6 +2827,7 @@ void lovrPassSendValue(Pass* pass, const char* name, size_t length, void** data,
       *data = (char*) pass->constants + shader->constants[i].offset;
       *type = shader->constants[i].type;
       pass->constantsDirty = true;
+      return;
     }
   }
 
