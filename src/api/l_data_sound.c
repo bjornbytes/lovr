@@ -52,8 +52,7 @@ static int l_lovrSoundGetSampleRate(lua_State* L) {
 static int l_lovrSoundGetByteStride(lua_State* L) {
   Sound* sound = luax_checktype(L, 1, Sound);
   size_t stride = lovrSoundGetStride(sound);
-  lovrCheck(stride < UINT32_MAX, "Sound contains impossibly many channels");
-  lua_pushinteger(L, (uint32_t)stride);
+  lua_pushinteger(L, stride);
   return 1;
 }
 
