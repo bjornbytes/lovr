@@ -520,6 +520,7 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
   cleanupPasses();
+  arr_free(&state.passes);
   lovrRelease(state.window, lovrTextureDestroy);
   for (uint32_t i = 0; i < state.attachments.length; i++) {
     gpu_texture_destroy(state.attachments.data[i].texture);
@@ -840,6 +841,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   gpu_submit(streams, total);
 
   cleanupPasses();
+  arr_clear(&state.passes);
 
   if (state.window) {
     state.window->gpu = NULL;
@@ -4062,7 +4064,6 @@ static void beginFrame(void) {
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin("Internal uploads");
   state.allocator.cursor = 0;
-  arr_clear(&state.passes);
 }
 
 // Clean up ALL passes created during the frame, even unsubmitted ones
