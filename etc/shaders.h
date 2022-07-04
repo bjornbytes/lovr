@@ -2,6 +2,7 @@
 #include "shaders/unlit.frag.h"
 #include "shaders/font.frag.h"
 #include "shaders/fill.vert.h"
+#include "shaders/animator.comp.h"
 #include "shaders/timewizard.comp.h"
 
 #include "shaders/lovr.glsl.h"

@@ -1494,7 +1494,7 @@ static struct ModelData* openxr_newModelData(Device device, bool animated) {
       [ATTR_POSITION] = &model->attributes[0],
       [ATTR_NORMAL] = &model->attributes[1],
       [ATTR_TEXCOORD] = &model->attributes[2],
-      [ATTR_BONES] = &model->attributes[3],
+      [ATTR_JOINTS] = &model->attributes[3],
       [ATTR_WEIGHTS] = &model->attributes[4]
     },
     .indices = &model->attributes[5],

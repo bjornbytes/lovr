@@ -7,6 +7,7 @@
 struct Blob;
 struct Image;
 struct Rasterizer;
+struct ModelData;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
@@ -14,6 +15,7 @@ typedef struct Sampler Sampler;
 typedef struct Shader Shader;
 typedef struct Material Material;
 typedef struct Font Font;
+typedef struct Model Model;
 typedef struct Tally Tally;
 typedef struct Pass Pass;
 
@@ -358,6 +360,30 @@ float lovrFontGetKerning(Font* font, uint32_t left, uint32_t right);
 float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count);
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context);
 
+// Model
+
+typedef struct {
+  struct ModelData* data;
+  bool mipmaps;
+} ModelInfo;
+
+typedef enum {
+  SPACE_LOCAL,
+  SPACE_GLOBAL
+} CoordinateSpace;
+
+Model* lovrModelCreate(ModelInfo* info);
+void lovrModelDestroy(void* ref);
+struct ModelData* lovrModelGetModelData(Model* model);
+void lovrModelResetPose(Model* model);
+void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha);
+void lovrModelGetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], CoordinateSpace space);
+void lovrModelSetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], float alpha);
+Texture* lovrModelGetTexture(Model* model, uint32_t index);
+Material* lovrModelGetMaterial(Model* model, uint32_t index);
+Buffer* lovrModelGetVertexBuffer(Model* model);
+Buffer* lovrModelGetIndexBuffer(Model* model);
+
 // Tally
 
 typedef enum {
@@ -514,6 +540,7 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
 void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrPassFill(Pass* pass, Texture* texture);
 void lovrPassMonkey(Pass* pass, float* transform);
+void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node, bool recurse, uint32_t instances);
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances);
 void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);

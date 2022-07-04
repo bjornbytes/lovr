@@ -4,6 +4,7 @@
 #include "data/rasterizer.h"
 #include "data/sound.h"
 #include "data/image.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>
@@ -33,7 +34,7 @@ StringEntry lovrDefaultAttribute[] = {
   [ATTR_TEXCOORD] = ENTRY("texcoord"),
   [ATTR_COLOR] = ENTRY("color"),
   [ATTR_TANGENT] = ENTRY("tangent"),
-  [ATTR_BONES] = ENTRY("bones"),
+  [ATTR_JOINTS] = ENTRY("joints"),
   [ATTR_WEIGHTS] = ENTRY("weights"),
   { 0 }
 };

@@ -237,6 +237,8 @@ static spv_result spv_parse_spec_constant(spv_context* spv, const uint32_t* op, 
 
     if (spv->cache[id].flag.name != 0xffff) {
       constant->name = (char*) (spv->words + spv->cache[id].flag.name);
+    } else {
+      constant->name = NULL;
     }
 
     if (OP_CODE(op) == 50) { // OpSpecConstant

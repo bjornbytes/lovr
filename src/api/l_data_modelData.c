@@ -1,6 +1,7 @@
 #include "api.h"
 #include "data/modelData.h"
 #include "core/maf.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 
@@ -193,6 +194,17 @@ static int l_lovrModelDataGetNodeTransform(lua_State* L) {
     lua_pushnumber(L, az);
   }
   return 10;
+}
+
+static int l_lovrModelDataGetNodeParent(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelNode* node = luax_checknode(L, 2, model);
+  if (node->parent == ~0u) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, node->parent + 1);
+  }
+  return 1;
 }
 
 static int l_lovrModelDataGetNodeChildren(lua_State* L) {
@@ -584,6 +596,7 @@ const luaL_Reg lovrModelData[] = {
   { "getNodeOrientation", l_lovrModelDataGetNodeOrientation },
   { "getNodeScale", l_lovrModelDataGetNodeScale },
   { "getNodeTransform", l_lovrModelDataGetNodeTransform },
+  { "getNodeParent", l_lovrModelDataGetNodeParent },
   { "getNodeChildren", l_lovrModelDataGetNodeChildren },
   { "getNodeMeshes", l_lovrModelDataGetNodeMeshes },
   { "getNodeSkin", l_lovrModelDataGetNodeSkin },

@@ -2,6 +2,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "util.h"
 #include <lua.h>
@@ -41,6 +42,12 @@ StringEntry lovrCompareMode[] = {
   [COMPARE_LEQUAL] = ENTRY("lequal"),
   [COMPARE_GREATER] = ENTRY("greater"),
   [COMPARE_GEQUAL] = ENTRY("gequal"),
+  { 0 }
+};
+
+StringEntry lovrCoordinateSpace[] = {
+  [SPACE_LOCAL] = ENTRY("local"),
+  [SPACE_GLOBAL] = ENTRY("global"),
   { 0 }
 };
 
@@ -1269,6 +1276,32 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewModel(lua_State* L) {
+  ModelInfo info = { 0 };
+  info.data = luax_totype(L, 1, ModelData);
+  info.mipmaps = true;
+
+  if (!info.data) {
+    Blob* blob = luax_readblob(L, 1, "Model");
+    info.data = lovrModelDataCreate(blob, luax_readfile);
+    lovrRelease(blob, lovrBlobDestroy);
+  } else {
+    lovrRetain(info.data);
+  }
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "mipmaps");
+    info.mipmaps = lua_isnil(L, -1) || lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+
+  Model* model = lovrModelCreate(&info);
+  luax_pushtype(L, Model, model);
+  lovrRelease(info.data, lovrModelDataDestroy);
+  lovrRelease(model, lovrModelDestroy);
+  return 1;
+}
+
 static int l_lovrGraphicsGetPass(lua_State* L) {
   PassInfo info;
   info.type = luax_checkenum(L, 1, PassType, NULL);
@@ -1300,6 +1333,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "newShader", l_lovrGraphicsNewShader },
   { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newFont", l_lovrGraphicsNewFont },
+  { "newModel", l_lovrGraphicsNewModel },
   { "getPass", l_lovrGraphicsGetPass },
   { NULL, NULL }
 };
@@ -1310,6 +1344,7 @@ extern const luaL_Reg lovrSampler[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrFont[];
+extern const luaL_Reg lovrModel[];
 extern const luaL_Reg lovrPass[];
 
 int luaopen_lovr_graphics(lua_State* L) {
@@ -1321,6 +1356,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Shader);
   luax_registertype(L, Material);
   luax_registertype(L, Font);
+  luax_registertype(L, Model);
   luax_registertype(L, Pass);
   return 1;
 }

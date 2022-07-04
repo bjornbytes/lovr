@@ -22,7 +22,7 @@ typedef enum {
   ATTR_TEXCOORD,
   ATTR_COLOR,
   ATTR_TANGENT,
-  ATTR_BONES,
+  ATTR_JOINTS,
   ATTR_WEIGHTS,
   MAX_DEFAULT_ATTRIBUTES
 } DefaultAttribute;
@@ -43,6 +43,7 @@ typedef union {
 typedef struct {
   uint32_t offset;
   uint32_t buffer;
+  size_t stride;
   uint32_t count;
   AttributeType type;
   unsigned components : 3;
@@ -69,6 +70,7 @@ typedef struct {
   ModelAttribute* indices;
   DrawMode mode;
   uint32_t material;
+  uint32_t skin;
 } ModelPrimitive;
 
 typedef enum {
@@ -150,6 +152,7 @@ typedef struct {
 typedef struct {
   uint32_t* joints;
   uint32_t jointCount;
+  uint32_t vertexCount;
   float* inverseBindMatrices;
 } ModelSkin;
 
@@ -163,6 +166,7 @@ typedef struct {
       float scale[4];
     } properties;
   } transform;
+  uint32_t parent;
   uint32_t* children;
   uint32_t childCount;
   uint32_t primitiveIndex;
@@ -205,6 +209,11 @@ typedef struct ModelData {
   uint32_t jointCount;
   uint32_t charCount;
 
+  uint32_t vertexCount;
+  uint32_t skinnedVertexCount;
+  uint32_t indexCount;
+  AttributeType indexType;
+
   map_t animationMap;
   map_t materialMap;
   map_t nodeMap;
@@ -218,3 +227,4 @@ ModelData* lovrModelDataInitObj(ModelData* model, struct Blob* blob, ModelDataIO
 ModelData* lovrModelDataInitStl(ModelData* model, struct Blob* blob, ModelDataIO* io);
 void lovrModelDataDestroy(void* ref);
 void lovrModelDataAllocate(ModelData* model);
+void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char* dst, AttributeType type, uint32_t components, bool normalized, uint32_t count, size_t stride, uint8_t clear);
