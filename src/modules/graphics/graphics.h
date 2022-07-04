@@ -290,6 +290,7 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderHasStage(Shader* shader, ShaderStage stage);
+bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location);
 
 // Material
 

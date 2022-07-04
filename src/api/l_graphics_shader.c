@@ -48,9 +48,26 @@ static int l_lovrShaderHasStage(lua_State* L) {
   return 1;
 }
 
+static int l_lovrShaderHasAttribute(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  const char* name;
+  uint32_t location;
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    location = luax_checku32(L, 2);
+    name = NULL;
+  } else {
+    name = lua_tostring(L, 2);
+    location = 0;
+  }
+  bool present = lovrShaderHasAttribute(shader, name, location);
+  lua_pushboolean(L, present);
+  return 1;
+}
+
 const luaL_Reg lovrShader[] = {
   { "clone", l_lovrShaderClone },
   { "getType", l_lovrShaderGetType },
   { "hasStage", l_lovrShaderHasStage },
+  { "hasAttribute", l_lovrShaderHasAttribute },
   { NULL, NULL }
 };
