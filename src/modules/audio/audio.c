@@ -14,7 +14,6 @@
 #define CTZL __builtin_ctzl
 #endif
 
-// Mysterious "m ^= (m & -m)" construct zeroes the lowest nonzero bit.
 #define FOREACH_SOURCE(s) for (uint64_t m = state.sourceMask; s = m ? state.sources[CTZL(m)] : NULL, m; m ^= (m & -m))
 #define OUTPUT_FORMAT SAMPLE_F32
 #define OUTPUT_CHANNELS 2

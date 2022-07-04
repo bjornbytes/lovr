@@ -125,7 +125,7 @@ static int l_lovrSoundGetFrames(lua_State* L) {
       uint32_t frames = 0;
       while (frames < count) {
         char buffer[4096];
-        uint32_t chunk = MIN((uint32_t)(sizeof(buffer) / stride), count - frames);
+        uint32_t chunk = MIN((uint32_t) (sizeof(buffer) / stride), count - frames);
         uint32_t read = lovrSoundRead(sound, srcOffset + frames, chunk, buffer);
         uint32_t samples = read * channels;
         if (read == 0) break;
@@ -189,7 +189,8 @@ static int l_lovrSoundSetFrames(lua_State* L) {
     if (blob) {
       uint32_t srcOffset = luax_optu32(L, 5, 0);
       uint32_t dstOffset = luax_optu32(L, 4, 0);
-      lua_Integer count = luax_optinteger(L, 3, (blob->size - srcOffset) / stride);
+      uint32_t defaultCount = (uint32_t) MIN((blob->size - srcOffset) / stride, UINT32_MAX);
+      uint32_t count = luax_optu32(L, 3, defaultCount);
       uint32_t frames = lovrSoundWrite(sound, dstOffset, count, (char*) blob->data + srcOffset);
       lua_pushinteger(L, frames);
       return 1;
@@ -221,7 +222,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
   uint32_t frames = 0;
   while (frames < count) {
     char buffer[4096];
-    uint32_t chunk = MIN((uint32_t)(sizeof(buffer) / stride), count - frames);
+    uint32_t chunk = MIN((uint32_t) (sizeof(buffer) / stride), count - frames);
     uint32_t samples = chunk * channels;
 
     if (format == SAMPLE_I16) {

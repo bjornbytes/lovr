@@ -7,6 +7,7 @@
 #define MINIMP3_NO_STDIO
 #include "lib/minimp3/minimp3_ex.h"
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 
 static const ma_format miniaudioFormats[] = {
@@ -68,10 +69,8 @@ static uint32_t lovrSoundReadMp3(Sound* sound, uint32_t offset, uint32_t count, 
   }
 
   uint32_t channels = lovrSoundGetChannelCount(sound);
-  uint32_t readSamples = (uint32_t)(count * channels);
-  lovrCheck(readSamples/count == channels, "Cannot request more than 2^32-1 samples of sound data at a time"); // Check for overflow
-  size_t samples = mp3dec_ex_read(sound->decoder, data, readSamples);
-  uint32_t frames = ((uint32_t)samples / channels);
+  size_t samples = mp3dec_ex_read(sound->decoder, data, count * channels);
+  uint32_t frames = (uint32_t) (samples / channels);
   sound->cursor += frames;
   return frames;
 }
@@ -133,13 +132,13 @@ static bool loadOgg(Sound* sound, Blob* blob, bool decode) {
 
   if (decode) {
     sound->read = lovrSoundReadRaw;
+    uint32_t channels = lovrSoundGetChannelCount(sound);
+    lovrAssert(sound->frames * channels <= INT_MAX, "Decoded OGG file has too many samples");
     size_t size = sound->frames * lovrSoundGetStride(sound);
     void* data = calloc(1, size);
     lovrAssert(data, "Out of memory");
     sound->blob = lovrBlobCreate(data, size, "Sound");
-    size_t samples = size / sizeof(float);
-    lovrCheck(samples < INT_MAX, "Sound is too big to work with (somewhere over 2 GiB)");
-    if (stb_vorbis_get_samples_float_interleaved(sound->decoder, lovrSoundGetChannelCount(sound), data, (int)(samples)) < (int) sound->frames) {
+    if (stb_vorbis_get_samples_float_interleaved(sound->decoder, channels, data, size / sizeof(float)) < (int) sound->frames) {
       lovrThrow("Could not decode vorbis from '%s'", blob->name);
     }
     stb_vorbis_close(sound->decoder);
@@ -285,13 +284,12 @@ static bool loadMP3(Sound* sound, Blob* blob, bool decode) {
     mp3dec_file_info_t info;
     int status = mp3dec_load_buf(&decoder, blob->data, blob->size, &info, NULL, NULL);
     lovrAssert(!status, "Could not decode mp3 from '%s'", blob->name);
+    lovrAssert(info.samples / info.channels <= UINT32_MAX, "MP3 is too long");
     sound->blob = lovrBlobCreate(info.buffer, info.samples * sizeof(float), blob->name);
     sound->format = SAMPLE_F32;
     sound->sampleRate = info.hz;
     sound->layout = info.channels == 2 ? CHANNEL_STEREO : CHANNEL_MONO;
-    size_t frames = info.samples / info.channels;
-    lovrCheck(frames < UINT32_MAX, "Sound is too long (2^32 or more samples)")
-    sound->frames = (uint32_t)frames;
+    sound->frames = (uint32_t) (info.samples / info.channels);
     sound->read = lovrSoundReadRaw;
     return true;
   } else {
