@@ -3682,7 +3682,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
         uint16_t b = a + 1;
         uint16_t c = a + cols + 1;
         uint16_t d = a + cols + 2;
-        uint16_t cell[] = { a, b, c, c, b, d };
+        uint16_t cell[] = { a, c, b, b, c, d };
         memcpy(indices, cell, sizeof(cell));
         indices += COUNTOF(cell);
       }
