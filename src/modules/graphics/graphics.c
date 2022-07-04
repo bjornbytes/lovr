@@ -34,12 +34,6 @@ typedef struct {
 } ShapeVertex;
 
 typedef struct {
-  struct { float x, y; } position;
-  struct { uint16_t u, v; } uv;
-  struct { uint8_t r, g, b, a; } color;
-} GlyphVertex;
-
-typedef struct {
   struct { float x, y, z; } position;
   struct { float x, y, z; } normal;
   struct { float u, v; } uv;
@@ -4186,31 +4180,19 @@ static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, float wid
   }
 }
 
-void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
-  font = font ? font : lovrGraphicsGetDefaultFont();
-  float space = lovrFontGetGlyph(font, ' ', NULL)->advance;
-
-  size_t totalLength = 0;
-  for (uint32_t i = 0; i < count; i++) {
-    totalLength += strings[i].length;
-  }
-
-  uint32_t stack = tempPush();
-  GlyphVertex* vertices = tempAlloc(totalLength * 4 * sizeof(GlyphVertex));
+void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, float wrap, HorizontalAlign halign, VerticalAlign valign, GlyphVertex* vertices, uint32_t* glyphCount, uint32_t* lineCount, Material** material) {
   uint32_t vertexCount = 0;
-  uint32_t glyphCount = 0;
-  uint32_t lineCount = 1;
   uint32_t lineStart = 0;
   uint32_t wordStart = 0;
+  *glyphCount = 0;
+  *lineCount = 1;
 
   float x = 0.f;
   float y = 0.f;
   float wordStartX = 0.f;
   float prevWordEndX = 0.f;
   float leading = lovrRasterizerGetLeading(font->info.rasterizer) * font->lineSpacing;
-  float ascent = lovrRasterizerGetAscent(font->info.rasterizer);
-  float scale = 1.f / font->pixelDensity;
-  wrap /= scale;
+  float space = lovrFontGetGlyph(font, ' ', NULL)->advance;
 
   for (uint32_t i = 0; i < count; i++) {
     size_t bytes;
@@ -4240,7 +4222,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
         y -= leading;
         wordStartX = 0.f;
         prevWordEndX = 0.f;
-        lineCount++;
+        (*lineCount)++;
         previous = '\0';
         str += bytes;
         continue;
@@ -4253,8 +4235,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
       Glyph* glyph = lovrFontGetGlyph(font, codepoint, &resized);
 
       if (resized) {
-        tempPop(stack);
-        lovrPassText(pass, font, strings, count, transform, wrap, halign, valign);
+        lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, glyphCount, lineCount, material);
         return;
       }
 
@@ -4276,7 +4257,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
         aline(vertices, lineStart, wordStart, prevWordEndX, halign);
         lineStart = wordStart;
         wordStartX = 0.f;
-        lineCount++;
+        (*lineCount)++;
         x -= dx;
         y -= dy;
       }
@@ -4288,7 +4269,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
       vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[3] }, { uv[2], uv[1] }, { r, g, b, a } };
       vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[1] }, { uv[0], uv[3] }, { r, g, b, a } };
       vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[1] }, { uv[2], uv[3] }, { r, g, b, a } };
-      glyphCount++;
+      (*glyphCount)++;
 
       // Advance
       x += glyph->advance;
@@ -4298,6 +4279,30 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
 
   // Align last line
   aline(vertices, lineStart, vertexCount, x, halign);
+
+  *material = font->material;
+}
+
+void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+  font = font ? font : lovrGraphicsGetDefaultFont();
+
+  size_t totalLength = 0;
+  for (uint32_t i = 0; i < count; i++) {
+    totalLength += strings[i].length;
+  }
+
+  uint32_t stack = tempPush();
+  GlyphVertex* vertices = tempAlloc(totalLength * 4 * sizeof(GlyphVertex));
+  uint32_t glyphCount;
+  uint32_t lineCount;
+
+  float leading = lovrRasterizerGetLeading(font->info.rasterizer) * font->lineSpacing;
+  float ascent = lovrRasterizerGetAscent(font->info.rasterizer);
+  float scale = 1.f / font->pixelDensity;
+  wrap /= scale;
+
+  Material* material;
+  lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material);
 
   mat4_scale(transform, scale, scale, scale);
   mat4_translate(transform, 0.f, -ascent + valign / 2.f * (leading * lineCount), 0.f);
@@ -4309,13 +4314,13 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
     .material = font->material,
     .transform = transform,
     .vertex.format = VERTEX_GLYPH,
-    .vertex.count = vertexCount,
+    .vertex.count = glyphCount * 4,
     .vertex.data = vertices,
     .index.count = glyphCount * 6,
     .index.pointer = (void**) &indices
   });
 
-  for (uint32_t i = 0; i < vertexCount; i += 4) {
+  for (uint32_t i = 0; i < glyphCount * 4; i += 4) {
     uint16_t quad[] = { i + 0, i + 2, i + 1, i + 1, i + 2, i + 3 };
     memcpy(indices, quad, sizeof(quad));
     indices += COUNTOF(quad);

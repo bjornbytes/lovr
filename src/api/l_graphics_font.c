@@ -106,6 +106,16 @@ static void online(void* context, const char* string, size_t length) {
   lua_rawseti(L, -2, index);
 }
 
+static int l_lovrFontGetWidth(lua_State* L) {
+  Font* font = luax_checktype(L, 1, Font);
+  uint32_t count;
+  ColoredString stack;
+  ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
+  float width = lovrFontGetWidth(font, strings, count);
+  lua_pushnumber(L, width);
+  return 1;
+}
+
 static int l_lovrFontGetLines(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   uint32_t count;
@@ -118,14 +128,41 @@ static int l_lovrFontGetLines(lua_State* L) {
   return 1;
 }
 
-static int l_lovrFontGetWidth(lua_State* L) {
+static int l_lovrFontGetVertices(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   uint32_t count;
   ColoredString stack;
   ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
-  float width = lovrFontGetWidth(font, strings, count);
-  lua_pushnumber(L, width);
-  return 1;
+  float wrap = luax_checkfloat(L, 3);
+  HorizontalAlign halign = luax_checkenum(L, 4, HorizontalAlign, "center");
+  VerticalAlign valign = luax_checkenum(L, 5, VerticalAlign, "middle");
+  size_t totalLength = 0;
+  for (uint32_t i = 0; i < count; i++) {
+    totalLength += strings[i].length;
+  }
+  GlyphVertex* vertices = malloc(totalLength * 4 * sizeof(GlyphVertex));
+  lovrAssert(vertices, "Out of memory");
+  uint32_t glyphCount, lineCount;
+  Material* material;
+  lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material);
+  int vertexCount = glyphCount * 4;
+  lua_createtable(L, vertexCount, 0);
+  for (int i = 0; i < vertexCount; i++) {
+    lua_createtable(L, 4, 0);
+    lua_pushnumber(L, vertices[i].position.x);
+    lua_rawseti(L, -2, 1);
+    lua_pushnumber(L, vertices[i].position.y);
+    lua_rawseti(L, -2, 2);
+    lua_pushnumber(L, vertices[i].uv.u / 65535.f);
+    lua_rawseti(L, -2, 3);
+    lua_pushnumber(L, vertices[i].uv.v / 65535.f);
+    lua_rawseti(L, -2, 4);
+    lua_rawseti(L, -2, i + 1);
+  }
+  luax_pushtype(L, Material, material);
+  if (strings != &stack) free(strings);
+  free(vertices);
+  return 2;
 }
 
 const luaL_Reg lovrFont[] = {
@@ -140,5 +177,6 @@ const luaL_Reg lovrFont[] = {
   { "getKerning", l_lovrFontGetKerning },
   { "getWidth", l_lovrFontGetWidth },
   { "getLines", l_lovrFontGetLines },
+  { "getVertices", l_lovrFontGetVertices },
   { NULL, NULL }
 };

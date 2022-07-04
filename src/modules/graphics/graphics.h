@@ -367,6 +367,12 @@ typedef enum {
   ALIGN_BOTTOM
 } VerticalAlign;
 
+typedef struct {
+  struct { float x, y; } position;
+  struct { uint16_t u, v; } uv;
+  struct { uint8_t r, g, b, a; } color;
+} GlyphVertex;
+
 Font* lovrFontCreate(FontInfo* info);
 void lovrFontDestroy(void* ref);
 const FontInfo* lovrFontGetInfo(Font* font);
@@ -377,6 +383,7 @@ void lovrFontSetLineSpacing(Font* font, float spacing);
 float lovrFontGetKerning(Font* font, uint32_t first, uint32_t second);
 float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count);
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context);
+void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, float wrap, HorizontalAlign halign, VerticalAlign valign, GlyphVertex* vertices, uint32_t* glyphCount, uint32_t* lineCount, Material** material);
 
 // Model
 
