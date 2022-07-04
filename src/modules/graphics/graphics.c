@@ -183,17 +183,15 @@ typedef struct {
     Buffer* buffer;
     VertexFormat format;
     uint32_t count;
-    union {
-      void *data, **pointer;
-    };
+    const void* data;
+    void** pointer;
   } vertex;
   struct {
     Buffer* buffer;
     uint32_t count;
     uint32_t stride;
-    union {
-      void *data, **pointer;
-    };
+    const void* data;
+    void** pointer;
   } index;
   uint32_t start;
   uint32_t count;
