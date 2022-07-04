@@ -6,6 +6,7 @@
 
 void main() {
   FragColor = VertexColor * Color;
+  FragNormal = normalize(NormalMatrix * VertexNormal);
   FragUV = VertexUV;
   Position = DefaultPosition;
   PointSize = 1.f;

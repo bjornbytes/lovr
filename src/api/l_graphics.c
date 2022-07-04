@@ -60,6 +60,8 @@ StringEntry lovrCullMode[] = {
 
 StringEntry lovrDefaultShader[] = {
   [SHADER_UNLIT] = ENTRY("unlit"),
+  [SHADER_CUBE] = ENTRY("cube"),
+  [SHADER_FILL] = ENTRY("fill"),
   [SHADER_FONT] = ENTRY("font"),
   { 0 }
 };
@@ -911,7 +913,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  if (info.imageCount == 0 && info.depth == 0) {
+  if (info.depth == 0) {
     info.depth = info.type == TEXTURE_CUBE ? 6 : 1;
   }
 

@@ -253,8 +253,10 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
 typedef enum {
   SHADER_UNLIT,
-  SHADER_FONT,
+  SHADER_CUBE,
+  SHADER_PANO,
   SHADER_FILL,
+  SHADER_FONT,
   DEFAULT_SHADER_COUNT
 } DefaultShader;
 
@@ -540,6 +542,7 @@ void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t s
 void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, float angle2, uint32_t segments);
 void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t segmentsP);
 void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrPassSkybox(Pass* pass, Texture* texture);
 void lovrPassFill(Pass* pass, Texture* texture);
 void lovrPassMonkey(Pass* pass, float* transform);
 void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node, bool recurse, uint32_t instances);

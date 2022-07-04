@@ -60,11 +60,13 @@ layout(location = 0) out vec4 PixelColors[1];
 
 // Varyings
 #ifdef GL_VERTEX_SHADER
-layout(location = 10) out vec4 FragColor;
-layout(location = 11) out vec2 FragUV;
+layout(location = 10) out vec3 FragNormal;
+layout(location = 11) out vec4 FragColor;
+layout(location = 12) out vec2 FragUV;
 #else
-layout(location = 10) in vec4 FragColor;
-layout(location = 11) in vec2 FragUV;
+layout(location = 10) in vec3 FragNormal;
+layout(location = 11) in vec4 FragColor;
+layout(location = 12) in vec2 FragUV;
 #endif
 
 // Macros
@@ -97,7 +99,7 @@ layout(location = 11) in vec2 FragUV;
 #define ViewProjection cameras[ViewIndex].viewProjection
 #define InverseProjection cameras[ViewIndex].inverseProjection
 #define Transform draws[DrawId].transform
-#define NormalMatrix draws[DrawId].normalMatrix
+#define NormalMatrix mat3(draws[DrawId].normalMatrix)
 #define Color draws[DrawId].color
 
 #define ClipFromLocal (ViewProjection * Transform)

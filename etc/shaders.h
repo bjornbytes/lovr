@@ -2,6 +2,9 @@
 #include "shaders/unlit.frag.h"
 #include "shaders/font.frag.h"
 #include "shaders/fill.vert.h"
+#include "shaders/cubemap.vert.h"
+#include "shaders/cubemap.frag.h"
+#include "shaders/equirect.frag.h"
 #include "shaders/animator.comp.h"
 #include "shaders/timewizard.comp.h"
 

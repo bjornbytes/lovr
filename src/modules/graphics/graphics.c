@@ -1096,7 +1096,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
         Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
         uint32_t slice = info->imageCount == 1 ? layer : 0;
         uint32_t size = lovrImageGetLayerSize(image, level);
-        lovrCheck(size == levelSizes[level], "Texture/Image size mismatch!");
+        lovrCheck(size == levelSizes[level] / info->depth, "Texture/Image size mismatch!");
         void* pixels = lovrImageGetLayerData(image, level, slice);
         memcpy(data, pixels, size);
         data += size;
@@ -1426,15 +1426,25 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
       info.stages[1] = lovrBlobCreate((void*) lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag), "Unlit Fragment Shader");
       info.label = "unlit";
       break;
-    case SHADER_FONT:
-      info.stages[0] = lovrBlobCreate((void*) lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert), "Unlit Vertex Shader");
-      info.stages[1] = lovrBlobCreate((void*) lovr_shader_font_frag, sizeof(lovr_shader_font_frag), "Font Fragment Shader");
-      info.label = "font";
+    case SHADER_CUBE:
+      info.stages[0] = lovrBlobCreate((void*) lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert), "Cubemap Vertex Shader");
+      info.stages[1] = lovrBlobCreate((void*) lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag), "Cubemap Fragment Shader");
+      info.label = "cubemap";
+      break;
+    case SHADER_PANO:
+      info.stages[0] = lovrBlobCreate((void*) lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert), "Cubemap Vertex Shader");
+      info.stages[1] = lovrBlobCreate((void*) lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag), "Equirect Fragment Shader");
+      info.label = "equirect";
       break;
     case SHADER_FILL:
       info.stages[0] = lovrBlobCreate((void*) lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert), "Fill Vertex Shader");
       info.stages[1] = lovrBlobCreate((void*) lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag), "Unlit Fragment Shader");
       info.label = "fill";
+      break;
+    case SHADER_FONT:
+      info.stages[0] = lovrBlobCreate((void*) lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert), "Unlit Vertex Shader");
+      info.stages[1] = lovrBlobCreate((void*) lovr_shader_font_frag, sizeof(lovr_shader_font_frag), "Font Fragment Shader");
+      info.label = "font";
       break;
     default: lovrUnreachable();
   }
@@ -1832,7 +1842,7 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
   for (uint32_t i = 0; i < COUNTOF(textures); i++) {
     lovrRetain(textures[i]);
     Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
-    lovrCheck(texture->info.type == TEXTURE_2D, "Material textures must be 2D");
+    lovrCheck(i == 0 || texture->info.type == TEXTURE_2D, "Material textures must be 2D");
     bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture = texture->gpu };
   }
 
@@ -4187,6 +4197,26 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
   }
 
   tempPop(stack);
+}
+
+void lovrPassSkybox(Pass* pass, Texture* texture) {
+  if (texture->info.type == TEXTURE_2D) {
+    lovrPassDraw(pass, &(Draw) {
+      .mode = VERTEX_TRIANGLES,
+      .shader = SHADER_PANO,
+      .material = texture ? lovrTextureGetMaterial(texture) : NULL,
+      .vertex.format = VERTEX_EMPTY,
+      .count = 6
+    });
+  } else {
+    lovrPassDraw(pass, &(Draw) {
+      .mode = VERTEX_TRIANGLES,
+      .shader = SHADER_CUBE,
+      .material = texture ? lovrTextureGetMaterial(texture) : NULL,
+      .vertex.format = VERTEX_EMPTY,
+      .count = 6
+    });
+  }
 }
 
 void lovrPassFill(Pass* pass, Texture* texture) {

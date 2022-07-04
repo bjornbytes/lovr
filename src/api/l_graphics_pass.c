@@ -569,6 +569,13 @@ static int l_lovrPassText(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSkybox(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Texture* texture = luax_totype(L, 2, Texture);
+  lovrPassSkybox(pass, texture);
+  return 0;
+}
+
 static int l_lovrPassFill(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Texture* texture = luax_totype(L, 2, Texture);
@@ -864,6 +871,7 @@ const luaL_Reg lovrPass[] = {
   { "torus", l_lovrPassTorus },
   { "cylinder", l_lovrPassCylinder },
   { "text", l_lovrPassText },
+  { "skybox", l_lovrPassSkybox },
   { "fill", l_lovrPassFill },
   { "monkey", l_lovrPassMonkey },
   { "draw", l_lovrPassDraw },
