@@ -360,7 +360,7 @@ float lovrFontGetPixelDensity(Font* font);
 void lovrFontSetPixelDensity(Font* font, float pixelDensity);
 float lovrFontGetLineSpacing(Font* font);
 void lovrFontSetLineSpacing(Font* font, float spacing);
-float lovrFontGetKerning(Font* font, uint32_t left, uint32_t right);
+float lovrFontGetKerning(Font* font, uint32_t first, uint32_t second);
 float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count);
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context);
 

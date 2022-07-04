@@ -103,8 +103,8 @@ float lovrRasterizerGetBearing(Rasterizer* rasterizer, uint32_t codepoint) {
   return bearing * rasterizer->scale;
 }
 
-float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right) {
-  return stbtt_GetCodepointKernAdvance(&rasterizer->font, left, right) * rasterizer->scale;
+float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t first, uint32_t second) {
+  return stbtt_GetCodepointKernAdvance(&rasterizer->font, first, second) * rasterizer->scale;
 }
 
 void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]) {

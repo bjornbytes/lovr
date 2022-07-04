@@ -497,7 +497,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
     canvas.samples = lua_isnil(L, -1) ? canvas.samples : lua_tointeger(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, index, "mipmaps");
+    lua_getfield(L, index, "mipmap");
     canvas.mipmap = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
@@ -1258,11 +1258,11 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
     float size;
 
     if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
-      size = luax_optfloat(L, 1, 32.f);
+      size = luax_optfloat(L, 1, 32.);
       info.spread = luaL_optnumber(L, 2, info.spread);
     } else {
       blob = luax_readblob(L, 1, "Font");
-      size = luax_optfloat(L, 2, 32.f);
+      size = luax_optfloat(L, 2, 32.);
       info.spread = luaL_optnumber(L, 3, info.spread);
     }
 

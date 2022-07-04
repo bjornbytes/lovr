@@ -20,7 +20,7 @@ float lovrRasterizerGetDescent(Rasterizer* rasterizer);
 float lovrRasterizerGetLeading(Rasterizer* rasterizer);
 float lovrRasterizerGetAdvance(Rasterizer* rasterizer, uint32_t codepoint);
 float lovrRasterizerGetBearing(Rasterizer* rasterizer, uint32_t codepoint);
-float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t left, uint32_t right);
+float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t first, uint32_t second);
 void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]);
 void lovrRasterizerGetGlyphBoundingBox(Rasterizer* rasterizer, uint32_t codepoint, float box[4]);
 bool lovrRasterizerGetCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context);

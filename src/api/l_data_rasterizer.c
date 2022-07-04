@@ -99,9 +99,9 @@ static int l_lovrRasterizerGetBearing(lua_State* L) {
 
 static int l_lovrRasterizerGetKerning(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  uint32_t prev = luax_checkcodepoint(L, 2);
-  uint32_t next = luax_checkcodepoint(L, 3);
-  float kerning = lovrRasterizerGetKerning(rasterizer, prev, next);
+  uint32_t first = luax_checkcodepoint(L, 2);
+  uint32_t second = luax_checkcodepoint(L, 3);
+  float kerning = lovrRasterizerGetKerning(rasterizer, first, second);
   lua_pushnumber(L, kerning);
   return 1;
 }
