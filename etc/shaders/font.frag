@@ -20,5 +20,5 @@ void main() {
   float screenPxDistance = screenPxRange() * (sdf - .5);
   float alpha = clamp(screenPxDistance + .5, 0., 1.);
   if (alpha <= 0.) discard;
-  PixelColors[0] = vec4(FragColor.rgb, alpha);
+  PixelColors[0] = vec4(FragColor.rgb, FragColor.a * alpha);
 }
