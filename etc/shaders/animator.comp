@@ -47,4 +47,10 @@ void main() {
   vertexOut[vertexIndex].x = skinned.x;
   vertexOut[vertexIndex].y = skinned.y;
   vertexOut[vertexIndex].z = skinned.z;
+
+  vec3 normal = vec3(vertexIn[vertexIndex].nx, vertexIn[vertexIndex].ny, vertexIn[vertexIndex].nz);
+  vec3 skinnedNormal = mat3(matrix) * normal;
+  vertexOut[vertexIndex].nx = skinnedNormal.x;
+  vertexOut[vertexIndex].ny = skinnedNormal.y;
+  vertexOut[vertexIndex].nz = skinnedNormal.z;
 }

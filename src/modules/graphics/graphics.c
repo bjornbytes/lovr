@@ -4213,7 +4213,7 @@ static void renderNode(Pass* pass, Model* model, uint32_t index, bool recurse, u
 
   for (uint32_t i = 0; i < node->primitiveCount; i++) {
     Draw draw = model->draws[node->primitiveIndex + i];
-    draw.transform = globalTransform;
+    if (node->skin == ~0u) draw.transform = globalTransform;
     draw.instances = instances;
     lovrPassDraw(pass, &draw);
   }

@@ -5,5 +5,5 @@
 #include "lovr.glsl"
 
 void main() {
-  PixelColors[0] = FragColor * texture(sampler2D(Texture, Sampler), FragUV);
+  PixelColors[0] = FragColor * texture(sampler2D(Texture, Sampler), FragUV) * Material.color;
 }

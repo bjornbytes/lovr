@@ -108,5 +108,5 @@ layout(location = 11) in vec2 FragUV;
 #define WorldFromLocal (Transform)
 
 #define DefaultPosition (ClipFromLocal * VertexPosition)
-#define DefaultColor (FragColor)
+#define DefaultColor (FragColor * texture(sampler2D(Texture, Sampler), FragUV) * Material.color)
 #endif
