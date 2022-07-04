@@ -604,7 +604,7 @@ static int l_lovrPassDraw(lua_State* L) {
 
 static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_totype(L, 2, Buffer);
+  Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_checktype(L, 2, Buffer);
   Buffer* indices = luax_totype(L, 3, Buffer);
   float transform[16];
   int index = luax_readmat4(L, indices ? 4 : 3, transform, 1);
