@@ -5,13 +5,6 @@
 #include <lauxlib.h>
 #include <stdlib.h>
 
-static int l_lovrShaderGetType(lua_State* L) {
-  Shader* shader = luax_checktype(L, 1, Shader);
-  const ShaderInfo* info = lovrShaderGetInfo(shader);
-  luax_pushenum(L, ShaderType, info->type);
-  return 1;
-}
-
 static int l_lovrShaderClone(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   luaL_checktype(L, 2, LUA_TTABLE);
@@ -40,8 +33,24 @@ static int l_lovrShaderClone(lua_State* L) {
   return 1;
 }
 
+static int l_lovrShaderGetType(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  const ShaderInfo* info = lovrShaderGetInfo(shader);
+  luax_pushenum(L, ShaderType, info->type);
+  return 1;
+}
+
+static int l_lovrShaderHasStage(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  ShaderStage stage = luax_checkenum(L, 2, ShaderStage, NULL);
+  bool present = lovrShaderHasStage(shader, stage);
+  lua_pushboolean(L, present);
+  return 1;
+}
+
 const luaL_Reg lovrShader[] = {
-  { "getType", l_lovrShaderGetType },
   { "clone", l_lovrShaderClone },
+  { "getType", l_lovrShaderGetType },
+  { "hasStage", l_lovrShaderHasStage },
   { NULL, NULL }
 };

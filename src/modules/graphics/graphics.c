@@ -1713,6 +1713,15 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
   return &shader->info;
 }
 
+bool lovrShaderHasStage(Shader* shader, ShaderStage stage) {
+  switch (stage) {
+    case STAGE_VERTEX: return shader->info.type == SHADER_GRAPHICS;
+    case STAGE_FRAGMENT: return shader->info.type == SHADER_GRAPHICS;
+    case STAGE_COMPUTE: return shader->info.type == SHADER_COMPUTE;
+    default: return false;
+  }
+}
+
 // Material
 
 Material* lovrMaterialCreate(MaterialInfo* info) {
