@@ -2811,7 +2811,8 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   gpu_render_begin(pass->stream, &target);
 
   // The default Buffer (filled with zeros/ones) is always at slot #1, used for default vertex data
-  gpu_bind_vertex_buffers(pass->stream, &state.defaultBuffer->gpu, NULL, 1, 1);
+  gpu_buffer* buffers[] = { state.defaultBuffer->gpu, state.defaultBuffer->gpu };
+  gpu_bind_vertex_buffers(pass->stream, buffers, NULL, 0, 2);
 
   // Reset state
 
