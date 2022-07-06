@@ -722,6 +722,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     return;
   }
 
+  bool present = false;
   uint32_t total = count + 1;
   gpu_stream** streams = tempAlloc(total * sizeof(gpu_stream*));
   gpu_barrier* barriers = tempAlloc(count * sizeof(gpu_barrier));
@@ -771,23 +772,23 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     if (passes[i]->info.type == PASS_RENDER) {
       gpu_render_end(passes[i]->stream);
 
-      if (!passes[i]->info.canvas.mipmap) {
-        continue;
-      }
-
       Canvas* canvas = &passes[i]->info.canvas;
 
-      for (uint32_t j = 0; j < 4 && canvas->textures[j]; j++) {
-        if (canvas->textures[i]->info.mipmaps > 1) {
+      for (uint32_t j = 0; j < COUNTOF(canvas->textures) && canvas->textures[j]; j++) {
+        if (canvas->mipmap && canvas->textures[j]->info.mipmaps > 1) {
           barriers[i].prev |= GPU_PHASE_COLOR;
           barriers[i].next |= GPU_PHASE_TRANSFER;
           barriers[i].flush |= GPU_CACHE_COLOR_WRITE;
           barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
-          mipmapTexture(passes[i]->stream, canvas->textures[i], 0, ~0u);
+          mipmapTexture(passes[i]->stream, canvas->textures[j], 0, ~0u);
+        }
+
+        if (canvas->textures[j] == state.window) {
+          present = true;
         }
       }
 
-      if (canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
+      if (canvas->mipmap && canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
         barriers[i].prev |= GPU_PHASE_DEPTH_LATE;
         barriers[i].next |= GPU_PHASE_TRANSFER;
         barriers[i].flush |= GPU_CACHE_DEPTH_WRITE;
@@ -894,12 +895,12 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     gpu_stream_end(streams[i]);
   }
 
-  gpu_submit(streams, total);
+  gpu_submit(streams, total, present);
 
   cleanupPasses();
   arr_clear(&state.passes);
 
-  if (state.window) {
+  if (present) {
     state.window->gpu = NULL;
     state.window->renderView = NULL;
   }
@@ -2707,6 +2708,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     pass->bindingMask = 0;
     pass->bindingsDirty = true;
 
+    pass->pipelineIndex = 0;
     pass->pipeline = &pass->pipelines[0];
     pass->pipeline->shader = NULL;
     pass->pipeline->dirty = true;
@@ -2816,6 +2818,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->transform = pass->transforms[0];
   mat4_identity(pass->transform);
 
+  pass->pipelineIndex = 0;
   pass->pipeline = &pass->pipelines[0];
   pass->pipeline->info = (gpu_pipeline_info) {
     .colorCount = colorTextureCount,

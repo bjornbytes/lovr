@@ -167,6 +167,7 @@ static struct {
   VkSurfaceKHR surface;
   VkSwapchainKHR swapchain;
   VkFormat surfaceFormat;
+  VkSemaphore surfaceSemaphore;
   uint32_t currentSurfaceTexture;
   gpu_texture surfaceTextures[8];
   VkPipelineCache pipelineCache;
@@ -709,7 +710,8 @@ void gpu_texture_destroy(gpu_texture* texture) {
 
 gpu_texture* gpu_surface_acquire(void) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
-  VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &state.currentSurfaceTexture), "Surface image acquisition failed") return NULL;
+  state.surfaceSemaphore = tick->semaphores[0];
+  VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, state.surfaceSemaphore, VK_NULL_HANDLE, &state.currentSurfaceTexture), "Surface image acquisition failed") return NULL;
   return &state.surfaceTextures[state.currentSurfaceTexture];
 }
 
@@ -2244,7 +2246,7 @@ uint32_t gpu_begin() {
   return state.tick[CPU];
 }
 
-void gpu_submit(gpu_stream** streams, uint32_t count) {
+void gpu_submit(gpu_stream** streams, uint32_t count, bool present) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
 
   VkCommandBuffer commands[COUNTOF(tick->streams)];
@@ -2253,12 +2255,11 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
   }
 
   VkPipelineStageFlags waitMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  bool present = state.currentSurfaceTexture != ~0u;
 
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     .waitSemaphoreCount = present,
-    .pWaitSemaphores = &tick->semaphores[0],
+    .pWaitSemaphores = &state.surfaceSemaphore,
     .pWaitDstStageMask = &waitMask,
     .commandBufferCount = count,
     .pCommandBuffers = commands,
@@ -2279,6 +2280,7 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
     };
 
     VK(vkQueuePresentKHR(state.queue, &presentInfo), "Queue present failed") {}
+    state.surfaceSemaphore = VK_NULL_HANDLE;
     state.currentSurfaceTexture = ~0u;
   }
 }
