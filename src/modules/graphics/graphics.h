@@ -378,7 +378,7 @@ typedef enum {
 
 Model* lovrModelCreate(ModelInfo* info);
 void lovrModelDestroy(void* ref);
-struct ModelData* lovrModelGetModelData(Model* model);
+const ModelInfo* lovrModelGetInfo(Model* model);
 void lovrModelResetPose(Model* model);
 void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha);
 void lovrModelGetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], CoordinateSpace space);

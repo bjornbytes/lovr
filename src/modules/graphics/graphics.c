@@ -2423,8 +2423,8 @@ void lovrModelDestroy(void* ref) {
   free(model);
 }
 
-ModelData* lovrModelGetModelData(Model* model) {
-  return model->info.data;
+const ModelInfo* lovrModelGetInfo(Model* model) {
+  return &model->info;
 }
 
 void lovrModelResetPose(Model* model) {

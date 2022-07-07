@@ -1,6 +1,7 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "core/maf.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -206,4 +207,198 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
   } else {
     lovrUnreachable();
   }
+}
+
+static void boundingBoxHelper(ModelData* model, uint32_t nodeIndex, float* parentTransform) {
+  ModelNode* node = &model->nodes[nodeIndex];
+
+  float m[16];
+  mat4_init(m, parentTransform);
+
+  if (node->matrix) {
+    mat4_mul(m, node->transform.matrix);
+  } else {
+    float* T = node->transform.properties.translation;
+    float* R = node->transform.properties.rotation;
+    float* S = node->transform.properties.scale;
+    mat4_translate(m, T[0], T[1], T[2]);
+    mat4_rotateQuat(m, R);
+    mat4_scale(m, S[0], S[1], S[2]);
+  }
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelAttribute* position = model->primitives[node->primitiveIndex + i].attributes[ATTR_POSITION];
+
+    if (!position || !position->hasMin || !position->hasMax) {
+      continue;
+    }
+
+    float xa[3] = { position->min[0] * m[0], position->min[0] * m[1], position->min[0] * m[2] };
+    float xb[3] = { position->max[0] * m[0], position->max[0] * m[1], position->max[0] * m[2] };
+
+    float ya[3] = { position->min[1] * m[4], position->min[1] * m[5], position->min[1] * m[6] };
+    float yb[3] = { position->max[1] * m[4], position->max[1] * m[5], position->max[1] * m[6] };
+
+    float za[3] = { position->min[2] * m[8], position->min[2] * m[9], position->min[2] * m[10] };
+    float zb[3] = { position->max[2] * m[8], position->max[2] * m[9], position->max[2] * m[10] };
+
+    float min[3] = {
+      MIN(xa[0], xb[0]) + MIN(ya[0], yb[0]) + MIN(za[0], zb[0]) + m[12],
+      MIN(xa[1], xb[1]) + MIN(ya[1], yb[1]) + MIN(za[1], zb[1]) + m[13],
+      MIN(xa[2], xb[2]) + MIN(ya[2], yb[2]) + MIN(za[2], zb[2]) + m[14]
+    };
+
+    float max[3] = {
+      MAX(xa[0], xb[0]) + MAX(ya[0], yb[0]) + MAX(za[0], zb[0]) + m[12],
+      MAX(xa[1], xb[1]) + MAX(ya[1], yb[1]) + MAX(za[1], zb[1]) + m[13],
+      MAX(xa[2], xb[2]) + MAX(ya[2], yb[2]) + MAX(za[2], zb[2]) + m[14]
+    };
+
+    model->boundingBox[0] = MIN(model->boundingBox[0], min[0]);
+    model->boundingBox[1] = MAX(model->boundingBox[1], max[0]);
+    model->boundingBox[2] = MIN(model->boundingBox[2], min[1]);
+    model->boundingBox[3] = MAX(model->boundingBox[3], max[1]);
+    model->boundingBox[4] = MIN(model->boundingBox[4], min[2]);
+    model->boundingBox[5] = MAX(model->boundingBox[5], max[2]);
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    boundingBoxHelper(model, node->children[i], m);
+  }
+}
+
+void lovrModelDataGetBoundingBox(ModelData* model, float box[6]) {
+  if (model->boundingBox[1] - model->boundingBox[0] == 0.f) {
+    boundingBoxHelper(model, model->rootNode, (float[16]) MAT4_IDENTITY);
+  }
+
+  memcpy(box, model->boundingBox, sizeof(model->boundingBox));
+}
+
+static void boundingSphereHelper(ModelData* model, uint32_t nodeIndex, uint32_t* pointIndex, float* points, float* parentTransform) {
+  ModelNode* node = &model->nodes[nodeIndex];
+
+  float m[16];
+  mat4_init(m, parentTransform);
+
+  if (node->matrix) {
+    mat4_mul(m, node->transform.matrix);
+  } else {
+    float* T = node->transform.properties.translation;
+    float* R = node->transform.properties.rotation;
+    float* S = node->transform.properties.scale;
+    mat4_translate(m, T[0], T[1], T[2]);
+    mat4_rotateQuat(m, R);
+    mat4_scale(m, S[0], S[1], S[2]);
+  }
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelAttribute* position = model->primitives[node->primitiveIndex + i].attributes[ATTR_POSITION];
+
+    if (!position || !position->hasMin || !position->hasMax) {
+      continue;
+    }
+
+    float* min = position->min;
+    float* max = position->max;
+
+    float corners[8][4] = {
+      { min[0], min[1], min[2], 1.f },
+      { min[0], min[1], max[2], 1.f },
+      { min[0], max[1], min[2], 1.f },
+      { min[0], max[1], max[2], 1.f },
+      { max[0], min[1], min[2], 1.f },
+      { max[0], min[1], max[2], 1.f },
+      { max[0], max[1], min[2], 1.f },
+      { max[0], max[1], max[2], 1.f }
+    };
+
+    for (uint32_t j = 0; j < 8; j++) {
+      mat4_transform(m, corners[j]);
+      memcpy(points + 3 * (*pointIndex)++, corners[j], 3 * sizeof(float));
+    }
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    boundingSphereHelper(model, node->children[i], pointIndex, points, m);
+  }
+}
+
+void lovrModelDataGetBoundingSphere(ModelData* model, float sphere[4]) {
+  if (model->boundingSphere[3] == 0.f) {
+    uint32_t totalPrimitiveCount = 0;
+
+    for (uint32_t i = 0; i < model->nodeCount; i++) {
+      totalPrimitiveCount += model->nodes[i].primitiveCount;
+    }
+
+    uint32_t pointCount = totalPrimitiveCount * 8;
+    float* points = malloc(pointCount * 3 * sizeof(float));
+    lovrAssert(points, "Out of memory");
+
+    uint32_t pointIndex = 0;
+    boundingSphereHelper(model, model->rootNode, &pointIndex, points, (float[16]) MAT4_IDENTITY);
+
+    // Find point furthest away from first point
+
+    float max = 0.f;
+    float* a = NULL;
+    for (uint32_t i = 1; i < pointCount; i++) {
+      float dx = points[3 * i + 0] - points[0];
+      float dy = points[3 * i + 1] - points[1];
+      float dz = points[3 * i + 2] - points[2];
+      float d2 = dx * dx + dy * dy + dz * dz;
+
+      if (d2 > max) {
+        a = &points[3 * i];
+        max = d2;
+      }
+    }
+
+    // Find point furthest away from that point
+
+    max = 0.f;
+    float* b = NULL;
+    for (uint32_t i = 0; i < pointCount; i++) {
+      float dx = points[3 * i + 0] - a[0];
+      float dy = points[3 * i + 1] - a[1];
+      float dz = points[3 * i + 2] - a[2];
+      float d2 = dx * dx + dy * dy + dz * dz;
+
+      if (d2 > max) {
+        b = &points[3 * i];
+        max = d2;
+      }
+    }
+
+    // Create and refine sphere
+
+    float dx = a[0] - b[0];
+    float dy = a[1] - b[1];
+    float dz = a[2] - b[2];
+    float x = (a[0] + b[0]) / 2.f;
+    float y = (a[1] + b[1]) / 2.f;
+    float z = (a[2] + b[2]) / 2.f;
+    float r = sqrtf(dx * dx + dy * dy + dz * dz) / 2.f;
+    float r2 = r * r;
+
+    for (uint32_t i = 0; i < pointCount; i++) {
+      float dx = points[3 * i + 0] - x;
+      float dy = points[3 * i + 1] - y;
+      float dz = points[3 * i + 2] - z;
+      float d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > r2) {
+        r = sqrtf(d2);
+        r2 = r * r;
+      }
+    }
+
+    model->boundingSphere[0] = x;
+    model->boundingSphere[1] = y;
+    model->boundingSphere[2] = z;
+    model->boundingSphere[3] = r;
+    free(points);
+  }
+
+  memcpy(sphere, model->boundingSphere, sizeof(model->boundingSphere));
 }
