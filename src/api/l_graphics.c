@@ -1009,6 +1009,17 @@ static Blob* luax_checkshadercode(lua_State* L, int index, ShaderStage stage) {
     lovrAssert(data, "Out of memory");
     memcpy(data, string, length);
     source = lovrBlobCreate(data, length, "Shader code");
+  } else if (lua_istable(L, index)) {
+    int length = luax_len(L, index);
+    size_t size = length * 4;
+    uint32_t* words = malloc(size);
+    lovrAssert(words, "Out of memory");
+    source = lovrBlobCreate(words, size, "SPIR-V code");
+    for (int i = 0; i < length; i++) {
+      lua_rawgeti(L, index, i + 1);
+      words[i] = lua_tointeger(L, -1);
+      lua_pop(L, 1);
+    }
   } else {
     source = luax_readblob(L, index, "Shader");
   }
@@ -1033,7 +1044,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   ShaderInfo info = { 0 };
   int index;
 
-  if (lua_gettop(L) == 1 || lua_istable(L, 2)) {
+  if (lua_gettop(L) == 1 || (lua_istable(L, 2) && luax_len(L, 2) == 0)) {
     info.type = SHADER_COMPUTE;
     info.stages[0] = luax_checkshadercode(L, 1, STAGE_COMPUTE);
     index = 2;

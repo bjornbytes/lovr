@@ -3,6 +3,7 @@
 #include "core/os.h"
 #include "util.h"
 #include "boot.lua.h"
+#include "nogame.lua.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -24,6 +25,14 @@ static void emscriptenLoop(void*);
 #endif
 
 static Variant cookie;
+
+static int luaopen_lovr_nogame(lua_State* L) {
+  if (!luaL_loadbuffer(L, (const char*) etc_nogame_lua, etc_nogame_lua_len, "@nogame.lua")) {
+    lua_call(L, 0, 1);
+  }
+
+  return 1;
+}
 
 int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
@@ -58,6 +67,16 @@ int main(int argc, char** argv) {
     luax_setmainthread(L);
     luaL_openlibs(L);
     luax_preload(L);
+
+    const luaL_Reg nogame[] = {
+      { "nogame", luaopen_lovr_nogame },
+      { NULL, NULL }
+    };
+
+    lua_getglobal(L, "package");
+    lua_getfield(L, -1, "preload");
+    luax_register(L, nogame);
+    lua_pop(L, 2);
 
     // arg table
     lua_newtable(L);

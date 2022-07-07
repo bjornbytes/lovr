@@ -1,71 +1,5 @@
 lovr = require 'lovr'
 
-local function nogame()
-  function lovr.conf(t)
-    t.headset.supersample = true
-    t.modules.audio = false
-    t.modules.physics = false
-    t.modules.thread = false
-  end
-
-  local models = {}
-
-  function lovr.load()
-    if not lovr.graphics then
-      print(string.format('LÖVR %d.%d.%d\nNo game', lovr.getVersion()))
-      lovr.event.quit()
-      return
-    end
-
-    lovr.graphics.setBackground(0x20232c)
-
-    logo = lovr.graphics.newShader([[
-      vec4 lovrmain() {
-        return DefaultPosition;
-      }
-    ]], [[
-      vec4 lovrmain() {
-        float y = FragUV.y;
-        vec2 uv = vec2(FragUV.x, 1. - FragUV.y);
-        uv = uv * 4. - 2.;
-        const float k = sqrt(3.);
-        uv.x = abs(uv.x) - 1.;
-        uv.y = uv.y + 1. / k + .25;
-        if (uv.x + k * uv.y > 0.) {
-          uv = vec2(uv.x - k * uv.y, -k * uv.x - uv.y) / 2.;
-        }
-        uv.x -= clamp(uv.x, -2., 0.);
-        float sdf = -length(uv) * sign(uv.y) - .5;
-        float w = fwidth(sdf) * .5;
-        float alpha = smoothstep(.22 + w, .22 - w, sdf);
-        vec3 color = mix(vec3(.094, .662, .890), vec3(.913, .275, .6), clamp(y * 1.5 - .25, 0., 1.));
-        color = mix(color, vec3(.2, .2, .24), smoothstep(-.12 + w, -.12 - w, sdf));
-        return vec4(pow(color, vec3(2.2)), alpha);
-      }
-    ]])
-  end
-
-  function lovr.draw(pass)
-    local padding = .1
-    local font = lovr.graphics.getDefaultFont()
-    local fade = .315 + .685 * math.abs(math.sin(lovr.headset.getTime() * 2))
-    local titlePosition = 1.5 - padding
-    local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
-
-    pass:setCullMode('back')
-    pass:setBlendMode('alpha')
-    pass:setShader(logo)
-    pass:plane(0, 2, -3)
-
-    pass:setShader()
-    pass:setColor(1, 1, 1)
-    pass:text('LÖVR', -.012, titlePosition, -3, .25, quat(0, 0, 1, 0), nil, 'center', 'top')
-
-    pass:setColor(.9, .9, .9, fade)
-    pass:text('No game :(', -.005, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
-  end
-end
-
 -- Note: Cannot be overloaded
 function lovr.boot()
   local conf = {
@@ -115,7 +49,7 @@ function lovr.boot()
   lovr.filesystem = require('lovr.filesystem')
   local main = arg[0] and arg[0]:match('[^\\/]-%.lua$') or 'main.lua'
   local hasConf, hasMain = lovr.filesystem.isFile('conf.lua'), lovr.filesystem.isFile(main)
-  if not lovr.filesystem.getSource() or not (hasConf or hasMain) then nogame() end
+  if not lovr.filesystem.getSource() or not (hasConf or hasMain) then require('nogame') end
 
   -- Shift args up in fused mode, instead of consuming one for the source path
   if lovr.filesystem.isFused() then
