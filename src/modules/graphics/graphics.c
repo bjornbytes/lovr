@@ -1858,6 +1858,8 @@ Material* lovrMaterialCreate(MaterialInfo* info) {
     lovrRetain(textures[i]);
     Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
     lovrCheck(i == 0 || texture->info.type == TEXTURE_2D, "Material textures must be 2D");
+    // The below is only to make resource tracking more efficient
+    lovrCheck(texture->info.usage == TEXTURE_SAMPLE, "Currently, Material textures can only have the 'sample' usage");
     bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture = texture->gpu };
   }
 
