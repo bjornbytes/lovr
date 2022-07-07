@@ -6,12 +6,12 @@
 
 #include "lovr.glsl"
 
-layout(location = 2) in vec3 FragDirection;
+layout(location = 0) in vec3 Direction;
 
 void main() {
-  vec3 dir = normalize(FragDirection);
+  vec3 dir = normalize(Direction);
   float phi = acos(dir.y);
   float theta = atan(dir.x, -dir.z);
   vec2 uv = vec2(.5 + theta / (2 * PI), phi / PI);
-  PixelColors[0] = FragColor * texture(sampler2D(Texture, Sampler), uv);
+  PixelColors[0] = Color * getPixel(ColorTexture, uv);
 }

@@ -5,9 +5,9 @@
 #include "lovr.glsl"
 
 void main() {
-  FragColor = VertexColor * Color;
-  FragNormal = normalize(NormalMatrix * VertexNormal);
-  FragUV = VertexUV;
+  Color = PassColor * VertexColor;
+  Normal = normalize(NormalMatrix * VertexNormal);
+  UV = VertexUV;
   Position = DefaultPosition;
   PointSize = 1.f;
 }

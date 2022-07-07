@@ -1295,15 +1295,27 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
     [STAGE_COMPUTE] = GLSLANG_STAGE_COMPUTE
   };
 
+  const char* stageNames[] = {
+    [STAGE_VERTEX] = "vertex",
+    [STAGE_FRAGMENT] = "fragment",
+    [STAGE_COMPUTE] = "compute"
+  };
+
   const char* prefix = ""
     "#version 460\n"
     "#extension GL_EXT_multiview : require\n"
     "#extension GL_GOOGLE_include_directive : require\n";
 
   const char* suffixes[] = {
-    [STAGE_VERTEX] = "void main() { FragColor = Color * VertexColor, FragUV = VertexUV, Position = lovrmain(); }",
-    [STAGE_FRAGMENT] = "void main() { PixelColors[0] = lovrmain(); }",
-    [STAGE_COMPUTE] = "void main() { lovrmain(); }"
+    [STAGE_VERTEX] = ""
+      "void main() {"
+        "Color = PassColor * VertexColor;"
+        "Normal = normalize(NormalMatrix * VertexNormal);"
+        "UV = VertexUV;"
+        "Position = lovrmain();"
+      "}\n#line 0\n",
+    [STAGE_FRAGMENT] = "void main() { PixelColors[0] = lovrmain(); }\n#line 0\n",
+    [STAGE_COMPUTE] = "void main() { lovrmain(); }\n#line 0\n"
   };
 
   const char* strings[] = {
@@ -1340,12 +1352,12 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
   glslang_shader_t* shader = glslang_shader_create(&input);
 
   if (!glslang_shader_preprocess(shader, &input)) {
-    lovrLog(LOG_INFO, "Could not preprocess shader: %s", glslang_shader_get_info_log(shader));
+    lovrLog(LOG_INFO, "GFX", "Could not preprocess %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
     return NULL;
   }
 
   if (!glslang_shader_parse(shader, &input)) {
-    lovrLog(LOG_INFO, "Could not parse shader: %s", glslang_shader_get_info_log(shader));
+    lovrLog(LOG_INFO, "GFX", "Could not parse %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
     return NULL;
   }
 
@@ -1353,7 +1365,7 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
   glslang_program_add_shader(program, shader);
 
   if (!glslang_program_link(program, 0)) {
-    lovrLog(LOG_INFO, "Could not link shader: %s", glslang_program_get_info_log(program));
+    lovrLog(LOG_INFO, "GFX", "Could not link shader:\n%s", glslang_program_get_info_log(program));
     return NULL;
   }
 

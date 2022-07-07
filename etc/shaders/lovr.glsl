@@ -13,29 +13,28 @@ struct Draw {
   vec4 color;
 };
 
-layout(set = 0, binding = 0) uniform Cameras { Camera cameras[6]; };
-layout(set = 0, binding = 1) uniform Draws { Draw draws[256]; };
+layout(set = 0, binding = 0) uniform CameraBuffer { Camera Cameras[6]; };
+layout(set = 0, binding = 1) uniform DrawBuffer { Draw Draws[256]; };
 layout(set = 0, binding = 2) uniform sampler Sampler;
 
-struct MaterialData {
-  vec4 color;
-  vec4 glow;
-  vec2 uvShift;
-  vec2 uvScale;
-  vec2 sdfRange;
-  float metalness;
-  float roughness;
-  float clearcoat;
-  float clearcoatRoughness;
-  float occlusionStrength;
-  float glowStrength;
-  float normalScale;
-  float alphaCutoff;
-  float pointSize;
+layout(set = 1, binding = 0) uniform MaterialBuffer {
+  vec4 MaterialColor;
+  vec4 GlowColor;
+  vec2 UVShift;
+  vec2 UVScale;
+  vec2 SDFRange;
+  float Metalness;
+  float Roughness;
+  float Clearcoat;
+  float ClearcoatRoughness;
+  float OcclusionStrength;
+  float GlowStrength;
+  float NormalScale;
+  float AlphaCutoff;
+  float PointSize;
 };
 
-layout(set = 1, binding = 0) uniform MaterialBlock { MaterialData Material; };
-layout(set = 1, binding = 1) uniform texture2D Texture;
+layout(set = 1, binding = 1) uniform texture2D ColorTexture;
 layout(set = 1, binding = 2) uniform texture2D GlowTexture;
 layout(set = 1, binding = 3) uniform texture2D OcclusionTexture;
 layout(set = 1, binding = 4) uniform texture2D MetalnessTexture;
@@ -60,13 +59,13 @@ layout(location = 0) out vec4 PixelColors[1];
 
 // Varyings
 #ifdef GL_VERTEX_SHADER
-layout(location = 10) out vec3 FragNormal;
-layout(location = 11) out vec4 FragColor;
-layout(location = 12) out vec2 FragUV;
+layout(location = 10) out vec3 Normal;
+layout(location = 11) out vec4 Color;
+layout(location = 12) out vec2 UV;
 #else
-layout(location = 10) in vec3 FragNormal;
-layout(location = 11) in vec4 FragColor;
-layout(location = 12) in vec2 FragUV;
+layout(location = 10) in vec3 Normal;
+layout(location = 11) in vec4 Color;
+layout(location = 12) in vec2 UV;
 #endif
 
 // Macros
@@ -94,13 +93,13 @@ layout(location = 12) in vec2 FragUV;
 #define ViewIndex gl_ViewIndex
 
 #define DrawId gl_BaseInstance
-#define Projection cameras[ViewIndex].projection
-#define View cameras[ViewIndex].view
-#define ViewProjection cameras[ViewIndex].viewProjection
-#define InverseProjection cameras[ViewIndex].inverseProjection
-#define Transform draws[DrawId].transform
-#define NormalMatrix mat3(draws[DrawId].normalMatrix)
-#define Color draws[DrawId].color
+#define Projection Cameras[ViewIndex].projection
+#define View Cameras[ViewIndex].view
+#define ViewProjection Cameras[ViewIndex].viewProjection
+#define InverseProjection Cameras[ViewIndex].inverseProjection
+#define Transform Draws[DrawId].transform
+#define NormalMatrix mat3(Draws[DrawId].normalMatrix)
+#define PassColor Draws[DrawId].color
 
 #define ClipFromLocal (ViewProjection * Transform)
 #define ClipFromWorld (ViewProjection)
@@ -110,5 +109,13 @@ layout(location = 12) in vec2 FragUV;
 #define WorldFromLocal (Transform)
 
 #define DefaultPosition (ClipFromLocal * VertexPosition)
-#define DefaultColor (FragColor * texture(sampler2D(Texture, Sampler), FragUV) * Material.color)
+#define DefaultColor (Color * MaterialColor * getPixel(ColorTexture))
+#endif
+
+#ifdef GL_FRAGMENT_SHADER
+vec4 getPixel(texture2D t) { return texture(sampler2D(t, Sampler), UV); }
+vec4 getPixel(texture2D t, vec2 uv) { return texture(sampler2D(t, Sampler), uv); }
+vec4 getPixel(texture3D t, vec3 uvw) { return texture(sampler3D(t, Sampler), uvw); }
+vec4 getPixel(textureCube t, vec3 dir) { return texture(samplerCube(t, Sampler), dir); }
+vec4 getPixel(texture2DArray t, vec3 uvw) { return texture(sampler2DArray(t, Sampler), uvw); }
 #endif

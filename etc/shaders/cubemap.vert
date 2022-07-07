@@ -4,10 +4,10 @@
 
 #include "lovr.glsl"
 
-layout(location = 2) out vec3 FragDirection;
+layout(location = 0) out vec3 Direction;
 
 void main() {
-  FragColor = VertexColor * Color;
+  Color = PassColor * VertexColor;
 
   const vec2 uvs[6] = vec2[6](
     vec2(-1, -1),
@@ -21,6 +21,6 @@ void main() {
   vec2 uv = uvs[VertexIndex % 6];
   vec3 ray = vec3(uv, -1.);
   mat3 inverseViewOrientation = transpose(mat3(View));
-  FragDirection = normalize(inverseViewOrientation * (InverseProjection * vec4(ray, 1.)).xyz);
+  Direction = normalize(inverseViewOrientation * (InverseProjection * vec4(ray, 1.)).xyz);
   Position = vec4(uv, 1, 1);
 }

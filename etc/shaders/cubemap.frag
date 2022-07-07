@@ -5,9 +5,8 @@
 #include "lovr.glsl"
 
 layout(set = 1, binding = 1) uniform textureCube SkyboxTexture;
-
-layout(location = 2) in vec3 FragDirection;
+layout(location = 0) in vec3 Direction;
 
 void main() {
-  PixelColors[0] = FragColor * texture(samplerCube(SkyboxTexture, Sampler), FragDirection);
+  PixelColors[0] = Color * getPixel(SkyboxTexture, Direction);
 }
