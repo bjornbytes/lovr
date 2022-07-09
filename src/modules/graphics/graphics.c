@@ -4018,6 +4018,93 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
   }
 }
 
+void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
+  float sx = vec3_length(transform + 0);
+  float sy = vec3_length(transform + 4);
+  float sz = vec3_length(transform + 8);
+  vec3_scale(transform + 0, 1.f / sx);
+  vec3_scale(transform + 4, 1.f / sy);
+  vec3_scale(transform + 8, 1.f / sz);
+  float radius = sx;
+  float length = sz * .5f;
+
+  uint32_t rings = segments / 2;
+  uint32_t vertexCount = 2 * (1 + rings * (segments + 1));
+  uint32_t indexCount = 2 * (3 * segments + 6 * segments * (rings - 1)) + 6 * segments;
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = VERTEX_TRIANGLES,
+    .transform = transform,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  float tip = length + radius;
+  uint32_t h = vertexCount / 2;
+  vertices[0] = (ShapeVertex) { { 0.f, 0.f, -tip }, { 0.f, 0.f, -1.f }, { .5f, 0.f } };
+  vertices[h] = (ShapeVertex) { { 0.f, 0.f,  tip }, { 0.f, 0.f,  1.f }, { .5f, 1.f } };
+  vertices++;
+
+  for (uint32_t i = 1; i <= rings; i++) {
+    float v = i / (float) rings;
+    float phi = v * (float) M_PI / 2.f;
+    float sinphi = sinf(phi);
+    float cosphi = cosf(phi);
+    for (uint32_t j = 0; j <= segments; j++) {
+      float u = j / (float) segments;
+      float theta = u * (float) M_PI * 2.f;
+      float sintheta = sinf(theta);
+      float costheta = cosf(theta);
+      float x = costheta * sinphi;
+      float y = sintheta * sinphi;
+      float z = cosphi;
+      vertices[0] = (ShapeVertex) { { x * radius, y * radius, -(length + z * radius) }, { x, y, -z }, { u, v } };
+      vertices[h] = (ShapeVertex) { { x * radius, y * radius,  (length + z * radius) }, { x, y,  z }, { u, 1.f - v } };
+      vertices++;
+    }
+  }
+
+  uint16_t* i1 = indices;
+  uint16_t* i2 = indices + (indexCount - 6 * segments) / 2;
+  for (uint32_t i = 0; i < segments; i++) {
+    uint16_t wedge1[] = { 0, 0 + i + 2, 0 + i + 1 };
+    uint16_t wedge2[] = { h, h + i + 1, h + i + 2 };
+    memcpy(i1, wedge1, sizeof(wedge1));
+    memcpy(i2, wedge2, sizeof(wedge2));
+    i1 += COUNTOF(wedge1);
+    i2 += COUNTOF(wedge2);
+  }
+
+  for (uint32_t i = 0; i < rings - 1; i++) {
+    for (uint32_t j = 0; j < segments; j++) {
+      uint16_t a = 1 + i * (segments + 1) + 0 + j;
+      uint16_t b = 1 + i * (segments + 1) + 1 + j;
+      uint16_t c = 1 + i * (segments + 1) + 0 + segments + 1 + j;
+      uint16_t d = 1 + i * (segments + 1) + 1 + segments + 1 + j;
+      uint16_t quad1[] = { a, b, c, c, b, d };
+      uint16_t quad2[] = { h + a, h + c, h + b, h + b, h + c, h + d };
+      memcpy(i1, quad1, sizeof(quad1));
+      memcpy(i2, quad2, sizeof(quad2));
+      i1 += COUNTOF(quad1);
+      i2 += COUNTOF(quad2);
+    }
+  }
+
+  for (uint32_t i = 0; i < segments; i++) {
+    uint16_t a = h - segments - 1 + i;
+    uint16_t b = h - segments - 1 + i + 1;
+    uint16_t c = vertexCount - segments - 1 + i;
+    uint16_t d = vertexCount - segments - 1 + i + 1;
+    uint16_t quad[] = { a, b, c, c, b, d };
+    memcpy(i2, quad, sizeof(quad));
+    i2 += COUNTOF(quad);
+  }
+}
+
 void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t segmentsP) {
   float sx = vec3_length(transform + 0);
   float sy = vec3_length(transform + 4);
