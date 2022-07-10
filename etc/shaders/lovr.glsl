@@ -62,7 +62,9 @@ layout(location = 0) out vec4 PixelColors[1];
 layout(location = 10) out vec3 Normal;
 layout(location = 11) out vec4 Color;
 layout(location = 12) out vec2 UV;
-#else
+#endif
+
+#ifdef GL_FRAGMENT_SHADER
 layout(location = 10) in vec3 Normal;
 layout(location = 11) in vec4 Color;
 layout(location = 12) in vec2 UV;
