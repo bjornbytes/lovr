@@ -403,6 +403,50 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
   }
 }
 
+uint32_t luax_getbufferlength(lua_State* L, int index, BufferInfo* info) {
+  switch (lua_type(L, 1)) {
+    case LUA_TNUMBER: return lua_tointeger(L, 1); break;
+    case LUA_TTABLE: {
+      uint32_t length = luax_len(L, 1);
+
+      if (length < info->fieldCount) {
+        return 1;
+      }
+
+      lua_rawgeti(L, 1, 1);
+      if (lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        return length;
+      }
+      lua_pop(L, 1);
+
+      uint32_t tableStride = 0;
+      for (uint32_t i = 0, j = 1; i < info->fieldCount; i++) {
+        lua_rawgeti(L, 1, (int) j);
+        if (lua_isuserdata(L, -1)) {
+          tableStride++;
+          j++;
+        } else {
+          uint32_t components = fieldInfo[info->fields[i].type].components;
+          tableStride += components;
+          j += components;
+        }
+        lua_pop(L, 1);
+      }
+
+      return length / tableStride;
+    }
+    default: {
+      Blob* blob = luax_totype(L, 1, Blob);
+      if (blob) {
+        return (uint32_t) blob->size / info->stride;
+      } else {
+        return luax_typeerror(L, 1, "number, table, or Blob");
+      }
+    }
+  }
+}
+
 static Canvas luax_checkcanvas(lua_State* L, int index) {
   Canvas canvas = {
     .loads = { LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR },
@@ -744,20 +788,7 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
   BufferInfo info = { 0 };
 
   luax_checkbufferformat(L, 2, &info);
-
-  switch (lua_type(L, 1)) {
-    case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
-    case LUA_TTABLE: info.length = luax_len(L, 1); break;
-    default: {
-      Blob* blob = luax_totype(L, 1, Blob);
-      if (blob) {
-        info.length = blob->size / info.stride;
-        break;
-      } else {
-        return luax_typeerror(L, 1, "number, table, or Blob");
-      }
-    }
-  }
+  info.length = luax_getbufferlength(L, 1, &info);
 
   void* pointer;
   bool hasData = !lua_isnumber(L, 1);
@@ -777,20 +808,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   BufferInfo info = { 0 };
 
   luax_checkbufferformat(L, 2, &info);
-
-  switch (lua_type(L, 1)) {
-    case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
-    case LUA_TTABLE: info.length = luax_len(L, 1); break;
-    default: {
-      Blob* blob = luax_totype(L, 1, Blob);
-      if (blob) {
-        info.length = blob->size / info.stride;
-        break;
-      } else {
-        return luax_typeerror(L, 1, "number, table, or Blob");
-      }
-    }
-  }
+  info.length = luax_getbufferlength(L, 1, &info);
 
   void* pointer;
   bool hasData = !lua_isnumber(L, 1);
