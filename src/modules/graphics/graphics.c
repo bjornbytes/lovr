@@ -334,6 +334,7 @@ static struct {
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
+  GraphicsStats stats;
   float background[4];
   Texture* window;
   Font* defaultFont;
@@ -676,6 +677,10 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->pointSize = state.limits.pointSize;
 }
 
+void lovrGraphicsGetStats(GraphicsStats* stats) {
+  *stats = state.stats;
+}
+
 bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features) {
   uint8_t supports = state.features.formats[format];
   if (!features) return supports;
@@ -899,6 +904,9 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   cleanupPasses();
   arr_clear(&state.passes);
+
+  state.stats.pipelineSwitches = 0;
+  state.stats.bundleSwitches = 0;
 
   if (present) {
     state.window->gpu = NULL;
@@ -2650,6 +2658,8 @@ static void lovrModelReskin(Model* model) {
     gpu_compute(state.stream, (skin->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
     gpu_compute_end(state.stream);
     baseVertex += skin->vertexCount;
+    state.stats.pipelineSwitches++;
+    state.stats.bundleSwitches++;
   }
 
   state.hasReskin = true;
@@ -3461,6 +3471,7 @@ static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
   }
 
   gpu_bind_pipeline(pass->stream, state.pipelines.data[index], false);
+  state.stats.pipelineSwitches++;
   pipeline->dirty = false;
 }
 
@@ -3492,6 +3503,7 @@ static void flushBindings(Pass* pass, Shader* shader) {
   gpu_bundle* bundle = getBundle(shader->layout);
   gpu_bundle_write(&bundle, &info, 1);
   gpu_bind_bundle(pass->stream, shader->gpu, set, bundle, NULL, 0);
+  state.stats.bundleSwitches++;
 }
 
 static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
@@ -3534,6 +3546,7 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
     gpu_bundle* bundle = getBundle(state.builtinLayout);
     gpu_bundle_write(&bundle, &bundleInfo, 1);
     gpu_bind_bundle(pass->stream, shader->gpu, 0, bundle, NULL, 0);
+    state.stats.bundleSwitches++;
   }
 
   float m[16];
@@ -3557,9 +3570,11 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
 static void flushMaterial(Pass* pass, Draw* draw, Shader* shader) {
   if (draw->material && draw->material != pass->pipeline->material) {
     gpu_bind_bundle(pass->stream, shader->gpu, 1, draw->material->bundle, NULL, 0);
+    state.stats.bundleSwitches++;
     pass->materialDirty = true;
   } else if (pass->materialDirty) {
     gpu_bind_bundle(pass->stream, shader->gpu, 1, pass->pipeline->material->bundle, NULL, 0);
+    state.stats.bundleSwitches++;
     pass->materialDirty = false;
   }
 }
@@ -4466,6 +4481,7 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
 
   if (pass->pipeline->dirty) {
     gpu_bind_pipeline(pass->stream, pipeline, true);
+    state.stats.pipelineSwitches++;
     pass->pipeline->dirty = false;
   }
 
@@ -4586,6 +4602,8 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
     gpu_push_constants(pass->stream, shader, &constants, sizeof(constants));
     gpu_compute(pass->stream, (count + 31) / 32, 1, 1);
     gpu_compute_end(pass->stream);
+    state.stats.pipelineSwitches++;
+    state.stats.bundleSwitches++;
 
     trackBuffer(pass, buffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE);
   } else {
