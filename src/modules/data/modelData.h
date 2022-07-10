@@ -217,6 +217,11 @@ typedef struct ModelData {
   float boundingBox[6];
   float boundingSphere[4];
 
+  float* vertices;
+  uint32_t* indices;
+  uint32_t totalVertexCount;
+  uint32_t totalIndexCount;
+
   map_t animationMap;
   map_t materialMap;
   map_t nodeMap;
@@ -233,3 +238,4 @@ void lovrModelDataAllocate(ModelData* model);
 void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char* dst, AttributeType type, uint32_t components, bool normalized, uint32_t count, size_t stride, uint8_t clear);
 void lovrModelDataGetBoundingBox(ModelData* data, float box[6]);
 void lovrModelDataGetBoundingSphere(ModelData* data, float sphere[4]);
+void lovrModelDataGetTriangles(ModelData* data, float** vertices, uint32_t** indices, uint32_t* vertexCount, uint32_t* indexCount);

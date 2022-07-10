@@ -103,6 +103,8 @@ void lovrModelDataDestroy(void* ref) {
   map_free(&model->animationMap);
   map_free(&model->materialMap);
   map_free(&model->nodeMap);
+  free(model->vertices);
+  free(model->indices);
   free(model->data);
   free(model);
 }
@@ -401,4 +403,106 @@ void lovrModelDataGetBoundingSphere(ModelData* model, float sphere[4]) {
   }
 
   memcpy(sphere, model->boundingSphere, sizeof(model->boundingSphere));
+}
+
+static void countVertices(ModelData* model, uint32_t nodeIndex, uint32_t* vertexCount, uint32_t* indexCount) {
+  ModelNode* node = &model->nodes[nodeIndex];
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelPrimitive* primitive = &model->primitives[node->primitiveIndex + i];
+    ModelAttribute* positions = primitive->attributes[ATTR_POSITION];
+    ModelAttribute* indices = primitive->indices;
+    uint32_t count = positions ? positions->count : 0;
+    *vertexCount += count;
+    *indexCount += indices ? indices->count : count;
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    countVertices(model, node->children[i], vertexCount, indexCount);
+  }
+}
+
+static void collectVertices(ModelData* model, uint32_t nodeIndex, float** vertices, uint32_t** indices, uint32_t* baseIndex, float* parentTransform) {
+  ModelNode* node = &model->nodes[nodeIndex];
+
+  float m[16];
+  mat4_init(m, parentTransform);
+
+  if (node->matrix) {
+    mat4_mul(m, node->transform.matrix);
+  } else {
+    float* T = node->transform.properties.translation;
+    float* R = node->transform.properties.rotation;
+    float* S = node->transform.properties.scale;
+    mat4_translate(m, T[0], T[1], T[2]);
+    mat4_rotateQuat(m, R);
+    mat4_scale(m, S[0], S[1], S[2]);
+  }
+
+  for (uint32_t i = 0; i < node->primitiveCount; i++) {
+    ModelPrimitive* primitive = &model->primitives[node->primitiveIndex + i];
+    ModelAttribute* positions = primitive->attributes[ATTR_POSITION];
+    ModelAttribute* index = primitive->indices;
+    if (!positions) continue;
+
+    char* data = (char*) model->buffers[positions->buffer].data + positions->offset;
+    size_t stride = positions->stride == 0 ? 3 * sizeof(float) : positions->stride;
+
+    for (uint32_t j = 0; j < positions->count; j++) {
+      float v[4];
+      memcpy(v, data, 3 * sizeof(float));
+      mat4_transform(m, v);
+      memcpy(*vertices, v, 3 * sizeof(float));
+      *vertices += 3;
+      data += stride;
+    }
+
+    if (index) {
+      lovrAssert(index->type == U16 || index->type == U32, "Unreachable");
+
+      data = (char*) model->buffers[index->buffer].data + index->offset;
+      size_t stride = index->stride == 0 ? (index->type == U16 ? 2 : 4) : index->stride;
+
+      for (uint32_t j = 0; j < index->count; j++) {
+        **indices = (index->type == U16 ? ((uint32_t) *(uint16_t*) data) : *(uint32_t*) data) + *baseIndex;
+        *indices += 1;
+        data += stride;
+      }
+    } else {
+      for (uint32_t j = 0; j < positions->count; j++) {
+        **indices = j + *baseIndex;
+        *indices += 1;
+      }
+    }
+
+    *baseIndex += positions->count;
+  }
+
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    collectVertices(model, node->children[i], vertices, indices, baseIndex, m);
+  }
+}
+
+void lovrModelDataGetTriangles(ModelData* model, float** vertices, uint32_t** indices, uint32_t* vertexCount, uint32_t* indexCount) {
+  if (model->totalVertexCount == 0) {
+    countVertices(model, model->rootNode, &model->totalVertexCount, &model->totalIndexCount);
+  }
+
+  if (vertices && !model->vertices) {
+    uint32_t baseIndex = 0;
+    model->vertices = malloc(model->totalVertexCount * 3 * sizeof(float));
+    model->indices = malloc(model->totalIndexCount * sizeof(uint32_t));
+    lovrAssert(model->vertices && model->indices, "Out of memory");
+    *vertices = model->vertices;
+    *indices = model->indices;
+    collectVertices(model, model->rootNode, vertices, indices, &baseIndex, (float[16]) MAT4_IDENTITY);
+  }
+
+  *vertexCount = model->totalVertexCount;
+  *indexCount = model->totalIndexCount;
+
+  if (vertices) {
+    *vertices = model->vertices;
+    *indices = model->indices;
+  }
 }

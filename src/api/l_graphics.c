@@ -759,7 +759,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   switch (lua_type(L, 1)) {
     case LUA_TNUMBER: info.length = lua_tointeger(L, 1); break;
-    case LUA_TTABLE: info.length = luax_len(L, -1); break;
+    case LUA_TTABLE: info.length = luax_len(L, 1); break;
     default: {
       Blob* blob = luax_totype(L, 1, Blob);
       if (blob) {

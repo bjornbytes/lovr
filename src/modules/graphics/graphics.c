@@ -4397,12 +4397,16 @@ void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node
 
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances) {
   if (count == ~0u) {
-    count = (indices ? indices : vertices)->info.length - start;
+    if (indices || vertices) {
+      count = (indices ? indices : vertices)->info.length - start;
+    } else {
+      count = 0;
+    }
   }
 
   if (indices) {
     lovrCheck(count <= indices->info.length - start, "Mesh draw range exceeds index buffer size");
-  } else {
+  } else if (vertices) {
     lovrCheck(count <= vertices->info.length - start, "Mesh draw range exceeds vertex buffer size");
   }
 

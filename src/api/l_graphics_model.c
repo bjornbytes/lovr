@@ -117,17 +117,18 @@ static int l_lovrModelGetIndexBuffer(lua_State* L) {
   return 1;
 }
 
-/*
 static int l_lovrModelGetTriangles(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
+  ModelData* data = lovrModelGetInfo(model)->data;
+
   float* vertices = NULL;
   uint32_t* indices = NULL;
-  uint32_t vertexCount;
-  uint32_t indexCount;
-  lovrModelGetTriangles(model, &vertices, &vertexCount, &indices, &indexCount);
+  uint32_t vertexCount = 0;
+  uint32_t indexCount = 0;
+  lovrModelDataGetTriangles(data, &vertices, &indices, &vertexCount, &indexCount);
 
   lua_createtable(L, vertexCount * 3, 0);
-  for (uint32_t i = 0; i < vertexCount; i++) {
+  for (uint32_t i = 0; i < vertexCount * 3; i++) {
     lua_pushnumber(L, vertices[i]);
     lua_rawseti(L, -2, i + 1);
   }
@@ -143,18 +144,21 @@ static int l_lovrModelGetTriangles(lua_State* L) {
 
 static int l_lovrModelGetTriangleCount(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t count = lovrModelGetTriangleCount(model);
-  lua_pushinteger(L, count);
+  ModelData* data = lovrModelGetInfo(model)->data;
+  uint32_t vertexCount, indexCount;
+  lovrModelDataGetTriangles(data, NULL, NULL, &vertexCount, &indexCount);
+  lua_pushinteger(L, indexCount / 3);
   return 1;
 }
 
 static int l_lovrModelGetVertexCount(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t count = lovrModelGetVertexCount(model);
-  lua_pushinteger(L, count);
+  ModelData* data = lovrModelGetInfo(model)->data;
+  uint32_t vertexCount, indexCount;
+  lovrModelDataGetTriangles(data, NULL, NULL, &vertexCount, &indexCount);
+  lua_pushinteger(L, vertexCount);
   return 1;
 }
-*/
 
 static int l_lovrModelGetWidth(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
@@ -241,9 +245,9 @@ const luaL_Reg lovrModel[] = {
   { "getMaterial", l_lovrModelGetMaterial },
   { "getVertexBuffer", l_lovrModelGetVertexBuffer },
   { "getIndexBuffer", l_lovrModelGetIndexBuffer },
-  /*{ "getTriangles", l_lovrModelGetTriangles },
+  { "getTriangles", l_lovrModelGetTriangles },
   { "getTriangleCount", l_lovrModelGetTriangleCount },
-  { "getVertexCount", l_lovrModelGetVertexCount },*/
+  { "getVertexCount", l_lovrModelGetVertexCount },
   { "getWidth", l_lovrModelGetWidth },
   { "getHeight", l_lovrModelGetHeight },
   { "getDepth", l_lovrModelGetDepth },
