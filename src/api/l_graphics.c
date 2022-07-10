@@ -61,6 +61,7 @@ StringEntry lovrCullMode[] = {
 StringEntry lovrDefaultShader[] = {
   [SHADER_UNLIT] = ENTRY("unlit"),
   [SHADER_CUBE] = ENTRY("cube"),
+  [SHADER_PANO] = ENTRY("pano"),
   [SHADER_FILL] = ENTRY("fill"),
   [SHADER_FONT] = ENTRY("font"),
   { 0 }
@@ -1011,57 +1012,77 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
   return 1;
 }
 
-static Blob* luax_checkshadercode(lua_State* L, int index, ShaderStage stage) {
-  Blob* source;
-  size_t length;
-  const char* string = lua_tolstring(L, index, &length);
-  if (string && memchr(string, '\n', MIN(256, length))) {
-    void* data = malloc(length);
-    lovrAssert(data, "Out of memory");
-    memcpy(data, string, length);
-    source = lovrBlobCreate(data, length, "Shader code");
+static ShaderSource luax_checkshadercode(lua_State* L, int index, ShaderStage stage, bool* allocated) {
+  ShaderSource source;
+  if (lua_isstring(L, index)) {
+    size_t length;
+    const char* string = lua_tolstring(L, index, &length);
+    if (memchr(string, '\n', MIN(256, length))) {
+      source.code = string;
+      source.size = length;
+      *allocated = false;
+    } else {
+      source.code = luax_readfile(string, &source.size);
+      lovrAssert(source.code, "Could not read shader code from %s", string);
+      *allocated = true;
+    }
   } else if (lua_istable(L, index)) {
     int length = luax_len(L, index);
-    size_t size = length * 4;
-    uint32_t* words = malloc(size);
+    source.size = length * sizeof(uint32_t);
+    uint32_t* words = malloc(source.size);
     lovrAssert(words, "Out of memory");
-    source = lovrBlobCreate(words, size, "SPIR-V code");
+    source.code = words;
+    *allocated = true;
     for (int i = 0; i < length; i++) {
       lua_rawgeti(L, index, i + 1);
-      words[i] = lua_tointeger(L, -1);
+      words[i] = luax_checku32(L, -1);
       lua_pop(L, 1);
     }
-  } else {
-    source = luax_readblob(L, index, "Shader");
+  } else if (lua_isuserdata(L, index)) {
+    Blob* blob = luax_checktype(L, index, Blob);
+    source.code = blob->data;
+    source.size = blob->size;
+    *allocated = false;
   }
 
-  Blob* code = lovrGraphicsCompileShader(stage, source);
-  lovrRelease(source, lovrBlobDestroy);
-  return code;
+  ShaderSource bytecode = lovrGraphicsCompileShader(stage, &source);
+
+  if (bytecode.code != source.code) {
+    if (*allocated) free((void*) source.code);
+    *allocated = true;
+    return bytecode;
+  }
+
+  return source;
 }
 
 static int l_lovrGraphicsCompileShader(lua_State* L) {
   ShaderStage stage = luax_checkenum(L, 1, ShaderStage, NULL);
-  Blob* source = luax_checkshadercode(L, 2, stage);
-  Blob* output = lovrGraphicsCompileShader(stage, source);
-  luax_pushtype(L, Blob, output);
-  lovrRelease(output, lovrBlobDestroy);
-  lovrRelease(source, lovrBlobDestroy);
+  bool allocated;
+  ShaderSource spirv = luax_checkshadercode(L, 2, stage, &allocated);
+  if (!allocated) {
+    lua_settop(L, 2);
+    return 1;
+  } else {
+    Blob* blob = lovrBlobCreate((void*) spirv.code, spirv.size, "Compiled Shader Code");
+    luax_pushtype(L, Blob, blob);
+  }
   return 1;
 }
 
 static int l_lovrGraphicsNewShader(lua_State* L) {
   ShaderInfo info = { 0 };
+  bool allocated[2];
   int index;
 
   if (lua_gettop(L) == 1 || (lua_istable(L, 2) && luax_len(L, 2) == 0)) {
     info.type = SHADER_COMPUTE;
-    info.stages[0] = luax_checkshadercode(L, 1, STAGE_COMPUTE);
+    info.source[0] = luax_checkshadercode(L, 1, STAGE_COMPUTE, &allocated[0]);
     index = 2;
   } else {
     info.type = SHADER_GRAPHICS;
-    info.stages[0] = luax_checkshadercode(L, 1, STAGE_VERTEX);
-    info.stages[1] = luax_checkshadercode(L, 2, STAGE_FRAGMENT);
+    info.source[0] = luax_checkshadercode(L, 1, STAGE_VERTEX, &allocated[0]);
+    info.source[1] = luax_checkshadercode(L, 2, STAGE_FRAGMENT, &allocated[1]);
     index = 3;
   }
 
@@ -1094,13 +1115,13 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 
   info.flags = flags.data;
   info.flagCount = flags.length;
-  Shader* shader = lovrShaderCreate(&info);
-  lovrRelease(info.stages[0], lovrBlobDestroy);
-  lovrRelease(info.stages[1], lovrBlobDestroy);
-  arr_free(&flags);
 
+  Shader* shader = lovrShaderCreate(&info);
   luax_pushtype(L, Shader, shader);
   lovrRelease(shader, lovrShaderDestroy);
+  if (allocated[0]) free((void*) info.source[0].code);
+  if (allocated[1]) free((void*) info.source[1].code);
+  arr_free(&flags);
   return 1;
 }
 

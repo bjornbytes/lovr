@@ -1289,11 +1289,11 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
 
 // Shader
 
-Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
-  uint32_t spirv = 0x07230203;
+ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) {
+  uint32_t magic = 0x07230203;
 
-  if (source->size % 4 == 0 && source->size >= 4 && !memcmp(source->data, &spirv, 4)) {
-    return lovrRetain(source), source;
+  if (source->size % 4 == 0 && source->size >= 4 && !memcmp(source->code, &magic, 4)) {
+    return *source;
   }
 
 #ifdef LOVR_USE_GLSLANG
@@ -1330,7 +1330,7 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
     prefix,
     (const char*) etc_shaders_lovr_glsl,
     "#line 1\n",
-    source->data,
+    source->code,
     suffixes[stage]
   };
 
@@ -1363,12 +1363,12 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
 
   if (!glslang_shader_preprocess(shader, &input)) {
     lovrThrow("Could not preprocess %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
-    return NULL;
+    return (ShaderSource) { NULL, 0 };
   }
 
   if (!glslang_shader_parse(shader, &input)) {
     lovrThrow("Could not parse %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
-    return NULL;
+    return (ShaderSource) { NULL, 0 };
   }
 
   glslang_program_t* program = glslang_program_create();
@@ -1376,25 +1376,25 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
 
   if (!glslang_program_link(program, 0)) {
     lovrThrow("Could not link shader:\n%s", glslang_program_get_info_log(program));
-    return NULL;
+    return (ShaderSource) { NULL, 0 };
   }
 
   glslang_program_SPIRV_generate(program, stages[stage]);
 
   void* words = glslang_program_SPIRV_get_ptr(program);
   size_t size = glslang_program_SPIRV_get_size(program) * 4;
+
   void* data = malloc(size);
   lovrAssert(data, "Out of memory");
   memcpy(data, words, size);
-  Blob* blob = lovrBlobCreate(data, size, "SPIRV");
 
   glslang_program_delete(program);
   glslang_shader_delete(shader);
 
-  return blob;
+  return (ShaderSource) { data, size };
 #else
   lovrThrow("Could not compile shader: No shader compiler available");
-  return NULL;
+  return (ShaderSource) { NULL, 0 };
 #endif
 }
 
@@ -1448,39 +1448,34 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
 
   switch (type) {
     case SHADER_UNLIT:
-      info.stages[0] = lovrBlobCreate((void*) lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert), "Unlit Vertex Shader");
-      info.stages[1] = lovrBlobCreate((void*) lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag), "Unlit Fragment Shader");
+      info.source[0] = (ShaderSource) { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) };
+      info.source[1] = (ShaderSource) { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) };
       info.label = "unlit";
       break;
     case SHADER_CUBE:
-      info.stages[0] = lovrBlobCreate((void*) lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert), "Cubemap Vertex Shader");
-      info.stages[1] = lovrBlobCreate((void*) lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag), "Cubemap Fragment Shader");
+      info.source[0] = (ShaderSource) { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) };
+      info.source[1] = (ShaderSource) { lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) };
       info.label = "cubemap";
       break;
     case SHADER_PANO:
-      info.stages[0] = lovrBlobCreate((void*) lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert), "Cubemap Vertex Shader");
-      info.stages[1] = lovrBlobCreate((void*) lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag), "Equirect Fragment Shader");
+      info.source[0] = (ShaderSource) { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) };
+      info.source[1] = (ShaderSource) { lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) };
       info.label = "equirect";
       break;
     case SHADER_FILL:
-      info.stages[0] = lovrBlobCreate((void*) lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert), "Fill Vertex Shader");
-      info.stages[1] = lovrBlobCreate((void*) lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag), "Unlit Fragment Shader");
+      info.source[0] = (ShaderSource) { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) };
+      info.source[1] = (ShaderSource) { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) };
       info.label = "fill";
       break;
     case SHADER_FONT:
-      info.stages[0] = lovrBlobCreate((void*) lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert), "Unlit Vertex Shader");
-      info.stages[1] = lovrBlobCreate((void*) lovr_shader_font_frag, sizeof(lovr_shader_font_frag), "Font Fragment Shader");
+      info.source[0] = (ShaderSource) { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) };
+      info.source[1] = (ShaderSource) { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) };
       info.label = "font";
       break;
     default: lovrUnreachable();
   }
 
-  state.defaultShaders[type] = lovrShaderCreate(&info);
-  info.stages[0]->data = NULL;
-  info.stages[1]->data = NULL;
-  lovrRelease(info.stages[0], lovrBlobDestroy);
-  lovrRelease(info.stages[1], lovrBlobDestroy);
-  return state.defaultShaders[type];
+  return state.defaultShaders[type] = lovrShaderCreate(&info);
 }
 
 Shader* lovrShaderCreate(ShaderInfo* info) {
@@ -1494,7 +1489,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   spv_result result;
   spv_info spv[2] = { 0 };
   for (uint32_t i = 0; i < stageCount; i++) {
-    result = spv_parse(info->stages[i]->data, info->stages[i]->size, &spv[i]);
+    result = spv_parse(info->source[i].code, info->source[i].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
     lovrCheck(spv[i].version <= 0x00010300, "Invalid SPIR-V version (up to 1.3 is supported)");
 
@@ -1504,7 +1499,7 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     spv[i].attributes = tempAlloc(spv[i].attributeCount * sizeof(spv_attribute));
     spv[i].resources = tempAlloc(spv[i].resourceCount * sizeof(spv_resource));
 
-    result = spv_parse(info->stages[i]->data, info->stages[i]->size, &spv[i]);
+    result = spv_parse(info->source[i].code, info->source[i].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
 
     checkShaderFeatures(spv[i].features, spv[i].featureCount);
@@ -1682,13 +1677,13 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
   shader->layout = getLayout(slots, shader->resourceCount);
 
   gpu_shader_info gpu = {
-    .stages[0] = { info->stages[0]->data, info->stages[0]->size },
+    .stages[0] = { info->source[0].code, info->source[0].size },
     .pushConstantSize = shader->constantSize,
     .label = info->label
   };
 
-  if (info->stages[1]) {
-    gpu.stages[1] = (gpu_shader_stage) { info->stages[1]->data, info->stages[1]->size };
+  if (info->source[1].code) {
+    gpu.stages[1] = (gpu_shader_stage) { info->source[1].code, info->source[1].size };
   }
 
   if (info->type == SHADER_GRAPHICS) {
@@ -2609,15 +2604,12 @@ static void lovrModelReskin(Model* model) {
   }
 
   if (!state.animator) {
-    Blob* source = lovrBlobCreate((void*) lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp), NULL);
     state.animator = lovrShaderCreate(&(ShaderInfo) {
       .type = SHADER_COMPUTE,
-      .stages[0] = source,
+      .source[0] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) },
       .flags = &(ShaderFlag) { "local_size_x_id", 0, state.device.subgroupSize },
-      .label = "Animator"
+      .label = "animator"
     });
-    source->data = NULL;
-    lovrRelease(source, lovrBlobDestroy);
   }
 
   gpu_pipeline* pipeline = state.pipelines.data[state.animator->computePipeline];
@@ -4569,14 +4561,11 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
     }, 1);
 
     if (!state.timeWizard) {
-      Blob* source = lovrBlobCreate((void*) lovr_shader_timewizard_comp, sizeof(lovr_shader_timewizard_comp), NULL);
       state.timeWizard = lovrShaderCreate(&(ShaderInfo) {
         .type = SHADER_COMPUTE,
-        .stages[0] = source,
-        .label = "Chronophage"
+        .source[0] = { lovr_shader_timewizard_comp, sizeof(lovr_shader_timewizard_comp) },
+        .label = "timewizard"
       });
-      source->data = NULL;
-      lovrRelease(source, lovrBlobDestroy);
     }
 
     gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipeline];

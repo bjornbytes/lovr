@@ -278,6 +278,11 @@ typedef enum {
 } ShaderStage;
 
 typedef struct {
+  const void* code;
+  size_t size;
+} ShaderSource;
+
+typedef struct {
   const char* name;
   uint32_t id;
   double value;
@@ -285,13 +290,13 @@ typedef struct {
 
 typedef struct {
   ShaderType type;
-  struct Blob* stages[2];
+  ShaderSource source[2];
   uint32_t flagCount;
   ShaderFlag* flags;
   const char* label;
 } ShaderInfo;
 
-struct Blob* lovrGraphicsCompileShader(ShaderStage stage, struct Blob* source);
+ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source);
 Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
 Shader* lovrShaderCreate(ShaderInfo* info);
 Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count);
