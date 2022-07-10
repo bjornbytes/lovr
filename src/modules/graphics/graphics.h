@@ -138,7 +138,9 @@ typedef enum {
   FIELD_F32x4,
   FIELD_MAT2,
   FIELD_MAT3,
-  FIELD_MAT4
+  FIELD_MAT4,
+  FIELD_INDEX16,
+  FIELD_INDEX32
 } FieldType;
 
 typedef struct {

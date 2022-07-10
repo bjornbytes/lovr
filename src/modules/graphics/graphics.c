@@ -2342,7 +2342,7 @@ Model* lovrModelCreate(ModelInfo* info) {
       .length = data->indexCount,
       .stride = indexSize,
       .fieldCount = 1,
-      .fields[0] = { 0, 0, data->indexType == U32 ? FIELD_U32 : FIELD_I32, 0 }
+      .fields[0] = { 0, 0, data->indexType == U32 ? FIELD_INDEX32 : FIELD_INDEX16, 0 }
     }, (void**) &indices);
   }
 
@@ -3435,6 +3435,7 @@ static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
       bool found = false;
       for (uint32_t j = 0; j < draw->vertex.buffer->info.fieldCount; j++) {
         BufferField field = draw->vertex.buffer->info.fields[j];
+        lovrCheck(field.type < FIELD_MAT2, "Currently, matrix and index types can not be used in vertex buffers");
         if (field.hash ? (field.hash == attribute->hash) : (field.location == attribute->location)) {
           pipeline->info.vertex.attributes[i] = (gpu_attribute) {
             .buffer = 0,

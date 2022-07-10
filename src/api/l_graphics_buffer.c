@@ -47,7 +47,9 @@ static const uint32_t fieldComponents[] = {
   [FIELD_F32x4] = 4,
   [FIELD_MAT2] = 4,
   [FIELD_MAT3] = 9,
-  [FIELD_MAT4] = 16
+  [FIELD_MAT4] = 16,
+  [FIELD_INDEX16] = 1,
+  [FIELD_INDEX32] = 1
 };
 
 typedef union {
@@ -131,6 +133,8 @@ void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
         case FIELD_MAT2: p.f32[i] = (float) x; break;
         case FIELD_MAT3: p.f32[i] = (float) x; break;
         case FIELD_MAT4: p.f32[i] = (float) x; break;
+        case FIELD_INDEX16: p.u16[i] = (uint16_t) x - 1; break;
+        case FIELD_INDEX32: p.u32[i] = (uint32_t) x - 1; break;
         default: lovrUnreachable();
       }
     }

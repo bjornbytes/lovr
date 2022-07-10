@@ -106,6 +106,8 @@ StringEntry lovrFieldType[] = {
   [FIELD_MAT2] = ENTRY("mat2"),
   [FIELD_MAT3] = ENTRY("mat3"),
   [FIELD_MAT4] = ENTRY("mat4"),
+  [FIELD_INDEX16] = ENTRY("index16"),
+  [FIELD_INDEX32] = ENTRY("index32"),
   { 0 }
 };
 
@@ -245,7 +247,9 @@ static struct { uint32_t size, scalarAlign, baseAlign, components; } fieldInfo[]
   [FIELD_F32x4] = { 16, 4, 16, 4 },
   [FIELD_MAT2] = { 16, 4, 8, 4 },
   [FIELD_MAT3] = { 64, 4, 16, 9 },
-  [FIELD_MAT4] = { 64, 4, 16, 16 }
+  [FIELD_MAT4] = { 64, 4, 16, 16 },
+  [FIELD_INDEX16] = { 2, 2, 2, 1 },
+  [FIELD_INDEX32] = { 4, 4, 4, 1 }
 };
 
 static uint32_t luax_checkfieldtype(lua_State* L, int index, uint32_t* nameHash) {
@@ -294,6 +298,10 @@ static uint32_t luax_checkfieldtype(lua_State* L, int index, uint32_t* nameHash)
 
   if (length == 5 && !memcmp(string, "color", length)) {
     return FIELD_UN8x4;
+  }
+
+  if (length == 6 && !memcmp(string, "index", length)) {
+    return FIELD_INDEX32;
   }
 
   for (int i = 0; lovrFieldType[i].length; i++) {
