@@ -1036,7 +1036,6 @@ static Blob* luax_checkshadercode(lua_State* L, int index, ShaderStage stage) {
   }
 
   Blob* code = lovrGraphicsCompileShader(stage, source);
-  lovrAssert(code, "Could not compile shader");
   lovrRelease(source, lovrBlobDestroy);
   return code;
 }

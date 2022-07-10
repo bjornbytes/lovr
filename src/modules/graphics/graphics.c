@@ -1321,14 +1321,15 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
         "Normal = normalize(NormalMatrix * VertexNormal);"
         "UV = VertexUV;"
         "Position = lovrmain();"
-      "}\n#line 0\n",
-    [STAGE_FRAGMENT] = "void main() { PixelColors[0] = lovrmain(); }\n#line 0\n",
-    [STAGE_COMPUTE] = "void main() { lovrmain(); }\n#line 0\n"
+      "}",
+    [STAGE_FRAGMENT] = "void main() { PixelColors[0] = lovrmain(); }",
+    [STAGE_COMPUTE] = "void main() { lovrmain(); }"
   };
 
   const char* strings[] = {
     prefix,
     (const char*) etc_shaders_lovr_glsl,
+    "#line 1\n",
     source->data,
     suffixes[stage]
   };
@@ -1336,6 +1337,7 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
   int lengths[] = {
     -1,
     etc_shaders_lovr_glsl_len,
+    -1,
     source->size,
     -1
   };
@@ -1360,12 +1362,12 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
   glslang_shader_t* shader = glslang_shader_create(&input);
 
   if (!glslang_shader_preprocess(shader, &input)) {
-    lovrLog(LOG_INFO, "GFX", "Could not preprocess %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
+    lovrThrow("Could not preprocess %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
     return NULL;
   }
 
   if (!glslang_shader_parse(shader, &input)) {
-    lovrLog(LOG_INFO, "GFX", "Could not parse %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
+    lovrThrow("Could not parse %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
     return NULL;
   }
 
@@ -1373,7 +1375,7 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
   glslang_program_add_shader(program, shader);
 
   if (!glslang_program_link(program, 0)) {
-    lovrLog(LOG_INFO, "GFX", "Could not link shader:\n%s", glslang_program_get_info_log(program));
+    lovrThrow("Could not link shader:\n%s", glslang_program_get_info_log(program));
     return NULL;
   }
 
@@ -1391,6 +1393,7 @@ Blob* lovrGraphicsCompileShader(ShaderStage stage, Blob* source) {
 
   return blob;
 #else
+  lovrThrow("Could not compile shader: No shader compiler available");
   return NULL;
 #endif
 }
