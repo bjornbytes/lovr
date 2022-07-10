@@ -322,6 +322,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
     case LUA_TSTRING:
       info->fieldCount = 1;
       info->fields[0].type = luax_checkfieldtype(L, index, &info->fields[0].hash);
+      info->fields[0].location = 10;
       info->stride = fieldInfo[info->fields[0].type].size;
       break;
     case LUA_TTABLE:
@@ -334,7 +335,7 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
 
       uint32_t offset = 0;
       uint32_t extent = 0;
-      uint32_t location = 0;
+      uint32_t location = 10;
       uint32_t maxAlign = 1;
       for (int i = 0; i < length; i++) {
         BufferField* field = &info->fields[i];
