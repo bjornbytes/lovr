@@ -304,6 +304,7 @@ void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderHasStage(Shader* shader, ShaderStage stage);
 bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location);
+void lovrShaderGetLocalWorkgroupSize(Shader* shader, uint32_t size[3]);
 
 // Material
 

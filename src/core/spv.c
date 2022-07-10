@@ -49,6 +49,7 @@ typedef struct {
 #define OP_LENGTH(op) (op[0] >> 16)
 
 static spv_result spv_parse_capability(spv_context* spv, const uint32_t* op, spv_info* info);
+static spv_result spv_parse_execution_mode(spv_context* spv, const uint32_t* op, spv_info* info);
 static spv_result spv_parse_name(spv_context* spv, const uint32_t* op, spv_info* info);
 static spv_result spv_parse_decoration(spv_context* spv, const uint32_t* op, spv_info* info);
 static spv_result spv_parse_type(spv_context* spv, const uint32_t* op, spv_info* info);
@@ -104,6 +105,8 @@ spv_result spv_parse(const void* source, uint32_t size, spv_info* info) {
       case 17: // OpCapability
         result = spv_parse_capability(&spv, op, info);
         break;
+      case 16: // OpExecutionMode
+        result = spv_parse_execution_mode(&spv, op, info);
       case 5: // OpName
         result = spv_parse_name(&spv, op, info);
         break;
@@ -176,6 +179,17 @@ static spv_result spv_parse_capability(spv_context* spv, const uint32_t* op, spv
 
   info->featureCount++;
 
+  return SPV_OK;
+}
+
+static spv_result spv_parse_execution_mode(spv_context* spv, const uint32_t* op, spv_info* info) {
+  if (OP_LENGTH(op) != 6 || op[2] != 17) { // LocalSize
+    return SPV_OK;
+  }
+
+  info->localWorkgroupSize[0] = op[3];
+  info->localWorkgroupSize[1] = op[4];
+  info->localWorkgroupSize[2] = op[5];
   return SPV_OK;
 }
 

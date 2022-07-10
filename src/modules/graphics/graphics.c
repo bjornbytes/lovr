@@ -105,6 +105,7 @@ struct Shader {
   ShaderInfo info;
   uint32_t layout;
   uint32_t computePipeline;
+  uint32_t localWorkgroupSize[3];
   uint32_t bufferMask;
   uint32_t textureMask;
   uint32_t samplerMask;
@@ -1505,6 +1506,10 @@ Shader* lovrShaderCreate(ShaderInfo* info) {
     checkShaderFeatures(spv[i].features, spv[i].featureCount);
   }
 
+  if (info->type == SHADER_COMPUTE) {
+    memcpy(shader->localWorkgroupSize, spv[0].localWorkgroupSize, 3 * sizeof(uint32_t));
+  }
+
   uint32_t constantStage = spv[0].pushConstantSize > spv[1].pushConstantSize ? 0 : 1;
   uint32_t maxFlags = spv[0].specConstantCount + spv[1].specConstantCount;
   shader->constantCount = spv[constantStage].pushConstantCount;
@@ -1762,6 +1767,10 @@ bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location)
     }
   }
   return false;
+}
+
+void lovrShaderGetLocalWorkgroupSize(Shader* shader, uint32_t size[3]) {
+  memcpy(size, shader->localWorkgroupSize, 3 * sizeof(uint32_t));
 }
 
 // Material

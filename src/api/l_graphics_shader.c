@@ -64,10 +64,27 @@ static int l_lovrShaderHasAttribute(lua_State* L) {
   return 1;
 }
 
+static int l_lovrShaderGetLocalWorkgroupSize(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+
+  if (!lovrShaderHasStage(shader, STAGE_COMPUTE)) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  uint32_t size[3];
+  lovrShaderGetLocalWorkgroupSize(shader, size);
+  lua_pushinteger(L, size[0]);
+  lua_pushinteger(L, size[1]);
+  lua_pushinteger(L, size[2]);
+  return 3;
+}
+
 const luaL_Reg lovrShader[] = {
   { "clone", l_lovrShaderClone },
   { "getType", l_lovrShaderGetType },
   { "hasStage", l_lovrShaderHasStage },
   { "hasAttribute", l_lovrShaderHasAttribute },
+  { "getLocalWorkgroupSize", l_lovrShaderGetLocalWorkgroupSize },
   { NULL, NULL }
 };
