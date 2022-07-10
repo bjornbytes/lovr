@@ -529,11 +529,28 @@ static int l_lovrPassSphere(lua_State* L) {
   return 0;
 }
 
+static bool luax_checkendpoints(lua_State* L, int index, float transform[16]) {
+  float *v, *u;
+  VectorType t1, t2;
+  if ((v = luax_tovector(L, index + 0, &t1)) == NULL || t1 != V_VEC3) return false;
+  if ((u = luax_tovector(L, index + 1, &t2)) == NULL || t2 != V_VEC3) return false;
+  float radius = luax_optfloat(L, index + 2, 1.);
+  float orientation[4];
+  float forward[4] = { 0.f, 0.f, -1.f, 0.f };
+  float direction[4];
+  vec3_sub(vec3_init(direction, u), v);
+  quat_between(orientation, forward, direction);
+  mat4_identity(transform);
+  mat4_translate(transform, (v[0] + u[0]) / 2.f, (v[1] + u[1]) / 2.f, (v[2] + u[2]) / 2.f);
+  mat4_rotateQuat(transform, orientation);
+  mat4_scale(transform, radius, radius, vec3_length(direction));
+  return true;
+}
+
 static int l_lovrPassCylinder(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
-  // TODO vec3+vec3
-  int index = luax_readmat4(L, 2, transform, -2);
+  int index = luax_checkendpoints(L, 2, transform) ? 5 : luax_readmat4(L, 2, transform, -2);
   bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
   float angle1 = luax_optfloat(L, index++, 0.f);
   float angle2 = luax_optfloat(L, index++, 2.f * (float) M_PI);
@@ -545,7 +562,7 @@ static int l_lovrPassCylinder(lua_State* L) {
 static int l_lovrPassCapsule(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
-  int index = luax_readmat4(L, 2, transform, -2);
+  int index = luax_checkendpoints(L, 2, transform) ? 5 : luax_readmat4(L, 2, transform, -2);
   uint32_t segments = luax_optu32(L, index, 32);
   lovrPassCapsule(pass, transform, segments);
   return 0;
