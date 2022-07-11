@@ -4169,7 +4169,7 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
       uint16_t b = (t + 1) % segmentsT * segmentsP + p;
       uint16_t c = (t + 0) * segmentsP + (p + 1) % segmentsP;
       uint16_t d = (t + 1) % segmentsT * segmentsP + (p + 1) % segmentsP;
-      uint16_t quad[] = { a, b, c, b, c, d };
+      uint16_t quad[] = { a, b, c, c, b, d };
       memcpy(indices, quad, sizeof(quad));
       indices += COUNTOF(quad);
     }
