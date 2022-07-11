@@ -3558,6 +3558,10 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
 
   float cofactor[16];
   mat4_init(cofactor, transform);
+  cofactor[12] = 0.f;
+  cofactor[13] = 0.f;
+  cofactor[14] = 0.f;
+  cofactor[15] = 1.f;
   mat4_cofactor(cofactor);
 
   memcpy(pass->drawData->transform, transform, 64);
