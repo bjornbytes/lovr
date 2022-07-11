@@ -540,7 +540,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
         }
       }
     } else if (lua_isnumber(L, -1) || lua_isuserdata(L, -1)) {
-      luax_optcolor(L, -1, canvas.clears[1]);
+      luax_optcolor(L, -1, canvas.clears[0]);
     } else if (!lua_isnil(L, -1)) {
       LoadAction load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
       canvas.loads[0] = canvas.loads[1] = canvas.loads[2] = canvas.loads[3] = load;
