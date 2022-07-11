@@ -573,7 +573,7 @@ static int l_lovrPassTorus(lua_State* L) {
   float transform[16];
   int index = luax_readmat4(L, 2, transform, -2);
   uint32_t segmentsT = luax_optu32(L, index++, 64);
-  uint32_t segmentsP = luax_optu32(L, index++, 32);
+  uint32_t segmentsP = luax_optu32(L, index++, segmentsT / 2);
   lovrPassTorus(pass, transform, segmentsT, segmentsP);
   return 0;
 }
