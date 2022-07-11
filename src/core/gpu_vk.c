@@ -123,6 +123,7 @@ typedef struct {
   struct {
     VkFormat format;
     VkImageLayout layout;
+    VkImageLayout resolveLayout;
     gpu_load_op load;
     gpu_save_op save;
   } color[4];
@@ -1276,6 +1277,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   for (uint32_t i = 0; i < info->colorCount; i++) {
     pass.color[i].format = convertFormat(info->color[i].format, info->color[i].srgb);
     pass.color[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    pass.color[i].resolveLayout = resolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
     pass.color[i].load = GPU_LOAD_OP_CLEAR;
     pass.color[i].save = GPU_SAVE_OP_SAVE;
   }
@@ -1440,6 +1442,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   if (pass.resolve) {
     for (uint32_t i = 0; i < pass.count; i++) {
       images[pass.count + i] = canvas->color[i].resolve->view;
+      pass.color[i].resolveLayout = canvas->color[i].resolve->layout;
     }
     pass.count <<= 1;
   }
@@ -2456,6 +2459,10 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
     count > 1 ? pass->color[1].layout : 0x00,
     count > 2 ? pass->color[2].layout : 0x00,
     count > 3 ? pass->color[3].layout : 0x00,
+    pass->resolve && count > 0 ? pass->color[0].resolveLayout : 0x00,
+    pass->resolve && count > 1 ? pass->color[1].resolveLayout : 0x00,
+    pass->resolve && count > 2 ? pass->color[2].resolveLayout : 0x00,
+    pass->resolve && count > 3 ? pass->color[3].resolveLayout : 0x00,
     depth ? pass->depth.layout : 0x00,
     0
   };
@@ -2505,7 +2512,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     bool surface = pass->color[i].format == state.surfaceFormat;
-    bool discard = surface || pass->resolve || pass->color[i].load != GPU_LOAD_OP_LOAD;
+    bool discard = surface || pass->color[i].load != GPU_LOAD_OP_LOAD;
     attachments[i] = (VkAttachmentDescription) {
       .format = pass->color[i].format,
       .samples = pass->samples,
@@ -2528,7 +2535,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .storeOp = storeOps[pass->color[i].save],
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = surface ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
+        .finalLayout = surface ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].resolveLayout
       };
     }
   }
