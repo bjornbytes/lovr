@@ -2476,8 +2476,8 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
     if ((row[i].hash & mask) == hash) {
       gpu_cache_entry entry = row[i];
       if (i > 0) {
-        for (uint32_t j = 0; j < i; j++) {
-          row[j + 1] = row[j];
+        for (uint32_t j = i; j >= 1; j--) {
+          row[j] = row[j - 1];
         }
         row[0] = entry;
       }
