@@ -157,19 +157,32 @@ function lovr.errhand(message, traceback)
   print('Error:\n' .. message)
   if not lovr.graphics then return function() return 1 end end
 
-  local function render(pass)
-    pass:setBlendMode('alpha')
-    pass:text('Error', 0, .3, -1, .1)
-    pass:text(message, 0, 0, -1, .05)
-  end
-
   lovr.graphics.submit()
   lovr.graphics.setBackground(.11, .10, .14)
+
+  local font = lovr.graphics.getDefaultFont()
+  local wrap = .7 * font:getPixelDensity()
+  local lines = font:getLines(message, wrap)
+  local width = math.min(font:getWidth(message), wrap)
+  local height = 2.6 + #lines
+  local x = -width / 2
+  local y = math.min(height / 2, 10)
+  local z = -20
+  font:setPixelDensity()
+
+  local function render(pass)
+    pass:setColor(.95, .95, .95)
+    pass:setBlendMode('alpha')
+    pass:text('Error', x, y, z, 1.6, 0, 0, 0, 0, nil, 'left', 'top')
+    pass:text(message, x, y - 2.6, z, 1, 0, 0, 0, 0, wrap, 'left', 'top')
+  end
+
   return function()
     lovr.event.pump()
     for name, a in lovr.event.poll() do
       if name == 'quit' then return a or 1
-      elseif name == 'restart' then return 'restart', lovr.event.restart and lovr.restart() end
+      elseif name == 'restart' then return 'restart', lovr.restart and lovr.restart()
+      elseif name == 'keypressed' and a == 'f5' then lovr.event.restart() end
     end
     local passes = {}
     if lovr.headset then

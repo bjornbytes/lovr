@@ -43,7 +43,8 @@ static int l_lovrFontGetPixelDensity(lua_State* L) {
 
 static int l_lovrFontSetPixelDensity(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
-  float pixelDensity = luax_optfloat(L, 2, 0.f);
+  Rasterizer* rasterizer = lovrFontGetInfo(font)->rasterizer;
+  float pixelDensity = luax_optfloat(L, 2, lovrRasterizerGetLeading(rasterizer));
   lovrFontSetPixelDensity(font, pixelDensity);
   return 0;
 }
