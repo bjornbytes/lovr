@@ -412,7 +412,7 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
     if (oversized) {
       bufferSize = size;
     } else {
-      while (pool->size < size) {
+      while (pool->size < cursor + size) {
         pool->size = pool->size ? (pool->size << 1) : (1 << 22);
       }
       bufferSize = pool->size * COUNTOF(state.ticks);
@@ -2381,7 +2381,7 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
     }
   }
 
-  check(false, "Out of space for memory blocks");
+  check(false, "Out of GPU memory");
   return NULL;
 }
 
