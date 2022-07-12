@@ -2039,6 +2039,8 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   font->atlasX += pixelWidth;
   font->rowHeight = MAX(font->rowHeight, pixelHeight);
 
+  beginFrame();
+
   // Atlas resize
   if (!font->atlas || font->atlasWidth > font->atlas->info.width || font->atlasHeight > font->atlas->info.height) {
     lovrCheck(font->atlasWidth <= 65536, "Font atlas is way too big!");
@@ -2185,6 +2187,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     totalLength += strings[i].length;
   }
 
+  beginFrame();
   uint32_t stack = tempPush();
   char* string = tempAlloc(totalLength + 1);
   string[totalLength] = '\0';
