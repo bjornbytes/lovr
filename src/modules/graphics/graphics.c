@@ -26,6 +26,7 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 #define MAX_FRAME_MEMORY (1 << 30)
 #define MAX_SHADER_RESOURCES 32
 #define MATERIALS_PER_BLOCK 1024
+#define FLOAT_BITS(f) ((union { float f; uint32_t u; }) { f }).u
 
 typedef struct {
   struct { float x, y, z; } position;
@@ -170,6 +171,7 @@ typedef enum {
 } VertexFormat;
 
 typedef struct {
+  uint64_t hash;
   VertexMode mode;
   DefaultShader shader;
   Material* material;
@@ -178,14 +180,11 @@ typedef struct {
     Buffer* buffer;
     VertexFormat format;
     uint32_t count;
-    const void* data;
     void** pointer;
   } vertex;
   struct {
     Buffer* buffer;
     uint32_t count;
-    uint32_t stride;
-    const void* data;
     void** pointer;
   } index;
   uint32_t start;
@@ -244,6 +243,23 @@ typedef struct {
   bool dirty;
 } Pipeline;
 
+enum {
+  SHAPE_PLANE,
+  SHAPE_BOX,
+  SHAPE_CIRCLE,
+  SHAPE_SPHERE,
+  SHAPE_CYLINDER,
+  SHAPE_CAPSULE,
+  SHAPE_TORUS,
+  SHAPE_MONKEY
+};
+
+typedef struct {
+  uint64_t hash;
+  gpu_buffer* vertices;
+  gpu_buffer* indices;
+} Shape;
+
 typedef struct {
   Sync* sync;
   Buffer* buffer;
@@ -277,6 +293,7 @@ struct Pass {
   gpu_binding builtins[3];
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
+  Shape shapeCache[16];
   arr_t(Access) access;
 };
 
@@ -2366,7 +2383,6 @@ Model* lovrModelCreate(ModelInfo* info) {
 
     draw->material = primitive->material == ~0u ? NULL: model->materials[primitive->material];
     draw->vertex.buffer = model->vertexBuffer;
-    draw->index.stride = indexSize;
 
     if (primitive->indices) {
       draw->index.buffer = model->indexBuffer;
@@ -2894,6 +2910,8 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   pass->vertexBuffer = NULL;
   pass->indexBuffer = NULL;
+
+  memset(pass->shapeCache, 0, sizeof(pass->shapeCache));
 
   float viewport[6] = { 0.f, 0.f, (float) main->width, (float) main->height, 0.f, 1.f };
   lovrPassSetViewport(pass, viewport, viewport + 4);
@@ -3583,22 +3601,29 @@ static void flushMaterial(Pass* pass, Draw* draw, Shader* shader) {
 }
 
 static void flushBuffers(Pass* pass, Draw* draw) {
+  Shape* cache = NULL;
+
+  if (draw->hash) {
+    cache = &pass->shapeCache[draw->hash & (COUNTOF(pass->shapeCache) - 1)];
+    if (cache->hash == draw->hash) {
+      gpu_bind_vertex_buffers(pass->stream, &cache->vertices, NULL, 0, 1);
+      gpu_bind_index_buffer(pass->stream, cache->indices, 0, GPU_INDEX_U16);
+      *draw->vertex.pointer = NULL;
+      *draw->index.pointer = NULL;
+      return;
+    }
+  }
+
   if (!draw->vertex.buffer && draw->vertex.count > 0) {
     lovrCheck(draw->vertex.count < UINT16_MAX, "This draw has too many vertices (max is 65534), try splitting it up into multiple draws or using a Buffer");
     uint32_t stride = state.vertexFormats[draw->vertex.format].bufferStrides[0];
     uint32_t size = draw->vertex.count * stride;
 
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
-    void* pointer = gpu_map(scratchpad, size, stride, GPU_MAP_WRITE);
-
-    if (draw->vertex.pointer) {
-      *draw->vertex.pointer = pointer;
-    } else {
-      memcpy(pointer, draw->vertex.data, size);
-    }
+    *draw->vertex.pointer = gpu_map(scratchpad, size, stride, GPU_MAP_WRITE);
 
     gpu_bind_vertex_buffers(pass->stream, &scratchpad, NULL, 0, 1);
-    pass->vertexBuffer = NULL;
+    pass->vertexBuffer = scratchpad;
   } else if (draw->vertex.buffer && draw->vertex.buffer->gpu != pass->vertexBuffer) {
     lovrCheck(draw->vertex.buffer->info.stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
     gpu_bind_vertex_buffers(pass->stream, &draw->vertex.buffer->gpu, NULL, 0, 1);
@@ -3607,26 +3632,24 @@ static void flushBuffers(Pass* pass, Draw* draw) {
   }
 
   if (!draw->index.buffer && draw->index.count > 0) {
-    uint32_t stride = draw->index.stride ? draw->index.stride : sizeof(uint16_t);
-    uint32_t size = draw->index.count * stride;
+    uint32_t size = draw->index.count * sizeof(uint16_t);
 
     gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
-    void* pointer = gpu_map(scratchpad, size, stride, GPU_MAP_WRITE);
+    *draw->index.pointer = gpu_map(scratchpad, size, sizeof(uint16_t), GPU_MAP_WRITE);
 
-    if (draw->index.pointer) {
-      *draw->index.pointer = pointer;
-    } else {
-      memcpy(pointer, draw->index.data, size);
-    }
-
-    gpu_index_type type = stride == 4 ? GPU_INDEX_U32 : GPU_INDEX_U16;
-    gpu_bind_index_buffer(pass->stream, scratchpad, 0, type);
-    pass->indexBuffer = NULL;
+    gpu_bind_index_buffer(pass->stream, scratchpad, 0, GPU_INDEX_U16);
+    pass->indexBuffer = scratchpad;
   } else if (draw->index.buffer && draw->index.buffer->gpu != pass->indexBuffer) {
     gpu_index_type type = draw->index.buffer->info.stride == 4 ? GPU_INDEX_U32 : GPU_INDEX_U16;
     gpu_bind_index_buffer(pass->stream, draw->index.buffer->gpu, 0, type);
     pass->indexBuffer = draw->index.buffer->gpu;
     trackBuffer(pass, draw->index.buffer, GPU_PHASE_INPUT_INDEX, GPU_CACHE_INDEX);
+  }
+
+  if (cache) {
+    cache->hash = draw->hash;
+    cache->vertices = pass->vertexBuffer;
+    cache->indices = pass->indexBuffer;
   }
 }
 
@@ -3683,6 +3706,7 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
 }
 
 void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols, uint32_t rows) {
+  uint32_t key[] = { SHAPE_PLANE, style, cols, rows };
   ShapeVertex* vertices;
   uint16_t* indices;
 
@@ -3693,17 +3717,19 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
     indexCount = 2 * (rows + 1) + 2 * (cols + 1);
 
     lovrPassDraw(pass, &(Draw) {
+      .hash = hash64(key, sizeof(key)),
       .mode = VERTEX_LINES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
       .index.pointer = (void**) &indices,
-      .index.count = indexCount
+      .index.count = indexCount,
     });
   } else {
     indexCount = (cols * rows) * 6;
 
     lovrPassDraw(pass, &(Draw) {
+      .hash = hash64(key, sizeof(key)),
       .mode = VERTEX_TRIANGLES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
@@ -3711,6 +3737,10 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
       .index.pointer = (void**) &indices,
       .index.count = indexCount
     });
+  }
+
+  if (!vertices) {
+    return;
   }
 
   for (uint32_t y = 0; y <= rows; y++) {
@@ -3757,8 +3787,12 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
 }
 
 void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
+  uint32_t key[] = { SHAPE_BOX, style };
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
   if (style == STYLE_LINE) {
-    static ShapeVertex vertices[] = {
+    static ShapeVertex vertexData[] = {
       { { -.5f,  .5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } }, // Front
       { {  .5f,  .5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
       { {  .5f, -.5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
@@ -3769,22 +3803,28 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
       { { -.5f, -.5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } }
     };
 
-    static uint16_t indices[] = {
+    static uint16_t indexData[] = {
       0, 1, 1, 2, 2, 3, 3, 0, // Front
       4, 5, 5, 6, 6, 7, 7, 4, // Back
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
     };
 
     lovrPassDraw(pass, &(Draw) {
+      .hash = hash64(key, sizeof(key)),
       .mode = VERTEX_LINES,
       .transform = transform,
-      .vertex.data = vertices,
-      .vertex.count = COUNTOF(vertices),
-      .index.data = indices,
-      .index.count = COUNTOF(indices)
+      .vertex.pointer = (void**) &vertices,
+      .vertex.count = COUNTOF(vertexData),
+      .index.pointer = (void**) &indices,
+      .index.count = COUNTOF(indexData)
     });
+
+    if (vertices) {
+      memcpy(vertices, vertexData, sizeof(vertexData));
+      memcpy(indices, indexData, sizeof(indexData));
+    }
   } else {
-    ShapeVertex vertices[] = {
+    static ShapeVertex vertexData[] = {
       { { -.5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 0.f } }, // Front
       { { -.5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 1.f } },
       { {  .5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 0.f } },
@@ -3811,7 +3851,7 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
       { {  .5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 1.f, 0.f } }
     };
 
-    uint16_t indices[] = {
+    static uint16_t indexData[] = {
       0,  1,   2,  2,  1,  3,
       4,  5,   6,  6,  5,  7,
       8,  9,  10, 10,  9, 11,
@@ -3821,13 +3861,19 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
     };
 
     lovrPassDraw(pass, &(Draw) {
+      .hash = hash64(key, sizeof(key)),
       .mode = VERTEX_TRIANGLES,
       .transform = transform,
-      .vertex.data = vertices,
-      .vertex.count = COUNTOF(vertices),
-      .index.data = indices,
-      .index.count = COUNTOF(indices)
+      .vertex.pointer = (void**) &vertices,
+      .vertex.count = COUNTOF(vertexData),
+      .index.pointer = (void**) &indices,
+      .index.count = COUNTOF(indexData)
     });
+
+    if (vertices) {
+      memcpy(vertices, vertexData, sizeof(vertexData));
+      memcpy(indices, indexData, sizeof(indexData));
+    }
   }
 }
 
@@ -3837,6 +3883,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
     angle2 = 2.f * (float) M_PI;
   }
 
+  uint32_t key[] = { SHAPE_CIRCLE, style, FLOAT_BITS(angle1), FLOAT_BITS(angle2), segments };
   ShapeVertex* vertices;
   uint16_t* indices;
 
@@ -3845,6 +3892,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
     uint32_t indexCount = segments * 2;
 
     lovrPassDraw(pass, &(Draw) {
+      .hash = hash64(key, sizeof(key)),
       .mode = VERTEX_LINES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
@@ -3852,11 +3900,16 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
       .index.pointer = (void**) &indices,
       .index.count = indexCount
     });
+
+    if (!vertices) {
+      return;
+    }
   } else {
     uint32_t vertexCount = segments + 2;
     uint32_t indexCount = segments * 3;
 
     lovrPassDraw(pass, &(Draw) {
+      .hash = hash64(key, sizeof(key)),
       .mode = VERTEX_TRIANGLES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
@@ -3864,6 +3917,10 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
       .index.pointer = (void**) &indices,
       .index.count = indexCount
     });
+
+    if (!vertices) {
+      return;
+    }
 
     // Center
     *vertices++ = (ShapeVertex) { { 0.f, 0.f, 0.f }, { 0.f, 0.f, 1.f }, { .5f, .5f } };
@@ -3898,14 +3955,21 @@ void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t s
   ShapeVertex* vertices;
   uint16_t* indices;
 
+  uint32_t key[] = { SHAPE_SPHERE, segmentsH, segmentsV };
+
   lovrPassDraw(pass, &(Draw) {
+    .hash = hash64(key, sizeof(key)),
     .mode = VERTEX_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
-    .index.count = indexCount
+    .index.count = indexCount,
   });
+
+  if (!vertices) {
+    return;
+  }
 
   // Top
   *vertices++ = (ShapeVertex) { { 0.f, 1.f, 0.f }, { 0.f, 1.f, 0.f }, { .5f, 0.f } };
@@ -3965,6 +4029,8 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
     angle2 = 2.f * (float) M_PI;
   }
 
+  uint32_t key[] = { SHAPE_CYLINDER, capped, FLOAT_BITS(angle1), FLOAT_BITS(angle2), segments };
+
   uint32_t vertexCount = 2 * (segments + 1);
   uint32_t indexCount = 6 * segments;
   ShapeVertex* vertices;
@@ -3977,6 +4043,7 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
   }
 
   lovrPassDraw(pass, &(Draw) {
+    .hash = hash64(key, sizeof(key)),
     .mode = VERTEX_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
@@ -3984,6 +4051,10 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
     .index.pointer = (void**) &indices,
     .index.count = indexCount
   });
+
+  if (!vertices) {
+    return;
+  }
 
   float angleShift = (angle2 - angle1) / segments;
 
@@ -4046,6 +4117,8 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
   float radius = sx;
   float length = sz * .5f;
 
+  uint32_t key[] = { SHAPE_CAPSULE, FLOAT_BITS(radius), FLOAT_BITS(length), segments };
+
   uint32_t rings = segments / 2;
   uint32_t vertexCount = 2 * (1 + rings * (segments + 1));
   uint32_t indexCount = 2 * (3 * segments + 6 * segments * (rings - 1)) + 6 * segments;
@@ -4053,13 +4126,18 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
   uint16_t* indices;
 
   lovrPassDraw(pass, &(Draw) {
+    .hash = hash64(key, sizeof(key)),
     .mode = VERTEX_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
-    .index.count = indexCount
+    .index.count = indexCount,
   });
+
+  if (!vertices) {
+    return;
+  }
 
   float tip = length + radius;
   uint32_t h = vertexCount / 2;
@@ -4133,12 +4211,14 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
   float radius = sx * .5f;
   float thickness = sz * .5f;
 
+  uint32_t key[] = { SHAPE_TORUS, FLOAT_BITS(radius), FLOAT_BITS(thickness), segmentsT, segmentsP };
   uint32_t vertexCount = segmentsT * segmentsP;
   uint32_t indexCount = segmentsT * segmentsP * 6;
   ShapeVertex* vertices;
   uint16_t* indices;
 
   lovrPassDraw(pass, &(Draw) {
+    .hash = hash64(key, sizeof(key)),
     .mode = VERTEX_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
@@ -4311,6 +4391,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
   mat4_scale(transform, scale, scale, scale);
   mat4_translate(transform, 0.f, -ascent + valign / 2.f * (leading * lineCount), 0.f);
 
+  GlyphVertex* vertexPointer;
   uint16_t* indices;
   lovrPassDraw(pass, &(Draw) {
     .mode = VERTEX_TRIANGLES,
@@ -4318,11 +4399,13 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
     .material = font->material,
     .transform = transform,
     .vertex.format = VERTEX_GLYPH,
+    .vertex.pointer = (void**) &vertexPointer,
     .vertex.count = glyphCount * 4,
-    .vertex.data = vertices,
-    .index.count = glyphCount * 6,
-    .index.pointer = (void**) &indices
+    .index.pointer = (void**) &indices,
+    .index.count = glyphCount * 6
   });
+
+  memcpy(vertexPointer, vertices, glyphCount * 4 * sizeof(GlyphVertex));
 
   for (uint32_t i = 0; i < glyphCount * 4; i += 4) {
     uint16_t quad[] = { i + 0, i + 2, i + 1, i + 1, i + 2, i + 3 };
@@ -4364,17 +4447,24 @@ void lovrPassFill(Pass* pass, Texture* texture) {
 }
 
 void lovrPassMonkey(Pass* pass, float* transform) {
+  uint32_t key[] = { SHAPE_MONKEY };
   uint32_t vertexCount = COUNTOF(monkey_vertices) / 6;
-
   ShapeVertex* vertices;
+  uint16_t* indices;
+
   lovrPassDraw(pass, &(Draw) {
+    .hash = hash64(key, sizeof(key)),
     .mode = VERTEX_TRIANGLES,
-    .vertex.count = vertexCount,
     .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
     .index.count = COUNTOF(monkey_indices),
-    .index.data = monkey_indices,
     .transform = transform
   });
+
+  if (!vertices) {
+    return;
+  }
 
   // Manual vertex format conversion to avoid another format (and sn8x3 isn't always supported)
   for (uint32_t i = 0; i < vertexCount; i++) {
@@ -4387,6 +4477,8 @@ void lovrPassMonkey(Pass* pass, float* transform) {
       .normal.z = monkey_vertices[6 * i + 5] / 255.f * 2.f - 1.f,
     };
   }
+
+  memcpy(indices, monkey_indices, sizeof(monkey_indices));
 }
 
 static void renderNode(Pass* pass, Model* model, uint32_t index, bool recurse, uint32_t instances) {
