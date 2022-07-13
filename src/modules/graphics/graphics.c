@@ -3609,8 +3609,16 @@ static void flushBuffers(Pass* pass, Draw* draw) {
   if (draw->hash) {
     cache = &pass->shapeCache[draw->hash & (COUNTOF(pass->shapeCache) - 1)];
     if (cache->hash == draw->hash) {
-      gpu_bind_vertex_buffers(pass->stream, &cache->vertices, NULL, 0, 1);
-      gpu_bind_index_buffer(pass->stream, cache->indices, 0, GPU_INDEX_U16);
+      if (pass->vertexBuffer != cache->vertices) {
+        gpu_bind_vertex_buffers(pass->stream, &cache->vertices, NULL, 0, 1);
+        pass->vertexBuffer = cache->vertices;
+      }
+
+      if (pass->indexBuffer != cache->indices) {
+        gpu_bind_index_buffer(pass->stream, cache->indices, 0, GPU_INDEX_U16);
+        pass->indexBuffer = cache->indices;
+      }
+
       *draw->vertex.pointer = NULL;
       *draw->index.pointer = NULL;
       return;
