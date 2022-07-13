@@ -90,10 +90,72 @@ static int l_lovrModelDataGetImage(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetNodeCount(lua_State* L) {
+static int l_lovrModelDataGetWidth(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  lua_pushinteger(L, model->nodeCount);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[1] - bounds[0]);
   return 1;
+}
+
+static int l_lovrModelDataGetHeight(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[3] - bounds[2]);
+  return 1;
+}
+
+static int l_lovrModelDataGetDepth(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[5] - bounds[4]);
+  return 1;
+}
+
+static int l_lovrModelDataGetDimensions(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[1] - bounds[0]);
+  lua_pushnumber(L, bounds[3] - bounds[2]);
+  lua_pushnumber(L, bounds[5] - bounds[4]);
+  return 3;
+}
+
+static int l_lovrModelDataGetCenter(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, (bounds[0] + bounds[1]) / 2.f);
+  lua_pushnumber(L, (bounds[2] + bounds[3]) / 2.f);
+  lua_pushnumber(L, (bounds[4] + bounds[5]) / 2.f);
+  return 3;
+}
+
+static int l_lovrModelDataGetBoundingBox(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[0]);
+  lua_pushnumber(L, bounds[1]);
+  lua_pushnumber(L, bounds[2]);
+  lua_pushnumber(L, bounds[3]);
+  lua_pushnumber(L, bounds[4]);
+  lua_pushnumber(L, bounds[5]);
+  return 6;
+}
+
+static int l_lovrModelDataGetBoundingSphere(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float sphere[4];
+  lovrModelDataGetBoundingSphere(model, sphere);
+  lua_pushnumber(L, sphere[0]);
+  lua_pushnumber(L, sphere[1]);
+  lua_pushnumber(L, sphere[2]);
+  lua_pushnumber(L, sphere[3]);
+  return 4;
 }
 
 static int l_lovrModelDataGetRootNode(lua_State* L) {
@@ -102,11 +164,39 @@ static int l_lovrModelDataGetRootNode(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelDataGetNodeCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  lua_pushinteger(L, model->nodeCount);
+  return 1;
+}
+
 static int l_lovrModelDataGetNodeName(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->nodeCount, "Invalid node index '%d'", index + 1);
   lua_pushstring(L, model->nodes[index].name);
+  return 1;
+}
+
+static int l_lovrModelDataGetNodeParent(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelNode* node = luax_checknode(L, 2, model);
+  if (node->parent == ~0u) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, node->parent + 1);
+  }
+  return 1;
+}
+
+static int l_lovrModelDataGetNodeChildren(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelNode* node = luax_checknode(L, 2, model);
+  lua_createtable(L, node->childCount, 0);
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    lua_pushinteger(L, node->children[i] + 1);
+    lua_rawseti(L, -2, i + 1);
+  }
   return 1;
 }
 
@@ -161,6 +251,34 @@ static int l_lovrModelDataGetNodeScale(lua_State* L) {
   return 3;
 }
 
+static int l_lovrModelDataGetNodePose(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  ModelNode* node = luax_checknode(L, 2, model);
+  if (node->matrix) {
+    float position[3], angle, ax, ay, az;
+    mat4_getPosition(node->transform.matrix, position);
+    mat4_getAngleAxis(node->transform.matrix, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, position[0]);
+    lua_pushnumber(L, position[1]);
+    lua_pushnumber(L, position[2]);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+  } else {
+    float angle, ax, ay, az;
+    quat_getAngleAxis(node->transform.properties.rotation, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, node->transform.properties.translation[0]);
+    lua_pushnumber(L, node->transform.properties.translation[1]);
+    lua_pushnumber(L, node->transform.properties.translation[2]);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+  }
+  return 7;
+}
+
 static int l_lovrModelDataGetNodeTransform(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelNode* node = luax_checknode(L, 2, model);
@@ -194,28 +312,6 @@ static int l_lovrModelDataGetNodeTransform(lua_State* L) {
     lua_pushnumber(L, az);
   }
   return 10;
-}
-
-static int l_lovrModelDataGetNodeParent(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
-  if (node->parent == ~0u) {
-    lua_pushnil(L);
-  } else {
-    lua_pushinteger(L, node->parent + 1);
-  }
-  return 1;
-}
-
-static int l_lovrModelDataGetNodeChildren(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
-  lua_createtable(L, node->childCount, 0);
-  for (uint32_t i = 0; i < node->childCount; i++) {
-    lua_pushinteger(L, node->children[i] + 1);
-    lua_rawseti(L, -2, i + 1);
-  }
-  return 1;
 }
 
 static int l_lovrModelDataGetNodeMeshes(lua_State* L) {
@@ -398,6 +494,46 @@ static int l_lovrModelDataGetMeshIndex(lua_State* L) {
   }
 }
 
+static int l_lovrModelDataGetTriangles(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+
+  float* vertices = NULL;
+  uint32_t* indices = NULL;
+  uint32_t vertexCount = 0;
+  uint32_t indexCount = 0;
+  lovrModelDataGetTriangles(model, &vertices, &indices, &vertexCount, &indexCount);
+
+  lua_createtable(L, vertexCount * 3, 0);
+  for (uint32_t i = 0; i < vertexCount * 3; i++) {
+    lua_pushnumber(L, vertices[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+
+  lua_createtable(L, indexCount, 0);
+  for (uint32_t i = 0; i < indexCount; i++) {
+    lua_pushinteger(L, indices[i] + 1);
+    lua_rawseti(L, -2, i + 1);
+  }
+
+  return 2;
+}
+
+static int l_lovrModelDataGetTriangleCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  uint32_t vertexCount, indexCount;
+  lovrModelDataGetTriangles(model, NULL, NULL, &vertexCount, &indexCount);
+  lua_pushinteger(L, indexCount / 3);
+  return 1;
+}
+
+static int l_lovrModelDataGetVertexCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  uint32_t vertexCount, indexCount;
+  lovrModelDataGetTriangles(model, NULL, NULL, &vertexCount, &indexCount);
+  lua_pushinteger(L, vertexCount);
+  return 1;
+}
+
 static int l_lovrModelDataGetMaterialCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   lua_pushinteger(L, model->materialCount);
@@ -494,7 +630,7 @@ static int l_lovrModelDataGetAnimationChannelCount(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetAnimationChannelNode(lua_State* L) {
+static int l_lovrModelDataGetAnimationNode(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
   uint32_t index = luax_checku32(L, 3) - 1;
@@ -504,7 +640,7 @@ static int l_lovrModelDataGetAnimationChannelNode(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetAnimationChannelProperty(lua_State* L) {
+static int l_lovrModelDataGetAnimationProperty(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
   uint32_t index = luax_checku32(L, 3) - 1;
@@ -514,7 +650,7 @@ static int l_lovrModelDataGetAnimationChannelProperty(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetAnimationChannelSmoothMode(lua_State* L) {
+static int l_lovrModelDataGetAnimationSmoothMode(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
   uint32_t index = luax_checku32(L, 3) - 1;
@@ -524,7 +660,7 @@ static int l_lovrModelDataGetAnimationChannelSmoothMode(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetAnimationChannelKeyframeCount(lua_State* L) {
+static int l_lovrModelDataGetAnimationKeyframeCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
   uint32_t index = luax_checku32(L, 3) - 1;
@@ -534,7 +670,7 @@ static int l_lovrModelDataGetAnimationChannelKeyframeCount(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetAnimationChannelKeyframe(lua_State* L) {
+static int l_lovrModelDataGetAnimationKeyframe(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelAnimation* animation = luax_checkanimation(L, 2, model);
   uint32_t index = luax_checku32(L, 3) - 1;
@@ -589,15 +725,16 @@ const luaL_Reg lovrModelData[] = {
   { "getBlob", l_lovrModelDataGetBlob },
   { "getImageCount", l_lovrModelDataGetImageCount },
   { "getImage", l_lovrModelDataGetImage },
-  { "getNodeCount", l_lovrModelDataGetNodeCount },
   { "getRootNode", l_lovrModelDataGetRootNode },
+  { "getNodeCount", l_lovrModelDataGetNodeCount },
   { "getNodeName", l_lovrModelDataGetNodeName },
+  { "getNodeParent", l_lovrModelDataGetNodeParent },
+  { "getNodeChildren", l_lovrModelDataGetNodeChildren },
   { "getNodePosition", l_lovrModelDataGetNodePosition },
   { "getNodeOrientation", l_lovrModelDataGetNodeOrientation },
   { "getNodeScale", l_lovrModelDataGetNodeScale },
+  { "getNodePose", l_lovrModelDataGetNodePose },
   { "getNodeTransform", l_lovrModelDataGetNodeTransform },
-  { "getNodeParent", l_lovrModelDataGetNodeParent },
-  { "getNodeChildren", l_lovrModelDataGetNodeChildren },
   { "getNodeMeshes", l_lovrModelDataGetNodeMeshes },
   { "getNodeSkin", l_lovrModelDataGetNodeSkin },
   { "getMeshCount", l_lovrModelDataGetMeshCount },
@@ -609,7 +746,16 @@ const luaL_Reg lovrModelData[] = {
   { "getMeshIndexFormat", l_lovrModelDataGetMeshIndexFormat },
   { "getMeshVertex", l_lovrModelDataGetMeshVertex },
   { "getMeshIndex", l_lovrModelDataGetMeshIndex },
-  { "getMeshIndex", l_lovrModelDataGetMeshIndex },
+  { "getTriangles", l_lovrModelDataGetTriangles },
+  { "getTriangleCount", l_lovrModelDataGetTriangleCount },
+  { "getVertexCount", l_lovrModelDataGetVertexCount },
+  { "getWidth", l_lovrModelDataGetWidth },
+  { "getHeight", l_lovrModelDataGetHeight },
+  { "getDepth", l_lovrModelDataGetDepth },
+  { "getDimensions", l_lovrModelDataGetDimensions },
+  { "getCenter", l_lovrModelDataGetCenter },
+  { "getBoundingBox", l_lovrModelDataGetBoundingBox },
+  { "getBoundingSphere", l_lovrModelDataGetBoundingSphere },
   { "getMaterialCount", l_lovrModelDataGetMaterialCount },
   { "getMaterialName", l_lovrModelDataGetMaterialName },
   { "getMaterialImage", l_lovrModelDataGetMaterialImage },
@@ -619,11 +765,11 @@ const luaL_Reg lovrModelData[] = {
   { "getAnimationName", l_lovrModelDataGetAnimationName },
   { "getAnimationDuration", l_lovrModelDataGetAnimationDuration },
   { "getAnimationChannelCount", l_lovrModelDataGetAnimationChannelCount },
-  { "getAnimationChannelNode", l_lovrModelDataGetAnimationChannelNode },
-  { "getAnimationChannelProperty", l_lovrModelDataGetAnimationChannelProperty },
-  { "getAnimationChannelSmoothMode", l_lovrModelDataGetAnimationChannelSmoothMode },
-  { "getAnimationChannelKeyframeCount", l_lovrModelDataGetAnimationChannelKeyframeCount },
-  { "getAnimationChannelKeyframe", l_lovrModelDataGetAnimationChannelKeyframe },
+  { "getAnimationNode", l_lovrModelDataGetAnimationNode },
+  { "getAnimationProperty", l_lovrModelDataGetAnimationProperty },
+  { "getAnimationSmoothMode", l_lovrModelDataGetAnimationSmoothMode },
+  { "getAnimationKeyframeCount", l_lovrModelDataGetAnimationKeyframeCount },
+  { "getAnimationKeyframe", l_lovrModelDataGetAnimationKeyframe },
   { "getSkinCount", l_lovrModelDataGetSkinCount },
   { "getSkinJoints", l_lovrModelDataGetSkinJoints },
   { "getSkinInverseBindMatrix", l_lovrModelDataGetSkinInverseBindMatrix },

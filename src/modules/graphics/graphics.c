@@ -172,7 +172,7 @@ typedef enum {
 
 typedef struct {
   uint64_t hash;
-  VertexMode mode;
+  MeshMode mode;
   DefaultShader shader;
   Material* material;
   float* transform;
@@ -239,7 +239,7 @@ typedef struct {
   float viewport[4];
   float depthRange[2];
   uint32_t scissor[4];
-  VertexMode drawMode;
+  MeshMode mode;
   bool dirty;
 } Pipeline;
 
@@ -2378,9 +2378,9 @@ Model* lovrModelCreate(ModelInfo* info) {
     Draw* draw = &model->draws[map[i] & ~0u];
 
     switch (primitive->mode) {
-      case DRAW_POINTS: draw->mode = VERTEX_POINTS; break;
-      case DRAW_LINES: draw->mode = VERTEX_LINES; break;
-      case DRAW_TRIANGLES: draw->mode = VERTEX_TRIANGLES; break;
+      case DRAW_POINTS: draw->mode = MESH_POINTS; break;
+      case DRAW_LINES: draw->mode = MESH_LINES; break;
+      case DRAW_TRIANGLES: draw->mode = MESH_TRIANGLES; break;
       default: lovrThrow("Model uses an unsupported draw mode (lineloop, linestrip, strip, fan)");
     }
 
@@ -2435,7 +2435,7 @@ Model* lovrModelCreate(ModelInfo* info) {
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
-  lovrModelResetPose(model);
+  lovrModelResetNodeTransforms(model);
   tempPop(stack);
 
   return model;
@@ -2467,7 +2467,26 @@ const ModelInfo* lovrModelGetInfo(Model* model) {
   return &model->info;
 }
 
-void lovrModelResetPose(Model* model) {
+uint32_t lovrModelGetNodeDrawCount(Model* model, uint32_t node) {
+  ModelData* data = model->info.data;
+  lovrCheck(node < data->nodeCount, "Invalid model node index %d", node + 1);
+  return data->nodes[node].primitiveCount;
+}
+
+void lovrModelGetNodeDraw(Model* model, uint32_t node, uint32_t index, ModelDraw* mesh) {
+  ModelData* data = model->info.data;
+  lovrCheck(node < data->nodeCount, "Invalid model node index %d", node + 1);
+  lovrCheck(index < data->nodes[node].primitiveCount, "Invalid model node draw index %d", index + 1);
+  Draw* draw = &model->draws[data->nodes[node].primitiveIndex + index];
+  mesh->mode = draw->mode;
+  mesh->material = draw->material;
+  mesh->start = draw->start;
+  mesh->count = draw->count;
+  mesh->base = draw->base;
+  mesh->indexed = draw->index.buffer;
+}
+
+void lovrModelResetNodeTransforms(Model* model) {
   ModelData* data = model->info.data;
   for (uint32_t i = 0; i < data->nodeCount; i++) {
     vec3 position = model->localTransforms[i].properties[PROP_TRANSLATION];
@@ -2564,35 +2583,35 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   model->transformsDirty = true;
 }
 
-void lovrModelGetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], CoordinateSpace space) {
-  ModelData* data = model->info.data;
-  lovrAssert(node < data->nodeCount, "Invalid node index '%d' (Model has %d node%s)", node, data->nodeCount, data->nodeCount == 1 ? "" : "s");
+void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], CoordinateSpace space) {
   if (space == SPACE_LOCAL) {
     vec3_init(position, model->localTransforms[node].properties[PROP_TRANSLATION]);
+    vec3_init(scale, model->localTransforms[node].properties[PROP_SCALE]);
     quat_init(rotation, model->localTransforms[node].properties[PROP_ROTATION]);
   } else {
     if (model->transformsDirty) {
-      updateModelTransforms(model, data->rootNode, (float[]) MAT4_IDENTITY);
+      updateModelTransforms(model, model->info.data->rootNode, (float[]) MAT4_IDENTITY);
       model->transformsDirty = false;
     }
     mat4_getPosition(model->globalTransforms + 16 * node, position);
+    mat4_getScale(model->globalTransforms + 16 * node, scale);
     mat4_getOrientation(model->globalTransforms + 16 * node, rotation);
   }
 }
 
-void lovrModelSetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], float alpha) {
+void lovrModelSetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], float alpha) {
   if (alpha <= 0.f) return;
 
-  ModelData* data = model->info.data;
-  lovrAssert(node < data->nodeCount, "Invalid node index '%d' (Model has %d node%s)", node, data->nodeCount, data->nodeCount == 1 ? "" : "s");
   NodeTransform* transform = &model->localTransforms[node];
 
   if (alpha >= 1.f) {
-    vec3_init(transform->properties[PROP_TRANSLATION], position);
-    quat_init(transform->properties[PROP_ROTATION], rotation);
+    if (position) vec3_init(transform->properties[PROP_TRANSLATION], position);
+    if (scale) vec3_init(transform->properties[PROP_SCALE], scale);
+    if (rotation) quat_init(transform->properties[PROP_ROTATION], rotation);
   } else {
-    vec3_lerp(transform->properties[PROP_TRANSLATION], position, alpha);
-    quat_slerp(transform->properties[PROP_ROTATION], rotation, alpha);
+    if (position) vec3_lerp(transform->properties[PROP_TRANSLATION], position, alpha);
+    if (scale) vec3_lerp(transform->properties[PROP_SCALE], scale, alpha);
+    if (rotation) quat_slerp(transform->properties[PROP_ROTATION], rotation, alpha);
   }
 
   model->transformsDirty = true;
@@ -2879,7 +2898,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   memcpy(pass->pipeline->color, defaultColor, sizeof(defaultColor));
   pass->pipeline->formatHash = 0;
   pass->pipeline->shader = NULL;
-  pass->pipeline->drawMode = VERTEX_TRIANGLES;
+  pass->pipeline->mode = MESH_TRIANGLES;
   pass->pipeline->dirty = true;
   pass->pipeline->material = state.defaultMaterial;
   lovrRetain(pass->pipeline->material);
@@ -3154,6 +3173,10 @@ void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture) {
   }
 }
 
+void lovrPassSetMeshMode(Pass* pass, MeshMode mode) {
+  pass->pipeline->mode = mode;
+}
+
 void lovrPassSetSampler(Pass* pass, Sampler* sampler) {
   if (sampler != pass->pipeline->sampler) {
     lovrRetain(sampler);
@@ -3265,10 +3288,6 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
   pass->pipeline->info.stencil.writeMask = mask;
   if (hasReplace) pass->pipeline->info.stencil.value = value;
   pass->pipeline->dirty = true;
-}
-
-void lovrPassSetVertexMode(Pass* pass, VertexMode mode) {
-  pass->pipeline->drawMode = mode;
 }
 
 void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]) {
@@ -3691,7 +3710,7 @@ static void lovrPassDraw(Pass* pass, Draw* draw) {
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** points) {
   lovrPassDraw(pass, &(Draw) {
-    .mode = VERTEX_POINTS,
+    .mode = MESH_POINTS,
     .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) points,
     .vertex.count = count
@@ -3702,7 +3721,7 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
   uint16_t* indices;
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = VERTEX_LINES,
+    .mode = MESH_LINES,
     .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) points,
     .vertex.count = count,
@@ -3729,7 +3748,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
 
     lovrPassDraw(pass, &(Draw) {
       .hash = hash64(key, sizeof(key)),
-      .mode = VERTEX_LINES,
+      .mode = MESH_LINES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
@@ -3741,7 +3760,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
 
     lovrPassDraw(pass, &(Draw) {
       .hash = hash64(key, sizeof(key)),
-      .mode = VERTEX_TRIANGLES,
+      .mode = MESH_TRIANGLES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
@@ -3822,7 +3841,7 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
 
     lovrPassDraw(pass, &(Draw) {
       .hash = hash64(key, sizeof(key)),
-      .mode = VERTEX_LINES,
+      .mode = MESH_LINES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
       .vertex.count = COUNTOF(vertexData),
@@ -3873,7 +3892,7 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
 
     lovrPassDraw(pass, &(Draw) {
       .hash = hash64(key, sizeof(key)),
-      .mode = VERTEX_TRIANGLES,
+      .mode = MESH_TRIANGLES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
       .vertex.count = COUNTOF(vertexData),
@@ -3904,7 +3923,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
 
     lovrPassDraw(pass, &(Draw) {
       .hash = hash64(key, sizeof(key)),
-      .mode = VERTEX_LINES,
+      .mode = MESH_LINES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
@@ -3921,7 +3940,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
 
     lovrPassDraw(pass, &(Draw) {
       .hash = hash64(key, sizeof(key)),
-      .mode = VERTEX_TRIANGLES,
+      .mode = MESH_TRIANGLES,
       .transform = transform,
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
@@ -3970,7 +3989,7 @@ void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t s
 
   lovrPassDraw(pass, &(Draw) {
     .hash = hash64(key, sizeof(key)),
-    .mode = VERTEX_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
@@ -4055,7 +4074,7 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
 
   lovrPassDraw(pass, &(Draw) {
     .hash = hash64(key, sizeof(key)),
-    .mode = VERTEX_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
@@ -4138,7 +4157,7 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
 
   lovrPassDraw(pass, &(Draw) {
     .hash = hash64(key, sizeof(key)),
-    .mode = VERTEX_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
@@ -4230,7 +4249,7 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
 
   lovrPassDraw(pass, &(Draw) {
     .hash = hash64(key, sizeof(key)),
-    .mode = VERTEX_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .transform = transform,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
@@ -4405,7 +4424,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
   GlyphVertex* vertexPointer;
   uint16_t* indices;
   lovrPassDraw(pass, &(Draw) {
-    .mode = VERTEX_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .shader = SHADER_FONT,
     .material = font->material,
     .transform = transform,
@@ -4430,7 +4449,7 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
 void lovrPassSkybox(Pass* pass, Texture* texture) {
   if (texture->info.type == TEXTURE_2D) {
     lovrPassDraw(pass, &(Draw) {
-      .mode = VERTEX_TRIANGLES,
+      .mode = MESH_TRIANGLES,
       .shader = SHADER_PANO,
       .material = texture ? lovrTextureGetMaterial(texture) : NULL,
       .vertex.format = VERTEX_EMPTY,
@@ -4438,7 +4457,7 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
     });
   } else {
     lovrPassDraw(pass, &(Draw) {
-      .mode = VERTEX_TRIANGLES,
+      .mode = MESH_TRIANGLES,
       .shader = SHADER_CUBE,
       .material = texture ? lovrTextureGetMaterial(texture) : NULL,
       .vertex.format = VERTEX_EMPTY,
@@ -4449,7 +4468,7 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
 
 void lovrPassFill(Pass* pass, Texture* texture) {
   lovrPassDraw(pass, &(Draw) {
-    .mode = VERTEX_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .shader = SHADER_FILL,
     .material = texture ? lovrTextureGetMaterial(texture) : NULL,
     .vertex.format = VERTEX_EMPTY,
@@ -4465,7 +4484,7 @@ void lovrPassMonkey(Pass* pass, float* transform) {
 
   lovrPassDraw(pass, &(Draw) {
     .hash = hash64(key, sizeof(key)),
-    .mode = VERTEX_TRIANGLES,
+    .mode = MESH_TRIANGLES,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -4543,7 +4562,7 @@ void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transfor
   }
 
   lovrPassDraw(pass, &(Draw) {
-    .mode = pass->pipeline->drawMode,
+    .mode = pass->pipeline->mode,
     .vertex.buffer = vertices,
     .index.buffer = indices,
     .transform = transform,
@@ -4562,7 +4581,7 @@ void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* dr
   lovrCheck(offset + totalSize < draws->size, "Multimesh draw range exceeds size of draw buffer");
 
   Draw draw = (Draw) {
-    .mode = pass->pipeline->drawMode,
+    .mode = pass->pipeline->mode,
     .vertex.buffer = vertices,
     .index.buffer = indices
   };

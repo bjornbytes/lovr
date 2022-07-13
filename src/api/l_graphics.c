@@ -124,6 +124,13 @@ StringEntry lovrHorizontalAlign[] = {
   { 0 }
 };
 
+StringEntry lovrMeshMode[] = {
+  [MESH_POINTS] = ENTRY("points"),
+  [MESH_LINES] = ENTRY("lines"),
+  [MESH_TRIANGLES] = ENTRY("triangles"),
+  { 0 }
+};
+
 StringEntry lovrPassType[] = {
   [PASS_RENDER] = ENTRY("render"),
   [PASS_COMPUTE] = ENTRY("compute"),
@@ -186,13 +193,6 @@ StringEntry lovrTextureUsage[] = {
   [1] = ENTRY("render"),
   [2] = ENTRY("storage"),
   [3] = ENTRY("transfer"),
-  { 0 }
-};
-
-StringEntry lovrVertexMode[] = {
-  [VERTEX_POINTS] = ENTRY("points"),
-  [VERTEX_LINES] = ENTRY("lines"),
-  [VERTEX_TRIANGLES] = ENTRY("triangles"),
   { 0 }
 };
 

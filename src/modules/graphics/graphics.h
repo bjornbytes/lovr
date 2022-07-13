@@ -397,13 +397,30 @@ typedef enum {
   SPACE_GLOBAL
 } CoordinateSpace;
 
+typedef enum {
+  MESH_POINTS,
+  MESH_LINES,
+  MESH_TRIANGLES
+} MeshMode;
+
+typedef struct {
+  MeshMode mode;
+  Material* material;
+  uint32_t start;
+  uint32_t count;
+  uint32_t base;
+  bool indexed;
+} ModelDraw;
+
 Model* lovrModelCreate(ModelInfo* info);
 void lovrModelDestroy(void* ref);
 const ModelInfo* lovrModelGetInfo(Model* model);
-void lovrModelResetPose(Model* model);
+uint32_t lovrModelGetNodeDrawCount(Model* model, uint32_t node);
+void lovrModelGetNodeDraw(Model* model, uint32_t node, uint32_t index, ModelDraw* draw);
+void lovrModelResetNodeTransforms(Model* model);
 void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha);
-void lovrModelGetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], CoordinateSpace space);
-void lovrModelSetNodePose(Model* model, uint32_t node, float position[4], float rotation[4], float alpha);
+void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], CoordinateSpace space);
+void lovrModelSetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], float alpha);
 Texture* lovrModelGetTexture(Model* model, uint32_t index);
 Material* lovrModelGetMaterial(Model* model, uint32_t index);
 Buffer* lovrModelGetVertexBuffer(Model* model);
@@ -479,12 +496,6 @@ typedef enum {
 } StencilAction;
 
 typedef enum {
-  VERTEX_POINTS,
-  VERTEX_LINES,
-  VERTEX_TRIANGLES
-} VertexMode;
-
-typedef enum {
   WINDING_COUNTERCLOCKWISE,
   WINDING_CLOCKWISE
 } Winding;
@@ -541,12 +552,12 @@ void lovrPassSetDepthWrite(Pass* pass, bool write);
 void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
 void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture);
+void lovrPassSetMeshMode(Pass* pass, MeshMode mode);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
 void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 void lovrPassSetShader(Pass* pass, Shader* shader);
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
 void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask);
-void lovrPassSetVertexMode(Pass* pass, VertexMode mode);
 void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);

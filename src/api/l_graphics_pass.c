@@ -247,10 +247,10 @@ static int l_lovrPassSetMaterial(lua_State* L) {
   return 0;
 }
 
-static int l_lovrPassSetVertexMode(lua_State* L) {
+static int l_lovrPassSetMeshMode(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  VertexMode mode = luax_checkenum(L, 2, VertexMode, NULL);
-  lovrPassSetVertexMode(pass, mode);
+  MeshMode mode = luax_checkenum(L, 2, MeshMode, NULL);
+  lovrPassSetMeshMode(pass, mode);
   return 0;
 }
 
@@ -875,12 +875,12 @@ const luaL_Reg lovrPass[] = {
   { "setDepthOffset", l_lovrPassSetDepthOffset },
   { "setDepthClamp", l_lovrPassSetDepthClamp },
   { "setMaterial", l_lovrPassSetMaterial },
+  { "setMeshMode", l_lovrPassSetMeshMode },
   { "setSampler", l_lovrPassSetSampler },
   { "setScissor", l_lovrPassSetScissor },
   { "setShader", l_lovrPassSetShader },
   { "setStencilTest", l_lovrPassSetStencilTest },
   { "setStencilWrite", l_lovrPassSetStencilWrite },
-  { "setVertexMode", l_lovrPassSetVertexMode },
   { "setViewport", l_lovrPassSetViewport },
   { "setWinding", l_lovrPassSetWinding },
   { "setWireframe", l_lovrPassSetWireframe },
