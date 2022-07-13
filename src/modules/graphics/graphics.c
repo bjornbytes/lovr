@@ -956,7 +956,7 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   return buffer;
 }
 
-Buffer* lovrBufferCreate(BufferInfo* info, void** data) {
+Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
   lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
@@ -1048,7 +1048,7 @@ Texture* lovrGraphicsGetWindowTexture() {
   return state.window;
 }
 
-Texture* lovrTextureCreate(TextureInfo* info) {
+Texture* lovrTextureCreate(const TextureInfo* info) {
   uint32_t limits[] = {
     [TEXTURE_2D] = state.limits.textureSize2D,
     [TEXTURE_3D] = state.limits.textureSize3D,
@@ -1183,7 +1183,7 @@ Texture* lovrTextureCreate(TextureInfo* info) {
   return texture;
 }
 
-Texture* lovrTextureCreateView(TextureViewInfo* view) {
+Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   const TextureInfo* info = &view->parent->info;
   uint32_t maxDepth = info->type == TEXTURE_3D ? MAX(info->depth >> view->levelIndex, 1) : info->depth;
   lovrCheck(!info->parent, "Can't nest texture views");
@@ -1262,7 +1262,7 @@ Sampler* lovrGraphicsGetDefaultSampler(FilterMode mode) {
   return state.defaultSamplers[mode];
 }
 
-Sampler* lovrSamplerCreate(SamplerInfo* info) {
+Sampler* lovrSamplerCreate(const SamplerInfo* info) {
   lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
   lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds anisotropy limit (%f)", info->anisotropy, state.limits.anisotropy);
 
@@ -1490,7 +1490,7 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
   return state.defaultShaders[type] = lovrShaderCreate(&info);
 }
 
-Shader* lovrShaderCreate(ShaderInfo* info) {
+Shader* lovrShaderCreate(const ShaderInfo* info) {
   Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
   lovrAssert(shader, "Out of memory");
 
@@ -1786,7 +1786,7 @@ void lovrShaderGetLocalWorkgroupSize(Shader* shader, uint32_t size[3]) {
 
 // Material
 
-Material* lovrMaterialCreate(MaterialInfo* info) {
+Material* lovrMaterialCreate(const MaterialInfo* info) {
   MaterialBlock* block = &state.materialBlocks.data[state.materialBlock];
 
   if (!block || block->head == ~0u || !gpu_finished(block->list[block->head].tick)) {
@@ -1919,7 +1919,7 @@ const MaterialInfo* lovrMaterialGetInfo(Material* material) {
 
 // Font
 
-Font* lovrFontCreate(FontInfo* info) {
+Font* lovrFontCreate(const FontInfo* info) {
   Font* font = calloc(1, sizeof(Font));
   lovrAssert(font, "Out of memory");
   font->ref = 1;
@@ -2262,7 +2262,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
 
 // Model
 
-Model* lovrModelCreate(ModelInfo* info) {
+Model* lovrModelCreate(const ModelInfo* info) {
   ModelData* data = info->data;
   Model* model = calloc(1, sizeof(Model));
   lovrAssert(model, "Out of memory");
@@ -2701,9 +2701,15 @@ static void lovrModelReskin(Model* model) {
   state.hasReskin = true;
 }
 
+// Readback
+
+Readback* lovrReadbackCreate(const ReadbackInfo* info) {
+
+}
+
 // Tally
 
-Tally* lovrTallyCreate(TallyInfo* info) {
+Tally* lovrTallyCreate(const TallyInfo* info) {
   lovrCheck(info->count > 0, "Tally count must be greater than zero");
   lovrCheck(info->count <= 4096, "Maximum Tally count is 4096");
   lovrCheck(info->views <= state.limits.renderSize[2], "Tally view count can not exceed the maximum view count");

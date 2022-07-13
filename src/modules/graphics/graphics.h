@@ -166,7 +166,7 @@ typedef struct {
 } BufferInfo;
 
 Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data);
-Buffer* lovrBufferCreate(BufferInfo* info, void** data);
+Buffer* lovrBufferCreate(const BufferInfo* info, void** data);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 bool lovrBufferIsTemporary(Buffer* buffer);
@@ -216,8 +216,8 @@ typedef struct {
 } TextureInfo;
 
 Texture* lovrGraphicsGetWindowTexture(void);
-Texture* lovrTextureCreate(TextureInfo* info);
-Texture* lovrTextureCreateView(TextureViewInfo* view);
+Texture* lovrTextureCreate(const TextureInfo* info);
+Texture* lovrTextureCreateView(const TextureViewInfo* view);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
 
@@ -253,7 +253,7 @@ typedef struct {
 } SamplerInfo;
 
 Sampler* lovrGraphicsGetDefaultSampler(FilterMode mode);
-Sampler* lovrSamplerCreate(SamplerInfo* info);
+Sampler* lovrSamplerCreate(const SamplerInfo* info);
 void lovrSamplerDestroy(void* ref);
 const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
@@ -300,7 +300,7 @@ typedef struct {
 
 ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source);
 Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
-Shader* lovrShaderCreate(ShaderInfo* info);
+Shader* lovrShaderCreate(const ShaderInfo* info);
 Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count);
 void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
@@ -338,7 +338,7 @@ typedef struct {
   Texture* normalTexture;
 } MaterialInfo;
 
-Material* lovrMaterialCreate(MaterialInfo* info);
+Material* lovrMaterialCreate(const MaterialInfo* info);
 void lovrMaterialDestroy(void* ref);
 const MaterialInfo* lovrMaterialGetInfo(Material* material);
 
@@ -373,7 +373,7 @@ typedef struct {
   struct { uint8_t r, g, b, a; } color;
 } GlyphVertex;
 
-Font* lovrFontCreate(FontInfo* info);
+Font* lovrFontCreate(const FontInfo* info);
 void lovrFontDestroy(void* ref);
 const FontInfo* lovrFontGetInfo(Font* font);
 float lovrFontGetPixelDensity(Font* font);
@@ -412,7 +412,7 @@ typedef struct {
   bool indexed;
 } ModelDraw;
 
-Model* lovrModelCreate(ModelInfo* info);
+Model* lovrModelCreate(const ModelInfo* info);
 void lovrModelDestroy(void* ref);
 const ModelInfo* lovrModelGetInfo(Model* model);
 uint32_t lovrModelGetNodeDrawCount(Model* model, uint32_t node);
@@ -440,7 +440,7 @@ typedef struct {
   uint32_t views;
 } TallyInfo;
 
-Tally* lovrTallyCreate(TallyInfo* info);
+Tally* lovrTallyCreate(const TallyInfo* info);
 void lovrTallyDestroy(void* ref);
 const TallyInfo* lovrTallyGetInfo(Tally* tally);
 
