@@ -431,7 +431,7 @@ Buffer* lovrModelGetIndexBuffer(Model* model);
 typedef enum {
   TALLY_TIMER,
   TALLY_PIXEL,
-  TALLY_PIPELINE
+  TALLY_STAGE
 } TallyType;
 
 typedef struct {

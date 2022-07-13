@@ -168,6 +168,12 @@ StringEntry lovrStencilAction[] = {
   { 0 }
 };
 
+StringEntry lovrTallyType[] = {
+  [TALLY_TIMER] = ENTRY("timer"),
+  [TALLY_PIXEL] = ENTRY("pixel"),
+  [TALLY_STAGE] = ENTRY("stage"),
+};
+
 StringEntry lovrTextureFeature[] = {
   [0] = ENTRY("sample"),
   [1] = ENTRY("filter"),
@@ -1374,6 +1380,17 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewTally(lua_State* L) {
+  TallyInfo info;
+  info.type = luax_checkenum(L, 1, TallyType, NULL);
+  info.count = luax_checku32(L, 2);
+  info.views = luax_optu32(L, 3, 2);
+  Tally* tally = lovrTallyCreate(&info);
+  luax_pushtype(L, Tally, tally);
+  lovrRelease(tally, lovrTallyDestroy);
+  return 1;
+}
+
 static int l_lovrGraphicsGetPass(lua_State* L) {
   PassInfo info;
   info.type = luax_checkenum(L, 1, PassType, NULL);
@@ -1407,6 +1424,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newFont", l_lovrGraphicsNewFont },
   { "newModel", l_lovrGraphicsNewModel },
+  { "newTally", l_lovrGraphicsNewTally },
   { "getPass", l_lovrGraphicsGetPass },
   { NULL, NULL }
 };
@@ -1418,6 +1436,7 @@ extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrFont[];
 extern const luaL_Reg lovrModel[];
+extern const luaL_Reg lovrTally[];
 extern const luaL_Reg lovrPass[];
 
 int luaopen_lovr_graphics(lua_State* L) {
@@ -1430,6 +1449,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Material);
   luax_registertype(L, Font);
   luax_registertype(L, Model);
+  luax_registertype(L, Tally);
   luax_registertype(L, Pass);
   return 1;
 }
