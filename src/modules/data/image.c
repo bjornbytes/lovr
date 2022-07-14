@@ -323,8 +323,8 @@ Blob* lovrImageEncode(Image* image) {
   lovrAssert(image->format == FORMAT_RGBA8, "Only images with the rgba8 format can be encoded");
   uint32_t w = image->width;
   uint32_t h = image->height;
-  uint8_t* pixels = (uint8_t*) image->blob->data + (h - 1) * w * 4;
-  int32_t stride = -1 * (int) (w * 4);
+  uint8_t* pixels = (uint8_t*) image->blob->data;
+  uint32_t stride = (int) (w * 4);
 
   // The world's worst png encoder
   // Encoding uses one unfiltered IDAT chunk, each row is an uncompressed huffman block
