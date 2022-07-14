@@ -2841,7 +2841,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     target.color[i].clear[0] = lovrMathGammaToLinear(canvas->clears[i][0]);
     target.color[i].clear[1] = lovrMathGammaToLinear(canvas->clears[i][1]);
     target.color[i].clear[2] = lovrMathGammaToLinear(canvas->clears[i][2]);
-    target.color[i].clear[3] = canvas->clears[i][2];
+    target.color[i].clear[3] = canvas->clears[i][3];
 
     if (info->canvas.mipmap && canvas->textures[i]->info.mipmaps > 1) {
       trackTexture(pass, canvas->textures[i], GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
