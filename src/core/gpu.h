@@ -667,5 +667,6 @@ bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
 uint32_t gpu_begin(void);
 void gpu_submit(gpu_stream** streams, uint32_t count, bool present);
-bool gpu_finished(uint32_t tick);
-void gpu_wait(void);
+bool gpu_is_complete(uint32_t tick);
+bool gpu_wait_tick(uint32_t tick);
+void gpu_wait_idle(void);

@@ -2237,11 +2237,10 @@ void gpu_destroy(void) {
 }
 
 uint32_t gpu_begin() {
-  gpu_tick* tick = &state.ticks[++state.tick[CPU] & TICK_MASK];
-  VK(vkWaitForFences(state.device, 1, &tick->fence, VK_FALSE, ~0ull), "Fence wait failed") return 0;
+  gpu_wait_tick(++state.tick[CPU] - COUNTOF(state.ticks));
+  gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   VK(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
   VK(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return 0;
-  state.tick[GPU] = MAX(state.tick[GPU], state.tick[CPU] - COUNTOF(state.ticks));
   state.scratchpad[GPU_MAP_WRITE].cursor = 0;
   state.scratchpad[GPU_MAP_READ].cursor = 0;
   state.streamCount = 0;
@@ -2288,11 +2287,22 @@ void gpu_submit(gpu_stream** streams, uint32_t count, bool present) {
   }
 }
 
-bool gpu_finished(uint32_t tick) {
+bool gpu_is_complete(uint32_t tick) {
   return state.tick[GPU] >= tick;
 }
 
-void gpu_wait() {
+bool gpu_wait_tick(uint32_t tick) {
+  if (state.tick[GPU] < tick) {
+    VkFence fence = state.ticks[tick & TICK_MASK].fence;
+    VK(vkWaitForFences(state.device, 1, &fence, VK_FALSE, ~0ull), "Fence wait failed") return false;
+    state.tick[GPU] = tick;
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void gpu_wait_idle() {
   vkDeviceWaitIdle(state.device);
 }
 
@@ -2625,7 +2635,7 @@ VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uin
     }
   }
 
-  if (entry->object && gpu_finished(entry->hash >> 32)) {
+  if (entry->object && gpu_is_complete(entry->hash >> 32)) {
     vkDestroyFramebuffer(state.device, entry->object, NULL);
   } else {
     condemn(entry->object, VK_OBJECT_TYPE_FRAMEBUFFER);
