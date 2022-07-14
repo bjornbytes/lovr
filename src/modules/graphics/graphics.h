@@ -16,6 +16,7 @@ typedef struct Shader Shader;
 typedef struct Material Material;
 typedef struct Font Font;
 typedef struct Model Model;
+typedef struct Readback Readback;
 typedef struct Tally Tally;
 typedef struct Pass Pass;
 
@@ -426,6 +427,23 @@ Material* lovrModelGetMaterial(Model* model, uint32_t index);
 Buffer* lovrModelGetVertexBuffer(Model* model);
 Buffer* lovrModelGetIndexBuffer(Model* model);
 
+// Readback
+
+typedef struct {
+  uint32_t size;
+  uint32_t width;
+  uint32_t height;
+  uint32_t format;
+} ReadbackInfo;
+
+Readback* lovrReadbackCreate(const ReadbackInfo* info);
+void lovrReadbackDestroy(void* ref);
+const ReadbackInfo* lovrReadbackGetInfo(Readback* readback);
+bool lovrReadbackIsComplete(Readback* readback);
+bool lovrReadbackWait(Readback* readback);
+void* lovrReadbackGetData(Readback* readback);
+struct Image* lovrReadbackGetImage(Readback* readback);
+
 // Tally
 
 typedef enum {
@@ -591,5 +609,8 @@ void lovrPassCopyImageToTexture(Pass* pass, struct Image* src, Texture* dst, uin
 void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
 void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count);
+Readback* lovrPassReadBuffer(Pass* pass, Buffer* buffer, uint32_t index, uint32_t count);
+Readback* lovrPassReadTexture(Pass* pass, Texture* texture, uint32_t offset[4], uint32_t extent[3]);
+Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t count);
 void lovrPassTick(Pass* pass, Tally* tally, uint32_t index);
 void lovrPassTock(Pass* pass, Tally* tally, uint32_t index);

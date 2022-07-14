@@ -848,6 +848,61 @@ static int l_lovrPassMipmap(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassRead(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+
+  Buffer* buffer = luax_totype(L, 2, Buffer);
+
+  if (buffer) {
+    const BufferInfo* info = lovrBufferGetInfo(buffer);
+    uint32_t index = luax_optu32(L, 3, 1) - 1;
+    uint32_t offset = index * info->stride;
+    uint32_t extent = luax_optu32(L, 4, info->length - index) * info->stride;
+    Readback* readback = lovrPassReadBuffer(pass, buffer, offset, extent);
+    luax_pushtype(L, Readback, readback);
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 1;
+  }
+
+  Texture* texture = luax_totype(L, 2, Texture);
+
+  if (texture) {
+    uint32_t offset[4], extent[3];
+    offset[0] = luax_optu32(L, 3, 0);
+    offset[1] = luax_optu32(L, 4, 0);
+    offset[2] = luax_optu32(L, 5, 1) - 1;
+    offset[3] = luax_optu32(L, 6, 1) - 1;
+    extent[0] = luax_optu32(L, 7, ~0u);
+    extent[1] = luax_optu32(L, 8, ~0u);
+    extent[2] = 1;
+    Readback* readback = lovrPassReadTexture(pass, texture, offset, extent);
+    luax_pushtype(L, Readback, readback);
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 1;
+  }
+
+  Tally* tally = luax_totype(L, 2, Tally);
+
+  if (tally) {
+    uint32_t index = luax_optu32(L, 3, 1) - 1;
+    uint32_t count = luax_optu32(L, 4, lovrTallyGetInfo(tally)->count);
+    Readback* readback = lovrPassReadTally(pass, tally, index, count);
+    luax_pushtype(L, Readback, readback);
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 1;
+  }
+
+  return luax_typeerror(L, 2, "Buffer, Texture, or Tally");
+}
+
+static int l_lovrPassTick(lua_State* L) {
+  return 0;
+}
+
+static int l_lovrPassTock(lua_State* L) {
+  return 0;
+}
+
 const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
 
@@ -911,6 +966,10 @@ const luaL_Reg lovrPass[] = {
   { "copy", l_lovrPassCopy },
   { "blit", l_lovrPassBlit },
   { "mipmap", l_lovrPassMipmap },
+  { "read", l_lovrPassRead },
+
+  { "tick", l_lovrPassTick },
+  { "tock", l_lovrPassTock },
 
   { NULL, NULL }
 };

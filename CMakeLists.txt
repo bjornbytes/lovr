@@ -448,6 +448,7 @@ if(LOVR_ENABLE_GRAPHICS)
     src/api/l_graphics_material.c
     src/api/l_graphics_font.c
     src/api/l_graphics_model.c
+    src/api/l_graphics_readback.c
     src/api/l_graphics_tally.c
     src/api/l_graphics_pass.c
   )

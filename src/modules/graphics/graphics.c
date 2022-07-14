@@ -213,6 +213,18 @@ struct Model {
   uint32_t lastReskin;
 };
 
+struct Readback {
+  uint32_t ref;
+  uint32_t tick;
+  uint32_t size;
+  Readback* next;
+  ReadbackInfo info;
+  gpu_buffer* buffer;
+  void* pointer;
+  Image* image;
+  void* data;
+};
+
 struct Tally {
   uint32_t ref;
   uint32_t tick;
@@ -357,6 +369,8 @@ static struct {
   Shader* timeWizard;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
+  Readback* oldestReadback;
+  Readback* newestReadback;
   Material* defaultMaterial;
   uint32_t materialBlock;
   arr_t(MaterialBlock) materialBlocks;
@@ -379,6 +393,7 @@ static void tempPop(uint32_t stack);
 static int u64cmp(const void* a, const void* b);
 static void beginFrame(void);
 static void cleanupPasses(void);
+static void processReadbacks(void);
 static uint32_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(uint32_t layout);
 static gpu_texture* getAttachment(uint32_t size[2], uint32_t layers, TextureFormat format, bool srgb, uint32_t samples);
@@ -930,7 +945,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 }
 
 void lovrGraphicsWait() {
-  gpu_wait();
+  gpu_wait_idle();
 }
 
 // Buffer
@@ -1789,12 +1804,12 @@ void lovrShaderGetLocalWorkgroupSize(Shader* shader, uint32_t size[3]) {
 Material* lovrMaterialCreate(const MaterialInfo* info) {
   MaterialBlock* block = &state.materialBlocks.data[state.materialBlock];
 
-  if (!block || block->head == ~0u || !gpu_finished(block->list[block->head].tick)) {
+  if (!block || block->head == ~0u || !gpu_is_complete(block->list[block->head].tick)) {
     bool found = false;
 
     for (size_t i = 0; i < state.materialBlocks.length; i++) {
       block = &state.materialBlocks.data[i];
-      if (block->head != ~0u && gpu_finished(block->list[block->head].tick)) {
+      if (block->head != ~0u && gpu_is_complete(block->list[block->head].tick)) {
         state.materialBlock = i;
         found = true;
         break;
@@ -2704,7 +2719,61 @@ static void lovrModelReskin(Model* model) {
 // Readback
 
 Readback* lovrReadbackCreate(const ReadbackInfo* info) {
+  Readback* readback = calloc(1, sizeof(Readback) + gpu_sizeof_buffer());
+  lovrAssert(readback, "Out of memory");
+  readback->ref = 1;
+  readback->tick = state.tick;
+  readback->info = *info;
+  readback->buffer = (gpu_buffer*) (readback + 1);
 
+  if (readback->info.width > 0 && readback->info.height > 0) {
+    readback->size = measureTexture(info->format, info->width, info->height, 1);
+    readback->image = lovrImageCreateRaw(info->width, info->height, info->format);
+  } else {
+    readback->size = info->size;
+    readback->data = malloc(info->size);
+    lovrAssert(readback->data, "Out of memory");
+  }
+
+  readback->pointer = gpu_map(readback->buffer, readback->size, 16, GPU_MAP_READ);
+
+  if (!state.oldestReadback) state.oldestReadback = readback;
+  *(state.newestReadback ? &state.newestReadback->next : &state.newestReadback) = readback;
+  lovrRetain(readback);
+  return readback;
+}
+
+void lovrReadbackDestroy(void* ref) {
+  Readback* readback = ref;
+  lovrRelease(readback->image, lovrImageDestroy);
+  free(readback->data);
+  free(readback);
+}
+
+bool lovrReadbackIsComplete(Readback* readback) {
+  return gpu_is_complete(readback->tick);
+}
+
+bool lovrReadbackWait(Readback* readback) {
+  if ((state.tick == readback->tick && state.active) || lovrReadbackIsComplete(readback)) {
+    return false;
+  }
+
+  bool waited = gpu_wait_tick(readback->tick);
+
+  if (waited) {
+    processReadbacks();
+  }
+
+  return waited;
+}
+
+void* lovrReadbackGetData(Readback* readback) {
+  return lovrReadbackIsComplete(readback) ? readback->data : NULL;
+}
+
+Image* lovrReadbackGetImage(Readback* readback) {
+  return lovrReadbackIsComplete(readback) ? readback->image : NULL;
 }
 
 // Tally
@@ -2747,6 +2816,62 @@ void lovrTallyDestroy(void* ref) {
   free(tally->buffer);
   free(tally->masks);
   free(tally);
+}
+
+const TallyInfo* lovrTallyGetInfo(Tally* tally) {
+  return &tally->info;
+}
+
+// Tally timestamps aren't very usable in their raw state, since they use unspecified units, aren't
+// durations, and when using multiview there's one per view.  To make them easier to work with, copy
+// them to a temporary buffer, then dispatch a compute shader to subtract pairs and convert to ns,
+// writing the final friendly values to a destination Buffer.
+static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_buffer* buffer, uint32_t offset, gpu_stream* stream) {
+  gpu_copy_tally_buffer(stream, tally->gpu, tally->buffer, index, 0, count, 4);
+
+  gpu_sync(stream, &(gpu_barrier) {
+    .prev = GPU_PHASE_TRANSFER,
+    .next = GPU_PHASE_SHADER_COMPUTE,
+    .flush = GPU_CACHE_TRANSFER_WRITE,
+    .clear = GPU_CACHE_STORAGE_READ
+  }, 1);
+
+  if (!state.timeWizard) {
+    state.timeWizard = lovrShaderCreate(&(ShaderInfo) {
+      .type = SHADER_COMPUTE,
+      .source[0] = { lovr_shader_timewizard_comp, sizeof(lovr_shader_timewizard_comp) },
+      .label = "timewizard"
+    });
+  }
+
+  gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipeline];
+  gpu_layout* layout = state.layouts.data[state.timeWizard->layout].gpu;
+  gpu_shader* shader = state.timeWizard->gpu;
+
+  gpu_binding bindings[] = {
+    [0] = { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer, 0, ~0u } },
+    [1] = { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { buffer, offset, count * sizeof(uint32_t) } }
+  };
+
+  gpu_bundle* bundle = getBundle(state.timeWizard->layout);
+  gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
+  gpu_bundle_write(&bundle, &bundleInfo, 1);
+
+  struct { uint32_t first, count, views; float period; } constants = {
+    .first = index,
+    .count = count,
+    .views = tally->info.views,
+    .period = state.limits.timestampPeriod
+  };
+
+  gpu_compute_begin(stream);
+  gpu_bind_pipeline(stream, pipeline, true);
+  gpu_bind_bundle(stream, shader, 0, bundle, NULL, 0);
+  gpu_push_constants(stream, shader, &constants, sizeof(constants));
+  gpu_compute(stream, (count + 31) / 32, 1, 1);
+  gpu_compute_end(stream);
+  state.stats.pipelineSwitches++;
+  state.stats.bundleSwitches++;
 }
 
 // Pass
@@ -4697,56 +4822,11 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
   }
 
   if (tally->info.type == TALLY_TIMER) {
-    gpu_copy_tally_buffer(pass->stream, tally->gpu, tally->buffer, srcIndex, 0, count, 4);
-
-    // Wait for transfer to finish, then dispatch a compute shader to fixup timestamps
-    gpu_sync(pass->stream, &(gpu_barrier) {
-      .prev = GPU_PHASE_TRANSFER,
-      .next = GPU_PHASE_SHADER_COMPUTE,
-      .flush = GPU_CACHE_TRANSFER_WRITE,
-      .clear = GPU_CACHE_STORAGE_READ
-    }, 1);
-
-    if (!state.timeWizard) {
-      state.timeWizard = lovrShaderCreate(&(ShaderInfo) {
-        .type = SHADER_COMPUTE,
-        .source[0] = { lovr_shader_timewizard_comp, sizeof(lovr_shader_timewizard_comp) },
-        .label = "timewizard"
-      });
-    }
-
-    gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipeline];
-    gpu_layout* layout = state.layouts.data[state.timeWizard->layout].gpu;
-    gpu_shader* shader = state.timeWizard->gpu;
-
-    gpu_binding bindings[] = {
-      [0] = { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer, 0, ~0u } },
-      [1] = { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { buffer->gpu, dstOffset, count * sizeof(uint32_t) } }
-    };
-
-    gpu_bundle* bundle = getBundle(state.timeWizard->layout);
-    gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
-    gpu_bundle_write(&bundle, &bundleInfo, 1);
-
-    struct { uint32_t first, count, views; float period; } constants = {
-      .first = srcIndex,
-      .count = count,
-      .views = tally->info.views,
-      .period = state.limits.timestampPeriod
-    };
-
-    gpu_compute_begin(pass->stream);
-    gpu_bind_pipeline(pass->stream, pipeline, true);
-    gpu_bind_bundle(pass->stream, shader, 0, bundle, NULL, 0);
-    gpu_push_constants(pass->stream, shader, &constants, sizeof(constants));
-    gpu_compute(pass->stream, (count + 31) / 32, 1, 1);
-    gpu_compute_end(pass->stream);
-    state.stats.pipelineSwitches++;
-    state.stats.bundleSwitches++;
-
+    lovrTallyResolve(tally, srcIndex, count, buffer->gpu, dstOffset, pass->stream);
     trackBuffer(pass, buffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE);
   } else {
-    gpu_copy_tally_buffer(pass->stream, tally->gpu, buffer->gpu, srcIndex, dstOffset, count, 4);
+    uint32_t stride = tally->info.type == TALLY_STAGE ? 24 : 4;
+    gpu_copy_tally_buffer(pass->stream, tally->gpu, buffer->gpu, srcIndex, dstOffset, count, stride);
     trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
   }
 }
@@ -4829,12 +4909,62 @@ void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count)
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(!texture->info.parent, "Can not mipmap a Texture view");
   lovrCheck(texture->info.samples == 1, "Can not mipmap a multisampled texture");
-  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap %s it", "from");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap it");
   lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "from");
   lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "to");
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
   mipmapTexture(pass->stream, texture, base, count);
   trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
+}
+
+Readback* lovrPassReadBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent) {
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!lovrBufferIsTemporary(buffer), "Unable to read back a temporary buffer");
+  lovrCheck(offset + extent <= buffer->size, "Tried to read past the end of the Buffer");
+  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) { .size = extent });
+  gpu_copy_buffers(pass->stream, buffer->gpu, readback->buffer, offset, 0, extent);
+  trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
+  return readback;
+}
+
+Readback* lovrPassReadTexture(Pass* pass, Texture* texture, uint32_t offset[4], uint32_t extent[3]) {
+  if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
+  if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
+  lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(!texture->info.parent, "Can not read from a Texture view");
+  lovrCheck(texture->info.samples == 1, "Can not read from a multisampled texture");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
+  checkTextureBounds(&texture->info, offset, extent);
+  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) {
+    .width = extent[0],
+    .height = extent[1],
+    .format = texture->info.format
+  });
+  gpu_copy_texture_buffer(pass->stream, texture->gpu, readback->buffer, offset, 0, extent);
+  trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
+  return readback;
+}
+
+Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t count) {
+  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
+  lovrCheck(index + count <= tally->info.count, "Tally read range exceeds the number of slots in the Tally");
+
+  for (uint32_t i = 0; i < count; i++) {
+    uint32_t j = index + i;
+    lovrCheck(tally->masks[j / 64] & (1ull << (j % 64)), "Trying to copy Tally slot %d, but it hasn't been marked yet", j + 1);
+  }
+
+  uint32_t stride = tally->info.type == TALLY_STAGE ? 24 : 4;
+  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) { .size = count * stride });
+
+  if (tally->info.type == TALLY_TIMER) {
+    lovrTallyResolve(tally, index, count, readback->buffer, 0, pass->stream);
+  } else {
+    gpu_copy_tally_buffer(pass->stream, tally->gpu, readback->buffer, index, 0, count, stride);
+  }
+
+  return readback;
 }
 
 void lovrPassTick(Pass* pass, Tally* tally, uint32_t index) {
@@ -4908,6 +5038,7 @@ static void beginFrame(void) {
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin("Internal uploads");
   state.allocator.cursor = 0;
+  processReadbacks();
 }
 
 // Clean up ALL passes created during the frame, even unsubmitted ones
@@ -4921,14 +5052,38 @@ static void cleanupPasses(void) {
       lovrRelease(access->texture, lovrTextureDestroy);
     }
 
-    for (size_t j = 0; j <= pass->pipelineIndex; j++) {
-      lovrRelease(pass->pipelines[j].sampler, lovrSamplerDestroy);
-      lovrRelease(pass->pipelines[j].shader, lovrShaderDestroy);
-      lovrRelease(pass->pipelines[j].material, lovrMaterialDestroy);
-      pass->pipelines[j].sampler = NULL;
-      pass->pipelines[j].shader = NULL;
-      pass->pipelines[j].material = NULL;
+    if (pass->info.type == PASS_RENDER) {
+      for (size_t j = 0; j <= pass->pipelineIndex; j++) {
+        lovrRelease(pass->pipelines[j].sampler, lovrSamplerDestroy);
+        lovrRelease(pass->pipelines[j].shader, lovrShaderDestroy);
+        lovrRelease(pass->pipelines[j].material, lovrMaterialDestroy);
+        pass->pipelines[j].sampler = NULL;
+        pass->pipelines[j].shader = NULL;
+        pass->pipelines[j].material = NULL;
+      }
     }
+  }
+}
+
+static void processReadbacks(void) {
+  while (state.oldestReadback && gpu_is_complete(state.oldestReadback->tick)) {
+    Readback* readback = state.oldestReadback;
+
+    if (readback->image) {
+      size_t size = lovrImageGetLayerSize(readback->image, 0);
+      void* data = lovrImageGetLayerData(readback->image, 0, 0);
+      memcpy(data, readback->pointer, size);
+    } else {
+      memcpy(readback->data, readback->pointer, readback->size);
+    }
+
+    Readback* next = readback->next;
+    lovrRelease(readback, lovrReadbackDestroy);
+    state.oldestReadback = next;
+  }
+
+  if (!state.oldestReadback) {
+    state.newestReadback = NULL;
   }
 }
 
@@ -4979,7 +5134,7 @@ static gpu_bundle* getBundle(uint32_t layoutIndex) {
     pool->tick = state.tick;
     pool = layout->head;
 
-    if (pool && gpu_finished(pool->tick)) {
+    if (pool && gpu_is_complete(pool->tick)) {
       pool->cursor = 1;
       return pool->bundles;
     }

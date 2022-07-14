@@ -1436,6 +1436,7 @@ extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrFont[];
 extern const luaL_Reg lovrModel[];
+extern const luaL_Reg lovrReadback[];
 extern const luaL_Reg lovrTally[];
 extern const luaL_Reg lovrPass[];
 
@@ -1449,6 +1450,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Material);
   luax_registertype(L, Font);
   luax_registertype(L, Model);
+  luax_registertype(L, Readback);
   luax_registertype(L, Tally);
   luax_registertype(L, Pass);
   return 1;
