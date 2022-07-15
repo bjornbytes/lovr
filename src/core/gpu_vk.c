@@ -426,7 +426,7 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT) :
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
     };
 
     VkBuffer handle;
@@ -1376,9 +1376,7 @@ bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
     .queryCount = info->count,
     .pipelineStatistics = info->type == GPU_TALLY_PIPELINE ? (
       VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
-      VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
       VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
-      VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT |
       VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
       VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT
     ) : 0
@@ -1605,7 +1603,7 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
 }
 
 void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride) {
-  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, stride, VK_QUERY_RESULT_WAIT_BIT);
+  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dst->offset + dstOffset, stride, VK_QUERY_RESULT_WAIT_BIT);
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
@@ -1867,6 +1865,7 @@ bool gpu_init(gpu_config* config) {
       enable->shaderClipDistance = supports->shaderClipDistance;
       enable->shaderCullDistance = supports->shaderCullDistance;
       enable->largePoints = supports->largePoints;
+      enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery;
 
       // Optional features (currently always enabled when supported)
       config->features->textureBC = enable->textureCompressionBC = supports->textureCompressionBC;

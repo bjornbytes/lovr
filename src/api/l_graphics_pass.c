@@ -896,10 +896,18 @@ static int l_lovrPassRead(lua_State* L) {
 }
 
 static int l_lovrPassTick(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Tally* tally = luax_checktype(L, 2, Tally);
+  uint32_t index = luax_checku32(L, 3) - 1;
+  lovrPassTick(pass, tally, index);
   return 0;
 }
 
 static int l_lovrPassTock(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Tally* tally = luax_checktype(L, 2, Tally);
+  uint32_t index = luax_checku32(L, 3) - 1;
+  lovrPassTock(pass, tally, index);
   return 0;
 }
 

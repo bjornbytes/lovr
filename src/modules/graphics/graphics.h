@@ -429,11 +429,31 @@ Buffer* lovrModelGetIndexBuffer(Model* model);
 
 // Readback
 
+typedef enum {
+  READBACK_BUFFER,
+  READBACK_TEXTURE,
+  READBACK_TALLY
+} ReadbackType;
+
 typedef struct {
-  uint32_t size;
-  uint32_t width;
-  uint32_t height;
-  uint32_t format;
+  ReadbackType type;
+  union {
+    struct {
+      Buffer* object;
+      uint32_t offset;
+      uint32_t extent;
+    } buffer;
+    struct {
+      Texture* object;
+      uint32_t offset[4];
+      uint32_t extent[2];
+    } texture;
+    struct {
+      Tally* object;
+      uint32_t index;
+      uint32_t count;
+    } tally;
+  };
 } ReadbackInfo;
 
 Readback* lovrReadbackCreate(const ReadbackInfo* info);

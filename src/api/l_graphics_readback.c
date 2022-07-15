@@ -20,10 +20,32 @@ static int l_lovrReadbackWait(lua_State* L) {
 }
 
 static int l_lovrReadbackGetData(lua_State* L) {
-  //Readback* readback = luax_checktype(L, 1, Readback);
-  //void* data = lovrReadbackGetData(readback);
-  lua_pushnil(L);
-  return 1;
+  Readback* readback = luax_checktype(L, 1, Readback);
+  const ReadbackInfo* info = lovrReadbackGetInfo(readback);
+  void* data = lovrReadbackGetData(readback);
+  uint32_t* u32 = data;
+  switch (info->type) {
+    case READBACK_BUFFER:
+      // TODO
+      return 0;
+    case READBACK_TEXTURE:
+      lua_pushnil(L);
+      return 1;
+    case READBACK_TALLY: {
+      int count = (int) info->tally.count;
+
+      if (lovrTallyGetInfo(info->tally.object)->type == TALLY_STAGE) {
+        count *= 6; // The number of pipeline statistics that are tracked
+      }
+
+      lua_createtable(L, count, 0);
+      for (int i = 0; i < count; i++) {
+        lua_pushinteger(L, u32[i]);
+        lua_rawseti(L, -2, i + 1);
+      }
+      return 1;
+    }
+  }
 }
 
 static int l_lovrReadbackGetBlob(lua_State* L) {
@@ -44,6 +66,7 @@ const luaL_Reg lovrReadback[] = {
   { "isComplete", l_lovrReadbackIsComplete },
   { "wait", l_lovrReadbackWait },
   { "getData", l_lovrReadbackGetData },
+  { "getBlob", l_lovrReadbackGetBlob },
   { "getImage", l_lovrReadbackGetImage },
   { NULL, NULL }
 };

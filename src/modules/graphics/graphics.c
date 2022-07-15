@@ -167,7 +167,7 @@ typedef enum {
   VERTEX_GLYPH,
   VERTEX_MODEL,
   VERTEX_EMPTY,
-  VERTEX_FORMAT_COUNT
+  VERTEX_FORMAX
 } VertexFormat;
 
 typedef struct {
@@ -231,7 +231,6 @@ struct Tally {
   TallyInfo info;
   gpu_tally* gpu;
   gpu_buffer* buffer;
-  uint64_t* masks;
 };
 
 typedef struct {
@@ -368,7 +367,7 @@ static struct {
   Shader* animator;
   Shader* timeWizard;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
-  gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
+  gpu_vertex_format vertexFormats[VERTEX_FORMAX];
   Readback* oldestReadback;
   Readback* newestReadback;
   Material* defaultMaterial;
@@ -596,6 +595,9 @@ void lovrGraphicsDestroy() {
   if (!state.initialized) return;
   cleanupPasses();
   arr_free(&state.passes);
+  for (Readback* readback = state.oldestReadback; readback; readback = readback->next) {
+    lovrRelease(readback, lovrReadbackDestroy);
+  }
   lovrRelease(state.window, lovrTextureDestroy);
   for (uint32_t i = 0; i < state.attachments.length; i++) {
     gpu_texture_destroy(state.attachments.data[i].texture);
@@ -2726,28 +2728,57 @@ Readback* lovrReadbackCreate(const ReadbackInfo* info) {
   readback->info = *info;
   readback->buffer = (gpu_buffer*) (readback + 1);
 
-  if (readback->info.width > 0 && readback->info.height > 0) {
-    readback->size = measureTexture(info->format, info->width, info->height, 1);
-    readback->image = lovrImageCreateRaw(info->width, info->height, info->format);
-  } else {
-    readback->size = info->size;
-    readback->data = malloc(info->size);
-    lovrAssert(readback->data, "Out of memory");
+  switch (info->type) {
+    case READBACK_BUFFER:
+      lovrRetain(info->buffer.object);
+      readback->size = info->buffer.extent;
+      readback->data = malloc(readback->size);
+      lovrAssert(readback->data, "Out of memory");
+      break;
+    case READBACK_TEXTURE:
+      lovrRetain(info->texture.object);
+      TextureFormat format = info->texture.object->info.format;
+      readback->size = measureTexture(format, info->texture.extent[0], info->texture.extent[1], 1);
+      readback->image = lovrImageCreateRaw(info->texture.extent[0], info->texture.extent[1], format);
+      break;
+    case READBACK_TALLY:
+      lovrRetain(info->tally.object);
+      uint32_t stride = info->tally.object->info.type == TALLY_STAGE ? 24 : 4;
+      readback->size = info->tally.count * stride;
+      readback->data = malloc(readback->size);
+      lovrAssert(readback->data, "Out of memory");
+      break;
   }
 
   readback->pointer = gpu_map(readback->buffer, readback->size, 16, GPU_MAP_READ);
 
-  if (!state.oldestReadback) state.oldestReadback = readback;
-  *(state.newestReadback ? &state.newestReadback->next : &state.newestReadback) = readback;
+  if (!state.oldestReadback) {
+    state.oldestReadback = readback;
+  }
+
+  if (state.newestReadback) {
+    state.newestReadback->next = readback;
+  }
+
+  state.newestReadback = readback;
   lovrRetain(readback);
   return readback;
 }
 
 void lovrReadbackDestroy(void* ref) {
   Readback* readback = ref;
+  switch (readback->info.type) {
+    case READBACK_BUFFER: lovrRelease(readback->info.buffer.object, lovrBufferDestroy); break;
+    case READBACK_TEXTURE: lovrRelease(readback->info.texture.object, lovrTextureDestroy); break;
+    case READBACK_TALLY: lovrRelease(readback->info.tally.object, lovrTallyDestroy); break;
+  }
   lovrRelease(readback->image, lovrImageDestroy);
   free(readback->data);
   free(readback);
+}
+
+const ReadbackInfo* lovrReadbackGetInfo(Readback* readback) {
+  return &readback->info;
 }
 
 bool lovrReadbackIsComplete(Readback* readback) {
@@ -2785,11 +2816,9 @@ Tally* lovrTallyCreate(const TallyInfo* info) {
   Tally* tally = calloc(1, sizeof(Tally) + gpu_sizeof_tally());
   lovrAssert(tally, "Out of memory");
   tally->ref = 1;
-  tally->tick = state.tick;
+  tally->tick = state.tick - 1;
   tally->info = *info;
   tally->gpu = (gpu_tally*) (tally + 1);
-  tally->masks = calloc((info->count + 63) / 64, sizeof(uint64_t));
-  lovrAssert(tally->masks, "Out of memory");
 
   uint32_t total = info->count * (info->type == TALLY_TIMER ? 2 * info->views : 1);
 
@@ -2814,7 +2843,6 @@ void lovrTallyDestroy(void* ref) {
   gpu_tally_destroy(tally->gpu);
   if (tally->buffer) gpu_buffer_destroy(tally->buffer);
   free(tally->buffer);
-  free(tally->masks);
   free(tally);
 }
 
@@ -2827,7 +2855,7 @@ const TallyInfo* lovrTallyGetInfo(Tally* tally) {
 // them to a temporary buffer, then dispatch a compute shader to subtract pairs and convert to ns,
 // writing the final friendly values to a destination Buffer.
 static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_buffer* buffer, uint32_t offset, gpu_stream* stream) {
-  gpu_copy_tally_buffer(stream, tally->gpu, tally->buffer, index, 0, count, 4);
+  gpu_copy_tally_buffer(stream, tally->gpu, tally->buffer, index, 0, count * 2, 4);
 
   gpu_sync(stream, &(gpu_barrier) {
     .prev = GPU_PHASE_TRANSFER,
@@ -2849,7 +2877,7 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
   gpu_shader* shader = state.timeWizard->gpu;
 
   gpu_binding bindings[] = {
-    [0] = { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer, 0, ~0u } },
+    [0] = { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer, 0, count * 2 * tally->info.views * sizeof(uint32_t) } },
     [1] = { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { buffer, offset, count * sizeof(uint32_t) } }
   };
 
@@ -3012,6 +3040,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->pipeline = &pass->pipelines[0];
   pass->pipeline->info = (gpu_pipeline_info) {
     .colorCount = colorTextureCount,
+    .rasterizer.winding = GPU_WINDING_CW,
     .depth.format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format,
     .multisample.count = canvas->samples,
     .viewCount = main->depth,
@@ -3884,7 +3913,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
       .index.pointer = (void**) &indices,
-      .index.count = indexCount,
+      .index.count = indexCount
     });
   } else {
     indexCount = (cols * rows) * 6;
@@ -4816,11 +4845,6 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
   lovrCheck(dstOffset + count * 4 <= buffer->size, "Buffer copy range goes past the end of the destination Buffer");
   lovrCheck(dstOffset % 4 == 0, "Buffer copy offset must be a multiple of 4");
 
-  for (uint32_t i = 0; i < count; i++) {
-    uint32_t index = srcIndex + i;
-    lovrCheck(tally->masks[index / 64] & (1 << (index % 64)), "Trying to copy Tally slot %d, but it hasn't been marked yet", index + 1);
-  }
-
   if (tally->info.type == TALLY_TIMER) {
     lovrTallyResolve(tally, srcIndex, count, buffer->gpu, dstOffset, pass->stream);
     trackBuffer(pass, buffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE);
@@ -4921,7 +4945,12 @@ Readback* lovrPassReadBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(!lovrBufferIsTemporary(buffer), "Unable to read back a temporary buffer");
   lovrCheck(offset + extent <= buffer->size, "Tried to read past the end of the Buffer");
-  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) { .size = extent });
+  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) {
+    .type = READBACK_BUFFER,
+    .buffer.object = buffer,
+    .buffer.offset = offset,
+    .buffer.extent = extent
+  });
   gpu_copy_buffers(pass->stream, buffer->gpu, readback->buffer, offset, 0, extent);
   trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
   return readback;
@@ -4937,9 +4966,10 @@ Readback* lovrPassReadTexture(Pass* pass, Texture* texture, uint32_t offset[4], 
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
   checkTextureBounds(&texture->info, offset, extent);
   Readback* readback = lovrReadbackCreate(&(ReadbackInfo) {
-    .width = extent[0],
-    .height = extent[1],
-    .format = texture->info.format
+    .type = READBACK_TEXTURE,
+    .texture.object = texture,
+    .texture.offset = { offset[0], offset[1], offset[2], offset[3] },
+    .texture.extent = { extent[0], extent[1] }
   });
   gpu_copy_texture_buffer(pass->stream, texture->gpu, readback->buffer, offset, 0, extent);
   trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
@@ -4950,17 +4980,17 @@ Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t c
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(index + count <= tally->info.count, "Tally read range exceeds the number of slots in the Tally");
 
-  for (uint32_t i = 0; i < count; i++) {
-    uint32_t j = index + i;
-    lovrCheck(tally->masks[j / 64] & (1ull << (j % 64)), "Trying to copy Tally slot %d, but it hasn't been marked yet", j + 1);
-  }
-
-  uint32_t stride = tally->info.type == TALLY_STAGE ? 24 : 4;
-  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) { .size = count * stride });
+  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) {
+    .type = READBACK_TALLY,
+    .tally.object = tally,
+    .tally.index = index,
+    .tally.count = count
+  });
 
   if (tally->info.type == TALLY_TIMER) {
     lovrTallyResolve(tally, index, count, readback->buffer, 0, pass->stream);
   } else {
+    uint32_t stride = tally->info.type == TALLY_STAGE ? 24 : 4;
     gpu_copy_tally_buffer(pass->stream, tally->gpu, readback->buffer, index, 0, count, stride);
   }
 
@@ -4968,12 +4998,12 @@ Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t c
 }
 
 void lovrPassTick(Pass* pass, Tally* tally, uint32_t index) {
+  lovrCheck(tally->info.views == pass->cameraCount, "Tally view count does not match Pass view count");
   lovrCheck(index < tally->info.count, "Trying to use tally slot #%d, but the tally only has %d slots", index + 1, tally->info.count);
-  lovrCheck(~tally->masks[index / 64] & (1 << (index % 64)), "Tally slot #%d has already been used", index + 1);
 
   if (tally->tick != state.tick) {
-    gpu_clear_tally(state.stream, tally->gpu, 0, tally->info.count * 2 * tally->info.views);
-    memset(tally->masks, 0, (tally->info.count + 63) / 64 * sizeof(uint64_t));
+    uint32_t multiplier = tally->info.type == TALLY_TIMER ? 2 * tally->info.count * tally->info.views : 1;
+    gpu_clear_tally(state.stream, tally->gpu, 0, tally->info.count * multiplier);
     tally->tick = state.tick;
   }
 
@@ -4985,8 +5015,8 @@ void lovrPassTick(Pass* pass, Tally* tally, uint32_t index) {
 }
 
 void lovrPassTock(Pass* pass, Tally* tally, uint32_t index) {
+  lovrCheck(tally->info.views == pass->cameraCount, "Tally view count does not match Pass view count");
   lovrCheck(index < tally->info.count, "Trying to use tally slot #%d, but the tally only has %d slots", index + 1, tally->info.count);
-  lovrCheck(tally->masks[index / 64] & (1 << (index % 64)), "Tally slot #%d has not been started yet", index + 1);
 
   if (tally->info.type == TALLY_TIMER) {
     gpu_tally_mark(pass->stream, tally->gpu, index * 2 * tally->info.views + tally->info.views);
