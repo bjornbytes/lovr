@@ -3040,7 +3040,6 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->pipeline = &pass->pipelines[0];
   pass->pipeline->info = (gpu_pipeline_info) {
     .colorCount = colorTextureCount,
-    .rasterizer.winding = GPU_WINDING_CW,
     .depth.format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format,
     .multisample.count = canvas->samples,
     .viewCount = main->depth,
