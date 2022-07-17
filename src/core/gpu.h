@@ -453,7 +453,7 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 // Tally
 
 typedef enum {
-  GPU_TALLY_TIMER,
+  GPU_TALLY_TIME,
   GPU_TALLY_SHADER,
   GPU_TALLY_PIXEL
 } gpu_tally_type;

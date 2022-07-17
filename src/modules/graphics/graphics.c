@@ -2841,14 +2841,14 @@ Tally* lovrTallyCreate(const TallyInfo* info) {
   tally->info = *info;
   tally->gpu = (gpu_tally*) (tally + 1);
 
-  uint32_t total = info->count * (info->type == TALLY_TIMER ? 2 * info->views : 1);
+  uint32_t total = info->count * (info->type == TALLY_TIME ? 2 * info->views : 1);
 
   gpu_tally_init(tally->gpu, &(gpu_tally_info) {
     .type = (gpu_tally_type) info->type,
     .count = total
   });
 
-  if (info->type == TALLY_TIMER) {
+  if (info->type == TALLY_TIME) {
     tally->buffer = calloc(1, gpu_sizeof_buffer());
     lovrAssert(tally->buffer, "Out of memory");
     gpu_buffer_init(tally->buffer, &(gpu_buffer_info) {
@@ -4881,7 +4881,7 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
   lovrCheck(dstOffset + count * 4 <= buffer->size, "Buffer copy range goes past the end of the destination Buffer");
   lovrCheck(dstOffset % 4 == 0, "Buffer copy offset must be a multiple of 4");
 
-  if (tally->info.type == TALLY_TIMER) {
+  if (tally->info.type == TALLY_TIME) {
     lovrTallyResolve(tally, srcIndex, count, buffer->gpu, dstOffset, pass->stream);
     trackBuffer(pass, buffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE);
   } else {
@@ -5023,7 +5023,7 @@ Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t c
     .tally.count = count
   });
 
-  if (tally->info.type == TALLY_TIMER) {
+  if (tally->info.type == TALLY_TIME) {
     lovrTallyResolve(tally, index, count, readback->buffer, 0, pass->stream);
   } else {
     uint32_t stride = tally->info.type == TALLY_SHADER ? 16 : 4;
@@ -5038,12 +5038,12 @@ void lovrPassTick(Pass* pass, Tally* tally, uint32_t index) {
   lovrCheck(index < tally->info.count, "Trying to use tally slot #%d, but the tally only has %d slots", index + 1, tally->info.count);
 
   if (tally->tick != state.tick) {
-    uint32_t multiplier = tally->info.type == TALLY_TIMER ? 2 * tally->info.count * tally->info.views : 1;
+    uint32_t multiplier = tally->info.type == TALLY_TIME ? 2 * tally->info.count * tally->info.views : 1;
     gpu_clear_tally(state.stream, tally->gpu, 0, tally->info.count * multiplier);
     tally->tick = state.tick;
   }
 
-  if (tally->info.type == TALLY_TIMER) {
+  if (tally->info.type == TALLY_TIME) {
     gpu_tally_mark(pass->stream, tally->gpu, index * 2 * tally->info.views);
   } else {
     gpu_tally_begin(pass->stream, tally->gpu, index);
@@ -5054,7 +5054,7 @@ void lovrPassTock(Pass* pass, Tally* tally, uint32_t index) {
   lovrCheck(tally->info.views == pass->cameraCount, "Tally view count does not match Pass view count");
   lovrCheck(index < tally->info.count, "Trying to use tally slot #%d, but the tally only has %d slots", index + 1, tally->info.count);
 
-  if (tally->info.type == TALLY_TIMER) {
+  if (tally->info.type == TALLY_TIME) {
     gpu_tally_mark(pass->stream, tally->gpu, index * 2 * tally->info.views + tally->info.views);
   } else {
     gpu_tally_end(pass->stream, tally->gpu, index);

@@ -169,7 +169,7 @@ StringEntry lovrStencilAction[] = {
 };
 
 StringEntry lovrTallyType[] = {
-  [TALLY_TIMER] = ENTRY("timer"),
+  [TALLY_TIME] = ENTRY("time"),
   [TALLY_SHADER] = ENTRY("shader"),
   [TALLY_PIXEL] = ENTRY("pixel"),
   { 0 }

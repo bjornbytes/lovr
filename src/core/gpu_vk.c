@@ -1371,7 +1371,7 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
 
 bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
   VkQueryType queryTypes[] = {
-    [GPU_TALLY_TIMER] = VK_QUERY_TYPE_TIMESTAMP,
+    [GPU_TALLY_TIME] = VK_QUERY_TYPE_TIMESTAMP,
     [GPU_TALLY_SHADER] = VK_QUERY_TYPE_PIPELINE_STATISTICS,
     [GPU_TALLY_PIXEL] = VK_QUERY_TYPE_OCCLUSION
   };

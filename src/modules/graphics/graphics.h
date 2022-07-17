@@ -469,7 +469,7 @@ struct Image* lovrReadbackGetImage(Readback* readback);
 // Tally
 
 typedef enum {
-  TALLY_TIMER,
+  TALLY_TIME,
   TALLY_SHADER,
   TALLY_PIXEL
 } TallyType;
