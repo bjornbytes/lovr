@@ -559,6 +559,15 @@ static int l_lovrPassCylinder(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassCone(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float transform[16];
+  int index = luax_readmat4(L, 2, transform, -2);
+  uint32_t segments = luax_optu32(L, index, 64);
+  lovrPassCone(pass, transform, segments);
+  return 0;
+}
+
 static int l_lovrPassCapsule(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
@@ -958,6 +967,7 @@ const luaL_Reg lovrPass[] = {
   { "circle", l_lovrPassCircle },
   { "sphere", l_lovrPassSphere },
   { "cylinder", l_lovrPassCylinder },
+  { "cone", l_lovrPassCone },
   { "capsule", l_lovrPassCapsule },
   { "torus", l_lovrPassTorus },
   { "text", l_lovrPassText },

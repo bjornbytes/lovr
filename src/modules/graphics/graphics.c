@@ -261,6 +261,7 @@ enum {
   SHAPE_CIRCLE,
   SHAPE_SPHERE,
   SHAPE_CYLINDER,
+  SHAPE_CONE,
   SHAPE_CAPSULE,
   SHAPE_TORUS,
   SHAPE_MONKEY
@@ -1348,7 +1349,7 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
     [STAGE_VERTEX] = ""
       "void main() {"
         "Color = PassColor * VertexColor;"
-        "Normal = normalize(NormalMatrix * VertexNormal);"
+        "Normal = NormalMatrix * VertexNormal;"
         "UV = VertexUV;"
         "Position = lovrmain();"
       "}",
@@ -4324,6 +4325,59 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
   }
 }
 
+void lovrPassCone(Pass* pass, float* transform, uint32_t segments) {
+  uint32_t key[] = { SHAPE_CONE, segments };
+  uint32_t vertexCount = 2 * segments + 1;
+  uint32_t indexCount = 3 * (segments - 2) + 3 * segments;
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  lovrPassDraw(pass, &(Draw) {
+    .hash = hash64(key, sizeof(key)),
+    .mode = MESH_TRIANGLES,
+    .transform = transform,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  if (!vertices) {
+    return;
+  }
+
+  for (uint32_t i = 0; i < segments; i++) {
+    float theta = i * 2.f * (float) M_PI / segments;
+    float x = cosf(theta);
+    float y = sinf(theta);
+    float rsqrt3 = .57735f;
+    float nx = cosf(theta) * rsqrt3;
+    float ny = sinf(theta) * rsqrt3;
+    float nz = -rsqrt3;
+    float u = x + .5f;
+    float v = .5f - y;
+    vertices[segments * 0] = (ShapeVertex) { { x, y, 0.f }, { 0.f, 0.f, 1.f }, { u, v } };
+    vertices[segments * 1] = (ShapeVertex) { { x, y, 0.f }, { nx, ny, nz }, { u, v } };
+    vertices++;
+  }
+
+  vertices[segments] = (ShapeVertex) { { 0.f, 0.f, -1.f }, { 0.f, 0.f, 0.f }, { .5f, .5f } };
+
+  // Base
+  for (uint32_t i = 0; i < segments - 2; i++) {
+    uint16_t tri[] = { 0, i + 1, i + 2 };
+    memcpy(indices, tri, sizeof(tri));
+    indices += COUNTOF(tri);
+  }
+
+  // Sides
+  for (uint32_t i = 0; i < segments; i++) {
+    uint16_t tri[] = { segments + i, segments + (i + 1) % segments, vertexCount - 1 };
+    memcpy(indices, tri, sizeof(tri));
+    indices += COUNTOF(tri);
+  }
+}
+
 void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
   float sx = vec3_length(transform + 0);
   float sy = vec3_length(transform + 4);
@@ -4349,7 +4403,7 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
-    .index.count = indexCount,
+    .index.count = indexCount
   });
 
   if (!vertices) {
