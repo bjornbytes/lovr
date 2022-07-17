@@ -3073,7 +3073,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->cameras = tempAlloc(pass->cameraCount * sizeof(Camera));
   for (uint32_t i = 0; i < pass->cameraCount; i++) {
     mat4_identity(pass->cameras[i].view);
-    mat4_perspective(pass->cameras[i].projection, .01f, 100.f, 1.0f, (float) main->width / main->height);
+    mat4_perspective(pass->cameras[i].projection, 1.f, (float) main->width / main->height, .01f, 100.f);
   }
   pass->cameraDirty = true;
 
@@ -3131,6 +3131,12 @@ void lovrPassSetProjection(Pass* pass, uint32_t index, float* projection) {
   lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
   mat4_init(pass->cameras[index].projection, projection);
   pass->cameraDirty = true;
+
+  // If the handedness of the projection changes, flip the winding
+  if (index == 0 && (projection[5] > 0.f != pass->cameras[0].projection[5] > 0.f)) {
+    pass->pipeline->info.rasterizer.winding = !pass->pipeline->info.rasterizer.winding;
+    pass->pipeline->dirty = true;
+  }
 }
 
 void lovrPassPush(Pass* pass, StackType stack) {
@@ -3456,6 +3462,7 @@ void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]) {
 }
 
 void lovrPassSetWinding(Pass* pass, Winding winding) {
+  if (pass->cameras[0].projection[5] > 0.f) winding = !winding; // Handedness requires winding flip
   pass->pipeline->dirty |= pass->pipeline->info.rasterizer.winding != (gpu_winding) winding;
   pass->pipeline->info.rasterizer.winding = (gpu_winding) winding;
 }
@@ -4453,7 +4460,7 @@ static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, float wid
   }
 }
 
-void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, float wrap, HorizontalAlign halign, VerticalAlign valign, GlyphVertex* vertices, uint32_t* glyphCount, uint32_t* lineCount, Material** material) {
+void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, float wrap, HorizontalAlign halign, VerticalAlign valign, GlyphVertex* vertices, uint32_t* glyphCount, uint32_t* lineCount, Material** material, bool flip) {
   uint32_t vertexCount = 0;
   uint32_t lineStart = 0;
   uint32_t wordStart = 0;
@@ -4508,7 +4515,7 @@ void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
       Glyph* glyph = lovrFontGetGlyph(font, codepoint, &resized);
 
       if (resized) {
-        lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, glyphCount, lineCount, material);
+        lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, glyphCount, lineCount, material, flip);
         return;
       }
 
@@ -4538,10 +4545,17 @@ void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
       // Vertices
       float* bb = glyph->box;
       uint16_t* uv = glyph->uv;
-      vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[3] }, { uv[0], uv[1] }, { r, g, b, a } };
-      vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[3] }, { uv[2], uv[1] }, { r, g, b, a } };
-      vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[1] }, { uv[0], uv[3] }, { r, g, b, a } };
-      vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[1] }, { uv[2], uv[3] }, { r, g, b, a } };
+      if (flip) {
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], -(y + bb[1]) }, { uv[0], uv[3] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], -(y + bb[1]) }, { uv[2], uv[3] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], -(y + bb[3]) }, { uv[0], uv[1] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], -(y + bb[3]) }, { uv[2], uv[1] }, { r, g, b, a } };
+      } else {
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[3] }, { uv[0], uv[1] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[3] }, { uv[2], uv[1] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[1] }, { uv[0], uv[3] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[1] }, { uv[2], uv[3] }, { r, g, b, a } };
+      }
       (*glyphCount)++;
 
       // Advance
@@ -4575,10 +4589,12 @@ void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count
   wrap /= scale;
 
   Material* material;
-  lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material);
+  bool flip = pass->cameras[0].projection[5] > 0.f;
+  lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material, flip);
 
   mat4_scale(transform, scale, scale, scale);
-  mat4_translate(transform, 0.f, -ascent + valign / 2.f * (leading * lineCount), 0.f);
+  float offset = -ascent + valign / 2.f * (leading * lineCount);
+  mat4_translate(transform, 0.f, flip ? -offset : offset, 0.f);
 
   GlyphVertex* vertexPointer;
   uint16_t* indices;

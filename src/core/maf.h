@@ -590,56 +590,49 @@ MAF void mat4_getScale(mat4 m, vec3 scale) {
   vec3_set(scale, vec3_length(m + 0), vec3_length(m + 4), vec3_length(m + 8));
 }
 
-MAF mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float clipNear, float clipFar) {
+// Does not have a Y flip, maps z = [-n,-f] to [0,1]
+MAF mat4 mat4_orthographic(mat4 m, float left, float right, float bottom, float top, float n, float f) {
   float rl = right - left;
   float tb = top - bottom;
-  float fn = clipFar - clipNear;
+  float fn = f - n;
   memset(m, 0, 16 * sizeof(float));
-  m[0] = 2 / rl;
-  m[5] = 2 / tb;
-  m[10] = -2 / fn;
-  m[12] = -(left + right) / rl;
+  m[0] = 2.f / rl;
+  m[5] = 2.f / tb;
+  m[10] = -1.f / fn;
+  m[12] = -(right + left) / rl;
   m[13] = -(top + bottom) / tb;
-  m[14] = -(clipFar + clipNear) / fn;
-  m[15] = 1;
+  m[14] = -n / fn;
+  m[15] = 1.f;
   return m;
 }
 
-MAF mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float aspect) {
-  float range = tanf(fovy * .5f) * clipNear;
-  float sx = (2.f * clipNear) / (range * aspect + range * aspect);
-  float sy = -clipNear / range;
-  float sz = -clipFar / (clipFar - clipNear);
-  float pz = (-clipFar * clipNear) / (clipFar - clipNear);
+// Flips Y and maps z = [-n,-f] to [0,1] after dividing by w
+MAF mat4 mat4_perspective(mat4 m, float fovy, float aspect, float n, float f) {
+  float cotan = 1.f  / tanf(fovy * .5f);
   memset(m, 0, 16 * sizeof(float));
-  m[0] = sx;
-  m[5] = sy;
-  m[10] = sz;
+  m[0] = cotan / aspect;
+  m[5] = -cotan;
+  m[10] = f / (n - f);
   m[11] = -1.f;
-  m[14] = pz;
+  m[14] = (n * f) / (n - f);
   m[15] = 0.f;
   return m;
 }
 
-// This is currently specific to Vulkan
-MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float clipNear, float clipFar) {
+// Flips Y and maps z = [-n,-f] to [0,1] after dividing by w
+MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float n, float f) {
   left = -tanf(left);
   right = tanf(right);
   up = tanf(up);
   down = -tanf(down);
-  float idx = 1.f / (right - left);
-  float idy = 1.f / (down - up);
-  float idz = 1.f / (clipFar - clipNear);
-  float sx = right + left;
-  float sy = down + up;
   memset(m, 0, 16 * sizeof(float));
-  m[0] = 2.f * idx;
-  m[5] = 2.f * idy;
-  m[8] = sx * idx;
-  m[9] = sy * idy;
-  m[10] = -clipFar * idz;
+  m[0] = 2.f / (right - left);
+  m[5] = 2.f / (down - up);
+  m[8] = (right + left) / (right - left);
+  m[9] = (down + up) / (down - up);
+  m[10] = f / (n - f);
   m[11] = -1.f;
-  m[14] = -(clipFar * clipNear) * idz;
+  m[14] = (n * f) / (n - f);
   return m;
 }
 

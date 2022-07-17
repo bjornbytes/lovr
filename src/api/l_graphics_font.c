@@ -145,7 +145,7 @@ static int l_lovrFontGetVertices(lua_State* L) {
   lovrAssert(vertices, "Out of memory");
   uint32_t glyphCount, lineCount;
   Material* material;
-  lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material);
+  lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material, false);
   int vertexCount = glyphCount * 4;
   lua_createtable(L, vertexCount, 0);
   for (int i = 0; i < vertexCount; i++) {

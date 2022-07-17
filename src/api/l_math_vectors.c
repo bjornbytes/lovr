@@ -1874,24 +1874,32 @@ static int l_lovrMat4Scale(lua_State* L) {
 
 static int l_lovrMat4Orthographic(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
-  float left = luax_checkfloat(L, 2);
-  float right = luax_checkfloat(L, 3);
-  float top = luax_checkfloat(L, 4);
-  float bottom = luax_checkfloat(L, 5);
-  float clipNear = luax_checkfloat(L, 6);
-  float clipFar = luax_checkfloat(L, 7);
-  mat4_orthographic(m, left, right, top, bottom, clipNear, clipFar);
+  if (lua_gettop(L) <= 5) {
+    float width = luax_checkfloat(L, 2);
+    float height = luax_checkfloat(L, 3);
+    float n = luax_optfloat(L, 4, -1.f);
+    float f = luax_optfloat(L, 5, 1.f);
+    mat4_orthographic(m, 0.f, width, 0.f, height, n, f);
+  } else {
+    float left = luax_checkfloat(L, 2);
+    float right = luax_checkfloat(L, 3);
+    float bottom = luax_checkfloat(L, 4);
+    float top = luax_checkfloat(L, 5);
+    float n = luax_checkfloat(L, 6);
+    float f = luax_checkfloat(L, 7);
+    mat4_orthographic(m, left, right, bottom, top, n, f);
+  }
   lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Perspective(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
-  float clipNear = luax_checkfloat(L, 2);
-  float clipFar = luax_checkfloat(L, 3);
-  float fov = luax_checkfloat(L, 4);
-  float aspect = luax_checkfloat(L, 5);
-  mat4_perspective(m, clipNear, clipFar, fov, aspect);
+  float fovy = luax_checkfloat(L, 2);
+  float aspect = luax_checkfloat(L, 3);
+  float n = luax_checkfloat(L, 4);
+  float f = luax_checkfloat(L, 5);
+  mat4_perspective(m, fovy, aspect, n, f);
   lua_settop(L, 1);
   return 1;
 }
@@ -1902,9 +1910,9 @@ static int l_lovrMat4Fov(lua_State* L) {
   float right = luax_checkfloat(L, 3);
   float up = luax_checkfloat(L, 4);
   float down = luax_checkfloat(L, 5);
-  float clipNear = luax_checkfloat(L, 6);
-  float clipFar = luax_checkfloat(L, 7);
-  mat4_fov(m, left, right, up, down, clipNear, clipFar);
+  float n = luax_checkfloat(L, 6);
+  float f = luax_checkfloat(L, 7);
+  mat4_fov(m, left, right, up, down, n, f);
   lua_settop(L, 1);
   return 1;
 }
