@@ -35,6 +35,7 @@ typedef struct {
   bool wireframe;
   bool depthClamp;
   bool indirectDrawFirstInstance;
+  bool stageTally;
   bool float64;
   bool int64;
   bool int16;
@@ -462,6 +463,7 @@ const ReadbackInfo* lovrReadbackGetInfo(Readback* readback);
 bool lovrReadbackIsComplete(Readback* readback);
 bool lovrReadbackWait(Readback* readback);
 void* lovrReadbackGetData(Readback* readback);
+struct Blob* lovrReadbackGetBlob(Readback* readback);
 struct Image* lovrReadbackGetImage(Readback* readback);
 
 // Tally

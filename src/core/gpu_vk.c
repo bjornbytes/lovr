@@ -1367,14 +1367,14 @@ bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
   VkQueryType queryTypes[] = {
     [GPU_TALLY_TIMER] = VK_QUERY_TYPE_TIMESTAMP,
     [GPU_TALLY_PIXEL] = VK_QUERY_TYPE_OCCLUSION,
-    [GPU_TALLY_PIPELINE] = VK_QUERY_TYPE_PIPELINE_STATISTICS
+    [GPU_TALLY_STAGE] = VK_QUERY_TYPE_PIPELINE_STATISTICS
   };
 
   VkQueryPoolCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
     .queryType = queryTypes[info->type],
     .queryCount = info->count,
-    .pipelineStatistics = info->type == GPU_TALLY_PIPELINE ? (
+    .pipelineStatistics = info->type == GPU_TALLY_STAGE ? (
       VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
       VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
       VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
@@ -1865,7 +1865,6 @@ bool gpu_init(gpu_config* config) {
       enable->shaderClipDistance = supports->shaderClipDistance;
       enable->shaderCullDistance = supports->shaderCullDistance;
       enable->largePoints = supports->largePoints;
-      enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery;
 
       // Optional features (currently always enabled when supported)
       config->features->textureBC = enable->textureCompressionBC = supports->textureCompressionBC;
@@ -1873,6 +1872,7 @@ bool gpu_init(gpu_config* config) {
       config->features->wireframe = enable->fillModeNonSolid = supports->fillModeNonSolid;
       config->features->depthClamp = enable->depthClamp = supports->depthClamp;
       config->features->indirectDrawFirstInstance = enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance;
+      config->features->stageTally = enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery;
       config->features->float64 = enable->shaderFloat64 = supports->shaderFloat64;
       config->features->int64 = enable->shaderInt64 = supports->shaderInt64;
       config->features->int16 = enable->shaderInt16 = supports->shaderInt16;

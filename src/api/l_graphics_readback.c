@@ -1,5 +1,6 @@
 #include "api.h"
 #include "graphics/graphics.h"
+#include "data/blob.h"
 #include "data/image.h"
 #include "util.h"
 #include <lua.h>
@@ -35,7 +36,7 @@ static int l_lovrReadbackGetData(lua_State* L) {
       int count = (int) info->tally.count;
 
       if (lovrTallyGetInfo(info->tally.object)->type == TALLY_STAGE) {
-        count *= 6; // The number of pipeline statistics that are tracked
+        count *= 4; // The number of pipeline statistics that are tracked
       }
 
       lua_createtable(L, count, 0);
@@ -49,9 +50,9 @@ static int l_lovrReadbackGetData(lua_State* L) {
 }
 
 static int l_lovrReadbackGetBlob(lua_State* L) {
-  //Readback* readback = luax_checktype(L, 1, Readback);
-  //void* data = lovrReadbackGetData(readback);
-  lua_pushnil(L);
+  Readback* readback = luax_checktype(L, 1, Readback);
+  Blob* blob = lovrReadbackGetBlob(readback);
+  luax_pushtype(L, Blob, blob);
   return 1;
 }
 

@@ -680,6 +680,7 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.wireframe), lua_setfield(L, -2, "wireframe");
   lua_pushboolean(L, features.depthClamp), lua_setfield(L, -2, "depthClamp");
   lua_pushboolean(L, features.indirectDrawFirstInstance), lua_setfield(L, -2, "indirectDrawFirstInstance");
+  lua_pushboolean(L, features.stageTally), lua_setfield(L, -2, "stageTally");
   lua_pushboolean(L, features.float64), lua_setfield(L, -2, "float64");
   lua_pushboolean(L, features.int64), lua_setfield(L, -2, "int64");
   lua_pushboolean(L, features.int16), lua_setfield(L, -2, "int16");

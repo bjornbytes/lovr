@@ -222,6 +222,7 @@ struct Readback {
   gpu_buffer* buffer;
   void* pointer;
   Image* image;
+  Blob* blob;
   void* data;
 };
 
@@ -2734,6 +2735,7 @@ Readback* lovrReadbackCreate(const ReadbackInfo* info) {
       readback->size = info->buffer.extent;
       readback->data = malloc(readback->size);
       lovrAssert(readback->data, "Out of memory");
+      readback->blob = lovrBlobCreate(readback->data, readback->size, "Readback");
       break;
     case READBACK_TEXTURE:
       lovrRetain(info->texture.object);
@@ -2743,10 +2745,11 @@ Readback* lovrReadbackCreate(const ReadbackInfo* info) {
       break;
     case READBACK_TALLY:
       lovrRetain(info->tally.object);
-      uint32_t stride = info->tally.object->info.type == TALLY_STAGE ? 24 : 4;
+      uint32_t stride = info->tally.object->info.type == TALLY_STAGE ? 16 : 4;
       readback->size = info->tally.count * stride;
       readback->data = malloc(readback->size);
       lovrAssert(readback->data, "Out of memory");
+      readback->blob = lovrBlobCreate(readback->data, readback->size, "Readback");
       break;
   }
 
@@ -2773,7 +2776,7 @@ void lovrReadbackDestroy(void* ref) {
     case READBACK_TALLY: lovrRelease(readback->info.tally.object, lovrTallyDestroy); break;
   }
   lovrRelease(readback->image, lovrImageDestroy);
-  free(readback->data);
+  lovrRelease(readback->blob, lovrBlobDestroy);
   free(readback);
 }
 
@@ -2803,6 +2806,10 @@ void* lovrReadbackGetData(Readback* readback) {
   return lovrReadbackIsComplete(readback) ? readback->data : NULL;
 }
 
+Blob* lovrReadbackGetBlob(Readback* readback) {
+  return lovrReadbackIsComplete(readback) ? readback->blob : NULL;
+}
+
 Image* lovrReadbackGetImage(Readback* readback) {
   return lovrReadbackIsComplete(readback) ? readback->image : NULL;
 }
@@ -2813,6 +2820,7 @@ Tally* lovrTallyCreate(const TallyInfo* info) {
   lovrCheck(info->count > 0, "Tally count must be greater than zero");
   lovrCheck(info->count <= 4096, "Maximum Tally count is 4096");
   lovrCheck(info->views <= state.limits.renderSize[2], "Tally view count can not exceed the maximum view count");
+  lovrCheck(info->type != TALLY_STAGE || state.features.stageTally, "This GPU does not support the 'stage' Tally type");
   Tally* tally = calloc(1, sizeof(Tally) + gpu_sizeof_tally());
   lovrAssert(tally, "Out of memory");
   tally->ref = 1;
@@ -4864,7 +4872,7 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
     lovrTallyResolve(tally, srcIndex, count, buffer->gpu, dstOffset, pass->stream);
     trackBuffer(pass, buffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE);
   } else {
-    uint32_t stride = tally->info.type == TALLY_STAGE ? 24 : 4;
+    uint32_t stride = tally->info.type == TALLY_STAGE ? 16 : 4;
     gpu_copy_tally_buffer(pass->stream, tally->gpu, buffer->gpu, srcIndex, dstOffset, count, stride);
     trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
   }
@@ -5005,7 +5013,7 @@ Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t c
   if (tally->info.type == TALLY_TIMER) {
     lovrTallyResolve(tally, index, count, readback->buffer, 0, pass->stream);
   } else {
-    uint32_t stride = tally->info.type == TALLY_STAGE ? 24 : 4;
+    uint32_t stride = tally->info.type == TALLY_STAGE ? 16 : 4;
     gpu_copy_tally_buffer(pass->stream, tally->gpu, readback->buffer, index, 0, count, stride);
   }
 
