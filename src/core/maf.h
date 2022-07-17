@@ -606,20 +606,25 @@ MAF mat4 mat4_orthographic(mat4 m, float left, float right, float bottom, float 
   return m;
 }
 
-// Flips Y and maps z = [-n,-f] to [0,1] after dividing by w
+// Flips Y and maps z = [-n,-f] to [0,1] after dividing by w, f == 0 inverts z with infinite far
 MAF mat4 mat4_perspective(mat4 m, float fovy, float aspect, float n, float f) {
   float cotan = 1.f  / tanf(fovy * .5f);
   memset(m, 0, 16 * sizeof(float));
   m[0] = cotan / aspect;
   m[5] = -cotan;
-  m[10] = f / (n - f);
-  m[11] = -1.f;
-  m[14] = (n * f) / (n - f);
-  m[15] = 0.f;
+  if (f == 0.f) {
+    m[10] = 0.f;
+    m[11] = -1.f;
+    m[14] = n;
+  } else {
+    m[10] = f / (n - f);
+    m[11] = -1.f;
+    m[14] = (n * f) / (n - f);
+  }
   return m;
 }
 
-// Flips Y and maps z = [-n,-f] to [0,1] after dividing by w
+// Flips Y and maps z = [-n,-f] to [0,1] after dividing by w, f == 0 inverts z with infinite far
 MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float n, float f) {
   left = -tanf(left);
   right = tanf(right);
@@ -630,9 +635,15 @@ MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float n
   m[5] = 2.f / (down - up);
   m[8] = (right + left) / (right - left);
   m[9] = (down + up) / (down - up);
-  m[10] = f / (n - f);
-  m[11] = -1.f;
-  m[14] = (n * f) / (n - f);
+  if (f == 0.f) {
+    m[10] = 0.f;
+    m[11] = -1.f;
+    m[14] = n;
+  } else {
+    m[10] = f / (n - f);
+    m[11] = -1.f;
+    m[14] = (n * f) / (n - f);
+  }
   return m;
 }
 

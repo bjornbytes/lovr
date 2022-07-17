@@ -1898,7 +1898,7 @@ static int l_lovrMat4Perspective(lua_State* L) {
   float fovy = luax_checkfloat(L, 2);
   float aspect = luax_checkfloat(L, 3);
   float n = luax_checkfloat(L, 4);
-  float f = luax_checkfloat(L, 5);
+  float f = luax_optfloat(L, 5, 0.);
   mat4_perspective(m, fovy, aspect, n, f);
   lua_settop(L, 1);
   return 1;
@@ -1911,7 +1911,7 @@ static int l_lovrMat4Fov(lua_State* L) {
   float up = luax_checkfloat(L, 4);
   float down = luax_checkfloat(L, 5);
   float n = luax_checkfloat(L, 6);
-  float f = luax_checkfloat(L, 7);
+  float f = luax_optfloat(L, 7, 0.);
   mat4_fov(m, left, right, up, down, n, f);
   lua_settop(L, 1);
   return 1;

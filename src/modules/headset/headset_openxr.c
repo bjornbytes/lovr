@@ -783,7 +783,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
   }
 
   state.clipNear = .01f;
-  state.clipFar = 100.f;
+  state.clipFar = 0.f;
   state.frameState.type = XR_TYPE_FRAME_STATE;
   return true;
 }

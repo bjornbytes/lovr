@@ -9,6 +9,6 @@ void main() {
   float x = -1 + float((VertexIndex & 1) << 2);
   float y = -1 + float((VertexIndex & 2) << 1);
   UV = vec2(x, y) * .5 + .5;
-  Position = vec4(x, y, 0., 1.);
+  Position = vec4(x, y, 1., 1.);
   PointSize = 1.f;
 }

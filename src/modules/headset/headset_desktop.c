@@ -39,7 +39,7 @@ static void onFocus(bool focused) {
 static bool desktop_init(float supersample, float offset, uint32_t msaa, bool overlay) {
   state.offset = offset;
   state.clipNear = .01f;
-  state.clipFar = 100.f;
+  state.clipFar = 0.f;
   state.prevDisplayTime = os_get_time();
   state.nextDisplayTime = state.prevDisplayTime;
 

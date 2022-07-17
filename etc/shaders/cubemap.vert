@@ -22,5 +22,5 @@ void main() {
   vec3 ray = vec3(uv, -1.);
   mat3 inverseViewOrientation = transpose(mat3(View));
   Direction = normalize(inverseViewOrientation * (InverseProjection * vec4(ray, 1.)).xyz);
-  Position = vec4(uv, 1, 1);
+  Position = vec4(uv, 0, 1);
 }

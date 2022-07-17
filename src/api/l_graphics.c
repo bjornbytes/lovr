@@ -459,7 +459,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
     .loads = { LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR, LOAD_CLEAR },
     .depth.format = FORMAT_D32F,
     .depth.load = LOAD_CLEAR,
-    .depth.clear = 1.f,
+    .depth.clear = 0.f,
     .samples = 4
   };
 

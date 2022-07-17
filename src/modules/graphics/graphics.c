@@ -3064,7 +3064,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     .depth.format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format,
     .multisample.count = canvas->samples,
     .viewCount = main->depth,
-    .depth.test = GPU_COMPARE_LEQUAL,
+    .depth.test = GPU_COMPARE_GEQUAL,
     .depth.write = true
   };
 
@@ -3094,7 +3094,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->cameras = tempAlloc(pass->cameraCount * sizeof(Camera));
   for (uint32_t i = 0; i < pass->cameraCount; i++) {
     mat4_identity(pass->cameras[i].view);
-    mat4_perspective(pass->cameras[i].projection, 1.f, (float) main->width / main->height, .01f, 100.f);
+    mat4_perspective(pass->cameras[i].projection, 1.f, (float) main->width / main->height, .01f, 0.f);
   }
   pass->cameraDirty = true;
 
