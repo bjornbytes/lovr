@@ -2279,6 +2279,124 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
   tempPop(stack);
 }
 
+static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, float width, HorizontalAlign align) {
+  if (align == ALIGN_LEFT) return;
+  float shift = align / 2.f * width;
+  for (uint32_t i = head; i < tail; i++) {
+    vertices[i].position.x -= shift;
+  }
+}
+
+void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, float wrap, HorizontalAlign halign, VerticalAlign valign, GlyphVertex* vertices, uint32_t* glyphCount, uint32_t* lineCount, Material** material, bool flip) {
+  uint32_t vertexCount = 0;
+  uint32_t lineStart = 0;
+  uint32_t wordStart = 0;
+  *glyphCount = 0;
+  *lineCount = 1;
+
+  float x = 0.f;
+  float y = 0.f;
+  float wordStartX = 0.f;
+  float prevWordEndX = 0.f;
+  float leading = lovrRasterizerGetLeading(font->info.rasterizer) * font->lineSpacing;
+  float space = lovrFontGetGlyph(font, ' ', NULL)->advance;
+
+  for (uint32_t i = 0; i < count; i++) {
+    size_t bytes;
+    uint32_t codepoint;
+    uint32_t previous = '\0';
+    const char* str = strings[i].string;
+    const char* end = strings[i].string + strings[i].length;
+    uint8_t r = (uint8_t) (CLAMP(strings[i].color[0], 0.f, 1.f) * 255.f);
+    uint8_t g = (uint8_t) (CLAMP(strings[i].color[1], 0.f, 1.f) * 255.f);
+    uint8_t b = (uint8_t) (CLAMP(strings[i].color[2], 0.f, 1.f) * 255.f);
+    uint8_t a = (uint8_t) (CLAMP(strings[i].color[3], 0.f, 1.f) * 255.f);
+
+    while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
+      if (codepoint == ' ' || codepoint == '\t') {
+        if (previous) prevWordEndX = x;
+        wordStart = vertexCount;
+        x += codepoint == '\t' ? space * 4.f : space;
+        wordStartX = x;
+        previous = '\0';
+        str += bytes;
+        continue;
+      } else if (codepoint == '\n') {
+        aline(vertices, lineStart, vertexCount, x, halign);
+        lineStart = vertexCount;
+        wordStart = vertexCount;
+        x = 0.f;
+        y -= leading;
+        wordStartX = 0.f;
+        prevWordEndX = 0.f;
+        (*lineCount)++;
+        previous = '\0';
+        str += bytes;
+        continue;
+      } else if (codepoint == '\r') {
+        str += bytes;
+        continue;
+      }
+
+      bool resized;
+      Glyph* glyph = lovrFontGetGlyph(font, codepoint, &resized);
+
+      if (resized) {
+        lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, glyphCount, lineCount, material, flip);
+        return;
+      }
+
+      // Keming
+      if (previous) x += lovrFontGetKerning(font, previous, codepoint);
+      previous = codepoint;
+
+      // Wrap
+      if (wrap > 0.f && x + glyph->advance > wrap && wordStart != lineStart) {
+        float dx = wordStartX;
+        float dy = leading;
+
+        // Shift the vertices of the overflowing word down a line and back to the beginning
+        for (uint32_t v = wordStart; v < vertexCount; v++) {
+          vertices[v].position.x -= dx;
+          vertices[v].position.y -= dy;
+        }
+
+        aline(vertices, lineStart, wordStart, prevWordEndX, halign);
+        lineStart = wordStart;
+        wordStartX = 0.f;
+        (*lineCount)++;
+        x -= dx;
+        y -= dy;
+      }
+
+      // Vertices
+      float* bb = glyph->box;
+      uint16_t* uv = glyph->uv;
+      if (flip) {
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], -(y + bb[1]) }, { uv[0], uv[3] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], -(y + bb[1]) }, { uv[2], uv[3] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], -(y + bb[3]) }, { uv[0], uv[1] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], -(y + bb[3]) }, { uv[2], uv[1] }, { r, g, b, a } };
+      } else {
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[3] }, { uv[0], uv[1] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[3] }, { uv[2], uv[1] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[1] }, { uv[0], uv[3] }, { r, g, b, a } };
+        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[1] }, { uv[2], uv[3] }, { r, g, b, a } };
+      }
+      (*glyphCount)++;
+
+      // Advance
+      x += glyph->advance;
+      str += bytes;
+    }
+  }
+
+  // Align last line
+  aline(vertices, lineStart, vertexCount, x, halign);
+
+  *material = font->material;
+}
+
 // Model
 
 Model* lovrModelCreate(const ModelInfo* info) {
@@ -4525,124 +4643,6 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
       indices += COUNTOF(quad);
     }
   }
-}
-
-static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, float width, HorizontalAlign align) {
-  if (align == ALIGN_LEFT) return;
-  float shift = align / 2.f * width;
-  for (uint32_t i = head; i < tail; i++) {
-    vertices[i].position.x -= shift;
-  }
-}
-
-void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, float wrap, HorizontalAlign halign, VerticalAlign valign, GlyphVertex* vertices, uint32_t* glyphCount, uint32_t* lineCount, Material** material, bool flip) {
-  uint32_t vertexCount = 0;
-  uint32_t lineStart = 0;
-  uint32_t wordStart = 0;
-  *glyphCount = 0;
-  *lineCount = 1;
-
-  float x = 0.f;
-  float y = 0.f;
-  float wordStartX = 0.f;
-  float prevWordEndX = 0.f;
-  float leading = lovrRasterizerGetLeading(font->info.rasterizer) * font->lineSpacing;
-  float space = lovrFontGetGlyph(font, ' ', NULL)->advance;
-
-  for (uint32_t i = 0; i < count; i++) {
-    size_t bytes;
-    uint32_t codepoint;
-    uint32_t previous = '\0';
-    const char* str = strings[i].string;
-    const char* end = strings[i].string + strings[i].length;
-    uint8_t r = (uint8_t) (CLAMP(strings[i].color[0], 0.f, 1.f) * 255.f);
-    uint8_t g = (uint8_t) (CLAMP(strings[i].color[1], 0.f, 1.f) * 255.f);
-    uint8_t b = (uint8_t) (CLAMP(strings[i].color[2], 0.f, 1.f) * 255.f);
-    uint8_t a = (uint8_t) (CLAMP(strings[i].color[3], 0.f, 1.f) * 255.f);
-
-    while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
-      if (codepoint == ' ' || codepoint == '\t') {
-        if (previous) prevWordEndX = x;
-        wordStart = vertexCount;
-        x += codepoint == '\t' ? space * 4.f : space;
-        wordStartX = x;
-        previous = '\0';
-        str += bytes;
-        continue;
-      } else if (codepoint == '\n') {
-        aline(vertices, lineStart, vertexCount, x, halign);
-        lineStart = vertexCount;
-        wordStart = vertexCount;
-        x = 0.f;
-        y -= leading;
-        wordStartX = 0.f;
-        prevWordEndX = 0.f;
-        (*lineCount)++;
-        previous = '\0';
-        str += bytes;
-        continue;
-      } else if (codepoint == '\r') {
-        str += bytes;
-        continue;
-      }
-
-      bool resized;
-      Glyph* glyph = lovrFontGetGlyph(font, codepoint, &resized);
-
-      if (resized) {
-        lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, glyphCount, lineCount, material, flip);
-        return;
-      }
-
-      // Keming
-      if (previous) x += lovrFontGetKerning(font, previous, codepoint);
-      previous = codepoint;
-
-      // Wrap
-      if (wrap > 0.f && x + glyph->advance > wrap && wordStart != lineStart) {
-        float dx = wordStartX;
-        float dy = leading;
-
-        // Shift the vertices of the overflowing word down a line and back to the beginning
-        for (uint32_t v = wordStart; v < vertexCount; v++) {
-          vertices[v].position.x -= dx;
-          vertices[v].position.y -= dy;
-        }
-
-        aline(vertices, lineStart, wordStart, prevWordEndX, halign);
-        lineStart = wordStart;
-        wordStartX = 0.f;
-        (*lineCount)++;
-        x -= dx;
-        y -= dy;
-      }
-
-      // Vertices
-      float* bb = glyph->box;
-      uint16_t* uv = glyph->uv;
-      if (flip) {
-        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], -(y + bb[1]) }, { uv[0], uv[3] }, { r, g, b, a } };
-        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], -(y + bb[1]) }, { uv[2], uv[3] }, { r, g, b, a } };
-        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], -(y + bb[3]) }, { uv[0], uv[1] }, { r, g, b, a } };
-        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], -(y + bb[3]) }, { uv[2], uv[1] }, { r, g, b, a } };
-      } else {
-        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[3] }, { uv[0], uv[1] }, { r, g, b, a } };
-        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[3] }, { uv[2], uv[1] }, { r, g, b, a } };
-        vertices[vertexCount++] = (GlyphVertex) { { x + bb[0], y + bb[1] }, { uv[0], uv[3] }, { r, g, b, a } };
-        vertices[vertexCount++] = (GlyphVertex) { { x + bb[2], y + bb[1] }, { uv[2], uv[3] }, { r, g, b, a } };
-      }
-      (*glyphCount)++;
-
-      // Advance
-      x += glyph->advance;
-      str += bytes;
-    }
-  }
-
-  // Align last line
-  aline(vertices, lineStart, vertexCount, x, halign);
-
-  *material = font->material;
 }
 
 void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
