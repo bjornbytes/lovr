@@ -203,7 +203,7 @@ function lovr.errhand(message, traceback)
     if lovr.system.isWindowOpen() then
       local pass = lovr.graphics.getPass('render', 'window')
       local width, height = lovr.system.getWindowDimensions()
-      local projection = lovr.math.mat4():perspective(0.1, 100.0, 1.0, width / height)
+      local projection = lovr.math.mat4():perspective(1.0, width / height, .1, 100)
       pass:setProjection(1, projection)
       render(pass)
       passes[#passes + 1] = pass
