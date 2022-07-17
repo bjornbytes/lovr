@@ -454,8 +454,8 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline);
 
 typedef enum {
   GPU_TALLY_TIMER,
-  GPU_TALLY_PIXEL,
-  GPU_TALLY_STAGE
+  GPU_TALLY_SHADER,
+  GPU_TALLY_PIXEL
 } gpu_tally_type;
 
 typedef struct {
@@ -605,7 +605,7 @@ typedef struct {
   bool wireframe;
   bool depthClamp;
   bool indirectDrawFirstInstance;
-  bool stageTally;
+  bool shaderTally;
   bool float64;
   bool int64;
   bool int16;

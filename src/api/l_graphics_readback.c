@@ -35,7 +35,7 @@ static int l_lovrReadbackGetData(lua_State* L) {
     case READBACK_TALLY: {
       int count = (int) info->tally.count;
 
-      if (lovrTallyGetInfo(info->tally.object)->type == TALLY_STAGE) {
+      if (lovrTallyGetInfo(info->tally.object)->type == TALLY_SHADER) {
         count *= 4; // The number of pipeline statistics that are tracked
       }
 

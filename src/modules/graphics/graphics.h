@@ -35,7 +35,7 @@ typedef struct {
   bool wireframe;
   bool depthClamp;
   bool indirectDrawFirstInstance;
-  bool stageTally;
+  bool shaderTally;
   bool float64;
   bool int64;
   bool int16;
@@ -470,8 +470,8 @@ struct Image* lovrReadbackGetImage(Readback* readback);
 
 typedef enum {
   TALLY_TIMER,
-  TALLY_PIXEL,
-  TALLY_STAGE
+  TALLY_SHADER,
+  TALLY_PIXEL
 } TallyType;
 
 typedef struct {
