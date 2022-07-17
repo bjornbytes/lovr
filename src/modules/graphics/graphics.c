@@ -2288,39 +2288,52 @@ Model* lovrModelCreate(const ModelInfo* info) {
   model->info = *info;
   lovrRetain(info->data);
 
-  // Textures
-  model->textures = malloc(data->imageCount * sizeof(Texture*));
-  lovrAssert(model->textures, "Out of memory");
-  for (uint32_t i = 0; i < data->imageCount; i++) {
-    model->textures[i] = lovrTextureCreate(&(TextureInfo) {
-      .type = TEXTURE_2D,
-      .usage = TEXTURE_SAMPLE,
-      .format = lovrImageGetFormat(data->images[i]),
-      .width = lovrImageGetWidth(data->images[i], 0),
-      .height = lovrImageGetHeight(data->images[i], 0),
-      .depth = 1,
-      .mipmaps = info->mipmaps || lovrImageGetLevelCount(data->images[i]) > 1 ? ~0u : 1,
-      .samples = 1,
-      .srgb = lovrImageIsSRGB(data->images[i]),
-      .images = &data->images[i],
-      .imageCount = 1
-    });
-  }
-
-  // Materials
+  // Materials and Textures
+  model->textures = calloc(data->imageCount, sizeof(Texture*));
   model->materials = malloc(data->materialCount * sizeof(Material*));
-  lovrAssert(model->materials, "Out of memory");
+  lovrAssert(model->textures && model->materials, "Out of memory");
   for (uint32_t i = 0; i < data->materialCount; i++) {
     MaterialInfo material;
     ModelMaterial* properties = &data->materials[i];
     memcpy(&material.data, properties, sizeof(MaterialData));
-    material.texture = properties->texture == ~0u ? NULL : model->textures[properties->texture];
-    material.glowTexture = properties->glowTexture == ~0u ? NULL : model->textures[properties->glowTexture];
-    material.occlusionTexture = properties->occlusionTexture == ~0u ? NULL : model->textures[properties->occlusionTexture];
-    material.metalnessTexture = properties->metalnessTexture == ~0u ? NULL : model->textures[properties->metalnessTexture];
-    material.roughnessTexture = properties->roughnessTexture == ~0u ? NULL : model->textures[properties->roughnessTexture];
-    material.clearcoatTexture = properties->clearcoatTexture == ~0u ? NULL : model->textures[properties->clearcoatTexture];
-    material.normalTexture = properties->normalTexture == ~0u ? NULL : model->textures[properties->normalTexture];
+
+    struct { uint32_t index; Texture** texture; } textures[] = {
+      { properties->texture, &material.texture },
+      { properties->glowTexture, &material.glowTexture },
+      { properties->occlusionTexture, &material.occlusionTexture },
+      { properties->metalnessTexture, &material.metalnessTexture },
+      { properties->roughnessTexture, &material.roughnessTexture },
+      { properties->clearcoatTexture, &material.clearcoatTexture },
+      { properties->normalTexture, &material.normalTexture }
+    };
+
+    for (uint32_t t = 0; t < COUNTOF(textures); t++) {
+      uint32_t index = textures[t].index;
+      Texture** texture = textures[t].texture;
+
+      if (index == ~0u) {
+        *texture = NULL;
+      } else {
+        if (!model->textures[index]) {
+          model->textures[index] = lovrTextureCreate(&(TextureInfo) {
+            .type = TEXTURE_2D,
+            .usage = TEXTURE_SAMPLE,
+            .format = lovrImageGetFormat(data->images[index]),
+            .width = lovrImageGetWidth(data->images[index], 0),
+            .height = lovrImageGetHeight(data->images[index], 0),
+            .depth = 1,
+            .mipmaps = info->mipmaps || lovrImageGetLevelCount(data->images[index]) > 1 ? ~0u : 1,
+            .samples = 1,
+            .srgb = texture == &material.texture || texture == &material.glowTexture,
+            .images = &data->images[index],
+            .imageCount = 1
+          });
+        }
+
+        *texture = model->textures[index];
+      }
+    }
+
     model->materials[i] = lovrMaterialCreate(&material);
   }
 
