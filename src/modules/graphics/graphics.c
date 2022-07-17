@@ -2968,7 +2968,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   if (canvas->depth.texture || canvas->depth.format) {
     TextureFormat format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format;
     bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER;
-    lovrCheck(format == FORMAT_D16 || format == FORMAT_D24S8 || format == FORMAT_D32F, "Depth buffer must use a depth format");
+    lovrCheck(format == FORMAT_D16 || format == FORMAT_D32F || format == FORMAT_D24S8 || format == FORMAT_D32FS8, "Depth buffer must use a depth format");
     lovrCheck(renderable, "This GPU does not support depth buffers with this texture format");
     if (canvas->depth.texture) {
       const TextureInfo* texture = &canvas->depth.texture->info;
@@ -5283,6 +5283,7 @@ static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint1
     case FORMAT_RGB10A2:
     case FORMAT_D24S8:
     case FORMAT_D32F: return w * h * d * 4;
+    case FORMAT_D32FS8: return w * h * d * 5;
     case FORMAT_RGBA16:
     case FORMAT_RGBA16F:
     case FORMAT_RG32F: return w * h * d * 8;
