@@ -50,29 +50,6 @@ StringEntry lovrDrawMode[] = {
   { 0 }
 };
 
-StringEntry lovrMaterialColor[] = {
-  [COLOR_BASE] = ENTRY("base"),
-  [COLOR_EMISSIVE] = ENTRY("emissive"),
-  { 0 }
-};
-
-StringEntry lovrMaterialScalar[] = {
-  [SCALAR_METALNESS] = ENTRY("metalness"),
-  [SCALAR_ROUGHNESS] = ENTRY("roughness"),
-  [SCALAR_ALPHA_CUTOFF] = ENTRY("alphacutoff"),
-  { 0 }
-};
-
-StringEntry lovrMaterialTexture[] = {
-  [TEXTURE_COLOR] = ENTRY("color"),
-  [TEXTURE_EMISSIVE] = ENTRY("emissive"),
-  [TEXTURE_METALNESS] = ENTRY("metalness"),
-  [TEXTURE_ROUGHNESS] = ENTRY("roughness"),
-  [TEXTURE_OCCLUSION] = ENTRY("occlusion"),
-  [TEXTURE_NORMAL] = ENTRY("normal"),
-  { 0 }
-};
-
 StringEntry lovrSmoothMode[] = {
   [SMOOTH_STEP] = ENTRY("step"),
   [SMOOTH_LINEAR] = ENTRY("linear"),

@@ -73,29 +73,6 @@ typedef struct {
   uint32_t skin;
 } ModelPrimitive;
 
-typedef enum {
-  SCALAR_METALNESS,
-  SCALAR_ROUGHNESS,
-  SCALAR_ALPHA_CUTOFF,
-  MAX_MATERIAL_SCALARS
-} MaterialScalar;
-
-typedef enum {
-  COLOR_BASE,
-  COLOR_EMISSIVE,
-  MAX_MATERIAL_COLORS
-} MaterialColor;
-
-typedef enum {
-  TEXTURE_COLOR,
-  TEXTURE_EMISSIVE,
-  TEXTURE_METALNESS,
-  TEXTURE_ROUGHNESS,
-  TEXTURE_OCCLUSION,
-  TEXTURE_NORMAL,
-  MAX_MATERIAL_TEXTURES
-} MaterialTexture;
-
 typedef struct {
   float color[4];
   float glow[4];

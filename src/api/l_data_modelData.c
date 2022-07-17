@@ -548,58 +548,68 @@ static int l_lovrModelDataGetMaterialName(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetMaterialImage(lua_State* L) {
+static int l_lovrModelDataGetMaterial(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelMaterial* material = luax_checkmaterial(L, 2, model);
-  MaterialTexture type = luax_checkenum(L, 3, MaterialTexture, "color");
-  uint32_t index = ~0u;
-  switch (type) {
-    case TEXTURE_COLOR: index = material->texture; break;
-    case TEXTURE_EMISSIVE: index = material->glowTexture; break;
-    case TEXTURE_OCCLUSION: index = material->occlusionTexture; break;
-    case TEXTURE_METALNESS: index = material->metalnessTexture; break;
-    case TEXTURE_ROUGHNESS: index = material->roughnessTexture; break;
-    case TEXTURE_NORMAL: index = material->normalTexture; break;
-    default: lovrUnreachable(); return 0;
-  }
-  if (index == ~0u) {
-    lua_pushnil(L);
-  } else {
-    lua_pushinteger(L, index + 1);
-  }
+
+  lua_newtable(L);
+
+  lua_createtable(L, 4, 0);
+  lua_pushnumber(L, material->color[0]);
+  lua_rawseti(L, -2, 1);
+  lua_pushnumber(L, material->color[1]);
+  lua_rawseti(L, -2, 2);
+  lua_pushnumber(L, material->color[2]);
+  lua_rawseti(L, -2, 3);
+  lua_pushnumber(L, material->color[3]);
+  lua_rawseti(L, -2, 4);
+  lua_setfield(L, -2, "color");
+
+  lua_createtable(L, 4, 0);
+  lua_pushnumber(L, material->glow[0]);
+  lua_rawseti(L, -2, 1);
+  lua_pushnumber(L, material->glow[1]);
+  lua_rawseti(L, -2, 2);
+  lua_pushnumber(L, material->glow[2]);
+  lua_rawseti(L, -2, 3);
+  lua_pushnumber(L, material->glow[3]);
+  lua_rawseti(L, -2, 4);
+  lua_setfield(L, -2, "glow");
+
+  lua_createtable(L, 2, 0);
+  lua_pushnumber(L, material->uvShift[0]);
+  lua_rawseti(L, -2, 1);
+  lua_pushnumber(L, material->uvShift[1]);
+  lua_rawseti(L, -2, 2);
+  lua_setfield(L, -2, "uvShift");
+
+  lua_createtable(L, 2, 0);
+  lua_pushnumber(L, material->uvShift[0]);
+  lua_rawseti(L, -2, 1);
+  lua_pushnumber(L, material->uvShift[1]);
+  lua_rawseti(L, -2, 2);
+  lua_setfield(L, -2, "uvScale");
+
+  lua_pushnumber(L, material->metalness), lua_setfield(L, -2, "metalness");
+  lua_pushnumber(L, material->roughness), lua_setfield(L, -2, "roughness");
+  lua_pushnumber(L, material->clearcoat), lua_setfield(L, -2, "clearcoat");
+  lua_pushnumber(L, material->clearcoatRoughness), lua_setfield(L, -2, "clearcoatRoughness");
+  lua_pushnumber(L, material->occlusionStrength), lua_setfield(L, -2, "occlusionStrength");
+  lua_pushnumber(L, material->glowStrength), lua_setfield(L, -2, "glowStrength");
+  lua_pushnumber(L, material->normalScale), lua_setfield(L, -2, "normalScale");
+  lua_pushnumber(L, material->alphaCutoff), lua_setfield(L, -2, "alphaCutoff");
+  lua_pushnumber(L, material->pointSize), lua_setfield(L, -2, "pointSize");
+
+#define PUSH_IMAGE(t) if (material->t != ~0u) luax_pushtype(L, Image, model->images[material->t]), lua_setfield(L, -2, #t)
+  PUSH_IMAGE(texture);
+  PUSH_IMAGE(glowTexture);
+  PUSH_IMAGE(occlusionTexture);
+  PUSH_IMAGE(metalnessTexture);
+  PUSH_IMAGE(roughnessTexture);
+  PUSH_IMAGE(clearcoatTexture);
+  PUSH_IMAGE(normalTexture);
+
   return 1;
-}
-
-static int l_lovrModelDataGetMaterialColor(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelMaterial* material = luax_checkmaterial(L, 2, model);
-  MaterialColor type = luax_checkenum(L, 3, MaterialColor, "base");
-  switch (type) {
-    case COLOR_BASE:
-      lua_pushnumber(L, material->color[0]);
-      lua_pushnumber(L, material->color[1]);
-      lua_pushnumber(L, material->color[2]);
-      lua_pushnumber(L, material->color[3]);
-      return 4;
-    case COLOR_EMISSIVE:
-      lua_pushnumber(L, material->glow[0]);
-      lua_pushnumber(L, material->glow[1]);
-      lua_pushnumber(L, material->glow[2]);
-      lua_pushnumber(L, 1.f);
-      return 4;
-    default: lovrUnreachable(); return 0;
-  }
-}
-
-static int l_lovrModelDataGetMaterialValue(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelMaterial* material = luax_checkmaterial(L, 2, model);
-  MaterialScalar type = luax_checkenum(L, 3, MaterialScalar, NULL);
-  switch (type) {
-    case SCALAR_METALNESS: lua_pushnumber(L, material->metalness); return 1;
-    case SCALAR_ROUGHNESS: lua_pushnumber(L, material->roughness); return 1;
-    default: lovrUnreachable(); return 0;
-  }
 }
 
 static int l_lovrModelDataGetAnimationCount(lua_State* L) {
@@ -758,9 +768,7 @@ const luaL_Reg lovrModelData[] = {
   { "getBoundingSphere", l_lovrModelDataGetBoundingSphere },
   { "getMaterialCount", l_lovrModelDataGetMaterialCount },
   { "getMaterialName", l_lovrModelDataGetMaterialName },
-  { "getMaterialImage", l_lovrModelDataGetMaterialImage },
-  { "getMaterialColor", l_lovrModelDataGetMaterialColor },
-  { "getMaterialValue", l_lovrModelDataGetMaterialValue },
+  { "getMaterial", l_lovrModelDataGetMaterial },
   { "getAnimationCount", l_lovrModelDataGetAnimationCount },
   { "getAnimationName", l_lovrModelDataGetAnimationName },
   { "getAnimationDuration", l_lovrModelDataGetAnimationDuration },
