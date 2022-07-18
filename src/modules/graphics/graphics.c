@@ -3197,6 +3197,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   float defaultColor[4] = { 1.f, 1.f, 1.f, 1.f };
   memcpy(pass->pipeline->color, defaultColor, sizeof(defaultColor));
   pass->pipeline->formatHash = 0;
+  pass->pipeline->font = NULL;
   pass->pipeline->shader = NULL;
   pass->pipeline->mode = MESH_TRIANGLES;
   pass->pipeline->dirty = true;
