@@ -129,7 +129,9 @@ function lovr.run()
         if not skip then lovr.graphics.submit(pass) end
       end
       if lovr.system.isWindowOpen() then
-        lovr.mirror(pass)
+        local pass = lovr.graphics.getPass('render', 'window')
+        local skip = lovr.mirror(pass)
+        if not skip then lovr.graphics.submit(pass) end
       end
     end
     if lovr.headset then lovr.headset.submit() end
@@ -139,11 +141,20 @@ end
 
 function lovr.mirror(pass)
   if lovr.headset then
-    --
+    local texture = lovr.headset.getTexture()
+    if texture then
+      pass:fill(texture)
+    else
+      local near, far = lovr.headset.getClipDistance()
+      for i = 1, lovr.headset.getViewCount() do
+        pass:setViewPose(i, lovr.headset.getViewPose(i))
+        local left, right, up, down = lovr.headset.getViewAngles(i)
+        pass:setProjection(i, left, right, up, down, near, far)
+      end
+      return lovr.draw and lovr.draw(pass)
+    end
   else
-    local pass = lovr.graphics.getPass('render', 'window')
-    local skip = lovr.draw and lovr.draw(pass)
-    if not skip then lovr.graphics.submit(pass) end
+    return lovr.draw and lovr.draw(pass)
   end
 end
 

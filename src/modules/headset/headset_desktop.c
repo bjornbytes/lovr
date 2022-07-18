@@ -189,7 +189,7 @@ static bool desktop_animate(Device device, struct Model* model) {
 }
 
 static Texture* desktop_getTexture(void) {
-  return lovrGraphicsGetWindowTexture();
+  return NULL;
 }
 
 static void desktop_submit(void) {
