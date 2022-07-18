@@ -591,6 +591,7 @@ void lovrPassSetDepthTest(Pass* pass, CompareMode test);
 void lovrPassSetDepthWrite(Pass* pass, bool write);
 void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
+void lovrPassSetFont(Pass* pass, Font* font);
 void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture);
 void lovrPassSetMeshMode(Pass* pass, MeshMode mode);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
@@ -615,7 +616,7 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
 void lovrPassCone(Pass* pass, float* transform, uint32_t segments);
 void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments);
 void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t segmentsP);
-void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
+void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign);
 void lovrPassSkybox(Pass* pass, Texture* texture);
 void lovrPassFill(Pass* pass, Texture* texture);
 void lovrPassMonkey(Pass* pass, float* transform);

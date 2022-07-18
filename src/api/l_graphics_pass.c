@@ -239,6 +239,13 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSetFont(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Font* font = luax_totype(L, 2, Font);
+  lovrPassSetFont(pass, font);
+  return 0;
+}
+
 static int l_lovrPassSetMaterial(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Material* material = luax_totype(L, 2, Material);
@@ -589,17 +596,15 @@ static int l_lovrPassTorus(lua_State* L) {
 
 static int l_lovrPassText(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Font* font = luax_totype(L, 2, Font);
-  int index = font ? 3 : 2;
   uint32_t count;
   ColoredString stack;
-  ColoredString* strings = luax_checkcoloredstrings(L, index++, &count, &stack);
+  ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
   float transform[16];
-  index = luax_readmat4(L, index++, transform, 1);
+  int index = luax_readmat4(L, 3, transform, 1);
   float wrap = luax_optfloat(L, index++, 0.);
   HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
-  lovrPassText(pass, font, strings, count, transform, wrap, halign, valign);
+  lovrPassText(pass, strings, count, transform, wrap, halign, valign);
   if (strings != &stack) free(strings);
   return 0;
 }
@@ -946,6 +951,7 @@ const luaL_Reg lovrPass[] = {
   { "setDepthWrite", l_lovrPassSetDepthWrite },
   { "setDepthOffset", l_lovrPassSetDepthOffset },
   { "setDepthClamp", l_lovrPassSetDepthClamp },
+  { "setFont", l_lovrPassSetFont },
   { "setMaterial", l_lovrPassSetMaterial },
   { "setMeshMode", l_lovrPassSetMeshMode },
   { "setSampler", l_lovrPassSetSampler },

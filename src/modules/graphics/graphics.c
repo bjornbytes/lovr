@@ -242,7 +242,7 @@ typedef struct {
 } Camera;
 
 typedef struct {
-  float color[4];
+  Font* font;
   Shader* shader;
   Sampler* sampler;
   Material* material;
@@ -251,6 +251,7 @@ typedef struct {
   float viewport[4];
   float depthRange[2];
   uint32_t scissor[4];
+  float color[4];
   MeshMode mode;
   bool dirty;
 } Pipeline;
@@ -3290,6 +3291,7 @@ void lovrPassPush(Pass* pass, StackType stack) {
       pass->pipeline = &pass->pipelines[++pass->pipelineIndex];
       lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack overflow (more pushes than pops?)", "Pipeline");
       memcpy(pass->pipeline, &pass->pipelines[pass->pipelineIndex - 1], sizeof(Pipeline));
+      lovrRetain(pass->pipeline->font);
       lovrRetain(pass->pipeline->sampler);
       lovrRetain(pass->pipeline->shader);
       lovrRetain(pass->pipeline->material);
@@ -3305,6 +3307,7 @@ void lovrPassPop(Pass* pass, StackType stack) {
       lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "%s stack underflow (more pops than pushes?)", "Transform");
       break;
     case STACK_PIPELINE:
+      lovrRelease(pass->pipeline->font, lovrFontDestroy);
       lovrRelease(pass->pipeline->sampler, lovrSamplerDestroy);
       lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
       lovrRelease(pass->pipeline->material, lovrMaterialDestroy);
@@ -3460,6 +3463,14 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
   if (state.features.depthClamp) {
     pass->pipeline->dirty |= pass->pipeline->info.rasterizer.depthClamp != clamp;
     pass->pipeline->info.rasterizer.depthClamp = clamp;
+  }
+}
+
+void lovrPassSetFont(Pass* pass, Font* font) {
+  if (pass->pipeline->font != font) {
+    lovrRetain(font);
+    lovrRelease(pass->pipeline->font, lovrFontDestroy);
+    pass->pipeline->font = font;
   }
 }
 
@@ -4645,8 +4656,8 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
   }
 }
 
-void lovrPassText(Pass* pass, Font* font, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
-  font = font ? font : lovrGraphicsGetDefaultFont();
+void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* transform, float wrap, HorizontalAlign halign, VerticalAlign valign) {
+  Font* font = pass->pipeline->font ? pass->pipeline->font : lovrGraphicsGetDefaultFont();
 
   size_t totalLength = 0;
   for (uint32_t i = 0; i < count; i++) {
@@ -5174,9 +5185,11 @@ static void cleanupPasses(void) {
 
     if (pass->info.type == PASS_RENDER) {
       for (size_t j = 0; j <= pass->pipelineIndex; j++) {
+        lovrRelease(pass->pipelines[j].font, lovrFontDestroy);
         lovrRelease(pass->pipelines[j].sampler, lovrSamplerDestroy);
         lovrRelease(pass->pipelines[j].shader, lovrShaderDestroy);
         lovrRelease(pass->pipelines[j].material, lovrMaterialDestroy);
+        pass->pipelines[j].font = NULL;
         pass->pipelines[j].sampler = NULL;
         pass->pipelines[j].shader = NULL;
         pass->pipelines[j].material = NULL;
