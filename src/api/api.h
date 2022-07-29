@@ -69,6 +69,7 @@ extern StringEntry lovrVerticalAlign[];
 extern StringEntry lovrVolumeUnit[];
 extern StringEntry lovrWinding[];
 extern StringEntry lovrWrapMode[];
+extern StringEntry lovrRaytraceAccelerationType[];
 
 // General helpers
 

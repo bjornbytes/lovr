@@ -8,6 +8,7 @@
 #include <lauxlib.h>
 #include <stdlib.h>
 #include <string.h>
+#include "l_graphics_raytrace_common.h"
 
 StringEntry lovrBlendAlphaMode[] = {
   [BLEND_ALPHA_MULTIPLY] = ENTRY("alphamultiply"),
@@ -236,6 +237,12 @@ static struct { uint32_t size, scalarAlign, baseAlign, components; } fieldInfo[]
   [FIELD_MAT2] = { 16, 4, 8, 4 },
   [FIELD_MAT3] = { 64, 4, 16, 9 },
   [FIELD_MAT4] = { 64, 4, 16, 16 }
+};
+
+StringEntry lovrRaytraceAccelerationType[] = {
+  [RAYTRACE_ACCELERATION_TYPE_TOP] = ENTRY("top"),
+  [RAYTRACE_ACCELERATION_TYPE_BOTTOM] = ENTRY("bottom"),
+  { 0 }
 };
 
 static uint32_t luax_checkfieldtype(lua_State* L, int index, uint32_t* nameHash) {
@@ -1295,6 +1302,40 @@ static int l_lovrGraphicsGetPass(lua_State* L) {
   return 1;
 }
 
+// TODO flags needed for update to work
+static int l_lovrGraphicsRaytraceGetSizes(lua_State* L) {
+  RaytraceAccelerationType rat = luax_checkenum(L, 1, RaytraceAccelerationType, NULL);
+  Blob *blob = luax_totype(L, 2, Blob); //LUA_TUSERDATA
+  lovrAssert(lua_type(L, 3) == LUA_TTABLE, "Argument 3 must be table");
+
+  int structCount = lua_objlen(L, 3);
+  uint64_t *structSizes = malloc(sizeof(uint64_t)*structCount); // FIXME: Set to graphics_size and check length
+  for(int idx = 0; idx < structCount; idx++) {
+    lua_rawgeti(L, 3, idx+1);
+    lovrAssert(lua_type(L, -1) == LUA_TNUMBER, "Geometry size at index %d is not a number", idx+1);
+    structSizes[idx] = luaL_optinteger(L, -1, 0);
+    lua_pop(L, 1);
+  }
+
+  RaytraceBuildsize buildsize;
+  bool success = lovrGraphicsRaytraceGetBuildsize(rat, structCount, structSizes, blob->data, &buildsize);
+
+  free(structSizes);
+
+  if (!success) {
+    lua_pushnil(L);
+    return 1;
+  } else {
+    lua_pushnumber(L, buildsize.resultSize);
+    lua_pushnumber(L, buildsize.buildScratchSize);
+    lua_pushnumber(L, buildsize.updateScratchSize);
+    return 3;
+  }
+
+  return 1;
+}
+
+
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
   { "submit", l_lovrGraphicsSubmit },
@@ -1315,6 +1356,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newFont", l_lovrGraphicsNewFont },
   { "getPass", l_lovrGraphicsGetPass },
+  { "raytraceGetSizes", l_lovrGraphicsRaytraceGetSizes },
   { NULL, NULL }
 };
 

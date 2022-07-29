@@ -325,7 +325,8 @@ static bool check(bool condition, const char* message);
   X(vkCmdDrawIndirect)\
   X(vkCmdDrawIndexedIndirect)\
   X(vkCmdDispatch)\
-  X(vkCmdDispatchIndirect)
+  X(vkCmdDispatchIndirect)\
+  X(vkGetAccelerationStructureBuildSizesKHR)
 
 // Used to load/declare Vulkan functions without lots of clutter
 #define GPU_LOAD_ANONYMOUS(fn) fn = (PFN_##fn) vkGetInstanceProcAddr(NULL, #fn);
@@ -1788,16 +1789,30 @@ bool gpu_init(gpu_config* config) {
       .pNext = &multiviewFeatures
     };
 
-    enum { raytraceExtensionCount = 3 };
+    enum { raytraceExtensionCount = 7 };
     struct { const char *name; bool present; } raytraceExtensions[raytraceExtensionCount] = {
+      { .name="VK_KHR_shader_float_controls" }, // Reqd for ray_tracing_pipeline
+      { .name="VK_KHR_spirv_1_4" },             // ditto
       { .name="VK_KHR_ray_tracing_pipeline" },
+      { .name="VK_EXT_descriptor_indexing" },   // Reqd for VK_KHR_acceleration_structure
+      { .name="VK_KHR_buffer_device_address" }, // ditto
       { .name="VK_KHR_acceleration_structure" },
       { .name="VK_KHR_deferred_host_operations" },
     };
 
-    // Note: always defined but sometimes not used
+    // Raytrace features. Note: always defined but sometimes not used
+    VkPhysicalDeviceRayQueryFeaturesKHR enableRayQuery = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+      .rayQuery = true
+    };
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR enableRayTracingPipeline = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+      .pNext = &enableRayQuery,
+      .rayTracingPipeline = true
+    };
     VkPhysicalDeviceAccelerationStructureFeaturesKHR enableAccelerationStructure = { // Raytracing (will be linked in later)
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+      .pNext = &enableRayTracingPipeline,
       .accelerationStructure = true
     };
 
@@ -2787,4 +2802,34 @@ static bool check(bool condition, const char* message) {
     state.config.callback(state.config.userdata, message, true);
   }
   return condition;
+}
+
+bool gpu_raytrace_get_buildsize(gpu_raytrace_acceleration_type rat, uint32_t structCount, uint32_t *structSizes, void *geometry, gpu_raytrace_buildsize *buildsize) {
+  VkAccelerationStructureBuildGeometryInfoKHR input;
+  VkAccelerationStructureBuildSizesInfoKHR output;
+
+  memset(&input, 0, sizeof(input));
+  memset(&output, 0, sizeof(output));
+
+  input.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+  input.type = rat==GPU_RAYTRACE_ACCELERATION_TYPE_TOP?
+    VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR :
+    VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+  input.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+  input.geometryCount = structCount;
+  input.pGeometries = (VkAccelerationStructureGeometryKHR *)geometry;
+
+  output.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+
+  vkGetAccelerationStructureBuildSizesKHR(state.device,
+    VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+    &input,
+    structSizes,
+    &output);
+
+  buildsize->resultSize = output.accelerationStructureSize;
+  buildsize->updateScratchSize = output.updateScratchSize;
+  buildsize->buildScratchSize = output.buildScratchSize;
+
+  return true;
 }

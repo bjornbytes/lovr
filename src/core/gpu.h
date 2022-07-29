@@ -649,9 +649,21 @@ typedef struct {
   } vk;
 } gpu_config;
 
+typedef enum {
+  GPU_RAYTRACE_ACCELERATION_TYPE_TOP      = 0,
+  GPU_RAYTRACE_ACCELERATION_TYPE_BOTTOM   = 1,
+} gpu_raytrace_acceleration_type;
+
+typedef struct {
+  uint32_t resultSize; // TODO make gpu_size
+  uint32_t updateScratchSize;
+  uint32_t buildScratchSize;
+} gpu_raytrace_buildsize;
+
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
 uint32_t gpu_begin(void);
 void gpu_submit(gpu_stream** streams, uint32_t count);
 bool gpu_finished(uint32_t tick);
 void gpu_wait(void);
+bool gpu_raytrace_get_buildsize(gpu_raytrace_acceleration_type rat, uint32_t structCount, uint32_t *structSizes, void *geometry, gpu_raytrace_buildsize *buildsize);

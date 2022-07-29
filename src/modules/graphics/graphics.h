@@ -90,6 +90,17 @@ enum {
   TEXTURE_FEATURE_BLIT_DST = (1 << 7)
 };
 
+typedef enum {
+  RAYTRACE_ACCELERATION_TYPE_TOP      = 0,
+  RAYTRACE_ACCELERATION_TYPE_BOTTOM   = 1,
+} RaytraceAccelerationType;
+
+typedef struct {
+  uint32_t resultSize; // TODO make graphics_size
+  uint32_t updateScratchSize;
+  uint32_t buildScratchSize;
+} RaytraceBuildsize;
+
 bool lovrGraphicsInit(bool debug, bool vsync);
 void lovrGraphicsDestroy(void);
 
@@ -104,6 +115,8 @@ Font* lovrGraphicsGetDefaultFont(void);
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count);
 void lovrGraphicsWait(void);
+
+bool lovrGraphicsRaytraceGetBuildsize(RaytraceAccelerationType rat, uint32_t structCount, uint32_t *structSizes, void *geometry, RaytraceBuildsize *buildsize);
 
 // Buffer
 

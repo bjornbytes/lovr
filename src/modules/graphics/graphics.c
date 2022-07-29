@@ -4137,3 +4137,15 @@ static void onMessage(void* context, const char* message, bool severe) {
     lovrLog(LOG_DEBUG, "GPU", message);
   }
 }
+
+bool lovrGraphicsRaytraceGetBuildsize(RaytraceAccelerationType _rat, uint32_t geoCount, uint32_t *geoSizes, void *geometry, RaytraceBuildsize *outBuildsize) {
+  gpu_raytrace_buildsize buildsize;
+  gpu_raytrace_acceleration_type rat = (gpu_raytrace_acceleration_type)_rat; // Rely on enums being identical
+  bool success = gpu_raytrace_get_buildsize(rat, geoCount, geoSizes, geometry, &buildsize);
+  if (success) {
+    outBuildsize->resultSize = buildsize.resultSize;
+    outBuildsize->updateScratchSize = buildsize.updateScratchSize;
+    outBuildsize->buildScratchSize = buildsize.buildScratchSize;
+  }
+  return success;
+}

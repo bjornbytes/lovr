@@ -7,6 +7,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <string.h>
+#include "l_graphics_raytrace_common.h"
 
 static int l_lovrPassGetType(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
