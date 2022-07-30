@@ -25,7 +25,7 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 
 #define MAX_FRAME_MEMORY (1 << 30)
 #define MAX_SHADER_RESOURCES 32
-#define MATERIALS_PER_BLOCK 1024
+#define MATERIALS_PER_BLOCK 256
 #define FLOAT_BITS(f) ((union { float f; uint32_t u; }) { f }).u
 
 typedef struct {
