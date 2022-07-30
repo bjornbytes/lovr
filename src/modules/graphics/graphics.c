@@ -509,7 +509,7 @@ bool lovrGraphicsInit(bool debug, bool vsync) {
     .format = FORMAT_RGBA8,
     .width = 4,
     .height = 4,
-    .depth = 1,
+    .layers = 1,
     .mipmaps = 1,
     .samples = 1,
     .srgb = true,
@@ -1051,7 +1051,7 @@ Texture* lovrGraphicsGetWindowTexture() {
       .format = GPU_FORMAT_SURFACE,
       .width = width,
       .height = height,
-      .depth = 1,
+      .layers = 1,
       .mipmaps = 1,
       .samples = 1,
       .usage = TEXTURE_RENDER,
@@ -1077,21 +1077,21 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   };
 
   uint32_t limit = limits[info->type];
-  uint32_t mipmapCap = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_3D ? info->depth : 1))) + 1;
+  uint32_t mipmapCap = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_3D ? info->layers : 1))) + 1;
   uint32_t mipmaps = CLAMP(info->mipmaps, 1, mipmapCap);
   uint8_t supports = state.features.formats[info->format];
 
   lovrCheck(info->width > 0, "Texture width must be greater than zero");
   lovrCheck(info->height > 0, "Texture height must be greater than zero");
-  lovrCheck(info->depth > 0, "Texture depth must be greater than zero");
+  lovrCheck(info->layers > 0, "Texture layer count must be greater than zero");
   lovrCheck(info->width <= limit, "Texture %s exceeds the limit for this texture type (%d)", "width", limit);
   lovrCheck(info->height <= limit, "Texture %s exceeds the limit for this texture type (%d)", "height", limit);
-  lovrCheck(info->depth <= limit || info->type != TEXTURE_3D, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
-  lovrCheck(info->depth <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "depth", limit);
-  lovrCheck(info->depth == 1 || info->type != TEXTURE_2D, "2D textures must have a depth of 1");
-  lovrCheck(info->depth == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a depth of 6");
+  lovrCheck(info->layers <= limit || info->type != TEXTURE_3D, "Texture %s exceeds the limit for this texture type (%d)", "layer count", limit);
+  lovrCheck(info->layers <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "layer count", limit);
+  lovrCheck(info->layers == 1 || info->type != TEXTURE_2D, "2D textures must have a layer count of 1");
+  lovrCheck(info->layers == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a layer count of 6");
   lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
-  lovrCheck(measureTexture(info->format, info->width, info->height, info->depth) < 1 << 30, "Memory for a Texture can not exceed 1GB"); // TODO mip?
+  lovrCheck(measureTexture(info->format, info->width, info->height, info->layers) < 1 << 30, "Memory for a Texture can not exceed 1GB"); // TODO mip?
   lovrCheck(info->samples == 1 || info->samples == 4, "Texture multisample count must be 1 or 4...for now");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "Volume textures can not be multisampled");
@@ -1127,7 +1127,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       levelOffsets[level] = total;
       uint32_t width = MAX(info->width >> level, 1);
       uint32_t height = MAX(info->height >> level, 1);
-      levelSizes[level] = measureTexture(info->format, width, height, info->depth);
+      levelSizes[level] = measureTexture(info->format, width, height, info->layers);
       total += levelSizes[level];
     }
 
@@ -1135,11 +1135,11 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     char* data = gpu_map(scratchpad, total, 64, GPU_MAP_WRITE);
 
     for (uint32_t level = 0; level < levelCount; level++) {
-      for (uint32_t layer = 0; layer < info->depth; layer++) {
+      for (uint32_t layer = 0; layer < info->layers; layer++) {
         Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
         uint32_t slice = info->imageCount == 1 ? layer : 0;
         uint32_t size = lovrImageGetLayerSize(image, level);
-        lovrCheck(size == levelSizes[level] / info->depth, "Texture/Image size mismatch!");
+        lovrCheck(size == levelSizes[level] / info->layers, "Texture/Image size mismatch!");
         void* pixels = lovrImageGetLayerData(image, level, slice);
         memcpy(data, pixels, size);
         data += size;
@@ -1152,7 +1152,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
     .format = (gpu_texture_format) info->format,
-    .size = { info->width, info->height, info->depth },
+    .size = { info->width, info->height, info->layers },
     .mipmaps = texture->info.mipmaps,
     .samples = MAX(info->samples, 1),
     .usage =
@@ -1174,14 +1174,14 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   });
 
   // Automatically create a renderable view for renderable non-volume textures
-  if ((info->usage & TEXTURE_RENDER) && info->type != TEXTURE_3D && info->depth <= state.limits.renderSize[2]) {
+  if ((info->usage & TEXTURE_RENDER) && info->type != TEXTURE_3D && info->layers <= state.limits.renderSize[2]) {
     if (info->mipmaps == 1) {
       texture->renderView = texture->gpu;
     } else {
       gpu_texture_view_info view = {
         .source = texture->gpu,
         .type = GPU_TEXTURE_ARRAY,
-        .layerCount = info->depth,
+        .layerCount = info->layers,
         .levelCount = 1
       };
 
@@ -1205,12 +1205,12 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
 
 Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   const TextureInfo* info = &view->parent->info;
-  uint32_t maxDepth = info->type == TEXTURE_3D ? MAX(info->depth >> view->levelIndex, 1) : info->depth;
+  uint32_t maxLayers = info->type == TEXTURE_3D ? MAX(info->layers >> view->levelIndex, 1) : info->layers;
   lovrCheck(!info->parent, "Can't nest texture views");
   lovrCheck(view->type != TEXTURE_3D, "Texture views may not be volume textures");
   lovrCheck(view->layerCount > 0, "Texture view must have at least one layer");
   lovrCheck(view->levelCount > 0, "Texture view must have at least one mipmap");
-  lovrCheck(view->layerIndex + view->layerCount <= maxDepth, "Texture view layer range exceeds depth of parent texture");
+  lovrCheck(view->layerIndex + view->layerCount <= maxLayers, "Texture view layer range exceeds layer count of parent texture");
   lovrCheck(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
   lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D texture can only have a single layer");
   lovrCheck(view->levelCount == 1 || info->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
@@ -1226,7 +1226,7 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   texture->info.mipmaps = view->levelCount;
   texture->info.width = MAX(info->width >> view->levelIndex, 1);
   texture->info.height = MAX(info->height >> view->levelIndex, 1);
-  texture->info.depth = view->layerCount;
+  texture->info.layers = view->layerCount;
 
   gpu_texture_init_view(texture->gpu, &(gpu_texture_view_info) {
     .source = view->parent->gpu,
@@ -2070,7 +2070,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
       .format = FORMAT_RGBA8,
       .width = font->atlasWidth,
       .height = font->atlasHeight,
-      .depth = 1,
+      .layers = 1,
       .mipmaps = 1,
       .samples = 1,
       .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
@@ -2441,7 +2441,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
             .format = lovrImageGetFormat(data->images[index]),
             .width = lovrImageGetWidth(data->images[index], 0),
             .height = lovrImageGetHeight(data->images[index], 0),
-            .depth = 1,
+            .layers = 1,
             .mipmaps = info->mipmaps || lovrImageGetLevelCount(data->images[index]) > 1 ? ~0u : 1,
             .samples = 1,
             .srgb = texture == &material.texture || texture == &material.glowTexture,
@@ -3083,7 +3083,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   lovrCheck(canvas->textures[0] || canvas->depth.texture, "Render pass must have at least one color or depth texture");
   lovrCheck(main->width <= state.limits.renderSize[0], "Render pass width (%d) exceeds the renderSize limit of this GPU (%d)", main->width, state.limits.renderSize[0]);
   lovrCheck(main->height <= state.limits.renderSize[1], "Render pass height (%d) exceeds the renderSize limit of this GPU (%d)", main->height, state.limits.renderSize[1]);
-  lovrCheck(main->depth <= state.limits.renderSize[2], "Render pass view count (%d) exceeds the renderSize limit of this GPU (%d)", main->depth, state.limits.renderSize[2]);
+  lovrCheck(main->layers <= state.limits.renderSize[2], "Render pass view count (%d) exceeds the renderSize limit of this GPU (%d)", main->layers, state.limits.renderSize[2]);
   lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Render pass sample count must be 1 or 4...for now");
 
   uint32_t colorTextureCount = 0;
@@ -3094,7 +3094,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
     lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
     lovrCheck(texture->height == main->height, "Render pass texture sizes must match");
-    lovrCheck(texture->depth == main->depth, "Render pass texture sizes must match");
+    lovrCheck(texture->layers == main->layers, "Render pass texture sizes must match");
     lovrCheck(texture->samples == main->samples, "Render pass texture sample counts must match");
   }
 
@@ -3108,7 +3108,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
       lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
       lovrCheck(texture->width == main->width, "Render pass texture sizes must match");
       lovrCheck(texture->height == main->height, "Render pass texture sizes must match");
-      lovrCheck(texture->depth == main->depth, "Render pass texture sizes must match");
+      lovrCheck(texture->layers == main->layers, "Render pass texture sizes must match");
       lovrCheck(texture->samples == main->samples, "Depth buffer sample count must match the main render pass sample count...for now");
     }
   }
@@ -3124,7 +3124,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
       lovrCheck(canvas->loads[i] != LOAD_KEEP, "When internal multisampling is used, render pass textures must be cleared");
       TextureFormat format = canvas->textures[i]->info.format;
       bool srgb = canvas->textures[i]->info.srgb;
-      target.color[i].texture = getAttachment(target.size, main->depth, format, srgb, canvas->samples);
+      target.color[i].texture = getAttachment(target.size, main->layers, format, srgb, canvas->samples);
       target.color[i].resolve = canvas->textures[i]->renderView;
     } else {
       target.color[i].texture = canvas->textures[i]->renderView;
@@ -3155,7 +3155,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
       trackTexture(pass, canvas->depth.texture, phase, cache);
     }
   } else if (canvas->depth.format) {
-    target.depth.texture = getAttachment(target.size, main->depth, canvas->depth.format, false, canvas->samples);
+    target.depth.texture = getAttachment(target.size, main->layers, canvas->depth.format, false, canvas->samples);
   }
 
   if (target.depth.texture) {
@@ -3183,7 +3183,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     .colorCount = colorTextureCount,
     .depth.format = canvas->depth.texture ? canvas->depth.texture->info.format : canvas->depth.format,
     .multisample.count = canvas->samples,
-    .viewCount = main->depth,
+    .viewCount = main->layers,
     .depth.test = GPU_COMPARE_GEQUAL,
     .depth.write = true
   };
@@ -3211,7 +3211,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->bindingMask = 0;
   pass->bindingsDirty = true;
 
-  pass->cameraCount = main->depth;
+  pass->cameraCount = main->layers;
   pass->cameras = tempAlloc(pass->cameraCount * sizeof(Camera));
   for (uint32_t i = 0; i < pass->cameraCount; i++) {
     mat4_identity(pass->cameras[i].view);
@@ -4912,7 +4912,7 @@ void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(!texture->info.parent, "Texture views can not be cleared");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with 'transfer' usage to clear it");
-  lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.depth, "Texture clear range exceeds texture layer count");
+  lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.layers, "Texture clear range exceeds texture layer count");
   lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
   gpu_clear_texture(pass->stream, texture->gpu, value, layer, layerCount, level, levelCount);
   trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
@@ -4960,7 +4960,7 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
 void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[4]) {
   if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
   if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
-  if (extent[2] == ~0u) extent[2] = MIN(texture->info.depth - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
+  if (extent[2] == ~0u) extent[2] = MIN(texture->info.layers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy to it");
   lovrCheck(!texture->info.parent, "Texture views can not be written to");
@@ -4993,7 +4993,7 @@ void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint
 void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
   if (extent[0] == ~0u) extent[0] = MIN(src->info.width - srcOffset[0], dst->info.width - dstOffset[0]);
   if (extent[1] == ~0u) extent[1] = MIN(src->info.height - srcOffset[1], dst->info.height - dstOffset[0]);
-  if (extent[2] == ~0u) extent[2] = MIN(src->info.depth - srcOffset[2], dst->info.depth - dstOffset[0]);
+  if (extent[2] == ~0u) extent[2] = MIN(src->info.layers - srcOffset[2], dst->info.layers - dstOffset[0]);
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
@@ -5010,10 +5010,10 @@ void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32
 void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter) {
   if (srcExtent[0] == ~0u) srcExtent[0] = src->info.width - srcOffset[0];
   if (srcExtent[1] == ~0u) srcExtent[1] = src->info.height - srcOffset[1];
-  if (srcExtent[2] == ~0u) srcExtent[2] = src->info.depth - srcOffset[2];
+  if (srcExtent[2] == ~0u) srcExtent[2] = src->info.layers - srcOffset[2];
   if (dstExtent[0] == ~0u) dstExtent[0] = dst->info.width - dstOffset[0];
   if (dstExtent[1] == ~0u) dstExtent[1] = dst->info.height - dstOffset[1];
-  if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.depth - dstOffset[2];
+  if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.layers - dstOffset[2];
   lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
   lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
@@ -5401,10 +5401,10 @@ static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint1
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]) {
   uint32_t maxWidth = MAX(info->width >> offset[3], 1);
   uint32_t maxHeight = MAX(info->height >> offset[3], 1);
-  uint32_t maxDepth = info->type == TEXTURE_3D ? MAX(info->depth >> offset[3], 1) : info->depth;
+  uint32_t maxLayers = info->type == TEXTURE_3D ? MAX(info->layers >> offset[3], 1) : info->layers;
   lovrCheck(offset[0] + extent[0] <= maxWidth, "Texture x range [%d,%d] exceeds width (%d)", offset[0], offset[0] + extent[0], maxWidth);
   lovrCheck(offset[1] + extent[1] <= maxHeight, "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], maxHeight);
-  lovrCheck(offset[2] + extent[2] <= maxDepth, "Texture z range [%d,%d] exceeds depth (%d)", offset[2], offset[2] + extent[2], maxDepth);
+  lovrCheck(offset[2] + extent[2] <= maxLayers, "Texture layer range [%d,%d] exceeds layer count (%d)", offset[2], offset[2] + extent[2], maxLayers);
   lovrCheck(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
 }
 
@@ -5418,12 +5418,12 @@ static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, u
     uint32_t srcExtent[3] = {
       MAX(texture->info.width >> (level - 1), 1),
       MAX(texture->info.height >> (level - 1), 1),
-      volumetric ? MAX(texture->info.depth >> (level - 1), 1) : 1
+      volumetric ? MAX(texture->info.layers >> (level - 1), 1) : 1
     };
     uint32_t dstExtent[3] = {
       MAX(texture->info.width >> level, 1),
       MAX(texture->info.height >> level, 1),
-      volumetric ? MAX(texture->info.depth >> level, 1) : 1
+      volumetric ? MAX(texture->info.layers >> level, 1) : 1
     };
     gpu_blit(stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
     gpu_sync(stream, &(gpu_barrier) {

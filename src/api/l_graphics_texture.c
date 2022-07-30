@@ -59,10 +59,10 @@ static int l_lovrTextureGetHeight(lua_State* L) {
   return 1;
 }
 
-static int l_lovrTextureGetDepth(lua_State* L) {
+static int l_lovrTextureGetLayerCount(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
-  lua_pushinteger(L, info->depth);
+  lua_pushinteger(L, info->layers);
   return 1;
 }
 
@@ -71,7 +71,7 @@ static int l_lovrTextureGetDimensions(lua_State* L) {
   const TextureInfo* info = lovrTextureGetInfo(texture);
   lua_pushinteger(L, info->width);
   lua_pushinteger(L, info->height);
-  lua_pushinteger(L, info->depth);
+  lua_pushinteger(L, info->layers);
   return 3;
 }
 
@@ -112,7 +112,7 @@ const luaL_Reg lovrTexture[] = {
   { "getFormat", l_lovrTextureGetFormat },
   { "getWidth", l_lovrTextureGetWidth },
   { "getHeight", l_lovrTextureGetHeight },
-  { "getDepth", l_lovrTextureGetDepth },
+  { "getLayerCount", l_lovrTextureGetLayerCount },
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getSampleCount", l_lovrTextureGetSampleCount },

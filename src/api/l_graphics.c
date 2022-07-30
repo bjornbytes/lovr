@@ -850,7 +850,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.width = luax_checku32(L, index++);
     info.height = luax_checku32(L, index++);
     if (lua_isnumber(L, index)) {
-      info.depth = luax_checku32(L, index++);
+      info.layers = luax_checku32(L, index++);
       info.type = TEXTURE_ARRAY;
     }
     info.usage |= TEXTURE_RENDER;
@@ -859,7 +859,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     images = info.imageCount > COUNTOF(stack) ? malloc(info.imageCount * sizeof(Image*)) : stack;
     lovrAssert(images, "Out of memory");
     info.type = TEXTURE_ARRAY;
-    info.depth = info.imageCount;
+    info.layers = info.imageCount;
 
     if (info.imageCount == 0) {
       info.imageCount = 6;
@@ -883,10 +883,10 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   } else {
     info.imageCount = 1;
     images[0] = luax_checkimage(L, index++);
-    info.depth = lovrImageGetLayerCount(images[0]);
+    info.layers = lovrImageGetLayerCount(images[0]);
     if (lovrImageIsCube(images[0])) {
       info.type = TEXTURE_CUBE;
-    } else if (info.depth > 1) {
+    } else if (info.layers > 1) {
       info.type = TEXTURE_ARRAY;
     }
   }
@@ -960,8 +960,8 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  if (info.depth == 0) {
-    info.depth = info.type == TEXTURE_CUBE ? 6 : 1;
+  if (info.layers == 0) {
+    info.layers = info.type == TEXTURE_CUBE ? 6 : 1;
   }
 
   Texture* texture = lovrTextureCreate(&info);
@@ -1175,7 +1175,7 @@ static Texture* luax_opttexture(lua_State* L, int index) {
     .format = lovrImageGetFormat(image),
     .width = lovrImageGetWidth(image, 0),
     .height = lovrImageGetHeight(image, 0),
-    .depth = 1,
+    .layers = 1,
     .mipmaps = ~0u,
     .samples = 1,
     .usage = TEXTURE_SAMPLE,
