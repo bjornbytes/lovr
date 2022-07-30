@@ -494,7 +494,7 @@ typedef enum {
 
 typedef enum {
   STACK_TRANSFORM,
-  STACK_PIPELINE
+  STACK_STATE
 } StackType;
 
 typedef enum {

@@ -153,7 +153,7 @@ StringEntry lovrShaderType[] = {
 
 StringEntry lovrStackType[] = {
   [STACK_TRANSFORM] = ENTRY("transform"),
-  [STACK_PIPELINE] = ENTRY("pipeline"),
+  [STACK_STATE] = ENTRY("state"),
   { 0 }
 };
 

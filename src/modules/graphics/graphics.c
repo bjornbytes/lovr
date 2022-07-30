@@ -3288,7 +3288,7 @@ void lovrPassPush(Pass* pass, StackType stack) {
       lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "%s stack overflow (more pushes than pops?)", "Transform");
       mat4_init(pass->transforms[pass->transformIndex], pass->transforms[pass->transformIndex - 1]);
       break;
-    case STACK_PIPELINE:
+    case STACK_STATE:
       pass->pipeline = &pass->pipelines[++pass->pipelineIndex];
       lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack overflow (more pushes than pops?)", "Pipeline");
       memcpy(pass->pipeline, &pass->pipelines[pass->pipelineIndex - 1], sizeof(Pipeline));
@@ -3307,7 +3307,7 @@ void lovrPassPop(Pass* pass, StackType stack) {
       pass->transform = pass->transforms[--pass->transformIndex];
       lovrCheck(pass->transformIndex < COUNTOF(pass->transforms), "%s stack underflow (more pops than pushes?)", "Transform");
       break;
-    case STACK_PIPELINE:
+    case STACK_STATE:
       lovrRelease(pass->pipeline->font, lovrFontDestroy);
       lovrRelease(pass->pipeline->sampler, lovrSamplerDestroy);
       lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
