@@ -741,19 +741,6 @@ void lovrGraphicsSetBackground(float background[4]) {
   state.background[3] = background[3];
 }
 
-Font* lovrGraphicsGetDefaultFont() {
-  if (!state.defaultFont) {
-    Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
-    state.defaultFont = lovrFontCreate(&(FontInfo) {
-      .rasterizer = rasterizer,
-      .spread = 4.
-    });
-    lovrRelease(rasterizer, lovrRasterizerDestroy);
-  }
-
-  return state.defaultFont;
-}
-
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   if (!state.active) {
     return;
@@ -1938,6 +1925,19 @@ const MaterialInfo* lovrMaterialGetInfo(Material* material) {
 }
 
 // Font
+
+Font* lovrGraphicsGetDefaultFont() {
+  if (!state.defaultFont) {
+    Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
+    state.defaultFont = lovrFontCreate(&(FontInfo) {
+      .rasterizer = rasterizer,
+      .spread = 4.
+    });
+    lovrRelease(rasterizer, lovrRasterizerDestroy);
+  }
+
+  return state.defaultFont;
+}
 
 Font* lovrFontCreate(const FontInfo* info) {
   Font* font = calloc(1, sizeof(Font));
@@ -3254,23 +3254,23 @@ const PassInfo* lovrPassGetInfo(Pass* pass) {
 }
 
 void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
-  lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
+  lovrCheck(index < pass->cameraCount, "Invalid view index '%d'", index);
   mat4_init(viewMatrix, pass->cameras[index].view);
 }
 
 void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
-  lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
+  lovrCheck(index < pass->cameraCount, "Invalid view index '%d'", index);
   mat4_init(pass->cameras[index].view, viewMatrix);
   pass->cameraDirty = true;
 }
 
 void lovrPassGetProjection(Pass* pass, uint32_t index, float* projection) {
-  lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
+  lovrCheck(index < pass->cameraCount, "Invalid view index '%d'", index);
   mat4_init(projection, pass->cameras[index].projection);
 }
 
 void lovrPassSetProjection(Pass* pass, uint32_t index, float* projection) {
-  lovrCheck(index < pass->cameraCount, "Invalid camera index '%d'", index);
+  lovrCheck(index < pass->cameraCount, "Invalid view index '%d'", index);
   mat4_init(pass->cameras[index].projection, projection);
   pass->cameraDirty = true;
 
@@ -3314,8 +3314,8 @@ void lovrPassPop(Pass* pass, StackType stack) {
       lovrRelease(pass->pipeline->material, lovrMaterialDestroy);
       pass->pipeline = &pass->pipelines[--pass->pipelineIndex];
       lovrCheck(pass->pipelineIndex < COUNTOF(pass->pipelines), "%s stack underflow (more pops than pushes?)", "Pipeline");
-      gpu_set_viewport(pass->stream, pass->pipeline->viewport, pass->pipeline->depthRange);
-      gpu_set_scissor(pass->stream, pass->pipeline->scissor);
+      lovrPassSetViewport(pass, pass->pipeline->viewport, pass->pipeline->depthRange);
+      lovrPassSetScissor(pass, pass->pipeline->scissor);
       pass->pipeline->dirty = true;
       pass->samplerDirty = true;
       pass->materialDirty = true;
@@ -3504,7 +3504,7 @@ void lovrPassSetSampler(Pass* pass, Sampler* sampler) {
 }
 
 void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]) {
-  gpu_set_scissor(pass->stream, scissor);
+  if (pass->info.type == PASS_RENDER) gpu_set_scissor(pass->stream, scissor);
   memcpy(pass->pipeline->scissor, scissor, 4 * sizeof(uint32_t));
 }
 
@@ -3608,13 +3608,13 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
 }
 
 void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]) {
-  gpu_set_viewport(pass->stream, viewport, depthRange);
+  if (pass->info.type == PASS_RENDER) gpu_set_viewport(pass->stream, viewport, depthRange);
   memcpy(pass->pipeline->viewport, viewport, 4 * sizeof(float));
   memcpy(pass->pipeline->depthRange, depthRange, 2 * sizeof(float));
 }
 
 void lovrPassSetWinding(Pass* pass, Winding winding) {
-  if (pass->cameras[0].projection[5] > 0.f) winding = !winding; // Handedness requires winding flip
+  if (pass->cameraCount > 0 && pass->cameras[0].projection[5] > 0.f) winding = !winding; // Handedness requires winding flip
   pass->pipeline->dirty |= pass->pipeline->info.rasterizer.winding != (gpu_winding) winding;
   pass->pipeline->info.rasterizer.winding = (gpu_winding) winding;
 }
@@ -3844,6 +3844,7 @@ static void flushBindings(Pass* pass, Shader* shader) {
     return;
   }
 
+  uint32_t stack = tempPush();
   uint32_t set = pass->info.type == PASS_RENDER ? 2 : 0;
   gpu_binding* bindings = tempAlloc(shader->resourceCount * sizeof(gpu_binding));
 
@@ -3861,6 +3862,7 @@ static void flushBindings(Pass* pass, Shader* shader) {
   gpu_bundle_write(&bundle, &info, 1);
   gpu_bind_bundle(pass->stream, shader->gpu, set, bundle, NULL, 0);
   state.stats.bundleSwitches++;
+  tempPop(stack);
 }
 
 static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
@@ -3888,7 +3890,8 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
   }
 
   if (pass->samplerDirty) {
-    pass->builtins[2].sampler = pass->pipeline->sampler->gpu;
+    Sampler* sampler = pass->pipeline->sampler ? pass->pipeline->sampler : state.defaultSamplers[FILTER_LINEAR];
+    pass->builtins[2].sampler = sampler->gpu;
     pass->samplerDirty = false;
     rebind = true;
   }
@@ -3934,7 +3937,8 @@ static void flushMaterial(Pass* pass, Draw* draw, Shader* shader) {
     state.stats.bundleSwitches++;
     pass->materialDirty = true;
   } else if (pass->materialDirty) {
-    gpu_bind_bundle(pass->stream, shader->gpu, 1, pass->pipeline->material->bundle, NULL, 0);
+    Material* material = pass->pipeline->material ? pass->pipeline->material : state.defaultMaterial;
+    gpu_bind_bundle(pass->stream, shader->gpu, 1, material->bundle, NULL, 0);
     state.stats.bundleSwitches++;
     pass->materialDirty = false;
   }

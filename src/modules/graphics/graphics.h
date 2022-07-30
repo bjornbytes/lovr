@@ -101,7 +101,6 @@ bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
 
 void lovrGraphicsGetBackground(float background[4]);
 void lovrGraphicsSetBackground(float background[4]);
-Font* lovrGraphicsGetDefaultFont(void);
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count);
 void lovrGraphicsWait(void);
@@ -375,6 +374,7 @@ typedef struct {
   struct { uint8_t r, g, b, a; } color;
 } GlyphVertex;
 
+Font* lovrGraphicsGetDefaultFont(void);
 Font* lovrFontCreate(const FontInfo* info);
 void lovrFontDestroy(void* ref);
 const FontInfo* lovrFontGetInfo(Font* font);
@@ -551,13 +551,13 @@ typedef struct {
   uint32_t format;
   LoadAction load;
   float clear;
-} DepthBuffer;
+} DepthInfo;
 
 typedef struct {
   Texture* textures[4];
   LoadAction loads[4];
   float clears[4][4];
-  DepthBuffer depth;
+  DepthInfo depth;
   uint32_t samples;
   bool mipmap;
 } Canvas;
