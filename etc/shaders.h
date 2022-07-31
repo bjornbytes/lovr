@@ -5,6 +5,7 @@
 #include "shaders/cubemap.vert.h"
 #include "shaders/cubemap.frag.h"
 #include "shaders/equirect.frag.h"
+#include "shaders/stereoblit.frag.h"
 #include "shaders/animator.comp.h"
 #include "shaders/timewizard.comp.h"
 

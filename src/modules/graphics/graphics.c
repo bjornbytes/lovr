@@ -1499,6 +1499,11 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
       info.source[1] = (ShaderSource) { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) };
       info.label = "font";
       break;
+    case SHADER_STEREOBLIT:
+      info.source[0] = (ShaderSource) { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) };
+      info.source[1] = (ShaderSource) { lovr_shader_stereoblit_frag, sizeof(lovr_shader_stereoblit_frag) };
+      info.label = "stereoblit";
+      break;
     default: lovrUnreachable();
   }
 
@@ -4733,7 +4738,7 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
 void lovrPassFill(Pass* pass, Texture* texture) {
   lovrPassDraw(pass, &(Draw) {
     .mode = MESH_TRIANGLES,
-    .shader = SHADER_FILL,
+    .shader = texture->info.layers == 2 ? SHADER_STEREOBLIT : SHADER_FILL,
     .material = texture ? lovrTextureGetMaterial(texture) : NULL,
     .vertex.format = VERTEX_EMPTY,
     .count = 3

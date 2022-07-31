@@ -266,6 +266,7 @@ typedef enum {
   SHADER_PANO,
   SHADER_FILL,
   SHADER_FONT,
+  SHADER_STEREOBLIT,
   DEFAULT_SHADER_COUNT
 } DefaultShader;
 
