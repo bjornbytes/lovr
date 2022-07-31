@@ -1219,7 +1219,11 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "uvShift");
-    if (lua_type(L, -1) == LUA_TTABLE) {
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+      float shift = lua_tonumber(L, -1);
+      info.data.uvShift[0] = shift;
+      info.data.uvShift[1] = shift;
+    } else if (lua_type(L, -1) == LUA_TTABLE) {
       lua_rawgeti(L, -1, 1);
       lua_rawgeti(L, -1, 2);
       info.data.uvShift[0] = luax_optfloat(L, -2, 0.f);
