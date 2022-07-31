@@ -1,3 +1,8 @@
+// Flags
+layout(constant_id = 1000) const bool applyUVTransform = true;
+layout(constant_id = 1001) const bool applyAlphaCutoff = false;
+layout(constant_id = 1002) const bool applyGlow = false;
+
 // Resources
 #ifndef GL_COMPUTE_SHADER
 struct Camera {
@@ -17,21 +22,25 @@ layout(set = 0, binding = 0) uniform CameraBuffer { Camera Cameras[6]; };
 layout(set = 0, binding = 1) uniform DrawBuffer { Draw Draws[256]; };
 layout(set = 0, binding = 2) uniform sampler Sampler;
 
+struct MaterialData {
+  vec4 color;
+  vec4 glow;
+  vec2 uvShift;
+  vec2 uvScale;
+  vec2 sdfRange;
+  float metalness;
+  float roughness;
+  float clearcoat;
+  float clearcoatRoughness;
+  float occlusionStrength;
+  float glowStrength;
+  float normalScale;
+  float alphaCutoff;
+  float pointSize;
+};
+
 layout(set = 1, binding = 0) uniform MaterialBuffer {
-  vec4 MaterialColor;
-  vec4 GlowColor;
-  vec2 UVShift;
-  vec2 UVScale;
-  vec2 SDFRange;
-  float Metalness;
-  float Roughness;
-  float Clearcoat;
-  float ClearcoatRoughness;
-  float OcclusionStrength;
-  float GlowStrength;
-  float NormalScale;
-  float AlphaCutoff;
-  float PointSize;
+  MaterialData Material;
 };
 
 layout(set = 1, binding = 1) uniform texture2D ColorTexture;
@@ -111,11 +120,11 @@ layout(location = 12) in vec2 UV;
 #define WorldFromLocal (Transform)
 
 #define DefaultPosition (ClipFromLocal * VertexPosition)
-#define DefaultColor (Color * getPixel(ColorTexture))
+#define DefaultColor (Color * getPixel(ColorTexture, UV))
 #endif
 
+// Helpers
 #ifdef GL_FRAGMENT_SHADER
-vec4 getPixel(texture2D t) { return texture(sampler2D(t, Sampler), UV); }
 vec4 getPixel(texture2D t, vec2 uv) { return texture(sampler2D(t, Sampler), uv); }
 vec4 getPixel(texture3D t, vec3 uvw) { return texture(sampler3D(t, Sampler), uvw); }
 vec4 getPixel(textureCube t, vec3 dir) { return texture(samplerCube(t, Sampler), dir); }
@@ -127,11 +136,17 @@ vec4 getPixel(texture2DArray t, vec3 uvw) { return texture(sampler2DArray(t, Sam
 #ifdef GL_VERTEX_SHADER
 vec4 lovrmain();
 void main() {
-  Color = VertexColor * MaterialColor * PassColor;
   Normal = NormalMatrix * VertexNormal;
+  Color = VertexColor * Material.color * PassColor;
   UV = VertexUV;
-  PointSize = 1.f;
+
+  PointSize = Material.pointSize;
   Position = lovrmain();
+
+  if (applyUVTransform) {
+    UV *= Material.uvScale;
+    UV += Material.uvShift;
+  }
 }
 #endif
 
@@ -139,6 +154,14 @@ void main() {
 vec4 lovrmain();
 void main() {
   PixelColors[0] = lovrmain();
+
+  if (applyGlow) {
+    PixelColors[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb;
+  }
+
+  if (applyAlphaCutoff && PixelColors[0].a <= Material.alphaCutoff) {
+    discard;
+  }
 }
 #endif
 
