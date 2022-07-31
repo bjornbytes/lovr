@@ -1333,32 +1333,18 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
     "#extension GL_EXT_multiview : require\n"
     "#extension GL_GOOGLE_include_directive : require\n";
 
-  const char* suffixes[] = {
-    [STAGE_VERTEX] = ""
-      "void main() {"
-        "Color = PassColor * VertexColor;"
-        "Normal = NormalMatrix * VertexNormal;"
-        "UV = VertexUV;"
-        "Position = lovrmain();"
-      "}",
-    [STAGE_FRAGMENT] = "void main() { PixelColors[0] = lovrmain(); }",
-    [STAGE_COMPUTE] = "void main() { lovrmain(); }"
-  };
-
   const char* strings[] = {
     prefix,
     (const char*) etc_shaders_lovr_glsl,
     "#line 1\n",
-    source->code,
-    suffixes[stage]
+    source->code
   };
 
   int lengths[] = {
     -1,
     etc_shaders_lovr_glsl_len,
     -1,
-    source->size,
-    -1
+    source->size
   };
 
   const glslang_resource_t* resource = glslang_default_resource();

@@ -14,11 +14,11 @@ float median(float r, float g, float b) {
   return max(min(r, g), min(max(r, g), b));
 }
 
-void main() {
+vec4 lovrmain() {
   vec3 msdf = getPixel(ColorTexture).rgb;
   float sdf = median(msdf.r, msdf.g, msdf.b);
   float screenPxDistance = screenPxRange() * (sdf - .5);
   float alpha = clamp(screenPxDistance + .5, 0., 1.);
   if (alpha <= 0.) discard;
-  PixelColors[0] = vec4(Color.rgb, Color.a * alpha);
+  return vec4(Color.rgb, Color.a * alpha);
 }

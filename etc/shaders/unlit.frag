@@ -4,6 +4,6 @@
 
 #include "lovr.glsl"
 
-void main() {
-  PixelColors[0] = Color * MaterialColor * getPixel(ColorTexture, UV);
+vec4 lovrmain() {
+  return DefaultColor;
 }

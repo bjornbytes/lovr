@@ -4,10 +4,6 @@
 
 #include "lovr.glsl"
 
-void main() {
-  Color = PassColor * VertexColor;
-  Normal = normalize(NormalMatrix * VertexNormal);
-  UV = VertexUV;
-  Position = DefaultPosition;
-  PointSize = 1.f;
+vec4 lovrmain() {
+  return DefaultPosition;
 }

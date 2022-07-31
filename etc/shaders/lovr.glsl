@@ -111,7 +111,7 @@ layout(location = 12) in vec2 UV;
 #define WorldFromLocal (Transform)
 
 #define DefaultPosition (ClipFromLocal * VertexPosition)
-#define DefaultColor (Color * MaterialColor * getPixel(ColorTexture))
+#define DefaultColor (Color * getPixel(ColorTexture))
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
@@ -120,4 +120,32 @@ vec4 getPixel(texture2D t, vec2 uv) { return texture(sampler2D(t, Sampler), uv);
 vec4 getPixel(texture3D t, vec3 uvw) { return texture(sampler3D(t, Sampler), uvw); }
 vec4 getPixel(textureCube t, vec3 dir) { return texture(samplerCube(t, Sampler), dir); }
 vec4 getPixel(texture2DArray t, vec3 uvw) { return texture(sampler2DArray(t, Sampler), uvw); }
+#endif
+
+// Entrypoints
+#ifndef NO_DEFAULT_MAIN
+#ifdef GL_VERTEX_SHADER
+vec4 lovrmain();
+void main() {
+  Color = VertexColor * MaterialColor * PassColor;
+  Normal = NormalMatrix * VertexNormal;
+  UV = VertexUV;
+  PointSize = 1.f;
+  Position = lovrmain();
+}
+#endif
+
+#ifdef GL_FRAGMENT_SHADER
+vec4 lovrmain();
+void main() {
+  PixelColors[0] = lovrmain();
+}
+#endif
+
+#ifdef GL_COMPUTE_SHADER
+vec4 lovrmain();
+void main() {
+  lovrmain();
+}
+#endif
 #endif
