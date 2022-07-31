@@ -308,6 +308,7 @@ struct Pass {
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
   Shape shapeCache[16];
+  arr_t(Readback*) readbacks;
   arr_t(Access) access;
 };
 
@@ -791,36 +792,57 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   // End passes
   for (uint32_t i = 0; i < count; i++) {
-    streams[i + 1] = passes[i]->stream;
+    Pass* pass = passes[i];
 
-    if (passes[i]->info.type == PASS_RENDER) {
-      gpu_render_end(passes[i]->stream);
+    streams[i + 1] = pass->stream;
 
-      Canvas* canvas = &passes[i]->info.canvas;
+    switch (pass->info.type) {
+      case PASS_RENDER:
+        gpu_render_end(pass->stream);
 
-      for (uint32_t j = 0; j < COUNTOF(canvas->textures) && canvas->textures[j]; j++) {
-        if (canvas->mipmap && canvas->textures[j]->info.mipmaps > 1) {
-          barriers[i].prev |= GPU_PHASE_COLOR;
+        Canvas* canvas = &pass->info.canvas;
+
+        for (uint32_t j = 0; j < COUNTOF(canvas->textures) && canvas->textures[j]; j++) {
+          if (canvas->mipmap && canvas->textures[j]->info.mipmaps > 1) {
+            barriers[i].prev |= GPU_PHASE_COLOR;
+            barriers[i].next |= GPU_PHASE_TRANSFER;
+            barriers[i].flush |= GPU_CACHE_COLOR_WRITE;
+            barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
+            mipmapTexture(pass->stream, canvas->textures[j], 0, ~0u);
+          }
+
+          if (canvas->textures[j] == state.window) {
+            present = true;
+          }
+        }
+
+        if (canvas->mipmap && canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
+          barriers[i].prev |= GPU_PHASE_DEPTH_LATE;
           barriers[i].next |= GPU_PHASE_TRANSFER;
-          barriers[i].flush |= GPU_CACHE_COLOR_WRITE;
+          barriers[i].flush |= GPU_CACHE_DEPTH_WRITE;
           barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
-          mipmapTexture(passes[i]->stream, canvas->textures[j], 0, ~0u);
+          mipmapTexture(pass->stream, canvas->depth.texture, 0, ~0u);
         }
+        break;
+      case PASS_COMPUTE:
+        gpu_compute_end(pass->stream);
+        break;
+      case PASS_TRANSFER:
+        for (uint32_t j = 0; j < pass->readbacks.length; j++) {
+          Readback* readback = pass->readbacks.data[j];
 
-        if (canvas->textures[j] == state.window) {
-          present = true;
+          if (!state.oldestReadback) {
+            state.oldestReadback = readback;
+          }
+
+          if (state.newestReadback) {
+            state.newestReadback->next = readback;
+          }
+
+          state.newestReadback = readback;
+          lovrRetain(readback);
         }
-      }
-
-      if (canvas->mipmap && canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
-        barriers[i].prev |= GPU_PHASE_DEPTH_LATE;
-        barriers[i].next |= GPU_PHASE_TRANSFER;
-        barriers[i].flush |= GPU_CACHE_DEPTH_WRITE;
-        barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
-        mipmapTexture(passes[i]->stream, canvas->depth.texture, 0, ~0u);
-      }
-    } else if (passes[i]->info.type == PASS_COMPUTE) {
-      gpu_compute_end(passes[i]->stream);
+        break;
     }
   }
 
@@ -2873,17 +2895,6 @@ Readback* lovrReadbackCreate(const ReadbackInfo* info) {
   }
 
   readback->pointer = gpu_map(readback->buffer, readback->size, 16, GPU_MAP_READ);
-
-  if (!state.oldestReadback) {
-    state.oldestReadback = readback;
-  }
-
-  if (state.newestReadback) {
-    state.newestReadback->next = readback;
-  }
-
-  state.newestReadback = readback;
-  lovrRetain(readback);
   return readback;
 }
 
@@ -3037,6 +3048,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->ref = 1;
   pass->info = *info;
   pass->stream = gpu_stream_begin(info->label);
+  arr_init(&pass->readbacks, tempGrow);
   arr_init(&pass->access, tempGrow);
   arr_push(&state.passes, pass);
   lovrRetain(pass);
@@ -5045,6 +5057,7 @@ Readback* lovrPassReadBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32
   });
   gpu_copy_buffers(pass->stream, buffer->gpu, readback->buffer, offset, 0, extent);
   trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
+  arr_push(&pass->readbacks, readback);
   return readback;
 }
 
@@ -5065,6 +5078,7 @@ Readback* lovrPassReadTexture(Pass* pass, Texture* texture, uint32_t offset[4], 
   });
   gpu_copy_texture_buffer(pass->stream, texture->gpu, readback->buffer, offset, 0, extent);
   trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
+  arr_push(&pass->readbacks, readback);
   return readback;
 }
 
@@ -5086,6 +5100,7 @@ Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t c
     gpu_copy_tally_buffer(pass->stream, tally->gpu, readback->buffer, index, 0, count, stride);
   }
 
+  arr_push(&pass->readbacks, readback);
   return readback;
 }
 
