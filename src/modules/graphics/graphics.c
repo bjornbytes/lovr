@@ -4421,23 +4421,23 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
     uint16_t b = i * 2 + 1;
     uint16_t c = i * 2 + 2;
     uint16_t d = i * 2 + 3;
-    uint16_t quad[] = { a, b, c, c, b, d };
+    uint16_t quad[] = { a, c, b, b, c, d };
     memcpy(indices, quad, sizeof(quad));
     indices += COUNTOF(quad);
   }
 
   if (capped) {
     // Cap centers
-    *vertices++ = (ShapeVertex) { { 0.f, 0.f, -.5f }, { 0.f, 0.f, -.5f }, { .5f, .5f } };
-    *vertices++ = (ShapeVertex) { { 0.f, 0.f,  .5f }, { 0.f, 0.f,  .5f }, { .5f, .5f } };
+    *vertices++ = (ShapeVertex) { { 0.f, 0.f, -.5f }, { 0.f, 0.f, -1.f }, { .5f, .5f } };
+    *vertices++ = (ShapeVertex) { { 0.f, 0.f,  .5f }, { 0.f, 0.f,  1.f }, { .5f, .5f } };
 
     // Caps
     for (uint32_t i = 0; i <= segments; i++) {
       float theta = angle1 + i * angleShift;
       float x = cosf(theta);
       float y = sinf(theta);
-      *vertices++ = (ShapeVertex) { { x, y, -.5f }, { 0.f, 0.f, -.5f }, { x + .5f, y - .5f } };
-      *vertices++ = (ShapeVertex) { { x, y,  .5f }, { 0.f, 0.f,  .5f }, { x + .5f, y - .5f } };
+      *vertices++ = (ShapeVertex) { { x, y, -.5f }, { 0.f, 0.f, -1.f }, { x + .5f, y - .5f } };
+      *vertices++ = (ShapeVertex) { { x, y,  .5f }, { 0.f, 0.f,  1.f }, { x + .5f, y - .5f } };
     }
 
     // Cap wedges
@@ -4446,7 +4446,7 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
       uint16_t a = base + 0;
       uint16_t b = base + (i + 1) * 2;
       uint16_t c = base + (i + 2) * 2;
-      uint16_t wedge1[] = { a + 0, b + 0, c + 0 };
+      uint16_t wedge1[] = { a + 0, c + 0, b + 0 };
       uint16_t wedge2[] = { a + 1, b + 1, c + 1 };
       memcpy(indices + 0, wedge1, sizeof(wedge1));
       memcpy(indices + 3, wedge2, sizeof(wedge2));
