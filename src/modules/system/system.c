@@ -4,7 +4,13 @@
 #include "util.h"
 #include <string.h>
 
+static struct {
+  bool initialized;
+  bool pressedKeys[KEY_COUNT];
+} state;
+
 static void onKeyboardEvent(os_button_action action, os_key key, uint32_t scancode, bool repeat) {
+  state.pressedKeys[key] = (action == BUTTON_PRESSED);
   lovrEventPush((Event) {
     .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
     .data.key.code = key,
@@ -30,10 +36,6 @@ static void onPermissionEvent(os_permission permission, bool granted) {
   lovrEventPush(event);
 }
 
-static struct {
-  bool initialized;
-} state;
-
 bool lovrSystemInit() {
   if (state.initialized) return false;
   os_on_key(onKeyboardEvent);
@@ -57,6 +59,10 @@ const char* lovrSystemGetOS() {
 
 uint32_t lovrSystemGetCoreCount() {
   return os_get_core_count();
+}
+
+bool lovrSystemIsKeyDown(os_key key) {
+  return state.pressedKeys[key];
 }
 
 void lovrSystemRequestPermission(Permission permission) {
