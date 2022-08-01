@@ -114,10 +114,17 @@ static int l_lovrSystemRequestPermission(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSystemIsKeyDown(lua_State* L) {
+  os_key key = luax_checkenum(L, 1, KeyboardKey, NULL);
+    lua_pushboolean(L, lovrSystemIsKeyDown(key));
+  return 1;
+}
+
 static const luaL_Reg lovrSystem[] = {
   { "getOS", l_lovrSystemGetOS },
   { "getCoreCount", l_lovrSystemGetCoreCount },
   { "requestPermission", l_lovrSystemRequestPermission },
+  { "isKeyDown", l_lovrSystemIsKeyDown },
   { NULL, NULL }
 };
 
