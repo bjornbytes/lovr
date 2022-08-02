@@ -62,7 +62,7 @@ uint32_t lovrSystemGetCoreCount() {
 }
 
 bool lovrSystemIsKeyDown(int keycode) {
-  return state.pressedKeys[key];
+  return state.pressedKeys[keycode];
 }
 
 void lovrSystemRequestPermission(Permission permission) {
