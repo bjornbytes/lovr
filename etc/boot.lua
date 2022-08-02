@@ -37,8 +37,8 @@ function lovr.boot()
       globals = true
     },
     window = {
-      width = 800,
-      height = 600,
+      width = 720,
+      height = 800,
       fullscreen = false,
       resizable = false,
       title = 'LÖVR',
@@ -171,21 +171,22 @@ function lovr.errhand(message, traceback)
   lovr.graphics.submit()
   lovr.graphics.setBackground(.11, .10, .14)
 
+  local scale = .3
   local font = lovr.graphics.getDefaultFont()
   local wrap = .7 * font:getPixelDensity()
   local lines = font:getLines(message, wrap)
-  local width = math.min(font:getWidth(message), wrap)
-  local height = 2.6 + #lines
+  local width = math.min(font:getWidth(message), wrap) * scale
+  local height = .8 + #lines * font:getHeight() * scale
   local x = -width / 2
   local y = math.min(height / 2, 10)
-  local z = -20
+  local z = -10
   font:setPixelDensity()
 
   local function render(pass)
     pass:setColor(.95, .95, .95)
     pass:setBlendMode('alpha')
-    pass:text('Error', x, y, z, 1.6, 0, 0, 0, 0, nil, 'left', 'top')
-    pass:text(message, x, y - 2.6, z, 1, 0, 0, 0, 0, wrap, 'left', 'top')
+    pass:text('Error', x, y, z, scale * 1.6, 0, 0, 0, 0, nil, 'left', 'top')
+    pass:text(message, x, y - .8, z, scale, 0, 0, 0, 0, wrap, 'left', 'top')
   end
 
   return function()
