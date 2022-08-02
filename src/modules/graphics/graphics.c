@@ -1466,46 +1466,51 @@ static void lovrShaderInit(Shader* shader) {
   }
 }
 
+ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage) {
+  if (stage == STAGE_COMPUTE) {
+    return (ShaderSource) { NULL, 0 };
+  }
+
+  const ShaderSource sources[][2] = {
+    [SHADER_UNLIT] = {
+      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+    },
+    [SHADER_FONT] = {
+      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
+    },
+    [SHADER_CUBEMAP] = {
+      { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
+      { lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) }
+    },
+    [SHADER_EQUIRECT] = {
+      { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
+      { lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) }
+    },
+    [SHADER_FILL] = {
+      { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+    },
+    [SHADER_STEREOBLIT] = {
+      { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      { lovr_shader_stereoblit_frag, sizeof(lovr_shader_stereoblit_frag) }
+    }
+  };
+
+  return sources[type][stage];
+}
+
 Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
   if (state.defaultShaders[type]) {
     return state.defaultShaders[type];
   }
 
-  ShaderInfo info = { .type = SHADER_GRAPHICS };
-
-  switch (type) {
-    case SHADER_UNLIT:
-      info.source[0] = (ShaderSource) { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) };
-      info.source[1] = (ShaderSource) { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) };
-      info.label = "unlit";
-      break;
-    case SHADER_CUBE:
-      info.source[0] = (ShaderSource) { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) };
-      info.source[1] = (ShaderSource) { lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) };
-      info.label = "cubemap";
-      break;
-    case SHADER_PANO:
-      info.source[0] = (ShaderSource) { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) };
-      info.source[1] = (ShaderSource) { lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) };
-      info.label = "equirect";
-      break;
-    case SHADER_FILL:
-      info.source[0] = (ShaderSource) { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) };
-      info.source[1] = (ShaderSource) { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) };
-      info.label = "fill";
-      break;
-    case SHADER_FONT:
-      info.source[0] = (ShaderSource) { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) };
-      info.source[1] = (ShaderSource) { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) };
-      info.label = "font";
-      break;
-    case SHADER_STEREOBLIT:
-      info.source[0] = (ShaderSource) { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) };
-      info.source[1] = (ShaderSource) { lovr_shader_stereoblit_frag, sizeof(lovr_shader_stereoblit_frag) };
-      info.label = "stereoblit";
-      break;
-    default: lovrUnreachable();
-  }
+  ShaderInfo info = {
+    .type = SHADER_GRAPHICS,
+    .source[0] = lovrGraphicsGetDefaultShaderSource(type, STAGE_VERTEX),
+    .source[1] = lovrGraphicsGetDefaultShaderSource(type, STAGE_FRAGMENT)
+  };
 
   return state.defaultShaders[type] = lovrShaderCreate(&info);
 }
@@ -4719,7 +4724,7 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
   if (texture->info.type == TEXTURE_2D) {
     lovrPassDraw(pass, &(Draw) {
       .mode = MESH_TRIANGLES,
-      .shader = SHADER_PANO,
+      .shader = SHADER_EQUIRECT,
       .material = texture ? lovrTextureGetMaterial(texture) : NULL,
       .vertex.format = VERTEX_EMPTY,
       .count = 6
@@ -4727,7 +4732,7 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
   } else {
     lovrPassDraw(pass, &(Draw) {
       .mode = MESH_TRIANGLES,
-      .shader = SHADER_CUBE,
+      .shader = SHADER_CUBEMAP,
       .material = texture ? lovrTextureGetMaterial(texture) : NULL,
       .vertex.format = VERTEX_EMPTY,
       .count = 6

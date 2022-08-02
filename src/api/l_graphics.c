@@ -60,10 +60,11 @@ StringEntry lovrCullMode[] = {
 
 StringEntry lovrDefaultShader[] = {
   [SHADER_UNLIT] = ENTRY("unlit"),
-  [SHADER_CUBE] = ENTRY("cube"),
-  [SHADER_PANO] = ENTRY("pano"),
-  [SHADER_FILL] = ENTRY("fill"),
   [SHADER_FONT] = ENTRY("font"),
+  [SHADER_CUBEMAP] = ENTRY("cubemap"),
+  [SHADER_EQUIRECT] = ENTRY("equirect"),
+  [SHADER_FILL] = ENTRY("fill"),
+  [SHADER_STEREOBLIT] = ENTRY("stereoblit"),
   { 0 }
 };
 
@@ -1047,7 +1048,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
   return 1;
 }
 
-static ShaderSource luax_checkshadercode(lua_State* L, int index, ShaderStage stage, bool* allocated) {
+static ShaderSource luax_checkshadersource(lua_State* L, int index, ShaderStage stage, bool* allocated) {
   ShaderSource source;
   if (lua_isstring(L, index)) {
     size_t length;
@@ -1057,9 +1058,19 @@ static ShaderSource luax_checkshadercode(lua_State* L, int index, ShaderStage st
       source.size = length;
       *allocated = false;
     } else {
+      for (int i = 0; lovrDefaultShader[i].length; i++) {
+        if (lovrDefaultShader[i].length == length && !memcmp(lovrDefaultShader[i].string, string, length)) {
+          return lovrGraphicsGetDefaultShaderSource(i, stage);
+        }
+      }
+
       source.code = luax_readfile(string, &source.size);
-      lovrAssert(source.code, "Could not read shader code from %s", string);
-      *allocated = true;
+
+      if (source.code) {
+        *allocated = true;
+      } else {
+        luaL_argerror(L, index, "single-line string was not filename or DefaultShader");
+      }
     }
   } else if (lua_istable(L, index)) {
     int length = luax_len(L, index);
@@ -1094,7 +1105,7 @@ static ShaderSource luax_checkshadercode(lua_State* L, int index, ShaderStage st
 static int l_lovrGraphicsCompileShader(lua_State* L) {
   ShaderStage stage = luax_checkenum(L, 1, ShaderStage, NULL);
   bool allocated;
-  ShaderSource spirv = luax_checkshadercode(L, 2, stage, &allocated);
+  ShaderSource spirv = luax_checkshadersource(L, 2, stage, &allocated);
   if (!allocated) {
     lua_settop(L, 2);
     return 1;
@@ -1110,14 +1121,31 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   bool allocated[2];
   int index;
 
+  // If there's only one source given, it could be a DefaultShader or a compute shader
   if (lua_gettop(L) == 1 || (lua_istable(L, 2) && luax_len(L, 2) == 0)) {
-    info.type = SHADER_COMPUTE;
-    info.source[0] = luax_checkshadercode(L, 1, STAGE_COMPUTE, &allocated[0]);
+    if (lua_type(L, 1) == LUA_TSTRING) {
+      size_t length;
+      const char* string = lua_tolstring(L, 1, &length);
+      for (int i = 0; lovrDefaultShader[i].length; i++) {
+        if (lovrDefaultShader[i].length == length && !memcmp(lovrDefaultShader[i].string, string, length)) {
+          info.source[0] = lovrGraphicsGetDefaultShaderSource(i, STAGE_VERTEX);
+          info.source[1] = lovrGraphicsGetDefaultShaderSource(i, STAGE_FRAGMENT);
+          info.type = SHADER_GRAPHICS;
+          break;
+        }
+      }
+    }
+
+    if (!info.source[0].code) {
+      info.type = SHADER_COMPUTE;
+      info.source[0] = luax_checkshadersource(L, 1, STAGE_COMPUTE, &allocated[0]);
+    }
+
     index = 2;
   } else {
     info.type = SHADER_GRAPHICS;
-    info.source[0] = luax_checkshadercode(L, 1, STAGE_VERTEX, &allocated[0]);
-    info.source[1] = luax_checkshadercode(L, 2, STAGE_FRAGMENT, &allocated[1]);
+    info.source[0] = luax_checkshadersource(L, 1, STAGE_VERTEX, &allocated[0]);
+    info.source[1] = luax_checkshadersource(L, 2, STAGE_FRAGMENT, &allocated[1]);
     index = 3;
   }
 

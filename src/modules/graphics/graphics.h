@@ -262,10 +262,10 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
 typedef enum {
   SHADER_UNLIT,
-  SHADER_CUBE,
-  SHADER_PANO,
-  SHADER_FILL,
   SHADER_FONT,
+  SHADER_CUBEMAP,
+  SHADER_EQUIRECT,
+  SHADER_FILL,
   SHADER_STEREOBLIT,
   DEFAULT_SHADER_COUNT
 } DefaultShader;
@@ -301,6 +301,7 @@ typedef struct {
 } ShaderInfo;
 
 ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source);
+ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage);
 Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
 Shader* lovrShaderCreate(const ShaderInfo* info);
 Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count);
