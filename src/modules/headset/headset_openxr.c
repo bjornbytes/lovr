@@ -915,7 +915,7 @@ static void openxr_start(void) {
         .srgb = true,
         .width = state.width,
         .height = state.height,
-        .depth = 2,
+        .layers = 2,
         .mipmaps = 1,
         .samples = 1,
         .usage = TEXTURE_RENDER,
