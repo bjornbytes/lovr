@@ -88,6 +88,7 @@ cc = 'clang'
 cxx = 'clang++'
 
 flags = {
+  '-fPIE',
   config.debug and '-g' or '',
   config.optimize and '-Os' or '',
   config.supercharge and '-flto -march=native -DLOVR_UNCHECKED' or '',
