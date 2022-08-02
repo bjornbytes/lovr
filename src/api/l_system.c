@@ -116,7 +116,7 @@ static int l_lovrSystemRequestPermission(lua_State* L) {
 
 static int l_lovrSystemIsKeyDown(lua_State* L) {
   os_key key = luax_checkenum(L, 1, KeyboardKey, NULL);
-    lua_pushboolean(L, lovrSystemIsKeyDown(key));
+  lua_pushboolean(L, lovrSystemIsKeyDown(key));
   return 1;
 }
 

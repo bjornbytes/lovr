@@ -61,7 +61,7 @@ uint32_t lovrSystemGetCoreCount() {
   return os_get_core_count();
 }
 
-bool lovrSystemIsKeyDown(os_key key) {
+bool lovrSystemIsKeyDown(int keycode) {
   return state.pressedKeys[key];
 }
 
