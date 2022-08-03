@@ -300,6 +300,7 @@ static bool check(bool condition, const char* message);
   X(vkUpdateDescriptorSets)\
   X(vkCreatePipelineCache)\
   X(vkDestroyPipelineCache)\
+  X(vkGetPipelineCacheData)\
   X(vkCreateGraphicsPipelines)\
   X(vkCreateComputePipelines)\
   X(vkDestroyPipeline)\
@@ -1430,6 +1431,12 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
   condemn(pipeline->handle, VK_OBJECT_TYPE_PIPELINE);
 }
 
+void gpu_pipeline_get_cache(void* data, size_t* size) {
+  if (vkGetPipelineCacheData(state.device, state.pipelineCache, size, data) != VK_SUCCESS) {
+    *size = 0;
+  }
+}
+
 // Tally
 
 bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
@@ -2237,7 +2244,19 @@ bool gpu_init(gpu_config* config) {
   }
 
   // Pipeline cache
-  VkPipelineCacheCreateInfo cacheInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+
+  VkPipelineCacheCreateInfo cacheInfo = {
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO
+  };
+
+  if (config->vk.cacheSize >= sizeof(VkPipelineCacheHeaderVersionOne)) {
+    VkPipelineCacheHeaderVersionOne* header = config->vk.cacheData;
+    if (header->headerSize == sizeof(*header) && header->headerVersion == VK_PIPELINE_CACHE_HEADER_VERSION_ONE) {
+      cacheInfo.initialDataSize = config->vk.cacheSize;
+      cacheInfo.pInitialData = config->vk.cacheData;
+    }
+  }
+
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "Pipeline cache creation failed") return gpu_destroy(), false;
 
   state.tick[CPU] = COUNTOF(state.ticks) - 1;

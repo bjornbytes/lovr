@@ -11,6 +11,10 @@ void* luax_readfile(const char* filename, size_t* bytesRead) {
   return lovrFilesystemRead(filename, -1, bytesRead);
 }
 
+bool luax_writefile(const char* filename, const void* data, size_t size) {
+  return lovrFilesystemWrite(filename, data, size, false);
+}
+
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
 Blob* luax_readblob(lua_State* L, int index, const char* debug) {
   if (lua_type(L, index) == LUA_TUSERDATA) {

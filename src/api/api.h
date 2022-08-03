@@ -151,6 +151,7 @@ int luax_pushvariant(struct lua_State* L, struct Variant* variant);
 
 #ifndef LOVR_DISABLE_FILESYSTEM
 void* luax_readfile(const char* filename, size_t* bytesRead);
+bool luax_writefile(const char* filename, const void* data, size_t size);
 #endif
 
 #ifndef LOVR_DISABLE_GRAPHICS

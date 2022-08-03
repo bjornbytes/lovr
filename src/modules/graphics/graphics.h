@@ -25,6 +25,8 @@ typedef struct {
   bool vsync;
   bool stencil;
   bool antialias;
+  void* cacheData;
+  size_t cacheSize;
 } GraphicsConfig;
 
 typedef struct {
@@ -105,6 +107,7 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsGetStats(GraphicsStats* stats);
 bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
+void lovrGraphicsGetShaderCache(void* data, size_t* size);
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count);
 void lovrGraphicsWait(void);

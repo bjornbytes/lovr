@@ -492,6 +492,7 @@ typedef struct {
 bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info);
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info);
 void gpu_pipeline_destroy(gpu_pipeline* pipeline);
+void gpu_pipeline_get_cache(void* data, size_t* size);
 
 // Tally
 
@@ -689,6 +690,8 @@ typedef struct {
     void (*getPhysicalDevice)(void* instance, uintptr_t physicalDevice);
     uint32_t (*createDevice)(void* instance, void* devceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
     uint32_t (*createSurface)(void* instance, void** surface);
+    void* cacheData;
+    size_t cacheSize;
     bool surface;
     int vsync;
   } vk;

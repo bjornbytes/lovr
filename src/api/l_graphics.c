@@ -629,6 +629,8 @@ static int l_lovrGraphicsInit(lua_State* L) {
     .antialias = true
   };
 
+  bool shaderCache = true;
+
   luax_pushconf(L);
   lua_getfield(L, -1, "graphics");
   if (lua_istable(L, -1)) {
@@ -647,11 +649,24 @@ static int l_lovrGraphicsInit(lua_State* L) {
     lua_getfield(L, -1, "antialias");
     config.antialias = lua_toboolean(L, -1);
     lua_pop(L, 1);
+
+    lua_getfield(L, -1, "shadercache");
+    shaderCache = lua_toboolean(L, -1);
+    lua_pop(L, 1);
   }
   lua_pop(L, 2);
 
+  if (shaderCache) {
+    config.cacheData = luax_readfile(".lovrshadercache", &config.cacheSize);
+  }
+
   if (lovrGraphicsInit(&config)) {
     luax_atexit(L, lovrGraphicsDestroy);
+
+    // Finalizers run in the opposite order they were added, so this has to go last
+    if (shaderCache) {
+      luax_atexit(L, luax_writeshadercache);
+    }
   }
 
   return 0;

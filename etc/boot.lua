@@ -26,7 +26,8 @@ function lovr.boot()
       debug = false,
       vsync = false,
       stencil = false,
-      antialias = true
+      antialias = true,
+      shadercache = true
     },
     headset = {
       drivers = { 'openxr', 'webxr', 'desktop' },

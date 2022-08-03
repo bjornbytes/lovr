@@ -422,6 +422,9 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   };
 
 #ifdef LOVR_VK
+  gpu.vk.cacheData = config->cacheData;
+  gpu.vk.cacheSize = config->cacheSize;
+
   if (os_window_is_open()) {
     gpu.vk.getInstanceExtensions = os_vk_get_instance_extensions;
     gpu.vk.createSurface = os_vk_create_surface;
@@ -751,6 +754,9 @@ bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features) {
   return true;
 }
 
+void lovrGraphicsGetShaderCache(void* data, size_t* size) {
+  gpu_pipeline_get_cache(data, size);
+}
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   if (!state.active) {
