@@ -1379,7 +1379,7 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
   return true;
 }
 
-static struct ModelData* openxr_newModelData(Device device, bool animated) {
+static ModelData* openxr_newModelData(Device device, bool animated) {
   if (!state.features.handTrackingMesh) {
     return NULL;
   }
@@ -1524,9 +1524,9 @@ static struct ModelData* openxr_newModelData(Device device, bool animated) {
 
     // Joint node
     model->nodes[i] = (ModelNode) {
-      .transform.properties.translation = { 0.f, 0.f, 0.f },
-      .transform.properties.rotation = { 0.f, 0.f, 0.f, 1.f },
-      .transform.properties.scale = { 1.f, 1.f, 1.f },
+      .transform.translation = { 0.f, 0.f, 0.f },
+      .transform.rotation = { 0.f, 0.f, 0.f, 1.f },
+      .transform.scale = { 1.f, 1.f, 1.f },
       .skin = ~0u
     };
 
@@ -1551,9 +1551,9 @@ static struct ModelData* openxr_newModelData(Device device, bool animated) {
 
   // Add a node that holds the skinned mesh
   model->nodes[model->jointCount] = (ModelNode) {
-    .transform.properties.translation = { 0.f, 0.f, 0.f },
-    .transform.properties.rotation = { 0.f, 0.f, 0.f, 1.f },
-    .transform.properties.scale = { 1.f, 1.f, 1.f },
+    .transform.translation = { 0.f, 0.f, 0.f },
+    .transform.rotation = { 0.f, 0.f, 0.f, 1.f },
+    .transform.scale = { 1.f, 1.f, 1.f },
     .primitiveIndex = 0,
     .primitiveCount = 1,
     .skin = 0
@@ -1562,7 +1562,7 @@ static struct ModelData* openxr_newModelData(Device device, bool animated) {
   // The root node has the mesh node and root joint as children
   model->rootNode = model->jointCount + 1;
   model->nodes[model->rootNode] = (ModelNode) {
-    .matrix = true,
+    .hasMatrix = true,
     .transform = { MAT4_IDENTITY },
     .childCount = 2,
     .children = children,
@@ -1576,8 +1576,8 @@ static struct ModelData* openxr_newModelData(Device device, bool animated) {
   return model;
 }
 
-static bool openxr_animate(Device device, struct Model* model) {
-  /*XrHandTrackerEXT tracker = getHandTracker(device);
+static bool openxr_animate(Device device, Model* model) {
+  XrHandTrackerEXT tracker = getHandTracker(device);
 
   if (!tracker) {
     return false;
@@ -1601,7 +1601,7 @@ static bool openxr_animate(Device device, struct Model* model) {
     return false;
   }
 
-  lovrModelResetPose(model);
+  lovrModelResetNodeTransforms(model);
 
   // This is kinda brittle, ideally we would use the jointParents from the actual mesh object
   uint32_t jointParents[26] = {
@@ -1637,8 +1637,9 @@ static bool openxr_animate(Device device, struct Model* model) {
   for (uint32_t i = 0; i < COUNTOF(joints); i++) {
     if (jointParents[i] == ~0u) {
       float position[4] = { 0.f, 0.f, 0.f };
+      float scale[4] = { 1.f, 1.f, 1.f, 1.f };
       float orientation[4] = { 0.f, 0.f, 0.f, 1.f };
-      lovrModelPose(model, i, position, orientation, 1.f);
+      lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
     } else {
       XrPosef* parent = &joints[jointParents[i]].pose;
       XrPosef* pose = &joints[i].pose;
@@ -1655,9 +1656,11 @@ static bool openxr_animate(Device device, struct Model* model) {
       quat_rotate(orientation, position);
       quat_mul(orientation, orientation, &pose->orientation.x);
 
-      lovrModelPose(model, i, position, orientation, 1.f);
+      float scale[4] = { 1.f, 1.f, 1.f, 1.f };
+
+      lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
     }
-  }*/
+  }
 
   return true;
 }
