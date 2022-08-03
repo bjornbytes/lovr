@@ -1376,6 +1376,12 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
 
   glslang_shader_t* shader = glslang_shader_create(&input);
 
+  int options = 0;
+  options |= GLSLANG_SHADER_AUTO_MAP_BINDINGS;
+  options |= GLSLANG_SHADER_AUTO_MAP_LOCATIONS;
+
+  glslang_shader_set_options(shader, options);
+
   if (!glslang_shader_preprocess(shader, &input)) {
     lovrThrow("Could not preprocess %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
     return (ShaderSource) { NULL, 0 };
