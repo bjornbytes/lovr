@@ -141,7 +141,7 @@ typedef struct {
       float translation[4];
       float rotation[4];
       float scale[4];
-    } properties;
+    };
   } transform;
   uint32_t parent;
   uint32_t* children;
@@ -149,7 +149,7 @@ typedef struct {
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
   uint32_t skin;
-  bool matrix;
+  bool hasMatrix;
 } ModelNode;
 
 typedef struct ModelData {

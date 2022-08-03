@@ -2655,14 +2655,14 @@ void lovrModelResetNodeTransforms(Model* model) {
     vec3 position = model->localTransforms[i].properties[PROP_TRANSLATION];
     quat orientation = model->localTransforms[i].properties[PROP_ROTATION];
     vec3 scale = model->localTransforms[i].properties[PROP_SCALE];
-    if (data->nodes[i].matrix) {
+    if (data->nodes[i].hasMatrix) {
       mat4_getPosition(data->nodes[i].transform.matrix, position);
       mat4_getOrientation(data->nodes[i].transform.matrix, orientation);
       mat4_getScale(data->nodes[i].transform.matrix, scale);
     } else {
-      vec3_init(position, data->nodes[i].transform.properties.translation);
-      quat_init(orientation, data->nodes[i].transform.properties.rotation);
-      vec3_init(scale, data->nodes[i].transform.properties.scale);
+      vec3_init(position, data->nodes[i].transform.translation);
+      quat_init(orientation, data->nodes[i].transform.rotation);
+      vec3_init(scale, data->nodes[i].transform.scale);
     }
   }
   model->transformsDirty = true;

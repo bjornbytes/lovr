@@ -203,7 +203,7 @@ static int l_lovrModelDataGetNodeChildren(lua_State* L) {
 static int l_lovrModelDataGetNodePosition(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelNode* node = luax_checknode(L, 2, model);
-  if (node->matrix) {
+  if (node->hasMatrix) {
     float position[4];
     mat4_getPosition(node->transform.matrix, position);
     lua_pushnumber(L, position[0]);
@@ -211,9 +211,9 @@ static int l_lovrModelDataGetNodePosition(lua_State* L) {
     lua_pushnumber(L, position[2]);
     return 3;
   } else {
-    lua_pushnumber(L, node->transform.properties.translation[0]);
-    lua_pushnumber(L, node->transform.properties.translation[1]);
-    lua_pushnumber(L, node->transform.properties.translation[2]);
+    lua_pushnumber(L, node->transform.translation[0]);
+    lua_pushnumber(L, node->transform.translation[1]);
+    lua_pushnumber(L, node->transform.translation[2]);
     return 3;
   }
 }
@@ -222,10 +222,10 @@ static int l_lovrModelDataGetNodeOrientation(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelNode* node = luax_checknode(L, 2, model);
   float angle, ax, ay, az;
-  if (node->matrix) {
+  if (node->hasMatrix) {
     mat4_getAngleAxis(node->transform.matrix, &angle, &ax, &ay, &az);
   } else {
-    quat_getAngleAxis(node->transform.properties.rotation, &angle, &ax, &ay, &az);
+    quat_getAngleAxis(node->transform.rotation, &angle, &ax, &ay, &az);
   }
   lua_pushnumber(L, angle);
   lua_pushnumber(L, ax);
@@ -237,16 +237,16 @@ static int l_lovrModelDataGetNodeOrientation(lua_State* L) {
 static int l_lovrModelDataGetNodeScale(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelNode* node = luax_checknode(L, 2, model);
-  if (node->matrix) {
+  if (node->hasMatrix) {
     float scale[3];
     mat4_getScale(node->transform.matrix, scale);
     lua_pushnumber(L, scale[0]);
     lua_pushnumber(L, scale[1]);
     lua_pushnumber(L, scale[2]);
   } else {
-    lua_pushnumber(L, node->transform.properties.scale[0]);
-    lua_pushnumber(L, node->transform.properties.scale[1]);
-    lua_pushnumber(L, node->transform.properties.scale[2]);
+    lua_pushnumber(L, node->transform.scale[0]);
+    lua_pushnumber(L, node->transform.scale[1]);
+    lua_pushnumber(L, node->transform.scale[2]);
   }
   return 3;
 }
@@ -254,7 +254,7 @@ static int l_lovrModelDataGetNodeScale(lua_State* L) {
 static int l_lovrModelDataGetNodePose(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelNode* node = luax_checknode(L, 2, model);
-  if (node->matrix) {
+  if (node->hasMatrix) {
     float position[3], angle, ax, ay, az;
     mat4_getPosition(node->transform.matrix, position);
     mat4_getAngleAxis(node->transform.matrix, &angle, &ax, &ay, &az);
@@ -267,10 +267,10 @@ static int l_lovrModelDataGetNodePose(lua_State* L) {
     lua_pushnumber(L, az);
   } else {
     float angle, ax, ay, az;
-    quat_getAngleAxis(node->transform.properties.rotation, &angle, &ax, &ay, &az);
-    lua_pushnumber(L, node->transform.properties.translation[0]);
-    lua_pushnumber(L, node->transform.properties.translation[1]);
-    lua_pushnumber(L, node->transform.properties.translation[2]);
+    quat_getAngleAxis(node->transform.rotation, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, node->transform.translation[0]);
+    lua_pushnumber(L, node->transform.translation[1]);
+    lua_pushnumber(L, node->transform.translation[2]);
     lua_pushnumber(L, angle);
     lua_pushnumber(L, ax);
     lua_pushnumber(L, ay);
@@ -282,7 +282,7 @@ static int l_lovrModelDataGetNodePose(lua_State* L) {
 static int l_lovrModelDataGetNodeTransform(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelNode* node = luax_checknode(L, 2, model);
-  if (node->matrix) {
+  if (node->hasMatrix) {
     float position[4], scale[4], angle, ax, ay, az;
     mat4_getPosition(node->transform.matrix, position);
     mat4_getScale(node->transform.matrix, scale);
@@ -299,13 +299,13 @@ static int l_lovrModelDataGetNodeTransform(lua_State* L) {
     lua_pushnumber(L, az);
   } else {
     float angle, ax, ay, az;
-    quat_getAngleAxis(node->transform.properties.rotation, &angle, &ax, &ay, &az);
-    lua_pushnumber(L, node->transform.properties.translation[0]);
-    lua_pushnumber(L, node->transform.properties.translation[1]);
-    lua_pushnumber(L, node->transform.properties.translation[2]);
-    lua_pushnumber(L, node->transform.properties.scale[0]);
-    lua_pushnumber(L, node->transform.properties.scale[1]);
-    lua_pushnumber(L, node->transform.properties.scale[2]);
+    quat_getAngleAxis(node->transform.rotation, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, node->transform.translation[0]);
+    lua_pushnumber(L, node->transform.translation[1]);
+    lua_pushnumber(L, node->transform.translation[2]);
+    lua_pushnumber(L, node->transform.scale[0]);
+    lua_pushnumber(L, node->transform.scale[1]);
+    lua_pushnumber(L, node->transform.scale[2]);
     lua_pushnumber(L, angle);
     lua_pushnumber(L, ax);
     lua_pushnumber(L, ay);

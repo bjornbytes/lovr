@@ -837,13 +837,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     jsmntok_t* token = info.nodes;
     ModelNode* node = model->nodes;
     for (int i = (token++)->size; i > 0; i--, node++) {
-      float* translation = node->transform.properties.translation;
-      float* rotation = node->transform.properties.rotation;
-      float* scale = node->transform.properties.scale;
+      float* translation = node->transform.translation;
+      float* rotation = node->transform.rotation;
+      float* scale = node->transform.scale;
       memcpy(translation, (float[3]) { 0.f, 0.f, 0.f }, 3 * sizeof(float));
       memcpy(rotation, (float[4]) { 0.f, 0.f, 0.f, 1.f }, 4 * sizeof(float));
       memcpy(scale, (float[3]) { 1.f, 1.f, 1.f }, 3 * sizeof(float));
-      node->matrix = false;
+      node->hasMatrix = false;
       node->primitiveCount = 0;
       node->skin = ~0u;
 
@@ -863,7 +863,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           }
         } else if (STR_EQ(key, "matrix")) {
           lovrAssert((token++)->size == 16, "Node matrix needs 16 elements");
-          node->matrix = true;
+          node->hasMatrix = true;
           for (int j = 0; j < 16; j++) {
             node->transform.matrix[j] = NOM_FLOAT(json, token);
           }
@@ -935,7 +935,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     float* matrix = lastNode->transform.matrix;
     memset(matrix, 0, 16 * sizeof(float));
     matrix[0] = matrix[5] = matrix[10] = matrix[15] = 1.f;
-    lastNode->matrix = true;
+    lastNode->hasMatrix = true;
 
     jsmntok_t* token = info.scenes;
     int sceneCount = (token++)->size;

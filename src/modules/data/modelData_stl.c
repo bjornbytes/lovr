@@ -41,7 +41,7 @@ static ModelData* lovrModelDataInitStlBinary(ModelData* model, Blob* source, Mod
     }
   };
   model->nodes[0] = (ModelNode) {
-    .matrix = true,
+    .hasMatrix = true,
     .transform.matrix = MAT4_IDENTITY,
     .primitiveCount = 1,
     .skin = ~0u

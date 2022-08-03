@@ -375,7 +375,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
     .primitiveIndex = 0,
     .primitiveCount = (uint32_t) groups.length,
     .skin = ~0u,
-    .matrix = true
+    .hasMatrix = true
   };
 
 finish:

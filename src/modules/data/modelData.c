@@ -217,12 +217,12 @@ static void boundingBoxHelper(ModelData* model, uint32_t nodeIndex, float* paren
   float m[16];
   mat4_init(m, parentTransform);
 
-  if (node->matrix) {
+  if (node->hasMatrix) {
     mat4_mul(m, node->transform.matrix);
   } else {
-    float* T = node->transform.properties.translation;
-    float* R = node->transform.properties.rotation;
-    float* S = node->transform.properties.scale;
+    float* T = node->transform.translation;
+    float* R = node->transform.rotation;
+    float* S = node->transform.scale;
     mat4_translate(m, T[0], T[1], T[2]);
     mat4_rotateQuat(m, R);
     mat4_scale(m, S[0], S[1], S[2]);
@@ -283,12 +283,12 @@ static void boundingSphereHelper(ModelData* model, uint32_t nodeIndex, uint32_t*
   float m[16];
   mat4_init(m, parentTransform);
 
-  if (node->matrix) {
+  if (node->hasMatrix) {
     mat4_mul(m, node->transform.matrix);
   } else {
-    float* T = node->transform.properties.translation;
-    float* R = node->transform.properties.rotation;
-    float* S = node->transform.properties.scale;
+    float* T = node->transform.translation;
+    float* R = node->transform.rotation;
+    float* S = node->transform.scale;
     mat4_translate(m, T[0], T[1], T[2]);
     mat4_rotateQuat(m, R);
     mat4_scale(m, S[0], S[1], S[2]);
@@ -428,12 +428,12 @@ static void collectVertices(ModelData* model, uint32_t nodeIndex, float** vertic
   float m[16];
   mat4_init(m, parentTransform);
 
-  if (node->matrix) {
+  if (node->hasMatrix) {
     mat4_mul(m, node->transform.matrix);
   } else {
-    float* T = node->transform.properties.translation;
-    float* R = node->transform.properties.rotation;
-    float* S = node->transform.properties.scale;
+    float* T = node->transform.translation;
+    float* R = node->transform.rotation;
+    float* S = node->transform.scale;
     mat4_translate(m, T[0], T[1], T[2]);
     mat4_rotateQuat(m, R);
     mat4_scale(m, S[0], S[1], S[2]);
