@@ -464,18 +464,16 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
     .samples = 4
   };
 
-  for (uint32_t i = 0; i < 4; i++) {
-    lovrGraphicsGetBackground(canvas.clears[i]); // srgb conversion here does not spark joy
-  }
-
   if (lua_type(L, index) == LUA_TSTRING && !strcmp(lua_tostring(L, index), "window")) {
     canvas.textures[0] = lovrGraphicsGetWindowTexture();
+    canvas.count = 1;
   } else if (lua_isuserdata(L, index)) {
     canvas.textures[0] = luax_checktype(L, index, Texture);
+    canvas.count = 1;
   } else if (!lua_istable(L, index)) {
     luax_typeerror(L, index, "Texture or table");
   } else {
-    for (uint32_t i = 0; i < 4; i++) {
+    for (uint32_t i = 0; i < 4; i++, canvas.count++) {
       lua_rawgeti(L, index, i + 1);
       if (lua_isnil(L, -1)) {
         break;
@@ -600,24 +598,59 @@ uint32_t luax_checkcomparemode(lua_State* L, int index) {
   return luax_checkenum(L, index, CompareMode, "none");
 }
 
+static void luax_writeshadercache(void) {
+  size_t size;
+  lovrGraphicsGetShaderCache(NULL, &size);
+
+  if (size == 0) {
+    return;
+  }
+
+  void* data = malloc(size);
+
+  if (!data) {
+    return;
+  }
+
+  lovrGraphicsGetShaderCache(data, &size);
+
+  if (size > 0) {
+    luax_writefile(".lovrshadercache", data, size);
+  }
+
+  free(data);
+}
+
 static int l_lovrGraphicsInit(lua_State* L) {
-  bool debug = false;
-  bool vsync = false;
+  GraphicsConfig config = {
+    .debug = false,
+    .vsync = false,
+    .stencil = false,
+    .antialias = true
+  };
 
   luax_pushconf(L);
   lua_getfield(L, -1, "graphics");
   if (lua_istable(L, -1)) {
     lua_getfield(L, -1, "debug");
-    debug = lua_toboolean(L, -1);
+    config.debug = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "vsync");
-    vsync = lua_toboolean(L, -1);
+    config.vsync = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "stencil");
+    config.stencil = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "antialias");
+    config.antialias = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
   lua_pop(L, 2);
 
-  if (lovrGraphicsInit(debug, vsync)) {
+  if (lovrGraphicsInit(&config)) {
     luax_atexit(L, lovrGraphicsDestroy);
   }
 
@@ -770,21 +803,10 @@ static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsGetBackground(lua_State* L) {
-  float color[4];
-  lovrGraphicsGetBackground(color);
-  lua_pushnumber(L, color[0]);
-  lua_pushnumber(L, color[1]);
-  lua_pushnumber(L, color[2]);
-  lua_pushnumber(L, color[3]);
-  return 4;
-}
-
-static int l_lovrGraphicsSetBackground(lua_State* L) {
-  float color[4];
-  luax_readcolor(L, 1, color);
-  lovrGraphicsSetBackground(color);
-  return 0;
+static int l_lovrGraphicsGetWindowPass(lua_State* L) {
+  Pass* pass = lovrGraphicsGetWindowPass();
+  luax_pushtype(L, Pass, pass);
+  return 1;
 }
 
 static int l_lovrGraphicsGetDefaultFont(lua_State* L) {
@@ -1425,13 +1447,24 @@ static int l_lovrGraphicsNewTally(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsGetPass(lua_State* L) {
-  PassInfo info;
-  info.type = luax_checkenum(L, 1, PassType, NULL);
-  if (info.type == PASS_RENDER) info.canvas = luax_checkcanvas(L, 2);
-  info.label = lua_tostring(L, info.type == PASS_RENDER ? 3 : 2);
+static int l_lovrGraphicsNewPass(lua_State* L) {
+  PassInfo info = { 0 };
 
-  Pass* pass = lovrGraphicsGetPass(&info);
+  info.type = luax_checkenum(L, 1, PassType, NULL);
+
+  if (info.type == PASS_RENDER) {
+    info.canvas = luax_checkcanvas(L, 2);
+  }
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "label");
+    info.label = lua_tostring(L, -1);
+    lua_pop(L, 1);
+  } else {
+    info.label = NULL;
+  }
+
+  Pass* pass = lovrPassCreate(&info);
   luax_pushtype(L, Pass, pass);
   lovrRelease(pass, lovrPassDestroy);
   return 1;
@@ -1446,8 +1479,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "getLimits", l_lovrGraphicsGetLimits },
   { "getStats", l_lovrGraphicsGetStats },
   { "isFormatSupported", l_lovrGraphicsIsFormatSupported },
-  { "getBackground", l_lovrGraphicsGetBackground },
-  { "setBackground", l_lovrGraphicsSetBackground },
+  { "getWindowPass", l_lovrGraphicsGetWindowPass },
   { "getDefaultFont", l_lovrGraphicsGetDefaultFont },
   { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
@@ -1459,7 +1491,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "newFont", l_lovrGraphicsNewFont },
   { "newModel", l_lovrGraphicsNewModel },
   { "newTally", l_lovrGraphicsNewTally },
-  { "getPass", l_lovrGraphicsGetPass },
+  { "newPass", l_lovrGraphicsNewPass },
   { NULL, NULL }
 };
 

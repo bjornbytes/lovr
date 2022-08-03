@@ -24,13 +24,16 @@ function lovr.boot()
     },
     graphics = {
       debug = false,
-      vsync = false
+      vsync = false,
+      stencil = false,
+      antialias = true
     },
     headset = {
       drivers = { 'openxr', 'webxr', 'desktop' },
       supersample = false,
       offset = 1.7,
-      msaa = 4,
+      stencil = false,
+      antialias = true,
       overlay = false
     },
     math = {
@@ -116,20 +119,16 @@ function lovr.run()
     if lovr.headset then dt = lovr.headset.update() end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
-      local headset = lovr.headset and lovr.headset.getTexture()
-      if headset then
-        local pass = lovr.graphics.getPass('render', headset)
-        local near, far = lovr.headset.getClipDistance()
-        for i = 1, lovr.headset.getViewCount() do
-          pass:setViewPose(i, lovr.headset.getViewPose(i))
-          local left, right, up, down = lovr.headset.getViewAngles(i)
-          pass:setProjection(i, left, right, up, down, near, far)
+      if lovr.headset then
+        local pass = lovr.headset.getPass()
+        if pass then
+          local skip = lovr.draw and lovr.draw(pass)
+          if not skip then lovr.graphics.submit(pass) end
         end
-        local skip = lovr.draw and lovr.draw(pass)
-        if not skip then lovr.graphics.submit(pass) end
       end
       if lovr.system.isWindowOpen() then
-        local pass = lovr.graphics.getPass('render', 'window')
+        local pass = lovr.graphics.getWindowPass()
+        pass:reset()
         local skip = lovr.mirror(pass)
         if not skip then lovr.graphics.submit(pass) end
       end
@@ -145,13 +144,7 @@ function lovr.mirror(pass)
     if texture then
       pass:fill(texture)
     else
-      local near, far = lovr.headset.getClipDistance()
-      for i = 1, lovr.headset.getViewCount() do
-        pass:setViewPose(i, lovr.headset.getViewPose(i))
-        local left, right, up, down = lovr.headset.getViewAngles(i)
-        pass:setProjection(i, left, right, up, down, near, far)
-      end
-      return lovr.draw and lovr.draw(pass)
+      return true
     end
   else
     return lovr.draw and lovr.draw(pass)

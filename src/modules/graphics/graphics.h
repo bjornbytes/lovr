@@ -21,6 +21,13 @@ typedef struct Tally Tally;
 typedef struct Pass Pass;
 
 typedef struct {
+  bool debug;
+  bool vsync;
+  bool stencil;
+  bool antialias;
+} GraphicsConfig;
+
+typedef struct {
   uint32_t deviceId;
   uint32_t vendorId;
   const char* name;
@@ -90,7 +97,7 @@ enum {
   TEXTURE_FEATURE_BLIT_DST = (1 << 7)
 };
 
-bool lovrGraphicsInit(bool debug, bool vsync);
+bool lovrGraphicsInit(GraphicsConfig* config);
 void lovrGraphicsDestroy(void);
 
 void lovrGraphicsGetDevice(GraphicsDevice* device);
@@ -98,9 +105,6 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
 void lovrGraphicsGetStats(GraphicsStats* stats);
 bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
-
-void lovrGraphicsGetBackground(float background[4]);
-void lovrGraphicsSetBackground(float background[4]);
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count);
 void lovrGraphicsWait(void);
@@ -543,9 +547,9 @@ typedef enum {
 } Winding;
 
 typedef enum {
-  LOAD_KEEP,
   LOAD_CLEAR,
-  LOAD_DISCARD
+  LOAD_DISCARD,
+  LOAD_KEEP
 } LoadAction;
 
 typedef struct {
@@ -556,6 +560,7 @@ typedef struct {
 } DepthInfo;
 
 typedef struct {
+  uint32_t count;
   Texture* textures[4];
   LoadAction loads[4];
   float clears[4][4];
@@ -570,13 +575,27 @@ typedef struct {
   const char* label;
 } PassInfo;
 
-Pass* lovrGraphicsGetPass(PassInfo* info);
+Pass* lovrGraphicsGetWindowPass(void);
+Pass* lovrPassCreate(PassInfo* info);
 void lovrPassDestroy(void* ref);
 const PassInfo* lovrPassGetInfo(Pass* pass);
+uint32_t lovrPassGetWidth(Pass* pass);
+uint32_t lovrPassGetHeight(Pass* pass);
+uint32_t lovrPassGetViewCount(Pass* pass);
+uint32_t lovrPassGetSampleCount(Pass* pass);
+
+void lovrPassGetTarget(Pass* pass, Texture* color[4], Texture** depth);
+void lovrPassSetTarget(Pass* pass, Texture* color[4], Texture* depth);
+void lovrPassGetClear(Pass* pass, float color[4][4], float* depth, uint8_t* stencil);
+void lovrPassSetClear(Pass* pass, float color[4][4], float depth, uint8_t stencil);
+
+void lovrPassReset(Pass* pass);
+
 void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 void lovrPassGetProjection(Pass* pass, uint32_t index, float projection[16]);
 void lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]);
+
 void lovrPassPush(Pass* pass, StackType stack);
 void lovrPassPop(Pass* pass, StackType stack);
 void lovrPassOrigin(Pass* pass);
@@ -584,6 +603,7 @@ void lovrPassTranslate(Pass* pass, float* translation);
 void lovrPassRotate(Pass* pass, float* rotation);
 void lovrPassScale(Pass* pass, float* scale);
 void lovrPassTransform(Pass* pass, float* transform);
+
 void lovrPassSetAlphaToCoverage(Pass* pass, bool enabled);
 void lovrPassSetBlendMode(Pass* pass, BlendMode mode, BlendAlphaMode alphaMode);
 void lovrPassSetColor(Pass* pass, float color[4]);
@@ -604,10 +624,12 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
 void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);
+
 void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture);
 void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler);
 void lovrPassSendValue(Pass* pass, const char* name, size_t length, void** data, FieldType* type);
+
 void lovrPassPoints(Pass* pass, uint32_t count, float** vertices);
 void lovrPassLine(Pass* pass, uint32_t count, float** vertices);
 void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols, uint32_t rows);
@@ -625,7 +647,9 @@ void lovrPassMonkey(Pass* pass, float* transform);
 void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node, bool recurse, uint32_t instances);
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances);
 void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);
+
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
+
 void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
 void* lovrPassCopyDataToBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent);
@@ -638,5 +662,6 @@ void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count)
 Readback* lovrPassReadBuffer(Pass* pass, Buffer* buffer, uint32_t index, uint32_t count);
 Readback* lovrPassReadTexture(Pass* pass, Texture* texture, uint32_t offset[4], uint32_t extent[3]);
 Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t count);
+
 void lovrPassTick(Pass* pass, Tally* tally, uint32_t index);
 void lovrPassTock(Pass* pass, Tally* tally, uint32_t index);

@@ -16,6 +16,176 @@ static int l_lovrPassGetType(lua_State* L) {
   return 1;
 }
 
+static int l_lovrPassGetWidth(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t width = lovrPassGetWidth(pass);
+  lua_pushinteger(L, width);
+  return 1;
+}
+
+static int l_lovrPassGetHeight(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t height = lovrPassGetHeight(pass);
+  lua_pushinteger(L, height);
+  return 1;
+}
+
+static int l_lovrPassGetDimensions(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t width = lovrPassGetWidth(pass);
+  uint32_t height = lovrPassGetHeight(pass);
+  lua_pushinteger(L, width);
+  lua_pushinteger(L, height);
+  return 2;
+}
+
+static int l_lovrPassGetViewCount(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t views = lovrPassGetViewCount(pass);
+  lua_pushinteger(L, views);
+  return 1;
+}
+
+static int l_lovrPassGetSampleCount(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t samples = lovrPassGetSampleCount(pass);
+  lua_pushinteger(L, samples);
+  return 1;
+}
+
+static int l_lovrPassGetTarget(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  int count = (int) lovrPassGetInfo(pass)->canvas.count;
+
+  Texture *color[4], *depth;
+  lovrPassGetTarget(pass, color, &depth);
+
+  lua_createtable(L, count, !!depth);
+  for (int i = 0; i < count; i++) {
+    luax_pushtype(L, Texture, color[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+
+  if (depth) {
+    luax_pushtype(L, Texture, depth);
+    lua_setfield(L, -2, "depth");
+  }
+
+  return 1;
+}
+
+static int l_lovrPassSetTarget(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  int count = (int) lovrPassGetInfo(pass)->canvas.count;
+
+  Texture* color[4];
+  Texture* depth = NULL;
+
+  if (lua_istable(L, 2)) {
+    for (int i = 0; i < count; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      color[i] = luax_totype(L, -1, Texture);
+      lovrAssert(color[i], "Expected a Texture for color target #%d", i + 1);
+      lua_pop(L, 1);
+    }
+
+    lua_getfield(L, 2, "depth");
+    depth = luax_totype(L, -1, Texture);
+    lua_pop(L, 1);
+  } else {
+    for (int i = 0; i < count; i++) {
+      color[i] = luax_totype(L, -1, Texture);
+      lovrAssert(color[i], "Expected a Texture for color target #%d", i + 1);
+    }
+  }
+
+  lovrPassSetTarget(pass, color, depth);
+  return 0;
+}
+
+static int l_lovrPassGetClear(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  int count = (int) lovrPassGetInfo(pass)->canvas.count;
+
+  float color[4][4];
+  float depth;
+  uint8_t stencil;
+  lovrPassGetClear(pass, color, &depth, &stencil);
+
+  lua_createtable(L, count, 2);
+
+  for (int i = 0; i < count; i++) {
+    lua_createtable(L, 4, 0);
+    for (int j = 0; j < 4; j++) {
+      lua_pushnumber(L, color[i][j]);
+      lua_rawseti(L, -2, j + 1);
+    }
+    lua_rawseti(L, -2, i + 1);
+  }
+
+  lua_pushnumber(L, depth);
+  lua_setfield(L, -2, "depth");
+
+  lua_pushinteger(L, stencil);
+  lua_setfield(L, -2, "stencil");
+
+  return 1;
+}
+
+static int l_lovrPassSetClear(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  int count = (int) lovrPassGetInfo(pass)->canvas.count;
+
+  float color[4][4];
+  float depth;
+  uint8_t stencil;
+  lovrPassGetClear(pass, color, &depth, &stencil);
+
+  bool table = lua_istable(L, 2);
+
+  if (count == 1) {
+    if (table && luax_len(L, 2) == 1) {
+      lua_rawgeti(L, 2, 1);
+      luax_optcolor(L, -1, color[0]);
+      lua_pop(L, 1);
+    } else {
+      luax_readcolor(L, 2, color[0]);
+    }
+  } else if (lua_gettop(L) > 2) {
+    for (int i = 0; i < count; i++) {
+      if (!lua_isnoneornil(L, 2 + i)) {
+        luax_optcolor(L, 2 + i, color[i]);
+      }
+    }
+  } else {
+    for (int i = 0; i < count; i++) {
+      lua_rawgeti(L, 2, i + 1);
+      if (!lua_isnil(L, -1)) luax_optcolor(L, -1, color[i]);
+      lua_pop(L, 1);
+    }
+  }
+
+  if (table) {
+    lua_getfield(L, 2, "depth");
+    depth = luax_optfloat(L, -1, depth);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "stencil");
+    stencil = luaL_optinteger(L, -1, stencil);
+    stencil = CLAMP(stencil, 0, 255);
+    lua_pop(L, 1);
+  }
+
+  lovrPassSetClear(pass, color, depth, stencil);
+  return 0;
+}
+
+static int l_lovrPassReset(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  lovrPassReset(pass);
+  return 0;
+}
+
 static int l_lovrPassGetViewPose(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
@@ -927,6 +1097,18 @@ static int l_lovrPassTock(lua_State* L) {
 
 const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
+  { "getWidth", l_lovrPassGetWidth },
+  { "getHeight", l_lovrPassGetHeight },
+  { "getDimensions", l_lovrPassGetDimensions },
+  { "getViewCount", l_lovrPassGetViewCount },
+  { "getSampleCount", l_lovrPassGetSampleCount },
+
+  { "getTarget", l_lovrPassGetTarget },
+  { "setTarget", l_lovrPassSetTarget },
+  { "getClear", l_lovrPassGetClear },
+  { "setClear", l_lovrPassSetClear },
+
+  { "reset", l_lovrPassReset },
 
   { "getViewPose", l_lovrPassGetViewPose },
   { "setViewPose", l_lovrPassSetViewPose },

@@ -9,12 +9,23 @@
 struct Model;
 struct ModelData;
 struct Texture;
+struct Pass;
 
 typedef enum {
   DRIVER_DESKTOP,
   DRIVER_OPENXR,
   DRIVER_WEBXR
 } HeadsetDriver;
+
+typedef struct {
+  HeadsetDriver* drivers;
+  size_t driverCount;
+  float supersample;
+  float offset;
+  bool stencil;
+  bool antialias;
+  bool overlay;
+} HeadsetConfig;
 
 typedef enum {
   ORIGIN_HEAD,
@@ -110,7 +121,7 @@ typedef struct HeadsetInterface {
   void (*getVulkanPhysicalDevice)(void* instance, uintptr_t physicalDevice);
   uint32_t (*createVulkanInstance)(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
   uint32_t (*createVulkanDevice)(void* instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
-  bool (*init)(float supersample, float offset, uint32_t msaa, bool overlay);
+  bool (*init)(HeadsetConfig* config);
   void (*start)(void);
   void (*destroy)(void);
   bool (*getName)(char* name, size_t length);
@@ -138,6 +149,7 @@ typedef struct HeadsetInterface {
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(Device device, struct Model* model);
   struct Texture* (*getTexture)(void);
+  struct Pass* (*getPass)(void);
   void (*submit)(void);
   bool (*isFocused)(void);
   double (*update)(void);
@@ -151,5 +163,5 @@ extern HeadsetInterface lovrHeadsetDesktopDriver;
 // Active driver
 extern HeadsetInterface* lovrHeadsetInterface;
 
-bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, float offset, uint32_t msaa, bool overlay);
+bool lovrHeadsetInit(HeadsetConfig* config);
 void lovrHeadsetDestroy(void);

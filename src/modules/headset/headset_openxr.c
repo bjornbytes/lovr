@@ -134,6 +134,7 @@ enum {
 };
 
 static struct {
+  HeadsetConfig config;
   XrInstance instance;
   XrSystemId system;
   XrSession session;
@@ -146,17 +147,16 @@ static struct {
   XrCompositionLayerProjectionView layerViews[2];
   XrFrameState frameState;
   Texture* textures[MAX_IMAGES];
+  Pass* pass;
   double lastDisplayTime;
-  uint32_t imageIndex;
-  uint32_t imageCount;
-  uint32_t msaa;
+  uint32_t textureIndex;
+  uint32_t textureCount;
   uint32_t width;
   uint32_t height;
   float clipNear;
   float clipFar;
-  float offset;
   bool waited;
-  bool hasImage;
+  bool began;
   XrActionSet actionSet;
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[MAX_DEVICES];
@@ -285,9 +285,8 @@ static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo
 
 static void openxr_destroy();
 
-static bool openxr_init(float supersample, float offset, uint32_t msaa, bool overlay) {
-  state.msaa = msaa;
-  state.offset = offset;
+static bool openxr_init(HeadsetConfig* config) {
+  state.config = *config;
 
 #ifdef __ANDROID__
   static PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
@@ -333,7 +332,7 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       { "XR_FB_display_refresh_rate", &state.features.refreshRate, false },
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, false },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, false },
-      { "XR_EXTX_overlay", &state.features.overlay, !overlay },
+      { "XR_EXTX_overlay", &state.features.overlay, !config->overlay },
       { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, false },
     };
 
@@ -427,8 +426,8 @@ static bool openxr_init(float supersample, float offset, uint32_t msaa, bool ove
       return false;
     }
 
-    state.width = MIN(views[0].recommendedImageRectWidth * supersample, views[0].maxImageRectWidth);
-    state.height = MIN(views[0].recommendedImageRectHeight * supersample, views[0].maxImageRectHeight);
+    state.width = MIN(views[0].recommendedImageRectWidth * config->supersample, views[0].maxImageRectWidth);
+    state.height = MIN(views[0].recommendedImageRectHeight * config->supersample, views[0].maxImageRectHeight);
   }
 
   { // Actions
@@ -852,7 +851,7 @@ static void openxr_start(void) {
 
     if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace))) {
       info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-      info.poseInReferenceSpace.position.y = -state.offset;
+      info.poseInReferenceSpace.position.y = -state.config.offset;
       XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace));
     }
 
@@ -895,7 +894,7 @@ static void openxr_start(void) {
 
     XrSwapchainCreateInfo info = {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
-      .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT,
+      .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
       .format = VK_FORMAT_R8G8B8A8_SRGB,
       .width = state.width,
       .height = state.height,
@@ -906,9 +905,9 @@ static void openxr_start(void) {
     };
 
     XR(xrCreateSwapchain(state.session, &info, &state.swapchain));
-    XR(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.imageCount, (XrSwapchainImageBaseHeader*) images));
+    XR(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.textureCount, (XrSwapchainImageBaseHeader*) images));
 
-    for (uint32_t i = 0; i < state.imageCount; i++) {
+    for (uint32_t i = 0; i < state.textureCount; i++) {
       state.textures[i] = lovrTextureCreate(&(TextureInfo) {
         .type = TEXTURE_ARRAY,
         .format = FORMAT_RGBA8,
@@ -918,10 +917,22 @@ static void openxr_start(void) {
         .layers = 2,
         .mipmaps = 1,
         .samples = 1,
-        .usage = TEXTURE_RENDER,
+        .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
         .handle = (uintptr_t) images[i].image
       });
     }
+
+    state.pass = lovrPassCreate(&(PassInfo) {
+      .type = PASS_RENDER,
+      .canvas.count = 1,
+      .canvas.textures[0] = state.textures[0],
+      .canvas.loads[0] = LOAD_CLEAR,
+      .canvas.clears[0] = { 0.f, 0.f, 0.f, 0.f },
+      .canvas.depth.format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
+      .canvas.depth.load = LOAD_CLEAR,
+      .canvas.depth.clear = 0.f,
+      .canvas.samples = state.config.antialias ? 4 : 1
+    });
 
     XrCompositionLayerFlags layerFlags = 0;
 
@@ -952,9 +963,11 @@ static void openxr_start(void) {
 }
 
 static void openxr_destroy(void) {
-  for (uint32_t i = 0; i < state.imageCount; i++) {
+  for (uint32_t i = 0; i < state.textureCount; i++) {
     lovrRelease(state.textures[i], lovrTextureDestroy);
   }
+
+  lovrRelease(state.pass, lovrPassDestroy);
 
   for (size_t i = 0; i < MAX_ACTIONS; i++) {
     if (state.actions[i]) {
@@ -1650,57 +1663,74 @@ static bool openxr_animate(Device device, struct Model* model) {
 }
 
 static Texture* openxr_getTexture(void) {
-  if (!SESSION_ACTIVE(state.sessionState)) {
-    return NULL;
-  }
+  return state.began && state.frameState.shouldRender ? state.textures[state.textureIndex] : NULL;
+}
 
-  if (state.hasImage) {
-    return state.textures[state.imageIndex];
+static Pass* openxr_getPass(void) {
+  if (state.began) {
+    return state.frameState.shouldRender ? state.pass : NULL;
   }
 
   XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
   XR(xrBeginFrame(state.session, &beginfo));
+  state.began = true;
 
   if (!state.frameState.shouldRender) {
     return NULL;
   }
 
   XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-  XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.imageIndex));
+  XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.textureIndex));
   XR(xrWaitSwapchainImage(state.swapchain, &waitInfo));
+  lovrPassSetTarget(state.pass, &state.textures[state.textureIndex], NULL);
+  lovrPassReset(state.pass);
 
   uint32_t count;
   XrView views[2];
   getViews(views, &count);
-  state.layerViews[0].pose = views[0].pose;
-  state.layerViews[0].fov = views[0].fov;
-  state.layerViews[1].pose = views[1].pose;
-  state.layerViews[1].fov = views[1].fov;
-  state.hasImage = true;
 
-  return state.textures[state.imageIndex];
+  for (uint32_t i = 0; i < count; i++) {
+    state.layerViews[i].pose = views[i].pose;
+    state.layerViews[i].fov = views[i].fov;
+
+    float viewMatrix[16];
+    mat4_fromQuat(viewMatrix, &views[i].pose.orientation.x);
+    memcpy(viewMatrix + 12, &views[i].pose.position.x, 3 * sizeof(float));
+    mat4_invert(viewMatrix);
+
+    float projection[16];
+    XrFovf* fov = &views[i].fov;
+    mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
+
+    lovrPassSetViewMatrix(state.pass, i, viewMatrix);
+    lovrPassSetProjection(state.pass, i, projection);
+  }
+
+  return state.pass;
 }
 
 static void openxr_submit(void) {
-  if (!SESSION_ACTIVE(state.sessionState)) {
+  if (!state.began || !SESSION_ACTIVE(state.sessionState)) {
     state.waited = false;
     return;
   }
 
-  XrFrameEndInfo endInfo = {
+  XrFrameEndInfo info = {
     .type = XR_TYPE_FRAME_END_INFO,
     .displayTime = state.frameState.predictedDisplayTime,
     .environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE,
-    .layers = (const XrCompositionLayerBaseHeader*[1]) { (XrCompositionLayerBaseHeader*) &state.layers[0] },
-    .layerCount = state.hasImage ? 1 : 0
+    .layers = (const XrCompositionLayerBaseHeader*[1]) {
+      (XrCompositionLayerBaseHeader*) &state.layers[0]
+    }
   };
 
-  if (state.hasImage) {
+  if (state.frameState.shouldRender) {
     XR(xrReleaseSwapchainImage(state.swapchain, NULL));
-    state.hasImage = false;
+    info.layerCount = 1;
   }
 
-  XR(xrEndFrame(state.session, &endInfo));
+  XR(xrEndFrame(state.session, &info));
+  state.began = false;
   state.waited = false;
 }
 
@@ -1709,7 +1739,7 @@ static bool openxr_isFocused(void) {
 }
 
 static double openxr_update(void) {
-  if (state.waited && !state.hasImage) return openxr_getDeltaTime();
+  if (state.waited) return openxr_getDeltaTime();
 
   XrEventDataBuffer e; // Not using designated initializers here to avoid an implicit 4k zero
   e.type = XR_TYPE_EVENT_DATA_BUFFER;
@@ -1813,6 +1843,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .newModelData = openxr_newModelData,
   .animate = openxr_animate,
   .getTexture = openxr_getTexture,
+  .getPass = openxr_getPass,
   .submit = openxr_submit,
   .isFocused = openxr_isFocused,
   .update = openxr_update

@@ -503,6 +503,12 @@ static int l_lovrHeadsetGetTexture(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetGetPass(lua_State* L) {
+  Pass* pass = lovrHeadsetInterface->getPass();
+  luax_pushtype(L, Pass, pass);
+  return 1;
+}
+
 static int l_lovrHeadsetSubmit(lua_State* L) {
   lovrHeadsetInterface->submit();
   return 0;
@@ -591,6 +597,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "newModel", l_lovrHeadsetNewModel },
   { "animate", l_lovrHeadsetAnimate },
   { "getTexture", l_lovrHeadsetGetTexture },
+  { "getPass", l_lovrHeadsetGetPass },
   { "submit", l_lovrHeadsetSubmit },
   { "isFocused", l_lovrHeadsetIsFocused },
   { "update", l_lovrHeadsetUpdate },
@@ -604,12 +611,17 @@ int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
 
-  size_t driverCount = 0;
   HeadsetDriver drivers[8];
-  float supersample = 1.f;
-  float offset = 1.7f;
-  int msaa = 4;
-  bool overlay = false;
+
+  HeadsetConfig config = {
+    .drivers = drivers,
+    .driverCount = 0,
+    .supersample = 1.f,
+    .offset = 1.7f,
+    .stencil = false,
+    .antialias = true,
+    .overlay = false
+  };
 
   luax_pushconf(L);
   if (lua_istable(L, -1)) {
@@ -621,8 +633,8 @@ int luaopen_lovr_headset(lua_State* L) {
       int n = luax_len(L, -1);
       for (int i = 0; i < n; i++) {
         lua_rawgeti(L, -1, i + 1);
-        drivers[driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
-        lovrAssert(driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
+        config.drivers[config.driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
+        lovrAssert(config.driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
         lua_pop(L, 1);
       }
       lua_pop(L, 1);
@@ -630,25 +642,30 @@ int luaopen_lovr_headset(lua_State* L) {
       // Supersample
       lua_getfield(L, -1, "supersample");
       if (lua_type(L, -1) == LUA_TBOOLEAN) {
-        supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
+        config.supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
       } else {
-        supersample = luax_optfloat(L, -1, 1.f);
+        config.supersample = luax_optfloat(L, -1, 1.f);
       }
       lua_pop(L, 1);
 
       // Offset
       lua_getfield(L, -1, "offset");
-      offset = luax_optfloat(L, -1, 1.7f);
+      config.offset = luax_optfloat(L, -1, 1.7f);
       lua_pop(L, 1);
 
-      // MSAA
-      lua_getfield(L, -1, "msaa");
-      msaa = luaL_optinteger(L, -1, 4);
+      // Stencil
+      lua_getfield(L, -1, "stencil");
+      config.stencil = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      // Samples
+      lua_getfield(L, -1, "antialias");
+      config.antialias = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       // Overlay
       lua_getfield(L, -1, "overlay");
-      overlay = lua_toboolean(L, -1);
+      config.overlay = lua_toboolean(L, -1);
       lua_pop(L, 1);
     }
     lua_pop(L, 1);
@@ -656,6 +673,6 @@ int luaopen_lovr_headset(lua_State* L) {
   lua_pop(L, 1);
 
   luax_atexit(L, lovrHeadsetDestroy);
-  lovrHeadsetInit(drivers, driverCount, supersample, offset, msaa, overlay);
+  lovrHeadsetInit(&config);
   return 1;
 }

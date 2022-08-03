@@ -36,8 +36,8 @@ static void onFocus(bool focused) {
   lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { focused } });
 }
 
-static bool desktop_init(float supersample, float offset, uint32_t msaa, bool overlay) {
-  state.offset = offset;
+static bool desktop_init(HeadsetConfig* config) {
+  state.offset = config->offset;
   state.clipNear = .01f;
   state.clipFar = 0.f;
   state.prevDisplayTime = os_get_time();
@@ -192,6 +192,10 @@ static Texture* desktop_getTexture(void) {
   return NULL;
 }
 
+static Pass* desktop_getPass(void) {
+  return lovrGraphicsGetWindowPass();
+}
+
 static void desktop_submit(void) {
   //
 }
@@ -320,6 +324,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .newModelData = desktop_newModelData,
   .animate = desktop_animate,
   .getTexture = desktop_getTexture,
+  .getPass = desktop_getPass,
   .submit = desktop_submit,
   .isFocused = desktop_isFocused,
   .update = desktop_update

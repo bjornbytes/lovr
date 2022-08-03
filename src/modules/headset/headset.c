@@ -4,14 +4,14 @@
 HeadsetInterface* lovrHeadsetInterface = NULL;
 static bool initialized = false;
 
-bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, float offset, uint32_t msaa, bool overlay) {
+bool lovrHeadsetInit(HeadsetConfig* config) {
   if (initialized) return false;
   initialized = true;
 
-  for (size_t i = 0; i < count; i++) {
+  for (size_t i = 0; i < config->driverCount; i++) {
     HeadsetInterface* interface = NULL;
 
-    switch (drivers[i]) {
+    switch (config->drivers[i]) {
 #ifdef LOVR_USE_DESKTOP
       case DRIVER_DESKTOP: interface = &lovrHeadsetDesktopDriver; break;
 #endif
@@ -24,7 +24,7 @@ bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, fl
       default: continue;
     }
 
-    if (interface->init(supersample, offset, msaa, overlay)) {
+    if (interface->init(config)) {
       lovrHeadsetInterface = interface;
       break;
     }

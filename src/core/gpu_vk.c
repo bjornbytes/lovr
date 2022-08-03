@@ -51,6 +51,10 @@ struct gpu_bundle {
   VkDescriptorSet handle;
 };
 
+struct gpu_pass {
+  VkRenderPass handle;
+};
+
 struct gpu_pipeline {
   VkPipeline handle;
 };
@@ -70,6 +74,7 @@ size_t gpu_sizeof_layout() { return sizeof(gpu_layout); }
 size_t gpu_sizeof_shader() { return sizeof(gpu_shader); }
 size_t gpu_sizeof_bundle_pool() { return sizeof(gpu_bundle_pool); }
 size_t gpu_sizeof_bundle() { return sizeof(gpu_bundle); }
+size_t gpu_sizeof_pass() { return sizeof(gpu_pass); }
 size_t gpu_sizeof_pipeline() { return sizeof(gpu_pipeline); }
 size_t gpu_sizeof_tally() { return sizeof(gpu_tally); }
 
@@ -118,26 +123,6 @@ typedef struct {
 } gpu_morgue;
 
 typedef struct {
-  uint32_t count;
-  uint32_t views;
-  uint32_t samples;
-  bool resolve;
-  struct {
-    VkFormat format;
-    VkImageLayout layout;
-    VkImageLayout resolveLayout;
-    gpu_load_op load;
-    gpu_save_op save;
-  } color[4];
-  struct {
-    VkFormat format;
-    VkImageLayout layout;
-    gpu_load_op load;
-    gpu_save_op save;
-  } depth;
-} gpu_pass_info;
-
-typedef struct {
   void* object;
   uint64_t hash;
 } gpu_cache_entry;
@@ -175,7 +160,6 @@ static struct {
   gpu_texture surfaceTextures[8];
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
-  gpu_cache_entry renderpasses[16][4];
   gpu_cache_entry framebuffers[16][4];
   gpu_allocator allocators[GPU_MEMORY_COUNT];
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
@@ -207,7 +191,6 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 static void gpu_release(gpu_memory* memory);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
-static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible);
 static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
@@ -1019,6 +1002,108 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
   }
 }
 
+// Pass
+
+bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
+  static const VkAttachmentLoadOp loadOps[] = {
+    [GPU_LOAD_OP_CLEAR] = VK_ATTACHMENT_LOAD_OP_CLEAR,
+    [GPU_LOAD_OP_DISCARD] = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+    [GPU_LOAD_OP_KEEP] = VK_ATTACHMENT_LOAD_OP_LOAD
+  };
+
+  static const VkAttachmentStoreOp storeOps[] = {
+    [GPU_SAVE_OP_KEEP] = VK_ATTACHMENT_STORE_OP_STORE,
+    [GPU_SAVE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
+  };
+
+  VkAttachmentDescription attachments[9];
+  VkAttachmentReference references[9];
+
+  for (uint32_t i = 0; i < info->count; i++) {
+    references[i].attachment = i;
+    references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VkImageLayout naturalLayout = getNaturalLayout(info->color[i].usage, VK_IMAGE_ASPECT_COLOR_BIT);
+    bool surface = info->color[i].format == GPU_FORMAT_SURFACE;
+    bool discard = surface || info->color[i].load != GPU_LOAD_OP_KEEP;
+    attachments[i] = (VkAttachmentDescription) {
+      .format = convertFormat(info->color[i].format, info->color[i].srgb),
+      .samples = info->samples,
+      .loadOp = loadOps[info->color[i].load],
+      .storeOp = info->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->color[i].save],
+      .initialLayout = discard ? VK_IMAGE_LAYOUT_UNDEFINED : naturalLayout,
+      .finalLayout = surface && !info->resolve ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : naturalLayout
+    };
+  }
+
+  if (info->resolve) {
+    for (uint32_t i = 0; i < info->count; i++) {
+      uint32_t index = info->count + i;
+      references[index].attachment = index;
+      references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      VkImageLayout naturalLayout = getNaturalLayout(info->color[i].resolveUsage, VK_IMAGE_ASPECT_COLOR_BIT);
+      bool surface = info->color[i].format == GPU_FORMAT_SURFACE;
+      attachments[index] = (VkAttachmentDescription) {
+        .format = attachments[i].format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .storeOp = storeOps[info->color[i].save],
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = surface ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : naturalLayout
+      };
+    }
+  }
+
+  if (info->depth.format) {
+    uint32_t index = info->count << info->resolve;
+    references[index].attachment = index;
+    references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    VkImageLayout naturalLayout = getNaturalLayout(info->depth.usage, VK_IMAGE_ASPECT_DEPTH_BIT);
+    attachments[index] = (VkAttachmentDescription) {
+      .format = convertFormat(info->depth.format, LINEAR),
+      .samples = info->samples,
+      .loadOp = loadOps[info->depth.load],
+      .storeOp = storeOps[info->depth.save],
+      .stencilLoadOp = loadOps[info->depth.load],
+      .stencilStoreOp = storeOps[info->depth.save],
+      .initialLayout = info->depth.load == GPU_LOAD_OP_KEEP ? naturalLayout : VK_IMAGE_LAYOUT_UNDEFINED,
+      .finalLayout = naturalLayout
+    };
+  }
+
+  VkSubpassDescription subpass = {
+    .colorAttachmentCount = info->count,
+    .pColorAttachments = &references[0],
+    .pResolveAttachments = info->resolve ? &references[info->count] : NULL,
+    .pDepthStencilAttachment = info->depth.format ? &references[info->count << info->resolve] : NULL
+  };
+
+  VkRenderPassMultiviewCreateInfo multiview = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
+    .subpassCount = 1,
+    .pViewMasks = (uint32_t[1]) { (1 << info->views) - 1 }
+  };
+
+  VkRenderPassCreateInfo createInfo = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+    .pNext = info->views > 0 ? &multiview : NULL,
+    .attachmentCount = (info->count << info->resolve) + !!info->depth.format,
+    .pAttachments = attachments,
+    .subpassCount = 1,
+    .pSubpasses = &subpass
+  };
+
+  VK(vkCreateRenderPass(state.device, &createInfo, NULL, &pass->handle), "Could not create render pass") {
+    return false;
+  }
+
+  nickname(pass->handle, VK_OBJECT_TYPE_RENDER_PASS, info->label);
+  return true;
+}
+
+void gpu_pass_destroy(gpu_pass* pass) {
+  condemn(pass->handle, VK_OBJECT_TYPE_RENDER_PASS);
+}
+
 // Pipeline
 
 bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
@@ -1266,28 +1351,6 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     }
   };
 
-  bool resolve = info->multisample.count > 1;
-  bool depth = info->depth.format;
-
-  gpu_pass_info pass = {
-    .count = (info->colorCount << resolve) + depth,
-    .views = info->viewCount,
-    .samples = info->multisample.count,
-    .resolve = resolve,
-    .depth.format = convertFormat(info->depth.format, LINEAR),
-    .depth.layout = info->depth.format ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-    .depth.load = GPU_LOAD_OP_CLEAR,
-    .depth.save = GPU_SAVE_OP_DISCARD
-  };
-
-  for (uint32_t i = 0; i < info->colorCount; i++) {
-    pass.color[i].format = convertFormat(info->color[i].format, info->color[i].srgb);
-    pass.color[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    pass.color[i].resolveLayout = resolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-    pass.color[i].load = GPU_LOAD_OP_CLEAR;
-    pass.color[i].save = GPU_SAVE_OP_SAVE;
-  }
-
   VkGraphicsPipelineCreateInfo pipelineInfo = (VkGraphicsPipelineCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
     .stageCount = 2,
@@ -1301,7 +1364,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .pColorBlendState = &colorBlend,
     .pDynamicState = &dynamicState,
     .layout = info->shader->pipelineLayout,
-    .renderPass = getCachedRenderPass(&pass, true)
+    .renderPass = info->pass->handle
   };
 
   VK(vkCreateGraphicsPipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle), "Could not create pipeline") {
@@ -1401,11 +1464,10 @@ void gpu_tally_destroy(gpu_tally* tally) {
 
 // Stream
 
-gpu_stream* gpu_stream_begin(const char* label) {
+gpu_stream* gpu_stream_begin() {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   CHECK(state.streamCount < COUNTOF(tick->streams), "Too many passes") return NULL;
   gpu_stream* stream = &tick->streams[state.streamCount];
-  nickname(stream->commands, VK_OBJECT_TYPE_COMMAND_BUFFER, label);
 
   VkCommandBufferBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -1421,56 +1483,41 @@ void gpu_stream_end(gpu_stream* stream) {
   VK(vkEndCommandBuffer(stream->commands), "Failed to end stream") return;
 }
 
-void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
-  gpu_texture* texture = canvas->color[0].texture ? canvas->color[0].texture : canvas->depth.texture;
-
-  gpu_pass_info pass = {
-    .views = texture->layers,
-    .samples = texture->samples,
-    .resolve = !!canvas->color[0].resolve
-  };
-
+void gpu_render_begin(gpu_stream* stream, gpu_render_target* target) {
   VkImageView images[9];
   VkClearValue clears[9];
+  uint32_t count = 0;
 
-  for (uint32_t i = 0; i < COUNTOF(canvas->color) && canvas->color[i].texture; i++) {
-    images[i] = canvas->color[i].texture->view;
-    memcpy(clears[i].color.float32, canvas->color[i].clear, 4 * sizeof(float));
-    pass.color[i].format = convertFormat(canvas->color[i].texture->format, canvas->color[i].texture->srgb);
-    pass.color[i].layout = canvas->color[i].texture->layout;
-    pass.color[i].load = canvas->color[i].load;
-    pass.color[i].save = canvas->color[i].save;
-    pass.count++;
+  for (uint32_t i = 0; i < COUNTOF(target->color) && target->color[i].texture; i++) {
+    images[i] = target->color[i].texture->view;
+    memcpy(clears[i].color.float32, target->color[i].clear, 4 * sizeof(float));
+    count++;
   }
 
-  if (pass.resolve) {
-    for (uint32_t i = 0; i < pass.count; i++) {
-      images[pass.count + i] = canvas->color[i].resolve->view;
-      pass.color[i].resolveLayout = canvas->color[i].resolve->layout;
+  bool resolve = target->color[0].texture && target->color[0].resolve;
+
+  if (resolve) {
+    for (uint32_t i = 0; i < count; i++) {
+      images[count + i] = target->color[i].resolve->view;
     }
-    pass.count <<= 1;
+    count <<= 1;
   }
 
-  if (canvas->depth.texture) {
-    uint32_t index = pass.count++;
-    images[index] = canvas->depth.texture->view;
-    clears[index].depthStencil.depth = canvas->depth.clear.depth;
-    clears[index].depthStencil.stencil = canvas->depth.clear.stencil;
-    pass.depth.format = convertFormat(canvas->depth.texture->format, LINEAR);
-    pass.depth.layout = canvas->depth.texture->layout;
-    pass.depth.load = canvas->depth.load;
-    pass.depth.save = canvas->depth.save;
+  if (target->depth.texture) {
+    uint32_t index = count++;
+    images[index] = target->depth.texture->view;
+    clears[index].depthStencil.depth = target->depth.clear.depth;
+    clears[index].depthStencil.stencil = target->depth.clear.stencil;
   }
 
-  VkRenderPass renderPass = getCachedRenderPass(&pass, false);
-  VkFramebuffer framebuffer = getCachedFramebuffer(renderPass, images, pass.count, canvas->size);
+  VkFramebuffer framebuffer = getCachedFramebuffer(target->pass->handle, images, count, target->size);
 
   VkRenderPassBeginInfo beginfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-    .renderPass = renderPass,
+    .renderPass = target->pass->handle,
     .framebuffer = framebuffer,
-    .renderArea = { { 0, 0 }, { canvas->size[0], canvas->size[1] } },
-    .clearValueCount = pass.count,
+    .renderArea = { { 0, 0 }, { target->size[0], target->size[1] } },
+    .clearValueCount = count,
     .pClearValues = clears
   };
 
@@ -2218,12 +2265,6 @@ void gpu_destroy(void) {
       if (framebuffer) vkDestroyFramebuffer(state.device, framebuffer, NULL);
     }
   }
-  for (uint32_t i = 0; i < COUNTOF(state.renderpasses); i++) {
-    for (uint32_t j = 0; j < COUNTOF(state.renderpasses[0]); j++) {
-      VkRenderPass pass = state.renderpasses[i][j].object;
-      if (pass) vkDestroyRenderPass(state.device, pass, NULL);
-    }
-  }
   for (uint32_t i = 0; i < COUNTOF(state.memory); i++) {
     if (state.memory[i].handle) vkFreeMemory(state.device, state.memory[i].handle, NULL);
   }
@@ -2445,170 +2486,6 @@ static void expunge() {
       default: check(false, "Unreachable"); break;
     }
   }
-}
-
-// Ugliness until we can use dynamic rendering
-static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool compatible) {
-  bool depth = pass->depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
-  uint32_t count = (pass->count - depth) >> pass->resolve;
-
-  uint32_t lower[] = {
-    count > 0 ? pass->color[0].format : 0xff,
-    count > 1 ? pass->color[1].format : 0xff,
-    count > 2 ? pass->color[2].format : 0xff,
-    count > 3 ? pass->color[3].format : 0xff,
-    depth ? pass->depth.format : 0xff,
-    pass->samples,
-    pass->resolve,
-    pass->views
-  };
-
-  uint32_t upper[] = {
-    count > 0 ? pass->color[0].load : 0xff,
-    count > 1 ? pass->color[1].load : 0xff,
-    count > 2 ? pass->color[2].load : 0xff,
-    count > 3 ? pass->color[3].load : 0xff,
-    count > 0 ? pass->color[0].save : 0xff,
-    count > 1 ? pass->color[1].save : 0xff,
-    count > 2 ? pass->color[2].save : 0xff,
-    count > 3 ? pass->color[3].save : 0xff,
-    depth ? pass->depth.load : 0xff,
-    depth ? pass->depth.save : 0xff,
-    count > 0 ? pass->color[0].layout : 0x00,
-    count > 1 ? pass->color[1].layout : 0x00,
-    count > 2 ? pass->color[2].layout : 0x00,
-    count > 3 ? pass->color[3].layout : 0x00,
-    pass->resolve && count > 0 ? pass->color[0].resolveLayout : 0x00,
-    pass->resolve && count > 1 ? pass->color[1].resolveLayout : 0x00,
-    pass->resolve && count > 2 ? pass->color[2].resolveLayout : 0x00,
-    pass->resolve && count > 3 ? pass->color[3].resolveLayout : 0x00,
-    depth ? pass->depth.layout : 0x00,
-    0
-  };
-
-  // The lower half of the hash contains format, sample, multiview info, which is all that's needed
-  // to select a "compatible" render pass (which is all that's needed for creating pipelines).
-  // The upper half of the hash contains load/store info and usage flags (for layout transitions),
-  // which is necessary to select an exact match when e.g. actually beginning a render pass
-  uint64_t hash = ((uint64_t) hash32(HASH_SEED, upper, sizeof(upper)) << 32) | hash32(HASH_SEED, lower, sizeof(lower));
-  uint64_t mask = compatible ? ~0u : ~0ull;
-
-  // Search for a pass, they are always stored in MRU order, which requires moving it to the first
-  // column if you end up using it, and shifting down the rest (dunno if that's actually worth it)
-  uint32_t rows = COUNTOF(state.renderpasses);
-  uint32_t cols = COUNTOF(state.renderpasses[0]);
-  gpu_cache_entry* row = state.renderpasses[hash & (rows - 1)];
-  for (uint32_t i = 0; i < cols && row[i].object; i++) {
-    if ((row[i].hash & mask) == hash) {
-      gpu_cache_entry entry = row[i];
-      if (i > 0) {
-        for (uint32_t j = i; j >= 1; j--) {
-          row[j] = row[j - 1];
-        }
-        row[0] = entry;
-      }
-      return entry.object;
-    }
-  }
-
-  // If no render pass was found, make a new one, potentially condemning and evicting an old one
-
-  static const VkAttachmentLoadOp loadOps[] = {
-    [GPU_LOAD_OP_LOAD] = VK_ATTACHMENT_LOAD_OP_LOAD,
-    [GPU_LOAD_OP_CLEAR] = VK_ATTACHMENT_LOAD_OP_CLEAR,
-    [GPU_LOAD_OP_DISCARD] = VK_ATTACHMENT_LOAD_OP_DONT_CARE
-  };
-
-  static const VkAttachmentStoreOp storeOps[] = {
-    [GPU_SAVE_OP_SAVE] = VK_ATTACHMENT_STORE_OP_STORE,
-    [GPU_SAVE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
-  };
-
-  VkAttachmentDescription attachments[9];
-  VkAttachmentReference references[9];
-
-  for (uint32_t i = 0; i < count; i++) {
-    references[i].attachment = i;
-    references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    bool surface = pass->color[i].format == state.surfaceFormat;
-    bool discard = surface || pass->color[i].load != GPU_LOAD_OP_LOAD;
-    attachments[i] = (VkAttachmentDescription) {
-      .format = pass->color[i].format,
-      .samples = pass->samples,
-      .loadOp = loadOps[pass->color[i].load],
-      .storeOp = pass->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->color[i].save],
-      .initialLayout = discard ? VK_IMAGE_LAYOUT_UNDEFINED : pass->color[i].layout,
-      .finalLayout = surface && !pass->resolve ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
-    };
-  }
-
-  if (pass->resolve) {
-    for (uint32_t i = 0; i < count; i++) {
-      uint32_t index = count + i;
-      references[index].attachment = index;
-      references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-      bool surface = pass->color[i].format == state.surfaceFormat;
-      attachments[index] = (VkAttachmentDescription) {
-        .format = pass->color[i].format,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .storeOp = storeOps[pass->color[i].save],
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = surface ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].resolveLayout
-      };
-    }
-  }
-
-  if (depth) {
-    uint32_t index = pass->count - 1;
-    references[index].attachment = index;
-    references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    attachments[index] = (VkAttachmentDescription) {
-      .format = pass->depth.format,
-      .samples = pass->samples,
-      .loadOp = loadOps[pass->depth.load],
-      .storeOp = storeOps[pass->depth.save],
-      .stencilLoadOp = loadOps[pass->depth.load],
-      .stencilStoreOp = storeOps[pass->depth.save],
-      .initialLayout = pass->depth.load == GPU_LOAD_OP_LOAD ? pass->depth.layout : VK_IMAGE_LAYOUT_UNDEFINED,
-      .finalLayout = pass->depth.layout
-    };
-  }
-
-  VkSubpassDescription subpass = {
-    .colorAttachmentCount = count,
-    .pColorAttachments = &references[0],
-    .pResolveAttachments = pass->resolve ? &references[count] : NULL,
-    .pDepthStencilAttachment = depth ? &references[pass->count - 1] : NULL
-  };
-
-  VkRenderPassMultiviewCreateInfo multiview = {
-    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
-    .subpassCount = 1,
-    .pViewMasks = (uint32_t[1]) { (1 << pass->views) - 1 }
-  };
-
-  VkRenderPassCreateInfo info = {
-    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-    .pNext = pass->views > 0 ? &multiview : NULL,
-    .attachmentCount = pass->count,
-    .pAttachments = attachments,
-    .subpassCount = 1,
-    .pSubpasses = &subpass
-  };
-
-  VkRenderPass handle;
-  VK(vkCreateRenderPass(state.device, &info, NULL, &handle), "Could not create render pass") {
-    return VK_NULL_HANDLE;
-  }
-
-  condemn(row[cols - 1].object, VK_OBJECT_TYPE_RENDER_PASS);
-  memmove(row + 1, row, (cols - 1) * sizeof(row[0]));
-
-  row[0].object = handle;
-  row[0].hash = hash;
-
-  return handle;
 }
 
 VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]) {
