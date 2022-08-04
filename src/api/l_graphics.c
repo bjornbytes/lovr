@@ -703,6 +703,11 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsPresent(lua_State* L) {
+  lovrGraphicsPresent();
+  return 0;
+}
+
 static int l_lovrGraphicsWait(lua_State* L) {
   lovrGraphicsWait();
   return 0;
@@ -1488,6 +1493,7 @@ static int l_lovrGraphicsNewPass(lua_State* L) {
 static const luaL_Reg lovrGraphics[] = {
   { "init", l_lovrGraphicsInit },
   { "submit", l_lovrGraphicsSubmit },
+  { "present", l_lovrGraphicsPresent },
   { "wait", l_lovrGraphicsWait },
   { "getDevice", l_lovrGraphicsGetDevice },
   { "getFeatures", l_lovrGraphicsGetFeatures },

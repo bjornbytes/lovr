@@ -132,6 +132,7 @@ function lovr.run()
         pass:reset()
         local skip = lovr.mirror(pass)
         if not skip then lovr.graphics.submit(pass) end
+        lovr.graphics.present()
       end
     end
     if lovr.headset then lovr.headset.submit() end

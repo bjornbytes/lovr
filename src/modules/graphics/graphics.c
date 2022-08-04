@@ -763,7 +763,6 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     return;
   }
 
-  bool present = false;
   uint32_t total = count + 1;
   gpu_stream** streams = tempAlloc(total * sizeof(gpu_stream*));
   gpu_barrier* barriers = tempAlloc(count * sizeof(gpu_barrier));
@@ -819,26 +818,24 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
         Canvas* canvas = &pass->info.canvas;
 
-        for (uint32_t j = 0; j < COUNTOF(canvas->textures) && canvas->textures[j]; j++) {
-          if (canvas->mipmap && canvas->textures[j]->info.mipmaps > 1) {
-            barriers[i].prev |= GPU_PHASE_COLOR;
+        if (canvas->mipmap) {
+          for (uint32_t j = 0; j < COUNTOF(canvas->textures) && canvas->textures[j]; j++) {
+            if (canvas->textures[j]->info.mipmaps > 1) {
+              barriers[i].prev |= GPU_PHASE_COLOR;
+              barriers[i].next |= GPU_PHASE_TRANSFER;
+              barriers[i].flush |= GPU_CACHE_COLOR_WRITE;
+              barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
+              mipmapTexture(pass->stream, canvas->textures[j], 0, ~0u);
+            }
+          }
+
+          if (canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
+            barriers[i].prev |= GPU_PHASE_DEPTH_LATE;
             barriers[i].next |= GPU_PHASE_TRANSFER;
-            barriers[i].flush |= GPU_CACHE_COLOR_WRITE;
+            barriers[i].flush |= GPU_CACHE_DEPTH_WRITE;
             barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
-            mipmapTexture(pass->stream, canvas->textures[j], 0, ~0u);
+            mipmapTexture(pass->stream, canvas->depth.texture, 0, ~0u);
           }
-
-          if (canvas->textures[j] == state.window) {
-            present = true;
-          }
-        }
-
-        if (canvas->mipmap && canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
-          barriers[i].prev |= GPU_PHASE_DEPTH_LATE;
-          barriers[i].next |= GPU_PHASE_TRANSFER;
-          barriers[i].flush |= GPU_CACHE_DEPTH_WRITE;
-          barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
-          mipmapTexture(pass->stream, canvas->depth.texture, 0, ~0u);
         }
         break;
       case PASS_COMPUTE:
@@ -958,18 +955,21 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     gpu_stream_end(streams[i]);
   }
 
-  gpu_submit(streams, total, present);
+  gpu_submit(streams, total);
 
   state.stats.pipelineSwitches = 0;
   state.stats.bundleSwitches = 0;
 
-  if (present) {
-    state.window->gpu = NULL;
-    state.window->renderView = NULL;
-  }
-
   state.stream = NULL;
   state.active = false;
+}
+
+void lovrGraphicsPresent() {
+  if (state.window->gpu) {
+    state.window->gpu = NULL;
+    state.window->renderView = NULL;
+    gpu_present();
+  }
 }
 
 void lovrGraphicsWait() {

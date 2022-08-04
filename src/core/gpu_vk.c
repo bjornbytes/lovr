@@ -2315,7 +2315,7 @@ uint32_t gpu_begin() {
   return state.tick[CPU];
 }
 
-void gpu_submit(gpu_stream** streams, uint32_t count, bool present) {
+void gpu_submit(gpu_stream** streams, uint32_t count) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
 
   VkCommandBuffer commands[COUNTOF(tick->streams)];
@@ -2323,35 +2323,43 @@ void gpu_submit(gpu_stream** streams, uint32_t count, bool present) {
     commands[i] = streams[i]->commands;
   }
 
-  VkPipelineStageFlags waitMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .waitSemaphoreCount = present,
+    .waitSemaphoreCount = !!state.surfaceSemaphore,
     .pWaitSemaphores = &state.surfaceSemaphore,
-    .pWaitDstStageMask = &waitMask,
+    .pWaitDstStageMask = &waitStage,
     .commandBufferCount = count,
-    .pCommandBuffers = commands,
-    .signalSemaphoreCount = present,
-    .pSignalSemaphores = &tick->semaphores[1]
+    .pCommandBuffers = commands
   };
 
   VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") {}
+  state.surfaceSemaphore = VK_NULL_HANDLE;
+}
 
-  if (present) {
-    VkPresentInfoKHR presentInfo = {
-      .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-      .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &tick->semaphores[1],
-      .swapchainCount = 1,
-      .pSwapchains = &state.swapchain,
-      .pImageIndices = &state.currentSurfaceTexture
-    };
+void gpu_present() {
+  VkSemaphore semaphore = state.ticks[state.tick[CPU] & TICK_MASK].semaphores[1];
 
-    VK(vkQueuePresentKHR(state.queue, &presentInfo), "Queue present failed") {}
-    state.surfaceSemaphore = VK_NULL_HANDLE;
-    state.currentSurfaceTexture = ~0u;
-  }
+  VkSubmitInfo submit = {
+    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .signalSemaphoreCount = 1,
+    .pSignalSemaphores = &semaphore
+  };
+
+  VK(vkQueueSubmit(state.queue, 1, &submit, VK_NULL_HANDLE), "Queue submit failed") {}
+
+  VkPresentInfoKHR present = {
+    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+    .waitSemaphoreCount = 1,
+    .pWaitSemaphores = &semaphore,
+    .swapchainCount = 1,
+    .pSwapchains = &state.swapchain,
+    .pImageIndices = &state.currentSurfaceTexture
+  };
+
+  VK(vkQueuePresentKHR(state.queue, &present), "Queue present failed") {}
+  state.currentSurfaceTexture = ~0u;
 }
 
 bool gpu_is_complete(uint32_t tick) {
