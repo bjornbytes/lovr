@@ -105,6 +105,7 @@ void lovrModelDataDestroy(void* ref) {
   map_free(&model->nodeMap);
   free(model->vertices);
   free(model->indices);
+  free(model->metadata);
   free(model->data);
   free(model);
 }
