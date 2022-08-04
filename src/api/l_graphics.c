@@ -800,17 +800,6 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsGetStats(lua_State* L) {
-  GraphicsStats stats;
-  lovrGraphicsGetStats(&stats);
-  lua_newtable(L);
-
-  lua_pushinteger(L, stats.pipelineSwitches), lua_setfield(L, -2, "pipelineSwitches");
-  lua_pushinteger(L, stats.bundleSwitches), lua_setfield(L, -2, "bundleSwitches");
-
-  return 1;
-}
-
 static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
   TextureFormat format = luax_checkenum(L, 1, TextureFormat, NULL);
   uint32_t features = 0;
@@ -1498,7 +1487,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "getDevice", l_lovrGraphicsGetDevice },
   { "getFeatures", l_lovrGraphicsGetFeatures },
   { "getLimits", l_lovrGraphicsGetLimits },
-  { "getStats", l_lovrGraphicsGetStats },
   { "isFormatSupported", l_lovrGraphicsIsFormatSupported },
   { "getWindowPass", l_lovrGraphicsGetWindowPass },
   { "getDefaultFont", l_lovrGraphicsGetDefaultFont },

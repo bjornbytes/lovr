@@ -83,11 +83,6 @@ typedef struct {
   float pointSize;
 } GraphicsLimits;
 
-typedef struct {
-  uint32_t pipelineSwitches;
-  uint32_t bundleSwitches;
-} GraphicsStats;
-
 enum {
   TEXTURE_FEATURE_SAMPLE   = (1 << 0),
   TEXTURE_FEATURE_FILTER   = (1 << 1),
@@ -105,7 +100,6 @@ void lovrGraphicsDestroy(void);
 void lovrGraphicsGetDevice(GraphicsDevice* device);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
-void lovrGraphicsGetStats(GraphicsStats* stats);
 bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
 void lovrGraphicsGetShaderCache(void* data, size_t* size);
 
