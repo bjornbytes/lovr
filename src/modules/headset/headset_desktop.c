@@ -193,7 +193,26 @@ static Texture* desktop_getTexture(void) {
 }
 
 static Pass* desktop_getPass(void) {
-  return lovrGraphicsGetWindowPass();
+  Pass* pass = lovrGraphicsGetWindowPass();
+  lovrPassReset(pass);
+
+  float position[4], orientation[4];
+  desktop_getViewPose(0, position, orientation);
+
+  float viewMatrix[16];
+  mat4_fromQuat(viewMatrix, orientation);
+  memcpy(viewMatrix + 12, position, 3 * sizeof(float));
+  mat4_invert(viewMatrix);
+
+  float projection[16];
+  float left, right, up, down;
+  desktop_getViewAngles(0, &left, &right, &up, &down);
+  mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
+
+  lovrPassSetViewMatrix(pass, 0, viewMatrix);
+  lovrPassSetProjection(pass, 0, projection);
+
+  return pass;
 }
 
 static void desktop_submit(void) {
