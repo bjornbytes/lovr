@@ -230,6 +230,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     binOffset = 0;
   }
 
+  model->metadata = malloc(jsonLength);
+  lovrAssert(model->metadata, "Out of memory");
+  memcpy(model->metadata, json, jsonLength);
+  model->metadataSize = jsonLength;
+
   // Parse JSON
   jsmn_parser parser;
   jsmn_init(&parser);

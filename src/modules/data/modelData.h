@@ -156,6 +156,9 @@ typedef struct ModelData {
   uint32_t ref;
   void* data;
 
+  char* metadata;
+  size_t metadataSize;
+
   struct Blob** blobs;
   struct Image** images;
   ModelBuffer* buffers;

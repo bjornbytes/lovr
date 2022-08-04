@@ -62,6 +62,18 @@ static ModelAnimation* luax_checkanimation(lua_State* L, int index, ModelData* m
   }
 }
 
+static int l_lovrModelDataGetMetadata(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+
+  if (!model->metadata || model->metadataSize == 0) {
+    lua_pushnil(L);
+  } else {
+    lua_pushlstring(L, model->metadata, model->metadataSize);
+  }
+
+  return 1;
+}
+
 static int l_lovrModelDataGetBlobCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   lua_pushinteger(L, model->blobCount);
@@ -731,6 +743,7 @@ static int l_lovrModelDataGetSkinInverseBindMatrix(lua_State* L) {
 }
 
 const luaL_Reg lovrModelData[] = {
+  { "getMetadata", l_lovrModelDataGetMetadata },
   { "getBlobCount", l_lovrModelDataGetBlobCount },
   { "getBlob", l_lovrModelDataGetBlob },
   { "getImageCount", l_lovrModelDataGetImageCount },

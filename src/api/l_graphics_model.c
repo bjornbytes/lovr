@@ -57,6 +57,10 @@ static int l_lovrModelGetData(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelGetMetadata(lua_State* L) {
+  return luax_callmodeldata(L, "getMetadata", 1);
+}
+
 static int l_lovrModelGetRootNode(lua_State* L) {
   return luax_callmodeldata(L, "getRootNode", 1);
 }
@@ -356,6 +360,7 @@ static int l_lovrModelGetTexture(lua_State* L) {
 
 const luaL_Reg lovrModel[] = {
   { "getData", l_lovrModelGetData },
+  { "getMetadata", l_lovrModelGetMetadata },
   { "getRootNode", l_lovrModelGetRootNode },
   { "getNodeCount", l_lovrModelGetNodeCount },
   { "getNodeName", l_lovrModelGetNodeName },
