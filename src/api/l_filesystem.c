@@ -516,9 +516,7 @@ int luaopen_lovr_filesystem(lua_State* L) {
   }
   lua_pop(L, 1);
 
-  if (lovrFilesystemInit(archive)) {
-    luax_atexit(L, lovrFilesystemDestroy);
-  }
+  lovrFilesystemInit(archive);
 
   lua_newtable(L);
   luax_register(L, lovrFilesystem);

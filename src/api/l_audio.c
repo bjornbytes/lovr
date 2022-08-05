@@ -331,7 +331,6 @@ int luaopen_lovr_audio(lua_State* L) {
   lua_pop(L, 1);
 
   if (lovrAudioInit(spatializer, sampleRate)) {
-    luax_atexit(L, lovrAudioDestroy);
     if (start) {
       lovrAudioSetDevice(AUDIO_PLAYBACK, NULL, 0, NULL, AUDIO_SHARED);
       lovrAudioStart(AUDIO_PLAYBACK);

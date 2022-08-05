@@ -28,6 +28,17 @@ LOVR_EXPORT int luaopen_lovr_system(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_thread(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_timer(lua_State* L);
 
+void lovrAudioDestroy(void);
+void lovrEventDestroy(void);
+void lovrFilesystemDestroy(void);
+void lovrGraphicsDestroy(void);
+void lovrHeadsetDestroy(void);
+void lovrMathDestroy(void);
+void lovrPhysicsDestroy(void);
+void lovrSystemDestroy(void);
+void lovrThreadModuleDestroy(void);
+void lovrTimerDestroy(void);
+
 // Object names are lightuserdata because Variants need a non-Lua string due to threads.
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "__info");
@@ -114,6 +125,40 @@ void luax_preload(lua_State* L) {
   lua_getfield(L, -1, "preload");
   luax_register(L, lovrModules);
   lua_pop(L, 2);
+}
+
+// Destroys modules in a specific order
+void luax_unload(lua_State* L) {
+#ifndef LOVR_DISABLE_TIMER
+  lovrTimerDestroy();
+#endif
+#ifndef LOVR_DISABLE_MATH
+  lovrMathDestroy();
+#endif
+#ifndef LOVR_DISABLE_EVENT
+  lovrEventDestroy();
+#endif
+#ifndef LOVR_DISABLE_THREAD
+  lovrThreadModuleDestroy();
+#endif
+#ifndef LOVR_DISABLE_PHYSICS
+  lovrPhysicsDestroy();
+#endif
+#ifndef LOVR_DISABLE_AUDIO
+  lovrAudioDestroy();
+#endif
+#ifndef LOVR_DISABLE_HEADSET
+  lovrHeadsetDestroy();
+#endif
+#ifndef LOVR_DISABLE_GRAPHICS
+  lovrGraphicsDestroy();
+#endif
+#ifndef LOVR_DISABLE_SYSTEM
+  lovrSystemDestroy();
+#endif
+#ifndef LOVR_DISABLE_FILESYSTEM
+  lovrFilesystemDestroy();
+#endif
 }
 
 void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, destructorFn* destructor) {
