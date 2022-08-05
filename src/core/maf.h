@@ -651,8 +651,8 @@ MAF void mat4_getFov(mat4 m, float* left, float* right, float* up, float* down) 
   float v[4][4] = {
     {  1.f,  0.f, 0.f, 1.f },
     { -1.f,  0.f, 0.f, 1.f },
-    {  0.f, -1.f, 0.f, 1.f },
-    {  0.f,  1.f, 0.f, 1.f }
+    {  0.f,  1.f, 0.f, 1.f },
+    {  0.f, -1.f, 0.f, 1.f }
   };
 
   float transpose[16];
