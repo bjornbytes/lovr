@@ -126,7 +126,7 @@ int luax_getstack(struct lua_State* L);
 void luax_pushconf(struct lua_State* L);
 int luax_setconf(struct lua_State* L);
 void luax_setmainthread(struct lua_State* L);
-void luax_atexit(struct lua_State* L, void (*destructor)(void));
+void luax_atexit(struct lua_State* L, void (*finalizer)(void));
 uint32_t _luax_checku32(struct lua_State* L, int index);
 uint32_t _luax_optu32(struct lua_State* L, int index, uint32_t fallback);
 void luax_readcolor(struct lua_State* L, int index, float color[4]);

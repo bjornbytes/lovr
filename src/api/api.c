@@ -60,12 +60,12 @@ static int luax_meta__gc(lua_State* L) {
   return 0;
 }
 
-static int luax_module__gc(lua_State* L) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+static int luax_runfinalizers(lua_State* L) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrfinalizers");
   for (int i = luax_len(L, 2); i >= 1; i--) {
     lua_rawgeti(L, 2, i);
-    voidFn* destructor = (voidFn*) lua_tocfunction(L, -1);
-    destructor();
+    voidFn* finalizer = (voidFn*) lua_tocfunction(L, -1);
+    finalizer();
     lua_pop(L, 1);
   }
   return 0;
@@ -362,8 +362,8 @@ void luax_setmainthread(lua_State *L) {
 #endif
 }
 
-void luax_atexit(lua_State* L, voidFn* destructor) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+void luax_atexit(lua_State* L, voidFn* finalizer) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrfinalizers");
 
   if (lua_isnil(L, -1)) {
     lua_newtable(L);
@@ -372,18 +372,18 @@ void luax_atexit(lua_State* L, voidFn* destructor) {
     // Userdata sentinel since tables don't have __gc (yet)
     lua_newuserdata(L, sizeof(void*));
     lua_createtable(L, 0, 1);
-    lua_pushcfunction(L, luax_module__gc);
+    lua_pushcfunction(L, luax_runfinalizers);
     lua_setfield(L, -2, "__gc");
     lua_setmetatable(L, -2);
     lua_setfield(L, -2, "");
 
     // Write to the registry
     lua_pushvalue(L, -1);
-    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrfinalizers");
   }
 
   int length = luax_len(L, -1);
-  lua_pushcfunction(L, (lua_CFunction) destructor);
+  lua_pushcfunction(L, (lua_CFunction) finalizer);
   lua_rawseti(L, -2, length + 1);
   lua_pop(L, 1);
 }
