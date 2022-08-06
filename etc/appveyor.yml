@@ -21,7 +21,7 @@ cache:
 
 install:
   - if not exist VulkanSDK.exe curl -L --silent --show-error --output VulkanSDK.exe https://sdk.lunarg.com/sdk/download/1.3.216.0/windows/VulkanSDK-1.3.216.0-Installer.exe?Human=true
-  - VulkanSDK.exe /S
+  - VulkanSDK.exe --root C:\VulkanSDK --accept-licenses --default-answer --confirm-command install
 
 before_build:
   - cd C:\projects\lovr
