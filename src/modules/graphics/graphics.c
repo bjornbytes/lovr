@@ -3427,7 +3427,7 @@ void lovrPassReset(Pass* pass) {
 
         // The window pass always uses the global clear color.  The intent is that exposing a global
         // clear color that applies to the window/headset is more friendly than messing with passes.
-        lovrGraphicsGetBackground(pass->target.color[0].clear);
+        memcpy(pass->target.color[0].clear, state.background, 4 * sizeof(float));
       }
 
       if (canvas->mipmap) {
