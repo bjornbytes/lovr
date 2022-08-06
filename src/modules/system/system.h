@@ -19,3 +19,4 @@ bool lovrSystemIsWindowOpen(void);
 uint32_t lovrSystemGetWindowWidth(void);
 uint32_t lovrSystemGetWindowHeight(void);
 float lovrSystemGetWindowDensity(void);
+bool lovrSystemIsKeyDown(int keycode);

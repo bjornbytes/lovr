@@ -8,9 +8,11 @@ static struct {
   bool initialized;
   int windowWidth;
   int windowHeight;
+  bool pressedKeys[KEY_COUNT];
 } state;
 
 static void onKey(os_button_action action, os_key key, uint32_t scancode, bool repeat) {
+  state.pressedKeys[key] = (action == BUTTON_PRESSED);
   lovrEventPush((Event) {
     .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
     .data.key.code = key,
@@ -71,6 +73,10 @@ const char* lovrSystemGetOS() {
 
 uint32_t lovrSystemGetCoreCount() {
   return os_get_core_count();
+}
+
+bool lovrSystemIsKeyDown(int keycode) {
+  return state.pressedKeys[keycode];
 }
 
 void lovrSystemRequestPermission(Permission permission) {
