@@ -823,24 +823,20 @@ static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_checktype(L, 2, Buffer);
   Buffer* indices = luax_totype(L, 3, Buffer);
-  float transform[16];
-  int index = luax_readmat4(L, indices ? 4 : 3, transform, 1);
-  uint32_t start = luax_optu32(L, index++, 1) - 1;
-  uint32_t count = luax_optu32(L, index++, ~0u);
-  uint32_t instances = luax_optu32(L, index, 1);
-  lovrPassMesh(pass, vertices, indices, transform, start, count, instances);
-  return 0;
-}
-
-static int l_lovrPassMultimesh(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_totype(L, 2, Buffer);
-  Buffer* indices = luax_totype(L, 3, Buffer);
-  Buffer* draws = luax_checktype(L, 4, Buffer);
-  uint32_t count = luax_optu32(L, 5, 1);
-  uint32_t offset = luax_optu32(L, 6, 0);
-  uint32_t stride = luax_optu32(L, 7, 0);
-  lovrPassMultimesh(pass, vertices, indices, draws, count, offset, stride);
+  Buffer* indirect = luax_totype(L, 4, Buffer);
+  if (indirect) {
+    uint32_t count = luax_optu32(L, 5, 1);
+    uint32_t offset = luax_optu32(L, 6, 0);
+    uint32_t stride = luax_optu32(L, 7, 0);
+    lovrPassMeshIndirect(pass, vertices, indices, indirect, count, offset, stride);
+  } else {
+    float transform[16];
+    int index = luax_readmat4(L, indices ? 4 : 3, transform, 1);
+    uint32_t start = luax_optu32(L, index++, 1) - 1;
+    uint32_t count = luax_optu32(L, index++, ~0u);
+    uint32_t instances = luax_optu32(L, index, 1);
+    lovrPassMesh(pass, vertices, indices, transform, start, count, instances);
+  }
   return 0;
 }
 
@@ -1164,7 +1160,6 @@ const luaL_Reg lovrPass[] = {
   { "monkey", l_lovrPassMonkey },
   { "draw", l_lovrPassDraw },
   { "mesh", l_lovrPassMesh },
-  { "multimesh", l_lovrPassMultimesh },
 
   { "compute", l_lovrPassCompute },
 

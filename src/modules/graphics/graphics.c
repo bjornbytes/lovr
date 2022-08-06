@@ -5044,13 +5044,13 @@ void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transfor
   });
 }
 
-void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* draws, uint32_t count, uint32_t offset, uint32_t stride) {
+void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* draws, uint32_t count, uint32_t offset, uint32_t stride) {
   lovrCheck(pass->info.type == PASS_RENDER, "This function can only be called on a render pass");
-  lovrCheck(offset % 4 == 0, "Multimesh draw buffer offset must be a multiple of 4");
+  lovrCheck(offset % 4 == 0, "Buffer offset must be a multiple of 4 when sourcing draws from a Buffer");
   uint32_t commandSize = indices ? 20 : 16;
   stride = stride ? stride : commandSize;
   uint32_t totalSize = stride * (count - 1) + commandSize;
-  lovrCheck(offset + totalSize < draws->size, "Multimesh draw range exceeds size of draw buffer");
+  lovrCheck(offset + totalSize < draws->size, "Draw buffer range exceeds the size of the buffer");
 
   Draw draw = (Draw) {
     .mode = pass->pipeline->mode,
@@ -5059,12 +5059,13 @@ void lovrPassMultimesh(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* dr
   };
 
   Shader* shader = pass->pipeline->shader;
-  lovrCheck(shader, "A custom Shader must be bound to draw a multimesh");
+  lovrCheck(shader, "A custom Shader must be bound to source draws from a Buffer");
 
   flushPipeline(pass, &draw, shader);
   flushConstants(pass, shader);
   flushBindings(pass, shader);
   flushBuiltins(pass, &draw, shader);
+  flushMaterial(pass, &draw, shader);
   flushBuffers(pass, &draw);
 
   if (indices) {
