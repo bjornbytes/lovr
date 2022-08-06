@@ -163,7 +163,6 @@ function lovr.errhand(message, traceback)
   print('Error:\n' .. message)
   if not lovr.graphics then return function() return 1 end end
 
-  lovr.graphics.submit()
   lovr.graphics.setBackground(.11, .10, .14)
 
   local scale = .3
@@ -194,21 +193,15 @@ function lovr.errhand(message, traceback)
     local passes = {}
     if lovr.headset then
       lovr.headset.update()
-      local texture = lovr.headset.getTexture()
-      if texture then
-        local pass = lovr.graphics.getPass('render', texture)
-        local near, far = lovr.headset.getClipDistance()
-        for i = 1, lovr.headset.getViewCount() do
-          pass:setViewPose(i, lovr.headset.getViewPose(i))
-          local left, right, up, down = lovr.headset.getViewAngles(i)
-          pass:setProjection(i, left, right, up, down, near, far)
-        end
+      local pass = lovr.headset.getPass()
+      if pass then
         render(pass)
         passes[#passes + 1] = pass
       end
     end
     if lovr.system.isWindowOpen() then
-      local pass = lovr.graphics.getPass('render', 'window')
+      local pass = lovr.graphics.getWindowPass()
+      pass:reset()
       local width, height = lovr.system.getWindowDimensions()
       local projection = lovr.math.mat4():perspective(1.0, width / height, .1, 100)
       pass:setProjection(1, projection)
@@ -216,6 +209,7 @@ function lovr.errhand(message, traceback)
       passes[#passes + 1] = pass
     end
     lovr.graphics.submit(passes)
+    if lovr.headset then lovr.headset.submit() end
     if lovr.math then lovr.math.drain() end
   end
 end
