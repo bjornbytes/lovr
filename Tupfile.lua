@@ -497,7 +497,7 @@ if target == 'android' then
   apk = 'bin/lovr.apk'
 
   manifest = config.android.manifest or ('etc/AndroidManifest_%s.xml'):format(config.android.flavor)
-  package = #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
+  package = config.android.package and #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
   project = config.android.project and #config.android.project > 0 and ('-A ' .. config.android.project) or ''
 
   version = config.android.version
