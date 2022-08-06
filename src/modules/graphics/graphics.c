@@ -101,7 +101,7 @@ struct Shader {
   ShaderInfo info;
   uint32_t layout;
   uint32_t computePipeline;
-  uint32_t localWorkgroupSize[3];
+  uint32_t workgroupSize[3];
   uint32_t bufferMask;
   uint32_t textureMask;
   uint32_t samplerMask;
@@ -728,9 +728,9 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->clipDistances = state.limits.clipDistances;
   limits->cullDistances = state.limits.cullDistances;
   limits->clipAndCullDistances = state.limits.clipAndCullDistances;
-  memcpy(limits->computeDispatchCount, state.limits.computeDispatchCount, 3 * sizeof(uint32_t));
-  memcpy(limits->computeWorkgroupSize, state.limits.computeWorkgroupSize, 3 * sizeof(uint32_t));
-  limits->computeWorkgroupVolume = state.limits.computeWorkgroupVolume;
+  memcpy(limits->workgroupCount, state.limits.workgroupCount, 3 * sizeof(uint32_t));
+  memcpy(limits->workgroupSize, state.limits.workgroupSize, 3 * sizeof(uint32_t));
+  limits->totalWorkgroupSize = state.limits.totalWorkgroupSize;
   limits->computeSharedMemory = state.limits.computeSharedMemory;
   limits->shaderConstantSize = MIN(state.limits.pushConstantSize, 256);
   limits->indirectDrawCount = state.limits.indirectDrawCount;
@@ -1556,7 +1556,12 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   }
 
   if (info->type == SHADER_COMPUTE) {
-    memcpy(shader->localWorkgroupSize, spv[0].localWorkgroupSize, 3 * sizeof(uint32_t));
+    memcpy(shader->workgroupSize, spv[0].workgroupSize, 3 * sizeof(uint32_t));
+    lovrCheck(shader->workgroupSize[0] <= state.limits.workgroupSize[0], "Shader workgroup size exceeds the 'workgroupSize' limit");
+    lovrCheck(shader->workgroupSize[1] <= state.limits.workgroupSize[1], "Shader workgroup size exceeds the 'workgroupSize' limit");
+    lovrCheck(shader->workgroupSize[2] <= state.limits.workgroupSize[2], "Shader workgroup size exceeds the 'workgroupSize' limit");
+    uint32_t totalWorkgroupSize = shader->workgroupSize[0] * shader->workgroupSize[1] * shader->workgroupSize[2];
+    lovrCheck(totalWorkgroupSize <= state.limits.totalWorkgroupSize, "Shader workgroup size exceeds the 'totalWorkgroupSize' limit");
   }
 
   uint32_t constantStage = spv[0].pushConstantSize > spv[1].pushConstantSize ? 0 : 1;
@@ -1818,8 +1823,8 @@ bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location)
   return false;
 }
 
-void lovrShaderGetLocalWorkgroupSize(Shader* shader, uint32_t size[3]) {
-  memcpy(size, shader->localWorkgroupSize, 3 * sizeof(uint32_t));
+void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]) {
+  memcpy(size, shader->workgroupSize, 3 * sizeof(uint32_t));
 }
 
 // Material
@@ -5087,9 +5092,9 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
 
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader && shader->info.type == SHADER_COMPUTE, "Tried to run a compute shader, but no compute shader is bound");
-  lovrCheck(x <= state.limits.computeDispatchCount[0], "Compute %s count exceeds computeDispatchCount limit", "x");
-  lovrCheck(y <= state.limits.computeDispatchCount[1], "Compute %s count exceeds computeDispatchCount limit", "y");
-  lovrCheck(z <= state.limits.computeDispatchCount[2], "Compute %s count exceeds computeDispatchCount limit", "z");
+  lovrCheck(x <= state.limits.workgroupCount[0], "Compute %s count exceeds workgroupCount limit", "x");
+  lovrCheck(y <= state.limits.workgroupCount[1], "Compute %s count exceeds workgroupCount limit", "y");
+  lovrCheck(z <= state.limits.workgroupCount[2], "Compute %s count exceeds workgroupCount limit", "z");
 
   gpu_pipeline* pipeline = state.pipelines.data[shader->computePipeline];
 

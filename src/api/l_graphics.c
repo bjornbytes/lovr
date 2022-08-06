@@ -771,18 +771,18 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.clipAndCullDistances), lua_setfield(L, -2, "clipAndCullDistances");
 
   lua_createtable(L, 3, 0);
-  lua_pushinteger(L, limits.computeDispatchCount[0]), lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.computeDispatchCount[1]), lua_rawseti(L, -2, 2);
-  lua_pushinteger(L, limits.computeDispatchCount[2]), lua_rawseti(L, -2, 3);
-  lua_setfield(L, -2, "computeDispatchCount");
+  lua_pushinteger(L, limits.workgroupCount[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.workgroupCount[1]), lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.workgroupCount[2]), lua_rawseti(L, -2, 3);
+  lua_setfield(L, -2, "workgroupCount");
 
   lua_createtable(L, 3, 0);
-  lua_pushinteger(L, limits.computeWorkgroupSize[0]), lua_rawseti(L, -2, 1);
-  lua_pushinteger(L, limits.computeWorkgroupSize[1]), lua_rawseti(L, -2, 2);
-  lua_pushinteger(L, limits.computeWorkgroupSize[2]), lua_rawseti(L, -2, 3);
-  lua_setfield(L, -2, "computeWorkgroupSize");
+  lua_pushinteger(L, limits.workgroupSize[0]), lua_rawseti(L, -2, 1);
+  lua_pushinteger(L, limits.workgroupSize[1]), lua_rawseti(L, -2, 2);
+  lua_pushinteger(L, limits.workgroupSize[2]), lua_rawseti(L, -2, 3);
+  lua_setfield(L, -2, "workgroupSize");
 
-  lua_pushinteger(L, limits.computeWorkgroupVolume), lua_setfield(L, -2, "computeWorkgroupVolume");
+  lua_pushinteger(L, limits.totalWorkgroupSize), lua_setfield(L, -2, "totalWorkgroupSize");
   lua_pushinteger(L, limits.computeSharedMemory), lua_setfield(L, -2, "computeSharedMemory");
   lua_pushinteger(L, limits.shaderConstantSize), lua_setfield(L, -2, "shaderConstantSize");
   lua_pushinteger(L, limits.indirectDrawCount), lua_setfield(L, -2, "indirectDrawCount");
@@ -1344,10 +1344,6 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
 
     lua_getfield(L, 1, "occlusionStrength");
     info.data.occlusionStrength = luax_optfloat(L, -1, 1.f);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 1, "glowStrength");
-    info.data.glowStrength = luax_optfloat(L, -1, 1.f);
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "normalScale");

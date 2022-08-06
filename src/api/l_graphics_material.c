@@ -50,7 +50,6 @@ static int l_lovrMaterialGetProperties(lua_State* L) {
   lua_pushnumber(L, info->data.clearcoat), lua_setfield(L, -2, "clearcoat");
   lua_pushnumber(L, info->data.clearcoatRoughness), lua_setfield(L, -2, "clearcoatRoughness");
   lua_pushnumber(L, info->data.occlusionStrength), lua_setfield(L, -2, "occlusionStrength");
-  lua_pushnumber(L, info->data.glowStrength), lua_setfield(L, -2, "glowStrength");
   lua_pushnumber(L, info->data.normalScale), lua_setfield(L, -2, "normalScale");
   lua_pushnumber(L, info->data.alphaCutoff), lua_setfield(L, -2, "alphaCutoff");
   lua_pushnumber(L, info->data.pointSize), lua_setfield(L, -2, "pointSize");

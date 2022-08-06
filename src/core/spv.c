@@ -187,9 +187,9 @@ static spv_result spv_parse_execution_mode(spv_context* spv, const uint32_t* op,
     return SPV_OK;
   }
 
-  info->localWorkgroupSize[0] = op[3];
-  info->localWorkgroupSize[1] = op[4];
-  info->localWorkgroupSize[2] = op[5];
+  info->workgroupSize[0] = op[3];
+  info->workgroupSize[1] = op[4];
+  info->workgroupSize[2] = op[5];
   return SPV_OK;
 }
 

@@ -1,4 +1,7 @@
 #version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "lovr.glsl"
 
 layout(local_size_x = 32, local_size_x_id = 0) in;
 
@@ -25,9 +28,9 @@ layout(set = 0, binding = 1) buffer restrict writeonly VertexOut { ModelVertex v
 layout(set = 0, binding = 2) buffer restrict readonly VertexWeights { SkinVertex skin[]; };
 layout(set = 0, binding = 3) uniform JointTransforms { mat4 joints[256]; };
 
-void main() {
-  if (gl_GlobalInvocationID.x >= vertexCount) return;
-  uint vertexIndex = baseVertex + gl_GlobalInvocationID.x;
+void lovrmain() {
+  if (GlobalThreadID.x >= vertexCount) return;
+  uint vertexIndex = baseVertex + GlobalThreadID.x;
 
   uint indices = skin[vertexIndex].indices;
   uint i0 = (indices >> 0) & 0xff;

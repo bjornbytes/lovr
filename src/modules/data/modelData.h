@@ -84,7 +84,6 @@ typedef struct {
   float clearcoat;
   float clearcoatRoughness;
   float occlusionStrength;
-  float glowStrength;
   float normalScale;
   float alphaCutoff;
   float pointSize;

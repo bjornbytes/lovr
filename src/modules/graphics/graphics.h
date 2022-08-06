@@ -72,9 +72,9 @@ typedef struct {
   uint32_t clipDistances;
   uint32_t cullDistances;
   uint32_t clipAndCullDistances;
-  uint32_t computeDispatchCount[3];
-  uint32_t computeWorkgroupSize[3];
-  uint32_t computeWorkgroupVolume;
+  uint32_t workgroupCount[3];
+  uint32_t workgroupSize[3];
+  uint32_t totalWorkgroupSize;
   uint32_t computeSharedMemory;
   uint32_t shaderConstantSize;
   uint32_t indirectDrawCount;
@@ -315,7 +315,7 @@ void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderHasStage(Shader* shader, ShaderStage stage);
 bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location);
-void lovrShaderGetLocalWorkgroupSize(Shader* shader, uint32_t size[3]);
+void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]);
 
 // Material
 
@@ -330,7 +330,6 @@ typedef struct {
   float clearcoat;
   float clearcoatRoughness;
   float occlusionStrength;
-  float glowStrength;
   float normalScale;
   float alphaCutoff;
   float pointSize;

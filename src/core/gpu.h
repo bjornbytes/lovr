@@ -665,9 +665,9 @@ typedef struct {
   uint32_t clipDistances;
   uint32_t cullDistances;
   uint32_t clipAndCullDistances;
-  uint32_t computeDispatchCount[3];
-  uint32_t computeWorkgroupSize[3];
-  uint32_t computeWorkgroupVolume;
+  uint32_t workgroupCount[3];
+  uint32_t workgroupSize[3];
+  uint32_t totalWorkgroupSize;
   uint32_t computeSharedMemory;
   uint32_t pushConstantSize;
   uint32_t indirectDrawCount;

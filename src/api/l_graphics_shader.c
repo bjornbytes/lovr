@@ -64,7 +64,7 @@ static int l_lovrShaderHasAttribute(lua_State* L) {
   return 1;
 }
 
-static int l_lovrShaderGetLocalWorkgroupSize(lua_State* L) {
+static int l_lovrShaderGetWorkgroupSize(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
 
   if (!lovrShaderHasStage(shader, STAGE_COMPUTE)) {
@@ -73,7 +73,7 @@ static int l_lovrShaderGetLocalWorkgroupSize(lua_State* L) {
   }
 
   uint32_t size[3];
-  lovrShaderGetLocalWorkgroupSize(shader, size);
+  lovrShaderGetWorkgroupSize(shader, size);
   lua_pushinteger(L, size[0]);
   lua_pushinteger(L, size[1]);
   lua_pushinteger(L, size[2]);
@@ -85,6 +85,6 @@ const luaL_Reg lovrShader[] = {
   { "getType", l_lovrShaderGetType },
   { "hasStage", l_lovrShaderHasStage },
   { "hasAttribute", l_lovrShaderHasAttribute },
-  { "getLocalWorkgroupSize", l_lovrShaderGetLocalWorkgroupSize },
+  { "getWorkgroupSize", l_lovrShaderGetWorkgroupSize },
   { NULL, NULL }
 };

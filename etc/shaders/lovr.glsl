@@ -33,7 +33,6 @@ struct MaterialData {
   float clearcoat;
   float clearcoatRoughness;
   float occlusionStrength;
-  float glowStrength;
   float normalScale;
   float alphaCutoff;
   float pointSize;
@@ -81,7 +80,13 @@ layout(location = 12) in vec2 UV;
 
 // Macros
 #ifdef GL_COMPUTE_SHADER
-//
+#define SubgroupCount gl_NumSubgroups
+#define WorkgroupCount gl_NumWorkGroups
+#define WorkgroupSize gl_WorkGroupSize
+#define WorkgroupID gl_WorkGroupID
+#define GlobalThreadID gl_GlobalInvocationID
+#define LocalThreadID gl_LocalInvocationID
+#define LocalThreadIndex gl_LocalInvocationIndex
 #else
 #define BaseInstance gl_BaseInstance
 #define BaseVertex gl_BaseVertex
@@ -95,36 +100,46 @@ layout(location = 12) in vec2 UV;
 #define PointCoord gl_PointCoord
 #define PointSize gl_PointSize
 #define Position gl_Position
-#define PrimitiveId gl_PrimitiveID
-#define SampleId gl_SampleID
+#define PrimitiveID gl_PrimitiveID
+#define SampleID gl_SampleID
 #define SampleMaskIn gl_SampleMaskIn
 #define SampleMask gl_SampleMask
 #define SamplePosition gl_SamplePosition
 #define VertexIndex gl_VertexIndex
 #define ViewIndex gl_ViewIndex
 
-#define DrawId gl_BaseInstance
+#define DrawID gl_BaseInstance
 #define Projection Cameras[ViewIndex].projection
 #define View Cameras[ViewIndex].view
 #define ViewProjection Cameras[ViewIndex].viewProjection
 #define InverseProjection Cameras[ViewIndex].inverseProjection
-#define Transform Draws[DrawId].transform
-#define NormalMatrix mat3(Draws[DrawId].normalMatrix)
-#define PassColor Draws[DrawId].color
+#define Transform Draws[DrawID].transform
+#define NormalMatrix mat3(Draws[DrawID].normalMatrix)
+#define PassColor Draws[DrawID].color
 
 #define ClipFromLocal (ViewProjection * Transform)
 #define ClipFromWorld (ViewProjection)
 #define ClipFromView (Projection)
 #define ViewFromLocal (View * Transform)
 #define ViewFromWorld (View)
+#define ViewFromClip (InverseProjection)
 #define WorldFromLocal (Transform)
+#define WorldFromView (inverse(View))
+#define WorldFromClip (inverse(ViewProjection))
+
+#define CameraPositionWorld (-View[3].xyz * mat3(View))
 
 #define DefaultPosition (ClipFromLocal * VertexPosition)
 #define DefaultColor (Color * getPixel(ColorTexture, UV))
 #endif
 
+// Constants
+#define PI 3.141592653589793238462643383279502f
+#define TAU (2.f * PI)
+#define PI_2 (.5f * PI)
+
 // Helpers
-#ifdef GL_FRAGMENT_SHADER
+#ifndef GL_COMPUTE_SHADER
 vec4 getPixel(texture2D t, vec2 uv) { return texture(sampler2D(t, Sampler), uv); }
 vec4 getPixel(texture3D t, vec3 uvw) { return texture(sampler3D(t, Sampler), uvw); }
 vec4 getPixel(textureCube t, vec3 dir) { return texture(samplerCube(t, Sampler), dir); }
@@ -156,7 +171,7 @@ void main() {
   PixelColors[0] = lovrmain();
 
   if (applyGlow) {
-    PixelColors[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb;
+    PixelColors[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
   }
 
   if (applyAlphaCutoff && PixelColors[0].a <= Material.alphaCutoff) {
@@ -166,7 +181,7 @@ void main() {
 #endif
 
 #ifdef GL_COMPUTE_SHADER
-vec4 lovrmain();
+void lovrmain();
 void main() {
   lovrmain();
 }

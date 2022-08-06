@@ -48,7 +48,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       map_set(names, hash64(line + 7, length - 7), materials->length);
       arr_push(materials, ((ModelMaterial) {
         .color = { 1.f, 1.f, 1.f, 1.f },
-        .glow = { 0.f, 0.f, 0.f, 0.f },
+        .glow = { 0.f, 0.f, 0.f, 1.f },
         .uvShift = { 0.f, 0.f },
         .uvScale = { 1.f, 1.f },
         .metalness = 1.f,
@@ -56,7 +56,6 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
         .clearcoat = 0.f,
         .clearcoatRoughness = 0.f,
         .occlusionStrength = 1.f,
-        .glowStrength = 1.f,
         .normalScale = 1.f,
         .alphaCutoff = 0.f,
         .pointSize = 1.f,

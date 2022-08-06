@@ -695,7 +695,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     ModelMaterial* material = model->materials;
     for (int i = (token++)->size; i > 0; i--, material++) {
       memcpy(material->color, (float[4]) { 1.f, 1.f, 1.f, 1.f }, 16);
-      memcpy(material->glow, (float[4]) { 0.f, 0.f, 0.f, 0.f }, 16);
+      memcpy(material->glow, (float[4]) { 0.f, 0.f, 0.f, 1.f }, 16);
       material->uvShift[0] = 0.f;
       material->uvShift[1] = 0.f;
       material->uvScale[0] = 1.f;
@@ -705,7 +705,6 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       material->clearcoat = 0.f;
       material->clearcoatRoughness = 0.f;
       material->occlusionStrength = 1.f;
-      material->glowStrength = 1.f;
       material->normalScale = 1.f;
       material->alphaCutoff = 0.f;
       material->pointSize = 1.f;

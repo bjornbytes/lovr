@@ -4,8 +4,6 @@
 
 #include "lovr.glsl"
 
-#define PI 3.141592653589793238462643383
-
 layout(location = 0) in vec3 Direction;
 
 vec4 lovrmain() {

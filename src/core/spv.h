@@ -56,7 +56,7 @@ typedef struct {
 
 typedef struct {
   uint32_t version;
-  uint32_t localWorkgroupSize[3];
+  uint32_t workgroupSize[3];
   uint32_t featureCount;
   uint32_t specConstantCount;
   uint32_t pushConstantCount;
