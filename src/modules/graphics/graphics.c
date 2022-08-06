@@ -128,6 +128,7 @@ struct Material {
   uint16_t block;
   gpu_bundle* bundle;
   MaterialInfo info;
+  bool hasWritableTexture;
 };
 
 typedef struct {
@@ -403,6 +404,7 @@ static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, u
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot);
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
+static void trackMaterial(Pass* pass, Material* material, gpu_phase phase, gpu_cache cache);
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
 static void onMessage(void* context, const char* message, bool severe);
@@ -1921,6 +1923,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
     Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
     lovrCheck(i == 0 || texture->info.type == TEXTURE_2D, "Material textures must be 2D");
     bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture = texture->gpu };
+    material->hasWritableTexture |= texture->info.usage != TEXTURE_SAMPLE;
   }
 
   gpu_bundle_info bundleInfo = {
@@ -4142,10 +4145,12 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
 static void flushMaterial(Pass* pass, Draw* draw, Shader* shader) {
   if (draw->material && draw->material != pass->pipeline->material) {
     gpu_bind_bundle(pass->stream, shader->gpu, 1, draw->material->bundle, NULL, 0);
+    trackMaterial(pass, draw->material, GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT, GPU_CACHE_TEXTURE);
     pass->materialDirty = true;
   } else if (pass->materialDirty) {
     Material* material = pass->pipeline->material ? pass->pipeline->material : state.defaultMaterial;
     gpu_bind_bundle(pass->stream, shader->gpu, 1, material->bundle, NULL, 0);
+    trackMaterial(pass, material, GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT, GPU_CACHE_TEXTURE);
     pass->materialDirty = false;
   }
 }
@@ -5611,7 +5616,7 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
 }
 
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
-  if (texture == state.window) {
+  if (!texture || texture == state.window) {
     return;
   }
 
@@ -5632,6 +5637,20 @@ static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cach
 
   arr_push(&pass->access, access);
   lovrRetain(texture);
+}
+
+static void trackMaterial(Pass* pass, Material* material, gpu_phase phase, gpu_cache cache) {
+  if (!material->hasWritableTexture) {
+    return;
+  }
+
+  trackTexture(pass, material->info.texture, phase, cache);
+  trackTexture(pass, material->info.glowTexture, phase, cache);
+  trackTexture(pass, material->info.occlusionTexture, phase, cache);
+  trackTexture(pass, material->info.metalnessTexture, phase, cache);
+  trackTexture(pass, material->info.roughnessTexture, phase, cache);
+  trackTexture(pass, material->info.clearcoatTexture, phase, cache);
+  trackTexture(pass, material->info.normalTexture, phase, cache);
 }
 
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent) {
