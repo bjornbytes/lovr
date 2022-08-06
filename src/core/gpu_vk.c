@@ -706,6 +706,56 @@ gpu_texture* gpu_surface_acquire(void) {
   return &state.surfaceTextures[state.currentSurfaceTexture];
 }
 
+void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture) {
+  if (texture->layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) { // TODO depth
+    return;
+  }
+
+  VkImageMemoryBarrier transition = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .srcAccessMask = 0,
+    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .newLayout = texture->layout,
+    .image = texture->handle,
+    .subresourceRange.aspectMask = texture->aspect,
+    .subresourceRange.baseMipLevel = 0,
+    .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+    .subresourceRange.baseArrayLayer = 0,
+    .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+  };
+
+  VkPipelineStageFlags prev = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  VkPipelineStageFlags next = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+  vkCmdPipelineBarrier(stream->commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+}
+
+void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
+  if (texture->layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) { // TODO depth
+    return;
+  }
+
+  VkImageMemoryBarrier transition = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+    .dstAccessMask = 0,
+    .oldLayout = texture->layout,
+    .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    .image = texture->handle,
+    .subresourceRange.aspectMask = texture->aspect,
+    .subresourceRange.baseMipLevel = 0,
+    .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+    .subresourceRange.baseArrayLayer = 0,
+    .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+  };
+
+  VkPipelineStageFlags prev = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+  VkPipelineStageFlags next = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+
+  vkCmdPipelineBarrier(stream->commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+}
+
 // Sampler
 
 bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {

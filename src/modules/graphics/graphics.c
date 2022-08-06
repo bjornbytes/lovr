@@ -62,6 +62,7 @@ struct Buffer {
 
 struct Texture {
   uint32_t ref;
+  uint32_t xrTick;
   gpu_texture* gpu;
   gpu_texture* renderView;
   Material* material;
@@ -872,8 +873,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       // finish.  In between, the 'flush' cache is flushed and the 'clear' cache is cleared.
       gpu_barrier* barrier = &barriers[sync->lastWriteIndex];
 
-      // Only the first write in a pass is considered, because each pass can only perform one type
-      // of write to a resource, and there is not currently any intra-pass synchronization.
+      // Only the first write in a pass is considered for a barrier (and there's no intra-pass sync)
       if (sync->lastWriteIndex == i + 1) {
         continue;
       }
@@ -939,6 +939,16 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   for (uint32_t i = 0; i < count; i++) {
     for (uint32_t j = 0; j < passes[i]->access.length; j++) {
       passes[i]->access.data[j].sync->lastWriteIndex = 0;
+
+      // OpenXR swapchain texture layout transitions >__>
+
+      Texture* texture = passes[i]->access.data[j].texture;
+
+      if (texture && texture->info.xr && texture->xrTick != state.tick) {
+        gpu_xr_acquire(streams[0], texture->gpu);
+        gpu_xr_release(streams[total - 1], texture->gpu);
+        texture->xrTick = state.tick;
+      }
     }
   }
 

@@ -212,6 +212,7 @@ typedef struct {
   uint32_t samples;
   uint32_t usage;
   bool srgb;
+  bool xr;
   uintptr_t handle;
   uint32_t imageCount;
   struct Image** images;

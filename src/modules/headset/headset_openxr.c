@@ -918,7 +918,8 @@ static void openxr_start(void) {
         .mipmaps = 1,
         .samples = 1,
         .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
-        .handle = (uintptr_t) images[i].image
+        .handle = (uintptr_t) images[i].image,
+        .xr = true
       });
     }
 
@@ -986,7 +987,7 @@ static void openxr_destroy(void) {
   if (state.actionSet) xrDestroyActionSet(state.actionSet);
   if (state.swapchain) xrDestroySwapchain(state.swapchain);
   if (state.referenceSpace) xrDestroySpace(state.referenceSpace);
-  if (state.session) xrEndSession(state.session);
+  if (state.session) xrDestroySession(state.session);
   if (state.instance) xrDestroyInstance(state.instance);
   memset(&state, 0, sizeof(state));
 }
@@ -1666,12 +1667,8 @@ static bool openxr_animate(Device device, Model* model) {
 }
 
 static Texture* openxr_getTexture(void) {
-  return state.began && state.frameState.shouldRender ? state.textures[state.textureIndex] : NULL;
-}
-
-static Pass* openxr_getPass(void) {
   if (state.began) {
-    return state.frameState.shouldRender ? state.pass : NULL;
+    return state.frameState.shouldRender ? state.textures[state.textureIndex] : NULL;
   }
 
   XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
@@ -1685,7 +1682,22 @@ static Pass* openxr_getPass(void) {
   XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
   XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.textureIndex));
   XR(xrWaitSwapchainImage(state.swapchain, &waitInfo));
-  lovrPassSetTarget(state.pass, &state.textures[state.textureIndex], NULL);
+
+  return state.textures[state.textureIndex];
+}
+
+static Pass* openxr_getPass(void) {
+  if (state.began) {
+    return state.frameState.shouldRender ? state.pass : NULL;
+  }
+
+  Texture* texture = openxr_getTexture();
+
+  if (!texture) {
+    return NULL;
+  }
+
+  lovrPassSetTarget(state.pass, &texture, NULL);
   lovrPassReset(state.pass);
 
   uint32_t count;
