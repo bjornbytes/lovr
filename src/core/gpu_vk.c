@@ -2299,9 +2299,12 @@ bool gpu_init(gpu_config* config) {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO
   };
 
-  if (config->vk.cacheSize >= sizeof(VkPipelineCacheHeaderVersionOne)) {
-    VkPipelineCacheHeaderVersionOne* header = config->vk.cacheData;
-    if (header->headerSize == sizeof(*header) && header->headerVersion == VK_PIPELINE_CACHE_HEADER_VERSION_ONE) {
+  // Not using VkPipelineCacheHeaderVersionOne since it's missing from Android headers
+  if (config->vk.cacheSize >= 16 + VK_UUID_SIZE) {
+    uint32_t headerSize, headerVersion;
+    memcpy(&headerSize, config->vk.cacheData, 4);
+    memcpy(&headerVersion, (char*) config->vk.cacheData + 4, 4);
+    if (headerSize == 16 + VK_UUID_SIZE && headerVersion == VK_PIPELINE_CACHE_HEADER_VERSION_ONE) {
       cacheInfo.initialDataSize = config->vk.cacheSize;
       cacheInfo.pInitialData = config->vk.cacheData;
     }
