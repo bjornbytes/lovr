@@ -29,65 +29,9 @@ ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
     }
   }
 
-  // Precomputed properties and validation
+  lovrModelDataFinalize(model);
 
-  for (uint32_t i = 0; i < model->primitiveCount; i++) {
-    model->primitives[i].skin = 0xaaaaaaaa;
-  }
-
-  for (uint32_t i = 0; i < model->nodeCount; i++) {
-    ModelNode* node = &model->nodes[i];
-    for (uint32_t j = 0, index = node->primitiveIndex; j < node->primitiveCount; j++, index++) {
-      if (model->primitives[index].skin != 0xaaaaaaaa) {
-        lovrCheck(model->primitives[index].skin == node->skin, "Model has a mesh used with multiple skins, which is not supported");
-      } else {
-        model->primitives[index].skin = node->skin;
-      }
-    }
-  }
-
-  model->indexType = U16;
-  for (uint32_t i = 0; i < model->primitiveCount; i++) {
-    ModelPrimitive* primitive = &model->primitives[i];
-
-    uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
-    if (primitive->skin != ~0u) {
-      model->skins[primitive->skin].vertexCount += vertexCount;
-      model->skinnedVertexCount += vertexCount;
-    }
-    model->vertexCount += vertexCount;
-
-    model->indexCount += primitive->indices ? primitive->indices->count : 0;
-    if (primitive->indices) {
-      if (primitive->indices->type == U32) {
-        primitive->indices->stride = 4;
-        model->indexType = U32;
-      } else {
-        primitive->indices->stride = 2;
-      }
-    }
-
-    for (uint32_t i = 0; i < MAX_DEFAULT_ATTRIBUTES; i++) {
-      ModelAttribute* attribute = primitive->attributes[i];
-      if (attribute) {
-        attribute->stride = model->buffers[attribute->buffer].stride;
-        if (attribute->stride == 0) {
-          attribute->stride = typeSizes[attribute->type] * attribute->components;
-        }
-      }
-    }
-  }
-
-  for (uint32_t i = 0; i < model->nodeCount; i++) {
-    model->nodes[i].parent = ~0u;
-  }
-
-  for (uint32_t i = 0; i < model->nodeCount; i++) {
-    ModelNode* node = &model->nodes[i];
-    for (uint32_t j = 0; j < node->childCount; j++) {
-      model->nodes[node->children[j]].parent = i;
-    }
-  }
+  return model;
 
   return model;
 }
@@ -151,6 +95,66 @@ void lovrModelDataAllocate(ModelData* model) {
   map_init(&model->nodeMap, model->nodeCount);
 }
 
+void lovrModelDataFinalize(ModelData* model) {
+  for (uint32_t i = 0; i < model->primitiveCount; i++) {
+    model->primitives[i].skin = 0xaaaaaaaa;
+  }
+
+  for (uint32_t i = 0; i < model->nodeCount; i++) {
+    ModelNode* node = &model->nodes[i];
+    for (uint32_t j = 0, index = node->primitiveIndex; j < node->primitiveCount; j++, index++) {
+      if (model->primitives[index].skin != 0xaaaaaaaa) {
+        lovrCheck(model->primitives[index].skin == node->skin, "Model has a mesh used with multiple skins, which is not supported");
+      } else {
+        model->primitives[index].skin = node->skin;
+      }
+    }
+  }
+
+  model->indexType = U16;
+  for (uint32_t i = 0; i < model->primitiveCount; i++) {
+    ModelPrimitive* primitive = &model->primitives[i];
+
+    uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
+    if (primitive->skin != ~0u) {
+      model->skins[primitive->skin].vertexCount += vertexCount;
+      model->skinnedVertexCount += vertexCount;
+    }
+    model->vertexCount += vertexCount;
+
+    model->indexCount += primitive->indices ? primitive->indices->count : 0;
+    if (primitive->indices) {
+      if (primitive->indices->type == U32) {
+        primitive->indices->stride = 4;
+        model->indexType = U32;
+      } else {
+        primitive->indices->stride = 2;
+      }
+    }
+
+    for (uint32_t i = 0; i < MAX_DEFAULT_ATTRIBUTES; i++) {
+      ModelAttribute* attribute = primitive->attributes[i];
+      if (attribute) {
+        attribute->stride = model->buffers[attribute->buffer].stride;
+        if (attribute->stride == 0) {
+          attribute->stride = typeSizes[attribute->type] * attribute->components;
+        }
+      }
+    }
+  }
+
+  for (uint32_t i = 0; i < model->nodeCount; i++) {
+    model->nodes[i].parent = ~0u;
+  }
+
+  for (uint32_t i = 0; i < model->nodeCount; i++) {
+    ModelNode* node = &model->nodes[i];
+    for (uint32_t j = 0; j < node->childCount; j++) {
+      model->nodes[node->children[j]].parent = i;
+    }
+  }
+}
+
 void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char* dst, AttributeType type, uint32_t components, bool normalized, uint32_t count, size_t stride, uint8_t clear) {
   char* src = attribute ? data->buffers[attribute->buffer].data + attribute->offset : NULL;
   size_t size = components * typeSizes[type];
@@ -193,6 +197,12 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
       for (uint32_t i = 0; i < count; i++, src += attribute->stride, dst += stride) {
         for (uint32_t j = 0; j < components; j++) {
           ((uint8_t*) dst)[j] = (uint8_t) ((uint16_t*) src)[j];
+        }
+      }
+    } else if (attribute->type == I16 && !attribute->normalized && !normalized) {
+      for (uint32_t i = 0; i < count; i++, src += attribute->stride, dst += stride) {
+        for (uint32_t j = 0; j < components; j++) {
+          ((uint8_t*) dst)[j] = (uint8_t) ((int16_t*) src)[j];
         }
       }
     } else if (attribute->type == F32 && normalized) {

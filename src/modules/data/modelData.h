@@ -215,6 +215,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, struct Blob* blob, ModelDataIO
 ModelData* lovrModelDataInitStl(ModelData* model, struct Blob* blob, ModelDataIO* io);
 void lovrModelDataDestroy(void* ref);
 void lovrModelDataAllocate(ModelData* model);
+void lovrModelDataFinalize(ModelData* model);
 void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char* dst, AttributeType type, uint32_t components, bool normalized, uint32_t count, size_t stride, uint8_t clear);
 void lovrModelDataGetBoundingBox(ModelData* data, float box[6]);
 void lovrModelDataGetBoundingSphere(ModelData* data, float sphere[4]);

@@ -1430,7 +1430,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   mesh.vertexBlendWeights = (XrVector4f*) (meshData + offset), offset += sizes[7];
   mesh.indices = (int16_t*) (meshData + offset), offset += sizes[8];
   float* inverseBindMatrices = (float*) (meshData + offset); offset += sizes[9];
-  lovrAssert(offset == totalSize, "Unreachable");
+  lovrAssert(offset == totalSize, "Unreachable!");
 
   result = xrGetHandMeshFB(tracker, &mesh);
   if (XR_FAILED(result)) {
@@ -1495,7 +1495,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
     .stride = sizeof(mesh.indices[0])
   };
 
-  model->attributes[0] = (ModelAttribute) { .buffer = 0, .type = F32, .components = 3 };
+  model->attributes[0] = (ModelAttribute) { .buffer = 0, .type = F32, .components = 3, .count = vertexCount };
   model->attributes[1] = (ModelAttribute) { .buffer = 1, .type = F32, .components = 3 };
   model->attributes[2] = (ModelAttribute) { .buffer = 2, .type = F32, .components = 2 };
   model->attributes[3] = (ModelAttribute) { .buffer = 3, .type = I16, .components = 4 };
@@ -1574,6 +1574,8 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   *children++ = XR_HAND_JOINT_WRIST_EXT;
   *children++ = model->jointCount;
 
+  lovrModelDataFinalize(model);
+
   return model;
 }
 
@@ -1634,11 +1636,12 @@ static bool openxr_animate(Device device, Model* model) {
     XR_HAND_JOINT_LITTLE_DISTAL_EXT
   };
 
+  float scale[4] = { 1.f, 1.f, 1.f, 1.f };
+
   // The following can be optimized a lot (ideally we would set the global transform for the nodes)
   for (uint32_t i = 0; i < COUNTOF(joints); i++) {
     if (jointParents[i] == ~0u) {
       float position[4] = { 0.f, 0.f, 0.f };
-      float scale[4] = { 1.f, 1.f, 1.f, 1.f };
       float orientation[4] = { 0.f, 0.f, 0.f, 1.f };
       lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
     } else {
@@ -1657,8 +1660,6 @@ static bool openxr_animate(Device device, Model* model) {
       quat_rotate(orientation, position);
       quat_mul(orientation, orientation, &pose->orientation.x);
 
-      float scale[4] = { 1.f, 1.f, 1.f, 1.f };
-
       lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
     }
   }
@@ -1667,6 +1668,10 @@ static bool openxr_animate(Device device, Model* model) {
 }
 
 static Texture* openxr_getTexture(void) {
+  if (!SESSION_ACTIVE(state.sessionState)) {
+    return NULL;
+  }
+
   if (state.began) {
     return state.frameState.shouldRender ? state.textures[state.textureIndex] : NULL;
   }
@@ -1697,7 +1702,8 @@ static Pass* openxr_getPass(void) {
     return NULL;
   }
 
-  float color[4][4], depth, stencil;
+  uint8_t stencil;
+  float color[4][4], depth;
   lovrPassGetClear(state.pass, color, &depth, &stencil);
   lovrGraphicsGetBackground(color[0]);
   lovrPassSetClear(state.pass, color, depth, stencil);
