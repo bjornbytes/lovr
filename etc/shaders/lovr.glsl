@@ -18,9 +18,10 @@ struct Draw {
   vec4 color;
 };
 
-layout(set = 0, binding = 0) uniform CameraBuffer { Camera Cameras[6]; };
-layout(set = 0, binding = 1) uniform DrawBuffer { Draw Draws[256]; };
-layout(set = 0, binding = 2) uniform sampler Sampler;
+layout(set = 0, binding = 0) uniform Globals { vec4 Resolution; float Time; };
+layout(set = 0, binding = 1) uniform CameraBuffer { Camera Cameras[6]; };
+layout(set = 0, binding = 2) uniform DrawBuffer { Draw Draws[256]; };
+layout(set = 0, binding = 3) uniform sampler Sampler;
 
 struct MaterialData {
   vec4 color;

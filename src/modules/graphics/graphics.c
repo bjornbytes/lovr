@@ -237,6 +237,11 @@ struct Tally {
 };
 
 typedef struct {
+  float resolution[4];
+  float time;
+} Globals;
+
+typedef struct {
   float view[16];
   float projection[16];
   float viewProjection[16];
@@ -312,7 +317,7 @@ struct Pass {
   bool cameraDirty;
   DrawData* drawData;
   uint32_t drawCount;
-  gpu_binding builtins[3];
+  gpu_binding builtins[4];
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
   Shape shapeCache[16];
@@ -461,9 +466,10 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   arr_init(&state.materialBlocks, realloc);
 
   gpu_slot builtinSlots[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Cameras
-    { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Draw data
-    { 2, GPU_SLOT_SAMPLER, GPU_STAGE_ALL } // Default sampler
+    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Globals
+    { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Cameras
+    { 2, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Draw data
+    { 3, GPU_SLOT_SAMPLER, GPU_STAGE_ALL }, // Default sampler
   };
 
   state.builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
@@ -3409,13 +3415,28 @@ void lovrPassReset(Pass* pass) {
   }
   pass->cameraDirty = true;
 
+  gpu_buffer_binding globals = { tempAlloc(gpu_sizeof_buffer()), 0, sizeof(Globals) };
   gpu_buffer_binding cameras = { tempAlloc(gpu_sizeof_buffer()), 0, pass->cameraCount * sizeof(Camera) };
   gpu_buffer_binding draws = { tempAlloc(gpu_sizeof_buffer()), 0, 256 * sizeof(DrawData) };
   pass->drawCount = 0;
 
-  pass->builtins[0] = (gpu_binding) { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = cameras };
-  pass->builtins[1] = (gpu_binding) { 1, GPU_SLOT_UNIFORM_BUFFER, .buffer = draws };
-  pass->builtins[2] = (gpu_binding) { 2, GPU_SLOT_SAMPLER, .sampler = NULL };
+  pass->builtins[0] = (gpu_binding) { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = globals };
+  pass->builtins[1] = (gpu_binding) { 1, GPU_SLOT_UNIFORM_BUFFER, .buffer = cameras };
+  pass->builtins[2] = (gpu_binding) { 2, GPU_SLOT_UNIFORM_BUFFER, .buffer = draws };
+  pass->builtins[3] = (gpu_binding) { 3, GPU_SLOT_SAMPLER, .sampler = NULL };
+
+  Globals* global = gpu_map(pass->builtins[0].buffer.object, sizeof(Globals), state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+
+  global->resolution[0] = pass->target.size[0];
+  global->resolution[1] = pass->target.size[1];
+  global->resolution[2] = 1.f / pass->target.size[0];
+  global->resolution[3] = 1.f / pass->target.size[1];
+
+#ifndef LOVR_DISABLE_HEADSET
+  global->time = lovrHeadsetInterface ? lovrHeadsetInterface->getDisplayTime() : os_get_time();
+#else
+  global->time = os_get_time();
+#endif
 
   pass->vertexBuffer = NULL;
   pass->indexBuffer = NULL;
@@ -4094,7 +4115,7 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
     }
 
     uint32_t size = pass->cameraCount * sizeof(Camera);
-    void* data = gpu_map(pass->builtins[0].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+    void* data = gpu_map(pass->builtins[1].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
     memcpy(data, pass->cameras, size);
     pass->cameraDirty = false;
     rebind = true;
@@ -4102,13 +4123,13 @@ static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
 
   if (pass->drawCount % 256 == 0) {
     uint32_t size = 256 * sizeof(DrawData);
-    pass->drawData = gpu_map(pass->builtins[1].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+    pass->drawData = gpu_map(pass->builtins[2].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
     rebind = true;
   }
 
   if (pass->samplerDirty) {
     Sampler* sampler = pass->pipeline->sampler ? pass->pipeline->sampler : state.defaultSamplers[FILTER_LINEAR];
-    pass->builtins[2].sampler = sampler->gpu;
+    pass->builtins[3].sampler = sampler->gpu;
     pass->samplerDirty = false;
     rebind = true;
   }
