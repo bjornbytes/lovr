@@ -4,6 +4,7 @@ clone_depth: 1
 
 only_commits:
   files:
+    - etc/
     - src/
     - deps/
 
