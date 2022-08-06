@@ -1697,6 +1697,10 @@ static Pass* openxr_getPass(void) {
     return NULL;
   }
 
+  float color[4][4], depth, stencil;
+  lovrPassGetClear(state.pass, color, &depth, &stencil);
+  lovrGraphicsGetBackground(color[0]);
+  lovrPassSetClear(state.pass, color, depth, stencil);
   lovrPassSetTarget(state.pass, &texture, NULL);
   lovrPassReset(state.pass);
 

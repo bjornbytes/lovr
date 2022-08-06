@@ -14,7 +14,7 @@ function lovr.load()
     return
   end
 
-  lovr.graphics.getWindowPass():setClear(0x20232c)
+  lovr.graphics.setBackground(0x20232c)
 
   --[=[
   logo = lovr.graphics.newShader([[
