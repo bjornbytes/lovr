@@ -1217,8 +1217,10 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     lua_pop(L, 1);
   }
 
+  lovrCheck(flags.length < 1000, "Too many Shader flags");
+
   info.flags = flags.data;
-  info.flagCount = flags.length;
+  info.flagCount = (uint32_t) flags.length;
 
   Shader* shader = lovrShaderCreate(&info);
   luax_pushtype(L, Shader, shader);

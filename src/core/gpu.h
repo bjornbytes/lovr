@@ -220,7 +220,7 @@ void gpu_layout_destroy(gpu_layout* layout);
 
 typedef struct {
   const void* code;
-  uint32_t length;
+  size_t length;
 } gpu_shader_stage;
 
 typedef struct {

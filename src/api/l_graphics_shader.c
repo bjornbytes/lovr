@@ -25,7 +25,9 @@ static int l_lovrShaderClone(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  Shader* clone = lovrShaderClone(shader, flags.data, flags.length);
+  lovrCheck(flags.length < 1000, "Too many Shader flags");
+
+  Shader* clone = lovrShaderClone(shader, flags.data, (uint32_t) flags.length);
   arr_free(&flags);
 
   luax_pushtype(L, Shader, clone);

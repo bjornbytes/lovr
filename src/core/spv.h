@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -79,5 +80,5 @@ typedef enum {
   SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE
 } spv_result;
 
-spv_result spv_parse(const void* source, uint32_t size, spv_info* info);
+spv_result spv_parse(const void* source, size_t size, spv_info* info);
 const char* spv_result_to_string(spv_result);

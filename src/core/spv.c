@@ -40,7 +40,7 @@ typedef union {
 typedef struct {
   const uint32_t* words;
   const uint32_t* edge;
-  uint32_t wordCount;
+  size_t wordCount;
   uint32_t bound;
   spv_cache* cache;
 } spv_context;
@@ -59,7 +59,7 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
 static spv_result spv_parse_push_constants(spv_context* spv, const uint32_t* op, spv_info* info);
 static bool spv_load_type(spv_context* spv, uint32_t id, const uint32_t** op);
 
-spv_result spv_parse(const void* source, uint32_t size, spv_info* info) {
+spv_result spv_parse(const void* source, size_t size, spv_info* info) {
   spv_context spv;
 
   spv.words = source;

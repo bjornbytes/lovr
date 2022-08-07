@@ -99,8 +99,8 @@ struct Shader {
   Shader* parent;
   gpu_shader* gpu;
   ShaderInfo info;
-  uint32_t layout;
-  uint32_t computePipeline;
+  size_t layout;
+  size_t computePipelineIndex;
   uint32_t workgroupSize[3];
   uint32_t bufferMask;
   uint32_t textureMask;
@@ -352,8 +352,8 @@ typedef struct {
 
 typedef struct {
   char* memory;
-  uint32_t cursor;
-  uint32_t length;
+  size_t cursor;
+  size_t length;
 } Allocator;
 
 static struct {
@@ -382,28 +382,28 @@ static struct {
   Readback* oldestReadback;
   Readback* newestReadback;
   Material* defaultMaterial;
-  uint32_t materialBlock;
+  size_t materialBlock;
   arr_t(MaterialBlock) materialBlocks;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
-  uint32_t builtinLayout;
-  uint32_t materialLayout;
+  size_t builtinLayout;
+  size_t materialLayout;
   Allocator allocator;
 } state;
 
 // Helpers
 
 static void* tempAlloc(size_t size);
-static uint32_t tempPush(void);
-static void tempPop(uint32_t stack);
+static size_t tempPush(void);
+static void tempPop(size_t stack);
 static int u64cmp(const void* a, const void* b);
 static void beginFrame(void);
 static void processReadbacks(void);
-static uint32_t getLayout(gpu_slot* slots, uint32_t count);
-static gpu_bundle* getBundle(uint32_t layout);
+static size_t getLayout(gpu_slot* slots, uint32_t count);
+static gpu_bundle* getBundle(size_t layout);
 static uint32_t convertTextureUsage(uint32_t usage);
-static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d);
+static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d);
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
 static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot);
@@ -650,11 +650,11 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultSamplers[1], lovrSamplerDestroy);
   lovrRelease(state.animator, lovrShaderDestroy);
   lovrRelease(state.timeWizard, lovrShaderDestroy);
-  for (uint32_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
+  for (size_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
     lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
   }
   lovrRelease(state.defaultMaterial, lovrMaterialDestroy);
-  for (uint32_t i = 0; i < state.materialBlocks.length; i++) {
+  for (size_t i = 0; i < state.materialBlocks.length; i++) {
     MaterialBlock* block = &state.materialBlocks.data[i];
     gpu_buffer_destroy(block->buffer);
     gpu_bundle_pool_destroy(block->bundlePool);
@@ -664,13 +664,13 @@ void lovrGraphicsDestroy() {
     free(block->bundles);
   }
   arr_free(&state.materialBlocks);
-  for (uint32_t i = 0; i < state.pipelines.length; i++) {
+  for (size_t i = 0; i < state.pipelines.length; i++) {
     gpu_pipeline_destroy(state.pipelines.data[i]);
     free(state.pipelines.data[i]);
   }
   map_free(&state.pipelineLookup);
   arr_free(&state.pipelines);
-  for (uint32_t i = 0; i < state.layouts.length; i++) {
+  for (size_t i = 0; i < state.layouts.length; i++) {
     BundlePool* pool = state.layouts.data[i].head;
     while (pool) {
       BundlePool* next = pool->next;
@@ -1165,7 +1165,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       for (uint32_t layer = 0; layer < info->layers; layer++) {
         Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
         uint32_t slice = info->imageCount == 1 ? layer : 0;
-        uint32_t size = lovrImageGetLayerSize(image, level);
+        size_t size = lovrImageGetLayerSize(image, level);
         lovrCheck(size == levelSizes[level] / info->layers, "Texture/Image size mismatch!");
         void* pixels = lovrImageGetLayerData(image, level, slice);
         memcpy(data, pixels, size);
@@ -1375,11 +1375,13 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
     source->code
   };
 
+  lovrCheck(source->size <= INT_MAX, "Shader is way too big");
+
   int lengths[] = {
     -1,
     etc_shaders_lovr_glsl_len,
     -1,
-    source->size
+    (int) source->size
   };
 
   const glslang_resource_t* resource = glslang_default_resource();
@@ -1480,7 +1482,7 @@ static void lovrShaderInit(Shader* shader) {
     gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
     lovrAssert(pipeline, "Out of memory");
     gpu_pipeline_init_compute(pipeline, &pipelineInfo);
-    shader->computePipeline = state.pipelines.length;
+    shader->computePipelineIndex = state.pipelines.length;
     arr_push(&state.pipelines, pipeline);
   }
 }
@@ -1852,6 +1854,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
 
     if (!found) {
       arr_expand(&state.materialBlocks, 1);
+      lovrAssert(state.materialBlocks.length < UINT16_MAX, "Out of memory");
       state.materialBlock = state.materialBlocks.length++;
       block = &state.materialBlocks.data[state.materialBlock];
       block->list = malloc(MATERIALS_PER_BLOCK * sizeof(Material));
@@ -1863,7 +1866,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
       for (uint32_t i = 0; i < MATERIALS_PER_BLOCK; i++) {
         block->list[i].next = i + 1;
         block->list[i].tick = state.tick - 4;
-        block->list[i].block = state.materialBlock;
+        block->list[i].block = (uint16_t) state.materialBlock;
         block->list[i].index = i;
         block->list[i].bundle = (gpu_bundle*) ((char*) block->bundles + i * gpu_sizeof_bundle());
       }
@@ -2168,7 +2171,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
 
   gpu_buffer* scratchpad = tempAlloc(gpu_sizeof_buffer());
 
-  uint32_t stack = tempPush();
+  size_t stack = tempPush();
   float* pixels = tempAlloc(pixelWidth * pixelHeight * 4 * sizeof(float));
   lovrRasterizerGetPixels(font->info.rasterizer, glyph->codepoint, pixels, pixelWidth, pixelHeight, font->info.spread);
   uint8_t* dst = gpu_map(scratchpad, pixelWidth * pixelHeight * 4 * sizeof(uint8_t), 4, GPU_MAP_WRITE);
@@ -2251,11 +2254,12 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
   }
 
   beginFrame();
-  uint32_t stack = tempPush();
+  size_t stack = tempPush();
   char* string = tempAlloc(totalLength + 1);
   string[totalLength] = '\0';
 
-  for (uint32_t i = 0, cursor = 0; i < count; cursor += strings[i].length, i++) {
+  size_t cursor = 0;
+  for (uint32_t i = 0; i < count; cursor += strings[i].length, i++) {
     memcpy(string + cursor, strings[i].string, strings[i].length);
   }
 
@@ -2543,7 +2547,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     gpu_sync(state.stream, &barrier, 1);
   }
 
-  size_t indexSize = data->indexType == U32 ? 4 : 2;
+  uint32_t indexSize = data->indexType == U32 ? 4 : 2;
 
   if (data->indexCount > 0) {
     model->indexBuffer = lovrBufferCreate(&(BufferInfo) {
@@ -2555,7 +2559,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
   }
 
   // Sort primitives by their skin, so there is a single contiguous region of skinned vertices
-  uint32_t stack = tempPush();
+  size_t stack = tempPush();
   uint64_t* map = tempAlloc(data->primitiveCount * sizeof(uint64_t));
 
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
@@ -2847,7 +2851,7 @@ static void lovrModelReskin(Model* model) {
     });
   }
 
-  gpu_pipeline* pipeline = state.pipelines.data[state.animator->computePipeline];
+  gpu_pipeline* pipeline = state.pipelines.data[state.animator->computePipelineIndex];
   gpu_layout* layout = state.layouts.data[state.animator->layout].gpu;
   gpu_shader* shader = state.animator->gpu;
   gpu_buffer* joints = tempAlloc(gpu_sizeof_buffer());
@@ -3043,7 +3047,7 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
     });
   }
 
-  gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipeline];
+  gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipelineIndex];
   gpu_layout* layout = state.layouts.data[state.timeWizard->layout].gpu;
   gpu_shader* shader = state.timeWizard->gpu;
 
@@ -4083,7 +4087,7 @@ static void flushBindings(Pass* pass, Shader* shader) {
     return;
   }
 
-  uint32_t stack = tempPush();
+  size_t stack = tempPush();
   uint32_t set = pass->info.type == PASS_RENDER ? 2 : 0;
   gpu_binding* bindings = tempAlloc(shader->resourceCount * sizeof(gpu_binding));
 
@@ -4906,7 +4910,7 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
     totalLength += strings[i].length;
   }
 
-  uint32_t stack = tempPush();
+  size_t stack = tempPush();
   GlyphVertex* vertices = tempAlloc(totalLength * 4 * sizeof(GlyphVertex));
   uint32_t glyphCount;
   uint32_t lineCount;
@@ -5117,7 +5121,7 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   lovrCheck(y <= state.limits.workgroupCount[1], "Compute %s count exceeds workgroupCount limit", "y");
   lovrCheck(z <= state.limits.workgroupCount[2], "Compute %s count exceeds workgroupCount limit", "z");
 
-  gpu_pipeline* pipeline = state.pipelines.data[shader->computePipeline];
+  gpu_pipeline* pipeline = state.pipelines.data[shader->computePipelineIndex];
 
   if (pass->pipeline->dirty) {
     gpu_bind_pipeline(pass->stream, pipeline, true);
@@ -5212,11 +5216,11 @@ void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint
   lovrCheck(srcOffset[2] + extent[2] <= lovrImageGetLayerCount(image), "Image copy region exceeds its %s", "layer count");
   lovrCheck(srcOffset[3] < lovrImageGetLevelCount(image), "Image copy region exceeds its %s", "mipmap count");
   checkTextureBounds(&texture->info, dstOffset, extent);
-  size_t rowSize = measureTexture(texture->info.format, extent[0], 1, 1);
-  size_t totalSize = measureTexture(texture->info.format, extent[0], extent[1], 1) * extent[2];
-  size_t layerOffset = measureTexture(texture->info.format, extent[0], srcOffset[1], 1);
+  uint32_t rowSize = measureTexture(texture->info.format, extent[0], 1, 1);
+  uint32_t totalSize = measureTexture(texture->info.format, extent[0], extent[1], 1) * extent[2];
+  uint32_t layerOffset = measureTexture(texture->info.format, extent[0], srcOffset[1], 1);
   layerOffset += measureTexture(texture->info.format, srcOffset[0], 1, 1);
-  size_t pitch = measureTexture(texture->info.format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
+  uint32_t pitch = measureTexture(texture->info.format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
   gpu_buffer* buffer = tempAlloc(gpu_sizeof_buffer());
   char* dst = gpu_map(buffer, totalSize, 64, GPU_MAP_WRITE);
   for (uint32_t z = 0; z < extent[2]; z++) {
@@ -5385,11 +5389,11 @@ static void* tempAlloc(size_t size) {
   return state.allocator.memory + cursor;
 }
 
-static uint32_t tempPush(void) {
+static size_t tempPush(void) {
   return state.allocator.cursor;
 }
 
-static void tempPop(uint32_t stack) {
+static void tempPop(size_t stack) {
   state.allocator.cursor = stack;
 }
 
@@ -5432,11 +5436,11 @@ static void processReadbacks(void) {
   }
 }
 
-static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
+static size_t getLayout(gpu_slot* slots, uint32_t count) {
   uint64_t hash = hash64(slots, count * sizeof(gpu_slot));
 
-  uint32_t index;
-  for (uint32_t index = 0; index < state.layouts.length; index++) {
+  size_t index;
+  for (size_t index = 0; index < state.layouts.length; index++) {
     if (state.layouts.data[index].hash == hash) {
       return index;
     }
@@ -5461,7 +5465,7 @@ static uint32_t getLayout(gpu_slot* slots, uint32_t count) {
   return index;
 }
 
-static gpu_bundle* getBundle(uint32_t layoutIndex) {
+static gpu_bundle* getBundle(size_t layoutIndex) {
   Layout* layout = &state.layouts.data[layoutIndex];
   BundlePool* pool = layout->head;
   const uint32_t POOL_SIZE = 512;
@@ -5518,7 +5522,7 @@ uint32_t convertTextureUsage(uint32_t usage) {
 }
 
 // Returns number of bytes of a 3D texture region of a given format
-static size_t measureTexture(TextureFormat format, uint16_t w, uint16_t h, uint16_t d) {
+static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d) {
   switch (format) {
     case FORMAT_R8: return w * h * d;
     case FORMAT_RG8:

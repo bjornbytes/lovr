@@ -603,12 +603,12 @@ if(WIN32)
   target_sources(lovr PRIVATE etc/lovr.rc)
   if (MSVC)
     set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244 /MP")
+    # Excuse anonymous union for type punning
+    set_source_files_properties(src/util.c src/modules/graphics/graphics.c PROPERTIES COMPILE_FLAGS /wd4116)
+    # Excuse unsigned negation for flag-magic bit math
+    set_source_files_properties(src/modules/audio/audio.c PROPERTIES COMPILE_FLAGS /wd4146)
   else()
     set_target_properties(lovr PROPERTIES COMPILE_FLAGS "-MP")
-    # Excuse anonymous union for type punning
-    set_source_files_properties(src/util.c PROPERTIES COMPILE_FLAGS /wd4146)
-    # Excuse unsigned negation for flag-magic bit math
-    set_source_files_properties(src/modules/audio/audio.c PROPERTIES COMPILE_FLAGS /wd4116)
   endif()
   if(NOT LOVR_BUILD_SHARED)
     set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:console /ENTRY:WinMainCRTStartup")

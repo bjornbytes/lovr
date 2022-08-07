@@ -47,6 +47,7 @@ static int l_lovrReadbackGetData(lua_State* L) {
       return 1;
     }
   }
+  return 0;
 }
 
 static int l_lovrReadbackGetBlob(lua_State* L) {
