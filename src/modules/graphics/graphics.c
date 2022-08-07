@@ -2505,9 +2505,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
   }
 
   // Buffers
-  char* vertices;
-  char* indices;
-  char* skinData;
+  char* vertices = NULL;
+  char* indices = NULL;
+  char* skinData = NULL;
 
   BufferInfo vertexBufferInfo = {
     .length = data->vertexCount,

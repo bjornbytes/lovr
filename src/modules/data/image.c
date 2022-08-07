@@ -1168,7 +1168,7 @@ static Image* loadKTX2(Blob* blob) {
 
 static Image* loadSTB(Blob* blob) {
   void* data;
-  uint32_t flags;
+  uint32_t flags = 0;
   TextureFormat format;
   int width, height, channels;
   if (stbi_is_16_bit_from_memory(blob->data, (int) blob->size)) {

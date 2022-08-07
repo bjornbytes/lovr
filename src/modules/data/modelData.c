@@ -32,8 +32,6 @@ ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
   lovrModelDataFinalize(model);
 
   return model;
-
-  return model;
 }
 
 void lovrModelDataDestroy(void* ref) {

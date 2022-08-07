@@ -186,6 +186,7 @@ static int l_lovrSystemGetWindowDimensions(lua_State* L) {
 
 static int l_lovrSystemGetWindowDensity(lua_State* L) {
   lua_pushnumber(L, lovrSystemGetWindowDensity());
+  return 1;
 }
 
 static int l_lovrSystemIsKeyDown(lua_State* L) {
