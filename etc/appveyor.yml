@@ -7,6 +7,7 @@ only_commits:
     - etc/
     - src/
     - deps/
+    - CMakeLists.txt
 
 branches:
   only:
