@@ -708,33 +708,45 @@ gpu_texture* gpu_surface_acquire(void) {
   return &state.surfaceTextures[state.currentSurfaceTexture];
 }
 
+// The barriers here are a bit lazy (oversynchronized) and can be improved
 void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture) {
-  if (texture->layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) { // TODO depth
+  VkImageLayout attachmentLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ?
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL :
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  // If the texture only has the RENDER usage, its natural layout matches the layout that OpenXR
+  // gives us the texture in, so no layout transition is needed.
+  if (texture->layout == attachmentLayout) {
     return;
   }
 
   VkImageMemoryBarrier transition = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
     .srcAccessMask = 0,
-    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+    .oldLayout = attachmentLayout,
     .newLayout = texture->layout,
     .image = texture->handle,
     .subresourceRange.aspectMask = texture->aspect,
-    .subresourceRange.baseMipLevel = 0,
     .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
-    .subresourceRange.baseArrayLayer = 0,
     .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
   };
 
   VkPipelineStageFlags prev = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-  VkPipelineStageFlags next = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  VkPipelineStageFlags next = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
   vkCmdPipelineBarrier(stream->commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
 }
 
+// The barriers here are a bit lazy (oversynchronized) and can be improved
 void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
-  if (texture->layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) { // TODO depth
+  VkImageLayout attachmentLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ?
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL :
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  // If the texture only has the RENDER usage, its natural layout matches the layout that OpenXR
+  // expects the texture to be in, so no layout transition is needed.
+  if (texture->layout == attachmentLayout) {
     return;
   }
 
@@ -743,12 +755,10 @@ void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
     .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
     .dstAccessMask = 0,
     .oldLayout = texture->layout,
-    .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    .newLayout = attachmentLayout,
     .image = texture->handle,
     .subresourceRange.aspectMask = texture->aspect,
-    .subresourceRange.baseMipLevel = 0,
     .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
-    .subresourceRange.baseArrayLayer = 0,
     .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
   };
 

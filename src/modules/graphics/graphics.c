@@ -960,6 +960,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   }
 
   for (uint32_t i = 0; i < count; i++) {
+    gpu_sync(streams[i], &barriers[i], 1);
+  }
+
+  for (uint32_t i = 0; i < count; i++) {
     for (uint32_t j = 0; j < passes[i]->access.length; j++) {
       passes[i]->access.data[j].sync->lastWriteIndex = 0;
 
@@ -973,10 +977,6 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         texture->xrTick = state.tick;
       }
     }
-  }
-
-  for (uint32_t i = 0; i < count; i++) {
-    gpu_sync(streams[i], &barriers[i], 1);
   }
 
   for (uint32_t i = 0; i < total; i++) {
