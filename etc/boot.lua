@@ -35,6 +35,7 @@ function lovr.boot()
       offset = 1.7,
       stencil = false,
       antialias = true,
+      submitdepth = true,
       overlay = false
     },
     math = {
