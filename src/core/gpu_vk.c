@@ -336,6 +336,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     buffer->handle = (VkBuffer) info->handle;
     buffer->memory = ~0u;
     buffer->offset = 0;
+    nickname(buffer->handle, VK_OBJECT_TYPE_BUFFER, info->label);
     return true;
   }
 
@@ -508,6 +509,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   if (info->handle) {
     texture->memory = ~0u;
     texture->handle = (VkImage) info->handle;
+    nickname(texture->handle, VK_OBJECT_TYPE_IMAGE, info->label);
     return gpu_texture_init_view(texture, &viewInfo);
   }
 

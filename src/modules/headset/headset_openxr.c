@@ -60,6 +60,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrDestroySpace)\
   X(xrEnumerateViewConfigurations)\
   X(xrEnumerateViewConfigurationViews)\
+  X(xrEnumerateSwapchainFormats)\
   X(xrCreateSwapchain)\
   X(xrDestroySwapchain)\
   X(xrEnumerateSwapchainImages)\
@@ -133,6 +134,8 @@ enum {
   MAX_ACTIONS
 };
 
+enum { COLOR, DEPTH };
+
 static struct {
   HeadsetConfig config;
   XrInstance instance;
@@ -142,15 +145,16 @@ static struct {
   XrSpace referenceSpace;
   XrReferenceSpaceType referenceSpaceType;
   XrSpace spaces[MAX_DEVICES];
-  XrSwapchain swapchain;
+  XrSwapchain swapchain[2];
   XrCompositionLayerProjection layers[1];
   XrCompositionLayerProjectionView layerViews[2];
+  XrCompositionLayerDepthInfoKHR depthInfo[2];
   XrFrameState frameState;
-  Texture* textures[MAX_IMAGES];
+  Texture* textures[2][MAX_IMAGES];
   Pass* pass;
   double lastDisplayTime;
-  uint32_t textureIndex;
-  uint32_t textureCount;
+  uint32_t textureIndex[2];
+  uint32_t textureCount[2];
   uint32_t width;
   uint32_t height;
   float clipNear;
@@ -162,6 +166,7 @@ static struct {
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
   struct {
+    bool depth;
     bool gaze;
     bool handTracking;
     bool handTrackingAim;
@@ -319,27 +324,29 @@ static bool openxr_init(HeadsetConfig* config) {
     bool androidCreateInstanceExtension = false;
 #endif
 
-    // Extensions without a feature are required
-    struct { const char* name; bool* feature; bool disable; } extensions[] = {
+    // Extensions with feature == NULL must be present.  The enable flag can be used to
+    // conditionally enable extensions based on config, platform, etc.
+    struct { const char* name; bool* feature; bool enable; } extensions[] = {
 #ifdef __ANDROID__
-      { "XR_KHR_android_create_instance", &androidCreateInstanceExtension, false },
+      { "XR_KHR_android_create_instance", &androidCreateInstanceExtension, true },
 #endif
 #ifdef LOVR_VK
-      { "XR_KHR_vulkan_enable2", NULL, false },
+      { "XR_KHR_vulkan_enable2", NULL, true },
 #endif
-      { "XR_EXT_eye_gaze_interaction", &state.features.gaze, false },
-      { "XR_EXT_hand_tracking", &state.features.handTracking, false },
-      { "XR_FB_display_refresh_rate", &state.features.refreshRate, false },
-      { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, false },
-      { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, false },
-      { "XR_EXTX_overlay", &state.features.overlay, !config->overlay },
-      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, false },
+      { "XR_KHR_composition_layer_depth", &state.features.depth, config->submitDepth },
+      { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
+      { "XR_EXT_hand_tracking", &state.features.handTracking, true },
+      { "XR_FB_display_refresh_rate", &state.features.refreshRate, true },
+      { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
+      { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
+      { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
+      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
     };
 
     uint32_t enabledExtensionCount = 0;
     const char* enabledExtensionNames[COUNTOF(extensions)];
     for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
-      if (extensions[i].disable) continue;
+      if (!extensions[i].enable) continue;
       if (!extensions[i].feature || hasExtension(extensionProperties, extensionCount, extensions[i].name)) {
         enabledExtensionNames[enabledExtensionCount++] = extensions[i].name;
         if (extensions[i].feature) *extensions[i].feature = true;
@@ -885,17 +892,41 @@ static void openxr_start(void) {
 
   { // Swapchain
 #ifdef LOVR_VK
-    XrSwapchainImageVulkanKHR images[MAX_IMAGES];
+    XrSwapchainImageVulkanKHR images[2][MAX_IMAGES];
     for (uint32_t i = 0; i < MAX_IMAGES; i++) {
-      images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
-      images[i].next = NULL;
+      images[COLOR][i].type = images[DEPTH][i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
+      images[COLOR][i].next = images[DEPTH][i].next = NULL;
     }
+
+    int64_t colorFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    int64_t depthFormat = state.config.stencil ? VK_FORMAT_D32_SFLOAT_S8_UINT : VK_FORMAT_D32_SFLOAT;
 #endif
+
+    int64_t formats[32];
+    uint32_t formatCount;
+    XR(xrEnumerateSwapchainFormats(state.session, COUNTOF(formats), &formatCount, formats));
+
+    bool supportsColor = false;
+    bool supportsDepth = false;
+
+    for (uint32_t i = 0; i < formatCount && !supportsColor && !supportsDepth; i++) {
+      if (formats[i] == colorFormat) {
+        supportsColor = true;
+      } else if (formats[i] == depthFormat) {
+        supportsDepth = true;
+      }
+    }
+
+    lovrAssert(supportsColor, "This VR runtime does not support sRGB rgba8 textures");
+
+    if (!supportsDepth) {
+      state.features.depth = false;
+    }
 
     XrSwapchainCreateInfo info = {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
       .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
-      .format = VK_FORMAT_R8G8B8A8_SRGB,
+      .format = colorFormat,
       .width = state.width,
       .height = state.height,
       .sampleCount = 1,
@@ -904,11 +935,11 @@ static void openxr_start(void) {
       .mipCount = 1
     };
 
-    XR(xrCreateSwapchain(state.session, &info, &state.swapchain));
-    XR(xrEnumerateSwapchainImages(state.swapchain, MAX_IMAGES, &state.textureCount, (XrSwapchainImageBaseHeader*) images));
+    XR(xrCreateSwapchain(state.session, &info, &state.swapchain[COLOR]));
+    XR(xrEnumerateSwapchainImages(state.swapchain[COLOR], MAX_IMAGES, &state.textureCount[COLOR], (XrSwapchainImageBaseHeader*) images));
 
-    for (uint32_t i = 0; i < state.textureCount; i++) {
-      state.textures[i] = lovrTextureCreate(&(TextureInfo) {
+    for (uint32_t i = 0; i < state.textureCount[COLOR]; i++) {
+      state.textures[COLOR][i] = lovrTextureCreate(&(TextureInfo) {
         .type = TEXTURE_ARRAY,
         .format = FORMAT_RGBA8,
         .srgb = true,
@@ -918,17 +949,44 @@ static void openxr_start(void) {
         .mipmaps = 1,
         .samples = 1,
         .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
-        .handle = (uintptr_t) images[i].image,
+        .handle = (uintptr_t) images[COLOR][i].image,
+        .label = "OpenXR Color Swapchain",
         .xr = true
       });
+    }
+
+    if (state.features.depth) {
+      info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+      info.format = depthFormat;
+
+      XR(xrCreateSwapchain(state.session, &info, &state.swapchain[DEPTH]));
+      XR(xrEnumerateSwapchainImages(state.swapchain[DEPTH], MAX_IMAGES, &state.textureCount[DEPTH], (XrSwapchainImageBaseHeader*) images));
+
+      for (uint32_t i = 0; i < state.textureCount[DEPTH]; i++) {
+        state.textures[DEPTH][i] = lovrTextureCreate(&(TextureInfo) {
+          .type = TEXTURE_ARRAY,
+          .format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
+          .srgb = true,
+          .width = state.width,
+          .height = state.height,
+          .layers = 2,
+          .mipmaps = 1,
+          .samples = 1,
+          .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
+          .handle = (uintptr_t) images[DEPTH][i].image,
+          .label = "OpenXR Depth Swapchain",
+          .xr = true
+        });
+      }
     }
 
     state.pass = lovrPassCreate(&(PassInfo) {
       .type = PASS_RENDER,
       .canvas.count = 1,
-      .canvas.textures[0] = state.textures[0],
+      .canvas.textures[0] = state.textures[COLOR][0],
       .canvas.loads[0] = LOAD_CLEAR,
       .canvas.clears[0] = { 0.f, 0.f, 0.f, 0.f },
+      .canvas.depth.texture = state.textures[DEPTH][0],
       .canvas.depth.format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
       .canvas.depth.load = LOAD_CLEAR,
       .canvas.depth.clear = 0.f,
@@ -953,19 +1011,35 @@ static void openxr_start(void) {
     // Pre-init composition layer views
     state.layerViews[0] = (XrCompositionLayerProjectionView) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-      .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 0 }
+      .subImage = { state.swapchain[COLOR], { { 0, 0 }, { state.width, state.height } }, 0 }
     };
 
     state.layerViews[1] = (XrCompositionLayerProjectionView) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-      .subImage = { state.swapchain, { { 0, 0 }, { state.width, state.height } }, 1 }
+      .subImage = { state.swapchain[COLOR], { { 0, 0 }, { state.width, state.height } }, 1 }
     };
+
+    if (state.features.depth) {
+      for (uint32_t i = 0; i < 2; i++) {
+        state.layerViews[i].next = &state.depthInfo[i];
+        state.depthInfo[i] = (XrCompositionLayerDepthInfoKHR) {
+          .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR,
+          .subImage.swapchain = state.swapchain[DEPTH],
+          .subImage.imageRect = state.layerViews[i].subImage.imageRect,
+          .subImage.imageArrayIndex = i,
+          .minDepth = 0.f,
+          .maxDepth = 1.f
+        };
+      }
+    }
   }
 }
 
 static void openxr_destroy(void) {
-  for (uint32_t i = 0; i < state.textureCount; i++) {
-    lovrRelease(state.textures[i], lovrTextureDestroy);
+  for (uint32_t i = 0; i < 2; i++) {
+    for (uint32_t j = 0; j < state.textureCount[i]; j++) {
+      lovrRelease(state.textures[i][j], lovrTextureDestroy);
+    }
   }
 
   lovrRelease(state.pass, lovrPassDestroy);
@@ -985,7 +1059,8 @@ static void openxr_destroy(void) {
   if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
   if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
   if (state.actionSet) xrDestroyActionSet(state.actionSet);
-  if (state.swapchain) xrDestroySwapchain(state.swapchain);
+  if (state.swapchain[COLOR]) xrDestroySwapchain(state.swapchain[COLOR]);
+  if (state.swapchain[DEPTH]) xrDestroySwapchain(state.swapchain[DEPTH]);
   if (state.referenceSpace) xrDestroySpace(state.referenceSpace);
   if (state.session) xrDestroySession(state.session);
   if (state.instance) xrDestroyInstance(state.instance);
@@ -1673,7 +1748,7 @@ static Texture* openxr_getTexture(void) {
   }
 
   if (state.began) {
-    return state.frameState.shouldRender ? state.textures[state.textureIndex] : NULL;
+    return state.frameState.shouldRender ? state.textures[COLOR][state.textureIndex[COLOR]] : NULL;
   }
 
   XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
@@ -1685,10 +1760,44 @@ static Texture* openxr_getTexture(void) {
   }
 
   XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-  XR(xrAcquireSwapchainImage(state.swapchain, NULL, &state.textureIndex));
-  XR(xrWaitSwapchainImage(state.swapchain, &waitInfo));
+  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]));
+  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo));
 
-  return state.textures[state.textureIndex];
+  if (state.features.depth) {
+    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]));
+    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo));
+  }
+
+  return state.textures[COLOR][state.textureIndex[COLOR]];
+}
+
+static Texture* openxr_getDepthTexture(void) {
+  if (!SESSION_ACTIVE(state.sessionState) || !state.features.depth) {
+    return NULL;
+  }
+
+  if (state.began) {
+    return state.frameState.shouldRender ? state.textures[DEPTH][state.textureIndex[DEPTH]] : NULL;
+  }
+
+  XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
+  XR(xrBeginFrame(state.session, &beginfo));
+  state.began = true;
+
+  if (!state.frameState.shouldRender) {
+    return NULL;
+  }
+
+  XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
+  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]));
+  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo));
+
+  if (state.features.depth) {
+    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]));
+    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo));
+  }
+
+  return state.textures[DEPTH][state.textureIndex[DEPTH]];
 }
 
 static Pass* openxr_getPass(void) {
@@ -1697,6 +1806,7 @@ static Pass* openxr_getPass(void) {
   }
 
   Texture* texture = openxr_getTexture();
+  Texture* depthTexture = openxr_getDepthTexture();
 
   if (!texture) {
     return NULL;
@@ -1707,7 +1817,7 @@ static Pass* openxr_getPass(void) {
   lovrPassGetClear(state.pass, color, &depth, &stencil);
   lovrGraphicsGetBackground(color[0]);
   lovrPassSetClear(state.pass, color, depth, stencil);
-  lovrPassSetTarget(state.pass, &texture, NULL);
+  lovrPassSetTarget(state.pass, &texture, depthTexture);
   lovrPassReset(state.pass);
 
   uint32_t count;
@@ -1749,8 +1859,23 @@ static void openxr_submit(void) {
     }
   };
 
+  if (state.features.depth) {
+    if (state.clipFar == 0.f) {
+      state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = +INFINITY;
+      state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipNear;
+    } else {
+      state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = state.clipNear;
+      state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipFar;
+    }
+  }
+
   if (state.frameState.shouldRender) {
-    XR(xrReleaseSwapchainImage(state.swapchain, NULL));
+    XR(xrReleaseSwapchainImage(state.swapchain[COLOR], NULL));
+
+    if (state.features.depth) {
+      XR(xrReleaseSwapchainImage(state.swapchain[DEPTH], NULL));
+    }
+
     info.layerCount = 1;
   }
 

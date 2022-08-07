@@ -24,6 +24,7 @@ typedef struct {
   float offset;
   bool stencil;
   bool antialias;
+  bool submitDepth;
   bool overlay;
 } HeadsetConfig;
 
@@ -110,7 +111,7 @@ typedef enum {
 
 // Notes:
 // - init is called immediately, the graphics module may not exist yet
-// - start is called after the graphics module is initialized, can be used to set up graphics objects
+// - start is called after the graphics module is initialized, can be used to set up textures etc.
 // - getDisplayFrequency may return 0.f if the information is unavailable.
 // - For isDown, changed can be set to false if change information is unavailable or inconvenient.
 // - getAxis may write 4 floats to the output value.  The expected number is a constant (see axisCounts in l_headset).

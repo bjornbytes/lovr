@@ -645,6 +645,7 @@ int luaopen_lovr_headset(lua_State* L) {
     .offset = 1.7f,
     .stencil = false,
     .antialias = true,
+    .submitDepth = true,
     .overlay = false
   };
 
@@ -686,6 +687,11 @@ int luaopen_lovr_headset(lua_State* L) {
       // Samples
       lua_getfield(L, -1, "antialias");
       config.antialias = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      // Depth
+      lua_getfield(L, -1, "submitdepth");
+      config.submitDepth = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       // Overlay
