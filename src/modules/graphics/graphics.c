@@ -829,6 +829,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     Pass* pass = passes[i];
     lovrAssert(passes[i]->tick == state.tick, "Trying to submit a Pass that wasn't reset this frame");
 
+    for (uint32_t j = 0; j < i; j++) {
+      lovrCheck(passes[j] != passes[i], "Using a Pass twice in the same submit is not allowed");
+    }
+
     streams[i + 1] = pass->stream;
 
     switch (pass->info.type) {
