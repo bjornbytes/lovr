@@ -132,7 +132,6 @@ int main(int argc, char** argv) {
       memset(&cookie.value, 0, sizeof(cookie.value));
     }
     lua_close(L);
-    luax_unload(L);
   } while (restart);
 
   os_destroy();
@@ -148,7 +147,6 @@ void lovrDestroy(void* arg) {
     lua_State* L = context->L;
     emscripten_cancel_main_loop();
     lua_close(L);
-    luax_unload(L);
     os_destroy();
   }
 }
@@ -167,7 +165,6 @@ static void emscriptenLoop(void* arg) {
     }
 
     lua_close(context->L);
-    luax_unload(L);
     emscripten_cancel_main_loop();
 
     if (restart) {

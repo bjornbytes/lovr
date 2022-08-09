@@ -212,6 +212,8 @@ static const luaL_Reg lovrSystem[] = {
 int luaopen_lovr_system(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrSystem);
-  lovrSystemInit();
+  if (lovrSystemInit()) {
+    luax_atexit(L, lovrSystemDestroy);
+  }
   return 1;
 }

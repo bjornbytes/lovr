@@ -389,7 +389,9 @@ int luaopen_lovr_math(lua_State* L) {
   lua_pop(L, 1);
 
   // Module
-  lovrMathInit();
+  if (lovrMathInit()) {
+    luax_atexit(L, lovrMathDestroy);
+  }
 
   // Each Lua state gets its own thread-local Pool
   pool = lovrPoolCreate();
