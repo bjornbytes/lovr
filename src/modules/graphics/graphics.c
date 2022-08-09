@@ -13,6 +13,7 @@
 #include "monkey.h"
 #include "shaders.h"
 #include <math.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef LOVR_USE_GLSLANG
@@ -2891,7 +2892,7 @@ static void lovrModelReskin(Model* model) {
 
     gpu_compute_begin(state.stream);
     gpu_bind_pipeline(state.stream, pipeline, true);
-    gpu_bind_bundle(state.stream, shader, 0, bundle, NULL, 0);
+    gpu_bind_bundles(state.stream, shader, &bundle, 0, 1, NULL, 0);
     gpu_push_constants(state.stream, shader, constants, sizeof(constants));
     gpu_compute(state.stream, (skin->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
     gpu_compute_end(state.stream);
@@ -3073,7 +3074,7 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
 
   gpu_compute_begin(stream);
   gpu_bind_pipeline(stream, pipeline, true);
-  gpu_bind_bundle(stream, shader, 0, bundle, NULL, 0);
+  gpu_bind_bundles(stream, shader, &bundle, 0, 1, NULL, 0);
   gpu_push_constants(stream, shader, &constants, sizeof(constants));
   gpu_compute(stream, (count + 31) / 32, 1, 1);
   gpu_compute_end(stream);
@@ -3985,7 +3986,7 @@ void lovrPassSendValue(Pass* pass, const char* name, size_t length, void** data,
   lovrThrow("Shader has no push constant named '%s'", name);
 }
 
-static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
+static void bindPipeline(Pass* pass, Draw* draw, Shader* shader) {
   Pipeline* pipeline = pass->pipeline;
 
   if (pipeline->info.drawMode != (gpu_draw_mode) draw->mode) {
@@ -4000,61 +4001,60 @@ static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
     pipeline->dirty = true;
   }
 
-  // Builtin vertex format
-  if (!draw->vertex.buffer && pipeline->formatHash != 1 + draw->vertex.format) {
-    pipeline->formatHash = 1 + draw->vertex.format;
-    pipeline->info.vertex = state.vertexFormats[draw->vertex.format];
-    pipeline->dirty = true;
+  // Vertex formats
+  if (pipeline->formatHash != 1 + draw->vertex.format) {
+    if (!draw->vertex.buffer) {
+      pipeline->formatHash = 1 + draw->vertex.format;
+      pipeline->info.vertex = state.vertexFormats[draw->vertex.format];
+      pipeline->dirty = true;
 
-    if (shader->hasCustomAttributes) {
+      if (shader->hasCustomAttributes) {
+        for (uint32_t i = 0; i < shader->attributeCount; i++) {
+          if (shader->attributes[i].location < 10) {
+            pipeline->info.vertex.attributes[pipeline->info.vertex.attributeCount++] = (gpu_attribute) {
+              .buffer = 1,
+              .location = shader->attributes[i].location,
+              .type = GPU_TYPE_F32x4,
+              .offset = shader->attributes[i].location == LOCATION_COLOR ? 16 : 0
+            };
+          }
+        }
+      }
+    } else {
+      pipeline->formatHash = draw->vertex.buffer->hash;
+      pipeline->info.vertex.bufferCount = 2;
+      pipeline->info.vertex.attributeCount = shader->attributeCount;
+      pipeline->info.vertex.bufferStrides[0] = draw->vertex.buffer->info.stride;
+      pipeline->info.vertex.bufferStrides[1] = 0;
+      pipeline->dirty = true;
+
       for (uint32_t i = 0; i < shader->attributeCount; i++) {
-        if (shader->attributes[i].location < 10) {
-          pipeline->info.vertex.attributes[pipeline->info.vertex.attributeCount++] = (gpu_attribute) {
-            .buffer = 1,
-            .location = shader->attributes[i].location,
-            .type = GPU_TYPE_F32x4,
-            .offset = shader->attributes[i].location == LOCATION_COLOR ? 16 : 0
-          };
+        ShaderAttribute* attribute = &shader->attributes[i];
+        bool found = false;
+
+        for (uint32_t j = 0; j < draw->vertex.buffer->info.fieldCount; j++) {
+          BufferField field = draw->vertex.buffer->info.fields[j];
+          lovrCheck(field.type < FIELD_MAT2, "Currently, matrix and index types can not be used in vertex buffers");
+          if (field.hash ? (field.hash == attribute->hash) : (field.location == attribute->location)) {
+            pipeline->info.vertex.attributes[i] = (gpu_attribute) {
+              .buffer = 0,
+              .location = attribute->location,
+              .offset = field.offset,
+              .type = field.type
+            };
+            found = true;
+            break;
+          }
         }
-      }
-    }
-  }
 
-  // Custom vertex format
-  if (draw->vertex.buffer && pipeline->formatHash != draw->vertex.buffer->hash) {
-    pipeline->formatHash = draw->vertex.buffer->hash;
-    pipeline->info.vertex.bufferCount = 2;
-    pipeline->info.vertex.attributeCount = shader->attributeCount;
-    pipeline->info.vertex.bufferStrides[0] = draw->vertex.buffer->info.stride;
-    pipeline->info.vertex.bufferStrides[1] = 0;
-    pipeline->dirty = true;
-
-    for (uint32_t i = 0; i < shader->attributeCount; i++) {
-      ShaderAttribute* attribute = &shader->attributes[i];
-
-      bool found = false;
-      for (uint32_t j = 0; j < draw->vertex.buffer->info.fieldCount; j++) {
-        BufferField field = draw->vertex.buffer->info.fields[j];
-        lovrCheck(field.type < FIELD_MAT2, "Currently, matrix and index types can not be used in vertex buffers");
-        if (field.hash ? (field.hash == attribute->hash) : (field.location == attribute->location)) {
+        if (!found) {
           pipeline->info.vertex.attributes[i] = (gpu_attribute) {
-            .buffer = 0,
+            .buffer = 1,
             .location = attribute->location,
-            .offset = field.offset,
-            .type = field.type
+            .offset = attribute->location == LOCATION_COLOR ? 16 : 0,
+            .type = GPU_TYPE_F32x4
           };
-          found = true;
-          break;
         }
-      }
-
-      if (!found) {
-        pipeline->info.vertex.attributes[i] = (gpu_attribute) {
-          .buffer = 1,
-          .location = attribute->location,
-          .offset = attribute->location == LOCATION_COLOR ? 16 : 0,
-          .type = GPU_TYPE_F32x4
-        };
       }
     }
   }
@@ -4079,117 +4079,142 @@ static void flushPipeline(Pass* pass, Draw* draw, Shader* shader) {
   pipeline->dirty = false;
 }
 
-static void flushConstants(Pass* pass, Shader* shader) {
-  if (pass->constantsDirty && shader->constantSize > 0) {
-    gpu_push_constants(pass->stream, shader->gpu, pass->constants, shader->constantSize);
-    pass->constantsDirty = false;
-  }
-}
-
-static void flushBindings(Pass* pass, Shader* shader) {
-  if (!pass->bindingsDirty || shader->resourceCount == 0) {
-    return;
-  }
-
+static void bindBundles(Pass* pass, Draw* draw, Shader* shader) {
   size_t stack = tempPush();
-  uint32_t set = pass->info.type == PASS_RENDER ? 2 : 0;
-  gpu_binding* bindings = tempAlloc(shader->resourceCount * sizeof(gpu_binding));
 
-  for (uint32_t i = 0; i < shader->resourceCount; i++) {
-    bindings[i] = pass->bindings[shader->resources[i].binding];
+  gpu_bundle* bundles[3];
+  uint32_t bundleMask = 0;
+
+  // Set 0 - Builtins
+  if (pass->info.type == PASS_RENDER) {
+    bool builtinsDirty = false;
+
+    if (pass->cameraDirty) {
+      for (uint32_t i = 0; i < pass->cameraCount; i++) {
+        mat4_init(pass->cameras[i].viewProjection, pass->cameras[i].projection);
+        mat4_init(pass->cameras[i].inverseProjection, pass->cameras[i].projection);
+        mat4_mul(pass->cameras[i].viewProjection, pass->cameras[i].view);
+        mat4_invert(pass->cameras[i].inverseProjection);
+      }
+
+      uint32_t size = pass->cameraCount * sizeof(Camera);
+      void* data = gpu_map(pass->builtins[1].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+      memcpy(data, pass->cameras, size);
+      pass->cameraDirty = false;
+      builtinsDirty = true;
+    }
+
+    if (pass->drawCount % 256 == 0) {
+      uint32_t size = 256 * sizeof(DrawData);
+      pass->drawData = gpu_map(pass->builtins[2].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+      builtinsDirty = true;
+    }
+
+    if (pass->samplerDirty) {
+      Sampler* sampler = pass->pipeline->sampler ? pass->pipeline->sampler : state.defaultSamplers[FILTER_LINEAR];
+      pass->builtins[3].sampler = sampler->gpu;
+      pass->samplerDirty = false;
+      builtinsDirty = true;
+    }
+
+    if (builtinsDirty) {
+      gpu_bundle_info bundleInfo = {
+        .layout = state.layouts.data[state.builtinLayout].gpu,
+        .bindings = pass->builtins,
+        .count = COUNTOF(pass->builtins)
+      };
+
+      bundles[0] = getBundle(state.builtinLayout);
+      gpu_bundle_write(&bundles[0], &bundleInfo, 1);
+      bundleMask |= (1 << 0);
+    }
+
+    // Draw data
+
+    float m[16];
+    float* transform;
+    if (draw->transform) {
+      transform = mat4_mul(mat4_init(m, pass->transform), draw->transform);
+    } else {
+      transform = pass->transform;
+    }
+
+    float cofactor[16];
+    mat4_init(cofactor, transform);
+    cofactor[12] = 0.f;
+    cofactor[13] = 0.f;
+    cofactor[14] = 0.f;
+    cofactor[15] = 1.f;
+    mat4_cofactor(cofactor);
+
+    memcpy(pass->drawData->transform, transform, 64);
+    memcpy(pass->drawData->cofactor, cofactor, 64);
+    memcpy(pass->drawData->color, pass->pipeline->color, 16);
+    pass->drawData++;
   }
 
-  gpu_bundle_info info = {
-    .layout = state.layouts.data[shader->layout].gpu,
-    .bindings = bindings,
-    .count = shader->resourceCount
-  };
+  // Set 1 - Material
+  if (pass->info.type == PASS_RENDER) {
+    if (draw->material && draw->material != pass->pipeline->material) {
+      trackMaterial(pass, draw->material, GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT, GPU_CACHE_TEXTURE);
+      pass->materialDirty = true;
+      bundles[1] = draw->material->bundle;
+      bundleMask |= (1 << 1);
+    } else if (pass->materialDirty) {
+      Material* material = pass->pipeline->material ? pass->pipeline->material : state.defaultMaterial;
+      trackMaterial(pass, material, GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT, GPU_CACHE_TEXTURE);
+      pass->materialDirty = false;
+      bundles[1] = material->bundle;
+      bundleMask |= (1 << 1);
+    } else {
+      bundles[1] = (pass->pipeline->material ? pass->pipeline->material : state.defaultMaterial)->bundle;
+    }
+  }
 
-  gpu_bundle* bundle = getBundle(shader->layout);
-  gpu_bundle_write(&bundle, &info, 1);
-  gpu_bind_bundle(pass->stream, shader->gpu, set, bundle, NULL, 0);
+  // Set 2 - Resources
+  if (pass->bindingsDirty && shader->resourceCount > 0) {
+    gpu_binding* bindings = tempAlloc(shader->resourceCount * sizeof(gpu_binding));
+
+    for (uint32_t i = 0; i < shader->resourceCount; i++) {
+      bindings[i] = pass->bindings[shader->resources[i].binding];
+    }
+
+    gpu_bundle_info info = {
+      .layout = state.layouts.data[shader->layout].gpu,
+      .bindings = bindings,
+      .count = shader->resourceCount
+    };
+
+    gpu_bundle* bundle = getBundle(shader->layout);
+    gpu_bundle_write(&bundle, &info, 1);
+    pass->bindingsDirty = false;
+
+    uint32_t set = pass->info.type == PASS_RENDER ? 2 : 0;
+    bundleMask |= (1 << set);
+    bundles[set] = bundle;
+  }
+
+  // Bind
+  if (bundleMask) {
+    uint32_t first = 0;
+    while (~bundleMask & 0x1) {
+      bundleMask >>= 1;
+      first++;
+    }
+
+    uint32_t count = 0;
+    while (bundleMask) {
+      bundleMask >>= 1;
+      count++;
+    }
+
+    gpu_bind_bundles(pass->stream, shader->gpu, bundles + first, first, count, NULL, 0);
+  }
+
   tempPop(stack);
 }
 
-static void flushBuiltins(Pass* pass, Draw* draw, Shader* shader) {
-  bool rebind = false;
-
-  if (pass->cameraDirty) {
-    for (uint32_t i = 0; i < pass->cameraCount; i++) {
-      mat4_init(pass->cameras[i].viewProjection, pass->cameras[i].projection);
-      mat4_init(pass->cameras[i].inverseProjection, pass->cameras[i].projection);
-      mat4_mul(pass->cameras[i].viewProjection, pass->cameras[i].view);
-      mat4_invert(pass->cameras[i].inverseProjection);
-    }
-
-    uint32_t size = pass->cameraCount * sizeof(Camera);
-    void* data = gpu_map(pass->builtins[1].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
-    memcpy(data, pass->cameras, size);
-    pass->cameraDirty = false;
-    rebind = true;
-  }
-
-  if (pass->drawCount % 256 == 0) {
-    uint32_t size = 256 * sizeof(DrawData);
-    pass->drawData = gpu_map(pass->builtins[2].buffer.object, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
-    rebind = true;
-  }
-
-  if (pass->samplerDirty) {
-    Sampler* sampler = pass->pipeline->sampler ? pass->pipeline->sampler : state.defaultSamplers[FILTER_LINEAR];
-    pass->builtins[3].sampler = sampler->gpu;
-    pass->samplerDirty = false;
-    rebind = true;
-  }
-
-  if (rebind) {
-    gpu_bundle_info bundleInfo = {
-      .layout = state.layouts.data[state.builtinLayout].gpu,
-      .bindings = pass->builtins,
-      .count = COUNTOF(pass->builtins)
-    };
-
-    gpu_bundle* bundle = getBundle(state.builtinLayout);
-    gpu_bundle_write(&bundle, &bundleInfo, 1);
-    gpu_bind_bundle(pass->stream, shader->gpu, 0, bundle, NULL, 0);
-  }
-
-  float m[16];
-  float* transform;
-  if (draw->transform) {
-    transform = mat4_mul(mat4_init(m, pass->transform), draw->transform);
-  } else {
-    transform = pass->transform;
-  }
-
-  float cofactor[16];
-  mat4_init(cofactor, transform);
-  cofactor[12] = 0.f;
-  cofactor[13] = 0.f;
-  cofactor[14] = 0.f;
-  cofactor[15] = 1.f;
-  mat4_cofactor(cofactor);
-
-  memcpy(pass->drawData->transform, transform, 64);
-  memcpy(pass->drawData->cofactor, cofactor, 64);
-  memcpy(pass->drawData->color, pass->pipeline->color, 16);
-  pass->drawData++;
-}
-
-static void flushMaterial(Pass* pass, Draw* draw, Shader* shader) {
-  if (draw->material && draw->material != pass->pipeline->material) {
-    gpu_bind_bundle(pass->stream, shader->gpu, 1, draw->material->bundle, NULL, 0);
-    trackMaterial(pass, draw->material, GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT, GPU_CACHE_TEXTURE);
-    pass->materialDirty = true;
-  } else if (pass->materialDirty) {
-    Material* material = pass->pipeline->material ? pass->pipeline->material : state.defaultMaterial;
-    gpu_bind_bundle(pass->stream, shader->gpu, 1, material->bundle, NULL, 0);
-    trackMaterial(pass, material, GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT, GPU_CACHE_TEXTURE);
-    pass->materialDirty = false;
-  }
-}
-
-static void flushBuffers(Pass* pass, Draw* draw) {
+static void bindBuffers(Pass* pass, Draw* draw) {
   Shape* cache = NULL;
 
   if (draw->hash) {
@@ -4250,16 +4275,21 @@ static void flushBuffers(Pass* pass, Draw* draw) {
   }
 }
 
+static void pushConstants(Pass* pass, Shader* shader) {
+  if (pass->constantsDirty && shader->constantSize > 0) {
+    gpu_push_constants(pass->stream, shader->gpu, pass->constants, shader->constantSize);
+    pass->constantsDirty = false;
+  }
+}
+
 static void lovrPassDraw(Pass* pass, Draw* draw) {
   lovrCheck(pass->info.type == PASS_RENDER, "This function can only be called on a render pass");
   Shader* shader = pass->pipeline->shader ? pass->pipeline->shader : lovrGraphicsGetDefaultShader(draw->shader);
 
-  flushPipeline(pass, draw, shader);
-  flushConstants(pass, shader);
-  flushBindings(pass, shader);
-  flushBuiltins(pass, draw, shader);
-  flushMaterial(pass, draw, shader);
-  flushBuffers(pass, draw);
+  bindPipeline(pass, draw, shader);
+  bindBundles(pass, draw, shader);
+  bindBuffers(pass, draw);
+  pushConstants(pass, shader);
 
   uint32_t defaultCount = draw->index.count > 0 ? draw->index.count : draw->vertex.count;
   uint32_t count = draw->count > 0 ? draw->count : defaultCount;
@@ -5100,12 +5130,10 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A custom Shader must be bound to source draws from a Buffer");
 
-  flushPipeline(pass, &draw, shader);
-  flushConstants(pass, shader);
-  flushBindings(pass, shader);
-  flushBuiltins(pass, &draw, shader);
-  flushMaterial(pass, &draw, shader);
-  flushBuffers(pass, &draw);
+  bindPipeline(pass, &draw, shader);
+  bindBundles(pass, &draw, shader);
+  bindBuffers(pass, &draw);
+  pushConstants(pass, shader);
 
   if (indices) {
     gpu_draw_indirect_indexed(pass->stream, draws->gpu, offset, count, stride);
@@ -5132,8 +5160,8 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
     pass->pipeline->dirty = false;
   }
 
-  flushConstants(pass, shader);
-  flushBindings(pass, shader);
+  bindBundles(pass, NULL, shader);
+  pushConstants(pass, shader);
 
   if (indirect) {
     lovrCheck(offset % 4 == 0, "Indirect compute offset must be a multiple of 4");
