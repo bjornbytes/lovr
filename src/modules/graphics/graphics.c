@@ -844,22 +844,28 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         Canvas* canvas = &pass->info.canvas;
 
         if (canvas->mipmap) {
-          for (uint32_t j = 0; j < COUNTOF(canvas->textures) && canvas->textures[j]; j++) {
-            if (canvas->textures[j]->info.mipmaps > 1) {
-              barriers[i].prev |= GPU_PHASE_COLOR;
-              barriers[i].next |= GPU_PHASE_TRANSFER;
-              barriers[i].flush |= GPU_CACHE_COLOR_WRITE;
-              barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
-              mipmapTexture(pass->stream, canvas->textures[j], 0, ~0u);
+          bool depth = pass->depth && pass->depth->info.mipmaps > 1;
+
+          gpu_barrier barrier = {
+            .prev = GPU_PHASE_COLOR | (depth ? GPU_PHASE_DEPTH_LATE : 0),
+            .next = GPU_PHASE_TRANSFER,
+            .flush = GPU_CACHE_COLOR_WRITE | (depth ? GPU_CACHE_DEPTH_WRITE : 0),
+            .clear = GPU_CACHE_TRANSFER_READ
+          };
+
+          // Wait for rendering to finish before mipmapping
+          gpu_sync(pass->stream, &barrier, 1);
+
+          for (uint32_t t = 0; t < canvas->count; t++) {
+            if (pass->color[t]->info.mipmaps > 1) {
+              mipmapTexture(pass->stream, pass->color[t], 0, ~0u);
+              trackTexture(pass, pass->color[t], GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
             }
           }
 
-          if (canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
-            barriers[i].prev |= GPU_PHASE_DEPTH_LATE;
-            barriers[i].next |= GPU_PHASE_TRANSFER;
-            barriers[i].flush |= GPU_CACHE_DEPTH_WRITE;
-            barriers[i].clear |= GPU_CACHE_TRANSFER_READ;
-            mipmapTexture(pass->stream, canvas->depth.texture, 0, ~0u);
+          if (depth) {
+            mipmapTexture(pass->stream, pass->depth, 0, ~0u);
+            trackTexture(pass, pass->depth, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
           }
         }
         break;
@@ -902,7 +908,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       // finish.  In between, the 'flush' cache is flushed and the 'clear' cache is cleared.
       gpu_barrier* barrier = &barriers[sync->lastWriteIndex];
 
-      // Only the first write in a pass is considered for a barrier (and there's no intra-pass sync)
+      // Only the first write in a pass is used for inter-stream barriers
       if (sync->lastWriteIndex == i + 1) {
         continue;
       }
@@ -3469,22 +3475,14 @@ void lovrPassReset(Pass* pass) {
         memcpy(pass->target.color[0].clear, state.background, 4 * sizeof(float));
       }
 
-      if (canvas->mipmap) {
-        trackTexture(pass, pass->color[i], GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-      } else {
-        gpu_cache cache = GPU_CACHE_COLOR_WRITE | (canvas->loads[i] == LOAD_KEEP ? GPU_CACHE_COLOR_READ : 0);
-        trackTexture(pass, pass->color[i], GPU_PHASE_COLOR, cache);
-      }
+      gpu_cache cache = GPU_CACHE_COLOR_WRITE | (canvas->loads[i] == LOAD_KEEP ? GPU_CACHE_COLOR_READ : 0);
+      trackTexture(pass, pass->color[i], GPU_PHASE_COLOR, cache);
     }
 
     if (pass->depth) {
-      if (canvas->mipmap && pass->depth->info.mipmaps > 1) {
-        trackTexture(pass, pass->depth, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-      } else {
-        gpu_phase phase = canvas->depth.load == LOAD_KEEP ? GPU_PHASE_DEPTH_EARLY : GPU_PHASE_DEPTH_LATE;
-        gpu_cache cache = GPU_CACHE_DEPTH_WRITE | (canvas->depth.load == LOAD_KEEP ? GPU_CACHE_DEPTH_READ : 0);
-        trackTexture(pass, pass->depth, phase, cache);
-      }
+      gpu_phase phase = canvas->depth.load == LOAD_KEEP ? GPU_PHASE_DEPTH_EARLY : GPU_PHASE_DEPTH_LATE;
+      gpu_cache cache = GPU_CACHE_DEPTH_WRITE | (canvas->depth.load == LOAD_KEEP ? GPU_CACHE_DEPTH_READ : 0);
+      trackTexture(pass, pass->depth, phase, cache);
     }
 
     gpu_render_begin(pass->stream, &pass->target);
