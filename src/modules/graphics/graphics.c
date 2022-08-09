@@ -640,6 +640,14 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
 void lovrGraphicsDestroy() {
   if (!state.initialized) return;
+#ifndef LOVR_DISABLE_HEADSET
+  // If there's an active headset session it needs to be stopped so it can clean up its Pass and
+  // swapchain textures before gpu_destroy is called.  This is really hacky and should be solved
+  // with module-level refcounting in the future.
+  if (lovrHeadsetInterface && lovrHeadsetInterface->stop) {
+    lovrHeadsetInterface->stop();
+  }
+#endif
   for (Readback* readback = state.oldestReadback; readback; readback = readback->next) {
     lovrRelease(readback, lovrReadbackDestroy);
   }

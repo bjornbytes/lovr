@@ -1035,20 +1035,24 @@ static void openxr_start(void) {
   }
 }
 
-static void openxr_destroy(void) {
+static void openxr_stop(void) {
+  if (!state.session) {
+    return;
+  }
+
+  lovrRelease(state.pass, lovrPassDestroy);
+
   for (uint32_t i = 0; i < 2; i++) {
     for (uint32_t j = 0; j < state.textureCount[i]; j++) {
       lovrRelease(state.textures[i][j], lovrTextureDestroy);
     }
   }
 
-  lovrRelease(state.pass, lovrPassDestroy);
+  if (state.swapchain[COLOR]) xrDestroySwapchain(state.swapchain[COLOR]);
+  if (state.swapchain[DEPTH]) xrDestroySwapchain(state.swapchain[DEPTH]);
 
-  for (size_t i = 0; i < MAX_ACTIONS; i++) {
-    if (state.actions[i]) {
-      xrDestroyAction(state.actions[i]);
-    }
-  }
+  if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
+  if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
 
   for (size_t i = 0; i < MAX_DEVICES; i++) {
     if (state.spaces[i]) {
@@ -1056,13 +1060,15 @@ static void openxr_destroy(void) {
     }
   }
 
-  if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
-  if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
-  if (state.actionSet) xrDestroyActionSet(state.actionSet);
-  if (state.swapchain[COLOR]) xrDestroySwapchain(state.swapchain[COLOR]);
-  if (state.swapchain[DEPTH]) xrDestroySwapchain(state.swapchain[DEPTH]);
   if (state.referenceSpace) xrDestroySpace(state.referenceSpace);
   if (state.session) xrDestroySession(state.session);
+  state.session = NULL;
+}
+
+static void openxr_destroy(void) {
+  openxr_stop();
+
+  if (state.actionSet) xrDestroyActionSet(state.actionSet);
   if (state.instance) xrDestroyInstance(state.instance);
   memset(&state, 0, sizeof(state));
 }
@@ -1967,6 +1973,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .createVulkanDevice = openxr_createVulkanDevice,
   .init = openxr_init,
   .start = openxr_start,
+  .stop = openxr_stop,
   .destroy = openxr_destroy,
   .getName = openxr_getName,
   .getOriginType = openxr_getOriginType,
