@@ -66,7 +66,7 @@ layout(location = 14) in vec3 VertexTangent;
 
 // Framebuffer
 #ifdef GL_FRAGMENT_SHADER
-layout(location = 0) out vec4 PixelColors[1];
+layout(location = 0) out vec4 PixelColor[1];
 #endif
 
 // Varyings
@@ -285,13 +285,13 @@ void main() {
 #ifdef GL_FRAGMENT_SHADER
 vec4 lovrmain();
 void main() {
-  PixelColors[0] = lovrmain();
+  PixelColor[0] = lovrmain();
 
   if (enableGlow) {
-    PixelColors[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
+    PixelColor[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
   }
 
-  if (enableAlphaCutoff && PixelColors[0].a <= Material.alphaCutoff) {
+  if (enableAlphaCutoff && PixelColor[0].a <= Material.alphaCutoff) {
     discard;
   }
 }
