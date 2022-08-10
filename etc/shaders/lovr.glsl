@@ -43,7 +43,6 @@ layout(set = 1, binding = 0) uniform MaterialBuffer {
   float occlusionStrength;
   float normalScale;
   float alphaCutoff;
-  float pointSize;
 } Material;
 
 layout(set = 1, binding = 1) uniform texture2D ColorTexture;
@@ -272,7 +271,7 @@ void main() {
   Color = VertexColor * Material.color * PassColor;
   UV = VertexUV;
 
-  PointSize = Material.pointSize;
+  PointSize = 1.f;
   Position = lovrmain();
 
   if (enableUVTransform) {

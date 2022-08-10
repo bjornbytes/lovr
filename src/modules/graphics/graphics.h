@@ -332,7 +332,6 @@ typedef struct {
   float occlusionStrength;
   float normalScale;
   float alphaCutoff;
-  float pointSize;
 } MaterialData;
 
 typedef struct {

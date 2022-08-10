@@ -609,7 +609,6 @@ static int l_lovrModelDataGetMaterial(lua_State* L) {
   lua_pushnumber(L, material->occlusionStrength), lua_setfield(L, -2, "occlusionStrength");
   lua_pushnumber(L, material->normalScale), lua_setfield(L, -2, "normalScale");
   lua_pushnumber(L, material->alphaCutoff), lua_setfield(L, -2, "alphaCutoff");
-  lua_pushnumber(L, material->pointSize), lua_setfield(L, -2, "pointSize");
 
 #define PUSH_IMAGE(t) if (material->t != ~0u) luax_pushtype(L, Image, model->images[material->t]), lua_setfield(L, -2, #t)
   PUSH_IMAGE(texture);

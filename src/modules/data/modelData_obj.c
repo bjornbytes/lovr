@@ -58,7 +58,6 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
         .occlusionStrength = 1.f,
         .normalScale = 1.f,
         .alphaCutoff = 0.f,
-        .pointSize = 1.f,
         .texture = ~0u,
         .glowTexture = ~0u,
         .occlusionTexture = ~0u,

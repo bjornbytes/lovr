@@ -86,7 +86,6 @@ typedef struct {
   float occlusionStrength;
   float normalScale;
   float alphaCutoff;
-  float pointSize;
   uint32_t texture;
   uint32_t glowTexture;
   uint32_t occlusionTexture;

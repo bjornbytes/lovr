@@ -1363,10 +1363,6 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     info.data.alphaCutoff = luax_optfloat(L, -1, 0.f);
     lua_pop(L, 1);
 
-    lua_getfield(L, 1, "pointSize");
-    info.data.pointSize = luax_optfloat(L, -1, 1.f);
-    lua_pop(L, 1);
-
     lua_getfield(L, 1, "texture");
     info.texture = luax_opttexture(L, -1);
     lua_pop(L, 1);

@@ -707,7 +707,6 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       material->occlusionStrength = 1.f;
       material->normalScale = 1.f;
       material->alphaCutoff = 0.f;
-      material->pointSize = 1.f;
       material->texture = ~0u;
       material->glowTexture = ~0u;
       material->occlusionTexture = ~0u;
