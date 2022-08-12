@@ -1,5 +1,6 @@
 #include "api.h"
 #include "physics/physics.h"
+#include "data/image.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
@@ -40,6 +41,16 @@ static void raycastCallback(Shape* shape, float x, float y, float z, float nx, f
   lua_pushnumber(L, ny);
   lua_pushnumber(L, nz);
   lua_call(L, 7, 0);
+}
+
+static float terrainCallback(lua_State * L, int fn_index, float x, float z) {
+  lua_pushvalue(L, fn_index);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, z);
+  lua_call(L, 2, 1);
+  float height = luax_checkfloat(L, -1);
+  lua_remove(L, -1);
+  return height;
 }
 
 static int l_lovrWorldNewCollider(lua_State* L) {
@@ -142,6 +153,49 @@ static int l_lovrWorldNewMeshCollider(lua_State* L) {
   MeshShape* shape = lovrMeshShapeCreate(vertexCount, vertices, indexCount, indices);
   lovrColliderAddShape(collider, shape);
   lovrColliderInitInertia(collider, shape);
+  luax_pushtype(L, Collider, collider);
+  lovrRelease(collider, lovrColliderDestroy);
+  lovrRelease(shape, lovrShapeDestroy);
+  return 1;
+}
+
+static int l_lovrWorldNewTerrainCollider(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  TerrainShape* shape;
+  float horizontalScale = luax_checkfloat(L, 2);
+  int type = lua_type(L, 3);
+  if (type == LUA_TNIL || type == LUA_TNONE) {
+    float vertices[4] = {0.f};
+    shape = lovrTerrainShapeCreate(vertices, 2, 2, horizontalScale, 1.f);
+  } else if (type == LUA_TFUNCTION) {
+    unsigned samples = luax_optu32(L, 4, 100);
+    float* vertices = malloc(sizeof(float) * samples * samples);
+    for (unsigned i = 0; i < samples * samples; i++) {
+      float x = horizontalScale * (-0.5f + ((float) (i % samples)) / samples);
+      float z = horizontalScale * (-0.5f + ((float) (i / samples)) / samples);
+      vertices[i] = terrainCallback(L, 3, x, z);
+    }
+    shape = lovrTerrainShapeCreate(vertices, samples, samples, horizontalScale, 1.f);
+    free(vertices);
+  } else if (type == LUA_TUSERDATA) {
+    Image* image = luax_checktype(L, 3, Image);
+    uint32_t imageWidth = lovrImageGetWidth(image, 0);
+    uint32_t imageHeight = lovrImageGetHeight(image, 0);
+    float verticalScale = luax_optfloat(L, 4, 1.f);
+    float* vertices = malloc(sizeof(float) * imageWidth * imageHeight);
+    for (int y = 0; y < imageHeight; y++) {
+      for (int x = 0; x < imageWidth; x++) {
+        float pixel[4];
+        lovrImageGetPixel(image, x, y, pixel);
+        vertices[x + y * imageWidth] = pixel[0];
+      }
+    }
+    shape = lovrTerrainShapeCreate(vertices, imageWidth, imageHeight, horizontalScale, verticalScale);
+    free(vertices);
+  }
+  Collider* collider = lovrColliderCreate(world, 0, 0, 0);
+  lovrColliderAddShape(collider, shape);
+  lovrColliderSetKinematic(collider, true);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
   lovrRelease(shape, lovrShapeDestroy);
@@ -388,6 +442,7 @@ const luaL_Reg lovrWorld[] = {
   { "newCylinderCollider", l_lovrWorldNewCylinderCollider },
   { "newSphereCollider", l_lovrWorldNewSphereCollider },
   { "newMeshCollider", l_lovrWorldNewMeshCollider },
+  { "newTerrainCollider", l_lovrWorldNewTerrainCollider },
   { "getColliders", l_lovrWorldGetColliders },
   { "destroy", l_lovrWorldDestroy },
   { "update", l_lovrWorldUpdate },

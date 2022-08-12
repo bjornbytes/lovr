@@ -18,6 +18,7 @@ typedef Shape BoxShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
 typedef Shape MeshShape;
+typedef Shape TerrainShape;
 
 typedef Joint BallJoint;
 typedef Joint DistanceJoint;
@@ -131,6 +132,7 @@ typedef enum {
   SHAPE_CAPSULE,
   SHAPE_CYLINDER,
   SHAPE_MESH,
+  SHAPE_TERRAIN,
 } ShapeType;
 
 void lovrShapeDestroy(void* ref);
@@ -171,6 +173,7 @@ float lovrCylinderShapeGetLength(CylinderShape* cylinder);
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length);
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]);
+TerrainShape* lovrTerrainShapeCreate(float* vertices, int widthSamples, int depthSamples, float horizontalScale, float verticalScale);
 
 // These tokens need to exist for Lua bindings
 #define lovrSphereShapeDestroy lovrShapeDestroy
@@ -178,6 +181,7 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount
 #define lovrCapsuleShapeDestroy lovrShapeDestroy
 #define lovrCylinderShapeDestroy lovrShapeDestroy
 #define lovrMeshShapeDestroy lovrShapeDestroy
+#define lovrTerrainShapeDestroy lovrShapeDestroy
 
 // Joints
 
