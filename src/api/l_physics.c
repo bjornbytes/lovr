@@ -10,6 +10,7 @@ StringEntry lovrShapeType[] = {
   [SHAPE_CAPSULE] = ENTRY("capsule"),
   [SHAPE_CYLINDER] = ENTRY("cylinder"),
   [SHAPE_MESH] = ENTRY("mesh"),
+  [SHAPE_TERRAIN] = ENTRY("terrain"),
   { 0 }
 };
 
