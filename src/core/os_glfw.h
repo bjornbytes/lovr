@@ -324,3 +324,13 @@ uint32_t os_vk_create_surface(void* instance, void** surface) {
   return glfwCreateWindowSurface(instance, glfwState.window, NULL, (VkSurfaceKHR*) surface);
 }
 #endif
+
+#ifdef _WIN32
+#define OS_EXPORT __declspec(dllexport)
+#else
+#define OS_EXPORT __attribute__((visibility("default")))
+#endif
+
+OS_EXPORT GLFWwindow* os_get_glfw_window(void) {
+  return glfwState.window;
+}
