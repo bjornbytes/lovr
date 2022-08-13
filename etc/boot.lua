@@ -24,7 +24,7 @@ function lovr.boot()
     },
     graphics = {
       debug = false,
-      vsync = false,
+      vsync = true,
       stencil = false,
       antialias = true,
       shadercache = true
@@ -219,59 +219,39 @@ function lovr.threaderror(thread, err)
 end
 
 function lovr.log(message, level, tag)
-  message = message:gsub('\n$', '')
-  print(message)
+  print(message:gsub('\n$', ''))
 end
 
--- This splits up the string returned by luax_getstack so it looks like the error message plus the string from
--- debug.traceback(). This includes splitting on the newline before 'stack traceback:' and appending a newline
-local function splitOnLabelLine(s, t)
-  local at = s:reverse():find(t:reverse())
-  if at then
-    local slen = #s
-    at = (#s - at - #t + 2)
-    return s:sub(1, at-2), s:sub(at,slen) .. '\n'
-  else
-    return s, ''
-  end
-end
-
--- lovr will run this function in its own coroutine
 return function()
-  local errored = false -- lovr.errhand may only be called once
-  local function onerror(e, tb) -- wrapper for errhand to ensure it is only called once
-    local function abortclean()
-      return 1
-    end
+  local errored = false
+
+  local function onerror(...)
     if not errored then
-      errored = true
-      return lovr.errhand(e, tb) or abortclean
+      errored = true -- Ensure errhand is only called once
+      return lovr.errhand(...) or function() return 1 end
     else
-      print('Error occurred while trying to display another error:\n' ..
-        tostring(e) .. formatTraceback(tb or debug.traceback('', 2)))
-      return abortclean
+      local message = tostring(...) .. formatTraceback(debug.traceback('', 2))
+      print('Error occurred while trying to display another error:\n' .. message)
+      return function() return 1 end
     end
   end
 
-  -- Executes lovr.boot and lovr.run.
-  -- continuation, afterward, will be either lovr.run's per-frame function, or the result of errhand.
-  local _, continuation = xpcall(lovr.boot, onerror)
+  -- thread will be either lovr.run's step function, or the result of errhand
+  local _, thread = xpcall(lovr.boot, onerror)
 
   while true do
-    if type(continuation) == 'string' then -- LuaJIT returns a fixed string if an error occurs in an xpcall error handler
-      print('Error occurred while trying to display another error: ' .. continuation)
-      return 1
+    local ok, result, cookie = xpcall(thread, onerror)
+
+    if result and ok then -- If step function returned something, exit coroutine and return to C
+      return result, cookie
+    elseif not ok then -- Switch to errhand loop
+      thread = result
+      if type(thread) ~= 'function' then
+        print('Error occurred while trying to display another error:\n' .. tostring(result))
+        return 1
+      end
     end
 
-    local ok, result, extra = xpcall(continuation, onerror)
-    if result and ok then return result, extra -- Result is value returned by function. Return it.
-    elseif not ok then continuation = result end -- Result is value returned by error handler. Make it the new error handler.
-
-    local externerror = coroutine.yield() -- Return control to C code
-
-    if externerror then -- A must-report error occurred in the C code
-      local errorpart, tracepart = splitOnLabelLine(externerror, 'stack traceback:')
-      continuation = onerror(errorpart, tracepart) -- Switch continuation to lovr.errhand
-    end
+    coroutine.yield()
   end
 end

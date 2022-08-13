@@ -106,9 +106,6 @@ typedef struct {
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_tofloat(L, i) (float) lua_tonumber(L, i)
-#define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
-#define luax_seterror(L) lua_setfield(L, LUA_REGISTRYINDEX, "_lovrerror")
-#define luax_clearerror(L) lua_pushnil(L), luax_seterror(L)
 
 void luax_preload(struct lua_State* L);
 void _luax_registertype(struct lua_State* L, const char* name, const struct luaL_Reg* functions, void (*destructor)(void*));
