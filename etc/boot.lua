@@ -166,7 +166,7 @@ function lovr.errhand(message)
 
   if lovr.audio then lovr.audio.stop() end
 
-  local scale = .3
+  local scale = .35
   local font = lovr.graphics.getDefaultFont()
   local wrap = .7 * font:getPixelDensity()
   local lines = font:getLines(message, wrap)

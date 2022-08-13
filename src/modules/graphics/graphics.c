@@ -3441,7 +3441,7 @@ void lovrPassReset(Pass* pass) {
 
   for (uint32_t i = 0; i < pass->cameraCount; i++) {
     mat4_identity(pass->cameras[i].view);
-    mat4_perspective(pass->cameras[i].projection, 1.f, aspect, .01f, 0.f);
+    mat4_perspective(pass->cameras[i].projection, 1.f / aspect, aspect, .01f, 0.f);
   }
   pass->cameraDirty = true;
 
