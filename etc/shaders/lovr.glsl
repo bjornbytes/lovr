@@ -2,13 +2,14 @@
 layout(constant_id = 1000) const bool enableUVTransform = true;
 layout(constant_id = 1001) const bool enableAlphaCutoff = false;
 layout(constant_id = 1002) const bool enableGlow = false;
-layout(constant_id = 1003) const bool useColorTexture = false;
-layout(constant_id = 1004) const bool useGlowTexture = false;
-layout(constant_id = 1005) const bool useMetalnessTexture = false;
-layout(constant_id = 1006) const bool useRoughnessTexture = false;
-layout(constant_id = 1007) const bool useOcclusionTexture = false;
-layout(constant_id = 1008) const bool useClearcoatTexture = false;
-layout(constant_id = 1009) const bool useNormalTexture = false;
+layout(constant_id = 1003) const bool enableNormalMap = false;
+layout(constant_id = 1004) const bool useVertexTangents = true;
+layout(constant_id = 1005) const bool useColorTexture = true;
+layout(constant_id = 1006) const bool useGlowTexture = false;
+layout(constant_id = 1007) const bool useMetalnessTexture = true;
+layout(constant_id = 1008) const bool useRoughnessTexture = true;
+layout(constant_id = 1009) const bool useOcclusionTexture = false;
+layout(constant_id = 1010) const bool useClearcoatTexture = false;
 
 // Resources
 #ifndef GL_COMPUTE_SHADER
@@ -74,6 +75,7 @@ layout(location = 10) out vec3 PositionWorld;
 layout(location = 11) out vec3 Normal;
 layout(location = 12) out vec4 Color;
 layout(location = 13) out vec2 UV;
+layout(location = 14) out vec3 Tangent;
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
@@ -81,6 +83,7 @@ layout(location = 10) in vec3 PositionWorld;
 layout(location = 11) in vec3 Normal;
 layout(location = 12) in vec4 Color;
 layout(location = 13) in vec2 UV;
+layout(location = 14) in vec3 Tangent;
 #endif
 
 // Macros
@@ -144,14 +147,16 @@ layout(location = 13) in vec2 UV;
 #define PI_2 (.5f * PI)
 
 // Helpers
-#ifndef GL_COMPUTE_SHADER
 
 // Helper for sampling textures using the default sampler set using Pass:setSampler
+#ifndef GL_COMPUTE_SHADER
 vec4 getPixel(texture2D t, vec2 uv) { return texture(sampler2D(t, Sampler), uv); }
 vec4 getPixel(texture3D t, vec3 uvw) { return texture(sampler3D(t, Sampler), uvw); }
 vec4 getPixel(textureCube t, vec3 dir) { return texture(samplerCube(t, Sampler), dir); }
 vec4 getPixel(texture2DArray t, vec3 uvw) { return texture(sampler2DArray(t, Sampler), uvw); }
+#endif
 
+#ifdef GL_FRAGMENT_SHADER
 // Surface contains all light-independent data needed for shading.  It can be calculated once per
 // pixel and reused for multiple lights.  It stores information from the vertex shader and material
 // inputs.  The Surface can be initialized using initSurface, and is passed into the other lighting
@@ -173,17 +178,42 @@ struct Surface {
   float alpha;
 };
 
+#define TangentMatrix getTangentMatrix()
+
+mat3 getTangentMatrix() {
+  if (useVertexTangents) {
+    vec3 N = normalize(Normal);
+    vec3 T = normalize(Tangent);
+    vec3 B = cross(N, T);
+    return mat3(T, B, N);
+  } else {
+    // http://www.thetenthplanet.de/archives/1180
+    vec3 N = normalize(Normal);
+    vec3 dp1 = dFdx(PositionWorld);
+    vec3 dp2 = dFdy(PositionWorld);
+    vec2 duv1 = dFdx(UV);
+    vec2 duv2 = dFdy(UV);
+    vec3 dp2perp = cross(dp2, N);
+    vec3 dp1perp = cross(N, dp1);
+    vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+    vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+    float invmax = inversesqrt(max(dot(T, T), dot(B, B)));
+    return mat3(T * invmax, B * invmax, N);
+  }
+}
+
 void initSurface(out Surface surface) {
   surface.position = PositionWorld;
 
-  if (useNormalTexture) {
-    //surface.normal = TangentMatrix * vec3(getPixel(NormalTexture, UV)) * Material.normalScale;
+  if (enableNormalMap) {
+    vec3 normalScale = vec3(Material.normalScale, Material.normalScale, 1.);
+    surface.normal = TangentMatrix * (normalize(getPixel(NormalTexture, UV).rgb * 2. - 1.) * normalScale);
   } else {
     surface.normal = normalize(Normal);
   }
 
   surface.geometricNormal = normalize(Normal);
-  surface.view = CameraPositionWorld - PositionWorld;
+  surface.view = normalize(CameraPositionWorld - PositionWorld);
   surface.reflection = reflect(-surface.view, surface.normal);
 
   vec4 color = Color;
@@ -241,9 +271,9 @@ vec3 getLighting(const Surface surface, vec3 direction, vec4 color, float visibi
   vec3 V = surface.view;
   vec3 L = normalize(-direction);
   vec3 H = normalize(V + L);
-  vec3 R = surface.reflection;
+  //vec3 R = surface.reflection;
   float NoV = abs(dot(N, V)) + 1e-8;
-  float NoL = clamp(dot(N, L), 0., 1.);
+  float NoL = clamp(dot(N, L) * .5 + .5, 0., 1.);
   float NoH = clamp(dot(N, H), 0., 1.);
   float VoH = clamp(dot(V, H), 0., 1.);
 
@@ -255,7 +285,7 @@ vec3 getLighting(const Surface surface, vec3 direction, vec4 color, float visibi
   float D = D_GGX(surface, NoH);
   float G = G_SmithGGXCorrelated(surface, NoV, NoL);
   vec3 F = F_Schlick(surface, VoH);
-  vec3 specular = (D * G) * F;
+  vec3 specular = vec3(D * G) * F;
 
   return (diffuse + specular) * color.rgb * (NoL * color.a * visibility);
 }
@@ -270,6 +300,10 @@ void main() {
   Normal = NormalMatrix * VertexNormal;
   Color = VertexColor * Material.color * PassColor;
   UV = VertexUV;
+
+  if (enableNormalMap && useVertexTangents) {
+    Tangent = NormalMatrix * VertexTangent;
+  }
 
   PointSize = 1.f;
   Position = lovrmain();
