@@ -4011,57 +4011,55 @@ static void bindPipeline(Pass* pass, Draw* draw, Shader* shader) {
   }
 
   // Vertex formats
-  if (pipeline->formatHash != 1 + draw->vertex.format) {
-    if (!draw->vertex.buffer) {
-      pipeline->formatHash = 1 + draw->vertex.format;
-      pipeline->info.vertex = state.vertexFormats[draw->vertex.format];
-      pipeline->dirty = true;
+  if (draw->vertex.buffer && pipeline->formatHash != draw->vertex.buffer->hash) {
+    pipeline->formatHash = draw->vertex.buffer->hash;
+    pipeline->info.vertex.bufferCount = 2;
+    pipeline->info.vertex.attributeCount = shader->attributeCount;
+    pipeline->info.vertex.bufferStrides[0] = draw->vertex.buffer->info.stride;
+    pipeline->info.vertex.bufferStrides[1] = 0;
+    pipeline->dirty = true;
 
-      if (shader->hasCustomAttributes) {
-        for (uint32_t i = 0; i < shader->attributeCount; i++) {
-          if (shader->attributes[i].location < 10) {
-            pipeline->info.vertex.attributes[pipeline->info.vertex.attributeCount++] = (gpu_attribute) {
-              .buffer = 1,
-              .location = shader->attributes[i].location,
-              .type = GPU_TYPE_F32x4,
-              .offset = shader->attributes[i].location == LOCATION_COLOR ? 16 : 0
-            };
-          }
+    for (uint32_t i = 0; i < shader->attributeCount; i++) {
+      ShaderAttribute* attribute = &shader->attributes[i];
+      bool found = false;
+
+      for (uint32_t j = 0; j < draw->vertex.buffer->info.fieldCount; j++) {
+        BufferField field = draw->vertex.buffer->info.fields[j];
+        lovrCheck(field.type < FIELD_MAT2, "Currently, matrix and index types can not be used in vertex buffers");
+        if (field.hash ? (field.hash == attribute->hash) : (field.location == attribute->location)) {
+          pipeline->info.vertex.attributes[i] = (gpu_attribute) {
+            .buffer = 0,
+            .location = attribute->location,
+            .offset = field.offset,
+            .type = field.type
+          };
+          found = true;
+          break;
         }
       }
-    } else {
-      pipeline->formatHash = draw->vertex.buffer->hash;
-      pipeline->info.vertex.bufferCount = 2;
-      pipeline->info.vertex.attributeCount = shader->attributeCount;
-      pipeline->info.vertex.bufferStrides[0] = draw->vertex.buffer->info.stride;
-      pipeline->info.vertex.bufferStrides[1] = 0;
-      pipeline->dirty = true;
 
+      if (!found) {
+        pipeline->info.vertex.attributes[i] = (gpu_attribute) {
+          .buffer = 1,
+          .location = attribute->location,
+          .offset = attribute->location == LOCATION_COLOR ? 16 : 0,
+          .type = GPU_TYPE_F32x4
+        };
+      }
+    }
+  } else if (!draw->vertex.buffer && pipeline->formatHash != 1 + draw->vertex.format) {
+    pipeline->formatHash = 1 + draw->vertex.format;
+    pipeline->info.vertex = state.vertexFormats[draw->vertex.format];
+    pipeline->dirty = true;
+
+    if (shader->hasCustomAttributes) {
       for (uint32_t i = 0; i < shader->attributeCount; i++) {
-        ShaderAttribute* attribute = &shader->attributes[i];
-        bool found = false;
-
-        for (uint32_t j = 0; j < draw->vertex.buffer->info.fieldCount; j++) {
-          BufferField field = draw->vertex.buffer->info.fields[j];
-          lovrCheck(field.type < FIELD_MAT2, "Currently, matrix and index types can not be used in vertex buffers");
-          if (field.hash ? (field.hash == attribute->hash) : (field.location == attribute->location)) {
-            pipeline->info.vertex.attributes[i] = (gpu_attribute) {
-              .buffer = 0,
-              .location = attribute->location,
-              .offset = field.offset,
-              .type = field.type
-            };
-            found = true;
-            break;
-          }
-        }
-
-        if (!found) {
-          pipeline->info.vertex.attributes[i] = (gpu_attribute) {
+        if (shader->attributes[i].location < 10) {
+          pipeline->info.vertex.attributes[pipeline->info.vertex.attributeCount++] = (gpu_attribute) {
             .buffer = 1,
-            .location = attribute->location,
-            .offset = attribute->location == LOCATION_COLOR ? 16 : 0,
-            .type = GPU_TYPE_F32x4
+            .location = shader->attributes[i].location,
+            .type = GPU_TYPE_F32x4,
+            .offset = shader->attributes[i].location == LOCATION_COLOR ? 16 : 0
           };
         }
       }
