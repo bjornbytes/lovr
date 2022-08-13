@@ -207,16 +207,22 @@ mat3 getTangentMatrix() {
 void initSurface(out Surface surface) {
   surface.position = PositionWorld;
 
+  vec3 normal = normalize(Normal);
+
+  if (!FrontFacing) {
+    normal = -normal;
+  }
+
   if (enableNormalMap) {
     vec3 normalScale = vec3(Material.normalScale, Material.normalScale, 1.);
     surface.normal = TangentMatrix * (normalize(getPixel(NormalTexture, UV).rgb * 2. - 1.) * normalScale);
   } else {
-    surface.normal = normalize(Normal);
+    surface.normal = normal;
   }
 
-  surface.geometricNormal = normalize(Normal);
+  surface.geometricNormal = normal;
   surface.view = normalize(CameraPositionWorld - PositionWorld);
-  surface.reflection = reflect(-surface.view, surface.normal);
+  surface.reflection = reflect(-surface.view, normal);
 
   vec4 color = Color;
   if (useColorTexture) color *= getPixel(ColorTexture, UV);
