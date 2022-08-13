@@ -1108,6 +1108,7 @@ static ShaderSource luax_checkshadersource(lua_State* L, int index, ShaderStage 
     } else {
       for (int i = 0; lovrDefaultShader[i].length; i++) {
         if (lovrDefaultShader[i].length == length && !memcmp(lovrDefaultShader[i].string, string, length)) {
+          *allocated = false;
           return lovrGraphicsGetDefaultShaderSource(i, stage);
         }
       }
@@ -1179,6 +1180,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
           info.source[0] = lovrGraphicsGetDefaultShaderSource(i, STAGE_VERTEX);
           info.source[1] = lovrGraphicsGetDefaultShaderSource(i, STAGE_FRAGMENT);
           info.type = SHADER_GRAPHICS;
+          allocated[0] = false;
+          allocated[1] = false;
           break;
         }
       }
