@@ -164,6 +164,8 @@ function lovr.errhand(message)
 
   if not lovr.graphics then return function() return 1 end end
 
+  if lovr.audio then lovr.audio.stop() end
+
   local scale = .3
   local font = lovr.graphics.getDefaultFont()
   local wrap = .7 * font:getPixelDensity()
