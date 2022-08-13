@@ -392,7 +392,7 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   collider->ref = 1;
   collider->body = dBodyCreate(world->id);
   collider->world = world;
-  collider->friction = 0;
+  collider->friction = INFINITY;
   collider->restitution = 0;
   collider->tag = NO_TAG;
   dBodySetData(collider->body, collider);
