@@ -148,6 +148,8 @@ layout(location = 14) in vec3 Tangent;
 
 // Helpers
 
+#define Constants layout(push_constant) uniform PushConstants
+
 // Helper for sampling textures using the default sampler set using Pass:setSampler
 #ifndef GL_COMPUTE_SHADER
 vec4 getPixel(texture2D t, vec2 uv) { return texture(sampler2D(t, Sampler), uv); }

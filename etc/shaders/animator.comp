@@ -5,7 +5,7 @@
 
 layout(local_size_x = 32, local_size_x_id = 0) in;
 
-layout(push_constant) uniform Constants {
+layout(push_constant) uniform PushConstants {
   uint baseVertex;
   uint vertexCount;
 };

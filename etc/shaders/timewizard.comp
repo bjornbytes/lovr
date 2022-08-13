@@ -2,7 +2,7 @@
 
 layout(local_size_x = 32) in;
 
-layout(push_constant) uniform Constants {
+layout(push_constant) uniform PushConstants {
   uint first;
   uint count;
   uint views;
