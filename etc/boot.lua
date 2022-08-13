@@ -191,13 +191,12 @@ function lovr.errhand(message, traceback)
       elseif name == 'restart' then return 'restart', lovr.restart and lovr.restart()
       elseif name == 'keypressed' and a == 'f5' then lovr.event.restart() end
     end
-    local passes = {}
-    if lovr.headset then
+    if lovr.headset and lovr.headset.getDriver() ~= 'desktop' then
       lovr.headset.update()
       local pass = lovr.headset.getPass()
       if pass then
         render(pass)
-        passes[#passes + 1] = pass
+        lovr.graphics.submit(pass)
       end
     end
     if lovr.system.isWindowOpen() then
@@ -207,9 +206,9 @@ function lovr.errhand(message, traceback)
       local projection = lovr.math.mat4():perspective(1.0, width / height, .1, 100)
       pass:setProjection(1, projection)
       render(pass)
-      passes[#passes + 1] = pass
+      lovr.graphics.submit(pass)
+      lovr.graphics.present()
     end
-    lovr.graphics.submit(passes)
     if lovr.headset then lovr.headset.submit() end
     if lovr.math then lovr.math.drain() end
   end
