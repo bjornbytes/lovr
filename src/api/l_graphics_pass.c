@@ -592,6 +592,7 @@ static uint32_t luax_getvertexcount(lua_State* L, int index) {
       lua_pop(L, 1);
       return luax_len(L, index) / (innerType == LUA_TNUMBER ? 3 : 1);
     case LUA_TUSERDATA:
+    case LUA_TLIGHTUSERDATA:
       return lua_gettop(L) - index + 1;
     default:
       return luax_typeerror(L, index, "number, table, or vector");
@@ -629,8 +630,10 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
       }
       break;
     case LUA_TUSERDATA:
+    case LUA_TLIGHTUSERDATA:
       for (uint32_t i = 0; i < count; i++) {
-        vec3_init(vertices, luax_checkvector(L, index + i, V_VEC3, NULL));
+        float *v = luax_checkvector(L, index + i, V_VEC3, NULL);
+        memcpy(vertices, v, 3 * sizeof(float));
         vertices += 3;
       }
       break;
