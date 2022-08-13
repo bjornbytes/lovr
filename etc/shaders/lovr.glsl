@@ -239,6 +239,7 @@ void initSurface(out Surface surface) {
 
   float roughness = Material.roughness;
   if (useRoughnessTexture) roughness *= getPixel(RoughnessTexture, UV).g;
+  roughness = max(roughness, .05);
   surface.roughness2 = roughness * roughness;
 
   surface.occlusion = 1.;
