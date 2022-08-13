@@ -596,6 +596,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .data.uvScale = { 1.f, 1.f },
     .data.metalness = 0.f,
     .data.roughness = 1.f,
+    .data.normalScale = 1.f,
     .texture = state.defaultTexture
   });
 
