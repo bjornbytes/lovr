@@ -128,7 +128,7 @@ function lovr.run()
           if not skip then lovr.graphics.submit(pass) end
         end
       end
-      if lovr.system.isWindowOpen() then
+      if lovr.mirror and lovr.system.isWindowOpen() then
         local pass = lovr.graphics.getWindowPass()
         pass:reset()
         local skip = lovr.mirror(pass)
@@ -158,13 +158,11 @@ local function formatTraceback(s)
   return s:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
 end
 
-function lovr.errhand(message, traceback)
-  message = tostring(message)
-  message = message .. formatTraceback(traceback or debug.traceback('', 4))
+function lovr.errhand(message)
+  message = tostring(message) .. formatTraceback(debug.traceback('', 4))
   print('Error:\n' .. message)
-  if not lovr.graphics then return function() return 1 end end
 
-  lovr.graphics.setBackground(.11, .10, .14)
+  if not lovr.graphics then return function() return 1 end end
 
   local scale = .3
   local font = lovr.graphics.getDefaultFont()
@@ -175,6 +173,8 @@ function lovr.errhand(message, traceback)
   local x = -width / 2
   local y = math.min(height / 2, 10)
   local z = -10
+
+  lovr.graphics.setBackground(.11, .10, .14)
   font:setPixelDensity()
 
   local function render(pass)
@@ -186,31 +186,30 @@ function lovr.errhand(message, traceback)
 
   return function()
     lovr.event.pump()
+
     for name, a in lovr.event.poll() do
       if name == 'quit' then return a or 1
       elseif name == 'restart' then return 'restart', lovr.restart and lovr.restart()
       elseif name == 'keypressed' and a == 'f5' then lovr.event.restart() end
     end
+
     if lovr.headset and lovr.headset.getDriver() ~= 'desktop' then
       lovr.headset.update()
       local pass = lovr.headset.getPass()
       if pass then
         render(pass)
         lovr.graphics.submit(pass)
+        lovr.headset.submit()
       end
     end
+
     if lovr.system.isWindowOpen() then
       local pass = lovr.graphics.getWindowPass()
       pass:reset()
-      local width, height = lovr.system.getWindowDimensions()
-      local projection = lovr.math.mat4():perspective(1.0, width / height, .1, 100)
-      pass:setProjection(1, projection)
       render(pass)
       lovr.graphics.submit(pass)
       lovr.graphics.present()
     end
-    if lovr.headset then lovr.headset.submit() end
-    if lovr.math then lovr.math.drain() end
   end
 end
 
