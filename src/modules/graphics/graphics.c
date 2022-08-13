@@ -4792,7 +4792,7 @@ void lovrPassCone(Pass* pass, float* transform, uint32_t segments) {
 
   // Sides
   for (uint32_t i = 0; i < segments; i++) {
-    uint16_t tri[] = { segments + i, segments + (i + 1) % segments, vertexCount - 1 };
+    uint16_t tri[] = { segments + (i + 1) % segments, segments + i, vertexCount - 1 };
     memcpy(indices, tri, sizeof(tri));
     indices += COUNTOF(tri);
   }
