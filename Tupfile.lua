@@ -113,6 +113,7 @@ bin = target == 'android' and 'bin/apk/lib/arm64-v8a' or 'bin'
 lflags = '-L' .. bin
 lflags += not config.debug and '-Wl,-s' or ''
 lflags += config.optimize and (target == 'macos' and '-Wl,-dead_strip' or '-Wl,--gc-sections') or ''
+lflags += '-rdynamic'
 
 if target == 'win32' then
   cflags += '-D_CRT_SECURE_NO_WARNINGS'
