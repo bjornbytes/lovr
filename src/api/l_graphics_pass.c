@@ -554,14 +554,14 @@ static int l_lovrPassSend(lua_State* L) {
     return 0;
   }
 
-  Texture* texture = luax_totype(L, 4, Texture);
+  Texture* texture = luax_totype(L, 3, Texture);
 
   if (texture) {
     lovrPassSendTexture(pass, name, length, slot, texture);
     return 0;
   }
 
-  Sampler* sampler = luax_totype(L, 4, Sampler);
+  Sampler* sampler = luax_totype(L, 3, Sampler);
 
   if (sampler) {
     lovrPassSendSampler(pass, name, length, slot, sampler);
