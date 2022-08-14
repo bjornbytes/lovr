@@ -779,14 +779,14 @@ void lovrGraphicsGetShaderCache(void* data, size_t* size) {
   gpu_pipeline_get_cache(data, size);
 }
 
-void lovrGraphicsGetBackground(float background[4]) {
+void lovrGraphicsGetBackgroundColor(float background[4]) {
   background[0] = lovrMathLinearToGamma(state.background[0]);
   background[1] = lovrMathLinearToGamma(state.background[1]);
   background[2] = lovrMathLinearToGamma(state.background[2]);
   background[3] = state.background[3];
 }
 
-void lovrGraphicsSetBackground(float background[4]) {
+void lovrGraphicsSetBackgroundColor(float background[4]) {
   state.background[0] = lovrMathGammaToLinear(background[0]);
   state.background[1] = lovrMathGammaToLinear(background[1]);
   state.background[2] = lovrMathGammaToLinear(background[2]);

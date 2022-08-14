@@ -103,8 +103,8 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits);
 bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
 void lovrGraphicsGetShaderCache(void* data, size_t* size);
 
-void lovrGraphicsGetBackground(float background[4]);
-void lovrGraphicsSetBackground(float background[4]);
+void lovrGraphicsGetBackgroundColor(float background[4]);
+void lovrGraphicsSetBackgroundColor(float background[4]);
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count);
 void lovrGraphicsPresent(void);

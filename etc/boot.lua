@@ -176,7 +176,7 @@ function lovr.errhand(message)
   local y = math.min(height / 2, 10)
   local z = -10
 
-  lovr.graphics.setBackground(.11, .10, .14)
+  lovr.graphics.setBackgroundColor(.11, .10, .14)
   font:setPixelDensity()
 
   local function render(pass)
