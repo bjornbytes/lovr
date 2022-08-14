@@ -10,6 +10,8 @@ layout(constant_id = 1007) const bool useMetalnessTexture = true;
 layout(constant_id = 1008) const bool useRoughnessTexture = true;
 layout(constant_id = 1009) const bool useOcclusionTexture = false;
 layout(constant_id = 1010) const bool useClearcoatTexture = false;
+layout(constant_id = 1011) const uint attachmentCount = 1;
+layout(constant_id = 1012) const float defaultPointSize = 1.f;
 
 // Resources
 #ifndef GL_COMPUTE_SHADER
@@ -66,7 +68,7 @@ layout(location = 14) in vec3 VertexTangent;
 
 // Framebuffer
 #ifdef GL_FRAGMENT_SHADER
-layout(location = 0) out vec4 PixelColor[1];
+layout(location = 0) out vec4 PixelColor[attachmentCount];
 #endif
 
 // Varyings
@@ -315,7 +317,7 @@ void main() {
     Tangent = NormalMatrix * VertexTangent;
   }
 
-  PointSize = 1.f;
+  PointSize = defaultPointSize;
   Position = lovrmain();
 
   if (enableUVTransform) {
