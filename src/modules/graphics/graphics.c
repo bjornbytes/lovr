@@ -366,6 +366,7 @@ static struct {
   bool hasMaterialUpload;
   bool hasGlyphUpload;
   bool hasReskin;
+  bool presentable;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
@@ -851,6 +852,8 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
     streams[i + 1] = pass->stream;
 
+    state.presentable |= pass == state.windowPass;
+
     switch (pass->info.type) {
       case PASS_RENDER:
         gpu_render_end(pass->stream);
@@ -1016,9 +1019,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 }
 
 void lovrGraphicsPresent() {
-  if (state.window->gpu) {
+  if (state.presentable) {
     state.window->gpu = NULL;
     state.window->renderView = NULL;
+    state.presentable = false;
     gpu_present();
   }
 }
