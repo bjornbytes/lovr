@@ -19,7 +19,7 @@ typedef struct {
 typedef enum {
   ATTR_POSITION,
   ATTR_NORMAL,
-  ATTR_TEXCOORD,
+  ATTR_UV,
   ATTR_COLOR,
   ATTR_TANGENT,
   ATTR_JOINTS,

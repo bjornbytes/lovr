@@ -102,74 +102,6 @@ static int l_lovrModelDataGetImage(lua_State* L) {
   return 1;
 }
 
-static int l_lovrModelDataGetWidth(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  float bounds[6];
-  lovrModelDataGetBoundingBox(model, bounds);
-  lua_pushnumber(L, bounds[1] - bounds[0]);
-  return 1;
-}
-
-static int l_lovrModelDataGetHeight(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  float bounds[6];
-  lovrModelDataGetBoundingBox(model, bounds);
-  lua_pushnumber(L, bounds[3] - bounds[2]);
-  return 1;
-}
-
-static int l_lovrModelDataGetDepth(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  float bounds[6];
-  lovrModelDataGetBoundingBox(model, bounds);
-  lua_pushnumber(L, bounds[5] - bounds[4]);
-  return 1;
-}
-
-static int l_lovrModelDataGetDimensions(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  float bounds[6];
-  lovrModelDataGetBoundingBox(model, bounds);
-  lua_pushnumber(L, bounds[1] - bounds[0]);
-  lua_pushnumber(L, bounds[3] - bounds[2]);
-  lua_pushnumber(L, bounds[5] - bounds[4]);
-  return 3;
-}
-
-static int l_lovrModelDataGetCenter(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  float bounds[6];
-  lovrModelDataGetBoundingBox(model, bounds);
-  lua_pushnumber(L, (bounds[0] + bounds[1]) / 2.f);
-  lua_pushnumber(L, (bounds[2] + bounds[3]) / 2.f);
-  lua_pushnumber(L, (bounds[4] + bounds[5]) / 2.f);
-  return 3;
-}
-
-static int l_lovrModelDataGetBoundingBox(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  float bounds[6];
-  lovrModelDataGetBoundingBox(model, bounds);
-  lua_pushnumber(L, bounds[0]);
-  lua_pushnumber(L, bounds[1]);
-  lua_pushnumber(L, bounds[2]);
-  lua_pushnumber(L, bounds[3]);
-  lua_pushnumber(L, bounds[4]);
-  lua_pushnumber(L, bounds[5]);
-  return 6;
-}
-
-static int l_lovrModelDataGetBoundingSphere(lua_State* L) {
-  ModelData* model = luax_checktype(L, 1, ModelData);
-  float sphere[4];
-  lovrModelDataGetBoundingSphere(model, sphere);
-  lua_pushnumber(L, sphere[0]);
-  lua_pushnumber(L, sphere[1]);
-  lua_pushnumber(L, sphere[2]);
-  lua_pushnumber(L, sphere[3]);
-  return 4;
-}
-
 static int l_lovrModelDataGetRootNode(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   lua_pushinteger(L, model->rootNode + 1);
@@ -544,6 +476,74 @@ static int l_lovrModelDataGetVertexCount(lua_State* L) {
   lovrModelDataGetTriangles(model, NULL, NULL, &vertexCount, &indexCount);
   lua_pushinteger(L, vertexCount);
   return 1;
+}
+
+static int l_lovrModelDataGetWidth(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[1] - bounds[0]);
+  return 1;
+}
+
+static int l_lovrModelDataGetHeight(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[3] - bounds[2]);
+  return 1;
+}
+
+static int l_lovrModelDataGetDepth(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[5] - bounds[4]);
+  return 1;
+}
+
+static int l_lovrModelDataGetDimensions(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[1] - bounds[0]);
+  lua_pushnumber(L, bounds[3] - bounds[2]);
+  lua_pushnumber(L, bounds[5] - bounds[4]);
+  return 3;
+}
+
+static int l_lovrModelDataGetCenter(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, (bounds[0] + bounds[1]) / 2.f);
+  lua_pushnumber(L, (bounds[2] + bounds[3]) / 2.f);
+  lua_pushnumber(L, (bounds[4] + bounds[5]) / 2.f);
+  return 3;
+}
+
+static int l_lovrModelDataGetBoundingBox(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float bounds[6];
+  lovrModelDataGetBoundingBox(model, bounds);
+  lua_pushnumber(L, bounds[0]);
+  lua_pushnumber(L, bounds[1]);
+  lua_pushnumber(L, bounds[2]);
+  lua_pushnumber(L, bounds[3]);
+  lua_pushnumber(L, bounds[4]);
+  lua_pushnumber(L, bounds[5]);
+  return 6;
+}
+
+static int l_lovrModelDataGetBoundingSphere(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  float sphere[4];
+  lovrModelDataGetBoundingSphere(model, sphere);
+  lua_pushnumber(L, sphere[0]);
+  lua_pushnumber(L, sphere[1]);
+  lua_pushnumber(L, sphere[2]);
+  lua_pushnumber(L, sphere[3]);
+  return 4;
 }
 
 static int l_lovrModelDataGetMaterialCount(lua_State* L) {

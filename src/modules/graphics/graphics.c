@@ -2634,7 +2634,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
 
     lovrModelDataCopyAttribute(data, attributes[ATTR_POSITION], vertices + 0, F32, 3, false, count, stride, 0);
     lovrModelDataCopyAttribute(data, attributes[ATTR_NORMAL], vertices + 12, F32, 3, false, count, stride, 0);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_TEXCOORD], vertices + 24, F32, 2, false, count, stride, 0);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_UV], vertices + 24, F32, 2, false, count, stride, 0);
     lovrModelDataCopyAttribute(data, attributes[ATTR_COLOR], vertices + 32, U8, 4, true, count, stride, 255);
     lovrModelDataCopyAttribute(data, attributes[ATTR_TANGENT], vertices + 36, F32, 3, false, count, stride, 0);
     vertices += count * stride;

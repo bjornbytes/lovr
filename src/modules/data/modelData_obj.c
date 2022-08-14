@@ -361,7 +361,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
       .attributes = {
         [ATTR_POSITION] = &model->attributes[0],
         [ATTR_NORMAL] = &model->attributes[1],
-        [ATTR_TEXCOORD] = &model->attributes[2]
+        [ATTR_UV] = &model->attributes[2]
       },
       .indices = &model->attributes[3 + i],
       .material = group->material

@@ -813,7 +813,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   uint32_t attributeIndex = NOM_INT(json, token);
                   if (STR_EQ(name, "POSITION")) { attributeType = ATTR_POSITION; }
                   else if (STR_EQ(name, "NORMAL")) { attributeType = ATTR_NORMAL; }
-                  else if (STR_EQ(name, "TEXCOORD_0")) { attributeType = ATTR_TEXCOORD; }
+                  else if (STR_EQ(name, "TEXCOORD_0")) { attributeType = ATTR_UV; }
                   else if (STR_EQ(name, "COLOR_0")) { attributeType = ATTR_COLOR; }
                   else if (STR_EQ(name, "TANGENT")) { attributeType = ATTR_TANGENT; }
                   else if (STR_EQ(name, "JOINTS_0")) { attributeType = ATTR_JOINTS; }
