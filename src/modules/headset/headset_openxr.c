@@ -1821,7 +1821,7 @@ static Pass* openxr_getPass(void) {
   uint8_t stencil;
   float color[4][4], depth;
   lovrPassGetClear(state.pass, color, &depth, &stencil);
-  lovrGraphicsGetBackground(color[0]);
+  lovrGraphicsGetBackgroundColor(color[0]);
   lovrPassSetClear(state.pass, color, depth, stencil);
   lovrPassSetTarget(state.pass, &texture, depthTexture);
   lovrPassReset(state.pass);
