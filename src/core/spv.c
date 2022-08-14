@@ -265,7 +265,7 @@ static spv_result spv_parse_spec_constant(spv_context* spv, const uint32_t* op, 
 
       if ((type[0] & 0xffff) == 21 && type[2] == 32) { // OpTypeInt
         constant->type = type[3] == 0 ? SPV_U32 : SPV_I32;
-      } else if ((type[0] & 0xffff) == 22 && type[3] == 32) { // OpTypeFloat
+      } else if ((type[0] & 0xffff) == 22 && type[2] == 32) { // OpTypeFloat
         constant->type = SPV_F32;
       } else {
         return SPV_UNSUPPORTED_SPEC_CONSTANT_TYPE;
