@@ -338,6 +338,10 @@ static int l_lovrModelGetMaterialCount(lua_State* L) {
   return luax_callmodeldata(L, "getMaterialCount", 1);
 }
 
+static int l_lovrModelGetMaterialName(lua_State* L) {
+  return luax_callmodeldata(L, "getMaterialName", 1);
+}
+
 static int l_lovrModelGetTextureCount(lua_State* L) {
   return luax_callmodeldata(L, "getImageCount", 1);
 }
@@ -396,6 +400,7 @@ const luaL_Reg lovrModel[] = {
   { "getVertexBuffer", l_lovrModelGetVertexBuffer },
   { "getIndexBuffer", l_lovrModelGetIndexBuffer },
   { "getMaterialCount", l_lovrModelGetMaterialCount },
+  { "getMaterialName", l_lovrModelGetMaterialName },
   { "getTextureCount", l_lovrModelGetTextureCount },
   { "getMaterial", l_lovrModelGetMaterial },
   { "getTexture", l_lovrModelGetTexture },
