@@ -462,10 +462,10 @@ static spv_result spv_parse_push_constants(spv_context* spv, const uint32_t* op,
     }
 
     if (OP_CODE(type) == 22 && type[2] == 32) { // OpTypeFloat
-      if (columnCount > 2 && columnCount < 4 && componentCount == columnCount) {
+      if (columnCount >= 2 && columnCount <= 4 && componentCount == columnCount) {
         constant->type = SPV_MAT2 + columnCount - 2;
-      } else if (columnCount == 1 && componentCount > 2 && componentCount < 4) {
-        constant->type = SPV_F32x2 + columnCount - 2;
+      } else if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
+        constant->type = SPV_F32x2 + componentCount - 2;
       } else if (columnCount == 1 && componentCount == 1) {
         constant->type = SPV_F32;
       } else {
@@ -473,7 +473,7 @@ static spv_result spv_parse_push_constants(spv_context* spv, const uint32_t* op,
       }
     } else if (OP_CODE(type) == 21 && type[2] == 32) { // OpTypeInteger
       if (type[3] > 0) { // signed
-        if (columnCount == 1 && componentCount > 2 && componentCount < 4) {
+        if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
           constant->type = SPV_I32x2 + componentCount - 2;
         } else if (columnCount == 1 && componentCount == 1) {
           constant->type = SPV_I32;
@@ -481,7 +481,7 @@ static spv_result spv_parse_push_constants(spv_context* spv, const uint32_t* op,
           return SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE;
         }
       } else {
-        if (columnCount == 1 && componentCount > 2 && componentCount < 4) {
+        if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
           constant->type = SPV_U32x2 + componentCount - 2;
         } else if (columnCount == 1 && componentCount == 1) {
           constant->type = SPV_U32;
