@@ -5023,9 +5023,13 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
 }
 
 void lovrPassFill(Pass* pass, Texture* texture) {
+  DefaultShader shader = SHADER_FILL;
+  if (texture && texture->info.layers == 2) {
+    shader = SHADER_STEREOBLIT;
+  }
   lovrPassDraw(pass, &(Draw) {
     .mode = MESH_TRIANGLES,
-    .shader = texture->info.layers == 2 ? SHADER_STEREOBLIT : SHADER_FILL,
+    .shader = shader,
     .material = texture ? lovrTextureGetMaterial(texture) : NULL,
     .vertex.format = VERTEX_EMPTY,
     .count = 3
