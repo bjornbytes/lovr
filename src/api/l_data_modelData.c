@@ -432,8 +432,8 @@ static int l_lovrModelDataGetMeshIndex(lua_State* L) {
   AttributeData data = { .raw = model->buffers[mesh->indices->buffer].data };
   data.u8 += mesh->indices->offset;
   switch (mesh->indices->type) {
-    case U16: lua_pushinteger(L, data.u16[index]); return 1;
-    case U32: lua_pushinteger(L, data.u32[index]); return 1;
+    case U16: lua_pushinteger(L, data.u16[index] + 1); return 1;
+    case U32: lua_pushinteger(L, data.u32[index] + 1); return 1;
     default: lovrUnreachable();
   }
 }
