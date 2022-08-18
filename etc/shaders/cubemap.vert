@@ -16,7 +16,7 @@ vec4 lovrmain() {
 
   vec2 uv = uvs[VertexIndex % 6];
   vec3 ray = vec3(uv, -1.);
-  mat3 inverseViewOrientation = transpose(mat3(View));
+  mat3 inverseViewOrientation = transpose(mat3(ViewFromLocal));
   Normal = normalize(inverseViewOrientation * (InverseProjection * vec4(ray, 1.)).xyz);
   return vec4(uv, 0, 1);
 }
