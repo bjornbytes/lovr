@@ -943,7 +943,7 @@ static int l_lovrPassCopy(lua_State* L) {
     srcOffset[0] = luax_optu32(L, 4, 0);
     srcOffset[1] = luax_optu32(L, 5, 0);
     dstOffset[0] = luax_optu32(L, 6, 0);
-    srcOffset[1] = luax_optu32(L, 7, 0);
+    dstOffset[1] = luax_optu32(L, 7, 0);
     extent[0] = luax_optu32(L, 8, ~0u);
     extent[1] = luax_optu32(L, 9, ~0u);
     srcOffset[2] = luax_optu32(L, 10, 1) - 1;
