@@ -2811,8 +2811,8 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   model->transformsDirty = true;
 }
 
-void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], CoordinateSpace space) {
-  if (space == SPACE_LOCAL) {
+void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], OriginType origin) {
+  if (origin == ORIGIN_PARENT) {
     vec3_init(position, model->localTransforms[node].properties[PROP_TRANSLATION]);
     vec3_init(scale, model->localTransforms[node].properties[PROP_SCALE]);
     quat_init(rotation, model->localTransforms[node].properties[PROP_ROTATION]);

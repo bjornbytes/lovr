@@ -45,12 +45,6 @@ StringEntry lovrCompareMode[] = {
   { 0 }
 };
 
-StringEntry lovrCoordinateSpace[] = {
-  [SPACE_LOCAL] = ENTRY("local"),
-  [SPACE_GLOBAL] = ENTRY("global"),
-  { 0 }
-};
-
 StringEntry lovrCullMode[] = {
   [CULL_NONE] = ENTRY("none"),
   [CULL_FRONT] = ENTRY("front"),
@@ -129,6 +123,12 @@ StringEntry lovrMeshMode[] = {
   [MESH_POINTS] = ENTRY("points"),
   [MESH_LINES] = ENTRY("lines"),
   [MESH_TRIANGLES] = ENTRY("triangles"),
+  { 0 }
+};
+
+StringEntry lovrOriginType[] = {
+  [ORIGIN_ROOT] = ENTRY("root"),
+  [ORIGIN_PARENT] = ENTRY("parent"),
   { 0 }
 };
 

@@ -110,9 +110,9 @@ static int l_lovrModelGetNodeDraw(lua_State* L) {
 static int l_lovrModelGetNodePosition(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, model);
-  CoordinateSpace space = luax_checkenum(L, 3, CoordinateSpace, "global");
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4];
-  lovrModelGetNodeTransform(model, node, position, scale, rotation, space);
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
   lua_pushnumber(L, position[2]);
@@ -132,9 +132,9 @@ static int l_lovrModelSetNodePosition(lua_State* L) {
 static int l_lovrModelGetNodeScale(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, model);
-  CoordinateSpace space = luax_checkenum(L, 3, CoordinateSpace, "global");
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4], angle, ax, ay, az;
-  lovrModelGetNodeTransform(model, node, position, scale, rotation, space);
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
   lua_pushnumber(L, ax);
@@ -156,9 +156,9 @@ static int l_lovrModelSetNodeScale(lua_State* L) {
 static int l_lovrModelGetNodeOrientation(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, model);
-  CoordinateSpace space = luax_checkenum(L, 3, CoordinateSpace, "global");
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4], angle, ax, ay, az;
-  lovrModelGetNodeTransform(model, node, position, scale, rotation, space);
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
   lua_pushnumber(L, ax);
@@ -180,9 +180,9 @@ static int l_lovrModelSetNodeOrientation(lua_State* L) {
 static int l_lovrModelGetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, model);
-  CoordinateSpace space = luax_checkenum(L, 3, CoordinateSpace, "global");
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4], angle, ax, ay, az;
-  lovrModelGetNodeTransform(model, node, position, scale, rotation, space);
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -209,9 +209,9 @@ static int l_lovrModelSetNodePose(lua_State* L) {
 static int l_lovrModelGetNodeTransform(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, model);
-  CoordinateSpace space = luax_checkenum(L, 3, CoordinateSpace, "global");
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4], angle, ax, ay, az;
-  lovrModelGetNodeTransform(model, node, position, scale, rotation, space);
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
