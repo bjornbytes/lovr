@@ -259,15 +259,7 @@ static int l_lovrPassGetProjection(lua_State* L) {
 static int l_lovrPassSetProjection(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
-  if (lua_type(L, 3) == LUA_TSTRING && !strcmp(lua_tostring(L, 3), "orthographic")) {
-    float ortho[16];
-    float width = luax_checkfloat(L, 4);
-    float height = luax_checkfloat(L, 5);
-    float near = luax_optfloat(L, 6, -1.f);
-    float far = luax_optfloat(L, 7, 1.f);
-    mat4_orthographic(ortho, 0.f, width, 0.f, height, near, far);
-    lovrPassSetProjection(pass, view, ortho);
-  } else if (lua_type(L, 3) == LUA_TNUMBER) {
+  if (lua_type(L, 3) == LUA_TNUMBER) {
     float left = luax_checkfloat(L, 3);
     float right = luax_checkfloat(L, 4);
     float up = luax_checkfloat(L, 5);
