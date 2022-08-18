@@ -5102,7 +5102,7 @@ void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node
   lovrPassPop(pass, STACK_TRANSFORM);
 }
 
-void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances) {
+void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t base) {
   if (count == ~0u) {
     if (indices || vertices) {
       count = (indices ? indices : vertices)->info.length - start;
@@ -5124,7 +5124,8 @@ void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transfor
     .transform = transform,
     .start = start,
     .count = count,
-    .instances = instances
+    .instances = instances,
+    .base = base
   });
 }
 

@@ -830,7 +830,8 @@ static int l_lovrPassMesh(lua_State* L) {
     uint32_t start = luax_optu32(L, index++, 1) - 1;
     uint32_t count = luax_optu32(L, index++, ~0u);
     uint32_t instances = luax_optu32(L, index, 1);
-    lovrPassMesh(pass, vertices, indices, transform, start, count, instances);
+    uint32_t base = luax_optu32(L, index++, 0);
+    lovrPassMesh(pass, vertices, indices, transform, start, count, instances, base);
   }
   return 0;
 }
