@@ -107,7 +107,7 @@ static int l_lovrDataNewImage(lua_State* L) {
   if (lua_type(L, 1) == LUA_TNUMBER) {
     uint32_t width = luax_checku32(L, 1);
     uint32_t height = luax_checku32(L, 2);
-    TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba");
+    TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba8");
     image = lovrImageCreateRaw(width, height, format);
     if (lua_gettop(L) >= 4) {
       Blob* blob = luax_checktype(L, 4, Blob);
