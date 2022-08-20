@@ -567,6 +567,14 @@ static int l_lovrPassSend(lua_State* L) {
   void* data;
   FieldType type;
   lovrPassSendValue(pass, name, length, &data, &type);
+
+  // readbufferfield doesn't handle booleans
+  if (lua_type(L, 3) == LUA_TBOOLEAN) {
+    bool value = lua_toboolean(L, 3);
+    lua_settop(L, 2);
+    lua_pushinteger(L, value);
+  }
+
   luax_readbufferfield(L, 3, type, data);
   return 0;
 }
