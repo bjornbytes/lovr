@@ -902,7 +902,7 @@ static void openxr_start(void) {
     int64_t depthFormat = state.config.stencil ? VK_FORMAT_D32_SFLOAT_S8_UINT : VK_FORMAT_D32_SFLOAT;
 #endif
 
-    int64_t formats[32];
+    int64_t formats[128];
     uint32_t formatCount;
     XR(xrEnumerateSwapchainFormats(state.session, COUNTOF(formats), &formatCount, formats));
 
