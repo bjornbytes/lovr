@@ -5596,16 +5596,16 @@ static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uin
     case FORMAT_RGBA16F:
     case FORMAT_RG32F: return w * h * d * 8;
     case FORMAT_RGBA32F: return w * h * d * 16;
-    case FORMAT_BC1:
-    case FORMAT_BC2:
-    case FORMAT_BC3:
-    case FORMAT_BC4U:
-    case FORMAT_BC4S:
-    case FORMAT_BC5U:
-    case FORMAT_BC5S:
-    case FORMAT_BC6UF:
-    case FORMAT_BC6SF:
-    case FORMAT_BC7:
+    case FORMAT_BC1: return ((w + 3) / 4) * ((h + 3) / 4) * d * 8;
+    case FORMAT_BC2: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
+    case FORMAT_BC3: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
+    case FORMAT_BC4U: return ((w + 3) / 4) * ((h + 3) / 4) * d * 8;
+    case FORMAT_BC4S: return ((w + 3) / 4) * ((h + 3) / 4) * d * 8;
+    case FORMAT_BC5U: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
+    case FORMAT_BC5S: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
+    case FORMAT_BC6UF: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
+    case FORMAT_BC6SF: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
+    case FORMAT_BC7: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
     case FORMAT_ASTC_4x4: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
     case FORMAT_ASTC_5x4: return ((w + 4) / 5) * ((h + 3) / 4) * d * 16;
     case FORMAT_ASTC_5x5: return ((w + 4) / 5) * ((h + 4) / 5) * d * 16;

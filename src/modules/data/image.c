@@ -52,14 +52,14 @@ static size_t measure(uint32_t w, uint32_t h, TextureFormat format) {
     case FORMAT_D24S8: return w * h * 4;
     case FORMAT_D32FS8: return w * h * 5;
     case FORMAT_BC1: return ((w + 3) / 4) * ((h + 3) / 4) * 8;
-    case FORMAT_BC2:
-    case FORMAT_BC3:
-    case FORMAT_BC4U:
-    case FORMAT_BC4S:
-    case FORMAT_BC5U:
-    case FORMAT_BC5S:
-    case FORMAT_BC6UF:
-    case FORMAT_BC6SF:
+    case FORMAT_BC2: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
+    case FORMAT_BC3: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
+    case FORMAT_BC4U: return ((w + 3) / 4) * ((h + 3) / 4) * 8;
+    case FORMAT_BC4S: return ((w + 3) / 4) * ((h + 3) / 4) * 8;
+    case FORMAT_BC5U: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
+    case FORMAT_BC5S: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
+    case FORMAT_BC6UF: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
+    case FORMAT_BC6SF: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
     case FORMAT_BC7: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
     case FORMAT_ASTC_4x4: return ((w + 3) / 4) * ((h + 3) / 4) * 16;
     case FORMAT_ASTC_5x4: return ((w + 4) / 5) * ((h + 3) / 4) * 16;
