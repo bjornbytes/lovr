@@ -308,7 +308,7 @@ static uint32_t luax_checkfieldtype(lua_State* L, int index, uint32_t* nameHash)
     return FIELD_UN8x4;
   }
 
-  if (length == 6 && !memcmp(string, "index", length)) {
+  if (length == 5 && !memcmp(string, "index", length)) {
     return FIELD_INDEX32;
   }
 
