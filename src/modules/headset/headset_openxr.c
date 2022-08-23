@@ -1101,7 +1101,7 @@ static float* openxr_getDisplayFrequencies(uint32_t* count) {
   if (!state.features.refreshRate || !count) return NULL;
   XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, count, NULL));
   float *frequencies = malloc(*count * sizeof(float));
-  lovrAssert(frequencies, "Out of Memory");
+  lovrAssert(frequencies, "Out of memory");
   XR(xrEnumerateDisplayRefreshRatesFB(state.session, *count, count, frequencies));
   return frequencies;
 }
