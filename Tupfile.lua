@@ -92,7 +92,7 @@ flags = {
   config.debug and '-g' or '',
   config.optimize and '-Os' or '',
   config.supercharge and '-flto -march=native -DLOVR_UNCHECKED' or '',
-  config.sanitize and '-fsanitize=address,undefined' or '',
+  config.sanitize and '-fsanitize=address' or '',
 }
 
 cflags = {
