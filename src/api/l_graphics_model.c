@@ -248,6 +248,12 @@ static int l_lovrModelSetNodeTransform(lua_State* L) {
   return 0;
 }
 
+static int l_lovrModelResetNodeTransforms(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  lovrModelResetNodeTransforms(model);
+  return 0;
+}
+
 static int l_lovrModelGetAnimationCount(lua_State* L) {
   return luax_callmodeldata(L, "getAnimationCount", 1);
 }
@@ -269,14 +275,10 @@ static int l_lovrModelHasJoints(lua_State* L) {
 
 static int l_lovrModelAnimate(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  if (lua_isnoneornil(L, 2)) {
-    lovrModelResetNodeTransforms(model);
-  } else {
-    uint32_t animation = luax_checkanimation(L, 2, model);
-    float time = luax_checkfloat(L, 3);
-    float alpha = luax_optfloat(L, 4, 1.f);
-    lovrModelAnimate(model, animation, time, alpha);
-  }
+  uint32_t animation = luax_checkanimation(L, 2, model);
+  float time = luax_checkfloat(L, 3);
+  float alpha = luax_optfloat(L, 4, 1.f);
+  lovrModelAnimate(model, animation, time, alpha);
   return 0;
 }
 
@@ -382,6 +384,7 @@ const luaL_Reg lovrModel[] = {
   { "setNodePose", l_lovrModelSetNodePose },
   { "getNodeTransform", l_lovrModelGetNodeTransform },
   { "setNodeTransform", l_lovrModelSetNodeTransform },
+  { "resetNodeTransforms", l_lovrModelResetNodeTransforms },
   { "getAnimationCount", l_lovrModelGetAnimationCount },
   { "getAnimationName", l_lovrModelGetAnimationName },
   { "getAnimationDuration", l_lovrModelGetAnimationDuration },
