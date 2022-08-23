@@ -824,7 +824,7 @@ static int l_lovrPassDraw(lua_State* L) {
 
 static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_checkbuffer(L, 2);
+  Buffer* vertices = (!lua_toboolean(L, 2) || lua_type(L, 2) == LUA_TNUMBER) ? NULL : luax_checkbuffer(L, 2);
   Buffer* indices = luax_totype(L, 3, Buffer);
   Buffer* indirect = luax_totype(L, 4, Buffer);
   if (indirect) {
@@ -839,6 +839,9 @@ static int l_lovrPassMesh(lua_State* L) {
     uint32_t count = luax_optu32(L, index++, ~0u);
     uint32_t instances = luax_optu32(L, index, 1);
     uint32_t base = luax_optu32(L, index++, 0);
+    if (count == ~0u && lua_type(L, 2) == LUA_TNUMBER) {
+      count = lua_tointeger(L, 2);
+    }
     lovrPassMesh(pass, vertices, indices, transform, start, count, instances, base);
   }
   return 0;
