@@ -669,6 +669,8 @@ static int l_lovrGraphicsInit(lua_State* L) {
     }
   }
 
+  free(config.cacheData);
+
   return 0;
 }
 
