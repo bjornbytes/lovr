@@ -63,6 +63,12 @@ typedef union {
   float* f32;
 } FieldPointer;
 
+Buffer* luax_checkbuffer(lua_State* L, int index) {
+  Buffer* buffer = luax_checktype(L, index, Buffer);
+  lovrCheck(lovrBufferIsValid(buffer), "Buffers created with getBuffer can only be used for a single frame (unable to use this Buffer again because lovr.graphics.submit has been called since it was created)");
+  return buffer;
+}
+
 void luax_readbufferfield(lua_State* L, int index, int type, void* data) {
   FieldPointer p = { .raw = data };
   if (lua_isuserdata(L, index)) {
@@ -216,7 +222,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
 }
 
 static int l_lovrBufferGetSize(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  Buffer* buffer = luax_checkbuffer(L, 1);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   uint32_t size = info->length * MAX(info->stride, 1);
   lua_pushinteger(L, size);
@@ -224,21 +230,21 @@ static int l_lovrBufferGetSize(lua_State* L) {
 }
 
 static int l_lovrBufferGetLength(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  Buffer* buffer = luax_checkbuffer(L, 1);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   lua_pushinteger(L, info->length);
   return 1;
 }
 
 static int l_lovrBufferGetStride(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  Buffer* buffer = luax_checkbuffer(L, 1);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   lua_pushinteger(L, info->stride);
   return 1;
 }
 
 static int l_lovrBufferGetFormat(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  Buffer* buffer = luax_checkbuffer(L, 1);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   lua_createtable(L, info->fieldCount, 0);
   for (uint32_t i = 0; i < info->fieldCount; i++) {
@@ -256,7 +262,7 @@ static int l_lovrBufferGetFormat(lua_State* L) {
 }
 
 static int l_lovrBufferGetPointer(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  Buffer* buffer = luax_checkbuffer(L, 1);
   if (!lovrBufferIsTemporary(buffer)) {
     lua_pushnil(L);
     return 1;
@@ -267,20 +273,20 @@ static int l_lovrBufferGetPointer(lua_State* L) {
 }
 
 static int l_lovrBufferIsTemporary(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  Buffer* buffer = luax_checkbuffer(L, 1);
   bool temporary = lovrBufferIsTemporary(buffer);
   lua_pushboolean(L, temporary);
   return 1;
 }
 
 static int l_lovrBufferSetData(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  Buffer* buffer = luax_checkbuffer(L, 1);
   luax_readbufferdata(L, 2, buffer, NULL);
   return 0;
 }
 
 static int l_lovrBufferClear(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  Buffer* buffer = luax_checkbuffer(L, 1);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   uint32_t index = luaL_optinteger(L, 2, 1);
   uint32_t count = luaL_optinteger(L, 3, info->length - index + 1);

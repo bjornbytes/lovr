@@ -24,24 +24,8 @@
 uint32_t os_vk_create_surface(void* instance, void** surface);
 const char** os_vk_get_instance_extensions(uint32_t* count);
 
-#define MAX_FRAME_MEMORY (1 << 30)
 #define MAX_SHADER_RESOURCES 32
-#define MATERIALS_PER_BLOCK 256
 #define FLOAT_BITS(f) ((union { float f; uint32_t u; }) { f }).u
-
-typedef struct {
-  struct { float x, y, z; } position;
-  struct { float x, y, z; } normal;
-  struct { float u, v; } uv;
-} ShapeVertex;
-
-typedef struct {
-  struct { float x, y, z; } position;
-  struct { float x, y, z; } normal;
-  struct { float u, v; } uv;
-  struct { uint8_t r, g, b, a; } color;
-  struct { float x, y, z; } tangent;
-} ModelVertex;
 
 typedef struct {
   gpu_phase readPhase;
@@ -58,6 +42,7 @@ struct Buffer {
   gpu_buffer* gpu;
   BufferInfo info;
   uint64_t hash;
+  uint32_t tick;
   Sync sync;
 };
 
@@ -264,6 +249,20 @@ typedef struct {
   Font* font;
 } Pipeline;
 
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { float x, y, z; } normal;
+  struct { float u, v; } uv;
+} ShapeVertex;
+
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { float x, y, z; } normal;
+  struct { float u, v; } uv;
+  struct { uint8_t r, g, b, a; } color;
+  struct { float x, y, z; } tangent;
+} ModelVertex;
+
 enum {
   SHAPE_PLANE,
   SHAPE_BOX,
@@ -355,6 +354,7 @@ typedef struct {
   char* memory;
   size_t cursor;
   size_t length;
+  size_t limit;
 } Allocator;
 
 static struct {
@@ -386,6 +386,9 @@ static struct {
   Material* defaultMaterial;
   size_t materialBlock;
   arr_t(MaterialBlock) materialBlocks;
+  size_t scratchBufferIndex;
+  arr_t(Buffer*) scratchBuffers;
+  arr_t(gpu_buffer*) scratchBufferHandles;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
@@ -462,13 +465,18 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   // Temporary frame memory uses a large 1GB virtual memory allocation, committing pages as needed
   state.allocator.length = 1 << 14;
-  state.allocator.memory = os_vm_init(MAX_FRAME_MEMORY);
+  state.allocator.limit = 1 << 30;
+  state.allocator.memory = os_vm_init(state.allocator.limit);
   os_vm_commit(state.allocator.memory, state.allocator.length);
 
   map_init(&state.pipelineLookup, 64);
   arr_init(&state.pipelines, realloc);
   arr_init(&state.layouts, realloc);
   arr_init(&state.materialBlocks, realloc);
+  arr_init(&state.scratchBuffers, realloc);
+  arr_init(&state.scratchBufferHandles, realloc);
+  arr_reserve(&state.scratchBuffers, 8);
+  arr_reserve(&state.scratchBufferHandles, 8);
 
   gpu_slot builtinSlots[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Globals
@@ -681,6 +689,12 @@ void lovrGraphicsDestroy() {
     free(block->bundles);
   }
   arr_free(&state.materialBlocks);
+  for (size_t i = 0; i < state.scratchBuffers.length; i++) {
+    free(state.scratchBuffers.data[i]);
+    free(state.scratchBufferHandles.data[i]);
+  }
+  arr_free(&state.scratchBuffers);
+  arr_free(&state.scratchBufferHandles);
   for (size_t i = 0; i < state.pipelines.length; i++) {
     gpu_pipeline_destroy(state.pipelines.data[i]);
     free(state.pipelines.data[i]);
@@ -703,7 +717,7 @@ void lovrGraphicsDestroy() {
   arr_free(&state.layouts);
   gpu_destroy();
   glslang_finalize_process();
-  os_vm_free(state.allocator.memory, MAX_FRAME_MEMORY);
+  os_vm_free(state.allocator.memory, state.allocator.limit);
   memset(&state, 0, sizeof(state));
 }
 
@@ -1037,15 +1051,32 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   uint32_t size = info->length * info->stride;
   lovrCheck(size > 0, "Buffer size can not be zero");
   lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
+  const uint32_t BUFFERS_PER_CHUNK = 64;
 
-  Buffer* buffer = tempAlloc(sizeof(Buffer) + gpu_sizeof_buffer());
+  if (state.scratchBufferIndex >= state.scratchBuffers.length * BUFFERS_PER_CHUNK) {
+    Buffer* buffers = malloc(BUFFERS_PER_CHUNK * sizeof(Buffer));
+    gpu_buffer* handles = malloc(BUFFERS_PER_CHUNK * gpu_sizeof_buffer());
+    lovrAssert(buffers && handles, "Out of memory");
+
+    for (uint32_t i = 0; i < BUFFERS_PER_CHUNK; i++) {
+      buffers[i].gpu = (gpu_buffer*) ((char*) handles + gpu_sizeof_buffer() * i);
+    }
+
+    arr_push(&state.scratchBuffers, buffers);
+    arr_push(&state.scratchBufferHandles, handles);
+  }
+
+  uint32_t index = state.scratchBufferIndex++;
+  Buffer* buffer = &state.scratchBuffers.data[index / BUFFERS_PER_CHUNK][index % BUFFERS_PER_CHUNK];
+
   buffer->ref = 1;
   buffer->size = size;
-  buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->info = *info;
   buffer->hash = hash64(info->fields, info->fieldCount * sizeof(BufferField));
 
+  beginFrame();
   buffer->pointer = gpu_map(buffer->gpu, size, state.limits.uniformBufferAlign, GPU_MAP_WRITE);
+  buffer->tick = state.tick;
 
   if (data) {
     *data = buffer->pointer;
@@ -1098,6 +1129,10 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
 
 bool lovrBufferIsTemporary(Buffer* buffer) {
   return buffer->pointer != NULL;
+}
+
+bool lovrBufferIsValid(Buffer* buffer) {
+  return !lovrBufferIsTemporary(buffer) || buffer->tick == state.tick;
 }
 
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
@@ -1869,6 +1904,7 @@ void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]) {
 
 Material* lovrMaterialCreate(const MaterialInfo* info) {
   MaterialBlock* block = &state.materialBlocks.data[state.materialBlock];
+  const uint32_t MATERIALS_PER_BLOCK = 256;
 
   if (!block || block->head == ~0u || !gpu_is_complete(block->list[block->head].tick)) {
     bool found = false;
@@ -5431,7 +5467,7 @@ void lovrPassTock(Pass* pass, Tally* tally, uint32_t index) {
 
 static void* tempAlloc(size_t size) {
   while (state.allocator.cursor + size > state.allocator.length) {
-    lovrAssert(state.allocator.length << 1 <= MAX_FRAME_MEMORY, "Out of memory");
+    lovrAssert(state.allocator.length << 1 <= state.allocator.limit, "Out of memory");
     os_vm_commit(state.allocator.memory + state.allocator.length, state.allocator.length);
     state.allocator.length <<= 1;
   }
@@ -5462,6 +5498,7 @@ static void beginFrame(void) {
   state.active = true;
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin();
+  state.scratchBufferIndex = 0;
   state.allocator.cursor = 0;
   processReadbacks();
 }

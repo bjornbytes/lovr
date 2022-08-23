@@ -155,6 +155,7 @@ bool luax_writefile(const char* filename, const void* data, size_t size);
 struct Buffer;
 struct ColoredString;
 struct Model;
+struct Buffer* luax_checkbuffer(struct lua_State* L, int index);
 void luax_readbufferfield(struct lua_State* L, int index, int type, void* data);
 void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer, char* data);
 uint32_t luax_checkcomparemode(struct lua_State* L, int index);

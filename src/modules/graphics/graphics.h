@@ -176,6 +176,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 bool lovrBufferIsTemporary(Buffer* buffer);
+bool lovrBufferIsValid(Buffer* buffer);
 void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
 

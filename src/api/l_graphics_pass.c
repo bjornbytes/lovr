@@ -824,7 +824,7 @@ static int l_lovrPassDraw(lua_State* L) {
 
 static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_checktype(L, 2, Buffer);
+  Buffer* vertices = !lua_toboolean(L, 2) ? NULL : luax_checkbuffer(L, 2);
   Buffer* indices = luax_totype(L, 3, Buffer);
   Buffer* indirect = luax_totype(L, 4, Buffer);
   if (indirect) {
@@ -892,7 +892,7 @@ static int l_lovrPassCopy(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
 
   if (lua_istable(L, 2)) {
-    Buffer* buffer = luax_checktype(L, 3, Buffer);
+    Buffer* buffer = luax_checkbuffer(L, 3);
     uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
     uint32_t dstIndex = luax_optu32(L, 5, 1) - 1;
 
@@ -914,7 +914,7 @@ static int l_lovrPassCopy(lua_State* L) {
   Blob* blob = luax_totype(L, 2, Blob);
 
   if (blob) {
-    Buffer* buffer = luax_checktype(L, 3, Buffer);
+    Buffer* buffer = luax_checkbuffer(L, 3);
     uint32_t srcOffset = luax_optu32(L, 4, 0);
     uint32_t dstOffset = luax_optu32(L, 5, 0);
     const BufferInfo* info = lovrBufferGetInfo(buffer);
@@ -930,7 +930,7 @@ static int l_lovrPassCopy(lua_State* L) {
   Buffer* buffer = luax_totype(L, 2, Buffer);
 
   if (buffer) {
-    Buffer* dst = luax_checktype(L, 3, Buffer);
+    Buffer* dst = luax_checkbuffer(L, 3);
     uint32_t srcOffset = luax_optu32(L, 4, 0);
     uint32_t dstOffset = luax_optu32(L, 5, 0);
     const BufferInfo* srcInfo = lovrBufferGetInfo(buffer);
@@ -988,7 +988,7 @@ static int l_lovrPassCopy(lua_State* L) {
   Tally* tally = luax_totype(L, 2, Tally);
 
   if (tally) {
-    Buffer* buffer = luax_checktype(L, 3, Buffer);
+    Buffer* buffer = luax_checkbuffer(L, 3);
     uint32_t srcIndex = luax_optu32(L, 4, 0);
     uint32_t dstOffset = luax_optu32(L, 5, 0);
     uint32_t count = luax_optu32(L, 5, ~0u);
