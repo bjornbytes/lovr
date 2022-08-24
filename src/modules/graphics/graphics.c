@@ -3555,23 +3555,23 @@ void lovrPassReset(Pass* pass) {
 }
 
 void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
-  lovrCheck(index < pass->cameraCount, "Invalid view index '%d'", index);
+  lovrCheck(index < pass->cameraCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->cameraCount);
   mat4_init(viewMatrix, pass->cameras[index].view);
 }
 
 void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
-  lovrCheck(index < pass->cameraCount, "Invalid view index '%d'", index);
+  lovrCheck(index < pass->cameraCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->cameraCount);
   mat4_init(pass->cameras[index].view, viewMatrix);
   pass->cameraDirty = true;
 }
 
 void lovrPassGetProjection(Pass* pass, uint32_t index, float* projection) {
-  lovrCheck(index < pass->cameraCount, "Invalid view index '%d'", index);
+  lovrCheck(index < pass->cameraCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->cameraCount);
   mat4_init(projection, pass->cameras[index].projection);
 }
 
 void lovrPassSetProjection(Pass* pass, uint32_t index, float* projection) {
-  lovrCheck(index < pass->cameraCount, "Invalid view index '%d'", index);
+  lovrCheck(index < pass->cameraCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->cameraCount);
   mat4_init(pass->cameras[index].projection, projection);
   pass->cameraDirty = true;
 
