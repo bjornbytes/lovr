@@ -254,8 +254,10 @@ static int l_lovrBufferGetFormat(lua_State* L) {
     lua_setfield(L, -2, "type");
     lua_pushinteger(L, field->offset);
     lua_setfield(L, -2, "offset");
-    lua_pushinteger(L, field->location);
-    lua_setfield(L, -2, "location");
+    if (!field->hash) {
+      lua_pushinteger(L, field->location);
+      lua_setfield(L, -2, "location");
+    }
     lua_rawseti(L, -2, i + 1);
   }
   return 1;

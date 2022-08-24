@@ -368,14 +368,12 @@ static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
           lua_pop(L, 1);
 
           lua_getfield(L, -1, "location");
-          field->location = lua_isnil(L, -1) ? location++ : luaL_checkinteger(L, -1);
-          lua_pop(L, 1);
-
-          lua_getfield(L, -1, "name");
           if (lua_type(L, -1) == LUA_TSTRING) {
             size_t nameLength;
             const char* name = lua_tolstring(L, -1, &nameLength);
             field->hash = (uint32_t) hash64(name, nameLength);
+          } else {
+            field->location = lua_isnil(L, -1) ? location++ : luaL_checkinteger(L, -1);
           }
           lua_pop(L, 1);
         } else if (lua_isstring(L, -1)) {
