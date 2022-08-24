@@ -877,26 +877,24 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         if (canvas->mipmap) {
           bool depth = pass->depth && pass->depth->info.mipmaps > 1;
 
+          // Waits for the external subpass dependency layout transition to finish before mipmapping
           gpu_barrier barrier = {
-            .prev = GPU_PHASE_COLOR | (depth ? GPU_PHASE_DEPTH_LATE : 0),
+            .prev = GPU_PHASE_ALL,
             .next = GPU_PHASE_TRANSFER,
-            .flush = GPU_CACHE_COLOR_WRITE | (depth ? GPU_CACHE_DEPTH_WRITE : 0),
+            .flush = 0,
             .clear = GPU_CACHE_TRANSFER_READ
           };
 
-          // Wait for rendering to finish before mipmapping
           gpu_sync(pass->stream, &barrier, 1);
 
           for (uint32_t t = 0; t < canvas->count; t++) {
             if (pass->color[t]->info.mipmaps > 1) {
               mipmapTexture(pass->stream, pass->color[t], 0, ~0u);
-              trackTexture(pass, pass->color[t], GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
             }
           }
 
           if (depth) {
             mipmapTexture(pass->stream, pass->depth, 0, ~0u);
-            trackTexture(pass, pass->depth, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
           }
         }
         break;
@@ -963,8 +961,8 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       //   - does clear the write cache
       //   - resets the 'last write' and clears pendingReads
 
-      uint32_t read = access->cache & GPU_CACHE_READ;
-      uint32_t write = access->cache & GPU_CACHE_WRITE;
+      uint32_t read = access->cache & GPU_CACHE_READ_MASK;
+      uint32_t write = access->cache & GPU_CACHE_WRITE_MASK;
       uint32_t newReads = read & ~sync->pendingReads;
       bool hasNewReads = newReads || (access->phase & ~sync->readPhase);
       bool readAfterWrite = read && sync->pendingWrite && hasNewReads;
@@ -998,6 +996,21 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         sync->writePhase = access->phase;
         sync->pendingWrite = write;
         sync->lastWriteIndex = i + 1;
+      }
+    }
+
+    // For automipmapping, the final write to the target is a transfer, not an attachment write
+    if (pass->info.type == PASS_RENDER && pass->info.canvas.mipmap) {
+      for (uint32_t t = 0; t < pass->info.canvas.count; t++) {
+        if (pass->color[t]->info.mipmaps > 1) {
+          pass->color[t]->sync.writePhase = GPU_PHASE_TRANSFER;
+          pass->color[t]->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
+        }
+      }
+
+      if (pass->depth && pass->depth->info.mipmaps > 1) {
+        pass->depth->sync.writePhase = GPU_PHASE_TRANSFER;
+        pass->depth->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
       }
     }
   }

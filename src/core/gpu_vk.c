@@ -194,7 +194,7 @@ static void expunge(void);
 static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
-static VkPipelineStageFlags convertPhase(gpu_phase phase);
+static VkPipelineStageFlags convertPhase(gpu_phase phase, bool dst);
 static VkAccessFlags convertCache(gpu_cache cache);
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
 static void nickname(void* object, VkObjectType type, const char* name);
@@ -1796,8 +1796,8 @@ void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
 
   for (uint32_t i = 0; i < count; i++) {
     gpu_barrier* barrier = &barriers[i];
-    src |= convertPhase(barrier->prev);
-    dst |= convertPhase(barrier->next);
+    src |= convertPhase(barrier->prev, false);
+    dst |= convertPhase(barrier->next, true);
     memoryBarrier.srcAccessMask |= convertCache(barrier->flush);
     memoryBarrier.dstAccessMask |= convertCache(barrier->clear);
   }
@@ -2704,7 +2704,7 @@ static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
   return formats[format][colorspace];
 }
 
-static VkPipelineStageFlags convertPhase(gpu_phase phase) {
+static VkPipelineStageFlags convertPhase(gpu_phase phase, bool dst) {
   VkPipelineStageFlags flags = 0;
   if (phase & GPU_PHASE_INDIRECT) flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
   if (phase & GPU_PHASE_INPUT_INDEX) flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
@@ -2716,6 +2716,7 @@ static VkPipelineStageFlags convertPhase(gpu_phase phase) {
   if (phase & GPU_PHASE_DEPTH_LATE) flags |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
   if (phase & GPU_PHASE_COLOR) flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   if (phase & GPU_PHASE_TRANSFER) flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+  if (phase & GPU_PHASE_ALL) flags |= dst ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
   return flags;
 }
 
