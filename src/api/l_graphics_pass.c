@@ -568,14 +568,22 @@ static int l_lovrPassSend(lua_State* L) {
   FieldType type;
   lovrPassSendValue(pass, name, length, &data, &type);
 
-  // readbufferfield doesn't handle booleans
-  if (lua_type(L, 3) == LUA_TBOOLEAN) {
+  int index = 3;
+
+  // readbufferfield doesn't handle booleans or tables; coerce/unpack
+  if (lua_isboolean(L, 3)) {
     bool value = lua_toboolean(L, 3);
     lua_settop(L, 2);
     lua_pushinteger(L, value);
+  } else if (lua_istable(L, 3)) {
+    int length = luax_len(L, 3);
+    for (int i = 0; i < length && i < 16; i++) {
+      lua_rawgeti(L, 3, i + 1);
+    }
+    index = 4;
   }
 
-  luax_readbufferfield(L, 3, type, data);
+  luax_readbufferfield(L, index, type, data);
   return 0;
 }
 
