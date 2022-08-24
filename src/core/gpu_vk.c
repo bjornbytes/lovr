@@ -1301,6 +1301,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   VkPipelineRasterizationStateCreateInfo rasterization = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+    .depthClampEnable = info->rasterizer.depthClamp,
     .polygonMode = info->rasterizer.wireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL,
     .cullMode = cullModes[info->rasterizer.cullMode],
     .frontFace = frontFaces[info->rasterizer.winding],
