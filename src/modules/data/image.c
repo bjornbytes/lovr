@@ -1035,12 +1035,13 @@ static Image* loadKTX1(Blob* blob) {
     length -= 4;
     data += 4;
 
-    lovrAssert(length >= size, "KTX file overflow");
+    size_t totalSize = size * image->layers;
+    lovrAssert(length >= totalSize, "KTX file overflow");
     image->mipmaps[i] = (Mipmap) { data, size, size };
     width = MAX(width >> 1, 1);
     height = MAX(height >> 1, 1);
-    length -= size;
-    data += size;
+    length -= totalSize;
+    data += totalSize;
   }
 
   return image;
