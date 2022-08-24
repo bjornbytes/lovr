@@ -977,7 +977,7 @@ static Image* loadKTX1(Blob* blob) {
     [FORMAT_RGB565]     = { 0x8363, 0x1907, 0x8D62, 0 },
     [FORMAT_RGB5A1]     = { 0x8034, 0x1908, 0x8057, 0 },
     [FORMAT_RGB10A2]    = { 0x8368, 0x1908, 0x8059, 0 },
-    [FORMAT_RG11B10F]   = { 0x8C3B, 0x1907, 0x8C3A, 0 },
+    [FORMAT_RG11B10F]   = { 0x8C3A, 0x1907, 0x8C3A, 0 },
     [FORMAT_D16]        = { 0x1403, 0x1902, 0x81A5, 0 },
     [FORMAT_D32F]       = { 0x1406, 0x1902, 0x8CAC, 0 },
     [FORMAT_D24S8]      = { 0x84FA, 0x84F9, 0x88F0, 0 },
