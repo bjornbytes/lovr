@@ -939,13 +939,16 @@ static Image* loadKTX1(Blob* blob) {
   lovrAssert(header.pixelHeight > 0, "Unable to load 1D KTX images");
   lovrAssert(header.pixelDepth == 0, "Unable to load 3D KTX images");
 
-  Image* image = calloc(1, sizeof(Image));
+  uint32_t layers = MAX(header.numberOfArrayElements, 1);
+  uint32_t levels = MAX(header.numberOfMipmapLevels, 1);
+
+  Image* image = calloc(1, offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
   lovrAssert(image, "Out of memory");
   image->ref = 1;
   image->width = header.pixelWidth;
   image->height = header.pixelHeight;
-  image->layers = MAX(header.numberOfArrayElements, 1);
-  image->levels = MAX(header.numberOfMipmapLevels, 1);
+  image->layers = layers;
+  image->levels = levels;
   image->blob = blob;
   lovrRetain(blob);
 
@@ -1085,13 +1088,16 @@ static Image* loadKTX2(Blob* blob) {
   lovrAssert(header->layerCount == 0 || header->faceCount == 1, "Unable to load cubemap array KTX images");
   lovrAssert(!header->compression, "Supercompressed KTX files are not currently supported");
 
-  Image* image = calloc(1, sizeof(Image));
+  uint32_t layers = MAX(header->layerCount, 1);
+  uint32_t levels = MAX(header->levelCount, 1);
+
+  Image* image = calloc(1, offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
   lovrAssert(image, "Out of memory");
   image->ref = 1;
   image->width = header->pixelWidth;
   image->height = header->pixelHeight;
-  image->layers = MAX(header->layerCount, 1);
-  image->levels = MAX(header->levelCount, 1);
+  image->layers = layers;
+  image->levels = levels;
   image->blob = blob;
   lovrRetain(blob);
 
