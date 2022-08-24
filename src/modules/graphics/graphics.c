@@ -3346,6 +3346,7 @@ void lovrPassSetTarget(Pass* pass, Texture* color[4], Texture* depth) {
     lovrCheck(info->width == t->width, "Texture sizes must match");
     lovrCheck(info->height == t->height, "Texture sizes must match");
     lovrCheck(info->layers == t->layers, "Texture sizes must match");
+    lovrCheck(!canvas->mipmap || info->mipmaps == 1 || info->usage & TEXTURE_TRANSFER, "Texture must have 'transfer' flag to mipmap it after a Pass");
 
     if (pass->color[0]) {
       lovrCheck(info->samples == pass->color[0]->info.samples, "Color target sample count is different than the sample count of the texture used to create the Pass");
@@ -3384,6 +3385,7 @@ void lovrPassSetTarget(Pass* pass, Texture* color[4], Texture* depth) {
     lovrCheck(info->height == t->height, "Texture sizes must match");
     lovrCheck(info->layers == t->layers, "Texture sizes must match");
     lovrCheck(info->samples == canvas->samples, "Sorry, resolving depth textures is not supported yet");
+    lovrCheck(!canvas->mipmap || info->mipmaps == 1 || info->usage & TEXTURE_TRANSFER, "Texture must have 'transfer' flag to mipmap it after a Pass");
     pass->target.depth.texture = depth->renderView;
     pass->depth = depth;
   } else if (canvas->depth.format && resized) {
