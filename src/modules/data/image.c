@@ -1021,7 +1021,7 @@ static Image* loadKTX1(Blob* blob) {
       }
     }
   }
-  lovrAssert(image->format != ~0u, "KTX file uses an unsupported image format");
+  lovrAssert(image->format != ~0u, "KTX1 file uses an unsupported image format (glType = %d, glFormat = %d, glInternalFormat = %d)", header.glType, header.glFormat, header.glInternalFormat);
 
   // Mipmaps
   uint32_t width = image->width;
