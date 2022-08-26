@@ -15,6 +15,7 @@ layout(constant_id = 1012) const bool flag_metalnessTexture = true;
 layout(constant_id = 1013) const bool flag_roughnessTexture = true;
 layout(constant_id = 1014) const bool flag_occlusionTexture = false;
 layout(constant_id = 1015) const bool flag_clearcoatTexture = false;
+layout(constant_id = 1016) const bool flag_tonemap = false;
 
 // Resources
 #ifndef GL_COMPUTE_SHADER
@@ -317,6 +318,15 @@ vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
     sh[8] * (n.x * n.x - n.y * n.y)
   , 0.);
 }
+
+vec3 tonemap(vec3 x) {
+  float a = 2.51;
+  float b = 0.03;
+  float c = 2.43;
+  float d = 0.59;
+  float e = 0.14;
+  return (x * (a * x + b)) / (x * (c * x + d) + e);
+}
 #endif
 
 // Entrypoints
@@ -358,6 +368,10 @@ void main() {
     } else {
       PixelColor[0].rgb += Material.glow.rgb * Material.glow.a;
     }
+  }
+
+  if (flag_tonemap) {
+    PixelColor[0].rgb = tonemap(PixelColor[0].rgb);
   }
 
   if (flag_alphaCutoff && PixelColor[0].a <= Material.alphaCutoff) {
