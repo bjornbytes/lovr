@@ -3000,6 +3000,7 @@ static void lovrModelReskin(Model* model) {
     baseVertex += skin->vertexCount;
   }
 
+  model->lastReskin = state.tick;
   state.hasReskin = true;
 }
 
