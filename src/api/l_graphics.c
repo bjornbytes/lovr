@@ -58,7 +58,6 @@ StringEntry lovrDefaultShader[] = {
   [SHADER_CUBEMAP] = ENTRY("cubemap"),
   [SHADER_EQUIRECT] = ENTRY("equirect"),
   [SHADER_FILL] = ENTRY("fill"),
-  [SHADER_STEREOBLIT] = ENTRY("stereoblit"),
   { 0 }
 };
 
