@@ -1,17 +1,20 @@
 // Flags
-layout(constant_id = 1000) const bool enableUVTransform = true;
-layout(constant_id = 1001) const bool enableAlphaCutoff = false;
-layout(constant_id = 1002) const bool enableGlow = false;
-layout(constant_id = 1003) const bool enableNormalMap = false;
-layout(constant_id = 1004) const bool useVertexTangents = true;
-layout(constant_id = 1005) const bool useColorTexture = true;
-layout(constant_id = 1006) const bool useGlowTexture = false;
-layout(constant_id = 1007) const bool useMetalnessTexture = true;
-layout(constant_id = 1008) const bool useRoughnessTexture = true;
-layout(constant_id = 1009) const bool useOcclusionTexture = false;
-layout(constant_id = 1010) const bool useClearcoatTexture = false;
-layout(constant_id = 1011) const uint attachmentCount = 1;
-layout(constant_id = 1012) const float defaultPointSize = 1.f;
+layout(constant_id = 1000) const float flag_pointSize = 1.f;
+layout(constant_id = 1001) const uint flag_attachmentCount = 1;
+layout(constant_id = 1002) const bool flag_passColor = true;
+layout(constant_id = 1003) const bool flag_materialColor = true;
+layout(constant_id = 1004) const bool flag_vertexColors = true;
+layout(constant_id = 1005) const bool flag_uvTransform = true;
+layout(constant_id = 1006) const bool flag_alphaCutoff = false;
+layout(constant_id = 1007) const bool flag_glow = false;
+layout(constant_id = 1008) const bool flag_normalMap = false;
+layout(constant_id = 1009) const bool flag_vertexTangents = true;
+layout(constant_id = 1010) const bool flag_colorTexture = true;
+layout(constant_id = 1011) const bool flag_glowTexture = false;
+layout(constant_id = 1012) const bool flag_metalnessTexture = true;
+layout(constant_id = 1013) const bool flag_roughnessTexture = true;
+layout(constant_id = 1014) const bool flag_occlusionTexture = false;
+layout(constant_id = 1015) const bool flag_clearcoatTexture = false;
 
 // Resources
 #ifndef GL_COMPUTE_SHADER
@@ -68,7 +71,7 @@ layout(location = 14) in vec3 VertexTangent;
 
 // Framebuffer
 #ifdef GL_FRAGMENT_SHADER
-layout(location = 0) out vec4 PixelColor[attachmentCount];
+layout(location = 0) out vec4 PixelColor[flag_attachmentCount];
 #endif
 
 // Varyings
@@ -185,7 +188,7 @@ struct Surface {
 #define TangentMatrix getTangentMatrix()
 
 mat3 getTangentMatrix() {
-  if (useVertexTangents) {
+  if (flag_vertexTangents) {
     vec3 N = normalize(Normal);
     vec3 T = normalize(Tangent);
     vec3 B = cross(N, T);
@@ -215,7 +218,7 @@ void initSurface(out Surface surface) {
     normal = -normal;
   }
 
-  if (enableNormalMap) {
+  if (flag_normalMap) {
     vec3 normalScale = vec3(Material.normalScale, Material.normalScale, 1.);
     surface.normal = TangentMatrix * (normalize(getPixel(NormalTexture, UV).rgb * 2. - 1.) * normalScale);
   } else {
@@ -227,27 +230,27 @@ void initSurface(out Surface surface) {
   surface.reflection = reflect(-surface.view, normal);
 
   vec4 color = Color;
-  if (useColorTexture) color *= getPixel(ColorTexture, UV);
+  if (flag_colorTexture) color *= getPixel(ColorTexture, UV);
 
   float metallic = Material.metalness;
-  if (useMetalnessTexture) metallic *= getPixel(MetalnessTexture, UV).b;
+  if (flag_metalnessTexture) metallic *= getPixel(MetalnessTexture, UV).b;
 
   surface.f0 = mix(vec3(.04), color.rgb, metallic);
   surface.diffuse = mix(color.rgb, vec3(0.), metallic);
 
   surface.emissive = Material.glow.rgb * Material.glow.a;
-  if (useGlowTexture) surface.emissive *= getPixel(GlowTexture, UV).rgb;
+  if (flag_glow && flag_glowTexture) surface.emissive *= getPixel(GlowTexture, UV).rgb;
 
   float roughness = Material.roughness;
-  if (useRoughnessTexture) roughness *= getPixel(RoughnessTexture, UV).g;
+  if (flag_roughnessTexture) roughness *= getPixel(RoughnessTexture, UV).g;
   roughness = max(roughness, .05);
   surface.roughness2 = roughness * roughness;
 
   surface.occlusion = 1.;
-  if (useOcclusionTexture) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
+  if (flag_occlusionTexture) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
 
   surface.clearcoat = Material.clearcoat;
-  if (useClearcoatTexture) surface.clearcoat *= getPixel(ClearcoatTexture, UV).r;
+  if (flag_clearcoatTexture) surface.clearcoat *= getPixel(ClearcoatTexture, UV).r;
 
   surface.clearcoatRoughness = Material.clearcoatRoughness;
 
@@ -282,7 +285,7 @@ vec3 getLighting(const Surface surface, vec3 direction, vec4 color, float visibi
   vec3 V = surface.view;
   vec3 L = normalize(-direction);
   vec3 H = normalize(V + L);
-  //vec3 R = surface.reflection;
+  vec3 R = surface.reflection;
   float NoV = abs(dot(N, V)) + 1e-8;
   float NoL = clamp(dot(N, L) * .5 + .5, 0., 1.);
   float NoH = clamp(dot(N, H), 0., 1.);
@@ -309,17 +312,21 @@ vec4 lovrmain();
 void main() {
   PositionWorld = vec3(WorldFromLocal * VertexPosition);
   Normal = NormalMatrix * VertexNormal;
-  Color = VertexColor * Material.color * PassColor;
   UV = VertexUV;
 
-  if (enableNormalMap && useVertexTangents) {
+  Color = vec4(1.0);
+  if (flag_passColor) Color *= PassColor;
+  if (flag_materialColor) Color *= Material.color;
+  if (flag_vertexColors) Color *= VertexColor;
+
+  if (flag_normalMap && flag_vertexTangents) {
     Tangent = NormalMatrix * VertexTangent;
   }
 
-  PointSize = defaultPointSize;
+  PointSize = flag_pointSize;
   Position = lovrmain();
 
-  if (enableUVTransform) {
+  if (flag_uvTransform) {
     UV *= Material.uvScale;
     UV += Material.uvShift;
   }
@@ -331,11 +338,15 @@ vec4 lovrmain();
 void main() {
   PixelColor[0] = lovrmain();
 
-  if (enableGlow) {
-    PixelColor[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
+  if (flag_glow) {
+    if (flag_glowTexture) {
+      PixelColor[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
+    } else {
+      PixelColor[0].rgb += Material.glow.rgb * Material.glow.a;
+    }
   }
 
-  if (enableAlphaCutoff && PixelColor[0].a <= Material.alphaCutoff) {
+  if (flag_alphaCutoff && PixelColor[0].a <= Material.alphaCutoff) {
     discard;
   }
 }
