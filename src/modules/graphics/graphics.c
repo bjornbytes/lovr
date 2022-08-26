@@ -1336,7 +1336,6 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   lovrCheck(!info->parent, "Can't nest texture views");
   lovrCheck(view->type != TEXTURE_3D, "Texture views may not be volume textures");
   lovrCheck(view->layerCount > 0, "Texture view must have at least one layer");
-  lovrCheck(view->levelCount > 0, "Texture view must have at least one mipmap");
   lovrCheck(view->layerIndex + view->layerCount <= maxLayers, "Texture view layer range exceeds layer count of parent texture");
   lovrCheck(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
   lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D texture can only have a single layer");
@@ -1350,7 +1349,7 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   texture->info = *info;
 
   texture->info.parent = view->parent;
-  texture->info.mipmaps = view->levelCount;
+  texture->info.mipmaps = view->levelCount ? view->levelCount : info->mipmaps;
   texture->info.width = MAX(info->width >> view->levelIndex, 1);
   texture->info.height = MAX(info->height >> view->levelIndex, 1);
   texture->info.layers = view->layerCount;
