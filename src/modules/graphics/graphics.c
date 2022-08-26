@@ -3385,6 +3385,8 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     pass->pipeline->info.color[i].mask = 0xf;
   }
 
+  lovrPassSetBlendMode(pass, BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
+
   pass->materialDirty = true;
   pass->samplerDirty = true;
 

@@ -186,7 +186,6 @@ function lovr.errhand(message)
 
   local function render(pass)
     pass:setColor(.95, .95, .95)
-    pass:setBlendMode('alpha')
     pass:text('Error', x, y, z, scale * 1.6, 0, 0, 0, 0, nil, 'left', 'top')
     pass:text(message, x, y - .8, z, scale, 0, 0, 0, 0, wrap, 'left', 'top')
   end

@@ -496,7 +496,6 @@ function lovr.draw(pass)
   local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
   pass:setCullMode('back')
-  pass:setBlendMode('alpha')
   pass:setShader(logo)
   pass:plane(0, 2, -3)
 
