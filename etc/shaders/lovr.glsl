@@ -303,6 +303,20 @@ vec3 getLighting(const Surface surface, vec3 direction, vec4 color, float visibi
 
   return (diffuse + specular) * color.rgb * (NoL * color.a * visibility);
 }
+
+vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
+  return max(
+    sh[0] +
+    sh[1] * n.y +
+    sh[2] * n.z +
+    sh[3] * n.x +
+    sh[4] * n.y * n.x +
+    sh[5] * n.y * n.z +
+    sh[6] * (3. * n.z * n.z - 1.) +
+    sh[7] * n.z * n.x +
+    sh[8] * (n.x * n.x - n.y * n.y)
+  , 0.);
+}
 #endif
 
 // Entrypoints
