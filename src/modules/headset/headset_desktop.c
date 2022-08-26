@@ -194,7 +194,6 @@ static Texture* desktop_getTexture(void) {
 
 static Pass* desktop_getPass(void) {
   Pass* pass = lovrGraphicsGetWindowPass();
-  lovrPassReset(pass);
 
   float position[4], orientation[4];
   desktop_getViewPose(0, position, orientation);

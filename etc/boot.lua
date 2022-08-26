@@ -92,6 +92,10 @@ function lovr.boot()
 
   if lovr.headset and lovr.graphics and conf.window then
     lovr.headset.start()
+
+    if lovr.headset.getDriver() == 'desktop' then
+      lovr.mirror = nil
+    end
   end
 
   lovr.handlers = setmetatable({}, { __index = lovr })
@@ -128,11 +132,12 @@ function lovr.run()
           if not skip then lovr.graphics.submit(pass) end
         end
       end
-      if lovr.mirror and lovr.system.isWindowOpen() then
-        local pass = lovr.graphics.getWindowPass()
-        pass:reset()
-        local skip = lovr.mirror(pass)
-        if not skip then lovr.graphics.submit(pass) end
+      if lovr.system.isWindowOpen() then
+        if lovr.mirror then
+          local pass = lovr.graphics.getWindowPass()
+          local skip = lovr.mirror(pass)
+          if not skip then lovr.graphics.submit(pass) end
+        end
         lovr.graphics.present()
       end
     end
@@ -207,7 +212,6 @@ function lovr.errhand(message)
 
     if lovr.system.isWindowOpen() then
       local pass = lovr.graphics.getWindowPass()
-      pass:reset()
       render(pass)
       lovr.graphics.submit(pass)
       lovr.graphics.present()
@@ -243,7 +247,8 @@ return function()
   while true do
     local ok, result, cookie = xpcall(thread, onerror)
 
-    if result and ok then -- If step function returned something, exit coroutine and return to C
+    -- If step function returned something, exit coroutine and return to C
+    if result and ok then
       return result, cookie
     elseif not ok then -- Switch to errhand loop
       thread = result

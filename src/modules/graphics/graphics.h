@@ -577,20 +577,15 @@ typedef struct {
 } PassInfo;
 
 Pass* lovrGraphicsGetWindowPass(void);
-Pass* lovrPassCreate(PassInfo* info);
+Pass* lovrGraphicsGetPass(PassInfo* info);
 void lovrPassDestroy(void* ref);
 const PassInfo* lovrPassGetInfo(Pass* pass);
 uint32_t lovrPassGetWidth(Pass* pass);
 uint32_t lovrPassGetHeight(Pass* pass);
 uint32_t lovrPassGetViewCount(Pass* pass);
 uint32_t lovrPassGetSampleCount(Pass* pass);
-
-void lovrPassGetTarget(Pass* pass, Texture* color[4], Texture** depth);
-void lovrPassSetTarget(Pass* pass, Texture* color[4], Texture* depth);
-void lovrPassGetClear(Pass* pass, float color[4][4], float* depth, uint8_t* stencil);
-void lovrPassSetClear(Pass* pass, float color[4][4], float depth, uint8_t stencil);
-
-void lovrPassReset(Pass* pass);
+void lovrPassGetTarget(Pass* pass, Texture* color[4], Texture** depth, uint32_t* count);
+void lovrPassGetClear(Pass* pass, float color[4][4], float* depth, uint8_t* stencil, uint32_t* count);
 
 void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);

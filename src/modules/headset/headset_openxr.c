@@ -980,19 +980,6 @@ static void openxr_start(void) {
       }
     }
 
-    state.pass = lovrPassCreate(&(PassInfo) {
-      .type = PASS_RENDER,
-      .canvas.count = 1,
-      .canvas.textures[0] = state.textures[COLOR][0],
-      .canvas.loads[0] = LOAD_CLEAR,
-      .canvas.clears[0] = { 0.f, 0.f, 0.f, 0.f },
-      .canvas.depth.texture = state.textures[DEPTH][0],
-      .canvas.depth.format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
-      .canvas.depth.load = LOAD_CLEAR,
-      .canvas.depth.clear = 0.f,
-      .canvas.samples = state.config.antialias ? 4 : 1
-    });
-
     XrCompositionLayerFlags layerFlags = 0;
 
     if (state.features.overlay) {
@@ -1039,8 +1026,6 @@ static void openxr_stop(void) {
   if (!state.session) {
     return;
   }
-
-  lovrRelease(state.pass, lovrPassDestroy);
 
   for (uint32_t i = 0; i < 2; i++) {
     for (uint32_t j = 0; j < state.textureCount[i]; j++) {
@@ -1818,13 +1803,23 @@ static Pass* openxr_getPass(void) {
     return NULL;
   }
 
-  uint8_t stencil;
-  float color[4][4], depth;
-  lovrPassGetClear(state.pass, color, &depth, &stencil);
-  lovrGraphicsGetBackgroundColor(color[0]);
-  lovrPassSetClear(state.pass, color, depth, stencil);
-  lovrPassSetTarget(state.pass, &texture, depthTexture);
-  lovrPassReset(state.pass);
+  Canvas canvas = {
+    .count = 1,
+    .textures[0] = texture,
+    .depth.texture = depthTexture,
+    .depth.format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
+    .depth.load = LOAD_CLEAR,
+    .depth.clear = 0.f,
+    .samples = state.config.antialias ? 4 : 1
+  };
+
+  lovrGraphicsGetBackgroundColor(canvas.clears[0]);
+
+  state.pass = lovrGraphicsGetPass(&(PassInfo) {
+    .type = PASS_RENDER,
+    .label = "Headset",
+    .canvas = canvas
+  });
 
   uint32_t count;
   XrView views[2];

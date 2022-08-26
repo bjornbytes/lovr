@@ -463,11 +463,13 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
   };
 
   if (lua_type(L, index) == LUA_TSTRING && !strcmp(lua_tostring(L, index), "window")) {
+    canvas.count = 1;
     canvas.textures[0] = lovrGraphicsGetWindowTexture();
-    canvas.count = 1;
+    lovrGraphicsGetBackgroundColor(canvas.clears[0]);
   } else if (lua_isuserdata(L, index)) {
-    canvas.textures[0] = luax_checktype(L, index, Texture);
     canvas.count = 1;
+    canvas.textures[0] = luax_checktype(L, index, Texture);
+    lovrGraphicsGetBackgroundColor(canvas.clears[0]);
   } else if (!lua_istable(L, index)) {
     luax_typeerror(L, index, "Texture or table");
   } else {
@@ -520,12 +522,12 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
         canvas.clears[0][2] = luax_checkfloat(L, -2);
         canvas.clears[0][3] = luax_optfloat(L, -1, 1.f);
         lua_pop(L, 4);
-        for (uint32_t i = 1; i < 4; i++) {
+        for (uint32_t i = 1; i < canvas.count; i++) {
           memcpy(canvas.clears[i], canvas.clears[0], 4 * sizeof(float));
         }
       } else {
         lua_pop(L, 1);
-        for (uint32_t i = 0; i < 4; i++) {
+        for (uint32_t i = 0; i < canvas.count; i++) {
           lua_rawgeti(L, -1, i + 1);
           if (lua_istable(L, -1)) {
             lua_rawgeti(L, -1, 1);
@@ -548,6 +550,10 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
     } else if (!lua_isnil(L, -1)) {
       LoadAction load = lua_toboolean(L, -1) ? LOAD_DISCARD : LOAD_KEEP;
       canvas.loads[0] = canvas.loads[1] = canvas.loads[2] = canvas.loads[3] = load;
+    } else {
+      for (uint32_t i = 0; i < canvas.count; i++) {
+        lovrGraphicsGetBackgroundColor(canvas.clears[i]);
+      }
     }
     lua_pop(L, 1);
 
@@ -1470,7 +1476,7 @@ static int l_lovrGraphicsNewTally(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsNewPass(lua_State* L) {
+static int l_lovrGraphicsGetPass(lua_State* L) {
   PassInfo info = { 0 };
 
   info.type = luax_checkenum(L, 1, PassType, NULL);
@@ -1487,7 +1493,7 @@ static int l_lovrGraphicsNewPass(lua_State* L) {
     info.label = NULL;
   }
 
-  Pass* pass = lovrPassCreate(&info);
+  Pass* pass = lovrGraphicsGetPass(&info);
   luax_pushtype(L, Pass, pass);
   lovrRelease(pass, lovrPassDestroy);
   return 1;
@@ -1516,7 +1522,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "newFont", l_lovrGraphicsNewFont },
   { "newModel", l_lovrGraphicsNewModel },
   { "newTally", l_lovrGraphicsNewTally },
-  { "newPass", l_lovrGraphicsNewPass },
+  { "getPass", l_lovrGraphicsGetPass },
   { NULL, NULL }
 };
 
