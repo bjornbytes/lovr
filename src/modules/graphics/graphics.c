@@ -1557,6 +1557,7 @@ static void lovrShaderInit(Shader* shader) {
   for (uint32_t i = 0; i < shader->info.flagCount; i++) {
     ShaderFlag* flag = &shader->info.flags[i];
     uint32_t hash = flag->name ? (uint32_t) hash64(flag->name, strlen(flag->name)) : 0;
+
     for (uint32_t j = 0; j < shader->flagCount; j++) {
       if (hash ? (hash != shader->flagLookup[j]) : (flag->id != shader->flags[j].id)) continue;
 
@@ -1833,8 +1834,11 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
       uint32_t index = shader->flagCount++;
 
+      // Flag names can start with flag_ which will be ignored for matching purposes
       if (constant->name) {
-        shader->flagLookup[index] = (uint32_t) hash64(constant->name, strlen(constant->name));
+        size_t length = strlen(constant->name);
+        size_t offset = length > 5 && !memcmp(constant->name, "flag_", 5) ? 5 : 0;
+        shader->flagLookup[index] = (uint32_t) hash64(constant->name + offset, length - offset);
       } else {
         shader->flagLookup[index] = 0;
       }
