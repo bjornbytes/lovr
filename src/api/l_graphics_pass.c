@@ -454,6 +454,10 @@ static int l_lovrPassSend(lua_State* L) {
     default: return luax_typeerror(L, 2, "string or number");
   }
 
+  if (lua_isnoneornil(L, 3)) {
+    return luax_typeerror(L, 3, "Buffer, Texture, Sampler, number, vector, table, or boolean");
+  }
+
   Buffer* buffer = luax_totype(L, 3, Buffer);
 
   if (buffer) {
