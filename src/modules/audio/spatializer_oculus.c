@@ -1,6 +1,6 @@
 #include "spatializer.h"
 #include "audio/audio.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/miniaudio/miniaudio.h"
 #include <stdlib.h>
 #include <string.h>
@@ -106,7 +106,7 @@ static bool oculus_init(void) {
 
   config.acc_Size = sizeof(config);
   config.acc_MaxNumSources = MAX_SOURCES;
-  config.acc_SampleRate = SAMPLE_RATE;
+  config.acc_SampleRate = lovrAudioGetSampleRate();
   config.acc_BufferLength = BUFFER_SIZE; // Stereo
 
   if (ovrAudio_CreateContext(&state.context, &config) != ovrSuccess) {
@@ -191,6 +191,8 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
       state.sources[idx].source = source;
       state.sources[idx].occupied = true;
       ovrAudio_ResetAudioSource(state.context, idx);
+      ovrAudio_SetAudioSourceAttenuationMode(state.context, idx,
+        lovrSourceIsEffectEnabled(source, EFFECT_ATTENUATION) ? ovrAudioSourceAttenuationMode_InverseSquare : ovrAudioSourceAttenuationMode_None, 1.0f);
     }
   }
 
@@ -237,13 +239,15 @@ static uint32_t oculus_tail(float* scratch, float* output, uint32_t frames) {
       }
     }
   }
+  state.midPlayback = false; // Allow the first Source of the next pass to recognize it is first
   return didAnything ? frames : 0;
 }
 
 // Oculus math primitives
 
+ // Note: Mirror on YZ plane. There appears to be some difference between Lovr and Oculus Audio quaternions.
 static void oculusUnpackQuat(ovrQuatf* oq, float* lq) {
-  oq->x = lq[0]; oq->y = lq[1]; oq->z = lq[2]; oq->w = lq[3];
+  oq->x = lq[0]; oq->y = lq[1]; oq->z = -lq[2]; oq->w = -lq[3];
 }
 
 static void oculusUnpackVec(ovrVector3f* ov, float* p) {
@@ -283,7 +287,7 @@ static void oculus_sourceCreate(Source* source) {
   *spatializerMemo = -1;
 }
 
-static void oculus_sourceDestroy(Source *source) {
+static void oculus_sourceDestroy(Source* source) {
   intptr_t* spatializerMemo = lovrSourceGetSpatializerMemoField(source);
   if (*spatializerMemo >= 0) {
     state.sources[*spatializerMemo].source = NULL;

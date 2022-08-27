@@ -24,7 +24,7 @@ Features
 - **Cross-Platform** - Runs on Windows, Mac, Linux, Android, WebXR.
 - **Cross-Device** - Supports Vive/Index, Oculus Rift/Quest, Pico, Windows MR, and has a VR simulator.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
-- **Fast** - Writen in C99 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
+- **Fast** - Writen in C11 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
 - **Asset Import** - Supports 3D models (glTF, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
 - **Spatialized Audio** - Audio is automatically spatialized using HRTFs.
 - **Vector Library** - Efficient first-class support for 3D vectors, quaternions, and matrices.
@@ -97,7 +97,7 @@ Resources
 - [**Documentation**](https://lovr.org/docs): Guides, tutorials, examples, and API documentation.
 - [**FAQ**](https://lovr.org/docs/FAQ): Frequently Asked Questions.
 - [**Slack Group**](https://lovr.org/slack): For general LÖVR discussion and support.
-- [**matrix.org**](https://matrix.to/#/!XVAslexgYDYQnYnZBP:matrix.org): Decentralized alternative to Slack.
+- [**Matrix Room**](https://matrix.to/#/!XVAslexgYDYQnYnZBP:matrix.org): Decentralized alternative to Slack.
 - [**Nightly Builds**](https://lovr.org/download/nightly): Nightly builds for Windows.
 - [**Compiling Guide**](https://lovr.org/docs/Compiling): Information on compiling LÖVR from source.
 - [**Contributing**](https://lovr.org/docs/Contributing): Guide for helping out with development 💜

@@ -3,8 +3,7 @@
 #include "math/curve.h"
 #include "math/pool.h"
 #include "math/randomGenerator.h"
-#include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>
@@ -154,12 +153,12 @@ static int l_lovrMathNewRandomGenerator(lua_State* L) {
 static int l_lovrMathNoise(lua_State* L) {
   switch (lua_gettop(L)) {
     case 0:
-    case 1: lua_pushnumber(L, lovrMathNoise1(luax_checkfloat(L, 1))); return 1;
-    case 2: lua_pushnumber(L, lovrMathNoise2(luax_checkfloat(L, 1), luax_checkfloat(L, 2))); return 1;
-    case 3: lua_pushnumber(L, lovrMathNoise3(luax_checkfloat(L, 1), luax_checkfloat(L, 2), luax_checkfloat(L, 3))); return 1;
+    case 1: lua_pushnumber(L, lovrMathNoise1(luaL_checknumber(L, 1))); return 1;
+    case 2: lua_pushnumber(L, lovrMathNoise2(luaL_checknumber(L, 1), luaL_checknumber(L, 2))); return 1;
+    case 3: lua_pushnumber(L, lovrMathNoise3(luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3))); return 1;
     case 4:
     default:
-      lua_pushnumber(L, lovrMathNoise4(luax_checkfloat(L, 1), luax_checkfloat(L, 2), luax_checkfloat(L, 3), luax_checkfloat(L, 4)));
+      lua_pushnumber(L, lovrMathNoise4(luaL_checknumber(L, 1), luaL_checknumber(L, 2), luaL_checknumber(L, 3), luaL_checknumber(L, 4)));
       return 1;
   }
 }
@@ -192,9 +191,10 @@ static int l_lovrMathGammaToLinear(lua_State* L) {
   if (lua_istable(L, 1)) {
     for (int i = 0; i < 3; i++) {
       lua_rawgeti(L, 1, i + 1);
-      lua_pushnumber(L, lovrMathGammaToLinear(luax_checkfloat(L, -1)));
+      float component = luax_checkfloat(L, -1);
+      lua_pop(L, 1);
+      lua_pushnumber(L, lovrMathGammaToLinear(component));
     }
-    lua_pop(L, 3);
     return 3;
   } else {
     int n = CLAMP(lua_gettop(L), 1, 3);
@@ -209,9 +209,10 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
   if (lua_istable(L, 1)) {
     for (int i = 0; i < 3; i++) {
       lua_rawgeti(L, 1, i + 1);
-      lua_pushnumber(L, lovrMathLinearToGamma(luax_checkfloat(L, -1)));
+      float component = luax_checkfloat(L, -1);
+      lua_pop(L, 1);
+      lua_pushnumber(L, lovrMathLinearToGamma(component));
     }
-    lua_pop(L, 3);
     return 3;
   } else {
     int n = CLAMP(lua_gettop(L), 1, 3);
@@ -379,7 +380,7 @@ int luaopen_lovr_math(lua_State* L) {
   lua_pushcfunction(L, l_lovrLightUserdata__index);
   lua_setfield(L, -2, "__index");
   const char* ops[] = { "__add", "__sub", "__mul", "__div", "__unm", "__len", "__tostring", "__newindex" };
-  for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
+  for (size_t i = 0; i < COUNTOF(ops); i++) {
     lua_pushstring(L, ops[i]);
     lua_pushcclosure(L, l_lovrLightUserdataOp, 1);
     lua_setfield(L, -2, ops[i]);

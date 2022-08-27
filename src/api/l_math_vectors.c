@@ -1,9 +1,10 @@
 #include "api.h"
-#include "math/math.h"
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+
+#define EQ_THRESHOLD 1e-10f
 
 static const uint32_t* swizzles[5] = {
   [2] = (uint32_t[]) {
@@ -69,6 +70,9 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
     case LUA_TNUMBER:
       if (components == 1) {
         v[0] = v[1] = v[2] = luax_optfloat(L, index++, 0.f);
+      } else if (components == -2) { // -2 is special and means "2 components: xy and z"
+        v[0] = v[1] = luax_tofloat(L, index++);
+        v[2] = luax_optfloat(L, index++, 1.f);
       } else {
         v[0] = 1.f;
         for (int i = 0; i < components; i++) {
@@ -79,11 +83,14 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
     default: {
       VectorType type;
       float* u = luax_tovector(L, index++, &type);
-      if (type == V_VEC2 || type == V_VEC3) {
+      if (type == V_VEC2) {
+        v[0] = u[0];
+        v[1] = u[1];
         v[2] = 1.f;
+      } else if (type == V_VEC3) {
         vec3_init(v, u);
       } else {
-        return luax_typeerror(L, index, "vec3, vec2, or number");
+        return luax_typeerror(L, index, "vec2, vec3, or number");
       }
       return index;
     }
@@ -144,6 +151,17 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
 }
 
 // vec2
+
+static int l_lovrVec2Equals(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC2, NULL);
+  float* u = luax_checkvector(L, 2, V_VEC2, NULL);
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  float distance2 = dx * dx + dy * dy;
+  bool equal = distance2 < EQ_THRESHOLD;
+  lua_pushboolean(L, equal);
+  return 1;
+}
 
 static int l_lovrVec2Unpack(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC2, NULL);
@@ -253,7 +271,7 @@ static int l_lovrVec2Distance(lua_State* L) {
     uvec[1] = luax_checkfloat(L, 3);
     u = uvec;
   } else {
-    u = luax_checkvector(L, 2, V_VEC2, NULL);
+    u = luax_checkvector(L, 2, V_VEC2, "vec2 or number");
   }
   float dx = v[0] - u[0];
   float dy = v[1] - u[1];
@@ -270,7 +288,7 @@ static int l_lovrVec2Dot(lua_State* L) {
     uvec[1] = luax_checkfloat(L, 3);
     u = uvec;
   } else {
-    u = luax_checkvector(L, 2, V_VEC2, NULL);
+    u = luax_checkvector(L, 2, V_VEC2, "vec2 or number");
   }
   lua_pushnumber(L, v[0] * u[0] + v[1] * u[1]);
   return 1;
@@ -287,12 +305,35 @@ static int l_lovrVec2Lerp(lua_State* L) {
     u = uvec;
     t = luax_checkfloat(L, 4);
   } else {
-    u = luax_checkvector(L, 2, V_VEC2, NULL);
+    u = luax_checkvector(L, 2, V_VEC2, "vec2 or number");
     t = luax_checkfloat(L, 3);
   }
   v[0] = v[0] + (u[0] - v[0]) * t;
   v[1] = v[1] + (u[1] - v[1]) * t;
   lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec2Angle(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC2, NULL);
+  float* u;
+  float uvec[2];
+  float dot, length_v, length_u;
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC2, "vec2 or number");
+  }
+  length_v = sqrtf(v[0] * v[0] + v[1] * v[1]);
+  length_u = sqrtf(u[0] * u[0] + u[1] * u[1]);
+  if ((length_v == 0.f) || (length_u == 0.f)) {
+    lua_pushnumber(L, (float) M_PI / 2.f);
+  } else {
+    dot = v[0] * u[0] + v[1] * u[1];
+    lua_pushnumber(L, acosf(dot / (length_v * length_u)));
+  }
   return 1;
 }
 
@@ -486,6 +527,7 @@ static int l_lovrVec2__index(lua_State* L) {
 }
 
 const luaL_Reg lovrVec2[] = {
+  { "equals", l_lovrVec2Equals },
   { "unpack", l_lovrVec2Unpack },
   { "set", l_lovrVec2Set },
   { "add", l_lovrVec2Add },
@@ -497,6 +539,7 @@ const luaL_Reg lovrVec2[] = {
   { "distance", l_lovrVec2Distance },
   { "dot", l_lovrVec2Dot },
   { "lerp", l_lovrVec2Lerp },
+  { "angle", l_lovrVec2Angle },
   { "__add", l_lovrVec2__add },
   { "__sub", l_lovrVec2__sub },
   { "__mul", l_lovrVec2__mul },
@@ -510,6 +553,18 @@ const luaL_Reg lovrVec2[] = {
 };
 
 // vec3
+
+static int l_lovrVec3Equals(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC3, NULL);
+  float* u = luax_checkvector(L, 2, V_VEC3, NULL);
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  float dz = v[2] - u[2];
+  float distance2 = dx * dx + dy * dy + dz * dz;
+  bool equal = distance2 < EQ_THRESHOLD;
+  lua_pushboolean(L, equal);
+  return 1;
+}
 
 static int l_lovrVec3Unpack(lua_State* L) {
   vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
@@ -700,6 +755,22 @@ static int l_lovrVec3Rotate(lua_State* L) {
   quat q = luax_checkvector(L, 2, V_QUAT, "quat");
   quat_rotate(q, v);
   lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec3Angle(lua_State* L) {
+  vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
+  vec3 u;
+  float uvec[4];
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC3, "vec3 or number");
+  }
+  lua_pushnumber(L, vec3_angle(v, u));
   return 1;
 }
 
@@ -895,6 +966,7 @@ static int l_lovrVec3__index(lua_State* L) {
 }
 
 const luaL_Reg lovrVec3[] = {
+  { "equals", l_lovrVec3Equals },
   { "unpack", l_lovrVec3Unpack },
   { "set", l_lovrVec3Set },
   { "add", l_lovrVec3Add },
@@ -909,6 +981,7 @@ const luaL_Reg lovrVec3[] = {
   { "lerp", l_lovrVec3Lerp },
   { "transform", l_lovrVec3Transform },
   { "rotate", l_lovrVec3Rotate },
+  { "angle", l_lovrVec3Angle },
   { "__add", l_lovrVec3__add },
   { "__sub", l_lovrVec3__sub },
   { "__mul", l_lovrVec3__mul },
@@ -922,6 +995,19 @@ const luaL_Reg lovrVec3[] = {
 };
 
 // vec4
+
+static int l_lovrVec4Equals(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC4, NULL);
+  float* u = luax_checkvector(L, 2, V_VEC4, NULL);
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  float dz = v[2] - u[2];
+  float dw = v[3] - u[3];
+  float distance2 = dx * dx + dy * dy + dz * dz + dw * dw;
+  bool equal = distance2 < EQ_THRESHOLD;
+  lua_pushboolean(L, equal);
+  return 1;
+}
 
 static int l_lovrVec4Unpack(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC4, NULL);
@@ -1057,7 +1143,7 @@ static int l_lovrVec4Distance(lua_State* L) {
     uvec[3] = luax_checkfloat(L, 5);
     u = uvec;
   } else {
-    u = luax_checkvector(L, 2, V_VEC4, NULL);
+    u = luax_checkvector(L, 2, V_VEC4, "vec4 or number");
   }
   float dx = v[0] - u[0];
   float dy = v[1] - u[1];
@@ -1078,7 +1164,7 @@ static int l_lovrVec4Dot(lua_State* L) {
     uvec[3] = luax_checkfloat(L, 5);
     u = uvec;
   } else {
-    u = luax_checkvector(L, 2, V_VEC4, NULL);
+    u = luax_checkvector(L, 2, V_VEC4, "vec4 or number");
   }
   lua_pushnumber(L, v[0] * u[0] + v[1] * u[1] + v[2] * u[2] + v[3] * u[3]);
   return 1;
@@ -1097,7 +1183,7 @@ static int l_lovrVec4Lerp(lua_State* L) {
     u = uvec;
     t = luax_checkfloat(L, 6);
   } else {
-    u = luax_checkvector(L, 2, V_VEC4, NULL);
+    u = luax_checkvector(L, 2, V_VEC4, "vec4 or number");
     t = luax_checkfloat(L, 3);
   }
   v[0] = v[0] + (u[0] - v[0]) * t;
@@ -1113,6 +1199,31 @@ static int l_lovrVec4Transform(lua_State* L) {
   mat4 m = luax_checkvector(L, 2, V_MAT4, "mat4");
   mat4_mulVec4(m, v);
   lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec4Angle(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC4, NULL);
+  float* u;
+  float uvec[4];
+  float dot, length_v, length_u;
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    uvec[0] = lua_tonumber(L, 2);
+    uvec[1] = luax_checkfloat(L, 3);
+    uvec[2] = luax_checkfloat(L, 4);
+    uvec[3] = luax_checkfloat(L, 5);
+    u = uvec;
+  } else {
+    u = luax_checkvector(L, 2, V_VEC4, "vec4 or number");
+  }
+  length_v = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]);
+  length_u = sqrtf(u[0] * u[0] + u[1] * u[1] + u[2] * u[2] + u[3] * u[3]);
+  if ((length_v == 0.f) || (length_u == 0.f)) {
+    lua_pushnumber(L, (float) M_PI / 2);
+  } else {
+    dot = v[0] * u[0] + v[1] * u[1] + v[2] * u[2] + v[3] * u[3];
+    lua_pushnumber(L, acosf(dot / (length_v * length_u)));
+  }
   return 1;
 }
 
@@ -1344,6 +1455,7 @@ static int l_lovrVec4__index(lua_State* L) {
 }
 
 const luaL_Reg lovrVec4[] = {
+  { "equals", l_lovrVec4Equals },
   { "unpack", l_lovrVec4Unpack },
   { "set", l_lovrVec4Set },
   { "add", l_lovrVec4Add },
@@ -1356,6 +1468,7 @@ const luaL_Reg lovrVec4[] = {
   { "dot", l_lovrVec4Dot },
   { "lerp", l_lovrVec4Lerp },
   { "transform", l_lovrVec4Transform },
+  { "angle", l_lovrVec4Angle },
   { "__add", l_lovrVec4__add },
   { "__sub", l_lovrVec4__sub },
   { "__mul", l_lovrVec4__mul },
@@ -1369,6 +1482,15 @@ const luaL_Reg lovrVec4[] = {
 };
 
 // quat
+
+static int l_lovrQuatEquals(lua_State* L) {
+  quat q = luax_checkvector(L, 1, V_QUAT, NULL);
+  quat r = luax_checkvector(L, 2, V_QUAT, NULL);
+  float dot = q[0] * r[0] + q[1] * r[1] + q[2] * r[2] + q[3] * r[3];
+  bool equal = fabsf(dot) >= 1.f - 1e-5f;
+  lua_pushboolean(L, equal);
+  return 1;
+}
 
 static int l_lovrQuatUnpack(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
@@ -1575,6 +1697,7 @@ static int l_lovrQuat__index(lua_State* L) {
 }
 
 const luaL_Reg lovrQuat[] = {
+  { "equals", l_lovrQuatEquals },
   { "unpack", l_lovrQuatUnpack },
   { "set", l_lovrQuatSet },
   { "mul", l_lovrQuatMul },
@@ -1592,6 +1715,24 @@ const luaL_Reg lovrQuat[] = {
 };
 
 // mat4
+
+static int l_lovrMat4Equals(lua_State* L) {
+  mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
+  mat4 n = luax_checkvector(L, 2, V_MAT4, NULL);
+  for (int i = 0; i < 16; i += 4) {
+    float dx = m[i + 0] - n[i + 0];
+    float dy = m[i + 1] - n[i + 1];
+    float dz = m[i + 2] - n[i + 2];
+    float dw = m[i + 3] - n[i + 3];
+    float distance2 = dx * dx + dy * dy + dz * dz + dw * dw;
+    if (distance2 > EQ_THRESHOLD) {
+      lua_pushboolean(L, false);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, true);
+  return 1;
+}
 
 static int l_lovrMat4Unpack(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
@@ -1762,24 +1903,32 @@ static int l_lovrMat4Scale(lua_State* L) {
 
 static int l_lovrMat4Orthographic(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
-  float left = luax_checkfloat(L, 2);
-  float right = luax_checkfloat(L, 3);
-  float top = luax_checkfloat(L, 4);
-  float bottom = luax_checkfloat(L, 5);
-  float clipNear = luax_checkfloat(L, 6);
-  float clipFar = luax_checkfloat(L, 7);
-  mat4_orthographic(m, left, right, top, bottom, clipNear, clipFar);
+  if (lua_gettop(L) <= 5) {
+    float width = luax_checkfloat(L, 2);
+    float height = luax_checkfloat(L, 3);
+    float n = luax_optfloat(L, 4, -1.f);
+    float f = luax_optfloat(L, 5, 1.f);
+    mat4_orthographic(m, 0.f, width, 0.f, height, n, f);
+  } else {
+    float left = luax_checkfloat(L, 2);
+    float right = luax_checkfloat(L, 3);
+    float bottom = luax_checkfloat(L, 4);
+    float top = luax_checkfloat(L, 5);
+    float n = luax_checkfloat(L, 6);
+    float f = luax_checkfloat(L, 7);
+    mat4_orthographic(m, left, right, bottom, top, n, f);
+  }
   lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Perspective(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
-  float clipNear = luax_checkfloat(L, 2);
-  float clipFar = luax_checkfloat(L, 3);
-  float fov = luax_checkfloat(L, 4);
-  float aspect = luax_checkfloat(L, 5);
-  mat4_perspective(m, clipNear, clipFar, fov, aspect);
+  float fovy = luax_checkfloat(L, 2);
+  float aspect = luax_checkfloat(L, 3);
+  float n = luax_checkfloat(L, 4);
+  float f = luax_optfloat(L, 5, 0.);
+  mat4_perspective(m, fovy, aspect, n, f);
   lua_settop(L, 1);
   return 1;
 }
@@ -1790,9 +1939,9 @@ static int l_lovrMat4Fov(lua_State* L) {
   float right = luax_checkfloat(L, 3);
   float up = luax_checkfloat(L, 4);
   float down = luax_checkfloat(L, 5);
-  float clipNear = luax_checkfloat(L, 6);
-  float clipFar = luax_checkfloat(L, 7);
-  mat4_fov(m, left, right, up, down, clipNear, clipFar);
+  float n = luax_checkfloat(L, 6);
+  float f = luax_optfloat(L, 7, 0.);
+  mat4_fov(m, left, right, up, down, n, f);
   lua_settop(L, 1);
   return 1;
 }
@@ -1828,13 +1977,13 @@ static int l_lovrMat4__mul(lua_State* L) {
   } else if (type == V_VEC3) {
     vec3 out = luax_newtempvector(L, V_VEC3);
     vec3_init(out, n);
-    mat4_transform(m, n);
+    mat4_transform(m, out);
   } else if (type == V_VEC4) {
     float* out = luax_newtempvector(L, V_VEC4);
     memcpy(out, n, 4 * sizeof(float));
     mat4_mulVec4(m, out);
   } else {
-    lovrThrow("Unreachable");
+    lovrUnreachable();
   }
   return 1;
 }
@@ -1887,6 +2036,7 @@ static int l_lovrMat4__index(lua_State* L) {
 }
 
 const luaL_Reg lovrMat4[] = {
+  { "equals", l_lovrMat4Equals },
   { "unpack", l_lovrMat4Unpack },
   { "set", l_lovrMat4Set },
   { "mul", l_lovrMat4Mul },

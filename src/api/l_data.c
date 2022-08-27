@@ -4,10 +4,73 @@
 #include "data/rasterizer.h"
 #include "data/sound.h"
 #include "data/image.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>
 #include <string.h>
+
+StringEntry lovrAnimationProperty[] = {
+  [PROP_TRANSLATION] = ENTRY("translation"),
+  [PROP_ROTATION] = ENTRY("rotation"),
+  [PROP_SCALE] = ENTRY("scale"),
+  { 0 }
+};
+
+StringEntry lovrAttributeType[] = {
+  [I8] = ENTRY("i8"),
+  [U8] = ENTRY("u8"),
+  [I16] = ENTRY("i16"),
+  [U16] = ENTRY("u16"),
+  [I32] = ENTRY("i32"),
+  [U32] = ENTRY("u32"),
+  [F32] = ENTRY("f32"),
+  { 0 }
+};
+
+StringEntry lovrDefaultAttribute[] = {
+  [ATTR_POSITION] = ENTRY("position"),
+  [ATTR_NORMAL] = ENTRY("normal"),
+  [ATTR_UV] = ENTRY("uv"),
+  [ATTR_COLOR] = ENTRY("color"),
+  [ATTR_TANGENT] = ENTRY("tangent"),
+  [ATTR_JOINTS] = ENTRY("joints"),
+  [ATTR_WEIGHTS] = ENTRY("weights"),
+  { 0 }
+};
+
+StringEntry lovrDrawMode[] = {
+  [DRAW_POINTS] = ENTRY("points"),
+  [DRAW_LINES] = ENTRY("lines"),
+  [DRAW_LINE_STRIP] = ENTRY("linestrip"),
+  [DRAW_LINE_LOOP] = ENTRY("lineloop"),
+  [DRAW_TRIANGLE_STRIP] = ENTRY("strip"),
+  [DRAW_TRIANGLES] = ENTRY("triangles"),
+  [DRAW_TRIANGLE_FAN] = ENTRY("fan"),
+  { 0 }
+};
+
+StringEntry lovrSmoothMode[] = {
+  [SMOOTH_STEP] = ENTRY("step"),
+  [SMOOTH_LINEAR] = ENTRY("linear"),
+  [SMOOTH_CUBIC] = ENTRY("cubic"),
+  { 0 }
+};
+
+// Must be released when done
+Image* luax_checkimage(lua_State* L, int index) {
+  Image* image = luax_totype(L, index, Image);
+
+  if (image) {
+    lovrRetain(image);
+  } else {
+    Blob* blob = luax_readblob(L, index, "Image");
+    image = lovrImageCreateFromFile(blob);
+    lovrRelease(blob, lovrBlobDestroy);
+  }
+
+  return image;
+}
 
 static int l_lovrDataNewBlob(lua_State* L) {
   size_t size;
@@ -36,6 +99,40 @@ static int l_lovrDataNewBlob(lua_State* L) {
   Blob* blob = lovrBlobCreate(data, size, name);
   luax_pushtype(L, Blob, blob);
   lovrRelease(blob, lovrBlobDestroy);
+  return 1;
+}
+
+static int l_lovrDataNewImage(lua_State* L) {
+  Image* image = NULL;
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    uint32_t width = luax_checku32(L, 1);
+    uint32_t height = luax_checku32(L, 2);
+    TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba8");
+    image = lovrImageCreateRaw(width, height, format);
+    if (lua_gettop(L) >= 4) {
+      Blob* blob = luax_checktype(L, 4, Blob);
+      size_t size = lovrImageGetLayerSize(image, 0);
+      void* data = lovrImageGetLayerData(image, 0, 0);
+      lovrCheck(blob->size == size, "Blob size (%d) does not match the Image size (%d)", blob->size, size);
+      memcpy(data, blob->data, size);
+    }
+  } else {
+    Image* source = luax_totype(L, 1, Image);
+    if (source) {
+      uint32_t width = lovrImageGetWidth(source, 0);
+      uint32_t height = lovrImageGetHeight(source, 0);
+      TextureFormat format = lovrImageGetFormat(source);
+      image = lovrImageCreateRaw(width, height, format);
+      memcpy(lovrImageGetLayerData(image, 0, 0), lovrImageGetLayerData(source, 0, 0), lovrImageGetLayerSize(image, 0));
+    } else {
+      Blob* blob = luax_readblob(L, 1, "Texture");
+      image = lovrImageCreateFromFile(blob);
+      lovrRelease(blob, lovrBlobDestroy);
+    }
+  }
+
+  luax_pushtype(L, Image, image);
+  lovrRelease(image, lovrImageDestroy);
   return 1;
 }
 
@@ -69,10 +166,10 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
 static int l_lovrDataNewSound(lua_State* L) {
   int type = lua_type(L, 1);
   if (type == LUA_TNUMBER) {
-    uint64_t frames = luaL_checkinteger(L, 1);
+    uint32_t frames = luax_checku32(L, 1);
     SampleFormat format = luax_checkenum(L, 2, SampleFormat, "f32");
     ChannelLayout layout = luax_checkenum(L, 3, ChannelLayout, "stereo");
-    uint32_t sampleRate = luaL_optinteger(L, 4, 48000);
+    uint32_t sampleRate = luax_optu32(L, 4, 48000);
     Blob* blob = luax_totype(L, 5, Blob);
     const char* other = lua_tostring(L, 5);
     bool stream = other && !strcmp(other, "stream");
@@ -92,31 +189,6 @@ static int l_lovrDataNewSound(lua_State* L) {
   luax_pushtype(L, Sound, sound);
   lovrRelease(blob, lovrBlobDestroy);
   lovrRelease(sound, lovrSoundDestroy);
-  return 1;
-}
-
-static int l_lovrDataNewImage(lua_State* L) {
-  Image* image = NULL;
-  if (lua_type(L, 1) == LUA_TNUMBER) {
-    int width = luaL_checkinteger(L, 1);
-    int height = luaL_checkinteger(L, 2);
-    TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba");
-    Blob* blob = lua_isnoneornil(L, 4) ? NULL : luax_checktype(L, 4, Blob);
-    image = lovrImageCreate(width, height, blob, 0x0, format);
-  } else {
-    Image* source = luax_totype(L, 1, Image);
-    if (source) {
-      image = lovrImageCreate(source->width, source->height, source->blob, 0x0, source->format);
-    } else {
-      Blob* blob = luax_readblob(L, 1, "Texture");
-      bool flip = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
-      image = lovrImageCreateFromBlob(blob, flip);
-      lovrRelease(blob, lovrBlobDestroy);
-    }
-  }
-
-  luax_pushtype(L, Image, image);
-  lovrRelease(image, lovrImageDestroy);
   return 1;
 }
 

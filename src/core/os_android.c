@@ -4,8 +4,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
+#include <sys/mman.h>
 
 // This is probably bad, but makes things easier to build
 #include <android_native_app_glue.c>
@@ -13,10 +12,6 @@
 static struct {
   struct android_app* app;
   JNIEnv* jni;
-  EGLDisplay display;
-  EGLContext context;
-  EGLConfig config;
-  EGLSurface surface;
   fn_quit* onQuit;
   fn_key* onKeyboardEvent;
   fn_text* onTextEvent;
@@ -175,10 +170,6 @@ bool os_init() {
 }
 
 void os_destroy() {
-  if (state.display) eglMakeCurrent(state.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-  if (state.surface) eglDestroySurface(state.display, state.surface);
-  if (state.context) eglDestroyContext(state.display, state.context);
-  if (state.display) eglTerminate(state.display);
   memset(&state, 0, sizeof(state));
 }
 
@@ -255,6 +246,22 @@ void os_request_permission(os_permission permission) {
   }
 }
 
+void* os_vm_init(size_t size) {
+  return mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+}
+
+bool os_vm_free(void* p, size_t size) {
+  return !munmap(p, size);
+}
+
+bool os_vm_commit(void* p, size_t size) {
+  return !mprotect(p, size, PROT_READ | PROT_WRITE);
+}
+
+bool os_vm_release(void* p, size_t size) {
+  return !madvise(p, size, MADV_DONTNEED);
+}
+
 // Notes about polling:
 // - Stop polling if a destroy is requested to give the application a chance to shut down.
 //   Otherwise this loop would still wait for an event and the app would seem unresponsive.
@@ -305,87 +312,6 @@ void os_on_permission(fn_permission* callback) {
 }
 
 bool os_window_open(const os_window_config* config) {
-  if (state.display) {
-    return true;
-  }
-
-  if ((state.display = eglGetDisplay(EGL_DEFAULT_DISPLAY)) == EGL_NO_DISPLAY) {
-    return false;
-  }
-
-  if (eglInitialize(state.display, NULL, NULL) == EGL_FALSE) {
-    return false;
-  }
-
-  EGLConfig configs[1024];
-  EGLint configCount;
-  if (eglGetConfigs(state.display, configs, sizeof(configs) / sizeof(configs[0]), &configCount) == EGL_FALSE) {
-    return false;
-  }
-
-  const EGLint attributes[] = {
-    EGL_RED_SIZE, 8,
-    EGL_GREEN_SIZE, 8,
-    EGL_BLUE_SIZE, 8,
-    EGL_ALPHA_SIZE, 8,
-    EGL_DEPTH_SIZE, 0,
-    EGL_STENCIL_SIZE, 0,
-    EGL_SAMPLES, 0,
-    EGL_NONE
-  };
-
-  state.config = 0;
-  for (EGLint i = 0; i < configCount && state.config == 0; i++) {
-    EGLint value, mask;
-
-    mask = EGL_OPENGL_ES3_BIT_KHR;
-    if (!eglGetConfigAttrib(state.display, configs[i], EGL_RENDERABLE_TYPE, &value) || (value & mask) != mask) {
-      continue;
-    }
-
-    mask = EGL_PBUFFER_BIT | EGL_WINDOW_BIT;
-    if (!eglGetConfigAttrib(state.display, configs[i], EGL_SURFACE_TYPE, &value) || (value & mask) != mask) {
-      continue;
-    }
-
-    for (size_t a = 0; a < sizeof(attributes) / sizeof(attributes[0]); a += 2) {
-      if (attributes[a] == EGL_NONE) {
-        state.config = configs[i];
-        break;
-      }
-
-      if (!eglGetConfigAttrib(state.display, configs[i], attributes[a], &value) || value != attributes[a + 1]) {
-        break;
-      }
-    }
-  }
-
-  EGLint contextAttributes[] = {
-    EGL_CONTEXT_CLIENT_VERSION, 3,
-    EGL_CONTEXT_OPENGL_DEBUG, config->debug,
-    EGL_NONE
-  };
-
-  if ((state.context = eglCreateContext(state.display, state.config, EGL_NO_CONTEXT, contextAttributes)) == EGL_NO_CONTEXT) {
-    return false;
-  }
-
-  EGLint surfaceAttributes[] = {
-    EGL_WIDTH, 16,
-    EGL_HEIGHT, 16,
-    EGL_NONE
-  };
-
-  if ((state.surface = eglCreatePbufferSurface(state.display, state.config, surfaceAttributes)) == EGL_NO_SURFACE) {
-    eglDestroyContext(state.display, state.context);
-    return false;
-  }
-
-  if (eglMakeCurrent(state.display, state.surface, state.surface, state.context) == EGL_FALSE) {
-    eglDestroySurface(state.display, state.surface);
-    eglDestroyContext(state.display, state.context);
-  }
-
   return true;
 }
 
@@ -401,18 +327,6 @@ void os_window_get_size(int* width, int* height) {
 void os_window_get_fbsize(int* width, int* height) {
   *width = 0;
   *height = 0;
-}
-
-void os_window_set_vsync(int interval) {
-  //
-}
-
-void os_window_swap() {
-  //
-}
-
-fn_gl_proc* os_get_gl_proc_address(const char* function) {
-  return eglGetProcAddress(function);
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
@@ -503,18 +417,10 @@ JNIEnv* os_get_jni() {
   return state.jni;
 }
 
-EGLDisplay os_get_egl_display() {
-  return state.display;
+const char** os_vk_get_instance_extensions(uint32_t* count) {
+  return *count = 0, NULL;
 }
 
-EGLContext os_get_egl_context() {
-  return state.context;
-}
-
-EGLContext os_get_egl_config() {
-  return state.config;
-}
-
-EGLSurface os_get_egl_surface() {
-  return state.surface;
+uint32_t os_vk_create_surface(void* instance, void** surface) {
+  return -13; // VK_ERROR_UNKNOWN
 }

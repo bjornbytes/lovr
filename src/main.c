@@ -1,8 +1,9 @@
-#include "resources/boot.lua.h"
 #include "api/api.h"
 #include "event/event.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
+#include "boot.lua.h"
+#include "nogame.lua.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -25,6 +26,14 @@ static void emscriptenLoop(void*);
 
 static Variant cookie;
 
+static int luaopen_lovr_nogame(lua_State* L) {
+  if (!luaL_loadbuffer(L, (const char*) etc_nogame_lua, etc_nogame_lua_len, "@nogame.lua")) {
+    lua_call(L, 0, 1);
+  }
+
+  return 1;
+}
+
 int main(int argc, char** argv) {
   if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
     os_open_console();
@@ -32,7 +41,23 @@ int main(int argc, char** argv) {
     exit(0);
   }
 
-  lovrAssert(os_init(), "Failed to initialize platform");
+  if (argc > 1 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+    os_open_console();
+    printf(
+      "usage: lovr [options] [<source>]\n\n"
+      "options:\n"
+      "  -h, --help\t\tShow help and exit\n"
+      "  -v, --version\t\tShow version and exit\n"
+      "  --console\t\tAttach Windows console\n\n"
+      "<source> can be a Lua file, a folder, or a zip archive\n"
+    );
+    exit(0);
+  }
+
+  if (!os_init()) {
+    fprintf(stderr, "Failed to initialize platform");
+    exit(1);
+  }
 
   int status;
   bool restart;
@@ -42,6 +67,16 @@ int main(int argc, char** argv) {
     luax_setmainthread(L);
     luaL_openlibs(L);
     luax_preload(L);
+
+    const luaL_Reg nogame[] = {
+      { "nogame", luaopen_lovr_nogame },
+      { NULL, NULL }
+    };
+
+    lua_getglobal(L, "package");
+    lua_getfield(L, -1, "preload");
+    luax_register(L, nogame);
+    lua_pop(L, 2);
 
     // arg table
     lua_newtable(L);
@@ -67,7 +102,7 @@ int main(int argc, char** argv) {
     lua_setglobal(L, "arg");
 
     lua_pushcfunction(L, luax_getstack);
-    if (luaL_loadbuffer(L, (const char*) src_resources_boot_lua, src_resources_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
+    if (luaL_loadbuffer(L, (const char*) etc_boot_lua, etc_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
       fprintf(stderr, "%s\n", lua_tostring(L, -1));
       return 1;
     }

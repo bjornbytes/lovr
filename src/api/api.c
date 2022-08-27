@@ -1,13 +1,13 @@
 #include "api.h"
-#include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #ifndef LOVR_DISABLE_GRAPHICS
-#include "graphics/model.h"
+#include "data/modelData.h"
+#include "graphics/graphics.h"
 #endif
 
 typedef void voidFn(void);
@@ -64,12 +64,12 @@ static int luax_meta__gc(lua_State* L) {
   return 0;
 }
 
-static int luax_module__gc(lua_State* L) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+static int luax_runfinalizers(lua_State* L) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrfinalizers");
   for (int i = luax_len(L, 2); i >= 1; i--) {
     lua_rawgeti(L, 2, i);
-    voidFn* destructor = (voidFn*) lua_tocfunction(L, -1);
-    destructor();
+    voidFn* finalizer = (voidFn*) lua_tocfunction(L, -1);
+    finalizer();
     lua_pop(L, 1);
   }
   return 0;
@@ -231,8 +231,7 @@ void _luax_pushtype(lua_State* L, const char* type, uint64_t hash, void* object)
 
   // Allocate userdata
   Proxy* p = (Proxy*) lua_newuserdata(L, sizeof(Proxy));
-  luaL_getmetatable(L, type);
-  lovrAssert(lua_istable(L, -1), "Unknown type '%s' (maybe its module needs to be required)", type);
+  luaL_newmetatable(L, type);
   lua_setmetatable(L, -2);
   lovrRetain(object);
   p->object = object;
@@ -367,8 +366,8 @@ void luax_setmainthread(lua_State *L) {
 #endif
 }
 
-void luax_atexit(lua_State* L, voidFn* destructor) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+void luax_atexit(lua_State* L, voidFn* finalizer) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrfinalizers");
 
   if (lua_isnil(L, -1)) {
     lua_newtable(L);
@@ -377,45 +376,106 @@ void luax_atexit(lua_State* L, voidFn* destructor) {
     // Userdata sentinel since tables don't have __gc (yet)
     lua_newuserdata(L, sizeof(void*));
     lua_createtable(L, 0, 1);
-    lua_pushcfunction(L, luax_module__gc);
+    lua_pushcfunction(L, luax_runfinalizers);
     lua_setfield(L, -2, "__gc");
     lua_setmetatable(L, -2);
     lua_setfield(L, -2, "");
 
     // Write to the registry
     lua_pushvalue(L, -1);
-    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrmodules");
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrfinalizers");
   }
 
   int length = luax_len(L, -1);
-  lua_pushcfunction(L, (lua_CFunction) destructor);
+  lua_pushcfunction(L, (lua_CFunction) finalizer);
   lua_rawseti(L, -2, length + 1);
   lua_pop(L, 1);
 }
 
-void luax_readcolor(lua_State* L, int index, Color* color) {
-  color->r = color->g = color->b = color->a = 1.f;
+uint32_t _luax_checku32(lua_State* L, int index) {
+  double x = lua_tonumber(L, index);
+
+  if (x == 0. && !lua_isnumber(L, index)) {
+    luaL_typerror(L, index, "number");
+  }
+
+  if (x < 0. || x > UINT32_MAX) {
+    const char* message = lua_pushfstring(L, "expected a number between 0 and %u, got %g", UINT32_MAX, x);
+    luaL_argerror(L, index, message);
+  }
+
+  return (uint32_t) x;
+}
+
+uint32_t _luax_optu32(lua_State* L, int index, uint32_t fallback) {
+  return luaL_opt(L, luax_checku32, index, fallback);
+}
+
+void luax_readcolor(lua_State* L, int index, float color[4]) {
+  color[0] = color[1] = color[2] = color[3] = 1.f;
 
   if (lua_istable(L, index)) {
     for (int i = 1; i <= 4; i++) {
       lua_rawgeti(L, index, i);
     }
-    color->r = luax_checkfloat(L, -4);
-    color->g = luax_checkfloat(L, -3);
-    color->b = luax_checkfloat(L, -2);
-    color->a = luax_optfloat(L, -1, 1.);
+    color[0] = luax_checkfloat(L, -4);
+    color[1] = luax_checkfloat(L, -3);
+    color[2] = luax_checkfloat(L, -2);
+    color[3] = luax_optfloat(L, -1, 1.);
     lua_pop(L, 4);
   } else if (lua_gettop(L) >= index + 2) {
-    color->r = luax_checkfloat(L, index);
-    color->g = luax_checkfloat(L, index + 1);
-    color->b = luax_checkfloat(L, index + 2);
-    color->a = luax_optfloat(L, index + 3, 1.);
+    color[0] = luax_checkfloat(L, index);
+    color[1] = luax_checkfloat(L, index + 1);
+    color[2] = luax_checkfloat(L, index + 2);
+    color[3] = luax_optfloat(L, index + 3, 1.);
   } else if (lua_gettop(L) <= index + 1) {
     uint32_t x = luaL_checkinteger(L, index);
-    color->r = ((x >> 16) & 0xff) / 255.f;
-    color->g = ((x >> 8) & 0xff) / 255.f;
-    color->b = ((x >> 0) & 0xff) / 255.f;
-    color->a = luax_optfloat(L, index + 1, 1.);
+    color[0] = ((x >> 16) & 0xff) / 255.f;
+    color[1] = ((x >> 8) & 0xff) / 255.f;
+    color[2] = ((x >> 0) & 0xff) / 255.f;
+    color[3] = luax_optfloat(L, index + 1, 1.);
+  }
+}
+
+// Like readcolor, but only consumes 1 argument (nil, hex, table, vec3, vec4), useful for table keys
+void luax_optcolor(lua_State* L, int index, float color[4]) {
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+      color[0] = color[1] = color[2] = color[3] = 1.f;
+      break;
+    case LUA_TNUMBER: {
+      uint32_t x = lua_tonumber(L, index);
+      color[0] = ((x >> 16) & 0xff) / 255.f;
+      color[1] = ((x >> 8) & 0xff) / 255.f;
+      color[2] = ((x >> 0) & 0xff) / 255.f;
+      color[3] = 1.f;
+      break;
+    }
+    case LUA_TTABLE:
+      index = index > 0 ? index : (index + lua_gettop(L) + 1);
+      for (int i = 1; i <= 4; i++) {
+        lua_rawgeti(L, index, i);
+      }
+      color[0] = luax_checkfloat(L, -4);
+      color[1] = luax_checkfloat(L, -3);
+      color[2] = luax_checkfloat(L, -2);
+      color[3] = luax_optfloat(L, -1, 1.);
+      lua_pop(L, 4);
+      break;
+    case LUA_TUSERDATA: {
+      VectorType type;
+      float* v = luax_tovector(L, index, &type);
+      if (type == V_VEC3) {
+        memcpy(color, v, 3 * sizeof(float));
+        color[3] = 1.f;
+        break;
+      } else if (type == V_VEC4) {
+        memcpy(color, v, 4 * sizeof(float));
+        break;
+      }
+      /* fallthrough */
+    }
+    default: lovrThrow("Expected nil, number, table, vec3, or vec4 for color value");
   }
 }
 
@@ -468,8 +528,10 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
 
 #ifndef LOVR_DISABLE_GRAPHICS
   Model* model = luax_totype(L, index, Model);
+
   if (model) {
-    lovrModelGetTriangles(model, vertices, vertexCount, indices, indexCount);
+    ModelData* modelData = lovrModelGetInfo(model)->data;
+    lovrModelDataGetTriangles(modelData, vertices, indices, vertexCount, indexCount);
     *shouldFree = false;
     return index + 1;
   }

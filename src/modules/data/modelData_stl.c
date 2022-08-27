@@ -1,7 +1,7 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,7 +12,7 @@ static ModelData* lovrModelDataInitStlAscii(ModelData* model, Blob* source, Mode
 
 // The binary format has an 80 byte header, followed by a u32 triangle count, followed by 50 byte
 // triangles.  Each triangle has a vec3 normal, 3 vec3 vertices, and 2 bytes of padding.
-extern ModelData* lovrModelDataInitStlBinary(ModelData* model, Blob* source, ModelDataIO* io, uint32_t triangleCount) {
+static ModelData* lovrModelDataInitStlBinary(ModelData* model, Blob* source, ModelDataIO* io, uint32_t triangleCount) {
   char* data = (char*) source->data + 84;
 
   uint32_t vertexCount = triangleCount * 3;
@@ -41,7 +41,7 @@ extern ModelData* lovrModelDataInitStlBinary(ModelData* model, Blob* source, Mod
     }
   };
   model->nodes[0] = (ModelNode) {
-    .matrix = true,
+    .hasMatrix = true,
     .transform.matrix = MAT4_IDENTITY,
     .primitiveCount = 1,
     .skin = ~0u

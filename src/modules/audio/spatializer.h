@@ -22,10 +22,10 @@ typedef struct {
   const char* name;
 } Spatializer;
 
-#ifdef LOVR_ENABLE_PHONON
+#ifdef LOVR_ENABLE_PHONON_SPATIALIZER
 extern Spatializer phononSpatializer;
 #endif
-#ifdef LOVR_ENABLE_OCULUS_AUDIO
+#ifdef LOVR_ENABLE_OCULUS_SPATIALIZER
 extern Spatializer oculusSpatializer;
 #endif
 extern Spatializer simpleSpatializer;

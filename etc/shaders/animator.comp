@@ -1,0 +1,59 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "lovr.glsl"
+
+layout(local_size_x = 32, local_size_x_id = 0) in;
+
+layout(push_constant) uniform PushConstants {
+  uint baseVertex;
+  uint vertexCount;
+};
+
+struct ModelVertex {
+  float x, y, z;
+  float nx, ny, nz;
+  float u, v;
+  uint color;
+  float tx, ty, tz;
+};
+
+struct SkinVertex {
+  uint indices;
+  uint weights;
+};
+
+layout(set = 0, binding = 0) buffer restrict readonly VertexIn { ModelVertex vertexIn[]; };
+layout(set = 0, binding = 1) buffer restrict writeonly VertexOut { ModelVertex vertexOut[]; };
+layout(set = 0, binding = 2) buffer restrict readonly VertexWeights { SkinVertex skin[]; };
+layout(set = 0, binding = 3) uniform JointTransforms { mat4 joints[256]; };
+
+void lovrmain() {
+  if (GlobalThreadID.x >= vertexCount) return;
+  uint vertexIndex = baseVertex + GlobalThreadID.x;
+
+  uint indices = skin[vertexIndex].indices;
+  uint i0 = (indices >> 0) & 0xff;
+  uint i1 = (indices >> 8) & 0xff;
+  uint i2 = (indices >> 16) & 0xff;
+  uint i3 = (indices >> 24) & 0xff;
+  vec4 weights = unpackUnorm4x8(skin[vertexIndex].weights);
+
+  mat4 matrix = mat4(0);
+  matrix += joints[i0] * weights[0];
+  matrix += joints[i1] * weights[1];
+  matrix += joints[i2] * weights[2];
+  matrix += joints[i3] * weights[3];
+
+  vec4 position = vec4(vertexIn[vertexIndex].x, vertexIn[vertexIndex].y, vertexIn[vertexIndex].z, 1.);
+  vec3 skinned = (matrix * position).xyz;
+  vertexOut[vertexIndex].x = skinned.x;
+  vertexOut[vertexIndex].y = skinned.y;
+  vertexOut[vertexIndex].z = skinned.z;
+
+  vec3 normal = vec3(vertexIn[vertexIndex].nx, vertexIn[vertexIndex].ny, vertexIn[vertexIndex].nz);
+  vec3 skinnedNormal = mat3(matrix) * normal;
+  vertexOut[vertexIndex].nx = skinnedNormal.x;
+  vertexOut[vertexIndex].ny = skinnedNormal.y;
+  vertexOut[vertexIndex].nz = skinnedNormal.z;
+}

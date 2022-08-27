@@ -2,8 +2,6 @@
 #include "headset/headset.h"
 #include "data/modelData.h"
 #include "graphics/graphics.h"
-#include "graphics/model.h"
-#include "graphics/texture.h"
 #include "core/maf.h"
 #include <lua.h>
 #include <lauxlib.h>
@@ -11,11 +9,7 @@
 
 StringEntry lovrHeadsetDriver[] = {
   [DRIVER_DESKTOP] = ENTRY("desktop"),
-  [DRIVER_OCULUS] = ENTRY("oculus"),
-  [DRIVER_OPENVR] = ENTRY("openvr"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
-  [DRIVER_VRAPI] = ENTRY("vrapi"),
-  [DRIVER_PICO] = ENTRY("pico"),
   [DRIVER_WEBXR] = ENTRY("webxr"),
   { 0 }
 };
@@ -46,16 +40,14 @@ StringEntry lovrDevice[] = {
   [DEVICE_KEYBOARD] = ENTRY("keyboard"),
   [DEVICE_EYE_LEFT] = ENTRY("eye/left"),
   [DEVICE_EYE_RIGHT] = ENTRY("eye/right"),
-  [DEVICE_BEACON_1] = ENTRY("beacon/1"),
-  [DEVICE_BEACON_2] = ENTRY("beacon/2"),
-  [DEVICE_BEACON_3] = ENTRY("beacon/3"),
-  [DEVICE_BEACON_4] = ENTRY("beacon/4"),
+  [DEVICE_EYE_GAZE] = ENTRY("eye/gaze"),
   { 0 }
 };
 
 StringEntry lovrDeviceButton[] = {
   [BUTTON_TRIGGER] = ENTRY("trigger"),
   [BUTTON_THUMBSTICK] = ENTRY("thumbstick"),
+  [BUTTON_THUMBREST] = ENTRY("thumbrest"),
   [BUTTON_TOUCHPAD] = ENTRY("touchpad"),
   [BUTTON_GRIP] = ENTRY("grip"),
   [BUTTON_MENU] = ENTRY("menu"),
@@ -75,34 +67,6 @@ StringEntry lovrDeviceAxis[] = {
   { 0 }
 };
 
-typedef struct {
-  lua_State* L;
-  int ref;
-} HeadsetRenderData;
-
-static HeadsetRenderData headsetRenderData;
-
-static void renderHelper(void* userdata) {
-  HeadsetRenderData* renderData = userdata;
-  lua_State* L = renderData->L;
-#ifdef LOVR_USE_PICO
-  luax_geterror(L);
-  if (lua_isnil(L, -1) && renderData->ref != LUA_REFNIL) {
-    lua_pushcfunction(L, luax_getstack);
-    lua_rawgeti(L, LUA_REGISTRYINDEX, renderData->ref);
-    if (lua_pcall(L, 0, 0, -2)) {
-      luax_seterror(L);
-    }
-    lua_pop(L, 1); // pop luax_getstack
-  }
-  lua_pop(L, 1);
-#else
-  if (lua_isfunction(L, -1)) {
-    lua_call(L, 0, 0);
-  }
-#endif
-}
-
 static Device luax_optdevice(lua_State* L, int index) {
   const char* str = luaL_optstring(L, 1, "head");
   if (!strcmp(str, "left")) {
@@ -113,82 +77,19 @@ static Device luax_optdevice(lua_State* L, int index) {
   return luax_checkenum(L, 1, Device, "head");
 }
 
-static int l_lovrHeadsetInit(lua_State* L) {
-  luax_pushconf(L);
-  lua_getfield(L, -1, "headset");
-
-  size_t driverCount = 0;
-  HeadsetDriver drivers[8];
-  float supersample = 1.f;
-  float offset = 1.7f;
-  int msaa = 4;
-  bool overlay = false;
-
-  if (lua_istable(L, -1)) {
-
-    // Drivers
-    lua_getfield(L, -1, "drivers");
-    int n = luax_len(L, -1);
-    for (int i = 0; i < n; i++) {
-      lua_rawgeti(L, -1, i + 1);
-      drivers[driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
-      lovrAssert(driverCount < sizeof(drivers) / sizeof(drivers[0]), "Too many headset drivers specified in conf.lua");
-      lua_pop(L, 1);
-    }
-    lua_pop(L, 1);
-
-    // Supersample
-    lua_getfield(L, -1, "supersample");
-    if (lua_type(L, -1) == LUA_TBOOLEAN) {
-      supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
-    } else {
-      supersample = luax_optfloat(L, -1, 1.f);
-    }
-    lua_pop(L, 1);
-
-    // Offset
-    lua_getfield(L, -1, "offset");
-    offset = luax_optfloat(L, -1, 1.7f);
-    lua_pop(L, 1);
-
-    // MSAA
-    lua_getfield(L, -1, "msaa");
-    msaa = luaL_optinteger(L, -1, 4);
-    lua_pop(L, 1);
-
-    // Overlay
-    lua_getfield(L, -1, "overlay");
-    overlay = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  }
-
-  luax_atexit(L, lovrHeadsetDestroy); // Always make sure the headset module gets cleaned up
-  lovrHeadsetInit(drivers, driverCount, supersample, offset, msaa, overlay);
-
-  lua_pop(L, 2);
+static int l_lovrHeadsetStart(lua_State* L) {
+  lovrHeadsetInterface->start();
   return 0;
 }
 
 static int l_lovrHeadsetGetDriver(lua_State* L) {
-  if (lua_gettop(L) == 0) {
-    luax_pushenum(L, HeadsetDriver, lovrHeadsetDisplayDriver->driverType);
-    return 1;
-  } else {
-    Device device = luax_optdevice(L, 1);
-    float position[4], orientation[4];
-    FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->getPose(device, position, orientation)) {
-        luax_pushenum(L, HeadsetDriver, driver->driverType);
-        return 1;
-      }
-    }
-  }
-  return 0;
+  luax_pushenum(L, HeadsetDriver, lovrHeadsetInterface->driverType);
+  return 1;
 }
 
 static int l_lovrHeadsetGetName(lua_State* L) {
   char name[256];
-  if (lovrHeadsetDisplayDriver->getName(name, sizeof(name))) {
+  if (lovrHeadsetInterface->getName(name, sizeof(name))) {
     lua_pushstring(L, name);
   } else {
     lua_pushnil(L);
@@ -197,34 +98,34 @@ static int l_lovrHeadsetGetName(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetOriginType(lua_State* L) {
-  luax_pushenum(L, HeadsetOrigin, lovrHeadsetDisplayDriver->getOriginType());
+  luax_pushenum(L, HeadsetOrigin, lovrHeadsetInterface->getOriginType());
   return 1;
 }
 
 static int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
   uint32_t width, height;
-  lovrHeadsetDisplayDriver->getDisplayDimensions(&width, &height);
+  lovrHeadsetInterface->getDisplayDimensions(&width, &height);
   lua_pushinteger(L, width);
   return 1;
 }
 
 static int l_lovrHeadsetGetDisplayHeight(lua_State* L) {
   uint32_t width, height;
-  lovrHeadsetDisplayDriver->getDisplayDimensions(&width, &height);
+  lovrHeadsetInterface->getDisplayDimensions(&width, &height);
   lua_pushinteger(L, height);
   return 1;
 }
 
 static int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
   uint32_t width, height;
-  lovrHeadsetDisplayDriver->getDisplayDimensions(&width, &height);
+  lovrHeadsetInterface->getDisplayDimensions(&width, &height);
   lua_pushinteger(L, width);
   lua_pushinteger(L, height);
   return 2;
 }
 
 static int l_lovrHeadsetGetDisplayFrequency(lua_State* L) {
-  float frequency = lovrHeadsetDisplayDriver->getDisplayFrequency ? lovrHeadsetDisplayDriver->getDisplayFrequency() : 0.f;
+  float frequency = lovrHeadsetInterface->getDisplayFrequency ? lovrHeadsetInterface->getDisplayFrequency() : 0.f;
   if (frequency == 0.f) {
     lua_pushnil(L);
   } else {
@@ -233,39 +134,50 @@ static int l_lovrHeadsetGetDisplayFrequency(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetGetDisplayMask(lua_State* L) {
-  uint32_t count;
-  const float* points = lovrHeadsetDisplayDriver->getDisplayMask(&count);
-
-  if (!points) {
+static int l_lovrHeadsetGetDisplayFrequencies(lua_State* L) {
+  if (!lovrHeadsetInterface->getDisplayFrequencies) {
     lua_pushnil(L);
     return 1;
   }
 
-  lua_createtable(L, count, 0);
-  for (uint32_t i = 0; i < count; i += 2) {
-    lua_createtable(L, 2, 0);
-
-    lua_pushnumber(L, points[i + 0]);
-    lua_rawseti(L, -2, 1);
-    lua_pushnumber(L, points[i + 1]);
-    lua_rawseti(L, -2, 2);
-
-    lua_rawseti(L, -2, i / 2 + 1);
+  uint32_t count = 0;
+  float* frequencies = lovrHeadsetInterface->getDisplayFrequencies(&count);
+  if (!frequencies) {
+    lua_pushnil(L);
+    return 1;
   }
+
+  lua_settop(L, 0);
+  lua_createtable(L, count, 0);
+  for (uint32_t i = 0; i < count; ++i) {
+    lua_pushnumber(L, frequencies[i]);
+    lua_rawseti(L, 1, i + 1);
+  }
+
+  free(frequencies);
 
   return 1;
 }
 
+static int l_lovrHeadsetSetDisplayFrequency(lua_State* L) {
+  float frequency = luax_checkfloat(L, 1);
+  bool res = false;
+  if (lovrHeadsetInterface->setDisplayFrequency) {
+    res = lovrHeadsetInterface->setDisplayFrequency(frequency);
+  }
+  lua_pushboolean(L, res);
+  return 1;
+}
+
 static int l_lovrHeadsetGetViewCount(lua_State* L) {
-  lua_pushinteger(L, lovrHeadsetDisplayDriver->getViewCount());
+  lua_pushinteger(L, lovrHeadsetInterface->getViewCount());
   return 1;
 }
 
 static int l_lovrHeadsetGetViewPose(lua_State* L) {
   float position[4], orientation[4];
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
-  if (!lovrHeadsetDisplayDriver->getViewPose(view, position, orientation)) {
+  uint32_t view = luax_checku32(L, 1) - 1;
+  if (!lovrHeadsetInterface->getViewPose(view, position, orientation)) {
     lua_pushnil(L);
     return 1;
   }
@@ -283,8 +195,8 @@ static int l_lovrHeadsetGetViewPose(lua_State* L) {
 
 static int l_lovrHeadsetGetViewAngles(lua_State* L) {
   float left, right, up, down;
-  uint32_t view = luaL_checkinteger(L, 1) - 1;
-  if (!lovrHeadsetDisplayDriver->getViewAngles(view, &left, &right, &up, &down)) {
+  uint32_t view = luax_checku32(L, 1) - 1;
+  if (!lovrHeadsetInterface->getViewAngles(view, &left, &right, &up, &down)) {
     lua_pushnil(L);
     return 1;
   }
@@ -297,7 +209,7 @@ static int l_lovrHeadsetGetViewAngles(lua_State* L) {
 
 static int l_lovrHeadsetGetClipDistance(lua_State* L) {
   float clipNear, clipFar;
-  lovrHeadsetDisplayDriver->getClipDistance(&clipNear, &clipFar);
+  lovrHeadsetInterface->getClipDistance(&clipNear, &clipFar);
   lua_pushnumber(L, clipNear);
   lua_pushnumber(L, clipFar);
   return 2;
@@ -306,27 +218,27 @@ static int l_lovrHeadsetGetClipDistance(lua_State* L) {
 static int l_lovrHeadsetSetClipDistance(lua_State* L) {
   float clipNear = luax_checkfloat(L, 1);
   float clipFar = luax_checkfloat(L, 2);
-  lovrHeadsetDisplayDriver->setClipDistance(clipNear, clipFar);
+  lovrHeadsetInterface->setClipDistance(clipNear, clipFar);
   return 0;
 }
 
 static int l_lovrHeadsetGetBoundsWidth(lua_State* L) {
   float width, depth;
-  lovrHeadsetDisplayDriver->getBoundsDimensions(&width, &depth);
+  lovrHeadsetInterface->getBoundsDimensions(&width, &depth);
   lua_pushnumber(L, width);
   return 1;
 }
 
 static int l_lovrHeadsetGetBoundsDepth(lua_State* L) {
   float width, depth;
-  lovrHeadsetDisplayDriver->getBoundsDimensions(&width, &depth);
+  lovrHeadsetInterface->getBoundsDimensions(&width, &depth);
   lua_pushnumber(L, depth);
   return 1;
 }
 
 static int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
   float width, depth;
-  lovrHeadsetDisplayDriver->getBoundsDimensions(&width, &depth);
+  lovrHeadsetInterface->getBoundsDimensions(&width, &depth);
   lua_pushnumber(L, width);
   lua_pushnumber(L, depth);
   return 2;
@@ -334,7 +246,7 @@ static int l_lovrHeadsetGetBoundsDimensions(lua_State* L) {
 
 static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
   uint32_t count;
-  const float* points = lovrHeadsetDisplayDriver->getBoundsGeometry(&count);
+  const float* points = lovrHeadsetInterface->getBoundsGeometry(&count);
 
   if (!points) {
     lua_pushnil(L);
@@ -364,32 +276,24 @@ static int l_lovrHeadsetGetBoundsGeometry(lua_State* L) {
 static int l_lovrHeadsetIsTracked(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, position, orientation)) {
-      lua_pushboolean(L, true);
-      return 1;
-    }
-  }
-  lua_pushboolean(L, false);
+  lua_pushboolean(L, lovrHeadsetInterface->getPose(device, position, orientation));
   return 1;
 }
 
 static int l_lovrHeadsetGetPose(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, position, orientation)) {
-      float angle, ax, ay, az;
-      quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
-      lua_pushnumber(L, position[0]);
-      lua_pushnumber(L, position[1]);
-      lua_pushnumber(L, position[2]);
-      lua_pushnumber(L, angle);
-      lua_pushnumber(L, ax);
-      lua_pushnumber(L, ay);
-      lua_pushnumber(L, az);
-      return 7;
-    }
+  if (lovrHeadsetInterface->getPose(device, position, orientation)) {
+    float angle, ax, ay, az;
+    quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, position[0]);
+    lua_pushnumber(L, position[1]);
+    lua_pushnumber(L, position[2]);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+    return 7;
   }
   for (int i = 0; i < 7; i++) {
     lua_pushnumber(L, 0.);
@@ -400,13 +304,11 @@ static int l_lovrHeadsetGetPose(lua_State* L) {
 static int l_lovrHeadsetGetPosition(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, position, orientation)) {
-      lua_pushnumber(L, position[0]);
-      lua_pushnumber(L, position[1]);
-      lua_pushnumber(L, position[2]);
-      return 3;
-    }
+  if (lovrHeadsetInterface->getPose(device, position, orientation)) {
+    lua_pushnumber(L, position[0]);
+    lua_pushnumber(L, position[1]);
+    lua_pushnumber(L, position[2]);
+    return 3;
   }
   for (int i = 0; i < 3; i++) {
     lua_pushnumber(L, 0.);
@@ -417,16 +319,14 @@ static int l_lovrHeadsetGetPosition(lua_State* L) {
 static int l_lovrHeadsetGetOrientation(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getPose(device, position, orientation)) {
-      float angle, ax, ay, az;
-      quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
-      lua_pushnumber(L, angle);
-      lua_pushnumber(L, ax);
-      lua_pushnumber(L, ay);
-      lua_pushnumber(L, az);
-      return 4;
-    }
+  if (lovrHeadsetInterface->getPose(device, position, orientation)) {
+    float angle, ax, ay, az;
+    quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+    return 4;
   }
   for (int i = 0; i < 4; i++) {
     lua_pushnumber(L, 0.);
@@ -437,13 +337,11 @@ static int l_lovrHeadsetGetOrientation(lua_State* L) {
 static int l_lovrHeadsetGetVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float velocity[4], angularVelocity[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getVelocity(device, velocity, angularVelocity)) {
-      lua_pushnumber(L, velocity[0]);
-      lua_pushnumber(L, velocity[1]);
-      lua_pushnumber(L, velocity[2]);
-      return 3;
-    }
+  if (lovrHeadsetInterface->getVelocity(device, velocity, angularVelocity)) {
+    lua_pushnumber(L, velocity[0]);
+    lua_pushnumber(L, velocity[1]);
+    lua_pushnumber(L, velocity[2]);
+    return 3;
   }
   for (int i = 0; i < 3; i++) {
     lua_pushnumber(L, 0.);
@@ -454,13 +352,11 @@ static int l_lovrHeadsetGetVelocity(lua_State* L) {
 static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float velocity[4], angularVelocity[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getVelocity(device, velocity, angularVelocity)) {
-      lua_pushnumber(L, angularVelocity[0]);
-      lua_pushnumber(L, angularVelocity[1]);
-      lua_pushnumber(L, angularVelocity[2]);
-      return 3;
-    }
+  if (lovrHeadsetInterface->getVelocity(device, velocity, angularVelocity)) {
+    lua_pushnumber(L, angularVelocity[0]);
+    lua_pushnumber(L, angularVelocity[1]);
+    lua_pushnumber(L, angularVelocity[2]);
+    return 3;
   }
   for (int i = 0; i < 3; i++) {
     lua_pushnumber(L, 0.);
@@ -472,25 +368,20 @@ static int l_lovrHeadsetIsDown(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceButton button = luax_checkenum(L, 2, DeviceButton, NULL);
   bool down, changed;
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->isDown(device, button, &down, &changed)) {
-      lua_pushboolean(L, down);
-      return 1;
-    }
+  if (lovrHeadsetInterface->isDown(device, button, &down, &changed)) {
+    lua_pushboolean(L, down);
+    return 1;
   }
-  lua_pushboolean(L, false);
-  return 1;
+  return 0;
 }
 
 static int l_lovrHeadsetWasPressed(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceButton button = luax_checkenum(L, 2, DeviceButton, NULL);
   bool down, changed;
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->isDown(device, button, &down, &changed)) {
-      lua_pushboolean(L, down && changed);
-      return 1;
-    }
+  if (lovrHeadsetInterface->isDown(device, button, &down, &changed)) {
+    lua_pushboolean(L, down && changed);
+    return 1;
   }
   lua_pushboolean(L, false);
   return 1;
@@ -500,11 +391,9 @@ static int l_lovrHeadsetWasReleased(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceButton button = luax_checkenum(L, 2, DeviceButton, NULL);
   bool down, changed;
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->isDown(device, button, &down, &changed)) {
-      lua_pushboolean(L, !down && changed);
-      return 1;
-    }
+  if (lovrHeadsetInterface->isDown(device, button, &down, &changed)) {
+    lua_pushboolean(L, !down && changed);
+    return 1;
   }
   lua_pushboolean(L, false);
   return 1;
@@ -514,14 +403,11 @@ static int l_lovrHeadsetIsTouched(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   DeviceButton button = luax_checkenum(L, 2, DeviceButton, NULL);
   bool touched;
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->isTouched(device, button, &touched)) {
-      lua_pushboolean(L, touched);
-      return 1;
-    }
+  if (lovrHeadsetInterface->isTouched(device, button, &touched)) {
+    lua_pushboolean(L, touched);
+    return 1;
   }
-  lua_pushboolean(L, 1);
-  return false;
+  return 0;
 }
 
 static const int axisCounts[MAX_AXES] = {
@@ -536,13 +422,11 @@ static int l_lovrHeadsetGetAxis(lua_State* L) {
   DeviceAxis axis = luax_checkenum(L, 2, DeviceAxis, NULL);
   int count = axisCounts[axis];
   float value[4];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getAxis(device, axis, value)) {
-      for (int i = 0; i < count; i++) {
-        lua_pushnumber(L, value[i]);
-      }
-      return count;
+  if (lovrHeadsetInterface->getAxis(device, axis, value)) {
+    for (int i = 0; i < count; i++) {
+      lua_pushnumber(L, value[i]);
     }
+    return count;
   }
   for (int i = 0; i < count; i++) {
     lua_pushnumber(L, 0.);
@@ -553,40 +437,38 @@ static int l_lovrHeadsetGetAxis(lua_State* L) {
 static int l_lovrHeadsetGetSkeleton(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float poses[HAND_JOINT_COUNT * 8];
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->getSkeleton(device, poses)) {
-      if (!lua_istable(L, 2)) {
-        lua_createtable(L, HAND_JOINT_COUNT, 0);
-      } else {
-        lua_settop(L, 2);
-      }
-
-      for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
-        lua_createtable(L, 8, 0);
-
-        float angle, ax, ay, az;
-        float* pose = poses + i * 8;
-        quat_getAngleAxis(pose + 4, &angle, &ax, &ay, &az);
-        lua_pushnumber(L, pose[0]);
-        lua_pushnumber(L, pose[1]);
-        lua_pushnumber(L, pose[2]);
-        lua_pushnumber(L, angle);
-        lua_pushnumber(L, ax);
-        lua_pushnumber(L, ay);
-        lua_pushnumber(L, az);
-        lua_rawseti(L, -8, 7);
-        lua_rawseti(L, -7, 6);
-        lua_rawseti(L, -6, 5);
-        lua_rawseti(L, -5, 4);
-        lua_rawseti(L, -4, 3);
-        lua_rawseti(L, -3, 2);
-        lua_rawseti(L, -2, 1);
-
-        lua_rawseti(L, -2, i + 1);
-      }
-
-      return 1;
+  if (lovrHeadsetInterface->getSkeleton(device, poses)) {
+    if (!lua_istable(L, 2)) {
+      lua_createtable(L, HAND_JOINT_COUNT, 0);
+    } else {
+      lua_settop(L, 2);
     }
+
+    for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
+      lua_createtable(L, 8, 0);
+
+      float angle, ax, ay, az;
+      float* pose = poses + i * 8;
+      quat_getAngleAxis(pose + 4, &angle, &ax, &ay, &az);
+      lua_pushnumber(L, pose[0]);
+      lua_pushnumber(L, pose[1]);
+      lua_pushnumber(L, pose[2]);
+      lua_pushnumber(L, angle);
+      lua_pushnumber(L, ax);
+      lua_pushnumber(L, ay);
+      lua_pushnumber(L, az);
+      lua_rawseti(L, -8, 7);
+      lua_rawseti(L, -7, 6);
+      lua_rawseti(L, -6, 5);
+      lua_rawseti(L, -5, 4);
+      lua_rawseti(L, -4, 3);
+      lua_rawseti(L, -3, 2);
+      lua_rawseti(L, -2, 1);
+
+      lua_rawseti(L, -2, i + 1);
+    }
+
+    return 1;
   }
   lua_pushnil(L);
   return 1;
@@ -597,11 +479,9 @@ static int l_lovrHeadsetVibrate(lua_State* L) {
   float strength = luax_optfloat(L, 2, 1.f);
   float duration = luax_optfloat(L, 3, .5f);
   float frequency = luax_optfloat(L, 4, 0.f);
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->vibrate(device, strength, duration, frequency)) {
-      lua_pushboolean(L, true);
-      return 1;
-    }
+  if (lovrHeadsetInterface->vibrate(device, strength, duration, frequency)) {
+    lua_pushboolean(L, true);
+    return 1;
   }
   lua_pushboolean(L, false);
   return 1;
@@ -617,15 +497,11 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  ModelData* modelData = NULL;
-  FOREACH_TRACKING_DRIVER(driver) {
-    if ((modelData = driver->newModelData(device, animated)) != NULL) {
-      break;
-    }
-  }
+  ModelData* modelData = lovrHeadsetInterface->newModelData(device, animated);
 
   if (modelData) {
-    Model* model = lovrModelCreate(modelData);
+    ModelInfo info = { .data = modelData, .mipmaps = true };
+    Model* model = lovrModelCreate(&info);
     luax_pushtype(L, Model, model);
     lovrRelease(modelData, lovrModelDataDestroy);
     lovrRelease(model, lovrModelDestroy);
@@ -638,66 +514,54 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
 static int l_lovrHeadsetAnimate(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   Model* model = luax_checktype(L, 2, Model);
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->animate(device, model)) {
-      lua_pushboolean(L, true);
-      return 1;
-    }
+  if (lovrHeadsetInterface->animate(device, model)) {
+    lua_pushboolean(L, true);
+    return 1;
   }
   lua_pushboolean(L, false);
   return 1;
 }
 
-static int l_lovrHeadsetRenderTo(lua_State* L) {
-  lua_settop(L, 1);
-
-#ifdef LOVR_USE_PICO
-  if (headsetRenderData.ref != LUA_NOREF) {
-    luaL_unref(L, LUA_REGISTRYINDEX, headsetRenderData.ref);
-  }
-
-  headsetRenderData.ref = luaL_ref(L, LUA_REGISTRYINDEX);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
-  headsetRenderData.L = lua_tothread(L, -1);
-  lua_pop(L, 1);
-#else
-  headsetRenderData.L = L;
-#endif
-  lovrHeadsetDisplayDriver->renderTo(renderHelper, &headsetRenderData);
-  lovrGraphicsSetViewMatrix(0, NULL);
-  lovrGraphicsSetViewMatrix(1, NULL);
-  lovrGraphicsSetProjection(0, NULL);
-  lovrGraphicsSetProjection(1, NULL);
-  return 0;
-}
-
-static int l_lovrHeadsetUpdate(lua_State* L) {
-  float dt = luax_checkfloat(L, 1);
-
-  if (lovrHeadsetDisplayDriver->update) {
-    lovrHeadsetDisplayDriver->update(dt);
-  }
-
-  FOREACH_TRACKING_DRIVER(driver) {
-    if (driver->update && driver != lovrHeadsetDisplayDriver) {
-      driver->update(dt);
-    }
-  }
-
-  return 0;
-}
-
-static int l_lovrHeadsetGetTime(lua_State* L) {
-  lua_pushnumber(L, lovrHeadsetDisplayDriver->getDisplayTime());
+static int l_lovrHeadsetGetTexture(lua_State* L) {
+  Texture* texture = lovrHeadsetInterface->getTexture();
+  luax_pushtype(L, Texture, texture);
   return 1;
 }
 
-static int l_lovrHeadsetGetMirrorTexture(lua_State* L) {
-  Texture *texture = NULL;
-  if (lovrHeadsetDisplayDriver->getMirrorTexture)
-    texture = lovrHeadsetDisplayDriver->getMirrorTexture();
-  luax_pushtype(L, Texture, texture);
+static int l_lovrHeadsetGetPass(lua_State* L) {
+  Pass* pass = lovrHeadsetInterface->getPass();
+  luax_pushtype(L, Pass, pass);
+  return 1;
+}
 
+static int l_lovrHeadsetSubmit(lua_State* L) {
+  lovrHeadsetInterface->submit();
+  return 0;
+}
+
+static int l_lovrHeadsetIsFocused(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetInterface->isFocused());
+  return 1;
+}
+
+static int l_lovrHeadsetUpdate(lua_State* L) {
+  double dt = 0.;
+
+  if (lovrHeadsetInterface->update) {
+    dt = lovrHeadsetInterface->update();
+  }
+
+  lua_pushnumber(L, dt);
+  return 1;
+}
+
+static int l_lovrHeadsetGetTime(lua_State* L) {
+  lua_pushnumber(L, lovrHeadsetInterface->getDisplayTime());
+  return 1;
+}
+
+static int l_lovrHeadsetGetDeltaTime(lua_State* L) {
+  lua_pushnumber(L, lovrHeadsetInterface->getDeltaTime());
   return 1;
 }
 
@@ -711,12 +575,10 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   int count = 0;
   float position[4], orientation[4];
   Device hands[] = { DEVICE_HAND_LEFT, DEVICE_HAND_RIGHT };
-  for (size_t i = 0; i < sizeof(hands) / sizeof(hands[0]); i++) {
-    FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->getPose(hands[i], position, orientation)) {
-        luax_pushenum(L, Device, hands[i]);
-        lua_rawseti(L, -2, ++count);
-      }
+  for (size_t i = 0; i < COUNTOF(hands); i++) {
+    if (lovrHeadsetInterface->getPose(hands[i], position, orientation)) {
+      luax_pushenum(L, Device, hands[i]);
+      lua_rawseti(L, -2, ++count);
     }
   }
   lua_pushnil(L);
@@ -725,7 +587,7 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
 }
 
 static const luaL_Reg lovrHeadset[] = {
-  { "init", l_lovrHeadsetInit },
+  { "start", l_lovrHeadsetStart },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getName", l_lovrHeadsetGetName },
   { "getOriginType", l_lovrHeadsetGetOriginType },
@@ -733,7 +595,8 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
   { "getDisplayFrequency", l_lovrHeadsetGetDisplayFrequency },
-  { "getDisplayMask", l_lovrHeadsetGetDisplayMask },
+  { "getDisplayFrequencies", l_lovrHeadsetGetDisplayFrequencies },
+  { "setDisplayFrequency", l_lovrHeadsetSetDisplayFrequency },
   { "getViewCount", l_lovrHeadsetGetViewCount },
   { "getViewPose", l_lovrHeadsetGetViewPose },
   { "getViewAngles", l_lovrHeadsetGetViewAngles },
@@ -754,14 +617,17 @@ static const luaL_Reg lovrHeadset[] = {
   { "wasReleased", l_lovrHeadsetWasReleased },
   { "isTouched", l_lovrHeadsetIsTouched },
   { "getAxis", l_lovrHeadsetGetAxis },
+  { "getSkeleton", l_lovrHeadsetGetSkeleton },
   { "vibrate", l_lovrHeadsetVibrate },
   { "newModel", l_lovrHeadsetNewModel },
   { "animate", l_lovrHeadsetAnimate },
-  { "getSkeleton", l_lovrHeadsetGetSkeleton },
-  { "renderTo", l_lovrHeadsetRenderTo },
+  { "getTexture", l_lovrHeadsetGetTexture },
+  { "getPass", l_lovrHeadsetGetPass },
+  { "submit", l_lovrHeadsetSubmit },
+  { "isFocused", l_lovrHeadsetIsFocused },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
-  { "getMirrorTexture", l_lovrHeadsetGetMirrorTexture },
+  { "getDeltaTime", l_lovrHeadsetGetDeltaTime },
   { "getHands", l_lovrHeadsetGetHands },
   { NULL, NULL }
 };
@@ -769,6 +635,75 @@ static const luaL_Reg lovrHeadset[] = {
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
-  headsetRenderData.ref = LUA_NOREF;
+
+  HeadsetDriver drivers[8];
+
+  HeadsetConfig config = {
+    .drivers = drivers,
+    .driverCount = 0,
+    .supersample = 1.f,
+    .offset = 1.7f,
+    .stencil = false,
+    .antialias = true,
+    .submitDepth = true,
+    .overlay = false
+  };
+
+  luax_pushconf(L);
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "headset");
+    if (lua_istable(L, -1)) {
+
+      // Drivers
+      lua_getfield(L, -1, "drivers");
+      int n = luax_len(L, -1);
+      for (int i = 0; i < n; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        config.drivers[config.driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
+        lovrAssert(config.driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
+        lua_pop(L, 1);
+      }
+      lua_pop(L, 1);
+
+      // Supersample
+      lua_getfield(L, -1, "supersample");
+      if (lua_type(L, -1) == LUA_TBOOLEAN) {
+        config.supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
+      } else {
+        config.supersample = luax_optfloat(L, -1, 1.f);
+      }
+      lua_pop(L, 1);
+
+      // Offset
+      lua_getfield(L, -1, "offset");
+      config.offset = luax_optfloat(L, -1, 1.7f);
+      lua_pop(L, 1);
+
+      // Stencil
+      lua_getfield(L, -1, "stencil");
+      config.stencil = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      // Samples
+      lua_getfield(L, -1, "antialias");
+      config.antialias = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      // Depth
+      lua_getfield(L, -1, "submitdepth");
+      config.submitDepth = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      // Overlay
+      lua_getfield(L, -1, "overlay");
+      config.overlay = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 1);
+
+  luax_atexit(L, lovrHeadsetDestroy);
+  lovrHeadsetInit(&config);
   return 1;
 }

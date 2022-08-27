@@ -3,8 +3,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #include <pwd.h>
+#include <sys/mman.h>
 
 #include "os_glfw.h"
 
@@ -50,6 +50,22 @@ void os_request_permission(os_permission permission) {
 
 void os_on_permission(fn_permission* callback) {
   //
+}
+
+void* os_vm_init(size_t size) {
+  return mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+}
+
+bool os_vm_free(void* p, size_t size) {
+  return !munmap(p, size);
+}
+
+bool os_vm_commit(void* p, size_t size) {
+  return !mprotect(p, size, PROT_READ | PROT_WRITE);
+}
+
+bool os_vm_release(void* p, size_t size) {
+  return !madvise(p, size, MADV_DONTNEED);
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {

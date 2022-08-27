@@ -4,7 +4,6 @@
 
 #pragma once
 
-#define SAMPLE_RATE 48000
 #define BUFFER_SIZE 256
 #define MAX_SOURCES 64
 
@@ -18,9 +17,7 @@ typedef enum {
   EFFECT_OCCLUSION,
   EFFECT_REVERB,
   EFFECT_SPATIALIZATION,
-  EFFECT_TRANSMISSION,
-  EFFECT_ALL = 0x3f,
-  EFFECT_NONE = 0xff
+  EFFECT_TRANSMISSION
 } Effect;
 
 typedef enum {
@@ -59,7 +56,7 @@ typedef enum {
 
 typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
 
-bool lovrAudioInit(const char* spatializer);
+bool lovrAudioInit(const char* spatializer, uint32_t sampleRate);
 void lovrAudioDestroy(void);
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
 bool lovrAudioSetDevice(AudioType type, void* id, size_t size, struct Sound* sink, AudioShareMode shareMode);
@@ -72,12 +69,13 @@ void lovrAudioGetPose(float position[4], float orientation[4]);
 void lovrAudioSetPose(float position[4], float orientation[4]);
 bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
 const char* lovrAudioGetSpatializer(void);
+uint32_t lovrAudioGetSampleRate(void);
 void lovrAudioGetAbsorption(float absorption[3]);
 void lovrAudioSetAbsorption(float absorption[3]);
 
 // Source
 
-Source* lovrSourceCreate(struct Sound* sound, uint32_t effects);
+Source* lovrSourceCreate(struct Sound* sound, bool spatial, uint32_t effects);
 Source* lovrSourceClone(Source* source);
 void lovrSourceDestroy(void* ref);
 struct Sound* lovrSourceGetSound(Source* source);
@@ -92,7 +90,7 @@ void lovrSourceSetVolume(Source* source, float volume, VolumeUnit units);
 void lovrSourceSeek(Source* source, double time, TimeUnit units);
 double lovrSourceTell(Source* source, TimeUnit units);
 double lovrSourceGetDuration(Source* source, TimeUnit units);
-bool lovrSourceUsesSpatializer(Source* source);
+bool lovrSourceIsSpatial(Source* source);
 void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
 float lovrSourceGetRadius(Source* source);

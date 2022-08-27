@@ -1,6 +1,6 @@
 #include "math/curve.h"
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <math.h>
 
@@ -10,7 +10,7 @@ struct Curve {
 };
 
 // Explicit curve evaluation, unroll simple cases to avoid pow overhead
-static void evaluate(float* LOVR_RESTRICT P, size_t n, float t, vec3 p) {
+static void evaluate(float* restrict P, size_t n, float t, vec3 p) {
   if (n == 2) {
     p[0] = P[0] + (P[4] - P[0]) * t;
     p[1] = P[1] + (P[5] - P[1]) * t;
@@ -53,7 +53,7 @@ Curve* lovrCurveCreate(void) {
   Curve* curve = calloc(1, sizeof(Curve));
   lovrAssert(curve, "Out of memory");
   curve->ref = 1;
-  arr_init(&curve->points, realloc);
+  arr_init(&curve->points, arr_alloc);
   arr_reserve(&curve->points, 16);
   return curve;
 }

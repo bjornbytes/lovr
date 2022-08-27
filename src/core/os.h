@@ -4,14 +4,11 @@
 
 #pragma once
 
-typedef struct {
+typedef struct os_window_config {
   uint32_t width;
   uint32_t height;
   bool fullscreen;
   bool resizable;
-  bool debug;
-  int vsync;
-  int msaa;
   const char* title;
   struct {
     void* data;
@@ -145,6 +142,11 @@ double os_get_time(void);
 void os_sleep(double seconds);
 void os_request_permission(os_permission permission);
 
+void* os_vm_init(size_t size);
+bool os_vm_free(void* p, size_t size);
+bool os_vm_commit(void* p, size_t size);
+bool os_vm_release(void* p, size_t size);
+
 void os_poll_events(void);
 void os_on_quit(fn_quit* callback);
 void os_on_focus(fn_focus* callback);
@@ -157,9 +159,6 @@ bool os_window_open(const os_window_config* config);
 bool os_window_is_open(void);
 void os_window_get_size(int* width, int* height);
 void os_window_get_fbsize(int* width, int* height);
-void os_window_set_vsync(int interval);
-void os_window_swap(void);
-fn_gl_proc* os_get_gl_proc_address(const char* function);
 
 size_t os_get_home_directory(char* buffer, size_t size);
 size_t os_get_data_directory(char* buffer, size_t size);

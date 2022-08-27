@@ -16,16 +16,15 @@ option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
-option(LOVR_USE_OPENVR "Enable the OpenVR backend for the headset module" ON)
-option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" OFF)
+option(LOVR_USE_GLSLANG "Use glslang to compile GLSL shaders" ON)
+option(LOVR_USE_VULKAN "Use the Vulkan renderer" ON)
+option(LOVR_USE_WEBGPU "Use the WebGPU renderer" OFF)
+option(LOVR_USE_OPENXR "Enable the OpenXR backend for the headset module" ON)
 option(LOVR_USE_WEBXR "Enable the WebXR backend for the headset module" OFF)
-option(LOVR_USE_OCULUS "Enable the LibOVR backend for the headset module (be sure to also set LOVR_OCULUS_PATH to point to the Oculus SDK)" OFF)
-option(LOVR_USE_VRAPI "Enable the VrApi backend for the headset module" OFF)
-option(LOVR_USE_PICO "Enable the Pico backend for the headset module" OFF)
-option(LOVR_USE_DESKTOP_HEADSET "Enable the keyboard/mouse backend for the headset module" ON)
+option(LOVR_USE_DESKTOP "Enable the keyboard/mouse backend for the headset module" ON)
 option(LOVR_USE_STEAM_AUDIO "Enable the Steam Audio spatializer (be sure to also set LOVR_STEAM_AUDIO_PATH)" OFF)
 option(LOVR_USE_OCULUS_AUDIO "Enable the Oculus Audio spatializer (be sure to also set LOVR_OCULUS_AUDIO_PATH)" OFF)
-option(LOVR_USE_LINUX_EGL "Use the EGL graphics extension on Linux" OFF)
+option(LOVR_SANITIZE "Enable Address Sanitizer" OFF)
 
 option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
 option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
@@ -36,37 +35,48 @@ option(LOVR_BUILD_EXE "Build an executable (or an apk on Android)" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 
+set(LOVR_SYMBOL_VISIBILITY "hidden" CACHE STRING "What should the C symbol visibility be? hidden reduces binary size, default lets other binaries use this one.")
+
 # Setup
 if(EMSCRIPTEN)
-  string(CONCAT LOVR_EMSCRIPTEN_FLAGS
+  string(CONCAT EMSCRIPTEN_LINKER_FLAGS
     "-Os "
-    "-s USE_WEBGL2=1 "
+    "-s USE_WEBGPU=1 "
     "-s FORCE_FILESYSTEM=1 "
-    "-s \"EXPORTED_FUNCTIONS=['_main','_lovrDestroy','_webxr_attach','_webxr_detach','_lovrCanvasCreateFromHandle','_lovrCanvasDestroy','_lovrGraphicsSetBackbuffer','_lovrGraphicsSetViewMatrix','_lovrGraphicsSetProjection']\" "
-    "-s \"EXTRA_EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
-    "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/webxr.js\" "
-    "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.html\""
+    "-s EXPORTED_FUNCTIONS=_main,_lovrDestroy,_webxr_attach,_webxr_detach "
+    "-s \"EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
+    "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/etc/webxr.js\" "
+    "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/etc/lovr.html\""
   )
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os")
   if(LOVR_ENABLE_THREAD)
-    set(LOVR_EMSCRIPTEN_FLAGS "${LOVR_EMSCRIPTEN_FLAGS} -s USE_PTHREADS=1")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   endif()
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LOVR_EMSCRIPTEN_FLAGS}")
   set(CMAKE_EXECUTABLE_SUFFIX ".html")
   set(LOVR_USE_WEBXR ON)
-  set(LOVR_USE_OPENVR OFF)
+  set(LOVR_USE_OPENXR OFF)
+  set(LOVR_USE_WEBGPU ON)
+  set(LOVR_USE_VULKAN OFF)
 elseif(ANDROID)
+  set(ANDROID_FLAVOR "oculus" CACHE STRING "Which Android flavor to build (oculus or pico)")
   find_package(Java REQUIRED)
-  set(LOVR_USE_OPENVR OFF)
-  set(LOVR_USE_DESKTOP_HEADSET OFF)
+  set(LOVR_USE_DESKTOP OFF)
   if(LOVR_BUILD_EXE)
     set(LOVR_BUILD_SHARED ON)
   endif()
 elseif(UNIX)
   find_package(PkgConfig)
-  if(NOT APPLE)
+  if(APPLE)
+    set(LOVR_USE_OPENXR OFF)
+  else()
     set(CMAKE_SKIP_RPATH OFF)
   endif()
+endif()
+
+if(NOT ANDROID AND LOVR_BUILD_SHARED)
+  set(LOVR_BUILD_EXE OFF)
 endif()
 
 # GLFW
@@ -151,7 +161,10 @@ if(LOVR_ENABLE_PHYSICS)
       set(ODE_BUILD_SHARED ON CACHE BOOL "")
     endif()
     add_subdirectory(deps/ode ode)
-    if(NOT WIN32)
+    if(MSVC)
+      set_target_properties(ode PROPERTIES COMPILE_FLAGS "/wd4244 /wd4267")
+      target_compile_definitions(ode PRIVATE _CRT_SECURE_NO_WARNINGS)
+    else()
       set_target_properties(ode PROPERTIES COMPILE_FLAGS "-Wno-unused-volatile-lvalue -Wno-array-bounds -Wno-undefined-var-template")
     endif()
     include_directories(deps/ode/include "${CMAKE_CURRENT_BINARY_DIR}/ode/include")
@@ -159,47 +172,44 @@ if(LOVR_ENABLE_PHYSICS)
   endif()
 endif()
 
-# OpenGL
-if(NOT (WIN32 OR EMSCRIPTEN OR ANDROID))
-  if(UNIX AND NOT APPLE)
-    set(OpenGL_GL_PREFERENCE "GLVND")
-  endif()
-  find_package(OpenGL REQUIRED)
-  include_directories(${OPENGL_INCLUDE_DIRS})
-  set(LOVR_OPENGL ${OPENGL_LIBRARIES})
+# glslang
+if(LOVR_USE_GLSLANG)
+  set(ENABLE_HLSL OFF CACHE BOOL "")
+  set(ENABLE_SPVREMAPPER OFF CACHE BOOL "")
+  set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "")
+  set(ENABLE_GLSLANG_INSTALL OFF CACHE BOOL "")
+  set(ENABLE_OPT OFF CACHE BOOL "")
+  set(ENABLE_CTEST OFF CACHE BOOL "")
+  set(BUILD_EXTERNAL OFF CACHE BOOL "")
+  set(BUILD_SHARED_LIBS OFF)
+  include_directories(deps/glslang/glslang/Include deps/glslang/StandAlone)
+  add_subdirectory(deps/glslang glslang)
+  target_sources(glslang PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps/glslang/StandAlone/ResourceLimits.cpp")
+  target_sources(glslang PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps/glslang/StandAlone/resource_limits_c.cpp")
+  set(LOVR_GLSLANG glslang SPIRV)
 endif()
 
-# OpenVR
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENVR)
-  set(BUILD_SHARED ON CACHE BOOL "")
-  set(BUILD_UNIVERSAL OFF CACHE BOOL "")
-  include_directories(deps/openvr/headers)
-  include_directories(deps/openvr/src)
-  include_directories(deps/openvr/src/vrcommon)
-  if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(LOVR_OPENVR openvr_api64)
-  else()
-    set(LOVR_OPENVR openvr_api)
-  endif()
-  add_subdirectory(deps/openvr)
-  set_target_properties(${LOVR_OPENVR} PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openvr_api"
-  )
+# Vulkan
+if(LOVR_USE_VULKAN)
+  find_package(Vulkan REQUIRED)
+  include_directories(${Vulkan_INCLUDE_DIRS})
 endif()
 
 # OpenXR
-# Currently, to use OpenXR, add the OpenXR SDK to the deps folder:
-#   git submodule add https://github.com/khronosgroup/openxr-sdk deps/openxr
-# On Android, download the Oculus OpenXR loader and place the "OpenXR" folder at "deps/OpenXR-Oculus"
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   include_directories(deps/openxr/include)
   if(ANDROID)
-    set(LOVR_OPENXR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/OpenXR-Oculus" CACHE STRING "The path to the Oculus OpenXR loader")
     add_library(openxr_loader SHARED IMPORTED)
-    include_directories("${LOVR_OPENXR_OCULUS_PATH}/Include")
-    set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_OCULUS_PATH}/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
     set(LOVR_OPENXR openxr_loader)
+    if(ANDROID_FLAVOR STREQUAL "oculus")
+      set(LOVR_OPENXR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr" CACHE STRING "The path to the Oculus OpenXR loader")
+      set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_OCULUS_PATH}/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
+    elseif(ANDROID_FLAVOR STREQUAL "pico")
+      set(LOVR_OPENXR_PICO_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico-openxr" CACHE STRING "The path to the Pico OpenXR loader")
+      set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_PICO_PATH}/Libs/Android/${ANDROID_ABI}/libopenxr_loader.so")
+    else()
+      message(FATAL_ERROR "Unsupported Android flavor (expected: oculus or pico)")
+    endif()
   else()
     if(LOVR_SYSTEM_OPENXR)
       pkg_search_module(OPENXR openxr)
@@ -213,39 +223,6 @@ if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
       set(LOVR_OPENXR openxr_loader)
     endif()
   endif()
-endif()
-
-# Oculus SDK -- expects Oculus SDK 1.26.0 or later
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_OCULUS)
-  if(NOT LOVR_OCULUS_PATH)
-    message(FATAL_ERROR "LOVR_USE_OCULUS requires the LOVR_OCULUS_PATH to be set to the location of the Oculus Desktop SDK (LibOVR) folder")
-  endif()
-  set(OCULUS_BUILD_TYPE "Release")
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(OCULUS_ARCH "x64")
-  else()
-    set(OCULUS_ARCH "Win32")
-  endif()
-  include_directories("${LOVR_OCULUS_PATH}/LibOVR/Include")
-  link_directories("${LOVR_OCULUS_PATH}/LibOVR/Lib/Windows/${OCULUS_ARCH}/${OCULUS_BUILD_TYPE}/VS2017")
-  set(LOVR_OCULUS LibOVR)
-endif()
-
-# VrApi (Oculus Mobile SDK) -- tested on 1.34.0
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_VRAPI)
-  set(LOVR_VRAPI_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/VrApi" CACHE STRING "The path to the VrApi folder of the Oculus Mobile SDK")
-  add_library(VrApi SHARED IMPORTED)
-  include_directories("${LOVR_VRAPI_PATH}/Include")
-  set_target_properties(VrApi PROPERTIES IMPORTED_LOCATION "${LOVR_VRAPI_PATH}/Libs/Android/${ANDROID_ABI}/Release/libvrapi.so")
-  set(LOVR_VRAPI VrApi)
-endif()
-
-# Pico Native SDK (1.3.3)
-if(LOVR_ENABLE_HEADSET AND LOVR_USE_PICO)
-  set(LOVR_PICO_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico" CACHE STRING "The path to the Pico SDK folder (unzipped aar)")
-  add_library(Pvr_NativeSDK SHARED IMPORTED)
-  set_target_properties(Pvr_NativeSDK PROPERTIES IMPORTED_LOCATION "${LOVR_PICO_PATH}/jni/${ANDROID_ABI}/libPvr_NativeSDK.so")
-  set(LOVR_PICO Pvr_NativeSDK)
 endif()
 
 # pthreads
@@ -326,59 +303,66 @@ endif()
 # Plugins
 set(LOVR 1)
 link_libraries(${LOVR_LUA})
-file(GLOB LOVR_PLUGINS plugins/*)
-foreach(plugin ${LOVR_PLUGINS})
-  if(IS_DIRECTORY ${plugin} AND EXISTS ${plugin}/CMakeLists.txt)
-    add_subdirectory(${plugin})
-    get_directory_property(PLUGIN_TARGETS DIRECTORY ${plugin} DEFINITION LOVR_PLUGIN_TARGETS)
+file(GLOB LOVR_PLUGINS ${CMAKE_SOURCE_DIR}/plugins/*)
+foreach(PLUGIN_PATH ${LOVR_PLUGINS})
+  if(IS_DIRECTORY ${PLUGIN_PATH} AND EXISTS ${PLUGIN_PATH}/CMakeLists.txt)
+    get_filename_component(PLUGIN "${PLUGIN_PATH}" NAME)
+    add_subdirectory(${PLUGIN_PATH} "${CMAKE_CURRENT_BINARY_DIR}/plugins/${PLUGIN}")
+    get_directory_property(PLUGIN_TARGETS DIRECTORY ${PLUGIN_PATH} DEFINITION LOVR_PLUGIN_TARGETS)
     if(NOT PLUGIN_TARGETS)
-      get_directory_property(PLUGIN_TARGETS DIRECTORY ${plugin} BUILDSYSTEM_TARGETS)
+      get_directory_property(PLUGIN_TARGETS DIRECTORY ${PLUGIN_PATH} BUILDSYSTEM_TARGETS)
     endif()
-    set_target_properties(${PLUGIN_TARGETS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/lib")
+    set_target_properties(${PLUGIN_TARGETS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/${PLUGIN}")
     list(APPEND ALL_PLUGIN_TARGETS ${PLUGIN_TARGETS})
   endif()
 endforeach()
 
 set(LOVR_SRC
-  src/main.c
   src/core/fs.c
-  src/core/map.c
-  src/core/util.c
   src/core/zip.c
   src/api/api.c
   src/api/l_lovr.c
+  src/util.c
 )
 
-if(LOVR_USE_PICO)
-  list(REMOVE_ITEM LOVR_SRC src/main.c)
+if(LOVR_BUILD_EXE)
+  list(APPEND LOVR_SRC src/main.c)
 endif()
 
 if(LOVR_BUILD_SHARED)
   add_library(lovr SHARED ${LOVR_SRC})
+  target_compile_definitions(lovr PRIVATE LOVR_BUILDING_SHARED)
 elseif(LOVR_BUILD_EXE)
   add_executable(lovr ${LOVR_SRC})
 else()
   return()
 endif()
 
-set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET hidden)
-set_target_properties(lovr PROPERTIES C_STANDARD 99)
-target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic)
+if(NOT LOVR_BUILD_EXE)
+  target_compile_definitions(lovr PUBLIC LOVR_OMIT_MAIN) # specifically for win32 WinMain
+endif()
+
+set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
+set_target_properties(lovr PROPERTIES C_STANDARD 11)
+set_target_properties(lovr PROPERTIES C_STANDARD_REQUIRED ON)
+target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic etc)
 target_link_libraries(lovr
   ${LOVR_GLFW}
   ${LOVR_LUA}
   ${LOVR_MSDF}
   ${LOVR_ODE}
-  ${LOVR_OPENGL}
-  ${LOVR_OPENVR}
+  ${LOVR_GLSLANG}
   ${LOVR_OPENXR}
-  ${LOVR_OCULUS}
   ${LOVR_OCULUS_AUDIO}
-  ${LOVR_VRAPI}
-  ${LOVR_PICO}
   ${LOVR_PTHREADS}
-  ${LOVR_EMSCRIPTEN_FLAGS}
+  ${EMSCRIPTEN_LINKER_FLAGS}
 )
+
+if (LOVR_SANITIZE)
+  set(LOVR_SANITIZE_FLAGS "-fsanitize=address,undefined" "-O1" "-fno-omit-frame-pointer")
+  target_compile_options(lovr PRIVATE ${LOVR_SANITIZE_FLAGS})
+  target_link_options(lovr PRIVATE ${LOVR_SANITIZE_FLAGS})
+endif()
 
 if(LOVR_ENABLE_AUDIO OR LOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
@@ -395,14 +379,14 @@ if(LOVR_ENABLE_AUDIO)
   )
 
   if(LOVR_USE_STEAM_AUDIO)
-    target_compile_definitions(lovr PRIVATE LOVR_ENABLE_PHONON)
+    target_compile_definitions(lovr PRIVATE LOVR_ENABLE_PHONON_SPATIALIZER)
     target_sources(lovr PRIVATE src/modules/audio/spatializer_phonon.c)
     # Dynamically linked at runtime, so this is not otherwise a dependency
     add_dependencies(lovr ${LOVR_PHONON})
   endif()
 
   if(LOVR_USE_OCULUS_AUDIO)
-    target_compile_definitions(lovr PRIVATE LOVR_ENABLE_OCULUS_AUDIO)
+    target_compile_definitions(lovr PRIVATE LOVR_ENABLE_OCULUS_SPATIALIZER)
     target_sources(lovr PRIVATE src/modules/audio/spatializer_oculus.c)
   endif()
 else()
@@ -456,23 +440,63 @@ endif()
 
 if(LOVR_ENABLE_GRAPHICS)
   target_sources(lovr PRIVATE
-    src/modules/graphics/font.c
+    src/core/spv.c
     src/modules/graphics/graphics.c
-    src/modules/graphics/material.c
-    src/modules/graphics/model.c
-    src/modules/graphics/opengl.c
     src/api/l_graphics.c
-    src/api/l_graphics_canvas.c
-    src/api/l_graphics_font.c
-    src/api/l_graphics_material.c
-    src/api/l_graphics_mesh.c
-    src/api/l_graphics_model.c
-    src/api/l_graphics_shader.c
-    src/api/l_graphics_shaderBlock.c
+    src/api/l_graphics_buffer.c
     src/api/l_graphics_texture.c
-    src/resources/shaders.c
-    src/lib/glad/glad.c
+    src/api/l_graphics_sampler.c
+    src/api/l_graphics_shader.c
+    src/api/l_graphics_material.c
+    src/api/l_graphics_font.c
+    src/api/l_graphics_model.c
+    src/api/l_graphics_readback.c
+    src/api/l_graphics_tally.c
+    src/api/l_graphics_pass.c
   )
+
+  if(LOVR_USE_GLSLANG)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_GLSLANG)
+  endif()
+
+  if(LOVR_USE_VULKAN)
+    target_compile_definitions(lovr PRIVATE LOVR_VK)
+    target_sources(lovr PRIVATE src/core/gpu_vk.c)
+  endif()
+
+  if(LOVR_USE_WEBGPU)
+    target_compile_definitions(lovr PRIVATE LOVR_WGPU)
+    target_sources(lovr PRIVATE src/core/gpu_webgpu.c)
+  endif()
+
+  add_custom_target(compile_shaders ALL)
+  add_dependencies(lovr compile_shaders)
+
+  function(compile_shaders)
+    if(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
+      set(GLSLANG_VALIDATOR "${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE}")
+    else()
+      set(GLSLANG_VALIDATOR "glslangValidator")
+    endif()
+    file(GLOB shader_files "etc/shaders/*.${ARGV0}")
+    foreach(shader_file ${shader_files})
+      string(REGEX MATCH "([^\/]+)\.${ARGV0}" shader ${shader_file})
+      string(REPLACE ".${ARGV0}" "" shader ${shader})
+      add_custom_command(TARGET compile_shaders POST_BUILD
+        COMMAND
+        ${GLSLANG_VALIDATOR}
+        --quiet
+        --target-env vulkan1.1
+        --vn lovr_shader_${shader}_${ARGV0}
+        -o ${shader_file}.h
+        ${shader_file}
+      )
+    endforeach()
+  endfunction()
+
+  compile_shaders("vert")
+  compile_shaders("frag")
+  compile_shaders("comp")
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_GRAPHICS)
 endif()
@@ -483,32 +507,16 @@ if(LOVR_ENABLE_HEADSET)
     src/modules/headset/headset.c
   )
 
-  if(LOVR_USE_OPENVR)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_OPENVR)
-    target_sources(lovr PRIVATE src/modules/headset/headset_openvr.c)
-  endif()
   if(LOVR_USE_OPENXR)
     target_compile_definitions(lovr PRIVATE LOVR_USE_OPENXR)
     target_sources(lovr PRIVATE src/modules/headset/headset_openxr.c)
-  endif()
-  if(LOVR_USE_OCULUS)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_OCULUS)
-    target_sources(lovr PRIVATE src/modules/headset/headset_oculus.c)
-  endif()
-  if(LOVR_USE_VRAPI)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_VRAPI)
-    target_sources(lovr PRIVATE src/modules/headset/headset_vrapi.c)
-  endif()
-  if(LOVR_USE_PICO)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_PICO)
-    target_sources(lovr PRIVATE src/modules/headset/headset_pico.c)
   endif()
   if(LOVR_USE_WEBXR)
     target_compile_definitions(lovr PRIVATE LOVR_USE_WEBXR)
     target_sources(lovr PRIVATE src/modules/headset/headset_webxr.c)
   endif()
-  if(LOVR_USE_DESKTOP_HEADSET)
-    target_compile_definitions(lovr PRIVATE LOVR_USE_DESKTOP_HEADSET)
+  if(LOVR_USE_DESKTOP)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_DESKTOP)
     target_sources(lovr PRIVATE src/modules/headset/headset_desktop.c)
   endif()
 else()
@@ -525,7 +533,7 @@ if(LOVR_ENABLE_MATH)
     src/api/l_math_curve.c
     src/api/l_math_randomGenerator.c
     src/api/l_math_vectors.c
-    src/lib/noise1234/noise1234.c
+    src/lib/noise/simplexnoise1234.c
   )
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_MATH)
@@ -573,10 +581,10 @@ else()
 endif()
 
 # Resources
-file(GLOB LOVR_RESOURCES "src/resources/*.ttf" "src/resources/*.json" "src/resources/*.lua")
+file(GLOB LOVR_RESOURCES "etc/*.ttf" "etc/*.lua" "etc/shaders/*.glsl")
 foreach(path ${LOVR_RESOURCES})
 
-  # Turn the absolute path into a C variable like src_resources_boot_lua
+  # Turn the absolute path into a C variable like etc_boot_lua
   file(RELATIVE_PATH identifier ${CMAKE_CURRENT_SOURCE_DIR} ${path})
   string(MAKE_C_IDENTIFIER ${identifier} identifier)
 
@@ -591,17 +599,26 @@ foreach(path ${LOVR_RESOURCES})
   file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
 endforeach()
 
+# Add a custom target that is always out of date so libraries are always moved
+add_custom_target(move_libraries ALL)
+
 # Platforms
 if(WIN32)
   target_sources(lovr PRIVATE src/core/os_win32.c)
-  target_sources(lovr PRIVATE src/resources/lovr.rc)
+  target_sources(lovr PRIVATE etc/lovr.rc)
   if (MSVC)
     set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244 /MP")
+    # Excuse anonymous union for type punning
+    set_source_files_properties(src/util.c src/modules/graphics/graphics.c PROPERTIES COMPILE_FLAGS /wd4116)
+    # Excuse unsigned negation for flag-magic bit math
+    set_source_files_properties(src/modules/audio/audio.c PROPERTIES COMPILE_FLAGS /wd4146)
   else()
     set_target_properties(lovr PROPERTIES COMPILE_FLAGS "-MP")
   endif()
-  set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:console /ENTRY:WinMainCRTStartup")
-  set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup")
+  if(NOT LOVR_BUILD_SHARED)
+    set_target_properties(lovr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:console /ENTRY:WinMainCRTStartup")
+    set_target_properties(lovr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:WinMainCRTStartup")
+  endif()
   target_compile_definitions(lovr PRIVATE _CRT_SECURE_NO_WARNINGS)
   target_compile_definitions(lovr PRIVATE _CRT_NONSTDC_NO_WARNINGS)
 
@@ -611,7 +628,7 @@ if(WIN32)
 
   function(move_dll)
     if(TARGET ${ARGV0})
-      add_custom_command(TARGET lovr POST_BUILD
+      add_custom_command(TARGET move_libraries POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:${ARGV0}>
         $<TARGET_FILE_DIR:lovr>/$<TARGET_FILE_NAME:${ARGV0}>
@@ -622,18 +639,17 @@ if(WIN32)
   move_dll(${LOVR_GLFW})
   move_dll(${LOVR_LUA})
   move_dll(${LOVR_ODE})
-  move_dll(${LOVR_OPENVR})
   move_dll(${LOVR_MSDF})
   move_dll(${LOVR_OCULUS_AUDIO})
   move_dll(${LOVR_PHONON})
   foreach(target ${ALL_PLUGIN_TARGETS})
     move_dll(${target})
   endforeach()
-  target_compile_definitions(lovr PRIVATE LOVR_GL)
 elseif(APPLE)
-  target_link_libraries(lovr objc)
+  find_library(AVFOUNDATION AVFoundation)
+  target_link_libraries(lovr objc ${AVFOUNDATION})
   target_sources(lovr PRIVATE src/core/os_macos.c)
-  target_compile_definitions(lovr PRIVATE LOVR_GL)
+  set_source_files_properties(src/core/os_macos.c PROPERTIES COMPILE_FLAGS -xobjective-c)
   set_target_properties(lovr PROPERTIES
     MACOSX_RPATH TRUE
     BUILD_WITH_INSTALL_RPATH TRUE
@@ -641,11 +657,11 @@ elseif(APPLE)
   )
   if(LOVR_BUILD_BUNDLE)
     set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/MacOS)
-    target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns")
+    target_sources(lovr PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/etc/lovr.icns")
     set_target_properties(lovr PROPERTIES
       MACOSX_BUNDLE TRUE
-      MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Info.plist"
-      RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/lovr.icns"
+      MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/etc/Info.plist"
+      RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/etc/lovr.icns"
     )
   else()
     set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
@@ -653,17 +669,25 @@ elseif(APPLE)
   endif()
   function(move_lib)
     if(TARGET ${ARGV0})
-      add_custom_command(TARGET lovr POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        $<TARGET_SONAME_FILE:${ARGV0}>
-        ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
-      )
+      get_target_property(TARGET_TYPE ${ARGV0} TYPE)
+      if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
+        add_custom_command(TARGET move_libraries POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_FILE:${ARGV0}>
+          ${EXE_DIR}/$<TARGET_FILE_NAME:${ARGV0}>
+        )
+      else()
+        add_custom_command(TARGET move_libraries POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_SONAME_FILE:${ARGV0}>
+          ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
+        )
+      endif()
     endif()
   endfunction()
   move_lib(${LOVR_GLFW})
   move_lib(${LOVR_LUA})
   move_lib(${LOVR_ODE})
-  move_lib(${LOVR_OPENVR})
   move_lib(${LOVR_MSDF})
   move_lib(${LOVR_OCULUS_AUDIO})
   move_lib(${LOVR_PHONON})
@@ -671,12 +695,11 @@ elseif(APPLE)
     move_lib(${target})
   endforeach()
 elseif(EMSCRIPTEN)
-  target_sources(lovr PRIVATE src/core/os_web.c)
-  target_compile_definitions(lovr PRIVATE LOVR_WEBGL)
-  configure_file(src/resources/lovr.ico favicon.ico COPYONLY)
+  target_sources(lovr PRIVATE src/core/os_wasm.c)
+  configure_file(etc/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
-  target_link_libraries(lovr log EGL GLESv3 android dl)
-  target_compile_definitions(lovr PRIVATE LOVR_GLES)
+  target_sources(lovr PRIVATE src/core/os_android.c)
+  target_link_libraries(lovr log android dl)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
 
   # Dynamically linked targets output libraries in raw/lib/<ABI> for easy including in apk with aapt
@@ -690,43 +713,20 @@ elseif(ANDROID)
   if(LOVR_BUILD_EXE)
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
+    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/etc/AndroidManifest_${ANDROID_FLAVOR}.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
     # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
     if(ANDROID_ASSETS)
       set(ANDROID_ASSETS -A ${ANDROID_ASSETS})
     endif()
 
-    # Flavor-specific config:
-    # - Imported targets need to have their libraries manually copied to raw/lib/<ABI>
-    # - Figure out which Java class (Activity) and AndroidManifest.xml to use
-    # - Oculus uses the regular android os layer, pico implements its own in the headset backend
-    # - Some of the Pico SDK is in a jar that has to be added to the classpath and dx invocation
-    # TODO error (probably way earlier) if no headset API is defined, since everything will break
+    if(ANDROID_PACKAGE)
+      set(PACKAGE_RENAME "--rename-manifest-package" "${ANDROID_PACKAGE}")
+    endif()
+
     if(LOVR_USE_OPENXR)
-      set(MANIFEST "oculus")
-      set(ACTIVITY "openxr")
-      target_sources(lovr PRIVATE src/core/os_android.c)
       get_target_property(OPENXR_LIB ${LOVR_OPENXR} IMPORTED_LOCATION)
       file(COPY ${OPENXR_LIB} DESTINATION raw/lib/${ANDROID_ABI})
-      set(ANDROID_CLASSPATH "${ANDROID_JAR}")
-    elseif(LOVR_USE_VRAPI)
-      set(MANIFEST "oculus")
-      set(ACTIVITY "vrapi")
-      target_sources(lovr PRIVATE src/core/os_android.c)
-      get_target_property(VRAPI_LIB ${LOVR_VRAPI} IMPORTED_LOCATION)
-      file(COPY ${VRAPI_LIB} DESTINATION raw/lib/${ANDROID_ABI})
-      set(ANDROID_CLASSPATH "${ANDROID_JAR}")
-    elseif(LOVR_USE_PICO)
-      set(MANIFEST "pico")
-      set(ACTIVITY "pico")
-      get_target_property(PICO_LIB ${LOVR_PICO} IMPORTED_LOCATION)
-      file(COPY ${PICO_LIB} DESTINATION raw/lib/${ANDROID_ABI})
-      set(EXTRA_JAR "${LOVR_PICO_PATH}/classes.jar")
-      if(WIN32)
-        set(ANDROID_CLASSPATH "${ANDROID_JAR};${EXTRA_JAR}")
-      else()
-        set(ANDROID_CLASSPATH "${ANDROID_JAR}:${EXTRA_JAR}")
-      endif()
     endif()
 
     if(LOVR_USE_OCULUS_AUDIO)
@@ -739,24 +739,14 @@ elseif(ANDROID)
       file(COPY ${PHONON_LIB} DESTINATION raw/lib/${ANDROID_ABI})
     endif()
 
-    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/AndroidManifest_${MANIFEST}.xml" CACHE STRING "The AndroidManifest.xml file to use")
-
-    if(ANDROID_KEYSTORE_PASS) # Trick so that --ks-pass is not passed if no password is given.
-      set(ANDROID_APKSIGNER_KEYSTORE_PASS --ks-pass)
-    endif()
-
-    if(ANDROID_PACKAGE)
-      set(PACKAGE_RENAME "--rename-manifest-package" "${ANDROID_PACKAGE}")
-    endif()
-
     # Make an apk
     add_custom_target(
       buildAPK ALL
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
-      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/resources/Activity_${ACTIVITY}.java Activity.java
-      COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_CLASSPATH}" -d . Activity.java
-      COMMAND ${ANDROID_TOOLS}/dx --dex --output raw/classes.dex ${EXTRA_JAR} org/lovr/app/Activity.class
+      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/etc/Activity.java Activity.java
+      COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
+      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw org/lovr/app/Activity.class
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
@@ -771,7 +761,8 @@ elseif(ANDROID)
       COMMAND ${ANDROID_TOOLS}/apksigner
         sign
         --ks ${ANDROID_KEYSTORE}
-        ${ANDROID_APKSIGNER_KEYSTORE_PASS} ${ANDROID_KEYSTORE_PASS}
+        $<$<BOOL:${ANDROID_KEYSTORE_PASS}>:--ks-pass> $<$<BOOL:${ANDROID_KEYSTORE_PASS}>:${ANDROID_KEYSTORE_PASS}>
+        $<$<BOOL:${ANDROID_KEY_PASS}>:--key-pass> $<$<BOOL:${ANDROID_KEY_PASS}>:${ANDROID_KEY_PASS}>
         --in lovr.unsigned.apk
         --out lovr.apk
       COMMAND ${CMAKE_COMMAND} -E remove lovr.unaligned.apk lovr.unsigned.apk AndroidManifest.xml Activity.java
@@ -792,21 +783,16 @@ elseif(ANDROID)
 
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
-      add_custom_command(TARGET lovr POST_BUILD
+      add_custom_command(TARGET move_libraries POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${target}>
           raw/lib/${ANDROID_ABI}/$<TARGET_FILE_NAME:${target}>
       )
     endforeach()
+    add_dependencies(buildAPK move_libraries)
   endif()
 elseif(UNIX)
-  if(LOVR_USE_LINUX_EGL)
-    target_compile_definitions(lovr PRIVATE LOVR_LINUX_EGL)
-  else()
-    target_compile_definitions(lovr PRIVATE LOVR_LINUX_X11)
-  endif()
   target_sources(lovr PRIVATE src/core/os_linux.c)
-  target_compile_definitions(lovr PRIVATE LOVR_GL)
   set_target_properties(lovr PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     BUILD_WITH_INSTALL_RPATH TRUE
@@ -816,13 +802,13 @@ elseif(UNIX)
     if(TARGET ${ARGV0})
       get_target_property(TARGET_TYPE ${ARGV0} TYPE)
       if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:${ARGV0}>
         )
       else()
-        add_custom_command(TARGET lovr POST_BUILD
+        add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
@@ -831,7 +817,7 @@ elseif(UNIX)
     endif()
   endfunction()
   function(move_app_image_file)
-    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/${ARGV0}")
+    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/etc/${ARGV0}")
     set(DST "${CMAKE_BINARY_DIR}/bin/${ARGV0}")
     add_custom_command(TARGET lovr POST_BUILD
        DEPENDS ${SRC}
@@ -841,8 +827,8 @@ elseif(UNIX)
   move_lib(${LOVR_GLFW})
   move_lib(${LOVR_LUA})
   move_lib(${LOVR_ODE})
-  move_lib(${LOVR_OPENVR})
   move_lib(${LOVR_MSDF})
+  move_lib(${LOVR_OPENXR})
   move_lib(${LOVR_OCULUS_AUDIO})
   foreach(target ${ALL_PLUGIN_TARGETS})
     move_lib(${target})

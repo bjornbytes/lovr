@@ -1,93 +1,31 @@
-#include "core/map.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 
 #pragma once
 
-#define MAX_BONES 48
-
 struct Blob;
 struct Image;
+
+typedef struct {
+  uint32_t blob;
+  size_t offset;
+  size_t size;
+  size_t stride;
+  char* data;
+} ModelBuffer;
 
 typedef enum {
   ATTR_POSITION,
   ATTR_NORMAL,
-  ATTR_TEXCOORD,
+  ATTR_UV,
   ATTR_COLOR,
   ATTR_TANGENT,
-  ATTR_BONES,
+  ATTR_JOINTS,
   ATTR_WEIGHTS,
   MAX_DEFAULT_ATTRIBUTES
 } DefaultAttribute;
-
-typedef enum {
-  DRAW_POINTS,
-  DRAW_LINES,
-  DRAW_LINE_LOOP,
-  DRAW_LINE_STRIP,
-  DRAW_TRIANGLES,
-  DRAW_TRIANGLE_STRIP,
-  DRAW_TRIANGLE_FAN
-} DrawMode;
-
-typedef enum {
-  FILTER_NEAREST,
-  FILTER_BILINEAR,
-  FILTER_TRILINEAR
-} FilterMode;
-
-typedef struct {
-  FilterMode mode;
-  float anisotropy;
-} TextureFilter;
-
-typedef enum {
-  WRAP_CLAMP,
-  WRAP_REPEAT,
-  WRAP_MIRRORED_REPEAT
-} WrapMode;
-
-typedef struct {
-  WrapMode s;
-  WrapMode t;
-  WrapMode r;
-} TextureWrap;
-
-typedef enum {
-  SCALAR_METALNESS,
-  SCALAR_ROUGHNESS,
-  MAX_MATERIAL_SCALARS
-} MaterialScalar;
-
-typedef enum {
-  COLOR_DIFFUSE,
-  COLOR_EMISSIVE,
-  MAX_MATERIAL_COLORS
-} MaterialColor;
-
-typedef enum {
-  TEXTURE_DIFFUSE,
-  TEXTURE_EMISSIVE,
-  TEXTURE_METALNESS,
-  TEXTURE_ROUGHNESS,
-  TEXTURE_OCCLUSION,
-  TEXTURE_NORMAL,
-  MAX_MATERIAL_TEXTURES
-} MaterialTexture;
-
-typedef enum {
-  SMOOTH_STEP,
-  SMOOTH_LINEAR,
-  SMOOTH_CUBIC
-} SmoothMode;
-
-typedef enum {
-  PROP_TRANSLATION,
-  PROP_ROTATION,
-  PROP_SCALE,
-} AnimationProperty;
 
 typedef enum { I8, U8, I16, U16, I32, U32, F32 } AttributeType;
 
@@ -103,14 +41,9 @@ typedef union {
 } AttributeData;
 
 typedef struct {
-  char* data;
-  size_t size;
-  size_t stride;
-} ModelBuffer;
-
-typedef struct {
   uint32_t offset;
   uint32_t buffer;
+  size_t stride;
   uint32_t count;
   AttributeType type;
   unsigned components : 3;
@@ -121,6 +54,59 @@ typedef struct {
   float min[4];
   float max[4];
 } ModelAttribute;
+
+typedef enum {
+  DRAW_POINTS,
+  DRAW_LINES,
+  DRAW_LINE_LOOP,
+  DRAW_LINE_STRIP,
+  DRAW_TRIANGLES,
+  DRAW_TRIANGLE_STRIP,
+  DRAW_TRIANGLE_FAN
+} DrawMode;
+
+typedef struct {
+  ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
+  ModelAttribute* indices;
+  DrawMode mode;
+  uint32_t material;
+  uint32_t skin;
+} ModelPrimitive;
+
+typedef struct {
+  float color[4];
+  float glow[4];
+  float uvShift[2];
+  float uvScale[2];
+  float sdfRange[2];
+  float metalness;
+  float roughness;
+  float clearcoat;
+  float clearcoatRoughness;
+  float occlusionStrength;
+  float normalScale;
+  float alphaCutoff;
+  uint32_t texture;
+  uint32_t glowTexture;
+  uint32_t occlusionTexture;
+  uint32_t metalnessTexture;
+  uint32_t roughnessTexture;
+  uint32_t clearcoatTexture;
+  uint32_t normalTexture;
+  const char* name;
+} ModelMaterial;
+
+typedef enum {
+  PROP_TRANSLATION,
+  PROP_ROTATION,
+  PROP_SCALE,
+} AnimationProperty;
+
+typedef enum {
+  SMOOTH_STEP,
+  SMOOTH_LINEAR,
+  SMOOTH_CUBIC
+} SmoothMode;
 
 typedef struct {
   uint32_t nodeIndex;
@@ -139,20 +125,11 @@ typedef struct {
 } ModelAnimation;
 
 typedef struct {
-  const char* name;
-  float scalars[MAX_MATERIAL_SCALARS];
-  Color colors[MAX_MATERIAL_COLORS];
-  uint32_t images[MAX_MATERIAL_TEXTURES];
-  TextureFilter filters[MAX_MATERIAL_TEXTURES];
-  TextureWrap wraps[MAX_MATERIAL_TEXTURES];
-} ModelMaterial;
-
-typedef struct {
-  ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
-  ModelAttribute* indices;
-  DrawMode mode;
-  uint32_t material;
-} ModelPrimitive;
+  uint32_t* joints;
+  uint32_t jointCount;
+  uint32_t vertexCount;
+  float* inverseBindMatrices;
+} ModelSkin;
 
 typedef struct {
   const char* name;
@@ -162,42 +139,41 @@ typedef struct {
       float translation[4];
       float rotation[4];
       float scale[4];
-    } properties;
+    };
   } transform;
+  uint32_t parent;
   uint32_t* children;
   uint32_t childCount;
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
   uint32_t skin;
-  bool matrix;
+  bool hasMatrix;
 } ModelNode;
-
-typedef struct {
-  uint32_t* joints;
-  uint32_t jointCount;
-  float* inverseBindMatrices;
-} ModelSkin;
 
 typedef struct ModelData {
   uint32_t ref;
   void* data;
+
+  char* metadata;
+  size_t metadataSize;
+
   struct Blob** blobs;
-  ModelBuffer* buffers;
   struct Image** images;
-  ModelMaterial* materials;
+  ModelBuffer* buffers;
   ModelAttribute* attributes;
   ModelPrimitive* primitives;
+  ModelMaterial* materials;
   ModelAnimation* animations;
   ModelSkin* skins;
   ModelNode* nodes;
   uint32_t rootNode;
 
   uint32_t blobCount;
-  uint32_t bufferCount;
   uint32_t imageCount;
-  uint32_t materialCount;
+  uint32_t bufferCount;
   uint32_t attributeCount;
   uint32_t primitiveCount;
+  uint32_t materialCount;
   uint32_t animationCount;
   uint32_t skinCount;
   uint32_t nodeCount;
@@ -210,6 +186,19 @@ typedef struct ModelData {
   uint32_t childCount;
   uint32_t jointCount;
   uint32_t charCount;
+
+  uint32_t vertexCount;
+  uint32_t skinnedVertexCount;
+  uint32_t indexCount;
+  AttributeType indexType;
+
+  float boundingBox[6];
+  float boundingSphere[4];
+
+  float* vertices;
+  uint32_t* indices;
+  uint32_t totalVertexCount;
+  uint32_t totalIndexCount;
 
   map_t animationMap;
   map_t materialMap;
@@ -224,3 +213,8 @@ ModelData* lovrModelDataInitObj(ModelData* model, struct Blob* blob, ModelDataIO
 ModelData* lovrModelDataInitStl(ModelData* model, struct Blob* blob, ModelDataIO* io);
 void lovrModelDataDestroy(void* ref);
 void lovrModelDataAllocate(ModelData* model);
+void lovrModelDataFinalize(ModelData* model);
+void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char* dst, AttributeType type, uint32_t components, bool normalized, uint32_t count, size_t stride, uint8_t clear);
+void lovrModelDataGetBoundingBox(ModelData* data, float box[6]);
+void lovrModelDataGetBoundingSphere(ModelData* data, float sphere[4]);
+void lovrModelDataGetTriangles(ModelData* data, float** vertices, uint32_t** indices, uint32_t* vertexCount, uint32_t* indexCount);

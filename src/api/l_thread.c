@@ -2,7 +2,7 @@
 #include "event/event.h"
 #include "thread/thread.h"
 #include "thread/channel.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>

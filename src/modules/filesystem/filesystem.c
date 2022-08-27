@@ -1,8 +1,7 @@
 #include "filesystem/filesystem.h"
 #include "core/fs.h"
-#include "core/map.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include "core/zip.h"
 #include "lib/stb/stb_image.h"
 #include <string.h>
@@ -111,12 +110,34 @@ bool lovrFilesystemInit(const char* archive) {
   if (state.initialized) return false;
   state.initialized = true;
 
-  arr_init(&state.archives, realloc);
+  arr_init(&state.archives, arr_alloc);
   arr_reserve(&state.archives, 2);
 
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
 
-  // First, try to mount a bundled archive
+  // On Android, the save directory is mounted early, because the identity is fixed to the package
+  // name and it is convenient to be able to load main.lua and conf.lua from the save directory,
+  // which requires it to be mounted early in the boot process.
+#ifdef __ANDROID__
+  size_t cursor = os_get_data_directory(state.savePath, sizeof(state.savePath));
+
+  // The data path ends in /package.id/files, so to extract the identity the '/files' is temporarily
+  // chopped off and everything from the last slash is copied to the identity buffer
+  if (cursor > 6) {
+    state.savePath[cursor - 6] = '\0';
+    char* id = strrchr(state.savePath, '/') + 1;
+    size_t length = strlen(id);
+    memcpy(state.identity, id, length);
+    state.identity[length] = '\0';
+    state.savePath[cursor - 6] = '/';
+    state.savePathLength = cursor;
+    if (!lovrFilesystemMount(state.savePath, NULL, false, NULL)) {
+      state.identity[0] = '\0';
+    }
+  }
+#endif
+
+  // Try to mount a bundled archive
   const char* root = NULL;
   if (os_get_bundle_path(state.source, LOVR_PATH_MAX, &root) && lovrFilesystemMount(state.source, NULL, true, root)) {
     state.fused = true;
@@ -127,6 +148,22 @@ bool lovrFilesystemInit(const char* archive) {
   if (archive) {
     state.source[LOVR_PATH_MAX - 1] = '\0';
     strncpy(state.source, archive, LOVR_PATH_MAX - 1);
+
+    // If the command line parameter is a file, use its containing folder as the source
+    size_t length = strlen(state.source);
+    if (length > 4 && !memcmp(state.source + length - 4, ".lua", 4)) {
+      char* slash = strrchr(state.source, '/');
+
+      if (slash) {
+        *slash = '\0';
+      } else if ((slash = strrchr(state.source, '\\')) != NULL) {
+        *slash = '\0';
+      } else {
+        state.source[0] = '.';
+        state.source[1] = '\0';
+      }
+    }
+
     if (lovrFilesystemMount(state.source, NULL, true, NULL)) {
       return true;
     }
@@ -168,7 +205,7 @@ bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, 
   }
 
   Archive archive;
-  arr_init(&archive.strings, realloc);
+  arr_init(&archive.strings, arr_alloc);
 
   if (!dir_init(&archive, path, mountpoint, root) && !zip_init(&archive, path, mountpoint, root)) {
     arr_free(&archive.strings);
@@ -292,20 +329,6 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
     return false;
   }
 
-#ifdef __ANDROID__
-  // On Android the data path is the save path, and the identity is always the package id.
-  // The data path ends in /package.id/files, so to extract the identity the '/files' is temporarily
-  // chopped off and everything from the last slash is copied to the identity buffer
-  // FIXME brittle?  could read package id from /proc/self/cmdline instead
-  state.savePath[cursor - 6] = '\0';
-  char* id = strrchr(state.savePath, '/') + 1;
-  length = strlen(id);
-  memcpy(state.identity, id, length);
-  state.identity[length] = '\0';
-  state.savePath[cursor - 6] = '/';
-  state.savePathLength = cursor;
-#else
-
   // Make sure there is enough room to tack on /LOVR/<identity>
   if (cursor + 1 + strlen("LOVR") + 1 + length >= sizeof(state.savePath)) {
     return false;
@@ -328,7 +351,6 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
 
   // Set the identity string
   memcpy(state.identity, identity, length + 1);
-#endif
 
   // Mount the fully resolved save path
   if (!lovrFilesystemMount(state.savePath, NULL, !precedence, NULL)) {
@@ -370,20 +392,22 @@ bool lovrFilesystemRemove(const char* path) {
   return valid(path) && concat(resolved, state.savePath, state.savePathLength, path, strlen(path)) && fs_remove(resolved);
 }
 
-size_t lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
+bool lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
   char resolved[LOVR_PATH_MAX];
   if (!valid(path) || !concat(resolved, state.savePath, state.savePathLength, path, strlen(path))) {
-    return 0;
+    return false;
   }
 
   fs_handle file;
   if (!fs_open(resolved, append ? OPEN_APPEND : OPEN_WRITE, &file)) {
-    return 0;
+    return false;
   }
 
-  fs_write(file, content, &size);
-  fs_close(file);
-  return size;
+  if (!fs_write(file, content, &size)) {
+    return false;
+  }
+
+  return fs_close(file);
 }
 
 // Paths
@@ -593,7 +617,7 @@ static void zip_close(Archive* archive) {
 static bool zip_init(Archive* archive, const char* filename, const char* mountpoint, const char* root) {
   char path[LOVR_PATH_MAX];
   memset(&archive->lookup, 0, sizeof(archive->lookup));
-  arr_init(&archive->nodes, realloc);
+  arr_init(&archive->nodes, arr_alloc);
 
   // mmap the zip file, try to parse it, and figure out how many files there are
   archive->zip.data = fs_map(filename, &archive->zip.size);

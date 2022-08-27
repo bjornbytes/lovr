@@ -122,6 +122,15 @@ MAF vec3 vec3_max(vec3 v, const vec3 u) {
   return v;
 }
 
+MAF float vec3_angle(const vec3 v, const vec3 u) {
+  float denom = vec3_length(v) * vec3_length(u);
+  if (denom == 0.f) {
+    return (float) M_PI / 2.f;
+  } else {
+    return acosf(vec3_dot(v, u) / denom);
+  }
+}
+
 // quat
 
 MAF quat quat_set(quat q, float x, float y, float z, float w) {
@@ -446,6 +455,30 @@ MAF mat4 mat4_invert(mat4 m) {
   return m;
 }
 
+MAF mat4 mat4_cofactor(mat4 m) {
+  float m00 = m[0], m04 = m[4], m08 = m[8], m12 = m[12];
+  float m01 = m[1], m05 = m[5], m09 = m[9], m13 = m[13];
+  float m02 = m[2], m06 = m[6], m10 = m[10], m14 = m[14];
+  float m03 = m[3], m07 = m[7], m11 = m[11], m15 = m[15];
+  m[0]  =  (m05 * (m10 * m15 - m11 * m14) - m09 * (m06 * m15 - m07 * m14) + m13 * (m06 * m11 - m07 * m10));
+  m[1]  = -(m04 * (m10 * m15 - m11 * m14) - m08 * (m06 * m15 - m07 * m14) + m12 * (m06 * m11 - m07 * m10));
+  m[2]  =  (m04 * (m09 * m15 - m11 * m13) - m08 * (m05 * m15 - m07 * m13) + m12 * (m05 * m11 - m07 * m09));
+  m[3]  = -(m04 * (m09 * m14 - m10 * m13) - m08 * (m05 * m14 - m06 * m13) + m12 * (m05 * m10 - m06 * m09));
+  m[4]  = -(m01 * (m10 * m15 - m11 * m14) - m09 * (m02 * m15 - m03 * m14) + m13 * (m02 * m11 - m03 * m10));
+  m[5]  =  (m00 * (m10 * m15 - m11 * m14) - m08 * (m02 * m15 - m03 * m14) + m12 * (m02 * m11 - m03 * m10));
+  m[6]  = -(m00 * (m09 * m15 - m11 * m13) - m08 * (m01 * m15 - m03 * m13) + m12 * (m01 * m11 - m03 * m09));
+  m[7]  =  (m00 * (m09 * m14 - m10 * m13) - m08 * (m01 * m14 - m02 * m13) + m12 * (m01 * m10 - m02 * m09));
+  m[8]  =  (m01 * (m06 * m15 - m07 * m14) - m05 * (m02 * m15 - m03 * m14) + m13 * (m02 * m07 - m03 * m06));
+  m[9]  = -(m00 * (m06 * m15 - m07 * m14) - m04 * (m02 * m15 - m03 * m14) + m12 * (m02 * m07 - m03 * m06));
+  m[10] =  (m00 * (m05 * m15 - m07 * m13) - m04 * (m01 * m15 - m03 * m13) + m12 * (m01 * m07 - m03 * m05));
+  m[11] = -(m00 * (m05 * m14 - m06 * m13) - m04 * (m01 * m14 - m02 * m13) + m12 * (m01 * m06 - m02 * m05));
+  m[12] = -(m01 * (m06 * m11 - m07 * m10) - m05 * (m02 * m11 - m03 * m10) + m09 * (m02 * m07 - m03 * m06));
+  m[13] =  (m00 * (m06 * m11 - m07 * m10) - m04 * (m02 * m11 - m03 * m10) + m08 * (m02 * m07 - m03 * m06));
+  m[14] = -(m00 * (m05 * m11 - m07 * m09) - m04 * (m01 * m11 - m03 * m09) + m08 * (m01 * m07 - m03 * m05));
+  m[15] =  (m00 * (m05 * m10 - m06 * m09) - m04 * (m01 * m10 - m02 * m09) + m08 * (m01 * m06 - m02 * m05));
+  return m;
+}
+
 // Calculate matrix equivalent to "apply n, then m"
 MAF mat4 mat4_mul(mat4 m, mat4 n) {
   float m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3],
@@ -546,7 +579,7 @@ MAF void mat4_getAngleAxis(mat4 m, float* angle, float* ax, float* ay, float* az
   if (fabsf(cosangle) < 1.f - FLT_EPSILON) {
     *angle = acosf(cosangle);
   } else {
-    *angle = (float) M_PI;
+    *angle = cosangle > 0.f ? 0.f : (float) M_PI;
   }
   *ax = axis[0];
   *ay = axis[1];
@@ -557,56 +590,60 @@ MAF void mat4_getScale(mat4 m, vec3 scale) {
   vec3_set(scale, vec3_length(m + 0), vec3_length(m + 4), vec3_length(m + 8));
 }
 
-MAF mat4 mat4_orthographic(mat4 m, float left, float right, float top, float bottom, float clipNear, float clipFar) {
+// Does not have a Y flip, maps z = [-n,-f] to [0,1]
+MAF mat4 mat4_orthographic(mat4 m, float left, float right, float bottom, float top, float n, float f) {
   float rl = right - left;
   float tb = top - bottom;
-  float fn = clipFar - clipNear;
+  float fn = f - n;
   memset(m, 0, 16 * sizeof(float));
-  m[0] = 2 / rl;
-  m[5] = 2 / tb;
-  m[10] = -2 / fn;
-  m[12] = -(left + right) / rl;
+  m[0] = 2.f / rl;
+  m[5] = 2.f / tb;
+  m[10] = -1.f / fn;
+  m[12] = -(right + left) / rl;
   m[13] = -(top + bottom) / tb;
-  m[14] = -(clipFar + clipNear) / fn;
-  m[15] = 1;
+  m[14] = -n / fn;
+  m[15] = 1.f;
   return m;
 }
 
-MAF mat4 mat4_perspective(mat4 m, float clipNear, float clipFar, float fovy, float aspect) {
-  float range = tanf(fovy * .5f) * clipNear;
-  float sx = (2.f * clipNear) / (range * aspect + range * aspect);
-  float sy = clipNear / range;
-  float sz = -(clipFar + clipNear) / (clipFar - clipNear);
-  float pz = (-2.f * clipFar * clipNear) / (clipFar - clipNear);
+// Flips Y and maps z = [-n,-f] to [0,1] after dividing by w, f == 0 inverts z with infinite far
+MAF mat4 mat4_perspective(mat4 m, float fovy, float aspect, float n, float f) {
+  float cotan = 1.f  / tanf(fovy * .5f);
   memset(m, 0, 16 * sizeof(float));
-  m[0] = sx;
-  m[5] = sy;
-  m[10] = sz;
-  m[11] = -1.f;
-  m[14] = pz;
-  m[15] = 0.f;
+  m[0] = cotan / aspect;
+  m[5] = -cotan;
+  if (f == 0.f) {
+    m[10] = 0.f;
+    m[11] = -1.f;
+    m[14] = n;
+  } else {
+    m[10] = f / (n - f);
+    m[11] = -1.f;
+    m[14] = (n * f) / (n - f);
+  }
   return m;
 }
 
-// This is currently specific to OpenGL
-MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float clipNear, float clipFar) {
+// Flips Y and maps z = [-n,-f] to [0,1] after dividing by w, f == 0 inverts z with infinite far
+MAF mat4 mat4_fov(mat4 m, float left, float right, float up, float down, float n, float f) {
   left = -tanf(left);
   right = tanf(right);
   up = tanf(up);
   down = -tanf(down);
-  float idx = 1.f / (right - left);
-  float idy = 1.f / (up - down);
-  float idz = 1.f / (clipFar - clipNear);
-  float sx = right + left;
-  float sy = down + up;
   memset(m, 0, 16 * sizeof(float));
-  m[0] = 2.f * idx;
-  m[5] = 2.f * idy;
-  m[8] = sx * idx;
-  m[9] = sy * idy;
-  m[10] = -(clipFar + clipNear) * idz;
-  m[11] = -1.f;
-  m[14] = -(clipFar * 2.f * clipNear) * idz;
+  m[0] = 2.f / (right - left);
+  m[5] = 2.f / (down - up);
+  m[8] = (right + left) / (right - left);
+  m[9] = (down + up) / (down - up);
+  if (f == 0.f) {
+    m[10] = 0.f;
+    m[11] = -1.f;
+    m[14] = n;
+  } else {
+    m[10] = f / (n - f);
+    m[11] = -1.f;
+    m[14] = (n * f) / (n - f);
+  }
   return m;
 }
 
@@ -614,8 +651,8 @@ MAF void mat4_getFov(mat4 m, float* left, float* right, float* up, float* down) 
   float v[4][4] = {
     {  1.f,  0.f, 0.f, 1.f },
     { -1.f,  0.f, 0.f, 1.f },
-    {  0.f, -1.f, 0.f, 1.f },
-    {  0.f,  1.f, 0.f, 1.f }
+    {  0.f,  1.f, 0.f, 1.f },
+    {  0.f, -1.f, 0.f, 1.f }
   };
 
   float transpose[16];

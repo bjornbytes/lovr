@@ -7,7 +7,6 @@
 
 struct lua_State;
 struct luaL_Reg;
-struct Color;
 
 // Enums
 typedef struct {
@@ -17,6 +16,7 @@ typedef struct {
 
 #define ENTRY(s) { sizeof(s) - 1, s }
 
+extern StringEntry lovrAnimationProperty[];
 extern StringEntry lovrArcMode[];
 extern StringEntry lovrAttributeType[];
 extern StringEntry lovrAudioMaterial[];
@@ -25,10 +25,12 @@ extern StringEntry lovrAudioType[];
 extern StringEntry lovrBlendAlphaMode[];
 extern StringEntry lovrBlendMode[];
 extern StringEntry lovrBlockType[];
-extern StringEntry lovrBufferUsage[];
+extern StringEntry lovrBufferLayout[];
 extern StringEntry lovrChannelLayout[];
 extern StringEntry lovrCompareMode[];
-extern StringEntry lovrCoordinateSpace[];
+extern StringEntry lovrCullMode[];
+extern StringEntry lovrDefaultAttribute[];
+extern StringEntry lovrDefaultShader[];
 extern StringEntry lovrDevice[];
 extern StringEntry lovrDeviceAxis[];
 extern StringEntry lovrDeviceButton[];
@@ -36,22 +38,29 @@ extern StringEntry lovrDrawMode[];
 extern StringEntry lovrDrawStyle[];
 extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
+extern StringEntry lovrFieldType[];
 extern StringEntry lovrFilterMode[];
 extern StringEntry lovrHeadsetDriver[];
 extern StringEntry lovrHeadsetOrigin[];
 extern StringEntry lovrHorizontalAlign[];
 extern StringEntry lovrJointType[];
 extern StringEntry lovrKeyboardKey[];
-extern StringEntry lovrMaterialColor[];
-extern StringEntry lovrMaterialScalar[];
-extern StringEntry lovrMaterialTexture[];
+extern StringEntry lovrMeshMode[];
+extern StringEntry lovrOriginType[];
+extern StringEntry lovrPassType[];
 extern StringEntry lovrPermission[];
 extern StringEntry lovrSampleFormat[];
+extern StringEntry lovrShaderStage[];
 extern StringEntry lovrShaderType[];
 extern StringEntry lovrShapeType[];
+extern StringEntry lovrSmoothMode[];
+extern StringEntry lovrStackType[];
 extern StringEntry lovrStencilAction[];
+extern StringEntry lovrTallyType[];
+extern StringEntry lovrTextureFeature[];
 extern StringEntry lovrTextureFormat[];
 extern StringEntry lovrTextureType[];
+extern StringEntry lovrTextureUsage[];
 extern StringEntry lovrTimeUnit[];
 extern StringEntry lovrUniformAccess[];
 extern StringEntry lovrVerticalAlign[];
@@ -80,6 +89,14 @@ typedef struct {
 #define LUA_RIDX_MAINTHREAD 1
 #endif
 
+#ifdef LOVR_UNCHECKED
+#define luax_checku32(L, i) (uint32_t) lua_tonumber(L, i)
+#define luax_optu32(L, i, x) (uint32_t) luaL_optnumber(L, i, x)
+#else
+#define luax_checku32(L, i) _luax_checku32(L, i)
+#define luax_optu32(L, i, x) _luax_optu32(L, i, x)
+#endif
+
 #define luax_registertype(L, T) _luax_registertype(L, #T, lovr ## T, lovr ## T ## Destroy)
 #define luax_totype(L, i, T) (T*) _luax_totype(L, i, hash64(#T, sizeof(#T) - 1))
 #define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, hash64(#T, sizeof(#T) - 1), #T)
@@ -88,9 +105,7 @@ typedef struct {
 #define luax_pushenum(L, T, x) lua_pushlstring(L, (lovr ## T)[x].string, (lovr ## T)[x].length)
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
-#define luax_geterror(L) lua_getfield(L, LUA_REGISTRYINDEX, "_lovrerror")
-#define luax_seterror(L) lua_setfield(L, LUA_REGISTRYINDEX, "_lovrerror")
-#define luax_clearerror(L) lua_pushnil(L), luax_seterror(L)
+#define luax_tofloat(L, i) (float) lua_tonumber(L, i)
 
 void luax_preload(struct lua_State* L);
 void _luax_registertype(struct lua_State* L, const char* name, const struct luaL_Reg* functions, void (*destructor)(void*));
@@ -108,15 +123,21 @@ int luax_getstack(struct lua_State* L);
 void luax_pushconf(struct lua_State* L);
 int luax_setconf(struct lua_State* L);
 void luax_setmainthread(struct lua_State* L);
-void luax_atexit(struct lua_State* L, void (*destructor)(void));
-void luax_readcolor(struct lua_State* L, int index, struct Color* color);
+void luax_atexit(struct lua_State* L, void (*finalizer)(void));
+uint32_t _luax_checku32(struct lua_State* L, int index);
+uint32_t _luax_optu32(struct lua_State* L, int index, uint32_t fallback);
+void luax_readcolor(struct lua_State* L, int index, float color[4]);
+void luax_optcolor(struct lua_State* L, int index, float color[4]);
 int luax_readmesh(struct lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
 
 // Module helpers
 
 #ifndef LOVR_DISABLE_DATA
 struct Blob;
+struct Image;
 struct Blob* luax_readblob(struct lua_State* L, int index, const char* debug);
+struct Image* luax_checkimage(struct lua_State* L, int index);
+uint32_t luax_checkcodepoint(struct lua_State* L, int index);
 #endif
 
 #ifndef LOVR_DISABLE_EVENT
@@ -127,15 +148,19 @@ int luax_pushvariant(struct lua_State* L, struct Variant* variant);
 
 #ifndef LOVR_DISABLE_FILESYSTEM
 void* luax_readfile(const char* filename, size_t* bytesRead);
+bool luax_writefile(const char* filename, const void* data, size_t size);
 #endif
 
 #ifndef LOVR_DISABLE_GRAPHICS
-struct Attachment;
-struct Texture;
-struct Uniform;
-int luax_checkuniform(struct lua_State* L, int index, const struct Uniform* uniform, void* dest, const char* debug);
-int luax_optmipmap(struct lua_State* L, int index, struct Texture* texture);
-void luax_readattachments(struct lua_State* L, int index, struct Attachment* attachments, int* count);
+struct Buffer;
+struct ColoredString;
+struct Model;
+struct Buffer* luax_checkbuffer(struct lua_State* L, int index);
+void luax_readbufferfield(struct lua_State* L, int index, int type, void* data);
+void luax_readbufferdata(struct lua_State* L, int index, struct Buffer* buffer, char* data);
+uint32_t luax_checkcomparemode(struct lua_State* L, int index);
+struct ColoredString* luax_checkcoloredstrings(struct lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
+uint32_t luax_checknodeindex(struct lua_State* L, int index, struct Model* model);
 #endif
 
 #ifndef LOVR_DISABLE_MATH

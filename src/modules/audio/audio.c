@@ -2,7 +2,7 @@
 #include "audio/spatializer.h"
 #include "data/sound.h"
 #include "core/maf.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/miniaudio/miniaudio.h"
 #include <string.h>
 #include <stdlib.h>
@@ -22,6 +22,7 @@ struct Source {
   uint32_t ref;
   uint32_t index;
   Sound* sound;
+  // Note: Converter is written once in lovrSourceCreate and can never be changed.
   ma_data_converter* converter;
   intptr_t spatializerMemo;
   uint32_t offset;
@@ -34,6 +35,7 @@ struct Source {
   uint8_t effects;
   bool playing;
   bool looping;
+  bool spatial;
 };
 
 static struct {
@@ -47,11 +49,9 @@ static struct {
   float position[4];
   float orientation[4];
   Spatializer* spatializer;
-  uint32_t leftoverOffset;
-  uint32_t leftoverFrames;
-  float leftovers[BUFFER_SIZE * 2];
   float absorption[3];
   ma_data_converter playbackConverter;
+  uint32_t sampleRate;
 } state;
 
 static const ma_format miniaudioFormats[] = {
@@ -70,140 +70,103 @@ static float linearToDb(float linear) {
 // Device callbacks
 
 static void onPlayback(ma_device* device, void* out, const void* in, uint32_t count) {
+  lovrAssert(count == BUFFER_SIZE, "Unreachable");
   float raw[BUFFER_SIZE * 2];
   float aux[BUFFER_SIZE * 2];
   float mix[BUFFER_SIZE * 2];
-  uint32_t total = count;
-  float* output = out;
-
-  // Consume any leftovers from the previous callback
-  if (state.leftoverFrames > 0) {
-    uint32_t leftoverFrames = MIN(count, state.leftoverFrames);
-    memcpy(output, state.leftovers + state.leftoverOffset * OUTPUT_CHANNELS, leftoverFrames * OUTPUT_CHANNELS * sizeof(float));
-    state.leftoverOffset += leftoverFrames;
-    state.leftoverFrames -= leftoverFrames;
-    output += leftoverFrames * OUTPUT_CHANNELS;
-    count -= leftoverFrames;
-    if (count == 0) {
-      goto sink;
-    }
-  }
+  float* dst = out;
+  float* buf = NULL; // The "current" buffer (used for fast paths)
 
   ma_mutex_lock(&state.lock);
 
-  do {
-    float* dst = count >= BUFFER_SIZE ? output : state.leftovers;
-    float* buf = NULL; // The "current" buffer (used for fast paths)
-
-    if (dst == state.leftovers) {
-      memset(dst, 0, sizeof(state.leftovers));
+  Source* source;
+  FOREACH_SOURCE(source) {
+    if (!source->playing) {
+      state.sources[source->index] = NULL;
+      state.sourceMask &= ~(1ull << source->index);
+      state.spatializer->sourceDestroy(source);
+      source->index = ~0u;
+      lovrRelease(source, lovrSourceDestroy);
+      continue;
     }
 
-    Source* source;
-    FOREACH_SOURCE(source) {
-      if (!source->playing) {
-        state.sources[source->index] = NULL;
-        state.sourceMask &= ~(1ull << source->index);
-        state.spatializer->sourceDestroy(source);
-        source->index = ~0u;
-        lovrRelease(source, lovrSourceDestroy);
-        continue;
+    // Read and convert raw frames until there's BUFFER_SIZE converted frames
+    // - No converter: just read frames into raw (it has enough space for BUFFER_SIZE frames).
+    // - Converter: keep reading as many frames as possible/needed into raw and convert into aux.
+    // - If EOF is reached, rewind and continue for looping sources, otherwise pad end with zero.
+    buf = source->converter ? aux : raw;
+    float* cursor = buf; // Edge of processed frames
+    uint32_t channelsOut = source->spatial ? 1 : 2; // If spatializer isn't converting to stereo, converter must do it
+    uint32_t framesRemaining = BUFFER_SIZE;
+    while (framesRemaining > 0) {
+      uint32_t framesRead;
+
+      if (source->converter) {
+        uint32_t channelsIn = lovrSoundGetChannelCount(source->sound);
+        uint32_t capacity = sizeof(raw) / (channelsIn * sizeof(float));
+        ma_uint64 chunk;
+        ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining, &chunk);
+        framesRead = lovrSoundRead(source->sound, source->offset, MIN(chunk, capacity), raw);
+      } else {
+        framesRead = lovrSoundRead(source->sound, source->offset, framesRemaining, cursor);
       }
 
-      // Read and convert raw frames until there's BUFFER_SIZE converted frames
-      // - No converter: just read frames into raw (it has enough space for BUFFER_SIZE frames).
-      // - Converter: keep reading as many frames as possible/needed into raw and convert into aux.
-      // - If EOF is reached, rewind and continue for looping sources, otherwise pad end with zero.
-      buf = source->converter ? aux : raw;
-      float* cursor = buf; // Edge of processed frames
-      uint32_t channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // If spatializer isn't converting to stereo, converter must do it
-      uint32_t framesRemaining = BUFFER_SIZE;
-      uint32_t framesProcessed = 0;
-      while (framesRemaining > 0) {
-        uint32_t framesRead;
-
-        if (source->converter) {
-          uint32_t channelsIn = lovrSoundGetChannelCount(source->sound);
-          uint32_t capacity = sizeof(raw) / (channelsIn * sizeof(float));
-          uint32_t chunk = MIN(ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining), capacity);
-          framesRead = lovrSoundRead(source->sound, source->offset, chunk, raw);
+      if (framesRead == 0) {
+        if (source->looping) {
+          source->offset = 0;
+          continue;
         } else {
-          framesRead = lovrSoundRead(source->sound, source->offset, framesRemaining, cursor);
+          source->offset = 0;
+          source->playing = false;
+          memset(cursor, 0, framesRemaining * channelsOut * sizeof(float));
+          break;
         }
-
-        if (framesRead == 0) {
-          if (source->looping) {
-            source->offset = 0;
-            continue;
-          } else {
-            source->offset = 0;
-            source->playing = false;
-            memset(cursor, 0, framesRemaining * channelsOut * sizeof(float));
-            break;
-          }
-        } else {
-          source->offset += framesRead;
-        }
-
-        if (source->converter) {
-          ma_uint64 framesIn = framesRead;
-          ma_uint64 framesOut = framesRemaining;
-          ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, cursor, &framesOut);
-          cursor += framesOut * channelsOut;
-          framesProcessed += framesOut;
-          framesRemaining -= framesOut;
-        } else {
-          cursor += framesRead * channelsOut;
-          framesProcessed += framesRead;
-          framesRemaining -= framesRead;
-        }
+      } else {
+        source->offset += framesRead;
       }
 
-      // Spatialize
-      if (lovrSourceUsesSpatializer(source)) {
-        state.spatializer->apply(source, buf, mix, BUFFER_SIZE, BUFFER_SIZE);
-        buf = mix;
-      }
-
-      // Mix
-      float volume = source->volume;
-      for (uint32_t i = 0; i < OUTPUT_CHANNELS * BUFFER_SIZE; i++) {
-        dst[i] += buf[i] * volume;
+      if (source->converter) {
+        ma_uint64 framesIn = framesRead;
+        ma_uint64 framesOut = framesRemaining;
+        ma_data_converter_process_pcm_frames(source->converter, raw, &framesIn, cursor, &framesOut);
+        cursor += framesOut * channelsOut;
+        framesRemaining -= framesOut;
+      } else {
+        cursor += framesRead * channelsOut;
+        framesRemaining -= framesRead;
       }
     }
 
-    // Tail
-    uint32_t tailCount = state.spatializer->tail(aux, mix, BUFFER_SIZE);
-    for (uint32_t i = 0; i < tailCount * OUTPUT_CHANNELS; i++) {
-      dst[i] += mix[i];
+    // Spatialize
+    if (source->spatial) {
+      state.spatializer->apply(source, buf, mix, BUFFER_SIZE, BUFFER_SIZE);
+      buf = mix;
     }
 
-    // Copy some leftovers to output
-    if (dst == state.leftovers) {
-      memcpy(output, state.leftovers, count * OUTPUT_CHANNELS * sizeof(float));
-      state.leftoverFrames = BUFFER_SIZE - count;
-      state.leftoverOffset = count;
+    // Mix
+    float volume = source->volume;
+    for (uint32_t i = 0; i < OUTPUT_CHANNELS * BUFFER_SIZE; i++) {
+      dst[i] += buf[i] * volume;
     }
+  }
 
-    output += BUFFER_SIZE * OUTPUT_CHANNELS;
-    count -= MIN(count, BUFFER_SIZE);
-  } while (count > 0);
+  // Tail
+  uint32_t tailCount = state.spatializer->tail(aux, mix, BUFFER_SIZE);
+  for (uint32_t i = 0; i < tailCount * OUTPUT_CHANNELS; i++) {
+    dst[i] += mix[i];
+  }
 
   ma_mutex_unlock(&state.lock);
 
-sink:
   if (state.sinks[AUDIO_PLAYBACK]) {
-    uint64_t remaining = total;
     uint64_t capacity = sizeof(aux) / lovrSoundGetChannelCount(state.sinks[AUDIO_PLAYBACK]) / sizeof(float);
-    output = out;
-
-    while (remaining > 0) {
-      ma_uint64 framesConsumed = remaining;
+    while (count > 0) {
+      ma_uint64 framesConsumed = count;
       ma_uint64 framesWritten = capacity;
-      ma_data_converter_process_pcm_frames(&state.playbackConverter, output, &framesConsumed, aux, &framesWritten);
+      ma_data_converter_process_pcm_frames(&state.playbackConverter, dst, &framesConsumed, aux, &framesWritten);
       lovrSoundWrite(state.sinks[AUDIO_PLAYBACK], 0, framesWritten, aux);
-      output += framesConsumed * OUTPUT_CHANNELS;
-      remaining -= framesConsumed;
+      dst += framesConsumed * OUTPUT_CHANNELS;
+      count -= framesConsumed;
     }
   }
 }
@@ -212,13 +175,13 @@ static void onCapture(ma_device* device, void* output, const void* input, uint32
   lovrSoundWrite(state.sinks[AUDIO_CAPTURE], 0, count, input);
 }
 
-static const ma_device_callback_proc callbacks[] = { onPlayback, onCapture };
+static const ma_device_data_proc callbacks[] = { onPlayback, onCapture };
 
 static Spatializer* spatializers[] = {
-#ifdef LOVR_ENABLE_PHONON
+#ifdef LOVR_ENABLE_PHONON_SPATIALIZER
   &phononSpatializer,
 #endif
-#ifdef LOVR_ENABLE_OCULUS_AUDIO
+#ifdef LOVR_ENABLE_OCULUS_SPATIALIZER
   &oculusSpatializer,
 #endif
   &simpleSpatializer
@@ -226,8 +189,10 @@ static Spatializer* spatializers[] = {
 
 // Entry
 
-bool lovrAudioInit(const char* spatializer) {
+bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   if (state.initialized) return false;
+
+  state.sampleRate = sampleRate;
 
   ma_result result = ma_context_init(NULL, 0, NULL, &state.context);
   lovrAssert(result == MA_SUCCESS, "Failed to initialize miniaudio");
@@ -235,7 +200,7 @@ bool lovrAudioInit(const char* spatializer) {
   result = ma_mutex_init(&state.lock);
   lovrAssert(result == MA_SUCCESS, "Failed to create audio mutex");
 
-  for (size_t i = 0; i < sizeof(spatializers) / sizeof(spatializers[0]); i++) {
+  for (size_t i = 0; i < COUNTOF(spatializers); i++) {
     if (spatializer && strcmp(spatializer, spatializers[i]->name)) {
       continue;
     }
@@ -250,7 +215,7 @@ bool lovrAudioInit(const char* spatializer) {
   // SteamAudio's default frequency-dependent absorption coefficients for air
   state.absorption[0] = .0002f;
   state.absorption[1] = .0017f;
-  state.absorption[1] = .0182f;
+  state.absorption[2] = .0182f;
 
   quat_identity(state.orientation);
 
@@ -269,7 +234,7 @@ void lovrAudioDestroy() {
   lovrRelease(state.sinks[AUDIO_PLAYBACK], lovrSoundDestroy);
   lovrRelease(state.sinks[AUDIO_CAPTURE], lovrSoundDestroy);
   if (state.spatializer) state.spatializer->destroy();
-  ma_data_converter_uninit(&state.playbackConverter);
+  ma_data_converter_uninit(&state.playbackConverter, NULL);
   memset(&state, 0, sizeof(state));
 }
 
@@ -295,7 +260,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
 
   // If no sink is provided for a capture device, one is created internally
   if (type == AUDIO_CAPTURE && !sink) {
-    sink = lovrSoundCreateStream(SAMPLE_RATE * 1., SAMPLE_F32, CHANNEL_MONO, SAMPLE_RATE);
+    sink = lovrSoundCreateStream(state.sampleRate * 1., SAMPLE_F32, CHANNEL_MONO, state.sampleRate);
   } else {
     lovrRetain(sink);
   }
@@ -327,7 +292,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
     config.playback.shareMode = shareModes[shareMode];
     config.playback.format = ma_format_f32;
     config.playback.channels = OUTPUT_CHANNELS;
-    config.sampleRate = SAMPLE_RATE;
+    config.sampleRate = state.sampleRate;
     if (sink) {
       ma_data_converter_config converterConfig = ma_data_converter_config_init_default();
       converterConfig.formatIn = config.playback.format;
@@ -336,11 +301,9 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
       converterConfig.channelsOut = lovrSoundGetChannelCount(sink);
       converterConfig.sampleRateIn = config.sampleRate;
       converterConfig.sampleRateOut = lovrSoundGetSampleRate(sink);
-      if (memcmp(&converterConfig, &state.playbackConverter.config, sizeof(ma_data_converter_config))) {
-        ma_data_converter_uninit(&state.playbackConverter);
-        ma_result status = ma_data_converter_init(&converterConfig, &state.playbackConverter);
-        lovrAssert(status == MA_SUCCESS, "Failed to create sink data converter");
-      }
+      ma_data_converter_uninit(&state.playbackConverter, NULL);
+      ma_result status = ma_data_converter_init(&converterConfig, NULL, &state.playbackConverter);
+      lovrAssert(status == MA_SUCCESS, "Failed to create sink data converter");
     }
   } else {
     config = ma_device_config_init(ma_device_type_capture);
@@ -351,9 +314,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
     config.sampleRate = lovrSoundGetSampleRate(sink);
   }
 
-#ifndef EMSCRIPTEN // Web needs to use the default bigger buffer size to prevent stutters
   config.periodSizeInFrames = BUFFER_SIZE;
-#endif
   config.dataCallback = callbacks[type];
 
   ma_result result = ma_device_init(&state.context, &config, &state.devices[type]);
@@ -403,6 +364,10 @@ const char* lovrAudioGetSpatializer() {
   return state.spatializer->name;
 }
 
+uint32_t lovrAudioGetSampleRate() {
+  return state.sampleRate;
+}
+
 void lovrAudioGetAbsorption(float absorption[3]) {
   memcpy(absorption, state.absorption, 3 * sizeof(float));
 }
@@ -415,7 +380,7 @@ void lovrAudioSetAbsorption(float absorption[3]) {
 
 // Source
 
-Source* lovrSourceCreate(Sound* sound, uint32_t effects) {
+Source* lovrSourceCreate(Sound* sound, bool spatial, uint32_t effects) {
   lovrAssert(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
   Source* source = calloc(1, sizeof(Source));
   lovrAssert(source, "Out of memory");
@@ -425,21 +390,22 @@ Source* lovrSourceCreate(Sound* sound, uint32_t effects) {
   lovrRetain(source->sound);
 
   source->volume = 1.f;
-  source->effects = effects;
+  source->spatial = spatial;
+  source->effects = spatial ? effects : 0;
   quat_identity(source->orientation);
 
   ma_data_converter_config config = ma_data_converter_config_init_default();
   config.formatIn = miniaudioFormats[lovrSoundGetFormat(sound)];
   config.formatOut = miniaudioFormats[OUTPUT_FORMAT];
   config.channelsIn = lovrSoundGetChannelCount(sound);
-  config.channelsOut = lovrSourceUsesSpatializer(source) ? 1 : 2; // See onPlayback
+  config.channelsOut = spatial ? 1 : 2;
   config.sampleRateIn = lovrSoundGetSampleRate(sound);
-  config.sampleRateOut = SAMPLE_RATE;
+  config.sampleRateOut = state.sampleRate;
 
   if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
     source->converter = malloc(sizeof(ma_data_converter));
     lovrAssert(source->converter, "Out of memory");
-    ma_result status = ma_data_converter_init(&config, source->converter);
+    ma_result status = ma_data_converter_init(&config, NULL, source->converter);
     lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
   }
 
@@ -461,10 +427,18 @@ Source* lovrSourceClone(Source* source) {
   clone->dipolePower = source->dipolePower;
   clone->effects = source->effects;
   clone->looping = source->looping;
+  clone->spatial = source->spatial;
   if (source->converter) {
     clone->converter = malloc(sizeof(ma_data_converter));
     lovrAssert(clone->converter, "Out of memory");
-    ma_result status = ma_data_converter_init(&source->converter->config, clone->converter);
+    ma_data_converter_config config = ma_data_converter_config_init_default();
+    config.formatIn = source->converter->formatIn;
+    config.formatOut = source->converter->formatOut;
+    config.channelsIn = source->converter->channelsIn;
+    config.channelsOut = source->converter->channelsOut;
+    config.sampleRateIn = source->converter->sampleRateIn;
+    config.sampleRateOut = source->converter->sampleRateOut;
+    ma_result status = ma_data_converter_init(&config, NULL, clone->converter);
     lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
   }
   return clone;
@@ -473,7 +447,7 @@ Source* lovrSourceClone(Source* source) {
 void lovrSourceDestroy(void* ref) {
   Source* source = ref;
   lovrRelease(source->sound, lovrSoundDestroy);
-  ma_data_converter_uninit(source->converter);
+  ma_data_converter_uninit(source->converter, NULL);
   free(source->converter);
   free(source);
 }
@@ -483,6 +457,7 @@ Sound* lovrSourceGetSound(Source* source) {
 }
 
 bool lovrSourcePlay(Source* source) {
+  // If too many sources already running, refuse to play
   if (state.sourceMask == ~0ull) {
     return false;
   }
@@ -551,16 +526,16 @@ double lovrSourceGetDuration(Source* source, TimeUnit units) {
   return units == UNIT_SECONDS ? (double) frames / lovrSoundGetSampleRate(source->sound) : frames;
 }
 
-bool lovrSourceUsesSpatializer(Source* source) {
-  return source->effects != EFFECT_NONE; // Currently, all effects require the spatializer
+bool lovrSourceIsSpatial(Source* source) {
+  return source->spatial;
 }
 
-void lovrSourceGetPose(Source *source, float position[4], float orientation[4]) {
+void lovrSourceGetPose(Source* source, float position[4], float orientation[4]) {
   memcpy(position, source->position, sizeof(source->position));
   memcpy(orientation, source->orientation, sizeof(source->orientation));
 }
 
-void lovrSourceSetPose(Source *source, float position[4], float orientation[4]) {
+void lovrSourceSetPose(Source* source, float position[4], float orientation[4]) {
   ma_mutex_lock(&state.lock);
   memcpy(source->position, position, sizeof(source->position));
   memcpy(source->orientation, orientation, sizeof(source->orientation));
@@ -586,11 +561,12 @@ void lovrSourceSetDirectivity(Source* source, float weight, float power) {
 }
 
 bool lovrSourceIsEffectEnabled(Source* source, Effect effect) {
-  return source->effects == EFFECT_NONE ? false : (source->effects & (1 << effect));
+  return source->effects & (1 << effect);
 }
 
 void lovrSourceSetEffectEnabled(Source* source, Effect effect, bool enabled) {
-  if (enabled && source->effects != EFFECT_NONE) {
+  lovrCheck(source->spatial, "Sources must be created with the spatial flag to enable effects");
+  if (enabled) {
     source->effects |= (1 << effect);
   } else {
     source->effects &= ~(1 << effect);

@@ -1,6 +1,6 @@
 #include "api.h"
 #include "math/randomGenerator.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <math.h>

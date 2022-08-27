@@ -1,9 +1,7 @@
 #include "api.h"
 #include "filesystem/filesystem.h"
 #include "data/blob.h"
-#include "core/fs.h"
-#include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>
@@ -11,6 +9,10 @@
 
 void* luax_readfile(const char* filename, size_t* bytesRead) {
   return lovrFilesystemRead(filename, -1, bytesRead);
+}
+
+bool luax_writefile(const char* filename, const void* data, size_t size) {
+  return lovrFilesystemWrite(filename, data, size, false);
 }
 
 // Returns a Blob, leaving stack unchanged.  The Blob must be released when finished.
@@ -88,7 +90,8 @@ static int l_lovrFilesystemAppend(lua_State* L) {
   } else {
     return luax_typeerror(L, 2, "string or Blob");
   }
-  lua_pushinteger(L, lovrFilesystemWrite(path, data, size, true));
+  bool success = lovrFilesystemWrite(path, data, size, true);
+  lua_pushboolean(L, success);
   return 1;
 }
 
@@ -129,9 +132,15 @@ static int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
   }
 
   lua_getglobal(L, "table");
-  lua_getfield(L, -1, "sort");
-  lua_pushvalue(L, 2);
-  lua_call(L, 1, 0);
+  if (lua_type(L, -1) == LUA_TTABLE) {
+    lua_getfield(L, -1, "sort");
+    if (lua_type(L, -1) == LUA_TFUNCTION) {
+      lua_pushvalue(L, 2);
+      lua_call(L, 1, 0);
+    } else {
+      lua_pop(L, 1);
+    }
+  }
   lua_pop(L, 1);
   return 1;
 }
@@ -330,7 +339,8 @@ static int l_lovrFilesystemWrite(lua_State* L) {
   } else {
     return luax_typeerror(L, 2, "string or Blob");
   }
-  lua_pushinteger(L, lovrFilesystemWrite(path, data, size, false));
+  bool success = lovrFilesystemWrite(path, data, size, false);
+  lua_pushboolean(L, success);
   return 1;
 }
 

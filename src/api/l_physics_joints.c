@@ -1,16 +1,17 @@
 #include "api.h"
 #include "physics/physics.h"
-#include "core/util.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <string.h>
 
 void luax_pushjoint(lua_State* L, Joint* joint) {
-  switch (joint->type) {
+  switch (lovrJointGetType(joint)) {
     case JOINT_BALL: luax_pushtype(L, BallJoint, joint); break;
     case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
     case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
     case JOINT_SLIDER: luax_pushtype(L, SliderJoint, joint); break;
-    default: lovrThrow("Unreachable");
+    default: lovrUnreachable();
   }
 }
 
@@ -25,7 +26,7 @@ Joint* luax_checkjoint(lua_State* L, int index) {
       hash64("SliderJoint", strlen("SliderJoint"))
     };
 
-    for (size_t i = 0; i < sizeof(hashes) / sizeof(hashes[0]); i++) {
+    for (size_t i = 0; i < COUNTOF(hashes); i++) {
       if (p->hash == hashes[i]) {
         return p->object;
       }

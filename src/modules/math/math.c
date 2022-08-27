@@ -1,11 +1,9 @@
 #include "math.h"
 #include "math/randomGenerator.h"
-#include "core/maf.h"
-#include "core/util.h"
-#include "lib/noise1234/noise1234.h"
+#include "util.h"
+#include "lib/noise/simplexnoise1234.h"
 #include <math.h>
 #include <string.h>
-#include <stdlib.h>
 #include <time.h>
 
 static struct {
@@ -47,18 +45,18 @@ float lovrMathLinearToGamma(float x) {
   }
 }
 
-float lovrMathNoise1(float x) {
-  return noise1(x) * .5f + .5f;
+double lovrMathNoise1(double x) {
+  return snoise1(x) * .5 + .5;
 }
 
-float lovrMathNoise2(float x, float y) {
-  return noise2(x, y) * .5f + .5f;
+double lovrMathNoise2(double x, double y) {
+  return snoise2(x, y) * .5 + .5;
 }
 
-float lovrMathNoise3(float x, float y, float z) {
-  return noise3(x, y, z) * .5f + .5f;
+double lovrMathNoise3(double x, double y, double z) {
+  return snoise3(x, y, z) * .5 + .5;
 }
 
-float lovrMathNoise4(float x, float y, float z, float w) {
-  return noise4(x, y, z, w) * .5f + .5f;
+double lovrMathNoise4(double x, double y, double z, double w) {
+  return snoise4(x, y, z, w) * .5 + .5;
 }

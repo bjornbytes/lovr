@@ -2,8 +2,7 @@
 #include "data/blob.h"
 #include "data/image.h"
 #include "core/maf.h"
-#include "core/map.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <float.h>
 #include <ctype.h>
@@ -48,12 +47,25 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
     if (STARTS_WITH(line, "newmtl ")) {
       map_set(names, hash64(line + 7, length - 7), materials->length);
       arr_push(materials, ((ModelMaterial) {
-        .scalars[SCALAR_METALNESS] = 1.f,
-        .scalars[SCALAR_ROUGHNESS] = 1.f,
-        .colors[COLOR_DIFFUSE] = { 1.f, 1.f, 1.f, 1.f },
-        .colors[COLOR_EMISSIVE] = { 0.f, 0.f, 0.f, 0.f }
+        .color = { 1.f, 1.f, 1.f, 1.f },
+        .glow = { 0.f, 0.f, 0.f, 1.f },
+        .uvShift = { 0.f, 0.f },
+        .uvScale = { 1.f, 1.f },
+        .metalness = 1.f,
+        .roughness = 1.f,
+        .clearcoat = 0.f,
+        .clearcoatRoughness = 0.f,
+        .occlusionStrength = 1.f,
+        .normalScale = 1.f,
+        .alphaCutoff = 0.f,
+        .texture = ~0u,
+        .glowTexture = ~0u,
+        .occlusionTexture = ~0u,
+        .metalnessTexture = ~0u,
+        .roughnessTexture = ~0u,
+        .clearcoatTexture = ~0u,
+        .normalTexture = ~0u
       }));
-      memset(&materials->data[materials->length - 1].images, 0xff, MAX_MATERIAL_TEXTURES * sizeof(int));
     } else if (line[0] == 'K' && line[1] == 'd' && line[2] == ' ') {
       float r, g, b;
       char* s = line + 3;
@@ -61,7 +73,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       g = strtof(s, &s);
       b = strtof(s, &s);
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->colors[COLOR_DIFFUSE] = (Color) { r, g, b, 1.f };
+      memcpy(material->color, (float[4]) { r, g, b, 1.f }, 16);
     } else if (STARTS_WITH(line, "map_Kd ")) {
       lovrAssert(base - path + (length - 7) < 1024, "Bad OBJ: Material image filename is too long");
       memcpy(base, line + 7, length - 7);
@@ -72,12 +84,10 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       lovrAssert(pixels && imageSize > 0, "Unable to read image from %s", path);
       Blob* blob = lovrBlobCreate(pixels, imageSize, NULL);
 
-      Image* image = lovrImageCreateFromBlob(blob, true);
+      Image* image = lovrImageCreateFromFile(blob);
       lovrAssert(materials->length > 0, "Tried to set a material property without declaring a material first");
       ModelMaterial* material = &materials->data[materials->length - 1];
-      material->images[TEXTURE_DIFFUSE] = (uint32_t) images->length;
-      material->filters[TEXTURE_DIFFUSE].mode = FILTER_TRILINEAR;
-      material->wraps[TEXTURE_DIFFUSE] = (TextureWrap) { .s = WRAP_REPEAT, .t = WRAP_REPEAT };
+      material->texture = (uint32_t) images->length;
       arr_push(images, image);
       lovrRelease(blob, lovrBlobDestroy);
     }
@@ -110,16 +120,16 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   arr_t(float) normals;
   arr_t(float) uvs;
 
-  arr_init(&groups, realloc);
-  arr_init(&images, realloc);
-  arr_init(&materials, realloc);
+  arr_init(&groups, arr_alloc);
+  arr_init(&images, arr_alloc);
+  arr_init(&materials, arr_alloc);
   map_init(&materialMap, 0);
-  arr_init(&vertexBlob, realloc);
-  arr_init(&indexBlob, realloc);
+  arr_init(&vertexBlob, arr_alloc);
+  arr_init(&indexBlob, arr_alloc);
   map_init(&vertexMap, 0);
-  arr_init(&positions, realloc);
-  arr_init(&normals, realloc);
-  arr_init(&uvs, realloc);
+  arr_init(&positions, arr_alloc);
+  arr_init(&normals, arr_alloc);
+  arr_init(&uvs, arr_alloc);
 
   arr_push(&groups, ((objGroup) { .material = -1 }));
 
@@ -167,20 +177,34 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
       arr_append(&uvs, vt, 2);
     } else if (line[0] == 'f' && line[1] == ' ') {
       char* s = line + 2;
-      for (size_t i = 0; i < 3; i++) {
+      objGroup* group = &groups.data[groups.length - 1];
+      for (size_t i = 0; *s; i++) {
 
-        // Find first number/slash
-        while (*s && !(*s >= '/' && *s <= '9')) s++;
+        // Find first non-space
+        while (*s && (*s == ' ' || *s == '\t')) s++;
+
+        if (*s == '\n') {
+          lovrAssert(i >= 3, "Bad OBJ: Face has no triangles");
+          break;
+        }
 
         // Find next non-number/non-slash
         char* t = s;
         while (*t && *t >= '/' && *t <= '9') t++;
 
-        // If the vertex already exists, add its index and skip
+        // Triangulate faces (triangle fan)
+        if (i >= 3) {
+          arr_push(&indexBlob, indexBlob.data[indexBlob.length - i]);
+          arr_push(&indexBlob, indexBlob.data[indexBlob.length - 2]);
+          group->count += 2;
+        }
+
+        // If the vertex already exists, add its index and continue
         uint64_t hash = hash64(s, t - s);
         uint64_t index = map_get(&vertexMap, hash);
         if (index != MAP_NIL) {
           arr_push(&indexBlob, index);
+          group->count++;
           s = t;
           continue;
         }
@@ -209,10 +233,10 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
         arr_append(&vertexBlob, positions.data + 3 * (v - 1), 3);
         arr_append(&vertexBlob, vn > 0 ? (normals.data + 3 * (vn - 1)) : empty, 3);
         arr_append(&vertexBlob, vt > 0 ? (uvs.data + 2 * (vt - 1)) : empty, 2);
+        group->count++;
 
         s = t;
       }
-      groups.data[groups.length - 1].count += 3;
     } else if (STARTS_WITH(line, "mtllib ")) {
       const char* filename = line + 7;
       size_t filenameLength = strlen(filename);
@@ -256,12 +280,14 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   model->blobs[1] = lovrBlobCreate(indexBlob.data, indexBlob.length * sizeof(int), "obj index data");
 
   model->buffers[0] = (ModelBuffer) {
+    .blob = 0,
     .data = model->blobs[0]->data,
     .size = model->blobs[0]->size,
     .stride = 8 * sizeof(float)
   };
 
   model->buffers[1] = (ModelBuffer) {
+    .blob = 1,
     .data = model->blobs[1]->data,
     .size = model->blobs[1]->size,
     .stride = sizeof(int)
@@ -335,7 +361,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
       .attributes = {
         [ATTR_POSITION] = &model->attributes[0],
         [ATTR_NORMAL] = &model->attributes[1],
-        [ATTR_TEXCOORD] = &model->attributes[2]
+        [ATTR_UV] = &model->attributes[2]
       },
       .indices = &model->attributes[3 + i],
       .material = group->material
@@ -347,7 +373,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
     .primitiveIndex = 0,
     .primitiveCount = (uint32_t) groups.length,
     .skin = ~0u,
-    .matrix = true
+    .hasMatrix = true
   };
 
 finish:

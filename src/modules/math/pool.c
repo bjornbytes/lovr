@@ -1,5 +1,5 @@
 #include "math/pool.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 
 static const size_t vectorComponents[] = {
@@ -60,7 +60,7 @@ Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
 }
 
 float* lovrPoolResolve(Pool* pool, Vector vector) {
-  lovrAssert(vector.handle.generation == pool->generation, "Attempt to use a vector in a different generation than the one it was created in (vectors can not be saved into variables)");
+  lovrAssert(vector.handle.generation == pool->generation, "Attempt to use a temporary vector from a previous frame");
   return pool->data + vector.handle.index;
 }
 

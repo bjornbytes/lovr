@@ -1,7 +1,51 @@
 #include "physics.h"
-#include "core/util.h"
+#include "core/maf.h"
+#include "util.h"
+#include <ode/ode.h>
 #include <stdlib.h>
-#include <stdbool.h>
+
+struct World {
+  uint32_t ref;
+  dWorldID id;
+  dSpaceID space;
+  dJointGroupID contactGroup;
+  arr_t(Shape*) overlaps;
+  char* tags[MAX_TAGS];
+  uint16_t masks[MAX_TAGS];
+  Collider* head;
+};
+
+struct Collider {
+  uint32_t ref;
+  dBodyID body;
+  World* world;
+  Collider* prev;
+  Collider* next;
+  void* userdata;
+  uint32_t tag;
+  arr_t(Shape*) shapes;
+  arr_t(Joint*) joints;
+  float friction;
+  float restitution;
+};
+
+struct Shape {
+  uint32_t ref;
+  ShapeType type;
+  dGeomID id;
+  Collider* collider;
+  void* vertices;
+  void* indices;
+  void* userdata;
+  bool sensor;
+};
+
+struct Joint {
+  uint32_t ref;
+  JointType type;
+  dJointID id;
+  void* userdata;
+};
 
 static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
   lovrWorldCollide((World*) data, dGeomGetData(a), dGeomGetData(b), -1, -1);
@@ -13,6 +57,11 @@ static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
   arr_push(&world->overlaps, dGeomGetData(shapeB));
 }
 
+typedef struct {
+  RaycastCallback callback;
+  void* userdata;
+} RaycastData;
+
 static void raycastCallback(void* data, dGeomID a, dGeomID b) {
   RaycastCallback callback = ((RaycastData*) data)->callback;
   void* userdata = ((RaycastData*) data)->userdata;
@@ -22,9 +71,10 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
     return;
   }
 
-  dContact contact;
-  if (dCollide(a, b, MAX_CONTACTS, &contact.geom, sizeof(dContact))) {
-    dContactGeom g = contact.geom;
+  dContact contact[MAX_CONTACTS];
+  int count = dCollide(a, b, MAX_CONTACTS, &contact->geom, sizeof(dContact));
+  for (int i = 0; i < count; i++) {
+    dContactGeom g = contact[i].geom;
     callback(shape, g.pos[0], g.pos[1], g.pos[2], g.normal[0], g.normal[1], g.normal[2], userdata);
   }
 }
@@ -82,7 +132,7 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
   world->space = dHashSpaceCreate(0);
   dHashSpaceSetLevels(world->space, -4, 8);
   world->contactGroup = dJointGroupCreate(0);
-  arr_init(&world->overlaps, realloc);
+  arr_init(&world->overlaps, arr_alloc);
   lovrWorldSetGravity(world, xg, yg, zg);
   lovrWorldSetSleepingAllowed(world, allowSleep);
   for (uint32_t i = 0; i < tagCount; i++) {
@@ -141,6 +191,14 @@ void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* u
   dJointGroupEmpty(world->contactGroup);
 }
 
+int lovrWorldGetStepCount(World* world) {
+  return dWorldGetQuickStepNumIterations(world->id);
+}
+
+void lovrWorldSetStepCount(World* world, int iterations) {
+  dWorldSetQuickStepNumIterations(world->id, iterations);
+}
+
 void lovrWorldComputeOverlaps(World* world) {
   arr_clear(&world->overlaps);
   dSpaceCollide(world->space, world, customNearCallback);
@@ -184,7 +242,6 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
     contacts[c].surface.mode = 0;
     contacts[c].surface.mu = friction;
     contacts[c].surface.bounce = restitution;
-    contacts[c].surface.mu = dInfinity;
 
     if (restitution > 0) {
       contacts[c].surface.mode |= dContactBounce;
@@ -203,12 +260,40 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
   return contactCount;
 }
 
+void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count) {
+  dContactGeom info[MAX_CONTACTS];
+  int c = *count = dCollide(a->id, b->id, MAX_CONTACTS, info, sizeof(info[0]));
+  for (int i = 0; i < c; i++) {
+    contacts[i] = (Contact) {
+      .x = info[i].pos[0],
+      .y = info[i].pos[1],
+      .z = info[i].pos[2],
+      .nx = info[i].normal[0],
+      .ny = info[i].normal[1],
+      .nz = info[i].normal[2],
+      .depth = info[i].depth
+    };
+  }
+}
+
+void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
+  RaycastData data = { .callback = callback, .userdata = userdata };
+  float dx = x2 - x1;
+  float dy = y2 - y1;
+  float dz = z2 - z1;
+  float length = sqrtf(dx * dx + dy * dy + dz * dz);
+  dGeomID ray = dCreateRay(world->space, length);
+  dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
+  dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
+  dGeomDestroy(ray);
+}
+
 Collider* lovrWorldGetFirstCollider(World* world) {
   return world->head;
 }
 
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z) {
-  dReal gravity[3];
+  dReal gravity[4];
   dWorldGetGravity(world->id, gravity);
   *x = gravity[0];
   *y = gravity[1];
@@ -263,18 +348,6 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed) {
   dWorldSetAutoDisableFlag(world->id, allowed);
 }
 
-void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
-  RaycastData data = { .callback = callback, .userdata = userdata };
-  float dx = x2 - x1;
-  float dy = y2 - y1;
-  float dz = z2 - z1;
-  float length = sqrtf(dx * dx + dy * dy + dz * dz);
-  dGeomID ray = dCreateRay(world->space, length);
-  dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
-  dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
-  dGeomDestroy(ray);
-}
-
 const char* lovrWorldGetTagName(World* world, uint32_t tag) {
   return (tag == NO_TAG) ? NULL : world->tags[tag];
 }
@@ -319,12 +392,12 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   collider->ref = 1;
   collider->body = dBodyCreate(world->id);
   collider->world = world;
-  collider->friction = 0;
+  collider->friction = INFINITY;
   collider->restitution = 0;
   collider->tag = NO_TAG;
   dBodySetData(collider->body, collider);
-  arr_init(&collider->shapes, realloc);
-  arr_init(&collider->joints, realloc);
+  arr_init(&collider->shapes, arr_alloc);
+  arr_init(&collider->joints, arr_alloc);
 
   lovrColliderSetPosition(collider, x, y, z);
 
@@ -389,6 +462,10 @@ void lovrColliderInitInertia(Collider* collider, Shape* shape) {
 
 World* lovrColliderGetWorld(Collider* collider) {
   return collider->world;
+}
+
+Collider* lovrColliderGetNext(Collider* collider) {
+  return collider->next;
 }
 
 void lovrColliderAddShape(Collider* collider, Shape* shape) {
@@ -548,7 +625,7 @@ void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz
   inertia[5] = m.I[9];
 }
 
-void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[]) {
+void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[6]) {
   dMass m;
   dBodyGetMass(collider->body, &m);
   dMassSetParameters(&m, mass, cx, cy, cz, inertia[0], inertia[1], inertia[2], inertia[3], inertia[4], inertia[5]);
@@ -639,7 +716,7 @@ void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z
 }
 
 void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
-  dReal local[3];
+  dReal local[4];
   dBodyGetPosRelPoint(collider->body, wx, wy, wz, local);
   *x = local[0];
   *y = local[1];
@@ -647,7 +724,7 @@ void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz,
 }
 
 void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
-  dReal world[3];
+  dReal world[4];
   dBodyGetRelPointPos(collider->body, x, y, z, world);
   *wx = world[0];
   *wy = world[1];
@@ -655,7 +732,7 @@ void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, fl
 }
 
 void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
-  dReal local[3];
+  dReal local[4];
   dBodyVectorFromWorld(collider->body, wx, wy, wz, local);
   *x = local[0];
   *y = local[1];
@@ -663,7 +740,7 @@ void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz
 }
 
 void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
-  dReal world[3];
+  dReal world[4];
   dBodyVectorToWorld(collider->body, x, y, z, world);
   *wx = world[0];
   *wy = world[1];
@@ -671,7 +748,7 @@ void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, f
 }
 
 void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, float y, float z, float* vx, float* vy, float* vz) {
-  dReal velocity[3];
+  dReal velocity[4];
   dBodyGetRelPointVel(collider->body, x, y, z, velocity);
   *vx = velocity[0];
   *vy = velocity[1];
@@ -679,7 +756,7 @@ void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, fl
 }
 
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz) {
-  dReal velocity[3];
+  dReal velocity[4];
   dBodyGetPointVel(collider->body, wx, wy, wz, velocity);
   *vx = velocity[0];
   *vy = velocity[1];
@@ -795,7 +872,7 @@ void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* 
     }
 
     case SHAPE_BOX: {
-      dReal lengths[3];
+      dReal lengths[4];
       dGeomBoxGetLengths(shape->id, lengths);
       dMassSetBox(&m, density, lengths[0], lengths[1], lengths[2]);
       break;
@@ -849,6 +926,7 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
+  lovrCheck(radius > 0.f, "SphereShape radius must be positive");
   SphereShape* sphere = calloc(1, sizeof(SphereShape));
   lovrAssert(sphere, "Out of memory");
   sphere->ref = 1;
@@ -863,6 +941,7 @@ float lovrSphereShapeGetRadius(SphereShape* sphere) {
 }
 
 void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
+  lovrCheck(radius > 0.f, "SphereShape radius must be positive");
   dGeomSphereSetRadius(sphere->id, radius);
 }
 
@@ -877,7 +956,7 @@ BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
 }
 
 void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
-  dReal dimensions[3];
+  dReal dimensions[4];
   dGeomBoxGetLengths(box->id, dimensions);
   *x = dimensions[0];
   *y = dimensions[1];
@@ -885,10 +964,12 @@ void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
 }
 
 void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
+  lovrCheck(x > 0.f && y > 0.f && z > 0.f, "BoxShape dimensions must be positive");
   dGeomBoxSetLengths(box->id, x, y, z);
 }
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
+  lovrCheck(radius > 0.f && length > 0.f, "CapsuleShape dimensions must be positive");
   CapsuleShape* capsule = calloc(1, sizeof(CapsuleShape));
   lovrAssert(capsule, "Out of memory");
   capsule->ref = 1;
@@ -905,6 +986,7 @@ float lovrCapsuleShapeGetRadius(CapsuleShape* capsule) {
 }
 
 void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius) {
+  lovrCheck(radius > 0.f, "CapsuleShape dimensions must be positive");
   dGeomCapsuleSetParams(capsule->id, radius, lovrCapsuleShapeGetLength(capsule));
 }
 
@@ -915,10 +997,12 @@ float lovrCapsuleShapeGetLength(CapsuleShape* capsule) {
 }
 
 void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
+  lovrCheck(length > 0.f, "CapsuleShape dimensions must be positive");
   dGeomCapsuleSetParams(capsule->id, lovrCapsuleShapeGetRadius(capsule), length);
 }
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
+  lovrCheck(radius > 0.f && length > 0.f, "CylinderShape dimensions must be positive");
   CylinderShape* cylinder = calloc(1, sizeof(CylinderShape));
   lovrAssert(cylinder, "Out of memory");
   cylinder->ref = 1;
@@ -935,6 +1019,7 @@ float lovrCylinderShapeGetRadius(CylinderShape* cylinder) {
 }
 
 void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius) {
+  lovrCheck(radius > 0.f, "CylinderShape dimensions must be positive");
   dGeomCylinderSetParams(cylinder->id, radius, lovrCylinderShapeGetLength(cylinder));
 }
 
@@ -945,6 +1030,7 @@ float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
 }
 
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
+  lovrCheck(length > 0.f, "CylinderShape dimensions must be positive");
   dGeomCylinderSetParams(cylinder->id, lovrCylinderShapeGetRadius(cylinder), length);
 }
 
@@ -1028,7 +1114,7 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
 }
 
 void lovrBallJointGetAnchors(BallJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  dReal anchor[3];
+  dReal anchor[4];
   dJointGetBallAnchor(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1074,7 +1160,7 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float
 }
 
 void lovrDistanceJointGetAnchors(DistanceJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  dReal anchor[3];
+  dReal anchor[4];
   dJointGetDBallAnchor1(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1130,7 +1216,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, flo
 }
 
 void lovrHingeJointGetAnchors(HingeJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
-  dReal anchor[3];
+  dReal anchor[4];
   dJointGetHingeAnchor(joint->id, anchor);
   *x1 = anchor[0];
   *y1 = anchor[1];
@@ -1146,7 +1232,7 @@ void lovrHingeJointSetAnchor(HingeJoint* joint, float x, float y, float z) {
 }
 
 void lovrHingeJointGetAxis(HingeJoint* joint, float* x, float* y, float* z) {
-  dReal axis[3];
+  dReal axis[4];
   dJointGetHingeAxis(joint->id, axis);
   *x = axis[0];
   *y = axis[1];
@@ -1192,7 +1278,7 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay,
 }
 
 void lovrSliderJointGetAxis(SliderJoint* joint, float* x, float* y, float* z) {
-  dReal axis[3];
+  dReal axis[4];
   dJointGetSliderAxis(joint->id, axis);
   *x = axis[0];
   *y = axis[1];

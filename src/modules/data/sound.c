@@ -1,12 +1,13 @@
 #include "data/sound.h"
 #include "data/blob.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/stb/stb_vorbis.h"
 #include "lib/miniaudio/miniaudio.h"
 #define MINIMP3_FLOAT_OUTPUT
 #define MINIMP3_NO_STDIO
 #include "lib/minimp3/minimp3_ex.h"
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 
 static const ma_format miniaudioFormats[] = {
@@ -44,7 +45,7 @@ static uint32_t lovrSoundReadStream(Sound* sound, uint32_t offset, uint32_t coun
   uint32_t frames = count;
   ma_pcm_rb_acquire_read(sound->stream, &frames, &p);
   memcpy(data, p, frames * lovrSoundGetStride(sound));
-  ma_pcm_rb_commit_read(sound->stream, frames, p);
+  ma_pcm_rb_commit_read(sound->stream, frames);
   return frames;
 }
 
@@ -69,7 +70,7 @@ static uint32_t lovrSoundReadMp3(Sound* sound, uint32_t offset, uint32_t count, 
 
   uint32_t channels = lovrSoundGetChannelCount(sound);
   size_t samples = mp3dec_ex_read(sound->decoder, data, count * channels);
-  uint32_t frames = samples / channels;
+  uint32_t frames = (uint32_t) (samples / channels);
   sound->cursor += frames;
   return frames;
 }
@@ -131,11 +132,13 @@ static bool loadOgg(Sound* sound, Blob* blob, bool decode) {
 
   if (decode) {
     sound->read = lovrSoundReadRaw;
+    uint32_t channels = lovrSoundGetChannelCount(sound);
+    lovrAssert(sound->frames * channels <= INT_MAX, "Decoded OGG file has too many samples");
     size_t size = sound->frames * lovrSoundGetStride(sound);
     void* data = calloc(1, size);
     lovrAssert(data, "Out of memory");
     sound->blob = lovrBlobCreate(data, size, "Sound");
-    if (stb_vorbis_get_samples_float_interleaved(sound->decoder, lovrSoundGetChannelCount(sound), data, size / sizeof(float)) < (int) sound->frames) {
+    if (stb_vorbis_get_samples_float_interleaved(sound->decoder, channels, data, size / sizeof(float)) < (int) sound->frames) {
       lovrThrow("Could not decode vorbis from '%s'", blob->name);
     }
     stb_vorbis_close(sound->decoder);
@@ -281,11 +284,12 @@ static bool loadMP3(Sound* sound, Blob* blob, bool decode) {
     mp3dec_file_info_t info;
     int status = mp3dec_load_buf(&decoder, blob->data, blob->size, &info, NULL, NULL);
     lovrAssert(!status, "Could not decode mp3 from '%s'", blob->name);
+    lovrAssert(info.samples / info.channels <= UINT32_MAX, "MP3 is too long");
     sound->blob = lovrBlobCreate(info.buffer, info.samples * sizeof(float), blob->name);
     sound->format = SAMPLE_F32;
     sound->sampleRate = info.hz;
     sound->layout = info.channels == 2 ? CHANNEL_STEREO : CHANNEL_MONO;
-    sound->frames = info.samples / info.channels;
+    sound->frames = (uint32_t) (info.samples / info.channels);
     sound->read = lovrSoundReadRaw;
     return true;
   } else {
@@ -367,6 +371,10 @@ uint32_t lovrSoundGetFrameCount(Sound* sound) {
   return sound->stream ? ma_pcm_rb_available_read(sound->stream) : sound->frames;
 }
 
+uint32_t lovrSoundGetCapacity(Sound* sound) {
+  return sound->stream ? ma_pcm_rb_available_write(sound->stream) : sound->frames;
+}
+
 size_t lovrSoundGetStride(Sound* sound) {
   return lovrSoundGetChannelCount(sound) * (sound->format == SAMPLE_I16 ? sizeof(short) : sizeof(float));
 }
@@ -396,7 +404,7 @@ uint32_t lovrSoundWrite(Sound* sound, uint32_t offset, uint32_t count, const voi
       uint32_t chunk = count - frames;
       ma_pcm_rb_acquire_write(sound->stream, &chunk, &pointer);
       memcpy(pointer, bytes, chunk * stride);
-      ma_pcm_rb_commit_write(sound->stream, chunk, pointer);
+      ma_pcm_rb_commit_write(sound->stream, chunk);
       if (chunk == 0) break;
       bytes += chunk * stride;
       frames += chunk;
@@ -424,7 +432,7 @@ uint32_t lovrSoundCopy(Sound* src, Sound* dst, uint32_t count, uint32_t srcOffse
       uint32_t available = count - frames;
       ma_pcm_rb_acquire_write(dst->stream, &available, &data);
       uint32_t read = src->read(src, srcOffset + frames, available, data);
-      ma_pcm_rb_commit_write(dst->stream, read, data);
+      ma_pcm_rb_commit_write(dst->stream, read);
       if (read == 0) break;
       frames += read;
     }
@@ -443,6 +451,6 @@ uint32_t lovrSoundCopy(Sound* src, Sound* dst, uint32_t count, uint32_t srcOffse
   return frames;
 }
 
-void *lovrSoundGetCallbackMemo(Sound *sound) {
+void *lovrSoundGetCallbackMemo(Sound* sound) {
   return sound->callbackMemo;
 }

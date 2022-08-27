@@ -1,34 +1,27 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
 struct Blob;
 struct Image;
 
-typedef struct {
-  uint32_t x;
-  uint32_t y;
-  uint32_t w;
-  uint32_t h;
-  uint32_t tw;
-  uint32_t th;
-  int32_t dx;
-  int32_t dy;
-  int32_t advance;
-  struct Image* data;
-} Glyph;
-
 typedef struct Rasterizer Rasterizer;
 Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size);
 void lovrRasterizerDestroy(void* ref);
-float lovrRasterizerGetSize(Rasterizer* rasterizer);
-int lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
-int lovrRasterizerGetHeight(Rasterizer* rasterizer);
-int lovrRasterizerGetAdvance(Rasterizer* rasterizer);
-int lovrRasterizerGetAscent(Rasterizer* rasterizer);
-int lovrRasterizerGetDescent(Rasterizer* rasterizer);
-bool lovrRasterizerHasGlyph(Rasterizer* fontData, uint32_t character);
-bool lovrRasterizerHasGlyphs(Rasterizer* fontData, const char* str);
-void lovrRasterizerLoadGlyph(Rasterizer* fontData, uint32_t character, uint32_t padding, double spread, Glyph* glyph);
-int32_t lovrRasterizerGetKerning(Rasterizer* fontData, uint32_t left, uint32_t right);
+float lovrRasterizerGetFontSize(Rasterizer* rasterizer);
+uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
+bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t codepoint);
+bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t length);
+bool lovrRasterizerIsGlyphEmpty(Rasterizer* rasterizer, uint32_t codepoint);
+float lovrRasterizerGetAscent(Rasterizer* rasterizer);
+float lovrRasterizerGetDescent(Rasterizer* rasterizer);
+float lovrRasterizerGetLeading(Rasterizer* rasterizer);
+float lovrRasterizerGetAdvance(Rasterizer* rasterizer, uint32_t codepoint);
+float lovrRasterizerGetBearing(Rasterizer* rasterizer, uint32_t codepoint);
+float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t first, uint32_t second);
+void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]);
+void lovrRasterizerGetGlyphBoundingBox(Rasterizer* rasterizer, uint32_t codepoint, float box[4]);
+bool lovrRasterizerGetCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context);
+bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread);

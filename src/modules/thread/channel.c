@@ -1,6 +1,6 @@
 #include "thread/channel.h"
 #include "event/event.h"
-#include "core/util.h"
+#include "util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <stdlib.h>
 #include <stddef.h>
@@ -21,7 +21,7 @@ Channel* lovrChannelCreate(uint64_t hash) {
   Channel* channel = calloc(1, sizeof(Channel));
   lovrAssert(channel, "Out of memory");
   channel->ref = 1;
-  arr_init(&channel->messages, realloc);
+  arr_init(&channel->messages, arr_alloc);
   mtx_init(&channel->lock, mtx_plain | mtx_timed);
   cnd_init(&channel->cond);
   channel->hash = hash;

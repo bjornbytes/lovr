@@ -1,163 +1,192 @@
 #include "api.h"
-#include "graphics/material.h"
-#include "graphics/model.h"
+#include "graphics/graphics.h"
 #include "data/modelData.h"
 #include "core/maf.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+
+// This adds about 2-3us of overhead, which sucks, but the reduction in complexity is large
+static int luax_callmodeldata(lua_State* L, const char* method, int nrets) {
+  int nargs = lua_gettop(L);
+  Model* model = luax_checktype(L, 1, Model);
+  ModelData* data = lovrModelGetInfo(model)->data;
+  luax_pushtype(L, ModelData, data);
+  lua_pushstring(L, method);
+  lua_gettable(L, -2);
+  lua_insert(L, 1);
+  lua_replace(L, 2);
+  lua_call(L, nargs, nrets);
+  return nrets;
+}
 
 static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
   switch (lua_type(L, index)) {
     case LUA_TSTRING: {
       size_t length;
       const char* name = lua_tolstring(L, index, &length);
-      ModelData* modelData = lovrModelGetModelData(model);
-      uint64_t animationIndex = map_get(&modelData->animationMap, hash64(name, length));
-      lovrAssert(animationIndex != MAP_NIL, "Model has no animation named '%s'", name);
+      ModelData* data = lovrModelGetInfo(model)->data;
+      uint64_t animationIndex = map_get(&data->animationMap, hash64(name, length));
+      lovrCheck(animationIndex != MAP_NIL, "ModelData has no animation named '%s'", name);
       return (uint32_t) animationIndex;
     }
     case LUA_TNUMBER: return lua_tointeger(L, index) - 1;
-    default: return luax_typeerror(L, index, "number or string");
+    default: return luax_typeerror(L, index, "number or string"), ~0u;
   }
 }
 
-static int l_lovrModelDraw(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  float transform[16];
-  int index = luax_readmat4(L, 2, transform, 1);
-  int instances = luaL_optinteger(L, index, 1);
-  lovrModelDraw(model, transform, instances);
-  return 0;
-}
-
-static int l_lovrModelAnimate(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  uint32_t animation = luax_checkanimation(L, 2, model);
-  float time = luaL_checknumber(L, 3);
-  float alpha = luax_optfloat(L, 4, 1.f);
-  lovrModelAnimate(model, animation, time, alpha);
-  return 0;
-}
-
-static int l_lovrModelPose(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-
-  uint32_t node;
-  switch (lua_type(L, 2)) {
-    case LUA_TNONE:
-    case LUA_TNIL:
-      lovrModelResetPose(model);
-      return 0;
-    case LUA_TNUMBER:
-      node = lua_tointeger(L, 2) - 1;
-      break;
+uint32_t luax_checknodeindex(lua_State* L, int index, Model* model) {
+  switch (lua_type(L, index)) {
     case LUA_TSTRING: {
       size_t length;
-      const char* name = lua_tolstring(L, 2, &length);
-      ModelData* modelData = lovrModelGetModelData(model);
-      uint64_t index = map_get(&modelData->nodeMap, hash64(name, length));
-      lovrAssert(index != MAP_NIL, "Model has no node named '%s'", name);
-      node = (uint32_t) index;
-      break;
+      const char* name = lua_tolstring(L, index, &length);
+      ModelData* data = lovrModelGetInfo(model)->data;
+      uint64_t nodeIndex = map_get(&data->nodeMap, hash64(name, length));
+      lovrCheck(nodeIndex != MAP_NIL, "ModelData has no node named '%s'", name);
+      return (uint32_t) nodeIndex;
     }
-    default:
-      return luax_typeerror(L, 2, "nil, number, or string");
+    case LUA_TNUMBER: return lua_tointeger(L, index) - 1;
+    default: return luax_typeerror(L, index, "number or string"), ~0u;
   }
-
-  int index = 3;
-  float position[4], rotation[4];
-  index = luax_readvec3(L, index, position, NULL);
-  index = luax_readquat(L, index, rotation, NULL);
-  float alpha = luax_optfloat(L, index, 1.f);
-  lovrModelPose(model, node, position, rotation, alpha);
-  return 0;
 }
 
-static int l_lovrModelGetMaterial(lua_State* L) {
+static int l_lovrModelGetData(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-
-  uint32_t material;
-  switch (lua_type(L, 2)) {
-    case LUA_TNUMBER:
-      material = lua_tointeger(L, 2) - 1;
-      break;
-    case LUA_TSTRING: {
-      size_t length;
-      const char* name = lua_tolstring(L, 2, &length);
-      ModelData* modelData = lovrModelGetModelData(model);
-      uint64_t index = map_get(&modelData->materialMap, hash64(name, length));
-      lovrAssert(index != MAP_NIL, "Model has no material named '%s'", name);
-      material = (uint32_t) index;
-      break;
-    }
-    default:
-      return luax_typeerror(L, 2, "nil, number, or string");
-  }
-
-  luax_pushtype(L, Material, lovrModelGetMaterial(model, material));
+  ModelData* data = lovrModelGetInfo(model)->data;
+  luax_pushtype(L, ModelData, data);
   return 1;
 }
 
-static int l_lovrModelGetAABB(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  float aabb[6];
-  lovrModelGetAABB(model, aabb);
-  for (int i = 0; i < 6; i++) {
-    lua_pushnumber(L, aabb[i]);
-  }
-  return 6;
+static int l_lovrModelGetMetadata(lua_State* L) {
+  return luax_callmodeldata(L, "getMetadata", 1);
 }
 
-static int l_lovrModelGetTriangles(lua_State* L) {
+static int l_lovrModelGetRootNode(lua_State* L) {
+  return luax_callmodeldata(L, "getRootNode", 1);
+}
+
+static int l_lovrModelGetNodeCount(lua_State* L) {
+  return luax_callmodeldata(L, "getNodeCount", 1);
+}
+
+static int l_lovrModelGetNodeName(lua_State* L) {
+  return luax_callmodeldata(L, "getNodeName", 1);
+}
+
+static int l_lovrModelGetNodeParent(lua_State* L) {
+  return luax_callmodeldata(L, "getNodeParent", 1);
+}
+
+static int l_lovrModelGetNodeChildren(lua_State* L) {
+  return luax_callmodeldata(L, "getNodeChildren", 1);
+}
+
+static int l_lovrModelGetNodeDrawCount(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  float* vertices = NULL;
-  uint32_t* indices = NULL;
-  uint32_t vertexCount;
-  uint32_t indexCount;
-  lovrModelGetTriangles(model, &vertices, &vertexCount, &indices, &indexCount);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t count = lovrModelGetNodeDrawCount(model, node);
+  lua_pushinteger(L, count);
+  return 1;
+}
 
-  lua_createtable(L, vertexCount * 3, 0);
-  for (uint32_t i = 0; i < vertexCount * 3; i++) {
-    lua_pushnumber(L, vertices[i]);
-    lua_rawseti(L, -2, i + 1);
+static int l_lovrModelGetNodeDraw(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t index = luax_optu32(L, 3, 1) - 1;
+  ModelDraw draw;
+  lovrModelGetNodeDraw(model, node, index, &draw);
+  luax_pushenum(L, MeshMode, draw.mode);
+  luax_pushtype(L, Material, draw.material);
+  lua_pushinteger(L, draw.start);
+  lua_pushinteger(L, draw.count);
+  if (draw.indexed) {
+    lua_pushinteger(L, draw.base);
+    return 5;
+  } else {
+    return 4;
   }
+}
 
-  lua_createtable(L, indexCount, 0);
-  for (uint32_t i = 0; i < indexCount; i++) {
-    lua_pushinteger(L, indices[i] + 1);
-    lua_rawseti(L, -2, i + 1);
-  }
+static int l_lovrModelGetNodePosition(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
+  float position[4], scale[4], rotation[4];
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  return 3;
+}
 
-  return 2;
+static int l_lovrModelSetNodePosition(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  float position[4];
+  int index = luax_readvec3(L, 3, position, NULL);
+  float alpha = luax_optfloat(L, index, 1.f);
+  lovrModelSetNodeTransform(model, node, position, NULL, NULL, alpha);
+  return 0;
+}
+
+static int l_lovrModelGetNodeScale(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
+  float position[4], scale[4], rotation[4], angle, ax, ay, az;
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
+  quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
+}
+
+static int l_lovrModelSetNodeScale(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  float scale[4];
+  int index = luax_readscale(L, 3, scale, 3, NULL);
+  float alpha = luax_optfloat(L, index, 1.f);
+  lovrModelSetNodeTransform(model, node, NULL, scale, NULL, alpha);
+  return 0;
+}
+
+static int l_lovrModelGetNodeOrientation(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
+  float position[4], scale[4], rotation[4], angle, ax, ay, az;
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
+  quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
+}
+
+static int l_lovrModelSetNodeOrientation(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  float rotation[4];
+  int index = luax_readquat(L, 3, rotation, NULL);
+  float alpha = luax_optfloat(L, index, 1.f);
+  lovrModelSetNodeTransform(model, node, NULL, NULL, rotation, alpha);
+  return 0;
 }
 
 static int l_lovrModelGetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node;
-  switch (lua_type(L, 2)) {
-    case LUA_TNUMBER:
-      node = lua_tointeger(L, 2) - 1;
-      break;
-    case LUA_TSTRING: {
-      size_t length;
-      const char* name = lua_tolstring(L, 2, &length);
-      ModelData* modelData = lovrModelGetModelData(model);
-      uint64_t index = map_get(&modelData->nodeMap, hash64(name, length));
-      lovrAssert(index != MAP_NIL, "Model has no node named '%s'", name);
-      node = (uint32_t) index;
-      break;
-    }
-    default:
-      return luax_typeerror(L, 2, "number or string");
-  }
-
-  float position[4], rotation[4], angle, ax, ay, az;
-  CoordinateSpace space = luax_checkenum(L, 3, CoordinateSpace, "global");
-  lovrModelGetNodePose(model, node, position, rotation, space);
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
+  float position[4], scale[4], rotation[4], angle, ax, ay, az;
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
+  quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
   lua_pushnumber(L, position[2]);
-  quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
   lua_pushnumber(L, ax);
   lua_pushnumber(L, ay);
@@ -165,79 +194,218 @@ static int l_lovrModelGetNodePose(lua_State* L) {
   return 7;
 }
 
-static int l_lovrModelGetAnimationName(lua_State* L) {
+static int l_lovrModelSetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t index = luaL_checkinteger(L, 2);
-  ModelData* modelData = lovrModelGetModelData(model);
-  lovrAssert(index > 0 && index <= modelData->animationCount, "Model has no animation at index %d", index);
-  lua_pushstring(L, modelData->animations[index - 1].name);
-  return 1;
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  int index = 3;
+  float position[4], rotation[4];
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readquat(L, index, rotation, NULL);
+  float alpha = luax_optfloat(L, index, 1.f);
+  lovrModelSetNodeTransform(model, node, position, NULL, rotation, alpha);
+  return 0;
 }
 
-static int l_lovrModelGetMaterialName(lua_State* L) {
+static int l_lovrModelGetNodeTransform(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t index = luaL_checkinteger(L, 2);
-  ModelData* modelData = lovrModelGetModelData(model);
-  lovrAssert(index > 0 && index <= modelData->materialCount, "Model has no material at index %d", index);
-  lua_pushstring(L, modelData->materials[index - 1].name);
-  return 1;
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  OriginType origin = luax_checkenum(L, 3, OriginType, "root");
+  float position[4], scale[4], rotation[4], angle, ax, ay, az;
+  lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
+  quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, scale[0]);
+  lua_pushnumber(L, scale[1]);
+  lua_pushnumber(L, scale[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 10;
 }
 
-static int l_lovrModelGetNodeName(lua_State* L) {
+static int l_lovrModelSetNodeTransform(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t index = luaL_checkinteger(L, 2);
-  ModelData* modelData = lovrModelGetModelData(model);
-  lovrAssert(index > 0 && index <= modelData->nodeCount, "Model has no node at index %d", index);
-  lua_pushstring(L, modelData->nodes[index - 1].name);
-  return 1;
+  uint32_t node = luax_checknodeindex(L, 2, model);
+  int index = 3;
+  VectorType type;
+  float position[4], scale[4], rotation[4];
+  float* m = luax_tovector(L, index, &type);
+  if (m && type == V_MAT4) {
+    mat4_getPosition(m, position);
+    mat4_getScale(m, scale);
+    mat4_getOrientation(m, rotation);
+    index = 4;
+  } else {
+    index = luax_readvec3(L, index, position, NULL);
+    index = luax_readscale(L, index, scale, 3, NULL);
+    index = luax_readquat(L, index, rotation, NULL);
+  }
+  float alpha = luax_optfloat(L, index, 1.f);
+  lovrModelSetNodeTransform(model, node, position, scale, rotation, alpha);
+  return 0;
+}
+
+static int l_lovrModelResetNodeTransforms(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  lovrModelResetNodeTransforms(model);
+  return 0;
 }
 
 static int l_lovrModelGetAnimationCount(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  lua_pushinteger(L, lovrModelGetModelData(model)->animationCount);
-  return 1;
+  return luax_callmodeldata(L, "getAnimationCount", 1);
 }
 
-static int l_lovrModelGetMaterialCount(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  lua_pushinteger(L, lovrModelGetModelData(model)->materialCount);
-  return 1;
-}
-
-static int l_lovrModelGetNodeCount(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  lua_pushinteger(L, lovrModelGetModelData(model)->nodeCount);
-  return 1;
+static int l_lovrModelGetAnimationName(lua_State* L) {
+  return luax_callmodeldata(L, "getAnimationName", 1);
 }
 
 static int l_lovrModelGetAnimationDuration(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  uint32_t animation = luax_checkanimation(L, 2, model);
-  lua_pushnumber(L, lovrModelGetModelData(model)->animations[animation].duration);
-  return 1;
+  return luax_callmodeldata(L, "getAnimationDuration", 1);
 }
 
 static int l_lovrModelHasJoints(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  lua_pushboolean(L, lovrModelGetModelData(model)->skinCount > 0);
+  ModelData* data = lovrModelGetInfo(model)->data;
+  lua_pushboolean(L, data->skinCount > 0);
+  return 1;
+}
+
+static int l_lovrModelAnimate(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t animation = luax_checkanimation(L, 2, model);
+  float time = luax_checkfloat(L, 3);
+  float alpha = luax_optfloat(L, 4, 1.f);
+  lovrModelAnimate(model, animation, time, alpha);
+  return 0;
+}
+
+static int l_lovrModelGetTriangles(lua_State* L) {
+  return luax_callmodeldata(L, "getTriangles", 2);
+}
+
+static int l_lovrModelGetTriangleCount(lua_State* L) {
+  return luax_callmodeldata(L, "getTriangleCount", 1);
+}
+
+static int l_lovrModelGetVertexCount(lua_State* L) {
+  return luax_callmodeldata(L, "getVertexCount", 1);
+}
+
+static int l_lovrModelGetWidth(lua_State* L) {
+  return luax_callmodeldata(L, "getWidth", 1);
+}
+
+static int l_lovrModelGetHeight(lua_State* L) {
+  return luax_callmodeldata(L, "getHeight", 1);
+}
+
+static int l_lovrModelGetDepth(lua_State* L) {
+  return luax_callmodeldata(L, "getDepth", 1);
+}
+
+static int l_lovrModelGetDimensions(lua_State* L) {
+  return luax_callmodeldata(L, "getDimensions", 3);
+}
+
+static int l_lovrModelGetCenter(lua_State* L) {
+  return luax_callmodeldata(L, "getCenter", 3);
+}
+
+static int l_lovrModelGetBoundingBox(lua_State* L) {
+  return luax_callmodeldata(L, "getBoundingBox", 6);
+}
+
+static int l_lovrModelGetBoundingSphere(lua_State* L) {
+  return luax_callmodeldata(L, "getBoundingSphere", 4);
+}
+
+static int l_lovrModelGetVertexBuffer(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  Buffer* buffer = lovrModelGetVertexBuffer(model);
+  luax_pushtype(L, Buffer, buffer);
+  return 1;
+}
+
+static int l_lovrModelGetIndexBuffer(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  Buffer* buffer = lovrModelGetIndexBuffer(model);
+  luax_pushtype(L, Buffer, buffer);
+  return 1;
+}
+
+static int l_lovrModelGetMaterialCount(lua_State* L) {
+  return luax_callmodeldata(L, "getMaterialCount", 1);
+}
+
+static int l_lovrModelGetMaterialName(lua_State* L) {
+  return luax_callmodeldata(L, "getMaterialName", 1);
+}
+
+static int l_lovrModelGetTextureCount(lua_State* L) {
+  return luax_callmodeldata(L, "getImageCount", 1);
+}
+
+static int l_lovrModelGetMaterial(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t index = luaL_checkinteger(L, 2);
+  Material* material = lovrModelGetMaterial(model, index);
+  luax_pushtype(L, Material, material);
+  return 1;
+}
+
+static int l_lovrModelGetTexture(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t index = luaL_checkinteger(L, 2);
+  Texture* texture = lovrModelGetTexture(model, index);
+  luax_pushtype(L, Texture, texture);
   return 1;
 }
 
 const luaL_Reg lovrModel[] = {
-  { "draw", l_lovrModelDraw },
-  { "animate", l_lovrModelAnimate },
-  { "pose", l_lovrModelPose },
-  { "getMaterial", l_lovrModelGetMaterial },
-  { "getAABB", l_lovrModelGetAABB },
-  { "getTriangles", l_lovrModelGetTriangles },
-  { "getNodePose", l_lovrModelGetNodePose },
-  { "getAnimationName", l_lovrModelGetAnimationName },
-  { "getMaterialName", l_lovrModelGetMaterialName },
-  { "getNodeName", l_lovrModelGetNodeName },
-  { "getAnimationCount", l_lovrModelGetAnimationCount },
-  { "getMaterialCount", l_lovrModelGetMaterialCount },
+  { "getData", l_lovrModelGetData },
+  { "getMetadata", l_lovrModelGetMetadata },
+  { "getRootNode", l_lovrModelGetRootNode },
   { "getNodeCount", l_lovrModelGetNodeCount },
+  { "getNodeName", l_lovrModelGetNodeName },
+  { "getNodeParent", l_lovrModelGetNodeParent },
+  { "getNodeChildren", l_lovrModelGetNodeChildren },
+  { "getNodeDrawCount", l_lovrModelGetNodeDrawCount },
+  { "getNodeDraw", l_lovrModelGetNodeDraw },
+  { "getNodePosition", l_lovrModelGetNodePosition },
+  { "setNodePosition", l_lovrModelSetNodePosition },
+  { "getNodeOrientation", l_lovrModelGetNodeOrientation },
+  { "setNodeOrientation", l_lovrModelSetNodeOrientation },
+  { "getNodeScale", l_lovrModelGetNodeScale },
+  { "setNodeScale", l_lovrModelSetNodeScale },
+  { "getNodePose", l_lovrModelGetNodePose },
+  { "setNodePose", l_lovrModelSetNodePose },
+  { "getNodeTransform", l_lovrModelGetNodeTransform },
+  { "setNodeTransform", l_lovrModelSetNodeTransform },
+  { "resetNodeTransforms", l_lovrModelResetNodeTransforms },
+  { "getAnimationCount", l_lovrModelGetAnimationCount },
+  { "getAnimationName", l_lovrModelGetAnimationName },
   { "getAnimationDuration", l_lovrModelGetAnimationDuration },
   { "hasJoints", l_lovrModelHasJoints },
+  { "animate", l_lovrModelAnimate },
+  { "getTriangles", l_lovrModelGetTriangles },
+  { "getTriangleCount", l_lovrModelGetTriangleCount },
+  { "getVertexCount", l_lovrModelGetVertexCount },
+  { "getWidth", l_lovrModelGetWidth },
+  { "getHeight", l_lovrModelGetHeight },
+  { "getDepth", l_lovrModelGetDepth },
+  { "getDimensions", l_lovrModelGetDimensions },
+  { "getCenter", l_lovrModelGetCenter },
+  { "getBoundingBox", l_lovrModelGetBoundingBox },
+  { "getBoundingSphere", l_lovrModelGetBoundingSphere },
+  { "getVertexBuffer", l_lovrModelGetVertexBuffer },
+  { "getIndexBuffer", l_lovrModelGetIndexBuffer },
+  { "getMaterialCount", l_lovrModelGetMaterialCount },
+  { "getMaterialName", l_lovrModelGetMaterialName },
+  { "getTextureCount", l_lovrModelGetTextureCount },
+  { "getMaterial", l_lovrModelGetMaterial },
+  { "getTexture", l_lovrModelGetTexture },
   { NULL, NULL }
 };

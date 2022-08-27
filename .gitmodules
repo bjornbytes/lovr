@@ -10,12 +10,15 @@
 [submodule "deps/ode"]
 	path = deps/ode
 	url = https://github.com/bjornbytes/ode
-[submodule "deps/openvr"]
-	path = deps/openvr
-	url = https://github.com/ValveSoftware/openvr
 [submodule "deps/luajit"]
 	path = deps/luajit
 	url = https://github.com/WohlSoft/LuaJIT
 [submodule "deps/openxr"]
 	path = deps/openxr
 	url = https://github.com/khronosgroup/openxr-sdk
+[submodule "deps/oculus-openxr"]
+	path = deps/oculus-openxr
+	url = https://github.com/lovr-org/ovr_openxr_mobile_sdk
+[submodule "deps/glslang"]
+	path = deps/glslang
+	url = https://github.com/bjornbytes/glslang

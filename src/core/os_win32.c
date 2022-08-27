@@ -1,5 +1,7 @@
 #include "os.h"
 #define WIN32_LEAN_AND_MEAN
+#define WINVER 0x0600
+#define _WIN32_WINNT 0x0600
 #include <windows.h>
 #include <shellapi.h>
 #include <knownfolders.h>
@@ -9,6 +11,8 @@
 #include "os_glfw.h"
 
 static uint64_t frequency;
+
+#ifndef LOVR_OMIT_MAIN
 
 int main(int argc, char** argv);
 
@@ -48,6 +52,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev, LPSTR args, int show) {
 
   return status;
 }
+
+#endif
 
 bool os_init() {
   LARGE_INTEGER f;
@@ -96,6 +102,22 @@ void os_sleep(double seconds) {
 
 void os_request_permission(os_permission permission) {
   //
+}
+
+void* os_vm_init(size_t size) {
+  return VirtualAlloc(NULL, size, MEM_RESERVE, PAGE_NOACCESS);
+}
+
+bool os_vm_free(void* p, size_t size) {
+  return VirtualFree(p, 0, MEM_RELEASE);
+}
+
+bool os_vm_commit(void* p, size_t size) {
+  return VirtualAlloc(p, size, MEM_COMMIT, PAGE_READWRITE);
+}
+
+bool os_vm_release(void* p, size_t size) {
+  return VirtualFree(p, 0, MEM_DECOMMIT);
 }
 
 void os_on_permission(fn_permission* callback) {

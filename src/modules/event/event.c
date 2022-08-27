@@ -1,7 +1,7 @@
 #include "event/event.h"
 #include "thread/thread.h"
 #include "core/os.h"
-#include "core/util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -21,7 +21,7 @@ void lovrVariantDestroy(Variant* variant) {
 
 bool lovrEventInit() {
   if (state.initialized) return false;
-  arr_init(&state.events, realloc);
+  arr_init(&state.events, arr_alloc);
   return state.initialized = true;
 }
 

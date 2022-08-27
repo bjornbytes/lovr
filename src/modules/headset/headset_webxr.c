@@ -1,12 +1,13 @@
 #include "headset/headset.h"
 
 extern bool webxr_init(float supersample, float offset, uint32_t msaa, bool overlay);
+extern void webxr_start(void);
 extern void webxr_destroy(void);
 extern bool webxr_getName(char* name, size_t length);
 extern HeadsetOrigin webxr_getOriginType(void);
 extern double webxr_getDisplayTime(void);
+extern double webxr_getDeltaTime(void);
 extern void webxr_getDisplayDimensions(uint32_t* width, uint32_t* height);
-extern const float* webxr_getDisplayMask(uint32_t* count);
 extern uint32_t webxr_getViewCount(void);
 extern bool webxr_getViewPose(uint32_t view, float* position, float* orientation);
 extern bool webxr_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down);
@@ -24,35 +25,19 @@ extern bool webxr_vibrate(Device device, float strength, float duration, float f
 extern struct ModelData* webxr_newModelData(Device device, bool animated);
 extern bool webxr_animate(Device device, struct Model* model);
 extern void webxr_renderTo(void (*callback)(void*), void* userdata);
-extern void webxr_update(float dt);
+extern bool webxr_isFocused(void);
+extern double webxr_update(void);
 
 static bool webxrAttached = false;
 static HeadsetInterface* previousHeadsetDriver;
 
-static void setDriver(HeadsetInterface* new) {
-  if (lovrHeadsetTrackingDrivers == lovrHeadsetDisplayDriver) {
-    lovrHeadsetTrackingDrivers = new;
-  } else {
-    FOREACH_TRACKING_DRIVER(driver) {
-      if (driver->next == lovrHeadsetDisplayDriver) {
-        driver->next = new;
-        break;
-      }
-    }
-  }
-
-  new->next = lovrHeadsetDisplayDriver->next;
-  lovrHeadsetDisplayDriver->next = NULL;
-  lovrHeadsetDisplayDriver = new;
-}
-
 void webxr_attach() {
-  if (webxrAttached || lovrHeadsetDisplayDriver == &lovrHeadsetWebXRDriver) {
+  if (webxrAttached || lovrHeadsetInterface == &lovrHeadsetWebXRDriver) {
     return;
   }
 
-  previousHeadsetDriver = lovrHeadsetDisplayDriver;
-  setDriver(&lovrHeadsetWebXRDriver);
+  previousHeadsetDriver = lovrHeadsetInterface;
+  lovrHeadsetInterface = &lovrHeadsetWebXRDriver;
   webxrAttached = true;
 }
 
@@ -61,7 +46,7 @@ void webxr_detach() {
     return;
   }
 
-  setDriver(previousHeadsetDriver);
+  lovrHeadsetInterface = previousHeadsetDriver;
   previousHeadsetDriver = NULL;
   webxrAttached = false;
 }
@@ -69,12 +54,12 @@ void webxr_detach() {
 HeadsetInterface lovrHeadsetWebXRDriver = {
   .driverType = DRIVER_WEBXR,
   .init = webxr_init,
+  .start = webxr_start,
   .destroy = webxr_destroy,
   .getName = webxr_getName,
   .getOriginType = webxr_getOriginType,
   .getDisplayTime = webxr_getDisplayTime,
   .getDisplayDimensions = webxr_getDisplayDimensions,
-  .getDisplayMask = webxr_getDisplayMask,
   .getViewCount = webxr_getViewCount,
   .getViewPose = webxr_getViewPose,
   .getViewAngles = webxr_getViewAngles,
@@ -92,5 +77,6 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .newModelData = webxr_newModelData,
   .animate = webxr_animate,
   .renderTo = webxr_renderTo,
+  .isFocused = webxr_isFocused,
   .update = webxr_update
 };

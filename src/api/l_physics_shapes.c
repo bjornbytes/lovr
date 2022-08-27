@@ -1,17 +1,19 @@
 #include "api.h"
 #include "physics/physics.h"
-#include "core/util.h"
+#include "core/maf.h"
+#include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <string.h>
 
 void luax_pushshape(lua_State* L, Shape* shape) {
-  switch (shape->type) {
+  switch (lovrShapeGetType(shape)) {
     case SHAPE_SPHERE: luax_pushtype(L, SphereShape, shape); break;
     case SHAPE_BOX: luax_pushtype(L, BoxShape, shape); break;
     case SHAPE_CAPSULE: luax_pushtype(L, CapsuleShape, shape); break;
     case SHAPE_CYLINDER: luax_pushtype(L, CylinderShape, shape); break;
     case SHAPE_MESH: luax_pushtype(L, MeshShape, shape); break;
-    default: lovrThrow("Unreachable");
+    default: lovrUnreachable();
   }
 }
 
@@ -27,7 +29,7 @@ Shape* luax_checkshape(lua_State* L, int index) {
       hash64("MeshShape", strlen("MeshShape")),
     };
 
-    for (size_t i = 0; i < sizeof(hashes) / sizeof(hashes[0]); i++) {
+    for (size_t i = 0; i < COUNTOF(hashes); i++) {
       if (p->hash == hashes[i]) {
         return p->object;
       }

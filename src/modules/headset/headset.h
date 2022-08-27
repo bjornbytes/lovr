@@ -9,16 +9,24 @@
 struct Model;
 struct ModelData;
 struct Texture;
+struct Pass;
 
 typedef enum {
   DRIVER_DESKTOP,
-  DRIVER_OCULUS,
-  DRIVER_OPENVR,
   DRIVER_OPENXR,
-  DRIVER_VRAPI,
-  DRIVER_PICO,
   DRIVER_WEBXR
 } HeadsetDriver;
+
+typedef struct {
+  HeadsetDriver* drivers;
+  size_t driverCount;
+  float supersample;
+  float offset;
+  bool stencil;
+  bool antialias;
+  bool submitDepth;
+  bool overlay;
+} HeadsetConfig;
 
 typedef enum {
   ORIGIN_HEAD,
@@ -45,16 +53,14 @@ typedef enum {
   DEVICE_KEYBOARD,
   DEVICE_EYE_LEFT,
   DEVICE_EYE_RIGHT,
-  DEVICE_BEACON_1,
-  DEVICE_BEACON_2,
-  DEVICE_BEACON_3,
-  DEVICE_BEACON_4,
+  DEVICE_EYE_GAZE,
   MAX_DEVICES
 } Device;
 
 typedef enum {
   BUTTON_TRIGGER,
   BUTTON_THUMBSTICK,
+  BUTTON_THUMBREST,
   BUTTON_TOUCHPAD,
   BUTTON_GRIP,
   BUTTON_MENU,
@@ -104,22 +110,31 @@ typedef enum {
 } HandJoint;
 
 // Notes:
+// - init is called immediately, the graphics module may not exist yet
+// - start is called after the graphics module is initialized, can be used to set up textures etc.
+// - graphics module currently calls stop when it's destroyed, which is hacky and should be improved
 // - getDisplayFrequency may return 0.f if the information is unavailable.
 // - For isDown, changed can be set to false if change information is unavailable or inconvenient.
 // - getAxis may write 4 floats to the output value.  The expected number is a constant (see axisCounts in l_headset).
 // - In general, most input results should be kept constant between calls to update.
 
 typedef struct HeadsetInterface {
-  struct HeadsetInterface* next;
   HeadsetDriver driverType;
-  bool (*init)(float supersample, float offset, uint32_t msaa, bool overlay);
+  void (*getVulkanPhysicalDevice)(void* instance, uintptr_t physicalDevice);
+  uint32_t (*createVulkanInstance)(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
+  uint32_t (*createVulkanDevice)(void* instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
+  bool (*init)(HeadsetConfig* config);
+  void (*start)(void);
+  void (*stop)(void);
   void (*destroy)(void);
   bool (*getName)(char* name, size_t length);
   HeadsetOrigin (*getOriginType)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   float (*getDisplayFrequency)(void);
-  const float* (*getDisplayMask)(uint32_t* count);
+  float* (*getDisplayFrequencies)(uint32_t* count);
+  bool (*setDisplayFrequency)(float);
   double (*getDisplayTime)(void);
+  double (*getDeltaTime)(void);
   uint32_t (*getViewCount)(void);
   bool (*getViewPose)(uint32_t view, float* position, float* orientation);
   bool (*getViewAngles)(uint32_t view, float* left, float* right, float* up, float* down);
@@ -136,26 +151,20 @@ typedef struct HeadsetInterface {
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(Device device, struct Model* model);
-  void (*renderTo)(void (*callback)(void*), void* userdata);
-  struct Texture* (*getMirrorTexture)(void);
-  void (*update)(float dt);
+  struct Texture* (*getTexture)(void);
+  struct Pass* (*getPass)(void);
+  void (*submit)(void);
+  bool (*isFocused)(void);
+  double (*update)(void);
 } HeadsetInterface;
 
 // Available drivers
-extern HeadsetInterface lovrHeadsetOculusDriver;
-extern HeadsetInterface lovrHeadsetOpenVRDriver;
 extern HeadsetInterface lovrHeadsetOpenXRDriver;
-extern HeadsetInterface lovrHeadsetVrApiDriver;
-extern HeadsetInterface lovrHeadsetPicoDriver;
 extern HeadsetInterface lovrHeadsetWebXRDriver;
 extern HeadsetInterface lovrHeadsetDesktopDriver;
 
-// Active drivers
-extern HeadsetInterface* lovrHeadsetDisplayDriver;
-extern HeadsetInterface* lovrHeadsetTrackingDrivers;
+// Active driver
+extern HeadsetInterface* lovrHeadsetInterface;
 
-#define FOREACH_TRACKING_DRIVER(i)\
-  for (HeadsetInterface* i = lovrHeadsetTrackingDrivers; i != NULL; i = i->next)
-
-bool lovrHeadsetInit(HeadsetDriver* drivers, size_t count, float supersample, float offset, uint32_t msaa, bool overlay);
+bool lovrHeadsetInit(HeadsetConfig* config);
 void lovrHeadsetDestroy(void);
