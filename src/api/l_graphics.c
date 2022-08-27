@@ -159,6 +159,7 @@ StringEntry lovrStackType[] = {
 
 StringEntry lovrStencilAction[] = {
   [STENCIL_KEEP] = ENTRY("keep"),
+  [STENCIL_ZERO] = ENTRY("zero"),
   [STENCIL_REPLACE] = ENTRY("replace"),
   [STENCIL_INCREMENT] = ENTRY("increment"),
   [STENCIL_DECREMENT] = ENTRY("decrement"),
