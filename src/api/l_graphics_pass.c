@@ -270,7 +270,7 @@ static int l_lovrPassSetColor(lua_State* L) {
 static int l_lovrPassSetColorWrite(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   bool r, g, b, a;
-  if (lua_gettop(L) <= 1) {
+  if (lua_gettop(L) <= 2) {
     r = g = b = a = lua_toboolean(L, 2);
   } else {
     r = lua_toboolean(L, 2);
