@@ -3383,7 +3383,9 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     .viewCount = pass->viewCount,
     .depth.format = depth->texture ? depth->texture->info.format : depth->format,
     .depth.test = GPU_COMPARE_GEQUAL,
-    .depth.write = true
+    .depth.write = true,
+    .stencil.testMask = 0xff,
+    .stencil.writeMask = 0xff
   };
 
   for (uint32_t i = 0; i < pass->info.canvas.count; i++) {
