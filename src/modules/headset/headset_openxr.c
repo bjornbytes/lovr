@@ -320,16 +320,9 @@ static bool openxr_init(HeadsetConfig* config) {
     for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensionProperties);
 
-#ifdef __ANDROID__
-    bool androidCreateInstanceExtension = false;
-#endif
-
     // Extensions with feature == NULL must be present.  The enable flag can be used to
     // conditionally enable extensions based on config, platform, etc.
     struct { const char* name; bool* feature; bool enable; } extensions[] = {
-#ifdef __ANDROID__
-      { "XR_KHR_android_create_instance", &androidCreateInstanceExtension, true },
-#endif
 #ifdef LOVR_VK
       { "XR_KHR_vulkan_enable2", NULL, true },
 #endif
@@ -357,14 +350,6 @@ static bool openxr_init(HeadsetConfig* config) {
 
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
-#ifdef __ANDROID__
-      // harmless to include even if not available from runtime
-      .next = &(XrInstanceCreateInfoAndroidKHR) {
-        .type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR,
-        .applicationVM = activity->vm,
-        .applicationActivity = activity->clazz
-      },
-#endif
       .applicationInfo.engineName = "LÖVR",
       .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
       .applicationInfo.applicationName = "LÖVR",
