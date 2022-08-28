@@ -17,6 +17,7 @@ static struct {
   float angularVelocity[4];
   float headTransform[16];
   float leftHandTransform[16];
+  double epoch;
   double prevDisplayTime;
   double nextDisplayTime;
   double prevCursorX;
@@ -40,8 +41,9 @@ static bool desktop_init(HeadsetConfig* config) {
   state.offset = config->offset;
   state.clipNear = .01f;
   state.clipFar = 0.f;
-  state.prevDisplayTime = os_get_time();
-  state.nextDisplayTime = state.prevDisplayTime;
+  state.epoch = os_get_time();
+  state.prevDisplayTime = state.epoch;
+  state.nextDisplayTime = state.epoch;
 
   if (!state.initialized) {
     mat4_identity(state.headTransform);
@@ -74,7 +76,7 @@ static HeadsetOrigin desktop_getOriginType(void) {
 }
 
 static double desktop_getDisplayTime(void) {
-  return state.nextDisplayTime;
+  return state.nextDisplayTime - state.epoch;
 }
 
 static double desktop_getDeltaTime(void) {
