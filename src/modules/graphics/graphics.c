@@ -3807,6 +3807,12 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   lovrRelease(previous, lovrShaderDestroy);
   pass->pipeline->shader = shader;
   pass->pipeline->dirty = true;
+
+  // If shaders have different push constant ranges, descriptor sets need to be rebound
+  if ((shader ? shader->constantSize : 0) != (previous ? previous->constantSize : 0)) {
+    pass->materialDirty = true;
+    pass->samplerDirty = true;
+  }
 }
 
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask) {
