@@ -88,10 +88,10 @@ typedef struct {
   float alphaCutoff;
   uint32_t texture;
   uint32_t glowTexture;
-  uint32_t occlusionTexture;
   uint32_t metalnessTexture;
   uint32_t roughnessTexture;
   uint32_t clearcoatTexture;
+  uint32_t occlusionTexture;
   uint32_t normalTexture;
   const char* name;
 } ModelMaterial;

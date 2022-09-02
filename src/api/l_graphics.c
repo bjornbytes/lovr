@@ -1369,10 +1369,6 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
   info.glowTexture = luax_opttexture(L, -1);
   lua_pop(L, 1);
 
-  lua_getfield(L, 1, "occlusionTexture");
-  info.occlusionTexture = luax_opttexture(L, -1);
-  lua_pop(L, 1);
-
   lua_getfield(L, 1, "metalnessTexture");
   info.metalnessTexture = luax_opttexture(L, -1);
   lua_pop(L, 1);
@@ -1383,6 +1379,10 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
 
   lua_getfield(L, 1, "clearcoatTexture");
   info.clearcoatTexture = luax_opttexture(L, -1);
+  lua_pop(L, 1);
+
+  lua_getfield(L, 1, "occlusionTexture");
+  info.occlusionTexture = luax_opttexture(L, -1);
   lua_pop(L, 1);
 
   lua_getfield(L, 1, "normalTexture");

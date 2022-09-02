@@ -340,10 +340,10 @@ typedef struct {
   MaterialData data;
   Texture* texture;
   Texture* glowTexture;
-  Texture* occlusionTexture;
   Texture* metalnessTexture;
   Texture* roughnessTexture;
   Texture* clearcoatTexture;
+  Texture* occlusionTexture;
   Texture* normalTexture;
 } MaterialInfo;
 

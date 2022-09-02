@@ -2038,10 +2038,10 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
   Texture* textures[] = {
     info->texture,
     info->glowTexture,
-    info->occlusionTexture,
     info->metalnessTexture,
     info->roughnessTexture,
     info->clearcoatTexture,
+    info->occlusionTexture,
     info->normalTexture
   };
 
@@ -2072,10 +2072,10 @@ void lovrMaterialDestroy(void* ref) {
   if (block->head == ~0u) block->head = block->tail;
   lovrRelease(material->info.texture, lovrTextureDestroy);
   lovrRelease(material->info.glowTexture, lovrTextureDestroy);
-  lovrRelease(material->info.occlusionTexture, lovrTextureDestroy);
   lovrRelease(material->info.metalnessTexture, lovrTextureDestroy);
   lovrRelease(material->info.roughnessTexture, lovrTextureDestroy);
   lovrRelease(material->info.clearcoatTexture, lovrTextureDestroy);
+  lovrRelease(material->info.occlusionTexture, lovrTextureDestroy);
   lovrRelease(material->info.normalTexture, lovrTextureDestroy);
 }
 
@@ -2580,10 +2580,10 @@ Model* lovrModelCreate(const ModelInfo* info) {
     struct { uint32_t index; Texture** texture; } textures[] = {
       { properties->texture, &material.texture },
       { properties->glowTexture, &material.glowTexture },
-      { properties->occlusionTexture, &material.occlusionTexture },
       { properties->metalnessTexture, &material.metalnessTexture },
       { properties->roughnessTexture, &material.roughnessTexture },
       { properties->clearcoatTexture, &material.clearcoatTexture },
+      { properties->occlusionTexture, &material.occlusionTexture },
       { properties->normalTexture, &material.normalTexture }
     };
 
@@ -5789,10 +5789,10 @@ static void trackMaterial(Pass* pass, Material* material, gpu_phase phase, gpu_c
 
   trackTexture(pass, material->info.texture, phase, cache);
   trackTexture(pass, material->info.glowTexture, phase, cache);
-  trackTexture(pass, material->info.occlusionTexture, phase, cache);
   trackTexture(pass, material->info.metalnessTexture, phase, cache);
   trackTexture(pass, material->info.roughnessTexture, phase, cache);
   trackTexture(pass, material->info.clearcoatTexture, phase, cache);
+  trackTexture(pass, material->info.occlusionTexture, phase, cache);
   trackTexture(pass, material->info.normalTexture, phase, cache);
 }
 

@@ -10,10 +10,10 @@ layout(constant_id = 1007) const bool flag_glow = false;
 layout(constant_id = 1008) const bool flag_normalMap = false;
 layout(constant_id = 1009) const bool flag_vertexTangents = true;
 layout(constant_id = 1010) const bool flag_colorTexture = true;
-layout(constant_id = 1011) const bool flag_glowTexture = false;
+layout(constant_id = 1011) const bool flag_glowTexture = true;
 layout(constant_id = 1012) const bool flag_metalnessTexture = true;
 layout(constant_id = 1013) const bool flag_roughnessTexture = true;
-layout(constant_id = 1014) const bool flag_occlusionTexture = false;
+layout(constant_id = 1014) const bool flag_ambientOcclusion = true;
 layout(constant_id = 1015) const bool flag_clearcoatTexture = false;
 layout(constant_id = 1016) const bool flag_tonemap = false;
 
@@ -248,7 +248,7 @@ void initSurface(out Surface surface) {
   surface.roughness2 = roughness * roughness;
 
   surface.occlusion = 1.;
-  if (flag_occlusionTexture) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
+  if (flag_ambientOcclusion) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
 
   surface.clearcoat = Material.clearcoat;
   if (flag_clearcoatTexture) surface.clearcoat *= getPixel(ClearcoatTexture, UV).r;

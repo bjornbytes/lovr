@@ -709,10 +709,10 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       material->alphaCutoff = 0.f;
       material->texture = ~0u;
       material->glowTexture = ~0u;
-      material->occlusionTexture = ~0u;
       material->metalnessTexture = ~0u;
       material->roughnessTexture = ~0u;
       material->clearcoatTexture = ~0u;
+      material->occlusionTexture = ~0u;
       material->normalTexture = ~0u;
 
       for (int k = (token++)->size; k > 0; k--) {
