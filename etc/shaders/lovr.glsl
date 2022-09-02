@@ -144,7 +144,7 @@ layout(location = 14) in vec3 Tangent;
 #define CameraPositionWorld (-View[3].xyz * mat3(View))
 
 #define DefaultPosition (ClipFromLocal * VertexPosition)
-#define DefaultColor (Color * getPixel(ColorTexture, UV))
+#define DefaultColor (flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color)
 #endif
 
 // Constants
