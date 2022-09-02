@@ -766,7 +766,7 @@ static int l_lovrPassMesh(lua_State* L) {
     int index = luax_readmat4(L, indices ? 4 : 3, transform, 1);
     uint32_t start = luax_optu32(L, index++, 1) - 1;
     uint32_t count = luax_optu32(L, index++, ~0u);
-    uint32_t instances = luax_optu32(L, index, 1);
+    uint32_t instances = luax_optu32(L, index++, 1);
     uint32_t base = luax_optu32(L, index++, 0);
     if (count == ~0u && lua_type(L, 2) == LUA_TNUMBER) {
       count = lua_tointeger(L, 2);
