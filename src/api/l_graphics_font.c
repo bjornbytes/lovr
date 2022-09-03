@@ -134,7 +134,7 @@ static int l_lovrFontGetVertices(lua_State* L) {
   uint32_t count;
   ColoredString stack;
   ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
-  float wrap = luax_checkfloat(L, 3);
+  float wrap = luax_optfloat(L, 3, 0.f);
   HorizontalAlign halign = luax_checkenum(L, 4, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, 5, VerticalAlign, "middle");
   size_t totalLength = 0;
