@@ -797,9 +797,10 @@ static int l_lovrPassClear(lua_State* L) {
   Buffer* buffer = luax_totype(L, 2, Buffer);
 
   if (buffer) {
-    uint32_t offset = luax_optu32(L, 3, 0);
-    uint32_t extent = luax_optu32(L, 4, ~0u);
-    lovrPassClearBuffer(pass, buffer, offset, extent);
+    const BufferInfo* info = lovrBufferGetInfo(buffer);
+    uint32_t index = luax_optu32(L, 3, 1);
+    uint32_t count = luax_optu32(L, 4, info->length - index + 1);
+    lovrBufferClear(buffer, (index - 1) * info->stride, count * info->stride);
     return 0;
   }
 

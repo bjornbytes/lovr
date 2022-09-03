@@ -173,7 +173,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
 
   uint32_t length = luax_len(L, index);
   uint32_t limit = nested ? MIN(length - srcIndex, info->length - dstIndex) : info->length - dstIndex;
-  uint32_t count = luaL_optinteger(L, index + 3, limit);
+  uint32_t count = luax_optu32(L, index + 3, limit);
   lovrCheck(dstIndex + count <= info->length, "Tried to write Buffer elements [%d,%d] but Buffer can only hold %d things", dstIndex + 1, dstIndex + count - 1, info->length);
 
   data = data ? data : lovrBufferMap(buffer, dstIndex * stride, count * stride);
@@ -290,8 +290,8 @@ static int l_lovrBufferSetData(lua_State* L) {
 static int l_lovrBufferClear(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
-  uint32_t index = luaL_optinteger(L, 2, 1);
-  uint32_t count = luaL_optinteger(L, 3, info->length - index + 1);
+  uint32_t index = luax_optu32(L, 2, 1);
+  uint32_t count = luax_optu32(L, 3, info->length - index + 1);
   lovrBufferClear(buffer, (index - 1) * info->stride, count * info->stride);
   return 0;
 }
