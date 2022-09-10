@@ -959,7 +959,7 @@ static int l_lovrPassBlit(lua_State* L) {
 static int l_lovrPassMipmap(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Texture* texture = luax_checktype(L, 2, Texture);
-  uint32_t base = luax_optu32(L, 3, 0);
+  uint32_t base = luax_optu32(L, 3, 1) - 1;
   uint32_t count = luax_optu32(L, 4, ~0u);
   lovrPassMipmap(pass, texture, base, count);
   return 0;
