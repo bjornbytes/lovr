@@ -1,5 +1,6 @@
 #include "shaders/unlit.vert.h"
 #include "shaders/unlit.frag.h"
+#include "shaders/normal.frag.h"
 #include "shaders/font.frag.h"
 #include "shaders/cubemap.vert.h"
 #include "shaders/cubemap.frag.h"

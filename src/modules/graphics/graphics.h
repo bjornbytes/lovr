@@ -269,6 +269,7 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
 typedef enum {
   SHADER_UNLIT,
+  SHADER_NORMAL,
   SHADER_FONT,
   SHADER_CUBEMAP,
   SHADER_EQUIRECT,

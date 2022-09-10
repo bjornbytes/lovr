@@ -1602,6 +1602,10 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
       { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
       { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
+    [SHADER_NORMAL] = {
+      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      { lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
+    },
     [SHADER_FONT] = {
       { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
       { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
