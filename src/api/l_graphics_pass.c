@@ -94,11 +94,15 @@ static int l_lovrPassGetClear(lua_State* L) {
     lua_rawseti(L, -2, i + 1);
   }
 
-  lua_pushnumber(L, depth);
-  lua_setfield(L, -2, "depth");
+  const PassInfo* info = lovrPassGetInfo(pass);
 
-  lua_pushinteger(L, stencil);
-  lua_setfield(L, -2, "stencil");
+  if (info->canvas.depth.format || info->canvas.depth.texture) {
+    lua_pushnumber(L, depth);
+    lua_setfield(L, -2, "depth");
+
+    lua_pushinteger(L, stencil);
+    lua_setfield(L, -2, "stencil");
+  }
 
   return 1;
 }
