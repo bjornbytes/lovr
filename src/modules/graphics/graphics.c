@@ -3269,6 +3269,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   lovrCheck(t->height <= state.limits.renderSize[1], "Render pass height (%d) exceeds the renderSize limit of this GPU (%d)", t->height, state.limits.renderSize[1]);
   lovrCheck(t->layers <= state.limits.renderSize[2], "Pass view count (%d) exceeds the renderSize limit of this GPU (%d)", t->layers, state.limits.renderSize[2]);
   lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Render pass sample count must be 1 or 4...for now");
+  lovrCheck(!canvas->mipmap || t->samples == 1, "Unable to mipmap multisampled textures");
 
   for (uint32_t i = 0; i < canvas->count; i++) {
     const TextureInfo* texture = &canvas->textures[i]->info;
