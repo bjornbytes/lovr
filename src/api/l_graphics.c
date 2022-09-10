@@ -625,7 +625,7 @@ static void luax_writeshadercache(void) {
   free(data);
 }
 
-static int l_lovrGraphicsInit(lua_State* L) {
+static int l_lovrGraphicsInitialize(lua_State* L) {
   GraphicsConfig config = {
     .debug = false,
     .vsync = false,
@@ -1488,7 +1488,7 @@ static int l_lovrGraphicsGetPass(lua_State* L) {
 }
 
 static const luaL_Reg lovrGraphics[] = {
-  { "init", l_lovrGraphicsInit },
+  { "initialize", l_lovrGraphicsInitialize },
   { "submit", l_lovrGraphicsSubmit },
   { "present", l_lovrGraphicsPresent },
   { "wait", l_lovrGraphicsWait },
