@@ -3816,6 +3816,8 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
 }
 
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask) {
+  TextureFormat depthFormat = pass->info.canvas.depth.texture ? pass->info.canvas.depth.texture->info.format : pass->info.canvas.depth.format;
+  lovrCheck(depthFormat == FORMAT_D32FS8 || depthFormat == FORMAT_D24S8, "Trying to set stencil test when no stencil buffer exists");
   bool hasReplace = false;
   hasReplace |= pass->pipeline->info.stencil.failOp == GPU_STENCIL_REPLACE;
   hasReplace |= pass->pipeline->info.stencil.depthFailOp == GPU_STENCIL_REPLACE;
@@ -3838,6 +3840,8 @@ void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t
 }
 
 void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask) {
+  TextureFormat depthFormat = pass->info.canvas.depth.texture ? pass->info.canvas.depth.texture->info.format : pass->info.canvas.depth.format;
+  lovrCheck(depthFormat == FORMAT_D32FS8 || depthFormat == FORMAT_D24S8, "Trying to write to the stencil buffer when no stencil buffer exists");
   bool hasReplace = actions[0] == STENCIL_REPLACE || actions[1] == STENCIL_REPLACE || actions[2] == STENCIL_REPLACE;
   if (hasReplace && pass->pipeline->info.stencil.test != GPU_COMPARE_NONE) {
     lovrCheck(value == pass->pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
