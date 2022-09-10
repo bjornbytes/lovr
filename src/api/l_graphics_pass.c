@@ -939,10 +939,10 @@ static int l_lovrPassBlit(lua_State* L) {
   uint32_t srcOffset[4], dstOffset[4], srcExtent[3], dstExtent[3];
   srcOffset[0] = luax_optu32(L, 4, 0);
   srcOffset[1] = luax_optu32(L, 5, 0);
-  srcOffset[2] = luax_optu32(L, 6, 0);
+  srcOffset[2] = luax_optu32(L, 6, 1) - 1;
   dstOffset[0] = luax_optu32(L, 7, 0);
   dstOffset[1] = luax_optu32(L, 8, 0);
-  dstOffset[2] = luax_optu32(L, 9, 0);
+  dstOffset[2] = luax_optu32(L, 9, 1) - 1;
   srcExtent[0] = luax_optu32(L, 10, ~0u);
   srcExtent[1] = luax_optu32(L, 11, ~0u);
   srcExtent[2] = luax_optu32(L, 12, ~0u);
