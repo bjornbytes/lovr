@@ -76,6 +76,7 @@ static int l_lovrPassGetTarget(lua_State* L) {
 
 static int l_lovrPassGetClear(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
+  const PassInfo* info = lovrPassGetInfo(pass);
 
   uint32_t count = 0;
   float color[4][4];
@@ -86,15 +87,18 @@ static int l_lovrPassGetClear(lua_State* L) {
   lua_createtable(L, (int) count, 2);
 
   for (int i = 0; i < (int) count; i++) {
-    lua_createtable(L, 4, 0);
-    for (int j = 0; j < 4; j++) {
-      lua_pushnumber(L, color[i][j]);
-      lua_rawseti(L, -2, j + 1);
+    if (info->canvas.loads[i] == LOAD_CLEAR) {
+      lua_createtable(L, 4, 0);
+      for (int j = 0; j < 4; j++) {
+        lua_pushnumber(L, color[i][j]);
+        lua_rawseti(L, -2, j + 1);
+      }
+    } else {
+      lua_pushboolean(L, info->canvas.loads[i] == LOAD_DISCARD);
     }
+
     lua_rawseti(L, -2, i + 1);
   }
-
-  const PassInfo* info = lovrPassGetInfo(pass);
 
   if (info->canvas.depth.format || info->canvas.depth.texture) {
     lua_pushnumber(L, depth);
