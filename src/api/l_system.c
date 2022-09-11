@@ -121,10 +121,6 @@ static int l_lovrSystemOpenWindow(lua_State* L) {
   os_window_config window;
   memset(&window, 0, sizeof(window));
 
-  if (!lua_toboolean(L, 1)) {
-    return 0;
-  }
-
   luaL_checktype(L, 1, LUA_TTABLE);
 
   lua_getfield(L, 1, "width");
