@@ -4,11 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef union {
-  uint64_t u64;
-  Channel* channel;
-} ChannelEntry;
-
 static struct {
   bool initialized;
   mtx_t channelLock;
@@ -26,8 +21,7 @@ void lovrThreadModuleDestroy() {
   if (!state.initialized) return;
   for (size_t i = 0; i < state.channels.size; i++) {
     if (state.channels.values[i] != MAP_NIL) {
-      ChannelEntry entry = { state.channels.values[i] };
-      lovrRelease(entry.channel, lovrChannelDestroy);
+      lovrRelease((Channel*) (uintptr_t) state.channels.values[i], lovrChannelDestroy);
     }
   }
   mtx_destroy(&state.channelLock);
@@ -37,17 +31,20 @@ void lovrThreadModuleDestroy() {
 
 Channel* lovrThreadGetChannel(const char* name) {
   uint64_t hash = hash64(name, strlen(name));
+  Channel* channel = NULL;
 
   mtx_lock(&state.channelLock);
-  ChannelEntry entry = { map_get(&state.channels, hash) };
+  uint64_t entry = map_get(&state.channels, hash);
 
-  if (entry.u64 == MAP_NIL) {
-    entry.channel = lovrChannelCreate(hash);
-    map_set(&state.channels, hash, entry.u64);
+  if (entry == MAP_NIL) {
+    channel = lovrChannelCreate(hash);
+    map_set(&state.channels, hash, (uint64_t) (uintptr_t) channel);
+  } else {
+    channel = (Channel*) (uintptr_t) entry;
   }
 
   mtx_unlock(&state.channelLock);
-  return entry.channel;
+  return channel;
 }
 
 Thread* lovrThreadCreate(int (*runner)(void*), Blob* body) {
