@@ -885,6 +885,7 @@ static Image* loadASTC(Blob* blob) {
   image->width = width;
   image->height = height;
   image->format = format;
+  image->flags = IMAGE_SRGB;
   image->layers = 1;
   image->levels = 1;
   image->blob = blob;
