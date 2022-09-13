@@ -1248,7 +1248,11 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .depthTestEnable = info->depth.test != GPU_COMPARE_NONE,
     .depthWriteEnable = info->depth.write,
     .depthCompareOp = compareOps[info->depth.test],
-    .stencilTestEnable = info->stencil.test != GPU_COMPARE_NONE,
+    .stencilTestEnable =
+      info->stencil.test != GPU_COMPARE_NONE ||
+      info->stencil.failOp != GPU_STENCIL_KEEP ||
+      info->stencil.passOp != GPU_STENCIL_KEEP ||
+      info->stencil.depthFailOp != GPU_STENCIL_KEEP,
     .front = stencil,
     .back = stencil
   };
