@@ -560,7 +560,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
       .min = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
       .mag = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
       .mip = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
-      .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
+      .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
+      .range = { 0.f, -1.f }
     });
   }
 
