@@ -1162,13 +1162,9 @@ static int l_lovrGraphicsCompileShader(lua_State* L) {
   ShaderStage stage = luax_checkenum(L, 1, ShaderStage, NULL);
   bool allocated;
   ShaderSource spirv = luax_checkshadersource(L, 2, stage, &allocated);
-  if (!allocated) {
-    lua_settop(L, 2);
-    return 1;
-  } else {
-    Blob* blob = lovrBlobCreate((void*) spirv.code, spirv.size, "Compiled Shader Code");
-    luax_pushtype(L, Blob, blob);
-  }
+  Blob* blob = lovrBlobCreate((void*) spirv.code, spirv.size, "Compiled Shader Code");
+  luax_pushtype(L, Blob, blob);
+  lovrRelease(blob, lovrBlobDestroy);
   return 1;
 }
 
