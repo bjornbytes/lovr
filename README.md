@@ -1,6 +1,6 @@
-<p align="center"><a href="https://lovr.org"><img src="https://lovr.org/static/img/README.png" width="256"/></a></p>
-
 # LÖVR
+
+<a href="https://lovr.org"><img align="right" src="https://lovr.org/static/img/logo.svg" width="180"/></a>
 
 > **A simple Lua framework for rapidly building VR experiences.**
 
@@ -13,9 +13,9 @@ You can use LÖVR to easily create VR experiences without much setup or programm
 [**Homepage**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
 <p align="left">
-  <span><img src="http://lovr.org/static/img/wattle.jpg" width="32%"/></span>
-  <span><img src="http://lovr.org/static/img/levrage.jpg" width="32%"/></span>
-  <span><img src="http://lovr.org/static/img/planets.jpg" width="32%"/></span>
+  <span><img src="http://lovr.org/static/img/wattle.jpg" width="33%"/></span>
+  <span><img src="http://lovr.org/static/img/levrage.jpg" width="33%"/></span>
+  <span><img src="http://lovr.org/static/img/planets.jpg" width="33%"/></span>
 </p>
 
 Features
