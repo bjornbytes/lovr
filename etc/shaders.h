@@ -10,6 +10,7 @@
 #include "shaders/fill_stereo.frag.h"
 #include "shaders/animator.comp.h"
 #include "shaders/timewizard.comp.h"
+#include "shaders/logo.frag.h"
 
 #include "shaders/lovr.glsl.h"
 

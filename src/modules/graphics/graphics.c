@@ -1630,6 +1630,10 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
     [SHADER_FILL_STEREO] = {
       { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
       { lovr_shader_fill_stereo_frag, sizeof(lovr_shader_fill_stereo_frag) }
+    },
+    [SHADER_LOGO] = {
+      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      { lovr_shader_logo_frag, sizeof(lovr_shader_logo_frag) }
     }
   };
 
