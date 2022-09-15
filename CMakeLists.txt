@@ -807,7 +807,7 @@ elseif(UNIX)
           $<TARGET_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:${ARGV0}>
         )
-      else()
+      elseif(${TARGET_TYPE} STREQUAL "SHARED_LIBRARY")
         add_custom_command(TARGET move_libraries POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
