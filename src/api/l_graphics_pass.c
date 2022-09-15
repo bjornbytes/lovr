@@ -816,12 +816,11 @@ static int l_lovrPassClear(lua_State* L) {
 
   if (texture) {
     float value[4];
-    luax_readcolor(L, 3, value);
-    int index = lua_istable(L, 3) ? 4 : 6;
-    uint32_t layer = luax_optu32(L, index++, 1) - 1;
-    uint32_t layerCount = luax_optu32(L, index++, ~0u);
-    uint32_t level = luax_optu32(L, index++, 1) - 1;
-    uint32_t levelCount = luax_optu32(L, index++, ~0u);
+    luax_optcolor(L, 3, value);
+    uint32_t layer = luax_optu32(L, 4, 1) - 1;
+    uint32_t layerCount = luax_optu32(L, 5, ~0u);
+    uint32_t level = luax_optu32(L, 6, 1) - 1;
+    uint32_t levelCount = luax_optu32(L, 7, ~0u);
     lovrPassClearTexture(pass, texture, value, layer, layerCount, level, levelCount);
     return 0;
   }
