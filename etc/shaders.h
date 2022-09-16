@@ -7,7 +7,7 @@
 #include "shaders/equirect.frag.h"
 #include "shaders/fill.vert.h"
 #include "shaders/fill_array.frag.h"
-#include "shaders/fill_stereo.frag.h"
+#include "shaders/fill_layer.frag.h"
 #include "shaders/animator.comp.h"
 #include "shaders/timewizard.comp.h"
 #include "shaders/logo.frag.h"

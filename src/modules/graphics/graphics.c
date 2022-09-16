@@ -1627,9 +1627,9 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
       { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
       { lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
     },
-    [SHADER_FILL_STEREO] = {
+    [SHADER_FILL_LAYER] = {
       { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      { lovr_shader_fill_stereo_frag, sizeof(lovr_shader_fill_stereo_frag) }
+      { lovr_shader_fill_layer_frag, sizeof(lovr_shader_fill_layer_frag) }
     },
     [SHADER_LOGO] = {
       { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
@@ -5026,8 +5026,7 @@ void lovrPassFill(Pass* pass, Texture* texture) {
     lovrCheck(texture->info.layers == pass->viewCount, "Texture layer counts must match to fill between them");
     shader = SHADER_FILL_ARRAY;
   } else if (pass->viewCount == 1 && texture->info.layers > 1) {
-    lovrCheck(texture->info.layers == 2, "To draw an array texture to a mono texture, it must have 2 layers");
-    shader = SHADER_FILL_STEREO;
+    shader = SHADER_FILL_LAYER;
   } else {
     lovrUnreachable();
   }
