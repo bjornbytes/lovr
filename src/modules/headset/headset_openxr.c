@@ -91,7 +91,9 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrGetHandMeshFB)\
   X(xrGetDisplayRefreshRateFB) \
   X(xrEnumerateDisplayRefreshRatesFB) \
-  X(xrRequestDisplayRefreshRateFB)
+  X(xrRequestDisplayRefreshRateFB) \
+  X(xrQuerySystemTrackedKeyboardFB) \
+  X(xrCreateKeyboardSpaceFB)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -172,6 +174,7 @@ static struct {
     bool handTracking;
     bool handTrackingAim;
     bool handTrackingMesh;
+    bool keyboardTracking;
     bool overlay;
     bool refreshRate;
     bool viveTrackers;
@@ -334,7 +337,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
-      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
+      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true },
+      { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true }
     };
 
     uint32_t enabledExtensionCount = 0;
@@ -382,6 +386,11 @@ static bool openxr_init(HeadsetConfig* config) {
       .supportsHandTracking = false
     };
 
+    XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = {
+      .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB,
+      .supportsKeyboardTracking = false
+    };
+
     XrSystemProperties properties = {
       .type = XR_TYPE_SYSTEM_PROPERTIES
     };
@@ -396,9 +405,15 @@ static bool openxr_init(HeadsetConfig* config) {
       properties.next = &handTrackingProperties;
     }
 
+    if (state.features.keyboardTracking) {
+      keyboardTrackingProperties.next = properties.next;
+      properties.next = &keyboardTrackingProperties;
+    }
+
     XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties));
     state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
     state.features.handTracking = handTrackingProperties.supportsHandTracking;
+    state.features.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
 
     uint32_t viewConfigurationCount;
     XrViewConfigurationType viewConfigurations[2];
@@ -1021,6 +1036,27 @@ static void openxr_start(void) {
           .maxDepth = 1.f
         };
       }
+    }
+  }
+
+  if (state.features.keyboardTracking) {
+    XrKeyboardTrackingQueryFB queryInfo = {
+      .type = XR_TYPE_KEYBOARD_TRACKING_QUERY_FB,
+      .flags = XR_KEYBOARD_TRACKING_QUERY_LOCAL_BIT_FB
+    };
+
+    XrKeyboardTrackingDescriptionFB keyboard;
+    XrResult result = xrQuerySystemTrackedKeyboardFB(state.session, &queryInfo, &keyboard);
+
+    if (result == XR_SUCCESS) {
+      XrKeyboardSpaceCreateInfoFB spaceInfo = {
+        .type = XR_TYPE_KEYBOARD_SPACE_CREATE_INFO_FB,
+        .trackedKeyboardId = keyboard.trackedKeyboardId
+      };
+
+      xrCreateKeyboardSpaceFB(state.session, &spaceInfo, &state.spaces[DEVICE_KEYBOARD]);
+    } else {
+      state.features.keyboardTracking = false;
     }
   }
 }
