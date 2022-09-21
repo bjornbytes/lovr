@@ -150,6 +150,7 @@ static struct {
   XrCompositionLayerProjectionView layerViews[2];
   XrCompositionLayerDepthInfoKHR depthInfo[2];
   XrFrameState frameState;
+  TextureFormat depthFormat;
   Texture* textures[2][MAX_IMAGES];
   Pass* pass;
   double lastDisplayTime;
@@ -880,6 +881,12 @@ static void openxr_start(void) {
   }
 
   { // Swapchain
+    state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
+
+    if (state.config.stencil && !lovrGraphicsIsFormatSupported(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+      state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
+    }
+
 #ifdef LOVR_VK
     XrSwapchainImageVulkanKHR images[2][MAX_IMAGES];
     for (uint32_t i = 0; i < MAX_IMAGES; i++) {
@@ -887,8 +894,15 @@ static void openxr_start(void) {
       images[COLOR][i].next = images[DEPTH][i].next = NULL;
     }
 
-    int64_t colorFormat = VK_FORMAT_R8G8B8A8_SRGB;
-    int64_t depthFormat = state.config.stencil ? VK_FORMAT_D32_SFLOAT_S8_UINT : VK_FORMAT_D32_SFLOAT;
+    int64_t nativeColorFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    int64_t nativeDepthFormat;
+
+    switch (state.depthFormat) {
+      case FORMAT_D32F: nativeDepthFormat = VK_FORMAT_D32_SFLOAT; break;
+      case FORMAT_D24S8: nativeDepthFormat = VK_FORMAT_D24_UNORM_S8_UINT; break;
+      case FORMAT_D32FS8: nativeDepthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT; break;
+      default: lovrUnreachable();
+    }
 #endif
 
     int64_t formats[128];
@@ -899,9 +913,9 @@ static void openxr_start(void) {
     bool supportsDepth = false;
 
     for (uint32_t i = 0; i < formatCount && !supportsColor && !supportsDepth; i++) {
-      if (formats[i] == colorFormat) {
+      if (formats[i] == nativeColorFormat) {
         supportsColor = true;
-      } else if (formats[i] == depthFormat) {
+      } else if (formats[i] == nativeDepthFormat) {
         supportsDepth = true;
       }
     }
@@ -915,7 +929,7 @@ static void openxr_start(void) {
     XrSwapchainCreateInfo info = {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
       .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
-      .format = colorFormat,
+      .format = nativeColorFormat,
       .width = state.width,
       .height = state.height,
       .sampleCount = 1,
@@ -946,7 +960,7 @@ static void openxr_start(void) {
 
     if (state.features.depth) {
       info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-      info.format = depthFormat;
+      info.format = nativeDepthFormat;
 
       XR(xrCreateSwapchain(state.session, &info, &state.swapchain[DEPTH]));
       XR(xrEnumerateSwapchainImages(state.swapchain[DEPTH], MAX_IMAGES, &state.textureCount[DEPTH], (XrSwapchainImageBaseHeader*) images));
@@ -954,7 +968,7 @@ static void openxr_start(void) {
       for (uint32_t i = 0; i < state.textureCount[DEPTH]; i++) {
         state.textures[DEPTH][i] = lovrTextureCreate(&(TextureInfo) {
           .type = TEXTURE_ARRAY,
-          .format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
+          .format = state.depthFormat,
           .srgb = true,
           .width = state.width,
           .height = state.height,
@@ -1796,7 +1810,7 @@ static Pass* openxr_getPass(void) {
     .count = 1,
     .textures[0] = texture,
     .depth.texture = depthTexture,
-    .depth.format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
+    .depth.format = state.depthFormat,
     .depth.load = LOAD_CLEAR,
     .depth.clear = 0.f,
     .samples = state.config.antialias ? 4 : 1
