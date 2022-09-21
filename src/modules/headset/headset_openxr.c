@@ -221,7 +221,7 @@ static XrAction getPoseActionForDevice(Device device) {
     case DEVICE_FOOT_RIGHT:
     case DEVICE_CAMERA:
     case DEVICE_KEYBOARD:
-      return state.actions[ACTION_TRACKER_POSE];
+      return state.features.viveTrackers ? state.actions[ACTION_TRACKER_POSE] : XR_NULL_HANDLE;
     case DEVICE_EYE_GAZE:
       return state.actions[ACTION_GAZE_POSE];
     default:
