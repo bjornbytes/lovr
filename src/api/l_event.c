@@ -46,10 +46,11 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       variant->type = TYPE_STRING;
       size_t length;
       const char* string = lua_tolstring(L, index, &length);
-      variant->value.string = malloc(length + 1);
-      lovrAssert(variant->value.string, "Out of memory");
-      memcpy(variant->value.string, string, length);
-      variant->value.string[length] = '\0';
+      variant->value.string.pointer = malloc(length + 1);
+      lovrAssert(variant->value.string.pointer, "Out of memory");
+      memcpy(variant->value.string.pointer, string, length);
+      variant->value.string.pointer[length] = '\0';
+      variant->value.string.length = length;
       break;
 
     case LUA_TUSERDATA:
@@ -80,7 +81,7 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_NIL: lua_pushnil(L); return 1;
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
-    case TYPE_STRING: lua_pushstring(L, variant->value.string); return 1;
+    case TYPE_STRING: lua_pushlstring(L, variant->value.string.pointer, variant->value.string.length); return 1;
     case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash64(variant->value.object.type, strlen(variant->value.object.type)), variant->value.object.pointer); return 1;
     default: return 0;
   }

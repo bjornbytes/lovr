@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma once
 
@@ -33,7 +34,10 @@ typedef enum {
 typedef union {
   bool boolean;
   double number;
-  char* string;
+  struct {
+    char* pointer;
+    size_t length;
+  } string;
   struct {
     void* pointer;
     const char* type;
