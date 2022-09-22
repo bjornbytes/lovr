@@ -993,7 +993,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     } else if (!lua_isnil(L, -1)) {
       info.mipmaps = lua_toboolean(L, -1) ? ~0u : 1;
     } else {
-      info.mipmaps = info.samples > 1 ? 1 : ~0u;
+      info.mipmaps = (info.samples > 1 || info.imageCount == 0) ? 1 : ~0u;
     }
     lua_pop(L, 1);
 
