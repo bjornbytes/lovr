@@ -656,11 +656,13 @@ static bool luax_checkendpoints(lua_State* L, int index, float transform[16]) {
   float forward[4] = { 0.f, 0.f, -1.f, 0.f };
   float direction[4];
   vec3_sub(vec3_init(direction, u), v);
+  float length = vec3_length(direction);
+  vec3_normalize(direction);
   quat_between(orientation, forward, direction);
   mat4_identity(transform);
   mat4_translate(transform, (v[0] + u[0]) / 2.f, (v[1] + u[1]) / 2.f, (v[2] + u[2]) / 2.f);
   mat4_rotateQuat(transform, orientation);
-  mat4_scale(transform, radius, radius, vec3_length(direction));
+  mat4_scale(transform, radius, radius, length);
   return true;
 }
 
