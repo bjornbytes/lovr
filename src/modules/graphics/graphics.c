@@ -2220,9 +2220,9 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   glyph->x = font->atlasX + font->padding;
   glyph->y = font->atlasY + font->padding;
   glyph->uv[0] = (uint16_t) ((float) glyph->x / font->atlasWidth * 65535.f + .5f);
-  glyph->uv[1] = (uint16_t) ((float) glyph->y / font->atlasHeight * 65535.f + .5f);
+  glyph->uv[1] = (uint16_t) ((float) (glyph->y + height) / font->atlasHeight * 65535.f + .5f);
   glyph->uv[2] = (uint16_t) ((float) (glyph->x + width) / font->atlasWidth * 65535.f + .5f);
-  glyph->uv[3] = (uint16_t) ((float) (glyph->y + height) / font->atlasHeight * 65535.f + .5f);
+  glyph->uv[3] = (uint16_t) ((float) glyph->y / font->atlasHeight * 65535.f + .5f);
 
   font->atlasX += pixelWidth;
   font->rowHeight = MAX(font->rowHeight, pixelHeight);
@@ -2282,9 +2282,9 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
       Glyph* g = &font->glyphs.data[i];
       if (g->box[2] - g->box[0] > 0.f) {
         g->uv[0] = (uint16_t) ((float) g->x / font->atlasWidth * 65535.f + .5f);
-        g->uv[1] = (uint16_t) ((float) g->y / font->atlasHeight * 65535.f + .5f);
+        g->uv[1] = (uint16_t) ((float) (g->y + g->box[3] - g->box[1]) / font->atlasHeight * 65535.f + .5f);
         g->uv[2] = (uint16_t) ((float) (g->x + g->box[2] - g->box[0]) / font->atlasWidth * 65535.f + .5f);
-        g->uv[3] = (uint16_t) ((float) (g->y + g->box[3] - g->box[1]) / font->atlasHeight * 65535.f + .5f);
+        g->uv[3] = (uint16_t) ((float) g->y / font->atlasHeight * 65535.f + .5f);
       }
     }
 
