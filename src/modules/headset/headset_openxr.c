@@ -1496,6 +1496,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
     return NULL;
   }
 
+  // First, figure out how much data there is
   XrHandTrackingMeshFB mesh = { .type = XR_TYPE_HAND_TRACKING_MESH_FB };
   XrResult result = xrGetHandMeshFB(tracker, &mesh);
 
@@ -1507,6 +1508,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   uint32_t vertexCount = mesh.vertexCapacityInput = mesh.vertexCountOutput;
   uint32_t indexCount = mesh.indexCapacityInput = mesh.indexCountOutput;
 
+  // Sum all the sizes to get the total amount of memory required
   size_t sizes[10];
   size_t totalSize = 0;
   size_t alignment = 8;
@@ -1521,9 +1523,11 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   totalSize += sizes[8] = ALIGN(indexCount * sizeof(int16_t), alignment);
   totalSize += sizes[9] = ALIGN(jointCount * 16 * sizeof(float), alignment);
 
+  // Allocate
   char* meshData = malloc(totalSize);
   if (!meshData) return NULL;
 
+  // Write offseted pointers to the mesh struct, to be filled in by the second call
   size_t offset = 0;
   mesh.jointBindPoses = (XrPosef*) (meshData + offset), offset += sizes[0];
   mesh.jointRadii = (float*) (meshData + offset), offset += sizes[1];
@@ -1537,6 +1541,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   float* inverseBindMatrices = (float*) (meshData + offset); offset += sizes[9];
   lovrAssert(offset == totalSize, "Unreachable!");
 
+  // Populate the data
   result = xrGetHandMeshFB(tracker, &mesh);
   if (XR_FAILED(result)) {
     free(meshData);

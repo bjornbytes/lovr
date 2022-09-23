@@ -2968,7 +2968,8 @@ static void lovrModelReskin(Model* model) {
     state.animator = lovrShaderCreate(&(ShaderInfo) {
       .type = SHADER_COMPUTE,
       .source[0] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) },
-      .flags = &(ShaderFlag) { "local_size_x_id", 0, state.device.subgroupSize },
+      .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
+      .flagCount = 1,
       .label = "animator"
     });
   }
