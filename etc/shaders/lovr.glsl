@@ -155,6 +155,11 @@ layout(location = 14) in vec3 Tangent;
 // Helpers
 
 #define Constants layout(push_constant) uniform PushConstants
+#ifdef GL_COMPUTE_SHADER
+#define var(x) layout(set = 0, binding = x)
+#else
+#define var(x) layout(set = 2, binding = x)
+#endif
 
 // Helper for sampling textures using the default sampler set using Pass:setSampler
 #ifndef GL_COMPUTE_SHADER
