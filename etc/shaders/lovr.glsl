@@ -185,6 +185,7 @@ struct Surface {
   vec3 diffuse;
   vec3 emissive;
   float metalness;
+  float roughness;
   float roughness2;
   float occlusion;
   float clearcoat;
@@ -248,10 +249,10 @@ void initSurface(out Surface surface) {
   surface.emissive = Material.glow.rgb * Material.glow.a;
   if (flag_glow && flag_glowTexture) surface.emissive *= getPixel(GlowTexture, UV).rgb;
 
-  float roughness = Material.roughness;
-  if (flag_roughnessTexture) roughness *= getPixel(RoughnessTexture, UV).g;
-  roughness = max(roughness, .05);
-  surface.roughness2 = roughness * roughness;
+  surface.roughness = Material.roughness;
+  if (flag_roughnessTexture) surface.roughness *= getPixel(RoughnessTexture, UV).g;
+  surface.roughness = max(surface.roughness, .05);
+  surface.roughness2 = surface.roughness * surface.roughness;
 
   surface.occlusion = 1.;
   if (flag_ambientOcclusion) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
@@ -265,7 +266,7 @@ void initSurface(out Surface surface) {
 }
 
 float D_GGX(const Surface surface, float NoH) {
-  float alpha2 = surface.roughness2 * surface.roughness2;
+  float alpha2 = surface.roughness * surface.roughness2;
   float denom = (NoH * NoH) * (alpha2 - 1.) + 1.;
   return alpha2 / (PI * denom * denom);
 }
@@ -336,11 +337,12 @@ vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
 
 vec3 getIndirectLighting(const Surface surface, textureCube environment, vec3 sphericalHarmonics[9]) {
   float NoV = dot(surface.normal, surface.view);
-  float roughness = surface.roughness2;
-  vec2 lookup = prefilteredBRDF(NoV, roughness);
+  vec2 lookup = prefilteredBRDF(NoV, surface.roughness);
 
   int mipmapCount = textureQueryLevels(samplerCube(environment, Sampler));
-  vec3 specular = (surface.f0 * lookup.r + lookup.g) * textureLod(samplerCube(environment, Sampler), surface.reflection, roughness * mipmapCount).rgb;
+  vec3 ibl = textureLod(samplerCube(environment, Sampler), surface.reflection, surface.roughness * mipmapCount).rgb;
+  vec3 specular = (surface.f0 * lookup.r + lookup.g) * ibl;
+
   vec3 sh = evaluateSphericalHarmonics(sphericalHarmonics, surface.normal);
   vec3 diffuse = surface.diffuse * surface.occlusion * sh;
 
