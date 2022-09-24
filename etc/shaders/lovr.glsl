@@ -54,10 +54,10 @@ layout(set = 1, binding = 0) uniform MaterialBuffer {
 
 layout(set = 1, binding = 1) uniform texture2D ColorTexture;
 layout(set = 1, binding = 2) uniform texture2D GlowTexture;
-layout(set = 1, binding = 3) uniform texture2D OcclusionTexture;
-layout(set = 1, binding = 4) uniform texture2D MetalnessTexture;
-layout(set = 1, binding = 5) uniform texture2D RoughnessTexture;
-layout(set = 1, binding = 6) uniform texture2D ClearcoatTexture;
+layout(set = 1, binding = 3) uniform texture2D MetalnessTexture;
+layout(set = 1, binding = 4) uniform texture2D RoughnessTexture;
+layout(set = 1, binding = 5) uniform texture2D ClearcoatTexture;
+layout(set = 1, binding = 6) uniform texture2D OcclusionTexture;
 layout(set = 1, binding = 7) uniform texture2D NormalTexture;
 #endif
 
@@ -184,6 +184,7 @@ struct Surface {
   vec3 f0;
   vec3 diffuse;
   vec3 emissive;
+  float metalness;
   float roughness2;
   float occlusion;
   float clearcoat;
@@ -238,11 +239,11 @@ void initSurface(out Surface surface) {
   vec4 color = Color;
   if (flag_colorTexture) color *= getPixel(ColorTexture, UV);
 
-  float metallic = Material.metalness;
-  if (flag_metalnessTexture) metallic *= getPixel(MetalnessTexture, UV).b;
+  surface.metalness = Material.metalness;
+  if (flag_metalnessTexture) surface.metalness *= getPixel(MetalnessTexture, UV).b;
 
-  surface.f0 = mix(vec3(.04), color.rgb, metallic);
-  surface.diffuse = mix(color.rgb, vec3(0.), metallic);
+  surface.f0 = mix(vec3(.04), color.rgb, surface.metalness);
+  surface.diffuse = mix(color.rgb, vec3(0.), surface.metalness);
 
   surface.emissive = Material.glow.rgb * Material.glow.a;
   if (flag_glow && flag_glowTexture) surface.emissive *= getPixel(GlowTexture, UV).rgb;
@@ -293,7 +294,7 @@ vec3 getLighting(const Surface surface, vec3 direction, vec4 color, float visibi
   vec3 H = normalize(V + L);
   vec3 R = surface.reflection;
   float NoV = abs(dot(N, V)) + 1e-8;
-  float NoL = clamp(dot(N, L) * .5 + .5, 0., 1.);
+  float NoL = clamp(dot(N, L), 0., 1.);
   float NoH = clamp(dot(N, H), 0., 1.);
   float VoH = clamp(dot(V, H), 0., 1.);
 
@@ -310,6 +311,15 @@ vec3 getLighting(const Surface surface, vec3 direction, vec4 color, float visibi
   return (diffuse + specular) * color.rgb * (NoL * color.a * visibility);
 }
 
+// https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
+vec2 prefilteredBRDF(float NoV, float roughness) {
+  vec4 c0 = vec4(-1., -.0275, -.572, .022);
+  vec4 c1 = vec4(1., .0425, 1.04, -.04);
+  vec4 r = roughness * c0 + c1;
+  float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+  return vec2(-1.04, 1.04) * a004 + r.zw;
+}
+
 vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
   return max(
     sh[0] +
@@ -322,6 +332,19 @@ vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
     sh[7] * n.z * n.x +
     sh[8] * (n.x * n.x - n.y * n.y)
   , 0.);
+}
+
+vec3 getIndirectLighting(const Surface surface, textureCube environment, vec3 sphericalHarmonics[9]) {
+  float NoV = dot(surface.normal, surface.view);
+  float roughness = surface.roughness2;
+  vec2 lookup = prefilteredBRDF(NoV, roughness);
+
+  int mipmapCount = textureQueryLevels(samplerCube(environment, Sampler));
+  vec3 specular = (surface.f0 * lookup.r + lookup.g) * textureLod(samplerCube(environment, Sampler), surface.reflection, roughness * mipmapCount).rgb;
+  vec3 sh = evaluateSphericalHarmonics(sphericalHarmonics, surface.normal);
+  vec3 diffuse = surface.diffuse * surface.occlusion * sh;
+
+  return diffuse + specular;
 }
 
 vec3 tonemap(vec3 x) {
