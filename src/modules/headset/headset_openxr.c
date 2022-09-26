@@ -1662,8 +1662,9 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
 
   // Add a node that holds the skinned mesh
   model->nodes[model->jointCount] = (ModelNode) {
-    .hasMatrix = true,
-    .transform = { MAT4_IDENTITY },
+    .transform.translation = { 0.f, 0.f, 0.f },
+    .transform.rotation = { 0.f, 0.f, 0.f, 1.f },
+    .transform.scale = { 1.f, 1.f, 1.f },
     .primitiveIndex = 0,
     .primitiveCount = 1,
     .skin = 0
@@ -1751,11 +1752,7 @@ static bool openxr_animate(Device device, Model* model) {
   for (uint32_t i = 0; i < COUNTOF(joints); i++) {
     if (jointParents[i] == ~0u) {
       float position[4] = { 0.f, 0.f, 0.f };
-
-      // Quest hand rotation compensation
-      bool left = device == DEVICE_HAND_LEFT;
-      float orientation[4] = { -.5f, left ? .5f : -.5f, left ? .5f : -.5f, .5f };
-
+      float orientation[4] = { 0.f, 0.f, 0.f, 1.f };
       lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
     } else {
       XrPosef* parent = &joints[jointParents[i]].pose;
