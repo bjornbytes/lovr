@@ -1563,7 +1563,7 @@ void gpu_compute_end(gpu_stream* stream) {
   //
 }
 
-void gpu_set_viewport(gpu_stream* stream, float view[4], float depthRange[4]) {
+void gpu_set_viewport(gpu_stream* stream, float view[4], float depthRange[2]) {
   VkViewport viewport = { view[0], view[1], view[2], view[3], depthRange[0], depthRange[1] };
   vkCmdSetViewport(stream->commands, 0, 1, &viewport);
 }
