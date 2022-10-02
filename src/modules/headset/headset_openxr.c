@@ -1420,7 +1420,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
       }
 
       *value = aimState.pinchStrengthIndex;
-      return aimState.status & XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB;
+      return true;
     case AXIS_THUMBSTICK: return getFloatAction(ACTION_THUMBSTICK_X, filter, &value[0]) && getFloatAction(ACTION_THUMBSTICK_Y, filter, &value[1]);
     case AXIS_TOUCHPAD: return getFloatAction(ACTION_TRACKPAD_X, filter, &value[0]) && getFloatAction(ACTION_TRACKPAD_Y, filter, &value[1]);
     case AXIS_GRIP: return getFloatAction(ACTION_GRIP_AXIS, filter, &value[0]);
