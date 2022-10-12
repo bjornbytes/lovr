@@ -895,6 +895,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   TextureInfo info = {
     .type = TEXTURE_2D,
     .format = FORMAT_RGBA8,
+    .layers = 1,
     .mipmaps = ~0u,
     .samples = 1,
     .usage = TEXTURE_SAMPLE,
@@ -917,10 +918,9 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.imageCount = luax_len(L, index++);
     images = info.imageCount > COUNTOF(stack) ? malloc(info.imageCount * sizeof(Image*)) : stack;
     lovrAssert(images, "Out of memory");
-    info.type = TEXTURE_ARRAY;
-    info.layers = info.imageCount;
 
     if (info.imageCount == 0) {
+      info.layers = 6;
       info.imageCount = 6;
       info.type = TEXTURE_CUBE;
       const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
@@ -936,9 +936,16 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         lovrAssert(!lua_isnil(L, -1), "No array texture layers given and cubemap face '%s' missing", faces[i]);
         images[i] = luax_checkimage(L, -1);
       }
-    }
+    } else {
+      for (uint32_t i = 0; i < info.imageCount; i++) {
+        lua_rawgeti(L, 1, i + 1);
+        images[i] = luax_checkimage(L, -1);
+        lua_pop(L, 1);
+      }
 
-    lovrCheck(lovrImageGetLayerCount(images[0]) == 1, "When a list of images is provided, each must have a single layer");
+      info.type = info.imageCount == 6 ? TEXTURE_CUBE : TEXTURE_ARRAY;
+      info.layers = info.imageCount == 1 ? lovrImageGetLayerCount(images[0]) : info.imageCount;
+    }
   } else {
     info.imageCount = 1;
     images[0] = luax_checkimage(L, index++);
@@ -1017,10 +1024,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_getfield(L, index, "label");
     info.label = lua_tostring(L, -1);
     lua_pop(L, 1);
-  }
-
-  if (info.layers == 0) {
-    info.layers = info.type == TEXTURE_CUBE ? 6 : 1;
   }
 
   Texture* texture = lovrTextureCreate(&info);
