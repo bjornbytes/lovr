@@ -3501,29 +3501,29 @@ void lovrPassGetClear(Pass* pass, float color[4][4], float* depth, uint8_t* sten
 void lovrPassReset(Pass* pass) {
 }
 
-void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
+void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]) {
   lovrCheck(index < pass->viewCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->viewCount);
   mat4_init(viewMatrix, pass->cameras[index].view);
 }
 
-void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
+void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]) {
   lovrCheck(index < pass->viewCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->viewCount);
   mat4_init(pass->cameras[index].view, viewMatrix);
   pass->cameraDirty = true;
 }
 
-void lovrPassGetProjection(Pass* pass, uint32_t index, float* projection) {
+void lovrPassGetProjection(Pass* pass, uint32_t index, float projection[16]) {
   lovrCheck(index < pass->viewCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->viewCount);
   mat4_init(projection, pass->cameras[index].projection);
 }
 
-void lovrPassSetProjection(Pass* pass, uint32_t index, float* projection) {
+void lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]) {
   lovrCheck(index < pass->viewCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->viewCount);
   mat4_init(pass->cameras[index].projection, projection);
   pass->cameraDirty = true;
 
   // If the handedness of the projection changes, flip the winding
-  if (index == 0 && (projection[5] > 0.f != pass->cameras[0].projection[5] > 0.f)) {
+  if (index == 0 && ((projection[5] > 0.f) != (pass->cameras[0].projection[5] > 0.f))) {
     pass->pipeline->info.rasterizer.winding = !pass->pipeline->info.rasterizer.winding;
     pass->pipeline->dirty = true;
   }
@@ -5266,7 +5266,7 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
   }
 }
 
-void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[4]) {
+void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
   if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
   if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
   if (extent[2] == ~0u) extent[2] = MIN(texture->info.layers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);

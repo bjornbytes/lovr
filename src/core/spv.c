@@ -107,6 +107,7 @@ spv_result spv_parse(const void* source, size_t size, spv_info* info) {
         break;
       case 16: // OpExecutionMode
         result = spv_parse_execution_mode(&spv, op, info);
+        break;
       case 5: // OpName
         result = spv_parse_name(&spv, op, info);
         break;
