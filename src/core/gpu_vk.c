@@ -1885,7 +1885,7 @@ bool gpu_init(gpu_config* config) {
       config->limits->textureLayers = limits->maxImageArrayLayers;
       config->limits->renderSize[0] = limits->maxFramebufferWidth;
       config->limits->renderSize[1] = limits->maxFramebufferHeight;
-      config->limits->renderSize[2] = multiviewProperties.maxMultiviewViewCount;
+      config->limits->renderSize[2] = MAX(multiviewProperties.maxMultiviewViewCount, 1);
       config->limits->uniformBuffersPerStage = limits->maxPerStageDescriptorUniformBuffers;
       config->limits->storageBuffersPerStage = limits->maxPerStageDescriptorStorageBuffers;
       config->limits->sampledTexturesPerStage = limits->maxPerStageDescriptorSampledImages;
