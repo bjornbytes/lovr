@@ -34,8 +34,15 @@ option(LOVR_SYSTEM_OPENXR "Use the system-provided OpenXR" OFF)
 option(LOVR_BUILD_EXE "Build an executable (or an apk on Android)" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
+option(LOVR_BUILD_SYMBOL_VISIBILITY "What should the C symbol visibility be? OFF reduces binary size, ON lets other binaries use this one." OFF)
 
-set(LOVR_SYMBOL_VISIBILITY "hidden" CACHE STRING "What should the C symbol visibility be? hidden reduces binary size, default lets other binaries use this one.")
+if (LOVR_BUILD_SYMBOL_VISIBILITY)
+    set(LOVR_SYMBOL_VISIBILITY "default")
+else()
+    set(LOVR_SYMBOL_VISIBILITY "hidden")
+endif()
+
+set(LOVR_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/modules ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/stdatomic ${CMAKE_CURRENT_SOURCE_DIR}/etc)
 
 # Setup
 if(EMSCRIPTEN)
@@ -309,7 +316,9 @@ endif()
 # Plugins
 set(LOVR 1)
 link_libraries(${LOVR_LUA})
-file(GLOB LOVR_PLUGINS ${CMAKE_SOURCE_DIR}/plugins/*)
+if (NOT DEFINED LOVR_PLUGINS)
+    file(GLOB LOVR_PLUGINS ${CMAKE_SOURCE_DIR}/plugins/*)
+endif()
 foreach(PLUGIN_PATH ${LOVR_PLUGINS})
   if(IS_DIRECTORY ${PLUGIN_PATH} AND EXISTS ${PLUGIN_PATH}/CMakeLists.txt)
     get_filename_component(PLUGIN "${PLUGIN_PATH}" NAME)
@@ -351,7 +360,7 @@ endif()
 set_target_properties(lovr PROPERTIES C_VISIBILITY_PRESET ${LOVR_SYMBOL_VISIBILITY})
 set_target_properties(lovr PROPERTIES C_STANDARD 11)
 set_target_properties(lovr PROPERTIES C_STANDARD_REQUIRED ON)
-target_include_directories(lovr PRIVATE src src/modules src/lib/stdatomic etc)
+target_include_directories(lovr PRIVATE ${LOVR_INCLUDE})
 target_link_libraries(lovr
   ${LOVR_GLFW}
   ${LOVR_LUA}

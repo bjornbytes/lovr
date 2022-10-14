@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.2)
+project("game-lovr" C)
+
+file(GLOB LOVR_PLUGINS ${CMAKE_SOURCE_DIR}/plugins/*)
+
+add_custom_target(create_zip ALL
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/
+    COMMAND zip -r "${CMAKE_BINARY_DIR}/game.zip"
+    "*.lua"
+   )
+
+add_custom_target(pack ALL
+    DEPENDS create_zip lovr
+    COMMAND cat ${CMAKE_BINARY_DIR}/bin/lovr ${CMAKE_BINARY_DIR}/game.zip > ${CMAKE_BINARY_DIR}/bin/lovr-game
+)
+
+add_custom_target(game-chmod ALL
+    DEPENDS pack
+    COMMAND chmod +x ${CMAKE_BINARY_DIR}/bin/lovr-game
+)
+
+set(LOVR_BUILD_SYMBOL_VISIBILITY ON)
+
+add_subdirectory(lovr)
+
