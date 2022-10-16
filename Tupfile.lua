@@ -177,7 +177,7 @@ if target == 'android' then
   assert(config.headsets.openxr, 'You probably want to enable OpenXR')
   hosts = { win32 = 'windows-x86_64', macos = 'darwin-x86_64', linux = 'linux-x86_64' }
   cc = config.cc or ('%s/toolchains/llvm/prebuilt/%s/bin/clang'):format(config.android.ndk, hosts[host])
-  cxx = config.cxx or (config.cc .. '++')
+  cxx = config.cxx or (cc .. '++')
   flags += '--target=aarch64-linux-android' .. config.android.version
   flags += config.debug and '-funwind-tables' or ''
   cflags += '-D_POSIX_C_SOURCE=200809L'
