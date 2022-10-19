@@ -2523,6 +2523,7 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 
       allocator->block = memory;
       allocator->cursor = info.size;
+      allocator->block->refs = 1;
       *offset = 0;
       return memory;
     }
