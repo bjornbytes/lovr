@@ -1821,19 +1821,21 @@ bool gpu_init(gpu_config* config) {
     uint32_t count = COUNTOF(extensionInfo);
     VK(vkEnumerateInstanceExtensionProperties(NULL, &count, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
 
+    VkInstanceCreateFlags instanceFlags = 0;
+
+#ifdef VK_KHR_portability_enumeration
     for (uint32_t i = 0; i < count; i++) {
       if (!strcmp(extensionInfo[i].extensionName, "VK_KHR_portability_enumeration")) {
-        CHECK(extensionCount + 2 <= COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
-        extensions[extensionCount++] = "VK_KHR_get_physical_device_properties2";
+        CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
         extensions[extensionCount++] = "VK_KHR_portability_enumeration";
+        instanceFlags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
       }
     }
+#endif
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-#ifdef VK_KHR_portability_enumeration
-      .flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR,
-#endif
+      .flags = instanceFlags,
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
