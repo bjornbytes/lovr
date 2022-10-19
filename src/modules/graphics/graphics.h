@@ -1,13 +1,16 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <util.h>
 
 #pragma once
 
-struct Blob;
-struct Image;
-struct Rasterizer;
-struct ModelData;
+#include <core/gpu.h>
+
+typedef struct Blob Blob;
+typedef struct Image Image;
+typedef struct Rasterizer Rasterizer;
+typedef struct ModelData ModelData;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
@@ -578,6 +581,338 @@ typedef struct {
   Canvas canvas;
   const char* label;
 } PassInfo;
+
+typedef struct {
+  gpu_phase readPhase;
+  gpu_phase writePhase;
+  gpu_cache pendingReads;
+  gpu_cache pendingWrite;
+  uint32_t lastWriteIndex;
+} Sync;
+
+struct Buffer {
+  uint32_t ref;
+  uint32_t size;
+  char* pointer;
+  gpu_buffer* gpu;
+  BufferInfo info;
+  uint64_t hash;
+  uint32_t tick;
+  Sync sync;
+};
+
+struct Texture {
+  uint32_t ref;
+  uint32_t xrTick;
+  gpu_texture* gpu;
+  gpu_texture* renderView;
+  Material* material;
+  TextureInfo info;
+  Sync sync;
+};
+
+struct Sampler {
+  uint32_t ref;
+  gpu_sampler* gpu;
+  SamplerInfo info;
+};
+
+typedef struct {
+  uint32_t hash;
+  uint32_t offset;
+  FieldType type;
+} ShaderConstant;
+
+typedef struct {
+  uint32_t hash;
+  uint32_t binding;
+  uint32_t stageMask;
+  gpu_slot_type type;
+} ShaderResource;
+
+typedef struct {
+  uint32_t location;
+  uint32_t hash;
+} ShaderAttribute;
+
+struct Shader {
+  uint32_t ref;
+  Shader* parent;
+  gpu_shader* gpu;
+  ShaderInfo info;
+  size_t layout;
+  size_t computePipelineIndex;
+  uint32_t workgroupSize[3];
+  uint32_t bufferMask;
+  uint32_t textureMask;
+  uint32_t samplerMask;
+  uint32_t storageMask;
+  uint32_t constantSize;
+  uint32_t constantCount;
+  uint32_t resourceCount;
+  uint32_t attributeCount;
+  ShaderConstant* constants;
+  ShaderResource* resources;
+  ShaderAttribute* attributes;
+  uint32_t flagCount;
+  uint32_t overrideCount;
+  gpu_shader_flag* flags;
+  uint32_t* flagLookup;
+  bool hasCustomAttributes;
+};
+
+struct Material {
+  uint32_t ref;
+  uint32_t next;
+  uint32_t tick;
+  uint16_t index;
+  uint16_t block;
+  gpu_bundle* bundle;
+  MaterialInfo info;
+  bool hasWritableTexture;
+};
+
+typedef struct {
+  uint32_t codepoint;
+  float advance;
+  uint16_t x, y;
+  uint16_t uv[4];
+  float box[4];
+} Glyph;
+
+struct Font {
+  uint32_t ref;
+  FontInfo info;
+  Material* material;
+  arr_t(Glyph) glyphs;
+  map_t glyphLookup;
+  map_t kerning;
+  float pixelDensity;
+  float lineSpacing;
+  uint32_t padding;
+  Texture* atlas;
+  uint32_t atlasWidth;
+  uint32_t atlasHeight;
+  uint32_t rowHeight;
+  uint32_t atlasX;
+  uint32_t atlasY;
+};
+
+typedef struct {
+  float transform[16];
+  float cofactor[16];
+  float color[4];
+} DrawData;
+
+typedef enum {
+  VERTEX_SHAPE,
+  VERTEX_POINT,
+  VERTEX_GLYPH,
+  VERTEX_MODEL,
+  VERTEX_EMPTY,
+  VERTEX_FORMAX
+} VertexFormat;
+
+typedef struct {
+  uint64_t hash;
+  MeshMode mode;
+  DefaultShader shader;
+  Material* material;
+  float* transform;
+  struct {
+    Buffer* buffer;
+    VertexFormat format;
+    uint32_t count;
+    void** pointer;
+  } vertex;
+  struct {
+    Buffer* buffer;
+    uint32_t count;
+    void** pointer;
+  } index;
+  uint32_t start;
+  uint32_t count;
+  uint32_t instances;
+  uint32_t base;
+} Draw;
+
+typedef struct {
+  float properties[3][4];
+} NodeTransform;
+
+struct Model {
+  uint32_t ref;
+  ModelInfo info;
+  Draw* draws;
+  Buffer* rawVertexBuffer;
+  Buffer* vertexBuffer;
+  Buffer* indexBuffer;
+  Buffer* skinBuffer;
+  Texture** textures;
+  Material** materials;
+  NodeTransform* localTransforms;
+  float* globalTransforms;
+  bool transformsDirty;
+  uint32_t lastReskin;
+};
+
+struct Readback {
+  uint32_t ref;
+  uint32_t tick;
+  uint32_t size;
+  Readback* next;
+  ReadbackInfo info;
+  gpu_buffer* buffer;
+  void* pointer;
+  Image* image;
+  Blob* blob;
+  void* data;
+};
+
+struct Tally {
+  uint32_t ref;
+  uint32_t tick;
+  TallyInfo info;
+  gpu_tally* gpu;
+  gpu_buffer* buffer;
+};
+
+typedef struct {
+  float resolution[2];
+  float time;
+} Globals;
+
+typedef struct {
+  float view[16];
+  float projection[16];
+  float viewProjection[16];
+  float inverseProjection[16];
+} Camera;
+
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { float x, y, z; } normal;
+  struct { float u, v; } uv;
+} ShapeVertex;
+
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { float x, y, z; } normal;
+  struct { float u, v; } uv;
+  struct { uint8_t r, g, b, a; } color;
+  struct { float x, y, z; } tangent;
+} ModelVertex;
+
+enum {
+  SHAPE_PLANE,
+  SHAPE_BOX,
+  SHAPE_CIRCLE,
+  SHAPE_SPHERE,
+  SHAPE_CYLINDER,
+  SHAPE_CONE,
+  SHAPE_CAPSULE,
+  SHAPE_TORUS,
+  SHAPE_MONKEY
+};
+
+typedef struct {
+  bool dirty;
+  MeshMode mode;
+  float color[4];
+  float viewport[4];
+  float depthRange[2];
+  uint32_t scissor[4];
+  uint64_t formatHash;
+  gpu_pipeline_info info;
+  Material* material;
+  Sampler* sampler;
+  Shader* shader;
+  Font* font;
+} Pipeline;
+
+typedef struct {
+  uint64_t hash;
+  gpu_buffer* vertices;
+  gpu_buffer* indices;
+} Shape;
+
+typedef struct {
+  Sync* sync;
+  Buffer* buffer;
+  Texture* texture;
+  gpu_phase phase;
+  gpu_cache cache;
+} Access;
+
+struct Pass {
+  uint32_t ref;
+  uint32_t tick;
+  PassInfo info;
+  uint32_t width;
+  uint32_t height;
+  uint32_t viewCount;
+  gpu_stream* stream;
+  float* transform;
+  uint32_t transformIndex;
+  Pipeline* pipeline;
+  uint32_t pipelineIndex;
+  bool samplerDirty;
+  bool materialDirty;
+  char* constants;
+  bool constantsDirty;
+  gpu_binding bindings[32];
+  uint32_t bindingMask;
+  bool bindingsDirty;
+  Camera* cameras;
+  bool cameraDirty;
+  DrawData* drawData;
+  uint32_t drawCount;
+  gpu_binding builtins[4];
+  gpu_buffer* vertexBuffer;
+  gpu_buffer* indexBuffer;
+  Shape shapeCache[16];
+  arr_t(Readback*) readbacks;
+  arr_t(Access) access;
+};
+
+typedef struct {
+  Material* list;
+  gpu_buffer* buffer;
+  void* pointer;
+  gpu_bundle_pool* bundlePool;
+  gpu_bundle* bundles;
+  uint32_t head;
+  uint32_t tail;
+} MaterialBlock;
+
+typedef struct {
+  void* next;
+  gpu_bundle_pool* gpu;
+  gpu_bundle* bundles;
+  uint32_t cursor;
+  uint32_t tick;
+} BundlePool;
+
+typedef struct {
+  uint64_t hash;
+  gpu_layout* gpu;
+  BundlePool* head;
+  BundlePool* tail;
+} Layout;
+
+typedef struct {
+  gpu_texture* texture;
+  uint32_t hash;
+  uint32_t tick;
+} ScratchTexture;
+
+typedef struct {
+  char* memory;
+  size_t cursor;
+  size_t length;
+  size_t limit;
+} Allocator;
+
 
 Pass* lovrGraphicsGetWindowPass(void);
 Pass* lovrGraphicsGetPass(PassInfo* info);

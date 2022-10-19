@@ -53,7 +53,30 @@ typedef enum {
   FORMAT_ASTC_12x12
 } TextureFormat;
 
-typedef struct Image Image;
+enum {
+  IMAGE_SRGB = (1 << 0),
+  IMAGE_PREMULTIPLIED = (1 << 1),
+  IMAGE_CUBEMAP = (1 << 2)
+};
+
+typedef struct {
+  void* data;
+  size_t size;
+  size_t stride;
+} Mipmap;
+
+typedef struct Image {
+  uint32_t ref;
+  uint32_t flags;
+  uint32_t width;
+  uint32_t height;
+  uint32_t format;
+  uint32_t layers;
+  uint32_t levels;
+  struct Blob* blob;
+  Mipmap mipmaps[1];
+} Image;
+
 
 Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format);
 Image* lovrImageCreateFromFile(struct Blob* blob);

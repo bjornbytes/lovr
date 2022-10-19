@@ -5,30 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum {
-  IMAGE_SRGB = (1 << 0),
-  IMAGE_PREMULTIPLIED = (1 << 1),
-  IMAGE_CUBEMAP = (1 << 2)
-};
-
-typedef struct {
-  void* data;
-  size_t size;
-  size_t stride;
-} Mipmap;
-
-struct Image {
-  uint32_t ref;
-  uint32_t flags;
-  uint32_t width;
-  uint32_t height;
-  uint32_t format;
-  uint32_t layers;
-  uint32_t levels;
-  struct Blob* blob;
-  Mipmap mipmaps[1];
-};
-
 static size_t measure(uint32_t w, uint32_t h, TextureFormat format) {
   switch (format) {
     case FORMAT_R8: return w * h * 1;

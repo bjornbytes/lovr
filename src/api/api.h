@@ -177,9 +177,9 @@ uint64_t luax_checkrandomseed(struct lua_State* L, int index);
 
 #ifndef LOVR_DISABLE_PHYSICS
 struct Joint;
-struct Shape;
+struct PhysShape;
 void luax_pushjoint(struct lua_State* L, struct Joint* joint);
-void luax_pushshape(struct lua_State* L, struct Shape* shape);
+void luax_pushshape(struct lua_State* L, struct PhysShape* shape);
 struct Joint* luax_checkjoint(struct lua_State* L, int index);
-struct Shape* luax_checkshape(struct lua_State* L, int index);
+struct PhysShape* luax_checkshape(struct lua_State* L, int index);
 #endif
