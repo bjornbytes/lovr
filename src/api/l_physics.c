@@ -61,7 +61,7 @@ static int l_lovrPhysicsNewBallJoint(lua_State* L) {
 
 static int l_lovrPhysicsNewBoxShape(lua_State* L) {
   float size[4];
-  luax_readscale(L, 1, size, 1, NULL);
+  luax_readscale(L, 1, size, 3, NULL);
   BoxShape* box = lovrBoxShapeCreate(size[0], size[1], size[2]);
   luax_pushtype(L, BoxShape, box);
   lovrRelease(box, lovrShapeDestroy);

@@ -222,6 +222,7 @@ static bool check(bool condition, const char* message);
 
 // Functions that don't require an instance
 #define GPU_FOREACH_ANONYMOUS(X)\
+  X(vkEnumerateInstanceExtensionProperties)\
   X(vkCreateInstance)
 
 // Functions that require an instance but don't require a device
@@ -239,6 +240,7 @@ static bool check(bool condition, const char* message);
   X(vkGetPhysicalDeviceSurfaceSupportKHR)\
   X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)\
   X(vkGetPhysicalDeviceSurfaceFormatsKHR)\
+  X(vkEnumerateDeviceExtensionProperties)\
   X(vkCreateDevice)\
   X(vkDestroyDevice)\
   X(vkGetDeviceQueue)\
@@ -1799,7 +1801,7 @@ bool gpu_init(gpu_config* config) {
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
   { // Instance
-    const char* extensions[16];
+    const char* extensions[32];
     uint32_t extensionCount = 0;
 
     if (state.config.vk.getInstanceExtensions) {
@@ -1815,8 +1817,23 @@ bool gpu_init(gpu_config* config) {
       extensions[extensionCount++] = "VK_EXT_debug_utils";
     }
 
+    VkExtensionProperties extensionInfo[256];
+    uint32_t count = COUNTOF(extensionInfo);
+    VK(vkEnumerateInstanceExtensionProperties(NULL, &count, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
+
+    for (uint32_t i = 0; i < count; i++) {
+      if (!strcmp(extensionInfo[i].extensionName, "VK_KHR_portability_enumeration")) {
+        CHECK(extensionCount + 2 <= COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
+        extensions[extensionCount++] = "VK_KHR_get_physical_device_properties2";
+        extensions[extensionCount++] = "VK_KHR_portability_enumeration";
+      }
+    }
+
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+#ifdef VK_KHR_portability_enumeration
+      .flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR,
+#endif
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
@@ -1998,11 +2015,21 @@ bool gpu_init(gpu_config* config) {
     }
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
 
-    const char* extensions[1];
+    const char* extensions[4];
     uint32_t extensionCount = 0;
 
     if (state.surface) {
       extensions[extensionCount++] = "VK_KHR_swapchain";
+    }
+
+    VkExtensionProperties extensionInfo[256];
+    uint32_t count = COUNTOF(extensionInfo);
+    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &count, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
+
+    for (uint32_t i = 0; i < count; i++) {
+      if (!strcmp(extensionInfo[i].extensionName, "VK_KHR_portability_subset")) {
+        extensions[extensionCount++] = "VK_KHR_portability_subset";
+      }
     }
 
     VkDeviceCreateInfo deviceInfo = {
@@ -2496,6 +2523,7 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 
       allocator->block = memory;
       allocator->cursor = info.size;
+      allocator->block->refs = 1;
       *offset = 0;
       return memory;
     }
