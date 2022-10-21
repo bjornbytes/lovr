@@ -114,7 +114,7 @@ typedef struct {
 typedef struct {
   uint32_t head;
   uint32_t tail;
-  gpu_victim data[256];
+  gpu_victim data[1024];
 } gpu_morgue;
 
 typedef struct {
@@ -2537,20 +2537,20 @@ static void gpu_release(gpu_memory* memory) {
   if (memory && --memory->refs == 0) {
     condemn(memory->handle, VK_OBJECT_TYPE_DEVICE_MEMORY);
     memory->handle = NULL;
+
+    for (uint32_t i = 0; i < COUNTOF(state.allocators); i++) {
+      if (state.allocators[i].block == memory) {
+        state.allocators[i].block = NULL;
+        state.allocators[i].cursor = 0;
+      }
+    }
   }
 }
 
 static void condemn(void* handle, VkObjectType type) {
   if (!handle) return;
   gpu_morgue* morgue = &state.morgue;
-
-  // If the morgue is full, perform an emergency expunge
-  if (morgue->head - morgue->tail >= COUNTOF(morgue->data)) {
-    vkDeviceWaitIdle(state.device);
-    state.tick[GPU] = state.tick[CPU];
-    expunge();
-  }
-
+  check(morgue->head - morgue->tail < COUNTOF(morgue->data), "Morgue overflow (too many objects waiting to be deleted)");
   morgue->data[morgue->head++ & MORGUE_MASK] = (gpu_victim) { handle, type, state.tick[CPU] };
 }
 
