@@ -1297,7 +1297,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       .buffer = scratchpad,
       .levelCount = levelCount,
       .levelOffsets = levelOffsets,
-      .generateMipmaps = levelCount < mipmaps
+      .generateMipmaps = levelCount > 0 && levelCount < mipmaps
     }
   });
 
