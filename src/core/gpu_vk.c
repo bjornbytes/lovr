@@ -1794,7 +1794,8 @@ bool gpu_init(gpu_config* config) {
   CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
   PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #else
-  state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+  state.library = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
   CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
   PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #endif
