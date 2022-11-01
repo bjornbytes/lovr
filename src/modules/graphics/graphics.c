@@ -3791,7 +3791,6 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
         }
 
         pass->bindings[i].number = i;
-        pass->bindings[i].type = shader->resources[i].type;
 
         if (shader->bufferMask & bit) {
           pass->bindings[i].buffer.object = state.defaultBuffer->gpu;
@@ -4187,6 +4186,7 @@ static void bindBundles(Pass* pass, Draw* draw, Shader* shader) {
 
     for (uint32_t i = 0; i < shader->resourceCount; i++) {
       bindings[i] = pass->bindings[shader->resources[i].binding];
+      bindings[i].type = shader->resources[i].type;
     }
 
     gpu_bundle_info info = {
