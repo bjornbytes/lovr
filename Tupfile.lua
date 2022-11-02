@@ -1,6 +1,4 @@
 config = {
-  cc = false,
-  cxx = false,
   target = 'native',
   debug = true,
   optimize = false,
@@ -51,7 +49,6 @@ config = {
 }
 
 -- config notes:
--- cc and cxx are the C/C++ compilers to use, or false to use the default ones
 -- target can be native or win32/macos/linux/android/wasm
 -- supercharge adds dangerous/aggressive optimizations that may reduce stability
 -- sanitize adds checks for memory leaks and undefined behavior (reduces performance)
@@ -84,6 +81,8 @@ merge(config)
 
 ---> setup
 
+cc = 'clang'
+cxx = 'clang++'
 host = tup.getconfig('TUP_PLATFORM'):gsub('macosx', 'macos')
 target = config.target == 'native' and host or config.target
 
@@ -116,8 +115,6 @@ lflags += config.optimize and (target == 'macos' and '-Wl,-dead_strip' or '-Wl,-
 lflags += '-rdynamic'
 
 if target == 'win32' then
-  cc = config.cc or 'clang'
-  cxx = config.cxx or 'clang++'
   cflags += '-D_CRT_SECURE_NO_WARNINGS'
   cflags += '-DWINVER=0x0600' -- Vista
   cflags += '-D_WIN32_WINNT=0x0600'
@@ -132,8 +129,6 @@ if target == 'win32' then
 end
 
 if target == 'macos' then
-  cc = config.cc or 'clang'
-  cxx = config.cxx or 'clang++'
   cflags_os_macos += '-xobjective-c'
   lflags += '-Wl,-rpath,@executable_path'
   lflags += '-lobjc'
@@ -141,8 +136,6 @@ if target == 'macos' then
 end
 
 if target == 'linux' then
-  cc = config.cc or 'clang'
-  cxx = config.cxx or 'clang++'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   cflags += '-D_DEFAULT_SOURCE'
   lflags += '-lm -lpthread -ldl'
@@ -150,8 +143,6 @@ if target == 'linux' then
 end
 
 if target == 'wasm' then
-  cc = config.cc or 'emcc'
-  cxx = config.cxx or 'em++'
   cflags += '-std=gnu11'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   lflags += '-s FORCE_FILESYSTEM'
@@ -176,8 +167,8 @@ end
 if target == 'android' then
   assert(config.headsets.openxr, 'You probably want to enable OpenXR')
   hosts = { win32 = 'windows-x86_64', macos = 'darwin-x86_64', linux = 'linux-x86_64' }
-  cc = config.cc or ('%s/toolchains/llvm/prebuilt/%s/bin/clang'):format(config.android.ndk, hosts[host])
-  cxx = config.cxx or (cc .. '++')
+  cc = ('%s/toolchains/llvm/prebuilt/%s/bin/clang'):format(config.android.ndk, hosts[host])
+  cxx = cc .. '++'
   flags += '--target=aarch64-linux-android' .. config.android.version
   flags += config.debug and '-funwind-tables' or ''
   cflags += '-D_POSIX_C_SOURCE=200809L'

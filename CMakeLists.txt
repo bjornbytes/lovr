@@ -488,7 +488,7 @@ if(LOVR_ENABLE_GRAPHICS)
   add_dependencies(lovr compile_shaders)
 
   function(compile_shaders)
-    if(LOVR_USE_GLSLANG AND ENABLE_GLSLANG_BINARIES)
+    if(LOVR_USE_GLSLANG AND ENABLE_GLSLANG_BINARIES AND NOT ANDROID)
       set(GLSLANG_VALIDATOR $<TARGET_FILE:glslangValidator>)
     elseif(Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
       set(GLSLANG_VALIDATOR "${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE}")
