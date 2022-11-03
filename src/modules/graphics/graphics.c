@@ -829,9 +829,7 @@ void lovrGraphicsSetBackgroundColor(float background[4]) {
 }
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
-  if (!state.active) {
-    return;
-  }
+  beginFrame();
 
   uint32_t total = count + 1;
   gpu_stream** streams = tempAlloc(total * sizeof(gpu_stream*));
