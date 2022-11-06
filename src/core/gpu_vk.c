@@ -2117,7 +2117,6 @@ bool gpu_init(gpu_config* config) {
         if ((memoryTypes[j].propertyFlags & fallback) == fallback) {
           allocator->memoryFlags = memoryTypes[j].propertyFlags;
           allocator->memoryType = j;
-          continue;
         }
 
         if ((memoryTypes[j].propertyFlags & bufferFlags[i].flags) == bufferFlags[i].flags) {
