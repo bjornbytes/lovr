@@ -135,7 +135,7 @@ function lovr.run()
       if lovr.system.isWindowOpen() then
         if lovr.mirror then
           local pass = lovr.graphics.getWindowPass()
-          local skip = lovr.mirror(pass)
+          local skip = not pass or lovr.mirror(pass)
           if not skip then lovr.graphics.submit(pass) end
         end
         lovr.graphics.present()
@@ -213,9 +213,11 @@ function lovr.errhand(message)
 
     if lovr.system.isWindowOpen() then
       local pass = lovr.graphics.getWindowPass()
-      render(pass)
-      lovr.graphics.submit(pass)
-      lovr.graphics.present()
+      if pass then
+        render(pass)
+        lovr.graphics.submit(pass)
+        lovr.graphics.present()
+      end
     end
   end
 end

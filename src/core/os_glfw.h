@@ -248,21 +248,27 @@ bool os_window_is_open() {
   return glfwState.window;
 }
 
-void os_window_get_size(int* width, int* height) {
+void os_window_get_size(uint32_t* width, uint32_t* height) {
   if (glfwState.window) {
-    glfwGetWindowSize(glfwState.window, width, height);
+    int w, h;
+    glfwGetWindowSize(glfwState.window, &w, &h);
+    *width = w;
+    *height = h;
   } else {
-    if (*width) *width = 0;
-    if (*height) *height = 0;
+    *width = 0;
+    *height = 0;
   }
 }
 
-void os_window_get_fbsize(int* width, int* height) {
+void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
   if (glfwState.window) {
-    glfwGetFramebufferSize(glfwState.window, width, height);
+    int w, h;
+    glfwGetFramebufferSize(glfwState.window, &w, &h);
+    *width = w;
+    *height = h;
   } else {
-    if (*width) *width = 0;
-    if (*height) *height = 0;
+    *width = 0;
+    *height = 0;
   }
 }
 

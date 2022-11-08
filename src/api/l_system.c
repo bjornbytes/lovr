@@ -165,18 +165,24 @@ static int l_lovrSystemIsWindowOpen(lua_State* L) {
 }
 
 static int l_lovrSystemGetWindowWidth(lua_State* L) {
-  lua_pushnumber(L, lovrSystemGetWindowWidth());
+  uint32_t width, height;
+  lovrSystemGetWindowSize(&width, &height);
+  lua_pushnumber(L, width);
   return 1;
 }
 
 static int l_lovrSystemGetWindowHeight(lua_State* L) {
-  lua_pushnumber(L, lovrSystemGetWindowHeight());
+  uint32_t width, height;
+  lovrSystemGetWindowSize(&width, &height);
+  lua_pushnumber(L, height);
   return 1;
 }
 
 static int l_lovrSystemGetWindowDimensions(lua_State* L) {
-  lua_pushnumber(L, lovrSystemGetWindowWidth());
-  lua_pushnumber(L, lovrSystemGetWindowHeight());
+  uint32_t width, height;
+  lovrSystemGetWindowSize(&width, &height);
+  lua_pushnumber(L, width);
+  lua_pushnumber(L, height);
   return 2;
 }
 

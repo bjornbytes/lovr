@@ -142,6 +142,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
 gpu_texture* gpu_surface_acquire(void);
+void gpu_surface_resize(uint32_t width, uint32_t height);
 void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture);
 void gpu_xr_release(gpu_stream* stream, gpu_texture* texture);
 

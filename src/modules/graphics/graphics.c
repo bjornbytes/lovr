@@ -3,6 +3,7 @@
 #include "data/image.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
+#include "event/event.h"
 #include "headset/headset.h"
 #include "math/math.h"
 #include "core/gpu.h"
@@ -426,6 +427,7 @@ static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cach
 static void trackMaterial(Pass* pass, Material* material, gpu_phase phase, gpu_cache cache);
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
+static void onResize(uint32_t width, uint32_t height);
 static void onMessage(void* context, const char* message, bool severe);
 
 // Entry
@@ -450,6 +452,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   gpu.vk.cacheSize = config->cacheSize;
 
   if (os_window_is_open()) {
+    os_on_resize(onResize);
     gpu.vk.getInstanceExtensions = os_vk_get_instance_extensions;
     gpu.vk.createSurface = os_vk_create_surface;
     gpu.vk.surface = true;
@@ -632,23 +635,20 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     state.window = malloc(sizeof(Texture));
     lovrAssert(state.window, "Out of memory");
 
-    int width, height;
-    os_window_get_fbsize(&width, &height);
-
     state.window->ref = 1;
     state.window->gpu = NULL;
     state.window->renderView = NULL;
     state.window->info = (TextureInfo) {
       .type = TEXTURE_2D,
       .format = GPU_FORMAT_SURFACE,
-      .width = width,
-      .height = height,
       .layers = 1,
       .mipmaps = 1,
       .samples = 1,
       .usage = TEXTURE_RENDER,
       .srgb = true
     };
+
+    os_window_get_size(&state.window->info.width, &state.window->info.height);
 
     state.depthFormat = config->stencil ? FORMAT_D32FS8 : FORMAT_D32F;
 
@@ -1104,7 +1104,7 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
     arr_push(&state.scratchBufferHandles, handles);
   }
 
-  uint32_t index = state.scratchBufferIndex++;
+  size_t index = state.scratchBufferIndex++;
   Buffer* buffer = &state.scratchBuffers.data[index / BUFFERS_PER_CHUNK][index % BUFFERS_PER_CHUNK];
 
   buffer->ref = 1;
@@ -1191,8 +1191,14 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
 Texture* lovrGraphicsGetWindowTexture() {
   if (!state.window->gpu) {
     beginFrame();
+
     state.window->gpu = gpu_surface_acquire();
     state.window->renderView = state.window->gpu;
+
+    // Window texture may be unavailable during a resize
+    if (!state.window->gpu) {
+      return NULL;
+    }
   }
 
   return state.window;
@@ -3209,10 +3215,17 @@ static void lovrPassCheckValid(Pass* pass) {
 
 Pass* lovrGraphicsGetWindowPass() {
   if (!state.windowPass && state.window) {
+    Texture* window = lovrGraphicsGetWindowTexture();
+
+    // The window texture (and therefore the window pass) may become unavailable during a resize
+    if (!window) {
+      return NULL;
+    }
+
     PassInfo info = {
       .type = PASS_RENDER,
       .canvas.count = 1,
-      .canvas.textures[0] = state.window,
+      .canvas.textures[0] = window,
       .canvas.depth.format = state.depthFormat,
       .canvas.samples = state.config.antialias ? 4 : 1,
       .label = "Window"
@@ -3333,10 +3346,6 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   };
 
   for (uint32_t i = 0; i < canvas->count; i++) {
-    if (canvas->textures[i] == state.window) {
-      canvas->textures[i] = lovrGraphicsGetWindowTexture(); // Make sure swapchain handle is updated
-    }
-
     if (t->samples == 1 && canvas->samples > 1) {
       scratchTextureInfo.format = canvas->textures[i]->info.format;
       scratchTextureInfo.srgb = canvas->textures[i]->info.srgb;
@@ -5889,6 +5898,19 @@ static void checkShaderFeatures(uint32_t* features, uint32_t count) {
       default: lovrThrow("Shader uses unknown feature #%d", features[i]);
     }
   }
+}
+
+static void onResize(uint32_t width, uint32_t height) {
+  state.window->info.width = width;
+  state.window->info.height = height;
+
+  gpu_surface_resize(width, height);
+
+  lovrEventPush((Event) {
+    .type = EVENT_RESIZE,
+    .data.resize.width = width,
+    .data.resize.height = height
+  });
 }
 
 static void onMessage(void* context, const char* message, bool severe) {

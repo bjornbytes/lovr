@@ -19,10 +19,10 @@ static struct {
   os_mouse_mode mouseMode;
   long mouseX;
   long mouseY;
-  int width;
-  int height;
-  int framebufferWidth;
-  int framebufferHeight;
+  uint32_t width;
+  uint32_t height;
+  uint32_t framebufferWidth;
+  uint32_t framebufferHeight;
 } state;
 
 static const char* onBeforeUnload(int type, const void* unused, void* userdata) {
@@ -45,7 +45,7 @@ static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata)
 
   int newWidth, newHeight;
   emscripten_get_canvas_element_size(CANVAS, &newWidth, &newHeight);
-  if (state.width != newWidth || state.height != newHeight) {
+  if (state.width != (uint32_t) newWidth || state.height != (uint32_t) newHeight) {
     state.width = newWidth;
     state.height = newHeight;
     if (state.onWindowResize) {
@@ -298,12 +298,12 @@ bool os_window_is_open() {
   return state.context > 0;
 }
 
-void os_window_get_size(int* width, int* height) {
+void os_window_get_size(uint32_t* width, uint32_t* height) {
   *width = state.width;
   *height = state.height;
 }
 
-void os_window_get_fbsize(int* width, int* height) {
+void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
   *width = state.framebufferWidth;
   *height = state.framebufferHeight;
 }
