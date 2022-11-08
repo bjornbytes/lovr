@@ -96,6 +96,7 @@ enum {
 
 bool lovrGraphicsInit(GraphicsConfig* config);
 void lovrGraphicsDestroy(void);
+bool lovrGraphicsIsInitialized(void);
 
 void lovrGraphicsGetDevice(GraphicsDevice* device);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);

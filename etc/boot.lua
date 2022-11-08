@@ -167,7 +167,9 @@ function lovr.errhand(message)
   message = tostring(message) .. formatTraceback(debug.traceback('', 4))
   print('Error:\n' .. message)
 
-  if not lovr.graphics then return function() return 1 end end
+  if not lovr.graphics or not lovr.graphics.isInitialized() then
+    return function() return 1 end
+  end
 
   if lovr.audio then lovr.audio.stop() end
 

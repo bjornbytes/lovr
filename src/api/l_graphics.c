@@ -682,6 +682,12 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
   return 0;
 }
 
+static int l_lovrGraphicsIsInitialized(lua_State* L) {
+  bool initialized = lovrGraphicsIsInitialized();
+  lua_pushboolean(L, initialized);
+  return 1;
+}
+
 static int l_lovrGraphicsSubmit(lua_State* L) {
   bool table = lua_istable(L, 1);
   int length = table ? luax_len(L, 1) : lua_gettop(L);
@@ -1492,6 +1498,7 @@ static int l_lovrGraphicsGetPass(lua_State* L) {
 
 static const luaL_Reg lovrGraphics[] = {
   { "initialize", l_lovrGraphicsInitialize },
+  { "isInitialized", l_lovrGraphicsIsInitialized },
   { "submit", l_lovrGraphicsSubmit },
   { "present", l_lovrGraphicsPresent },
   { "wait", l_lovrGraphicsWait },

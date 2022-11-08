@@ -741,6 +741,10 @@ void lovrGraphicsDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
+bool lovrGraphicsIsInitialized() {
+  return state.initialized;
+}
+
 void lovrGraphicsGetDevice(GraphicsDevice* device) {
   device->deviceId = state.device.deviceId;
   device->vendorId = state.device.vendorId;
