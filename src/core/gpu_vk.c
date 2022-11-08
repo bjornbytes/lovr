@@ -83,8 +83,9 @@ typedef struct {
 
 typedef enum {
   GPU_MEMORY_BUFFER_GPU,
-  GPU_MEMORY_BUFFER_CPU_WRITE,
-  GPU_MEMORY_BUFFER_CPU_READ,
+  GPU_MEMORY_BUFFER_MAP_STREAM,
+  GPU_MEMORY_BUFFER_MAP_STAGING,
+  GPU_MEMORY_BUFFER_MAP_READBACK,
   GPU_MEMORY_TEXTURE_COLOR,
   GPU_MEMORY_TEXTURE_D16,
   GPU_MEMORY_TEXTURE_D32F,
@@ -179,7 +180,7 @@ static struct {
   gpu_cache_entry framebuffers[16][4];
   gpu_allocator allocators[GPU_MEMORY_COUNT];
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
-  gpu_scratchpad scratchpad[2];
+  gpu_scratchpad scratchpad[3];
   gpu_memory memory[256];
   uint32_t streamCount;
   uint32_t tick[2];
@@ -401,39 +402,55 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
   gpu_release(&state.memory[buffer->memory]);
 }
 
+// There are 3 mapping modes, which use different strategies/memory types:
+// - MAP_STREAM: Used to "stream" data to the GPU, to be read by shaders.  This tries to use the
+//   special 256MB memory type present on discrete GPUs because it's both device local and host-
+//   visible and that supposedly makes it fast.  A single buffer is allocated with a "zone" for each
+//   tick.  If one of the zones fills up, a new bigger buffer is allocated.  It's important to have
+//   one buffer and keep it alive since streaming is expected to happen very frequently.
+// - MAP_STAGING: Used to stage data to upload to buffers/textures.  Can only be used for transfers.
+//   Uses uncached host-visible memory so as to not pollute the CPU cache.  This uses a slightly
+//   different allocation strategy where blocks of memory are allocated, linearly allocated from,
+//   and condemned once they fill up.  This is because uploads are much less frequent than
+//   streaming and are usually too big to fit in the 256MB memory.
+// - MAP_READBACK: Used for readbacks.  Uses cached memory when available since reading from
+//   uncached memory on the CPU is super duper slow.  Uses the same "zone" system as STREAM, since
+//   we want to be able to handle per-frame readbacks without thrashing.
 void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode) {
   gpu_scratchpad* pool = &state.scratchpad[mode];
   uint32_t cursor = ALIGN(pool->cursor, align);
+  uint32_t zone = mode == GPU_MAP_STAGING ? 0 : (state.tick[CPU] & TICK_MASK);
 
-  // "Big" buffers don't pollute the scratchpad (heuristic)
-  bool oversized = size > (1 << 26);
-
-  // There's only 1 buffer per mode, split into a zone for each tick.
-  uint32_t zone = state.tick[CPU] & TICK_MASK;
-
-  // If the scratchpad buffer fills up, condemn it and allocate a bigger one to use.
-  if (oversized || cursor + size > pool->size) {
-    uint32_t bufferSize;
-
-    if (oversized) {
-      bufferSize = size;
-    } else {
-      while (pool->size < cursor + size) {
-        pool->size = pool->size ? (pool->size << 1) : (1 << 22);
-      }
-      bufferSize = pool->size * COUNTOF(state.ticks);
-    }
+  // If the scratchpad buffer fills up, condemn it and allocate a new/bigger one to use.
+  if (cursor + size > pool->size) {
+    VkBufferUsageFlags usages[] = {
+      [GPU_MAP_STREAM] =
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      [GPU_MAP_STAGING] = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      [GPU_MAP_READBACK] = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    };
 
     VkBufferCreateInfo info = {
       .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-      .size = bufferSize,
-      .usage = mode == GPU_MAP_WRITE ?
-        (VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT) :
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+      .usage = usages[mode]
     };
+
+    // Staging buffers use 4MB block sizes, stream/download start out at 4MB and double after that
+    if (pool->size == 0) {
+      pool->size = 1 << 22;
+    }
+
+    if (mode == GPU_MAP_STAGING) {
+      info.size = MAX(pool->size, size);
+    } else {
+      while (pool->size < size) {
+        pool->size <<= 1;
+      }
+      info.size = pool->size * COUNTOF(state.ticks);
+    }
 
     VkBuffer handle;
     VK(vkCreateBuffer(state.device, &info, NULL, &handle), "Could not create scratch buffer") return NULL;
@@ -442,7 +459,7 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
     VkDeviceSize offset;
     VkMemoryRequirements requirements;
     vkGetBufferMemoryRequirements(state.device, handle, &requirements);
-    gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_CPU_WRITE + mode, requirements, &offset);
+    gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_MAP_STREAM + mode, requirements, &offset);
 
     VK(vkBindBufferMemory(state.device, handle, memory->handle, offset), "Could not bind scratchpad memory") {
       vkDestroyBuffer(state.device, handle, NULL);
@@ -450,7 +467,8 @@ void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mo
       return NULL;
     }
 
-    if (oversized) {
+    // If this was an oversized allocation, condemn it immediately, don't touch the pool
+    if (size > pool->size) {
       gpu_release(memory);
       condemn(handle, VK_OBJECT_TYPE_BUFFER);
       buffer->handle = handle;
@@ -2077,7 +2095,7 @@ bool gpu_init(gpu_config* config) {
           VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
       },
-      [GPU_MEMORY_BUFFER_CPU_WRITE] = {
+      [GPU_MEMORY_BUFFER_MAP_STREAM] = {
         .usage =
           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
           VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
@@ -2085,8 +2103,12 @@ bool gpu_init(gpu_config* config) {
           VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         .flags = hostVisible | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
       },
-      [GPU_MEMORY_BUFFER_CPU_READ] = {
-        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      [GPU_MEMORY_BUFFER_MAP_STAGING] = {
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .flags = hostVisible
+      },
+      [GPU_MEMORY_BUFFER_MAP_READBACK] = {
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         .flags = hostVisible | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
       }
     };
@@ -2114,15 +2136,15 @@ bool gpu_init(gpu_config* config) {
           continue;
         }
 
-        if ((memoryTypes[j].propertyFlags & fallback) == fallback) {
-          allocator->memoryFlags = memoryTypes[j].propertyFlags;
-          allocator->memoryType = j;
-        }
-
         if ((memoryTypes[j].propertyFlags & bufferFlags[i].flags) == bufferFlags[i].flags) {
           allocator->memoryFlags = memoryTypes[j].propertyFlags;
           allocator->memoryType = j;
           break;
+        }
+
+        if ((memoryTypes[j].propertyFlags & fallback) == fallback) {
+          allocator->memoryFlags = memoryTypes[j].propertyFlags;
+          allocator->memoryType = j;
         }
       }
     }
@@ -2368,8 +2390,8 @@ uint32_t gpu_begin() {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   VK(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
   VK(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return 0;
-  state.scratchpad[GPU_MAP_WRITE].cursor = 0;
-  state.scratchpad[GPU_MAP_READ].cursor = 0;
+  state.scratchpad[GPU_MAP_STREAM].cursor = 0;
+  state.scratchpad[GPU_MAP_READBACK].cursor = 0;
   state.streamCount = 0;
   expunge();
   return state.tick[CPU];
@@ -2473,8 +2495,9 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 
   static const uint32_t blockSizes[] = {
     [GPU_MEMORY_BUFFER_GPU] = 1 << 26,
-    [GPU_MEMORY_BUFFER_CPU_WRITE] = 0,
-    [GPU_MEMORY_BUFFER_CPU_READ] = 0,
+    [GPU_MEMORY_BUFFER_MAP_STREAM] = 0,
+    [GPU_MEMORY_BUFFER_MAP_STAGING] = 0,
+    [GPU_MEMORY_BUFFER_MAP_READBACK] = 0,
     [GPU_MEMORY_TEXTURE_COLOR] = 1 << 28,
     [GPU_MEMORY_TEXTURE_D16] = 1 << 28,
     [GPU_MEMORY_TEXTURE_D32F] = 1 << 28,
