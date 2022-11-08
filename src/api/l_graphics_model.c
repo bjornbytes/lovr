@@ -97,7 +97,7 @@ static int l_lovrModelGetNodeDraw(lua_State* L) {
   lovrModelGetNodeDraw(model, node, index, &draw);
   luax_pushenum(L, MeshMode, draw.mode);
   luax_pushtype(L, Material, draw.material);
-  lua_pushinteger(L, draw.start);
+  lua_pushinteger(L, draw.start + 1);
   lua_pushinteger(L, draw.count);
   if (draw.indexed) {
     lua_pushinteger(L, draw.base);

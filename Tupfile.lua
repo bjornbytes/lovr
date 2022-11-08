@@ -81,11 +81,10 @@ merge(config)
 
 ---> setup
 
-host = tup.getconfig('TUP_PLATFORM'):gsub('macosx', 'macos')
-target = config.target == 'native' and host or config.target
-
 cc = 'clang'
 cxx = 'clang++'
+host = tup.getconfig('TUP_PLATFORM'):gsub('macosx', 'macos')
+target = config.target == 'native' and host or config.target
 
 flags = {
   '-fPIE',
@@ -144,8 +143,6 @@ if target == 'linux' then
 end
 
 if target == 'wasm' then
-  cc = 'emcc'
-  cxx = 'em++'
   cflags += '-std=gnu11'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   lflags += '-s FORCE_FILESYSTEM'
@@ -454,7 +451,7 @@ comp = 'etc/shaders/*.comp'
 
 function compileShaders(stage)
   pattern = 'etc/shaders/*.' .. stage
-  tup.foreach_rule(pattern, 'glslangValidator --quiet --target-env vulkan1.1 --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
+  tup.foreach_rule(pattern, 'glslangValidator --quiet -Os --target-env vulkan1.1 --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
 end
 
 compileShaders('vert')

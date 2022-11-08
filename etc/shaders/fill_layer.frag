@@ -7,6 +7,5 @@
 layout(set = 1, binding = 1) uniform texture2DArray ArrayTexture;
 
 vec4 lovrmain() {
-  vec2 uv = vec2(2 * UV.x, UV.y);
-  return Color * getPixel(ArrayTexture, uv, round(UV.x));
+  return Color * getPixel(ArrayTexture, UV, 0);
 }

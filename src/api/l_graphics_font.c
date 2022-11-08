@@ -100,13 +100,6 @@ static int l_lovrFontGetKerning(lua_State* L) {
   return 1;
 }
 
-static void online(void* context, const char* string, size_t length) {
-  lua_State* L = context;
-  int index = luax_len(L, -1) + 1;
-  lua_pushlstring(L, string, length);
-  lua_rawseti(L, -2, index);
-}
-
 static int l_lovrFontGetWidth(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
   uint32_t count;
@@ -115,6 +108,13 @@ static int l_lovrFontGetWidth(lua_State* L) {
   float width = lovrFontGetWidth(font, strings, count);
   lua_pushnumber(L, width);
   return 1;
+}
+
+static void online(void* context, const char* string, size_t length) {
+  lua_State* L = context;
+  int index = luax_len(L, -1) + 1;
+  lua_pushlstring(L, string, length);
+  lua_rawseti(L, -2, index);
 }
 
 static int l_lovrFontGetLines(lua_State* L) {
@@ -134,7 +134,7 @@ static int l_lovrFontGetVertices(lua_State* L) {
   uint32_t count;
   ColoredString stack;
   ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
-  float wrap = luax_checkfloat(L, 3);
+  float wrap = luax_optfloat(L, 3, 0.f);
   HorizontalAlign halign = luax_checkenum(L, 4, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, 5, VerticalAlign, "middle");
   size_t totalLength = 0;

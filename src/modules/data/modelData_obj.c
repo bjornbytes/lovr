@@ -60,10 +60,10 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
         .alphaCutoff = 0.f,
         .texture = ~0u,
         .glowTexture = ~0u,
-        .occlusionTexture = ~0u,
         .metalnessTexture = ~0u,
         .roughnessTexture = ~0u,
         .clearcoatTexture = ~0u,
+        .occlusionTexture = ~0u,
         .normalTexture = ~0u
       }));
     } else if (line[0] == 'K' && line[1] == 'd' && line[2] == ' ') {

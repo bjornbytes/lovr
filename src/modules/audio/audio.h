@@ -75,7 +75,7 @@ void lovrAudioSetAbsorption(float absorption[3]);
 
 // Source
 
-Source* lovrSourceCreate(struct Sound* sound, bool spatial, uint32_t effects);
+Source* lovrSourceCreate(struct Sound* sound, bool pitch, bool spatial, uint32_t effects);
 Source* lovrSourceClone(Source* source);
 void lovrSourceDestroy(void* ref);
 struct Sound* lovrSourceGetSound(Source* source);
@@ -85,11 +85,14 @@ void lovrSourceStop(Source* source);
 bool lovrSourceIsPlaying(Source* source);
 bool lovrSourceIsLooping(Source* source);
 void lovrSourceSetLooping(Source* source, bool loop);
+float lovrSourceGetPitch(Source* source);
+void lovrSourceSetPitch(Source* source, float pitch);
 float lovrSourceGetVolume(Source* source, VolumeUnit units);
 void lovrSourceSetVolume(Source* source, float volume, VolumeUnit units);
 void lovrSourceSeek(Source* source, double time, TimeUnit units);
 double lovrSourceTell(Source* source, TimeUnit units);
 double lovrSourceGetDuration(Source* source, TimeUnit units);
+bool lovrSourceIsPitchable(Source* source);
 bool lovrSourceIsSpatial(Source* source);
 void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
 void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);

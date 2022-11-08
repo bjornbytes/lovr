@@ -613,10 +613,10 @@ static int l_lovrModelDataGetMaterial(lua_State* L) {
 #define PUSH_IMAGE(t) if (material->t != ~0u) luax_pushtype(L, Image, model->images[material->t]), lua_setfield(L, -2, #t)
   PUSH_IMAGE(texture);
   PUSH_IMAGE(glowTexture);
-  PUSH_IMAGE(occlusionTexture);
   PUSH_IMAGE(metalnessTexture);
   PUSH_IMAGE(roughnessTexture);
   PUSH_IMAGE(clearcoatTexture);
+  PUSH_IMAGE(occlusionTexture);
   PUSH_IMAGE(normalTexture);
 
   return 1;

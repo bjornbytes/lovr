@@ -17,6 +17,7 @@ static struct {
   float angularVelocity[4];
   float headTransform[16];
   float leftHandTransform[16];
+  double epoch;
   double prevDisplayTime;
   double nextDisplayTime;
   double prevCursorX;
@@ -40,8 +41,9 @@ static bool desktop_init(HeadsetConfig* config) {
   state.offset = config->offset;
   state.clipNear = .01f;
   state.clipFar = 0.f;
-  state.prevDisplayTime = os_get_time();
-  state.nextDisplayTime = state.prevDisplayTime;
+  state.epoch = os_get_time();
+  state.prevDisplayTime = state.epoch;
+  state.nextDisplayTime = state.epoch;
 
   if (!state.initialized) {
     mat4_identity(state.headTransform);
@@ -74,7 +76,7 @@ static HeadsetOrigin desktop_getOriginType(void) {
 }
 
 static double desktop_getDisplayTime(void) {
-  return state.nextDisplayTime;
+  return state.nextDisplayTime - state.epoch;
 }
 
 static double desktop_getDeltaTime(void) {
@@ -137,7 +139,7 @@ static bool desktop_getPose(Device device, vec3 position, quat orientation) {
     mat4_transform(state.headTransform, position);
     quat_fromMat4(orientation, state.headTransform);
     return true;
-  } else if (device == DEVICE_HAND_LEFT) {
+  } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_LEFT_POINT) {
     mat4_getPosition(state.leftHandTransform, position);
     quat_fromMat4(orientation, state.leftHandTransform);
     return true;
@@ -194,6 +196,10 @@ static Texture* desktop_getTexture(void) {
 
 static Pass* desktop_getPass(void) {
   Pass* pass = lovrGraphicsGetWindowPass();
+
+  if (!pass) {
+    return pass;
+  }
 
   float position[4], orientation[4];
   desktop_getViewPose(0, position, orientation);

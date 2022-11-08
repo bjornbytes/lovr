@@ -76,6 +76,7 @@ static int l_lovrPassGetTarget(lua_State* L) {
 
 static int l_lovrPassGetClear(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
+  const PassInfo* info = lovrPassGetInfo(pass);
 
   uint32_t count = 0;
   float color[4][4];
@@ -86,19 +87,26 @@ static int l_lovrPassGetClear(lua_State* L) {
   lua_createtable(L, (int) count, 2);
 
   for (int i = 0; i < (int) count; i++) {
-    lua_createtable(L, 4, 0);
-    for (int j = 0; j < 4; j++) {
-      lua_pushnumber(L, color[i][j]);
-      lua_rawseti(L, -2, j + 1);
+    if (info->canvas.loads[i] == LOAD_CLEAR) {
+      lua_createtable(L, 4, 0);
+      for (int j = 0; j < 4; j++) {
+        lua_pushnumber(L, color[i][j]);
+        lua_rawseti(L, -2, j + 1);
+      }
+    } else {
+      lua_pushboolean(L, info->canvas.loads[i] == LOAD_DISCARD);
     }
+
     lua_rawseti(L, -2, i + 1);
   }
 
-  lua_pushnumber(L, depth);
-  lua_setfield(L, -2, "depth");
+  if (info->canvas.depth.format || info->canvas.depth.texture) {
+    lua_pushnumber(L, depth);
+    lua_setfield(L, -2, "depth");
 
-  lua_pushinteger(L, stencil);
-  lua_setfield(L, -2, "stencil");
+    lua_pushinteger(L, stencil);
+    lua_setfield(L, -2, "stencil");
+  }
 
   return 1;
 }
@@ -270,7 +278,7 @@ static int l_lovrPassSetColor(lua_State* L) {
 static int l_lovrPassSetColorWrite(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   bool r, g, b, a;
-  if (lua_gettop(L) <= 1) {
+  if (lua_gettop(L) <= 2) {
     r = g = b = a = lua_toboolean(L, 2);
   } else {
     r = lua_toboolean(L, 2);
@@ -648,11 +656,13 @@ static bool luax_checkendpoints(lua_State* L, int index, float transform[16]) {
   float forward[4] = { 0.f, 0.f, -1.f, 0.f };
   float direction[4];
   vec3_sub(vec3_init(direction, u), v);
+  float length = vec3_length(direction);
+  vec3_normalize(direction);
   quat_between(orientation, forward, direction);
   mat4_identity(transform);
   mat4_translate(transform, (v[0] + u[0]) / 2.f, (v[1] + u[1]) / 2.f, (v[2] + u[2]) / 2.f);
   mat4_rotateQuat(transform, orientation);
-  mat4_scale(transform, radius, radius, vec3_length(direction));
+  mat4_scale(transform, radius, radius, length);
   return true;
 }
 
@@ -766,7 +776,7 @@ static int l_lovrPassMesh(lua_State* L) {
     int index = luax_readmat4(L, indices ? 4 : 3, transform, 1);
     uint32_t start = luax_optu32(L, index++, 1) - 1;
     uint32_t count = luax_optu32(L, index++, ~0u);
-    uint32_t instances = luax_optu32(L, index, 1);
+    uint32_t instances = luax_optu32(L, index++, 1);
     uint32_t base = luax_optu32(L, index++, 0);
     if (count == ~0u && lua_type(L, 2) == LUA_TNUMBER) {
       count = lua_tointeger(L, 2);
@@ -797,9 +807,10 @@ static int l_lovrPassClear(lua_State* L) {
   Buffer* buffer = luax_totype(L, 2, Buffer);
 
   if (buffer) {
-    uint32_t offset = luax_optu32(L, 3, 0);
-    uint32_t extent = luax_optu32(L, 4, ~0u);
-    lovrPassClearBuffer(pass, buffer, offset, extent);
+    const BufferInfo* info = lovrBufferGetInfo(buffer);
+    uint32_t index = luax_optu32(L, 3, 1);
+    uint32_t count = luax_optu32(L, 4, info->length - index + 1);
+    lovrBufferClear(buffer, (index - 1) * info->stride, count * info->stride);
     return 0;
   }
 
@@ -807,12 +818,11 @@ static int l_lovrPassClear(lua_State* L) {
 
   if (texture) {
     float value[4];
-    luax_readcolor(L, 3, value);
-    int index = lua_istable(L, 3) ? 4 : 6;
-    uint32_t layer = luax_optu32(L, index++, 1) - 1;
-    uint32_t layerCount = luax_optu32(L, index++, ~0u);
-    uint32_t level = luax_optu32(L, index++, 1) - 1;
-    uint32_t levelCount = luax_optu32(L, index++, ~0u);
+    luax_optcolor(L, 3, value);
+    uint32_t layer = luax_optu32(L, 4, 1) - 1;
+    uint32_t layerCount = luax_optu32(L, 5, ~0u);
+    uint32_t level = luax_optu32(L, 6, 1) - 1;
+    uint32_t levelCount = luax_optu32(L, 7, ~0u);
     lovrPassClearTexture(pass, texture, value, layer, layerCount, level, levelCount);
     return 0;
   }
@@ -938,10 +948,10 @@ static int l_lovrPassBlit(lua_State* L) {
   uint32_t srcOffset[4], dstOffset[4], srcExtent[3], dstExtent[3];
   srcOffset[0] = luax_optu32(L, 4, 0);
   srcOffset[1] = luax_optu32(L, 5, 0);
-  srcOffset[2] = luax_optu32(L, 6, 0);
+  srcOffset[2] = luax_optu32(L, 6, 1) - 1;
   dstOffset[0] = luax_optu32(L, 7, 0);
   dstOffset[1] = luax_optu32(L, 8, 0);
-  dstOffset[2] = luax_optu32(L, 9, 0);
+  dstOffset[2] = luax_optu32(L, 9, 1) - 1;
   srcExtent[0] = luax_optu32(L, 10, ~0u);
   srcExtent[1] = luax_optu32(L, 11, ~0u);
   srcExtent[2] = luax_optu32(L, 12, ~0u);
@@ -958,7 +968,7 @@ static int l_lovrPassBlit(lua_State* L) {
 static int l_lovrPassMipmap(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Texture* texture = luax_checktype(L, 2, Texture);
-  uint32_t base = luax_optu32(L, 3, 0);
+  uint32_t base = luax_optu32(L, 3, 1) - 1;
   uint32_t count = luax_optu32(L, 4, ~0u);
   lovrPassMipmap(pass, texture, base, count);
   return 0;

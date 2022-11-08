@@ -114,7 +114,7 @@ typedef struct {
 typedef struct {
   uint32_t head;
   uint32_t tail;
-  gpu_victim data[256];
+  gpu_victim data[1024];
 } gpu_morgue;
 
 typedef struct {
@@ -222,6 +222,7 @@ static bool check(bool condition, const char* message);
 
 // Functions that don't require an instance
 #define GPU_FOREACH_ANONYMOUS(X)\
+  X(vkEnumerateInstanceExtensionProperties)\
   X(vkCreateInstance)
 
 // Functions that require an instance but don't require a device
@@ -239,6 +240,7 @@ static bool check(bool condition, const char* message);
   X(vkGetPhysicalDeviceSurfaceSupportKHR)\
   X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)\
   X(vkGetPhysicalDeviceSurfaceFormatsKHR)\
+  X(vkEnumerateDeviceExtensionProperties)\
   X(vkCreateDevice)\
   X(vkDestroyDevice)\
   X(vkGetDeviceQueue)\
@@ -1248,7 +1250,11 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .depthTestEnable = info->depth.test != GPU_COMPARE_NONE,
     .depthWriteEnable = info->depth.write,
     .depthCompareOp = compareOps[info->depth.test],
-    .stencilTestEnable = info->stencil.test != GPU_COMPARE_NONE,
+    .stencilTestEnable =
+      info->stencil.test != GPU_COMPARE_NONE ||
+      info->stencil.failOp != GPU_STENCIL_KEEP ||
+      info->stencil.passOp != GPU_STENCIL_KEEP ||
+      info->stencil.depthFailOp != GPU_STENCIL_KEEP,
     .front = stencil,
     .back = stencil
   };
@@ -1559,7 +1565,7 @@ void gpu_compute_end(gpu_stream* stream) {
   //
 }
 
-void gpu_set_viewport(gpu_stream* stream, float view[4], float depthRange[4]) {
+void gpu_set_viewport(gpu_stream* stream, float view[4], float depthRange[2]) {
   VkViewport viewport = { view[0], view[1], view[2], view[3], depthRange[0], depthRange[1] };
   vkCmdSetViewport(stream->commands, 0, 1, &viewport);
 }
@@ -1788,14 +1794,15 @@ bool gpu_init(gpu_config* config) {
   CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
   PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #else
-  state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+  state.library = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
   CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
   PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #endif
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
   { // Instance
-    const char* extensions[16];
+    const char* extensions[32];
     uint32_t extensionCount = 0;
 
     if (state.config.vk.getInstanceExtensions) {
@@ -1811,8 +1818,23 @@ bool gpu_init(gpu_config* config) {
       extensions[extensionCount++] = "VK_EXT_debug_utils";
     }
 
+    VkExtensionProperties extensionInfo[256];
+    uint32_t count = COUNTOF(extensionInfo);
+    VK(vkEnumerateInstanceExtensionProperties(NULL, &count, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
+
+    for (uint32_t i = 0; i < count; i++) {
+      if (!strcmp(extensionInfo[i].extensionName, "VK_KHR_portability_enumeration")) {
+        CHECK(extensionCount + 2 <= COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
+        extensions[extensionCount++] = "VK_KHR_get_physical_device_properties2";
+        extensions[extensionCount++] = "VK_KHR_portability_enumeration";
+      }
+    }
+
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+#ifdef VK_KHR_portability_enumeration
+      .flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR,
+#endif
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
@@ -1881,7 +1903,7 @@ bool gpu_init(gpu_config* config) {
       config->limits->textureLayers = limits->maxImageArrayLayers;
       config->limits->renderSize[0] = limits->maxFramebufferWidth;
       config->limits->renderSize[1] = limits->maxFramebufferHeight;
-      config->limits->renderSize[2] = multiviewProperties.maxMultiviewViewCount;
+      config->limits->renderSize[2] = MAX(multiviewProperties.maxMultiviewViewCount, 1);
       config->limits->uniformBuffersPerStage = limits->maxPerStageDescriptorUniformBuffers;
       config->limits->storageBuffersPerStage = limits->maxPerStageDescriptorStorageBuffers;
       config->limits->sampledTexturesPerStage = limits->maxPerStageDescriptorSampledImages;
@@ -1994,11 +2016,21 @@ bool gpu_init(gpu_config* config) {
     }
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
 
-    const char* extensions[1];
+    const char* extensions[4];
     uint32_t extensionCount = 0;
 
     if (state.surface) {
       extensions[extensionCount++] = "VK_KHR_swapchain";
+    }
+
+    VkExtensionProperties extensionInfo[256];
+    uint32_t count = COUNTOF(extensionInfo);
+    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &count, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
+
+    for (uint32_t i = 0; i < count; i++) {
+      if (!strcmp(extensionInfo[i].extensionName, "VK_KHR_portability_subset")) {
+        extensions[extensionCount++] = "VK_KHR_portability_subset";
+      }
     }
 
     VkDeviceCreateInfo deviceInfo = {
@@ -2085,7 +2117,6 @@ bool gpu_init(gpu_config* config) {
         if ((memoryTypes[j].propertyFlags & fallback) == fallback) {
           allocator->memoryFlags = memoryTypes[j].propertyFlags;
           allocator->memoryType = j;
-          continue;
         }
 
         if ((memoryTypes[j].propertyFlags & bufferFlags[i].flags) == bufferFlags[i].flags) {
@@ -2492,6 +2523,7 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 
       allocator->block = memory;
       allocator->cursor = info.size;
+      allocator->block->refs = 1;
       *offset = 0;
       return memory;
     }
@@ -2505,20 +2537,20 @@ static void gpu_release(gpu_memory* memory) {
   if (memory && --memory->refs == 0) {
     condemn(memory->handle, VK_OBJECT_TYPE_DEVICE_MEMORY);
     memory->handle = NULL;
+
+    for (uint32_t i = 0; i < COUNTOF(state.allocators); i++) {
+      if (state.allocators[i].block == memory) {
+        state.allocators[i].block = NULL;
+        state.allocators[i].cursor = 0;
+      }
+    }
   }
 }
 
 static void condemn(void* handle, VkObjectType type) {
   if (!handle) return;
   gpu_morgue* morgue = &state.morgue;
-
-  // If the morgue is full, perform an emergency expunge
-  if (morgue->head - morgue->tail >= COUNTOF(morgue->data)) {
-    vkDeviceWaitIdle(state.device);
-    state.tick[GPU] = state.tick[CPU];
-    expunge();
-  }
-
+  check(morgue->head - morgue->tail < COUNTOF(morgue->data), "Morgue overflow (too many objects waiting to be deleted)");
   morgue->data[morgue->head++ & MORGUE_MASK] = (gpu_victim) { handle, type, state.tick[CPU] };
 }
 
@@ -2897,6 +2929,7 @@ static bool vcheck(VkResult result, const char* message) {
     CASE(VK_ERROR_LAYER_NOT_PRESENT);
     CASE(VK_ERROR_EXTENSION_NOT_PRESENT);
     CASE(VK_ERROR_FEATURE_NOT_PRESENT);
+    CASE(VK_ERROR_INCOMPATIBLE_DRIVER);
     CASE(VK_ERROR_TOO_MANY_OBJECTS);
     CASE(VK_ERROR_FORMAT_NOT_SUPPORTED);
     CASE(VK_ERROR_FRAGMENTED_POOL);

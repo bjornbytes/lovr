@@ -26,6 +26,7 @@ struct Source {
   ma_data_converter* converter;
   intptr_t spatializerMemo;
   uint32_t offset;
+  float pitch;
   float volume;
   float position[4];
   float orientation[4];
@@ -35,6 +36,7 @@ struct Source {
   uint8_t effects;
   bool playing;
   bool looping;
+  bool pitchable;
   bool spatial;
 };
 
@@ -380,7 +382,7 @@ void lovrAudioSetAbsorption(float absorption[3]) {
 
 // Source
 
-Source* lovrSourceCreate(Sound* sound, bool spatial, uint32_t effects) {
+Source* lovrSourceCreate(Sound* sound, bool pitchable, bool spatial, uint32_t effects) {
   lovrAssert(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
   Source* source = calloc(1, sizeof(Source));
   lovrAssert(source, "Out of memory");
@@ -389,7 +391,9 @@ Source* lovrSourceCreate(Sound* sound, bool spatial, uint32_t effects) {
   source->sound = sound;
   lovrRetain(source->sound);
 
+  source->pitch = 1.f;
   source->volume = 1.f;
+  source->pitchable = pitchable;
   source->spatial = spatial;
   source->effects = spatial ? effects : 0;
   quat_identity(source->orientation);
@@ -401,8 +405,9 @@ Source* lovrSourceCreate(Sound* sound, bool spatial, uint32_t effects) {
   config.channelsOut = spatial ? 1 : 2;
   config.sampleRateIn = lovrSoundGetSampleRate(sound);
   config.sampleRateOut = state.sampleRate;
+  config.allowDynamicSampleRate = pitchable;
 
-  if (config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
+  if (pitchable || config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
     source->converter = malloc(sizeof(ma_data_converter));
     lovrAssert(source->converter, "Out of memory");
     ma_result status = ma_data_converter_init(&config, NULL, source->converter);
@@ -419,6 +424,7 @@ Source* lovrSourceClone(Source* source) {
   clone->index = ~0u;
   clone->sound = source->sound;
   lovrRetain(clone->sound);
+  clone->pitch = source->pitch;
   clone->volume = source->volume;
   memcpy(clone->position, source->position, 4 * sizeof(float));
   memcpy(clone->orientation, source->orientation, 4 * sizeof(float));
@@ -427,6 +433,7 @@ Source* lovrSourceClone(Source* source) {
   clone->dipolePower = source->dipolePower;
   clone->effects = source->effects;
   clone->looping = source->looping;
+  clone->pitchable = source->pitchable;
   clone->spatial = source->spatial;
   if (source->converter) {
     clone->converter = malloc(sizeof(ma_data_converter));
@@ -438,6 +445,7 @@ Source* lovrSourceClone(Source* source) {
     config.channelsOut = source->converter->channelsOut;
     config.sampleRateIn = source->converter->sampleRateIn;
     config.sampleRateOut = source->converter->sampleRateOut;
+    config.allowDynamicSampleRate = clone->pitchable;
     ma_result status = ma_data_converter_init(&config, NULL, clone->converter);
     lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
   }
@@ -500,6 +508,23 @@ bool lovrSourceIsLooping(Source* source) {
 void lovrSourceSetLooping(Source* source, bool loop) {
   lovrAssert(loop == false || lovrSoundIsStream(source->sound) == false, "Can't loop streams");
   source->looping = loop;
+}
+
+float lovrSourceGetPitch(Source* source) {
+  return source->pitch;
+}
+
+void lovrSourceSetPitch(Source* source, float pitch) {
+  lovrCheck(pitch > 0.f, "Source pitch must be positive");
+  lovrCheck(source->pitchable, "Source must be created with the 'pitchable' flag to change its pitch");
+
+  if (source->pitch != pitch) {
+    source->pitch = pitch;
+    ma_mutex_lock(&state.lock);
+    float ratio = (float) lovrSoundGetSampleRate(source->sound) / state.sampleRate;
+    ma_data_converter_set_rate_ratio(source->converter, pitch * ratio);
+    ma_mutex_unlock(&state.lock);
+  }
 }
 
 float lovrSourceGetVolume(Source* source, VolumeUnit units) {

@@ -3,7 +3,7 @@ lovr = require 'lovr'
 -- Note: Cannot be overloaded
 function lovr.boot()
   local conf = {
-    version = '0.15.0',
+    version = '0.16.0',
     identity = 'default',
     saveprecedence = true,
     modules = {
@@ -87,7 +87,7 @@ function lovr.boot()
   end
 
   if lovr.graphics then
-    lovr.graphics.init()
+    lovr.graphics.initialize()
   end
 
   if lovr.headset and lovr.graphics and conf.window then
@@ -167,7 +167,9 @@ function lovr.errhand(message)
   message = tostring(message) .. formatTraceback(debug.traceback('', 4))
   print('Error:\n' .. message)
 
-  if not lovr.graphics then return function() return 1 end end
+  if not lovr.graphics or not lovr.graphics.isInitialized() then
+    return function() return 1 end
+  end
 
   if lovr.audio then lovr.audio.stop() end
 

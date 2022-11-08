@@ -1,6 +1,6 @@
-<p align="center"><a href="https://lovr.org"><img src="https://lovr.org/static/img/README.png" width="256"/></a></p>
-
 # LÖVR
+
+<a href="https://lovr.org"><img align="right" src="https://lovr.org/static/img/logo.svg" width="180"/></a>
 
 > **A simple Lua framework for rapidly building VR experiences.**
 
@@ -13,9 +13,9 @@ You can use LÖVR to easily create VR experiences without much setup or programm
 [**Homepage**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
 <p align="left">
-  <span><img src="http://lovr.org/static/img/wattle.jpg" width="32%"/></span>
-  <span><img src="http://lovr.org/static/img/levrage.jpg" width="32%"/></span>
-  <span><img src="http://lovr.org/static/img/planets.jpg" width="32%"/></span>
+  <span><img src="http://lovr.org/static/img/wattle.jpg" width="32.5%"/></span>
+  <span><img src="http://lovr.org/static/img/levrage.jpg" width="32.5%"/></span>
+  <span><img src="http://lovr.org/static/img/planets.jpg" width="32.5%"/></span>
 </p>
 
 Features
@@ -40,25 +40,25 @@ then write a `main.lua` script and drag its parent folder onto the executable.  
 #### Hello World
 
 ```lua
-function lovr.draw()
-  lovr.graphics.print('Hello World!', 0, 1.7, -3, .5)
+function lovr.draw(pass)
+  pass:text('Hello World!', 0, 1.7, -3, .5)
 end
 ```
 
 #### Spinning Cube
 
 ```lua
-function lovr.draw()
-  lovr.graphics.cube('line', 0, 1.7, -1, .5, lovr.timer.getTime())
+function lovr.draw(pass)
+  pass:cube(0, 1.7, -1, .5, lovr.timer.getTime())
 end
 ```
 
 #### Hand Tracking
 
 ```lua
-function lovr.draw()
+function lovr.draw(pass)
   for _, hand in ipairs(lovr.headset.getHands()) do
-    lovr.graphics.sphere(vec3(lovr.headset.getPosition(hand)), .1)
+    pass:sphere(vec3(lovr.headset.getPosition(hand)), .1)
   end
 end
 ```
@@ -70,12 +70,12 @@ function lovr.load()
   model = lovr.graphics.newModel('model.gltf')
 end
 
-function lovr.draw()
-  model:draw(x, y, z)
+function lovr.draw(pass)
+  pass:draw(model, x, y, z)
 end
 ```
 
-You can try more examples in your browser on the [docs page](https://lovr.org/docs/Intro/Hello_World).
+More examples are on the [docs page](https://lovr.org/docs/Intro/Hello_World).
 
 Building
 ---

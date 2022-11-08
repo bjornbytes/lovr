@@ -560,7 +560,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
       .min = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
       .mag = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
       .mip = i == 0 ? FILTER_NEAREST : FILTER_LINEAR,
-      .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT }
+      .wrap = { WRAP_REPEAT, WRAP_REPEAT, WRAP_REPEAT },
+      .range = { 0.f, -1.f }
     });
   }
 
@@ -740,6 +741,10 @@ void lovrGraphicsDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
+bool lovrGraphicsIsInitialized() {
+  return state.initialized;
+}
+
 void lovrGraphicsGetDevice(GraphicsDevice* device) {
   device->deviceId = state.device.deviceId;
   device->vendorId = state.device.vendorId;
@@ -828,9 +833,7 @@ void lovrGraphicsSetBackgroundColor(float background[4]) {
 }
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
-  if (!state.active) {
-    return;
-  }
+  beginFrame();
 
   uint32_t total = count + 1;
   gpu_stream** streams = tempAlloc(total * sizeof(gpu_stream*));
@@ -1296,7 +1299,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       .buffer = scratchpad,
       .levelCount = levelCount,
       .levelOffsets = levelOffsets,
-      .generateMipmaps = levelCount < mipmaps
+      .generateMipmaps = levelCount > 0 && levelCount < mipmaps
     }
   });
 
@@ -1602,6 +1605,10 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
       { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
       { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
+    [SHADER_NORMAL] = {
+      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      { lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
+    },
     [SHADER_FONT] = {
       { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
       { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
@@ -1622,9 +1629,13 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
       { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
       { lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
     },
-    [SHADER_FILL_STEREO] = {
+    [SHADER_FILL_LAYER] = {
       { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      { lovr_shader_fill_stereo_frag, sizeof(lovr_shader_fill_stereo_frag) }
+      { lovr_shader_fill_layer_frag, sizeof(lovr_shader_fill_layer_frag) }
+    },
+    [SHADER_LOGO] = {
+      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      { lovr_shader_logo_frag, sizeof(lovr_shader_logo_frag) }
     }
   };
 
@@ -2038,10 +2049,10 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
   Texture* textures[] = {
     info->texture,
     info->glowTexture,
-    info->occlusionTexture,
     info->metalnessTexture,
     info->roughnessTexture,
     info->clearcoatTexture,
+    info->occlusionTexture,
     info->normalTexture
   };
 
@@ -2072,10 +2083,10 @@ void lovrMaterialDestroy(void* ref) {
   if (block->head == ~0u) block->head = block->tail;
   lovrRelease(material->info.texture, lovrTextureDestroy);
   lovrRelease(material->info.glowTexture, lovrTextureDestroy);
-  lovrRelease(material->info.occlusionTexture, lovrTextureDestroy);
   lovrRelease(material->info.metalnessTexture, lovrTextureDestroy);
   lovrRelease(material->info.roughnessTexture, lovrTextureDestroy);
   lovrRelease(material->info.clearcoatTexture, lovrTextureDestroy);
+  lovrRelease(material->info.occlusionTexture, lovrTextureDestroy);
   lovrRelease(material->info.normalTexture, lovrTextureDestroy);
 }
 
@@ -2211,9 +2222,9 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   glyph->x = font->atlasX + font->padding;
   glyph->y = font->atlasY + font->padding;
   glyph->uv[0] = (uint16_t) ((float) glyph->x / font->atlasWidth * 65535.f + .5f);
-  glyph->uv[1] = (uint16_t) ((float) glyph->y / font->atlasHeight * 65535.f + .5f);
+  glyph->uv[1] = (uint16_t) ((float) (glyph->y + height) / font->atlasHeight * 65535.f + .5f);
   glyph->uv[2] = (uint16_t) ((float) (glyph->x + width) / font->atlasWidth * 65535.f + .5f);
-  glyph->uv[3] = (uint16_t) ((float) (glyph->y + height) / font->atlasHeight * 65535.f + .5f);
+  glyph->uv[3] = (uint16_t) ((float) glyph->y / font->atlasHeight * 65535.f + .5f);
 
   font->atlasX += pixelWidth;
   font->rowHeight = MAX(font->rowHeight, pixelHeight);
@@ -2273,9 +2284,9 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
       Glyph* g = &font->glyphs.data[i];
       if (g->box[2] - g->box[0] > 0.f) {
         g->uv[0] = (uint16_t) ((float) g->x / font->atlasWidth * 65535.f + .5f);
-        g->uv[1] = (uint16_t) ((float) g->y / font->atlasHeight * 65535.f + .5f);
+        g->uv[1] = (uint16_t) ((float) (g->y + g->box[3] - g->box[1]) / font->atlasHeight * 65535.f + .5f);
         g->uv[2] = (uint16_t) ((float) (g->x + g->box[2] - g->box[0]) / font->atlasWidth * 65535.f + .5f);
-        g->uv[3] = (uint16_t) ((float) (g->y + g->box[3] - g->box[1]) / font->atlasHeight * 65535.f + .5f);
+        g->uv[3] = (uint16_t) ((float) g->y / font->atlasHeight * 65535.f + .5f);
       }
     }
 
@@ -2468,9 +2479,9 @@ void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
     uint32_t previous = '\0';
     const char* str = strings[i].string;
     const char* end = strings[i].string + strings[i].length;
-    uint8_t r = (uint8_t) (CLAMP(strings[i].color[0], 0.f, 1.f) * 255.f);
-    uint8_t g = (uint8_t) (CLAMP(strings[i].color[1], 0.f, 1.f) * 255.f);
-    uint8_t b = (uint8_t) (CLAMP(strings[i].color[2], 0.f, 1.f) * 255.f);
+    uint8_t r = (uint8_t) (CLAMP(lovrMathGammaToLinear(strings[i].color[0]), 0.f, 1.f) * 255.f);
+    uint8_t g = (uint8_t) (CLAMP(lovrMathGammaToLinear(strings[i].color[1]), 0.f, 1.f) * 255.f);
+    uint8_t b = (uint8_t) (CLAMP(lovrMathGammaToLinear(strings[i].color[2]), 0.f, 1.f) * 255.f);
     uint8_t a = (uint8_t) (CLAMP(strings[i].color[3], 0.f, 1.f) * 255.f);
 
     while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
@@ -2580,10 +2591,10 @@ Model* lovrModelCreate(const ModelInfo* info) {
     struct { uint32_t index; Texture** texture; } textures[] = {
       { properties->texture, &material.texture },
       { properties->glowTexture, &material.glowTexture },
-      { properties->occlusionTexture, &material.occlusionTexture },
       { properties->metalnessTexture, &material.metalnessTexture },
       { properties->roughnessTexture, &material.roughnessTexture },
       { properties->clearcoatTexture, &material.clearcoatTexture },
+      { properties->occlusionTexture, &material.occlusionTexture },
       { properties->normalTexture, &material.normalTexture }
     };
 
@@ -2959,7 +2970,8 @@ static void lovrModelReskin(Model* model) {
     state.animator = lovrShaderCreate(&(ShaderInfo) {
       .type = SHADER_COMPUTE,
       .source[0] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) },
-      .flags = &(ShaderFlag) { "local_size_x_id", 0, state.device.subgroupSize },
+      .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
+      .flagCount = 1,
       .label = "animator"
     });
   }
@@ -3269,6 +3281,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   lovrCheck(t->height <= state.limits.renderSize[1], "Render pass height (%d) exceeds the renderSize limit of this GPU (%d)", t->height, state.limits.renderSize[1]);
   lovrCheck(t->layers <= state.limits.renderSize[2], "Pass view count (%d) exceeds the renderSize limit of this GPU (%d)", t->layers, state.limits.renderSize[2]);
   lovrCheck(canvas->samples == 1 || canvas->samples == 4, "Render pass sample count must be 1 or 4...for now");
+  lovrCheck(!canvas->mipmap || t->samples == 1, "Unable to mipmap multisampled textures");
 
   for (uint32_t i = 0; i < canvas->count; i++) {
     const TextureInfo* texture = &canvas->textures[i]->info;
@@ -3383,7 +3396,9 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     .viewCount = pass->viewCount,
     .depth.format = depth->texture ? depth->texture->info.format : depth->format,
     .depth.test = GPU_COMPARE_GEQUAL,
-    .depth.write = true
+    .depth.write = true,
+    .stencil.testMask = 0xff,
+    .stencil.writeMask = 0xff
   };
 
   for (uint32_t i = 0; i < pass->info.canvas.count; i++) {
@@ -3488,29 +3503,29 @@ void lovrPassGetClear(Pass* pass, float color[4][4], float* depth, uint8_t* sten
 void lovrPassReset(Pass* pass) {
 }
 
-void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
+void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]) {
   lovrCheck(index < pass->viewCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->viewCount);
   mat4_init(viewMatrix, pass->cameras[index].view);
 }
 
-void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float* viewMatrix) {
+void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]) {
   lovrCheck(index < pass->viewCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->viewCount);
   mat4_init(pass->cameras[index].view, viewMatrix);
   pass->cameraDirty = true;
 }
 
-void lovrPassGetProjection(Pass* pass, uint32_t index, float* projection) {
+void lovrPassGetProjection(Pass* pass, uint32_t index, float projection[16]) {
   lovrCheck(index < pass->viewCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->viewCount);
   mat4_init(projection, pass->cameras[index].projection);
 }
 
-void lovrPassSetProjection(Pass* pass, uint32_t index, float* projection) {
+void lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]) {
   lovrCheck(index < pass->viewCount, "Trying to use view '%d', but Pass view count is %d", index + 1, pass->viewCount);
   mat4_init(pass->cameras[index].projection, projection);
   pass->cameraDirty = true;
 
   // If the handedness of the projection changes, flip the winding
-  if (index == 0 && (projection[5] > 0.f != pass->cameras[0].projection[5] > 0.f)) {
+  if (index == 0 && ((projection[5] > 0.f) != (pass->cameras[0].projection[5] > 0.f))) {
     pass->pipeline->info.rasterizer.winding = !pass->pipeline->info.rasterizer.winding;
     pass->pipeline->dirty = true;
   }
@@ -3778,7 +3793,6 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
         }
 
         pass->bindings[i].number = i;
-        pass->bindings[i].type = shader->resources[i].type;
 
         if (shader->bufferMask & bit) {
           pass->bindings[i].buffer.object = state.defaultBuffer->gpu;
@@ -3805,9 +3819,17 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   lovrRelease(previous, lovrShaderDestroy);
   pass->pipeline->shader = shader;
   pass->pipeline->dirty = true;
+
+  // If shaders have different push constant ranges, descriptor sets need to be rebound
+  if ((shader ? shader->constantSize : 0) != (previous ? previous->constantSize : 0)) {
+    pass->materialDirty = true;
+    pass->samplerDirty = true;
+  }
 }
 
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask) {
+  TextureFormat depthFormat = pass->info.canvas.depth.texture ? pass->info.canvas.depth.texture->info.format : pass->info.canvas.depth.format;
+  lovrCheck(depthFormat == FORMAT_D32FS8 || depthFormat == FORMAT_D24S8, "Trying to set stencil test when no stencil buffer exists");
   bool hasReplace = false;
   hasReplace |= pass->pipeline->info.stencil.failOp == GPU_STENCIL_REPLACE;
   hasReplace |= pass->pipeline->info.stencil.depthFailOp == GPU_STENCIL_REPLACE;
@@ -3830,6 +3852,8 @@ void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t
 }
 
 void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask) {
+  TextureFormat depthFormat = pass->info.canvas.depth.texture ? pass->info.canvas.depth.texture->info.format : pass->info.canvas.depth.format;
+  lovrCheck(depthFormat == FORMAT_D32FS8 || depthFormat == FORMAT_D24S8, "Trying to write to the stencil buffer when no stencil buffer exists");
   bool hasReplace = actions[0] == STENCIL_REPLACE || actions[1] == STENCIL_REPLACE || actions[2] == STENCIL_REPLACE;
   if (hasReplace && pass->pipeline->info.stencil.test != GPU_COMPARE_NONE) {
     lovrCheck(value == pass->pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
@@ -4164,6 +4188,7 @@ static void bindBundles(Pass* pass, Draw* draw, Shader* shader) {
 
     for (uint32_t i = 0; i < shader->resourceCount; i++) {
       bindings[i] = pass->bindings[shader->resources[i].binding];
+      bindings[i].type = shader->resources[i].type;
     }
 
     gpu_bundle_info info = {
@@ -5004,8 +5029,7 @@ void lovrPassFill(Pass* pass, Texture* texture) {
     lovrCheck(texture->info.layers == pass->viewCount, "Texture layer counts must match to fill between them");
     shader = SHADER_FILL_ARRAY;
   } else if (pass->viewCount == 1 && texture->info.layers > 1) {
-    lovrCheck(texture->info.layers == 2, "To draw an array texture to a mono texture, it must have 2 layers");
-    shader = SHADER_FILL_STEREO;
+    shader = SHADER_FILL_LAYER;
   } else {
     lovrUnreachable();
   }
@@ -5244,7 +5268,7 @@ void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_
   }
 }
 
-void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[4]) {
+void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
   if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
   if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
   if (extent[2] == ~0u) extent[2] = MIN(texture->info.layers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
@@ -5312,7 +5336,8 @@ void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4],
   lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting from the source texture's format");
   lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting to the destination texture's format");
   lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
-  // FIXME if src or dst is 3D you can only blit 1 layer or something!
+  lovrCheck(((src->info.type == TEXTURE_3D) ^ (dst->info.type == TEXTURE_3D)) == false, "3D textures can only be blitted with other 3D textures");
+  lovrCheck(src->info.type == TEXTURE_3D || srcExtent[2] == dstExtent[2], "When blitting between non-3D textures, blit layer counts must match");
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_blit(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
@@ -5781,10 +5806,10 @@ static void trackMaterial(Pass* pass, Material* material, gpu_phase phase, gpu_c
 
   trackTexture(pass, material->info.texture, phase, cache);
   trackTexture(pass, material->info.glowTexture, phase, cache);
-  trackTexture(pass, material->info.occlusionTexture, phase, cache);
   trackTexture(pass, material->info.metalnessTexture, phase, cache);
   trackTexture(pass, material->info.roughnessTexture, phase, cache);
   trackTexture(pass, material->info.clearcoatTexture, phase, cache);
+  trackTexture(pass, material->info.occlusionTexture, phase, cache);
   trackTexture(pass, material->info.normalTexture, phase, cache);
 }
 

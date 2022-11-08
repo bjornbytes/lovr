@@ -54,10 +54,10 @@ static int l_lovrMaterialGetProperties(lua_State* L) {
   lua_pushnumber(L, info->data.alphaCutoff), lua_setfield(L, -2, "alphaCutoff");
   luax_pushtype(L, Texture, info->texture), lua_setfield(L, -2, "texture");
   luax_pushtype(L, Texture, info->glowTexture), lua_setfield(L, -2, "glowTexture");
-  luax_pushtype(L, Texture, info->occlusionTexture), lua_setfield(L, -2, "occlusionTexture");
   luax_pushtype(L, Texture, info->metalnessTexture), lua_setfield(L, -2, "metalnessTexture");
   luax_pushtype(L, Texture, info->roughnessTexture), lua_setfield(L, -2, "roughnessTexture");
   luax_pushtype(L, Texture, info->clearcoatTexture), lua_setfield(L, -2, "clearcoatTexture");
+  luax_pushtype(L, Texture, info->occlusionTexture), lua_setfield(L, -2, "occlusionTexture");
   luax_pushtype(L, Texture, info->normalTexture), lua_setfield(L, -2, "normalTexture");
 
   return 1;

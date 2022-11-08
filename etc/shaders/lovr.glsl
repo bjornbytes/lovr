@@ -10,10 +10,10 @@ layout(constant_id = 1007) const bool flag_glow = false;
 layout(constant_id = 1008) const bool flag_normalMap = false;
 layout(constant_id = 1009) const bool flag_vertexTangents = true;
 layout(constant_id = 1010) const bool flag_colorTexture = true;
-layout(constant_id = 1011) const bool flag_glowTexture = false;
+layout(constant_id = 1011) const bool flag_glowTexture = true;
 layout(constant_id = 1012) const bool flag_metalnessTexture = true;
 layout(constant_id = 1013) const bool flag_roughnessTexture = true;
-layout(constant_id = 1014) const bool flag_occlusionTexture = false;
+layout(constant_id = 1014) const bool flag_ambientOcclusion = true;
 layout(constant_id = 1015) const bool flag_clearcoatTexture = false;
 layout(constant_id = 1016) const bool flag_tonemap = false;
 
@@ -54,10 +54,10 @@ layout(set = 1, binding = 0) uniform MaterialBuffer {
 
 layout(set = 1, binding = 1) uniform texture2D ColorTexture;
 layout(set = 1, binding = 2) uniform texture2D GlowTexture;
-layout(set = 1, binding = 3) uniform texture2D OcclusionTexture;
-layout(set = 1, binding = 4) uniform texture2D MetalnessTexture;
-layout(set = 1, binding = 5) uniform texture2D RoughnessTexture;
-layout(set = 1, binding = 6) uniform texture2D ClearcoatTexture;
+layout(set = 1, binding = 3) uniform texture2D MetalnessTexture;
+layout(set = 1, binding = 4) uniform texture2D RoughnessTexture;
+layout(set = 1, binding = 5) uniform texture2D ClearcoatTexture;
+layout(set = 1, binding = 6) uniform texture2D OcclusionTexture;
 layout(set = 1, binding = 7) uniform texture2D NormalTexture;
 #endif
 
@@ -144,7 +144,7 @@ layout(location = 14) in vec3 Tangent;
 #define CameraPositionWorld (-View[3].xyz * mat3(View))
 
 #define DefaultPosition (ClipFromLocal * VertexPosition)
-#define DefaultColor (Color * getPixel(ColorTexture, UV))
+#define DefaultColor (flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color)
 #endif
 
 // Constants
@@ -155,6 +155,11 @@ layout(location = 14) in vec3 Tangent;
 // Helpers
 
 #define Constants layout(push_constant) uniform PushConstants
+#ifdef GL_COMPUTE_SHADER
+#define var(x) layout(set = 0, binding = x)
+#else
+#define var(x) layout(set = 2, binding = x)
+#endif
 
 // Helper for sampling textures using the default sampler set using Pass:setSampler
 #ifndef GL_COMPUTE_SHADER
@@ -179,6 +184,8 @@ struct Surface {
   vec3 f0;
   vec3 diffuse;
   vec3 emissive;
+  float metalness;
+  float roughness;
   float roughness2;
   float occlusion;
   float clearcoat;
@@ -233,22 +240,22 @@ void initSurface(out Surface surface) {
   vec4 color = Color;
   if (flag_colorTexture) color *= getPixel(ColorTexture, UV);
 
-  float metallic = Material.metalness;
-  if (flag_metalnessTexture) metallic *= getPixel(MetalnessTexture, UV).b;
+  surface.metalness = Material.metalness;
+  if (flag_metalnessTexture) surface.metalness *= getPixel(MetalnessTexture, UV).b;
 
-  surface.f0 = mix(vec3(.04), color.rgb, metallic);
-  surface.diffuse = mix(color.rgb, vec3(0.), metallic);
+  surface.f0 = mix(vec3(.04), color.rgb, surface.metalness);
+  surface.diffuse = mix(color.rgb, vec3(0.), surface.metalness);
 
   surface.emissive = Material.glow.rgb * Material.glow.a;
   if (flag_glow && flag_glowTexture) surface.emissive *= getPixel(GlowTexture, UV).rgb;
 
-  float roughness = Material.roughness;
-  if (flag_roughnessTexture) roughness *= getPixel(RoughnessTexture, UV).g;
-  roughness = max(roughness, .05);
-  surface.roughness2 = roughness * roughness;
+  surface.roughness = Material.roughness;
+  if (flag_roughnessTexture) surface.roughness *= getPixel(RoughnessTexture, UV).g;
+  surface.roughness = max(surface.roughness, .05);
+  surface.roughness2 = surface.roughness * surface.roughness;
 
   surface.occlusion = 1.;
-  if (flag_occlusionTexture) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
+  if (flag_ambientOcclusion) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
 
   surface.clearcoat = Material.clearcoat;
   if (flag_clearcoatTexture) surface.clearcoat *= getPixel(ClearcoatTexture, UV).r;
@@ -259,7 +266,7 @@ void initSurface(out Surface surface) {
 }
 
 float D_GGX(const Surface surface, float NoH) {
-  float alpha2 = surface.roughness2 * surface.roughness2;
+  float alpha2 = surface.roughness * surface.roughness2;
   float denom = (NoH * NoH) * (alpha2 - 1.) + 1.;
   return alpha2 / (PI * denom * denom);
 }
@@ -288,7 +295,7 @@ vec3 getLighting(const Surface surface, vec3 direction, vec4 color, float visibi
   vec3 H = normalize(V + L);
   vec3 R = surface.reflection;
   float NoV = abs(dot(N, V)) + 1e-8;
-  float NoL = clamp(dot(N, L) * .5 + .5, 0., 1.);
+  float NoL = clamp(dot(N, L), 0., 1.);
   float NoH = clamp(dot(N, H), 0., 1.);
   float VoH = clamp(dot(V, H), 0., 1.);
 
@@ -305,6 +312,15 @@ vec3 getLighting(const Surface surface, vec3 direction, vec4 color, float visibi
   return (diffuse + specular) * color.rgb * (NoL * color.a * visibility);
 }
 
+// https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
+vec2 prefilteredBRDF(float NoV, float roughness) {
+  vec4 c0 = vec4(-1., -.0275, -.572, .022);
+  vec4 c1 = vec4(1., .0425, 1.04, -.04);
+  vec4 r = roughness * c0 + c1;
+  float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+  return vec2(-1.04, 1.04) * a004 + r.zw;
+}
+
 vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
   return max(
     sh[0] +
@@ -317,6 +333,20 @@ vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
     sh[7] * n.z * n.x +
     sh[8] * (n.x * n.x - n.y * n.y)
   , 0.);
+}
+
+vec3 getIndirectLighting(const Surface surface, textureCube environment, vec3 sphericalHarmonics[9]) {
+  float NoV = dot(surface.normal, surface.view);
+  vec2 lookup = prefilteredBRDF(NoV, surface.roughness);
+
+  int mipmapCount = textureQueryLevels(samplerCube(environment, Sampler));
+  vec3 ibl = textureLod(samplerCube(environment, Sampler), surface.reflection, surface.roughness * mipmapCount).rgb;
+  vec3 specular = (surface.f0 * lookup.r + lookup.g) * ibl;
+
+  vec3 sh = evaluateSphericalHarmonics(sphericalHarmonics, surface.normal);
+  vec3 diffuse = surface.diffuse * surface.occlusion * sh;
+
+  return diffuse + specular;
 }
 
 vec3 tonemap(vec3 x) {

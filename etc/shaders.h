@@ -1,14 +1,16 @@
 #include "shaders/unlit.vert.h"
 #include "shaders/unlit.frag.h"
+#include "shaders/normal.frag.h"
 #include "shaders/font.frag.h"
 #include "shaders/cubemap.vert.h"
 #include "shaders/cubemap.frag.h"
 #include "shaders/equirect.frag.h"
 #include "shaders/fill.vert.h"
 #include "shaders/fill_array.frag.h"
-#include "shaders/fill_stereo.frag.h"
+#include "shaders/fill_layer.frag.h"
 #include "shaders/animator.comp.h"
 #include "shaders/timewizard.comp.h"
+#include "shaders/logo.frag.h"
 
 #include "shaders/lovr.glsl.h"
 

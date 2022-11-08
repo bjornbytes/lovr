@@ -91,7 +91,9 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrGetHandMeshFB)\
   X(xrGetDisplayRefreshRateFB) \
   X(xrEnumerateDisplayRefreshRatesFB) \
-  X(xrRequestDisplayRefreshRateFB)
+  X(xrRequestDisplayRefreshRateFB) \
+  X(xrQuerySystemTrackedKeyboardFB) \
+  X(xrCreateKeyboardSpaceFB)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -150,6 +152,7 @@ static struct {
   XrCompositionLayerProjectionView layerViews[2];
   XrCompositionLayerDepthInfoKHR depthInfo[2];
   XrFrameState frameState;
+  TextureFormat depthFormat;
   Texture* textures[2][MAX_IMAGES];
   Pass* pass;
   double lastDisplayTime;
@@ -171,6 +174,7 @@ static struct {
     bool handTracking;
     bool handTrackingAim;
     bool handTrackingMesh;
+    bool keyboardTracking;
     bool overlay;
     bool refreshRate;
     bool viveTrackers;
@@ -217,7 +221,7 @@ static XrAction getPoseActionForDevice(Device device) {
     case DEVICE_FOOT_RIGHT:
     case DEVICE_CAMERA:
     case DEVICE_KEYBOARD:
-      return state.actions[ACTION_TRACKER_POSE];
+      return state.features.viveTrackers ? state.actions[ACTION_TRACKER_POSE] : XR_NULL_HANDLE;
     case DEVICE_EYE_GAZE:
       return state.actions[ACTION_GAZE_POSE];
     default:
@@ -320,16 +324,9 @@ static bool openxr_init(HeadsetConfig* config) {
     for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensionProperties);
 
-#ifdef __ANDROID__
-    bool androidCreateInstanceExtension = false;
-#endif
-
     // Extensions with feature == NULL must be present.  The enable flag can be used to
     // conditionally enable extensions based on config, platform, etc.
     struct { const char* name; bool* feature; bool enable; } extensions[] = {
-#ifdef __ANDROID__
-      { "XR_KHR_android_create_instance", &androidCreateInstanceExtension, true },
-#endif
 #ifdef LOVR_VK
       { "XR_KHR_vulkan_enable2", NULL, true },
 #endif
@@ -340,7 +337,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
-      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
+      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true },
+      { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true }
     };
 
     uint32_t enabledExtensionCount = 0;
@@ -357,14 +355,6 @@ static bool openxr_init(HeadsetConfig* config) {
 
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
-#ifdef __ANDROID__
-      // harmless to include even if not available from runtime
-      .next = &(XrInstanceCreateInfoAndroidKHR) {
-        .type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR,
-        .applicationVM = activity->vm,
-        .applicationActivity = activity->clazz
-      },
-#endif
       .applicationInfo.engineName = "LÖVR",
       .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
       .applicationInfo.applicationName = "LÖVR",
@@ -396,6 +386,11 @@ static bool openxr_init(HeadsetConfig* config) {
       .supportsHandTracking = false
     };
 
+    XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = {
+      .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB,
+      .supportsKeyboardTracking = false
+    };
+
     XrSystemProperties properties = {
       .type = XR_TYPE_SYSTEM_PROPERTIES
     };
@@ -410,9 +405,15 @@ static bool openxr_init(HeadsetConfig* config) {
       properties.next = &handTrackingProperties;
     }
 
+    if (state.features.keyboardTracking) {
+      keyboardTrackingProperties.next = properties.next;
+      properties.next = &keyboardTrackingProperties;
+    }
+
     XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties));
     state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
     state.features.handTracking = handTrackingProperties.supportsHandTracking;
+    state.features.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
 
     uint32_t viewConfigurationCount;
     XrViewConfigurationType viewConfigurations[2];
@@ -891,6 +892,12 @@ static void openxr_start(void) {
   }
 
   { // Swapchain
+    state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
+
+    if (state.config.stencil && !lovrGraphicsIsFormatSupported(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+      state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
+    }
+
 #ifdef LOVR_VK
     XrSwapchainImageVulkanKHR images[2][MAX_IMAGES];
     for (uint32_t i = 0; i < MAX_IMAGES; i++) {
@@ -898,8 +905,15 @@ static void openxr_start(void) {
       images[COLOR][i].next = images[DEPTH][i].next = NULL;
     }
 
-    int64_t colorFormat = VK_FORMAT_R8G8B8A8_SRGB;
-    int64_t depthFormat = state.config.stencil ? VK_FORMAT_D32_SFLOAT_S8_UINT : VK_FORMAT_D32_SFLOAT;
+    int64_t nativeColorFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    int64_t nativeDepthFormat;
+
+    switch (state.depthFormat) {
+      case FORMAT_D32F: nativeDepthFormat = VK_FORMAT_D32_SFLOAT; break;
+      case FORMAT_D24S8: nativeDepthFormat = VK_FORMAT_D24_UNORM_S8_UINT; break;
+      case FORMAT_D32FS8: nativeDepthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT; break;
+      default: lovrUnreachable();
+    }
 #endif
 
     int64_t formats[128];
@@ -910,9 +924,9 @@ static void openxr_start(void) {
     bool supportsDepth = false;
 
     for (uint32_t i = 0; i < formatCount && !supportsColor && !supportsDepth; i++) {
-      if (formats[i] == colorFormat) {
+      if (formats[i] == nativeColorFormat) {
         supportsColor = true;
-      } else if (formats[i] == depthFormat) {
+      } else if (formats[i] == nativeDepthFormat) {
         supportsDepth = true;
       }
     }
@@ -926,7 +940,7 @@ static void openxr_start(void) {
     XrSwapchainCreateInfo info = {
       .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
       .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
-      .format = colorFormat,
+      .format = nativeColorFormat,
       .width = state.width,
       .height = state.height,
       .sampleCount = 1,
@@ -957,7 +971,7 @@ static void openxr_start(void) {
 
     if (state.features.depth) {
       info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-      info.format = depthFormat;
+      info.format = nativeDepthFormat;
 
       XR(xrCreateSwapchain(state.session, &info, &state.swapchain[DEPTH]));
       XR(xrEnumerateSwapchainImages(state.swapchain[DEPTH], MAX_IMAGES, &state.textureCount[DEPTH], (XrSwapchainImageBaseHeader*) images));
@@ -965,7 +979,7 @@ static void openxr_start(void) {
       for (uint32_t i = 0; i < state.textureCount[DEPTH]; i++) {
         state.textures[DEPTH][i] = lovrTextureCreate(&(TextureInfo) {
           .type = TEXTURE_ARRAY,
-          .format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
+          .format = state.depthFormat,
           .srgb = true,
           .width = state.width,
           .height = state.height,
@@ -1018,6 +1032,27 @@ static void openxr_start(void) {
           .maxDepth = 1.f
         };
       }
+    }
+  }
+
+  if (state.features.keyboardTracking) {
+    XrKeyboardTrackingQueryFB queryInfo = {
+      .type = XR_TYPE_KEYBOARD_TRACKING_QUERY_FB,
+      .flags = XR_KEYBOARD_TRACKING_QUERY_LOCAL_BIT_FB
+    };
+
+    XrKeyboardTrackingDescriptionFB keyboard;
+    XrResult result = xrQuerySystemTrackedKeyboardFB(state.session, &queryInfo, &keyboard);
+
+    if (result == XR_SUCCESS) {
+      XrKeyboardSpaceCreateInfoFB spaceInfo = {
+        .type = XR_TYPE_KEYBOARD_SPACE_CREATE_INFO_FB,
+        .trackedKeyboardId = keyboard.trackedKeyboardId
+      };
+
+      xrCreateKeyboardSpaceFB(state.session, &spaceInfo, &state.spaces[DEVICE_KEYBOARD]);
+    } else {
+      state.features.keyboardTracking = false;
     }
   }
 }
@@ -1381,7 +1416,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
       }
 
       *value = aimState.pinchStrengthIndex;
-      return aimState.status & XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB;
+      return true;
     case AXIS_THUMBSTICK: return getFloatAction(ACTION_THUMBSTICK_X, filter, &value[0]) && getFloatAction(ACTION_THUMBSTICK_Y, filter, &value[1]);
     case AXIS_TOUCHPAD: return getFloatAction(ACTION_TRACKPAD_X, filter, &value[0]) && getFloatAction(ACTION_TRACKPAD_Y, filter, &value[1]);
     case AXIS_GRIP: return getFloatAction(ACTION_GRIP_AXIS, filter, &value[0]);
@@ -1457,6 +1492,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
     return NULL;
   }
 
+  // First, figure out how much data there is
   XrHandTrackingMeshFB mesh = { .type = XR_TYPE_HAND_TRACKING_MESH_FB };
   XrResult result = xrGetHandMeshFB(tracker, &mesh);
 
@@ -1468,6 +1504,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   uint32_t vertexCount = mesh.vertexCapacityInput = mesh.vertexCountOutput;
   uint32_t indexCount = mesh.indexCapacityInput = mesh.indexCountOutput;
 
+  // Sum all the sizes to get the total amount of memory required
   size_t sizes[10];
   size_t totalSize = 0;
   size_t alignment = 8;
@@ -1482,9 +1519,11 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   totalSize += sizes[8] = ALIGN(indexCount * sizeof(int16_t), alignment);
   totalSize += sizes[9] = ALIGN(jointCount * 16 * sizeof(float), alignment);
 
+  // Allocate
   char* meshData = malloc(totalSize);
   if (!meshData) return NULL;
 
+  // Write offseted pointers to the mesh struct, to be filled in by the second call
   size_t offset = 0;
   mesh.jointBindPoses = (XrPosef*) (meshData + offset), offset += sizes[0];
   mesh.jointRadii = (float*) (meshData + offset), offset += sizes[1];
@@ -1498,6 +1537,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   float* inverseBindMatrices = (float*) (meshData + offset); offset += sizes[9];
   lovrAssert(offset == totalSize, "Unreachable!");
 
+  // Populate the data
   result = xrGetHandMeshFB(tracker, &mesh);
   if (XR_FAILED(result)) {
     free(meshData);
@@ -1807,7 +1847,7 @@ static Pass* openxr_getPass(void) {
     .count = 1,
     .textures[0] = texture,
     .depth.texture = depthTexture,
-    .depth.format = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F,
+    .depth.format = state.depthFormat,
     .depth.load = LOAD_CLEAR,
     .depth.clear = 0.f,
     .samples = state.config.antialias ? 4 : 1

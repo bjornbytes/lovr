@@ -39,6 +39,9 @@ void lovrmain() {
   uint i3 = (indices >> 24) & 0xff;
   vec4 weights = unpackUnorm4x8(skin[vertexIndex].weights);
 
+  // Model loader does not currently renormalize weights post-quantization
+  weights /= weights[0] + weights[1] + weights[2] + weights[3];
+
   mat4 matrix = mat4(0);
   matrix += joints[i0] * weights[0];
   matrix += joints[i1] * weights[1];

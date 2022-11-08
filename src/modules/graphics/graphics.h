@@ -96,6 +96,7 @@ enum {
 
 bool lovrGraphicsInit(GraphicsConfig* config);
 void lovrGraphicsDestroy(void);
+bool lovrGraphicsIsInitialized(void);
 
 void lovrGraphicsGetDevice(GraphicsDevice* device);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
@@ -269,12 +270,14 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler);
 
 typedef enum {
   SHADER_UNLIT,
+  SHADER_NORMAL,
   SHADER_FONT,
   SHADER_CUBEMAP,
   SHADER_EQUIRECT,
   SHADER_FILL,
   SHADER_FILL_ARRAY,
-  SHADER_FILL_STEREO,
+  SHADER_FILL_LAYER,
+  SHADER_LOGO,
   DEFAULT_SHADER_COUNT
 } DefaultShader;
 
@@ -340,10 +343,10 @@ typedef struct {
   MaterialData data;
   Texture* texture;
   Texture* glowTexture;
-  Texture* occlusionTexture;
   Texture* metalnessTexture;
   Texture* roughnessTexture;
   Texture* clearcoatTexture;
+  Texture* occlusionTexture;
   Texture* normalTexture;
 } MaterialInfo;
 

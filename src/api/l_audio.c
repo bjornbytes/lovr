@@ -229,6 +229,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
   Sound* sound = luax_totype(L, 1, Sound);
 
   bool decode = false;
+  bool pitchable = false;
   bool spatial = true;
   uint32_t effects = ~0u;
   if (lua_gettop(L) >= 2) {
@@ -236,6 +237,10 @@ static int l_lovrAudioNewSource(lua_State* L) {
 
     lua_getfield(L, 2, "decode");
     decode = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "pitchable");
+    pitchable = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "effects");
@@ -270,7 +275,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lovrRetain(sound);
   }
 
-  Source* source = lovrSourceCreate(sound, spatial, effects);
+  Source* source = lovrSourceCreate(sound, pitchable, spatial, effects);
   luax_pushtype(L, Source, source);
   lovrRelease(sound, lovrSoundDestroy);
   lovrRelease(source, lovrSourceDestroy);

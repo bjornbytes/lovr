@@ -182,24 +182,25 @@ bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* 
 
   float x = 0.f;
   float y = 0.f;
+  float scale = rasterizer->scale;
   for (int i = 0; i < count; i++) {
     stbtt_vertex vertex = vertices[i];
-    float x2 = vertex.x;
-    float y2 = vertex.y;
+    float x2 = vertex.x * scale;
+    float y2 = vertex.y * scale;
 
     if (vertex.type == STBTT_vmove) {
       contour = msShapeAddContour(shape);
     } else if (vertex.type == STBTT_vline) {
       msContourAddLinearEdge(contour, x, y, x2, y2);
     } else if (vertex.type == STBTT_vcurve) {
-      float cx = vertex.cx;
-      float cy = vertex.cy;
+      float cx = vertex.cx * scale;
+      float cy = vertex.cy * scale;
       msContourAddQuadraticEdge(contour, x, y, cx, cy, x2, y2);
     } else if (vertex.type == STBTT_vcubic) {
-      float cx1 = vertex.cx;
-      float cy1 = vertex.cy;
-      float cx2 = vertex.cx1;
-      float cy2 = vertex.cy1;
+      float cx1 = vertex.cx * scale;
+      float cy1 = vertex.cy * scale;
+      float cx2 = vertex.cx1 * scale;
+      float cy2 = vertex.cy1 * scale;
       msContourAddCubicEdge(contour, x, y, cx1, cy1, cx2, cy2, x2, y2);
     }
 
@@ -212,14 +213,13 @@ bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* 
   int x0, y0, x1, y1;
   stbtt_GetGlyphBox(&rasterizer->font, id, &x0, &y0, &x1, &y1);
 
-  float scale = rasterizer->scale;
   uint32_t padding = ceil(spread / 2.);
-  float offsetX = -x0 + padding / scale;
-  float offsetY = -y1 - padding / scale;
+  float offsetX = -x0 * scale + padding;
+  float offsetY = -y0 * scale + padding;
 
   msShapeNormalize(shape);
   msEdgeColoringSimple(shape, 3., 0);
-  msGenerateMTSDF(pixels, width, height, shape, spread / rasterizer->scale, scale, -scale, offsetX, offsetY);
+  msGenerateMTSDF(pixels, width, height, shape, spread, 1.f, 1.f, offsetX, offsetY);
   msShapeDestroy(shape);
 
   return true;

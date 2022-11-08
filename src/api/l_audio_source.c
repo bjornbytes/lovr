@@ -57,6 +57,18 @@ static int l_lovrSourceSetLooping(lua_State* L) {
   return 0;
 }
 
+static int l_lovrSourceGetPitch(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  lua_pushnumber(L, lovrSourceGetPitch(source));
+  return 1;
+}
+
+static int l_lovrSourceSetPitch(lua_State* L) {
+  Source* source = luax_checktype(L, 1, Source);
+  lovrSourceSetPitch(source, luax_checkfloat(L, 2));
+  return 0;
+}
+
 static int l_lovrSourceGetVolume(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   VolumeUnit units = luax_checkenum(L, 2, VolumeUnit, "linear");
@@ -224,6 +236,8 @@ const luaL_Reg lovrSource[] = {
   { "isPlaying", l_lovrSourceIsPlaying },
   { "isLooping", l_lovrSourceIsLooping },
   { "setLooping", l_lovrSourceSetLooping },
+  { "getPitch", l_lovrSourceGetPitch },
+  { "setPitch", l_lovrSourceSetPitch },
   { "getVolume", l_lovrSourceGetVolume },
   { "setVolume", l_lovrSourceSetVolume },
   { "seek", l_lovrSourceSeek },
