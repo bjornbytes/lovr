@@ -41,7 +41,6 @@ config = {
     buildtools = '30.0.3',
     keystore = '/path/to/keystore',
     keystorepass = 'pass:password',
-    flavor = 'oculus',
     manifest = nil,
     package = nil,
     project = nil
@@ -54,7 +53,6 @@ config = {
 -- sanitize adds checks for memory leaks and undefined behavior (reduces performance)
 -- strict will make warnings fail the build
 -- luajit and headsets.openxr should be a path to a folder with the lib (tup can't build them yet)
--- android.flavor can be 'oculus' or 'pico'
 -- android.package should be something like 'org.lovr.app'
 -- android.project is a path to a lovr project folder that will be included in the apk
 -- tup.config can also be used to override properties without modifying this file:
@@ -494,7 +492,7 @@ if target == 'android' then
   unsigned = 'bin/.lovr.apk.unsigned'
   apk = 'bin/lovr.apk'
 
-  manifest = config.android.manifest or ('etc/AndroidManifest_%s.xml'):format(config.android.flavor)
+  manifest = config.android.manifest or 'etc/AndroidManifest.xml'
   package = config.android.package and #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
   project = config.android.project and #config.android.project > 0 and ('-A ' .. config.android.project) or ''
 

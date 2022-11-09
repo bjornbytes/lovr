@@ -22,7 +22,7 @@ Features
 ---
 
 - **Cross-Platform** - Runs on Windows, Mac, Linux, Android, WebXR.
-- **Cross-Device** - Supports Vive/Index, Oculus Rift/Quest, Pico, Windows MR, and has a VR simulator.
+- **Cross-Device** - Supports Vive/Index, Oculus Rift/Quest, Windows MR, and has a VR simulator.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
 - **Fast** - Writen in C11 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
 - **Asset Import** - Supports 3D models (glTF, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.
