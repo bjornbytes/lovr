@@ -13,9 +13,9 @@ You can use LÖVR to easily create VR experiences without much setup or programm
 [**Homepage**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
 <p align="left">
-  <span><img src="http://lovr.org/static/img/wattle.jpg" width="32.5%"/></span>
-  <span><img src="http://lovr.org/static/img/levrage.jpg" width="32.5%"/></span>
-  <span><img src="http://lovr.org/static/img/planets.jpg" width="32.5%"/></span>
+  <span><img src="http://lovr.org/static/img/screen1.jpg" width="32.5%"/></span>
+  <span><img src="http://lovr.org/static/img/screen2.jpg" width="32.5%"/></span>
+  <span><img src="http://lovr.org/static/img/screen3.jpg" width="32.5%"/></span>
 </p>
 
 Features
