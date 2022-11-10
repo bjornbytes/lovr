@@ -901,6 +901,10 @@ void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* 
       dMassTranslate(&m, -m.c[0], -m.c[1], -m.c[2]);
       break;
     }
+
+    case SHAPE_TERRAIN: {
+      break;
+    }
   }
 
   const dReal* position = dGeomGetOffsetPosition(shape->id);
@@ -1052,7 +1056,7 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float* vertices, int indexCount,
   return mesh;
 }
 
-TerrainShape* lovrTerrainShapeCreate(float* vertices, int widthSamples, int depthSamples, float horizontalScale, float verticalScale) {
+TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t widthSamples, uint32_t depthSamples, float horizontalScale, float verticalScale) {
   const float thickness = 10.f;
   TerrainShape* terrain = calloc(1, sizeof(TerrainShape));
   lovrAssert(terrain, "Out of memory");
