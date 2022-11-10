@@ -132,7 +132,7 @@ typedef enum {
   SHAPE_CAPSULE,
   SHAPE_CYLINDER,
   SHAPE_MESH,
-  SHAPE_TERRAIN,
+  SHAPE_TERRAIN
 } ShapeType;
 
 void lovrShapeDestroy(void* ref);
@@ -173,7 +173,8 @@ float lovrCylinderShapeGetLength(CylinderShape* cylinder);
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length);
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]);
-TerrainShape* lovrTerrainShapeCreate(float* vertices, int widthSamples, int depthSamples, float horizontalScale, float verticalScale);
+
+TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t widthSamples, uint32_t depthSamples, float horizontalScale, float verticalScale);
 
 // These tokens need to exist for Lua bindings
 #define lovrSphereShapeDestroy lovrShapeDestroy

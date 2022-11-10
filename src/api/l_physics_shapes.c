@@ -1,9 +1,11 @@
 #include "api.h"
 #include "physics/physics.h"
+#include "data/image.h"
 #include "core/maf.h"
 #include "util.h"
 #include <lua.h>
 #include <lauxlib.h>
+#include <stdlib.h>
 #include <string.h>
 
 void luax_pushshape(lua_State* L, Shape* shape) {
@@ -28,6 +30,7 @@ Shape* luax_checkshape(lua_State* L, int index) {
       hash64("CapsuleShape", strlen("CapsuleShape")),
       hash64("CylinderShape", strlen("CylinderShape")),
       hash64("MeshShape", strlen("MeshShape")),
+      hash64("TerrainShape", strlen("TerrainShape"))
     };
 
     for (size_t i = 0; i < COUNTOF(hashes); i++) {
@@ -39,6 +42,102 @@ Shape* luax_checkshape(lua_State* L, int index) {
 
   luax_typeerror(L, index, "Shape");
   return NULL;
+}
+
+Shape* luax_newsphereshape(lua_State* L, int index) {
+  float radius = luax_optfloat(L, index, 1.f);
+  return lovrSphereShapeCreate(radius);
+}
+
+Shape* luax_newboxshape(lua_State* L, int index) {
+  float size[4];
+  luax_readscale(L, index, size, 3, NULL);
+  return lovrBoxShapeCreate(size[0], size[1], size[2]);
+}
+
+Shape* luax_newcapsuleshape(lua_State* L, int index) {
+  float radius = luax_optfloat(L, index + 0, 1.f);
+  float length = luax_optfloat(L, index + 1, 1.f);
+  return lovrCapsuleShapeCreate(radius, length);
+}
+
+Shape* luax_newcylindershape(lua_State* L, int index) {
+  float radius = luax_optfloat(L, index + 0, 1.f);
+  float length = luax_optfloat(L, index + 1, 1.f);
+  return lovrCylinderShapeCreate(radius, length);
+}
+
+Shape* luax_newmeshshape(lua_State* L, int index) {
+  float* vertices;
+  uint32_t* indices;
+  uint32_t vertexCount;
+  uint32_t indexCount;
+  bool shouldFree;
+
+  luax_readmesh(L, index, &vertices, &vertexCount, &indices, &indexCount, &shouldFree);
+
+  // If we do not own the mesh data, we must make a copy
+  // ode's trimesh collider needs to own the triangle info for the lifetime of the geom
+  // Note that if shouldFree is true, we don't free the data and let the physics module do it when
+  // the collider/shape is destroyed
+  if (!shouldFree) {
+    float* v = vertices;
+    uint32_t* i = indices;
+    vertices = malloc(3 * vertexCount * sizeof(float));
+    indices = malloc(indexCount * sizeof(uint32_t));
+    lovrAssert(vertices && indices, "Out of memory");
+    memcpy(vertices, v, 3 * vertexCount * sizeof(float));
+    memcpy(indices, i, indexCount * sizeof(uint32_t));
+  }
+
+  return lovrMeshShapeCreate(vertexCount, vertices, indexCount, indices);
+}
+
+Shape* luax_newterrainshape(lua_State* L, int index) {
+  float horizontalScale = luax_checkfloat(L, index++);
+  int type = lua_type(L, index);
+  if (type == LUA_TNIL || type == LUA_TNONE) {
+    float vertices[4] = { 0.f };
+    return lovrTerrainShapeCreate(vertices, 2, 2, horizontalScale, 1.f);
+  } else if (type == LUA_TFUNCTION) {
+    uint32_t samples = luax_optu32(L, index + 1, 100);
+    float* vertices = malloc(sizeof(float) * samples * samples);
+    lovrAssert(vertices, "Out of memory");
+    for (uint32_t i = 0; i < samples * samples; i++) {
+      float x = horizontalScale * (-.5f + ((float) (i % samples)) / samples);
+      float z = horizontalScale * (-.5f + ((float) (i / samples)) / samples);
+      lua_pushvalue(L, index);
+      lua_pushnumber(L, x);
+      lua_pushnumber(L, z);
+      lua_call(L, 2, 1);
+      lovrCheck(lua_type(L, -1) == LUA_TNUMBER, "Expected TerrainShape callback to return a number");
+      vertices[i] = luax_tofloat(L, -1);
+      lua_pop(L, 1);
+    }
+    TerrainShape* shape = lovrTerrainShapeCreate(vertices, samples, samples, horizontalScale, 1.f);
+    free(vertices);
+    return shape;
+  } else if (type == LUA_TUSERDATA) {
+    Image* image = luax_checktype(L, index, Image);
+    uint32_t imageWidth = lovrImageGetWidth(image, 0);
+    uint32_t imageHeight = lovrImageGetHeight(image, 0);
+    float verticalScale = luax_optfloat(L, index + 1, 1.f);
+    float* vertices = malloc(sizeof(float) * imageWidth * imageHeight);
+    lovrAssert(vertices, "Out of memory");
+    for (uint32_t y = 0; y < imageHeight; y++) {
+      for (uint32_t x = 0; x < imageWidth; x++) {
+        float pixel[4];
+        lovrImageGetPixel(image, x, y, pixel);
+        vertices[x + y * imageWidth] = pixel[0];
+      }
+    }
+    TerrainShape* shape = lovrTerrainShapeCreate(vertices, imageWidth, imageHeight, horizontalScale, verticalScale);
+    free(vertices);
+    return shape;
+  } else {
+    luax_typeerror(L, index, "Image, number, or function");
+    return NULL;
+  }
 }
 
 static int l_lovrShapeDestroy(lua_State* L) {
@@ -310,6 +409,11 @@ const luaL_Reg lovrCylinderShape[] = {
 };
 
 const luaL_Reg lovrMeshShape[] = {
+  lovrShape,
+  { NULL, NULL }
+};
+
+const luaL_Reg lovrTerrainShape[] = {
   lovrShape,
   { NULL, NULL }
 };

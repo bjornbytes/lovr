@@ -182,4 +182,10 @@ void luax_pushjoint(struct lua_State* L, struct Joint* joint);
 void luax_pushshape(struct lua_State* L, struct Shape* shape);
 struct Joint* luax_checkjoint(struct lua_State* L, int index);
 struct Shape* luax_checkshape(struct lua_State* L, int index);
+struct Shape* luax_newsphereshape(struct lua_State* L, int index);
+struct Shape* luax_newboxshape(struct lua_State* L, int index);
+struct Shape* luax_newcapsuleshape(struct lua_State* L, int index);
+struct Shape* luax_newcylindershape(struct lua_State* L, int index);
+struct Shape* luax_newmeshshape(struct lua_State* L, int index);
+struct Shape* luax_newterrainshape(struct lua_State* L, int index);
 #endif
