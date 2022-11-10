@@ -169,11 +169,13 @@ static struct {
   VkQueue queue;
   uint32_t queueFamilyIndex;
   VkSurfaceKHR surface;
+  VkSurfaceCapabilitiesKHR surfaceCapabilities;
+  VkSurfaceFormatKHR surfaceFormat;
+  bool swapchainValid;
   VkSwapchainKHR swapchain;
-  VkFormat surfaceFormat;
-  VkSemaphore surfaceSemaphore;
-  uint32_t currentSurfaceTexture;
-  gpu_texture surfaceTextures[8];
+  VkSemaphore swapchainSemaphore;
+  uint32_t currentSwapchainTexture;
+  gpu_texture swapchainTextures[8];
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
   gpu_cache_entry renderpasses[16][4];
@@ -208,6 +210,7 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 static void gpu_release(gpu_memory* memory);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
+static void createSwapchain(uint32_t width, uint32_t height);
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact);
 static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
@@ -738,11 +741,28 @@ void gpu_texture_destroy(gpu_texture* texture) {
   gpu_release(state.memory + texture->memory);
 }
 
-gpu_texture* gpu_surface_acquire(void) {
+gpu_texture* gpu_surface_acquire() {
+  if (!state.swapchainValid) {
+    return NULL;
+  }
+
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
-  state.surfaceSemaphore = tick->semaphores[0];
-  VK(vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, state.surfaceSemaphore, VK_NULL_HANDLE, &state.currentSurfaceTexture), "Surface image acquisition failed") return NULL;
-  return &state.surfaceTextures[state.currentSurfaceTexture];
+  VkResult result = vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &state.currentSwapchainTexture);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    state.currentSwapchainTexture = ~0u;
+    state.swapchainValid = false;
+    return NULL;
+  } else {
+    vcheck(result, "Failed to acquire swapchain");
+  }
+
+  state.swapchainSemaphore = tick->semaphores[0];
+  return &state.swapchainTextures[state.currentSwapchainTexture];
+}
+
+void gpu_surface_resize(uint32_t width, uint32_t height) {
+  createSwapchain(width, height);
 }
 
 // The barriers here are a bit lazy (oversynchronized) and can be improved
@@ -1840,19 +1860,21 @@ bool gpu_init(gpu_config* config) {
     uint32_t count = COUNTOF(extensionInfo);
     VK(vkEnumerateInstanceExtensionProperties(NULL, &count, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
 
+    VkInstanceCreateFlags instanceFlags = 0;
+
+#ifdef VK_KHR_portability_enumeration
     for (uint32_t i = 0; i < count; i++) {
       if (!strcmp(extensionInfo[i].extensionName, "VK_KHR_portability_enumeration")) {
-        CHECK(extensionCount + 2 <= COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
-        extensions[extensionCount++] = "VK_KHR_get_physical_device_properties2";
+        CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
         extensions[extensionCount++] = "VK_KHR_portability_enumeration";
+        instanceFlags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
       }
     }
+#endif
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-#ifdef VK_KHR_portability_enumeration
-      .flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR,
-#endif
+      .flags = instanceFlags,
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
@@ -2217,68 +2239,26 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  // Swapchain
   if (state.surface) {
-    VkSurfaceCapabilitiesKHR surfaceCapabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, state.surface, &surfaceCapabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, state.surface, &state.surfaceCapabilities);
 
-    VkSurfaceFormatKHR formats[16];
+    VkSurfaceFormatKHR formats[32];
     uint32_t formatCount = COUNTOF(formats);
-    VkSurfaceFormatKHR surfaceFormat = { .format = VK_FORMAT_UNDEFINED };
     vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, state.surface, &formatCount, formats);
 
     for (uint32_t i = 0; i < formatCount; i++) {
       if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
-        surfaceFormat = formats[i];
+        state.surfaceFormat = formats[i];
         break;
       }
     }
 
-    VK(surfaceFormat.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
-    state.surfaceFormat = surfaceFormat.format;
+    VK(state.surfaceFormat.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
 
-    VkSwapchainCreateInfoKHR swapchainInfo = {
-      .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-      .surface = state.surface,
-      .minImageCount = surfaceCapabilities.minImageCount,
-      .imageFormat = surfaceFormat.format,
-      .imageColorSpace = surfaceFormat.colorSpace,
-      .imageExtent = surfaceCapabilities.currentExtent,
-      .imageArrayLayers = 1,
-      .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-      .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-      .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-      .presentMode = state.config.vk.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
-      .clipped = VK_TRUE
-    };
+    uint32_t width = state.surfaceCapabilities.currentExtent.width;
+    uint32_t height = state.surfaceCapabilities.currentExtent.height;
 
-    VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain), "Swapchain creation failed") return gpu_destroy(), false;
-
-    uint32_t imageCount;
-    VkImage images[COUNTOF(state.surfaceTextures)];
-    VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL), "Failed to get swapchain images") return gpu_destroy(), false;
-    VK(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") return gpu_destroy(), false;
-    VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images), "Failed to get swapchain images") return gpu_destroy(), false;
-
-    for (uint32_t i = 0; i < imageCount; i++) {
-      gpu_texture* texture = &state.surfaceTextures[i];
-
-      texture->handle = images[i];
-      texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-      texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-      texture->samples = 1;
-      texture->memory = ~0u;
-      texture->layers = 1;
-      texture->format = GPU_FORMAT_SURFACE;
-      texture->srgb = true;
-
-      gpu_texture_view_info view = {
-        .source = texture,
-        .type = GPU_TEXTURE_2D
-      };
-
-      CHECK(gpu_texture_init_view(texture, &view), "Swapchain texture view creation failed") return gpu_destroy(), false;
-    }
+    createSwapchain(width, height);
   }
 
   // Ticks
@@ -2336,7 +2316,7 @@ bool gpu_init(gpu_config* config) {
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "Pipeline cache creation failed") return gpu_destroy(), false;
 
   state.tick[CPU] = COUNTOF(state.ticks) - 1;
-  state.currentSurfaceTexture = ~0u;
+  state.currentSwapchainTexture = ~0u;
   return true;
 }
 
@@ -2369,8 +2349,8 @@ void gpu_destroy(void) {
   for (uint32_t i = 0; i < COUNTOF(state.memory); i++) {
     if (state.memory[i].handle) vkFreeMemory(state.device, state.memory[i].handle, NULL);
   }
-  for (uint32_t i = 0; i < COUNTOF(state.surfaceTextures); i++) {
-    if (state.surfaceTextures[i].view) vkDestroyImageView(state.device, state.surfaceTextures[i].view, NULL);
+  for (uint32_t i = 0; i < COUNTOF(state.swapchainTextures); i++) {
+    if (state.swapchainTextures[i].view) vkDestroyImageView(state.device, state.swapchainTextures[i].view, NULL);
   }
   if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
@@ -2409,15 +2389,15 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
 
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .waitSemaphoreCount = !!state.surfaceSemaphore,
-    .pWaitSemaphores = &state.surfaceSemaphore,
+    .waitSemaphoreCount = !!state.swapchainSemaphore,
+    .pWaitSemaphores = &state.swapchainSemaphore,
     .pWaitDstStageMask = &waitStage,
     .commandBufferCount = count,
     .pCommandBuffers = commands
   };
 
   VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") {}
-  state.surfaceSemaphore = VK_NULL_HANDLE;
+  state.swapchainSemaphore = VK_NULL_HANDLE;
 }
 
 void gpu_present() {
@@ -2437,11 +2417,18 @@ void gpu_present() {
     .pWaitSemaphores = &semaphore,
     .swapchainCount = 1,
     .pSwapchains = &state.swapchain,
-    .pImageIndices = &state.currentSurfaceTexture
+    .pImageIndices = &state.currentSwapchainTexture
   };
 
-  VK(vkQueuePresentKHR(state.queue, &present), "Queue present failed") {}
-  state.currentSurfaceTexture = ~0u;
+  VkResult result = vkQueuePresentKHR(state.queue, &present);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    state.swapchainValid = false;
+  } else {
+    vcheck(result, "Queue present failed");
+  }
+
+  state.currentSwapchainTexture = ~0u;
 }
 
 bool gpu_is_complete(uint32_t tick) {
@@ -2599,6 +2586,76 @@ static void expunge() {
   }
 }
 
+static void createSwapchain(uint32_t width, uint32_t height) {
+  if (width == 0 || height == 0) {
+    state.swapchainValid = false;
+    return;
+  }
+
+  VkSwapchainKHR oldSwapchain = state.swapchain;
+
+  if (oldSwapchain) {
+    vkDeviceWaitIdle(state.device);
+  }
+
+  VkSwapchainCreateInfoKHR swapchainInfo = {
+    .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+    .surface = state.surface,
+    .minImageCount = state.surfaceCapabilities.minImageCount,
+    .imageFormat = state.surfaceFormat.format,
+    .imageColorSpace = state.surfaceFormat.colorSpace,
+    .imageExtent = { width, height },
+    .imageArrayLayers = 1,
+    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+    .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+    .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+    .presentMode = state.config.vk.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
+    .clipped = VK_TRUE,
+    .oldSwapchain = oldSwapchain
+  };
+
+  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain), "Swapchain creation failed") return;
+
+  if (oldSwapchain) {
+    for (uint32_t i = 0; i < COUNTOF(state.swapchainTextures); i++) {
+      if (state.swapchainTextures[i].view) {
+        vkDestroyImageView(state.device, state.swapchainTextures[i].view, NULL);
+      }
+    }
+
+    memset(state.swapchainTextures, 0, sizeof(state.swapchainTextures));
+    vkDestroySwapchainKHR(state.device, oldSwapchain, NULL);
+  }
+
+  uint32_t imageCount;
+  VkImage images[COUNTOF(state.swapchainTextures)];
+  VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL), "Failed to get swapchain images") return;
+  VK(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") return;
+  VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images), "Failed to get swapchain images") return;
+
+  for (uint32_t i = 0; i < imageCount; i++) {
+    gpu_texture* texture = &state.swapchainTextures[i];
+
+    texture->handle = images[i];
+    texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+    texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    texture->samples = 1;
+    texture->memory = ~0u;
+    texture->layers = 1;
+    texture->format = GPU_FORMAT_SURFACE;
+    texture->srgb = true;
+
+    gpu_texture_view_info view = {
+      .source = texture,
+      .type = GPU_TEXTURE_2D
+    };
+
+    CHECK(gpu_texture_init_view(texture, &view), "Swapchain texture view creation failed") return;
+  }
+
+  state.swapchainValid = true;
+}
+
 // Ugliness until we can use dynamic rendering
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
   bool depth = pass->depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
@@ -2682,7 +2739,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
   for (uint32_t i = 0; i < count; i++) {
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    bool surface = pass->color[i].format == state.surfaceFormat;
+    bool surface = pass->color[i].format == state.surfaceFormat.format; // FIXME
     bool discard = surface || pass->color[i].load != GPU_LOAD_OP_KEEP;
     attachments[i] = (VkAttachmentDescription) {
       .format = pass->color[i].format,
@@ -2699,7 +2756,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
       uint32_t index = count + i;
       references[index].attachment = index;
       references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-      bool surface = pass->color[i].format == state.surfaceFormat;
+      bool surface = pass->color[i].format == state.surfaceFormat.format; // FIXME
       attachments[index] = (VkAttachmentDescription) {
         .format = pass->color[i].format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -2877,7 +2934,7 @@ static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
   };
 
   if (format == GPU_FORMAT_SURFACE) {
-    return state.surfaceFormat;
+    return state.surfaceFormat.format;
   }
 
   return formats[format][colorspace];

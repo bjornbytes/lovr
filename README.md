@@ -13,16 +13,16 @@ You can use LÖVR to easily create VR experiences without much setup or programm
 [**Homepage**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
 <p align="left">
-  <span><img src="http://lovr.org/static/img/wattle.jpg" width="32.5%"/></span>
-  <span><img src="http://lovr.org/static/img/levrage.jpg" width="32.5%"/></span>
-  <span><img src="http://lovr.org/static/img/planets.jpg" width="32.5%"/></span>
+  <span><img src="http://lovr.org/static/img/screen1.jpg" width="32.5%"/></span>
+  <span><img src="http://lovr.org/static/img/screen2.jpg" width="32.5%"/></span>
+  <span><img src="http://lovr.org/static/img/screen3.jpg" width="32.5%"/></span>
 </p>
 
 Features
 ---
 
 - **Cross-Platform** - Runs on Windows, Mac, Linux, Android, WebXR.
-- **Cross-Device** - Supports Vive/Index, Oculus Rift/Quest, Pico, Windows MR, and has a VR simulator.
+- **Cross-Device** - Supports Vive/Index, Oculus Rift/Quest, Windows MR, and has a VR simulator.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
 - **Fast** - Writen in C11 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
 - **Asset Import** - Supports 3D models (glTF, OBJ), skeletal animation, HDR textures, cubemaps, fonts, etc.

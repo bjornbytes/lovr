@@ -319,12 +319,12 @@ bool os_window_is_open() {
   return false;
 }
 
-void os_window_get_size(int* width, int* height) {
+void os_window_get_size(uint32_t* width, uint32_t* height) {
   if (width) *width = 0;
   if (height) *height = 0;
 }
 
-void os_window_get_fbsize(int* width, int* height) {
+void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
   *width = 0;
   *height = 0;
 }

@@ -6,8 +6,6 @@
 
 static struct {
   bool initialized;
-  int windowWidth;
-  int windowHeight;
   bool pressedKeys[KEY_COUNT];
 } state;
 
@@ -45,11 +43,6 @@ static void onQuit(void) {
   });
 }
 
-static void onResize(int width, int height) {
-  state.windowWidth = width;
-  state.windowHeight = height;
-}
-
 bool lovrSystemInit() {
   if (state.initialized) return false;
   os_on_key(onKey);
@@ -85,25 +78,19 @@ void lovrSystemRequestPermission(Permission permission) {
 
 void lovrSystemOpenWindow(os_window_config* window) {
   lovrAssert(os_window_open(window), "Could not open window");
-  os_on_resize(onResize);
   os_on_quit(onQuit);
-  os_window_get_fbsize(&state.windowWidth, &state.windowHeight);
 }
 
 bool lovrSystemIsWindowOpen() {
   return os_window_is_open();
 }
 
-uint32_t lovrSystemGetWindowWidth() {
-  return state.windowWidth;
-}
-
-uint32_t lovrSystemGetWindowHeight() {
-  return state.windowHeight;
+void lovrSystemGetWindowSize(uint32_t* width, uint32_t* height) {
+  os_window_get_fbsize(width, height);
 }
 
 float lovrSystemGetWindowDensity() {
-  int width, height, fbwidth, fbheight;
+  uint32_t width, height, fbwidth, fbheight;
   os_window_get_size(&width, &height);
   os_window_get_fbsize(&fbwidth, &fbheight);
   return (width == 0 || fbwidth == 0) ? 0.f : (float) fbwidth / width;

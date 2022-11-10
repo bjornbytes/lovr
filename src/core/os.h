@@ -128,7 +128,7 @@ typedef enum {
 typedef void fn_gl_proc(void);
 typedef void fn_quit(void);
 typedef void fn_focus(bool focused);
-typedef void fn_resize(int width, int height);
+typedef void fn_resize(uint32_t width, uint32_t height);
 typedef void fn_key(os_button_action action, os_key key, uint32_t scancode, bool repeat);
 typedef void fn_text(uint32_t codepoint);
 typedef void fn_permission(os_permission permission, bool granted);
@@ -157,8 +157,8 @@ void os_on_permission(fn_permission* callback);
 
 bool os_window_open(const os_window_config* config);
 bool os_window_is_open(void);
-void os_window_get_size(int* width, int* height);
-void os_window_get_fbsize(int* width, int* height);
+void os_window_get_size(uint32_t* width, uint32_t* height);
+void os_window_get_fbsize(uint32_t* width, uint32_t* height);
 
 size_t os_get_home_directory(char* buffer, size_t size);
 size_t os_get_data_directory(char* buffer, size_t size);

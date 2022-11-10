@@ -16,7 +16,6 @@ uint32_t lovrSystemGetCoreCount(void);
 void lovrSystemRequestPermission(Permission permission);
 void lovrSystemOpenWindow(struct os_window_config* config);
 bool lovrSystemIsWindowOpen(void);
-uint32_t lovrSystemGetWindowWidth(void);
-uint32_t lovrSystemGetWindowHeight(void);
+void lovrSystemGetWindowSize(uint32_t* width, uint32_t* height);
 float lovrSystemGetWindowDensity(void);
 bool lovrSystemIsKeyDown(int keycode);

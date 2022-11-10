@@ -84,10 +84,7 @@ static double desktop_getDeltaTime(void) {
 }
 
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
-  int w, h;
-  os_window_get_fbsize(&w, &h);
-  *width = (uint32_t) w;
-  *height = (uint32_t) h;
+  os_window_get_fbsize(width, height);
 }
 
 static uint32_t desktop_getViewCount(void) {
@@ -244,10 +241,10 @@ static double desktop_update(void) {
   float turnspeed = 3.f * (float) dt;
   float damping = MAX(1.f - 20.f * (float) dt, 0);
 
-  int width, height;
   double mx, my;
-  os_window_get_fbsize(&width, &height);
+  uint32_t width, height;
   os_get_mouse_position(&mx, &my);
+  os_window_get_fbsize(&width, &height);
 
   double aspect = (width > 0 && height > 0) ? ((double) width / height) : 1.;
 

@@ -798,6 +798,9 @@ void lovrShapeDestroyData(Shape* shape) {
       dGeomTriMeshDataDestroy(dataID);
       free(shape->vertices);
       free(shape->indices);
+    } else if (shape->type == SHAPE_TERRAIN) {
+      dHeightfieldDataID dataID = dGeomHeightfieldGetHeightfieldData(shape->id);
+      dGeomHeightfieldDataDestroy(dataID);
     }
     dGeomDestroy(shape->id);
     shape->id = NULL;
@@ -1047,6 +1050,20 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float* vertices, int indexCount,
   mesh->indices = indices;
   dGeomSetData(mesh->id, mesh);
   return mesh;
+}
+
+TerrainShape* lovrTerrainShapeCreate(float* vertices, int widthSamples, int depthSamples, float horizontalScale, float verticalScale) {
+  const float thickness = 10.f;
+  TerrainShape* terrain = calloc(1, sizeof(TerrainShape));
+  lovrAssert(terrain, "Out of memory");
+  terrain->ref = 1;
+  dHeightfieldDataID dataID = dGeomHeightfieldDataCreate();
+  dGeomHeightfieldDataBuildSingle(dataID, vertices, 1, horizontalScale, horizontalScale,
+                                  widthSamples, depthSamples, verticalScale, 0.f, thickness, 0);
+  terrain->id = dCreateHeightfield(0, dataID, 1);
+  terrain->type = SHAPE_TERRAIN;
+  dGeomSetData(terrain->id, terrain);
+  return terrain;
 }
 
 void lovrJointDestroy(void* ref) {
