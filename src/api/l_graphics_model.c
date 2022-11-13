@@ -143,14 +143,12 @@ static int l_lovrModelGetNodeScale(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, model);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
-  float position[4], scale[4], rotation[4], angle, ax, ay, az;
+  float position[4], scale[4], rotation[4];
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
-  quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 4;
+  lua_pushnumber(L, scale[0]);
+  lua_pushnumber(L, scale[1]);
+  lua_pushnumber(L, scale[2]);
+  return 3;
 }
 
 static int l_lovrModelSetNodeScale(lua_State* L) {
