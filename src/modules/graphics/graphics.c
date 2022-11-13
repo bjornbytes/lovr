@@ -2797,13 +2797,11 @@ const ModelInfo* lovrModelGetInfo(Model* model) {
 
 uint32_t lovrModelGetNodeDrawCount(Model* model, uint32_t node) {
   ModelData* data = model->info.data;
-  lovrCheck(node < data->nodeCount, "Invalid model node index %d", node + 1);
   return data->nodes[node].primitiveCount;
 }
 
 void lovrModelGetNodeDraw(Model* model, uint32_t node, uint32_t index, ModelDraw* mesh) {
   ModelData* data = model->info.data;
-  lovrCheck(node < data->nodeCount, "Invalid model node index %d", node + 1);
   lovrCheck(index < data->nodes[node].primitiveCount, "Invalid model node draw index %d", index + 1);
   Draw* draw = &model->draws[data->nodes[node].primitiveIndex + index];
   mesh->mode = draw->mode;
