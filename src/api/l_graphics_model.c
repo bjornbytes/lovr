@@ -30,7 +30,12 @@ static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
       lovrCheck(animationIndex != MAP_NIL, "ModelData has no animation named '%s'", name);
       return (uint32_t) animationIndex;
     }
-    case LUA_TNUMBER: return lua_tointeger(L, index) - 1;
+    case LUA_TNUMBER: {
+      uint32_t animation = luax_checku32(L, index) - 1;
+      ModelData* data = lovrModelGetInfo(model)->data;
+      lovrCheck(animation < data->animationCount, "Invalid animation index '%d'", animation + 1);
+      return animation;
+    }
     default: return luax_typeerror(L, index, "number or string"), ~0u;
   }
 }
@@ -45,7 +50,12 @@ uint32_t luax_checknodeindex(lua_State* L, int index, Model* model) {
       lovrCheck(nodeIndex != MAP_NIL, "ModelData has no node named '%s'", name);
       return (uint32_t) nodeIndex;
     }
-    case LUA_TNUMBER: return lua_tointeger(L, index) - 1;
+    case LUA_TNUMBER: {
+      uint32_t node = luax_checku32(L, index) - 1;
+      ModelData* data = lovrModelGetInfo(model)->data;
+      lovrCheck(node < data->nodeCount, "Invalid node index '%d'", node + 1);
+      return node;
+    }
     default: return luax_typeerror(L, index, "number or string"), ~0u;
   }
 }
