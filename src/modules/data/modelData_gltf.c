@@ -888,7 +888,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           scale[2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          map_set(&model->nodeMap, hash64(name.data, name.length), model->nodeCount - i);
+          map_set(&model->nodeMap, hash64(name.data, name.length), node - model->nodes);
           memcpy(model->chars, name.data, name.length);
           node->name = model->chars;
           model->chars += name.length + 1;
