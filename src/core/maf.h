@@ -156,17 +156,21 @@ MAF quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
 }
 
 MAF quat quat_fromMat4(quat q, mat4 m) {
-  float a = 1.f + m[0] - m[5] - m[10];
-  float b = 1.f - m[0] + m[5] - m[10];
-  float c = 1.f - m[0] - m[5] + m[10];
-  float d = 1.f + m[0] + m[5] + m[10];
+  float sx = vec3_length(m + 0);
+  float sy = vec3_length(m + 4);
+  float sz = vec3_length(m + 8);
+  float diagonal[4] = { m[0] / sx, m[5] / sy, m[10] / sz };
+  float a = 1.f + diagonal[0] - diagonal[1] - diagonal[2];
+  float b = 1.f - diagonal[0] + diagonal[1] - diagonal[2];
+  float c = 1.f - diagonal[0] - diagonal[1] + diagonal[2];
+  float d = 1.f + diagonal[0] + diagonal[1] + diagonal[2];
   float x = sqrtf(a > 0.f ? a : 0.f) / 2.f;
   float y = sqrtf(b > 0.f ? b : 0.f) / 2.f;
   float z = sqrtf(c > 0.f ? c : 0.f) / 2.f;
   float w = sqrtf(d > 0.f ? d : 0.f) / 2.f;
-  x = (m[9] - m[6]) > 0.f ? -x : x;
-  y = (m[2] - m[8]) > 0.f ? -y : y;
-  z = (m[4] - m[1]) > 0.f ? -z : z;
+  x = (m[9] / sz - m[6] / sy) > 0.f ? -x : x;
+  y = (m[2] / sx - m[8] / sz) > 0.f ? -y : y;
+  z = (m[4] / sy - m[1] / sx) > 0.f ? -z : z;
   return quat_set(q, x, y, z, w);
 }
 
