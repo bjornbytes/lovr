@@ -22,3 +22,6 @@
 [submodule "deps/glslang"]
 	path = deps/glslang
 	url = https://github.com/bjornbytes/glslang
+[submodule "deps/vulkan-headers"]
+	path = deps/vulkan-headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers

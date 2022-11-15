@@ -192,8 +192,7 @@ endif()
 
 # Vulkan
 if(LOVR_USE_VULKAN)
-  find_package(Vulkan REQUIRED)
-  include_directories(${Vulkan_INCLUDE_DIRS})
+  include_directories(deps/vulkan-headers/include)
 endif()
 
 # OpenXR
