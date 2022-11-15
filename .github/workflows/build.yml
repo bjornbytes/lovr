@@ -1,0 +1,114 @@
+name: Build
+
+on: [push, pull_request]
+
+env:
+  CMAKE_BUILD_TYPE: ${{ github.event_name == 'pull_request' && 'Debug' || 'Release' }}
+
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Configure
+        run: cmake -B build
+        shell: cmd
+      - name: Build
+        run: cmake --build build --config %CMAKE_BUILD_TYPE%
+        shell: cmd
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: lovr.exe
+          path: |
+            build/Release/lovr.exe
+            build/Release/*.dll
+  linux:
+    name: Linux
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Update Packages
+        run: sudo apt update
+      - name: Install Packages
+        run: sudo apt install -y xorg-dev libxcb-glx0-dev libfuse2
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Init
+        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
+      - name: Build
+        run: cmake --build build
+      - name: AppImage
+        run: >
+          curl -OL https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage &&
+          chmod +x ./appimagetool-x86_64.AppImage &&
+          ./appimagetool-x86_64.AppImage build/bin &&
+          mv LÖVR-x86_64.AppImage lovr-x86_64.AppImage
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: lovr.appimage
+          path: lovr-x86_64.AppImage
+  android:
+    name: Android
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Update Packages
+        run: sudo apt update
+      - name: Install Packages
+        run: sudo apt install -y glslang-tools
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Init
+        run: >
+          mkdir build &&
+          cd build &&
+          keytool
+          -genkey
+          -dname 'cn=Unknown, ou=Unknown, o=Unknown, l=Unknown, st=Unknown, c=Unknown'
+          -keystore key.keystore
+          -keypass hunter2
+          -storepass hunter2
+          -alias key
+          -keyalg RSA
+          -keysize 2048
+          -validity 10000 &&
+          cmake ..
+          -D CMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake
+          -D ANDROID_SDK=$ANDROID_HOME
+          -D ANDROID_ABI=arm64-v8a
+          -D ANDROID_NATIVE_API_LEVEL=29
+          -D ANDROID_BUILD_TOOLS_VERSION=30.0.3
+          -D ANDROID_KEYSTORE=key.keystore
+          -D ANDROID_KEYSTORE_PASS=pass:hunter2
+      - name: Build
+        run: cmake --build build
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: lovr.apk
+          path: build/lovr.apk
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Init
+        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
+      - name: Build
+        run: cmake --build build
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: lovr.app
+          path: build/lovr.app
