@@ -677,7 +677,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           token += NOM_VALUE(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          map_set(&model->animationMap, hash64(name.data, name.length), model->animationCount - i);
+          map_set(&model->animationMap, hash64(name.data, name.length), animation - model->animations);
           memcpy(model->chars, name.data, name.length);
           animation->name = model->chars;
           model->chars += name.length + 1;
@@ -764,7 +764,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           material->alphaCutoff = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          map_set(&model->materialMap, hash64(name.data, name.length), model->materialCount - i);
+          map_set(&model->materialMap, hash64(name.data, name.length), material - model->materials);
           memcpy(model->chars, name.data, name.length);
           material->name = model->chars;
           model->chars += name.length + 1;
