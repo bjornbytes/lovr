@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#pragma once
+
 typedef struct gpu_buffer gpu_buffer;
 typedef struct gpu_texture gpu_texture;
 typedef struct gpu_sampler gpu_sampler;

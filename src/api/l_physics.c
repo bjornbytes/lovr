@@ -61,27 +61,21 @@ static int l_lovrPhysicsNewBallJoint(lua_State* L) {
 }
 
 static int l_lovrPhysicsNewBoxShape(lua_State* L) {
-  float size[4];
-  luax_readscale(L, 1, size, 3, NULL);
-  BoxShape* box = lovrBoxShapeCreate(size[0], size[1], size[2]);
+  BoxShape* box = luax_newboxshape(L, 1);
   luax_pushtype(L, BoxShape, box);
   lovrRelease(box, lovrShapeDestroy);
   return 1;
 }
 
 static int l_lovrPhysicsNewCapsuleShape(lua_State* L) {
-  float radius = luax_optfloat(L, 1, 1.f);
-  float length = luax_optfloat(L, 2, 1.f);
-  CapsuleShape* capsule = lovrCapsuleShapeCreate(radius, length);
+  CapsuleShape* capsule = luax_newcapsuleshape(L, 1);
   luax_pushtype(L, CapsuleShape, capsule);
   lovrRelease(capsule, lovrShapeDestroy);
   return 1;
 }
 
 static int l_lovrPhysicsNewCylinderShape(lua_State* L) {
-  float radius = luax_optfloat(L, 1, 1.f);
-  float length = luax_optfloat(L, 2, 1.f);
-  CylinderShape* cylinder = lovrCylinderShapeCreate(radius, length);
+  CylinderShape* cylinder = luax_newcylindershape(L, 1);
   luax_pushtype(L, CylinderShape, cylinder);
   lovrRelease(cylinder, lovrShapeDestroy);
   return 1;
@@ -112,6 +106,13 @@ static int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   return 1;
 }
 
+static int l_lovrPhysicsNewMeshShape(lua_State* L) {
+  MeshShape* mesh = luax_newmeshshape(L, 1);
+  luax_pushtype(L, MeshShape, mesh);
+  lovrRelease(mesh, lovrShapeDestroy);
+  return 1;
+}
+
 static int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
@@ -124,10 +125,16 @@ static int l_lovrPhysicsNewSliderJoint(lua_State* L) {
 }
 
 static int l_lovrPhysicsNewSphereShape(lua_State* L) {
-  float radius = luax_optfloat(L, 1, 1.f);
-  SphereShape* sphere = lovrSphereShapeCreate(radius);
+  SphereShape* sphere = luax_newsphereshape(L, 1);
   luax_pushtype(L, SphereShape, sphere);
   lovrRelease(sphere, lovrShapeDestroy);
+  return 1;
+}
+
+static int l_lovrPhysicsNewTerrainShape(lua_State* L) {
+  TerrainShape* terrain = luax_newterrainshape(L, 1);
+  luax_pushtype(L, TerrainShape, terrain);
+  lovrRelease(terrain, lovrShapeDestroy);
   return 1;
 }
 
@@ -139,8 +146,10 @@ static const luaL_Reg lovrPhysics[] = {
   { "newCylinderShape", l_lovrPhysicsNewCylinderShape },
   { "newDistanceJoint", l_lovrPhysicsNewDistanceJoint },
   { "newHingeJoint", l_lovrPhysicsNewHingeJoint },
+  { "newMeshShape", l_lovrPhysicsNewMeshShape },
   { "newSliderJoint", l_lovrPhysicsNewSliderJoint },
   { "newSphereShape", l_lovrPhysicsNewSphereShape },
+  { "newTerrainShape", l_lovrPhysicsNewTerrainShape },
   { NULL, NULL }
 };
 
@@ -155,6 +164,7 @@ extern const luaL_Reg lovrBoxShape[];
 extern const luaL_Reg lovrCapsuleShape[];
 extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrMeshShape[];
+extern const luaL_Reg lovrTerrainShape[];
 
 int luaopen_lovr_physics(lua_State* L) {
   lua_newtable(L);
@@ -170,6 +180,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, CapsuleShape);
   luax_registertype(L, CylinderShape);
   luax_registertype(L, MeshShape);
+  luax_registertype(L, TerrainShape);
   if (lovrPhysicsInit()) {
     luax_atexit(L, lovrPhysicsDestroy);
   }

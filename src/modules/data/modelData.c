@@ -420,6 +420,16 @@ static void countVertices(ModelData* model, uint32_t nodeIndex, uint32_t* vertex
   for (uint32_t i = 0; i < node->primitiveCount; i++) {
     ModelPrimitive* primitive = &model->primitives[node->primitiveIndex + i];
     ModelAttribute* positions = primitive->attributes[ATTR_POSITION];
+    if (!positions) continue;
+
+    // If 2 meshes in the node use the same vertex buffer, don't count the vertices twice
+    for (uint32_t j = 0; j < i; j++) {
+      if (model->primitives[node->primitiveIndex + j].attributes[ATTR_POSITION] == positions) {
+        positions = NULL;
+        break;
+      }
+    }
+
     ModelAttribute* indices = primitive->indices;
     uint32_t count = positions ? positions->count : 0;
     *vertexCount += count;
@@ -448,43 +458,59 @@ static void collectVertices(ModelData* model, uint32_t nodeIndex, float** vertic
     mat4_scale(m, S[0], S[1], S[2]);
   }
 
+  uint32_t nodeBase = *baseIndex;
+
   for (uint32_t i = 0; i < node->primitiveCount; i++) {
     ModelPrimitive* primitive = &model->primitives[node->primitiveIndex + i];
     ModelAttribute* positions = primitive->attributes[ATTR_POSITION];
     ModelAttribute* index = primitive->indices;
     if (!positions) continue;
 
-    char* data = (char*) model->buffers[positions->buffer].data + positions->offset;
-    size_t stride = positions->stride == 0 ? 3 * sizeof(float) : positions->stride;
+    uint32_t base = nodeBase;
 
-    for (uint32_t j = 0; j < positions->count; j++) {
-      float v[4];
-      memcpy(v, data, 3 * sizeof(float));
-      mat4_transform(m, v);
-      memcpy(*vertices, v, 3 * sizeof(float));
-      *vertices += 3;
-      data += stride;
+    // If 2 meshes in the node use the same vertex buffer, don't add the vertices twice
+    for (uint32_t j = 0; j < i; j++) {
+      if (model->primitives[node->primitiveIndex + j].attributes[ATTR_POSITION] == positions) {
+        break;
+      } else {
+        base += model->primitives[node->primitiveIndex + j].attributes[ATTR_POSITION]->count;
+      }
+    }
+
+    if (base == *baseIndex) {
+      char* data = (char*) model->buffers[positions->buffer].data + positions->offset;
+      size_t stride = positions->stride == 0 ? 3 * sizeof(float) : positions->stride;
+
+      for (uint32_t j = 0; j < positions->count; j++) {
+        float v[4];
+        memcpy(v, data, 3 * sizeof(float));
+        mat4_transform(m, v);
+        memcpy(*vertices, v, 3 * sizeof(float));
+        *vertices += 3;
+        data += stride;
+      }
+
+      *baseIndex += positions->count;
     }
 
     if (index) {
       lovrAssert(index->type == U16 || index->type == U32, "Unreachable");
 
-      data = (char*) model->buffers[index->buffer].data + index->offset;
+      char* data = (char*) model->buffers[index->buffer].data + index->offset;
       size_t stride = index->stride == 0 ? (index->type == U16 ? 2 : 4) : index->stride;
 
       for (uint32_t j = 0; j < index->count; j++) {
-        **indices = (index->type == U16 ? ((uint32_t) *(uint16_t*) data) : *(uint32_t*) data) + *baseIndex;
+        **indices = (index->type == U16 ? ((uint32_t) *(uint16_t*) data) : *(uint32_t*) data) + base;
         *indices += 1;
         data += stride;
       }
     } else {
       for (uint32_t j = 0; j < positions->count; j++) {
-        **indices = j + *baseIndex;
+        **indices = j + base;
         *indices += 1;
       }
     }
 
-    *baseIndex += positions->count;
   }
 
   for (uint32_t i = 0; i < node->childCount; i++) {
