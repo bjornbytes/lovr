@@ -1013,7 +1013,8 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_getfield(L, index, "usage");
     switch (lua_type(L, -1)) {
       case LUA_TSTRING: info.usage = 1 << luax_checkenum(L, -1, TextureUsage, NULL); break;
-      case LUA_TTABLE: {
+      case LUA_TTABLE:
+        info.usage = 0;
         int length = luax_len(L, -1);
         for (int i = 0; i < length; i++) {
           lua_rawgeti(L, -1, i + 1);
@@ -1021,7 +1022,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
           lua_pop(L, 1);
         }
         break;
-      }
       case LUA_TNIL: break;
       default: return luaL_error(L, "Expected Texture usage to be a string, table, or nil");
     }
