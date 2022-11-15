@@ -1762,20 +1762,25 @@ int l_lovrMat4Set(lua_State* L) {
         float az = luax_checkfloat(L, index++);
         mat4_rotate(m, angle, ax, ay, az);
       } else {
+        float sx, sy, sz;
+
         if (vectorType == V_VEC3) {
-          m[0] = v[0];
-          m[5] = v[1];
-          m[10] = v[2];
+          sx = v[0];
+          sy = v[1];
+          sz = v[2];
           index++;
         } else if (lua_type(L, index) == LUA_TNUMBER) {
-          m[0] = luax_checkfloat(L, index++);
-          m[5] = luax_checkfloat(L, index++);
-          m[10] = luax_checkfloat(L, index++);
+          sx = luax_checkfloat(L, index++);
+          sy = luax_checkfloat(L, index++);
+          sz = luax_checkfloat(L, index++);
+        } else {
+          sx = sy = sz = 1.f;
         }
 
         float rotation[4];
         luax_readquat(L, index, rotation, NULL);
         mat4_rotateQuat(m, rotation);
+        mat4_scale(m, sx, sy, sz);
       }
     }
   }
