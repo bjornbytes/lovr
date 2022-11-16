@@ -19,8 +19,8 @@
 #include <windows.h>
 #elif defined(__ANDROID__)
 #define XR_USE_PLATFORM_ANDROID
-struct ANativeActivity* os_get_activity(void);
-#include <android_native_app_glue.h>
+void* os_get_java_vm(void);
+void* os_get_jni_context(void);
 #include <jni.h>
 #endif
 
@@ -304,11 +304,10 @@ static bool openxr_init(HeadsetConfig* config) {
     return false;
   }
 
-  ANativeActivity* activity = os_get_activity();
   XrLoaderInitInfoAndroidKHR loaderInfo = {
     .type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR,
-    .applicationVM = activity->vm,
-    .applicationContext = activity->clazz
+    .applicationVM = os_get_java_vm(),
+    .applicationContext = os_get_jni_context()
   };
 
   if (XR_FAILED(xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*) &loaderInfo))) {
