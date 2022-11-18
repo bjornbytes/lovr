@@ -1912,7 +1912,9 @@ bool gpu_init(gpu_config* config) {
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+#ifdef VK_KHR_portability_enumeration
       .flags = supports.portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0,
+#endif
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
@@ -2119,7 +2121,7 @@ bool gpu_init(gpu_config* config) {
       }
     }
 
-    CHECK(supports.swapchain || !state.surface, "Swapchain extension not supported");
+    CHECK(supports.swapchain || !state.surface, "Swapchain extension not supported") return gpu_destroy(), false;
 
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
