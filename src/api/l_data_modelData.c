@@ -65,7 +65,7 @@ static ModelAnimation* luax_checkanimation(lua_State* L, int index, ModelData* m
 static int l_lovrModelDataGetMetadata(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
 
-  if (!model->metadata || model->metadataSize == 0) {
+  if (!model->metadata || model->metadataSize == 0 || model->metadataType != META_GLTF_JSON) {
     lua_pushnil(L);
   } else {
     lua_pushlstring(L, model->metadata, model->metadataSize);

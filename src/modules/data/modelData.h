@@ -8,6 +8,12 @@
 struct Blob;
 struct Image;
 
+typedef enum {
+  META_GLTF_JSON,
+  META_HANDTRACKING_FB,
+  META_CONTROLLER_MSFT
+} MetadataType;
+
 typedef struct {
   uint32_t blob;
   size_t offset;
@@ -154,8 +160,9 @@ typedef struct ModelData {
   uint32_t ref;
   void* data;
 
-  char* metadata;
+  void* metadata;
   size_t metadataSize;
+  MetadataType metadataType;
 
   struct Blob** blobs;
   struct Image** images;

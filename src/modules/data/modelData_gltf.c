@@ -234,6 +234,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
   lovrAssert(model->metadata, "Out of memory");
   memcpy(model->metadata, json, jsonLength);
   model->metadataSize = jsonLength;
+  model->metadataType = META_GLTF_JSON;
 
   // Parse JSON
   jsmn_parser parser;

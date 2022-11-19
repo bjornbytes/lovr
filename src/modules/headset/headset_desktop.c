@@ -183,7 +183,7 @@ static ModelData* desktop_newModelData(Device device, bool animated) {
   return NULL;
 }
 
-static bool desktop_animate(Device device, struct Model* model) {
+static bool desktop_animate(struct Model* model) {
   return false;
 }
 

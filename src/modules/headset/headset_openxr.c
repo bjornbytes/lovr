@@ -1578,6 +1578,12 @@ static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated)
   model->nodeCount = 2 + jointCount;
   lovrModelDataAllocate(model);
 
+  model->metadata = malloc(sizeof(XrHandTrackerEXT));
+  lovrAssert(model->metadata, "Out of memory");
+  *((XrHandTrackerEXT*)model->metadata) = tracker;
+  model->metadataSize = sizeof(XrHandTrackerEXT);
+  model->metadataType = META_HANDTRACKING_FB;
+
   model->blobs[0] = lovrBlobCreate(meshData, totalSize, "Hand Mesh Data");
 
   model->buffers[0] = (ModelBuffer) {
@@ -1706,6 +1712,11 @@ static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated)
   return model;
 }
 
+typedef struct {
+  XrControllerModelKeyMSFT modelKey;
+  uint32_t* nodeIndices;
+} MetadataControllerMSFT;
+
 static ModelData* openxr_newModelDataMSFT(XrControllerModelKeyMSFT modelKey, bool animated) {
   uint32_t size;
   if (XR_FAILED(xrLoadControllerModelMSFT(state.session, modelKey, 0, &size, NULL))) {
@@ -1724,6 +1735,38 @@ static ModelData* openxr_newModelDataMSFT(XrControllerModelKeyMSFT modelKey, boo
   ModelData* model = lovrModelDataCreate(blob, NULL);
   lovrRelease(blob, lovrBlobDestroy);
 
+  XrControllerModelNodePropertiesMSFT nodeProperties[16];
+  for (uint32_t i = 0; i < COUNTOF(nodeProperties); i++) {
+    nodeProperties[i].type = XR_TYPE_CONTROLLER_MODEL_NODE_PROPERTIES_MSFT;
+    nodeProperties[i].next = 0;
+  }
+  XrControllerModelPropertiesMSFT properties = {
+    .type = XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT,
+    .nodeCapacityInput = COUNTOF(nodeProperties),
+    .nodeProperties = nodeProperties,
+  };
+
+  if (XR_FAILED(xrGetControllerModelPropertiesMSFT(state.session, modelKey, &properties))) {
+    return false;
+  }
+
+  free(model->metadata);
+  model->metadataType = META_CONTROLLER_MSFT;
+  model->metadataSize = sizeof(MetadataControllerMSFT) + sizeof(uint32_t) * properties.nodeCountOutput;
+  model->metadata = malloc(model->metadataSize);
+  lovrAssert(model->metadata, "Out of memory");
+
+  MetadataControllerMSFT* metadata = model->metadata;
+  metadata->modelKey = modelKey;
+  metadata->nodeIndices = (uint32_t*)(model->metadata + sizeof(MetadataControllerMSFT));
+
+  for (uint32_t i = 0; i < properties.nodeCountOutput; i++) {
+    const char* name = nodeProperties[i].nodeName;
+    uint64_t nodeIndex = map_get(&model->nodeMap, hash64(name, strlen(name)));
+    lovrCheck(nodeIndex != MAP_NIL, "ModelData has no node named '%s'", name);
+    metadata->nodeIndices[i] = nodeIndex;
+  }
+
   return model;
 }
 
@@ -1741,9 +1784,11 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   return NULL;
 }
 
-static bool openxr_animateFB(XrHandTrackerEXT tracker, Model* model) {
+static bool openxr_animateFB(Model* model, const ModelInfo* info) {
+  XrHandTrackerEXT tracker = *(XrHandTrackerEXT*)info->data->metadata;
+
   // TODO might be nice to cache joints so getSkeleton/animate only locate joints once (profile)
-  XrHandJointsLocateInfoEXT info = {
+  XrHandJointsLocateInfoEXT locateInfo = {
     .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
     .baseSpace = state.referenceSpace,
     .time = state.frameState.predictedDisplayTime
@@ -1756,7 +1801,7 @@ static bool openxr_animateFB(XrHandTrackerEXT tracker, Model* model) {
     .jointLocations = joints
   };
 
-  if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
+  if (XR_FAILED(xrLocateHandJointsEXT(tracker, &locateInfo, &hand)) || !hand.isActive) {
     return false;
   }
 
@@ -1823,21 +1868,8 @@ static bool openxr_animateFB(XrHandTrackerEXT tracker, Model* model) {
   return true;
 }
 
-static bool openxr_animateMSFT(XrControllerModelKeyMSFT modelKey, Model* model) {
-  XrControllerModelNodePropertiesMSFT nodeProperties[16];
-  for (uint32_t i = 0; i < COUNTOF(nodeProperties); i++) {
-    nodeProperties[i].type = XR_TYPE_CONTROLLER_MODEL_NODE_PROPERTIES_MSFT;
-    nodeProperties[i].next = 0;
-  }
-  XrControllerModelPropertiesMSFT properties = {
-    .type = XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT,
-    .nodeCapacityInput = COUNTOF(nodeProperties),
-    .nodeProperties = nodeProperties,
-  };
-
-  if (XR_FAILED(xrGetControllerModelPropertiesMSFT(state.session, modelKey, &properties))) {
-    return false;
-  }
+static bool openxr_animateMSFT(Model* model, const ModelInfo* info) {
+  MetadataControllerMSFT* metadata = info->data->metadata;
 
   XrControllerModelNodeStateMSFT nodeStates[16];
   for (uint32_t i = 0; i < COUNTOF(nodeStates); i++) {
@@ -1850,37 +1882,33 @@ static bool openxr_animateMSFT(XrControllerModelKeyMSFT modelKey, Model* model) 
     .nodeStates = nodeStates,
   };
 
-  if (XR_FAILED(xrGetControllerModelStateMSFT(state.session, modelKey, &modelState))) {
+  if (XR_FAILED(xrGetControllerModelStateMSFT(state.session, metadata->modelKey, &modelState))) {
     return false;
   }
 
   for (uint32_t i = 0; i < modelState.nodeCountOutput; i++) {
-    const char* name = nodeProperties[i].nodeName;
-    ModelData* data = lovrModelGetInfo(model)->data;
-    uint64_t nodeIndex = map_get(&data->nodeMap, hash64(name, strlen(name)));
-    lovrCheck(nodeIndex != MAP_NIL, "ModelData has no node named '%s'", name);
-
     float position[4], rotation[4];
     vec3_init(position, (vec3)&nodeStates[i].nodePose.position);
     quat_init(rotation, (quat)&nodeStates[i].nodePose.orientation);
-    lovrModelSetNodeTransform(model, nodeIndex, position, NULL, rotation, 1);
+    lovrModelSetNodeTransform(model, metadata->nodeIndices[i], position, NULL, rotation, 1);
   }
 
   return false;
 }
 
-static bool openxr_animate(Device device, Model* model) {
-  XrHandTrackerEXT tracker;
-  if ((tracker = getHandTracker(device))) {
-    return openxr_animateFB(tracker, model);
-  }
+static bool openxr_animate(Model* model) {
+  const ModelInfo* info = lovrModelGetInfo(model);
 
-  XrControllerModelKeyMSFT modelKey;
-  if ((modelKey = getControllerModelKey(device))) {
-    return openxr_animateMSFT(modelKey, model);
-  }
+  switch (info->data->metadataType) {
+    case META_HANDTRACKING_FB:
+      return openxr_animateFB(model, info);
 
-  return false;
+    case META_CONTROLLER_MSFT:
+      return openxr_animateMSFT(model, info);
+
+    default:
+      return false;
+  }
 }
 
 static Texture* openxr_getTexture(void) {

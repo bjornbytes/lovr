@@ -150,7 +150,7 @@ typedef struct HeadsetInterface {
   bool (*getSkeleton)(Device device, float* poses);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
   struct ModelData* (*newModelData)(Device device, bool animated);
-  bool (*animate)(Device device, struct Model* model);
+  bool (*animate)(struct Model* model);
   struct Texture* (*getTexture)(void);
   struct Pass* (*getPass)(void);
   void (*submit)(void);

@@ -23,7 +23,7 @@ extern bool webxr_getAxis(Device device, DeviceAxis axis, float* value);
 extern bool webxr_getSkeleton(Device device, float* poses);
 extern bool webxr_vibrate(Device device, float strength, float duration, float frequency);
 extern struct ModelData* webxr_newModelData(Device device, bool animated);
-extern bool webxr_animate(Device device, struct Model* model);
+extern bool webxr_animate(struct Model* model);
 extern void webxr_renderTo(void (*callback)(void*), void* userdata);
 extern bool webxr_isFocused(void);
 extern double webxr_update(void);
