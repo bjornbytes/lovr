@@ -5509,7 +5509,7 @@ static void releasePassResources(void) {
       lovrRelease(access->texture, lovrTextureDestroy);
     }
 
-    if (pass->info.type == PASS_RENDER) {
+    if (pass->info.type == PASS_RENDER || pass->info.type == PASS_COMPUTE) {
       for (size_t j = 0; j <= pass->pipelineIndex; j++) {
         Pipeline* pipeline = pass->pipeline - j;
         lovrRelease(pipeline->font, lovrFontDestroy);
