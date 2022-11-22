@@ -3091,6 +3091,8 @@ bool lovrReadbackWait(Readback* readback) {
     return false;
   }
 
+  beginFrame();
+
   bool waited = gpu_wait_tick(readback->tick);
 
   if (waited) {
