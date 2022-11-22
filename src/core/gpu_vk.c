@@ -2375,8 +2375,9 @@ void gpu_destroy(void) {
   state.tick[GPU] = state.tick[CPU];
   expunge();
   if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
-  if (state.scratchpad[0].buffer) vkDestroyBuffer(state.device, state.scratchpad[0].buffer, NULL);
-  if (state.scratchpad[1].buffer) vkDestroyBuffer(state.device, state.scratchpad[1].buffer, NULL);
+  for (uint32_t i = 0; i < COUNTOF(state.scratchpad); i++) {
+    if (state.scratchpad[i].buffer) vkDestroyBuffer(state.device, state.scratchpad[i].buffer, NULL);
+  }
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
