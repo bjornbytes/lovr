@@ -439,7 +439,6 @@ endif()
 if(LOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
     src/modules/filesystem/filesystem.c
-    src/modules/filesystem/file.c
     src/api/l_filesystem.c
   )
 else()
