@@ -1,5 +1,6 @@
 #include "api.h"
 #include "util.h"
+#include "lib/lua/lutf8lib.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>
@@ -111,6 +112,7 @@ void luax_preload(lua_State* L) {
 #ifndef LOVR_DISABLE_TIMER
     { "lovr.timer", luaopen_lovr_timer },
 #endif
+    { "utf8", luaopen_utf8 },
     { NULL, NULL }
   };
 

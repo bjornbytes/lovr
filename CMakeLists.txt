@@ -330,6 +330,7 @@ set(LOVR_SRC
   src/core/zip.c
   src/api/api.c
   src/api/l_lovr.c
+  src/lib/lua/lutf8lib.c
   src/util.c
 )
 
