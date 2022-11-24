@@ -188,7 +188,7 @@ static int l_lovrPassSetProjection(lua_State* L) {
     float up = luax_checkfloat(L, 5);
     float down = luax_checkfloat(L, 6);
     float clipNear = luax_optfloat(L, 7, .01f);
-    float clipFar = luax_optfloat(L, 8, 100.f);
+    float clipFar = luax_optfloat(L, 8, 0.f);
     float matrix[16];
     mat4_fov(matrix, left, right, up, down, clipNear, clipFar);
     lovrPassSetProjection(pass, view, matrix);
