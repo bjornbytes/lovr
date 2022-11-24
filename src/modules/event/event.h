@@ -28,6 +28,7 @@ typedef enum {
   TYPE_BOOLEAN,
   TYPE_NUMBER,
   TYPE_STRING,
+  TYPE_MINISTRING,
   TYPE_OBJECT
 } VariantType;
 
@@ -38,6 +39,10 @@ typedef union {
     char* pointer;
     size_t length;
   } string;
+  struct {
+    uint8_t length;
+    char data[23];
+  } ministring;
   struct {
     void* pointer;
     const char* type;
