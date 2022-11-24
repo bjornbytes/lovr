@@ -1,8 +1,6 @@
 #include "api.h"
 #include "graphics/graphics.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static int l_lovrTallyGetType(lua_State* L) {
   Tally* tally = luax_checktype(L, 1, Tally);

@@ -1,8 +1,6 @@
 #include "api.h"
 #include "graphics/graphics.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static int l_lovrSamplerGetFilter(lua_State* L) {
   Sampler* sampler = luax_checktype(L, 1, Sampler);

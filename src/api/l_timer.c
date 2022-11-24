@@ -1,7 +1,5 @@
 #include "api.h"
 #include "timer/timer.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static int l_lovrTimerGetDelta(lua_State* L) {
   lua_pushnumber(L, lovrTimerGetDelta());

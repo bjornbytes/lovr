@@ -1,8 +1,6 @@
 #include "api.h"
 #include "util.h"
 #include "graphics/graphics.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static int l_lovrTextureNewView(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);

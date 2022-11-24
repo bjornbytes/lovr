@@ -4,8 +4,6 @@
 #include "data/image.h"
 #include "core/maf.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <stdlib.h>
 #include <string.h>
 

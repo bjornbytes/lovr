@@ -4,8 +4,6 @@
 #include "math/pool.h"
 #include "math/randomGenerator.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <stdlib.h>
 
 int l_lovrRandomGeneratorRandom(lua_State* L);

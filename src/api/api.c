@@ -396,7 +396,7 @@ uint32_t _luax_checku32(lua_State* L, int index) {
   double x = lua_tonumber(L, index);
 
   if (x == 0. && !lua_isnumber(L, index)) {
-    luaL_typerror(L, index, "number");
+    luax_typeerror(L, index, "number");
   }
 
   if (x < 0. || x > UINT32_MAX) {

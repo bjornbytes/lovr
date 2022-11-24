@@ -1,8 +1,6 @@
 #include "api.h"
 #include "graphics/graphics.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <stdlib.h>
 
 static int l_lovrShaderClone(lua_State* L) {

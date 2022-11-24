@@ -2,8 +2,6 @@
 #include "data/rasterizer.h"
 #include "data/image.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <math.h>
 
 uint32_t luax_checkcodepoint(lua_State* L, int index) {

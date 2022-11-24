@@ -3,8 +3,6 @@
 #include "data/modelData.h"
 #include "core/maf.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 // This adds about 2-3us of overhead, which sucks, but the reduction in complexity is large
 static int luax_callmodeldata(lua_State* L, const char* method, int nrets) {

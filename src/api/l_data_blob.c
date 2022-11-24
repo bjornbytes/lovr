@@ -1,8 +1,6 @@
 #include "api.h"
 #include "data/blob.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static int l_lovrBlobGetName(lua_State* L) {
   Blob* blob = luax_checktype(L, 1, Blob);

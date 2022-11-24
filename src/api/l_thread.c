@@ -3,8 +3,6 @@
 #include "thread/thread.h"
 #include "thread/channel.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <lualib.h>
 #include <stdlib.h>
 #include <string.h>
