@@ -833,15 +833,18 @@ static bool openxr_init(HeadsetConfig* config) {
         suggestedBindings[j].binding = path;
       }
 
+      int successProfiles = 0;
       if (count > 0) {
         XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path));
-        XR_INIT(xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
+        int res = (xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
           .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
           .interactionProfile = path,
           .countSuggestedBindings = count,
           .suggestedBindings = suggestedBindings
         }));
+        if (XR_SUCCEEDED(res)) successProfiles++;
       }
+      XR_INIT(successProfiles);
     }
   }
 
