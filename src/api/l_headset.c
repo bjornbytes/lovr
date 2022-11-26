@@ -653,8 +653,6 @@ int luaopen_lovr_headset(lua_State* L) {
   if (lua_istable(L, -1)) {
     lua_getfield(L, -1, "headset");
     if (lua_istable(L, -1)) {
-
-      // Drivers
       lua_getfield(L, -1, "drivers");
       int n = luax_len(L, -1);
       for (int i = 0; i < n; i++) {
@@ -665,7 +663,6 @@ int luaopen_lovr_headset(lua_State* L) {
       }
       lua_pop(L, 1);
 
-      // Supersample
       lua_getfield(L, -1, "supersample");
       if (lua_type(L, -1) == LUA_TBOOLEAN) {
         config.supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
@@ -674,27 +671,22 @@ int luaopen_lovr_headset(lua_State* L) {
       }
       lua_pop(L, 1);
 
-      // Offset
       lua_getfield(L, -1, "offset");
       config.offset = luax_optfloat(L, -1, 1.7f);
       lua_pop(L, 1);
 
-      // Stencil
       lua_getfield(L, -1, "stencil");
       config.stencil = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
-      // Samples
       lua_getfield(L, -1, "antialias");
       config.antialias = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
       lua_pop(L, 1);
 
-      // Depth
       lua_getfield(L, -1, "submitdepth");
       config.submitDepth = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
-      // Overlay
       lua_getfield(L, -1, "overlay");
       config.overlay = lua_toboolean(L, -1);
       lua_pop(L, 1);
