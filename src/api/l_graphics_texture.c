@@ -114,6 +114,6 @@ const luaL_Reg lovrTexture[] = {
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getSampleCount", l_lovrTextureGetSampleCount },
-  { "hasUsage ", l_lovrTextureHasUsage },
+  { "hasUsage", l_lovrTextureHasUsage },
   { NULL, NULL }
 };
