@@ -2580,6 +2580,8 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
           memory->handle = NULL;
           return NULL;
         }
+      } else {
+        memory->pointer = NULL;
       }
 
       allocator->block = memory;
@@ -2597,7 +2599,6 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 static void gpu_release(gpu_memory* memory) {
   if (memory && --memory->refs == 0) {
     condemn(memory->handle, VK_OBJECT_TYPE_DEVICE_MEMORY);
-    memory->pointer = NULL;
     memory->handle = NULL;
 
     for (uint32_t i = 0; i < COUNTOF(state.allocators); i++) {
