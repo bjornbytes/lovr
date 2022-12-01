@@ -2580,6 +2580,8 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
           memory->handle = NULL;
           return NULL;
         }
+      } else {
+        memory->pointer = NULL;
       }
 
       allocator->block = memory;

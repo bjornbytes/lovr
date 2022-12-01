@@ -1,8 +1,6 @@
 #include "api.h"
 #include "core/maf.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 #define EQ_THRESHOLD 1e-10f
 
@@ -1942,6 +1940,15 @@ static int l_lovrMat4Target(lua_State* L) {
   return 1;
 }
 
+static int l_lovrMat4Reflect(lua_State* L) {
+  mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
+  vec3 position = luax_checkvector(L, 2, V_VEC3, NULL);
+  vec3 normal = luax_checkvector(L, 3, V_VEC3, NULL);
+  mat4_reflect(m, position, normal);
+  lua_settop(L, 1);
+  return 1;
+}
+
 static int l_lovrMat4__mul(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
   VectorType type;
@@ -2027,6 +2034,7 @@ const luaL_Reg lovrMat4[] = {
   { "fov", l_lovrMat4Fov },
   { "lookAt", l_lovrMat4LookAt },
   { "target", l_lovrMat4Target },
+  { "reflect", l_lovrMat4Reflect },
   { "__mul", l_lovrMat4__mul },
   { "__tostring", l_lovrMat4__tostring },
   { "__newindex", l_lovrMat4__newindex },

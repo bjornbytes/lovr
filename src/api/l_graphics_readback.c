@@ -3,8 +3,6 @@
 #include "data/blob.h"
 #include "data/image.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static int l_lovrReadbackIsComplete(lua_State* L) {
   Readback* readback = luax_checktype(L, 1, Readback);

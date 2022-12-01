@@ -5,8 +5,6 @@
 #include "data/modelData.h"
 #include "data/rasterizer.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <stdlib.h>
 #include <string.h>
 

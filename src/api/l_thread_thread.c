@@ -1,8 +1,6 @@
 #include "api.h"
 #include "thread/thread.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static int l_lovrThreadStart(lua_State* L) {
   Thread* thread = luax_checktype(L, 1, Thread);

@@ -450,7 +450,6 @@ endif()
 if(LOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
     src/modules/filesystem/filesystem.c
-    src/modules/filesystem/file.c
     src/api/l_filesystem.c
   )
 else()
@@ -488,9 +487,6 @@ if(LOVR_ENABLE_GRAPHICS)
     target_sources(lovr PRIVATE src/core/gpu_webgpu.c)
   endif()
 
-  add_custom_target(compile_shaders ALL)
-  add_dependencies(lovr compile_shaders)
-
   function(compile_shaders)
     if(LOVR_USE_GLSLANG AND ENABLE_GLSLANG_BINARIES AND NOT ANDROID)
       set(GLSLANG_VALIDATOR $<TARGET_FILE:glslangValidator>)
@@ -506,15 +502,18 @@ if(LOVR_ENABLE_GRAPHICS)
     foreach(shader_file ${shader_files})
       string(REGEX MATCH "([^\/]+)\.${ARGV0}" shader ${shader_file})
       string(REPLACE ".${ARGV0}" "" shader ${shader})
-      add_custom_command(TARGET compile_shaders POST_BUILD
+      add_custom_command(
+        OUTPUT ${shader_file}.h
+        DEPENDS ${shader_file}
         COMMAND
-        ${GLSLANG_VALIDATOR}
-        --quiet
-        --target-env vulkan1.1
-        --vn lovr_shader_${shader}_${ARGV0}
-        -o ${shader_file}.h
-        ${shader_file}
+          ${GLSLANG_VALIDATOR}
+          --quiet
+          --target-env vulkan1.1
+          --vn lovr_shader_${shader}_${ARGV0}
+          -o ${shader_file}.h
+          ${shader_file}
       )
+      target_sources(lovr PRIVATE ${shader_file}.h)
     endforeach()
   endfunction()
 

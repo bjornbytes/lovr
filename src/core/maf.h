@@ -724,6 +724,27 @@ MAF mat4 mat4_target(mat4 m, vec3 from, vec3 to, vec3 up) {
   return m;
 }
 
+MAF mat4 mat4_reflect(mat4 m, vec3 p, vec3 n) {
+  float d = vec3_dot(p, n);
+  m[0] = -2.f * n[0] * n[0] + 1.f;
+  m[1] = -2.f * n[0] * n[1];
+  m[2] = -2.f * n[0] * n[2];
+  m[3] = 0.f;
+  m[4] = -2.f * n[1] * n[0];
+  m[5] = -2.f * n[1] * n[1] + 1.f;
+  m[6] = -2.f * n[1] * n[2];
+  m[7] = 0.f;
+  m[8] = -2.f * n[2] * n[0];
+  m[9] = -2.f * n[2] * n[1];
+  m[10] = -2.f * n[2] * n[2] + 1.f;
+  m[11] = 0.f;
+  m[12] = 2.f * d * n[0];
+  m[13] = 2.f * d * n[1];
+  m[14] = 2.f * d * n[2];
+  m[15] = 1.f;
+  return m;
+}
+
 // Apply matrix to a vec3
 // Difference from mat4_mulVec4: w normalize is performed, w in vec3 is ignored
 MAF void mat4_transform(mat4 m, vec3 v) {

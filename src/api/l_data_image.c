@@ -2,8 +2,6 @@
 #include "data/image.h"
 #include "data/blob.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 StringEntry lovrTextureFormat[] = {
   [FORMAT_R8] = ENTRY("r8"),

@@ -1,8 +1,6 @@
 #include "api.h"
 #include "physics/physics.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 StringEntry lovrShapeType[] = {
   [SHAPE_SPHERE] = ENTRY("sphere"),

@@ -433,7 +433,10 @@ const char* lovrFilesystemGetRequirePath() {
 }
 
 void lovrFilesystemSetRequirePath(const char* requirePath) {
-  strncpy(state.requirePath, requirePath, sizeof(state.requirePath) - 1);
+  size_t length = strlen(requirePath);
+  lovrCheck(length < sizeof(state.requirePath), "Require path is too long");
+  memcpy(state.requirePath, requirePath, length);
+  state.requirePath[length] = '\0';
 }
 
 // Archive: dir
