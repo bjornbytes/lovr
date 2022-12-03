@@ -903,7 +903,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
       .binding = info->slots[i].number,
       .descriptorType = types[info->slots[i].type],
       .descriptorCount = 1,
-      .stageFlags = info->slots[i].stages == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
+      .stageFlags =
         (((info->slots[i].stages & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
         ((info->slots[i].stages & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
         ((info->slots[i].stages & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))

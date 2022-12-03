@@ -197,7 +197,6 @@ typedef enum {
 } gpu_slot_type;
 
 enum {
-  GPU_STAGE_ALL = 0,
   GPU_STAGE_VERTEX = (1 << 0),
   GPU_STAGE_FRAGMENT = (1 << 1),
   GPU_STAGE_COMPUTE = (1 << 2),
