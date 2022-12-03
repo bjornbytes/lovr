@@ -7,18 +7,23 @@ struct gpu_buffer {
   WGPUBuffer handle;
 };
 
-struct gpu_sampler {
-  WGPUSampler handle;
-};
-
 struct gpu_texture {
   WGPUTexture handle;
   WGPUTextureView view;
 };
 
+struct gpu_sampler {
+  WGPUSampler handle;
+};
+
+struct gpu_layout {
+  WGPUBindGroupLayout handle;
+};
+
 size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
+size_t gpu_sizeof_layout(void) { return sizeof(gpu_layout); }
 
 // State
 
@@ -162,6 +167,68 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
 
 void gpu_sampler_destroy(gpu_sampler* sampler) {
   wgpuSamplerRelease(sampler->handle);
+}
+
+// Layout
+
+bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
+  static const WGPUBufferBindingType bufferTypes[] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = WGPUBufferBindingType_Uniform,
+    [GPU_SLOT_STORAGE_BUFFER] = WGPUBufferBindingType_Storage,
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = WGPUBufferBindingType_Uniform,
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = WGPUBufferBindingType_Storag
+  };
+
+  gpu_slot* slot = info->slots;
+  WGPUBindGroupLayoutEntry entries[32];
+  for (uint32_t i = 0; i < info->count; i++, slot++) {
+    entries[i] = (WGPUBindGroupLayoutEntry) {
+      .binding = slot->number,
+      .visibility =
+        (((slot->stages & GPU_STAGE_VERTEX) ? WGPUShaderStage_Vertex : 0) |
+        ((slot->stages & GPU_STAGE_FRAGMENT) ? WGPUShaderStage_Fragment : 0) |
+        ((slot->stages & GPU_STAGE_COMPUTE) ? WGPUShaderStage_Compute : 0))
+    };
+
+    switch (info->slots[i].type) {
+      case GPU_SLOT_UNIFORM_BUFFER_DYNAMIC:
+      case GPU_SLOT_STORAGE_BUFFER_DYNAMIC:
+        entries[i].buffer.hasDynamicOffset = true;
+        /* fallthrough */
+      case GPU_SLOT_UNIFORM_BUFFER:
+      case GPU_SLOT_STORAGE_BUFFER:
+        entries[i].buffer.type = bufferTypes[slot->type];
+        break;
+
+      // FIXME need more metadata
+      case GPU_SLOT_SAMPLED_TEXTURE:
+        entries[i].texture.sampleType = WGPUTextureSampleType_Float;
+        entries[i].texture.viewDimension = WGPUTextureViewDimension_2D;
+        entries[i].texture.multisampled = false;
+        break;
+
+      // FIXME need more metadata
+      case GPU_SLOT_STORAGE_TEXTURE:
+        entries[i].texture.access = WGPUStorageTextureAccess_ReadOnly;
+        entries[i].texture.format = WGPUTextureFormat_Undefined;
+        entries[i].texture.viewDimension = WGPUTextureViewDimension_2D;
+        break;
+
+      // FIXME need more metadata?
+      case GPU_SLOT_SAMPLER:
+        entries[i].sampler.type = WGPUSamplerBindingType_Filtering;
+        break;
+    }
+  }
+
+  return layout->handle = wgpuDeviceCreateBindGroupLayout(state.device, &(WGPUBindGroupLayoutDescriptor) {
+    .entryCount = info->count,
+    .entries = entries
+  });
+}
+
+void gpu_layout_destroy(gpu_layout* layout) {
+  wgpuBindGroupLayoutRelease(layout->handle);
 }
 
 // Entry
