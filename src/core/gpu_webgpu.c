@@ -52,7 +52,7 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
 }
 
 void gpu_sampler_destroy(gpu_sampler* sampler) {
-  //
+  wgpuSamplerRelease(sampler->handle);
 }
 
 // Entry
