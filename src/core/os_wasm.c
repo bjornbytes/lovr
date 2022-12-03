@@ -41,13 +41,14 @@ static EM_BOOL onFocusChanged(int type, const EmscriptenFocusEvent* data, void* 
 }
 
 static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata) {
-  emscripten_webgl_get_drawing_buffer_size(state.context, &state.framebufferWidth, &state.framebufferHeight);
-
-  int newWidth, newHeight;
+  int newWidth, newHeight, newFramebufferWidth, newFramebufferHeight;
   emscripten_get_canvas_element_size(CANVAS, &newWidth, &newHeight);
   if (state.width != (uint32_t) newWidth || state.height != (uint32_t) newHeight) {
+    emscripten_webgl_get_drawing_buffer_size(state.context, &newFramebufferWidth, &newFramebufferHeight);
     state.width = newWidth;
     state.height = newHeight;
+    state.framebufferWidth = newFramebufferWidth;
+    state.framebufferHeight = newFramebufferHeight;
     if (state.onWindowResize) {
       state.onWindowResize(state.width, state.height);
       return true;
@@ -181,7 +182,7 @@ static EM_BOOL onKeyEvent(int type, const EmscriptenKeyboardEvent* data, void* u
   return false;
 }
 
-bool os_init() {
+bool os_init(void) {
   emscripten_set_beforeunload_callback(NULL, onBeforeUnload);
   emscripten_set_focus_callback(CANVAS, NULL, true, onFocusChanged);
   emscripten_set_blur_callback(CANVAS, NULL, true, onFocusChanged);
@@ -194,7 +195,7 @@ bool os_init() {
   return true;
 }
 
-void os_destroy() {
+void os_destroy(void) {
   emscripten_set_beforeunload_callback(NULL, NULL);
   emscripten_set_focus_callback(CANVAS, NULL, true, NULL);
   emscripten_set_blur_callback(CANVAS, NULL, true, NULL);
@@ -206,19 +207,19 @@ void os_destroy() {
   emscripten_set_keyup_callback(CANVAS, NULL, true, NULL);
 }
 
-const char* os_get_name() {
+const char* os_get_name(void) {
   return "Web";
 }
 
-uint32_t os_get_core_count() {
+uint32_t os_get_core_count(void) {
   return 1;
 }
 
-void os_open_console() {
+void os_open_console(void) {
   //
 }
 
-double os_get_time() {
+double os_get_time(void) {
   return emscripten_get_now() / 1000.;
 }
 
@@ -230,7 +231,7 @@ void os_request_permission(os_permission permission) {
   //
 }
 
-void os_poll_events() {
+void os_poll_events(void) {
   //
 }
 
@@ -289,12 +290,18 @@ bool os_window_open(const os_window_config* flags) {
   }
 
   emscripten_webgl_make_context_current(state.context);
-  emscripten_webgl_get_drawing_buffer_size(state.context, &state.framebufferWidth, &state.framebufferHeight);
-  emscripten_get_canvas_element_size(CANVAS, &state.width, &state.height);
+
+  int width, height, framebufferWidth, framebufferHeight;
+  emscripten_webgl_get_drawing_buffer_size(state.context, &framebufferWidth, &framebufferHeight);
+  emscripten_get_canvas_element_size(CANVAS, &width, &height);
+  state.width = width;
+  state.height = height;
+  state.framebufferWidth = framebufferWidth;
+  state.framebufferHeight = framebufferHeight;
   return true;
 }
 
-bool os_window_is_open() {
+bool os_window_is_open(void) {
   return state.context > 0;
 }
 
