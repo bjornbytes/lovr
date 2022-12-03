@@ -3,6 +3,10 @@
 #include <emscripten/html5_webgpu.h>
 #include <string.h>
 
+struct gpu_buffer {
+  WGPUBuffer handle;
+};
+
 struct gpu_sampler {
   WGPUSampler handle;
 };
@@ -12,8 +16,11 @@ struct gpu_texture {
   WGPUTextureView view;
 };
 
+size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
+
+// State
 
 static struct {
   WGPUDevice device;
@@ -22,6 +29,29 @@ static struct {
 // Helpers
 
 static WGPUTextureFormat convertFormat(gpu_texture_format format, bool srgb);
+
+// Buffer
+
+bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
+  return buffer->handle = wgpuDeviceCreateBuffer(state.device, &(WGPUBufferDescriptor) {
+    .label = info->label,
+    .usage =
+      WGPUBufferUsage_Vertex |
+      WGPUBufferUsage_Index |
+      WGPUBufferUsage_Uniform |
+      WGPUBufferUsage_Storage |
+      WGPUBufferUsage_Indirect |
+      WGPUBufferUsage_CopySrc |
+      WGPUBufferUsage_CopyDst |
+      WGPUBufferUsage_QueryResolve,
+    .size = info->size,
+    .mappedAtCreation = !!info->pointer
+  });
+}
+
+void gpu_buffer_destroy(gpu_buffer* buffer) {
+  wgpuBufferDestroy(buffer->handle);
+}
 
 // Texture
 
