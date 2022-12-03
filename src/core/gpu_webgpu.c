@@ -86,7 +86,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   });
 
   texture->view = wgpuTextureCreateView(texture->handle, &(WGPUTextureViewDescriptor) {
-    .format = convertFormat(info->format, info->srgb),
+    .format = wgpuTextureGetFormat(texture->handle),
     .dimension = types[info->type],
     .mipLevelCount = info->mipmaps,
     .arrayLayerCount = info->type == GPU_TEXTURE_ARRAY ? info->size[2] : 1
@@ -95,6 +95,26 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   // TODO upload, mipgen
 
   return true;
+}
+
+bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
+  static const WGPUTextureViewDimension types[] = {
+    [GPU_TEXTURE_2D] = WGPUTextureViewDimension_2D,
+    [GPU_TEXTURE_3D] = WGPUTextureViewDimension_3D,
+    [GPU_TEXTURE_CUBE] = WGPUTextureViewDimension_Cube,
+    [GPU_TEXTURE_ARRAY] = WGPUTextureViewDimension_2DArray
+  };
+
+  texture->handle = NULL;
+
+  return texture->view = wgpuTextureCreateView(info->source->handle, &(WGPUTextureViewDescriptor) {
+    .format = wgpuTextureGetFormat(info->source->handle),
+    .dimension = types[info->type],
+    .baseMipLevel = info->levelIndex,
+    .mipLevelCount = info->levelCount,
+    .baseArrayLayer = info->layerIndex,
+    .arrayLayerCount = info->layerCount
+  });
 }
 
 void gpu_texture_destroy(gpu_texture* texture) {
