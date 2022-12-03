@@ -473,8 +473,7 @@ void luax_optcolor(lua_State* L, int index, float color[4]) {
         memcpy(color, v, 4 * sizeof(float));
         break;
       }
-      /* fallthrough */
-    }
+    } /* fallthrough */
     default: lovrThrow("Expected nil, number, table, vec3, or vec4 for color value");
   }
 }

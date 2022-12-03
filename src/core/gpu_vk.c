@@ -2049,15 +2049,15 @@ bool gpu_init(gpu_config* config) {
       enable->largePoints = supports->largePoints;
 
       // Optional features (currently always enabled when supported)
-      config->features->textureBC = enable->textureCompressionBC = supports->textureCompressionBC;
-      config->features->textureASTC = enable->textureCompressionASTC_LDR = supports->textureCompressionASTC_LDR;
-      config->features->wireframe = enable->fillModeNonSolid = supports->fillModeNonSolid;
-      config->features->depthClamp = enable->depthClamp = supports->depthClamp;
-      config->features->indirectDrawFirstInstance = enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance;
-      config->features->shaderTally = enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery;
-      config->features->float64 = enable->shaderFloat64 = supports->shaderFloat64;
-      config->features->int64 = enable->shaderInt64 = supports->shaderInt64;
-      config->features->int16 = enable->shaderInt16 = supports->shaderInt16;
+      config->features->textureBC = (enable->textureCompressionBC = supports->textureCompressionBC);
+      config->features->textureASTC = (enable->textureCompressionASTC_LDR = supports->textureCompressionASTC_LDR);
+      config->features->wireframe = (enable->fillModeNonSolid = supports->fillModeNonSolid);
+      config->features->depthClamp = (enable->depthClamp = supports->depthClamp);
+      config->features->indirectDrawFirstInstance = (enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance);
+      config->features->shaderTally = (enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery);
+      config->features->float64 = (enable->shaderFloat64 = supports->shaderFloat64);
+      config->features->int64 = (enable->shaderInt64 = supports->shaderInt64);
+      config->features->int16 = (enable->shaderInt16 = supports->shaderInt16);
 
       // Formats
       for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
