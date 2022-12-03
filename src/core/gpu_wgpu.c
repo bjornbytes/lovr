@@ -20,10 +20,16 @@ struct gpu_layout {
   WGPUBindGroupLayout handle;
 };
 
+struct gpu_shader {
+  WGPUShaderModule handles[2];
+  WGPUPipelineLayout pipelineLayout;
+};
+
 size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
 size_t gpu_sizeof_layout(void) { return sizeof(gpu_layout); }
+size_t gpu_sizeof_shader(void) { return sizeof(gpu_shader); }
 
 // State
 
@@ -32,6 +38,8 @@ static struct {
 } state;
 
 // Helpers
+
+#define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 
 static WGPUTextureFormat convertFormat(gpu_texture_format format, bool srgb);
 
@@ -176,7 +184,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     [GPU_SLOT_UNIFORM_BUFFER] = WGPUBufferBindingType_Uniform,
     [GPU_SLOT_STORAGE_BUFFER] = WGPUBufferBindingType_Storage,
     [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = WGPUBufferBindingType_Uniform,
-    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = WGPUBufferBindingType_Storag
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = WGPUBufferBindingType_Storage
   };
 
   gpu_slot* slot = info->slots;
@@ -209,9 +217,9 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
 
       // FIXME need more metadata
       case GPU_SLOT_STORAGE_TEXTURE:
-        entries[i].texture.access = WGPUStorageTextureAccess_ReadOnly;
-        entries[i].texture.format = WGPUTextureFormat_Undefined;
-        entries[i].texture.viewDimension = WGPUTextureViewDimension_2D;
+        entries[i].storageTexture.access = WGPUStorageTextureAccess_WriteOnly;
+        entries[i].storageTexture.format = WGPUTextureFormat_Undefined;
+        entries[i].storageTexture.viewDimension = WGPUTextureViewDimension_2D;
         break;
 
       // FIXME need more metadata?
@@ -229,6 +237,40 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
 
 void gpu_layout_destroy(gpu_layout* layout) {
   wgpuBindGroupLayoutRelease(layout->handle);
+}
+
+// Shader
+
+bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
+  for (uint32_t i = 0; i < COUNTOF(info->stages) && info->stages[i].code; i++) {
+    WGPUShaderModuleSPIRVDescriptor spirv = {
+      .chain.sType = WGPUSType_ShaderModuleSPIRVDescriptor,
+      .codeSize = info->stages[i].length,
+      .code = info->stages[i].code
+    };
+
+    shader->handles[i] = wgpuDeviceCreateShaderModule(state.device, &(WGPUShaderModuleDescriptor) {
+      .nextInChain = &spirv.chain,
+      .label = info->label
+    });
+  }
+
+  uint32_t layoutCount = 0;
+  WGPUBindGroupLayout layouts[4];
+  for (uint32_t i = 0; i < COUNTOF(info->layouts) && info->layouts[i]; i++) {
+    layouts[layoutCount++] = info->layouts[i]->handle;
+  }
+
+  return shader->pipelineLayout = wgpuDeviceCreatePipelineLayout(state.device, &(WGPUPipelineLayoutDescriptor) {
+    .bindGroupLayoutCount = layoutCount,
+    .bindGroupLayouts = layouts
+  });
+}
+
+void gpu_shader_destroy(gpu_shader* shader) {
+  wgpuShaderModuleRelease(shader->handles[0]);
+  wgpuShaderModuleRelease(shader->handles[1]);
+  wgpuPipelineLayoutRelease(shader->pipelineLayout);
 }
 
 // Entry
