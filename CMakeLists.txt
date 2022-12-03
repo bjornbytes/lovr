@@ -473,7 +473,7 @@ if(LOVR_ENABLE_GRAPHICS)
 
   if(LOVR_USE_WEBGPU)
     target_compile_definitions(lovr PRIVATE LOVR_WGPU)
-    target_sources(lovr PRIVATE src/core/gpu_webgpu.c)
+    target_sources(lovr PRIVATE src/core/gpu_wgpu.c)
   endif()
 
   function(compile_shaders)

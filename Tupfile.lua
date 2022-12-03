@@ -414,9 +414,9 @@ end
 
 for renderer, enabled in pairs(config.renderers) do
   if enabled then
-    local code = renderer:gsub('vulkan', 'vk')
-    cflags += '-DLOVR_' .. code:upper()
-    src += 'src/core/gpu_' .. code .. '.c'
+    local shortname = ({ vulkan = 'vk', webgpu = 'wgpu' })[renderer]
+    cflags += '-DLOVR_' .. shortname:upper()
+    src += 'src/core/gpu_' .. shortname .. '.c'
   end
 end
 
