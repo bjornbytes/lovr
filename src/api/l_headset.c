@@ -512,13 +512,8 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
 }
 
 static int l_lovrHeadsetAnimate(lua_State* L) {
-  Device device = luax_optdevice(L, 1);
-  Model* model = luax_checktype(L, 2, Model);
-  if (lovrHeadsetInterface->animate(device, model)) {
-    lua_pushboolean(L, true);
-    return 1;
-  }
-  lua_pushboolean(L, false);
+  Model* model = luax_checktype(L, 1, Model);
+  lua_pushboolean(L, lovrHeadsetInterface->animate(model));
   return 1;
 }
 

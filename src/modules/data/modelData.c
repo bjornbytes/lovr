@@ -15,10 +15,18 @@ static size_t typeSizes[] = {
   [F32] = 4
 };
 
+static void* nullIO(const char* path, size_t* count) {
+  lovrThrow("Can't resolve external asset reference for model loaded from memory");
+}
+
 ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
   ModelData* model = calloc(1, sizeof(ModelData));
   lovrAssert(model, "Out of memory");
   model->ref = 1;
+
+  if (!io) {
+    io = &nullIO;
+  }
 
   if (!lovrModelDataInitGltf(model, source, io)) {
     if (!lovrModelDataInitObj(model, source, io)) {

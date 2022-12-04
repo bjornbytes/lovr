@@ -379,7 +379,7 @@ var webxr = {
     return 0; /* NULL */
   },
 
-  webxr_animate: function(device, model) {
+  webxr_animate: function(model) {
     return false;
   },
 
