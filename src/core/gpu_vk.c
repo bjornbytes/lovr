@@ -210,6 +210,8 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
 static void gpu_release(gpu_memory* memory);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
+static bool hasLayer(VkLayerProperties* layers, uint32_t count, const char* layer);
+static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, const char* extension);
 static void createSwapchain(uint32_t width, uint32_t height);
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact);
 static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
@@ -226,6 +228,7 @@ static bool check(bool condition, const char* message);
 
 // Functions that don't require an instance
 #define GPU_FOREACH_ANONYMOUS(X)\
+  X(vkEnumerateInstanceLayerProperties)\
   X(vkEnumerateInstanceExtensionProperties)\
   X(vkCreateInstance)
 
@@ -900,7 +903,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
       .binding = info->slots[i].number,
       .descriptorType = types[info->slots[i].type],
       .descriptorCount = 1,
-      .stageFlags = info->slots[i].stages == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
+      .stageFlags =
         (((info->slots[i].stages & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
         ((info->slots[i].stages & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
         ((info->slots[i].stages & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
@@ -1840,51 +1843,88 @@ bool gpu_init(gpu_config* config) {
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
   { // Instance
-    const char* extensions[32];
-    uint32_t extensionCount = 0;
+    struct {
+      bool validation;
+      bool portability;
+      bool debug;
+    } supports = { 0 };
 
-    if (state.config.vk.getInstanceExtensions) {
-      const char** instanceExtensions = state.config.vk.getInstanceExtensions(&extensionCount);
-      CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
-      for (uint32_t i = 0; i < extensionCount; i++) {
-        extensions[i] = instanceExtensions[i];
+    // Layers
+
+    struct { const char* name; bool shouldEnable; bool* isEnabled; } layers[] = {
+      { "VK_LAYER_KHRONOS_validation", config->debug, &supports.validation }
+    };
+
+    const char* enabledLayers[1];
+    uint32_t enabledLayerCount = 0;
+
+    VkLayerProperties layerInfo[32];
+    uint32_t count = COUNTOF(layerInfo);
+    VK(vkEnumerateInstanceLayerProperties(&count, layerInfo), "Failed to enumerate instance layers") return gpu_destroy(), false;
+
+    for (uint32_t i = 0; i < COUNTOF(layers); i++) {
+      if (!layers[i].shouldEnable) continue;
+      if (hasLayer(layerInfo, count, layers[i].name)) {
+        CHECK(enabledLayerCount < COUNTOF(enabledLayers), "Too many layers") return gpu_destroy(), false;
+        if (layers[i].isEnabled) *layers[i].isEnabled = true;
+        enabledLayers[enabledLayerCount++] = layers[i].name;
       }
     }
 
-    if (state.config.debug) {
-      CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
-      extensions[extensionCount++] = "VK_EXT_debug_utils";
+    // Extensions
+
+    struct { const char* name; bool shouldEnable; bool* isEnabled; } extensions[] = {
+      { "VK_KHR_portability_enumeration", true, &supports.portability },
+      { "VK_EXT_debug_utils", config->debug, &supports.debug }
+    };
+
+    const char* enabledExtensions[32];
+    uint32_t enabledExtensionCount = 0;
+
+    if (state.config.vk.getInstanceExtensions) {
+      const char** instanceExtensions = state.config.vk.getInstanceExtensions(&enabledExtensionCount);
+      CHECK(enabledExtensionCount < COUNTOF(enabledExtensions), "Too many instance extensions") return gpu_destroy(), false;
+      for (uint32_t i = 0; i < enabledExtensionCount; i++) {
+        enabledExtensions[i] = instanceExtensions[i];
+      }
     }
 
     VkExtensionProperties extensionInfo[256];
-    uint32_t count = COUNTOF(extensionInfo);
+    count = COUNTOF(extensionInfo);
     VK(vkEnumerateInstanceExtensionProperties(NULL, &count, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
 
-    VkInstanceCreateFlags instanceFlags = 0;
-
-#ifdef VK_KHR_portability_enumeration
-    for (uint32_t i = 0; i < count; i++) {
-      if (!strcmp(extensionInfo[i].extensionName, "VK_KHR_portability_enumeration")) {
-        CHECK(extensionCount < COUNTOF(extensions), "Too many instance extensions") return gpu_destroy(), false;
-        extensions[extensionCount++] = "VK_KHR_portability_enumeration";
-        instanceFlags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
+      if (!extensions[i].shouldEnable) continue;
+      if (hasExtension(extensionInfo, count, extensions[i].name)) {
+        CHECK(enabledExtensionCount < COUNTOF(enabledExtensions), "Too many instance extensions") return gpu_destroy(), false;
+        if (extensions[i].isEnabled) *extensions[i].isEnabled = true;
+        enabledExtensions[enabledExtensionCount++] = extensions[i].name;
       }
     }
-#endif
+
+    if (state.config.debug && !supports.validation && state.config.callback) {
+      state.config.callback(state.config.userdata, "Warning: GPU debug mode is enabled, but validation layer is not supported", false);
+    }
+
+    if (state.config.debug && !supports.debug) {
+      state.config.debug = false;
+    }
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-      .flags = instanceFlags,
+#ifdef VK_KHR_portability_enumeration
+      .flags = supports.portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0,
+#endif
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
         .engineVersion = VK_MAKE_VERSION(config->engineVersion[0], config->engineVersion[1], config->engineVersion[2]),
         .apiVersion = VK_MAKE_VERSION(1, 1, 0)
       },
-      .enabledLayerCount = state.config.debug ? 1 : 0,
-      .ppEnabledLayerNames = (const char*[]) { "VK_LAYER_KHRONOS_validation" },
-      .enabledExtensionCount = extensionCount,
-      .ppEnabledExtensionNames = extensions
+      .enabledLayerCount = enabledLayerCount,
+      .ppEnabledLayerNames = enabledLayers,
+      .enabledExtensionCount = enabledExtensionCount,
+      .ppEnabledExtensionNames = enabledExtensions
     };
 
     if (state.config.vk.createInstance) {
@@ -2056,22 +2096,32 @@ bool gpu_init(gpu_config* config) {
     }
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
 
-    const char* extensions[4];
-    uint32_t extensionCount = 0;
+    struct {
+      bool swapchain;
+    } supports = { 0 };
 
-    if (state.surface) {
-      extensions[extensionCount++] = "VK_KHR_swapchain";
-    }
+    struct { const char* name; bool shouldEnable; bool* isEnabled; } extensions[] = {
+      { "VK_KHR_swapchain", state.surface, &supports.swapchain },
+      { "VK_KHR_portability_subset", true, NULL }
+    };
+
+    const char* enabledExtensions[4];
+    uint32_t enabledExtensionCount = 0;
 
     VkExtensionProperties extensionInfo[256];
     uint32_t count = COUNTOF(extensionInfo);
     VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &count, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
 
-    for (uint32_t i = 0; i < count; i++) {
-      if (!strcmp(extensionInfo[i].extensionName, "VK_KHR_portability_subset")) {
-        extensions[extensionCount++] = "VK_KHR_portability_subset";
+    for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
+      if (!extensions[i].shouldEnable) continue;
+      if (hasExtension(extensionInfo, count, extensions[i].name)) {
+        CHECK(enabledExtensionCount < COUNTOF(enabledExtensions), "Too many device extensions") return gpu_destroy(), false;
+        if (extensions[i].isEnabled) *extensions[i].isEnabled = true;
+        enabledExtensions[enabledExtensionCount++] = extensions[i].name;
       }
     }
+
+    CHECK(supports.swapchain || !state.surface, "Swapchain extension not supported") return gpu_destroy(), false;
 
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -2083,8 +2133,8 @@ bool gpu_init(gpu_config* config) {
         .pQueuePriorities = &(float) { 1.f },
         .queueCount = 1
       },
-      .enabledExtensionCount = extensionCount,
-      .ppEnabledExtensionNames = extensions
+      .enabledExtensionCount = enabledExtensionCount,
+      .ppEnabledExtensionNames = enabledExtensions
     };
 
     if (state.config.vk.createDevice) {
@@ -2325,8 +2375,9 @@ void gpu_destroy(void) {
   state.tick[GPU] = state.tick[CPU];
   expunge();
   if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
-  if (state.scratchpad[0].buffer) vkDestroyBuffer(state.device, state.scratchpad[0].buffer, NULL);
-  if (state.scratchpad[1].buffer) vkDestroyBuffer(state.device, state.scratchpad[1].buffer, NULL);
+  for (uint32_t i = 0; i < COUNTOF(state.scratchpad); i++) {
+    if (state.scratchpad[i].buffer) vkDestroyBuffer(state.device, state.scratchpad[i].buffer, NULL);
+  }
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
@@ -2529,6 +2580,8 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
           memory->handle = NULL;
           return NULL;
         }
+      } else {
+        memory->pointer = NULL;
       }
 
       allocator->block = memory;
@@ -2584,6 +2637,24 @@ static void expunge() {
       default: check(false, "Unreachable"); break;
     }
   }
+}
+
+static bool hasLayer(VkLayerProperties* layers, uint32_t count, const char* layer) {
+  for (uint32_t i = 0; i < count; i++) {
+    if (!strcmp(layers[i].layerName, layer)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, const char* extension) {
+  for (uint32_t i = 0; i < count; i++) {
+    if (!strcmp(extensions[i].extensionName, extension)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 static void createSwapchain(uint32_t width, uint32_t height) {

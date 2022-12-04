@@ -90,7 +90,7 @@ function lovr.boot()
     lovr.graphics.initialize()
   end
 
-  if lovr.headset and lovr.graphics and conf.window then
+  if lovr.headset then
     lovr.headset.start()
 
     if lovr.headset.getDriver() == 'desktop' then

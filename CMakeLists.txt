@@ -192,8 +192,7 @@ endif()
 
 # Vulkan
 if(LOVR_USE_VULKAN)
-  find_package(Vulkan REQUIRED)
-  include_directories(${Vulkan_INCLUDE_DIRS})
+  include_directories(deps/vulkan-headers/include)
 endif()
 
 # OpenXR
@@ -440,7 +439,6 @@ endif()
 if(LOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
     src/modules/filesystem/filesystem.c
-    src/modules/filesystem/file.c
     src/api/l_filesystem.c
   )
 else()
@@ -475,11 +473,8 @@ if(LOVR_ENABLE_GRAPHICS)
 
   if(LOVR_USE_WEBGPU)
     target_compile_definitions(lovr PRIVATE LOVR_WGPU)
-    target_sources(lovr PRIVATE src/core/gpu_webgpu.c)
+    target_sources(lovr PRIVATE src/core/gpu_wgpu.c)
   endif()
-
-  add_custom_target(compile_shaders ALL)
-  add_dependencies(lovr compile_shaders)
 
   function(compile_shaders)
     if(LOVR_USE_GLSLANG AND ENABLE_GLSLANG_BINARIES AND NOT ANDROID)
@@ -496,15 +491,18 @@ if(LOVR_ENABLE_GRAPHICS)
     foreach(shader_file ${shader_files})
       string(REGEX MATCH "([^\/]+)\.${ARGV0}" shader ${shader_file})
       string(REPLACE ".${ARGV0}" "" shader ${shader})
-      add_custom_command(TARGET compile_shaders POST_BUILD
+      add_custom_command(
+        OUTPUT ${shader_file}.h
+        DEPENDS ${shader_file}
         COMMAND
-        ${GLSLANG_VALIDATOR}
-        --quiet
-        --target-env vulkan1.1
-        --vn lovr_shader_${shader}_${ARGV0}
-        -o ${shader_file}.h
-        ${shader_file}
+          ${GLSLANG_VALIDATOR}
+          --quiet
+          --target-env vulkan1.1
+          --vn lovr_shader_${shader}_${ARGV0}
+          -o ${shader_file}.h
+          ${shader_file}
       )
+      target_sources(lovr PRIVATE ${shader_file}.h)
     endforeach()
   endfunction()
 

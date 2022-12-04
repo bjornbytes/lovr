@@ -2,8 +2,6 @@
 #include "graphics/graphics.h"
 #include "data/rasterizer.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <stdlib.h>
 
 ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, ColoredString* stack) {

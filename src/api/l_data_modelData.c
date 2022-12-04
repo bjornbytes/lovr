@@ -2,8 +2,6 @@
 #include "data/modelData.h"
 #include "core/maf.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static ModelNode* luax_checknode(lua_State* L, int index, ModelData* model) {
   switch (lua_type(L, index)) {

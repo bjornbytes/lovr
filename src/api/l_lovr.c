@@ -1,7 +1,5 @@
 #include "api.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 
 static int l_lovrGetVersion(lua_State* L) {
   lua_pushinteger(L, LOVR_VERSION_MAJOR);

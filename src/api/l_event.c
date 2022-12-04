@@ -2,8 +2,6 @@
 #include "event/event.h"
 #include "thread/thread.h"
 #include "util.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -42,16 +40,23 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       variant->value.number = lua_tonumber(L, index);
       break;
 
-    case LUA_TSTRING:
-      variant->type = TYPE_STRING;
+    case LUA_TSTRING: {
       size_t length;
       const char* string = lua_tolstring(L, index, &length);
-      variant->value.string.pointer = malloc(length + 1);
-      lovrAssert(variant->value.string.pointer, "Out of memory");
-      memcpy(variant->value.string.pointer, string, length);
-      variant->value.string.pointer[length] = '\0';
-      variant->value.string.length = length;
+      if (length <= sizeof(variant->value.ministring.data)) {
+        variant->type = TYPE_MINISTRING;
+        variant->value.ministring.length = length;
+        memcpy(variant->value.ministring.data, string, length);
+      } else {
+        variant->type = TYPE_STRING;
+        variant->value.string.pointer = malloc(length + 1);
+        lovrAssert(variant->value.string.pointer, "Out of memory");
+        memcpy(variant->value.string.pointer, string, length);
+        variant->value.string.pointer[length] = '\0';
+        variant->value.string.length = length;
+      }
       break;
+    }
 
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
@@ -82,6 +87,7 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushlstring(L, variant->value.string.pointer, variant->value.string.length); return 1;
+    case TYPE_MINISTRING: lua_pushlstring(L, variant->value.ministring.data, variant->value.ministring.length); return 1;
     case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash64(variant->value.object.type, strlen(variant->value.object.type)), variant->value.object.pointer); return 1;
     default: return 0;
   }
@@ -185,7 +191,7 @@ static int l_lovrEventPush(lua_State* L) {
 }
 
 static int l_lovrEventQuit(lua_State* L) {
-  int exitCode = luaL_optint(L, 1, 0);
+  int exitCode = luaL_optinteger(L, 1, 0);
   Event event = { .type = EVENT_QUIT, .data.quit.exitCode = exitCode };
   lovrEventPush(event);
   return 0;

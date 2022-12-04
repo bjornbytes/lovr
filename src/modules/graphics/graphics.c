@@ -497,23 +497,23 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   }
 
   gpu_slot builtinSlots[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Globals
-    { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Cameras
-    { 2, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_ALL }, // Draw data
-    { 3, GPU_SLOT_SAMPLER, GPU_STAGE_ALL }, // Default sampler
+    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Globals
+    { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Cameras
+    { 2, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Draw data
+    { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS } // Default sampler
   };
 
   state.builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
 
   gpu_slot materialSlots[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Data
-    { 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Color
-    { 2, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Glow
-    { 3, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Occlusion
-    { 4, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Metalness
-    { 5, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Roughness
-    { 6, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT }, // Clearcoat
-    { 7, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT } // Normal
+    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Data
+    { 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Color
+    { 2, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Glow
+    { 3, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Occlusion
+    { 4, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Metalness
+    { 5, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Roughness
+    { 6, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Clearcoat
+    { 7, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS } // Normal
   };
 
   state.materialLayout = getLayout(materialSlots, COUNTOF(materialSlots));
@@ -2066,6 +2066,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
     lovrRetain(textures[i]);
     Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
     lovrCheck(i == 0 || texture->info.type == TEXTURE_2D, "Material textures must be 2D");
+    lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to use them in Materials");
     bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture = texture->gpu };
     material->hasWritableTexture |= texture->info.usage != TEXTURE_SAMPLE;
   }
@@ -3089,6 +3090,8 @@ bool lovrReadbackWait(Readback* readback) {
   if ((state.tick == readback->tick && state.active) || lovrReadbackIsComplete(readback)) {
     return false;
   }
+
+  beginFrame();
 
   bool waited = gpu_wait_tick(readback->tick);
 
@@ -5506,7 +5509,7 @@ static void releasePassResources(void) {
       lovrRelease(access->texture, lovrTextureDestroy);
     }
 
-    if (pass->info.type == PASS_RENDER) {
+    if (pass->info.type == PASS_RENDER || pass->info.type == PASS_COMPUTE) {
       for (size_t j = 0; j <= pass->pipelineIndex; j++) {
         Pipeline* pipeline = pass->pipeline - j;
         lovrRelease(pipeline->font, lovrFontDestroy);

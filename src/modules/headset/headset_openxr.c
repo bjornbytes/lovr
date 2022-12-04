@@ -19,8 +19,8 @@
 #include <windows.h>
 #elif defined(__ANDROID__)
 #define XR_USE_PLATFORM_ANDROID
-struct ANativeActivity* os_get_activity(void);
-#include <android_native_app_glue.h>
+void* os_get_java_vm(void);
+void* os_get_jni_context(void);
 #include <jni.h>
 #endif
 
@@ -180,6 +180,7 @@ static struct {
     bool handTrackingAim;
     bool handTrackingMesh;
     bool controllerModel;
+    bool headless;
     bool keyboardTracking;
     bool overlay;
     bool refreshRate;
@@ -334,11 +335,10 @@ static bool openxr_init(HeadsetConfig* config) {
     return false;
   }
 
-  ANativeActivity* activity = os_get_activity();
   XrLoaderInitInfoAndroidKHR loaderInfo = {
     .type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR,
-    .applicationVM = activity->vm,
-    .applicationContext = activity->clazz
+    .applicationVM = os_get_java_vm(),
+    .applicationContext = os_get_jni_context()
   };
 
   if (XR_FAILED(xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*) &loaderInfo))) {
@@ -367,9 +367,10 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_MSFT_controller_model", &state.features.controllerModel, true },
+      { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
+      { "XR_MND_headless", &state.features.headless, true },
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
-      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true },
-      { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true }
+      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
     };
 
     uint32_t enabledExtensionCount = 0;
@@ -827,36 +828,46 @@ static bool openxr_init(HeadsetConfig* config) {
 }
 
 static void openxr_start(void) {
-  { // Session
-#ifdef LOVR_VK
-    XrGraphicsRequirementsVulkanKHR requirements = { .type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR, NULL };
-    PFN_xrGetVulkanGraphicsRequirements2KHR xrGetVulkanGraphicsRequirements2KHR;
-    XR_LOAD(xrGetVulkanGraphicsRequirements2KHR);
-    XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements));
-    if (XR_VERSION_MAJOR(requirements.minApiVersionSupported) > 1 || XR_VERSION_MINOR(requirements.minApiVersionSupported) > 1) {
-      lovrThrow("OpenXR Vulkan version not supported");
-    }
-
-    uint32_t queueFamilyIndex, queueIndex;
-    gpu_vk_get_queue(&queueFamilyIndex, &queueIndex);
-
-    XrGraphicsBindingVulkanKHR graphicsBinding = {
-      .type = XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
-      .instance = (VkInstance) gpu_vk_get_instance(),
-      .physicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device(),
-      .device = (VkDevice) gpu_vk_get_device(),
-      .queueFamilyIndex = queueFamilyIndex,
-      .queueIndex = queueIndex
-    };
+#ifdef LOVR_DISABLE_GRAPHICS
+    bool hasGraphics = false;
 #else
-#error "Unsupported renderer"
+    bool hasGraphics = lovrGraphicsIsInitialized();
 #endif
 
+  { // Session
     XrSessionCreateInfo info = {
       .type = XR_TYPE_SESSION_CREATE_INFO,
-      .next = &graphicsBinding,
       .systemId = state.system
     };
+
+#if !defined(LOVR_DISABLE_GRAPHICS) && defined(LOVR_VK)
+    XrGraphicsBindingVulkanKHR graphicsBinding = {
+      .type = XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
+      .next = info.next
+    };
+
+    XrGraphicsRequirementsVulkanKHR requirements = {
+      .type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR
+    };
+
+    if (hasGraphics) {
+      PFN_xrGetVulkanGraphicsRequirements2KHR xrGetVulkanGraphicsRequirements2KHR;
+      XR_LOAD(xrGetVulkanGraphicsRequirements2KHR);
+
+      XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements));
+      if (XR_VERSION_MAJOR(requirements.minApiVersionSupported) > 1 || XR_VERSION_MINOR(requirements.minApiVersionSupported) > 1) {
+        lovrThrow("OpenXR Vulkan version not supported");
+      }
+
+      graphicsBinding.instance = (VkInstance) gpu_vk_get_instance();
+      graphicsBinding.physicalDevice = (VkPhysicalDevice) gpu_vk_get_physical_device();
+      graphicsBinding.device = (VkDevice) gpu_vk_get_device();
+      gpu_vk_get_queue(&graphicsBinding.queueFamilyIndex, &graphicsBinding.queueIndex);
+      info.next = &graphicsBinding;
+    }
+#endif
+
+    lovrAssert(hasGraphics || state.features.headless, "Graphics module is not available, and headless headset is not supported");
 
 #ifdef XR_EXTX_overlay
     XrSessionCreateInfoOverlayEXTX overlayInfo = {
@@ -922,7 +933,8 @@ static void openxr_start(void) {
     }
   }
 
-  { // Swapchain
+  // Swapchain
+  if (hasGraphics) {
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
 
     if (state.config.stencil && !lovrGraphicsIsFormatSupported(state.depthFormat, TEXTURE_FEATURE_RENDER)) {

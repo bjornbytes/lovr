@@ -401,20 +401,12 @@ bool os_is_key_down(os_key key) {
 
 // Private, must be declared manually to use
 
-struct ANativeActivity* os_get_activity() {
-  return state.app->activity;
+void* os_get_java_vm() {
+  return state.app->activity->vm;
 }
 
-int os_get_activity_state() {
-  return state.app->activityState;
-}
-
-ANativeWindow* os_get_native_window() {
-  return state.app->window;
-}
-
-JNIEnv* os_get_jni() {
-  return state.jni;
+void* os_get_jni_context() {
+  return state.app->activity->clazz;
 }
 
 const char** os_vk_get_instance_extensions(uint32_t* count) {
