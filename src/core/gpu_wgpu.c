@@ -25,6 +25,11 @@ struct gpu_shader {
   WGPUPipelineLayout pipelineLayout;
 };
 
+struct gpu_pipeline {
+  WGPURenderPipeline render;
+  WGPUComputePipeline compute;
+};
+
 size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
@@ -271,6 +276,214 @@ void gpu_shader_destroy(gpu_shader* shader) {
   wgpuShaderModuleRelease(shader->handles[0]);
   wgpuShaderModuleRelease(shader->handles[1]);
   wgpuPipelineLayoutRelease(shader->pipelineLayout);
+}
+
+// Bundle
+
+// Pipeline
+
+bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
+  static const WGPUPrimitiveTopology topologies[] = {
+    [GPU_DRAW_POINTS] = WGPUPrimitiveTopology_PointList,
+    [GPU_DRAW_LINES] = WGPUPrimitiveTopology_LineList,
+    [GPU_DRAW_TRIANGLES] = WGPUPrimitiveTopology_TriangleList
+  };
+
+  static const WGPUVertexFormat attributeTypes[] = {
+    [GPU_TYPE_I8x4] = WGPUVertexFormat_Sint8x4,
+    [GPU_TYPE_U8x4] = WGPUVertexFormat_Uint8x4,
+    [GPU_TYPE_SN8x4] = WGPUVertexFormat_Snorm8x4,
+    [GPU_TYPE_UN8x4] = WGPUVertexFormat_Unorm8x4,
+    [GPU_TYPE_UN10x3] = WGPUVertexFormat_Undefined,
+    [GPU_TYPE_I16] = WGPUVertexFormat_Undefined,
+    [GPU_TYPE_I16x2] = WGPUVertexFormat_Sint16x2,
+    [GPU_TYPE_I16x4] = WGPUVertexFormat_Sint16x4,
+    [GPU_TYPE_U16] = WGPUVertexFormat_Undefined,
+    [GPU_TYPE_U16x2] = WGPUVertexFormat_Uint16x2,
+    [GPU_TYPE_U16x4] = WGPUVertexFormat_Uint16x4,
+    [GPU_TYPE_SN16x2] = WGPUVertexFormat_Snorm16x2,
+    [GPU_TYPE_SN16x4] = WGPUVertexFormat_Snorm16x4,
+    [GPU_TYPE_UN16x2] = WGPUVertexFormat_Unorm16x2,
+    [GPU_TYPE_UN16x4] = WGPUVertexFormat_Unorm16x4,
+    [GPU_TYPE_I32] = WGPUVertexFormat_Sint32,
+    [GPU_TYPE_I32x2] = WGPUVertexFormat_Sint32x2,
+    [GPU_TYPE_I32x3] = WGPUVertexFormat_Sint32x3,
+    [GPU_TYPE_I32x4] = WGPUVertexFormat_Sint32x4,
+    [GPU_TYPE_U32] = WGPUVertexFormat_Uint32,
+    [GPU_TYPE_U32x2] = WGPUVertexFormat_Uint32x2,
+    [GPU_TYPE_U32x3] = WGPUVertexFormat_Uint32x3,
+    [GPU_TYPE_U32x4] = WGPUVertexFormat_Uint32x4,
+    [GPU_TYPE_F16x2] = WGPUVertexFormat_Float16x2,
+    [GPU_TYPE_F16x4] = WGPUVertexFormat_Float16x4,
+    [GPU_TYPE_F32] = WGPUVertexFormat_Float32,
+    [GPU_TYPE_F32x2] = WGPUVertexFormat_Float32x2,
+    [GPU_TYPE_F32x3] = WGPUVertexFormat_Float32x3,
+    [GPU_TYPE_F32x4] = WGPUVertexFormat_Float32x4
+  };
+
+  static const WGPUFrontFace frontFaces[] = {
+    [GPU_WINDING_CCW] = WGPUFrontFace_CCW,
+    [GPU_WINDING_CW] = WGPUFrontFace_CW
+  };
+
+  static const WGPUCullMode cullModes[] = {
+    [GPU_CULL_NONE] = WGPUCullMode_None,
+    [GPU_CULL_FRONT] = WGPUCullMode_Front,
+    [GPU_CULL_BACK] = WGPUCullMode_Back
+  };
+
+  static const WGPUCompareFunction compares[] = {
+    [GPU_COMPARE_NONE] = WGPUCompareFunction_Always,
+    [GPU_COMPARE_EQUAL] = WGPUCompareFunction_Equal,
+    [GPU_COMPARE_NEQUAL] = WGPUCompareFunction_NotEqual,
+    [GPU_COMPARE_LESS] = WGPUCompareFunction_Less,
+    [GPU_COMPARE_LEQUAL] = WGPUCompareFunction_LessEqual,
+    [GPU_COMPARE_GREATER] = WGPUCompareFunction_Greater,
+    [GPU_COMPARE_GEQUAL] = WGPUCompareFunction_GreaterEqual
+  };
+
+  static const WGPUStencilOperation stencilOps[] = {
+    [GPU_STENCIL_KEEP] = WGPUStencilOperation_Keep,
+    [GPU_STENCIL_ZERO] = WGPUStencilOperation_Zero,
+    [GPU_STENCIL_REPLACE] = WGPUStencilOperation_Replace,
+    [GPU_STENCIL_INCREMENT] = WGPUStencilOperation_IncrementClamp,
+    [GPU_STENCIL_DECREMENT] = WGPUStencilOperation_DecrementClamp,
+    [GPU_STENCIL_INCREMENT_WRAP] = WGPUStencilOperation_IncrementWrap,
+    [GPU_STENCIL_DECREMENT_WRAP] = WGPUStencilOperation_DecrementWrap,
+    [GPU_STENCIL_INVERT] = WGPUStencilOperation_Invert
+  };
+
+  static const WGPUBlendFactor blendFactors[] = {
+    [GPU_BLEND_ZERO] = WGPUBlendFactor_Zero,
+    [GPU_BLEND_ONE] = WGPUBlendFactor_One,
+    [GPU_BLEND_SRC_COLOR] = WGPUBlendFactor_Src,
+    [GPU_BLEND_ONE_MINUS_SRC_COLOR] = WGPUBlendFactor_OneMinusSrc,
+    [GPU_BLEND_SRC_ALPHA] = WGPUBlendFactor_SrcAlpha,
+    [GPU_BLEND_ONE_MINUS_SRC_ALPHA] = WGPUBlendFactor_OneMinusSrcAlpha,
+    [GPU_BLEND_DST_COLOR] = WGPUBlendFactor_Dst,
+    [GPU_BLEND_ONE_MINUS_DST_COLOR] = WGPUBlendFactor_OneMinusDst,
+    [GPU_BLEND_DST_ALPHA] = WGPUBlendFactor_DstAlpha,
+    [GPU_BLEND_ONE_MINUS_DST_ALPHA] = WGPUBlendFactor_OneMinusDstAlpha
+  };
+
+  static const WGPUBlendOperation blendOps[] = {
+    [GPU_BLEND_ADD] = WGPUBlendOperation_Add,
+    [GPU_BLEND_SUB] = WGPUBlendOperation_Subtract,
+    [GPU_BLEND_RSUB] = WGPUBlendOperation_ReverseSubtract,
+    [GPU_BLEND_MIN] = WGPUBlendOperation_Min,
+    [GPU_BLEND_MAX] = WGPUBlendOperation_Max
+  };
+
+  uint32_t totalAttributeCount = 0;
+  WGPUVertexAttribute attributes[16];
+  WGPUVertexBufferLayout vertexBuffers[16];
+  for (uint32_t i = 0; i < info->vertex.bufferCount; i++) {
+    vertexBuffers[i] = (WGPUVertexBufferLayout) {
+      .arrayStride = info->vertex.bufferStrides[i],
+      .stepMode = (info->vertex.instancedBuffers & (1 << i)) ? WGPUVertexStepMode_Instance : WGPUVertexStepMode_Vertex,
+      .attributeCount = 0,
+      .attributes = &attributes[totalAttributeCount]
+    };
+
+    for (uint32_t j = 0; j < info->vertex.attributeCount; j++) {
+      if (info->vertex.attributes[j].buffer == i) {
+        attributes[totalAttributeCount++] = (WGPUVertexAttribute) {
+          .format = attributeTypes[info->vertex.attributes[j].type],
+          .offset = info->vertex.attributes[j].offset,
+          .shaderLocation = info->vertex.attributes[j].location
+        };
+      }
+    }
+
+    totalAttributeCount += vertexBuffers[i].attributeCount;
+  }
+
+  WGPUVertexState vertex = {
+    .module = info->shader->handles[0],
+    .entryPoint = "main",
+    .bufferCount = info->vertex.bufferCount,
+    .buffers = vertexBuffers
+  };
+
+  WGPUPrimitiveState primitive = {
+    .topology = topologies[info->drawMode],
+    .frontFace = frontFaces[info->rasterizer.winding],
+    .cullMode = cullModes[info->rasterizer.cullMode],
+  };
+
+  WGPUStencilFaceState stencil = {
+    .compare = compares[info->stencil.test],
+    .failOp = stencilOps[info->stencil.failOp],
+    .depthFailOp = stencilOps[info->stencil.depthFailOp],
+    .passOp = stencilOps[info->stencil.passOp]
+  };
+
+  WGPUDepthStencilState depth = {
+    .format = convertFormat(info->depth.format, false),
+    .depthWriteEnabled = info->depth.write,
+    .depthCompare = compares[info->depth.test],
+    .stencilFront = stencil,
+    .stencilBack = stencil,
+    .stencilReadMask = info->stencil.testMask,
+    .stencilWriteMask = info->stencil.writeMask,
+    .depthBias = info->rasterizer.depthOffset,
+    .depthBiasSlopeScale = info->rasterizer.depthOffsetSloped,
+    .depthBiasClamp = info->rasterizer.depthOffsetClamp
+  };
+
+  WGPUMultisampleState multisample = {
+    .count = info->multisample.count,
+    .alphaToCoverageEnabled = info->multisample.alphaToCoverage
+  };
+
+  WGPUBlendState blends[4];
+  WGPUColorTargetState targets[4];
+  for (uint32_t i = 0; i < info->attachmentCount; i++) {
+    targets[i] = (WGPUColorTargetState) {
+      .format = convertFormat(info->color[i].format, info->color[i].srgb),
+      .blend = info->color[i].blend.enabled ? &blends[i] : NULL,
+      .writeMask = info->color[i].mask
+    };
+
+    if (info->color[i].blend.enabled) {
+      blends[i] = (WGPUBlendState) {
+        .color.operation = blendOps[info->color[i].blend.color.op],
+        .color.srcFactor = blendFactors[info->color[i].blend.color.src],
+        .color.dstFactor = blendFactors[info->color[i].blend.color.dst],
+        .alpha.operation = blendOps[info->color[i].blend.alpha.op],
+        .alpha.srcFactor = blendFactors[info->color[i].blend.alpha.src],
+        .alpha.dstFactor = blendFactors[info->color[i].blend.alpha.dst]
+      };
+    }
+  }
+
+  WGPUFragmentState fragment = {
+    .module = info->shader->handles[1],
+    .entryPoint = "main",
+    .targetCount = info->attachmentCount,
+    .targets = targets
+  };
+
+  WGPURenderPipelineDescriptor pipelineInfo = {
+    .label = info->label,
+    .layout = info->shader->pipelineLayout,
+    .vertex = vertex,
+    .primitive = primitive,
+    .depthStencil = info->depth.format ? &depth : NULL,
+    .multisample = multisample,
+    .fragment = &fragment
+  };
+
+  return pipeline->render = wgpuDeviceCreateRenderPipeline(state.device, &pipelineInfo);
+}
+
+bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info) {
+
+}
+
+void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
+  if (pipeline->render) wgpuRenderPipelineRelease(pipeline->render);
+  if (pipeline->compute) wgpuComputePipelineRelease(pipeline->compute);
 }
 
 // Entry
