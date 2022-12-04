@@ -3070,7 +3070,9 @@ static void nickname(void* handle, VkObjectType type, const char* name) {
 static bool vcheck(VkResult result, const char* message) {
   if (result >= 0) return true;
   if (!state.config.callback) return false;
-#define CASE(x) case x: state.config.callback(state.config.userdata, "Vulkan error: " #x, true); break;
+
+  const char* errorCode = "";
+#define CASE(x) case x: errorCode = " (" #x ")"; break;
   switch (result) {
     CASE(VK_ERROR_OUT_OF_HOST_MEMORY);
     CASE(VK_ERROR_OUT_OF_DEVICE_MEMORY);
@@ -3088,8 +3090,21 @@ static bool vcheck(VkResult result, const char* message) {
     default: break;
   }
 #undef CASE
-  state.config.callback(state.config.userdata, message, true);
-  return false;
+
+  char string[128];
+  size_t length1 = strlen(message);
+  size_t length2 = strlen(errorCode);
+
+  if (length1 + length2 >= sizeof(string)) {
+    state.config.callback(state.config.userdata, message, true);
+    return false;
+  } else {
+    memcpy(string, message, length1);
+    memcpy(string + length1, errorCode, length2);
+    string[length1 + length2] = '\0';
+    state.config.callback(state.config.userdata, string, true);
+    return false;
+  }
 }
 
 static bool check(bool condition, const char* message) {
