@@ -4338,6 +4338,8 @@ void lovrPassPoints(Pass* pass, uint32_t count, float** points) {
 }
 
 void lovrPassLine(Pass* pass, uint32_t count, float** points) {
+  lovrCheck(count >= 2, "Need at least 2 points to make a line");
+
   uint16_t* indices;
 
   lovrPassDraw(pass, &(Draw) {
