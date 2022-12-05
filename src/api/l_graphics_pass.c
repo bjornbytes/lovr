@@ -555,7 +555,7 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
           *vertices++ = luax_tofloat(L, -1);
           lua_pop(L, 1);
         }
-      } else if (innerType == LUA_TUSERDATA) {
+      } else if (innerType == LUA_TUSERDATA || innerType == LUA_TLIGHTUSERDATA) {
         for (uint32_t i = 0; i < count; i++) {
           lua_rawgeti(L, index, i + 1);
           vec3_init(vertices, luax_checkvector(L, -1, V_VEC3, NULL));
