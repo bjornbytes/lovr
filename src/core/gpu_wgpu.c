@@ -30,11 +30,20 @@ struct gpu_pipeline {
   WGPUComputePipeline compute;
 };
 
+struct gpu_stream {
+  WGPUCommandEncoder commands;
+  union {
+    WGPURenderPassEncoder render;
+    WGPUComputePassEncoder compute;
+  };
+};
+
 size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
 size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
 size_t gpu_sizeof_layout(void) { return sizeof(gpu_layout); }
 size_t gpu_sizeof_shader(void) { return sizeof(gpu_shader); }
+size_t gpu_sizeof_pipeline(void) { return sizeof(gpu_pipeline); }
 
 // State
 
@@ -484,6 +493,168 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
 void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
   if (pipeline->render) wgpuRenderPipelineRelease(pipeline->render);
   if (pipeline->compute) wgpuComputePipelineRelease(pipeline->compute);
+}
+
+// Tally
+
+// Stream
+
+void gpu_compute_begin(gpu_stream* stream) {
+  stream->compute = wgpuCommandEncoderBeginComputePass(stream->commands, NULL);
+}
+
+void gpu_compute_end(gpu_stream* stream) {
+  wgpuComputePassEncoderEnd(stream->compute);
+}
+
+void gpu_set_viewport(gpu_stream* stream, float view[4], float depth[2]) {
+  wgpuRenderPassEncoderSetViewport(stream->render, view[0], view[1], view[2], view[3], depth[0], depth[1]);
+}
+
+void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]) {
+  wgpuRenderPassEncoderSetScissorRect(stream->render, scissor[0], scissor[1], scissor[2], scissor[3]);
+}
+
+void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size) {
+  // Unsupported
+}
+
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
+  if (compute) {
+    wgpuComputePassEncoderSetPipeline(stream->compute, pipeline->compute);
+  } else {
+    wgpuRenderPassEncoderSetPipeline(stream->render, pipeline->render);
+  }
+}
+
+void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count) {
+  for (uint32_t i = 0; i < count; i++) {
+    uint64_t size = wgpuBufferGetSize(buffers[i]->handle) - offsets[i];
+    wgpuRenderPassEncoderSetVertexBuffer(stream->render, first + i, buffers[i]->handle, offsets[i], size);
+  }
+}
+
+void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type) {
+  WGPUIndexFormat indexTypes[] = {
+    [GPU_INDEX_U16] = WGPUIndexFormat_Uint16,
+    [GPU_INDEX_U32] = WGPUIndexFormat_Uint32
+  };
+  uint64_t size = wgpuBufferGetSize(buffer->handle) - offset;
+  wgpuRenderPassEncoderSetIndexBuffer(stream->render, buffer->handle, indexTypes[type], offset, size);
+}
+
+void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t baseInstance) {
+  wgpuRenderPassEncoderDraw(stream->render, vertexCount, instanceCount, firstVertex, baseInstance);
+}
+
+void gpu_draw_indexed(gpu_stream* stream, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex, uint32_t baseInstance) {
+  wgpuRenderPassEncoderDrawIndexed(stream->render, indexCount, instanceCount, firstIndex, baseVertex, baseInstance);
+}
+
+void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+  stride = stride ? stride : 16;
+  for (uint32_t i = 0; i < drawCount; i++) {
+    wgpuRenderPassEncoderDrawIndirect(stream->render, buffer->handle, offset + stride * i);
+  }
+}
+
+void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
+  stride = stride ? stride : 20;
+  for (uint32_t i = 0; i < drawCount; i++) {
+    wgpuRenderPassEncoderDrawIndexedIndirect(stream->render, buffer->handle, offset + stride * i);
+  }
+}
+
+void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z) {
+  wgpuComputePassEncoderDispatchWorkgroups(stream->compute, x, y, z);
+}
+
+void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset) {
+  wgpuComputePassEncoderDispatchWorkgroupsIndirect(stream->compute, buffer->handle, offset);
+}
+
+void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {
+  wgpuCommandEncoderCopyBufferToBuffer(stream->commands, src->handle, srcOffset, dst->handle, dstOffset, extent);
+}
+
+void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
+  WGPUImageCopyTexture srcRegion = {
+    .texture = src->handle,
+    .mipLevel = srcOffset[3],
+    .origin = { srcOffset[0], srcOffset[1], srcOffset[2] }
+  };
+
+  WGPUImageCopyTexture dstRegion = {
+    .texture = dst->handle,
+    .mipLevel = dstOffset[3],
+    .origin = { dstOffset[0], dstOffset[1], dstOffset[2] }
+  };
+
+  WGPUExtent3D size = { extent[0], extent[1], extent[2] };
+
+  wgpuCommandEncoderCopyTextureToTexture(stream->commands, &srcRegion, &dstRegion, &size);
+}
+
+void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]) {
+  WGPUImageCopyBuffer srcRegion = {
+    .layout.offset = srcOffset,
+    .layout.bytesPerRow = 0, // FIXME
+    .layout.rowsPerImage = 0, // FIXME
+    .buffer = src->handle
+  };
+
+  WGPUImageCopyTexture dstRegion = {
+    .texture = dst->handle,
+    .mipLevel = dstOffset[3],
+    .origin = { dstOffset[0], dstOffset[1], dstOffset[2] }
+  };
+
+  WGPUExtent3D size = { extent[0], extent[1], extent[2] };
+
+  wgpuCommandEncoderCopyBufferToTexture(stream->commands, &srcRegion, &dstRegion, &size);
+}
+
+void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint32_t srcOffset[4], uint32_t dstOffset, uint32_t extent[3]) {
+  WGPUImageCopyTexture srcRegion = {
+    .texture = src->handle,
+    .mipLevel = srcOffset[3],
+    .origin = { srcOffset[0], srcOffset[1], srcOffset[2] }
+  };
+
+  WGPUImageCopyBuffer dstRegion = {
+    .layout.offset = dstOffset,
+    .layout.bytesPerRow = 0, // FIXME
+    .layout.rowsPerImage = 0, // FIXME
+    .buffer = dst->handle
+  };
+
+  WGPUExtent3D size = { extent[0], extent[1], extent[2] };
+
+  wgpuCommandEncoderCopyTextureToBuffer(stream->commands, &srcRegion, &dstRegion, &size);
+}
+
+void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride) {
+  // TODO
+}
+
+void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
+  wgpuCommandEncoderClearBuffer(stream->commands, buffer->handle, offset, size);
+}
+
+void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
+  // TODO Unsupported
+}
+
+void gpu_clear_tally(gpu_stream* stream, gpu_tally* tally, uint32_t index, uint32_t count) {
+  // TODO
+}
+
+void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter) {
+  // TODO Unsupported
+}
+
+void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
+  //
 }
 
 // Entry
