@@ -494,7 +494,7 @@ static Canvas luax_checkcanvas(lua_State* L, int index) {
       case LUA_TUSERDATA: canvas.depth.texture = luax_checktype(L, -1, Texture); break;
       case LUA_TTABLE:
         lua_getfield(L, -1, "format");
-        canvas.depth.format = lua_isnil(L, -1) ? canvas.depth.format : luax_checkenum(L, -1, TextureFormat, NULL);
+        canvas.depth.format = lua_isnil(L, -1) ? canvas.depth.format : (uint32_t) luax_checkenum(L, -1, TextureFormat, NULL);
         lua_pop(L, 1);
 
         lua_getfield(L, -1, "texture");
@@ -981,12 +981,12 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
 
   if (lua_istable(L, index)) {
     lua_getfield(L, index, "type");
-    info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, TextureType, NULL);
+    info.type = lua_isnil(L, -1) ? info.type : (uint32_t) luax_checkenum(L, -1, TextureType, NULL);
     lua_pop(L, 1);
 
     if (info.imageCount == 0) {
       lua_getfield(L, index, "format");
-      info.format = lua_isnil(L, -1) ? info.format : luax_checkenum(L, -1, TextureFormat, NULL);
+      info.format = lua_isnil(L, -1) ? info.format : (uint32_t) luax_checkenum(L, -1, TextureFormat, NULL);
       lua_pop(L, 1);
 
       lua_getfield(L, index, "samples");

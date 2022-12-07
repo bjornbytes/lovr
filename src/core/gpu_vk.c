@@ -2049,15 +2049,15 @@ bool gpu_init(gpu_config* config) {
       enable->largePoints = supports->largePoints;
 
       // Optional features (currently always enabled when supported)
-      config->features->textureBC = enable->textureCompressionBC = supports->textureCompressionBC;
-      config->features->textureASTC = enable->textureCompressionASTC_LDR = supports->textureCompressionASTC_LDR;
-      config->features->wireframe = enable->fillModeNonSolid = supports->fillModeNonSolid;
-      config->features->depthClamp = enable->depthClamp = supports->depthClamp;
-      config->features->indirectDrawFirstInstance = enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance;
-      config->features->shaderTally = enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery;
-      config->features->float64 = enable->shaderFloat64 = supports->shaderFloat64;
-      config->features->int64 = enable->shaderInt64 = supports->shaderInt64;
-      config->features->int16 = enable->shaderInt16 = supports->shaderInt16;
+      config->features->textureBC = (enable->textureCompressionBC = supports->textureCompressionBC);
+      config->features->textureASTC = (enable->textureCompressionASTC_LDR = supports->textureCompressionASTC_LDR);
+      config->features->wireframe = (enable->fillModeNonSolid = supports->fillModeNonSolid);
+      config->features->depthClamp = (enable->depthClamp = supports->depthClamp);
+      config->features->indirectDrawFirstInstance = (enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance);
+      config->features->shaderTally = (enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery);
+      config->features->float64 = (enable->shaderFloat64 = supports->shaderFloat64);
+      config->features->int64 = (enable->shaderInt64 = supports->shaderInt64);
+      config->features->int16 = (enable->shaderInt16 = supports->shaderInt16);
 
       // Formats
       for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
@@ -3070,7 +3070,9 @@ static void nickname(void* handle, VkObjectType type, const char* name) {
 static bool vcheck(VkResult result, const char* message) {
   if (result >= 0) return true;
   if (!state.config.callback) return false;
-#define CASE(x) case x: state.config.callback(state.config.userdata, "Vulkan error: " #x, true); break;
+
+  const char* errorCode = "";
+#define CASE(x) case x: errorCode = " (" #x ")"; break;
   switch (result) {
     CASE(VK_ERROR_OUT_OF_HOST_MEMORY);
     CASE(VK_ERROR_OUT_OF_DEVICE_MEMORY);
@@ -3088,8 +3090,21 @@ static bool vcheck(VkResult result, const char* message) {
     default: break;
   }
 #undef CASE
-  state.config.callback(state.config.userdata, message, true);
-  return false;
+
+  char string[128];
+  size_t length1 = strlen(message);
+  size_t length2 = strlen(errorCode);
+
+  if (length1 + length2 >= sizeof(string)) {
+    state.config.callback(state.config.userdata, message, true);
+    return false;
+  } else {
+    memcpy(string, message, length1);
+    memcpy(string + length1, errorCode, length2);
+    string[length1 + length2] = '\0';
+    state.config.callback(state.config.userdata, string, true);
+    return false;
+  }
 }
 
 static bool check(bool condition, const char* message) {

@@ -6,9 +6,9 @@
 
 You can use LÖVR to easily create VR experiences without much setup or programming experience.  The framework is tiny, fast, open source, and supports lots of different platforms and devices.
 
-[![Build status](https://ci.appveyor.com/api/projects/status/alx3kdi35bmxka8c/branch/master?svg=true)](https://ci.appveyor.com/project/bjornbytes/lovr/branch/master)
+[![Build](https://github.com/bjornbytes/lovr/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/bjornbytes/lovr/actions/workflows/build.yml)
 [![Version](https://img.shields.io/github/release/bjornbytes/lovr.svg?label=version)](https://github.com/bjornbytes/lovr/releases)
-[![Slack](https://img.shields.io/badge/chat-slack-7e4e76.svg)](https://lovr.org/slack)
+[![Matrix](https://img.shields.io/badge/chat-matrix-7e4e76.svg)](https://lovr.org/matrix)
 
 [**Homepage**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
@@ -35,7 +35,7 @@ Getting Started
 ---
 
 It's really easy to get started making things with LÖVR.  Grab a copy of the executable from <https://lovr.org/download>,
-then write a `main.lua` script and drag its parent folder onto the executable.  Here are some example projects to try:
+then write a `main.lua` script and drag it onto the executable.  Here are some example projects to try:
 
 #### Hello World
 
