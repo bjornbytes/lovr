@@ -370,7 +370,7 @@ static bool openxr_init(HeadsetConfig* config) {
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
 #ifdef __ANDROID__
-      .next = &infoAndroid
+      .next = &infoAndroid,
 #endif
       .applicationInfo.engineName = "LÖVR",
       .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
