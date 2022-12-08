@@ -333,7 +333,6 @@ static bool openxr_init(HeadsetConfig* config) {
 
 #ifdef __ANDROID__
       { "XR_KHR_android_create_instance", NULL, true },
-      { "XR_PICO_android_controller_function_ext_enable", NULL, true},
 #endif
       { "XR_KHR_composition_layer_depth", &state.features.depth, config->submitDepth },
       { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
@@ -370,6 +369,9 @@ static bool openxr_init(HeadsetConfig* config) {
 
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
+#ifdef __ANDROID__
+      .next = &infoAndroid
+#endif
       .applicationInfo.engineName = "LÖVR",
       .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
       .applicationInfo.applicationName = "LÖVR",
@@ -377,9 +379,6 @@ static bool openxr_init(HeadsetConfig* config) {
       .applicationInfo.apiVersion = XR_CURRENT_API_VERSION,
       .enabledExtensionCount = enabledExtensionCount,
       .enabledExtensionNames = enabledExtensionNames,
-#ifdef __ANDROID__
-      .next = &infoAndroid
-#endif
     };
 
     XR_INIT(xrCreateInstance(&info, &state.instance));
@@ -826,6 +825,7 @@ static bool openxr_init(HeadsetConfig* config) {
       bindings[PROFILE_GAZE][0].path = NULL;
     }
 
+    int successProfiles = -1;
     XrPath path;
     XrActionSuggestedBinding suggestedBindings[64];
     for (uint32_t i = 0, count = 0; i < MAX_PROFILES; i++, count = 0) {
@@ -835,7 +835,6 @@ static bool openxr_init(HeadsetConfig* config) {
         suggestedBindings[j].binding = path;
       }
 
-      int successProfiles = 0;
       if (count > 0) {
         XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path));
         int res = (xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
