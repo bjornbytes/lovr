@@ -531,7 +531,7 @@ static zip_node* zip_lookup(Archive* archive, const char* path) {
   size_t length = strlen(path);
   if (length >= sizeof(buffer)) return NULL;
   length = normalize(buffer, path, length);
-  uint64_t hash = hash64(buffer, length);
+  uint64_t hash = length ? hash64(buffer, length) : 0;
   uint64_t index = map_get(&archive->lookup, hash);
   return index == MAP_NIL ? NULL : &archive->nodes.data[index];
 }
@@ -640,7 +640,10 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
     }
 
     mountpointLength = normalize(path, mountpoint, mountpointLength);
-    path[mountpointLength++] = '/';
+
+    if (mountpointLength > 0) {
+      path[mountpointLength++] = '/';
+    }
   }
 
   // Simple root normalization (only strips leading/trailing slashes, sorry)
@@ -696,7 +699,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
     // Keep chopping off path segments, building up a tree of paths
     // We can stop early if we reach a path that has already been indexed
     // Also add individual path segments to the string pool, for zip_list
-    while (length != SIZE_MAX) {
+    for (;;) {
       uint64_t hash = hash64(path, length);
       uint64_t index = map_get(&archive->lookup, hash);
 
@@ -720,6 +723,16 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
       }
 
       archive->nodes.data[index].filename = strpool_append(&archive->strings, path + length, slash - length);
+
+      // Root node
+      if (length == 0) {
+        index = archive->nodes.length;
+        map_set(&archive->lookup, 0, index);
+        arr_push(&archive->nodes, node);
+        archive->nodes.data[index].filename = strpool_append(&archive->strings, path, 0);
+        break;
+      }
+
       slash = --length;
     }
   }
