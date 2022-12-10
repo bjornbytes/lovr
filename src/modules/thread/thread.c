@@ -61,7 +61,7 @@ Thread* lovrThreadCreate(int (*runner)(void*), Blob* body) {
 void lovrThreadDestroy(void* ref) {
   Thread* thread = ref;
   mtx_destroy(&thread->lock);
-  thrd_detach(thread->handle);
+  if (thread->handle) thrd_detach(thread->handle);
   lovrRelease(thread->body, lovrBlobDestroy);
   free(thread->error);
   free(thread);
@@ -85,7 +85,7 @@ void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount)
 }
 
 void lovrThreadWait(Thread* thread) {
-  thrd_join(thread->handle, NULL);
+  if (thread->handle) thrd_join(thread->handle, NULL);
 }
 
 bool lovrThreadIsRunning(Thread* thread) {
