@@ -1428,6 +1428,7 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
     lovrRelease(blob, lovrBlobDestroy);
   } else {
     info.spread = luaL_optnumber(L, 2, info.spread);
+    lovrRetain(info.rasterizer);
   }
 
   Font* font = lovrFontCreate(&info);
