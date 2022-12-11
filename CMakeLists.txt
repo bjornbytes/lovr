@@ -575,7 +575,6 @@ endif()
 
 if(LOVR_ENABLE_THREAD)
   target_sources(lovr PRIVATE
-    src/modules/thread/channel.c
     src/modules/thread/thread.c
     src/api/l_thread.c
     src/api/l_thread_channel.c

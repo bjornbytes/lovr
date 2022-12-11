@@ -1,20 +1,13 @@
 #include "api.h"
+#include "data/blob.h"
 #include "event/event.h"
 #include "thread/thread.h"
-#include "thread/channel.h"
 #include "util.h"
 #include <lualib.h>
 #include <stdlib.h>
 #include <string.h>
 
-static int threadRunner(void* data) {
-  Thread* thread = (Thread*) data;
-
-  lovrRetain(thread);
-  mtx_lock(&thread->lock);
-  thread->running = true;
-  mtx_unlock(&thread->lock);
-
+static char* threadRunner(Thread* thread, Blob* body, Variant* arguments, uint32_t argumentCount) {
   lua_State* L = luaL_newstate();
   luaL_openlibs(L);
   luax_preload(L);
@@ -23,42 +16,29 @@ static int threadRunner(void* data) {
   lua_pushcfunction(L, luax_getstack);
   int errhandler = lua_gettop(L);
 
-  if (!luaL_loadbuffer(L, thread->body->data, thread->body->size, "thread")) {
-    for (uint32_t i = 0; i < thread->argumentCount; i++) {
-      luax_pushvariant(L, &thread->arguments[i]);
+  if (!luaL_loadbuffer(L, body->data, body->size, "thread")) {
+    for (uint32_t i = 0; i < argumentCount; i++) {
+      luax_pushvariant(L, &arguments[i]);
     }
 
-    if (!lua_pcall(L, thread->argumentCount, 0, errhandler)) {
-      mtx_lock(&thread->lock);
-      thread->running = false;
-      mtx_unlock(&thread->lock);
-      lovrRelease(thread, lovrThreadDestroy);
-      lua_close(L);
-      return 0;
+    if (!lua_pcall(L, argumentCount, 0, errhandler)) {
+      return NULL;
     }
   }
-
-  mtx_lock(&thread->lock);
 
   // Error handling
   size_t length;
-  const char* error = lua_tolstring(L, -1, &length);
+  const char* message = lua_tolstring(L, -1, &length);
+  char* error = message ? malloc(length + 1) : NULL;
+
   if (error) {
-    thread->error = malloc(length + 1);
-    if (thread->error) {
-      memcpy(thread->error, error, length + 1);
-      lovrEventPush((Event) {
-        .type = EVENT_THREAD_ERROR,
-        .data.thread = { thread, thread->error }
-      });
-    }
+    memcpy(error, message, length + 1);
+    lua_close(L);
+    return error;
   }
 
-  thread->running = false;
-  mtx_unlock(&thread->lock);
-  lovrRelease(thread, lovrThreadDestroy);
   lua_close(L);
-  return 1;
+  return NULL;
 }
 
 static int l_lovrThreadNewThread(lua_State* L) {
