@@ -441,42 +441,101 @@ void lovrFilesystemSetRequirePath(const char* requirePath) {
 
 // Archive: dir
 
-static bool dir_resolve(char* buffer, Archive* archive, const char* path) {
-  char innerBuffer[LOVR_PATH_MAX];
-  size_t length = strlen(path);
-  if (length >= sizeof(innerBuffer)) return false;
-  length = normalize(innerBuffer, path, length);
-  path = innerBuffer;
+enum {
+  PATH_INVALID,
+  PATH_VIRTUAL,
+  PATH_PHYSICAL
+};
 
-  if (archive->mountpoint) {
-    if (strncmp(path, strpool_resolve(&archive->strings, archive->mountpoint), archive->mountpointLength)) {
-      return false;
-    } else {
-      path += archive->mountpointLength;
-      length -= archive->mountpointLength;
+static int dir_resolve(Archive* archive, char* buffer, const char* path) {
+  char normalized[LOVR_PATH_MAX];
+
+  // Normalize the path
+  size_t length = strlen(path);
+  if (length >= sizeof(normalized)) return PATH_INVALID;
+  length = normalize(normalized, path, length);
+
+  // Compare each component of normalized path and mountpoint
+  if (archive->mountpointLength > 0) {
+    const char* mountpoint = strpool_resolve(&archive->strings, archive->mountpoint);
+    size_t mountpointLength = archive->mountpointLength;
+
+    for (;;) {
+      char* slash = strchr(mountpoint, '/');
+      size_t sublength = slash ? slash - mountpoint : mountpointLength;
+
+      // If the path is empty but there was still stuff in the mountpoint, it's a virtual directory
+      if (length == 0) {
+        // Return child directory's name for convenience in getDirectoryItems
+        memcpy(buffer, mountpoint, sublength);
+        buffer[sublength] = '\0';
+        return PATH_VIRTUAL;
+      }
+
+      // Check for paths that don't match this component of the mountpoint
+      if (length < sublength || strncmp(path, mountpoint, sublength)) {
+        return PATH_INVALID;
+      }
+
+      // If the path matched, make sure there's a slash after the match
+      if (length > sublength && path[sublength] != '/') {
+        return PATH_INVALID;
+      }
+
+      // Strip this component off of the path
+      if (length == sublength) {
+        path += sublength;
+        length -= sublength;
+      } else {
+        path += sublength + 1;
+        length -= sublength + 1;
+      }
+
+      // Strip this component off of the mountpoint, if mountpoint is empty then we're done
+      if (mountpointLength > sublength) {
+        mountpoint += sublength + 1;
+        mountpointLength -= sublength + 1;
+      } else {
+        break;
+      }
     }
   }
 
-  return concat(buffer, strpool_resolve(&archive->strings, archive->path), archive->pathLength, path, length);
+  // Concat archive path and normalized path (without mountpoint), return full path
+  if (!concat(buffer, strpool_resolve(&archive->strings, archive->path), archive->pathLength, path, length)) {
+    return PATH_INVALID;
+  }
+
+  return PATH_PHYSICAL;
 }
 
 static bool dir_stat(Archive* archive, const char* path, FileInfo* info) {
   char resolved[LOVR_PATH_MAX];
-  return dir_resolve(resolved, archive, path) && fs_stat(resolved, info);
+  switch (dir_resolve(archive, resolved, path)) {
+    default:
+    case PATH_INVALID: return false;
+    case PATH_VIRTUAL: return fs_stat(strpool_resolve(&archive->strings, archive->path), info);
+    case PATH_PHYSICAL: return fs_stat(resolved, info);
+  }
 }
 
 static void dir_list(Archive* archive, const char* path, fs_list_cb callback, void* context) {
   char resolved[LOVR_PATH_MAX];
-  if (dir_resolve(resolved, archive, path)) {
-    fs_list(resolved, callback, context);
+  switch (dir_resolve(archive, resolved, path)) {
+    case PATH_INVALID: return;
+    case PATH_VIRTUAL: callback(context, resolved); return;
+    case PATH_PHYSICAL: fs_list(resolved, callback, context); return;
   }
 }
 
 static bool dir_read(Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** data) {
   char resolved[LOVR_PATH_MAX];
-  fs_handle file;
+  if (dir_resolve(archive, resolved, path) != PATH_PHYSICAL) {
+    return false;
+  }
 
-  if (!dir_resolve(resolved, archive, path) || !fs_open(resolved, OPEN_READ, &file)) {
+  fs_handle file;
+  if (!fs_open(resolved, OPEN_READ, &file)) {
     return false;
   }
 
