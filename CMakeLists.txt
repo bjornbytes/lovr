@@ -15,6 +15,7 @@ option(LOVR_ENABLE_SYSTEM "Enable the system module" ON)
 option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
+option(LOVR_USE_GLFW "Use GLFW for desktop windows" ON)
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_GLSLANG "Use glslang to compile GLSL shaders" ON)
 option(LOVR_USE_VULKAN "Use the Vulkan renderer" ON)
@@ -79,7 +80,7 @@ if(NOT ANDROID AND LOVR_BUILD_SHARED)
 endif()
 
 # GLFW
-if(NOT (EMSCRIPTEN OR ANDROID))
+if(LOVR_USE_GLFW AND NOT (EMSCRIPTEN OR ANDROID))
   if(LOVR_SYSTEM_GLFW)
     pkg_search_module(GLFW REQUIRED glfw3)
     include_directories(${GLFW_INCLUDE_DIRS})
@@ -580,13 +581,16 @@ if(LOVR_ENABLE_SYSTEM)
     src/modules/system/system.c
     src/api/l_system.c
   )
+
+  if(LOVR_USE_GLFW)
+    target_compile_definitions(lovr PRIVATE LOVR_USE_GLFW)
+  endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_SYSTEM)
 endif()
 
 if(LOVR_ENABLE_THREAD)
   target_sources(lovr PRIVATE
-    src/modules/thread/channel.c
     src/modules/thread/thread.c
     src/api/l_thread.c
     src/api/l_thread_channel.c

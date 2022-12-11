@@ -1,3 +1,77 @@
+#ifndef LOVR_USE_GLFW
+
+void os_destroy() {
+  //
+}
+
+void os_poll_events() {
+  //
+}
+
+bool os_window_open(const os_window_config* config) {
+  return false;
+}
+
+bool os_window_is_open() {
+  return false;
+}
+
+void os_window_get_size(uint32_t* width, uint32_t* height) {
+  *width = *height = 0;
+}
+
+void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
+  *width = *height = 0;
+}
+
+void os_on_quit(fn_quit* callback) {
+  //
+}
+
+void os_on_focus(fn_focus* callback) {
+  //
+}
+
+void os_on_resize(fn_resize* callback) {
+  //
+}
+
+void os_on_key(fn_key* callback) {
+  //
+}
+
+void os_on_text(fn_text* callback) {
+  //
+}
+
+void os_get_mouse_position(double* x, double* y) {
+  *x = *y = 0.;
+}
+
+void os_set_mouse_mode(os_mouse_mode mode) {
+  //
+}
+
+bool os_is_mouse_down(os_mouse_button button) {
+  return false;
+}
+
+bool os_is_key_down(os_key key) {
+  return false;
+}
+
+#ifdef LOVR_VK
+const char** os_vk_get_instance_extensions(uint32_t* count) {
+  return *count = 0, NULL;
+}
+
+uint32_t os_vk_create_surface(void* instance, void** surface) {
+  return -13; // VK_ERROR_UNKNOWN
+}
+#endif
+
+#else
+
 #include <stdio.h>
 
 #ifdef LOVR_VK
@@ -180,6 +254,10 @@ static int convertKey(os_key key) {
   }
 }
 
+void os_destroy() {
+  glfwTerminate();
+}
+
 void os_poll_events() {
   if (glfwState.window) {
     glfwPollEvents();
@@ -335,3 +413,5 @@ uint32_t os_vk_create_surface(void* instance, void** surface) {
 OS_DLL_EXPORT GLFWwindow* os_get_glfw_window(void) {
   return glfwState.window;
 }
+
+#endif

@@ -5,6 +5,7 @@ config = {
   supercharge = false,
   sanitize = false,
   strict = true,
+  glfw = true,
   luajit = false,
   glslang = true,
   modules = {
@@ -219,8 +220,9 @@ else
   tup.rule('.obj/lua/*.o', '^ LD %o^ $(cc) $(flags) -o %o %f $(lua_lflags)', lib('lua'))
 end
 
-if target == 'win32' or target == 'macos' or target == 'linux' then
+if config.glfw and (target == 'win32' or target == 'macos' or target == 'linux') then
   cflags += '-Ideps/glfw/include'
+  cflags += '-DLOVR_USE_GLFW'
   lflags += '-lglfw'
 
   glfw_cflags += '-fPIC'

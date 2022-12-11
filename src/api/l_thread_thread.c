@@ -1,4 +1,5 @@
 #include "api.h"
+#include "event/event.h"
 #include "thread/thread.h"
 #include "util.h"
 
@@ -32,7 +33,8 @@ static int l_lovrThreadGetError(lua_State* L) {
 
 static int l_lovrThreadIsRunning(lua_State* L) {
   Thread* thread = luax_checktype(L, 1, Thread);
-  lua_pushboolean(L, thread->running);
+  bool running = lovrThreadIsRunning(thread);
+  lua_pushboolean(L, running);
   return 1;
 }
 

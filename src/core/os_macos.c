@@ -26,11 +26,6 @@ bool os_init() {
   return true;
 }
 
-void os_destroy() {
-  glfwTerminate();
-  memset(&state, 0, sizeof(state));
-}
-
 const char* os_get_name() {
   return "macOS";
 }

@@ -170,6 +170,7 @@ bool os_init() {
 }
 
 void os_destroy() {
+  ANativeActivity_finish(state.app->activity);
   memset(&state, 0, sizeof(state));
 }
 
