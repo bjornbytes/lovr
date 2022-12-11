@@ -170,7 +170,22 @@ bool os_init() {
 }
 
 void os_destroy() {
-  ANativeActivity_finish(state.app->activity);
+  // There are two ways a quit can happen, which need to be handled slightly differently:
+  // - If the system tells us to quit, we get an event with APP_CMD_DESTROY.  In response we push a
+  //   QUIT event to lovr.event and main will eventually exit cleanly.  No other teardown necessary.
+  // - If the app exits manually (e.g. lovr.event.quit), then Android thinks we're still running and
+  //   the app is still in APP_CMD_RESUME.  We need to tell it to exit with ANativeActivity_Finish
+  //   and poll for events until the app state changes, otherwise the app is left in a broken state.
+  if (state.app->activityState == APP_CMD_RESUME) {
+    state.onQuit = NULL;
+    state.onKeyboardEvent = NULL;
+    state.onTextEvent = NULL;
+    state.onPermissionEvent = NULL;
+    ANativeActivity_finish(state.app->activity);
+    while (!state.app->destroyRequested) {
+      os_poll_events();
+    }
+  }
   memset(&state, 0, sizeof(state));
 }
 
