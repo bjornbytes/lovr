@@ -1,0 +1,2 @@
+obj-${DEB_BUILD_GNU_TYPE}/bin/lovr usr/games/
+obj-${DEB_BUILD_GNU_TYPE}/bin/libmsdfgen.so usr/lib/

@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+# export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+	-DLOVR_SYSTEM_GLFW=ON \
+	-DLOVR_SYSTEM_LUA=ON \
+	-DLOVR_SYSTEM_ODE=ON \
+	-DLOVR_SYSTEM_OPENXR=ON
+
+override_dh_auto_install:

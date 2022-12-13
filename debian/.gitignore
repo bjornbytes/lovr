@@ -1,0 +1,6 @@
+.debhelper
+debhelper-build-stamp
+lovr.debhelper.log
+lovr.substvars
+lovr
+files

@@ -1,0 +1,16 @@
+Source: lovr
+Section: games
+Priority: extra
+Maintainer: Bjorn Swenson <@>
+Build-Depends: libopenxr-dev, libglfw3-dev, libluajit2-5.1-dev, libode-dev, libccd-dev, glslang-dev, debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Homepage: https://lovr.org/docs/Compiling
+Vcs-Browser: https://github.com/bjornbytes/lovr
+Vcs-Git: https://github.com/bjornbytes/lovr.git
+Rules-Requires-Root: no
+
+Package: lovr
+Architecture: any
+Depends: libode8, libopenxr-loader1, libccd2, libluajit2-5.1-2, libglfw3, ${shlibs:Depends}, ${misc:Depends}
+Description: Lua Virtual Reality Framework.
+
