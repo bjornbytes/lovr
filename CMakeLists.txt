@@ -356,6 +356,7 @@ target_include_directories(lovr PRIVATE
 )
 
 target_link_libraries(lovr
+  ${CMAKE_DL_LIBS}
   ${LOVR_GLFW}
   ${LOVR_LUA}
   ${LOVR_MSDF}
