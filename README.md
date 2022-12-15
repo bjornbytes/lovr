@@ -96,8 +96,7 @@ Resources
 
 - [**Documentation**](https://lovr.org/docs): Guides, tutorials, examples, and API documentation.
 - [**FAQ**](https://lovr.org/docs/FAQ): Frequently Asked Questions.
-- [**Slack Group**](https://lovr.org/slack): For general LÖVR discussion and support.
-- [**Matrix Room**](https://matrix.to/#/!XVAslexgYDYQnYnZBP:matrix.org): Decentralized alternative to Slack.
+- [**Matrix**](https://lovr.org/matrix): The LÖVR community for discussion and support.
 - [**Nightly Builds**](https://lovr.org/download/nightly): Nightly builds for Windows.
 - [**Compiling Guide**](https://lovr.org/docs/Compiling): Information on compiling LÖVR from source.
 - [**Contributing**](https://lovr.org/docs/Contributing): Guide for helping out with development 💜
