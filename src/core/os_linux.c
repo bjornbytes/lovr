@@ -14,10 +14,6 @@ bool os_init() {
   return true;
 }
 
-void os_destroy() {
-  glfwTerminate();
-}
-
 const char* os_get_name() {
   return "Linux";
 }

@@ -555,12 +555,13 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
           *vertices++ = luax_tofloat(L, -1);
           lua_pop(L, 1);
         }
-      } else if (innerType == LUA_TUSERDATA) {
+      } else if (innerType == LUA_TUSERDATA || innerType == LUA_TLIGHTUSERDATA) {
         for (uint32_t i = 0; i < count; i++) {
           lua_rawgeti(L, index, i + 1);
-          vec3_init(vertices, luax_checkvector(L, -1, V_VEC3, NULL));
-          lua_pop(L, 1);
+          float* v = luax_checkvector(L, -1, V_VEC3, NULL);
+          memcpy(vertices, v, 3 * sizeof(float));
           vertices += 3;
+          lua_pop(L, 1);
         }
       }
       break;
@@ -644,7 +645,7 @@ static int l_lovrPassSphere(lua_State* L) {
   return 0;
 }
 
-static bool luax_checkendpoints(lua_State* L, int index, float transform[16]) {
+static bool luax_checkendpoints(lua_State* L, int index, float transform[16], bool center) {
   float *v, *u;
   VectorType t1, t2;
   if ((v = luax_tovector(L, index + 0, &t1)) == NULL || t1 != V_VEC3) return false;
@@ -658,7 +659,11 @@ static bool luax_checkendpoints(lua_State* L, int index, float transform[16]) {
   vec3_normalize(direction);
   quat_between(orientation, forward, direction);
   mat4_identity(transform);
-  mat4_translate(transform, (v[0] + u[0]) / 2.f, (v[1] + u[1]) / 2.f, (v[2] + u[2]) / 2.f);
+  if (center) {
+    mat4_translate(transform, (v[0] + u[0]) / 2.f, (v[1] + u[1]) / 2.f, (v[2] + u[2]) / 2.f);
+  } else {
+    mat4_translate(transform, v[0], v[1], v[2]);
+  }
   mat4_rotateQuat(transform, orientation);
   mat4_scale(transform, radius, radius, length);
   return true;
@@ -667,7 +672,7 @@ static bool luax_checkendpoints(lua_State* L, int index, float transform[16]) {
 static int l_lovrPassCylinder(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
-  int index = luax_checkendpoints(L, 2, transform) ? 5 : luax_readmat4(L, 2, transform, -2);
+  int index = luax_checkendpoints(L, 2, transform, true) ? 5 : luax_readmat4(L, 2, transform, -2);
   bool capped = lua_isnoneornil(L, index) ? true : lua_toboolean(L, index++);
   float angle1 = luax_optfloat(L, index++, 0.f);
   float angle2 = luax_optfloat(L, index++, 2.f * (float) M_PI);
@@ -679,7 +684,7 @@ static int l_lovrPassCylinder(lua_State* L) {
 static int l_lovrPassCone(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
-  int index = luax_readmat4(L, 2, transform, -2);
+  int index = luax_checkendpoints(L, 2, transform, false) ? 5 : luax_readmat4(L, 2, transform, -2);
   uint32_t segments = luax_optu32(L, index, 64);
   lovrPassCone(pass, transform, segments);
   return 0;
@@ -688,7 +693,7 @@ static int l_lovrPassCone(lua_State* L) {
 static int l_lovrPassCapsule(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
-  int index = luax_checkendpoints(L, 2, transform) ? 5 : luax_readmat4(L, 2, transform, -2);
+  int index = luax_checkendpoints(L, 2, transform, true) ? 5 : luax_readmat4(L, 2, transform, -2);
   uint32_t segments = luax_optu32(L, index, 32);
   lovrPassCapsule(pass, transform, segments);
   return 0;

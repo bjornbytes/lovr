@@ -141,6 +141,7 @@ static int nextEvent(lua_State* L) {
       luax_pushtype(L, Thread, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
       lovrRelease(event.data.thread.thread, lovrThreadDestroy);
+      free(event.data.thread.error);
       return 3;
 #endif
 

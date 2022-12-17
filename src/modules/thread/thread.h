@@ -1,6 +1,3 @@
-#include "data/blob.h"
-#include "event/event.h"
-#include "lib/tinycthread/tinycthread.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -11,28 +8,34 @@
 
 #define MAX_THREAD_ARGUMENTS 4
 
-struct Channel;
+struct Blob;
+struct Variant;
 
-typedef struct Thread {
-  uint32_t ref;
-  thrd_t handle;
-  mtx_t lock;
-  Blob* body;
-  Variant arguments[MAX_THREAD_ARGUMENTS];
-  uint32_t argumentCount;
-  int (*runner)(void*);
-  char* error;
-  bool running;
-} Thread;
+typedef struct Thread Thread;
+typedef struct Channel Channel;
 
 bool lovrThreadModuleInit(void);
 void lovrThreadModuleDestroy(void);
 struct Channel* lovrThreadGetChannel(const char* name);
-void lovrThreadRemoveChannel(uint64_t hash);
 
-Thread* lovrThreadCreate(int (*runner)(void*), Blob* body);
+// Thread
+
+typedef char* ThreadFunction(Thread* thread, struct Blob* body, struct Variant* arguments, uint32_t argumentCount);
+
+Thread* lovrThreadCreate(ThreadFunction* function, struct Blob* body);
 void lovrThreadDestroy(void* ref);
-void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount);
+void lovrThreadStart(Thread* thread, struct Variant* arguments, uint32_t argumentCount);
 void lovrThreadWait(Thread* thread);
-const char* lovrThreadGetError(Thread* thread);
 bool lovrThreadIsRunning(Thread* thread);
+const char* lovrThreadGetError(Thread* thread);
+
+// Channel
+
+Channel* lovrChannelCreate(uint64_t hash);
+void lovrChannelDestroy(void* ref);
+bool lovrChannelPush(Channel* channel, struct Variant* variant, double timeout, uint64_t* id);
+bool lovrChannelPop(Channel* channel, struct Variant* variant, double timeout);
+bool lovrChannelPeek(Channel* channel, struct Variant* variant);
+void lovrChannelClear(Channel* channel);
+uint64_t lovrChannelGetCount(Channel* channel);
+bool lovrChannelHasRead(Channel* channel, uint64_t id);

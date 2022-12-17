@@ -53,6 +53,12 @@ void lovrEventPush(Event event) {
 #ifndef LOVR_DISABLE_THREAD
   if (event.type == EVENT_THREAD_ERROR) {
     lovrRetain(event.data.thread.thread);
+    size_t length = strlen(event.data.thread.error);
+    char* copy = malloc(length + 1);
+    lovrAssert(copy, "Out of memory");
+    memcpy(copy, event.data.thread.error, length);
+    copy[length] = '\0';
+    event.data.thread.error = copy;
   }
 #endif
 

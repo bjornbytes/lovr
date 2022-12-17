@@ -418,6 +418,7 @@ static void processReadbacks(void);
 static size_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(size_t layout);
 static gpu_texture* getScratchTexture(gpu_texture_info* info);
+static bool isDepthFormat(TextureFormat format);
 static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d);
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
 static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
@@ -3300,6 +3301,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   for (uint32_t i = 0; i < canvas->count; i++) {
     const TextureInfo* texture = &canvas->textures[i]->info;
     bool renderable = texture->format == GPU_FORMAT_SURFACE || (state.features.formats[texture->format] & GPU_FEATURE_RENDER);
+    lovrCheck(!isDepthFormat(texture->format), "Unable to use a depth texture as a color target");
     lovrCheck(renderable, "This GPU does not support rendering to the texture format used by color target #%d", i + 1);
     lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
     lovrCheck(texture->width == t->width, "Render pass texture sizes must match");
@@ -3313,6 +3315,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   if (depth->texture || depth->format) {
     TextureFormat format = depth->texture ? depth->texture->info.format : depth->format;
     bool renderable = state.features.formats[format] & GPU_FEATURE_RENDER;
+    lovrCheck(isDepthFormat(format), "Unable to use a color texture as a depth target");
     lovrCheck(renderable, "This GPU does not support depth buffers with this texture format");
     if (depth->texture) {
       const TextureInfo* texture = &depth->texture->info;
@@ -4338,6 +4341,8 @@ void lovrPassPoints(Pass* pass, uint32_t count, float** points) {
 }
 
 void lovrPassLine(Pass* pass, uint32_t count, float** points) {
+  lovrCheck(count >= 2, "Need at least 2 points to make a line");
+
   uint16_t* indices;
 
   lovrPassDraw(pass, &(Draw) {
@@ -5659,6 +5664,10 @@ static gpu_texture* getScratchTexture(gpu_texture_info* info) {
   scratch->hash = hash;
   scratch->tick = state.tick;
   return scratch->texture;
+}
+
+static bool isDepthFormat(TextureFormat format) {
+  return format == FORMAT_D16 || format == FORMAT_D32F || format == FORMAT_D24S8 || format == FORMAT_D32FS8;
 }
 
 // Returns number of bytes of a 3D texture region of a given format
