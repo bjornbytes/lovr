@@ -3,10 +3,10 @@
 #include "event/event.h"
 #include "core/os.h"
 #include "util.h"
-#include "lib/tinycthread/tinycthread.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 
 struct Thread {
   uint32_t ref;
@@ -165,7 +165,7 @@ Channel* lovrChannelCreate(uint64_t hash) {
   lovrAssert(channel, "Out of memory");
   channel->ref = 1;
   arr_init(&channel->messages, arr_alloc);
-  mtx_init(&channel->lock, mtx_plain | mtx_timed);
+  mtx_init(&channel->lock, mtx_plain);
   cnd_init(&channel->cond);
   channel->hash = hash;
   return channel;

@@ -325,7 +325,7 @@ set_target_properties(lovr PROPERTIES C_STANDARD_REQUIRED ON)
 target_include_directories(lovr PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src/modules
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/stdatomic
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/std
   ${CMAKE_CURRENT_SOURCE_DIR}/etc
 )
 
@@ -556,7 +556,6 @@ if(LOVR_ENABLE_THREAD)
     src/api/l_thread.c
     src/api/l_thread_channel.c
     src/api/l_thread_thread.c
-    src/lib/tinycthread/tinycthread.c
   )
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_THREAD)
