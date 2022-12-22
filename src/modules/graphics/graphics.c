@@ -4935,6 +4935,10 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
     .index.count = indexCount
   });
 
+  if (!vertices) {
+    return;
+  }
+
   // T and P stand for toroidal and poloidal, or theta and phi
   float dt = (2.f * (float) M_PI) / segmentsT;
   float dp = (2.f * (float) M_PI) / segmentsP;
