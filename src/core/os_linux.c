@@ -19,8 +19,11 @@ static struct {
   xcb_intern_atom_reply_t* deleteWindow;
   fn_quit* onQuit;
   fn_focus* onFocus;
+  fn_resize* onResize;
   fn_key* onKey;
   fn_text* onText;
+  uint32_t width;
+  uint32_t height;
   bool keyDown[OS_KEY_COUNT];
   bool mouseDown[2];
   double mouseX;
@@ -98,6 +101,7 @@ void os_poll_events() {
   union {
     xcb_generic_event_t* any;
     xcb_client_message_event_t* message;
+    xcb_configure_notify_event_t* configure;
     xcb_focus_in_event_t* focus;
     xcb_key_press_event_t* key;
     xcb_button_press_event_t* mouse;
@@ -111,6 +115,16 @@ void os_poll_events() {
       case XCB_CLIENT_MESSAGE:
         if (event.message->data.data32[0] == state.deleteWindow->atom && state.onQuit) {
           state.onQuit();
+        }
+        break;
+
+      case XCB_CONFIGURE_NOTIFY:
+        if (event.configure->width != state.width || event.configure->height != state.height) {
+          state.width = event.configure->width;
+          state.height = event.configure->height;
+          if (state.onResize) {
+            state.onResize(state.width, state.height);
+          }
         }
         break;
 
@@ -166,7 +180,7 @@ void os_on_focus(fn_focus* callback) {
 }
 
 void os_on_resize(fn_resize* callback) {
-  // TODO
+  state.onResize = callback;
 }
 
 void os_on_key(fn_key* callback) {
@@ -181,7 +195,6 @@ void os_on_permission(fn_permission* callback) {
   //
 }
 
-// TODO resizable
 // TODO icon
 bool os_window_open(const os_window_config* config) {
   state.connection = xcb_connect(NULL, NULL);
@@ -205,6 +218,7 @@ bool os_window_open(const os_window_config* config) {
   uint32_t keys = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
   uint32_t values[] = {
     screen->black_pixel,
+    XCB_EVENT_MASK_STRUCTURE_NOTIFY |
     XCB_EVENT_MASK_KEY_PRESS |
     XCB_EVENT_MASK_KEY_RELEASE |
     XCB_EVENT_MASK_BUTTON_PRESS |
@@ -212,6 +226,9 @@ bool os_window_open(const os_window_config* config) {
     XCB_EVENT_MASK_POINTER_MOTION |
     XCB_EVENT_MASK_FOCUS_CHANGE
   };
+
+  state.width = w;
+  state.height = h;
 
   xcb_create_window(state.connection, depth, state.window, parent, 0, 0, w, h, border, class, visual, keys, values);
 
@@ -239,11 +256,13 @@ bool os_window_is_open(void) {
 }
 
 void os_window_get_size(uint32_t* width, uint32_t* height) {
-  *width = *height = 0; // TODO
+  *width = state.width;
+  *height = state.height;
 }
 
 void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
-  *width = *height = 0; // TODO
+  *width = state.width;
+  *height = state.height;
 }
 
 void os_window_message_box(const char* message) {
