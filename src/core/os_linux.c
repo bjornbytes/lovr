@@ -7,6 +7,10 @@
 #include <sys/mman.h>
 #include <linux/input.h>
 #include <xcb/xcb.h>
+#include <xcb/xkb.h>
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-x11.h>
+#include <xkbcommon/xkbcommon-compose.h>
 
 #define NS_PER_SEC 1000000000ULL
 
@@ -14,6 +18,12 @@ static os_key convertKey(uint8_t keycode);
 
 static struct {
   xcb_connection_t* connection;
+  struct xkb_context* xkb;
+  struct xkb_keymap* keymap;
+  struct xkb_state* keystate;
+  struct xkb_compose_table* composeTable;
+  struct xkb_compose_state* compose;
+  uint8_t xkbCode;
   xcb_window_t window;
   xcb_cursor_t hiddenCursor;
   xcb_intern_atom_reply_t* deleteWindow;
@@ -37,6 +47,11 @@ bool os_init(void) {
 void os_destroy(void) {
   free(state.deleteWindow);
   if (state.hiddenCursor) xcb_free_cursor(state.connection, state.hiddenCursor);
+  xkb_compose_state_unref(state.compose);
+  xkb_compose_table_unref(state.composeTable);
+  xkb_state_unref(state.keystate);
+  xkb_keymap_unref(state.keymap);
+  xkb_context_unref(state.xkb);
   xcb_disconnect(state.connection);
   memset(&state, 0, sizeof(state));
 }
@@ -106,6 +121,7 @@ void os_poll_events() {
     xcb_key_press_event_t* key;
     xcb_button_press_event_t* mouse;
     xcb_motion_notify_event_t* motion;
+    xcb_xkb_state_notify_event_t* keystate;
   } event;
 
   while ((event.any = xcb_poll_for_event(state.connection)) != NULL) {
@@ -139,7 +155,20 @@ void os_poll_events() {
         }
 
         if (type == XCB_KEY_PRESS && state.onText) {
-          // TODO xkb
+          xkb_keysym_t keysym = xkb_state_key_get_one_sym(state.keystate, keycode);
+          xkb_compose_state_feed(state.compose, keysym);
+          enum xkb_compose_status status = xkb_compose_state_get_status(state.compose);
+          if (status == XKB_COMPOSE_COMPOSED) {
+            xkb_keysym_t composed = xkb_compose_state_get_one_sym(state.compose);
+            uint32_t codepoint = xkb_keysym_to_utf32(composed);
+            state.onText(codepoint);
+            xkb_compose_state_reset(state.compose);
+          } else if (status == XKB_COMPOSE_CANCELLED) {
+            xkb_compose_state_reset(state.compose);
+          } else {
+            uint32_t codepoint = xkb_state_key_get_utf32(state.keystate, keycode);
+            state.onText(codepoint);
+          }
         }
         break;
       }
@@ -164,7 +193,19 @@ void os_poll_events() {
         if (state.onFocus) state.onFocus(type == XCB_FOCUS_IN);
         break;
 
-      default: break; // TODO xkb
+      default:
+        if (event.any->response_type == state.xkbCode && event.keystate->xkbType == XCB_XKB_STATE_NOTIFY) {
+          xkb_state_update_mask(
+            state.keystate,
+            event.keystate->baseMods,
+            event.keystate->latchedMods,
+            event.keystate->lockedMods,
+            event.keystate->baseGroup,
+            event.keystate->latchedGroup,
+            event.keystate->lockedGroup
+          );
+        }
+        break;
     }
 
     free(event.any);
@@ -195,7 +236,7 @@ void os_on_permission(fn_permission* callback) {
   //
 }
 
-// TODO icon
+// TODO !resizable WM_HINT
 bool os_window_open(const os_window_config* config) {
   state.connection = xcb_connect(NULL, NULL);
 
@@ -204,9 +245,52 @@ bool os_window_open(const os_window_config* config) {
     return false;
   }
 
+  // xkb
+
+  xkb_x11_setup_xkb_extension(
+    state.connection,
+    XKB_X11_MIN_MAJOR_XKB_VERSION,
+    XKB_X11_MIN_MINOR_XKB_VERSION,
+    XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
+    NULL,
+    NULL,
+    &state.xkbCode,
+    NULL
+  );
+
+  state.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  int32_t keyboard = xkb_x11_get_core_keyboard_device_id(state.connection);
+  state.keymap = xkb_x11_keymap_new_from_device(state.xkb, state.connection, keyboard, 0);
+  state.keystate = xkb_x11_state_new_from_device(state.keymap, state.connection, keyboard);
+
+  const char* locale = getenv("LC_ALL");
+  if (!locale) locale = getenv("LC_CTYPE");
+  if (!locale) locale = getenv("LANG");
+  if (!locale) locale = "C";
+
+  state.composeTable = xkb_compose_table_new_from_locale(state.xkb, locale, XKB_COMPOSE_COMPILE_NO_FLAGS);
+  state.compose = xkb_compose_state_new(state.composeTable, XKB_COMPOSE_STATE_NO_FLAGS);
+
+  uint16_t xkbDetails =
+    XCB_XKB_STATE_PART_MODIFIER_BASE |
+    XCB_XKB_STATE_PART_MODIFIER_LATCH |
+    XCB_XKB_STATE_PART_MODIFIER_LOCK |
+    XCB_XKB_STATE_PART_GROUP_BASE |
+    XCB_XKB_STATE_PART_GROUP_LATCH |
+    XCB_XKB_STATE_PART_GROUP_LOCK;
+
+  xcb_xkb_select_events_details_t details = {
+    .affectState = xkbDetails,
+    .stateDetails = xkbDetails
+  };
+
+  xcb_xkb_event_type_t keyEvents = XCB_XKB_EVENT_TYPE_STATE_NOTIFY;
+  xcb_xkb_select_events(state.connection, keyboard, keyEvents, 0, keyEvents, 0, 0, &details);
+
+  // window
+
   xcb_screen_t* screen = xcb_setup_roots_iterator(xcb_get_setup(state.connection)).data;
 
-  // Create window
   uint8_t depth = XCB_COPY_FROM_PARENT;
   state.window = xcb_generate_id(state.connection);
   xcb_window_t parent = screen->root;
@@ -232,7 +316,7 @@ bool os_window_open(const os_window_config* config) {
 
   xcb_create_window(state.connection, depth, state.window, parent, 0, 0, w, h, border, class, visual, keys, values);
 
-  // Set up window close event
+  // Close event
   xcb_intern_atom_cookie_t protocols = xcb_intern_atom(state.connection, 1, 12, "WM_PROTOCOLS");
   xcb_intern_atom_cookie_t delete = xcb_intern_atom(state.connection, 1, 16, "WM_DELETE_WINDOW");
   xcb_intern_atom_reply_t* protocolReply = xcb_intern_atom_reply(state.connection, protocols, 0);
@@ -241,7 +325,7 @@ bool os_window_open(const os_window_config* config) {
   state.deleteWindow = deleteReply;
   free(protocolReply);
 
-  // Set title
+  // Title
   xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, state.window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
   xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, state.window, XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
 
