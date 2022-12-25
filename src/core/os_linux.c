@@ -181,7 +181,6 @@ void os_on_permission(fn_permission* callback) {
   //
 }
 
-// TODO EGL
 // TODO resizable
 // TODO icon
 bool os_window_open(const os_window_config* config) {
@@ -249,18 +248,6 @@ void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
 
 void os_window_message_box(const char* message) {
   //
-}
-
-void os_window_set_vsync(int interval) {
-  // TODO EGL
-}
-
-void os_window_swap(void) {
-  // TODO EGL
-}
-
-fn_gl_proc* os_get_gl_proc_address(const char* function) {
-  return NULL; // TODO EGL
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
@@ -447,4 +434,12 @@ static os_key convertKey(uint8_t keycode) {
     case KEY_RIGHTMETA: return OS_KEY_RIGHT_OS;
     default: return OS_KEY_COUNT;
   }
+}
+
+const char** os_vk_get_instance_extensions(uint32_t* count) {
+  return *count = 0, NULL;
+}
+
+uint32_t os_vk_create_surface(void* instance, void** surface) {
+  return -13;
 }
