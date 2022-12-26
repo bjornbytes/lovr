@@ -1714,6 +1714,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   lovrAssert(shader->constants && shader->resources && shader->attributes, "Out of memory");
   lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
 
+  lovrCheck(shader->constantSize <= state.limits.pushConstantSize, "Shader push constants block is too big");
+
   // Push constants
   for (uint32_t i = 0; i < spv[constantStage].pushConstantCount; i++) {
     static const FieldType constantTypes[] = {
