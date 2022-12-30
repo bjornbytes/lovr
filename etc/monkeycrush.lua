@@ -42,7 +42,7 @@ io.write('};\n\n')
 
 io.write('uint16_t monkey_indices[] = {\n ')
 for i = 1, model:getMeshIndexCount(1) do
-  local index = model:getMeshIndex(1, i)
+  local index = model:getMeshIndex(1, i) - 1
   io.write((' %d,'):format(index))
   if i % 10 == 0 then
     io.write('\n ')
