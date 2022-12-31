@@ -627,11 +627,10 @@ add_custom_target(move_files ALL)
 
 # Moves something from etc to the build directory
 function(move_resource)
-  add_custom_command(TARGET move_files POST_BUILD
+  set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/etc/${ARGV0}")
+  add_custom_command(TARGET lovr POST_BUILD
     DEPENDS ${SRC}
-    COMMAND ${CMAKE_COMMAND} -E copy
-    "${CMAKE_CURRENT_SOURCE_DIR}/etc/${ARGV0}"
-    $<TARGET_FILE_DIR:lovr>/${ARGV0}
+    COMMAND ${CMAKE_COMMAND} -E copy ${SRC} $<TARGET_FILE_DIR:lovr>/${ARGV0}
   )
 endfunction()
 
