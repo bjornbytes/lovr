@@ -26,6 +26,7 @@ jobs:
           name: lovr.exe
           path: |
             build/Release/lovr.exe
+            build/Release/lovrc.bat
             build/Release/*.dll
   linux:
     name: Linux
