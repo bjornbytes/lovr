@@ -103,7 +103,8 @@ cflags = {
   '-Ietc',
   '-Isrc',
   '-Isrc/modules',
-  '-Isrc/lib/stdatomic'
+  '-Isrc/lib/stdatomic',
+  '-Ideps/vulkan-headers/include'
 }
 
 bin = target == 'android' and 'bin/apk/lib/arm64-v8a' or 'bin'
