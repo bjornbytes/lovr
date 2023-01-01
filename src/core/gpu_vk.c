@@ -2104,7 +2104,7 @@ bool gpu_init(gpu_config* config) {
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
       { "VK_KHR_swapchain", state.surface, NULL },
-      { "VK_KHR_portability_subset", state.supports.portability, NULL }
+      { "VK_KHR_portability_subset", true, &state.supports.portability }
     };
 
     VkExtensionProperties extensionInfo[256];
