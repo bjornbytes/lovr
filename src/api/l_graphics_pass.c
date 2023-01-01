@@ -746,6 +746,15 @@ static int l_lovrPassMonkey(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassTeapot(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float transform[16];
+  int index = luax_readmat4(L, 2, transform, 1);
+  uint32_t detail = luax_optu32(L, index, 5);
+  lovrPassTeapot(pass, transform, detail);
+  return 0;
+}
+
 static int l_lovrPassDraw(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
@@ -1102,6 +1111,7 @@ const luaL_Reg lovrPass[] = {
   { "skybox", l_lovrPassSkybox },
   { "fill", l_lovrPassFill },
   { "monkey", l_lovrPassMonkey },
+  { "teapot", l_lovrPassTeapot },
   { "draw", l_lovrPassDraw },
   { "mesh", l_lovrPassMesh },
 

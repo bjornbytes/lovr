@@ -12,6 +12,7 @@
 #include "core/os.h"
 #include "util.h"
 #include "monkey.h"
+#include "teapot.h"
 #include "shaders.h"
 #include <math.h>
 #include <limits.h>
@@ -275,7 +276,8 @@ enum {
   SHAPE_CONE,
   SHAPE_CAPSULE,
   SHAPE_TORUS,
-  SHAPE_MONKEY
+  SHAPE_MONKEY,
+  SHAPE_TEAPOT
 };
 
 typedef struct {
@@ -5096,6 +5098,80 @@ void lovrPassMonkey(Pass* pass, float* transform) {
   }
 
   memcpy(indices, monkey_indices, sizeof(monkey_indices));
+}
+
+static void evaluateCurve(float P[4][3], float t, float* p) {
+  float t1 = (1.f - t);
+  float a = t1 * t1 * t1;
+  float b = 3.f * t1 * t1 * t;
+  float c = 3.f * t1 * t * t;
+  float d = t * t * t;
+  p[0] = a * P[0][0] + b * P[1][0] + c * P[2][0] + d * P[3][0];
+  p[1] = a * P[0][1] + b * P[1][1] + c * P[2][1] + d * P[3][1];
+  p[2] = a * P[0][2] + b * P[1][2] + c * P[2][2] + d * P[3][2];
+}
+
+void lovrPassTeapot(Pass* pass, float* transform, uint32_t detail) {
+  uint32_t key[] = { SHAPE_TEAPOT, detail };
+  uint32_t segments = 1 << detail;
+  uint32_t vertexCount = COUNTOF(teapotPatches) * (segments + 1) * (segments + 1);
+  uint32_t indexCount = COUNTOF(teapotPatches) * 6 * segments * segments;
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  lovrPassDraw(pass, &(Draw) {
+    .hash = hash64(key, sizeof(key)),
+    .mode = MESH_TRIANGLES,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount,
+    .transform = transform
+  });
+
+  if (!vertices) {
+    return;
+  }
+
+  uint32_t base = 0;
+
+  float P[16][3];
+  for (uint32_t p = 0; p < COUNTOF(teapotPatches); p++) {
+    for (uint32_t i = 0; i < 16; i++) {
+      P[i][0] = teapotVertices[teapotPatches[p][i] - 1][0];
+      P[i][2] = teapotVertices[teapotPatches[p][i] - 1][1];
+      P[i][1] = teapotVertices[teapotPatches[p][i] - 1][2];
+    }
+
+    for (uint32_t j = 0; j <= segments; j++) {
+      for (uint32_t i = 0; i <= segments; i++) {
+        float u = i * (1.f / segments);
+        float v = j * (1.f / segments);
+
+        float curve[4][3];
+        evaluateCurve(P + 0, u, curve[0]);
+        evaluateCurve(P + 4, u, curve[1]);
+        evaluateCurve(P + 8, u, curve[2]);
+        evaluateCurve(P + 12, u, curve[3]);
+        evaluateCurve(curve, v, &vertices[0].position.x);
+        vertices++;
+      }
+    }
+
+    for (uint32_t j = 0; j < segments; j++) {
+      for (uint32_t i = 0; i < segments; i++) {
+        uint16_t a = base + (j * (segments + 1)) + i;
+        uint16_t b = a + 1;
+        uint16_t c = a + segments + 1;
+        uint16_t d = a + segments + 2;
+        uint16_t cell[] = { a, c, b, b, c, d };
+        memcpy(indices, cell, sizeof(cell));
+        indices += COUNTOF(cell);
+      }
+    }
+
+    base += (segments + 1) * (segments + 1);
+  }
 }
 
 static void renderNode(Pass* pass, Model* model, uint32_t index, bool recurse, uint32_t instances) {
