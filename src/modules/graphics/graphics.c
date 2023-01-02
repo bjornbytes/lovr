@@ -5100,15 +5100,26 @@ void lovrPassMonkey(Pass* pass, float* transform) {
   memcpy(indices, monkey_indices, sizeof(monkey_indices));
 }
 
-static void evaluateCurve(float P[4][3], float t, float* p) {
+static void evaluateCurve(float points[4][3], float t, float* p) {
   float t1 = (1.f - t);
   float a = t1 * t1 * t1;
   float b = 3.f * t1 * t1 * t;
   float c = 3.f * t1 * t * t;
   float d = t * t * t;
-  p[0] = a * P[0][0] + b * P[1][0] + c * P[2][0] + d * P[3][0];
-  p[1] = a * P[0][1] + b * P[1][1] + c * P[2][1] + d * P[3][1];
-  p[2] = a * P[0][2] + b * P[1][2] + c * P[2][2] + d * P[3][2];
+  p[0] = a * points[0][0] + b * points[1][0] + c * points[2][0] + d * points[3][0];
+  p[1] = a * points[0][1] + b * points[1][1] + c * points[2][1] + d * points[3][1];
+  p[2] = a * points[0][2] + b * points[1][2] + c * points[2][2] + d * points[3][2];
+}
+
+static void deriveCurve(float points[4][3], float t, float* p) {
+  float t1 = (1.f - t);
+  float a = -3.f * t1 * t1;
+  float b = 3.f * t1 * t1 - 6.f * t * t1;
+  float c = 6.f * t * t1 - 3.f * t * t;
+  float d = 3.f * t * t;
+  p[0] = a * points[0][0] + b * points[1][0] + c * points[2][0] + d * points[3][0];
+  p[1] = a * points[0][1] + b * points[1][1] + c * points[2][1] + d * points[3][1];
+  p[2] = a * points[0][2] + b * points[1][2] + c * points[2][2] + d * points[3][2];
 }
 
 void lovrPassTeapot(Pass* pass, float* transform, uint32_t detail) {
@@ -5154,6 +5165,25 @@ void lovrPassTeapot(Pass* pass, float* transform, uint32_t detail) {
         evaluateCurve(P + 8, u, curve[2]);
         evaluateCurve(P + 12, u, curve[3]);
         evaluateCurve(curve, v, &vertices[0].position.x);
+
+        float dv[4];
+        deriveCurve(curve, v, dv);
+
+        float q[4][3];
+        for (uint32_t z = 0; z < 4; z++) {
+          memcpy(q[0], P[0 + z], 3 * sizeof(float));
+          memcpy(q[1], P[4 + z], 3 * sizeof(float));
+          memcpy(q[2], P[8 + z], 3 * sizeof(float));
+          memcpy(q[3], P[12 + z], 3 * sizeof(float));
+          evaluateCurve(q, v, curve[z]);
+        }
+
+        float du[4];
+        deriveCurve(curve, u, du);
+
+        vec3_cross(du, dv);
+        vec3_normalize(du);
+        memcpy(&vertices[0].normal.x, du, 3 * sizeof(float));
         vertices++;
       }
     }
