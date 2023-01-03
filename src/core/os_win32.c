@@ -426,15 +426,3 @@ uintptr_t os_get_win32_instance(void) {
 uintptr_t os_get_win32_window(void) {
   return (uintptr_t) state.window;
 }
-
-#ifdef LOVR_VK
-#include <vulkan/vulkan.h>
-const char** os_vk_get_instance_extensions(uint32_t* count) {
-  static const char* extensions[] = { "VK_KHR_win32_surface" };
-  return *count = sizeof(extensions) / sizeof(extensions[0]), extensions;
-}
-
-uint32_t os_vk_create_surface(void* _instance, void** _surface) {
-  return -13;
-}
-#endif
