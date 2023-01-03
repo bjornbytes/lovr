@@ -188,6 +188,11 @@ static struct {
   uint32_t tick[2];
   gpu_tick ticks[4];
   gpu_morgue morgue;
+  struct {
+    bool validation;
+    bool portability;
+    bool debug;
+  } supports;
 } state;
 
 // Helpers
@@ -1842,79 +1847,72 @@ bool gpu_init(gpu_config* config) {
 #endif
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
-  { // Instance
-    struct {
-      bool validation;
-      bool portability;
-      bool debug;
-    } supports = { 0 };
-
+  {
     // Layers
 
-    struct { const char* name; bool shouldEnable; bool* isEnabled; } layers[] = {
-      { "VK_LAYER_KHRONOS_validation", config->debug, &supports.validation }
+    VkLayerProperties layerInfo[32];
+    uint32_t layerCount = COUNTOF(layerInfo);
+    VK(vkEnumerateInstanceLayerProperties(&layerCount, layerInfo), "Failed to enumerate instance layers") return gpu_destroy(), false;
+
+    struct { const char* name; bool shouldEnable; bool* flag; } layers[] = {
+      { "VK_LAYER_KHRONOS_validation", config->debug, &state.supports.validation }
     };
 
-    const char* enabledLayers[1];
     uint32_t enabledLayerCount = 0;
-
-    VkLayerProperties layerInfo[32];
-    uint32_t count = COUNTOF(layerInfo);
-    VK(vkEnumerateInstanceLayerProperties(&count, layerInfo), "Failed to enumerate instance layers") return gpu_destroy(), false;
-
+    const char* enabledLayers[COUNTOF(layers)];
     for (uint32_t i = 0; i < COUNTOF(layers); i++) {
       if (!layers[i].shouldEnable) continue;
-      if (hasLayer(layerInfo, count, layers[i].name)) {
+      if (hasLayer(layerInfo, layerCount, layers[i].name)) {
         CHECK(enabledLayerCount < COUNTOF(enabledLayers), "Too many layers") return gpu_destroy(), false;
-        if (layers[i].isEnabled) *layers[i].isEnabled = true;
+        if (layers[i].flag) *layers[i].flag = true;
         enabledLayers[enabledLayerCount++] = layers[i].name;
+      } else if (!layers[i].flag) {
+        vcheck(VK_ERROR_LAYER_NOT_PRESENT, layers[i].name);
+        return gpu_destroy(), false;
       }
     }
 
     // Extensions
 
-    struct { const char* name; bool shouldEnable; bool* isEnabled; } extensions[] = {
-      { "VK_KHR_portability_enumeration", true, &supports.portability },
-      { "VK_EXT_debug_utils", config->debug, &supports.debug }
+    VkExtensionProperties extensionInfo[64];
+    uint32_t extensionCount = COUNTOF(extensionInfo);
+    VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
+
+    struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
+      { "VK_KHR_portability_enumeration", true, &state.supports.portability },
+      { "VK_EXT_debug_utils", config->debug, &state.supports.debug },
+      { 0 }, // extra extensions for GLFW
+      { 0 }
     };
 
-    const char* enabledExtensions[32];
     uint32_t enabledExtensionCount = 0;
-
-    if (state.config.vk.getInstanceExtensions) {
-      const char** instanceExtensions = state.config.vk.getInstanceExtensions(&enabledExtensionCount);
-      CHECK(enabledExtensionCount < COUNTOF(enabledExtensions), "Too many instance extensions") return gpu_destroy(), false;
-      for (uint32_t i = 0; i < enabledExtensionCount; i++) {
-        enabledExtensions[i] = instanceExtensions[i];
-      }
-    }
-
-    VkExtensionProperties extensionInfo[256];
-    count = COUNTOF(extensionInfo);
-    VK(vkEnumerateInstanceExtensionProperties(NULL, &count, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
-
+    const char* enabledExtensions[COUNTOF(extensions)];
     for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
       if (!extensions[i].shouldEnable) continue;
-      if (hasExtension(extensionInfo, count, extensions[i].name)) {
+      if (hasExtension(extensionInfo, extensionCount, extensions[i].name)) {
         CHECK(enabledExtensionCount < COUNTOF(enabledExtensions), "Too many instance extensions") return gpu_destroy(), false;
-        if (extensions[i].isEnabled) *extensions[i].isEnabled = true;
+        if (extensions[i].flag) *extensions[i].flag = true;
         enabledExtensions[enabledExtensionCount++] = extensions[i].name;
+      } else if (!extensions[i].flag) {
+        vcheck(VK_ERROR_EXTENSION_NOT_PRESENT, extensions[i].name);
       }
     }
 
-    if (state.config.debug && !supports.validation && state.config.callback) {
-      state.config.callback(state.config.userdata, "Warning: GPU debug mode is enabled, but validation layer is not supported", false);
+    // Extra extensions (from GLFW)
+    if (state.config.vk.getInstanceExtensions) {
+      uint32_t extraExtensionCount = 0;
+      const char** extraExtensions = state.config.vk.getInstanceExtensions(&extraExtensionCount);
+      CHECK(enabledExtensionCount + extraExtensionCount <= COUNTOF(enabledExtensions), "Too many instance extensions") return gpu_destroy(), false;
+      for (uint32_t i = 0; i < extraExtensionCount; i++) {
+        enabledExtensions[enabledExtensionCount++] = extraExtensions[i];
+      }
     }
 
-    if (state.config.debug && !supports.debug) {
-      state.config.debug = false;
-    }
+    // Instance
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-#ifdef VK_KHR_portability_enumeration
-      .flags = supports.portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0,
-#endif
+      .flags = state.supports.portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0,
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
@@ -1935,15 +1933,23 @@ bool gpu_init(gpu_config* config) {
 
     GPU_FOREACH_INSTANCE(GPU_LOAD_INSTANCE);
 
-    if (state.config.debug) {
-      VkDebugUtilsMessengerCreateInfoEXT messengerInfo = {
-        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-        .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
-        .pfnUserCallback = relay
-      };
+    if (state.config.debug && state.config.callback) {
+      if (state.supports.debug) {
+        VkDebugUtilsMessengerCreateInfoEXT messengerInfo = {
+          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+          .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+          .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
+          .pfnUserCallback = relay
+        };
 
-      VK(vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger), "Debug hook setup failed") return gpu_destroy(), false;
+        VK(vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger), "Debug hook setup failed") return gpu_destroy(), false;
+
+        if (!state.supports.validation) {
+          state.config.callback(state.config.userdata, "Warning: GPU debugging is enabled, but validation layer is not installed", false);
+        }
+      } else {
+        state.config.callback(state.config.userdata, "Warning: GPU debugging is enabled, but debug extension is not supported", false);
+      }
     }
   }
 
@@ -2096,32 +2102,27 @@ bool gpu_init(gpu_config* config) {
     }
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
 
-    struct {
-      bool swapchain;
-    } supports = { 0 };
-
-    struct { const char* name; bool shouldEnable; bool* isEnabled; } extensions[] = {
-      { "VK_KHR_swapchain", state.surface, &supports.swapchain },
-      { "VK_KHR_portability_subset", true, NULL }
+    struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
+      { "VK_KHR_swapchain", state.surface, NULL },
+      { "VK_KHR_portability_subset", true, &state.supports.portability }
     };
 
-    const char* enabledExtensions[4];
-    uint32_t enabledExtensionCount = 0;
-
     VkExtensionProperties extensionInfo[256];
-    uint32_t count = COUNTOF(extensionInfo);
-    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &count, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
+    uint32_t extensionCount = COUNTOF(extensionInfo);
+    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
 
+    uint32_t enabledExtensionCount = 0;
+    const char* enabledExtensions[COUNTOF(extensions)];
     for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
       if (!extensions[i].shouldEnable) continue;
-      if (hasExtension(extensionInfo, count, extensions[i].name)) {
+      if (hasExtension(extensionInfo, extensionCount, extensions[i].name)) {
         CHECK(enabledExtensionCount < COUNTOF(enabledExtensions), "Too many device extensions") return gpu_destroy(), false;
-        if (extensions[i].isEnabled) *extensions[i].isEnabled = true;
+        if (extensions[i].flag) *extensions[i].flag = true;
         enabledExtensions[enabledExtensionCount++] = extensions[i].name;
+      } else if (!extensions[i].flag) {
+        vcheck(VK_ERROR_EXTENSION_NOT_PRESENT, extensions[i].name);
       }
     }
-
-    CHECK(supports.swapchain || !state.surface, "Swapchain extension not supported") return gpu_destroy(), false;
 
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -2142,6 +2143,7 @@ bool gpu_init(gpu_config* config) {
     } else {
       VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") return gpu_destroy(), false;
     }
+
     vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
   }
@@ -3046,14 +3048,12 @@ static VkAccessFlags convertCache(gpu_cache cache) {
 }
 
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata) {
-  if (state.config.callback) {
-    state.config.callback(state.config.userdata, data->pMessage, false);
-  }
+  state.config.callback(state.config.userdata, data->pMessage, false);
   return VK_FALSE;
 }
 
 static void nickname(void* handle, VkObjectType type, const char* name) {
-  if (name && state.config.debug) {
+  if (name && state.supports.debug) {
     union { uint64_t u64; void* p; } pointer = { .p = handle };
 
     VkDebugUtilsObjectNameInfoEXT info = {

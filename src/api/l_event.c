@@ -45,7 +45,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       const char* string = lua_tolstring(L, index, &length);
       if (length <= sizeof(variant->value.ministring.data)) {
         variant->type = TYPE_MINISTRING;
-        variant->value.ministring.length = length;
+        variant->value.ministring.length = (uint8_t) length;
         memcpy(variant->value.ministring.data, string, length);
       } else {
         variant->type = TYPE_STRING;

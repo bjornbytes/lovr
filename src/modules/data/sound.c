@@ -138,7 +138,7 @@ static bool loadOgg(Sound* sound, Blob* blob, bool decode) {
     void* data = calloc(1, size);
     lovrAssert(data, "Out of memory");
     sound->blob = lovrBlobCreate(data, size, "Sound");
-    if (stb_vorbis_get_samples_float_interleaved(sound->decoder, channels, data, size / sizeof(float)) < (int) sound->frames) {
+    if (stb_vorbis_get_samples_float_interleaved(sound->decoder, channels, data, (int) size / sizeof(float)) < (int) sound->frames) {
       lovrThrow("Could not decode vorbis from '%s'", blob->name);
     }
     stb_vorbis_close(sound->decoder);

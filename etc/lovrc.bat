@@ -1,0 +1,1 @@
+lovr --console %*

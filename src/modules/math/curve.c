@@ -17,19 +17,19 @@ static void evaluate(float* restrict P, size_t n, float t, vec3 p) {
     p[2] = P[2] + (P[6] - P[2]) * t;
     p[3] = P[3] + (P[7] - P[3]) * t;
   } else if (n == 3) {
-    float t1 = (1 - t);
+    float t1 = (1.f - t);
     float a = t1 * t1;
-    float b = 2 * t1 * t;
+    float b = 2.f * t1 * t;
     float c = t * t;
     p[0] = a * P[0] + b * P[4] + c * P[8];
     p[1] = a * P[1] + b * P[5] + c * P[9];
     p[2] = a * P[2] + b * P[6] + c * P[10];
     p[3] = a * P[3] + b * P[7] + c * P[11];
   } else if (n == 4) {
-    float t1 = (1 - t);
+    float t1 = (1.f - t);
     float a = t1 * t1 * t1;
-    float b = 3 * t1 * t1 * t;
-    float c = 3 * t1 * t * t;
+    float b = 3.f * t1 * t1 * t;
+    float c = 3.f * t1 * t * t;
     float d = t * t * t;
     p[0] = a * P[0] + b * P[4] + c * P[8] + d * P[12];
     p[1] = a * P[1] + b * P[5] + c * P[9] + d * P[13];
@@ -39,7 +39,7 @@ static void evaluate(float* restrict P, size_t n, float t, vec3 p) {
     float b = 1.f;
     p[0] = p[1] = p[2] = p[3] = 0.f;
     for (size_t i = 0; i < n; i++, b *= (float) (n - i) / i) {
-      float c1 = powf(1 - t, n - (i + 1));
+      float c1 = powf(1.f - t, n - (i + 1));
       float c2 = powf(t, i);
       p[0] += b * c1 * c2 * P[i * 4 + 0];
       p[1] += b * c1 * c2 * P[i * 4 + 1];
