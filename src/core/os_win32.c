@@ -386,22 +386,10 @@ size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   return os_get_executable_path(buffer, size);
 }
 
-HINSTANCE os_get_win32_instance() {
-  return state.instance;
+uintptr_t os_get_win32_instance() {
+  return (uintptr_t) state.instance;
 }
 
-HWND os_get_win32_window() {
-  return state.window;
+uintptr_t os_get_win32_window() {
+  return (uintptr_t) state.window;
 }
-
-#ifdef LOVR_VK
-#include <vulkan/vulkan.h>
-const char** os_vk_get_instance_extensions(uint32_t* count) {
-  static const char* extensions[] = { "VK_KHR_win32_surface" };
-  return *count = sizeof(extensions) / sizeof(extensions[0]), extensions;
-}
-
-uint32_t os_vk_create_surface(void* _instance, void** _surface) {
-  return -13;
-}
-#endif

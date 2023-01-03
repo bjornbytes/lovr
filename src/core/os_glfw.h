@@ -437,12 +437,6 @@ bool os_is_key_down(os_key key) {
   return glfwState.window ? glfwGetKey(glfwState.window, convertKey(key)) == GLFW_PRESS : false;
 }
 
-#ifdef _WIN32
-HANDLE os_get_win32_window(void) {
-  return (HANDLE) glfwGetWin32Window(glfwState.window);
-}
-#endif
-
 #ifdef LOVR_VK
 const char** os_vk_get_instance_extensions(uint32_t* count) {
   return glfwGetRequiredInstanceExtensions(count);

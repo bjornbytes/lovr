@@ -1,13 +1,14 @@
 #include "gpu.h"
 #include <string.h>
-#define VK_NO_PROTOTYPES
-#include <vulkan/vulkan.h>
 #ifdef _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
 
 // Objects
 
@@ -1807,6 +1808,10 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
       { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
       { "VK_EXT_swapchain_colorspace", config->vk.surface, &state.extensions.colorspace },
+#ifdef _WIN32
+      { "VK_KHR_surface", state.config.vk.surface, NULL },
+      { "VK_KHR_win32_surface", state.config.vk.surface, NULL },
+#endif
       { 0 }, // extra extensions for GLFW
       { 0 }
     };
@@ -1880,8 +1885,21 @@ bool gpu_init(gpu_config* config) {
   }
 
   // Surface
-  if (state.config.vk.surface && state.config.vk.createSurface) {
-    VK(state.config.vk.createSurface(state.instance, (void**) &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
+  if (state.config.vk.surface) {
+    if (state.config.vk.createSurface) {
+      VK(state.config.vk.createSurface(state.instance, (void**) &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
+    } else {
+#ifdef _WIN32
+      VkWin32SurfaceCreateInfoKHR surfaceInfo = {
+        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+        .hinstance = (HINSTANCE) state.config.vk.win32.instance,
+        .hwnd = (HWND) state.config.vk.win32.window
+      };
+      GPU_DECLARE(vkCreateWin32SurfaceKHR);
+      GPU_LOAD_INSTANCE(vkCreateWin32SurfaceKHR);
+      VK(vkCreateWin32SurfaceKHR(state.instance, &surfaceInfo, NULL, &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
+#endif
+    }
   }
 
   { // Device
