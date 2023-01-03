@@ -360,11 +360,15 @@ void os_get_mouse_position(double* x, double* y) {
 
 void os_set_mouse_mode(os_mouse_mode mode) {
   if (mode == MOUSE_MODE_NORMAL) {
-    // SetCursor(LoadCursorW(NULL, IDC_ARROW));
-    // ClipCursor(NULL);
+    SetCursor(LoadCursorW(NULL, IDC_ARROW));
+    ClipCursor(NULL);
   } else {
-    // SetCursor(NULL);
-    // ClipCursor(...);
+    RECT clip;
+    GetClientRect(state.window, &clip);
+    ClientToScreen(state.window, (POINT*) &clip.left);
+    ClientToScreen(state.window, (POINT*) &clip.right);
+    SetCursor(NULL);
+    ClipCursor(&clip);
   }
 }
 
