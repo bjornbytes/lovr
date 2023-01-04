@@ -26,10 +26,11 @@ static int l_lovrBlobGetString(lua_State* L) {
   uint32_t offset = luax_optu32(L, 2, 0);
   lovrCheck(offset < blob->size, "Blob byte offset must be less than the size of the Blob");
 
-  uint32_t length = luax_optu32(L, 3, blob->size - offset);
-  lovrCheck(length <= blob->size - offset, "Blob:getString range overflows the length of the Blob");
+  lua_Integer length = luaL_optinteger(L, 3, blob->size - offset);
+  lovrCheck(length >= 0, "Length can not be negative");
+  lovrCheck((size_t) length <= blob->size - offset, "Blob:getString range overflows the length of the Blob");
 
-  lua_pushlstring(L, (char*) blob->data + offset, length);
+  lua_pushlstring(L, (char*) blob->data + offset, (size_t) length);
   return 1;
 }
 

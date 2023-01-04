@@ -386,7 +386,7 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
     ModelAttribute* attribute = mesh->attributes[i];
     if (!attribute) continue;
 
-    uint32_t stride = model->buffers[attribute->buffer].stride;
+    size_t stride = model->buffers[attribute->buffer].stride;
 
     if (!stride) {
       switch (attribute->type) {
@@ -697,9 +697,9 @@ static int l_lovrModelDataGetAnimationKeyframe(lua_State* L) {
   uint32_t keyframe = luax_checku32(L, 4) - 1;
   lovrCheck(keyframe < channel->keyframeCount, "Invalid keyframe index '%d'", keyframe + 1);
   lua_pushnumber(L, channel->times[keyframe]);
-  size_t counts[] = { [PROP_TRANSLATION] = 3, [PROP_ROTATION] = 4, [PROP_SCALE] = 3 };
-  size_t count = counts[channel->property];
-  for (uint32_t i = 0; i < count; i++) {
+  int counts[] = { [PROP_TRANSLATION] = 3, [PROP_ROTATION] = 4, [PROP_SCALE] = 3 };
+  int count = counts[channel->property];
+  for (int i = 0; i < count; i++) {
     lua_pushnumber(L, channel->data[keyframe * count + i]);
   }
   return count + 1;

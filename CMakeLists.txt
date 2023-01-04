@@ -59,6 +59,8 @@ if(EMSCRIPTEN)
   set(LOVR_USE_OPENXR OFF)
   set(LOVR_USE_WEBGPU ON)
   set(LOVR_USE_VULKAN OFF)
+elseif(MSVC)
+  add_compile_options(/MP)
 elseif(ANDROID)
   set(ANDROID_FLAVOR "oculus" CACHE STRING "Which Android flavor to build (oculus, pico or generic)")
   find_package(Java REQUIRED)
@@ -111,6 +113,11 @@ if(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
   else()
     add_subdirectory(deps/luajit luajit)
     set_target_properties(luajit PROPERTIES EXCLUDE_FROM_ALL 1)
+    if(MSVC)
+      target_compile_definitions(libluajit PRIVATE _CRT_SECURE_NO_WARNINGS)
+      target_compile_definitions(minilua PRIVATE _CRT_SECURE_NO_WARNINGS)
+      target_compile_definitions(buildvm PRIVATE _CRT_SECURE_NO_WARNINGS)
+    endif()
     include_directories(deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
     set(LOVR_LUA libluajit)
   endif()
@@ -627,18 +634,28 @@ foreach(path ${LOVR_RESOURCES})
 endforeach()
 
 # Add a custom target that is always out of date so libraries are always moved
-add_custom_target(move_libraries ALL)
+add_custom_target(move_files ALL)
+
+# Moves something from etc to the build directory
+function(move_resource)
+  set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/etc/${ARGV0}")
+  add_custom_command(TARGET lovr POST_BUILD
+    DEPENDS ${SRC}
+    COMMAND ${CMAKE_COMMAND} -E copy ${SRC} $<TARGET_FILE_DIR:lovr>/${ARGV0}
+  )
+endfunction()
 
 # Platforms
 if(WIN32)
   target_sources(lovr PRIVATE src/core/os_win32.c)
   target_sources(lovr PRIVATE etc/lovr.rc)
   if (MSVC)
-    set_target_properties(lovr PROPERTIES COMPILE_FLAGS "/wd4244 /MP")
+    set_target_properties(lovr PROPERTIES COMPILE_FLAGS /wd4244)
     # Excuse anonymous union for type punning
     set_source_files_properties(src/util.c src/modules/graphics/graphics.c PROPERTIES COMPILE_FLAGS /wd4116)
     # Excuse unsigned negation for flag-magic bit math
     set_source_files_properties(src/modules/audio/audio.c PROPERTIES COMPILE_FLAGS /wd4146)
+    set_source_files_properties(src/lib/minimp3/minimp3.c PROPERTIES COMPILE_FLAGS /wd4267)
   else()
     set_target_properties(lovr PROPERTIES COMPILE_FLAGS "-MP")
   endif()
@@ -655,7 +672,7 @@ if(WIN32)
 
   function(move_dll)
     if(TARGET ${ARGV0})
-      add_custom_command(TARGET move_libraries POST_BUILD
+      add_custom_command(TARGET move_files POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:${ARGV0}>
         $<TARGET_FILE_DIR:lovr>/$<TARGET_FILE_NAME:${ARGV0}>
@@ -673,6 +690,7 @@ if(WIN32)
   foreach(target ${ALL_PLUGIN_TARGETS})
     move_dll(${target})
   endforeach()
+  move_resource("lovrc.bat")
 elseif(APPLE)
   find_library(AVFOUNDATION AVFoundation)
   target_link_libraries(lovr objc ${AVFOUNDATION})
@@ -699,13 +717,13 @@ elseif(APPLE)
     if(TARGET ${ARGV0})
       get_target_property(TARGET_TYPE ${ARGV0} TYPE)
       if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
-        add_custom_command(TARGET move_libraries POST_BUILD
+        add_custom_command(TARGET move_files POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${ARGV0}>
           ${EXE_DIR}/$<TARGET_FILE_NAME:${ARGV0}>
         )
       else()
-        add_custom_command(TARGET move_libraries POST_BUILD
+        add_custom_command(TARGET move_files POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
           ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
@@ -811,13 +829,13 @@ elseif(ANDROID)
 
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
-      add_custom_command(TARGET move_libraries POST_BUILD
+      add_custom_command(TARGET move_files POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${target}>
           raw/lib/${ANDROID_ABI}/$<TARGET_FILE_NAME:${target}>
       )
     endforeach()
-    add_dependencies(buildAPK move_libraries)
+    add_dependencies(buildAPK move_files)
   endif()
 elseif(UNIX)
   target_sources(lovr PRIVATE src/core/os_linux.c)
@@ -830,27 +848,19 @@ elseif(UNIX)
     if(TARGET ${ARGV0})
       get_target_property(TARGET_TYPE ${ARGV0} TYPE)
       if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
-        add_custom_command(TARGET move_libraries POST_BUILD
+        add_custom_command(TARGET move_files POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:${ARGV0}>
         )
       elseif(${TARGET_TYPE} STREQUAL "SHARED_LIBRARY")
-        add_custom_command(TARGET move_libraries POST_BUILD
+        add_custom_command(TARGET move_files POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
           ${CMAKE_BINARY_DIR}/bin/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
         )
       endif()
     endif()
-  endfunction()
-  function(move_app_image_file)
-    set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/etc/${ARGV0}")
-    set(DST "${CMAKE_BINARY_DIR}/bin/${ARGV0}")
-    add_custom_command(TARGET lovr POST_BUILD
-       DEPENDS ${SRC}
-       COMMAND ${CMAKE_COMMAND} -E copy ${SRC} ${DST}
-    )
   endfunction()
   move_lib(${LOVR_GLFW})
   move_lib(${LOVR_LUA})
@@ -862,8 +872,8 @@ elseif(UNIX)
     move_lib(${target})
   endforeach()
   if(LOVR_BUILD_BUNDLE)
-    move_app_image_file("lovr.desktop")
-    move_app_image_file("AppRun")
-    move_app_image_file("logo.svg")
+    move_resource("lovr.desktop")
+    move_resource("AppRun")
+    move_resource("logo.svg")
   endif()
 endif()

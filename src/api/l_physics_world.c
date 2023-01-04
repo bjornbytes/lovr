@@ -150,6 +150,19 @@ static int l_lovrWorldGetColliders(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldGetTags(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lua_newtable(L);
+  for (uint32_t i = 0; i < MAX_TAGS; i++) {
+    const char* tag = lovrWorldGetTagName(world, i);
+    if (tag == NULL)
+      break;
+    lua_pushstring(L, tag);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
 static int l_lovrWorldDestroy(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   lovrWorldDestroyData(world);
@@ -371,6 +384,7 @@ const luaL_Reg lovrWorld[] = {
   { "newMeshCollider", l_lovrWorldNewMeshCollider },
   { "newTerrainCollider", l_lovrWorldNewTerrainCollider },
   { "getColliders", l_lovrWorldGetColliders },
+  { "getTags", l_lovrWorldGetTags },
   { "destroy", l_lovrWorldDestroy },
   { "update", l_lovrWorldUpdate },
   { "computeOverlaps", l_lovrWorldComputeOverlaps },

@@ -1519,7 +1519,6 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
 
   int options = 0;
   options |= GLSLANG_SHADER_AUTO_MAP_BINDINGS;
-  options |= GLSLANG_SHADER_AUTO_MAP_LOCATIONS;
 
   glslang_shader_set_options(shader, options);
 
@@ -1713,6 +1712,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   shader->flagLookup = malloc(maxFlags * sizeof(uint32_t));
   lovrAssert(shader->constants && shader->resources && shader->attributes, "Out of memory");
   lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
+
+  lovrCheck(shader->constantSize <= state.limits.pushConstantSize, "Shader push constants block is too big");
 
   // Push constants
   for (uint32_t i = 0; i < spv[constantStage].pushConstantCount; i++) {
@@ -4934,6 +4935,10 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
     .index.pointer = (void**) &indices,
     .index.count = indexCount
   });
+
+  if (!vertices) {
+    return;
+  }
 
   // T and P stand for toroidal and poloidal, or theta and phi
   float dt = (2.f * (float) M_PI) / segmentsT;

@@ -8,7 +8,8 @@ You can use LÖVR to easily create VR experiences without much setup or programm
 
 [![Build](https://github.com/bjornbytes/lovr/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/bjornbytes/lovr/actions/workflows/build.yml)
 [![Version](https://img.shields.io/github/release/bjornbytes/lovr.svg?label=version)](https://github.com/bjornbytes/lovr/releases)
-[![Matrix](https://img.shields.io/badge/chat-matrix-7e4e76.svg)](https://lovr.org/matrix)
+[![Matrix](https://img.shields.io/badge/chat-matrix-0ba378.svg)](https://lovr.org/matrix)
+[![Discord](https://img.shields.io/badge/chat-discord-404eed.svg)](https://lovr.org/discord)
 
 [**Homepage**](https://lovr.org) | [**Documentation**](https://lovr.org/docs) | [**FAQ**](https://lovr.org/docs/FAQ)
 
@@ -96,8 +97,7 @@ Resources
 
 - [**Documentation**](https://lovr.org/docs): Guides, tutorials, examples, and API documentation.
 - [**FAQ**](https://lovr.org/docs/FAQ): Frequently Asked Questions.
-- [**Slack Group**](https://lovr.org/slack): For general LÖVR discussion and support.
-- [**Matrix Room**](https://matrix.to/#/!XVAslexgYDYQnYnZBP:matrix.org): Decentralized alternative to Slack.
+- [**Matrix**](https://lovr.org/matrix): The LÖVR community for discussion and support.
 - [**Nightly Builds**](https://lovr.org/download/nightly): Nightly builds for Windows.
 - [**Compiling Guide**](https://lovr.org/docs/Compiling): Information on compiling LÖVR from source.
 - [**Contributing**](https://lovr.org/docs/Contributing): Guide for helping out with development 💜
