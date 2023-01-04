@@ -3,10 +3,24 @@ package org.lovr.app;
 import android.Manifest;
 import android.app.NativeActivity;
 import android.content.pm.PackageManager;
+import android.util.Log;
+import android.os.Build;
 
 public class Activity extends NativeActivity {
   static {
-    System.loadLibrary("openxr_loader");
+    if (Build.MANUFACTURER.contains("Oculus")) {
+      Log.d("LOVR", "Using Oculus OpenXR Loader");
+      System.loadLibrary("openxr_loader_oculus");
+    }
+    else if (Build.MANUFACTURER.contains("Pico"))
+    {
+      Log.d("LOVR", "Using Pico OpenXR Loader");
+      System.loadLibrary("openxr_loader_pico");
+    }
+    else {
+      Log.d("LOVR", "Using Generic OpenXR Loader");
+      System.loadLibrary("openxr_loader_generic");
+    }
     System.loadLibrary("lovr");
   }
 
