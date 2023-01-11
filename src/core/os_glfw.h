@@ -20,8 +20,8 @@ void os_window_get_size(uint32_t* width, uint32_t* height) {
   *width = *height = 0;
 }
 
-void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
-  *width = *height = 0;
+float os_window_get_pixel_density(void) {
+  return 0.f;
 }
 
 void os_on_quit(fn_quit* callback) {
@@ -324,7 +324,7 @@ bool os_window_is_open() {
 void os_window_get_size(uint32_t* width, uint32_t* height) {
   if (glfwState.window) {
     int w, h;
-    glfwGetWindowSize(glfwState.window, &w, &h);
+    glfwGetFramebufferSize(glfwState.window, &w, &h);
     *width = w;
     *height = h;
   } else {
@@ -333,16 +333,15 @@ void os_window_get_size(uint32_t* width, uint32_t* height) {
   }
 }
 
-void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
-  if (glfwState.window) {
-    int w, h;
-    glfwGetFramebufferSize(glfwState.window, &w, &h);
-    *width = w;
-    *height = h;
-  } else {
-    *width = 0;
-    *height = 0;
+float os_window_get_pixel_density(void) {
+  if (!glfwState.window) {
+    return 0.f;
   }
+
+  int w, h, fw, fh;
+  glfwGetWindowSize(glfwState.window, &w, &h);
+  glfwGetFramebufferSize(glfwState.window, &fw, &fh);
+  return (w == 0 || fw == 0) ? 0.f : (float) fw / w;
 }
 
 void os_on_quit(fn_quit* callback) {

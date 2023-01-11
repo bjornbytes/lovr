@@ -649,7 +649,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
       .srgb = true
     };
 
-    os_window_get_fbsize(&state.window->info.width, &state.window->info.height);
+    os_window_get_size(&state.window->info.width, &state.window->info.height);
 
     state.depthFormat = config->stencil ? FORMAT_D32FS8 : FORMAT_D32F;
 

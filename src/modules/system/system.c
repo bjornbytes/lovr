@@ -86,12 +86,9 @@ bool lovrSystemIsWindowOpen() {
 }
 
 void lovrSystemGetWindowSize(uint32_t* width, uint32_t* height) {
-  os_window_get_fbsize(width, height);
+  os_window_get_size(width, height);
 }
 
 float lovrSystemGetWindowDensity() {
-  uint32_t width, height, fbwidth, fbheight;
-  os_window_get_size(&width, &height);
-  os_window_get_fbsize(&fbwidth, &fbheight);
-  return (width == 0 || fbwidth == 0) ? 0.f : (float) fbwidth / width;
+  return os_window_get_pixel_density();
 }

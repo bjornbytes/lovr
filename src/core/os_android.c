@@ -336,13 +336,11 @@ bool os_window_is_open() {
 }
 
 void os_window_get_size(uint32_t* width, uint32_t* height) {
-  if (width) *width = 0;
-  if (height) *height = 0;
+  *width = *height = 0;
 }
 
-void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
-  *width = 0;
-  *height = 0;
+float os_window_get_pixel_density(void) {
+  return 0.f;
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
