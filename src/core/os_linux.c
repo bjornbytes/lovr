@@ -279,7 +279,6 @@ void os_on_permission(fn_permission* callback) {
   //
 }
 
-// TODO !resizable WM_HINT
 bool os_window_open(const os_window_config* config) {
   state.connection = xcb_connect(NULL, NULL);
 
@@ -371,6 +370,29 @@ bool os_window_open(const os_window_config* config) {
   // Title
   xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, state.window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
   xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, state.window, XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, strlen(config->title), config->title);
+
+  // Resizable
+  if (!config->resizable) {
+    struct {
+      long flags;
+      int x, y, width, height;
+      int min_width, min_height, max_width, max_height;
+      int width_inc, height_inc;
+      int min_aspect_num, min_aspect_den, max_aspect_num, max_aspect_den;
+      int base_width, base_height;
+      int gravity;
+    } hints = {
+      .flags = (1 << 3) | (1 << 4) | (1 << 5), // Size | MinSize | MaxSize
+      .width = w,
+      .height = h,
+      .min_width = w,
+      .min_height = h,
+      .max_width = w,
+      .max_height = h
+    };
+
+    xcb_change_property(state.connection, XCB_PROP_MODE_REPLACE, state.window, XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_SIZE_HINTS, 32, sizeof(hints) / 4, &hints);
+  }
 
   // Show window and flush messages
   xcb_map_window(state.connection, state.window);
