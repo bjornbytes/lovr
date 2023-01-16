@@ -651,8 +651,13 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   if (os_window_is_open()) {
     os_on_resize(onResize);
+#if defined(__linux__)
+    gpu.vk.xcb.connection = os_get_xcb_connection();
+    gpu.vk.xcb.window = os_get_xcb_window();
+#else
     gpu.vk.getInstanceExtensions = os_vk_get_instance_extensions;
     gpu.vk.createSurface = os_vk_create_surface;
+#endif
     gpu.vk.surface = true;
     gpu.vk.vsync = config->vsync;
   }

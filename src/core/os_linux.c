@@ -538,18 +538,10 @@ static os_key convertKey(uint8_t keycode) {
   }
 }
 
-void* os_xcb_get_connection(void) {
-  return state.connection;
+uintptr_t os_get_xcb_connection(void) {
+  return (uintptr_t) state.connection;
 }
 
-uintptr_t os_xcb_get_window(void) {
-  return state.window;
-}
-
-const char** os_vk_get_instance_extensions(uint32_t* count) {
-  return *count = 0, NULL;
-}
-
-uint32_t os_vk_create_surface(void* instance, void** surface) {
-  return -13;
+uintptr_t os_get_xcb_window(void) {
+  return (uintptr_t) state.window;
 }

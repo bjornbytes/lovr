@@ -676,6 +676,12 @@ typedef struct {
     uint32_t (*createSurface)(void* instance, void** surface);
     void* cacheData;
     size_t cacheSize;
+    union {
+      struct {
+        uintptr_t connection;
+        uintptr_t window;
+      } xcb;
+    };
     bool surface;
     int vsync;
   } vk;

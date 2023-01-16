@@ -1,13 +1,18 @@
 #include "gpu.h"
 #include <string.h>
-#define VK_NO_PROTOTYPES
-#include <vulkan/vulkan.h>
-#ifdef _WIN32
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#else
+#elif defined(__ANDROID__)
+#include <dlfcn.h>
+#elif defined(__linux__)
+#define VK_USE_PLATFORM_XCB_KHR
+#include <dlfcn.h>
+#elif defined(__APPLE__)
 #include <dlfcn.h>
 #endif
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
 
 // Objects
 
@@ -1807,6 +1812,10 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
       { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
       { "VK_EXT_swapchain_colorspace", config->vk.surface, &state.extensions.colorspace },
+#if defined(__linux__)
+      { "VK_KHR_surface", state.config.vk.surface, NULL },
+      { "VK_KHR_xcb_surface", state.config.vk.surface, NULL },
+#endif
       { 0 }, // extra extensions for GLFW
       { 0 }
     };
@@ -1880,8 +1889,21 @@ bool gpu_init(gpu_config* config) {
   }
 
   // Surface
-  if (state.config.vk.surface && state.config.vk.createSurface) {
-    VK(state.config.vk.createSurface(state.instance, (void**) &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
+  if (state.config.vk.surface) {
+    if (state.config.vk.createSurface) {
+      VK(state.config.vk.createSurface(state.instance, (void**) &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
+    } else {
+#ifdef __linux__
+      VkXcbSurfaceCreateInfoKHR surfaceInfo = {
+        .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+        .connection = (xcb_connection_t*) state.config.vk.xcb.connection,
+        .window = (xcb_window_t) state.config.vk.xcb.window
+      };
+      GPU_DECLARE(vkCreateXcbSurfaceKHR);
+      GPU_LOAD_INSTANCE(vkCreateXcbSurfaceKHR);
+      VK(vkCreateXcbSurfaceKHR(state.instance, &surfaceInfo, NULL, &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
+#endif
+    }
   }
 
   { // Device
