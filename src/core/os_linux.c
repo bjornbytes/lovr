@@ -32,6 +32,9 @@ static struct {
   fn_resize* onResize;
   fn_key* onKey;
   fn_text* onText;
+  fn_mouse_button* onMouseButton;
+  fn_mouse_move* onMouseMove;
+  fn_mousewheel_move* onWheelMove;
   uint32_t width;
   uint32_t height;
   bool keyDown[OS_KEY_COUNT];
@@ -86,6 +89,14 @@ void os_request_permission(os_permission permission) {
   //
 }
 
+const char* os_get_clipboard_text(void) {
+  return NULL; // TODO
+}
+
+void os_set_clipboard_text(const char* text) {
+  // TODO
+}
+
 void* os_vm_init(size_t size) {
   return mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
@@ -110,7 +121,7 @@ void os_thread_detach(void) {
   //
 }
 
-void os_poll_events() {
+void os_poll_events(void) {
   if (!state.connection) return;
 
   union {
@@ -174,17 +185,37 @@ void os_poll_events() {
       }
 
       case XCB_BUTTON_PRESS:
-      case XCB_BUTTON_RELEASE:
+      case XCB_BUTTON_RELEASE: {
+        int button = -1;
+        bool pressed = type == XCB_BUTTON_PRESS;
+
         switch (event.mouse->detail) {
-          case 1: state.mouseDown[MOUSE_LEFT] = type == XCB_BUTTON_PRESS; break;
-          case 3: state.mouseDown[MOUSE_RIGHT] = type == XCB_BUTTON_PRESS; break;
-          default: break;
+          case 1: button = 0; break;
+          case 2: button = 2; break;
+          case 3: button = 1; break;
+          case 4: if (state.onWheelMove) state.onWheelMove(0., +1.); break;
+          case 5: if (state.onWheelMove) state.onWheelMove(0., -1.); break;
+          case 6: if (state.onWheelMove) state.onWheelMove(-1., 0.); break;
+          case 7: if (state.onWheelMove) state.onWheelMove(+1., 0.); break;
+          default: button = event.mouse->detail - 5; break;
+        }
+
+        if (button == 0 || button == 1) {
+          state.mouseDown[button == 0 ? MOUSE_LEFT : MOUSE_RIGHT] = pressed;
+        }
+
+        if (state.onMouseButton && button != -1) {
+          state.onMouseButton(button, pressed);
         }
         break;
+      }
 
       case XCB_MOTION_NOTIFY:
         state.mouseX = event.motion->event_x;
         state.mouseY = event.motion->event_y;
+        if (state.onMouseMove) {
+          state.onMouseMove(state.mouseX, state.mouseY);
+        }
         break;
 
       case XCB_FOCUS_IN:
@@ -230,6 +261,18 @@ void os_on_key(fn_key* callback) {
 
 void os_on_text(fn_text* callback) {
   state.onText = callback;
+}
+
+void os_on_mouse_button(fn_mouse_button* callback) {
+  state.onMouseButton = callback;
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  state.onMouseMove = callback;
+}
+
+void os_on_mousewheel_move(fn_mousewheel_move* callback) {
+  state.onWheelMove = callback;
 }
 
 void os_on_permission(fn_permission* callback) {
@@ -538,18 +581,10 @@ static os_key convertKey(uint8_t keycode) {
   }
 }
 
-void* os_xcb_get_connection(void) {
-  return state.connection;
+uintptr_t os_get_xcb_connection(void) {
+  return (uintptr_t) state.connection;
 }
 
-uintptr_t os_xcb_get_window(void) {
-  return state.window;
-}
-
-const char** os_vk_get_instance_extensions(uint32_t* count) {
-  return *count = 0, NULL;
-}
-
-uint32_t os_vk_create_surface(void* instance, void** surface) {
-  return -13;
+uintptr_t os_get_xcb_window(void) {
+  return (uintptr_t) state.window;
 }
