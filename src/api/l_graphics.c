@@ -225,55 +225,9 @@ StringEntry lovrWrapMode[] = {
   { 0 }
 };
 
-static struct { uint32_t size, scalarAlign, baseAlign, components; } fieldInfo[] = {
-  [FIELD_I8x4] = { 4, 1, 4, 4 },
-  [FIELD_U8x4] = { 4, 1, 4, 4 },
-  [FIELD_SN8x4] = { 4, 1, 4, 4 },
-  [FIELD_UN8x4] = { 4, 1, 4, 4 },
-  [FIELD_UN10x3] = { 4, 4, 4, 3 },
-  [FIELD_I16] = { 2, 2, 2, 1 },
-  [FIELD_I16x2] = { 4, 2, 4, 2 },
-  [FIELD_I16x4] = { 8, 2, 8, 4 },
-  [FIELD_U16] = { 2, 2, 2, 1 },
-  [FIELD_U16x2] = { 4, 2, 4, 2 },
-  [FIELD_U16x4] = { 8, 2, 8, 4 },
-  [FIELD_SN16x2] = { 4, 2, 4, 2 },
-  [FIELD_SN16x4] = { 8, 2, 8, 4 },
-  [FIELD_UN16x2] = { 4, 2, 4, 2 },
-  [FIELD_UN16x4] = { 8, 2, 8, 4 },
-  [FIELD_I32] = { 4, 4, 4, 1 },
-  [FIELD_I32x2] = { 8, 4, 8, 2 },
-  [FIELD_I32x3] = { 12, 4, 16, 3 },
-  [FIELD_I32x4] = { 16, 4, 16, 4 },
-  [FIELD_U32] = { 4, 4, 4, 1 },
-  [FIELD_U32x2] = { 8, 4, 8, 2 },
-  [FIELD_U32x3] = { 12, 4, 16, 3 },
-  [FIELD_U32x4] = { 16, 4, 16, 4 },
-  [FIELD_F16x2] = { 4, 2, 4, 2 },
-  [FIELD_F16x4] = { 8, 2, 8, 4 },
-  [FIELD_F32] = { 4, 4, 4, 1 },
-  [FIELD_F32x2] = { 8, 4, 8, 2 },
-  [FIELD_F32x3] = { 12, 4, 16, 3 },
-  [FIELD_F32x4] = { 16, 4, 16, 4 },
-  [FIELD_MAT2] = { 16, 4, 8, 4 },
-  [FIELD_MAT3] = { 64, 4, 16, 9 },
-  [FIELD_MAT4] = { 64, 4, 16, 16 },
-  [FIELD_INDEX16] = { 2, 2, 2, 1 },
-  [FIELD_INDEX32] = { 4, 4, 4, 1 }
-};
-
-static uint32_t luax_checkfieldtype(lua_State* L, int index, uint32_t* nameHash) {
+static uint32_t luax_checkfieldtype(lua_State* L, int index) {
   size_t length;
   const char* string = luaL_checklstring(L, index, &length);
-
-  char* colon = strchr(string, ':');
-
-  if (colon) {
-    *nameHash = (uint32_t) hash64(colon + 1, length - (colon + 1 - string));
-    length = colon - string;
-  } else {
-    *nameHash = 0;
-  }
 
   if (length < 3) {
     return luaL_error(L, "invalid FieldType '%s'", string), 0;
@@ -323,134 +277,84 @@ static uint32_t luax_checkfieldtype(lua_State* L, int index, uint32_t* nameHash)
   return luaL_error(L, "invalid FieldType '%s'", string), 0;
 }
 
-static void luax_checkbufferformat(lua_State* L, int index, BufferInfo* info) {
-  switch (lua_type(L, index)) {
-    case LUA_TNONE:
-    case LUA_TNIL:
-      info->stride = 1;
-      break;
-    case LUA_TSTRING:
-      info->fieldCount = 1;
-      info->fields[0].type = luax_checkfieldtype(L, index, &info->fields[0].hash);
-      info->fields[0].location = 10;
-      info->stride = fieldInfo[info->fields[0].type].size;
-      break;
-    case LUA_TTABLE:
-      lua_getfield(L, index, "layout");
-      BufferLayout layout = luax_checkenum(L, -1, BufferLayout, "packed");
-      lua_pop(L, 1);
-
-      int length = info->fieldCount = luax_len(L, index);
-      lovrAssert(info->fieldCount <= COUNTOF(info->fields), "Too many buffer fields (max is %d)", COUNTOF(info->fields));
-
-      uint32_t offset = 0;
-      uint32_t extent = 0;
-      uint32_t location = 10;
-      uint32_t maxAlign = 1;
-      for (int i = 0; i < length; i++) {
-        BufferField* field = &info->fields[i];
-
-        lua_rawgeti(L, index, i + 1);
-        if (lua_istable(L, -1)) {
-          lua_getfield(L, -1, "type");
-          lovrAssert(lua_type(L, -1) == LUA_TSTRING, "When given as a table, Buffer fields must have a 'type' key.");
-          field->type = luax_checkfieldtype(L, -1, &field->hash);
-          lua_pop(L, 1);
-
-          uint32_t align = layout == LAYOUT_PACKED ? fieldInfo[field->type].scalarAlign : fieldInfo[field->type].baseAlign;
-          maxAlign = MAX(maxAlign, align);
-
-          lua_getfield(L, -1, "offset");
-          if (lua_isnil(L, -1)) {
-            field->offset = ALIGN(offset, align);
-            offset = field->offset + fieldInfo[field->type].size;
-          } else {
-            field->offset = luaL_checkinteger(L, -1);
-          }
-          lua_pop(L, 1);
-
-          lua_getfield(L, -1, "location");
-          if (lua_type(L, -1) == LUA_TSTRING) {
-            size_t nameLength;
-            const char* name = lua_tolstring(L, -1, &nameLength);
-            field->hash = (uint32_t) hash64(name, nameLength);
-          } else {
-            field->location = lua_isnil(L, -1) ? location++ : luaL_checkinteger(L, -1);
-          }
-          lua_pop(L, 1);
-        } else if (lua_isstring(L, -1)) {
-          FieldType type = luax_checkfieldtype(L, -1, &field->hash);
-          uint32_t align = layout == LAYOUT_PACKED ? fieldInfo[type].scalarAlign : fieldInfo[type].baseAlign;
-          field->offset = ALIGN(offset, align);
-          field->location = location++;
-          field->type = type;
-          offset = field->offset + fieldInfo[type].size;
-          maxAlign = MAX(maxAlign, align);
-        }
-        lua_pop(L, 1);
-
-        extent = MAX(extent, field->offset + fieldInfo[field->type].size);
-      }
-
-      lua_getfield(L, index, "stride");
-      if (lua_isnil(L, -1)) {
-        switch (layout) {
-          case LAYOUT_PACKED: info->stride = offset; break;
-          case LAYOUT_STD140: info->stride = ALIGN(offset, 16); break;
-          case LAYOUT_STD430: info->stride = ALIGN(offset, maxAlign); break;
-          default: break;
-        }
-      } else {
-        info->stride = luax_checku32(L, -1);
-        lovrCheck(info->stride > 0, "Buffer stride can not be zero");
-        lovrCheck(info->stride <= extent, "Buffer stride can not be smaller than the size of a single item");
-      }
-      lua_pop(L, 1);
-      break;
-    default: luaL_argerror(L, index, "Expected nil, string, or table");
+void luax_checkbufferformat(lua_State* L, int index, BufferField* fields, uint32_t* count, uint32_t max) {
+  if (lua_type(L, index) == LUA_TSTRING) {
+    lovrCheck(*count < max, "Too many buffer fields");
+    fields[*count] = (BufferField) { .type = luax_checkfieldtype(L, index), .location = ~0u };
+    ++*count;
+    return;
   }
-}
 
-uint32_t luax_getbufferlength(lua_State* L, int index, BufferInfo* info) {
-  switch (lua_type(L, 1)) {
-    case LUA_TNUMBER: return lua_tointeger(L, 1); break;
-    case LUA_TTABLE: {
-      uint32_t length = luax_len(L, 1);
+  lovrCheck(lua_istable(L, index), "Expected string or table for Buffer field type");
+  int length = luax_len(L, index);
 
-      if (length < info->fieldCount) {
-        return 1;
-      }
+  lua_rawgeti(L, index, 1);
+  bool nested = lua_istable(L, -1);
+  lua_pop(L, 1);
 
-      lua_rawgeti(L, 1, 1);
-      if (lua_istable(L, -1)) {
+  lovrCheck(length > 0, "Buffer structure/array fields can not be empty");
+  lovrCheck(*count + length + 1 < max, "Too many buffer fields");
+  BufferField* parent = &fields[*count];
+  memset(parent, 0, sizeof(*parent));
+  parent->children = parent + 1;
+  parent->childCount = length;
+  ++*count;
+
+  if (nested) {
+    BufferField* child = parent->children;
+    for (int i = 0; i < length; i++, child++) {
+      lua_rawgeti(L, index, i + 1);
+
+      lua_getfield(L, -1, "type");
+      if (lua_isnil(L, -1)) {
         lua_pop(L, 1);
-        return length;
+        lua_rawgeti(L, -1, 2);
+      }
+      lovrCheck(lua_type(L, -1) == LUA_TSTRING || lua_type(L, -1) == LUA_TTABLE, "Buffer fields must have a 'type' key");
+      luax_checkbufferformat(L, -1, fields, count, max);
+      lua_pop(L, 1);
+
+      size_t nameLength;
+      lua_getfield(L, -1, "name");
+      if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_rawgeti(L, -1, 1);
+
+        // Deprecated (named locations)
+        if (lua_isnil(L, -1)) {
+          lua_pop(L, 1);
+          lua_getfield(L, -1, "location");
+        }
+      }
+      if (lua_type(L, -1) == LUA_TSTRING) {
+        child->name = lua_tolstring(L, -1, &nameLength);
+        child->hash = (uint32_t) hash64(child->name, nameLength);
+      } else {
+        child->name = NULL;
+        child->hash = 0;
       }
       lua_pop(L, 1);
 
-      uint32_t tableStride = 0;
-      for (uint32_t i = 0, j = 1; i < info->fieldCount; i++) {
-        lua_rawgeti(L, 1, (int) j);
-        if (lua_isuserdata(L, -1)) {
-          tableStride++;
-          j++;
-        } else {
-          uint32_t components = fieldInfo[info->fields[i].type].components;
-          tableStride += components;
-          j += components;
-        }
-        lua_pop(L, 1);
-      }
+      lua_getfield(L, -1, "offset");
+      child->offset = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1);
+      lua_pop(L, 1);
 
-      return length / tableStride;
+      lua_getfield(L, -1, "location");
+      child->location = lua_type(L, -1) == LUA_TNUMBER ? luax_checku32(L, -1) : ~0u;
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "length");
+      child->length = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1);
+      lua_pop(L, 1);
+
+      lua_pop(L, 1);
     }
-    default: {
-      Blob* blob = luax_totype(L, 1, Blob);
-      if (blob) {
-        return (uint32_t) blob->size / info->stride;
-      } else {
-        return luax_typeerror(L, 1, "number, table, or Blob");
-      }
+  } else {
+    for (int i = 0; i < length; i++) {
+      lua_rawgeti(L, index, i + 1);
+      parent->children[i] = (BufferField) { .type = luax_checkfieldtype(L, -1), .location = ~0u };
+      lua_pop(L, 1);
+      ++*count;
     }
   }
 }
@@ -856,19 +760,99 @@ static int l_lovrGraphicsGetDefaultFont(lua_State* L) {
   return 1;
 }
 
+// Deprecated
 static int l_lovrGraphicsGetBuffer(lua_State* L) {
   BufferInfo info = { 0 };
+  BufferField fields[128];
+  int dataIndex = 0;
+  Shader* shader;
+  Blob* blob;
 
-  luax_checkbufferformat(L, 2, &info);
-  info.length = luax_getbufferlength(L, 1, &info);
+  if (lua_isnumber(L, 1)) {
+    info.size = luax_checku32(L, 1);
+  } else if ((blob = luax_totype(L, 1, Blob)) != NULL) {
+    info.size = blob->size;
+    dataIndex = 1;
+  } else if ((shader = luax_totype(L, 1, Shader)) != NULL) {
+    const char* name = NULL;
+    size_t length = 0;
+    uint32_t slot = ~0u;
+
+    switch (lua_type(L, 2)) {
+      case LUA_TSTRING: name = lua_tolstring(L, 2, &length); break;
+      case LUA_TNUMBER: slot = lua_tointeger(L, 2) - 1; break;
+      default: return luax_typeerror(L, 2, "string or number");
+    }
+
+    info.fields = lovrShaderGetBufferFormat(shader, name, length, slot, &info.size, &info.fieldCount);
+
+    if (!info.fields) {
+      if (name) {
+        lovrThrow("Shader has no Buffer named '%s'", name);
+      } else {
+        lovrThrow("Shader has no Buffer at slot %d", slot + 1);
+      }
+    }
+
+    dataIndex = 3;
+  } else {
+    info.fields = fields;
+    luax_checkbufferformat(L, 1, fields, &info.fieldCount, COUNTOF(fields));
+
+    bool hasLength = false;
+
+    if (lua_istable(L, 1)) {
+      lua_getfield(L, 1, "layout");
+      info.layout = luax_checkenum(L, -1, BufferLayout, "packed");
+      lua_pop(L, 1);
+
+      lua_getfield(L, 1, "stride");
+      fields[0].stride = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1);
+      lua_pop(L, 1);
+
+      // You can give an explicit length, since length detection from table/Blob is unreliable
+      lua_getfield(L, 1, "length");
+      fields[0].length = lua_isnil(L, -1) ? 0 : (hasLength = true, luax_checku32(L, -1));
+      lua_pop(L, 1);
+    }
+
+    if (fields[0].childCount == 1) {
+      fields[0].type = fields[0].children[0].type;
+      fields[0].childCount = 0;
+    }
+
+    // Note that we can set the length or the size and the other one will be inferred from stride
+    switch (lua_type(L, 2)) {
+      case LUA_TNIL:
+      case LUA_TNONE:
+        fields[0].length = fields[0].childCount > 0 ? 0 : 1;
+        break;
+      case LUA_TNUMBER:
+        fields[0].length = lua_tointeger(L, 2);
+        break;
+      case LUA_TTABLE:
+        if (!hasLength) {
+          fields[0].length = luax_len(L, 2);
+        }
+        dataIndex = 2;
+        break;
+      default:
+        if ((blob = luax_totype(L, 2, Blob)) != NULL) {
+          lovrCheck(blob->size < UINT32_MAX, "Blob is too big to create a Buffer");
+          info.size = blob->size;
+          dataIndex = 2;
+          break;
+        }
+        return luax_typeerror(L, 2, "nil, number, table, or Blob");
+    }
+  }
 
   void* pointer;
-  bool hasData = !lua_isnumber(L, 1);
-  Buffer* buffer = lovrGraphicsGetBuffer(&info, hasData ? &pointer : NULL);
+  Buffer* buffer = lovrGraphicsGetBuffer(&info, dataIndex ? &pointer : NULL);
 
-  if (hasData) {
-    lua_settop(L, 1);
-    luax_readbufferdata(L, 1, buffer, pointer);
+  if (dataIndex) {
+    lua_settop(L, dataIndex);
+    luax_readbufferdata(L, dataIndex, buffer, pointer);
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -878,17 +862,118 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
   BufferInfo info = { 0 };
+  BufferField fields[128];
+  int dataIndex = 0;
+  Shader* shader;
+  Blob* blob;
 
-  luax_checkbufferformat(L, 2, &info);
-  info.length = luax_getbufferlength(L, 1, &info);
+  // Deprecated (type/format given second)
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    lua_settop(L, 2);
+    lua_insert(L, 1);
+  } else if (lua_type(L, 2) == LUA_TTABLE) {
+    lua_rawgeti(L, 2, 1);
+    if (lua_type(L, -1) == LUA_TSTRING) {
+      lua_settop(L, 2);
+      lua_insert(L, 1);
+    } else if (lua_type(L, -1) == LUA_TTABLE) {
+      lua_getfield(L, -1, "type");
+      if (lua_isnil(L, -1)) {
+        lua_pop(L, 2);
+      } else {
+        lua_settop(L, 2);
+        lua_insert(L, 1);
+      }
+    } else {
+      lua_pop(L, 1);
+    }
+  }
+
+  if (lua_isnumber(L, 1)) {
+    info.size = luax_checku32(L, 1);
+  } else if ((blob = luax_totype(L, 1, Blob)) != NULL) {
+    info.size = blob->size;
+    dataIndex = 1;
+  } else if ((shader = luax_totype(L, 1, Shader)) != NULL) {
+    const char* name = NULL;
+    size_t length = 0;
+    uint32_t slot = ~0u;
+
+    switch (lua_type(L, 2)) {
+      case LUA_TSTRING: name = lua_tolstring(L, 2, &length); break;
+      case LUA_TNUMBER: slot = lua_tointeger(L, 2) - 1; break;
+      default: return luax_typeerror(L, 2, "string or number");
+    }
+
+    info.fields = lovrShaderGetBufferFormat(shader, name, length, slot, &info.size, &info.fieldCount);
+
+    if (!info.fields) {
+      if (name) {
+        lovrThrow("Shader has no Buffer named '%s'", name);
+      } else {
+        lovrThrow("Shader has no Buffer at slot %d", slot + 1);
+      }
+    }
+
+    dataIndex = 3;
+  } else {
+    info.fields = fields;
+    luax_checkbufferformat(L, 1, fields, &info.fieldCount, COUNTOF(fields));
+
+    bool hasLength = false;
+
+    if (lua_istable(L, 1)) {
+      lua_getfield(L, 1, "layout");
+      info.layout = luax_checkenum(L, -1, BufferLayout, "packed");
+      lua_pop(L, 1);
+
+      lua_getfield(L, 1, "stride");
+      fields[0].stride = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1);
+      lua_pop(L, 1);
+
+      // You can give an explicit length, since length detection from table/Blob is unreliable
+      lua_getfield(L, 1, "length");
+      fields[0].length = lua_isnil(L, -1) ? 0 : (hasLength = true, luax_checku32(L, -1));
+      lua_pop(L, 1);
+    }
+
+    if (fields[0].childCount == 1) {
+      fields[0].type = fields[0].children[0].type;
+      fields[0].childCount = 0;
+    }
+
+    // Note that we can set the length or the size and the other one will be inferred
+    switch (lua_type(L, 2)) {
+      case LUA_TNIL:
+      case LUA_TNONE:
+        fields[0].length = fields[0].childCount > 0 ? 0 : 1;
+        break;
+      case LUA_TNUMBER:
+        fields[0].length = lua_tointeger(L, 2);
+        break;
+      case LUA_TTABLE:
+        if (!hasLength) {
+          fields[0].length = luax_len(L, 2);
+        }
+        dataIndex = 2;
+        break;
+      default:
+        if ((blob = luax_totype(L, 2, Blob)) != NULL) {
+          lovrCheck(blob->size < UINT32_MAX, "Blob is too big to create a Buffer");
+          info.size = blob->size;
+          dataIndex = 2;
+          break;
+        }
+        return luax_typeerror(L, 2, "nil, number, table, or Blob");
+    }
+  }
 
   void* pointer;
-  bool hasData = !lua_isnumber(L, 1);
-  Buffer* buffer = lovrBufferCreate(&info, hasData ? &pointer : NULL);
+  Buffer* buffer = lovrBufferCreate(&info, dataIndex ? &pointer : NULL);
 
-  if (hasData) {
-    lua_settop(L, 1);
-    luax_readbufferdata(L, 1, buffer, pointer);
+  if (dataIndex) {
+    lua_settop(L, dataIndex);
+    luax_readbufferdata(L, dataIndex, buffer, pointer);
   }
 
   luax_pushtype(L, Buffer, buffer);

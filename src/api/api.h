@@ -152,10 +152,12 @@ bool luax_writefile(const char* filename, const void* data, size_t size);
 
 #ifndef LOVR_DISABLE_GRAPHICS
 struct Buffer;
+struct BufferField;
 struct ColoredString;
 struct Model;
 struct Buffer* luax_checkbuffer(lua_State* L, int index);
-void luax_readbufferfield(lua_State* L, int index, int type, void* data);
+void luax_checkbufferformat(lua_State* L, int index, struct BufferField* fields, uint32_t* count, uint32_t max);
+void luax_readbufferfield(lua_State* L, int index, const struct BufferField* field, char* data);
 void luax_readbufferdata(lua_State* L, int index, struct Buffer* buffer, char* data);
 uint32_t luax_checkcomparemode(lua_State* L, int index);
 struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
