@@ -519,3 +519,4 @@ void lovrPassCopyImageToTexture(Pass* pass, struct Image* src, Texture* dst, uin
 void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
 void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count);
+void lovrPassRaytraceBuild(Pass *pass, RaytraceAccelerationType rat, void *geometry, uint32_t rangeCount, void *ranges);

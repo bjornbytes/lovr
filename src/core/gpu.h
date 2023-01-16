@@ -551,6 +551,7 @@ void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, u
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter);
 void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count);
+void gpu_raytrace_build(gpu_stream *stream, gpu_raytrace_acceleration_type rat, void *geometry, uint32_t rangeCount, void *ranges);
 
 // Entry
 

@@ -4149,3 +4149,8 @@ bool lovrGraphicsRaytraceGetBuildsize(RaytraceAccelerationType _rat, uint32_t ge
   }
   return success;
 }
+
+void lovrPassRaytraceBuild(Pass *pass, RaytraceAccelerationType _rat, void *geometry, uint32_t rangeCount, void *ranges) {
+  gpu_raytrace_acceleration_type rat = (gpu_raytrace_acceleration_type)_rat; // Rely on enums being identical
+  gpu_raytrace_build(pass->stream, rat, geometry, rangeCount, ranges);
+}

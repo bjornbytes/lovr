@@ -784,6 +784,14 @@ static int l_lovrPassMipmap(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassRaytraceBuild(lua_State *L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  RaytraceAccelerationType rat = luax_checkenum(L, 1, RaytraceAccelerationType, NULL);
+  Blob *geometryBlob = luax_totype(L, 2, Blob); //LUA_TUSERDATA
+  Blob *rangeBlob = luax_totype(L, 2, Blob); //LUA_TUSERDATA
+  lovrPassRaytraceBuild(pass, rat, geometryBlob->data, rangeBlob->size/sizeof(void *), rangeBlob->data);
+}
+
 const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
 
@@ -844,6 +852,8 @@ const luaL_Reg lovrPass[] = {
   { "copy", l_lovrPassCopy },
   { "blit", l_lovrPassBlit },
   { "mipmap", l_lovrPassMipmap },
+
+  { "raytraceBuild", l_lovrPassRaytraceBuild },
 
   { NULL, NULL }
 };

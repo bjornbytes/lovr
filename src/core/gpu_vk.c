@@ -2833,3 +2833,16 @@ bool gpu_raytrace_get_buildsize(gpu_raytrace_acceleration_type rat, uint32_t str
 
   return true;
 }
+
+bool gpu_raytrace_build(gpu_stream *stream, gpu_raytrace_acceleration_type rat, uint32_t structCount, void *geometry, uint32_t rangeCount, void *ranges) {
+  VkAccelerationStructureBuildGeometryInfoKHR input;
+  input.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+  input.type = rat==GPU_RAYTRACE_ACCELERATION_TYPE_TOP?
+    VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR :
+    VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+  input.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+  input.geometryCount = structCount;
+  input.pGeometries = (VkAccelerationStructureGeometryKHR *)geometry;
+
+  vkCmdBuildAccelerationStructuresKHR(stream->commands, 1, &input,)
+}

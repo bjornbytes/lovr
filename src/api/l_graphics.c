@@ -1305,7 +1305,7 @@ static int l_lovrGraphicsGetPass(lua_State* L) {
 // TODO flags needed for update to work
 static int l_lovrGraphicsRaytraceGetSizes(lua_State* L) {
   RaytraceAccelerationType rat = luax_checkenum(L, 1, RaytraceAccelerationType, NULL);
-  Blob *blob = luax_totype(L, 2, Blob); //LUA_TUSERDATA
+  Blob *geometryBlob = luax_totype(L, 2, Blob); //LUA_TUSERDATA
   lovrAssert(lua_type(L, 3) == LUA_TTABLE, "Argument 3 must be table");
 
   int structCount = lua_objlen(L, 3);
@@ -1318,7 +1318,7 @@ static int l_lovrGraphicsRaytraceGetSizes(lua_State* L) {
   }
 
   RaytraceBuildsize buildsize;
-  bool success = lovrGraphicsRaytraceGetBuildsize(rat, structCount, structSizes, blob->data, &buildsize);
+  bool success = lovrGraphicsRaytraceGetBuildsize(rat, structCount, structSizes, geometryBlob->data, &buildsize);
 
   free(structSizes);
 
