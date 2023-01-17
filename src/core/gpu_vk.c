@@ -310,10 +310,10 @@ static bool check(bool condition, const char* message);
   X(vkMapMemory)\
   X(vkCreateSampler)\
   X(vkDestroySampler)\
-  X(vkCreateRenderPass)\
+  X(vkCreateRenderPass2KHR)\
   X(vkDestroyRenderPass)\
-  X(vkCmdBeginRenderPass)\
-  X(vkCmdEndRenderPass)\
+  X(vkCmdBeginRenderPass2KHR)\
+  X(vkCmdEndRenderPass2KHR)\
   X(vkCreateImageView)\
   X(vkDestroyImageView)\
   X(vkCreateFramebuffer)\
@@ -1596,11 +1596,15 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     .pClearValues = clears
   };
 
-  vkCmdBeginRenderPass(stream->commands, &beginfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBeginRenderPass2KHR(stream->commands, &beginfo, &(VkSubpassBeginInfoKHR) {
+    .sType = VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO
+  });
 }
 
 void gpu_render_end(gpu_stream* stream) {
-  vkCmdEndRenderPass(stream->commands);
+  vkCmdEndRenderPass2KHR(stream->commands, &(VkSubpassEndInfoKHR) {
+    .sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO
+  });
 }
 
 void gpu_compute_begin(gpu_stream* stream) {
@@ -2103,11 +2107,12 @@ bool gpu_init(gpu_config* config) {
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
+      { "VK_KHR_create_renderpass2", true, NULL },
       { "VK_KHR_swapchain", state.surface, NULL },
       { "VK_KHR_portability_subset", true, &state.supports.portability }
     };
 
-    VkExtensionProperties extensionInfo[256];
+    VkExtensionProperties extensionInfo[512];
     uint32_t extensionCount = COUNTOF(extensionInfo);
     VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
 
@@ -2806,15 +2811,18 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
     [GPU_SAVE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
   };
 
-  VkAttachmentDescription attachments[9];
-  VkAttachmentReference references[9];
+  VkAttachmentDescription2KHR attachments[9];
+  VkAttachmentReference2KHR references[9];
 
   for (uint32_t i = 0; i < count; i++) {
+    references[i].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+    references[i].pNext = NULL;
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     bool surface = pass->color[i].format == state.surfaceFormat.format; // FIXME
     bool discard = surface || pass->color[i].load != GPU_LOAD_OP_KEEP;
-    attachments[i] = (VkAttachmentDescription) {
+    attachments[i] = (VkAttachmentDescription2KHR) {
+      .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
       .format = pass->color[i].format,
       .samples = pass->samples,
       .loadOp = loadOps[pass->color[i].load],
@@ -2827,10 +2835,13 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
   if (pass->resolve) {
     for (uint32_t i = 0; i < count; i++) {
       uint32_t index = count + i;
+      references[index].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+      references[index].pNext = NULL;
       references[index].attachment = index;
       references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       bool surface = pass->color[i].format == state.surfaceFormat.format; // FIXME
-      attachments[index] = (VkAttachmentDescription) {
+      attachments[index] = (VkAttachmentDescription2KHR) {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
         .format = pass->color[i].format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -2843,9 +2854,12 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
 
   if (depth) {
     uint32_t index = pass->count - 1;
+    references[index].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+    references[index].pNext = NULL;
     references[index].attachment = index;
     references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    attachments[index] = (VkAttachmentDescription) {
+    attachments[index] = (VkAttachmentDescription2KHR) {
+      .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
       .format = pass->depth.format,
       .samples = pass->samples,
       .loadOp = loadOps[pass->depth.load],
@@ -2857,22 +2871,17 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
     };
   }
 
-  VkSubpassDescription subpass = {
+  VkSubpassDescription2KHR subpass = {
+    .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+    .viewMask = (1 << pass->views) - 1,
     .colorAttachmentCount = count,
     .pColorAttachments = &references[0],
     .pResolveAttachments = pass->resolve ? &references[count] : NULL,
     .pDepthStencilAttachment = depth ? &references[pass->count - 1] : NULL
   };
 
-  VkRenderPassMultiviewCreateInfo multiview = {
-    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
-    .subpassCount = 1,
-    .pViewMasks = (uint32_t[1]) { (1 << pass->views) - 1 }
-  };
-
-  VkRenderPassCreateInfo info = {
-    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-    .pNext = pass->views > 0 ? &multiview : NULL,
+  VkRenderPassCreateInfo2KHR info = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
     .attachmentCount = pass->count,
     .pAttachments = attachments,
     .subpassCount = 1,
@@ -2880,7 +2889,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
   };
 
   VkRenderPass handle;
-  VK(vkCreateRenderPass(state.device, &info, NULL, &handle), "Could not create render pass") {
+  VK(vkCreateRenderPass2KHR(state.device, &info, NULL, &handle), "Could not create render pass") {
     return VK_NULL_HANDLE;
   }
 
