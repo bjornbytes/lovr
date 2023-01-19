@@ -152,30 +152,41 @@ typedef struct {
 } gpu_scratchpad;
 
 typedef struct {
+  VkSurfaceKHR handle;
+  VkSwapchainKHR swapchain;
+  VkSurfaceCapabilitiesKHR capabilities;
+  VkSurfaceFormatKHR format;
+  VkSemaphore semaphore;
+  gpu_texture images[8];
+  uint32_t imageIndex;
+  bool valid;
+} gpu_surface;
+
+typedef struct {
   VkCommandPool pool;
   gpu_stream streams[64];
   VkSemaphore semaphores[2];
   VkFence fence;
 } gpu_tick;
 
+typedef struct {
+  bool portability;
+  bool validation;
+  bool debug;
+} gpu_extensions;
+
 // State
 
 static struct {
   void* library;
   gpu_config config;
+  gpu_extensions extensions;
+  gpu_surface surface;
   VkInstance instance;
   VkPhysicalDevice adapter;
   VkDevice device;
   VkQueue queue;
   uint32_t queueFamilyIndex;
-  VkSurfaceKHR surface;
-  VkSurfaceCapabilitiesKHR surfaceCapabilities;
-  VkSurfaceFormatKHR surfaceFormat;
-  bool swapchainValid;
-  VkSwapchainKHR swapchain;
-  VkSemaphore swapchainSemaphore;
-  uint32_t currentSwapchainTexture;
-  gpu_texture swapchainTextures[8];
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
   gpu_cache_entry renderpasses[16][4];
@@ -188,11 +199,6 @@ static struct {
   uint32_t tick[2];
   gpu_tick ticks[4];
   gpu_morgue morgue;
-  struct {
-    bool validation;
-    bool portability;
-    bool debug;
-  } supports;
 } state;
 
 // Helpers
@@ -750,23 +756,24 @@ void gpu_texture_destroy(gpu_texture* texture) {
 }
 
 gpu_texture* gpu_surface_acquire() {
-  if (!state.swapchainValid) {
+  if (!state.surface.valid) {
     return NULL;
   }
 
+  gpu_surface* surface = &state.surface;
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
-  VkResult result = vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &state.currentSwapchainTexture);
+  VkResult result = vkAcquireNextImageKHR(state.device, surface->swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &surface->imageIndex);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-    state.currentSwapchainTexture = ~0u;
-    state.swapchainValid = false;
+    surface->imageIndex = ~0u;
+    surface->valid = false;
     return NULL;
   } else {
     vcheck(result, "Failed to acquire swapchain");
   }
 
-  state.swapchainSemaphore = tick->semaphores[0];
-  return &state.swapchainTextures[state.currentSwapchainTexture];
+  surface->semaphore = tick->semaphores[0];
+  return &surface->images[surface->imageIndex];
 }
 
 void gpu_surface_resize(uint32_t width, uint32_t height) {
@@ -1859,7 +1866,7 @@ bool gpu_init(gpu_config* config) {
     VK(vkEnumerateInstanceLayerProperties(&layerCount, layerInfo), "Failed to enumerate instance layers") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } layers[] = {
-      { "VK_LAYER_KHRONOS_validation", config->debug, &state.supports.validation }
+      { "VK_LAYER_KHRONOS_validation", config->debug, &state.extensions.validation }
     };
 
     uint32_t enabledLayerCount = 0;
@@ -1883,8 +1890,8 @@ bool gpu_init(gpu_config* config) {
     VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
-      { "VK_KHR_portability_enumeration", true, &state.supports.portability },
-      { "VK_EXT_debug_utils", config->debug, &state.supports.debug },
+      { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
+      { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
       { 0 }, // extra extensions for GLFW
       { 0 }
     };
@@ -1916,7 +1923,7 @@ bool gpu_init(gpu_config* config) {
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-      .flags = state.supports.portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0,
+      .flags = state.extensions.portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0,
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
@@ -1938,7 +1945,7 @@ bool gpu_init(gpu_config* config) {
     GPU_FOREACH_INSTANCE(GPU_LOAD_INSTANCE);
 
     if (state.config.debug && state.config.callback) {
-      if (state.supports.debug) {
+      if (state.extensions.debug) {
         VkDebugUtilsMessengerCreateInfoEXT messengerInfo = {
           .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
           .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
@@ -1948,7 +1955,7 @@ bool gpu_init(gpu_config* config) {
 
         VK(vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger), "Debug hook setup failed") return gpu_destroy(), false;
 
-        if (!state.supports.validation) {
+        if (!state.extensions.validation) {
           state.config.callback(state.config.userdata, "Warning: GPU debugging is enabled, but validation layer is not installed", false);
         }
       } else {
@@ -1959,7 +1966,7 @@ bool gpu_init(gpu_config* config) {
 
   // Surface
   if (state.config.vk.surface && state.config.vk.createSurface) {
-    VK(state.config.vk.createSurface(state.instance, (void**) &state.surface), "Surface creation failed") return gpu_destroy(), false;
+    VK(state.config.vk.createSurface(state.instance, (void**) &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
   }
 
   { // Device
@@ -2095,8 +2102,8 @@ bool gpu_init(gpu_config* config) {
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
       VkBool32 presentable = VK_TRUE;
 
-      if (state.surface) {
-        vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, i, state.surface, &presentable);
+      if (state.config.vk.surface) {
+        vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, i, state.surface.handle, &presentable);
       }
 
       if (presentable && (queueFamilies[i].queueFlags & requiredQueueFlags) == requiredQueueFlags) {
@@ -2108,8 +2115,8 @@ bool gpu_init(gpu_config* config) {
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
       { "VK_KHR_create_renderpass2", true, NULL },
-      { "VK_KHR_swapchain", state.surface, NULL },
-      { "VK_KHR_portability_subset", true, &state.supports.portability }
+      { "VK_KHR_swapchain", state.config.vk.surface, NULL },
+      { "VK_KHR_portability_subset", true, &state.extensions.portability }
     };
 
     VkExtensionProperties extensionInfo[512];
@@ -2296,24 +2303,26 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  if (state.surface) {
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, state.surface, &state.surfaceCapabilities);
+  if (state.surface.handle) {
+    gpu_surface* surface = &state.surface;
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, surface->handle, &surface->capabilities);
 
     VkSurfaceFormatKHR formats[32];
     uint32_t formatCount = COUNTOF(formats);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, state.surface, &formatCount, formats);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, surface->handle, &formatCount, formats);
 
     for (uint32_t i = 0; i < formatCount; i++) {
       if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
-        state.surfaceFormat = formats[i];
+        surface->format = formats[i];
         break;
       }
     }
 
-    VK(state.surfaceFormat.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
+    VK(surface->format.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
 
-    uint32_t width = state.surfaceCapabilities.currentExtent.width;
-    uint32_t height = state.surfaceCapabilities.currentExtent.height;
+    uint32_t width = surface->capabilities.currentExtent.width;
+    uint32_t height = surface->capabilities.currentExtent.height;
 
     createSwapchain(width, height);
   }
@@ -2373,7 +2382,7 @@ bool gpu_init(gpu_config* config) {
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "Pipeline cache creation failed") return gpu_destroy(), false;
 
   state.tick[CPU] = COUNTOF(state.ticks) - 1;
-  state.currentSwapchainTexture = ~0u;
+  state.surface.imageIndex = ~0u;
   return true;
 }
 
@@ -2407,12 +2416,12 @@ void gpu_destroy(void) {
   for (uint32_t i = 0; i < COUNTOF(state.memory); i++) {
     if (state.memory[i].handle) vkFreeMemory(state.device, state.memory[i].handle, NULL);
   }
-  for (uint32_t i = 0; i < COUNTOF(state.swapchainTextures); i++) {
-    if (state.swapchainTextures[i].view) vkDestroyImageView(state.device, state.swapchainTextures[i].view, NULL);
+  for (uint32_t i = 0; i < COUNTOF(state.surface.images); i++) {
+    if (state.surface.images[i].view) vkDestroyImageView(state.device, state.surface.images[i].view, NULL);
   }
-  if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
+  if (state.surface.swapchain) vkDestroySwapchainKHR(state.device, state.surface.swapchain, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
-  if (state.surface) vkDestroySurfaceKHR(state.instance, state.surface, NULL);
+  if (state.surface.handle) vkDestroySurfaceKHR(state.instance, state.surface.handle, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
 #ifdef _WIN32
@@ -2447,15 +2456,15 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
 
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .waitSemaphoreCount = !!state.swapchainSemaphore,
-    .pWaitSemaphores = &state.swapchainSemaphore,
+    .waitSemaphoreCount = !!state.surface.semaphore,
+    .pWaitSemaphores = &state.surface.semaphore,
     .pWaitDstStageMask = &waitStage,
     .commandBufferCount = count,
     .pCommandBuffers = commands
   };
 
   VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") {}
-  state.swapchainSemaphore = VK_NULL_HANDLE;
+  state.surface.semaphore = VK_NULL_HANDLE;
 }
 
 void gpu_present() {
@@ -2474,19 +2483,19 @@ void gpu_present() {
     .waitSemaphoreCount = 1,
     .pWaitSemaphores = &semaphore,
     .swapchainCount = 1,
-    .pSwapchains = &state.swapchain,
-    .pImageIndices = &state.currentSwapchainTexture
+    .pSwapchains = &state.surface.swapchain,
+    .pImageIndices = &state.surface.imageIndex
   };
 
   VkResult result = vkQueuePresentKHR(state.queue, &present);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-    state.swapchainValid = false;
+    state.surface.valid = false;
   } else {
     vcheck(result, "Queue present failed");
   }
 
-  state.currentSwapchainTexture = ~0u;
+  state.surface.imageIndex = ~0u;
 }
 
 bool gpu_is_complete(uint32_t tick) {
@@ -2666,11 +2675,12 @@ static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, cons
 
 static void createSwapchain(uint32_t width, uint32_t height) {
   if (width == 0 || height == 0) {
-    state.swapchainValid = false;
+    state.surface.valid = false;
     return;
   }
 
-  VkSwapchainKHR oldSwapchain = state.swapchain;
+  gpu_surface* surface = &state.surface;
+  VkSwapchainKHR oldSwapchain = surface->swapchain;
 
   if (oldSwapchain) {
     vkDeviceWaitIdle(state.device);
@@ -2678,10 +2688,10 @@ static void createSwapchain(uint32_t width, uint32_t height) {
 
   VkSwapchainCreateInfoKHR swapchainInfo = {
     .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-    .surface = state.surface,
-    .minImageCount = state.surfaceCapabilities.minImageCount,
-    .imageFormat = state.surfaceFormat.format,
-    .imageColorSpace = state.surfaceFormat.colorSpace,
+    .surface = surface->handle,
+    .minImageCount = surface->capabilities.minImageCount,
+    .imageFormat = surface->format.format,
+    .imageColorSpace = surface->format.colorSpace,
     .imageExtent = { width, height },
     .imageArrayLayers = 1,
     .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -2692,27 +2702,27 @@ static void createSwapchain(uint32_t width, uint32_t height) {
     .oldSwapchain = oldSwapchain
   };
 
-  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain), "Swapchain creation failed") return;
+  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &surface->swapchain), "Swapchain creation failed") return;
 
   if (oldSwapchain) {
-    for (uint32_t i = 0; i < COUNTOF(state.swapchainTextures); i++) {
-      if (state.swapchainTextures[i].view) {
-        vkDestroyImageView(state.device, state.swapchainTextures[i].view, NULL);
+    for (uint32_t i = 0; i < COUNTOF(surface->images); i++) {
+      if (surface->images[i].view) {
+        vkDestroyImageView(state.device, surface->images[i].view, NULL);
       }
     }
 
-    memset(state.swapchainTextures, 0, sizeof(state.swapchainTextures));
+    memset(surface->images, 0, sizeof(surface->images));
     vkDestroySwapchainKHR(state.device, oldSwapchain, NULL);
   }
 
   uint32_t imageCount;
-  VkImage images[COUNTOF(state.swapchainTextures)];
-  VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL), "Failed to get swapchain images") return;
+  VkImage images[COUNTOF(surface->images)];
+  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, NULL), "Failed to get swapchain images") return;
   VK(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") return;
-  VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images), "Failed to get swapchain images") return;
+  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, images), "Failed to get swapchain images") return;
 
   for (uint32_t i = 0; i < imageCount; i++) {
-    gpu_texture* texture = &state.swapchainTextures[i];
+    gpu_texture* texture = &surface->images[i];
 
     texture->handle = images[i];
     texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -2731,7 +2741,7 @@ static void createSwapchain(uint32_t width, uint32_t height) {
     CHECK(gpu_texture_init_view(texture, &view), "Swapchain texture view creation failed") return;
   }
 
-  state.swapchainValid = true;
+  surface->valid = true;
 }
 
 // Ugliness until we can use dynamic rendering
@@ -2819,7 +2829,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
     references[i].pNext = NULL;
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    bool surface = pass->color[i].format == state.surfaceFormat.format; // FIXME
+    bool surface = pass->color[i].format == state.surface.format.format; // FIXME
     bool discard = surface || pass->color[i].load != GPU_LOAD_OP_KEEP;
     attachments[i] = (VkAttachmentDescription2KHR) {
       .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
@@ -2839,7 +2849,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
       references[index].pNext = NULL;
       references[index].attachment = index;
       references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-      bool surface = pass->color[i].format == state.surfaceFormat.format; // FIXME
+      bool surface = pass->color[i].format == state.surface.format.format; // FIXME
       attachments[index] = (VkAttachmentDescription2KHR) {
         .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
         .format = pass->color[i].format,
@@ -3016,7 +3026,7 @@ static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
   };
 
   if (format == GPU_FORMAT_SURFACE) {
-    return state.surfaceFormat.format;
+    return state.surface.format.format;
   }
 
   return formats[format][colorspace];
@@ -3062,7 +3072,7 @@ static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUt
 }
 
 static void nickname(void* handle, VkObjectType type, const char* name) {
-  if (name && state.supports.debug) {
+  if (name && state.extensions.debug) {
     union { uint64_t u64; void* p; } pointer = { .p = handle };
 
     VkDebugUtilsObjectNameInfoEXT info = {
