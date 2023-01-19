@@ -197,7 +197,7 @@ static struct {
   gpu_memory memory[256];
   uint32_t streamCount;
   uint32_t tick[2];
-  gpu_tick ticks[4];
+  gpu_tick ticks[2];
   gpu_morgue morgue;
 } state;
 
