@@ -1770,7 +1770,7 @@ static ModelData* openxr_newModelDataMSFT(XrControllerModelKeyMSFT modelKey, boo
 
   MetadataControllerMSFT* metadata = model->metadata;
   metadata->modelKey = modelKey;
-  metadata->nodeIndices = (uint32_t*)(model->metadata + sizeof(MetadataControllerMSFT));
+  metadata->nodeIndices = (uint32_t*)((char*) model->metadata + sizeof(MetadataControllerMSFT));
 
   for (uint32_t i = 0; i < properties.nodeCountOutput; i++) {
     const char* name = nodeProperties[i].nodeName;
