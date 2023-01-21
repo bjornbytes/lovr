@@ -28,6 +28,7 @@ jobs:
             build/Release/lovr.exe
             build/Release/lovrc.bat
             build/Release/*.dll
+
   linux:
     name: Linux
     runs-on: ubuntu-22.04
@@ -55,6 +56,7 @@ jobs:
         with:
           name: lovr.appimage
           path: lovr-x86_64.AppImage
+
   android:
     name: Android
     runs-on: ubuntu-22.04
@@ -96,6 +98,7 @@ jobs:
         with:
           name: lovr.apk
           path: build/lovr.apk
+
   macos:
     name: macOS
     runs-on: macos-latest
