@@ -1837,6 +1837,7 @@ bool gpu_init(gpu_config* config) {
   PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
 #elif __APPLE__
   state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
   CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
   PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #else
