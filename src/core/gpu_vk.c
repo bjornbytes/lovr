@@ -173,6 +173,7 @@ typedef struct {
   bool portability;
   bool validation;
   bool debug;
+  bool colorspace;
 } gpu_extensions;
 
 // State
@@ -1892,6 +1893,7 @@ bool gpu_init(gpu_config* config) {
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
       { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
       { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
+      { "VK_EXT_swapchain_colorspace", config->vk.surface, &state.extensions.colorspace },
       { 0 }, // extra extensions for GLFW
       { 0 }
     };
