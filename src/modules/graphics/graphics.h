@@ -43,6 +43,7 @@ typedef struct {
   bool textureASTC;
   bool wireframe;
   bool depthClamp;
+  bool depthResolve;
   bool indirectDrawFirstInstance;
   bool shaderTally;
   bool float64;

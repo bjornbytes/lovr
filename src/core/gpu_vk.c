@@ -122,7 +122,8 @@ typedef struct {
   uint32_t count;
   uint32_t views;
   uint32_t samples;
-  bool resolve;
+  bool resolveColor;
+  bool resolveDepth;
   struct {
     VkFormat format;
     VkImageLayout layout;
@@ -133,8 +134,9 @@ typedef struct {
   struct {
     VkFormat format;
     VkImageLayout layout;
-    gpu_load_op load;
-    gpu_save_op save;
+    VkImageLayout resolveLayout;
+    gpu_load_op load, stencilLoad;
+    gpu_save_op save, stencilSave;
   } depth;
 } gpu_pass_info;
 
@@ -174,6 +176,7 @@ typedef struct {
   bool validation;
   bool debug;
   bool colorspace;
+  bool depthResolve;
 } gpu_extensions;
 
 // State
@@ -1390,24 +1393,29 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     }
   };
 
-  bool resolve = info->multisample.count > 1;
+  bool resolveColor = info->multisample.count > 1;
+  bool resolveDepth = false;
   bool depth = info->depth.format;
 
   gpu_pass_info pass = {
-    .count = (info->attachmentCount << resolve) + depth,
+    .count = (info->attachmentCount << resolveColor) + (depth << resolveDepth),
     .views = info->viewCount,
     .samples = info->multisample.count,
-    .resolve = resolve,
+    .resolveColor = resolveColor,
+    .resolveDepth = resolveDepth,
     .depth.format = convertFormat(info->depth.format, LINEAR),
     .depth.layout = info->depth.format ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
+    .depth.resolveLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     .depth.load = GPU_LOAD_OP_CLEAR,
-    .depth.save = GPU_SAVE_OP_DISCARD
+    .depth.save = GPU_SAVE_OP_DISCARD,
+    .depth.stencilLoad = GPU_LOAD_OP_CLEAR,
+    .depth.stencilSave = GPU_SAVE_OP_DISCARD
   };
 
   for (uint32_t i = 0; i < info->attachmentCount; i++) {
     pass.color[i].format = convertFormat(info->color[i].format, info->color[i].srgb);
     pass.color[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    pass.color[i].resolveLayout = resolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    pass.color[i].resolveLayout = resolveColor ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
     pass.color[i].load = GPU_LOAD_OP_CLEAR;
     pass.color[i].save = GPU_SAVE_OP_KEEP;
   }
@@ -1557,11 +1565,12 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   gpu_pass_info pass = {
     .views = texture->layers,
     .samples = texture->samples,
-    .resolve = !!canvas->color[0].resolve
+    .resolveColor = !!canvas->color[0].resolve,
+    .resolveDepth = !!canvas->depth.resolve
   };
 
-  VkImageView images[9];
-  VkClearValue clears[9];
+  VkImageView images[10];
+  VkClearValue clears[10];
 
   for (uint32_t i = 0; i < COUNTOF(canvas->color) && canvas->color[i].texture; i++) {
     images[i] = canvas->color[i].texture->view;
@@ -1573,7 +1582,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     pass.count++;
   }
 
-  if (pass.resolve) {
+  if (pass.resolveColor) {
     for (uint32_t i = 0; i < pass.count; i++) {
       images[pass.count + i] = canvas->color[i].resolve->view;
       pass.color[i].resolveLayout = canvas->color[i].resolve->layout;
@@ -1590,6 +1599,14 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     pass.depth.layout = canvas->depth.texture->layout;
     pass.depth.load = canvas->depth.load;
     pass.depth.save = canvas->depth.save;
+    pass.depth.stencilLoad = canvas->depth.stencilLoad;
+    pass.depth.stencilSave = canvas->depth.stencilSave;
+
+    if (canvas->depth.resolve) {
+      uint32_t index = pass.count++;
+      images[index] = canvas->depth.resolve->view;
+      pass.depth.resolveLayout = canvas->depth.resolve->layout;
+    }
   }
 
   VkRenderPass renderPass = getCachedRenderPass(&pass, true);
@@ -1604,13 +1621,13 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     .pClearValues = clears
   };
 
-  vkCmdBeginRenderPass2KHR(stream->commands, &beginfo, &(VkSubpassBeginInfoKHR) {
+  vkCmdBeginRenderPass2KHR(stream->commands, &beginfo, &(VkSubpassBeginInfo) {
     .sType = VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO
   });
 }
 
 void gpu_render_end(gpu_stream* stream) {
-  vkCmdEndRenderPass2KHR(stream->commands, &(VkSubpassEndInfoKHR) {
+  vkCmdEndRenderPass2KHR(stream->commands, &(VkSubpassEndInfo) {
     .sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO
   });
 }
@@ -2118,7 +2135,8 @@ bool gpu_init(gpu_config* config) {
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
       { "VK_KHR_create_renderpass2", true, NULL },
       { "VK_KHR_swapchain", state.config.vk.surface, NULL },
-      { "VK_KHR_portability_subset", true, &state.extensions.portability }
+      { "VK_KHR_portability_subset", true, &state.extensions.portability },
+      { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve }
     };
 
     VkExtensionProperties extensionInfo[512];
@@ -2136,6 +2154,10 @@ bool gpu_init(gpu_config* config) {
       } else if (!extensions[i].flag) {
         vcheck(VK_ERROR_EXTENSION_NOT_PRESENT, extensions[i].name);
       }
+    }
+
+    if (config->features) {
+      config->features->depthResolve = state.extensions.depthResolve;
     }
 
     VkDeviceCreateInfo deviceInfo = {
@@ -2748,47 +2770,49 @@ static void createSwapchain(uint32_t width, uint32_t height) {
 
 // Ugliness until we can use dynamic rendering
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
-  bool depth = pass->depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
-  uint32_t count = (pass->count - depth) >> pass->resolve;
+  bool hasDepth = pass->depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
+  uint32_t depthCount = hasDepth ? (1 << pass->resolveDepth) : 0;
+  uint32_t colorCount = (pass->count - depthCount) >> pass->resolveColor;
 
   uint32_t lower[] = {
-    count > 0 ? pass->color[0].format : 0xff,
-    count > 1 ? pass->color[1].format : 0xff,
-    count > 2 ? pass->color[2].format : 0xff,
-    count > 3 ? pass->color[3].format : 0xff,
-    depth ? pass->depth.format : 0xff,
+    colorCount > 0 ? pass->color[0].format : 0xff,
+    colorCount > 1 ? pass->color[1].format : 0xff,
+    colorCount > 2 ? pass->color[2].format : 0xff,
+    colorCount > 3 ? pass->color[3].format : 0xff,
+    hasDepth ? pass->depth.format : 0xff,
     pass->samples,
-    pass->resolve,
     pass->views
   };
 
   uint32_t upper[] = {
-    count > 0 ? pass->color[0].load : 0xff,
-    count > 1 ? pass->color[1].load : 0xff,
-    count > 2 ? pass->color[2].load : 0xff,
-    count > 3 ? pass->color[3].load : 0xff,
-    count > 0 ? pass->color[0].save : 0xff,
-    count > 1 ? pass->color[1].save : 0xff,
-    count > 2 ? pass->color[2].save : 0xff,
-    count > 3 ? pass->color[3].save : 0xff,
-    depth ? pass->depth.load : 0xff,
-    depth ? pass->depth.save : 0xff,
-    count > 0 ? pass->color[0].layout : 0x00,
-    count > 1 ? pass->color[1].layout : 0x00,
-    count > 2 ? pass->color[2].layout : 0x00,
-    count > 3 ? pass->color[3].layout : 0x00,
-    pass->resolve && count > 0 ? pass->color[0].resolveLayout : 0x00,
-    pass->resolve && count > 1 ? pass->color[1].resolveLayout : 0x00,
-    pass->resolve && count > 2 ? pass->color[2].resolveLayout : 0x00,
-    pass->resolve && count > 3 ? pass->color[3].resolveLayout : 0x00,
-    depth ? pass->depth.layout : 0x00,
-    0
+    colorCount > 0 ? pass->color[0].load : 0xff,
+    colorCount > 1 ? pass->color[1].load : 0xff,
+    colorCount > 2 ? pass->color[2].load : 0xff,
+    colorCount > 3 ? pass->color[3].load : 0xff,
+    colorCount > 0 ? pass->color[0].save : 0xff,
+    colorCount > 1 ? pass->color[1].save : 0xff,
+    colorCount > 2 ? pass->color[2].save : 0xff,
+    colorCount > 3 ? pass->color[3].save : 0xff,
+    hasDepth ? pass->depth.load : 0xff,
+    hasDepth ? pass->depth.save : 0xff,
+    hasDepth ? pass->depth.stencilLoad : 0xff,
+    hasDepth ? pass->depth.stencilSave : 0xff,
+    colorCount > 0 ? pass->color[0].layout : 0x00,
+    colorCount > 1 ? pass->color[1].layout : 0x00,
+    colorCount > 2 ? pass->color[2].layout : 0x00,
+    colorCount > 3 ? pass->color[3].layout : 0x00,
+    hasDepth ? pass->depth.layout : 0x00,
+    pass->resolveColor && colorCount > 0 ? pass->color[0].resolveLayout : 0x00,
+    pass->resolveColor && colorCount > 1 ? pass->color[1].resolveLayout : 0x00,
+    pass->resolveColor && colorCount > 2 ? pass->color[2].resolveLayout : 0x00,
+    pass->resolveColor && colorCount > 3 ? pass->color[3].resolveLayout : 0x00,
+    pass->resolveDepth && hasDepth ? pass->depth.resolveLayout : 0x00
   };
 
   // The lower half of the hash contains format, sample, multiview info, which is all that's needed
   // to select a "compatible" render pass (which is all that's needed for creating pipelines).
-  // The upper half of the hash contains load/store info and usage flags (for layout transitions),
-  // which is necessary to select an "exact" match when e.g. actually beginning a render pass
+  // The upper half of the hash contains load/store info and layouts, which is necessary to select
+  // an "exact" match when e.g. actually beginning a render pass
   uint64_t hash = ((uint64_t) hash32(HASH_SEED, upper, sizeof(upper)) << 32) | hash32(HASH_SEED, lower, sizeof(lower));
   uint64_t mask = exact ? ~0ull : ~0u;
 
@@ -2823,36 +2847,38 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
     [GPU_SAVE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
   };
 
-  VkAttachmentDescription2KHR attachments[9];
-  VkAttachmentReference2KHR references[9];
+  VkAttachmentDescription2 attachments[10];
+  VkAttachmentReference2 references[10];
 
-  for (uint32_t i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < colorCount; i++) {
     references[i].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
     references[i].pNext = NULL;
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    references[i].aspectMask = 0;
     bool surface = pass->color[i].format == state.surface.format.format; // FIXME
     bool discard = surface || pass->color[i].load != GPU_LOAD_OP_KEEP;
-    attachments[i] = (VkAttachmentDescription2KHR) {
+    attachments[i] = (VkAttachmentDescription2) {
       .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
       .format = pass->color[i].format,
       .samples = pass->samples,
       .loadOp = loadOps[pass->color[i].load],
-      .storeOp = pass->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->color[i].save],
+      .storeOp = pass->resolveColor ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->color[i].save],
       .initialLayout = discard ? VK_IMAGE_LAYOUT_UNDEFINED : pass->color[i].layout,
-      .finalLayout = surface && !pass->resolve ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
+      .finalLayout = surface && !pass->resolveColor ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
     };
   }
 
-  if (pass->resolve) {
-    for (uint32_t i = 0; i < count; i++) {
-      uint32_t index = count + i;
+  if (pass->resolveColor) {
+    for (uint32_t i = 0; i < colorCount; i++) {
+      uint32_t index = colorCount + i;
       references[index].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
       references[index].pNext = NULL;
       references[index].attachment = index;
       references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      references[index].aspectMask = 0;
       bool surface = pass->color[i].format == state.surface.format.format; // FIXME
-      attachments[index] = (VkAttachmentDescription2KHR) {
+      attachments[index] = (VkAttachmentDescription2) {
         .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
         .format = pass->color[i].format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -2864,35 +2890,62 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
     }
   }
 
-  if (depth) {
-    uint32_t index = pass->count - 1;
+  if (hasDepth) {
+    uint32_t index = pass->count - depthCount;
     references[index].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
     references[index].pNext = NULL;
     references[index].attachment = index;
     references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    attachments[index] = (VkAttachmentDescription2KHR) {
+    references[index].aspectMask = 0;
+    attachments[index] = (VkAttachmentDescription2) {
       .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
       .format = pass->depth.format,
       .samples = pass->samples,
       .loadOp = loadOps[pass->depth.load],
-      .storeOp = storeOps[pass->depth.save],
-      .stencilLoadOp = loadOps[pass->depth.load],
-      .stencilStoreOp = storeOps[pass->depth.save],
+      .storeOp = pass->resolveDepth ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->depth.save],
+      .stencilLoadOp = loadOps[pass->depth.stencilLoad],
+      .stencilStoreOp = pass->resolveDepth ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->depth.stencilSave],
       .initialLayout = pass->depth.load == GPU_LOAD_OP_KEEP ? pass->depth.layout : VK_IMAGE_LAYOUT_UNDEFINED,
       .finalLayout = pass->depth.layout
     };
+
+    if (pass->resolveDepth) {
+      uint32_t index = pass->count - 1;
+      references[index].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+      references[index].pNext = NULL;
+      references[index].attachment = index;
+      references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+      references[index].aspectMask = 0;
+      attachments[index] = (VkAttachmentDescription2) {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = pass->depth.format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .storeOp = storeOps[pass->depth.save],
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = storeOps[pass->depth.stencilSave],
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = pass->depth.resolveLayout
+      };
+    }
   }
 
-  VkSubpassDescription2KHR subpass = {
+  VkSubpassDescription2 subpass = {
     .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+    .pNext = pass->resolveDepth ? &(VkSubpassDescriptionDepthStencilResolve) {
+      .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
+      .depthResolveMode = pass->resolveDepth ? VK_RESOLVE_MODE_SAMPLE_ZERO_BIT : 0,
+      .stencilResolveMode = pass->resolveDepth ? VK_RESOLVE_MODE_SAMPLE_ZERO_BIT : 0,
+      .pDepthStencilResolveAttachment = pass->resolveDepth ? &references[pass->count - 1] : NULL
+    } : NULL,
     .viewMask = (1 << pass->views) - 1,
-    .colorAttachmentCount = count,
+    .colorAttachmentCount = colorCount,
     .pColorAttachments = &references[0],
-    .pResolveAttachments = pass->resolve ? &references[count] : NULL,
-    .pDepthStencilAttachment = depth ? &references[pass->count - 1] : NULL
+    .pResolveAttachments = pass->resolveColor ? &references[colorCount] : NULL,
+    .pDepthStencilAttachment = hasDepth ? &references[pass->count - depthCount] : NULL
   };
 
-  VkRenderPassCreateInfo2KHR info = {
+  VkRenderPassCreateInfo2 info = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
     .attachmentCount = pass->count,
     .pAttachments = attachments,

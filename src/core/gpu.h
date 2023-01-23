@@ -495,6 +495,7 @@ typedef struct {
 
 typedef struct {
   gpu_texture* texture;
+  gpu_texture* resolve;
   gpu_load_op load, stencilLoad;
   gpu_save_op save, stencilSave;
   struct { float depth; uint8_t stencil; } clear;
@@ -611,6 +612,7 @@ typedef struct {
   bool textureASTC;
   bool wireframe;
   bool depthClamp;
+  bool depthResolve;
   bool indirectDrawFirstInstance;
   bool shaderTally;
   bool float64;

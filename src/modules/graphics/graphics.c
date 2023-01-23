@@ -760,6 +760,7 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->textureASTC = state.features.textureASTC;
   features->wireframe = state.features.wireframe;
   features->depthClamp = state.features.depthClamp;
+  features->depthResolve = state.features.depthResolve;
   features->indirectDrawFirstInstance = state.features.indirectDrawFirstInstance;
   features->float64 = state.features.float64;
   features->int64 = state.features.int64;
@@ -3324,8 +3325,11 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
       lovrCheck(texture->width == t->width, "Render pass texture sizes must match");
       lovrCheck(texture->height == t->height, "Render pass texture sizes must match");
       lovrCheck(texture->layers == t->layers, "Render pass texture layer counts must match");
-      lovrCheck(texture->samples == canvas->samples, "Sorry, resolving depth textures is not supported yet!");
+      lovrCheck(texture->samples == t->samples, "Render pass texture sample counts must match");
+      lovrCheck(texture->samples == canvas->samples || texture->samples == 1, "Render pass texture sample count must be 1 or match the pass sample count");
+      lovrCheck(texture->samples == canvas->samples || state.features.depthResolve, "This GPU does not support resolving depth textures, try setting the pass sample count to 1");
       lovrCheck(!canvas->mipmap || texture->mipmaps == 1 || texture->usage & TEXTURE_TRANSFER, "Texture must have 'transfer' flag to mipmap it after a pass");
+      lovrCheck(canvas->samples == 1 || texture->samples > 1 || depth->load != LOAD_KEEP, "When doing multisample resolves to a texture, it must be cleared");
     } else {
       lovrCheck(depth->load != LOAD_KEEP, "Must clear depth when not using a depth texture in a pass");
     }
@@ -3371,14 +3375,26 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     trackTexture(pass, canvas->textures[i], GPU_PHASE_COLOR, cache);
   }
 
+  scratchTextureInfo.format = depth->texture ? depth->texture->info.format : depth->format;
+  scratchTextureInfo.srgb = false;
+
   if (depth->texture) {
-    target.depth.texture = depth->texture->renderView;
-    gpu_phase phase = depth->load == LOAD_KEEP ? GPU_PHASE_DEPTH_EARLY : GPU_PHASE_DEPTH_LATE;
-    gpu_cache cache = GPU_CACHE_DEPTH_WRITE | (depth->load == LOAD_KEEP ? GPU_CACHE_DEPTH_READ : 0);
+    gpu_phase phase;
+    gpu_cache cache;
+
+    if (depth->texture->info.samples == 1 && canvas->samples > 1) {
+      target.depth.texture = getScratchTexture(&scratchTextureInfo);
+      target.depth.resolve = depth->texture->renderView;
+      phase = GPU_PHASE_COLOR; // Depth resolve operations act like color resolves w.r.t. sync
+      cache = GPU_CACHE_COLOR_WRITE;
+    } else {
+      target.depth.texture = depth->texture->renderView;
+      phase = depth->load == LOAD_KEEP ? GPU_PHASE_DEPTH_EARLY : GPU_PHASE_DEPTH_LATE;
+      cache = GPU_CACHE_DEPTH_WRITE | (depth->load == LOAD_KEEP ? GPU_CACHE_DEPTH_READ : 0);
+    }
+
     trackTexture(pass, depth->texture, phase, cache);
   } else if (depth->format) {
-    scratchTextureInfo.format = depth->format;
-    scratchTextureInfo.srgb = false;
     target.depth.texture = getScratchTexture(&scratchTextureInfo);
   }
 
