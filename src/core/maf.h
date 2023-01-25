@@ -302,7 +302,7 @@ MAF quat quat_between(quat q, vec3 u, vec3 v) {
 
 // mat4
 
-#define MAT4_IDENTITY { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1 }
+#define MAT4_IDENTITY { 1.f, 0.f, 0.f, 0.f,  0.f, 1.f, 0.f, 0.f,  0.f, 0.f, 1.f, 0.f,  0.f, 0.f, 0.f, 1.f }
 
 #define mat4_init mat4_set
 MAF mat4 mat4_set(mat4 m, mat4 n) {

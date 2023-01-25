@@ -15,6 +15,11 @@ int l_lovrVec3Set(lua_State* L);
 int l_lovrVec4Set(lua_State* L);
 int l_lovrQuatSet(lua_State* L);
 int l_lovrMat4Set(lua_State* L);
+int l_lovrVec2__metaindex(lua_State* L);
+int l_lovrVec3__metaindex(lua_State* L);
+int l_lovrVec4__metaindex(lua_State* L);
+int l_lovrQuat__metaindex(lua_State* L);
+int l_lovrMat4__metaindex(lua_State* L);
 static int l_lovrMathVec2(lua_State* L);
 static int l_lovrMathVec3(lua_State* L);
 static int l_lovrMathVec4(lua_State* L);
@@ -30,12 +35,12 @@ extern const luaL_Reg lovrMat4[];
 
 static LOVR_THREAD_LOCAL Pool* pool;
 
-static struct { const char* name; lua_CFunction constructor; const luaL_Reg* api; int metaref; } lovrVectorInfo[] = {
-  [V_VEC2] = { "vec2", l_lovrMathVec2, lovrVec2, LUA_REFNIL },
-  [V_VEC3] = { "vec3", l_lovrMathVec3, lovrVec3, LUA_REFNIL },
-  [V_VEC4] = { "vec4", l_lovrMathVec4, lovrVec4, LUA_REFNIL },
-  [V_QUAT] = { "quat", l_lovrMathQuat, lovrQuat, LUA_REFNIL },
-  [V_MAT4] = { "mat4", l_lovrMathMat4, lovrMat4, LUA_REFNIL }
+static struct { const char* name; lua_CFunction constructor, indexer; const luaL_Reg* api; int metaref; } lovrVectorInfo[] = {
+  [V_VEC2] = { "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL },
+  [V_VEC3] = { "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL },
+  [V_VEC4] = { "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL },
+  [V_QUAT] = { "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL },
+  [V_MAT4] = { "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL }
 };
 
 static void luax_destroypool(void) {
@@ -353,6 +358,8 @@ int luaopen_lovr_math(lua_State* L) {
     lua_newtable(L);
     lua_pushcfunction(L, lovrVectorInfo[i].constructor);
     lua_setfield(L, -2, "__call");
+    lua_pushcfunction(L, lovrVectorInfo[i].indexer);
+    lua_setfield(L, -2, "__index");
     lua_setmetatable(L, -2);
 
     lua_pushstring(L, lovrVectorInfo[i].name);

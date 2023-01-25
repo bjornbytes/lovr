@@ -524,6 +524,31 @@ static int l_lovrVec2__index(lua_State* L) {
   return luaL_error(L, "attempt to index field %s of vec2 (invalid property)", lua_tostring(L, -1));
 }
 
+int l_lovrVec2__metaindex(lua_State* L) {
+  if (lua_type(L, 2) != LUA_TSTRING) {
+    return 0;
+  }
+
+  size_t length;
+  const char* key = lua_tolstring(L, 2, &length);
+
+  static const struct { StringEntry name; float x, y; } properties[] = {
+    { ENTRY("one"), 1.f, 1.f },
+    { ENTRY("zero"), 0.f, 0.f }
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(properties); i++) {
+    if (length == properties[i].name.length && !memcmp(key, properties[i].name.string, length)) {
+      float* v = luax_newtempvector(L, V_VEC2);
+      v[0] = properties[i].x;
+      v[1] = properties[i].y;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 const luaL_Reg lovrVec2[] = {
   { "equals", l_lovrVec2Equals },
   { "unpack", l_lovrVec2Unpack },
@@ -945,6 +970,36 @@ static int l_lovrVec3__index(lua_State* L) {
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
   return luaL_error(L, "attempt to index field %s of vec3 (invalid property)", lua_tostring(L, -1));
+}
+
+int l_lovrVec3__metaindex(lua_State* L) {
+  if (lua_type(L, 2) != LUA_TSTRING) {
+    return 0;
+  }
+
+  size_t length;
+  const char* key = lua_tolstring(L, 2, &length);
+
+  static const struct { StringEntry name; float x, y, z; } properties[] = {
+    { ENTRY("one"), 1.f, 1.f, 1.f },
+    { ENTRY("zero"), 0.f, 0.f, 0.f },
+    { ENTRY("left"), -1.f, 0.f, 0.f },
+    { ENTRY("right"), 1.f, 0.f, 0.f },
+    { ENTRY("up"), 0.f, 1.f, 0.f },
+    { ENTRY("down"), 0.f, -1.f, 0.f },
+    { ENTRY("back"), 0.f, 0.f, 1.f },
+    { ENTRY("forward"), 0.f, 0.f, -1.f }
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(properties); i++) {
+    if (length == properties[i].name.length && !memcmp(key, properties[i].name.string, length)) {
+      float* v = luax_newtempvector(L, V_VEC3);
+      vec3_set(v, properties[i].x, properties[i].y, properties[i].z);
+      return 1;
+    }
+  }
+
+  return 0;
 }
 
 const luaL_Reg lovrVec3[] = {
@@ -1426,6 +1481,33 @@ static int l_lovrVec4__index(lua_State* L) {
   return luaL_error(L, "attempt to index field %s of vec4 (invalid property)", lua_tostring(L, -1));
 }
 
+int l_lovrVec4__metaindex(lua_State* L) {
+  if (lua_type(L, 2) != LUA_TSTRING) {
+    return 0;
+  }
+
+  size_t length;
+  const char* key = lua_tolstring(L, 2, &length);
+
+  static const struct { StringEntry name; float x, y, z, w; } properties[] = {
+    { ENTRY("one"), 1.f, 1.f, 1.f, 1.f },
+    { ENTRY("zero"), 0.f, 0.f, 0.f, 0.f }
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(properties); i++) {
+    if (length == properties[i].name.length && !memcmp(key, properties[i].name.string, length)) {
+      float* v = luax_newtempvector(L, V_VEC4);
+      v[0] = properties[i].x;
+      v[1] = properties[i].y;
+      v[2] = properties[i].z;
+      v[3] = properties[i].w;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 const luaL_Reg lovrVec4[] = {
   { "equals", l_lovrVec4Equals },
   { "unpack", l_lovrVec4Unpack },
@@ -1657,6 +1739,29 @@ static int l_lovrQuat__index(lua_State* L) {
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
   return luaL_error(L, "attempt to index field %s of quat (invalid property)", lua_tostring(L, -1));
+}
+
+int l_lovrQuat__metaindex(lua_State* L) {
+  if (lua_type(L, 2) != LUA_TSTRING) {
+    return 0;
+  }
+
+  size_t length;
+  const char* key = lua_tolstring(L, 2, &length);
+
+  static const struct { StringEntry name; float x, y, z, w; } properties[] = {
+    { ENTRY("identity"), 0.f, 0.f, 0.f, 1.f }
+  };
+
+  for (uint32_t i = 0; i < COUNTOF(properties); i++) {
+    if (length == properties[i].name.length && !memcmp(key, properties[i].name.string, length)) {
+      float* q = luax_newtempvector(L, V_QUAT);
+      quat_set(q, properties[i].x, properties[i].y, properties[i].z, properties[i].w);
+      return 1;
+    }
+  }
+
+  return 0;
 }
 
 const luaL_Reg lovrQuat[] = {
@@ -2016,6 +2121,10 @@ static int l_lovrMat4__index(lua_State* L) {
   lua_pushvalue(L, 2);
   lua_call(L, 1, 1);
   return luaL_error(L, "attempt to index field %s of mat4 (invalid property)", lua_tostring(L, -1));
+}
+
+int l_lovrMat4__metaindex(lua_State* L) {
+  return 0; // No properties currently, 'identity' is already taken
 }
 
 const luaL_Reg lovrMat4[] = {
