@@ -201,6 +201,10 @@ endif()
 # Vulkan
 if(LOVR_USE_VULKAN)
   include_directories(deps/vulkan-headers/include)
+  if(APPLE)
+    find_package(Vulkan REQUIRED)
+    set(LOVR_VULKAN Vulkan::Vulkan)
+  endif()
 endif()
 
 # OpenXR
@@ -368,6 +372,7 @@ target_link_libraries(lovr
   ${LOVR_MSDF}
   ${LOVR_ODE}
   ${LOVR_GLSLANG}
+  ${LOVR_VULKAN}
   ${LOVR_OPENXR}
   ${LOVR_OCULUS_AUDIO}
   ${LOVR_PTHREADS}
@@ -705,17 +710,17 @@ elseif(APPLE)
   function(move_lib)
     if(TARGET ${ARGV0})
       get_target_property(TARGET_TYPE ${ARGV0} TYPE)
-      if(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
-        add_custom_command(TARGET move_files POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy
-          $<TARGET_FILE:${ARGV0}>
-          ${EXE_DIR}/$<TARGET_FILE_NAME:${ARGV0}>
-        )
-      else()
+      if(${TARGET_TYPE} STREQUAL "SHARED_LIBRARY")
         add_custom_command(TARGET move_files POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_SONAME_FILE:${ARGV0}>
           ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
+        )
+      else()
+        add_custom_command(TARGET move_files POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_FILE:${ARGV0}>
+          ${EXE_DIR}/$<TARGET_FILE_NAME:${ARGV0}>
         )
       endif()
     endif()
@@ -724,6 +729,7 @@ elseif(APPLE)
   move_lib(${LOVR_LUA})
   move_lib(${LOVR_ODE})
   move_lib(${LOVR_MSDF})
+  move_lib(${LOVR_VULKAN})
   move_lib(${LOVR_OCULUS_AUDIO})
   move_lib(${LOVR_PHONON})
   foreach(target ${ALL_PLUGIN_TARGETS})

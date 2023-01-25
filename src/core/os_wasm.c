@@ -21,8 +21,6 @@ static struct {
   long mouseY;
   uint32_t width;
   uint32_t height;
-  uint32_t framebufferWidth;
-  uint32_t framebufferHeight;
 } state;
 
 static const char* onBeforeUnload(int type, const void* unused, void* userdata) {
@@ -41,14 +39,12 @@ static EM_BOOL onFocusChanged(int type, const EmscriptenFocusEvent* data, void* 
 }
 
 static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata) {
-  int newWidth, newHeight, newFramebufferWidth, newFramebufferHeight;
-  emscripten_get_canvas_element_size(CANVAS, &newWidth, &newHeight);
+  int newWidth, newHeight;
+  emscripten_webgl_get_drawing_buffer_size(state.context, &newWidth, &newHeight);
+
   if (state.width != (uint32_t) newWidth || state.height != (uint32_t) newHeight) {
-    emscripten_webgl_get_drawing_buffer_size(state.context, &newFramebufferWidth, &newFramebufferHeight);
     state.width = newWidth;
     state.height = newHeight;
-    state.framebufferWidth = newFramebufferWidth;
-    state.framebufferHeight = newFramebufferHeight;
     if (state.onWindowResize) {
       state.onWindowResize(state.width, state.height);
       return true;
@@ -290,14 +286,7 @@ bool os_window_open(const os_window_config* flags) {
   }
 
   emscripten_webgl_make_context_current(state.context);
-
-  int width, height, framebufferWidth, framebufferHeight;
-  emscripten_webgl_get_drawing_buffer_size(state.context, &framebufferWidth, &framebufferHeight);
-  emscripten_get_canvas_element_size(CANVAS, &width, &height);
-  state.width = width;
-  state.height = height;
-  state.framebufferWidth = framebufferWidth;
-  state.framebufferHeight = framebufferHeight;
+  emscripten_webgl_get_drawing_buffer_size(state.context, &state.width, &state.height);
   return true;
 }
 
@@ -310,9 +299,11 @@ void os_window_get_size(uint32_t* width, uint32_t* height) {
   *height = state.height;
 }
 
-void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
-  *width = state.framebufferWidth;
-  *height = state.framebufferHeight;
+float os_window_get_pixel_density(void) {
+  int w, h, fw, fh;
+  emscripten_get_canvas_element_size(state.context, &w, &h);
+  emscripten_webgl_get_drawing_buffer_size(state.context, &fw, &fh);
+  return (w == 0 || h == 0) ? 0.f : (float) fw / w;
 }
 
 void os_on_quit(fn_quit* callback) {

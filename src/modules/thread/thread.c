@@ -77,7 +77,6 @@ Channel* lovrThreadGetChannel(const char* name) {
 
 static int threadFunction(void* data) {
   Thread* thread = data;
-  lovrRetain(thread);
 
   char* error = thread->function(thread, thread->body, thread->arguments, thread->argumentCount);
 
@@ -130,8 +129,11 @@ void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount)
   memcpy(thread->arguments, arguments, argumentCount * sizeof(Variant));
   thread->argumentCount = argumentCount;
 
+  lovrRetain(thread);
+
   if (thrd_create(&thread->handle, threadFunction, thread) != thrd_success) {
     mtx_unlock(&thread->lock);
+    lovrRelease(thread, lovrThreadDestroy);
     lovrThrow("Could not create thread...sorry");
   }
 

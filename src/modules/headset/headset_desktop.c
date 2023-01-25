@@ -84,7 +84,7 @@ static double desktop_getDeltaTime(void) {
 }
 
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
-  os_window_get_fbsize(width, height);
+  os_window_get_size(width, height);
 }
 
 static uint32_t desktop_getViewCount(void) {
@@ -244,7 +244,7 @@ static double desktop_update(void) {
   double mx, my;
   uint32_t width, height;
   os_get_mouse_position(&mx, &my);
-  os_window_get_fbsize(&width, &height);
+  os_window_get_size(&width, &height);
 
   double aspect = (width > 0 && height > 0) ? ((double) width / height) : 1.;
 
