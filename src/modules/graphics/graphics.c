@@ -4459,6 +4459,138 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
   }
 }
 
+void lovrPassRoundrect(Pass* pass, float* transform, float r, uint32_t segments) {
+  bool thicc = vec3_length(transform + 8) > 0.f;
+  float w = vec3_length(transform + 0);
+  float h = vec3_length(transform + 4);
+  r = MIN(MIN(r, w / 2.f), h / 2.f);
+  float rx = MIN(r / w, .5f);
+  float ry = MIN(r / h, .5f);
+  uint32_t n = segments + 1;
+
+  if (r <= 0.f || w == 0.f || h == 0.f) {
+    lovrPassPlane(pass, transform, STYLE_FILL, 1, 1);
+    return;
+  }
+
+  uint32_t vertexCount;
+  uint32_t indexCount;
+
+  if (thicc) {
+    vertexCount = 8 + (segments + 1) * 16;
+    indexCount = 3 * 8 * segments + 6 * 4 * (segments + 1) + 60;
+  } else {
+    vertexCount = 4 + (segments + 1) * 4;
+    indexCount = 3 * 4 * segments + 30;
+  }
+
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  lovrPassDraw(pass, &(Draw) {
+    .mode = MESH_TRIANGLES,
+    .transform = transform,
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  uint32_t c = vertexCount - (thicc ? 8 : 4);
+  ShapeVertex* corner = vertices + c;
+
+  float angle = 0.f;
+  float step = (float) M_PI / 2.f / segments;
+  float x = .5f - rx;
+  float y = .5f - ry;
+  float z = .5f;
+  float nz = 1.f;
+
+  for (uint32_t side = 0; side <= thicc; side++, z *= -1.f, nz *= -1.f, angle = 0.f) {
+    for (uint32_t i = 0; i < n; i++, angle += step) {
+      float c = cosf(angle);
+      float s = sinf(angle);
+      float u = 0.f;
+      float v = 0.f;
+      vertices[n * 0 + i] = (ShapeVertex) { {  x + c * rx,  y + s * ry, z }, { 0.f, 0.f, nz }, { u, v } };
+      vertices[n * 1 + i] = (ShapeVertex) { { -x - s * rx,  y + c * ry, z }, { 0.f, 0.f, nz }, { u, v } };
+      vertices[n * 2 + i] = (ShapeVertex) { { -x - c * rx, -y - s * ry, z }, { 0.f, 0.f, nz }, { u, v } };
+      vertices[n * 3 + i] = (ShapeVertex) { {  x + s * rx, -y - c * ry, z }, { 0.f, 0.f, nz }, { u, v } };
+
+      if (thicc) {
+        vertices[n * 8  + i] = (ShapeVertex) { {  x + c * rx,  y + s * ry, z }, { c, s, 0.f }, { 0.f, 0.f } };
+        vertices[n * 9  + i] = (ShapeVertex) { { -x - s * rx,  y + c * ry, z }, { c, s, 0.f }, { 0.f, 0.f } };
+        vertices[n * 10 + i] = (ShapeVertex) { { -x - c * rx, -y - s * ry, z }, { c, s, 0.f }, { 0.f, 0.f } };
+        vertices[n * 11 + i] = (ShapeVertex) { {  x + s * rx, -y - c * ry, z }, { c, s, 0.f }, { 0.f, 0.f } };
+      }
+    }
+
+    vertices += 4 * n;
+
+    // 4 extra corner vertices per-side, used for the triangle fans and 9-slice quads
+    *corner++ = (ShapeVertex) { {  x,  y, z }, { 0.f, 0.f, nz }, { 0.f, 0.f } };
+    *corner++ = (ShapeVertex) { { -x,  y, z }, { 0.f, 0.f, nz }, { 0.f, 0.f } };
+    *corner++ = (ShapeVertex) { { -x, -y, z }, { 0.f, 0.f, nz }, { 0.f, 0.f } };
+    *corner++ = (ShapeVertex) { {  x, -y, z }, { 0.f, 0.f, nz }, { 0.f, 0.f } };
+  }
+
+  uint32_t m = segments;
+
+  uint16_t front[] = {
+    n * 0 + m, n * 1, c + 0, c + 0, n * 1, c + 1, // top
+    c + 1, n * 1 + m, c + 2, c + 2, n * 1 + m, n * 2, // left
+    n * 0, c + 0, n * 3 + m, n * 3 + m, c + 0, c + 3, // right
+    c + 3, c + 2, n * 3, n * 3, c + 2, 2 * n + m, // bot
+    c + 0, c + 1, c + 3, c + 3, c + 1, c + 2 // center
+  };
+
+  memcpy(indices, front, sizeof(front));
+  indices += COUNTOF(front);
+
+  for (uint32_t i = 0; i < 4; i++) {
+    for (uint32_t j = 0; j < segments; j++) {
+      memcpy(indices, (uint16_t[]) { c + i, n * i + j, n * i + j + 1 }, 3 * sizeof(uint16_t));
+      indices += 3;
+    }
+  }
+
+  if (thicc) {
+    uint16_t back[] = {
+      n * 4 + m, c + 4, n * 5, n * 5, c + 4, c + 5, // top
+      c + 5, c + 6, n * 5 + m, n * 5 + m, c + 6, n * 6, // left
+      n * 4, n * 7 + m, c + 4, c + 4, n * 7 + m, c + 7, // right
+      c + 7, n * 7, c + 6, c + 6, n * 7, 6 * n + m, // bot
+      c + 4, c + 7, c + 5, c + 5, c + 7, c + 6 // center
+    };
+
+    memcpy(indices, back, sizeof(back));
+    indices += COUNTOF(back);
+
+    for (uint32_t i = 4; i < 8; i++) {
+      for (uint32_t j = 0; j < segments; j++) {
+        memcpy(indices, (uint16_t[]) { n * i + j, c + i, n * i + j + 1 }, 3 * sizeof(uint16_t));
+        indices += 3;
+      }
+    }
+
+    // Stitch sides together
+    for (uint32_t i = 0; i < 4 * n - 1; i++) {
+      uint16_t a = 8 * n + i;
+      uint16_t b = 12 * n + i;
+      memcpy(indices, (uint16_t[]) { a, b, b + 1, a, b + 1, a + 1 }, 6 * sizeof(uint16_t));
+      indices += 6;
+    }
+
+    // Handle discontinuity
+    uint16_t a = 11 * n + m;
+    uint16_t b = 15 * n + m;
+    uint16_t c = 12 * n;
+    uint16_t d = 8 * n;
+    memcpy(indices, (uint16_t[]) { a, b, c, a, c, d }, 6 * sizeof(uint16_t));
+    indices += 6;
+  }
+}
+
 void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
   uint32_t key[] = { SHAPE_BOX, style };
   ShapeVertex* vertices;

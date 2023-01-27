@@ -605,6 +605,16 @@ static int l_lovrPassPlane(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassRoundrect(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float transform[16];
+  int index = luax_readmat4(L, 2, transform, 3);
+  float radius = luax_optfloat(L, index++, 0.f);
+  uint32_t segments = luax_optu32(L, index++, 8);
+  lovrPassRoundrect(pass, transform, radius, segments);
+  return 0;
+}
+
 static int l_lovrPassCube(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
@@ -1090,6 +1100,7 @@ const luaL_Reg lovrPass[] = {
   { "points", l_lovrPassPoints },
   { "line", l_lovrPassLine },
   { "plane", l_lovrPassPlane },
+  { "roundrect", l_lovrPassRoundrect },
   { "cube", l_lovrPassCube },
   { "box", l_lovrPassBox },
   { "circle", l_lovrPassCircle },
