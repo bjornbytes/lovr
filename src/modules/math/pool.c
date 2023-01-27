@@ -13,9 +13,9 @@ static const size_t vectorComponents[] = {
 struct Pool {
   uint32_t ref;
   float* data;
-  size_t count;
-  size_t cursor;
-  size_t generation;
+  uint32_t count;
+  uint32_t cursor;
+  uint32_t generation;
 };
 
 Pool* lovrPoolCreate() {
@@ -33,7 +33,7 @@ void lovrPoolDestroy(void* ref) {
 }
 
 void lovrPoolGrow(Pool* pool, size_t count) {
-  lovrAssert(count <= (1 << 16), "Temporary vector space exhausted.  Try using lovr.math.drain to drain the vector pool periodically.");
+  lovrAssert(count <= (1 << 24), "Temporary vector space exhausted.  Try using lovr.math.drain to drain the vector pool periodically.");
   pool->count = count;
   pool->data = realloc(pool->data, pool->count * sizeof(float));
   lovrAssert(pool->data, "Out of memory");
@@ -49,8 +49,8 @@ Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
   Vector v = {
     .handle = {
       .type = type,
-      .generation = (uint8_t) pool->generation,
-      .index = (uint16_t) pool->cursor
+      .generation = pool->generation,
+      .index = pool->cursor
     }
   };
 
@@ -66,5 +66,5 @@ float* lovrPoolResolve(Pool* pool, Vector vector) {
 
 void lovrPoolDrain(Pool* pool) {
   pool->cursor = 0;
-  pool->generation = (pool->generation + 1) & 0xff;
+  pool->generation = (pool->generation + 1) & 0xf;
 }

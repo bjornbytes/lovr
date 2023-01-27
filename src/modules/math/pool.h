@@ -16,10 +16,10 @@ typedef enum {
 typedef union {
   void* pointer;
   struct {
-    uint8_t type;
-    uint8_t generation;
-    uint16_t index;
-    uint32_t padding;
+    unsigned index : 24;
+    unsigned type : 4;
+    unsigned generation : 4;
+    unsigned padding : 32;
   } handle;
 } Vector;
 
