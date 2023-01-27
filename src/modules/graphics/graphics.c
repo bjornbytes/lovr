@@ -4510,28 +4510,27 @@ void lovrPassRoundrect(Pass* pass, float* transform, float r, uint32_t segments)
     for (uint32_t i = 0; i < n; i++, angle += step) {
       float c = cosf(angle);
       float s = sinf(angle);
-      float u = 0.f;
-      float v = 0.f;
-      vertices[n * 0 + i] = (ShapeVertex) { {  x + c * rx,  y + s * ry, z }, { 0.f, 0.f, nz }, { u, v } };
-      vertices[n * 1 + i] = (ShapeVertex) { { -x - s * rx,  y + c * ry, z }, { 0.f, 0.f, nz }, { u, v } };
-      vertices[n * 2 + i] = (ShapeVertex) { { -x - c * rx, -y - s * ry, z }, { 0.f, 0.f, nz }, { u, v } };
-      vertices[n * 3 + i] = (ShapeVertex) { {  x + s * rx, -y - c * ry, z }, { 0.f, 0.f, nz }, { u, v } };
+
+      vertices[n * 0 + i] = (ShapeVertex) { {  x + c * rx,  y + s * ry, z }, { 0.f, 0.f, nz }, { .5f + x + c * rx, .5f - y - s * ry } };
+      vertices[n * 1 + i] = (ShapeVertex) { { -x - s * rx,  y + c * ry, z }, { 0.f, 0.f, nz }, { .5f - x - s * rx, .5f - y - c * ry } };
+      vertices[n * 2 + i] = (ShapeVertex) { { -x - c * rx, -y - s * ry, z }, { 0.f, 0.f, nz }, { .5f - x - c * rx, .5f + y + s * ry } };
+      vertices[n * 3 + i] = (ShapeVertex) { {  x + s * rx, -y - c * ry, z }, { 0.f, 0.f, nz }, { .5f + x + s * rx, .5f + y + c * ry } };
 
       if (thicc) {
-        vertices[n * 8  + i] = (ShapeVertex) { {  x + c * rx,  y + s * ry, z }, { c, s, 0.f }, { 0.f, 0.f } };
-        vertices[n * 9  + i] = (ShapeVertex) { { -x - s * rx,  y + c * ry, z }, { c, s, 0.f }, { 0.f, 0.f } };
-        vertices[n * 10 + i] = (ShapeVertex) { { -x - c * rx, -y - s * ry, z }, { c, s, 0.f }, { 0.f, 0.f } };
-        vertices[n * 11 + i] = (ShapeVertex) { {  x + s * rx, -y - c * ry, z }, { c, s, 0.f }, { 0.f, 0.f } };
+        vertices[n * 8  + i] = (ShapeVertex) { {  x + c * rx,  y + s * ry, z }, { c, s, 0.f }, { .5f + x + c * rx, .5f - y - s * ry } };
+        vertices[n * 9  + i] = (ShapeVertex) { { -x - s * rx,  y + c * ry, z }, { c, s, 0.f }, { .5f - x - s * rx, .5f - y - c * ry } };
+        vertices[n * 10 + i] = (ShapeVertex) { { -x - c * rx, -y - s * ry, z }, { c, s, 0.f }, { .5f - x - c * rx, .5f + y + s * ry } };
+        vertices[n * 11 + i] = (ShapeVertex) { {  x + s * rx, -y - c * ry, z }, { c, s, 0.f }, { .5f + x + s * rx, .5f + y + c * ry } };
       }
     }
 
     vertices += 4 * n;
 
     // 4 extra corner vertices per-side, used for the triangle fans and 9-slice quads
-    *corner++ = (ShapeVertex) { {  x,  y, z }, { 0.f, 0.f, nz }, { 0.f, 0.f } };
-    *corner++ = (ShapeVertex) { { -x,  y, z }, { 0.f, 0.f, nz }, { 0.f, 0.f } };
-    *corner++ = (ShapeVertex) { { -x, -y, z }, { 0.f, 0.f, nz }, { 0.f, 0.f } };
-    *corner++ = (ShapeVertex) { {  x, -y, z }, { 0.f, 0.f, nz }, { 0.f, 0.f } };
+    *corner++ = (ShapeVertex) { {  x,  y, z }, { 0.f, 0.f, nz }, { .5f + x, .5f - y } };
+    *corner++ = (ShapeVertex) { { -x,  y, z }, { 0.f, 0.f, nz }, { .5f - x, .5f - y } };
+    *corner++ = (ShapeVertex) { { -x, -y, z }, { 0.f, 0.f, nz }, { .5f - x, .5f + y } };
+    *corner++ = (ShapeVertex) { {  x, -y, z }, { 0.f, 0.f, nz }, { .5f + x, .5f + y } };
   }
 
   uint32_t m = segments;
