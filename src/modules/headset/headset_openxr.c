@@ -341,7 +341,9 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
+#ifndef __ANDROID__
       { "XR_MND_headless", &state.features.headless, true },
+#endif
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
       { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
     };
