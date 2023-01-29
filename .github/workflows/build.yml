@@ -28,6 +28,7 @@ jobs:
             build/Release/lovr.exe
             build/Release/lovrc.bat
             build/Release/*.dll
+
   linux:
     name: Linux
     runs-on: ubuntu-22.04
@@ -46,7 +47,7 @@ jobs:
         run: cmake --build build
       - name: AppImage
         run: >
-          curl -OL https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage &&
+          curl -sOL https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage &&
           chmod +x ./appimagetool-x86_64.AppImage &&
           ./appimagetool-x86_64.AppImage build/bin &&
           mv LÖVR-x86_64.AppImage lovr-x86_64.AppImage
@@ -55,6 +56,7 @@ jobs:
         with:
           name: lovr.appimage
           path: lovr-x86_64.AppImage
+
   android:
     name: Android
     runs-on: ubuntu-22.04
@@ -96,20 +98,33 @@ jobs:
         with:
           name: lovr.apk
           path: build/lovr.apk
+
   macos:
     name: macOS
     runs-on: macos-latest
     steps:
+      - name: Install Wulkan
+        env:
+          VKV: 1.3.231.1
+        run: |
+          curl -sOL https://sdk.lunarg.com/sdk/download/$VKV/mac/vulkansdk-macos-$VKV.dmg?Human=true
+          hdiutil attach vulkansdk-macos-$VKV.dmg
+          cp -R /Volumes/vulkansdk-macos-$VKV .
+          hdiutil detach /Volumes/vulkansdk-macos-$VKV
+          export VULKAN_SDK=${{ runner.temp }}/vulkan && echo "VULKAN_SDK=$VULKAN_SDK/macOS" >> $GITHUB_ENV
+          sudo vulkansdk-macos-$VKV/InstallVulkan.app/Contents/MacOS/InstallVulkan --root $VULKAN_SDK --accept-licenses --default-answer --confirm-command install
       - name: Checkout
         uses: actions/checkout@v3
         with:
           submodules: true
       - name: Init
-        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
+        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON -D Vulkan_LIBRARY=$VULKAN_SDK/../MoltenVK/dylib/macOS/libMoltenVK.dylib
       - name: Build
         run: cmake --build build
+      - name: Package
+        run: ditto -c -k --keepParent build/lovr.app lovr.zip
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
           name: lovr.app
-          path: build/lovr.app
+          path: lovr.zip

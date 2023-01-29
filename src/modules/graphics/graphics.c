@@ -3309,6 +3309,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
     lovrCheck(texture->height == t->height, "Render pass texture sizes must match");
     lovrCheck(texture->layers == t->layers, "Render pass texture layer counts must match");
     lovrCheck(texture->samples == t->samples, "Render pass texture sample counts must match");
+    lovrCheck(texture->samples == 1 || texture->samples == canvas->samples, "Render pass texture sample count must be 1 or match the pass sample count");
     lovrCheck(!canvas->mipmap || texture->mipmaps == 1 || texture->usage & TEXTURE_TRANSFER, "Texture must have 'transfer' flag to mipmap it after a pass");
     lovrCheck(canvas->samples == 1 || texture->samples > 1 || canvas->loads[i] != LOAD_KEEP, "When doing multisample resolves to a texture, it must be cleared");
   }
