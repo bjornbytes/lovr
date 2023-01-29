@@ -764,7 +764,7 @@ elseif(ANDROID)
           $<TARGET_SONAME_FILE:${LOVR_OPENXR}>
           raw/lib/${ANDROID_ABI}/libopenxr_loader_generic.so
         )
-      set (PICO_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico-openxr/Libs/Android/${ANDROID_ABI}/libopenxr_loader.so")
+      set (PICO_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico-openxr/libs/android.${ANDROID_ABI}/libopenxr_loader.so")
       if (EXISTS ${PICO_LOADER})
         configure_file(${PICO_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_pico.so" COPYONLY)
       endif()
@@ -773,7 +773,7 @@ elseif(ANDROID)
         configure_file(${OCULUS_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_oculus.so" COPYONLY)
       endif()
 
-      configure_file("${ANDROID_NDK}/sources/cxx-stl/llvm-libc++/libs/${ANDROID_ABI}/libc++_shared.so" "raw/lib/${ANDROID_ABI}/libc++_shared.so" COPYONLY)
+      configure_file("${ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_HOST_TAG}/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "raw/lib/${ANDROID_ABI}/libc++_shared.so" COPYONLY)
     endif()
 
     if(LOVR_USE_OCULUS_AUDIO)
