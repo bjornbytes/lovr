@@ -739,6 +739,16 @@ elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_wasm.c)
   configure_file(etc/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
+  set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/etc/AndroidManifest.xml" CACHE STRING "The AndroidManifest.xml file to use")
+  file(READ ${ANDROID_MANIFEST} ANDROID_MANIFEST_CONTENT)
+  string(REGEX MATCH "package=\"([^\"]*)" ANDROID_PACKAGE ${ANDROID_MANIFEST_CONTENT})
+  string(SUBSTRING ${ANDROID_PACKAGE} 9 -1 ANDROID_PACKAGE) #I dunno how to do a lookbehind
+
+  string(REPLACE "." "_" ANDROID_PACKAGE_C ${ANDROID_PACKAGE})
+  string(REPLACE "." "/" ANDROID_PACKAGE_JAVA ${ANDROID_PACKAGE})
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/etc/Activity.java ${CMAKE_CURRENT_BINARY_DIR}/Activity.java)
+  target_compile_definitions(lovr PRIVATE "LOVR_PKG=${ANDROID_PACKAGE_C}")
+
   target_sources(lovr PRIVATE src/core/os_android.c)
   target_link_libraries(lovr log android dl)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
@@ -754,15 +764,10 @@ elseif(ANDROID)
   if(LOVR_BUILD_EXE)
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
-    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/etc/AndroidManifest.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
     # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
     if(ANDROID_ASSETS)
       set(ANDROID_ASSETS -A ${ANDROID_ASSETS})
-    endif()
-
-    if(ANDROID_PACKAGE)
-      set(PACKAGE_RENAME "--rename-manifest-package" "${ANDROID_PACKAGE}")
     endif()
 
     if(LOVR_USE_OPENXR)
@@ -785,9 +790,8 @@ elseif(ANDROID)
       buildAPK ALL
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
-      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/etc/Activity.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
-      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw org/lovr/app/Activity.class
+      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw ${ANDROID_PACKAGE_JAVA}/Activity.class
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
