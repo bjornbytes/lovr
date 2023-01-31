@@ -25,3 +25,6 @@
 [submodule "deps/vulkan-headers"]
 	path = deps/vulkan-headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers
+[submodule "deps/pico-openxr"]
+	path = deps/pico-openxr
+	url = https://github.com/lovr-org/pico_openxr_sdk
