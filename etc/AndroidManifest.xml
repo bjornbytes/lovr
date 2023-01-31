@@ -10,16 +10,16 @@
   <uses-permission android:name="com.oculus.permission.HAND_TRACKING"/>
   <uses-permission android:name="com.oculus.permission.TRACKED_KEYBOARD"/>
   <uses-permission android:name="com.oculus.permission.RENDER_MODEL"/>
-  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-  <uses-permission android:name="android.permission.RECORD_AUDIO" />
-  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+  <uses-permission android:name="android.permission.INTERNET"/>
 
   <!-- Khronos/Generic -->
-  <uses-permission android:name="org.khronos.openxr.permission.OPENXR" />
-  <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM" />
+  <uses-permission android:name="org.khronos.openxr.permission.OPENXR"/>
+  <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM"/>
   <queries>
-    <provider android:name="org.khronos.openxr.runtime_broker" android:authorities="org.khronos.openxr.runtime_broker;org.khronos.openxr.system_runtime_broker" />
+    <provider android:name="org.khronos.openxr.runtime_broker" android:authorities="org.khronos.openxr.runtime_broker;org.khronos.openxr.system_runtime_broker"/>
   </queries>
 
   <application android:allowBackup="false" android:label="LÖVR" android:extractNativeLibs="false" android:debuggable="true">
@@ -33,7 +33,7 @@
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="com.oculus.intent.category.VR"/>
-        <category android:name="org.khronos.openxr.intent.category.IMMERSIVE_HMD" />
+        <category android:name="org.khronos.openxr.intent.category.IMMERSIVE_HMD"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>

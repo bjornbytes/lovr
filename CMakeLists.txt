@@ -760,16 +760,18 @@ elseif(ANDROID)
 
     if(LOVR_USE_OPENXR)
       add_custom_command(TARGET move_files POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy
-          $<TARGET_SONAME_FILE:${LOVR_OPENXR}>
-          raw/lib/${ANDROID_ABI}/libopenxr_loader_generic.so
-        )
-      set (PICO_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico-openxr/libs/android.${ANDROID_ABI}/libopenxr_loader.so")
-      if (EXISTS ${PICO_LOADER})
+        COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_SONAME_FILE:${LOVR_OPENXR}>
+        raw/lib/${ANDROID_ABI}/libopenxr_loader_generic.so
+      )
+
+      set(PICO_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico-openxr/libs/android.${ANDROID_ABI}/libopenxr_loader.so")
+      if(EXISTS ${PICO_LOADER})
         configure_file(${PICO_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_pico.so" COPYONLY)
       endif()
-      set (OCULUS_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
-      if (EXISTS ${OCULUS_LOADER})
+
+      set(OCULUS_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
+      if(EXISTS ${OCULUS_LOADER})
         configure_file(${OCULUS_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_oculus.so" COPYONLY)
       endif()
 

@@ -361,7 +361,7 @@ static bool openxr_init(HeadsetConfig* config) {
     free(extensionProperties);
 
 #ifdef __ANDROID__
-    XrInstanceCreateInfoAndroidKHR infoAndroid = {
+    XrInstanceCreateInfoAndroidKHR androidInfo = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR,
       .applicationVM = os_get_java_vm(),
       .applicationActivity = os_get_jni_context(),
@@ -372,7 +372,7 @@ static bool openxr_init(HeadsetConfig* config) {
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
 #ifdef __ANDROID__
-      .next = &infoAndroid,
+      .next = &androidInfo,
 #endif
       .applicationInfo.engineName = "LÖVR",
       .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
@@ -380,7 +380,7 @@ static bool openxr_init(HeadsetConfig* config) {
       .applicationInfo.applicationVersion = 0,
       .applicationInfo.apiVersion = XR_CURRENT_API_VERSION,
       .enabledExtensionCount = enabledExtensionCount,
-      .enabledExtensionNames = enabledExtensionNames,
+      .enabledExtensionNames = enabledExtensionNames
     };
 
     XR_INIT(xrCreateInstance(&info, &state.instance));
@@ -578,7 +578,7 @@ static bool openxr_init(HeadsetConfig* config) {
       [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller",
       [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx",
       [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction",
-      [PROFILE_PICO] = "/interaction_profiles/pico/neo3_controller",
+      [PROFILE_PICO] = "/interaction_profiles/pico/neo3_controller"
     };
 
     typedef struct {
@@ -828,7 +828,6 @@ static bool openxr_init(HeadsetConfig* config) {
       bindings[PROFILE_GAZE][0].path = NULL;
     }
 
-    int successProfiles = -1;
     XrPath path;
     XrActionSuggestedBinding suggestedBindings[64];
     for (uint32_t i = 0, count = 0; i < MAX_PROFILES; i++, count = 0) {
@@ -840,15 +839,17 @@ static bool openxr_init(HeadsetConfig* config) {
 
       if (count > 0) {
         XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path));
-        int res = (xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
+        XrResult result = (xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
           .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
           .interactionProfile = path,
           .countSuggestedBindings = count,
           .suggestedBindings = suggestedBindings
         }));
-        if (XR_SUCCEEDED(res)) successProfiles++;
+
+        if (XR_FAILED(result)) {
+          lovrLog(LOG_WARN, "XR", "Failed to suggest input bindings for %s", interactionProfilePaths[i]);
+        }
       }
-      XR_INIT(successProfiles);
     }
   }
 
