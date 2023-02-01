@@ -121,8 +121,10 @@ jobs:
         run: cmake -B build -D LOVR_BUILD_BUNDLE=ON -D Vulkan_LIBRARY=$VULKAN_SDK/../MoltenVK/dylib/macOS/libMoltenVK.dylib
       - name: Build
         run: cmake --build build
+      - name: Package
+        run: ditto -c -k --keepParent build/lovr.app lovr.zip
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
           name: lovr.app
-          path: build/lovr.app*
+          path: lovr.zip
