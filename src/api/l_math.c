@@ -5,6 +5,7 @@
 #include "math/randomGenerator.h"
 #include "util.h"
 #include <stdlib.h>
+#include <string.h>
 
 int l_lovrRandomGeneratorRandom(lua_State* L);
 int l_lovrRandomGeneratorRandomNormal(lua_State* L);
@@ -407,6 +408,15 @@ int luaopen_lovr_math(lua_State* L) {
         for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
           lua_getfield(L, -4, lovrVectorInfo[i].name);
           lua_setglobal(L, lovrVectorInfo[i].name);
+
+          // Capitalized global is permanent vector constructor
+          char constructor[8];
+          memcpy(constructor, "new", 3);
+          memcpy(constructor + 3, lovrVectorInfo[i].name, 4);
+          constructor[3] -= 32;
+          constructor[7] = '\0';
+          lua_getfield(L, -4, constructor);
+          lua_setglobal(L, constructor + 3);
         }
       }
       lua_pop(L, 1);
