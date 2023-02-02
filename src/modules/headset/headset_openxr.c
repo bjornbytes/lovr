@@ -41,6 +41,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 #define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
 #define SESSION_ACTIVE(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
 #define MAX_IMAGES 4
+#define MAX_HAND_JOINTS 27
 
 #define XR_FOREACH(X)\
   X(xrDestroyInstance)\
@@ -178,6 +179,7 @@ static struct {
     bool gaze;
     bool handTracking;
     bool handTrackingAim;
+    bool handTrackingElbow;
     bool handTrackingMesh;
     bool controllerModel;
     bool headless;
@@ -248,7 +250,9 @@ static XrHandTrackerEXT getHandTracker(Device device) {
   if (!*tracker) {
     XrHandTrackerCreateInfoEXT info = {
       .type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
-      .handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT,
+      .handJointSet = state.features.handTrackingElbow ?
+        XR_HAND_JOINT_SET_HAND_WITH_FOREARM_ULTRALEAP :
+        XR_HAND_JOINT_SET_DEFAULT_EXT,
       .hand = device == DEVICE_HAND_RIGHT ? XR_HAND_RIGHT_EXT : XR_HAND_LEFT_EXT
     };
 
@@ -369,6 +373,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_MSFT_controller_model", &state.features.controllerModel, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
       { "XR_MND_headless", &state.features.headless, true },
+      { "XR_ULTRALEAP_hand_tracking_forearm", &state.features.handTrackingElbow, true },
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
       { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
     };
@@ -1264,13 +1269,11 @@ static const float* openxr_getBoundsGeometry(uint32_t* count) {
 }
 
 static bool openxr_getPose(Device device, float* position, float* orientation) {
-  if (!state.spaces[device]) {
-    return false;
-  }
+  XrAction action = getPoseActionForDevice(device);
+  XrActionStatePose poseState = { .type = XR_TYPE_ACTION_STATE_POSE };
 
   // If there's a pose action for this device, see if the action is active before locating its space
-  XrAction action = getPoseActionForDevice(device);
-
+  // (because Oculus runtimes had a bug that forced checking the action before locating the space)
   if (action) {
     XrActionStateGetInfo info = {
       .type = XR_TYPE_ACTION_STATE_GET_INFO,
@@ -1278,57 +1281,68 @@ static bool openxr_getPose(Device device, float* position, float* orientation) {
       .subactionPath = state.actionFilters[device]
     };
 
-    XrActionStatePose poseState = {
-      .type = XR_TYPE_ACTION_STATE_POSE
+    XR(xrGetActionStatePose(state.session, &info, &poseState));
+  }
+
+  // If there's no space to locate, or the pose action isn't active, fall back to alternative
+  // methods, e.g. hand tracking can sometimes be used for grip/aim/elbow devices
+  if (!state.spaces[device] || (action && !poseState.isActive)) {
+    bool point = false;
+    bool elbow = false;
+
+    if (state.features.handTrackingAim && (device == DEVICE_HAND_LEFT_POINT || device == DEVICE_HAND_RIGHT_POINT)) {
+      device = DEVICE_HAND_LEFT + (device == DEVICE_HAND_RIGHT_POINT);
+      point = true;
+    }
+
+    if (state.features.handTrackingElbow && (device == DEVICE_ELBOW_LEFT || device == DEVICE_ELBOW_RIGHT)) {
+      device = DEVICE_HAND_LEFT + (device == DEVICE_ELBOW_RIGHT);
+      elbow = true;
+    }
+
+    XrHandTrackerEXT tracker = getHandTracker(device);
+
+    if (!tracker) {
+      return false;
+    }
+
+    XrHandJointsLocateInfoEXT info = {
+      .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
+      .baseSpace = state.referenceSpace,
+      .time = state.frameState.predictedDisplayTime
     };
 
-    XR(xrGetActionStatePose(state.session, &info, &poseState));
+    XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
+    XrHandJointLocationsEXT hand = {
+      .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
+      .jointCount = 26 + state.features.handTrackingElbow,
+      .jointLocations = joints
+    };
 
-    // If the action isn't active, try fallbacks for some devices (hand tracking), pardon the mess
-    if (!poseState.isActive) {
-      bool point = false;
+    XrHandTrackingAimStateFB aimState = {
+      .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
+    };
 
-      if (state.features.handTrackingAim && (device == DEVICE_HAND_LEFT_POINT || device == DEVICE_HAND_RIGHT_POINT)) {
-        device = DEVICE_HAND_LEFT + (device == DEVICE_HAND_RIGHT_POINT);
-        point = true;
-      }
-
-      XrHandTrackerEXT tracker = getHandTracker(device);
-
-      if (!tracker) {
-        return false;
-      }
-
-      XrHandJointsLocateInfoEXT info = {
-        .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
-        .baseSpace = state.referenceSpace,
-        .time = state.frameState.predictedDisplayTime
-      };
-
-      XrHandJointLocationEXT joints[26];
-      XrHandJointLocationsEXT hand = {
-        .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-        .jointCount = COUNTOF(joints),
-        .jointLocations = joints
-      };
-
-      XrHandTrackingAimStateFB aimState = {
-        .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
-      };
-
-      if (point) {
-        hand.next = &aimState;
-      }
-
-      if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
-        return false;
-      }
-
-      XrPosef* pose = point ? &aimState.aimPose : &joints[XR_HAND_JOINT_WRIST_EXT].pose;
-      memcpy(orientation, &pose->orientation, 4 * sizeof(float));
-      memcpy(position, &pose->position, 3 * sizeof(float));
-      return true;
+    if (point) {
+      hand.next = &aimState;
     }
+
+    if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
+      return false;
+    }
+
+    XrPosef* pose;
+    if (point) {
+      pose = &aimState.aimPose;
+    } else if (elbow) {
+      pose = &joints[XR_HAND_FOREARM_JOINT_ELBOW_ULTRALEAP].pose;
+    } else {
+      pose = &joints[XR_HAND_JOINT_WRIST_EXT].pose;
+    }
+
+    memcpy(orientation, &pose->orientation, 4 * sizeof(float));
+    memcpy(position, &pose->position, 3 * sizeof(float));
+    return true;
   }
 
   XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
@@ -1446,11 +1460,11 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
         .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
       };
 
-      XrHandJointLocationEXT joints[26];
+      XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
       XrHandJointLocationsEXT hand = {
         .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
         .next = &aimState,
-        .jointCount = COUNTOF(joints),
+        .jointCount = 26 + state.features.handTrackingElbow,
         .jointLocations = joints
       };
 
@@ -1480,10 +1494,10 @@ static bool openxr_getSkeleton(Device device, float* poses) {
     .time = state.frameState.predictedDisplayTime
   };
 
-  XrHandJointLocationEXT joints[26];
+  XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-    .jointCount = COUNTOF(joints),
+    .jointCount = 26 + state.features.handTrackingElbow,
     .jointLocations = joints
   };
 
@@ -1492,7 +1506,7 @@ static bool openxr_getSkeleton(Device device, float* poses) {
   }
 
   float* pose = poses;
-  for (uint32_t i = 0; i < COUNTOF(joints); i++) {
+  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
     memcpy(pose, &joints[i].pose.position.x, 3 * sizeof(float));
     pose[3] = joints[i].radius;
     memcpy(pose + 4, &joints[i].pose.orientation.x, 4 * sizeof(float));
@@ -1806,10 +1820,10 @@ static bool openxr_animateFB(Model* model, const ModelInfo* info) {
     .time = state.frameState.predictedDisplayTime
   };
 
-  XrHandJointLocationEXT joints[26];
+  XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-    .jointCount = COUNTOF(joints),
+    .jointCount = 26 + state.features.handTrackingElbow,
     .jointLocations = joints
   };
 
@@ -1820,7 +1834,7 @@ static bool openxr_animateFB(Model* model, const ModelInfo* info) {
   lovrModelResetNodeTransforms(model);
 
   // This is kinda brittle, ideally we would use the jointParents from the actual mesh object
-  uint32_t jointParents[26] = {
+  uint32_t jointParents[HAND_JOINT_COUNT] = {
     XR_HAND_JOINT_WRIST_EXT,
     ~0u,
     XR_HAND_JOINT_WRIST_EXT,
@@ -1852,7 +1866,7 @@ static bool openxr_animateFB(Model* model, const ModelInfo* info) {
   float scale[4] = { 1.f, 1.f, 1.f, 1.f };
 
   // The following can be optimized a lot (ideally we would set the global transform for the nodes)
-  for (uint32_t i = 0; i < COUNTOF(joints); i++) {
+  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
     if (jointParents[i] == ~0u) {
       float position[4] = { 0.f, 0.f, 0.f };
       float orientation[4] = { 0.f, 0.f, 0.f, 1.f };
