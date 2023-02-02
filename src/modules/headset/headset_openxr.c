@@ -175,13 +175,13 @@ static struct {
   XrHandTrackerEXT handTrackers[2];
   XrControllerModelKeyMSFT controllerModelKeys[2];
   struct {
+    bool controllerModel;
     bool depth;
     bool gaze;
     bool handTracking;
     bool handTrackingAim;
     bool handTrackingElbow;
     bool handTrackingMesh;
-    bool controllerModel;
     bool headless;
     bool keyboardTracking;
     bool overlay;
@@ -370,9 +370,9 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_display_refresh_rate", &state.features.refreshRate, true },
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
-      { "XR_MSFT_controller_model", &state.features.controllerModel, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
       { "XR_MND_headless", &state.features.headless, true },
+      { "XR_MSFT_controller_model", &state.features.controllerModel, true },
       { "XR_ULTRALEAP_hand_tracking_forearm", &state.features.handTrackingElbow, true },
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
       { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
