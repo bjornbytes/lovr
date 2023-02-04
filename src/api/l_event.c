@@ -83,19 +83,25 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
     case LUA_TLIGHTUSERDATA: {
       VectorType type;
       float* v = luax_tovector(L, index, &type);
-      if (type == V_MAT4) {
-        variant->type = TYPE_MATRIX;
-        variant->value.matrix.data = malloc(16 * sizeof(float));
-        lovrAssert(variant->value.matrix.data, "Out of memory");
-        memcpy(variant->value.matrix.data, v, 16 * sizeof(float));
-        break;
-      } else {
-        variant->type = TYPE_VECTOR;
-        variant->value.vector.type = type;
-        memcpy(variant->value.vector.data, v, (type == V_VEC2 ? 2 : 4) * sizeof(float));
+      if (v) {
+        if (type == V_MAT4) {
+          variant->type = TYPE_MATRIX;
+          variant->value.matrix.data = malloc(16 * sizeof(float));
+          lovrAssert(variant->value.matrix.data, "Out of memory");
+          memcpy(variant->value.matrix.data, v, 16 * sizeof(float));
+          break;
+        } else {
+          variant->type = TYPE_VECTOR;
+          variant->value.vector.type = type;
+          memcpy(variant->value.vector.data, v, (type == V_VEC2 ? 2 : 4) * sizeof(float));
+          break;
+        }
+      } else if (lua_type(L, index) == LUA_TLIGHTUSERDATA) {
+        variant->type = TYPE_POINTER;
+        variant->value.pointer = lua_touserdata(L, index);
         break;
       }
-      lovrThrow("Bad userdata variant for argument %d (expected object or vector)", index);
+      lovrThrow("Bad userdata variant for argument %d (expected object, vector, or lightuserdata)", index);
     }
 
     default:
@@ -111,6 +117,7 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushlstring(L, variant->value.string.pointer, variant->value.string.length); return 1;
     case TYPE_MINISTRING: lua_pushlstring(L, variant->value.ministring.data, variant->value.ministring.length); return 1;
+    case TYPE_POINTER: lua_pushlightuserdata(L, variant->value.pointer); return 1;
     case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash64(variant->value.object.type, strlen(variant->value.object.type)), variant->value.object.pointer); return 1;
     case TYPE_VECTOR: memcpy(luax_newtempvector(L, variant->value.vector.type), variant->value.vector.data, (variant->value.vector.type == V_VEC2 ? 2 : 4) * sizeof(float)); return 1;
     case TYPE_MATRIX: memcpy(luax_newtempvector(L, V_MAT4), variant->value.vector.data, 16 * sizeof(float)); return 1;

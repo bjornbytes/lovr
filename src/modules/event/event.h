@@ -29,6 +29,7 @@ typedef enum {
   TYPE_NUMBER,
   TYPE_STRING,
   TYPE_MINISTRING,
+  TYPE_POINTER,
   TYPE_OBJECT,
   TYPE_VECTOR,
   TYPE_MATRIX
@@ -37,6 +38,7 @@ typedef enum {
 typedef union {
   bool boolean;
   double number;
+  void* pointer;
   struct {
     char* pointer;
     size_t length;
