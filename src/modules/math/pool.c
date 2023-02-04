@@ -40,6 +40,8 @@ void lovrPoolGrow(Pool* pool, size_t count) {
 }
 
 Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
+  lovrCheck(pool, "The math module must be initialized to create vectors");
+
   size_t count = vectorComponents[type];
 
   if (pool->cursor + count > pool->count) {
