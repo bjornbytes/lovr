@@ -2075,6 +2075,7 @@ bool gpu_init(gpu_config* config) {
 
       // Required features
       enable->fullDrawIndexUint32 = true;
+      enable->independentBlend = true;
       multiviewFeatures.multiview = true;
       shaderDrawParameterFeatures.shaderDrawParameters = true;
 

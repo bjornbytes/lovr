@@ -606,9 +606,9 @@ void lovrPassScale(Pass* pass, float* scale);
 void lovrPassTransform(Pass* pass, float* transform);
 
 void lovrPassSetAlphaToCoverage(Pass* pass, bool enabled);
-void lovrPassSetBlendMode(Pass* pass, BlendMode mode, BlendAlphaMode alphaMode);
+void lovrPassSetBlendMode(Pass* pass, uint32_t index, BlendMode mode, BlendAlphaMode alphaMode);
 void lovrPassSetColor(Pass* pass, float color[4]);
-void lovrPassSetColorWrite(Pass* pass, bool r, bool g, bool b, bool a);
+void lovrPassSetColorWrite(Pass* pass, uint32_t index, bool r, bool g, bool b, bool a);
 void lovrPassSetCullMode(Pass* pass, CullMode mode);
 void lovrPassSetDepthTest(Pass* pass, CompareMode test);
 void lovrPassSetDepthWrite(Pass* pass, bool write);

@@ -259,9 +259,18 @@ static int l_lovrPassSetAlphaToCoverage(lua_State* L) {
 
 static int l_lovrPassSetBlendMode(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  BlendMode mode = lua_isnoneornil(L, 2) ? BLEND_NONE : luax_checkenum(L, 2, BlendMode, NULL);
-  BlendAlphaMode alphaMode = luax_checkenum(L, 3, BlendAlphaMode, "alphamultiply");
-  lovrPassSetBlendMode(pass, mode, alphaMode);
+  int index = 2;
+  uint32_t target = lua_type(L, 2) == LUA_TNUMBER ? luax_checku32(L, index++) - 1 : ~0u;
+  BlendMode mode = lua_isnoneornil(L, index) ? BLEND_NONE : luax_checkenum(L, index++, BlendMode, NULL);
+  BlendAlphaMode alphaMode = luax_checkenum(L, index, BlendAlphaMode, "alphamultiply");
+  if (target == ~0u) {
+    uint32_t count = lovrPassGetInfo(pass)->canvas.count;
+    for (uint32_t i = 0; i < count; i++) {
+      lovrPassSetBlendMode(pass, i, mode, alphaMode);
+    }
+  } else {
+    lovrPassSetBlendMode(pass, target, mode, alphaMode);
+  }
   return 0;
 }
 
@@ -275,16 +284,25 @@ static int l_lovrPassSetColor(lua_State* L) {
 
 static int l_lovrPassSetColorWrite(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
+  int index = 2;
+  uint32_t target = lua_type(L, 2) == LUA_TNUMBER ? luax_checku32(L, index++) - 1 : ~0u;
   bool r, g, b, a;
-  if (lua_gettop(L) <= 2) {
-    r = g = b = a = lua_toboolean(L, 2);
+  if (lua_gettop(L) <= index) {
+    r = g = b = a = lua_toboolean(L, index);
   } else {
-    r = lua_toboolean(L, 2);
-    g = lua_toboolean(L, 3);
-    b = lua_toboolean(L, 4);
-    a = lua_toboolean(L, 5);
+    r = lua_toboolean(L, index++);
+    g = lua_toboolean(L, index++);
+    b = lua_toboolean(L, index++);
+    a = lua_toboolean(L, index++);
   }
-  lovrPassSetColorWrite(pass, r, g, b, a);
+  if (target == ~0u) {
+    uint32_t count = lovrPassGetInfo(pass)->canvas.count;
+    for (uint32_t i = 0; i < count; i++) {
+      lovrPassSetColorWrite(pass, i, r, g, b, a);
+    }
+  } else {
+    lovrPassSetColorWrite(pass, target, r, g, b, a);
+  }
   return 0;
 }
 

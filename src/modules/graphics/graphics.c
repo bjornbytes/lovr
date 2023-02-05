@@ -3435,10 +3435,9 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   for (uint32_t i = 0; i < pass->info.canvas.count; i++) {
     pass->pipeline->info.color[i].format = canvas->textures[i]->info.format;
     pass->pipeline->info.color[i].srgb = canvas->textures[i]->info.srgb;
+    lovrPassSetBlendMode(pass, i, BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
     pass->pipeline->info.color[i].mask = 0xf;
   }
-
-  lovrPassSetBlendMode(pass, BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
 
   pass->materialDirty = true;
   pass->samplerDirty = true;
@@ -3630,14 +3629,16 @@ void lovrPassSetAlphaToCoverage(Pass* pass, bool enabled) {
   pass->pipeline->info.multisample.alphaToCoverage = enabled;
 }
 
-void lovrPassSetBlendMode(Pass* pass, BlendMode mode, BlendAlphaMode alphaMode) {
+void lovrPassSetBlendMode(Pass* pass, uint32_t index, BlendMode mode, BlendAlphaMode alphaMode) {
+  lovrCheck(index < pass->info.canvas.count, "Trying to set blend mode for an invalid attachment index");
+
   if (mode == BLEND_NONE) {
-    pass->pipeline->dirty |= pass->pipeline->info.color[0].blend.enabled;
-    memset(&pass->pipeline->info.color[0].blend, 0, sizeof(gpu_blend_state));
+    pass->pipeline->dirty |= pass->pipeline->info.color[index].blend.enabled;
+    memset(&pass->pipeline->info.color[index].blend, 0, sizeof(gpu_blend_state));
     return;
   }
 
-  gpu_blend_state* blend = &pass->pipeline->info.color[0].blend;
+  gpu_blend_state* blend = &pass->pipeline->info.color[index].blend;
 
   switch (mode) {
     case BLEND_ALPHA:
@@ -3714,10 +3715,11 @@ void lovrPassSetColor(Pass* pass, float color[4]) {
   pass->pipeline->color[3] = color[3];
 }
 
-void lovrPassSetColorWrite(Pass* pass, bool r, bool g, bool b, bool a) {
+void lovrPassSetColorWrite(Pass* pass, uint32_t index, bool r, bool g, bool b, bool a) {
+  lovrCheck(index < pass->info.canvas.count, "Trying to set color write state for an invalid attachment index");
   uint8_t mask = (r << 0) | (g << 1) | (b << 2) | (a << 3);
-  pass->pipeline->dirty |= pass->pipeline->info.color[0].mask != mask;
-  pass->pipeline->info.color[0].mask = mask;
+  pass->pipeline->dirty |= pass->pipeline->info.color[index].mask != mask;
+  pass->pipeline->info.color[index].mask = mask;
 }
 
 void lovrPassSetCullMode(Pass* pass, CullMode mode) {
