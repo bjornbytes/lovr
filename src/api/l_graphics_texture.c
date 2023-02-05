@@ -5,11 +5,19 @@
 static int l_lovrTextureNewView(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   TextureViewInfo info = { .parent = texture };
-  info.type = luax_checkenum(L, 2, TextureType, NULL);
-  info.layerIndex = luaL_optinteger(L, 3, 1) - 1;
-  info.layerCount = luaL_optinteger(L, 4, 1);
-  info.levelIndex = luaL_optinteger(L, 5, 1) - 1;
-  info.levelCount = luaL_optinteger(L, 6, 0);
+  if (lua_type(L, 2) == LUA_TNUMBER) {
+    info.type = TEXTURE_2D;
+    info.layerIndex = luax_checku32(L, 2) - 1;
+    info.layerCount = 1;
+    info.levelIndex = luax_optu32(L, 3, 1) - 1;
+    info.levelCount = 1;
+  } else if (lua_isstring(L, 2)) {
+    info.type = luax_checkenum(L, 2, TextureType, NULL);
+    info.layerIndex = luaL_optinteger(L, 3, 1) - 1;
+    info.layerCount = luaL_optinteger(L, 4, 1);
+    info.levelIndex = luaL_optinteger(L, 5, 1) - 1;
+    info.levelCount = luaL_optinteger(L, 6, 0);
+  }
   Texture* view = lovrTextureCreateView(&info);
   luax_pushtype(L, Texture, view);
   lovrRelease(view, lovrTextureDestroy);
