@@ -1,6 +1,5 @@
 // Flags
 layout(constant_id = 1000) const float flag_pointSize = 1.f;
-layout(constant_id = 1001) const uint flag_attachmentCount = 1;
 layout(constant_id = 1002) const bool flag_passColor = true;
 layout(constant_id = 1003) const bool flag_materialColor = true;
 layout(constant_id = 1004) const bool flag_vertexColors = true;
@@ -72,7 +71,7 @@ layout(location = 14) in vec3 VertexTangent;
 
 // Framebuffer
 #ifdef GL_FRAGMENT_SHADER
-layout(location = 0) out vec4 PixelColor[flag_attachmentCount];
+layout(location = 0) out vec4 PixelColor;
 #endif
 
 // Varyings
@@ -390,21 +389,21 @@ void main() {
 #ifdef GL_FRAGMENT_SHADER
 vec4 lovrmain();
 void main() {
-  PixelColor[0] = lovrmain();
+  PixelColor = lovrmain();
 
   if (flag_glow) {
     if (flag_glowTexture) {
-      PixelColor[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
+      PixelColor.rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
     } else {
-      PixelColor[0].rgb += Material.glow.rgb * Material.glow.a;
+      PixelColor.rgb += Material.glow.rgb * Material.glow.a;
     }
   }
 
   if (flag_tonemap) {
-    PixelColor[0].rgb = tonemap(PixelColor[0].rgb);
+    PixelColor.rgb = tonemap(PixelColor.rgb);
   }
 
-  if (flag_alphaCutoff && PixelColor[0].a <= Material.alphaCutoff) {
+  if (flag_alphaCutoff && PixelColor.a <= Material.alphaCutoff) {
     discard;
   }
 }
