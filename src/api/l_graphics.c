@@ -919,6 +919,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
       info.type = TEXTURE_ARRAY;
     }
     info.usage |= TEXTURE_RENDER;
+    info.mipmaps = 1;
   } else if (lua_istable(L, 1)) {
     info.imageCount = luax_len(L, index++);
     images = info.imageCount > COUNTOF(stack) ? malloc(info.imageCount * sizeof(Image*)) : stack;
