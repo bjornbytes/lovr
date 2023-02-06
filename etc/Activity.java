@@ -1,4 +1,4 @@
-package org.lovr.app;
+package @ANDROID_PACKAGE@;
 
 import android.Manifest;
 import android.app.NativeActivity;
