@@ -196,7 +196,7 @@ static void luax_readarray(lua_State* L, int index, uint32_t offset, uint32_t co
   } else {
     int n = fieldComponents[field->type];
 
-    if (type == LUA_TUSERDATA) {
+    if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
       for (uint32_t i = 0; i < count; i++, data += field->stride) {
         lua_rawgeti(L, index, i + offset + 1);
         lovrCheck(lua_isuserdata(L, -1), "Expected vector object for array value (arrays must use the same type for all elements)");
