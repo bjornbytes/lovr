@@ -1345,13 +1345,13 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   const TextureInfo* info = &view->parent->info;
   uint32_t maxLayers = info->type == TEXTURE_3D ? MAX(info->layers >> view->levelIndex, 1) : info->layers;
   lovrCheck(!info->parent, "Can't nest texture views");
-  lovrCheck(view->type != TEXTURE_3D, "Texture views may not be volume textures");
+  lovrCheck(view->type != TEXTURE_3D, "Texture views may not be 3D textures");
   lovrCheck(view->layerCount > 0, "Texture view must have at least one layer");
   lovrCheck(view->layerIndex + view->layerCount <= maxLayers, "Texture view layer range exceeds layer count of parent texture");
   lovrCheck(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
   lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D texture can only have a single layer");
   lovrCheck(view->levelCount == 1 || info->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
-  lovrCheck(view->layerCount == 6 || view->type != TEXTURE_CUBE, "Cubemaps can only have a six layers");
+  lovrCheck(view->layerCount == 6 || view->type != TEXTURE_CUBE, "Cubemaps can only have six layers");
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   lovrAssert(texture, "Out of memory");
@@ -1374,8 +1374,23 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
     .levelCount = view->levelCount
   });
 
-  if (view->levelCount == 1 && view->type != TEXTURE_3D && view->layerCount <= 6) {
-    texture->renderView = texture->gpu;
+  if ((info->usage & TEXTURE_RENDER) && view->layerCount <= state.limits.renderSize[2]) {
+    if (view->levelCount == 1) {
+      texture->renderView = texture->gpu;
+    } else {
+      gpu_texture_view_info subview = {
+        .source = view->parent->gpu,
+        .type = GPU_TEXTURE_ARRAY,
+        .layerIndex = view->layerIndex,
+        .layerCount = view->layerCount,
+        .levelIndex = view->levelIndex,
+        .levelCount = 1
+      };
+
+      texture->renderView = malloc(gpu_sizeof_texture());
+      lovrAssert(texture->renderView, "Out of memory");
+      lovrAssert(gpu_texture_init_view(texture->renderView, &subview), "Failed to create texture view");
+    }
   }
 
   lovrRetain(view->parent);
