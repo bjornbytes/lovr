@@ -1232,7 +1232,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(measureTexture(info->format, info->width, info->height, info->layers) < 1 << 30, "Memory for a Texture can not exceed 1GB"); // TODO mip?
   lovrCheck(info->samples == 1 || info->samples == 4, "Texture multisample count must be 1 or 4...for now");
   lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
-  lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "Volume textures can not be multisampled");
+  lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "3D textures can not be multisampled");
   lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Textures with the 'storage' flag can not be multisampled...for now");
   lovrCheck(info->samples == 1 || mipmaps == 1, "Multisampled textures can only have 1 mipmap");
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
@@ -1240,6 +1240,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this format");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds the renderSize limit");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds the renderSize limit");
+  lovrCheck(~info->usage & TEXTURE_RENDER || info->type != TEXTURE_3D || !isDepthFormat(info->format), "3D depth textures can not have the 'render' flag");
   lovrCheck((info->format < FORMAT_BC1 || info->format > FORMAT_BC7) || state.features.textureBC, "%s textures are not supported on this GPU", "BC");
   lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.textureASTC, "%s textures are not supported on this GPU", "ASTC");
 
