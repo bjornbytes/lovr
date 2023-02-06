@@ -741,13 +741,13 @@ elseif(EMSCRIPTEN)
 elseif(ANDROID)
   set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/etc/AndroidManifest.xml" CACHE STRING "The AndroidManifest.xml file to use")
   file(READ ${ANDROID_MANIFEST} ANDROID_MANIFEST_CONTENT)
-  string(REGEX MATCH "package=\"([^\"]*)" ANDROID_PACKAGE ${ANDROID_MANIFEST_CONTENT})
-  string(SUBSTRING ${ANDROID_PACKAGE} 9 -1 ANDROID_PACKAGE) #I dunno how to do a lookbehind
+  string(REGEX MATCH "package=\"([^\"]*)" _ ${ANDROID_MANIFEST_CONTENT})
+  set(ANDROID_PACKAGE ${CMAKE_MATCH_1})
 
   string(REPLACE "." "_" ANDROID_PACKAGE_C ${ANDROID_PACKAGE})
   string(REPLACE "." "/" ANDROID_PACKAGE_JAVA ${ANDROID_PACKAGE})
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/etc/Activity.java ${CMAKE_CURRENT_BINARY_DIR}/Activity.java)
-  target_compile_definitions(lovr PRIVATE "LOVR_PKG=${ANDROID_PACKAGE_C}")
+  target_compile_definitions(lovr PRIVATE "LOVR_JAVA_PACKAGE=${ANDROID_PACKAGE_C}")
 
   target_sources(lovr PRIVATE src/core/os_android.c)
   target_link_libraries(lovr log android dl)

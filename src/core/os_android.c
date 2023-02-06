@@ -241,11 +241,10 @@ void os_sleep(double seconds) {
   while (nanosleep(&t, &t));
 }
 
-//This two-level macro do it's job
-#define _JNI(PKG, X) Java_ ## PKG ##_##X
-#define JNI(PKG, X) _JNI(PKG,X)
+#define _JNI(PKG, X) Java_ ## PKG ## _ ## X
+#define JNI(PKG, X) _JNI(PKG, X)
 
-JNIEXPORT void JNICALL JNI(LOVR_PKG, Activity_lovrPermissionEvent)(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
+JNIEXPORT void JNICALL JNI(LOVR_JAVA_PACKAGE, Activity_lovrPermissionEvent)(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
   if (state.onPermissionEvent) {
     state.onPermissionEvent(permission, granted);
   }
