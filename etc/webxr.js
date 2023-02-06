@@ -182,17 +182,17 @@ var webxr = {
     return 1; /* ORIGIN_FLOOR */
   },
 
+  webxr_getDisplayDimensions: function(width, height) {
+    HEAPU32[width >> 2] = state.layer.framebufferWidth;
+    HEAPU32[height >> 2] = state.layer.framebufferHeight;
+  },
+
   webxr_getDisplayTime: function() {
     return state.displayTime / 1000.0;
   },
 
   webxr_getDeltaTime: function() {
     return (state.displayTime - state.lastDisplayTime) / 1000.0;
-  },
-
-  webxr_getDisplayDimensions: function(width, height) {
-    HEAPU32[width >> 2] = state.layer.framebufferWidth;
-    HEAPU32[height >> 2] = state.layer.framebufferHeight;
   },
 
   webxr_getDisplayFrequency: function() {
@@ -409,6 +409,14 @@ var webxr = {
 
   webxr_isFocused: function() {
     return true;
+  },
+
+  webxr_isPassthroughEnabled: function() {
+    return false;
+  },
+
+  webxr_setPassthroughEnabled: function() {
+    return false;
   },
 
   webxr_update: function() {

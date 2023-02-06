@@ -98,7 +98,13 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrEnumerateDisplayRefreshRatesFB)\
   X(xrRequestDisplayRefreshRateFB)\
   X(xrQuerySystemTrackedKeyboardFB)\
-  X(xrCreateKeyboardSpaceFB)
+  X(xrCreateKeyboardSpaceFB)\
+  X(xrCreatePassthroughFB)\
+  X(xrDestroyPassthroughFB)\
+  X(xrPassthroughStartFB)\
+  X(xrPassthroughPauseFB)\
+  X(xrCreatePassthroughLayerFB)\
+  X(xrDestroyPassthroughLayerFB)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -156,6 +162,7 @@ static struct {
   XrCompositionLayerProjection layers[1];
   XrCompositionLayerProjectionView layerViews[2];
   XrCompositionLayerDepthInfoKHR depthInfo[2];
+  XrCompositionLayerPassthroughFB passthroughLayer;
   XrFrameState frameState;
   TextureFormat depthFormat;
   Texture* textures[2][MAX_IMAGES];
@@ -174,6 +181,9 @@ static struct {
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
   XrControllerModelKeyMSFT controllerModelKeys[2];
+  XrPassthroughFB passthrough;
+  XrPassthroughLayerFB passthroughLayerHandle;
+  bool passthroughActive;
   struct {
     bool controllerModel;
     bool depth;
@@ -185,6 +195,7 @@ static struct {
     bool headless;
     bool keyboardTracking;
     bool overlay;
+    bool passthrough;
     bool refreshRate;
     bool viveTrackers;
   } features;
@@ -371,6 +382,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
+      { "XR_FB_passthrough", &state.features.passthrough, true },
       { "XR_MND_headless", &state.features.headless, true },
       { "XR_MSFT_controller_model", &state.features.controllerModel, true },
       { "XR_ULTRALEAP_hand_tracking_forearm", &state.features.handTrackingElbow, true },
@@ -413,24 +425,11 @@ static bool openxr_init(HeadsetConfig* config) {
 
     XR_INIT(xrGetSystem(state.instance, &info, &state.system));
 
-    XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = {
-      .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT,
-      .supportsEyeGazeInteraction = false
-    };
-
-    XrSystemHandTrackingPropertiesEXT handTrackingProperties = {
-      .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT,
-      .supportsHandTracking = false
-    };
-
-    XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = {
-      .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB,
-      .supportsKeyboardTracking = false
-    };
-
-    XrSystemProperties properties = {
-      .type = XR_TYPE_SYSTEM_PROPERTIES
-    };
+    XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = { .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
+    XrSystemHandTrackingPropertiesEXT handTrackingProperties = { .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT };
+    XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = { .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB };
+    XrSystemPassthroughProperties2FB passthroughProperties = { .type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB };
+    XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
 
     if (state.features.gaze) {
       eyeGazeProperties.next = properties.next;
@@ -447,10 +446,16 @@ static bool openxr_init(HeadsetConfig* config) {
       properties.next = &keyboardTrackingProperties;
     }
 
+    if (state.features.passthrough) {
+      passthroughProperties.next = properties.next;
+      properties.next = &passthroughProperties;
+    }
+
     XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties));
     state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
     state.features.handTracking = handTrackingProperties.supportsHandTracking;
     state.features.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
+    state.features.passthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
 
     uint32_t viewConfigurationCount;
     XrViewConfigurationType viewConfigurations[2];
@@ -1042,17 +1047,10 @@ static void openxr_start(void) {
       }
     }
 
-    XrCompositionLayerFlags layerFlags = 0;
-
-    if (state.features.overlay) {
-      layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-    }
-
     // Pre-init composition layer
     state.layers[0] = (XrCompositionLayerProjection) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
       .space = state.referenceSpace,
-      .layerFlags = layerFlags,
       .viewCount = 2,
       .views = state.layerViews
     };
@@ -1121,6 +1119,9 @@ static void openxr_stop(void) {
 
   if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
   if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
+
+  if (state.passthrough) xrDestroyPassthroughFB(state.passthrough);
+  if (state.passthroughLayerHandle) xrDestroyPassthroughLayerFB(state.passthroughLayerHandle);
 
   for (size_t i = 0; i < MAX_DEVICES; i++) {
     if (state.spaces[i]) {
@@ -2055,13 +2056,13 @@ static void openxr_submit(void) {
     return;
   }
 
+  XrCompositionLayerBaseHeader const* layers[2];
+
   XrFrameEndInfo info = {
     .type = XR_TYPE_FRAME_END_INFO,
     .displayTime = state.frameState.predictedDisplayTime,
     .environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE,
-    .layers = (const XrCompositionLayerBaseHeader*[1]) {
-      (XrCompositionLayerBaseHeader*) &state.layers[0]
-    }
+    .layers = layers
   };
 
   if (state.features.depth) {
@@ -2081,7 +2082,20 @@ static void openxr_submit(void) {
       XR(xrReleaseSwapchainImage(state.swapchain[DEPTH], NULL));
     }
 
-    info.layerCount = 1;
+    if (state.passthroughActive) {
+      layers[0] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
+      layers[1] = (const XrCompositionLayerBaseHeader*) &state.layers[0];
+      info.layerCount = 2;
+    } else {
+      layers[0] = (const XrCompositionLayerBaseHeader*) &state.layers[0];
+      info.layerCount = 1;
+    }
+
+    if (state.features.overlay || state.passthroughActive) {
+      state.layers[0].layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+    } else {
+      state.layers[0].layerFlags = 0;
+    }
   }
 
   XR(xrEndFrame(state.session, &info));
@@ -2091,6 +2105,67 @@ static void openxr_submit(void) {
 
 static bool openxr_isFocused(void) {
   return state.sessionState == XR_SESSION_STATE_FOCUSED;
+}
+
+static bool openxr_isPassthroughEnabled(void) {
+  return state.passthroughActive;
+}
+
+static bool openxr_setPassthroughEnabled(bool enable) {
+  if (!state.features.passthrough) return false;
+
+  XrResult result = XR_SUCCESS;
+
+  if (!state.passthrough) {
+    XrPassthroughCreateInfoFB info = { .type = XR_TYPE_PASSTHROUGH_CREATE_INFO_FB };
+    result = xrCreatePassthroughFB(state.session, &info, &state.passthrough);
+
+    if (XR_FAILED(result)) {
+      return false;
+    }
+
+    XrPassthroughLayerCreateInfoFB layerInfo = {
+      .type = XR_TYPE_PASSTHROUGH_LAYER_CREATE_INFO_FB,
+      .passthrough = state.passthrough,
+      .purpose = XR_PASSTHROUGH_LAYER_PURPOSE_RECONSTRUCTION_FB,
+      .flags = XR_PASSTHROUGH_IS_RUNNING_AT_CREATION_BIT_FB
+    };
+
+    result = xrCreatePassthroughLayerFB(state.session, &layerInfo, &state.passthroughLayerHandle);
+
+    if (XR_FAILED(result)) {
+      xrDestroyPassthroughFB(state.passthrough);
+      state.passthrough = NULL;
+      return false;
+    }
+
+    state.passthroughLayer = (XrCompositionLayerPassthroughFB) {
+      .type = XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB,
+      .layerHandle = state.passthroughLayerHandle
+    };
+  }
+
+  if (enable == state.passthroughActive) {
+    return true;
+  }
+
+  if (enable) {
+    result = xrPassthroughStartFB(state.passthrough);
+
+    if (XR_SUCCEEDED(result)) {
+      state.passthroughActive = true;
+      return true;
+    }
+  } else {
+    result = xrPassthroughPauseFB(state.passthrough);
+
+    if (XR_SUCCEEDED(result)) {
+      state.passthroughActive = false;
+      return true;
+    }
+  }
+
+  return false;
 }
 
 static double openxr_update(void) {
@@ -2202,5 +2277,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getPass = openxr_getPass,
   .submit = openxr_submit,
   .isFocused = openxr_isFocused,
+  .isPassthroughEnabled = openxr_isPassthroughEnabled,
+  .setPassthroughEnabled = openxr_setPassthroughEnabled,
   .update = openxr_update
 };

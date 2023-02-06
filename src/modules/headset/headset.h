@@ -155,6 +155,8 @@ typedef struct HeadsetInterface {
   struct Pass* (*getPass)(void);
   void (*submit)(void);
   bool (*isFocused)(void);
+  bool (*isPassthroughEnabled)(void);
+  bool (*setPassthroughEnabled)(bool enable);
   double (*update)(void);
 } HeadsetInterface;
 

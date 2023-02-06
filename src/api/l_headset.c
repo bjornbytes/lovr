@@ -539,6 +539,18 @@ static int l_lovrHeadsetIsFocused(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetIsPassthroughEnabled(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetInterface->isPassthroughEnabled());
+  return 1;
+}
+
+static int l_lovrHeadsetSetPassthroughEnabled(lua_State* L) {
+  bool enable = lua_toboolean(L, 1);
+  bool success = lovrHeadsetInterface->setPassthroughEnabled(enable);
+  lua_pushboolean(L, success);
+  return 1;
+}
+
 static int l_lovrHeadsetUpdate(lua_State* L) {
   double dt = 0.;
 
@@ -620,6 +632,8 @@ static const luaL_Reg lovrHeadset[] = {
   { "getPass", l_lovrHeadsetGetPass },
   { "submit", l_lovrHeadsetSubmit },
   { "isFocused", l_lovrHeadsetIsFocused },
+  { "isPassthroughEnabled", l_lovrHeadsetIsPassthroughEnabled },
+  { "setPassthroughEnabled", l_lovrHeadsetSetPassthroughEnabled },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
   { "getDeltaTime", l_lovrHeadsetGetDeltaTime },
