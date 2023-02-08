@@ -659,7 +659,9 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   }
 
   float16Init();
+#ifdef LOVR_USE_GLSLANG
   glslang_initialize_process();
+#endif
   state.initialized = true;
   return true;
 }
@@ -737,7 +739,9 @@ void lovrGraphicsDestroy() {
   }
   arr_free(&state.layouts);
   gpu_destroy();
+#ifdef LOVR_USE_GLSLANG
   glslang_finalize_process();
+#endif
   os_vm_free(state.allocator.memory, state.allocator.limit);
   memset(&state, 0, sizeof(state));
 }
