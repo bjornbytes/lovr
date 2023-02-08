@@ -10,6 +10,7 @@ int l_lovrRandomGeneratorRandomNormal(lua_State* L);
 int l_lovrRandomGeneratorGetSeed(lua_State* L);
 int l_lovrRandomGeneratorSetSeed(lua_State* L);
 extern const luaL_Reg lovrCurve[];
+extern const luaL_Reg lovrLightProbe[];
 extern const luaL_Reg lovrRandomGenerator[];
 extern const luaL_Reg lovrMat4[];
 
@@ -64,6 +65,13 @@ static int l_lovrMathNewCurve(lua_State* L) {
 
   luax_pushtype(L, Curve, curve);
   lovrRelease(curve, lovrCurveDestroy);
+  return 1;
+}
+
+static int l_lovrMathNewLightProbe(lua_State* L) {
+  LightProbe* probe = lovrLightProbeCreate();
+  luax_pushtype(L, LightProbe, probe);
+  lovrRelease(probe, lovrLightProbeDestroy);
   return 1;
 }
 
@@ -194,6 +202,7 @@ static int l_lovrMathDrain(lua_State* L) {
 
 static const luaL_Reg lovrMath[] = {
   { "newCurve", l_lovrMathNewCurve },
+  { "newLightProbe", l_lovrMathNewLightProbe },
   { "newMat4", l_lovrMathNewMat4 },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "noise", l_lovrMathNoise },
@@ -214,6 +223,7 @@ int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrMath);
   luax_registertype(L, Curve);
+  luax_registertype(L, LightProbe);
   luax_registertype(L, Mat4);
   luax_registertype(L, RandomGenerator);
 
