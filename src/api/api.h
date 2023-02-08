@@ -163,7 +163,7 @@ uint32_t luax_checknodeindex(lua_State* L, int index, struct Model* model);
 #endif
 
 #ifndef LOVR_DISABLE_MATH
-#include "math/pool.h" // TODO
+#include "math/math.h" // TODO
 float* luax_tovector(lua_State* L, int index, VectorType* type);
 float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
 float* luax_newtempvector(lua_State* L, VectorType type);

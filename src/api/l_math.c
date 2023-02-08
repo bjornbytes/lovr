@@ -1,8 +1,5 @@
 #include "api.h"
 #include "math/math.h"
-#include "math/curve.h"
-#include "math/pool.h"
-#include "math/randomGenerator.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
