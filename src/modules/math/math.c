@@ -15,6 +15,11 @@ struct Curve {
   arr_t(float) points;
 };
 
+struct LightProbe {
+  uint32_t ref;
+  float coefficients[9][3];
+};
+
 struct Pool {
   uint32_t ref;
   float* data;
@@ -213,6 +218,64 @@ void lovrCurveAddPoint(Curve* curve, vec4 point, size_t index) {
 
 void lovrCurveRemovePoint(Curve* curve, size_t index) {
   arr_splice(&curve->points, index * 4, 4);
+}
+
+// LightProbe
+
+LightProbe* lovrLightProbeCreate(void) {
+  LightProbe* probe = calloc(1, sizeof(LightProbe));
+  lovrAssert(probe, "Out of memory");
+  lovrLightProbeClear(probe);
+  probe->ref = 1;
+  return probe;
+}
+
+void lovrLightProbeDestroy(void* ref) {
+  LightProbe* probe = ref;
+  free(probe);
+}
+
+void lovrLightProbeClear(LightProbe* probe) {
+  memset(probe->coefficients, 0, sizeof(probe->coefficients));
+}
+
+void lovrLightProbeGetCoefficients(LightProbe* probe, float coefficients[9][3]) {
+  memcpy(coefficients, probe->coefficients, sizeof(probe->coefficients));
+}
+
+void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]) {
+  memcpy(probe->coefficients, coefficients, sizeof(probe->coefficients));
+}
+
+void lovrLightProbeAddColor(LightProbe* probe, float color[3]) {
+  //
+}
+
+void lovrLightProbeAddLight(LightProbe* probe, float direction[3], float color[3]) {
+  //
+}
+
+void lovrLightProbeAddImage(LightProbe* probe, struct Image** images, uint32_t count) {
+  //
+}
+
+void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other) {
+  float* a = &probe->coefficients[0][0];
+  float* b = &other->coefficients[0][0];
+  for (uint32_t i = 0; i < 27; i++) {
+    a[i] += b[i];
+  }
+}
+
+void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t) {
+  //
+}
+
+void lovrLightProbeScale(LightProbe* probe, float scale) {
+  float* c = &probe->coefficients[0][0];
+  for (uint32_t i = 0; i < 27; i++) {
+    c[i] *= scale;
+  }
 }
 
 // Pool

@@ -24,6 +24,7 @@ static int l_lovrMathVec4(lua_State* L);
 static int l_lovrMathQuat(lua_State* L);
 static int l_lovrMathMat4(lua_State* L);
 extern const luaL_Reg lovrCurve[];
+extern const luaL_Reg lovrLightProbe[];
 extern const luaL_Reg lovrRandomGenerator[];
 extern const luaL_Reg lovrVec2[];
 extern const luaL_Reg lovrVec3[];
@@ -125,6 +126,13 @@ static int l_lovrMathNewCurve(lua_State* L) {
 
   luax_pushtype(L, Curve, curve);
   lovrRelease(curve, lovrCurveDestroy);
+  return 1;
+}
+
+static int l_lovrMathNewLightProbe(lua_State* L) {
+  LightProbe* probe = lovrLightProbeCreate();
+  luax_pushtype(L, LightProbe, probe);
+  lovrRelease(probe, lovrLightProbeDestroy);
   return 1;
 }
 
@@ -279,6 +287,7 @@ static int l_lovrMathDrain(lua_State* L) {
 
 static const luaL_Reg lovrMath[] = {
   { "newCurve", l_lovrMathNewCurve },
+  { "newLightProbe", l_lovrMathNewLightProbe },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "noise", l_lovrMathNoise },
   { "random", l_lovrMathRandom },
@@ -348,6 +357,7 @@ int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrMath);
   luax_registertype(L, Curve);
+  luax_registertype(L, LightProbe);
   luax_registertype(L, RandomGenerator);
 
   for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {

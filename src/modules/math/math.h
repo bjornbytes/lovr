@@ -4,7 +4,10 @@
 
 #pragma once
 
+struct Image;
+
 typedef struct Curve Curve;
+typedef struct LightProbe LightProbe;
 typedef struct Pool Pool;
 typedef struct RandomGenerator RandomGenerator;
 
@@ -30,6 +33,20 @@ void lovrCurveGetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveSetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveAddPoint(Curve* curve, float* point, size_t index);
 void lovrCurveRemovePoint(Curve* curve, size_t index);
+
+// LightProbe
+
+LightProbe* lovrLightProbeCreate(void);
+void lovrLightProbeDestroy(void* ref);
+void lovrLightProbeClear(LightProbe* probe);
+void lovrLightProbeGetCoefficients(LightProbe* probe, float coefficients[9][3]);
+void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]);
+void lovrLightProbeAddColor(LightProbe* probe, float color[3]);
+void lovrLightProbeAddLight(LightProbe* probe, float direction[3], float color[3]);
+void lovrLightProbeAddImage(LightProbe* probe, struct Image** images, uint32_t count);
+void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other);
+void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t);
+void lovrLightProbeScale(LightProbe* probe, float scale);
 
 // Pool
 
