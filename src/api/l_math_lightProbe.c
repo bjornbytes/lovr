@@ -33,6 +33,17 @@ static int l_lovrLightProbeSetCoefficients(lua_State* L) {
   return 0;
 }
 
+static int l_lovrLightProbeEvaluate(lua_State* L) {
+  LightProbe* probe = luax_checktype(L, 1, LightProbe);
+  float direction[4], color[4];
+  luax_readvec3(L, 2, direction, NULL);
+  lovrLightProbeEvaluate(probe, direction, color);
+  lua_pushnumber(L, color[0]);
+  lua_pushnumber(L, color[1]);
+  lua_pushnumber(L, color[2]);
+  return 3;
+}
+
 static int l_lovrLightProbeAddAmbientLight(lua_State* L) {
   LightProbe* probe = luax_checktype(L, 1, LightProbe);
   float color[4];
@@ -75,6 +86,7 @@ static int l_lovrLightProbeScale(lua_State* L) {
 
 const luaL_Reg lovrLightProbe[] = {
   { "clear", l_lovrLightProbeClear },
+  { "evaluate", l_lovrLightProbeEvaluate },
   { "getCoefficients", l_lovrLightProbeGetCoefficients },
   { "setCoefficients", l_lovrLightProbeSetCoefficients },
   { "addAmbientLight", l_lovrLightProbeAddAmbientLight },

@@ -41,6 +41,7 @@ void lovrLightProbeDestroy(void* ref);
 void lovrLightProbeClear(LightProbe* probe);
 void lovrLightProbeGetCoefficients(LightProbe* probe, float coefficients[9][3]);
 void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]);
+void lovrLightProbeEvaluate(LightProbe* probe, float normal[4], float result[4]);
 void lovrLightProbeAddColor(LightProbe* probe, float color[3]);
 void lovrLightProbeAddLight(LightProbe* probe, float direction[3], float color[3]);
 void lovrLightProbeAddImage(LightProbe* probe, struct Image** images, uint32_t count);

@@ -247,6 +247,29 @@ void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]) 
   memcpy(probe->coefficients, coefficients, sizeof(probe->coefficients));
 }
 
+void lovrLightProbeEvaluate(LightProbe* probe, float normal[4], float result[4]) {
+  memset(result, 0, 3 * sizeof(float));
+
+  vec3_normalize(normal);
+  float x = normal[0];
+  float y = normal[1];
+  float z = normal[2];
+
+  for (uint32_t i = 0; i < 3; i++) {
+    result[i] += .28209479177388f * probe->coefficients[0][i];
+
+    result[i] += .48860251190292f * probe->coefficients[1][i] * y;
+    result[i] += .48860251190292f * probe->coefficients[2][i] * z;
+    result[i] += .48860251190292f * probe->coefficients[3][i] * x;
+
+    result[i] += 1.0925484305921f * probe->coefficients[4][i] * x * y;
+    result[i] += 1.0925484305921f * probe->coefficients[5][i] * y * z;
+    result[i] += .31539156525252f * probe->coefficients[6][i] * 3.f * (z * z - 1.f);
+    result[i] += 1.0925484305921f * probe->coefficients[7][i] * x * z;
+    result[i] += .54627421529604f * probe->coefficients[8][i] * (x * x - y * y);
+  }
+}
+
 void lovrLightProbeAddColor(LightProbe* probe, float color[3]) {
   //
 }
@@ -268,7 +291,11 @@ void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other) {
 }
 
 void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t) {
-  //
+  float* a = &probe->coefficients[0][0];
+  float* b = &other->coefficients[0][0];
+  for (uint32_t i = 0; i < 27; i++) {
+    a[i] = a[i] + (b[i] - a[i]) * t;
+  }
 }
 
 void lovrLightProbeScale(LightProbe* probe, float scale) {
