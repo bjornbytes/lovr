@@ -256,17 +256,17 @@ void lovrLightProbeEvaluate(LightProbe* probe, float normal[4], float result[4])
   float z = normal[2];
 
   for (uint32_t i = 0; i < 3; i++) {
-    result[i] += .28209479177388f * probe->coefficients[0][i];
+    result[i] += .88622692545276f * probe->coefficients[0][i];
 
-    result[i] += .48860251190292f * probe->coefficients[1][i] * y;
-    result[i] += .48860251190292f * probe->coefficients[2][i] * z;
-    result[i] += .48860251190292f * probe->coefficients[3][i] * x;
+    result[i] += 1.0233267079465f * probe->coefficients[1][i] * y;
+    result[i] += 1.0233267079465f * probe->coefficients[2][i] * z;
+    result[i] += 1.0233267079465f * probe->coefficients[3][i] * x;
 
-    result[i] += 1.0925484305921f * probe->coefficients[4][i] * x * y;
-    result[i] += 1.0925484305921f * probe->coefficients[5][i] * y * z;
-    result[i] += .31539156525252f * probe->coefficients[6][i] * 3.f * (z * z - 1.f);
-    result[i] += 1.0925484305921f * probe->coefficients[7][i] * x * z;
-    result[i] += .54627421529604f * probe->coefficients[8][i] * (x * x - y * y);
+    result[i] += .85808553080978f * probe->coefficients[4][i] * x * y;
+    result[i] += .85808553080978f * probe->coefficients[5][i] * y * z;
+    result[i] += .24770795610038f * probe->coefficients[6][i] * (3.f * z * z - 1.f);
+    result[i] += .85808553080978f * probe->coefficients[7][i] * x * z;
+    result[i] += .42904276540489f * probe->coefficients[8][i] * (x * x - y * y);
   }
 }
 
