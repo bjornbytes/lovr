@@ -1,5 +1,6 @@
 #include "api.h"
 #include "util.h"
+#include <string.h>
 
 static int l_lovrLightProbeClear(lua_State* L) {
   LightProbe* probe = luax_checktype(L, 1, LightProbe);
@@ -27,8 +28,17 @@ static int l_lovrLightProbeGetCoefficients(lua_State* L) {
 
 static int l_lovrLightProbeSetCoefficients(lua_State* L) {
   LightProbe* probe = luax_checktype(L, 1, LightProbe);
+  luaL_checktype(L, 2, LUA_TTABLE);
   float coefficients[9][3];
-  //
+  memset(coefficients, 0, sizeof(coefficients));
+  int length = luax_len(L, 2);
+  for (int i = 0; i < length; i++) {
+    float color[4];
+    lua_rawgeti(L, 2, i + 1);
+    luax_optcolor(L, -1, color);
+    memcpy(coefficients[i], color, 3 * sizeof(float));
+    lua_pop(L, 1);
+  }
   lovrLightProbeSetCoefficients(probe, coefficients);
   return 0;
 }
