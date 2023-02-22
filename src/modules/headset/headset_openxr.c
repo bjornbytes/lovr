@@ -375,6 +375,10 @@ static bool openxr_init(HeadsetConfig* config) {
 #ifdef LOVR_VK
       { "XR_KHR_vulkan_enable2", NULL, true },
 #endif
+
+#ifdef __ANDROID__
+      { "XR_KHR_android_create_instance", NULL, true },
+#endif
       { "XR_KHR_composition_layer_depth", &state.features.depth, config->submitDepth },
       { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
       { "XR_EXT_hand_tracking", &state.features.handTracking, true },
@@ -383,7 +387,9 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
       { "XR_FB_passthrough", &state.features.passthrough, true },
+#ifndef __ANDROID__
       { "XR_MND_headless", &state.features.headless, true },
+#endif
       { "XR_MSFT_controller_model", &state.features.controllerModel, true },
       { "XR_ULTRALEAP_hand_tracking_forearm", &state.features.handTrackingElbow, true },
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
@@ -402,8 +408,20 @@ static bool openxr_init(HeadsetConfig* config) {
 
     free(extensionProperties);
 
+#ifdef __ANDROID__
+    XrInstanceCreateInfoAndroidKHR androidInfo = {
+      .type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR,
+      .applicationVM = os_get_java_vm(),
+      .applicationActivity = os_get_jni_context(),
+      .next = NULL
+    };
+#endif
+
     XrInstanceCreateInfo info = {
       .type = XR_TYPE_INSTANCE_CREATE_INFO,
+#ifdef __ANDROID__
+      .next = &androidInfo,
+#endif
       .applicationInfo.engineName = "LÖVR",
       .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
       .applicationInfo.applicationName = "LÖVR",
@@ -588,6 +606,7 @@ static bool openxr_init(HeadsetConfig* config) {
       PROFILE_WMR,
       PROFILE_TRACKER,
       PROFILE_GAZE,
+      PROFILE_PICO,
       MAX_PROFILES
     };
 
@@ -599,7 +618,8 @@ static bool openxr_init(HeadsetConfig* config) {
       [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller",
       [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller",
       [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx",
-      [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction"
+      [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction",
+      [PROFILE_PICO] = "/interaction_profiles/pico/neo3_controller"
     };
 
     typedef struct {
@@ -798,6 +818,45 @@ static bool openxr_init(HeadsetConfig* config) {
       [PROFILE_GAZE] = (Binding[]) {
         { ACTION_GAZE_POSE, "/user/eyes_ext/input/gaze_ext/pose" },
         { 0, NULL }
+      },
+      [PROFILE_PICO] = (Binding[]) {
+        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/value" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/value" },
+        { ACTION_TRIGGER_TOUCH, "/user/hand/left/input/trigger/touch" },
+        { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
+        { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
+        { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+        { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
+        { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
+        { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
+        { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
+        { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
+        { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
+        //{ ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" }, //Imposter
+        { ACTION_MENU_DOWN, "/user/hand/right/input/system/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/click" },
+        { ACTION_GRIP_AXIS, "/user/hand/left/input/squeeze/value" },
+        { ACTION_GRIP_AXIS, "/user/hand/right/input/squeeze/value" },
+        { ACTION_A_DOWN, "/user/hand/right/input/a/click" },
+        { ACTION_A_TOUCH, "/user/hand/right/input/a/touch" },
+        { ACTION_B_DOWN, "/user/hand/right/input/b/click" },
+        { ACTION_B_TOUCH, "/user/hand/right/input/b/touch" },
+        { ACTION_X_DOWN, "/user/hand/left/input/x/click" },
+        { ACTION_X_TOUCH, "/user/hand/left/input/x/touch" },
+        { ACTION_Y_DOWN, "/user/hand/left/input/y/click" },
+        { ACTION_Y_TOUCH, "/user/hand/left/input/y/touch" },
+        { ACTION_THUMBREST_TOUCH, "/user/hand/left/input/thumbrest/touch" },
+        { ACTION_THUMBREST_TOUCH, "/user/hand/right/input/thumbrest/touch" },
+        { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
+        { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+        { 0, NULL }
       }
     };
 
@@ -821,12 +880,16 @@ static bool openxr_init(HeadsetConfig* config) {
 
       if (count > 0) {
         XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path));
-        XR_INIT(xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
+        XrResult result = (xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
           .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
           .interactionProfile = path,
           .countSuggestedBindings = count,
           .suggestedBindings = suggestedBindings
         }));
+
+        if (XR_FAILED(result)) {
+          lovrLog(LOG_WARN, "XR", "Failed to suggest input bindings for %s", interactionProfilePaths[i]);
+        }
       }
     }
   }

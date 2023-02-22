@@ -43,7 +43,7 @@ config = {
     keystore = '/path/to/keystore',
     keystorepass = 'pass:password',
     manifest = nil,
-    package = nil,
+    package = 'org.lovr.app',
     project = nil
   }
 }
@@ -175,6 +175,7 @@ if target == 'android' then
   flags += config.debug and '-funwind-tables' or ''
   cflags += '-D_POSIX_C_SOURCE=200809L'
   cflags += ('-I%s/sources/android/native_app_glue'):format(config.android.ndk)
+  cflags += '-DLOVR_JAVA_PACKAGE=' .. config.android.package:gsub('%.', '_')
   lflags += '-shared -landroid'
 end
 
@@ -455,7 +456,7 @@ comp = 'etc/shaders/*.comp'
 
 function compileShaders(stage)
   pattern = 'etc/shaders/*.' .. stage
-  tup.foreach_rule(pattern, 'glslangValidator --quiet -Os --target-env vulkan1.1 --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
+  tup.foreach_rule(pattern, 'glslangValidator --quiet --target-env vulkan1.1 --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
 end
 
 compileShaders('vert')
@@ -490,7 +491,7 @@ if target == 'android' then
   end
 
   java = 'bin/Activity.java'
-  class = 'org/lovr/app/Activity.class'
+  class = config.android.package:gsub('%.', '/') .. '/Activity.class'
   binclass = 'bin/' .. class
   jar = 'bin/lovr.jar'
   dex = 'bin/apk/classes.dex'
@@ -499,7 +500,7 @@ if target == 'android' then
   apk = 'bin/lovr.apk'
 
   manifest = config.android.manifest or 'etc/AndroidManifest.xml'
-  package = config.android.package and #config.android.package > 0 and ('--rename-manifest-package ' .. config.android.package) or ''
+  package = '--rename-manifest-package ' .. config.android.package
   project = config.android.project and #config.android.project > 0 and ('-A ' .. config.android.project) or ''
 
   version = config.android.version
@@ -509,7 +510,7 @@ if target == 'android' then
   tools = config.android.sdk .. '/build-tools/' .. config.android.buildtools
 
   copy(manifest, 'bin/AndroidManifest.xml')
-  copy('etc/Activity.java', java)
+  tup.rule('etc/Activity.java', 'tup varsed %f %o', java)
   tup.rule(java, '^ JAVAC %b^ javac -classpath $(androidjar) -d bin %f', binclass)
   tup.rule(binclass, '^ JAR %b^ jar -cf %o -C bin $(class)', jar)
   tup.rule(jar, '^ D8 %b^ $(tools)/d8 --min-api $(version) --output bin/apk %f', dex)

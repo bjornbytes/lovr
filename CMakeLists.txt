@@ -210,24 +210,17 @@ endif()
 # OpenXR
 if(LOVR_ENABLE_HEADSET AND LOVR_USE_OPENXR)
   include_directories(deps/openxr/include)
-  if(ANDROID)
-    add_library(openxr_loader SHARED IMPORTED)
-    set(LOVR_OPENXR openxr_loader)
-    set(LOVR_OPENXR_OCULUS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr" CACHE STRING "The path to the Oculus OpenXR loader")
-    set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "${LOVR_OPENXR_OCULUS_PATH}/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
-  else()
-    if(LOVR_SYSTEM_OPENXR)
-      pkg_search_module(OPENXR openxr)
-      if(NOT OPENXR_FOUND)
-        message(FATAL_ERROR "OpenXR not found.")
-      endif()
-      include_directories(${OPENXR_INCLUDE_DIRS})
-      set(LOVR_OPENXR ${OPENXR_LIBRARIES})
-    else()
-      set(DYNAMIC_LOADER ON CACHE BOOL "")
-      add_subdirectory(deps/openxr openxr)
-      set(LOVR_OPENXR openxr_loader)
+  if(LOVR_SYSTEM_OPENXR AND NOT ANDROID)
+    pkg_search_module(OPENXR openxr)
+    if(NOT OPENXR_FOUND)
+      message(FATAL_ERROR "OpenXR not found.")
     endif()
+    include_directories(${OPENXR_INCLUDE_DIRS})
+    set(LOVR_OPENXR ${OPENXR_LIBRARIES})
+  else()
+    set(DYNAMIC_LOADER ON CACHE BOOL "")
+    add_subdirectory(deps/openxr openxr)
+    set(LOVR_OPENXR openxr_loader)
   endif()
 endif()
 
@@ -740,6 +733,16 @@ elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_wasm.c)
   configure_file(etc/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
+  set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/etc/AndroidManifest.xml" CACHE STRING "The AndroidManifest.xml file to use")
+  file(READ ${ANDROID_MANIFEST} ANDROID_MANIFEST_CONTENT)
+  string(REGEX MATCH "package=\"([^\"]*)" _ ${ANDROID_MANIFEST_CONTENT})
+  set(ANDROID_PACKAGE ${CMAKE_MATCH_1})
+
+  string(REPLACE "." "_" ANDROID_PACKAGE_C ${ANDROID_PACKAGE})
+  string(REPLACE "." "/" ANDROID_PACKAGE_JAVA ${ANDROID_PACKAGE})
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/etc/Activity.java ${CMAKE_CURRENT_BINARY_DIR}/Activity.java)
+  target_compile_definitions(lovr PRIVATE "LOVR_JAVA_PACKAGE=${ANDROID_PACKAGE_C}")
+
   target_sources(lovr PRIVATE src/core/os_android.c)
   target_link_libraries(lovr log android dl)
   target_include_directories(lovr PRIVATE "${ANDROID_NDK}/sources/android/native_app_glue")
@@ -755,20 +758,30 @@ elseif(ANDROID)
   if(LOVR_BUILD_EXE)
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
-    set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/etc/AndroidManifest.xml" CACHE STRING "The AndroidManifest.xml file to use")
 
     # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
     if(ANDROID_ASSETS)
       set(ANDROID_ASSETS -A ${ANDROID_ASSETS})
     endif()
 
-    if(ANDROID_PACKAGE)
-      set(PACKAGE_RENAME "--rename-manifest-package" "${ANDROID_PACKAGE}")
-    endif()
-
     if(LOVR_USE_OPENXR)
-      get_target_property(OPENXR_LIB ${LOVR_OPENXR} IMPORTED_LOCATION)
-      file(COPY ${OPENXR_LIB} DESTINATION raw/lib/${ANDROID_ABI})
+      add_custom_command(TARGET move_files POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_SONAME_FILE:${LOVR_OPENXR}>
+        raw/lib/${ANDROID_ABI}/libopenxr_loader_generic.so
+      )
+
+      set(PICO_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico-openxr/libs/android.${ANDROID_ABI}/libopenxr_loader.so")
+      if(EXISTS ${PICO_LOADER})
+        configure_file(${PICO_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_pico.so" COPYONLY)
+      endif()
+
+      set(OCULUS_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
+      if(EXISTS ${OCULUS_LOADER})
+        configure_file(${OCULUS_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_oculus.so" COPYONLY)
+      endif()
+
+      configure_file("${ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_HOST_TAG}/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "raw/lib/${ANDROID_ABI}/libc++_shared.so" COPYONLY)
     endif()
 
     if(LOVR_USE_OCULUS_AUDIO)
@@ -786,9 +799,8 @@ elseif(ANDROID)
       buildAPK ALL
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
-      COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/etc/Activity.java Activity.java
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
-      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw org/lovr/app/Activity.class
+      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw ${ANDROID_PACKAGE_JAVA}/Activity.class
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
