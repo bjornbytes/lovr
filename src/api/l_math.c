@@ -1,6 +1,7 @@
 #include "api.h"
 #include "math/math.h"
 #include "l_math.lua.h"
+#include "data/image.h"
 #include "util.h"
 #include <threads.h>
 #include <string.h>
@@ -68,8 +69,92 @@ static int l_lovrMathNewCurve(lua_State* L) {
   return 1;
 }
 
+static void getPixelEquirect(void* image, uint32_t x, uint32_t y, uint32_t z, float color[4]) {
+  lovrImageGetPixel(image, x, y, z, color);
+}
+
+static void getPixelCubemap(void* image, uint32_t x, uint32_t y, uint32_t z, float color[4]) {
+  lovrImageGetPixel(image, x, y, z, color);
+}
+
+static void getPixelCubemapLayers(void* context, uint32_t x, uint32_t y, uint32_t z, float color[4]) {
+  Image** images = context;
+  lovrImageGetPixel(images[z], x, y, 0, color);
+}
+
 static int l_lovrMathNewLightProbe(lua_State* L) {
   LightProbe* probe = lovrLightProbeCreate();
+  if (lua_istable(L, 1)) {
+    switch (luax_len(L, 1)) {
+      case 9: {
+        float coefficients[9][3], color[4];
+        for (int i = 0; i < 9; i++) {
+          lua_rawgeti(L, 1, i + 1);
+          luax_optcolor(L, -1, color);
+          memcpy(coefficients[i], color, 3 * sizeof(float));
+          lua_pop(L, 1);
+        }
+        lovrLightProbeSetCoefficients(probe, coefficients);
+        break;
+      }
+      case 6: {
+        Image* images[6];
+
+        for (int i = 0; i < 6; i++) {
+          lua_rawgeti(L, 1, i + 1);
+          images[i] = luax_checkimage(L, -1);
+          lua_pop(L, 1);
+        }
+
+        uint32_t width = lovrImageGetWidth(images[0], 0);
+        uint32_t height = lovrImageGetHeight(images[0], 0);
+        luax_check(L, width == height, "Cubemap images must be square");
+
+        for (uint32_t i = 0; i < 6; i++) {
+          luax_check(L, lovrImageGetWidth(images[i], 0) == width, "Cubemap face images must have the same dimensions");
+          luax_check(L, lovrImageGetHeight(images[i], 0) == height, "Cubemap face images must have the same dimensions");
+          luax_check(L, lovrImageGetLayerCount(images[i]) == 1, "Cubemap face images all need to have a single layer");
+        }
+
+        lovrLightProbeAddCubemap(probe, width, getPixelCubemapLayers, images);
+
+        for (uint32_t i = 0; i < 6; i++) {
+          lovrRelease(images[i], lovrImageDestroy);
+        }
+        break;
+      }
+      default: return luaL_error(L, "Expected a table with 9 colors or 6 images");
+    }
+  } else if (!lua_isnoneornil(L, 1)) {
+    LightProbe* other = luax_totype(L, 1, LightProbe);
+
+    if (other) {
+      lovrLightProbeAddProbe(probe, other);
+    } else {
+      Image* image = luax_checkimage(L, 1);
+
+      if (!image) {
+        return luax_typeerror(L, 1, "table, LightProbe, string, Blob, or Image");
+      }
+
+      uint32_t width = lovrImageGetWidth(image, 0);
+      uint32_t height = lovrImageGetHeight(image, 0);
+      uint32_t layers = lovrImageGetLayerCount(image);
+
+      if (layers == 1) {
+        luax_check(L, width == 2 * height, "Equirectangular image width must be twice its height");
+        lovrLightProbeAddEquirect(probe, width, height, getPixelEquirect, image);
+        lovrRelease(image, lovrImageDestroy);
+      } else if (layers == 6) {
+        luax_check(L, width == height, "Cubemap images must be square");
+        lovrLightProbeAddCubemap(probe, width, getPixelCubemap, image);
+        lovrRelease(image, lovrImageDestroy);
+      } else {
+        lovrRelease(image, lovrImageDestroy);
+        return luaL_error(L, "Image layer count must be 1 or 6");
+      }
+    }
+  }
   luax_pushtype(L, LightProbe, probe);
   lovrRelease(probe, lovrLightProbeDestroy);
   return 1;

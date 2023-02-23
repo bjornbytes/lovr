@@ -261,11 +261,13 @@ static void setPixelRGB10A2(float* src, ImagePointer dst) {
     ((uint32_t) (CLAMP(src[3], 0.f, 1.f) * 3.f + .5f) << 30);
 }
 
-bool lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
+bool lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, uint32_t layer, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrCheck(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
+  void* data = lovrImageGetLayerData(image, 0, layer);
+  lovrCheck(data, "getPixel layer index is out of range");
   size_t offset = measure(y * image->width + x, 1, image->format);
-  ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
+  ImagePointer p = { .u8 = (uint8_t*) data + offset };
   switch (image->format) {
     case FORMAT_R8: getPixelR8(p, pixel); return true;
     case FORMAT_RG8: getPixelRG8(p, pixel); return true;
@@ -287,11 +289,13 @@ bool lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   }
 }
 
-bool lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
+bool lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, uint32_t layer, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrCheck(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
+  void* data = lovrImageGetLayerData(image, 0, layer);
+  lovrCheck(data, "setPixel layer index is out of range");
   size_t offset = measure(y * image->width + x, 1, image->format);
-  ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
+  ImagePointer p = { .u8 = data + offset };
   switch (image->format) {
     case FORMAT_R8: setPixelR8(pixel, p); return true;
     case FORMAT_RG8: setPixelRG8(pixel, p); return true;
@@ -464,7 +468,7 @@ Blob* lovrImageEncode(Image* image) {
       } else if (depth == 8) {
         for (uint32_t x = 0; x < w; x++) {
           float pixel[4];
-          lovrImageGetPixel(image, x, y, pixel);
+          lovrImageGetPixel(image, x, y, 0, pixel);
           for (uint32_t c = 0; c < 4; c++) {
             p[x * 4 + c] = (uint8_t) (pixel[c] * 255.f + .5f);
           }
@@ -472,7 +476,7 @@ Blob* lovrImageEncode(Image* image) {
       } else {
         for (uint32_t x = 0; x < w; x++) {
           float pixel[4];
-          lovrImageGetPixel(image, x, y, pixel);
+          lovrImageGetPixel(image, x, y, 0, pixel);
           for (uint32_t c = 0; c < 4; c++) {
             uint16_t v = (uint16_t) (pixel[c] * 65535.f + .5f);
             p[x * 8 + 2 * c + 0] = v >> 8;
