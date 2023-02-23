@@ -4,8 +4,6 @@
 
 #pragma once
 
-struct Image;
-
 typedef struct Curve Curve;
 typedef struct LightProbe LightProbe;
 typedef struct Pool Pool;
@@ -36,15 +34,18 @@ void lovrCurveRemovePoint(Curve* curve, size_t index);
 
 // LightProbe
 
+typedef void fn_pixel(void* context, uint32_t x, uint32_t y, uint32_t z, float color[4]);
+
 LightProbe* lovrLightProbeCreate(void);
 void lovrLightProbeDestroy(void* ref);
 void lovrLightProbeClear(LightProbe* probe);
 void lovrLightProbeGetCoefficients(LightProbe* probe, float coefficients[9][3]);
 void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]);
 void lovrLightProbeEvaluate(LightProbe* probe, float normal[4], float color[4]);
-void lovrLightProbeAddColor(LightProbe* probe, float color[4]);
-void lovrLightProbeAddLight(LightProbe* probe, float direction[4], float color[4]);
-void lovrLightProbeAddImage(LightProbe* probe, struct Image** images, uint32_t count);
+void lovrLightProbeAddAmbientLight(LightProbe* probe, float color[4]);
+void lovrLightProbeAddDirectionalLight(LightProbe* probe, float direction[4], float color[4]);
+void lovrLightProbeAddCubemap(LightProbe* probe, uint32_t size, fn_pixel* getPixel, void* context);
+void lovrLightProbeAddEquirect(LightProbe* probe, uint32_t width, uint32_t height, fn_pixel* getPixel, void* context);
 void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other);
 void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t);
 void lovrLightProbeScale(LightProbe* probe, float scale);
