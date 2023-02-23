@@ -125,7 +125,7 @@ Shape* luax_newterrainshape(lua_State* L, int index) {
     for (uint32_t y = 0; y < imageHeight; y++) {
       for (uint32_t x = 0; x < imageWidth; x++) {
         float pixel[4];
-        lovrImageGetPixel(image, x, y, pixel);
+        lovrImageGetPixel(image, x, y, 0, pixel);
         vertices[x + y * imageWidth] = pixel[0];
       }
     }

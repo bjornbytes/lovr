@@ -538,7 +538,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   float white[4] = { 1.f, 1.f, 1.f, 1.f };
   for (uint32_t y = 0; y < 4; y++) {
     for (uint32_t x = 0; x < 4; x++) {
-      lovrImageSetPixel(image, x, y, white);
+      lovrImageSetPixel(image, x, y, 0, white);
     }
   }
 

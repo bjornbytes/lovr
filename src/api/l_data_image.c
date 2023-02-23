@@ -102,7 +102,7 @@ static int l_lovrImageGetPixel(lua_State* L) {
   uint32_t x = luax_checku32(L, 2);
   uint32_t y = luax_checku32(L, 3);
   float pixel[4];
-  lovrImageGetPixel(image, x, y, pixel);
+  lovrImageGetPixel(image, x, y, 0, pixel);
   lua_pushnumber(L, pixel[0]);
   lua_pushnumber(L, pixel[1]);
   lua_pushnumber(L, pixel[2]);
@@ -120,7 +120,7 @@ static int l_lovrImageSetPixel(lua_State* L) {
     luax_optfloat(L, 6, 1.f),
     luax_optfloat(L, 7, 1.f)
   };
-  lovrImageSetPixel(image, x, y, pixel);
+  lovrImageSetPixel(image, x, y, 0, pixel);
   return 0;
 }
 

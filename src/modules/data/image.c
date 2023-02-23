@@ -184,11 +184,12 @@ void* lovrImageGetLayerData(Image* image, uint32_t level, uint32_t layer) {
   return (uint8_t*) image->mipmaps[level].data + layer * image->mipmaps[level].stride;
 }
 
-void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
+void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, uint32_t layer, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
+  lovrCheck(layer < image->layers, "Layer must be within Image bounds");
   lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
   size_t offset = measure(y * image->width + x, 1, image->format);
-  uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + offset;
+  uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + layer * image->mipmaps[0].stride + offset;
   uint16_t* u16 = (uint16_t*) u8;
   float* f32 = (float*) u8;
   switch (image->format) {
@@ -235,11 +236,12 @@ void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   }
 }
 
-void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
+void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, uint32_t layer, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
+  lovrCheck(layer < image->layers, "Layer must be within Image bounds");
   lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
   size_t offset = measure(y * image->width + x, 1, image->format);
-  uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + offset;
+  uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + layer * image->mipmaps[0].stride + offset;
   uint16_t* u16 = (uint16_t*) u8;
   float* f32 = (float*) u8;
   switch (image->format) {
