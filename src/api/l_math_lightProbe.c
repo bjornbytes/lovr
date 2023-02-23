@@ -58,7 +58,7 @@ static int l_lovrLightProbeAddAmbientLight(lua_State* L) {
   LightProbe* probe = luax_checktype(L, 1, LightProbe);
   float color[4];
   luax_readcolor(L, 2, color);
-  lovrLightProbeAddColor(probe, color);
+  lovrLightProbeAddAmbientLight(probe, color);
   return 0;
 }
 
@@ -68,7 +68,7 @@ static int l_lovrLightProbeAddDirectionalLight(lua_State* L) {
   int index = luax_readvec3(L, 2, direction, NULL);
   float color[4];
   luax_readcolor(L, index, color);
-  lovrLightProbeAddLight(probe, direction, color);
+  lovrLightProbeAddDirectionalLight(probe, direction, color);
   return 0;
 }
 
