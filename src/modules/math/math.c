@@ -357,7 +357,50 @@ void lovrLightProbeAddCubemap(LightProbe* probe, uint32_t size, fn_pixel* getPix
 }
 
 void lovrLightProbeAddEquirect(LightProbe* probe, uint32_t width, uint32_t height, fn_pixel* getPixel, void* context) {
-  //
+  float coefficients[9][3];
+  memset(coefficients, 0, sizeof(coefficients));
+
+  float totalAngle = 0.f;
+  float pi = (float) M_PI;
+  for (uint32_t y = 0; y < height; y++) {
+    float phi = y / (float) height * pi;
+    float sinphi = sinf(phi);
+    float cosphi = cosf(phi);
+    for (uint32_t x = 0; x < width; x++) {
+      float theta = x / (float) width * (2.f * pi);
+      float solidAngle = (2.f * pi / width) * (pi / height) * fabsf(cosphi);
+      totalAngle += solidAngle;
+
+      float color[4];
+      getPixel(context, x, y, 0, color);
+
+      color[0] *= solidAngle;
+      color[1] *= solidAngle;
+      color[2] *= solidAngle;
+
+      float dx = cosf(theta) * sinphi;
+      float dy = cosphi;
+      float dz = -sinf(theta) * sinphi;
+
+      for (uint32_t c = 0; c < 3; c++) {
+        coefficients[0][c] += .28209479177388f * color[c];
+        coefficients[1][c] += .48860251190292f * color[c] * dy;
+        coefficients[2][c] += .48860251190292f * color[c] * dz;
+        coefficients[3][c] += .48860251190292f * color[c] * dx;
+        coefficients[4][c] += 1.0925484305921f * color[c] * dx * dy;
+        coefficients[5][c] += 1.0925484305921f * color[c] * dy * dz;
+        coefficients[6][c] += .31539156525252f * color[c] * (3.f * dz * dz - 1.f);
+        coefficients[7][c] += 1.0925484305921f * color[c] * dx * dz;
+        coefficients[8][c] += .54627421529604f * color[c] * (dx * dx - dy * dy);
+      }
+    }
+  }
+
+  for (uint32_t i = 0; i < 9; i++) {
+    for (uint32_t c = 0; c < 3; c++) {
+      probe->coefficients[i][c] += (coefficients[i][c] / totalAngle) * 4.f * pi;
+    }
+  }
 }
 
 void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other) {
