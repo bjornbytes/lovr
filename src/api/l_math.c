@@ -145,59 +145,74 @@ static void getPixelCubemapLayers(void* context, uint32_t x, uint32_t y, uint32_
 
 static int l_lovrMathNewLightProbe(lua_State* L) {
   LightProbe* probe = lovrLightProbeCreate();
-  float coefficients[9][3], color[4];
   if (lua_istable(L, 1)) {
-    int length = luax_len(L, 1);
-    lovrCheck(length == 9, "Expected a table with 9 values to initialize LightProbe");
-    for (int i = 0; i < 9; i++) {
-      lua_rawgeti(L, 1, i + 1);
-      luax_optcolor(L, -1, color);
-      memcpy(coefficients[i], color, 3 * sizeof(float));
-      lua_pop(L, 1);
+    switch (luax_len(L, 1)) {
+      case 9: {
+        float coefficients[9][3], color[4];
+        for (int i = 0; i < 9; i++) {
+          lua_rawgeti(L, 1, i + 1);
+          luax_optcolor(L, -1, color);
+          memcpy(coefficients[i], color, 3 * sizeof(float));
+          lua_pop(L, 1);
+        }
+        lovrLightProbeSetCoefficients(probe, coefficients);
+        break;
+      }
+      case 6: {
+        Image* images[6];
+
+        for (int i = 0; i < 6; i++) {
+          lua_rawgeti(L, 1, i + 1);
+          images[i] = luax_checkimage(L, -1);
+          lua_pop(L, 1);
+        }
+
+        uint32_t width = lovrImageGetWidth(images[0], 0);
+        uint32_t height = lovrImageGetHeight(images[0], 0);
+        lovrCheck(width == height, "Cubemap images must be square");
+
+        for (uint32_t i = 0; i < 6; i++) {
+          lovrCheck(lovrImageGetWidth(images[i], 0) == width, "Cubemap face images must have the same dimensions");
+          lovrCheck(lovrImageGetHeight(images[i], 0) == height, "Cubemap face images must have the same dimensions");
+          lovrCheck(lovrImageGetLayerCount(images[i]) == 1, "Cubemap face images all need to have a single layer");
+        }
+
+        lovrLightProbeAddCubemap(probe, width, getPixelCubemapLayers, images);
+
+        for (uint32_t i = 0; i < 6; i++) {
+          lovrRelease(images[i], lovrImageDestroy);
+        }
+        break;
+      }
+      default: lovrThrow("Expected a table with 9 colors or 6 images");
     }
-    lovrLightProbeSetCoefficients(probe, coefficients);
-  } else if (lua_gettop(L) > 0) {
+  } else if (!lua_isnoneornil(L, 1)) {
     LightProbe* other = luax_totype(L, 1, LightProbe);
 
     if (other) {
       lovrLightProbeAddProbe(probe, other);
     } else {
-      Image* image = luax_totype(L, 1, Image);
+      Image* image = luax_checkimage(L, 1);
 
       if (!image) {
-        return luax_typeerror(L, 1, "table, LightProbe, or Image");
+        return luax_typeerror(L, 1, "table, LightProbe, string, Blob, or Image");
       }
 
       uint32_t width = lovrImageGetWidth(image, 0);
       uint32_t height = lovrImageGetHeight(image, 0);
       uint32_t layers = lovrImageGetLayerCount(image);
 
-      if (lua_gettop(L) == 1) {
-        if (layers == 1) {
-          lovrCheck(width == 2 * height, "Equirectangular image width must be twice its height");
-          lovrLightProbeAddEquirect(probe, width, height, getPixelEquirect, image);
-        } else if (layers == 6) {
-          lovrCheck(width == height, "Cubemap images must be square");
-          lovrLightProbeAddCubemap(probe, width, getPixelCubemap, image);
-        } else {
-          lovrThrow("Image layer count must be 1 or 6");
-        }
-      } else {
-        Image* images[6] = { image };
-
+      if (layers == 1) {
+        lovrCheck(width == 2 * height, "Equirectangular image width must be twice its height");
+        lovrLightProbeAddEquirect(probe, width, height, getPixelEquirect, image);
+        lovrRelease(image, lovrImageDestroy);
+      } else if (layers == 6) {
         lovrCheck(width == height, "Cubemap images must be square");
-
-        for (int i = 1; i < 6; i++) {
-          images[i] = luax_checktype(L, i + 1, Image);
-          lovrCheck(lovrImageGetWidth(images[i], 0) == width, "Cubemap face images must have the same dimensions");
-          lovrCheck(lovrImageGetHeight(images[i], 0) == height, "Cubemap face images must have the same dimensions");
-        }
-
-        for (uint32_t i = 0; i < 6; i++) {
-          lovrCheck(lovrImageGetLayerCount(images[i]) == 1, "Cubemap face images all need to have a single layer");
-        }
-
-        lovrLightProbeAddCubemap(probe, width, getPixelCubemapLayers, images);
+        lovrLightProbeAddCubemap(probe, width, getPixelCubemap, image);
+        lovrRelease(image, lovrImageDestroy);
+      } else {
+        lovrRelease(image, lovrImageDestroy);
+        lovrThrow("Image layer count must be 1 or 6");
       }
     }
   }
