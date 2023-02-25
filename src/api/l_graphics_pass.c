@@ -813,7 +813,7 @@ static int l_lovrPassClear(lua_State* L) {
     const BufferInfo* info = lovrBufferGetInfo(buffer);
     uint32_t index = luax_optu32(L, 3, 1);
     uint32_t count = luax_optu32(L, 4, info->length - index + 1);
-    lovrBufferClear(buffer, (index - 1) * info->stride, count * info->stride);
+    lovrPassClearBuffer(pass, buffer, (index - 1) * info->stride, count * info->stride);
     return 0;
   }
 
