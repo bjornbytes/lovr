@@ -547,6 +547,7 @@ if(LOVR_ENABLE_MATH)
     src/modules/math/math.c
     src/api/l_math.c
     src/api/l_math_curve.c
+    src/api/l_math_lightProbe.c
     src/api/l_math_randomGenerator.c
     src/api/l_math_vectors.c
     src/lib/noise/simplexnoise1234.c
