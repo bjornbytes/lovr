@@ -545,9 +545,6 @@ endif()
 if(LOVR_ENABLE_MATH)
   target_sources(lovr PRIVATE
     src/modules/math/math.c
-    src/modules/math/curve.c
-    src/modules/math/pool.c
-    src/modules/math/randomGenerator.c
     src/api/l_math.c
     src/api/l_math_curve.c
     src/api/l_math_randomGenerator.c
