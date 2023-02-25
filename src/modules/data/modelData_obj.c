@@ -5,7 +5,6 @@
 #include "util.h"
 #include <stdlib.h>
 #include <float.h>
-#include <ctype.h>
 
 typedef struct {
   uint32_t material;
@@ -21,7 +20,7 @@ typedef arr_t(objGroup) arr_group_t;
 
 static uint32_t nomu32(char* s, char** end) {
   uint32_t n = 0;
-  while (isdigit(*s)) { n = 10 * n + (*s++ - '0'); }
+  while (*s >= '0' && *s <= '9') { n = 10 * n + (*s++ - '0'); }
   *end = s;
   return n;
 }
