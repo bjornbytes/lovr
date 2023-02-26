@@ -367,7 +367,7 @@ void lovrLightProbeAddEquirect(LightProbe* probe, uint32_t width, uint32_t heigh
     float sinphi = sinf(phi);
     float cosphi = cosf(phi);
     for (uint32_t x = 0; x < width; x++) {
-      float theta = x / (float) width * (2.f * pi);
+      float theta = (.75f - x / (float) width) * (2.f * pi);
       float solidAngle = (2.f * pi / width) * (pi / height) * fabsf(cosphi);
       totalAngle += solidAngle;
 
