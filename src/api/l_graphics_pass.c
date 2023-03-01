@@ -891,7 +891,12 @@ static int l_lovrPassCopy(lua_State* L) {
     uint32_t srcOffset = luax_optu32(L, 4, 0);
     uint32_t dstOffset = luax_optu32(L, 5, 0);
     const BufferInfo* info = lovrBufferGetInfo(buffer);
-    uint32_t limit = MIN(blob->size - srcOffset, info->length * info->stride - dstOffset);
+    uint32_t bufferSize = info->length * info->stride;
+    lovrCheck(bufferSize==0 || bufferSize/info->stride == info->length, "Buffer size exceeds supported limits. This is a bug in Lovr.");    
+    lovrCheck(srcOffset <= blob->size, "Source index is %d but blob is only %d bytes", srcOffset, (uint32_t)blob->size);
+    lovrCheck(dstOffset <= bufferSize, "Destination index is %d but buffer is only %d bytes", dstOffset, bufferSize);
+    // Conversion is safe because right side will never exceed size of uint32_t
+    uint32_t limit = (uint32_t)MIN(blob->size - srcOffset, bufferSize - dstOffset);
     uint32_t extent = luax_optu32(L, 6, limit);
     lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds Blob size");
     lovrCheck(extent <= info->length * info->stride - dstOffset, "Buffer copy offset exceeds Buffer size");

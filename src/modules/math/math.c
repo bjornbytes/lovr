@@ -241,7 +241,7 @@ void lovrPoolDestroy(void* ref) {
 
 void lovrPoolGrow(Pool* pool, size_t count) {
   lovrAssert(count <= (1 << 24), "Temporary vector space exhausted.  Try using lovr.math.drain to drain the vector pool periodically.");
-  pool->count = count;
+  pool->count = (uint32_t)count; // Assert guarantees safe
   pool->data = realloc(pool->data, pool->count * sizeof(float));
   lovrAssert(pool->data, "Out of memory");
 }
@@ -264,7 +264,7 @@ Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
   };
 
   *data = pool->data + pool->cursor;
-  pool->cursor += count;
+  pool->cursor += (uint32_t)count; // Cast safe because vectorComponents members are known
   return v;
 }
 
