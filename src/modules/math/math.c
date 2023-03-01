@@ -304,17 +304,17 @@ void lovrLightProbeAddCubemap(LightProbe* probe, uint32_t size, fn_pixel* getPix
   for (uint32_t face = 0; face < 6; face++) {
     for (uint32_t y = 0; y < size; y++) {
       for (uint32_t x = 0; x < size; x++) {
-        float u = 2.f * x / (float) size - 1.f;
-        float v = 2.f * y / (float) size - 1.f;
+        float u = 2.f * ((float) x + 0.5f) / (float) size - 1.f;
+        float v = 2.f * ((float) y + 0.5f) / (float) size - 1.f;
         float dx, dy, dz;
 
         switch (face) {
-          case 0: dx = 1.f; dy = v; dz = -u; break;
-          case 1: dx = -1.f; dy = v; dz = u; break;
-          case 2: dx = u; dy = 1.f; dz = -v; break;
-          case 3: dx = u; dy = -1.f; dz = v; break;
-          case 4: dx = u; dy = v; dz = 1.f; break;
-          case 5: dx = -u; dy = v; dz = -1.f; break;
+          case 0: dx = -1.f; dy = -v; dz = -u; break;
+          case 1: dx = 1.f; dy = -v; dz = u; break;
+          case 2: dx = -u; dy = 1.f; dz = v; break;
+          case 3: dx = -u; dy = -1.f; dz = -v; break;
+          case 4: dx = -u; dy = -v; dz = 1.f; break;
+          case 5: dx = u; dy = -v; dz = -1.f; break;
         }
 
         float dot = dx * dx + dy * dy + dz * dz;
