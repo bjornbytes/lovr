@@ -4527,7 +4527,8 @@ void lovrPassRoundrect(Pass* pass, float* transform, float r, uint32_t segments)
   float z = .5f;
   float nz = 1.f;
 
-  for (uint32_t side = 0; side <= thicc; side++, z *= -1.f, nz *= -1.f, angle = 0.f) {
+  // If the rounded rectangle is thick, loop twice (front and back), otherwise do only a single side
+  for (uint32_t side = 0; side <= (uint32_t)thicc; side++, z *= -1.f, nz *= -1.f, angle = 0.f) {
     for (uint32_t i = 0; i < n; i++, angle += step) {
       float c = cosf(angle);
       float s = sinf(angle);
