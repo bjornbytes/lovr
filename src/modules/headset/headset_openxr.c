@@ -2300,6 +2300,11 @@ static double openxr_update(void) {
     XR(xrSyncActions(state.session, &syncInfo));
   }
 
+  // Throttle when session is idle (but not too much, a desktop window might be rendering stuff)
+  if (state.sessionState == XR_SESSION_STATE_IDLE) {
+    os_sleep(.001);
+  }
+
   return openxr_getDeltaTime();
 }
 
