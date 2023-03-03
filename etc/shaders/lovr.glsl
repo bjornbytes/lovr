@@ -91,7 +91,7 @@ layout(location = 13) in vec2 UV;
 layout(location = 14) in vec3 Tangent;
 #endif
 
-// Macros
+// Builtins
 #ifdef GL_COMPUTE_SHADER
 #define SubgroupCount gl_NumSubgroups
 #define WorkgroupCount gl_NumWorkGroups
@@ -101,49 +101,31 @@ layout(location = 14) in vec3 Tangent;
 #define LocalThreadID gl_LocalInvocationID
 #define LocalThreadIndex gl_LocalInvocationIndex
 #else
-#define BaseInstance gl_BaseInstance
-#define BaseVertex gl_BaseVertex
 #define ClipDistance gl_ClipDistance
 #define CullDistance gl_CullDistance
+#define PrimitiveID gl_PrimitiveID
+#define ViewIndex gl_ViewIndex
+#endif
+
+#ifdef GL_VERTEX_SHADER
+#define BaseInstance gl_BaseInstance
+#define BaseVertex gl_BaseVertex
 #define DrawIndex gl_DrawIndex
 #define InstanceIndex (gl_InstanceIndex - gl_BaseInstance)
+#define PointSize gl_PointSize
+#define Position gl_Position
+#define VertexIndex gl_VertexIndex
+#endif
+
+#ifdef GL_FRAGMENT_SHADER
 #define FragCoord gl_FragCoord
 #define FragDepth gl_FragDepth
 #define FrontFacing gl_FrontFacing
 #define PointCoord gl_PointCoord
-#define PointSize gl_PointSize
-#define Position gl_Position
-#define PrimitiveID gl_PrimitiveID
 #define SampleID gl_SampleID
 #define SampleMaskIn gl_SampleMaskIn
 #define SampleMask gl_SampleMask
 #define SamplePosition gl_SamplePosition
-#define VertexIndex gl_VertexIndex
-#define ViewIndex gl_ViewIndex
-
-#define DrawID gl_BaseInstance
-#define Projection Cameras[ViewIndex].projection
-#define View Cameras[ViewIndex].view
-#define ViewProjection Cameras[ViewIndex].viewProjection
-#define InverseProjection Cameras[ViewIndex].inverseProjection
-#define Transform Draws[DrawID].transform
-#define NormalMatrix mat3(Draws[DrawID].normalMatrix)
-#define PassColor Draws[DrawID].color
-
-#define ClipFromLocal (ViewProjection * Transform)
-#define ClipFromWorld (ViewProjection)
-#define ClipFromView (Projection)
-#define ViewFromLocal (View * Transform)
-#define ViewFromWorld (View)
-#define ViewFromClip (InverseProjection)
-#define WorldFromLocal (Transform)
-#define WorldFromView (inverse(View))
-#define WorldFromClip (inverse(ViewProjection))
-
-#define CameraPositionWorld (-View[3].xyz * mat3(View))
-
-#define DefaultPosition (ClipFromLocal * VertexPosition)
-#define DefaultColor (flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color)
 #endif
 
 // Constants
@@ -158,6 +140,35 @@ layout(location = 14) in vec3 Tangent;
 #define var(x) layout(set = 0, binding = x)
 #else
 #define var(x) layout(set = 2, binding = x)
+#endif
+
+#ifndef GL_COMPUTE_SHADER
+#define Projection Cameras[ViewIndex].projection
+#define View Cameras[ViewIndex].view
+#define ViewProjection Cameras[ViewIndex].viewProjection
+#define InverseProjection Cameras[ViewIndex].inverseProjection
+#define CameraPositionWorld (-View[3].xyz * mat3(View))
+#endif
+
+#ifdef GL_VERTEX_SHADER
+#define DrawID gl_BaseInstance
+#define Transform Draws[DrawID].transform
+#define NormalMatrix mat3(Draws[DrawID].normalMatrix)
+#define PassColor Draws[DrawID].color
+#define ClipFromLocal (ViewProjection * Transform)
+#define ClipFromWorld (ViewProjection)
+#define ClipFromView (Projection)
+#define ViewFromLocal (View * Transform)
+#define ViewFromWorld (View)
+#define ViewFromClip (InverseProjection)
+#define WorldFromLocal (Transform)
+#define WorldFromView (inverse(View))
+#define WorldFromClip (inverse(ViewProjection))
+#define DefaultPosition (ClipFromLocal * VertexPosition)
+#endif
+
+#ifdef GL_FRAGMENT_SHADER
+#define DefaultColor (flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color)
 #endif
 
 // Helper for sampling textures using the default sampler set using Pass:setSampler
