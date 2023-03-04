@@ -154,7 +154,13 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
   uint32_t dstIndex = luax_optu32(L, index + 2, 1) - 1;
 
   if (blob) {
-    uint32_t limit = MIN(blob->size / stride - srcIndex, info->length - dstIndex);
+    lovrCheck(dstIndex <= info->length, "Destination index is %d but buffer can only hold %d things", dstIndex, info->length);
+
+    size_t blobSize = blob->size / stride;
+    lovrCheck(srcIndex <= blobSize, "Source index is %d but blob only contains %d things", srcIndex, (uint32_t) blobSize);
+
+    // Conversion is safe because right side will never exceed size of uint32_t
+    uint32_t limit = (uint32_t) MIN(blobSize - srcIndex, info->length - dstIndex);
     uint32_t count = luax_optu32(L, index + 3, limit);
     lovrCheck(srcIndex + count <= blob->size / stride, "Tried to read too many elements from the Blob");
     lovrCheck(dstIndex + count <= info->length, "Tried to write Buffer elements [%d,%d] but Buffer can only hold %d things", dstIndex + 1, dstIndex + count - 1, info->length);

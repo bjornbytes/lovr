@@ -131,7 +131,7 @@ static struct {
 
 static void phonon_destroy(void);
 
-bool phonon_init() {
+bool phonon_init(void) {
   state.library = phonon_dlopen(PHONON_LIBRARY);
   if (!state.library) return false;
 
