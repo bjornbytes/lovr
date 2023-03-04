@@ -892,8 +892,8 @@ static int l_lovrPassCopy(lua_State* L) {
     uint32_t dstOffset = luax_optu32(L, 5, 0);
     const BufferInfo* info = lovrBufferGetInfo(buffer);
     uint32_t bufferSize = info->length * info->stride;
-    lovrCheck(srcOffset <= blob->size, "Source index is %d but blob is only %d bytes", srcOffset, (uint32_t) blob->size);
-    lovrCheck(dstOffset <= bufferSize, "Destination index is %d but buffer is only %d bytes", dstOffset, bufferSize);
+    lovrCheck(srcOffset <= blob->size, "Source byte offset is %d but Blob is only %d bytes", srcOffset, (uint32_t) blob->size);
+    lovrCheck(dstOffset <= bufferSize, "Destination byte offset is %d but Buffer is only %d bytes", dstOffset, bufferSize);
     // Conversion is safe because right side will never exceed size of uint32_t
     uint32_t limit = (uint32_t) MIN(blob->size - srcOffset, bufferSize - dstOffset);
     uint32_t extent = luax_optu32(L, 6, limit);
