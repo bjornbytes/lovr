@@ -132,15 +132,30 @@ static int l_lovrMathNewCurve(lua_State* L) {
 
 static void getPixelEquirect(void* image, uint32_t x, uint32_t y, uint32_t z, float color[4]) {
   lovrImageGetPixel(image, x, y, z, color);
+  if (lovrImageIsSRGB(image)) {
+    color[0] = lovrMathGammaToLinear(color[0]);
+    color[1] = lovrMathGammaToLinear(color[1]);
+    color[2] = lovrMathGammaToLinear(color[2]);
+  }
 }
 
 static void getPixelCubemap(void* image, uint32_t x, uint32_t y, uint32_t z, float color[4]) {
   lovrImageGetPixel(image, x, y, z, color);
+  if (lovrImageIsSRGB(image)) {
+    color[0] = lovrMathGammaToLinear(color[0]);
+    color[1] = lovrMathGammaToLinear(color[1]);
+    color[2] = lovrMathGammaToLinear(color[2]);
+  }
 }
 
 static void getPixelCubemapLayers(void* context, uint32_t x, uint32_t y, uint32_t z, float color[4]) {
   Image** images = context;
   lovrImageGetPixel(images[z], x, y, 0, color);
+  if (lovrImageIsSRGB(images[z])) {
+    color[0] = lovrMathGammaToLinear(color[0]);
+    color[1] = lovrMathGammaToLinear(color[1]);
+    color[2] = lovrMathGammaToLinear(color[2]);
+  }
 }
 
 static int l_lovrMathNewLightProbe(lua_State* L) {
