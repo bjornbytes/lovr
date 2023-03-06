@@ -15,6 +15,12 @@
 #define LOVR_THREAD_LOCAL __thread
 #endif
 
+#ifdef __cplusplus
+#define LOVR_NORETURN [[noreturn]]
+#else
+#define LOVR_NORETURN _Noreturn
+#endif
+
 #ifndef M_PI
 #define M_PI 3.14159265358979
 #endif
@@ -30,7 +36,7 @@
 // Error handling
 typedef void errorFn(void*, const char*, va_list);
 void lovrSetErrorCallback(errorFn* callback, void* userdata);
-_Noreturn void lovrThrow(const char* format, ...);
+LOVR_NORETURN void lovrThrow(const char* format, ...);
 #define lovrAssert(c, ...) if (!(c)) { lovrThrow(__VA_ARGS__); }
 #define lovrUnreachable() lovrThrow("Unreachable")
 
