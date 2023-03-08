@@ -37,8 +37,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
-#define XR(f) handleResult(f, __FILE__, __LINE__)
-#define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
+#define XR(f, s) xrthrow(f, s)
+#define XR_INIT(f, s) if (!xrwarn(f, s)) return openxr_destroy(), false;
 #define SESSION_ACTIVE(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
 #define MAX_IMAGES 4
 #define MAX_HAND_JOINTS 27
@@ -201,13 +201,26 @@ static struct {
   } features;
 } state;
 
-static XrResult handleResult(XrResult result, const char* file, int line) {
-  if (XR_FAILED(result)) {
-    char message[XR_MAX_RESULT_STRING_SIZE];
-    xrResultToString(state.instance, result, message);
-    lovrThrow("OpenXR Error: %s at %s:%d", message, file, line);
+static bool xrwarn(XrResult result, const char* message) {
+  if (XR_SUCCEEDED(result)) return true;
+  char errorCode[XR_MAX_RESULT_STRING_SIZE];
+  if (state.instance && XR_SUCCEEDED(xrResultToString(state.instance, result, errorCode))) {
+    lovrLog(LOG_WARN, "XR", "OpenXR failed to start: %s (%s)", message, errorCode);
+  } else {
+    lovrLog(LOG_WARN, "XR", "OpenXR failed to start: %s (%d)", message, result);
   }
-  return result;
+  return false;
+}
+
+static bool xrthrow(XrResult result, const char* message) {
+  if (XR_SUCCEEDED(result)) return true;
+  char errorCode[XR_MAX_RESULT_STRING_SIZE];
+  if (state.instance && XR_SUCCEEDED(xrResultToString(state.instance, result, errorCode))) {
+    lovrThrow("OpenXR Error: %s (%s)", message, errorCode);
+  } else {
+    lovrThrow("OpenXR Error: %s (%d)", message, result);
+  }
+  return false;
 }
 
 static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, const char* extension) {
@@ -306,7 +319,7 @@ static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDev
     .vulkanInstance = (VkInstance) instance
   };
 
-  XR(xrGetVulkanGraphicsDevice2KHR(state.instance, &info, (VkPhysicalDevice*) physicalDevice));
+  XR(xrGetVulkanGraphicsDevice2KHR(state.instance, &info, (VkPhysicalDevice*) physicalDevice), "Failed to get Vulkan graphics device");
 }
 
 static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr) {
@@ -319,7 +332,7 @@ static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allo
   };
 
   VkResult result;
-  XR(xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result));
+  XR(xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result), "Failed to create Vulkan instance");
   return result;
 }
 
@@ -334,7 +347,7 @@ static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo
   };
 
   VkResult result;
-  XR(xrCreateVulkanDeviceKHR(state.instance, &info, (VkDevice*) device, &result));
+  XR(xrCreateVulkanDeviceKHR(state.instance, &info, (VkDevice*) device, &result), "Failed to create Vulkan device");
   return result;
 }
 
@@ -363,7 +376,7 @@ static bool openxr_init(HeadsetConfig* config) {
 
   { // Instance
     uint32_t extensionCount;
-    XR_INIT(xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL));
+    XR_INIT(xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL), "Failed to get extensions");
     XrExtensionProperties* extensionProperties = calloc(extensionCount, sizeof(*extensionProperties));
     lovrAssert(extensionProperties, "Out of memory");
     for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
@@ -431,7 +444,7 @@ static bool openxr_init(HeadsetConfig* config) {
       .enabledExtensionNames = enabledExtensionNames
     };
 
-    XR_INIT(xrCreateInstance(&info, &state.instance));
+    XR_INIT(xrCreateInstance(&info, &state.instance), "Failed to create instance");
     XR_FOREACH(XR_LOAD)
   }
 
@@ -441,7 +454,7 @@ static bool openxr_init(HeadsetConfig* config) {
       .formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY
     };
 
-    XR_INIT(xrGetSystem(state.instance, &info, &state.system));
+    XR_INIT(xrGetSystem(state.instance, &info, &state.system), "Failed to query system");
 
     XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = { .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
     XrSystemHandTrackingPropertiesEXT handTrackingProperties = { .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT };
@@ -469,7 +482,7 @@ static bool openxr_init(HeadsetConfig* config) {
       properties.next = &passthroughProperties;
     }
 
-    XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties));
+    XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties), "Failed to query system properties");
     state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
     state.features.handTracking = handTrackingProperties.supportsHandTracking;
     state.features.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
@@ -477,12 +490,12 @@ static bool openxr_init(HeadsetConfig* config) {
 
     uint32_t viewConfigurationCount;
     XrViewConfigurationType viewConfigurations[2];
-    XR_INIT(xrEnumerateViewConfigurations(state.instance, state.system, 2, &viewConfigurationCount, viewConfigurations));
+    XR_INIT(xrEnumerateViewConfigurations(state.instance, state.system, 2, &viewConfigurationCount, viewConfigurations), "Failed to query view configurations");
 
     uint32_t viewCount;
     XrViewConfigurationView views[2] = { [0].type = XR_TYPE_VIEW_CONFIGURATION_VIEW, [1].type = XR_TYPE_VIEW_CONFIGURATION_VIEW };
-    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &viewCount, NULL));
-    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &viewCount, views));
+    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &viewCount, NULL), "Failed to query view configurations");
+    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &viewCount, views), "Failed to query view configurations");
 
     if ( // Only 2 views are supported, and since they're rendered together they must be identical
       viewCount != 2 ||
@@ -505,28 +518,28 @@ static bool openxr_init(HeadsetConfig* config) {
       .actionSetName = "default"
     };
 
-    XR_INIT(xrCreateActionSet(state.instance, &info, &state.actionSet));
+    XR_INIT(xrCreateActionSet(state.instance, &info, &state.actionSet), "Failed to create action set");
 
     // Subaction paths, for filtering actions by device
-    XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[DEVICE_HAND_LEFT]));
-    XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[DEVICE_HAND_RIGHT]));
+    XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[DEVICE_HAND_LEFT]), "Failed to create path");
+    XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[DEVICE_HAND_RIGHT]), "Failed to create path");
 
     state.actionFilters[DEVICE_HAND_LEFT_POINT] = state.actionFilters[DEVICE_HAND_LEFT];
     state.actionFilters[DEVICE_HAND_RIGHT_POINT] = state.actionFilters[DEVICE_HAND_RIGHT];
 
     if (state.features.viveTrackers) {
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_elbow", &state.actionFilters[DEVICE_ELBOW_LEFT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_elbow", &state.actionFilters[DEVICE_ELBOW_RIGHT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_shoulder", &state.actionFilters[DEVICE_SHOULDER_LEFT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_shoulder", &state.actionFilters[DEVICE_SHOULDER_RIGHT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/chest", &state.actionFilters[DEVICE_CHEST]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/waist", &state.actionFilters[DEVICE_WAIST]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_knee", &state.actionFilters[DEVICE_KNEE_LEFT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_knee", &state.actionFilters[DEVICE_KNEE_RIGHT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_foot", &state.actionFilters[DEVICE_FOOT_LEFT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_foot", &state.actionFilters[DEVICE_FOOT_RIGHT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/camera", &state.actionFilters[DEVICE_CAMERA]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/keyboard", &state.actionFilters[DEVICE_KEYBOARD]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_elbow", &state.actionFilters[DEVICE_ELBOW_LEFT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_elbow", &state.actionFilters[DEVICE_ELBOW_RIGHT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_shoulder", &state.actionFilters[DEVICE_SHOULDER_LEFT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_shoulder", &state.actionFilters[DEVICE_SHOULDER_RIGHT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/chest", &state.actionFilters[DEVICE_CHEST]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/waist", &state.actionFilters[DEVICE_WAIST]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_knee", &state.actionFilters[DEVICE_KNEE_LEFT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_knee", &state.actionFilters[DEVICE_KNEE_RIGHT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_foot", &state.actionFilters[DEVICE_FOOT_LEFT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_foot", &state.actionFilters[DEVICE_FOOT_RIGHT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/camera", &state.actionFilters[DEVICE_CAMERA]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/keyboard", &state.actionFilters[DEVICE_KEYBOARD]), "Failed to create path");
     }
 
     XrPath hands[] = {
@@ -594,7 +607,7 @@ static bool openxr_init(HeadsetConfig* config) {
 
     for (uint32_t i = 0; i < MAX_ACTIONS; i++) {
       actionInfo[i].type = XR_TYPE_ACTION_CREATE_INFO;
-      XR_INIT(xrCreateAction(state.actionSet, &actionInfo[i], &state.actions[i]));
+      XR_INIT(xrCreateAction(state.actionSet, &actionInfo[i], &state.actions[i]), "Failed to create action");
     }
 
     enum {
@@ -873,13 +886,13 @@ static bool openxr_init(HeadsetConfig* config) {
     XrActionSuggestedBinding suggestedBindings[64];
     for (uint32_t i = 0, count = 0; i < MAX_PROFILES; i++, count = 0) {
       for (uint32_t j = 0; bindings[i][j].path; j++, count++) {
-        XR_INIT(xrStringToPath(state.instance, bindings[i][j].path, &path));
+        XR_INIT(xrStringToPath(state.instance, bindings[i][j].path, &path), "Failed to create path");
         suggestedBindings[j].action = state.actions[bindings[i][j].action];
         suggestedBindings[j].binding = path;
       }
 
       if (count > 0) {
-        XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path));
+        XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path), "Failed to create path");
         XrResult result = (xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
           .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
           .interactionProfile = path,
@@ -927,7 +940,7 @@ static void openxr_start(void) {
       PFN_xrGetVulkanGraphicsRequirements2KHR xrGetVulkanGraphicsRequirements2KHR;
       XR_LOAD(xrGetVulkanGraphicsRequirements2KHR);
 
-      XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements));
+      XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements), "Failed to query Vulkan graphics requirements");
       if (XR_VERSION_MAJOR(requirements.minApiVersionSupported) > 1 || XR_VERSION_MINOR(requirements.minApiVersionSupported) > 1) {
         lovrThrow("OpenXR Vulkan version not supported");
       }
@@ -959,8 +972,8 @@ static void openxr_start(void) {
       .actionSets = &state.actionSet
     };
 
-    XR(xrCreateSession(state.instance, &info, &state.session));
-    XR(xrAttachSessionActionSets(state.session, &attachInfo));
+    XR(xrCreateSession(state.instance, &info, &state.session), "Failed to create session");
+    XR(xrAttachSessionActionSets(state.session, &attachInfo), "Failed to attach action sets");
   }
 
   { // Spaaace
@@ -975,7 +988,7 @@ static void openxr_start(void) {
     if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace))) {
       info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
       info.poseInReferenceSpace.position.y = -state.config.offset;
-      XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace));
+      XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace), "Failed to create reference space");
     }
 
     state.referenceSpaceType = info.referenceSpaceType;
@@ -987,7 +1000,7 @@ static void openxr_start(void) {
       .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
     };
 
-    XR(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]));
+    XR(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]), "Failed to create reference space");
 
     XrActionSpaceCreateInfo actionSpaceInfo = {
       .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
@@ -1002,7 +1015,7 @@ static void openxr_start(void) {
         continue;
       }
 
-      XR(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]));
+      XR(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]), "Failed to create action space");
     }
   }
 
@@ -1034,7 +1047,7 @@ static void openxr_start(void) {
 
     int64_t formats[128];
     uint32_t formatCount;
-    XR(xrEnumerateSwapchainFormats(state.session, COUNTOF(formats), &formatCount, formats));
+    XR(xrEnumerateSwapchainFormats(state.session, COUNTOF(formats), &formatCount, formats), "Failed to query swapchain formats");
 
     bool supportsColor = false;
     bool supportsDepth = false;
@@ -1065,8 +1078,8 @@ static void openxr_start(void) {
       .mipCount = 1
     };
 
-    XR(xrCreateSwapchain(state.session, &info, &state.swapchain[COLOR]));
-    XR(xrEnumerateSwapchainImages(state.swapchain[COLOR], MAX_IMAGES, &state.textureCount[COLOR], (XrSwapchainImageBaseHeader*) images));
+    XR(xrCreateSwapchain(state.session, &info, &state.swapchain[COLOR]), "Failed to create swapchain");
+    XR(xrEnumerateSwapchainImages(state.swapchain[COLOR], MAX_IMAGES, &state.textureCount[COLOR], (XrSwapchainImageBaseHeader*) images), "Failed to query swapchain images");
 
     for (uint32_t i = 0; i < state.textureCount[COLOR]; i++) {
       state.textures[COLOR][i] = lovrTextureCreate(&(TextureInfo) {
@@ -1089,8 +1102,8 @@ static void openxr_start(void) {
       info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
       info.format = nativeDepthFormat;
 
-      XR(xrCreateSwapchain(state.session, &info, &state.swapchain[DEPTH]));
-      XR(xrEnumerateSwapchainImages(state.swapchain[DEPTH], MAX_IMAGES, &state.textureCount[DEPTH], (XrSwapchainImageBaseHeader*) images));
+      XR(xrCreateSwapchain(state.session, &info, &state.swapchain[DEPTH]), "Failed to create swapchain");
+      XR(xrEnumerateSwapchainImages(state.swapchain[DEPTH], MAX_IMAGES, &state.textureCount[DEPTH], (XrSwapchainImageBaseHeader*) images), "Failed to query swapchain images");
 
       for (uint32_t i = 0; i < state.textureCount[DEPTH]; i++) {
         state.textures[DEPTH][i] = lovrTextureCreate(&(TextureInfo) {
@@ -1207,7 +1220,7 @@ static void openxr_destroy(void) {
 
 static bool openxr_getName(char* name, size_t length) {
   XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
-  XR(xrGetSystemProperties(state.instance, state.system, &properties));
+  XR(xrGetSystemProperties(state.instance, state.system, &properties), "Failed to query system properties");
   strncpy(name, properties.systemName, length - 1);
   name[length - 1] = '\0';
   return true;
@@ -1225,24 +1238,22 @@ static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
 static float openxr_getDisplayFrequency(void) {
   if (!state.features.refreshRate) return 0.f;
   float frequency;
-  XR(xrGetDisplayRefreshRateFB(state.session, &frequency));
+  XR(xrGetDisplayRefreshRateFB(state.session, &frequency), "Failed to query refresh rate");
   return frequency;
 }
 
 static float* openxr_getDisplayFrequencies(uint32_t* count) {
   if (!state.features.refreshRate || !count) return NULL;
-  XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, count, NULL));
+  XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, count, NULL), "Failed to query refresh rates");
   float *frequencies = malloc(*count * sizeof(float));
   lovrAssert(frequencies, "Out of memory");
-  XR(xrEnumerateDisplayRefreshRatesFB(state.session, *count, count, frequencies));
+  XR(xrEnumerateDisplayRefreshRatesFB(state.session, *count, count, frequencies), "Failed to query refresh rates");
   return frequencies;
 }
 
 static bool openxr_setDisplayFrequency(float frequency) {
   if (!state.features.refreshRate) return false;
-  XrResult res = xrRequestDisplayRefreshRateFB(state.session, frequency);
-  if (res == XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB) return false;
-  XR(res);
+  XR(xrRequestDisplayRefreshRateFB(state.session, frequency), "Failed to set refresh rate");
   return true;
 }
 
@@ -1268,7 +1279,7 @@ static void getViews(XrView views[2], uint32_t* count) {
   }
 
   XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
-  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, count, views));
+  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, count, views), "Failed to locate views");
 }
 
 static uint32_t openxr_getViewCount(void) {
@@ -1345,7 +1356,7 @@ static bool openxr_getPose(Device device, float* position, float* orientation) {
       .subactionPath = state.actionFilters[device]
     };
 
-    XR(xrGetActionStatePose(state.session, &info, &poseState));
+    XR(xrGetActionStatePose(state.session, &info, &poseState), "Failed to get pose");
   }
 
   // If there's no space to locate, or the pose action isn't active, fall back to alternative
@@ -1462,7 +1473,7 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
   }
 
   XrActionStateBoolean actionState = { .type = XR_TYPE_ACTION_STATE_BOOLEAN };
-  XR(xrGetActionStateBoolean(state.session, &info, &actionState));
+  XR(xrGetActionStateBoolean(state.session, &info, &actionState), "Failed to read button input");
   *value = actionState.currentState;
   *changed = actionState.changedSinceLastSync;
   return actionState.isActive;
@@ -1485,7 +1496,7 @@ static bool getFloatAction(uint32_t action, XrPath filter, float* value) {
   };
 
   XrActionStateFloat actionState = { .type = XR_TYPE_ACTION_STATE_FLOAT };
-  XR(xrGetActionStateFloat(state.session, &info, &actionState));
+  XR(xrGetActionStateFloat(state.session, &info, &actionState), "Failed to read axis input");
   *value = actionState.currentState;
   return actionState.isActive;
 }
@@ -1598,7 +1609,7 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
     .amplitude = power
   };
 
-  XR(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
+  XR(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration), "Failed to apply haptic feedback");
   return true;
 }
 
@@ -2011,7 +2022,7 @@ static Texture* openxr_getTexture(void) {
   }
 
   XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-  XR(xrBeginFrame(state.session, &beginfo));
+  XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
   state.began = true;
 
   if (!state.frameState.shouldRender) {
@@ -2019,12 +2030,12 @@ static Texture* openxr_getTexture(void) {
   }
 
   XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]));
-  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo));
+  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]), "Failed to acquire color swapchain image");
+  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo), "Failed to wait on color swapchain image");
 
   if (state.features.depth) {
-    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]));
-    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo));
+    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]), "Failed to acquire depth swapchain image");
+    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo), "Failed to wait for depth swapchain image");
   }
 
   return state.textures[COLOR][state.textureIndex[COLOR]];
@@ -2040,7 +2051,7 @@ static Texture* openxr_getDepthTexture(void) {
   }
 
   XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-  XR(xrBeginFrame(state.session, &beginfo));
+  XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
   state.began = true;
 
   if (!state.frameState.shouldRender) {
@@ -2048,12 +2059,12 @@ static Texture* openxr_getDepthTexture(void) {
   }
 
   XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]));
-  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo));
+  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]), "Failed to acquire color swapchain image");
+  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo), "Failed to wait for color swapchain image");
 
   if (state.features.depth) {
-    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]));
-    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo));
+    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]), "Failed to acquire depth swapchain image");
+    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo), "Failed to wait for depth swapchain image");
   }
 
   return state.textures[DEPTH][state.textureIndex[DEPTH]];
@@ -2139,10 +2150,10 @@ static void openxr_submit(void) {
   }
 
   if (state.frameState.shouldRender) {
-    XR(xrReleaseSwapchainImage(state.swapchain[COLOR], NULL));
+    XR(xrReleaseSwapchainImage(state.swapchain[COLOR], NULL), "Failed to release color swapchain image");
 
     if (state.features.depth) {
-      XR(xrReleaseSwapchainImage(state.swapchain[DEPTH], NULL));
+      XR(xrReleaseSwapchainImage(state.swapchain[DEPTH], NULL), "Failed to release depth swapchain image");
     }
 
     if (state.passthroughActive) {
@@ -2161,7 +2172,7 @@ static void openxr_submit(void) {
     }
   }
 
-  XR(xrEndFrame(state.session, &info));
+  XR(xrEndFrame(state.session, &info), "Failed to submit layers");
   state.began = false;
   state.waited = false;
 }
@@ -2248,11 +2259,11 @@ static double openxr_update(void) {
             XR(xrBeginSession(state.session, &(XrSessionBeginInfo) {
               .type = XR_TYPE_SESSION_BEGIN_INFO,
               .primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO
-            }));
+            }), "Failed to begin session");
             break;
 
           case XR_SESSION_STATE_STOPPING:
-            XR(xrEndSession(state.session));
+            XR(xrEndSession(state.session), "Failed to end session");
             break;
 
           case XR_SESSION_STATE_EXITING:
@@ -2280,7 +2291,7 @@ static double openxr_update(void) {
 
   if (SESSION_ACTIVE(state.sessionState)) {
     state.lastDisplayTime = state.frameState.predictedDisplayTime;
-    XR(xrWaitFrame(state.session, NULL, &state.frameState));
+    XR(xrWaitFrame(state.session, NULL, &state.frameState), "Failed to wait for next frame");
     state.waited = true;
 
     if (state.lastDisplayTime == 0.) {
@@ -2297,7 +2308,7 @@ static double openxr_update(void) {
       .activeActionSets = activeSets
     };
 
-    XR(xrSyncActions(state.session, &syncInfo));
+    XR(xrSyncActions(state.session, &syncInfo), "Failed to sync actions");
   }
 
   // Throttle when session is idle (but not too much, a desktop window might be rendering stuff)
