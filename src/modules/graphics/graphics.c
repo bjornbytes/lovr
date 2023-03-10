@@ -1260,6 +1260,8 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   uint32_t levelSizes[16];
   gpu_buffer* scratchpad = NULL;
 
+  beginFrame();
+
   if (info->imageCount > 0) {
     levelCount = lovrImageGetLevelCount(info->images[0]);
     lovrCheck(info->type != TEXTURE_3D || levelCount == 1, "Images used to initialize 3D textures can not have mipmaps");
@@ -1288,8 +1290,6 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       }
     }
   }
-
-  beginFrame();
 
   gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
