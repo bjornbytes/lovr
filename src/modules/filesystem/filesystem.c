@@ -447,13 +447,14 @@ enum {
   PATH_PHYSICAL
 };
 
-static int dir_resolve(Archive* archive, char* buffer, const char* path) {
+static int dir_resolve(Archive* archive, char* buffer, const char* rawpath) {
   char normalized[LOVR_PATH_MAX];
+  char* path = normalized;
 
   // Normalize the path
-  size_t length = strlen(path);
+  size_t length = strlen(rawpath);
   if (length >= sizeof(normalized)) return PATH_INVALID;
-  length = normalize(normalized, path, length);
+  length = normalize(normalized, rawpath, length);
 
   // Compare each component of normalized path and mountpoint
   if (archive->mountpointLength > 0) {
