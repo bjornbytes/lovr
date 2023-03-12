@@ -101,10 +101,6 @@ endif()
 
 # Lua
 if(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
-  # Required to make luajit compile without breaking linker cache on macOS Big Sur. Also, is a better,
-  # newer GC so enable it on all builds.
-  set(LUAJIT_ENABLE_GC64 ON)
-
   if(LOVR_SYSTEM_LUA)
     pkg_search_module(LUAJIT REQUIRED luajit)
     include_directories(${LUAJIT_INCLUDE_DIRS})
