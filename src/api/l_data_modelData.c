@@ -697,7 +697,7 @@ static int l_lovrModelDataGetAnimationKeyframe(lua_State* L) {
   uint32_t keyframe = luax_checku32(L, 4) - 1;
   lovrCheck(keyframe < channel->keyframeCount, "Invalid keyframe index '%d'", keyframe + 1);
   lua_pushnumber(L, channel->times[keyframe]);
-  int counts[] = { [PROP_TRANSLATION] = 3, [PROP_ROTATION] = 4, [PROP_SCALE] = 3 };
+  int counts[] = { [PROP_TRANSLATION] = 3, [PROP_ROTATION] = 4, [PROP_SCALE] = 3 }; /* FIXME weights */
   int count = counts[channel->property];
   for (int i = 0; i < count; i++) {
     lua_pushnumber(L, channel->data[keyframe * count + i]);

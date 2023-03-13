@@ -12,6 +12,7 @@ StringEntry lovrAnimationProperty[] = {
   [PROP_TRANSLATION] = ENTRY("translation"),
   [PROP_ROTATION] = ENTRY("rotation"),
   [PROP_SCALE] = ENTRY("scale"),
+  [PROP_WEIGHTS] = ENTRY("weights"),
   { 0 }
 };
 

@@ -43,6 +43,9 @@ typedef struct {
 typedef struct {
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
+  jsmntok_t* blendWeights;
+  jsmntok_t* blendNames;
+  int blendShapeCount;
 } gltfMesh;
 
 typedef struct {
@@ -432,14 +435,45 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       model->primitiveCount = 0;
       for (int i = (token++)->size; i > 0; i--, mesh++) {
         mesh->primitiveCount = 0;
+        mesh->blendWeights = NULL;
+        mesh->blendNames = NULL;
         for (int k = (token++)->size; k > 0; k--) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "primitives")) {
             mesh->primitiveIndex = model->primitiveCount;
-            mesh->primitiveCount += token->size;
+            mesh->primitiveCount = token->size;
             model->primitiveCount += token->size;
+            for (int p = (token++)->size; p > 0; p--) {
+              for (int k2 = (token++)->size; k2 > 0; k2--) {
+                gltfString key = NOM_STR(json, token);
+                if (STR_EQ(key, "targets")) {
+                  if (p == 1) { // Blend shape count for mesh uses length of first primitive's target array
+                    model->blendWeightCount += token->size;
+                    mesh->blendShapeCount = token->size;
+                  }
+                  model->blendDataCount += token->size;
+                }
+                token += NOM_VALUE(json, token);
+              }
+            }
+          } else if (STR_EQ(key, "weights")) {
+            mesh->blendWeights = token;
+          } else if (STR_EQ(key, "extras")) {
+            for (int k2 = (token++)->size; k2 > 0; k2--) {
+              gltfString key = NOM_STR(json, token);
+              if (STR_EQ(key, "targetNames")) {
+                mesh->blendNames = token;
+                for (int j = (token++)->size; j > 0; j--) {
+                  model->charCount += token->end - token->start + 1;
+                  token++;
+                }
+              } else {
+                token += NOM_VALUE(json, token);
+              }
+            }
+          } else {
+            token += NOM_VALUE(json, token);
           }
-          token += NOM_VALUE(json, token);
         }
       }
 
@@ -654,6 +688,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                     if (STR_EQ(property, "translation")) { channel->property = PROP_TRANSLATION; }
                     else if (STR_EQ(property, "rotation")) { channel->property = PROP_ROTATION; }
                     else if (STR_EQ(property, "scale")) { channel->property = PROP_SCALE; }
+                    else if (STR_EQ(property, "weights")) { channel->property = PROP_WEIGHTS; }
                     else { lovrThrow("Unknown animation channel property"); }
                   } else {
                     token += NOM_VALUE(json, token);
@@ -785,6 +820,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
   // Primitives
   if (model->primitiveCount > 0) {
     jsmntok_t* token = info.meshes;
+    ModelBlendData* blendData = model->blendData;
     ModelPrimitive* primitive = model->primitives;
     for (int i = (token++)->size; i > 0; i--) {
       for (int k = (token++)->size; k > 0; k--) {
@@ -813,8 +849,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   default: lovrThrow("Unknown primitive mode");
                 }
               } else if (STR_EQ(key, "attributes")) {
-                int attributeCount = (token++)->size;
-                for (int a = 0; a < attributeCount; a++) {
+                for (int a = (token++)->size; a > 0; a--) {
                   DefaultAttribute attributeType = ~0;
                   gltfString name = NOM_STR(json, token);
                   uint32_t attributeIndex = NOM_INT(json, token);
@@ -827,6 +862,16 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   else if (STR_EQ(name, "WEIGHTS_0")) { attributeType = ATTR_WEIGHTS; }
                   if (attributeType != (DefaultAttribute) ~0) {
                     primitive->attributes[attributeType] = &model->attributes[attributeIndex];
+                  }
+                }
+              } else if (STR_EQ(key, "targets")) {
+                for (int t = (token++)->size; t > 0; t--, blendData++) {
+                  for (int a = (token++)->size; a > 0; a--) {
+                    gltfString name = NOM_STR(json, token);
+                    ModelAttribute* attribute = &model->attributes[NOM_INT(json, token)];
+                    if (STR_EQ(name, "POSITION")) { blendData->positions = attribute; }
+                    else if (STR_EQ(name, "NORMAL")) { blendData->normals = attribute; }
+                    else if (STR_EQ(name, "TANGENT")) { blendData->tangents = attribute; }
                   }
                 }
               } else {
@@ -863,6 +908,33 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           gltfMesh* mesh = &meshes[NOM_INT(json, token)];
           node->primitiveIndex = mesh->primitiveIndex;
           node->primitiveCount = mesh->primitiveCount;
+          node->blendShapeCount = mesh->blendShapeCount;
+          if (mesh->blendShapeCount > 0) {
+            if (mesh->blendWeights && !node->blendShapeWeights) {
+              jsmntok_t* weights = mesh->blendWeights;
+              node->blendShapeWeights = model->blendWeights;
+              lovrAssert(weights->size == mesh->blendShapeCount, "Blend shape counts are inconsistent");
+              for (int w = (weights++)->size; w > 0; w--, model->blendWeights++) {
+                *model->blendWeights = NOM_FLOAT(json, weights);
+              }
+            }
+
+            if (mesh->blendNames) {
+              jsmntok_t* names = mesh->blendNames;
+              node->blendShapeNames = model->chars;
+              lovrAssert(names->size == mesh->blendShapeCount, "Blend shape counts are inconsistent");
+              for (int n = (names++)->size; n > 0; n--) {
+                gltfString name = NOM_STR(json, names);
+                memcpy(model->chars, name.data, name.length);
+                model->chars += name.length + 1;
+              }
+            }
+          }
+        } else if (STR_EQ(key, "weights")) {
+          node->blendShapeWeights = model->blendWeights;
+          for (int w = (token++)->size; w > 0; w--, model->blendWeights++) {
+            *model->blendWeights = NOM_FLOAT(json, token);
+          }
         } else if (STR_EQ(key, "skin")) {
           node->skin = NOM_INT(json, token);
         } else if (STR_EQ(key, "children")) {

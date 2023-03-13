@@ -61,6 +61,12 @@ typedef struct {
   float max[4];
 } ModelAttribute;
 
+typedef struct {
+  ModelAttribute* positions;
+  ModelAttribute* normals;
+  ModelAttribute* tangents;
+} ModelBlendData;
+
 typedef enum {
   DRAW_POINTS,
   DRAW_LINES,
@@ -74,6 +80,8 @@ typedef enum {
 typedef struct {
   ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
   ModelAttribute* indices;
+  ModelBlendData* blendShapes;
+  uint32_t blendShapeCount;
   DrawMode mode;
   uint32_t material;
   uint32_t skin;
@@ -106,6 +114,7 @@ typedef enum {
   PROP_TRANSLATION,
   PROP_ROTATION,
   PROP_SCALE,
+  PROP_WEIGHTS
 } AnimationProperty;
 
 typedef enum {
@@ -147,11 +156,14 @@ typedef struct {
       float scale[4];
     };
   } transform;
-  uint32_t parent;
   uint32_t* children;
   uint32_t childCount;
+  uint32_t parent;
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
+  uint32_t blendShapeCount;
+  float* blendShapeWeights;
+  char* blendShapeNames;
   uint32_t skin;
   bool hasMatrix;
 } ModelNode;
@@ -186,13 +198,19 @@ typedef struct ModelData {
   uint32_t nodeCount;
 
   ModelAnimationChannel* channels;
+  ModelBlendData* blendData;
+  float* blendWeights;
   uint32_t* children;
   uint32_t* joints;
   char* chars;
   uint32_t channelCount;
+  uint32_t blendDataCount;
+  uint32_t blendWeightCount;
   uint32_t childCount;
   uint32_t jointCount;
   uint32_t charCount;
+
+  // Computed properties (loaders don't need to fill these out)
 
   uint32_t vertexCount;
   uint32_t skinnedVertexCount;
@@ -206,6 +224,8 @@ typedef struct ModelData {
   uint32_t* indices;
   uint32_t totalVertexCount;
   uint32_t totalIndexCount;
+
+  // Lookups
 
   map_t animationMap;
   map_t materialMap;

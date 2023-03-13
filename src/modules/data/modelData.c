@@ -63,7 +63,7 @@ void lovrModelDataDestroy(void* ref) {
 // Note: this code is a scary optimization
 void lovrModelDataAllocate(ModelData* model) {
   size_t totalSize = 0;
-  size_t sizes[13];
+  size_t sizes[15];
   size_t alignment = 8;
   totalSize += sizes[0] = ALIGN(model->blobCount * sizeof(Blob*), alignment);
   totalSize += sizes[1] = ALIGN(model->bufferCount * sizeof(ModelBuffer), alignment);
@@ -75,9 +75,11 @@ void lovrModelDataAllocate(ModelData* model) {
   totalSize += sizes[7] = ALIGN(model->skinCount * sizeof(ModelSkin), alignment);
   totalSize += sizes[8] = ALIGN(model->nodeCount * sizeof(ModelNode), alignment);
   totalSize += sizes[9] = ALIGN(model->channelCount * sizeof(ModelAnimationChannel), alignment);
-  totalSize += sizes[10] = ALIGN(model->childCount * sizeof(uint32_t), alignment);
-  totalSize += sizes[11] = ALIGN(model->jointCount * sizeof(uint32_t), alignment);
-  totalSize += sizes[12] = model->charCount * sizeof(char);
+  totalSize += sizes[10] = ALIGN(model->blendDataCount * sizeof(ModelBlendData), alignment);
+  totalSize += sizes[11] = ALIGN(model->blendWeightCount * sizeof(float), alignment);
+  totalSize += sizes[12] = ALIGN(model->childCount * sizeof(uint32_t), alignment);
+  totalSize += sizes[13] = ALIGN(model->jointCount * sizeof(uint32_t), alignment);
+  totalSize += sizes[14] = model->charCount * sizeof(char);
 
   size_t offset = 0;
   char* p = model->data = calloc(1, totalSize);
@@ -92,9 +94,11 @@ void lovrModelDataAllocate(ModelData* model) {
   model->skins = (ModelSkin*) (p + offset), offset += sizes[7];
   model->nodes = (ModelNode*) (p + offset), offset += sizes[8];
   model->channels = (ModelAnimationChannel*) (p + offset), offset += sizes[9];
-  model->children = (uint32_t*) (p + offset), offset += sizes[10];
-  model->joints = (uint32_t*) (p + offset), offset += sizes[11];
-  model->chars = (char*) (p + offset), offset += sizes[12];
+  model->blendData = (ModelBlendData*) (p + offset), offset += sizes[10];
+  model->blendWeights = (float*) (p + offset), offset += sizes[11];
+  model->children = (uint32_t*) (p + offset), offset += sizes[12];
+  model->joints = (uint32_t*) (p + offset), offset += sizes[13];
+  model->chars = (char*) (p + offset), offset += sizes[14];
 
   map_init(&model->animationMap, model->animationCount);
   map_init(&model->materialMap, model->materialCount);
