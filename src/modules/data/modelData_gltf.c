@@ -184,8 +184,12 @@ static void loadImage(ModelData* model, gltfImage* images, uint32_t index, Model
       lovrAssert(data, "Could not decode base64 image");
       blob = lovrBlobCreate(data, size, NULL);
     } else {
-      lovrAssert(image->uri.length < maxLength, "Image filename is too long");
-      strncat(filename, image->uri.data, image->uri.length);
+      char* path = image->uri.data;
+      size_t length = image->uri.length;
+      lovrAssert(length < maxLength, "Image filename is too long");
+      lovrAssert(path[0] != '/', "Absolute paths in models are not supported");
+      if (path[0] && path[1] && !memcmp(path, "./", 2)) path += 2;
+      strncat(filename, path, length);
       data = io(filename, &size);
       lovrAssert(data && size > 0, "Unable to read image from '%s'", filename);
       blob = lovrBlobCreate(data, size, NULL);
@@ -526,6 +530,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         } else {
           size_t bytesRead;
           lovrAssert(uri.length < maxPathLength, "Buffer filename is too long");
+          lovrAssert(uri.data[0] != '/', "Absolute paths in models are not supported");
+          if (uri.data[0] && uri.data[1] && !memcmp(uri.data, "./", 2)) uri.data += 2;
           strncat(filename, uri.data, uri.length);
           *blob = lovrBlobCreate(io(filename, &bytesRead), size, NULL);
           lovrAssert((*blob)->data && bytesRead == size, "Unable to read %s", filename);
