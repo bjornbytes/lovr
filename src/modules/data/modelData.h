@@ -214,6 +214,8 @@ typedef struct ModelData {
 
   uint32_t vertexCount;
   uint32_t skinnedVertexCount;
+  uint32_t blendShapeVertexCount;
+  uint32_t dynamicVertexCount;
   uint32_t indexCount;
   AttributeType indexType;
 

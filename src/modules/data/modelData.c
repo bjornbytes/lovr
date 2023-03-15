@@ -60,7 +60,7 @@ void lovrModelDataDestroy(void* ref) {
   free(model);
 }
 
-// Note: this code is a scary optimization
+// Batches allocations for all the ModelData arrays
 void lovrModelDataAllocate(ModelData* model) {
   size_t totalSize = 0;
   size_t sizes[15];
@@ -130,6 +130,8 @@ void lovrModelDataFinalize(ModelData* model) {
       model->skins[primitive->skin].vertexCount += vertexCount;
       model->skinnedVertexCount += vertexCount;
     }
+    model->blendShapeVertexCount += vertexCount * primitive->blendShapeCount;
+    model->dynamicVertexCount += primitive->skin != ~0u || primitive->blendShapeCount > 0 ? vertexCount : 0;
     model->vertexCount += vertexCount;
 
     model->indexCount += primitive->indices ? primitive->indices->count : 0;

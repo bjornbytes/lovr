@@ -189,6 +189,13 @@ typedef struct {
   float properties[3][4];
 } NodeTransform;
 
+typedef struct {
+  uint32_t node;
+  uint32_t count;
+  uint32_t vertexStart;
+  uint32_t vertexCount;
+} BlendGroup;
+
 struct Model {
   uint32_t ref;
   ModelInfo info;
@@ -196,12 +203,17 @@ struct Model {
   Buffer* rawVertexBuffer;
   Buffer* vertexBuffer;
   Buffer* indexBuffer;
+  Buffer* blendBuffer;
   Buffer* skinBuffer;
   Texture** textures;
   Material** materials;
   NodeTransform* localTransforms;
   float* globalTransforms;
   bool transformsDirty;
+  float* blendShapeWeights;
+  float** nodeWeights;
+  BlendGroup* blendGroups;
+  uint32_t blendGroupCount;
   uint32_t lastReskin;
 };
 
@@ -2765,6 +2777,10 @@ Model* lovrModelCreate(const ModelInfo* info) {
   model->info = *info;
   lovrRetain(info->data);
 
+  for (uint32_t i = 0; i < data->skinCount; i++) {
+    lovrCheck(data->skins[i].jointCount <= 256, "Currently, the max number of joints per skin is 256");
+  }
+
   // Materials and Textures
   model->textures = calloc(data->imageCount, sizeof(Texture*));
   model->materials = malloc(data->materialCount * sizeof(Material*));
@@ -2815,8 +2831,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
   }
 
   // Buffers
-  char* vertices = NULL;
-  char* indices = NULL;
+  char* vertexData = NULL;
+  char* indexData = NULL;
+  char* blendData = NULL;
   char* skinData = NULL;
 
   BufferField vertexFormat[] = {
@@ -2836,7 +2853,24 @@ Model* lovrModelCreate(const ModelInfo* info) {
     .fieldCount = COUNTOF(vertexFormat)
   };
 
-  model->vertexBuffer = lovrBufferCreate(&vertexBufferInfo, (void**) &vertices);
+  model->vertexBuffer = lovrBufferCreate(&vertexBufferInfo, (void**) &vertexData);
+
+  if (data->blendShapeVertexCount > 0) {
+    BufferField blendFormat[] = {
+      { .length = data->blendShapeVertexCount, .stride = 9 * sizeof(float) },
+      { .type = FIELD_F32x3, .offset = 0 },
+      { .type = FIELD_F32x3, .offset = 12 },
+      { .type = FIELD_F32x3, .offset = 24 }
+    };
+
+    blendFormat[0].children = blendFormat + 1;
+    blendFormat[0].childCount = COUNTOF(blendFormat) - 1;
+
+    model->blendBuffer = lovrBufferCreate(&(BufferInfo) {
+      .fields = blendFormat,
+      .fieldCount = COUNTOF(blendFormat)
+    }, (void**) &blendData);
+  }
 
   if (data->skinnedVertexCount > 0) {
     BufferField skinFormat[] = {
@@ -2852,8 +2886,11 @@ Model* lovrModelCreate(const ModelInfo* info) {
       .fields = skinFormat,
       .fieldCount = COUNTOF(skinFormat)
     }, (void**) &skinData);
+  }
 
-    vertexFormat[0].length = data->skinnedVertexCount;
+  // Dynamic vertices are ones that are blended or skinned.  They need a copy of the original vertex
+  if (data->dynamicVertexCount > 0) {
+    vertexFormat[0].length = data->dynamicVertexCount;
     model->rawVertexBuffer = lovrBufferCreate(&vertexBufferInfo, NULL);
 
     beginFrame();
@@ -2879,25 +2916,33 @@ Model* lovrModelCreate(const ModelInfo* info) {
         .length = data->indexCount,
         .stride = indexSize
       }
-    }, (void**) &indices);
+    }, (void**) &indexData);
   }
 
-  // Sort primitives by their skin, so there is a single contiguous region of skinned vertices
+  // Primitives are sorted to simplify animation:
+  // - Skinned primitives come first, ordered by skin
+  // - Primitives with blend shapes are next
+  // - Then "non-dynamic" primitives follow
+  // Within each section primitives are still sorted by their index.
+
   size_t stack = tempPush();
-  uint64_t* map = tempAlloc(data->primitiveCount * sizeof(uint64_t));
+  uint64_t* primitiveOrder = tempAlloc(data->primitiveCount * sizeof(uint64_t));
+  uint32_t* baseVertex = tempAlloc(data->primitiveCount * sizeof(uint32_t));
 
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
-    map[i] = ((uint64_t) data->primitives[i].skin << 32) | i;
+    uint32_t hi = data->primitives[i].skin;
+    if (hi == ~0u && data->primitives[i].blendShapeCount > 0) hi--;
+    primitiveOrder[i] = ((uint64_t) hi << 32) | i;
   }
 
-  qsort(map, data->primitiveCount, sizeof(uint64_t), u64cmp);
+  qsort(primitiveOrder, data->primitiveCount, sizeof(uint64_t), u64cmp);
 
   // Draws
   model->draws = calloc(data->primitiveCount, sizeof(Draw));
   lovrAssert(model->draws, "Out of memory");
   for (uint32_t i = 0, vertexCursor = 0, indexCursor = 0; i < data->primitiveCount; i++) {
-    ModelPrimitive* primitive = &data->primitives[map[i] & ~0u];
-    Draw* draw = &model->draws[map[i] & ~0u];
+    ModelPrimitive* primitive = &data->primitives[primitiveOrder[i] & ~0u];
+    Draw* draw = &model->draws[primitiveOrder[i] & ~0u];
 
     switch (primitive->mode) {
       case DRAW_POINTS: draw->mode = MESH_POINTS; break;
@@ -2920,22 +2965,23 @@ Model* lovrModelCreate(const ModelInfo* info) {
       draw->count = primitive->attributes[ATTR_POSITION]->count;
     }
 
+    baseVertex[i] = vertexCursor;
     vertexCursor += primitive->attributes[ATTR_POSITION]->count;
   }
 
   // Vertices
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
-    ModelPrimitive* primitive = &data->primitives[map[i] & ~0u];
+    ModelPrimitive* primitive = &data->primitives[primitiveOrder[i] & ~0u];
     ModelAttribute** attributes = primitive->attributes;
     uint32_t count = attributes[ATTR_POSITION]->count;
     size_t stride = sizeof(ModelVertex);
 
-    lovrModelDataCopyAttribute(data, attributes[ATTR_POSITION], vertices + 0, F32, 3, false, count, stride, 0);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_NORMAL], vertices + 12, F32, 3, false, count, stride, 0);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_UV], vertices + 24, F32, 2, false, count, stride, 0);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_COLOR], vertices + 32, U8, 4, true, count, stride, 255);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_TANGENT], vertices + 36, F32, 3, false, count, stride, 0);
-    vertices += count * stride;
+    lovrModelDataCopyAttribute(data, attributes[ATTR_POSITION], vertexData + 0, F32, 3, false, count, stride, 0);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_NORMAL], vertexData + 12, F32, 3, false, count, stride, 0);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_UV], vertexData + 24, F32, 2, false, count, stride, 0);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_COLOR], vertexData + 32, U8, 4, true, count, stride, 255);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_TANGENT], vertexData + 36, F32, 3, false, count, stride, 0);
+    vertexData += count * stride;
 
     if (data->skinnedVertexCount > 0 && primitive->skin != ~0u) {
       lovrModelDataCopyAttribute(data, attributes[ATTR_JOINTS], skinData + 0, U8, 4, false, count, 8, 0);
@@ -2944,16 +2990,64 @@ Model* lovrModelCreate(const ModelInfo* info) {
     }
 
     if (primitive->indices) {
-      char* indexData = data->buffers[primitive->indices->buffer].data + primitive->indices->offset;
-      memcpy(indices, indexData, primitive->indices->count * indexSize);
-      indices += primitive->indices->count * indexSize;
+      char* indices = data->buffers[primitive->indices->buffer].data + primitive->indices->offset;
+      memcpy(indexData, indices, primitive->indices->count * indexSize);
+      indexData += primitive->indices->count * indexSize;
     }
   }
 
-  for (uint32_t i = 0; i < data->skinCount; i++) {
-    lovrCheck(data->skins[i].jointCount <= 256, "Currently, the max number of joints per skin is 256");
+  // Blend shapes
+  uint32_t blendShapeCount = 0;
+  for (uint32_t i = 0; i < data->nodeCount; i++) {
+    if (data->nodes[i].blendShapeCount > 0) {
+      blendShapeCount += data->nodes[i].blendShapeCount;
+      model->blendGroupCount++;
+    }
   }
 
+  model->blendGroups = malloc(model->blendGroupCount * sizeof(BlendGroup));
+  model->blendShapeWeights = malloc(blendShapeCount * sizeof(float));
+  model->nodeWeights = malloc(data->nodeCount * sizeof(float*));
+  lovrAssert(model->blendGroups && model->blendShapeWeights && model->nodeWeights, "Out of memory");
+
+  float* weights = model->blendShapeWeights;
+  for (uint32_t i = 0, groupIndex = 0; i < data->nodeCount; i++) {
+    if (data->nodes[i].blendShapeCount == 0) continue;
+
+    ModelNode* node = &data->nodes[i];
+    BlendGroup* group = &model->blendGroups[groupIndex++];
+
+    group->node = i;
+    group->count = node->blendShapeCount;
+    group->vertexStart = baseVertex[node->primitiveIndex];
+
+    for (uint32_t p = 0; p < node->primitiveCount; p++) {
+      ModelPrimitive* primitive = &data->primitives[node->primitiveIndex + p];
+      uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
+      size_t stride = 9 * sizeof(float);
+
+      for (uint32_t b = 0; b < primitive->blendShapeCount; b++) {
+        ModelBlendData* blendShape = &primitive->blendShapes[b];
+        lovrModelDataCopyAttribute(data, blendShape->positions, blendData + 0, F32, 3, false, vertexCount, stride, 0);
+        lovrModelDataCopyAttribute(data, blendShape->normals, blendData + 12, F32, 3, false, vertexCount, stride, 0);
+        lovrModelDataCopyAttribute(data, blendShape->tangents, blendData + 24, F32, 3, false, vertexCount, stride, 0);
+        blendData += vertexCount * stride;
+      }
+
+      group->vertexCount += vertexCount;
+    }
+
+    if (node->blendShapeWeights) {
+      memcpy(node->blendShapeWeights, weights, node->blendShapeCount * sizeof(float));
+    } else {
+      memset(weights, 0, node->blendShapeCount * sizeof(float));
+    }
+
+    model->nodeWeights[i] = weights;
+    weights += node->blendShapeCount;
+  }
+
+  // Transforms
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
@@ -2979,6 +3073,9 @@ void lovrModelDestroy(void* ref) {
   lovrRelease(model->info.data, lovrModelDataDestroy);
   free(model->localTransforms);
   free(model->globalTransforms);
+  free(model->blendShapeWeights);
+  free(model->nodeWeights);
+  free(model->blendGroups);
   free(model->draws);
   free(model->materials);
   free(model->textures);
