@@ -3223,6 +3223,14 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   model->transformsDirty = true;
 }
 
+float lovrModelGetBlendShapeWeight(Model* model, uint32_t node, uint32_t index) {
+  return model->nodeWeights[node][index];
+}
+
+void lovrModelSetBlendShapeWeight(Model* model, uint32_t node, uint32_t index, float weight) {
+  model->nodeWeights[node][index] = weight;
+}
+
 void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], OriginType origin) {
   if (origin == ORIGIN_PARENT) {
     vec3_init(position, model->localTransforms[node].properties[PROP_TRANSLATION]);
