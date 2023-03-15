@@ -50,6 +50,7 @@ void lovrModelDataDestroy(void* ref) {
   for (uint32_t i = 0; i < model->imageCount; i++) {
     lovrRelease(model->images[i], lovrImageDestroy);
   }
+  map_free(&model->blendShapeMap);
   map_free(&model->animationMap);
   map_free(&model->materialMap);
   map_free(&model->nodeMap);
@@ -100,6 +101,7 @@ void lovrModelDataAllocate(ModelData* model) {
   model->joints = (uint32_t*) (p + offset), offset += sizes[13];
   model->chars = (char*) (p + offset), offset += sizes[14];
 
+  map_init(&model->blendShapeMap, model->blendWeightCount);
   map_init(&model->animationMap, model->animationCount);
   map_init(&model->materialMap, model->materialCount);
   map_init(&model->nodeMap, model->nodeCount);

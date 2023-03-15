@@ -923,8 +923,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
               jsmntok_t* names = mesh->blendNames;
               node->blendShapeNames = model->chars;
               lovrAssert(names->size == mesh->blendShapeCount, "Blend shape counts are inconsistent");
-              for (int n = (names++)->size; n > 0; n--) {
+              for (int n = (names++)->size, index = 0; n > 0; n--, index++) {
                 gltfString name = NOM_STR(json, names);
+                uint64_t hash = hash64(name.data, name.length);
+                uint64_t value = ((uint64_t) (node - model->nodes) << 32) | index;
+                if (map_get(&model->blendShapeMap, hash) == MAP_NIL) {
+                  map_set(&model->blendShapeMap, hash, value);
+                }
                 memcpy(model->chars, name.data, name.length);
                 model->chars += name.length + 1;
               }

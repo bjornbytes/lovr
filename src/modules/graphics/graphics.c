@@ -2997,16 +2997,14 @@ Model* lovrModelCreate(const ModelInfo* info) {
   }
 
   // Blend shapes
-  uint32_t blendShapeCount = 0;
   for (uint32_t i = 0; i < data->nodeCount; i++) {
     if (data->nodes[i].blendShapeCount > 0) {
-      blendShapeCount += data->nodes[i].blendShapeCount;
       model->blendGroupCount++;
     }
   }
 
   model->blendGroups = malloc(model->blendGroupCount * sizeof(BlendGroup));
-  model->blendShapeWeights = malloc(blendShapeCount * sizeof(float));
+  model->blendShapeWeights = malloc(data->blendWeightCount * sizeof(float));
   model->nodeWeights = malloc(data->nodeCount * sizeof(float*));
   lovrAssert(model->blendGroups && model->blendShapeWeights && model->nodeWeights, "Out of memory");
 

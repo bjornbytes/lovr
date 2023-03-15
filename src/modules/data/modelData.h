@@ -229,6 +229,7 @@ typedef struct ModelData {
 
   // Lookups
 
+  map_t blendShapeMap;
   map_t animationMap;
   map_t materialMap;
   map_t nodeMap;
