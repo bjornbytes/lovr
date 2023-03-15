@@ -3130,6 +3130,8 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   ModelAnimation* animation = &data->animations[animationIndex];
   time = fmodf(time, animation->duration);
 
+  size_t stack = tempPush();
+
   for (uint32_t i = 0; i < animation->channelCount; i++) {
     ModelAnimationChannel* channel = &animation->channels[i];
     uint32_t node = channel->nodeIndex;
@@ -3140,10 +3142,18 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       keyframe++;
     }
 
-    float property[4];
-    bool rotate = channel->property == PROP_ROTATION;
-    size_t n = 3 + rotate;
-    float* (*lerp)(float* a, float* b, float t) = rotate ? quat_slerp : vec3_lerp;
+    size_t n;
+    float values[4];
+    float* property = values;
+    switch (channel->property) {
+      case PROP_TRANSLATION: n = 3; break;
+      case PROP_SCALE: n = 3; break;
+      case PROP_ROTATION: n = 4; break;
+      case PROP_WEIGHTS:
+        n = data->nodes[node].blendShapeCount;
+        property = tempAlloc(n * sizeof(float));
+        break;
+    }
 
     // Handle the first/last keyframe case (no interpolation)
     if (keyframe == 0 || keyframe >= channel->keyframeCount) {
@@ -3166,7 +3176,14 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
           break;
         case SMOOTH_LINEAR:
           memcpy(property, channel->data + (keyframe - 1) * n, n * sizeof(float));
-          lerp(property, channel->data + keyframe * n, z);
+          if (channel->property == PROP_ROTATION) {
+            quat_slerp(property, channel->data + keyframe * n, z);
+          } else {
+            float* target = channel->data + keyframe * n;
+            for (uint32_t i = 0; i < n; i++) {
+              property[i] += (target[i] - property[i]) * z;
+            }
+          }
           break;
         case SMOOTH_CUBIC: {
           size_t stride = 3 * n;
@@ -3190,12 +3207,18 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       }
     }
 
+    float* dst = channel->property == PROP_WEIGHTS ? model->nodeWeights[node] : transform->properties[channel->property];
+
     if (alpha >= 1.f) {
-      memcpy(transform->properties[channel->property], property, n * sizeof(float));
+      memcpy(dst, property, n * sizeof(float));
     } else {
-      lerp(transform->properties[channel->property], property, alpha);
+      for (uint32_t i = 0; i < n; i++) {
+        dst[i] += (property[i] - dst[i]) * alpha;
+      }
     }
   }
+
+  tempPop(stack);
 
   model->transformsDirty = true;
 }
