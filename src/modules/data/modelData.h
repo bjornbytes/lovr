@@ -110,6 +110,12 @@ typedef struct {
   const char* name;
 } ModelMaterial;
 
+typedef struct {
+  const char* name;
+  uint32_t node;
+  float weight;
+} ModelBlendShape;
+
 typedef enum {
   PROP_TRANSLATION,
   PROP_ROTATION,
@@ -161,9 +167,8 @@ typedef struct {
   uint32_t parent;
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
+  uint32_t blendShapeIndex;
   uint32_t blendShapeCount;
-  float* blendShapeWeights;
-  char* blendShapeNames;
   uint32_t skin;
   bool hasMatrix;
 } ModelNode;
@@ -182,6 +187,7 @@ typedef struct ModelData {
   ModelAttribute* attributes;
   ModelPrimitive* primitives;
   ModelMaterial* materials;
+  ModelBlendShape* blendShapes;
   ModelAnimation* animations;
   ModelSkin* skins;
   ModelNode* nodes;
@@ -193,19 +199,18 @@ typedef struct ModelData {
   uint32_t attributeCount;
   uint32_t primitiveCount;
   uint32_t materialCount;
+  uint32_t blendShapeCount;
   uint32_t animationCount;
   uint32_t skinCount;
   uint32_t nodeCount;
 
   ModelAnimationChannel* channels;
   ModelBlendData* blendData;
-  float* blendWeights;
   uint32_t* children;
   uint32_t* joints;
   char* chars;
   uint32_t channelCount;
   uint32_t blendDataCount;
-  uint32_t blendWeightCount;
   uint32_t childCount;
   uint32_t jointCount;
   uint32_t charCount;

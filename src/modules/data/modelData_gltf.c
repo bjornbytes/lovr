@@ -43,9 +43,8 @@ typedef struct {
 typedef struct {
   uint32_t primitiveIndex;
   uint32_t primitiveCount;
-  jsmntok_t* blendWeights;
-  jsmntok_t* blendNames;
-  int blendShapeCount;
+  uint32_t blendShapeIndex;
+  uint32_t blendShapeCount;
 } gltfMesh;
 
 typedef struct {
@@ -433,36 +432,35 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       lovrAssert(meshes, "Out of memory");
       gltfMesh* mesh = meshes;
       model->primitiveCount = 0;
+      model->blendShapeCount = 0;
       for (int i = (token++)->size; i > 0; i--, mesh++) {
         mesh->primitiveCount = 0;
-        mesh->blendWeights = NULL;
-        mesh->blendNames = NULL;
+        mesh->blendShapeCount = 0;
         for (int k = (token++)->size; k > 0; k--) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "primitives")) {
             mesh->primitiveIndex = model->primitiveCount;
             mesh->primitiveCount = token->size;
             model->primitiveCount += token->size;
+            // Gotta look at targets of a primitive to truly know blend shape situation :')
             for (int p = (token++)->size; p > 0; p--) {
               for (int k2 = (token++)->size; k2 > 0; k2--) {
                 gltfString key = NOM_STR(json, token);
                 if (STR_EQ(key, "targets")) {
-                  if (p == 1) { // Blend shape count for mesh uses length of first primitive's target array
-                    model->blendWeightCount += token->size;
+                  if (p == 1) {
+                    mesh->blendShapeIndex = model->blendShapeCount;
                     mesh->blendShapeCount = token->size;
+                    model->blendShapeCount += token->size;
                   }
                   model->blendDataCount += token->size;
                 }
                 token += NOM_VALUE(json, token);
               }
             }
-          } else if (STR_EQ(key, "weights")) {
-            mesh->blendWeights = token;
           } else if (STR_EQ(key, "extras")) {
             for (int k2 = (token++)->size; k2 > 0; k2--) {
               gltfString key = NOM_STR(json, token);
               if (STR_EQ(key, "targetNames")) {
-                mesh->blendNames = token;
                 for (int j = (token++)->size; j > 0; j--) {
                   model->charCount += token->end - token->start + 1;
                   token++;
@@ -819,10 +817,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
 
   // Primitives
   if (model->primitiveCount > 0) {
+    gltfMesh* mesh = meshes;
     jsmntok_t* token = info.meshes;
     ModelBlendData* blendData = model->blendData;
     ModelPrimitive* primitive = model->primitives;
-    for (int i = (token++)->size; i > 0; i--) {
+    for (int i = (token++)->size; i > 0; i--, mesh++) {
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "primitives")) {
@@ -879,6 +878,29 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
               }
             }
           }
+        } else if (STR_EQ(key, "weights")) {
+          lovrAssert((uint32_t) token->size == mesh->blendShapeCount, "Inconsistent blend shape counts");
+          for (int w = (token++)->size, index = mesh->blendShapeIndex; w > 0; w--, index++) {
+            model->blendShapes[index].weight = NOM_FLOAT(json, token);
+          }
+        } else if (STR_EQ(key, "extras")) {
+          for (int k2 = (token++)->size; k2 > 0; k2--) {
+            gltfString key = NOM_STR(json, token);
+            if (STR_EQ(key, "targetNames")) {
+              lovrAssert((uint32_t) token->size == mesh->blendShapeCount, "Inconsistent blend shape counts");
+              for (int k3 = (token++)->size, index = mesh->blendShapeIndex; k3 > 0; k3--, index++) {
+                gltfString name = NOM_STR(json, token);
+                uint64_t hash = hash64(name.data, name.length);
+                if (map_get(&model->blendShapeMap, hash) == MAP_NIL) {
+                  map_set(&model->blendShapeMap, hash, index);
+                }
+                memcpy(model->chars, name.data, name.length);
+                model->chars += name.length + 1;
+              }
+            } else {
+              token += NOM_VALUE(json, token);
+            }
+          }
         } else {
           token += NOM_VALUE(json, token);
         }
@@ -902,44 +924,20 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       node->primitiveCount = 0;
       node->skin = ~0u;
 
+      jsmntok_t* weights = NULL;
       for (int k = (token++)->size; k > 0; k--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "mesh")) {
           gltfMesh* mesh = &meshes[NOM_INT(json, token)];
           node->primitiveIndex = mesh->primitiveIndex;
           node->primitiveCount = mesh->primitiveCount;
+          node->blendShapeIndex = mesh->blendShapeIndex;
           node->blendShapeCount = mesh->blendShapeCount;
-          if (mesh->blendShapeCount > 0) {
-            if (mesh->blendWeights && !node->blendShapeWeights) {
-              jsmntok_t* weights = mesh->blendWeights;
-              node->blendShapeWeights = model->blendWeights;
-              lovrAssert(weights->size == mesh->blendShapeCount, "Blend shape counts are inconsistent");
-              for (int w = (weights++)->size; w > 0; w--, model->blendWeights++) {
-                *model->blendWeights = NOM_FLOAT(json, weights);
-              }
-            }
-
-            if (mesh->blendNames) {
-              jsmntok_t* names = mesh->blendNames;
-              node->blendShapeNames = model->chars;
-              lovrAssert(names->size == mesh->blendShapeCount, "Blend shape counts are inconsistent");
-              for (int n = (names++)->size, index = 0; n > 0; n--, index++) {
-                gltfString name = NOM_STR(json, names);
-                uint64_t hash = hash64(name.data, name.length);
-                uint64_t value = ((uint64_t) (node - model->nodes) << 32) | index;
-                if (map_get(&model->blendShapeMap, hash) == MAP_NIL) {
-                  map_set(&model->blendShapeMap, hash, value);
-                }
-                memcpy(model->chars, name.data, name.length);
-                model->chars += name.length + 1;
-              }
-            }
+          for (uint32_t i = 0, index = node->blendShapeIndex; i < node->blendShapeCount; i++, index++) {
+            model->blendShapes[index].node = node - model->nodes;
           }
         } else if (STR_EQ(key, "weights")) {
-          node->blendShapeWeights = model->blendWeights;
-          for (int w = (token++)->size; w > 0; w--, model->blendWeights++) {
-            *model->blendWeights = NOM_FLOAT(json, token);
-          }
+          weights = token; // Deferred due to order dependency
         } else if (STR_EQ(key, "skin")) {
           node->skin = NOM_INT(json, token);
         } else if (STR_EQ(key, "children")) {
@@ -978,6 +976,13 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           model->chars += name.length + 1;
         } else {
           token += NOM_VALUE(json, token);
+        }
+      }
+
+      if (node->blendShapeCount > 0 && weights) {
+        lovrAssert((uint32_t) weights->size == node->blendShapeCount, "Inconsistent blend shape counts");
+        for (int w = (weights++)->size, index = node->blendShapeIndex; w > 0; w--, index++) {
+          model->blendShapes[index].weight = NOM_FLOAT(json, token);
         }
       }
     }

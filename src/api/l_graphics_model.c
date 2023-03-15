@@ -18,47 +18,23 @@ static int luax_callmodeldata(lua_State* L, const char* method, int nrets) {
   return nrets;
 }
 
-void luax_checkblendshapeindex(lua_State* L, int index, Model* model, uint32_t* node, uint32_t* blendShape) {
-  ModelData* data = lovrModelGetInfo(model)->data;
-  if (lua_isnil(L, index)) {
-    size_t length;
-    const char* name = luaL_checklstring(L, index + 1, &length);
-    uint64_t hash = hash64(name, length);
-    uint64_t value = map_get(&data->blendShapeMap, hash);
-    lovrCheck(value != MAP_NIL, "Model has no blend shape named '%s'", name);
-    *node = value >> 32;
-    *blendShape = value & ~0u;
-  } else {
-    *node = luax_checknodeindex(L, index, data);
-    switch (lua_type(L, index + 1)) {
-      case LUA_TNUMBER:
-        *blendShape = luax_checku32(L, index + 1) - 1;
-        lovrCheck(*blendShape < data->nodes[*node].blendShapeCount, "Invalid blend shape index '%d'", *blendShape + 1);
-        break;
-      case LUA_TSTRING: {
-        size_t length;
-        const char* name = lua_tolstring(L, index + 1, &length);
-        uint64_t hash = hash64(name, length);
-        uint64_t value = map_get(&data->blendShapeMap, hash);
-        if (value != MAP_NIL && (value >> 32) == *node) {
-          *blendShape = value & ~0u;
-          break;
-        } else {
-          char* s = data->nodes[*node].blendShapeNames;
-          if (s) {
-            for (uint32_t i = 0; i < data->nodes[*node].blendShapeCount; i++) {
-              if (!strcmp(s, name)) {
-                *blendShape = i;
-                break;
-              }
-              s += strlen(s) + 1;
-            }
-          }
-          lovrThrow("Node has no blend shape named '%s'", name);
-        }
-        break;
-      }
+uint32_t luax_checkblendshape(lua_State* L, int index, Model* model) {
+  switch (lua_type(L, index)) {
+    case LUA_TSTRING: {
+      size_t length;
+      const char* name = lua_tolstring(L, index, &length);
+      ModelData* data = lovrModelGetInfo(model)->data;
+      uint64_t blendShapeIndex = map_get(&data->blendShapeMap, hash64(name, length));
+      lovrCheck(blendShapeIndex != MAP_NIL, "ModelData has no blend shape named '%s'", name);
+      return (uint32_t) blendShapeIndex;
     }
+    case LUA_TNUMBER: {
+      uint32_t blendShape = luax_checku32(L, index) - 1;
+      ModelData* data = lovrModelGetInfo(model)->data;
+      lovrCheck(blendShape < data->blendShapeCount, "Invalid blend shape index '%d'", blendShape + 1);
+      return blendShape;
+    }
+    default: return luax_typeerror(L, index, "number or string"), ~0u;
   }
 }
 
@@ -294,21 +270,17 @@ static int l_lovrModelAnimate(lua_State* L) {
 
 static int l_lovrModelGetBlendShapeWeight(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node;
-  uint32_t blendShape;
-  luax_checkblendshapeindex(L, 2, model, &node, &blendShape);
-  float weight = lovrModelGetBlendShapeWeight(model, node, blendShape);
+  uint32_t blendShape = luax_checkblendshape(L, 2, model);
+  float weight = lovrModelGetBlendShapeWeight(model, blendShape);
   lua_pushnumber(L, weight);
   return 1;
 }
 
 static int l_lovrModelSetBlendShapeWeight(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node;
-  uint32_t blendShape;
-  luax_checkblendshapeindex(L, 2, model, &node, &blendShape);
-  float weight = luax_checkfloat(L, 4);
-  lovrModelSetBlendShapeWeight(model, node, blendShape, weight);
+  uint32_t blendShape = luax_checkblendshape(L, 2, model);
+  float weight = luax_checkfloat(L, 3);
+  lovrModelSetBlendShapeWeight(model, blendShape, weight);
   return 0;
 }
 

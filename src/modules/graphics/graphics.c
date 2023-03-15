@@ -190,9 +190,9 @@ typedef struct {
 } NodeTransform;
 
 typedef struct {
-  uint32_t node;
+  uint32_t index;
   uint32_t count;
-  uint32_t vertexStart;
+  uint32_t vertexIndex;
   uint32_t vertexCount;
 } BlendGroup;
 
@@ -211,7 +211,6 @@ struct Model {
   float* globalTransforms;
   bool transformsDirty;
   float* blendShapeWeights;
-  float** nodeWeights;
   BlendGroup* blendGroups;
   uint32_t blendGroupCount;
   uint32_t lastReskin;
@@ -2997,52 +2996,50 @@ Model* lovrModelCreate(const ModelInfo* info) {
   }
 
   // Blend shapes
-  for (uint32_t i = 0; i < data->nodeCount; i++) {
-    if (data->nodes[i].blendShapeCount > 0) {
-      model->blendGroupCount++;
+  if (data->blendShapeCount > 0) {
+    for (uint32_t i = 0; i < data->blendShapeCount; i++) {
+      if (i == 0 || data->blendShapes[i - 1].node != data->blendShapes[i].node) {
+        model->blendGroupCount++;
+      }
     }
-  }
 
-  model->blendGroups = malloc(model->blendGroupCount * sizeof(BlendGroup));
-  model->blendShapeWeights = malloc(data->blendWeightCount * sizeof(float));
-  model->nodeWeights = malloc(data->nodeCount * sizeof(float*));
-  lovrAssert(model->blendGroups && model->blendShapeWeights && model->nodeWeights, "Out of memory");
+    model->blendGroups = malloc(model->blendGroupCount * sizeof(BlendGroup));
+    model->blendShapeWeights = malloc(data->blendShapeCount * sizeof(float));
+    lovrAssert(model->blendGroups && model->blendShapeWeights, "Out of memory");
 
-  float* weights = model->blendShapeWeights;
-  for (uint32_t i = 0, groupIndex = 0; i < data->nodeCount; i++) {
-    if (data->nodes[i].blendShapeCount == 0) continue;
+    BlendGroup* group = model->blendGroups;
 
-    ModelNode* node = &data->nodes[i];
-    BlendGroup* group = &model->blendGroups[groupIndex++];
+    for (uint32_t i = 0; i < data->blendShapeCount; i++) {
+      ModelBlendShape* blendShape = &data->blendShapes[i];
+      ModelNode* node = &data->nodes[blendShape->node];
+      uint32_t groupVertexCount = 0;
 
-    group->node = i;
-    group->count = node->blendShapeCount;
-    group->vertexStart = baseVertex[node->primitiveIndex];
+      for (uint32_t p = 0; p < node->primitiveCount; p++) {
+        ModelPrimitive* primitive = &data->primitives[node->primitiveIndex + p];
+        uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
+        size_t stride = 9 * sizeof(float);
 
-    for (uint32_t p = 0; p < node->primitiveCount; p++) {
-      ModelPrimitive* primitive = &data->primitives[node->primitiveIndex + p];
-      uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
-      size_t stride = 9 * sizeof(float);
+        for (uint32_t b = 0; b < primitive->blendShapeCount; b++) {
+          ModelBlendData* blendShape = &primitive->blendShapes[b];
+          lovrModelDataCopyAttribute(data, blendShape->positions, blendData + 0, F32, 3, false, vertexCount, stride, 0);
+          lovrModelDataCopyAttribute(data, blendShape->normals, blendData + 12, F32, 3, false, vertexCount, stride, 0);
+          lovrModelDataCopyAttribute(data, blendShape->tangents, blendData + 24, F32, 3, false, vertexCount, stride, 0);
+          blendData += vertexCount * stride;
+        }
 
-      for (uint32_t b = 0; b < primitive->blendShapeCount; b++) {
-        ModelBlendData* blendShape = &primitive->blendShapes[b];
-        lovrModelDataCopyAttribute(data, blendShape->positions, blendData + 0, F32, 3, false, vertexCount, stride, 0);
-        lovrModelDataCopyAttribute(data, blendShape->normals, blendData + 12, F32, 3, false, vertexCount, stride, 0);
-        lovrModelDataCopyAttribute(data, blendShape->tangents, blendData + 24, F32, 3, false, vertexCount, stride, 0);
-        blendData += vertexCount * stride;
+        groupVertexCount += vertexCount;
       }
 
-      group->vertexCount += vertexCount;
-    }
+      if (i == 0 || blendShape[-1].node != blendShape[0].node) {
+        group->index = node->blendShapeIndex;
+        group->count = node->blendShapeCount;
+        group->vertexIndex = baseVertex[node->primitiveIndex];
+        group->vertexCount = groupVertexCount;
+        group++;
+      }
 
-    if (node->blendShapeWeights) {
-      memcpy(node->blendShapeWeights, weights, node->blendShapeCount * sizeof(float));
-    } else {
-      memset(weights, 0, node->blendShapeCount * sizeof(float));
+      model->blendShapeWeights[i] = blendShape->weight;
     }
-
-    model->nodeWeights[i] = weights;
-    weights += node->blendShapeCount;
   }
 
   // Transforms
@@ -3072,7 +3069,6 @@ void lovrModelDestroy(void* ref) {
   free(model->localTransforms);
   free(model->globalTransforms);
   free(model->blendShapeWeights);
-  free(model->nodeWeights);
   free(model->blendGroups);
   free(model->draws);
   free(model->materials);
@@ -3205,7 +3201,9 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       }
     }
 
-    float* dst = channel->property == PROP_WEIGHTS ? model->nodeWeights[node] : transform->properties[channel->property];
+    float* dst = channel->property == PROP_WEIGHTS ?
+      &model->blendShapeWeights[data->nodes[node].blendShapeIndex] :
+      transform->properties[channel->property];
 
     if (alpha >= 1.f) {
       memcpy(dst, property, n * sizeof(float));
@@ -3221,12 +3219,12 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   model->transformsDirty = true;
 }
 
-float lovrModelGetBlendShapeWeight(Model* model, uint32_t node, uint32_t index) {
-  return model->nodeWeights[node][index];
+float lovrModelGetBlendShapeWeight(Model* model, uint32_t index) {
+  return model->blendShapeWeights[index];
 }
 
-void lovrModelSetBlendShapeWeight(Model* model, uint32_t node, uint32_t index, float weight) {
-  model->nodeWeights[node][index] = weight;
+void lovrModelSetBlendShapeWeight(Model* model, uint32_t index, float weight) {
+  model->blendShapeWeights[index] = weight;
 }
 
 void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], OriginType origin) {
