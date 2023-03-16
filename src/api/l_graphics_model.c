@@ -268,6 +268,14 @@ static int l_lovrModelAnimate(lua_State* L) {
   return 0;
 }
 
+static int l_lovrModelGetBlendShapeCount(lua_State* L) {
+  return luax_callmodeldata(L, "getBlendShapeCount", 1);
+}
+
+static int l_lovrModelGetBlendShapeName(lua_State* L) {
+  return luax_callmodeldata(L, "getBlendShapeName", 1);
+}
+
 static int l_lovrModelGetBlendShapeWeight(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t blendShape = luax_checkblendshape(L, 2, model);
@@ -392,6 +400,8 @@ const luaL_Reg lovrModel[] = {
   { "getAnimationDuration", l_lovrModelGetAnimationDuration },
   { "hasJoints", l_lovrModelHasJoints },
   { "animate", l_lovrModelAnimate },
+  { "getBlendShapeCount", l_lovrModelGetBlendShapeCount },
+  { "getBlendShapeName", l_lovrModelGetBlendShapeName },
   { "getBlendShapeWeight", l_lovrModelGetBlendShapeWeight },
   { "setBlendShapeWeight", l_lovrModelSetBlendShapeWeight },
   { "getTriangles", l_lovrModelGetTriangles },

@@ -738,6 +738,20 @@ static int l_lovrModelDataGetSkinInverseBindMatrix(lua_State* L) {
   return 16;
 }
 
+static int l_lovrModelDataGetBlendShapeCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  lua_pushinteger(L, model->blendShapeCount);
+  return 1;
+}
+
+static int l_lovrModelDataGetBlendShapeName(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  lovrCheck(index < model->blendShapeCount, "Invalid blend shape index '%d'", index + 1);
+  lua_pushstring(L, model->blendShapes[index].name);
+  return 1;
+}
+
 const luaL_Reg lovrModelData[] = {
   { "getMetadata", l_lovrModelDataGetMetadata },
   { "getBlobCount", l_lovrModelDataGetBlobCount },
@@ -790,5 +804,7 @@ const luaL_Reg lovrModelData[] = {
   { "getSkinCount", l_lovrModelDataGetSkinCount },
   { "getSkinJoints", l_lovrModelDataGetSkinJoints },
   { "getSkinInverseBindMatrix", l_lovrModelDataGetSkinInverseBindMatrix },
+  { "getBlendShapeCount", l_lovrModelDataGetBlendShapeCount },
+  { "getBlendShapeName", l_lovrModelDataGetBlendShapeName },
   { NULL, NULL }
 };
