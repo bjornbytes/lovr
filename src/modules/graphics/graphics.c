@@ -3298,8 +3298,8 @@ static void lovrModelReskin(Model* model) {
     });
   }
 
+  Shader* shader = state.animator;
   gpu_layout* layout = state.layouts.data[state.animator->layout].gpu;
-  gpu_shader* shader = state.animator->gpu;
   gpu_buffer* joints = tempAlloc(gpu_sizeof_buffer());
 
   uint32_t count = data->skinnedVertexCount;
@@ -3310,6 +3310,9 @@ static void lovrModelReskin(Model* model) {
     { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->skinBuffer->gpu, 0, count * 8 } },
     { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { joints, 0, 0 } } // Filled in for each skin
   };
+
+  gpu_compute_begin(state.stream);
+  gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
 
   for (uint32_t i = 0, baseVertex = 0; i < data->skinCount; i++) {
     ModelSkin* skin = &data->skins[i];
@@ -3331,14 +3334,13 @@ static void lovrModelReskin(Model* model) {
     uint32_t constants[] = { baseVertex, skin->vertexCount };
     uint32_t subgroupSize = state.device.subgroupSize;
 
-    gpu_compute_begin(state.stream);
-    gpu_bind_pipeline(state.stream, state.animator->computePipeline, true);
-    gpu_bind_bundles(state.stream, shader, &bundle, 0, 1, NULL, 0);
-    gpu_push_constants(state.stream, shader, constants, sizeof(constants));
+    gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
+    gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
     gpu_compute(state.stream, (skin->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
-    gpu_compute_end(state.stream);
     baseVertex += skin->vertexCount;
   }
+
+  gpu_compute_end(state.stream);
 
   model->lastReskin = state.tick;
   state.hasReskin = true;
@@ -3516,7 +3518,7 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
   };
 
   gpu_compute_begin(stream);
-  gpu_bind_pipeline(stream, state.timeWizard->computePipeline, true);
+  gpu_bind_pipeline(stream, state.timeWizard->computePipeline, GPU_PIPELINE_COMPUTE);
   gpu_bind_bundles(stream, shader, &bundle, 0, 1, NULL, 0);
   gpu_push_constants(stream, shader, &constants, sizeof(constants));
   gpu_compute(stream, (count + 31) / 32, 1, 1);
@@ -4496,7 +4498,7 @@ static void bindPipeline(Pass* pass, Draw* draw, Shader* shader) {
     map_set(&state.pipelineLookup, hash, index);
   }
 
-  gpu_bind_pipeline(pass->stream, state.pipelines.data[index], false);
+  gpu_bind_pipeline(pass->stream, state.pipelines.data[index], GPU_PIPELINE_GRAPHICS);
   pipeline->dirty = false;
 }
 
@@ -5753,7 +5755,7 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   lovrCheck(z <= state.limits.workgroupCount[2], "Compute %s count exceeds workgroupCount limit", "z");
 
   if (pass->pipeline->dirty) {
-    gpu_bind_pipeline(pass->stream, shader->computePipeline, true);
+    gpu_bind_pipeline(pass->stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
     pass->pipeline->dirty = false;
   }
 

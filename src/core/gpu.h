@@ -272,6 +272,11 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* info, uint32_t coun
 // Pipeline
 
 typedef enum {
+  GPU_PIPELINE_GRAPHICS,
+  GPU_PIPELINE_COMPUTE
+} gpu_pipeline_type;
+
+typedef enum {
   GPU_FLAG_B32,
   GPU_FLAG_I32,
   GPU_FLAG_U32,
@@ -560,7 +565,7 @@ void gpu_compute_end(gpu_stream* stream);
 void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[2]);
 void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]);
 void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size);
-void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute);
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_type type);
 void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundles, uint32_t first, uint32_t count, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount);
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count);
 void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type);
