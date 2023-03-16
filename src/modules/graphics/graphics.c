@@ -85,9 +85,9 @@ struct Shader {
   uint32_t ref;
   Shader* parent;
   gpu_shader* gpu;
+  gpu_pipeline* computePipeline;
   ShaderInfo info;
   size_t layout;
-  size_t computePipelineIndex;
   uint32_t workgroupSize[3];
   bool hasCustomAttributes;
   uint32_t attributeCount;
@@ -1706,8 +1706,8 @@ static void lovrShaderInit(Shader* shader) {
     gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
     lovrAssert(pipeline, "Out of memory");
     gpu_pipeline_init_compute(pipeline, &pipelineInfo);
-    shader->computePipelineIndex = state.pipelines.length;
     arr_push(&state.pipelines, pipeline);
+    shader->computePipeline = pipeline;
   }
 }
 
@@ -3298,7 +3298,6 @@ static void lovrModelReskin(Model* model) {
     });
   }
 
-  gpu_pipeline* pipeline = state.pipelines.data[state.animator->computePipelineIndex];
   gpu_layout* layout = state.layouts.data[state.animator->layout].gpu;
   gpu_shader* shader = state.animator->gpu;
   gpu_buffer* joints = tempAlloc(gpu_sizeof_buffer());
@@ -3333,7 +3332,7 @@ static void lovrModelReskin(Model* model) {
     uint32_t subgroupSize = state.device.subgroupSize;
 
     gpu_compute_begin(state.stream);
-    gpu_bind_pipeline(state.stream, pipeline, true);
+    gpu_bind_pipeline(state.stream, state.animator->computePipeline, true);
     gpu_bind_bundles(state.stream, shader, &bundle, 0, 1, NULL, 0);
     gpu_push_constants(state.stream, shader, constants, sizeof(constants));
     gpu_compute(state.stream, (skin->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
@@ -3497,7 +3496,6 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
     });
   }
 
-  gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipelineIndex];
   gpu_layout* layout = state.layouts.data[state.timeWizard->layout].gpu;
   gpu_shader* shader = state.timeWizard->gpu;
 
@@ -3518,7 +3516,7 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
   };
 
   gpu_compute_begin(stream);
-  gpu_bind_pipeline(stream, pipeline, true);
+  gpu_bind_pipeline(stream, state.timeWizard->computePipeline, true);
   gpu_bind_bundles(stream, shader, &bundle, 0, 1, NULL, 0);
   gpu_push_constants(stream, shader, &constants, sizeof(constants));
   gpu_compute(stream, (count + 31) / 32, 1, 1);
@@ -5754,10 +5752,8 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   lovrCheck(y <= state.limits.workgroupCount[1], "Compute %s count exceeds workgroupCount limit", "y");
   lovrCheck(z <= state.limits.workgroupCount[2], "Compute %s count exceeds workgroupCount limit", "z");
 
-  gpu_pipeline* pipeline = state.pipelines.data[shader->computePipelineIndex];
-
   if (pass->pipeline->dirty) {
-    gpu_bind_pipeline(pass->stream, pipeline, true);
+    gpu_bind_pipeline(pass->stream, shader->computePipeline, true);
     pass->pipeline->dirty = false;
   }
 
