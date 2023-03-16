@@ -1,0 +1,37 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "lovr.glsl"
+
+layout(local_size_x = 32, local_size_x_id = 0) in;
+
+layout(push_constant) uniform PushConstants {
+  uint baseVertex;
+  uint vertexCount;
+  uint blendShapeIndex;
+  uint blendShapeCount;
+  uint baseBlendShapeVertex;
+};
+
+struct ModelVertex {
+  float px, py, pz;
+  float nx, ny, nz;
+  float u, v;
+  uint color;
+  float tx, ty, tz;
+};
+
+struct BlendVertex {
+  float px, py, pz;
+  float nx, ny, nz;
+  float tx, ty, tz;
+};
+
+layout(set = 0, binding = 0) buffer restrict readonly VertexIn { ModelVertex vertexIn[]; };
+layout(set = 0, binding = 1) buffer restrict writeonly VertexOut { ModelVertex vertexOut[]; };
+layout(set = 0, binding = 2) buffer restrict readonly BlendVertices { BlendVertex blendVertex[]; };
+layout(set = 0, binding = 3) uniform Weights { vec4 weights[32]; };
+
+void lovrmain() {
+  //
+}
