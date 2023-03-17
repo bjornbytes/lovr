@@ -133,7 +133,7 @@ void lovrModelDataFinalize(ModelData* model) {
       model->skinnedVertexCount += vertexCount;
     }
     model->blendShapeVertexCount += vertexCount * primitive->blendShapeCount;
-    model->dynamicVertexCount += primitive->skin != ~0u || primitive->blendShapeCount > 0 ? vertexCount : 0;
+    model->dynamicVertexCount += primitive->skin != ~0u || !!primitive->blendShapes ? vertexCount : 0;
     model->vertexCount += vertexCount;
 
     model->indexCount += primitive->indices ? primitive->indices->count : 0;
@@ -146,13 +146,21 @@ void lovrModelDataFinalize(ModelData* model) {
       }
     }
 
-    for (uint32_t i = 0; i < MAX_DEFAULT_ATTRIBUTES; i++) {
-      ModelAttribute* attribute = primitive->attributes[i];
-      if (attribute) {
+    for (uint32_t j = 0; j < MAX_DEFAULT_ATTRIBUTES; j++) {
+      ModelAttribute* attribute = primitive->attributes[j];
+      if (!attribute) continue;
+      attribute->stride = model->buffers[attribute->buffer].stride;
+      if (attribute->stride == 0) attribute->stride = typeSizes[attribute->type] * attribute->components;
+    }
+
+    for (uint32_t j = 0; j < primitive->blendShapeCount; j++) {
+      ModelBlendData* blendData = &primitive->blendShapes[j];
+      ModelAttribute* attributes[] = { blendData->positions, blendData->normals, blendData->tangents };
+      for (uint32_t k = 0; k < COUNTOF(attributes); k++) {
+        if (!attributes[k]) continue;
+        ModelAttribute* attribute = attributes[k];
         attribute->stride = model->buffers[attribute->buffer].stride;
-        if (attribute->stride == 0) {
-          attribute->stride = typeSizes[attribute->type] * attribute->components;
-        }
+        if (attribute->stride == 0) attribute->stride = typeSizes[attribute->type] * attribute->components;
       }
     }
   }

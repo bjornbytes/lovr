@@ -2905,7 +2905,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     beginFrame();
     gpu_buffer* src = model->vertexBuffer->gpu;
     gpu_buffer* dst = model->rawVertexBuffer->gpu;
-    gpu_copy_buffers(state.stream, src, dst, 0, 0, data->skinnedVertexCount * sizeof(ModelVertex));
+    gpu_copy_buffers(state.stream, src, dst, 0, 0, data->dynamicVertexCount * sizeof(ModelVertex));
 
     gpu_barrier barrier;
     barrier.prev = GPU_PHASE_TRANSFER;
@@ -2940,7 +2940,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
 
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
     uint32_t hi = data->primitives[i].skin;
-    if (hi == ~0u && data->primitives[i].blendShapeCount > 0) hi--;
+    if (hi == ~0u && !!data->primitives[i].blendShapes) hi--;
     primitiveOrder[i] = ((uint64_t) hi << 32) | i;
   }
 
@@ -3029,14 +3029,11 @@ Model* lovrModelCreate(const ModelInfo* info) {
         uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
         size_t stride = sizeof(BlendVertex);
 
-        for (uint32_t b = 0; b < primitive->blendShapeCount; b++) {
-          ModelBlendData* blendShape = &primitive->blendShapes[b];
-          lovrModelDataCopyAttribute(data, blendShape->positions, blendData + offsetof(BlendVertex, position), F32, 3, false, vertexCount, stride, 0);
-          lovrModelDataCopyAttribute(data, blendShape->normals, blendData + offsetof(BlendVertex, normal), F32, 3, false, vertexCount, stride, 0);
-          lovrModelDataCopyAttribute(data, blendShape->tangents, blendData + offsetof(BlendVertex, tangent), F32, 3, false, vertexCount, stride, 0);
-          blendData += vertexCount * stride;
-        }
-
+        ModelBlendData* blendShape = &primitive->blendShapes[i];
+        lovrModelDataCopyAttribute(data, blendShape->positions, blendData + offsetof(BlendVertex, position), F32, 3, false, vertexCount, stride, 0);
+        lovrModelDataCopyAttribute(data, blendShape->normals, blendData + offsetof(BlendVertex, normal), F32, 3, false, vertexCount, stride, 0);
+        lovrModelDataCopyAttribute(data, blendShape->tangents, blendData + offsetof(BlendVertex, tangent), F32, 3, false, vertexCount, stride, 0);
+        blendData += vertexCount * stride;
         groupVertexCount += vertexCount;
       }
 
@@ -3076,6 +3073,7 @@ void lovrModelDestroy(void* ref) {
   lovrRelease(model->rawVertexBuffer, lovrBufferDestroy);
   lovrRelease(model->vertexBuffer, lovrBufferDestroy);
   lovrRelease(model->indexBuffer, lovrBufferDestroy);
+  lovrRelease(model->blendBuffer, lovrBufferDestroy);
   lovrRelease(model->skinBuffer, lovrBufferDestroy);
   lovrRelease(model->info.data, lovrModelDataDestroy);
   free(model->localTransforms);
@@ -3407,13 +3405,21 @@ static void lovrModelReblend(Model* model) {
       gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
       gpu_bundle_write(&bundle, &bundleInfo, 1);
 
-      uint32_t constants[] = { group->vertexIndex, group->vertexCount, j, count, blendBufferCursor };
+      uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor };
       uint32_t subgroupSize = state.device.subgroupSize;
 
       gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
       gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
       gpu_compute(state.stream, (group->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
-      // TODO barrier if there's more to do
+
+      if (j + count < group->count) {
+        gpu_sync(state.stream, &(gpu_barrier) {
+          .prev = GPU_PHASE_SHADER_COMPUTE,
+          .next = GPU_PHASE_SHADER_COMPUTE,
+          .flush = GPU_CACHE_STORAGE_WRITE,
+          .clear = GPU_CACHE_STORAGE_READ
+        }, 1);
+      }
 
       blendBufferCursor += group->vertexCount * count;
     }

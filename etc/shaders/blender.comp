@@ -8,9 +8,8 @@ layout(local_size_x = 32, local_size_x_id = 0) in;
 layout(push_constant) uniform PushConstants {
   uint baseVertex;
   uint vertexCount;
-  uint blendShapeIndex;
   uint blendShapeCount;
-  uint baseBlendShapeVertex;
+  uint baseBlendVertex;
 };
 
 struct ModelVertex {
@@ -33,5 +32,29 @@ layout(set = 0, binding = 2) buffer restrict readonly BlendVertices { BlendVerte
 layout(set = 0, binding = 3) uniform Weights { vec4 weights[32]; };
 
 void lovrmain() {
-  //
+  if (GlobalThreadID.x >= vertexCount) return;
+  uint vertexIndex = baseVertex + GlobalThreadID.x;
+  uint blendVertexIndex = baseBlendVertex + GlobalThreadID.x;
+
+  vertexOut[vertexIndex] = vertexIn[vertexIndex];
+
+  for (uint i = 0; i < blendShapeCount; i++, blendVertexIndex += vertexCount) {
+    float weight = weights[i / 4][i % 4];
+
+    if (weight == 0.) {
+      continue;
+    }
+
+    vertexOut[vertexIndex].px += blendVertex[blendVertexIndex].px * weight;
+    vertexOut[vertexIndex].py += blendVertex[blendVertexIndex].py * weight;
+    vertexOut[vertexIndex].pz += blendVertex[blendVertexIndex].pz * weight;
+
+    vertexOut[vertexIndex].nx += blendVertex[blendVertexIndex].nx * weight;
+    vertexOut[vertexIndex].ny += blendVertex[blendVertexIndex].ny * weight;
+    vertexOut[vertexIndex].nz += blendVertex[blendVertexIndex].nz * weight;
+
+    vertexOut[vertexIndex].tx += blendVertex[blendVertexIndex].tx * weight;
+    vertexOut[vertexIndex].ty += blendVertex[blendVertexIndex].ty * weight;
+    vertexOut[vertexIndex].tz += blendVertex[blendVertexIndex].tz * weight;
+  }
 }

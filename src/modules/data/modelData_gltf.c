@@ -864,6 +864,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   }
                 }
               } else if (STR_EQ(key, "targets")) {
+                primitive->blendShapes = blendData;
+                primitive->blendShapeCount = token->size;
                 for (int t = (token++)->size; t > 0; t--, blendData++) {
                   for (int a = (token++)->size; a > 0; a--) {
                     gltfString name = NOM_STR(json, token);
