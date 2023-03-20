@@ -4043,6 +4043,10 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   pass->pipeline->shader = shader;
   pass->pipeline->dirty = true;
 
+  if ((shader && shader->hasCustomAttributes) || (previous && previous->hasCustomAttributes)) {
+    pass->pipeline->formatHash = 0;
+  }
+
   // If shaders have different push constant ranges, descriptor sets need to be rebound
   if ((shader ? shader->constantSize : 0) != (previous ? previous->constantSize : 0)) {
     pass->materialDirty = true;
