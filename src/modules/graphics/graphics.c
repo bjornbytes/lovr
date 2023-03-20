@@ -28,6 +28,7 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 #define MAX_TRANSFORMS 16
 #define MAX_PIPELINES 4
 #define MAX_SHADER_RESOURCES 32
+#define MAX_CUSTOM_ATTRIBUTES 10
 #define FLOAT_BITS(f) ((union { float f; uint32_t u; }) { f }).u
 
 typedef struct {
@@ -4090,8 +4091,8 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
 
 void lovrPassSetVertexFormat(Pass* pass, BufferField* fields, uint32_t count) {
   if (!pass->pipeline->vertexFormat) { // Vertex formats are huge, allocate it lazily only if needed
-    pass->pipeline->vertexFormat = tempAlloc(11 * sizeof(BufferField));
-    memset(pass->pipeline->vertexFormat, 0, 11 * sizeof(BufferField));
+    pass->pipeline->vertexFormat = tempAlloc((MAX_CUSTOM_ATTRIBUTES + 1) * sizeof(BufferField));
+    memset(pass->pipeline->vertexFormat, 0, (MAX_CUSTOM_ATTRIBUTES + 1) * sizeof(BufferField));
     pass->pipeline->vertexFormat[0].children = &pass->pipeline->vertexFormat[1];
   }
 
@@ -4114,7 +4115,7 @@ void lovrPassSetVertexFormat(Pass* pass, BufferField* fields, uint32_t count) {
     lovrCheck(attribute->length == 0, "Vertex attributes can not be arrays");
   }
 
-  lovrCheck(array->childCount <= 10, "Too many vertex attributes (max is %d)", 10);
+  lovrCheck(array->childCount <= MAX_CUSTOM_ATTRIBUTES, "Too many vertex attributes (max is %d)", MAX_CUSTOM_ATTRIBUTES);
   memcpy(array, fields, count * sizeof(BufferField));
   array->children = array + (fields[0].children - fields);
   alignField(array, LAYOUT_PACKED);

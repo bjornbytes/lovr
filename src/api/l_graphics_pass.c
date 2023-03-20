@@ -440,7 +440,7 @@ static int l_lovrPassSetStencilWrite(lua_State* L) {
 
 static int l_lovrPassSetVertexFormat(lua_State* L) {
   uint32_t count = 0;
-  BufferField fields[11];
+  BufferField fields[16];
   Pass* pass = luax_checktype(L, 1, Pass);
   if (lua_isnil(L, 2)) {
     lovrPassSetVertexFormat(pass, NULL, 0);
