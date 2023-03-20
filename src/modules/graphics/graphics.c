@@ -1774,6 +1774,11 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         continue;
       }
 
+      lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
+      lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " uniform texel buffer", "");
+      lovrCheck(resource->type != SPV_STORAGE_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " storage texel buffer", "");
+      lovrCheck(resource->type != SPV_INPUT_ATTACHMENT, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, "n input attachment", "");
+
       static const gpu_slot_type resourceTypes[] = {
         [SPV_UNIFORM_BUFFER] = GPU_SLOT_UNIFORM_BUFFER,
         [SPV_STORAGE_BUFFER] = GPU_SLOT_STORAGE_BUFFER,

@@ -162,7 +162,6 @@ const char* spv_result_to_string(spv_result result) {
     case SPV_OK: return "OK";
     case SPV_INVALID: return "Invalid SPIR-V";
     case SPV_TOO_BIG: return "SPIR-V contains too many types/variables (max ID is 65534)";
-    case SPV_UNSUPPORTED_IMAGE_TYPE: return "This type of image variable is not supported";
     case SPV_UNSUPPORTED_SPEC_CONSTANT_TYPE: return "This type of specialization constant is not supported";
     case SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE: return "Push constants must be square matrices, vectors, 32 bit numbers, or bools";
     default: return NULL;
@@ -401,21 +400,36 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
 
   // Combined image samplers are currently not supported (ty webgpu)
   if (OP_CODE(type) == 27) { // OpTypeSampledImage
-    return SPV_UNSUPPORTED_IMAGE_TYPE;
+    resource->type = SPV_COMBINED_TEXTURE_SAMPLER;
+    return SPV_OK;
   } else if (OP_CODE(type) != 25) { // OpTypeImage
     return SPV_INVALID;
   }
 
-  // Reject texel buffers (DimBuffer) and input attachments (DimSubpassData)
-  if (type[3] == 5 || type[3] == 6) {
-    return SPV_UNSUPPORTED_IMAGE_TYPE;
+  // Texel buffers use the DimBuffer dimensionality
+  if (type[3] == 5) {
+    switch (type[7]) {
+      case 1: resource->type = SPV_UNIFORM_TEXEL_BUFFER; return SPV_OK;
+      case 2: resource->type = SPV_STORAGE_TEXEL_BUFFER; return SPV_OK;
+      default: return SPV_INVALID;
+    }
+  }
+
+  // Input attachments use the DimSubpassData dimensionality, and "Sampled" must be 2
+  if (type[3] == 6) {
+    if (type[7] == 2) {
+      resource->type = SPV_INPUT_ATTACHMENT;
+      return SPV_OK;
+    } else {
+      return SPV_INVALID;
+    }
   }
 
   // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
   switch (type[7]) {
     case 1: resource->type = SPV_SAMPLED_TEXTURE; return SPV_OK;
     case 2: resource->type = SPV_STORAGE_TEXTURE; return SPV_OK;
-    default: return SPV_UNSUPPORTED_IMAGE_TYPE;
+    default: return SPV_INVALID;
   }
 }
 
