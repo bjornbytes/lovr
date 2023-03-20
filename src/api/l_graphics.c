@@ -879,7 +879,14 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     } else if (lua_type(L, -1) == LUA_TTABLE) {
       lua_getfield(L, -1, "type");
       if (lua_isnil(L, -1)) {
-        lua_pop(L, 2);
+        lua_pop(L, 1);
+        lua_rawgeti(L, -1, 2);
+        if (lua_type(L, -1) == LUA_TSTRING) {
+          lua_settop(L, 2);
+          lua_insert(L, 1);
+        } else {
+          lua_pop(L, 2);
+        }
       } else {
         lua_settop(L, 2);
         lua_insert(L, 1);
