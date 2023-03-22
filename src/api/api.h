@@ -134,9 +134,13 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
 #ifndef LOVR_DISABLE_DATA
 struct Blob;
 struct Image;
+struct ModelData;
 struct Blob* luax_readblob(lua_State* L, int index, const char* debug);
 struct Image* luax_checkimage(lua_State* L, int index);
 uint32_t luax_checkcodepoint(lua_State* L, int index);
+uint32_t luax_checkanimationindex(lua_State* L, int index, struct ModelData* model);
+uint32_t luax_checkmaterialindex(lua_State* L, int index, struct ModelData* model);
+uint32_t luax_checknodeindex(lua_State* L, int index, struct ModelData* model);
 #endif
 
 #ifndef LOVR_DISABLE_EVENT
@@ -159,7 +163,6 @@ void luax_readbufferfield(lua_State* L, int index, int type, void* data);
 void luax_readbufferdata(lua_State* L, int index, struct Buffer* buffer, char* data);
 uint32_t luax_checkcomparemode(lua_State* L, int index);
 struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
-uint32_t luax_checknodeindex(lua_State* L, int index, struct Model* model);
 #endif
 
 #ifndef LOVR_DISABLE_MATH

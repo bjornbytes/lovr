@@ -18,46 +18,6 @@ static int luax_callmodeldata(lua_State* L, const char* method, int nrets) {
   return nrets;
 }
 
-static uint32_t luax_checkanimation(lua_State* L, int index, Model* model) {
-  switch (lua_type(L, index)) {
-    case LUA_TSTRING: {
-      size_t length;
-      const char* name = lua_tolstring(L, index, &length);
-      ModelData* data = lovrModelGetInfo(model)->data;
-      uint64_t animationIndex = map_get(&data->animationMap, hash64(name, length));
-      lovrCheck(animationIndex != MAP_NIL, "ModelData has no animation named '%s'", name);
-      return (uint32_t) animationIndex;
-    }
-    case LUA_TNUMBER: {
-      uint32_t animation = luax_checku32(L, index) - 1;
-      ModelData* data = lovrModelGetInfo(model)->data;
-      lovrCheck(animation < data->animationCount, "Invalid animation index '%d'", animation + 1);
-      return animation;
-    }
-    default: return luax_typeerror(L, index, "number or string"), ~0u;
-  }
-}
-
-uint32_t luax_checknodeindex(lua_State* L, int index, Model* model) {
-  switch (lua_type(L, index)) {
-    case LUA_TSTRING: {
-      size_t length;
-      const char* name = lua_tolstring(L, index, &length);
-      ModelData* data = lovrModelGetInfo(model)->data;
-      uint64_t nodeIndex = map_get(&data->nodeMap, hash64(name, length));
-      lovrCheck(nodeIndex != MAP_NIL, "ModelData has no node named '%s'", name);
-      return (uint32_t) nodeIndex;
-    }
-    case LUA_TNUMBER: {
-      uint32_t node = luax_checku32(L, index) - 1;
-      ModelData* data = lovrModelGetInfo(model)->data;
-      lovrCheck(node < data->nodeCount, "Invalid node index '%d'", node + 1);
-      return node;
-    }
-    default: return luax_typeerror(L, index, "number or string"), ~0u;
-  }
-}
-
 static int l_lovrModelGetData(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   ModelData* data = lovrModelGetInfo(model)->data;
@@ -91,7 +51,7 @@ static int l_lovrModelGetNodeChildren(lua_State* L) {
 
 static int l_lovrModelGetNodeDrawCount(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   uint32_t count = lovrModelGetNodeDrawCount(model, node);
   lua_pushinteger(L, count);
   return 1;
@@ -99,7 +59,7 @@ static int l_lovrModelGetNodeDrawCount(lua_State* L) {
 
 static int l_lovrModelGetNodeDraw(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   uint32_t index = luax_optu32(L, 3, 1) - 1;
   ModelDraw draw;
   lovrModelGetNodeDraw(model, node, index, &draw);
@@ -117,7 +77,7 @@ static int l_lovrModelGetNodeDraw(lua_State* L) {
 
 static int l_lovrModelGetNodePosition(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4];
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
@@ -129,7 +89,7 @@ static int l_lovrModelGetNodePosition(lua_State* L) {
 
 static int l_lovrModelSetNodePosition(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   float position[4];
   int index = luax_readvec3(L, 3, position, NULL);
   float alpha = luax_optfloat(L, index, 1.f);
@@ -139,7 +99,7 @@ static int l_lovrModelSetNodePosition(lua_State* L) {
 
 static int l_lovrModelGetNodeScale(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4];
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
@@ -151,7 +111,7 @@ static int l_lovrModelGetNodeScale(lua_State* L) {
 
 static int l_lovrModelSetNodeScale(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   float scale[4];
   int index = luax_readscale(L, 3, scale, 3, NULL);
   float alpha = luax_optfloat(L, index, 1.f);
@@ -161,7 +121,7 @@ static int l_lovrModelSetNodeScale(lua_State* L) {
 
 static int l_lovrModelGetNodeOrientation(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4], angle, ax, ay, az;
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
@@ -175,7 +135,7 @@ static int l_lovrModelGetNodeOrientation(lua_State* L) {
 
 static int l_lovrModelSetNodeOrientation(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   float rotation[4];
   int index = luax_readquat(L, 3, rotation, NULL);
   float alpha = luax_optfloat(L, index, 1.f);
@@ -185,7 +145,7 @@ static int l_lovrModelSetNodeOrientation(lua_State* L) {
 
 static int l_lovrModelGetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4], angle, ax, ay, az;
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
@@ -202,7 +162,7 @@ static int l_lovrModelGetNodePose(lua_State* L) {
 
 static int l_lovrModelSetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   int index = 3;
   float position[4], rotation[4];
   index = luax_readvec3(L, index, position, NULL);
@@ -214,7 +174,7 @@ static int l_lovrModelSetNodePose(lua_State* L) {
 
 static int l_lovrModelGetNodeTransform(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
   float position[4], scale[4], rotation[4], angle, ax, ay, az;
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
@@ -234,7 +194,7 @@ static int l_lovrModelGetNodeTransform(lua_State* L) {
 
 static int l_lovrModelSetNodeTransform(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, model);
+  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   int index = 3;
   VectorType type;
   float position[4], scale[4], rotation[4];
@@ -281,7 +241,7 @@ static int l_lovrModelHasJoints(lua_State* L) {
 
 static int l_lovrModelAnimate(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t animation = luax_checkanimation(L, 2, model);
+  uint32_t animation = luax_checkanimationindex(L, 2, lovrModelGetInfo(model)->data);
   float time = luax_checkfloat(L, 3);
   float alpha = luax_optfloat(L, 4, 1.f);
   lovrModelAnimate(model, animation, time, alpha);
@@ -356,7 +316,7 @@ static int l_lovrModelGetTextureCount(lua_State* L) {
 
 static int l_lovrModelGetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t index = luaL_checkinteger(L, 2);
+  uint32_t index = luax_checkmaterialindex(L, 2, lovrModelGetInfo(model)->data);
   Material* material = lovrModelGetMaterial(model, index);
   luax_pushtype(L, Material, material);
   return 1;

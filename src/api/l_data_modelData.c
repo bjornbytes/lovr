@@ -3,60 +3,60 @@
 #include "core/maf.h"
 #include "util.h"
 
-static ModelNode* luax_checknode(lua_State* L, int index, ModelData* model) {
-  switch (lua_type(L, index)) {
-    case LUA_TNUMBER: {
-      uint32_t node = luax_checku32(L, index) - 1;
-      lovrCheck(node < model->nodeCount, "Invalid node index '%d'", node + 1);
-      return &model->nodes[node];
-    }
-    case LUA_TSTRING: {
-      size_t length;
-      const char* name = lua_tolstring(L, index, &length);
-      uint64_t hash = hash64(name, length);
-      uint64_t entry = map_get(&model->nodeMap, hash);
-      lovrCheck(entry != MAP_NIL, "ModelData has no node named '%s'", name);
-      return &model->nodes[(uint32_t) entry];
-    }
-    default: return luax_typeerror(L, index, "number or string"), NULL;
-  }
-}
-
-static ModelMaterial* luax_checkmaterial(lua_State* L, int index, ModelData* model) {
-  switch (lua_type(L, index)) {
-    case LUA_TNUMBER: {
-      uint32_t material = luax_checku32(L, index) - 1;
-      lovrCheck(material < model->materialCount, "Invalid material index '%d'", material + 1);
-      return &model->materials[material];
-    }
-    case LUA_TSTRING: {
-      size_t length;
-      const char* name = lua_tolstring(L, index, &length);
-      uint64_t hash = hash64(name, length);
-      uint64_t entry = map_get(&model->materialMap, hash);
-      lovrCheck(entry != MAP_NIL, "ModelData has no material named '%s'", name);
-      return &model->materials[(uint32_t) entry];
-    }
-    default: return luax_typeerror(L, index, "number or string"), NULL;
-  }
-}
-
-static ModelAnimation* luax_checkanimation(lua_State* L, int index, ModelData* model) {
+uint32_t luax_checkanimationindex(lua_State* L, int index, ModelData* model) {
   switch (lua_type(L, index)) {
     case LUA_TNUMBER: {
       uint32_t animation = luax_checku32(L, index) - 1;
       lovrCheck(animation < model->animationCount, "Invalid animation index '%d'", animation + 1);
-      return &model->animations[animation];
+      return animation;
     }
     case LUA_TSTRING: {
       size_t length;
       const char* name = lua_tolstring(L, index, &length);
       uint64_t hash = hash64(name, length);
       uint64_t entry = map_get(&model->animationMap, hash);
-      lovrCheck(entry != MAP_NIL, "ModelData has no animation named '%s'", name);
-      return &model->animations[(uint32_t) entry];
+      lovrCheck(entry != MAP_NIL, "Model has no animation named '%s'", name);
+      return (uint32_t) entry;
     }
-    default: return luax_typeerror(L, index, "number or string"), NULL;
+    default: return luax_typeerror(L, index, "number or string"), ~0u;
+  }
+}
+
+uint32_t luax_checkmaterialindex(lua_State* L, int index, ModelData* model) {
+  switch (lua_type(L, index)) {
+    case LUA_TNUMBER: {
+      uint32_t material = luax_checku32(L, index) - 1;
+      lovrCheck(material < model->materialCount, "Invalid material index '%d'", material + 1);
+      return material;
+    }
+    case LUA_TSTRING: {
+      size_t length;
+      const char* name = lua_tolstring(L, index, &length);
+      uint64_t hash = hash64(name, length);
+      uint64_t entry = map_get(&model->materialMap, hash);
+      lovrCheck(entry != MAP_NIL, "Model has no material named '%s'", name);
+      return (uint32_t) entry;
+    }
+    default: return luax_typeerror(L, index, "number or string"), ~0u;
+  }
+}
+
+uint32_t luax_checknodeindex(lua_State* L, int index, ModelData* model) {
+  switch (lua_type(L, index)) {
+    case LUA_TNUMBER: {
+      uint32_t node = luax_checku32(L, index) - 1;
+      lovrCheck(node < model->nodeCount, "Invalid node index '%d'", node + 1);
+      return node;
+    }
+    case LUA_TSTRING: {
+      size_t length;
+      const char* name = lua_tolstring(L, index, &length);
+      uint64_t hash = hash64(name, length);
+      uint64_t entry = map_get(&model->nodeMap, hash);
+      lovrCheck(entry != MAP_NIL, "Model has no node named '%s'", name);
+      return (uint32_t) entry;
+    }
+    default: return luax_typeerror(L, index, "number or string"), ~0u;
   }
 }
 
@@ -122,7 +122,7 @@ static int l_lovrModelDataGetNodeName(lua_State* L) {
 
 static int l_lovrModelDataGetNodeParent(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   if (node->parent == ~0u) {
     lua_pushnil(L);
   } else {
@@ -133,7 +133,7 @@ static int l_lovrModelDataGetNodeParent(lua_State* L) {
 
 static int l_lovrModelDataGetNodeChildren(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   lua_createtable(L, node->childCount, 0);
   for (uint32_t i = 0; i < node->childCount; i++) {
     lua_pushinteger(L, node->children[i] + 1);
@@ -144,7 +144,7 @@ static int l_lovrModelDataGetNodeChildren(lua_State* L) {
 
 static int l_lovrModelDataGetNodePosition(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   if (node->hasMatrix) {
     float position[4];
     mat4_getPosition(node->transform.matrix, position);
@@ -162,7 +162,7 @@ static int l_lovrModelDataGetNodePosition(lua_State* L) {
 
 static int l_lovrModelDataGetNodeOrientation(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   float angle, ax, ay, az;
   if (node->hasMatrix) {
     mat4_getAngleAxis(node->transform.matrix, &angle, &ax, &ay, &az);
@@ -178,7 +178,7 @@ static int l_lovrModelDataGetNodeOrientation(lua_State* L) {
 
 static int l_lovrModelDataGetNodeScale(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   if (node->hasMatrix) {
     float scale[3];
     mat4_getScale(node->transform.matrix, scale);
@@ -195,7 +195,7 @@ static int l_lovrModelDataGetNodeScale(lua_State* L) {
 
 static int l_lovrModelDataGetNodePose(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   if (node->hasMatrix) {
     float position[3], angle, ax, ay, az;
     mat4_getPosition(node->transform.matrix, position);
@@ -223,7 +223,7 @@ static int l_lovrModelDataGetNodePose(lua_State* L) {
 
 static int l_lovrModelDataGetNodeTransform(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   if (node->hasMatrix) {
     float position[4], scale[4], angle, ax, ay, az;
     mat4_getPosition(node->transform.matrix, position);
@@ -258,7 +258,7 @@ static int l_lovrModelDataGetNodeTransform(lua_State* L) {
 
 static int l_lovrModelDataGetNodeMeshes(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   lua_createtable(L, node->primitiveCount, 0);
   for (uint32_t i = 0; i < node->primitiveCount; i++) {
     lua_pushinteger(L, node->primitiveIndex + i + 1);
@@ -269,7 +269,7 @@ static int l_lovrModelDataGetNodeMeshes(lua_State* L) {
 
 static int l_lovrModelDataGetNodeSkin(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelNode* node = luax_checknode(L, 2, model);
+  ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   if (node->skin == ~0u) {
     lua_pushnil(L);
   } else {
@@ -560,7 +560,7 @@ static int l_lovrModelDataGetMaterialName(lua_State* L) {
 
 static int l_lovrModelDataGetMaterial(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelMaterial* material = luax_checkmaterial(L, 2, model);
+  ModelMaterial* material = &model->materials[luax_checkmaterialindex(L, 2, model)];
 
   lua_newtable(L);
 
@@ -636,21 +636,21 @@ static int l_lovrModelDataGetAnimationName(lua_State* L) {
 
 static int l_lovrModelDataGetAnimationDuration(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  ModelAnimation* animation = &model->animations[luax_checkanimationindex(L, 2, model)];
   lua_pushnumber(L, animation->duration);
   return 1;
 }
 
 static int l_lovrModelDataGetAnimationChannelCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  ModelAnimation* animation = &model->animations[luax_checkanimationindex(L, 2, model)];
   lua_pushinteger(L, animation->channelCount);
   return 1;
 }
 
 static int l_lovrModelDataGetAnimationNode(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  ModelAnimation* animation = &model->animations[luax_checkanimationindex(L, 2, model)];
   uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
@@ -660,7 +660,7 @@ static int l_lovrModelDataGetAnimationNode(lua_State* L) {
 
 static int l_lovrModelDataGetAnimationProperty(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  ModelAnimation* animation = &model->animations[luax_checkanimationindex(L, 2, model)];
   uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
@@ -670,7 +670,7 @@ static int l_lovrModelDataGetAnimationProperty(lua_State* L) {
 
 static int l_lovrModelDataGetAnimationSmoothMode(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  ModelAnimation* animation = &model->animations[luax_checkanimationindex(L, 2, model)];
   uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
@@ -680,7 +680,7 @@ static int l_lovrModelDataGetAnimationSmoothMode(lua_State* L) {
 
 static int l_lovrModelDataGetAnimationKeyframeCount(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  ModelAnimation* animation = &model->animations[luax_checkanimationindex(L, 2, model)];
   uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];
@@ -690,7 +690,7 @@ static int l_lovrModelDataGetAnimationKeyframeCount(lua_State* L) {
 
 static int l_lovrModelDataGetAnimationKeyframe(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
-  ModelAnimation* animation = luax_checkanimation(L, 2, model);
+  ModelAnimation* animation = &model->animations[luax_checkanimationindex(L, 2, model)];
   uint32_t index = luax_checku32(L, 3) - 1;
   lovrCheck(index < animation->channelCount, "Invalid channel index '%d'", index + 1);
   ModelAnimationChannel* channel = &animation->channels[index];

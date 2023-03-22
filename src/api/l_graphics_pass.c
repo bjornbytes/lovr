@@ -784,7 +784,7 @@ static int l_lovrPassDraw(lua_State* L) {
 
   if (model) {
     int index = luax_readmat4(L, 3, transform, 1);
-    uint32_t node = lua_isnoneornil(L, index) ? ~0u : luax_checknodeindex(L, index, model);
+    uint32_t node = lua_isnoneornil(L, index) ? ~0u : luax_checknodeindex(L, index, lovrModelGetInfo(model)->data);
     bool recurse = lua_isnoneornil(L, index + 1) ? true : lua_toboolean(L, index + 1);
     uint32_t instances = lua_isnoneornil(L, index + 2) ? 1 : luax_checku32(L, index + 2);
     lovrPassDrawModel(pass, model, transform, node, recurse, instances);
