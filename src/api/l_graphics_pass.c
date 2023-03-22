@@ -429,7 +429,9 @@ static int l_lovrPassSetStencilWrite(lua_State* L) {
       actions[2] = luax_checkenum(L, -1, StencilAction, NULL);
       lua_pop(L, 3);
     } else {
-      actions[0] = actions[1] = actions[2] = luax_checkenum(L, 2, StencilAction, NULL);
+      actions[0] = STENCIL_KEEP;
+      actions[1] = STENCIL_KEEP;
+      actions[2] = luax_checkenum(L, 2, StencilAction, NULL);
     }
     uint8_t value = luaL_optinteger(L, 3, 1);
     uint8_t mask = luaL_optinteger(L, 4, 0xff);
