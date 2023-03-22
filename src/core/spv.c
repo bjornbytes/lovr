@@ -485,6 +485,16 @@ static spv_result spv_parse_field(spv_context* spv, const uint32_t* word, spv_fi
     if (!spv_load_type(spv, word[2], &word)) {
       return SPV_INVALID;
     }
+  } else if (OP_CODE(word) == 29) { // OpTypeRuntimeArray
+    if (field) {
+      field->arrayLength = ~0u;
+      field->arrayStride = spv->cache[word[1]].type.arrayStride;
+    }
+
+    // Unwrap inner array type and fall through
+    if (!spv_load_type(spv, word[2], &word)) {
+      return SPV_INVALID;
+    }
   } else if (field) {
     field->arrayLength = 0;
     field->arrayStride = 0;
