@@ -815,10 +815,13 @@ elseif(ANDROID)
     add_dependencies(buildAPK lovr)
 
     if(CMAKE_BUILD_TYPE STREQUAL Release)
+      # Get list of shared objects to strip
+      file(GLOB LOVR_ANDROID_TARGETS_TO_STRIP RELATIVE ${CMAKE_CURRENT_BINARY_DIR} CONFIGURE_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/raw/lib/${ANDROID_ABI}/*.so")
+      # Invoke strip command
       add_custom_target(
         strip ALL
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND ${CMAKE_STRIP} raw/lib/${ANDROID_ABI}/*.so
+        COMMAND ${CMAKE_STRIP} ${LOVR_ANDROID_TARGETS_TO_STRIP}
       )
       add_dependencies(strip lovr)
       add_dependencies(buildAPK strip)
