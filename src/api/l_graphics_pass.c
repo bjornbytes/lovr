@@ -440,6 +440,19 @@ static int l_lovrPassSetStencilWrite(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSetVertexFormat(lua_State* L) {
+  uint32_t count = 0;
+  BufferField fields[16];
+  Pass* pass = luax_checktype(L, 1, Pass);
+  if (lua_isnil(L, 2)) {
+    lovrPassSetVertexFormat(pass, NULL, 0);
+  } else {
+    luax_checkbufferformat(L, 2, fields, &count, COUNTOF(fields));
+    lovrPassSetVertexFormat(pass, fields, count);
+  }
+  return 0;
+}
+
 static int l_lovrPassSetViewport(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float viewport[4];
@@ -507,30 +520,10 @@ static int l_lovrPassSend(lua_State* L) {
     return 0;
   }
 
-  if (!name) {
-    return luax_typeerror(L, 3, "Buffer, Texture, or Sampler");
-  }
-
   void* data;
-  FieldType type;
-  lovrPassSendValue(pass, name, length, &data, &type);
-
-  int index = 3;
-
-  // readbufferfield doesn't handle booleans or tables; coerce/unpack
-  if (lua_isboolean(L, 3)) {
-    bool value = lua_toboolean(L, 3);
-    lua_settop(L, 2);
-    lua_pushinteger(L, value);
-  } else if (lua_istable(L, 3)) {
-    int length = luax_len(L, 3);
-    for (int i = 0; i < length && i < 16; i++) {
-      lua_rawgeti(L, 3, i + 1);
-    }
-    index = 4;
-  }
-
-  luax_readbufferfield(L, index, type, data);
+  BufferField* field;
+  lovrPassSendData(pass, name, length, slot, &data, &field);
+  luax_readbufferfield(L, 3, field, data);
   return 0;
 }
 
@@ -796,6 +789,27 @@ static int l_lovrPassDraw(lua_State* L) {
 
 static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
+
+  if (lua_istable(L, 2)) {
+    lua_rawgeti(L, 2, 1);
+    lovrCheck(lua_type(L, -1) == LUA_TTABLE, "Vertex data must be provided as a table of tables");
+    lua_pop(L, 1);
+    float transform[16];
+    uint32_t vertexCount = luax_len(L, 2);
+    uint32_t indexCount = lua_istable(L, 3) ? luax_len(L, 3) : 0;
+    luax_readmat4(L, indexCount > 0 ? 4 : 3, transform, 1);
+    BufferField* format;
+    void* vertices;
+    void* indices;
+    lovrPassMeshImmediate(pass, vertexCount, &vertices, &format, indexCount, &indices, transform);
+    luax_readbufferfield(L, 2, format, vertices);
+    if (indexCount > 0) {
+      BufferField indexFormat = { .type = FIELD_INDEX16, .length = indexCount, .stride = 2 };
+      luax_readbufferfield(L, 3, &indexFormat, indices);
+    }
+    return 0;
+  }
+
   Buffer* vertices = (!lua_toboolean(L, 2) || lua_type(L, 2) == LUA_TNUMBER) ? NULL : luax_checkbuffer(L, 2);
   Buffer* indices = luax_totype(L, 3, Buffer);
   Buffer* indirect = luax_totype(L, 4, Buffer);
@@ -841,9 +855,9 @@ static int l_lovrPassClear(lua_State* L) {
 
   if (buffer) {
     const BufferInfo* info = lovrBufferGetInfo(buffer);
-    uint32_t index = luax_optu32(L, 3, 1);
-    uint32_t count = luax_optu32(L, 4, info->length - index + 1);
-    lovrPassClearBuffer(pass, buffer, (index - 1) * info->stride, count * info->stride);
+    uint32_t offset = luax_optu32(L, 3, 0);
+    uint32_t extent = luax_optu32(L, 4, info->size - offset);
+    lovrPassClearBuffer(pass, buffer, offset, extent);
     return 0;
   }
 
@@ -868,20 +882,29 @@ static int l_lovrPassCopy(lua_State* L) {
 
   if (lua_istable(L, 2)) {
     Buffer* buffer = luax_checkbuffer(L, 3);
-    uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
-    uint32_t dstIndex = luax_optu32(L, 5, 1) - 1;
-
-    lua_rawgeti(L, 2, 1);
-    bool nested = lua_istable(L, -1);
-    lua_pop(L, 1);
-
-    uint32_t length = luax_len(L, 2);
     const BufferInfo* info = lovrBufferGetInfo(buffer);
-    uint32_t limit = nested ? MIN(length - srcIndex, info->length - dstIndex) : info->length - dstIndex;
-    uint32_t count = luax_optu32(L, 6, limit);
+    lovrCheck(info->fields, "Buffer must be created with format information to copy a table to it");
+    const BufferField* array = &info->fields[0];
+    void* data = NULL;
 
-    void* data = lovrPassCopyDataToBuffer(pass, buffer, dstIndex * info->stride, count * info->stride);
-    lua_remove(L, 3); // table, srcIndex, dstIndex, count
+    if (array->length == 0) {
+      data = lovrPassCopyDataToBuffer(pass, buffer, 0, info->size);
+    } else {
+      uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
+      uint32_t dstIndex = luax_optu32(L, 5, 1) - 1;
+
+      lua_rawgeti(L, 2, 1);
+      bool nested = lua_istable(L, -1);
+      lua_pop(L, 1);
+
+      uint32_t tableLength = luax_len(L, 2);
+      uint32_t limit = nested ? MIN(tableLength - srcIndex, array->length - dstIndex) : array->length - dstIndex;
+      uint32_t count = luax_optu32(L, 6, limit);
+
+      data = lovrPassCopyDataToBuffer(pass, buffer, dstIndex * array->stride, count * array->stride);
+    }
+
+    lua_remove(L, 3); // Remove buffer, leaving (table, srcIndex, dstIndex, count)
     luax_readbufferdata(L, 2, buffer, data);
     return 0;
   }
@@ -893,14 +916,13 @@ static int l_lovrPassCopy(lua_State* L) {
     uint32_t srcOffset = luax_optu32(L, 4, 0);
     uint32_t dstOffset = luax_optu32(L, 5, 0);
     const BufferInfo* info = lovrBufferGetInfo(buffer);
-    uint32_t bufferSize = info->length * info->stride;
     lovrCheck(srcOffset <= blob->size, "Source byte offset is %d but Blob is only %d bytes", srcOffset, (uint32_t) blob->size);
-    lovrCheck(dstOffset <= bufferSize, "Destination byte offset is %d but Buffer is only %d bytes", dstOffset, bufferSize);
+    lovrCheck(dstOffset <= info->size, "Destination byte offset is %d but Buffer is only %d bytes", dstOffset, info->size);
     // Conversion is safe because right side will never exceed size of uint32_t
-    uint32_t limit = (uint32_t) MIN(blob->size - srcOffset, bufferSize - dstOffset);
+    uint32_t limit = (uint32_t) MIN(blob->size - srcOffset, info->size - dstOffset);
     uint32_t extent = luax_optu32(L, 6, limit);
     lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds Blob size");
-    lovrCheck(extent <= info->length * info->stride - dstOffset, "Buffer copy offset exceeds Buffer size");
+    lovrCheck(extent <= info->size - dstOffset, "Buffer copy range exceeds Buffer size");
     void* data = lovrPassCopyDataToBuffer(pass, buffer, dstOffset, extent);
     memcpy(data, (char*) blob->data + srcOffset, extent);
     return 0;
@@ -914,7 +936,7 @@ static int l_lovrPassCopy(lua_State* L) {
     uint32_t dstOffset = luax_optu32(L, 5, 0);
     const BufferInfo* srcInfo = lovrBufferGetInfo(buffer);
     const BufferInfo* dstInfo = lovrBufferGetInfo(dst);
-    uint32_t limit = MIN(srcInfo->length * srcInfo->stride - srcOffset, dstInfo->length * dstInfo->stride - dstOffset);
+    uint32_t limit = MIN(srcInfo->size - srcOffset, dstInfo->size - dstOffset);
     uint32_t extent = luax_optu32(L, 6, limit);
     lovrPassCopyBufferToBuffer(pass, buffer, dst, srcOffset, dstOffset, extent);
     return 0;
@@ -1018,9 +1040,8 @@ static int l_lovrPassRead(lua_State* L) {
 
   if (buffer) {
     const BufferInfo* info = lovrBufferGetInfo(buffer);
-    uint32_t index = luax_optu32(L, 3, 1) - 1;
-    uint32_t offset = index * info->stride;
-    uint32_t extent = luax_optu32(L, 4, info->length - index) * info->stride;
+    uint32_t offset = luax_optu32(L, 3, 0);
+    uint32_t extent = luax_optu32(L, 4, info->size - offset);
     Readback* readback = lovrPassReadBuffer(pass, buffer, offset, extent);
     luax_pushtype(L, Readback, readback);
     lovrRelease(readback, lovrReadbackDestroy);
@@ -1115,6 +1136,7 @@ const luaL_Reg lovrPass[] = {
   { "setShader", l_lovrPassSetShader },
   { "setStencilTest", l_lovrPassSetStencilTest },
   { "setStencilWrite", l_lovrPassSetStencilWrite },
+  { "setVertexFormat", l_lovrPassSetVertexFormat },
   { "setViewport", l_lovrPassSetViewport },
   { "setWinding", l_lovrPassSetWinding },
   { "setWireframe", l_lovrPassSetWireframe },

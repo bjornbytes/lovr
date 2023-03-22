@@ -151,11 +151,17 @@ typedef enum {
   FIELD_INDEX32
 } FieldType;
 
-typedef struct {
+typedef struct BufferField {
+  struct BufferField* children;
+  uint32_t childCount;
   uint32_t hash;
+  const char* name;
   uint32_t location;
-  uint32_t type;
   uint32_t offset;
+  uint32_t type;
+  uint32_t length;
+  uint32_t stride;
+  uint32_t align;
 } BufferField;
 
 typedef enum {
@@ -165,10 +171,10 @@ typedef enum {
 } BufferLayout;
 
 typedef struct {
-  uint32_t length;
-  uint32_t stride;
+  uint32_t size;
+  BufferLayout layout;
   uint32_t fieldCount;
-  BufferField fields[16];
+  BufferField* fields;
   const char* label;
   uintptr_t handle;
 } BufferInfo;
@@ -322,6 +328,7 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderHasStage(Shader* shader, ShaderStage stage);
 bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location);
 void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]);
+BufferField* lovrShaderGetBufferFormat(Shader* shader, const char* name, size_t length, uint32_t slot, uint32_t* size, uint32_t* fieldCount);
 
 // Material
 
@@ -622,6 +629,7 @@ void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 void lovrPassSetShader(Pass* pass, Shader* shader);
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
 void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask);
+void lovrPassSetVertexFormat(Pass* pass, BufferField* fields, uint32_t count);
 void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);
@@ -629,7 +637,7 @@ void lovrPassSetWireframe(Pass* pass, bool wireframe);
 void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture);
 void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler);
-void lovrPassSendValue(Pass* pass, const char* name, size_t length, void** data, FieldType* type);
+void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot, void** data, BufferField** field);
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** vertices);
 void lovrPassLine(Pass* pass, uint32_t count, float** vertices);
@@ -648,6 +656,7 @@ void lovrPassFill(Pass* pass, Texture* texture);
 void lovrPassMonkey(Pass* pass, float* transform);
 void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node, bool recurse, uint32_t instances);
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t base);
+void lovrPassMeshImmediate(Pass* pass, uint32_t vertexCount, void** vertices, BufferField** format, uint32_t indexCount, void** indices, float* transform);
 void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
