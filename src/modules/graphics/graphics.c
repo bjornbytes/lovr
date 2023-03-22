@@ -1782,6 +1782,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     spv[i].attributes = tempAlloc(spv[i].attributeCount * sizeof(spv_attribute));
     spv[i].resources = tempAlloc(spv[i].resourceCount * sizeof(spv_resource));
     spv[i].fields = tempAlloc(spv[i].fieldCount * sizeof(spv_field));
+    memset(spv[i].fields, 0, spv[i].fieldCount * sizeof(spv_field));
 
     result = spv_parse(info->source[i].code, info->source[i].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
