@@ -745,8 +745,9 @@ elseif(ANDROID)
   )
 
   if(LOVR_BUILD_EXE)
-    set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
-    set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
+    find_package(Java)
+    cmake_path(CONVERT "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar" TO_NATIVE_PATH_LIST ANDROID_JAR) # For Windows
+    cmake_path(CONVERT "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}" TO_NATIVE_PATH_LIST ANDROID_TOOLS) # For Windows
 
     # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
     if(ANDROID_ASSETS)
@@ -784,12 +785,13 @@ elseif(ANDROID)
     endif()
 
     # Make an apk
+    cmake_path(CONVERT "${ANDROID_PACKAGE_JAVA}/Activity.class" TO_NATIVE_PATH_LIST LOVR_ACTIVITY_CLASS_PATH) # For Windows
     add_custom_target(
       buildAPK ALL
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMAND ${CMAKE_COMMAND} -E copy "${ANDROID_MANIFEST}" AndroidManifest.xml
       COMMAND ${Java_JAVAC_EXECUTABLE} -classpath "${ANDROID_JAR}" -d . Activity.java
-      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw ${ANDROID_PACKAGE_JAVA}/Activity.class
+      COMMAND ${ANDROID_TOOLS}/d8 --min-api ${ANDROID_NATIVE_API_LEVEL} --output raw ${LOVR_ACTIVITY_CLASS_PATH}
       COMMAND
         ${ANDROID_TOOLS}/aapt
         package -f
