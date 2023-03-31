@@ -515,7 +515,7 @@ static bool openxr_init(HeadsetConfig* config) {
     // Blend mode
     uint32_t blendModeCount;
     XrEnvironmentBlendMode blendModes[8];
-    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, COUNTOF(blendModes), &blendModeCount, blendModes));
+    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, COUNTOF(blendModes), &blendModeCount, blendModes), "Failed to query blend modes");
     state.blendMode = blendModes[0];
   }
 
