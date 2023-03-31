@@ -127,7 +127,10 @@ MAF float vec3_angle(const vec3 v, const vec3 u) {
   if (denom == 0.f) {
     return (float) M_PI / 2.f;
   } else {
-    return acosf(vec3_dot(v, u) / denom);
+    float cos = vec3_dot(v, u) / denom;
+    cos = cos < -1 ? -1 : cos;
+    cos = cos > 1 ? 1 : cos;
+    return acosf(cos);
   }
 }
 
