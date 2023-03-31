@@ -146,6 +146,7 @@ static struct {
   XrSessionState sessionState;
   XrSpace referenceSpace;
   XrReferenceSpaceType referenceSpaceType;
+  XrEnvironmentBlendMode blendMode;
   XrSpace spaces[MAX_DEVICES];
   XrSwapchain swapchain[2];
   XrCompositionLayerProjection layers[1];
@@ -455,6 +456,12 @@ static bool openxr_init(HeadsetConfig* config) {
 
     state.width = MIN(views[0].recommendedImageRectWidth * config->supersample, views[0].maxImageRectWidth);
     state.height = MIN(views[0].recommendedImageRectHeight * config->supersample, views[0].maxImageRectHeight);
+
+    // Blend mode
+    uint32_t blendModeCount;
+    XrEnvironmentBlendMode blendModes[8];
+    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, COUNTOF(blendModes), &blendModeCount, blendModes), "Failed to query blend modes");
+    state.blendMode = blendModes[0];
   }
 
   { // Actions
@@ -1969,7 +1976,7 @@ static void openxr_submit(void) {
   XrFrameEndInfo info = {
     .type = XR_TYPE_FRAME_END_INFO,
     .displayTime = state.frameState.predictedDisplayTime,
-    .environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE,
+    .environmentBlendMode = state.blendMode,
     .layers = (const XrCompositionLayerBaseHeader*[1]) {
       (XrCompositionLayerBaseHeader*) &state.layers[0]
     }
