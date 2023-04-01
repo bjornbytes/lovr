@@ -383,7 +383,7 @@ void main() {
   if (flag_materialColor) Color *= Material.color;
   if (flag_vertexColors) Color *= VertexColor;
 
-  if (flag_normalMap && flag_vertexTangents) {
+  if (flag_vertexTangents) {
     Tangent = NormalMatrix * VertexTangent;
   }
 
