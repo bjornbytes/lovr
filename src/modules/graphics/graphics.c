@@ -3437,14 +3437,19 @@ static void lovrModelAnimateVertices(Model* model) {
       gpu_bundle* bundle = getBundle(state.animator->layout);
       gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
       gpu_bundle_write(&bundle, &bundleInfo, 1);
-
-      uint32_t constants[] = { baseVertex, skin->vertexCount };
-      uint32_t subgroupSize = state.device.subgroupSize;
-
       gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
-      gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
-      gpu_compute(state.stream, (skin->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
-      baseVertex += skin->vertexCount;
+
+      uint32_t subgroupSize = state.device.subgroupSize;
+      uint32_t maxVerticesPerDispatch = state.limits.workgroupCount[0] * subgroupSize;
+      uint32_t verticesRemaining = skin->vertexCount;
+
+      while (verticesRemaining > 0) {
+        uint32_t vertexCount = MIN(verticesRemaining, maxVerticesPerDispatch);
+        gpu_push_constants(state.stream, shader->gpu, (uint32_t[2]) { baseVertex, vertexCount }, 8);
+        gpu_compute(state.stream, (vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
+        verticesRemaining -= vertexCount;
+        baseVertex += vertexCount;
+      }
     }
   }
 
