@@ -3340,7 +3340,7 @@ static void lovrModelAnimateVertices(Model* model) {
 
     gpu_binding bindings[] = {
       { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
-      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->blendBuffer->gpu, 0, model->blendBuffer->size } },
+      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->blendBuffer->gpu, 0, model->blendBuffer->info.size } },
       { 2, GPU_SLOT_UNIFORM_BUFFER, .buffer = { weightBuffer, 0, chunkSize * sizeof(float) } }
     };
 
