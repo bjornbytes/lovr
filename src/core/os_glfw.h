@@ -44,6 +44,14 @@ void os_on_text(fn_text* callback) {
   //
 }
 
+void os_on_mouse_button(fn_mouse_button* callback) {
+  //
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  //
+}
+
 void os_get_mouse_position(double* x, double* y) {
   *x = *y = 0.;
 }
@@ -95,6 +103,8 @@ static struct {
   fn_resize* onWindowResize;
   fn_key* onKeyboardEvent;
   fn_text* onTextEvent;
+  fn_mouse_button* onMouseButton;
+  fn_mouse_move* onMouseMove;
 } glfwState;
 
 static void onError(int code, const char* description) {
@@ -228,11 +238,23 @@ static void onTextEvent(GLFWwindow* window, unsigned int codepoint) {
   }
 }
 
+static void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
+  if (glfwState.onMouseButton) {
+    glfwState.onMouseButton(button, action == GLFW_PRESS);
+  }
+}
+
+static void onMouseMove(GLFWwindow* window, double x, double y) {
+  if (glfwState.onMouseMove) {
+    glfwState.onMouseMove(x, y);
+  }
+}
+
 static int convertMouseButton(os_mouse_button button) {
   switch (button) {
     case MOUSE_LEFT: return GLFW_MOUSE_BUTTON_LEFT;
     case MOUSE_RIGHT: return GLFW_MOUSE_BUTTON_RIGHT;
-    default: return -1;
+    default: return (int) button;
   }
 }
 
@@ -314,6 +336,8 @@ bool os_window_open(const os_window_config* config) {
   glfwSetWindowSizeCallback(glfwState.window, onWindowResize);
   glfwSetKeyCallback(glfwState.window, onKeyboardEvent);
   glfwSetCharCallback(glfwState.window, onTextEvent);
+  glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
+  glfwSetCursorPosCallback(glfwState.window, onMouseMove);
   return true;
 }
 
@@ -362,6 +386,14 @@ void os_on_key(fn_key* callback) {
 
 void os_on_text(fn_text* callback) {
   glfwState.onTextEvent = callback;
+}
+
+void os_on_mouse_button(fn_mouse_button* callback) {
+  glfwState.onMouseButton = callback;
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  glfwState.onMouseMove = callback;
 }
 
 void os_get_mouse_position(double* x, double* y) {

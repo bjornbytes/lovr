@@ -14,6 +14,8 @@ static struct {
   fn_focus* onWindowFocus;
   fn_resize* onWindowResize;
   fn_key* onKeyboardEvent;
+  fn_mouse_button* onMouseButton;
+  fn_mouse_move* onMouseMove;
   bool keyMap[KEY_COUNT];
   bool mouseMap[2];
   os_mouse_mode mouseMode;
@@ -62,7 +64,13 @@ static EM_BOOL onMouseButton(int type, const EmscriptenMouseEvent* data, void* u
     default: return false;
   }
 
-  state.mouseMap[button] = type == EMSCRIPTEN_EVENT_MOUSEDOWN;
+  bool pressed = type == EMSCRIPTEN_EVENT_MOUSEDOWN;
+
+  if (state.onMouseButton) {
+    state.onMouseButton((int) button, pressed);
+  }
+
+  state.mouseMap[button] = pressed;
   return false;
 }
 
@@ -73,6 +81,9 @@ static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* use
   } else {
     state.mouseX = data->clientX;
     state.mouseY = data->clientY;
+  }
+  if (state.onMouseMove) {
+    state.onMouseMove(state.mouseX, state.mouseY);
   }
   return false;
 }
@@ -324,6 +335,14 @@ void os_on_key(fn_key* callback) {
 
 void os_on_text(fn_text* callback) {
   //
+}
+
+void os_on_mouse_button(fn_mouse_button* callback) {
+  state.onMouseButton = callback;
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  state.onMouseMove = callback;
 }
 
 void os_get_mouse_position(double* x, double* y) {

@@ -6,11 +6,14 @@
 
 static struct {
   bool initialized;
-  bool pressedKeys[KEY_COUNT];
+  bool keyState[KEY_COUNT];
+  bool mouseState[8];
+  double mouseX;
+  double mouseY;
 } state;
 
 static void onKey(os_button_action action, os_key key, uint32_t scancode, bool repeat) {
-  state.pressedKeys[key] = (action == BUTTON_PRESSED);
+  state.keyState[key] = (action == BUTTON_PRESSED);
   lovrEventPush((Event) {
     .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
     .data.key.code = key,
@@ -26,6 +29,29 @@ static void onText(uint32_t codepoint) {
   memset(&event.data.text.utf8, 0, sizeof(event.data.text.utf8));
   utf8_encode(codepoint, event.data.text.utf8);
   lovrEventPush(event);
+}
+
+static void onMouseButton(int button, bool pressed) {
+  if ((size_t) button < COUNTOF(state.mouseState)) state.mouseState[button] = pressed;
+  lovrEventPush((Event) {
+    .type = pressed ? EVENT_MOUSEPRESSED : EVENT_MOUSERELEASED,
+    .data.mouse.x = state.mouseX,
+    .data.mouse.y = state.mouseY,
+    .data.mouse.button = button
+  });
+}
+
+static void onMouseMove(double x, double y) {
+  lovrEventPush((Event) {
+    .type = EVENT_MOUSEMOVED,
+    .data.mouse.x = x,
+    .data.mouse.y = y,
+    .data.mouse.dx = x - state.mouseX,
+    .data.mouse.dy = y - state.mouseY
+  });
+
+  state.mouseX = x;
+  state.mouseY = y;
 }
 
 static void onPermission(os_permission permission, bool granted) {
@@ -47,8 +73,11 @@ bool lovrSystemInit() {
   if (state.initialized) return false;
   os_on_key(onKey);
   os_on_text(onText);
+  os_on_mouse_button(onMouseButton);
+  os_on_mouse_move(onMouseMove);
   os_on_permission(onPermission);
   state.initialized = true;
+  os_get_mouse_position(&state.mouseX, &state.mouseY);
   return true;
 }
 
@@ -69,7 +98,7 @@ uint32_t lovrSystemGetCoreCount() {
 }
 
 bool lovrSystemIsKeyDown(int keycode) {
-  return state.pressedKeys[keycode];
+  return state.keyState[keycode];
 }
 
 void lovrSystemRequestPermission(Permission permission) {
@@ -91,4 +120,14 @@ void lovrSystemGetWindowSize(uint32_t* width, uint32_t* height) {
 
 float lovrSystemGetWindowDensity() {
   return os_window_get_pixel_density();
+}
+
+void lovrSystemGetMousePosition(double* x, double* y) {
+  *x = state.mouseX;
+  *y = state.mouseY;
+}
+
+bool lovrSystemIsMouseDown(int button) {
+  if ((size_t) button > COUNTOF(state.mouseState)) return false;
+  return state.mouseState[button];
 }

@@ -13,6 +13,9 @@ StringEntry lovrEventType[] = {
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
   [EVENT_KEYRELEASED] = ENTRY("keyreleased"),
   [EVENT_TEXTINPUT] = ENTRY("textinput"),
+  [EVENT_MOUSEPRESSED] = ENTRY("mousepressed"),
+  [EVENT_MOUSERELEASED] = ENTRY("mousereleased"),
+  [EVENT_MOUSEMOVED] = ENTRY("mousemoved"),
 #ifndef LOVR_DISABLE_THREAD
   [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
 #endif
@@ -167,6 +170,20 @@ static int nextEvent(lua_State* L) {
       lua_pushlstring(L, event.data.text.utf8, strnlen(event.data.text.utf8, 4));
       lua_pushinteger(L, event.data.text.codepoint);
       return 3;
+
+    case EVENT_MOUSEPRESSED:
+    case EVENT_MOUSERELEASED:
+      lua_pushnumber(L, event.data.mouse.x);
+      lua_pushnumber(L, event.data.mouse.y);
+      lua_pushinteger(L, event.data.mouse.button + 1);
+      return 4;
+
+    case EVENT_MOUSEMOVED:
+      lua_pushnumber(L, event.data.mouse.x);
+      lua_pushnumber(L, event.data.mouse.y);
+      lua_pushnumber(L, event.data.mouse.dx);
+      lua_pushnumber(L, event.data.mouse.dy);
+      return 5;
 
 #ifndef LOVR_DISABLE_THREAD
     case EVENT_THREAD_ERROR:

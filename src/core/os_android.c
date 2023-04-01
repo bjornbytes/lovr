@@ -326,6 +326,14 @@ void os_on_text(fn_text* callback) {
   state.onTextEvent = callback;
 }
 
+void os_on_mouse_button(fn_mouse_button* callback) {
+  //
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  //
+}
+
 void os_on_permission(fn_permission* callback) {
   state.onPermissionEvent = callback;
 }
