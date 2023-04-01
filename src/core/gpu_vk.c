@@ -1655,9 +1655,12 @@ void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint
   vkCmdPushConstants(stream->commands, shader->pipelineLayout, stages, 0, size, data);
 }
 
-void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
-  VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
-  vkCmdBindPipeline(stream->commands, bindPoint, pipeline->handle);
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_type type) {
+  VkPipelineBindPoint pipelineTypes[] = {
+    [GPU_PIPELINE_GRAPHICS] = VK_PIPELINE_BIND_POINT_GRAPHICS,
+    [GPU_PIPELINE_COMPUTE] = VK_PIPELINE_BIND_POINT_COMPUTE
+  };
+  vkCmdBindPipeline(stream->commands, pipelineTypes[type], pipeline->handle);
 }
 
 void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundles, uint32_t first, uint32_t count, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {

@@ -85,9 +85,9 @@ struct Shader {
   uint32_t ref;
   Shader* parent;
   gpu_shader* gpu;
+  gpu_pipeline* computePipeline;
   ShaderInfo info;
   size_t layout;
-  size_t computePipelineIndex;
   uint32_t workgroupSize[3];
   bool hasCustomAttributes;
   uint32_t attributeCount;
@@ -189,6 +189,13 @@ typedef struct {
   float properties[3][4];
 } NodeTransform;
 
+typedef struct {
+  uint32_t index;
+  uint32_t count;
+  uint32_t vertexIndex;
+  uint32_t vertexCount;
+} BlendGroup;
+
 struct Model {
   uint32_t ref;
   ModelInfo info;
@@ -196,13 +203,18 @@ struct Model {
   Buffer* rawVertexBuffer;
   Buffer* vertexBuffer;
   Buffer* indexBuffer;
+  Buffer* blendBuffer;
   Buffer* skinBuffer;
   Texture** textures;
   Material** materials;
   NodeTransform* localTransforms;
   float* globalTransforms;
   bool transformsDirty;
-  uint32_t lastReskin;
+  bool blendShapesDirty;
+  float* blendShapeWeights;
+  BlendGroup* blendGroups;
+  uint32_t blendGroupCount;
+  uint32_t lastVertexAnimation;
 };
 
 struct Readback {
@@ -267,6 +279,12 @@ typedef struct {
   struct { uint8_t r, g, b, a; } color;
   struct { float x, y, z; } tangent;
 } ModelVertex;
+
+typedef struct {
+  struct { float x, y, z; } position;
+  struct { float x, y, z; } normal;
+  struct { float x, y, z; } tangent;
+} BlendVertex;
 
 enum {
   SHAPE_PLANE,
@@ -376,7 +394,7 @@ static struct {
   bool hasTextureUpload;
   bool hasMaterialUpload;
   bool hasGlyphUpload;
-  bool hasReskin;
+  bool hasVertexAnimation;
   float background[4];
   TextureFormat depthFormat;
   Texture* window;
@@ -386,6 +404,7 @@ static struct {
   Texture* defaultTexture;
   Sampler* defaultSamplers[2];
   Shader* animator;
+  Shader* blender;
   Shader* timeWizard;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   gpu_vertex_format vertexFormats[VERTEX_FORMAX];
@@ -694,6 +713,7 @@ void lovrGraphicsDestroy() {
   lovrRelease(state.defaultSamplers[0], lovrSamplerDestroy);
   lovrRelease(state.defaultSamplers[1], lovrSamplerDestroy);
   lovrRelease(state.animator, lovrShaderDestroy);
+  lovrRelease(state.blender, lovrShaderDestroy);
   lovrRelease(state.timeWizard, lovrShaderDestroy);
   for (size_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
     lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
@@ -877,12 +897,12 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     state.hasGlyphUpload = false;
   }
 
-  if (state.hasReskin) {
+  if (state.hasVertexAnimation) {
     barriers[0].prev |= GPU_PHASE_SHADER_COMPUTE;
     barriers[0].next |= GPU_PHASE_INPUT_VERTEX;
     barriers[0].flush |= GPU_CACHE_STORAGE_WRITE;
     barriers[0].clear |= GPU_CACHE_VERTEX;
-    state.hasReskin = false;
+    state.hasVertexAnimation = false;
   }
 
   // Finish passes
@@ -1695,8 +1715,8 @@ static void lovrShaderInit(Shader* shader) {
     gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
     lovrAssert(pipeline, "Out of memory");
     gpu_pipeline_init_compute(pipeline, &pipelineInfo);
-    shader->computePipelineIndex = state.pipelines.length;
     arr_push(&state.pipelines, pipeline);
+    shader->computePipeline = pipeline;
   }
 }
 
@@ -2765,6 +2785,10 @@ Model* lovrModelCreate(const ModelInfo* info) {
   model->info = *info;
   lovrRetain(info->data);
 
+  for (uint32_t i = 0; i < data->skinCount; i++) {
+    lovrCheck(data->skins[i].jointCount <= 256, "Currently, the max number of joints per skin is 256");
+  }
+
   // Materials and Textures
   model->textures = calloc(data->imageCount, sizeof(Texture*));
   model->materials = malloc(data->materialCount * sizeof(Material*));
@@ -2815,8 +2839,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
   }
 
   // Buffers
-  char* vertices = NULL;
-  char* indices = NULL;
+  char* vertexData = NULL;
+  char* indexData = NULL;
+  char* blendData = NULL;
   char* skinData = NULL;
 
   BufferField vertexFormat[] = {
@@ -2836,7 +2861,24 @@ Model* lovrModelCreate(const ModelInfo* info) {
     .fieldCount = COUNTOF(vertexFormat)
   };
 
-  model->vertexBuffer = lovrBufferCreate(&vertexBufferInfo, (void**) &vertices);
+  model->vertexBuffer = lovrBufferCreate(&vertexBufferInfo, (void**) &vertexData);
+
+  if (data->blendShapeVertexCount > 0) {
+    BufferField blendFormat[] = {
+      { .length = data->blendShapeVertexCount, .stride = 9 * sizeof(float) },
+      { .type = FIELD_F32x3, .offset = offsetof(BlendVertex, position) },
+      { .type = FIELD_F32x3, .offset = offsetof(BlendVertex, normal) },
+      { .type = FIELD_F32x3, .offset = offsetof(BlendVertex, tangent) }
+    };
+
+    blendFormat[0].children = blendFormat + 1;
+    blendFormat[0].childCount = COUNTOF(blendFormat) - 1;
+
+    model->blendBuffer = lovrBufferCreate(&(BufferInfo) {
+      .fields = blendFormat,
+      .fieldCount = COUNTOF(blendFormat)
+    }, (void**) &blendData);
+  }
 
   if (data->skinnedVertexCount > 0) {
     BufferField skinFormat[] = {
@@ -2852,14 +2894,17 @@ Model* lovrModelCreate(const ModelInfo* info) {
       .fields = skinFormat,
       .fieldCount = COUNTOF(skinFormat)
     }, (void**) &skinData);
+  }
 
-    vertexFormat[0].length = data->skinnedVertexCount;
+  // Dynamic vertices are ones that are blended or skinned.  They need a copy of the original vertex
+  if (data->dynamicVertexCount > 0) {
+    vertexFormat[0].length = data->dynamicVertexCount;
     model->rawVertexBuffer = lovrBufferCreate(&vertexBufferInfo, NULL);
 
     beginFrame();
     gpu_buffer* src = model->vertexBuffer->gpu;
     gpu_buffer* dst = model->rawVertexBuffer->gpu;
-    gpu_copy_buffers(state.stream, src, dst, 0, 0, data->skinnedVertexCount * sizeof(ModelVertex));
+    gpu_copy_buffers(state.stream, src, dst, 0, 0, data->dynamicVertexCount * sizeof(ModelVertex));
 
     gpu_barrier barrier;
     barrier.prev = GPU_PHASE_TRANSFER;
@@ -2879,25 +2924,33 @@ Model* lovrModelCreate(const ModelInfo* info) {
         .length = data->indexCount,
         .stride = indexSize
       }
-    }, (void**) &indices);
+    }, (void**) &indexData);
   }
 
-  // Sort primitives by their skin, so there is a single contiguous region of skinned vertices
+  // Primitives are sorted to simplify animation:
+  // - Skinned primitives come first, ordered by skin
+  // - Primitives with blend shapes are next
+  // - Then "non-dynamic" primitives follow
+  // Within each section primitives are still sorted by their index.
+
   size_t stack = tempPush();
-  uint64_t* map = tempAlloc(data->primitiveCount * sizeof(uint64_t));
+  uint64_t* primitiveOrder = tempAlloc(data->primitiveCount * sizeof(uint64_t));
+  uint32_t* baseVertex = tempAlloc(data->primitiveCount * sizeof(uint32_t));
 
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
-    map[i] = ((uint64_t) data->primitives[i].skin << 32) | i;
+    uint32_t hi = data->primitives[i].skin;
+    if (hi == ~0u && !!data->primitives[i].blendShapes) hi--;
+    primitiveOrder[i] = ((uint64_t) hi << 32) | i;
   }
 
-  qsort(map, data->primitiveCount, sizeof(uint64_t), u64cmp);
+  qsort(primitiveOrder, data->primitiveCount, sizeof(uint64_t), u64cmp);
 
   // Draws
   model->draws = calloc(data->primitiveCount, sizeof(Draw));
   lovrAssert(model->draws, "Out of memory");
   for (uint32_t i = 0, vertexCursor = 0, indexCursor = 0; i < data->primitiveCount; i++) {
-    ModelPrimitive* primitive = &data->primitives[map[i] & ~0u];
-    Draw* draw = &model->draws[map[i] & ~0u];
+    ModelPrimitive* primitive = &data->primitives[primitiveOrder[i] & ~0u];
+    Draw* draw = &model->draws[primitiveOrder[i] & ~0u];
 
     switch (primitive->mode) {
       case DRAW_POINTS: draw->mode = MESH_POINTS; break;
@@ -2920,22 +2973,23 @@ Model* lovrModelCreate(const ModelInfo* info) {
       draw->count = primitive->attributes[ATTR_POSITION]->count;
     }
 
+    baseVertex[i] = vertexCursor;
     vertexCursor += primitive->attributes[ATTR_POSITION]->count;
   }
 
   // Vertices
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
-    ModelPrimitive* primitive = &data->primitives[map[i] & ~0u];
+    ModelPrimitive* primitive = &data->primitives[primitiveOrder[i] & ~0u];
     ModelAttribute** attributes = primitive->attributes;
     uint32_t count = attributes[ATTR_POSITION]->count;
     size_t stride = sizeof(ModelVertex);
 
-    lovrModelDataCopyAttribute(data, attributes[ATTR_POSITION], vertices + 0, F32, 3, false, count, stride, 0);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_NORMAL], vertices + 12, F32, 3, false, count, stride, 0);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_UV], vertices + 24, F32, 2, false, count, stride, 0);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_COLOR], vertices + 32, U8, 4, true, count, stride, 255);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_TANGENT], vertices + 36, F32, 3, false, count, stride, 0);
-    vertices += count * stride;
+    lovrModelDataCopyAttribute(data, attributes[ATTR_POSITION], vertexData + 0, F32, 3, false, count, stride, 0);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_NORMAL], vertexData + 12, F32, 3, false, count, stride, 0);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_UV], vertexData + 24, F32, 2, false, count, stride, 0);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_COLOR], vertexData + 32, U8, 4, true, count, stride, 255);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_TANGENT], vertexData + 36, F32, 3, false, count, stride, 0);
+    vertexData += count * stride;
 
     if (data->skinnedVertexCount > 0 && primitive->skin != ~0u) {
       lovrModelDataCopyAttribute(data, attributes[ATTR_JOINTS], skinData + 0, U8, 4, false, count, 8, 0);
@@ -2944,16 +2998,59 @@ Model* lovrModelCreate(const ModelInfo* info) {
     }
 
     if (primitive->indices) {
-      char* indexData = data->buffers[primitive->indices->buffer].data + primitive->indices->offset;
-      memcpy(indices, indexData, primitive->indices->count * indexSize);
-      indices += primitive->indices->count * indexSize;
+      char* indices = data->buffers[primitive->indices->buffer].data + primitive->indices->offset;
+      memcpy(indexData, indices, primitive->indices->count * indexSize);
+      indexData += primitive->indices->count * indexSize;
     }
   }
 
-  for (uint32_t i = 0; i < data->skinCount; i++) {
-    lovrCheck(data->skins[i].jointCount <= 256, "Currently, the max number of joints per skin is 256");
+  // Blend shapes
+  if (data->blendShapeCount > 0) {
+    for (uint32_t i = 0; i < data->blendShapeCount; i++) {
+      if (i == 0 || data->blendShapes[i - 1].node != data->blendShapes[i].node) {
+        model->blendGroupCount++;
+      }
+    }
+
+    model->blendGroups = malloc(model->blendGroupCount * sizeof(BlendGroup));
+    model->blendShapeWeights = malloc(data->blendShapeCount * sizeof(float));
+    lovrAssert(model->blendGroups && model->blendShapeWeights, "Out of memory");
+
+    BlendGroup* group = model->blendGroups;
+
+    for (uint32_t i = 0; i < data->blendShapeCount; i++) {
+      ModelBlendShape* blendShape = &data->blendShapes[i];
+      ModelNode* node = &data->nodes[blendShape->node];
+      uint32_t groupVertexCount = 0;
+
+      for (uint32_t p = 0; p < node->primitiveCount; p++) {
+        ModelPrimitive* primitive = &data->primitives[node->primitiveIndex + p];
+        uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
+        size_t stride = sizeof(BlendVertex);
+
+        ModelBlendData* blendShape = &primitive->blendShapes[i];
+        lovrModelDataCopyAttribute(data, blendShape->positions, blendData + offsetof(BlendVertex, position), F32, 3, false, vertexCount, stride, 0);
+        lovrModelDataCopyAttribute(data, blendShape->normals, blendData + offsetof(BlendVertex, normal), F32, 3, false, vertexCount, stride, 0);
+        lovrModelDataCopyAttribute(data, blendShape->tangents, blendData + offsetof(BlendVertex, tangent), F32, 3, false, vertexCount, stride, 0);
+        blendData += vertexCount * stride;
+        groupVertexCount += vertexCount;
+      }
+
+      if (i == 0 || blendShape[-1].node != blendShape[0].node) {
+        group->index = node->blendShapeIndex;
+        group->count = node->blendShapeCount;
+        group->vertexIndex = baseVertex[node->primitiveIndex];
+        group->vertexCount = groupVertexCount;
+        group++;
+      }
+
+      model->blendShapeWeights[i] = blendShape->weight;
+    }
+
+    model->blendShapesDirty = true;
   }
 
+  // Transforms
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
@@ -2975,10 +3072,13 @@ void lovrModelDestroy(void* ref) {
   lovrRelease(model->rawVertexBuffer, lovrBufferDestroy);
   lovrRelease(model->vertexBuffer, lovrBufferDestroy);
   lovrRelease(model->indexBuffer, lovrBufferDestroy);
+  lovrRelease(model->blendBuffer, lovrBufferDestroy);
   lovrRelease(model->skinBuffer, lovrBufferDestroy);
   lovrRelease(model->info.data, lovrModelDataDestroy);
   free(model->localTransforms);
   free(model->globalTransforms);
+  free(model->blendShapeWeights);
+  free(model->blendGroups);
   free(model->draws);
   free(model->materials);
   free(model->textures);
@@ -3033,6 +3133,8 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   ModelAnimation* animation = &data->animations[animationIndex];
   time = fmodf(time, animation->duration);
 
+  size_t stack = tempPush();
+
   for (uint32_t i = 0; i < animation->channelCount; i++) {
     ModelAnimationChannel* channel = &animation->channels[i];
     uint32_t node = channel->nodeIndex;
@@ -3043,10 +3145,18 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       keyframe++;
     }
 
-    float property[4];
-    bool rotate = channel->property == PROP_ROTATION;
-    size_t n = 3 + rotate;
-    float* (*lerp)(float* a, float* b, float t) = rotate ? quat_slerp : vec3_lerp;
+    size_t n;
+    float values[4];
+    float* property = values;
+    switch (channel->property) {
+      case PROP_TRANSLATION: n = 3; break;
+      case PROP_SCALE: n = 3; break;
+      case PROP_ROTATION: n = 4; break;
+      case PROP_WEIGHTS:
+        n = data->nodes[node].blendShapeCount;
+        property = tempAlloc(n * sizeof(float));
+        break;
+    }
 
     // Handle the first/last keyframe case (no interpolation)
     if (keyframe == 0 || keyframe >= channel->keyframeCount) {
@@ -3069,7 +3179,14 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
           break;
         case SMOOTH_LINEAR:
           memcpy(property, channel->data + (keyframe - 1) * n, n * sizeof(float));
-          lerp(property, channel->data + keyframe * n, z);
+          if (channel->property == PROP_ROTATION) {
+            quat_slerp(property, channel->data + keyframe * n, z);
+          } else {
+            float* target = channel->data + keyframe * n;
+            for (uint32_t i = 0; i < n; i++) {
+              property[i] += (target[i] - property[i]) * z;
+            }
+          }
           break;
         case SMOOTH_CUBIC: {
           size_t stride = 3 * n;
@@ -3093,14 +3210,34 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       }
     }
 
-    if (alpha >= 1.f) {
-      memcpy(transform->properties[channel->property], property, n * sizeof(float));
+    float* dst;
+    if (channel->property == PROP_WEIGHTS) {
+      dst = &model->blendShapeWeights[data->nodes[node].blendShapeIndex];
+      model->blendShapesDirty = true;
     } else {
-      lerp(transform->properties[channel->property], property, alpha);
+      dst = transform->properties[channel->property];
+      model->transformsDirty = true;
+    }
+
+    if (alpha >= 1.f) {
+      memcpy(dst, property, n * sizeof(float));
+    } else {
+      for (uint32_t i = 0; i < n; i++) {
+        dst[i] += (property[i] - dst[i]) * alpha;
+      }
     }
   }
 
-  model->transformsDirty = true;
+  tempPop(stack);
+}
+
+float lovrModelGetBlendShapeWeight(Model* model, uint32_t index) {
+  return model->blendShapeWeights[index];
+}
+
+void lovrModelSetBlendShapeWeight(Model* model, uint32_t index, float weight) {
+  model->blendShapeWeights[index] = weight;
+  model->blendShapesDirty = true;
 }
 
 void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], OriginType origin) {
@@ -3157,68 +3294,169 @@ Buffer* lovrModelGetIndexBuffer(Model* model) {
   return model->indexBuffer;
 }
 
-static void lovrModelReskin(Model* model) {
+#include <stdio.h>
+static void lovrModelAnimateVertices(Model* model) {
   ModelData* data = model->info.data;
 
-  if (data->skinCount == 0 || model->lastReskin == state.tick) {
+  bool blend = model->blendGroupCount > 0;
+  bool skin = data->skinCount > 0;
+
+  if ((!blend && !skin) || (!model->transformsDirty && !model->blendShapesDirty) || model->lastVertexAnimation == state.tick) {
     return;
   }
 
-  if (!state.animator) {
-    state.animator = lovrShaderCreate(&(ShaderInfo) {
-      .type = SHADER_COMPUTE,
-      .source[0] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) },
-      .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
-      .flagCount = 1,
-      .label = "animator"
-    });
+  if (model->transformsDirty) {
+    updateModelTransforms(model, model->info.data->rootNode, (float[]) MAT4_IDENTITY);
+    model->transformsDirty = false;
   }
 
-  gpu_pipeline* pipeline = state.pipelines.data[state.animator->computePipelineIndex];
-  gpu_layout* layout = state.layouts.data[state.animator->layout].gpu;
-  gpu_shader* shader = state.animator->gpu;
-  gpu_buffer* joints = tempAlloc(gpu_sizeof_buffer());
+  if (blend) {
+    gpu_buffer* src = model->rawVertexBuffer->gpu;
+    gpu_buffer* dst = model->vertexBuffer->gpu;
+    gpu_copy_buffers(state.stream, src, dst, 0, 0, data->dynamicVertexCount * sizeof(ModelVertex));
+    gpu_sync(state.stream, &(gpu_barrier) {
+      .prev = GPU_PHASE_TRANSFER,
+      .next = GPU_PHASE_SHADER_COMPUTE,
+      .flush = GPU_CACHE_TRANSFER_WRITE,
+      .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
+    }, 1);
 
-  uint32_t count = data->skinnedVertexCount;
-
-  gpu_binding bindings[] = {
-    { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->rawVertexBuffer->gpu, 0, count * sizeof(ModelVertex) } },
-    { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, count * sizeof(ModelVertex) } },
-    { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->skinBuffer->gpu, 0, count * 8 } },
-    { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { joints, 0, 0 } } // Filled in for each skin
-  };
-
-  for (uint32_t i = 0, baseVertex = 0; i < data->skinCount; i++) {
-    ModelSkin* skin = &data->skins[i];
-
-    float transform[16];
-    uint32_t size = bindings[3].buffer.extent = skin->jointCount * 16 * sizeof(float);
-    float* joint = gpu_map(joints, size, state.limits.uniformBufferAlign, GPU_MAP_STREAM);
-    for (uint32_t j = 0; j < skin->jointCount; j++) {
-      mat4_init(transform, model->globalTransforms + 16 * skin->joints[j]);
-      mat4_mul(transform, skin->inverseBindMatrices + 16 * j);
-      memcpy(joint, transform, sizeof(transform));
-      joint += 16;
+    if (!state.blender) {
+      state.blender = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_COMPUTE,
+        .source[0] = { lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) },
+        .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
+        .flagCount = 1,
+        .label = "blender"
+      });
     }
 
-    gpu_bundle* bundle = getBundle(state.animator->layout);
-    gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
-    gpu_bundle_write(&bundle, &bundleInfo, 1);
+    Shader* shader = state.blender;
+    gpu_layout* layout = state.layouts.data[shader->layout].gpu;
+    gpu_buffer* weightBuffer = tempAlloc(gpu_sizeof_buffer());
+    uint32_t vertexCount = model->info.data->dynamicVertexCount;
+    uint32_t blendBufferCursor = 0;
+    uint32_t chunkSize = 64;
 
-    uint32_t constants[] = { baseVertex, skin->vertexCount };
-    uint32_t subgroupSize = state.device.subgroupSize;
+    gpu_binding bindings[] = {
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
+      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->blendBuffer->gpu, 0, model->blendBuffer->info.size } },
+      { 2, GPU_SLOT_UNIFORM_BUFFER, .buffer = { weightBuffer, 0, chunkSize * sizeof(float) } }
+    };
 
     gpu_compute_begin(state.stream);
-    gpu_bind_pipeline(state.stream, pipeline, true);
-    gpu_bind_bundles(state.stream, shader, &bundle, 0, 1, NULL, 0);
-    gpu_push_constants(state.stream, shader, constants, sizeof(constants));
-    gpu_compute(state.stream, (skin->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
-    gpu_compute_end(state.stream);
-    baseVertex += skin->vertexCount;
+    gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
+
+    for (uint32_t i = 0; i < model->blendGroupCount; i++) {
+      BlendGroup* group = &model->blendGroups[i];
+
+      for (uint32_t j = 0; j < group->count; j += chunkSize) {
+        uint32_t count = MIN(group->count - j, chunkSize);
+
+        float* weights = gpu_map(weightBuffer, chunkSize * sizeof(float), state.limits.uniformBufferAlign, GPU_MAP_STREAM);
+        memcpy(weights, model->blendShapeWeights + group->index + j, count * sizeof(float));
+
+        gpu_bundle* bundle = getBundle(state.blender->layout);
+        gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
+        gpu_bundle_write(&bundle, &bundleInfo, 1);
+
+        uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor };
+        uint32_t subgroupSize = state.device.subgroupSize;
+
+        gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
+        gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
+        gpu_compute(state.stream, (group->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
+
+        if (j + count < group->count) {
+          gpu_sync(state.stream, &(gpu_barrier) {
+            .prev = GPU_PHASE_SHADER_COMPUTE,
+            .next = GPU_PHASE_SHADER_COMPUTE,
+            .flush = GPU_CACHE_STORAGE_WRITE,
+            .clear = GPU_CACHE_STORAGE_READ
+          }, 1);
+        }
+
+        blendBufferCursor += group->vertexCount * count;
+      }
+    }
+
+    model->blendShapesDirty = false;
   }
 
-  model->lastReskin = state.tick;
-  state.hasReskin = true;
+  if (skin) {
+    if (blend) {
+      gpu_sync(state.stream, &(gpu_barrier) {
+        .prev = GPU_PHASE_SHADER_COMPUTE,
+        .next = GPU_PHASE_SHADER_COMPUTE,
+        .flush = GPU_CACHE_STORAGE_WRITE,
+        .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
+      }, 1);
+    } else {
+      gpu_compute_begin(state.stream);
+    }
+
+    if (!state.animator) {
+      state.animator = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_COMPUTE,
+        .source[0] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) },
+        .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
+        .flagCount = 1,
+        .label = "animator"
+      });
+    }
+
+    Shader* shader = state.animator;
+    gpu_buffer* sourceBuffer = blend ? model->vertexBuffer->gpu : model->rawVertexBuffer->gpu;
+    gpu_layout* layout = state.layouts.data[shader->layout].gpu;
+    gpu_buffer* joints = tempAlloc(gpu_sizeof_buffer());
+
+    uint32_t count = data->skinnedVertexCount;
+
+    gpu_binding bindings[] = {
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { sourceBuffer, 0, count * sizeof(ModelVertex) } },
+      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, count * sizeof(ModelVertex) } },
+      { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->skinBuffer->gpu, 0, count * 8 } },
+      { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { joints, 0, 0 } } // Filled in for each skin
+    };
+
+    gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
+
+    for (uint32_t i = 0, baseVertex = 0; i < data->skinCount; i++) {
+      ModelSkin* skin = &data->skins[i];
+
+      float transform[16];
+      uint32_t size = bindings[3].buffer.extent = skin->jointCount * 16 * sizeof(float);
+      float* joint = gpu_map(joints, size, state.limits.uniformBufferAlign, GPU_MAP_STREAM);
+      for (uint32_t j = 0; j < skin->jointCount; j++) {
+        mat4_init(transform, model->globalTransforms + 16 * skin->joints[j]);
+        mat4_mul(transform, skin->inverseBindMatrices + 16 * j);
+        memcpy(joint, transform, sizeof(transform));
+        joint += 16;
+      }
+
+      gpu_bundle* bundle = getBundle(state.animator->layout);
+      gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
+      gpu_bundle_write(&bundle, &bundleInfo, 1);
+      gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
+
+      uint32_t subgroupSize = state.device.subgroupSize;
+      uint32_t maxVerticesPerDispatch = state.limits.workgroupCount[0] * subgroupSize;
+      uint32_t verticesRemaining = skin->vertexCount;
+
+      while (verticesRemaining > 0) {
+        uint32_t vertexCount = MIN(verticesRemaining, maxVerticesPerDispatch);
+        gpu_push_constants(state.stream, shader->gpu, (uint32_t[2]) { baseVertex, vertexCount }, 8);
+        gpu_compute(state.stream, (vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
+        verticesRemaining -= vertexCount;
+        baseVertex += vertexCount;
+      }
+    }
+  }
+
+  gpu_compute_end(state.stream);
+
+  model->lastVertexAnimation = state.tick;
+  state.hasVertexAnimation = true;
 }
 
 // Readback
@@ -3373,7 +3611,6 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
     });
   }
 
-  gpu_pipeline* pipeline = state.pipelines.data[state.timeWizard->computePipelineIndex];
   gpu_layout* layout = state.layouts.data[state.timeWizard->layout].gpu;
   gpu_shader* shader = state.timeWizard->gpu;
 
@@ -3394,7 +3631,7 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
   };
 
   gpu_compute_begin(stream);
-  gpu_bind_pipeline(stream, pipeline, true);
+  gpu_bind_pipeline(stream, state.timeWizard->computePipeline, GPU_PIPELINE_COMPUTE);
   gpu_bind_bundles(stream, shader, &bundle, 0, 1, NULL, 0);
   gpu_push_constants(stream, shader, &constants, sizeof(constants));
   gpu_compute(stream, (count + 31) / 32, 1, 1);
@@ -4374,7 +4611,7 @@ static void bindPipeline(Pass* pass, Draw* draw, Shader* shader) {
     map_set(&state.pipelineLookup, hash, index);
   }
 
-  gpu_bind_pipeline(pass->stream, state.pipelines.data[index], false);
+  gpu_bind_pipeline(pass->stream, state.pipelines.data[index], GPU_PIPELINE_GRAPHICS);
   pipeline->dirty = false;
 }
 
@@ -5524,9 +5761,10 @@ static void renderNode(Pass* pass, Model* model, uint32_t index, bool recurse, u
 }
 
 void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node, bool recurse, uint32_t instances) {
+  lovrModelAnimateVertices(model);
+
   if (model->transformsDirty) {
     updateModelTransforms(model, model->info.data->rootNode, (float[]) MAT4_IDENTITY);
-    lovrModelReskin(model);
     model->transformsDirty = false;
   }
 
@@ -5630,10 +5868,8 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   lovrCheck(y <= state.limits.workgroupCount[1], "Compute %s count exceeds workgroupCount limit", "y");
   lovrCheck(z <= state.limits.workgroupCount[2], "Compute %s count exceeds workgroupCount limit", "z");
 
-  gpu_pipeline* pipeline = state.pipelines.data[shader->computePipelineIndex];
-
   if (pass->pipeline->dirty) {
-    gpu_bind_pipeline(pass->stream, pipeline, true);
+    gpu_bind_pipeline(pass->stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
     pass->pipeline->dirty = false;
   }
 

@@ -18,6 +18,26 @@ static int luax_callmodeldata(lua_State* L, const char* method, int nrets) {
   return nrets;
 }
 
+uint32_t luax_checkblendshape(lua_State* L, int index, Model* model) {
+  switch (lua_type(L, index)) {
+    case LUA_TSTRING: {
+      size_t length;
+      const char* name = lua_tolstring(L, index, &length);
+      ModelData* data = lovrModelGetInfo(model)->data;
+      uint64_t blendShapeIndex = map_get(&data->blendShapeMap, hash64(name, length));
+      lovrCheck(blendShapeIndex != MAP_NIL, "ModelData has no blend shape named '%s'", name);
+      return (uint32_t) blendShapeIndex;
+    }
+    case LUA_TNUMBER: {
+      uint32_t blendShape = luax_checku32(L, index) - 1;
+      ModelData* data = lovrModelGetInfo(model)->data;
+      lovrCheck(blendShape < data->blendShapeCount, "Invalid blend shape index '%d'", blendShape + 1);
+      return blendShape;
+    }
+    default: return luax_typeerror(L, index, "number or string"), ~0u;
+  }
+}
+
 static int l_lovrModelGetData(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   ModelData* data = lovrModelGetInfo(model)->data;
@@ -248,6 +268,30 @@ static int l_lovrModelAnimate(lua_State* L) {
   return 0;
 }
 
+static int l_lovrModelGetBlendShapeCount(lua_State* L) {
+  return luax_callmodeldata(L, "getBlendShapeCount", 1);
+}
+
+static int l_lovrModelGetBlendShapeName(lua_State* L) {
+  return luax_callmodeldata(L, "getBlendShapeName", 1);
+}
+
+static int l_lovrModelGetBlendShapeWeight(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t blendShape = luax_checkblendshape(L, 2, model);
+  float weight = lovrModelGetBlendShapeWeight(model, blendShape);
+  lua_pushnumber(L, weight);
+  return 1;
+}
+
+static int l_lovrModelSetBlendShapeWeight(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t blendShape = luax_checkblendshape(L, 2, model);
+  float weight = luax_checkfloat(L, 3);
+  lovrModelSetBlendShapeWeight(model, blendShape, weight);
+  return 0;
+}
+
 static int l_lovrModelGetTriangles(lua_State* L) {
   return luax_callmodeldata(L, "getTriangles", 2);
 }
@@ -356,6 +400,10 @@ const luaL_Reg lovrModel[] = {
   { "getAnimationDuration", l_lovrModelGetAnimationDuration },
   { "hasJoints", l_lovrModelHasJoints },
   { "animate", l_lovrModelAnimate },
+  { "getBlendShapeCount", l_lovrModelGetBlendShapeCount },
+  { "getBlendShapeName", l_lovrModelGetBlendShapeName },
+  { "getBlendShapeWeight", l_lovrModelGetBlendShapeWeight },
+  { "setBlendShapeWeight", l_lovrModelSetBlendShapeWeight },
   { "getTriangles", l_lovrModelGetTriangles },
   { "getTriangleCount", l_lovrModelGetTriangleCount },
   { "getVertexCount", l_lovrModelGetVertexCount },

@@ -1,0 +1,57 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "lovr.glsl"
+
+layout(local_size_x = 32, local_size_x_id = 0) in;
+
+layout(push_constant) uniform PushConstants {
+  uint baseVertex;
+  uint vertexCount;
+  uint blendShapeCount;
+  uint baseBlendVertex;
+};
+
+struct ModelVertex {
+  float px, py, pz;
+  float nx, ny, nz;
+  float u, v;
+  uint color;
+  float tx, ty, tz;
+};
+
+struct BlendVertex {
+  float px, py, pz;
+  float nx, ny, nz;
+  float tx, ty, tz;
+};
+
+layout(set = 0, binding = 0) buffer restrict Vertices { ModelVertex vertices[]; };
+layout(set = 0, binding = 1) buffer restrict readonly BlendVertices { BlendVertex blendVertex[]; };
+layout(set = 0, binding = 2) uniform Weights { vec4 weights[16]; };
+
+void lovrmain() {
+  if (GlobalThreadID.x >= vertexCount) return;
+  uint vertexIndex = baseVertex + GlobalThreadID.x;
+  uint blendVertexIndex = baseBlendVertex + GlobalThreadID.x;
+
+  for (uint i = 0; i < blendShapeCount; i++, blendVertexIndex += vertexCount) {
+    float weight = weights[i / 4][i % 4];
+
+    if (weight == 0.) {
+      continue;
+    }
+
+    vertices[vertexIndex].px += blendVertex[blendVertexIndex].px * weight;
+    vertices[vertexIndex].py += blendVertex[blendVertexIndex].py * weight;
+    vertices[vertexIndex].pz += blendVertex[blendVertexIndex].pz * weight;
+
+    vertices[vertexIndex].nx += blendVertex[blendVertexIndex].nx * weight;
+    vertices[vertexIndex].ny += blendVertex[blendVertexIndex].ny * weight;
+    vertices[vertexIndex].nz += blendVertex[blendVertexIndex].nz * weight;
+
+    vertices[vertexIndex].tx += blendVertex[blendVertexIndex].tx * weight;
+    vertices[vertexIndex].ty += blendVertex[blendVertexIndex].ty * weight;
+    vertices[vertexIndex].tz += blendVertex[blendVertexIndex].tz * weight;
+  }
+}

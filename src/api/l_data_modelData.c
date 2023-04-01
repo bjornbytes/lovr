@@ -697,8 +697,13 @@ static int l_lovrModelDataGetAnimationKeyframe(lua_State* L) {
   uint32_t keyframe = luax_checku32(L, 4) - 1;
   lovrCheck(keyframe < channel->keyframeCount, "Invalid keyframe index '%d'", keyframe + 1);
   lua_pushnumber(L, channel->times[keyframe]);
-  int counts[] = { [PROP_TRANSLATION] = 3, [PROP_ROTATION] = 4, [PROP_SCALE] = 3 };
-  int count = counts[channel->property];
+  int count;
+  switch (channel->property) {
+    case PROP_TRANSLATION: count = 3; break;
+    case PROP_ROTATION: count = 4; break;
+    case PROP_SCALE: count = 3; break;
+    case PROP_WEIGHTS: count = model->nodes[channel->nodeIndex].blendShapeCount; break;
+  }
   for (int i = 0; i < count; i++) {
     lua_pushnumber(L, channel->data[keyframe * count + i]);
   }
@@ -736,6 +741,20 @@ static int l_lovrModelDataGetSkinInverseBindMatrix(lua_State* L) {
     lua_pushnumber(L, m[i]);
   }
   return 16;
+}
+
+static int l_lovrModelDataGetBlendShapeCount(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  lua_pushinteger(L, model->blendShapeCount);
+  return 1;
+}
+
+static int l_lovrModelDataGetBlendShapeName(lua_State* L) {
+  ModelData* model = luax_checktype(L, 1, ModelData);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  lovrCheck(index < model->blendShapeCount, "Invalid blend shape index '%d'", index + 1);
+  lua_pushstring(L, model->blendShapes[index].name);
+  return 1;
 }
 
 const luaL_Reg lovrModelData[] = {
@@ -790,5 +809,7 @@ const luaL_Reg lovrModelData[] = {
   { "getSkinCount", l_lovrModelDataGetSkinCount },
   { "getSkinJoints", l_lovrModelDataGetSkinJoints },
   { "getSkinInverseBindMatrix", l_lovrModelDataGetSkinInverseBindMatrix },
+  { "getBlendShapeCount", l_lovrModelDataGetBlendShapeCount },
+  { "getBlendShapeName", l_lovrModelDataGetBlendShapeName },
   { NULL, NULL }
 };
