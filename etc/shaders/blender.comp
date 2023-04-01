@@ -28,7 +28,7 @@ struct BlendVertex {
 
 layout(set = 0, binding = 0) buffer restrict Vertices { ModelVertex vertices[]; };
 layout(set = 0, binding = 1) buffer restrict readonly BlendVertices { BlendVertex blendVertex[]; };
-layout(set = 0, binding = 2) uniform Weights { vec4 weights[32]; };
+layout(set = 0, binding = 2) uniform Weights { vec4 weights[16]; };
 
 void lovrmain() {
   if (GlobalThreadID.x >= vertexCount) return;

@@ -3336,7 +3336,7 @@ static void lovrModelAnimateVertices(Model* model) {
     gpu_buffer* weightBuffer = tempAlloc(gpu_sizeof_buffer());
     uint32_t vertexCount = model->info.data->dynamicVertexCount;
     uint32_t blendBufferCursor = 0;
-    uint32_t chunkSize = 128;
+    uint32_t chunkSize = 64;
 
     gpu_binding bindings[] = {
       { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
