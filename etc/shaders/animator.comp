@@ -23,8 +23,8 @@ struct SkinVertex {
   uint weights;
 };
 
-layout(set = 0, binding = 0) buffer restrict readonly VertexIn { ModelVertex vertexIn[]; };
-layout(set = 0, binding = 1) buffer restrict writeonly VertexOut { ModelVertex vertexOut[]; };
+layout(set = 0, binding = 0) buffer readonly VertexIn { ModelVertex vertexIn[]; };
+layout(set = 0, binding = 1) buffer writeonly VertexOut { ModelVertex vertexOut[]; };
 layout(set = 0, binding = 2) buffer restrict readonly VertexWeights { SkinVertex skin[]; };
 layout(set = 0, binding = 3) uniform JointTransforms { mat4 joints[256]; };
 

@@ -26,17 +26,14 @@ struct BlendVertex {
   float tx, ty, tz;
 };
 
-layout(set = 0, binding = 0) buffer restrict readonly VertexIn { ModelVertex vertexIn[]; };
-layout(set = 0, binding = 1) buffer restrict writeonly VertexOut { ModelVertex vertexOut[]; };
-layout(set = 0, binding = 2) buffer restrict readonly BlendVertices { BlendVertex blendVertex[]; };
-layout(set = 0, binding = 3) uniform Weights { vec4 weights[32]; };
+layout(set = 0, binding = 0) buffer restrict Vertices { ModelVertex vertices[]; };
+layout(set = 0, binding = 1) buffer restrict readonly BlendVertices { BlendVertex blendVertex[]; };
+layout(set = 0, binding = 2) uniform Weights { vec4 weights[32]; };
 
 void lovrmain() {
   if (GlobalThreadID.x >= vertexCount) return;
   uint vertexIndex = baseVertex + GlobalThreadID.x;
   uint blendVertexIndex = baseBlendVertex + GlobalThreadID.x;
-
-  vertexOut[vertexIndex] = vertexIn[vertexIndex];
 
   for (uint i = 0; i < blendShapeCount; i++, blendVertexIndex += vertexCount) {
     float weight = weights[i / 4][i % 4];
@@ -45,16 +42,16 @@ void lovrmain() {
       continue;
     }
 
-    vertexOut[vertexIndex].px += blendVertex[blendVertexIndex].px * weight;
-    vertexOut[vertexIndex].py += blendVertex[blendVertexIndex].py * weight;
-    vertexOut[vertexIndex].pz += blendVertex[blendVertexIndex].pz * weight;
+    vertices[vertexIndex].px += blendVertex[blendVertexIndex].px * weight;
+    vertices[vertexIndex].py += blendVertex[blendVertexIndex].py * weight;
+    vertices[vertexIndex].pz += blendVertex[blendVertexIndex].pz * weight;
 
-    vertexOut[vertexIndex].nx += blendVertex[blendVertexIndex].nx * weight;
-    vertexOut[vertexIndex].ny += blendVertex[blendVertexIndex].ny * weight;
-    vertexOut[vertexIndex].nz += blendVertex[blendVertexIndex].nz * weight;
+    vertices[vertexIndex].nx += blendVertex[blendVertexIndex].nx * weight;
+    vertices[vertexIndex].ny += blendVertex[blendVertexIndex].ny * weight;
+    vertices[vertexIndex].nz += blendVertex[blendVertexIndex].nz * weight;
 
-    vertexOut[vertexIndex].tx += blendVertex[blendVertexIndex].tx * weight;
-    vertexOut[vertexIndex].ty += blendVertex[blendVertexIndex].ty * weight;
-    vertexOut[vertexIndex].tz += blendVertex[blendVertexIndex].tz * weight;
+    vertices[vertexIndex].tx += blendVertex[blendVertexIndex].tx * weight;
+    vertices[vertexIndex].ty += blendVertex[blendVertexIndex].ty * weight;
+    vertices[vertexIndex].tz += blendVertex[blendVertexIndex].tz * weight;
   }
 }

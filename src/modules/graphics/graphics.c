@@ -214,8 +214,7 @@ struct Model {
   float* blendShapeWeights;
   BlendGroup* blendGroups;
   uint32_t blendGroupCount;
-  uint32_t lastReskin;
-  uint32_t lastReblend;
+  uint32_t lastVertexAnimation;
 };
 
 struct Readback {
@@ -3295,140 +3294,163 @@ Buffer* lovrModelGetIndexBuffer(Model* model) {
   return model->indexBuffer;
 }
 
-static void lovrModelReskin(Model* model) {
+#include <stdio.h>
+static void lovrModelAnimateVertices(Model* model) {
   ModelData* data = model->info.data;
 
-  if (data->skinCount == 0 || model->lastReskin == state.tick) {
+  bool blend = model->blendGroupCount > 0;
+  bool skin = data->skinCount > 0;
+
+  if ((!blend && !skin) || (!model->transformsDirty && !model->blendShapesDirty) || model->lastVertexAnimation == state.tick) {
     return;
   }
 
-  if (!state.animator) {
-    state.animator = lovrShaderCreate(&(ShaderInfo) {
-      .type = SHADER_COMPUTE,
-      .source[0] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) },
-      .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
-      .flagCount = 1,
-      .label = "animator"
-    });
+  if (model->transformsDirty) {
+    updateModelTransforms(model, model->info.data->rootNode, (float[]) MAT4_IDENTITY);
+    model->transformsDirty = false;
   }
 
-  Shader* shader = state.animator;
-  gpu_layout* layout = state.layouts.data[shader->layout].gpu;
-  gpu_buffer* joints = tempAlloc(gpu_sizeof_buffer());
+  if (blend) {
+    gpu_buffer* src = model->rawVertexBuffer->gpu;
+    gpu_buffer* dst = model->vertexBuffer->gpu;
+    gpu_copy_buffers(state.stream, src, dst, 0, 0, data->dynamicVertexCount * sizeof(ModelVertex));
+    gpu_sync(state.stream, &(gpu_barrier) {
+      .prev = GPU_PHASE_TRANSFER,
+      .next = GPU_PHASE_SHADER_COMPUTE,
+      .flush = GPU_CACHE_TRANSFER_WRITE,
+      .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
+    }, 1);
 
-  uint32_t count = data->skinnedVertexCount;
-
-  gpu_binding bindings[] = {
-    { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->rawVertexBuffer->gpu, 0, count * sizeof(ModelVertex) } },
-    { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, count * sizeof(ModelVertex) } },
-    { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->skinBuffer->gpu, 0, count * 8 } },
-    { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { joints, 0, 0 } } // Filled in for each skin
-  };
-
-  gpu_compute_begin(state.stream);
-  gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
-
-  for (uint32_t i = 0, baseVertex = 0; i < data->skinCount; i++) {
-    ModelSkin* skin = &data->skins[i];
-
-    float transform[16];
-    uint32_t size = bindings[3].buffer.extent = skin->jointCount * 16 * sizeof(float);
-    float* joint = gpu_map(joints, size, state.limits.uniformBufferAlign, GPU_MAP_STREAM);
-    for (uint32_t j = 0; j < skin->jointCount; j++) {
-      mat4_init(transform, model->globalTransforms + 16 * skin->joints[j]);
-      mat4_mul(transform, skin->inverseBindMatrices + 16 * j);
-      memcpy(joint, transform, sizeof(transform));
-      joint += 16;
+    if (!state.blender) {
+      state.blender = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_COMPUTE,
+        .source[0] = { lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) },
+        .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
+        .flagCount = 1,
+        .label = "blender"
+      });
     }
 
-    gpu_bundle* bundle = getBundle(state.animator->layout);
-    gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
-    gpu_bundle_write(&bundle, &bundleInfo, 1);
+    Shader* shader = state.blender;
+    gpu_layout* layout = state.layouts.data[shader->layout].gpu;
+    gpu_buffer* weightBuffer = tempAlloc(gpu_sizeof_buffer());
+    uint32_t vertexCount = model->info.data->dynamicVertexCount;
+    uint32_t blendBufferCursor = 0;
+    uint32_t chunkSize = 128;
 
-    uint32_t constants[] = { baseVertex, skin->vertexCount };
-    uint32_t subgroupSize = state.device.subgroupSize;
+    gpu_binding bindings[] = {
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
+      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->blendBuffer->gpu, 0, model->blendBuffer->size } },
+      { 2, GPU_SLOT_UNIFORM_BUFFER, .buffer = { weightBuffer, 0, chunkSize * sizeof(float) } }
+    };
 
-    gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
-    gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
-    gpu_compute(state.stream, (skin->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
-    baseVertex += skin->vertexCount;
+    gpu_compute_begin(state.stream);
+    gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
+
+    for (uint32_t i = 0; i < model->blendGroupCount; i++) {
+      BlendGroup* group = &model->blendGroups[i];
+
+      for (uint32_t j = 0; j < group->count; j += chunkSize) {
+        uint32_t count = MIN(group->count - j, chunkSize);
+
+        float* weights = gpu_map(weightBuffer, chunkSize * sizeof(float), state.limits.uniformBufferAlign, GPU_MAP_STREAM);
+        memcpy(weights, model->blendShapeWeights + group->index + j, count * sizeof(float));
+
+        gpu_bundle* bundle = getBundle(state.blender->layout);
+        gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
+        gpu_bundle_write(&bundle, &bundleInfo, 1);
+
+        uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor };
+        uint32_t subgroupSize = state.device.subgroupSize;
+
+        gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
+        gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
+        gpu_compute(state.stream, (group->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
+
+        if (j + count < group->count) {
+          gpu_sync(state.stream, &(gpu_barrier) {
+            .prev = GPU_PHASE_SHADER_COMPUTE,
+            .next = GPU_PHASE_SHADER_COMPUTE,
+            .flush = GPU_CACHE_STORAGE_WRITE,
+            .clear = GPU_CACHE_STORAGE_READ
+          }, 1);
+        }
+
+        blendBufferCursor += group->vertexCount * count;
+      }
+    }
+
+    model->blendShapesDirty = false;
   }
 
-  gpu_compute_end(state.stream);
+  if (skin) {
+    if (blend) {
+      gpu_sync(state.stream, &(gpu_barrier) {
+        .prev = GPU_PHASE_SHADER_COMPUTE,
+        .next = GPU_PHASE_SHADER_COMPUTE,
+        .flush = GPU_CACHE_STORAGE_WRITE,
+        .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
+      }, 1);
+    } else {
+      gpu_compute_begin(state.stream);
+    }
 
-  model->lastReskin = state.tick;
-  state.hasVertexAnimation = true;
-}
+    if (!state.animator) {
+      state.animator = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_COMPUTE,
+        .source[0] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) },
+        .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
+        .flagCount = 1,
+        .label = "animator"
+      });
+    }
 
-static void lovrModelReblend(Model* model) {
-  if (model->blendGroupCount == 0 || model->lastReblend == state.tick || !model->blendShapesDirty) {
-    return;
-  }
+    Shader* shader = state.animator;
+    gpu_buffer* sourceBuffer = blend ? model->vertexBuffer->gpu : model->rawVertexBuffer->gpu;
+    gpu_layout* layout = state.layouts.data[shader->layout].gpu;
+    gpu_buffer* joints = tempAlloc(gpu_sizeof_buffer());
 
-  if (!state.blender) {
-    state.blender = lovrShaderCreate(&(ShaderInfo) {
-      .type = SHADER_COMPUTE,
-      .source[0] = { lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) },
-      .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
-      .flagCount = 1,
-      .label = "blender"
-    });
-  }
+    uint32_t count = data->skinnedVertexCount;
 
-  Shader* shader = state.blender;
-  gpu_layout* layout = state.layouts.data[shader->layout].gpu;
-  gpu_buffer* weightBuffer = tempAlloc(gpu_sizeof_buffer());
-  uint32_t vertexCount = model->info.data->dynamicVertexCount;
-  uint32_t blendBufferCursor = 0;
-  uint32_t chunkSize = 128;
+    gpu_binding bindings[] = {
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { sourceBuffer, 0, count * sizeof(ModelVertex) } },
+      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, count * sizeof(ModelVertex) } },
+      { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->skinBuffer->gpu, 0, count * 8 } },
+      { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { joints, 0, 0 } } // Filled in for each skin
+    };
 
-  gpu_binding bindings[] = {
-    { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->rawVertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
-    { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
-    { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->blendBuffer->gpu, 0, model->blendBuffer->size } },
-    { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { weightBuffer, 0, chunkSize * sizeof(float) } }
-  };
+    gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
 
-  gpu_compute_begin(state.stream);
-  gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
+    for (uint32_t i = 0, baseVertex = 0; i < data->skinCount; i++) {
+      ModelSkin* skin = &data->skins[i];
 
-  for (uint32_t i = 0; i < model->blendGroupCount; i++) {
-    BlendGroup* group = &model->blendGroups[i];
+      float transform[16];
+      uint32_t size = bindings[3].buffer.extent = skin->jointCount * 16 * sizeof(float);
+      float* joint = gpu_map(joints, size, state.limits.uniformBufferAlign, GPU_MAP_STREAM);
+      for (uint32_t j = 0; j < skin->jointCount; j++) {
+        mat4_init(transform, model->globalTransforms + 16 * skin->joints[j]);
+        mat4_mul(transform, skin->inverseBindMatrices + 16 * j);
+        memcpy(joint, transform, sizeof(transform));
+        joint += 16;
+      }
 
-    for (uint32_t j = 0; j < group->count; j += chunkSize) {
-      uint32_t count = MIN(group->count - j, chunkSize);
-
-      float* weights = gpu_map(weightBuffer, chunkSize * sizeof(float), state.limits.uniformBufferAlign, GPU_MAP_STREAM);
-      memcpy(weights, model->blendShapeWeights + group->index + j, count * sizeof(float));
-
-      gpu_bundle* bundle = getBundle(state.blender->layout);
+      gpu_bundle* bundle = getBundle(state.animator->layout);
       gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
       gpu_bundle_write(&bundle, &bundleInfo, 1);
 
-      uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor };
+      uint32_t constants[] = { baseVertex, skin->vertexCount };
       uint32_t subgroupSize = state.device.subgroupSize;
 
-      gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
       gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
-      gpu_compute(state.stream, (group->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
-
-      if (j + count < group->count) {
-        gpu_sync(state.stream, &(gpu_barrier) {
-          .prev = GPU_PHASE_SHADER_COMPUTE,
-          .next = GPU_PHASE_SHADER_COMPUTE,
-          .flush = GPU_CACHE_STORAGE_WRITE,
-          .clear = GPU_CACHE_STORAGE_READ
-        }, 1);
-      }
-
-      blendBufferCursor += group->vertexCount * count;
+      gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
+      gpu_compute(state.stream, (skin->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
+      baseVertex += skin->vertexCount;
     }
   }
 
   gpu_compute_end(state.stream);
 
-  model->lastReblend = state.tick;
-  model->blendShapesDirty = false;
+  model->lastVertexAnimation = state.tick;
   state.hasVertexAnimation = true;
 }
 
@@ -5734,13 +5756,10 @@ static void renderNode(Pass* pass, Model* model, uint32_t index, bool recurse, u
 }
 
 void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node, bool recurse, uint32_t instances) {
-  if (model->blendShapesDirty) {
-    lovrModelReblend(model);
-  }
+  lovrModelAnimateVertices(model);
 
   if (model->transformsDirty) {
     updateModelTransforms(model, model->info.data->rootNode, (float[]) MAT4_IDENTITY);
-    lovrModelReskin(model);
     model->transformsDirty = false;
   }
 
