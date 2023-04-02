@@ -1155,10 +1155,16 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   lovrAssert(buffer->names, "Out of memory");
   buffer->info = *info;
   buffer->info.size = size;
-  buffer->info.fields = malloc(info->fieldCount * sizeof(BufferField));
-  lovrAssert(buffer->info.fields, "Out of memory");
-  memcpy(buffer->info.fields, info->fields, info->fieldCount * sizeof(BufferField));
-  buffer->hash = hash64(info->fields, info->fieldCount * sizeof(BufferField));
+
+  if (info->fieldCount > 0) {
+    buffer->info.fields = malloc(info->fieldCount * sizeof(BufferField));
+    lovrAssert(buffer->info.fields, "Out of memory");
+    memcpy(buffer->info.fields, info->fields, info->fieldCount * sizeof(BufferField));
+    buffer->hash = hash64(info->fields, info->fieldCount * sizeof(BufferField));
+  } else {
+    buffer->info.fields = NULL;
+    buffer->hash = 0;
+  }
 
   // Auto-array-length detection (used for computing length from Blob size, must happen after field alignment)
   if (info->fieldCount > 0 && buffer->info.fields[0].length == 0 && size > buffer->info.fields[0].stride) {
@@ -1207,17 +1213,21 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   }
 
   Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
-  BufferField* fields = malloc(info->fieldCount * sizeof(BufferField));
   char* names = malloc(charCount);
-  lovrAssert(buffer && fields && names, "Out of memory");
+  lovrAssert(buffer && names, "Out of memory");
   buffer->ref = 1;
   buffer->gpu = (gpu_buffer*) (buffer + 1);
   buffer->names = names;
   buffer->info = *info;
   buffer->info.size = size;
-  buffer->info.fields = fields;
-  memcpy(fields, info->fields, info->fieldCount * sizeof(BufferField));
-  buffer->hash = hash64(fields, info->fieldCount * sizeof(BufferField));
+
+  BufferField* fields = NULL;
+  if (info->fieldCount > 0) {
+    fields = buffer->info.fields = malloc(info->fieldCount * sizeof(BufferField));
+    lovrAssert(fields, "Out of memory");
+    memcpy(fields, info->fields, info->fieldCount * sizeof(BufferField));
+    buffer->hash = hash64(fields, info->fieldCount * sizeof(BufferField));
+  }
 
   // Auto-array-length detection (used for computing length from Blob size, must happen after field alignment)
   if (info->fieldCount > 0 && fields[0].length == 0 && size > fields[0].stride) {
@@ -4532,8 +4542,8 @@ static void bindPipeline(Pass* pass, Draw* draw, Shader* shader) {
   }
 
   bool customVertexFormat = draw->vertex.buffer || draw->vertex.format == VERTEX_CUSTOM;
-  BufferField* format = draw->vertex.buffer ? &draw->vertex.buffer->info.fields[0] : pass->pipeline->vertexFormat;
-  uint64_t formatHash = draw->vertex.buffer ? draw->vertex.buffer->hash : 1 + draw->vertex.format;
+  BufferField* format = draw->vertex.buffer && draw->vertex.buffer->info.fieldCount > 0 ? &draw->vertex.buffer->info.fields[0] : pass->pipeline->vertexFormat;
+  uint64_t formatHash = draw->vertex.buffer && draw->vertex.buffer->info.fieldCount > 0 ? draw->vertex.buffer->hash : 1 + draw->vertex.format;
 
   // Vertex formats
   if (pipeline->formatHash != formatHash) {
@@ -4555,7 +4565,9 @@ static void bindPipeline(Pass* pass, Draw* draw, Shader* shader) {
 
         for (uint32_t j = 0; j < fieldCount; j++) {
           const BufferField* field = &fields[j];
-          lovrCheck(field->type < FIELD_MAT2, "Currently vertex attributes can not use matrix and index types");
+          lovrCheck(field->type < FIELD_MAT2, "Currently vertex attributes can not use matrix or index types");
+          lovrCheck(field->childCount == 0, "Vertex attributes can not contain nested fields");
+          lovrCheck(field->length == 0, "Vertex attributes can not be arrays");
           if (field->hash ? (field->hash == attribute->hash) : (field->location == attribute->location)) {
             pipeline->info.vertex.attributes[i] = (gpu_attribute) {
               .buffer = 0,
@@ -4784,7 +4796,8 @@ static void bindBuffers(Pass* pass, Draw* draw) {
     gpu_bind_vertex_buffers(pass->stream, &scratchpad, NULL, 0, 1);
     pass->vertexBuffer = scratchpad;
   } else if (draw->vertex.buffer && draw->vertex.buffer->gpu != pass->vertexBuffer) {
-    lovrCheck(draw->vertex.buffer->info.fields->stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
+    const BufferField* field = draw->vertex.buffer->info.fields;
+    lovrCheck(!field || field->stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
     gpu_bind_vertex_buffers(pass->stream, &draw->vertex.buffer->gpu, NULL, 0, 1);
     pass->vertexBuffer = draw->vertex.buffer->gpu;
     trackBuffer(pass, draw->vertex.buffer, GPU_PHASE_INPUT_VERTEX, GPU_CACHE_VERTEX);
@@ -4800,7 +4813,8 @@ static void bindBuffers(Pass* pass, Draw* draw) {
     pass->indexBuffer = scratchpad;
   } else if (draw->index.buffer && draw->index.buffer->gpu != pass->indexBuffer) {
     const BufferField* field = draw->index.buffer->info.fields;
-    gpu_index_type type = field->stride == 4 ? GPU_INDEX_U32 : GPU_INDEX_U16;
+    lovrCheck(!field || field->stride == 2 || field->stride == 4, "Index buffer stride must be 2 or 4");
+    gpu_index_type type = field && field->stride == 4 ? GPU_INDEX_U32 : GPU_INDEX_U16;
     gpu_bind_index_buffer(pass->stream, draw->index.buffer->gpu, 0, type);
     pass->indexBuffer = draw->index.buffer->gpu;
     trackBuffer(pass, draw->index.buffer, GPU_PHASE_INPUT_INDEX, GPU_CACHE_INDEX);
@@ -5779,20 +5793,21 @@ void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node
 }
 
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t base) {
-  lovrCheck(!indices || (indices->info.fields && indices->info.fields->length > 0), "Buffer must have a length greater than zero to use it as an index buffer");
-  lovrCheck(!vertices || (vertices->info.fields && vertices->info.fields->length > 0), "Buffer must have a length greater than zero to use it as a vertex buffer");
+  if (vertices && vertices->info.fieldCount == 0) {
+    lovrPassSetVertexFormat(pass, NULL, 0);
+  }
 
   if (count == ~0u) {
-    if (indices || vertices) {
-      Buffer* buffer = indices ? indices : vertices;
-      count = buffer->info.fields->length - start;
-    } else {
-      count = 0;
-    }
-  } else if (indices) {
-    lovrCheck(count <= indices->info.fields->length - start, "Mesh draw range exceeds index buffer size");
+    Buffer* buffer = indices ? indices : vertices;
+    count = (buffer && buffer->info.fieldCount > 0) ? buffer->info.fields[0].length - start : 0;
+  }
+
+  if (indices) {
+    uint32_t length = indices->info.fields ? indices->info.fields[0].length : 0;
+    lovrCheck(start < length && count <= length - start, "Mesh draw range exceeds index buffer size");
   } else if (vertices) {
-    lovrCheck(count <= vertices->info.fields->length - start, "Mesh draw range exceeds vertex buffer size");
+    uint32_t length = vertices->info.fields ? vertices->info.fields[0].length : 0;
+    lovrCheck(start < length && count <= length - start, "Mesh draw range exceeds vertex buffer size");
   }
 
   lovrPassDraw(pass, &(Draw) {
@@ -5809,7 +5824,7 @@ void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transfor
 
 void lovrPassMeshImmediate(Pass* pass, uint32_t vertexCount, void** vertices, BufferField** format, uint32_t indexCount, void** indices, float* transform) {
   if (!pass->pipeline->vertexFormat) {
-    lovrPassSetVertexFormat(pass, NULL, 0); // Ensure vertex format is set up
+    lovrPassSetVertexFormat(pass, NULL, 0);
   }
 
   *format = pass->pipeline->vertexFormat;
