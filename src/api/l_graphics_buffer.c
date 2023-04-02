@@ -265,7 +265,7 @@ void luax_readbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
   luaL_checktype(L, index, LUA_TTABLE);
   lovrCheck(info->fields, "Buffer must be created with format information to copy a table to it");
 
-  if (info->fields[0].length > 0) {
+  if (info->fields[0].length == 0) {
     data = data ? data : lovrBufferMap(buffer, 0, info->size);
     luax_readbufferfield(L, index, info->fields, data);
   } else {
