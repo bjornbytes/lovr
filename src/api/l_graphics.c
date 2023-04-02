@@ -292,7 +292,7 @@ void luax_checkbufferformat(lua_State* L, int index, BufferField* fields, uint32
   bool nested = lua_istable(L, -1);
   lua_pop(L, 1);
 
-  lovrCheck(length > 0, "Buffer structure/array fields can not be empty");
+  lovrCheck(length > 0, "At least one Buffer field must be provided");
   lovrCheck(*count + length + 1 < max, "Too many buffer fields");
   BufferField* parent = &fields[*count];
   memset(parent, 0, sizeof(*parent));
