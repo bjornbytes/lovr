@@ -793,13 +793,15 @@ static int luax_newbuffer(lua_State* L, BufferInfo* info, BufferField* fields, u
     }
   }
 
-  if (lua_isnumber(L, 1)) {
+  int type = lua_type(L, 1);
+
+  if (type == LUA_TNUMBER) {
     info->size = luax_checku32(L, 1);
     return 0;
-  } else if ((blob = luax_totype(L, 1, Blob)) != NULL) {
+  } else if (type == LUA_TUSERDATA && (blob = luax_totype(L, 1, Blob)) != NULL) {
     info->size = blob->size;
     return 1;
-  } else if ((shader = luax_totype(L, 1, Shader)) != NULL) {
+  } else if (type == LUA_TUSERDATA && (shader = luax_totype(L, 1, Shader)) != NULL) {
     const char* name = NULL;
     size_t length = 0;
     uint32_t slot = ~0u;
@@ -821,7 +823,7 @@ static int luax_newbuffer(lua_State* L, BufferInfo* info, BufferField* fields, u
     }
 
     return 3;
-  } else {
+  } else if (type == LUA_TTABLE || type == LUA_TSTRING) {
     info->fields = fields;
     luax_checkbufferformat(L, 1, fields, &info->fieldCount, fieldCount);
 
@@ -869,6 +871,8 @@ static int luax_newbuffer(lua_State* L, BufferInfo* info, BufferField* fields, u
         }
         return luax_typeerror(L, 2, "nil, number, table, or Blob");
     }
+  } else {
+    return luax_typeerror(L, 1, "number, Blob, Shader, table, or string");
   }
 }
 
