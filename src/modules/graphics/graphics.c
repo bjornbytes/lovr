@@ -4977,7 +4977,7 @@ void lovrPassRoundrect(Pass* pass, float* transform, float r, uint32_t segments)
   float ry = MIN(r / h, .5f);
   uint32_t n = segments + 1;
 
-  if (r <= 0.f || w == 0.f || h == 0.f) {
+  if (!thicc && (r <= 0.f || w == 0.f || h == 0.f)) {
     lovrPassPlane(pass, transform, STYLE_FILL, 1, 1);
     return;
   }
