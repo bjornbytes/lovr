@@ -962,6 +962,8 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     VK(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "Failed to load shader") {
       return false;
     }
+
+    nickname(shader->handles[i], VK_OBJECT_TYPE_SHADER_MODULE, info->label);
   }
 
   VkDescriptorSetLayout layouts[4];
