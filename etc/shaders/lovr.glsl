@@ -1,4 +1,5 @@
 // Flags
+#ifndef GL_COMPUTE_SHADER
 layout(constant_id = 1000) const float flag_pointSize = 1.f;
 layout(constant_id = 1002) const bool flag_passColor = true;
 layout(constant_id = 1003) const bool flag_materialColor = true;
@@ -15,6 +16,7 @@ layout(constant_id = 1013) const bool flag_roughnessTexture = true;
 layout(constant_id = 1014) const bool flag_ambientOcclusion = true;
 layout(constant_id = 1015) const bool flag_clearcoatTexture = false;
 layout(constant_id = 1016) const bool flag_tonemap = false;
+#endif
 
 // Resources
 #ifndef GL_COMPUTE_SHADER
