@@ -35,6 +35,8 @@ void lovrmain() {
   uint vertexIndex = baseVertex + GlobalThreadID.x;
   uint blendVertexIndex = baseBlendVertex + GlobalThreadID.x;
 
+  ModelVertex vertex = vertices[vertexIndex];
+
   for (uint i = 0; i < blendShapeCount; i++, blendVertexIndex += vertexCount) {
     float weight = weights[i / 4][i % 4];
 
@@ -42,16 +44,20 @@ void lovrmain() {
       continue;
     }
 
-    vertices[vertexIndex].px += blendVertex[blendVertexIndex].px * weight;
-    vertices[vertexIndex].py += blendVertex[blendVertexIndex].py * weight;
-    vertices[vertexIndex].pz += blendVertex[blendVertexIndex].pz * weight;
+    BlendVertex blendShape = blendVertex[blendVertexIndex];
 
-    vertices[vertexIndex].nx += blendVertex[blendVertexIndex].nx * weight;
-    vertices[vertexIndex].ny += blendVertex[blendVertexIndex].ny * weight;
-    vertices[vertexIndex].nz += blendVertex[blendVertexIndex].nz * weight;
+    vertex.px += blendShape.px * weight;
+    vertex.py += blendShape.py * weight;
+    vertex.pz += blendShape.pz * weight;
 
-    vertices[vertexIndex].tx += blendVertex[blendVertexIndex].tx * weight;
-    vertices[vertexIndex].ty += blendVertex[blendVertexIndex].ty * weight;
-    vertices[vertexIndex].tz += blendVertex[blendVertexIndex].tz * weight;
+    vertex.nx += blendShape.nx * weight;
+    vertex.ny += blendShape.ny * weight;
+    vertex.nz += blendShape.nz * weight;
+
+    vertex.tx += blendShape.tx * weight;
+    vertex.ty += blendShape.ty * weight;
+    vertex.tz += blendShape.tz * weight;
   }
+
+  vertices[vertexIndex] = vertex;
 }
