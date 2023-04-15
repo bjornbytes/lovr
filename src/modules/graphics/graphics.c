@@ -1648,6 +1648,7 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
 
   int options = 0;
   options |= GLSLANG_SHADER_AUTO_MAP_BINDINGS;
+  options |= GLSLANG_SHADER_AUTO_MAP_LOCATIONS;
 
   glslang_shader_set_options(shader, options);
 
@@ -1668,6 +1669,8 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
     lovrThrow("Could not link shader:\n%s", glslang_program_get_info_log(program));
     return (ShaderSource) { NULL, 0 };
   }
+
+  glslang_program_map_io(program);
 
   glslang_program_SPIRV_generate(program, stages[stage]);
 
