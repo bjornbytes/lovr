@@ -3307,7 +3307,6 @@ Buffer* lovrModelGetIndexBuffer(Model* model) {
   return model->indexBuffer;
 }
 
-#include <stdio.h>
 static void lovrModelAnimateVertices(Model* model) {
   ModelData* data = model->info.data;
 
@@ -6465,6 +6464,9 @@ static ShaderResource* findShaderResource(Shader* shader, const char* name, size
   }
 }
 
+static void alignField(BufferField* field, BufferLayout layout) {
+  if (!field) return;
+
   static const struct { uint32_t size, scalarAlign, baseAlign; } fieldInfo[] = {
     [FIELD_I8x4] = { 4, 1, 4 },
     [FIELD_U8x4] = { 4, 1, 4 },
@@ -6501,9 +6503,6 @@ static ShaderResource* findShaderResource(Shader* shader, const char* name, size
     [FIELD_INDEX16] = { 2, 2, 2 },
     [FIELD_INDEX32] = { 4, 4, 4 }
   };
-
-static void alignField(BufferField* field, BufferLayout layout) {
-  if (!field) return;
 
   if (field->childCount == 0) {
     field->align = layout == LAYOUT_PACKED ? fieldInfo[field->type].scalarAlign : fieldInfo[field->type].baseAlign;
