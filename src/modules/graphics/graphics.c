@@ -29,6 +29,8 @@ const char** os_vk_get_instance_extensions(uint32_t* count);
 #define MAX_PIPELINES 4
 #define MAX_SHADER_RESOURCES 32
 #define MAX_CUSTOM_ATTRIBUTES 10
+#define LAYOUT_BUILTIN 0
+#define LAYOUT_MATERIAL 1
 #define FLOAT_BITS(f) ((union { float f; uint32_t u; }) { f }).u
 
 typedef struct {
@@ -422,8 +424,6 @@ static struct {
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
   arr_t(Layout) layouts;
-  size_t builtinLayout;
-  size_t materialLayout;
   Allocator allocator;
 } state;
 
@@ -526,7 +526,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS } // Default sampler
   };
 
-  state.builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
+  size_t builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
+  if (builtinLayout != LAYOUT_BUILTIN) lovrUnreachable();
 
   gpu_slot materialSlots[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Data
@@ -539,7 +540,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     { 7, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS } // Normal
   };
 
-  state.materialLayout = getLayout(materialSlots, COUNTOF(materialSlots));
+  size_t materialLayout = getLayout(materialSlots, COUNTOF(materialSlots));
+  if (materialLayout != LAYOUT_MATERIAL) lovrUnreachable();
 
   float data[] = { 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f };
 
@@ -2071,8 +2073,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   }
 
   if (info->type == SHADER_GRAPHICS) {
-    gpu.layouts[0] = state.layouts.data[state.builtinLayout].gpu;
-    gpu.layouts[1] = state.layouts.data[state.materialLayout].gpu;
+    gpu.layouts[0] = state.layouts.data[LAYOUT_BUILTIN].gpu;
+    gpu.layouts[1] = state.layouts.data[LAYOUT_MATERIAL].gpu;
   }
 
   gpu.layouts[userSet] = shader->resourceCount > 0 ? state.layouts.data[shader->layout].gpu : NULL;
@@ -2224,7 +2226,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
 
       gpu_bundle_pool_info poolInfo = {
         .bundles = block->bundles,
-        .layout = state.layouts.data[state.materialLayout].gpu,
+        .layout = state.layouts.data[LAYOUT_MATERIAL].gpu,
         .count = MATERIALS_PER_BLOCK
       };
 
@@ -2284,7 +2286,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
   }
 
   gpu_bundle_info bundleInfo = {
-    .layout = state.layouts.data[state.materialLayout].gpu,
+    .layout = state.layouts.data[LAYOUT_MATERIAL].gpu,
     .bindings = bindings,
     .count = COUNTOF(bindings)
   };
@@ -4669,12 +4671,12 @@ static void bindBundles(Pass* pass, Draw* draw, Shader* shader) {
 
     if (builtinsDirty) {
       gpu_bundle_info bundleInfo = {
-        .layout = state.layouts.data[state.builtinLayout].gpu,
+        .layout = state.layouts.data[LAYOUT_BUILTIN].gpu,
         .bindings = pass->builtins,
         .count = COUNTOF(pass->builtins)
       };
 
-      bundles[0] = getBundle(state.builtinLayout);
+      bundles[0] = getBundle(LAYOUT_BUILTIN);
       gpu_bundle_write(&bundles[0], &bundleInfo, 1);
       bundleMask |= (1 << 0);
     }
