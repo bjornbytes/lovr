@@ -247,7 +247,7 @@ end
 
 if config.modules.graphics and config.glslang then
   cflags_graphics += '-Ideps/glslang/glslang/Include'
-  cflags_graphics += '-Ideps/glslang/StandAlone'
+  cflags_graphics += '-Ideps/glslang/glslang/Public'
   cflags += '-DLOVR_USE_GLSLANG'
   lflags += '-lglslang'
 
@@ -270,8 +270,8 @@ if config.modules.graphics and config.glslang then
   glslang_src += 'deps/glslang/SPIRV/SpvPostProcess.cpp'
   glslang_src += 'deps/glslang/SPIRV/InReadableOrder.cpp'
   glslang_src += 'deps/glslang/SPIRV/CInterface/spirv_c_interface.cpp'
-  glslang_src += 'deps/glslang/StandAlone/resource_limits_c.cpp'
-  glslang_src += 'deps/glslang/StandAlone/ResourceLimits.cpp'
+  glslang_src += 'deps/glslang/glslang/ResourceLimits/resource_limits_c.cpp'
+  glslang_src += 'deps/glslang/glslang/ResourceLimits/ResourceLimits.cpp'
 
   tup.foreach_rule(glslang_src, '^ CC glslang/%b^ $(cc) $(flags) $(glslang_cflags) -c %f -o %o', '.obj/glslang/%B.o')
   tup.rule('.obj/glslang/*.o', '^ LD %o^ $(cxx) $(flags) -o %o %f $(glslang_lflags)', lib('glslang'))

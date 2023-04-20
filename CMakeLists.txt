@@ -184,14 +184,9 @@ if(LOVR_USE_GLSLANG)
   set(ENABLE_CTEST OFF CACHE BOOL "")
   set(BUILD_EXTERNAL OFF CACHE BOOL "")
   set(BUILD_SHARED_LIBS OFF)
-  include_directories(deps/glslang/glslang/Include deps/glslang/StandAlone)
+  include_directories(deps/glslang/glslang/Include deps/glslang/glslang/Public)
   add_subdirectory(deps/glslang glslang)
-  add_library(lovr_glslang
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/glslang/StandAlone/ResourceLimits.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/glslang/StandAlone/resource_limits_c.cpp"
-    )
-  target_link_libraries(lovr_glslang PUBLIC glslang)
-  set(LOVR_GLSLANG lovr_glslang SPIRV)
+  set(LOVR_GLSLANG glslang SPIRV glslang-default-resource-limits)
 endif()
 
 # Vulkan
