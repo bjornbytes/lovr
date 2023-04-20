@@ -1674,7 +1674,16 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
 
   glslang_program_map_io(program);
 
-  glslang_program_SPIRV_generate(program, stages[stage]);
+  glslang_spv_options_t spvOptions = { 0 };
+
+  if (state.config.debug && state.features.shaderDebug) {
+    spvOptions.generate_debug_info = true;
+    spvOptions.emit_nonsemantic_shader_debug_info = true;
+    spvOptions.emit_nonsemantic_shader_debug_source = true;
+    glslang_program_add_source_text(program, stages[stage], source->code, source->size);
+  }
+
+  glslang_program_SPIRV_generate_with_options(program, stages[stage], &spvOptions);
 
   void* words = glslang_program_SPIRV_get_ptr(program);
   size_t size = glslang_program_SPIRV_get_size(program) * 4;

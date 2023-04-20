@@ -620,6 +620,7 @@ typedef struct {
   bool depthResolve;
   bool indirectDrawFirstInstance;
   bool shaderTally;
+  bool shaderDebug;
   bool float64;
   bool int64;
   bool int16;

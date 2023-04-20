@@ -175,6 +175,7 @@ typedef struct {
   bool portability;
   bool validation;
   bool debug;
+  bool shaderDebug;
   bool colorspace;
   bool depthResolve;
 } gpu_extensions;
@@ -2143,7 +2144,8 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_create_renderpass2", true, NULL },
       { "VK_KHR_swapchain", state.config.vk.surface, NULL },
       { "VK_KHR_portability_subset", true, &state.extensions.portability },
-      { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve }
+      { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve },
+      { "VK_KHR_shader_non_semantic_info", state.config.debug, &state.extensions.shaderDebug }
     };
 
     VkExtensionProperties extensionInfo[512];
@@ -2165,6 +2167,7 @@ bool gpu_init(gpu_config* config) {
 
     if (config->features) {
       config->features->depthResolve = state.extensions.depthResolve;
+      config->features->shaderDebug = state.extensions.shaderDebug;
     }
 
     VkDeviceCreateInfo deviceInfo = {
