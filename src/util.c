@@ -235,7 +235,7 @@ static uint32_t mantissa[2048];
 static uint32_t exponent[64];
 static uint16_t offset[64];
 
-void float16Init() {
+void float16Init(void) {
   for (uint32_t i = 0; i < 256; i++) {
     int e = i - 127;
     if (e < -24) {

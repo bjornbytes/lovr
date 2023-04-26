@@ -10,23 +10,23 @@
 
 #define NS_PER_SEC 1000000000ULL
 
-bool os_init() {
+bool os_init(void) {
   return true;
 }
 
-const char* os_get_name() {
+const char* os_get_name(void) {
   return "Linux";
 }
 
-uint32_t os_get_core_count() {
+uint32_t os_get_core_count(void) {
   return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
-void os_open_console() {
+void os_open_console(void) {
   //
 }
 
-double os_get_time() {
+double os_get_time(void) {
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
   return (double) t.tv_sec + (t.tv_nsec / (double) NS_PER_SEC);

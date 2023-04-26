@@ -20,13 +20,13 @@ void lovrVariantDestroy(Variant* variant) {
   }
 }
 
-bool lovrEventInit() {
+bool lovrEventInit(void) {
   if (state.initialized) return false;
   arr_init(&state.events, arr_alloc);
   return state.initialized = true;
 }
 
-void lovrEventDestroy() {
+void lovrEventDestroy(void) {
   if (!state.initialized) return;
   for (size_t i = state.head; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
@@ -46,7 +46,7 @@ void lovrEventDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-void lovrEventPump() {
+void lovrEventPump(void) {
   os_poll_events();
 }
 
@@ -76,7 +76,7 @@ bool lovrEventPoll(Event* event) {
   return true;
 }
 
-void lovrEventClear() {
+void lovrEventClear(void) {
   arr_clear(&state.events);
   state.head = 0;
 }

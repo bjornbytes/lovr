@@ -35,7 +35,7 @@ static struct {
   RandomGenerator* generator;
 } state;
 
-bool lovrMathInit() {
+bool lovrMathInit(void) {
   if (state.initialized) return false;
   state.generator = lovrRandomGeneratorCreate();
   Seed seed = { .b64 = (uint64_t) time(0) };
@@ -43,7 +43,7 @@ bool lovrMathInit() {
   return state.initialized = true;
 }
 
-void lovrMathDestroy() {
+void lovrMathDestroy(void) {
   if (!state.initialized) return;
   lovrRelease(state.generator, lovrRandomGeneratorDestroy);
   memset(&state, 0, sizeof(state));
@@ -81,7 +81,7 @@ double lovrMathNoise4(double x, double y, double z, double w) {
   return snoise4(x, y, z, w) * .5 + .5;
 }
 
-RandomGenerator* lovrMathGetRandomGenerator() {
+RandomGenerator* lovrMathGetRandomGenerator(void) {
   return state.generator;
 }
 
@@ -225,7 +225,7 @@ static const size_t vectorComponents[] = {
   [V_MAT4] = 16
 };
 
-Pool* lovrPoolCreate() {
+Pool* lovrPoolCreate(void) {
   Pool* pool = calloc(1, sizeof(Pool));
   lovrAssert(pool, "Out of memory");
   pool->ref = 1;

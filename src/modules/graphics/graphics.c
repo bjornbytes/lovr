@@ -689,7 +689,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   return true;
 }
 
-void lovrGraphicsDestroy() {
+void lovrGraphicsDestroy(void) {
   if (!state.initialized) return;
 #ifndef LOVR_DISABLE_HEADSET
   // If there's an active headset session it needs to be stopped so it can clean up its Pass and
@@ -770,7 +770,7 @@ void lovrGraphicsDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-bool lovrGraphicsIsInitialized() {
+bool lovrGraphicsIsInitialized(void) {
   return state.initialized;
 }
 
@@ -1100,7 +1100,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   releasePassResources();
 }
 
-void lovrGraphicsPresent() {
+void lovrGraphicsPresent(void) {
   if (state.presentable) {
     state.window->gpu = NULL;
     state.window->renderView = NULL;
@@ -1109,7 +1109,7 @@ void lovrGraphicsPresent() {
   }
 }
 
-void lovrGraphicsWait() {
+void lovrGraphicsWait(void) {
   gpu_wait_idle();
 }
 
@@ -1305,7 +1305,7 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
 
 // Texture
 
-Texture* lovrGraphicsGetWindowTexture() {
+Texture* lovrGraphicsGetWindowTexture(void) {
   if (!state.window->gpu) {
     beginFrame();
 
@@ -2326,7 +2326,7 @@ const MaterialInfo* lovrMaterialGetInfo(Material* material) {
 
 // Font
 
-Font* lovrGraphicsGetDefaultFont() {
+Font* lovrGraphicsGetDefaultFont(void) {
   if (!state.defaultFont) {
     Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
     state.defaultFont = lovrFontCreate(&(FontInfo) {
@@ -3667,7 +3667,7 @@ static void lovrPassCheckValid(Pass* pass) {
   lovrCheck(pass->tick == state.tick, "Passes can only be used for a single frame (unable to use this Pass again because lovr.graphics.submit has been called since it was created)");
 }
 
-Pass* lovrGraphicsGetWindowPass() {
+Pass* lovrGraphicsGetWindowPass(void) {
   if (!state.windowPass && state.window) {
     Texture* window = lovrGraphicsGetWindowTexture();
 

@@ -1,10 +1,10 @@
 #ifndef LOVR_USE_GLFW
 
-void os_destroy() {
+void os_destroy(void) {
   //
 }
 
-void os_poll_events() {
+void os_poll_events(void) {
   //
 }
 
@@ -12,7 +12,7 @@ bool os_window_open(const os_window_config* config) {
   return false;
 }
 
-bool os_window_is_open() {
+bool os_window_is_open(void) {
   return false;
 }
 
@@ -276,11 +276,11 @@ static int convertKey(os_key key) {
   }
 }
 
-void os_destroy() {
+void os_destroy(void) {
   glfwTerminate();
 }
 
-void os_poll_events() {
+void os_poll_events(void) {
   if (glfwState.window) {
     glfwPollEvents();
   }
@@ -341,7 +341,7 @@ bool os_window_open(const os_window_config* config) {
   return true;
 }
 
-bool os_window_is_open() {
+bool os_window_is_open(void) {
   return glfwState.window;
 }
 
@@ -420,7 +420,7 @@ bool os_is_key_down(os_key key) {
 }
 
 #ifdef _WIN32
-HANDLE os_get_win32_window() {
+HANDLE os_get_win32_window(void) {
   return (HANDLE) glfwGetWin32Window(glfwState.window);
 }
 #endif

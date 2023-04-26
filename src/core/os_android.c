@@ -165,11 +165,11 @@ void android_main(struct android_app* app) {
   (*app->activity->vm)->DetachCurrentThread(app->activity->vm);
 }
 
-bool os_init() {
+bool os_init(void) {
   return true;
 }
 
-void os_destroy() {
+void os_destroy(void) {
   // There are two ways a quit can happen, which need to be handled slightly differently:
   // - If the system tells us to quit, we get an event with APP_CMD_DESTROY.  In response we push a
   //   QUIT event to lovr.event and main will eventually exit cleanly.  No other teardown necessary.
@@ -189,11 +189,11 @@ void os_destroy() {
   memset(&state, 0, sizeof(state));
 }
 
-const char* os_get_name() {
+const char* os_get_name(void) {
   return "Android";
 }
 
-uint32_t os_get_core_count() {
+uint32_t os_get_core_count(void) {
   return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
@@ -220,14 +220,14 @@ static void* log_main(void* data) {
   return 0;
 }
 
-void os_open_console() {
+void os_open_console(void) {
   pthread_create(&log.thread, NULL, log_main, log.handles);
   pthread_detach(log.thread);
 }
 
 #define NS_PER_SEC 1000000000ULL
 
-double os_get_time() {
+double os_get_time(void) {
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
   return (double) t.tv_sec + (t.tv_nsec / (double) NS_PER_SEC);
@@ -287,7 +287,7 @@ bool os_vm_release(void* p, size_t size) {
 // - Block if the app is paused or no window is present
 // - If the app was active and becomes inactive after an event, break instead of waiting for
 //   another event.  This gives the main loop a chance to respond (e.g. exit VR mode).
-void os_poll_events() {
+void os_poll_events(void) {
   while (!state.app->destroyRequested) {
     int events;
     struct android_poll_source* source;
@@ -342,7 +342,7 @@ bool os_window_open(const os_window_config* config) {
   return true;
 }
 
-bool os_window_is_open() {
+bool os_window_is_open(void) {
   return false;
 }
 
@@ -426,11 +426,11 @@ bool os_is_key_down(os_key key) {
 
 // Private, must be declared manually to use
 
-void* os_get_java_vm() {
+void* os_get_java_vm(void) {
   return state.app->activity->vm;
 }
 
-void* os_get_jni_context() {
+void* os_get_jni_context(void) {
   return state.app->activity->clazz;
 }
 

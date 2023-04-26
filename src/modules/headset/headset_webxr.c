@@ -33,7 +33,7 @@ extern double webxr_update(void);
 static bool webxrAttached = false;
 static HeadsetInterface* previousHeadsetDriver;
 
-void webxr_attach() {
+void webxr_attach(void) {
   if (webxrAttached || lovrHeadsetInterface == &lovrHeadsetWebXRDriver) {
     return;
   }
@@ -43,7 +43,7 @@ void webxr_attach() {
   webxrAttached = true;
 }
 
-void webxr_detach() {
+void webxr_detach(void) {
   if (!webxrAttached) {
     return;
   }

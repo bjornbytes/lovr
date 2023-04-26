@@ -224,7 +224,7 @@ bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   return state.initialized = true;
 }
 
-void lovrAudioDestroy() {
+void lovrAudioDestroy(void) {
   if (!state.initialized) return;
   for (size_t i = 0; i < 2; i++) {
     ma_device_uninit(&state.devices[i]);
@@ -362,11 +362,11 @@ bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCou
   return success;
 }
 
-const char* lovrAudioGetSpatializer() {
+const char* lovrAudioGetSpatializer(void) {
   return state.spatializer->name;
 }
 
-uint32_t lovrAudioGetSampleRate() {
+uint32_t lovrAudioGetSampleRate(void) {
   return state.sampleRate;
 }
 

@@ -81,7 +81,7 @@ bool lovrSystemInit(void) {
   return true;
 }
 
-void lovrSystemDestroy() {
+void lovrSystemDestroy(void) {
   if (!state.initialized) return;
   os_on_key(NULL);
   os_on_text(NULL);

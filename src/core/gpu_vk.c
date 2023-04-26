@@ -2667,7 +2667,7 @@ static void condemn(void* handle, VkObjectType type) {
   morgue->data[morgue->head++ & MORGUE_MASK] = (gpu_victim) { handle, type, state.tick[CPU] };
 }
 
-static void expunge() {
+static void expunge(void) {
   gpu_morgue* morgue = &state.morgue;
   while (morgue->tail != morgue->head && state.tick[GPU] >= morgue->data[morgue->tail & MORGUE_MASK].tick) {
     gpu_victim* victim = &morgue->data[morgue->tail++ & MORGUE_MASK];

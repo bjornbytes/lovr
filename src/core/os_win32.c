@@ -55,24 +55,24 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev, LPSTR args, int show) {
 
 #endif
 
-bool os_init() {
+bool os_init(void) {
   LARGE_INTEGER f;
   QueryPerformanceFrequency(&f);
   frequency = f.QuadPart;
   return true;
 }
 
-const char* os_get_name() {
+const char* os_get_name(void) {
   return "Windows";
 }
 
-uint32_t os_get_core_count() {
+uint32_t os_get_core_count(void) {
   SYSTEM_INFO info;
   GetSystemInfo(&info);
   return info.dwNumberOfProcessors;
 }
 
-void os_open_console() {
+void os_open_console(void) {
   if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
     if (GetLastError() != ERROR_ACCESS_DENIED) {
       if (!AllocConsole()) {
@@ -86,7 +86,7 @@ void os_open_console() {
   freopen("CONOUT$", "w", stderr);
 }
 
-double os_get_time() {
+double os_get_time(void) {
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
   return t.QuadPart / (double) frequency;

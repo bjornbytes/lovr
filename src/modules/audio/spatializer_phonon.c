@@ -166,7 +166,7 @@ bool phonon_init(void) {
   return true;
 }
 
-void phonon_destroy() {
+void phonon_destroy(void) {
   if (state.scratchpad) free(state.scratchpad);
   for (size_t i = 0; i < MAX_SOURCES; i++) {
     if (state.binauralEffect[i]) phonon_iplDestroyBinauralEffect(&state.binauralEffect[i]);
