@@ -13,27 +13,27 @@ static struct {
   double tickBuffer[TICK_SAMPLES];
 } state;
 
-bool lovrTimerInit() {
+bool lovrTimerInit(void) {
   if (state.initialized) return false;
   state.initialized = true;
   state.epoch = os_get_time();
   return true;
 }
 
-void lovrTimerDestroy() {
+void lovrTimerDestroy(void) {
   if (!state.initialized) return;
   memset(&state, 0, sizeof(state));
 }
 
-double lovrTimerGetDelta() {
+double lovrTimerGetDelta(void) {
   return state.dt;
 }
 
-double lovrTimerGetTime() {
+double lovrTimerGetTime(void) {
   return os_get_time() - state.epoch;
 }
 
-double lovrTimerStep() {
+double lovrTimerStep(void) {
   state.lastTime = state.time;
   state.time = os_get_time();
   state.dt = state.time - state.lastTime;
@@ -46,11 +46,11 @@ double lovrTimerStep() {
   return state.dt;
 }
 
-double lovrTimerGetAverageDelta() {
+double lovrTimerGetAverageDelta(void) {
   return state.tickSum / TICK_SAMPLES;
 }
 
-int lovrTimerGetFPS() {
+int lovrTimerGetFPS(void) {
   return (int) (1 / (state.tickSum / TICK_SAMPLES) + .5);
 }
 

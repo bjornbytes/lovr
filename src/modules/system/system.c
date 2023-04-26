@@ -69,7 +69,7 @@ static void onQuit(void) {
   });
 }
 
-bool lovrSystemInit() {
+bool lovrSystemInit(void) {
   if (state.initialized) return false;
   os_on_key(onKey);
   os_on_text(onText);
@@ -89,11 +89,11 @@ void lovrSystemDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-const char* lovrSystemGetOS() {
+const char* lovrSystemGetOS(void) {
   return os_get_name();
 }
 
-uint32_t lovrSystemGetCoreCount() {
+uint32_t lovrSystemGetCoreCount(void) {
   return os_get_core_count();
 }
 
@@ -110,7 +110,7 @@ void lovrSystemOpenWindow(os_window_config* window) {
   os_on_quit(onQuit);
 }
 
-bool lovrSystemIsWindowOpen() {
+bool lovrSystemIsWindowOpen(void) {
   return os_window_is_open();
 }
 
@@ -118,7 +118,7 @@ void lovrSystemGetWindowSize(uint32_t* width, uint32_t* height) {
   os_window_get_size(width, height);
 }
 
-float lovrSystemGetWindowDensity() {
+float lovrSystemGetWindowDensity(void) {
   return os_window_get_pixel_density();
 }
 

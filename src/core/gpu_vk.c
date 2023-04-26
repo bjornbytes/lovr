@@ -63,15 +63,15 @@ struct gpu_stream {
   VkCommandBuffer commands;
 };
 
-size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
-size_t gpu_sizeof_texture() { return sizeof(gpu_texture); }
-size_t gpu_sizeof_sampler() { return sizeof(gpu_sampler); }
-size_t gpu_sizeof_layout() { return sizeof(gpu_layout); }
-size_t gpu_sizeof_shader() { return sizeof(gpu_shader); }
-size_t gpu_sizeof_bundle_pool() { return sizeof(gpu_bundle_pool); }
-size_t gpu_sizeof_bundle() { return sizeof(gpu_bundle); }
-size_t gpu_sizeof_pipeline() { return sizeof(gpu_pipeline); }
-size_t gpu_sizeof_tally() { return sizeof(gpu_tally); }
+size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
+size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
+size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
+size_t gpu_sizeof_layout(void) { return sizeof(gpu_layout); }
+size_t gpu_sizeof_shader(void) { return sizeof(gpu_shader); }
+size_t gpu_sizeof_bundle_pool(void) { return sizeof(gpu_bundle_pool); }
+size_t gpu_sizeof_bundle(void) { return sizeof(gpu_bundle); }
+size_t gpu_sizeof_pipeline(void) { return sizeof(gpu_pipeline); }
+size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
 
 // Internals
 
@@ -760,7 +760,7 @@ void gpu_texture_destroy(gpu_texture* texture) {
   gpu_release(state.memory + texture->memory);
 }
 
-gpu_texture* gpu_surface_acquire() {
+gpu_texture* gpu_surface_acquire(void) {
   if (!state.surface.valid) {
     return NULL;
   }
@@ -2466,7 +2466,7 @@ void gpu_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-uint32_t gpu_begin() {
+uint32_t gpu_begin(void) {
   gpu_wait_tick(++state.tick[CPU] - COUNTOF(state.ticks));
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   VK(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
@@ -2501,7 +2501,7 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
   state.surface.semaphore = VK_NULL_HANDLE;
 }
 
-void gpu_present() {
+void gpu_present(void) {
   VkSemaphore semaphore = state.ticks[state.tick[CPU] & TICK_MASK].semaphores[1];
 
   VkSubmitInfo submit = {
@@ -2547,19 +2547,19 @@ bool gpu_wait_tick(uint32_t tick) {
   }
 }
 
-void gpu_wait_idle() {
+void gpu_wait_idle(void) {
   vkDeviceWaitIdle(state.device);
 }
 
-uintptr_t gpu_vk_get_instance() {
+uintptr_t gpu_vk_get_instance(void) {
   return (uintptr_t) state.instance;
 }
 
-uintptr_t gpu_vk_get_physical_device() {
+uintptr_t gpu_vk_get_physical_device(void) {
   return (uintptr_t) state.adapter;
 }
 
-uintptr_t gpu_vk_get_device() {
+uintptr_t gpu_vk_get_device(void) {
   return (uintptr_t) state.device;
 }
 

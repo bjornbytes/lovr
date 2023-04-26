@@ -34,7 +34,7 @@ bool lovrHeadsetInit(HeadsetConfig* config) {
   return true;
 }
 
-void lovrHeadsetDestroy() {
+void lovrHeadsetDestroy(void) {
   if (!initialized) return;
   initialized = false;
   if (lovrHeadsetInterface) {

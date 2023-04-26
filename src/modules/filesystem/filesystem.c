@@ -174,7 +174,7 @@ bool lovrFilesystemInit(const char* archive) {
   return true;
 }
 
-void lovrFilesystemDestroy() {
+void lovrFilesystemDestroy(void) {
   if (!state.initialized) return;
   for (size_t i = 0; i < state.archives.length; i++) {
     Archive* archive = &state.archives.data[i];
@@ -184,11 +184,11 @@ void lovrFilesystemDestroy() {
   memset(&state, 0, sizeof(state));
 }
 
-const char* lovrFilesystemGetSource() {
+const char* lovrFilesystemGetSource(void) {
   return state.source;
 }
 
-bool lovrFilesystemIsFused() {
+bool lovrFilesystemIsFused(void) {
   return state.fused;
 }
 
@@ -309,7 +309,7 @@ void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* co
 
 // Writing
 
-const char* lovrFilesystemGetIdentity() {
+const char* lovrFilesystemGetIdentity(void) {
   return state.identity[0] == '\0' ? NULL : state.identity;
 }
 
@@ -361,7 +361,7 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   return true;
 }
 
-const char* lovrFilesystemGetSaveDirectory() {
+const char* lovrFilesystemGetSaveDirectory(void) {
   return state.savePath;
 }
 
@@ -428,7 +428,7 @@ size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size) {
   return os_get_working_directory(buffer, size);
 }
 
-const char* lovrFilesystemGetRequirePath() {
+const char* lovrFilesystemGetRequirePath(void) {
   return state.requirePath;
 }
 

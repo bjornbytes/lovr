@@ -109,7 +109,7 @@ static void onInfoMessage(int num, const char* format, va_list args) {
 
 static bool initialized = false;
 
-bool lovrPhysicsInit() {
+bool lovrPhysicsInit(void) {
   if (initialized) return false;
   dInitODE();
   dSetErrorHandler(onErrorMessage);
@@ -118,7 +118,7 @@ bool lovrPhysicsInit() {
   return initialized = true;
 }
 
-void lovrPhysicsDestroy() {
+void lovrPhysicsDestroy(void) {
   if (!initialized) return;
   dCloseODE();
   initialized = false;
