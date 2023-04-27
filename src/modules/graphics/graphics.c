@@ -405,9 +405,6 @@ static struct {
   Buffer* defaultBuffer;
   Texture* defaultTexture;
   Sampler* defaultSamplers[2];
-  Shader* animator;
-  Shader* blender;
-  Shader* timeWizard;
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
   gpu_vertex_format vertexFormats[VERTEX_FORMAX];
   Readback* oldestReadback;
@@ -714,9 +711,6 @@ void lovrGraphicsDestroy(void) {
   lovrRelease(state.defaultTexture, lovrTextureDestroy);
   lovrRelease(state.defaultSamplers[0], lovrSamplerDestroy);
   lovrRelease(state.defaultSamplers[1], lovrSamplerDestroy);
-  lovrRelease(state.animator, lovrShaderDestroy);
-  lovrRelease(state.blender, lovrShaderDestroy);
-  lovrRelease(state.timeWizard, lovrShaderDestroy);
   for (size_t i = 0; i < COUNTOF(state.defaultShaders); i++) {
     lovrRelease(state.defaultShaders[i], lovrShaderDestroy);
   }
@@ -1745,46 +1739,51 @@ static void lovrShaderInit(Shader* shader) {
 }
 
 ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage) {
-  if (stage == STAGE_COMPUTE) {
-    return (ShaderSource) { NULL, 0 };
-  }
-
-  const ShaderSource sources[][2] = {
+  const ShaderSource sources[][3] = {
     [SHADER_UNLIT] = {
-      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+      [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_NORMAL] = {
-      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      { lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
+      [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
     },
     [SHADER_FONT] = {
-      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
+      [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
     },
     [SHADER_CUBEMAP] = {
-      { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
-      { lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) }
+      [STAGE_VERTEX] = { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) }
     },
     [SHADER_EQUIRECT] = {
-      { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
-      { lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) }
+      [STAGE_VERTEX] = { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) }
     },
     [SHADER_FILL] = {
-      { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+      [STAGE_VERTEX] = { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_FILL_ARRAY] = {
-      { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      { lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
+      [STAGE_VERTEX] = { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
     },
     [SHADER_FILL_LAYER] = {
-      { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      { lovr_shader_fill_layer_frag, sizeof(lovr_shader_fill_layer_frag) }
+      [STAGE_VERTEX] = { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_fill_layer_frag, sizeof(lovr_shader_fill_layer_frag) }
     },
     [SHADER_LOGO] = {
-      { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      { lovr_shader_logo_frag, sizeof(lovr_shader_logo_frag) }
+      [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { lovr_shader_logo_frag, sizeof(lovr_shader_logo_frag) }
+    },
+    [SHADER_ANIMATOR] = {
+      [STAGE_COMPUTE] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) }
+    },
+    [SHADER_BLENDER] = {
+      [STAGE_COMPUTE] = { lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) }
+    },
+    [SHADER_TIME_WIZARD] = {
+      [STAGE_COMPUTE] = { lovr_shader_timewizard_comp, sizeof(lovr_shader_timewizard_comp) }
     }
   };
 
@@ -1796,13 +1795,23 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
     return state.defaultShaders[type];
   }
 
-  ShaderInfo info = {
-    .type = SHADER_GRAPHICS,
-    .source[0] = lovrGraphicsGetDefaultShaderSource(type, STAGE_VERTEX),
-    .source[1] = lovrGraphicsGetDefaultShaderSource(type, STAGE_FRAGMENT)
-  };
-
-  return state.defaultShaders[type] = lovrShaderCreate(&info);
+  switch (type) {
+    case SHADER_ANIMATOR:
+    case SHADER_BLENDER:
+    case SHADER_TIME_WIZARD:
+      return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_COMPUTE,
+        .source[0] = lovrGraphicsGetDefaultShaderSource(type, STAGE_COMPUTE),
+        .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
+        .flagCount = 1
+      });
+    default:
+      return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
+        .type = SHADER_GRAPHICS,
+        .source[0] = lovrGraphicsGetDefaultShaderSource(type, STAGE_VERTEX),
+        .source[1] = lovrGraphicsGetDefaultShaderSource(type, STAGE_FRAGMENT)
+      });
+  }
 }
 
 Shader* lovrShaderCreate(const ShaderInfo* info) {
@@ -3344,17 +3353,7 @@ static void lovrModelAnimateVertices(Model* model) {
       .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
     }, 1);
 
-    if (!state.blender) {
-      state.blender = lovrShaderCreate(&(ShaderInfo) {
-        .type = SHADER_COMPUTE,
-        .source[0] = { lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) },
-        .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
-        .flagCount = 1,
-        .label = "blender"
-      });
-    }
-
-    Shader* shader = state.blender;
+    Shader* shader = lovrGraphicsGetDefaultShader(SHADER_BLENDER);
     gpu_layout* layout = state.layouts.data[shader->layout].gpu;
     gpu_buffer* weightBuffer = tempAlloc(gpu_sizeof_buffer());
     uint32_t vertexCount = model->info.data->dynamicVertexCount;
@@ -3379,7 +3378,7 @@ static void lovrModelAnimateVertices(Model* model) {
         float* weights = gpu_map(weightBuffer, chunkSize * sizeof(float), state.limits.uniformBufferAlign, GPU_MAP_STREAM);
         memcpy(weights, model->blendShapeWeights + group->index + j, count * sizeof(float));
 
-        gpu_bundle* bundle = getBundle(state.blender->layout);
+        gpu_bundle* bundle = getBundle(shader->layout);
         gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
         gpu_bundle_write(&bundle, &bundleInfo, 1);
 
@@ -3418,17 +3417,7 @@ static void lovrModelAnimateVertices(Model* model) {
       gpu_compute_begin(state.stream);
     }
 
-    if (!state.animator) {
-      state.animator = lovrShaderCreate(&(ShaderInfo) {
-        .type = SHADER_COMPUTE,
-        .source[0] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) },
-        .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
-        .flagCount = 1,
-        .label = "animator"
-      });
-    }
-
-    Shader* shader = state.animator;
+    Shader* shader = lovrGraphicsGetDefaultShader(SHADER_ANIMATOR);
     gpu_buffer* sourceBuffer = blend ? model->vertexBuffer->gpu : model->rawVertexBuffer->gpu;
     gpu_layout* layout = state.layouts.data[shader->layout].gpu;
     gpu_buffer* joints = tempAlloc(gpu_sizeof_buffer());
@@ -3457,7 +3446,7 @@ static void lovrModelAnimateVertices(Model* model) {
         joint += 16;
       }
 
-      gpu_bundle* bundle = getBundle(state.animator->layout);
+      gpu_bundle* bundle = getBundle(shader->layout);
       gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
       gpu_bundle_write(&bundle, &bundleInfo, 1);
       gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
@@ -3626,23 +3615,15 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
     .clear = GPU_CACHE_STORAGE_READ
   }, 1);
 
-  if (!state.timeWizard) {
-    state.timeWizard = lovrShaderCreate(&(ShaderInfo) {
-      .type = SHADER_COMPUTE,
-      .source[0] = { lovr_shader_timewizard_comp, sizeof(lovr_shader_timewizard_comp) },
-      .label = "timewizard"
-    });
-  }
-
-  gpu_layout* layout = state.layouts.data[state.timeWizard->layout].gpu;
-  gpu_shader* shader = state.timeWizard->gpu;
+  Shader* shader = lovrGraphicsGetDefaultShader(SHADER_TIME_WIZARD);
+  gpu_layout* layout = state.layouts.data[shader->layout].gpu;
 
   gpu_binding bindings[] = {
     [0] = { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer, 0, count * 2 * tally->info.views * sizeof(uint32_t) } },
     [1] = { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { buffer, offset, count * sizeof(uint32_t) } }
   };
 
-  gpu_bundle* bundle = getBundle(state.timeWizard->layout);
+  gpu_bundle* bundle = getBundle(shader->layout);
   gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
   gpu_bundle_write(&bundle, &bundleInfo, 1);
 
@@ -3654,9 +3635,9 @@ static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_b
   };
 
   gpu_compute_begin(stream);
-  gpu_bind_pipeline(stream, state.timeWizard->computePipeline, GPU_PIPELINE_COMPUTE);
-  gpu_bind_bundles(stream, shader, &bundle, 0, 1, NULL, 0);
-  gpu_push_constants(stream, shader, &constants, sizeof(constants));
+  gpu_bind_pipeline(stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
+  gpu_bind_bundles(stream, shader->gpu, &bundle, 0, 1, NULL, 0);
+  gpu_push_constants(stream, shader->gpu, &constants, sizeof(constants));
   gpu_compute(stream, (count + 31) / 32, 1, 1);
   gpu_compute_end(stream);
 }
