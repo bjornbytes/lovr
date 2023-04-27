@@ -59,7 +59,7 @@ int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
   }
 }
 
-int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected) {
+int luax_readscale(lua_State* L, int index, vec4 v, int components, const char* expected) {
   switch (lua_type(L, index)) {
     case LUA_TNIL:
     case LUA_TNONE:
@@ -67,12 +67,12 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
       return index + components;
     case LUA_TNUMBER:
       if (components == 1) {
-        v[0] = v[1] = v[2] = luax_optfloat(L, index++, 0.f);
+        v[0] = v[1] = v[2] = luax_tofloat(L, index++);
       } else if (components == -2) { // -2 is special and means "2 components: xy and z"
         v[0] = v[1] = luax_tofloat(L, index++);
         v[2] = luax_optfloat(L, index++, 1.f);
       } else {
-        v[0] = 1.f;
+        v[0] = v[1] = v[2] = 1.f;
         for (int i = 0; i < components; i++) {
           v[i] = luax_optfloat(L, index++, v[0]);
         }
