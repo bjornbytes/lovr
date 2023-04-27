@@ -59,7 +59,7 @@ int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
   }
 }
 
-int luax_readscale(lua_State* L, int index, vec4 v, int components, const char* expected) {
+int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected) {
   switch (lua_type(L, index)) {
     case LUA_TNIL:
     case LUA_TNONE:
