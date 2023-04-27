@@ -1760,17 +1760,13 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
       [STAGE_VERTEX] = { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
       [STAGE_FRAGMENT] = { lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) }
     },
-    [SHADER_FILL] = {
+    [SHADER_FILL_2D] = {
       [STAGE_VERTEX] = { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
       [STAGE_FRAGMENT] = { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_FILL_ARRAY] = {
       [STAGE_VERTEX] = { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
       [STAGE_FRAGMENT] = { lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
-    },
-    [SHADER_FILL_LAYER] = {
-      [STAGE_VERTEX] = { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_fill_layer_frag, sizeof(lovr_shader_fill_layer_frag) }
     },
     [SHADER_LOGO] = {
       [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
@@ -5693,22 +5689,9 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
 }
 
 void lovrPassFill(Pass* pass, Texture* texture) {
-  DefaultShader shader;
-
-  if (!texture || texture->info.layers == 1) {
-    shader = SHADER_FILL;
-  } else if (pass->viewCount > 1 && texture->info.layers > 1) {
-    lovrCheck(texture->info.layers == pass->viewCount, "Texture layer counts must match to fill between them");
-    shader = SHADER_FILL_ARRAY;
-  } else if (pass->viewCount == 1 && texture->info.layers > 1) {
-    shader = SHADER_FILL_LAYER;
-  } else {
-    lovrUnreachable();
-  }
-
   lovrPassDraw(pass, &(Draw) {
     .mode = MESH_TRIANGLES,
-    .shader = shader,
+    .shader = texture && texture->info.type == TEXTURE_ARRAY ? SHADER_FILL_ARRAY : SHADER_FILL_2D,
     .material = texture ? lovrTextureGetMaterial(texture) : NULL,
     .vertex.format = VERTEX_EMPTY,
     .count = 3
