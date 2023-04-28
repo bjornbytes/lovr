@@ -2102,13 +2102,9 @@ bool gpu_init(gpu_config* config) {
     //   each tick.  If one of the zones fills up, a new bigger buffer is allocated.  It's important
     //   to have one buffer and keep it alive since streaming is expected to happen very frequently.
     // - UPLOAD: Used to stage data to upload to buffers/textures.  Can only be used for transfers.
-    //   Uses uncached host-visible memory so as to not pollute the CPU cache.  This uses a slightly
-    //   different allocation strategy where blocks of memory are allocated, linearly allocated from,
-    //   and condemned once they fill up.  This is because uploads are much less frequent than
-    //   streaming and are usually too big to fit in the 256MB memory.
+    //   Uses uncached host-visible memory to not pollute the CPU cache or waste the STREAM memory.
     // - DOWNLOAD: Used for readbacks.  Uses cached memory when available since reading from
-    //   uncached memory on the CPU is super duper slow.  Uses the same "zone" system as STREAM, since
-    //   we want to be able to handle per-frame readbacks without thrashing.
+    //   uncached memory on the CPU is super duper slow.
     VkMemoryPropertyFlags bufferFlags[] = {
       [GPU_MEMORY_BUFFER_STATIC] = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
       [GPU_MEMORY_BUFFER_STREAM] = hostVisible | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
