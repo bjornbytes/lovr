@@ -29,7 +29,7 @@ struct Camera {
 
 struct Draw {
   mat4 transform;
-  mat4 normalMatrix;
+  mat3 normalMatrix;
   vec4 color;
 };
 
@@ -155,7 +155,7 @@ layout(location = 14) in vec3 Tangent;
 #ifdef GL_VERTEX_SHADER
 #define DrawID gl_BaseInstance
 #define Transform Draws[DrawID].transform
-#define NormalMatrix mat3(Draws[DrawID].normalMatrix)
+#define NormalMatrix Draws[DrawID].normalMatrix
 #define PassColor Draws[DrawID].color
 #define ClipFromLocal (ViewProjection * Transform)
 #define ClipFromWorld (ViewProjection)

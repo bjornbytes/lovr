@@ -173,7 +173,7 @@ struct Font {
 
 typedef struct {
   float transform[16];
-  float cofactor[16];
+  float cofactor[12];
   float color[4];
 } DrawData;
 
@@ -4722,7 +4722,7 @@ static void bindBundles(Pass* pass, Draw* draw, Shader* shader) {
     mat4_cofactor(cofactor);
 
     memcpy(pass->drawData->transform, transform, 64);
-    memcpy(pass->drawData->cofactor, cofactor, 64);
+    memcpy(pass->drawData->cofactor, cofactor, 48);
     memcpy(pass->drawData->color, pass->pipeline->color, 16);
     pass->drawData++;
   }
