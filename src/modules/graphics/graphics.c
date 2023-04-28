@@ -1495,7 +1495,7 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   lovrCheck(view->layerCount > 0, "Texture view must have at least one layer");
   lovrCheck(view->layerIndex + view->layerCount <= maxLayers, "Texture view layer range exceeds layer count of parent texture");
   lovrCheck(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
-  lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D texture can only have a single layer");
+  lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D textures can only have a single layer");
   lovrCheck(view->levelCount == 1 || info->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
   lovrCheck(view->layerCount == 6 || view->type != TEXTURE_CUBE, "Cubemaps can only have six layers");
 
