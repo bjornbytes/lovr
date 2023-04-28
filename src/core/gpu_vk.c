@@ -14,7 +14,6 @@
 struct gpu_buffer {
   VkBuffer handle;
   uint32_t memory;
-  uint32_t offset;
 };
 
 struct gpu_texture {
@@ -82,10 +81,10 @@ typedef struct {
 } gpu_memory;
 
 typedef enum {
-  GPU_MEMORY_BUFFER_GPU,
-  GPU_MEMORY_BUFFER_MAP_STREAM,
-  GPU_MEMORY_BUFFER_MAP_STAGING,
-  GPU_MEMORY_BUFFER_MAP_READBACK,
+  GPU_MEMORY_BUFFER_STATIC,
+  GPU_MEMORY_BUFFER_STREAM,
+  GPU_MEMORY_BUFFER_UPLOAD,
+  GPU_MEMORY_BUFFER_DOWNLOAD,
   GPU_MEMORY_TEXTURE_COLOR,
   GPU_MEMORY_TEXTURE_D16,
   GPU_MEMORY_TEXTURE_D32F,
@@ -146,14 +145,6 @@ typedef struct {
 } gpu_cache_entry;
 
 typedef struct {
-  gpu_memory* memory;
-  VkBuffer buffer;
-  uint32_t cursor;
-  uint32_t size;
-  char* pointer;
-} gpu_scratchpad;
-
-typedef struct {
   VkSurfaceKHR handle;
   VkSwapchainKHR swapchain;
   VkSurfaceCapabilitiesKHR capabilities;
@@ -198,7 +189,6 @@ static struct {
   gpu_cache_entry framebuffers[16][4];
   gpu_allocator allocators[GPU_MEMORY_COUNT];
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
-  gpu_scratchpad scratchpad[3];
   gpu_memory memory[256];
   uint32_t streamCount;
   uint32_t tick[2];
@@ -231,6 +221,7 @@ static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, cons
 static void createSwapchain(uint32_t width, uint32_t height);
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact);
 static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
+static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type);
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
 static VkPipelineStageFlags convertPhase(gpu_phase phase, bool dst);
@@ -377,7 +368,6 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   if (info->handle) {
     buffer->handle = (VkBuffer) info->handle;
     buffer->memory = ~0u;
-    buffer->offset = 0;
     nickname(buffer->handle, VK_OBJECT_TYPE_BUFFER, info->label);
     return true;
   }
@@ -385,14 +375,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkBufferCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
     .size = info->size,
-    .usage =
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-      VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-      VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT
+    .usage = getBufferUsage(info->type)
   };
 
   VK(vkCreateBuffer(state.device, &createInfo, NULL, &buffer->handle), "Could not create buffer") return false;
@@ -401,7 +384,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkDeviceSize offset;
   VkMemoryRequirements requirements;
   vkGetBufferMemoryRequirements(state.device, buffer->handle, &requirements);
-  gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_GPU, requirements, &offset);
+  gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_STATIC, requirements, &offset);
 
   VK(vkBindBufferMemory(state.device, buffer->handle, memory->handle, offset), "Could not bind buffer memory") {
     vkDestroyBuffer(state.device, buffer->handle, NULL);
@@ -414,7 +397,6 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   }
 
   buffer->memory = memory - state.memory;
-  buffer->offset = 0;
   return true;
 }
 
@@ -422,97 +404,6 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
   if (buffer->memory == ~0u) return;
   condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
   gpu_release(&state.memory[buffer->memory]);
-}
-
-// There are 3 mapping modes, which use different strategies/memory types:
-// - MAP_STREAM: Used to "stream" data to the GPU, to be read by shaders.  This tries to use the
-//   special 256MB memory type present on discrete GPUs because it's both device local and host-
-//   visible and that supposedly makes it fast.  A single buffer is allocated with a "zone" for each
-//   tick.  If one of the zones fills up, a new bigger buffer is allocated.  It's important to have
-//   one buffer and keep it alive since streaming is expected to happen very frequently.
-// - MAP_STAGING: Used to stage data to upload to buffers/textures.  Can only be used for transfers.
-//   Uses uncached host-visible memory so as to not pollute the CPU cache.  This uses a slightly
-//   different allocation strategy where blocks of memory are allocated, linearly allocated from,
-//   and condemned once they fill up.  This is because uploads are much less frequent than
-//   streaming and are usually too big to fit in the 256MB memory.
-// - MAP_READBACK: Used for readbacks.  Uses cached memory when available since reading from
-//   uncached memory on the CPU is super duper slow.  Uses the same "zone" system as STREAM, since
-//   we want to be able to handle per-frame readbacks without thrashing.
-void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode) {
-  gpu_scratchpad* pool = &state.scratchpad[mode];
-  uint32_t cursor = ALIGN(pool->cursor, align);
-  uint32_t zone = mode == GPU_MAP_STAGING ? 0 : (state.tick[CPU] & TICK_MASK);
-
-  // If the scratchpad buffer fills up, condemn it and allocate a new/bigger one to use.
-  if (cursor + size > pool->size) {
-    VkBufferUsageFlags usages[] = {
-      [GPU_MAP_STREAM] =
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      [GPU_MAP_STAGING] = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      [GPU_MAP_READBACK] = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-    };
-
-    VkBufferCreateInfo info = {
-      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-      .usage = usages[mode]
-    };
-
-    // Staging buffers use 4MB block sizes, stream/download start out at 4MB and double after that
-    if (pool->size == 0) {
-      pool->size = 1 << 22;
-    }
-
-    if (mode == GPU_MAP_STAGING) {
-      info.size = MAX(pool->size, size);
-    } else {
-      while (pool->size < size) {
-        pool->size <<= 1;
-      }
-      info.size = pool->size * COUNTOF(state.ticks);
-    }
-
-    VkBuffer handle;
-    VK(vkCreateBuffer(state.device, &info, NULL, &handle), "Could not create scratch buffer") return NULL;
-    nickname(handle, VK_OBJECT_TYPE_BUFFER, "Scratchpad");
-
-    VkDeviceSize offset;
-    VkMemoryRequirements requirements;
-    vkGetBufferMemoryRequirements(state.device, handle, &requirements);
-    gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_MAP_STREAM + mode, requirements, &offset);
-
-    VK(vkBindBufferMemory(state.device, handle, memory->handle, offset), "Could not bind scratchpad memory") {
-      vkDestroyBuffer(state.device, handle, NULL);
-      gpu_release(memory);
-      return NULL;
-    }
-
-    // If this was an oversized allocation, condemn it immediately, don't touch the pool
-    if (size > pool->size) {
-      gpu_release(memory);
-      condemn(handle, VK_OBJECT_TYPE_BUFFER);
-      buffer->handle = handle;
-      buffer->memory = ~0u;
-      buffer->offset = 0;
-      return memory->pointer;
-    } else {
-      gpu_release(pool->memory);
-      condemn(pool->buffer, VK_OBJECT_TYPE_BUFFER);
-      pool->memory = memory;
-      pool->buffer = handle;
-      pool->cursor = cursor = 0;
-      pool->pointer = pool->memory->pointer;
-    }
-  }
-
-  pool->cursor = cursor + size;
-  buffer->handle = pool->buffer;
-  buffer->memory = ~0u;
-  buffer->offset = pool->size * zone + cursor;
-
-  return pool->pointer + pool->size * zone + cursor;
 }
 
 // Texture
@@ -639,7 +530,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       VkBufferImageCopy regions[16];
       for (uint32_t i = 0; i < levelCount; i++) {
         regions[i] = (VkBufferImageCopy) {
-          .bufferOffset = buffer->offset + info->upload.levelOffsets[i],
+          .bufferOffset = info->upload.levelOffsets[i],
           .imageSubresource.aspectMask = texture->aspect,
           .imageSubresource.mipLevel = i,
           .imageSubresource.baseArrayLayer = 0,
@@ -1127,7 +1018,7 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
       } else {
         buffers[bufferCount++] = (VkDescriptorBufferInfo) {
           .buffer = binding->buffer.object->handle,
-          .offset = binding->buffer.offset + binding->buffer.object->offset,
+          .offset = binding->buffer.offset,
           .range = binding->buffer.extent
         };
       }
@@ -1680,13 +1571,13 @@ void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t*
   uint64_t offsets64[COUNTOF(handles)];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
-    offsets64[i] = buffers[i]->offset + (offsets ? offsets[i] : 0);
+    offsets64[i] = offsets ? offsets[i] : 0;
   }
   vkCmdBindVertexBuffers(stream->commands, first, count, handles, offsets64);
 }
 
 void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type) {
-  vkCmdBindIndexBuffer(stream->commands, buffer->handle, buffer->offset + offset, (VkIndexType) type);
+  vkCmdBindIndexBuffer(stream->commands, buffer->handle, offset, (VkIndexType) type);
 }
 
 void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t baseInstance) {
@@ -1698,11 +1589,11 @@ void gpu_draw_indexed(gpu_stream* stream, uint32_t indexCount, uint32_t instance
 }
 
 void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
-  vkCmdDrawIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, stride ? stride : 16);
+  vkCmdDrawIndirect(stream->commands, buffer->handle, offset, drawCount, stride ? stride : 16);
 }
 
 void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
-  vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, stride ? stride : 20);
+  vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, offset, drawCount, stride ? stride : 20);
 }
 
 void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z) {
@@ -1710,13 +1601,13 @@ void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z) {
 }
 
 void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset) {
-  vkCmdDispatchIndirect(stream->commands, buffer->handle, buffer->offset + offset);
+  vkCmdDispatchIndirect(stream->commands, buffer->handle, offset);
 }
 
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   vkCmdCopyBuffer(stream->commands, src->handle, dst->handle, 1, &(VkBufferCopy) {
-    .srcOffset = src->offset + srcOffset,
-    .dstOffset = dst->offset + dstOffset,
+    .srcOffset = srcOffset,
+    .dstOffset = dstOffset,
     .size = size
   });
 }
@@ -1743,7 +1634,7 @@ void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, u
 
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]) {
   VkBufferImageCopy region = {
-    .bufferOffset = src->offset + srcOffset,
+    .bufferOffset = srcOffset,
     .imageSubresource.aspectMask = dst->aspect,
     .imageSubresource.mipLevel = dstOffset[3],
     .imageSubresource.baseArrayLayer = dst->layers ? dstOffset[2] : 0,
@@ -1757,7 +1648,7 @@ void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* d
 
 void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint32_t srcOffset[4], uint32_t dstOffset, uint32_t extent[3]) {
   VkBufferImageCopy region = {
-    .bufferOffset = dst->offset + dstOffset,
+    .bufferOffset = dstOffset,
     .imageSubresource.aspectMask = src->aspect,
     .imageSubresource.mipLevel = srcOffset[3],
     .imageSubresource.baseArrayLayer = src->layers ? srcOffset[2] : 0,
@@ -1770,11 +1661,11 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
 }
 
 void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride) {
-  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dst->offset + dstOffset, stride, VK_QUERY_RESULT_WAIT_BIT);
+  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, stride, VK_QUERY_RESULT_WAIT_BIT);
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
-  vkCmdFillBuffer(stream->commands, buffer->handle, buffer->offset + offset, size, 0);
+  vkCmdFillBuffer(stream->commands, buffer->handle, offset, size, 0);
 }
 
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
@@ -2203,34 +2094,26 @@ bool gpu_init(gpu_config* config) {
 
     // Buffers
 
-    struct { VkBufferUsageFlags usage; VkMemoryPropertyFlags flags; } bufferFlags[] = {
-      [GPU_MEMORY_BUFFER_GPU] = {
-        .usage =
-          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-          VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-          VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-      },
-      [GPU_MEMORY_BUFFER_MAP_STREAM] = {
-        .usage =
-          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .flags = hostVisible | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-      },
-      [GPU_MEMORY_BUFFER_MAP_STAGING] = {
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .flags = hostVisible
-      },
-      [GPU_MEMORY_BUFFER_MAP_READBACK] = {
-        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        .flags = hostVisible | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
-      }
+    // There are 4 types of buffer memory, which use different strategies/memory types:
+    // - STATIC: Regular device-local memory.  Not necessarily mappable, fast to read on GPU.
+    // - STREAM: Used to "stream" data to the GPU, to be read by shaders.  This tries to use the
+    //   special 256MB memory type present on discrete GPUs because it's both device local and host-
+    //   visible and that supposedly makes it fast.  A single buffer is allocated with a "zone" for
+    //   each tick.  If one of the zones fills up, a new bigger buffer is allocated.  It's important
+    //   to have one buffer and keep it alive since streaming is expected to happen very frequently.
+    // - UPLOAD: Used to stage data to upload to buffers/textures.  Can only be used for transfers.
+    //   Uses uncached host-visible memory so as to not pollute the CPU cache.  This uses a slightly
+    //   different allocation strategy where blocks of memory are allocated, linearly allocated from,
+    //   and condemned once they fill up.  This is because uploads are much less frequent than
+    //   streaming and are usually too big to fit in the 256MB memory.
+    // - DOWNLOAD: Used for readbacks.  Uses cached memory when available since reading from
+    //   uncached memory on the CPU is super duper slow.  Uses the same "zone" system as STREAM, since
+    //   we want to be able to handle per-frame readbacks without thrashing.
+    VkMemoryPropertyFlags bufferFlags[] = {
+      [GPU_MEMORY_BUFFER_STATIC] = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      [GPU_MEMORY_BUFFER_STREAM] = hostVisible | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      [GPU_MEMORY_BUFFER_UPLOAD] = hostVisible,
+      [GPU_MEMORY_BUFFER_DOWNLOAD] = hostVisible | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
     };
 
     for (uint32_t i = 0; i < COUNTOF(bufferFlags); i++) {
@@ -2239,7 +2122,7 @@ bool gpu_init(gpu_config* config) {
 
       VkBufferCreateInfo info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .usage = bufferFlags[i].usage,
+        .usage = getBufferUsage(i),
         .size = 4
       };
 
@@ -2249,14 +2132,14 @@ bool gpu_init(gpu_config* config) {
       vkGetBufferMemoryRequirements(state.device, buffer, &requirements);
       vkDestroyBuffer(state.device, buffer, NULL);
 
-      VkMemoryPropertyFlags fallback = i == GPU_MEMORY_BUFFER_GPU ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : hostVisible;
+      VkMemoryPropertyFlags fallback = i == GPU_MEMORY_BUFFER_STATIC ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : hostVisible;
 
       for (uint32_t j = 0; j < memoryProperties.memoryTypeCount; j++) {
         if (~requirements.memoryTypeBits & (1 << j)) {
           continue;
         }
 
-        if ((memoryTypes[j].propertyFlags & bufferFlags[i].flags) == bufferFlags[i].flags) {
+        if ((memoryTypes[j].propertyFlags & bufferFlags[i]) == bufferFlags[i]) {
           allocator->memoryFlags = memoryTypes[j].propertyFlags;
           allocator->memoryType = j;
           break;
@@ -2425,9 +2308,6 @@ void gpu_destroy(void) {
   state.tick[GPU] = state.tick[CPU];
   expunge();
   if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
-  for (uint32_t i = 0; i < COUNTOF(state.scratchpad); i++) {
-    if (state.scratchpad[i].buffer) vkDestroyBuffer(state.device, state.scratchpad[i].buffer, NULL);
-  }
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
@@ -2471,8 +2351,6 @@ uint32_t gpu_begin(void) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   VK(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
   VK(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return 0;
-  state.scratchpad[GPU_MAP_STREAM].cursor = 0;
-  state.scratchpad[GPU_MAP_READBACK].cursor = 0;
   state.streamCount = 0;
   expunge();
   return state.tick[CPU];
@@ -2582,10 +2460,10 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
   gpu_allocator* allocator = &state.allocators[state.allocatorLookup[type]];
 
   static const uint32_t blockSizes[] = {
-    [GPU_MEMORY_BUFFER_GPU] = 1 << 26,
-    [GPU_MEMORY_BUFFER_MAP_STREAM] = 0,
-    [GPU_MEMORY_BUFFER_MAP_STAGING] = 0,
-    [GPU_MEMORY_BUFFER_MAP_READBACK] = 0,
+    [GPU_MEMORY_BUFFER_STATIC] = 1 << 26,
+    [GPU_MEMORY_BUFFER_STREAM] = 0,
+    [GPU_MEMORY_BUFFER_UPLOAD] = 0,
+    [GPU_MEMORY_BUFFER_DOWNLOAD] = 0,
     [GPU_MEMORY_TEXTURE_COLOR] = 1 << 28,
     [GPU_MEMORY_TEXTURE_D16] = 1 << 28,
     [GPU_MEMORY_TEXTURE_D32F] = 1 << 28,
@@ -3025,6 +2903,30 @@ VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uin
   entry->hash = ((uint64_t) state.tick[CPU] << 32) | hash;
 
   return framebuffer;
+}
+
+static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type) {
+  switch (type) {
+    case GPU_BUFFER_STATIC:
+      return
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    case GPU_BUFFER_STREAM:
+      return
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    case GPU_BUFFER_UPLOAD:
+      return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    case GPU_BUFFER_DOWNLOAD:
+      return VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  }
 }
 
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect) {

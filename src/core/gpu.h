@@ -27,7 +27,15 @@ size_t gpu_sizeof_tally(void);
 
 // Buffer
 
+typedef enum {
+  GPU_BUFFER_STATIC,
+  GPU_BUFFER_STREAM,
+  GPU_BUFFER_UPLOAD,
+  GPU_BUFFER_DOWNLOAD
+} gpu_buffer_type;
+
 typedef struct {
+  gpu_buffer_type type;
   uint32_t size;
   void** pointer;
   uintptr_t handle;
@@ -36,14 +44,6 @@ typedef struct {
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
-
-typedef enum {
-  GPU_MAP_STREAM,
-  GPU_MAP_STAGING,
-  GPU_MAP_READBACK
-} gpu_map_mode;
-
-void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode);
 
 // Texture
 
