@@ -414,9 +414,9 @@ static struct {
   arr_t(MaterialBlock) materialBlocks;
   Pass passes[63];
   uint32_t passCount;
-  size_t scratchBufferIndex;
-  arr_t(Buffer*) scratchBuffers;
-  arr_t(gpu_buffer*) scratchBufferHandles;
+  size_t tempBufferIndex;
+  arr_t(Buffer*) tempBuffers;
+  arr_t(gpu_buffer*) tempBufferHandles;
   arr_t(ScratchTexture) scratchTextures;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
@@ -507,8 +507,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   arr_init(&state.pipelines, realloc);
   arr_init(&state.layouts, realloc);
   arr_init(&state.materialBlocks, realloc);
-  arr_init(&state.scratchBuffers, realloc);
-  arr_init(&state.scratchBufferHandles, realloc);
+  arr_init(&state.tempBuffers, realloc);
+  arr_init(&state.tempBufferHandles, realloc);
   arr_init(&state.scratchTextures, realloc);
 
   for (uint32_t i = 0; i < COUNTOF(state.passes); i++) {
@@ -725,12 +725,12 @@ void lovrGraphicsDestroy(void) {
     free(block->bundles);
   }
   arr_free(&state.materialBlocks);
-  for (size_t i = 0; i < state.scratchBuffers.length; i++) {
-    free(state.scratchBuffers.data[i]);
-    free(state.scratchBufferHandles.data[i]);
+  for (size_t i = 0; i < state.tempBuffers.length; i++) {
+    free(state.tempBuffers.data[i]);
+    free(state.tempBufferHandles.data[i]);
   }
-  arr_free(&state.scratchBuffers);
-  arr_free(&state.scratchBufferHandles);
+  arr_free(&state.tempBuffers);
+  arr_free(&state.tempBufferHandles);
   for (size_t i = 0; i < state.scratchTextures.length; i++) {
     gpu_texture_destroy(state.scratchTextures.data[i].texture);
     free(state.scratchTextures.data[i].texture);
@@ -1118,7 +1118,7 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
   lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
 
   const uint32_t BUFFERS_PER_CHUNK = 64;
-  if (state.scratchBufferIndex >= state.scratchBuffers.length * BUFFERS_PER_CHUNK) {
+  if (state.tempBufferIndex >= state.tempBuffers.length * BUFFERS_PER_CHUNK) {
     Buffer* buffers = malloc(BUFFERS_PER_CHUNK * sizeof(Buffer));
     gpu_buffer* handles = malloc(BUFFERS_PER_CHUNK * gpu_sizeof_buffer());
     lovrAssert(buffers && handles, "Out of memory");
@@ -1129,12 +1129,12 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
       buffers[i].info.fields = NULL;
     }
 
-    arr_push(&state.scratchBuffers, buffers);
-    arr_push(&state.scratchBufferHandles, handles);
+    arr_push(&state.tempBuffers, buffers);
+    arr_push(&state.tempBufferHandles, handles);
   }
 
-  size_t index = state.scratchBufferIndex++;
-  Buffer* buffer = &state.scratchBuffers.data[index / BUFFERS_PER_CHUNK][index % BUFFERS_PER_CHUNK];
+  size_t index = state.tempBufferIndex++;
+  Buffer* buffer = &state.tempBuffers.data[index / BUFFERS_PER_CHUNK][index % BUFFERS_PER_CHUNK];
 
   size_t charCount = 0;
   for (uint32_t i = 0; i < info->fieldCount; i++) {
@@ -6160,7 +6160,7 @@ static void beginFrame(void) {
   state.active = true;
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin("Internal");
-  state.scratchBufferIndex = 0;
+  state.tempBufferIndex = 0;
   state.allocator.cursor = 0;
   processReadbacks();
 }
