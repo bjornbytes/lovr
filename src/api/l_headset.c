@@ -370,7 +370,8 @@ static int l_lovrHeadsetIsDown(lua_State* L) {
     lua_pushboolean(L, down);
     return 1;
   }
-  return 0;
+  lua_pushnil(L);
+  return 1;
 }
 
 static int l_lovrHeadsetWasPressed(lua_State* L) {
@@ -405,7 +406,8 @@ static int l_lovrHeadsetIsTouched(lua_State* L) {
     lua_pushboolean(L, touched);
     return 1;
   }
-  return 0;
+  lua_pushnil(L);
+  return 1;
 }
 
 static const int axisCounts[MAX_AXES] = {
