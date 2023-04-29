@@ -523,7 +523,7 @@ static int l_lovrPassSend(lua_State* L) {
   void* data;
   BufferField* field;
   lovrPassSendData(pass, name, length, slot, &data, &field);
-  luax_readbufferfield(L, 3, field, data);
+  luax_checkbufferfield(L, 3, field, data);
   return 0;
 }
 
@@ -802,10 +802,10 @@ static int l_lovrPassMesh(lua_State* L) {
     void* vertices;
     void* indices;
     lovrPassMeshImmediate(pass, vertexCount, &vertices, &format, indexCount, &indices, transform);
-    luax_readbufferfield(L, 2, format, vertices);
+    luax_checkbufferfield(L, 2, format, vertices);
     if (indexCount > 0) {
       BufferField indexFormat = { .type = FIELD_INDEX16, .length = indexCount, .stride = 2 };
-      luax_readbufferfield(L, 3, &indexFormat, indices);
+      luax_checkbufferfield(L, 3, &indexFormat, indices);
     }
     return 0;
   }
@@ -905,7 +905,7 @@ static int l_lovrPassCopy(lua_State* L) {
     }
 
     lua_remove(L, 3); // Remove buffer, leaving (table, srcIndex, dstIndex, count)
-    luax_readbufferdata(L, 2, buffer, data);
+    luax_checkbufferdata(L, 2, buffer, data);
     return 0;
   }
 

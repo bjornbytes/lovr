@@ -887,7 +887,7 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 
   if (index) {
     lua_settop(L, index);
-    luax_readbufferdata(L, index, buffer, pointer);
+    luax_checkbufferdata(L, index, buffer, pointer);
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -906,7 +906,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   if (index) {
     lua_settop(L, index);
-    luax_readbufferdata(L, index, buffer, pointer);
+    luax_checkbufferdata(L, index, buffer, pointer);
   }
 
   luax_pushtype(L, Buffer, buffer);

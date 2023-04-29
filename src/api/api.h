@@ -161,8 +161,9 @@ struct ColoredString;
 struct Model;
 struct Buffer* luax_checkbuffer(lua_State* L, int index);
 void luax_checkbufferformat(lua_State* L, int index, struct BufferField* fields, uint32_t* count, uint32_t max);
-void luax_readbufferfield(lua_State* L, int index, const struct BufferField* field, char* data);
-void luax_readbufferdata(lua_State* L, int index, struct Buffer* buffer, char* data);
+void luax_checkbufferfield(lua_State* L, int index, const struct BufferField* field, char* data);
+void luax_checkbufferdata(lua_State* L, int index, struct Buffer* buffer, char* data);
+int luax_pushbufferfield(lua_State* L, const struct BufferField* field, char* data);
 uint32_t luax_checkcomparemode(lua_State* L, int index);
 struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
 #endif
