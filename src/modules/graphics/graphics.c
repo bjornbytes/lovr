@@ -6215,7 +6215,7 @@ static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align) {
     .buffer = buffer->gpu,
     .offset = cursor,
     .extent = size,
-    .pointer = (char*) buffer->pointer + cursor,
+    .pointer = (char*) buffer->pointer + cursor
   };
  }
 
