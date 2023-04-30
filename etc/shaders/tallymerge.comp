@@ -1,0 +1,25 @@
+#version 460
+
+layout(local_size_x = 32) in;
+
+layout(push_constant) uniform PushConstants {
+  uint count;
+  uint views;
+};
+
+layout(set = 0, binding = 0) buffer readonly restrict Src { uint src[]; };
+layout(set = 0, binding = 1) buffer writeonly restrict Dst { uint dst[]; };
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) return;
+  uint base = index * views;
+
+  uint total = 0;
+
+  for (uint i = 0; i < views; i++) {
+    total += src[base + i];
+  }
+
+  dst[index] = total;
+}

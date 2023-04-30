@@ -151,7 +151,7 @@ static void luax_checkstruct(lua_State* L, int index, const BufferField* field, 
   if (!field->children[0].name || luax_len(L, index) > 0) {
     for (uint32_t i = 0, j = 1; i < field->childCount; i++) {
       const BufferField* child = &field->children[i];
-      uint32_t n = 1;
+      int n = 1;
 
       lua_rawgeti(L, index, j);
       if (child->length == 0 && child->childCount == 0 && lua_type(L, -1) == LUA_TNUMBER) {
@@ -465,7 +465,7 @@ static int l_lovrBufferSetData(lua_State* L) {
     uint32_t srcOffset = luax_optu32(L, 4, 0);
     lovrCheck(dstOffset < info->size, "Buffer offset is bigger than the size of the Buffer");
     lovrCheck(srcOffset < blob->size, "Blob offset is bigger than the size of the Blob");
-    uint32_t limit = MIN(info->size - dstOffset, blob->size - srcOffset);
+    uint32_t limit = (uint32_t) MIN(info->size - dstOffset, blob->size - srcOffset);
     uint32_t extent = luax_optu32(L, 5, limit);
     lovrCheck(extent <= info->size - dstOffset, "Buffer copy range exceeds the size of the target Buffer");
     lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds the size of the source Blob");

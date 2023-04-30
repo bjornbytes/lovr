@@ -292,6 +292,7 @@ typedef enum {
   SHADER_LOGO,
   SHADER_ANIMATOR,
   SHADER_BLENDER,
+  SHADER_TALLY_MERGE,
   DEFAULT_SHADER_COUNT
 } DefaultShader;
 
@@ -469,10 +470,18 @@ struct Image* lovrReadbackGetImage(Readback* readback);
 
 // Pass
 
+typedef struct {
+  uint32_t draws;
+  uint32_t computes;
+  size_t memoryReserved;
+  size_t memoryUsed;
+} PassStats;
+
 typedef enum {
-  PASS_RENDER,
-  PASS_COMPUTE
-} PassType;
+  LOAD_CLEAR,
+  LOAD_DISCARD,
+  LOAD_KEEP
+} LoadAction;
 
 typedef enum {
   STACK_TRANSFORM,
@@ -522,50 +531,30 @@ typedef enum {
   WINDING_CLOCKWISE
 } Winding;
 
-typedef enum {
-  LOAD_CLEAR,
-  LOAD_DISCARD,
-  LOAD_KEEP
-} LoadAction;
-
-typedef struct {
-  Texture* texture;
-  uint32_t format;
-  LoadAction load;
-  float clear;
-} DepthInfo;
-
-typedef struct {
-  uint32_t count;
-  Texture* textures[4];
-  LoadAction loads[4];
-  float clears[4][4];
-  DepthInfo depth;
-  uint32_t samples;
-  bool mipmap;
-} Canvas;
-
-typedef struct {
-  PassType type;
-  Canvas canvas;
-  const char* label;
-} PassInfo;
-
 Pass* lovrGraphicsGetWindowPass(void);
-Pass* lovrGraphicsGetPass(PassInfo* info);
+Pass* lovrGraphicsGetPass(void); // Deprecated
+Pass* lovrPassCreate(void);
 void lovrPassDestroy(void* ref);
-const PassInfo* lovrPassGetInfo(Pass* pass);
+void lovrPassReset(Pass* pass);
+void lovrPassGetStats(Pass* pass, PassStats* stats);
+
+void lovrPassGetCanvas(Pass* pass, Texture* color[4], Texture** depthTexture, uint32_t* depthFormat, uint32_t* samples);
+void lovrPassSetCanvas(Pass* pass, Texture* color[4], Texture* depthTexture, uint32_t depthFormat, uint32_t samples);
+void lovrPassGetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadAction* depthLoad, float* depthClear);
+void lovrPassSetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadAction depthLoad, float depthClear);
+uint32_t lovrPassGetAttachmentCount(Pass* pass, bool* depth);
 uint32_t lovrPassGetWidth(Pass* pass);
 uint32_t lovrPassGetHeight(Pass* pass);
 uint32_t lovrPassGetViewCount(Pass* pass);
-uint32_t lovrPassGetSampleCount(Pass* pass);
-void lovrPassGetTarget(Pass* pass, Texture* color[4], Texture** depth, uint32_t* count);
-void lovrPassGetClear(Pass* pass, float color[4][4], float* depth, uint8_t* stencil, uint32_t* count);
 
 void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 void lovrPassGetProjection(Pass* pass, uint32_t index, float projection[16]);
 void lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]);
+void lovrPassGetViewport(Pass* pass, float viewport[6]);
+void lovrPassSetViewport(Pass* pass, float viewport[6]);
+void lovrPassGetScissor(Pass* pass, uint32_t scissor[4]);
+void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 
 void lovrPassPush(Pass* pass, StackType stack);
 void lovrPassPop(Pass* pass, StackType stack);
@@ -588,12 +577,10 @@ void lovrPassSetFont(Pass* pass, Font* font);
 void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture);
 void lovrPassSetMeshMode(Pass* pass, MeshMode mode);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
-void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 void lovrPassSetShader(Pass* pass, Shader* shader);
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
 void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask);
 void lovrPassSetVertexFormat(Pass* pass, BufferField* fields, uint32_t count);
-void lovrPassSetViewport(Pass* pass, float viewport[4], float depthRange[2]);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);
 

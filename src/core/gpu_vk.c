@@ -384,7 +384,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkDeviceSize offset;
   VkMemoryRequirements requirements;
   vkGetBufferMemoryRequirements(state.device, buffer->handle, &requirements);
-  gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_STATIC, requirements, &offset);
+  gpu_memory* memory = gpu_allocate((gpu_memory_type) info->type, requirements, &offset);
 
   VK(vkBindBufferMemory(state.device, buffer->handle, memory->handle, offset), "Could not bind buffer memory") {
     vkDestroyBuffer(state.device, buffer->handle, NULL);
@@ -1653,8 +1653,8 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
   vkCmdCopyImageToBuffer(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, 1, &region);
 }
 
-void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride) {
-  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, stride, VK_QUERY_RESULT_WAIT_BIT);
+void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
+  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, 4, VK_QUERY_RESULT_WAIT_BIT);
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
@@ -1736,7 +1736,7 @@ void gpu_tally_begin(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
   vkCmdBeginQuery(stream->commands, tally->handle, index, 0);
 }
 
-void gpu_tally_end(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
+void gpu_tally_finish(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
   vkCmdEndQuery(stream->commands, tally->handle, index);
 }
 
@@ -2914,6 +2914,7 @@ static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type) {
       return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     case GPU_BUFFER_DOWNLOAD:
       return VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    default: return 0;
   }
 }
 

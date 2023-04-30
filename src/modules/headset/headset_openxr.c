@@ -924,9 +924,9 @@ static bool openxr_init(HeadsetConfig* config) {
 
 static void openxr_start(void) {
 #ifdef LOVR_DISABLE_GRAPHICS
-    bool hasGraphics = false;
+  bool hasGraphics = false;
 #else
-    bool hasGraphics = lovrGraphicsIsInitialized();
+  bool hasGraphics = lovrGraphicsIsInitialized();
 #endif
 
   { // Session
@@ -1036,6 +1036,8 @@ static void openxr_start(void) {
       state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
     }
 
+    state.pass = lovrPassCreate();
+
 #ifdef LOVR_VK
     XrSwapchainImageVulkanKHR images[2][MAX_IMAGES];
     for (uint32_t i = 0; i < MAX_IMAGES; i++) {
@@ -1118,7 +1120,7 @@ static void openxr_start(void) {
         state.textures[DEPTH][i] = lovrTextureCreate(&(TextureInfo) {
           .type = TEXTURE_ARRAY,
           .format = state.depthFormat,
-          .srgb = true,
+          .srgb = false,
           .width = state.width,
           .height = state.height,
           .layers = 2,
@@ -1198,6 +1200,8 @@ static void openxr_stop(void) {
       lovrRelease(state.textures[i][j], lovrTextureDestroy);
     }
   }
+
+  lovrRelease(state.pass, lovrPassDestroy);
 
   if (state.swapchain[COLOR]) xrDestroySwapchain(state.swapchain[COLOR]);
   if (state.swapchain[DEPTH]) xrDestroySwapchain(state.swapchain[DEPTH]);
@@ -2104,23 +2108,11 @@ static Pass* openxr_getPass(void) {
     return NULL;
   }
 
-  Canvas canvas = {
-    .count = 1,
-    .textures[0] = texture,
-    .depth.texture = depthTexture,
-    .depth.format = state.depthFormat,
-    .depth.load = LOAD_CLEAR,
-    .depth.clear = 0.f,
-    .samples = state.config.antialias ? 4 : 1
-  };
+  Texture* textures[4] = { texture };
+  Texture* depth = depthTexture;
 
-  lovrGraphicsGetBackgroundColor(canvas.clears[0]);
-
-  state.pass = lovrGraphicsGetPass(&(PassInfo) {
-    .type = PASS_RENDER,
-    .label = "Headset",
-    .canvas = canvas
-  });
+  lovrPassReset(state.pass);
+  lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1);
 
   uint32_t count;
   XrView views[2];

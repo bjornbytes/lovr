@@ -1,5 +1,5 @@
 #include "headset/headset.h"
-#include "data/modelData.h"
+#include "data/image.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
@@ -11,6 +11,10 @@
 
 static struct {
   bool initialized;
+  HeadsetConfig config;
+  TextureFormat depthFormat;
+  Texture* texture;
+  Pass* pass;
   float position[4];
   float velocity[4];
   float localVelocity[4];
@@ -25,7 +29,6 @@ static struct {
   bool mouseDown;
   bool prevMouseDown;
   bool focused;
-  float offset;
   float clipNear;
   float clipFar;
   float pitch;
@@ -38,7 +41,7 @@ static void onFocus(bool focused) {
 }
 
 static bool desktop_init(HeadsetConfig* config) {
-  state.offset = config->offset;
+  state.config = *config;
   state.clipNear = .01f;
   state.clipFar = 0.f;
   state.epoch = os_get_time();
@@ -58,11 +61,31 @@ static bool desktop_init(HeadsetConfig* config) {
 }
 
 static void desktop_start(void) {
-  //
+#ifdef LOVR_DISABLE_GRAPHICS
+  bool hasGraphics = false;
+#else
+  bool hasGraphics = lovrGraphicsIsInitialized();
+#endif
+
+  if (hasGraphics) {
+    state.pass = lovrPassCreate();
+
+    state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
+    if (state.config.stencil && !lovrGraphicsIsFormatSupported(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+      state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
+    }
+  }
+}
+
+static void desktop_stop(void) {
+  lovrRelease(state.texture, lovrTextureDestroy);
+  lovrRelease(state.pass, lovrPassDestroy);
+  state.texture = NULL;
+  state.pass = NULL;
 }
 
 static void desktop_destroy(void) {
-  //
+  desktop_stop();
 }
 
 static bool desktop_getName(char* name, size_t length) {
@@ -94,7 +117,7 @@ static uint32_t desktop_getViewCount(void) {
 static bool desktop_getViewPose(uint32_t view, float* position, float* orientation) {
   vec3_init(position, state.position);
   quat_fromMat4(orientation, state.headTransform);
-  position[1] += state.offset;
+  position[1] += state.config.offset;
   return view == 0;
 }
 
@@ -179,7 +202,7 @@ static bool desktop_vibrate(Device device, float strength, float duration, float
   return false;
 }
 
-static ModelData* desktop_newModelData(Device device, bool animated) {
+static struct ModelData* desktop_newModelData(Device device, bool animated) {
   return NULL;
 }
 
@@ -188,15 +211,37 @@ static bool desktop_animate(struct Model* model) {
 }
 
 static Texture* desktop_getTexture(void) {
-  return NULL;
+  return state.texture;
 }
 
 static Pass* desktop_getPass(void) {
-  Pass* pass = lovrGraphicsGetWindowPass();
-
-  if (!pass) {
-    return pass;
+  if (!state.pass) {
+    return NULL;
   }
+
+  uint32_t width, height;
+  desktop_getDisplayDimensions(&width, &height);
+
+  if (lovrPassGetWidth(state.pass) != width || lovrPassGetHeight(state.pass) != height) {
+    lovrRelease(state.texture, lovrTextureDestroy);
+
+    state.texture = lovrTextureCreate(&(TextureInfo) {
+      .type = TEXTURE_2D,
+      .format = FORMAT_RGBA8,
+      .srgb = true,
+      .width = width,
+      .height = height,
+      .layers = 1,
+      .mipmaps = 1,
+      .samples = 1,
+      .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
+    });
+
+    Texture* textures[4] = { state.texture };
+    lovrPassSetCanvas(state.pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1);
+  }
+
+  lovrPassReset(state.pass);
 
   float position[4], orientation[4];
   desktop_getViewPose(0, position, orientation);
@@ -211,10 +256,10 @@ static Pass* desktop_getPass(void) {
   desktop_getViewAngles(0, &left, &right, &up, &down);
   mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
 
-  lovrPassSetViewMatrix(pass, 0, viewMatrix);
-  lovrPassSetProjection(pass, 0, projection);
+  lovrPassSetViewMatrix(state.pass, 0, viewMatrix);
+  lovrPassSetProjection(state.pass, 0, projection);
 
-  return pass;
+  return state.pass;
 }
 
 static void desktop_submit(void) {
@@ -298,7 +343,7 @@ static double desktop_update(void) {
 
   // Update head transform
   mat4_identity(state.headTransform);
-  mat4_translate(state.headTransform, 0.f, state.offset, 0.f);
+  mat4_translate(state.headTransform, 0.f, state.config.offset, 0.f);
   mat4_translate(state.headTransform, state.position[0], state.position[1], state.position[2]);
   mat4_rotate(state.headTransform, state.yaw, 0.f, 1.f, 0.f);
   mat4_rotate(state.headTransform, state.pitch, 1.f, 0.f, 0.f);
@@ -330,6 +375,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .driverType = DRIVER_DESKTOP,
   .init = desktop_init,
   .start = desktop_start,
+  .stop = desktop_stop,
   .destroy = desktop_destroy,
   .getName = desktop_getName,
   .getOriginType = desktop_getOriginType,
