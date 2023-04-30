@@ -96,8 +96,9 @@ struct Sampler {
 typedef struct {
   uint32_t hash;
   uint32_t binding;
-  uint32_t stageMask;
   gpu_slot_type type;
+  gpu_phase phase;
+  gpu_cache cache;
   uint32_t bufferSize;
   uint32_t fieldCount;
   BufferField* fields;
@@ -1956,6 +1957,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
   uint32_t stageCount = info->type == SHADER_GRAPHICS ? 2 : 1;
   uint32_t firstStage = info->type == SHADER_GRAPHICS ? GPU_STAGE_VERTEX : GPU_STAGE_COMPUTE;
+  gpu_phase firstPhase = info->type == SHADER_GRAPHICS ? GPU_PHASE_SHADER_VERTEX : GPU_PHASE_SHADER_COMPUTE;
   uint32_t userSet = info->type == SHADER_GRAPHICS ? 2 : 0;
 
   // Parse SPIR-V
@@ -2042,6 +2044,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
       uint32_t hash = (uint32_t) hash64(resource->name, strlen(resource->name));
       uint32_t stage = s == 0 ? firstStage : GPU_STAGE_FRAGMENT;
+      gpu_phase phase = s == 0 ? firstPhase : GPU_PHASE_SHADER_FRAGMENT;
       bool append = true;
 
       if (s > 0) {
@@ -2049,7 +2052,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
           ShaderResource* other = &shader->resources[j];
           if (other->binding == resource->binding) {
             lovrCheck(other->type == resourceTypes[resource->type], "Shader variable (%d) does not use a consistent type", resource->binding);
-            shader->resources[j].stageMask |= stage;
+            slots[j].stages |= stage;
+            shader->resources[j].phase |= phase;
             append = false;
             break;
           }
@@ -2077,8 +2081,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       shader->resources[index] = (ShaderResource) {
         .hash = hash,
         .binding = resource->binding,
-        .stageMask = stage,
-        .type = resourceTypes[resource->type]
+        .type = resourceTypes[resource->type],
+        .phase = phase
       };
 
       if (resource->fields) {
@@ -2095,6 +2099,12 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       shader->textureMask |= (texture << resource->binding);
       shader->samplerMask |= (sampler << resource->binding);
       shader->storageMask |= (storage << resource->binding);
+
+      if (storage) {
+        shader->resources[index].cache = stage == GPU_STAGE_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;
+      } else {
+        shader->resources[index].cache = texture ? GPU_CACHE_TEXTURE : GPU_CACHE_UNIFORM;
+      }
     }
   }
 
@@ -4480,25 +4490,12 @@ void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t sl
     lovrCheck(extent <= limit, "Buffer range exceeds storageBufferRange/uniformBufferRange limit");
   }
 
+  trackBuffer(pass, buffer, resource->phase, resource->cache);
   pass->bindings[slot].buffer.object = buffer->gpu;
   pass->bindings[slot].buffer.offset = buffer->offset + offset;
   pass->bindings[slot].buffer.extent = extent;
   pass->bindingMask |= (1u << slot);
   pass->bindingsDirty = true;
-
-  gpu_phase phase = 0;
-  gpu_cache cache = 0;
-
-  if (pass->info.type == PASS_RENDER) {
-    if (resource->stageMask & GPU_STAGE_VERTEX) phase |= GPU_PHASE_SHADER_VERTEX;
-    if (resource->stageMask & GPU_STAGE_FRAGMENT) phase |= GPU_PHASE_SHADER_FRAGMENT;
-    cache = (shader->storageMask & (1u << slot)) ? GPU_CACHE_STORAGE_READ : GPU_CACHE_UNIFORM;
-  } else {
-    phase = GPU_PHASE_SHADER_COMPUTE;
-    cache = (shader->storageMask & (1u << slot)) ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_UNIFORM; // TODO readonly
-  }
-
-  trackBuffer(pass, buffer, phase, cache);
 }
 
 void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture) {
@@ -4515,23 +4512,10 @@ void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t s
     lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to send them to sampler variables in shaders");
   }
 
+  trackTexture(pass, texture, resource->phase, resource->cache);
   pass->bindings[slot].texture = texture->gpu;
   pass->bindingMask |= (1u << slot);
   pass->bindingsDirty = true;
-
-  gpu_phase phase = 0;
-  gpu_cache cache = 0;
-
-  if (pass->info.type == PASS_RENDER) {
-    if (resource->stageMask & GPU_STAGE_VERTEX) phase |= GPU_PHASE_SHADER_VERTEX;
-    if (resource->stageMask & GPU_STAGE_FRAGMENT) phase |= GPU_PHASE_SHADER_FRAGMENT;
-    cache = (shader->storageMask & (1u << slot)) ? GPU_CACHE_STORAGE_READ : GPU_CACHE_TEXTURE;
-  } else {
-    phase = GPU_PHASE_SHADER_COMPUTE;
-    cache = (shader->storageMask & (1u << slot)) ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_TEXTURE; // TODO readonly
-  }
-
-  trackTexture(pass, texture, phase, cache);
 }
 
 void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler) {
