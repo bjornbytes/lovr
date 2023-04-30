@@ -39,6 +39,8 @@ typedef struct {
   gpu_cache pendingReads;
   gpu_cache pendingWrite;
   uint32_t lastWriteIndex;
+  uint32_t lastTransferRead;
+  uint32_t lastTransferWrite;
 } Sync;
 
 struct Buffer {
@@ -242,24 +244,22 @@ struct Model {
   uint32_t lastVertexAnimation;
 };
 
+typedef enum {
+  READBACK_BUFFER,
+  READBACK_TEXTURE
+} ReadbackType;
+
 struct Readback {
   uint32_t ref;
   uint32_t tick;
-  uint32_t size;
   Readback* next;
-  ReadbackInfo info;
   MappedBuffer mapped;
+  ReadbackType type;
+  Buffer* buffer;
+  Texture* texture;
   Image* image;
   Blob* blob;
   void* data;
-};
-
-struct Tally {
-  uint32_t ref;
-  uint32_t tick;
-  TallyInfo info;
-  gpu_tally* gpu;
-  gpu_buffer* buffer;
 };
 
 typedef struct {
@@ -363,7 +363,6 @@ struct Pass {
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
   Shape shapeCache[16];
-  arr_t(Readback*) readbacks;
   arr_t(Access) access;
 };
 
@@ -414,6 +413,7 @@ static struct {
   gpu_features features;
   gpu_limits limits;
   gpu_stream* stream;
+  gpu_barrier preBarrier;
   uint32_t tick;
   bool hasTextureUpload;
   bool hasMaterialUpload;
@@ -470,6 +470,8 @@ static void alignField(BufferField* field, BufferLayout layout);
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
 static void trackMaterial(Pass* pass, Material* material, gpu_phase phase, gpu_cache cache);
+static bool syncResource(Access* access, gpu_barrier* barrier);
+static gpu_barrier syncTransfer(Sync* sync, gpu_cache cache);
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
 static void onResize(uint32_t width, uint32_t height);
@@ -540,7 +542,6 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   arr_init(&state.scratchTextures, realloc);
 
   for (uint32_t i = 0; i < COUNTOF(state.passes); i++) {
-    arr_init(&state.passes[i].readbacks, realloc);
     arr_init(&state.passes[i].access, realloc);
   }
 
@@ -728,7 +729,6 @@ void lovrGraphicsDestroy(void) {
   }
   releasePassResources();
   for (uint32_t i = 0; i < COUNTOF(state.passes); i++) {
-    arr_free(&state.passes[i].readbacks);
     arr_free(&state.passes[i].access);
   }
   lovrRelease(state.window, lovrTextureDestroy);
@@ -982,22 +982,6 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       case PASS_COMPUTE:
         gpu_compute_end(pass->stream);
         break;
-      case PASS_TRANSFER:
-        for (uint32_t j = 0; j < pass->readbacks.length; j++) {
-          Readback* readback = pass->readbacks.data[j];
-
-          if (!state.oldestReadback) {
-            state.oldestReadback = readback;
-          }
-
-          if (state.newestReadback) {
-            state.newestReadback->next = readback;
-          }
-
-          state.newestReadback = readback;
-          lovrRetain(readback);
-        }
-        break;
     }
   }
 
@@ -1023,59 +1007,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         continue;
       }
 
-      // There are 4 types of access patterns:
-      // - read after read:
-      //   - no hazard, no barrier necessary
-      // - read after write:
-      //   - needs execution dependency to ensure the read happens after the write
-      //   - needs to flush the writes from the cache
-      //   - needs to clear the cache for the read so it gets the new data
-      //   - only needs to happen once for each type of read after a write (tracked by pendingReads)
-      //     - if a second read happens, the first read would have already synchronized (transitive)
-      // - write after write:
-      //   - needs execution dependency to ensure writes don't overlap
-      //   - needs to flush and clear the cache
-      //   - resets the 'last write' and clears pendingReads
-      // - write after read:
-      //   - needs execution dependency to ensure write starts after read is finished
-      //   - does not need to flush any caches
-      //   - does clear the write cache
-      //   - resets the 'last write' and clears pendingReads
-
-      uint32_t read = access->cache & GPU_CACHE_READ_MASK;
-      uint32_t write = access->cache & GPU_CACHE_WRITE_MASK;
-      uint32_t newReads = read & ~sync->pendingReads;
-      bool hasNewReads = newReads || (access->phase & ~sync->readPhase);
-      bool readAfterWrite = read && sync->pendingWrite && hasNewReads;
-      bool writeAfterWrite = write && sync->pendingWrite && !sync->pendingReads;
-      bool writeAfterRead = write && sync->pendingReads;
-
-      if (readAfterWrite) {
-        barrier->prev |= sync->writePhase;
-        barrier->next |= access->phase;
-        barrier->flush |= sync->pendingWrite;
-        barrier->clear |= newReads;
-        sync->readPhase |= access->phase;
-        sync->pendingReads |= read;
-      }
-
-      if (writeAfterWrite) {
-        barrier->prev |= sync->writePhase;
-        barrier->next |= access->phase;
-        barrier->flush |= sync->pendingWrite;
-        barrier->clear |= write;
-      }
-
-      if (writeAfterRead) {
-        barrier->prev |= sync->readPhase;
-        barrier->next |= access->phase;
-        sync->readPhase = 0;
-        sync->pendingReads = 0;
-      }
-
-      if (write) {
-        sync->writePhase = access->phase;
-        sync->pendingWrite = write;
+      if (syncResource(access, barrier)) {
         sync->lastWriteIndex = i + 1;
       }
     }
@@ -1320,20 +1252,82 @@ bool lovrBufferIsValid(Buffer* buffer) {
   return !lovrBufferIsTemporary(buffer) || buffer->tick == state.tick;
 }
 
-void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size) {
-  lovrAssert(buffer->pointer, "This function can only be called on temporary buffers");
-  return buffer->pointer + offset;
+void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
+  beginFrame();
+  if (extent == ~0u) extent = buffer->info.size - offset;
+  lovrCheck(!lovrBufferIsTemporary(buffer), "Can not read from temporary buffer");
+  lovrCheck(offset + extent <= buffer->info.size, "Buffer read range goes past the end of the Buffer");
+
+  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_sync(state.stream, &barrier, 1);
+
+  MappedBuffer mapped = mapBuffer(&state.downloadBuffers, extent, 4);
+  gpu_copy_buffers(state.stream, buffer->gpu, mapped.buffer, offset, mapped.offset, extent);
+
+  lovrGraphicsSubmit(NULL, 0);
+  lovrGraphicsWait();
+
+  return mapped.pointer;
 }
 
-void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size) {
-  lovrAssert(buffer->pointer, "This function can only be called on temporary buffers");
-  lovrCheck(size % 4 == 0, "Buffer clear size must be a multiple of 4");
+void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
+  if (lovrBufferIsTemporary(buffer)) {
+    return buffer->pointer + offset;
+  } else {
+    beginFrame();
+    lovrCheck(offset + extent <= buffer->info.size, "Attempt to write past the end of a Buffer");
+    MappedBuffer mapped = mapBuffer(&state.uploadBuffers, extent, 4);
+    gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
+    gpu_sync(state.stream, &barrier, 1);
+    gpu_copy_buffers(state.stream, mapped.buffer, buffer->gpu, mapped.offset, offset, extent);
+    return mapped.pointer;
+  }
+}
+
+void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {
+  beginFrame();
+  lovrCheck(!lovrBufferIsTemporary(dst), "Temporary buffers can not have another Buffer copied to them");
+  lovrCheck(srcOffset + extent <= src->info.size, "Buffer copy range goes past the end of the source Buffer");
+  lovrCheck(dstOffset + extent <= dst->info.size, "Buffer copy range goes past the end of the destination Buffer");
+  gpu_barrier barriers[2];
+  barriers[0] = syncTransfer(&src->sync, GPU_CACHE_TRANSFER_READ);
+  barriers[1] = syncTransfer(&dst->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_sync(state.stream, barriers, 2);
+  gpu_copy_buffers(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+}
+
+void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent) {
+  if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
-  lovrCheck(offset + size <= buffer->info.size, "Tried to clear past the end of the Buffer");
-  memset(buffer->pointer + offset, 0, size);
+  lovrCheck(extent % 4 == 0, "Buffer clear extent must be a multiple of 4");
+  lovrCheck(offset + extent <= buffer->info.size, "Buffer clear range goes past the end of the Buffer");
+  if (lovrBufferIsTemporary(buffer)) {
+    memset(buffer->pointer + offset, 0, extent);
+  } else if (extent > 0) {
+    beginFrame();
+    gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
+    gpu_sync(state.stream, &barrier, 1);
+    gpu_clear_buffer(state.stream, buffer->gpu, offset, extent);
+  }
 }
 
 // Texture
+
+static Material* lovrTextureGetMaterial(Texture* texture) {
+  if (!texture->material) {
+    texture->material = lovrMaterialCreate(&(MaterialInfo) {
+      .data.color = { 1.f, 1.f, 1.f, 1.f },
+      .data.uvScale = { 1.f, 1.f },
+      .texture = texture
+    });
+
+    // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
+    // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
+    lovrRelease(texture, lovrTextureDestroy);
+  }
+
+  return texture->material;
+}
 
 Texture* lovrGraphicsGetWindowTexture(void) {
   if (!state.window->gpu) {
@@ -1558,20 +1552,133 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
 }
 
-static Material* lovrTextureGetMaterial(Texture* texture) {
-  if (!texture->material) {
-    texture->material = lovrMaterialCreate(&(MaterialInfo) {
-      .data.color = { 1.f, 1.f, 1.f, 1.f },
-      .data.uvScale = { 1.f, 1.f },
-      .texture = texture
-    });
+Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t extent[3]) {
+  beginFrame();
+  if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
+  if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
+  lovrCheck(extent[2] == 1, "Currently only a single layer can be read from a Texture");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
+  lovrCheck(!texture->info.parent, "Texture views can not be read");
+  lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be read");
+  checkTextureBounds(&texture->info, offset, extent);
 
-    // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
-    // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
-    lovrRelease(texture, lovrTextureDestroy);
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_sync(state.stream, &barrier, 1);
+
+  MappedBuffer mapped = mapBuffer(&state.downloadBuffers, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
+  gpu_copy_texture_buffer(state.stream, texture->gpu, mapped.buffer, offset, mapped.offset, extent);
+
+  lovrGraphicsSubmit(NULL, 0);
+  lovrGraphicsWait();
+
+  Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format);
+  void* data = lovrImageGetLayerData(image, offset[3], offset[2]);
+  memcpy(data, mapped.pointer, mapped.extent);
+  return image;
+}
+
+void lovrTextureSetPixels(Texture* texture, Image* image, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
+  beginFrame();
+  if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
+  if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
+  if (extent[2] == ~0u) extent[2] = MIN(texture->info.layers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy to it");
+  lovrCheck(!texture->info.parent, "Texture views can not be written to");
+  lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be written to");
+  lovrCheck(lovrImageGetFormat(image) == texture->info.format, "Image and Texture formats must match");
+  lovrCheck(srcOffset[0] + extent[0] <= lovrImageGetWidth(image, srcOffset[3]), "Image copy region exceeds its %s", "width");
+  lovrCheck(srcOffset[1] + extent[1] <= lovrImageGetHeight(image, srcOffset[3]), "Image copy region exceeds its %s", "height");
+  lovrCheck(srcOffset[2] + extent[2] <= lovrImageGetLayerCount(image), "Image copy region exceeds its %s", "layer count");
+  lovrCheck(srcOffset[3] < lovrImageGetLevelCount(image), "Image copy region exceeds its %s", "mipmap count");
+  checkTextureBounds(&texture->info, dstOffset, extent);
+  uint32_t rowSize = measureTexture(texture->info.format, extent[0], 1, 1);
+  uint32_t totalSize = measureTexture(texture->info.format, extent[0], extent[1], 1) * extent[2];
+  uint32_t layerOffset = measureTexture(texture->info.format, extent[0], srcOffset[1], 1);
+  layerOffset += measureTexture(texture->info.format, srcOffset[0], 1, 1);
+  uint32_t pitch = measureTexture(texture->info.format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
+  MappedBuffer mapped = mapBuffer(&state.uploadBuffers, totalSize, 64);
+  char* dst = mapped.pointer;
+  for (uint32_t z = 0; z < extent[2]; z++) {
+    const char* src = (char*) lovrImageGetLayerData(image, srcOffset[3], z) + layerOffset;
+    for (uint32_t y = 0; y < extent[1]; y++) {
+      memcpy(dst, src, rowSize);
+      dst += rowSize;
+      src += pitch;
+    }
   }
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_sync(state.stream, &barrier, 1);
+  gpu_copy_buffer_texture(state.stream, mapped.buffer, texture->gpu, mapped.offset, dstOffset, extent);
+}
 
-  return texture->material;
+void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
+  beginFrame();
+  if (extent[0] == ~0u) extent[0] = MIN(src->info.width - srcOffset[0], dst->info.width - dstOffset[0]);
+  if (extent[1] == ~0u) extent[1] = MIN(src->info.height - srcOffset[1], dst->info.height - dstOffset[0]);
+  if (extent[2] == ~0u) extent[2] = MIN(src->info.layers - srcOffset[2], dst->info.layers - dstOffset[0]);
+  lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "from");
+  lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
+  lovrCheck(!src->info.parent && !dst->info.parent, "Can not copy texture views");
+  lovrCheck(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
+  lovrCheck(src->info.samples == dst->info.samples, "Texture sample counts must match to copy between them");
+  checkTextureBounds(&src->info, srcOffset, extent);
+  checkTextureBounds(&dst->info, dstOffset, extent);
+  gpu_barrier barriers[2];
+  barriers[0] = syncTransfer(&src->sync, GPU_CACHE_TRANSFER_READ);
+  barriers[1] = syncTransfer(&dst->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_sync(state.stream, barriers, 2);
+  gpu_copy_textures(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+}
+
+void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter) {
+  beginFrame();
+  if (srcExtent[0] == ~0u) srcExtent[0] = src->info.width - srcOffset[0];
+  if (srcExtent[1] == ~0u) srcExtent[1] = src->info.height - srcOffset[1];
+  if (srcExtent[2] == ~0u) srcExtent[2] = src->info.layers - srcOffset[2];
+  if (dstExtent[0] == ~0u) dstExtent[0] = dst->info.width - dstOffset[0];
+  if (dstExtent[1] == ~0u) dstExtent[1] = dst->info.height - dstOffset[1];
+  if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.layers - dstOffset[2];
+  lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
+  lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
+  lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "from");
+  lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "to");
+  lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting from the source texture's format");
+  lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting to the destination texture's format");
+  lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
+  lovrCheck(((src->info.type == TEXTURE_3D) ^ (dst->info.type == TEXTURE_3D)) == false, "3D textures can only be blitted with other 3D textures");
+  lovrCheck(src->info.type == TEXTURE_3D || srcExtent[2] == dstExtent[2], "When blitting between non-3D textures, blit layer counts must match");
+  checkTextureBounds(&src->info, srcOffset, srcExtent);
+  checkTextureBounds(&dst->info, dstOffset, dstExtent);
+  gpu_barrier barriers[2];
+  barriers[0] = syncTransfer(&src->sync, GPU_CACHE_TRANSFER_READ);
+  barriers[1] = syncTransfer(&dst->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_sync(state.stream, barriers, 2);
+  gpu_blit(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
+}
+
+void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
+  beginFrame();
+  lovrCheck(!texture->info.parent, "Texture views can not be cleared");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with 'transfer' usage to clear it");
+  lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.layers, "Texture clear range exceeds texture layer count");
+  lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_sync(state.stream, &barrier, 1);
+  gpu_clear_texture(state.stream, texture->gpu, value, layer, layerCount, level, levelCount);
+}
+
+void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count) {
+  beginFrame();
+  if (count == ~0u) count = texture->info.mipmaps - (base + 1);
+  lovrCheck(!texture->info.parent, "Can not mipmap a Texture view");
+  lovrCheck(texture->info.samples == 1, "Can not mipmap a multisampled texture");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap it");
+  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "from");
+  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "to");
+  lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
+  gpu_sync(state.stream, &barrier, 1);
+  mipmapTexture(state.stream, texture, base, count);
 }
 
 // Sampler
@@ -1814,9 +1921,6 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
     },
     [SHADER_BLENDER] = {
       [STAGE_COMPUTE] = { lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) }
-    },
-    [SHADER_TIME_WIZARD] = {
-      [STAGE_COMPUTE] = { lovr_shader_timewizard_comp, sizeof(lovr_shader_timewizard_comp) }
     }
   };
 
@@ -1831,7 +1935,6 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
   switch (type) {
     case SHADER_ANIMATOR:
     case SHADER_BLENDER:
-    case SHADER_TIME_WIZARD:
       return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
         .type = SHADER_COMPUTE,
         .source[0] = lovrGraphicsGetDefaultShaderSource(type, STAGE_COMPUTE),
@@ -3506,55 +3609,62 @@ static void lovrModelAnimateVertices(Model* model) {
 
 // Readback
 
-Readback* lovrReadbackCreate(const ReadbackInfo* info) {
-  Readback* readback = calloc(1, sizeof(Readback) + gpu_sizeof_buffer());
+Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent) {
+  beginFrame();
+  if (extent == ~0u) extent = buffer->info.size - offset;
+  lovrCheck(!lovrBufferIsTemporary(buffer), "Unable to read data back from a temporary Buffer");
+  lovrCheck(offset + extent <= buffer->info.size, "Tried to read past the end of the Buffer");
+  Readback* readback = calloc(1, sizeof(Readback));
   lovrAssert(readback, "Out of memory");
   readback->ref = 1;
   readback->tick = state.tick;
-  readback->info = *info;
+  readback->type = READBACK_BUFFER;
+  readback->buffer = buffer;
+  readback->data = malloc(extent);
+  lovrAssert(readback->data, "Out of memory");
+  readback->blob = lovrBlobCreate(readback->data, extent, "Readback");
+  readback->mapped = mapBuffer(&state.downloadBuffers, extent, 4);
+  lovrRetain(buffer);
+  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_sync(state.stream, &barrier, 1);
+  gpu_copy_buffers(state.stream, buffer->gpu, readback->mapped.buffer, offset, readback->mapped.offset, extent);
+  return readback;
+}
 
-  switch (info->type) {
-    case READBACK_BUFFER:
-      lovrRetain(info->buffer.object);
-      readback->size = info->buffer.extent;
-      readback->data = malloc(readback->size);
-      lovrAssert(readback->data, "Out of memory");
-      readback->blob = lovrBlobCreate(readback->data, readback->size, "Readback");
-      break;
-    case READBACK_TEXTURE:
-      lovrRetain(info->texture.object);
-      TextureFormat format = info->texture.object->info.format;
-      readback->size = measureTexture(format, info->texture.extent[0], info->texture.extent[1], 1);
-      readback->image = lovrImageCreateRaw(info->texture.extent[0], info->texture.extent[1], format);
-      break;
-    case READBACK_TALLY:
-      lovrRetain(info->tally.object);
-      uint32_t stride = info->tally.object->info.type == TALLY_SHADER ? 16 : 4;
-      readback->size = info->tally.count * stride;
-      readback->data = malloc(readback->size);
-      lovrAssert(readback->data, "Out of memory");
-      readback->blob = lovrBlobCreate(readback->data, readback->size, "Readback");
-      break;
-  }
-
-  readback->mapped = mapBuffer(&state.downloadBuffers, readback->size, 16);
+Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[2]) {
+  beginFrame();
+  if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
+  if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
+  lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
+  lovrCheck(!texture->info.parent, "Can not read from a Texture view");
+  lovrCheck(texture->info.samples == 1, "Can not read from a multisampled texture");
+  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
+  checkTextureBounds(&texture->info, offset, extent);
+  Readback* readback = calloc(1, sizeof(Readback));
+  lovrAssert(readback, "Out of memory");
+  readback->ref = 1;
+  readback->tick = state.tick;
+  readback->type = READBACK_TEXTURE;
+  readback->texture = texture;
+  readback->image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format);
+  readback->mapped = mapBuffer(&state.downloadBuffers, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
+  lovrRetain(texture);
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_sync(state.stream, &barrier, 1);
+  gpu_copy_texture_buffer(state.stream, texture->gpu, readback->mapped.buffer, offset, readback->mapped.offset, extent);
   return readback;
 }
 
 void lovrReadbackDestroy(void* ref) {
   Readback* readback = ref;
-  switch (readback->info.type) {
-    case READBACK_BUFFER: lovrRelease(readback->info.buffer.object, lovrBufferDestroy); break;
-    case READBACK_TEXTURE: lovrRelease(readback->info.texture.object, lovrTextureDestroy); break;
-    case READBACK_TALLY: lovrRelease(readback->info.tally.object, lovrTallyDestroy); break;
+  switch (readback->type) {
+    case READBACK_BUFFER: lovrRelease(readback->buffer, lovrBufferDestroy); break;
+    case READBACK_TEXTURE: lovrRelease(readback->texture, lovrTextureDestroy); break;
   }
   lovrRelease(readback->image, lovrImageDestroy);
   lovrRelease(readback->blob, lovrBlobDestroy);
+  free(readback->data);
   free(readback);
-}
-
-const ReadbackInfo* lovrReadbackGetInfo(Readback* readback) {
-  return &readback->info;
 }
 
 bool lovrReadbackIsComplete(Readback* readback) {
@@ -3577,8 +3687,15 @@ bool lovrReadbackWait(Readback* readback) {
   return waited;
 }
 
-void* lovrReadbackGetData(Readback* readback) {
-  return lovrReadbackIsComplete(readback) ? readback->data : NULL;
+void* lovrReadbackGetData(Readback* readback, BufferField* format) {
+  if (!lovrReadbackIsComplete(readback)) return NULL;
+
+  if (readback->type == READBACK_BUFFER && readback->buffer->info.fields) {
+    *format = readback->buffer->info.fields[0];
+    return readback->data;
+  }
+
+  return NULL;
 }
 
 Blob* lovrReadbackGetBlob(Readback* readback) {
@@ -3587,91 +3704,6 @@ Blob* lovrReadbackGetBlob(Readback* readback) {
 
 Image* lovrReadbackGetImage(Readback* readback) {
   return lovrReadbackIsComplete(readback) ? readback->image : NULL;
-}
-
-// Tally
-
-Tally* lovrTallyCreate(const TallyInfo* info) {
-  lovrCheck(info->count > 0, "Tally count must be greater than zero");
-  lovrCheck(info->count <= 4096, "Maximum Tally count is 4096");
-  lovrCheck(info->views <= state.limits.renderSize[2], "Tally view count can not exceed the maximum view count");
-  lovrCheck(info->type != TALLY_SHADER || state.features.shaderTally, "This GPU does not support the 'shader' Tally type");
-  Tally* tally = calloc(1, sizeof(Tally) + gpu_sizeof_tally());
-  lovrAssert(tally, "Out of memory");
-  tally->ref = 1;
-  tally->tick = state.tick - 1;
-  tally->info = *info;
-  tally->gpu = (gpu_tally*) (tally + 1);
-
-  uint32_t total = info->count * (info->type == TALLY_TIME ? 2 * info->views : 1);
-
-  gpu_tally_init(tally->gpu, &(gpu_tally_info) {
-    .type = (gpu_tally_type) info->type,
-    .count = total
-  });
-
-  if (info->type == TALLY_TIME) {
-    tally->buffer = calloc(1, gpu_sizeof_buffer());
-    lovrAssert(tally->buffer, "Out of memory");
-    gpu_buffer_init(tally->buffer, &(gpu_buffer_info) {
-      .size = info->count * 2 * info->views * sizeof(uint32_t)
-    });
-  }
-
-  return tally;
-}
-
-void lovrTallyDestroy(void* ref) {
-  Tally* tally = ref;
-  gpu_tally_destroy(tally->gpu);
-  if (tally->buffer) gpu_buffer_destroy(tally->buffer);
-  free(tally->buffer);
-  free(tally);
-}
-
-const TallyInfo* lovrTallyGetInfo(Tally* tally) {
-  return &tally->info;
-}
-
-// Tally timestamps aren't very usable in their raw state, since they use unspecified units, aren't
-// durations, and when using multiview there's one per view.  To make them easier to work with, copy
-// them to a temporary buffer, then dispatch a compute shader to subtract pairs and convert to ns,
-// writing the final friendly values to a destination Buffer.
-static void lovrTallyResolve(Tally* tally, uint32_t index, uint32_t count, gpu_buffer* buffer, uint32_t offset, gpu_stream* stream) {
-  gpu_copy_tally_buffer(stream, tally->gpu, tally->buffer, index, 0, count * 2, 4);
-
-  gpu_sync(stream, &(gpu_barrier) {
-    .prev = GPU_PHASE_TRANSFER,
-    .next = GPU_PHASE_SHADER_COMPUTE,
-    .flush = GPU_CACHE_TRANSFER_WRITE,
-    .clear = GPU_CACHE_STORAGE_READ
-  }, 1);
-
-  Shader* shader = lovrGraphicsGetDefaultShader(SHADER_TIME_WIZARD);
-  gpu_layout* layout = state.layouts.data[shader->layout].gpu;
-
-  gpu_binding bindings[] = {
-    [0] = { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer, 0, count * 2 * tally->info.views * sizeof(uint32_t) } },
-    [1] = { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { buffer, offset, count * sizeof(uint32_t) } }
-  };
-
-  gpu_bundle* bundle = getBundle(shader->layout);
-  gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
-  gpu_bundle_write(&bundle, &bundleInfo, 1);
-
-  struct { uint32_t first, count, views; float period; } constants = {
-    .first = index,
-    .count = count,
-    .views = tally->info.views,
-    .period = state.limits.timestampPeriod
-  };
-
-  gpu_compute_begin(stream);
-  gpu_bind_pipeline(stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
-  gpu_bind_bundles(stream, shader->gpu, &bundle, 0, 1, NULL, 0);
-  gpu_push_constants(stream, shader->gpu, &constants, sizeof(constants));
-  gpu_compute(stream, (count + 31) / 32, 1, 1);
-  gpu_compute_end(stream);
 }
 
 // Pass
@@ -3737,12 +3769,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->height = 0;
   pass->viewCount = 0;
 
-  arr_clear(&pass->readbacks);
   arr_clear(&pass->access);
-
-  if (pass->info.type == PASS_TRANSFER) {
-    return pass;
-  }
 
   pass->constants = tempAlloc(state.limits.pushConstantSize);
   pass->constantsDirty = true;
@@ -5908,252 +5935,6 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   }
 }
 
-void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent) {
-  if (extent == 0) return;
-  if (extent == ~0u) extent = buffer->info.size - offset;
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be cleared");
-  lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
-  lovrCheck(extent % 4 == 0, "Buffer clear extent must be a multiple of 4");
-  lovrCheck(offset + extent <= buffer->info.size, "Buffer clear range goes past the end of the Buffer");
-  gpu_clear_buffer(pass->stream, buffer->gpu, offset, extent);
-  trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-}
-
-void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!texture->info.parent, "Texture views can not be cleared");
-  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with 'transfer' usage to clear it");
-  lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.layers, "Texture clear range exceeds texture layer count");
-  lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
-  gpu_clear_texture(pass->stream, texture->gpu, value, layer, layerCount, level, levelCount);
-  trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-}
-
-void* lovrPassCopyDataToBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent) {
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be copied to, use Buffer:setData");
-  lovrCheck(offset + extent <= buffer->info.size, "Buffer copy range goes past the end of the Buffer");
-  MappedBuffer mapped = mapBuffer(&state.uploadBuffers, extent, 4);
-  gpu_copy_buffers(pass->stream, mapped.buffer, buffer->gpu, mapped.offset, offset, extent);
-  trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-  return mapped.pointer;
-}
-
-void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!lovrBufferIsTemporary(dst), "Temporary buffers can not be copied to");
-  lovrCheck(srcOffset + extent <= src->info.size, "Buffer copy range goes past the end of the source Buffer");
-  lovrCheck(dstOffset + extent <= dst->info.size, "Buffer copy range goes past the end of the destination Buffer");
-  gpu_copy_buffers(pass->stream, src->gpu, dst->gpu, src->offset + srcOffset, dstOffset, extent);
-  trackBuffer(pass, src, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
-  trackBuffer(pass, dst, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-}
-
-void lovrPassCopyTallyToBuffer(Pass* pass, Tally* tally, Buffer* buffer, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
-  lovrPassCheckValid(pass);
-  if (count == ~0u) count = tally->info.count;
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be copied to");
-  lovrCheck(srcIndex + count <= tally->info.count, "Tally copy range exceeds the number of slots in the Tally");
-  lovrCheck(dstOffset + count * 4 <= buffer->info.size, "Buffer copy range goes past the end of the destination Buffer");
-  lovrCheck(dstOffset % 4 == 0, "Buffer copy offset must be a multiple of 4");
-
-  if (tally->info.type == TALLY_TIME) {
-    lovrTallyResolve(tally, srcIndex, count, buffer->gpu, dstOffset, pass->stream);
-    trackBuffer(pass, buffer, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_STORAGE_WRITE);
-  } else {
-    uint32_t stride = tally->info.type == TALLY_SHADER ? 16 : 4;
-    gpu_copy_tally_buffer(pass->stream, tally->gpu, buffer->gpu, srcIndex, dstOffset, count, stride);
-    trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-  }
-}
-
-void lovrPassCopyImageToTexture(Pass* pass, Image* image, Texture* texture, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
-  if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
-  if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
-  if (extent[2] == ~0u) extent[2] = MIN(texture->info.layers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy to it");
-  lovrCheck(!texture->info.parent, "Texture views can not be written to");
-  lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be written to");
-  lovrCheck(lovrImageGetFormat(image) == texture->info.format, "Image and Texture formats must match");
-  lovrCheck(srcOffset[0] + extent[0] <= lovrImageGetWidth(image, srcOffset[3]), "Image copy region exceeds its %s", "width");
-  lovrCheck(srcOffset[1] + extent[1] <= lovrImageGetHeight(image, srcOffset[3]), "Image copy region exceeds its %s", "height");
-  lovrCheck(srcOffset[2] + extent[2] <= lovrImageGetLayerCount(image), "Image copy region exceeds its %s", "layer count");
-  lovrCheck(srcOffset[3] < lovrImageGetLevelCount(image), "Image copy region exceeds its %s", "mipmap count");
-  checkTextureBounds(&texture->info, dstOffset, extent);
-  uint32_t rowSize = measureTexture(texture->info.format, extent[0], 1, 1);
-  uint32_t totalSize = measureTexture(texture->info.format, extent[0], extent[1], 1) * extent[2];
-  uint32_t layerOffset = measureTexture(texture->info.format, extent[0], srcOffset[1], 1);
-  layerOffset += measureTexture(texture->info.format, srcOffset[0], 1, 1);
-  uint32_t pitch = measureTexture(texture->info.format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
-  MappedBuffer mapped = mapBuffer(&state.uploadBuffers, totalSize, 64);
-  char* dst = mapped.pointer;
-  for (uint32_t z = 0; z < extent[2]; z++) {
-    const char* src = (char*) lovrImageGetLayerData(image, srcOffset[3], z) + layerOffset;
-    for (uint32_t y = 0; y < extent[1]; y++) {
-      memcpy(dst, src, rowSize);
-      dst += rowSize;
-      src += pitch;
-    }
-  }
-  gpu_copy_buffer_texture(pass->stream, mapped.buffer, texture->gpu, mapped.offset, dstOffset, extent);
-  trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-}
-
-void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
-  if (extent[0] == ~0u) extent[0] = MIN(src->info.width - srcOffset[0], dst->info.width - dstOffset[0]);
-  if (extent[1] == ~0u) extent[1] = MIN(src->info.height - srcOffset[1], dst->info.height - dstOffset[0]);
-  if (extent[2] == ~0u) extent[2] = MIN(src->info.layers - srcOffset[2], dst->info.layers - dstOffset[0]);
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "from");
-  lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
-  lovrCheck(!src->info.parent && !dst->info.parent, "Can not copy texture views");
-  lovrCheck(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
-  lovrCheck(src->info.samples == dst->info.samples, "Texture sample counts must match to copy between them");
-  checkTextureBounds(&src->info, srcOffset, extent);
-  checkTextureBounds(&dst->info, dstOffset, extent);
-  gpu_copy_textures(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
-  trackTexture(pass, src, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
-  trackTexture(pass, dst, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-}
-
-void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter) {
-  if (srcExtent[0] == ~0u) srcExtent[0] = src->info.width - srcOffset[0];
-  if (srcExtent[1] == ~0u) srcExtent[1] = src->info.height - srcOffset[1];
-  if (srcExtent[2] == ~0u) srcExtent[2] = src->info.layers - srcOffset[2];
-  if (dstExtent[0] == ~0u) dstExtent[0] = dst->info.width - dstOffset[0];
-  if (dstExtent[1] == ~0u) dstExtent[1] = dst->info.height - dstOffset[1];
-  if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.layers - dstOffset[2];
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
-  lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
-  lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "from");
-  lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "to");
-  lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting from the source texture's format");
-  lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting to the destination texture's format");
-  lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
-  lovrCheck(((src->info.type == TEXTURE_3D) ^ (dst->info.type == TEXTURE_3D)) == false, "3D textures can only be blitted with other 3D textures");
-  lovrCheck(src->info.type == TEXTURE_3D || srcExtent[2] == dstExtent[2], "When blitting between non-3D textures, blit layer counts must match");
-  checkTextureBounds(&src->info, srcOffset, srcExtent);
-  checkTextureBounds(&dst->info, dstOffset, dstExtent);
-  gpu_blit(pass->stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
-  trackTexture(pass, src, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
-  trackTexture(pass, dst, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_WRITE);
-}
-
-void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count) {
-  if (count == ~0u) count = texture->info.mipmaps - (base + 1);
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!texture->info.parent, "Can not mipmap a Texture view");
-  lovrCheck(texture->info.samples == 1, "Can not mipmap a multisampled texture");
-  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap it");
-  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "from");
-  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "to");
-  lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
-  mipmapTexture(pass->stream, texture, base, count);
-  trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
-}
-
-Readback* lovrPassReadBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent) {
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!lovrBufferIsTemporary(buffer), "Unable to read back a temporary buffer");
-  lovrCheck(offset + extent <= buffer->info.size, "Tried to read past the end of the Buffer");
-  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) {
-    .type = READBACK_BUFFER,
-    .buffer.object = buffer,
-    .buffer.offset = offset,
-    .buffer.extent = extent
-  });
-  gpu_copy_buffers(pass->stream, buffer->gpu, readback->mapped.buffer, offset, readback->mapped.offset, extent);
-  trackBuffer(pass, buffer, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
-  arr_push(&pass->readbacks, readback);
-  return readback;
-}
-
-Readback* lovrPassReadTexture(Pass* pass, Texture* texture, uint32_t offset[4], uint32_t extent[3]) {
-  if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
-  if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
-  lovrPassCheckValid(pass);
-  lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(!texture->info.parent, "Can not read from a Texture view");
-  lovrCheck(texture->info.samples == 1, "Can not read from a multisampled texture");
-  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
-  checkTextureBounds(&texture->info, offset, extent);
-  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) {
-    .type = READBACK_TEXTURE,
-    .texture.object = texture,
-    .texture.offset = { offset[0], offset[1], offset[2], offset[3] },
-    .texture.extent = { extent[0], extent[1] }
-  });
-  gpu_copy_texture_buffer(pass->stream, texture->gpu, readback->mapped.buffer, offset, readback->mapped.offset, extent);
-  trackTexture(pass, texture, GPU_PHASE_TRANSFER, GPU_CACHE_TRANSFER_READ);
-  arr_push(&pass->readbacks, readback);
-  return readback;
-}
-
-Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t count) {
-  lovrPassCheckValid(pass);
-  lovrCheck(pass->info.type == PASS_TRANSFER, "This function can only be called on a transfer pass");
-  lovrCheck(index + count <= tally->info.count, "Tally read range exceeds the number of slots in the Tally");
-
-  Readback* readback = lovrReadbackCreate(&(ReadbackInfo) {
-    .type = READBACK_TALLY,
-    .tally.object = tally,
-    .tally.index = index,
-    .tally.count = count
-  });
-
-  if (tally->info.type == TALLY_TIME) {
-    lovrTallyResolve(tally, index, count, readback->mapped.buffer, readback->mapped.offset, pass->stream);
-  } else {
-    uint32_t stride = tally->info.type == TALLY_SHADER ? 16 : 4;
-    gpu_copy_tally_buffer(pass->stream, tally->gpu, readback->mapped.buffer, index, readback->mapped.offset, count, stride);
-  }
-
-  arr_push(&pass->readbacks, readback);
-  return readback;
-}
-
-void lovrPassTick(Pass* pass, Tally* tally, uint32_t index) {
-  lovrCheck(tally->info.views == pass->viewCount, "Tally view count does not match Pass view count");
-  lovrCheck(index < tally->info.count, "Trying to use tally slot #%d, but the tally only has %d slots", index + 1, tally->info.count);
-
-  if (tally->tick != state.tick) {
-    uint32_t multiplier = tally->info.type == TALLY_TIME ? 2 * tally->info.count * tally->info.views : 1;
-    gpu_clear_tally(state.stream, tally->gpu, 0, tally->info.count * multiplier);
-    tally->tick = state.tick;
-  }
-
-  if (tally->info.type == TALLY_TIME) {
-    gpu_tally_mark(pass->stream, tally->gpu, index * 2 * tally->info.views);
-  } else {
-    gpu_tally_begin(pass->stream, tally->gpu, index);
-  }
-}
-
-void lovrPassTock(Pass* pass, Tally* tally, uint32_t index) {
-  lovrCheck(tally->info.views == pass->viewCount, "Tally view count does not match Pass view count");
-  lovrCheck(index < tally->info.count, "Trying to use tally slot #%d, but the tally only has %d slots", index + 1, tally->info.count);
-
-  if (tally->info.type == TALLY_TIME) {
-    gpu_tally_mark(pass->stream, tally->gpu, index * 2 * tally->info.views + tally->info.views);
-  } else {
-    gpu_tally_end(pass->stream, tally->gpu, index);
-  }
-}
-
 // Helpers
 
 static void* tempAlloc(size_t size) {
@@ -6275,7 +6056,7 @@ static void processReadbacks(void) {
       void* data = lovrImageGetLayerData(readback->image, 0, 0);
       memcpy(data, readback->mapped.pointer, size);
     } else {
-      memcpy(readback->data, readback->mapped.pointer, readback->size);
+      memcpy(readback->data, readback->mapped.pointer, readback->mapped.extent);
     }
 
     Readback* next = readback->next;
@@ -6634,6 +6415,86 @@ static void trackMaterial(Pass* pass, Material* material, gpu_phase phase, gpu_c
   trackTexture(pass, material->info.clearcoatTexture, phase, cache);
   trackTexture(pass, material->info.occlusionTexture, phase, cache);
   trackTexture(pass, material->info.normalTexture, phase, cache);
+}
+
+static bool syncResource(Access* access, gpu_barrier* barrier) {
+  // There are 4 types of access patterns:
+  // - read after read:
+  //   - no hazard, no barrier necessary
+  // - read after write:
+  //   - needs execution dependency to ensure the read happens after the write
+  //   - needs to flush the writes from the cache
+  //   - needs to clear the cache for the read so it gets the new data
+  //   - only needs to happen once for each type of read after a write (tracked by pendingReads)
+  //     - if a second read happens, the first read would have already synchronized (transitive)
+  // - write after write:
+  //   - needs execution dependency to ensure writes don't overlap
+  //   - needs to flush and clear the cache
+  //   - clears pendingReads
+  // - write after read:
+  //   - needs execution dependency to ensure write starts after read is finished
+  //   - does not need to flush any caches
+  //   - does clear the write cache
+  //   - clears pendingReads
+
+  Sync* sync = access->sync;
+  uint32_t read = access->cache & GPU_CACHE_READ_MASK;
+  uint32_t write = access->cache & GPU_CACHE_WRITE_MASK;
+  uint32_t newReads = read & ~sync->pendingReads;
+  bool hasNewReads = newReads || (access->phase & ~sync->readPhase);
+  bool readAfterWrite = read && sync->pendingWrite && hasNewReads;
+  bool writeAfterWrite = write && sync->pendingWrite && !sync->pendingReads;
+  bool writeAfterRead = write && sync->pendingReads;
+
+  if (readAfterWrite) {
+    barrier->prev |= sync->writePhase;
+    barrier->next |= access->phase;
+    barrier->flush |= sync->pendingWrite;
+    barrier->clear |= newReads;
+    sync->readPhase |= access->phase;
+    sync->pendingReads |= read;
+  }
+
+  if (writeAfterWrite) {
+    barrier->prev |= sync->writePhase;
+    barrier->next |= access->phase;
+    barrier->flush |= sync->pendingWrite;
+    barrier->clear |= write;
+  }
+
+  if (writeAfterRead) {
+    barrier->prev |= sync->readPhase;
+    barrier->next |= access->phase;
+    sync->readPhase = 0;
+    sync->pendingReads = 0;
+  }
+
+  if (write) {
+    sync->writePhase = access->phase;
+    sync->pendingWrite = write;
+  }
+
+  return write;
+}
+
+static gpu_barrier syncTransfer(Sync* sync, gpu_cache cache) {
+  gpu_barrier localBarrier = { 0 };
+  gpu_barrier* barrier = NULL;
+
+  // If there was already a transfer write to the resource this frame, a "just in time" barrier is required
+  // If this is a transfer write, a "just in time" barrier is only needed if there's been a transfer read this frame
+  // Otherwise, the barrier can go at the beginning of the frame and get batched with other barriers
+  if (sync->lastTransferWrite == state.tick || (sync->lastTransferRead == state.tick && (cache & GPU_CACHE_WRITE_MASK))) {
+    barrier = &localBarrier;
+  } else {
+    barrier = &state.preBarrier;
+  }
+
+  syncResource(&(Access) { sync, NULL, NULL, GPU_PHASE_TRANSFER, cache }, barrier);
+  if (cache & GPU_CACHE_READ_MASK) sync->lastTransferRead = state.tick;
+  if (cache & GPU_CACHE_WRITE_MASK) sync->lastTransferWrite = state.tick;
+
+  return localBarrier;
 }
 
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent) {

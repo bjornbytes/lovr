@@ -523,7 +523,7 @@ static int l_lovrPassSend(lua_State* L) {
   void* data;
   BufferField* field;
   lovrPassSendData(pass, name, length, slot, &data, &field);
-  luax_checkbufferfield(L, 3, field, data);
+  luax_checkbufferdata(L, 3, field, data);
   return 0;
 }
 
@@ -802,10 +802,10 @@ static int l_lovrPassMesh(lua_State* L) {
     void* vertices;
     void* indices;
     lovrPassMeshImmediate(pass, vertexCount, &vertices, &format, indexCount, &indices, transform);
-    luax_checkbufferfield(L, 2, format, vertices);
+    luax_checkbufferdata(L, 2, format, vertices);
     if (indexCount > 0) {
       BufferField indexFormat = { .type = FIELD_INDEX16, .length = indexCount, .stride = 2 };
-      luax_checkbufferfield(L, 3, &indexFormat, indices);
+      luax_checkbufferdata(L, 3, &indexFormat, indices);
     }
     return 0;
   }
@@ -845,253 +845,6 @@ static int l_lovrPassCompute(lua_State* L) {
     uint32_t z = luax_optu32(L, 4, 1);
     lovrPassCompute(pass, x, y, z, NULL, 0);
   }
-  return 0;
-}
-
-static int l_lovrPassClear(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-
-  Buffer* buffer = luax_totype(L, 2, Buffer);
-
-  if (buffer) {
-    const BufferInfo* info = lovrBufferGetInfo(buffer);
-    uint32_t offset = luax_optu32(L, 3, 0);
-    uint32_t extent = luax_optu32(L, 4, info->size - offset);
-    lovrPassClearBuffer(pass, buffer, offset, extent);
-    return 0;
-  }
-
-  Texture* texture = luax_totype(L, 2, Texture);
-
-  if (texture) {
-    float value[4];
-    luax_optcolor(L, 3, value);
-    uint32_t layer = luax_optu32(L, 4, 1) - 1;
-    uint32_t layerCount = luax_optu32(L, 5, ~0u);
-    uint32_t level = luax_optu32(L, 6, 1) - 1;
-    uint32_t levelCount = luax_optu32(L, 7, ~0u);
-    lovrPassClearTexture(pass, texture, value, layer, layerCount, level, levelCount);
-    return 0;
-  }
-
-  return luax_typeerror(L, 2, "Buffer or Texture");
-}
-
-static int l_lovrPassCopy(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-
-  if (lua_istable(L, 2)) {
-    Buffer* buffer = luax_checkbuffer(L, 3);
-    const BufferInfo* info = lovrBufferGetInfo(buffer);
-    lovrCheck(info->fields, "Buffer must be created with format information to copy a table to it");
-    const BufferField* array = &info->fields[0];
-    void* data = NULL;
-
-    if (array->length == 0) {
-      data = lovrPassCopyDataToBuffer(pass, buffer, 0, info->size);
-    } else {
-      uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
-      uint32_t dstIndex = luax_optu32(L, 5, 1) - 1;
-
-      lua_rawgeti(L, 2, 1);
-      bool nested = lua_istable(L, -1);
-      lua_pop(L, 1);
-
-      uint32_t tableLength = luax_len(L, 2);
-      uint32_t limit = nested ? MIN(tableLength - srcIndex, array->length - dstIndex) : array->length - dstIndex;
-      uint32_t count = luax_optu32(L, 6, limit);
-
-      data = lovrPassCopyDataToBuffer(pass, buffer, dstIndex * array->stride, count * array->stride);
-    }
-
-    lua_remove(L, 3); // Remove buffer, leaving (table, srcIndex, dstIndex, count)
-    luax_checkbufferdata(L, 2, buffer, data);
-    return 0;
-  }
-
-  Blob* blob = luax_totype(L, 2, Blob);
-
-  if (blob) {
-    Buffer* buffer = luax_checkbuffer(L, 3);
-    uint32_t srcOffset = luax_optu32(L, 4, 0);
-    uint32_t dstOffset = luax_optu32(L, 5, 0);
-    const BufferInfo* info = lovrBufferGetInfo(buffer);
-    lovrCheck(srcOffset <= blob->size, "Source byte offset is %d but Blob is only %d bytes", srcOffset, (uint32_t) blob->size);
-    lovrCheck(dstOffset <= info->size, "Destination byte offset is %d but Buffer is only %d bytes", dstOffset, info->size);
-    // Conversion is safe because right side will never exceed size of uint32_t
-    uint32_t limit = (uint32_t) MIN(blob->size - srcOffset, info->size - dstOffset);
-    uint32_t extent = luax_optu32(L, 6, limit);
-    lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds Blob size");
-    lovrCheck(extent <= info->size - dstOffset, "Buffer copy range exceeds Buffer size");
-    void* data = lovrPassCopyDataToBuffer(pass, buffer, dstOffset, extent);
-    memcpy(data, (char*) blob->data + srcOffset, extent);
-    return 0;
-  }
-
-  Buffer* buffer = luax_totype(L, 2, Buffer);
-
-  if (buffer) {
-    Buffer* dst = luax_checkbuffer(L, 3);
-    uint32_t srcOffset = luax_optu32(L, 4, 0);
-    uint32_t dstOffset = luax_optu32(L, 5, 0);
-    const BufferInfo* srcInfo = lovrBufferGetInfo(buffer);
-    const BufferInfo* dstInfo = lovrBufferGetInfo(dst);
-    uint32_t limit = MIN(srcInfo->size - srcOffset, dstInfo->size - dstOffset);
-    uint32_t extent = luax_optu32(L, 6, limit);
-    lovrPassCopyBufferToBuffer(pass, buffer, dst, srcOffset, dstOffset, extent);
-    return 0;
-  }
-
-  Image* image = luax_totype(L, 2, Image);
-
-  if (image) {
-    Texture* texture = luax_checktype(L, 3, Texture);
-    uint32_t srcOffset[4];
-    uint32_t dstOffset[4];
-    uint32_t extent[3];
-    srcOffset[0] = luax_optu32(L, 4, 0);
-    srcOffset[1] = luax_optu32(L, 5, 0);
-    dstOffset[0] = luax_optu32(L, 6, 0);
-    dstOffset[1] = luax_optu32(L, 7, 0);
-    extent[0] = luax_optu32(L, 8, ~0u);
-    extent[1] = luax_optu32(L, 9, ~0u);
-    srcOffset[2] = luax_optu32(L, 10, 1) - 1;
-    dstOffset[2] = luax_optu32(L, 11, 1) - 1;
-    extent[2] = luax_optu32(L, 12, ~0u);
-    srcOffset[3] = luax_optu32(L, 13, 1) - 1;
-    dstOffset[3] = luax_optu32(L, 14, 1) - 1;
-    lovrPassCopyImageToTexture(pass, image, texture, srcOffset, dstOffset, extent);
-    return 0;
-  }
-
-  Texture* texture = luax_totype(L, 2, Texture);
-
-  if (texture) {
-    Texture* dst = luax_checktype(L, 3, Texture);
-    uint32_t srcOffset[4];
-    uint32_t dstOffset[4];
-    uint32_t extent[3];
-    srcOffset[0] = luax_optu32(L, 4, 0);
-    srcOffset[1] = luax_optu32(L, 5, 0);
-    dstOffset[0] = luax_optu32(L, 6, 0);
-    srcOffset[1] = luax_optu32(L, 7, 0);
-    extent[0] = luax_optu32(L, 8, ~0u);
-    extent[1] = luax_optu32(L, 9, ~0u);
-    srcOffset[2] = luax_optu32(L, 10, 1) - 1;
-    dstOffset[2] = luax_optu32(L, 11, 1) - 1;
-    extent[2] = luax_optu32(L, 12, ~0u);
-    srcOffset[3] = luax_optu32(L, 13, 1) - 1;
-    dstOffset[3] = luax_optu32(L, 14, 1) - 1;
-    lovrPassCopyTextureToTexture(pass, texture, dst, srcOffset, dstOffset, extent);
-    return 0;
-  }
-
-  Tally* tally = luax_totype(L, 2, Tally);
-
-  if (tally) {
-    Buffer* buffer = luax_checkbuffer(L, 3);
-    uint32_t srcIndex = luax_optu32(L, 4, 0);
-    uint32_t dstOffset = luax_optu32(L, 5, 0);
-    uint32_t count = luax_optu32(L, 5, ~0u);
-    lovrPassCopyTallyToBuffer(pass, tally, buffer, srcIndex, dstOffset, count);
-    return 0;
-  }
-
-  return luax_typeerror(L, 2, "table, Blob, Buffer, Image, Texture, or Tally");
-}
-
-static int l_lovrPassBlit(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  Texture* src = luax_checktype(L, 2, Texture);
-  Texture* dst = luax_checktype(L, 3, Texture);
-  uint32_t srcOffset[4], dstOffset[4], srcExtent[3], dstExtent[3];
-  srcOffset[0] = luax_optu32(L, 4, 0);
-  srcOffset[1] = luax_optu32(L, 5, 0);
-  srcOffset[2] = luax_optu32(L, 6, 1) - 1;
-  dstOffset[0] = luax_optu32(L, 7, 0);
-  dstOffset[1] = luax_optu32(L, 8, 0);
-  dstOffset[2] = luax_optu32(L, 9, 1) - 1;
-  srcExtent[0] = luax_optu32(L, 10, ~0u);
-  srcExtent[1] = luax_optu32(L, 11, ~0u);
-  srcExtent[2] = luax_optu32(L, 12, ~0u);
-  dstExtent[0] = luax_optu32(L, 13, ~0u);
-  dstExtent[1] = luax_optu32(L, 14, ~0u);
-  dstExtent[2] = luax_optu32(L, 15, ~0u);
-  srcOffset[3] = luax_optu32(L, 16, 1) - 1;
-  dstOffset[3] = luax_optu32(L, 17, 1) - 1;
-  FilterMode filter = luax_checkenum(L, 18, FilterMode, "linear");
-  lovrPassBlit(pass, src, dst, srcOffset, dstOffset, srcExtent, dstExtent, filter);
-  return 0;
-}
-
-static int l_lovrPassMipmap(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  Texture* texture = luax_checktype(L, 2, Texture);
-  uint32_t base = luax_optu32(L, 3, 1) - 1;
-  uint32_t count = luax_optu32(L, 4, ~0u);
-  lovrPassMipmap(pass, texture, base, count);
-  return 0;
-}
-
-static int l_lovrPassRead(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-
-  Buffer* buffer = luax_totype(L, 2, Buffer);
-
-  if (buffer) {
-    const BufferInfo* info = lovrBufferGetInfo(buffer);
-    uint32_t offset = luax_optu32(L, 3, 0);
-    uint32_t extent = luax_optu32(L, 4, info->size - offset);
-    Readback* readback = lovrPassReadBuffer(pass, buffer, offset, extent);
-    luax_pushtype(L, Readback, readback);
-    lovrRelease(readback, lovrReadbackDestroy);
-    return 1;
-  }
-
-  Texture* texture = luax_totype(L, 2, Texture);
-
-  if (texture) {
-    uint32_t offset[4], extent[3];
-    offset[0] = luax_optu32(L, 3, 0);
-    offset[1] = luax_optu32(L, 4, 0);
-    offset[2] = luax_optu32(L, 5, 1) - 1;
-    offset[3] = luax_optu32(L, 6, 1) - 1;
-    extent[0] = luax_optu32(L, 7, ~0u);
-    extent[1] = luax_optu32(L, 8, ~0u);
-    extent[2] = 1;
-    Readback* readback = lovrPassReadTexture(pass, texture, offset, extent);
-    luax_pushtype(L, Readback, readback);
-    lovrRelease(readback, lovrReadbackDestroy);
-    return 1;
-  }
-
-  Tally* tally = luax_totype(L, 2, Tally);
-
-  if (tally) {
-    uint32_t index = luax_optu32(L, 3, 1) - 1;
-    uint32_t count = luax_optu32(L, 4, lovrTallyGetInfo(tally)->count);
-    Readback* readback = lovrPassReadTally(pass, tally, index, count);
-    luax_pushtype(L, Readback, readback);
-    lovrRelease(readback, lovrReadbackDestroy);
-    return 1;
-  }
-
-  return luax_typeerror(L, 2, "Buffer, Texture, or Tally");
-}
-
-static int l_lovrPassTick(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  Tally* tally = luax_checktype(L, 2, Tally);
-  uint32_t index = luax_checku32(L, 3) - 1;
-  lovrPassTick(pass, tally, index);
-  return 0;
-}
-
-static int l_lovrPassTock(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  Tally* tally = luax_checktype(L, 2, Tally);
-  uint32_t index = luax_checku32(L, 3) - 1;
-  lovrPassTock(pass, tally, index);
   return 0;
 }
 
@@ -1163,15 +916,6 @@ const luaL_Reg lovrPass[] = {
   { "mesh", l_lovrPassMesh },
 
   { "compute", l_lovrPassCompute },
-
-  { "clear", l_lovrPassClear },
-  { "copy", l_lovrPassCopy },
-  { "blit", l_lovrPassBlit },
-  { "mipmap", l_lovrPassMipmap },
-  { "read", l_lovrPassRead },
-
-  { "tick", l_lovrPassTick },
-  { "tock", l_lovrPassTock },
 
   { NULL, NULL }
 };

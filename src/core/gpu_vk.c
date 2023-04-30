@@ -1404,20 +1404,13 @@ void gpu_pipeline_get_cache(void* data, size_t* size) {
 bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
   VkQueryType queryTypes[] = {
     [GPU_TALLY_TIME] = VK_QUERY_TYPE_TIMESTAMP,
-    [GPU_TALLY_SHADER] = VK_QUERY_TYPE_PIPELINE_STATISTICS,
     [GPU_TALLY_PIXEL] = VK_QUERY_TYPE_OCCLUSION
   };
 
   VkQueryPoolCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
     .queryType = queryTypes[info->type],
-    .queryCount = info->count,
-    .pipelineStatistics = info->type == GPU_TALLY_SHADER ? (
-      VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
-      VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
-      VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
-      VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT
-    ) : 0
+    .queryCount = info->count
   };
 
   VK(vkCreateQueryPool(state.device, &createInfo, NULL, &tally->handle), "Could not create query pool") {
@@ -1989,7 +1982,6 @@ bool gpu_init(gpu_config* config) {
       config->features->wireframe = (enable->fillModeNonSolid = supports->fillModeNonSolid);
       config->features->depthClamp = (enable->depthClamp = supports->depthClamp);
       config->features->indirectDrawFirstInstance = (enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance);
-      config->features->shaderTally = (enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery);
       config->features->float64 = (enable->shaderFloat64 = supports->shaderFloat64);
       config->features->int64 = (enable->shaderInt64 = supports->shaderInt64);
       config->features->int16 = (enable->shaderInt16 = supports->shaderInt16);

@@ -147,7 +147,6 @@ static void luax_tofield(lua_State* L, int index, FieldType type, void* data) {
 
 static void luax_checkstruct(lua_State* L, int index, const BufferField* field, char* data) {
   lovrCheck(lua_istable(L, index), "Expected table for struct data");
-  index = index > 0 ? index : lua_gettop(L) + 1 + index;
 
   if (!field->children[0].name || luax_len(L, index) > 0) {
     for (uint32_t i = 0, j = 1; i < field->childCount; i++) {
@@ -161,7 +160,7 @@ static void luax_checkstruct(lua_State* L, int index, const BufferField* field, 
         }
       }
 
-      luax_checkbufferfield(L, -n, child, data + child->offset);
+      luax_checkbufferdata(L, -n, child, data + child->offset);
       lua_pop(L, n);
       j += n;
     }
@@ -170,7 +169,7 @@ static void luax_checkstruct(lua_State* L, int index, const BufferField* field, 
       const BufferField* child = &field->children[i];
       lua_pushstring(L, child->name);
       lua_rawget(L, index);
-      luax_checkbufferfield(L, -1, child, data + child->offset);
+      luax_checkbufferdata(L, -1, child, data + child->offset);
       lua_pop(L, 1);
     }
   }
@@ -178,14 +177,6 @@ static void luax_checkstruct(lua_State* L, int index, const BufferField* field, 
 
 static void luax_checkarray(lua_State* L, int index, uint32_t offset, uint32_t count, const BufferField* field, char* data) {
   lovrCheck(lua_istable(L, index), "Expected table for array data");
-
-  if (!count) {
-    count = field->length;
-  }
-
-  lua_rawgeti(L, index, 1);
-  int type = lua_type(L, -1);
-  lua_pop(L, 1);
 
   if (field->childCount > 0) {
     for (uint32_t i = 0; i < count; i++, data += field->stride) {
@@ -195,6 +186,10 @@ static void luax_checkarray(lua_State* L, int index, uint32_t offset, uint32_t c
     }
   } else {
     int n = fieldComponents[field->type];
+
+    lua_rawgeti(L, index, 1);
+    int type = lua_type(L, -1);
+    lua_pop(L, 1);
 
     if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
       for (uint32_t i = 0; i < count; i++, data += field->stride) {
@@ -227,9 +222,9 @@ static void luax_checkarray(lua_State* L, int index, uint32_t offset, uint32_t c
   }
 }
 
-void luax_checkbufferfield(lua_State* L, int index, const BufferField* field, char* data) {
+void luax_checkbufferdata(lua_State* L, int index, const BufferField* field, char* data) {
   if (field->length > 0) {
-    luax_checkarray(L, index, 0, 0, field, data);
+    luax_checkarray(L, index, 0, field->length, field, data);
   } else if (field->childCount > 0) {
     luax_checkstruct(L, index, field, data);
   } else if (lua_type(L, index) == LUA_TTABLE) {
@@ -244,45 +239,94 @@ void luax_checkbufferfield(lua_State* L, int index, const BufferField* field, ch
   }
 }
 
-void luax_checkbufferdata(lua_State* L, int index, Buffer* buffer, char* data) {
-  const BufferInfo* info = lovrBufferGetInfo(buffer);
-  Blob* blob = luax_totype(L, index, Blob);
-
-  if (blob) {
-    uint32_t srcOffset = luax_optu32(L, index + 1, 0);
-    uint32_t dstOffset = luax_optu32(L, index + 2, 0);
-    lovrCheck(srcOffset < blob->size, "Source offset is bigger than the size of the Blob");
-    lovrCheck(dstOffset < info->size, "Destination offset is bigger than the size of the Buffer");
-    uint32_t limit = MIN(blob->size - srcOffset, info->size - dstOffset);
-    uint32_t extent = luax_optu32(L, index + 3, limit);
-    lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds the size of the source Blob");
-    lovrCheck(extent <= info->size - dstOffset, "Buffer copy range exceeds the size of the target Buffer");
-    data = data ? data : lovrBufferMap(buffer, dstOffset, extent);
-    memcpy(data, (char*) blob->data + srcOffset, extent);
-    return;
+static int luax_pushcomponents(lua_State* L, const BufferField* field, char* data) {
+  FieldPointer p = { .raw = data };
+  int n = (int) fieldComponents[field->type];
+  switch (field->type) {
+    case FIELD_I8x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i8[i]); return n;
+    case FIELD_U8x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u8[i]); return n;
+    case FIELD_SN8x4: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i8[i] / 127, -1.f)); return n;
+    case FIELD_UN8x4: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u8[i] / 255); return n;
+    case FIELD_UN10x3: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) ((p.u32[0] >> (10 * (2 - i))) & 0x3ff) / 1023.f); return n;
+    case FIELD_I16x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i16[i]); return n;
+    case FIELD_I16x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i16[i]); return n;
+    case FIELD_U16x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u16[i]); return n;
+    case FIELD_U16x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u16[i]); return n;
+    case FIELD_SN16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i16[i] / 32767, -1.f)); return n;
+    case FIELD_SN16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i16[i] / 32767, -1.f)); return n;
+    case FIELD_UN16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u16[i] / 65535); return n;
+    case FIELD_UN16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u16[i] / 65535); return n;
+    case FIELD_I32: lua_pushinteger(L, p.i32[0]); return n;
+    case FIELD_I32x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
+    case FIELD_I32x3: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
+    case FIELD_I32x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
+    case FIELD_U32: lua_pushinteger(L, p.u32[0]); return n;
+    case FIELD_U32x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
+    case FIELD_U32x3: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
+    case FIELD_U32x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
+    case FIELD_F16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, float16to32(p.u16[i])); return n;
+    case FIELD_F16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, float16to32(p.u16[i])); return n;
+    case FIELD_F32: lua_pushnumber(L, p.f32[0]); return n;
+    case FIELD_F32x2: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case FIELD_F32x3: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case FIELD_F32x4: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case FIELD_MAT2: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case FIELD_MAT3: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case FIELD_MAT4: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case FIELD_INDEX16: lua_pushinteger(L, p.u16[0] + 1); return n;
+    case FIELD_INDEX32: lua_pushinteger(L, p.u32[0] + 1); return n;
+    default: lovrUnreachable(); return 0;
   }
+}
 
-  luaL_checktype(L, index, LUA_TTABLE);
-  lovrCheck(info->fields, "Buffer must be created with format information to copy a table to it");
+static int luax_pushstruct(lua_State* L, const BufferField* field, char* data) {
+  lua_createtable(L, 0, field->childCount);
+  for (uint32_t i = 0; i < field->childCount; i++) {
+    if (field->childCount > 0 || field->length > 0 || fieldComponents[field->type] == 1) {
+      luax_pushbufferdata(L, &field->children[i], data + field->children[i].offset);
+    } else {
+      int n = fieldComponents[field->type];
+      lua_createtable(L, n, 0);
+      luax_pushbufferdata(L, &field->children[i], data + field->children[i].offset);
+      for (int j = n + 1, k = n; k >= 1; k++, j--) {
+        lua_rawseti(L, -j, k);
+      }
+    }
+    lua_setfield(L, -2, field->children[i].name);
+  }
+  return 1;
+}
 
-  if (info->fields[0].length == 0) {
-    data = data ? data : lovrBufferMap(buffer, 0, info->size);
-    luax_checkbufferfield(L, index, info->fields, data);
+int luax_pushbufferdata(lua_State* L, const BufferField* field, char* data) {
+  if (field->length > 0) {
+    lua_createtable(L, field->length, 0);
+    if (field->childCount > 0) {
+      for (uint32_t i = 0; i < field->length; i++) {
+        luax_pushstruct(L, &field->children[i], data);
+        lua_rawseti(L, -2, i + 1);
+        data += field->stride;
+      }
+    } else {
+      for (uint32_t i = 0; i < field->length; i++) {
+        int n = (int) fieldComponents[field->type];
+        if (n > 1) {
+          lua_createtable(L, n, 0);
+          luax_pushcomponents(L, field, data);
+          for (int j = n + 1, k = n; k >= 1; k--, j--) {
+            lua_rawseti(L, -j, k);
+          }
+        } else {
+          luax_pushcomponents(L, field, data);
+        }
+        lua_rawseti(L, -2, i + 1);
+        data += field->stride;
+      }
+    }
+    return 1;
+  } else if (field->childCount > 0) {
+    return luax_pushstruct(L, field, data);
   } else {
-    lua_rawgeti(L, index, 1);
-    bool nested = lua_istable(L, -1);
-    lua_pop(L, 1);
-
-    BufferField* array = &info->fields[0];
-    uint32_t tableLength = luax_len(L, index);
-    uint32_t srcIndex = luax_optu32(L, index + 1, 1) - 1;
-    uint32_t dstIndex = luax_optu32(L, index + 2, 1) - 1;
-    uint32_t limit = nested ? MIN(tableLength - srcIndex, array->length - dstIndex) : array->length - dstIndex;
-    uint32_t count = luax_optu32(L, index + 3, limit);
-
-    lovrCheck(dstIndex + count <= array->length, "Buffer copy range exceeds the length of the target Buffer");
-    data = data ? data : lovrBufferMap(buffer, dstIndex * array->stride, count * array->stride);
-    luax_checkarray(L, index, srcIndex, count, array, data);
+    return luax_pushcomponents(L, field, data);
   }
 }
 
@@ -355,11 +399,7 @@ static int l_lovrBufferGetFormat(lua_State* L) {
 
 static int l_lovrBufferGetPointer(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  if (!lovrBufferIsTemporary(buffer)) {
-    lua_pushnil(L);
-    return 1;
-  }
-  void* pointer = lovrBufferMap(buffer, 0, ~0u);
+  void* pointer = lovrBufferSetData(buffer, 0, ~0u);
   lua_pushlightuserdata(L, pointer);
   return 1;
 }
@@ -371,17 +411,90 @@ static int l_lovrBufferIsTemporary(lua_State* L) {
   return 1;
 }
 
+static int l_lovrBufferNewReadback(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  uint32_t offset = luax_optu32(L, 2, 0);
+  uint32_t extent = luax_optu32(L, 3, ~0u);
+  Readback* readback = lovrReadbackCreateBuffer(buffer, offset, extent);
+  luax_pushtype(L, Readback, readback);
+  lovrRelease(readback, lovrReadbackDestroy);
+  return 1;
+}
+
+static int l_lovrBufferGetData(lua_State* L) {
+  Buffer* buffer = luax_checkbuffer(L, 1);
+  const BufferInfo* info = lovrBufferGetInfo(buffer);
+  void* data = lovrBufferGetData(buffer, 0, info->size);
+  return luax_pushbufferdata(L, info->fields, data);
+}
+
 static int l_lovrBufferSetData(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  luax_checkbufferdata(L, 2, buffer, NULL);
-  return 0;
+  const BufferInfo* info = lovrBufferGetInfo(buffer);
+
+  if (lua_istable(L, 2)) {
+    lovrCheck(info->fields, "Buffer must be created with format information to copy a table to it");
+
+    if (info->fields[0].length == 0) {
+      void* data = lovrBufferSetData(buffer, 0, info->size);
+      luax_checkbufferdata(L, 2, info->fields, data);
+    } else {
+      lua_rawgeti(L, 2, 1);
+      bool nested = lua_istable(L, -1);
+      lua_pop(L, 1);
+
+      BufferField* array = &info->fields[0];
+      uint32_t tableLength = luax_len(L, 2);
+      uint32_t dstIndex = luax_optu32(L, 3, 1) - 1;
+      uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
+      uint32_t limit = nested ? MIN(array->length - dstIndex, tableLength - srcIndex) : array->length - dstIndex;
+      uint32_t count = luax_optu32(L, 5, limit);
+
+      lovrCheck(dstIndex + count <= array->length, "Buffer copy range exceeds the length of the target Buffer");
+      void* data = lovrBufferSetData(buffer, dstIndex * array->stride, count * array->stride);
+      luax_checkarray(L, 2, srcIndex, count, array, data);
+    }
+
+    return 0;
+  }
+
+  Blob* blob = luax_totype(L, 2, Blob);
+
+  if (blob) {
+    uint32_t dstOffset = luax_optu32(L, 3, 0);
+    uint32_t srcOffset = luax_optu32(L, 4, 0);
+    lovrCheck(dstOffset < info->size, "Buffer offset is bigger than the size of the Buffer");
+    lovrCheck(srcOffset < blob->size, "Blob offset is bigger than the size of the Blob");
+    uint32_t limit = MIN(info->size - dstOffset, blob->size - srcOffset);
+    uint32_t extent = luax_optu32(L, 5, limit);
+    lovrCheck(extent <= info->size - dstOffset, "Buffer copy range exceeds the size of the target Buffer");
+    lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds the size of the source Blob");
+    void* data = lovrBufferSetData(buffer, dstOffset, extent);
+    memcpy(data, (char*) blob->data + srcOffset, extent);
+    return 0;
+  }
+
+  Buffer* src = luax_totype(L, 2, Buffer);
+
+  if (src) {
+    Buffer* dst = buffer;
+    uint32_t dstOffset = luax_optu32(L, 3, 0);
+    uint32_t srcOffset = luax_optu32(L, 4, 0);
+    const BufferInfo* dstInfo = lovrBufferGetInfo(dst);
+    const BufferInfo* srcInfo = lovrBufferGetInfo(src);
+    uint32_t limit = MIN(dstInfo->size - dstOffset, srcInfo->size - srcOffset);
+    uint32_t extent = luax_optu32(L, 5, limit);
+    lovrBufferCopy(src, dst, srcOffset, dstOffset, extent);
+    return 0;
+  }
+
+  return luax_typeerror(L, 2, "table, Blob, or Buffer");
 }
 
 static int l_lovrBufferClear(lua_State* L) {
   Buffer* buffer = luax_checkbuffer(L, 1);
-  const BufferInfo* info = lovrBufferGetInfo(buffer);
   uint32_t offset = luax_optu32(L, 2, 0);
-  uint32_t extent = luax_optu32(L, 3, info->size - offset);
+  uint32_t extent = luax_optu32(L, 3, ~0u);
   lovrBufferClear(buffer, offset, extent);
   return 0;
 }
@@ -393,6 +506,8 @@ const luaL_Reg lovrBuffer[] = {
   { "getFormat", l_lovrBufferGetFormat },
   { "getPointer", l_lovrBufferGetPointer },
   { "isTemporary", l_lovrBufferIsTemporary },
+  { "newReadback", l_lovrBufferNewReadback },
+  { "getData", l_lovrBufferGetData },
   { "setData", l_lovrBufferSetData },
   { "clear", l_lovrBufferClear },
   { NULL, NULL }

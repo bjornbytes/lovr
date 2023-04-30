@@ -135,7 +135,6 @@ StringEntry lovrOriginType[] = {
 StringEntry lovrPassType[] = {
   [PASS_RENDER] = ENTRY("render"),
   [PASS_COMPUTE] = ENTRY("compute"),
-  [PASS_TRANSFER] = ENTRY("transfer"),
   { 0 }
 };
 
@@ -167,13 +166,6 @@ StringEntry lovrStencilAction[] = {
   [STENCIL_INCREMENT_WRAP] = ENTRY("incrementwrap"),
   [STENCIL_DECREMENT_WRAP] = ENTRY("decrementwrap"),
   [STENCIL_INVERT] = ENTRY("invert"),
-  { 0 }
-};
-
-StringEntry lovrTallyType[] = {
-  [TALLY_TIME] = ENTRY("time"),
-  [TALLY_SHADER] = ENTRY("shader"),
-  [TALLY_PIXEL] = ENTRY("pixel"),
   { 0 }
 };
 
@@ -653,7 +645,6 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.depthClamp), lua_setfield(L, -2, "depthClamp");
   lua_pushboolean(L, features.depthResolve), lua_setfield(L, -2, "depthResolve");
   lua_pushboolean(L, features.indirectDrawFirstInstance), lua_setfield(L, -2, "indirectDrawFirstInstance");
-  lua_pushboolean(L, features.shaderTally), lua_setfield(L, -2, "shaderTally");
   lua_pushboolean(L, features.float64), lua_setfield(L, -2, "float64");
   lua_pushboolean(L, features.int64), lua_setfield(L, -2, "int64");
   lua_pushboolean(L, features.int16), lua_setfield(L, -2, "int16");
@@ -886,8 +877,12 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
   Buffer* buffer = lovrGraphicsGetBuffer(&info, index > 0 ? &pointer : NULL);
 
   if (index) {
-    lua_settop(L, index);
-    luax_checkbufferdata(L, index, buffer, pointer);
+    if (lua_istable(L, index)) {
+      luax_checkbufferdata(L, index, fields, pointer);
+    } else {
+      Blob* blob = luax_checktype(L, index, Blob);
+      memcpy(pointer, blob->data, info.size);
+    }
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -905,8 +900,12 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   Buffer* buffer = lovrBufferCreate(&info, index ? &pointer : NULL);
 
   if (index) {
-    lua_settop(L, index);
-    luax_checkbufferdata(L, index, buffer, pointer);
+    if (lua_istable(L, index)) {
+      luax_checkbufferdata(L, index, fields, pointer);
+    } else {
+      Blob* blob = luax_checktype(L, index, Blob);
+      memcpy(pointer, blob->data, info.size);
+    }
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -1484,17 +1483,6 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsNewTally(lua_State* L) {
-  TallyInfo info;
-  info.type = luax_checkenum(L, 1, TallyType, NULL);
-  info.count = luax_checku32(L, 2);
-  info.views = luax_optu32(L, 3, 2);
-  Tally* tally = lovrTallyCreate(&info);
-  luax_pushtype(L, Tally, tally);
-  lovrRelease(tally, lovrTallyDestroy);
-  return 1;
-}
-
 static int l_lovrGraphicsGetPass(lua_State* L) {
   PassInfo info = { 0 };
 
@@ -1541,7 +1529,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newFont", l_lovrGraphicsNewFont },
   { "newModel", l_lovrGraphicsNewModel },
-  { "newTally", l_lovrGraphicsNewTally },
   { "getPass", l_lovrGraphicsGetPass },
   { NULL, NULL }
 };
@@ -1554,7 +1541,6 @@ extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrFont[];
 extern const luaL_Reg lovrModel[];
 extern const luaL_Reg lovrReadback[];
-extern const luaL_Reg lovrTally[];
 extern const luaL_Reg lovrPass[];
 
 int luaopen_lovr_graphics(lua_State* L) {
@@ -1568,7 +1554,6 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Font);
   luax_registertype(L, Model);
   luax_registertype(L, Readback);
-  luax_registertype(L, Tally);
   luax_registertype(L, Pass);
   return 1;
 }

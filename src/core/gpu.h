@@ -465,7 +465,6 @@ void gpu_pipeline_get_cache(void* data, size_t* size);
 
 typedef enum {
   GPU_TALLY_TIME,
-  GPU_TALLY_SHADER,
   GPU_TALLY_PIXEL
 } gpu_tally_type;
 
@@ -619,7 +618,6 @@ typedef struct {
   bool depthClamp;
   bool depthResolve;
   bool indirectDrawFirstInstance;
-  bool shaderTally;
   bool shaderDebug;
   bool float64;
   bool int64;

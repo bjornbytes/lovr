@@ -1,6 +1,7 @@
 #include "api.h"
 #include "util.h"
 #include "graphics/graphics.h"
+#include "data/image.h"
 
 static int l_lovrTextureNewView(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
@@ -110,6 +111,115 @@ static int l_lovrTextureHasUsage(lua_State* L) {
   return 1;
 }
 
+static int l_lovrTextureNewReadback(lua_State* L) {
+  Texture* texture = luax_totype(L, 1, Texture);
+  uint32_t offset[4], extent[2];
+  offset[0] = luax_optu32(L, 2, 0);
+  offset[1] = luax_optu32(L, 3, 0);
+  offset[2] = luax_optu32(L, 4, 1) - 1;
+  offset[3] = luax_optu32(L, 5, 1) - 1;
+  extent[0] = luax_optu32(L, 6, ~0u);
+  extent[1] = luax_optu32(L, 7, ~0u);
+  Readback* readback = lovrReadbackCreateTexture(texture, offset, extent);
+  luax_pushtype(L, Readback, readback);
+  lovrRelease(readback, lovrReadbackDestroy);
+  return 1;
+}
+
+static int l_lovrTextureGetPixels(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  uint32_t offset[4], extent[3];
+  offset[0] = luax_optu32(L, 2, 0);
+  offset[1] = luax_optu32(L, 3, 0);
+  offset[2] = luax_optu32(L, 4, 1) - 1;
+  offset[3] = luax_optu32(L, 5, 1) - 1;
+  extent[0] = luax_optu32(L, 6, ~0u);
+  extent[1] = luax_optu32(L, 7, ~0u);
+  extent[2] = 1;
+  Image* image = lovrTextureGetPixels(texture, offset, extent);
+  luax_pushtype(L, Image, image);
+  lovrRelease(image, lovrImageDestroy);
+  return 1;
+}
+
+static int l_lovrTextureSetPixels(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+
+  Image* image = luax_totype(L, 2, Image);
+
+  if (image) {
+    uint32_t dstOffset[4];
+    uint32_t srcOffset[4];
+    uint32_t extent[3];
+    dstOffset[0] = luax_optu32(L, 3, 0);
+    dstOffset[1] = luax_optu32(L, 4, 0);
+    dstOffset[2] = luax_optu32(L, 5, 1) - 1;
+    dstOffset[3] = luax_optu32(L, 6, 1) - 1;
+    srcOffset[0] = luax_optu32(L, 7, 0);
+    srcOffset[1] = luax_optu32(L, 8, 0);
+    srcOffset[2] = luax_optu32(L, 9, 1) - 1;
+    srcOffset[3] = luax_optu32(L, 10, 1) - 1;
+    extent[0] = luax_optu32(L, 11, ~0u);
+    extent[1] = luax_optu32(L, 12, ~0u);
+    extent[2] = luax_optu32(L, 13, ~0u);
+    lovrTextureSetPixels(texture, image, dstOffset, srcOffset, extent);
+    return 0;
+  }
+
+  Texture* src = luax_totype(L, 2, Texture);
+
+  if (texture) {
+    Texture* dst = texture;
+    uint32_t dstOffset[4];
+    uint32_t srcOffset[4];
+    uint32_t dstExtent[3];
+    uint32_t srcExtent[3];
+    dstOffset[0] = luax_optu32(L, 3, 0);
+    dstOffset[1] = luax_optu32(L, 4, 0);
+    dstOffset[2] = luax_optu32(L, 5, 1) - 1;
+    dstOffset[3] = luax_optu32(L, 6, 1) - 1;
+    srcOffset[0] = luax_optu32(L, 7, 0);
+    srcOffset[1] = luax_optu32(L, 8, 0);
+    srcOffset[2] = luax_optu32(L, 9, 1) - 1;
+    srcOffset[3] = luax_optu32(L, 10, 1) - 1;
+    dstExtent[0] = luax_optu32(L, 11, ~0u);
+    dstExtent[1] = luax_optu32(L, 12, ~0u);
+    dstExtent[2] = luax_optu32(L, 13, ~0u);
+    srcExtent[0] = luax_optu32(L, 14, dstExtent[0]);
+    srcExtent[1] = luax_optu32(L, 15, dstExtent[1]);
+    srcExtent[2] = luax_optu32(L, 16, dstExtent[2]);
+    FilterMode filter = luax_checkenum(L, 17, FilterMode, "linear");
+    if (srcExtent[0] == dstExtent[0] && srcExtent[1] == dstExtent[1] && srcExtent[2] == dstExtent[2]) {
+      lovrTextureCopy(src, dst, srcOffset, dstOffset, dstExtent);
+    } else {
+      lovrTextureBlit(src, dst, srcOffset, dstOffset, srcExtent, dstExtent, filter);
+    }
+    return 0;
+  }
+
+  return luax_typeerror(L, 2, "Image or Texture");
+}
+
+static int l_lovrTextureClear(lua_State* L) {
+  Texture* texture = luax_totype(L, 1, Texture);
+  float value[4];
+  luax_optcolor(L, 2, value);
+  uint32_t layer = luax_optu32(L, 3, 1) - 1;
+  uint32_t layerCount = luax_optu32(L, 4, ~0u);
+  uint32_t level = luax_optu32(L, 5, 1) - 1;
+  uint32_t levelCount = luax_optu32(L, 6, ~0u);
+  lovrTextureClear(texture, value, layer, layerCount, level, levelCount);
+  return 0;
+}
+
+static int l_lovrTextureGenerateMipmaps(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  uint32_t base = luax_optu32(L, 2, 1) - 1;
+  uint32_t count = luax_optu32(L, 3, ~0u);
+  lovrTextureGenerateMipmaps(texture, base, count);
+  return 0;
+}
+
 const luaL_Reg lovrTexture[] = {
   { "newView", l_lovrTextureNewView },
   { "isView", l_lovrTextureIsView },
@@ -123,5 +233,10 @@ const luaL_Reg lovrTexture[] = {
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getSampleCount", l_lovrTextureGetSampleCount },
   { "hasUsage", l_lovrTextureHasUsage },
+  { "newReadback", l_lovrTextureNewReadback },
+  { "getPixels", l_lovrTextureGetPixels },
+  { "setPixels", l_lovrTextureSetPixels },
+  { "clear", l_lovrTextureClear },
+  { "generateMipmaps", l_lovrTextureGenerateMipmaps },
   { NULL, NULL }
 };

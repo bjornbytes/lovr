@@ -17,7 +17,6 @@ typedef struct Material Material;
 typedef struct Font Font;
 typedef struct Model Model;
 typedef struct Readback Readback;
-typedef struct Tally Tally;
 typedef struct Pass Pass;
 
 typedef struct {
@@ -45,7 +44,6 @@ typedef struct {
   bool depthClamp;
   bool depthResolve;
   bool indirectDrawFirstInstance;
-  bool shaderTally;
   bool float64;
   bool int64;
   bool int16;
@@ -185,8 +183,10 @@ void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 bool lovrBufferIsTemporary(Buffer* buffer);
 bool lovrBufferIsValid(Buffer* buffer);
-void* lovrBufferMap(Buffer* buffer, uint32_t offset, uint32_t size);
-void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t size);
+void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent);
+void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent);
+void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);
+void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent);
 
 // Texture
 
@@ -231,18 +231,24 @@ typedef struct {
   const char* label;
 } TextureInfo;
 
+typedef enum {
+  FILTER_NEAREST,
+  FILTER_LINEAR
+} FilterMode;
+
 Texture* lovrGraphicsGetWindowTexture(void);
 Texture* lovrTextureCreate(const TextureInfo* info);
 Texture* lovrTextureCreateView(const TextureViewInfo* view);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
+struct Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t extent[3]);
+void lovrTextureSetPixels(Texture* texture, struct Image* image, uint32_t texOffset[4], uint32_t imgOffset[4], uint32_t extent[3]);
+void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
+void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
+void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
+void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count);
 
 // Sampler
-
-typedef enum {
-  FILTER_NEAREST,
-  FILTER_LINEAR
-} FilterMode;
 
 typedef enum {
   WRAP_CLAMP,
@@ -286,7 +292,6 @@ typedef enum {
   SHADER_LOGO,
   SHADER_ANIMATOR,
   SHADER_BLENDER,
-  SHADER_TIME_WIZARD,
   DEFAULT_SHADER_COUNT
 } DefaultShader;
 
@@ -453,66 +458,20 @@ Buffer* lovrModelGetIndexBuffer(Model* model);
 
 // Readback
 
-typedef enum {
-  READBACK_BUFFER,
-  READBACK_TEXTURE,
-  READBACK_TALLY
-} ReadbackType;
-
-typedef struct {
-  ReadbackType type;
-  union {
-    struct {
-      Buffer* object;
-      uint32_t offset;
-      uint32_t extent;
-    } buffer;
-    struct {
-      Texture* object;
-      uint32_t offset[4];
-      uint32_t extent[2];
-    } texture;
-    struct {
-      Tally* object;
-      uint32_t index;
-      uint32_t count;
-    } tally;
-  };
-} ReadbackInfo;
-
-Readback* lovrReadbackCreate(const ReadbackInfo* info);
+Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent);
+Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[2]);
 void lovrReadbackDestroy(void* ref);
-const ReadbackInfo* lovrReadbackGetInfo(Readback* readback);
 bool lovrReadbackIsComplete(Readback* readback);
 bool lovrReadbackWait(Readback* readback);
-void* lovrReadbackGetData(Readback* readback);
+void* lovrReadbackGetData(Readback* readback, BufferField* format);
 struct Blob* lovrReadbackGetBlob(Readback* readback);
 struct Image* lovrReadbackGetImage(Readback* readback);
-
-// Tally
-
-typedef enum {
-  TALLY_TIME,
-  TALLY_SHADER,
-  TALLY_PIXEL
-} TallyType;
-
-typedef struct {
-  TallyType type;
-  uint32_t count;
-  uint32_t views;
-} TallyInfo;
-
-Tally* lovrTallyCreate(const TallyInfo* info);
-void lovrTallyDestroy(void* ref);
-const TallyInfo* lovrTallyGetInfo(Tally* tally);
 
 // Pass
 
 typedef enum {
   PASS_RENDER,
-  PASS_COMPUTE,
-  PASS_TRANSFER
+  PASS_COMPUTE
 } PassType;
 
 typedef enum {
@@ -664,19 +623,3 @@ void lovrPassMeshImmediate(Pass* pass, uint32_t vertexCount, void** vertices, Bu
 void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
-
-void lovrPassClearBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent);
-void lovrPassClearTexture(Pass* pass, Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
-void* lovrPassCopyDataToBuffer(Pass* pass, Buffer* buffer, uint32_t offset, uint32_t extent);
-void lovrPassCopyBufferToBuffer(Pass* pass, Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);
-void lovrPassCopyTallyToBuffer(Pass* pass, Tally* src, Buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count);
-void lovrPassCopyImageToTexture(Pass* pass, struct Image* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
-void lovrPassCopyTextureToTexture(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
-void lovrPassBlit(Pass* pass, Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
-void lovrPassMipmap(Pass* pass, Texture* texture, uint32_t base, uint32_t count);
-Readback* lovrPassReadBuffer(Pass* pass, Buffer* buffer, uint32_t index, uint32_t count);
-Readback* lovrPassReadTexture(Pass* pass, Texture* texture, uint32_t offset[4], uint32_t extent[3]);
-Readback* lovrPassReadTally(Pass* pass, Tally* tally, uint32_t index, uint32_t count);
-
-void lovrPassTick(Pass* pass, Tally* tally, uint32_t index);
-void lovrPassTock(Pass* pass, Tally* tally, uint32_t index);
