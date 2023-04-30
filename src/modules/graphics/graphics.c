@@ -450,9 +450,9 @@ static struct {
 
 // Helpers
 
-static void* tempAlloc(size_t size);
-static size_t tempPush(void);
-static void tempPop(size_t stack);
+static void* tempAlloc(Allocator* allocator, size_t size);
+static size_t tempPush(Allocator* allocator);
+static void tempPop(Allocator* allocator, size_t stack);
 static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align);
 static int u64cmp(const void* a, const void* b);
 static void beginFrame(void);
@@ -895,8 +895,8 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   beginFrame();
 
   uint32_t total = count + 1;
-  gpu_stream** streams = tempAlloc(total * sizeof(gpu_stream*));
-  gpu_barrier* barriers = tempAlloc(count * sizeof(gpu_barrier));
+  gpu_stream** streams = tempAlloc(&state.allocator, total * sizeof(gpu_stream*));
+  gpu_barrier* barriers = tempAlloc(&state.allocator, count * sizeof(gpu_barrier));
   memset(barriers, 0, count * sizeof(gpu_barrier));
 
   streams[0] = state.stream;
@@ -1966,11 +1966,11 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
     lovrCheck(spv[i].version <= 0x00010300, "Invalid SPIR-V version (up to 1.3 is supported)");
 
-    spv[i].features = tempAlloc(spv[i].featureCount * sizeof(uint32_t));
-    spv[i].specConstants = tempAlloc(spv[i].specConstantCount * sizeof(spv_spec_constant));
-    spv[i].attributes = tempAlloc(spv[i].attributeCount * sizeof(spv_attribute));
-    spv[i].resources = tempAlloc(spv[i].resourceCount * sizeof(spv_resource));
-    spv[i].fields = tempAlloc(spv[i].fieldCount * sizeof(spv_field));
+    spv[i].features = tempAlloc(&state.allocator, spv[i].featureCount * sizeof(uint32_t));
+    spv[i].specConstants = tempAlloc(&state.allocator, spv[i].specConstantCount * sizeof(spv_spec_constant));
+    spv[i].attributes = tempAlloc(&state.allocator, spv[i].attributeCount * sizeof(spv_attribute));
+    spv[i].resources = tempAlloc(&state.allocator, spv[i].resourceCount * sizeof(spv_resource));
+    spv[i].fields = tempAlloc(&state.allocator, spv[i].fieldCount * sizeof(spv_field));
     memset(spv[i].fields, 0, spv[i].fieldCount * sizeof(spv_field));
 
     result = spv_parse(info->source[i].code, info->source[i].size, &spv[i]);
@@ -1999,7 +1999,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   }
 
   // Allocate
-  gpu_slot* slots = tempAlloc((spv[0].resourceCount + spv[1].resourceCount) * sizeof(gpu_slot));
+  gpu_slot* slots = tempAlloc(&state.allocator, (spv[0].resourceCount + spv[1].resourceCount) * sizeof(gpu_slot));
   shader->resources = malloc((spv[0].resourceCount + spv[1].resourceCount) * sizeof(ShaderResource));
   shader->fields = malloc((spv[0].fieldCount + spv[1].fieldCount) * sizeof(BufferField));
   shader->flags = malloc((spv[0].specConstantCount + spv[1].specConstantCount) * sizeof(gpu_shader_flag));
@@ -2667,8 +2667,8 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
     if (resized) *resized = true;
   }
 
-  size_t stack = tempPush();
-  float* pixels = tempAlloc(pixelWidth * pixelHeight * 4 * sizeof(float));
+  size_t stack = tempPush(&state.allocator);
+  float* pixels = tempAlloc(&state.allocator, pixelWidth * pixelHeight * 4 * sizeof(float));
   lovrRasterizerGetPixels(font->info.rasterizer, glyph->codepoint, pixels, pixelWidth, pixelHeight, font->info.spread);
   MappedBuffer mapped = mapBuffer(&state.uploadBuffers, pixelWidth * pixelHeight * 4 * sizeof(uint8_t), 64);
   float* src = pixels;
@@ -2684,7 +2684,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   uint32_t dstOffset[4] = { glyph->x - font->padding, glyph->y - font->padding, 0, 0 };
   uint32_t extent[3] = { pixelWidth, pixelHeight, 1 };
   gpu_copy_buffer_texture(state.stream, mapped.buffer, font->atlas->gpu, mapped.offset, dstOffset, extent);
-  tempPop(stack);
+  tempPop(&state.allocator, stack);
 
   state.hasGlyphUpload = true;
   return glyph;
@@ -2751,8 +2751,8 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
   }
 
   beginFrame();
-  size_t stack = tempPush();
-  char* string = tempAlloc(totalLength + 1);
+  size_t stack = tempPush(&state.allocator);
+  char* string = tempAlloc(&state.allocator, totalLength + 1);
   string[totalLength] = '\0';
 
   size_t cursor = 0;
@@ -2821,7 +2821,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     callback(context, lineStart, end - lineStart);
   }
 
-  tempPop(stack);
+  tempPop(&state.allocator, stack);
 }
 
 static void aline(GlyphVertex* vertices, uint32_t head, uint32_t tail, float width, HorizontalAlign align) {
@@ -3100,9 +3100,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
   // - Then "non-dynamic" primitives follow
   // Within each section primitives are still sorted by their index.
 
-  size_t stack = tempPush();
-  uint64_t* primitiveOrder = tempAlloc(data->primitiveCount * sizeof(uint64_t));
-  uint32_t* baseVertex = tempAlloc(data->primitiveCount * sizeof(uint32_t));
+  size_t stack = tempPush(&state.allocator);
+  uint64_t* primitiveOrder = tempAlloc(&state.allocator, data->primitiveCount * sizeof(uint64_t));
+  uint32_t* baseVertex = tempAlloc(&state.allocator, data->primitiveCount * sizeof(uint32_t));
 
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
     uint32_t hi = data->primitives[i].skin;
@@ -3222,7 +3222,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
   lovrModelResetNodeTransforms(model);
-  tempPop(stack);
+  tempPop(&state.allocator, stack);
 
   return model;
 }
@@ -3300,7 +3300,7 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   ModelAnimation* animation = &data->animations[animationIndex];
   time = fmodf(time, animation->duration);
 
-  size_t stack = tempPush();
+  size_t stack = tempPush(&state.allocator);
 
   for (uint32_t i = 0; i < animation->channelCount; i++) {
     ModelAnimationChannel* channel = &animation->channels[i];
@@ -3321,7 +3321,7 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       case PROP_ROTATION: n = 4; break;
       case PROP_WEIGHTS:
         n = data->nodes[node].blendShapeCount;
-        property = tempAlloc(n * sizeof(float));
+        property = tempAlloc(&state.allocator, n * sizeof(float));
         break;
     }
 
@@ -3395,7 +3395,7 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
     }
   }
 
-  tempPop(stack);
+  tempPop(&state.allocator, stack);
 }
 
 float lovrModelGetBlendShapeWeight(Model* model, uint32_t index) {
@@ -3750,11 +3750,11 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->stream = gpu_stream_begin(pass->info.label);
 
   pass->transformIndex = 0;
-  pass->transform = tempAlloc(MAX_TRANSFORMS * 16 * sizeof(float));
+  pass->transform = tempAlloc(&state.allocator, MAX_TRANSFORMS * 16 * sizeof(float));
   mat4_identity(pass->transform);
 
   pass->pipelineIndex = 0;
-  pass->pipeline = tempAlloc(MAX_PIPELINES * sizeof(Pipeline));
+  pass->pipeline = tempAlloc(&state.allocator, MAX_PIPELINES * sizeof(Pipeline));
   pass->pipeline->vertexFormat = NULL;
   pass->pipeline->material = NULL;
   pass->pipeline->sampler = NULL;
@@ -3771,7 +3771,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
 
   arr_clear(&pass->access);
 
-  pass->constants = tempAlloc(state.limits.pushConstantSize);
+  pass->constants = tempAlloc(&state.allocator, state.limits.pushConstantSize);
   pass->constantsDirty = true;
 
   if (pass->info.type == PASS_COMPUTE) {
@@ -3933,7 +3933,7 @@ Pass* lovrGraphicsGetPass(PassInfo* info) {
   pass->materialDirty = true;
   pass->samplerDirty = true;
 
-  pass->cameras = tempAlloc(pass->viewCount * sizeof(Camera));
+  pass->cameras = tempAlloc(&state.allocator, pass->viewCount * sizeof(Camera));
   pass->cameraDirty = true;
 
   float aspect = (float) pass->width / pass->height;
@@ -4395,7 +4395,7 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
 
 void lovrPassSetVertexFormat(Pass* pass, BufferField* fields, uint32_t count) {
   if (!pass->pipeline->vertexFormat) { // Vertex formats are huge, allocate it lazily only if needed
-    pass->pipeline->vertexFormat = tempAlloc((MAX_CUSTOM_ATTRIBUTES + 1) * sizeof(BufferField));
+    pass->pipeline->vertexFormat = tempAlloc(&state.allocator, (MAX_CUSTOM_ATTRIBUTES + 1) * sizeof(BufferField));
     memset(pass->pipeline->vertexFormat, 0, (MAX_CUSTOM_ATTRIBUTES + 1) * sizeof(BufferField));
     pass->pipeline->vertexFormat[0].children = &pass->pipeline->vertexFormat[1];
   }
@@ -4678,7 +4678,7 @@ static void bindPipeline(Pass* pass, Draw* draw, Shader* shader) {
 }
 
 static void bindBundles(Pass* pass, Draw* draw, Shader* shader) {
-  size_t stack = tempPush();
+  size_t stack = tempPush(&state.allocator);
 
   gpu_bundle* bundles[3];
   uint32_t bundleMask = 0;
@@ -4774,7 +4774,7 @@ static void bindBundles(Pass* pass, Draw* draw, Shader* shader) {
 
   // Set 2 - Resources
   if (pass->bindingsDirty && shader->resourceCount > 0) {
-    gpu_binding* bindings = tempAlloc(shader->resourceCount * sizeof(gpu_binding));
+    gpu_binding* bindings = tempAlloc(&state.allocator, shader->resourceCount * sizeof(gpu_binding));
 
     for (uint32_t i = 0; i < shader->resourceCount; i++) {
       bindings[i] = pass->bindings[shader->resources[i].binding];
@@ -4813,7 +4813,7 @@ static void bindBundles(Pass* pass, Draw* draw, Shader* shader) {
     gpu_bind_bundles(pass->stream, shader->gpu, bundles + first, first, count, NULL, 0);
   }
 
-  tempPop(stack);
+  tempPop(&state.allocator, stack);
 }
 
 static void bindBuffers(Pass* pass, Draw* draw) {
@@ -5682,8 +5682,8 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
     totalLength += strings[i].length;
   }
 
-  size_t stack = tempPush();
-  GlyphVertex* vertices = tempAlloc(totalLength * 4 * sizeof(GlyphVertex));
+  size_t stack = tempPush(&state.allocator);
+  GlyphVertex* vertices = tempAlloc(&state.allocator, totalLength * 4 * sizeof(GlyphVertex));
   uint32_t glyphCount;
   uint32_t lineCount;
 
@@ -5722,7 +5722,7 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
     indices += COUNTOF(quad);
   }
 
-  tempPop(stack);
+  tempPop(&state.allocator, stack);
 }
 
 void lovrPassSkybox(Pass* pass, Texture* texture) {
@@ -5937,24 +5937,24 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
 
 // Helpers
 
-static void* tempAlloc(size_t size) {
-  while (state.allocator.cursor + size > state.allocator.length) {
-    lovrAssert(state.allocator.length << 1 <= state.allocator.limit, "Out of memory");
-    os_vm_commit(state.allocator.memory + state.allocator.length, state.allocator.length);
-    state.allocator.length <<= 1;
+static void* tempAlloc(Allocator* allocator, size_t size) {
+  while (allocator->cursor + size > allocator->length) {
+    lovrAssert(allocator->length << 1 <= allocator->limit, "Out of memory");
+    os_vm_commit(allocator->memory + allocator->length, allocator->length);
+    allocator->length <<= 1;
   }
 
-  uint32_t cursor = ALIGN(state.allocator.cursor, 8);
-  state.allocator.cursor = cursor + size;
-  return state.allocator.memory + cursor;
+  uint32_t cursor = ALIGN(allocator->cursor, 8);
+  allocator->cursor = cursor + size;
+  return allocator->memory + cursor;
 }
 
-static size_t tempPush(void) {
-  return state.allocator.cursor;
+static size_t tempPush(Allocator* allocator) {
+  return allocator->cursor;
 }
 
-static void tempPop(size_t stack) {
-  state.allocator.cursor = stack;
+static void tempPop(Allocator* allocator, size_t stack) {
+  allocator->cursor = stack;
 }
 
 static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align) {
