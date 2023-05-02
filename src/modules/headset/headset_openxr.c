@@ -1273,7 +1273,11 @@ static double openxr_getDeltaTime(void) {
   return (state.frameState.predictedDisplayTime - state.lastDisplayTime) / 1e9;
 }
 
-static void getViews(XrView views[2], uint32_t* count) {
+static XrViewStateFlags getViews(XrView views[2], uint32_t* count) {
+  if (state.frameState.predictedDisplayTime <= 0) {
+    return 0;
+  }
+
   XrViewLocateInfo viewLocateInfo = {
     .type = XR_TYPE_VIEW_LOCATE_INFO,
     .viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
@@ -1288,41 +1292,53 @@ static void getViews(XrView views[2], uint32_t* count) {
 
   XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
   XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, count, views), "Failed to locate views");
+  return viewState.viewStateFlags;
 }
 
 static uint32_t openxr_getViewCount(void) {
   uint32_t count;
   XrView views[2];
-  getViews(views, &count);
-  return count;
+  return getViews(views, &count) ? count : 0;
 }
 
 static bool openxr_getViewPose(uint32_t view, float* position, float* orientation) {
   uint32_t count;
   XrView views[2];
-  getViews(views, &count);
-  if (view < count) {
-    memcpy(position, &views[view].pose.position.x, 3 * sizeof(float));
-    memcpy(orientation, &views[view].pose.orientation.x, 4 * sizeof(float));
-    return true;
-  } else {
+  XrViewStateFlags flags = getViews(views, &count);
+
+  if (view >= count || !flags) {
     return false;
   }
+
+  if (flags & XR_VIEW_STATE_POSITION_VALID_BIT) {
+    memcpy(position, &views[view].pose.position.x, 3 * sizeof(float));
+  } else {
+    memset(position, 0, 3 * sizeof(float));
+  }
+
+  if (flags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+    memcpy(orientation, &views[view].pose.orientation.x, 4 * sizeof(float));
+  } else {
+    memset(orientation, 0, 4 * sizeof(float));
+  }
+
+  return true;
 }
 
 static bool openxr_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
   uint32_t count;
   XrView views[2];
-  getViews(views, &count);
-  if (view < count) {
-    *left = -views[view].fov.angleLeft;
-    *right = views[view].fov.angleRight;
-    *up = views[view].fov.angleUp;
-    *down = -views[view].fov.angleDown;
-    return true;
-  } else {
+  XrViewStateFlags flags = getViews(views, &count);
+
+  if (view >= count || !flags) {
     return false;
   }
+
+  *left = -views[view].fov.angleLeft;
+  *right = views[view].fov.angleRight;
+  *up = views[view].fov.angleUp;
+  *down = -views[view].fov.angleDown;
+  return true;
 }
 
 static void openxr_getClipDistance(float* clipNear, float* clipFar) {
@@ -1352,6 +1368,10 @@ static const float* openxr_getBoundsGeometry(uint32_t* count) {
 }
 
 static bool openxr_getPose(Device device, float* position, float* orientation) {
+  if (state.frameState.predictedDisplayTime <= 0) {
+    return false;
+  }
+
   XrAction action = getPoseActionForDevice(device);
   XrActionStatePose poseState = { .type = XR_TYPE_ACTION_STATE_POSE };
 
@@ -1436,7 +1456,7 @@ static bool openxr_getPose(Device device, float* position, float* orientation) {
 }
 
 static bool openxr_getVelocity(Device device, float* linearVelocity, float* angularVelocity) {
-  if (!state.spaces[device]) {
+  if (!state.spaces[device] || state.frameState.predictedDisplayTime <= 0) {
     return false;
   }
 
@@ -1567,7 +1587,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
 static bool openxr_getSkeleton(Device device, float* poses) {
   XrHandTrackerEXT tracker = getHandTracker(device);
 
-  if (!tracker) {
+  if (!tracker || state.frameState.predictedDisplayTime <= 0) {
     return false;
   }
 
@@ -2009,14 +2029,9 @@ static bool openxr_animate(Model* model) {
   const ModelInfo* info = lovrModelGetInfo(model);
 
   switch (info->data->metadataType) {
-    case META_HANDTRACKING_FB:
-      return openxr_animateFB(model, info);
-
-    case META_CONTROLLER_MSFT:
-      return openxr_animateMSFT(model, info);
-
-    default:
-      return false;
+    case META_HANDTRACKING_FB: return openxr_animateFB(model, info);
+    case META_CONTROLLER_MSFT: return openxr_animateMSFT(model, info);
+    default: return false;
   }
 }
 
@@ -2110,23 +2125,33 @@ static Pass* openxr_getPass(void) {
 
   uint32_t count;
   XrView views[2];
-  getViews(views, &count);
+  XrViewStateFlags flags = getViews(views, &count);
 
   for (uint32_t i = 0; i < count; i++) {
     state.layerViews[i].pose = views[i].pose;
     state.layerViews[i].fov = views[i].fov;
 
     float viewMatrix[16];
-    mat4_fromQuat(viewMatrix, &views[i].pose.orientation.x);
-    memcpy(viewMatrix + 12, &views[i].pose.position.x, 3 * sizeof(float));
-    mat4_invert(viewMatrix);
-
     float projection[16];
-    XrFovf* fov = &views[i].fov;
-    mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
 
+    if (flags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+      mat4_fromQuat(viewMatrix, &views[i].pose.orientation.x);
+    } else {
+      mat4_identity(viewMatrix);
+    }
+
+    if (flags & XR_VIEW_STATE_POSITION_VALID_BIT) {
+      memcpy(viewMatrix + 12, &views[i].pose.position.x, 3 * sizeof(float));
+    }
+
+    mat4_invert(viewMatrix);
     lovrPassSetViewMatrix(state.pass, i, viewMatrix);
-    lovrPassSetProjection(state.pass, i, projection);
+
+    if (flags != 0) {
+      XrFovf* fov = &views[i].fov;
+      mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
+      lovrPassSetProjection(state.pass, i, projection);
+    }
   }
 
   return state.pass;
