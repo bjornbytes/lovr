@@ -167,6 +167,7 @@ static struct {
   XrCompositionLayerPassthroughFB passthroughLayer;
   XrFrameState frameState;
   XrTime lastDisplayTime;
+  XrTime epoch;
   TextureFormat depthFormat;
   Texture* textures[2][MAX_IMAGES];
   Pass* pass;
@@ -1266,7 +1267,7 @@ static bool openxr_setDisplayFrequency(float frequency) {
 }
 
 static double openxr_getDisplayTime(void) {
-  return state.frameState.predictedDisplayTime / 1e9;
+  return (state.frameState.predictedDisplayTime - state.epoch) / 1e9;
 }
 
 static double openxr_getDeltaTime(void) {
@@ -2325,8 +2326,9 @@ static double openxr_update(void) {
     XR(xrWaitFrame(state.session, NULL, &state.frameState), "Failed to wait for next frame");
     state.waited = true;
 
-    if (state.lastDisplayTime == 0) {
-      state.lastDisplayTime = state.frameState.predictedDisplayTime - state.frameState.predictedDisplayPeriod;
+    if (state.epoch == 0) {
+      state.epoch = state.frameState.predictedDisplayTime - state.frameState.predictedDisplayPeriod;
+      state.lastDisplayTime = state.epoch;
     }
 
     XrActiveActionSet activeSets[] = {
