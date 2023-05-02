@@ -1296,9 +1296,7 @@ static XrViewStateFlags getViews(XrView views[2], uint32_t* count) {
 }
 
 static uint32_t openxr_getViewCount(void) {
-  uint32_t count;
-  XrView views[2];
-  return getViews(views, &count) ? count : 0;
+  return 2;
 }
 
 static bool openxr_getViewPose(uint32_t view, float* position, float* orientation) {
