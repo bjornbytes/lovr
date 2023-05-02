@@ -166,10 +166,10 @@ static struct {
   XrCompositionLayerDepthInfoKHR depthInfo[2];
   XrCompositionLayerPassthroughFB passthroughLayer;
   XrFrameState frameState;
+  XrTime lastDisplayTime;
   TextureFormat depthFormat;
   Texture* textures[2][MAX_IMAGES];
   Pass* pass;
-  double lastDisplayTime;
   uint32_t textureIndex[2];
   uint32_t textureCount[2];
   uint32_t width;
@@ -2325,7 +2325,7 @@ static double openxr_update(void) {
     XR(xrWaitFrame(state.session, NULL, &state.frameState), "Failed to wait for next frame");
     state.waited = true;
 
-    if (state.lastDisplayTime == 0.) {
+    if (state.lastDisplayTime == 0) {
       state.lastDisplayTime = state.frameState.predictedDisplayTime - state.frameState.predictedDisplayPeriod;
     }
 
