@@ -993,6 +993,12 @@ static int l_lovrPassCompute(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassBarrier(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  lovrPassBarrier(pass);
+  return 0;
+}
+
 // Deprecated
 static int l_lovrPassGetType(lua_State* L) {
   lua_pushliteral(L, "render");
@@ -1081,6 +1087,7 @@ const luaL_Reg lovrPass[] = {
   { "mesh", l_lovrPassMesh },
 
   { "compute", l_lovrPassCompute },
+  { "barrier", l_lovrPassBarrier },
 
   // Deprecated
   { "getType", l_lovrPassGetType },

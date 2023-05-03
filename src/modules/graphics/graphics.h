@@ -610,3 +610,4 @@ void lovrPassMeshImmediate(Pass* pass, uint32_t vertexCount, void** vertices, Bu
 void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
+void lovrPassBarrier(Pass* pass);

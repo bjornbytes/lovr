@@ -6368,6 +6368,12 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   }
 }
 
+void lovrPassBarrier(Pass* pass) {
+  if (pass->computeCount > 0) {
+    pass->computes[pass->computeCount - 1].flags |= COMPUTE_BARRIER;
+  }
+}
+
 // Helpers
 
 static void* tempAlloc(Allocator* allocator, size_t size) {
