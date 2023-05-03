@@ -2114,6 +2114,11 @@ static Pass* openxr_getPass(void) {
   lovrPassReset(state.pass);
   lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1);
 
+  float background[4];
+  LoadAction load = LOAD_CLEAR;
+  lovrGraphicsGetBackgroundColor(background);
+  lovrPassSetClear(state.pass, &load, &background, LOAD_CLEAR, 0.f);
+
   uint32_t count;
   XrView views[2];
   XrViewStateFlags flags = getViews(views, &count);

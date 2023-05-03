@@ -4569,9 +4569,9 @@ void lovrPassSetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadA
   for (uint32_t i = 0; i < pass->canvas.count; i++) {
     pass->canvas.color[i].load = loads[i];
     if (loads[i] == LOAD_CLEAR) {
-      pass->canvas.color[i].clear[0] = lovrMathLinearToGamma(clears[i][0]);
-      pass->canvas.color[i].clear[1] = lovrMathLinearToGamma(clears[i][1]);
-      pass->canvas.color[i].clear[2] = lovrMathLinearToGamma(clears[i][2]);
+      pass->canvas.color[i].clear[0] = lovrMathGammaToLinear(clears[i][0]);
+      pass->canvas.color[i].clear[1] = lovrMathGammaToLinear(clears[i][1]);
+      pass->canvas.color[i].clear[2] = lovrMathGammaToLinear(clears[i][2]);
       pass->canvas.color[i].clear[3] = clears[i][3];
     } else {
       memset(pass->canvas.color[i].clear, 0, 4 * sizeof(float));
