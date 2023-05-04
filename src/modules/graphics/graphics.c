@@ -1232,7 +1232,7 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
       });
     }
 
-    gpu_clear_tally(stream, pass->tally.gpu, 0, pass->tally.count);
+    gpu_clear_tally(stream, pass->tally.gpu, 0, pass->tally.count * canvas->views);
     pass->tally.views = canvas->views;
   }
 
@@ -1320,7 +1320,7 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
   }
 
   if (tally != ~0u) {
-    gpu_tally_finish(stream, pass->tally.gpu, tally);
+    gpu_tally_finish(stream, pass->tally.gpu, tally * canvas->views);
   }
 
   gpu_render_end(stream);
@@ -6339,6 +6339,55 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   pass->lastDraw = draw;
 
   trackBuffer(pass, draws, GPU_PHASE_INDIRECT, GPU_CACHE_INDIRECT);
+}
+
+void lovrPassBeginTally(Pass* pass, uint32_t index) {
+  lovrCheck(index < MAX_TALLIES, "Tally index is too big (max is %d)", MAX_TALLIES);
+  lovrCheck(pass->tally.index == ~0u, "Must finish existing tally before starting a new one");
+  pass->tally.count = MAX(pass->tally.count, index + 1);
+  pass->tally.index = index;
+}
+
+void lovrPassFinishTally(Pass* pass) {
+  lovrCheck(pass->tally.index != ~0u, "No tally is started");
+  pass->tally.index = ~0u;
+}
+
+uint32_t lovrPassGetTallyCount(Pass* pass) {
+  return pass->tally.count;
+}
+
+Buffer* lovrPassGetTallyBuffer(Pass* pass, uint32_t* offset) {
+  *offset = pass->tally.bufferOffset;
+  return pass->tally.buffer;
+}
+
+void lovrPassSetTallyBuffer(Pass* pass, Buffer* buffer, uint32_t offset) {
+  lovrRelease(pass->tally.buffer, lovrBufferDestroy);
+  pass->tally.buffer = buffer;
+  pass->tally.bufferOffset = offset;
+  lovrRetain(buffer);
+}
+
+const uint32_t* lovrPassGetTallyData(Pass* pass) {
+  if (pass->tally.count == 0 || !pass->tally.gpu) {
+    return NULL;
+  }
+
+  uint32_t count = pass->tally.count;
+  uint32_t views = pass->tally.views;
+  uint32_t total = count * views;
+  uint32_t* data = tempAlloc(&state.allocator, total * sizeof(uint32_t));
+  gpu_wait_idle();
+  gpu_tally_get_data(pass->tally.gpu, 0, total, data);
+  for (uint32_t i = 0; i < count; i++) {
+    uint32_t* base = data + i * views;
+    for (uint32_t j = 1; j < views; j++) {
+      base[0] += base[j];
+    }
+  }
+
+  return data;
 }
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {

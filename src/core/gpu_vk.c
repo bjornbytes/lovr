@@ -291,6 +291,7 @@ static bool check(bool condition, const char* message);
   X(vkCmdEndQuery)\
   X(vkCmdWriteTimestamp)\
   X(vkCmdCopyQueryPoolResults)\
+  X(vkGetQueryPoolResults)\
   X(vkCreateBuffer)\
   X(vkDestroyBuffer)\
   X(vkGetBufferMemoryRequirements)\
@@ -1422,6 +1423,10 @@ bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
 
 void gpu_tally_destroy(gpu_tally* tally) {
   condemn(tally->handle, VK_OBJECT_TYPE_QUERY_POOL);
+}
+
+void gpu_tally_get_data(gpu_tally* tally, uint32_t index, uint32_t count, uint32_t* data) {
+  vkGetQueryPoolResults(state.device, tally->handle, index, count, count * sizeof(uint32_t), data, sizeof(uint32_t), VK_QUERY_RESULT_WAIT_BIT);
 }
 
 // Stream

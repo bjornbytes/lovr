@@ -987,6 +987,56 @@ static int l_lovrPassMesh(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassBeginTally(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  lovrPassBeginTally(pass, index);
+  return 0;
+}
+
+static int l_lovrPassFinishTally(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  lovrPassFinishTally(pass);
+  return 0;
+}
+
+static int l_lovrPassGetTallyCount(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t count = lovrPassGetTallyCount(pass);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
+static int l_lovrPassGetTallyBuffer(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  uint32_t offset;
+  Buffer* buffer = lovrPassGetTallyBuffer(pass, &offset);
+  luax_pushtype(L, Buffer, buffer);
+  lua_pushinteger(L, offset);
+  return 2;
+}
+
+static int l_lovrPassSetTallyBuffer(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Buffer* buffer = luax_checktype(L, 2, Buffer);
+  uint32_t offset = luax_optu32(L, 3, 0);
+  lovrPassSetTallyBuffer(pass, buffer, offset);
+  return 0;
+}
+
+static int l_lovrPassGetTallyData(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  const uint32_t* data = lovrPassGetTallyData(pass);
+  if (!data) return lua_pushnil(L), 0;
+  int count = (int) lovrPassGetTallyCount(pass);
+  lua_createtable(L, count, 0);
+  for (int i = 0; i < count; i++) {
+    lua_pushinteger(L, data[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
 static int l_lovrPassCompute(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Buffer* buffer = luax_totype(L, 2, Buffer);
@@ -1094,6 +1144,13 @@ const luaL_Reg lovrPass[] = {
   { "monkey", l_lovrPassMonkey },
   { "draw", l_lovrPassDraw },
   { "mesh", l_lovrPassMesh },
+
+  { "beginTally", l_lovrPassBeginTally },
+  { "finishTally", l_lovrPassFinishTally },
+  { "getTallyCount", l_lovrPassGetTallyCount },
+  { "getTallyBuffer", l_lovrPassGetTallyBuffer },
+  { "setTallyBuffer", l_lovrPassSetTallyBuffer },
+  { "getTallyData", l_lovrPassGetTallyData },
 
   { "compute", l_lovrPassCompute },
   { "barrier", l_lovrPassBarrier },

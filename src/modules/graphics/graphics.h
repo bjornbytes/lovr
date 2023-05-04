@@ -609,5 +609,12 @@ void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transfor
 void lovrPassMeshImmediate(Pass* pass, uint32_t vertexCount, void** vertices, BufferField** format, uint32_t indexCount, void** indices, float* transform);
 void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);
 
+void lovrPassBeginTally(Pass* pass, uint32_t index);
+void lovrPassFinishTally(Pass* pass);
+uint32_t lovrPassGetTallyCount(Pass* pass);
+Buffer* lovrPassGetTallyBuffer(Pass* pass, uint32_t* offset);
+void lovrPassSetTallyBuffer(Pass* pass, Buffer* buffer, uint32_t offset);
+const uint32_t* lovrPassGetTallyData(Pass* pass);
+
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
 void lovrPassBarrier(Pass* pass);
