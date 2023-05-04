@@ -2160,6 +2160,13 @@ bool gpu_init(gpu_config* config) {
     uint32_t allocatorCount = GPU_MEMORY_TEXTURE_COLOR;
 
     for (uint32_t i = GPU_MEMORY_TEXTURE_COLOR; i < COUNTOF(imageFlags); i++) {
+      VkFormatProperties formatProperties;
+      vkGetPhysicalDeviceFormatProperties(state.adapter, imageFlags[i].format, &formatProperties);
+      if (formatProperties.optimalTilingFeatures == 0) {
+        state.allocatorLookup[i] = 0xff;
+        continue;
+      }
+
       VkImageCreateInfo info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
