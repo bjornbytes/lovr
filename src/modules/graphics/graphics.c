@@ -6790,7 +6790,7 @@ static void alignField(BufferField* field, BufferLayout layout) {
 }
 
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache) {
-  if (!buffer) return;
+  if (!buffer || lovrBufferIsTemporary(buffer)) return;
 
   int type = phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER;
   AccessBlock* block = pass->access[type];
