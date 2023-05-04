@@ -73,6 +73,15 @@ int l_lovrPassSetCanvas(lua_State* L) {
       case LUA_TSTRING: depthFormat = luax_checkenum(L, -1, TextureFormat, NULL); break;
       case LUA_TBOOLEAN: depthFormat = lua_toboolean(L, -1) ? FORMAT_D32F : 0; break;
       case LUA_TNIL: depthFormat = FORMAT_D32F; break;
+      case LUA_TTABLE: // Deprecated
+        lua_getfield(L, -1, "format");
+        if (!lua_isnil(L, -1)) depthFormat = luax_checkenum(L, -1, TextureFormat, NULL);
+        lua_pop(L, 1);
+
+        lua_getfield(L, -1, "texture");
+        if (!lua_isnil(L, -1)) depthTexture = luax_checktype(L, -1, Texture);
+        lua_pop(L, 1);
+        break;
       default: lovrThrow("Expected Texture, TextureFormat, boolean, or nil for canvas depth buffer");
     }
     lua_pop(L, 1);
