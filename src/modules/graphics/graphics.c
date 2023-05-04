@@ -998,7 +998,6 @@ static void submitComputes(Pass* pass, gpu_stream* stream) {
 
   gpu_pipeline* pipeline = NULL;
   gpu_bundle_info* bundleInfo = NULL;
-  uint32_t constantSize = 0;
   void* constants = NULL;
 
   gpu_compute_begin(stream);
@@ -1018,9 +1017,8 @@ static void submitComputes(Pass* pass, gpu_stream* stream) {
       bundleInfo = compute->bundleInfo;
     }
 
-    if (compute->constants != constants || compute->shader->constantSize != constantSize) {
+    if (compute->constants && compute->constants != constants) {
       gpu_push_constants(stream, compute->shader->gpu, compute->constants, compute->shader->constantSize);
-      constantSize = compute->shader->constantSize;
       constants = compute->constants;
     }
 
@@ -1256,13 +1254,13 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
   Material* material = NULL;
   gpu_buffer* vertexBuffer = NULL;
   gpu_buffer* indexBuffer = NULL;
-  uint32_t constantSize = 0;
   void* constants = NULL;
 
   gpu_bind_vertex_buffers(stream, &state.defaultBuffer->gpu, NULL, 1, 1);
 
   for (uint32_t i = 0; i < pass->drawCount; i++) {
     Draw* draw = &pass->draws[i >> 8][i & 0xff];
+    bool constantsDirty = draw->constants != constants;
 
     if (draw->tally != tally) {
       if (tally != ~0u) gpu_tally_finish(stream, pass->tally.gpu, tally * canvas->views);
@@ -1275,17 +1273,17 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
       pipeline = draw->pipeline;
     }
 
-    if ((i & 0xff) == 0 || constantSize != draw->shader->constantSize) {
+    if ((i & 0xff) == 0 || constantsDirty) {
       uint32_t dynamicOffsets[] = { (i >> 8) * drawPageSize };
       gpu_bind_bundles(stream, draw->shader->gpu, &builtinBundle, 0, 1, dynamicOffsets, 1);
     }
 
-    if (draw->material != material || constantSize != draw->shader->constantSize) {
+    if (draw->material != material || constantsDirty) {
       gpu_bind_bundles(stream, draw->shader->gpu, &draw->material->bundle, 1, 1, NULL, 0);
       material = draw->material;
     }
 
-    if (draw->bundle && (draw->bundle != bundle || constantSize != draw->shader->constantSize)) {
+    if (draw->bundle && (draw->bundle != bundle || constantsDirty)) {
       gpu_bind_bundles(stream, draw->shader->gpu, &draw->bundle, 2, 1, NULL, 0);
       bundle = draw->bundle;
     }
@@ -1301,9 +1299,8 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
       indexBuffer = draw->indexBuffer;
     }
 
-    if (draw->constants != constants) {
+    if (draw->constants && constantsDirty) {
       gpu_push_constants(stream, draw->shader->gpu, draw->constants, draw->shader->constantSize);
-      constantSize = draw->shader->constantSize;
       constants = draw->constants;
     }
 
@@ -4912,6 +4909,10 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
 
   if ((shader && shader->hasCustomAttributes) || (previous && previous->hasCustomAttributes)) {
     pass->pipeline->formatHash = 0;
+  }
+
+  if (shader && shader->constantSize > 0 && (!previous || previous->constantSize != shader->constantSize)) {
+    pass->flags |= DIRTY_CONSTANTS;
   }
 }
 
