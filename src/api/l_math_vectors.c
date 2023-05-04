@@ -1828,6 +1828,37 @@ static int l_lovrMat4Unpack(lua_State* L) {
   }
 }
 
+static int l_lovrMat4GetTranslation(lua_State* L) {
+  mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
+  float position[4];
+  mat4_getPosition(m, position);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  return 3;
+}
+
+static int l_lovrMat4GetRotation(lua_State* L) {
+  mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
+  float angle, ax, ay, az;
+  mat4_getAngleAxis(m, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
+}
+
+static int l_lovrMat4GetScale(lua_State* L) {
+  mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
+  float scale[4];
+  mat4_getScale(m, scale);
+  lua_pushnumber(L, scale[0]);
+  lua_pushnumber(L, scale[1]);
+  lua_pushnumber(L, scale[2]);
+  return 3;
+}
+
 int l_lovrMat4Set(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
   int top = lua_gettop(L);
@@ -2130,6 +2161,9 @@ int l_lovrMat4__metaindex(lua_State* L) {
 const luaL_Reg lovrMat4[] = {
   { "equals", l_lovrMat4Equals },
   { "unpack", l_lovrMat4Unpack },
+  { "getTranslation", l_lovrMat4GetTranslation },
+  { "getRotation", l_lovrMat4GetRotation },
+  { "getScale", l_lovrMat4GetScale },
   { "set", l_lovrMat4Set },
   { "mul", l_lovrMat4Mul },
   { "identity", l_lovrMat4Identity },
