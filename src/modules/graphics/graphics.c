@@ -4849,9 +4849,16 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   Shader* previous = pass->pipeline->shader;
   if (shader == previous) return;
 
+  bool fromCompute = previous && previous->info.type == SHADER_COMPUTE;
+  bool toCompute = shader && shader->info.type == SHADER_COMPUTE;
+
+  if (fromCompute ^ toCompute) {
+    pass->bindingMask = 0;
+  }
+
   // Clear any bindings for resources that share the same slot but have different types
   if (shader) {
-    if (previous) {
+    if (previous && previous->info.type == shader->info.type) {
       for (uint32_t i = 0, j = 0; i < previous->resourceCount && j < shader->resourceCount;) {
         if (previous->resources[i].binding < shader->resources[j].binding) {
           i++;
