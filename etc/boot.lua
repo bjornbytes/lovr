@@ -68,7 +68,7 @@ function lovr.boot()
   if hasConf then confOk, confError = pcall(require, 'conf') end
   if confOk and lovr.conf then confOk, confError = pcall(lovr.conf, conf) end
 
-  conf.graphics.debug = arg['--graphics-debug']
+  conf.graphics.debug = arg['--graphics-debug'] or conf.graphics.debug
 
   lovr._setConf(conf)
   lovr.filesystem.setIdentity(conf.identity, conf.saveprecedence)
