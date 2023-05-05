@@ -754,11 +754,6 @@ elseif(ANDROID)
         configure_file(${PICO_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_pico.so" COPYONLY)
       endif()
 
-      set(OCULUS_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/oculus-openxr/Libs/Android/${ANDROID_ABI}/Release/libopenxr_loader.so")
-      if(EXISTS ${OCULUS_LOADER})
-        configure_file(${OCULUS_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_oculus.so" COPYONLY)
-      endif()
-
       configure_file("${ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_HOST_TAG}/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "raw/lib/${ANDROID_ABI}/libc++_shared.so" COPYONLY)
     endif()
 
