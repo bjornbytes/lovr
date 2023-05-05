@@ -118,11 +118,17 @@ jobs:
         with:
           submodules: true
       - name: Init
-        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON -D Vulkan_LIBRARY=$VULKAN_SDK/../MoltenVK/dylib/macOS/libMoltenVK.dylib
+        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
       - name: Build
         run: cmake --build build
       - name: Package
-        run: ditto -c -k --keepParent build/lovr.app lovr.zip
+        run: >
+          cp $VULKAN_SDK/lib/libvulkan.1.3.231.dylib build/lovr.app/Contents/MacOS/libvulkan.1.dylib &&
+          cp $VULKAN_SDK/../MoltenVK/dylib/macOS/libMoltenVK.dylib build/lovr.app/Contents/MacOS &&
+          mkdir -p build/lovr.app/Contents/Resources/vulkan/icd.d &&
+          cp $VULKAN_SDK/../MoltenVK/dylib/macOS/MoltenVK_icd.json build/lovr.app/Contents/Resources/vulkan/icd.d &&
+          sed -i '' 's|./libMoltenVK.dylib|../../../MacOS/libMoltenVK.dylib|' build/lovr.app/Contents/Resources/vulkan/icd.d/MoltenVK_icd.json &&
+          ditto -c -k --keepParent build/lovr.app lovr.zip
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
