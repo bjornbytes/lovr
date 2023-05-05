@@ -1815,7 +1815,7 @@ static Material* lovrTextureGetMaterial(Texture* texture) {
 }
 
 Texture* lovrGraphicsGetWindowTexture(void) {
-  if (!state.window->gpu) {
+  if (state.window && !state.window->gpu) {
     beginFrame();
 
     state.window->gpu = gpu_surface_acquire();
