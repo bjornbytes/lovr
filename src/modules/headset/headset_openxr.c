@@ -199,6 +199,7 @@ static struct {
     bool keyboardTracking;
     bool overlay;
     bool passthrough;
+    bool picoNeo3Controller;
     bool refreshRate;
     bool viveTrackers;
   } features;
@@ -398,6 +399,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_KHR_composition_layer_depth", &state.features.depth, config->submitDepth },
       { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
       { "XR_EXT_hand_tracking", &state.features.handTracking, true },
+      { "XR_BD_controller_interaction", &state.features.picoNeo3Controller, true },
       { "XR_FB_display_refresh_rate", &state.features.refreshRate, true },
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
@@ -626,9 +628,9 @@ static bool openxr_init(HeadsetConfig* config) {
       PROFILE_GO,
       PROFILE_INDEX,
       PROFILE_WMR,
+      PROFILE_PICO_NEO3,
       PROFILE_TRACKER,
       PROFILE_GAZE,
-      PROFILE_PICO,
       MAX_PROFILES
     };
 
@@ -639,9 +641,9 @@ static bool openxr_init(HeadsetConfig* config) {
       [PROFILE_GO] = "/interaction_profiles/oculus/go_controller",
       [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller",
       [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller",
+      [PROFILE_PICO_NEO3] = "/interaction_profiles/bytedance/pico_neo3_controller",
       [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx",
-      [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction",
-      [PROFILE_PICO] = "/interaction_profiles/pico/neo3_controller"
+      [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction"
     };
 
     typedef struct {
@@ -822,6 +824,43 @@ static bool openxr_init(HeadsetConfig* config) {
         { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
         { 0, NULL }
       },
+      [PROFILE_PICO_NEO3] = (Binding[]) {
+        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/click" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/click" },
+        { ACTION_TRIGGER_TOUCH, "/user/hand/left/input/trigger/touch" },
+        { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
+        { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
+        { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+        { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
+        { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
+        { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
+        { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
+        { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
+        { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
+        { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
+        { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/click" },
+        { ACTION_GRIP_AXIS, "/user/hand/left/input/squeeze/value" },
+        { ACTION_GRIP_AXIS, "/user/hand/right/input/squeeze/value" },
+        { ACTION_A_DOWN, "/user/hand/right/input/a/click" },
+        { ACTION_A_TOUCH, "/user/hand/right/input/a/touch" },
+        { ACTION_B_DOWN, "/user/hand/right/input/b/click" },
+        { ACTION_B_TOUCH, "/user/hand/right/input/b/touch" },
+        { ACTION_X_DOWN, "/user/hand/left/input/x/click" },
+        { ACTION_X_TOUCH, "/user/hand/left/input/x/touch" },
+        { ACTION_Y_DOWN, "/user/hand/left/input/y/click" },
+        { ACTION_Y_TOUCH, "/user/hand/left/input/y/touch" },
+        { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
+        { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+        { 0, NULL }
+      },
       [PROFILE_TRACKER] = (Binding[]) {
         { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_elbow/input/grip/pose" },
         { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_elbow/input/grip/pose" },
@@ -840,49 +879,14 @@ static bool openxr_init(HeadsetConfig* config) {
       [PROFILE_GAZE] = (Binding[]) {
         { ACTION_GAZE_POSE, "/user/eyes_ext/input/gaze_ext/pose" },
         { 0, NULL }
-      },
-      [PROFILE_PICO] = (Binding[]) {
-        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
-        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
-        { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
-        { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
-        { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/value" },
-        { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/value" },
-        { ACTION_TRIGGER_TOUCH, "/user/hand/left/input/trigger/touch" },
-        { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
-        { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
-        { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-        { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-        { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
-        { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
-        { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
-        { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
-        { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
-        { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
-        { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
-        //{ ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" }, //Imposter
-        { ACTION_MENU_DOWN, "/user/hand/right/input/system/click" },
-        { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
-        { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/click" },
-        { ACTION_GRIP_AXIS, "/user/hand/left/input/squeeze/value" },
-        { ACTION_GRIP_AXIS, "/user/hand/right/input/squeeze/value" },
-        { ACTION_A_DOWN, "/user/hand/right/input/a/click" },
-        { ACTION_A_TOUCH, "/user/hand/right/input/a/touch" },
-        { ACTION_B_DOWN, "/user/hand/right/input/b/click" },
-        { ACTION_B_TOUCH, "/user/hand/right/input/b/touch" },
-        { ACTION_X_DOWN, "/user/hand/left/input/x/click" },
-        { ACTION_X_TOUCH, "/user/hand/left/input/x/touch" },
-        { ACTION_Y_DOWN, "/user/hand/left/input/y/click" },
-        { ACTION_Y_TOUCH, "/user/hand/left/input/y/touch" },
-        { ACTION_THUMBREST_TOUCH, "/user/hand/left/input/thumbrest/touch" },
-        { ACTION_THUMBREST_TOUCH, "/user/hand/right/input/thumbrest/touch" },
-        { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-        { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
-        { 0, NULL }
       }
     };
 
     // Don't suggest bindings for unsupported input profiles
+    if (!state.features.picoNeo3Controller) {
+      bindings[PROFILE_PICO_NEO3][0].path = NULL;
+    }
+
     if (!state.features.viveTrackers) {
       bindings[PROFILE_TRACKER][0].path = NULL;
     }
