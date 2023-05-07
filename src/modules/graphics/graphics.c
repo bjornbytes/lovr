@@ -248,8 +248,14 @@ struct Model {
 
 typedef enum {
   READBACK_BUFFER,
-  READBACK_TEXTURE
+  READBACK_TEXTURE,
+  READBACK_TIMESTAMP
 } ReadbackType;
+
+typedef struct {
+  Pass* pass;
+  double cpuTime;
+} PassTime;
 
 struct Readback {
   uint32_t ref;
@@ -257,11 +263,20 @@ struct Readback {
   Readback* next;
   MappedBuffer mapped;
   ReadbackType type;
-  Buffer* buffer;
-  Texture* texture;
-  Image* image;
-  Blob* blob;
-  void* data;
+  union {
+    struct {
+      Buffer* buffer;
+      Blob* blob;
+    };
+    struct {
+      Texture* texture;
+      Image* image;
+    };
+    struct {
+      PassTime* times;
+      uint32_t count;
+    };
+  };
 };
 
 typedef struct {
@@ -477,6 +492,8 @@ struct Pass {
   Compute* computes;
   Draw** draws;
   Draw* lastDraw;
+  double submitTime;
+  double gpuTime;
 };
 
 typedef struct {
@@ -514,6 +531,7 @@ static struct {
   bool initialized;
   bool active;
   bool presentable;
+  bool timingEnabled;
   GraphicsConfig config;
   gpu_device_info device;
   gpu_features features;
@@ -521,6 +539,8 @@ static struct {
   gpu_stream* stream;
   gpu_barrier preBarrier;
   gpu_barrier postBarrier;
+  gpu_tally* timestamps;
+  uint32_t timestampCount;
   uint32_t tick;
   float background[4];
   TextureFormat depthFormat;
@@ -625,6 +645,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   }
 
   lovrAssert(state.limits.uniformBufferRange >= 65536, "LÖVR requires the GPU to support a uniform buffer range of at least 64KB");
+
+  state.timingEnabled = config->debug;
 
   // Temporary frame memory uses a large 1GB virtual memory allocation, committing pages as needed
   state.allocator.length = 1 << 14;
@@ -827,10 +849,13 @@ void lovrGraphicsDestroy(void) {
   for (size_t i = 0; i < state.passes.length; i++) {
     lovrRelease(state.passes.data[i], lovrPassDestroy);
   }
-  arr_free(&state.passes);
-  for (Readback* readback = state.oldestReadback; readback; readback = readback->next) {
-    lovrRelease(readback, lovrReadbackDestroy);
+  Readback* readback = state.oldestReadback;
+  while (readback) {
+    Readback* next = readback->next;
+    lovrReadbackDestroy(readback);
+    readback = next;
   }
+  if (state.timestamps) gpu_tally_destroy(state.timestamps);
   lovrRelease(state.window, lovrTextureDestroy);
   lovrRelease(state.windowPass, lovrPassDestroy);
   lovrRelease(state.defaultFont, lovrFontDestroy);
@@ -989,6 +1014,14 @@ void lovrGraphicsSetBackgroundColor(float background[4]) {
   state.background[1] = lovrMathGammaToLinear(background[1]);
   state.background[2] = lovrMathGammaToLinear(background[2]);
   state.background[3] = background[3];
+}
+
+bool lovrGraphicsIsTimingEnabled(void) {
+  return state.timingEnabled;
+}
+
+void lovrGraphicsSetTimingEnabled(bool enable) {
+  state.timingEnabled = enable;
 }
 
 static void submitComputes(Pass* pass, gpu_stream* stream) {
@@ -1400,6 +1433,8 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
   }
 }
 
+static Readback* lovrReadbackCreateTimestamp(PassTime* passes, uint32_t count, MappedBuffer mapped);
+
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   beginFrame();
 
@@ -1495,10 +1530,48 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     }
   }
 
+  PassTime* times = NULL;
+
+  if (state.timingEnabled) {
+    times = malloc(count * sizeof(PassTime));
+    lovrAssert(times, "Out of memory");
+
+    for (uint32_t i = 0; i < count; i++) {
+      times[i].pass = passes[i];
+      lovrRetain(passes[i]);
+    }
+
+    uint32_t timestampCount = 2 * count;
+
+    if (timestampCount > state.timestampCount) {
+      if (state.timestamps) {
+        gpu_tally_destroy(state.timestamps);
+      } else {
+        state.timestamps = malloc(gpu_sizeof_tally());
+        lovrAssert(state.timestamps, "Out of memory");
+      }
+
+      gpu_tally_info info = {
+        .type = GPU_TALLY_TIME,
+        .count = timestampCount
+      };
+
+      gpu_tally_init(state.timestamps, &info);
+      state.timestampCount = timestampCount;
+    }
+
+    gpu_clear_tally(state.stream, state.timestamps, 0, timestampCount);
+  }
+
   gpu_sync(state.stream, &state.postBarrier, 1);
 
   for (uint32_t i = 0; i < count; i++) {
     gpu_stream* stream = gpu_stream_begin(NULL);
+
+    if (state.timingEnabled) {
+      times[i].cpuTime = os_get_time();
+      gpu_tally_mark(stream, state.timestamps, 2 * i + 0);
+    }
 
     submitComputes(passes[i], stream);
     if (i < barrierCount) gpu_sync(stream, &computeBarriers[i], 1);
@@ -1506,7 +1579,19 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     submitDraws(passes[i], stream);
     if (i < barrierCount) gpu_sync(stream, &renderBarriers[i], 1);
 
+    if (state.timingEnabled) {
+      times[i].cpuTime = os_get_time() - times[i].cpuTime;
+      gpu_tally_mark(stream, state.timestamps, 2 * i + 1);
+    }
+
     streams[i + 2] = stream;
+  }
+
+  if (state.timingEnabled) {
+    MappedBuffer mapped = mapBuffer(&state.downloadBuffers, 2 * count * sizeof(uint32_t), 4);
+    gpu_copy_tally_buffer(streams[streamCount - 1], state.timestamps, mapped.buffer, 0, mapped.offset, 2 * count);
+    Readback* readback = lovrReadbackCreateTimestamp(times, count, mapped);
+    lovrRelease(readback, lovrReadbackDestroy); // It gets freed when it completes
   }
 
   if (!streams[0]) {
@@ -4152,6 +4237,8 @@ static Readback* lovrReadbackCreate(ReadbackType type) {
   readback->type = type;
   if (!state.oldestReadback) state.oldestReadback = readback;
   if (state.newestReadback) state.newestReadback->next = readback;
+  state.newestReadback = readback;
+  lovrRetain(readback);
   return readback;
 }
 
@@ -4161,9 +4248,9 @@ Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t ext
   lovrCheck(offset + extent <= buffer->info.size, "Tried to read past the end of the Buffer");
   Readback* readback = lovrReadbackCreate(READBACK_BUFFER);
   readback->buffer = buffer;
-  readback->data = malloc(extent);
-  lovrAssert(readback->data, "Out of memory");
-  readback->blob = lovrBlobCreate(readback->data, extent, "Readback");
+  void* data = malloc(extent);
+  lovrAssert(data, "Out of memory");
+  readback->blob = lovrBlobCreate(data, extent, "Readback");
   readback->mapped = mapBuffer(&state.downloadBuffers, extent, 4);
   lovrRetain(buffer);
   gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_READ);
@@ -4191,15 +4278,33 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   return readback;
 }
 
+static Readback* lovrReadbackCreateTimestamp(PassTime* times, uint32_t count, MappedBuffer buffer) {
+  Readback* readback = lovrReadbackCreate(READBACK_TIMESTAMP);
+  readback->mapped = buffer;
+  readback->times = times;
+  readback->count = count;
+  return readback;
+}
+
 void lovrReadbackDestroy(void* ref) {
   Readback* readback = ref;
   switch (readback->type) {
-    case READBACK_BUFFER: lovrRelease(readback->buffer, lovrBufferDestroy); break;
-    case READBACK_TEXTURE: lovrRelease(readback->texture, lovrTextureDestroy); break;
+    case READBACK_BUFFER:
+      lovrRelease(readback->buffer, lovrBufferDestroy);
+      lovrRelease(readback->blob, lovrBlobDestroy);
+      break;
+    case READBACK_TEXTURE:
+      lovrRelease(readback->texture, lovrTextureDestroy);
+      lovrRelease(readback->image, lovrImageDestroy);
+      break;
+    case READBACK_TIMESTAMP:
+      for (uint32_t i = 0; i < readback->count; i++) {
+        lovrRelease(readback->times[i].pass, lovrPassDestroy);
+      }
+      free(readback->times);
+      break;
+    default: break;
   }
-  lovrRelease(readback->image, lovrImageDestroy);
-  lovrRelease(readback->blob, lovrBlobDestroy);
-  free(readback->data);
   free(readback);
 }
 
@@ -4228,7 +4333,7 @@ void* lovrReadbackGetData(Readback* readback, BufferField* format) {
 
   if (readback->type == READBACK_BUFFER && readback->buffer->info.fields) {
     *format = readback->buffer->info.fields[0];
-    return readback->data;
+    return readback->blob->data;
   }
 
   return NULL;
@@ -4430,6 +4535,8 @@ void lovrPassGetStats(Pass* pass, PassStats* stats) {
   stats->computes = pass->computeCount;
   stats->memoryReserved = pass->allocator.length;
   stats->memoryUsed = pass->allocator.cursor;
+  stats->submitTime = pass->submitTime;
+  stats->gpuTime = pass->gpuTime;
 }
 
 void lovrPassGetCanvas(Pass* pass, Texture* textures[4], Texture** depthTexture, uint32_t* depthFormat, uint32_t* samples) {
@@ -6542,12 +6649,24 @@ static void processReadbacks(void) {
   while (state.oldestReadback && gpu_is_complete(state.oldestReadback->tick)) {
     Readback* readback = state.oldestReadback;
 
-    if (readback->image) {
-      size_t size = lovrImageGetLayerSize(readback->image, 0);
-      void* data = lovrImageGetLayerData(readback->image, 0, 0);
-      memcpy(data, readback->mapped.pointer, size);
-    } else {
-      memcpy(readback->data, readback->mapped.pointer, readback->mapped.extent);
+    switch (readback->type) {
+      case READBACK_BUFFER:
+        memcpy(readback->blob->data, readback->mapped.pointer, readback->mapped.extent);
+        break;
+      case READBACK_TEXTURE:;
+        size_t size = lovrImageGetLayerSize(readback->image, 0);
+        void* data = lovrImageGetLayerData(readback->image, 0, 0);
+        memcpy(data, readback->mapped.pointer, size);
+        break;
+      case READBACK_TIMESTAMP:;
+        uint32_t* timestamps = readback->mapped.pointer;
+        for (uint32_t i = 0; i < readback->count; i++) {
+          Pass* pass = readback->times[i].pass;
+          pass->submitTime = readback->times[i].cpuTime;
+          pass->gpuTime = (timestamps[2 * i + 1] - timestamps[2 * i + 0]) * state.limits.timestampPeriod / 1e9;
+        }
+        break;
+      default: break;
     }
 
     Readback* next = readback->next;

@@ -22,6 +22,8 @@ static int l_lovrPassGetStats(lua_State* L) {
   lua_pushinteger(L, stats.computes), lua_setfield(L, -2, "computes");
   lua_pushinteger(L, stats.memoryReserved), lua_setfield(L, -2, "memoryReserved");
   lua_pushinteger(L, stats.memoryUsed), lua_setfield(L, -2, "memoryUsed");
+  lua_pushnumber(L, stats.submitTime), lua_setfield(L, -2, "submitTime");
+  lua_pushnumber(L, stats.gpuTime), lua_setfield(L, -2, "gpuTime");
   return 1;
 }
 

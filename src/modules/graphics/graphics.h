@@ -106,6 +106,8 @@ void lovrGraphicsGetShaderCache(void* data, size_t* size);
 void lovrGraphicsGetBackgroundColor(float background[4]);
 void lovrGraphicsSetBackgroundColor(float background[4]);
 
+bool lovrGraphicsIsTimingEnabled(void);
+void lovrGraphicsSetTimingEnabled(bool enable);
 void lovrGraphicsSubmit(Pass** passes, uint32_t count);
 void lovrGraphicsPresent(void);
 void lovrGraphicsWait(void);
@@ -475,6 +477,8 @@ typedef struct {
   uint32_t computes;
   size_t memoryReserved;
   size_t memoryUsed;
+  double submitTime;
+  double gpuTime;
 } PassStats;
 
 typedef enum {
