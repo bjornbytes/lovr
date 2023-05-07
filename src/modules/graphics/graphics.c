@@ -1496,7 +1496,6 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   }
 
   gpu_sync(state.stream, &state.postBarrier, 1);
-  gpu_stream_end(state.stream);
 
   for (uint32_t i = 0; i < count; i++) {
     gpu_stream* stream = gpu_stream_begin(NULL);
@@ -1507,33 +1506,46 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     submitDraws(passes[i], stream);
     if (i < barrierCount) gpu_sync(stream, &renderBarriers[i], 1);
 
-    gpu_stream_end(stream);
     streams[i + 2] = stream;
   }
 
   if (!streams[0]) {
     streamCount--;
     streams++;
-  } else {
-    gpu_stream_end(streams[0]);
   }
 
+  // Reset all resource barriers to the default one (and sneak in OpenXR layout transitions >__>)
   for (uint32_t i = 0; i < count; i++) {
-    for (AccessBlock* block = passes[i]->access[ACCESS_RENDER]; block != NULL; block = block->next) {
-      for (uint32_t j = 0; j < block->count; j++) {
-        block->list[j].sync->barrier = &state.postBarrier;
+    Canvas* canvas = &passes[i]->canvas;
 
-        // OpenXR swapchain texture layout transitions >__>
-        if (block->textureMask & (1ull << j)) {
-          Texture* texture = (Texture*) ((char*) block->list[j].sync - offsetof(Texture, sync));
-          if (texture && texture->info.xr && texture->xrTick != state.tick) {
-            gpu_xr_acquire(streams[0], texture->gpu);
-            gpu_xr_release(streams[streamCount - 1], texture->gpu);
-            texture->xrTick = state.tick;
+    for (uint32_t t = 0; t < canvas->count; t++) {
+      canvas->color[t].texture->sync.barrier = &state.postBarrier;
+    }
+
+    if (canvas->depth.texture) {
+      canvas->depth.texture->sync.barrier = &state.postBarrier;
+    }
+
+    for (uint32_t j = 0; j < COUNTOF(passes[i]->access); j++) {
+      for (AccessBlock* block = passes[i]->access[j]; block != NULL; block = block->next) {
+        for (uint32_t k = 0; k < block->count; k++) {
+          block->list[k].sync->barrier = &state.postBarrier;
+
+          if (block->textureMask & (1ull << k)) {
+            Texture* texture = (Texture*) ((char*) block->list[k].sync - offsetof(Texture, sync));
+            if (texture && texture->info.xr && texture->xrTick != state.tick) {
+              gpu_xr_acquire(streams[0], texture->gpu);
+              gpu_xr_release(streams[streamCount - 1], texture->gpu);
+              texture->xrTick = state.tick;
+            }
           }
         }
       }
     }
+  }
+
+  for (uint32_t i = 0; i < streamCount; i++) {
+    gpu_stream_end(streams[i]);
   }
 
   gpu_submit(streams, streamCount);
@@ -6436,6 +6448,10 @@ void lovrPassBarrier(Pass* pass) {
 // Helpers
 
 static void* tempAlloc(Allocator* allocator, size_t size) {
+  if (size == 0) {
+    return NULL;
+  }
+
   while (allocator->cursor + size > allocator->length) {
     lovrAssert(allocator->length << 1 <= allocator->limit, "Out of memory");
     os_vm_commit(allocator->memory + allocator->length, allocator->length);
