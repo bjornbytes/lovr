@@ -4131,16 +4131,23 @@ static void lovrModelAnimateVertices(Model* model) {
 
 // Readback
 
-Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent) {
+static Readback* lovrReadbackCreate(ReadbackType type) {
   beginFrame();
-  if (extent == ~0u) extent = buffer->info.size - offset;
-  lovrCheck(!lovrBufferIsTemporary(buffer), "Unable to read data back from a temporary Buffer");
-  lovrCheck(offset + extent <= buffer->info.size, "Tried to read past the end of the Buffer");
   Readback* readback = calloc(1, sizeof(Readback));
   lovrAssert(readback, "Out of memory");
   readback->ref = 1;
   readback->tick = state.tick;
-  readback->type = READBACK_BUFFER;
+  readback->type = type;
+  if (!state.oldestReadback) state.oldestReadback = readback;
+  if (state.newestReadback) state.newestReadback->next = readback;
+  return readback;
+}
+
+Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent) {
+  if (extent == ~0u) extent = buffer->info.size - offset;
+  lovrCheck(!lovrBufferIsTemporary(buffer), "Unable to read data back from a temporary Buffer");
+  lovrCheck(offset + extent <= buffer->info.size, "Tried to read past the end of the Buffer");
+  Readback* readback = lovrReadbackCreate(READBACK_BUFFER);
   readback->buffer = buffer;
   readback->data = malloc(extent);
   lovrAssert(readback->data, "Out of memory");
@@ -4154,7 +4161,6 @@ Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t ext
 }
 
 Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[2]) {
-  beginFrame();
   if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
   if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
   lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
@@ -4162,11 +4168,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   lovrCheck(texture->info.samples == 1, "Can not read from a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
   checkTextureBounds(&texture->info, offset, extent);
-  Readback* readback = calloc(1, sizeof(Readback));
-  lovrAssert(readback, "Out of memory");
-  readback->ref = 1;
-  readback->tick = state.tick;
-  readback->type = READBACK_TEXTURE;
+  Readback* readback = lovrReadbackCreate(READBACK_TEXTURE);
   readback->texture = texture;
   readback->image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format);
   readback->mapped = mapBuffer(&state.downloadBuffers, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
