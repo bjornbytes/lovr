@@ -1441,7 +1441,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     for (AccessBlock* block = pass->access[ACCESS_COMPUTE]; block != NULL; block = block->next) {
       for (uint64_t j = 0; j < block->count; j++) {
         Access* access = &block->list[j];
-        if (syncResource(access, access->sync->barrier)) {
+        if (access->sync->barrier != &computeBarriers[i] && syncResource(access, access->sync->barrier)) {
           access->sync->barrier = &computeBarriers[i];
         }
       }
