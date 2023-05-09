@@ -106,8 +106,8 @@ function lovr.run()
   if lovr.timer then lovr.timer.step() end
   if lovr.load then lovr.load(arg) end
   return function()
+    if lovr.system then lovr.system.pollEvents() end
     if lovr.event then
-      lovr.event.pump()
       for name, a, b, c, d in lovr.event.poll() do
         if name == 'restart' then
           local cookie = lovr.restart and lovr.restart()

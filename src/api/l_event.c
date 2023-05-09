@@ -222,11 +222,6 @@ static int l_lovrEventPoll(lua_State* L) {
   return 1;
 }
 
-static int l_lovrEventPump(lua_State* L) {
-  lovrEventPump();
-  return 0;
-}
-
 static int l_lovrEventPush(lua_State* L) {
   CustomEvent eventData;
   const char* name = luaL_checkstring(L, 1);
@@ -256,7 +251,6 @@ static int l_lovrEventRestart(lua_State* L) {
 static const luaL_Reg lovrEvent[] = {
   { "clear", l_lovrEventClear },
   { "poll", l_lovrEventPoll },
-  { "pump", l_lovrEventPump },
   { "push", l_lovrEventPush },
   { "quit", l_lovrEventQuit },
   { "restart", l_lovrEventRestart },

@@ -18,6 +18,7 @@ void lovrSystemOpenWindow(struct os_window_config* config);
 bool lovrSystemIsWindowOpen(void);
 void lovrSystemGetWindowSize(uint32_t* width, uint32_t* height);
 float lovrSystemGetWindowDensity(void);
+void lovrSystemPollEvents(void);
 bool lovrSystemIsKeyDown(int keycode);
 void lovrSystemGetMousePosition(double* x, double* y);
 bool lovrSystemIsMouseDown(int button);

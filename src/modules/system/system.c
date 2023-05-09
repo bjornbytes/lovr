@@ -122,6 +122,10 @@ float lovrSystemGetWindowDensity(void) {
   return os_window_get_pixel_density();
 }
 
+void lovrSystemPollEvents(void) {
+  os_poll_events();
+}
+
 void lovrSystemGetMousePosition(double* x, double* y) {
   *x = state.mouseX;
   *y = state.mouseY;

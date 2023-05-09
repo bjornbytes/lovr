@@ -1,6 +1,5 @@
 #include "event/event.h"
 #include "thread/thread.h"
-#include "core/os.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
@@ -44,10 +43,6 @@ void lovrEventDestroy(void) {
   }
   arr_free(&state.events);
   memset(&state, 0, sizeof(state));
-}
-
-void lovrEventPump(void) {
-  os_poll_events();
 }
 
 void lovrEventPush(Event event) {
