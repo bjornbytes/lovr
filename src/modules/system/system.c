@@ -6,6 +6,7 @@
 
 static struct {
   bool initialized;
+  bool prevKeyState[KEY_COUNT];
   bool keyState[KEY_COUNT];
   bool mouseState[8];
   double mouseX;
@@ -119,11 +120,20 @@ float lovrSystemGetWindowDensity(void) {
 }
 
 void lovrSystemPollEvents(void) {
+  memcpy(state.prevKeyState, state.keyState, sizeof(state.keyState));
   os_poll_events();
 }
 
 bool lovrSystemIsKeyDown(int keycode) {
   return state.keyState[keycode];
+}
+
+bool lovrSystemWasKeyPressed(int keycode) {
+  return !state.prevKeyState[keycode] && state.keyState[keycode];
+}
+
+bool lovrSystemWasKeyReleased(int keycode) {
+  return state.prevKeyState[keycode] && !state.keyState[keycode];
 }
 
 void lovrSystemGetMousePosition(double* x, double* y) {

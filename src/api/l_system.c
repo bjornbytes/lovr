@@ -200,6 +200,18 @@ static int l_lovrSystemIsKeyDown(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSystemWasKeyPressed(lua_State* L) {
+  os_key key = luax_checkenum(L, 1, KeyboardKey, NULL);
+  lua_pushboolean(L, lovrSystemWasKeyPressed(key));
+  return 1;
+}
+
+static int l_lovrSystemWasKeyReleased(lua_State* L) {
+  os_key key = luax_checkenum(L, 1, KeyboardKey, NULL);
+  lua_pushboolean(L, lovrSystemWasKeyReleased(key));
+  return 1;
+}
+
 static int l_lovrSystemGetMouseX(lua_State* L) {
   double x, y;
   lovrSystemGetMousePosition(&x, &y);
@@ -241,6 +253,8 @@ static const luaL_Reg lovrSystem[] = {
   { "getWindowDensity", l_lovrSystemGetWindowDensity },
   { "pollEvents", l_lovrSystemPollEvents },
   { "isKeyDown", l_lovrSystemIsKeyDown },
+  { "wasKeyPressed", l_lovrSystemWasKeyPressed },
+  { "wasKeyReleased", l_lovrSystemWasKeyReleased },
   { "getMouseX", l_lovrSystemGetMouseX },
   { "getMouseY", l_lovrSystemGetMouseY },
   { "getMousePosition", l_lovrSystemGetMousePosition },
