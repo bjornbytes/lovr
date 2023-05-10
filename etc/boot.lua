@@ -180,7 +180,7 @@ function lovr.errhand(message)
   end
 
   return function()
-    lovr.event.pump()
+    lovr.system.pollEvents()
 
     for name, a in lovr.event.poll() do
       if name == 'quit' then return a or 1
