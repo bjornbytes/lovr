@@ -227,6 +227,7 @@ typedef struct {
 
 struct Model {
   uint32_t ref;
+  Model* parent;
   ModelInfo info;
   DrawInfo* draws;
   Buffer* rawVertexBuffer;
@@ -3836,13 +3837,79 @@ Model* lovrModelCreate(const ModelInfo* info) {
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
   lovrModelResetNodeTransforms(model);
+
   tempPop(&state.allocator, stack);
+
+  return model;
+}
+
+Model* lovrModelClone(Model* parent) {
+  ModelData* data = parent->info.data;
+  Model* model = calloc(1, sizeof(Model));
+  lovrAssert(model, "Out of memory");
+  model->ref = 1;
+  model->parent = parent;
+  model->info = parent->info;
+  lovrRetain(parent);
+
+  model->textures = parent->textures;
+  model->materials = parent->materials;
+
+  model->rawVertexBuffer = parent->rawVertexBuffer;
+  model->indexBuffer = parent->indexBuffer;
+  model->blendBuffer = parent->blendBuffer;
+  model->skinBuffer = parent->skinBuffer;
+
+  model->blendGroups = parent->blendGroups;
+  model->blendShapeWeights = parent->blendShapeWeights;
+  model->blendGroupCount = parent->blendGroupCount;
+  model->blendShapesDirty = true;
+
+  model->vertexBuffer = lovrBufferCreate(&parent->vertexBuffer->info, NULL);
+
+  beginFrame();
+
+  gpu_barrier barrier = syncTransfer(&parent->vertexBuffer->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_sync(state.stream, &barrier, 1);
+
+  gpu_buffer* src = parent->vertexBuffer->gpu;
+  gpu_buffer* dst = model->vertexBuffer->gpu;
+  gpu_copy_buffers(state.stream, src, dst, 0, 0, parent->vertexBuffer->info.size);
+
+  gpu_sync(state.stream, &(gpu_barrier) {
+    .prev = GPU_PHASE_TRANSFER,
+    .next = GPU_PHASE_SHADER_COMPUTE,
+    .flush = GPU_CACHE_TRANSFER_WRITE,
+    .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
+  }, 1);
+
+  model->draws = malloc(data->primitiveCount * sizeof(DrawInfo));
+  lovrAssert(model->draws, "Out of memory");
+
+  for (uint32_t i = 0; i < data->primitiveCount; i++) {
+    model->draws[i] = parent->draws[i];
+    model->draws[i].vertex.buffer = model->vertexBuffer;
+  }
+
+  model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
+  model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
+  lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
+  lovrModelResetNodeTransforms(model);
 
   return model;
 }
 
 void lovrModelDestroy(void* ref) {
   Model* model = ref;
+  if (model->parent) {
+    lovrRelease(model->parent, lovrModelDestroy);
+    lovrRelease(model->vertexBuffer, lovrBufferDestroy);
+    free(model->localTransforms);
+    free(model->globalTransforms);
+    free(model->draws);
+    free(model);
+    return;
+  }
   ModelData* data = model->info.data;
   for (uint32_t i = 0; i < data->materialCount; i++) {
     lovrRelease(model->materials[i], lovrMaterialDestroy);

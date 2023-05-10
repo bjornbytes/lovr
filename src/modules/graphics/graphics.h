@@ -444,6 +444,7 @@ typedef struct {
 } ModelDraw;
 
 Model* lovrModelCreate(const ModelInfo* info);
+Model* lovrModelClone(Model* model);
 void lovrModelDestroy(void* ref);
 const ModelInfo* lovrModelGetInfo(Model* model);
 uint32_t lovrModelGetNodeDrawCount(Model* model, uint32_t node);

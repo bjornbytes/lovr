@@ -38,6 +38,14 @@ uint32_t luax_checkblendshape(lua_State* L, int index, Model* model) {
   }
 }
 
+static int l_lovrModelClone(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  Model* clone = lovrModelClone(model);
+  luax_pushtype(L, Model, clone);
+  lovrRelease(clone, lovrModelDestroy);
+  return 1;
+}
+
 static int l_lovrModelGetData(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   ModelData* data = lovrModelGetInfo(model)->data;
@@ -375,6 +383,7 @@ static int l_lovrModelGetTexture(lua_State* L) {
 }
 
 const luaL_Reg lovrModel[] = {
+  { "clone", l_lovrModelClone },
   { "getData", l_lovrModelGetData },
   { "getMetadata", l_lovrModelGetMetadata },
   { "getRootNode", l_lovrModelGetRootNode },
