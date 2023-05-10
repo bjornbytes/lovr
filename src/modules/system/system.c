@@ -97,10 +97,6 @@ uint32_t lovrSystemGetCoreCount(void) {
   return os_get_core_count();
 }
 
-bool lovrSystemIsKeyDown(int keycode) {
-  return state.keyState[keycode];
-}
-
 void lovrSystemRequestPermission(Permission permission) {
   os_request_permission((os_permission) permission);
 }
@@ -124,6 +120,10 @@ float lovrSystemGetWindowDensity(void) {
 
 void lovrSystemPollEvents(void) {
   os_poll_events();
+}
+
+bool lovrSystemIsKeyDown(int keycode) {
+  return state.keyState[keycode];
 }
 
 void lovrSystemGetMousePosition(double* x, double* y) {
