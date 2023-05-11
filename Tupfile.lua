@@ -8,6 +8,7 @@ config = {
   glfw = true,
   luajit = false,
   glslang = true,
+  utf8 = true,
   modules = {
     audio = true,
     data = true,
@@ -431,8 +432,13 @@ for spatializer, enabled in pairs(config.spatializers) do
   end
 end
 
+if config.utf8 then
+  src += 'src/lib/lua/lutf8lib.c'
+else
+  cflags += '-DLOVR_DISABLE_UTF8'
+end
+
 src += 'src/lib/stb/*.c'
-src += 'src/lib/lua/*.c'
 src += (config.modules.audio or config.modules.data) and 'src/lib/miniaudio/*.c' or nil
 src += config.modules.data and 'src/lib/jsmn/*.c' or nil
 src += config.modules.data and 'src/lib/minimp3/*.c' or nil

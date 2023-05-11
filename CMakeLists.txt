@@ -16,6 +16,8 @@ option(LOVR_ENABLE_SYSTEM "Enable the system module" ON)
 option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
+option(LOVR_ENABLE_UTF8 "Enable the utf8 module" ON)
+
 option(LOVR_USE_GLFW "Use GLFW for desktop windows" ON)
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_GLSLANG "Use glslang to compile GLSL shaders" ON)
@@ -308,7 +310,6 @@ set(LOVR_SRC
   src/core/zip.c
   src/api/api.c
   src/api/l_lovr.c
-  src/lib/lua/lutf8lib.c
   src/util.c
 )
 
@@ -579,6 +580,12 @@ if(LOVR_ENABLE_TIMER)
   target_sources(lovr PRIVATE src/modules/timer/timer.c src/api/l_timer.c)
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_TIMER)
+endif()
+
+if(LOVR_ENABLE_UTF8)
+  target_sources(lovr PRIVATE src/lib/lua/lutf8lib.c)
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_UTF8)
 endif()
 
 # Resources

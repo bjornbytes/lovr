@@ -112,7 +112,9 @@ void luax_preload(lua_State* L) {
 #ifndef LOVR_DISABLE_TIMER
     { "lovr.timer", luaopen_lovr_timer },
 #endif
+#ifndef LOVR_DISABLE_UTF8
     { "utf8", luaopen_utf8 },
+#endif
     { NULL, NULL }
   };
 
