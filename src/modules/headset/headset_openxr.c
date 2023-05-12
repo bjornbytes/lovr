@@ -158,6 +158,8 @@ static struct {
   XrSessionState sessionState;
   XrSpace referenceSpace;
   XrReferenceSpaceType referenceSpaceType;
+  float* refreshRates;
+  uint32_t refreshRateCount;
   XrEnvironmentBlendMode* blendModes;
   XrEnvironmentBlendMode blendMode;
   uint32_t blendModeCount;
@@ -1202,6 +1204,13 @@ static void openxr_start(void) {
       state.features.keyboardTracking = false;
     }
   }
+
+  if (state.features.refreshRate) {
+    XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, &state.refreshRateCount, NULL), "Failed to query refresh rates");
+    state.refreshRates = malloc(state.refreshRateCount * sizeof(float));
+    lovrAssert(state.refreshRates, "Out of memory");
+    XR(xrEnumerateDisplayRefreshRatesFB(state.session, state.refreshRateCount, &state.refreshRateCount, state.refreshRates), "Failed to query refresh rates");
+  }
 }
 
 static void openxr_stop(void) {
@@ -1262,26 +1271,24 @@ static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = state.height;
 }
 
-static float openxr_getDisplayFrequency(void) {
+static float openxr_getRefreshRate(void) {
   if (!state.features.refreshRate) return 0.f;
-  float frequency;
-  XR(xrGetDisplayRefreshRateFB(state.session, &frequency), "Failed to query refresh rate");
-  return frequency;
+  float refreshRate;
+  XR(xrGetDisplayRefreshRateFB(state.session, &refreshRate), "Failed to query refresh rate");
+  return refreshRate;
 }
 
-static float* openxr_getDisplayFrequencies(uint32_t* count) {
-  if (!state.features.refreshRate || !count) return NULL;
-  XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, count, NULL), "Failed to query refresh rates");
-  float *frequencies = malloc(*count * sizeof(float));
-  lovrAssert(frequencies, "Out of memory");
-  XR(xrEnumerateDisplayRefreshRatesFB(state.session, *count, count, frequencies), "Failed to query refresh rates");
-  return frequencies;
-}
-
-static bool openxr_setDisplayFrequency(float frequency) {
+static bool openxr_setRefreshRate(float refreshRate) {
   if (!state.features.refreshRate) return false;
-  XR(xrRequestDisplayRefreshRateFB(state.session, frequency), "Failed to set refresh rate");
+  XrResult result = xrRequestDisplayRefreshRateFB(state.session, refreshRate);
+  if (result == XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB) return false;
+  XR(result, "Failed to set refresh rate");
   return true;
+}
+
+static const float* openxr_getRefreshRates(uint32_t* count) {
+  *count = state.refreshRateCount;
+  return state.refreshRates;
 }
 
 static XrEnvironmentBlendMode convertPassthroughMode(PassthroughMode mode) {

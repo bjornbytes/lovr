@@ -138,9 +138,9 @@ typedef struct HeadsetInterface {
   bool (*getName)(char* name, size_t length);
   HeadsetOrigin (*getOriginType)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
-  float (*getDisplayFrequency)(void);
-  float* (*getDisplayFrequencies)(uint32_t* count);
-  bool (*setDisplayFrequency)(float);
+  float (*getRefreshRate)(void);
+  bool (*setRefreshRate)(float refreshRate);
+  const float* (*getRefreshRates)(uint32_t* count);
   PassthroughMode (*getPassthrough)(void);
   bool (*setPassthrough)(PassthroughMode mode);
   bool (*isPassthroughSupported)(PassthroughMode mode);

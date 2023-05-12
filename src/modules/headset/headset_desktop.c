@@ -102,6 +102,18 @@ static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   os_window_get_size(width, height);
 }
 
+static float desktop_getRefreshRate(void) {
+  return 0.f;
+}
+
+static bool desktop_setRefreshRate(float refreshRate) {
+  return false;
+}
+
+static const float* desktop_getRefreshRates(uint32_t* count) {
+  return *count = 0, NULL;
+}
+
 static PassthroughMode desktop_getPassthrough(void) {
   return PASSTHROUGH_OPAQUE;
 }
@@ -389,6 +401,9 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getName = desktop_getName,
   .getOriginType = desktop_getOriginType,
   .getDisplayDimensions = desktop_getDisplayDimensions,
+  .getRefreshRate = desktop_getRefreshRate,
+  .setRefreshRate = desktop_setRefreshRate,
+  .getRefreshRates = desktop_getRefreshRates,
   .getPassthrough = desktop_getPassthrough,
   .setPassthrough = desktop_setPassthrough,
   .isPassthroughSupported = desktop_isPassthroughSupported,

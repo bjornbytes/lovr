@@ -129,48 +129,38 @@ static int l_lovrHeadsetGetDisplayDimensions(lua_State* L) {
   return 2;
 }
 
-static int l_lovrHeadsetGetDisplayFrequency(lua_State* L) {
-  float frequency = lovrHeadsetInterface->getDisplayFrequency ? lovrHeadsetInterface->getDisplayFrequency() : 0.f;
-  if (frequency == 0.f) {
+static int l_lovrHeadsetGetRefreshRate(lua_State* L) {
+  float refreshRate = lovrHeadsetInterface->getRefreshRate ? lovrHeadsetInterface->getRefreshRate() : 0.f;
+  if (refreshRate == 0.f) {
     lua_pushnil(L);
   } else {
-    lua_pushnumber(L, frequency);
+    lua_pushnumber(L, refreshRate);
   }
   return 1;
 }
 
-static int l_lovrHeadsetGetDisplayFrequencies(lua_State* L) {
-  if (!lovrHeadsetInterface->getDisplayFrequencies) {
-    lua_pushnil(L);
-    return 1;
-  }
-
-  uint32_t count = 0;
-  float* frequencies = lovrHeadsetInterface->getDisplayFrequencies(&count);
-  if (!frequencies) {
-    lua_pushnil(L);
-    return 1;
-  }
-
-  lua_settop(L, 0);
-  lua_createtable(L, count, 0);
-  for (uint32_t i = 0; i < count; ++i) {
-    lua_pushnumber(L, frequencies[i]);
-    lua_rawseti(L, 1, i + 1);
-  }
-
-  free(frequencies);
-
+static int l_lovrHeadsetSetRefreshRate(lua_State* L) {
+  float refreshRate = luax_checkfloat(L, 1);
+  bool success = lovrHeadsetInterface->setRefreshRate ? lovrHeadsetInterface->setRefreshRate(refreshRate) : false;
+  lua_pushboolean(L, success);
   return 1;
 }
 
-static int l_lovrHeadsetSetDisplayFrequency(lua_State* L) {
-  float frequency = luax_checkfloat(L, 1);
-  bool res = false;
-  if (lovrHeadsetInterface->setDisplayFrequency) {
-    res = lovrHeadsetInterface->setDisplayFrequency(frequency);
+static int l_lovrHeadsetGetRefreshRates(lua_State* L) {
+  uint32_t count;
+  const float* refreshRates = lovrHeadsetInterface->getRefreshRates(&count);
+
+  if (!refreshRates) {
+    lua_pushnil(L);
+  } else {
+    lua_settop(L, 0);
+    lua_createtable(L, count, 0);
+    for (uint32_t i = 0; i < count; ++i) {
+      lua_pushnumber(L, refreshRates[i]);
+      lua_rawseti(L, 1, i + 1);
+    }
   }
-  lua_pushboolean(L, res);
+
   return 1;
 }
 
@@ -630,9 +620,9 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
-  { "getDisplayFrequency", l_lovrHeadsetGetDisplayFrequency },
-  { "getDisplayFrequencies", l_lovrHeadsetGetDisplayFrequencies },
-  { "setDisplayFrequency", l_lovrHeadsetSetDisplayFrequency },
+  { "getRefreshRate", l_lovrHeadsetGetRefreshRate },
+  { "setRefreshRate", l_lovrHeadsetSetRefreshRate },
+  { "getRefreshRates", l_lovrHeadsetGetRefreshRates },
   { "getPassthrough", l_lovrHeadsetGetPassthrough },
   { "setPassthrough", l_lovrHeadsetSetPassthrough },
   { "getPassthroughModes", l_lovrHeadsetGetPassthroughModes },
@@ -668,6 +658,12 @@ static const luaL_Reg lovrHeadset[] = {
   { "getTime", l_lovrHeadsetGetTime },
   { "getDeltaTime", l_lovrHeadsetGetDeltaTime },
   { "getHands", l_lovrHeadsetGetHands },
+
+  // Deprecated
+  { "getDisplayFrequency", l_lovrHeadsetGetRefreshRate },
+  { "getDisplayFrequencies", l_lovrHeadsetGetRefreshRates },
+  { "setDisplayFrequency", l_lovrHeadsetSetRefreshRate },
+
   { NULL, NULL }
 };
 
