@@ -3512,7 +3512,7 @@ void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
         // Shift the vertices of the overflowing word down a line and back to the beginning
         for (uint32_t v = wordStart; v < vertexCount; v++) {
           vertices[v].position.x -= dx;
-          vertices[v].position.y -= dy;
+          vertices[v].position.y += flip ? dy : -dy;
         }
 
         aline(vertices, lineStart, wordStart, prevWordEndX, halign);
