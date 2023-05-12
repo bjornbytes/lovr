@@ -158,7 +158,9 @@ static struct {
   XrSessionState sessionState;
   XrSpace referenceSpace;
   XrReferenceSpaceType referenceSpaceType;
+  XrEnvironmentBlendMode* blendModes;
   XrEnvironmentBlendMode blendMode;
+  uint32_t blendModeCount;
   XrSpace spaces[MAX_DEVICES];
   XrSwapchain swapchain[2];
   XrCompositionLayerProjection layers[1];
@@ -198,7 +200,7 @@ static struct {
     bool headless;
     bool keyboardTracking;
     bool overlay;
-    bool passthrough;
+    bool questPassthrough;
     bool picoController;
     bool refreshRate;
     bool viveTrackers;
@@ -380,7 +382,14 @@ static bool openxr_init(HeadsetConfig* config) {
 
   { // Instance
     uint32_t extensionCount;
-    XR_INIT(xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL), "Failed to get extensions");
+    XrResult result = xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL);
+
+    if (result == XR_ERROR_RUNTIME_UNAVAILABLE) {
+      return openxr_destroy(), false;
+    } else {
+      XR_INIT(result, "Failed to query extensions");
+    }
+
     XrExtensionProperties* extensionProperties = calloc(extensionCount, sizeof(*extensionProperties));
     lovrAssert(extensionProperties, "Out of memory");
     for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
@@ -404,7 +413,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
-      { "XR_FB_passthrough", &state.features.passthrough, true },
+      { "XR_FB_passthrough", &state.features.questPassthrough, true },
 #ifndef __ANDROID__
       { "XR_MND_headless", &state.features.headless, true },
 #endif
@@ -482,7 +491,7 @@ static bool openxr_init(HeadsetConfig* config) {
       properties.next = &keyboardTrackingProperties;
     }
 
-    if (state.features.passthrough) {
+    if (state.features.questPassthrough) {
       passthroughProperties.next = properties.next;
       properties.next = &passthroughProperties;
     }
@@ -491,7 +500,7 @@ static bool openxr_init(HeadsetConfig* config) {
     state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
     state.features.handTracking = handTrackingProperties.supportsHandTracking;
     state.features.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
-    state.features.passthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
+    state.features.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
 
     uint32_t viewConfigurationCount;
     XrViewConfigurationType viewConfigurations[2];
@@ -515,11 +524,12 @@ static bool openxr_init(HeadsetConfig* config) {
     state.width = MIN(views[0].recommendedImageRectWidth * config->supersample, views[0].maxImageRectWidth);
     state.height = MIN(views[0].recommendedImageRectHeight * config->supersample, views[0].maxImageRectHeight);
 
-    // Blend mode
-    uint32_t blendModeCount;
-    XrEnvironmentBlendMode blendModes[8];
-    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, COUNTOF(blendModes), &blendModeCount, blendModes), "Failed to query blend modes");
-    state.blendMode = blendModes[0];
+    // Blend modes
+    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &state.blendModeCount, NULL), "Failed to query blend modes");
+    state.blendModes = malloc(state.blendModeCount * sizeof(XrEnvironmentBlendMode));
+    lovrAssert(state.blendModes, "Out of memory");
+    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, state.blendModeCount, &state.blendModeCount, state.blendModes), "Failed to query blend modes");
+    state.blendMode = state.blendModes[0];
   }
 
   { // Actions
@@ -1272,6 +1282,113 @@ static bool openxr_setDisplayFrequency(float frequency) {
   if (!state.features.refreshRate) return false;
   XR(xrRequestDisplayRefreshRateFB(state.session, frequency), "Failed to set refresh rate");
   return true;
+}
+
+static XrEnvironmentBlendMode convertPassthroughMode(PassthroughMode mode) {
+  switch (mode) {
+    case PASSTHROUGH_OPAQUE: return XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+    case PASSTHROUGH_BLEND: return XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND;
+    case PASSTHROUGH_ADD: return XR_ENVIRONMENT_BLEND_MODE_ADDITIVE;
+    default: lovrUnreachable();
+  }
+}
+
+static PassthroughMode openxr_getPassthrough(void) {
+  switch (state.blendMode) {
+    case XR_ENVIRONMENT_BLEND_MODE_OPAQUE: return PASSTHROUGH_OPAQUE;
+    case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND: return PASSTHROUGH_BLEND;
+    case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE: return PASSTHROUGH_ADD;
+    default: lovrUnreachable();
+  }
+}
+
+static bool openxr_setPassthrough(PassthroughMode mode) {
+  if (state.features.questPassthrough) {
+    if (mode == PASSTHROUGH_ADD) {
+      return false;
+    }
+
+    if (!state.passthrough) {
+      XrPassthroughCreateInfoFB info = { .type = XR_TYPE_PASSTHROUGH_CREATE_INFO_FB };
+
+      if (XR_FAILED(xrCreatePassthroughFB(state.session, &info, &state.passthrough))) {
+        return false;
+      }
+
+      XrPassthroughLayerCreateInfoFB layerInfo = {
+        .type = XR_TYPE_PASSTHROUGH_LAYER_CREATE_INFO_FB,
+        .passthrough = state.passthrough,
+        .purpose = XR_PASSTHROUGH_LAYER_PURPOSE_RECONSTRUCTION_FB,
+        .flags = XR_PASSTHROUGH_IS_RUNNING_AT_CREATION_BIT_FB
+      };
+
+      if (XR_FAILED(xrCreatePassthroughLayerFB(state.session, &layerInfo, &state.passthroughLayerHandle))) {
+        xrDestroyPassthroughFB(state.passthrough);
+        state.passthrough = NULL;
+        return false;
+      }
+
+      state.passthroughLayer = (XrCompositionLayerPassthroughFB) {
+        .type = XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB,
+        .layerHandle = state.passthroughLayerHandle
+      };
+    }
+
+    bool enable = mode == PASSTHROUGH_BLEND || mode == PASSTHROUGH_TRANSPARENT;
+
+    if (state.passthroughActive == enable) {
+      return true;
+    }
+
+    if (enable) {
+      if (XR_SUCCEEDED(xrPassthroughStartFB(state.passthrough))) {
+        state.passthroughActive = true;
+        return true;
+      }
+    } else {
+      if (XR_SUCCEEDED(xrPassthroughPauseFB(state.passthrough))) {
+        state.passthroughActive = false;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  if (mode == PASSTHROUGH_DEFAULT) {
+    state.blendMode = state.blendModes[0];
+    return true;
+  } else if (mode == PASSTHROUGH_TRANSPARENT) {
+    for (uint32_t i = 0; i < state.blendModeCount; i++) {
+      switch (state.blendModes[i]) {
+        case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
+        case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
+          state.blendMode = state.blendModes[i];
+          return true;
+        default: continue;
+      }
+    }
+  } else {
+    XrEnvironmentBlendMode blendMode = convertPassthroughMode(mode);
+    for (uint32_t i = 0; i < state.blendModeCount; i++) {
+      if (state.blendModes[i] == blendMode) {
+        state.blendMode = state.blendModes[i];
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+static bool openxr_isPassthroughSupported(PassthroughMode mode) {
+  XrEnvironmentBlendMode blendMode = convertPassthroughMode(mode);
+  for (uint32_t i = 0; i < state.blendModeCount; i++) {
+    if (state.blendModes[i] == blendMode) {
+      return true;
+    }
+  }
+  return false;
 }
 
 static double openxr_getDisplayTime(void) {
@@ -2214,67 +2331,6 @@ static bool openxr_isFocused(void) {
   return state.sessionState == XR_SESSION_STATE_FOCUSED;
 }
 
-static bool openxr_isPassthroughEnabled(void) {
-  return state.passthroughActive;
-}
-
-static bool openxr_setPassthroughEnabled(bool enable) {
-  if (!state.features.passthrough) return false;
-
-  XrResult result = XR_SUCCESS;
-
-  if (!state.passthrough) {
-    XrPassthroughCreateInfoFB info = { .type = XR_TYPE_PASSTHROUGH_CREATE_INFO_FB };
-    result = xrCreatePassthroughFB(state.session, &info, &state.passthrough);
-
-    if (XR_FAILED(result)) {
-      return false;
-    }
-
-    XrPassthroughLayerCreateInfoFB layerInfo = {
-      .type = XR_TYPE_PASSTHROUGH_LAYER_CREATE_INFO_FB,
-      .passthrough = state.passthrough,
-      .purpose = XR_PASSTHROUGH_LAYER_PURPOSE_RECONSTRUCTION_FB,
-      .flags = XR_PASSTHROUGH_IS_RUNNING_AT_CREATION_BIT_FB
-    };
-
-    result = xrCreatePassthroughLayerFB(state.session, &layerInfo, &state.passthroughLayerHandle);
-
-    if (XR_FAILED(result)) {
-      xrDestroyPassthroughFB(state.passthrough);
-      state.passthrough = NULL;
-      return false;
-    }
-
-    state.passthroughLayer = (XrCompositionLayerPassthroughFB) {
-      .type = XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB,
-      .layerHandle = state.passthroughLayerHandle
-    };
-  }
-
-  if (enable == state.passthroughActive) {
-    return true;
-  }
-
-  if (enable) {
-    result = xrPassthroughStartFB(state.passthrough);
-
-    if (XR_SUCCEEDED(result)) {
-      state.passthroughActive = true;
-      return true;
-    }
-  } else {
-    result = xrPassthroughPauseFB(state.passthrough);
-
-    if (XR_SUCCEEDED(result)) {
-      state.passthroughActive = false;
-      return true;
-    }
-  }
-
-  return false;
-}
-
 static double openxr_update(void) {
   if (state.waited) return openxr_getDeltaTime();
 
@@ -2368,6 +2424,9 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getDisplayFrequency = openxr_getDisplayFrequency,
   .getDisplayFrequencies = openxr_getDisplayFrequencies,
   .setDisplayFrequency = openxr_setDisplayFrequency,
+  .getPassthrough = openxr_getPassthrough,
+  .setPassthrough = openxr_setPassthrough,
+  .isPassthroughSupported = openxr_isPassthroughSupported,
   .getDisplayTime = openxr_getDisplayTime,
   .getDeltaTime = openxr_getDeltaTime,
   .getViewCount = openxr_getViewCount,
@@ -2390,7 +2449,5 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getPass = openxr_getPass,
   .submit = openxr_submit,
   .isFocused = openxr_isFocused,
-  .isPassthroughEnabled = openxr_isPassthroughEnabled,
-  .setPassthroughEnabled = openxr_setPassthroughEnabled,
   .update = openxr_update
 };

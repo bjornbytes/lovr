@@ -34,6 +34,14 @@ typedef enum {
 } HeadsetOrigin;
 
 typedef enum {
+  PASSTHROUGH_OPAQUE,
+  PASSTHROUGH_BLEND,
+  PASSTHROUGH_ADD,
+  PASSTHROUGH_DEFAULT = -1,
+  PASSTHROUGH_TRANSPARENT = -2
+} PassthroughMode;
+
+typedef enum {
   DEVICE_HEAD,
   DEVICE_HAND_LEFT,
   DEVICE_HAND_RIGHT,
@@ -133,6 +141,9 @@ typedef struct HeadsetInterface {
   float (*getDisplayFrequency)(void);
   float* (*getDisplayFrequencies)(uint32_t* count);
   bool (*setDisplayFrequency)(float);
+  PassthroughMode (*getPassthrough)(void);
+  bool (*setPassthrough)(PassthroughMode mode);
+  bool (*isPassthroughSupported)(PassthroughMode mode);
   double (*getDisplayTime)(void);
   double (*getDeltaTime)(void);
   uint32_t (*getViewCount)(void);
@@ -155,8 +166,6 @@ typedef struct HeadsetInterface {
   struct Pass* (*getPass)(void);
   void (*submit)(void);
   bool (*isFocused)(void);
-  bool (*isPassthroughEnabled)(void);
-  bool (*setPassthroughEnabled)(bool enable);
   double (*update)(void);
 } HeadsetInterface;
 

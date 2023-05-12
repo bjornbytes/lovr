@@ -18,6 +18,13 @@ StringEntry lovrHeadsetOrigin[] = {
   { 0 }
 };
 
+StringEntry lovrPassthroughMode[] = {
+  [PASSTHROUGH_OPAQUE] = ENTRY("opaque"),
+  [PASSTHROUGH_BLEND] = ENTRY("blend"),
+  [PASSTHROUGH_ADD] = ENTRY("add"),
+  { 0 }
+};
+
 StringEntry lovrDevice[] = {
   [DEVICE_HEAD] = ENTRY("head"),
   [DEVICE_HAND_LEFT] = ENTRY("hand/left"),
@@ -164,6 +171,38 @@ static int l_lovrHeadsetSetDisplayFrequency(lua_State* L) {
     res = lovrHeadsetInterface->setDisplayFrequency(frequency);
   }
   lua_pushboolean(L, res);
+  return 1;
+}
+
+static int l_lovrHeadsetGetPassthrough(lua_State* L) {
+  PassthroughMode mode = lovrHeadsetInterface->getPassthrough();
+  luax_pushenum(L, PassthroughMode, mode);
+  return 1;
+}
+
+static int l_lovrHeadsetSetPassthrough(lua_State* L) {
+  PassthroughMode mode;
+
+  if (lua_isnoneornil(L, 1)) {
+    mode = PASSTHROUGH_DEFAULT;
+  } else if (lua_isboolean(L, 1)) {
+    mode = lua_toboolean(L, 1) ? PASSTHROUGH_TRANSPARENT : PASSTHROUGH_OPAQUE;
+  } else {
+    mode = luax_checkenum(L, 1, PassthroughMode, NULL);
+  }
+
+  bool success = lovrHeadsetInterface->setPassthrough(mode);
+  lua_pushboolean(L, success);
+  return 1;
+}
+
+static int l_lovrHeadsetGetPassthroughModes(lua_State* L) {
+  lua_createtable(L, 0, 3);
+  for (int i = 0; lovrPassthroughMode[i].length > 0; i++) {
+    lua_pushlstring(L, lovrPassthroughMode[i].string, lovrPassthroughMode[i].length);
+    lua_pushboolean(L, lovrHeadsetInterface->isPassthroughSupported(i));
+    lua_settable(L, -3);
+  }
   return 1;
 }
 
@@ -541,18 +580,6 @@ static int l_lovrHeadsetIsFocused(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetIsPassthroughEnabled(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetInterface->isPassthroughEnabled());
-  return 1;
-}
-
-static int l_lovrHeadsetSetPassthroughEnabled(lua_State* L) {
-  bool enable = lua_toboolean(L, 1);
-  bool success = lovrHeadsetInterface->setPassthroughEnabled(enable);
-  lua_pushboolean(L, success);
-  return 1;
-}
-
 static int l_lovrHeadsetUpdate(lua_State* L) {
   double dt = 0.;
 
@@ -606,6 +633,9 @@ static const luaL_Reg lovrHeadset[] = {
   { "getDisplayFrequency", l_lovrHeadsetGetDisplayFrequency },
   { "getDisplayFrequencies", l_lovrHeadsetGetDisplayFrequencies },
   { "setDisplayFrequency", l_lovrHeadsetSetDisplayFrequency },
+  { "getPassthrough", l_lovrHeadsetGetPassthrough },
+  { "setPassthrough", l_lovrHeadsetSetPassthrough },
+  { "getPassthroughModes", l_lovrHeadsetGetPassthroughModes },
   { "getViewCount", l_lovrHeadsetGetViewCount },
   { "getViewPose", l_lovrHeadsetGetViewPose },
   { "getViewAngles", l_lovrHeadsetGetViewAngles },
@@ -634,8 +664,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getPass", l_lovrHeadsetGetPass },
   { "submit", l_lovrHeadsetSubmit },
   { "isFocused", l_lovrHeadsetIsFocused },
-  { "isPassthroughEnabled", l_lovrHeadsetIsPassthroughEnabled },
-  { "setPassthroughEnabled", l_lovrHeadsetSetPassthroughEnabled },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
   { "getDeltaTime", l_lovrHeadsetGetDeltaTime },

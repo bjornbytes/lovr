@@ -102,6 +102,18 @@ static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   os_window_get_size(width, height);
 }
 
+static PassthroughMode desktop_getPassthrough(void) {
+  return PASSTHROUGH_OPAQUE;
+}
+
+static bool desktop_setPassthrough(PassthroughMode mode) {
+  return mode == PASSTHROUGH_OPAQUE;
+}
+
+static bool desktop_isPassthroughSupported(PassthroughMode mode) {
+  return mode == PASSTHROUGH_OPAQUE;
+}
+
 static double desktop_getDisplayTime(void) {
   return state.nextDisplayTime - state.epoch;
 }
@@ -275,14 +287,6 @@ static bool desktop_isFocused(void) {
   return state.focused;
 }
 
-static bool desktop_isPassthroughEnabled(void) {
-  return false;
-}
-
-static bool desktop_setPassthroughEnabled(bool enable) {
-  return false;
-}
-
 static double desktop_update(void) {
   bool front = os_is_key_down(KEY_W) || os_is_key_down(KEY_UP);
   bool back = os_is_key_down(KEY_S) || os_is_key_down(KEY_DOWN);
@@ -385,6 +389,9 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getName = desktop_getName,
   .getOriginType = desktop_getOriginType,
   .getDisplayDimensions = desktop_getDisplayDimensions,
+  .getPassthrough = desktop_getPassthrough,
+  .setPassthrough = desktop_setPassthrough,
+  .isPassthroughSupported = desktop_isPassthroughSupported,
   .getDisplayTime = desktop_getDisplayTime,
   .getDeltaTime = desktop_getDeltaTime,
   .getViewCount = desktop_getViewCount,
@@ -407,7 +414,5 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getPass = desktop_getPass,
   .submit = desktop_submit,
   .isFocused = desktop_isFocused,
-  .isPassthroughEnabled = desktop_isPassthroughEnabled,
-  .setPassthroughEnabled = desktop_setPassthroughEnabled,
   .update = desktop_update
 };
