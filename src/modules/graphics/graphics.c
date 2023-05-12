@@ -4587,7 +4587,7 @@ void lovrPassReset(Pass* pass) {
 
   for (uint32_t i = 0; i < pass->canvas.views; i++) {
     mat4_identity(pass->cameras[i].view);
-    mat4_perspective(pass->cameras[i].projection, 1.f / aspect, aspect, .01f, 0.f);
+    mat4_perspective(pass->cameras[i].projection, .6f, aspect, .01f, 0.f);
   }
 
   memset(pass->viewport, 0, sizeof(pass->viewport));
@@ -4647,7 +4647,7 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
     while (canvas->views < t->layers) {
       float aspect = (float) t->width / t->height;
       mat4_identity(pass->cameras[canvas->views].view);
-      mat4_perspective(pass->cameras[canvas->views].projection, 1.f / aspect, aspect, .01f, 0.f);
+      mat4_perspective(pass->cameras[canvas->views].projection, .6f, aspect, .01f, 0.f);
       canvas->views++;
     }
 
