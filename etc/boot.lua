@@ -170,7 +170,12 @@ function lovr.errhand(message)
   local y = math.min(height / 2, 10)
   local z = -10
 
-  lovr.graphics.setBackgroundColor(.11, .10, .14)
+  if lovr.headset.getPassthrough() == 'opaque' then
+    lovr.graphics.setBackgroundColor(.11, .10, .14)
+  else
+    lovr.graphics.setBackgroundColor(0, 0, 0, 0)
+  end
+
   font:setPixelDensity()
 
   local function render(pass)
