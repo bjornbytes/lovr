@@ -199,7 +199,7 @@ static struct {
     bool keyboardTracking;
     bool overlay;
     bool passthrough;
-    bool picoNeo3Controller;
+    bool picoController;
     bool refreshRate;
     bool viveTrackers;
   } features;
@@ -399,7 +399,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_KHR_composition_layer_depth", &state.features.depth, config->submitDepth },
       { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
       { "XR_EXT_hand_tracking", &state.features.handTracking, true },
-      { "XR_BD_controller_interaction", &state.features.picoNeo3Controller, true },
+      { "XR_BD_controller_interaction", &state.features.picoController, true },
       { "XR_FB_display_refresh_rate", &state.features.refreshRate, true },
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
@@ -883,7 +883,7 @@ static bool openxr_init(HeadsetConfig* config) {
     };
 
     // Don't suggest bindings for unsupported input profiles
-    if (!state.features.picoNeo3Controller) {
+    if (!state.features.picoController) {
       bindings[PROFILE_PICO_NEO3][0].path = NULL;
     }
 
