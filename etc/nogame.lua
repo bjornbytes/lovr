@@ -12,7 +12,10 @@ function lovr.load()
     return
   end
 
-  lovr.graphics.setBackgroundColor(0x20232c)
+  if lovr.headset.getPassthrough() == 'opaque' then
+    lovr.graphics.setBackgroundColor(0x20232c)
+  end
+
   logo = lovr.graphics.newShader('unlit', 'logo')
 end
 
