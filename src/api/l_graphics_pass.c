@@ -726,7 +726,7 @@ static int l_lovrPassText(lua_State* L) {
 
 static int l_lovrPassSkybox(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Texture* texture = luax_totype(L, 2, Texture);
+  Texture* texture = luax_checktype(L, 2, Texture);
   lovrPassSkybox(pass, texture);
   return 0;
 }

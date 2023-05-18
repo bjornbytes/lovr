@@ -5022,23 +5022,13 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
 }
 
 void lovrPassSkybox(Pass* pass, Texture* texture) {
-  if (texture->info.type == TEXTURE_2D) {
-    lovrPassDraw(pass, &(Draw) {
-      .mode = MESH_TRIANGLES,
-      .shader = SHADER_EQUIRECT,
-      .material = texture ? lovrTextureGetMaterial(texture) : NULL,
-      .vertex.format = VERTEX_EMPTY,
-      .count = 6
-    });
-  } else {
-    lovrPassDraw(pass, &(Draw) {
-      .mode = MESH_TRIANGLES,
-      .shader = SHADER_CUBEMAP,
-      .material = texture ? lovrTextureGetMaterial(texture) : NULL,
-      .vertex.format = VERTEX_EMPTY,
-      .count = 6
-    });
-  }
+  lovrPassDraw(pass, &(Draw) {
+    .mode = MESH_TRIANGLES,
+    .shader = texture->info.type == TEXTURE_2D ? SHADER_EQUIRECT : SHADER_CUBEMAP,
+    .material = lovrTextureGetMaterial(texture),
+    .vertex.format = VERTEX_EMPTY,
+    .count = 6
+  });
 }
 
 void lovrPassFill(Pass* pass, Texture* texture) {
