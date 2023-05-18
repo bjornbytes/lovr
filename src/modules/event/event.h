@@ -138,7 +138,6 @@ void lovrVariantDestroy(Variant* variant);
 
 bool lovrEventInit(void);
 void lovrEventDestroy(void);
-void lovrEventPump(void);
 void lovrEventPush(Event event);
 bool lovrEventPoll(Event* event);
 void lovrEventClear(void);
