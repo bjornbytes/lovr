@@ -94,8 +94,8 @@ static bool desktop_getName(char* name, size_t length) {
   return true;
 }
 
-static HeadsetOrigin desktop_getOriginType(void) {
-  return ORIGIN_HEAD;
+static bool desktop_isSeated(void) {
+  return state.config.seated;
 }
 
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -141,7 +141,7 @@ static uint32_t desktop_getViewCount(void) {
 static bool desktop_getViewPose(uint32_t view, float* position, float* orientation) {
   vec3_init(position, state.position);
   quat_fromMat4(orientation, state.headTransform);
-  position[1] += state.config.offset;
+  position[1] += state.config.seated ? 0.f : 1.7f;
   return view == 0;
 }
 
@@ -168,6 +168,12 @@ static void desktop_setClipDistance(float clipNear, float clipFar) {
   state.clipFar = clipFar;
 }
 
+static bool desktop_getBoundsPose(float* position, float* orientation) {
+  vec3_set(position, 0.f, 0.f, 0.f);
+  quat_identity(orientation);
+  return false;
+}
+
 static void desktop_getBoundsDimensions(float* width, float* depth) {
   *width = *depth = 0.f;
 }
@@ -178,17 +184,16 @@ static const float* desktop_getBoundsGeometry(uint32_t* count) {
 }
 
 static bool desktop_getPose(Device device, vec3 position, quat orientation) {
-  if (device == DEVICE_HEAD) {
-    vec3_set(position, 0.f, 0.f, 0.f);
-    mat4_transform(state.headTransform, position);
-    quat_fromMat4(orientation, state.headTransform);
-    return true;
-  } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_LEFT_POINT) {
-    mat4_getPosition(state.leftHandTransform, position);
-    quat_fromMat4(orientation, state.leftHandTransform);
-    return true;
+  mat4 transform;
+  switch (device) {
+    case DEVICE_HEAD: transform = state.headTransform; break;
+    case DEVICE_HAND_LEFT: transform = state.leftHandTransform; break;
+    case DEVICE_HAND_LEFT_POINT: transform = state.leftHandTransform; break;
+    default: return false;
   }
-  return false;
+  mat4_getPosition(transform, position);
+  mat4_getOrientation(transform, orientation);
+  return true;
 }
 
 static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
@@ -274,6 +279,7 @@ static Pass* desktop_getPass(void) {
 
   float position[4], orientation[4];
   desktop_getViewPose(0, position, orientation);
+  lovrHeadsetApplyOffset(position, orientation);
 
   float viewMatrix[16];
   mat4_fromQuat(viewMatrix, orientation);
@@ -364,7 +370,7 @@ static double desktop_update(void) {
 
   // Update head transform
   mat4_identity(state.headTransform);
-  mat4_translate(state.headTransform, 0.f, state.config.offset, 0.f);
+  mat4_translate(state.headTransform, 0.f, state.config.seated ? 0.f : 1.7f, 0.f);
   mat4_translate(state.headTransform, state.position[0], state.position[1], state.position[2]);
   mat4_rotate(state.headTransform, state.yaw, 0.f, 1.f, 0.f);
   mat4_rotate(state.headTransform, state.pitch, 1.f, 0.f, 0.f);
@@ -399,7 +405,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .stop = desktop_stop,
   .destroy = desktop_destroy,
   .getName = desktop_getName,
-  .getOriginType = desktop_getOriginType,
+  .isSeated = desktop_isSeated,
   .getDisplayDimensions = desktop_getDisplayDimensions,
   .getRefreshRate = desktop_getRefreshRate,
   .setRefreshRate = desktop_setRefreshRate,
@@ -414,6 +420,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getViewAngles = desktop_getViewAngles,
   .getClipDistance = desktop_getClipDistance,
   .setClipDistance = desktop_setClipDistance,
+  .getBoundsPose = desktop_getBoundsPose,
   .getBoundsDimensions = desktop_getBoundsDimensions,
   .getBoundsGeometry = desktop_getBoundsGeometry,
   .getPose = desktop_getPose,

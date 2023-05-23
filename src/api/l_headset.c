@@ -12,12 +12,6 @@ StringEntry lovrHeadsetDriver[] = {
   { 0 }
 };
 
-StringEntry lovrHeadsetOrigin[] = {
-  [ORIGIN_HEAD] = ENTRY("head"),
-  [ORIGIN_FLOOR] = ENTRY("floor"),
-  { 0 }
-};
-
 StringEntry lovrPassthroughMode[] = {
   [PASSTHROUGH_OPAQUE] = ENTRY("opaque"),
   [PASSTHROUGH_BLEND] = ENTRY("blend"),
@@ -102,9 +96,51 @@ static int l_lovrHeadsetGetName(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetGetOriginType(lua_State* L) {
-  luax_pushenum(L, HeadsetOrigin, lovrHeadsetInterface->getOriginType());
+static int l_lovrHeadsetIsSeated(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetInterface->isSeated());
   return 1;
+}
+
+static int l_lovrHeadsetGetOffset(lua_State* L) {
+  float position[4], orientation[4], angle, ax, ay, az;
+  lovrHeadsetGetOffset(position, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
+static int l_lovrHeadsetSetOffset(lua_State* L) {
+  int index = 1;
+  float position[4], orientation[4];
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readquat(L, index, orientation, NULL);
+  lovrHeadsetSetOffset(position, orientation);
+  return 0;
+}
+
+static int l_lovrHeadsetTranslate(lua_State* L) {
+  float position[4], orientation[4], translation[4];
+  lovrHeadsetGetOffset(position, orientation);
+  luax_readvec3(L, 1, translation, NULL);
+  quat_rotate(orientation, translation);
+  vec3_add(position, translation);
+  lovrHeadsetSetOffset(position, orientation);
+  return 0;
+}
+
+static int l_lovrHeadsetRotate(lua_State* L) {
+  float position[4], orientation[4], rotation[4];
+  lovrHeadsetGetOffset(position, orientation);
+  luax_readquat(L, 1, rotation, NULL);
+  quat_mul(orientation, orientation, rotation);
+  lovrHeadsetSetOffset(position, orientation);
+  return 0;
 }
 
 static int l_lovrHeadsetGetDisplayWidth(lua_State* L) {
@@ -202,13 +238,13 @@ static int l_lovrHeadsetGetViewCount(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetViewPose(lua_State* L) {
-  float position[4], orientation[4];
+  float position[4], orientation[4], angle, ax, ay, az;
   uint32_t view = luax_checku32(L, 1) - 1;
   if (!lovrHeadsetInterface->getViewPose(view, position, orientation)) {
     lua_pushnil(L);
     return 1;
   }
-  float angle, ax, ay, az;
+  lovrHeadsetApplyOffset(position, orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -247,6 +283,40 @@ static int l_lovrHeadsetSetClipDistance(lua_State* L) {
   float clipFar = luax_checkfloat(L, 2);
   lovrHeadsetInterface->setClipDistance(clipNear, clipFar);
   return 0;
+}
+
+static int l_lovrHeadsetGetBoundsPosition(lua_State* L) {
+  float position[4], orientation[4];
+  lovrHeadsetInterface->getBoundsPose(position, orientation);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  return 3;
+}
+
+static int l_lovrHeadsetGetBoundsOrientation(lua_State* L) {
+  float position[4], orientation[4], angle, ax, ay, az;
+  lovrHeadsetInterface->getBoundsPose(position, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 4;
+}
+
+static int l_lovrHeadsetGetBoundsPose(lua_State* L) {
+  float position[4], orientation[4], angle, ax, ay, az;
+  lovrHeadsetInterface->getBoundsPose(position, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
 }
 
 static int l_lovrHeadsetGetBoundsWidth(lua_State* L) {
@@ -309,22 +379,20 @@ static int l_lovrHeadsetIsTracked(lua_State* L) {
 
 static int l_lovrHeadsetGetPose(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float position[4], orientation[4];
+  float position[4], orientation[4], angle, ax, ay, az;
   if (lovrHeadsetInterface->getPose(device, position, orientation)) {
-    float angle, ax, ay, az;
-    quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
-    lua_pushnumber(L, position[0]);
-    lua_pushnumber(L, position[1]);
-    lua_pushnumber(L, position[2]);
-    lua_pushnumber(L, angle);
-    lua_pushnumber(L, ax);
-    lua_pushnumber(L, ay);
-    lua_pushnumber(L, az);
-    return 7;
+    lovrHeadsetApplyOffset(position, orientation);
+  } else {
+    lovrHeadsetGetOffset(position, orientation);
   }
-  for (int i = 0; i < 7; i++) {
-    lua_pushnumber(L, 0.);
-  }
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
   return 7;
 }
 
@@ -332,39 +400,38 @@ static int l_lovrHeadsetGetPosition(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float position[4], orientation[4];
   if (lovrHeadsetInterface->getPose(device, position, orientation)) {
-    lua_pushnumber(L, position[0]);
-    lua_pushnumber(L, position[1]);
-    lua_pushnumber(L, position[2]);
-    return 3;
+    lovrHeadsetApplyOffset(position, orientation);
+  } else {
+    lovrHeadsetGetOffset(position, orientation);
   }
-  for (int i = 0; i < 3; i++) {
-    lua_pushnumber(L, 0.);
-  }
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
   return 3;
 }
 
 static int l_lovrHeadsetGetOrientation(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float position[4], orientation[4];
+  float position[4], orientation[4], angle, ax, ay, az;
   if (lovrHeadsetInterface->getPose(device, position, orientation)) {
-    float angle, ax, ay, az;
-    quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
-    lua_pushnumber(L, angle);
-    lua_pushnumber(L, ax);
-    lua_pushnumber(L, ay);
-    lua_pushnumber(L, az);
-    return 4;
+    lovrHeadsetApplyOffset(position, orientation);
+  } else {
+    lovrHeadsetGetOffset(position, orientation);
   }
-  for (int i = 0; i < 4; i++) {
-    lua_pushnumber(L, 0.);
-  }
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
   return 4;
 }
 
 static int l_lovrHeadsetGetVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float velocity[4], angularVelocity[4];
+  float velocity[4], angularVelocity[4], position[4], orientation[4];
   if (lovrHeadsetInterface->getVelocity(device, velocity, angularVelocity)) {
+    lovrHeadsetGetOffset(position, orientation);
+    quat_rotate(orientation, velocity);
     lua_pushnumber(L, velocity[0]);
     lua_pushnumber(L, velocity[1]);
     lua_pushnumber(L, velocity[2]);
@@ -378,8 +445,10 @@ static int l_lovrHeadsetGetVelocity(lua_State* L) {
 
 static int l_lovrHeadsetGetAngularVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float velocity[4], angularVelocity[4];
+  float velocity[4], angularVelocity[4], position[4], orientation[4];
   if (lovrHeadsetInterface->getVelocity(device, velocity, angularVelocity)) {
+    lovrHeadsetGetOffset(position, orientation);
+    quat_rotate(orientation, angularVelocity);
     lua_pushnumber(L, angularVelocity[0]);
     lua_pushnumber(L, angularVelocity[1]);
     lua_pushnumber(L, angularVelocity[2]);
@@ -478,6 +547,7 @@ static int l_lovrHeadsetGetSkeleton(lua_State* L) {
 
       float angle, ax, ay, az;
       float* pose = poses + i * 8;
+      lovrHeadsetApplyOffset(pose, pose + 4);
       quat_getAngleAxis(pose + 4, &angle, &ax, &ay, &az);
       lua_pushnumber(L, pose[0]);
       lua_pushnumber(L, pose[1]);
@@ -612,11 +682,25 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   return 1;
 }
 
+// Deprecated
+static int l_lovrHeadsetGetOriginType(lua_State* L) {
+  if (lovrHeadsetInterface->isSeated()) {
+    lua_pushliteral(L, "head");
+  } else {
+    lua_pushliteral(L, "floor");
+  }
+  return 1;
+}
+
 static const luaL_Reg lovrHeadset[] = {
   { "start", l_lovrHeadsetStart },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getName", l_lovrHeadsetGetName },
-  { "getOriginType", l_lovrHeadsetGetOriginType },
+  { "isSeated", l_lovrHeadsetIsSeated },
+  { "getOffset", l_lovrHeadsetGetOffset },
+  { "setOffset", l_lovrHeadsetSetOffset },
+  { "translate", l_lovrHeadsetTranslate },
+  { "rotate", l_lovrHeadsetRotate },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
@@ -631,6 +715,9 @@ static const luaL_Reg lovrHeadset[] = {
   { "getViewAngles", l_lovrHeadsetGetViewAngles },
   { "getClipDistance", l_lovrHeadsetGetClipDistance },
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
+  { "getBoundsPosition", l_lovrHeadsetGetBoundsPosition },
+  { "getBoundsOrientation", l_lovrHeadsetGetBoundsOrientation },
+  { "getBoundsPose", l_lovrHeadsetGetBoundsPose },
   { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
@@ -660,6 +747,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getHands", l_lovrHeadsetGetHands },
 
   // Deprecated
+  { "getOriginType", l_lovrHeadsetGetOriginType },
   { "getDisplayFrequency", l_lovrHeadsetGetRefreshRate },
   { "getDisplayFrequencies", l_lovrHeadsetGetRefreshRates },
   { "setDisplayFrequency", l_lovrHeadsetSetRefreshRate },
@@ -677,7 +765,7 @@ int luaopen_lovr_headset(lua_State* L) {
     .drivers = drivers,
     .driverCount = 0,
     .supersample = 1.f,
-    .offset = 1.7f,
+    .seated = false,
     .stencil = false,
     .antialias = true,
     .submitDepth = true,
@@ -706,8 +794,8 @@ int luaopen_lovr_headset(lua_State* L) {
       }
       lua_pop(L, 1);
 
-      lua_getfield(L, -1, "offset");
-      config.offset = luax_optfloat(L, -1, 1.7f);
+      lua_getfield(L, -1, "seated");
+      config.seated = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "stencil");

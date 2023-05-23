@@ -21,17 +21,12 @@ typedef struct {
   HeadsetDriver* drivers;
   size_t driverCount;
   float supersample;
-  float offset;
+  bool seated;
   bool stencil;
   bool antialias;
   bool submitDepth;
   bool overlay;
 } HeadsetConfig;
-
-typedef enum {
-  ORIGIN_HEAD,
-  ORIGIN_FLOOR
-} HeadsetOrigin;
 
 typedef enum {
   PASSTHROUGH_OPAQUE,
@@ -136,7 +131,9 @@ typedef struct HeadsetInterface {
   void (*stop)(void);
   void (*destroy)(void);
   bool (*getName)(char* name, size_t length);
-  HeadsetOrigin (*getOriginType)(void);
+  bool (*isSeated)(void);
+  void (*getOffset)(float* position, float* orientation);
+  void (*setOffset)(float* position, float* orientation);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   float (*getRefreshRate)(void);
   bool (*setRefreshRate)(float refreshRate);
@@ -151,6 +148,7 @@ typedef struct HeadsetInterface {
   bool (*getViewAngles)(uint32_t view, float* left, float* right, float* up, float* down);
   void (*getClipDistance)(float* clipNear, float* clipFar);
   void (*setClipDistance)(float clipNear, float clipFar);
+  bool (*getBoundsPose)(float* position, float* orientation);
   void (*getBoundsDimensions)(float* width, float* depth);
   const float* (*getBoundsGeometry)(uint32_t* count);
   bool (*getPose)(Device device, float* position, float* orientation);
@@ -179,3 +177,6 @@ extern HeadsetInterface* lovrHeadsetInterface;
 
 bool lovrHeadsetInit(HeadsetConfig* config);
 void lovrHeadsetDestroy(void);
+void lovrHeadsetGetOffset(float* position, float* orientation);
+void lovrHeadsetSetOffset(float* position, float* orientation);
+void lovrHeadsetApplyOffset(float* position, float* orientation);
