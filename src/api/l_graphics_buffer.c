@@ -147,6 +147,7 @@ static void luax_tofield(lua_State* L, int index, FieldType type, void* data) {
 
 static void luax_checkstruct(lua_State* L, int index, const BufferField* field, char* data) {
   lovrCheck(lua_istable(L, index), "Expected table for struct data");
+  index = index > 0 ? index : lua_gettop(L) + 1 + index;
 
   if (!field->children[0].name || luax_len(L, index) > 0) {
     for (uint32_t i = 0, j = 1; i < field->childCount; i++) {
