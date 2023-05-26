@@ -938,6 +938,7 @@ static bool openxr_init(HeadsetConfig* config) {
     // Don't suggest bindings for unsupported input profiles
     if (!state.features.picoController) {
       bindings[PROFILE_PICO_NEO3][0].path = NULL;
+      bindings[PROFILE_PICO4][0].path = NULL;
     }
 
     if (!state.features.viveTrackers) {
