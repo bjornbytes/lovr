@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.1.0)
 cmake_policy(SET CMP0063 NEW)
+cmake_policy(SET CMP0079 NEW)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS deployment version")
 project(lovr)
 
@@ -286,25 +287,6 @@ endif()
 
 # LÖVR
 
-# Plugins
-set(LOVR 1)
-link_libraries(${LOVR_LUA})
-if(NOT DEFINED LOVR_PLUGINS)
-  file(GLOB LOVR_PLUGINS ${CMAKE_SOURCE_DIR}/plugins/*)
-endif()
-foreach(PLUGIN_PATH ${LOVR_PLUGINS})
-  if(IS_DIRECTORY ${PLUGIN_PATH} AND EXISTS ${PLUGIN_PATH}/CMakeLists.txt)
-    get_filename_component(PLUGIN "${PLUGIN_PATH}" NAME)
-    add_subdirectory(${PLUGIN_PATH} "${CMAKE_CURRENT_BINARY_DIR}/plugins/${PLUGIN}")
-    get_directory_property(PLUGIN_TARGETS DIRECTORY ${PLUGIN_PATH} DEFINITION LOVR_PLUGIN_TARGETS)
-    if(NOT PLUGIN_TARGETS)
-      get_directory_property(PLUGIN_TARGETS DIRECTORY ${PLUGIN_PATH} BUILDSYSTEM_TARGETS)
-    endif()
-    set_target_properties(${PLUGIN_TARGETS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/${PLUGIN}")
-    list(APPEND ALL_PLUGIN_TARGETS ${PLUGIN_TARGETS})
-  endif()
-endforeach()
-
 set(LOVR_SRC
   src/core/fs.c
   src/core/zip.c
@@ -587,6 +569,35 @@ if(LOVR_ENABLE_UTF8)
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_UTF8)
 endif()
+
+# Plugins
+set(LOVR 1)
+if(NOT DEFINED LOVR_PLUGINS)
+  file(GLOB LOVR_PLUGINS ${CMAKE_SOURCE_DIR}/plugins/*)
+endif()
+function(glob_targets dir targets)
+  get_directory_property(subdirectories DIRECTORY "${dir}" SUBDIRECTORIES)
+  foreach(subdirectory IN LISTS subdirectories)
+    glob_targets("${subdirectory}" ${targets})
+  endforeach()
+  get_directory_property(dir_targets DIRECTORY "${dir}" BUILDSYSTEM_TARGETS)
+  set(${targets} ${${targets}} ${dir_targets} PARENT_SCOPE)
+endfunction()
+foreach(PLUGIN_PATH ${LOVR_PLUGINS})
+  if(IS_DIRECTORY ${PLUGIN_PATH} AND EXISTS ${PLUGIN_PATH}/CMakeLists.txt)
+    get_filename_component(PLUGIN "${PLUGIN_PATH}" NAME)
+    add_subdirectory(${PLUGIN_PATH} "${CMAKE_CURRENT_BINARY_DIR}/plugins/${PLUGIN}")
+    get_directory_property(PLUGIN_TARGETS DIRECTORY ${PLUGIN_PATH} DEFINITION LOVR_PLUGIN_TARGETS)
+    if(NOT PLUGIN_TARGETS)
+      glob_targets(${PLUGIN_PATH} PLUGIN_TARGETS)
+    endif()
+    set_target_properties(${PLUGIN_TARGETS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/${PLUGIN}")
+    foreach(PLUGIN_TARGET ${PLUGIN_TARGETS})
+      target_link_libraries(${PLUGIN_TARGET} ${LOVR_LUA})
+    endforeach()
+    list(APPEND ALL_PLUGIN_TARGETS ${PLUGIN_TARGETS})
+  endif()
+endforeach()
 
 # Resources
 file(GLOB LOVR_RESOURCES "etc/*.ttf" "etc/*.lua" "etc/shaders/*.glsl")
