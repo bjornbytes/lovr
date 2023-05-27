@@ -201,6 +201,7 @@ static struct {
     bool handTrackingMesh;
     bool headless;
     bool keyboardTracking;
+    bool ml2Controller;
     bool overlay;
     bool questPassthrough;
     bool picoController;
@@ -416,6 +417,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
       { "XR_FB_passthrough", &state.features.questPassthrough, true },
+      { "XR_ML_ml2_controller_interaction", &state.features.ml2Controller, true },
 #ifndef __ANDROID__
       { "XR_MND_headless", &state.features.headless, true },
 #endif
@@ -640,6 +642,7 @@ static bool openxr_init(HeadsetConfig* config) {
       PROFILE_GO,
       PROFILE_INDEX,
       PROFILE_WMR,
+      PROFILE_ML2,
       PROFILE_PICO_NEO3,
       PROFILE_PICO4,
       PROFILE_TRACKER,
@@ -654,6 +657,7 @@ static bool openxr_init(HeadsetConfig* config) {
       [PROFILE_GO] = "/interaction_profiles/oculus/go_controller",
       [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller",
       [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller",
+      [PROFILE_ML2] = "/interaction_profiles/ml/ml2_controller",
       [PROFILE_PICO_NEO3] = "/interaction_profiles/bytedance/pico_neo3_controller",
       [PROFILE_PICO4] = "/interaction_profiles/bytedance/pico4_controller",
       [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx",
@@ -838,6 +842,31 @@ static bool openxr_init(HeadsetConfig* config) {
         { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
         { 0, NULL }
       },
+      [PROFILE_ML2] = (Binding[]) {
+        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/click" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/click" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
+        { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/click" },
+        { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
+        { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
+        { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
+        { ACTION_TRACKPAD_X, "/user/hand/left/input/trackpad/x" },
+        { ACTION_TRACKPAD_X, "/user/hand/right/input/trackpad/x" },
+        { ACTION_TRACKPAD_Y, "/user/hand/left/input/trackpad/y" },
+        { ACTION_TRACKPAD_Y, "/user/hand/right/input/trackpad/y" },
+        { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
+        { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/left/input/shoulder/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/right/input/shoulder/click" },
+        { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
+        { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+        { 0, NULL }
+      },
       [PROFILE_PICO_NEO3] = (Binding[]) {
         { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
@@ -936,6 +965,10 @@ static bool openxr_init(HeadsetConfig* config) {
     };
 
     // Don't suggest bindings for unsupported input profiles
+    if (!state.features.ml2Controller) {
+      bindings[PROFILE_ML2][0].path = NULL;
+    }
+
     if (!state.features.picoController) {
       bindings[PROFILE_PICO_NEO3][0].path = NULL;
       bindings[PROFILE_PICO4][0].path = NULL;
