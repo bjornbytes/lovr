@@ -25,3 +25,9 @@
 [submodule "deps/pico-openxr"]
 	path = deps/pico-openxr
 	url = https://github.com/lovr-org/pico_openxr_sdk
+[submodule "plugins/lua-enet"]
+	path = plugins/lua-enet
+	url = https://github.com/bjornbytes/lua-enet
+[submodule "plugins/lua-https"]
+	path = plugins/lua-https
+	url = https://github.com/love2d/lua-https
