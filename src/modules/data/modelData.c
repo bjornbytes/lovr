@@ -188,7 +188,7 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
           ((uint8_t*) dst)[j] = ((uint16_t*) src)[j] >> 8;
         }
         if (components == 4 && attribute->components == 3) {
-          ((float*) dst)[3] = 255;
+          ((uint8_t*) dst)[3] = 255;
         }
       }
     } else if (attribute->type == U16 && !attribute->normalized && !normalized) {
@@ -209,7 +209,7 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
           ((uint8_t*) dst)[j] = ((float*) src)[j] * 255.f + .5f;
         }
         if (components == 4 && attribute->components == 3) {
-          ((float*) dst)[3] = 255;
+          ((uint8_t*) dst)[3] = 255;
         }
       }
     } else {
