@@ -522,7 +522,7 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     for (uint32_t i = 0; i < *indexCount; i++) {
       lua_rawgeti(L, index + 1, i + 1);
       uint32_t index = luaL_checkinteger(L, -1) - 1;
-      lovrAssert(index < *vertexCount, "Invalid vertex index %d (expected [%d, %d])", 1, *vertexCount);
+      lovrAssert(index < *vertexCount, "Invalid vertex index %d (expected [%d, %d])", index, 1, *vertexCount);
       (*indices)[i] = index;
       lua_pop(L, 1);
     }
