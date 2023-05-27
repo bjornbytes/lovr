@@ -418,9 +418,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
       { "XR_FB_passthrough", &state.features.questPassthrough, true },
       { "XR_ML_ml2_controller_interaction", &state.features.ml2Controller, true },
-#ifndef __ANDROID__
       { "XR_MND_headless", &state.features.headless, true },
-#endif
       { "XR_MSFT_controller_model", &state.features.controllerModel, true },
       { "XR_ULTRALEAP_hand_tracking_forearm", &state.features.handTrackingElbow, true },
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
