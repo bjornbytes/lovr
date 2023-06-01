@@ -991,21 +991,15 @@ static int l_lovrPassMesh(lua_State* L) {
 
 static int l_lovrPassBeginTally(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  uint32_t index = luax_checku32(L, 2) - 1;
-  lovrPassBeginTally(pass, index);
-  return 0;
+  uint32_t index = lovrPassBeginTally(pass);
+  lua_pushinteger(L, index);
+  return 1;
 }
 
 static int l_lovrPassFinishTally(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  lovrPassFinishTally(pass);
-  return 0;
-}
-
-static int l_lovrPassGetTallyCount(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  uint32_t count = lovrPassGetTallyCount(pass);
-  lua_pushinteger(L, count);
+  uint32_t index = lovrPassFinishTally(pass);
+  lua_pushinteger(L, index);
   return 1;
 }
 
@@ -1028,11 +1022,11 @@ static int l_lovrPassSetTallyBuffer(lua_State* L) {
 
 static int l_lovrPassGetTallyData(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  const uint32_t* data = lovrPassGetTallyData(pass);
+  uint32_t count;
+  const uint32_t* data = lovrPassGetTallyData(pass, &count);
   if (!data) return lua_pushnil(L), 0;
-  int count = (int) lovrPassGetTallyCount(pass);
-  lua_createtable(L, count, 0);
-  for (int i = 0; i < count; i++) {
+  lua_createtable(L, (int) count, 0);
+  for (int i = 0; i < (int) count; i++) {
     lua_pushinteger(L, data[i]);
     lua_rawseti(L, -2, i + 1);
   }
@@ -1149,7 +1143,6 @@ const luaL_Reg lovrPass[] = {
 
   { "beginTally", l_lovrPassBeginTally },
   { "finishTally", l_lovrPassFinishTally },
-  { "getTallyCount", l_lovrPassGetTallyCount },
   { "getTallyBuffer", l_lovrPassGetTallyBuffer },
   { "setTallyBuffer", l_lovrPassSetTallyBuffer },
   { "getTallyData", l_lovrPassGetTallyData },
