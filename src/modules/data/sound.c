@@ -233,16 +233,19 @@ static bool loadWAV(Sound* sound, Blob* blob, bool decode) {
   lovrAssert(raw, "Out of memory");
   if (pcm && wav->sampleSize == 24) {
     float* out = raw;
-    const char* in = data;
-    for (size_t i = 0; i < samples; i++) {
-      int32_t x = ((in[i * 3 + 0] << 8) | (in[i * 3 + 1] << 16) | (in[i * 3 + 2] << 24)) >> 8;
-      out[i] = x * (1. / 8388608.);
+    const uint8_t* in = data;
+    for (size_t i = 0, j = 0; i < samples; i++, j += 3) {
+      int32_t x = in[j + 2] & 0x80 ? 0xff : 0;
+      x = (x << 8) | in[j + 2];
+      x = (x << 8) | in[j + 1];
+      x = (x << 8) | in[j + 0];
+      out[i] = x * (1.f / 8388608.f);
     }
   } else if (pcm && wav->sampleSize == 32) {
     float* out = raw;
     const int32_t* in = (const int32_t*) data;
     for (size_t i = 0; i < samples; i++) {
-      out[i] = in[i] * (1. / 2147483648.);
+      out[i] = in[i] * (1.f / 2147483648.f);
     }
   } else {
     memcpy(raw, data, bytes);
