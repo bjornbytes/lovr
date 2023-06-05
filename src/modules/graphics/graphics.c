@@ -5432,6 +5432,8 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
     trackBuffer(pass, info->index.buffer, GPU_PHASE_INPUT_INDEX, GPU_CACHE_INDEX);
     draw->indexBuffer = info->index.buffer->gpu;
     draw->flags |= info->index.buffer->info.fields[0].stride == 4 ? DRAW_INDEX32 : 0;
+  } else {
+    draw->indexBuffer = NULL;
   }
 
   if (cache) {
