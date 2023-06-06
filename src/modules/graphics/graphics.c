@@ -286,7 +286,7 @@ typedef struct {
 } Globals;
 
 typedef struct {
-  float view[16];
+  float viewMatrix[16];
   float projection[16];
   float viewProjection[16];
   float inverseProjection[16];
@@ -326,7 +326,8 @@ enum {
 
 enum {
   DIRTY_BINDINGS = (1 << 0),
-  DIRTY_CONSTANTS = (1 << 1)
+  DIRTY_CONSTANTS = (1 << 1),
+  DIRTY_CAMERA = (1 << 2)
 };
 
 typedef struct {
@@ -429,7 +430,8 @@ enum {
 };
 
 typedef struct {
-  uint32_t flags;
+  uint16_t flags;
+  uint16_t camera;
   uint32_t tally;
   Shader* shader;
   Material* material;
@@ -479,6 +481,7 @@ struct Pass {
   Tally tally;
   Canvas canvas;
   Camera* cameras;
+  uint32_t cameraCount;
   float viewport[6];
   uint32_t scissor[4];
   Sampler* sampler;
@@ -669,7 +672,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   gpu_slot builtinSlots[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Globals
-    { 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Cameras
+    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // Cameras
     { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // DrawData
     { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS } // Sampler
   };
@@ -1127,7 +1130,7 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
 
   gpu_binding builtins[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = { 0 } },
-    { 1, GPU_SLOT_UNIFORM_BUFFER, .buffer = { 0 } },
+    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .buffer = { 0 } },
     { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .buffer = { 0 } },
     { 3, GPU_SLOT_SAMPLER, .sampler = pass->sampler ? pass->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu }
   };
@@ -1154,16 +1157,19 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
 
   // Cameras
 
-  for (uint32_t i = 0; i < canvas->views; i++) {
-    mat4_init(pass->cameras[i].viewProjection, pass->cameras[i].projection);
-    mat4_init(pass->cameras[i].inverseProjection, pass->cameras[i].projection);
-    mat4_mul(pass->cameras[i].viewProjection, pass->cameras[i].view);
-    mat4_invert(pass->cameras[i].inverseProjection);
+  Camera* camera = pass->cameras;
+  for (uint32_t i = 0; i < pass->cameraCount; i++) {
+    for (uint32_t j = 0; j < canvas->views; j++, camera++) {
+      mat4_init(camera->viewProjection, camera->projection);
+      mat4_init(camera->inverseProjection, camera->projection);
+      mat4_mul(camera->viewProjection, camera->viewMatrix);
+      mat4_invert(camera->inverseProjection);
+    }
   }
 
-  mapped = mapBuffer(&state.streamBuffers, canvas->views * sizeof(Camera), align);
+  mapped = mapBuffer(&state.streamBuffers, pass->cameraCount * canvas->views * sizeof(Camera), align);
   builtins[1].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
-  memcpy(mapped.pointer, pass->cameras, canvas->views * sizeof(Camera));
+  memcpy(mapped.pointer, pass->cameras, pass->cameraCount * canvas->views * sizeof(Camera));
 
   // DrawData
 
@@ -1289,6 +1295,7 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
   gpu_set_viewport(stream, viewport, viewport + 4);
   gpu_set_scissor(stream, scissor);
 
+  uint16_t cameraIndex = 0xffff;
   uint32_t tally = ~0u;
   gpu_pipeline* pipeline = NULL;
   gpu_bundle* bundle = NULL;
@@ -1314,9 +1321,10 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
       pipeline = draw->pipeline;
     }
 
-    if ((i & 0xff) == 0 || constantsDirty) {
-      uint32_t dynamicOffsets[] = { (i >> 8) * drawPageSize };
-      gpu_bind_bundles(stream, draw->shader->gpu, &builtinBundle, 0, 1, dynamicOffsets, 1);
+    if ((i & 0xff) == 0 || draw->camera != cameraIndex || constantsDirty) {
+      uint32_t dynamicOffsets[] = { draw->camera * canvas->views * sizeof(Camera), (i >> 8) * drawPageSize };
+      gpu_bind_bundles(stream, draw->shader->gpu, &builtinBundle, 0, 1, dynamicOffsets, COUNTOF(dynamicOffsets));
+      cameraIndex = draw->camera;
     }
 
     if (draw->material != material || constantsDirty) {
@@ -4543,7 +4551,6 @@ void lovrPassReset(Pass* pass) {
   pass->access[ACCESS_RENDER] = NULL;
   pass->access[ACCESS_COMPUTE] = NULL;
   pass->flags = DIRTY_BINDINGS | DIRTY_CONSTANTS;
-  pass->cameras = lovrPassAllocate(pass, pass->canvas.views * sizeof(Camera));
   pass->transform = lovrPassAllocate(pass, MAX_TRANSFORMS * 16 * sizeof(float));
   pass->pipeline = lovrPassAllocate(pass, MAX_PIPELINES * sizeof(Pipeline));
   pass->bindings = lovrPassAllocate(pass, 32 * sizeof(gpu_binding));
@@ -4554,6 +4561,9 @@ void lovrPassReset(Pass* pass) {
 
   memset(&pass->geocache, 0, sizeof(pass->geocache));
 
+  pass->tally.active = false;
+  pass->tally.count = 0;
+
   pass->transformIndex = 0;
   mat4_identity(pass->transform);
 
@@ -4563,42 +4573,43 @@ void lovrPassReset(Pass* pass) {
   pass->pipeline->color[1] = 1.f;
   pass->pipeline->color[2] = 1.f;
   pass->pipeline->color[3] = 1.f;
-  pass->pipeline->info.attachmentCount = pass->canvas.count;
-  pass->pipeline->info.multisample.count = pass->canvas.samples;
-  pass->pipeline->info.viewCount = pass->canvas.views;
-  pass->pipeline->info.depth.format = (gpu_texture_format) pass->canvas.depth.format;
   pass->pipeline->info.depth.test = GPU_COMPARE_GEQUAL;
   pass->pipeline->info.depth.write = true;
   pass->pipeline->info.stencil.testMask = 0xff;
   pass->pipeline->info.stencil.writeMask = 0xff;
 
   for (uint32_t i = 0; i < COUNTOF(pass->pipeline->info.color); i++) {
-    if (i < pass->canvas.count) {
-      pass->pipeline->info.color[i].format = (gpu_texture_format) pass->canvas.color[i].texture->info.format;
-      pass->pipeline->info.color[i].srgb = pass->canvas.color[i].texture->info.srgb;
-    }
     lovrPassSetBlendMode(pass, i, BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
     pass->pipeline->info.color[i].mask = 0xf;
   }
 
-  pass->sampler = NULL;
+  Canvas* canvas = &pass->canvas;
+  pass->pipeline->info.attachmentCount = canvas->count;
+  pass->pipeline->info.multisample.count = canvas->samples;
+  pass->pipeline->info.viewCount = canvas->views;
+  pass->pipeline->info.depth.format = (gpu_texture_format) canvas->depth.format;
+  for (uint32_t i = 0; i < canvas->count; i++) {
+    pass->pipeline->info.color[i].format = (gpu_texture_format) canvas->color[i].texture->info.format;
+    pass->pipeline->info.color[i].srgb = canvas->color[i].texture->info.format;
+  }
 
-  pass->bindingMask = 0;
-
-  pass->tally.active = false;
-  pass->tally.count = 0;
-
-  uint32_t width = pass->canvas.width;
-  uint32_t height = pass->canvas.height;
-  float aspect = width > 0 && height > 0 ? (float) width / height : 1.f;
-
-  for (uint32_t i = 0; i < pass->canvas.views; i++) {
-    mat4_identity(pass->cameras[i].view);
-    mat4_perspective(pass->cameras[i].projection, 1.2f, aspect, .01f, 0.f);
+  pass->cameraCount = 0;
+  if (canvas->views > 0) {
+    float viewMatrix[16];
+    float projection[16];
+    mat4_identity(viewMatrix);
+    mat4_perspective(projection, 1.2f, (float) canvas->width / canvas->height, .01f, 0.f);
+    for (uint32_t i = 0; i < canvas->views; i++) {
+      lovrPassSetViewMatrix(pass, i, viewMatrix);
+      lovrPassSetProjection(pass, i, projection);
+    }
   }
 
   memset(pass->viewport, 0, sizeof(pass->viewport));
   memset(pass->scissor, 0, sizeof(pass->scissor));
+
+  pass->sampler = NULL;
+  pass->bindingMask = 0;
 
   pass->computeCount = 0;
   pass->drawCount = 0;
@@ -4635,32 +4646,18 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
   canvas->depth.texture = NULL;
   canvas->depth.format = 0;
 
-  bool blank = !textures[0] && !depthTexture;
   const TextureInfo* t = textures[0] ? &textures[0]->info : &depthTexture->info;
 
-  if (!blank) {
+  if (textures[0] || depthTexture) {
     canvas->width = t->width;
     canvas->height = t->height;
+    canvas->views = t->layers;
     lovrCheck(t->width <= state.limits.renderSize[0], "Pass canvas width (%d) exceeds the renderSize limit of this GPU (%d)", t->width, state.limits.renderSize[0]);
     lovrCheck(t->height <= state.limits.renderSize[1], "Pass canvas height (%d) exceeds the renderSize limit of this GPU (%d)", t->height, state.limits.renderSize[1]);
     lovrCheck(t->layers <= state.limits.renderSize[2], "Pass canvas layer count (%d) exceeds the renderSize limit of this GPU (%d)", t->layers, state.limits.renderSize[2]);
-
-    if (t->layers > canvas->views) {
-      Camera* cameras = lovrPassAllocate(pass, t->layers * sizeof(Camera));
-      memcpy(cameras, pass->cameras, canvas->views * sizeof(Camera));
-      pass->cameras = cameras;
-    }
-
-    while (canvas->views < t->layers) {
-      float aspect = (float) t->width / t->height;
-      mat4_identity(pass->cameras[canvas->views].view);
-      mat4_perspective(pass->cameras[canvas->views].projection, 1.2f, aspect, .01f, 0.f);
-      canvas->views++;
-    }
-
-    if (t->samples > 1) {
-      samples = t->samples;
-    }
+    lovrCheck(samples == 1 || samples == 4, "Currently MSAA must be 1 or 4");
+    canvas->samples = t->samples > 1 ? t->samples : samples;
+    canvas->resolve = t->samples == 1 && samples > 1;
   }
 
   for (uint32_t i = 0; i < COUNTOF(canvas->color) && textures[i]; i++, canvas->count++) {
@@ -4695,52 +4692,7 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
     canvas->depth.format = depthFormat;
   }
 
-  lovrCheck(samples == 1 || samples == 4, "Currently MSAA must be 1 or 4");
-  canvas->resolve = !blank && t->samples == 1 && samples > 1;
-  canvas->samples = samples;
-
-  // If anything pipeline-related changes, reset all of the pipelines
-
-  bool dirty = false;
-  gpu_pipeline_info* pipeline = &pass->pipeline->info;
-  dirty |= pipeline->attachmentCount != canvas->count;
-  dirty |= pipeline->multisample.count != canvas->samples;
-  dirty |= pipeline->viewCount != canvas->views;
-  dirty |= pipeline->depth.format != (gpu_texture_format) canvas->depth.format;
-  for (uint32_t i = 0; i < canvas->count; i++) {
-    dirty |= pipeline->color[i].format != (gpu_texture_format) textures[i]->info.format;
-    dirty |= pipeline->color[i].srgb != (gpu_texture_format) textures[i]->info.srgb;
-  }
-
-  if (dirty) {
-    for (uint32_t i = 0; i <= pass->pipelineIndex; i++) {
-      pipeline = &(pass->pipeline - i)->info;
-
-      pipeline->attachmentCount = canvas->count;
-      pipeline->multisample.count = canvas->samples;
-      pipeline->viewCount = canvas->views;
-      pipeline->depth.format = (gpu_texture_format) canvas->depth.format;
-
-      for (uint32_t j = 0; j < canvas->count; j++) {
-        pipeline->color[j].format = (gpu_texture_format) textures[j]->info.format;
-        pipeline->color[j].srgb = textures[j]->info.srgb;
-      }
-    }
-
-    for (uint32_t i = 0; i < pass->drawCount; i++) {
-      Draw* draw = &pass->draws[i >> 8][i & 0xff];
-
-      draw->pipelineInfo->attachmentCount = canvas->count;
-      draw->pipelineInfo->multisample.count = canvas->samples;
-      draw->pipelineInfo->viewCount = canvas->views;
-      draw->pipelineInfo->depth.format = (gpu_texture_format) canvas->depth.format;
-
-      for (uint32_t j = 0; j < canvas->count; j++) {
-        draw->pipelineInfo->color[j].format = (gpu_texture_format) textures[j]->info.format;
-        draw->pipelineInfo->color[j].srgb = textures[j]->info.srgb;
-      }
-    }
-  }
+  lovrPassReset(pass);
 }
 
 void lovrPassGetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadAction* depthLoad, float* depthClear) {
@@ -4790,24 +4742,42 @@ uint32_t lovrPassGetViewCount(Pass* pass) {
   return pass->canvas.views;
 }
 
+static Camera* getCamera(Pass* pass) {
+  if (pass->flags & DIRTY_CAMERA) {
+    return pass->cameras + (pass->cameraCount - 1) * pass->canvas.views;
+  }
+
+  uint32_t views = pass->canvas.views;
+  uint32_t stride = sizeof(Camera) * views;
+  uint32_t count = pass->cameraCount;
+  Camera* cameras = lovrPassAllocate(pass, (count + 1) * stride);
+  Camera* newCamera = cameras + count * views;
+  memcpy(cameras, pass->cameras, count * stride);
+  memcpy(newCamera, newCamera - views, count > 0 ? stride : 0);
+  pass->flags |= DIRTY_CAMERA;
+  pass->cameras = cameras;
+  pass->cameraCount++;
+  return newCamera;
+}
+
 void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]) {
   lovrCheck(index < pass->canvas.views, "Invalid view index '%d'", index + 1);
-  mat4_init(viewMatrix, pass->cameras[index].view);
+  mat4_init(viewMatrix, getCamera(pass)[index].viewMatrix);
 }
 
 void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]) {
   lovrCheck(index < pass->canvas.views, "Invalid view index '%d'", index + 1);
-  mat4_init(pass->cameras[index].view, viewMatrix);
+  mat4_init(getCamera(pass)[index].viewMatrix, viewMatrix);
 }
 
 void lovrPassGetProjection(Pass* pass, uint32_t index, float projection[16]) {
   lovrCheck(index < pass->canvas.views, "Invalid view index '%d'", index + 1);
-  mat4_init(projection, pass->cameras[index].projection);
+  mat4_init(projection, getCamera(pass)[index].projection);
 }
 
 void lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]) {
   lovrCheck(index < pass->canvas.views, "Invalid view index '%d'", index + 1);
-  mat4_init(pass->cameras[index].projection, projection);
+  mat4_init(getCamera(pass)[index].projection, projection);
 }
 
 void lovrPassGetViewport(Pass* pass, float viewport[6]) {
@@ -5493,6 +5463,8 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
 
   draw->flags = 0;
   draw->tally = pass->tally.active ? pass->tally.count : ~0u;
+  draw->camera = pass->cameraCount - 1;
+  pass->flags &= ~DIRTY_CAMERA;
 
   draw->shader = pass->pipeline->shader ? pass->pipeline->shader : lovrGraphicsGetDefaultShader(info->shader);
   lovrRetain(draw->shader);
@@ -6308,7 +6280,7 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
   wrap /= scale;
 
   Material* material;
-  bool flip = pass->cameras[0].projection[5] > 0.f;
+  bool flip = pass->cameras[(pass->cameraCount - 1) * pass->canvas.views].projection[5] > 0.f;
   lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material, flip);
 
   mat4_scale(transform, scale, scale, scale);
@@ -6502,6 +6474,8 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
 
   draw->flags = DRAW_INDIRECT;
   draw->tally = pass->tally.active ? pass->tally.count : ~0u;
+  draw->camera = pass->cameraCount - 1;
+  pass->flags &= ~DIRTY_CAMERA;
 
   draw->shader = shader;
   lovrRetain(shader);
