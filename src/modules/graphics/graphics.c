@@ -1922,6 +1922,7 @@ static Material* lovrTextureGetMaterial(Texture* texture) {
     // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
     // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
     lovrRelease(texture, lovrTextureDestroy);
+    texture->material->info.texture = NULL;
   }
 
   return texture->material;
