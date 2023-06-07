@@ -4570,6 +4570,7 @@ void lovrPassReset(Pass* pass) {
 
   pass->pipelineIndex = 0;
   memset(pass->pipeline, 0, sizeof(Pipeline));
+  pass->pipeline->mode = MESH_TRIANGLES;
   pass->pipeline->color[0] = 1.f;
   pass->pipeline->color[1] = 1.f;
   pass->pipeline->color[2] = 1.f;
