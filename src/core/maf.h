@@ -158,23 +158,37 @@ MAF quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
   return quat_set(q, s * ax, s * ay, s * az, c);
 }
 
+// https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2015/01/matrix-to-quat.pdf
 MAF quat quat_fromMat4(quat q, mat4 m) {
-  float sx = vec3_length(m + 0);
-  float sy = vec3_length(m + 4);
-  float sz = vec3_length(m + 8);
-  float diagonal[4] = { m[0] / sx, m[5] / sy, m[10] / sz };
-  float a = 1.f + diagonal[0] - diagonal[1] - diagonal[2];
-  float b = 1.f - diagonal[0] + diagonal[1] - diagonal[2];
-  float c = 1.f - diagonal[0] - diagonal[1] + diagonal[2];
-  float d = 1.f + diagonal[0] + diagonal[1] + diagonal[2];
-  float x = sqrtf(a > 0.f ? a : 0.f) / 2.f;
-  float y = sqrtf(b > 0.f ? b : 0.f) / 2.f;
-  float z = sqrtf(c > 0.f ? c : 0.f) / 2.f;
-  float w = sqrtf(d > 0.f ? d : 0.f) / 2.f;
-  x = (m[9] / sz - m[6] / sy) > 0.f ? -x : x;
-  y = (m[2] / sx - m[8] / sz) > 0.f ? -y : y;
-  z = (m[4] / sy - m[1] / sx) > 0.f ? -z : z;
-  return quat_set(q, x, y, z, w);
+  float sx = 1.f / vec3_length(m + 0);
+  float sy = 1.f / vec3_length(m + 4);
+  float sz = 1.f / vec3_length(m + 8);
+
+  float m00 = m[0] * sx, m01 = m[1] * sx, m02 = m[2] * sx;
+  float m10 = m[4] * sy, m11 = m[5] * sy, m12 = m[6] * sy;
+  float m20 = m[8] * sz, m21 = m[9] * sz, m22 = m[10] * sz;
+
+  if (m22 < 0.f) {
+    if (m00 > m11) {
+      float t = 1.f + m00 - m11 - m22;
+      float s = .5f / sqrtf(t);
+      return quat_set(q, t * s, (m01 + m10) * s, (m20 + m02) * s, (m12 - m21) * s);
+    } else {
+      float t = 1.f - m00 + m11 - m22;
+      float s = .5f / sqrtf(t);
+      return quat_set(q, (m01 + m10) * s, t * s, (m12 + m21) * s, (m20 - m02) * s);
+    }
+  } else {
+    if (m00 < -m11) {
+      float t = 1.f - m00 - m11 + m22;
+      float s = .5f / sqrtf(t);
+      return quat_set(q, (m20 + m02) * s, (m12 + m21) * s, t * s, (m01 - m10) * s);
+    } else {
+      float t = 1.f + m00 + m11 + m22;
+      float s = .5f / sqrtf(t);
+      return quat_set(q, (m12 - m21) * s, (m20 - m02) * s, (m01 - m10) * s, t * s);
+    }
+  }
 }
 
 MAF quat quat_identity(quat q) {
