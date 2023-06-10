@@ -13,6 +13,13 @@ static int l_lovrPassReset(lua_State* L) {
   return 1;
 }
 
+static int l_lovrPassAppend(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Pass* other = luax_checktype(L, 2, Pass);
+  lovrPassAppend(pass, other);
+  return 0;
+}
+
 static int l_lovrPassGetStats(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   PassStats stats;
@@ -1082,6 +1089,7 @@ static int l_lovrPassGetSampleCount(lua_State* L) {
 
 const luaL_Reg lovrPass[] = {
   { "reset", l_lovrPassReset },
+  { "append", l_lovrPassAppend },
   { "getStats", l_lovrPassGetStats },
 
   { "getCanvas", l_lovrPassGetCanvas },

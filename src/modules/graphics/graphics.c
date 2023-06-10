@@ -426,7 +426,8 @@ typedef struct {
 
 enum {
   DRAW_INDIRECT = (1 << 0),
-  DRAW_INDEX32 = (1 << 1)
+  DRAW_INDEX32 = (1 << 1),
+  DRAW_INLINE_MESH = (1 << 2)
 };
 
 typedef struct {
@@ -476,6 +477,8 @@ struct Pass {
   uint32_t flags;
   Allocator allocator;
   BufferPool buffers;
+  uint32_t firstScratchOffset;
+  ScratchBuffer* firstScratchBuffer;
   Shape geocache[16];
   AccessBlock* access[2];
   Tally tally;
@@ -583,6 +586,7 @@ static size_t tempPush(Allocator* allocator);
 static void tempPop(Allocator* allocator, size_t stack);
 static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align);
 static int u64cmp(const void* a, const void* b);
+static uint32_t lcm(uint32_t a, uint32_t b);
 static void beginFrame(void);
 static void processReadbacks(void);
 static size_t getLayout(gpu_slot* slots, uint32_t count);
@@ -594,6 +598,7 @@ static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint
 static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot);
 static void alignField(BufferField* field, BufferLayout layout);
+static Access* getNextAccess(Pass* pass, int type, bool texture);
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
 static void trackMaterial(Pass* pass, Material* material);
@@ -4556,6 +4561,8 @@ void lovrPassReset(Pass* pass) {
   pass->access[ACCESS_RENDER] = NULL;
   pass->access[ACCESS_COMPUTE] = NULL;
   pass->flags = DIRTY_BINDINGS | DIRTY_CONSTANTS;
+  pass->firstScratchOffset = pass->buffers.cursor;
+  pass->firstScratchBuffer = pass->buffers.newest;
   pass->transform = lovrPassAllocate(pass, MAX_TRANSFORMS * 16 * sizeof(float));
   pass->pipeline = lovrPassAllocate(pass, MAX_PIPELINES * sizeof(Pipeline));
   pass->bindings = lovrPassAllocate(pass, 32 * sizeof(gpu_binding));
@@ -4619,6 +4626,216 @@ void lovrPassReset(Pass* pass) {
 
   pass->computeCount = 0;
   pass->drawCount = 0;
+}
+
+void lovrPassAppend(Pass* pass, Pass* other) {
+  lovrCheck(pass != other, "Unable to append a Pass to itself because it would destroy the universe or something...sorry");
+  beginFrame();
+
+  // First, copy all temporary buffer data into the buffer pool of the target Pass
+
+  uint32_t firstOffset = other->firstScratchBuffer ? other->firstScratchOffset: 0;
+  other->firstScratchBuffer = other->firstScratchBuffer ? other->firstScratchBuffer : other->buffers.oldest;
+  uint32_t totalScratchSize = 0;
+  uint32_t scratchBufferCount = 0;
+
+  // Need to calculate the LCM of *all* temp buffer data, because vertex data offsets need to be a
+  // multiple of the vertex stride after all the buffer data is copied.  It's slow to go over all
+  // the draws like this instead of computing the align as draws are recorded, but this keeps
+  // overhead isolated to :append instead of increasing the overhead of all draws.
+  uint32_t align = state.limits.uniformBufferAlign;
+  for (uint32_t i = 0; i < other->drawCount; i++) {
+    Draw* draw = &other->draws[i >> 8][i & 0xff];
+    if (draw->flags & DRAW_INLINE_MESH) {
+      align = lcm(align, draw->pipelineInfo->vertex.bufferStrides[0]);
+    }
+  }
+
+  for (ScratchBuffer* scratchBuffer = other->firstScratchBuffer; scratchBuffer != NULL; scratchBuffer = scratchBuffer->next) {
+    uint32_t start = scratchBuffer == other->firstScratchBuffer ? firstOffset : 0;
+    uint32_t end = scratchBuffer == other->buffers.newest ? other->buffers.cursor : scratchBuffer->size;
+    totalScratchSize = (totalScratchSize + (align - 1)) / align * align + (end - start);
+    scratchBufferCount++;
+  }
+
+  struct {
+    gpu_buffer* buffer;
+    uint32_t stashOffset;
+    uint32_t base;
+  } *lookup = lovrPassAllocate(pass, scratchBufferCount * sizeof(*lookup));
+
+  MappedBuffer stash = mapBuffer(&pass->buffers, totalScratchSize, align);
+
+  uint32_t i = 0;
+  uint32_t cursor = 0;
+  for (ScratchBuffer* scratchBuffer = other->firstScratchBuffer; scratchBuffer != NULL; scratchBuffer = scratchBuffer->next) {
+    uint32_t start = scratchBuffer == other->firstScratchBuffer ? firstOffset : 0;
+    uint32_t end = scratchBuffer == other->buffers.newest ? other->buffers.cursor : scratchBuffer->size;
+    lookup[i].buffer = scratchBuffer->gpu;
+    lookup[i].stashOffset = stash.offset + cursor;
+    lookup[i].base = start;
+    gpu_copy_buffers(state.stream, scratchBuffer->gpu, stash.buffer, start, lookup[i].stashOffset, end - start);
+    cursor = (cursor + (align - 1)) / align * align + (end - start);
+  }
+
+  gpu_sync(state.stream, &(gpu_barrier) {
+    .prev = GPU_PHASE_TRANSFER,
+    .next = GPU_PHASE_INPUT_INDEX | GPU_PHASE_INPUT_VERTEX | GPU_PHASE_SHADER_VERTEX,
+    .flush = GPU_CACHE_TRANSFER_WRITE,
+    .clear = GPU_CACHE_INDEX | GPU_CACHE_VERTEX | GPU_CACHE_UNIFORM
+  }, 1);
+
+  Canvas* canvas = &pass->canvas;
+  uint32_t baseTally = pass->tally.count;
+  gpu_pipeline_info* srcPipelineInfo = NULL;
+  gpu_pipeline_info* dstPipelineInfo = NULL;
+  gpu_bundle_info* srcBundleInfo = NULL;
+  gpu_bundle_info* dstBundleInfo = NULL;
+  void* srcConstants = NULL;
+  void* dstConstants = NULL;
+
+  for (uint32_t i = 0; i < other->drawCount; i++) {
+    if ((pass->drawCount & 0xff) == 0) {
+      lovrCheck(pass->drawCount < 256 * 256, "Pass has too many draws!");
+      pass->draws[pass->drawCount >> 8] = lovrPassAllocate(pass, 256 * sizeof(Draw));
+    }
+
+    Draw* src = &other->draws[i >> 8][i & 0xff];
+    Draw* dst = &pass->draws[pass->drawCount >> 8][pass->drawCount & 0xff];
+
+    dst->flags = src->flags;
+    dst->camera = pass->cameraCount - 1;
+    dst->tally = pass->tally.active ? pass->tally.count : (baseTally + src->tally);
+    dst->shader = src->shader;
+    dst->material = src->material;
+    lovrRetain(dst->shader);
+    lovrRetain(dst->material);
+
+    dst->pipeline = NULL;
+    if (src->pipelineInfo != srcPipelineInfo) {
+      dst->pipelineInfo = lovrPassAllocate(pass, sizeof(gpu_pipeline_info));
+      memcpy(dst->pipelineInfo, src->pipelineInfo, sizeof(gpu_pipeline_info));
+
+      dst->pipelineInfo->attachmentCount = canvas->count;
+      dst->pipelineInfo->multisample.count = canvas->samples;
+      dst->pipelineInfo->viewCount = canvas->views;
+      dst->pipelineInfo->depth.format = (gpu_texture_format) canvas->depth.format;
+      for (uint32_t j = 0; j < canvas->count; j++) {
+        dst->pipelineInfo->color[j].format = (gpu_texture_format) canvas->color[j].texture->info.format;
+        dst->pipelineInfo->color[j].srgb = canvas->color[j].texture->info.format;
+      }
+
+      srcPipelineInfo = src->pipelineInfo;
+      dstPipelineInfo = dst->pipelineInfo;
+    } else {
+      dst->pipelineInfo = dstPipelineInfo;
+    }
+
+    dst->bundle = NULL;
+    if (src->bundleInfo != srcBundleInfo) {
+      gpu_bundle_info* bundle = lovrPassAllocate(pass, sizeof(gpu_bundle_info));
+      bundle->count = src->bundleInfo->count;
+      bundle->layout = src->bundleInfo->layout;
+      bundle->bindings = lovrPassAllocate(pass, bundle->count * sizeof(gpu_binding));
+      memcpy(bundle->bindings, src->bundleInfo->bindings, bundle->count * sizeof(gpu_binding));
+      dst->bundleInfo = bundle;
+      srcBundleInfo = src->bundleInfo;
+      dstBundleInfo = bundle;
+
+      for (uint32_t j = 0; j < bundle->count; j++) {
+        if (bundle->bindings[j].type != GPU_SLOT_UNIFORM_BUFFER) continue;
+        for (uint32_t k = 0; k < scratchBufferCount; k++) {
+          gpu_buffer_binding* buffer = &bundle->bindings[j].buffer;
+          if (lookup[k].buffer == buffer->object) {
+            buffer->object = stash.buffer;
+            buffer->offset = buffer->offset - lookup[k].base + lookup[k].stashOffset;
+            break;
+          }
+        }
+      }
+    } else {
+      dst->bundleInfo = dstBundleInfo;
+    }
+
+    if (src->constants != srcConstants) {
+      dst->constants = lovrPassAllocate(pass, dst->shader->constantSize);
+      memcpy(dst->constants, src->constants, dst->shader->constantSize);
+      srcConstants = src->constants;
+      dstConstants = dst->constants;
+    } else {
+      dst->constants = dstConstants;
+    }
+
+    if (dst->flags & DRAW_INLINE_MESH) {
+      if (src->vertexBuffer) {
+        dst->vertexBuffer = stash.buffer;
+        for (uint32_t j = 0; j < scratchBufferCount; j++) {
+          if (lookup[j].buffer == src->vertexBuffer) {
+            uint32_t stride = dst->pipelineInfo->vertex.bufferStrides[0];
+            uint32_t* first = src->indexBuffer ? &dst->baseVertex : &dst->start;
+            *first *= stride;
+            *first -= lookup[j].base;
+            *first += lookup[j].stashOffset;
+            *first /= stride;
+            break;
+          }
+        }
+      }
+
+      if (src->indexBuffer) {
+        dst->indexBuffer = stash.buffer;
+        for (uint32_t j = 0; j < scratchBufferCount; j++) {
+          if (lookup[j].buffer == src->indexBuffer) {
+            uint32_t stride = dst->flags & DRAW_INDEX32 ? 4 : 2;
+            dst->start = (dst->start * stride - lookup[j].base + lookup[j].stashOffset) * stride;
+            break;
+          }
+        }
+      }
+    } else {
+      dst->vertexBuffer = src->vertexBuffer;
+      dst->indexBuffer = src->indexBuffer;
+    }
+
+    if (dst->flags & DRAW_INDIRECT) {
+      dst->start = src->start;
+      dst->count = src->count;
+      dst->instances = src->instances;
+      dst->baseVertex = src->baseVertex;
+    } else {
+      dst->indirect.buffer = src->indirect.buffer;
+      dst->indirect.offset = src->indirect.offset;
+      dst->indirect.count = src->indirect.count;
+      dst->indirect.stride = src->indirect.stride;
+    }
+
+    memcpy(dst->transform, src->transform, sizeof(src->transform));
+    memcpy(dst->color, src->color, sizeof(src->color));
+
+    pass->lastDraw = dst;
+    pass->drawCount++;
+  }
+
+  for (AccessBlock* block = other->access[ACCESS_RENDER]; block != NULL; block = block->next) {
+    for (uint64_t i = 0; i < block->count; i++) {
+      bool isTexture = !!(block->textureMask & (1ull << i));
+      Access* access = getNextAccess(pass, ACCESS_RENDER, isTexture);
+      memcpy(access, &block->list[i], sizeof(Access));
+      if (isTexture) {
+        Texture* texture = (Texture*) ((char*) block->list[i].sync - offsetof(Texture, sync));
+        lovrRetain(texture);
+      } else {
+        Buffer* buffer = (Buffer*) ((char*) block->list[i].sync - offsetof(Buffer, sync));
+        lovrRetain(buffer);
+      }
+    }
+  }
+
+  if (!pass->tally.active) {
+    pass->tally.count += other->tally.count;
+  }
+
+  pass->flags &= ~DIRTY_CAMERA;
 }
 
 void lovrPassGetStats(Pass* pass, PassStats* stats) {
@@ -5267,7 +5484,7 @@ void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot
   lovrCheck(shader->bufferMask & (1u << slot), "Trying to send data to slot %d, but that slot isn't a Buffer");
   lovrCheck(~shader->storageMask & (1u << slot), "Unable to send table data to a storage buffer");
 
-  MappedBuffer mapped = mapBuffer(&state.streamBuffers, resource->bufferSize, state.limits.uniformBufferAlign);
+  MappedBuffer mapped = mapBuffer(&pass->buffers, resource->bufferSize, state.limits.uniformBufferAlign);
   pass->bindings[slot].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
   pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
@@ -5385,6 +5602,7 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
     uint32_t stride = state.vertexFormats[info->vertex.format].bufferStrides[0];
     MappedBuffer mapped = mapBuffer(&pass->buffers, info->vertex.count * stride, stride);
     *info->vertex.pointer = mapped.pointer;
+    draw->flags |= DRAW_INLINE_MESH;
     draw->vertexBuffer = mapped.buffer;
     if (info->index.buffer || info->index.count > 0) {
       draw->baseVertex = mapped.offset / stride;
@@ -5402,6 +5620,7 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
   if (!info->index.buffer && info->index.count > 0) {
     MappedBuffer mapped = mapBuffer(&pass->buffers, info->index.count * 2, 2);
     *info->index.pointer = mapped.pointer;
+    draw->flags |= DRAW_INLINE_MESH;
     draw->indexBuffer = mapped.buffer;
     draw->start = mapped.offset / 2;
   } else if (info->index.buffer) {
@@ -6714,6 +6933,14 @@ static int u64cmp(const void* a, const void* b) {
   return (x > y) - (x < y);
 }
 
+static uint32_t gcd(uint32_t a, uint32_t b) {
+  return b ? gcd(b, a % b) : a;
+}
+
+static uint32_t lcm(uint32_t a, uint32_t b) {
+  return (a / gcd(a, b)) * b;
+}
+
 static void beginFrame(void) {
   if (state.active) {
     return;
@@ -7066,11 +7293,9 @@ static void alignField(BufferField* field, BufferLayout layout) {
   }
 }
 
-static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache) {
-  if (!buffer || lovrBufferIsTemporary(buffer)) return;
-
-  int type = phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER;
+static Access* getNextAccess(Pass* pass, int type, bool texture) {
   AccessBlock* block = pass->access[type];
+
   if (!block || block->count >= COUNTOF(block->list)) {
     AccessBlock* new = lovrPassAllocate(pass, sizeof(AccessBlock));
     pass->access[type] = new;
@@ -7080,34 +7305,34 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
     block = new;
   }
 
-  block->list[block->count++] = (Access) { &buffer->sync, phase, cache };
+  block->textureMask |= (uint64_t) texture << block->count;
+  return &block->list[block->count++];
+}
+
+static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache) {
+  if (!buffer || lovrBufferIsTemporary(buffer)) return;
+  Access* access = getNextAccess(pass, phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER, false);
+  access->sync = &buffer->sync;
+  access->phase = phase;
+  access->cache = cache;
   lovrRetain(buffer);
 }
 
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
   if (!texture) return;
 
-  int type = phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER;
-  AccessBlock* block = pass->access[type];
-  if (!block || block->count >= COUNTOF(block->list)) {
-    AccessBlock* new = lovrPassAllocate(pass, sizeof(AccessBlock));
-    pass->access[type] = new;
-    new->next = block;
-    new->count = 0;
-    new->textureMask = 0;
-    block = new;
-  }
-
   Texture* root = texture->info.parent ? texture->info.parent : texture;
 
-  // Sample-only textures can skip sync
+  // Sample-only textures can skip sync, but still need to be refcounted
   if (root->info.usage == TEXTURE_SAMPLE) {
     phase = 0;
     cache = 0;
   }
 
-  block->textureMask |= 1ull << block->count;
-  block->list[block->count++] = (Access) { &root->sync, phase, cache };
+  Access* access = getNextAccess(pass, phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER, true);
+  access->sync = &root->sync;
+  access->phase = phase;
+  access->cache = cache;
   lovrRetain(texture);
 }
 
