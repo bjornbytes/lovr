@@ -1353,6 +1353,7 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
 static int l_lovrGraphicsNewModel(lua_State* L) {
   ModelInfo info = { 0 };
   info.data = luax_totype(L, 1, ModelData);
+  info.materials = true;
   info.mipmaps = true;
 
   if (!info.data) {
@@ -1366,6 +1367,10 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "mipmaps");
     info.mipmaps = lua_isnil(L, -1) || lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "materials");
+    info.materials = lua_isnil(L, -1) || lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
 

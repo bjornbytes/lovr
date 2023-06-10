@@ -3582,52 +3582,54 @@ Model* lovrModelCreate(const ModelInfo* info) {
   }
 
   // Materials and Textures
-  model->textures = calloc(data->imageCount, sizeof(Texture*));
-  model->materials = malloc(data->materialCount * sizeof(Material*));
-  lovrAssert(model->textures && model->materials, "Out of memory");
-  for (uint32_t i = 0; i < data->materialCount; i++) {
-    MaterialInfo material;
-    ModelMaterial* properties = &data->materials[i];
-    memcpy(&material.data, properties, sizeof(MaterialData));
+  if (info->materials) {
+    model->textures = calloc(data->imageCount, sizeof(Texture*));
+    model->materials = malloc(data->materialCount * sizeof(Material*));
+    lovrAssert(model->textures && model->materials, "Out of memory");
+    for (uint32_t i = 0; i < data->materialCount; i++) {
+      MaterialInfo material;
+      ModelMaterial* properties = &data->materials[i];
+      memcpy(&material.data, properties, sizeof(MaterialData));
 
-    struct { uint32_t index; Texture** texture; } textures[] = {
-      { properties->texture, &material.texture },
-      { properties->glowTexture, &material.glowTexture },
-      { properties->metalnessTexture, &material.metalnessTexture },
-      { properties->roughnessTexture, &material.roughnessTexture },
-      { properties->clearcoatTexture, &material.clearcoatTexture },
-      { properties->occlusionTexture, &material.occlusionTexture },
-      { properties->normalTexture, &material.normalTexture }
-    };
+      struct { uint32_t index; Texture** texture; } textures[] = {
+        { properties->texture, &material.texture },
+        { properties->glowTexture, &material.glowTexture },
+        { properties->metalnessTexture, &material.metalnessTexture },
+        { properties->roughnessTexture, &material.roughnessTexture },
+        { properties->clearcoatTexture, &material.clearcoatTexture },
+        { properties->occlusionTexture, &material.occlusionTexture },
+        { properties->normalTexture, &material.normalTexture }
+      };
 
-    for (uint32_t t = 0; t < COUNTOF(textures); t++) {
-      uint32_t index = textures[t].index;
-      Texture** texture = textures[t].texture;
+      for (uint32_t t = 0; t < COUNTOF(textures); t++) {
+        uint32_t index = textures[t].index;
+        Texture** texture = textures[t].texture;
 
-      if (index == ~0u) {
-        *texture = NULL;
-      } else {
-        if (!model->textures[index]) {
-          model->textures[index] = lovrTextureCreate(&(TextureInfo) {
-            .type = TEXTURE_2D,
-            .usage = TEXTURE_SAMPLE,
-            .format = lovrImageGetFormat(data->images[index]),
-            .width = lovrImageGetWidth(data->images[index], 0),
-            .height = lovrImageGetHeight(data->images[index], 0),
-            .layers = 1,
-            .mipmaps = info->mipmaps || lovrImageGetLevelCount(data->images[index]) > 1 ? ~0u : 1,
-            .samples = 1,
-            .srgb = texture == &material.texture || texture == &material.glowTexture,
-            .images = &data->images[index],
-            .imageCount = 1
-          });
+        if (index == ~0u) {
+          *texture = NULL;
+        } else {
+          if (!model->textures[index]) {
+            model->textures[index] = lovrTextureCreate(&(TextureInfo) {
+              .type = TEXTURE_2D,
+              .usage = TEXTURE_SAMPLE,
+              .format = lovrImageGetFormat(data->images[index]),
+              .width = lovrImageGetWidth(data->images[index], 0),
+              .height = lovrImageGetHeight(data->images[index], 0),
+              .layers = 1,
+              .mipmaps = info->mipmaps || lovrImageGetLevelCount(data->images[index]) > 1 ? ~0u : 1,
+              .samples = 1,
+              .srgb = texture == &material.texture || texture == &material.glowTexture,
+              .images = &data->images[index],
+              .imageCount = 1
+            });
+          }
+
+          *texture = model->textures[index];
         }
-
-        *texture = model->textures[index];
       }
-    }
 
-    model->materials[i] = lovrMaterialCreate(&material);
+      model->materials[i] = lovrMaterialCreate(&material);
+    }
   }
 
   // Buffers
@@ -3757,7 +3759,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
       default: lovrThrow("Model uses an unsupported draw mode (lineloop, linestrip, strip, fan)");
     }
 
-    draw->material = primitive->material == ~0u ? NULL: model->materials[primitive->material];
+    draw->material = !info->materials || primitive->material == ~0u ? NULL: model->materials[primitive->material];
     draw->vertex.buffer = model->vertexBuffer;
 
     if (primitive->indices) {
@@ -3927,11 +3929,15 @@ void lovrModelDestroy(void* ref) {
     return;
   }
   ModelData* data = model->info.data;
-  for (uint32_t i = 0; i < data->materialCount; i++) {
-    lovrRelease(model->materials[i], lovrMaterialDestroy);
-  }
-  for (uint32_t i = 0; i < data->imageCount; i++) {
-    lovrRelease(model->textures[i], lovrTextureDestroy);
+  if (model->info.materials) {
+    for (uint32_t i = 0; i < data->materialCount; i++) {
+      lovrRelease(model->materials[i], lovrMaterialDestroy);
+    }
+    for (uint32_t i = 0; i < data->imageCount; i++) {
+      lovrRelease(model->textures[i], lovrTextureDestroy);
+    }
+    free(model->materials);
+    free(model->textures);
   }
   lovrRelease(model->rawVertexBuffer, lovrBufferDestroy);
   lovrRelease(model->vertexBuffer, lovrBufferDestroy);
@@ -3944,8 +3950,6 @@ void lovrModelDestroy(void* ref) {
   free(model->blendShapeWeights);
   free(model->blendGroups);
   free(model->draws);
-  free(model->materials);
-  free(model->textures);
   free(model);
 }
 

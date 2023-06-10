@@ -420,6 +420,7 @@ void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
 
 typedef struct {
   struct ModelData* data;
+  bool materials;
   bool mipmaps;
 } ModelInfo;
 
