@@ -940,7 +940,16 @@ static int l_lovrPassDraw(lua_State* L) {
     return 0;
   }
 
-  return luax_typeerror(L, 2, "Model");
+  Texture* texture = luax_totype(L, 2, Texture);
+
+  if (texture) {
+    float transform[16];
+    luax_readmat4(L, 3, transform, 1);
+    lovrPassDrawTexture(pass, texture, transform);
+    return 0;
+  }
+
+  return luax_typeerror(L, 2, "Model or Texture");
 }
 
 static int l_lovrPassMesh(lua_State* L) {

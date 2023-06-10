@@ -6409,6 +6409,46 @@ void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node
   lovrPassPop(pass, STACK_TRANSFORM);
 }
 
+void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform) {
+  uint32_t key[] = { SHAPE_PLANE, STYLE_FILL, 1, 1 };
+  ShapeVertex* vertices;
+  uint16_t* indices;
+
+  float aspect = (float) texture->info.height / texture->info.width;
+  transform[4] *= aspect;
+  transform[5] *= aspect;
+  transform[6] *= aspect;
+  transform[7] *= aspect;
+
+  uint32_t vertexCount = 4;
+  uint32_t indexCount = 6;
+
+  lovrPassDraw(pass, &(DrawInfo) {
+    .hash = hash64(key, sizeof(key)),
+    .mode = MESH_TRIANGLES,
+    .transform = transform,
+    .material = lovrTextureGetMaterial(texture),
+    .vertex.pointer = (void**) &vertices,
+    .vertex.count = vertexCount,
+    .index.pointer = (void**) &indices,
+    .index.count = indexCount
+  });
+
+  ShapeVertex vertexData[] = {
+    { { -.5f,  .5f, 0.f }, { 0.f, 0.f, 1.f }, { 0.f, 0.f } },
+    { {  .5f,  .5f, 0.f }, { 0.f, 0.f, 1.f }, { 1.f, 0.f } },
+    { { -.5f, -.5f, 0.f }, { 0.f, 0.f, 1.f }, { 0.f, 1.f } },
+    { {  .5f, -.5f, 0.f }, { 0.f, 0.f, 1.f }, { 1.f, 1.f } }
+  };
+
+  uint16_t indexData[] = { 0, 2, 1, 1, 2, 3 };
+
+  if (vertices) {
+    memcpy(vertices, vertexData, sizeof(vertexData));
+    memcpy(indices, indexData, sizeof(indexData));
+  }
+}
+
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t base) {
   lovrCheck(!indices || (indices->info.fields && indices->info.fields->length > 0), "Buffer must have a length greater than zero to use it as an index buffer");
   lovrCheck(!vertices || (vertices->info.fields && vertices->info.fields->length > 0), "Buffer must have a length greater than zero to use it as a vertex buffer");
