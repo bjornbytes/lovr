@@ -62,6 +62,13 @@ StringEntry lovrDefaultShader[] = {
   { 0 }
 };
 
+StringEntry lovrDrawMode[] = {
+  [DRAW_POINTS] = ENTRY("points"),
+  [DRAW_LINES] = ENTRY("lines"),
+  [DRAW_TRIANGLES] = ENTRY("triangles"),
+  { 0 }
+};
+
 StringEntry lovrDrawStyle[] = {
   [STYLE_FILL] = ENTRY("fill"),
   [STYLE_LINE] = ENTRY("line"),
@@ -119,10 +126,9 @@ StringEntry lovrHorizontalAlign[] = {
   { 0 }
 };
 
-StringEntry lovrMeshMode[] = {
-  [MESH_POINTS] = ENTRY("points"),
-  [MESH_LINES] = ENTRY("lines"),
-  [MESH_TRIANGLES] = ENTRY("triangles"),
+StringEntry lovrMeshStorage[] = {
+  [MESH_CPU] = ENTRY("cpu"),
+  [MESH_GPU] = ENTRY("gpu"),
   { 0 }
 };
 
@@ -299,7 +305,6 @@ void luax_checkdataformat(lua_State* L, int index, DataField* fields, uint32_t* 
       luax_checkdataformat(L, -1, fields, count, max);
       lua_pop(L, 1);
 
-      size_t nameLength;
       lua_getfield(L, -1, "name");
       if (lua_isnil(L, -1)) {
         lua_pop(L, 1);
@@ -312,11 +317,9 @@ void luax_checkdataformat(lua_State* L, int index, DataField* fields, uint32_t* 
         }
       }
       if (lua_type(L, -1) == LUA_TSTRING) {
-        child->name = lua_tolstring(L, -1, &nameLength);
-        child->hash = (uint32_t) hash64(child->name, nameLength);
+        child->name = lua_tostring(L, -1);
       } else {
         child->name = NULL;
-        child->hash = 0;
       }
       lua_pop(L, 1);
 
@@ -771,7 +774,7 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 
   if (index) {
     if (lua_istable(L, index)) {
-      DataField* format = lovrBufferGetInfo(buffer)->format;
+      const DataField* format = lovrBufferGetInfo(buffer)->format;
       luax_checkbufferdata(L, index, format, pointer);
     } else {
       Blob* blob = luax_checktype(L, index, Blob);
@@ -795,7 +798,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   if (index) {
     if (lua_istable(L, index)) {
-      DataField* format = lovrBufferGetInfo(buffer)->format;
+      const DataField* format = lovrBufferGetInfo(buffer)->format;
       luax_checkbufferdata(L, index, format, pointer);
     } else {
       Blob* blob = luax_checktype(L, index, Blob);
@@ -1352,6 +1355,89 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
   return 1;
 }
 
+static int l_lovrGraphicsNewMesh(lua_State* L) {
+  MeshInfo info = { 0 };
+
+  bool hasFormat = false;
+  if (lua_istable(L, 1)) {
+    lua_rawgeti(L, 1, 1);
+    if (lua_istable(L, -1)) {
+      lua_getfield(L, -1, "type");
+      lua_rawgeti(L, -2, 1);
+      if (lua_type(L, -2) == LUA_TSTRING || lua_type(L, -1) == LUA_TSTRING) {
+        luax_checkdataformat(L, 1, info.format, &info.fieldCount, COUNTOF(info.format));
+        hasFormat = true;
+      }
+      lua_pop(L, 2);
+    }
+    lua_pop(L, 1);
+  }
+
+  if (!hasFormat) {
+    DataField format[] = {
+      { .stride = 32 },
+      { .name = "VertexPosition", .type = TYPE_F32x3, .offset = 0 },
+      { .name = "VertexNormal", .type = TYPE_F32x3, .offset = 12 },
+      { .name = "VertexUV", .type = TYPE_F32x2, .offset = 24 }
+    };
+
+    memcpy(info.format, format, sizeof(format));
+    info.format->childCount = COUNTOF(format) - 1;
+    info.format->children = info.format + 1;
+    info.fieldCount = COUNTOF(format);
+  }
+
+  Blob* blob = NULL;
+  bool hasData = false;
+  int index = 1 + hasFormat;
+  switch (lua_type(L, index)) {
+    case LUA_TNUMBER: info.format->length = luax_checku32(L, index++); break;
+    case LUA_TTABLE: info.format->length = luax_len(L, index++); hasData = true; break;
+    case LUA_TUSERDATA:
+      if ((info.vertexBuffer = luax_totype(L, index++, Buffer)) != NULL) break;
+      if ((blob = luax_totype(L, index++, Blob)) != NULL) {
+        lovrCheck(blob->size % info.format->stride == 0, "Blob size must be a multiple of vertex size");
+        info.format->length = blob->size / info.format->stride;
+        hasData = true;
+        break;
+      }
+    default: return luax_typeerror(L, index, "number, table, Blob, or Buffer");
+  }
+
+  if (info.vertexBuffer || luax_totype(L, index, Buffer)) {
+    info.storage = MESH_GPU;
+  } else {
+    info.storage = luax_checkenum(L, index + (luax_totype(L, index, Blob) ? 2 : 1), MeshStorage, "cpu");
+  }
+
+  void* vertices = NULL;
+  Mesh* mesh = lovrMeshCreate(&info, hasData ? &vertices : NULL);
+
+  if (blob) {
+    memcpy(vertices, blob->data, blob->size);
+  } else if (hasData) {
+    luax_checkbufferdata(L, index - 1, lovrMeshGetVertexFormat(mesh), vertices);
+  }
+
+  if (!lua_isnoneornil(L, index)) {
+    luax_pushtype(L, Mesh, mesh);
+    lua_getfield(L, -1, "setIndices");
+    lua_pushvalue(L, -2);
+    lua_pushvalue(L, index);
+    if (luax_totype(L, -1, Blob)) {
+      lua_pushvalue(L, index + 1);
+      lua_call(L, 3, 0);
+    } else {
+      lua_call(L, 2, 0);
+    }
+  } else {
+    luax_pushtype(L, Mesh, mesh);
+  }
+
+  lovrRelease(mesh, lovrMeshDestroy);
+  return 1;
+}
+
 static int l_lovrGraphicsNewModel(lua_State* L) {
   ModelInfo info = { 0 };
   info.data = luax_totype(L, 1, ModelData);
@@ -1430,6 +1516,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "newShader", l_lovrGraphicsNewShader },
   { "newMaterial", l_lovrGraphicsNewMaterial },
   { "newFont", l_lovrGraphicsNewFont },
+  { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },
   { "newPass", l_lovrGraphicsNewPass },
   { "getPass", l_lovrGraphicsGetPass },
@@ -1442,6 +1529,7 @@ extern const luaL_Reg lovrSampler[];
 extern const luaL_Reg lovrShader[];
 extern const luaL_Reg lovrMaterial[];
 extern const luaL_Reg lovrFont[];
+extern const luaL_Reg lovrMesh[];
 extern const luaL_Reg lovrModel[];
 extern const luaL_Reg lovrReadback[];
 extern const luaL_Reg lovrPass[];
@@ -1455,6 +1543,7 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Shader);
   luax_registertype(L, Material);
   luax_registertype(L, Font);
+  luax_registertype(L, Mesh);
   luax_registertype(L, Model);
   luax_registertype(L, Readback);
   luax_registertype(L, Pass);

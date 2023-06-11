@@ -826,7 +826,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "primitives")) {
           for (uint32_t j = (token++)->size; j > 0; j--, primitive++) {
-            primitive->mode = DRAW_TRIANGLES;
+            primitive->mode = DRAW_TRIANGLE_LIST;
             primitive->material = ~0u;
 
             for (int k2 = (token++)->size; k2 > 0; k2--) {
@@ -838,11 +838,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                 lovrAssert(primitive->indices->type != U8, "Unsigned byte indices are not supported (must be unsigned shorts or unsigned ints)");
               } else if (STR_EQ(key, "mode")) {
                 switch (NOM_INT(json, token)) {
-                  case 0: primitive->mode = DRAW_POINTS; break;
-                  case 1: primitive->mode = DRAW_LINES; break;
+                  case 0: primitive->mode = DRAW_POINT_LIST; break;
+                  case 1: primitive->mode = DRAW_LINE_LIST; break;
                   case 2: primitive->mode = DRAW_LINE_LOOP; break;
                   case 3: primitive->mode = DRAW_LINE_STRIP; break;
-                  case 4: primitive->mode = DRAW_TRIANGLES; break;
+                  case 4: primitive->mode = DRAW_TRIANGLE_LIST; break;
                   case 5: primitive->mode = DRAW_TRIANGLE_STRIP; break;
                   case 6: primitive->mode = DRAW_TRIANGLE_FAN; break;
                   default: lovrThrow("Unknown primitive mode");

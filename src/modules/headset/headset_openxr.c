@@ -2063,7 +2063,7 @@ static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated)
   model->attributes[5] = (ModelAttribute) { .buffer = 5, .type = U16, .count = indexCount };
 
   model->primitives[0] = (ModelPrimitive) {
-    .mode = DRAW_TRIANGLES,
+    .mode = DRAW_TRIANGLE_LIST,
     .attributes = {
       [ATTR_POSITION] = &model->attributes[0],
       [ATTR_NORMAL] = &model->attributes[1],

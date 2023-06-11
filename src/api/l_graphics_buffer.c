@@ -300,7 +300,8 @@ static int luax_pushcomponents(lua_State* L, const DataField* field, char* data)
 static int luax_pushstruct(lua_State* L, const DataField* field, char* data) {
   lua_createtable(L, 0, field->childCount);
   for (uint32_t i = 0; i < field->childCount; i++) {
-    if (field->childCount > 0 || field->length > 0 || fieldComponents[field->type] == 1) {
+    const DataField* child = &field->children[i];
+    if (child->childCount > 0 || child->length > 0 || fieldComponents[child->type] == 1) {
       luax_pushbufferdata(L, &field->children[i], data + field->children[i].offset);
     } else {
       int n = fieldComponents[field->type];
@@ -320,7 +321,7 @@ int luax_pushbufferdata(lua_State* L, const DataField* field, char* data) {
     lua_createtable(L, field->length, 0);
     if (field->childCount > 0) {
       for (uint32_t i = 0; i < field->length; i++) {
-        luax_pushstruct(L, &field->children[i], data);
+        luax_pushstruct(L, field, data);
         lua_rawseti(L, -2, i + 1);
         data += field->stride;
       }

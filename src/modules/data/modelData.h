@@ -68,21 +68,21 @@ typedef struct {
 } ModelBlendData;
 
 typedef enum {
-  DRAW_POINTS,
-  DRAW_LINES,
+  DRAW_POINT_LIST,
+  DRAW_LINE_LIST,
   DRAW_LINE_LOOP,
   DRAW_LINE_STRIP,
-  DRAW_TRIANGLES,
+  DRAW_TRIANGLE_LIST,
   DRAW_TRIANGLE_STRIP,
   DRAW_TRIANGLE_FAN
-} DrawMode;
+} ModelDrawMode;
 
 typedef struct {
   ModelAttribute* attributes[MAX_DEFAULT_ATTRIBUTES];
   ModelAttribute* indices;
   ModelBlendData* blendShapes;
   uint32_t blendShapeCount;
-  DrawMode mode;
+  ModelDrawMode mode;
   uint32_t material;
   uint32_t skin;
 } ModelPrimitive;

@@ -77,32 +77,6 @@ static int l_lovrModelGetNodeChildren(lua_State* L) {
   return luax_callmodeldata(L, "getNodeChildren", 1);
 }
 
-static int l_lovrModelGetNodeDrawCount(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
-  uint32_t count = lovrModelGetNodeDrawCount(model, node);
-  lua_pushinteger(L, count);
-  return 1;
-}
-
-static int l_lovrModelGetNodeDraw(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
-  uint32_t index = luax_optu32(L, 3, 1) - 1;
-  ModelDraw draw;
-  lovrModelGetNodeDraw(model, node, index, &draw);
-  luax_pushenum(L, MeshMode, draw.mode);
-  luax_pushtype(L, Material, draw.material);
-  lua_pushinteger(L, draw.start + 1);
-  lua_pushinteger(L, draw.count);
-  if (draw.indexed) {
-    lua_pushinteger(L, draw.base);
-    return 5;
-  } else {
-    return 4;
-  }
-}
-
 static int l_lovrModelGetNodePosition(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
@@ -354,6 +328,30 @@ static int l_lovrModelGetIndexBuffer(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelGetMeshCount(lua_State* L) {
+  return luax_callmodeldata(L, "getMeshCount", 1);
+}
+
+static int l_lovrModelGetMesh(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t index = luax_checku32(L, 3) - 1;
+  Mesh* mesh = lovrModelGetMesh(model, index);
+  luax_pushtype(L, Mesh, mesh);
+  return 1;
+}
+
+static int l_lovrModelGetTextureCount(lua_State* L) {
+  return luax_callmodeldata(L, "getImageCount", 1);
+}
+
+static int l_lovrModelGetTexture(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  Texture* texture = lovrModelGetTexture(model, index);
+  luax_pushtype(L, Texture, texture);
+  return 1;
+}
+
 static int l_lovrModelGetMaterialCount(lua_State* L) {
   return luax_callmodeldata(L, "getMaterialCount", 1);
 }
@@ -362,23 +360,11 @@ static int l_lovrModelGetMaterialName(lua_State* L) {
   return luax_callmodeldata(L, "getMaterialName", 1);
 }
 
-static int l_lovrModelGetTextureCount(lua_State* L) {
-  return luax_callmodeldata(L, "getImageCount", 1);
-}
-
 static int l_lovrModelGetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t index = luax_checkmaterialindex(L, 2, lovrModelGetInfo(model)->data);
   Material* material = lovrModelGetMaterial(model, index);
   luax_pushtype(L, Material, material);
-  return 1;
-}
-
-static int l_lovrModelGetTexture(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
-  uint32_t index = luaL_checkinteger(L, 2);
-  Texture* texture = lovrModelGetTexture(model, index);
-  luax_pushtype(L, Texture, texture);
   return 1;
 }
 
@@ -391,8 +377,6 @@ const luaL_Reg lovrModel[] = {
   { "getNodeName", l_lovrModelGetNodeName },
   { "getNodeParent", l_lovrModelGetNodeParent },
   { "getNodeChildren", l_lovrModelGetNodeChildren },
-  { "getNodeDrawCount", l_lovrModelGetNodeDrawCount },
-  { "getNodeDraw", l_lovrModelGetNodeDraw },
   { "getNodePosition", l_lovrModelGetNodePosition },
   { "setNodePosition", l_lovrModelSetNodePosition },
   { "getNodeOrientation", l_lovrModelGetNodeOrientation },
@@ -425,10 +409,12 @@ const luaL_Reg lovrModel[] = {
   { "getBoundingSphere", l_lovrModelGetBoundingSphere },
   { "getVertexBuffer", l_lovrModelGetVertexBuffer },
   { "getIndexBuffer", l_lovrModelGetIndexBuffer },
+  { "getMeshCount", l_lovrModelGetMeshCount },
+  { "getMesh", l_lovrModelGetMesh },
+  { "getTextureCount", l_lovrModelGetTextureCount },
+  { "getTexture", l_lovrModelGetTexture },
   { "getMaterialCount", l_lovrModelGetMaterialCount },
   { "getMaterialName", l_lovrModelGetMaterialName },
-  { "getTextureCount", l_lovrModelGetTextureCount },
   { "getMaterial", l_lovrModelGetMaterial },
-  { "getTexture", l_lovrModelGetTexture },
   { NULL, NULL }
 };
