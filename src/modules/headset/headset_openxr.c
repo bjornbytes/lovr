@@ -2407,6 +2407,10 @@ static void openxr_submit(void) {
   state.waited = false;
 }
 
+static bool openxr_isVisible(void) {
+  return state.sessionState >= XR_SESSION_STATE_VISIBLE;
+}
+
 static bool openxr_isFocused(void) {
   return state.sessionState == XR_SESSION_STATE_FOCUSED;
 }
@@ -2441,6 +2445,12 @@ static double openxr_update(void) {
             break;
 
           default: break;
+        }
+
+        bool wasVisible = state.sessionState >= XR_SESSION_STATE_VISIBLE;
+        bool isVisible = event->state >= XR_SESSION_STATE_VISIBLE;
+        if (wasVisible != isVisible) {
+          lovrEventPush((Event) { .type = EVENT_VISIBLE, .data.boolean.value = isVisible });
         }
 
         bool wasFocused = state.sessionState == XR_SESSION_STATE_FOCUSED;
@@ -2528,6 +2538,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getTexture = openxr_getTexture,
   .getPass = openxr_getPass,
   .submit = openxr_submit,
+  .isVisible = openxr_isVisible,
   .isFocused = openxr_isFocused,
   .update = openxr_update
 };

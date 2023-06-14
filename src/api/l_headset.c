@@ -565,6 +565,11 @@ static int l_lovrHeadsetSubmit(lua_State* L) {
   return 0;
 }
 
+static int l_lovrHeadsetIsVisible(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetInterface->isVisible());
+  return 1;
+}
+
 static int l_lovrHeadsetIsFocused(lua_State* L) {
   lua_pushboolean(L, lovrHeadsetInterface->isFocused());
   return 1;
@@ -653,6 +658,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getTexture", l_lovrHeadsetGetTexture },
   { "getPass", l_lovrHeadsetGetPass },
   { "submit", l_lovrHeadsetSubmit },
+  { "isVisible", l_lovrHeadsetIsVisible },
   { "isFocused", l_lovrHeadsetIsFocused },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },

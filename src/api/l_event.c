@@ -8,6 +8,7 @@
 StringEntry lovrEventType[] = {
   [EVENT_QUIT] = ENTRY("quit"),
   [EVENT_RESTART] = ENTRY("restart"),
+  [EVENT_VISIBLE] = ENTRY("visible"),
   [EVENT_FOCUS] = ENTRY("focus"),
   [EVENT_RESIZE] = ENTRY("resize"),
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
@@ -144,6 +145,10 @@ static int nextEvent(lua_State* L) {
   switch (event.type) {
     case EVENT_QUIT:
       lua_pushnumber(L, event.data.quit.exitCode);
+      return 2;
+
+    case EVENT_VISIBLE:
+      lua_pushboolean(L, event.data.boolean.value);
       return 2;
 
     case EVENT_FOCUS:

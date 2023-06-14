@@ -11,6 +11,7 @@ struct Thread;
 typedef enum {
   EVENT_QUIT,
   EVENT_RESTART,
+  EVENT_VISIBLE,
   EVENT_FOCUS,
   EVENT_RESIZE,
   EVENT_KEYPRESSED,

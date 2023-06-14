@@ -165,6 +165,7 @@ typedef struct HeadsetInterface {
   struct Texture* (*getTexture)(void);
   struct Pass* (*getPass)(void);
   void (*submit)(void);
+  bool (*isVisible)(void);
   bool (*isFocused)(void);
   double (*update)(void);
 } HeadsetInterface;
