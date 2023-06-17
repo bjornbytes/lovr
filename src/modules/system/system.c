@@ -55,6 +55,14 @@ static void onMouseMove(double x, double y) {
   state.mouseY = y;
 }
 
+static void onWheelMove(double deltaX, double deltaY) {
+  lovrEventPush((Event) {
+    .type = EVENT_MOUSEWHEELMOVED,
+    .data.wheel.x = deltaX,
+    .data.wheel.y = deltaY,
+  });
+}
+
 static void onPermission(os_permission permission, bool granted) {
   lovrEventPush((Event) {
     .type = EVENT_PERMISSION,
@@ -76,6 +84,7 @@ bool lovrSystemInit(void) {
   os_on_text(onText);
   os_on_mouse_button(onMouseButton);
   os_on_mouse_move(onMouseMove);
+  os_on_mousewheel_move(onWheelMove);
   os_on_permission(onPermission);
   state.initialized = true;
   os_get_mouse_position(&state.mouseX, &state.mouseY);

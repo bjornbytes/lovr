@@ -16,6 +16,7 @@ static struct {
   fn_key* onKeyboardEvent;
   fn_mouse_button* onMouseButton;
   fn_mouse_move* onMouseMove;
+  fn_mousewheel_move* onMouseWheelMove;
   bool keyMap[KEY_COUNT];
   bool mouseMap[2];
   os_mouse_mode mouseMode;
@@ -84,6 +85,13 @@ static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* use
   }
   if (state.onMouseMove) {
     state.onMouseMove(state.mouseX, state.mouseY);
+  }
+  return false;
+}
+
+static EM_BOOL onMouseWheelMove(int type, const EmscriptenWheelEvent* data, void* userdata) {
+  if (state.onMouseWheelMove) {
+    state.onMouseWheelMove(data->deltaX, -data->deltaY);
   }
   return false;
 }
@@ -197,6 +205,7 @@ bool os_init(void) {
   emscripten_set_mousedown_callback(CANVAS, NULL, true, onMouseButton);
   emscripten_set_mouseup_callback(CANVAS, NULL, true, onMouseButton);
   emscripten_set_mousemove_callback(CANVAS, NULL, true, onMouseMove);
+  emscripten_set_wheel_callback(CANVAS, NULL, true, onMouseWheelMove);
   emscripten_set_keydown_callback(CANVAS, NULL, true, onKeyEvent);
   emscripten_set_keyup_callback(CANVAS, NULL, true, onKeyEvent);
   return true;
@@ -343,6 +352,10 @@ void os_on_mouse_button(fn_mouse_button* callback) {
 
 void os_on_mouse_move(fn_mouse_move* callback) {
   state.onMouseMove = callback;
+}
+
+void os_on_mousewheel_move(fn_mousewheel_move* callback) {
+  state.onMouseWheelMove = callback;
 }
 
 void os_get_mouse_position(double* x, double* y) {
