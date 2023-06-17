@@ -52,6 +52,11 @@ void os_on_mouse_move(fn_mouse_move* callback) {
   //
 }
 
+void os_on_mousewheel_move(fn_wheel_move* callback)
+{
+  //
+}
+
 void os_get_mouse_position(double* x, double* y) {
   *x = *y = 0.;
 }
@@ -105,6 +110,7 @@ static struct {
   fn_text* onTextEvent;
   fn_mouse_button* onMouseButton;
   fn_mouse_move* onMouseMove;
+  fn_mousewheel_move* onMouseWheelMove;
 } glfwState;
 
 static void onError(int code, const char* description) {
@@ -250,6 +256,13 @@ static void onMouseMove(GLFWwindow* window, double x, double y) {
   }
 }
 
+static void onMouseWheelMove(GLFWwindow* window, double deltaX, double deltaY) {
+  if (glfwState.onMouseWheelMove) {
+    deltaX = (deltaX == 0.0) ? 0.0 : -deltaX;
+    glfwState.onMouseWheelMove(deltaX, deltaY);
+  }
+}
+
 static int convertMouseButton(os_mouse_button button) {
   switch (button) {
     case MOUSE_LEFT: return GLFW_MOUSE_BUTTON_LEFT;
@@ -338,6 +351,7 @@ bool os_window_open(const os_window_config* config) {
   glfwSetCharCallback(glfwState.window, onTextEvent);
   glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
   glfwSetCursorPosCallback(glfwState.window, onMouseMove);
+  glfwSetScrollCallback(glfwState.window, onMouseWheelMove);
   return true;
 }
 
@@ -394,6 +408,10 @@ void os_on_mouse_button(fn_mouse_button* callback) {
 
 void os_on_mouse_move(fn_mouse_move* callback) {
   glfwState.onMouseMove = callback;
+}
+
+void os_on_mousewheel_move(fn_mousewheel_move* callback) {
+  glfwState.onMouseWheelMove = callback;
 }
 
 void os_get_mouse_position(double* x, double* y) {

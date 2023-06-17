@@ -334,6 +334,10 @@ void os_on_mouse_move(fn_mouse_move* callback) {
   //
 }
 
+void os_on_mousewheel_move(fn_mousewheel_move* callback) {
+  //
+}
+
 void os_on_permission(fn_permission* callback) {
   state.onPermissionEvent = callback;
 }

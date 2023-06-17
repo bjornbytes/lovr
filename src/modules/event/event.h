@@ -20,6 +20,7 @@ typedef enum {
   EVENT_MOUSEPRESSED,
   EVENT_MOUSERELEASED,
   EVENT_MOUSEMOVED,
+  EVENT_MOUSEWHEELMOVED,
 #ifndef LOVR_DISABLE_THREAD
   EVENT_THREAD_ERROR,
 #endif
@@ -103,6 +104,11 @@ typedef struct {
 } MouseEvent;
 
 typedef struct {
+  double x;
+  double y;
+} MouseWheelEvent;
+
+typedef struct {
   struct Thread* thread;
   char* error;
 } ThreadEvent;
@@ -125,6 +131,7 @@ typedef union {
   KeyEvent key;
   TextEvent text;
   MouseEvent mouse;
+  MouseWheelEvent wheel;
   ThreadEvent thread;
   CustomEvent custom;
   PermissionEvent permission;
