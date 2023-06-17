@@ -4185,26 +4185,17 @@ static void lovrModelAnimateVertices(Model* model) {
   beginFrame();
 
   if (blend) {
-    gpu_buffer* src = model->rawVertexBuffer->gpu;
-    gpu_buffer* dst = model->vertexBuffer->gpu;
-    gpu_copy_buffers(state.stream, src, dst, 0, 0, data->dynamicVertexCount * sizeof(ModelVertex));
-    gpu_sync(state.stream, &(gpu_barrier) {
-      .prev = GPU_PHASE_TRANSFER,
-      .next = GPU_PHASE_SHADER_COMPUTE,
-      .flush = GPU_CACHE_TRANSFER_WRITE,
-      .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
-    }, 1);
-
     Shader* shader = lovrGraphicsGetDefaultShader(SHADER_BLENDER);
     gpu_layout* layout = state.layouts.data[shader->layout].gpu;
-    uint32_t vertexCount = model->info.data->dynamicVertexCount;
+    uint32_t vertexCount = data->dynamicVertexCount;
     uint32_t blendBufferCursor = 0;
     uint32_t chunkSize = 64;
 
     gpu_binding bindings[] = {
-      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
-      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->blendBuffer->gpu, 0, model->blendBuffer->info.size } },
-      { 2, GPU_SLOT_UNIFORM_BUFFER, .buffer = { NULL, 0, chunkSize * sizeof(float) } }
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->rawVertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
+      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, 0, vertexCount * sizeof(ModelVertex) } },
+      { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->blendBuffer->gpu, 0, model->blendBuffer->info.size } },
+      { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { NULL, 0, chunkSize * sizeof(float) } }
     };
 
     gpu_compute_begin(state.stream);
@@ -4218,7 +4209,7 @@ static void lovrModelAnimateVertices(Model* model) {
 
         MappedBuffer mapped = mapBuffer(&state.streamBuffers, chunkSize * sizeof(float), state.limits.uniformBufferAlign);
         memcpy(mapped.pointer, model->blendShapeWeights + group->index + j, count * sizeof(float));
-        bindings[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
+        bindings[3].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
 
         gpu_bundle* bundle = getBundle(shader->layout);
         gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
