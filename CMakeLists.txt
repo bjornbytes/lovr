@@ -828,11 +828,20 @@ elseif(ANDROID)
 
     # Copy plugin libraries to lib folder before packaging APK
     foreach(target ${ALL_PLUGIN_TARGETS})
-      add_custom_command(TARGET move_files POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-          $<TARGET_FILE:${target}>
-          raw/lib/${ANDROID_ABI}/$<TARGET_FILE_NAME:${target}>
-      )
+      get_target_property(TARGET_TYPE ${target} TYPE)
+      if(${TARGET_TYPE} STREQUAL "SHARED_LIBRARY")
+        add_custom_command(TARGET move_files POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:${target}>
+            raw/lib/${ANDROID_ABI}/$<TARGET_SONAME_FILE_NAME:${target}>
+        )
+      elseif(${TARGET_TYPE} STREQUAL "MODULE_LIBRARY")
+        add_custom_command(TARGET move_files POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:${target}>
+            raw/lib/${ANDROID_ABI}/$<TARGET_FILE_NAME:${target}>
+        )
+      endif()
     endforeach()
     add_dependencies(buildAPK move_files)
   endif()
