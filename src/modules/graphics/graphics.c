@@ -4173,6 +4173,8 @@ static void lovrModelAnimateVertices(Model* model) {
   bool blend = model->blendGroupCount > 0;
   bool skin = data->skinCount > 0;
 
+  beginFrame();
+
   if ((!blend && !skin) || (!model->transformsDirty && !model->blendShapesDirty) || model->lastVertexAnimation == state.tick) {
     return;
   }
@@ -4181,8 +4183,6 @@ static void lovrModelAnimateVertices(Model* model) {
     updateModelTransforms(model, model->info.data->rootNode, (float[]) MAT4_IDENTITY);
     model->transformsDirty = false;
   }
-
-  beginFrame();
 
   if (blend) {
     Shader* shader = lovrGraphicsGetDefaultShader(SHADER_BLENDER);
