@@ -109,17 +109,19 @@ void lovrModelDataAllocate(ModelData* model) {
 
 void lovrModelDataFinalize(ModelData* model) {
   for (uint32_t i = 0; i < model->primitiveCount; i++) {
-    model->primitives[i].skin = 0xaaaaaaaa;
+    model->primitives[i].skin = ~0u;
   }
 
   for (uint32_t i = 0; i < model->nodeCount; i++) {
     ModelNode* node = &model->nodes[i];
-    for (uint32_t j = 0, index = node->primitiveIndex; j < node->primitiveCount; j++, index++) {
-      if (model->primitives[index].skin != 0xaaaaaaaa) {
-        lovrCheck(model->primitives[index].skin == node->skin, "Model has a mesh used with multiple skins, which is not supported");
-      } else {
-        model->primitives[index].skin = node->skin;
-      }
+
+    for (uint32_t j = 0; j < model->nodeCount; j++) {
+      if (i == j || node->primitiveIndex != model->nodes[j].primitiveIndex) continue;
+      lovrCheck(node->skin == model->nodes[j].skin, "Model has a mesh used with multiple different skins, which is not supported");
+    }
+
+    for (uint32_t j = node->primitiveIndex; j < node->primitiveIndex + node->primitiveCount; j++) {
+      model->primitives[j].skin = node->skin;
     }
   }
 
@@ -212,7 +214,7 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
           ((uint8_t*) dst)[j] = ((uint16_t*) src)[j] >> 8;
         }
         if (components == 4 && attribute->components == 3) {
-          ((float*) dst)[3] = 255;
+          ((uint8_t*) dst)[3] = 255;
         }
       }
     } else if (attribute->type == U16 && !attribute->normalized && !normalized) {
@@ -233,7 +235,7 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
           ((uint8_t*) dst)[j] = ((float*) src)[j] * 255.f + .5f;
         }
         if (components == 4 && attribute->components == 3) {
-          ((float*) dst)[3] = 255;
+          ((uint8_t*) dst)[3] = 255;
         }
       }
     } else {
