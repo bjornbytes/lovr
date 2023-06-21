@@ -3833,10 +3833,10 @@ Model* lovrModelCreate(const ModelInfo* info) {
         uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
         size_t stride = sizeof(BlendVertex);
 
-        ModelBlendData* blendShape = &primitive->blendShapes[i];
-        lovrModelDataCopyAttribute(data, blendShape->positions, blendData + offsetof(BlendVertex, position), F32, 3, false, vertexCount, stride, 0);
-        lovrModelDataCopyAttribute(data, blendShape->normals, blendData + offsetof(BlendVertex, normal), F32, 3, false, vertexCount, stride, 0);
-        lovrModelDataCopyAttribute(data, blendShape->tangents, blendData + offsetof(BlendVertex, tangent), F32, 3, false, vertexCount, stride, 0);
+        ModelBlendData* blendAttributes = &primitive->blendShapes[i - node->blendShapeIndex];
+        lovrModelDataCopyAttribute(data, blendAttributes->positions, blendData + offsetof(BlendVertex, position), F32, 3, false, vertexCount, stride, 0);
+        lovrModelDataCopyAttribute(data, blendAttributes->normals, blendData + offsetof(BlendVertex, normal), F32, 3, false, vertexCount, stride, 0);
+        lovrModelDataCopyAttribute(data, blendAttributes->tangents, blendData + offsetof(BlendVertex, tangent), F32, 3, false, vertexCount, stride, 0);
         blendData += vertexCount * stride;
         groupVertexCount += vertexCount;
       }
