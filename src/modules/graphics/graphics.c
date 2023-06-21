@@ -4206,6 +4206,7 @@ static void lovrModelAnimateVertices(Model* model) {
 
       for (uint32_t j = 0; j < group->count; j += chunkSize) {
         uint32_t count = MIN(group->count - j, chunkSize);
+        bool first = j == 0;
 
         MappedBuffer mapped = mapBuffer(&state.streamBuffers, chunkSize * sizeof(float), state.limits.uniformBufferAlign);
         memcpy(mapped.pointer, model->blendShapeWeights + group->index + j, count * sizeof(float));
@@ -4215,7 +4216,7 @@ static void lovrModelAnimateVertices(Model* model) {
         gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
         gpu_bundle_write(&bundle, &bundleInfo, 1);
 
-        uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor };
+        uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor, first };
         uint32_t subgroupSize = state.device.subgroupSize;
 
         gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));

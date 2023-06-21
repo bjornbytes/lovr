@@ -10,6 +10,7 @@ layout(push_constant) uniform PushConstants {
   uint vertexCount;
   uint blendShapeCount;
   uint baseBlendVertex;
+  bool first;
 };
 
 struct ModelVertex {
@@ -36,7 +37,7 @@ void lovrmain() {
   uint vertexIndex = baseVertex + GlobalThreadID.x;
   uint blendVertexIndex = baseBlendVertex + GlobalThreadID.x;
 
-  ModelVertex vertex = baseBlendVertex == 0 ? rawVertices[vertexIndex] : vertices[vertexIndex];
+  ModelVertex vertex = first ? rawVertices[vertexIndex] : vertices[vertexIndex];
 
   for (uint i = 0; i < blendShapeCount; i++, blendVertexIndex += vertexCount) {
     float weight = weights[i / 4][i % 4];
