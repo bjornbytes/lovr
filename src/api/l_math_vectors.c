@@ -609,6 +609,8 @@ int l_lovrVec3Set(lua_State* L) {
       vec3_init(v, p);
     } else if (p && t == V_MAT4) {
       vec3_set(v, p[12], p[13], p[14]);
+    } else if (p && t == V_QUAT) {
+      quat_getDirection(p, v);
     } else{
       luax_typeerror(L, 2, "vec3, mat4, or number");
     }
