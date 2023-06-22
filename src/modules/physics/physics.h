@@ -73,6 +73,7 @@ int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const cha
 Collider* lovrColliderCreate(World* world, float x, float y, float z);
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
+bool lovrColliderIsDestroyed(Collider* collider);
 void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
 Collider* lovrColliderGetNext(Collider* collider);

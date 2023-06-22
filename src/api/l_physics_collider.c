@@ -10,6 +10,13 @@ static int l_lovrColliderDestroy(lua_State* L) {
   return 0;
 }
 
+static int l_lovrColliderIsDestroyed(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool destroyed = lovrColliderIsDestroyed(collider);
+  lua_pushboolean(L, destroyed);
+  return 1;
+}
+
 static int l_lovrColliderGetWorld(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   World* world = lovrColliderGetWorld(collider);
@@ -491,6 +498,7 @@ static int l_lovrColliderSetTag(lua_State* L) {
 
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
+  { "isDestroyed", l_lovrColliderIsDestroyed },
   { "getWorld", l_lovrColliderGetWorld },
   { "addShape", l_lovrColliderAddShape },
   { "removeShape", l_lovrColliderRemoveShape },

@@ -452,6 +452,10 @@ void lovrColliderDestroyData(Collider* collider) {
   lovrRelease(collider, lovrColliderDestroy);
 }
 
+bool lovrColliderIsDestroyed(Collider* collider) {
+  return !collider->body;
+}
+
 void lovrColliderInitInertia(Collider* collider, Shape* shape) {
   // compute inertia matrix for default density
   const float density = 1.0f;
