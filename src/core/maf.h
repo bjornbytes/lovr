@@ -98,6 +98,14 @@ MAF vec3 vec3_lerp(vec3 v, const vec3 u, float t) {
   return v;
 }
 
+MAF vec3 vec3_abs(vec3 v) {
+  v[0] = fabsf(v[0]);
+  v[1] = fabsf(v[1]);
+  v[2] = fabsf(v[2]);
+  v[3] = fabsf(v[3]);
+  return v;
+}
+
 MAF float vec3_angle(const vec3 v, const vec3 u) {
   float denom = vec3_length(v) * vec3_length(u);
   if (denom == 0.f) {
