@@ -148,7 +148,8 @@ typedef enum {
   TYPE_MAT3,
   TYPE_MAT4,
   TYPE_INDEX16,
-  TYPE_INDEX32
+  TYPE_INDEX32,
+  TYPE_COUNT
 } DataType;
 
 typedef enum {

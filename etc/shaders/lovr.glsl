@@ -80,16 +80,16 @@ layout(location = 0) out vec4 PixelColor;
 #ifdef GL_VERTEX_SHADER
 layout(location = 10) out vec3 PositionWorld;
 layout(location = 11) out vec3 Normal;
-layout(location = 12) out vec4 Color;
-layout(location = 13) out vec2 UV;
+layout(location = 12) out vec2 UV;
+layout(location = 13) out vec4 Color;
 layout(location = 14) out vec3 Tangent;
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
 layout(location = 10) in vec3 PositionWorld;
 layout(location = 11) in vec3 Normal;
-layout(location = 12) in vec4 Color;
-layout(location = 13) in vec2 UV;
+layout(location = 12) in vec2 UV;
+layout(location = 13) in vec4 Color;
 layout(location = 14) in vec3 Tangent;
 #endif
 

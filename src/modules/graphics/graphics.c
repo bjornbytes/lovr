@@ -2857,11 +2857,18 @@ bool lovrShaderHasStage(Shader* shader, ShaderStage stage) {
 }
 
 bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location) {
-  uint32_t hash = name ? (uint32_t) hash64(name, strlen(name)) : 0;
-  for (uint32_t i = 0; i < shader->attributeCount; i++) {
-    ShaderAttribute* attribute = &shader->attributes[i];
-    if (name ? (attribute->hash == hash) : (attribute->location == location)) {
-      return true;
+  if (name) {
+    uint32_t hash = (uint32_t) hash64(name, strlen(name));
+    for (uint32_t i = 0; i < shader->attributeCount; i++) {
+      if (shader->attributes[i].hash == hash) {
+        return true;
+      }
+    }
+  } else {
+    for (uint32_t i = 0; i < shader->attributeCount; i++) {
+      if (shader->attributes[i].location == location) {
+        return true;
+      }
     }
   }
   return false;
