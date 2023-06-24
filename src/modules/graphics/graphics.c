@@ -46,14 +46,14 @@ typedef struct {
 
 struct Buffer {
   uint32_t ref;
-  uint32_t tick;
   Sync sync;
   char* names;
-  char* pointer;
   gpu_buffer* gpu;
   BufferInfo info;
-  uint32_t offset; // Deprecated (temp buffer only)
-  uint64_t hash;
+  // Deprecated:
+  uint32_t offset;
+  uint32_t tick;
+  char* pointer;
 };
 
 typedef struct {
@@ -187,7 +187,6 @@ typedef enum {
   VERTEX_GLYPH,
   VERTEX_MODEL,
   VERTEX_EMPTY,
-  VERTEX_CUSTOM,
   VERTEX_FORMAX
 } VertexFormat;
 
@@ -392,9 +391,9 @@ typedef struct {
   bool dirty;
   MeshMode mode;
   float color[4];
-  uint64_t formatHash;
+  Buffer* lastVertexBuffer;
+  VertexFormat lastVertexFormat;
   gpu_pipeline_info info;
-  BufferField* vertexFormat;
   Material* material;
   Shader* shader;
   Font* font;
@@ -1722,10 +1721,8 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
     buffer->info.fields = malloc(info->fieldCount * sizeof(BufferField));
     lovrAssert(buffer->info.fields, "Out of memory");
     memcpy(buffer->info.fields, info->fields, info->fieldCount * sizeof(BufferField));
-    buffer->hash = hash64(info->fields, info->fieldCount * sizeof(BufferField));
   } else {
     buffer->info.fields = NULL;
-    buffer->hash = 0;
   }
 
   // Auto-array-length detection (used for computing length from Blob size, must happen after field alignment)
@@ -1791,7 +1788,6 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
     fields = buffer->info.fields = malloc(info->fieldCount * sizeof(BufferField));
     lovrAssert(fields, "Out of memory");
     memcpy(fields, info->fields, info->fieldCount * sizeof(BufferField));
-    buffer->hash = hash64(fields, info->fieldCount * sizeof(BufferField));
   }
 
   // Auto-array-length detection (used for computing length from Blob size, must happen after field alignment)
@@ -4574,6 +4570,7 @@ void lovrPassReset(Pass* pass) {
   pass->pipelineIndex = 0;
   memset(pass->pipeline, 0, sizeof(Pipeline));
   pass->pipeline->mode = MESH_TRIANGLES;
+  pass->pipeline->lastVertexFormat = ~0u;
   pass->pipeline->color[0] = 1.f;
   pass->pipeline->color[1] = 1.f;
   pass->pipeline->color[2] = 1.f;
@@ -5294,8 +5291,11 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   pass->pipeline->shader = shader;
   pass->pipeline->dirty = true;
 
+  // If the shader changes, all the attribute names need to be wired up again, because attributes
+  // with the same name might have different locations.  But if the shader only uses built-in
+  // attributes (which is common), things will remain stable.
   if ((shader && shader->hasCustomAttributes) || (previous && previous->hasCustomAttributes)) {
-    pass->pipeline->formatHash = 0;
+    pass->pipeline->lastVertexBuffer = NULL;
   }
 
   if (shader && shader->constantSize > 0 && (!previous || previous->constantSize != shader->constantSize)) {
@@ -5340,44 +5340,6 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
   pass->pipeline->info.stencil.writeMask = mask;
   if (hasReplace) pass->pipeline->info.stencil.value = value;
   pass->pipeline->dirty = true;
-}
-
-void lovrPassSetVertexFormat(Pass* pass, BufferField* fields, uint32_t count) {
-  if (!pass->pipeline->vertexFormat) { // Vertex formats are huge, allocate it lazily only if needed
-    pass->pipeline->vertexFormat = tempAlloc(&state.allocator, (MAX_CUSTOM_ATTRIBUTES + 1) * sizeof(BufferField));
-    memset(pass->pipeline->vertexFormat, 0, (MAX_CUSTOM_ATTRIBUTES + 1) * sizeof(BufferField));
-    pass->pipeline->vertexFormat[0].children = &pass->pipeline->vertexFormat[1];
-  }
-
-  BufferField* array = pass->pipeline->vertexFormat;
-
-  if (count == 0) {
-    array->stride = 32;
-    array->childCount = 3;
-    array->children = array + 1;
-    array->children[0] = (BufferField) { .type = FIELD_F32x3, .offset = 0, .location = LOCATION_POSITION };
-    array->children[1] = (BufferField) { .type = FIELD_F32x3, .offset = 12, .location = LOCATION_NORMAL };
-    array->children[2] = (BufferField) { .type = FIELD_F32x2, .offset = 24, .location = LOCATION_UV };
-    return;
-  }
-
-  for (uint32_t i = 0; i < fields[0].childCount; i++) {
-    BufferField* attribute = &fields[0].children[i];
-    lovrCheck(attribute->type < FIELD_MAT2, "Currently vertex attributes can not use matrix or index types");
-    lovrCheck(attribute->childCount == 0, "Vertex attributes can not contain nested fields");
-    lovrCheck(attribute->length == 0, "Vertex attributes can not be arrays");
-  }
-
-  lovrCheck(array->childCount <= MAX_CUSTOM_ATTRIBUTES, "Too many vertex attributes (max is %d)", MAX_CUSTOM_ATTRIBUTES);
-  memcpy(array, fields, count * sizeof(BufferField));
-  array->children = array + (fields[0].children - fields);
-  alignField(array, LAYOUT_PACKED);
-
-  lovrCheck(array->stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
-
-  for (uint32_t i = 0; i < array->childCount; i++) {
-    lovrCheck(array->children[i].offset <= 255, "Max vertex attribute offset is 255");
-  }
 }
 
 void lovrPassSetWinding(Pass* pass, Winding winding) {
@@ -5505,65 +5467,65 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw) {
     pipeline->dirty = true;
   }
 
-  bool customVertexFormat = info->vertex.buffer || info->vertex.format == VERTEX_CUSTOM;
-  BufferField* format = info->vertex.buffer ? &info->vertex.buffer->info.fields[0] : pass->pipeline->vertexFormat;
-  uint64_t formatHash = info->vertex.buffer ? info->vertex.buffer->hash : 1 + info->vertex.format;
-
   // Vertex formats
-  if (pipeline->formatHash != formatHash) {
-    pipeline->formatHash = formatHash;
+  if (info->vertex.buffer && pipeline->lastVertexBuffer != info->vertex.buffer) {
+    pipeline->lastVertexFormat = ~0u;
+    pipeline->lastVertexBuffer = info->vertex.buffer;
     pipeline->dirty = true;
 
-    if (customVertexFormat) {
-      pipeline->info.vertex.bufferCount = 2;
-      pipeline->info.vertex.attributeCount = shader->attributeCount;
-      pipeline->info.vertex.bufferStrides[0] = format->stride;
-      pipeline->info.vertex.bufferStrides[1] = 0;
+    BufferField* format = info->vertex.buffer->info.fields;
 
-      for (uint32_t i = 0; i < shader->attributeCount; i++) {
-        ShaderAttribute* attribute = &shader->attributes[i];
-        bool found = false;
+    pipeline->info.vertex.bufferCount = 2;
+    pipeline->info.vertex.attributeCount = shader->attributeCount;
+    pipeline->info.vertex.bufferStrides[0] = format->stride;
+    pipeline->info.vertex.bufferStrides[1] = 0;
 
-        BufferField* fields = format->childCount > 0 ? format->children : format;
-        uint32_t fieldCount = format->childCount > 0 ? format->childCount : 1;
+    for (uint32_t i = 0; i < shader->attributeCount; i++) {
+      ShaderAttribute* attribute = &shader->attributes[i];
+      bool found = false;
 
-        for (uint32_t j = 0; j < fieldCount; j++) {
-          const BufferField* field = &fields[j];
-          lovrCheck(field->type < FIELD_MAT2, "Currently vertex attributes can not use matrix and index types");
-          if (field->hash ? (field->hash == attribute->hash) : (field->location == attribute->location)) {
-            pipeline->info.vertex.attributes[i] = (gpu_attribute) {
-              .buffer = 0,
-              .location = attribute->location,
-              .offset = field->offset,
-              .type = field->type
-            };
-            found = true;
-            break;
-          }
-        }
+      BufferField* fields = format->childCount > 0 ? format->children : format;
+      uint32_t fieldCount = format->childCount > 0 ? format->childCount : 1;
 
-        if (!found) {
+      for (uint32_t j = 0; j < fieldCount; j++) {
+        const BufferField* field = &fields[j];
+        lovrCheck(field->type < FIELD_MAT2, "Currently vertex attributes can not use matrix and index types");
+        if (field->hash ? (field->hash == attribute->hash) : (field->location == attribute->location)) {
           pipeline->info.vertex.attributes[i] = (gpu_attribute) {
-            .buffer = 1,
+            .buffer = 0,
             .location = attribute->location,
-            .offset = attribute->location == LOCATION_COLOR ? 16 : 0,
-            .type = GPU_TYPE_F32x4
+            .offset = field->offset,
+            .type = field->type
           };
+          found = true;
+          break;
         }
       }
-    } else {
-      pipeline->info.vertex = state.vertexFormats[info->vertex.format];
 
-      if (shader->hasCustomAttributes) {
-        for (uint32_t i = 0; i < shader->attributeCount; i++) {
-          if (shader->attributes[i].location < 10) {
-            pipeline->info.vertex.attributes[pipeline->info.vertex.attributeCount++] = (gpu_attribute) {
-              .buffer = 1,
-              .location = shader->attributes[i].location,
-              .type = GPU_TYPE_F32x4,
-              .offset = shader->attributes[i].location == LOCATION_COLOR ? 16 : 0
-            };
-          }
+      if (!found) {
+        pipeline->info.vertex.attributes[i] = (gpu_attribute) {
+          .buffer = 1,
+          .location = attribute->location,
+          .offset = attribute->location == LOCATION_COLOR ? 16 : 0,
+          .type = GPU_TYPE_F32x4
+        };
+      }
+    }
+  } else if (!info->vertex.buffer && pipeline->lastVertexFormat != info->vertex.format) {
+    pipeline->lastVertexFormat = info->vertex.format;
+    pipeline->lastVertexBuffer = NULL;
+    pipeline->info.vertex = state.vertexFormats[info->vertex.format];
+    pipeline->dirty = true;
+
+    if (shader->hasCustomAttributes) {
+      for (uint32_t i = 0; i < shader->attributeCount; i++) {
+        if (shader->attributes[i].location < 10) {
+          pipeline->info.vertex.attributes[pipeline->info.vertex.attributeCount++] = (gpu_attribute) {
+            .buffer = 1,
+            .location = shader->attributes[i].location,
+            .type = GPU_TYPE_F32x4,
+            .offset = shader->attributes[i].location == LOCATION_COLOR ? 16 : 0
+          };
         }
       }
     }
@@ -6690,25 +6652,6 @@ void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transfor
     .count = count,
     .instances = instances,
     .base = base
-  });
-}
-
-void lovrPassMeshImmediate(Pass* pass, uint32_t vertexCount, void** vertices, BufferField** format, uint32_t indexCount, void** indices, float* transform) {
-  if (!pass->pipeline->vertexFormat) {
-    lovrPassSetVertexFormat(pass, NULL, 0); // Ensure vertex format is set up
-  }
-
-  *format = pass->pipeline->vertexFormat;
-  pass->pipeline->vertexFormat[0].length = vertexCount;
-
-  lovrPassDraw(pass, &(DrawInfo) {
-    .mode = pass->pipeline->mode,
-    .vertex.format = VERTEX_CUSTOM,
-    .vertex.pointer = vertices,
-    .vertex.count = vertexCount,
-    .index.pointer = indices,
-    .index.count = indexCount,
-    .transform = transform
   });
 }
 

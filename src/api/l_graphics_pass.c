@@ -617,19 +617,6 @@ static int l_lovrPassSetStencilWrite(lua_State* L) {
   return 0;
 }
 
-static int l_lovrPassSetVertexFormat(lua_State* L) {
-  uint32_t count = 0;
-  BufferField fields[16];
-  Pass* pass = luax_checktype(L, 1, Pass);
-  if (lua_isnil(L, 2)) {
-    lovrPassSetVertexFormat(pass, NULL, 0);
-  } else {
-    luax_checkbufferformat(L, 2, fields, &count, COUNTOF(fields));
-    lovrPassSetVertexFormat(pass, fields, count);
-  }
-  return 0;
-}
-
 static int l_lovrPassSetWinding(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Winding winding = luax_checkenum(L, 2, Winding, NULL);
@@ -961,27 +948,6 @@ static int l_lovrPassDraw(lua_State* L) {
 
 static int l_lovrPassMesh(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-
-  if (lua_istable(L, 2)) {
-    lua_rawgeti(L, 2, 1);
-    lovrCheck(lua_type(L, -1) == LUA_TTABLE, "Vertex data must be provided as a table of tables");
-    lua_pop(L, 1);
-    float transform[16];
-    uint32_t vertexCount = luax_len(L, 2);
-    uint32_t indexCount = lua_istable(L, 3) ? luax_len(L, 3) : 0;
-    luax_readmat4(L, indexCount > 0 ? 4 : 3, transform, 1);
-    BufferField* format;
-    void* vertices;
-    void* indices;
-    lovrPassMeshImmediate(pass, vertexCount, &vertices, &format, indexCount, &indices, transform);
-    luax_checkbufferdata(L, 2, format, vertices);
-    if (indexCount > 0) {
-      BufferField indexFormat = { .type = FIELD_INDEX16, .length = indexCount, .stride = 2 };
-      luax_checkbufferdata(L, 3, &indexFormat, indices);
-    }
-    return 0;
-  }
-
   Buffer* vertices = (!lua_toboolean(L, 2) || lua_type(L, 2) == LUA_TNUMBER) ? NULL : luax_checkbuffer(L, 2);
   Buffer* indices = luax_totype(L, 3, Buffer);
   Buffer* indirect = luax_totype(L, 4, Buffer);
@@ -1133,7 +1099,6 @@ const luaL_Reg lovrPass[] = {
   { "setShader", l_lovrPassSetShader },
   { "setStencilTest", l_lovrPassSetStencilTest },
   { "setStencilWrite", l_lovrPassSetStencilWrite },
-  { "setVertexFormat", l_lovrPassSetVertexFormat },
   { "setWinding", l_lovrPassSetWinding },
   { "setWireframe", l_lovrPassSetWireframe },
 
