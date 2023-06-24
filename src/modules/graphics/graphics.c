@@ -2722,23 +2722,23 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   char* name = shader->names;
   for (uint32_t s = 0; s < stageCount; s++) {
     for (uint32_t i = 0; i < spv[s].fieldCount; i++) {
-      static const FieldType fieldTypes[] = {
-        [SPV_B32] = FIELD_U32,
-        [SPV_I32] = FIELD_I32,
-        [SPV_I32x2] = FIELD_I32x2,
-        [SPV_I32x3] = FIELD_I32x3,
-        [SPV_I32x4] = FIELD_I32x4,
-        [SPV_U32] = FIELD_U32,
-        [SPV_U32x2] = FIELD_U32x2,
-        [SPV_U32x3] = FIELD_U32x3,
-        [SPV_U32x4] = FIELD_U32x4,
-        [SPV_F32] = FIELD_F32,
-        [SPV_F32x2] = FIELD_F32x2,
-        [SPV_F32x3] = FIELD_F32x3,
-        [SPV_F32x4] = FIELD_F32x4,
-        [SPV_MAT2] = FIELD_MAT2,
-        [SPV_MAT3] = FIELD_MAT3,
-        [SPV_MAT4] = FIELD_MAT4
+      static const DataType dataTypes[] = {
+        [SPV_B32] = TYPE_U32,
+        [SPV_I32] = TYPE_I32,
+        [SPV_I32x2] = TYPE_I32x2,
+        [SPV_I32x3] = TYPE_I32x3,
+        [SPV_I32x4] = TYPE_I32x4,
+        [SPV_U32] = TYPE_U32,
+        [SPV_U32x2] = TYPE_U32x2,
+        [SPV_U32x3] = TYPE_U32x3,
+        [SPV_U32x4] = TYPE_U32x4,
+        [SPV_F32] = TYPE_F32,
+        [SPV_F32x2] = TYPE_F32x2,
+        [SPV_F32x3] = TYPE_F32x3,
+        [SPV_F32x4] = TYPE_F32x4,
+        [SPV_MAT2] = TYPE_MAT2,
+        [SPV_MAT3] = TYPE_MAT3,
+        [SPV_MAT4] = TYPE_MAT4
       };
 
       spv_field* field = &spv[s].fields[i];
@@ -2746,7 +2746,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       uint32_t base = s == 1 ? spv[0].fieldCount : 0;
 
       shader->fields[base + i] = (BufferField) {
-        .type = field->type == SPV_STRUCT ? ~0u : fieldTypes[field->type],
+        .type = field->type == SPV_STRUCT ? ~0u : dataTypes[field->type],
         .offset = field->offset,
         .length = field->arrayLength,
         .stride = field->arrayStride,
@@ -3641,11 +3641,11 @@ Model* lovrModelCreate(const ModelInfo* info) {
 
   BufferField vertexFormat[] = {
     { .length = data->vertexCount, .stride = sizeof(ModelVertex) },
-    { .location = 10, .type = FIELD_F32x3, .offset = offsetof(ModelVertex, position) },
-    { .location = 11, .type = FIELD_F32x3, .offset = offsetof(ModelVertex, normal) },
-    { .location = 12, .type = FIELD_F32x2, .offset = offsetof(ModelVertex, uv) },
-    { .location = 13, .type = FIELD_UN8x4, .offset = offsetof(ModelVertex, color) },
-    { .location = 14, .type = FIELD_F32x3, .offset = offsetof(ModelVertex, tangent) }
+    { .location = 10, .type = TYPE_F32x3, .offset = offsetof(ModelVertex, position) },
+    { .location = 11, .type = TYPE_F32x3, .offset = offsetof(ModelVertex, normal) },
+    { .location = 12, .type = TYPE_F32x2, .offset = offsetof(ModelVertex, uv) },
+    { .location = 13, .type = TYPE_UN8x4, .offset = offsetof(ModelVertex, color) },
+    { .location = 14, .type = TYPE_F32x3, .offset = offsetof(ModelVertex, tangent) }
   };
 
   vertexFormat[0].children = vertexFormat + 1;
@@ -3661,9 +3661,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
   if (data->blendShapeVertexCount > 0) {
     BufferField blendFormat[] = {
       { .length = data->blendShapeVertexCount, .stride = 9 * sizeof(float) },
-      { .type = FIELD_F32x3, .offset = offsetof(BlendVertex, position) },
-      { .type = FIELD_F32x3, .offset = offsetof(BlendVertex, normal) },
-      { .type = FIELD_F32x3, .offset = offsetof(BlendVertex, tangent) }
+      { .type = TYPE_F32x3, .offset = offsetof(BlendVertex, position) },
+      { .type = TYPE_F32x3, .offset = offsetof(BlendVertex, normal) },
+      { .type = TYPE_F32x3, .offset = offsetof(BlendVertex, tangent) }
     };
 
     blendFormat[0].children = blendFormat + 1;
@@ -3678,8 +3678,8 @@ Model* lovrModelCreate(const ModelInfo* info) {
   if (data->skinnedVertexCount > 0) {
     BufferField skinFormat[] = {
       { .length = data->skinnedVertexCount, .stride = 8 },
-      { .offset = 0, .type = FIELD_UN8x4 },
-      { .offset = 4, .type = FIELD_U8x4 }
+      { .offset = 0, .type = TYPE_UN8x4 },
+      { .offset = 4, .type = TYPE_U8x4 }
     };
 
     skinFormat[0].children = skinFormat + 1;
@@ -3721,7 +3721,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->indexBuffer = lovrBufferCreate(&(BufferInfo) {
       .fieldCount = 1,
       .fields = &(BufferField) {
-        .type = data->indexType == U32 ? FIELD_INDEX32 : FIELD_INDEX16,
+        .type = data->indexType == U32 ? TYPE_INDEX32 : TYPE_INDEX16,
         .length = data->indexCount,
         .stride = indexSize
       }
@@ -5489,7 +5489,7 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw) {
 
       for (uint32_t j = 0; j < fieldCount; j++) {
         const BufferField* field = &fields[j];
-        lovrCheck(field->type < FIELD_MAT2, "Currently vertex attributes can not use matrix and index types");
+        lovrCheck(field->type < TYPE_MAT2, "Currently vertex attributes can not use matrix and index types");
         if (field->hash ? (field->hash == attribute->hash) : (field->location == attribute->location)) {
           pipeline->info.vertex.attributes[i] = (gpu_attribute) {
             .buffer = 0,
@@ -7165,40 +7165,40 @@ static void alignField(BufferField* field, BufferLayout layout) {
   if (!field) return;
 
   static const struct { uint32_t size, scalarAlign, baseAlign; } fieldInfo[] = {
-    [FIELD_I8x4] = { 4, 1, 4 },
-    [FIELD_U8x4] = { 4, 1, 4 },
-    [FIELD_SN8x4] = { 4, 1, 4 },
-    [FIELD_UN8x4] = { 4, 1, 4 },
-    [FIELD_UN10x3] = { 4, 4, 4 },
-    [FIELD_I16] = { 2, 2, 2 },
-    [FIELD_I16x2] = { 4, 2, 4 },
-    [FIELD_I16x4] = { 8, 2, 8 },
-    [FIELD_U16] = { 2, 2, 2 },
-    [FIELD_U16x2] = { 4, 2, 4 },
-    [FIELD_U16x4] = { 8, 2, 8 },
-    [FIELD_SN16x2] = { 4, 2, 4 },
-    [FIELD_SN16x4] = { 8, 2, 8 },
-    [FIELD_UN16x2] = { 4, 2, 4 },
-    [FIELD_UN16x4] = { 8, 2, 8 },
-    [FIELD_I32] = { 4, 4, 4 },
-    [FIELD_I32x2] = { 8, 4, 8 },
-    [FIELD_I32x3] = { 12, 4, 16 },
-    [FIELD_I32x4] = { 16, 4, 16 },
-    [FIELD_U32] = { 4, 4, 4 },
-    [FIELD_U32x2] = { 8, 4, 8 },
-    [FIELD_U32x3] = { 12, 4, 16 },
-    [FIELD_U32x4] = { 16, 4, 16 },
-    [FIELD_F16x2] = { 4, 2, 4 },
-    [FIELD_F16x4] = { 8, 2, 8 },
-    [FIELD_F32] = { 4, 4, 4 },
-    [FIELD_F32x2] = { 8, 4, 8 },
-    [FIELD_F32x3] = { 12, 4, 16 },
-    [FIELD_F32x4] = { 16, 4, 16 },
-    [FIELD_MAT2] = { 16, 4, 8 },
-    [FIELD_MAT3] = { 64, 4, 16 },
-    [FIELD_MAT4] = { 64, 4, 16 },
-    [FIELD_INDEX16] = { 2, 2, 2 },
-    [FIELD_INDEX32] = { 4, 4, 4 }
+    [TYPE_I8x4] = { 4, 1, 4 },
+    [TYPE_U8x4] = { 4, 1, 4 },
+    [TYPE_SN8x4] = { 4, 1, 4 },
+    [TYPE_UN8x4] = { 4, 1, 4 },
+    [TYPE_UN10x3] = { 4, 4, 4 },
+    [TYPE_I16] = { 2, 2, 2 },
+    [TYPE_I16x2] = { 4, 2, 4 },
+    [TYPE_I16x4] = { 8, 2, 8 },
+    [TYPE_U16] = { 2, 2, 2 },
+    [TYPE_U16x2] = { 4, 2, 4 },
+    [TYPE_U16x4] = { 8, 2, 8 },
+    [TYPE_SN16x2] = { 4, 2, 4 },
+    [TYPE_SN16x4] = { 8, 2, 8 },
+    [TYPE_UN16x2] = { 4, 2, 4 },
+    [TYPE_UN16x4] = { 8, 2, 8 },
+    [TYPE_I32] = { 4, 4, 4 },
+    [TYPE_I32x2] = { 8, 4, 8 },
+    [TYPE_I32x3] = { 12, 4, 16 },
+    [TYPE_I32x4] = { 16, 4, 16 },
+    [TYPE_U32] = { 4, 4, 4 },
+    [TYPE_U32x2] = { 8, 4, 8 },
+    [TYPE_U32x3] = { 12, 4, 16 },
+    [TYPE_U32x4] = { 16, 4, 16 },
+    [TYPE_F16x2] = { 4, 2, 4 },
+    [TYPE_F16x4] = { 8, 2, 8 },
+    [TYPE_F32] = { 4, 4, 4 },
+    [TYPE_F32x2] = { 8, 4, 8 },
+    [TYPE_F32x3] = { 12, 4, 16 },
+    [TYPE_F32x4] = { 16, 4, 16 },
+    [TYPE_MAT2] = { 16, 4, 8 },
+    [TYPE_MAT3] = { 64, 4, 16 },
+    [TYPE_MAT4] = { 64, 4, 16 },
+    [TYPE_INDEX16] = { 2, 2, 2 },
+    [TYPE_INDEX32] = { 4, 4, 4 }
   };
 
   if (field->childCount == 0) {

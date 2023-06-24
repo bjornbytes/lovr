@@ -20,40 +20,40 @@ Buffer* luax_checkbuffer(lua_State* L, int index) {
 }
 
 static const uint32_t fieldComponents[] = {
-  [FIELD_I8x4] = 4,
-  [FIELD_U8x4] = 4,
-  [FIELD_SN8x4] = 4,
-  [FIELD_UN8x4] = 4,
-  [FIELD_UN10x3] = 3,
-  [FIELD_I16] = 1,
-  [FIELD_I16x2] = 2,
-  [FIELD_I16x4] = 4,
-  [FIELD_U16] = 1,
-  [FIELD_U16x2] = 2,
-  [FIELD_U16x4] = 4,
-  [FIELD_SN16x2] = 2,
-  [FIELD_SN16x4] = 4,
-  [FIELD_UN16x2] = 2,
-  [FIELD_UN16x4] = 4,
-  [FIELD_I32] = 1,
-  [FIELD_I32x2] = 2,
-  [FIELD_I32x3] = 3,
-  [FIELD_I32x4] = 4,
-  [FIELD_U32] = 1,
-  [FIELD_U32x2] = 2,
-  [FIELD_U32x3] = 3,
-  [FIELD_U32x4] = 4,
-  [FIELD_F16x2] = 2,
-  [FIELD_F16x4] = 4,
-  [FIELD_F32] = 1,
-  [FIELD_F32x2] = 2,
-  [FIELD_F32x3] = 3,
-  [FIELD_F32x4] = 4,
-  [FIELD_MAT2] = 4,
-  [FIELD_MAT3] = 9,
-  [FIELD_MAT4] = 16,
-  [FIELD_INDEX16] = 1,
-  [FIELD_INDEX32] = 1
+  [TYPE_I8x4] = 4,
+  [TYPE_U8x4] = 4,
+  [TYPE_SN8x4] = 4,
+  [TYPE_UN8x4] = 4,
+  [TYPE_UN10x3] = 3,
+  [TYPE_I16] = 1,
+  [TYPE_I16x2] = 2,
+  [TYPE_I16x4] = 4,
+  [TYPE_U16] = 1,
+  [TYPE_U16x2] = 2,
+  [TYPE_U16x4] = 4,
+  [TYPE_SN16x2] = 2,
+  [TYPE_SN16x4] = 4,
+  [TYPE_UN16x2] = 2,
+  [TYPE_UN16x4] = 4,
+  [TYPE_I32] = 1,
+  [TYPE_I32x2] = 2,
+  [TYPE_I32x3] = 3,
+  [TYPE_I32x4] = 4,
+  [TYPE_U32] = 1,
+  [TYPE_U32x2] = 2,
+  [TYPE_U32x3] = 3,
+  [TYPE_U32x4] = 4,
+  [TYPE_F16x2] = 2,
+  [TYPE_F16x4] = 4,
+  [TYPE_F32] = 1,
+  [TYPE_F32x2] = 2,
+  [TYPE_F32x3] = 3,
+  [TYPE_F32x4] = 4,
+  [TYPE_MAT2] = 4,
+  [TYPE_MAT3] = 9,
+  [TYPE_MAT4] = 16,
+  [TYPE_INDEX16] = 1,
+  [TYPE_INDEX32] = 1
 };
 
 typedef union {
@@ -67,78 +67,78 @@ typedef union {
   float* f32;
 } FieldPointer;
 
-static void luax_tofield(lua_State* L, int index, FieldType type, void* data) {
+static void luax_tofield(lua_State* L, int index, DataType type, void* data) {
   FieldPointer p = { .raw = data };
   if (lua_isuserdata(L, index)) {
     VectorType vectorType;
     float* v = luax_tovector(L, index, &vectorType);
     lovrCheck(vectorComponents[vectorType] == fieldComponents[type], "Vector type is incompatible with field type (expected %d components, got %d)", fieldComponents[type], vectorComponents[vectorType]);
     switch (type) {
-      case FIELD_I8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) v[i]; break;
-      case FIELD_U8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) v[i]; break;
-      case FIELD_SN8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
-      case FIELD_UN8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
-      case FIELD_UN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
-      case FIELD_I16x2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) v[i]; break;
-      case FIELD_I16x4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) v[i]; break;
-      case FIELD_U16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) v[i]; break;
-      case FIELD_U16x4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) v[i]; break;
-      case FIELD_SN16x2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
-      case FIELD_SN16x4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
-      case FIELD_UN16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
-      case FIELD_UN16x4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
-      case FIELD_I32x2: for (int i = 0; i < 2; i++) p.i32[i] = (int32_t) v[i]; break;
-      case FIELD_I32x3: for (int i = 0; i < 3; i++) p.i32[i] = (int32_t) v[i]; break;
-      case FIELD_I32x4: for (int i = 0; i < 4; i++) p.i32[i] = (int32_t) v[i]; break;
-      case FIELD_U32x2: for (int i = 0; i < 2; i++) p.u32[i] = (uint32_t) v[i]; break;
-      case FIELD_U32x3: for (int i = 0; i < 3; i++) p.u32[i] = (uint32_t) v[i]; break;
-      case FIELD_U32x4: for (int i = 0; i < 4; i++) p.u32[i] = (uint32_t) v[i]; break;
-      case FIELD_F16x2: for (int i = 0; i < 2; i++) p.u16[i] = float32to16(v[i]); break;
-      case FIELD_F16x4: for (int i = 0; i < 4; i++) p.u16[i] = float32to16(v[i]); break;
-      case FIELD_F32x2: memcpy(data, v, 2 * sizeof(float)); break;
-      case FIELD_F32x3: memcpy(data, v, 3 * sizeof(float)); break;
-      case FIELD_F32x4: memcpy(data, v, 4 * sizeof(float)); break;
-      case FIELD_MAT4: memcpy(data, v, 16 * sizeof(float)); break;
+      case TYPE_I8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) v[i]; break;
+      case TYPE_U8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) v[i]; break;
+      case TYPE_SN8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
+      case TYPE_UN8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
+      case TYPE_UN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
+      case TYPE_I16x2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) v[i]; break;
+      case TYPE_I16x4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) v[i]; break;
+      case TYPE_U16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) v[i]; break;
+      case TYPE_U16x4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) v[i]; break;
+      case TYPE_SN16x2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
+      case TYPE_SN16x4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
+      case TYPE_UN16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
+      case TYPE_UN16x4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
+      case TYPE_I32x2: for (int i = 0; i < 2; i++) p.i32[i] = (int32_t) v[i]; break;
+      case TYPE_I32x3: for (int i = 0; i < 3; i++) p.i32[i] = (int32_t) v[i]; break;
+      case TYPE_I32x4: for (int i = 0; i < 4; i++) p.i32[i] = (int32_t) v[i]; break;
+      case TYPE_U32x2: for (int i = 0; i < 2; i++) p.u32[i] = (uint32_t) v[i]; break;
+      case TYPE_U32x3: for (int i = 0; i < 3; i++) p.u32[i] = (uint32_t) v[i]; break;
+      case TYPE_U32x4: for (int i = 0; i < 4; i++) p.u32[i] = (uint32_t) v[i]; break;
+      case TYPE_F16x2: for (int i = 0; i < 2; i++) p.u16[i] = float32to16(v[i]); break;
+      case TYPE_F16x4: for (int i = 0; i < 4; i++) p.u16[i] = float32to16(v[i]); break;
+      case TYPE_F32x2: memcpy(data, v, 2 * sizeof(float)); break;
+      case TYPE_F32x3: memcpy(data, v, 3 * sizeof(float)); break;
+      case TYPE_F32x4: memcpy(data, v, 4 * sizeof(float)); break;
+      case TYPE_MAT4: memcpy(data, v, 16 * sizeof(float)); break;
       default: lovrUnreachable();
     }
   } else {
     for (uint32_t i = 0; i < fieldComponents[type]; i++) {
       double x = lua_tonumber(L, index + i);
       switch (type) {
-        case FIELD_I8x4: p.i8[i] = (int8_t) x; break;
-        case FIELD_U8x4: p.u8[i] = (uint8_t) x; break;
-        case FIELD_SN8x4: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
-        case FIELD_UN8x4: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
-        case FIELD_UN10x3: p.u32[0] |= (uint32_t) (CLAMP(x, 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
-        case FIELD_I16: p.i16[i] = (int16_t) x; break;
-        case FIELD_I16x2: p.i16[i] = (int16_t) x; break;
-        case FIELD_I16x4: p.i16[i] = (int16_t) x; break;
-        case FIELD_U16: p.u16[i] = (uint16_t) x; break;
-        case FIELD_U16x2: p.u16[i] = (uint16_t) x; break;
-        case FIELD_U16x4: p.u16[i] = (uint16_t) x; break;
-        case FIELD_SN16x2: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
-        case FIELD_SN16x4: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
-        case FIELD_UN16x2: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
-        case FIELD_UN16x4: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
-        case FIELD_I32: p.i32[i] = (int32_t) x; break;
-        case FIELD_I32x2: p.i32[i] = (int32_t) x; break;
-        case FIELD_I32x3: p.i32[i] = (int32_t) x; break;
-        case FIELD_I32x4: p.i32[i] = (int32_t) x; break;
-        case FIELD_U32: p.u32[i] = (uint32_t) x; break;
-        case FIELD_U32x2: p.u32[i] = (uint32_t) x; break;
-        case FIELD_U32x3: p.u32[i] = (uint32_t) x; break;
-        case FIELD_U32x4: p.i32[i] = (uint32_t) x; break;
-        case FIELD_F16x2: p.u16[i] = float32to16(x); break;
-        case FIELD_F16x4: p.u16[i] = float32to16(x); break;
-        case FIELD_F32: p.f32[i] = (float) x; break;
-        case FIELD_F32x2: p.f32[i] = (float) x; break;
-        case FIELD_F32x3: p.f32[i] = (float) x; break;
-        case FIELD_F32x4: p.f32[i] = (float) x; break;
-        case FIELD_MAT2: p.f32[i] = (float) x; break;
-        case FIELD_MAT3: p.f32[i] = (float) x; break;
-        case FIELD_MAT4: p.f32[i] = (float) x; break;
-        case FIELD_INDEX16: p.u16[i] = (uint16_t) x - 1; break;
-        case FIELD_INDEX32: p.u32[i] = (uint32_t) x - 1; break;
+        case TYPE_I8x4: p.i8[i] = (int8_t) x; break;
+        case TYPE_U8x4: p.u8[i] = (uint8_t) x; break;
+        case TYPE_SN8x4: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
+        case TYPE_UN8x4: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
+        case TYPE_UN10x3: p.u32[0] |= (uint32_t) (CLAMP(x, 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
+        case TYPE_I16: p.i16[i] = (int16_t) x; break;
+        case TYPE_I16x2: p.i16[i] = (int16_t) x; break;
+        case TYPE_I16x4: p.i16[i] = (int16_t) x; break;
+        case TYPE_U16: p.u16[i] = (uint16_t) x; break;
+        case TYPE_U16x2: p.u16[i] = (uint16_t) x; break;
+        case TYPE_U16x4: p.u16[i] = (uint16_t) x; break;
+        case TYPE_SN16x2: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
+        case TYPE_SN16x4: p.i16[i] = (int16_t) CLAMP(x, -1.f, 1.f) * INT16_MAX; break;
+        case TYPE_UN16x2: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
+        case TYPE_UN16x4: p.u16[i] = (uint16_t) CLAMP(x, 0.f, 1.f) * UINT16_MAX; break;
+        case TYPE_I32: p.i32[i] = (int32_t) x; break;
+        case TYPE_I32x2: p.i32[i] = (int32_t) x; break;
+        case TYPE_I32x3: p.i32[i] = (int32_t) x; break;
+        case TYPE_I32x4: p.i32[i] = (int32_t) x; break;
+        case TYPE_U32: p.u32[i] = (uint32_t) x; break;
+        case TYPE_U32x2: p.u32[i] = (uint32_t) x; break;
+        case TYPE_U32x3: p.u32[i] = (uint32_t) x; break;
+        case TYPE_U32x4: p.i32[i] = (uint32_t) x; break;
+        case TYPE_F16x2: p.u16[i] = float32to16(x); break;
+        case TYPE_F16x4: p.u16[i] = float32to16(x); break;
+        case TYPE_F32: p.f32[i] = (float) x; break;
+        case TYPE_F32x2: p.f32[i] = (float) x; break;
+        case TYPE_F32x3: p.f32[i] = (float) x; break;
+        case TYPE_F32x4: p.f32[i] = (float) x; break;
+        case TYPE_MAT2: p.f32[i] = (float) x; break;
+        case TYPE_MAT3: p.f32[i] = (float) x; break;
+        case TYPE_MAT4: p.f32[i] = (float) x; break;
+        case TYPE_INDEX16: p.u16[i] = (uint16_t) x - 1; break;
+        case TYPE_INDEX32: p.u32[i] = (uint32_t) x - 1; break;
         default: lovrUnreachable();
       }
     }
@@ -244,38 +244,38 @@ static int luax_pushcomponents(lua_State* L, const BufferField* field, char* dat
   FieldPointer p = { .raw = data };
   int n = (int) fieldComponents[field->type];
   switch (field->type) {
-    case FIELD_I8x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i8[i]); return n;
-    case FIELD_U8x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u8[i]); return n;
-    case FIELD_SN8x4: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i8[i] / 127, -1.f)); return n;
-    case FIELD_UN8x4: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u8[i] / 255); return n;
-    case FIELD_UN10x3: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) ((p.u32[0] >> (10 * (2 - i))) & 0x3ff) / 1023.f); return n;
-    case FIELD_I16x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i16[i]); return n;
-    case FIELD_I16x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i16[i]); return n;
-    case FIELD_U16x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u16[i]); return n;
-    case FIELD_U16x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u16[i]); return n;
-    case FIELD_SN16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i16[i] / 32767, -1.f)); return n;
-    case FIELD_SN16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i16[i] / 32767, -1.f)); return n;
-    case FIELD_UN16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u16[i] / 65535); return n;
-    case FIELD_UN16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u16[i] / 65535); return n;
-    case FIELD_I32: lua_pushinteger(L, p.i32[0]); return n;
-    case FIELD_I32x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
-    case FIELD_I32x3: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
-    case FIELD_I32x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
-    case FIELD_U32: lua_pushinteger(L, p.u32[0]); return n;
-    case FIELD_U32x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
-    case FIELD_U32x3: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
-    case FIELD_U32x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
-    case FIELD_F16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, float16to32(p.u16[i])); return n;
-    case FIELD_F16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, float16to32(p.u16[i])); return n;
-    case FIELD_F32: lua_pushnumber(L, p.f32[0]); return n;
-    case FIELD_F32x2: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
-    case FIELD_F32x3: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
-    case FIELD_F32x4: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
-    case FIELD_MAT2: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
-    case FIELD_MAT3: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
-    case FIELD_MAT4: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
-    case FIELD_INDEX16: lua_pushinteger(L, p.u16[0] + 1); return n;
-    case FIELD_INDEX32: lua_pushinteger(L, p.u32[0] + 1); return n;
+    case TYPE_I8x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i8[i]); return n;
+    case TYPE_U8x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u8[i]); return n;
+    case TYPE_SN8x4: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i8[i] / 127, -1.f)); return n;
+    case TYPE_UN8x4: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u8[i] / 255); return n;
+    case TYPE_UN10x3: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) ((p.u32[0] >> (10 * (2 - i))) & 0x3ff) / 1023.f); return n;
+    case TYPE_I16x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i16[i]); return n;
+    case TYPE_I16x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i16[i]); return n;
+    case TYPE_U16x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u16[i]); return n;
+    case TYPE_U16x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u16[i]); return n;
+    case TYPE_SN16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i16[i] / 32767, -1.f)); return n;
+    case TYPE_SN16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, MAX((float) p.i16[i] / 32767, -1.f)); return n;
+    case TYPE_UN16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u16[i] / 65535); return n;
+    case TYPE_UN16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, (float) p.u16[i] / 65535); return n;
+    case TYPE_I32: lua_pushinteger(L, p.i32[0]); return n;
+    case TYPE_I32x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
+    case TYPE_I32x3: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
+    case TYPE_I32x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.i32[i]); return n;
+    case TYPE_U32: lua_pushinteger(L, p.u32[0]); return n;
+    case TYPE_U32x2: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
+    case TYPE_U32x3: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
+    case TYPE_U32x4: for (int i = 0; i < n; i++) lua_pushinteger(L, p.u32[i]); return n;
+    case TYPE_F16x2: for (int i = 0; i < n; i++) lua_pushnumber(L, float16to32(p.u16[i])); return n;
+    case TYPE_F16x4: for (int i = 0; i < n; i++) lua_pushnumber(L, float16to32(p.u16[i])); return n;
+    case TYPE_F32: lua_pushnumber(L, p.f32[0]); return n;
+    case TYPE_F32x2: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case TYPE_F32x3: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case TYPE_F32x4: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case TYPE_MAT2: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case TYPE_MAT3: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case TYPE_MAT4: for (int i = 0; i < n; i++) lua_pushnumber(L, p.f32[i]); return n;
+    case TYPE_INDEX16: lua_pushinteger(L, p.u16[0] + 1); return n;
+    case TYPE_INDEX32: lua_pushinteger(L, p.u32[0] + 1); return n;
     default: lovrUnreachable(); return 0;
   }
 }
@@ -370,7 +370,7 @@ static void luax_pushbufferformat(lua_State* L, const BufferField* fields, uint3
     if (field->childCount > 0) {
       luax_pushbufferformat(L, field->children, field->childCount, false);
     } else {
-      luax_pushenum(L, FieldType, field->type);
+      luax_pushenum(L, DataType, field->type);
     }
     lua_setfield(L, -2, "type");
     lua_pushinteger(L, field->offset);

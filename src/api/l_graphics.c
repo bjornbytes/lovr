@@ -68,41 +68,41 @@ StringEntry lovrDrawStyle[] = {
   { 0 }
 };
 
-StringEntry lovrFieldType[] = {
-  [FIELD_I8x4] = ENTRY("i8x4"),
-  [FIELD_U8x4] = ENTRY("u8x4"),
-  [FIELD_SN8x4] = ENTRY("sn8x4"),
-  [FIELD_UN8x4] = ENTRY("un8x4"),
-  [FIELD_UN10x3] = ENTRY("un10x3"),
-  [FIELD_I16] = ENTRY("i16"),
-  [FIELD_I16x2] = ENTRY("i16x2"),
-  [FIELD_I16x4] = ENTRY("i16x4"),
-  [FIELD_U16] = ENTRY("u16"),
-  [FIELD_U16x2] = ENTRY("u16x2"),
-  [FIELD_U16x4] = ENTRY("u16x4"),
-  [FIELD_SN16x2] = ENTRY("sn16x2"),
-  [FIELD_SN16x4] = ENTRY("sn16x4"),
-  [FIELD_UN16x2] = ENTRY("un16x2"),
-  [FIELD_UN16x4] = ENTRY("un16x4"),
-  [FIELD_I32] = ENTRY("i32"),
-  [FIELD_I32x2] = ENTRY("i32x2"),
-  [FIELD_I32x3] = ENTRY("i32x3"),
-  [FIELD_I32x4] = ENTRY("i32x4"),
-  [FIELD_U32] = ENTRY("u32"),
-  [FIELD_U32x2] = ENTRY("u32x2"),
-  [FIELD_U32x3] = ENTRY("u32x3"),
-  [FIELD_U32x4] = ENTRY("u32x4"),
-  [FIELD_F16x2] = ENTRY("f16x2"),
-  [FIELD_F16x4] = ENTRY("f16x4"),
-  [FIELD_F32] = ENTRY("f32"),
-  [FIELD_F32x2] = ENTRY("f32x2"),
-  [FIELD_F32x3] = ENTRY("f32x3"),
-  [FIELD_F32x4] = ENTRY("f32x4"),
-  [FIELD_MAT2] = ENTRY("mat2"),
-  [FIELD_MAT3] = ENTRY("mat3"),
-  [FIELD_MAT4] = ENTRY("mat4"),
-  [FIELD_INDEX16] = ENTRY("index16"),
-  [FIELD_INDEX32] = ENTRY("index32"),
+StringEntry lovrDataType[] = {
+  [TYPE_I8x4] = ENTRY("i8x4"),
+  [TYPE_U8x4] = ENTRY("u8x4"),
+  [TYPE_SN8x4] = ENTRY("sn8x4"),
+  [TYPE_UN8x4] = ENTRY("un8x4"),
+  [TYPE_UN10x3] = ENTRY("un10x3"),
+  [TYPE_I16] = ENTRY("i16"),
+  [TYPE_I16x2] = ENTRY("i16x2"),
+  [TYPE_I16x4] = ENTRY("i16x4"),
+  [TYPE_U16] = ENTRY("u16"),
+  [TYPE_U16x2] = ENTRY("u16x2"),
+  [TYPE_U16x4] = ENTRY("u16x4"),
+  [TYPE_SN16x2] = ENTRY("sn16x2"),
+  [TYPE_SN16x4] = ENTRY("sn16x4"),
+  [TYPE_UN16x2] = ENTRY("un16x2"),
+  [TYPE_UN16x4] = ENTRY("un16x4"),
+  [TYPE_I32] = ENTRY("i32"),
+  [TYPE_I32x2] = ENTRY("i32x2"),
+  [TYPE_I32x3] = ENTRY("i32x3"),
+  [TYPE_I32x4] = ENTRY("i32x4"),
+  [TYPE_U32] = ENTRY("u32"),
+  [TYPE_U32x2] = ENTRY("u32x2"),
+  [TYPE_U32x3] = ENTRY("u32x3"),
+  [TYPE_U32x4] = ENTRY("u32x4"),
+  [TYPE_F16x2] = ENTRY("f16x2"),
+  [TYPE_F16x4] = ENTRY("f16x4"),
+  [TYPE_F32] = ENTRY("f32"),
+  [TYPE_F32x2] = ENTRY("f32x2"),
+  [TYPE_F32x3] = ENTRY("f32x3"),
+  [TYPE_F32x4] = ENTRY("f32x4"),
+  [TYPE_MAT2] = ENTRY("mat2"),
+  [TYPE_MAT3] = ENTRY("mat3"),
+  [TYPE_MAT4] = ENTRY("mat4"),
+  [TYPE_INDEX16] = ENTRY("index16"),
+  [TYPE_INDEX32] = ENTRY("index32"),
   { 0 }
 };
 
@@ -215,7 +215,7 @@ static uint32_t luax_checkfieldtype(lua_State* L, int index) {
   const char* string = luaL_checklstring(L, index, &length);
 
   if (length < 3) {
-    return luaL_error(L, "invalid FieldType '%s'", string), 0;
+    return luaL_error(L, "invalid DataType '%s'", string), 0;
   }
 
   // Plurals are allowed and ignored
@@ -230,36 +230,36 @@ static uint32_t luax_checkfieldtype(lua_State* L, int index) {
 
   // vec[234]
   if (length == 4 && string[0] == 'v' && string[1] == 'e' && string[2] == 'c' && string[3] >= '2' && string[3] <= '4') {
-    return FIELD_F32x2 + string[3] - '2';
+    return TYPE_F32x2 + string[3] - '2';
   }
 
   if (length == 3 && !memcmp(string, "int", length)) {
-    return FIELD_I32;
+    return TYPE_I32;
   }
 
   if (length == 4 && !memcmp(string, "uint", length)) {
-    return FIELD_U32;
+    return TYPE_U32;
   }
 
   if (length == 5 && !memcmp(string, "float", length)) {
-    return FIELD_F32;
+    return TYPE_F32;
   }
 
   if (length == 5 && !memcmp(string, "color", length)) {
-    return FIELD_UN8x4;
+    return TYPE_UN8x4;
   }
 
   if (length == 5 && !memcmp(string, "index", length)) {
-    return FIELD_INDEX32;
+    return TYPE_INDEX32;
   }
 
-  for (int i = 0; lovrFieldType[i].length; i++) {
-    if (length == lovrFieldType[i].length && !memcmp(string, lovrFieldType[i].string, length)) {
+  for (int i = 0; lovrDataType[i].length; i++) {
+    if (length == lovrDataType[i].length && !memcmp(string, lovrDataType[i].string, length)) {
       return i;
     }
   }
 
-  return luaL_error(L, "invalid FieldType '%s'", string), 0;
+  return luaL_error(L, "invalid DataType '%s'", string), 0;
 }
 
 void luax_checkbufferformat(lua_State* L, int index, BufferField* fields, uint32_t* count, uint32_t max) {
