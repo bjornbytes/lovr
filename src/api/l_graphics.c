@@ -770,7 +770,8 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 
   if (index) {
     if (lua_istable(L, index)) {
-      luax_checkbufferdata(L, index, fields, pointer);
+      DataField* format = lovrBufferGetInfo(buffer)->format;
+      luax_checkbufferdata(L, index, format, pointer);
     } else {
       Blob* blob = luax_checktype(L, index, Blob);
       memcpy(pointer, blob->data, info.size);
@@ -793,7 +794,8 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   if (index) {
     if (lua_istable(L, index)) {
-      luax_checkbufferdata(L, index, fields, pointer);
+      DataField* format = lovrBufferGetInfo(buffer)->format;
+      luax_checkbufferdata(L, index, format, pointer);
     } else {
       Blob* blob = luax_checktype(L, index, Blob);
       memcpy(pointer, blob->data, info.size);

@@ -1678,11 +1678,6 @@ static uint32_t lovrBufferInit(Buffer* buffer, const BufferInfo* info, size_t ch
     DataField* format = (DataField*) (names + charCount);
 
     memcpy(format, info->format, info->fieldCount * sizeof(DataField));
-    alignField(format, info->layout);
-
-    if (format->length == 0 && info->size > format->stride) {
-      format->length = info->size / format->stride;
-    }
 
     // Copy names, fixup children pointers
     for (uint32_t i = 0; i < info->fieldCount; i++) {
@@ -1697,6 +1692,12 @@ static uint32_t lovrBufferInit(Buffer* buffer, const BufferInfo* info, size_t ch
       if (format[i].children) {
         format[i].children = format + (format[i].children - info->format);
       }
+    }
+
+    alignField(format, info->layout);
+
+    if (format->length == 0 && info->size > format->stride) {
+      format->length = info->size / format->stride;
     }
 
     buffer->info.size = info->size ? info->size : format->stride * MAX(format->length, 1);
