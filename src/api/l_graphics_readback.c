@@ -20,7 +20,7 @@ static int l_lovrReadbackWait(lua_State* L) {
 
 static int l_lovrReadbackGetData(lua_State* L) {
   Readback* readback = luax_checktype(L, 1, Readback);
-  BufferField format;
+  DataField format;
   void* data = lovrReadbackGetData(readback, &format);
   if (data) {
     return luax_pushbufferdata(L, &format, data);

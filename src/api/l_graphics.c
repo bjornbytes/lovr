@@ -210,7 +210,7 @@ StringEntry lovrWrapMode[] = {
   { 0 }
 };
 
-static uint32_t luax_checkfieldtype(lua_State* L, int index) {
+static uint32_t luax_checkdatatype(lua_State* L, int index) {
   size_t length;
   const char* string = luaL_checklstring(L, index, &length);
 
@@ -262,10 +262,10 @@ static uint32_t luax_checkfieldtype(lua_State* L, int index) {
   return luaL_error(L, "invalid DataType '%s'", string), 0;
 }
 
-void luax_checkbufferformat(lua_State* L, int index, BufferField* fields, uint32_t* count, uint32_t max) {
+void luax_checkdataformat(lua_State* L, int index, DataField* fields, uint32_t* count, uint32_t max) {
   if (lua_type(L, index) == LUA_TSTRING) {
     lovrCheck(*count < max, "Too many buffer fields");
-    fields[*count] = (BufferField) { .type = luax_checkfieldtype(L, index), .location = ~0u };
+    fields[*count] = (DataField) { .type = luax_checkdatatype(L, index), .location = ~0u };
     ++*count;
     return;
   }
@@ -279,14 +279,14 @@ void luax_checkbufferformat(lua_State* L, int index, BufferField* fields, uint32
 
   lovrCheck(length > 0, "At least one Buffer field must be provided");
   lovrCheck(*count + length + 1 < max, "Too many buffer fields");
-  BufferField* parent = &fields[*count];
+  DataField* parent = &fields[*count];
   memset(parent, 0, sizeof(*parent));
   parent->children = parent + 1;
   parent->childCount = length;
   ++*count;
 
   if (nested) {
-    BufferField* child = parent->children;
+    DataField* child = parent->children;
     for (int i = 0; i < length; i++, child++) {
       lua_rawgeti(L, index, i + 1);
 
@@ -296,7 +296,7 @@ void luax_checkbufferformat(lua_State* L, int index, BufferField* fields, uint32
         lua_rawgeti(L, -1, 2);
       }
       lovrCheck(lua_type(L, -1) == LUA_TSTRING || lua_type(L, -1) == LUA_TTABLE, "Buffer fields must have a 'type' key");
-      luax_checkbufferformat(L, -1, fields, count, max);
+      luax_checkdataformat(L, -1, fields, count, max);
       lua_pop(L, 1);
 
       size_t nameLength;
@@ -337,7 +337,7 @@ void luax_checkbufferformat(lua_State* L, int index, BufferField* fields, uint32
   } else {
     for (int i = 0; i < length; i++) {
       lua_rawgeti(L, index, i + 1);
-      parent->children[i] = (BufferField) { .type = luax_checkfieldtype(L, -1), .location = ~0u };
+      parent->children[i] = (DataField) { .type = luax_checkdatatype(L, -1), .location = ~0u };
       lua_pop(L, 1);
       ++*count;
     }
@@ -640,7 +640,7 @@ static int l_lovrGraphicsGetDefaultFont(lua_State* L) {
   return 1;
 }
 
-static int luax_newbuffer(lua_State* L, BufferInfo* info, BufferField* fields, uint32_t fieldCount) {
+static int luax_newbuffer(lua_State* L, BufferInfo* info, DataField* format, uint32_t fieldCount) {
   Shader* shader;
   Blob* blob;
 
@@ -693,9 +693,9 @@ static int luax_newbuffer(lua_State* L, BufferInfo* info, BufferField* fields, u
       default: return luax_typeerror(L, 2, "string or number");
     }
 
-    info->fields = lovrShaderGetBufferFormat(shader, name, length, slot, &info->size, &info->fieldCount);
+    info->format = lovrShaderGetBufferFormat(shader, name, length, slot, &info->size, &info->fieldCount);
 
-    if (!info->fields) {
+    if (!info->format) {
       if (name) {
         lovrThrow("Shader has no Buffer named '%s'", name);
       } else {
@@ -705,8 +705,8 @@ static int luax_newbuffer(lua_State* L, BufferInfo* info, BufferField* fields, u
 
     return 3;
   } else if (type == LUA_TTABLE || type == LUA_TSTRING) {
-    info->fields = fields;
-    luax_checkbufferformat(L, 1, fields, &info->fieldCount, fieldCount);
+    info->format = format;
+    luax_checkdataformat(L, 1, format, &info->fieldCount, fieldCount);
 
     bool hasLength = false;
 
@@ -716,34 +716,33 @@ static int luax_newbuffer(lua_State* L, BufferInfo* info, BufferField* fields, u
       lua_pop(L, 1);
 
       lua_getfield(L, 1, "stride");
-      fields[0].stride = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1);
+      format->stride = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1);
       lua_pop(L, 1);
 
       // You can give an explicit length, since length detection from table/Blob is unreliable
       lua_getfield(L, 1, "length");
-      fields[0].length = lua_isnil(L, -1) ? 0 : (hasLength = true, luax_checku32(L, -1));
+      format->length = lua_isnil(L, -1) ? 0 : (hasLength = true, luax_checku32(L, -1));
       lua_pop(L, 1);
     }
 
-    if (fields[0].childCount == 1) {
-      fields[0].type = fields[0].children[0].type;
-      fields[0].hash = fields[0].children[0].hash;
-      fields[0].location = fields[0].children[0].location;
-      fields[0].childCount = 0;
+    // Unwrap structs that only have a single field
+    if (format->childCount == 1) {
+      *format = format->children[0];
+      info->fieldCount = 1;
     }
 
     // Note that we can set the length or the size and the other one will be inferred
     switch (lua_type(L, 2)) {
       case LUA_TNIL:
       case LUA_TNONE:
-        fields[0].length = fields[0].childCount > 0 ? 0 : 1;
+        format->length = format->childCount > 0 ? 0 : 1;
         return 0;
       case LUA_TNUMBER:
-        fields[0].length = lua_tointeger(L, 2);
+        format->length = lua_tointeger(L, 2);
         return 0;
       case LUA_TTABLE:
         if (!hasLength) {
-          fields[0].length = luax_len(L, 2);
+          format->length = luax_len(L, 2);
         }
         return 2;
       default:
@@ -762,7 +761,7 @@ static int luax_newbuffer(lua_State* L, BufferInfo* info, BufferField* fields, u
 // Deprecated
 static int l_lovrGraphicsGetBuffer(lua_State* L) {
   BufferInfo info = { 0 };
-  BufferField fields[128];
+  DataField fields[128];
 
   int index = luax_newbuffer(L, &info, fields, COUNTOF(fields));
 
@@ -785,7 +784,7 @@ static int l_lovrGraphicsGetBuffer(lua_State* L) {
 
 static int l_lovrGraphicsNewBuffer(lua_State* L) {
   BufferInfo info = { 0 };
-  BufferField fields[128];
+  DataField fields[128];
 
   int index = luax_newbuffer(L, &info, fields, COUNTOF(fields));
 

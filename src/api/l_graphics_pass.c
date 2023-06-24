@@ -671,9 +671,9 @@ static int l_lovrPassSend(lua_State* L) {
   }
 
   void* data;
-  BufferField* field;
-  lovrPassSendData(pass, name, length, slot, &data, &field);
-  luax_checkbufferdata(L, 3, field, data);
+  DataField* format;
+  lovrPassSendData(pass, name, length, slot, &data, &format);
+  luax_checkbufferdata(L, 3, format, data);
   return 0;
 }
 

@@ -47,7 +47,6 @@ typedef struct {
 struct Buffer {
   uint32_t ref;
   Sync sync;
-  char* names;
   gpu_buffer* gpu;
   BufferInfo info;
   // Deprecated:
@@ -102,7 +101,7 @@ typedef struct {
   gpu_cache cache;
   uint32_t bufferSize;
   uint32_t fieldCount;
-  BufferField* fields;
+  DataField* fields;
 } ShaderResource;
 
 typedef struct {
@@ -129,8 +128,8 @@ struct Shader {
   uint32_t constantCount;
   ShaderAttribute* attributes;
   ShaderResource* resources;
-  BufferField* constants;
-  BufferField* fields;
+  DataField* constants;
+  DataField* fields;
   uint32_t flagCount;
   uint32_t overrideCount;
   gpu_shader_flag* flags;
@@ -569,8 +568,6 @@ static struct {
   BufferPool streamBuffers;
   BufferPool uploadBuffers;
   BufferPool downloadBuffers;
-  size_t tempBufferIndex;
-  arr_t(Buffer*) tempBuffers;
   arr_t(ScratchTexture) scratchTextures;
   map_t pipelineLookup;
   arr_t(gpu_pipeline*) pipelines;
@@ -596,7 +593,7 @@ static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uin
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
 static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot);
-static void alignField(BufferField* field, BufferLayout layout);
+static void alignField(DataField* field, DataLayout layout);
 static Access* getNextAccess(Pass* pass, int type, bool texture);
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
@@ -671,7 +668,6 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   arr_init(&state.pipelines, realloc);
   arr_init(&state.layouts, realloc);
   arr_init(&state.materialBlocks, realloc);
-  arr_init(&state.tempBuffers, realloc);
   arr_init(&state.scratchTextures, realloc);
 
   gpu_slot builtinSlots[] = {
@@ -886,10 +882,6 @@ void lovrGraphicsDestroy(void) {
     free(block->bundles);
   }
   arr_free(&state.materialBlocks);
-  for (size_t i = 0; i < state.tempBuffers.length; i++) {
-    free(state.tempBuffers.data[i]);
-  }
-  arr_free(&state.tempBuffers);
   for (size_t i = 0; i < state.scratchTextures.length; i++) {
     gpu_texture_destroy(state.scratchTextures.data[i].texture);
     free(state.scratchTextures.data[i].texture);
@@ -1676,78 +1668,65 @@ void lovrGraphicsWait(void) {
 
 // Buffer
 
-// Deprecated
-Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
-  alignField(info->fields, info->layout);
+static uint32_t lovrBufferInit(Buffer* buffer, const BufferInfo* info, size_t charCount) {
+  buffer->ref = 1;
+  buffer->info = *info;
+  buffer->gpu = (gpu_buffer*) ((char*) buffer + sizeof(Buffer));
 
-  uint32_t size = info->size ? info->size : info->fields[0].stride * MAX(info->fields[0].length, 1);
+  if (info->format) {
+    char* names = (char*) buffer + sizeof(Buffer) + gpu_sizeof_buffer();
+    DataField* format = (DataField*) (names + charCount);
+
+    memcpy(format, info->format, info->fieldCount * sizeof(DataField));
+    alignField(format, info->layout);
+
+    if (format->length == 0 && info->size > format->stride) {
+      format->length = info->size / format->stride;
+    }
+
+    // Copy names, fixup children pointers
+    for (uint32_t i = 0; i < info->fieldCount; i++) {
+      if (format[i].name) {
+        size_t length = strlen(format[i].name);
+        memcpy(names, format[i].name, length);
+        names[length] = '\0';
+        format[i].name = names;
+        names += length + 1;
+      }
+
+      if (format[i].children) {
+        format[i].children = format + (format[i].children - info->format);
+      }
+    }
+
+    buffer->info.size = info->size ? info->size : format->stride * MAX(format->length, 1);
+    buffer->info.format = format;
+  }
+
+  uint32_t size = buffer->info.size;
   lovrCheck(size > 0, "Buffer size can not be zero");
   lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
 
-  const uint32_t BUFFERS_PER_CHUNK = 64;
-  if (state.tempBufferIndex >= state.tempBuffers.length * BUFFERS_PER_CHUNK) {
-    Buffer* buffers = malloc(BUFFERS_PER_CHUNK * sizeof(Buffer));
-    lovrAssert(buffers, "Out of memory");
+  return size;
+}
 
-    for (uint32_t i = 0; i < BUFFERS_PER_CHUNK; i++) {
-      buffers[i].gpu = NULL;
-      buffers[i].names = NULL;
-      buffers[i].info.fields = NULL;
-    }
-
-    arr_push(&state.tempBuffers, buffers);
-  }
-
-  size_t index = state.tempBufferIndex++;
-  Buffer* buffer = &state.tempBuffers.data[index / BUFFERS_PER_CHUNK][index % BUFFERS_PER_CHUNK];
-
+// Deprecated
+Buffer* lovrGraphicsGetBuffer(const BufferInfo* info, void** data) {
   size_t charCount = 0;
   for (uint32_t i = 0; i < info->fieldCount; i++) {
-    if (info->fields[i].name) {
-      charCount += strlen(info->fields[i].name) + 1;
+    if (info->format[i].name) {
+      charCount += strlen(info->format[i].name) + 1;
     }
   }
 
-  free(buffer->names);
-  free(buffer->info.fields);
+  size_t memorySize = sizeof(Buffer) + gpu_sizeof_buffer() + charCount + info->fieldCount * sizeof(DataField);
+  Buffer* buffer = tempAlloc(&state.allocator, memorySize);
+  memset(buffer, 0, memorySize);
 
-  buffer->ref = 1;
-  buffer->names = malloc(charCount);
-  lovrAssert(buffer->names, "Out of memory");
-  buffer->info = *info;
-  buffer->info.size = size;
-
-  if (info->fieldCount > 0) {
-    buffer->info.fields = malloc(info->fieldCount * sizeof(BufferField));
-    lovrAssert(buffer->info.fields, "Out of memory");
-    memcpy(buffer->info.fields, info->fields, info->fieldCount * sizeof(BufferField));
-  } else {
-    buffer->info.fields = NULL;
-  }
-
-  // Auto-array-length detection (used for computing length from Blob size, must happen after field alignment)
-  if (info->fieldCount > 0 && buffer->info.fields[0].length == 0 && size > buffer->info.fields[0].stride) {
-    buffer->info.fields[0].length = size / buffer->info.fields[0].stride;
-  }
-
-  char* names = buffer->names;
-  for (uint32_t i = 0; i < info->fieldCount; i++) {
-    if (buffer->info.fields[i].name) {
-      const char* name = buffer->info.fields[i].name;
-      size_t length = strlen(name);
-      memcpy(names, name, length);
-      names[length] = '\0';
-      buffer->info.fields[i].name = names;
-      names += length + 1;
-    }
-
-    if (buffer->info.fields[i].children) {
-      buffer->info.fields[i].children = buffer->info.fields + (info->fields[i].children - info->fields);
-    }
-  }
+  lovrBufferInit(buffer, info, charCount);
 
   beginFrame();
-  MappedBuffer mapped = mapBuffer(&state.streamBuffers, size, state.limits.uniformBufferAlign);
+  MappedBuffer mapped = mapBuffer(&state.streamBuffers, buffer->info.size, state.limits.uniformBufferAlign);
   buffer->gpu = mapped.buffer;
   buffer->offset = mapped.offset;
   buffer->pointer = mapped.pointer;
@@ -1761,65 +1740,27 @@ Buffer* lovrGraphicsGetBuffer(BufferInfo* info, void** data) {
 }
 
 Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
-  alignField(info->fields, info->layout);
-
-  uint32_t size = info->size ? info->size : info->fields[0].stride * MAX(info->fields[0].length, 1);
-  lovrCheck(size > 0, "Buffer size can not be zero");
-  lovrCheck(size <= 1 << 30, "Max buffer size is 1GB");
-
   size_t charCount = 0;
   for (uint32_t i = 0; i < info->fieldCount; i++) {
-    if (info->fields[i].name) {
-      charCount += strlen(info->fields[i].name) + 1;
+    if (info->format[i].name) {
+      charCount += strlen(info->format[i].name) + 1;
     }
   }
 
-  Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer());
-  char* names = malloc(charCount);
-  lovrAssert(buffer && names, "Out of memory");
-  buffer->ref = 1;
-  buffer->gpu = (gpu_buffer*) (buffer + 1);
-  buffer->names = names;
-  buffer->info = *info;
-  buffer->info.size = size;
-
-  BufferField* fields = NULL;
-  if (info->fieldCount > 0) {
-    fields = buffer->info.fields = malloc(info->fieldCount * sizeof(BufferField));
-    lovrAssert(fields, "Out of memory");
-    memcpy(fields, info->fields, info->fieldCount * sizeof(BufferField));
-  }
-
-  // Auto-array-length detection (used for computing length from Blob size, must happen after field alignment)
-  if (info->fieldCount > 0 && fields[0].length == 0 && size > fields[0].stride) {
-    fields[0].length = size / fields[0].stride;
-  }
-
-  for (uint32_t i = 0; i < info->fieldCount; i++) {
-    if (buffer->info.fields[i].name) {
-      const char* name = buffer->info.fields[i].name;
-      size_t length = strlen(name);
-      memcpy(names, name, length);
-      names[length] = '\0';
-      buffer->info.fields[i].name = names;
-      names += length + 1;
-    }
-
-    if (buffer->info.fields[i].children) {
-      buffer->info.fields[i].children = fields + (info->fields[i].children - info->fields);
-    }
-  }
+  Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer() + charCount + info->fieldCount * sizeof(DataField));
+  lovrAssert(buffer, "Out of memory");
+  lovrBufferInit(buffer, info, charCount);
 
   gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
-    .size = size,
+    .size = buffer->info.size,
     .label = info->label,
     .pointer = data
   });
 
   if (data && *data == NULL) {
     beginFrame();
-    MappedBuffer mapped = mapBuffer(&state.uploadBuffers, size, 4);
-    gpu_copy_buffers(state.stream, mapped.buffer, buffer->gpu, mapped.offset, 0, size);
+    MappedBuffer mapped = mapBuffer(&state.uploadBuffers, buffer->info.size, 4);
+    gpu_copy_buffers(state.stream, mapped.buffer, buffer->gpu, mapped.offset, 0, buffer->info.size);
     buffer->sync.writePhase = GPU_PHASE_TRANSFER;
     buffer->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
     buffer->sync.lastTransferWrite = state.tick;
@@ -1827,6 +1768,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   }
 
   buffer->sync.barrier = &state.postBarrier;
+
   return buffer;
 }
 
@@ -1834,8 +1776,6 @@ void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
   if (lovrBufferIsTemporary(buffer)) return;
   gpu_buffer_destroy(buffer->gpu);
-  free(buffer->names);
-  free(buffer->info.fields);
   free(buffer);
 }
 
@@ -2613,7 +2553,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   // Allocate
   gpu_slot* slots = tempAlloc(&state.allocator, (spv[0].resourceCount + spv[1].resourceCount) * sizeof(gpu_slot));
   shader->resources = malloc((spv[0].resourceCount + spv[1].resourceCount) * sizeof(ShaderResource));
-  shader->fields = malloc((spv[0].fieldCount + spv[1].fieldCount) * sizeof(BufferField));
+  shader->fields = malloc((spv[0].fieldCount + spv[1].fieldCount) * sizeof(DataField));
   shader->flags = malloc((spv[0].specConstantCount + spv[1].specConstantCount) * sizeof(gpu_shader_flag));
   shader->flagLookup = malloc((spv[0].specConstantCount + spv[1].specConstantCount) * sizeof(uint32_t));
   lovrAssert(shader->resources && shader->fields, "Out of memory");
@@ -2745,7 +2685,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
       uint32_t base = s == 1 ? spv[0].fieldCount : 0;
 
-      shader->fields[base + i] = (BufferField) {
+      shader->fields[base + i] = (DataField) {
         .type = field->type == SPV_STRUCT ? ~0u : dataTypes[field->type],
         .offset = field->offset,
         .length = field->arrayLength,
@@ -2929,7 +2869,7 @@ void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]) {
   memcpy(size, shader->workgroupSize, 3 * sizeof(uint32_t));
 }
 
-BufferField* lovrShaderGetBufferFormat(Shader* shader, const char* name, size_t length, uint32_t slot, uint32_t* size, uint32_t* fieldCount) {
+DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, size_t length, uint32_t slot, uint32_t* size, uint32_t* fieldCount) {
   if (name) {
     uint32_t hash = (uint32_t) hash64(name, length);
     for (uint32_t i = 0; i < shader->resourceCount; i++) {
@@ -3639,7 +3579,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
   char* blendData = NULL;
   char* skinData = NULL;
 
-  BufferField vertexFormat[] = {
+  DataField vertexFormat[] = {
     { .length = data->vertexCount, .stride = sizeof(ModelVertex) },
     { .location = 10, .type = TYPE_F32x3, .offset = offsetof(ModelVertex, position) },
     { .location = 11, .type = TYPE_F32x3, .offset = offsetof(ModelVertex, normal) },
@@ -3652,14 +3592,14 @@ Model* lovrModelCreate(const ModelInfo* info) {
   vertexFormat[0].childCount = COUNTOF(vertexFormat) - 1;
 
   BufferInfo vertexBufferInfo = {
-    .fields = vertexFormat,
+    .format = vertexFormat,
     .fieldCount = COUNTOF(vertexFormat)
   };
 
   model->vertexBuffer = lovrBufferCreate(&vertexBufferInfo, (void**) &vertexData);
 
   if (data->blendShapeVertexCount > 0) {
-    BufferField blendFormat[] = {
+    DataField blendFormat[] = {
       { .length = data->blendShapeVertexCount, .stride = 9 * sizeof(float) },
       { .type = TYPE_F32x3, .offset = offsetof(BlendVertex, position) },
       { .type = TYPE_F32x3, .offset = offsetof(BlendVertex, normal) },
@@ -3670,13 +3610,13 @@ Model* lovrModelCreate(const ModelInfo* info) {
     blendFormat[0].childCount = COUNTOF(blendFormat) - 1;
 
     model->blendBuffer = lovrBufferCreate(&(BufferInfo) {
-      .fields = blendFormat,
+      .format = blendFormat,
       .fieldCount = COUNTOF(blendFormat)
     }, (void**) &blendData);
   }
 
   if (data->skinnedVertexCount > 0) {
-    BufferField skinFormat[] = {
+    DataField skinFormat[] = {
       { .length = data->skinnedVertexCount, .stride = 8 },
       { .offset = 0, .type = TYPE_UN8x4 },
       { .offset = 4, .type = TYPE_U8x4 }
@@ -3686,7 +3626,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     skinFormat[0].childCount = COUNTOF(skinFormat) - 1;
 
     model->skinBuffer = lovrBufferCreate(&(BufferInfo) {
-      .fields = skinFormat,
+      .format = skinFormat,
       .fieldCount = COUNTOF(skinFormat)
     }, (void**) &skinData);
   }
@@ -3720,7 +3660,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
   if (data->indexCount > 0) {
     model->indexBuffer = lovrBufferCreate(&(BufferInfo) {
       .fieldCount = 1,
-      .fields = &(BufferField) {
+      .format = &(DataField) {
         .type = data->indexType == U32 ? TYPE_INDEX32 : TYPE_INDEX16,
         .length = data->indexCount,
         .stride = indexSize
@@ -4408,11 +4348,11 @@ bool lovrReadbackWait(Readback* readback) {
   return waited;
 }
 
-void* lovrReadbackGetData(Readback* readback, BufferField* format) {
+void* lovrReadbackGetData(Readback* readback, DataField* format) {
   if (!lovrReadbackIsComplete(readback)) return NULL;
 
-  if (readback->type == READBACK_BUFFER && readback->buffer->info.fields) {
-    *format = readback->buffer->info.fields[0];
+  if (readback->type == READBACK_BUFFER && readback->buffer->info.format) {
+    *format = *readback->buffer->info.format;
     return readback->blob->data;
   }
 
@@ -5422,7 +5362,7 @@ void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t s
   pass->flags |= DIRTY_BINDINGS;
 }
 
-void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot, void** data, BufferField** field) {
+void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot, void** data, DataField** field) {
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A Shader must be active to send data to it");
 
@@ -5473,7 +5413,9 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw) {
     pipeline->lastVertexBuffer = info->vertex.buffer;
     pipeline->dirty = true;
 
-    BufferField* format = info->vertex.buffer->info.fields;
+    DataField* format = info->vertex.buffer->info.format;
+    DataField* fields = format->childCount > 0 ? format->children : format;
+    uint32_t fieldCount = format->childCount > 0 ? format->childCount : 1;
 
     pipeline->info.vertex.bufferCount = 2;
     pipeline->info.vertex.attributeCount = shader->attributeCount;
@@ -5484,18 +5426,14 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw) {
       ShaderAttribute* attribute = &shader->attributes[i];
       bool found = false;
 
-      BufferField* fields = format->childCount > 0 ? format->children : format;
-      uint32_t fieldCount = format->childCount > 0 ? format->childCount : 1;
-
       for (uint32_t j = 0; j < fieldCount; j++) {
-        const BufferField* field = &fields[j];
-        lovrCheck(field->type < TYPE_MAT2, "Currently vertex attributes can not use matrix and index types");
-        if (field->hash ? (field->hash == attribute->hash) : (field->location == attribute->location)) {
+        if (fields[j].hash ? (fields[j].hash == attribute->hash) : (fields[j].location == attribute->location)) {
+          lovrCheck(fields[j].type < TYPE_MAT2, "Currently vertex attributes can not use matrix or index types");
           pipeline->info.vertex.attributes[i] = (gpu_attribute) {
             .buffer = 0,
             .location = attribute->location,
-            .offset = field->offset,
-            .type = field->type
+            .offset = fields[j].offset,
+            .type = fields[j].type
           };
           found = true;
           break;
@@ -5568,7 +5506,7 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
       draw->start = mapped.offset / stride;
     }
   } else if (info->vertex.buffer) {
-    lovrCheck(info->vertex.buffer->info.fields->stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
+    lovrCheck(info->vertex.buffer->info.format->stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
     trackBuffer(pass, info->vertex.buffer, GPU_PHASE_INPUT_VERTEX, GPU_CACHE_VERTEX);
     draw->vertexBuffer = info->vertex.buffer->gpu;
   } else {
@@ -5584,7 +5522,7 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
   } else if (info->index.buffer) {
     trackBuffer(pass, info->index.buffer, GPU_PHASE_INPUT_INDEX, GPU_CACHE_INDEX);
     draw->indexBuffer = info->index.buffer->gpu;
-    draw->flags |= info->index.buffer->info.fields[0].stride == 4 ? DRAW_INDEX32 : 0;
+    draw->flags |= info->index.buffer->info.format->stride == 4 ? DRAW_INDEX32 : 0;
   } else {
     draw->indexBuffer = NULL;
   }
@@ -6627,20 +6565,20 @@ void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform) {
 }
 
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t base) {
-  lovrCheck(!indices || (indices->info.fields && indices->info.fields->length > 0), "Buffer must have a length greater than zero to use it as an index buffer");
-  lovrCheck(!vertices || (vertices->info.fields && vertices->info.fields->length > 0), "Buffer must have a length greater than zero to use it as a vertex buffer");
+  lovrCheck(!indices || (indices->info.format && indices->info.format->length > 0), "Buffer must have a length greater than zero to use it as an index buffer");
+  lovrCheck(!vertices || (vertices->info.format && vertices->info.format->length > 0), "Buffer must have a length greater than zero to use it as a vertex buffer");
 
   if (count == ~0u) {
     if (indices || vertices) {
       Buffer* buffer = indices ? indices : vertices;
-      count = buffer->info.fields->length - start;
+      count = buffer->info.format->length - start;
     } else {
       count = 0;
     }
   } else if (indices) {
-    lovrCheck(count <= indices->info.fields->length - start, "Mesh draw range exceeds index buffer size");
+    lovrCheck(count <= indices->info.format->length - start, "Mesh draw range exceeds index buffer size");
   } else if (vertices) {
-    lovrCheck(count <= vertices->info.fields->length - start, "Mesh draw range exceeds vertex buffer size");
+    lovrCheck(count <= vertices->info.format->length - start, "Mesh draw range exceeds vertex buffer size");
   }
 
   lovrPassDraw(pass, &(DrawInfo) {
@@ -6888,7 +6826,6 @@ static void beginFrame(void) {
   state.active = true;
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin("Internal");
-  state.tempBufferIndex = 0;
   state.allocator.cursor = 0;
   state.passCount = 0;
   processReadbacks();
@@ -7161,7 +7098,7 @@ static ShaderResource* findShaderResource(Shader* shader, const char* name, size
   }
 }
 
-static void alignField(BufferField* field, BufferLayout layout) {
+static void alignField(DataField* field, DataLayout layout) {
   if (!field) return;
 
   static const struct { uint32_t size, scalarAlign, baseAlign; } fieldInfo[] = {
@@ -7214,7 +7151,7 @@ static void alignField(BufferField* field, BufferLayout layout) {
     uint32_t extent = 0;
     uint32_t maxAlign = 0;
     for (uint32_t i = 0; i < field->childCount; i++) {
-      BufferField* child = &field->children[i];
+      DataField* child = &field->children[i];
 
       alignField(child, layout);
 
