@@ -167,7 +167,6 @@ typedef struct DataField {
   uint32_t type;
   uint32_t length;
   uint32_t stride;
-  uint32_t align;
 } DataField;
 
 typedef struct {

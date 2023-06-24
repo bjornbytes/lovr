@@ -593,7 +593,7 @@ static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uin
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
 static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot);
-static void alignField(DataField* field, DataLayout layout);
+static uint32_t alignField(DataField* field, DataLayout layout);
 static Access* getNextAccess(Pass* pass, int type, bool texture);
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
@@ -1719,13 +1719,14 @@ Buffer* lovrGraphicsGetBuffer(const BufferInfo* info, void** data) {
     }
   }
 
+  beginFrame();
+
   size_t memorySize = sizeof(Buffer) + gpu_sizeof_buffer() + charCount + info->fieldCount * sizeof(DataField);
   Buffer* buffer = tempAlloc(&state.allocator, memorySize);
   memset(buffer, 0, memorySize);
 
   lovrBufferInit(buffer, info, charCount);
 
-  beginFrame();
   MappedBuffer mapped = mapBuffer(&state.streamBuffers, buffer->info.size, state.limits.uniformBufferAlign);
   buffer->gpu = mapped.buffer;
   buffer->offset = mapped.offset;
@@ -7098,9 +7099,7 @@ static ShaderResource* findShaderResource(Shader* shader, const char* name, size
   }
 }
 
-static void alignField(DataField* field, DataLayout layout) {
-  if (!field) return;
-
+static uint32_t alignField(DataField* field, DataLayout layout) {
   static const struct { uint32_t size, scalarAlign, baseAlign; } fieldInfo[] = {
     [TYPE_I8x4] = { 4, 1, 4 },
     [TYPE_U8x4] = { 4, 1, 4 },
@@ -7138,35 +7137,39 @@ static void alignField(DataField* field, DataLayout layout) {
     [TYPE_INDEX32] = { 4, 4, 4 }
   };
 
+  uint32_t align = 0;
+
   if (field->childCount == 0) {
-    field->align = layout == LAYOUT_PACKED ? fieldInfo[field->type].scalarAlign : fieldInfo[field->type].baseAlign;
+    align = layout == LAYOUT_PACKED ? fieldInfo[field->type].scalarAlign : fieldInfo[field->type].baseAlign;
     field->stride = fieldInfo[field->type].size;
 
     if (field->length > 0) {
-      field->align = layout == LAYOUT_STD140 ? ALIGN(field->align, 16) : field->align;
-      field->stride = MAX(field->align, field->stride);
+      align = layout == LAYOUT_STD140 ? ALIGN(align, 16) : align;
+      field->stride = MAX(align, field->stride);
     }
   } else {
     uint32_t cursor = 0;
     uint32_t extent = 0;
-    uint32_t maxAlign = 0;
+
     for (uint32_t i = 0; i < field->childCount; i++) {
       DataField* child = &field->children[i];
 
-      alignField(child, layout);
+      uint32_t subalign = alignField(child, layout);
 
       if (child->offset == 0) {
-        child->offset = ALIGN(cursor, child->align);
+        child->offset = ALIGN(cursor, subalign);
         cursor = child->offset + MAX(child->length, 1) * child->stride;
       }
 
       extent = MAX(extent, child->offset + MAX(child->length, 1) * child->stride);
-      maxAlign = MAX(maxAlign, child->align);
+      align = MAX(align, subalign);
     }
 
-    field->align = layout == LAYOUT_STD140 ? ALIGN(maxAlign, 16) : maxAlign;
-    if (field->stride == 0) field->stride = ALIGN(extent, field->align);
+    align = layout == LAYOUT_STD140 ? ALIGN(align, 16) : align;
+    if (field->stride == 0) field->stride = ALIGN(extent, align);
   }
+
+  return align;
 }
 
 static Access* getNextAccess(Pass* pass, int type, bool texture) {
