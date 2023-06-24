@@ -2298,6 +2298,7 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
   const char* prefix = ""
     "#version 460\n"
     "#extension GL_EXT_multiview : require\n"
+    "#extension GL_EXT_samplerless_texture_functions : require\n"
     "#extension GL_GOOGLE_include_directive : require\n";
 
   const char* strings[] = {
