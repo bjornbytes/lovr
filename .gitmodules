@@ -30,4 +30,4 @@
 	url = https://github.com/bjornbytes/lua-enet
 [submodule "plugins/lua-https"]
 	path = plugins/lua-https
-	url = https://github.com/love2d/lua-https
+	url = https://github.com/bjornbytes/lua-https
