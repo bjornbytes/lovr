@@ -115,9 +115,11 @@ void lovrModelDataFinalize(ModelData* model) {
   for (uint32_t i = 0; i < model->nodeCount; i++) {
     ModelNode* node = &model->nodes[i];
 
-    for (uint32_t j = 0; j < model->nodeCount; j++) {
-      if (i == j || node->primitiveIndex != model->nodes[j].primitiveIndex) continue;
-      lovrCheck(node->skin == model->nodes[j].skin, "Model has a mesh used with multiple different skins, which is not supported");
+    if (node->primitiveCount > 0) {
+      for (uint32_t j = 0; j < model->nodeCount; j++) {
+        if (i == j || model->nodes[j].primitiveCount == 0 || node->primitiveIndex != model->nodes[j].primitiveIndex) continue;
+        lovrCheck(node->skin == model->nodes[j].skin, "Model has a mesh used with multiple different skins, which is not supported");
+      }
     }
 
     for (uint32_t j = node->primitiveIndex; j < node->primitiveIndex + node->primitiveCount; j++) {
