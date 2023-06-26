@@ -13,15 +13,21 @@
 #include <math.h>
 
 #if defined(_WIN32)
-#define XR_USE_PLATFORM_WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <unknwn.h>
-#include <windows.h>
-#elif defined(__ANDROID__)
-#define XR_USE_PLATFORM_ANDROID
-void* os_get_java_vm(void);
-void* os_get_jni_context(void);
-#include <jni.h>
+ #define XR_USE_PLATFORM_WIN32
+ #define WIN32_LEAN_AND_MEAN
+ #include <unknwn.h>
+ #include <windows.h>
+ #define XR_FOREACH_PLATFORM(X) X(xrConvertWin32PerformanceCounterToTimeKHR)
+#else
+ #if defined(__ANDROID__)
+  #define XR_USE_PLATFORM_ANDROID
+  void* os_get_java_vm(void);
+  void* os_get_jni_context(void);
+  #include <jni.h>
+ #endif
+ #include <time.h>
+ #define XR_USE_TIMESPEC
+ #define XR_FOREACH_PLATFORM(X) X(xrConvertTimespecTimeToTimeKHR)
 #endif
 
 #ifdef LOVR_VK
@@ -54,6 +60,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrCreateVulkanDeviceKHR)\
   X(xrCreateSession)\
   X(xrDestroySession)\
+  X(xrEnumerateReferenceSpaces)\
   X(xrCreateReferenceSpace)\
   X(xrGetReferenceSpaceBoundsRect)\
   X(xrCreateActionSpace)\
@@ -113,6 +120,7 @@ XRAPI_ATTR XrResult XRAPI_CALL xrGetInstanceProcAddr(XrInstance instance, const 
 XRAPI_ATTR XrResult XRAPI_CALL xrEnumerateInstanceExtensionProperties(const char* layerName, uint32_t propertyCapacityInput, uint32_t* propertyCountOutput, XrExtensionProperties* properties);
 XRAPI_ATTR XrResult XRAPI_CALL xrCreateInstance(const XrInstanceCreateInfo* createInfo, XrInstance* instance);
 XR_FOREACH(XR_DECLARE)
+XR_FOREACH_PLATFORM(XR_DECLARE)
 
 enum {
   ACTION_HAND_POSE,
@@ -157,7 +165,7 @@ static struct {
   XrSession session;
   XrSessionState sessionState;
   XrSpace referenceSpace;
-  XrReferenceSpaceType referenceSpaceType;
+  XrSpace stage;
   float* refreshRates;
   uint32_t refreshRateCount;
   XrEnvironmentBlendMode* blendModes;
@@ -202,6 +210,7 @@ static struct {
     bool headless;
     bool keyboardTracking;
     bool ml2Controller;
+    bool localFloor;
     bool overlay;
     bool questPassthrough;
     bool picoController;
@@ -239,6 +248,54 @@ static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, cons
     }
   }
   return false;
+}
+
+static XrTime getCurrentXrTime(void) {
+  XrTime time;
+#ifdef _WIN32
+  LARGE_INTEGER t;
+  QueryPerformanceCounter(&t);
+  XR(xrConvertWin32PerformanceCounterToTimeKHR(state.instance, &t, &time), "Failed to get time");
+#else
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  XR(xrConvertTimespecTimeToTimeKHR(state.instance, &t, &time), "Failed to get time");
+#endif
+  return time;
+}
+
+static void createReferenceSpace(void) {
+  XrReferenceSpaceCreateInfo info = {
+    .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
+    .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
+  };
+
+  if (state.features.localFloor) {
+    if (state.referenceSpace) {
+      return;
+    } else {
+      info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
+    }
+  } else if (state.stage) {
+    XrSpace local;
+    info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+    XR(xrCreateReferenceSpace(state.session, &info, &local), "Failed to create local space");
+
+    XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
+    XR(xrLocateSpace(state.stage, local, getCurrentXrTime(), &location), "Failed to locate space");
+    XR(xrDestroySpace(local), "Failed to destroy local space");
+
+    if (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
+      info.poseInReferenceSpace.position.y = location.pose.position.y;
+    } else {
+      info.poseInReferenceSpace.position.y = -state.config.offset;
+    }
+  } else {
+    info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+    info.poseInReferenceSpace.position.y = -state.config.offset;
+  }
+
+  XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace), "Failed to create reference space");
 }
 
 static XrAction getPoseActionForDevice(Device device) {
@@ -404,13 +461,18 @@ static bool openxr_init(HeadsetConfig* config) {
 #ifdef LOVR_VK
       { "XR_KHR_vulkan_enable2", NULL, true },
 #endif
-
 #ifdef __ANDROID__
       { "XR_KHR_android_create_instance", NULL, true },
 #endif
       { "XR_KHR_composition_layer_depth", &state.features.depth, config->submitDepth },
+#ifdef _WIN32
+      { "XR_KHR_win32_convert_performance_counter_time", NULL, true },
+#else
+      { "XR_KHR_convert_timespec_time", NULL, true },
+#endif
       { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
       { "XR_EXT_hand_tracking", &state.features.handTracking, true },
+      { "XR_EXT_local_floor", &state.features.localFloor, true },
       { "XR_BD_controller_interaction", &state.features.picoController, true },
       { "XR_FB_display_refresh_rate", &state.features.refreshRate, true },
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
@@ -462,6 +524,7 @@ static bool openxr_init(HeadsetConfig* config) {
 
     XR_INIT(xrCreateInstance(&info, &state.instance), "Failed to create instance");
     XR_FOREACH(XR_LOAD)
+    XR_FOREACH_PLATFORM(XR_LOAD)
   }
 
   { // System
@@ -1075,46 +1138,27 @@ static void openxr_start(void) {
   }
 
   { // Spaaace
+    uint32_t spaceCount = 0;
+    XR(xrEnumerateReferenceSpaces(state.session, 0, &spaceCount, NULL), "Failed to enumerate reference spaces");
+    XrReferenceSpaceType* spaceTypes = malloc(spaceCount * sizeof(XrReferenceSpaceType));
+    lovrAssert(spaceTypes, "Out of memory");
+    XR(xrEnumerateReferenceSpaces(state.session, spaceCount, &spaceCount, spaceTypes), "Failed to enumerate reference spaces");
 
-    // Main reference space (can be stage or local)
-    XrReferenceSpaceCreateInfo info = {
-      .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE,
-      .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
-    };
+    for (uint32_t i = 0; i < spaceCount; i++) {
+      if (spaceTypes[i] == XR_REFERENCE_SPACE_TYPE_STAGE) {
+        XrReferenceSpaceCreateInfo info = {
+          .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
+          .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE,
+          .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
+        };
 
-    if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace))) {
-      info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-      info.poseInReferenceSpace.position.y = -state.config.offset;
-      XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace), "Failed to create reference space");
-    }
-
-    state.referenceSpaceType = info.referenceSpaceType;
-
-    // Head space (for head pose)
-    XrReferenceSpaceCreateInfo headSpaceInfo = {
-      .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW,
-      .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
-    };
-
-    XR(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]), "Failed to create reference space");
-
-    XrActionSpaceCreateInfo actionSpaceInfo = {
-      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-      .poseInActionSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
-    };
-
-    for (uint32_t i = 0; i < MAX_DEVICES; i++) {
-      actionSpaceInfo.action = getPoseActionForDevice(i);
-      actionSpaceInfo.subactionPath = state.actionFilters[i];
-
-      if (!actionSpaceInfo.action) {
-        continue;
+        XR(xrCreateReferenceSpace(state.session, &info, &state.stage), "Failed to create stage space");
+        break;
       }
-
-      XR(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]), "Failed to create action space");
     }
+
+    free(spaceTypes);
+    createReferenceSpace();
   }
 
   // Swapchain
@@ -1336,7 +1380,7 @@ static bool openxr_getName(char* name, size_t length) {
 }
 
 static HeadsetOrigin openxr_getOriginType(void) {
-  return state.referenceSpaceType == XR_REFERENCE_SPACE_TYPE_STAGE ? ORIGIN_FLOOR : ORIGIN_HEAD;
+  return state.stage ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
 static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -1557,7 +1601,7 @@ static void openxr_setClipDistance(float clipNear, float clipFar) {
 
 static void openxr_getBoundsDimensions(float* width, float* depth) {
   XrExtent2Df bounds;
-  if (XR_SUCCEEDED(xrGetReferenceSpaceBoundsRect(state.session, state.referenceSpaceType, &bounds))) {
+  if (XR_SUCCEEDED(xrGetReferenceSpaceBoundsRect(state.session, XR_REFERENCE_SPACE_TYPE_STAGE, &bounds))) {
     *width = bounds.width;
     *depth = bounds.height;
   } else {
@@ -2462,7 +2506,14 @@ static double openxr_update(void) {
         state.sessionState = event->state;
         break;
       }
-
+      case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING: {
+        XrEventDataReferenceSpaceChangePending* event = (XrEventDataReferenceSpaceChangePending*) &e;
+        if (event->referenceSpaceType == XR_REFERENCE_SPACE_TYPE_LOCAL) {
+          createReferenceSpace();
+          lovrEventPush((Event) { .type = EVENT_RECENTER });
+        }
+        break;
+      }
       default: break;
     }
     e.type = XR_TYPE_EVENT_DATA_BUFFER;

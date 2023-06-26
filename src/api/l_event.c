@@ -10,6 +10,7 @@ StringEntry lovrEventType[] = {
   [EVENT_RESTART] = ENTRY("restart"),
   [EVENT_VISIBLE] = ENTRY("visible"),
   [EVENT_FOCUS] = ENTRY("focus"),
+  [EVENT_RECENTER] = ENTRY("recenter"),
   [EVENT_RESIZE] = ENTRY("resize"),
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
   [EVENT_KEYRELEASED] = ENTRY("keyreleased"),
@@ -155,6 +156,9 @@ static int nextEvent(lua_State* L) {
     case EVENT_FOCUS:
       lua_pushboolean(L, event.data.boolean.value);
       return 2;
+
+    case EVENT_RECENTER:
+      return 1;
 
     case EVENT_RESIZE:
       lua_pushinteger(L, event.data.resize.width);
