@@ -165,7 +165,6 @@ static struct {
   XrSession session;
   XrSessionState sessionState;
   XrSpace referenceSpace;
-  XrSpace stage;
   float* refreshRates;
   uint32_t refreshRateCount;
   XrEnvironmentBlendMode* blendModes;
@@ -276,13 +275,13 @@ static void createReferenceSpace(void) {
     } else {
       info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
     }
-  } else if (state.stage) {
+  } else if (state.spaces[DEVICE_FLOOR]) {
     XrSpace local;
     info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
     XR(xrCreateReferenceSpace(state.session, &info, &local), "Failed to create local space");
 
     XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
-    XR(xrLocateSpace(state.stage, local, getCurrentXrTime(), &location), "Failed to locate space");
+    XR(xrLocateSpace(state.spaces[DEVICE_FLOOR], local, getCurrentXrTime(), &location), "Failed to locate space");
     XR(xrDestroySpace(local), "Failed to destroy local space");
 
     if (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
@@ -1142,37 +1141,24 @@ static void openxr_start(void) {
   }
 
   { // Spaaace
-    uint32_t spaceCount = 0;
-    XR(xrEnumerateReferenceSpaces(state.session, 0, &spaceCount, NULL), "Failed to enumerate reference spaces");
-    XrReferenceSpaceType* spaceTypes = malloc(spaceCount * sizeof(XrReferenceSpaceType));
-    lovrAssert(spaceTypes, "Out of memory");
-    XR(xrEnumerateReferenceSpaces(state.session, spaceCount, &spaceCount, spaceTypes), "Failed to enumerate reference spaces");
-
-    for (uint32_t i = 0; i < spaceCount; i++) {
-      if (spaceTypes[i] == XR_REFERENCE_SPACE_TYPE_STAGE) {
-        XrReferenceSpaceCreateInfo info = {
-          .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-          .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE,
-          .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
-        };
-
-        XR(xrCreateReferenceSpace(state.session, &info, &state.stage), "Failed to create stage space");
-        break;
-      }
-    }
-
-    free(spaceTypes);
     createReferenceSpace();
 
-    // Head space (for head pose)
-    XrReferenceSpaceCreateInfo headSpaceInfo = {
+    XrReferenceSpaceCreateInfo referenceSpaceInfo = {
       .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW,
       .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
     };
 
-    XR(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]), "Failed to create reference space");
+    // Head
+    referenceSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+    XR(xrCreateReferenceSpace(state.session, &referenceSpaceInfo, &state.spaces[DEVICE_HEAD]), "Failed to create head space");
 
+    // Floor (may not be supported, which is okay)
+    referenceSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
+    if (XR_FAILED(xrCreateReferenceSpace(state.session, &referenceSpaceInfo, &state.spaces[DEVICE_FLOOR]))) {
+      state.spaces[DEVICE_FLOOR] = XR_NULL_HANDLE;
+    }
+
+    // Action spaces
     XrActionSpaceCreateInfo actionSpaceInfo = {
       .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
       .poseInActionSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
@@ -1409,7 +1395,7 @@ static bool openxr_getName(char* name, size_t length) {
 }
 
 static HeadsetOrigin openxr_getOriginType(void) {
-  return state.stage ? ORIGIN_FLOOR : ORIGIN_HEAD;
+  return state.spaces[DEVICE_FLOOR] ? ORIGIN_FLOOR : ORIGIN_HEAD;
 }
 
 static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {

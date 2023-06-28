@@ -43,6 +43,7 @@ typedef enum {
 
 typedef enum {
   DEVICE_HEAD,
+  DEVICE_FLOOR,
   DEVICE_HAND_LEFT,
   DEVICE_HAND_RIGHT,
   DEVICE_HAND_LEFT_POINT,

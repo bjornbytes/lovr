@@ -27,6 +27,7 @@ StringEntry lovrPassthroughMode[] = {
 
 StringEntry lovrDevice[] = {
   [DEVICE_HEAD] = ENTRY("head"),
+  [DEVICE_FLOOR] = ENTRY("floor"),
   [DEVICE_HAND_LEFT] = ENTRY("hand/left"),
   [DEVICE_HAND_RIGHT] = ENTRY("hand/right"),
   [DEVICE_HAND_LEFT_POINT] = ENTRY("hand/left/point"),
