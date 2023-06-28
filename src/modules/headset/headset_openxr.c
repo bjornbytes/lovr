@@ -272,7 +272,7 @@ static void createReferenceSpace(void) {
 
   if (state.features.localFloor) {
     if (state.referenceSpace) {
-      return;
+      return; // local-floor space doesn't need to change after recentering
     } else {
       info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
     }
@@ -293,6 +293,10 @@ static void createReferenceSpace(void) {
   } else {
     info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
     info.poseInReferenceSpace.position.y = -state.config.offset;
+  }
+
+  if (state.referenceSpace) {
+    XR(xrDestroySpace(state.referenceSpace), "Failed to destroy reference space");
   }
 
   XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace), "Failed to create reference space");
