@@ -1159,6 +1159,31 @@ static void openxr_start(void) {
 
     free(spaceTypes);
     createReferenceSpace();
+
+    // Head space (for head pose)
+    XrReferenceSpaceCreateInfo headSpaceInfo = {
+      .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
+      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW,
+      .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
+    };
+
+    XR(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]), "Failed to create reference space");
+
+    XrActionSpaceCreateInfo actionSpaceInfo = {
+      .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
+      .poseInActionSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
+    };
+
+    for (uint32_t i = 0; i < MAX_DEVICES; i++) {
+      actionSpaceInfo.action = getPoseActionForDevice(i);
+      actionSpaceInfo.subactionPath = state.actionFilters[i];
+
+      if (!actionSpaceInfo.action) {
+        continue;
+      }
+
+      XR(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]), "Failed to create action space");
+    }
   }
 
   // Swapchain
