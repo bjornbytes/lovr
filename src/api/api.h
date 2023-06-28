@@ -40,7 +40,6 @@ extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
 extern StringEntry lovrFilterMode[];
 extern StringEntry lovrHeadsetDriver[];
-extern StringEntry lovrHeadsetOrigin[];
 extern StringEntry lovrHorizontalAlign[];
 extern StringEntry lovrJointType[];
 extern StringEntry lovrKeyboardKey[];

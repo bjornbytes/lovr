@@ -12,12 +12,6 @@ StringEntry lovrHeadsetDriver[] = {
   { 0 }
 };
 
-StringEntry lovrHeadsetOrigin[] = {
-  [ORIGIN_HEAD] = ENTRY("head"),
-  [ORIGIN_FLOOR] = ENTRY("floor"),
-  { 0 }
-};
-
 StringEntry lovrPassthroughMode[] = {
   [PASSTHROUGH_OPAQUE] = ENTRY("opaque"),
   [PASSTHROUGH_BLEND] = ENTRY("blend"),
@@ -103,8 +97,8 @@ static int l_lovrHeadsetGetName(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetGetOriginType(lua_State* L) {
-  luax_pushenum(L, HeadsetOrigin, lovrHeadsetInterface->getOriginType());
+static int l_lovrHeadsetIsSeated(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetInterface->isSeated());
   return 1;
 }
 
@@ -624,11 +618,20 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   return 1;
 }
 
+// Deprecated
+static int l_lovrHeadsetGetOriginType(lua_State* L) {
+  if (lovrHeadsetInterface->isSeated()) {
+    lua_pushliteral(L, "head");
+  } else {
+    lua_pushliteral(L, "floor");
+  }
+  return 1;
+}
+
 static const luaL_Reg lovrHeadset[] = {
   { "start", l_lovrHeadsetStart },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getName", l_lovrHeadsetGetName },
-  { "getOriginType", l_lovrHeadsetGetOriginType },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },
   { "getDisplayDimensions", l_lovrHeadsetGetDisplayDimensions },
@@ -643,6 +646,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getViewAngles", l_lovrHeadsetGetViewAngles },
   { "getClipDistance", l_lovrHeadsetGetClipDistance },
   { "setClipDistance", l_lovrHeadsetSetClipDistance },
+  { "isSeated", l_lovrHeadsetIsSeated },
   { "getBoundsWidth", l_lovrHeadsetGetBoundsWidth },
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
@@ -674,6 +678,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getHands", l_lovrHeadsetGetHands },
 
   // Deprecated
+  { "getOriginType", l_lovrHeadsetGetOriginType },
   { "getDisplayFrequency", l_lovrHeadsetGetRefreshRate },
   { "getDisplayFrequencies", l_lovrHeadsetGetRefreshRates },
   { "setDisplayFrequency", l_lovrHeadsetSetRefreshRate },
@@ -691,7 +696,7 @@ int luaopen_lovr_headset(lua_State* L) {
     .drivers = drivers,
     .driverCount = 0,
     .supersample = 1.f,
-    .offset = 1.7f,
+    .seated = false,
     .stencil = false,
     .antialias = true,
     .submitDepth = true,
@@ -720,8 +725,8 @@ int luaopen_lovr_headset(lua_State* L) {
       }
       lua_pop(L, 1);
 
-      lua_getfield(L, -1, "offset");
-      config.offset = luax_optfloat(L, -1, 1.7f);
+      lua_getfield(L, -1, "seated");
+      config.seated = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "stencil");

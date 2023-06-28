@@ -94,8 +94,8 @@ static bool desktop_getName(char* name, size_t length) {
   return true;
 }
 
-static HeadsetOrigin desktop_getOriginType(void) {
-  return ORIGIN_HEAD;
+static bool desktop_isSeated(void) {
+  return state.config.seated;
 }
 
 static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -141,7 +141,7 @@ static uint32_t desktop_getViewCount(void) {
 static bool desktop_getViewPose(uint32_t view, float* position, float* orientation) {
   vec3_init(position, state.position);
   quat_fromMat4(orientation, state.headTransform);
-  position[1] += state.config.offset;
+  position[1] += state.config.seated ? 0.f : 1.7f;
   return view == 0;
 }
 
@@ -186,6 +186,10 @@ static bool desktop_getPose(Device device, vec3 position, quat orientation) {
   } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_LEFT_POINT) {
     mat4_getPosition(state.leftHandTransform, position);
     quat_fromMat4(orientation, state.leftHandTransform);
+    return true;
+  } else if (device == DEVICE_FLOOR) {
+    vec3_set(position, 0.f, state.config.seated ? -1.7f : 0.f, 0.f);
+    quat_identity(orientation);
     return true;
   }
   return false;
@@ -368,7 +372,7 @@ static double desktop_update(void) {
 
   // Update head transform
   mat4_identity(state.headTransform);
-  mat4_translate(state.headTransform, 0.f, state.config.offset, 0.f);
+  mat4_translate(state.headTransform, 0.f, state.config.seated ? 0.f : 1.7f, 0.f);
   mat4_translate(state.headTransform, state.position[0], state.position[1], state.position[2]);
   mat4_rotate(state.headTransform, state.yaw, 0.f, 1.f, 0.f);
   mat4_rotate(state.headTransform, state.pitch, 1.f, 0.f, 0.f);
@@ -403,7 +407,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .stop = desktop_stop,
   .destroy = desktop_destroy,
   .getName = desktop_getName,
-  .getOriginType = desktop_getOriginType,
+  .isSeated = desktop_isSeated,
   .getDisplayDimensions = desktop_getDisplayDimensions,
   .getRefreshRate = desktop_getRefreshRate,
   .setRefreshRate = desktop_setRefreshRate,

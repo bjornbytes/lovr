@@ -178,8 +178,8 @@ var webxr = {
     return false;
   },
 
-  webxr_getOriginType: function() {
-    return 1; /* ORIGIN_FLOOR */
+  webxr_isSeated: function() {
+    // TODO
   },
 
   webxr_getDisplayDimensions: function(width, height) {

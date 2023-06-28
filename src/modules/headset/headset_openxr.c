@@ -270,12 +270,16 @@ static void createReferenceSpace(void) {
     .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
   };
 
+  // Reference space doesn't need to be recreated for seated experiences (those always use local
+  // space), or when local-floor is supported.  Otherwise, vertical offset must be re-measured.
+  if (state.referenceSpace && (state.features.localFloor || state.config.seated)) {
+    return;
+  }
+
   if (state.features.localFloor) {
-    if (state.referenceSpace) {
-      return; // local-floor space doesn't need to change after recentering
-    } else {
-      info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
-    }
+    info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
+  } else if (state.config.seated) {
+    info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
   } else if (state.spaces[DEVICE_FLOOR]) {
     XrSpace local;
     info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
@@ -288,11 +292,11 @@ static void createReferenceSpace(void) {
     if (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
       info.poseInReferenceSpace.position.y = location.pose.position.y;
     } else {
-      info.poseInReferenceSpace.position.y = -state.config.offset;
+      info.poseInReferenceSpace.position.y = -1.7f;
     }
   } else {
     info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-    info.poseInReferenceSpace.position.y = -state.config.offset;
+    info.poseInReferenceSpace.position.y = -1.7f;
   }
 
   if (state.referenceSpace) {
@@ -1395,8 +1399,8 @@ static bool openxr_getName(char* name, size_t length) {
   return true;
 }
 
-static HeadsetOrigin openxr_getOriginType(void) {
-  return state.spaces[DEVICE_FLOOR] ? ORIGIN_FLOOR : ORIGIN_HEAD;
+static bool openxr_isSeated(void) {
+  return state.config.seated;
 }
 
 static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -2590,7 +2594,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .stop = openxr_stop,
   .destroy = openxr_destroy,
   .getName = openxr_getName,
-  .getOriginType = openxr_getOriginType,
+  .isSeated = openxr_isSeated,
   .getDisplayDimensions = openxr_getDisplayDimensions,
   .getRefreshRate = openxr_getRefreshRate,
   .setRefreshRate = openxr_setRefreshRate,

@@ -21,17 +21,12 @@ typedef struct {
   HeadsetDriver* drivers;
   size_t driverCount;
   float supersample;
-  float offset;
+  bool seated;
   bool stencil;
   bool antialias;
   bool submitDepth;
   bool overlay;
 } HeadsetConfig;
-
-typedef enum {
-  ORIGIN_HEAD,
-  ORIGIN_FLOOR
-} HeadsetOrigin;
 
 typedef enum {
   PASSTHROUGH_OPAQUE,
@@ -122,7 +117,7 @@ typedef enum {
 // - init is called immediately, the graphics module may not exist yet
 // - start is called after the graphics module is initialized, can be used to set up textures etc.
 // - graphics module currently calls stop when it's destroyed, which is hacky and should be improved
-// - getDisplayFrequency may return 0.f if the information is unavailable.
+// - getRefreshRate may return 0.f if the information is unavailable.
 // - For isDown, changed can be set to false if change information is unavailable or inconvenient.
 // - getAxis may write 4 floats to the output value.  The expected number is a constant (see axisCounts in l_headset).
 // - In general, most input results should be kept constant between calls to update.
@@ -137,7 +132,7 @@ typedef struct HeadsetInterface {
   void (*stop)(void);
   void (*destroy)(void);
   bool (*getName)(char* name, size_t length);
-  HeadsetOrigin (*getOriginType)(void);
+  bool (*isSeated)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
   float (*getRefreshRate)(void);
   bool (*setRefreshRate)(float refreshRate);
