@@ -114,6 +114,7 @@ void _luax_pushtype(lua_State* L, const char* name, uint64_t hash, void* object)
 int _luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
 void luax_registerloader(lua_State* L, int (*loader)(lua_State* L), int index);
 int luax_resume(lua_State* T, int n);
+int luax_loadbufferx(lua_State* L, const char* buffer, size_t size, const char* name, const char* mode);
 void luax_vthrow(void* L, const char* format, va_list args);
 void luax_vlog(void* context, int level, const char* tag, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);

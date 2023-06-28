@@ -296,6 +296,19 @@ int luax_resume(lua_State* T, int n) {
 #endif
 }
 
+int luax_loadbufferx(lua_State* L, const char* buffer, size_t size, const char* name, const char* mode) {
+#if LUA_VERSION_NUM >= 502
+  return luaL_loadbufferx(L, buffer, size, name, mode);
+#else
+  bool binary = buffer[0] == LUA_SIGNATURE[0];
+  if (mode && !strchr(mode, binary ? 'b' : 't')) {
+    lua_pushliteral(L, "attempt to load chunk with wrong mode");
+    return LUA_ERRSYNTAX;
+  }
+  return luaL_loadbuffer(L, buffer, size, name);
+#endif
+}
+
 void luax_vthrow(void* context, const char* format, va_list args) {
   lua_State* L = (lua_State*) context;
   lua_pushvfstring(L, format, args);
