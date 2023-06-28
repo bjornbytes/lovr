@@ -22,6 +22,7 @@ extern bool webxr_isTouched(Device device, DeviceButton button, bool* touched);
 extern bool webxr_getAxis(Device device, DeviceAxis axis, float* value);
 extern bool webxr_getSkeleton(Device device, float* poses);
 extern bool webxr_vibrate(Device device, float strength, float duration, float frequency);
+extern void webxr_stopVibration(Device device);
 extern struct ModelData* webxr_newModelData(Device device, bool animated);
 extern bool webxr_animate(struct Model* model);
 extern void webxr_renderTo(void (*callback)(void*), void* userdata);
@@ -76,6 +77,7 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .getAxis = webxr_getAxis,
   .getSkeleton = webxr_getSkeleton,
   .vibrate = webxr_vibrate,
+  .stopVibration = webxr_stopVibration,
   .newModelData = webxr_newModelData,
   .animate = webxr_animate,
   .renderTo = webxr_renderTo,

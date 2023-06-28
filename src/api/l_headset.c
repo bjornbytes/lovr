@@ -519,6 +519,12 @@ static int l_lovrHeadsetVibrate(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetStopVibration(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  lovrHeadsetInterface->stopVibration(device);
+  return 0;
+}
+
 static int l_lovrHeadsetNewModel(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   bool animated = false;
@@ -654,6 +660,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getAxis", l_lovrHeadsetGetAxis },
   { "getSkeleton", l_lovrHeadsetGetSkeleton },
   { "vibrate", l_lovrHeadsetVibrate },
+  { "stopVibration", l_lovrHeadsetStopVibration },
   { "newModel", l_lovrHeadsetNewModel },
   { "animate", l_lovrHeadsetAnimate },
   { "getTexture", l_lovrHeadsetGetTexture },

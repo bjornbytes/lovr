@@ -161,6 +161,7 @@ typedef struct HeadsetInterface {
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);
   bool (*getSkeleton)(Device device, float* poses);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
+  void (*stopVibration)(Device device);
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(struct Model* model);
   struct Texture* (*getTexture)(void);

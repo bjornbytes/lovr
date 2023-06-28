@@ -375,6 +375,10 @@ var webxr = {
     return !!actuator;
   },
 
+  webxr_stopVibration: function(device) {
+    return;
+  },
+
   webxr_newModelData: function(device, animated) {
     return 0; /* NULL */
   },

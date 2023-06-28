@@ -226,6 +226,10 @@ static bool desktop_vibrate(Device device, float strength, float duration, float
   return false;
 }
 
+static void desktop_stopVibration(Device device) {
+  //
+}
+
 static struct ModelData* desktop_newModelData(Device device, bool animated) {
   return NULL;
 }
@@ -423,6 +427,7 @@ HeadsetInterface lovrHeadsetDesktopDriver = {
   .getAxis = desktop_getAxis,
   .getSkeleton = desktop_getSkeleton,
   .vibrate = desktop_vibrate,
+  .stopVibration = desktop_stopVibration,
   .newModelData = desktop_newModelData,
   .animate = desktop_animate,
   .getTexture = desktop_getTexture,

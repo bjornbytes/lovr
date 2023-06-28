@@ -94,6 +94,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrGetActionStatePose)\
   X(xrSyncActions)\
   X(xrApplyHapticFeedback)\
+  X(xrStopHapticFeedback)\
   X(xrCreateHandTrackerEXT)\
   X(xrDestroyHandTrackerEXT)\
   X(xrLocateHandJointsEXT)\
@@ -1904,6 +1905,20 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
   return true;
 }
 
+static void openxr_stopVibration(Device device) {
+  XrHapticActionInfo info = {
+    .type = XR_TYPE_HAPTIC_ACTION_INFO,
+    .action = state.actions[ACTION_VIBRATE],
+    .subactionPath = getInputActionFilter(device)
+  };
+
+  if (info.subactionPath == XR_NULL_PATH) {
+    return;
+  }
+
+  XR(xrStopHapticFeedback(state.session, &info), "Failed to stop haptic feedback");
+}
+
 static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated) {
   // First, figure out how much data there is
   XrHandTrackingMeshFB mesh = { .type = XR_TYPE_HAND_TRACKING_MESH_FB };
@@ -2599,6 +2614,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getAxis = openxr_getAxis,
   .getSkeleton = openxr_getSkeleton,
   .vibrate = openxr_vibrate,
+  .stopVibration = openxr_stopVibration,
   .newModelData = openxr_newModelData,
   .animate = openxr_animate,
   .getTexture = openxr_getTexture,
