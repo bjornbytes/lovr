@@ -125,7 +125,6 @@ typedef enum {
   OS_PERMISSION_AUDIO_CAPTURE
 } os_permission;
 
-typedef void fn_gl_proc(void);
 typedef void fn_quit(void);
 typedef void fn_focus(bool focused);
 typedef void fn_resize(uint32_t width, uint32_t height);
