@@ -212,6 +212,17 @@ static int l_lovrSystemWasKeyReleased(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSystemHasKeyRepeat(lua_State* L) {
+  lua_pushboolean(L, lovrSystemHasKeyRepeat());
+  return 1;
+}
+
+static int l_lovrSystemSetKeyRepeat(lua_State* L) {
+  bool repeat = lua_toboolean(L, 1);
+  lovrSystemSetKeyRepeat(repeat);
+  return 0;
+}
+
 static int l_lovrSystemGetMouseX(lua_State* L) {
   double x, y;
   lovrSystemGetMousePosition(&x, &y);
@@ -255,6 +266,8 @@ static const luaL_Reg lovrSystem[] = {
   { "isKeyDown", l_lovrSystemIsKeyDown },
   { "wasKeyPressed", l_lovrSystemWasKeyPressed },
   { "wasKeyReleased", l_lovrSystemWasKeyReleased },
+  { "hasKeyRepeat", l_lovrSystemHasKeyRepeat },
+  { "setKeyRepeat", l_lovrSystemSetKeyRepeat },
   { "getMouseX", l_lovrSystemGetMouseX },
   { "getMouseY", l_lovrSystemGetMouseY },
   { "getMousePosition", l_lovrSystemGetMousePosition },

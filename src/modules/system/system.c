@@ -6,6 +6,7 @@
 
 static struct {
   bool initialized;
+  bool keyRepeat;
   bool prevKeyState[KEY_COUNT];
   bool keyState[KEY_COUNT];
   bool mouseState[8];
@@ -14,6 +15,7 @@ static struct {
 } state;
 
 static void onKey(os_button_action action, os_key key, uint32_t scancode, bool repeat) {
+  if (repeat && !state.keyRepeat) return;
   state.keyState[key] = (action == BUTTON_PRESSED);
   lovrEventPush((Event) {
     .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
@@ -143,6 +145,14 @@ bool lovrSystemWasKeyPressed(int keycode) {
 
 bool lovrSystemWasKeyReleased(int keycode) {
   return state.prevKeyState[keycode] && !state.keyState[keycode];
+}
+
+bool lovrSystemHasKeyRepeat(void) {
+  return state.keyRepeat;
+}
+
+void lovrSystemSetKeyRepeat(bool repeat) {
+  state.keyRepeat = repeat;
 }
 
 void lovrSystemGetMousePosition(double* x, double* y) {

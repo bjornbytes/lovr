@@ -22,5 +22,7 @@ void lovrSystemPollEvents(void);
 bool lovrSystemIsKeyDown(int keycode);
 bool lovrSystemWasKeyPressed(int keycode);
 bool lovrSystemWasKeyReleased(int keycode);
+bool lovrSystemHasKeyRepeat(void);
+void lovrSystemSetKeyRepeat(bool repeat);
 void lovrSystemGetMousePosition(double* x, double* y);
 bool lovrSystemIsMouseDown(int button);
