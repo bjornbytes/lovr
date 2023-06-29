@@ -2196,12 +2196,12 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
 }
 
 static bool openxr_animateFB(Model* model, const ModelInfo* info) {
-  XrHandTrackerEXT tracker = *(XrHandTrackerEXT*)info->data->metadata;
+  XrHandTrackerEXT tracker = *(XrHandTrackerEXT*) info->data->metadata;
+  Device device = tracker == state.handTrackers[0] ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
 
-  // TODO might be nice to cache joints so getSkeleton/animate only locate joints once (profile)
   XrHandJointsLocateInfoEXT locateInfo = {
     .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
-    .baseSpace = state.referenceSpace,
+    .baseSpace = state.spaces[device],
     .time = state.frameState.predictedDisplayTime
   };
 
@@ -2253,9 +2253,8 @@ static bool openxr_animateFB(Model* model, const ModelInfo* info) {
   // The following can be optimized a lot (ideally we would set the global transform for the nodes)
   for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
     if (jointParents[i] == ~0u) {
-      float position[4] = { 0.f, 0.f, 0.f };
-      float orientation[4] = { 0.f, 0.f, 0.f, 1.f };
-      lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
+      XrPosef* pose = &joints[i].pose;
+      lovrModelSetNodeTransform(model, i, &pose->position.x, scale, &pose->orientation.x, 1.f);
     } else {
       XrPosef* parent = &joints[jointParents[i]].pose;
       XrPosef* pose = &joints[i].pose;
