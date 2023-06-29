@@ -1146,8 +1146,6 @@ static void openxr_start(void) {
   }
 
   { // Spaaace
-    createReferenceSpace();
-
     XrReferenceSpaceCreateInfo referenceSpaceInfo = {
       .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
       .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
@@ -1162,6 +1160,8 @@ static void openxr_start(void) {
     if (XR_FAILED(xrCreateReferenceSpace(state.session, &referenceSpaceInfo, &state.spaces[DEVICE_FLOOR]))) {
       state.spaces[DEVICE_FLOOR] = XR_NULL_HANDLE;
     }
+
+    createReferenceSpace();
 
     // Action spaces
     XrActionSpaceCreateInfo actionSpaceInfo = {
@@ -2544,6 +2544,7 @@ static double openxr_update(void) {
         XrEventDataReferenceSpaceChangePending* event = (XrEventDataReferenceSpaceChangePending*) &e;
         if (event->referenceSpaceType == XR_REFERENCE_SPACE_TYPE_LOCAL) {
           createReferenceSpace();
+          state.layers[0].space = state.referenceSpace;
           lovrEventPush((Event) { .type = EVENT_RECENTER });
         }
         break;
