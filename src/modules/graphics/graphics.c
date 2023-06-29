@@ -640,7 +640,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     gpu.vk.getPhysicalDevice = lovrHeadsetInterface->getVulkanPhysicalDevice;
     gpu.vk.createInstance = lovrHeadsetInterface->createVulkanInstance;
     gpu.vk.createDevice = lovrHeadsetInterface->createVulkanDevice;
-    if (lovrHeadsetInterface->driverType != DRIVER_DESKTOP) {
+    if (lovrHeadsetInterface->driverType != DRIVER_SIMULATOR) {
       gpu.vk.vsync = false;
     }
   }

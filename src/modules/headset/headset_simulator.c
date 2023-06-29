@@ -40,7 +40,7 @@ static void onFocus(bool focused) {
   lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { focused } });
 }
 
-static bool desktop_init(HeadsetConfig* config) {
+static bool simulator_init(HeadsetConfig* config) {
   state.config = *config;
   state.clipNear = .01f;
   state.clipFar = 0.f;
@@ -60,7 +60,7 @@ static bool desktop_init(HeadsetConfig* config) {
   return true;
 }
 
-static void desktop_start(void) {
+static void simulator_start(void) {
 #ifdef LOVR_DISABLE_GRAPHICS
   bool hasGraphics = false;
 #else
@@ -77,78 +77,78 @@ static void desktop_start(void) {
   }
 }
 
-static void desktop_stop(void) {
+static void simulator_stop(void) {
   lovrRelease(state.texture, lovrTextureDestroy);
   lovrRelease(state.pass, lovrPassDestroy);
   state.texture = NULL;
   state.pass = NULL;
 }
 
-static void desktop_destroy(void) {
-  desktop_stop();
+static void simulator_destroy(void) {
+  simulator_stop();
 }
 
-static bool desktop_getName(char* name, size_t length) {
+static bool simulator_getName(char* name, size_t length) {
   strncpy(name, "Simulator", length - 1);
   name[length - 1] = '\0';
   return true;
 }
 
-static bool desktop_isSeated(void) {
+static bool simulator_isSeated(void) {
   return state.config.seated;
 }
 
-static void desktop_getDisplayDimensions(uint32_t* width, uint32_t* height) {
+static void simulator_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   os_window_get_size(width, height);
 }
 
-static float desktop_getRefreshRate(void) {
+static float simulator_getRefreshRate(void) {
   return 0.f;
 }
 
-static bool desktop_setRefreshRate(float refreshRate) {
+static bool simulator_setRefreshRate(float refreshRate) {
   return false;
 }
 
-static const float* desktop_getRefreshRates(uint32_t* count) {
+static const float* simulator_getRefreshRates(uint32_t* count) {
   return *count = 0, NULL;
 }
 
-static PassthroughMode desktop_getPassthrough(void) {
+static PassthroughMode simulator_getPassthrough(void) {
   return PASSTHROUGH_OPAQUE;
 }
 
-static bool desktop_setPassthrough(PassthroughMode mode) {
+static bool simulator_setPassthrough(PassthroughMode mode) {
   return mode == PASSTHROUGH_OPAQUE;
 }
 
-static bool desktop_isPassthroughSupported(PassthroughMode mode) {
+static bool simulator_isPassthroughSupported(PassthroughMode mode) {
   return mode == PASSTHROUGH_OPAQUE;
 }
 
-static double desktop_getDisplayTime(void) {
+static double simulator_getDisplayTime(void) {
   return state.nextDisplayTime - state.epoch;
 }
 
-static double desktop_getDeltaTime(void) {
+static double simulator_getDeltaTime(void) {
   return state.nextDisplayTime - state.prevDisplayTime;
 }
 
-static uint32_t desktop_getViewCount(void) {
+static uint32_t simulator_getViewCount(void) {
   return 1;
 }
 
-static bool desktop_getViewPose(uint32_t view, float* position, float* orientation) {
+static bool simulator_getViewPose(uint32_t view, float* position, float* orientation) {
   vec3_init(position, state.position);
   quat_fromMat4(orientation, state.headTransform);
   position[1] += state.config.seated ? 0.f : 1.7f;
   return view == 0;
 }
 
-static bool desktop_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
+static bool simulator_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
   float aspect, fov;
   uint32_t width, height;
-  desktop_getDisplayDimensions(&width, &height);
+  simulator_getDisplayDimensions(&width, &height);
   aspect = (float) width / height;
   fov = .7f;
   *left = atanf(tanf(fov) * aspect);
@@ -158,26 +158,26 @@ static bool desktop_getViewAngles(uint32_t view, float* left, float* right, floa
   return view == 0;
 }
 
-static void desktop_getClipDistance(float* clipNear, float* clipFar) {
+static void simulator_getClipDistance(float* clipNear, float* clipFar) {
   *clipNear = state.clipNear;
   *clipFar = state.clipFar;
 }
 
-static void desktop_setClipDistance(float clipNear, float clipFar) {
+static void simulator_setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
 }
 
-static void desktop_getBoundsDimensions(float* width, float* depth) {
+static void simulator_getBoundsDimensions(float* width, float* depth) {
   *width = *depth = 0.f;
 }
 
-static const float* desktop_getBoundsGeometry(uint32_t* count) {
+static const float* simulator_getBoundsGeometry(uint32_t* count) {
   *count = 0;
   return NULL;
 }
 
-static bool desktop_getPose(Device device, vec3 position, quat orientation) {
+static bool simulator_getPose(Device device, vec3 position, quat orientation) {
   if (device == DEVICE_HEAD) {
     vec3_set(position, 0.f, 0.f, 0.f);
     mat4_transform(state.headTransform, position);
@@ -195,7 +195,7 @@ static bool desktop_getPose(Device device, vec3 position, quat orientation) {
   return false;
 }
 
-static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
+static bool simulator_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
   if (device != DEVICE_HEAD) {
     return false;
   }
@@ -205,7 +205,7 @@ static bool desktop_getVelocity(Device device, vec3 velocity, vec3 angularVeloci
   return true;
 }
 
-static bool desktop_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
+static bool simulator_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
   if (device != DEVICE_HAND_LEFT || button != BUTTON_TRIGGER) {
     return false;
   }
@@ -214,39 +214,39 @@ static bool desktop_isDown(Device device, DeviceButton button, bool* down, bool*
   return true;
 }
 
-static bool desktop_isTouched(Device device, DeviceButton button, bool* touched) {
+static bool simulator_isTouched(Device device, DeviceButton button, bool* touched) {
   return false;
 }
 
-static bool desktop_getAxis(Device device, DeviceAxis axis, vec3 value) {
+static bool simulator_getAxis(Device device, DeviceAxis axis, vec3 value) {
   return false;
 }
 
-static bool desktop_getSkeleton(Device device, float* poses) {
+static bool simulator_getSkeleton(Device device, float* poses) {
   return false;
 }
 
-static bool desktop_vibrate(Device device, float strength, float duration, float frequency) {
+static bool simulator_vibrate(Device device, float strength, float duration, float frequency) {
   return false;
 }
 
-static void desktop_stopVibration(Device device) {
+static void simulator_stopVibration(Device device) {
   //
 }
 
-static struct ModelData* desktop_newModelData(Device device, bool animated) {
+static struct ModelData* simulator_newModelData(Device device, bool animated) {
   return NULL;
 }
 
-static bool desktop_animate(struct Model* model) {
+static bool simulator_animate(struct Model* model) {
   return false;
 }
 
-static Texture* desktop_getTexture(void) {
+static Texture* simulator_getTexture(void) {
   return state.texture;
 }
 
-static Pass* desktop_getPass(void) {
+static Pass* simulator_getPass(void) {
   if (!state.pass) {
     return NULL;
   }
@@ -254,7 +254,7 @@ static Pass* desktop_getPass(void) {
   lovrPassReset(state.pass);
 
   uint32_t width, height;
-  desktop_getDisplayDimensions(&width, &height);
+  simulator_getDisplayDimensions(&width, &height);
 
   if (lovrPassGetWidth(state.pass) != width || lovrPassGetHeight(state.pass) != height) {
     lovrRelease(state.texture, lovrTextureDestroy);
@@ -281,7 +281,7 @@ static Pass* desktop_getPass(void) {
   lovrPassSetClear(state.pass, &load, &background, LOAD_CLEAR, 0.f);
 
   float position[4], orientation[4];
-  desktop_getViewPose(0, position, orientation);
+  simulator_getViewPose(0, position, orientation);
 
   float viewMatrix[16];
   mat4_fromQuat(viewMatrix, orientation);
@@ -290,7 +290,7 @@ static Pass* desktop_getPass(void) {
 
   float projection[16];
   float left, right, up, down;
-  desktop_getViewAngles(0, &left, &right, &up, &down);
+  simulator_getViewAngles(0, &left, &right, &up, &down);
   mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
 
   lovrPassSetViewMatrix(state.pass, 0, viewMatrix);
@@ -299,15 +299,15 @@ static Pass* desktop_getPass(void) {
   return state.pass;
 }
 
-static void desktop_submit(void) {
+static void simulator_submit(void) {
   //
 }
 
-static bool desktop_isFocused(void) {
+static bool simulator_isFocused(void) {
   return state.focused;
 }
 
-static double desktop_update(void) {
+static double simulator_update(void) {
   bool front = os_is_key_down(KEY_W) || os_is_key_down(KEY_UP);
   bool back = os_is_key_down(KEY_S) || os_is_key_down(KEY_DOWN);
   bool left = os_is_key_down(KEY_A) || os_is_key_down(KEY_LEFT);
@@ -400,43 +400,43 @@ static double desktop_update(void) {
   return dt;
 }
 
-HeadsetInterface lovrHeadsetDesktopDriver = {
-  .driverType = DRIVER_DESKTOP,
-  .init = desktop_init,
-  .start = desktop_start,
-  .stop = desktop_stop,
-  .destroy = desktop_destroy,
-  .getName = desktop_getName,
-  .isSeated = desktop_isSeated,
-  .getDisplayDimensions = desktop_getDisplayDimensions,
-  .getRefreshRate = desktop_getRefreshRate,
-  .setRefreshRate = desktop_setRefreshRate,
-  .getRefreshRates = desktop_getRefreshRates,
-  .getPassthrough = desktop_getPassthrough,
-  .setPassthrough = desktop_setPassthrough,
-  .isPassthroughSupported = desktop_isPassthroughSupported,
-  .getDisplayTime = desktop_getDisplayTime,
-  .getDeltaTime = desktop_getDeltaTime,
-  .getViewCount = desktop_getViewCount,
-  .getViewPose = desktop_getViewPose,
-  .getViewAngles = desktop_getViewAngles,
-  .getClipDistance = desktop_getClipDistance,
-  .setClipDistance = desktop_setClipDistance,
-  .getBoundsDimensions = desktop_getBoundsDimensions,
-  .getBoundsGeometry = desktop_getBoundsGeometry,
-  .getPose = desktop_getPose,
-  .getVelocity = desktop_getVelocity,
-  .isDown = desktop_isDown,
-  .isTouched = desktop_isTouched,
-  .getAxis = desktop_getAxis,
-  .getSkeleton = desktop_getSkeleton,
-  .vibrate = desktop_vibrate,
-  .stopVibration = desktop_stopVibration,
-  .newModelData = desktop_newModelData,
-  .animate = desktop_animate,
-  .getTexture = desktop_getTexture,
-  .getPass = desktop_getPass,
-  .submit = desktop_submit,
-  .isFocused = desktop_isFocused,
-  .update = desktop_update
+HeadsetInterface lovrHeadsetSimulatorDriver = {
+  .driverType = DRIVER_SIMULATOR,
+  .init = simulator_init,
+  .start = simulator_start,
+  .stop = simulator_stop,
+  .destroy = simulator_destroy,
+  .getName = simulator_getName,
+  .isSeated = simulator_isSeated,
+  .getDisplayDimensions = simulator_getDisplayDimensions,
+  .getRefreshRate = simulator_getRefreshRate,
+  .setRefreshRate = simulator_setRefreshRate,
+  .getRefreshRates = simulator_getRefreshRates,
+  .getPassthrough = simulator_getPassthrough,
+  .setPassthrough = simulator_setPassthrough,
+  .isPassthroughSupported = simulator_isPassthroughSupported,
+  .getDisplayTime = simulator_getDisplayTime,
+  .getDeltaTime = simulator_getDeltaTime,
+  .getViewCount = simulator_getViewCount,
+  .getViewPose = simulator_getViewPose,
+  .getViewAngles = simulator_getViewAngles,
+  .getClipDistance = simulator_getClipDistance,
+  .setClipDistance = simulator_setClipDistance,
+  .getBoundsDimensions = simulator_getBoundsDimensions,
+  .getBoundsGeometry = simulator_getBoundsGeometry,
+  .getPose = simulator_getPose,
+  .getVelocity = simulator_getVelocity,
+  .isDown = simulator_isDown,
+  .isTouched = simulator_isTouched,
+  .getAxis = simulator_getAxis,
+  .getSkeleton = simulator_getSkeleton,
+  .vibrate = simulator_vibrate,
+  .stopVibration = simulator_stopVibration,
+  .newModelData = simulator_newModelData,
+  .animate = simulator_animate,
+  .getTexture = simulator_getTexture,
+  .getPass = simulator_getPass,
+  .submit = simulator_submit,
+  .isFocused = simulator_isFocused,
+  .update = simulator_update
 };

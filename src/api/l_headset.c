@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 StringEntry lovrHeadsetDriver[] = {
-  [DRIVER_DESKTOP] = ENTRY("desktop"),
+  [DRIVER_SIMULATOR] = ENTRY("desktop"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
   [DRIVER_WEBXR] = ENTRY("webxr"),
   { 0 }

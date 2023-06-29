@@ -23,7 +23,7 @@ config = {
     timer = true
   },
   headsets = {
-    desktop = true,
+    simulator = true,
     openxr = false,
     webxr = false
   },

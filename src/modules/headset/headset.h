@@ -12,7 +12,7 @@ struct Texture;
 struct Pass;
 
 typedef enum {
-  DRIVER_DESKTOP,
+  DRIVER_SIMULATOR,
   DRIVER_OPENXR,
   DRIVER_WEBXR
 } HeadsetDriver;
@@ -168,9 +168,9 @@ typedef struct HeadsetInterface {
 } HeadsetInterface;
 
 // Available drivers
+extern HeadsetInterface lovrHeadsetSimulatorDriver;
 extern HeadsetInterface lovrHeadsetOpenXRDriver;
 extern HeadsetInterface lovrHeadsetWebXRDriver;
-extern HeadsetInterface lovrHeadsetDesktopDriver;
 
 // Active driver
 extern HeadsetInterface* lovrHeadsetInterface;
