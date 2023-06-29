@@ -491,6 +491,9 @@ static int l_lovrHeadsetGetSkeleton(lua_State* L) {
       lua_rawseti(L, -3, 2);
       lua_rawseti(L, -2, 1);
 
+      lua_pushnumber(L, pose[3]);
+      lua_setfield(L, -2, "radius");
+
       lua_rawseti(L, -2, i + 1);
     }
 
