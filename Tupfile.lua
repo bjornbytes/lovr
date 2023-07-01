@@ -257,7 +257,6 @@ if config.modules.graphics and config.glslang then
   glslang_cflags += '-fno-rtti'
   glslang_cflags += '-Ideps/glslang'
   glslang_lflags += '-shared'
-  glslang_lflags += '-static-libstdc++'
   glslang_src += 'deps/glslang/OGLCompilersDLL/*.cpp'
   glslang_src += 'deps/glslang/glslang/CInterface/*.cpp'
   glslang_src += 'deps/glslang/glslang/MachineIndependent/*.cpp'
@@ -285,7 +284,7 @@ if config.modules.data then
   msdfgen_cflags += '-fPIC'
   msdfgen_src += 'deps/msdfgen/core/*.cpp'
   tup.foreach_rule(msdfgen_src, '^ CC msdfgen/%b^ $(cxx) $(flags) $(msdfgen_cflags) -c %f -o %o', '.obj/msdfgen/%B.o')
-  tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(flags) -shared -static-libstdc++ -o %o %f', lib('msdfgen'))
+  tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(flags) -shared -o %o %f', lib('msdfgen'))
 end
 
 if config.modules.physics then
@@ -346,7 +345,7 @@ if config.modules.physics then
 
   tup.foreach_rule(ode_c_src, '^ CC ode/%b^ $(cc) $(flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
   tup.foreach_rule(ode_src, '^ CC ode/%b^ $(cxx) $(flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
-  tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(flags) -shared -static-libstdc++ -o %o %f', lib('ode'))
+  tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(flags) -shared -o %o %f', lib('ode'))
 end
 
 if config.headsets.openxr then
