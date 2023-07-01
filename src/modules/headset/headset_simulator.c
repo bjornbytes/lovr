@@ -9,30 +9,37 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define MOVESPEED 3.f
+#define SPRINTSPEED 15.f
+#define MOVESMOOTH 30.f
+#define TURNSPEED .005f
+#define TURNSMOOTH 30.f
+#define OFFSET (state.config.seated ? 0.f : 1.7f)
+
 static struct {
   bool initialized;
   HeadsetConfig config;
   TextureFormat depthFormat;
   Texture* texture;
   Pass* pass;
-  float position[4];
+  float pitch;
+  float yaw;
   float velocity[4];
-  float localVelocity[4];
-  float angularVelocity[4];
-  float headTransform[16];
-  float leftHandTransform[16];
+  float headPosition[4];
+  float headOrientation[4];
+  float handPosition[4];
+  float handOrientation[4];
   double epoch;
-  double prevDisplayTime;
-  double nextDisplayTime;
-  double prevCursorX;
-  double prevCursorY;
+  double time;
+  double dt;
+  double mx;
+  double my;
+  bool triggerDown;
+  bool triggerChanged;
   bool mouseDown;
-  bool prevMouseDown;
   bool focused;
   float clipNear;
   float clipFar;
-  float pitch;
-  float yaw;
 } state;
 
 static void onFocus(bool focused) {
@@ -42,15 +49,15 @@ static void onFocus(bool focused) {
 
 static bool simulator_init(HeadsetConfig* config) {
   state.config = *config;
+  state.epoch = os_get_time();
   state.clipNear = .01f;
   state.clipFar = 0.f;
-  state.epoch = os_get_time();
-  state.prevDisplayTime = state.epoch;
-  state.nextDisplayTime = state.epoch;
 
   if (!state.initialized) {
-    mat4_identity(state.headTransform);
-    mat4_identity(state.leftHandTransform);
+    vec3_set(state.headPosition, 0.f, 0.f, 0.f);
+    vec3_set(state.handPosition, 0.f, 0.f, 0.f);
+    quat_identity(state.headOrientation);
+    quat_identity(state.handOrientation);
     state.initialized = true;
   }
 
@@ -69,7 +76,6 @@ static void simulator_start(void) {
 
   if (hasGraphics) {
     state.pass = lovrPassCreate();
-
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
     if (state.config.stencil && !lovrGraphicsIsFormatSupported(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
       state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
@@ -127,11 +133,11 @@ static bool simulator_isPassthroughSupported(PassthroughMode mode) {
 }
 
 static double simulator_getDisplayTime(void) {
-  return state.nextDisplayTime - state.epoch;
+  return state.time;
 }
 
 static double simulator_getDeltaTime(void) {
-  return state.nextDisplayTime - state.prevDisplayTime;
+  return state.dt;
 }
 
 static uint32_t simulator_getViewCount(void) {
@@ -139,9 +145,9 @@ static uint32_t simulator_getViewCount(void) {
 }
 
 static bool simulator_getViewPose(uint32_t view, float* position, float* orientation) {
-  vec3_init(position, state.position);
-  quat_fromMat4(orientation, state.headTransform);
-  position[1] += state.config.seated ? 0.f : 1.7f;
+  vec3_init(position, state.headPosition);
+  quat_init(orientation, state.headOrientation);
+  position[1] += OFFSET;
   return view == 0;
 }
 
@@ -179,39 +185,26 @@ static const float* simulator_getBoundsGeometry(uint32_t* count) {
 
 static bool simulator_getPose(Device device, vec3 position, quat orientation) {
   if (device == DEVICE_HEAD) {
-    vec3_set(position, 0.f, 0.f, 0.f);
-    mat4_transform(state.headTransform, position);
-    quat_fromMat4(orientation, state.headTransform);
+    vec3_init(position, state.headPosition);
+    quat_init(orientation, state.headOrientation);
+    position[1] += OFFSET;
     return true;
   } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_LEFT_POINT) {
-    mat4_getPosition(state.leftHandTransform, position);
-    quat_fromMat4(orientation, state.leftHandTransform);
-    return true;
-  } else if (device == DEVICE_FLOOR) {
-    vec3_set(position, 0.f, state.config.seated ? -1.7f : 0.f, 0.f);
-    quat_identity(orientation);
-    return true;
+    vec3_init(position, state.handPosition);
+    quat_init(orientation, state.handOrientation);
+    return !state.mouseDown;
   }
   return false;
 }
 
 static bool simulator_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  if (device != DEVICE_HEAD) {
-    return false;
-  }
-
-  vec3_init(velocity, state.velocity);
-  vec3_init(angularVelocity, state.angularVelocity);
-  return true;
+  return false; // TODO
 }
 
 static bool simulator_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
-  if (device != DEVICE_HAND_LEFT || button != BUTTON_TRIGGER) {
-    return false;
-  }
-  *down = state.mouseDown;
-  *changed = state.mouseDown != state.prevMouseDown;
-  return true;
+  *down = state.triggerDown;
+  *changed = state.triggerChanged;
+  return device == DEVICE_HAND_LEFT && button == BUTTON_TRIGGER;
 }
 
 static bool simulator_isTouched(Device device, DeviceButton button, bool* touched) {
@@ -280,12 +273,9 @@ static Pass* simulator_getPass(void) {
   lovrGraphicsGetBackgroundColor(background);
   lovrPassSetClear(state.pass, &load, &background, LOAD_CLEAR, 0.f);
 
-  float position[4], orientation[4];
-  simulator_getViewPose(0, position, orientation);
-
   float viewMatrix[16];
-  mat4_fromQuat(viewMatrix, orientation);
-  memcpy(viewMatrix + 12, position, 3 * sizeof(float));
+  mat4_fromPose(viewMatrix, state.headPosition, state.headOrientation);
+  viewMatrix[13] += OFFSET;
   mat4_invert(viewMatrix);
 
   float projection[16];
@@ -308,6 +298,35 @@ static bool simulator_isFocused(void) {
 }
 
 static double simulator_update(void) {
+  double t = os_get_time() - state.epoch;
+  state.dt = t - state.time;
+  state.time = t;
+
+  bool trigger = os_is_mouse_down(MOUSE_RIGHT);
+  state.triggerChanged = trigger != state.triggerDown;
+  state.triggerDown = trigger;
+
+  state.mouseDown = os_is_mouse_down(MOUSE_LEFT);
+  os_set_mouse_mode(state.mouseDown ? MOUSE_MODE_GRABBED : MOUSE_MODE_NORMAL);
+
+  double mx, my;
+  os_get_mouse_position(&mx, &my);
+
+  if (state.mouseDown) {
+    state.pitch = CLAMP(state.pitch - (my - state.my) * TURNSPEED, -(float) M_PI / 2.f, (float) M_PI / 2.f);
+    state.yaw -= (mx - state.mx) * TURNSPEED;
+  }
+
+  state.mx = mx;
+  state.my = my;
+
+  float pitch[4], yaw[4], target[4];
+  quat_fromAngleAxis(pitch, state.pitch, 1.f, 0.f, 0.f);
+  quat_fromAngleAxis(yaw, state.yaw, 0.f, 1.f, 0.f);
+  quat_mul(target, yaw, pitch);
+  quat_slerp(state.headOrientation, target, 1.f - expf(-TURNSMOOTH * state.dt));
+
+  bool sprint = os_is_key_down(KEY_LEFT_SHIFT) || os_is_key_down(KEY_RIGHT_SHIFT);
   bool front = os_is_key_down(KEY_W) || os_is_key_down(KEY_UP);
   bool back = os_is_key_down(KEY_S) || os_is_key_down(KEY_DOWN);
   bool left = os_is_key_down(KEY_A) || os_is_key_down(KEY_LEFT);
@@ -315,89 +334,49 @@ static double simulator_update(void) {
   bool up = os_is_key_down(KEY_Q);
   bool down = os_is_key_down(KEY_E);
 
-  state.prevDisplayTime = state.nextDisplayTime;
-  state.nextDisplayTime = os_get_time();
-  double dt = state.nextDisplayTime - state.prevDisplayTime;
+  float velocity[4];
+  velocity[0] = (left ? -1.f : right ? 1.f : 0.f);
+  velocity[1] = (down ? -1.f : up ? 1.f : 0.f);
+  velocity[2] = (front ? -1.f : back ? 1.f : 0.f);
+  vec3_scale(velocity, sprint ? SPRINTSPEED : MOVESPEED);
+  vec3_lerp(state.velocity, velocity, 1.f - expf(-MOVESMOOTH * state.dt));
 
-  float movespeed = 3.f * (float) dt;
-  float turnspeed = 3.f * (float) dt;
-  float damping = MAX(1.f - 20.f * (float) dt, 0);
+  vec3_scale(vec3_init(velocity, state.velocity), state.dt);
+  quat_rotate(state.headOrientation, velocity);
+  vec3_add(state.headPosition, velocity);
 
-  double mx, my;
-  uint32_t width, height;
-  os_get_mouse_position(&mx, &my);
-  os_window_get_size(&width, &height);
+  if (!state.mouseDown) {
+    float angleLeft, angleRight, angleUp, angleDown, inverseProjection[16];
+    simulator_getViewAngles(0, &angleLeft, &angleRight, &angleUp, &angleDown);
+    mat4_fov(inverseProjection, angleLeft, angleRight, angleUp, angleDown, state.clipNear, state.clipFar);
+    mat4_invert(inverseProjection);
 
-  double aspect = (width > 0 && height > 0) ? ((double) width / height) : 1.;
+    uint32_t width, height;
+    os_window_get_size(&width, &height);
 
-  // Mouse move
-  if (os_is_mouse_down(MOUSE_LEFT)) {
-    os_set_mouse_mode(MOUSE_MODE_GRABBED);
+    float worldFromScreen[16];
+    mat4_fromPose(worldFromScreen, state.headPosition, state.headOrientation); // Inverse view
+    worldFromScreen[13] += OFFSET;
+    mat4_mul(worldFromScreen, inverseProjection);
+    mat4_translate(worldFromScreen, -1.f, -1.f, 0.f);
+    mat4_scale(worldFromScreen, 2.f / width, 2.f / height, 1.f);
 
-    if (state.prevCursorX == -1 && state.prevCursorY == -1) {
-      state.prevCursorX = mx;
-      state.prevCursorY = my;
-    }
+    float hand[4];
+    float distance = .5f;
+    vec3_set(hand, mx, my, state.clipNear / distance);
 
-    float dx = (float) (mx - state.prevCursorX) / ((float) width);
-    float dy = (float) (my - state.prevCursorY) / ((float) height * aspect);
-    state.angularVelocity[0] = dy / (float) dt;
-    state.angularVelocity[1] = dx / (float) dt;
-    state.prevCursorX = mx;
-    state.prevCursorY = my;
-  } else {
-    os_set_mouse_mode(MOUSE_MODE_NORMAL);
-    vec3_scale(state.angularVelocity, damping);
-    state.prevCursorX = state.prevCursorY = -1;
+    mat4_transform(worldFromScreen, hand);
+    vec3_init(state.handPosition, hand);
+
+    hand[1] -= OFFSET;
+    vec3_sub(hand, state.headPosition);
+    vec3_normalize(hand);
+
+    float forward[4] = { 0.f, 0.f, -1.f, 0.f };
+    quat_between(state.handOrientation, forward, hand);
   }
 
-  state.prevMouseDown = state.mouseDown;
-  state.mouseDown = os_is_mouse_down(MOUSE_RIGHT);
-
-  // Update velocity
-  state.localVelocity[0] = left ? -movespeed : (right ? movespeed : state.localVelocity[0]);
-  state.localVelocity[1] = up ? movespeed : (down ? -movespeed : state.localVelocity[1]);
-  state.localVelocity[2] = front ? -movespeed : (back ? movespeed : state.localVelocity[2]);
-  state.localVelocity[3] = 0.f;
-  vec3_init(state.velocity, state.localVelocity);
-  mat4_transformDirection(state.headTransform, state.velocity);
-  vec3_scale(state.localVelocity, damping);
-
-  // Update position
-  vec3_add(state.position, state.velocity);
-
-  // Update orientation
-  state.pitch = CLAMP(state.pitch - state.angularVelocity[0] * turnspeed, -(float) M_PI / 2.f, (float) M_PI / 2.f);
-  state.yaw -= state.angularVelocity[1] * turnspeed;
-
-  // Update head transform
-  mat4_identity(state.headTransform);
-  mat4_translate(state.headTransform, 0.f, state.config.seated ? 0.f : 1.7f, 0.f);
-  mat4_translate(state.headTransform, state.position[0], state.position[1], state.position[2]);
-  mat4_rotate(state.headTransform, state.yaw, 0.f, 1.f, 0.f);
-  mat4_rotate(state.headTransform, state.pitch, 1.f, 0.f, 0.f);
-
-  // Update hand transform to follow cursor
-  double px = mx, py = my;
-  if (width > 0 && height > 0) {
-    // change coordinate system to -1.0 to 1.0
-    px = (px / width) * 2 - 1.0;
-    py = (py / height) * 2 - 1.0;
-
-    px +=  .2; // neutral position = pointing towards center-ish
-    px *= .6; // fudged range to juuust cover pointing at the whole scene, but not outside it
-  }
-
-  mat4_set(state.leftHandTransform, state.headTransform);
-  double xrange = M_PI * .2;
-  double yrange = xrange / aspect;
-  mat4_translate(state.leftHandTransform, -.1f, -.1f, -0.10f);
-  mat4_rotate(state.leftHandTransform, -px * xrange, 0, 1, 0);
-  mat4_rotate(state.leftHandTransform, -py * yrange, 1, 0, 0);
-  mat4_translate(state.leftHandTransform, 0, 0, -.20f);
-  mat4_rotate(state.leftHandTransform, -px * xrange, 0, 1, 0);
-  mat4_rotate(state.leftHandTransform, -py * yrange, 1, 0, 0);
-  return dt;
+  return state.dt;
 }
 
 HeadsetInterface lovrHeadsetSimulatorDriver = {
