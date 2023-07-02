@@ -198,7 +198,9 @@ static bool simulator_getPose(Device device, vec3 position, quat orientation) {
 }
 
 static bool simulator_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  return false; // TODO
+  memcpy(velocity, state.velocity, 4 * sizeof(float));
+  memset(angularVelocity, 0, 4 * sizeof(float));
+  return device == DEVICE_HEAD;
 }
 
 static bool simulator_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
