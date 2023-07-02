@@ -12,6 +12,7 @@ static struct {
   bool mouseState[8];
   double mouseX;
   double mouseY;
+  double scrollDelta;
 } state;
 
 static void onKey(os_button_action action, os_key key, uint32_t scancode, bool repeat) {
@@ -58,6 +59,7 @@ static void onMouseMove(double x, double y) {
 }
 
 static void onWheelMove(double deltaX, double deltaY) {
+  state.scrollDelta += deltaY;
   lovrEventPush((Event) {
     .type = EVENT_MOUSEWHEELMOVED,
     .data.wheel.x = deltaX,
@@ -132,6 +134,7 @@ float lovrSystemGetWindowDensity(void) {
 
 void lovrSystemPollEvents(void) {
   memcpy(state.prevKeyState, state.keyState, sizeof(state.keyState));
+  state.scrollDelta = 0.;
   os_poll_events();
 }
 
@@ -163,4 +166,9 @@ void lovrSystemGetMousePosition(double* x, double* y) {
 bool lovrSystemIsMouseDown(int button) {
   if ((size_t) button > COUNTOF(state.mouseState)) return false;
   return state.mouseState[button];
+}
+
+// This is kind of a hacky thing for the simulator, since we're kinda bad at event dispatch
+float lovrSystemGetScrollDelta(void) {
+  return state.scrollDelta;
 }

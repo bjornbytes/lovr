@@ -2,6 +2,7 @@
 #include "data/image.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
+#include "system/system.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include "util.h"
@@ -24,6 +25,7 @@ static struct {
   Pass* pass;
   float pitch;
   float yaw;
+  float distance;
   float velocity[4];
   float headPosition[4];
   float headOrientation[4];
@@ -52,6 +54,7 @@ static bool simulator_init(HeadsetConfig* config) {
   state.epoch = os_get_time();
   state.clipNear = .01f;
   state.clipFar = 0.f;
+  state.distance = .5f;
 
   if (!state.initialized) {
     vec3_set(state.headPosition, 0.f, 0.f, 0.f);
@@ -362,8 +365,10 @@ static double simulator_update(void) {
     quat_rotate(state.headOrientation, ray);
     vec3_normalize(ray);
 
+    state.distance = CLAMP(state.distance * (1.f + lovrSystemGetScrollDelta() * .05f), .05f, 10.f);
+
     vec3_init(state.handPosition, ray);
-    vec3_scale(state.handPosition, .5f);
+    vec3_scale(state.handPosition, state.distance);
     vec3_add(state.handPosition, state.headPosition);
     state.handPosition[1] += OFFSET;
 
