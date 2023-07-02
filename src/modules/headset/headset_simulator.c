@@ -346,34 +346,31 @@ static double simulator_update(void) {
   vec3_add(state.headPosition, velocity);
 
   if (!state.mouseDown) {
-    float angleLeft, angleRight, angleUp, angleDown, inverseProjection[16];
+    float inverseProjection[16], angleLeft, angleRight, angleUp, angleDown;
     simulator_getViewAngles(0, &angleLeft, &angleRight, &angleUp, &angleDown);
     mat4_fov(inverseProjection, angleLeft, angleRight, angleUp, angleDown, state.clipNear, state.clipFar);
     mat4_invert(inverseProjection);
 
+    float ray[4];
     uint32_t width, height;
     os_window_get_size(&width, &height);
+    vec3_set(ray, mx / width * 2.f - 1.f, my / height * 2.f - 1.f, 1.f);
 
-    float worldFromScreen[16];
-    mat4_fromPose(worldFromScreen, state.headPosition, state.headOrientation); // Inverse view
-    worldFromScreen[13] += OFFSET;
-    mat4_mul(worldFromScreen, inverseProjection);
-    mat4_translate(worldFromScreen, -1.f, -1.f, 0.f);
-    mat4_scale(worldFromScreen, 2.f / width, 2.f / height, 1.f);
+    mat4_transform(inverseProjection, ray);
+    quat_rotate(state.headOrientation, ray);
+    vec3_normalize(ray);
 
-    float hand[4];
-    float distance = .5f;
-    vec3_set(hand, mx, my, state.clipNear / distance);
+    vec3_init(state.handPosition, ray);
+    vec3_scale(state.handPosition, .5f);
+    vec3_add(state.handPosition, state.headPosition);
+    state.handPosition[1] += OFFSET;
 
-    mat4_transform(worldFromScreen, hand);
-    vec3_init(state.handPosition, hand);
-
-    hand[1] -= OFFSET;
-    vec3_sub(hand, state.headPosition);
-    vec3_normalize(hand);
-
-    float forward[4] = { 0.f, 0.f, -1.f, 0.f };
-    quat_between(state.handOrientation, forward, hand);
+    float zero[4], up[4], basis[16];
+    vec3_set(zero, 0.f, 0.f, 0.f);
+    vec3_set(up, 0.f, 1.f, 0.f);
+    quat_rotate(state.headOrientation, up);
+    mat4_target(basis, zero, ray, up);
+    quat_fromMat4(state.handOrientation, basis);
   }
 
   return state.dt;
