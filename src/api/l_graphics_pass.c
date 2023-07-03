@@ -291,8 +291,7 @@ static int l_lovrPassSetViewPose(lua_State* L) {
     float position[4], orientation[4], matrix[16];
     index = luax_readvec3(L, index, position, "vec3, number, or mat4");
     index = luax_readquat(L, index, orientation, NULL);
-    mat4_fromQuat(matrix, orientation);
-    memcpy(matrix + 12, position, 3 * sizeof(float));
+    mat4_fromPose(matrix, position, orientation);
     mat4_invert(matrix);
     lovrPassSetViewMatrix(pass, view, matrix);
   }

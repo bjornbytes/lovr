@@ -2078,8 +2078,7 @@ static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated)
     // Inverse bind matrix
     XrPosef* pose = &mesh.jointBindPoses[i];
     float* inverseBindMatrix = inverseBindMatrices + 16 * i;
-    mat4_fromQuat(inverseBindMatrix, &pose->orientation.x);
-    memcpy(inverseBindMatrix + 12, &pose->position.x, 3 * sizeof(float));
+    mat4_fromPose(inverseBindMatrix, &pose->position.x, &pose->orientation.x);
     mat4_invert(inverseBindMatrix);
 
     // Add child bones by looking for any bones that have a parent of the current bone.
