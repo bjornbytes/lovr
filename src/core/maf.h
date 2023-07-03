@@ -391,6 +391,12 @@ MAF mat4 mat4_fromQuat(mat4 m, quat q) {
   return m;
 }
 
+MAF mat4 mat4_fromPose(mat4 m, vec3 v, quat q) {
+  mat4_fromQuat(m, q);
+  memcpy(m + 12, v, 3 * sizeof(float));
+  return m;
+}
+
 MAF mat4 mat4_identity(mat4 m) {
   m[0] = 1.f;
   m[1] = 0.f;

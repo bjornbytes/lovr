@@ -26,3 +26,4 @@ bool lovrSystemHasKeyRepeat(void);
 void lovrSystemSetKeyRepeat(bool repeat);
 void lovrSystemGetMousePosition(double* x, double* y);
 bool lovrSystemIsMouseDown(int button);
+float lovrSystemGetScrollDelta(void);
