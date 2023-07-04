@@ -46,9 +46,9 @@ typedef enum {
 typedef union {
   void* pointer;
   struct {
-    unsigned index : 24;
     unsigned type : 4;
     unsigned generation : 4;
+    unsigned index : 24;
     unsigned padding : 32;
   } handle;
 } Vector;
