@@ -323,7 +323,7 @@ static int l_lovrLightUserdata__index(lua_State* L) {
 
 static int l_lovrLightUserdataOp(lua_State* L) {
   VectorType type;
-  if (!luax_tovector(L, 1, &type)) {
+  if (!luax_tovector(L, lua_islightuserdata(L, 1) ? 1 : 2, &type)) {
     lua_pushliteral(L, "__tostring");
     if (lua_rawequal(L, -1, lua_upvalueindex(1))) {
       lua_pop(L, 1);
