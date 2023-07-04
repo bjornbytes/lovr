@@ -912,6 +912,7 @@ static int l_lovrVec3__newindex(lua_State* L) {
       for (size_t i = 0; i < length; i++) {
         v[swizzles[3][key[i]] - 1] = u[i];
       }
+      return 0;
     }
   }
   lua_getglobal(L, "tostring");
