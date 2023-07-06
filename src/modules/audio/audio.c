@@ -45,6 +45,7 @@ static struct {
   ma_mutex lock;
   ma_context context;
   ma_device devices[2];
+  ma_device_info* deviceInfo[2];
   Sound* sinks[2];
   Source* sources[MAX_SOURCES];
   uint64_t sourceMask;
@@ -228,6 +229,7 @@ void lovrAudioDestroy(void) {
   if (!state.initialized) return;
   for (size_t i = 0; i < 2; i++) {
     ma_device_uninit(&state.devices[i]);
+    free(state.deviceInfo[i]);
   }
   Source* source;
   FOREACH_SOURCE(source) lovrRelease(source, lovrSourceDestroy);
@@ -243,18 +245,40 @@ void lovrAudioDestroy(void) {
 static AudioDeviceCallback* enumerateCallback;
 
 static ma_bool32 enumPlayback(ma_context* context, ma_device_type type, const ma_device_info* info, void* userdata) {
-  if (type == ma_device_type_playback) enumerateCallback(&info->id, sizeof(info->id), info->name, info->isDefault, userdata);
+  AudioDevice device = { sizeof(info->id), &info->id, info->name, info->isDefault };
+  if (type == ma_device_type_playback) enumerateCallback(&device, userdata);
   return MA_TRUE;
 }
 
 static ma_bool32 enumCapture(ma_context* context, ma_device_type type, const ma_device_info* info, void* userdata) {
-  if (type == ma_device_type_capture) enumerateCallback(&info->id, sizeof(info->id), info->name, info->isDefault, userdata);
+  AudioDevice device = { sizeof(info->id), &info->id, info->name, info->isDefault };
+  if (type == ma_device_type_capture) enumerateCallback(&device, userdata);
   return MA_TRUE;
 }
 
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata) {
   enumerateCallback = callback;
   ma_context_enumerate_devices(&state.context, type == AUDIO_PLAYBACK ? enumPlayback : enumCapture, userdata);
+}
+
+bool lovrAudioGetDevice(AudioType type, AudioDevice* device) {
+  if (!state.devices[type].pContext) {
+    return false;
+  }
+
+  if (!state.deviceInfo[type]) {
+    state.deviceInfo[type] = malloc(sizeof(ma_device_info));
+    lovrAssert(state.deviceInfo[type], "Out of memory");
+  }
+
+  ma_device_info* info = state.deviceInfo[type];
+  ma_device_type deviceType = type == AUDIO_PLAYBACK ? ma_device_type_playback : ma_device_type_capture;
+  ma_result result = ma_device_get_info(&state.devices[type], deviceType, info);
+  device->idSize = sizeof(ma_device_id);
+  device->id = &info->id;
+  device->name = info->name;
+  device->isDefault = info->isDefault;
+  return result == MA_SUCCESS;
 }
 
 bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, AudioShareMode shareMode) {

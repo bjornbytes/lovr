@@ -55,15 +55,15 @@ StringEntry lovrVolumeUnit[] = {
   { 0 }
 };
 
-static void onDevice(const void* id, size_t size, const char* name, bool isDefault, void* userdata) {
+static void onDevice(AudioDevice* device, void* userdata) {
   lua_State* L = userdata;
   lua_createtable(L, 0, 3);
-  void* p = lua_newuserdata(L, size);
-  memcpy(p, id, size);
+  void* p = lua_newuserdata(L, device->idSize);
+  memcpy(p, device->id, device->idSize);
   lua_setfield(L, -2, "id");
-  lua_pushstring(L, name);
+  lua_pushstring(L, device->name);
   lua_setfield(L, -2, "name");
-  lua_pushboolean(L, isDefault);
+  lua_pushboolean(L, device->isDefault);
   lua_setfield(L, -2, "default");
   lua_rawseti(L, -2, luax_len(L, -2) + 1);
 }
@@ -73,6 +73,18 @@ static int l_lovrAudioGetDevices(lua_State *L) {
   lua_newtable(L);
   lovrAudioEnumerateDevices(type, onDevice, L);
   return 1;
+}
+
+static int l_lovrAudioGetDevice(lua_State* L) {
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
+  AudioDevice device;
+  if (lovrAudioGetDevice(type, &device)) {
+    lua_pushstring(L, device.name);
+    void* p = lua_newuserdata(L, device.idSize);
+    memcpy(p, device.id, device.idSize);
+    return 2;
+  }
+  return 0;
 }
 
 static int l_lovrAudioSetDevice(lua_State *L) {
@@ -282,6 +294,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
 
 static const luaL_Reg lovrAudio[] = {
   { "getDevices", l_lovrAudioGetDevices },
+  { "getDevice", l_lovrAudioGetDevice },
   { "setDevice", l_lovrAudioSetDevice },
   { "start", l_lovrAudioStart },
   { "stop", l_lovrAudioStop },

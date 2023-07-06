@@ -39,6 +39,13 @@ typedef enum {
   AUDIO_EXCLUSIVE
 } AudioShareMode;
 
+typedef struct {
+  size_t idSize;
+  const void* id;
+  const char* name;
+  bool isDefault;
+} AudioDevice;
+
 typedef enum {
   AUDIO_PLAYBACK,
   AUDIO_CAPTURE
@@ -54,11 +61,12 @@ typedef enum {
   UNIT_DECIBELS
 } VolumeUnit;
 
-typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
+typedef void AudioDeviceCallback(AudioDevice* device, void* userdata);
 
 bool lovrAudioInit(const char* spatializer, uint32_t sampleRate);
 void lovrAudioDestroy(void);
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
+bool lovrAudioGetDevice(AudioType type, AudioDevice* device);
 bool lovrAudioSetDevice(AudioType type, void* id, size_t size, struct Sound* sink, AudioShareMode shareMode);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
