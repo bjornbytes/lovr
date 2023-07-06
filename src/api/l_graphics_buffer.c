@@ -195,8 +195,14 @@ static void luax_checkarray(lua_State* L, int index, uint32_t offset, uint32_t c
     if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
       for (uint32_t i = 0; i < count; i++, data += field->stride) {
         lua_rawgeti(L, index, i + offset + 1);
-        lovrCheck(lua_isuserdata(L, -1), "Expected vector object for array value (arrays must use the same type for all elements)");
-        luax_tofield(L, -1, field->type, data);
+        int type = lua_type(L, -1);
+        if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
+          luax_tofield(L, -1, field->type, data);
+        } else if (type == LUA_TNIL) {
+          break;
+        } else {
+          lovrThrow("Expected vector object for array value (arrays must use the same type for all elements)");
+        }
         lua_pop(L, 1);
       }
     } else if (type == LUA_TNUMBER) {
