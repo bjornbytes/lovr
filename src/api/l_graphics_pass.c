@@ -22,15 +22,15 @@ static int l_lovrPassAppend(lua_State* L) {
 
 static int l_lovrPassGetStats(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  PassStats stats;
-  lovrPassGetStats(pass, &stats);
+  const PassStats* stats = lovrPassGetStats(pass);
   lua_newtable(L);
-  lua_pushinteger(L, stats.draws), lua_setfield(L, -2, "draws");
-  lua_pushinteger(L, stats.computes), lua_setfield(L, -2, "computes");
-  lua_pushinteger(L, stats.memoryReserved), lua_setfield(L, -2, "memoryReserved");
-  lua_pushinteger(L, stats.memoryUsed), lua_setfield(L, -2, "memoryUsed");
-  lua_pushnumber(L, stats.submitTime), lua_setfield(L, -2, "submitTime");
-  lua_pushnumber(L, stats.gpuTime), lua_setfield(L, -2, "gpuTime");
+  lua_pushinteger(L, stats->draws), lua_setfield(L, -2, "draws");
+  lua_pushinteger(L, stats->computes), lua_setfield(L, -2, "computes");
+  lua_pushinteger(L, stats->drawsCulled), lua_setfield(L, -2, "drawsCulled");
+  lua_pushinteger(L, stats->memoryReserved), lua_setfield(L, -2, "memoryReserved");
+  lua_pushinteger(L, stats->memoryUsed), lua_setfield(L, -2, "memoryUsed");
+  lua_pushnumber(L, stats->submitTime), lua_setfield(L, -2, "submitTime");
+  lua_pushnumber(L, stats->gpuTime), lua_setfield(L, -2, "gpuTime");
   return 1;
 }
 
@@ -493,13 +493,6 @@ static int l_lovrPassSetColorWrite(lua_State* L) {
   return 0;
 }
 
-static int l_lovrPassSetCullMode(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  CullMode mode = luax_checkenum(L, 2, CullMode, "none");
-  lovrPassSetCullMode(pass, mode);
-  return 0;
-}
-
 static int l_lovrPassSetDepthTest(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   CompareMode test = luax_checkcomparemode(L, 2);
@@ -526,6 +519,18 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   bool clamp = lua_toboolean(L, 2);
   lovrPassSetDepthClamp(pass, clamp);
+  return 0;
+}
+
+static int l_lovrPassSetFaceCull(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  CullMode mode;
+  if (lua_type(L, 2) == LUA_TBOOLEAN) {
+    mode = lua_toboolean(L, 2) ? CULL_BACK : CULL_NONE;
+  } else {
+    mode = luax_checkenum(L, 2, CullMode, "none");
+  }
+  lovrPassSetFaceCull(pass, mode);
   return 0;
 }
 
@@ -613,6 +618,13 @@ static int l_lovrPassSetStencilWrite(lua_State* L) {
     uint8_t mask = luaL_optinteger(L, 4, 0xff);
     lovrPassSetStencilWrite(pass, actions, value, mask);
   }
+  return 0;
+}
+
+static int l_lovrPassSetViewCull(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  bool enable = lua_toboolean(L, 2);
+  lovrPassSetViewCull(pass, enable);
   return 0;
 }
 
@@ -1086,11 +1098,11 @@ const luaL_Reg lovrPass[] = {
   { "setBlendMode", l_lovrPassSetBlendMode },
   { "setColor", l_lovrPassSetColor },
   { "setColorWrite", l_lovrPassSetColorWrite },
-  { "setCullMode", l_lovrPassSetCullMode },
   { "setDepthTest", l_lovrPassSetDepthTest },
   { "setDepthWrite", l_lovrPassSetDepthWrite },
   { "setDepthOffset", l_lovrPassSetDepthOffset },
   { "setDepthClamp", l_lovrPassSetDepthClamp },
+  { "setFaceCull", l_lovrPassSetFaceCull },
   { "setFont", l_lovrPassSetFont },
   { "setMaterial", l_lovrPassSetMaterial },
   { "setMeshMode", l_lovrPassSetMeshMode },
@@ -1098,6 +1110,7 @@ const luaL_Reg lovrPass[] = {
   { "setShader", l_lovrPassSetShader },
   { "setStencilTest", l_lovrPassSetStencilTest },
   { "setStencilWrite", l_lovrPassSetStencilWrite },
+  { "setViewCull", l_lovrPassSetViewCull },
   { "setWinding", l_lovrPassSetWinding },
   { "setWireframe", l_lovrPassSetWireframe },
 
@@ -1135,6 +1148,7 @@ const luaL_Reg lovrPass[] = {
   { "getType", l_lovrPassGetType },
   { "getTarget", l_lovrPassGetCanvas },
   { "getSampleCount", l_lovrPassGetSampleCount },
+  { "setCullMode", l_lovrPassSetFaceCull },
 
   { NULL, NULL }
 };

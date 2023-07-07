@@ -478,6 +478,7 @@ struct Image* lovrReadbackGetImage(Readback* readback);
 typedef struct {
   uint32_t draws;
   uint32_t computes;
+  uint32_t drawsCulled;
   size_t memoryReserved;
   size_t memoryUsed;
   double submitTime;
@@ -544,7 +545,7 @@ Pass* lovrPassCreate(void);
 void lovrPassDestroy(void* ref);
 void lovrPassReset(Pass* pass);
 void lovrPassAppend(Pass* pass, Pass* other);
-void lovrPassGetStats(Pass* pass, PassStats* stats);
+const PassStats* lovrPassGetStats(Pass* pass);
 
 void lovrPassGetCanvas(Pass* pass, Texture* color[4], Texture** depthTexture, uint32_t* depthFormat, uint32_t* samples);
 void lovrPassSetCanvas(Pass* pass, Texture* color[4], Texture* depthTexture, uint32_t depthFormat, uint32_t samples);
@@ -576,11 +577,11 @@ void lovrPassSetAlphaToCoverage(Pass* pass, bool enabled);
 void lovrPassSetBlendMode(Pass* pass, uint32_t index, BlendMode mode, BlendAlphaMode alphaMode);
 void lovrPassSetColor(Pass* pass, float color[4]);
 void lovrPassSetColorWrite(Pass* pass, uint32_t index, bool r, bool g, bool b, bool a);
-void lovrPassSetCullMode(Pass* pass, CullMode mode);
 void lovrPassSetDepthTest(Pass* pass, CompareMode test);
 void lovrPassSetDepthWrite(Pass* pass, bool write);
 void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
+void lovrPassSetFaceCull(Pass* pass, CullMode mode);
 void lovrPassSetFont(Pass* pass, Font* font);
 void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture);
 void lovrPassSetMeshMode(Pass* pass, MeshMode mode);
@@ -588,6 +589,7 @@ void lovrPassSetSampler(Pass* pass, Sampler* sampler);
 void lovrPassSetShader(Pass* pass, Shader* shader);
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
 void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask);
+void lovrPassSetViewCull(Pass* pass, bool enable);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);
 

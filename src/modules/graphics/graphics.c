@@ -195,6 +195,7 @@ typedef struct {
   DefaultShader shader;
   Material* material;
   float* transform;
+  float* bounds;
   struct {
     Buffer* buffer;
     VertexFormat format;
@@ -237,6 +238,7 @@ struct Model {
   Material** materials;
   NodeTransform* localTransforms;
   float* globalTransforms;
+  float* boundingBoxes;
   bool transformsDirty;
   bool blendShapesDirty;
   float* blendShapeWeights;
@@ -325,7 +327,8 @@ enum {
 enum {
   DIRTY_BINDINGS = (1 << 0),
   DIRTY_CONSTANTS = (1 << 1),
-  DIRTY_CAMERA = (1 << 2)
+  DIRTY_CAMERA = (1 << 2),
+  NEEDS_VIEW_CULL = (1 << 3)
 };
 
 typedef struct {
@@ -388,6 +391,7 @@ typedef struct {
 
 typedef struct {
   bool dirty;
+  bool viewCull;
   MeshMode mode;
   float color[4];
   Buffer* lastVertexBuffer;
@@ -425,7 +429,8 @@ typedef struct {
 enum {
   DRAW_INDIRECT = (1 << 0),
   DRAW_INDEX32 = (1 << 1),
-  DRAW_INLINE_MESH = (1 << 2)
+  DRAW_INLINE_MESH = (1 << 2),
+  DRAW_HAS_BOUNDS = (1 << 3)
 };
 
 typedef struct {
@@ -457,6 +462,7 @@ typedef struct {
   };
   float transform[16];
   float color[4];
+  float bounds[6];
 } Draw;
 
 typedef struct {
@@ -498,8 +504,7 @@ struct Pass {
   Compute* computes;
   Draw** draws;
   Draw* lastDraw;
-  double submitTime;
-  double gpuTime;
+  PassStats stats;
 };
 
 typedef struct {
@@ -1025,7 +1030,7 @@ void lovrGraphicsSetTimingEnabled(bool enable) {
   state.timingEnabled = enable;
 }
 
-static void submitComputes(Pass* pass, gpu_stream* stream) {
+static void recordComputePass(Pass* pass, gpu_stream* stream) {
   if (pass->computeCount == 0) {
     return;
   }
@@ -1075,7 +1080,7 @@ static void submitComputes(Pass* pass, gpu_stream* stream) {
   gpu_compute_end(stream);
 }
 
-static void submitDraws(Pass* pass, gpu_stream* stream) {
+static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   Canvas* canvas = &pass->canvas;
 
   if (canvas->count == 0 && !canvas->depth.texture) {
@@ -1114,7 +1119,95 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
     };
   }
 
-  if (pass->drawCount == 0) {
+  // Cameras
+
+  Camera* camera = pass->cameras;
+  for (uint32_t c = 0; c < pass->cameraCount; c++) {
+    for (uint32_t v = 0; v < canvas->views; v++, camera++) {
+      mat4_init(camera->viewProjection, camera->projection);
+      mat4_init(camera->inverseProjection, camera->projection);
+      mat4_mul(camera->viewProjection, camera->viewMatrix);
+      mat4_invert(camera->inverseProjection);
+    }
+  }
+
+  // Frustum Culling
+
+  uint32_t activeDrawCount = 0;
+  uint16_t* activeDraws = tempAlloc(&state.allocator, pass->drawCount * sizeof(uint16_t));
+
+  if (pass->flags & NEEDS_VIEW_CULL) {
+    typedef struct { float planes[6][4]; } Frustum;
+    Frustum* frusta = tempAlloc(&state.allocator, canvas->views * sizeof(Frustum));
+    uint32_t drawIndex = 0;
+
+    for (uint32_t c = 0; c < pass->cameraCount; c++) {
+      for (uint32_t v = 0; v < canvas->views; v++) {
+        float* m = pass->cameras[c * canvas->views + v].viewProjection;
+        memcpy(frusta[v].planes, (float[6][4]) {
+          { (m[3] + m[0]), (m[7] + m[4]), (m[11] + m[8]), (m[15] + m[12]) }, // Left
+          { (m[3] - m[0]), (m[7] - m[4]), (m[11] - m[8]), (m[15] - m[12]) }, // Right
+          { (m[3] + m[1]), (m[7] + m[5]), (m[11] + m[9]), (m[15] + m[13]) }, // Bottom
+          { (m[3] - m[1]), (m[7] - m[5]), (m[11] - m[9]), (m[15] - m[13]) }, // Top
+          { m[2], m[6], m[10], m[14] }, // Near
+          { (m[3] - m[2]), (m[7] - m[6]), (m[11] - m[10]), (m[15] - m[14]) } // Far
+        }, sizeof(Frustum));
+      }
+
+      while (drawIndex < pass->drawCount) {
+        Draw* draw = &pass->draws[drawIndex >> 8][drawIndex & 0xff];
+
+        if (draw->camera != c) {
+          break;
+        }
+
+        if (~draw->flags & DRAW_HAS_BOUNDS) {
+          activeDraws[activeDrawCount++] = drawIndex++;
+          continue;
+        }
+
+        float center[4] = { draw->bounds[0], draw->bounds[1], draw->bounds[2], 1.f };
+        float extent[4] = { draw->bounds[3], draw->bounds[4], draw->bounds[5], 0.f };
+
+        mat4_mulVec4(draw->transform, center);
+        mat4_transformDirection(draw->transform, extent);
+        vec3_abs(extent);
+
+        uint32_t visible = canvas->views;
+
+        for (uint32_t v = 0; v < canvas->views; v++) {
+          for (uint32_t p = 0; p < 6; p++) {
+            float* plane = frusta[v].planes[p];
+
+            float absPlane[4];
+            vec3_init(absPlane, plane);
+            vec3_abs(absPlane);
+
+            bool inside = vec3_dot(center, plane) + vec3_dot(extent, absPlane) > -plane[3];
+
+            if (!inside) {
+              visible--;
+              break;
+            }
+          }
+        }
+
+        if (visible) {
+          activeDraws[activeDrawCount++] = drawIndex;
+        }
+
+        drawIndex++;
+      }
+    }
+  } else {
+    for (uint32_t i = 0; i < pass->drawCount; i++) {
+      activeDraws[activeDrawCount++] = i;
+    }
+  }
+
+  pass->stats.drawsCulled = pass->drawCount - activeDrawCount;
+
+  if (activeDrawCount == 0) {
     gpu_render_begin(stream, &target);
     gpu_render_end(stream);
     return;
@@ -1151,32 +1244,20 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
   global->resolution[1] = canvas->height;
   global->time = lovrHeadsetInterface ? lovrHeadsetInterface->getDisplayTime() : os_get_time();
 
-  // Cameras
-
-  Camera* camera = pass->cameras;
-  for (uint32_t i = 0; i < pass->cameraCount; i++) {
-    for (uint32_t j = 0; j < canvas->views; j++, camera++) {
-      mat4_init(camera->viewProjection, camera->projection);
-      mat4_init(camera->inverseProjection, camera->projection);
-      mat4_mul(camera->viewProjection, camera->viewMatrix);
-      mat4_invert(camera->inverseProjection);
-    }
-  }
-
   mapped = mapBuffer(&state.streamBuffers, pass->cameraCount * canvas->views * sizeof(Camera), align);
   builtins[1].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
   memcpy(mapped.pointer, pass->cameras, pass->cameraCount * canvas->views * sizeof(Camera));
 
   // DrawData
 
-  uint32_t drawPageCount = (pass->drawCount + 255) / 256;
+  uint32_t drawPageCount = (activeDrawCount + 255) / 256;
   uint32_t drawPageSize = (uint32_t) ALIGN(256 * sizeof(DrawData), align);
   mapped = mapBuffer(&state.streamBuffers, drawPageCount * drawPageSize, align);
   builtins[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, drawPageSize };
   DrawData* data = mapped.pointer;
 
-  for (uint32_t i = 0; i < pass->drawCount; i++, data++) {
-    Draw* draw = &pass->draws[i >> 8][i & 0xff];
+  for (uint32_t i = 0; i < activeDrawCount; i++, data++) {
+    Draw* draw = &pass->draws[activeDraws[i] >> 8][activeDraws[i] & 0xff];
 
     if ((i & 0xff) == 0) {
       data = (DrawData*) ALIGN(data, align);
@@ -1234,8 +1315,8 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
   // Bundles
 
   Draw* prev = NULL;
-  for (uint32_t i = 0; i < pass->drawCount; i++) {
-    Draw* draw = &pass->draws[i >> 8][i & 0xff];
+  for (uint32_t i = 0; i < activeDrawCount; i++) {
+    Draw* draw = &pass->draws[activeDraws[i] >> 8][activeDraws[i] & 0xff];
 
     if (i > 0 && draw->bundleInfo == prev->bundleInfo) {
       draw->bundle = prev->bundle;
@@ -1302,8 +1383,8 @@ static void submitDraws(Pass* pass, gpu_stream* stream) {
 
   gpu_bind_vertex_buffers(stream, &state.defaultBuffer->gpu, NULL, 1, 1);
 
-  for (uint32_t i = 0; i < pass->drawCount; i++) {
-    Draw* draw = &pass->draws[i >> 8][i & 0xff];
+  for (uint32_t i = 0; i < activeDrawCount; i++) {
+    Draw* draw = &pass->draws[activeDraws[i] >> 8][activeDraws[i] & 0xff];
     bool constantsDirty = draw->constants != constants;
 
     if (draw->tally != tally) {
@@ -1585,10 +1666,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       gpu_tally_mark(stream, state.timestamps, 2 * i + 0);
     }
 
-    submitComputes(passes[i], stream);
+    recordComputePass(passes[i], stream);
     if (i < barrierCount) gpu_sync(stream, &computeBarriers[i], 1);
 
-    submitDraws(passes[i], stream);
+    recordRenderPass(passes[i], stream);
     if (i < barrierCount) gpu_sync(stream, &renderBarriers[i], 1);
 
     if (state.timingEnabled) {
@@ -3698,9 +3779,11 @@ Model* lovrModelCreate(const ModelInfo* info) {
 
   // Draws
   model->draws = calloc(data->primitiveCount, sizeof(DrawInfo));
-  lovrAssert(model->draws, "Out of memory");
+  model->boundingBoxes = malloc(data->primitiveCount * 6 * sizeof(float));
+  lovrAssert(model->draws && model->boundingBoxes, "Out of memory");
   for (uint32_t i = 0, vertexCursor = 0, indexCursor = 0; i < data->primitiveCount; i++) {
     ModelPrimitive* primitive = &data->primitives[primitiveOrder[i] & ~0u];
+    ModelAttribute* position = primitive->attributes[ATTR_POSITION];
     DrawInfo* draw = &model->draws[primitiveOrder[i] & ~0u];
 
     switch (primitive->mode) {
@@ -3721,11 +3804,19 @@ Model* lovrModelCreate(const ModelInfo* info) {
       indexCursor += draw->count;
     } else {
       draw->start = vertexCursor;
-      draw->count = primitive->attributes[ATTR_POSITION]->count;
+      draw->count = position->count;
     }
 
+    draw->bounds = model->boundingBoxes + i * 6;
+    draw->bounds[0] = (position->min[0] + position->max[0]) / 2.f;
+    draw->bounds[1] = (position->min[1] + position->max[1]) / 2.f;
+    draw->bounds[2] = (position->min[2] + position->max[2]) / 2.f;
+    draw->bounds[3] = (position->max[0] - position->min[0]) / 2.f;
+    draw->bounds[4] = (position->max[1] - position->min[1]) / 2.f;
+    draw->bounds[5] = (position->max[2] - position->min[2]) / 2.f;
+
     baseVertex[i] = vertexCursor;
-    vertexCursor += primitive->attributes[ATTR_POSITION]->count;
+    vertexCursor += position->count;
   }
 
   // Vertices
@@ -3898,6 +3989,7 @@ void lovrModelDestroy(void* ref) {
   lovrRelease(model->info.data, lovrModelDataDestroy);
   free(model->localTransforms);
   free(model->globalTransforms);
+  free(model->boundingBoxes);
   free(model->blendShapeWeights);
   free(model->blendGroups);
   free(model->draws);
@@ -4777,13 +4869,12 @@ void lovrPassAppend(Pass* pass, Pass* other) {
   pass->flags &= ~DIRTY_CAMERA;
 }
 
-void lovrPassGetStats(Pass* pass, PassStats* stats) {
-  stats->draws = pass->drawCount;
-  stats->computes = pass->computeCount;
-  stats->memoryReserved = pass->allocator.length;
-  stats->memoryUsed = pass->allocator.cursor;
-  stats->submitTime = pass->submitTime;
-  stats->gpuTime = pass->gpuTime;
+const PassStats* lovrPassGetStats(Pass* pass) {
+  pass->stats.draws = pass->drawCount;
+  pass->stats.computes = pass->computeCount;
+  pass->stats.memoryReserved = pass->allocator.length;
+  pass->stats.memoryUsed = pass->allocator.cursor;
+  return &pass->stats;
 }
 
 void lovrPassGetCanvas(Pass* pass, Texture* textures[4], Texture** depthTexture, uint32_t* depthFormat, uint32_t* samples) {
@@ -5110,11 +5201,6 @@ void lovrPassSetColorWrite(Pass* pass, uint32_t index, bool r, bool g, bool b, b
   pass->pipeline->info.color[index].mask = mask;
 }
 
-void lovrPassSetCullMode(Pass* pass, CullMode mode) {
-  pass->pipeline->dirty |= pass->pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
-  pass->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
-}
-
 void lovrPassSetDepthTest(Pass* pass, CompareMode test) {
   pass->pipeline->dirty |= pass->pipeline->info.depth.test != (gpu_compare_mode) test;
   pass->pipeline->info.depth.test = (gpu_compare_mode) test;
@@ -5136,6 +5222,11 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
     pass->pipeline->dirty |= pass->pipeline->info.rasterizer.depthClamp != clamp;
     pass->pipeline->info.rasterizer.depthClamp = clamp;
   }
+}
+
+void lovrPassSetFaceCull(Pass* pass, CullMode mode) {
+  pass->pipeline->dirty |= pass->pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
+  pass->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
 }
 
 void lovrPassSetFont(Pass* pass, Font* font) {
@@ -5290,6 +5381,10 @@ void lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
   pass->pipeline->info.stencil.writeMask = mask;
   if (hasReplace) pass->pipeline->info.stencil.value = value;
   pass->pipeline->dirty = true;
+}
+
+void lovrPassSetViewCull(Pass* pass, bool enable) {
+  pass->pipeline->viewCull = enable;
 }
 
 void lovrPassSetWinding(Pass* pass, Winding winding) {
@@ -5616,6 +5711,12 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   draw->bundleInfo = lovrPassResolveBindings(pass, draw->shader, pass->lastDraw ? pass->lastDraw->bundleInfo : NULL);
   draw->constants = lovrPassResolveConstants(pass, draw->shader, pass->lastDraw ? pass->lastDraw->constants : NULL);
 
+  if (pass->pipeline->viewCull && info->bounds) {
+    memcpy(draw->bounds, info->bounds, sizeof(draw->bounds));
+    draw->flags |= DRAW_HAS_BOUNDS;
+    pass->flags |= NEEDS_VIEW_CULL;
+  }
+
   mat4_init(draw->transform, pass->transform);
   if (info->transform) mat4_mul(draw->transform, info->transform);
   memcpy(draw->color, pass->pipeline->color, 4 * sizeof(float));
@@ -5667,6 +5768,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
       .hash = hash64(key, sizeof(key)),
       .mode = MESH_LINES,
       .transform = transform,
+      .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, 0.f },
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
       .index.pointer = (void**) &indices,
@@ -5679,6 +5781,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
       .hash = hash64(key, sizeof(key)),
       .mode = MESH_TRIANGLES,
       .transform = transform,
+      .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, 0.f },
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
       .index.pointer = (void**) &indices,
@@ -5764,6 +5867,7 @@ void lovrPassRoundrect(Pass* pass, float* transform, float r, uint32_t segments)
   lovrPassDraw(pass, &(DrawInfo) {
     .mode = MESH_TRIANGLES,
     .transform = transform,
+    .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, .5f },
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -5892,6 +5996,7 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
       .hash = hash64(key, sizeof(key)),
       .mode = MESH_LINES,
       .transform = transform,
+      .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, .5f },
       .vertex.pointer = (void**) &vertices,
       .vertex.count = COUNTOF(vertexData),
       .index.pointer = (void**) &indices,
@@ -5943,6 +6048,7 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
       .hash = hash64(key, sizeof(key)),
       .mode = MESH_TRIANGLES,
       .transform = transform,
+      .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, .5f },
       .vertex.pointer = (void**) &vertices,
       .vertex.count = COUNTOF(vertexData),
       .index.pointer = (void**) &indices,
@@ -5974,6 +6080,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
       .hash = hash64(key, sizeof(key)),
       .mode = MESH_LINES,
       .transform = transform,
+      .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, 0.f },
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
       .index.pointer = (void**) &indices,
@@ -5991,6 +6098,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
       .hash = hash64(key, sizeof(key)),
       .mode = MESH_TRIANGLES,
       .transform = transform,
+      .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, 0.f },
       .vertex.pointer = (void**) &vertices,
       .vertex.count = vertexCount,
       .index.pointer = (void**) &indices,
@@ -6040,6 +6148,7 @@ void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t s
     .hash = hash64(key, sizeof(key)),
     .mode = MESH_TRIANGLES,
     .transform = transform,
+    .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, 1.f },
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -6125,6 +6234,7 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
     .hash = hash64(key, sizeof(key)),
     .mode = MESH_TRIANGLES,
     .transform = transform,
+    .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, .5f },
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -6197,6 +6307,7 @@ void lovrPassCone(Pass* pass, float* transform, uint32_t segments) {
     .hash = hash64(key, sizeof(key)),
     .mode = MESH_TRIANGLES,
     .transform = transform,
+    .bounds = (float[6]) { 0.0f, 0.f, -.5f, 1.f, 1.f, .5f },
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -6261,6 +6372,7 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
     .hash = hash64(key, sizeof(key)),
     .mode = MESH_TRIANGLES,
     .transform = transform,
+    .bounds = (float[6]) { 0.f, 0.f, 0.f, radius, radius, length + radius },
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -6353,6 +6465,7 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
     .hash = hash64(key, sizeof(key)),
     .mode = MESH_TRIANGLES,
     .transform = transform,
+    .bounds = (float[6]) { 0.f, 0.f, 0.f, radius + thickness, radius + thickness, thickness },
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -6476,7 +6589,8 @@ void lovrPassMonkey(Pass* pass, float* transform) {
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
     .index.count = COUNTOF(monkey_indices),
-    .transform = transform
+    .transform = transform,
+    .bounds = monkey_bounds
   });
 
   if (!vertices) {
@@ -6486,9 +6600,9 @@ void lovrPassMonkey(Pass* pass, float* transform) {
   // Manual vertex format conversion to avoid another format (and sn8x3 isn't always supported)
   for (uint32_t i = 0; i < vertexCount; i++) {
     vertices[i] = (ShapeVertex) {
-      .position.x = monkey_vertices[6 * i + 0] / 255.f * monkey_size[0] + monkey_offset[0],
-      .position.y = monkey_vertices[6 * i + 1] / 255.f * monkey_size[1] + monkey_offset[1],
-      .position.z = monkey_vertices[6 * i + 2] / 255.f * monkey_size[2] + monkey_offset[2],
+      .position.x = monkey_vertices[6 * i + 0] / 255.f * monkey_bounds[3] * 2.f + monkey_offset[0],
+      .position.y = monkey_vertices[6 * i + 1] / 255.f * monkey_bounds[4] * 2.f + monkey_offset[1],
+      .position.z = monkey_vertices[6 * i + 2] / 255.f * monkey_bounds[5] * 2.f + monkey_offset[2],
       .normal.x = monkey_vertices[6 * i + 3] / 255.f * 2.f - 1.f,
       .normal.y = monkey_vertices[6 * i + 4] / 255.f * 2.f - 1.f,
       .normal.z = monkey_vertices[6 * i + 5] / 255.f * 2.f - 1.f,
@@ -6858,8 +6972,8 @@ static void processReadbacks(void) {
         uint32_t* timestamps = readback->mapped.pointer;
         for (uint32_t i = 0; i < readback->count; i++) {
           Pass* pass = readback->times[i].pass;
-          pass->submitTime = readback->times[i].cpuTime;
-          pass->gpuTime = (timestamps[2 * i + 1] - timestamps[2 * i + 0]) * state.limits.timestampPeriod / 1e9;
+          pass->stats.submitTime = readback->times[i].cpuTime;
+          pass->stats.gpuTime = (timestamps[2 * i + 1] - timestamps[2 * i + 0]) * state.limits.timestampPeriod / 1e9;
         }
         break;
       default: break;

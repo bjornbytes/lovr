@@ -11,14 +11,16 @@ for i = 1, model:getMeshVertexCount(1) do
   max.x, max.y, max.z = math.max(x, max.x), math.max(y, max.y), math.max(z, max.z)
 end
 
-local size = lovr.math.newVec3(max - min)
 local scale = .5
-
 min:mul(scale)
 max:mul(scale)
-size:mul(scale)
 
-io.write(('float monkey_size[3] = { %ff, %ff, %ff };\n'):format(size:unpack()))
+local center = Vec3(max + min):mul(.5)
+local extent = Vec3(max - min)
+local halfExtent = extent / 2
+local bounds = { center[1], center[2], center[3], halfExtent[1], halfExtent[2], halfExtent[3] }
+
+io.write(('float monkey_bounds[6] = { %ff, %ff, %ff, %ff, %ff, %ff };\n'):format(unpack(bounds)))
 io.write(('float monkey_offset[3] = { %ff, %ff, %ff };\n'):format(min:unpack()))
 io.write('\n')
 
@@ -28,7 +30,7 @@ for i = 1, model:getMeshVertexCount(1) do
   local position = vec3(x, y, z):mul(scale)
   local normal = vec3(nx, ny, nz)
 
-  local qx, qy, qz = ((position - min) / size * 255 + .5):unpack()
+  local qx, qy, qz = ((position - min) / extent * 255 + .5):unpack()
   local qnx, qny, qnz = ((normal / 2 + .5) * 255 + .5):unpack()
 
   qx, qy, qz = math.floor(qx), math.floor(qy), math.floor(qz)
