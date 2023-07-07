@@ -98,30 +98,6 @@ MAF vec3 vec3_lerp(vec3 v, const vec3 u, float t) {
   return v;
 }
 
-MAF vec3 vec3_min(vec3 v, const vec3 u) {
-  float x = v[0] < u[0] ? v[0] : u[0];
-  float y = v[1] < u[1] ? v[1] : u[1];
-  float z = v[2] < u[2] ? v[2] : u[2];
-  float w = v[3] < u[3] ? v[3] : u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
-  return v;
-}
-
-MAF vec3 vec3_max(vec3 v, const vec3 u) {
-  float x = v[0] > u[0] ? v[0] : u[0];
-  float y = v[1] > u[1] ? v[1] : u[1];
-  float z = v[2] > u[2] ? v[2] : u[2];
-  float w = v[3] > u[3] ? v[3] : u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
-  return v;
-}
-
 MAF float vec3_angle(const vec3 v, const vec3 u) {
   float denom = vec3_length(v) * vec3_length(u);
   if (denom == 0.f) {
@@ -330,46 +306,6 @@ MAF mat4 mat4_set(mat4 m, mat4 n) {
   return m;
 }
 
-MAF mat4 mat4_fromMat34(mat4 m, float (*n)[4]) {
-  m[0] = n[0][0];
-  m[1] = n[1][0];
-  m[2] = n[2][0];
-  m[3] = 0.f;
-  m[4] = n[0][1];
-  m[5] = n[1][1];
-  m[6] = n[2][1];
-  m[7] = 0.f;
-  m[8] = n[0][2];
-  m[9] = n[1][2];
-  m[10] = n[2][2];
-  m[11] = 0.f;
-  m[12] = n[0][3];
-  m[13] = n[1][3];
-  m[14] = n[2][3];
-  m[15] = 1.f;
-  return m;
-}
-
-MAF mat4 mat4_fromMat44(mat4 m, float (*n)[4]) {
-  m[0] = n[0][0];
-  m[1] = n[1][0];
-  m[2] = n[2][0];
-  m[3] = n[3][0];
-  m[4] = n[0][1];
-  m[5] = n[1][1];
-  m[6] = n[2][1];
-  m[7] = n[3][1];
-  m[8] = n[0][2];
-  m[9] = n[1][2];
-  m[10] = n[2][2];
-  m[11] = n[3][2];
-  m[12] = n[0][3];
-  m[13] = n[1][3];
-  m[14] = n[2][3];
-  m[15] = n[3][3];
-  return m;
-}
-
 MAF mat4 mat4_fromQuat(mat4 m, quat q) {
   float x = q[0], y = q[1], z = q[2], w = q[3];
   m[0] = 1.f - 2.f * y * y - 2.f * z * z;
@@ -418,10 +354,7 @@ MAF mat4 mat4_identity(mat4 m) {
 }
 
 MAF mat4 mat4_transpose(mat4 m) {
-  float a01 = m[1], a02 = m[2], a03 = m[3],
-        a12 = m[6], a13 = m[7],
-        a23 = m[11];
-
+  float a01 = m[1], a02 = m[2], a03 = m[3], a12 = m[6], a13 = m[7], a23 = m[11];
   m[1] = m[4];
   m[2] = m[8];
   m[3] = m[12];
