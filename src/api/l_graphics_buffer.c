@@ -214,6 +214,7 @@ static void luax_checkarray(lua_State* L, int index, uint32_t offset, uint32_t c
         lua_pop(L, 1);
       }
     } else if (type == LUA_TNUMBER) {
+      index = index > 0 ? index : lua_gettop(L) + 1 + index;
       for (uint32_t i = 0; i < count; i++, data += field->stride) {
         for (int c = 1; c <= n; c++) {
           lua_rawgeti(L, index, i * n + offset + c);
