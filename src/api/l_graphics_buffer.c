@@ -232,6 +232,8 @@ static void luax_checkarray(lua_State* L, int index, uint32_t offset, uint32_t c
         luax_tofield(L, -n, field->type, data);
         lua_pop(L, n + 1);
       }
+    } else if (type == LUA_TNIL) {
+      return;
     } else {
       lovrThrow("Expected number, table, or vector for array contents");
     }
