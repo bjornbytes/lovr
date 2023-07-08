@@ -32,6 +32,9 @@ static struct {
   fn_resize* onResize;
   fn_key* onKey;
   fn_text* onText;
+  fn_mouse_button* onMouseButton;
+  fn_mouse_move* onMouseMove;
+  fn_mousewheel_move* onWheelMove;
   uint32_t width;
   uint32_t height;
   bool keyDown[OS_KEY_COUNT];
@@ -176,15 +179,28 @@ void os_poll_events() {
       case XCB_BUTTON_PRESS:
       case XCB_BUTTON_RELEASE:
         switch (event.mouse->detail) {
-          case 1: state.mouseDown[MOUSE_LEFT] = type == XCB_BUTTON_PRESS; break;
-          case 3: state.mouseDown[MOUSE_RIGHT] = type == XCB_BUTTON_PRESS; break;
+          case 1: if (state.onMouseButton) state.onMouseButton(0, type == XCB_BUTTON_PRESS); break;
+          case 2: if (state.onMouseButton) state.onMouseButton(2, type == XCB_BUTTON_PRESS); break;
+          case 3: if (state.onMouseButton) state.onMouseButton(1, type == XCB_BUTTON_PRESS); break;
+          case 4: if (state.onWheelMove) state.onWheelMove(0., +1.); break;
+          case 5: if (state.onWheelMove) state.onWheelMove(0., -1.); break;
+          case 6: if (state.onWheelMove) state.onWheelMove(+1., 0.); break;
+          case 7: if (state.onWheelMove) state.onWheelMove(-1., 0.); break;
           default: break;
+        }
+
+        if (event.mouse->detail == 1 || event.mouse->detail == 2) {
+          os_mouse_button button = event.mouse->detail == 1 ? MOUSE_LEFT : MOUSE_RIGHT;
+          state.mouseDown[button] = type == XCB_BUTTON_PRESS;
         }
         break;
 
       case XCB_MOTION_NOTIFY:
         state.mouseX = event.motion->event_x;
         state.mouseY = event.motion->event_y;
+        if (state.onMouseMove) {
+          state.onMouseMove(state.mouseX, state.mouseY);
+        }
         break;
 
       case XCB_FOCUS_IN:
@@ -230,6 +246,18 @@ void os_on_key(fn_key* callback) {
 
 void os_on_text(fn_text* callback) {
   state.onText = callback;
+}
+
+void os_on_mouse_button(fn_mouse_button* callback) {
+  state.onMouseButton = callback;
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  state.onMouseMove = callback;
+}
+
+void os_on_mousewheel_move(fn_mousewheel_move* callback) {
+  state.onWheelMove = callback;
 }
 
 void os_on_permission(fn_permission* callback) {
