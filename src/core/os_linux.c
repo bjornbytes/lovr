@@ -185,30 +185,22 @@ void os_poll_events(void) {
       }
 
       case XCB_BUTTON_PRESS:
-      case XCB_BUTTON_RELEASE: {
-        int button = -1;
-        bool pressed = type == XCB_BUTTON_PRESS;
-
+      case XCB_BUTTON_RELEASE:
         switch (event.mouse->detail) {
-          case 1: button = 0; break;
-          case 2: button = 2; break;
-          case 3: button = 1; break;
+          case 1: if (state.onMouseButton) state.onMouseButton(0, type == XCB_BUTTON_PRESS); break;
+          case 2: if (state.onMouseButton) state.onMouseButton(2, type == XCB_BUTTON_PRESS); break;
+          case 3: if (state.onMouseButton) state.onMouseButton(1, type == XCB_BUTTON_PRESS); break;
           case 4: if (state.onWheelMove) state.onWheelMove(0., +1.); break;
           case 5: if (state.onWheelMove) state.onWheelMove(0., -1.); break;
-          case 6: if (state.onWheelMove) state.onWheelMove(-1., 0.); break;
-          case 7: if (state.onWheelMove) state.onWheelMove(+1., 0.); break;
-          default: button = event.mouse->detail - 5; break;
+          case 6: if (state.onWheelMove) state.onWheelMove(+1., 0.); break;
+          case 7: if (state.onWheelMove) state.onWheelMove(-1., 0.); break;
+          default: if (state.onMouseButton) state.onMouseButton(event.mouse->detail - 5, type == XCB_BUTTON_PRESS); break;
         }
 
-        if (button == 0 || button == 1) {
-          state.mouseDown[button == 0 ? MOUSE_LEFT : MOUSE_RIGHT] = pressed;
-        }
-
-        if (state.onMouseButton && button != -1) {
-          state.onMouseButton(button, pressed);
+        if (event.mouse->detail == 1 || event.mouse->detail == 3) {
+          state.mouseDown[event.mouse->detail == 1 ? MOUSE_LEFT : MOUSE_RIGHT] = type == XCB_BUTTON_PRESS;
         }
         break;
-      }
 
       case XCB_MOTION_NOTIFY:
         state.mouseX = event.motion->event_x;
