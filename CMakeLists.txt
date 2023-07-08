@@ -88,7 +88,7 @@ if(NOT ANDROID AND LOVR_BUILD_SHARED)
 endif()
 
 # GLFW
-if(LOVR_USE_GLFW AND NOT (EMSCRIPTEN OR ANDROID))
+if(LOVR_USE_GLFW AND NOT (EMSCRIPTEN OR ANDROID OR (UNIX AND NOT APPLE)))
   if(LOVR_SYSTEM_GLFW)
     pkg_search_module(GLFW REQUIRED glfw3)
     include_directories(${GLFW_INCLUDE_DIRS})
@@ -882,7 +882,7 @@ elseif(ANDROID)
   endif()
 elseif(UNIX)
   target_sources(lovr PRIVATE src/core/os_linux.c)
-  target_link_libraries(lovr X11 xcb X11-xcb)
+  target_link_libraries(lovr xcb xcb-xkb xkbcommon xkbcommon-x11)
   set_target_properties(lovr PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     BUILD_WITH_INSTALL_RPATH TRUE
