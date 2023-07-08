@@ -2223,25 +2223,27 @@ bool gpu_init(gpu_config* config) {
   if (state.surface.handle) {
     gpu_surface* surface = &state.surface;
 
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, surface->handle, &surface->capabilities);
-
     VkSurfaceFormatKHR formats[32];
     uint32_t formatCount = COUNTOF(formats);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, surface->handle, &surface->capabilities);
     vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, surface->handle, &formatCount, formats);
+    VkSurfaceFormatKHR fallback = { .format = VK_FORMAT_UNDEFINED };
 
     for (uint32_t i = 0; i < formatCount; i++) {
-      if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+      if (formats[i].format == VK_FORMAT_A2B10G10R10_UNORM_PACK32) {
         surface->format = formats[i];
         break;
+      } else if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+        fallback = formats[i];
       }
     }
 
-    VK(surface->format.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
+    if (surface->format.format == VK_FORMAT_UNDEFINED) {
+      CHECK(fallback.format != VK_FORMAT_UNDEFINED, "No supported window texture formats") return gpu_destroy(), false;
+      surface->format = fallback;
+    }
 
-    uint32_t width = surface->capabilities.currentExtent.width;
-    uint32_t height = surface->capabilities.currentExtent.height;
-
-    createSwapchain(width, height);
+    createSwapchain(surface->capabilities.currentExtent.width, surface->capabilities.currentExtent.height);
   }
 
   // Ticks
