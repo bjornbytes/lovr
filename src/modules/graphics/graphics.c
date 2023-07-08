@@ -651,7 +651,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   if (os_window_is_open()) {
     os_on_resize(onResize);
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
     gpu.vk.xcb.connection = os_get_xcb_connection();
     gpu.vk.xcb.window = os_get_xcb_window();
 #else

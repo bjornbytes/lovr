@@ -1893,7 +1893,7 @@ bool gpu_init(gpu_config* config) {
     if (state.config.vk.createSurface) {
       VK(state.config.vk.createSurface(state.instance, (void**) &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
     } else {
-#ifdef __linux__
+#if defined(__linux__) && !defined(__ANDROID__)
       VkXcbSurfaceCreateInfoKHR surfaceInfo = {
         .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
         .connection = (xcb_connection_t*) state.config.vk.xcb.connection,
