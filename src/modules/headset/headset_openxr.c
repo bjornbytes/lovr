@@ -2247,20 +2247,20 @@ static bool openxr_animateFB(Model* model, const ModelInfo* info) {
     XR_HAND_JOINT_LITTLE_DISTAL_EXT
   };
 
+  float position[4], orientation[4];
   float scale[4] = { 1.f, 1.f, 1.f, 1.f };
-
-  // The following can be optimized a lot (ideally we would set the global transform for the nodes)
   for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
     if (jointParents[i] == ~0u) {
       XrPosef* pose = &joints[i].pose;
-      lovrModelSetNodeTransform(model, i, &pose->position.x, scale, &pose->orientation.x, 1.f);
+      vec3_init(position, &pose->position.x);
+      quat_init(orientation, &pose->orientation.x);
+      lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
     } else {
       XrPosef* parent = &joints[jointParents[i]].pose;
       XrPosef* pose = &joints[i].pose;
 
       // Convert global pose to parent-local pose (premultiply with inverse of parent pose)
       // TODO there should be maf for this
-      float position[4], orientation[4];
       vec3_init(position, &pose->position.x);
       vec3_sub(position, &parent->position.x);
 
@@ -2391,10 +2391,10 @@ static Pass* openxr_getPass(void) {
   lovrPassReset(state.pass);
   lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1);
 
-  float background[4];
-  LoadAction load = LOAD_CLEAR;
-  lovrGraphicsGetBackgroundColor(background);
-  lovrPassSetClear(state.pass, &load, &background, LOAD_CLEAR, 0.f);
+  float background[4][4];
+  LoadAction loads[4] = { LOAD_CLEAR };
+  lovrGraphicsGetBackgroundColor(background[0]);
+  lovrPassSetClear(state.pass, loads, background, LOAD_CLEAR, 0.f);
 
   uint32_t count;
   XrView views[2];

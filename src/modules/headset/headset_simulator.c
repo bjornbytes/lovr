@@ -273,10 +273,10 @@ static Pass* simulator_getPass(void) {
     lovrPassSetCanvas(state.pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1);
   }
 
-  float background[4];
-  LoadAction load = LOAD_CLEAR;
-  lovrGraphicsGetBackgroundColor(background);
-  lovrPassSetClear(state.pass, &load, &background, LOAD_CLEAR, 0.f);
+  float background[4][4];
+  LoadAction loads[4] = { LOAD_CLEAR };
+  lovrGraphicsGetBackgroundColor(background[0]);
+  lovrPassSetClear(state.pass, loads, background, LOAD_CLEAR, 0.f);
 
   float viewMatrix[16];
   mat4_fromPose(viewMatrix, state.headPosition, state.headOrientation);
