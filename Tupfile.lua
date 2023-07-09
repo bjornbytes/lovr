@@ -418,9 +418,8 @@ end
 
 for renderer, enabled in pairs(config.renderers) do
   if enabled then
-    local shortname = ({ vulkan = 'vk', webgpu = 'wgpu' })[renderer]
-    cflags += '-DLOVR_' .. shortname:upper()
-    src += 'src/core/gpu_' .. shortname .. '.c'
+    cflags += '-DLOVR_' .. ({ vulkan = 'VK', webgpu = 'WEBGPU' })[renderer]
+    src += 'src/core/gpu_' .. ({ vulkan = 'vk', webgpu = 'web' })[renderer] .. '.c'
   end
 end
 

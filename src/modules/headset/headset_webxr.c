@@ -1,6 +1,6 @@
 #include "headset/headset.h"
 
-extern bool webxr_init(float supersample, float offset, uint32_t msaa, bool overlay);
+extern bool webxr_init(HeadsetConfig* config);
 extern void webxr_start(void);
 extern void webxr_destroy(void);
 extern bool webxr_getName(char* name, size_t length);
@@ -80,7 +80,6 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .stopVibration = webxr_stopVibration,
   .newModelData = webxr_newModelData,
   .animate = webxr_animate,
-  .renderTo = webxr_renderTo,
   .isFocused = webxr_isFocused,
   .update = webxr_update
 };

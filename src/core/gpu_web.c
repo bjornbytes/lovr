@@ -60,7 +60,7 @@ static WGPUTextureFormat convertFormat(gpu_texture_format format, bool srgb);
 // Buffer
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
-  return buffer->handle = wgpuDeviceCreateBuffer(state.device, &(WGPUBufferDescriptor) {
+  buffer->handle = wgpuDeviceCreateBuffer(state.device, &(WGPUBufferDescriptor) {
     .label = info->label,
     .usage =
       WGPUBufferUsage_Vertex |
@@ -74,6 +74,8 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     .size = info->size,
     .mappedAtCreation = !!info->pointer
   });
+
+  return !!buffer->handle;
 }
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
@@ -487,7 +489,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 }
 
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info) {
-
+  return false; // TODO
 }
 
 void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
@@ -519,8 +521,8 @@ void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint
   // Unsupported
 }
 
-void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
-  if (compute) {
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_type type) {
+  if (type == GPU_PIPELINE_COMPUTE) {
     wgpuComputePassEncoderSetPipeline(stream->compute, pipeline->compute);
   } else {
     wgpuRenderPassEncoderSetPipeline(stream->render, pipeline->render);
@@ -633,7 +635,7 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
   wgpuCommandEncoderCopyTextureToBuffer(stream->commands, &srcRegion, &dstRegion, &size);
 }
 
-void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride) {
+void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
   // TODO
 }
 

@@ -9,7 +9,6 @@
 #define CANVAS "#canvas"
 
 static struct {
-  EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context;
   fn_quit* onQuitRequest;
   fn_focus* onWindowFocus;
   fn_resize* onWindowResize;
@@ -287,26 +286,6 @@ size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
 }
 
 bool os_window_open(const os_window_config* flags) {
-  if (state.context) {
-    return true;
-  }
-
-  EmscriptenWebGLContextAttributes attributes;
-  emscripten_webgl_init_context_attributes(&attributes);
-  attributes.alpha = false;
-  attributes.depth = true;
-  attributes.stencil = true;
-  attributes.preserveDrawingBuffer = false;
-  attributes.majorVersion = 2;
-  attributes.minorVersion = 0;
-  state.context = emscripten_webgl_create_context(CANVAS, &attributes);
-  if (state.context < 0) {
-    state.context = 0;
-    return false;
-  }
-
-  emscripten_webgl_make_context_current(state.context);
-  emscripten_webgl_get_drawing_buffer_size(state.context, &state.width, &state.height);
   return true;
 }
 
@@ -321,7 +300,7 @@ void os_window_get_size(uint32_t* width, uint32_t* height) {
 
 float os_window_get_pixel_density(void) {
   int w, h, fw, fh;
-  emscripten_get_canvas_element_size(state.context, &w, &h);
+  emscripten_get_canvas_element_size(CANVAS, &w, &h);
   emscripten_webgl_get_drawing_buffer_size(state.context, &fw, &fh);
   return (w == 0 || h == 0) ? 0.f : (float) fw / w;
 }
