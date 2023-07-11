@@ -79,6 +79,26 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
   }
 }
 
+typedef struct {
+  QueryCallback callback;
+  void* userdata;
+} QueryData;
+
+static void queryCallback(void* data, dGeomID a, dGeomID b) {
+  QueryCallback callback = ((QueryData*) data)->callback;
+  void* userdata = ((QueryData*) data)->userdata;
+  Shape* shape = dGeomGetData(b);
+
+  if (!shape) {
+    return;
+  }
+
+  dContactGeom contact;
+  if (dCollide(a, b, 1 | CONTACTS_UNIMPORTANT, &contact, sizeof(contact))) {
+    callback(shape, userdata);
+  }
+}
+
 // XXX slow, but probably fine (tag names are not on any critical path), could switch to hashing if needed
 static uint32_t findTag(World* world, const char* name) {
   for (uint32_t i = 0; i < MAX_TAGS && world->tags[i]; i++) {
@@ -286,6 +306,22 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
   dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
   dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
   dGeomDestroy(ray);
+}
+
+void lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
+  QueryData data = { .callback = callback, .userdata = userdata };
+  dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
+  dGeomSetPosition(box, position[0], position[1], position[2]);
+  dSpaceCollide2(box, (dGeomID) world->space, &data, queryCallback);
+  dGeomDestroy(box);
+}
+
+void lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
+  QueryData data = { .callback = callback, .userdata = userdata };
+  dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
+  dGeomSetPosition(sphere, position[0], position[1], position[2]);
+  dSpaceCollide2(sphere, (dGeomID) world->space, &data, queryCallback);
+  dGeomDestroy(sphere);
 }
 
 Collider* lovrWorldGetFirstCollider(World* world) {

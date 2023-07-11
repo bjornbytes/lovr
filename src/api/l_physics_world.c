@@ -27,7 +27,6 @@ static int nextOverlap(lua_State* L) {
 
 static void raycastCallback(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata) {
   lua_State* L = userdata;
-  luaL_checktype(L, -1, LUA_TFUNCTION);
   lua_pushvalue(L, -1);
   luax_pushshape(L, shape);
   lua_pushnumber(L, x);
@@ -37,6 +36,13 @@ static void raycastCallback(Shape* shape, float x, float y, float z, float nx, f
   lua_pushnumber(L, ny);
   lua_pushnumber(L, nz);
   lua_call(L, 7, 0);
+}
+
+static void queryCallback(Shape* shape, void* userdata) {
+  lua_State* L = userdata;
+  lua_pushvalue(L, -1);
+  luax_pushshape(L, shape);
+  lua_call(L, 1, 0);
 }
 
 static int l_lovrWorldNewCollider(lua_State* L) {
@@ -242,6 +248,29 @@ static int l_lovrWorldRaycast(lua_State* L) {
   return 0;
 }
 
+static int l_lovrWorldQueryBox(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float position[3], size[3];
+  int index = 2;
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readvec3(L, index, size, NULL);
+  luaL_checktype(L, index, LUA_TFUNCTION);
+  lua_settop(L, index);
+  lovrWorldQueryBox(world, position, size, queryCallback, L);
+  return 0;
+}
+
+static int l_lovrWorldQuerySphere(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float position[3];
+  int index = luax_readvec3(L, 2, position, NULL);
+  float radius = luax_checkfloat(L, index++);
+  luaL_checktype(L, index, LUA_TFUNCTION);
+  lua_settop(L, index);
+  lovrWorldQuerySphere(world, position, radius, queryCallback, L);
+  return 0;
+}
+
 static int l_lovrWorldGetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float x, y, z;
@@ -392,6 +421,8 @@ const luaL_Reg lovrWorld[] = {
   { "collide", l_lovrWorldCollide },
   { "getContacts", l_lovrWorldGetContacts },
   { "raycast", l_lovrWorldRaycast },
+  { "queryBox", l_lovrWorldQueryBox },
+  { "querySphere", l_lovrWorldQuerySphere },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
   { "getTightness", l_lovrWorldGetTightness },
