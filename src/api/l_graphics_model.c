@@ -107,7 +107,7 @@ static int l_lovrModelGetNodePosition(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
-  float position[4], scale[4], rotation[4];
+  float position[3], scale[3], rotation[4];
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -118,7 +118,7 @@ static int l_lovrModelGetNodePosition(lua_State* L) {
 static int l_lovrModelSetNodePosition(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 3, position, NULL);
   float alpha = luax_optfloat(L, index, 1.f);
   lovrModelSetNodeTransform(model, node, position, NULL, NULL, alpha);
@@ -129,7 +129,7 @@ static int l_lovrModelGetNodeScale(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
-  float position[4], scale[4], rotation[4];
+  float position[3], scale[3], rotation[4];
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   lua_pushnumber(L, scale[0]);
   lua_pushnumber(L, scale[1]);
@@ -140,7 +140,7 @@ static int l_lovrModelGetNodeScale(lua_State* L) {
 static int l_lovrModelSetNodeScale(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
-  float scale[4];
+  float scale[3];
   int index = luax_readscale(L, 3, scale, 3, NULL);
   float alpha = luax_optfloat(L, index, 1.f);
   lovrModelSetNodeTransform(model, node, NULL, scale, NULL, alpha);
@@ -151,7 +151,7 @@ static int l_lovrModelGetNodeOrientation(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
-  float position[4], scale[4], rotation[4], angle, ax, ay, az;
+  float position[3], scale[3], rotation[4], angle, ax, ay, az;
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
@@ -175,7 +175,7 @@ static int l_lovrModelGetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
-  float position[4], scale[4], rotation[4], angle, ax, ay, az;
+  float position[3], scale[3], rotation[4], angle, ax, ay, az;
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
@@ -192,7 +192,7 @@ static int l_lovrModelSetNodePose(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   int index = 3;
-  float position[4], rotation[4];
+  float position[3], rotation[4];
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readquat(L, index, rotation, NULL);
   float alpha = luax_optfloat(L, index, 1.f);
@@ -204,7 +204,7 @@ static int l_lovrModelGetNodeTransform(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   OriginType origin = luax_checkenum(L, 3, OriginType, "root");
-  float position[4], scale[4], rotation[4], angle, ax, ay, az;
+  float position[3], scale[3], rotation[4], angle, ax, ay, az;
   lovrModelGetNodeTransform(model, node, position, scale, rotation, origin);
   quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
@@ -225,7 +225,7 @@ static int l_lovrModelSetNodeTransform(lua_State* L) {
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   int index = 3;
   VectorType type;
-  float position[4], scale[4], rotation[4];
+  float position[3], scale[3], rotation[4];
   float* m = luax_tovector(L, index, &type);
   if (m && type == V_MAT4) {
     mat4_getPosition(m, position);

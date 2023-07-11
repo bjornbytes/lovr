@@ -28,7 +28,7 @@ struct Source {
   uint32_t offset;
   float pitch;
   float volume;
-  float position[4];
+  float position[3];
   float orientation[4];
   float radius;
   float dipoleWeight;
@@ -49,7 +49,7 @@ static struct {
   Sound* sinks[2];
   Source* sources[MAX_SOURCES];
   uint64_t sourceMask;
-  float position[4];
+  float position[3];
   float orientation[4];
   Spatializer* spatializer;
   float absorption[3];
@@ -370,12 +370,12 @@ void lovrAudioSetVolume(float volume, VolumeUnit units) {
   ma_device_set_master_volume(&state.devices[AUDIO_PLAYBACK], CLAMP(volume, 0.f, 1.f));
 }
 
-void lovrAudioGetPose(float position[4], float orientation[4]) {
-  memcpy(position, state.position, sizeof(state.position));
-  memcpy(orientation, state.orientation, sizeof(state.orientation));
+void lovrAudioGetPose(float position[3], float orientation[4]) {
+  vec3_init(position, state.position);
+  quat_init(orientation, state.orientation);
 }
 
-void lovrAudioSetPose(float position[4], float orientation[4]) {
+void lovrAudioSetPose(float position[3], float orientation[4]) {
   state.spatializer->setListenerPose(position, orientation);
 }
 
@@ -450,8 +450,8 @@ Source* lovrSourceClone(Source* source) {
   lovrRetain(clone->sound);
   clone->pitch = source->pitch;
   clone->volume = source->volume;
-  memcpy(clone->position, source->position, 4 * sizeof(float));
-  memcpy(clone->orientation, source->orientation, 4 * sizeof(float));
+  vec3_init(clone->position, source->position);
+  quat_init(clone->orientation, source->orientation);
   clone->radius = source->radius;
   clone->dipoleWeight = source->dipoleWeight;
   clone->dipolePower = source->dipolePower;
@@ -579,15 +579,15 @@ bool lovrSourceIsSpatial(Source* source) {
   return source->spatial;
 }
 
-void lovrSourceGetPose(Source* source, float position[4], float orientation[4]) {
-  memcpy(position, source->position, sizeof(source->position));
-  memcpy(orientation, source->orientation, sizeof(source->orientation));
+void lovrSourceGetPose(Source* source, float position[3], float orientation[4]) {
+  vec3_init(position, source->position);
+  quat_init(orientation, source->orientation);
 }
 
-void lovrSourceSetPose(Source* source, float position[4], float orientation[4]) {
+void lovrSourceSetPose(Source* source, float position[3], float orientation[4]) {
   ma_mutex_lock(&state.lock);
-  memcpy(source->position, position, sizeof(source->position));
-  memcpy(source->orientation, orientation, sizeof(source->orientation));
+  if (position) vec3_init(source->position, position);
+  if (orientation) quat_init(source->orientation, orientation);
   ma_mutex_unlock(&state.lock);
 }
 

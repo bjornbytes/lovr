@@ -171,7 +171,9 @@ struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t
 float* luax_tovector(lua_State* L, int index, VectorType* type);
 float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
 float* luax_newtempvector(lua_State* L, VectorType type);
+int luax_readvec2(lua_State* L, int index, float* v, const char* expected);
 int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
+int luax_readvec4(lua_State* L, int index, float* v, const char* expected);
 int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
 int luax_readquat(lua_State* L, int index, float* q, const char* expected);
 int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);

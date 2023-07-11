@@ -157,9 +157,9 @@ typedef struct {
   union {
     float matrix[16];
     struct {
-      float translation[4];
+      float translation[3];
       float rotation[4];
-      float scale[4];
+      float scale[3];
     };
   } transform;
   uint32_t* children;

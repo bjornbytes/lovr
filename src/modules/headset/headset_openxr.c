@@ -2247,14 +2247,11 @@ static bool openxr_animateFB(Model* model, const ModelInfo* info) {
     XR_HAND_JOINT_LITTLE_DISTAL_EXT
   };
 
-  float position[4], orientation[4];
-  float scale[4] = { 1.f, 1.f, 1.f, 1.f };
+  float position[3], orientation[4], scale[3] = { 1.f, 1.f, 1.f };
   for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
     if (jointParents[i] == ~0u) {
       XrPosef* pose = &joints[i].pose;
-      vec3_init(position, &pose->position.x);
-      quat_init(orientation, &pose->orientation.x);
-      lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
+      lovrModelSetNodeTransform(model, i, &pose->position.x, scale, &pose->orientation.x, 1.f);
     } else {
       XrPosef* parent = &joints[jointParents[i]].pose;
       XrPosef* pose = &joints[i].pose;
@@ -2296,7 +2293,7 @@ static bool openxr_animateMSFT(Model* model, const ModelInfo* info) {
   }
 
   for (uint32_t i = 0; i < modelState.nodeCountOutput; i++) {
-    float position[4], rotation[4];
+    float position[3], rotation[4];
     vec3_init(position, (vec3)&nodeStates[i].nodePose.position);
     quat_init(rotation, (quat)&nodeStates[i].nodePose.orientation);
     lovrModelSetNodeTransform(model, metadata->nodeIndices[i], position, NULL, rotation, 1);

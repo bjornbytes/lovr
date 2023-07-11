@@ -10,9 +10,94 @@
 #define M_PI 3.14159265358979
 #endif
 
+typedef float* vec2;
 typedef float* vec3;
+typedef float* vec4;
 typedef float* quat;
 typedef float* mat4;
+
+// vec2
+
+MAF vec2 vec2_set(vec2 v, float x, float y) {
+  v[0] = x;
+  v[1] = y;
+  return v;
+}
+
+MAF vec2 vec2_init(vec2 v, const vec2 u) {
+  return memcpy(v, u, 2 * sizeof(float));
+}
+
+MAF vec2 vec2_add(vec2 v, const vec2 u) {
+  v[0] += u[0];
+  v[1] += u[1];
+  return v;
+}
+
+MAF vec2 vec2_sub(vec2 v, const vec2 u) {
+  v[0] -= u[0];
+  v[1] -= u[1];
+  return v;
+}
+
+MAF vec2 vec2_mul(vec2 v, const vec2 u) {
+  v[0] *= u[0];
+  v[1] *= u[1];
+  return v;
+}
+
+MAF vec2 vec2_div(vec2 v, const vec2 u) {
+  v[0] /= u[0];
+  v[1] /= u[1];
+  return v;
+}
+
+MAF vec2 vec2_scale(vec2 v, float s) {
+  v[0] *= s;
+  v[1] *= s;
+  return v;
+}
+
+MAF float vec2_length(vec2 v) {
+  return sqrtf(v[0] * v[0] + v[1] * v[1]);
+}
+
+MAF vec2 vec2_normalize(vec2 v) {
+  float length = vec2_length(v);
+  return length == 0.f ? v : vec2_scale(v, 1.f / length);
+}
+
+MAF float vec2_distance2(const vec2 v, const vec2 u) {
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  return dx * dx + dy * dy;
+}
+
+MAF float vec2_distance(const vec2 v, const vec2 u) {
+  return sqrtf(vec2_distance2(v, u));
+}
+
+MAF float vec2_dot(const vec2 v, const vec2 u) {
+  return v[0] * u[0] + v[1] * u[1];
+}
+
+MAF vec2 vec2_lerp(vec2 v, const vec2 u, float t) {
+  v[0] = v[0] * (1.f - t) + u[0] * t;
+  v[1] = v[1] * (1.f - t) + u[1] * t;
+  return v;
+}
+
+MAF float vec2_angle(const vec2 v, const vec2 u) {
+  float denom = vec2_length(v) * vec2_length(u);
+  if (denom == 0.f) {
+    return (float) M_PI / 2.f;
+  } else {
+    float cos = vec2_dot(v, u) / denom;
+    cos = cos < -1.f ? -1.f : cos;
+    cos = cos > 1.f ? 1.f : cos;
+    return acosf(cos);
+  }
+}
 
 // vec3
 
@@ -24,29 +109,34 @@ MAF vec3 vec3_set(vec3 v, float x, float y, float z) {
 }
 
 MAF vec3 vec3_init(vec3 v, const vec3 u) {
-  float x = u[0], y = u[1], z = u[2], w = u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
-  return v;
+  return memcpy(v, u, 3 * sizeof(float));
 }
 
 MAF vec3 vec3_add(vec3 v, const vec3 u) {
-  float x = v[0] + u[0], y = v[1] + u[1], z = v[2] + u[2], w = v[3] + u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
+  v[0] += u[0];
+  v[1] += u[1];
+  v[2] += u[2];
   return v;
 }
 
 MAF vec3 vec3_sub(vec3 v, const vec3 u) {
-  float x = v[0] - u[0], y = v[1] - u[1], z = v[2] - u[2], w = v[3] - u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
+  v[0] -= u[0];
+  v[1] -= u[1];
+  v[2] -= u[2];
+  return v;
+}
+
+MAF vec3 vec3_mul(vec3 v, const vec3 u) {
+  v[0] *= u[0];
+  v[1] *= u[1];
+  v[2] *= u[2];
+  return v;
+}
+
+MAF vec3 vec3_div(vec3 v, const vec3 u) {
+  v[0] /= u[0];
+  v[1] /= u[1];
+  v[2] /= u[2];
   return v;
 }
 
@@ -54,7 +144,6 @@ MAF vec3 vec3_scale(vec3 v, float s) {
   v[0] *= s;
   v[1] *= s;
   v[2] *= s;
-  v[3] *= s;
   return v;
 }
 
@@ -63,15 +152,19 @@ MAF float vec3_length(const vec3 v) {
 }
 
 MAF vec3 vec3_normalize(vec3 v) {
-  float len = vec3_length(v);
-  return len == 0.f ? v : vec3_scale(v, 1.f / len);
+  float length = vec3_length(v);
+  return length == 0.f ? v : vec3_scale(v, 1.f / length);
 }
 
-MAF float vec3_distance(const vec3 v, const vec3 u) {
+MAF float vec3_distance2(const vec3 v, const vec3 u) {
   float dx = v[0] - u[0];
   float dy = v[1] - u[1];
   float dz = v[2] - u[2];
-  return sqrtf(dx * dx + dy * dy + dz * dz);
+  return dx * dx + dy * dy + dz * dz;
+}
+
+MAF float vec3_distance(const vec3 v, const vec3 u) {
+  return sqrtf(vec3_distance2(v, u));
 }
 
 MAF float vec3_dot(const vec3 v, const vec3 u) {
@@ -79,22 +172,16 @@ MAF float vec3_dot(const vec3 v, const vec3 u) {
 }
 
 MAF vec3 vec3_cross(vec3 v, const vec3 u) {
-  return vec3_set(v,
-    v[1] * u[2] - v[2] * u[1],
-    v[2] * u[0] - v[0] * u[2],
-    v[0] * u[1] - v[1] * u[0]
-  );
+  float cx = v[1] * u[2] - v[2] * u[1];
+  float cy = v[2] * u[0] - v[0] * u[2];
+  float cz = v[0] * u[1] - v[1] * u[0];
+  return vec3_set(v, cx, cy, cz);
 }
 
 MAF vec3 vec3_lerp(vec3 v, const vec3 u, float t) {
-  float x = v[0] + (u[0] - v[0]) * t;
-  float y = v[1] + (u[1] - v[1]) * t;
-  float z = v[2] + (u[2] - v[2]) * t;
-  float w = v[3] + (u[3] - v[3]) * t;
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
+  v[0] = v[0] * (1.f - t) + u[0] * t;
+  v[1] = v[1] * (1.f - t) + u[1] * t;
+  v[2] = v[2] * (1.f - t) + u[2] * t;
   return v;
 }
 
@@ -102,7 +189,6 @@ MAF vec3 vec3_abs(vec3 v) {
   v[0] = fabsf(v[0]);
   v[1] = fabsf(v[1]);
   v[2] = fabsf(v[2]);
-  v[3] = fabsf(v[3]);
   return v;
 }
 
@@ -112,8 +198,115 @@ MAF float vec3_angle(const vec3 v, const vec3 u) {
     return (float) M_PI / 2.f;
   } else {
     float cos = vec3_dot(v, u) / denom;
-    cos = cos < -1 ? -1 : cos;
-    cos = cos > 1 ? 1 : cos;
+    cos = cos < -1.f ? -1.f : cos;
+    cos = cos > 1.f ? 1.f : cos;
+    return acosf(cos);
+  }
+}
+
+// vec4
+
+MAF vec4 vec4_set(vec4 v, float x, float y, float z, float w) {
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
+  return v;
+}
+
+MAF vec4 vec4_init(vec4 v, const vec4 u) {
+  return memcpy(v, u, 4 * sizeof(float));
+}
+
+MAF vec2 vec4_add(vec4 v, const vec4 u) {
+  v[0] += u[0];
+  v[1] += u[1];
+  v[2] += u[2];
+  v[3] += u[3];
+  return v;
+}
+
+MAF vec4 vec4_sub(vec4 v, const vec4 u) {
+  v[0] -= u[0];
+  v[1] -= u[1];
+  v[2] -= u[2];
+  v[3] -= u[3];
+  return v;
+}
+
+MAF vec4 vec4_mul(vec4 v, const vec4 u) {
+  v[0] *= u[0];
+  v[1] *= u[1];
+  v[2] *= u[2];
+  v[3] *= u[3];
+  return v;
+}
+
+MAF vec4 vec4_div(vec4 v, const vec4 u) {
+  v[0] /= u[0];
+  v[1] /= u[1];
+  v[2] /= u[2];
+  v[3] /= u[3];
+  return v;
+}
+
+MAF vec4 vec4_scale(vec4 v, float s) {
+  v[0] *= s;
+  v[1] *= s;
+  v[2] *= s;
+  v[3] *= s;
+  return v;
+}
+
+MAF float vec4_length(vec4 v) {
+  return sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]);
+}
+
+MAF vec4 vec4_normalize(vec4 v) {
+  float length = vec4_length(v);
+  return length == 0.f ? v : vec4_scale(v, 1.f / length);
+}
+
+MAF float vec4_distance2(const vec4 v, const vec4 u) {
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  float dz = v[2] - u[2];
+  float dw = v[3] - u[3];
+  return dx * dx + dy * dy + dz * dz + dw * dw;
+}
+
+MAF float vec4_distance(const vec4 v, const vec4 u) {
+  return sqrtf(vec4_distance2(v, u));
+}
+
+MAF float vec4_dot(const vec4 v, const vec4 u) {
+  return v[0] * u[0] + v[1] * u[1] + v[2] * u[2] + v[3] * u[3];
+}
+
+MAF vec4 vec4_lerp(vec4 v, const vec4 u, float t) {
+  v[0] = v[0] * (1.f - t) + u[0] * t;
+  v[1] = v[1] * (1.f - t) + u[1] * t;
+  v[2] = v[2] * (1.f - t) + u[2] * t;
+  v[3] = v[3] * (1.f - t) + u[3] * t;
+  return v;
+}
+
+MAF vec4 vec4_abs(vec4 v) {
+  v[0] = fabsf(v[0]);
+  v[1] = fabsf(v[1]);
+  v[2] = fabsf(v[2]);
+  v[3] = fabsf(v[3]);
+  return v;
+}
+
+MAF float vec4_angle(const vec4 v, const vec4 u) {
+  float denom = vec4_length(v) * vec4_length(u);
+  if (denom == 0.f) {
+    return (float) M_PI / 2.f;
+  } else {
+    float cos = vec4_dot(v, u) / denom;
+    cos = cos < -1.f ? -1.f : cos;
+    cos = cos > 1.f ? 1.f : cos;
     return acosf(cos);
   }
 }
@@ -337,7 +530,7 @@ MAF mat4 mat4_fromQuat(mat4 m, quat q) {
 
 MAF mat4 mat4_fromPose(mat4 m, vec3 v, quat q) {
   mat4_fromQuat(m, q);
-  memcpy(m + 12, v, 3 * sizeof(float));
+  vec3_init(m + 12, v);
   return m;
 }
 
@@ -478,16 +671,27 @@ MAF mat4 mat4_mul(mat4 m, mat4 n) {
   return m;
 }
 
-MAF float* mat4_mulVec4(mat4 m, float* v) {
+MAF vec4 mat4_mulVec4(mat4 m, vec4 v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + v[3] * m[12];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + v[3] * m[13];
   float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + v[3] * m[14];
   float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + v[3] * m[15];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
-  return v;
+  return vec4_set(v, x, y, z, w);
+}
+
+
+MAF vec4 mat4_mulPoint(mat4 m, vec3 v) {
+  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
+  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
+  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
+  return vec3_set(v, x, y, z);
+}
+
+MAF vec4 mat4_mulDirection(mat4 m, vec3 v) {
+  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8];
+  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9];
+  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10];
+  return vec3_set(v, x, y, z);
 }
 
 MAF mat4 mat4_translate(mat4 m, float x, float y, float z) {
@@ -637,9 +841,9 @@ MAF void mat4_getFov(mat4 m, float* left, float* right, float* up, float* down) 
 }
 
 MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
-  float x[4];
-  float y[4];
-  float z[4];
+  float x[3];
+  float y[3];
+  float z[3];
   vec3_normalize(vec3_sub(vec3_init(z, from), to));
   vec3_normalize(vec3_cross(vec3_init(x, up), z));
   vec3_cross(vec3_init(y, z), x);
@@ -663,9 +867,9 @@ MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
 }
 
 MAF mat4 mat4_target(mat4 m, vec3 from, vec3 to, vec3 up) {
-  float x[4];
-  float y[4];
-  float z[4];
+  float x[3];
+  float y[3];
+  float z[3];
   vec3_normalize(vec3_sub(vec3_init(z, from), to));
   vec3_normalize(vec3_cross(vec3_init(x, up), z));
   vec3_cross(vec3_init(y, z), x);
@@ -707,28 +911,4 @@ MAF mat4 mat4_reflect(mat4 m, vec3 p, vec3 n) {
   m[14] = 2.f * d * n[2];
   m[15] = 1.f;
   return m;
-}
-
-// Apply matrix to a vec3
-// Difference from mat4_mulVec4: w normalize is performed, w in vec3 is ignored
-MAF void mat4_transform(mat4 m, vec3 v) {
-  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
-  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
-  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
-  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
-  v[0] = x / w;
-  v[1] = y / w;
-  v[2] = z / w;
-  v[3] = w / w;
-}
-
-MAF void mat4_transformDirection(mat4 m, vec3 v) {
-  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8];
-  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9];
-  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10];
-  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
 }

@@ -48,7 +48,7 @@ Shape* luax_newsphereshape(lua_State* L, int index) {
 }
 
 Shape* luax_newboxshape(lua_State* L, int index) {
-  float size[4];
+  float size[3];
   luax_readscale(L, index, size, 3, NULL);
   return lovrBoxShapeCreate(size[0], size[1], size[2]);
 }
@@ -219,7 +219,7 @@ static int l_lovrShapeGetPosition(lua_State* L) {
 static int l_lovrShapeSetPosition(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   lovrAssert(lovrShapeGetCollider(shape) != NULL, "Shape must be attached to collider");
-  float position[4];
+  float position[3];
   luax_readvec3(L, 2, position, NULL);
   lovrShapeSetPosition(shape, position[0], position[1], position[2]);
   return 0;
@@ -323,7 +323,7 @@ static int l_lovrBoxShapeGetDimensions(lua_State* L) {
 
 static int l_lovrBoxShapeSetDimensions(lua_State* L) {
   BoxShape* box = luax_checktype(L, 1, BoxShape);
-  float size[4];
+  float size[3];
   luax_readscale(L, 2, size, 3, NULL);
   lovrBoxShapeSetDimensions(box, size[0], size[1], size[2]);
   return 0;

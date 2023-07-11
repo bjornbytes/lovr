@@ -26,10 +26,10 @@ static struct {
   float pitch;
   float yaw;
   float distance;
-  float velocity[4];
-  float headPosition[4];
+  float velocity[3];
+  float headPosition[3];
   float headOrientation[4];
-  float handPosition[4];
+  float handPosition[3];
   float handOrientation[4];
   double epoch;
   double time;
@@ -201,8 +201,8 @@ static bool simulator_getPose(Device device, vec3 position, quat orientation) {
 }
 
 static bool simulator_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  memcpy(velocity, state.velocity, 4 * sizeof(float));
-  memset(angularVelocity, 0, 4 * sizeof(float));
+  vec3_init(velocity, state.velocity);
+  vec3_set(angularVelocity, 0.f, 0.f, 0.f);
   return device == DEVICE_HEAD;
 }
 
@@ -339,7 +339,7 @@ static double simulator_update(void) {
   bool up = os_is_key_down(KEY_Q);
   bool down = os_is_key_down(KEY_E);
 
-  float velocity[4];
+  float velocity[3];
   velocity[0] = (left ? -1.f : right ? 1.f : 0.f);
   velocity[1] = (down ? -1.f : up ? 1.f : 0.f);
   velocity[2] = (front ? -1.f : back ? 1.f : 0.f);
@@ -356,12 +356,12 @@ static double simulator_update(void) {
     mat4_fov(inverseProjection, angleLeft, angleRight, angleUp, angleDown, state.clipNear, state.clipFar);
     mat4_invert(inverseProjection);
 
-    float ray[4];
+    float ray[3];
     uint32_t width, height;
     os_window_get_size(&width, &height);
     vec3_set(ray, mx / width * 2.f - 1.f, my / height * 2.f - 1.f, 1.f);
 
-    mat4_transform(inverseProjection, ray);
+    mat4_mulPoint(inverseProjection, ray);
     quat_rotate(state.headOrientation, ray);
     vec3_normalize(ray);
 
@@ -372,7 +372,7 @@ static double simulator_update(void) {
     vec3_add(state.handPosition, state.headPosition);
     state.handPosition[1] += OFFSET;
 
-    float zero[4], up[4], basis[16];
+    float zero[3], up[3], basis[16];
     vec3_set(zero, 0.f, 0.f, 0.f);
     vec3_set(up, 0.f, 1.f, 0.f);
     quat_rotate(state.headOrientation, up);

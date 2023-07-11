@@ -18,18 +18,18 @@ static void simple_destroy(void) {
 }
 
 static uint32_t simple_apply(Source* source, const float* input, float* output, uint32_t frames, uint32_t _frames) {
-  float sourcePos[4], sourceOrientation[4];
+  float sourcePos[3], sourceOrientation[4];
   lovrSourceGetPose(source, sourcePos, sourceOrientation);
 
-  float listenerPos[4] = { 0.f };
-  mat4_transform(state.listener, listenerPos);
+  float listenerPos[3];
+  mat4_getPosition(state.listener, listenerPos);
 
   float target[2] = { 1.f, 1.f };
   if (lovrSourceIsEffectEnabled(source, EFFECT_SPATIALIZATION)) {
-    float leftEar[4] = { -0.1f, 0.0f, 0.0f, 1.0f };
-    float rightEar[4] = { 0.1f, 0.0f, 0.0f, 1.0f };
-    mat4_transform(state.listener, leftEar);
-    mat4_transform(state.listener, rightEar);
+    float leftEar[3] = { -0.1f, 0.0f, 0.0f };
+    float rightEar[3] = { 0.1f, 0.0f, 0.0f };
+    mat4_mulPoint(state.listener, leftEar);
+    mat4_mulPoint(state.listener, rightEar);
     float ldistance = vec3_distance(sourcePos, leftEar);
     float rdistance = vec3_distance(sourcePos, rightEar);
     target[0] = .5f + (rdistance - ldistance) * 2.5f;
@@ -39,8 +39,8 @@ static uint32_t simple_apply(Source* source, const float* input, float* output, 
   float weight, power;
   lovrSourceGetDirectivity(source, &weight, &power);
   if (weight > 0.f && power > 0.f) {
-    float sourceDirection[4];
-    float sourceToListener[4];
+    float sourceDirection[3];
+    float sourceToListener[3];
     quat_getDirection(sourceOrientation, sourceDirection);
     vec3_normalize(vec3_sub(vec3_init(sourceToListener, listenerPos), sourcePos));
     float dot = vec3_dot(sourceToListener, sourceDirection);
@@ -86,7 +86,7 @@ static uint32_t simple_tail(float* scratch, float* output, uint32_t frames) {
   return 0;
 }
 
-static void simple_setListenerPose(float position[4], float orientation[4]) {
+static void simple_setListenerPose(float position[3], float orientation[4]) {
   mat4_identity(state.listener);
   mat4_translate(state.listener, position[0], position[1], position[2]);
   mat4_rotateQuat(state.listener, orientation);

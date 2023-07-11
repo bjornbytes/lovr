@@ -288,7 +288,7 @@ static int l_lovrPassSetViewPose(lua_State* L) {
     lovrPassSetViewMatrix(pass, view, matrix);
   } else {
     int index = 3;
-    float position[4], orientation[4], matrix[16];
+    float position[3], orientation[4], matrix[16];
     index = luax_readvec3(L, index, position, "vec3, number, or mat4");
     index = luax_readquat(L, index, orientation, NULL);
     mat4_fromPose(matrix, position, orientation);
@@ -407,7 +407,7 @@ static int l_lovrPassOrigin(lua_State* L) {
 }
 
 static int l_lovrPassTranslate(lua_State* L) {
-  float translation[4];
+  float translation[3];
   Pass* pass = luax_checktype(L, 1, Pass);
   luax_readvec3(L, 2, translation, NULL);
   lovrPassTranslate(pass, translation);
@@ -423,7 +423,7 @@ static int l_lovrPassRotate(lua_State* L) {
 }
 
 static int l_lovrPassScale(lua_State* L) {
-  float scale[4];
+  float scale[3];
   Pass* pass = luax_checktype(L, 1, Pass);
   luax_readscale(L, 2, scale, 3, NULL);
   lovrPassScale(pass, scale);
@@ -836,8 +836,8 @@ static bool luax_checkendpoints(lua_State* L, int index, float transform[16], bo
   if ((u = luax_tovector(L, index + 1, &t2)) == NULL || t2 != V_VEC3) return false;
   float radius = luax_optfloat(L, index + 2, 1.);
   float orientation[4];
-  float forward[4] = { 0.f, 0.f, -1.f, 0.f };
-  float direction[4];
+  float forward[3] = { 0.f, 0.f, -1.f };
+  float direction[3];
   vec3_sub(vec3_init(direction, u), v);
   float length = vec3_length(direction);
   vec3_normalize(direction);

@@ -133,7 +133,7 @@ static int l_lovrAudioSetVolume(lua_State* L) {
 }
 
 static int l_lovrAudioGetPosition(lua_State* L) {
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   lovrAudioGetPose(position, orientation);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -142,7 +142,7 @@ static int l_lovrAudioGetPosition(lua_State* L) {
 }
 
 static int l_lovrAudioSetPosition(lua_State* L) {
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   lovrAudioGetPose(position, orientation);
   luax_readvec3(L, 1, position, NULL);
   lovrAudioSetPose(position, orientation);
@@ -150,7 +150,7 @@ static int l_lovrAudioSetPosition(lua_State* L) {
 }
 
 static int l_lovrAudioGetOrientation(lua_State* L) {
-  float position[4], orientation[4], angle, ax, ay, az;
+  float position[3], orientation[4], angle, ax, ay, az;
   lovrAudioGetPose(position, orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
@@ -161,7 +161,7 @@ static int l_lovrAudioGetOrientation(lua_State* L) {
 }
 
 static int l_lovrAudioSetOrientation(lua_State* L) {
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   lovrAudioGetPose(position, orientation);
   luax_readquat(L, 1, orientation, NULL);
   lovrAudioSetPose(position, orientation);
@@ -169,7 +169,7 @@ static int l_lovrAudioSetOrientation(lua_State* L) {
 }
 
 static int l_lovrAudioGetPose(lua_State *L) {
-  float position[4], orientation[4], angle, ax, ay, az;
+  float position[3], orientation[4], angle, ax, ay, az;
   lovrAudioGetPose(position, orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
@@ -184,7 +184,7 @@ static int l_lovrAudioGetPose(lua_State *L) {
 
 static int l_lovrAudioSetPose(lua_State *L) {
   int index = 1;
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readquat(L, index, orientation, NULL);
   lovrAudioSetPose(position, orientation);

@@ -41,7 +41,7 @@ static void raycastCallback(Shape* shape, float x, float y, float z, float nx, f
 
 static int l_lovrWorldNewCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   luax_pushtype(L, Collider, collider);
@@ -51,7 +51,7 @@ static int l_lovrWorldNewCollider(lua_State* L) {
 
 static int l_lovrWorldNewBoxCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   BoxShape* shape = luax_newboxshape(L, index);
@@ -65,7 +65,7 @@ static int l_lovrWorldNewBoxCollider(lua_State* L) {
 
 static int l_lovrWorldNewCapsuleCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   CapsuleShape* shape = luax_newcapsuleshape(L, index);
@@ -79,7 +79,7 @@ static int l_lovrWorldNewCapsuleCollider(lua_State* L) {
 
 static int l_lovrWorldNewCylinderCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   CylinderShape* shape = luax_newcylindershape(L, index);
@@ -93,7 +93,7 @@ static int l_lovrWorldNewCylinderCollider(lua_State* L) {
 
 static int l_lovrWorldNewSphereCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   SphereShape* shape = luax_newsphereshape(L, index);
@@ -232,9 +232,9 @@ static int l_lovrWorldGetContacts(lua_State* L) {
 
 static int l_lovrWorldRaycast(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float start[4], end[4];
-  int index;
-  index = luax_readvec3(L, 2, start, NULL);
+  float start[3], end[3];
+  int index = 2;
+  index = luax_readvec3(L, index, start, NULL);
   index = luax_readvec3(L, index, end, NULL);
   luaL_checktype(L, index, LUA_TFUNCTION);
   lua_settop(L, index);
@@ -254,7 +254,7 @@ static int l_lovrWorldGetGravity(lua_State* L) {
 
 static int l_lovrWorldSetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float gravity[4];
+  float gravity[3];
   luax_readvec3(L, 2, gravity, NULL);
   lovrWorldSetGravity(world, gravity[0], gravity[1], gravity[2]);
   return 0;

@@ -1124,7 +1124,7 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
   }
 }
 
-BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z) {
+BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   BallJoint* joint = calloc(1, sizeof(BallJoint));
   lovrAssert(joint, "Out of memory");
@@ -1133,25 +1133,25 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
   joint->id = dJointCreateBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrBallJointSetAnchor(joint, x, y, z);
+  lovrBallJointSetAnchor(joint, anchor);
   lovrRetain(joint);
   return joint;
 }
 
-void lovrBallJointGetAnchors(BallJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3]) {
   dReal anchor[4];
   dJointGetBallAnchor(joint->id, anchor);
-  *x1 = anchor[0];
-  *y1 = anchor[1];
-  *z1 = anchor[2];
+  anchor1[0] = anchor[0];
+  anchor1[1] = anchor[1];
+  anchor1[2] = anchor[2];
   dJointGetBallAnchor2(joint->id, anchor);
-  *x2 = anchor[0];
-  *y2 = anchor[1];
-  *z2 = anchor[2];
+  anchor2[0] = anchor[0];
+  anchor2[1] = anchor[1];
+  anchor2[2] = anchor[2];
 }
 
-void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z) {
-  dJointSetBallAnchor(joint->id, x, y, z);
+void lovrBallJointSetAnchor(BallJoint* joint, float anchor[3]) {
+  dJointSetBallAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
 }
 
 float lovrBallJointGetResponseTime(Joint* joint) {
@@ -1170,7 +1170,7 @@ void lovrBallJointSetTightness(Joint* joint, float tightness) {
   dJointSetBallParam(joint->id, dParamERP, tightness);
 }
 
-DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
+DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   DistanceJoint* joint = calloc(1, sizeof(DistanceJoint));
   lovrAssert(joint, "Out of memory");
@@ -1179,26 +1179,26 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float
   joint->id = dJointCreateDBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrDistanceJointSetAnchors(joint, x1, y1, z1, x2, y2, z2);
+  lovrDistanceJointSetAnchors(joint, anchor1, anchor2);
   lovrRetain(joint);
   return joint;
 }
 
-void lovrDistanceJointGetAnchors(DistanceJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]) {
   dReal anchor[4];
   dJointGetDBallAnchor1(joint->id, anchor);
-  *x1 = anchor[0];
-  *y1 = anchor[1];
-  *z1 = anchor[2];
+  anchor1[0] = anchor[0];
+  anchor1[1] = anchor[1];
+  anchor1[2] = anchor[2];
   dJointGetDBallAnchor2(joint->id, anchor);
-  *x2 = anchor[0];
-  *y2 = anchor[1];
-  *z2 = anchor[2];
+  anchor2[0] = anchor[0];
+  anchor2[1] = anchor[1];
+  anchor2[2] = anchor[2];
 }
 
-void lovrDistanceJointSetAnchors(DistanceJoint* joint, float x1, float y1, float z1, float x2, float y2, float z2) {
-  dJointSetDBallAnchor1(joint->id, x1, y1, z1);
-  dJointSetDBallAnchor2(joint->id, x2, y2, z2);
+void lovrDistanceJointSetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]) {
+  dJointSetDBallAnchor1(joint->id, anchor1[0], anchor1[1], anchor1[2]);
+  dJointSetDBallAnchor2(joint->id, anchor2[0], anchor2[1], anchor2[2]);
 }
 
 float lovrDistanceJointGetDistance(DistanceJoint* joint) {
@@ -1225,7 +1225,7 @@ void lovrDistanceJointSetTightness(Joint* joint, float tightness) {
   dJointSetDBallParam(joint->id, dParamERP, tightness);
 }
 
-HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
+HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   HingeJoint* joint = calloc(1, sizeof(HingeJoint));
   lovrAssert(joint, "Out of memory");
@@ -1234,38 +1234,38 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, flo
   joint->id = dJointCreateHinge(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrHingeJointSetAnchor(joint, x, y, z);
-  lovrHingeJointSetAxis(joint, ax, ay, az);
+  lovrHingeJointSetAnchor(joint, anchor);
+  lovrHingeJointSetAxis(joint, axis);
   lovrRetain(joint);
   return joint;
 }
 
-void lovrHingeJointGetAnchors(HingeJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2[3]) {
   dReal anchor[4];
   dJointGetHingeAnchor(joint->id, anchor);
-  *x1 = anchor[0];
-  *y1 = anchor[1];
-  *z1 = anchor[2];
+  anchor1[0] = anchor[0];
+  anchor1[1] = anchor[1];
+  anchor1[2] = anchor[2];
   dJointGetHingeAnchor2(joint->id, anchor);
-  *x2 = anchor[0];
-  *y2 = anchor[1];
-  *z2 = anchor[2];
+  anchor2[0] = anchor[0];
+  anchor2[1] = anchor[1];
+  anchor2[2] = anchor[2];
 }
 
-void lovrHingeJointSetAnchor(HingeJoint* joint, float x, float y, float z) {
-  dJointSetHingeAnchor(joint->id, x, y, z);
+void lovrHingeJointSetAnchor(HingeJoint* joint, float anchor[3]) {
+  dJointSetHingeAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
 }
 
-void lovrHingeJointGetAxis(HingeJoint* joint, float* x, float* y, float* z) {
-  dReal axis[4];
-  dJointGetHingeAxis(joint->id, axis);
-  *x = axis[0];
-  *y = axis[1];
-  *z = axis[2];
+void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
+  dReal daxis[4];
+  dJointGetHingeAxis(joint->id, daxis);
+  axis[0] = daxis[0];
+  axis[1] = daxis[1];
+  axis[2] = daxis[2];
 }
 
-void lovrHingeJointSetAxis(HingeJoint* joint, float x, float y, float z) {
-  dJointSetHingeAxis(joint->id, x, y, z);
+void lovrHingeJointSetAxis(HingeJoint* joint, float axis[3]) {
+  dJointSetHingeAxis(joint->id, axis[0], axis[1], axis[2]);
 }
 
 float lovrHingeJointGetAngle(HingeJoint* joint) {
@@ -1288,7 +1288,7 @@ void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
   dJointSetHingeParam(joint->id, dParamHiStop, limit);
 }
 
-SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
+SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in the same world");
   SliderJoint* joint = calloc(1, sizeof(SliderJoint));
   lovrAssert(joint, "Out of memory");
@@ -1297,21 +1297,21 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay,
   joint->id = dJointCreateSlider(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrSliderJointSetAxis(joint, ax, ay, az);
+  lovrSliderJointSetAxis(joint, axis);
   lovrRetain(joint);
   return joint;
 }
 
-void lovrSliderJointGetAxis(SliderJoint* joint, float* x, float* y, float* z) {
-  dReal axis[4];
+void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
+  dReal daxis[4];
   dJointGetSliderAxis(joint->id, axis);
-  *x = axis[0];
-  *y = axis[1];
-  *z = axis[2];
+  axis[0] = daxis[0];
+  axis[1] = daxis[1];
+  axis[2] = daxis[2];
 }
 
-void lovrSliderJointSetAxis(SliderJoint* joint, float x, float y, float z) {
-  dJointSetSliderAxis(joint->id, x, y, z);
+void lovrSliderJointSetAxis(SliderJoint* joint, float axis[3]) {
+  dJointSetSliderAxis(joint->id, axis[0], axis[1], axis[2]);
 }
 
 float lovrSliderJointGetPosition(SliderJoint* joint) {

@@ -341,20 +341,20 @@ static void boundingSphereHelper(ModelData* model, uint32_t nodeIndex, uint32_t*
     float* min = position->min;
     float* max = position->max;
 
-    float corners[8][4] = {
-      { min[0], min[1], min[2], 1.f },
-      { min[0], min[1], max[2], 1.f },
-      { min[0], max[1], min[2], 1.f },
-      { min[0], max[1], max[2], 1.f },
-      { max[0], min[1], min[2], 1.f },
-      { max[0], min[1], max[2], 1.f },
-      { max[0], max[1], min[2], 1.f },
-      { max[0], max[1], max[2], 1.f }
+    float corners[8][3] = {
+      { min[0], min[1], min[2] },
+      { min[0], min[1], max[2] },
+      { min[0], max[1], min[2] },
+      { min[0], max[1], max[2] },
+      { max[0], min[1], min[2] },
+      { max[0], min[1], max[2] },
+      { max[0], max[1], min[2] },
+      { max[0], max[1], max[2] }
     };
 
     for (uint32_t j = 0; j < 8; j++) {
-      mat4_transform(m, corners[j]);
-      memcpy(points + 3 * (*pointIndex)++, corners[j], 3 * sizeof(float));
+      mat4_mulPoint(m, corners[j]);
+      vec3_init(points + 3 * (*pointIndex)++, corners[j]);
     }
   }
 
@@ -383,11 +383,7 @@ void lovrModelDataGetBoundingSphere(ModelData* model, float sphere[4]) {
     float max = 0.f;
     float* a = NULL;
     for (uint32_t i = 1; i < pointCount; i++) {
-      float dx = points[3 * i + 0] - points[0];
-      float dy = points[3 * i + 1] - points[1];
-      float dz = points[3 * i + 2] - points[2];
-      float d2 = dx * dx + dy * dy + dz * dz;
-
+      float d2 = vec3_distance2(&points[3 * i], &points[0]);
       if (d2 > max) {
         a = &points[3 * i];
         max = d2;
@@ -399,11 +395,7 @@ void lovrModelDataGetBoundingSphere(ModelData* model, float sphere[4]) {
     max = 0.f;
     float* b = NULL;
     for (uint32_t i = 0; i < pointCount; i++) {
-      float dx = points[3 * i + 0] - a[0];
-      float dy = points[3 * i + 1] - a[1];
-      float dz = points[3 * i + 2] - a[2];
-      float d2 = dx * dx + dy * dy + dz * dz;
-
+      float d2 = vec3_distance2(&points[3 * i], a);
       if (d2 > max) {
         b = &points[3 * i];
         max = d2;
@@ -510,10 +502,10 @@ static void collectVertices(ModelData* model, uint32_t nodeIndex, float** vertic
       size_t stride = positions->stride == 0 ? 3 * sizeof(float) : positions->stride;
 
       for (uint32_t j = 0; j < positions->count; j++) {
-        float v[4];
+        float v[3];
         memcpy(v, data, 3 * sizeof(float));
-        mat4_transform(m, v);
-        memcpy(*vertices, v, 3 * sizeof(float));
+        mat4_mulPoint(m, v);
+        vec3_init(*vertices, v);
         *vertices += 3;
         data += stride;
       }

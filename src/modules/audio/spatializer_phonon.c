@@ -124,7 +124,7 @@ static struct {
   IPLhandle directSoundEffect[MAX_SOURCES];
   IPLhandle convolutionEffect[MAX_SOURCES];
   IPLRenderingSettings renderingSettings;
-  float listenerPosition[4];
+  float listenerPosition[3];
   float listenerOrientation[4];
   float* scratchpad;
 } state;
@@ -192,7 +192,7 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
 
   uint32_t index = lovrSourceGetIndex(source);
 
-  float x[4], y[4], z[4];
+  float x[3], y[3], z[3];
   vec3_set(y, 0.f, 1.f, 0.f);
   vec3_set(z, 0.f, 0.f, -1.f);
   quat_rotate(state.listenerOrientation, y);
@@ -202,7 +202,7 @@ uint32_t phonon_apply(Source* source, const float* input, float* output, uint32_
   IPLVector3 up = { y[0], y[1], y[2] };
 
   // TODO maybe this should use a matrix
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   lovrSourceGetPose(source, position, orientation);
   vec3_set(x, 1.f, 0.f, 0.f);
   vec3_set(y, 0.f, 1.f, 0.f);
@@ -280,7 +280,7 @@ uint32_t phonon_tail(float* scratch, float* output, uint32_t frames) {
     }
   };
 
-  float y[4], z[4];
+  float y[3], z[3];
   vec3_set(y, 0.f, 1.f, 0.f);
   vec3_set(z, 0.f, 0.f, -1.f);
   quat_rotate(state.listenerOrientation, y);
@@ -295,7 +295,7 @@ uint32_t phonon_tail(float* scratch, float* output, uint32_t frames) {
   return frames;
 }
 
-void phonon_setListenerPose(float position[4], float orientation[4]) {
+void phonon_setListenerPose(float position[3], float orientation[4]) {
   memcpy(state.listenerPosition, position, sizeof(state.listenerPosition));
   memcpy(state.listenerOrientation, orientation, sizeof(state.listenerOrientation));
 }

@@ -108,7 +108,7 @@ static int l_lovrSourceGetDuration(lua_State* L) {
 
 static int l_lovrSourceGetPosition(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   lovrSourceGetPose(source, position, orientation);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -118,16 +118,15 @@ static int l_lovrSourceGetPosition(lua_State* L) {
 
 static int l_lovrSourceSetPosition(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float position[4], orientation[4];
-  lovrSourceGetPose(source, position, orientation);
+  float position[3];
   luax_readvec3(L, 2, position, NULL);
-  lovrSourceSetPose(source, position, orientation);
+  lovrSourceSetPose(source, position, NULL);
   return 0;
 }
 
 static int l_lovrSourceGetOrientation(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float position[4], orientation[4], angle, ax, ay, az;
+  float position[3], orientation[4], angle, ax, ay, az;
   lovrSourceGetPose(source, position, orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
@@ -139,16 +138,15 @@ static int l_lovrSourceGetOrientation(lua_State* L) {
 
 static int l_lovrSourceSetOrientation(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float position[4], orientation[4];
-  lovrSourceGetPose(source, position, orientation);
+  float orientation[4];
   luax_readquat(L, 2, orientation, NULL);
-  lovrSourceSetPose(source, position, orientation);
+  lovrSourceSetPose(source, NULL, orientation);
   return 0;
 }
 
 static int l_lovrSourceGetPose(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  float position[4], orientation[4], angle, ax, ay, az;
+  float position[3], orientation[4], angle, ax, ay, az;
   lovrSourceGetPose(source, position, orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
@@ -163,7 +161,7 @@ static int l_lovrSourceGetPose(lua_State* L) {
 
 static int l_lovrSourceSetPose(lua_State *L) {
   Source* source = luax_checktype(L, 1, Source);
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   int index = 2;
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readquat(L, index, orientation, NULL);

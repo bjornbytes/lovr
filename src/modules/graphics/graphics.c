@@ -1166,11 +1166,11 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
           continue;
         }
 
-        float center[4] = { draw->bounds[0], draw->bounds[1], draw->bounds[2], 1.f };
-        float extent[4] = { draw->bounds[3], draw->bounds[4], draw->bounds[5], 0.f };
+        float center[3] = { draw->bounds[0], draw->bounds[1], draw->bounds[2] };
+        float extent[3] = { draw->bounds[3], draw->bounds[4], draw->bounds[5] };
 
-        mat4_mulVec4(draw->transform, center);
-        mat4_transformDirection(draw->transform, extent);
+        mat4_mulPoint(draw->transform, center);
+        mat4_mulDirection(draw->transform, extent);
         vec3_abs(extent);
 
         uint32_t visible = canvas->views;
@@ -1180,8 +1180,8 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
             float* plane = frusta[v].planes[p];
 
             float absPlane[4];
-            vec3_init(absPlane, plane);
-            vec3_abs(absPlane);
+            vec4_init(absPlane, plane);
+            vec4_abs(absPlane);
 
             bool inside = vec3_dot(center, plane) + vec3_dot(extent, absPlane) > -plane[3];
 
@@ -4151,7 +4151,7 @@ void lovrModelSetBlendShapeWeight(Model* model, uint32_t index, float weight) {
   model->blendShapesDirty = true;
 }
 
-void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], OriginType origin) {
+void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[3], float scale[3], float rotation[4], OriginType origin) {
   if (origin == ORIGIN_PARENT) {
     vec3_init(position, model->localTransforms[node].properties[PROP_TRANSLATION]);
     vec3_init(scale, model->localTransforms[node].properties[PROP_SCALE]);
@@ -4167,7 +4167,7 @@ void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[4], f
   }
 }
 
-void lovrModelSetNodeTransform(Model* model, uint32_t node, float position[4], float scale[4], float rotation[4], float alpha) {
+void lovrModelSetNodeTransform(Model* model, uint32_t node, float position[3], float scale[3], float rotation[4], float alpha) {
   if (alpha <= 0.f) return;
 
   NodeTransform* transform = &model->localTransforms[node];

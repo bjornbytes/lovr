@@ -146,7 +146,7 @@ static int l_lovrModelDataGetNodePosition(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   if (node->hasMatrix) {
-    float position[4];
+    float position[3];
     mat4_getPosition(node->transform.matrix, position);
     lua_pushnumber(L, position[0]);
     lua_pushnumber(L, position[1]);
@@ -225,7 +225,7 @@ static int l_lovrModelDataGetNodeTransform(lua_State* L) {
   ModelData* model = luax_checktype(L, 1, ModelData);
   ModelNode* node = &model->nodes[luax_checknodeindex(L, 2, model)];
   if (node->hasMatrix) {
-    float position[4], scale[4], angle, ax, ay, az;
+    float position[3], scale[4], angle, ax, ay, az;
     mat4_getPosition(node->transform.matrix, position);
     mat4_getScale(node->transform.matrix, scale);
     mat4_getAngleAxis(node->transform.matrix, &angle, &ax, &ay, &az);
