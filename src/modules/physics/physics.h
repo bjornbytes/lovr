@@ -157,9 +157,9 @@ SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* sphere);
 void lovrSphereShapeSetRadius(SphereShape* sphere, float radius);
 
-BoxShape* lovrBoxShapeCreate(float x, float y, float z);
-void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z);
-void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z);
+BoxShape* lovrBoxShapeCreate(float w, float h, float d);
+void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d);
+void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d);
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length);
 float lovrCapsuleShapeGetRadius(CapsuleShape* capsule);

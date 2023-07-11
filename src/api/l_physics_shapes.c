@@ -313,11 +313,11 @@ const luaL_Reg lovrSphereShape[] = {
 
 static int l_lovrBoxShapeGetDimensions(lua_State* L) {
   BoxShape* box = luax_checktype(L, 1, BoxShape);
-  float x, y, z;
-  lovrBoxShapeGetDimensions(box, &x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
+  float w, h, d;
+  lovrBoxShapeGetDimensions(box, &w, &h, &d);
+  lua_pushnumber(L, w);
+  lua_pushnumber(L, h);
+  lua_pushnumber(L, d);
   return 3;
 }
 

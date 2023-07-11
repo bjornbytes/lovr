@@ -956,27 +956,27 @@ void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
   dGeomSphereSetRadius(sphere->id, radius);
 }
 
-BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
+BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
   BoxShape* box = calloc(1, sizeof(BoxShape));
   lovrAssert(box, "Out of memory");
   box->ref = 1;
   box->type = SHAPE_BOX;
-  box->id = dCreateBox(0, x, y, z);
+  box->id = dCreateBox(0, w, h, d);
   dGeomSetData(box->id, box);
   return box;
 }
 
-void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
+void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d) {
   dReal dimensions[4];
   dGeomBoxGetLengths(box->id, dimensions);
-  *x = dimensions[0];
-  *y = dimensions[1];
-  *z = dimensions[2];
+  *w = dimensions[0];
+  *h = dimensions[1];
+  *d = dimensions[2];
 }
 
-void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
-  lovrCheck(x > 0.f && y > 0.f && z > 0.f, "BoxShape dimensions must be positive");
-  dGeomBoxSetLengths(box->id, x, y, z);
+void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d) {
+  lovrCheck(w > 0.f && h > 0.f && d > 0.f, "BoxShape dimensions must be positive");
+  dGeomBoxSetLengths(box->id, w, h, d);
 }
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
