@@ -1993,19 +1993,26 @@ bool gpu_init(gpu_config* config) {
 
       // Formats
       for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
-        VkFormatProperties formatProperties;
-        vkGetPhysicalDeviceFormatProperties(state.adapter, convertFormat(i, LINEAR), &formatProperties);
-        uint32_t renderMask = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        uint32_t flags = formatProperties.optimalTilingFeatures;
-        config->features->formats[i] =
-          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FEATURE_SAMPLE : 0) |
-          ((flags & renderMask) ? GPU_FEATURE_RENDER : 0) |
-          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FEATURE_BLEND : 0) |
-          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FEATURE_FILTER : 0) |
-          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FEATURE_STORAGE : 0) |
-          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FEATURE_ATOMIC : 0) |
-          ((flags & VK_FORMAT_FEATURE_BLIT_SRC_BIT) ? GPU_FEATURE_BLIT_SRC : 0) |
-          ((flags & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? GPU_FEATURE_BLIT_DST : 0);
+        for (int j = 0; j < 2; j++) {
+          VkFormat format = convertFormat(i, j);
+          if (j == 1 && convertFormat(i, 0) == format) {
+            config->features->formats[i][j] = config->features->formats[i][0];
+          } else {
+            VkFormatProperties formatProperties;
+            vkGetPhysicalDeviceFormatProperties(state.adapter, format, &formatProperties);
+            uint32_t renderMask = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            uint32_t flags = formatProperties.optimalTilingFeatures;
+            config->features->formats[i][j] =
+              ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FEATURE_SAMPLE : 0) |
+              ((flags & renderMask) ? GPU_FEATURE_RENDER : 0) |
+              ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FEATURE_BLEND : 0) |
+              ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FEATURE_FILTER : 0) |
+              ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FEATURE_STORAGE : 0) |
+              ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FEATURE_ATOMIC : 0) |
+              ((flags & VK_FORMAT_FEATURE_BLIT_SRC_BIT) ? GPU_FEATURE_BLIT_SRC : 0) |
+              ((flags & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? GPU_FEATURE_BLIT_DST : 0);
+          }
+        }
       }
     }
 

@@ -612,7 +612,7 @@ enum {
 };
 
 typedef struct {
-  uint8_t formats[GPU_FORMAT_COUNT];
+  uint8_t formats[GPU_FORMAT_COUNT][2];
   bool textureBC;
   bool textureASTC;
   bool wireframe;

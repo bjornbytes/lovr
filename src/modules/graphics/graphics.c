@@ -831,7 +831,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
     state.depthFormat = config->stencil ? FORMAT_D32FS8 : FORMAT_D32F;
 
-    if (config->stencil && !lovrGraphicsIsFormatSupported(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+    if (config->stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
       state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
     }
   }
@@ -990,18 +990,25 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->pointSize = state.limits.pointSize;
 }
 
-bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features) {
-  uint8_t supports = state.features.formats[format];
-  if (!features) return supports;
-  if ((features & TEXTURE_FEATURE_SAMPLE) && !(supports & GPU_FEATURE_SAMPLE)) return false;
-  if ((features & TEXTURE_FEATURE_FILTER) && !(supports & GPU_FEATURE_FILTER)) return false;
-  if ((features & TEXTURE_FEATURE_RENDER) && !(supports & GPU_FEATURE_RENDER)) return false;
-  if ((features & TEXTURE_FEATURE_BLEND) && !(supports & GPU_FEATURE_BLEND)) return false;
-  if ((features & TEXTURE_FEATURE_STORAGE) && !(supports & GPU_FEATURE_STORAGE)) return false;
-  if ((features & TEXTURE_FEATURE_ATOMIC) && !(supports & GPU_FEATURE_ATOMIC)) return false;
-  if ((features & TEXTURE_FEATURE_BLIT_SRC) && !(supports & GPU_FEATURE_BLIT_SRC)) return false;
-  if ((features & TEXTURE_FEATURE_BLIT_DST) && !(supports & GPU_FEATURE_BLIT_DST)) return false;
-  return true;
+uint32_t lovrGraphicsGetFormatSupport(uint32_t format, uint32_t features) {
+  uint32_t support = 0;
+  for (uint32_t i = 0; i < 2; i++) {
+    uint8_t supports = state.features.formats[format][i];
+    if (features) {
+      support |=
+        (((~features & TEXTURE_FEATURE_SAMPLE) || (supports & GPU_FEATURE_SAMPLE)) &&
+        ((~features & TEXTURE_FEATURE_FILTER) || (supports & GPU_FEATURE_FILTER)) &&
+        ((~features & TEXTURE_FEATURE_RENDER) || (supports & GPU_FEATURE_RENDER)) &&
+        ((~features & TEXTURE_FEATURE_BLEND) || (supports & GPU_FEATURE_BLEND)) &&
+        ((~features & TEXTURE_FEATURE_STORAGE) || (supports & GPU_FEATURE_STORAGE)) &&
+        ((~features & TEXTURE_FEATURE_ATOMIC) || (supports & GPU_FEATURE_ATOMIC)) &&
+        ((~features & TEXTURE_FEATURE_BLIT_SRC) || (supports & GPU_FEATURE_BLIT_SRC)) &&
+        ((~features & TEXTURE_FEATURE_BLIT_DST) || (supports & GPU_FEATURE_BLIT_DST))) << i;
+    } else {
+      support |= !!supports << i;
+    }
+  }
+  return support;
 }
 
 void lovrGraphicsGetShaderCache(void* data, size_t* size) {
@@ -1979,7 +1986,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   uint32_t limit = limits[info->type];
   uint32_t mipmapCap = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_3D ? info->layers : 1))) + 1;
   uint32_t mipmaps = CLAMP(info->mipmaps, 1, mipmapCap);
-  uint8_t supports = state.features.formats[info->format];
+  uint8_t supports = state.features.formats[info->format][info->srgb];
 
   lovrCheck(info->width > 0, "Texture width must be greater than zero");
   lovrCheck(info->height > 0, "Texture height must be greater than zero");
@@ -1997,9 +2004,9 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "3D textures can not be multisampled");
   lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Textures with the 'storage' flag can not be multisampled...for now");
   lovrCheck(info->samples == 1 || mipmaps == 1, "Multisampled textures can only have 1 mipmap");
-  lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this format");
-  lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this format");
-  lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this format");
+  lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this texture format/encoding");
+  lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this texture format/encoding");
+  lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this texture format/encoding");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds the renderSize limit");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds the renderSize limit");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->type != TEXTURE_3D || !isDepthFormat(info->format), "3D depth textures can not have the 'render' flag");
@@ -2266,12 +2273,14 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   if (dstExtent[0] == ~0u) dstExtent[0] = dst->info.width - dstOffset[0];
   if (dstExtent[1] == ~0u) dstExtent[1] = dst->info.height - dstOffset[1];
   if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.layers - dstOffset[2];
+  uint32_t srcSupport = state.features.formats[src->info.format][src->info.srgb];
+  uint32_t dstSupport = state.features.formats[dst->info.format][dst->info.srgb];
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
   lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "to");
-  lovrCheck(state.features.formats[src->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting from the source texture's format");
-  lovrCheck(state.features.formats[dst->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting to the destination texture's format");
+  lovrCheck(srcSupport & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting from the source texture's format/encoding");
+  lovrCheck(dstSupport & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting to the destination texture's format/encoding");
   lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
   lovrCheck(((src->info.type == TEXTURE_3D) ^ (dst->info.type == TEXTURE_3D)) == false, "3D textures can only be blitted with other 3D textures");
   lovrCheck(src->info.type == TEXTURE_3D || srcExtent[2] == dstExtent[2], "When blitting between non-3D textures, blit layer counts must match");
@@ -2300,11 +2309,12 @@ void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t
 void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count) {
   beginFrame();
   if (count == ~0u) count = texture->info.mipmaps - (base + 1);
+  uint32_t supports = state.features.formats[texture->info.format][texture->info.srgb];
   lovrCheck(!texture->info.parent, "Can not mipmap a Texture view");
   lovrCheck(texture->info.samples == 1, "Can not mipmap a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap it");
-  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "from");
-  lovrCheck(state.features.formats[texture->info.format] & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting %s the source texture's format, which is required for mipmapping", "to");
+  lovrCheck(supports & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting %s the source texture's format/encoding, which is required for mipmapping", "from");
+  lovrCheck(supports & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting %s the source texture's format/encoding, which is required for mipmapping", "to");
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
@@ -4915,9 +4925,9 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
 
   for (uint32_t i = 0; i < COUNTOF(canvas->color) && textures[i]; i++, canvas->count++) {
     const TextureInfo* texture = &textures[i]->info;
-    bool renderable = texture->format == GPU_FORMAT_SURFACE || (state.features.formats[texture->format] & GPU_FEATURE_RENDER);
+    bool renderable = texture->format == GPU_FORMAT_SURFACE || (state.features.formats[texture->format][texture->srgb] & GPU_FEATURE_RENDER);
     lovrCheck(!isDepthFormat(texture->format), "Unable to use a depth texture as a color target");
-    lovrCheck(renderable, "This GPU does not support rendering to the texture format used by canvas texture #%d", i + 1);
+    lovrCheck(renderable, "This GPU does not support rendering to the texture format/encoding used by canvas texture #%d", i + 1);
     lovrCheck(texture->usage & TEXTURE_RENDER, "Texture must be created with the 'render' flag to render to it");
     lovrCheck(texture->width == t->width, "Canvas texture sizes must match");
     lovrCheck(texture->height == t->height, "Canvas texture sizes must match");
@@ -4941,7 +4951,7 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
     lovrRetain(depthTexture);
   } else if (depthFormat) {
     lovrCheck(isDepthFormat(depthFormat), "Expected depth format for canvas depth (received color format)");
-    lovrCheck(state.features.formats[depthFormat] & GPU_FEATURE_RENDER, "Canvas depth format is not supported by this GPU");
+    lovrCheck(state.features.formats[depthFormat][0] & GPU_FEATURE_RENDER, "Canvas depth format is not supported by this GPU");
     canvas->depth.format = depthFormat;
   }
 

@@ -606,9 +606,10 @@ static int l_lovrGraphicsIsFormatSupported(lua_State* L) {
   for (int i = 2; i <= top; i++) {
     features |= 1 << luax_checkenum(L, i, TextureFeature, NULL);
   }
-  bool supported = lovrGraphicsIsFormatSupported(format, features);
-  lua_pushboolean(L, supported);
-  return 1;
+  uint32_t support = lovrGraphicsGetFormatSupport(format, features);
+  lua_pushboolean(L, support & (1 << 0)); // linear
+  lua_pushboolean(L, support & (1 << 1)); // srgb
+  return 2;
 }
 
 static int l_lovrGraphicsGetBackgroundColor(lua_State* L) {

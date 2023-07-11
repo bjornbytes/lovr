@@ -100,7 +100,7 @@ bool lovrGraphicsIsInitialized(void);
 void lovrGraphicsGetDevice(GraphicsDevice* device);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
 void lovrGraphicsGetLimits(GraphicsLimits* limits);
-bool lovrGraphicsIsFormatSupported(uint32_t format, uint32_t features);
+uint32_t lovrGraphicsGetFormatSupport(uint32_t format, uint32_t features);
 void lovrGraphicsGetShaderCache(void* data, size_t* size);
 
 void lovrGraphicsGetBackgroundColor(float background[4]);
