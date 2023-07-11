@@ -131,6 +131,7 @@ typedef struct HeadsetInterface {
   void (*start)(void);
   void (*stop)(void);
   void (*destroy)(void);
+  bool (*getDriverName)(char* name, size_t length);
   bool (*getName)(char* name, size_t length);
   bool (*isSeated)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);

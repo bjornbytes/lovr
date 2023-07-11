@@ -97,6 +97,12 @@ static void simulator_destroy(void) {
   simulator_stop();
 }
 
+static bool simulator_getDriverName(char* name, size_t length) {
+  strncpy(name, "LÖVR", length - 1);
+  name[length - 1] = '\0';
+  return true;
+}
+
 static bool simulator_getName(char* name, size_t length) {
   strncpy(name, "Simulator", length - 1);
   name[length - 1] = '\0';
@@ -389,6 +395,7 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .start = simulator_start,
   .stop = simulator_stop,
   .destroy = simulator_destroy,
+  .getDriverName = simulator_getDriverName,
   .getName = simulator_getName,
   .isSeated = simulator_isSeated,
   .getDisplayDimensions = simulator_getDisplayDimensions,

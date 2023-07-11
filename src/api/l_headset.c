@@ -84,7 +84,13 @@ static int l_lovrHeadsetStart(lua_State* L) {
 
 static int l_lovrHeadsetGetDriver(lua_State* L) {
   luax_pushenum(L, HeadsetDriver, lovrHeadsetInterface->driverType);
-  return 1;
+  char name[256];
+  if (lovrHeadsetInterface->getDriverName(name, sizeof(name))) {
+    lua_pushstring(L, name);
+  } else {
+    lua_pushnil(L);
+  }
+  return 2;
 }
 
 static int l_lovrHeadsetGetName(lua_State* L) {

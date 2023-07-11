@@ -51,6 +51,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 
 #define XR_FOREACH(X)\
   X(xrDestroyInstance)\
+  X(xrGetInstanceProperties)\
   X(xrPollEvent)\
   X(xrResultToString)\
   X(xrGetSystem)\
@@ -1391,9 +1392,17 @@ static void openxr_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
+static bool openxr_getDriverName(char* name, size_t length) {
+  XrInstanceProperties properties = { .type = XR_TYPE_INSTANCE_PROPERTIES };
+  if (XR_FAILED(xrGetInstanceProperties(state.instance, &properties))) return false;
+  strncpy(name, properties.runtimeName, length - 1);
+  name[length - 1] = '\0';
+  return true;
+}
+
 static bool openxr_getName(char* name, size_t length) {
   XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
-  XR(xrGetSystemProperties(state.instance, state.system, &properties), "Failed to query system properties");
+  if (XR_FAILED(xrGetSystemProperties(state.instance, state.system, &properties))) return false;
   strncpy(name, properties.systemName, length - 1);
   name[length - 1] = '\0';
   return true;
@@ -2589,6 +2598,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .start = openxr_start,
   .stop = openxr_stop,
   .destroy = openxr_destroy,
+  .getDriverName = openxr_getDriverName,
   .getName = openxr_getName,
   .isSeated = openxr_isSeated,
   .getDisplayDimensions = openxr_getDisplayDimensions,

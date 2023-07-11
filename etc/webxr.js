@@ -174,6 +174,10 @@ var webxr = {
     }
   },
 
+  webxr_getDriverName: function(name, size) {
+    return false;
+  }
+
   webxr_getName: function(name, size) {
     return false;
   },
