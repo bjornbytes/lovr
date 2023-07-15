@@ -684,7 +684,8 @@ MAF vec4 mat4_mulPoint(mat4 m, vec3 v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
   float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
-  return vec3_set(v, x, y, z);
+  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
+  return vec3_set(v, x / w, y / w, z / w);
 }
 
 MAF vec4 mat4_mulDirection(mat4 m, vec3 v) {
