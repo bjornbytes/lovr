@@ -265,7 +265,7 @@ static XrTime getCurrentXrTime(void) {
   return time;
 }
 
-static void createReferenceSpace(void) {
+static void createReferenceSpace(XrTime time) {
   XrReferenceSpaceCreateInfo info = {
     .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
     .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
@@ -287,7 +287,7 @@ static void createReferenceSpace(void) {
     XR(xrCreateReferenceSpace(state.session, &info, &local), "Failed to create local space");
 
     XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
-    XR(xrLocateSpace(state.spaces[DEVICE_FLOOR], local, getCurrentXrTime(), &location), "Failed to locate space");
+    XR(xrLocateSpace(state.spaces[DEVICE_FLOOR], local, time, &location), "Failed to locate space");
     XR(xrDestroySpace(local), "Failed to destroy local space");
 
     if (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
@@ -1162,7 +1162,7 @@ static void openxr_start(void) {
       state.spaces[DEVICE_FLOOR] = XR_NULL_HANDLE;
     }
 
-    createReferenceSpace();
+    createReferenceSpace(getCurrentXrTime());
 
     // Action spaces
     XrActionSpaceCreateInfo actionSpaceInfo = {
@@ -2547,7 +2547,7 @@ static double openxr_update(void) {
       case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING: {
         XrEventDataReferenceSpaceChangePending* event = (XrEventDataReferenceSpaceChangePending*) &e;
         if (event->referenceSpaceType == XR_REFERENCE_SPACE_TYPE_LOCAL) {
-          createReferenceSpace();
+          createReferenceSpace(event->changeTime);
           state.layers[0].space = state.referenceSpace;
           lovrEventPush((Event) { .type = EVENT_RECENTER });
         }
