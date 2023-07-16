@@ -265,6 +265,7 @@ static XrTime getCurrentXrTime(void) {
   return time;
 }
 
+static bool openxr_getDriverName(char* name, size_t length);
 static void createReferenceSpace(XrTime time) {
   XrReferenceSpaceCreateInfo info = {
     .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
@@ -274,6 +275,12 @@ static void createReferenceSpace(XrTime time) {
   // Reference space doesn't need to be recreated for seated experiences (those always use local
   // space), or when local-floor is supported.  Otherwise, vertical offset must be re-measured.
   if (state.referenceSpace && (state.features.localFloor || state.config.seated)) {
+    return;
+  }
+
+  char name[256];
+  if (openxr_getDriverName(name, sizeof(name)) && !memcmp(name, "SteamVR", strlen("SteamVR"))) {
+    state.referenceSpace = state.spaces[DEVICE_FLOOR];
     return;
   }
 
