@@ -207,7 +207,7 @@ function lovr.errhand(message)
       local pass = lovr.graphics.getWindowPass()
       if pass then
         local w, h = lovr.system.getWindowDimensions()
-        pass:setProjection(1, mat4():orthographic(0, w, 0, h, -1, 1))
+        pass:setProjection(1, lovr.math.mat4():orthographic(0, w, 0, h, -1, 1))
         font:setPixelDensity(1)
 
         local scale = .6
