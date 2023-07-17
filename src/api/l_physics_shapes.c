@@ -266,12 +266,10 @@ static int l_lovrShapeGetPose(lua_State* L) {
 static int l_lovrShapeSetPose(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   lovrAssert(lovrShapeGetCollider(shape) != NULL, "Shape must be attached to collider");
-
-  float position[3];
-  luax_readvec3(L, 2, position, NULL);
+  float position[3], orientation[4];
+  int index = luax_readvec3(L, 2, position, NULL);
+  luax_readquat(L, index, orientation, NULL);
   lovrShapeSetPosition(shape, position[0], position[1], position[2]);
-  float orientation[4];
-  luax_readquat(L, 5, orientation, NULL);
   lovrShapeSetOrientation(shape, orientation);
   return 0;
 }
