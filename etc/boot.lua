@@ -161,7 +161,7 @@ function lovr.errhand(message)
 
   if lovr.audio then lovr.audio.stop() end
 
-  if lovr.headset.getPassthrough() == 'opaque' then
+  if not lovr.headset or lovr.headset.getPassthrough() == 'opaque' then
     lovr.graphics.setBackgroundColor(.11, .10, .14)
   else
     lovr.graphics.setBackgroundColor(0, 0, 0, 0)
