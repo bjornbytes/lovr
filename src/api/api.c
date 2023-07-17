@@ -41,6 +41,14 @@ static int luax_meta__tostring(lua_State* L) {
   return 1;
 }
 
+// Currently the same as tostring
+static int luax_type(lua_State* L) {
+  lua_getfield(L, 1, "__info");
+  TypeInfo* info = lua_touserdata(L, -1);
+  lua_pushstring(L, info->name);
+  return 1;
+}
+
 static int luax_meta__gc(lua_State* L) {
   Proxy* p = lua_touserdata(L, 1);
   if (p) {
@@ -148,14 +156,18 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   lua_pushcfunction(L, luax_meta__tostring);
   lua_setfield(L, -2, "__tostring");
 
-  // Register class functions
+  // Register class methods
   if (functions) {
     luax_register(L, functions);
   }
 
-  // :release function
+  // :release method
   lua_pushcfunction(L, luax_meta__gc);
   lua_setfield(L, -2, "release");
+
+  // :type method
+  lua_pushcfunction(L, luax_type);
+  lua_setfield(L, -2, "type");
 
   // Pop metatable
   lua_pop(L, 1);
