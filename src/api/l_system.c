@@ -195,20 +195,41 @@ static int l_lovrSystemPollEvents(lua_State* L) {
 }
 
 static int l_lovrSystemIsKeyDown(lua_State* L) {
-  os_key key = luax_checkenum(L, 1, KeyboardKey, NULL);
-  lua_pushboolean(L, lovrSystemIsKeyDown(key));
+  int count = lua_gettop(L);
+  for (int i = 0; i < count; i++) {
+    os_key key = luax_checkenum(L, i + 1, KeyboardKey, NULL);
+    if (lovrSystemIsKeyDown(key)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
   return 1;
 }
 
 static int l_lovrSystemWasKeyPressed(lua_State* L) {
-  os_key key = luax_checkenum(L, 1, KeyboardKey, NULL);
-  lua_pushboolean(L, lovrSystemWasKeyPressed(key));
+  int count = lua_gettop(L);
+  for (int i = 0; i < count; i++) {
+    os_key key = luax_checkenum(L, i + 1, KeyboardKey, NULL);
+    if (lovrSystemWasKeyPressed(key)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
   return 1;
 }
 
 static int l_lovrSystemWasKeyReleased(lua_State* L) {
-  os_key key = luax_checkenum(L, 1, KeyboardKey, NULL);
-  lua_pushboolean(L, lovrSystemWasKeyReleased(key));
+  int count = lua_gettop(L);
+  for (int i = 0; i < count; i++) {
+    os_key key = luax_checkenum(L, i + 1, KeyboardKey, NULL);
+    if (lovrSystemWasKeyReleased(key)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
   return 1;
 }
 
