@@ -82,20 +82,21 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
 typedef struct {
   QueryCallback callback;
   void* userdata;
+  bool called;
 } QueryData;
 
-static void queryCallback(void* data, dGeomID a, dGeomID b) {
-  QueryCallback callback = ((QueryData*) data)->callback;
-  void* userdata = ((QueryData*) data)->userdata;
+static void queryCallback(void* d, dGeomID a, dGeomID b) {
   Shape* shape = dGeomGetData(b);
 
   if (!shape) {
     return;
   }
 
+  QueryData* data = d;
   dContactGeom contact;
   if (dCollide(a, b, 1 | CONTACTS_UNIMPORTANT, &contact, sizeof(contact))) {
-    callback(shape, userdata);
+    if (data->callback) data->callback(shape, data->userdata);
+    data->called = true;
   }
 }
 
@@ -308,20 +309,22 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
   dGeomDestroy(ray);
 }
 
-void lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata };
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false };
   dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
   dGeomSetPosition(box, position[0], position[1], position[2]);
   dSpaceCollide2(box, (dGeomID) world->space, &data, queryCallback);
   dGeomDestroy(box);
+  return data.called;
 }
 
-void lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata };
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false };
   dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
   dGeomSetPosition(sphere, position[0], position[1], position[2]);
   dSpaceCollide2(sphere, (dGeomID) world->space, &data, queryCallback);
   dGeomDestroy(sphere);
+  return data.called;
 }
 
 Collider* lovrWorldGetFirstCollider(World* world) {

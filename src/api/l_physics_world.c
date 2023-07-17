@@ -254,10 +254,11 @@ static int l_lovrWorldQueryBox(lua_State* L) {
   int index = 2;
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readvec3(L, index, size, NULL);
-  luaL_checktype(L, index, LUA_TFUNCTION);
+  bool function = lua_type(L, index) == LUA_TFUNCTION;
   lua_settop(L, index);
-  lovrWorldQueryBox(world, position, size, queryCallback, L);
-  return 0;
+  bool any = lovrWorldQueryBox(world, position, size, function ? queryCallback : NULL, L);
+  lua_pushboolean(L, any);
+  return 1;
 }
 
 static int l_lovrWorldQuerySphere(lua_State* L) {
@@ -265,10 +266,11 @@ static int l_lovrWorldQuerySphere(lua_State* L) {
   float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   float radius = luax_checkfloat(L, index++);
-  luaL_checktype(L, index, LUA_TFUNCTION);
+  bool function = lua_type(L, index) == LUA_TFUNCTION;
   lua_settop(L, index);
-  lovrWorldQuerySphere(world, position, radius, queryCallback, L);
-  return 0;
+  bool any = lovrWorldQuerySphere(world, position, radius, function ? queryCallback : NULL, L);
+  lua_pushboolean(L, any);
+  return 1;
 }
 
 static int l_lovrWorldGetGravity(lua_State* L) {
