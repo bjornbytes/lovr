@@ -1816,7 +1816,8 @@ Buffer* lovrGraphicsGetBuffer(const BufferInfo* info, void** data) {
 
   lovrBufferInit(buffer, info, charCount);
 
-  MappedBuffer mapped = mapBuffer(&state.streamBuffers, buffer->info.size, state.limits.uniformBufferAlign);
+  size_t align = lcm(state.limits.uniformBufferAlign, buffer->info.format ? buffer->info.format->stride : 1);
+  MappedBuffer mapped = mapBuffer(&state.streamBuffers, buffer->info.size, align);
   buffer->gpu = mapped.buffer;
   buffer->offset = mapped.offset;
   buffer->pointer = mapped.pointer;
@@ -5624,6 +5625,13 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
     lovrCheck(info->vertex.buffer->info.format->stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
     trackBuffer(pass, info->vertex.buffer, GPU_PHASE_INPUT_VERTEX, GPU_CACHE_VERTEX);
     draw->vertexBuffer = info->vertex.buffer->gpu;
+
+    // Deprecated (temp buffer offset)
+    if (info->index.buffer || info->index.count > 0) {
+      draw->baseVertex += info->vertex.buffer->offset / info->vertex.buffer->info.format->stride;
+    } else {
+      draw->start += info->vertex.buffer->offset / info->vertex.buffer->info.format->stride;
+    }
   } else {
     draw->vertexBuffer = state.defaultBuffer->gpu;
   }
@@ -5638,6 +5646,7 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
     trackBuffer(pass, info->index.buffer, GPU_PHASE_INPUT_INDEX, GPU_CACHE_INDEX);
     draw->indexBuffer = info->index.buffer->gpu;
     draw->flags |= info->index.buffer->info.format->stride == 4 ? DRAW_INDEX32 : 0;
+    draw->start += info->index.buffer->offset / info->index.buffer->info.format->stride; // Deprecated
   } else {
     draw->indexBuffer = NULL;
   }
