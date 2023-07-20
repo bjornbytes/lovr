@@ -25,7 +25,7 @@ static int nextOverlap(lua_State* L) {
   }
 }
 
-static void raycastCallback(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata) {
+static bool raycastCallback(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
   luax_pushshape(L, shape);
@@ -35,14 +35,20 @@ static void raycastCallback(Shape* shape, float x, float y, float z, float nx, f
   lua_pushnumber(L, nx);
   lua_pushnumber(L, ny);
   lua_pushnumber(L, nz);
-  lua_call(L, 7, 0);
+  lua_call(L, 7, 1);
+  bool should_stop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
+  lua_pop(L, 1);
+  return should_stop;
 }
 
-static void queryCallback(Shape* shape, void* userdata) {
+static bool queryCallback(Shape* shape, void* userdata) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
   luax_pushshape(L, shape);
-  lua_call(L, 1, 0);
+  lua_call(L, 1, 1);
+  bool should_stop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
+  lua_pop(L, 1);
+  return should_stop;
 }
 
 static int l_lovrWorldNewCollider(lua_State* L) {

@@ -60,9 +60,12 @@ static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
 typedef struct {
   RaycastCallback callback;
   void* userdata;
+  bool should_stop;
 } RaycastData;
 
 static void raycastCallback(void* data, dGeomID a, dGeomID b) {
+  if (((RaycastData*)data)->should_stop) return;
+
   RaycastCallback callback = ((RaycastData*) data)->callback;
   void* userdata = ((RaycastData*) data)->userdata;
   Shape* shape = dGeomGetData(b);
@@ -83,9 +86,11 @@ typedef struct {
   QueryCallback callback;
   void* userdata;
   bool called;
+  bool should_stop;
 } QueryData;
 
 static void queryCallback(void* d, dGeomID a, dGeomID b) {
+  if (((QueryData*)d)->should_stop) return;
   Shape* shape = dGeomGetData(b);
 
   if (!shape) {
@@ -93,9 +98,12 @@ static void queryCallback(void* d, dGeomID a, dGeomID b) {
   }
 
   QueryData* data = d;
+
   dContactGeom contact;
   if (dCollide(a, b, 1 | CONTACTS_UNIMPORTANT, &contact, sizeof(contact))) {
-    if (data->callback) data->callback(shape, data->userdata);
+    if (data->callback) {
+      data->should_stop = data->callback(shape, data->userdata);
+    }
     data->called = true;
   }
 }
@@ -298,7 +306,7 @@ void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX
 }
 
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
-  RaycastData data = { .callback = callback, .userdata = userdata };
+  RaycastData data = { .callback = callback, .userdata = userdata, .should_stop = false };
   float dx = x2 - x1;
   float dy = y2 - y1;
   float dz = z2 - z1;
@@ -310,7 +318,7 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata, .called = false };
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .should_stop = false };
   dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
   dGeomSetPosition(box, position[0], position[1], position[2]);
   dSpaceCollide2(box, (dGeomID) world->space, &data, queryCallback);
