@@ -63,11 +63,11 @@ typedef struct {
   bool should_stop;
 } RaycastData;
 
-static void raycastCallback(void* data, dGeomID a, dGeomID b) {
-  if (((RaycastData*)data)->should_stop) return;
-
-  RaycastCallback callback = ((RaycastData*) data)->callback;
-  void* userdata = ((RaycastData*) data)->userdata;
+static void raycastCallback(void* d, dGeomID a, dGeomID b) {
+  RaycastData* data = d;
+  if (data->should_stop) return;
+  RaycastCallback callback = data->callback;
+  void* userdata = data->userdata;
   Shape* shape = dGeomGetData(b);
 
   if (!shape) {
@@ -78,7 +78,9 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
   int count = dCollide(a, b, MAX_CONTACTS, &contact->geom, sizeof(dContact));
   for (int i = 0; i < count; i++) {
     dContactGeom g = contact[i].geom;
-    callback(shape, g.pos[0], g.pos[1], g.pos[2], g.normal[0], g.normal[1], g.normal[2], userdata);
+    data->should_stop = callback(
+      shape, g.pos[0], g.pos[1], g.pos[2], g.normal[0], g.normal[1], g.normal[2], userdata
+    );
   }
 }
 
@@ -90,14 +92,13 @@ typedef struct {
 } QueryData;
 
 static void queryCallback(void* d, dGeomID a, dGeomID b) {
-  if (((QueryData*)d)->should_stop) return;
-  Shape* shape = dGeomGetData(b);
+  QueryData* data = d;
+  if (data->should_stop) return;
 
+  Shape* shape = dGeomGetData(b);
   if (!shape) {
     return;
   }
-
-  QueryData* data = d;
 
   dContactGeom contact;
   if (dCollide(a, b, 1 | CONTACTS_UNIMPORTANT, &contact, sizeof(contact))) {
@@ -327,7 +328,7 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCall
 }
 
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata, .called = false };
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .should_stop = false };
   dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
   dGeomSetPosition(sphere, position[0], position[1], position[2]);
   dSpaceCollide2(sphere, (dGeomID) world->space, &data, queryCallback);
