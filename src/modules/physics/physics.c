@@ -338,6 +338,21 @@ bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCa
   return data.called;
 }
 
+bool lovrWorldQueryTriangle(World* world, float vertices[9], QueryCallback callback, void* userdata) {
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
+
+  dTriIndex indices[3] = { 0, 1, 2 };
+
+  dTriMeshDataID dataID = dGeomTriMeshDataCreate();
+  dGeomTriMeshDataBuildSingle(dataID, vertices, 3 * sizeof(float), 3, indices, 3, 3 * sizeof(dTriIndex));
+  dGeomTriMeshDataPreprocess2(dataID, (1U << dTRIDATAPREPROCESS_BUILD_FACE_ANGLES), NULL);
+  dGeomID mesh = dCreateTriMesh(world->space, dataID, 0, 0, 0);
+  dSpaceCollide2(mesh, (dGeomID) world->space, &data, queryCallback);
+  dGeomTriMeshDataDestroy(dataID);
+  dGeomDestroy(mesh);
+  return data.called;
+}
+
 Collider* lovrWorldGetFirstCollider(World* world) {
   return world->head;
 }

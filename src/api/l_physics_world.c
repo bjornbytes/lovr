@@ -279,6 +279,19 @@ static int l_lovrWorldQuerySphere(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldQueryTriangle(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float vertices[9];
+  int index = luax_readvec3(L, 2, vertices, NULL);
+  index = luax_readvec3(L, index, vertices + 3, NULL);
+  index = luax_readvec3(L, index, vertices + 6, NULL);
+  bool function = lua_type(L, index) == LUA_TFUNCTION;
+  lua_settop(L, index);
+  bool any = lovrWorldQueryTriangle(world, vertices, function ? queryCallback : NULL, L);
+  lua_pushboolean(L, any);
+  return 1;
+}
+
 static int l_lovrWorldGetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float x, y, z;
@@ -431,6 +444,7 @@ const luaL_Reg lovrWorld[] = {
   { "raycast", l_lovrWorldRaycast },
   { "queryBox", l_lovrWorldQueryBox },
   { "querySphere", l_lovrWorldQuerySphere },
+  { "queryTriangle", l_lovrWorldQueryTriangle },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
   { "getTightness", l_lovrWorldGetTightness },
