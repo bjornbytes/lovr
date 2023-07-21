@@ -36,9 +36,9 @@ static bool raycastCallback(Shape* shape, float x, float y, float z, float nx, f
   lua_pushnumber(L, ny);
   lua_pushnumber(L, nz);
   lua_call(L, 7, 1);
-  bool should_stop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
+  bool shouldStop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
   lua_pop(L, 1);
-  return should_stop;
+  return shouldStop;
 }
 
 static bool queryCallback(Shape* shape, void* userdata) {
@@ -46,9 +46,9 @@ static bool queryCallback(Shape* shape, void* userdata) {
   lua_pushvalue(L, -1);
   luax_pushshape(L, shape);
   lua_call(L, 1, 1);
-  bool should_stop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
+  bool shouldStop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
   lua_pop(L, 1);
-  return should_stop;
+  return shouldStop;
 }
 
 static int l_lovrWorldNewCollider(lua_State* L) {

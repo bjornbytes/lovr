@@ -60,12 +60,12 @@ static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
 typedef struct {
   RaycastCallback callback;
   void* userdata;
-  bool should_stop;
+  bool shouldStop;
 } RaycastData;
 
 static void raycastCallback(void* d, dGeomID a, dGeomID b) {
   RaycastData* data = d;
-  if (data->should_stop) return;
+  if (data->shouldStop) return;
   RaycastCallback callback = data->callback;
   void* userdata = data->userdata;
   Shape* shape = dGeomGetData(b);
@@ -78,7 +78,7 @@ static void raycastCallback(void* d, dGeomID a, dGeomID b) {
   int count = dCollide(a, b, MAX_CONTACTS, &contact->geom, sizeof(dContact));
   for (int i = 0; i < count; i++) {
     dContactGeom g = contact[i].geom;
-    data->should_stop = callback(
+    data->shouldStop = callback(
       shape, g.pos[0], g.pos[1], g.pos[2], g.normal[0], g.normal[1], g.normal[2], userdata
     );
   }
@@ -88,12 +88,12 @@ typedef struct {
   QueryCallback callback;
   void* userdata;
   bool called;
-  bool should_stop;
+  bool shouldStop;
 } QueryData;
 
 static void queryCallback(void* d, dGeomID a, dGeomID b) {
   QueryData* data = d;
-  if (data->should_stop) return;
+  if (data->shouldStop) return;
 
   Shape* shape = dGeomGetData(b);
   if (!shape) {
@@ -103,7 +103,9 @@ static void queryCallback(void* d, dGeomID a, dGeomID b) {
   dContactGeom contact;
   if (dCollide(a, b, 1 | CONTACTS_UNIMPORTANT, &contact, sizeof(contact))) {
     if (data->callback) {
-      data->should_stop = data->callback(shape, data->userdata);
+      data->shouldStop = data->callback(shape, data->userdata);
+    } else {
+      data->shouldStop = true;
     }
     data->called = true;
   }
@@ -307,7 +309,7 @@ void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX
 }
 
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
-  RaycastData data = { .callback = callback, .userdata = userdata, .should_stop = false };
+  RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
   float dx = x2 - x1;
   float dy = y2 - y1;
   float dz = z2 - z1;
@@ -319,7 +321,7 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .should_stop = false };
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
   dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
   dGeomSetPosition(box, position[0], position[1], position[2]);
   dSpaceCollide2(box, (dGeomID) world->space, &data, queryCallback);
@@ -328,7 +330,7 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCall
 }
 
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .should_stop = false };
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
   dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
   dGeomSetPosition(sphere, position[0], position[1], position[2]);
   dSpaceCollide2(sphere, (dGeomID) world->space, &data, queryCallback);
