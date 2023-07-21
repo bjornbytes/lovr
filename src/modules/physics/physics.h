@@ -53,6 +53,7 @@ void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata);
+bool lovrWorldQueryTriangle(World* world, float position[9], QueryCallback callback, void* userdata);
 Collider* lovrWorldGetFirstCollider(World* world);
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z);
 void lovrWorldSetGravity(World* world, float x, float y, float z);
