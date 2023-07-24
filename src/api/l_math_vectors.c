@@ -183,6 +183,11 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
 
 // vec2
 
+static int l_lovrVec2Type(lua_State* L) {
+  lua_pushliteral(L, "Vec2");
+  return 1;
+}
+
 static int l_lovrVec2Equals(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC2, NULL);
   float* u = luax_checkvector(L, 2, V_VEC2, NULL);
@@ -497,6 +502,7 @@ int l_lovrVec2__metaindex(lua_State* L) {
 }
 
 const luaL_Reg lovrVec2[] = {
+  { "type", l_lovrVec2Type },
   { "equals", l_lovrVec2Equals },
   { "unpack", l_lovrVec2Unpack },
   { "set", l_lovrVec2Set },
@@ -523,6 +529,11 @@ const luaL_Reg lovrVec2[] = {
 };
 
 // vec3
+
+static int l_lovrVec3Type(lua_State* L) {
+  lua_pushliteral(L, "Vec3");
+  return 1;
+}
 
 static int l_lovrVec3Equals(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC3, NULL);
@@ -870,6 +881,7 @@ int l_lovrVec3__metaindex(lua_State* L) {
 }
 
 const luaL_Reg lovrVec3[] = {
+  { "type", l_lovrVec3Type },
   { "equals", l_lovrVec3Equals },
   { "unpack", l_lovrVec3Unpack },
   { "set", l_lovrVec3Set },
@@ -897,6 +909,11 @@ const luaL_Reg lovrVec3[] = {
 };
 
 // vec4
+
+static int l_lovrVec4Type(lua_State* L) {
+  lua_pushliteral(L, "Vec4");
+  return 1;
+}
 
 static int l_lovrVec4Equals(lua_State* L) {
   float* v = luax_checkvector(L, 1, V_VEC4, NULL);
@@ -1246,6 +1263,7 @@ int l_lovrVec4__metaindex(lua_State* L) {
 }
 
 const luaL_Reg lovrVec4[] = {
+  { "type", l_lovrVec4Type },
   { "equals", l_lovrVec4Equals },
   { "unpack", l_lovrVec4Unpack },
   { "set", l_lovrVec4Set },
@@ -1272,6 +1290,11 @@ const luaL_Reg lovrVec4[] = {
 };
 
 // quat
+
+static int l_lovrQuatType(lua_State* L) {
+  lua_pushliteral(L, "Quat");
+  return 1;
+}
 
 static int l_lovrQuatEquals(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
@@ -1503,6 +1526,7 @@ int l_lovrQuat__metaindex(lua_State* L) {
 }
 
 const luaL_Reg lovrQuat[] = {
+  { "type", l_lovrQuatType },
   { "equals", l_lovrQuatEquals },
   { "unpack", l_lovrQuatUnpack },
   { "set", l_lovrQuatSet },
@@ -1521,6 +1545,11 @@ const luaL_Reg lovrQuat[] = {
 };
 
 // mat4
+
+static int l_lovrMat4Type(lua_State* L) {
+  lua_pushliteral(L, "Mat4");
+  return 1;
+}
 
 static int l_lovrMat4Equals(lua_State* L) {
   mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
@@ -1846,8 +1875,13 @@ static int l_lovrMat4__mul(lua_State* L) {
 }
 
 static int l_lovrMat4__tostring(lua_State* L) {
-  luax_checkvector(L, 1, V_MAT4, NULL);
-  lua_pushliteral(L, "mat4");
+  mat4 m = luax_checkvector(L, 1, V_MAT4, NULL);
+  const char* format = "(%f, %f, %f, %f,\n %f, %f, %f, %f,\n %f, %f, %f, %f,\n %f, %f, %f, %f)";
+  lua_pushfstring(L, format,
+    m[0], m[4], m[8], m[12],
+    m[1], m[5], m[9], m[13],
+    m[2], m[6], m[10], m[14],
+    m[3], m[7], m[11], m[15]);
   return 1;
 }
 
@@ -1897,6 +1931,7 @@ int l_lovrMat4__metaindex(lua_State* L) {
 }
 
 const luaL_Reg lovrMat4[] = {
+  { "type", l_lovrMat4Type },
   { "equals", l_lovrMat4Equals },
   { "unpack", l_lovrMat4Unpack },
   { "getTranslation", l_lovrMat4GetTranslation },
