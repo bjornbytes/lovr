@@ -22,7 +22,7 @@ You can use LÖVR to easily create VR experiences without much setup or programm
 Features
 ---
 
-- **Cross-Platform** - Runs on Windows, Mac, Linux, Android, WebXR.
+- **Cross-Platform** - Runs on Windows, macOS, Linux, and Android.
 - **Cross-Device** - Supports Vive/Index, Oculus Rift/Quest, Windows MR, and has a VR simulator.
 - **Beginner-friendly** - Simple VR scenes can be created in just a few lines of Lua.
 - **Fast** - Writen in C11 and scripted with LuaJIT, includes optimized single-pass stereo rendering.
