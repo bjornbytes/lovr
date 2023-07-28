@@ -27,6 +27,7 @@ LOVR_EXPORT int luaopen_lovr_event(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_filesystem(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_graphics(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_headset(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_http(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_math(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_physics(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_system(lua_State* L);
@@ -104,6 +105,9 @@ void luax_preload(lua_State* L) {
 #endif
 #ifndef LOVR_DISABLE_HEADSET
     { "lovr.headset", luaopen_lovr_headset },
+#endif
+#ifndef LOVR_DISABLE_HTTP
+    { "lovr.http", luaopen_lovr_http },
 #endif
 #ifndef LOVR_DISABLE_MATH
     { "lovr.math", luaopen_lovr_math },

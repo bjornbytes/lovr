@@ -16,6 +16,7 @@ config = {
     filesystem = true,
     graphics = true,
     headset = true,
+    http = true,
     math = true,
     physics = true,
     system = true,
