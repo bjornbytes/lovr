@@ -1,5 +1,4 @@
 #include "physics.h"
-#include "core/maf.h"
 #include "util.h"
 #include <ode/ode.h>
 #include <stdlib.h>
@@ -697,12 +696,15 @@ void lovrColliderSetPosition(Collider* collider, float x, float y, float z) {
   dBodySetPosition(collider->body, x, y, z);
 }
 
-void lovrColliderGetOrientation(Collider* collider, quat orientation) {
+void lovrColliderGetOrientation(Collider* collider, float* orientation) {
   const dReal* q = dBodyGetQuaternion(collider->body);
-  quat_set(orientation, q[1], q[2], q[3], q[0]);
+  orientation[0] = q[1];
+  orientation[1] = q[2];
+  orientation[2] = q[3];
+  orientation[3] = q[0];
 }
 
-void lovrColliderSetOrientation(Collider* collider, quat orientation) {
+void lovrColliderSetOrientation(Collider* collider, float* orientation) {
   dReal q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dBodySetQuaternion(collider->body, q);
 }
@@ -908,13 +910,16 @@ void lovrShapeSetPosition(Shape* shape, float x, float y, float z) {
   dGeomSetOffsetPosition(shape->id, x, y, z);
 }
 
-void lovrShapeGetOrientation(Shape* shape, quat orientation) {
+void lovrShapeGetOrientation(Shape* shape, float* orientation) {
   dReal q[4];
   dGeomGetOffsetQuaternion(shape->id, q);
-  quat_set(orientation, q[1], q[2], q[3], q[0]);
+  orientation[0] = q[1];
+  orientation[1] = q[2];
+  orientation[2] = q[3];
+  orientation[3] = q[0];
 }
 
-void lovrShapeSetOrientation(Shape* shape, quat orientation) {
+void lovrShapeSetOrientation(Shape* shape, float* orientation) {
   dReal q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dGeomSetOffsetQuaternion(shape->id, q);
 }
