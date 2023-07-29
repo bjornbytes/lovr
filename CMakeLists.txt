@@ -11,6 +11,7 @@ option(LOVR_ENABLE_EVENT "Enable the event module" ON)
 option(LOVR_ENABLE_FILESYSTEM "Enable the filesystem module" ON)
 option(LOVR_ENABLE_GRAPHICS "Enable the graphics module" ON)
 option(LOVR_ENABLE_HEADSET "Enable the headset module" ON)
+option(LOVR_ENABLE_HTTP "Enable the http module" ON)
 option(LOVR_ENABLE_MATH "Enable the math module" ON)
 option(LOVR_ENABLE_PHYSICS "Enable the physics module" ON)
 option(LOVR_ENABLE_SYSTEM "Enable the system module" ON)
@@ -509,6 +510,15 @@ if(LOVR_ENABLE_HEADSET)
   endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_HEADSET)
+endif()
+
+if(LOVR_ENABLE_HTTP)
+  target_sources(lovr PRIVATE
+    src/api/l_http.c
+    src/modules/http/http.c
+  )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_HTTP)
 endif()
 
 if(LOVR_ENABLE_MATH)
