@@ -187,6 +187,7 @@ vec4 getPixel(texture2DArray t, vec2 uv, float layer) { return texture(sampler2D
 // inputs.  The Surface can be initialized using initSurface, and is passed into the other lighting
 // functions.  Everything is in world space.
 struct Surface {
+  vec4 color;
   vec3 position; // Position of fragment
   vec3 normal; // Includes normal mapping
   vec3 geometricNormal; // Raw normal from vertex shader
@@ -229,7 +230,7 @@ mat3 getTangentMatrix() {
   }
 }
 
-void initSurface(out Surface surface) {
+void setupSurfaceData(out Surface surface) {
   surface.position = PositionWorld;
 
   vec3 normal = normalize(Normal);
@@ -245,26 +246,17 @@ void initSurface(out Surface surface) {
     surface.normal = normal;
   }
 
-  surface.geometricNormal = normal;
-  surface.view = normalize(CameraPositionWorld - PositionWorld);
-  surface.reflection = reflect(-surface.view, normal);
-
-  vec4 color = Color;
-  if (flag_colorTexture) color *= getPixel(ColorTexture, UV);
+  surface.color = Color;
+  if (flag_colorTexture) surface.color *= getPixel(ColorTexture, UV);
 
   surface.metalness = Material.metalness;
   if (flag_metalnessTexture) surface.metalness *= getPixel(MetalnessTexture, UV).b;
-
-  surface.f0 = mix(vec3(.04), color.rgb, surface.metalness);
-  surface.diffuse = mix(color.rgb, vec3(0.), surface.metalness);
 
   surface.emissive = Material.glow.rgb * Material.glow.a;
   if (flag_glow && flag_glowTexture) surface.emissive *= getPixel(GlowTexture, UV).rgb;
 
   surface.roughness = Material.roughness;
   if (flag_roughnessTexture) surface.roughness *= getPixel(RoughnessTexture, UV).g;
-  surface.roughness = max(surface.roughness, .05);
-  surface.roughness2 = surface.roughness * surface.roughness;
 
   surface.occlusion = 1.;
   if (flag_ambientOcclusion) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
@@ -273,8 +265,26 @@ void initSurface(out Surface surface) {
   if (flag_clearcoatTexture) surface.clearcoat *= getPixel(ClearcoatTexture, UV).r;
 
   surface.clearcoatRoughness = Material.clearcoatRoughness;
+}
 
-  surface.alpha = color.a;
+void calcSurfaceData(inout Surface surface) {
+  surface.geometricNormal = surface.normal;
+  surface.view = normalize(CameraPositionWorld - PositionWorld);
+  surface.reflection = reflect(-surface.view, surface.normal);
+
+  surface.f0 = mix(vec3(.04), surface.color.rgb, surface.metalness);
+  surface.diffuse = mix(surface.color.rgb, vec3(0.), surface.metalness);
+
+  surface.roughness = max(surface.roughness, .05);
+  surface.roughness2 = surface.roughness * surface.roughness;
+
+  surface.alpha = surface.color.a;
+}
+
+
+void initSurface(out Surface surface) {
+  setupSurfaceData(surface);
+  calcSurfaceData(surface);
 }
 
 float D_GGX(const Surface surface, float NoH) {
