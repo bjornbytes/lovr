@@ -48,8 +48,8 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       arr_push(materials, ((ModelMaterial) {
         .color = { 1.f, 1.f, 1.f, 1.f },
         .glow = { 0.f, 0.f, 0.f, 1.f },
-        .uvShift = { 0.f, 0.f },
-        .uvScale = { 1.f, 1.f },
+        .uvShift = { 0.f, 1.f },
+        .uvScale = { 1.f, -1.f },
         .metalness = 1.f,
         .roughness = 1.f,
         .clearcoat = 0.f,
