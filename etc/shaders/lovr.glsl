@@ -245,6 +245,7 @@ void setupSurfaceData(out Surface surface) {
   } else {
     surface.normal = normal;
   }
+  surface.geometricNormal = normal;
 
   surface.color = Color;
   if (flag_colorTexture) surface.color *= getPixel(ColorTexture, UV);
@@ -268,7 +269,6 @@ void setupSurfaceData(out Surface surface) {
 }
 
 void calcSurfaceData(inout Surface surface) {
-  surface.geometricNormal = surface.normal;
   surface.view = normalize(CameraPositionWorld - PositionWorld);
   surface.reflection = reflect(-surface.view, surface.normal);
 
