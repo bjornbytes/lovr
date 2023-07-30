@@ -15,6 +15,7 @@ typedef struct Sampler Sampler;
 typedef struct Shader Shader;
 typedef struct Material Material;
 typedef struct Font Font;
+typedef struct Mesh Mesh;
 typedef struct Model Model;
 typedef struct Readback Readback;
 typedef struct Pass Pass;
@@ -172,7 +173,7 @@ typedef struct DataField {
 
 typedef struct {
   uint32_t size;
-  DataField* format;
+  const DataField* format;
   uint32_t fieldCount;
   DataLayout layout;
   const char* label;
@@ -417,6 +418,47 @@ float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count);
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context);
 void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, float wrap, HorizontalAlign halign, VerticalAlign valign, GlyphVertex* vertices, uint32_t* glyphCount, uint32_t* lineCount, Material** material, bool flip);
 
+// Mesh
+
+typedef enum {
+  MESH_CPU,
+  MESH_GPU
+} MeshStorage;
+
+typedef enum {
+  DRAW_POINTS,
+  DRAW_LINES,
+  DRAW_TRIANGLES
+} DrawMode;
+
+typedef struct {
+  uint32_t fieldCount;
+  DataField format[16];
+  Buffer* vertexBuffer;
+  MeshStorage storage;
+} MeshInfo;
+
+Mesh* lovrMeshCreate(const MeshInfo* info, void** data);
+void lovrMeshDestroy(void* ref);
+const DataField* lovrMeshGetVertexFormat(Mesh* mesh);
+Buffer* lovrMeshGetVertexBuffer(Mesh* mesh);
+Buffer* lovrMeshGetIndexBuffer(Mesh* mesh);
+void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer);
+void* lovrMeshGetVertices(Mesh* mesh, uint32_t index, uint32_t count);
+void* lovrMeshSetVertices(Mesh* mesh, uint32_t index, uint32_t count);
+void* lovrMeshGetIndices(Mesh* mesh, DataField* format);
+void* lovrMeshSetIndices(Mesh* mesh, uint32_t count, DataType type);
+void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint32_t* vertexCount, uint32_t* indexCount);
+bool lovrMeshGetBoundingBox(Mesh* mesh, float box[6]);
+void lovrMeshSetBoundingBox(Mesh* mesh, float box[6]);
+bool lovrMeshComputeBoundingBox(Mesh* mesh);
+DrawMode lovrMeshGetDrawMode(Mesh* mesh);
+void lovrMeshSetDrawMode(Mesh* mesh, DrawMode mode);
+void lovrMeshGetDrawRange(Mesh* mesh, uint32_t* start, uint32_t* count, uint32_t* offset);
+void lovrMeshSetDrawRange(Mesh* mesh, uint32_t start, uint32_t count, uint32_t offset);
+Material* lovrMeshGetMaterial(Mesh* mesh);
+void lovrMeshSetMaterial(Mesh* mesh, Material* material);
+
 // Model
 
 typedef struct {
@@ -430,37 +472,21 @@ typedef enum {
   ORIGIN_PARENT
 } OriginType;
 
-typedef enum {
-  MESH_POINTS,
-  MESH_LINES,
-  MESH_TRIANGLES
-} MeshMode;
-
-typedef struct {
-  MeshMode mode;
-  Material* material;
-  uint32_t start;
-  uint32_t count;
-  uint32_t base;
-  bool indexed;
-} ModelDraw;
-
 Model* lovrModelCreate(const ModelInfo* info);
 Model* lovrModelClone(Model* model);
 void lovrModelDestroy(void* ref);
 const ModelInfo* lovrModelGetInfo(Model* model);
-uint32_t lovrModelGetNodeDrawCount(Model* model, uint32_t node);
-void lovrModelGetNodeDraw(Model* model, uint32_t node, uint32_t index, ModelDraw* draw);
 void lovrModelResetNodeTransforms(Model* model);
 void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha);
 float lovrModelGetBlendShapeWeight(Model* model, uint32_t index);
 void lovrModelSetBlendShapeWeight(Model* model, uint32_t index, float weight);
 void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[3], float scale[3], float rotation[4], OriginType origin);
 void lovrModelSetNodeTransform(Model* model, uint32_t node, float position[3], float scale[3], float rotation[4], float alpha);
-Texture* lovrModelGetTexture(Model* model, uint32_t index);
-Material* lovrModelGetMaterial(Model* model, uint32_t index);
 Buffer* lovrModelGetVertexBuffer(Model* model);
 Buffer* lovrModelGetIndexBuffer(Model* model);
+Mesh* lovrModelGetMesh(Model* model, uint32_t index);
+Texture* lovrModelGetTexture(Model* model, uint32_t index);
+Material* lovrModelGetMaterial(Model* model, uint32_t index);
 
 // Readback
 
@@ -584,7 +610,7 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp);
 void lovrPassSetFaceCull(Pass* pass, CullMode mode);
 void lovrPassSetFont(Pass* pass, Font* font);
 void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture);
-void lovrPassSetMeshMode(Pass* pass, MeshMode mode);
+void lovrPassSetMeshMode(Pass* pass, DrawMode mode);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
 void lovrPassSetShader(Pass* pass, Shader* shader);
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
@@ -613,7 +639,8 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
 void lovrPassSkybox(Pass* pass, Texture* texture);
 void lovrPassFill(Pass* pass, Texture* texture);
 void lovrPassMonkey(Pass* pass, float* transform);
-void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node, bool recurse, uint32_t instances);
+void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t instances);
+void lovrPassDrawMesh(Pass* pass, Mesh* mesh, float* transform, uint32_t instances);
 void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform);
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t base);
 void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer* indirect, uint32_t count, uint32_t offset, uint32_t stride);

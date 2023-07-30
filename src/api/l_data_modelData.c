@@ -289,7 +289,7 @@ static int l_lovrModelDataGetMeshDrawMode(lua_State* L) {
   uint32_t index = luax_checku32(L, 2) - 1;
   lovrCheck(index < model->primitiveCount, "Invalid mesh index '%d'", index + 1);
   ModelPrimitive* mesh = &model->primitives[index];
-  luax_pushenum(L, DrawMode, mesh->mode);
+  luax_pushenum(L, ModelDrawMode, mesh->mode);
   return 1;
 }
 

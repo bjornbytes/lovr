@@ -174,6 +174,25 @@ struct Font {
   uint32_t atlasY;
 };
 
+struct Mesh {
+  uint32_t ref;
+  MeshStorage storage;
+  Buffer* vertexBuffer;
+  Buffer* indexBuffer;
+  uint32_t indexCount;
+  uint32_t dirtyVertices[2];
+  bool dirtyIndices;
+  void* vertices;
+  void* indices;
+  float bounds[6];
+  bool hasBounds;
+  DrawMode mode;
+  uint32_t drawStart;
+  uint32_t drawCount;
+  uint32_t baseVertex;
+  Material* material;
+};
+
 typedef struct {
   float transform[16];
   float cofactor[12];
@@ -191,7 +210,7 @@ typedef enum {
 
 typedef struct {
   uint64_t hash;
-  MeshMode mode;
+  DrawMode mode;
   DefaultShader shader;
   Material* material;
   float* transform;
@@ -234,6 +253,7 @@ struct Model {
   Buffer* indexBuffer;
   Buffer* blendBuffer;
   Buffer* skinBuffer;
+  Mesh** meshes;
   Texture** textures;
   Material** materials;
   NodeTransform* localTransforms;
@@ -392,7 +412,7 @@ typedef struct {
 typedef struct {
   bool dirty;
   bool viewCull;
-  MeshMode mode;
+  DrawMode mode;
   float color[4];
   Buffer* lastVertexBuffer;
   VertexFormat lastVertexFormat;
@@ -1767,13 +1787,14 @@ static uint32_t lovrBufferInit(Buffer* buffer, const BufferInfo* info, size_t ch
 
     memcpy(format, info->format, info->fieldCount * sizeof(DataField));
 
-    // Copy names, fixup children pointers
+    // Copy names, hash names, fixup children pointers
     for (uint32_t i = 0; i < info->fieldCount; i++) {
       if (format[i].name) {
         size_t length = strlen(format[i].name);
         memcpy(names, format[i].name, length);
         names[length] = '\0';
         format[i].name = names;
+        format[i].hash = (uint32_t) hash64(format[i].name, length);
         names += length + 1;
       }
 
@@ -3610,6 +3631,331 @@ void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
   *material = font->material;
 }
 
+// Mesh
+
+Mesh* lovrMeshCreate(const MeshInfo* info, void** vertices) {
+  const DataField* format = info->vertexBuffer ? info->vertexBuffer->info.format : info->format;
+  const DataField* attributes = format->childCount > 0 ? format->children : format;
+  uint32_t attributeCount = format->childCount > 0 ? format->childCount : 1;
+  lovrCheck(format, "Mesh vertex buffer must have been created with format information");
+  lovrCheck(format->length > 0, "Mesh vertex buffer must have an array format (length > 0)");
+  lovrCheck(format->stride <= state.limits.vertexBufferStride, "Mesh vertex buffer stride exceeds the vertexBufferStride limit of this GPU");
+
+  for (uint32_t i = 0; i < attributeCount; i++) {
+    const DataField* attribute = &attributes[i];
+    lovrCheck(attribute->offset < 256, "Max Mesh attribute offset is 255"); // Limited by 8 bit gpu_attribute offset
+    lovrCheck(attribute == format || attribute->length == 0, "Mesh attributes can not use array types");
+    lovrCheck(attribute == format || attribute->childCount == 0, "Mesh attributes can not use struct types");
+    lovrCheck(attribute->type < TYPE_MAT2 || attribute->type > TYPE_MAT4, "Currently, Mesh attributes can not use matrix types");
+    lovrCheck(attribute->type < TYPE_INDEX16 || attribute->type > TYPE_INDEX32, "Mesh attributes can not use index types");
+  }
+
+  Mesh* mesh = calloc(1, sizeof(Mesh));
+  lovrAssert(mesh, "Out of memory");
+  mesh->ref = 1;
+  mesh->storage = info->storage;
+  mesh->mode = DRAW_TRIANGLES;
+
+  if (info->vertexBuffer) {
+    mesh->vertexBuffer = info->vertexBuffer;
+    lovrRetain(mesh->vertexBuffer);
+  } else {
+    BufferInfo bufferInfo = { .format = info->format, .fieldCount = info->fieldCount };
+    mesh->vertexBuffer = lovrBufferCreate(&bufferInfo, mesh->storage == MESH_GPU ? vertices : NULL);
+
+    if (!vertices) {
+      lovrBufferClear(mesh->vertexBuffer, 0, ~0u);
+    }
+
+    if (mesh->storage == MESH_CPU) {
+      uint32_t size = mesh->vertexBuffer->info.size;
+      mesh->vertices = vertices ? malloc(size) : calloc(1, size);
+      lovrAssert(mesh->vertices, "Out of memory");
+
+      if (vertices) {
+        *vertices = mesh->vertices;
+        mesh->dirtyVertices[0] = 0;
+        mesh->dirtyVertices[1] = info->format->length;
+      } else {
+        mesh->dirtyVertices[0] = ~0u;
+        mesh->dirtyVertices[1] = 0;
+      }
+    }
+  }
+
+  return mesh;
+}
+
+void lovrMeshDestroy(void* ref) {
+  Mesh* mesh = ref;
+  lovrRelease(mesh->vertexBuffer, lovrBufferDestroy);
+  lovrRelease(mesh->indexBuffer, lovrBufferDestroy);
+  lovrRelease(mesh->material, lovrMaterialDestroy);
+  free(mesh->vertices);
+  free(mesh->indices);
+  free(mesh);
+}
+
+const DataField* lovrMeshGetVertexFormat(Mesh* mesh) {
+  return mesh->vertexBuffer->info.format;
+}
+
+Buffer* lovrMeshGetVertexBuffer(Mesh* mesh) {
+  return mesh->storage == MESH_CPU ? NULL : mesh->vertexBuffer;
+}
+
+Buffer* lovrMeshGetIndexBuffer(Mesh* mesh) {
+  return mesh->storage == MESH_CPU ? NULL : mesh->indexBuffer;
+}
+
+void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer) {
+  lovrCheck(mesh->storage == MESH_GPU, "Mesh can only use a Buffer for indices if it was created with 'gpu' storage mode");
+
+  const DataField* format = buffer->info.format;
+  lovrCheck(format && format->length > 0, "Mesh index buffer must have an array format");
+  switch (format->type) {
+    case TYPE_U16:
+    case TYPE_INDEX16:
+      if (format->stride == 2 && format->offset == 0 && format->childCount == 0) break;
+    case TYPE_U32:
+    case TYPE_INDEX32:
+      if (format->stride == 4 && format->offset == 0 && format->childCount == 0) break;
+    default:
+      lovrThrow("Mesh index buffer must be a tightly packed array of u16, u32, index16, or index32 types");
+  }
+
+  lovrRelease(mesh->indexBuffer, lovrBufferDestroy);
+  mesh->indexBuffer = buffer;
+  mesh->indexCount = format->length;
+  lovrRetain(buffer);
+}
+
+void* lovrMeshGetVertices(Mesh* mesh, uint32_t index, uint32_t count) {
+  const DataField* format = lovrMeshGetVertexFormat(mesh);
+  if (count == ~0u) count = format->length - index;
+  lovrCheck(index < format->length && count <= format->length - index, "Mesh vertex range [%d,%d] overflows mesh capacity", index + 1, index + 1 + count - 1);
+
+  if (mesh->storage == MESH_CPU) {
+    return (char*) mesh->vertices + index * format->stride;
+  } else {
+    return lovrBufferGetData(mesh->vertexBuffer, index * format->stride, count * format->stride);
+  }
+}
+
+void* lovrMeshSetVertices(Mesh* mesh, uint32_t index, uint32_t count) {
+  const DataField* format = lovrMeshGetVertexFormat(mesh);
+  if (count == ~0u) count = format->length - index;
+  lovrCheck(index < format->length && count <= format->length - index, "Mesh vertex range [%d,%d] overflows mesh capacity", index + 1, index + 1 + count - 1);
+
+  if (mesh->storage == MESH_CPU) {
+    mesh->dirtyVertices[0] = MIN(mesh->dirtyVertices[0], index);
+    mesh->dirtyVertices[1] = MAX(mesh->dirtyVertices[1], index + count);
+    return (char*) mesh->vertices + index * format->stride;
+  } else {
+    return lovrBufferSetData(mesh->vertexBuffer, index * format->stride, count * format->stride);
+  }
+}
+
+void* lovrMeshGetIndices(Mesh* mesh, DataField* format) {
+  if (mesh->indexCount == 0 || !mesh->indexBuffer) {
+    return NULL;
+  }
+
+  *format = *mesh->indexBuffer->info.format;
+  format->length = mesh->indexCount;
+
+  if (mesh->storage == MESH_CPU) {
+    return mesh->indices;
+  } else {
+    return lovrBufferGetData(mesh->indexBuffer, 0, mesh->indexCount * format->stride);
+  }
+}
+
+void* lovrMeshSetIndices(Mesh* mesh, uint32_t count, DataType type) {
+  const DataField* format = mesh->indexBuffer ? mesh->indexBuffer->info.format : NULL;
+  mesh->indexCount = count;
+  mesh->dirtyIndices = true;
+
+  if (!mesh->indexBuffer || count > format->length || type != format->type) {
+    lovrRelease(mesh->indexBuffer, lovrBufferDestroy);
+    DataField field = { .type = type, .length = count };
+    BufferInfo info = { .fieldCount = 1, .format = &field };
+    if (mesh->storage == MESH_CPU) {
+      mesh->indexBuffer = lovrBufferCreate(&info, NULL);
+      mesh->indices = realloc(mesh->indices, count * mesh->indexBuffer->info.format->stride);
+      lovrAssert(mesh->indices, "Out of memory");
+      return mesh->indices;
+    } else {
+      void* data = NULL;
+      mesh->indexBuffer = lovrBufferCreate(&info, &data);
+      return data;
+    }
+  } else if (mesh->storage == MESH_CPU) {
+    return mesh->indices;
+  } else {
+    return lovrBufferSetData(mesh->indexBuffer, 0, count * format->stride);
+  }
+}
+
+static float* lovrMeshGetPositions(Mesh* mesh) {
+  if (mesh->storage == MESH_GPU) return NULL;
+  const DataField* format = lovrMeshGetVertexFormat(mesh);
+  const DataField* attributes = format->childCount > 0 ? format->children : format;
+  uint32_t attributeCount = format->childCount > 0 ? format->childCount : 1;
+  uint32_t positionHash = (uint32_t) hash64("VertexPosition", strlen("VertexPosition"));
+  for (uint32_t i = 0; i < attributeCount; i++) {
+    const DataField* attribute = &attributes[i];
+    if (attribute->type != TYPE_F32x3) continue;
+    if ((attribute->location == LOCATION_POSITION || attribute->hash == positionHash)) {
+      return (float*) ((char*) mesh->vertices + attribute->offset);
+    }
+  }
+  return NULL;
+}
+
+void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint32_t* vertexCount, uint32_t* indexCount) {
+  float* position = lovrMeshGetPositions(mesh);
+  lovrCheck(mesh->storage == MESH_CPU, "Mesh storage mode must be 'cpu'");
+  lovrCheck(mesh->mode == DRAW_TRIANGLES, "Mesh draw mode must be 'triangles'");
+  lovrCheck(position, "Mesh has no VertexPosition attribute with vec3 type");
+  const DataField* format = lovrMeshGetVertexFormat(mesh);
+
+  *vertices = malloc(format->length * 3 * sizeof(float));
+  lovrAssert(*vertices, "Out of memory");
+
+  for (uint32_t i = 0; i < format->length; i++) {
+    vec3_init(*vertices, position);
+    position = (float*) ((char*) position + format->stride);
+    *vertices += 3;
+  }
+
+  if (mesh->indexCount > 0) {
+    *indexCount = mesh->indexCount;
+    *indices = malloc(*indexCount * sizeof(uint32_t));
+    lovrAssert(*indices, "Out of memory");
+    if (mesh->indexBuffer->info.format->type == TYPE_U16 || mesh->indexBuffer->info.format->type == TYPE_INDEX16) {
+      for (uint32_t i = 0; i < mesh->indexCount; i++) {
+        *indices[i] = (uint32_t) ((uint16_t*) mesh->indices)[i];
+      }
+    } else {
+      memcpy(*indices, mesh->indices, mesh->indexCount * sizeof(uint32_t));
+    }
+  } else {
+    *indexCount = format->length;
+    *indices = malloc(*indexCount * sizeof(uint32_t));
+    lovrAssert(*indices, "Out of memory");
+    lovrCheck(format->length >= 3 && format->length % 3 == 0, "Mesh vertex count must be divisible by 3");
+    for (uint32_t i = 0; i < format->length; i++) {
+      **indices = i;
+      *indices += 1;
+    }
+  }
+}
+
+bool lovrMeshGetBoundingBox(Mesh* mesh, float box[6]) {
+  box[0] = mesh->bounds[0] - mesh->bounds[3];
+  box[1] = mesh->bounds[1] - mesh->bounds[4];
+  box[2] = mesh->bounds[2] - mesh->bounds[5];
+  box[3] = mesh->bounds[0] + mesh->bounds[3];
+  box[4] = mesh->bounds[1] + mesh->bounds[4];
+  box[5] = mesh->bounds[2] + mesh->bounds[5];
+  return mesh->hasBounds;
+}
+
+void lovrMeshSetBoundingBox(Mesh* mesh, float box[6]) {
+  if (box) {
+    mesh->bounds[0] = (box[0] + box[3]) / 2.f;
+    mesh->bounds[1] = (box[1] + box[4]) / 2.f;
+    mesh->bounds[2] = (box[2] + box[5]) / 2.f;
+    mesh->bounds[3] = (box[3] - box[0]) / 2.f;
+    mesh->bounds[4] = (box[4] - box[1]) / 2.f;
+    mesh->bounds[5] = (box[5] - box[2]) / 2.f;
+    mesh->hasBounds = true;
+  } else {
+    mesh->hasBounds = false;
+  }
+}
+
+bool lovrMeshComputeBoundingBox(Mesh* mesh) {
+  const DataField* format = lovrMeshGetVertexFormat(mesh);
+  float* position = lovrMeshGetPositions(mesh);
+
+  if (!position) {
+    return false;
+  }
+
+  float box[6] = { FLT_MAX, FLT_MAX, FLT_MAX, FLT_MIN, FLT_MIN, FLT_MIN };
+
+  for (uint32_t i = 0; i < format->length; i++, position = (float*) ((char*) position + format->stride)) {
+    box[0] = MIN(box[0], position[0]);
+    box[1] = MIN(box[1], position[1]);
+    box[2] = MIN(box[2], position[2]);
+    box[3] = MAX(box[3], position[0]);
+    box[4] = MAX(box[4], position[1]);
+    box[5] = MAX(box[5], position[2]);
+  }
+
+  lovrMeshSetBoundingBox(mesh, box);
+  return true;
+}
+
+DrawMode lovrMeshGetDrawMode(Mesh* mesh) {
+  return mesh->mode;
+}
+
+void lovrMeshSetDrawMode(Mesh* mesh, DrawMode mode) {
+  mesh->mode = mode;
+}
+
+void lovrMeshGetDrawRange(Mesh* mesh, uint32_t* start, uint32_t* count, uint32_t* offset) {
+  *start = mesh->drawStart;
+  *count = mesh->drawCount;
+  *offset = mesh->baseVertex;
+}
+
+void lovrMeshSetDrawRange(Mesh* mesh, uint32_t start, uint32_t count, uint32_t offset) {
+  uint32_t vertexCount = mesh->vertexBuffer->info.format->length;
+  uint32_t extent = mesh->indexCount > 0 ? mesh->indexCount : vertexCount;
+  lovrCheck(start < extent && count <= extent - start, "Invalid draw range [%d,%d]", start + 1, start + 1 + count);
+  lovrCheck(offset < vertexCount, "Mesh vertex offset must be less than the vertex count");
+  mesh->drawStart = start;
+  mesh->drawCount = count;
+  mesh->baseVertex = offset;
+}
+
+Material* lovrMeshGetMaterial(Mesh* mesh) {
+  return mesh->material;
+}
+
+void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
+  lovrRelease(mesh->material, lovrMaterialDestroy);
+  mesh->material = material;
+  lovrRetain(material);
+}
+
+static void lovrMeshFlush(Mesh* mesh) {
+  if (mesh->storage == MESH_GPU) {
+    return;
+  }
+
+  if (mesh->dirtyVertices[1] > mesh->dirtyVertices[0]) {
+    uint32_t stride = mesh->vertexBuffer->info.format->stride;
+    uint32_t offset = mesh->dirtyVertices[0] * stride;
+    uint32_t extent = (mesh->dirtyVertices[1] - mesh->dirtyVertices[0]) * stride;
+    void* data = lovrBufferSetData(mesh->vertexBuffer, offset, extent);
+    memcpy(data, (char*) mesh->vertices + offset, extent);
+    mesh->dirtyVertices[0] = ~0u;
+    mesh->dirtyVertices[1] = 0;
+  }
+
+  if (mesh->dirtyIndices) {
+    uint32_t stride = mesh->indexBuffer->info.format->stride;
+    void* data = lovrBufferSetData(mesh->indexBuffer, 0, mesh->indexCount * stride);
+    memcpy(data, mesh->indices, mesh->indexCount * stride);
+    mesh->dirtyIndices = false;
+  }
+}
+
 // Model
 
 Model* lovrModelCreate(const ModelInfo* info) {
@@ -3798,9 +4144,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
     DrawInfo* draw = &model->draws[primitiveOrder[i] & ~0u];
 
     switch (primitive->mode) {
-      case DRAW_POINTS: draw->mode = MESH_POINTS; break;
-      case DRAW_LINES: draw->mode = MESH_LINES; break;
-      case DRAW_TRIANGLES: draw->mode = MESH_TRIANGLES; break;
+      case DRAW_POINT_LIST: draw->mode = DRAW_POINTS; break;
+      case DRAW_LINE_LIST: draw->mode = DRAW_LINES; break;
+      case DRAW_TRIANGLE_LIST: draw->mode = DRAW_TRIANGLES; break;
       default: lovrThrow("Model uses an unsupported draw mode (lineloop, linestrip, strip, fan)");
     }
 
@@ -3977,6 +4323,7 @@ void lovrModelDestroy(void* ref) {
     lovrRelease(model->vertexBuffer, lovrBufferDestroy);
     free(model->localTransforms);
     free(model->globalTransforms);
+    free(model->meshes);
     free(model->draws);
     free(model);
     return;
@@ -4003,29 +4350,13 @@ void lovrModelDestroy(void* ref) {
   free(model->boundingBoxes);
   free(model->blendShapeWeights);
   free(model->blendGroups);
+  free(model->meshes);
   free(model->draws);
   free(model);
 }
 
 const ModelInfo* lovrModelGetInfo(Model* model) {
   return &model->info;
-}
-
-uint32_t lovrModelGetNodeDrawCount(Model* model, uint32_t node) {
-  ModelData* data = model->info.data;
-  return data->nodes[node].primitiveCount;
-}
-
-void lovrModelGetNodeDraw(Model* model, uint32_t node, uint32_t index, ModelDraw* mesh) {
-  ModelData* data = model->info.data;
-  lovrCheck(index < data->nodes[node].primitiveCount, "Invalid model node draw index %d", index + 1);
-  DrawInfo* draw = &model->draws[data->nodes[node].primitiveIndex + index];
-  mesh->mode = draw->mode;
-  mesh->material = draw->material;
-  mesh->start = draw->start;
-  mesh->count = draw->count;
-  mesh->base = draw->base;
-  mesh->indexed = draw->index.buffer;
 }
 
 void lovrModelResetNodeTransforms(Model* model) {
@@ -4196,24 +4527,49 @@ void lovrModelSetNodeTransform(Model* model, uint32_t node, float position[3], f
   model->transformsDirty = true;
 }
 
-Texture* lovrModelGetTexture(Model* model, uint32_t index) {
-  ModelData* data = model->info.data;
-  lovrAssert(index < data->imageCount, "Invalid texture index '%d' (Model has %d texture%s)", index, data->imageCount, data->imageCount == 1 ? "" : "s");
-  return model->textures[index];
-}
-
-Material* lovrModelGetMaterial(Model* model, uint32_t index) {
-  ModelData* data = model->info.data;
-  lovrAssert(index < data->materialCount, "Invalid material index '%d' (Model has %d material%s)", index, data->materialCount, data->materialCount == 1 ? "" : "s");
-  return model->materials[index];
-}
-
 Buffer* lovrModelGetVertexBuffer(Model* model) {
   return model->rawVertexBuffer;
 }
 
 Buffer* lovrModelGetIndexBuffer(Model* model) {
   return model->indexBuffer;
+}
+
+Mesh* lovrModelGetMesh(Model* model, uint32_t index) {
+  ModelData* data = model->info.data;
+  lovrCheck(index < data->primitiveCount, "Invalid mesh index '%d' (Model has %d mesh%s)", index + 1, data->primitiveCount, data->primitiveCount == 1 ? "" : "es");
+
+  if (!model->meshes) {
+    model->meshes = calloc(data->primitiveCount, sizeof(Mesh*));
+    lovrAssert(model->meshes, "Out of memory");
+  }
+
+  if (!model->meshes[index]) {
+    DrawInfo* draw = &model->draws[index];
+    MeshInfo info = { .vertexBuffer = model->vertexBuffer, .storage = MESH_GPU };
+    Mesh* mesh = lovrMeshCreate(&info, NULL);
+    if (draw->index.buffer) lovrMeshSetIndexBuffer(mesh, model->indexBuffer);
+    lovrMeshSetDrawMode(mesh, draw->mode);
+    lovrMeshSetDrawRange(mesh, draw->start, draw->count, draw->base);
+    lovrMeshSetMaterial(mesh, draw->material);
+    memcpy(mesh->bounds, draw->bounds, sizeof(mesh->bounds));
+    mesh->hasBounds = true;
+    model->meshes[index] = mesh;
+  }
+
+  return model->meshes[index];
+}
+
+Texture* lovrModelGetTexture(Model* model, uint32_t index) {
+  ModelData* data = model->info.data;
+  lovrAssert(index < data->imageCount, "Invalid texture index '%d' (Model has %d texture%s)", index + 1, data->imageCount, data->imageCount == 1 ? "" : "s");
+  return model->textures[index];
+}
+
+Material* lovrModelGetMaterial(Model* model, uint32_t index) {
+  ModelData* data = model->info.data;
+  lovrAssert(index < data->materialCount, "Invalid material index '%d' (Model has %d material%s)", index + 1, data->materialCount, data->materialCount == 1 ? "" : "s");
+  return model->materials[index];
 }
 
 static void lovrModelAnimateVertices(Model* model) {
@@ -4622,7 +4978,7 @@ void lovrPassReset(Pass* pass) {
 
   pass->pipelineIndex = 0;
   memset(pass->pipeline, 0, sizeof(Pipeline));
-  pass->pipeline->mode = MESH_TRIANGLES;
+  pass->pipeline->mode = DRAW_TRIANGLES;
   pass->pipeline->lastVertexFormat = ~0u;
   pass->pipeline->color[0] = 1.f;
   pass->pipeline->color[1] = 1.f;
@@ -5262,7 +5618,7 @@ void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture) {
   }
 }
 
-void lovrPassSetMeshMode(Pass* pass, MeshMode mode) {
+void lovrPassSetMeshMode(Pass* pass, DrawMode mode) {
   pass->pipeline->mode = mode;
 }
 
@@ -5529,8 +5885,8 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw) {
     pipeline->lastVertexBuffer = info->vertex.buffer;
     pipeline->dirty = true;
 
-    DataField* format = info->vertex.buffer->info.format;
-    DataField* fields = format->childCount > 0 ? format->children : format;
+    const DataField* format = info->vertex.buffer->info.format;
+    const DataField* fields = format->childCount > 0 ? format->children : format;
     uint32_t fieldCount = format->childCount > 0 ? format->childCount : 1;
 
     pipeline->info.vertex.bufferCount = 2;
@@ -5745,7 +6101,7 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** points) {
   lovrPassDraw(pass, &(DrawInfo) {
-    .mode = MESH_POINTS,
+    .mode = DRAW_POINTS,
     .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) points,
     .vertex.count = count
@@ -5758,7 +6114,7 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
   uint16_t* indices;
 
   lovrPassDraw(pass, &(DrawInfo) {
-    .mode = MESH_LINES,
+    .mode = DRAW_LINES,
     .vertex.format = VERTEX_POINT,
     .vertex.pointer = (void**) points,
     .vertex.count = count,
@@ -5785,7 +6141,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
 
     lovrPassDraw(pass, &(DrawInfo) {
       .hash = hash64(key, sizeof(key)),
-      .mode = MESH_LINES,
+      .mode = DRAW_LINES,
       .transform = transform,
       .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, 0.f },
       .vertex.pointer = (void**) &vertices,
@@ -5798,7 +6154,7 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
 
     lovrPassDraw(pass, &(DrawInfo) {
       .hash = hash64(key, sizeof(key)),
-      .mode = MESH_TRIANGLES,
+      .mode = DRAW_TRIANGLES,
       .transform = transform,
       .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, 0.f },
       .vertex.pointer = (void**) &vertices,
@@ -5884,7 +6240,7 @@ void lovrPassRoundrect(Pass* pass, float* transform, float r, uint32_t segments)
   uint16_t* indices;
 
   lovrPassDraw(pass, &(DrawInfo) {
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .transform = transform,
     .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, .5f },
     .vertex.pointer = (void**) &vertices,
@@ -6013,7 +6369,7 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
 
     lovrPassDraw(pass, &(DrawInfo) {
       .hash = hash64(key, sizeof(key)),
-      .mode = MESH_LINES,
+      .mode = DRAW_LINES,
       .transform = transform,
       .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, .5f },
       .vertex.pointer = (void**) &vertices,
@@ -6065,7 +6421,7 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
 
     lovrPassDraw(pass, &(DrawInfo) {
       .hash = hash64(key, sizeof(key)),
-      .mode = MESH_TRIANGLES,
+      .mode = DRAW_TRIANGLES,
       .transform = transform,
       .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, .5f },
       .vertex.pointer = (void**) &vertices,
@@ -6097,7 +6453,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
 
     lovrPassDraw(pass, &(DrawInfo) {
       .hash = hash64(key, sizeof(key)),
-      .mode = MESH_LINES,
+      .mode = DRAW_LINES,
       .transform = transform,
       .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, 0.f },
       .vertex.pointer = (void**) &vertices,
@@ -6115,7 +6471,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
 
     lovrPassDraw(pass, &(DrawInfo) {
       .hash = hash64(key, sizeof(key)),
-      .mode = MESH_TRIANGLES,
+      .mode = DRAW_TRIANGLES,
       .transform = transform,
       .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, 0.f },
       .vertex.pointer = (void**) &vertices,
@@ -6165,7 +6521,7 @@ void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t s
 
   lovrPassDraw(pass, &(DrawInfo) {
     .hash = hash64(key, sizeof(key)),
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .transform = transform,
     .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, 1.f },
     .vertex.pointer = (void**) &vertices,
@@ -6251,7 +6607,7 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
 
   lovrPassDraw(pass, &(DrawInfo) {
     .hash = hash64(key, sizeof(key)),
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .transform = transform,
     .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, .5f },
     .vertex.pointer = (void**) &vertices,
@@ -6324,7 +6680,7 @@ void lovrPassCone(Pass* pass, float* transform, uint32_t segments) {
 
   lovrPassDraw(pass, &(DrawInfo) {
     .hash = hash64(key, sizeof(key)),
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .transform = transform,
     .bounds = (float[6]) { 0.0f, 0.f, -.5f, 1.f, 1.f, .5f },
     .vertex.pointer = (void**) &vertices,
@@ -6389,7 +6745,7 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
 
   lovrPassDraw(pass, &(DrawInfo) {
     .hash = hash64(key, sizeof(key)),
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .transform = transform,
     .bounds = (float[6]) { 0.f, 0.f, 0.f, radius, radius, length + radius },
     .vertex.pointer = (void**) &vertices,
@@ -6482,7 +6838,7 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
 
   lovrPassDraw(pass, &(DrawInfo) {
     .hash = hash64(key, sizeof(key)),
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .transform = transform,
     .bounds = (float[6]) { 0.f, 0.f, 0.f, radius + thickness, radius + thickness, thickness },
     .vertex.pointer = (void**) &vertices,
@@ -6553,7 +6909,7 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
   GlyphVertex* vertexPointer;
   uint16_t* indices;
   lovrPassDraw(pass, &(DrawInfo) {
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .shader = SHADER_FONT,
     .material = font->material,
     .transform = transform,
@@ -6577,7 +6933,7 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
 
 void lovrPassSkybox(Pass* pass, Texture* texture) {
   lovrPassDraw(pass, &(DrawInfo) {
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .shader = texture->info.type == TEXTURE_2D ? SHADER_EQUIRECT : SHADER_CUBEMAP,
     .material = lovrTextureGetMaterial(texture),
     .vertex.format = VERTEX_EMPTY,
@@ -6587,7 +6943,7 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
 
 void lovrPassFill(Pass* pass, Texture* texture) {
   lovrPassDraw(pass, &(DrawInfo) {
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .shader = texture && texture->info.type == TEXTURE_ARRAY ? SHADER_FILL_ARRAY : SHADER_FILL_2D,
     .material = texture ? lovrTextureGetMaterial(texture) : NULL,
     .vertex.format = VERTEX_EMPTY,
@@ -6603,7 +6959,7 @@ void lovrPassMonkey(Pass* pass, float* transform) {
 
   lovrPassDraw(pass, &(DrawInfo) {
     .hash = hash64(key, sizeof(key)),
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -6631,7 +6987,27 @@ void lovrPassMonkey(Pass* pass, float* transform) {
   memcpy(indices, monkey_indices, sizeof(monkey_indices));
 }
 
-static void renderNode(Pass* pass, Model* model, uint32_t index, bool recurse, uint32_t instances) {
+void lovrPassDrawMesh(Pass* pass, Mesh* mesh, float* transform, uint32_t instances) {
+  uint32_t extent = mesh->indexCount > 0 ? mesh->indexCount : mesh->vertexBuffer->info.format->length;
+  uint32_t start = MIN(mesh->drawStart, extent - 1);
+  uint32_t count = mesh->drawCount > 0 ? MIN(mesh->drawCount, extent - start) : extent - start;
+
+  lovrMeshFlush(mesh);
+
+  lovrPassDraw(pass, &(DrawInfo) {
+    .mode = mesh->mode,
+    .transform = transform,
+    .bounds = mesh->hasBounds ? mesh->bounds : NULL,
+    .material = mesh->material,
+    .vertex.buffer = mesh->vertexBuffer,
+    .index.buffer = mesh->indexBuffer,
+    .start = start,
+    .count = count,
+    .instances = instances
+  });
+}
+
+static void drawNode(Pass* pass, Model* model, uint32_t index, uint32_t instances) {
   ModelNode* node = &model->info.data->nodes[index];
   mat4 globalTransform = model->globalTransforms + 16 * index;
 
@@ -6642,14 +7018,12 @@ static void renderNode(Pass* pass, Model* model, uint32_t index, bool recurse, u
     lovrPassDraw(pass, &draw);
   }
 
-  if (recurse) {
-    for (uint32_t i = 0; i < node->childCount; i++) {
-      renderNode(pass, model, node->children[i], true, instances);
-    }
+  for (uint32_t i = 0; i < node->childCount; i++) {
+    drawNode(pass, model, node->children[i], instances);
   }
 }
 
-void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node, bool recurse, uint32_t instances) {
+void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t instances) {
   lovrModelAnimateVertices(model);
 
   if (model->transformsDirty) {
@@ -6657,13 +7031,9 @@ void lovrPassDrawModel(Pass* pass, Model* model, float* transform, uint32_t node
     model->transformsDirty = false;
   }
 
-  if (node == ~0u) {
-    node = model->info.data->rootNode;
-  }
-
   lovrPassPush(pass, STACK_TRANSFORM);
   lovrPassTransform(pass, transform);
-  renderNode(pass, model, node, recurse, instances);
+  drawNode(pass, model, model->info.data->rootNode, instances);
   lovrPassPop(pass, STACK_TRANSFORM);
 }
 
@@ -6683,7 +7053,7 @@ void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform) {
 
   lovrPassDraw(pass, &(DrawInfo) {
     .hash = hash64(key, sizeof(key)),
-    .mode = MESH_TRIANGLES,
+    .mode = DRAW_TRIANGLES,
     .transform = transform,
     .material = lovrTextureGetMaterial(texture),
     .vertex.pointer = (void**) &vertices,

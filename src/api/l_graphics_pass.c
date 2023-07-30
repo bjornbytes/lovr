@@ -551,7 +551,7 @@ static int l_lovrPassSetMaterial(lua_State* L) {
 
 static int l_lovrPassSetMeshMode(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  MeshMode mode = luax_checkenum(L, 2, MeshMode, NULL);
+  DrawMode mode = luax_checkenum(L, 2, DrawMode, NULL);
   lovrPassSetMeshMode(pass, mode);
   return 0;
 }
@@ -938,10 +938,17 @@ static int l_lovrPassDraw(lua_State* L) {
 
   if (model) {
     int index = luax_readmat4(L, 3, transform, 1);
-    uint32_t node = lua_isnoneornil(L, index) ? ~0u : luax_checknodeindex(L, index, lovrModelGetInfo(model)->data);
-    bool recurse = lua_isnoneornil(L, index + 1) ? true : lua_toboolean(L, index + 1);
-    uint32_t instances = lua_isnoneornil(L, index + 2) ? 1 : luax_checku32(L, index + 2);
-    lovrPassDrawModel(pass, model, transform, node, recurse, instances);
+    uint32_t instances = luax_optu32(L, index + 1, 1);
+    lovrPassDrawModel(pass, model, transform, instances);
+    return 0;
+  }
+
+  Mesh* mesh = luax_totype(L, 2, Mesh);
+
+  if (mesh) {
+    int index = luax_readmat4(L, 3, transform, 1);
+    uint32_t instances = luax_optu32(L, index, 1);
+    lovrPassDrawMesh(pass, mesh, transform, instances);
     return 0;
   }
 
@@ -954,7 +961,7 @@ static int l_lovrPassDraw(lua_State* L) {
     return 0;
   }
 
-  return luax_typeerror(L, 2, "Model or Texture");
+  return luax_typeerror(L, 2, "Mesh, Model, or Texture");
 }
 
 static int l_lovrPassMesh(lua_State* L) {

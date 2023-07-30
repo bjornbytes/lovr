@@ -564,7 +564,15 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     *shouldFree = false;
     return index + 1;
   }
+
+  Mesh* mesh = luax_totype(L, index, Mesh);
+
+  if (mesh) {
+    lovrMeshGetTriangles(mesh, vertices, indices, vertexCount, indexCount);
+    *shouldFree = true;
+    return index + 1;
+  }
 #endif
 
-  return luaL_argerror(L, index, "table or Model");
+  return luaL_argerror(L, index, "table, Mesh, or Model");
 }
