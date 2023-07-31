@@ -155,6 +155,7 @@ void lovrShapeGetOrientation(Shape* shape, float* orientation);
 void lovrShapeSetOrientation(Shape* shape, float* orientation);
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
 void lovrShapeGetAABB(Shape* shape, float aabb[6]);
+bool lovrShapeQueryOverlapping(Shape* shape, QueryCallback callback, void* userdata);
 
 SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* sphere);

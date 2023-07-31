@@ -991,6 +991,12 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   dGeomGetAABB(shape->id, aabb);
 }
 
+bool lovrShapeQueryOverlapping(Shape* shape, QueryCallback callback, void* userdata) {
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
+  dSpaceCollide2(shape->id, (dGeomID) shape->collider->world->space, &data, queryCallback);
+  return data.called;
+}
+
 SphereShape* lovrSphereShapeCreate(float radius) {
   lovrCheck(radius > 0.f, "SphereShape radius must be positive");
   SphereShape* sphere = calloc(1, sizeof(SphereShape));
