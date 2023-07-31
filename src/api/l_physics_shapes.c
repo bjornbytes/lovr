@@ -312,11 +312,27 @@ static bool queryCallback(Shape* shape, void* userdata) {
   return shouldStop;
 }
 
+/*
+shape:queryOverlapping(function(other) end)
+shape:queryOverlapping(tag_filter)
+shape:queryOverlapping(tag_filter, function(other) end)
+*/
 static int l_lovrShapeQueryOverlapping(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   lovrAssert(lovrShapeGetCollider(shape) != NULL, "Shape must be attached to collider");
-  bool function = lua_type(L, 2) == LUA_TFUNCTION;
-  bool any = lovrShapeQueryOverlapping(shape, function ? queryCallback : NULL, L);
+  bool function, tagFilter;
+  if (lua_gettop(L) == 3) {
+    function = lua_type(L, 3) == LUA_TFUNCTION;
+    tagFilter = lua_toboolean(L, 2);
+  } else if (lua_type(L, 2) == LUA_TFUNCTION) {
+    function = true;
+    tagFilter = true;
+  } else {
+    function = false;
+    tagFilter = lua_toboolean(L, 2);
+  }
+
+  bool any = lovrShapeQueryOverlapping(shape, tagFilter, function ? queryCallback : NULL, L);
   lua_pushboolean(L, any);
   return 1;
 }
