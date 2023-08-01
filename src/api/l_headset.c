@@ -368,6 +368,23 @@ static int l_lovrHeadsetGetOrientation(lua_State* L) {
   return 4;
 }
 
+static int l_lovrHeadsetGetDirection(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  float position[3], orientation[4];
+  if (lovrHeadsetInterface->getPose(device, position, orientation)) {
+    float direction[3];
+    quat_getDirection(orientation, direction);
+    lua_pushnumber(L, direction[0]);
+    lua_pushnumber(L, direction[1]);
+    lua_pushnumber(L, direction[2]);
+    return 3;
+  }
+  for (int i = 0; i < 3; i++) {
+    lua_pushnumber(L, 0.);
+  }
+  return 3;
+}
+
 static int l_lovrHeadsetGetVelocity(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float velocity[3], angularVelocity[3];
@@ -670,6 +687,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
+  { "getDirection", l_lovrHeadsetGetDirection },
   { "getVelocity", l_lovrHeadsetGetVelocity },
   { "getAngularVelocity", l_lovrHeadsetGetAngularVelocity },
   { "isDown", l_lovrHeadsetIsDown },
