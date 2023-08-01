@@ -323,6 +323,7 @@ if config.modules.physics then
 
   -- ode
   ode_cflags += '-fPIC'
+  ode_cflags += config.optimize and '-DdNODEBUG'
   ode_cflags += '-Wno-implicit-float-conversion'
   ode_cflags += '-Wno-array-bounds'
   ode_cflags += '-Wno-undefined-var-template'
