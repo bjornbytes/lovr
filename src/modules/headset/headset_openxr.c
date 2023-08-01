@@ -438,7 +438,8 @@ static void openxr_destroy();
 static bool openxr_init(HeadsetConfig* config) {
   state.config = *config;
 
-#ifdef __ANDROID__
+  // Loader
+#if defined(__ANDROID__)
   static PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
   XR_LOAD(xrInitializeLoaderKHR);
   if (!xrInitializeLoaderKHR) {
@@ -453,6 +454,12 @@ static bool openxr_init(HeadsetConfig* config) {
 
   if (XR_FAILED(xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*) &loaderInfo))) {
     return false;
+  }
+#elif defined(__linux__) || defined(__APPLE__)
+  setenv("XR_LOADER_DEBUG", "none", 0);
+#elif defined(_WIN32)
+  if (GetEnvironmentVariable("XR_LOADER_DEBUG", NULL, 0) == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
+    SetEnvironmentVariable("XR_LOADER_DEBUG", "none");
   }
 #endif
 
