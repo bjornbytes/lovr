@@ -517,6 +517,10 @@ if(LOVR_ENABLE_HTTP)
     src/api/l_http.c
     src/modules/http/http.c
   )
+
+  if(WIN32)
+    target_link_libraries(lovr wininet)
+  endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_HTTP)
 endif()

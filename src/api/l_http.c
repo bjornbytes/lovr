@@ -124,6 +124,7 @@ static int l_lovrHttpRequest(lua_State* L) {
   lua_pushinteger(L, response.status);
   lua_pushlstring(L, response.data, response.size);
   lua_pushvalue(L, -3);
+  free(response.data);
   return 3;
 }
 
