@@ -1012,9 +1012,9 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   dGeomGetAABB(shape->id, aabb);
 }
 
-bool lovrShapeQueryOverlapping(Shape* shape, bool tagFilter, QueryCallback callback, void* userdata) {
+bool lovrShapeQueryOverlapping(Shape* shape, QueryCallback callback, void* userdata) {
   QueryData data = {
-    .callback = callback, .userdata = userdata, .called = false, .shouldStop = false, .tagFilter = tagFilter
+    .callback = callback, .userdata = userdata, .called = false, .shouldStop = false, .tagFilter = true
   };
   dSpaceCollide2(shape->id, (dGeomID) shape->collider->world->space, &data, queryCallback);
   return data.called;
