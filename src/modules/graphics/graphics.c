@@ -194,8 +194,7 @@ struct Mesh {
 };
 
 typedef struct {
-  float transform[16];
-  float cofactor[12];
+  float transform[12];
   float color[4];
 } DrawData;
 
@@ -1277,27 +1276,29 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   // DrawData
 
-  uint32_t drawPageCount = (activeDrawCount + 255) / 256;
-  uint32_t drawPageSize = (uint32_t) ALIGN(256 * sizeof(DrawData), align);
-  mapped = mapBuffer(&state.streamBuffers, drawPageCount * drawPageSize, align);
-  builtins[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, drawPageSize };
+  mapped = mapBuffer(&state.streamBuffers, activeDrawCount * sizeof(DrawData), align);
+  builtins[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, 256 * sizeof(DrawData) };
   DrawData* data = mapped.pointer;
 
   for (uint32_t i = 0; i < activeDrawCount; i++, data++) {
     Draw* draw = &pass->draws[activeDraws[i] >> 8][activeDraws[i] & 0xff];
-
-    if ((i & 0xff) == 0) {
-      data = (DrawData*) ALIGN(data, align);
-    }
-
-    float cofactor[16];
-    mat4_init(cofactor, draw->transform);
-    memcpy(cofactor + 12, (float[4]) { 0.f, 0.f, 0.f, 1.f }, 4 * sizeof(float));
-    mat4_cofactor(cofactor);
-
-    memcpy(data->transform, draw->transform, 16 * sizeof(float));
-    memcpy(data->cofactor, cofactor, 12 * sizeof(float));
-    memcpy(data->color, draw->color, 4 * sizeof(float));
+    // transform is provided as 4x3 row-major matrix for packing reasons, need to transpose
+    data->transform[0] = draw->transform[0];
+    data->transform[1] = draw->transform[4];
+    data->transform[2] = draw->transform[8];
+    data->transform[3] = draw->transform[12];
+    data->transform[4] = draw->transform[1];
+    data->transform[5] = draw->transform[5];
+    data->transform[6] = draw->transform[9];
+    data->transform[7] = draw->transform[13];
+    data->transform[8] = draw->transform[2];
+    data->transform[9] = draw->transform[6];
+    data->transform[10] = draw->transform[10];
+    data->transform[11] = draw->transform[14];
+    data->color[0] = draw->color[0];
+    data->color[1] = draw->color[1];
+    data->color[2] = draw->color[2];
+    data->color[3] = draw->color[3];
   }
 
   gpu_bundle_write(&builtinBundle, &builtinfo, 1);
@@ -1426,7 +1427,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     }
 
     if ((i & 0xff) == 0 || draw->camera != cameraIndex || constantsDirty) {
-      uint32_t dynamicOffsets[] = { draw->camera * canvas->views * sizeof(Camera), (i >> 8) * drawPageSize };
+      uint32_t dynamicOffsets[] = { draw->camera * canvas->views * sizeof(Camera), (i >> 8) * 256 * sizeof(DrawData) };
       gpu_bind_bundles(stream, draw->shader->gpu, &builtinBundle, 0, 1, dynamicOffsets, COUNTOF(dynamicOffsets));
       cameraIndex = draw->camera;
     }
@@ -2792,9 +2793,16 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         [SPV_F32x2] = TYPE_F32x2,
         [SPV_F32x3] = TYPE_F32x3,
         [SPV_F32x4] = TYPE_F32x4,
-        [SPV_MAT2] = TYPE_MAT2,
-        [SPV_MAT3] = TYPE_MAT3,
-        [SPV_MAT4] = TYPE_MAT4
+        [SPV_MAT2x2] = TYPE_MAT2,
+        [SPV_MAT2x3] = ~0u,
+        [SPV_MAT2x4] = ~0u,
+        [SPV_MAT3x2] = ~0u,
+        [SPV_MAT3x3] = TYPE_MAT3,
+        [SPV_MAT3x4] = ~0u,
+        [SPV_MAT4x2] = ~0u,
+        [SPV_MAT4x3] = ~0u,
+        [SPV_MAT4x4] = TYPE_MAT4,
+        [SPV_STRUCT] = ~0u
       };
 
       spv_field* field = &spv[s].fields[i];
@@ -2802,7 +2810,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       uint32_t base = s == 1 ? spv[0].fieldCount : 0;
 
       shader->fields[base + i] = (DataField) {
-        .type = field->type == SPV_STRUCT ? ~0u : dataTypes[field->type],
+        .type = dataTypes[field->type],
         .offset = field->offset,
         .length = field->arrayLength,
         .stride = field->arrayStride,

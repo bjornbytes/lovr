@@ -610,8 +610,8 @@ static spv_result spv_parse_field(spv_context* spv, const uint32_t* word, spv_fi
   }
 
   if (OP_CODE(word) == 22 && word[2] == 32) { // OpTypeFloat
-    if (columnCount >= 2 && columnCount <= 4 && componentCount == columnCount) {
-      field->type = SPV_MAT2 + columnCount - 2;
+    if (columnCount >= 2 && columnCount <= 4 && componentCount >= 2 && componentCount <= 4) {
+      field->type = SPV_MAT2x2 + (columnCount - 2) * 3 + (componentCount - 2);
     } else if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
       field->type = SPV_F32x2 + componentCount - 2;
     } else if (columnCount == 1 && componentCount == 1) {

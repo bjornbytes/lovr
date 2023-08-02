@@ -17,9 +17,15 @@ typedef enum {
   SPV_F32x2,
   SPV_F32x3,
   SPV_F32x4,
-  SPV_MAT2,
-  SPV_MAT3,
-  SPV_MAT4,
+  SPV_MAT2x2,
+  SPV_MAT2x3,
+  SPV_MAT2x4,
+  SPV_MAT3x2,
+  SPV_MAT3x3,
+  SPV_MAT3x4,
+  SPV_MAT4x2,
+  SPV_MAT4x3,
+  SPV_MAT4x4,
   SPV_STRUCT
 } spv_type;
 
