@@ -37,7 +37,7 @@ layout(set = 0, binding = 1) uniform CameraBuffer { Camera Cameras[6]; };
 layout(set = 0, binding = 2) uniform DrawBuffer { layout(row_major) Draw Draws[256]; };
 layout(set = 0, binding = 3) uniform sampler Sampler;
 
-layout(set = 1, binding = 0) uniform MaterialBuffer {
+struct MaterialData {
   vec4 color;
   vec4 glow;
   vec2 uvShift;
@@ -50,7 +50,11 @@ layout(set = 1, binding = 0) uniform MaterialBuffer {
   float occlusionStrength;
   float normalScale;
   float alphaCutoff;
-} Material;
+};
+
+layout(set = 1, binding = 0) uniform MaterialBuffer {
+  MaterialData Material;
+};
 
 layout(set = 1, binding = 1) uniform texture2D ColorTexture;
 layout(set = 1, binding = 2) uniform texture2D GlowTexture;
@@ -209,13 +213,13 @@ struct Surface {
   vec3 f0;
   vec3 diffuse;
   vec3 emissive;
+  vec4 baseColor;
   float metalness;
   float roughness;
   float roughness2;
   float occlusion;
   float clearcoat;
   float clearcoatRoughness;
-  float alpha;
 };
 
 #define TangentMatrix getTangentMatrix()
@@ -242,52 +246,99 @@ mat3 getTangentMatrix() {
   }
 }
 
-void initSurface(out Surface surface) {
+Surface newSurface() {
+  Surface surface;
   surface.position = PositionWorld;
-
-  vec3 normal = normalize(Normal);
-
-  if (!FrontFacing) {
-    normal = -normal;
-  }
-
-  if (flag_normalMap) {
-    vec3 normalScale = vec3(Material.normalScale, Material.normalScale, 1.);
-    surface.normal = TangentMatrix * (normalize(getPixel(NormalTexture, UV).rgb * 2. - 1.) * normalScale);
-  } else {
-    surface.normal = normal;
-  }
-
-  surface.geometricNormal = normal;
+  surface.geometricNormal = normalize(Normal);
+  surface.normal = surface.geometricNormal;
   surface.view = normalize(CameraPositionWorld - PositionWorld);
-  surface.reflection = reflect(-surface.view, normal);
+  surface.emissive = vec3(0.);
+  surface.baseColor = Color;
+  surface.metalness = 1.;
+  surface.roughness = 1.;
+  surface.occlusion = 1.;
+  surface.clearcoat = 0.;
+  surface.clearcoatRoughness = 0.;
+  return surface;
+}
 
+vec4 getMaterialBaseColor() {
   vec4 color = Color;
   if (flag_colorTexture) color *= getPixel(ColorTexture, UV);
+  return color;
+}
 
-  surface.metalness = Material.metalness;
-  if (flag_metalnessTexture) surface.metalness *= getPixel(MetalnessTexture, UV).b;
+vec3 getMaterialEmissive() {
+  vec3 emissive = Material.glow.rgb * Material.glow.a;
+  if (flag_glow && flag_glowTexture) emissive *= getPixel(GlowTexture, UV).rgb;
+  return emissive;
+}
 
-  surface.f0 = mix(vec3(.04), color.rgb, surface.metalness);
-  surface.diffuse = mix(color.rgb, vec3(0.), surface.metalness);
+float getMaterialMetalness() {
+  float metalness = Material.metalness;
+  if (flag_metalnessTexture) metalness *= getPixel(MetalnessTexture, UV).b;
+  return metalness;
+}
 
-  surface.emissive = Material.glow.rgb * Material.glow.a;
-  if (flag_glow && flag_glowTexture) surface.emissive *= getPixel(GlowTexture, UV).rgb;
+float getMaterialRoughness() {
+  float roughness = Material.roughness;
+  if (flag_roughnessTexture) roughness *= getPixel(RoughnessTexture, UV).g;
+  return roughness;
+}
 
-  surface.roughness = Material.roughness;
-  if (flag_roughnessTexture) surface.roughness *= getPixel(RoughnessTexture, UV).g;
+float getMaterialOcclusion() {
+  float occlusion = 1.;
+  if (flag_ambientOcclusion) occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
+  return occlusion;
+}
+
+float getMaterialClearcoat() {
+  float clearcoat = Material.clearcoat;
+  if (flag_clearcoatTexture) clearcoat *= getPixel(ClearcoatTexture, UV).r;
+  return clearcoat;
+}
+
+float getMaterialClearcoatRoughness() {
+  return Material.clearcoatRoughness;
+}
+
+Surface applyMaterial(inout Surface surface) {
+  surface.baseColor = getMaterialBaseColor();
+  surface.emissive = getMaterialEmissive();
+  surface.metalness = getMaterialMetalness();
+  surface.roughness = getMaterialRoughness();
+  surface.occlusion = getMaterialOcclusion();
+  surface.clearcoat = getMaterialClearcoat();
+  surface.clearcoatRoughness = getMaterialClearcoatRoughness();
+  if (flag_normalMap) {
+    vec3 normalScale = vec3(Material.normalScale, Material.normalScale, 1.);
+    surface.normal = TangentMatrix * normalize((getPixel(NormalTexture, UV).rgb * 2. - 1.) * normalScale);
+  }
+  return surface;
+}
+
+void finalizeSurface(inout Surface surface) {
+  if (!FrontFacing) {
+    surface.normal = -surface.normal;
+    surface.geometricNormal = -surface.geometricNormal;
+  }
+  surface.reflection = reflect(-surface.view, surface.normal);
+  surface.f0 = mix(vec3(.04), surface.baseColor.rgb, surface.metalness);
+  surface.diffuse = mix(surface.baseColor.rgb, vec3(0.), surface.metalness);
   surface.roughness = max(surface.roughness, .05);
   surface.roughness2 = surface.roughness * surface.roughness;
+}
 
-  surface.occlusion = 1.;
-  if (flag_ambientOcclusion) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
+Surface getDefaultSurface() {
+  Surface surface = newSurface();
+  applyMaterial(surface);
+  finalizeSurface(surface);
+  return surface;
+}
 
-  surface.clearcoat = Material.clearcoat;
-  if (flag_clearcoatTexture) surface.clearcoat *= getPixel(ClearcoatTexture, UV).r;
-
-  surface.clearcoatRoughness = Material.clearcoatRoughness;
-
-  surface.alpha = color.a;
+// Deprecated
+void initSurface(out Surface surface) {
+  surface = getDefaultSurface();
 }
 
 float D_GGX(const Surface surface, float NoH) {
