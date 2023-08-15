@@ -31,7 +31,7 @@ jobs:
 
   linux:
     name: Linux
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Update Packages
         run: sudo apt update
