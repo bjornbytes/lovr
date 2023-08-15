@@ -7284,15 +7284,21 @@ static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align) {
 
   if (buffer && cursor + size > buffer->size) {
     buffer->tick = state.tick;
-    if (pool->oldest && gpu_is_complete(pool->oldest->tick)) {
-      buffer = pool->oldest;
-      pool->oldest = pool->oldest->next;
-      pool->newest->next = buffer;
-      pool->newest = buffer;
-      buffer->next = NULL;
-      cursor = 0;
-    } else {
-      buffer = NULL;
+    buffer = NULL;
+
+    // Search through the freelist for a buffer to use
+    ScratchBuffer* previous = NULL;
+    for (ScratchBuffer* b = pool->oldest; b && b != pool->newest; previous = b, b = b->next) {
+      if (b->size >= size && gpu_is_complete(b->tick)) {
+        buffer = b;
+        if (previous) previous->next = buffer->next;
+        else pool->oldest = buffer->next;
+        pool->newest->next = buffer;
+        pool->newest = buffer;
+        buffer->next = NULL;
+        cursor = 0;
+        break;
+      }
     }
   }
 
