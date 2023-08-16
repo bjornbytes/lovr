@@ -401,35 +401,38 @@ const char* lovrWorldGetTagName(World* world, uint32_t tag) {
   return (tag == NO_TAG) ? NULL : world->tags[tag];
 }
 
-int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
+void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
   uint32_t i = findTag(world, tag1);
   uint32_t j = findTag(world, tag2);
+
   if (i == NO_TAG || j == NO_TAG) {
-    return NO_TAG;
+    return;
   }
 
   world->masks[i] &= ~(1 << j);
   world->masks[j] &= ~(1 << i);
-  return 0;
+  return;
 }
 
-int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2) {
+void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2) {
   uint32_t i = findTag(world, tag1);
   uint32_t j = findTag(world, tag2);
+
   if (i == NO_TAG || j == NO_TAG) {
-    return NO_TAG;
+    return;
   }
 
   world->masks[i] |= (1 << j);
   world->masks[j] |= (1 << i);
-  return 0;
+  return;
 }
 
-int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2) {
+bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2) {
   uint32_t i = findTag(world, tag1);
   uint32_t j = findTag(world, tag2);
+
   if (i == NO_TAG || j == NO_TAG) {
-    return NO_TAG;
+    return true;
   }
 
   return (world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i));

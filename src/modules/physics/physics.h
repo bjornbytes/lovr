@@ -67,9 +67,9 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 bool lovrWorldIsSleepingAllowed(World* world);
 void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 const char* lovrWorldGetTagName(World* world, uint32_t tag);
-int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
-int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
-int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
+void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
+void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
+bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
 
 // Collider
 

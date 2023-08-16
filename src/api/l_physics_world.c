@@ -392,8 +392,8 @@ static int l_lovrWorldEnableCollisionBetween(lua_State* L) {
 
 static int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  const char* tag1 = luaL_checkstring(L, 2);
-  const char* tag2 = luaL_checkstring(L, 3);
+  const char* tag1 = lua_tostring(L, 2);
+  const char* tag2 = lua_tostring(L, 3);
   lua_pushboolean(L, lovrWorldIsCollisionEnabledBetween(world, tag1, tag2));
   return 1;
 }
