@@ -99,10 +99,6 @@ static int l_lovrHttpRequest(lua_State* L) {
       }
     }
     lua_pop(L, 1);
-
-    lua_getfield(L, 2, "timeout");
-    if (!lua_isnil(L, -1)) request.timeout = lua_tointeger(L, -1);
-    lua_pop(L, 1);
   }
 
   Response response = {

@@ -191,7 +191,168 @@ bool lovrHttpRequest(Request* req, Response* res) {
   InternetCloseHandle(connection);
   return true;
 }
+#elif defined(__ANDROID__)
+#include "core/os.h"
+#include <jni.h>
 
+void* os_get_jni_context(void);
+
+static struct {
+  bool initialized;
+} state;
+
+bool lovrHttpInit(void) {
+  if (state.initialized) return false;
+  state.initialized = true;
+  return true;
+}
+
+void lovrHttpDestroy(void) {
+  if (!state.initialized) return;
+  memset(&state, 0, sizeof(state));
+}
+
+bool lovrHttpRequest(Request* request, Response* response) {
+  JNIEnv* jni = os_get_jni_context();
+
+  // URL jurl = new URL(request->url);
+  jclass jURL = (*jni)->FindClass(jni, "java/net/URL");
+  jmethodID jURL_init = (*jni)->GetMethodID(jni, jURL, "<init>", "(Ljava/lang/String;)V");
+  jstring jarg = (*jni)->NewStringUTF(jni, request->url);
+  jobject jurl = (*jni)->NewObject(jni, jURL, jURL_init, jarg);
+  // TODO check exception
+  (*jni)->DeleteLocalRef(jni, jarg);
+
+  // HttpURLConnection jconnection = (HttpURLConnection) jurl.openConnection();
+  jmethodID jURL_openConnection = (*jni)->GetMethodID(jni, jURL, "openConnection", "()Ljava/net/URLConnection");
+  jobject jconnection = (*jni)->CallObjectMethod(jni, jurl, jURL_openConnection);
+
+  // jconnection.setRequestMethod(method);
+  jclass jHttpURLConnection = (*jni)->FindClass(jni, "java/net/HttpURLConnection");
+  jmethodID jHttpURLConnection_setRequestMethod = (*jni)->GetMethodID(jni, jHttpURLConnection, "setRequestMethod", "(Ljava/lang/String;)V");
+  const char* method = request->method ? request->method : (request->data ? "POST" : "GET");
+  jstring jmethod = (*jni)->NewStringUTF(jni, method);
+  (*jni)->CallVoidMethod(jni, jconnection, jHttpURLConnection_setRequestMethod, jmethod);
+  // TODO check exception
+  (*jni)->DeleteLocalRef(jni, jmethod);
+
+  // jconnection.setRequestProperty(headerName, headerValue);
+  jmethodID jURLConnection_setRequestProperty = (*jni)->GetMethodID(jni, jHttpURLConnection, "setRequestProperty", "(Ljava/lang/String;Ljava/lang/String;)V");
+  for (uint32_t i = 0; i < request->headerCount; i++) {
+    jstring jname = (*jni)->NewStringUTF(jni, request->headers[2 * i + 0]);
+    jstring jvalue = (*jni)->NewStringUTF(jni, request->headers[2 * i + 1]);
+    (*jni)->CallVoidMethod(jni, jconnection, jURLConnection_setRequestProperty, jname, jvalue);
+    // TODO check exception
+    (*jni)->DeleteLocalRef(jni, jname);
+    (*jni)->DeleteLocalRef(jni, jvalue);
+  }
+
+  if (request->data) {
+    // jconnection.setDoOutput(true);
+    jmethodID jURLConnection_setDoOutput = (*jni)->GetMethodID(jni, jHttpURLConnection, "setDoOutput", "(Z)V");
+    (*jni)->CallVoidMethod(jni, jconnection, jURLConnection_setDoOutput, true);
+    // TODO check exception
+
+    // OutputStream joutput = jconnection.getOutputStream();
+    jmethodID jURLConnection_getOutputStream = (*jni)->GetMethodID(jni, jHttpURLConnection, "getOutputStream", "()Ljava/io/OutputStream;");
+    jobject joutput = (*jni)->CallObjectMethod(jni, jconnection, jURLConnection_getOutputStream);
+    // TODO check exception
+
+    // joutput.write(request->data);
+    jbyteArray jarray = (*jni)->NewByteArray(jni, request->size);
+    jbyte* bytes = (*jni)->GetByteArrayElements(jni, jarray, NULL);
+    memcpy(bytes, request->data, request->size);
+    jclass jOutputStream = (*jni)->FindClass(jni, "java/io/OutputStream");
+    jmethodID jOutputStream_write = (*jni)->GetMethodID(jni, jOutputStream, "write", "([B)V");
+    (*jni)->CallVoidMethod(jni, joutput, jOutputStream_write, jarray);
+    // TODO check exception
+    (*jni)->ReleaseByteArrayElements(jni, jarray, bytes, 0);
+    (*jni)->DeleteLocalRef(jni, jarray);
+  }
+
+  // jconnection.connect();
+  jmethodID jURLConnection_connect = (*jni)->GetMethodID(jni, jHttpURLConnection, "connect", "()V");
+  (*jni)->CallVoidMethod(jni, jconnection, jURLConnection_connect);
+
+  // response->status = jconnection.getResponseCode();
+  jmethodID jHttpURLConnection_getResponseCode = (*jni)->GetMethodID(jni, jHttpURLConnection, "getResponseCode", "()I");
+  response->status = (*jni)->CallIntMethod(jni, jconnection, jHttpURLConnection_getResponseCode);
+
+  jmethodID jHttpURLConnection_getHeaderFieldKey = (*jni)->GetMethodID(jni, jHttpURLConnection, "getHeaderFieldKey", "(I)Ljava/lang/String;");
+  jmethodID jHttpURLConnection_getHeaderField = (*jni)->GetMethodID(jni, jHttpURLConnection, "getHeaderField", "(I)Ljava/lang/String;");
+
+  jint headerIndex = 0;
+
+  for (;;) {
+    jstring jname = (*jni)->CallObjectMethod(jni, jconnection, jHttpURLConnection_getHeaderFieldKey, headerIndex);
+    jstring jvalue = (*jni)->CallObjectMethod(jni, jconnection, jHttpURLConnection_getHeaderField, headerIndex);
+
+    if (!jvalue) {
+      break;
+    }
+
+    if (!jname) {
+      headerIndex++;
+      continue;
+    }
+
+    size_t nameLength = (*jni)->GetStringUTFLength(jni, jname);
+    const char* name = (*jni)->GetStringUTFChars(jni, jname, NULL);
+
+    size_t valueLength = (*jni)->GetStringUTFLength(jni, jvalue);
+    const char* value = (*jni)->GetStringUTFChars(jni, jvalue, NULL);
+
+    // TODO name/value use Java's weird "modified UTF" encoding.  It's close to utf8 but not quite.
+    response->onHeader(response->userdata, name, nameLength, value, valueLength);
+
+    (*jni)->ReleaseStringUTFChars(jni, jname, name);
+    (*jni)->ReleaseStringUTFChars(jni, jvalue, value);
+    headerIndex++;
+  }
+
+  // InputStream jinput = jconnection.getInputStream(); (or getErrorStream)
+  jmethodID jURLConnection_getInputStream = (*jni)->GetMethodID(jni, jHttpURLConnection, "getInputStream", "()Ljava/io/InputStream;");
+  jmethodID jURLConnection_getErrorStream = (*jni)->GetMethodID(jni, jHttpURLConnection, "getErrorStream", "()Ljava/io/InputStream;");
+
+  jobject jinput;
+  if (response->status >= 400) {
+    jobject jinput = (*jni)->CallObjectMethod(jni, jconnection, jURLConnection_getErrorStream);
+  } else {
+    jobject jinput = (*jni)->CallObjectMethod(jni, jconnection, jURLConnection_getInputStream);
+  }
+
+  jclass jInputStream = (*jni)->FindClass(jni, "java/io/InputStream");
+  jmethodID jInputStream_read = (*jni)->GetMethodID(jni, jInputStream, "read", "([B)I");
+
+  response->data = NULL;
+  response->size = 0;
+
+  jbyteArray jbuffer = (*jni)->NewByteArray(jni, 16384);
+
+  for (;;) {
+    // int bytesRead = jinput.read(buffer);
+    jint bytesRead = (*jni)->CallIntMethod(jni, jinput, jInputStream_read, jbuffer);
+    // TODO check exception
+
+    if (bytesRead == -1) {
+      break;
+    }
+
+    response->data = realloc(response->data, response->size + bytesRead);
+    lovrAssert(response->data, "Out of memory");
+
+    (*jni)->GetByteArrayRegion(jni, jbuffer, 0, bytesRead, (jbyte*) response->data + response->size);
+    response->size += bytesRead;
+  }
+
+  (*jni)->DeleteLocalRef(jni, jbuffer);
+
+  // jconnection.disconnect();
+  jmethodID jURLConnection_disconnect = (*jni)->GetMethodID(jni, jHttpURLConnection, "disconnect", "()V");
+  (*jni)->CallVoidMethod(jni, jconnection, jURLConnection_disconnect);
+
+  return true;
+}
 #elif defined(__linux__)
 #include <curl/curl.h>
 #include <dlfcn.h>
@@ -327,7 +488,6 @@ bool lovrHttpRequest(Request* request, Response* response) {
     arr_free(&header);
   }
 
-  curl.easy_setopt(handle, CURLOPT_TIMEOUT, request->timeout);
   curl.easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
 
   response->size = 0;
@@ -348,7 +508,6 @@ bool lovrHttpRequest(Request* request, Response* response) {
   curl.slist_free_all(headers);
   return true;
 }
-
 #else
 #error "Unsupported HTTP platform"
 #endif
