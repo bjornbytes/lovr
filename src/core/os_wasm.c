@@ -305,6 +305,10 @@ float os_window_get_pixel_density(void) {
   return (w == 0 || h == 0) ? 0.f : (float) fw / w;
 }
 
+void os_window_message_box(const char* message) {
+  //
+}
+
 void os_on_quit(fn_quit* callback) {
   state.onQuitRequest = callback;
 }

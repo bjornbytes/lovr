@@ -64,6 +64,10 @@ bool os_vm_release(void* p, size_t size) {
   return !madvise(p, size, MADV_DONTNEED);
 }
 
+void os_window_message_box(const char* message) {
+  //
+}
+
 size_t os_get_home_directory(char* buffer, size_t size) {
   const char* path = getenv("HOME");
 

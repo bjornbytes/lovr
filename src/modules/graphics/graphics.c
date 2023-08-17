@@ -15,6 +15,7 @@
 #include "shaders.h"
 #include <math.h>
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef LOVR_USE_GLSLANG
@@ -7933,6 +7934,18 @@ static void onResize(uint32_t width, uint32_t height) {
 
 static void onMessage(void* context, const char* message, bool severe) {
   if (severe) {
+#ifdef _WIN32
+    if (!state.initialized) {
+      const char* format = "This program requires a graphics card with support for Vulkan 1.1, but no device was found or it failed to initialize properly.  The error message was:\n\n%s";
+      size_t size = snprintf(NULL, 0, format, message) + 1;
+      char* string = malloc(size);
+      lovrAssert(string, "Out of memory");
+      snprintf(string, size, format, message);
+      os_window_message_box(string);
+      free(string);
+      exit(1);
+    }
+#endif
     lovrThrow("GPU error: %s", message);
   } else {
     lovrLog(LOG_DEBUG, "GPU", message);
