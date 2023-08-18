@@ -1,6 +1,6 @@
 #include "headset/headset.h"
 
-extern bool webxr_init(float supersample, float offset, uint32_t msaa, bool overlay);
+extern bool webxr_init(float supersample, float offset, uint32_t msaa, int overlay);
 extern void webxr_start(void);
 extern void webxr_destroy(void);
 extern bool webxr_getName(char* name, size_t length);

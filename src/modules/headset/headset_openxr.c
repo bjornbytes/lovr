@@ -178,7 +178,7 @@ static struct {
     bool handTrackingMesh;
     bool headless;
     bool keyboardTracking;
-    bool overlay;
+    int overlay;
     bool refreshRate;
     bool viveTrackers;
   } features;
@@ -912,10 +912,11 @@ static void openxr_start(void) {
 #ifdef XR_EXTX_overlay
     XrSessionCreateInfoOverlayEXTX overlayInfo = {
       .type = XR_TYPE_SESSION_CREATE_INFO_OVERLAY_EXTX,
-      .next = info.next
+      .next = info.next,
+      .sessionLayersPlacement = state.features.overlay
     };
 
-    if (state.features.overlay) {
+    if (state.features.overlay > 0) {
       info.next = &overlayInfo;
     }
 #endif
@@ -1079,7 +1080,7 @@ static void openxr_start(void) {
 
     XrCompositionLayerFlags layerFlags = 0;
 
-    if (state.features.overlay) {
+    if (state.features.overlay > 0) {
       layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
     }
 
