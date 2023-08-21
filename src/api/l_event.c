@@ -8,11 +8,17 @@
 StringEntry lovrEventType[] = {
   [EVENT_QUIT] = ENTRY("quit"),
   [EVENT_RESTART] = ENTRY("restart"),
+  [EVENT_VISIBLE] = ENTRY("visible"),
   [EVENT_FOCUS] = ENTRY("focus"),
+  [EVENT_RECENTER] = ENTRY("recenter"),
   [EVENT_RESIZE] = ENTRY("resize"),
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
   [EVENT_KEYRELEASED] = ENTRY("keyreleased"),
   [EVENT_TEXTINPUT] = ENTRY("textinput"),
+  [EVENT_MOUSEPRESSED] = ENTRY("mousepressed"),
+  [EVENT_MOUSERELEASED] = ENTRY("mousereleased"),
+  [EVENT_MOUSEMOVED] = ENTRY("mousemoved"),
+  [EVENT_MOUSEWHEELMOVED] = ENTRY("wheelmoved"),
 #ifndef LOVR_DISABLE_THREAD
   [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
 #endif
@@ -65,15 +71,44 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
 
       lua_pushliteral(L, "__info");
       lua_rawget(L, -2);
-      TypeInfo* info = lua_touserdata(L, -1);
-      variant->value.object.type = info->name;
-      variant->value.object.destructor = info->destructor;
-      lua_pop(L, 1);
+      if (!lua_isnil(L, -1)) {
+        TypeInfo* info = lua_touserdata(L, -1);
+        variant->value.object.type = info->name;
+        variant->value.object.destructor = info->destructor;
+        lua_pop(L, 1);
 
-      variant->value.object.pointer = proxy->object;
-      lovrRetain(proxy->object);
-      lua_pop(L, 1);
-      break;
+        variant->value.object.pointer = proxy->object;
+        lovrRetain(proxy->object);
+        lua_pop(L, 1);
+        break;
+      } else {
+        lua_pop(L, 2);
+      }
+      /* fallthrough */
+
+    case LUA_TLIGHTUSERDATA: {
+      VectorType type;
+      float* v = luax_tovector(L, index, &type);
+      if (v) {
+        if (type == V_MAT4) {
+          variant->type = TYPE_MATRIX;
+          variant->value.matrix.data = malloc(16 * sizeof(float));
+          lovrAssert(variant->value.matrix.data, "Out of memory");
+          memcpy(variant->value.matrix.data, v, 16 * sizeof(float));
+          break;
+        } else {
+          variant->type = TYPE_VECTOR;
+          variant->value.vector.type = type;
+          memcpy(variant->value.vector.data, v, (type == V_VEC2 ? 2 : 4) * sizeof(float));
+          break;
+        }
+      } else if (lua_type(L, index) == LUA_TLIGHTUSERDATA) {
+        variant->type = TYPE_POINTER;
+        variant->value.pointer = lua_touserdata(L, index);
+        break;
+      }
+      lovrThrow("Bad userdata variant for argument %d (expected object, vector, or lightuserdata)", index);
+    }
 
     default:
       lovrThrow("Bad variant type for argument %d: %s", index, lua_typename(L, type));
@@ -88,7 +123,10 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushlstring(L, variant->value.string.pointer, variant->value.string.length); return 1;
     case TYPE_MINISTRING: lua_pushlstring(L, variant->value.ministring.data, variant->value.ministring.length); return 1;
+    case TYPE_POINTER: lua_pushlightuserdata(L, variant->value.pointer); return 1;
     case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash64(variant->value.object.type, strlen(variant->value.object.type)), variant->value.object.pointer); return 1;
+    case TYPE_VECTOR: memcpy(luax_newtempvector(L, variant->value.vector.type), variant->value.vector.data, (variant->value.vector.type == V_VEC2 ? 2 : 4) * sizeof(float)); return 1;
+    case TYPE_MATRIX: memcpy(luax_newtempvector(L, V_MAT4), variant->value.vector.data, 16 * sizeof(float)); return 1;
     default: return 0;
   }
 }
@@ -111,9 +149,16 @@ static int nextEvent(lua_State* L) {
       lua_pushnumber(L, event.data.quit.exitCode);
       return 2;
 
+    case EVENT_VISIBLE:
+      lua_pushboolean(L, event.data.boolean.value);
+      return 2;
+
     case EVENT_FOCUS:
       lua_pushboolean(L, event.data.boolean.value);
       return 2;
+
+    case EVENT_RECENTER:
+      return 1;
 
     case EVENT_RESIZE:
       lua_pushinteger(L, event.data.resize.width);
@@ -134,6 +179,25 @@ static int nextEvent(lua_State* L) {
     case EVENT_TEXTINPUT:
       lua_pushlstring(L, event.data.text.utf8, strnlen(event.data.text.utf8, 4));
       lua_pushinteger(L, event.data.text.codepoint);
+      return 3;
+
+    case EVENT_MOUSEPRESSED:
+    case EVENT_MOUSERELEASED:
+      lua_pushnumber(L, event.data.mouse.x);
+      lua_pushnumber(L, event.data.mouse.y);
+      lua_pushinteger(L, event.data.mouse.button + 1);
+      return 4;
+
+    case EVENT_MOUSEMOVED:
+      lua_pushnumber(L, event.data.mouse.x);
+      lua_pushnumber(L, event.data.mouse.y);
+      lua_pushnumber(L, event.data.mouse.dx);
+      lua_pushnumber(L, event.data.mouse.dy);
+      return 5;
+
+    case EVENT_MOUSEWHEELMOVED:
+      lua_pushnumber(L, event.data.wheel.x);
+      lua_pushnumber(L, event.data.wheel.y);
       return 3;
 
 #ifndef LOVR_DISABLE_THREAD
@@ -173,11 +237,6 @@ static int l_lovrEventPoll(lua_State* L) {
   return 1;
 }
 
-static int l_lovrEventPump(lua_State* L) {
-  lovrEventPump();
-  return 0;
-}
-
 static int l_lovrEventPush(lua_State* L) {
   CustomEvent eventData;
   const char* name = luaL_checkstring(L, 1);
@@ -207,7 +266,6 @@ static int l_lovrEventRestart(lua_State* L) {
 static const luaL_Reg lovrEvent[] = {
   { "clear", l_lovrEventClear },
   { "poll", l_lovrEventPoll },
-  { "pump", l_lovrEventPump },
   { "push", l_lovrEventPush },
   { "quit", l_lovrEventQuit },
   { "restart", l_lovrEventRestart },

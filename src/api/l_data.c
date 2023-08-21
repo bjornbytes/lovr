@@ -12,6 +12,7 @@ StringEntry lovrAnimationProperty[] = {
   [PROP_TRANSLATION] = ENTRY("translation"),
   [PROP_ROTATION] = ENTRY("rotation"),
   [PROP_SCALE] = ENTRY("scale"),
+  [PROP_WEIGHTS] = ENTRY("weights"),
   { 0 }
 };
 
@@ -37,13 +38,13 @@ StringEntry lovrDefaultAttribute[] = {
   { 0 }
 };
 
-StringEntry lovrDrawMode[] = {
-  [DRAW_POINTS] = ENTRY("points"),
-  [DRAW_LINES] = ENTRY("lines"),
+StringEntry lovrModelDrawMode[] = {
+  [DRAW_POINT_LIST] = ENTRY("points"),
+  [DRAW_LINE_LIST] = ENTRY("lines"),
   [DRAW_LINE_STRIP] = ENTRY("linestrip"),
   [DRAW_LINE_LOOP] = ENTRY("lineloop"),
+  [DRAW_TRIANGLE_LIST] = ENTRY("triangles"),
   [DRAW_TRIANGLE_STRIP] = ENTRY("strip"),
-  [DRAW_TRIANGLES] = ENTRY("triangles"),
   [DRAW_TRIANGLE_FAN] = ENTRY("fan"),
   { 0 }
 };

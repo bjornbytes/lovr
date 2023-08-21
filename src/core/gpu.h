@@ -27,7 +27,15 @@ size_t gpu_sizeof_tally(void);
 
 // Buffer
 
+typedef enum {
+  GPU_BUFFER_STATIC,
+  GPU_BUFFER_STREAM,
+  GPU_BUFFER_UPLOAD,
+  GPU_BUFFER_DOWNLOAD
+} gpu_buffer_type;
+
 typedef struct {
+  gpu_buffer_type type;
   uint32_t size;
   void** pointer;
   uintptr_t handle;
@@ -36,14 +44,6 @@ typedef struct {
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
-
-typedef enum {
-  GPU_MAP_STREAM,
-  GPU_MAP_STAGING,
-  GPU_MAP_READBACK
-} gpu_map_mode;
-
-void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode);
 
 // Texture
 
@@ -197,7 +197,6 @@ typedef enum {
 } gpu_slot_type;
 
 enum {
-  GPU_STAGE_ALL = 0,
   GPU_STAGE_VERTEX = (1 << 0),
   GPU_STAGE_FRAGMENT = (1 << 1),
   GPU_STAGE_COMPUTE = (1 << 2),
@@ -271,6 +270,11 @@ void gpu_bundle_pool_destroy(gpu_bundle_pool* pool);
 void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* info, uint32_t count);
 
 // Pipeline
+
+typedef enum {
+  GPU_PIPELINE_GRAPHICS,
+  GPU_PIPELINE_COMPUTE
+} gpu_pipeline_type;
 
 typedef enum {
   GPU_FLAG_B32,
@@ -461,7 +465,6 @@ void gpu_pipeline_get_cache(void* data, size_t* size);
 
 typedef enum {
   GPU_TALLY_TIME,
-  GPU_TALLY_SHADER,
   GPU_TALLY_PIXEL
 } gpu_tally_type;
 
@@ -472,6 +475,7 @@ typedef struct {
 
 bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info);
 void gpu_tally_destroy(gpu_tally* tally);
+void gpu_tally_get_data(gpu_tally* tally, uint32_t index, uint32_t count, uint32_t* data);
 
 // Stream
 
@@ -496,6 +500,7 @@ typedef struct {
 
 typedef struct {
   gpu_texture* texture;
+  gpu_texture* resolve;
   gpu_load_op load, stencilLoad;
   gpu_save_op save, stencilSave;
   struct { float depth; uint8_t stencil; } clear;
@@ -560,7 +565,7 @@ void gpu_compute_end(gpu_stream* stream);
 void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[2]);
 void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]);
 void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size);
-void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute);
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_type type);
 void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundles, uint32_t first, uint32_t count, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount);
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count);
 void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type);
@@ -570,18 +575,18 @@ void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, 
 void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride);
 void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z);
 void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset);
-void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size);
-void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t size[3]);
+void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);
+void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]);
 void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint32_t srcOffset[4], uint32_t dstOffset, uint32_t extent[3]);
-void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride);
+void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count);
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size);
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
 void gpu_clear_tally(gpu_stream* stream, gpu_tally* tally, uint32_t index, uint32_t count);
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter);
 void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count);
 void gpu_tally_begin(gpu_stream* stream, gpu_tally* tally, uint32_t index);
-void gpu_tally_end(gpu_stream* stream, gpu_tally* tally, uint32_t index);
+void gpu_tally_finish(gpu_stream* stream, gpu_tally* tally, uint32_t index);
 void gpu_tally_mark(gpu_stream* stream, gpu_tally* tally, uint32_t index);
 
 // Entry
@@ -607,13 +612,14 @@ enum {
 };
 
 typedef struct {
-  uint8_t formats[GPU_FORMAT_COUNT];
+  uint8_t formats[GPU_FORMAT_COUNT][2];
   bool textureBC;
   bool textureASTC;
   bool wireframe;
   bool depthClamp;
+  bool depthResolve;
   bool indirectDrawFirstInstance;
-  bool shaderTally;
+  bool shaderDebug;
   bool float64;
   bool int64;
   bool int16;

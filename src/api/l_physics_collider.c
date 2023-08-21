@@ -10,6 +10,13 @@ static int l_lovrColliderDestroy(lua_State* L) {
   return 0;
 }
 
+static int l_lovrColliderIsDestroyed(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool destroyed = lovrColliderIsDestroyed(collider);
+  lua_pushboolean(L, destroyed);
+  return 1;
+}
+
 static int l_lovrColliderGetWorld(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   World* world = lovrColliderGetWorld(collider);
@@ -203,7 +210,7 @@ static int l_lovrColliderGetPosition(lua_State* L) {
 
 static int l_lovrColliderSetPosition(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float position[4];
+  float position[3];
   luax_readvec3(L, 2, position, NULL);
   lovrColliderSetPosition(collider, position[0], position[1], position[2]);
   return 0;
@@ -247,7 +254,7 @@ static int l_lovrColliderGetPose(lua_State* L) {
 
 static int l_lovrColliderSetPose(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   int index = luax_readvec3(L, 2, position, NULL);
   luax_readquat(L, index, orientation, NULL);
   lovrColliderSetPosition(collider, position[0], position[1], position[2]);
@@ -267,7 +274,7 @@ static int l_lovrColliderGetLinearVelocity(lua_State* L) {
 
 static int l_lovrColliderSetLinearVelocity(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float velocity[4];
+  float velocity[3];
   luax_readvec3(L, 2, velocity, NULL);
   lovrColliderSetLinearVelocity(collider, velocity[0], velocity[1], velocity[2]);
   return 0;
@@ -285,7 +292,7 @@ static int l_lovrColliderGetAngularVelocity(lua_State* L) {
 
 static int l_lovrColliderSetAngularVelocity(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float velocity[4];
+  float velocity[3];
   luax_readvec3(L, 2, velocity, NULL);
   lovrColliderSetAngularVelocity(collider, velocity[0], velocity[1], velocity[2]);
   return 0;
@@ -327,11 +334,11 @@ static int l_lovrColliderSetAngularDamping(lua_State* L) {
 
 static int l_lovrColliderApplyForce(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float force[4];
+  float force[3];
   int index = luax_readvec3(L, 2, force, NULL);
 
   if (lua_gettop(L) >= index) {
-    float position[4];
+    float position[3];
     luax_readvec3(L, index, position, NULL);
     lovrColliderApplyForceAtPosition(collider, force[0], force[1], force[2],
       position[0], position[1], position[2]);
@@ -344,7 +351,7 @@ static int l_lovrColliderApplyForce(lua_State* L) {
 
 static int l_lovrColliderApplyTorque(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float force[4];
+  float force[3];
   luax_readvec3(L, 2, force, NULL);
   lovrColliderApplyTorque(collider, force[0], force[1], force[2]);
   return 0;
@@ -362,7 +369,7 @@ static int l_lovrColliderGetLocalCenter(lua_State* L) {
 
 static int l_lovrColliderGetLocalPoint(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float world[4];
+  float world[3];
   luax_readvec3(L, 2, world, NULL);
   float x, y, z;
   lovrColliderGetLocalPoint(collider, world[0], world[1], world[2], &x, &y, &z);
@@ -374,7 +381,7 @@ static int l_lovrColliderGetLocalPoint(lua_State* L) {
 
 static int l_lovrColliderGetWorldPoint(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float local[4];
+  float local[3];
   luax_readvec3(L, 2, local, NULL);
   float wx, wy, wz;
   lovrColliderGetWorldPoint(collider, local[0], local[1], local[2], &wx, &wy, &wz);
@@ -386,7 +393,7 @@ static int l_lovrColliderGetWorldPoint(lua_State* L) {
 
 static int l_lovrColliderGetLocalVector(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float world[4];
+  float world[3];
   luax_readvec3(L, 2, world, NULL);
   float x, y, z;
   lovrColliderGetLocalVector(collider, world[0], world[1], world[2], &x, &y, &z);
@@ -398,7 +405,7 @@ static int l_lovrColliderGetLocalVector(lua_State* L) {
 
 static int l_lovrColliderGetWorldVector(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float local[4];
+  float local[3];
   luax_readvec3(L, 2, local, NULL);
   float wx, wy, wz;
   lovrColliderGetWorldVector(collider, local[0], local[1], local[2], &wx, &wy, &wz);
@@ -410,7 +417,7 @@ static int l_lovrColliderGetWorldVector(lua_State* L) {
 
 static int l_lovrColliderGetLinearVelocityFromLocalPoint(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float local[4];
+  float local[3];
   luax_readvec3(L, 2, local, NULL);
   float vx, vy, vz;
   lovrColliderGetLinearVelocityFromLocalPoint(collider, local[0], local[1], local[2], &vx, &vy, &vz);
@@ -422,7 +429,7 @@ static int l_lovrColliderGetLinearVelocityFromLocalPoint(lua_State* L) {
 
 static int l_lovrColliderGetLinearVelocityFromWorldPoint(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float world[4];
+  float world[3];
   luax_readvec3(L, 2, world, NULL);
   float vx, vy, vz;
   lovrColliderGetLinearVelocityFromWorldPoint(collider, world[0], world[1], world[2], &vx, &vy, &vz);
@@ -491,6 +498,7 @@ static int l_lovrColliderSetTag(lua_State* L) {
 
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
+  { "isDestroyed", l_lovrColliderIsDestroyed },
   { "getWorld", l_lovrColliderGetWorld },
   { "addShape", l_lovrColliderAddShape },
   { "removeShape", l_lovrColliderRemoveShape },

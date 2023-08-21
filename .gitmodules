@@ -16,9 +16,6 @@
 [submodule "deps/openxr"]
 	path = deps/openxr
 	url = https://github.com/khronosgroup/openxr-sdk
-[submodule "deps/oculus-openxr"]
-	path = deps/oculus-openxr
-	url = https://github.com/lovr-org/ovr_openxr_mobile_sdk
 [submodule "deps/glslang"]
 	path = deps/glslang
 	url = https://github.com/bjornbytes/glslang
@@ -28,3 +25,6 @@
 [submodule "deps/pico-openxr"]
 	path = deps/pico-openxr
 	url = https://github.com/lovr-org/pico_openxr_sdk
+[submodule "plugins/lua-enet"]
+	path = plugins/lua-enet
+	url = https://github.com/bjornbytes/lua-enet

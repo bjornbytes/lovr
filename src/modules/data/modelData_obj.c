@@ -5,7 +5,6 @@
 #include "util.h"
 #include <stdlib.h>
 #include <float.h>
-#include <ctype.h>
 
 typedef struct {
   uint32_t material;
@@ -21,7 +20,7 @@ typedef arr_t(objGroup) arr_group_t;
 
 static uint32_t nomu32(char* s, char** end) {
   uint32_t n = 0;
-  while (isdigit(*s)) { n = 10 * n + (*s++ - '0'); }
+  while (*s >= '0' && *s <= '9') { n = 10 * n + (*s++ - '0'); }
   *end = s;
   return n;
 }
@@ -75,8 +74,12 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       ModelMaterial* material = &materials->data[materials->length - 1];
       memcpy(material->color, (float[4]) { r, g, b, 1.f }, 16);
     } else if (STARTS_WITH(line, "map_Kd ")) {
+      const char* subpath = line + 7;
+      lovrAssert(subpath[0] != '/', "Absolute paths in models are not supported");
+      if (subpath[0] && subpath[1] && !memcmp(subpath, "./", 2)) subpath += 2;
+
       lovrAssert(base - path + (length - 7) < 1024, "Bad OBJ: Material image filename is too long");
-      memcpy(base, line + 7, length - 7);
+      memcpy(base, subpath, length - 7);
       base[length - 7] = '\0';
 
       size_t imageSize = 0;
@@ -240,6 +243,8 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
     } else if (STARTS_WITH(line, "mtllib ")) {
       const char* filename = line + 7;
       size_t filenameLength = strlen(filename);
+      lovrAssert(filename[0] != '/', "Absolute paths in models are not supported");
+      if (filenameLength > 2 && !memcmp(filename, "./", 2)) filename += 2;
       lovrAssert(baseLength + filenameLength < sizeof(path), "Bad OBJ: Material filename is too long");
       memcpy(path + baseLength, filename, filenameLength);
       path[baseLength + filenameLength] = '\0';
@@ -357,7 +362,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   for (size_t i = 0; i < groups.length; i++) {
     objGroup* group = &groups.data[i];
     model->primitives[i] = (ModelPrimitive) {
-      .mode = DRAW_TRIANGLES,
+      .mode = DRAW_TRIANGLE_LIST,
       .attributes = {
         [ATTR_POSITION] = &model->attributes[0],
         [ATTR_NORMAL] = &model->attributes[1],

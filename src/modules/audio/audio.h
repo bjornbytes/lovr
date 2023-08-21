@@ -39,6 +39,13 @@ typedef enum {
   AUDIO_EXCLUSIVE
 } AudioShareMode;
 
+typedef struct {
+  size_t idSize;
+  const void* id;
+  const char* name;
+  bool isDefault;
+} AudioDevice;
+
 typedef enum {
   AUDIO_PLAYBACK,
   AUDIO_CAPTURE
@@ -54,19 +61,20 @@ typedef enum {
   UNIT_DECIBELS
 } VolumeUnit;
 
-typedef void AudioDeviceCallback(const void* id, size_t size, const char* name, bool isDefault, void* userdata);
+typedef void AudioDeviceCallback(AudioDevice* device, void* userdata);
 
 bool lovrAudioInit(const char* spatializer, uint32_t sampleRate);
 void lovrAudioDestroy(void);
 void lovrAudioEnumerateDevices(AudioType type, AudioDeviceCallback* callback, void* userdata);
+bool lovrAudioGetDevice(AudioType type, AudioDevice* device);
 bool lovrAudioSetDevice(AudioType type, void* id, size_t size, struct Sound* sink, AudioShareMode shareMode);
 bool lovrAudioStart(AudioType type);
 bool lovrAudioStop(AudioType type);
 bool lovrAudioIsStarted(AudioType type);
 float lovrAudioGetVolume(VolumeUnit units);
 void lovrAudioSetVolume(float volume, VolumeUnit units);
-void lovrAudioGetPose(float position[4], float orientation[4]);
-void lovrAudioSetPose(float position[4], float orientation[4]);
+void lovrAudioGetPose(float position[3], float orientation[4]);
+void lovrAudioSetPose(float position[3], float orientation[4]);
 bool lovrAudioSetGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
 const char* lovrAudioGetSpatializer(void);
 uint32_t lovrAudioGetSampleRate(void);
@@ -94,8 +102,8 @@ double lovrSourceTell(Source* source, TimeUnit units);
 double lovrSourceGetDuration(Source* source, TimeUnit units);
 bool lovrSourceIsPitchable(Source* source);
 bool lovrSourceIsSpatial(Source* source);
-void lovrSourceGetPose(Source* source, float position[4], float orientation[4]);
-void lovrSourceSetPose(Source* source, float position[4], float orientation[4]);
+void lovrSourceGetPose(Source* source, float position[3], float orientation[4]);
+void lovrSourceSetPose(Source* source, float position[3], float orientation[4]);
 float lovrSourceGetRadius(Source* source);
 void lovrSourceSetRadius(Source* source, float radius);
 void lovrSourceGetDirectivity(Source* source, float* weight, float* power);

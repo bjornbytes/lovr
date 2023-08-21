@@ -12,7 +12,7 @@ struct Texture;
 struct Pass;
 
 typedef enum {
-  DRIVER_DESKTOP,
+  DRIVER_SIMULATOR,
   DRIVER_OPENXR,
   DRIVER_WEBXR
 } HeadsetDriver;
@@ -21,7 +21,7 @@ typedef struct {
   HeadsetDriver* drivers;
   size_t driverCount;
   float supersample;
-  float offset;
+  bool seated;
   bool stencil;
   bool antialias;
   bool submitDepth;
@@ -29,16 +29,26 @@ typedef struct {
 } HeadsetConfig;
 
 typedef enum {
-  ORIGIN_HEAD,
-  ORIGIN_FLOOR
-} HeadsetOrigin;
+  PASSTHROUGH_OPAQUE,
+  PASSTHROUGH_BLEND,
+  PASSTHROUGH_ADD,
+  PASSTHROUGH_DEFAULT = -1,
+  PASSTHROUGH_TRANSPARENT = -2
+} PassthroughMode;
 
 typedef enum {
   DEVICE_HEAD,
+  DEVICE_FLOOR,
   DEVICE_HAND_LEFT,
   DEVICE_HAND_RIGHT,
+  DEVICE_HAND_LEFT_GRIP,
+  DEVICE_HAND_RIGHT_GRIP,
   DEVICE_HAND_LEFT_POINT,
   DEVICE_HAND_RIGHT_POINT,
+  DEVICE_HAND_LEFT_PINCH,
+  DEVICE_HAND_RIGHT_PINCH,
+  DEVICE_HAND_LEFT_POKE,
+  DEVICE_HAND_RIGHT_POKE,
   DEVICE_ELBOW_LEFT,
   DEVICE_ELBOW_RIGHT,
   DEVICE_SHOULDER_LEFT,
@@ -113,7 +123,7 @@ typedef enum {
 // - init is called immediately, the graphics module may not exist yet
 // - start is called after the graphics module is initialized, can be used to set up textures etc.
 // - graphics module currently calls stop when it's destroyed, which is hacky and should be improved
-// - getDisplayFrequency may return 0.f if the information is unavailable.
+// - getRefreshRate may return 0.f if the information is unavailable.
 // - For isDown, changed can be set to false if change information is unavailable or inconvenient.
 // - getAxis may write 4 floats to the output value.  The expected number is a constant (see axisCounts in l_headset).
 // - In general, most input results should be kept constant between calls to update.
@@ -127,12 +137,16 @@ typedef struct HeadsetInterface {
   void (*start)(void);
   void (*stop)(void);
   void (*destroy)(void);
+  bool (*getDriverName)(char* name, size_t length);
   bool (*getName)(char* name, size_t length);
-  HeadsetOrigin (*getOriginType)(void);
+  bool (*isSeated)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
-  float (*getDisplayFrequency)(void);
-  float* (*getDisplayFrequencies)(uint32_t* count);
-  bool (*setDisplayFrequency)(float);
+  float (*getRefreshRate)(void);
+  bool (*setRefreshRate)(float refreshRate);
+  const float* (*getRefreshRates)(uint32_t* count);
+  PassthroughMode (*getPassthrough)(void);
+  bool (*setPassthrough)(PassthroughMode mode);
+  bool (*isPassthroughSupported)(PassthroughMode mode);
   double (*getDisplayTime)(void);
   double (*getDeltaTime)(void);
   uint32_t (*getViewCount)(void);
@@ -149,19 +163,21 @@ typedef struct HeadsetInterface {
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);
   bool (*getSkeleton)(Device device, float* poses);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
+  void (*stopVibration)(Device device);
   struct ModelData* (*newModelData)(Device device, bool animated);
-  bool (*animate)(Device device, struct Model* model);
+  bool (*animate)(struct Model* model);
   struct Texture* (*getTexture)(void);
   struct Pass* (*getPass)(void);
   void (*submit)(void);
+  bool (*isVisible)(void);
   bool (*isFocused)(void);
   double (*update)(void);
 } HeadsetInterface;
 
 // Available drivers
+extern HeadsetInterface lovrHeadsetSimulatorDriver;
 extern HeadsetInterface lovrHeadsetOpenXRDriver;
 extern HeadsetInterface lovrHeadsetWebXRDriver;
-extern HeadsetInterface lovrHeadsetDesktopDriver;
 
 // Active driver
 extern HeadsetInterface* lovrHeadsetInterface;

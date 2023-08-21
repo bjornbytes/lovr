@@ -8,6 +8,7 @@ config = {
   glfw = true,
   luajit = false,
   glslang = true,
+  utf8 = true,
   modules = {
     audio = true,
     data = true,
@@ -22,7 +23,7 @@ config = {
     timer = true
   },
   headsets = {
-    desktop = true,
+    simulator = true,
     openxr = false,
     webxr = false
   },
@@ -143,6 +144,8 @@ if target == 'linux' then
 end
 
 if target == 'wasm' then
+  cc = 'emcc'
+  cxx = 'em++'
   cflags += '-std=gnu11'
   cflags += '-D_POSIX_C_SOURCE=200809L'
   lflags += '-s FORCE_FILESYSTEM'
@@ -245,7 +248,7 @@ end
 
 if config.modules.graphics and config.glslang then
   cflags_graphics += '-Ideps/glslang/glslang/Include'
-  cflags_graphics += '-Ideps/glslang/StandAlone'
+  cflags_graphics += '-Ideps/glslang/glslang/Public'
   cflags += '-DLOVR_USE_GLSLANG'
   lflags += '-lglslang'
 
@@ -254,7 +257,6 @@ if config.modules.graphics and config.glslang then
   glslang_cflags += '-fno-rtti'
   glslang_cflags += '-Ideps/glslang'
   glslang_lflags += '-shared'
-  glslang_lflags += '-static-libstdc++'
   glslang_src += 'deps/glslang/OGLCompilersDLL/*.cpp'
   glslang_src += 'deps/glslang/glslang/CInterface/*.cpp'
   glslang_src += 'deps/glslang/glslang/MachineIndependent/*.cpp'
@@ -268,8 +270,8 @@ if config.modules.graphics and config.glslang then
   glslang_src += 'deps/glslang/SPIRV/SpvPostProcess.cpp'
   glslang_src += 'deps/glslang/SPIRV/InReadableOrder.cpp'
   glslang_src += 'deps/glslang/SPIRV/CInterface/spirv_c_interface.cpp'
-  glslang_src += 'deps/glslang/StandAlone/resource_limits_c.cpp'
-  glslang_src += 'deps/glslang/StandAlone/ResourceLimits.cpp'
+  glslang_src += 'deps/glslang/glslang/ResourceLimits/resource_limits_c.cpp'
+  glslang_src += 'deps/glslang/glslang/ResourceLimits/ResourceLimits.cpp'
 
   tup.foreach_rule(glslang_src, '^ CC glslang/%b^ $(cc) $(flags) $(glslang_cflags) -c %f -o %o', '.obj/glslang/%B.o')
   tup.rule('.obj/glslang/*.o', '^ LD %o^ $(cxx) $(flags) -o %o %f $(glslang_lflags)', lib('glslang'))
@@ -282,7 +284,7 @@ if config.modules.data then
   msdfgen_cflags += '-fPIC'
   msdfgen_src += 'deps/msdfgen/core/*.cpp'
   tup.foreach_rule(msdfgen_src, '^ CC msdfgen/%b^ $(cxx) $(flags) $(msdfgen_cflags) -c %f -o %o', '.obj/msdfgen/%B.o')
-  tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(flags) -shared -static-libstdc++ -o %o %f', lib('msdfgen'))
+  tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(flags) -shared -o %o %f', lib('msdfgen'))
 end
 
 if config.modules.physics then
@@ -321,6 +323,7 @@ if config.modules.physics then
 
   -- ode
   ode_cflags += '-fPIC'
+  ode_cflags += config.optimize and '-DdNODEBUG' or ''
   ode_cflags += '-Wno-implicit-float-conversion'
   ode_cflags += '-Wno-array-bounds'
   ode_cflags += '-Wno-undefined-var-template'
@@ -343,7 +346,7 @@ if config.modules.physics then
 
   tup.foreach_rule(ode_c_src, '^ CC ode/%b^ $(cc) $(flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
   tup.foreach_rule(ode_src, '^ CC ode/%b^ $(cxx) $(flags) $(ode_cflags) -c %f -o %o', '.obj/ode/%B.o')
-  tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(flags) -shared -static-libstdc++ -o %o %f', lib('ode'))
+  tup.rule('.obj/ode/*.o', '^ LD %o^ $(cxx) $(flags) -shared -o %o %f', lib('ode'))
 end
 
 if config.headsets.openxr then
@@ -416,9 +419,8 @@ end
 
 for renderer, enabled in pairs(config.renderers) do
   if enabled then
-    local code = renderer:gsub('vulkan', 'vk')
-    cflags += '-DLOVR_' .. code:upper()
-    src += 'src/core/gpu_' .. code .. '.c'
+    cflags += '-DLOVR_' .. ({ vulkan = 'VK', webgpu = 'WEBGPU' })[renderer]
+    src += 'src/core/gpu_' .. ({ vulkan = 'vk', webgpu = 'web' })[renderer] .. '.c'
   end
 end
 
@@ -427,6 +429,12 @@ for spatializer, enabled in pairs(config.spatializers) do
     cflags += ('-DLOVR_ENABLE_%s_SPATIALIZER'):format(spatializer:upper())
     src += ('src/modules/audio/spatializer_%s.c'):format(spatializer)
   end
+end
+
+if config.utf8 then
+  src += 'src/lib/lua/lutf8lib.c'
+else
+  cflags += '-DLOVR_DISABLE_UTF8'
 end
 
 src += 'src/lib/stb/*.c'

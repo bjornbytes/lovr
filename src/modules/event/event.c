@@ -1,6 +1,5 @@
 #include "event/event.h"
 #include "thread/thread.h"
-#include "core/os.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
@@ -15,17 +14,18 @@ void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
     case TYPE_STRING: free(variant->value.string.pointer); return;
     case TYPE_OBJECT: lovrRelease(variant->value.object.pointer, variant->value.object.destructor); return;
+    case TYPE_MATRIX: free(variant->value.matrix.data); return;
     default: return;
   }
 }
 
-bool lovrEventInit() {
+bool lovrEventInit(void) {
   if (state.initialized) return false;
   arr_init(&state.events, arr_alloc);
   return state.initialized = true;
 }
 
-void lovrEventDestroy() {
+void lovrEventDestroy(void) {
   if (!state.initialized) return;
   for (size_t i = state.head; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
@@ -43,10 +43,6 @@ void lovrEventDestroy() {
   }
   arr_free(&state.events);
   memset(&state, 0, sizeof(state));
-}
-
-void lovrEventPump() {
-  os_poll_events();
 }
 
 void lovrEventPush(Event event) {
@@ -75,7 +71,7 @@ bool lovrEventPoll(Event* event) {
   return true;
 }
 
-void lovrEventClear() {
+void lovrEventClear(void) {
   arr_clear(&state.events);
   state.head = 0;
 }

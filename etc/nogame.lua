@@ -12,7 +12,10 @@ function lovr.load()
     return
   end
 
-  lovr.graphics.setBackgroundColor(0x20232c)
+  if lovr.headset.getPassthrough() == 'opaque' then
+    lovr.graphics.setBackgroundColor(0x20232c)
+  end
+
   logo = lovr.graphics.newShader('unlit', 'logo')
 end
 
@@ -23,7 +26,7 @@ function lovr.draw(pass)
   local titlePosition = 1.5 - padding
   local subtitlePosition = titlePosition - font:getHeight() * .25 - padding
 
-  pass:setCullMode('back')
+  pass:setFaceCull(true)
   pass:setShader(logo)
   pass:plane(0, 2, -3)
   pass:setShader()
@@ -32,4 +35,10 @@ function lovr.draw(pass)
 
   pass:setColor(.9, .9, .9, fade)
   pass:text('No game :(', -.005, subtitlePosition, -3, .15, 0, 0, 1, 0, nil, 'center', 'top')
+end
+
+function lovr.keypressed(key)
+  if key == 'escape' then
+    lovr.event.quit()
+  end
 end

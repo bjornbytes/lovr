@@ -1,4 +1,4 @@
-float monkey_size[3] = { 1.367188f, 0.984375f, 0.851563f };
+float monkey_bounds[6] = { 0.000000f, 0.000000f, 0.000000f, 0.683594f, 0.492188f, 0.425781f };
 float monkey_offset[3] = { -0.683594f, -0.492188f, -0.425781f };
 
 uint8_t monkey_vertices[] = {

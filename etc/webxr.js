@@ -48,7 +48,7 @@ var webxr = {
   },
 
   webxr_init__deps: ['$buttons', '$axes'],
-  webxr_init: function(supersample, offset, msaa, overlay) {
+  webxr_init: function(config) {
     if (!navigator.xr) {
       return false;
     }
@@ -174,12 +174,21 @@ var webxr = {
     }
   },
 
+  webxr_getDriverName: function(name, size) {
+    return false;
+  }
+
   webxr_getName: function(name, size) {
     return false;
   },
 
-  webxr_getOriginType: function() {
-    return 1; /* ORIGIN_FLOOR */
+  webxr_isSeated: function() {
+    // TODO
+  },
+
+  webxr_getDisplayDimensions: function(width, height) {
+    HEAPU32[width >> 2] = state.layer.framebufferWidth;
+    HEAPU32[height >> 2] = state.layer.framebufferHeight;
   },
 
   webxr_getDisplayTime: function() {
@@ -188,11 +197,6 @@ var webxr = {
 
   webxr_getDeltaTime: function() {
     return (state.displayTime - state.lastDisplayTime) / 1000.0;
-  },
-
-  webxr_getDisplayDimensions: function(width, height) {
-    HEAPU32[width >> 2] = state.layer.framebufferWidth;
-    HEAPU32[height >> 2] = state.layer.framebufferHeight;
   },
 
   webxr_getDisplayFrequency: function() {
@@ -375,11 +379,15 @@ var webxr = {
     return !!actuator;
   },
 
+  webxr_stopVibration: function(device) {
+    return;
+  },
+
   webxr_newModelData: function(device, animated) {
     return 0; /* NULL */
   },
 
-  webxr_animate: function(device, model) {
+  webxr_animate: function(model) {
     return false;
   },
 
@@ -409,6 +417,14 @@ var webxr = {
 
   webxr_isFocused: function() {
     return true;
+  },
+
+  webxr_isPassthroughEnabled: function() {
+    return false;
+  },
+
+  webxr_setPassthroughEnabled: function() {
+    return false;
   },
 
   webxr_update: function() {

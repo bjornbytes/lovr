@@ -8,10 +8,7 @@ import android.os.Build;
 
 public class Activity extends NativeActivity {
   static {
-    if (Build.MANUFACTURER.contains("Oculus")) {
-      Log.d("LOVR", "Using Oculus OpenXR Loader");
-      System.loadLibrary("openxr_loader_oculus");
-    } else if (Build.MANUFACTURER.contains("Pico")) {
+    if (Build.MANUFACTURER.contains("Pico")) {
       Log.d("LOVR", "Using Pico OpenXR Loader");
       System.loadLibrary("openxr_loader_pico");
     } else {

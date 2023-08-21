@@ -9,11 +9,13 @@
 #define CANVAS "#canvas"
 
 static struct {
-  EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context;
   fn_quit* onQuitRequest;
   fn_focus* onWindowFocus;
   fn_resize* onWindowResize;
   fn_key* onKeyboardEvent;
+  fn_mouse_button* onMouseButton;
+  fn_mouse_move* onMouseMove;
+  fn_mousewheel_move* onMouseWheelMove;
   bool keyMap[KEY_COUNT];
   bool mouseMap[2];
   os_mouse_mode mouseMode;
@@ -62,7 +64,13 @@ static EM_BOOL onMouseButton(int type, const EmscriptenMouseEvent* data, void* u
     default: return false;
   }
 
-  state.mouseMap[button] = type == EMSCRIPTEN_EVENT_MOUSEDOWN;
+  bool pressed = type == EMSCRIPTEN_EVENT_MOUSEDOWN;
+
+  if (state.onMouseButton) {
+    state.onMouseButton((int) button, pressed);
+  }
+
+  state.mouseMap[button] = pressed;
   return false;
 }
 
@@ -73,6 +81,16 @@ static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* use
   } else {
     state.mouseX = data->clientX;
     state.mouseY = data->clientY;
+  }
+  if (state.onMouseMove) {
+    state.onMouseMove(state.mouseX, state.mouseY);
+  }
+  return false;
+}
+
+static EM_BOOL onMouseWheelMove(int type, const EmscriptenWheelEvent* data, void* userdata) {
+  if (state.onMouseWheelMove) {
+    state.onMouseWheelMove(data->deltaX, -data->deltaY);
   }
   return false;
 }
@@ -178,7 +196,7 @@ static EM_BOOL onKeyEvent(int type, const EmscriptenKeyboardEvent* data, void* u
   return false;
 }
 
-bool os_init() {
+bool os_init(void) {
   emscripten_set_beforeunload_callback(NULL, onBeforeUnload);
   emscripten_set_focus_callback(CANVAS, NULL, true, onFocusChanged);
   emscripten_set_blur_callback(CANVAS, NULL, true, onFocusChanged);
@@ -186,12 +204,13 @@ bool os_init() {
   emscripten_set_mousedown_callback(CANVAS, NULL, true, onMouseButton);
   emscripten_set_mouseup_callback(CANVAS, NULL, true, onMouseButton);
   emscripten_set_mousemove_callback(CANVAS, NULL, true, onMouseMove);
+  emscripten_set_wheel_callback(CANVAS, NULL, true, onMouseWheelMove);
   emscripten_set_keydown_callback(CANVAS, NULL, true, onKeyEvent);
   emscripten_set_keyup_callback(CANVAS, NULL, true, onKeyEvent);
   return true;
 }
 
-void os_destroy() {
+void os_destroy(void) {
   emscripten_set_beforeunload_callback(NULL, NULL);
   emscripten_set_focus_callback(CANVAS, NULL, true, NULL);
   emscripten_set_blur_callback(CANVAS, NULL, true, NULL);
@@ -203,19 +222,19 @@ void os_destroy() {
   emscripten_set_keyup_callback(CANVAS, NULL, true, NULL);
 }
 
-const char* os_get_name() {
+const char* os_get_name(void) {
   return "Web";
 }
 
-uint32_t os_get_core_count() {
+uint32_t os_get_core_count(void) {
   return 1;
 }
 
-void os_open_console() {
+void os_open_console(void) {
   //
 }
 
-double os_get_time() {
+double os_get_time(void) {
   return emscripten_get_now() / 1000.;
 }
 
@@ -227,7 +246,7 @@ void os_request_permission(os_permission permission) {
   //
 }
 
-void os_poll_events() {
+void os_poll_events(void) {
   //
 }
 
@@ -267,30 +286,10 @@ size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
 }
 
 bool os_window_open(const os_window_config* flags) {
-  if (state.context) {
-    return true;
-  }
-
-  EmscriptenWebGLContextAttributes attributes;
-  emscripten_webgl_init_context_attributes(&attributes);
-  attributes.alpha = false;
-  attributes.depth = true;
-  attributes.stencil = true;
-  attributes.preserveDrawingBuffer = false;
-  attributes.majorVersion = 2;
-  attributes.minorVersion = 0;
-  state.context = emscripten_webgl_create_context(CANVAS, &attributes);
-  if (state.context < 0) {
-    state.context = 0;
-    return false;
-  }
-
-  emscripten_webgl_make_context_current(state.context);
-  emscripten_webgl_get_drawing_buffer_size(state.context, &state.width, &state.height);
   return true;
 }
 
-bool os_window_is_open() {
+bool os_window_is_open(void) {
   return state.context > 0;
 }
 
@@ -301,9 +300,13 @@ void os_window_get_size(uint32_t* width, uint32_t* height) {
 
 float os_window_get_pixel_density(void) {
   int w, h, fw, fh;
-  emscripten_get_canvas_element_size(state.context, &w, &h);
+  emscripten_get_canvas_element_size(CANVAS, &w, &h);
   emscripten_webgl_get_drawing_buffer_size(state.context, &fw, &fh);
   return (w == 0 || h == 0) ? 0.f : (float) fw / w;
+}
+
+void os_window_message_box(const char* message) {
+  //
 }
 
 void os_on_quit(fn_quit* callback) {
@@ -324,6 +327,18 @@ void os_on_key(fn_key* callback) {
 
 void os_on_text(fn_text* callback) {
   //
+}
+
+void os_on_mouse_button(fn_mouse_button* callback) {
+  state.onMouseButton = callback;
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  state.onMouseMove = callback;
+}
+
+void os_on_mousewheel_move(fn_mousewheel_move* callback) {
+  state.onMouseWheelMove = callback;
 }
 
 void os_get_mouse_position(double* x, double* y) {

@@ -7,9 +7,9 @@
 #include "shaders/equirect.frag.h"
 #include "shaders/fill.vert.h"
 #include "shaders/fill_array.frag.h"
-#include "shaders/fill_layer.frag.h"
 #include "shaders/animator.comp.h"
-#include "shaders/timewizard.comp.h"
+#include "shaders/blender.comp.h"
+#include "shaders/tallymerge.comp.h"
 #include "shaders/logo.frag.h"
 
 #include "shaders/lovr.glsl.h"

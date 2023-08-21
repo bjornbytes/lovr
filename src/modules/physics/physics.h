@@ -26,7 +26,8 @@ typedef Joint HingeJoint;
 typedef Joint SliderJoint;
 
 typedef void (*CollisionResolver)(World* world, void* userdata);
-typedef void (*RaycastCallback)(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata);
+typedef bool (*RaycastCallback)(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata);
+typedef bool (*QueryCallback)(Shape* shape, void* userdata);
 
 bool lovrPhysicsInit(void);
 void lovrPhysicsDestroy(void);
@@ -50,6 +51,8 @@ int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
 int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
 void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count);
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata);
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata);
 Collider* lovrWorldGetFirstCollider(World* world);
 void lovrWorldGetGravity(World* world, float* x, float* y, float* z);
 void lovrWorldSetGravity(World* world, float x, float y, float z);
@@ -64,15 +67,16 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 bool lovrWorldIsSleepingAllowed(World* world);
 void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 const char* lovrWorldGetTagName(World* world, uint32_t tag);
-int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
-int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
-int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
+void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
+void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
+bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
 
 // Collider
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z);
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
+bool lovrColliderIsDestroyed(Collider* collider);
 void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
 Collider* lovrColliderGetNext(Collider* collider);
@@ -156,9 +160,9 @@ SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* sphere);
 void lovrSphereShapeSetRadius(SphereShape* sphere, float radius);
 
-BoxShape* lovrBoxShapeCreate(float x, float y, float z);
-void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z);
-void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z);
+BoxShape* lovrBoxShapeCreate(float w, float h, float d);
+void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d);
+void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d);
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length);
 float lovrCapsuleShapeGetRadius(CapsuleShape* capsule);
@@ -206,17 +210,17 @@ void lovrJointSetUserData(Joint* joint, void* data);
 bool lovrJointIsEnabled(Joint* joint);
 void lovrJointSetEnabled(Joint* joint, bool enable);
 
-BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z);
-void lovrBallJointGetAnchors(BallJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
-void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z);
+BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]);
+void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3]);
+void lovrBallJointSetAnchor(BallJoint* joint, float anchor[3]);
 float lovrBallJointGetResponseTime(Joint* joint);
 void lovrBallJointSetResponseTime(Joint* joint, float responseTime);
 float lovrBallJointGetTightness(Joint* joint);
 void lovrBallJointSetTightness(Joint* joint, float tightness);
 
-DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2);
-void lovrDistanceJointGetAnchors(DistanceJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
-void lovrDistanceJointSetAnchors(DistanceJoint* joint, float x1, float y1, float z1, float x2, float y2, float z2);
+DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]);
+void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]);
+void lovrDistanceJointSetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]);
 float lovrDistanceJointGetDistance(DistanceJoint* joint);
 void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance);
 float lovrDistanceJointGetResponseTime(Joint* joint);
@@ -224,20 +228,20 @@ void lovrDistanceJointSetResponseTime(Joint* joint, float responseTime);
 float lovrDistanceJointGetTightness(Joint* joint);
 void lovrDistanceJointSetTightness(Joint* joint, float tightness);
 
-HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az);
-void lovrHingeJointGetAnchors(HingeJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2);
-void lovrHingeJointSetAnchor(HingeJoint* joint, float x, float y, float z);
-void lovrHingeJointGetAxis(HingeJoint* joint, float* x, float* y, float* z);
-void lovrHingeJointSetAxis(HingeJoint* joint, float x, float y, float z);
+HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]);
+void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2[3]);
+void lovrHingeJointSetAnchor(HingeJoint* joint, float anchor[3]);
+void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]);
+void lovrHingeJointSetAxis(HingeJoint* joint, float axis[3]);
 float lovrHingeJointGetAngle(HingeJoint* joint);
 float lovrHingeJointGetLowerLimit(HingeJoint* joint);
 void lovrHingeJointSetLowerLimit(HingeJoint* joint, float limit);
 float lovrHingeJointGetUpperLimit(HingeJoint* joint);
 void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit);
 
-SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az);
-void lovrSliderJointGetAxis(SliderJoint* joint, float* x, float* y, float* z);
-void lovrSliderJointSetAxis(SliderJoint* joint, float x, float y, float z);
+SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]);
+void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]);
+void lovrSliderJointSetAxis(SliderJoint* joint, float axis[3]);
 float lovrSliderJointGetPosition(SliderJoint* joint);
 float lovrSliderJointGetLowerLimit(SliderJoint* joint);
 void lovrSliderJointSetLowerLimit(SliderJoint* joint, float limit);

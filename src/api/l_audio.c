@@ -55,15 +55,15 @@ StringEntry lovrVolumeUnit[] = {
   { 0 }
 };
 
-static void onDevice(const void* id, size_t size, const char* name, bool isDefault, void* userdata) {
+static void onDevice(AudioDevice* device, void* userdata) {
   lua_State* L = userdata;
   lua_createtable(L, 0, 3);
-  void* p = lua_newuserdata(L, size);
-  memcpy(p, id, size);
+  void* p = lua_newuserdata(L, device->idSize);
+  memcpy(p, device->id, device->idSize);
   lua_setfield(L, -2, "id");
-  lua_pushstring(L, name);
+  lua_pushstring(L, device->name);
   lua_setfield(L, -2, "name");
-  lua_pushboolean(L, isDefault);
+  lua_pushboolean(L, device->isDefault);
   lua_setfield(L, -2, "default");
   lua_rawseti(L, -2, luax_len(L, -2) + 1);
 }
@@ -73,6 +73,18 @@ static int l_lovrAudioGetDevices(lua_State *L) {
   lua_newtable(L);
   lovrAudioEnumerateDevices(type, onDevice, L);
   return 1;
+}
+
+static int l_lovrAudioGetDevice(lua_State* L) {
+  AudioType type = luax_checkenum(L, 1, AudioType, "playback");
+  AudioDevice device;
+  if (lovrAudioGetDevice(type, &device)) {
+    lua_pushstring(L, device.name);
+    void* p = lua_newuserdata(L, device.idSize);
+    memcpy(p, device.id, device.idSize);
+    return 2;
+  }
+  return 0;
 }
 
 static int l_lovrAudioSetDevice(lua_State *L) {
@@ -121,7 +133,7 @@ static int l_lovrAudioSetVolume(lua_State* L) {
 }
 
 static int l_lovrAudioGetPosition(lua_State* L) {
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   lovrAudioGetPose(position, orientation);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -130,7 +142,7 @@ static int l_lovrAudioGetPosition(lua_State* L) {
 }
 
 static int l_lovrAudioSetPosition(lua_State* L) {
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   lovrAudioGetPose(position, orientation);
   luax_readvec3(L, 1, position, NULL);
   lovrAudioSetPose(position, orientation);
@@ -138,7 +150,7 @@ static int l_lovrAudioSetPosition(lua_State* L) {
 }
 
 static int l_lovrAudioGetOrientation(lua_State* L) {
-  float position[4], orientation[4], angle, ax, ay, az;
+  float position[3], orientation[4], angle, ax, ay, az;
   lovrAudioGetPose(position, orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
@@ -149,7 +161,7 @@ static int l_lovrAudioGetOrientation(lua_State* L) {
 }
 
 static int l_lovrAudioSetOrientation(lua_State* L) {
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   lovrAudioGetPose(position, orientation);
   luax_readquat(L, 1, orientation, NULL);
   lovrAudioSetPose(position, orientation);
@@ -157,7 +169,7 @@ static int l_lovrAudioSetOrientation(lua_State* L) {
 }
 
 static int l_lovrAudioGetPose(lua_State *L) {
-  float position[4], orientation[4], angle, ax, ay, az;
+  float position[3], orientation[4], angle, ax, ay, az;
   lovrAudioGetPose(position, orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
@@ -172,7 +184,7 @@ static int l_lovrAudioGetPose(lua_State *L) {
 
 static int l_lovrAudioSetPose(lua_State *L) {
   int index = 1;
-  float position[4], orientation[4];
+  float position[3], orientation[4];
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readquat(L, index, orientation, NULL);
   lovrAudioSetPose(position, orientation);
@@ -227,7 +239,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
   Sound* sound = luax_totype(L, 1, Sound);
 
   bool decode = false;
-  bool pitchable = false;
+  bool pitchable = true;
   bool spatial = true;
   uint32_t effects = ~0u;
   if (lua_gettop(L) >= 2) {
@@ -238,7 +250,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "pitchable");
-    pitchable = lua_toboolean(L, -1);
+    if (!lua_isnil(L, -1)) pitchable = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "effects");
@@ -261,7 +273,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "spatial");
-    spatial = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
+    if (!lua_isnil(L, -1)) spatial = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
 
@@ -282,6 +294,7 @@ static int l_lovrAudioNewSource(lua_State* L) {
 
 static const luaL_Reg lovrAudio[] = {
   { "getDevices", l_lovrAudioGetDevices },
+  { "getDevice", l_lovrAudioGetDevice },
   { "setDevice", l_lovrAudioSetDevice },
   { "start", l_lovrAudioStart },
   { "stop", l_lovrAudioStop },

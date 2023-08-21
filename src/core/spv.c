@@ -33,7 +33,10 @@ typedef union {
   } constant;
   struct {
     uint16_t word;
-    uint16_t name;
+    union {
+      uint16_t name;
+      uint16_t arrayStride;
+    };
   } type;
 } spv_cache;
 
@@ -43,6 +46,7 @@ typedef struct {
   size_t wordCount;
   uint32_t bound;
   spv_cache* cache;
+  spv_field* fields;
 } spv_context;
 
 #define OP_CODE(op) (op[0] & 0xffff)
@@ -56,7 +60,7 @@ static spv_result spv_parse_type(spv_context* spv, const uint32_t* op, spv_info*
 static spv_result spv_parse_spec_constant(spv_context* spv, const uint32_t* op, spv_info* info);
 static spv_result spv_parse_constant(spv_context* spv, const uint32_t* op, spv_info* info);
 static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_info* info);
-static spv_result spv_parse_push_constants(spv_context* spv, const uint32_t* op, spv_info* info);
+static spv_result spv_parse_field(spv_context* spv, const uint32_t* op, spv_field* field, spv_info* info);
 static bool spv_load_type(spv_context* spv, uint32_t id, const uint32_t** op);
 
 spv_result spv_parse(const void* source, size_t size, spv_info* info) {
@@ -65,6 +69,7 @@ spv_result spv_parse(const void* source, size_t size, spv_info* info) {
   spv.words = source;
   spv.wordCount = size / sizeof(uint32_t);
   spv.edge = spv.words + spv.wordCount - 8;
+  spv.fields = info->fields;
 
   if (spv.wordCount < 16 || spv.words[0] != 0x07230203) {
     return SPV_INVALID;
@@ -84,10 +89,9 @@ spv_result spv_parse(const void* source, size_t size, spv_info* info) {
 
   info->featureCount = 0;
   info->specConstantCount = 0;
-  info->pushConstantCount = 0;
-  info->pushConstantSize = 0;
   info->attributeCount = 0;
   info->resourceCount = 0;
+  info->fieldCount = 0;
 
   const uint32_t* op = spv.words + 5;
 
@@ -162,9 +166,8 @@ const char* spv_result_to_string(spv_result result) {
     case SPV_OK: return "OK";
     case SPV_INVALID: return "Invalid SPIR-V";
     case SPV_TOO_BIG: return "SPIR-V contains too many types/variables (max ID is 65534)";
-    case SPV_UNSUPPORTED_IMAGE_TYPE: return "This type of image variable is not supported";
     case SPV_UNSUPPORTED_SPEC_CONSTANT_TYPE: return "This type of specialization constant is not supported";
-    case SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE: return "Push constants must be square matrices, vectors, 32 bit numbers, or bools";
+    case SPV_UNSUPPORTED_DATA_TYPE: return "Struct fields must be square float matrices, float/int/uint vectors, 32 bit numbers, or bools";
     default: return NULL;
   }
 }
@@ -214,10 +217,11 @@ static spv_result spv_parse_decoration(spv_context* spv, const uint32_t* op, spv
   }
 
   switch (decoration) {
+    case 1: spv->cache[id].flag.number = op[3]; break; // SpecID
+    case 6: spv->cache[id].type.arrayStride = op[3]; break; // ArrayStride (overrides name)
+    case 30: spv->cache[id].attribute.location = op[3]; break; // Location
     case 33: spv->cache[id].variable.binding = op[3]; break; // Binding
     case 34: spv->cache[id].variable.set = op[3]; break; // Set
-    case 30: spv->cache[id].attribute.location = op[3]; break; // Location
-    case 1: spv->cache[id].flag.number = op[3]; break; // SpecID
     default: break;
   }
 
@@ -322,8 +326,30 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
     }
   }
 
+  // Unwrap the pointer
+  const uint32_t* pointer;
+  if (!spv_load_type(spv, pointerId, &pointer) || OP_CODE(pointer) != 32) { // OpTypePointer
+    return SPV_INVALID;
+  }
+
+  // Load the type
+  const uint32_t* type;
+  uint32_t typeId = pointer[3];
+  if (!spv_load_type(spv, typeId, &type)) {
+    return SPV_INVALID;
+  }
+
   if (storageClass == 9) { // PushConstant
-    return spv_parse_push_constants(spv, op, info);
+    if (OP_CODE(type) != 30) { // OpTypeStruct
+      return SPV_INVALID;
+    }
+
+    if (info->fields) {
+      info->pushConstants = spv->fields++;
+    }
+
+    info->fieldCount++;
+    return spv_parse_field(spv, type, info->pushConstants, info);
   }
 
   uint32_t set = spv->cache[variableId].variable.set;
@@ -336,24 +362,20 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
 
   if (!info->resources) {
     info->resourceCount++;
-    return SPV_OK;
+
+    // If it's a buffer, be sure to count how many struct fields it has
+    if (storageClass == 2 || storageClass == 12) {
+      info->fieldCount++;
+      return spv_parse_field(spv, type, NULL, info);
+    } else {
+      return SPV_OK;
+    }
   }
 
   spv_resource* resource = &info->resources[info->resourceCount++];
 
   resource->set = set;
   resource->binding = binding;
-
-  const uint32_t* pointer;
-  if (!spv_load_type(spv, pointerId, &pointer)) {
-    return SPV_INVALID;
-  }
-
-  const uint32_t* type;
-  uint32_t typeId = pointer[3];
-  if (!spv_load_type(spv, typeId, &type)) {
-    return SPV_INVALID;
-  }
 
   // If it's an array, read the array size and unwrap the inner type
   if (OP_CODE(type) == 28) { // OpTypeArray
@@ -372,9 +394,9 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
       return SPV_INVALID;
     }
 
-    resource->arraySize = length[3];
+    resource->count = length[3];
   } else {
-    resource->arraySize = 0;
+    resource->count = 0;
   }
 
   // Buffers
@@ -386,7 +408,17 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
       resource->name = (char*) (spv->words + spv->cache[typeId].type.name);
     }
 
-    return SPV_OK;
+    if (OP_CODE(type) != 30) { // OpTypeStruct
+      return SPV_INVALID;
+    }
+
+    info->fieldCount++;
+    resource->fields = spv->fields++;
+    resource->fields[0].offset = 0;
+    resource->fields[0].name = resource->name;
+    return spv_parse_field(spv, type, resource->fields, info);
+  } else {
+    resource->fields = NULL;
   }
 
   // Sampler and texture variables are named directly
@@ -401,161 +433,217 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
 
   // Combined image samplers are currently not supported (ty webgpu)
   if (OP_CODE(type) == 27) { // OpTypeSampledImage
-    return SPV_UNSUPPORTED_IMAGE_TYPE;
+    resource->type = SPV_COMBINED_TEXTURE_SAMPLER;
+    return SPV_OK;
   } else if (OP_CODE(type) != 25) { // OpTypeImage
     return SPV_INVALID;
   }
 
-  // Reject texel buffers (DimBuffer) and input attachments (DimSubpassData)
-  if (type[3] == 5 || type[3] == 6) {
-    return SPV_UNSUPPORTED_IMAGE_TYPE;
+  // Texel buffers use the DimBuffer dimensionality
+  if (type[3] == 5) {
+    switch (type[7]) {
+      case 1: resource->type = SPV_UNIFORM_TEXEL_BUFFER; return SPV_OK;
+      case 2: resource->type = SPV_STORAGE_TEXEL_BUFFER; return SPV_OK;
+      default: return SPV_INVALID;
+    }
+  }
+
+  // Input attachments use the DimSubpassData dimensionality, and "Sampled" must be 2
+  if (type[3] == 6) {
+    if (type[7] == 2) {
+      resource->type = SPV_INPUT_ATTACHMENT;
+      return SPV_OK;
+    } else {
+      return SPV_INVALID;
+    }
   }
 
   // Read the Sampled key to determine if it's a sampled image (1) or a storage image (2)
   switch (type[7]) {
     case 1: resource->type = SPV_SAMPLED_TEXTURE; return SPV_OK;
     case 2: resource->type = SPV_STORAGE_TEXTURE; return SPV_OK;
-    default: return SPV_UNSUPPORTED_IMAGE_TYPE;
+    default: return SPV_INVALID;
   }
 }
 
-static spv_result spv_parse_push_constants(spv_context* spv, const uint32_t* op, spv_info* info) {
-  const uint32_t* pointer;
-  if (!spv_load_type(spv, op[1], &pointer) || OP_CODE(pointer) != 32) {
-    return SPV_INVALID;
+static spv_result spv_parse_field(spv_context* spv, const uint32_t* word, spv_field* field, spv_info* info) {
+  if (OP_CODE(word) == 28) { // OpTypeArray
+    uint32_t lengthId = word[3];
+    const uint32_t* lengthWord = spv->words + spv->cache[lengthId].constant.word;
+
+    // Length must be an OpConstant or OpSpecConstant
+    if (lengthId > spv->bound || lengthWord > spv->edge || (OP_CODE(lengthWord) != 43 && OP_CODE(lengthWord) != 50)) {
+      return SPV_INVALID;
+    }
+
+    if (field) {
+      field->arrayLength = lengthWord[3];
+      field->arrayStride = spv->cache[word[1]].type.arrayStride;
+    }
+
+    // Unwrap inner array type and fall through
+    if (!spv_load_type(spv, word[2], &word)) {
+      return SPV_INVALID;
+    }
+  } else if (OP_CODE(word) == 29) { // OpTypeRuntimeArray
+    if (field) {
+      field->arrayLength = ~0u;
+      field->arrayStride = spv->cache[word[1]].type.arrayStride;
+    }
+
+    // Unwrap inner array type and fall through
+    if (!spv_load_type(spv, word[2], &word)) {
+      return SPV_INVALID;
+    }
+  } else if (field) {
+    field->arrayLength = 0;
+    field->arrayStride = 0;
   }
 
-  const uint32_t* structure;
-  if (!spv_load_type(spv, pointer[3], &structure) || OP_CODE(structure) != 30) {
-    return SPV_INVALID;
-  }
+  // If this is the initial scan, just do a recursive count of all the struct fields
+  if (!field) {
+    if (OP_CODE(word) == 30) { // OpTypeStruct
+      uint32_t childCount = OP_LENGTH(word) - 2;
 
-  uint32_t memberCount = OP_LENGTH(structure) - 2;
+      const uint32_t* type;
+      for (uint32_t i = 0; i < childCount; i++) {
+        if (!spv_load_type(spv, word[i + 2], &type)) {
+          return SPV_INVALID;
+        }
 
-  if (!info->pushConstants) {
-    info->pushConstantCount = memberCount;
+        spv_result result = spv_parse_field(spv, type, NULL, info);
+
+        if (result != SPV_OK) {
+          return result;
+        }
+      }
+
+      info->fieldCount += childCount;
+    } else {
+      info->fieldCount++;
+    }
     return SPV_OK;
   }
 
-  const uint32_t* type;
-  for (uint32_t i = 0; i < memberCount; i++) {
-    if (!spv_load_type(spv, structure[i + 2], &type)) {
+  // If it's a struct, recursively parse each member
+  if (OP_CODE(word) == 30) { // OpTypeStruct
+    uint32_t childCount = OP_LENGTH(word) - 2;
+    field->type = SPV_STRUCT;
+    field->elementSize = 0;
+    field->fieldCount = childCount;
+    field->totalFieldCount = childCount;
+    field->fields = spv->fields;
+    info->fieldCount += childCount;
+    spv->fields += childCount;
+
+    for (uint32_t i = 0; i < childCount; i++) {
+      field->fields[i].name = NULL;
+      field->fields[i].offset = 0;
+
+      const uint32_t* type;
+      if (!spv_load_type(spv, word[i + 2], &type)) {
+        return SPV_INVALID;
+      }
+
+      spv_result result = spv_parse_field(spv, type, &field->fields[i], info);
+
+      if (result != SPV_OK) {
+        return result;
+      }
+
+      field->totalFieldCount += field->fields[i].totalFieldCount;
+    }
+
+    // Collect member names and offsets.  Requires a scan over the name/decoration words, which is
+    // kind of sad.  Trying to be fancy resulted in questionable increase in code/branching/storage.
+
+    uint32_t structId = word[1];
+    int32_t namesRemaining = childCount;
+    int32_t offsetsRemaining = childCount;
+
+    for (word = spv->words + 5; word < spv->edge && (namesRemaining > 0 || offsetsRemaining > 0); word += OP_LENGTH(word)) {
+      if (OP_LENGTH(word) == 0 || word + OP_LENGTH(word) > spv->edge) {
+        return SPV_INVALID;
+      }
+
+      if (OP_CODE(word) == 6 && OP_LENGTH(word) >= 4 && word[1] == structId && word[2] < childCount) {
+        field->fields[word[2]].name = (char*) &word[3];
+        namesRemaining--;
+      } else if (OP_CODE(word) == 72 && OP_LENGTH(word) == 5 && word[1] == structId && word[2] < childCount && word[3] == 35) { // Offset
+        spv_field* child = &field->fields[word[2]];
+        uint32_t offset = word[4];
+        child->offset = offset;
+        offsetsRemaining--;
+
+        // Struct size is maximum extent of any of its members
+        uint32_t size = child->arrayLength > 0 ? child->arrayLength * child->arrayStride : child->elementSize;
+        if (offset + size > field->elementSize) {
+          field->elementSize = offset + size;
+        }
+      } else if (OP_CODE(word) == 59) { // OpVariable, can break
+        break;
+      }
+    }
+
+    return SPV_OK;
+  } else {
+    field->fieldCount = 0;
+    field->totalFieldCount = 0;
+    field->fields = NULL;
+  }
+
+  uint32_t columnCount = 1;
+  uint32_t componentCount = 1;
+
+  if (OP_CODE(word) == 24) { // OpTypeMatrix
+    columnCount = word[3];
+    if (!spv_load_type(spv, word[2], &word)) {
       return SPV_INVALID;
     }
+  }
 
-    spv_push_constant* constant = &info->pushConstants[info->pushConstantCount++];
-
-    uint32_t columnCount = 1;
-    uint32_t componentCount = 1;
-
-    if (OP_CODE(type) == 24) { // OpTypeMatrix
-      columnCount = type[3];
-      if (!spv_load_type(spv, type[2], &type)) {
-        return SPV_INVALID;
-      }
+  if (OP_CODE(word) == 23) { // OpTypeVector
+    componentCount = word[3];
+    if (!spv_load_type(spv, word[2], &word)) {
+      return SPV_INVALID;
     }
+  }
 
-    if (OP_CODE(type) == 23) { // OpTypeVector
-      componentCount = type[3];
-      if (!spv_load_type(spv, type[2], &type)) {
-        return SPV_INVALID;
-      }
-    }
-
-    if (OP_CODE(type) == 22 && type[2] == 32) { // OpTypeFloat
-      if (columnCount >= 2 && columnCount <= 4 && componentCount == columnCount) {
-        constant->type = SPV_MAT2 + columnCount - 2;
-      } else if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
-        constant->type = SPV_F32x2 + componentCount - 2;
-      } else if (columnCount == 1 && componentCount == 1) {
-        constant->type = SPV_F32;
-      } else {
-        return SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE;
-      }
-    } else if (OP_CODE(type) == 21 && type[2] == 32) { // OpTypeInteger
-      if (type[3] > 0) { // signed
-        if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
-          constant->type = SPV_I32x2 + componentCount - 2;
-        } else if (columnCount == 1 && componentCount == 1) {
-          constant->type = SPV_I32;
-        } else {
-          return SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE;
-        }
-      } else {
-        if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
-          constant->type = SPV_U32x2 + componentCount - 2;
-        } else if (columnCount == 1 && componentCount == 1) {
-          constant->type = SPV_U32;
-        } else {
-          return SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE;
-        }
-      }
-    } else if (OP_CODE(type) == 20 && columnCount == 1 && componentCount == 1) { // OpTypeBool
-      constant->type = SPV_B32;
+  if (OP_CODE(word) == 22 && word[2] == 32) { // OpTypeFloat
+    if (columnCount >= 2 && columnCount <= 4 && componentCount >= 2 && componentCount <= 4) {
+      field->type = SPV_MAT2x2 + (columnCount - 2) * 3 + (componentCount - 2);
+    } else if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
+      field->type = SPV_F32x2 + componentCount - 2;
+    } else if (columnCount == 1 && componentCount == 1) {
+      field->type = SPV_F32;
     } else {
-      return SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE;
+      return SPV_UNSUPPORTED_DATA_TYPE;
     }
+  } else if (OP_CODE(word) == 21 && word[2] == 32) { // OpTypeInteger
+    if (word[3] > 0) { // signed
+      if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
+        field->type = SPV_I32x2 + componentCount - 2;
+      } else if (columnCount == 1 && componentCount == 1) {
+        field->type = SPV_I32;
+      } else {
+        return SPV_UNSUPPORTED_DATA_TYPE;
+      }
+    } else {
+      if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
+        field->type = SPV_U32x2 + componentCount - 2;
+      } else if (columnCount == 1 && componentCount == 1) {
+        field->type = SPV_U32;
+      } else {
+        return SPV_UNSUPPORTED_DATA_TYPE;
+      }
+    }
+  } else if (OP_CODE(word) == 20 && columnCount == 1 && componentCount == 1) { // OpTypeBool
+    field->type = SPV_B32;
+  } else {
+    return SPV_UNSUPPORTED_DATA_TYPE;
   }
 
-  // Need to do a second pass to find the name and offset decorations, hard to cache them
-  op = spv->words + 5;
-
-  while (op < spv->words + spv->wordCount) {
-    uint16_t opcode = OP_CODE(op);
-    uint16_t length = OP_LENGTH(op);
-
-    if (OP_LENGTH(op) == 0 || op + OP_LENGTH(op) > spv->words + spv->wordCount) {
-      return SPV_INVALID;
-    }
-
-    switch (opcode) {
-      case 6: // OpMemberName
-        if (length < 4 || op[1] > spv->bound) {
-          return SPV_INVALID;
-        } else if (op[1] == structure[1] && op[2] < info->pushConstantCount) {
-          info->pushConstants[op[2]].name = (char*) &op[3];
-        }
-        break;
-      case 72: // OpMemberDecorate
-        if (op[1] > spv->bound) {
-          return SPV_INVALID;
-        } else if (length == 5 && op[1] == structure[1] && op[2] < info->pushConstantCount && op[3] == 35) { // Offset
-          info->pushConstants[op[2]].offset = op[4];
-
-          uint32_t size = 0;
-          switch (info->pushConstants[op[2]].type) {
-            case SPV_B32: size = 4; break;
-            case SPV_I32: size = 4; break;
-            case SPV_I32x2: size = 8; break;
-            case SPV_I32x3: size = 12; break;
-            case SPV_I32x4: size = 16; break;
-            case SPV_U32: size = 4; break;
-            case SPV_U32x2: size = 8; break;
-            case SPV_U32x3: size = 12; break;
-            case SPV_U32x4: size = 16; break;
-            case SPV_F32: size = 4; break;
-            case SPV_F32x2: size = 8; break;
-            case SPV_F32x3: size = 12; break;
-            case SPV_F32x4: size = 16; break;
-            case SPV_MAT2: size = 16; break;
-            case SPV_MAT3: size = 36; break;
-            case SPV_MAT4: size = 64; break;
-            default: break;
-          }
-
-          if (info->pushConstantSize < op[4] + size) {
-            info->pushConstantSize = op[4] + size;
-          }
-        }
-        break;
-      case 59: // OpVariable, can exit
-        op = spv->words + spv->wordCount;
-        length = 0;
-        break;
-    }
-
-    op += length;
-  }
+  field->elementSize = 4 * componentCount * columnCount;
 
   return SPV_OK;
 }

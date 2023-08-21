@@ -68,6 +68,8 @@ function lovr.boot()
   if hasConf then confOk, confError = pcall(require, 'conf') end
   if confOk and lovr.conf then confOk, confError = pcall(lovr.conf, conf) end
 
+  conf.graphics.debug = arg['--graphics-debug'] or conf.graphics.debug
+
   lovr._setConf(conf)
   lovr.filesystem.setIdentity(conf.identity, conf.saveprecedence)
 
@@ -92,10 +94,6 @@ function lovr.boot()
 
   if lovr.headset then
     lovr.headset.start()
-
-    if lovr.headset.getDriver() == 'desktop' then
-      lovr.mirror = nil
-    end
   end
 
   lovr.handlers = setmetatable({}, { __index = lovr })
@@ -108,8 +106,8 @@ function lovr.run()
   if lovr.timer then lovr.timer.step() end
   if lovr.load then lovr.load(arg) end
   return function()
+    if lovr.system then lovr.system.pollEvents() end
     if lovr.event then
-      lovr.event.pump()
       for name, a, b, c, d in lovr.event.poll() do
         if name == 'restart' then
           local cookie = lovr.restart and lovr.restart()
@@ -125,21 +123,12 @@ function lovr.run()
     if lovr.headset then dt = lovr.headset.update() end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
-      if lovr.headset then
-        local pass = lovr.headset.getPass()
-        if pass then
-          local skip = lovr.draw and lovr.draw(pass)
-          if not skip then lovr.graphics.submit(pass) end
-        end
-      end
-      if lovr.system.isWindowOpen() then
-        if lovr.mirror then
-          local pass = lovr.graphics.getWindowPass()
-          local skip = not pass or lovr.mirror(pass)
-          if not skip then lovr.graphics.submit(pass) end
-        end
-        lovr.graphics.present()
-      end
+      local headset = lovr.headset and lovr.headset.getPass()
+      if headset and (not lovr.draw or lovr.draw(headset)) then headset = nil end
+      local window = lovr.graphics.getWindowPass()
+      if window and (not lovr.mirror or lovr.mirror(window)) then window = nil end
+      lovr.graphics.submit(headset, window)
+      lovr.graphics.present()
     end
     if lovr.headset then lovr.headset.submit() end
     if lovr.math then lovr.math.drain() end
@@ -151,8 +140,6 @@ function lovr.mirror(pass)
     local texture = lovr.headset.getTexture()
     if texture then
       pass:fill(texture)
-    else
-      return true
     end
   else
     return lovr.draw and lovr.draw(pass)
@@ -160,12 +147,13 @@ function lovr.mirror(pass)
 end
 
 local function formatTraceback(s)
-  return s:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback', '\nStack')
+  return s:gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback:', '\nStack:\n')
 end
 
 function lovr.errhand(message)
-  message = tostring(message) .. formatTraceback(debug.traceback('', 4))
-  print('Error:\n' .. message)
+  message = 'Error:\n\n' .. tostring(message) .. formatTraceback(debug.traceback('', 4))
+
+  print(message)
 
   if not lovr.graphics or not lovr.graphics.isInitialized() then
     return function() return 1 end
@@ -173,39 +161,43 @@ function lovr.errhand(message)
 
   if lovr.audio then lovr.audio.stop() end
 
-  local scale = .35
-  local font = lovr.graphics.getDefaultFont()
-  local wrap = .7 * font:getPixelDensity()
-  local lines = font:getLines(message, wrap)
-  local width = math.min(font:getWidth(message), wrap) * scale
-  local height = .8 + #lines * font:getHeight() * scale
-  local x = -width / 2
-  local y = math.min(height / 2, 10)
-  local z = -10
-
-  lovr.graphics.setBackgroundColor(.11, .10, .14)
-  font:setPixelDensity()
-
-  local function render(pass)
-    pass:setColor(.95, .95, .95)
-    pass:text('Error', x, y, z, scale * 1.6, 0, 0, 0, 0, nil, 'left', 'top')
-    pass:text(message, x, y - .8, z, scale, 0, 0, 0, 0, wrap, 'left', 'top')
+  if not lovr.headset or lovr.headset.getPassthrough() == 'opaque' then
+    lovr.graphics.setBackgroundColor(.11, .10, .14)
+  else
+    lovr.graphics.setBackgroundColor(0, 0, 0, 0)
   end
 
+  local font = lovr.graphics.getDefaultFont()
+
   return function()
-    lovr.event.pump()
+    lovr.system.pollEvents()
 
     for name, a in lovr.event.poll() do
       if name == 'quit' then return a or 1
       elseif name == 'restart' then return 'restart', lovr.restart and lovr.restart()
-      elseif name == 'keypressed' and a == 'f5' then lovr.event.restart() end
+      elseif name == 'keypressed' and a == 'f5' then lovr.event.restart()
+      elseif name == 'keypressed' and a == 'escape' then lovr.event.quit() end
     end
 
     if lovr.headset and lovr.headset.getDriver() ~= 'desktop' then
       lovr.headset.update()
       local pass = lovr.headset.getPass()
       if pass then
-        render(pass)
+        font:setPixelDensity()
+
+        local scale = .35
+        local font = lovr.graphics.getDefaultFont()
+        local wrap = .7 * font:getPixelDensity()
+        local lines = font:getLines(message, wrap)
+        local width = math.min(font:getWidth(message), wrap) * scale
+        local height = .8 + #lines * font:getHeight() * scale
+        local x = -width / 2
+        local y = math.min(height / 2, 10)
+        local z = -10
+
+        pass:setColor(.95, .95, .95)
+        pass:text(message, x, y, z, scale, 0, 0, 0, 0, wrap, 'left', 'top')
+
         lovr.graphics.submit(pass)
         lovr.headset.submit()
       end
@@ -214,11 +206,24 @@ function lovr.errhand(message)
     if lovr.system.isWindowOpen() then
       local pass = lovr.graphics.getWindowPass()
       if pass then
-        render(pass)
+        local w, h = lovr.system.getWindowDimensions()
+        pass:setProjection(1, lovr.math.mat4():orthographic(0, w, 0, h, -1, 1))
+        font:setPixelDensity(1)
+
+        local scale = .6
+        local wrap = w * .8 / scale
+        local width = math.min(font:getWidth(message), wrap) * scale
+        local x = w / 2 - width / 2
+
+        pass:setColor(.95, .95, .95)
+        pass:text(message, x, h / 2, 0, scale, 0, 0, 0, 0, wrap, 'left', 'middle')
+
         lovr.graphics.submit(pass)
         lovr.graphics.present()
       end
     end
+
+    lovr.math.drain()
   end
 end
 

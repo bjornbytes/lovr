@@ -189,9 +189,87 @@ static int l_lovrSystemGetWindowDensity(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSystemPollEvents(lua_State* L) {
+  lovrSystemPollEvents();
+  return 0;
+}
+
 static int l_lovrSystemIsKeyDown(lua_State* L) {
-  os_key key = luax_checkenum(L, 1, KeyboardKey, NULL);
-  lua_pushboolean(L, lovrSystemIsKeyDown(key));
+  int count = lua_gettop(L);
+  for (int i = 0; i < count; i++) {
+    os_key key = luax_checkenum(L, i + 1, KeyboardKey, NULL);
+    if (lovrSystemIsKeyDown(key)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
+  return 1;
+}
+
+static int l_lovrSystemWasKeyPressed(lua_State* L) {
+  int count = lua_gettop(L);
+  for (int i = 0; i < count; i++) {
+    os_key key = luax_checkenum(L, i + 1, KeyboardKey, NULL);
+    if (lovrSystemWasKeyPressed(key)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
+  return 1;
+}
+
+static int l_lovrSystemWasKeyReleased(lua_State* L) {
+  int count = lua_gettop(L);
+  for (int i = 0; i < count; i++) {
+    os_key key = luax_checkenum(L, i + 1, KeyboardKey, NULL);
+    if (lovrSystemWasKeyReleased(key)) {
+      lua_pushboolean(L, true);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, false);
+  return 1;
+}
+
+static int l_lovrSystemHasKeyRepeat(lua_State* L) {
+  lua_pushboolean(L, lovrSystemHasKeyRepeat());
+  return 1;
+}
+
+static int l_lovrSystemSetKeyRepeat(lua_State* L) {
+  bool repeat = lua_toboolean(L, 1);
+  lovrSystemSetKeyRepeat(repeat);
+  return 0;
+}
+
+static int l_lovrSystemGetMouseX(lua_State* L) {
+  double x, y;
+  lovrSystemGetMousePosition(&x, &y);
+  lua_pushnumber(L, x);
+  return 1;
+}
+
+static int l_lovrSystemGetMouseY(lua_State* L) {
+  double x, y;
+  lovrSystemGetMousePosition(&x, &y);
+  lua_pushnumber(L, y);
+  return 1;
+}
+
+static int l_lovrSystemGetMousePosition(lua_State* L) {
+  double x, y;
+  lovrSystemGetMousePosition(&x, &y);
+  lua_pushnumber(L, x);
+  lua_pushnumber(L, y);
+  return 2;
+}
+
+static int l_lovrSystemIsMouseDown(lua_State* L) {
+  int button = luaL_checkint(L, 1) - 1;
+  bool down = lovrSystemIsMouseDown(button);
+  lua_pushboolean(L, down);
   return 1;
 }
 
@@ -205,7 +283,16 @@ static const luaL_Reg lovrSystem[] = {
   { "getWindowHeight", l_lovrSystemGetWindowHeight },
   { "getWindowDimensions", l_lovrSystemGetWindowDimensions },
   { "getWindowDensity", l_lovrSystemGetWindowDensity },
+  { "pollEvents", l_lovrSystemPollEvents },
   { "isKeyDown", l_lovrSystemIsKeyDown },
+  { "wasKeyPressed", l_lovrSystemWasKeyPressed },
+  { "wasKeyReleased", l_lovrSystemWasKeyReleased },
+  { "hasKeyRepeat", l_lovrSystemHasKeyRepeat },
+  { "setKeyRepeat", l_lovrSystemSetKeyRepeat },
+  { "getMouseX", l_lovrSystemGetMouseX },
+  { "getMouseY", l_lovrSystemGetMouseY },
+  { "getMousePosition", l_lovrSystemGetMousePosition },
+  { "isMouseDown", l_lovrSystemIsMouseDown },
   { NULL, NULL }
 };
 

@@ -125,12 +125,14 @@ typedef enum {
   OS_PERMISSION_AUDIO_CAPTURE
 } os_permission;
 
-typedef void fn_gl_proc(void);
 typedef void fn_quit(void);
 typedef void fn_focus(bool focused);
 typedef void fn_resize(uint32_t width, uint32_t height);
 typedef void fn_key(os_button_action action, os_key key, uint32_t scancode, bool repeat);
 typedef void fn_text(uint32_t codepoint);
+typedef void fn_mouse_button(int button, bool pressed);
+typedef void fn_mouse_move(double x, double y);
+typedef void fn_mousewheel_move(double deltaX, double deltaY);
 typedef void fn_permission(os_permission permission, bool granted);
 
 bool os_init(void);
@@ -153,12 +155,16 @@ void os_on_focus(fn_focus* callback);
 void os_on_resize(fn_resize* callback);
 void os_on_key(fn_key* callback);
 void os_on_text(fn_text* callback);
+void os_on_mouse_button(fn_mouse_button* callback);
+void os_on_mouse_move(fn_mouse_move* callback);
+void os_on_mousewheel_move(fn_mousewheel_move* callback);
 void os_on_permission(fn_permission* callback);
 
 bool os_window_open(const os_window_config* config);
 bool os_window_is_open(void);
 void os_window_get_size(uint32_t* width, uint32_t* height);
 float os_window_get_pixel_density(void);
+void os_window_message_box(const char* message);
 
 size_t os_get_home_directory(char* buffer, size_t size);
 size_t os_get_data_directory(char* buffer, size_t size);

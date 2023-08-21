@@ -50,9 +50,9 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 static int l_lovrPhysicsNewBallJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float anchor[4];
+  float anchor[3];
   luax_readvec3(L, 3, anchor, NULL);
-  BallJoint* joint = lovrBallJointCreate(a, b, anchor[0], anchor[1], anchor[2]);
+  BallJoint* joint = lovrBallJointCreate(a, b, anchor);
   luax_pushtype(L, BallJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;
@@ -82,11 +82,10 @@ static int l_lovrPhysicsNewCylinderShape(lua_State* L) {
 static int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float anchor1[4], anchor2[4];
+  float anchor1[3], anchor2[3];
   int index = luax_readvec3(L, 3, anchor1, NULL);
   luax_readvec3(L, index, anchor2, NULL);
-  DistanceJoint* joint = lovrDistanceJointCreate(a, b, anchor1[0], anchor1[1], anchor1[2],
-    anchor2[0], anchor2[1], anchor2[2]);
+  DistanceJoint* joint = lovrDistanceJointCreate(a, b, anchor1, anchor2);
   luax_pushtype(L, DistanceJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;
@@ -95,10 +94,10 @@ static int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
 static int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float anchor[4], axis[4];
+  float anchor[3], axis[3];
   int index = luax_readvec3(L, 3, anchor, NULL);
   luax_readvec3(L, index, axis, NULL);
-  HingeJoint* joint = lovrHingeJointCreate(a, b, anchor[0], anchor[1], anchor[2], axis[0], axis[1], axis[2]);
+  HingeJoint* joint = lovrHingeJointCreate(a, b, anchor, axis);
   luax_pushtype(L, HingeJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;
@@ -114,9 +113,9 @@ static int l_lovrPhysicsNewMeshShape(lua_State* L) {
 static int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   Collider* a = luax_checktype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float axis[4];
+  float axis[3];
   luax_readvec3(L, 3, axis, NULL);
-  SliderJoint* joint = lovrSliderJointCreate(a, b, axis[0], axis[1], axis[2]);
+  SliderJoint* joint = lovrSliderJointCreate(a, b, axis);
   luax_pushtype(L, SliderJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;

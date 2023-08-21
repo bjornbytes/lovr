@@ -17,9 +17,16 @@ typedef enum {
   SPV_F32x2,
   SPV_F32x3,
   SPV_F32x4,
-  SPV_MAT2,
-  SPV_MAT3,
-  SPV_MAT4
+  SPV_MAT2x2,
+  SPV_MAT2x3,
+  SPV_MAT2x4,
+  SPV_MAT3x2,
+  SPV_MAT3x3,
+  SPV_MAT3x4,
+  SPV_MAT4x2,
+  SPV_MAT4x3,
+  SPV_MAT4x4,
+  SPV_STRUCT
 } spv_type;
 
 typedef struct {
@@ -28,11 +35,17 @@ typedef struct {
   spv_type type;
 } spv_spec_constant;
 
-typedef struct {
+typedef struct spv_field {
   const char* name;
-  uint32_t offset;
   spv_type type;
-} spv_push_constant;
+  uint32_t offset;
+  uint32_t arrayLength;
+  uint32_t arrayStride;
+  uint32_t elementSize;
+  uint16_t fieldCount;
+  uint16_t totalFieldCount;
+  struct spv_field* fields;
+} spv_field;
 
 typedef struct {
   const char* name;
@@ -44,7 +57,11 @@ typedef enum {
   SPV_STORAGE_BUFFER,
   SPV_SAMPLED_TEXTURE,
   SPV_STORAGE_TEXTURE,
-  SPV_SAMPLER
+  SPV_SAMPLER,
+  SPV_COMBINED_TEXTURE_SAMPLER,
+  SPV_UNIFORM_TEXEL_BUFFER,
+  SPV_STORAGE_TEXEL_BUFFER,
+  SPV_INPUT_ATTACHMENT
 } spv_resource_type;
 
 typedef struct {
@@ -52,7 +69,8 @@ typedef struct {
   uint32_t binding;
   const char* name;
   spv_resource_type type;
-  uint32_t arraySize;
+  uint32_t count;
+  spv_field* fields;
 } spv_resource;
 
 typedef struct {
@@ -60,24 +78,23 @@ typedef struct {
   uint32_t workgroupSize[3];
   uint32_t featureCount;
   uint32_t specConstantCount;
-  uint32_t pushConstantCount;
-  uint32_t pushConstantSize;
   uint32_t attributeCount;
   uint32_t resourceCount;
+  uint32_t fieldCount;
   uint32_t* features;
   spv_spec_constant* specConstants;
-  spv_push_constant* pushConstants;
+  spv_field* pushConstants;
   spv_attribute* attributes;
   spv_resource* resources;
+  spv_field* fields;
 } spv_info;
 
 typedef enum {
   SPV_OK,
   SPV_INVALID,
   SPV_TOO_BIG,
-  SPV_UNSUPPORTED_IMAGE_TYPE,
   SPV_UNSUPPORTED_SPEC_CONSTANT_TYPE,
-  SPV_UNSUPPORTED_PUSH_CONSTANT_TYPE
+  SPV_UNSUPPORTED_DATA_TYPE
 } spv_result;
 
 spv_result spv_parse(const void* source, size_t size, spv_info* info);

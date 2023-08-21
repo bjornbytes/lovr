@@ -19,29 +19,29 @@ static struct {
   fn_permission* onPermissionEvent;
 } state;
 
-bool os_init() {
+bool os_init(void) {
   mach_timebase_info_data_t info;
   mach_timebase_info(&info);
   state.frequency = (info.denom * 1e9) / info.numer;
   return true;
 }
 
-const char* os_get_name() {
+const char* os_get_name(void) {
   return "macOS";
 }
 
-uint32_t os_get_core_count() {
+uint32_t os_get_core_count(void) {
   uint32_t count;
   size_t size = sizeof(count);
   sysctlbyname("hw.logicalcpu", &count, &size, NULL, 0);
   return count;
 }
 
-void os_open_console() {
+void os_open_console(void) {
   //
 }
 
-double os_get_time() {
+double os_get_time(void) {
   return mach_absolute_time() / (double) state.frequency;
 }
 
@@ -103,6 +103,10 @@ bool os_vm_commit(void* p, size_t size) {
 
 void os_on_permission(fn_permission* callback) {
   state.onPermissionEvent = callback;
+}
+
+void os_window_message_box(const char* message) {
+  //
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {

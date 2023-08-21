@@ -15,10 +15,18 @@ static size_t typeSizes[] = {
   [F32] = 4
 };
 
+static void* nullIO(const char* path, size_t* count) {
+  lovrThrow("Can't resolve external asset reference for model loaded from memory");
+}
+
 ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
   ModelData* model = calloc(1, sizeof(ModelData));
   lovrAssert(model, "Out of memory");
   model->ref = 1;
+
+  if (!io) {
+    io = &nullIO;
+  }
 
   if (!lovrModelDataInitGltf(model, source, io)) {
     if (!lovrModelDataInitObj(model, source, io)) {
@@ -42,6 +50,7 @@ void lovrModelDataDestroy(void* ref) {
   for (uint32_t i = 0; i < model->imageCount; i++) {
     lovrRelease(model->images[i], lovrImageDestroy);
   }
+  map_free(&model->blendShapeMap);
   map_free(&model->animationMap);
   map_free(&model->materialMap);
   map_free(&model->nodeMap);
@@ -52,24 +61,26 @@ void lovrModelDataDestroy(void* ref) {
   free(model);
 }
 
-// Note: this code is a scary optimization
+// Batches allocations for all the ModelData arrays
 void lovrModelDataAllocate(ModelData* model) {
   size_t totalSize = 0;
-  size_t sizes[13];
+  size_t sizes[15];
   size_t alignment = 8;
   totalSize += sizes[0] = ALIGN(model->blobCount * sizeof(Blob*), alignment);
   totalSize += sizes[1] = ALIGN(model->bufferCount * sizeof(ModelBuffer), alignment);
   totalSize += sizes[2] = ALIGN(model->imageCount * sizeof(Image*), alignment);
-  totalSize += sizes[3] = ALIGN(model->materialCount * sizeof(ModelMaterial), alignment);
-  totalSize += sizes[4] = ALIGN(model->attributeCount * sizeof(ModelAttribute), alignment);
-  totalSize += sizes[5] = ALIGN(model->primitiveCount * sizeof(ModelPrimitive), alignment);
-  totalSize += sizes[6] = ALIGN(model->animationCount * sizeof(ModelAnimation), alignment);
-  totalSize += sizes[7] = ALIGN(model->skinCount * sizeof(ModelSkin), alignment);
-  totalSize += sizes[8] = ALIGN(model->nodeCount * sizeof(ModelNode), alignment);
-  totalSize += sizes[9] = ALIGN(model->channelCount * sizeof(ModelAnimationChannel), alignment);
-  totalSize += sizes[10] = ALIGN(model->childCount * sizeof(uint32_t), alignment);
-  totalSize += sizes[11] = ALIGN(model->jointCount * sizeof(uint32_t), alignment);
-  totalSize += sizes[12] = model->charCount * sizeof(char);
+  totalSize += sizes[3] = ALIGN(model->attributeCount * sizeof(ModelAttribute), alignment);
+  totalSize += sizes[4] = ALIGN(model->primitiveCount * sizeof(ModelPrimitive), alignment);
+  totalSize += sizes[5] = ALIGN(model->materialCount * sizeof(ModelMaterial), alignment);
+  totalSize += sizes[6] = ALIGN(model->blendShapeCount * sizeof(ModelBlendShape), alignment);
+  totalSize += sizes[7] = ALIGN(model->animationCount * sizeof(ModelAnimation), alignment);
+  totalSize += sizes[8] = ALIGN(model->skinCount * sizeof(ModelSkin), alignment);
+  totalSize += sizes[9] = ALIGN(model->nodeCount * sizeof(ModelNode), alignment);
+  totalSize += sizes[10] = ALIGN(model->channelCount * sizeof(ModelAnimationChannel), alignment);
+  totalSize += sizes[11] = ALIGN(model->blendDataCount * sizeof(ModelBlendData), alignment);
+  totalSize += sizes[12] = ALIGN(model->childCount * sizeof(uint32_t), alignment);
+  totalSize += sizes[13] = ALIGN(model->jointCount * sizeof(uint32_t), alignment);
+  totalSize += sizes[14] = model->charCount * sizeof(char);
 
   size_t offset = 0;
   char* p = model->data = calloc(1, totalSize);
@@ -77,17 +88,20 @@ void lovrModelDataAllocate(ModelData* model) {
   model->blobs = (Blob**) (p + offset), offset += sizes[0];
   model->buffers = (ModelBuffer*) (p + offset), offset += sizes[1];
   model->images = (Image**) (p + offset), offset += sizes[2];
-  model->materials = (ModelMaterial*) (p + offset), offset += sizes[3];
-  model->attributes = (ModelAttribute*) (p + offset), offset += sizes[4];
-  model->primitives = (ModelPrimitive*) (p + offset), offset += sizes[5];
-  model->animations = (ModelAnimation*) (p + offset), offset += sizes[6];
-  model->skins = (ModelSkin*) (p + offset), offset += sizes[7];
-  model->nodes = (ModelNode*) (p + offset), offset += sizes[8];
-  model->channels = (ModelAnimationChannel*) (p + offset), offset += sizes[9];
-  model->children = (uint32_t*) (p + offset), offset += sizes[10];
-  model->joints = (uint32_t*) (p + offset), offset += sizes[11];
-  model->chars = (char*) (p + offset), offset += sizes[12];
+  model->attributes = (ModelAttribute*) (p + offset), offset += sizes[3];
+  model->primitives = (ModelPrimitive*) (p + offset), offset += sizes[4];
+  model->materials = (ModelMaterial*) (p + offset), offset += sizes[5];
+  model->blendShapes = (ModelBlendShape*) (p + offset), offset += sizes[6];
+  model->animations = (ModelAnimation*) (p + offset), offset += sizes[7];
+  model->skins = (ModelSkin*) (p + offset), offset += sizes[8];
+  model->nodes = (ModelNode*) (p + offset), offset += sizes[9];
+  model->channels = (ModelAnimationChannel*) (p + offset), offset += sizes[10];
+  model->blendData = (ModelBlendData*) (p + offset), offset += sizes[11];
+  model->children = (uint32_t*) (p + offset), offset += sizes[12];
+  model->joints = (uint32_t*) (p + offset), offset += sizes[13];
+  model->chars = (char*) (p + offset), offset += sizes[14];
 
+  map_init(&model->blendShapeMap, model->blendShapeCount);
   map_init(&model->animationMap, model->animationCount);
   map_init(&model->materialMap, model->materialCount);
   map_init(&model->nodeMap, model->nodeCount);
@@ -101,9 +115,11 @@ void lovrModelDataFinalize(ModelData* model) {
   for (uint32_t i = 0; i < model->nodeCount; i++) {
     ModelNode* node = &model->nodes[i];
 
-    for (uint32_t j = 0; j < model->nodeCount; j++) {
-      if (i == j || node->primitiveIndex != model->nodes[j].primitiveIndex) continue;
-      lovrCheck(node->skin == model->nodes[j].skin, "Model has a mesh used with multiple different skins, which is not supported");
+    if (node->primitiveCount > 0) {
+      for (uint32_t j = 0; j < model->nodeCount; j++) {
+        if (i == j || model->nodes[j].primitiveCount == 0 || node->primitiveIndex != model->nodes[j].primitiveIndex) continue;
+        lovrCheck(node->skin == model->nodes[j].skin, "Model has a mesh used with multiple different skins, which is not supported");
+      }
     }
 
     for (uint32_t j = node->primitiveIndex; j < node->primitiveIndex + node->primitiveCount; j++) {
@@ -120,6 +136,8 @@ void lovrModelDataFinalize(ModelData* model) {
       model->skins[primitive->skin].vertexCount += vertexCount;
       model->skinnedVertexCount += vertexCount;
     }
+    model->blendShapeVertexCount += vertexCount * primitive->blendShapeCount;
+    model->dynamicVertexCount += primitive->skin != ~0u || !!primitive->blendShapes ? vertexCount : 0;
     model->vertexCount += vertexCount;
 
     model->indexCount += primitive->indices ? primitive->indices->count : 0;
@@ -132,13 +150,21 @@ void lovrModelDataFinalize(ModelData* model) {
       }
     }
 
-    for (uint32_t i = 0; i < MAX_DEFAULT_ATTRIBUTES; i++) {
-      ModelAttribute* attribute = primitive->attributes[i];
-      if (attribute) {
+    for (uint32_t j = 0; j < MAX_DEFAULT_ATTRIBUTES; j++) {
+      ModelAttribute* attribute = primitive->attributes[j];
+      if (!attribute) continue;
+      attribute->stride = model->buffers[attribute->buffer].stride;
+      if (attribute->stride == 0) attribute->stride = typeSizes[attribute->type] * attribute->components;
+    }
+
+    for (uint32_t j = 0; j < primitive->blendShapeCount; j++) {
+      ModelBlendData* blendData = &primitive->blendShapes[j];
+      ModelAttribute* attributes[] = { blendData->positions, blendData->normals, blendData->tangents };
+      for (uint32_t k = 0; k < COUNTOF(attributes); k++) {
+        if (!attributes[k]) continue;
+        ModelAttribute* attribute = attributes[k];
         attribute->stride = model->buffers[attribute->buffer].stride;
-        if (attribute->stride == 0) {
-          attribute->stride = typeSizes[attribute->type] * attribute->components;
-        }
+        if (attribute->stride == 0) attribute->stride = typeSizes[attribute->type] * attribute->components;
       }
     }
   }
@@ -315,20 +341,20 @@ static void boundingSphereHelper(ModelData* model, uint32_t nodeIndex, uint32_t*
     float* min = position->min;
     float* max = position->max;
 
-    float corners[8][4] = {
-      { min[0], min[1], min[2], 1.f },
-      { min[0], min[1], max[2], 1.f },
-      { min[0], max[1], min[2], 1.f },
-      { min[0], max[1], max[2], 1.f },
-      { max[0], min[1], min[2], 1.f },
-      { max[0], min[1], max[2], 1.f },
-      { max[0], max[1], min[2], 1.f },
-      { max[0], max[1], max[2], 1.f }
+    float corners[8][3] = {
+      { min[0], min[1], min[2] },
+      { min[0], min[1], max[2] },
+      { min[0], max[1], min[2] },
+      { min[0], max[1], max[2] },
+      { max[0], min[1], min[2] },
+      { max[0], min[1], max[2] },
+      { max[0], max[1], min[2] },
+      { max[0], max[1], max[2] }
     };
 
     for (uint32_t j = 0; j < 8; j++) {
-      mat4_transform(m, corners[j]);
-      memcpy(points + 3 * (*pointIndex)++, corners[j], 3 * sizeof(float));
+      mat4_mulPoint(m, corners[j]);
+      vec3_init(points + 3 * (*pointIndex)++, corners[j]);
     }
   }
 
@@ -357,11 +383,7 @@ void lovrModelDataGetBoundingSphere(ModelData* model, float sphere[4]) {
     float max = 0.f;
     float* a = NULL;
     for (uint32_t i = 1; i < pointCount; i++) {
-      float dx = points[3 * i + 0] - points[0];
-      float dy = points[3 * i + 1] - points[1];
-      float dz = points[3 * i + 2] - points[2];
-      float d2 = dx * dx + dy * dy + dz * dz;
-
+      float d2 = vec3_distance2(&points[3 * i], &points[0]);
       if (d2 > max) {
         a = &points[3 * i];
         max = d2;
@@ -373,11 +395,7 @@ void lovrModelDataGetBoundingSphere(ModelData* model, float sphere[4]) {
     max = 0.f;
     float* b = NULL;
     for (uint32_t i = 0; i < pointCount; i++) {
-      float dx = points[3 * i + 0] - a[0];
-      float dy = points[3 * i + 1] - a[1];
-      float dz = points[3 * i + 2] - a[2];
-      float d2 = dx * dx + dy * dy + dz * dz;
-
+      float d2 = vec3_distance2(&points[3 * i], a);
       if (d2 > max) {
         b = &points[3 * i];
         max = d2;
@@ -484,10 +502,10 @@ static void collectVertices(ModelData* model, uint32_t nodeIndex, float** vertic
       size_t stride = positions->stride == 0 ? 3 * sizeof(float) : positions->stride;
 
       for (uint32_t j = 0; j < positions->count; j++) {
-        float v[4];
+        float v[3];
         memcpy(v, data, 3 * sizeof(float));
-        mat4_transform(m, v);
-        memcpy(*vertices, v, 3 * sizeof(float));
+        mat4_mulPoint(m, v);
+        vec3_init(*vertices, v);
         *vertices += 3;
         data += stride;
       }

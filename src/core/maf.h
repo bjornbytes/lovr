@@ -10,9 +10,94 @@
 #define M_PI 3.14159265358979
 #endif
 
+typedef float* vec2;
 typedef float* vec3;
+typedef float* vec4;
 typedef float* quat;
 typedef float* mat4;
+
+// vec2
+
+MAF vec2 vec2_set(vec2 v, float x, float y) {
+  v[0] = x;
+  v[1] = y;
+  return v;
+}
+
+MAF vec2 vec2_init(vec2 v, const vec2 u) {
+  return memcpy(v, u, 2 * sizeof(float));
+}
+
+MAF vec2 vec2_add(vec2 v, const vec2 u) {
+  v[0] += u[0];
+  v[1] += u[1];
+  return v;
+}
+
+MAF vec2 vec2_sub(vec2 v, const vec2 u) {
+  v[0] -= u[0];
+  v[1] -= u[1];
+  return v;
+}
+
+MAF vec2 vec2_mul(vec2 v, const vec2 u) {
+  v[0] *= u[0];
+  v[1] *= u[1];
+  return v;
+}
+
+MAF vec2 vec2_div(vec2 v, const vec2 u) {
+  v[0] /= u[0];
+  v[1] /= u[1];
+  return v;
+}
+
+MAF vec2 vec2_scale(vec2 v, float s) {
+  v[0] *= s;
+  v[1] *= s;
+  return v;
+}
+
+MAF float vec2_length(vec2 v) {
+  return sqrtf(v[0] * v[0] + v[1] * v[1]);
+}
+
+MAF vec2 vec2_normalize(vec2 v) {
+  float length = vec2_length(v);
+  return length == 0.f ? v : vec2_scale(v, 1.f / length);
+}
+
+MAF float vec2_distance2(const vec2 v, const vec2 u) {
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  return dx * dx + dy * dy;
+}
+
+MAF float vec2_distance(const vec2 v, const vec2 u) {
+  return sqrtf(vec2_distance2(v, u));
+}
+
+MAF float vec2_dot(const vec2 v, const vec2 u) {
+  return v[0] * u[0] + v[1] * u[1];
+}
+
+MAF vec2 vec2_lerp(vec2 v, const vec2 u, float t) {
+  v[0] = v[0] * (1.f - t) + u[0] * t;
+  v[1] = v[1] * (1.f - t) + u[1] * t;
+  return v;
+}
+
+MAF float vec2_angle(const vec2 v, const vec2 u) {
+  float denom = vec2_length(v) * vec2_length(u);
+  if (denom == 0.f) {
+    return (float) M_PI / 2.f;
+  } else {
+    float cos = vec2_dot(v, u) / denom;
+    cos = cos < -1.f ? -1.f : cos;
+    cos = cos > 1.f ? 1.f : cos;
+    return acosf(cos);
+  }
+}
 
 // vec3
 
@@ -24,29 +109,34 @@ MAF vec3 vec3_set(vec3 v, float x, float y, float z) {
 }
 
 MAF vec3 vec3_init(vec3 v, const vec3 u) {
-  float x = u[0], y = u[1], z = u[2], w = u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
-  return v;
+  return memcpy(v, u, 3 * sizeof(float));
 }
 
 MAF vec3 vec3_add(vec3 v, const vec3 u) {
-  float x = v[0] + u[0], y = v[1] + u[1], z = v[2] + u[2], w = v[3] + u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
+  v[0] += u[0];
+  v[1] += u[1];
+  v[2] += u[2];
   return v;
 }
 
 MAF vec3 vec3_sub(vec3 v, const vec3 u) {
-  float x = v[0] - u[0], y = v[1] - u[1], z = v[2] - u[2], w = v[3] - u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
+  v[0] -= u[0];
+  v[1] -= u[1];
+  v[2] -= u[2];
+  return v;
+}
+
+MAF vec3 vec3_mul(vec3 v, const vec3 u) {
+  v[0] *= u[0];
+  v[1] *= u[1];
+  v[2] *= u[2];
+  return v;
+}
+
+MAF vec3 vec3_div(vec3 v, const vec3 u) {
+  v[0] /= u[0];
+  v[1] /= u[1];
+  v[2] /= u[2];
   return v;
 }
 
@@ -54,7 +144,6 @@ MAF vec3 vec3_scale(vec3 v, float s) {
   v[0] *= s;
   v[1] *= s;
   v[2] *= s;
-  v[3] *= s;
   return v;
 }
 
@@ -63,15 +152,19 @@ MAF float vec3_length(const vec3 v) {
 }
 
 MAF vec3 vec3_normalize(vec3 v) {
-  float len = vec3_length(v);
-  return len == 0.f ? v : vec3_scale(v, 1.f / len);
+  float length = vec3_length(v);
+  return length == 0.f ? v : vec3_scale(v, 1.f / length);
 }
 
-MAF float vec3_distance(const vec3 v, const vec3 u) {
+MAF float vec3_distance2(const vec3 v, const vec3 u) {
   float dx = v[0] - u[0];
   float dy = v[1] - u[1];
   float dz = v[2] - u[2];
-  return sqrtf(dx * dx + dy * dy + dz * dz);
+  return dx * dx + dy * dy + dz * dz;
+}
+
+MAF float vec3_distance(const vec3 v, const vec3 u) {
+  return sqrtf(vec3_distance2(v, u));
 }
 
 MAF float vec3_dot(const vec3 v, const vec3 u) {
@@ -79,46 +172,23 @@ MAF float vec3_dot(const vec3 v, const vec3 u) {
 }
 
 MAF vec3 vec3_cross(vec3 v, const vec3 u) {
-  return vec3_set(v,
-    v[1] * u[2] - v[2] * u[1],
-    v[2] * u[0] - v[0] * u[2],
-    v[0] * u[1] - v[1] * u[0]
-  );
+  float cx = v[1] * u[2] - v[2] * u[1];
+  float cy = v[2] * u[0] - v[0] * u[2];
+  float cz = v[0] * u[1] - v[1] * u[0];
+  return vec3_set(v, cx, cy, cz);
 }
 
 MAF vec3 vec3_lerp(vec3 v, const vec3 u, float t) {
-  float x = v[0] + (u[0] - v[0]) * t;
-  float y = v[1] + (u[1] - v[1]) * t;
-  float z = v[2] + (u[2] - v[2]) * t;
-  float w = v[3] + (u[3] - v[3]) * t;
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
+  v[0] = v[0] * (1.f - t) + u[0] * t;
+  v[1] = v[1] * (1.f - t) + u[1] * t;
+  v[2] = v[2] * (1.f - t) + u[2] * t;
   return v;
 }
 
-MAF vec3 vec3_min(vec3 v, const vec3 u) {
-  float x = v[0] < u[0] ? v[0] : u[0];
-  float y = v[1] < u[1] ? v[1] : u[1];
-  float z = v[2] < u[2] ? v[2] : u[2];
-  float w = v[3] < u[3] ? v[3] : u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
-  return v;
-}
-
-MAF vec3 vec3_max(vec3 v, const vec3 u) {
-  float x = v[0] > u[0] ? v[0] : u[0];
-  float y = v[1] > u[1] ? v[1] : u[1];
-  float z = v[2] > u[2] ? v[2] : u[2];
-  float w = v[3] > u[3] ? v[3] : u[3];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
+MAF vec3 vec3_abs(vec3 v) {
+  v[0] = fabsf(v[0]);
+  v[1] = fabsf(v[1]);
+  v[2] = fabsf(v[2]);
   return v;
 }
 
@@ -128,8 +198,115 @@ MAF float vec3_angle(const vec3 v, const vec3 u) {
     return (float) M_PI / 2.f;
   } else {
     float cos = vec3_dot(v, u) / denom;
-    cos = cos < -1 ? -1 : cos;
-    cos = cos > 1 ? 1 : cos;
+    cos = cos < -1.f ? -1.f : cos;
+    cos = cos > 1.f ? 1.f : cos;
+    return acosf(cos);
+  }
+}
+
+// vec4
+
+MAF vec4 vec4_set(vec4 v, float x, float y, float z, float w) {
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
+  return v;
+}
+
+MAF vec4 vec4_init(vec4 v, const vec4 u) {
+  return memcpy(v, u, 4 * sizeof(float));
+}
+
+MAF vec2 vec4_add(vec4 v, const vec4 u) {
+  v[0] += u[0];
+  v[1] += u[1];
+  v[2] += u[2];
+  v[3] += u[3];
+  return v;
+}
+
+MAF vec4 vec4_sub(vec4 v, const vec4 u) {
+  v[0] -= u[0];
+  v[1] -= u[1];
+  v[2] -= u[2];
+  v[3] -= u[3];
+  return v;
+}
+
+MAF vec4 vec4_mul(vec4 v, const vec4 u) {
+  v[0] *= u[0];
+  v[1] *= u[1];
+  v[2] *= u[2];
+  v[3] *= u[3];
+  return v;
+}
+
+MAF vec4 vec4_div(vec4 v, const vec4 u) {
+  v[0] /= u[0];
+  v[1] /= u[1];
+  v[2] /= u[2];
+  v[3] /= u[3];
+  return v;
+}
+
+MAF vec4 vec4_scale(vec4 v, float s) {
+  v[0] *= s;
+  v[1] *= s;
+  v[2] *= s;
+  v[3] *= s;
+  return v;
+}
+
+MAF float vec4_length(vec4 v) {
+  return sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]);
+}
+
+MAF vec4 vec4_normalize(vec4 v) {
+  float length = vec4_length(v);
+  return length == 0.f ? v : vec4_scale(v, 1.f / length);
+}
+
+MAF float vec4_distance2(const vec4 v, const vec4 u) {
+  float dx = v[0] - u[0];
+  float dy = v[1] - u[1];
+  float dz = v[2] - u[2];
+  float dw = v[3] - u[3];
+  return dx * dx + dy * dy + dz * dz + dw * dw;
+}
+
+MAF float vec4_distance(const vec4 v, const vec4 u) {
+  return sqrtf(vec4_distance2(v, u));
+}
+
+MAF float vec4_dot(const vec4 v, const vec4 u) {
+  return v[0] * u[0] + v[1] * u[1] + v[2] * u[2] + v[3] * u[3];
+}
+
+MAF vec4 vec4_lerp(vec4 v, const vec4 u, float t) {
+  v[0] = v[0] * (1.f - t) + u[0] * t;
+  v[1] = v[1] * (1.f - t) + u[1] * t;
+  v[2] = v[2] * (1.f - t) + u[2] * t;
+  v[3] = v[3] * (1.f - t) + u[3] * t;
+  return v;
+}
+
+MAF vec4 vec4_abs(vec4 v) {
+  v[0] = fabsf(v[0]);
+  v[1] = fabsf(v[1]);
+  v[2] = fabsf(v[2]);
+  v[3] = fabsf(v[3]);
+  return v;
+}
+
+MAF float vec4_angle(const vec4 v, const vec4 u) {
+  float denom = vec4_length(v) * vec4_length(u);
+  if (denom == 0.f) {
+    return (float) M_PI / 2.f;
+  } else {
+    float cos = vec4_dot(v, u) / denom;
+    cos = cos < -1.f ? -1.f : cos;
+    cos = cos > 1.f ? 1.f : cos;
     return acosf(cos);
   }
 }
@@ -158,23 +335,37 @@ MAF quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
   return quat_set(q, s * ax, s * ay, s * az, c);
 }
 
+// https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2015/01/matrix-to-quat.pdf
 MAF quat quat_fromMat4(quat q, mat4 m) {
-  float sx = vec3_length(m + 0);
-  float sy = vec3_length(m + 4);
-  float sz = vec3_length(m + 8);
-  float diagonal[4] = { m[0] / sx, m[5] / sy, m[10] / sz };
-  float a = 1.f + diagonal[0] - diagonal[1] - diagonal[2];
-  float b = 1.f - diagonal[0] + diagonal[1] - diagonal[2];
-  float c = 1.f - diagonal[0] - diagonal[1] + diagonal[2];
-  float d = 1.f + diagonal[0] + diagonal[1] + diagonal[2];
-  float x = sqrtf(a > 0.f ? a : 0.f) / 2.f;
-  float y = sqrtf(b > 0.f ? b : 0.f) / 2.f;
-  float z = sqrtf(c > 0.f ? c : 0.f) / 2.f;
-  float w = sqrtf(d > 0.f ? d : 0.f) / 2.f;
-  x = (m[9] / sz - m[6] / sy) > 0.f ? -x : x;
-  y = (m[2] / sx - m[8] / sz) > 0.f ? -y : y;
-  z = (m[4] / sy - m[1] / sx) > 0.f ? -z : z;
-  return quat_set(q, x, y, z, w);
+  float sx = 1.f / vec3_length(m + 0);
+  float sy = 1.f / vec3_length(m + 4);
+  float sz = 1.f / vec3_length(m + 8);
+
+  float m00 = m[0] * sx, m01 = m[1] * sx, m02 = m[2] * sx;
+  float m10 = m[4] * sy, m11 = m[5] * sy, m12 = m[6] * sy;
+  float m20 = m[8] * sz, m21 = m[9] * sz, m22 = m[10] * sz;
+
+  if (m22 < 0.f) {
+    if (m00 > m11) {
+      float t = 1.f + m00 - m11 - m22;
+      float s = .5f / sqrtf(t);
+      return quat_set(q, t * s, (m01 + m10) * s, (m20 + m02) * s, (m12 - m21) * s);
+    } else {
+      float t = 1.f - m00 + m11 - m22;
+      float s = .5f / sqrtf(t);
+      return quat_set(q, (m01 + m10) * s, t * s, (m12 + m21) * s, (m20 - m02) * s);
+    }
+  } else {
+    if (m00 < -m11) {
+      float t = 1.f - m00 - m11 + m22;
+      float s = .5f / sqrtf(t);
+      return quat_set(q, (m20 + m02) * s, (m12 + m21) * s, t * s, (m01 - m10) * s);
+    } else {
+      float t = 1.f + m00 + m11 + m22;
+      float s = .5f / sqrtf(t);
+      return quat_set(q, (m12 - m21) * s, (m20 - m02) * s, (m01 - m10) * s, t * s);
+    }
+  }
 }
 
 MAF quat quat_identity(quat q) {
@@ -305,7 +496,7 @@ MAF quat quat_between(quat q, vec3 u, vec3 v) {
 
 // mat4
 
-#define MAT4_IDENTITY { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1 }
+#define MAT4_IDENTITY { 1.f, 0.f, 0.f, 0.f,  0.f, 1.f, 0.f, 0.f,  0.f, 0.f, 1.f, 0.f,  0.f, 0.f, 0.f, 1.f }
 
 #define mat4_init mat4_set
 MAF mat4 mat4_set(mat4 m, mat4 n) {
@@ -313,46 +504,6 @@ MAF mat4 mat4_set(mat4 m, mat4 n) {
   quat_init(m + 4, n + 4);
   quat_init(m + 8, n + 8);
   quat_init(m + 12, n + 12);
-  return m;
-}
-
-MAF mat4 mat4_fromMat34(mat4 m, float (*n)[4]) {
-  m[0] = n[0][0];
-  m[1] = n[1][0];
-  m[2] = n[2][0];
-  m[3] = 0.f;
-  m[4] = n[0][1];
-  m[5] = n[1][1];
-  m[6] = n[2][1];
-  m[7] = 0.f;
-  m[8] = n[0][2];
-  m[9] = n[1][2];
-  m[10] = n[2][2];
-  m[11] = 0.f;
-  m[12] = n[0][3];
-  m[13] = n[1][3];
-  m[14] = n[2][3];
-  m[15] = 1.f;
-  return m;
-}
-
-MAF mat4 mat4_fromMat44(mat4 m, float (*n)[4]) {
-  m[0] = n[0][0];
-  m[1] = n[1][0];
-  m[2] = n[2][0];
-  m[3] = n[3][0];
-  m[4] = n[0][1];
-  m[5] = n[1][1];
-  m[6] = n[2][1];
-  m[7] = n[3][1];
-  m[8] = n[0][2];
-  m[9] = n[1][2];
-  m[10] = n[2][2];
-  m[11] = n[3][2];
-  m[12] = n[0][3];
-  m[13] = n[1][3];
-  m[14] = n[2][3];
-  m[15] = n[3][3];
   return m;
 }
 
@@ -377,6 +528,12 @@ MAF mat4 mat4_fromQuat(mat4 m, quat q) {
   return m;
 }
 
+MAF mat4 mat4_fromPose(mat4 m, vec3 v, quat q) {
+  mat4_fromQuat(m, q);
+  vec3_init(m + 12, v);
+  return m;
+}
+
 MAF mat4 mat4_identity(mat4 m) {
   m[0] = 1.f;
   m[1] = 0.f;
@@ -398,10 +555,7 @@ MAF mat4 mat4_identity(mat4 m) {
 }
 
 MAF mat4 mat4_transpose(mat4 m) {
-  float a01 = m[1], a02 = m[2], a03 = m[3],
-        a12 = m[6], a13 = m[7],
-        a23 = m[11];
-
+  float a01 = m[1], a02 = m[2], a03 = m[3], a12 = m[6], a13 = m[7], a23 = m[11];
   m[1] = m[4];
   m[2] = m[8];
   m[3] = m[12];
@@ -462,30 +616,6 @@ MAF mat4 mat4_invert(mat4 m) {
   return m;
 }
 
-MAF mat4 mat4_cofactor(mat4 m) {
-  float m00 = m[0], m04 = m[4], m08 = m[8], m12 = m[12];
-  float m01 = m[1], m05 = m[5], m09 = m[9], m13 = m[13];
-  float m02 = m[2], m06 = m[6], m10 = m[10], m14 = m[14];
-  float m03 = m[3], m07 = m[7], m11 = m[11], m15 = m[15];
-  m[0]  =  (m05 * (m10 * m15 - m11 * m14) - m09 * (m06 * m15 - m07 * m14) + m13 * (m06 * m11 - m07 * m10));
-  m[1]  = -(m04 * (m10 * m15 - m11 * m14) - m08 * (m06 * m15 - m07 * m14) + m12 * (m06 * m11 - m07 * m10));
-  m[2]  =  (m04 * (m09 * m15 - m11 * m13) - m08 * (m05 * m15 - m07 * m13) + m12 * (m05 * m11 - m07 * m09));
-  m[3]  = -(m04 * (m09 * m14 - m10 * m13) - m08 * (m05 * m14 - m06 * m13) + m12 * (m05 * m10 - m06 * m09));
-  m[4]  = -(m01 * (m10 * m15 - m11 * m14) - m09 * (m02 * m15 - m03 * m14) + m13 * (m02 * m11 - m03 * m10));
-  m[5]  =  (m00 * (m10 * m15 - m11 * m14) - m08 * (m02 * m15 - m03 * m14) + m12 * (m02 * m11 - m03 * m10));
-  m[6]  = -(m00 * (m09 * m15 - m11 * m13) - m08 * (m01 * m15 - m03 * m13) + m12 * (m01 * m11 - m03 * m09));
-  m[7]  =  (m00 * (m09 * m14 - m10 * m13) - m08 * (m01 * m14 - m02 * m13) + m12 * (m01 * m10 - m02 * m09));
-  m[8]  =  (m01 * (m06 * m15 - m07 * m14) - m05 * (m02 * m15 - m03 * m14) + m13 * (m02 * m07 - m03 * m06));
-  m[9]  = -(m00 * (m06 * m15 - m07 * m14) - m04 * (m02 * m15 - m03 * m14) + m12 * (m02 * m07 - m03 * m06));
-  m[10] =  (m00 * (m05 * m15 - m07 * m13) - m04 * (m01 * m15 - m03 * m13) + m12 * (m01 * m07 - m03 * m05));
-  m[11] = -(m00 * (m05 * m14 - m06 * m13) - m04 * (m01 * m14 - m02 * m13) + m12 * (m01 * m06 - m02 * m05));
-  m[12] = -(m01 * (m06 * m11 - m07 * m10) - m05 * (m02 * m11 - m03 * m10) + m09 * (m02 * m07 - m03 * m06));
-  m[13] =  (m00 * (m06 * m11 - m07 * m10) - m04 * (m02 * m11 - m03 * m10) + m08 * (m02 * m07 - m03 * m06));
-  m[14] = -(m00 * (m05 * m11 - m07 * m09) - m04 * (m01 * m11 - m03 * m09) + m08 * (m01 * m07 - m03 * m05));
-  m[15] =  (m00 * (m05 * m10 - m06 * m09) - m04 * (m01 * m10 - m02 * m09) + m08 * (m01 * m06 - m02 * m05));
-  return m;
-}
-
 // Calculate matrix equivalent to "apply n, then m"
 MAF mat4 mat4_mul(mat4 m, mat4 n) {
   float m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3],
@@ -517,16 +647,28 @@ MAF mat4 mat4_mul(mat4 m, mat4 n) {
   return m;
 }
 
-MAF float* mat4_mulVec4(mat4 m, float* v) {
+MAF vec4 mat4_mulVec4(mat4 m, vec4 v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + v[3] * m[12];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + v[3] * m[13];
   float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + v[3] * m[14];
   float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + v[3] * m[15];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
-  return v;
+  return vec4_set(v, x, y, z, w);
+}
+
+
+MAF vec4 mat4_mulPoint(mat4 m, vec3 v) {
+  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
+  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
+  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
+  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
+  return vec3_set(v, x / w, y / w, z / w);
+}
+
+MAF vec4 mat4_mulDirection(mat4 m, vec3 v) {
+  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8];
+  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9];
+  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10];
+  return vec3_set(v, x, y, z);
 }
 
 MAF mat4 mat4_translate(mat4 m, float x, float y, float z) {
@@ -676,9 +818,9 @@ MAF void mat4_getFov(mat4 m, float* left, float* right, float* up, float* down) 
 }
 
 MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
-  float x[4];
-  float y[4];
-  float z[4];
+  float x[3];
+  float y[3];
+  float z[3];
   vec3_normalize(vec3_sub(vec3_init(z, from), to));
   vec3_normalize(vec3_cross(vec3_init(x, up), z));
   vec3_cross(vec3_init(y, z), x);
@@ -702,9 +844,9 @@ MAF mat4 mat4_lookAt(mat4 m, vec3 from, vec3 to, vec3 up) {
 }
 
 MAF mat4 mat4_target(mat4 m, vec3 from, vec3 to, vec3 up) {
-  float x[4];
-  float y[4];
-  float z[4];
+  float x[3];
+  float y[3];
+  float z[3];
   vec3_normalize(vec3_sub(vec3_init(z, from), to));
   vec3_normalize(vec3_cross(vec3_init(x, up), z));
   vec3_cross(vec3_init(y, z), x);
@@ -746,28 +888,4 @@ MAF mat4 mat4_reflect(mat4 m, vec3 p, vec3 n) {
   m[14] = 2.f * d * n[2];
   m[15] = 1.f;
   return m;
-}
-
-// Apply matrix to a vec3
-// Difference from mat4_mulVec4: w normalize is performed, w in vec3 is ignored
-MAF void mat4_transform(mat4 m, vec3 v) {
-  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
-  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
-  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
-  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + m[15];
-  v[0] = x / w;
-  v[1] = y / w;
-  v[2] = z / w;
-  v[3] = w / w;
-}
-
-MAF void mat4_transformDirection(mat4 m, vec3 v) {
-  float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8];
-  float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9];
-  float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10];
-  float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11];
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
 }

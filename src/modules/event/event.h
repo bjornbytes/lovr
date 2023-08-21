@@ -11,11 +11,17 @@ struct Thread;
 typedef enum {
   EVENT_QUIT,
   EVENT_RESTART,
+  EVENT_VISIBLE,
   EVENT_FOCUS,
+  EVENT_RECENTER,
   EVENT_RESIZE,
   EVENT_KEYPRESSED,
   EVENT_KEYRELEASED,
   EVENT_TEXTINPUT,
+  EVENT_MOUSEPRESSED,
+  EVENT_MOUSERELEASED,
+  EVENT_MOUSEMOVED,
+  EVENT_MOUSEWHEELMOVED,
 #ifndef LOVR_DISABLE_THREAD
   EVENT_THREAD_ERROR,
 #endif
@@ -29,12 +35,16 @@ typedef enum {
   TYPE_NUMBER,
   TYPE_STRING,
   TYPE_MINISTRING,
-  TYPE_OBJECT
+  TYPE_POINTER,
+  TYPE_OBJECT,
+  TYPE_VECTOR,
+  TYPE_MATRIX
 } VariantType;
 
 typedef union {
   bool boolean;
   double number;
+  void* pointer;
   struct {
     char* pointer;
     size_t length;
@@ -48,6 +58,13 @@ typedef union {
     const char* type;
     void (*destructor)(void*);
   } object;
+  struct {
+    int type;
+    float data[4];
+  } vector;
+  struct {
+    float* data;
+  } matrix;
 } VariantValue;
 
 typedef struct Variant {
@@ -80,6 +97,19 @@ typedef struct {
 } TextEvent;
 
 typedef struct {
+  double x;
+  double y;
+  double dx;
+  double dy;
+  int button;
+} MouseEvent;
+
+typedef struct {
+  double x;
+  double y;
+} MouseWheelEvent;
+
+typedef struct {
   struct Thread* thread;
   char* error;
 } ThreadEvent;
@@ -101,6 +131,8 @@ typedef union {
   ResizeEvent resize;
   KeyEvent key;
   TextEvent text;
+  MouseEvent mouse;
+  MouseWheelEvent wheel;
   ThreadEvent thread;
   CustomEvent custom;
   PermissionEvent permission;
@@ -115,7 +147,6 @@ void lovrVariantDestroy(Variant* variant);
 
 bool lovrEventInit(void);
 void lovrEventDestroy(void);
-void lovrEventPump(void);
 void lovrEventPush(Event event);
 bool lovrEventPoll(Event* event);
 void lovrEventClear(void);

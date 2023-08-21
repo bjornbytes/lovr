@@ -28,6 +28,7 @@ extern StringEntry lovrBufferLayout[];
 extern StringEntry lovrChannelLayout[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCullMode[];
+extern StringEntry lovrDataType[];
 extern StringEntry lovrDefaultAttribute[];
 extern StringEntry lovrDefaultShader[];
 extern StringEntry lovrDevice[];
@@ -37,14 +38,13 @@ extern StringEntry lovrDrawMode[];
 extern StringEntry lovrDrawStyle[];
 extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
-extern StringEntry lovrFieldType[];
 extern StringEntry lovrFilterMode[];
 extern StringEntry lovrHeadsetDriver[];
-extern StringEntry lovrHeadsetOrigin[];
 extern StringEntry lovrHorizontalAlign[];
 extern StringEntry lovrJointType[];
 extern StringEntry lovrKeyboardKey[];
-extern StringEntry lovrMeshMode[];
+extern StringEntry lovrMeshStorage[];
+extern StringEntry lovrModelDrawMode[];
 extern StringEntry lovrOriginType[];
 extern StringEntry lovrPassType[];
 extern StringEntry lovrPermission[];
@@ -55,7 +55,6 @@ extern StringEntry lovrShapeType[];
 extern StringEntry lovrSmoothMode[];
 extern StringEntry lovrStackType[];
 extern StringEntry lovrStencilAction[];
-extern StringEntry lovrTallyType[];
 extern StringEntry lovrTextureFeature[];
 extern StringEntry lovrTextureFormat[];
 extern StringEntry lovrTextureType[];
@@ -115,6 +114,7 @@ void _luax_pushtype(lua_State* L, const char* name, uint64_t hash, void* object)
 int _luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
 void luax_registerloader(lua_State* L, int (*loader)(lua_State* L), int index);
 int luax_resume(lua_State* T, int n);
+int luax_loadbufferx(lua_State* L, const char* buffer, size_t size, const char* name, const char* mode);
 void luax_vthrow(void* L, const char* format, va_list args);
 void luax_vlog(void* context, int level, const char* tag, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);
@@ -134,9 +134,13 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
 #ifndef LOVR_DISABLE_DATA
 struct Blob;
 struct Image;
+struct ModelData;
 struct Blob* luax_readblob(lua_State* L, int index, const char* debug);
 struct Image* luax_checkimage(lua_State* L, int index);
 uint32_t luax_checkcodepoint(lua_State* L, int index);
+uint32_t luax_checkanimationindex(lua_State* L, int index, struct ModelData* model);
+uint32_t luax_checkmaterialindex(lua_State* L, int index, struct ModelData* model);
+uint32_t luax_checknodeindex(lua_State* L, int index, struct ModelData* model);
 #endif
 
 #ifndef LOVR_DISABLE_EVENT
@@ -152,22 +156,25 @@ bool luax_writefile(const char* filename, const void* data, size_t size);
 
 #ifndef LOVR_DISABLE_GRAPHICS
 struct Buffer;
+struct DataField;
 struct ColoredString;
 struct Model;
 struct Buffer* luax_checkbuffer(lua_State* L, int index);
-void luax_readbufferfield(lua_State* L, int index, int type, void* data);
-void luax_readbufferdata(lua_State* L, int index, struct Buffer* buffer, char* data);
+void luax_checkdataformat(lua_State* L, int index, struct DataField* format, uint32_t* count, uint32_t max);
+void luax_checkbufferdata(lua_State* L, int index, const struct DataField* format, char* data);
+int luax_pushbufferdata(lua_State* L, const struct DataField* format, char* data);
 uint32_t luax_checkcomparemode(lua_State* L, int index);
 struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
-uint32_t luax_checknodeindex(lua_State* L, int index, struct Model* model);
 #endif
 
 #ifndef LOVR_DISABLE_MATH
-#include "math/pool.h" // TODO
+#include "math/math.h" // TODO
 float* luax_tovector(lua_State* L, int index, VectorType* type);
 float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
 float* luax_newtempvector(lua_State* L, VectorType type);
+int luax_readvec2(lua_State* L, int index, float* v, const char* expected);
 int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
+int luax_readvec4(lua_State* L, int index, float* v, const char* expected);
 int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
 int luax_readquat(lua_State* L, int index, float* q, const char* expected);
 int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);

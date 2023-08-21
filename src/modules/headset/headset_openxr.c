@@ -13,15 +13,21 @@
 #include <math.h>
 
 #if defined(_WIN32)
-#define XR_USE_PLATFORM_WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <unknwn.h>
-#include <windows.h>
-#elif defined(__ANDROID__)
-#define XR_USE_PLATFORM_ANDROID
-void* os_get_java_vm(void);
-void* os_get_jni_context(void);
-#include <jni.h>
+ #define XR_USE_PLATFORM_WIN32
+ #define WIN32_LEAN_AND_MEAN
+ #include <unknwn.h>
+ #include <windows.h>
+ #define XR_FOREACH_PLATFORM(X) X(xrConvertWin32PerformanceCounterToTimeKHR)
+#else
+ #if defined(__ANDROID__)
+  #define XR_USE_PLATFORM_ANDROID
+  void* os_get_java_vm(void);
+  void* os_get_jni_context(void);
+  #include <jni.h>
+ #endif
+ #include <time.h>
+ #define XR_USE_TIMESPEC
+ #define XR_FOREACH_PLATFORM(X) X(xrConvertTimespecTimeToTimeKHR)
 #endif
 
 #ifdef LOVR_VK
@@ -37,13 +43,15 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
-#define XR(f) handleResult(f, __FILE__, __LINE__)
-#define XR_INIT(f) if (XR_FAILED(f)) return openxr_destroy(), false;
+#define XR(f, s) xrthrow(f, s)
+#define XR_INIT(f, s) if (!xrwarn(f, s)) return openxr_destroy(), false;
 #define SESSION_ACTIVE(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
 #define MAX_IMAGES 4
+#define MAX_HAND_JOINTS 27
 
 #define XR_FOREACH(X)\
   X(xrDestroyInstance)\
+  X(xrGetInstanceProperties)\
   X(xrPollEvent)\
   X(xrResultToString)\
   X(xrGetSystem)\
@@ -53,6 +61,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrCreateVulkanDeviceKHR)\
   X(xrCreateSession)\
   X(xrDestroySession)\
+  X(xrEnumerateReferenceSpaces)\
   X(xrCreateReferenceSpace)\
   X(xrGetReferenceSpaceBoundsRect)\
   X(xrCreateActionSpace)\
@@ -86,15 +95,26 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrGetActionStatePose)\
   X(xrSyncActions)\
   X(xrApplyHapticFeedback)\
+  X(xrStopHapticFeedback)\
   X(xrCreateHandTrackerEXT)\
   X(xrDestroyHandTrackerEXT)\
   X(xrLocateHandJointsEXT)\
   X(xrGetHandMeshFB)\
-  X(xrGetDisplayRefreshRateFB) \
-  X(xrEnumerateDisplayRefreshRatesFB) \
-  X(xrRequestDisplayRefreshRateFB) \
-  X(xrQuerySystemTrackedKeyboardFB) \
-  X(xrCreateKeyboardSpaceFB)
+  X(xrGetControllerModelKeyMSFT)\
+  X(xrLoadControllerModelMSFT)\
+  X(xrGetControllerModelPropertiesMSFT)\
+  X(xrGetControllerModelStateMSFT)\
+  X(xrGetDisplayRefreshRateFB)\
+  X(xrEnumerateDisplayRefreshRatesFB)\
+  X(xrRequestDisplayRefreshRateFB)\
+  X(xrQuerySystemTrackedKeyboardFB)\
+  X(xrCreateKeyboardSpaceFB)\
+  X(xrCreatePassthroughFB)\
+  X(xrDestroyPassthroughFB)\
+  X(xrPassthroughStartFB)\
+  X(xrPassthroughPauseFB)\
+  X(xrCreatePassthroughLayerFB)\
+  X(xrDestroyPassthroughLayerFB)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -102,9 +122,12 @@ XRAPI_ATTR XrResult XRAPI_CALL xrGetInstanceProcAddr(XrInstance instance, const 
 XRAPI_ATTR XrResult XRAPI_CALL xrEnumerateInstanceExtensionProperties(const char* layerName, uint32_t propertyCapacityInput, uint32_t* propertyCountOutput, XrExtensionProperties* properties);
 XRAPI_ATTR XrResult XRAPI_CALL xrCreateInstance(const XrInstanceCreateInfo* createInfo, XrInstance* instance);
 XR_FOREACH(XR_DECLARE)
+XR_FOREACH_PLATFORM(XR_DECLARE)
 
 enum {
-  ACTION_HAND_POSE,
+  ACTION_PINCH_POSE,
+  ACTION_POKE_POSE,
+  ACTION_GRIP_POSE,
   ACTION_POINTER_POSE,
   ACTION_TRACKER_POSE,
   ACTION_GAZE_POSE,
@@ -146,18 +169,23 @@ static struct {
   XrSession session;
   XrSessionState sessionState;
   XrSpace referenceSpace;
-  XrReferenceSpaceType referenceSpaceType;
+  float* refreshRates;
+  uint32_t refreshRateCount;
+  XrEnvironmentBlendMode* blendModes;
   XrEnvironmentBlendMode blendMode;
+  uint32_t blendModeCount;
   XrSpace spaces[MAX_DEVICES];
   XrSwapchain swapchain[2];
   XrCompositionLayerProjection layers[1];
   XrCompositionLayerProjectionView layerViews[2];
   XrCompositionLayerDepthInfoKHR depthInfo[2];
+  XrCompositionLayerPassthroughFB passthroughLayer;
   XrFrameState frameState;
+  XrTime lastDisplayTime;
+  XrTime epoch;
   TextureFormat depthFormat;
   Texture* textures[2][MAX_IMAGES];
   Pass* pass;
-  double lastDisplayTime;
   uint32_t textureIndex[2];
   uint32_t textureCount[2];
   uint32_t width;
@@ -170,27 +198,51 @@ static struct {
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
+  XrControllerModelKeyMSFT controllerModelKeys[2];
+  XrPassthroughFB passthrough;
+  XrPassthroughLayerFB passthroughLayerHandle;
+  bool passthroughActive;
   struct {
+    bool controllerModel;
     bool depth;
     bool gaze;
+    bool handInteraction;
     bool handTracking;
     bool handTrackingAim;
+    bool handTrackingElbow;
     bool handTrackingMesh;
     bool headless;
     bool keyboardTracking;
+    bool ml2Controller;
+    bool localFloor;
     int overlay;
+    bool questPassthrough;
+    bool picoController;
     bool refreshRate;
     bool viveTrackers;
   } features;
 } state;
 
-static XrResult handleResult(XrResult result, const char* file, int line) {
-  if (XR_FAILED(result)) {
-    char message[XR_MAX_RESULT_STRING_SIZE];
-    xrResultToString(state.instance, result, message);
-    lovrThrow("OpenXR Error: %s at %s:%d", message, file, line);
+static bool xrwarn(XrResult result, const char* message) {
+  if (XR_SUCCEEDED(result)) return true;
+  char errorCode[XR_MAX_RESULT_STRING_SIZE];
+  if (state.instance && XR_SUCCEEDED(xrResultToString(state.instance, result, errorCode))) {
+    lovrLog(LOG_WARN, "XR", "OpenXR failed to start: %s (%s)", message, errorCode);
+  } else {
+    lovrLog(LOG_WARN, "XR", "OpenXR failed to start: %s (%d)", message, result);
   }
-  return result;
+  return false;
+}
+
+static bool xrthrow(XrResult result, const char* message) {
+  if (XR_SUCCEEDED(result)) return true;
+  char errorCode[XR_MAX_RESULT_STRING_SIZE];
+  if (state.instance && XR_SUCCEEDED(xrResultToString(state.instance, result, errorCode))) {
+    lovrThrow("OpenXR Error: %s (%s)", message, errorCode);
+  } else {
+    lovrThrow("OpenXR Error: %s (%d)", message, result);
+  }
+  return false;
 }
 
 static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, const char* extension) {
@@ -202,13 +254,84 @@ static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, cons
   return false;
 }
 
+static XrTime getCurrentXrTime(void) {
+  XrTime time;
+#ifdef _WIN32
+  LARGE_INTEGER t;
+  QueryPerformanceCounter(&t);
+  XR(xrConvertWin32PerformanceCounterToTimeKHR(state.instance, &t, &time), "Failed to get time");
+#else
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  XR(xrConvertTimespecTimeToTimeKHR(state.instance, &t, &time), "Failed to get time");
+#endif
+  return time;
+}
+
+static bool openxr_getDriverName(char* name, size_t length);
+static void createReferenceSpace(XrTime time) {
+  XrReferenceSpaceCreateInfo info = {
+    .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
+    .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
+  };
+
+  // Reference space doesn't need to be recreated for seated experiences (those always use local
+  // space), or when local-floor is supported.  Otherwise, vertical offset must be re-measured.
+  if (state.referenceSpace && (state.features.localFloor || state.config.seated)) {
+    return;
+  }
+
+  char name[256];
+  if (openxr_getDriverName(name, sizeof(name)) && !memcmp(name, "SteamVR", strlen("SteamVR"))) {
+    state.referenceSpace = state.spaces[DEVICE_FLOOR];
+    return;
+  }
+
+  if (state.features.localFloor) {
+    info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
+  } else if (state.config.seated) {
+    info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+  } else if (state.spaces[DEVICE_FLOOR]) {
+    XrSpace local;
+    info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+    XR(xrCreateReferenceSpace(state.session, &info, &local), "Failed to create local space");
+
+    XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
+    XR(xrLocateSpace(state.spaces[DEVICE_FLOOR], local, time, &location), "Failed to locate space");
+    XR(xrDestroySpace(local), "Failed to destroy local space");
+
+    if (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
+      info.poseInReferenceSpace.position.y = location.pose.position.y;
+    } else {
+      info.poseInReferenceSpace.position.y = -1.7f;
+    }
+  } else {
+    info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+    info.poseInReferenceSpace.position.y = -1.7f;
+  }
+
+  if (state.referenceSpace) {
+    XR(xrDestroySpace(state.referenceSpace), "Failed to destroy reference space");
+  }
+
+  XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace), "Failed to create reference space");
+}
+
 static XrAction getPoseActionForDevice(Device device) {
   switch (device) {
     case DEVICE_HEAD:
       return XR_NULL_HANDLE; // Uses reference space
     case DEVICE_HAND_LEFT:
     case DEVICE_HAND_RIGHT:
-      return state.actions[ACTION_HAND_POSE];
+    case DEVICE_HAND_LEFT_GRIP:
+    case DEVICE_HAND_RIGHT_GRIP:
+      return state.actions[ACTION_GRIP_POSE];
+    case DEVICE_HAND_LEFT_PINCH:
+    case DEVICE_HAND_RIGHT_PINCH:
+      return state.features.handInteraction ? state.actions[ACTION_PINCH_POSE] : XR_NULL_HANDLE;
+    case DEVICE_HAND_LEFT_POKE:
+    case DEVICE_HAND_RIGHT_POKE:
+      return state.features.handInteraction ? state.actions[ACTION_POKE_POSE] : XR_NULL_HANDLE;
     case DEVICE_HAND_LEFT_POINT:
     case DEVICE_HAND_RIGHT_POINT:
       return state.actions[ACTION_POINTER_POSE];
@@ -244,7 +367,9 @@ static XrHandTrackerEXT getHandTracker(Device device) {
   if (!*tracker) {
     XrHandTrackerCreateInfoEXT info = {
       .type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
-      .handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT,
+      .handJointSet = state.features.handTrackingElbow ?
+        XR_HAND_JOINT_SET_HAND_WITH_FOREARM_ULTRALEAP :
+        XR_HAND_JOINT_SET_DEFAULT_EXT,
       .hand = device == DEVICE_HAND_RIGHT ? XR_HAND_RIGHT_EXT : XR_HAND_LEFT_EXT
     };
 
@@ -256,6 +381,30 @@ static XrHandTrackerEXT getHandTracker(Device device) {
   return *tracker;
 }
 
+// Controller model keys are created lazily because the runtime is allowed to
+// return XR_NULL_CONTROLLER_MODEL_KEY_MSFT until it is ready.
+static XrControllerModelKeyMSFT getControllerModelKey(Device device) {
+  if (!state.features.controllerModel || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) {
+    return XR_NULL_CONTROLLER_MODEL_KEY_MSFT;
+  }
+
+  XrControllerModelKeyMSFT* modelKey = &state.controllerModelKeys[device == DEVICE_HAND_RIGHT];
+
+  if (!*modelKey) {
+    XrControllerModelKeyStateMSFT modelKeyState = {
+      .type = XR_TYPE_CONTROLLER_MODEL_KEY_STATE_MSFT,
+    };
+
+    if (XR_FAILED(xrGetControllerModelKeyMSFT(state.session, state.actionFilters[device], &modelKeyState))) {
+      return XR_NULL_CONTROLLER_MODEL_KEY_MSFT;
+    }
+
+    *modelKey = modelKeyState.modelKey;
+  }
+
+  return *modelKey;
+}
+
 static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice) {
   XrVulkanGraphicsDeviceGetInfoKHR info = {
     .type = XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR,
@@ -263,7 +412,7 @@ static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDev
     .vulkanInstance = (VkInstance) instance
   };
 
-  XR(xrGetVulkanGraphicsDevice2KHR(state.instance, &info, (VkPhysicalDevice*) physicalDevice));
+  XR(xrGetVulkanGraphicsDevice2KHR(state.instance, &info, (VkPhysicalDevice*) physicalDevice), "Failed to get Vulkan graphics device");
 }
 
 static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr) {
@@ -276,7 +425,7 @@ static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allo
   };
 
   VkResult result;
-  XR(xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result));
+  XR(xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result), "Failed to create Vulkan instance");
   return result;
 }
 
@@ -291,7 +440,7 @@ static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo
   };
 
   VkResult result;
-  XR(xrCreateVulkanDeviceKHR(state.instance, &info, (VkDevice*) device, &result));
+  XR(xrCreateVulkanDeviceKHR(state.instance, &info, (VkDevice*) device, &result), "Failed to create Vulkan device");
   return result;
 }
 
@@ -300,7 +449,8 @@ static void openxr_destroy();
 static bool openxr_init(HeadsetConfig* config) {
   state.config = *config;
 
-#ifdef __ANDROID__
+  // Loader
+#if defined(__ANDROID__)
   static PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
   XR_LOAD(xrInitializeLoaderKHR);
   if (!xrInitializeLoaderKHR) {
@@ -316,11 +466,24 @@ static bool openxr_init(HeadsetConfig* config) {
   if (XR_FAILED(xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*) &loaderInfo))) {
     return false;
   }
+#elif defined(__linux__) || defined(__APPLE__)
+  setenv("XR_LOADER_DEBUG", "none", 0);
+#elif defined(_WIN32)
+  if (GetEnvironmentVariable("XR_LOADER_DEBUG", NULL, 0) == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
+    SetEnvironmentVariable("XR_LOADER_DEBUG", "none");
+  }
 #endif
 
   { // Instance
     uint32_t extensionCount;
-    XR_INIT(xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL));
+    XrResult result = xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL);
+
+    if (result == XR_ERROR_RUNTIME_UNAVAILABLE) {
+      return openxr_destroy(), false;
+    } else {
+      XR_INIT(result, "Failed to query extensions");
+    }
+
     XrExtensionProperties* extensionProperties = calloc(extensionCount, sizeof(*extensionProperties));
     lovrAssert(extensionProperties, "Out of memory");
     for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
@@ -332,20 +495,29 @@ static bool openxr_init(HeadsetConfig* config) {
 #ifdef LOVR_VK
       { "XR_KHR_vulkan_enable2", NULL, true },
 #endif
-
 #ifdef __ANDROID__
       { "XR_KHR_android_create_instance", NULL, true },
 #endif
       { "XR_KHR_composition_layer_depth", &state.features.depth, config->submitDepth },
+#ifdef _WIN32
+      { "XR_KHR_win32_convert_performance_counter_time", NULL, true },
+#else
+      { "XR_KHR_convert_timespec_time", NULL, true },
+#endif
       { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
+      { "XR_EXT_hand_interaction", &state.features.handInteraction, true },
       { "XR_EXT_hand_tracking", &state.features.handTracking, true },
+      { "XR_EXT_local_floor", &state.features.localFloor, true },
+      { "XR_BD_controller_interaction", &state.features.picoController, true },
       { "XR_FB_display_refresh_rate", &state.features.refreshRate, true },
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
-#ifndef __ANDROID__
+      { "XR_FB_passthrough", &state.features.questPassthrough, true },
+      { "XR_ML_ml2_controller_interaction", &state.features.ml2Controller, true },
       { "XR_MND_headless", &state.features.headless, true },
-#endif
+      { "XR_MSFT_controller_model", &state.features.controllerModel, true },
+      { "XR_ULTRALEAP_hand_tracking_forearm", &state.features.handTrackingElbow, true },
       { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
       { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
     };
@@ -385,8 +557,9 @@ static bool openxr_init(HeadsetConfig* config) {
       .enabledExtensionNames = enabledExtensionNames
     };
 
-    XR_INIT(xrCreateInstance(&info, &state.instance));
+    XR_INIT(xrCreateInstance(&info, &state.instance), "Failed to create instance");
     XR_FOREACH(XR_LOAD)
+    XR_FOREACH_PLATFORM(XR_LOAD)
   }
 
   { // System
@@ -395,26 +568,13 @@ static bool openxr_init(HeadsetConfig* config) {
       .formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY
     };
 
-    XR_INIT(xrGetSystem(state.instance, &info, &state.system));
+    XR_INIT(xrGetSystem(state.instance, &info, &state.system), "Failed to query system");
 
-    XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = {
-      .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT,
-      .supportsEyeGazeInteraction = false
-    };
-
-    XrSystemHandTrackingPropertiesEXT handTrackingProperties = {
-      .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT,
-      .supportsHandTracking = false
-    };
-
-    XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = {
-      .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB,
-      .supportsKeyboardTracking = false
-    };
-
-    XrSystemProperties properties = {
-      .type = XR_TYPE_SYSTEM_PROPERTIES
-    };
+    XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = { .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
+    XrSystemHandTrackingPropertiesEXT handTrackingProperties = { .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT };
+    XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = { .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB };
+    XrSystemPassthroughProperties2FB passthroughProperties = { .type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB };
+    XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
 
     if (state.features.gaze) {
       eyeGazeProperties.next = properties.next;
@@ -431,19 +591,25 @@ static bool openxr_init(HeadsetConfig* config) {
       properties.next = &keyboardTrackingProperties;
     }
 
-    XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties));
+    if (state.features.questPassthrough) {
+      passthroughProperties.next = properties.next;
+      properties.next = &passthroughProperties;
+    }
+
+    XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties), "Failed to query system properties");
     state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
     state.features.handTracking = handTrackingProperties.supportsHandTracking;
     state.features.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
+    state.features.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
 
     uint32_t viewConfigurationCount;
     XrViewConfigurationType viewConfigurations[2];
-    XR_INIT(xrEnumerateViewConfigurations(state.instance, state.system, 2, &viewConfigurationCount, viewConfigurations));
+    XR_INIT(xrEnumerateViewConfigurations(state.instance, state.system, 2, &viewConfigurationCount, viewConfigurations), "Failed to query view configurations");
 
     uint32_t viewCount;
     XrViewConfigurationView views[2] = { [0].type = XR_TYPE_VIEW_CONFIGURATION_VIEW, [1].type = XR_TYPE_VIEW_CONFIGURATION_VIEW };
-    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &viewCount, NULL));
-    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &viewCount, views));
+    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &viewCount, NULL), "Failed to query view configurations");
+    XR_INIT(xrEnumerateViewConfigurationViews(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &viewCount, views), "Failed to query view configurations");
 
     if ( // Only 2 views are supported, and since they're rendered together they must be identical
       viewCount != 2 ||
@@ -458,11 +624,12 @@ static bool openxr_init(HeadsetConfig* config) {
     state.width = MIN(views[0].recommendedImageRectWidth * config->supersample, views[0].maxImageRectWidth);
     state.height = MIN(views[0].recommendedImageRectHeight * config->supersample, views[0].maxImageRectHeight);
 
-    // Blend mode
-    uint32_t blendModeCount;
-    XrEnvironmentBlendMode blendModes[8];
-    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, COUNTOF(blendModes), &blendModeCount, blendModes));
-    state.blendMode = blendModes[0];
+    // Blend modes
+    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &state.blendModeCount, NULL), "Failed to query blend modes");
+    state.blendModes = malloc(state.blendModeCount * sizeof(XrEnvironmentBlendMode));
+    lovrAssert(state.blendModes, "Out of memory");
+    XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, state.blendModeCount, &state.blendModeCount, state.blendModes), "Failed to query blend modes");
+    state.blendMode = state.blendModes[0];
   }
 
   { // Actions
@@ -472,28 +639,34 @@ static bool openxr_init(HeadsetConfig* config) {
       .actionSetName = "default"
     };
 
-    XR_INIT(xrCreateActionSet(state.instance, &info, &state.actionSet));
+    XR_INIT(xrCreateActionSet(state.instance, &info, &state.actionSet), "Failed to create action set");
 
     // Subaction paths, for filtering actions by device
-    XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[DEVICE_HAND_LEFT]));
-    XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[DEVICE_HAND_RIGHT]));
+    XR_INIT(xrStringToPath(state.instance, "/user/hand/left", &state.actionFilters[DEVICE_HAND_LEFT]), "Failed to create path");
+    XR_INIT(xrStringToPath(state.instance, "/user/hand/right", &state.actionFilters[DEVICE_HAND_RIGHT]), "Failed to create path");
 
+    state.actionFilters[DEVICE_HAND_LEFT_GRIP] = state.actionFilters[DEVICE_HAND_LEFT];
     state.actionFilters[DEVICE_HAND_LEFT_POINT] = state.actionFilters[DEVICE_HAND_LEFT];
+    state.actionFilters[DEVICE_HAND_LEFT_PINCH] = state.actionFilters[DEVICE_HAND_LEFT];
+    state.actionFilters[DEVICE_HAND_LEFT_POKE] = state.actionFilters[DEVICE_HAND_LEFT];
+    state.actionFilters[DEVICE_HAND_RIGHT_GRIP] = state.actionFilters[DEVICE_HAND_RIGHT];
     state.actionFilters[DEVICE_HAND_RIGHT_POINT] = state.actionFilters[DEVICE_HAND_RIGHT];
+    state.actionFilters[DEVICE_HAND_RIGHT_PINCH] = state.actionFilters[DEVICE_HAND_RIGHT];
+    state.actionFilters[DEVICE_HAND_RIGHT_POKE] = state.actionFilters[DEVICE_HAND_RIGHT];
 
     if (state.features.viveTrackers) {
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_elbow", &state.actionFilters[DEVICE_ELBOW_LEFT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_elbow", &state.actionFilters[DEVICE_ELBOW_RIGHT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_shoulder", &state.actionFilters[DEVICE_SHOULDER_LEFT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_shoulder", &state.actionFilters[DEVICE_SHOULDER_RIGHT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/chest", &state.actionFilters[DEVICE_CHEST]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/waist", &state.actionFilters[DEVICE_WAIST]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_knee", &state.actionFilters[DEVICE_KNEE_LEFT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_knee", &state.actionFilters[DEVICE_KNEE_RIGHT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_foot", &state.actionFilters[DEVICE_FOOT_LEFT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_foot", &state.actionFilters[DEVICE_FOOT_RIGHT]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/camera", &state.actionFilters[DEVICE_CAMERA]));
-      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/keyboard", &state.actionFilters[DEVICE_KEYBOARD]));
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_elbow", &state.actionFilters[DEVICE_ELBOW_LEFT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_elbow", &state.actionFilters[DEVICE_ELBOW_RIGHT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_shoulder", &state.actionFilters[DEVICE_SHOULDER_LEFT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_shoulder", &state.actionFilters[DEVICE_SHOULDER_RIGHT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/chest", &state.actionFilters[DEVICE_CHEST]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/waist", &state.actionFilters[DEVICE_WAIST]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_knee", &state.actionFilters[DEVICE_KNEE_LEFT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_knee", &state.actionFilters[DEVICE_KNEE_RIGHT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_foot", &state.actionFilters[DEVICE_FOOT_LEFT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_foot", &state.actionFilters[DEVICE_FOOT_RIGHT]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/camera", &state.actionFilters[DEVICE_CAMERA]), "Failed to create path");
+      XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/keyboard", &state.actionFilters[DEVICE_KEYBOARD]), "Failed to create path");
     }
 
     XrPath hands[] = {
@@ -517,7 +690,9 @@ static bool openxr_init(HeadsetConfig* config) {
     };
 
     XrActionCreateInfo actionInfo[] = {
-      { 0, NULL, "hand_pose",        XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Hand Pose" },
+      { 0, NULL, "pinch_pose",       XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Pinch Pose" },
+      { 0, NULL, "poke_pose",        XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Poke Pose" },
+      { 0, NULL, "grip_pose",        XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Grip Pose" },
       { 0, NULL, "pointer_pose",     XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Pointer Pose" },
       { 0, NULL, "tracker_pose",     XR_ACTION_TYPE_POSE_INPUT,       12, trackers, "Tracker Pose" },
       { 0, NULL, "gaze_pose",        XR_ACTION_TYPE_POSE_INPUT,       0, NULL, "Gaze Pose" },
@@ -561,7 +736,7 @@ static bool openxr_init(HeadsetConfig* config) {
 
     for (uint32_t i = 0; i < MAX_ACTIONS; i++) {
       actionInfo[i].type = XR_TYPE_ACTION_CREATE_INFO;
-      XR_INIT(xrCreateAction(state.actionSet, &actionInfo[i], &state.actions[i]));
+      XR_INIT(xrCreateAction(state.actionSet, &actionInfo[i], &state.actions[i]), "Failed to create action");
     }
 
     enum {
@@ -571,9 +746,11 @@ static bool openxr_init(HeadsetConfig* config) {
       PROFILE_GO,
       PROFILE_INDEX,
       PROFILE_WMR,
+      PROFILE_ML2,
+      PROFILE_PICO_NEO3,
+      PROFILE_PICO4,
       PROFILE_TRACKER,
       PROFILE_GAZE,
-      PROFILE_PICO,
       MAX_PROFILES
     };
 
@@ -584,9 +761,11 @@ static bool openxr_init(HeadsetConfig* config) {
       [PROFILE_GO] = "/interaction_profiles/oculus/go_controller",
       [PROFILE_INDEX] = "/interaction_profiles/valve/index_controller",
       [PROFILE_WMR] = "/interaction_profiles/microsoft/motion_controller",
+      [PROFILE_ML2] = "/interaction_profiles/ml/ml2_controller",
+      [PROFILE_PICO_NEO3] = "/interaction_profiles/bytedance/pico_neo3_controller",
+      [PROFILE_PICO4] = "/interaction_profiles/bytedance/pico4_controller",
       [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx",
-      [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction",
-      [PROFILE_PICO] = "/interaction_profiles/pico/neo3_controller"
+      [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction"
     };
 
     typedef struct {
@@ -596,8 +775,12 @@ static bool openxr_init(HeadsetConfig* config) {
 
     Binding* bindings[] = {
       [PROFILE_SIMPLE] = (Binding[]) {
-        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
-        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
         { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
         { ACTION_TRIGGER_DOWN, "/user/hand/left/input/select/click" },
@@ -609,8 +792,12 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_VIVE] = (Binding[]) {
-        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
-        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
         { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
         { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/click" },
@@ -634,8 +821,12 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_TOUCH] = (Binding[]) {
-        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
-        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
         { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
         { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/value" },
@@ -673,8 +864,12 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_GO] = (Binding[]) {
-        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
-        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
         { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
         { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/click" },
@@ -690,8 +885,12 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_INDEX] = (Binding[]) {
-        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
-        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
         { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
         { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/click" },
@@ -735,8 +934,12 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_WMR] = (Binding[]) {
-        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
-        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
         { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
         { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/value" },
@@ -767,28 +970,83 @@ static bool openxr_init(HeadsetConfig* config) {
         { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
         { 0, NULL }
       },
-      [PROFILE_TRACKER] = (Binding[]) {
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_elbow/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_elbow/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_shoulder/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_shoulder/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/chest/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/waist/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_knee/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_knee/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_foot/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_foot/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/camera/input/grip/pose" },
-        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/keyboard/input/grip/pose" },
+      [PROFILE_ML2] = (Binding[]) {
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/click" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/click" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
+        { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/click" },
+        { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
+        { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
+        { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
+        { ACTION_TRACKPAD_X, "/user/hand/left/input/trackpad/x" },
+        { ACTION_TRACKPAD_X, "/user/hand/right/input/trackpad/x" },
+        { ACTION_TRACKPAD_Y, "/user/hand/left/input/trackpad/y" },
+        { ACTION_TRACKPAD_Y, "/user/hand/right/input/trackpad/y" },
+        { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
+        { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/left/input/shoulder/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/right/input/shoulder/click" },
+        { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
+        { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
         { 0, NULL }
       },
-      [PROFILE_GAZE] = (Binding[]) {
-        { ACTION_GAZE_POSE, "/user/eyes_ext/input/gaze_ext/pose" },
+      [PROFILE_PICO_NEO3] = (Binding[]) {
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
+        { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/click" },
+        { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/click" },
+        { ACTION_TRIGGER_TOUCH, "/user/hand/left/input/trigger/touch" },
+        { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
+        { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
+        { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
+        { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+        { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
+        { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
+        { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
+        { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
+        { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
+        { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
+        { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
+        { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
+        { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/click" },
+        { ACTION_GRIP_AXIS, "/user/hand/left/input/squeeze/value" },
+        { ACTION_GRIP_AXIS, "/user/hand/right/input/squeeze/value" },
+        { ACTION_A_DOWN, "/user/hand/right/input/a/click" },
+        { ACTION_A_TOUCH, "/user/hand/right/input/a/touch" },
+        { ACTION_B_DOWN, "/user/hand/right/input/b/click" },
+        { ACTION_B_TOUCH, "/user/hand/right/input/b/touch" },
+        { ACTION_X_DOWN, "/user/hand/left/input/x/click" },
+        { ACTION_X_TOUCH, "/user/hand/left/input/x/touch" },
+        { ACTION_Y_DOWN, "/user/hand/left/input/y/click" },
+        { ACTION_Y_TOUCH, "/user/hand/left/input/y/touch" },
+        { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
+        { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
         { 0, NULL }
       },
-      [PROFILE_PICO] = (Binding[]) {
-        { ACTION_HAND_POSE, "/user/hand/left/input/grip/pose" },
-        { ACTION_HAND_POSE, "/user/hand/right/input/grip/pose" },
+      [PROFILE_PICO4] = (Binding[]) {
+        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
+        { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
         { ACTION_POINTER_POSE, "/user/hand/right/input/aim/pose" },
         { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/value" },
@@ -805,7 +1063,7 @@ static bool openxr_init(HeadsetConfig* config) {
         { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
         { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
         { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
-        //{ ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" }, //Imposter
+        { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
         { ACTION_MENU_DOWN, "/user/hand/right/input/system/click" },
         { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
         { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/click" },
@@ -824,10 +1082,38 @@ static bool openxr_init(HeadsetConfig* config) {
         { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
         { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
         { 0, NULL }
+      },
+      [PROFILE_TRACKER] = (Binding[]) {
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_elbow/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_elbow/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_shoulder/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_shoulder/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/chest/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/waist/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_knee/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_knee/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/left_foot/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/right_foot/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/camera/input/grip/pose" },
+        { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/keyboard/input/grip/pose" },
+        { 0, NULL }
+      },
+      [PROFILE_GAZE] = (Binding[]) {
+        { ACTION_GAZE_POSE, "/user/eyes_ext/input/gaze_ext/pose" },
+        { 0, NULL }
       }
     };
 
     // Don't suggest bindings for unsupported input profiles
+    if (!state.features.ml2Controller) {
+      bindings[PROFILE_ML2][0].path = NULL;
+    }
+
+    if (!state.features.picoController) {
+      bindings[PROFILE_PICO_NEO3][0].path = NULL;
+      bindings[PROFILE_PICO4][0].path = NULL;
+    }
+
     if (!state.features.viveTrackers) {
       bindings[PROFILE_TRACKER][0].path = NULL;
     }
@@ -836,17 +1122,30 @@ static bool openxr_init(HeadsetConfig* config) {
       bindings[PROFILE_GAZE][0].path = NULL;
     }
 
+    // For this to work, pinch/poke need to be the first paths in the interaction profile
+    if (!state.features.handInteraction) {
+      bindings[PROFILE_SIMPLE] += 4;
+      bindings[PROFILE_VIVE] += 4;
+      bindings[PROFILE_TOUCH] += 4;
+      bindings[PROFILE_GO] += 4;
+      bindings[PROFILE_INDEX] += 4;
+      bindings[PROFILE_WMR] += 4;
+      if (state.features.ml2Controller) bindings[PROFILE_ML2] += 4;
+      if (state.features.picoController) bindings[PROFILE_PICO_NEO3] += 4;
+      if (state.features.picoController) bindings[PROFILE_PICO4] += 4;
+    }
+
     XrPath path;
     XrActionSuggestedBinding suggestedBindings[64];
     for (uint32_t i = 0, count = 0; i < MAX_PROFILES; i++, count = 0) {
       for (uint32_t j = 0; bindings[i][j].path; j++, count++) {
-        XR_INIT(xrStringToPath(state.instance, bindings[i][j].path, &path));
+        XR_INIT(xrStringToPath(state.instance, bindings[i][j].path, &path), "Failed to create path");
         suggestedBindings[j].action = state.actions[bindings[i][j].action];
         suggestedBindings[j].binding = path;
       }
 
       if (count > 0) {
-        XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path));
+        XR_INIT(xrStringToPath(state.instance, interactionProfilePaths[i], &path), "Failed to create path");
         XrResult result = (xrSuggestInteractionProfileBindings(state.instance, &(XrInteractionProfileSuggestedBinding) {
           .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
           .interactionProfile = path,
@@ -869,9 +1168,9 @@ static bool openxr_init(HeadsetConfig* config) {
 
 static void openxr_start(void) {
 #ifdef LOVR_DISABLE_GRAPHICS
-    bool hasGraphics = false;
+  bool hasGraphics = false;
 #else
-    bool hasGraphics = lovrGraphicsIsInitialized();
+  bool hasGraphics = lovrGraphicsIsInitialized();
 #endif
 
   { // Session
@@ -894,7 +1193,7 @@ static void openxr_start(void) {
       PFN_xrGetVulkanGraphicsRequirements2KHR xrGetVulkanGraphicsRequirements2KHR;
       XR_LOAD(xrGetVulkanGraphicsRequirements2KHR);
 
-      XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements));
+      XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements), "Failed to query Vulkan graphics requirements");
       if (XR_VERSION_MAJOR(requirements.minApiVersionSupported) > 1 || XR_VERSION_MINOR(requirements.minApiVersionSupported) > 1) {
         lovrThrow("OpenXR Vulkan version not supported");
       }
@@ -927,36 +1226,29 @@ static void openxr_start(void) {
       .actionSets = &state.actionSet
     };
 
-    XR(xrCreateSession(state.instance, &info, &state.session));
-    XR(xrAttachSessionActionSets(state.session, &attachInfo));
+    XR(xrCreateSession(state.instance, &info, &state.session), "Failed to create session");
+    XR(xrAttachSessionActionSets(state.session, &attachInfo), "Failed to attach action sets");
   }
 
   { // Spaaace
-
-    // Main reference space (can be stage or local)
-    XrReferenceSpaceCreateInfo info = {
+    XrReferenceSpaceCreateInfo referenceSpaceInfo = {
       .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE,
       .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
     };
 
-    if (XR_FAILED(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace))) {
-      info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-      info.poseInReferenceSpace.position.y = -state.config.offset;
-      XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace));
+    // Head
+    referenceSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+    XR(xrCreateReferenceSpace(state.session, &referenceSpaceInfo, &state.spaces[DEVICE_HEAD]), "Failed to create head space");
+
+    // Floor (may not be supported, which is okay)
+    referenceSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
+    if (XR_FAILED(xrCreateReferenceSpace(state.session, &referenceSpaceInfo, &state.spaces[DEVICE_FLOOR]))) {
+      state.spaces[DEVICE_FLOOR] = XR_NULL_HANDLE;
     }
 
-    state.referenceSpaceType = info.referenceSpaceType;
+    createReferenceSpace(getCurrentXrTime());
 
-    // Head space (for head pose)
-    XrReferenceSpaceCreateInfo headSpaceInfo = {
-      .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
-      .referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW,
-      .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
-    };
-
-    XR(xrCreateReferenceSpace(state.session, &headSpaceInfo, &state.spaces[DEVICE_HEAD]));
-
+    // Action spaces
     XrActionSpaceCreateInfo actionSpaceInfo = {
       .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
       .poseInActionSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
@@ -970,7 +1262,7 @@ static void openxr_start(void) {
         continue;
       }
 
-      XR(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]));
+      XR(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]), "Failed to create action space");
     }
   }
 
@@ -978,9 +1270,11 @@ static void openxr_start(void) {
   if (hasGraphics) {
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
 
-    if (state.config.stencil && !lovrGraphicsIsFormatSupported(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+    if (state.config.stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
       state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
     }
+
+    state.pass = lovrPassCreate();
 
 #ifdef LOVR_VK
     XrSwapchainImageVulkanKHR images[2][MAX_IMAGES];
@@ -1002,7 +1296,7 @@ static void openxr_start(void) {
 
     int64_t formats[128];
     uint32_t formatCount;
-    XR(xrEnumerateSwapchainFormats(state.session, COUNTOF(formats), &formatCount, formats));
+    XR(xrEnumerateSwapchainFormats(state.session, COUNTOF(formats), &formatCount, formats), "Failed to query swapchain formats");
 
     bool supportsColor = false;
     bool supportsDepth = false;
@@ -1033,8 +1327,8 @@ static void openxr_start(void) {
       .mipCount = 1
     };
 
-    XR(xrCreateSwapchain(state.session, &info, &state.swapchain[COLOR]));
-    XR(xrEnumerateSwapchainImages(state.swapchain[COLOR], MAX_IMAGES, &state.textureCount[COLOR], (XrSwapchainImageBaseHeader*) images));
+    XR(xrCreateSwapchain(state.session, &info, &state.swapchain[COLOR]), "Failed to create swapchain");
+    XR(xrEnumerateSwapchainImages(state.swapchain[COLOR], MAX_IMAGES, &state.textureCount[COLOR], (XrSwapchainImageBaseHeader*) images), "Failed to query swapchain images");
 
     for (uint32_t i = 0; i < state.textureCount[COLOR]; i++) {
       state.textures[COLOR][i] = lovrTextureCreate(&(TextureInfo) {
@@ -1057,14 +1351,14 @@ static void openxr_start(void) {
       info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
       info.format = nativeDepthFormat;
 
-      XR(xrCreateSwapchain(state.session, &info, &state.swapchain[DEPTH]));
-      XR(xrEnumerateSwapchainImages(state.swapchain[DEPTH], MAX_IMAGES, &state.textureCount[DEPTH], (XrSwapchainImageBaseHeader*) images));
+      XR(xrCreateSwapchain(state.session, &info, &state.swapchain[DEPTH]), "Failed to create swapchain");
+      XR(xrEnumerateSwapchainImages(state.swapchain[DEPTH], MAX_IMAGES, &state.textureCount[DEPTH], (XrSwapchainImageBaseHeader*) images), "Failed to query swapchain images");
 
       for (uint32_t i = 0; i < state.textureCount[DEPTH]; i++) {
         state.textures[DEPTH][i] = lovrTextureCreate(&(TextureInfo) {
           .type = TEXTURE_ARRAY,
           .format = state.depthFormat,
-          .srgb = true,
+          .srgb = false,
           .width = state.width,
           .height = state.height,
           .layers = 2,
@@ -1078,17 +1372,10 @@ static void openxr_start(void) {
       }
     }
 
-    XrCompositionLayerFlags layerFlags = 0;
-
-    if (state.features.overlay > 0) {
-      layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-    }
-
     // Pre-init composition layer
     state.layers[0] = (XrCompositionLayerProjection) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
       .space = state.referenceSpace,
-      .layerFlags = layerFlags,
       .viewCount = 2,
       .views = state.layerViews
     };
@@ -1139,6 +1426,13 @@ static void openxr_start(void) {
       state.features.keyboardTracking = false;
     }
   }
+
+  if (state.features.refreshRate) {
+    XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, &state.refreshRateCount, NULL), "Failed to query refresh rates");
+    state.refreshRates = malloc(state.refreshRateCount * sizeof(float));
+    lovrAssert(state.refreshRates, "Out of memory");
+    XR(xrEnumerateDisplayRefreshRatesFB(state.session, state.refreshRateCount, &state.refreshRateCount, state.refreshRates), "Failed to query refresh rates");
+  }
 }
 
 static void openxr_stop(void) {
@@ -1152,11 +1446,16 @@ static void openxr_stop(void) {
     }
   }
 
+  lovrRelease(state.pass, lovrPassDestroy);
+
   if (state.swapchain[COLOR]) xrDestroySwapchain(state.swapchain[COLOR]);
   if (state.swapchain[DEPTH]) xrDestroySwapchain(state.swapchain[DEPTH]);
 
   if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
   if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
+
+  if (state.passthrough) xrDestroyPassthroughFB(state.passthrough);
+  if (state.passthroughLayerHandle) xrDestroyPassthroughLayerFB(state.passthroughLayerHandle);
 
   for (size_t i = 0; i < MAX_DEVICES; i++) {
     if (state.spaces[i]) {
@@ -1177,16 +1476,24 @@ static void openxr_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
+static bool openxr_getDriverName(char* name, size_t length) {
+  XrInstanceProperties properties = { .type = XR_TYPE_INSTANCE_PROPERTIES };
+  if (XR_FAILED(xrGetInstanceProperties(state.instance, &properties))) return false;
+  strncpy(name, properties.runtimeName, length - 1);
+  name[length - 1] = '\0';
+  return true;
+}
+
 static bool openxr_getName(char* name, size_t length) {
   XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
-  XR(xrGetSystemProperties(state.instance, state.system, &properties));
+  if (XR_FAILED(xrGetSystemProperties(state.instance, state.system, &properties))) return false;
   strncpy(name, properties.systemName, length - 1);
   name[length - 1] = '\0';
   return true;
 }
 
-static HeadsetOrigin openxr_getOriginType(void) {
-  return state.referenceSpaceType == XR_REFERENCE_SPACE_TYPE_STAGE ? ORIGIN_FLOOR : ORIGIN_HEAD;
+static bool openxr_isSeated(void) {
+  return state.config.seated;
 }
 
 static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -1194,39 +1501,146 @@ static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   *height = state.height;
 }
 
-static float openxr_getDisplayFrequency(void) {
+static float openxr_getRefreshRate(void) {
   if (!state.features.refreshRate) return 0.f;
-  float frequency;
-  XR(xrGetDisplayRefreshRateFB(state.session, &frequency));
-  return frequency;
+  float refreshRate;
+  XR(xrGetDisplayRefreshRateFB(state.session, &refreshRate), "Failed to query refresh rate");
+  return refreshRate;
 }
 
-static float* openxr_getDisplayFrequencies(uint32_t* count) {
-  if (!state.features.refreshRate || !count) return NULL;
-  XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, count, NULL));
-  float *frequencies = malloc(*count * sizeof(float));
-  lovrAssert(frequencies, "Out of memory");
-  XR(xrEnumerateDisplayRefreshRatesFB(state.session, *count, count, frequencies));
-  return frequencies;
-}
-
-static bool openxr_setDisplayFrequency(float frequency) {
+static bool openxr_setRefreshRate(float refreshRate) {
   if (!state.features.refreshRate) return false;
-  XrResult res = xrRequestDisplayRefreshRateFB(state.session, frequency);
-  if (res == XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB) return false;
-  XR(res);
+  XrResult result = xrRequestDisplayRefreshRateFB(state.session, refreshRate);
+  if (result == XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB) return false;
+  XR(result, "Failed to set refresh rate");
   return true;
 }
 
+static const float* openxr_getRefreshRates(uint32_t* count) {
+  *count = state.refreshRateCount;
+  return state.refreshRates;
+}
+
+static XrEnvironmentBlendMode convertPassthroughMode(PassthroughMode mode) {
+  switch (mode) {
+    case PASSTHROUGH_OPAQUE: return XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+    case PASSTHROUGH_BLEND: return XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND;
+    case PASSTHROUGH_ADD: return XR_ENVIRONMENT_BLEND_MODE_ADDITIVE;
+    default: lovrUnreachable();
+  }
+}
+
+static PassthroughMode openxr_getPassthrough(void) {
+  switch (state.blendMode) {
+    case XR_ENVIRONMENT_BLEND_MODE_OPAQUE: return PASSTHROUGH_OPAQUE;
+    case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND: return PASSTHROUGH_BLEND;
+    case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE: return PASSTHROUGH_ADD;
+    default: lovrUnreachable();
+  }
+}
+
+static bool openxr_setPassthrough(PassthroughMode mode) {
+  if (state.features.questPassthrough) {
+    if (mode == PASSTHROUGH_ADD) {
+      return false;
+    }
+
+    if (!state.passthrough) {
+      XrPassthroughCreateInfoFB info = { .type = XR_TYPE_PASSTHROUGH_CREATE_INFO_FB };
+
+      if (XR_FAILED(xrCreatePassthroughFB(state.session, &info, &state.passthrough))) {
+        return false;
+      }
+
+      XrPassthroughLayerCreateInfoFB layerInfo = {
+        .type = XR_TYPE_PASSTHROUGH_LAYER_CREATE_INFO_FB,
+        .passthrough = state.passthrough,
+        .purpose = XR_PASSTHROUGH_LAYER_PURPOSE_RECONSTRUCTION_FB,
+        .flags = XR_PASSTHROUGH_IS_RUNNING_AT_CREATION_BIT_FB
+      };
+
+      if (XR_FAILED(xrCreatePassthroughLayerFB(state.session, &layerInfo, &state.passthroughLayerHandle))) {
+        xrDestroyPassthroughFB(state.passthrough);
+        state.passthrough = NULL;
+        return false;
+      }
+
+      state.passthroughLayer = (XrCompositionLayerPassthroughFB) {
+        .type = XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB,
+        .layerHandle = state.passthroughLayerHandle
+      };
+    }
+
+    bool enable = mode == PASSTHROUGH_BLEND || mode == PASSTHROUGH_TRANSPARENT;
+
+    if (state.passthroughActive == enable) {
+      return true;
+    }
+
+    if (enable) {
+      if (XR_SUCCEEDED(xrPassthroughStartFB(state.passthrough))) {
+        state.passthroughActive = true;
+        return true;
+      }
+    } else {
+      if (XR_SUCCEEDED(xrPassthroughPauseFB(state.passthrough))) {
+        state.passthroughActive = false;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  if (mode == PASSTHROUGH_DEFAULT) {
+    state.blendMode = state.blendModes[0];
+    return true;
+  } else if (mode == PASSTHROUGH_TRANSPARENT) {
+    for (uint32_t i = 0; i < state.blendModeCount; i++) {
+      switch (state.blendModes[i]) {
+        case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
+        case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
+          state.blendMode = state.blendModes[i];
+          return true;
+        default: continue;
+      }
+    }
+  } else {
+    XrEnvironmentBlendMode blendMode = convertPassthroughMode(mode);
+    for (uint32_t i = 0; i < state.blendModeCount; i++) {
+      if (state.blendModes[i] == blendMode) {
+        state.blendMode = state.blendModes[i];
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+static bool openxr_isPassthroughSupported(PassthroughMode mode) {
+  XrEnvironmentBlendMode blendMode = convertPassthroughMode(mode);
+  for (uint32_t i = 0; i < state.blendModeCount; i++) {
+    if (state.blendModes[i] == blendMode) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static double openxr_getDisplayTime(void) {
-  return state.frameState.predictedDisplayTime / 1e9;
+  return (state.frameState.predictedDisplayTime - state.epoch) / 1e9;
 }
 
 static double openxr_getDeltaTime(void) {
   return (state.frameState.predictedDisplayTime - state.lastDisplayTime) / 1e9;
 }
 
-static void getViews(XrView views[2], uint32_t* count) {
+static XrViewStateFlags getViews(XrView views[2], uint32_t* count) {
+  if (state.frameState.predictedDisplayTime <= 0) {
+    return 0;
+  }
+
   XrViewLocateInfo viewLocateInfo = {
     .type = XR_TYPE_VIEW_LOCATE_INFO,
     .viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
@@ -1240,42 +1654,52 @@ static void getViews(XrView views[2], uint32_t* count) {
   }
 
   XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
-  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, count, views));
+  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, count, views), "Failed to locate views");
+  return viewState.viewStateFlags;
 }
 
 static uint32_t openxr_getViewCount(void) {
-  uint32_t count;
-  XrView views[2];
-  getViews(views, &count);
-  return count;
+  return 2;
 }
 
 static bool openxr_getViewPose(uint32_t view, float* position, float* orientation) {
   uint32_t count;
   XrView views[2];
-  getViews(views, &count);
-  if (view < count) {
-    memcpy(position, &views[view].pose.position.x, 3 * sizeof(float));
-    memcpy(orientation, &views[view].pose.orientation.x, 4 * sizeof(float));
-    return true;
-  } else {
+  XrViewStateFlags flags = getViews(views, &count);
+
+  if (view >= count || !flags) {
     return false;
   }
+
+  if (flags & XR_VIEW_STATE_POSITION_VALID_BIT) {
+    memcpy(position, &views[view].pose.position.x, 3 * sizeof(float));
+  } else {
+    memset(position, 0, 3 * sizeof(float));
+  }
+
+  if (flags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+    memcpy(orientation, &views[view].pose.orientation.x, 4 * sizeof(float));
+  } else {
+    memset(orientation, 0, 4 * sizeof(float));
+  }
+
+  return true;
 }
 
 static bool openxr_getViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
   uint32_t count;
   XrView views[2];
-  getViews(views, &count);
-  if (view < count) {
-    *left = -views[view].fov.angleLeft;
-    *right = views[view].fov.angleRight;
-    *up = views[view].fov.angleUp;
-    *down = -views[view].fov.angleDown;
-    return true;
-  } else {
+  XrViewStateFlags flags = getViews(views, &count);
+
+  if (view >= count || !flags) {
     return false;
   }
+
+  *left = -views[view].fov.angleLeft;
+  *right = views[view].fov.angleRight;
+  *up = views[view].fov.angleUp;
+  *down = -views[view].fov.angleDown;
+  return true;
 }
 
 static void openxr_getClipDistance(float* clipNear, float* clipFar) {
@@ -1290,7 +1714,7 @@ static void openxr_setClipDistance(float clipNear, float clipFar) {
 
 static void openxr_getBoundsDimensions(float* width, float* depth) {
   XrExtent2Df bounds;
-  if (XR_SUCCEEDED(xrGetReferenceSpaceBoundsRect(state.session, state.referenceSpaceType, &bounds))) {
+  if (XR_SUCCEEDED(xrGetReferenceSpaceBoundsRect(state.session, XR_REFERENCE_SPACE_TYPE_STAGE, &bounds))) {
     *width = bounds.width;
     *depth = bounds.height;
   } else {
@@ -1305,13 +1729,15 @@ static const float* openxr_getBoundsGeometry(uint32_t* count) {
 }
 
 static bool openxr_getPose(Device device, float* position, float* orientation) {
-  if (!state.spaces[device]) {
+  if (state.frameState.predictedDisplayTime <= 0) {
     return false;
   }
 
-  // If there's a pose action for this device, see if the action is active before locating its space
   XrAction action = getPoseActionForDevice(device);
+  XrActionStatePose poseState = { .type = XR_TYPE_ACTION_STATE_POSE };
 
+  // If there's a pose action for this device, see if the action is active before locating its space
+  // (because Oculus runtimes had a bug that forced checking the action before locating the space)
   if (action) {
     XrActionStateGetInfo info = {
       .type = XR_TYPE_ACTION_STATE_GET_INFO,
@@ -1319,57 +1745,68 @@ static bool openxr_getPose(Device device, float* position, float* orientation) {
       .subactionPath = state.actionFilters[device]
     };
 
-    XrActionStatePose poseState = {
-      .type = XR_TYPE_ACTION_STATE_POSE
+    XR(xrGetActionStatePose(state.session, &info, &poseState), "Failed to get pose");
+  }
+
+  // If there's no space to locate, or the pose action isn't active, fall back to alternative
+  // methods, e.g. hand tracking can sometimes be used for grip/aim/elbow devices
+  if (!state.spaces[device] || (action && !poseState.isActive)) {
+    bool point = false;
+    bool elbow = false;
+
+    if (state.features.handTrackingAim && (device == DEVICE_HAND_LEFT_POINT || device == DEVICE_HAND_RIGHT_POINT)) {
+      device = DEVICE_HAND_LEFT + (device == DEVICE_HAND_RIGHT_POINT);
+      point = true;
+    }
+
+    if (state.features.handTrackingElbow && (device == DEVICE_ELBOW_LEFT || device == DEVICE_ELBOW_RIGHT)) {
+      device = DEVICE_HAND_LEFT + (device == DEVICE_ELBOW_RIGHT);
+      elbow = true;
+    }
+
+    XrHandTrackerEXT tracker = getHandTracker(device);
+
+    if (!tracker) {
+      return false;
+    }
+
+    XrHandJointsLocateInfoEXT info = {
+      .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
+      .baseSpace = state.referenceSpace,
+      .time = state.frameState.predictedDisplayTime
     };
 
-    XR(xrGetActionStatePose(state.session, &info, &poseState));
+    XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
+    XrHandJointLocationsEXT hand = {
+      .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
+      .jointCount = 26 + state.features.handTrackingElbow,
+      .jointLocations = joints
+    };
 
-    // If the action isn't active, try fallbacks for some devices (hand tracking), pardon the mess
-    if (!poseState.isActive) {
-      bool point = false;
+    XrHandTrackingAimStateFB aimState = {
+      .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
+    };
 
-      if (state.features.handTrackingAim && (device == DEVICE_HAND_LEFT_POINT || device == DEVICE_HAND_RIGHT_POINT)) {
-        device = DEVICE_HAND_LEFT + (device == DEVICE_HAND_RIGHT_POINT);
-        point = true;
-      }
-
-      XrHandTrackerEXT tracker = getHandTracker(device);
-
-      if (!tracker) {
-        return false;
-      }
-
-      XrHandJointsLocateInfoEXT info = {
-        .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
-        .baseSpace = state.referenceSpace,
-        .time = state.frameState.predictedDisplayTime
-      };
-
-      XrHandJointLocationEXT joints[26];
-      XrHandJointLocationsEXT hand = {
-        .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-        .jointCount = COUNTOF(joints),
-        .jointLocations = joints
-      };
-
-      XrHandTrackingAimStateFB aimState = {
-        .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
-      };
-
-      if (point) {
-        hand.next = &aimState;
-      }
-
-      if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
-        return false;
-      }
-
-      XrPosef* pose = point ? &aimState.aimPose : &joints[XR_HAND_JOINT_WRIST_EXT].pose;
-      memcpy(orientation, &pose->orientation, 4 * sizeof(float));
-      memcpy(position, &pose->position, 3 * sizeof(float));
-      return true;
+    if (point) {
+      hand.next = &aimState;
     }
+
+    if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
+      return false;
+    }
+
+    XrPosef* pose;
+    if (point) {
+      pose = &aimState.aimPose;
+    } else if (elbow) {
+      pose = &joints[XR_HAND_FOREARM_JOINT_ELBOW_ULTRALEAP].pose;
+    } else {
+      pose = &joints[XR_HAND_JOINT_WRIST_EXT].pose;
+    }
+
+    memcpy(orientation, &pose->orientation, 4 * sizeof(float));
+    memcpy(position, &pose->position, 3 * sizeof(float));
+    return true;
   }
 
   XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
@@ -1380,7 +1817,7 @@ static bool openxr_getPose(Device device, float* position, float* orientation) {
 }
 
 static bool openxr_getVelocity(Device device, float* linearVelocity, float* angularVelocity) {
-  if (!state.spaces[device]) {
+  if (!state.spaces[device] || state.frameState.predictedDisplayTime <= 0) {
     return false;
   }
 
@@ -1425,7 +1862,7 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
   }
 
   XrActionStateBoolean actionState = { .type = XR_TYPE_ACTION_STATE_BOOLEAN };
-  XR(xrGetActionStateBoolean(state.session, &info, &actionState));
+  XR(xrGetActionStateBoolean(state.session, &info, &actionState), "Failed to read button input");
   *value = actionState.currentState;
   *changed = actionState.changedSinceLastSync;
   return actionState.isActive;
@@ -1448,7 +1885,7 @@ static bool getFloatAction(uint32_t action, XrPath filter, float* value) {
   };
 
   XrActionStateFloat actionState = { .type = XR_TYPE_ACTION_STATE_FLOAT };
-  XR(xrGetActionStateFloat(state.session, &info, &actionState));
+  XR(xrGetActionStateFloat(state.session, &info, &actionState), "Failed to read axis input");
   *value = actionState.currentState;
   return actionState.isActive;
 }
@@ -1487,11 +1924,11 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
         .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
       };
 
-      XrHandJointLocationEXT joints[26];
+      XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
       XrHandJointLocationsEXT hand = {
         .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
         .next = &aimState,
-        .jointCount = COUNTOF(joints),
+        .jointCount = 26 + state.features.handTrackingElbow,
         .jointLocations = joints
       };
 
@@ -1511,7 +1948,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
 static bool openxr_getSkeleton(Device device, float* poses) {
   XrHandTrackerEXT tracker = getHandTracker(device);
 
-  if (!tracker) {
+  if (!tracker || state.frameState.predictedDisplayTime <= 0) {
     return false;
   }
 
@@ -1521,10 +1958,10 @@ static bool openxr_getSkeleton(Device device, float* poses) {
     .time = state.frameState.predictedDisplayTime
   };
 
-  XrHandJointLocationEXT joints[26];
+  XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-    .jointCount = COUNTOF(joints),
+    .jointCount = 26 + state.features.handTrackingElbow,
     .jointLocations = joints
   };
 
@@ -1533,7 +1970,7 @@ static bool openxr_getSkeleton(Device device, float* poses) {
   }
 
   float* pose = poses;
-  for (uint32_t i = 0; i < COUNTOF(joints); i++) {
+  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
     memcpy(pose, &joints[i].pose.position.x, 3 * sizeof(float));
     pose[3] = joints[i].radius;
     memcpy(pose + 4, &joints[i].pose.orientation.x, 4 * sizeof(float));
@@ -1561,21 +1998,25 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
     .amplitude = power
   };
 
-  XR(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
+  XR(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration), "Failed to apply haptic feedback");
   return true;
 }
 
-static ModelData* openxr_newModelData(Device device, bool animated) {
-  if (!state.features.handTrackingMesh) {
-    return NULL;
+static void openxr_stopVibration(Device device) {
+  XrHapticActionInfo info = {
+    .type = XR_TYPE_HAPTIC_ACTION_INFO,
+    .action = state.actions[ACTION_VIBRATE],
+    .subactionPath = getInputActionFilter(device)
+  };
+
+  if (info.subactionPath == XR_NULL_PATH) {
+    return;
   }
 
-  XrHandTrackerEXT tracker = getHandTracker(device);
+  XR(xrStopHapticFeedback(state.session, &info), "Failed to stop haptic feedback");
+}
 
-  if (!tracker) {
-    return NULL;
-  }
-
+static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated) {
   // First, figure out how much data there is
   XrHandTrackingMeshFB mesh = { .type = XR_TYPE_HAND_TRACKING_MESH_FB };
   XrResult result = xrGetHandMeshFB(tracker, &mesh);
@@ -1641,6 +2082,12 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   model->nodeCount = 2 + jointCount;
   lovrModelDataAllocate(model);
 
+  model->metadata = malloc(sizeof(XrHandTrackerEXT));
+  lovrAssert(model->metadata, "Out of memory");
+  *((XrHandTrackerEXT*)model->metadata) = tracker;
+  model->metadataSize = sizeof(XrHandTrackerEXT);
+  model->metadataType = META_HANDTRACKING_FB;
+
   model->blobs[0] = lovrBlobCreate(meshData, totalSize, "Hand Mesh Data");
 
   model->buffers[0] = (ModelBuffer) {
@@ -1693,7 +2140,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   model->attributes[5] = (ModelAttribute) { .buffer = 5, .type = U16, .count = indexCount };
 
   model->primitives[0] = (ModelPrimitive) {
-    .mode = DRAW_TRIANGLES,
+    .mode = DRAW_TRIANGLE_LIST,
     .attributes = {
       [ATTR_POSITION] = &model->attributes[0],
       [ATTR_NORMAL] = &model->attributes[1],
@@ -1724,8 +2171,7 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
     // Inverse bind matrix
     XrPosef* pose = &mesh.jointBindPoses[i];
     float* inverseBindMatrix = inverseBindMatrices + 16 * i;
-    mat4_fromQuat(inverseBindMatrix, &pose->orientation.x);
-    memcpy(inverseBindMatrix + 12, &pose->position.x, 3 * sizeof(float));
+    mat4_fromPose(inverseBindMatrix, &pose->position.x, &pose->orientation.x);
     mat4_invert(inverseBindMatrix);
 
     // Add child bones by looking for any bones that have a parent of the current bone.
@@ -1769,35 +2215,103 @@ static ModelData* openxr_newModelData(Device device, bool animated) {
   return model;
 }
 
-static bool openxr_animate(Device device, Model* model) {
-  XrHandTrackerEXT tracker = getHandTracker(device);
+typedef struct {
+  XrControllerModelKeyMSFT modelKey;
+  uint32_t* nodeIndices;
+} MetadataControllerMSFT;
 
-  if (!tracker) {
+static ModelData* openxr_newModelDataMSFT(XrControllerModelKeyMSFT modelKey, bool animated) {
+  uint32_t size;
+  if (XR_FAILED(xrLoadControllerModelMSFT(state.session, modelKey, 0, &size, NULL))) {
+    return NULL;
+  }
+
+  unsigned char* modelData = malloc(size);
+  if (!modelData) return NULL;
+
+  if (XR_FAILED(xrLoadControllerModelMSFT(state.session, modelKey, size, &size, modelData))) {
+    free(modelData);
+    return NULL;
+  }
+
+  Blob* blob = lovrBlobCreate(modelData, size, "Controller Model Data");
+  ModelData* model = lovrModelDataCreate(blob, NULL);
+  lovrRelease(blob, lovrBlobDestroy);
+
+  XrControllerModelNodePropertiesMSFT nodeProperties[16];
+  for (uint32_t i = 0; i < COUNTOF(nodeProperties); i++) {
+    nodeProperties[i].type = XR_TYPE_CONTROLLER_MODEL_NODE_PROPERTIES_MSFT;
+    nodeProperties[i].next = 0;
+  }
+  XrControllerModelPropertiesMSFT properties = {
+    .type = XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT,
+    .nodeCapacityInput = COUNTOF(nodeProperties),
+    .nodeProperties = nodeProperties,
+  };
+
+  if (XR_FAILED(xrGetControllerModelPropertiesMSFT(state.session, modelKey, &properties))) {
     return false;
   }
 
-  // TODO might be nice to cache joints so getSkeleton/animate only locate joints once (profile)
-  XrHandJointsLocateInfoEXT info = {
+  free(model->metadata);
+  model->metadataType = META_CONTROLLER_MSFT;
+  model->metadataSize = sizeof(MetadataControllerMSFT) + sizeof(uint32_t) * properties.nodeCountOutput;
+  model->metadata = malloc(model->metadataSize);
+  lovrAssert(model->metadata, "Out of memory");
+
+  MetadataControllerMSFT* metadata = model->metadata;
+  metadata->modelKey = modelKey;
+  metadata->nodeIndices = (uint32_t*)((char*) model->metadata + sizeof(MetadataControllerMSFT));
+
+  for (uint32_t i = 0; i < properties.nodeCountOutput; i++) {
+    const char* name = nodeProperties[i].nodeName;
+    uint64_t nodeIndex = map_get(&model->nodeMap, hash64(name, strlen(name)));
+    lovrCheck(nodeIndex != MAP_NIL, "ModelData has no node named '%s'", name);
+    metadata->nodeIndices[i] = nodeIndex;
+  }
+
+  return model;
+}
+
+static ModelData* openxr_newModelData(Device device, bool animated) {
+  XrHandTrackerEXT tracker;
+  if ((tracker = getHandTracker(device))) {
+    return openxr_newModelDataFB(tracker, animated);
+  }
+
+  XrControllerModelKeyMSFT modelKey;
+  if ((modelKey = getControllerModelKey(device))) {
+    return openxr_newModelDataMSFT(modelKey, animated);
+  }
+
+  return NULL;
+}
+
+static bool openxr_animateFB(Model* model, const ModelInfo* info) {
+  XrHandTrackerEXT tracker = *(XrHandTrackerEXT*) info->data->metadata;
+  Device device = tracker == state.handTrackers[0] ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
+
+  XrHandJointsLocateInfoEXT locateInfo = {
     .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
-    .baseSpace = state.referenceSpace,
+    .baseSpace = state.spaces[device],
     .time = state.frameState.predictedDisplayTime
   };
 
-  XrHandJointLocationEXT joints[26];
+  XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-    .jointCount = COUNTOF(joints),
+    .jointCount = 26 + state.features.handTrackingElbow,
     .jointLocations = joints
   };
 
-  if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
+  if (XR_FAILED(xrLocateHandJointsEXT(tracker, &locateInfo, &hand)) || !hand.isActive) {
     return false;
   }
 
   lovrModelResetNodeTransforms(model);
 
   // This is kinda brittle, ideally we would use the jointParents from the actual mesh object
-  uint32_t jointParents[26] = {
+  uint32_t jointParents[HAND_JOINT_COUNT] = {
     XR_HAND_JOINT_WRIST_EXT,
     ~0u,
     XR_HAND_JOINT_WRIST_EXT,
@@ -1826,21 +2340,17 @@ static bool openxr_animate(Device device, Model* model) {
     XR_HAND_JOINT_LITTLE_DISTAL_EXT
   };
 
-  float scale[4] = { 1.f, 1.f, 1.f, 1.f };
-
-  // The following can be optimized a lot (ideally we would set the global transform for the nodes)
-  for (uint32_t i = 0; i < COUNTOF(joints); i++) {
+  float position[3], orientation[4], scale[3] = { 1.f, 1.f, 1.f };
+  for (uint32_t i = 0; i < HAND_JOINT_COUNT; i++) {
     if (jointParents[i] == ~0u) {
-      float position[4] = { 0.f, 0.f, 0.f };
-      float orientation[4] = { 0.f, 0.f, 0.f, 1.f };
-      lovrModelSetNodeTransform(model, i, position, scale, orientation, 1.f);
+      XrPosef* pose = &joints[i].pose;
+      lovrModelSetNodeTransform(model, i, &pose->position.x, scale, &pose->orientation.x, 1.f);
     } else {
       XrPosef* parent = &joints[jointParents[i]].pose;
       XrPosef* pose = &joints[i].pose;
 
       // Convert global pose to parent-local pose (premultiply with inverse of parent pose)
       // TODO there should be maf for this
-      float position[4], orientation[4];
       vec3_init(position, &pose->position.x);
       vec3_sub(position, &parent->position.x);
 
@@ -1857,6 +2367,44 @@ static bool openxr_animate(Device device, Model* model) {
   return true;
 }
 
+static bool openxr_animateMSFT(Model* model, const ModelInfo* info) {
+  MetadataControllerMSFT* metadata = info->data->metadata;
+
+  XrControllerModelNodeStateMSFT nodeStates[16];
+  for (uint32_t i = 0; i < COUNTOF(nodeStates); i++) {
+    nodeStates[i].type = XR_TYPE_CONTROLLER_MODEL_NODE_STATE_MSFT;
+    nodeStates[i].next = 0;
+  }
+  XrControllerModelStateMSFT modelState = {
+    .type = XR_TYPE_CONTROLLER_MODEL_STATE_MSFT,
+    .nodeCapacityInput = COUNTOF(nodeStates),
+    .nodeStates = nodeStates,
+  };
+
+  if (XR_FAILED(xrGetControllerModelStateMSFT(state.session, metadata->modelKey, &modelState))) {
+    return false;
+  }
+
+  for (uint32_t i = 0; i < modelState.nodeCountOutput; i++) {
+    float position[3], rotation[4];
+    vec3_init(position, (vec3)&nodeStates[i].nodePose.position);
+    quat_init(rotation, (quat)&nodeStates[i].nodePose.orientation);
+    lovrModelSetNodeTransform(model, metadata->nodeIndices[i], position, NULL, rotation, 1);
+  }
+
+  return false;
+}
+
+static bool openxr_animate(Model* model) {
+  const ModelInfo* info = lovrModelGetInfo(model);
+
+  switch (info->data->metadataType) {
+    case META_HANDTRACKING_FB: return openxr_animateFB(model, info);
+    case META_CONTROLLER_MSFT: return openxr_animateMSFT(model, info);
+    default: return false;
+  }
+}
+
 static Texture* openxr_getTexture(void) {
   if (!SESSION_ACTIVE(state.sessionState)) {
     return NULL;
@@ -1867,7 +2415,7 @@ static Texture* openxr_getTexture(void) {
   }
 
   XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-  XR(xrBeginFrame(state.session, &beginfo));
+  XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
   state.began = true;
 
   if (!state.frameState.shouldRender) {
@@ -1875,12 +2423,12 @@ static Texture* openxr_getTexture(void) {
   }
 
   XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]));
-  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo));
+  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]), "Failed to acquire color swapchain image");
+  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo), "Failed to wait on color swapchain image");
 
   if (state.features.depth) {
-    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]));
-    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo));
+    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]), "Failed to acquire depth swapchain image");
+    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo), "Failed to wait for depth swapchain image");
   }
 
   return state.textures[COLOR][state.textureIndex[COLOR]];
@@ -1896,7 +2444,7 @@ static Texture* openxr_getDepthTexture(void) {
   }
 
   XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-  XR(xrBeginFrame(state.session, &beginfo));
+  XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
   state.began = true;
 
   if (!state.frameState.shouldRender) {
@@ -1904,12 +2452,12 @@ static Texture* openxr_getDepthTexture(void) {
   }
 
   XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]));
-  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo));
+  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]), "Failed to acquire color swapchain image");
+  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo), "Failed to wait for color swapchain image");
 
   if (state.features.depth) {
-    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]));
-    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo));
+    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]), "Failed to acquire depth swapchain image");
+    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo), "Failed to wait for depth swapchain image");
   }
 
   return state.textures[DEPTH][state.textureIndex[DEPTH]];
@@ -1927,43 +2475,46 @@ static Pass* openxr_getPass(void) {
     return NULL;
   }
 
-  Canvas canvas = {
-    .count = 1,
-    .textures[0] = texture,
-    .depth.texture = depthTexture,
-    .depth.format = state.depthFormat,
-    .depth.load = LOAD_CLEAR,
-    .depth.clear = 0.f,
-    .samples = state.config.antialias ? 4 : 1
-  };
+  Texture* textures[4] = { texture };
+  Texture* depth = depthTexture;
 
-  lovrGraphicsGetBackgroundColor(canvas.clears[0]);
+  lovrPassReset(state.pass);
+  lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1);
 
-  state.pass = lovrGraphicsGetPass(&(PassInfo) {
-    .type = PASS_RENDER,
-    .label = "Headset",
-    .canvas = canvas
-  });
+  float background[4][4];
+  LoadAction loads[4] = { LOAD_CLEAR };
+  lovrGraphicsGetBackgroundColor(background[0]);
+  lovrPassSetClear(state.pass, loads, background, LOAD_CLEAR, 0.f);
 
   uint32_t count;
   XrView views[2];
-  getViews(views, &count);
+  XrViewStateFlags flags = getViews(views, &count);
 
   for (uint32_t i = 0; i < count; i++) {
     state.layerViews[i].pose = views[i].pose;
     state.layerViews[i].fov = views[i].fov;
 
     float viewMatrix[16];
-    mat4_fromQuat(viewMatrix, &views[i].pose.orientation.x);
-    memcpy(viewMatrix + 12, &views[i].pose.position.x, 3 * sizeof(float));
-    mat4_invert(viewMatrix);
-
     float projection[16];
-    XrFovf* fov = &views[i].fov;
-    mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
 
+    if (flags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+      mat4_fromQuat(viewMatrix, &views[i].pose.orientation.x);
+    } else {
+      mat4_identity(viewMatrix);
+    }
+
+    if (flags & XR_VIEW_STATE_POSITION_VALID_BIT) {
+      memcpy(viewMatrix + 12, &views[i].pose.position.x, 3 * sizeof(float));
+    }
+
+    mat4_invert(viewMatrix);
     lovrPassSetViewMatrix(state.pass, i, viewMatrix);
-    lovrPassSetProjection(state.pass, i, projection);
+
+    if (flags != 0) {
+      XrFovf* fov = &views[i].fov;
+      mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
+      lovrPassSetProjection(state.pass, i, projection);
+    }
   }
 
   return state.pass;
@@ -1975,13 +2526,13 @@ static void openxr_submit(void) {
     return;
   }
 
+  XrCompositionLayerBaseHeader const* layers[2];
+
   XrFrameEndInfo info = {
     .type = XR_TYPE_FRAME_END_INFO,
     .displayTime = state.frameState.predictedDisplayTime,
     .environmentBlendMode = state.blendMode,
-    .layers = (const XrCompositionLayerBaseHeader*[1]) {
-      (XrCompositionLayerBaseHeader*) &state.layers[0]
-    }
+    .layers = layers
   };
 
   if (state.features.depth) {
@@ -1995,18 +2546,35 @@ static void openxr_submit(void) {
   }
 
   if (state.frameState.shouldRender) {
-    XR(xrReleaseSwapchainImage(state.swapchain[COLOR], NULL));
+    XR(xrReleaseSwapchainImage(state.swapchain[COLOR], NULL), "Failed to release color swapchain image");
 
     if (state.features.depth) {
-      XR(xrReleaseSwapchainImage(state.swapchain[DEPTH], NULL));
+      XR(xrReleaseSwapchainImage(state.swapchain[DEPTH], NULL), "Failed to release depth swapchain image");
     }
 
-    info.layerCount = 1;
+    if (state.passthroughActive) {
+      layers[0] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
+      layers[1] = (const XrCompositionLayerBaseHeader*) &state.layers[0];
+      info.layerCount = 2;
+    } else {
+      layers[0] = (const XrCompositionLayerBaseHeader*) &state.layers[0];
+      info.layerCount = 1;
+    }
+
+    if (state.features.overlay || state.passthroughActive) {
+      state.layers[0].layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+    } else {
+      state.layers[0].layerFlags = 0;
+    }
   }
 
-  XR(xrEndFrame(state.session, &info));
+  XR(xrEndFrame(state.session, &info), "Failed to submit layers");
   state.began = false;
   state.waited = false;
+}
+
+static bool openxr_isVisible(void) {
+  return state.sessionState >= XR_SESSION_STATE_VISIBLE;
 }
 
 static bool openxr_isFocused(void) {
@@ -2030,11 +2598,11 @@ static double openxr_update(void) {
             XR(xrBeginSession(state.session, &(XrSessionBeginInfo) {
               .type = XR_TYPE_SESSION_BEGIN_INFO,
               .primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO
-            }));
+            }), "Failed to begin session");
             break;
 
           case XR_SESSION_STATE_STOPPING:
-            XR(xrEndSession(state.session));
+            XR(xrEndSession(state.session), "Failed to end session");
             break;
 
           case XR_SESSION_STATE_EXITING:
@@ -2043,6 +2611,12 @@ static double openxr_update(void) {
             break;
 
           default: break;
+        }
+
+        bool wasVisible = state.sessionState >= XR_SESSION_STATE_VISIBLE;
+        bool isVisible = event->state >= XR_SESSION_STATE_VISIBLE;
+        if (wasVisible != isVisible) {
+          lovrEventPush((Event) { .type = EVENT_VISIBLE, .data.boolean.value = isVisible });
         }
 
         bool wasFocused = state.sessionState == XR_SESSION_STATE_FOCUSED;
@@ -2054,7 +2628,15 @@ static double openxr_update(void) {
         state.sessionState = event->state;
         break;
       }
-
+      case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING: {
+        XrEventDataReferenceSpaceChangePending* event = (XrEventDataReferenceSpaceChangePending*) &e;
+        if (event->referenceSpaceType == XR_REFERENCE_SPACE_TYPE_LOCAL) {
+          createReferenceSpace(event->changeTime);
+          state.layers[0].space = state.referenceSpace;
+          lovrEventPush((Event) { .type = EVENT_RECENTER });
+        }
+        break;
+      }
       default: break;
     }
     e.type = XR_TYPE_EVENT_DATA_BUFFER;
@@ -2062,11 +2644,12 @@ static double openxr_update(void) {
 
   if (SESSION_ACTIVE(state.sessionState)) {
     state.lastDisplayTime = state.frameState.predictedDisplayTime;
-    XR(xrWaitFrame(state.session, NULL, &state.frameState));
+    XR(xrWaitFrame(state.session, NULL, &state.frameState), "Failed to wait for next frame");
     state.waited = true;
 
-    if (state.lastDisplayTime == 0.) {
-      state.lastDisplayTime = state.frameState.predictedDisplayTime - state.frameState.predictedDisplayPeriod;
+    if (state.epoch == 0) {
+      state.epoch = state.frameState.predictedDisplayTime - state.frameState.predictedDisplayPeriod;
+      state.lastDisplayTime = state.epoch;
     }
 
     XrActiveActionSet activeSets[] = {
@@ -2079,7 +2662,12 @@ static double openxr_update(void) {
       .activeActionSets = activeSets
     };
 
-    XR(xrSyncActions(state.session, &syncInfo));
+    XR(xrSyncActions(state.session, &syncInfo), "Failed to sync actions");
+  }
+
+  // Throttle when session is idle (but not too much, a desktop window might be rendering stuff)
+  if (state.sessionState == XR_SESSION_STATE_IDLE) {
+    os_sleep(.001);
   }
 
   return openxr_getDeltaTime();
@@ -2094,12 +2682,16 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .start = openxr_start,
   .stop = openxr_stop,
   .destroy = openxr_destroy,
+  .getDriverName = openxr_getDriverName,
   .getName = openxr_getName,
-  .getOriginType = openxr_getOriginType,
+  .isSeated = openxr_isSeated,
   .getDisplayDimensions = openxr_getDisplayDimensions,
-  .getDisplayFrequency = openxr_getDisplayFrequency,
-  .getDisplayFrequencies = openxr_getDisplayFrequencies,
-  .setDisplayFrequency = openxr_setDisplayFrequency,
+  .getRefreshRate = openxr_getRefreshRate,
+  .setRefreshRate = openxr_setRefreshRate,
+  .getRefreshRates = openxr_getRefreshRates,
+  .getPassthrough = openxr_getPassthrough,
+  .setPassthrough = openxr_setPassthrough,
+  .isPassthroughSupported = openxr_isPassthroughSupported,
   .getDisplayTime = openxr_getDisplayTime,
   .getDeltaTime = openxr_getDeltaTime,
   .getViewCount = openxr_getViewCount,
@@ -2116,11 +2708,13 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getAxis = openxr_getAxis,
   .getSkeleton = openxr_getSkeleton,
   .vibrate = openxr_vibrate,
+  .stopVibration = openxr_stopVibration,
   .newModelData = openxr_newModelData,
   .animate = openxr_animate,
   .getTexture = openxr_getTexture,
   .getPass = openxr_getPass,
   .submit = openxr_submit,
+  .isVisible = openxr_isVisible,
   .isFocused = openxr_isFocused,
   .update = openxr_update
 };

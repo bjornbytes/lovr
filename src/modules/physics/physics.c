@@ -1,5 +1,4 @@
 #include "physics.h"
-#include "core/maf.h"
 #include "util.h"
 #include <ode/ode.h>
 #include <stdlib.h>
@@ -60,11 +59,14 @@ static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
 typedef struct {
   RaycastCallback callback;
   void* userdata;
+  bool shouldStop;
 } RaycastData;
 
-static void raycastCallback(void* data, dGeomID a, dGeomID b) {
-  RaycastCallback callback = ((RaycastData*) data)->callback;
-  void* userdata = ((RaycastData*) data)->userdata;
+static void raycastCallback(void* d, dGeomID a, dGeomID b) {
+  RaycastData* data = d;
+  if (data->shouldStop) return;
+  RaycastCallback callback = data->callback;
+  void* userdata = data->userdata;
   Shape* shape = dGeomGetData(b);
 
   if (!shape) {
@@ -75,7 +77,36 @@ static void raycastCallback(void* data, dGeomID a, dGeomID b) {
   int count = dCollide(a, b, MAX_CONTACTS, &contact->geom, sizeof(dContact));
   for (int i = 0; i < count; i++) {
     dContactGeom g = contact[i].geom;
-    callback(shape, g.pos[0], g.pos[1], g.pos[2], g.normal[0], g.normal[1], g.normal[2], userdata);
+    data->shouldStop = callback(
+      shape, g.pos[0], g.pos[1], g.pos[2], g.normal[0], g.normal[1], g.normal[2], userdata
+    );
+  }
+}
+
+typedef struct {
+  QueryCallback callback;
+  void* userdata;
+  bool called;
+  bool shouldStop;
+} QueryData;
+
+static void queryCallback(void* d, dGeomID a, dGeomID b) {
+  QueryData* data = d;
+  if (data->shouldStop) return;
+
+  Shape* shape = dGeomGetData(b);
+  if (!shape) {
+    return;
+  }
+
+  dContactGeom contact;
+  if (dCollide(a, b, 1 | CONTACTS_UNIMPORTANT, &contact, sizeof(contact))) {
+    if (data->callback) {
+      data->shouldStop = data->callback(shape, data->userdata);
+    } else {
+      data->shouldStop = true;
+    }
+    data->called = true;
   }
 }
 
@@ -109,7 +140,7 @@ static void onInfoMessage(int num, const char* format, va_list args) {
 
 static bool initialized = false;
 
-bool lovrPhysicsInit() {
+bool lovrPhysicsInit(void) {
   if (initialized) return false;
   dInitODE();
   dSetErrorHandler(onErrorMessage);
@@ -118,7 +149,7 @@ bool lovrPhysicsInit() {
   return initialized = true;
 }
 
-void lovrPhysicsDestroy() {
+void lovrPhysicsDestroy(void) {
   if (!initialized) return;
   dCloseODE();
   initialized = false;
@@ -277,7 +308,7 @@ void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX
 }
 
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
-  RaycastData data = { .callback = callback, .userdata = userdata };
+  RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
   float dx = x2 - x1;
   float dy = y2 - y1;
   float dz = z2 - z1;
@@ -286,6 +317,24 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
   dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
   dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
   dGeomDestroy(ray);
+}
+
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
+  dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
+  dGeomSetPosition(box, position[0], position[1], position[2]);
+  dSpaceCollide2(box, (dGeomID) world->space, &data, queryCallback);
+  dGeomDestroy(box);
+  return data.called;
+}
+
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
+  dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
+  dGeomSetPosition(sphere, position[0], position[1], position[2]);
+  dSpaceCollide2(sphere, (dGeomID) world->space, &data, queryCallback);
+  dGeomDestroy(sphere);
+  return data.called;
 }
 
 Collider* lovrWorldGetFirstCollider(World* world) {
@@ -352,35 +401,38 @@ const char* lovrWorldGetTagName(World* world, uint32_t tag) {
   return (tag == NO_TAG) ? NULL : world->tags[tag];
 }
 
-int lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
+void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
   uint32_t i = findTag(world, tag1);
   uint32_t j = findTag(world, tag2);
+
   if (i == NO_TAG || j == NO_TAG) {
-    return NO_TAG;
+    return;
   }
 
   world->masks[i] &= ~(1 << j);
   world->masks[j] &= ~(1 << i);
-  return 0;
+  return;
 }
 
-int lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2) {
+void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2) {
   uint32_t i = findTag(world, tag1);
   uint32_t j = findTag(world, tag2);
+
   if (i == NO_TAG || j == NO_TAG) {
-    return NO_TAG;
+    return;
   }
 
   world->masks[i] |= (1 << j);
   world->masks[j] |= (1 << i);
-  return 0;
+  return;
 }
 
-int lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2) {
+bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2) {
   uint32_t i = findTag(world, tag1);
   uint32_t j = findTag(world, tag2);
+
   if (i == NO_TAG || j == NO_TAG) {
-    return NO_TAG;
+    return true;
   }
 
   return (world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i));
@@ -450,6 +502,10 @@ void lovrColliderDestroyData(Collider* collider) {
 
   // If the Collider is destroyed, the world lets go of its reference to this Collider
   lovrRelease(collider, lovrColliderDestroy);
+}
+
+bool lovrColliderIsDestroyed(Collider* collider) {
+  return !collider->body;
 }
 
 void lovrColliderInitInertia(Collider* collider, Shape* shape) {
@@ -643,12 +699,15 @@ void lovrColliderSetPosition(Collider* collider, float x, float y, float z) {
   dBodySetPosition(collider->body, x, y, z);
 }
 
-void lovrColliderGetOrientation(Collider* collider, quat orientation) {
+void lovrColliderGetOrientation(Collider* collider, float* orientation) {
   const dReal* q = dBodyGetQuaternion(collider->body);
-  quat_set(orientation, q[1], q[2], q[3], q[0]);
+  orientation[0] = q[1];
+  orientation[1] = q[2];
+  orientation[2] = q[3];
+  orientation[3] = q[0];
 }
 
-void lovrColliderSetOrientation(Collider* collider, quat orientation) {
+void lovrColliderSetOrientation(Collider* collider, float* orientation) {
   dReal q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dBodySetQuaternion(collider->body, q);
 }
@@ -854,13 +913,16 @@ void lovrShapeSetPosition(Shape* shape, float x, float y, float z) {
   dGeomSetOffsetPosition(shape->id, x, y, z);
 }
 
-void lovrShapeGetOrientation(Shape* shape, quat orientation) {
+void lovrShapeGetOrientation(Shape* shape, float* orientation) {
   dReal q[4];
   dGeomGetOffsetQuaternion(shape->id, q);
-  quat_set(orientation, q[1], q[2], q[3], q[0]);
+  orientation[0] = q[1];
+  orientation[1] = q[2];
+  orientation[2] = q[3];
+  orientation[3] = q[0];
 }
 
-void lovrShapeSetOrientation(Shape* shape, quat orientation) {
+void lovrShapeSetOrientation(Shape* shape, float* orientation) {
   dReal q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dGeomSetOffsetQuaternion(shape->id, q);
 }
@@ -952,27 +1014,27 @@ void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
   dGeomSphereSetRadius(sphere->id, radius);
 }
 
-BoxShape* lovrBoxShapeCreate(float x, float y, float z) {
+BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
   BoxShape* box = calloc(1, sizeof(BoxShape));
   lovrAssert(box, "Out of memory");
   box->ref = 1;
   box->type = SHAPE_BOX;
-  box->id = dCreateBox(0, x, y, z);
+  box->id = dCreateBox(0, w, h, d);
   dGeomSetData(box->id, box);
   return box;
 }
 
-void lovrBoxShapeGetDimensions(BoxShape* box, float* x, float* y, float* z) {
+void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d) {
   dReal dimensions[4];
   dGeomBoxGetLengths(box->id, dimensions);
-  *x = dimensions[0];
-  *y = dimensions[1];
-  *z = dimensions[2];
+  *w = dimensions[0];
+  *h = dimensions[1];
+  *d = dimensions[2];
 }
 
-void lovrBoxShapeSetDimensions(BoxShape* box, float x, float y, float z) {
-  lovrCheck(x > 0.f && y > 0.f && z > 0.f, "BoxShape dimensions must be positive");
-  dGeomBoxSetLengths(box->id, x, y, z);
+void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d) {
+  lovrCheck(w > 0.f && h > 0.f && d > 0.f, "BoxShape dimensions must be positive");
+  dGeomBoxSetLengths(box->id, w, h, d);
 }
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
@@ -1120,7 +1182,7 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
   }
 }
 
-BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float z) {
+BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   BallJoint* joint = calloc(1, sizeof(BallJoint));
   lovrAssert(joint, "Out of memory");
@@ -1129,25 +1191,25 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float x, float y, float
   joint->id = dJointCreateBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrBallJointSetAnchor(joint, x, y, z);
+  lovrBallJointSetAnchor(joint, anchor);
   lovrRetain(joint);
   return joint;
 }
 
-void lovrBallJointGetAnchors(BallJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3]) {
   dReal anchor[4];
   dJointGetBallAnchor(joint->id, anchor);
-  *x1 = anchor[0];
-  *y1 = anchor[1];
-  *z1 = anchor[2];
+  anchor1[0] = anchor[0];
+  anchor1[1] = anchor[1];
+  anchor1[2] = anchor[2];
   dJointGetBallAnchor2(joint->id, anchor);
-  *x2 = anchor[0];
-  *y2 = anchor[1];
-  *z2 = anchor[2];
+  anchor2[0] = anchor[0];
+  anchor2[1] = anchor[1];
+  anchor2[2] = anchor[2];
 }
 
-void lovrBallJointSetAnchor(BallJoint* joint, float x, float y, float z) {
-  dJointSetBallAnchor(joint->id, x, y, z);
+void lovrBallJointSetAnchor(BallJoint* joint, float anchor[3]) {
+  dJointSetBallAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
 }
 
 float lovrBallJointGetResponseTime(Joint* joint) {
@@ -1166,7 +1228,7 @@ void lovrBallJointSetTightness(Joint* joint, float tightness) {
   dJointSetBallParam(joint->id, dParamERP, tightness);
 }
 
-DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float y1, float z1, float x2, float y2, float z2) {
+DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   DistanceJoint* joint = calloc(1, sizeof(DistanceJoint));
   lovrAssert(joint, "Out of memory");
@@ -1175,26 +1237,26 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float x1, float
   joint->id = dJointCreateDBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrDistanceJointSetAnchors(joint, x1, y1, z1, x2, y2, z2);
+  lovrDistanceJointSetAnchors(joint, anchor1, anchor2);
   lovrRetain(joint);
   return joint;
 }
 
-void lovrDistanceJointGetAnchors(DistanceJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]) {
   dReal anchor[4];
   dJointGetDBallAnchor1(joint->id, anchor);
-  *x1 = anchor[0];
-  *y1 = anchor[1];
-  *z1 = anchor[2];
+  anchor1[0] = anchor[0];
+  anchor1[1] = anchor[1];
+  anchor1[2] = anchor[2];
   dJointGetDBallAnchor2(joint->id, anchor);
-  *x2 = anchor[0];
-  *y2 = anchor[1];
-  *z2 = anchor[2];
+  anchor2[0] = anchor[0];
+  anchor2[1] = anchor[1];
+  anchor2[2] = anchor[2];
 }
 
-void lovrDistanceJointSetAnchors(DistanceJoint* joint, float x1, float y1, float z1, float x2, float y2, float z2) {
-  dJointSetDBallAnchor1(joint->id, x1, y1, z1);
-  dJointSetDBallAnchor2(joint->id, x2, y2, z2);
+void lovrDistanceJointSetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]) {
+  dJointSetDBallAnchor1(joint->id, anchor1[0], anchor1[1], anchor1[2]);
+  dJointSetDBallAnchor2(joint->id, anchor2[0], anchor2[1], anchor2[2]);
 }
 
 float lovrDistanceJointGetDistance(DistanceJoint* joint) {
@@ -1221,7 +1283,7 @@ void lovrDistanceJointSetTightness(Joint* joint, float tightness) {
   dJointSetDBallParam(joint->id, dParamERP, tightness);
 }
 
-HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, float z, float ax, float ay, float az) {
+HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
   HingeJoint* joint = calloc(1, sizeof(HingeJoint));
   lovrAssert(joint, "Out of memory");
@@ -1230,38 +1292,38 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float x, float y, flo
   joint->id = dJointCreateHinge(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrHingeJointSetAnchor(joint, x, y, z);
-  lovrHingeJointSetAxis(joint, ax, ay, az);
+  lovrHingeJointSetAnchor(joint, anchor);
+  lovrHingeJointSetAxis(joint, axis);
   lovrRetain(joint);
   return joint;
 }
 
-void lovrHingeJointGetAnchors(HingeJoint* joint, float* x1, float* y1, float* z1, float* x2, float* y2, float* z2) {
+void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2[3]) {
   dReal anchor[4];
   dJointGetHingeAnchor(joint->id, anchor);
-  *x1 = anchor[0];
-  *y1 = anchor[1];
-  *z1 = anchor[2];
+  anchor1[0] = anchor[0];
+  anchor1[1] = anchor[1];
+  anchor1[2] = anchor[2];
   dJointGetHingeAnchor2(joint->id, anchor);
-  *x2 = anchor[0];
-  *y2 = anchor[1];
-  *z2 = anchor[2];
+  anchor2[0] = anchor[0];
+  anchor2[1] = anchor[1];
+  anchor2[2] = anchor[2];
 }
 
-void lovrHingeJointSetAnchor(HingeJoint* joint, float x, float y, float z) {
-  dJointSetHingeAnchor(joint->id, x, y, z);
+void lovrHingeJointSetAnchor(HingeJoint* joint, float anchor[3]) {
+  dJointSetHingeAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
 }
 
-void lovrHingeJointGetAxis(HingeJoint* joint, float* x, float* y, float* z) {
-  dReal axis[4];
-  dJointGetHingeAxis(joint->id, axis);
-  *x = axis[0];
-  *y = axis[1];
-  *z = axis[2];
+void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
+  dReal daxis[4];
+  dJointGetHingeAxis(joint->id, daxis);
+  axis[0] = daxis[0];
+  axis[1] = daxis[1];
+  axis[2] = daxis[2];
 }
 
-void lovrHingeJointSetAxis(HingeJoint* joint, float x, float y, float z) {
-  dJointSetHingeAxis(joint->id, x, y, z);
+void lovrHingeJointSetAxis(HingeJoint* joint, float axis[3]) {
+  dJointSetHingeAxis(joint->id, axis[0], axis[1], axis[2]);
 }
 
 float lovrHingeJointGetAngle(HingeJoint* joint) {
@@ -1284,7 +1346,7 @@ void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
   dJointSetHingeParam(joint->id, dParamHiStop, limit);
 }
 
-SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay, float az) {
+SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   lovrAssert(a->world == b->world, "Joint bodies must exist in the same world");
   SliderJoint* joint = calloc(1, sizeof(SliderJoint));
   lovrAssert(joint, "Out of memory");
@@ -1293,21 +1355,21 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float ax, float ay,
   joint->id = dJointCreateSlider(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrSliderJointSetAxis(joint, ax, ay, az);
+  lovrSliderJointSetAxis(joint, axis);
   lovrRetain(joint);
   return joint;
 }
 
-void lovrSliderJointGetAxis(SliderJoint* joint, float* x, float* y, float* z) {
-  dReal axis[4];
+void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
+  dReal daxis[4];
   dJointGetSliderAxis(joint->id, axis);
-  *x = axis[0];
-  *y = axis[1];
-  *z = axis[2];
+  axis[0] = daxis[0];
+  axis[1] = daxis[1];
+  axis[2] = daxis[2];
 }
 
-void lovrSliderJointSetAxis(SliderJoint* joint, float x, float y, float z) {
-  dJointSetSliderAxis(joint->id, x, y, z);
+void lovrSliderJointSetAxis(SliderJoint* joint, float axis[3]) {
+  dJointSetSliderAxis(joint->id, axis[0], axis[1], axis[2]);
 }
 
 float lovrSliderJointGetPosition(SliderJoint* joint) {

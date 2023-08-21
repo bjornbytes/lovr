@@ -1,6 +1,6 @@
 // Flags
+#ifndef GL_COMPUTE_SHADER
 layout(constant_id = 1000) const float flag_pointSize = 1.f;
-layout(constant_id = 1001) const uint flag_attachmentCount = 1;
 layout(constant_id = 1002) const bool flag_passColor = true;
 layout(constant_id = 1003) const bool flag_materialColor = true;
 layout(constant_id = 1004) const bool flag_vertexColors = true;
@@ -16,6 +16,7 @@ layout(constant_id = 1013) const bool flag_roughnessTexture = true;
 layout(constant_id = 1014) const bool flag_ambientOcclusion = true;
 layout(constant_id = 1015) const bool flag_clearcoatTexture = false;
 layout(constant_id = 1016) const bool flag_tonemap = false;
+#endif
 
 // Resources
 #ifndef GL_COMPUTE_SHADER
@@ -27,17 +28,16 @@ struct Camera {
 };
 
 struct Draw {
-  mat4 transform;
-  mat4 normalMatrix;
+  mat4x3 transform;
   vec4 color;
 };
 
 layout(set = 0, binding = 0) uniform Globals { vec2 Resolution; float Time; };
 layout(set = 0, binding = 1) uniform CameraBuffer { Camera Cameras[6]; };
-layout(set = 0, binding = 2) uniform DrawBuffer { Draw Draws[256]; };
+layout(set = 0, binding = 2) uniform DrawBuffer { layout(row_major) Draw Draws[256]; };
 layout(set = 0, binding = 3) uniform sampler Sampler;
 
-layout(set = 1, binding = 0) uniform MaterialBuffer {
+struct MaterialData {
   vec4 color;
   vec4 glow;
   vec2 uvShift;
@@ -50,7 +50,11 @@ layout(set = 1, binding = 0) uniform MaterialBuffer {
   float occlusionStrength;
   float normalScale;
   float alphaCutoff;
-} Material;
+};
+
+layout(set = 1, binding = 0) uniform MaterialBuffer {
+  MaterialData Material;
+};
 
 layout(set = 1, binding = 1) uniform texture2D ColorTexture;
 layout(set = 1, binding = 2) uniform texture2D GlowTexture;
@@ -72,27 +76,27 @@ layout(location = 14) in vec3 VertexTangent;
 
 // Framebuffer
 #ifdef GL_FRAGMENT_SHADER
-layout(location = 0) out vec4 PixelColor[flag_attachmentCount];
+layout(location = 0) out vec4 PixelColor;
 #endif
 
 // Varyings
 #ifdef GL_VERTEX_SHADER
 layout(location = 10) out vec3 PositionWorld;
 layout(location = 11) out vec3 Normal;
-layout(location = 12) out vec4 Color;
-layout(location = 13) out vec2 UV;
+layout(location = 12) out vec2 UV;
+layout(location = 13) out vec4 Color;
 layout(location = 14) out vec3 Tangent;
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
 layout(location = 10) in vec3 PositionWorld;
 layout(location = 11) in vec3 Normal;
-layout(location = 12) in vec4 Color;
-layout(location = 13) in vec2 UV;
+layout(location = 12) in vec2 UV;
+layout(location = 13) in vec4 Color;
 layout(location = 14) in vec3 Tangent;
 #endif
 
-// Macros
+// Builtins
 #ifdef GL_COMPUTE_SHADER
 #define SubgroupCount gl_NumSubgroups
 #define WorkgroupCount gl_NumWorkGroups
@@ -102,49 +106,31 @@ layout(location = 14) in vec3 Tangent;
 #define LocalThreadID gl_LocalInvocationID
 #define LocalThreadIndex gl_LocalInvocationIndex
 #else
-#define BaseInstance gl_BaseInstance
-#define BaseVertex gl_BaseVertex
 #define ClipDistance gl_ClipDistance
 #define CullDistance gl_CullDistance
+#define PrimitiveID gl_PrimitiveID
+#define ViewIndex gl_ViewIndex
+#endif
+
+#ifdef GL_VERTEX_SHADER
+#define BaseInstance gl_BaseInstance
+#define BaseVertex gl_BaseVertex
 #define DrawIndex gl_DrawIndex
 #define InstanceIndex (gl_InstanceIndex - gl_BaseInstance)
+#define PointSize gl_PointSize
+#define Position gl_Position
+#define VertexIndex gl_VertexIndex
+#endif
+
+#ifdef GL_FRAGMENT_SHADER
 #define FragCoord gl_FragCoord
 #define FragDepth gl_FragDepth
 #define FrontFacing gl_FrontFacing
 #define PointCoord gl_PointCoord
-#define PointSize gl_PointSize
-#define Position gl_Position
-#define PrimitiveID gl_PrimitiveID
 #define SampleID gl_SampleID
 #define SampleMaskIn gl_SampleMaskIn
 #define SampleMask gl_SampleMask
 #define SamplePosition gl_SamplePosition
-#define VertexIndex gl_VertexIndex
-#define ViewIndex gl_ViewIndex
-
-#define DrawID gl_BaseInstance
-#define Projection Cameras[ViewIndex].projection
-#define View Cameras[ViewIndex].view
-#define ViewProjection Cameras[ViewIndex].viewProjection
-#define InverseProjection Cameras[ViewIndex].inverseProjection
-#define Transform Draws[DrawID].transform
-#define NormalMatrix mat3(Draws[DrawID].normalMatrix)
-#define PassColor Draws[DrawID].color
-
-#define ClipFromLocal (ViewProjection * Transform)
-#define ClipFromWorld (ViewProjection)
-#define ClipFromView (Projection)
-#define ViewFromLocal (View * Transform)
-#define ViewFromWorld (View)
-#define ViewFromClip (InverseProjection)
-#define WorldFromLocal (Transform)
-#define WorldFromView (inverse(View))
-#define WorldFromClip (inverse(ViewProjection))
-
-#define CameraPositionWorld (-View[3].xyz * mat3(View))
-
-#define DefaultPosition (ClipFromLocal * VertexPosition)
-#define DefaultColor (flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color)
 #endif
 
 // Constants
@@ -159,6 +145,49 @@ layout(location = 14) in vec3 Tangent;
 #define var(x) layout(set = 0, binding = x)
 #else
 #define var(x) layout(set = 2, binding = x)
+#endif
+
+#ifndef GL_COMPUTE_SHADER
+#define Projection Cameras[ViewIndex].projection
+#define View Cameras[ViewIndex].view
+#define ViewProjection Cameras[ViewIndex].viewProjection
+#define InverseProjection Cameras[ViewIndex].inverseProjection
+#define CameraPositionWorld (-View[3].xyz * mat3(View))
+#endif
+
+#ifdef GL_VERTEX_SHADER
+#define DrawID gl_BaseInstance
+#define Transform mat4(Draws[DrawID].transform)
+#define NormalMatrix (cofactor3(Draws[DrawID].transform))
+#define PassColor Draws[DrawID].color
+#define ClipFromLocal (ViewProjection * Transform)
+#define ClipFromWorld (ViewProjection)
+#define ClipFromView (Projection)
+#define ViewFromLocal (View * Transform)
+#define ViewFromWorld (View)
+#define ViewFromClip (InverseProjection)
+#define WorldFromLocal (Transform)
+#define WorldFromView (inverse(View))
+#define WorldFromClip (inverse(ViewProjection))
+#define DefaultPosition (ClipFromLocal * VertexPosition)
+
+mat3 cofactor3(mat4x3 m) {
+  return mat3(vec3(
+     (m[1][1] * m[2][2] - m[2][1] * m[1][2]),
+    -(m[1][0] * m[2][2] - m[2][0] * m[1][2]),
+     (m[1][0] * m[2][1] - m[2][0] * m[1][1])), vec3(
+    -(m[0][1] * m[2][2] - m[2][1] * m[0][2]),
+     (m[0][0] * m[2][2] - m[2][0] * m[0][2]),
+    -(m[0][0] * m[2][1] - m[2][0] * m[0][1])), vec3(
+     (m[0][1] * m[1][2] - m[1][1] * m[0][2]),
+    -(m[0][0] * m[1][2] - m[1][0] * m[0][2]),
+     (m[0][0] * m[1][1] - m[1][0] * m[0][1])
+  ));
+}
+#endif
+
+#ifdef GL_FRAGMENT_SHADER
+#define DefaultColor (flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color)
 #endif
 
 // Helper for sampling textures using the default sampler set using Pass:setSampler
@@ -184,13 +213,13 @@ struct Surface {
   vec3 f0;
   vec3 diffuse;
   vec3 emissive;
+  vec4 baseColor;
   float metalness;
   float roughness;
   float roughness2;
   float occlusion;
   float clearcoat;
   float clearcoatRoughness;
-  float alpha;
 };
 
 #define TangentMatrix getTangentMatrix()
@@ -217,52 +246,99 @@ mat3 getTangentMatrix() {
   }
 }
 
-void initSurface(out Surface surface) {
+Surface newSurface() {
+  Surface surface;
   surface.position = PositionWorld;
-
-  vec3 normal = normalize(Normal);
-
-  if (!FrontFacing) {
-    normal = -normal;
-  }
-
-  if (flag_normalMap) {
-    vec3 normalScale = vec3(Material.normalScale, Material.normalScale, 1.);
-    surface.normal = TangentMatrix * (normalize(getPixel(NormalTexture, UV).rgb * 2. - 1.) * normalScale);
-  } else {
-    surface.normal = normal;
-  }
-
-  surface.geometricNormal = normal;
+  surface.geometricNormal = normalize(Normal);
+  surface.normal = surface.geometricNormal;
   surface.view = normalize(CameraPositionWorld - PositionWorld);
-  surface.reflection = reflect(-surface.view, normal);
+  surface.emissive = vec3(0.);
+  surface.baseColor = Color;
+  surface.metalness = 1.;
+  surface.roughness = 1.;
+  surface.occlusion = 1.;
+  surface.clearcoat = 0.;
+  surface.clearcoatRoughness = 0.;
+  return surface;
+}
 
+vec4 getMaterialBaseColor() {
   vec4 color = Color;
   if (flag_colorTexture) color *= getPixel(ColorTexture, UV);
+  return color;
+}
 
-  surface.metalness = Material.metalness;
-  if (flag_metalnessTexture) surface.metalness *= getPixel(MetalnessTexture, UV).b;
+vec3 getMaterialEmissive() {
+  vec3 emissive = Material.glow.rgb * Material.glow.a;
+  if (flag_glow && flag_glowTexture) emissive *= getPixel(GlowTexture, UV).rgb;
+  return emissive;
+}
 
-  surface.f0 = mix(vec3(.04), color.rgb, surface.metalness);
-  surface.diffuse = mix(color.rgb, vec3(0.), surface.metalness);
+float getMaterialMetalness() {
+  float metalness = Material.metalness;
+  if (flag_metalnessTexture) metalness *= getPixel(MetalnessTexture, UV).b;
+  return metalness;
+}
 
-  surface.emissive = Material.glow.rgb * Material.glow.a;
-  if (flag_glow && flag_glowTexture) surface.emissive *= getPixel(GlowTexture, UV).rgb;
+float getMaterialRoughness() {
+  float roughness = Material.roughness;
+  if (flag_roughnessTexture) roughness *= getPixel(RoughnessTexture, UV).g;
+  return roughness;
+}
 
-  surface.roughness = Material.roughness;
-  if (flag_roughnessTexture) surface.roughness *= getPixel(RoughnessTexture, UV).g;
+float getMaterialOcclusion() {
+  float occlusion = 1.;
+  if (flag_ambientOcclusion) occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
+  return occlusion;
+}
+
+float getMaterialClearcoat() {
+  float clearcoat = Material.clearcoat;
+  if (flag_clearcoatTexture) clearcoat *= getPixel(ClearcoatTexture, UV).r;
+  return clearcoat;
+}
+
+float getMaterialClearcoatRoughness() {
+  return Material.clearcoatRoughness;
+}
+
+Surface applyMaterial(inout Surface surface) {
+  surface.baseColor = getMaterialBaseColor();
+  surface.emissive = getMaterialEmissive();
+  surface.metalness = getMaterialMetalness();
+  surface.roughness = getMaterialRoughness();
+  surface.occlusion = getMaterialOcclusion();
+  surface.clearcoat = getMaterialClearcoat();
+  surface.clearcoatRoughness = getMaterialClearcoatRoughness();
+  if (flag_normalMap) {
+    vec3 normalScale = vec3(Material.normalScale, Material.normalScale, 1.);
+    surface.normal = TangentMatrix * normalize((getPixel(NormalTexture, UV).rgb * 2. - 1.) * normalScale);
+  }
+  return surface;
+}
+
+void finalizeSurface(inout Surface surface) {
+  if (!FrontFacing) {
+    surface.normal = -surface.normal;
+    surface.geometricNormal = -surface.geometricNormal;
+  }
+  surface.reflection = reflect(-surface.view, surface.normal);
+  surface.f0 = mix(vec3(.04), surface.baseColor.rgb, surface.metalness);
+  surface.diffuse = mix(surface.baseColor.rgb, vec3(0.), surface.metalness);
   surface.roughness = max(surface.roughness, .05);
   surface.roughness2 = surface.roughness * surface.roughness;
+}
 
-  surface.occlusion = 1.;
-  if (flag_ambientOcclusion) surface.occlusion *= getPixel(OcclusionTexture, UV).r * Material.occlusionStrength;
+Surface getDefaultSurface() {
+  Surface surface = newSurface();
+  applyMaterial(surface);
+  finalizeSurface(surface);
+  return surface;
+}
 
-  surface.clearcoat = Material.clearcoat;
-  if (flag_clearcoatTexture) surface.clearcoat *= getPixel(ClearcoatTexture, UV).r;
-
-  surface.clearcoatRoughness = Material.clearcoatRoughness;
-
-  surface.alpha = color.a;
+// Deprecated
+void initSurface(out Surface surface) {
+  surface = getDefaultSurface();
 }
 
 float D_GGX(const Surface surface, float NoH) {
@@ -373,7 +449,7 @@ void main() {
   if (flag_materialColor) Color *= Material.color;
   if (flag_vertexColors) Color *= VertexColor;
 
-  if (flag_normalMap && flag_vertexTangents) {
+  if (flag_vertexTangents) {
     Tangent = NormalMatrix * VertexTangent;
   }
 
@@ -390,21 +466,21 @@ void main() {
 #ifdef GL_FRAGMENT_SHADER
 vec4 lovrmain();
 void main() {
-  PixelColor[0] = lovrmain();
+  PixelColor = lovrmain();
 
   if (flag_glow) {
     if (flag_glowTexture) {
-      PixelColor[0].rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
+      PixelColor.rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
     } else {
-      PixelColor[0].rgb += Material.glow.rgb * Material.glow.a;
+      PixelColor.rgb += Material.glow.rgb * Material.glow.a;
     }
   }
 
   if (flag_tonemap) {
-    PixelColor[0].rgb = tonemap(PixelColor[0].rgb);
+    PixelColor.rgb = tonemap(PixelColor.rgb);
   }
 
-  if (flag_alphaCutoff && PixelColor[0].a <= Material.alphaCutoff) {
+  if (flag_alphaCutoff && PixelColor.a <= Material.alphaCutoff) {
     discard;
   }
 }

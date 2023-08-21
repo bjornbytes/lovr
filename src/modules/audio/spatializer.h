@@ -15,7 +15,7 @@ typedef struct {
   // output is stereo, frames is stereo frames, scratch is a buffer the length of output (in case that helps)
   // return value is number of stereo frames written.
   uint32_t (*tail)(float* scratch, float* output, uint32_t frames);
-  void (*setListenerPose)(float position[4], float orientation[4]);
+  void (*setListenerPose)(float position[3], float orientation[4]);
   bool (*setGeometry)(float* vertices, uint32_t* indices, uint32_t vertexCount, uint32_t indexCount, AudioMaterial material);
   void (*sourceCreate)(Source* source);
   void (*sourceDestroy)(Source* source);

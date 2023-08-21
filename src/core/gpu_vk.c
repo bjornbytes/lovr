@@ -14,7 +14,6 @@
 struct gpu_buffer {
   VkBuffer handle;
   uint32_t memory;
-  uint32_t offset;
 };
 
 struct gpu_texture {
@@ -63,15 +62,15 @@ struct gpu_stream {
   VkCommandBuffer commands;
 };
 
-size_t gpu_sizeof_buffer() { return sizeof(gpu_buffer); }
-size_t gpu_sizeof_texture() { return sizeof(gpu_texture); }
-size_t gpu_sizeof_sampler() { return sizeof(gpu_sampler); }
-size_t gpu_sizeof_layout() { return sizeof(gpu_layout); }
-size_t gpu_sizeof_shader() { return sizeof(gpu_shader); }
-size_t gpu_sizeof_bundle_pool() { return sizeof(gpu_bundle_pool); }
-size_t gpu_sizeof_bundle() { return sizeof(gpu_bundle); }
-size_t gpu_sizeof_pipeline() { return sizeof(gpu_pipeline); }
-size_t gpu_sizeof_tally() { return sizeof(gpu_tally); }
+size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
+size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
+size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
+size_t gpu_sizeof_layout(void) { return sizeof(gpu_layout); }
+size_t gpu_sizeof_shader(void) { return sizeof(gpu_shader); }
+size_t gpu_sizeof_bundle_pool(void) { return sizeof(gpu_bundle_pool); }
+size_t gpu_sizeof_bundle(void) { return sizeof(gpu_bundle); }
+size_t gpu_sizeof_pipeline(void) { return sizeof(gpu_pipeline); }
+size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
 
 // Internals
 
@@ -82,10 +81,10 @@ typedef struct {
 } gpu_memory;
 
 typedef enum {
-  GPU_MEMORY_BUFFER_GPU,
-  GPU_MEMORY_BUFFER_MAP_STREAM,
-  GPU_MEMORY_BUFFER_MAP_STAGING,
-  GPU_MEMORY_BUFFER_MAP_READBACK,
+  GPU_MEMORY_BUFFER_STATIC,
+  GPU_MEMORY_BUFFER_STREAM,
+  GPU_MEMORY_BUFFER_UPLOAD,
+  GPU_MEMORY_BUFFER_DOWNLOAD,
   GPU_MEMORY_TEXTURE_COLOR,
   GPU_MEMORY_TEXTURE_D16,
   GPU_MEMORY_TEXTURE_D32F,
@@ -122,7 +121,8 @@ typedef struct {
   uint32_t count;
   uint32_t views;
   uint32_t samples;
-  bool resolve;
+  bool resolveColor;
+  bool resolveDepth;
   struct {
     VkFormat format;
     VkImageLayout layout;
@@ -133,8 +133,9 @@ typedef struct {
   struct {
     VkFormat format;
     VkImageLayout layout;
-    gpu_load_op load;
-    gpu_save_op save;
+    VkImageLayout resolveLayout;
+    gpu_load_op load, stencilLoad;
+    gpu_save_op save, stencilSave;
   } depth;
 } gpu_pass_info;
 
@@ -144,12 +145,15 @@ typedef struct {
 } gpu_cache_entry;
 
 typedef struct {
-  gpu_memory* memory;
-  VkBuffer buffer;
-  uint32_t cursor;
-  uint32_t size;
-  char* pointer;
-} gpu_scratchpad;
+  VkSurfaceKHR handle;
+  VkSwapchainKHR swapchain;
+  VkSurfaceCapabilitiesKHR capabilities;
+  VkSurfaceFormatKHR format;
+  VkSemaphore semaphore;
+  gpu_texture images[8];
+  uint32_t imageIndex;
+  bool valid;
+} gpu_surface;
 
 typedef struct {
   VkCommandPool pool;
@@ -158,41 +162,38 @@ typedef struct {
   VkFence fence;
 } gpu_tick;
 
+typedef struct {
+  bool portability;
+  bool validation;
+  bool debug;
+  bool shaderDebug;
+  bool colorspace;
+  bool depthResolve;
+} gpu_extensions;
+
 // State
 
 static struct {
   void* library;
   gpu_config config;
+  gpu_extensions extensions;
+  gpu_surface surface;
   VkInstance instance;
   VkPhysicalDevice adapter;
   VkDevice device;
   VkQueue queue;
   uint32_t queueFamilyIndex;
-  VkSurfaceKHR surface;
-  VkSurfaceCapabilitiesKHR surfaceCapabilities;
-  VkSurfaceFormatKHR surfaceFormat;
-  bool swapchainValid;
-  VkSwapchainKHR swapchain;
-  VkSemaphore swapchainSemaphore;
-  uint32_t currentSwapchainTexture;
-  gpu_texture swapchainTextures[8];
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
   gpu_cache_entry renderpasses[16][4];
   gpu_cache_entry framebuffers[16][4];
   gpu_allocator allocators[GPU_MEMORY_COUNT];
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
-  gpu_scratchpad scratchpad[3];
   gpu_memory memory[256];
   uint32_t streamCount;
   uint32_t tick[2];
-  gpu_tick ticks[4];
+  gpu_tick ticks[2];
   gpu_morgue morgue;
-  struct {
-    bool validation;
-    bool portability;
-    bool debug;
-  } supports;
 } state;
 
 // Helpers
@@ -220,6 +221,7 @@ static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, cons
 static void createSwapchain(uint32_t width, uint32_t height);
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact);
 static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
+static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type);
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
 static VkPipelineStageFlags convertPhase(gpu_phase phase, bool dst);
@@ -289,6 +291,7 @@ static bool check(bool condition, const char* message);
   X(vkCmdEndQuery)\
   X(vkCmdWriteTimestamp)\
   X(vkCmdCopyQueryPoolResults)\
+  X(vkGetQueryPoolResults)\
   X(vkCreateBuffer)\
   X(vkDestroyBuffer)\
   X(vkGetBufferMemoryRequirements)\
@@ -310,10 +313,10 @@ static bool check(bool condition, const char* message);
   X(vkMapMemory)\
   X(vkCreateSampler)\
   X(vkDestroySampler)\
-  X(vkCreateRenderPass)\
+  X(vkCreateRenderPass2KHR)\
   X(vkDestroyRenderPass)\
-  X(vkCmdBeginRenderPass)\
-  X(vkCmdEndRenderPass)\
+  X(vkCmdBeginRenderPass2KHR)\
+  X(vkCmdEndRenderPass2KHR)\
   X(vkCreateImageView)\
   X(vkDestroyImageView)\
   X(vkCreateFramebuffer)\
@@ -366,7 +369,6 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   if (info->handle) {
     buffer->handle = (VkBuffer) info->handle;
     buffer->memory = ~0u;
-    buffer->offset = 0;
     nickname(buffer->handle, VK_OBJECT_TYPE_BUFFER, info->label);
     return true;
   }
@@ -374,14 +376,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkBufferCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
     .size = info->size,
-    .usage =
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-      VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-      VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT
+    .usage = getBufferUsage(info->type)
   };
 
   VK(vkCreateBuffer(state.device, &createInfo, NULL, &buffer->handle), "Could not create buffer") return false;
@@ -390,7 +385,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   VkDeviceSize offset;
   VkMemoryRequirements requirements;
   vkGetBufferMemoryRequirements(state.device, buffer->handle, &requirements);
-  gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_GPU, requirements, &offset);
+  gpu_memory* memory = gpu_allocate((gpu_memory_type) info->type, requirements, &offset);
 
   VK(vkBindBufferMemory(state.device, buffer->handle, memory->handle, offset), "Could not bind buffer memory") {
     vkDestroyBuffer(state.device, buffer->handle, NULL);
@@ -403,7 +398,6 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   }
 
   buffer->memory = memory - state.memory;
-  buffer->offset = 0;
   return true;
 }
 
@@ -411,97 +405,6 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
   if (buffer->memory == ~0u) return;
   condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
   gpu_release(&state.memory[buffer->memory]);
-}
-
-// There are 3 mapping modes, which use different strategies/memory types:
-// - MAP_STREAM: Used to "stream" data to the GPU, to be read by shaders.  This tries to use the
-//   special 256MB memory type present on discrete GPUs because it's both device local and host-
-//   visible and that supposedly makes it fast.  A single buffer is allocated with a "zone" for each
-//   tick.  If one of the zones fills up, a new bigger buffer is allocated.  It's important to have
-//   one buffer and keep it alive since streaming is expected to happen very frequently.
-// - MAP_STAGING: Used to stage data to upload to buffers/textures.  Can only be used for transfers.
-//   Uses uncached host-visible memory so as to not pollute the CPU cache.  This uses a slightly
-//   different allocation strategy where blocks of memory are allocated, linearly allocated from,
-//   and condemned once they fill up.  This is because uploads are much less frequent than
-//   streaming and are usually too big to fit in the 256MB memory.
-// - MAP_READBACK: Used for readbacks.  Uses cached memory when available since reading from
-//   uncached memory on the CPU is super duper slow.  Uses the same "zone" system as STREAM, since
-//   we want to be able to handle per-frame readbacks without thrashing.
-void* gpu_map(gpu_buffer* buffer, uint32_t size, uint32_t align, gpu_map_mode mode) {
-  gpu_scratchpad* pool = &state.scratchpad[mode];
-  uint32_t cursor = ALIGN(pool->cursor, align);
-  uint32_t zone = mode == GPU_MAP_STAGING ? 0 : (state.tick[CPU] & TICK_MASK);
-
-  // If the scratchpad buffer fills up, condemn it and allocate a new/bigger one to use.
-  if (cursor + size > pool->size) {
-    VkBufferUsageFlags usages[] = {
-      [GPU_MAP_STREAM] =
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      [GPU_MAP_STAGING] = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      [GPU_MAP_READBACK] = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-    };
-
-    VkBufferCreateInfo info = {
-      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-      .usage = usages[mode]
-    };
-
-    // Staging buffers use 4MB block sizes, stream/download start out at 4MB and double after that
-    if (pool->size == 0) {
-      pool->size = 1 << 22;
-    }
-
-    if (mode == GPU_MAP_STAGING) {
-      info.size = MAX(pool->size, size);
-    } else {
-      while (pool->size < size) {
-        pool->size <<= 1;
-      }
-      info.size = pool->size * COUNTOF(state.ticks);
-    }
-
-    VkBuffer handle;
-    VK(vkCreateBuffer(state.device, &info, NULL, &handle), "Could not create scratch buffer") return NULL;
-    nickname(handle, VK_OBJECT_TYPE_BUFFER, "Scratchpad");
-
-    VkDeviceSize offset;
-    VkMemoryRequirements requirements;
-    vkGetBufferMemoryRequirements(state.device, handle, &requirements);
-    gpu_memory* memory = gpu_allocate(GPU_MEMORY_BUFFER_MAP_STREAM + mode, requirements, &offset);
-
-    VK(vkBindBufferMemory(state.device, handle, memory->handle, offset), "Could not bind scratchpad memory") {
-      vkDestroyBuffer(state.device, handle, NULL);
-      gpu_release(memory);
-      return NULL;
-    }
-
-    // If this was an oversized allocation, condemn it immediately, don't touch the pool
-    if (size > pool->size) {
-      gpu_release(memory);
-      condemn(handle, VK_OBJECT_TYPE_BUFFER);
-      buffer->handle = handle;
-      buffer->memory = ~0u;
-      buffer->offset = 0;
-      return memory->pointer;
-    } else {
-      gpu_release(pool->memory);
-      condemn(pool->buffer, VK_OBJECT_TYPE_BUFFER);
-      pool->memory = memory;
-      pool->buffer = handle;
-      pool->cursor = cursor = 0;
-      pool->pointer = pool->memory->pointer;
-    }
-  }
-
-  pool->cursor = cursor + size;
-  buffer->handle = pool->buffer;
-  buffer->memory = ~0u;
-  buffer->offset = pool->size * zone + cursor;
-
-  return pool->pointer + pool->size * zone + cursor;
 }
 
 // Texture
@@ -628,7 +531,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       VkBufferImageCopy regions[16];
       for (uint32_t i = 0; i < levelCount; i++) {
         regions[i] = (VkBufferImageCopy) {
-          .bufferOffset = buffer->offset + info->upload.levelOffsets[i],
+          .bufferOffset = info->upload.levelOffsets[i],
           .imageSubresource.aspectMask = texture->aspect,
           .imageSubresource.mipLevel = i,
           .imageSubresource.baseArrayLayer = 0,
@@ -749,24 +652,25 @@ void gpu_texture_destroy(gpu_texture* texture) {
   gpu_release(state.memory + texture->memory);
 }
 
-gpu_texture* gpu_surface_acquire() {
-  if (!state.swapchainValid) {
+gpu_texture* gpu_surface_acquire(void) {
+  if (!state.surface.valid) {
     return NULL;
   }
 
+  gpu_surface* surface = &state.surface;
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
-  VkResult result = vkAcquireNextImageKHR(state.device, state.swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &state.currentSwapchainTexture);
+  VkResult result = vkAcquireNextImageKHR(state.device, surface->swapchain, UINT64_MAX, tick->semaphores[0], VK_NULL_HANDLE, &surface->imageIndex);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-    state.currentSwapchainTexture = ~0u;
-    state.swapchainValid = false;
+    surface->imageIndex = ~0u;
+    surface->valid = false;
     return NULL;
   } else {
     vcheck(result, "Failed to acquire swapchain");
   }
 
-  state.swapchainSemaphore = tick->semaphores[0];
-  return &state.swapchainTextures[state.currentSwapchainTexture];
+  surface->semaphore = tick->semaphores[0];
+  return &surface->images[surface->imageIndex];
 }
 
 void gpu_surface_resize(uint32_t width, uint32_t height) {
@@ -908,7 +812,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
       .binding = info->slots[i].number,
       .descriptorType = types[info->slots[i].type],
       .descriptorCount = 1,
-      .stageFlags = info->slots[i].stages == GPU_STAGE_ALL ? VK_SHADER_STAGE_ALL :
+      .stageFlags =
         (((info->slots[i].stages & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
         ((info->slots[i].stages & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
         ((info->slots[i].stages & GPU_STAGE_COMPUTE) ? VK_SHADER_STAGE_COMPUTE_BIT : 0))
@@ -951,6 +855,8 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     VK(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "Failed to load shader") {
       return false;
     }
+
+    nickname(shader->handles[i], VK_OBJECT_TYPE_SHADER_MODULE, info->label);
   }
 
   VkDescriptorSetLayout layouts[4];
@@ -1113,7 +1019,7 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
       } else {
         buffers[bufferCount++] = (VkDescriptorBufferInfo) {
           .buffer = binding->buffer.object->handle,
-          .offset = binding->buffer.offset + binding->buffer.object->offset,
+          .offset = binding->buffer.offset,
           .range = binding->buffer.extent
         };
       }
@@ -1382,24 +1288,29 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     }
   };
 
-  bool resolve = info->multisample.count > 1;
+  bool resolveColor = info->multisample.count > 1;
+  bool resolveDepth = false;
   bool depth = info->depth.format;
 
   gpu_pass_info pass = {
-    .count = (info->attachmentCount << resolve) + depth,
+    .count = (info->attachmentCount << resolveColor) + (depth << resolveDepth),
     .views = info->viewCount,
     .samples = info->multisample.count,
-    .resolve = resolve,
+    .resolveColor = resolveColor,
+    .resolveDepth = resolveDepth,
     .depth.format = convertFormat(info->depth.format, LINEAR),
     .depth.layout = info->depth.format ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
+    .depth.resolveLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     .depth.load = GPU_LOAD_OP_CLEAR,
-    .depth.save = GPU_SAVE_OP_DISCARD
+    .depth.save = GPU_SAVE_OP_DISCARD,
+    .depth.stencilLoad = GPU_LOAD_OP_CLEAR,
+    .depth.stencilSave = GPU_SAVE_OP_DISCARD
   };
 
   for (uint32_t i = 0; i < info->attachmentCount; i++) {
     pass.color[i].format = convertFormat(info->color[i].format, info->color[i].srgb);
     pass.color[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    pass.color[i].resolveLayout = resolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    pass.color[i].resolveLayout = resolveColor ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
     pass.color[i].load = GPU_LOAD_OP_CLEAR;
     pass.color[i].save = GPU_SAVE_OP_KEEP;
   }
@@ -1494,20 +1405,13 @@ void gpu_pipeline_get_cache(void* data, size_t* size) {
 bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
   VkQueryType queryTypes[] = {
     [GPU_TALLY_TIME] = VK_QUERY_TYPE_TIMESTAMP,
-    [GPU_TALLY_SHADER] = VK_QUERY_TYPE_PIPELINE_STATISTICS,
     [GPU_TALLY_PIXEL] = VK_QUERY_TYPE_OCCLUSION
   };
 
   VkQueryPoolCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
     .queryType = queryTypes[info->type],
-    .queryCount = info->count,
-    .pipelineStatistics = info->type == GPU_TALLY_SHADER ? (
-      VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
-      VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
-      VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
-      VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT
-    ) : 0
+    .queryCount = info->count
   };
 
   VK(vkCreateQueryPool(state.device, &createInfo, NULL, &tally->handle), "Could not create query pool") {
@@ -1519,6 +1423,10 @@ bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
 
 void gpu_tally_destroy(gpu_tally* tally) {
   condemn(tally->handle, VK_OBJECT_TYPE_QUERY_POOL);
+}
+
+void gpu_tally_get_data(gpu_tally* tally, uint32_t index, uint32_t count, uint32_t* data) {
+  vkGetQueryPoolResults(state.device, tally->handle, index, count, count * sizeof(uint32_t), data, sizeof(uint32_t), VK_QUERY_RESULT_WAIT_BIT);
 }
 
 // Stream
@@ -1549,11 +1457,12 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   gpu_pass_info pass = {
     .views = texture->layers,
     .samples = texture->samples,
-    .resolve = !!canvas->color[0].resolve
+    .resolveColor = !!canvas->color[0].resolve,
+    .resolveDepth = !!canvas->depth.resolve
   };
 
-  VkImageView images[9];
-  VkClearValue clears[9];
+  VkImageView images[10];
+  VkClearValue clears[10];
 
   for (uint32_t i = 0; i < COUNTOF(canvas->color) && canvas->color[i].texture; i++) {
     images[i] = canvas->color[i].texture->view;
@@ -1565,7 +1474,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     pass.count++;
   }
 
-  if (pass.resolve) {
+  if (pass.resolveColor) {
     for (uint32_t i = 0; i < pass.count; i++) {
       images[pass.count + i] = canvas->color[i].resolve->view;
       pass.color[i].resolveLayout = canvas->color[i].resolve->layout;
@@ -1582,6 +1491,14 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     pass.depth.layout = canvas->depth.texture->layout;
     pass.depth.load = canvas->depth.load;
     pass.depth.save = canvas->depth.save;
+    pass.depth.stencilLoad = canvas->depth.stencilLoad;
+    pass.depth.stencilSave = canvas->depth.stencilSave;
+
+    if (canvas->depth.resolve) {
+      uint32_t index = pass.count++;
+      images[index] = canvas->depth.resolve->view;
+      pass.depth.resolveLayout = canvas->depth.resolve->layout;
+    }
   }
 
   VkRenderPass renderPass = getCachedRenderPass(&pass, true);
@@ -1596,11 +1513,15 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     .pClearValues = clears
   };
 
-  vkCmdBeginRenderPass(stream->commands, &beginfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBeginRenderPass2KHR(stream->commands, &beginfo, &(VkSubpassBeginInfo) {
+    .sType = VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO
+  });
 }
 
 void gpu_render_end(gpu_stream* stream) {
-  vkCmdEndRenderPass(stream->commands);
+  vkCmdEndRenderPass2KHR(stream->commands, &(VkSubpassEndInfo) {
+    .sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO
+  });
 }
 
 void gpu_compute_begin(gpu_stream* stream) {
@@ -1626,9 +1547,12 @@ void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint
   vkCmdPushConstants(stream->commands, shader->pipelineLayout, stages, 0, size, data);
 }
 
-void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, bool compute) {
-  VkPipelineBindPoint bindPoint = compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
-  vkCmdBindPipeline(stream->commands, bindPoint, pipeline->handle);
+void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_type type) {
+  VkPipelineBindPoint pipelineTypes[] = {
+    [GPU_PIPELINE_GRAPHICS] = VK_PIPELINE_BIND_POINT_GRAPHICS,
+    [GPU_PIPELINE_COMPUTE] = VK_PIPELINE_BIND_POINT_COMPUTE
+  };
+  vkCmdBindPipeline(stream->commands, pipelineTypes[type], pipeline->handle);
 }
 
 void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundles, uint32_t first, uint32_t count, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {
@@ -1645,13 +1569,13 @@ void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t*
   uint64_t offsets64[COUNTOF(handles)];
   for (uint32_t i = 0; i < count; i++) {
     handles[i] = buffers[i]->handle;
-    offsets64[i] = buffers[i]->offset + (offsets ? offsets[i] : 0);
+    offsets64[i] = offsets ? offsets[i] : 0;
   }
   vkCmdBindVertexBuffers(stream->commands, first, count, handles, offsets64);
 }
 
 void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, gpu_index_type type) {
-  vkCmdBindIndexBuffer(stream->commands, buffer->handle, buffer->offset + offset, (VkIndexType) type);
+  vkCmdBindIndexBuffer(stream->commands, buffer->handle, offset, (VkIndexType) type);
 }
 
 void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t baseInstance) {
@@ -1663,11 +1587,11 @@ void gpu_draw_indexed(gpu_stream* stream, uint32_t indexCount, uint32_t instance
 }
 
 void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
-  vkCmdDrawIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, stride ? stride : 16);
+  vkCmdDrawIndirect(stream->commands, buffer->handle, offset, drawCount, stride ? stride : 16);
 }
 
 void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
-  vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, buffer->offset + offset, drawCount, stride ? stride : 20);
+  vkCmdDrawIndexedIndirect(stream->commands, buffer->handle, offset, drawCount, stride ? stride : 20);
 }
 
 void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z) {
@@ -1675,13 +1599,13 @@ void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z) {
 }
 
 void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset) {
-  vkCmdDispatchIndirect(stream->commands, buffer->handle, buffer->offset + offset);
+  vkCmdDispatchIndirect(stream->commands, buffer->handle, offset);
 }
 
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t size) {
   vkCmdCopyBuffer(stream->commands, src->handle, dst->handle, 1, &(VkBufferCopy) {
-    .srcOffset = src->offset + srcOffset,
-    .dstOffset = dst->offset + dstOffset,
+    .srcOffset = srcOffset,
+    .dstOffset = dstOffset,
     .size = size
   });
 }
@@ -1708,7 +1632,7 @@ void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, u
 
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]) {
   VkBufferImageCopy region = {
-    .bufferOffset = src->offset + srcOffset,
+    .bufferOffset = srcOffset,
     .imageSubresource.aspectMask = dst->aspect,
     .imageSubresource.mipLevel = dstOffset[3],
     .imageSubresource.baseArrayLayer = dst->layers ? dstOffset[2] : 0,
@@ -1722,7 +1646,7 @@ void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* d
 
 void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint32_t srcOffset[4], uint32_t dstOffset, uint32_t extent[3]) {
   VkBufferImageCopy region = {
-    .bufferOffset = dst->offset + dstOffset,
+    .bufferOffset = dstOffset,
     .imageSubresource.aspectMask = src->aspect,
     .imageSubresource.mipLevel = srcOffset[3],
     .imageSubresource.baseArrayLayer = src->layers ? srcOffset[2] : 0,
@@ -1734,12 +1658,12 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
   vkCmdCopyImageToBuffer(stream->commands, src->handle, VK_IMAGE_LAYOUT_GENERAL, dst->handle, 1, &region);
 }
 
-void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count, uint32_t stride) {
-  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dst->offset + dstOffset, stride, VK_QUERY_RESULT_WAIT_BIT);
+void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
+  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, 4, VK_QUERY_RESULT_WAIT_BIT);
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
-  vkCmdFillBuffer(stream->commands, buffer->handle, buffer->offset + offset, size, 0);
+  vkCmdFillBuffer(stream->commands, buffer->handle, offset, size, 0);
 }
 
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
@@ -1817,7 +1741,7 @@ void gpu_tally_begin(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
   vkCmdBeginQuery(stream->commands, tally->handle, index, 0);
 }
 
-void gpu_tally_end(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
+void gpu_tally_finish(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
   vkCmdEndQuery(stream->commands, tally->handle, index);
 }
 
@@ -1856,7 +1780,7 @@ bool gpu_init(gpu_config* config) {
     VK(vkEnumerateInstanceLayerProperties(&layerCount, layerInfo), "Failed to enumerate instance layers") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } layers[] = {
-      { "VK_LAYER_KHRONOS_validation", config->debug, &state.supports.validation }
+      { "VK_LAYER_KHRONOS_validation", config->debug, &state.extensions.validation }
     };
 
     uint32_t enabledLayerCount = 0;
@@ -1880,8 +1804,9 @@ bool gpu_init(gpu_config* config) {
     VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
-      { "VK_KHR_portability_enumeration", true, &state.supports.portability },
-      { "VK_EXT_debug_utils", config->debug, &state.supports.debug },
+      { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
+      { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
+      { "VK_EXT_swapchain_colorspace", config->vk.surface, &state.extensions.colorspace },
       { 0 }, // extra extensions for GLFW
       { 0 }
     };
@@ -1913,7 +1838,7 @@ bool gpu_init(gpu_config* config) {
 
     VkInstanceCreateInfo instanceInfo = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-      .flags = state.supports.portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0,
+      .flags = state.extensions.portability ? VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR : 0,
       .pApplicationInfo = &(VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pEngineName = config->engineName,
@@ -1935,7 +1860,7 @@ bool gpu_init(gpu_config* config) {
     GPU_FOREACH_INSTANCE(GPU_LOAD_INSTANCE);
 
     if (state.config.debug && state.config.callback) {
-      if (state.supports.debug) {
+      if (state.extensions.debug) {
         VkDebugUtilsMessengerCreateInfoEXT messengerInfo = {
           .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
           .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
@@ -1945,7 +1870,7 @@ bool gpu_init(gpu_config* config) {
 
         VK(vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger), "Debug hook setup failed") return gpu_destroy(), false;
 
-        if (!state.supports.validation) {
+        if (!state.extensions.validation) {
           state.config.callback(state.config.userdata, "Warning: GPU debugging is enabled, but validation layer is not installed", false);
         }
       } else {
@@ -1956,7 +1881,7 @@ bool gpu_init(gpu_config* config) {
 
   // Surface
   if (state.config.vk.surface && state.config.vk.createSurface) {
-    VK(state.config.vk.createSurface(state.instance, (void**) &state.surface), "Surface creation failed") return gpu_destroy(), false;
+    VK(state.config.vk.createSurface(state.instance, (void**) &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
   }
 
   { // Device
@@ -2045,6 +1970,7 @@ bool gpu_init(gpu_config* config) {
 
       // Required features
       enable->fullDrawIndexUint32 = true;
+      enable->independentBlend = true;
       multiviewFeatures.multiview = true;
       shaderDrawParameterFeatures.shaderDrawParameters = true;
 
@@ -2061,26 +1987,32 @@ bool gpu_init(gpu_config* config) {
       config->features->wireframe = (enable->fillModeNonSolid = supports->fillModeNonSolid);
       config->features->depthClamp = (enable->depthClamp = supports->depthClamp);
       config->features->indirectDrawFirstInstance = (enable->drawIndirectFirstInstance = supports->drawIndirectFirstInstance);
-      config->features->shaderTally = (enable->pipelineStatisticsQuery = supports->pipelineStatisticsQuery);
       config->features->float64 = (enable->shaderFloat64 = supports->shaderFloat64);
       config->features->int64 = (enable->shaderInt64 = supports->shaderInt64);
       config->features->int16 = (enable->shaderInt16 = supports->shaderInt16);
 
       // Formats
       for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
-        VkFormatProperties formatProperties;
-        vkGetPhysicalDeviceFormatProperties(state.adapter, convertFormat(i, LINEAR), &formatProperties);
-        uint32_t renderMask = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        uint32_t flags = formatProperties.optimalTilingFeatures;
-        config->features->formats[i] =
-          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FEATURE_SAMPLE : 0) |
-          ((flags & renderMask) ? GPU_FEATURE_RENDER : 0) |
-          ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FEATURE_BLEND : 0) |
-          ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FEATURE_FILTER : 0) |
-          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FEATURE_STORAGE : 0) |
-          ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FEATURE_ATOMIC : 0) |
-          ((flags & VK_FORMAT_FEATURE_BLIT_SRC_BIT) ? GPU_FEATURE_BLIT_SRC : 0) |
-          ((flags & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? GPU_FEATURE_BLIT_DST : 0);
+        for (int j = 0; j < 2; j++) {
+          VkFormat format = convertFormat(i, j);
+          if (j == 1 && convertFormat(i, 0) == format) {
+            config->features->formats[i][j] = config->features->formats[i][0];
+          } else {
+            VkFormatProperties formatProperties;
+            vkGetPhysicalDeviceFormatProperties(state.adapter, format, &formatProperties);
+            uint32_t renderMask = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            uint32_t flags = formatProperties.optimalTilingFeatures;
+            config->features->formats[i][j] =
+              ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FEATURE_SAMPLE : 0) |
+              ((flags & renderMask) ? GPU_FEATURE_RENDER : 0) |
+              ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FEATURE_BLEND : 0) |
+              ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FEATURE_FILTER : 0) |
+              ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FEATURE_STORAGE : 0) |
+              ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FEATURE_ATOMIC : 0) |
+              ((flags & VK_FORMAT_FEATURE_BLIT_SRC_BIT) ? GPU_FEATURE_BLIT_SRC : 0) |
+              ((flags & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? GPU_FEATURE_BLIT_DST : 0);
+          }
+        }
       }
     }
 
@@ -2092,8 +2024,8 @@ bool gpu_init(gpu_config* config) {
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
       VkBool32 presentable = VK_TRUE;
 
-      if (state.surface) {
-        vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, i, state.surface, &presentable);
+      if (state.config.vk.surface) {
+        vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, i, state.surface.handle, &presentable);
       }
 
       if (presentable && (queueFamilies[i].queueFlags & requiredQueueFlags) == requiredQueueFlags) {
@@ -2104,11 +2036,14 @@ bool gpu_init(gpu_config* config) {
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
-      { "VK_KHR_swapchain", state.surface, NULL },
-      { "VK_KHR_portability_subset", true, &state.supports.portability }
+      { "VK_KHR_create_renderpass2", true, NULL },
+      { "VK_KHR_swapchain", state.config.vk.surface, NULL },
+      { "VK_KHR_portability_subset", true, &state.extensions.portability },
+      { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve },
+      { "VK_KHR_shader_non_semantic_info", state.config.debug, &state.extensions.shaderDebug }
     };
 
-    VkExtensionProperties extensionInfo[256];
+    VkExtensionProperties extensionInfo[512];
     uint32_t extensionCount = COUNTOF(extensionInfo);
     VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
 
@@ -2123,6 +2058,11 @@ bool gpu_init(gpu_config* config) {
       } else if (!extensions[i].flag) {
         vcheck(VK_ERROR_EXTENSION_NOT_PRESENT, extensions[i].name);
       }
+    }
+
+    if (config->features) {
+      config->features->depthResolve = state.extensions.depthResolve;
+      config->features->shaderDebug = state.extensions.shaderDebug;
     }
 
     VkDeviceCreateInfo deviceInfo = {
@@ -2158,34 +2098,22 @@ bool gpu_init(gpu_config* config) {
 
     // Buffers
 
-    struct { VkBufferUsageFlags usage; VkMemoryPropertyFlags flags; } bufferFlags[] = {
-      [GPU_MEMORY_BUFFER_GPU] = {
-        .usage =
-          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-          VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-          VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-      },
-      [GPU_MEMORY_BUFFER_MAP_STREAM] = {
-        .usage =
-          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-          VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .flags = hostVisible | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-      },
-      [GPU_MEMORY_BUFFER_MAP_STAGING] = {
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .flags = hostVisible
-      },
-      [GPU_MEMORY_BUFFER_MAP_READBACK] = {
-        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        .flags = hostVisible | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
-      }
+    // There are 4 types of buffer memory, which use different strategies/memory types:
+    // - STATIC: Regular device-local memory.  Not necessarily mappable, fast to read on GPU.
+    // - STREAM: Used to "stream" data to the GPU, to be read by shaders.  This tries to use the
+    //   special 256MB memory type present on discrete GPUs because it's both device local and host-
+    //   visible and that supposedly makes it fast.  A single buffer is allocated with a "zone" for
+    //   each tick.  If one of the zones fills up, a new bigger buffer is allocated.  It's important
+    //   to have one buffer and keep it alive since streaming is expected to happen very frequently.
+    // - UPLOAD: Used to stage data to upload to buffers/textures.  Can only be used for transfers.
+    //   Uses uncached host-visible memory to not pollute the CPU cache or waste the STREAM memory.
+    // - DOWNLOAD: Used for readbacks.  Uses cached memory when available since reading from
+    //   uncached memory on the CPU is super duper slow.
+    VkMemoryPropertyFlags bufferFlags[] = {
+      [GPU_MEMORY_BUFFER_STATIC] = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      [GPU_MEMORY_BUFFER_STREAM] = hostVisible | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      [GPU_MEMORY_BUFFER_UPLOAD] = hostVisible,
+      [GPU_MEMORY_BUFFER_DOWNLOAD] = hostVisible | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
     };
 
     for (uint32_t i = 0; i < COUNTOF(bufferFlags); i++) {
@@ -2194,7 +2122,7 @@ bool gpu_init(gpu_config* config) {
 
       VkBufferCreateInfo info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .usage = bufferFlags[i].usage,
+        .usage = getBufferUsage(i),
         .size = 4
       };
 
@@ -2204,14 +2132,14 @@ bool gpu_init(gpu_config* config) {
       vkGetBufferMemoryRequirements(state.device, buffer, &requirements);
       vkDestroyBuffer(state.device, buffer, NULL);
 
-      VkMemoryPropertyFlags fallback = i == GPU_MEMORY_BUFFER_GPU ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : hostVisible;
+      VkMemoryPropertyFlags fallback = i == GPU_MEMORY_BUFFER_STATIC ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : hostVisible;
 
       for (uint32_t j = 0; j < memoryProperties.memoryTypeCount; j++) {
         if (~requirements.memoryTypeBits & (1 << j)) {
           continue;
         }
 
-        if ((memoryTypes[j].propertyFlags & bufferFlags[i].flags) == bufferFlags[i].flags) {
+        if ((memoryTypes[j].propertyFlags & bufferFlags[i]) == bufferFlags[i]) {
           allocator->memoryFlags = memoryTypes[j].propertyFlags;
           allocator->memoryType = j;
           break;
@@ -2244,6 +2172,13 @@ bool gpu_init(gpu_config* config) {
     uint32_t allocatorCount = GPU_MEMORY_TEXTURE_COLOR;
 
     for (uint32_t i = GPU_MEMORY_TEXTURE_COLOR; i < COUNTOF(imageFlags); i++) {
+      VkFormatProperties formatProperties;
+      vkGetPhysicalDeviceFormatProperties(state.adapter, imageFlags[i].format, &formatProperties);
+      if (formatProperties.optimalTilingFeatures == 0) {
+        state.allocatorLookup[i] = 0xff;
+        continue;
+      }
+
       VkImageCreateInfo info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
@@ -2292,24 +2227,26 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  if (state.surface) {
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, state.surface, &state.surfaceCapabilities);
+  if (state.surface.handle) {
+    gpu_surface* surface = &state.surface;
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, surface->handle, &surface->capabilities);
 
     VkSurfaceFormatKHR formats[32];
     uint32_t formatCount = COUNTOF(formats);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, state.surface, &formatCount, formats);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, surface->handle, &formatCount, formats);
 
     for (uint32_t i = 0; i < formatCount; i++) {
       if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
-        state.surfaceFormat = formats[i];
+        surface->format = formats[i];
         break;
       }
     }
 
-    VK(state.surfaceFormat.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
+    VK(surface->format.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
 
-    uint32_t width = state.surfaceCapabilities.currentExtent.width;
-    uint32_t height = state.surfaceCapabilities.currentExtent.height;
+    uint32_t width = surface->capabilities.currentExtent.width;
+    uint32_t height = surface->capabilities.currentExtent.height;
 
     createSwapchain(width, height);
   }
@@ -2369,7 +2306,7 @@ bool gpu_init(gpu_config* config) {
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "Pipeline cache creation failed") return gpu_destroy(), false;
 
   state.tick[CPU] = COUNTOF(state.ticks) - 1;
-  state.currentSwapchainTexture = ~0u;
+  state.surface.imageIndex = ~0u;
   return true;
 }
 
@@ -2378,9 +2315,6 @@ void gpu_destroy(void) {
   state.tick[GPU] = state.tick[CPU];
   expunge();
   if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
-  for (uint32_t i = 0; i < COUNTOF(state.scratchpad); i++) {
-    if (state.scratchpad[i].buffer) vkDestroyBuffer(state.device, state.scratchpad[i].buffer, NULL);
-  }
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     gpu_tick* tick = &state.ticks[i];
     if (tick->pool) vkDestroyCommandPool(state.device, tick->pool, NULL);
@@ -2403,12 +2337,12 @@ void gpu_destroy(void) {
   for (uint32_t i = 0; i < COUNTOF(state.memory); i++) {
     if (state.memory[i].handle) vkFreeMemory(state.device, state.memory[i].handle, NULL);
   }
-  for (uint32_t i = 0; i < COUNTOF(state.swapchainTextures); i++) {
-    if (state.swapchainTextures[i].view) vkDestroyImageView(state.device, state.swapchainTextures[i].view, NULL);
+  for (uint32_t i = 0; i < COUNTOF(state.surface.images); i++) {
+    if (state.surface.images[i].view) vkDestroyImageView(state.device, state.surface.images[i].view, NULL);
   }
-  if (state.swapchain) vkDestroySwapchainKHR(state.device, state.swapchain, NULL);
+  if (state.surface.swapchain) vkDestroySwapchainKHR(state.device, state.surface.swapchain, NULL);
   if (state.device) vkDestroyDevice(state.device, NULL);
-  if (state.surface) vkDestroySurfaceKHR(state.instance, state.surface, NULL);
+  if (state.surface.handle) vkDestroySurfaceKHR(state.instance, state.surface.handle, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
 #ifdef _WIN32
@@ -2419,13 +2353,11 @@ void gpu_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-uint32_t gpu_begin() {
+uint32_t gpu_begin(void) {
   gpu_wait_tick(++state.tick[CPU] - COUNTOF(state.ticks));
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
   VK(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
   VK(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return 0;
-  state.scratchpad[GPU_MAP_STREAM].cursor = 0;
-  state.scratchpad[GPU_MAP_READBACK].cursor = 0;
   state.streamCount = 0;
   expunge();
   return state.tick[CPU];
@@ -2443,18 +2375,18 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
 
   VkSubmitInfo submit = {
     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .waitSemaphoreCount = !!state.swapchainSemaphore,
-    .pWaitSemaphores = &state.swapchainSemaphore,
+    .waitSemaphoreCount = !!state.surface.semaphore,
+    .pWaitSemaphores = &state.surface.semaphore,
     .pWaitDstStageMask = &waitStage,
     .commandBufferCount = count,
     .pCommandBuffers = commands
   };
 
   VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") {}
-  state.swapchainSemaphore = VK_NULL_HANDLE;
+  state.surface.semaphore = VK_NULL_HANDLE;
 }
 
-void gpu_present() {
+void gpu_present(void) {
   VkSemaphore semaphore = state.ticks[state.tick[CPU] & TICK_MASK].semaphores[1];
 
   VkSubmitInfo submit = {
@@ -2470,19 +2402,19 @@ void gpu_present() {
     .waitSemaphoreCount = 1,
     .pWaitSemaphores = &semaphore,
     .swapchainCount = 1,
-    .pSwapchains = &state.swapchain,
-    .pImageIndices = &state.currentSwapchainTexture
+    .pSwapchains = &state.surface.swapchain,
+    .pImageIndices = &state.surface.imageIndex
   };
 
   VkResult result = vkQueuePresentKHR(state.queue, &present);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-    state.swapchainValid = false;
+    state.surface.valid = false;
   } else {
     vcheck(result, "Queue present failed");
   }
 
-  state.currentSwapchainTexture = ~0u;
+  state.surface.imageIndex = ~0u;
 }
 
 bool gpu_is_complete(uint32_t tick) {
@@ -2500,19 +2432,19 @@ bool gpu_wait_tick(uint32_t tick) {
   }
 }
 
-void gpu_wait_idle() {
+void gpu_wait_idle(void) {
   vkDeviceWaitIdle(state.device);
 }
 
-uintptr_t gpu_vk_get_instance() {
+uintptr_t gpu_vk_get_instance(void) {
   return (uintptr_t) state.instance;
 }
 
-uintptr_t gpu_vk_get_physical_device() {
+uintptr_t gpu_vk_get_physical_device(void) {
   return (uintptr_t) state.adapter;
 }
 
-uintptr_t gpu_vk_get_device() {
+uintptr_t gpu_vk_get_device(void) {
   return (uintptr_t) state.device;
 }
 
@@ -2535,10 +2467,10 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
   gpu_allocator* allocator = &state.allocators[state.allocatorLookup[type]];
 
   static const uint32_t blockSizes[] = {
-    [GPU_MEMORY_BUFFER_GPU] = 1 << 26,
-    [GPU_MEMORY_BUFFER_MAP_STREAM] = 0,
-    [GPU_MEMORY_BUFFER_MAP_STAGING] = 0,
-    [GPU_MEMORY_BUFFER_MAP_READBACK] = 0,
+    [GPU_MEMORY_BUFFER_STATIC] = 1 << 26,
+    [GPU_MEMORY_BUFFER_STREAM] = 0,
+    [GPU_MEMORY_BUFFER_UPLOAD] = 0,
+    [GPU_MEMORY_BUFFER_DOWNLOAD] = 0,
     [GPU_MEMORY_TEXTURE_COLOR] = 1 << 28,
     [GPU_MEMORY_TEXTURE_D16] = 1 << 28,
     [GPU_MEMORY_TEXTURE_D32F] = 1 << 28,
@@ -2620,7 +2552,7 @@ static void condemn(void* handle, VkObjectType type) {
   morgue->data[morgue->head++ & MORGUE_MASK] = (gpu_victim) { handle, type, state.tick[CPU] };
 }
 
-static void expunge() {
+static void expunge(void) {
   gpu_morgue* morgue = &state.morgue;
   while (morgue->tail != morgue->head && state.tick[GPU] >= morgue->data[morgue->tail & MORGUE_MASK].tick) {
     gpu_victim* victim = &morgue->data[morgue->tail++ & MORGUE_MASK];
@@ -2662,11 +2594,12 @@ static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, cons
 
 static void createSwapchain(uint32_t width, uint32_t height) {
   if (width == 0 || height == 0) {
-    state.swapchainValid = false;
+    state.surface.valid = false;
     return;
   }
 
-  VkSwapchainKHR oldSwapchain = state.swapchain;
+  gpu_surface* surface = &state.surface;
+  VkSwapchainKHR oldSwapchain = surface->swapchain;
 
   if (oldSwapchain) {
     vkDeviceWaitIdle(state.device);
@@ -2674,10 +2607,10 @@ static void createSwapchain(uint32_t width, uint32_t height) {
 
   VkSwapchainCreateInfoKHR swapchainInfo = {
     .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-    .surface = state.surface,
-    .minImageCount = state.surfaceCapabilities.minImageCount,
-    .imageFormat = state.surfaceFormat.format,
-    .imageColorSpace = state.surfaceFormat.colorSpace,
+    .surface = surface->handle,
+    .minImageCount = surface->capabilities.minImageCount,
+    .imageFormat = surface->format.format,
+    .imageColorSpace = surface->format.colorSpace,
     .imageExtent = { width, height },
     .imageArrayLayers = 1,
     .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -2688,27 +2621,27 @@ static void createSwapchain(uint32_t width, uint32_t height) {
     .oldSwapchain = oldSwapchain
   };
 
-  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &state.swapchain), "Swapchain creation failed") return;
+  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &surface->swapchain), "Swapchain creation failed") return;
 
   if (oldSwapchain) {
-    for (uint32_t i = 0; i < COUNTOF(state.swapchainTextures); i++) {
-      if (state.swapchainTextures[i].view) {
-        vkDestroyImageView(state.device, state.swapchainTextures[i].view, NULL);
+    for (uint32_t i = 0; i < COUNTOF(surface->images); i++) {
+      if (surface->images[i].view) {
+        vkDestroyImageView(state.device, surface->images[i].view, NULL);
       }
     }
 
-    memset(state.swapchainTextures, 0, sizeof(state.swapchainTextures));
+    memset(surface->images, 0, sizeof(surface->images));
     vkDestroySwapchainKHR(state.device, oldSwapchain, NULL);
   }
 
   uint32_t imageCount;
-  VkImage images[COUNTOF(state.swapchainTextures)];
-  VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, NULL), "Failed to get swapchain images") return;
+  VkImage images[COUNTOF(surface->images)];
+  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, NULL), "Failed to get swapchain images") return;
   VK(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") return;
-  VK(vkGetSwapchainImagesKHR(state.device, state.swapchain, &imageCount, images), "Failed to get swapchain images") return;
+  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, images), "Failed to get swapchain images") return;
 
   for (uint32_t i = 0; i < imageCount; i++) {
-    gpu_texture* texture = &state.swapchainTextures[i];
+    gpu_texture* texture = &surface->images[i];
 
     texture->handle = images[i];
     texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -2727,52 +2660,54 @@ static void createSwapchain(uint32_t width, uint32_t height) {
     CHECK(gpu_texture_init_view(texture, &view), "Swapchain texture view creation failed") return;
   }
 
-  state.swapchainValid = true;
+  surface->valid = true;
 }
 
 // Ugliness until we can use dynamic rendering
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
-  bool depth = pass->depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
-  uint32_t count = (pass->count - depth) >> pass->resolve;
+  bool hasDepth = pass->depth.layout != VK_IMAGE_LAYOUT_UNDEFINED;
+  uint32_t depthCount = hasDepth ? (1 << pass->resolveDepth) : 0;
+  uint32_t colorCount = (pass->count - depthCount) >> pass->resolveColor;
 
   uint32_t lower[] = {
-    count > 0 ? pass->color[0].format : 0xff,
-    count > 1 ? pass->color[1].format : 0xff,
-    count > 2 ? pass->color[2].format : 0xff,
-    count > 3 ? pass->color[3].format : 0xff,
-    depth ? pass->depth.format : 0xff,
+    colorCount > 0 ? pass->color[0].format : 0xff,
+    colorCount > 1 ? pass->color[1].format : 0xff,
+    colorCount > 2 ? pass->color[2].format : 0xff,
+    colorCount > 3 ? pass->color[3].format : 0xff,
+    hasDepth ? pass->depth.format : 0xff,
     pass->samples,
-    pass->resolve,
     pass->views
   };
 
   uint32_t upper[] = {
-    count > 0 ? pass->color[0].load : 0xff,
-    count > 1 ? pass->color[1].load : 0xff,
-    count > 2 ? pass->color[2].load : 0xff,
-    count > 3 ? pass->color[3].load : 0xff,
-    count > 0 ? pass->color[0].save : 0xff,
-    count > 1 ? pass->color[1].save : 0xff,
-    count > 2 ? pass->color[2].save : 0xff,
-    count > 3 ? pass->color[3].save : 0xff,
-    depth ? pass->depth.load : 0xff,
-    depth ? pass->depth.save : 0xff,
-    count > 0 ? pass->color[0].layout : 0x00,
-    count > 1 ? pass->color[1].layout : 0x00,
-    count > 2 ? pass->color[2].layout : 0x00,
-    count > 3 ? pass->color[3].layout : 0x00,
-    pass->resolve && count > 0 ? pass->color[0].resolveLayout : 0x00,
-    pass->resolve && count > 1 ? pass->color[1].resolveLayout : 0x00,
-    pass->resolve && count > 2 ? pass->color[2].resolveLayout : 0x00,
-    pass->resolve && count > 3 ? pass->color[3].resolveLayout : 0x00,
-    depth ? pass->depth.layout : 0x00,
-    0
+    colorCount > 0 ? pass->color[0].load : 0xff,
+    colorCount > 1 ? pass->color[1].load : 0xff,
+    colorCount > 2 ? pass->color[2].load : 0xff,
+    colorCount > 3 ? pass->color[3].load : 0xff,
+    colorCount > 0 ? pass->color[0].save : 0xff,
+    colorCount > 1 ? pass->color[1].save : 0xff,
+    colorCount > 2 ? pass->color[2].save : 0xff,
+    colorCount > 3 ? pass->color[3].save : 0xff,
+    hasDepth ? pass->depth.load : 0xff,
+    hasDepth ? pass->depth.save : 0xff,
+    hasDepth ? pass->depth.stencilLoad : 0xff,
+    hasDepth ? pass->depth.stencilSave : 0xff,
+    colorCount > 0 ? pass->color[0].layout : 0x00,
+    colorCount > 1 ? pass->color[1].layout : 0x00,
+    colorCount > 2 ? pass->color[2].layout : 0x00,
+    colorCount > 3 ? pass->color[3].layout : 0x00,
+    hasDepth ? pass->depth.layout : 0x00,
+    pass->resolveColor && colorCount > 0 ? pass->color[0].resolveLayout : 0x00,
+    pass->resolveColor && colorCount > 1 ? pass->color[1].resolveLayout : 0x00,
+    pass->resolveColor && colorCount > 2 ? pass->color[2].resolveLayout : 0x00,
+    pass->resolveColor && colorCount > 3 ? pass->color[3].resolveLayout : 0x00,
+    pass->resolveDepth && hasDepth ? pass->depth.resolveLayout : 0x00
   };
 
   // The lower half of the hash contains format, sample, multiview info, which is all that's needed
   // to select a "compatible" render pass (which is all that's needed for creating pipelines).
-  // The upper half of the hash contains load/store info and usage flags (for layout transitions),
-  // which is necessary to select an "exact" match when e.g. actually beginning a render pass
+  // The upper half of the hash contains load/store info and layouts, which is necessary to select
+  // an "exact" match when e.g. actually beginning a render pass
   uint64_t hash = ((uint64_t) hash32(HASH_SEED, upper, sizeof(upper)) << 32) | hash32(HASH_SEED, lower, sizeof(lower));
   uint64_t mask = exact ? ~0ull : ~0u;
 
@@ -2807,31 +2742,39 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
     [GPU_SAVE_OP_DISCARD] = VK_ATTACHMENT_STORE_OP_DONT_CARE
   };
 
-  VkAttachmentDescription attachments[9];
-  VkAttachmentReference references[9];
+  VkAttachmentDescription2 attachments[10];
+  VkAttachmentReference2 references[10];
 
-  for (uint32_t i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < colorCount; i++) {
+    references[i].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+    references[i].pNext = NULL;
     references[i].attachment = i;
     references[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    bool surface = pass->color[i].format == state.surfaceFormat.format; // FIXME
+    references[i].aspectMask = 0;
+    bool surface = pass->color[i].format == state.surface.format.format; // FIXME
     bool discard = surface || pass->color[i].load != GPU_LOAD_OP_KEEP;
-    attachments[i] = (VkAttachmentDescription) {
+    attachments[i] = (VkAttachmentDescription2) {
+      .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
       .format = pass->color[i].format,
       .samples = pass->samples,
       .loadOp = loadOps[pass->color[i].load],
-      .storeOp = pass->resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->color[i].save],
+      .storeOp = pass->resolveColor ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->color[i].save],
       .initialLayout = discard ? VK_IMAGE_LAYOUT_UNDEFINED : pass->color[i].layout,
-      .finalLayout = surface && !pass->resolve ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
+      .finalLayout = surface && !pass->resolveColor ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : pass->color[i].layout
     };
   }
 
-  if (pass->resolve) {
-    for (uint32_t i = 0; i < count; i++) {
-      uint32_t index = count + i;
+  if (pass->resolveColor) {
+    for (uint32_t i = 0; i < colorCount; i++) {
+      uint32_t index = colorCount + i;
+      references[index].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+      references[index].pNext = NULL;
       references[index].attachment = index;
       references[index].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-      bool surface = pass->color[i].format == state.surfaceFormat.format; // FIXME
-      attachments[index] = (VkAttachmentDescription) {
+      references[index].aspectMask = 0;
+      bool surface = pass->color[i].format == state.surface.format.format; // FIXME
+      attachments[index] = (VkAttachmentDescription2) {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
         .format = pass->color[i].format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -2842,38 +2785,63 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
     }
   }
 
-  if (depth) {
-    uint32_t index = pass->count - 1;
+  if (hasDepth) {
+    uint32_t index = pass->count - depthCount;
+    references[index].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+    references[index].pNext = NULL;
     references[index].attachment = index;
     references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    attachments[index] = (VkAttachmentDescription) {
+    references[index].aspectMask = 0;
+    attachments[index] = (VkAttachmentDescription2) {
+      .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
       .format = pass->depth.format,
       .samples = pass->samples,
       .loadOp = loadOps[pass->depth.load],
-      .storeOp = storeOps[pass->depth.save],
-      .stencilLoadOp = loadOps[pass->depth.load],
-      .stencilStoreOp = storeOps[pass->depth.save],
+      .storeOp = pass->resolveDepth ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->depth.save],
+      .stencilLoadOp = loadOps[pass->depth.stencilLoad],
+      .stencilStoreOp = pass->resolveDepth ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[pass->depth.stencilSave],
       .initialLayout = pass->depth.load == GPU_LOAD_OP_KEEP ? pass->depth.layout : VK_IMAGE_LAYOUT_UNDEFINED,
       .finalLayout = pass->depth.layout
     };
+
+    if (pass->resolveDepth) {
+      uint32_t index = pass->count - 1;
+      references[index].sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+      references[index].pNext = NULL;
+      references[index].attachment = index;
+      references[index].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+      references[index].aspectMask = 0;
+      attachments[index] = (VkAttachmentDescription2) {
+        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+        .format = pass->depth.format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .storeOp = storeOps[pass->depth.save],
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = storeOps[pass->depth.stencilSave],
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = pass->depth.resolveLayout
+      };
+    }
   }
 
-  VkSubpassDescription subpass = {
-    .colorAttachmentCount = count,
+  VkSubpassDescription2 subpass = {
+    .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+    .pNext = pass->resolveDepth ? &(VkSubpassDescriptionDepthStencilResolve) {
+      .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
+      .depthResolveMode = pass->resolveDepth ? VK_RESOLVE_MODE_SAMPLE_ZERO_BIT : 0,
+      .stencilResolveMode = pass->resolveDepth ? VK_RESOLVE_MODE_SAMPLE_ZERO_BIT : 0,
+      .pDepthStencilResolveAttachment = pass->resolveDepth ? &references[pass->count - 1] : NULL
+    } : NULL,
+    .viewMask = (1 << pass->views) - 1,
+    .colorAttachmentCount = colorCount,
     .pColorAttachments = &references[0],
-    .pResolveAttachments = pass->resolve ? &references[count] : NULL,
-    .pDepthStencilAttachment = depth ? &references[pass->count - 1] : NULL
+    .pResolveAttachments = pass->resolveColor ? &references[colorCount] : NULL,
+    .pDepthStencilAttachment = hasDepth ? &references[pass->count - depthCount] : NULL
   };
 
-  VkRenderPassMultiviewCreateInfo multiview = {
-    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO,
-    .subpassCount = 1,
-    .pViewMasks = (uint32_t[1]) { (1 << pass->views) - 1 }
-  };
-
-  VkRenderPassCreateInfo info = {
-    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-    .pNext = pass->views > 0 ? &multiview : NULL,
+  VkRenderPassCreateInfo2 info = {
+    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
     .attachmentCount = pass->count,
     .pAttachments = attachments,
     .subpassCount = 1,
@@ -2881,7 +2849,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
   };
 
   VkRenderPass handle;
-  VK(vkCreateRenderPass(state.device, &info, NULL, &handle), "Could not create render pass") {
+  VK(vkCreateRenderPass2KHR(state.device, &info, NULL, &handle), "Could not create render pass") {
     return VK_NULL_HANDLE;
   }
 
@@ -2942,6 +2910,32 @@ VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uin
   entry->hash = ((uint64_t) state.tick[CPU] << 32) | hash;
 
   return framebuffer;
+}
+
+static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type) {
+  switch (type) {
+    case GPU_BUFFER_STATIC:
+      return
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    case GPU_BUFFER_STREAM:
+      return
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    case GPU_BUFFER_UPLOAD:
+      return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    case GPU_BUFFER_DOWNLOAD:
+      return VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    default: return 0;
+  }
 }
 
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect) {
@@ -3008,7 +3002,7 @@ static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
   };
 
   if (format == GPU_FORMAT_SURFACE) {
-    return state.surfaceFormat.format;
+    return state.surface.format.format;
   }
 
   return formats[format][colorspace];
@@ -3054,7 +3048,7 @@ static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUt
 }
 
 static void nickname(void* handle, VkObjectType type, const char* name) {
-  if (name && state.supports.debug) {
+  if (name && state.extensions.debug) {
     union { uint64_t u64; void* p; } pointer = { .p = handle };
 
     VkDebugUtilsObjectNameInfoEXT info = {

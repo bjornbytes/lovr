@@ -48,7 +48,8 @@ int main(int argc, char** argv) {
       "options:\n"
       "  -h, --help\t\tShow help and exit\n"
       "  -v, --version\t\tShow version and exit\n"
-      "  --console\t\tAttach Windows console\n\n"
+      "  --console\t\tAttach Windows console\n"
+      "  --graphics-debug\tEnable graphics debug messages\n\n"
       "<source> can be a Lua file, a folder, or a zip archive\n"
     );
     exit(0);
@@ -89,6 +90,9 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++, argOffset++) {
       if (!strcmp(argv[i], "--console")) {
         os_open_console();
+      } else if (!strcmp(argv[i], "--graphics-debug")) {
+        lua_pushboolean(L, true);
+        lua_setfield(L, -2, "--graphics-debug");
       } else {
         break; // This is the project path
       }

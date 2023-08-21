@@ -1,5 +1,4 @@
 #include "api.h"
-#include "math/curve.h"
 #include "util.h"
 
 static int l_lovrCurveEvaluate(lua_State* L) {

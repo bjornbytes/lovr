@@ -12,8 +12,8 @@ bool lovrHeadsetInit(HeadsetConfig* config) {
     HeadsetInterface* interface = NULL;
 
     switch (config->drivers[i]) {
-#ifdef LOVR_USE_DESKTOP
-      case DRIVER_DESKTOP: interface = &lovrHeadsetDesktopDriver; break;
+#ifdef LOVR_USE_SIMULATOR
+      case DRIVER_SIMULATOR: interface = &lovrHeadsetSimulatorDriver; break;
 #endif
 #ifdef LOVR_USE_OPENXR
       case DRIVER_OPENXR: interface = &lovrHeadsetOpenXRDriver; break;
@@ -34,7 +34,7 @@ bool lovrHeadsetInit(HeadsetConfig* config) {
   return true;
 }
 
-void lovrHeadsetDestroy() {
+void lovrHeadsetDestroy(void) {
   if (!initialized) return;
   initialized = false;
   if (lovrHeadsetInterface) {

@@ -36,14 +36,14 @@ static struct {
   map_t channels;
 } state;
 
-bool lovrThreadModuleInit() {
+bool lovrThreadModuleInit(void) {
   if (state.initialized) return false;
   mtx_init(&state.channelLock, mtx_plain);
   map_init(&state.channels, 0);
   return state.initialized = true;
 }
 
-void lovrThreadModuleDestroy() {
+void lovrThreadModuleDestroy(void) {
   if (!state.initialized) return;
   for (size_t i = 0; i < state.channels.size; i++) {
     if (state.channels.values[i] != MAP_NIL) {

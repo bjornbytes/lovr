@@ -233,7 +233,7 @@ static bool loadWAV(Sound* sound, Blob* blob, bool decode) {
   lovrAssert(raw, "Out of memory");
   if (pcm && wav->sampleSize == 24) {
     float* out = raw;
-    const uint8_t* in = data;
+    const uint8_t* in = (const uint8_t*) data;
     for (size_t i = 0, j = 0; i < samples; i++, j += 3) {
       int32_t x = in[j + 2] & 0x80 ? 0xff : 0;
       x = (x << 8) | in[j + 2];

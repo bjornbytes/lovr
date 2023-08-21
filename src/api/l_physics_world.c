@@ -25,9 +25,8 @@ static int nextOverlap(lua_State* L) {
   }
 }
 
-static void raycastCallback(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata) {
+static bool raycastCallback(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata) {
   lua_State* L = userdata;
-  luaL_checktype(L, -1, LUA_TFUNCTION);
   lua_pushvalue(L, -1);
   luax_pushshape(L, shape);
   lua_pushnumber(L, x);
@@ -36,12 +35,25 @@ static void raycastCallback(Shape* shape, float x, float y, float z, float nx, f
   lua_pushnumber(L, nx);
   lua_pushnumber(L, ny);
   lua_pushnumber(L, nz);
-  lua_call(L, 7, 0);
+  lua_call(L, 7, 1);
+  bool shouldStop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
+  lua_pop(L, 1);
+  return shouldStop;
+}
+
+static bool queryCallback(Shape* shape, void* userdata) {
+  lua_State* L = userdata;
+  lua_pushvalue(L, -1);
+  luax_pushshape(L, shape);
+  lua_call(L, 1, 1);
+  bool shouldStop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
+  lua_pop(L, 1);
+  return shouldStop;
 }
 
 static int l_lovrWorldNewCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   luax_pushtype(L, Collider, collider);
@@ -51,7 +63,7 @@ static int l_lovrWorldNewCollider(lua_State* L) {
 
 static int l_lovrWorldNewBoxCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   BoxShape* shape = luax_newboxshape(L, index);
@@ -65,7 +77,7 @@ static int l_lovrWorldNewBoxCollider(lua_State* L) {
 
 static int l_lovrWorldNewCapsuleCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   CapsuleShape* shape = luax_newcapsuleshape(L, index);
@@ -79,7 +91,7 @@ static int l_lovrWorldNewCapsuleCollider(lua_State* L) {
 
 static int l_lovrWorldNewCylinderCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   CylinderShape* shape = luax_newcylindershape(L, index);
@@ -93,7 +105,7 @@ static int l_lovrWorldNewCylinderCollider(lua_State* L) {
 
 static int l_lovrWorldNewSphereCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float position[4];
+  float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   SphereShape* shape = luax_newsphereshape(L, index);
@@ -232,14 +244,39 @@ static int l_lovrWorldGetContacts(lua_State* L) {
 
 static int l_lovrWorldRaycast(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float start[4], end[4];
-  int index;
-  index = luax_readvec3(L, 2, start, NULL);
+  float start[3], end[3];
+  int index = 2;
+  index = luax_readvec3(L, index, start, NULL);
   index = luax_readvec3(L, index, end, NULL);
   luaL_checktype(L, index, LUA_TFUNCTION);
   lua_settop(L, index);
   lovrWorldRaycast(world, start[0], start[1], start[2], end[0], end[1], end[2], raycastCallback, L);
   return 0;
+}
+
+static int l_lovrWorldQueryBox(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float position[3], size[3];
+  int index = 2;
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readvec3(L, index, size, NULL);
+  bool function = lua_type(L, index) == LUA_TFUNCTION;
+  lua_settop(L, index);
+  bool any = lovrWorldQueryBox(world, position, size, function ? queryCallback : NULL, L);
+  lua_pushboolean(L, any);
+  return 1;
+}
+
+static int l_lovrWorldQuerySphere(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float position[3];
+  int index = luax_readvec3(L, 2, position, NULL);
+  float radius = luax_checkfloat(L, index++);
+  bool function = lua_type(L, index) == LUA_TFUNCTION;
+  lua_settop(L, index);
+  bool any = lovrWorldQuerySphere(world, position, radius, function ? queryCallback : NULL, L);
+  lua_pushboolean(L, any);
+  return 1;
 }
 
 static int l_lovrWorldGetGravity(lua_State* L) {
@@ -254,7 +291,7 @@ static int l_lovrWorldGetGravity(lua_State* L) {
 
 static int l_lovrWorldSetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float gravity[4];
+  float gravity[3];
   luax_readvec3(L, 2, gravity, NULL);
   lovrWorldSetGravity(world, gravity[0], gravity[1], gravity[2]);
   return 0;
@@ -355,8 +392,8 @@ static int l_lovrWorldEnableCollisionBetween(lua_State* L) {
 
 static int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  const char* tag1 = luaL_checkstring(L, 2);
-  const char* tag2 = luaL_checkstring(L, 3);
+  const char* tag1 = lua_tostring(L, 2);
+  const char* tag2 = lua_tostring(L, 3);
   lua_pushboolean(L, lovrWorldIsCollisionEnabledBetween(world, tag1, tag2));
   return 1;
 }
@@ -392,6 +429,8 @@ const luaL_Reg lovrWorld[] = {
   { "collide", l_lovrWorldCollide },
   { "getContacts", l_lovrWorldGetContacts },
   { "raycast", l_lovrWorldRaycast },
+  { "queryBox", l_lovrWorldQueryBox },
+  { "querySphere", l_lovrWorldQuerySphere },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
   { "getTightness", l_lovrWorldGetTightness },

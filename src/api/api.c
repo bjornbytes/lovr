@@ -1,5 +1,6 @@
 #include "api.h"
 #include "util.h"
+#include "lib/lua/lutf8lib.h"
 #include <lua.h>
 #include <lauxlib.h>
 #include <stdlib.h>
@@ -35,6 +36,14 @@ LOVR_EXPORT int luaopen_lovr_timer(lua_State* L);
 // Object names are lightuserdata because Variants need a non-Lua string due to threads.
 static int luax_meta__tostring(lua_State* L) {
   lua_getfield(L, -1, "__info");
+  TypeInfo* info = lua_touserdata(L, -1);
+  lua_pushstring(L, info->name);
+  return 1;
+}
+
+// Currently the same as tostring
+static int luax_type(lua_State* L) {
+  lua_getfield(L, 1, "__info");
   TypeInfo* info = lua_touserdata(L, -1);
   lua_pushstring(L, info->name);
   return 1;
@@ -111,6 +120,9 @@ void luax_preload(lua_State* L) {
 #ifndef LOVR_DISABLE_TIMER
     { "lovr.timer", luaopen_lovr_timer },
 #endif
+#ifndef LOVR_DISABLE_UTF8
+    { "utf8", luaopen_utf8 },
+#endif
     { NULL, NULL }
   };
 
@@ -144,14 +156,18 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   lua_pushcfunction(L, luax_meta__tostring);
   lua_setfield(L, -2, "__tostring");
 
-  // Register class functions
+  // Register class methods
   if (functions) {
     luax_register(L, functions);
   }
 
-  // :release function
+  // :release method
   lua_pushcfunction(L, luax_meta__gc);
   lua_setfield(L, -2, "release");
+
+  // :type method
+  lua_pushcfunction(L, luax_type);
+  lua_setfield(L, -2, "type");
 
   // Pop metatable
   lua_pop(L, 1);
@@ -289,6 +305,19 @@ int luax_resume(lua_State* T, int n) {
   return lua_resume(T, NULL, n);
 #else
   return lua_resume(T, n);
+#endif
+}
+
+int luax_loadbufferx(lua_State* L, const char* buffer, size_t size, const char* name, const char* mode) {
+#if LUA_VERSION_NUM >= 502
+  return luaL_loadbufferx(L, buffer, size, name, mode);
+#else
+  bool binary = buffer[0] == LUA_SIGNATURE[0];
+  if (mode && !strchr(mode, binary ? 'b' : 't')) {
+    lua_pushliteral(L, "attempt to load chunk with wrong mode");
+    return LUA_ERRSYNTAX;
+  }
+  return luaL_loadbuffer(L, buffer, size, name);
 #endif
 }
 
@@ -535,7 +564,15 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     *shouldFree = false;
     return index + 1;
   }
+
+  Mesh* mesh = luax_totype(L, index, Mesh);
+
+  if (mesh) {
+    lovrMeshGetTriangles(mesh, vertices, indices, vertexCount, indexCount);
+    *shouldFree = true;
+    return index + 1;
+  }
 #endif
 
-  return luaL_argerror(L, index, "table or Model");
+  return luaL_argerror(L, index, "table, Mesh, or Model");
 }

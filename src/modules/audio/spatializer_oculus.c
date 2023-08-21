@@ -201,7 +201,7 @@ static uint32_t oculus_apply(Source* source, const float* input, float* output, 
     uint32_t outStatus = 0;
     state.sources[idx].usedSourceThisPlayback = true;
 
-    float position[4], orientation[4];
+    float position[3], orientation[4];
     lovrSourceGetPose(source, position, orientation);
 
     ovrAudio_SetAudioSourcePos(state.context, idx, position[0], position[1], position[2]);
@@ -254,7 +254,7 @@ static void oculusUnpackVec(ovrVector3f* ov, float* p) {
   ov->x = p[0]; ov->y = p[1]; ov->z = p[2];
 }
 
-static void oculusRecreatePose(ovrPoseStatef* out, float position[4], float orientation[4]) {
+static void oculusRecreatePose(ovrPoseStatef* out, float position[3], float orientation[4]) {
   ovrPosef pose;
   oculusUnpackVec(&pose.Position, position);
   oculusUnpackQuat(&pose.Orientation, orientation);
@@ -267,7 +267,7 @@ static void oculusRecreatePose(ovrPoseStatef* out, float position[4], float orie
   out->TimeInSeconds = 0; //TODO-OS
 }
 
-static void oculus_setListenerPose(float position[4], float orientation[4]) {
+static void oculus_setListenerPose(float position[3], float orientation[4]) {
   ovrPoseStatef pose;
 
   oculusRecreatePose(&pose, position, orientation);

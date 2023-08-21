@@ -1,10 +1,10 @@
 #ifndef LOVR_USE_GLFW
 
-void os_destroy() {
+void os_destroy(void) {
   //
 }
 
-void os_poll_events() {
+void os_poll_events(void) {
   //
 }
 
@@ -12,7 +12,7 @@ bool os_window_open(const os_window_config* config) {
   return false;
 }
 
-bool os_window_is_open() {
+bool os_window_is_open(void) {
   return false;
 }
 
@@ -41,6 +41,19 @@ void os_on_key(fn_key* callback) {
 }
 
 void os_on_text(fn_text* callback) {
+  //
+}
+
+void os_on_mouse_button(fn_mouse_button* callback) {
+  //
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  //
+}
+
+void os_on_mousewheel_move(fn_wheel_move* callback)
+{
   //
 }
 
@@ -95,6 +108,9 @@ static struct {
   fn_resize* onWindowResize;
   fn_key* onKeyboardEvent;
   fn_text* onTextEvent;
+  fn_mouse_button* onMouseButton;
+  fn_mouse_move* onMouseMove;
+  fn_mousewheel_move* onMouseWheelMove;
 } glfwState;
 
 static void onError(int code, const char* description) {
@@ -228,11 +244,30 @@ static void onTextEvent(GLFWwindow* window, unsigned int codepoint) {
   }
 }
 
+static void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
+  if (glfwState.onMouseButton) {
+    glfwState.onMouseButton(button, action == GLFW_PRESS);
+  }
+}
+
+static void onMouseMove(GLFWwindow* window, double x, double y) {
+  if (glfwState.onMouseMove) {
+    glfwState.onMouseMove(x, y);
+  }
+}
+
+static void onMouseWheelMove(GLFWwindow* window, double deltaX, double deltaY) {
+  if (glfwState.onMouseWheelMove) {
+    deltaX = (deltaX == 0.0) ? 0.0 : -deltaX;
+    glfwState.onMouseWheelMove(deltaX, deltaY);
+  }
+}
+
 static int convertMouseButton(os_mouse_button button) {
   switch (button) {
     case MOUSE_LEFT: return GLFW_MOUSE_BUTTON_LEFT;
     case MOUSE_RIGHT: return GLFW_MOUSE_BUTTON_RIGHT;
-    default: return -1;
+    default: return (int) button;
   }
 }
 
@@ -248,17 +283,19 @@ static int convertKey(os_key key) {
     case KEY_DOWN: return GLFW_KEY_DOWN;
     case KEY_LEFT: return GLFW_KEY_LEFT;
     case KEY_RIGHT: return GLFW_KEY_RIGHT;
+    case KEY_LEFT_SHIFT: return GLFW_KEY_LEFT_SHIFT;
+    case KEY_RIGHT_SHIFT: return GLFW_KEY_RIGHT_SHIFT;
     case KEY_ESCAPE: return GLFW_KEY_ESCAPE;
     case KEY_F5: return GLFW_KEY_F5;
     default: return GLFW_KEY_UNKNOWN;
   }
 }
 
-void os_destroy() {
+void os_destroy(void) {
   glfwTerminate();
 }
 
-void os_poll_events() {
+void os_poll_events(void) {
   if (glfwState.window) {
     glfwPollEvents();
   }
@@ -314,10 +351,13 @@ bool os_window_open(const os_window_config* config) {
   glfwSetWindowSizeCallback(glfwState.window, onWindowResize);
   glfwSetKeyCallback(glfwState.window, onKeyboardEvent);
   glfwSetCharCallback(glfwState.window, onTextEvent);
+  glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
+  glfwSetCursorPosCallback(glfwState.window, onMouseMove);
+  glfwSetScrollCallback(glfwState.window, onMouseWheelMove);
   return true;
 }
 
-bool os_window_is_open() {
+bool os_window_is_open(void) {
   return glfwState.window;
 }
 
@@ -364,6 +404,18 @@ void os_on_text(fn_text* callback) {
   glfwState.onTextEvent = callback;
 }
 
+void os_on_mouse_button(fn_mouse_button* callback) {
+  glfwState.onMouseButton = callback;
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  glfwState.onMouseMove = callback;
+}
+
+void os_on_mousewheel_move(fn_mousewheel_move* callback) {
+  glfwState.onMouseWheelMove = callback;
+}
+
 void os_get_mouse_position(double* x, double* y) {
   if (glfwState.window) {
     glfwGetCursorPos(glfwState.window, x, y);
@@ -388,7 +440,7 @@ bool os_is_key_down(os_key key) {
 }
 
 #ifdef _WIN32
-HANDLE os_get_win32_window() {
+HANDLE os_get_win32_window(void) {
   return (HANDLE) glfwGetWin32Window(glfwState.window);
 }
 #endif

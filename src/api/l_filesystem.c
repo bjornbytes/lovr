@@ -58,7 +58,7 @@ static void pushDirectoryItem(void* context, const char* path) {
   lua_pop(L, 1);
 }
 
-static int luax_loadfile(lua_State* L, const char* path, const char* debug) {
+static int luax_loadfile(lua_State* L, const char* path, const char* debug, const char* mode) {
   size_t size;
   void* buffer = luax_readfile(path, &size);
   if (!buffer) {
@@ -66,7 +66,7 @@ static int luax_loadfile(lua_State* L, const char* path, const char* debug) {
     lua_pushfstring(L, "Could not load file '%s'", path);
     return 2;
   }
-  int status = luaL_loadbuffer(L, buffer, size, debug);
+  int status = luax_loadbufferx(L, buffer, size, debug, mode);
   free(buffer);
   switch (status) {
     case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
@@ -259,9 +259,10 @@ static int l_lovrFilesystemIsFused(lua_State* L) {
 
 static int l_lovrFilesystemLoad(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
+  const char* mode = luaL_optstring(L, 2, "bt");
   lua_pushfstring(L, "@%s", path);
   const char* debug = lua_tostring(L, -1);
-  return luax_loadfile(L, path, debug);
+  return luax_loadfile(L, path, debug, mode);
 }
 
 static int l_lovrFilesystemMount(lua_State* L) {
@@ -393,7 +394,7 @@ static int luaLoader(lua_State* L) {
       *f = '\0';
 
       if (lovrFilesystemIsFile(filename)) {
-        return luax_loadfile(L, filename, debug);
+        return luax_loadfile(L, filename, debug, NULL);
       }
 
       if (*p == '\0') {
