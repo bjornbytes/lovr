@@ -215,7 +215,7 @@ static struct {
     bool keyboardTracking;
     bool ml2Controller;
     bool localFloor;
-    int overlay;
+    bool overlay;
     bool questPassthrough;
     bool picoController;
     bool refreshRate;
@@ -1212,10 +1212,10 @@ static void openxr_start(void) {
     XrSessionCreateInfoOverlayEXTX overlayInfo = {
       .type = XR_TYPE_SESSION_CREATE_INFO_OVERLAY_EXTX,
       .next = info.next,
-      .sessionLayersPlacement = state.features.overlay
+      .sessionLayersPlacement = state.config.overlayOrder
     };
 
-    if (state.features.overlay > 0) {
+    if (state.features.overlay) {
       info.next = &overlayInfo;
     }
 #endif

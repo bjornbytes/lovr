@@ -733,7 +733,8 @@ int luaopen_lovr_headset(lua_State* L) {
     .stencil = false,
     .antialias = true,
     .submitDepth = true,
-    .overlay = 0
+    .overlay = false,
+    .overlayOrder = 0
   };
 
   luax_pushconf(L);
@@ -775,7 +776,8 @@ int luaopen_lovr_headset(lua_State* L) {
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "overlay");
-      config.overlay = lua_tointeger(L, -1);
+      config.overlay = lua_toboolean(L, -1);
+      config.overlayOrder = lua_type(L, -1) == LUA_TNUMBER ? luax_optu32(L, -1, 0) : 0;
       lua_pop(L, 1);
     }
     lua_pop(L, 1);

@@ -25,7 +25,8 @@ typedef struct {
   bool stencil;
   bool antialias;
   bool submitDepth;
-  int overlay;
+  bool overlay;
+  uint32_t overlayOrder;
 } HeadsetConfig;
 
 typedef enum {
