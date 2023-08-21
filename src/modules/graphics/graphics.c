@@ -6943,8 +6943,8 @@ void lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
 void lovrPassSkybox(Pass* pass, Texture* texture) {
   lovrPassDraw(pass, &(DrawInfo) {
     .mode = DRAW_TRIANGLES,
-    .shader = texture->info.type == TEXTURE_2D ? SHADER_EQUIRECT : SHADER_CUBEMAP,
-    .material = lovrTextureGetMaterial(texture),
+    .shader = !texture || texture->info.type == TEXTURE_2D ? SHADER_EQUIRECT : SHADER_CUBEMAP,
+    .material = texture ? lovrTextureGetMaterial(texture) : NULL,
     .vertex.format = VERTEX_EMPTY,
     .count = 6
   });
