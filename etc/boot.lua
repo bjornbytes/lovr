@@ -36,7 +36,7 @@ function lovr.boot()
       stencil = false,
       antialias = true,
       submitdepth = true,
-      overlay = false
+      overlay = 0
     },
     math = {
       globals = true
