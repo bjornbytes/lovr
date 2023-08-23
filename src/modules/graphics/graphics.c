@@ -6738,11 +6738,21 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
   float sx = vec3_length(transform + 0);
   float sy = vec3_length(transform + 4);
   float sz = vec3_length(transform + 8);
+  float length = sz * .5f;
+  float radius = sx;
+
+  if (length == 0.f) {
+    float rotation[4];
+    vec3_cross(vec3_init(transform + 8, transform + 0), transform + 4);
+    vec3_scale(transform + 8, 1.f / radius);
+    mat4_rotateQuat(transform, quat_fromAngleAxis(rotation, (float) M_PI / 2.f, 1.f, 0.f, 0.f));
+    lovrPassSphere(pass, transform, segments, segments);
+    return;
+  }
+
   vec3_scale(transform + 0, 1.f / sx);
   vec3_scale(transform + 4, 1.f / sy);
   vec3_scale(transform + 8, 1.f / sz);
-  float radius = sx;
-  float length = sz * .5f;
 
   uint32_t key[] = { SHAPE_CAPSULE, FLOAT_BITS(radius), FLOAT_BITS(length), segments };
 
