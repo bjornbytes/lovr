@@ -80,11 +80,25 @@ static int l_lovrShaderGetWorkgroupSize(lua_State* L) {
   return 3;
 }
 
+static int l_lovrShaderGetBufferFormat(lua_State* L) {
+  Shader* shader = luax_checktype(L, 1, Shader);
+  const char* name = luaL_checkstring(L, -1);
+  uint32_t fieldCount;
+  const DataField* format = lovrShaderGetBufferFormat(shader, name, &fieldCount);
+  lovrCheck(format, "Shader has no Buffer named '%s'", name);
+  luax_pushbufferformat(L, format->fields, format->fieldCount);
+  lua_pushinteger(L, format->stride);
+  lua_setfield(L, -2, "stride");
+  lua_pushinteger(L, MAX(format->length, 1));
+  return 2;
+}
+
 const luaL_Reg lovrShader[] = {
   { "clone", l_lovrShaderClone },
   { "getType", l_lovrShaderGetType },
   { "hasStage", l_lovrShaderHasStage },
   { "hasAttribute", l_lovrShaderHasAttribute },
   { "getWorkgroupSize", l_lovrShaderGetWorkgroupSize },
+  { "getBufferFormat", l_lovrShaderGetBufferFormat },
   { NULL, NULL }
 };

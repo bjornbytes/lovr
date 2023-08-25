@@ -149,9 +149,19 @@ typedef enum {
   TYPE_MAT3,
   TYPE_MAT4,
   TYPE_INDEX16,
-  TYPE_INDEX32,
-  TYPE_COUNT
+  TYPE_INDEX32
 } DataType;
+
+typedef struct DataField {
+  const char* name;
+  uint32_t hash;
+  DataType type;
+  uint32_t offset;
+  uint32_t length;
+  uint32_t stride;
+  uint32_t fieldCount;
+  struct DataField* fields;
+} DataField;
 
 typedef enum {
   LAYOUT_PACKED,
@@ -159,23 +169,13 @@ typedef enum {
   LAYOUT_STD430
 } DataLayout;
 
-typedef struct DataField {
-  struct DataField* children;
-  uint32_t childCount;
-  uint32_t hash;
-  const char* name;
-  uint32_t location;
-  uint32_t offset;
-  uint32_t type;
-  uint32_t length;
-  uint32_t stride;
-} DataField;
+uint32_t lovrGraphicsAlignFields(DataField* parent, DataLayout layout);
 
 typedef struct {
   uint32_t size;
-  const DataField* format;
   uint32_t fieldCount;
-  DataLayout layout;
+  DataField* format;
+  bool complexFormat;
   const char* label;
   uintptr_t handle;
 } BufferInfo;
@@ -340,7 +340,7 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderHasStage(Shader* shader, ShaderStage stage);
 bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location);
 void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]);
-DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, size_t length, uint32_t slot, uint32_t* size, uint32_t* fieldCount);
+const DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, uint32_t* fieldCount);
 
 // Material
 
@@ -432,9 +432,8 @@ typedef enum {
 } DrawMode;
 
 typedef struct {
-  uint32_t fieldCount;
-  DataField format[16];
   Buffer* vertexBuffer;
+  DataField* vertexFormat;
   MeshStorage storage;
 } MeshInfo;
 
@@ -446,7 +445,7 @@ Buffer* lovrMeshGetIndexBuffer(Mesh* mesh);
 void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer);
 void* lovrMeshGetVertices(Mesh* mesh, uint32_t index, uint32_t count);
 void* lovrMeshSetVertices(Mesh* mesh, uint32_t index, uint32_t count);
-void* lovrMeshGetIndices(Mesh* mesh, DataField* format);
+void* lovrMeshGetIndices(Mesh* mesh, uint32_t* count, DataType* type);
 void* lovrMeshSetIndices(Mesh* mesh, uint32_t count, DataType type);
 void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint32_t* vertexCount, uint32_t* indexCount);
 bool lovrMeshGetBoundingBox(Mesh* mesh, float box[6]);
@@ -495,7 +494,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
 void lovrReadbackDestroy(void* ref);
 bool lovrReadbackIsComplete(Readback* readback);
 bool lovrReadbackWait(Readback* readback);
-void* lovrReadbackGetData(Readback* readback, DataField* format);
+void* lovrReadbackGetData(Readback* readback, DataField** format);
 struct Blob* lovrReadbackGetBlob(Readback* readback);
 struct Image* lovrReadbackGetImage(Readback* readback);
 
@@ -622,7 +621,7 @@ void lovrPassSetWireframe(Pass* pass, bool wireframe);
 void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture);
 void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler);
-void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot, void** data, DataField** field);
+void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot, void** data, DataField** format);
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** vertices);
 void lovrPassLine(Pass* pass, uint32_t count, float** vertices);

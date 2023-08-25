@@ -155,14 +155,19 @@ bool luax_writefile(const char* filename, const void* data, size_t size);
 #endif
 
 #ifndef LOVR_DISABLE_GRAPHICS
-struct Buffer;
 struct DataField;
 struct ColoredString;
-struct Model;
-struct Buffer* luax_checkbuffer(lua_State* L, int index);
-void luax_checkdataformat(lua_State* L, int index, struct DataField* format, uint32_t* count, uint32_t max);
-void luax_checkbufferdata(lua_State* L, int index, const struct DataField* format, char* data);
+void luax_checkfieldn(lua_State* L, int index, int type, void* data);
+void luax_checkfieldv(lua_State* L, int index, int type, void* data);
+void luax_checkfieldt(lua_State* L, int index, int type, void* data);
+uint32_t luax_checkfieldarray(lua_State* L, int index, const struct DataField* array, char* data);
+void luax_checkdataflat(lua_State* L, int index, int subindex, uint32_t count, const struct DataField* format, char* data);
+void luax_checkdatatuples(lua_State* L, int index, int start, uint32_t count, const struct DataField* format, char* data);
+void luax_checkdatakeys(lua_State* L, int index, int start, uint32_t count, const struct DataField* array, char* data);
+void luax_checkstruct(lua_State* L, int index, const struct DataField* fields, uint32_t count, char* data);
 int luax_pushbufferdata(lua_State* L, const struct DataField* format, char* data);
+void luax_pushbufferformat(lua_State* L, const struct DataField* fields, uint32_t count);
+uint32_t luax_gettablestride(lua_State* L, int index, int subindex, struct DataField* fields, uint32_t count);
 uint32_t luax_checkcomparemode(lua_State* L, int index);
 struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
 #endif

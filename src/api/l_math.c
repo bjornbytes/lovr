@@ -52,19 +52,19 @@ float* luax_tovector(lua_State* L, int index, VectorType* type) {
     if (lua_type(L, index) == LUA_TLIGHTUSERDATA) {
       Vector v = { .pointer = p };
       if (v.handle.type > V_NONE && v.handle.type < MAX_VECTOR_TYPES) {
-        *type = v.handle.type;
+        if (type) *type = v.handle.type;
         return lovrPoolResolve(pool, v);
       }
     } else {
       VectorType* t = p;
       if (*t > V_NONE && *t < MAX_VECTOR_TYPES) {
-        *type = *t;
+        if (type) *type = *t;
         return (float*) (t + 1);
       }
     }
   }
 
-  *type = V_NONE;
+  if (type) *type = V_NONE;
   return NULL;
 }
 
