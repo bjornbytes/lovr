@@ -131,7 +131,7 @@ static void onWindowFocus(GLFWwindow* window, int focused) {
 
 static void onWindowResize(GLFWwindow* window, int width, int height) {
   if (glfwState.onWindowResize) {
-    glfwGetFramebufferSize(window, &width, &height);
+    glfwGetWindowSize(window, &width, &height);
     glfwState.onWindowResize(width, height);
   }
 }
@@ -364,7 +364,7 @@ bool os_window_is_open(void) {
 void os_window_get_size(uint32_t* width, uint32_t* height) {
   if (glfwState.window) {
     int w, h;
-    glfwGetFramebufferSize(glfwState.window, &w, &h);
+    glfwGetWindowSize(glfwState.window, &w, &h);
     *width = w;
     *height = h;
   } else {

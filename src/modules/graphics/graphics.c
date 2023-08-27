@@ -849,6 +849,10 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
     os_window_get_size(&state.window->info.width, &state.window->info.height);
 
+    float density = os_window_get_pixel_density();
+    state.window->info.width *= density;
+    state.window->info.height *= density;
+
     state.depthFormat = config->stencil ? FORMAT_D32FS8 : FORMAT_D32F;
 
     if (config->stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
@@ -7930,6 +7934,11 @@ static void checkShaderFeatures(uint32_t* features, uint32_t count) {
 }
 
 static void onResize(uint32_t width, uint32_t height) {
+  float density = os_window_get_pixel_density();
+
+  width *= density;
+  height *= density;
+
   state.window->info.width = width;
   state.window->info.height = height;
 
