@@ -508,6 +508,109 @@ bool lovrHttpRequest(Request* request, Response* response) {
   curl.slist_free_all(headers);
   return true;
 }
+#elif defined(__APPLE__)
+#include <objc/objc-runtime.h>
+#include <dispatch/dispatch.h>
+#define cls(T) ((id) objc_getClass(#T))
+#define msg(ret, obj, fn) ((ret(*)(id, SEL)) objc_msgSend)(obj, sel_getUid(fn))
+#define msg1(ret, obj, fn, T1, A1) ((ret(*)(id, SEL, T1)) objc_msgSend)(obj, sel_getUid(fn), A1)
+#define msg2(ret, obj, fn, T1, A1, T2, A2) ((ret(*)(id, SEL, T1, T2)) objc_msgSend)(obj, sel_getUid(fn), A1, A2)
+#define msg3(ret, obj, fn, T1, A1, T2, A2, T3, A3) ((ret(*)(id, SEL, T1, T2, T3)) objc_msgSend)(obj, sel_getUid(fn), A1, A2, A3)
+
+static struct {
+  bool initialized;
+} state;
+
+bool lovrHttpInit(void) {
+  if (state.initialized) return false;
+  state.initialized = true;
+  return true;
+}
+
+void lovrHttpDestroy(void) {
+  if (!state.initialized) return;
+  memset(&state, 0, sizeof(state));
+}
+
+typedef void (^CompletionHandler)(id data, id response, id error);
+
+bool lovrHttpRequest(Request* request, Response* response) {
+  id NSString = cls(NSString);
+  id urlNS = msg1(id, NSString, "stringWithUTF8String:", const char*, request->url);
+  id url = msg1(id, cls(NSURL), "URLWithString:", id, urlNS);
+  id req = msg1(id, cls(NSMutableURLRequest), "requestWithURL:", id, url);
+
+  // Method
+  const char* method = request->method ? request->method : (request->data ? "POST" : "GET");
+  id methodNS = msg1(id, NSString, "stringWithUTF8String:", const char*, method);
+  msg1(void, req, "setHTTPMethod:", id, methodNS);
+
+  // Body
+  if (request->data && strcmp(method, "GET") && strcmp(method, "HEAD")) {
+    id body = msg3(id, cls(NSData), "dataWithBytesNoCopy:length:freeWhenDone:", void*, (void*) request->data, unsigned long, (unsigned long) request->size, BOOL, NO);
+    msg1(void, req, "setHTTPBody:", id, body);
+  }
+
+  // Headers
+  for (uint32_t i = 0; i < request->headerCount; i++) {
+    id key = msg1(id, NSString, "stringWithUTF8String:", const char*, request->headers[2 * i + 0]);
+    id val = msg1(id, NSString, "stringWithUTF8String:", const char*, request->headers[2 * i + 1]);
+    msg2(void, req, "setValue:forHTTPHeaderField:", id, val, id, key);
+  }
+
+  __block id data = nil;
+  __block id res = nil;
+  __block id error = nil;
+
+  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+
+  CompletionHandler onComplete = ^(id d, id r, id e) {
+    data = d;
+    res = r;
+    error = e;
+    dispatch_semaphore_signal(semaphore);
+  };
+
+  // Task
+  id session = msg(id, cls(NSURLSession), "sharedSession");
+  id task = msg2(id, session, "dataTaskWithRequest:completionHandler:", id, req, CompletionHandler, onComplete);
+
+  msg(void, task, "resume");
+
+  dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+
+  if (data) {
+    response->size = msg(unsigned long, data, "length");
+    response->data = malloc(response->size);
+    lovrAssert(response->data, "Out of memory");
+    msg2(void, data, "getBytes:length:", void*, response->data, unsigned long, response->size);
+  }
+
+  if (res) {
+    response->status = msg(long, res, "statusCode");
+
+    id headers = msg(id, res, "allHeaderFields");
+    id enumerator = msg(id, headers, "keyEnumerator");
+
+    for (;;) {
+      id keyNS = msg(id, enumerator, "nextObject");
+
+      if (!keyNS) break;
+
+      id valNS = msg1(id, headers, "valueForKey:", id, keyNS);
+
+      const char* key = msg(const char*, keyNS, "UTF8String");
+      const char* val = msg(const char*, valNS, "UTF8String");
+      unsigned long keyLength = msg(unsigned long, keyNS, "length");
+      unsigned long valLength = msg(unsigned long, valNS, "length");
+
+      response->onHeader(response->userdata, key, keyLength, val, valLength);
+    }
+  }
+
+  return !error;
+}
+
 #else
 #error "Unsupported HTTP platform"
 #endif
