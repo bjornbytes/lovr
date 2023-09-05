@@ -28,12 +28,12 @@ void lovrHttpDestroy(void) {
 
 bool lovrHttpRequest(Request* req, Response* res) {
   if (!state.handle) {
-    response->error = "unknown error";
+    res->error = "unknown error";
     return false;
   }
 
   if (req->size > UINT32_MAX) {
-    response->error = "request data too large";
+    res->error = "request data too large";
     return false;
   }
 
@@ -50,12 +50,12 @@ bool lovrHttpRequest(Request* req, Response* res) {
     length -= 7;
     url += 7;
   } else {
-    response->error = "invalid url";
+    res->error = "invalid url";
     return false;
   }
 
   if (strchr(url, '@') || strchr(url, ':')) {
-    response->error = "invalid url";
+    res->error = "invalid url";
     return false;
   }
 
@@ -66,7 +66,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
     memcpy(host, url, hostLength);
     host[hostLength] = '\0';
   } else {
-    response->error = "invalid url";
+    res->error = "invalid url";
     return false;
   }
 
@@ -74,7 +74,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
   INTERNET_PORT port = https ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT;
   HINTERNET connection = InternetConnectA(state.handle, host, port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
   if (!connection) {
-    response->error = "system error while setting up request";
+    res->error = "system error while setting up request";
     return false;
   }
 
@@ -89,7 +89,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
   HINTERNET request = HttpOpenRequestA(connection, method, path, NULL, NULL, NULL, flags, 0);
   if (!request) {
     InternetCloseHandle(connection);
-    response->error = "system error while setting up request";
+    res->error = "system error while setting up request";
     return false;
   }
 
@@ -115,7 +115,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
   bool success = HttpSendRequestA(request, NULL, 0, (void*) req->data, (DWORD) req->size);
   if (!success) {
     InternetCloseHandle(connection);
-    response->error = "system error while sending request";
+    res->error = "system error while sending request";
     return false;
   }
 
@@ -143,7 +143,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
       if (buffer != stack) free(buffer);
       InternetCloseHandle(request);
       InternetCloseHandle(connection);
-      response->error = "system error while parsing headers";
+      res->error = "system error while parsing headers";
       return false;
     }
   }
@@ -176,7 +176,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
       free(res->data);
       InternetCloseHandle(request);
       InternetCloseHandle(connection);
-      response->error = "system error while reading response";
+      res->error = "system error while reading response";
       return false;
     }
 
@@ -193,7 +193,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
       free(res->data);
       InternetCloseHandle(request);
       InternetCloseHandle(connection);
-      response->error = "system error while reading response";
+      res->error = "system error while reading response";
       return false;
     }
   }
