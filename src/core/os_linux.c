@@ -64,6 +64,14 @@ bool os_vm_release(void* p, size_t size) {
   return !madvise(p, size, MADV_DONTNEED);
 }
 
+void os_thread_attach(void) {
+  //
+}
+
+void os_thread_detach(void) {
+  //
+}
+
 void os_window_message_box(const char* message) {
   //
 }

@@ -1,6 +1,7 @@
 #include "thread/thread.h"
 #include "data/blob.h"
 #include "event/event.h"
+#include "core/os.h"
 #include "util.h"
 #include "lib/tinycthread/tinycthread.h"
 #include <math.h>
@@ -78,7 +79,11 @@ Channel* lovrThreadGetChannel(const char* name) {
 static int threadFunction(void* data) {
   Thread* thread = data;
 
+  os_thread_attach();
+
   char* error = thread->function(thread, thread->body, thread->arguments, thread->argumentCount);
+
+  os_thread_detach();
 
   mtx_lock(&thread->lock);
   thread->running = false;

@@ -105,6 +105,14 @@ void os_on_permission(fn_permission* callback) {
   state.onPermissionEvent = callback;
 }
 
+void os_thread_attach(void) {
+  //
+}
+
+void os_thread_detach(void) {
+  //
+}
+
 void os_window_message_box(const char* message) {
   //
 }

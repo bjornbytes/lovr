@@ -246,6 +246,14 @@ void os_request_permission(os_permission permission) {
   //
 }
 
+void os_thread_attach(void) {
+  //
+}
+
+void os_thread_detach(void) {
+  //
+}
+
 void os_poll_events(void) {
   //
 }

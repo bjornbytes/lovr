@@ -281,6 +281,15 @@ bool os_vm_release(void* p, size_t size) {
   return !madvise(p, size, MADV_DONTNEED);
 }
 
+void os_thread_attach(void) {
+  JNIEnv* jni;
+  (*state.app->activity->vm)->AttachCurrentThread(state.app->activity->vm, &jni, NULL);
+}
+
+void os_thread_detach(void) {
+  (*state.app->activity->vm)->DetachCurrentThread(state.app->activity->vm);
+}
+
 // Notes about polling:
 // - Stop polling if a destroy is requested to give the application a chance to shut down.
 //   Otherwise this loop would still wait for an event and the app would seem unresponsive.

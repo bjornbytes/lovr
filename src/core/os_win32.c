@@ -116,6 +116,14 @@ bool os_vm_release(void* p, size_t size) {
   return VirtualFree(p, 0, MEM_DECOMMIT);
 }
 
+void os_thread_attach(void) {
+  //
+}
+
+void os_thread_detach(void) {
+  //
+}
+
 void os_on_permission(fn_permission* callback) {
   //
 }

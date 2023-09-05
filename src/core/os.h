@@ -149,6 +149,9 @@ bool os_vm_free(void* p, size_t size);
 bool os_vm_commit(void* p, size_t size);
 bool os_vm_release(void* p, size_t size);
 
+void os_thread_attach(void);
+void os_thread_detach(void);
+
 void os_poll_events(void);
 void os_on_quit(fn_quit* callback);
 void os_on_focus(fn_focus* callback);
