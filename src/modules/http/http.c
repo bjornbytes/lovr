@@ -28,10 +28,12 @@ void lovrHttpDestroy(void) {
 
 bool lovrHttpRequest(Request* req, Response* res) {
   if (!state.handle) {
+    response->error = "unknown error";
     return false;
   }
 
   if (req->size > UINT32_MAX) {
+    response->error = "request data too large";
     return false;
   }
 
@@ -48,10 +50,12 @@ bool lovrHttpRequest(Request* req, Response* res) {
     length -= 7;
     url += 7;
   } else {
+    response->error = "invalid url";
     return false;
   }
 
   if (strchr(url, '@') || strchr(url, ':')) {
+    response->error = "invalid url";
     return false;
   }
 
@@ -62,6 +66,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
     memcpy(host, url, hostLength);
     host[hostLength] = '\0';
   } else {
+    response->error = "invalid url";
     return false;
   }
 
@@ -69,6 +74,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
   INTERNET_PORT port = https ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT;
   HINTERNET connection = InternetConnectA(state.handle, host, port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
   if (!connection) {
+    response->error = "system error while setting up request";
     return false;
   }
 
@@ -83,6 +89,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
   HINTERNET request = HttpOpenRequestA(connection, method, path, NULL, NULL, NULL, flags, 0);
   if (!request) {
     InternetCloseHandle(connection);
+    response->error = "system error while setting up request";
     return false;
   }
 
@@ -108,6 +115,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
   bool success = HttpSendRequestA(request, NULL, 0, (void*) req->data, (DWORD) req->size);
   if (!success) {
     InternetCloseHandle(connection);
+    response->error = "system error while sending request";
     return false;
   }
 
@@ -135,6 +143,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
       if (buffer != stack) free(buffer);
       InternetCloseHandle(request);
       InternetCloseHandle(connection);
+      response->error = "system error while parsing headers";
       return false;
     }
   }
@@ -167,6 +176,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
       free(res->data);
       InternetCloseHandle(request);
       InternetCloseHandle(connection);
+      response->error = "system error while reading response";
       return false;
     }
 
@@ -183,6 +193,7 @@ bool lovrHttpRequest(Request* req, Response* res) {
       free(res->data);
       InternetCloseHandle(request);
       InternetCloseHandle(connection);
+      response->error = "system error while reading response";
       return false;
     }
   }
@@ -191,11 +202,11 @@ bool lovrHttpRequest(Request* req, Response* res) {
   InternetCloseHandle(connection);
   return true;
 }
+
 #elif defined(__ANDROID__)
-#include "core/os.h"
 #include <jni.h>
 
-void* os_get_jni_context(void);
+extern void* os_get_java_vm(void);
 
 static struct {
   bool initialized;
@@ -212,20 +223,38 @@ void lovrHttpDestroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
+static bool handleException(JNIEnv* jni, Response* response, const char* message) {
+  if ((*jni)->ExceptionCheck(jni)) {
+    (*jni)->ExceptionClear(jni);
+    response->error = message;
+    return true;
+  }
+  return false;
+}
+
 bool lovrHttpRequest(Request* request, Response* response) {
-  JNIEnv* jni = os_get_jni_context();
+  JavaVM* jvm = os_get_java_vm();
+
+  JNIEnv* jni;
+  if (!jvm || (*jvm)->GetEnv(jvm, (void**) &jni, JNI_VERSION_1_6) == JNI_EDETACHED) {
+    response->error = "Java VM not attached to this thread ;_;";
+    return false;
+  }
 
   // URL jurl = new URL(request->url);
   jclass jURL = (*jni)->FindClass(jni, "java/net/URL");
   jmethodID jURL_init = (*jni)->GetMethodID(jni, jURL, "<init>", "(Ljava/lang/String;)V");
-  jstring jarg = (*jni)->NewStringUTF(jni, request->url);
-  jobject jurl = (*jni)->NewObject(jni, jURL, jURL_init, jarg);
-  // TODO check exception
-  (*jni)->DeleteLocalRef(jni, jarg);
+  jstring jurlstring = (*jni)->NewStringUTF(jni, request->url);
+  jobject jurl = (*jni)->NewObject(jni, jURL, jURL_init, jurlstring);
+  if (handleException(jni, response, "invalid url")) return false;
+  (*jni)->DeleteLocalRef(jni, jurlstring);
 
   // HttpURLConnection jconnection = (HttpURLConnection) jurl.openConnection();
-  jmethodID jURL_openConnection = (*jni)->GetMethodID(jni, jURL, "openConnection", "()Ljava/net/URLConnection");
+  jmethodID jURL_openConnection = (*jni)->GetMethodID(jni, jURL, "openConnection", "()Ljava/net/URLConnection;");
   jobject jconnection = (*jni)->CallObjectMethod(jni, jurl, jURL_openConnection);
+  if (handleException(jni, response, "connection failure")) return false;
+  (*jni)->DeleteLocalRef(jni, jurl);
+  (*jni)->DeleteLocalRef(jni, jURL);
 
   // jconnection.setRequestMethod(method);
   jclass jHttpURLConnection = (*jni)->FindClass(jni, "java/net/HttpURLConnection");
@@ -233,7 +262,7 @@ bool lovrHttpRequest(Request* request, Response* response) {
   const char* method = request->method ? request->method : (request->data ? "POST" : "GET");
   jstring jmethod = (*jni)->NewStringUTF(jni, method);
   (*jni)->CallVoidMethod(jni, jconnection, jHttpURLConnection_setRequestMethod, jmethod);
-  // TODO check exception
+  if (handleException(jni, response, "invalid request method")) return false;
   (*jni)->DeleteLocalRef(jni, jmethod);
 
   // jconnection.setRequestProperty(headerName, headerValue);
@@ -242,7 +271,6 @@ bool lovrHttpRequest(Request* request, Response* response) {
     jstring jname = (*jni)->NewStringUTF(jni, request->headers[2 * i + 0]);
     jstring jvalue = (*jni)->NewStringUTF(jni, request->headers[2 * i + 1]);
     (*jni)->CallVoidMethod(jni, jconnection, jURLConnection_setRequestProperty, jname, jvalue);
-    // TODO check exception
     (*jni)->DeleteLocalRef(jni, jname);
     (*jni)->DeleteLocalRef(jni, jvalue);
   }
@@ -251,32 +279,37 @@ bool lovrHttpRequest(Request* request, Response* response) {
     // jconnection.setDoOutput(true);
     jmethodID jURLConnection_setDoOutput = (*jni)->GetMethodID(jni, jHttpURLConnection, "setDoOutput", "(Z)V");
     (*jni)->CallVoidMethod(jni, jconnection, jURLConnection_setDoOutput, true);
-    // TODO check exception
 
     // OutputStream joutput = jconnection.getOutputStream();
     jmethodID jURLConnection_getOutputStream = (*jni)->GetMethodID(jni, jHttpURLConnection, "getOutputStream", "()Ljava/io/OutputStream;");
     jobject joutput = (*jni)->CallObjectMethod(jni, jconnection, jURLConnection_getOutputStream);
-    // TODO check exception
+    if (handleException(jni, response, "failed to write request data")) return false;
 
     // joutput.write(request->data);
     jbyteArray jarray = (*jni)->NewByteArray(jni, request->size);
+    if (handleException(jni, response, "out of memory")) return false;
+
     jbyte* bytes = (*jni)->GetByteArrayElements(jni, jarray, NULL);
     memcpy(bytes, request->data, request->size);
     jclass jOutputStream = (*jni)->FindClass(jni, "java/io/OutputStream");
     jmethodID jOutputStream_write = (*jni)->GetMethodID(jni, jOutputStream, "write", "([B)V");
     (*jni)->CallVoidMethod(jni, joutput, jOutputStream_write, jarray);
-    // TODO check exception
+    if (handleException(jni, response, "failed to write request data")) return false;
     (*jni)->ReleaseByteArrayElements(jni, jarray, bytes, 0);
     (*jni)->DeleteLocalRef(jni, jarray);
+    (*jni)->DeleteLocalRef(jni, joutput);
+    (*jni)->DeleteLocalRef(jni, jOutputStream);
   }
 
   // jconnection.connect();
   jmethodID jURLConnection_connect = (*jni)->GetMethodID(jni, jHttpURLConnection, "connect", "()V");
   (*jni)->CallVoidMethod(jni, jconnection, jURLConnection_connect);
+  if (handleException(jni, response, "connection failure")) return false;
 
   // response->status = jconnection.getResponseCode();
   jmethodID jHttpURLConnection_getResponseCode = (*jni)->GetMethodID(jni, jHttpURLConnection, "getResponseCode", "()I");
   response->status = (*jni)->CallIntMethod(jni, jconnection, jHttpURLConnection_getResponseCode);
+  if (handleException(jni, response, "connection failure")) return false;
 
   jmethodID jHttpURLConnection_getHeaderFieldKey = (*jni)->GetMethodID(jni, jHttpURLConnection, "getHeaderFieldKey", "(I)Ljava/lang/String;");
   jmethodID jHttpURLConnection_getHeaderField = (*jni)->GetMethodID(jni, jHttpURLConnection, "getHeaderField", "(I)Ljava/lang/String;");
@@ -307,6 +340,8 @@ bool lovrHttpRequest(Request* request, Response* response) {
 
     (*jni)->ReleaseStringUTFChars(jni, jname, name);
     (*jni)->ReleaseStringUTFChars(jni, jvalue, value);
+    (*jni)->DeleteLocalRef(jni, jname);
+    (*jni)->DeleteLocalRef(jni, jvalue);
     headerIndex++;
   }
 
@@ -316,10 +351,12 @@ bool lovrHttpRequest(Request* request, Response* response) {
 
   jobject jinput;
   if (response->status >= 400) {
-    jobject jinput = (*jni)->CallObjectMethod(jni, jconnection, jURLConnection_getErrorStream);
+    jinput = (*jni)->CallObjectMethod(jni, jconnection, jURLConnection_getErrorStream);
   } else {
-    jobject jinput = (*jni)->CallObjectMethod(jni, jconnection, jURLConnection_getInputStream);
+    jinput = (*jni)->CallObjectMethod(jni, jconnection, jURLConnection_getInputStream);
   }
+
+  if (handleException(jni, response, "failed to read response data")) return false;
 
   jclass jInputStream = (*jni)->FindClass(jni, "java/io/InputStream");
   jmethodID jInputStream_read = (*jni)->GetMethodID(jni, jInputStream, "read", "([B)I");
@@ -328,11 +365,12 @@ bool lovrHttpRequest(Request* request, Response* response) {
   response->size = 0;
 
   jbyteArray jbuffer = (*jni)->NewByteArray(jni, 16384);
+  if (handleException(jni, response, "out of memory")) return false;
 
   for (;;) {
     // int bytesRead = jinput.read(buffer);
     jint bytesRead = (*jni)->CallIntMethod(jni, jinput, jInputStream_read, jbuffer);
-    // TODO check exception
+    if (handleException(jni, response, "failed to read response data")) return false;
 
     if (bytesRead == -1) {
       break;
@@ -346,13 +384,18 @@ bool lovrHttpRequest(Request* request, Response* response) {
   }
 
   (*jni)->DeleteLocalRef(jni, jbuffer);
+  (*jni)->DeleteLocalRef(jni, jinput);
+  (*jni)->DeleteLocalRef(jni, jInputStream);
 
   // jconnection.disconnect();
   jmethodID jURLConnection_disconnect = (*jni)->GetMethodID(jni, jHttpURLConnection, "disconnect", "()V");
   (*jni)->CallVoidMethod(jni, jconnection, jURLConnection_disconnect);
+  (*jni)->DeleteLocalRef(jni, jHttpURLConnection);
+  (*jni)->DeleteLocalRef(jni, jconnection);
 
   return true;
 }
+
 #elif defined(__linux__)
 #include <curl/curl.h>
 #include <dlfcn.h>
@@ -364,6 +407,7 @@ typedef CURLcode fn_easy_setopt(CURL *curl, CURLoption option, ...);
 typedef CURLcode fn_easy_perform(CURL *curl);
 typedef void fn_easy_cleanup(CURL* curl);
 typedef CURLcode fn_easy_getinfo(CURL* curl, CURLINFO info, ...);
+typedef const char* fn_easy_strerror(CURLcode error);
 typedef struct curl_slist *fn_slist_append(struct curl_slist *list, const char *string);
 typedef void fn_slist_free_all(struct curl_slist *list);
 
@@ -377,6 +421,7 @@ typedef void fn_slist_free_all(struct curl_slist *list);
   X(easy_perform)\
   X(easy_cleanup)\
   X(easy_getinfo)\
+  X(easy_strerror)\
   X(slist_append)\
   X(slist_free_all)
 
@@ -448,10 +493,10 @@ static size_t onHeader(char* buffer, size_t size, size_t count, void* userdata) 
 }
 
 bool lovrHttpRequest(Request* request, Response* response) {
-  if (!state.library) return false;
+  if (!state.library) return response->error = "curl unavailable", false;
 
   CURL* handle = curl.easy_init();
-  if (!handle) return false;
+  if (!handle) return response->error = "curl unavailable", false;
 
   curl.easy_setopt(handle, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
   curl.easy_setopt(handle, CURLOPT_URL, request->url);
@@ -498,7 +543,12 @@ bool lovrHttpRequest(Request* request, Response* response) {
   curl.easy_setopt(handle, CURLOPT_HEADERDATA, response);
   curl.easy_setopt(handle, CURLOPT_HEADERFUNCTION, onHeader);
 
-  curl.easy_perform(handle);
+  CURLcode error = curl.easy_perform(handle);
+
+  if (error != CURLE_OK) {
+    response->error = curl.easy_strerror(error);
+    return false;
+  }
 
   long status;
   curl.easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
@@ -508,6 +558,7 @@ bool lovrHttpRequest(Request* request, Response* response) {
   curl.slist_free_all(headers);
   return true;
 }
+
 #elif defined(__APPLE__)
 #include <objc/objc-runtime.h>
 #include <dispatch/dispatch.h>
@@ -608,6 +659,7 @@ bool lovrHttpRequest(Request* request, Response* response) {
     }
   }
 
+  response->error = "unknown error"; // TODO
   return !error;
 }
 

@@ -113,8 +113,9 @@ static int l_lovrHttpRequest(lua_State* L) {
   arr_free(&body);
 
   if (!success) {
-    lua_pushinteger(L, 0);
-    return 1;
+    lua_pushnil(L);
+    lua_pushstring(L, response.error);
+    return 2;
   }
 
   lua_pushinteger(L, response.status);

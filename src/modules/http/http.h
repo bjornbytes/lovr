@@ -16,6 +16,7 @@ typedef struct {
 } Request;
 
 typedef struct {
+  const char* error;
   uint32_t status;
   char* data;
   size_t size;
