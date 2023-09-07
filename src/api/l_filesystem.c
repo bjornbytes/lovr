@@ -420,6 +420,13 @@ static int luaLoader(lua_State* L) {
   return 0;
 }
 
+#ifdef __ANDROID__
+#include <jni.h>
+#include <dlfcn.h>
+typedef jint fn_JNI_OnLoad(JavaVM* vm, void* reserved);
+extern void* os_get_java_vm();
+#endif
+
 static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 #ifdef _WIN32
   const char* extension = ".dll";
@@ -477,6 +484,27 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 
   *p = '\0';
 
+#ifdef __ANDROID__
+  // This is very appropriately cursed, but on Android (before API level 31) there is no way for a
+  // plugin to retrieve a pointer to the Java VM.  Normally there is a JNI_OnLoad callback that Java
+  // will call when a native library is loaded to give it the JVM pointer, but native libraries
+  // loaded by other native libraries won't have it called and so it needs to be shared somehow.
+  // Plugins can't dlsym os_get_java_vm or similar because liblovr.so is inside the APK and there's
+  // no way to get the path to the APK without JNI.  Also it's not possible to load liblovr.so with
+  // RTLD_GLOBAL which would expose symbols via RTLD_DEFAULT.  The chosen solution is to emulate
+  // JNI_OnLoad for LÖVR plugins (before they're loaded by Lua so they can use JNI in luaopen_*).
+  void* plugin = dlopen(path, RTLD_LAZY);
+  if (plugin) {
+    fn_JNI_OnLoad* JNI_OnLoad = (fn_JNI_OnLoad*) dlsym(plugin, "JNI_OnLoad");
+    if (JNI_OnLoad) {
+      JNI_OnLoad(os_get_java_vm(), NULL);
+    } else {
+      dlclose(plugin);
+      plugin = NULL;
+    }
+  }
+#endif
+
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "loadlib");
   lua_pushlstring(L, path, length);
@@ -491,6 +519,12 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
   luaL_pushresult(&buffer);
 
   lua_call(L, 2, 1);
+
+#ifdef __ANDROID__
+  if (plugin) {
+    dlclose(plugin);
+  }
+#endif
   return 1;
 }
 
