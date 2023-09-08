@@ -28,3 +28,6 @@
 [submodule "plugins/lua-enet"]
 	path = plugins/lua-enet
 	url = https://github.com/bjornbytes/lua-enet
+[submodule "plugins/lovr-http"]
+	path = plugins/lovr-http
+	url = https://github.com/bjornbytes/lovr-http
