@@ -366,13 +366,13 @@ bool os_window_open(const os_window_config* config) {
   // Resizable
   if (!config->resizable) {
     struct {
-      long flags;
-      int x, y, width, height;
-      int min_width, min_height, max_width, max_height;
-      int width_inc, height_inc;
-      int min_aspect_num, min_aspect_den, max_aspect_num, max_aspect_den;
-      int base_width, base_height;
-      int gravity;
+      uint32_t flags;
+      int32_t x, y, width, height;
+      int32_t min_width, min_height, max_width, max_height;
+      int32_t width_inc, height_inc;
+      int32_t min_aspect_num, min_aspect_den, max_aspect_num, max_aspect_den;
+      int32_t base_width, base_height;
+      int32_t gravity;
     } hints = {
       .flags = (1 << 3) | (1 << 4) | (1 << 5), // Size | MinSize | MaxSize
       .width = w,
