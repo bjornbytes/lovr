@@ -36,9 +36,10 @@ static struct {
   double dt;
   double mx;
   double my;
+  double mxHand;
+  double myHand;
   bool triggerDown;
   bool triggerChanged;
-  bool mouseDown;
   bool focused;
   float clipNear;
   float clipFar;
@@ -205,7 +206,7 @@ static bool simulator_getPose(Device device, vec3 position, quat orientation) {
   } else if (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_LEFT_POINT) {
     vec3_init(position, state.handPosition);
     quat_init(orientation, state.handOrientation);
-    return !state.mouseDown;
+    return true;
   }
   return false;
 }
@@ -321,19 +322,23 @@ static double simulator_update(void) {
   state.triggerChanged = trigger != state.triggerDown;
   state.triggerDown = trigger;
 
-  state.mouseDown = os_is_mouse_down(MOUSE_LEFT);
-  os_set_mouse_mode(state.mouseDown ? MOUSE_MODE_GRABBED : MOUSE_MODE_NORMAL);
+  bool click = os_is_mouse_down(MOUSE_LEFT);
+  os_set_mouse_mode(click ? MOUSE_MODE_GRABBED : MOUSE_MODE_NORMAL);
 
-  double mx, my;
-  os_get_mouse_position(&mx, &my);
+  double mxprev = state.mx;
+  double myprev = state.my;
 
-  if (state.mouseDown) {
-    state.pitch = CLAMP(state.pitch - (my - state.my) * TURNSPEED, -(float) M_PI / 2.f, (float) M_PI / 2.f);
-    state.yaw -= (mx - state.mx) * TURNSPEED;
+  os_get_mouse_position(&state.mx, &state.my);
+
+  if (click) {
+    state.pitch = CLAMP(state.pitch - (state.my - myprev) * TURNSPEED, -(float) M_PI / 2.f, (float) M_PI / 2.f);
+    state.yaw -= (state.mx - mxprev) * TURNSPEED;
+  } else {
+    state.mxHand = state.mx;
+    state.myHand = state.my;
   }
 
-  state.mx = mx;
-  state.my = my;
+  // Head
 
   float pitch[4], yaw[4], target[4];
   quat_fromAngleAxis(pitch, state.pitch, 1.f, 0.f, 0.f);
@@ -360,35 +365,35 @@ static double simulator_update(void) {
   quat_rotate(state.headOrientation, velocity);
   vec3_add(state.headPosition, velocity);
 
-  if (!state.mouseDown) {
-    float inverseProjection[16], angleLeft, angleRight, angleUp, angleDown;
-    simulator_getViewAngles(0, &angleLeft, &angleRight, &angleUp, &angleDown);
-    mat4_fov(inverseProjection, angleLeft, angleRight, angleUp, angleDown, state.clipNear, state.clipFar);
-    mat4_invert(inverseProjection);
+  // Hand
 
-    float ray[3];
-    uint32_t width, height;
-    os_window_get_size(&width, &height);
-    vec3_set(ray, mx / width * 2.f - 1.f, my / height * 2.f - 1.f, 1.f);
+  float inverseProjection[16], angleLeft, angleRight, angleUp, angleDown;
+  simulator_getViewAngles(0, &angleLeft, &angleRight, &angleUp, &angleDown);
+  mat4_fov(inverseProjection, angleLeft, angleRight, angleUp, angleDown, state.clipNear, state.clipFar);
+  mat4_invert(inverseProjection);
 
-    mat4_mulPoint(inverseProjection, ray);
-    quat_rotate(state.headOrientation, ray);
-    vec3_normalize(ray);
+  float ray[3];
+  uint32_t width, height;
+  os_window_get_size(&width, &height);
+  vec3_set(ray, state.mxHand / width * 2.f - 1.f, state.myHand / height * 2.f - 1.f, 1.f);
 
-    state.distance = CLAMP(state.distance * (1.f + lovrSystemGetScrollDelta() * .05f), .05f, 10.f);
+  mat4_mulPoint(inverseProjection, ray);
+  quat_rotate(state.headOrientation, ray);
+  vec3_normalize(ray);
 
-    vec3_init(state.handPosition, ray);
-    vec3_scale(state.handPosition, state.distance);
-    vec3_add(state.handPosition, state.headPosition);
-    state.handPosition[1] += OFFSET;
+  state.distance = CLAMP(state.distance * (1.f + lovrSystemGetScrollDelta() * .05f), .05f, 10.f);
 
-    float zero[3], up[3], basis[16];
-    vec3_set(zero, 0.f, 0.f, 0.f);
-    vec3_set(up, 0.f, 1.f, 0.f);
-    quat_rotate(state.headOrientation, up);
-    mat4_target(basis, zero, ray, up);
-    quat_fromMat4(state.handOrientation, basis);
-  }
+  vec3_init(state.handPosition, ray);
+  vec3_scale(state.handPosition, state.distance);
+  vec3_add(state.handPosition, state.headPosition);
+  state.handPosition[1] += OFFSET;
+
+  float zero[3], y[3], basis[16];
+  vec3_set(zero, 0.f, 0.f, 0.f);
+  vec3_set(y, 0.f, 1.f, 0.f);
+  quat_rotate(state.headOrientation, y);
+  mat4_target(basis, zero, ray, y);
+  quat_fromMat4(state.handOrientation, basis);
 
   return state.dt;
 }
