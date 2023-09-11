@@ -1282,7 +1282,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   // DrawData
 
   mapped = mapBuffer(&state.streamBuffers, activeDrawCount * sizeof(DrawData), align);
-  builtins[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, 256 * sizeof(DrawData) };
+  builtins[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, MIN(activeDrawCount, 256) * sizeof(DrawData) };
   DrawData* data = mapped.pointer;
 
   for (uint32_t i = 0; i < activeDrawCount; i++, data++) {
