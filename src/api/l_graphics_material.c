@@ -37,9 +37,9 @@ static int l_lovrMaterialGetProperties(lua_State* L) {
   lua_setfield(L, -2, "uvShift");
 
   lua_createtable(L, 2, 0);
-  lua_pushnumber(L, info->data.uvShift[0]);
+  lua_pushnumber(L, info->data.uvScale[0]);
   lua_rawseti(L, -2, 1);
-  lua_pushnumber(L, info->data.uvShift[1]);
+  lua_pushnumber(L, info->data.uvScale[1]);
   lua_rawseti(L, -2, 2);
   lua_setfield(L, -2, "uvScale");
 
