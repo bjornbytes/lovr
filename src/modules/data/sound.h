@@ -22,8 +22,8 @@ typedef enum {
 
 typedef struct Sound Sound;
 
-typedef uint32_t (SoundCallback)(Sound* sound, uint32_t offset, uint32_t count, void* data);
-typedef void (SoundDestroyCallback)(Sound* sound);
+typedef uint32_t SoundCallback(Sound* sound, uint32_t offset, uint32_t count, void* data);
+typedef void SoundDestroyCallback(Sound* sound);
 
 Sound* lovrSoundCreateRaw(uint32_t frames, SampleFormat format, ChannelLayout channels, uint32_t sampleRate, struct Blob* data);
 Sound* lovrSoundCreateStream(uint32_t frames, SampleFormat format, ChannelLayout channels, uint32_t sampleRate);
