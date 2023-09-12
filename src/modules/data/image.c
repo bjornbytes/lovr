@@ -184,53 +184,43 @@ void* lovrImageGetLayerData(Image* image, uint32_t level, uint32_t layer) {
   return (uint8_t*) image->mipmaps[level].data + layer * image->mipmaps[level].stride;
 }
 
+typedef union { void* raw; uint8_t* u8; uint16_t* u16; float* f32; } ImagePointer;
+
+static void getPixelR8(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 1; i++) dst[i] = src.u8[i] / 255.f; }
+static void getPixelRG8(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 2; i++) dst[i] = src.u8[i] / 255.f; }
+static void getPixelRGBA8(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 4; i++) dst[i] = src.u8[i] / 255.f; }
+static void getPixelR16(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 1; i++) dst[i] = src.u16[i] / 65535.f; }
+static void getPixelRG16(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 2; i++) dst[i] = src.u16[i] / 65535.f; }
+static void getPixelRGBA16(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 4; i++) dst[i] = src.u16[i] / 65535.f; }
+static void getPixelR32F(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 1; i++) dst[i] = src.f32[i]; }
+static void getPixelRG32F(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 2; i++) dst[i] = src.f32[i]; }
+static void getPixelRGBA32F(ImagePointer src, float* dst) { for (uint32_t i = 0; i < 4; i++) dst[i] = src.f32[i]; }
+
+static void setPixelR8(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 1; i++) dst.u8[i] = (uint8_t) (src[i] * 255.f + .5f); }
+static void setPixelRG8(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 2; i++) dst.u8[i] = (uint8_t) (src[i] * 255.f + .5f); }
+static void setPixelRGBA8(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 4; i++) dst.u8[i] = (uint8_t) (src[i] * 255.f + .5f); }
+static void setPixelR16(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 1; i++) dst.u16[i] = (uint16_t) (src[i] * 65535.f + .5f); }
+static void setPixelRG16(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 2; i++) dst.u16[i] = (uint16_t) (src[i] * 65535.f + .5f); }
+static void setPixelRGBA16(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 4; i++) dst.u16[i] = (uint16_t) (src[i] * 65535.f + .5f); }
+static void setPixelR32F(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 1; i++) dst.f32[i] = src[i]; }
+static void setPixelRG32F(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 2; i++) dst.f32[i] = src[i]; }
+static void setPixelRGBA32F(float* src, ImagePointer dst) { for (uint32_t i = 0; i < 4; i++) dst.f32[i] = src[i]; }
+
 void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
   size_t offset = measure(y * image->width + x, 1, image->format);
-  uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + offset;
-  uint16_t* u16 = (uint16_t*) u8;
-  float* f32 = (float*) u8;
+  ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
   switch (image->format) {
-    case FORMAT_R8:
-      pixel[0] = u8[0] / 255.f;
-      return;
-    case FORMAT_RG8:
-      pixel[0] = u8[0] / 255.f;
-      pixel[1] = u8[1] / 255.f;
-      return;
-    case FORMAT_RGBA8:
-      pixel[0] = u8[0] / 255.f;
-      pixel[1] = u8[1] / 255.f;
-      pixel[2] = u8[2] / 255.f;
-      pixel[3] = u8[3] / 255.f;
-      return;
-    case FORMAT_R16:
-      pixel[0] = u16[0] / 65535.f;
-      return;
-    case FORMAT_RG16:
-      pixel[0] = u16[0] / 65535.f;
-      pixel[1] = u16[1] / 65535.f;
-      return;
-    case FORMAT_RGBA16:
-      pixel[0] = u16[0] / 65535.f;
-      pixel[1] = u16[1] / 65535.f;
-      pixel[2] = u16[2] / 65535.f;
-      pixel[3] = u16[3] / 65535.f;
-      return;
-    case FORMAT_R32F:
-      pixel[0] = f32[0];
-      return;
-    case FORMAT_RG32F:
-      pixel[0] = f32[0];
-      pixel[1] = f32[1];
-      return;
-    case FORMAT_RGBA32F:
-      pixel[0] = f32[0];
-      pixel[1] = f32[1];
-      pixel[2] = f32[2];
-      pixel[3] = f32[3];
-      return;
+    case FORMAT_R8: getPixelR8(p, pixel); return;
+    case FORMAT_RG8: getPixelRG8(p, pixel); return;
+    case FORMAT_RGBA8: getPixelRGBA8(p, pixel); return;
+    case FORMAT_R16: getPixelR16(p, pixel); return;
+    case FORMAT_RG16: getPixelRG16(p, pixel); return;
+    case FORMAT_RGBA16: getPixelRGBA16(p, pixel); return;
+    case FORMAT_R32F: getPixelR32F(p, pixel); return;
+    case FORMAT_RG32F: getPixelRG32F(p, pixel); return;
+    case FORMAT_RGBA32F: getPixelRGBA32F(p, pixel); return;
     default: lovrThrow("Unsupported format for Image:getPixel");
   }
 }
@@ -239,50 +229,50 @@ void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
   size_t offset = measure(y * image->width + x, 1, image->format);
-  uint8_t* u8 = (uint8_t*) image->mipmaps[0].data + offset;
-  uint16_t* u16 = (uint16_t*) u8;
-  float* f32 = (float*) u8;
+  ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
   switch (image->format) {
-    case FORMAT_R8:
-      u8[0] = (uint8_t) (pixel[0] * 255.f + .5f);
-      break;
-    case FORMAT_RG8:
-      u8[0] = (uint8_t) (pixel[0] * 255.f + .5f);
-      u8[1] = (uint8_t) (pixel[1] * 255.f + .5f);
-      break;
-    case FORMAT_RGBA8:
-      u8[0] = (uint8_t) (pixel[0] * 255.f + .5f);
-      u8[1] = (uint8_t) (pixel[1] * 255.f + .5f);
-      u8[2] = (uint8_t) (pixel[2] * 255.f + .5f);
-      u8[3] = (uint8_t) (pixel[3] * 255.f + .5f);
-      break;
-    case FORMAT_R16:
-      u16[0] = (uint16_t) (pixel[0] * 65535.f + .5f);
-      break;
-    case FORMAT_RG16:
-      u16[0] = (uint16_t) (pixel[0] * 65535.f + .5f);
-      u16[1] = (uint16_t) (pixel[1] * 65535.f + .5f);
-      break;
-    case FORMAT_RGBA16:
-      u16[0] = (uint16_t) (pixel[0] * 65535.f + .5f);
-      u16[1] = (uint16_t) (pixel[1] * 65535.f + .5f);
-      u16[2] = (uint16_t) (pixel[2] * 65535.f + .5f);
-      u16[3] = (uint16_t) (pixel[3] * 65535.f + .5f);
-      break;
-    case FORMAT_R32F:
-      f32[0] = pixel[0];
-      break;
-    case FORMAT_RG32F:
-      f32[0] = pixel[0];
-      f32[1] = pixel[1];
-      break;
-    case FORMAT_RGBA32F:
-      f32[0] = pixel[0];
-      f32[1] = pixel[1];
-      f32[2] = pixel[2];
-      f32[3] = pixel[3];
-      break;
+    case FORMAT_R8: setPixelR8(pixel, p); break;
+    case FORMAT_RG8: setPixelRG8(pixel, p); break;
+    case FORMAT_RGBA8: setPixelRGBA8(pixel, p); break;
+    case FORMAT_R16: setPixelR16(pixel, p); break;
+    case FORMAT_RG16: setPixelRG16(pixel, p); break;
+    case FORMAT_RGBA16: setPixelRGBA16(pixel, p); break;
+    case FORMAT_R32F: setPixelR32F(pixel, p); break;
+    case FORMAT_RG32F: setPixelRG32F(pixel, p); break;
+    case FORMAT_RGBA32F: setPixelRGBA32F(pixel, p); break;
     default: lovrThrow("Unsupported format for Image:setPixel");
+  }
+}
+
+void lovrImageMapPixel(Image* image, uint32_t x0, uint32_t y0, uint32_t w, uint32_t h, MapPixelCallback* callback, void* userdata) {
+  lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
+  lovrCheck(x0 + w <= image->width, "Pixel rectangle must be within Image bounds");
+  lovrCheck(y0 + h <= image->height, "Pixel rectangle must be within Image bounds");
+  void (*getPixel)(ImagePointer src, float* dst);
+  void (*setPixel)(float* src, ImagePointer dst);
+  switch (image->format) {
+    case FORMAT_R8: getPixel = getPixelR8, setPixel = setPixelR8; break;
+    case FORMAT_RG8: getPixel = getPixelRG8, setPixel = setPixelRG8; break;
+    case FORMAT_RGBA8: getPixel = getPixelRGBA8, setPixel = setPixelRGBA8; break;
+    case FORMAT_R16: getPixel = getPixelR16, setPixel = setPixelR16; break;
+    case FORMAT_RG16: getPixel = getPixelRG16, setPixel = setPixelRG16; break;
+    case FORMAT_RGBA16: getPixel = getPixelRGBA16, setPixel = setPixelRGBA16; break;
+    case FORMAT_R32F: getPixel = getPixelR32F, setPixel = setPixelR32F; break;
+    case FORMAT_RG32F: getPixel = getPixelRG32F, setPixel = setPixelRG32F; break;
+    case FORMAT_RGBA32F: getPixel = getPixelRGBA32F, setPixel = setPixelRGBA32F; break;
+  }
+  float pixel[4] = { 0.f, 0.f, 0.f, 1.f };
+  uint32_t width = image->width;
+  char* data = image->mipmaps[0].data;
+  size_t stride = measure(1, 1, image->format);
+  for (uint32_t y = y0; y < y0 + h; y++) {
+    ImagePointer p = { .u8 = (uint8_t*) data + (y * width + x0) * stride };
+    for (uint32_t x = x0; x < x0 + w; x++) {
+      getPixel(p, pixel);
+      callback(userdata, x, y, pixel);
+      setPixel(pixel, p);
+      p.u8 += stride;
+    }
   }
 }
 

@@ -124,6 +124,35 @@ static int l_lovrImageSetPixel(lua_State* L) {
   return 0;
 }
 
+void mapPixel(void* userdata, uint32_t x, uint32_t y, float pixel[4]) {
+  lua_State* L = userdata;
+  lua_pushvalue(L, 2);
+  lua_pushinteger(L, x);
+  lua_pushinteger(L, y);
+  lua_pushnumber(L, pixel[0]);
+  lua_pushnumber(L, pixel[1]);
+  lua_pushnumber(L, pixel[2]);
+  lua_pushnumber(L, pixel[3]);
+  lua_call(L, 6, 4);
+  if (!lua_isnil(L, -4)) pixel[0] = luax_tofloat(L, -4);
+  if (!lua_isnil(L, -3)) pixel[1] = luax_tofloat(L, -3);
+  if (!lua_isnil(L, -2)) pixel[2] = luax_tofloat(L, -2);
+  if (!lua_isnil(L, -1)) pixel[3] = luax_tofloat(L, -1);
+  lua_pop(L, 4);
+}
+
+static int l_lovrImageMapPixel(lua_State* L) {
+  Image* image = luax_checktype(L, 1, Image);
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  uint32_t x = luax_optu32(L, 3, 0);
+  uint32_t y = luax_optu32(L, 4, 0);
+  uint32_t w = luax_optu32(L, 5, lovrImageGetWidth(image, 0));
+  uint32_t h = luax_optu32(L, 6, lovrImageGetHeight(image, 0));
+  lua_settop(L, 2);
+  lovrImageMapPixel(image, x, y, w, h, mapPixel, L);
+  return 0;
+}
+
 static int l_lovrImagePaste(lua_State* L) {
   Image* dst = luax_checktype(L, 1, Image);
   Image* src = luax_checktype(L, 2, Image);
@@ -154,6 +183,7 @@ const luaL_Reg lovrImage[] = {
   { "getFormat", l_lovrImageGetFormat },
   { "getPixel", l_lovrImageGetPixel },
   { "setPixel", l_lovrImageSetPixel },
+  { "mapPixel", l_lovrImageMapPixel },
   { "paste", l_lovrImagePaste },
   { "encode", l_lovrImageEncode },
   { NULL, NULL }
