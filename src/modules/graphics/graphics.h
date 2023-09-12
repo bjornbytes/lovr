@@ -504,8 +504,8 @@ typedef struct {
   uint32_t draws;
   uint32_t computes;
   uint32_t drawsCulled;
-  size_t memoryReserved;
-  size_t memoryUsed;
+  size_t cpuMemoryReserved;
+  size_t cpuMemoryUsed;
   double submitTime;
   double gpuTime;
 } PassStats;

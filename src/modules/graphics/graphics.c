@@ -5323,8 +5323,8 @@ void lovrPassAppend(Pass* pass, Pass* other) {
 const PassStats* lovrPassGetStats(Pass* pass) {
   pass->stats.draws = pass->drawCount;
   pass->stats.computes = pass->computeCount;
-  pass->stats.memoryReserved = pass->allocator.length;
-  pass->stats.memoryUsed = pass->allocator.cursor;
+  pass->stats.cpuMemoryReserved = pass->allocator.length;
+  pass->stats.cpuMemoryUsed = pass->allocator.cursor;
   return &pass->stats;
 }
 

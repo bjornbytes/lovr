@@ -27,8 +27,8 @@ static int l_lovrPassGetStats(lua_State* L) {
   lua_pushinteger(L, stats->draws), lua_setfield(L, -2, "draws");
   lua_pushinteger(L, stats->computes), lua_setfield(L, -2, "computes");
   lua_pushinteger(L, stats->drawsCulled), lua_setfield(L, -2, "drawsCulled");
-  lua_pushinteger(L, stats->memoryReserved), lua_setfield(L, -2, "memoryReserved");
-  lua_pushinteger(L, stats->memoryUsed), lua_setfield(L, -2, "memoryUsed");
+  lua_pushinteger(L, stats->cpuMemoryReserved), lua_setfield(L, -2, "cpuMemoryReserved");
+  lua_pushinteger(L, stats->cpuMemoryUsed), lua_setfield(L, -2, "cpuMemoryUsed");
   lua_pushnumber(L, stats->submitTime), lua_setfield(L, -2, "submitTime");
   lua_pushnumber(L, stats->gpuTime), lua_setfield(L, -2, "gpuTime");
   return 1;
