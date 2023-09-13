@@ -172,9 +172,9 @@ static int l_lovrDistanceJointGetAnchors(lua_State* L) {
   lua_pushnumber(L, anchor1[0]);
   lua_pushnumber(L, anchor1[1]);
   lua_pushnumber(L, anchor1[2]);
-  lua_pushnumber(L, anchor1[0]);
-  lua_pushnumber(L, anchor1[1]);
-  lua_pushnumber(L, anchor1[2]);
+  lua_pushnumber(L, anchor2[0]);
+  lua_pushnumber(L, anchor2[1]);
+  lua_pushnumber(L, anchor2[2]);
   return 6;
 }
 
