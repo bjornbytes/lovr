@@ -115,9 +115,8 @@ static bool simulator_isSeated(void) {
 }
 
 static void simulator_getDisplayDimensions(uint32_t* width, uint32_t* height) {
-  os_window_get_size(width, height);
-
   float density = os_window_get_pixel_density();
+  os_window_get_size(width, height);
   *width *= density;
   *height *= density;
 }

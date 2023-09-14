@@ -111,6 +111,8 @@ static struct {
   fn_mouse_button* onMouseButton;
   fn_mouse_move* onMouseMove;
   fn_mousewheel_move* onMouseWheelMove;
+  uint32_t width;
+  uint32_t height;
 } glfwState;
 
 static void onError(int code, const char* description) {
@@ -130,8 +132,9 @@ static void onWindowFocus(GLFWwindow* window, int focused) {
 }
 
 static void onWindowResize(GLFWwindow* window, int width, int height) {
-  if (glfwState.onWindowResize) {
-    glfwGetWindowSize(window, &width, &height);
+  if (glfwState.onWindowResize && width > 0 && height > 0) {
+    glfwState.width = width;
+    glfwState.height = height;
     glfwState.onWindowResize(width, height);
   }
 }
@@ -354,6 +357,8 @@ bool os_window_open(const os_window_config* config) {
   glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
   glfwSetCursorPosCallback(glfwState.window, onMouseMove);
   glfwSetScrollCallback(glfwState.window, onMouseWheelMove);
+  glfwState.width = width;
+  glfwState.height = height;
   return true;
 }
 
@@ -362,15 +367,8 @@ bool os_window_is_open(void) {
 }
 
 void os_window_get_size(uint32_t* width, uint32_t* height) {
-  if (glfwState.window) {
-    int w, h;
-    glfwGetWindowSize(glfwState.window, &w, &h);
-    *width = w;
-    *height = h;
-  } else {
-    *width = 0;
-    *height = 0;
-  }
+  *width = glfwState.width;
+  *height = glfwState.height;
 }
 
 float os_window_get_pixel_density(void) {
@@ -381,7 +379,7 @@ float os_window_get_pixel_density(void) {
   int w, h, fw, fh;
   glfwGetWindowSize(glfwState.window, &w, &h);
   glfwGetFramebufferSize(glfwState.window, &fw, &fh);
-  return (w == 0 || fw == 0) ? 0.f : (float) fw / w;
+  return (w == 0 || fw == 0) ? 1.f : (float) fw / w;
 }
 
 void os_on_quit(fn_quit* callback) {
