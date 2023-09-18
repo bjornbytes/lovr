@@ -128,6 +128,10 @@ void os_on_permission(fn_permission* callback) {
   //
 }
 
+void os_window_message_box(const char* message) {
+  MessageBox((HANDLE) os_get_win32_window(), message, NULL, 0);
+}
+
 size_t os_get_home_directory(char* buffer, size_t size) {
   PWSTR wpath = NULL;
   if (SHGetKnownFolderPath(&FOLDERID_Profile, 0, NULL, &wpath) == S_OK) {

@@ -7959,7 +7959,7 @@ static void onMessage(void* context, const char* message, bool severe) {
       char* string = malloc(size);
       lovrAssert(string, "Out of memory");
       snprintf(string, size, format, message);
-      MessageBox((HANDLE) os_get_win32_window(), string, NULL, 0);
+      os_window_message_box(string);
       free(string);
       exit(1);
     }
