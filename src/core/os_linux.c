@@ -189,7 +189,7 @@ void os_poll_events() {
           default: break;
         }
 
-        if (event.mouse->detail == 1 || event.mouse->detail == 2) {
+        if (event.mouse->detail == 1 || event.mouse->detail == 3) {
           os_mouse_button button = event.mouse->detail == 1 ? MOUSE_LEFT : MOUSE_RIGHT;
           state.mouseDown[button] = type == XCB_BUTTON_PRESS;
         }
