@@ -23,9 +23,6 @@
 #include "resource_limits_c.h"
 #endif
 
-uint32_t os_vk_create_surface(void* instance, void** surface);
-const char** os_vk_get_instance_extensions(uint32_t* count);
-
 #define MAX_TALLIES 256
 #define MAX_TRANSFORMS 16
 #define MAX_PIPELINES 4
@@ -648,25 +645,13 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 #ifdef LOVR_VK
   gpu.vk.cacheData = config->cacheData;
   gpu.vk.cacheSize = config->cacheSize;
-
-  if (os_window_is_open()) {
-    os_on_resize(onResize);
-    gpu.vk.getInstanceExtensions = os_vk_get_instance_extensions;
-    gpu.vk.createSurface = os_vk_create_surface;
-    gpu.vk.surface = true;
-    gpu.vk.vsync = config->vsync;
-  }
-#endif
-
-#if defined LOVR_VK && !defined LOVR_DISABLE_HEADSET
+#ifndef LOVR_DISABLE_HEADSET
   if (lovrHeadsetInterface) {
     gpu.vk.getPhysicalDevice = lovrHeadsetInterface->getVulkanPhysicalDevice;
     gpu.vk.createInstance = lovrHeadsetInterface->createVulkanInstance;
     gpu.vk.createDevice = lovrHeadsetInterface->createVulkanDevice;
-    if (lovrHeadsetInterface->driverType != DRIVER_SIMULATOR) {
-      gpu.vk.vsync = false;
-    }
   }
+#endif
 #endif
 
   if (!gpu_init(&gpu)) {
@@ -827,36 +812,6 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .data.normalScale = 1.f,
     .texture = state.defaultTexture
   });
-
-  if (gpu.vk.surface) {
-    state.window = malloc(sizeof(Texture));
-    lovrAssert(state.window, "Out of memory");
-
-    state.window->ref = 1;
-    state.window->gpu = NULL;
-    state.window->renderView = NULL;
-    state.window->info = (TextureInfo) {
-      .type = TEXTURE_2D,
-      .format = GPU_FORMAT_SURFACE,
-      .layers = 1,
-      .mipmaps = 1,
-      .samples = 1,
-      .usage = TEXTURE_RENDER,
-      .srgb = true
-    };
-
-    os_window_get_size(&state.window->info.width, &state.window->info.height);
-
-    float density = os_window_get_pixel_density();
-    state.window->info.width *= density;
-    state.window->info.height *= density;
-
-    state.depthFormat = config->stencil ? FORMAT_D32FS8 : FORMAT_D32F;
-
-    if (config->stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
-      state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
-    }
-  }
 
   arr_init(&state.passes, arr_alloc);
 
@@ -1770,7 +1725,7 @@ void lovrGraphicsPresent(void) {
     state.window->gpu = NULL;
     state.window->renderView = NULL;
     state.presentable = false;
-    gpu_present();
+    gpu_surface_present();
   }
 }
 
@@ -2068,6 +2023,63 @@ static Material* lovrTextureGetMaterial(Texture* texture) {
 }
 
 Texture* lovrGraphicsGetWindowTexture(void) {
+  if (!state.window && os_window_is_open()) {
+    uint32_t width, height;
+    os_window_get_size(&width, &height);
+
+    float density = os_window_get_pixel_density();
+    width *= density;
+    height *= density;
+
+    state.window = calloc(1, sizeof(Texture));
+    lovrAssert(state.window, "Out of memory");
+
+    state.window->ref = 1;
+    state.window->gpu = NULL;
+    state.window->renderView = NULL;
+    state.window->info = (TextureInfo) {
+      .type = TEXTURE_2D,
+      .format = GPU_FORMAT_SURFACE,
+      .width = width,
+      .height = height,
+      .layers = 1,
+      .mipmaps = 1,
+      .samples = 1,
+      .usage = TEXTURE_RENDER,
+      .srgb = true
+    };
+
+    bool vsync = state.config.vsync;
+#ifndef LOVR_DISABLE_HEADSET
+    if (lovrHeadsetInterface->driverType != DRIVER_SIMULATOR) {
+      vsync = false;
+    }
+#endif
+
+    gpu_surface_info info = {
+      .width = width,
+      .height = height,
+      .vsync = vsync,
+#if defined(_WIN32)
+      .win32.window = os_get_win32_window(),
+      .win32.instance = os_get_win32_instance()
+#elif defined(__APPLE__)
+      .macos.layer = os_get_ca_metal_layer()
+#elif defined(__linux__) && !defined(__ANDROID__)
+      .xcb.connection = os_get_xcb_connection(),
+      .xcb.window = os_get_xcb_window()
+#endif
+    };
+
+    gpu_surface_init(&info);
+    os_on_resize(onResize);
+
+    state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
+    if (state.config.stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+      state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
+    }
+  }
+
   if (state.window && !state.window->gpu) {
     beginFrame();
 

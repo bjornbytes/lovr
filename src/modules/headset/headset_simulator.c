@@ -255,7 +255,7 @@ static Texture* simulator_getTexture(void) {
 }
 
 static Pass* simulator_getPass(void) {
-  if (!state.pass) {
+  if (!state.pass || !os_window_is_open()) {
     return NULL;
   }
 

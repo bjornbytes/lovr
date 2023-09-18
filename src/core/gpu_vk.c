@@ -1,13 +1,20 @@
 #include "gpu.h"
 #include <string.h>
-#define VK_NO_PROTOTYPES
-#include <vulkan/vulkan.h>
-#ifdef _WIN32
+
+#if defined(_WIN32)
+#define VK_USE_PLATFORM_WIN32_KHR
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#else
+#elif defined(__APPLE__)
+#define VK_USE_PLATFORM_METAL_EXT
+#include <dlfcn.h>
+#elif defined(__linux__) && !defined(__ANDROID__)
+#define VK_USE_PLATFORM_XCB_KHR
 #include <dlfcn.h>
 #endif
+
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
 
 // Objects
 
@@ -152,6 +159,7 @@ typedef struct {
   VkSemaphore semaphore;
   gpu_texture images[8];
   uint32_t imageIndex;
+  bool vsync;
   bool valid;
 } gpu_surface;
 
@@ -167,6 +175,9 @@ typedef struct {
   bool validation;
   bool debug;
   bool shaderDebug;
+  bool surface;
+  bool surfaceOS;
+  bool swapchain;
   bool colorspace;
   bool depthResolve;
 } gpu_extensions;
@@ -205,6 +216,7 @@ enum { LINEAR, SRGB };
 #define MAX(a, b) (a > b ? a : b)
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define ALIGN(p, n) (((uintptr_t) (p) + (n - 1)) & ~(n - 1))
+#define LOG(s) if (state.config.callback) state.config.callback(state.config.userdata, s, false)
 #define VK(f, s) if (!vcheck(f, s))
 #define CHECK(c, s) if (!check(c, s))
 #define TICK_MASK (COUNTOF(state.ticks) - 1)
@@ -218,7 +230,6 @@ static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static bool hasLayer(VkLayerProperties* layers, uint32_t count, const char* layer);
 static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, const char* extension);
-static void createSwapchain(uint32_t width, uint32_t height);
 static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact);
 static VkFramebuffer getCachedFramebuffer(VkRenderPass pass, VkImageView images[9], uint32_t imageCount, uint32_t size[2]);
 static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type);
@@ -359,6 +370,7 @@ static bool check(bool condition, const char* message);
 #define GPU_DECLARE(fn) static PFN_##fn fn;
 
 // Declare function pointers
+GPU_DECLARE(vkGetInstanceProcAddr)
 GPU_FOREACH_ANONYMOUS(GPU_DECLARE)
 GPU_FOREACH_INSTANCE(GPU_DECLARE)
 GPU_FOREACH_DEVICE(GPU_DECLARE)
@@ -652,6 +664,155 @@ void gpu_texture_destroy(gpu_texture* texture) {
   gpu_release(state.memory + texture->memory);
 }
 
+// Surface
+
+bool gpu_surface_init(gpu_surface_info* info) {
+  if (!state.extensions.surface || !state.extensions.surfaceOS || !state.extensions.swapchain) {
+    LOG("Surface unavailable because a required extension is not supported by the GPU");
+    return false;
+  }
+
+  gpu_surface* surface = &state.surface;
+
+#if defined(_WIN32)
+  VkWin32SurfaceCreateInfoKHR surfaceInfo = {
+    .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+    .hinstance = (HINSTANCE) info->win32.instance,
+    .hwnd = (HWND) info->win32.window
+  };
+  GPU_DECLARE(vkCreateWin32SurfaceKHR);
+  GPU_LOAD_INSTANCE(vkCreateWin32SurfaceKHR);
+  VK(vkCreateWin32SurfaceKHR(state.instance, &surfaceInfo, NULL, &surface->handle), "Failed to create surface") return false;
+#elif defined(__APPLE__)
+  VkMetalSurfaceCreateInfoEXT surfaceInfo = {
+    .sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
+    .pLayer = (const CAMetalLayer*) info->macos.layer
+  };
+  GPU_DECLARE(vkCreateMetalSurfaceEXT);
+  GPU_LOAD_INSTANCE(vkCreateMetalSurfaceEXT);
+  VK(vkCreateMetalSurfaceEXT(state.instance, &surfaceInfo, NULL, &surface->handle), "Failed to create surface") return false;
+#elif defined(__linux__) && !defined(__ANDROID__)
+  VkXcbSurfaceCreateInfoKHR surfaceInfo = {
+    .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+    .connection = (xcb_connection_t*) info->xcb.connection,
+    .window = (xcb_window_t) info->xcb.window
+  };
+  GPU_DECLARE(vkCreateXcbSurfaceKHR);
+  GPU_LOAD_INSTANCE(vkCreateXcbSurfaceKHR);
+  VK(vkCreateXcbSurfaceKHR(state.instance, &surfaceInfo, NULL, &surface->handle), "Failed to create surface") return false;
+#endif
+
+  VkBool32 presentable;
+  vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, state.queueFamilyIndex, surface->handle, &presentable);
+
+  // The most correct thing to do is to incorporate presentation support into the init-time process
+  // for selecting a physical device and queue family.  We currently choose not to do this
+  // deliberately, because A) it's more complicated, B) in normal circumstances OpenXR picks the
+  // physical device, not us, and C) we don't support multiple GPUs or multiple queues, so we
+  // aren't able to support the tricky case and would just end up failing/erroring anyway.
+  if (!presentable) {
+    LOG("Surface unavailable because the GPU used for rendering does not support presenting to the surface");
+    vkDestroySurfaceKHR(state.instance, surface->handle, NULL);
+    return false;
+  }
+
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, surface->handle, &surface->capabilities);
+
+  VkSurfaceFormatKHR formats[64];
+  uint32_t formatCount = COUNTOF(formats);
+  vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, surface->handle, &formatCount, formats);
+
+  for (uint32_t i = 0; i < formatCount; i++) {
+    if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+      surface->format = formats[i];
+      break;
+    }
+  }
+
+  if (surface->format.format == VK_FORMAT_UNDEFINED) {
+    LOG("Surface unavailable because no supported texture format is available");
+    vkDestroySurfaceKHR(state.instance, surface->handle, NULL);
+    return false;
+  }
+
+  surface->imageIndex = ~0u;
+  surface->vsync = info->vsync;
+
+  gpu_surface_resize(info->width, info->height);
+  return true;
+}
+
+void gpu_surface_resize(uint32_t width, uint32_t height) {
+  if (width == 0 || height == 0) {
+    state.surface.valid = false;
+    return;
+  }
+
+  gpu_surface* surface = &state.surface;
+  VkSwapchainKHR oldSwapchain = surface->swapchain;
+
+  if (oldSwapchain) {
+    vkDeviceWaitIdle(state.device);
+  }
+
+  VkSwapchainCreateInfoKHR swapchainInfo = {
+    .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+    .surface = surface->handle,
+    .minImageCount = surface->capabilities.minImageCount,
+    .imageFormat = surface->format.format,
+    .imageColorSpace = surface->format.colorSpace,
+    .imageExtent = { width, height },
+    .imageArrayLayers = 1,
+    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+    .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+    .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+    .presentMode = surface->vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
+    .clipped = VK_TRUE,
+    .oldSwapchain = oldSwapchain
+  };
+
+  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &surface->swapchain), "Failed to create swapchain") return;
+
+  if (oldSwapchain) {
+    for (uint32_t i = 0; i < COUNTOF(surface->images); i++) {
+      if (surface->images[i].view) {
+        vkDestroyImageView(state.device, surface->images[i].view, NULL);
+      }
+    }
+
+    memset(surface->images, 0, sizeof(surface->images));
+    vkDestroySwapchainKHR(state.device, oldSwapchain, NULL);
+  }
+
+  uint32_t imageCount;
+  VkImage images[COUNTOF(surface->images)];
+  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, NULL), "Failed to get swapchain images") return;
+  VK(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") return;
+  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, images), "Failed to get swapchain images") return;
+
+  for (uint32_t i = 0; i < imageCount; i++) {
+    gpu_texture* texture = &surface->images[i];
+
+    texture->handle = images[i];
+    texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+    texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    texture->samples = 1;
+    texture->memory = ~0u;
+    texture->layers = 1;
+    texture->format = GPU_FORMAT_SURFACE;
+    texture->srgb = true;
+
+    gpu_texture_view_info view = {
+      .source = texture,
+      .type = GPU_TEXTURE_2D
+    };
+
+    CHECK(gpu_texture_init_view(texture, &view), "Failed to create swapchain texture views") return;
+  }
+
+  surface->valid = true;
+}
+
 gpu_texture* gpu_surface_acquire(void) {
   if (!state.surface.valid) {
     return NULL;
@@ -673,68 +834,35 @@ gpu_texture* gpu_surface_acquire(void) {
   return &surface->images[surface->imageIndex];
 }
 
-void gpu_surface_resize(uint32_t width, uint32_t height) {
-  createSwapchain(width, height);
-}
+void gpu_surface_present(void) {
+  VkSemaphore semaphore = state.ticks[state.tick[CPU] & TICK_MASK].semaphores[1];
 
-// The barriers here are a bit lazy (oversynchronized) and can be improved
-void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture) {
-  VkImageLayout attachmentLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ?
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL :
-    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  // If the texture only has the RENDER usage, its natural layout matches the layout that OpenXR
-  // gives us the texture in, so no layout transition is needed.
-  if (texture->layout == attachmentLayout) {
-    return;
-  }
-
-  VkImageMemoryBarrier transition = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .srcAccessMask = 0,
-    .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-    .oldLayout = attachmentLayout,
-    .newLayout = texture->layout,
-    .image = texture->handle,
-    .subresourceRange.aspectMask = texture->aspect,
-    .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
-    .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+  VkSubmitInfo submit = {
+    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .signalSemaphoreCount = 1,
+    .pSignalSemaphores = &semaphore
   };
 
-  VkPipelineStageFlags prev = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-  VkPipelineStageFlags next = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  VK(vkQueueSubmit(state.queue, 1, &submit, VK_NULL_HANDLE), "Queue submit failed") {}
 
-  vkCmdPipelineBarrier(stream->commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
-}
-
-// The barriers here are a bit lazy (oversynchronized) and can be improved
-void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
-  VkImageLayout attachmentLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ?
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL :
-    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  // If the texture only has the RENDER usage, its natural layout matches the layout that OpenXR
-  // expects the texture to be in, so no layout transition is needed.
-  if (texture->layout == attachmentLayout) {
-    return;
-  }
-
-  VkImageMemoryBarrier transition = {
-    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-    .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
-    .dstAccessMask = 0,
-    .oldLayout = texture->layout,
-    .newLayout = attachmentLayout,
-    .image = texture->handle,
-    .subresourceRange.aspectMask = texture->aspect,
-    .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
-    .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+  VkPresentInfoKHR present = {
+    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+    .waitSemaphoreCount = 1,
+    .pWaitSemaphores = &semaphore,
+    .swapchainCount = 1,
+    .pSwapchains = &state.surface.swapchain,
+    .pImageIndices = &state.surface.imageIndex
   };
 
-  VkPipelineStageFlags prev = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-  VkPipelineStageFlags next = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+  VkResult result = vkQueuePresentKHR(state.queue, &present);
 
-  vkCmdPipelineBarrier(stream->commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    state.surface.valid = false;
+  } else {
+    vcheck(result, "Queue present failed");
+  }
+
+  state.surface.imageIndex = ~0u;
 }
 
 // Sampler
@@ -1749,6 +1877,66 @@ void gpu_tally_mark(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
   vkCmdWriteTimestamp(stream->commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, tally->handle, index);
 }
 
+// Acquires an OpenXR swapchain texture, transitioning it to the natural layout
+void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture) {
+  VkImageLayout attachmentLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ?
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL :
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  // If the texture only has the RENDER usage, its natural layout matches the layout that OpenXR
+  // gives us the texture in, so no layout transition is needed.
+  if (texture->layout == attachmentLayout) {
+    return;
+  }
+
+  VkImageMemoryBarrier transition = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .srcAccessMask = 0,
+    .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+    .oldLayout = attachmentLayout,
+    .newLayout = texture->layout,
+    .image = texture->handle,
+    .subresourceRange.aspectMask = texture->aspect,
+    .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+    .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+  };
+
+  VkPipelineStageFlags prev = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  VkPipelineStageFlags next = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+  vkCmdPipelineBarrier(stream->commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+}
+
+// Releases an OpenXR swapchain texture, transitioning it back to the layout expected by OpenXR
+void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
+  VkImageLayout attachmentLayout = texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT ?
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL :
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  // If the texture only has the RENDER usage, its natural layout matches the layout that OpenXR
+  // expects the texture to be in, so no layout transition is needed.
+  if (texture->layout == attachmentLayout) {
+    return;
+  }
+
+  VkImageMemoryBarrier transition = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+    .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+    .dstAccessMask = 0,
+    .oldLayout = texture->layout,
+    .newLayout = attachmentLayout,
+    .image = texture->handle,
+    .subresourceRange.aspectMask = texture->aspect,
+    .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+    .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+  };
+
+  VkPipelineStageFlags prev = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+  VkPipelineStageFlags next = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+
+  vkCmdPipelineBarrier(stream->commands, prev, next, 0, 0, NULL, 0, NULL, 1, &transition);
+}
+
 // Entry
 
 bool gpu_init(gpu_config* config) {
@@ -1758,17 +1946,17 @@ bool gpu_init(gpu_config* config) {
 #ifdef _WIN32
   state.library = LoadLibraryA("vulkan-1.dll");
   CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
-  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
+  vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
 #elif __APPLE__
   state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
   CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
-  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
+  vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #else
   state.library = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
   CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
-  PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
+  vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #endif
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
@@ -1806,9 +1994,15 @@ bool gpu_init(gpu_config* config) {
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
       { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
       { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
-      { "VK_EXT_swapchain_colorspace", config->vk.surface, &state.extensions.colorspace },
-      { 0 }, // extra extensions for GLFW
-      { 0 }
+      { "VK_EXT_swapchain_colorspace", true, &state.extensions.colorspace },
+      { "VK_KHR_surface", true, &state.extensions.surface },
+#if defined(_WIN32)
+      { "VK_KHR_win32_surface", true, &state.extensions.surfaceOS },
+#elif defined(__APPLE__)
+      { "VK_EXT_metal_surface", true, &state.extensions.surfaceOS },
+#elif defined(__linux__) && !defined(__ANDROID__)
+      { "VK_KHR_xcb_surface", true, &state.extensions.surfaceOS },
+#endif
     };
 
     uint32_t enabledExtensionCount = 0;
@@ -1821,16 +2015,7 @@ bool gpu_init(gpu_config* config) {
         enabledExtensions[enabledExtensionCount++] = extensions[i].name;
       } else if (!extensions[i].flag) {
         vcheck(VK_ERROR_EXTENSION_NOT_PRESENT, extensions[i].name);
-      }
-    }
-
-    // Extra extensions (from GLFW)
-    if (state.config.vk.getInstanceExtensions) {
-      uint32_t extraExtensionCount = 0;
-      const char** extraExtensions = state.config.vk.getInstanceExtensions(&extraExtensionCount);
-      CHECK(enabledExtensionCount + extraExtensionCount <= COUNTOF(enabledExtensions), "Too many instance extensions") return gpu_destroy(), false;
-      for (uint32_t i = 0; i < extraExtensionCount; i++) {
-        enabledExtensions[enabledExtensionCount++] = extraExtensions[i];
+        return gpu_destroy(), false;
       }
     }
 
@@ -1871,17 +2056,12 @@ bool gpu_init(gpu_config* config) {
         VK(vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger), "Debug hook setup failed") return gpu_destroy(), false;
 
         if (!state.extensions.validation) {
-          state.config.callback(state.config.userdata, "Warning: GPU debugging is enabled, but validation layer is not installed", false);
+          LOG("Warning: GPU debugging is enabled, but validation layer is not installed");
         }
       } else {
-        state.config.callback(state.config.userdata, "Warning: GPU debugging is enabled, but debug extension is not supported", false);
+        LOG("Warning: GPU debugging is enabled, but debug extension is not supported");
       }
     }
-  }
-
-  // Surface
-  if (state.config.vk.surface && state.config.vk.createSurface) {
-    VK(state.config.vk.createSurface(state.instance, (void**) &state.surface.handle), "Surface creation failed") return gpu_destroy(), false;
   }
 
   { // Device
@@ -2022,13 +2202,7 @@ bool gpu_init(gpu_config* config) {
     uint32_t requiredQueueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
     vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, queueFamilies);
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
-      VkBool32 presentable = VK_TRUE;
-
-      if (state.config.vk.surface) {
-        vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, i, state.surface.handle, &presentable);
-      }
-
-      if (presentable && (queueFamilies[i].queueFlags & requiredQueueFlags) == requiredQueueFlags) {
+      if ((queueFamilies[i].queueFlags & requiredQueueFlags) == requiredQueueFlags) {
         state.queueFamilyIndex = i;
         break;
       }
@@ -2037,7 +2211,7 @@ bool gpu_init(gpu_config* config) {
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
       { "VK_KHR_create_renderpass2", true, NULL },
-      { "VK_KHR_swapchain", state.config.vk.surface, NULL },
+      { "VK_KHR_swapchain", true, &state.extensions.swapchain },
       { "VK_KHR_portability_subset", true, &state.extensions.portability },
       { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve },
       { "VK_KHR_shader_non_semantic_info", state.config.debug, &state.extensions.shaderDebug }
@@ -2057,6 +2231,7 @@ bool gpu_init(gpu_config* config) {
         enabledExtensions[enabledExtensionCount++] = extensions[i].name;
       } else if (!extensions[i].flag) {
         vcheck(VK_ERROR_EXTENSION_NOT_PRESENT, extensions[i].name);
+        return gpu_destroy(), false;
       }
     }
 
@@ -2227,30 +2402,6 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  if (state.surface.handle) {
-    gpu_surface* surface = &state.surface;
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, surface->handle, &surface->capabilities);
-
-    VkSurfaceFormatKHR formats[32];
-    uint32_t formatCount = COUNTOF(formats);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(state.adapter, surface->handle, &formatCount, formats);
-
-    for (uint32_t i = 0; i < formatCount; i++) {
-      if (formats[i].format == VK_FORMAT_R8G8B8A8_SRGB || formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
-        surface->format = formats[i];
-        break;
-      }
-    }
-
-    VK(surface->format.format == VK_FORMAT_UNDEFINED ? VK_ERROR_FORMAT_NOT_SUPPORTED : VK_SUCCESS, "No supported surface formats") return gpu_destroy(), false;
-
-    uint32_t width = surface->capabilities.currentExtent.width;
-    uint32_t height = surface->capabilities.currentExtent.height;
-
-    createSwapchain(width, height);
-  }
-
   // Ticks
   for (uint32_t i = 0; i < COUNTOF(state.ticks); i++) {
     VkCommandPoolCreateInfo poolInfo = {
@@ -2306,7 +2457,6 @@ bool gpu_init(gpu_config* config) {
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "Pipeline cache creation failed") return gpu_destroy(), false;
 
   state.tick[CPU] = COUNTOF(state.ticks) - 1;
-  state.surface.imageIndex = ~0u;
   return true;
 }
 
@@ -2384,37 +2534,6 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
 
   VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") {}
   state.surface.semaphore = VK_NULL_HANDLE;
-}
-
-void gpu_present(void) {
-  VkSemaphore semaphore = state.ticks[state.tick[CPU] & TICK_MASK].semaphores[1];
-
-  VkSubmitInfo submit = {
-    .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .signalSemaphoreCount = 1,
-    .pSignalSemaphores = &semaphore
-  };
-
-  VK(vkQueueSubmit(state.queue, 1, &submit, VK_NULL_HANDLE), "Queue submit failed") {}
-
-  VkPresentInfoKHR present = {
-    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-    .waitSemaphoreCount = 1,
-    .pWaitSemaphores = &semaphore,
-    .swapchainCount = 1,
-    .pSwapchains = &state.surface.swapchain,
-    .pImageIndices = &state.surface.imageIndex
-  };
-
-  VkResult result = vkQueuePresentKHR(state.queue, &present);
-
-  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-    state.surface.valid = false;
-  } else {
-    vcheck(result, "Queue present failed");
-  }
-
-  state.surface.imageIndex = ~0u;
 }
 
 bool gpu_is_complete(uint32_t tick) {
@@ -2590,77 +2709,6 @@ static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, cons
     }
   }
   return false;
-}
-
-static void createSwapchain(uint32_t width, uint32_t height) {
-  if (width == 0 || height == 0) {
-    state.surface.valid = false;
-    return;
-  }
-
-  gpu_surface* surface = &state.surface;
-  VkSwapchainKHR oldSwapchain = surface->swapchain;
-
-  if (oldSwapchain) {
-    vkDeviceWaitIdle(state.device);
-  }
-
-  VkSwapchainCreateInfoKHR swapchainInfo = {
-    .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-    .surface = surface->handle,
-    .minImageCount = surface->capabilities.minImageCount,
-    .imageFormat = surface->format.format,
-    .imageColorSpace = surface->format.colorSpace,
-    .imageExtent = { width, height },
-    .imageArrayLayers = 1,
-    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-    .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-    .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-    .presentMode = state.config.vk.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
-    .clipped = VK_TRUE,
-    .oldSwapchain = oldSwapchain
-  };
-
-  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &surface->swapchain), "Swapchain creation failed") return;
-
-  if (oldSwapchain) {
-    for (uint32_t i = 0; i < COUNTOF(surface->images); i++) {
-      if (surface->images[i].view) {
-        vkDestroyImageView(state.device, surface->images[i].view, NULL);
-      }
-    }
-
-    memset(surface->images, 0, sizeof(surface->images));
-    vkDestroySwapchainKHR(state.device, oldSwapchain, NULL);
-  }
-
-  uint32_t imageCount;
-  VkImage images[COUNTOF(surface->images)];
-  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, NULL), "Failed to get swapchain images") return;
-  VK(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") return;
-  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, images), "Failed to get swapchain images") return;
-
-  for (uint32_t i = 0; i < imageCount; i++) {
-    gpu_texture* texture = &surface->images[i];
-
-    texture->handle = images[i];
-    texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-    texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    texture->samples = 1;
-    texture->memory = ~0u;
-    texture->layers = 1;
-    texture->format = GPU_FORMAT_SURFACE;
-    texture->srgb = true;
-
-    gpu_texture_view_info view = {
-      .source = texture,
-      .type = GPU_TEXTURE_2D
-    };
-
-    CHECK(gpu_texture_init_view(texture, &view), "Swapchain texture view creation failed") return;
-  }
-
-  surface->valid = true;
 }
 
 // Ugliness until we can use dynamic rendering
@@ -3043,7 +3091,7 @@ static VkAccessFlags convertCache(gpu_cache cache) {
 }
 
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata) {
-  state.config.callback(state.config.userdata, data->pMessage, false);
+  LOG(data->pMessage);
   return VK_FALSE;
 }
 

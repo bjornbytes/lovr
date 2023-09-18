@@ -73,31 +73,46 @@ bool os_is_key_down(os_key key) {
   return false;
 }
 
-#ifdef LOVR_VK
-const char** os_vk_get_instance_extensions(uint32_t* count) {
-  return *count = 0, NULL;
+uintptr_t os_get_win32_window(void) {
+  return 0;
 }
 
-uint32_t os_vk_create_surface(void* instance, void** surface) {
-  return -13; // VK_ERROR_UNKNOWN
+uintptr_t os_get_win32_instance(void) {
+  return 0;
 }
-#endif
+
+uintptr_t os_get_ca_metal_layer(void) {
+  return 0;
+}
+
+uintptr_t os_get_xcb_connection(void) {
+  return 0;
+}
+
+uintptr_t os_get_xcb_window(void) {
+  return 0;
+}
 
 #else
 
 #include <stdio.h>
 
-#ifdef LOVR_VK
-#include <vulkan/vulkan.h>
-#endif
-
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#ifndef EMSCRIPTEN
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
 #endif
+
+#ifdef __APPLE__
+#define GLFW_EXPOSE_NATIVE_COCOA
+#include <GLFW/glfw3native.h>
+#endif
+
+#ifdef __linux__
+#define GLFW_EXPOSE_NATIVE_X11
+#include <X11/Xlib-xcb.h>
 #include <GLFW/glfw3native.h>
 #endif
 
@@ -317,10 +332,7 @@ bool os_window_open(const os_window_config* config) {
     return false;
   }
 
-#ifdef LOVR_VK
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-#endif
-
   glfwWindowHint(GLFW_RESIZABLE, config->resizable);
 
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
@@ -437,19 +449,25 @@ bool os_is_key_down(os_key key) {
   return glfwState.window ? glfwGetKey(glfwState.window, convertKey(key)) == GLFW_PRESS : false;
 }
 
-#ifdef _WIN32
-HANDLE os_get_win32_window(void) {
-  return (HANDLE) glfwGetWin32Window(glfwState.window);
-}
-#endif
-
-#ifdef LOVR_VK
-const char** os_vk_get_instance_extensions(uint32_t* count) {
-  return glfwGetRequiredInstanceExtensions(count);
+#if defined(_WIN32)
+uintptr_t os_get_win32_window(void) {
+  return (uintptr_t) glfwGetWin32Window(glfwState.window);
 }
 
-uint32_t os_vk_create_surface(void* instance, void** surface) {
-  return glfwCreateWindowSurface(instance, glfwState.window, NULL, (VkSurfaceKHR*) surface);
+uintptr_t os_get_win32_instance(void) {
+  return (uintptr_t) GetModuleHandle(NULL);
+}
+#elif defined(__APPLE__)
+uintptr_t os_get_ca_metal_layer(void) {
+  return 0; // TODO
+}
+#elif defined(__linux__) && !defined(__ANDROID__)
+uintptr_t os_get_xcb_connection(void) {
+  return (uintptr_t) XGetXCBConnection(glfwGetX11Display());
+}
+
+uintptr_t os_get_xcb_window(void) {
+  return (uintptr_t) glfwGetX11Window(glfwState.window);
 }
 #endif
 
