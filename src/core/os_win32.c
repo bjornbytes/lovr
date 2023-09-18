@@ -14,8 +14,11 @@ static struct {
   fn_quit* onQuit;
   fn_focus* onFocus;
   fn_key* onKey;
-  bool keys[KEY_COUNT];
-  bool buttons[2];
+  fn_mouse_button* onMouseButton;
+  fn_mouse_move* onMouseMove;
+  fn_mousewheel_move* onWheelMove;
+  bool keyDown[KEY_COUNT];
+  bool mouseDown[2];
   bool focused;
   uint64_t frequency;
 } state;
@@ -139,15 +142,14 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
   switch (message) {
     case WM_CLOSE:
       if (state.onQuit) state.onQuit();
-      break;
+      return 0;
+
     case WM_SETFOCUS:
-      if (state.onFocus) state.onFocus(true);
-      state.focused = true;
-      break;
     case WM_KILLFOCUS:
-      if (state.onFocus) state.onFocus(false);
-      state.focused = false;
-      break;
+      state.focused = message == WM_SETFOCUS;
+      if (state.onFocus) state.onFocus(state.focused);
+      return 0;
+
     case WM_KEYDOWN:
     case WM_KEYUP: {
       os_key key = KEY_COUNT;
@@ -194,26 +196,42 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
         bool pressed = message == WM_KEYDOWN;
 
         if (state.onKey) {
-          bool repeat = pressed && state.keys[key];
+          bool repeat = pressed && state.keyDown[key];
           state.onKey(pressed ? BUTTON_PRESSED : BUTTON_RELEASED, key, 0, repeat);
         }
 
-        state.keys[key] = pressed;
+        state.keyDown[key] = pressed;
       }
-      break;
+      return 0;
     }
+
     case WM_LBUTTONDOWN:
-      state.buttons[MOUSE_LEFT] = true;
-      break;
-    case WM_RBUTTONDOWN:
-      state.buttons[MOUSE_RIGHT] = true;
-      break;
     case WM_LBUTTONUP:
-      state.buttons[MOUSE_LEFT] = false;
-      break;
+      state.mouseDown[MOUSE_LEFT] = message == WM_LBUTTONDOWN;
+      if (state.onMouseButton) state.onMouseButton(0, message == WM_LBUTTONDOWN);
+      return 0;
+    case WM_RBUTTONDOWN:
     case WM_RBUTTONUP:
-      state.buttons[MOUSE_RIGHT] = false;
+      state.mouseDown[MOUSE_RIGHT] = message == WM_RBUTTONDOWN;
+      if (state.onMouseButton) state.onMouseButton(1, message == WM_RBUTTONDOWN);
+      return 0;
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+      if (state.onMouseButton) state.onMouseButton(2, message == WM_MBUTTONDOWN);
+      return 0;
+
+    case WM_MOUSEMOVE:
+      if (state.onMouseMove) state.onMouseMove((double) (lparam & 0xffff), (double) ((lparam >> 16) & 0xffff));
+      return 0;
+
+    case WM_MOUSEWHEEL:
+      if (state.onWheelMove) state.onWheelMove(0., GET_WHEEL_DELTA_WPARAM(param) / WHEEL_DELTA);
       break;
+    case WM_MOUSEHWHEEL:
+      if (state.onWheelMove) state.onWheelMove(GET_WHEEL_DELTA_WPARAM(param) / WHEEL_DELTA, 0.);
+      break;
+
+    default: break;
   }
 
   return DefWindowProcW(window, message, param, lparam);
@@ -245,6 +263,18 @@ void os_on_key(fn_key* callback) {
 
 void os_on_text(fn_text* callback) {
   //
+}
+
+void os_on_mouse_button(fn_mouse_button* callback) {
+  state.onMouseButton = callback;
+}
+
+void os_on_mouse_move(fn_mouse_move* callback) {
+  state.onMouseMove = callback;
+}
+
+void os_on_mousewheel_move(fn_mousewheel_move* callback) {
+  state.onWheelMove = callback;
 }
 
 void os_on_permission(fn_permission* callback) {
@@ -318,7 +348,7 @@ void os_get_mouse_position(double* x, double* y) {
 
 void os_set_mouse_mode(os_mouse_mode mode) {
   if (mode == MOUSE_MODE_NORMAL) {
-    SetCursor(LoadCursorW(NULL, IDC_ARROW));
+    SetCursor(LoadCursorA(NULL, IDC_ARROW));
     ClipCursor(NULL);
   } else {
     RECT clip;
@@ -331,11 +361,11 @@ void os_set_mouse_mode(os_mouse_mode mode) {
 }
 
 bool os_is_mouse_down(os_mouse_button button) {
-  return state.buttons[button];
+  return state.mouseDown[button];
 }
 
 bool os_is_key_down(os_key key) {
-  return false;
+  return state.keyDown[key];
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
