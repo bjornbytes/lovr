@@ -300,17 +300,8 @@ void os_window_get_size(uint32_t* width, uint32_t* height) {
   }
 }
 
-// FIXME
-void os_window_get_fbsize(uint32_t* width, uint32_t* height) {
-  if (state.window) {
-    RECT rect;
-    GetClientRect(state.window, &rect);
-    *width = rect.right;
-    *height = rect.bottom;
-  } else {
-    *width = 0;
-    *height = 0;
-  }
+float os_window_get_pixel_density(void) {
+  return 1.f;
 }
 
 void os_window_message_box(const char* message) {
