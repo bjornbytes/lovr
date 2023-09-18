@@ -367,10 +367,6 @@ float os_window_get_pixel_density(void) {
   return 0.f;
 }
 
-void os_window_message_box(const char* message) {
-  //
-}
-
 size_t os_get_home_directory(char* buffer, size_t size) {
   return 0;
 }
