@@ -576,7 +576,8 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
 }
 
 static int l_lovrHeadsetAnimate(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
+  int index = lua_type(L, 1) == LUA_TSTRING ? 2 : 1;
+  Model* model = luax_checktype(L, index, Model);
   lua_pushboolean(L, lovrHeadsetInterface->animate(model));
   return 1;
 }
