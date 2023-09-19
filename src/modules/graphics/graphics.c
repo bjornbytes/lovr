@@ -2033,18 +2033,18 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
   gpu_copy_buffers(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
 }
 
-void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent) {
+void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent, uint32_t value) {
   if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrCheck(extent % 4 == 0, "Buffer clear extent must be a multiple of 4");
   lovrCheck(offset + extent <= buffer->info.size, "Buffer clear range goes past the end of the Buffer");
   if (lovrBufferIsTemporary(buffer)) {
-    memset(buffer->pointer + offset, 0, extent);
+    memset(buffer->pointer + offset, 0, extent); // Deprecated (value ignored)
   } else if (extent > 0) {
     beginFrame();
     gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
     gpu_sync(state.stream, &barrier, 1);
-    gpu_clear_buffer(state.stream, buffer->gpu, offset, extent);
+    gpu_clear_buffer(state.stream, buffer->gpu, offset, extent, value);
   }
 }
 
@@ -3746,7 +3746,7 @@ Mesh* lovrMeshCreate(const MeshInfo* info, void** vertices) {
     lovrCheck(info->vertexFormat->length > 0, "Mesh must have at least one vertex");
     BufferInfo bufferInfo = { .format = info->vertexFormat };
     buffer = lovrBufferCreate(&bufferInfo, info->storage == MESH_GPU ? vertices : NULL);
-    if (!vertices) lovrBufferClear(buffer, 0, ~0u);
+    if (!vertices) lovrBufferClear(buffer, 0, ~0u, 0);
   }
 
   DataField* format = buffer->info.format;

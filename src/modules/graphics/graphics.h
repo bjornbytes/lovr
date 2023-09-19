@@ -186,7 +186,7 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
 void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent);
 void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);
-void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent);
+void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent, uint32_t value);
 // Deprecated:
 Buffer* lovrGraphicsGetBuffer(const BufferInfo* info, void** data);
 bool lovrBufferIsTemporary(Buffer* buffer);

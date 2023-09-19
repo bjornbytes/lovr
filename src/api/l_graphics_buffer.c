@@ -664,7 +664,8 @@ static int l_lovrBufferClear(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   uint32_t offset = luax_optu32(L, 2, 0);
   uint32_t extent = luax_optu32(L, 3, ~0u);
-  lovrBufferClear(buffer, offset, extent);
+  uint32_t value = (uint32_t) luaL_optinteger(L, 4, 0);
+  lovrBufferClear(buffer, offset, extent, value);
   return 0;
 }
 

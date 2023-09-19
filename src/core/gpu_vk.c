@@ -1662,8 +1662,8 @@ void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, 
   vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, 4, VK_QUERY_RESULT_WAIT_BIT);
 }
 
-void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
-  vkCmdFillBuffer(stream->commands, buffer->handle, offset, size, 0);
+void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t extent, uint32_t value) {
+  vkCmdFillBuffer(stream->commands, buffer->handle, offset, extent, value);
 }
 
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
