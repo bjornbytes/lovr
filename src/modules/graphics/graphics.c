@@ -5293,6 +5293,7 @@ void lovrPassAppend(Pass* pass, Pass* other) {
 
     memcpy(dst->transform, src->transform, sizeof(src->transform));
     memcpy(dst->color, src->color, sizeof(src->color));
+    memcpy(dst->bounds, src->bounds, sizeof(src->bounds));
 
     pass->lastDraw = dst;
     pass->drawCount++;
