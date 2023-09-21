@@ -1,16 +1,19 @@
 #include "gpu.h"
 #include <string.h>
 
-#if defined(_WIN32)
-#define VK_USE_PLATFORM_WIN32_KHR
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
+#if defined(_WIN32)
+#define VK_USE_PLATFORM_WIN32_KHR
 #elif defined(__APPLE__)
 #define VK_USE_PLATFORM_METAL_EXT
-#include <dlfcn.h>
 #elif defined(__linux__) && !defined(__ANDROID__)
 #define VK_USE_PLATFORM_XCB_KHR
-#include <dlfcn.h>
 #endif
 
 #define VK_NO_PROTOTYPES
