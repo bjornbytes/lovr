@@ -673,8 +673,6 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     lovrThrow("Failed to initialize GPU");
   }
 
-  lovrAssert(state.limits.uniformBufferRange >= 65536, "LÖVR requires the GPU to support a uniform buffer range of at least 64KB");
-
   state.timingEnabled = config->debug;
 
   // Temporary frame memory uses a large 1GB virtual memory allocation, committing pages as needed
