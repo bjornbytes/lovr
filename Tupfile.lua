@@ -130,6 +130,7 @@ if target == 'win32' then
 end
 
 if target == 'macos' then
+  cflags_os_macos += '-xobjective-c'
   lflags += '-Wl,-rpath,@executable_path'
   lflags += '-lobjc'
   lflags += '-framework AVFoundation'
