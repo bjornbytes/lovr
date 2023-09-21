@@ -102,19 +102,19 @@ uintptr_t os_get_xcb_window(void) {
 
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
 #endif
 
 #ifdef __APPLE__
 #define GLFW_EXPOSE_NATIVE_COCOA
-#include <GLFW/glfw3native.h>
+#include <QuartzCore/CAMetalLayer.h>
 #endif
 
 #ifdef __linux__
 #define GLFW_EXPOSE_NATIVE_X11
 #include <X11/Xlib-xcb.h>
-#include <GLFW/glfw3native.h>
 #endif
+
+#include <GLFW/glfw3native.h>
 
 static struct {
   GLFWwindow* window;
@@ -459,7 +459,14 @@ uintptr_t os_get_win32_instance(void) {
 }
 #elif defined(__APPLE__)
 uintptr_t os_get_ca_metal_layer(void) {
-  return 0; // TODO
+  id window = glfwGetCocoaWindow(glfwState.window);
+  id view = msg(id, window, "contentView");
+  id layer = msg(id, cls(CAMetalLayer), "layer");
+  CGFloat scale = msg(CGFloat, window, "backingScaleFactor");
+  msg1(void, layer, "setContentsScale:", CGFloat, scale);
+  msg1(void, view, "setLayer:", id, layer);
+  msg1(void, view, "setWantsLayer:", BOOL, YES);
+  return (uintptr_t) layer;
 }
 #elif defined(__linux__) && !defined(__ANDROID__)
 uintptr_t os_get_xcb_connection(void) {
