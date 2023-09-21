@@ -10,7 +10,13 @@
 #include <time.h>
 #include <pwd.h>
 #include <sys/mman.h>
-#import <AVFoundation/AVFoundation.h>
+#include <AVFoundation/AVFoundation.h>
+
+#define cls(T) ((id) objc_getClass(#T))
+#define msg(ret, obj, fn) ((ret(*)(id, SEL)) objc_msgSend)(obj, sel_getUid(fn))
+#define msg1(ret, obj, fn, T1, A1) ((ret(*)(id, SEL, T1)) objc_msgSend)(obj, sel_getUid(fn), A1)
+#define msg2(ret, obj, fn, T1, A1, T2, A2) ((ret(*)(id, SEL, T1, T2)) objc_msgSend)(obj, sel_getUid(fn), A1, A2)
+#define msg3(ret, obj, fn, T1, A1, T2, A2, T3, A3) ((ret(*)(id, SEL, T1, T2, T3)) objc_msgSend)(obj, sel_getUid(fn), A1, A2, A3)
 
 #include "os_glfw.h"
 
@@ -53,28 +59,32 @@ void os_sleep(double seconds) {
   while (nanosleep(&t, &t));
 }
 
+typedef void (^PermissionHandler)(BOOL granted);
+
 void os_request_permission(os_permission permission) {
   if (permission == OS_PERMISSION_AUDIO_CAPTURE) {
+    id AVCaptureDevice = cls(AVCaptureDevice);
+
     // If on old OS without permissions check, permission is implicitly granted
-    if (![AVCaptureDevice respondsToSelector:@selector(authorizationStatusForMediaType:)]) {
+    if (!class_respondsToSelector(AVCaptureDevice, sel_getUid("authorizationStatusForMediaType:"))) {
       if (state.onPermissionEvent) state.onPermissionEvent(permission, true);
       return;
     }
 
 #if TARGET_OS_IOS || (defined(MAC_OS_X_VERSION_10_14) && __MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_14)
-    switch ([AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio]) {
+    __block fn_permission* callback = state.onPermissionEvent;
+    PermissionHandler handler = ^(BOOL granted) {
+      dispatch_async(dispatch_get_main_queue(), ^{
+        if (callback) callback(OS_PERMISSION_AUDIO_CAPTURE, granted);
+      });
+    };
+
+    switch (msg1(AVAuthorizationStatus, AVCaptureDevice, "authorizationStatusForMediaType:", AVMediaType, AVMediaTypeAudio)) {
       case AVAuthorizationStatusAuthorized:
         if (state.onPermissionEvent) state.onPermissionEvent(permission, true);
         break;
       case AVAuthorizationStatusNotDetermined:
-        [AVCaptureDevice
-          requestAccessForMediaType:AVMediaTypeAudio
-          completionHandler:^(BOOL granted) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-              if (state.onPermissionEvent) state.onPermissionEvent(permission, granted);
-            });
-          }
-        ];
+        msg2(void, AVCaptureDevice, "requestAccessForMediaType:completionHandler:", AVMediaType, AVMediaTypeAudio, PermissionHandler, handler);
         break;
       case AVAuthorizationStatusDenied:
         if (state.onPermissionEvent) state.onPermissionEvent(permission, false);
@@ -159,14 +169,14 @@ size_t os_get_executable_path(char* buffer, size_t size) {
 }
 
 size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
-  id extension = ((id(*)(Class, SEL, char*)) objc_msgSend)(objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "lovr");
-  id bundle = ((id(*)(Class, SEL)) objc_msgSend)(objc_getClass("NSBundle"), sel_registerName("mainBundle"));
-  id path = ((id(*)(id, SEL, char*, id)) objc_msgSend)(bundle, sel_registerName("pathForResource:ofType:"), nil, extension);
+  id extension = msg1(id, cls(NSString), "stringWithUTF8String:", char*, "lovr");
+  id bundle = msg(id, cls(NSBundle), "mainBundle");
+  id path = msg2(id, bundle, "pathForResource:ofType:", id, nil, id, extension);
   if (path == nil) {
     return 0;
   }
 
-  const char* cpath = ((const char*(*)(id, SEL)) objc_msgSend)(path, sel_registerName("UTF8String"));
+  const char* cpath = msg(const char*, path, "UTF8String");
   if (!cpath) {
     return 0;
   }
