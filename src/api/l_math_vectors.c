@@ -664,6 +664,24 @@ static int l_lovrVec3Angle(lua_State* L) {
   return 1;
 }
 
+static int l_lovrVec3Transform(lua_State* L) {
+  vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
+  float m[16];
+  luax_readmat4(L, 2, m, 1);
+  mat4_mulPoint(m, v);
+  lua_settop(L, 1);
+  return 1;
+}
+
+static int l_lovrVec3Rotate(lua_State* L) {
+  vec3 v = luax_checkvector(L, 1, V_VEC3, NULL);
+  float q[4];
+  luax_readquat(L, 2, q, NULL);
+  quat_rotate(q, v);
+  lua_settop(L, 1);
+  return 1;
+}
+
 static int l_lovrVec3__add(lua_State* L) {
   vec3 out = luax_newtempvector(L, V_VEC3);
   if (lua_type(L, 1) == LUA_TNUMBER) {
@@ -896,6 +914,8 @@ const luaL_Reg lovrVec3[] = {
   { "cross", l_lovrVec3Cross },
   { "lerp", l_lovrVec3Lerp },
   { "angle", l_lovrVec3Angle },
+  { "transform", l_lovrVec3Transform },
+  { "rotate", l_lovrVec3Rotate },
   { "__add", l_lovrVec3__add },
   { "__sub", l_lovrVec3__sub },
   { "__mul", l_lovrVec3__mul },
@@ -1020,6 +1040,15 @@ static int l_lovrVec4Angle(lua_State* L) {
   float u[4];
   luax_readvec4(L, 2, u, NULL);
   lua_pushnumber(L, vec4_angle(v, u));
+  return 1;
+}
+
+static int l_lovrVec4Transform(lua_State* L) {
+  float* v = luax_checkvector(L, 1, V_VEC4, NULL);
+  float m[16];
+  luax_readmat4(L, 2, m, 1);
+  mat4_mulVec4(m, v);
+  lua_settop(L, 1);
   return 1;
 }
 
@@ -1277,6 +1306,7 @@ const luaL_Reg lovrVec4[] = {
   { "dot", l_lovrVec4Dot },
   { "lerp", l_lovrVec4Lerp },
   { "angle", l_lovrVec4Angle },
+  { "transform", l_lovrVec4Transform },
   { "__add", l_lovrVec4__add },
   { "__sub", l_lovrVec4__sub },
   { "__mul", l_lovrVec4__mul },
