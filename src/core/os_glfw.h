@@ -1,9 +1,5 @@
 #ifndef LOVR_USE_GLFW
 
-void os_destroy(void) {
-  //
-}
-
 void os_poll_events(void) {
   //
 }
@@ -292,10 +288,6 @@ static int convertKey(os_key key) {
     case KEY_F5: return GLFW_KEY_F5;
     default: return GLFW_KEY_UNKNOWN;
   }
-}
-
-void os_destroy(void) {
-  glfwTerminate();
 }
 
 void os_poll_events(void) {

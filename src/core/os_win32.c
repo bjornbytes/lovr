@@ -11,6 +11,8 @@
 #include "os_glfw.h"
 
 static uint64_t frequency;
+static __declspec(thread) HANDLE timer;
+static __declspec(thread) bool createdTimer;
 
 #ifndef LOVR_OMIT_MAIN
 
@@ -62,6 +64,11 @@ bool os_init(void) {
   return true;
 }
 
+void os_destroy(void) {
+  os_thread_detach();
+  glfwTerminate();
+}
+
 const char* os_get_name(void) {
   return "Windows";
 }
@@ -93,6 +100,21 @@ double os_get_time(void) {
 }
 
 void os_sleep(double seconds) {
+#ifdef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+  if (!createdTimer) {
+    createdTimer = true;
+    timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+  }
+
+  if (timer && seconds > 0.) {
+    LARGE_INTEGER due;
+    due.QuadPart = -((LONGLONG) (seconds * 1e7));
+    if (SetWaitableTimer(timer, &due, 0, NULL, NULL, false)) {
+      WaitForSingleObject(timer, INFINITE);
+      return;
+    }
+  }
+#endif
   Sleep((unsigned int) (seconds * 1000));
 }
 
@@ -121,7 +143,10 @@ void os_thread_attach(void) {
 }
 
 void os_thread_detach(void) {
-  //
+  if (createdTimer) {
+    CloseHandle(timer);
+    createdTimer = false;
+  }
 }
 
 void os_on_permission(fn_permission* callback) {

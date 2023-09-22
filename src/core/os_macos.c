@@ -32,6 +32,10 @@ bool os_init(void) {
   return true;
 }
 
+void os_destroy(void) {
+  glfwTerminate();
+}
+
 const char* os_get_name(void) {
   return "macOS";
 }
