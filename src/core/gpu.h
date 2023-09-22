@@ -143,10 +143,32 @@ typedef struct {
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
-gpu_texture* gpu_surface_acquire(void);
+
+// Surface
+
+typedef struct {
+  uint32_t width;
+  uint32_t height;
+  bool vsync;
+  union {
+    struct {
+      uintptr_t window;
+      uintptr_t instance;
+    } win32;
+    struct {
+      uintptr_t layer;
+    } macos;
+    struct {
+      uintptr_t connection;
+      uintptr_t window;
+    } xcb;
+  };
+} gpu_surface_info;
+
+bool gpu_surface_init(gpu_surface_info* info);
 void gpu_surface_resize(uint32_t width, uint32_t height);
-void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture);
-void gpu_xr_release(gpu_stream* stream, gpu_texture* texture);
+gpu_texture* gpu_surface_acquire(void);
+void gpu_surface_present(void);
 
 // Sampler
 
@@ -588,6 +610,8 @@ void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count);
 void gpu_tally_begin(gpu_stream* stream, gpu_tally* tally, uint32_t index);
 void gpu_tally_finish(gpu_stream* stream, gpu_tally* tally, uint32_t index);
 void gpu_tally_mark(gpu_stream* stream, gpu_tally* tally, uint32_t index);
+void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture);
+void gpu_xr_release(gpu_stream* stream, gpu_texture* texture);
 
 // Entry
 
@@ -669,15 +693,11 @@ typedef struct {
   gpu_features* features;
   gpu_limits* limits;
   struct {
-    const char** (*getInstanceExtensions)(uint32_t* count);
     uint32_t (*createInstance)(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
     void (*getPhysicalDevice)(void* instance, uintptr_t physicalDevice);
     uint32_t (*createDevice)(void* instance, void* devceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
-    uint32_t (*createSurface)(void* instance, void** surface);
     void* cacheData;
     size_t cacheSize;
-    bool surface;
-    int vsync;
   } vk;
 } gpu_config;
 
@@ -685,7 +705,6 @@ bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
 uint32_t gpu_begin(void);
 void gpu_submit(gpu_stream** streams, uint32_t count);
-void gpu_present(void);
 bool gpu_is_complete(uint32_t tick);
 bool gpu_wait_tick(uint32_t tick);
 void gpu_wait_idle(void);
