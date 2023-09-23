@@ -82,7 +82,7 @@ static int l_lovrShaderGetWorkgroupSize(lua_State* L) {
 
 static int l_lovrShaderGetBufferFormat(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
-  const char* name = luaL_checkstring(L, -1);
+  const char* name = luaL_checkstring(L, 2);
   uint32_t fieldCount;
   const DataField* format = lovrShaderGetBufferFormat(shader, name, &fieldCount);
   lovrCheck(format, "Shader has no Buffer named '%s'", name);
