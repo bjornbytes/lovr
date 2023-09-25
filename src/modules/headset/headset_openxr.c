@@ -1619,12 +1619,17 @@ static bool openxr_setPassthrough(PassthroughMode mode) {
 }
 
 static bool openxr_isPassthroughSupported(PassthroughMode mode) {
+  if (state.features.questPassthrough && mode == PASSTHROUGH_BLEND) {
+    return true;
+  }
+
   XrEnvironmentBlendMode blendMode = convertPassthroughMode(mode);
   for (uint32_t i = 0; i < state.blendModeCount; i++) {
     if (state.blendModes[i] == blendMode) {
       return true;
     }
   }
+
   return false;
 }
 
