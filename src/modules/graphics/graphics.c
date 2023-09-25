@@ -4372,7 +4372,6 @@ Model* lovrModelClone(Model* parent) {
   model->skinBuffer = parent->skinBuffer;
 
   model->blendGroups = parent->blendGroups;
-  model->blendShapeWeights = parent->blendShapeWeights;
   model->blendGroupCount = parent->blendGroupCount;
   model->blendShapesDirty = true;
 
@@ -4402,6 +4401,13 @@ Model* lovrModelClone(Model* parent) {
     model->draws[i].vertex.buffer = model->vertexBuffer;
   }
 
+  model->blendShapeWeights = malloc(data->blendShapeCount * sizeof(float));
+  lovrAssert(model->blendShapeWeights, "Out of memory");
+
+  for (uint32_t i = 0; i < data->blendShapeCount; i++) {
+    model->blendShapeWeights[i] = data->blendShapes[i].weight;
+  }
+
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
   lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
@@ -4417,6 +4423,7 @@ void lovrModelDestroy(void* ref) {
     lovrRelease(model->vertexBuffer, lovrBufferDestroy);
     free(model->localTransforms);
     free(model->globalTransforms);
+    free(model->blendShapeWeights);
     free(model->meshes);
     free(model->draws);
     free(model);

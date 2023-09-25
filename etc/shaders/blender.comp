@@ -27,7 +27,7 @@ struct BlendVertex {
   float tx, ty, tz;
 };
 
-layout(set = 0, binding = 0) buffer restrict RawVertices { ModelVertex rawVertices[]; };
+layout(set = 0, binding = 0) buffer restrict readonly RawVertices { ModelVertex rawVertices[]; };
 layout(set = 0, binding = 1) buffer restrict Vertices { ModelVertex vertices[]; };
 layout(set = 0, binding = 2) buffer restrict readonly BlendVertices { BlendVertex blendVertex[]; };
 layout(set = 0, binding = 3) uniform Weights { vec4 weights[16]; };
