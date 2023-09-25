@@ -1395,11 +1395,11 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   bool hasData = false;
   int index = 1 + customFormat;
   switch (lua_type(L, index)) {
-    case LUA_TNUMBER: format->length = luax_checku32(L, index++); break;
-    case LUA_TTABLE: format->length = luax_len(L, index++); hasData = true; break;
+    case LUA_TNUMBER: format->length = luax_checku32(L, index); break;
+    case LUA_TTABLE: format->length = luax_len(L, index); hasData = true; break;
     case LUA_TUSERDATA:
-      if ((info.vertexBuffer = luax_totype(L, index++, Buffer)) != NULL) break;
-      if ((blob = luax_totype(L, index++, Blob)) != NULL) {
+      if ((info.vertexBuffer = luax_totype(L, index, Buffer)) != NULL) break;
+      if ((blob = luax_totype(L, index, Blob)) != NULL) {
         lovrCheck(blob->size % format->stride == 0, "Blob size must be a multiple of vertex size");
         format->length = blob->size / format->stride;
         hasData = true;
@@ -1408,10 +1408,10 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     default: return luax_typeerror(L, index, "number, table, Blob, or Buffer");
   }
 
-  if (info.vertexBuffer || luax_totype(L, index, Buffer)) {
+  if (info.vertexBuffer) {
     info.storage = MESH_GPU;
   } else {
-    info.storage = luax_checkenum(L, index + (luax_totype(L, index, Blob) ? 2 : 1), MeshStorage, "cpu");
+    info.storage = luax_checkenum(L, index + 1, MeshStorage, "cpu");
   }
 
   void* vertices = NULL;
@@ -1420,24 +1420,10 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   if (blob) {
     memcpy(vertices, blob->data, blob->size);
   } else if (hasData) {
-    luax_checkdatatuples(L, index - 1, 1, format->length, lovrMeshGetVertexFormat(mesh), vertices);
+    luax_checkdatatuples(L, index, 1, format->length, lovrMeshGetVertexFormat(mesh), vertices);
   }
 
-  if (!lua_isnoneornil(L, index)) {
-    luax_pushtype(L, Mesh, mesh);
-    lua_getfield(L, -1, "setIndices");
-    lua_pushvalue(L, -2);
-    lua_pushvalue(L, index);
-    if (luax_totype(L, -1, Blob)) {
-      lua_pushvalue(L, index + 1);
-      lua_call(L, 3, 0);
-    } else {
-      lua_call(L, 2, 0);
-    }
-  } else {
-    luax_pushtype(L, Mesh, mesh);
-  }
-
+  luax_pushtype(L, Mesh, mesh);
   lovrRelease(mesh, lovrMeshDestroy);
   return 1;
 }
