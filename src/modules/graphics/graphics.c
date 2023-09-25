@@ -7160,6 +7160,7 @@ void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform) {
     .hash = hash64(key, sizeof(key)),
     .mode = DRAW_TRIANGLES,
     .transform = transform,
+    .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, 0.f },
     .material = lovrTextureGetMaterial(texture),
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
