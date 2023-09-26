@@ -1398,13 +1398,21 @@ static int l_lovrQuatMul(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
   VectorType type;
   float* r = luax_tovector(L, 2, &type);
-  if (!r || (type != V_VEC3 && type != V_QUAT)) return luax_typeerror(L, 2, "quat or vec3");
-  if (type == V_VEC3) {
-    quat_rotate(q, r);
-    lua_settop(L, 2);
-  } else {
+  if (r && type == V_VEC3) {
+    vec3 v = luax_newtempvector(L, V_VEC3);
+    quat_rotate(q, vec3_init(v, r));
+  } else if (r && type == V_QUAT) {
     quat_mul(q, q, r);
     lua_settop(L, 1);
+  } else if (lua_type(L, 2) == LUA_TNUMBER) {
+    lua_settop(L, 4);
+    vec3 v = luax_newtempvector(L, V_VEC3);
+    v[0] = luax_tofloat(L, 2);
+    v[1] = luax_checkfloat(L, 3);
+    v[2] = luax_checkfloat(L, 4);
+    quat_rotate(q, v);
+  } else {
+    return luax_typeerror(L, 2, "number, vec3, or quat");
   }
   return 1;
 }
@@ -1741,28 +1749,23 @@ static int l_lovrMat4Mul(lua_State* L) {
   if (n && type == V_MAT4) {
     mat4_mul(m, n);
     lua_settop(L, 1);
-    return 1;
   } else if (n && type == V_VEC3) {
-    mat4_mulPoint(m, n);
-    lua_settop(L, 2);
-    return 1;
+    vec3 v = luax_newtempvector(L, V_VEC3);
+    mat4_mulPoint(m, vec3_init(v, n));
   } else if (n && type == V_VEC4) {
-    mat4_mulVec4(m, n);
-    lua_settop(L, 2);
-    return 1;
+    vec4 v = luax_newtempvector(L, V_VEC4);
+    mat4_mulVec4(m, vec4_init(v, n));
   } else if (lua_type(L, 2) == LUA_TNUMBER) {
-    float x = luaL_checknumber(L, 2);
-    float y = luaL_optnumber(L, 3, 0.f);
-    float z = luaL_optnumber(L, 4, 0.f);
-    float v[3] = { x, y, z };
+    lua_settop(L, 4);
+    vec3 v = luax_newtempvector(L, V_VEC3);
+    v[0] = luax_tofloat(L, 2);
+    v[1] = luax_checkfloat(L, 3);
+    v[2] = luax_checkfloat(L, 4);
     mat4_mulPoint(m, v);
-    lua_pushnumber(L, v[0]);
-    lua_pushnumber(L, v[1]);
-    lua_pushnumber(L, v[2]);
-    return 3;
   } else {
-    return luax_typeerror(L, 2, "mat4, vec3, or number");
+    return luax_typeerror(L, 2, "mat4, vec3, vec4, or number");
   }
+  return 1;
 }
 
 static int l_lovrMat4Identity(lua_State* L) {
