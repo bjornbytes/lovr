@@ -24,8 +24,8 @@ static int l_lovrMathVec4(lua_State* L);
 static int l_lovrMathQuat(lua_State* L);
 static int l_lovrMathMat4(lua_State* L);
 extern const luaL_Reg lovrCurve[];
-extern const luaL_Reg lovrLightProbe[];
 extern const luaL_Reg lovrRandomGenerator[];
+extern const luaL_Reg lovrSphericalHarmonics[];
 extern const luaL_Reg lovrVec2[];
 extern const luaL_Reg lovrVec3[];
 extern const luaL_Reg lovrVec4[];
@@ -129,20 +129,31 @@ static int l_lovrMathNewCurve(lua_State* L) {
   return 1;
 }
 
-static int l_lovrMathNewLightProbe(lua_State* L) {
-  LightProbe* probe = lovrLightProbeCreate();
-  LightProbe* other = NULL;
+static int l_lovrMathNewRandomGenerator(lua_State* L) {
+  RandomGenerator* generator = lovrRandomGeneratorCreate();
+  if (lua_gettop(L) > 0){
+    Seed seed = { .b64 = luax_checkrandomseed(L, 1) };
+    lovrRandomGeneratorSetSeed(generator, seed);
+  }
+  luax_pushtype(L, RandomGenerator, generator);
+  lovrRelease(generator, lovrRandomGeneratorDestroy);
+  return 1;
+}
+
+static int l_lovrMathNewSphericalHarmonics(lua_State* L) {
+  SphericalHarmonics* sh = lovrSphericalHarmonicsCreate();
+  SphericalHarmonics* other = NULL;
 
   if (lua_istable(L, 1)) {
-    float coefficients[9][3], color[4];
     int length = luax_len(L, 1);
+    float coefficients[9][3];
 
     if (length == 9) {
       float color[4];
       for (int i = 0; i < 9; i++) {
         lua_rawgeti(L, 1, i + 1);
         luax_optcolor(L, -1, color);
-        vec3_init(coefficients[i], color);
+        memcpy(coefficients[i], color, 3 * sizeof(float));
         lua_pop(L, 1);
       }
     } else if (length == 27) {
@@ -158,26 +169,15 @@ static int l_lovrMathNewLightProbe(lua_State* L) {
       lovrThrow("Expected a table with 9 tables, 9 vectors, or 27 numbers");
     }
 
-    lovrLightProbeSetCoefficients(probe, coefficients);
-  } else if ((other = luax_totype(L, 1, LightProbe)) != NULL) {
-    lovrLightProbeAddProbe(probe, other);
+    lovrSphericalHarmonicsSetCoefficients(sh, coefficients);
+  } else if ((other = luax_totype(L, 1, SphericalHarmonics)) != NULL) {
+    lovrSphericalHarmonicsAdd(sh, other);
   } else if (!lua_isnoneornil(L, 1)) {
-    return luax_typeerror(L, 1, "nil, table, or LightProbe");
+    return luax_typeerror(L, 1, "nil, table, or SphericalHarmonics");
   }
 
-  luax_pushtype(L, LightProbe, probe);
-  lovrRelease(probe, lovrLightProbeDestroy);
-  return 1;
-}
-
-static int l_lovrMathNewRandomGenerator(lua_State* L) {
-  RandomGenerator* generator = lovrRandomGeneratorCreate();
-  if (lua_gettop(L) > 0){
-    Seed seed = { .b64 = luax_checkrandomseed(L, 1) };
-    lovrRandomGeneratorSetSeed(generator, seed);
-  }
-  luax_pushtype(L, RandomGenerator, generator);
-  lovrRelease(generator, lovrRandomGeneratorDestroy);
+  luax_pushtype(L, SphericalHarmonics, sh);
+  lovrRelease(sh, lovrSphericalHarmonicsDestroy);
   return 1;
 }
 
@@ -321,8 +321,8 @@ static int l_lovrMathDrain(lua_State* L) {
 
 static const luaL_Reg lovrMath[] = {
   { "newCurve", l_lovrMathNewCurve },
-  { "newLightProbe", l_lovrMathNewLightProbe },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
+  { "newSphericalHarmonics", l_lovrMathNewSphericalHarmonics },
   { "noise", l_lovrMathNoise },
   { "random", l_lovrMathRandom },
   { "randomNormal", l_lovrMathRandomNormal },
@@ -391,8 +391,8 @@ int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrMath);
   luax_registertype(L, Curve);
-  luax_registertype(L, LightProbe);
   luax_registertype(L, RandomGenerator);
+  luax_registertype(L, SphericalHarmonics);
 
   for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
     lua_newtable(L);

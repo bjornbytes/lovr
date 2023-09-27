@@ -5,7 +5,7 @@
 #pragma once
 
 typedef struct Curve Curve;
-typedef struct LightProbe LightProbe;
+typedef struct SphericalHarmonics SphericalHarmonics;
 typedef struct Pool Pool;
 typedef struct RandomGenerator RandomGenerator;
 
@@ -31,20 +31,6 @@ void lovrCurveGetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveSetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveAddPoint(Curve* curve, float* point, size_t index);
 void lovrCurveRemovePoint(Curve* curve, size_t index);
-
-// LightProbe
-
-LightProbe* lovrLightProbeCreate(void);
-void lovrLightProbeDestroy(void* ref);
-void lovrLightProbeClear(LightProbe* probe);
-void lovrLightProbeGetCoefficients(LightProbe* probe, float coefficients[9][3]);
-void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]);
-void lovrLightProbeEvaluate(LightProbe* probe, float normal[4], float color[4]);
-void lovrLightProbeAddAmbientLight(LightProbe* probe, float color[4]);
-void lovrLightProbeAddDirectionalLight(LightProbe* probe, float direction[4], float color[4]);
-void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other);
-void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t);
-void lovrLightProbeScale(LightProbe* probe, float scale);
 
 // Pool
 
@@ -93,3 +79,17 @@ void lovrRandomGeneratorGetState(RandomGenerator* generator, char* state, size_t
 int lovrRandomGeneratorSetState(RandomGenerator* generator, const char* state);
 double lovrRandomGeneratorRandom(RandomGenerator* generator);
 double lovrRandomGeneratorRandomNormal(RandomGenerator* generator);
+
+// SphericalHarmonics
+
+SphericalHarmonics* lovrSphericalHarmonicsCreate(void);
+void lovrSphericalHarmonicsDestroy(void* ref);
+void lovrSphericalHarmonicsClear(SphericalHarmonics* sh);
+void lovrSphericalHarmonicsGetCoefficients(SphericalHarmonics* sh, float coefficients[9][3]);
+void lovrSphericalHarmonicsSetCoefficients(SphericalHarmonics* sh, float coefficients[9][3]);
+void lovrSphericalHarmonicsEvaluate(SphericalHarmonics* sh, float normal[4], float color[4]);
+void lovrSphericalHarmonicsAddAmbientLight(SphericalHarmonics* sh, float color[4]);
+void lovrSphericalHarmonicsAddDirectionalLight(SphericalHarmonics* sh, float direction[4], float color[4]);
+void lovrSphericalHarmonicsAdd(SphericalHarmonics* sh, SphericalHarmonics* other);
+void lovrSphericalHarmonicsLerp(SphericalHarmonics* sh, SphericalHarmonics* other, float t);
+void lovrSphericalHarmonicsScale(SphericalHarmonics* sh, float scale);

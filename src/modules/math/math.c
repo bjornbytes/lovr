@@ -15,11 +15,6 @@ struct Curve {
   arr_t(float) points;
 };
 
-struct LightProbe {
-  uint32_t ref;
-  float coefficients[9][3];
-};
-
 struct Pool {
   uint32_t ref;
   float* data;
@@ -33,6 +28,11 @@ struct RandomGenerator {
   Seed seed;
   Seed state;
   double lastRandomNormal;
+};
+
+struct SphericalHarmonics {
+  uint32_t ref;
+  float coefficients[9][3];
 };
 
 static struct {
@@ -220,105 +220,6 @@ void lovrCurveRemovePoint(Curve* curve, size_t index) {
   arr_splice(&curve->points, index * 4, 4);
 }
 
-// LightProbe
-
-LightProbe* lovrLightProbeCreate(void) {
-  LightProbe* probe = calloc(1, sizeof(LightProbe));
-  lovrAssert(probe, "Out of memory");
-  lovrLightProbeClear(probe);
-  probe->ref = 1;
-  return probe;
-}
-
-void lovrLightProbeDestroy(void* ref) {
-  LightProbe* probe = ref;
-  free(probe);
-}
-
-void lovrLightProbeClear(LightProbe* probe) {
-  memset(probe->coefficients, 0, sizeof(probe->coefficients));
-}
-
-void lovrLightProbeGetCoefficients(LightProbe* probe, float coefficients[9][3]) {
-  memcpy(coefficients, probe->coefficients, sizeof(probe->coefficients));
-}
-
-void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]) {
-  memcpy(probe->coefficients, coefficients, sizeof(probe->coefficients));
-}
-
-void lovrLightProbeEvaluate(LightProbe* probe, float normal[4], float color[4]) {
-  memset(color, 0, 4 * sizeof(float));
-
-  float n[4];
-  vec3_init(n, normal);
-  vec3_normalize(n);
-
-  for (uint32_t i = 0; i < 3; i++) {
-    color[i] += .88622692545276f * probe->coefficients[0][i];
-
-    color[i] += 1.0233267079465f * probe->coefficients[1][i] * n[1];
-    color[i] += 1.0233267079465f * probe->coefficients[2][i] * n[2];
-    color[i] += 1.0233267079465f * probe->coefficients[3][i] * n[0];
-
-    color[i] += .85808553080978f * probe->coefficients[4][i] * n[0] * n[1];
-    color[i] += .85808553080978f * probe->coefficients[5][i] * n[1] * n[2];
-    color[i] += .24770795610038f * probe->coefficients[6][i] * (3.f * n[2] * n[2] - 1.f);
-    color[i] += .85808553080978f * probe->coefficients[7][i] * n[0] * n[2];
-    color[i] += .42904276540489f * probe->coefficients[8][i] * (n[0] * n[0] - n[1] * n[1]);
-  }
-}
-
-void lovrLightProbeAddAmbientLight(LightProbe* probe, float color[4]) {
-  float scale = 3.544907701811f; // 2 * math.pi ^ .5
-  probe->coefficients[0][0] += scale * .28209479177388f * color[0];
-  probe->coefficients[0][1] += scale * .28209479177388f * color[1];
-  probe->coefficients[0][2] += scale * .28209479177388f * color[2];
-}
-
-void lovrLightProbeAddDirectionalLight(LightProbe* probe, float direction[4], float color[4]) {
-  float dir[4];
-  vec3_init(dir, direction);
-  vec3_normalize(dir);
-
-  float scale = 2.9567930857316f; // 16 * math.pi / 17
-
-  for (uint32_t i = 0; i < 3; i++) {
-    probe->coefficients[0][i] += scale * .28209479177388f * color[i];
-    probe->coefficients[1][i] += scale * .48860251190292f * color[i] * dir[1];
-    probe->coefficients[2][i] += scale * .48860251190292f * color[i] * dir[2];
-    probe->coefficients[3][i] += scale * .48860251190292f * color[i] * dir[0];
-    probe->coefficients[4][i] += scale * 1.0925484305921f * color[i] * dir[0] * dir[1];
-    probe->coefficients[5][i] += scale * 1.0925484305921f * color[i] * dir[1] * dir[2];
-    probe->coefficients[6][i] += scale * .31539156525252f * color[i] * (3.f * dir[2] * dir[2] - 1.f);
-    probe->coefficients[7][i] += scale * 1.0925484305921f * color[i] * dir[0] * dir[2];
-    probe->coefficients[8][i] += scale * .54627421529604f * color[i] * (dir[0] * dir[0] - dir[1] * dir[1]);
-  }
-}
-
-void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other) {
-  float* a = &probe->coefficients[0][0];
-  float* b = &other->coefficients[0][0];
-  for (uint32_t i = 0; i < 27; i++) {
-    a[i] += b[i];
-  }
-}
-
-void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t) {
-  float* a = &probe->coefficients[0][0];
-  float* b = &other->coefficients[0][0];
-  for (uint32_t i = 0; i < 27; i++) {
-    a[i] = a[i] + (b[i] - a[i]) * t;
-  }
-}
-
-void lovrLightProbeScale(LightProbe* probe, float scale) {
-  float* c = &probe->coefficients[0][0];
-  for (uint32_t i = 0; i < 27; i++) {
-    c[i] *= scale;
-  }
-}
-
 // Pool
 
 static const size_t vectorComponents[] = {
@@ -468,4 +369,105 @@ double lovrRandomGeneratorRandomNormal(RandomGenerator* generator) {
   double phi = 2. * M_PI * (1. - b);
   generator->lastRandomNormal = r * cos(phi);
   return r * sin(phi);
+}
+
+// SphericalHarmonics
+
+SphericalHarmonics* lovrSphericalHarmonicsCreate(void) {
+  SphericalHarmonics* sh = calloc(1, sizeof(SphericalHarmonics));
+  lovrAssert(sh, "Out of memory");
+  lovrSphericalHarmonicsClear(sh);
+  sh->ref = 1;
+  return sh;
+}
+
+void lovrSphericalHarmonicsDestroy(void* ref) {
+  SphericalHarmonics* sh = ref;
+  free(sh);
+}
+
+void lovrSphericalHarmonicsClear(SphericalHarmonics* sh) {
+  memset(sh->coefficients, 0, sizeof(sh->coefficients));
+}
+
+void lovrSphericalHarmonicsGetCoefficients(SphericalHarmonics* sh, float coefficients[9][3]) {
+  memcpy(coefficients, sh->coefficients, sizeof(sh->coefficients));
+}
+
+void lovrSphericalHarmonicsSetCoefficients(SphericalHarmonics* sh, float coefficients[9][3]) {
+  memcpy(sh->coefficients, coefficients, sizeof(sh->coefficients));
+}
+
+void lovrSphericalHarmonicsEvaluate(SphericalHarmonics* sh, float normal[4], float color[4]) {
+  memset(color, 0, 4 * sizeof(float));
+
+  float n[4];
+  vec3_init(n, normal);
+  vec3_normalize(n);
+
+  for (uint32_t i = 0; i < 3; i++) {
+    color[i] += .88622692545276f * sh->coefficients[0][i];
+
+    color[i] += 1.0233267079465f * sh->coefficients[1][i] * n[1];
+    color[i] += 1.0233267079465f * sh->coefficients[2][i] * n[2];
+    color[i] += 1.0233267079465f * sh->coefficients[3][i] * n[0];
+
+    color[i] += .85808553080978f * sh->coefficients[4][i] * n[0] * n[1];
+    color[i] += .85808553080978f * sh->coefficients[5][i] * n[1] * n[2];
+    color[i] += .24770795610038f * sh->coefficients[6][i] * (3.f * n[2] * n[2] - 1.f);
+    color[i] += .85808553080978f * sh->coefficients[7][i] * n[0] * n[2];
+    color[i] += .42904276540489f * sh->coefficients[8][i] * (n[0] * n[0] - n[1] * n[1]);
+  }
+}
+
+void lovrSphericalHarmonicsAddAmbientLight(SphericalHarmonics* sh, float color[4]) {
+  float scale = 3.544907701811f; // 2 * math.pi ^ .5
+  sh->coefficients[0][0] += scale * .28209479177388f * color[0];
+  sh->coefficients[0][1] += scale * .28209479177388f * color[1];
+  sh->coefficients[0][2] += scale * .28209479177388f * color[2];
+}
+
+void lovrSphericalHarmonicsAddDirectionalLight(SphericalHarmonics* sh, float direction[4], float color[4]) {
+  float dir[4];
+  vec3_init(dir, direction);
+  vec3_normalize(dir);
+
+  float scale = 2.9567930857316f; // 16 * math.pi / 17
+
+  for (uint32_t i = 0; i < 3; i++) {
+    sh->coefficients[0][i] += scale * .28209479177388f * color[i];
+
+    sh->coefficients[1][i] += scale * .48860251190292f * color[i] * dir[1];
+    sh->coefficients[2][i] += scale * .48860251190292f * color[i] * dir[2];
+    sh->coefficients[3][i] += scale * .48860251190292f * color[i] * dir[0];
+
+    sh->coefficients[4][i] += scale * 1.0925484305921f * color[i] * dir[0] * dir[1];
+    sh->coefficients[5][i] += scale * 1.0925484305921f * color[i] * dir[1] * dir[2];
+    sh->coefficients[6][i] += scale * .31539156525252f * color[i] * (3.f * dir[2] * dir[2] - 1.f);
+    sh->coefficients[7][i] += scale * 1.0925484305921f * color[i] * dir[0] * dir[2];
+    sh->coefficients[8][i] += scale * .54627421529604f * color[i] * (dir[0] * dir[0] - dir[1] * dir[1]);
+  }
+}
+
+void lovrSphericalHarmonicsAdd(SphericalHarmonics* sh, SphericalHarmonics* other) {
+  float* a = &sh->coefficients[0][0];
+  float* b = &other->coefficients[0][0];
+  for (uint32_t i = 0; i < 27; i++) {
+    a[i] += b[i];
+  }
+}
+
+void lovrSphericalHarmonicsLerp(SphericalHarmonics* sh, SphericalHarmonics* other, float t) {
+  float* a = &sh->coefficients[0][0];
+  float* b = &other->coefficients[0][0];
+  for (uint32_t i = 0; i < 27; i++) {
+    a[i] = a[i] + (b[i] - a[i]) * t;
+  }
+}
+
+void lovrSphericalHarmonicsScale(SphericalHarmonics* sh, float scale) {
+  float* c = &sh->coefficients[0][0];
+  for (uint32_t i = 0; i < 27; i++) {
+    c[i] *= scale;
+  }
 }
