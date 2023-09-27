@@ -342,6 +342,10 @@ static int l_lovrPassGetViewport(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float viewport[6];
   lovrPassGetViewport(pass, viewport);
+  if (viewport[2] == 0.f && viewport[3] == 0.f) {
+    lua_pushnil(L);
+    return 1;
+  }
   lua_pushnumber(L, viewport[0]);
   lua_pushnumber(L, viewport[1]);
   lua_pushnumber(L, viewport[2]);
@@ -354,12 +358,20 @@ static int l_lovrPassGetViewport(lua_State* L) {
 static int l_lovrPassSetViewport(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float viewport[6];
-  viewport[0] = luax_checkfloat(L, 2);
-  viewport[1] = luax_checkfloat(L, 3);
-  viewport[2] = luax_checkfloat(L, 4);
-  viewport[3] = luax_checkfloat(L, 5);
-  viewport[4] = luax_optfloat(L, 6, 0.f);
-  viewport[5] = luax_optfloat(L, 7, 1.f);
+  if (lua_isnoneornil(L, 2)) {
+    memset(viewport, 0, sizeof(viewport));
+  } else {
+    viewport[0] = luax_checkfloat(L, 2);
+    viewport[1] = luax_checkfloat(L, 3);
+    viewport[2] = luax_checkfloat(L, 4);
+    viewport[3] = luax_checkfloat(L, 5);
+    viewport[4] = luax_optfloat(L, 6, 0.f);
+    viewport[5] = luax_optfloat(L, 7, 1.f);
+    lovrCheck(viewport[2] > 0.f, "Viewport width must be positive");
+    lovrCheck(viewport[3] != 0.f, "Viewport height can not be zero");
+    lovrCheck(viewport[4] >= 0.f && viewport[4] <= 1.f, "Viewport depth range must be between 0 and 1");
+    lovrCheck(viewport[5] >= 0.f && viewport[5] <= 1.f, "Viewport depth range must be between 0 and 1");
+  }
   lovrPassSetViewport(pass, viewport);
   return 0;
 }
@@ -368,6 +380,10 @@ static int l_lovrPassGetScissor(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t scissor[4];
   lovrPassGetScissor(pass, scissor);
+  if (scissor[2] == 0 && scissor[3] == 0) {
+    lua_pushnil(L);
+    return 1;
+  }
   lua_pushinteger(L, scissor[0]);
   lua_pushinteger(L, scissor[1]);
   lua_pushinteger(L, scissor[2]);
@@ -378,10 +394,14 @@ static int l_lovrPassGetScissor(lua_State* L) {
 static int l_lovrPassSetScissor(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t scissor[4];
-  scissor[0] = luax_checku32(L, 2);
-  scissor[1] = luax_checku32(L, 3);
-  scissor[2] = luax_checku32(L, 4);
-  scissor[3] = luax_checku32(L, 5);
+  if (lua_isnoneornil(L, 2)) {
+    memset(scissor, 0, sizeof(scissor));
+  } else {
+    scissor[0] = luax_checku32(L, 2);
+    scissor[1] = luax_checku32(L, 3);
+    scissor[2] = luax_checku32(L, 4);
+    scissor[3] = luax_checku32(L, 5);
+  }
   lovrPassSetScissor(pass, scissor);
   return 0;
 }

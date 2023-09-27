@@ -1350,8 +1350,8 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   float defaultViewport[6] = { 0.f, 0.f, (float) canvas->width, (float) canvas->height, 0.f, 1.f };
   uint32_t defaultScissor[4] = { 0, 0, canvas->width, canvas->height };
-  float* viewport = pass->viewport[2] > 0.f && pass->viewport[3] > 0.f ? pass->viewport : defaultViewport;
-  uint32_t* scissor = pass->scissor[2] > 0 && pass->scissor[3] > 0 ? pass->scissor : defaultScissor;
+  float* viewport = pass->viewport[2] == 0.f && pass->viewport[3] == 0.f ? defaultViewport : pass->viewport;
+  uint32_t* scissor = pass->scissor[2] == 0 && pass->scissor[3] == 0 ? defaultScissor : pass->scissor;
 
   gpu_set_viewport(stream, viewport, viewport + 4);
   gpu_set_scissor(stream, scissor);
