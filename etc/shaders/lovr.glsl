@@ -435,6 +435,14 @@ vec3 tonemap(vec3 x) {
 }
 #endif
 
+vec3 gammaToLinear(vec3 color) {
+  return mix(pow((color + .055) / 1.055, vec3(2.4)), color / 12.92, lessThanEqual(color, vec3(.04045)));
+}
+
+vec3 linearToGamma(vec3 color) {
+  return mix(1.055 * pow(color, vec3(1. / 2.4)) - .055, color * 12.92, lessThanEqual(color, vec3(.0031308)));
+}
+
 // Entrypoints
 #ifndef NO_DEFAULT_MAIN
 #ifdef GL_VERTEX_SHADER
