@@ -3968,22 +3968,22 @@ void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint
 
 bool lovrMeshGetBoundingBox(Mesh* mesh, float box[6]) {
   box[0] = mesh->bounds[0] - mesh->bounds[3];
-  box[1] = mesh->bounds[1] - mesh->bounds[4];
-  box[2] = mesh->bounds[2] - mesh->bounds[5];
-  box[3] = mesh->bounds[0] + mesh->bounds[3];
-  box[4] = mesh->bounds[1] + mesh->bounds[4];
+  box[1] = mesh->bounds[0] + mesh->bounds[3];
+  box[2] = mesh->bounds[1] - mesh->bounds[4];
+  box[3] = mesh->bounds[1] + mesh->bounds[4];
+  box[4] = mesh->bounds[2] - mesh->bounds[5];
   box[5] = mesh->bounds[2] + mesh->bounds[5];
   return mesh->hasBounds;
 }
 
 void lovrMeshSetBoundingBox(Mesh* mesh, float box[6]) {
   if (box) {
-    mesh->bounds[0] = (box[0] + box[3]) / 2.f;
-    mesh->bounds[1] = (box[1] + box[4]) / 2.f;
-    mesh->bounds[2] = (box[2] + box[5]) / 2.f;
-    mesh->bounds[3] = (box[3] - box[0]) / 2.f;
-    mesh->bounds[4] = (box[4] - box[1]) / 2.f;
-    mesh->bounds[5] = (box[5] - box[2]) / 2.f;
+    mesh->bounds[0] = (box[0] + box[1]) / 2.f;
+    mesh->bounds[1] = (box[2] + box[3]) / 2.f;
+    mesh->bounds[2] = (box[4] + box[5]) / 2.f;
+    mesh->bounds[3] = (box[1] - box[0]) / 2.f;
+    mesh->bounds[4] = (box[3] - box[2]) / 2.f;
+    mesh->bounds[5] = (box[5] - box[4]) / 2.f;
     mesh->hasBounds = true;
   } else {
     mesh->hasBounds = false;
@@ -3998,14 +3998,14 @@ bool lovrMeshComputeBoundingBox(Mesh* mesh) {
     return false;
   }
 
-  float box[6] = { FLT_MAX, FLT_MAX, FLT_MAX, FLT_MIN, FLT_MIN, FLT_MIN };
+  float box[6] = { FLT_MAX, FLT_MIN, FLT_MAX, FLT_MIN, FLT_MAX, FLT_MIN };
 
   for (uint32_t i = 0; i < format->length; i++, position = (float*) ((char*) position + format->stride)) {
     box[0] = MIN(box[0], position[0]);
-    box[1] = MIN(box[1], position[1]);
-    box[2] = MIN(box[2], position[2]);
-    box[3] = MAX(box[3], position[0]);
-    box[4] = MAX(box[4], position[1]);
+    box[1] = MAX(box[1], position[0]);
+    box[2] = MIN(box[2], position[1]);
+    box[3] = MAX(box[3], position[1]);
+    box[4] = MIN(box[4], position[2]);
     box[5] = MAX(box[5], position[2]);
   }
 
