@@ -226,7 +226,7 @@ static int l_lovrMeshGetDrawRange(lua_State* L) {
   lua_pushinteger(L, start + 1);
   lua_pushinteger(L, count);
   lua_pushinteger(L, offset);
-  return 2;
+  return 3;
 }
 
 static int l_lovrMeshSetDrawRange(lua_State* L) {
