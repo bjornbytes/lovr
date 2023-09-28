@@ -2049,7 +2049,7 @@ Texture* lovrGraphicsGetWindowTexture(void) {
 
     bool vsync = state.config.vsync;
 #ifndef LOVR_DISABLE_HEADSET
-    if (lovrHeadsetInterface->driverType != DRIVER_SIMULATOR) {
+    if (lovrHeadsetInterface && lovrHeadsetInterface->driverType != DRIVER_SIMULATOR) {
       vsync = false;
     }
 #endif
