@@ -2683,6 +2683,12 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
     },
     [SHADER_TALLY_MERGE] = {
       [STAGE_COMPUTE] = { lovr_shader_tallymerge_comp, sizeof(lovr_shader_tallymerge_comp) }
+    },
+    [SHADER_HARMONICA_CUBEMAP] = {
+      [STAGE_COMPUTE] = { lovr_shader_harmonica_cubemap_comp, sizeof(lovr_shader_harmonica_cubemap_comp) }
+    },
+    [SHADER_HARMONICA_EQUIRECT] = {
+      [STAGE_COMPUTE] = { lovr_shader_harmonica_equirect_comp, sizeof(lovr_shader_harmonica_equirect_comp) }
     }
   };
 
@@ -2698,6 +2704,8 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
     case SHADER_ANIMATOR:
     case SHADER_BLENDER:
     case SHADER_TALLY_MERGE:
+    case SHADER_HARMONICA_CUBEMAP:
+    case SHADER_HARMONICA_EQUIRECT:
       return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
         .type = SHADER_COMPUTE,
         .source[0] = lovrGraphicsGetDefaultShaderSource(type, STAGE_COMPUTE),
@@ -7317,15 +7325,19 @@ const uint32_t* lovrPassGetTallyData(Pass* pass, uint32_t* count) {
   return data;
 }
 
-void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
+static Compute* lovrPassGetCompute(Pass* pass) {
   if ((pass->computeCount & (pass->computeCount - 1)) == 0) {
     Compute* computes = lovrPassAllocate(pass, MAX(pass->computeCount << 1, 1) * sizeof(Compute));
     memcpy(computes, pass->computes, pass->computeCount * sizeof(Compute));
     pass->computes = computes;
   }
 
-  Compute* previous = pass->computeCount > 0 ? &pass->computes[pass->computeCount - 1] : NULL;
-  Compute* compute = &pass->computes[pass->computeCount++];
+  return &pass->computes[pass->computeCount++];
+}
+
+void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
+  Compute* compute = lovrPassGetCompute(pass);
+  Compute* previous = compute == pass->computes ? NULL : compute - 1;
   Shader* shader = pass->pipeline->shader;
 
   lovrCheck(shader && shader->info.type == SHADER_COMPUTE, "To run a compute shader, a compute shader must be active");
@@ -7350,6 +7362,35 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
     compute->y = y;
     compute->z = z;
   }
+}
+
+void lovrPassComputeSphericalHarmonics(Pass* pass, Texture* texture, Buffer* buffer, uint32_t offset) {
+  uint32_t extent = 9 * 4 * sizeof(float);
+  bool cubemap = texture->info.type == TEXTURE_CUBE;
+  lovrCheck(cubemap || texture->info.type == TEXTURE_2D, "Texture type must be 2d or cube");
+  lovrCheck(cubemap || texture->info.width == 2 * texture->info.height, "Texture width must be twice its height");
+  lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Texture must have 'storage' usage to compute spherical harmonics");
+  lovrCheck(buffer->info.size >= extent && offset <= buffer->info.size - extent, "Buffer range goes past the end of the Buffer");
+
+  Compute* compute = lovrPassGetCompute(pass);
+
+  compute->flags = 0;
+  compute->shader = lovrGraphicsGetDefaultShader(cubemap ? SHADER_HARMONICA_CUBEMAP : SHADER_HARMONICA_EQUIRECT);
+  lovrRetain(compute->shader);
+
+  gpu_bundle_info* bundle = lovrPassAllocate(pass, sizeof(gpu_bundle_info));
+  bundle->bindings = lovrPassAllocate(pass, 2 * sizeof(gpu_binding));
+  bundle->bindings[0] = (gpu_binding) { 0, GPU_SLOT_STORAGE_TEXTURE, .texture = texture->gpu };
+  bundle->bindings[1] = (gpu_binding) { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { buffer->gpu, offset, extent } };
+  bundle->layout = state.layouts.data[compute->shader->layout].gpu;
+  bundle->count = 2;
+
+  compute->bundleInfo = bundle;
+  compute->constants = NULL;
+
+  compute->x = 1;
+  compute->y = 1;
+  compute->z = 1;
 }
 
 void lovrPassBarrier(Pass* pass) {

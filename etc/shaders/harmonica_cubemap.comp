@@ -1,0 +1,77 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "lovr.glsl"
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 6) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly imageCube cubemapU8;
+layout(set = 0, binding = 1, std430) buffer writeonly Basis { vec3 basis[9]; };
+
+shared vec3 coefficients[54];
+shared float totalAngle[6];
+
+void lovrmain() {
+  uint face = GlobalThreadID.z;
+  uint base = face * 9;
+
+  totalAngle[face] = 0.;
+  for (int i = 0; i < 9; i++) {
+    coefficients[base + i] = vec3(0.);
+  }
+
+  int size = imageSize(cubemapU8).x;
+  float norm = 2. / size;
+
+  for (int y = 0; y < size; y++) {
+    for (int x = 0; x < size; x++) {
+      vec2 uv = (vec2(x, y) + .5) * norm - 1.;
+
+      vec3 dir;
+      switch (face) {
+        case 0: dir = vec3(-1., -uv.y, -uv.x); break;
+        case 1: dir = vec3(+1., -uv.y, +uv.x); break;
+        case 2: dir = vec3(-uv.x, +1., +uv.y); break;
+        case 3: dir = vec3(-uv.x, -1., -uv.y); break;
+        case 4: dir = vec3(-uv.x, -uv.y, +1.); break;
+        case 5: dir = vec3(+uv.x, -uv.y, -1.); break;
+      }
+
+      float dir2 = dot(dir, dir);
+      float len = sqrt(dir2);
+      dir /= len;
+
+      float solidAngle = 4. / (dir2 * len); // direction ^ (3/2)
+      totalAngle[face] += solidAngle;
+
+      vec3 texel = imageLoad(cubemapU8, ivec3(x, y, face)).rgb;
+      texel = pow(texel, vec3(2.2));
+      texel *= solidAngle;
+
+      coefficients[base + 0] += texel * .28209479177388;
+      coefficients[base + 1] += texel * .48860251190292 * dir.y;
+      coefficients[base + 2] += texel * .48860251190292 * dir.z;
+      coefficients[base + 3] += texel * .48860251190292 * dir.x;
+      coefficients[base + 4] += texel * 1.0925484305921 * dir.x * dir.y;
+      coefficients[base + 5] += texel * 1.0925484305921 * dir.y * dir.z;
+      coefficients[base + 6] += texel * .31539156525252 * (3. * dir.z * dir.z - 1.);
+      coefficients[base + 7] += texel * 1.0925484305921 * dir.x * dir.z;
+      coefficients[base + 8] += texel * .54627421529604 * (dir.x * dir.x - dir.y * dir.y);
+    }
+  }
+
+  barrier();
+
+  if (face == 0) {
+    for (int t = 1; t < 6; t++) {
+      totalAngle[0] += totalAngle[t];
+      for (int i = 0; i < 9; i++) {
+        coefficients[i] += coefficients[t * 9 + i];
+      }
+    }
+
+    for (int i = 0; i < 9; i++) {
+      basis[i] = (coefficients[i] / totalAngle[0]) * (4. * PI);
+    }
+  }
+}

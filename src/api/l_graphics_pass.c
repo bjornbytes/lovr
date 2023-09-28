@@ -1106,6 +1106,15 @@ static int l_lovrPassCompute(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassComputeSphericalHarmonics(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  Texture* texture = luax_checktype(L, 2, Texture);
+  Buffer* buffer = luax_checktype(L, 3, Buffer);
+  uint32_t offset = luax_optu32(L, 4, 0);
+  lovrPassComputeSphericalHarmonics(pass, texture, buffer, offset);
+  return 0;
+}
+
 static int l_lovrPassBarrier(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   lovrPassBarrier(pass);
@@ -1207,6 +1216,7 @@ const luaL_Reg lovrPass[] = {
   { "getTallyData", l_lovrPassGetTallyData },
 
   { "compute", l_lovrPassCompute },
+  { "computeSphericalHarmonics", l_lovrPassComputeSphericalHarmonics },
   { "barrier", l_lovrPassBarrier },
 
   // Deprecated
