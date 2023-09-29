@@ -1728,7 +1728,13 @@ void lovrGraphicsPresent(void) {
 }
 
 void lovrGraphicsWait(void) {
+  if (state.active) {
+    lovrGraphicsSubmit(NULL, 0);
+  }
+
   gpu_wait_idle();
+  gpu_wait_tick(state.tick);
+  processReadbacks();
 }
 
 // Buffer
