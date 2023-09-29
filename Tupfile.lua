@@ -254,6 +254,7 @@ if config.modules.graphics and config.glslang then
   lflags += '-lglslang'
 
   glslang_cflags += '-fPIC'
+  glslang_cflags += '-std=c++17'
   glslang_cflags += '-fno-exceptions'
   glslang_cflags += '-fno-rtti'
   glslang_cflags += '-Ideps/glslang'

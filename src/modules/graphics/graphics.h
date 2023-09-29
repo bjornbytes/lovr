@@ -330,7 +330,9 @@ typedef struct {
   const char* label;
 } ShaderInfo;
 
-ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source);
+typedef void* ShaderIncluder(const char* filename, size_t* bytesRead);
+
+ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source, ShaderIncluder* includer);
 ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage);
 Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
 Shader* lovrShaderCreate(const ShaderInfo* info);

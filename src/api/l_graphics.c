@@ -1046,7 +1046,7 @@ static ShaderSource luax_checkshadersource(lua_State* L, int index, ShaderStage 
     return lovrGraphicsGetDefaultShaderSource(SHADER_UNLIT, stage);
   }
 
-  ShaderSource bytecode = lovrGraphicsCompileShader(stage, &source);
+  ShaderSource bytecode = lovrGraphicsCompileShader(stage, &source, luax_readfile);
 
   if (bytecode.code != source.code) {
     if (*allocated) free((void*) source.code);

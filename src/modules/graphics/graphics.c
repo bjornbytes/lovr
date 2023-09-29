@@ -2484,7 +2484,20 @@ const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
 
 // Shader
 
-ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) {
+#ifdef LOVR_USE_GLSLANG
+static glsl_include_result_t* includer(void* cb, const char* path, const char* includer, size_t depth) {
+  if (!strcmp(path, includer)) {
+    return NULL;
+  }
+  glsl_include_result_t* result = tempAlloc(&state.allocator, sizeof(*result));
+  lovrAssert(result, "Out of memory");
+  result->header_name = path;
+  result->header_data = ((ShaderIncluder*) cb)(path, &result->header_length);
+  return result;
+}
+#endif
+
+ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source, ShaderIncluder* io) {
   uint32_t magic = 0x07230203;
 
   if (source->size % 4 == 0 && source->size >= 4 && !memcmp(source->code, &magic, 4)) {
@@ -2540,7 +2553,9 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source) 
     .string_count = COUNTOF(strings),
     .default_version = 460,
     .default_profile = GLSLANG_NO_PROFILE,
-    .resource = resource
+    .resource = resource,
+    .callbacks.include_local = includer,
+    .callbacks_ctx = (void*) io
   };
 
   glslang_shader_t* shader = glslang_shader_create(&input);
