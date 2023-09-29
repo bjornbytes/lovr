@@ -2181,6 +2181,9 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     }
   }
 
+  // Render targets with mipmaps get transfer usage for automipmapping
+  bool transfer = (info->usage & TEXTURE_TRANSFER) || ((info->usage & TEXTURE_RENDER) && texture->info.mipmaps > 1);
+
   gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
     .format = (gpu_texture_format) info->format,
@@ -2191,7 +2194,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
-      ((info->usage & TEXTURE_TRANSFER) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
+      (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
       ((info->usage == TEXTURE_RENDER) ? GPU_TEXTURE_TRANSIENT : 0),
     .srgb = info->srgb,
     .handle = info->handle,
