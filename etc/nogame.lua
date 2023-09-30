@@ -12,7 +12,7 @@ function lovr.load()
     return
   end
 
-  if lovr.headset.getPassthrough() == 'opaque' then
+  if not lovr.headset or lovr.headset.getPassthrough() == 'opaque' then
     lovr.graphics.setBackgroundColor(0x20232c)
   end
 
