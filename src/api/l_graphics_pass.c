@@ -96,11 +96,7 @@ int l_lovrPassSetCanvas(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "samples");
-    if (lua_isboolean(L, -1)) {
-      samples = lua_toboolean(L, -1) ? 4 : 1;
-    } else if (lua_type(L, -1) == LUA_TNUMBER) {
-      samples = lua_tointeger(L, -1);
-    }
+    samples = luax_optu32(L, -1, samples);
     lua_pop(L, 1);
   } else if (lua_isuserdata(L, 2)) {
     int top = lua_gettop(L);
