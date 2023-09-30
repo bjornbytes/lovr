@@ -1137,6 +1137,7 @@ const luaL_Reg lovrPass[] = {
   { "getWidth", l_lovrPassGetWidth },
   { "getHeight", l_lovrPassGetHeight },
   { "getDimensions", l_lovrPassGetDimensions },
+
   { "getViewCount", l_lovrPassGetViewCount },
   { "getViewPose", l_lovrPassGetViewPose },
   { "setViewPose", l_lovrPassSetViewPose },

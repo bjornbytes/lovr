@@ -581,8 +581,8 @@ void lovrPassSetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadA
 uint32_t lovrPassGetAttachmentCount(Pass* pass, bool* depth);
 uint32_t lovrPassGetWidth(Pass* pass);
 uint32_t lovrPassGetHeight(Pass* pass);
-uint32_t lovrPassGetViewCount(Pass* pass);
 
+uint32_t lovrPassGetViewCount(Pass* pass);
 void lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 void lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 void lovrPassGetProjection(Pass* pass, uint32_t index, float projection[16]);

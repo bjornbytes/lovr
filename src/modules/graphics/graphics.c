@@ -5404,6 +5404,8 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
     lovrCheck(samples == 1 || samples == 4, "Currently MSAA must be 1 or 4");
     canvas->samples = t->samples > 1 ? t->samples : samples;
     canvas->resolve = t->samples == 1 && samples > 1;
+  } else {
+    memset(canvas, 0, sizeof(Canvas));
   }
 
   for (uint32_t i = 0; i < COUNTOF(canvas->color) && textures[i]; i++, canvas->count++) {
