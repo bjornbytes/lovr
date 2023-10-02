@@ -6167,6 +6167,7 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   pass->flags &= ~DIRTY_CAMERA;
 
   draw->shader = pass->pipeline->shader ? pass->pipeline->shader : lovrGraphicsGetDefaultShader(info->shader);
+  lovrCheck(draw->shader->info.type == SHADER_GRAPHICS, "Tried to draw while a compute shader is active");
   lovrRetain(draw->shader);
 
   draw->material = info->material;
