@@ -1061,9 +1061,14 @@ static int l_lovrPassGetTallyBuffer(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t offset;
   Buffer* buffer = lovrPassGetTallyBuffer(pass, &offset);
-  luax_pushtype(L, Buffer, buffer);
-  lua_pushinteger(L, offset);
-  return 2;
+  if (buffer) {
+    luax_pushtype(L, Buffer, buffer);
+    lua_pushinteger(L, offset);
+    return 2;
+  } else {
+    lua_pushnil(L);
+    return 1;
+  }
 }
 
 static int l_lovrPassSetTallyBuffer(lua_State* L) {
@@ -1072,19 +1077,6 @@ static int l_lovrPassSetTallyBuffer(lua_State* L) {
   uint32_t offset = luax_optu32(L, 3, 0);
   lovrPassSetTallyBuffer(pass, buffer, offset);
   return 0;
-}
-
-static int l_lovrPassGetTallyData(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  uint32_t count;
-  const uint32_t* data = lovrPassGetTallyData(pass, &count);
-  if (!data) return lua_pushnil(L), 0;
-  lua_createtable(L, (int) count, 0);
-  for (int i = 0; i < (int) count; i++) {
-    lua_pushinteger(L, data[i]);
-    lua_rawseti(L, -2, i + 1);
-  }
-  return 1;
 }
 
 static int l_lovrPassCompute(lua_State* L) {
@@ -1201,7 +1193,6 @@ const luaL_Reg lovrPass[] = {
   { "finishTally", l_lovrPassFinishTally },
   { "getTallyBuffer", l_lovrPassGetTallyBuffer },
   { "setTallyBuffer", l_lovrPassSetTallyBuffer },
-  { "getTallyData", l_lovrPassGetTallyData },
 
   { "compute", l_lovrPassCompute },
   { "barrier", l_lovrPassBarrier },

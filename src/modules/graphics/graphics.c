@@ -486,8 +486,6 @@ typedef struct {
   gpu_buffer* secretBuffer;
   bool active;
   uint32_t count;
-  uint32_t lastCount;
-  uint32_t views;
   uint32_t bufferOffset;
   Buffer* buffer;
 } Tally;
@@ -1310,7 +1308,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     lovrPassFinishTally(pass);
   }
 
-  if (pass->tally.count > 0) {
+  if (pass->tally.buffer && pass->tally.count > 0) {
     if (!pass->tally.gpu) {
       pass->tally.gpu = malloc(gpu_sizeof_tally());
       lovrAssert(pass->tally.gpu, "Out of memory");
@@ -1327,9 +1325,6 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
     gpu_clear_tally(stream, pass->tally.gpu, 0, pass->tally.count * canvas->views);
   }
-
-  pass->tally.lastCount = pass->tally.count;
-  pass->tally.views = canvas->views;
 
   // Do the thing!
 
@@ -1358,7 +1353,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     Draw* draw = &pass->draws[activeDraws[i] >> 8][activeDraws[i] & 0xff];
     bool constantsDirty = draw->constants != constants;
 
-    if (draw->tally != tally) {
+    if (pass->tally.buffer && draw->tally != tally) {
       if (tally != ~0u) gpu_tally_finish(stream, pass->tally.gpu, tally * canvas->views);
       if (draw->tally != ~0u) gpu_tally_begin(stream, pass->tally.gpu, draw->tally * canvas->views);
       tally = draw->tally;
@@ -1446,14 +1441,15 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   if (texture && texture->info.mipmaps > 1) {
     gpu_sync(stream, &barrier, barrierCount);
     mipmapTexture(stream, texture, 0, ~0u);
-    barrierCount = 0;
   }
 
   // Tally copy
 
-  if (pass->tally.count > 0 && pass->tally.buffer) {
-    uint32_t queryCount = pass->tally.count * state.limits.renderSize[2];
-    gpu_copy_tally_buffer(stream, pass->tally.gpu, pass->tally.secretBuffer, 0, 0, queryCount);
+  if (pass->tally.buffer && pass->tally.count > 0) {
+    Tally* tally = &pass->tally;
+    uint32_t count = MIN(tally->count, (tally->buffer->info.size - tally->bufferOffset) / 4);
+
+    gpu_copy_tally_buffer(stream, tally->gpu, tally->secretBuffer, 0, 0, count * canvas->views);
 
     gpu_barrier barrier = {
       .prev = GPU_PHASE_TRANSFER,
@@ -1463,7 +1459,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     };
 
     Access access = {
-      .sync = &pass->tally.buffer->sync,
+      .sync = &tally->buffer->sync,
       .phase = GPU_PHASE_SHADER_COMPUTE,
       .cache = GPU_CACHE_STORAGE_WRITE
     };
@@ -1472,18 +1468,19 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     gpu_sync(stream, &barrier, 1);
 
     gpu_binding bindings[] = {
-      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { pass->tally.secretBuffer, 0, queryCount * sizeof(uint32_t) } },
-      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { pass->tally.buffer->gpu, 0, pass->tally.count * sizeof(uint32_t) } }
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->secretBuffer, 0, count * canvas->views * sizeof(uint32_t) } },
+      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer->gpu, tally->bufferOffset, count * sizeof(uint32_t) } }
     };
 
     Shader* shader = lovrGraphicsGetDefaultShader(SHADER_TALLY_MERGE);
     gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
+    uint32_t constants[2] = { count, canvas->views };
 
     gpu_compute_begin(stream);
     gpu_bind_pipeline(stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
     gpu_bind_bundles(stream, shader->gpu, &bundle, 0, 1, NULL, 0);
-    gpu_push_constants(stream, shader->gpu, (uint32_t[2]) { pass->tally.count, pass->tally.views }, 8);
-    gpu_compute(stream, (pass->tally.count + 31) / 32, 1, 1);
+    gpu_push_constants(stream, shader->gpu, constants, sizeof(constants));
+    gpu_compute(stream, (count + 31) / 32, 1, 1);
     gpu_compute_end(stream);
   }
 }
@@ -7288,31 +7285,11 @@ Buffer* lovrPassGetTallyBuffer(Pass* pass, uint32_t* offset) {
 }
 
 void lovrPassSetTallyBuffer(Pass* pass, Buffer* buffer, uint32_t offset) {
+  lovrCheck(offset % 4 == 0, "Tally buffer offset must be a multiple of 4");
   lovrRelease(pass->tally.buffer, lovrBufferDestroy);
   pass->tally.buffer = buffer;
   pass->tally.bufferOffset = offset;
   lovrRetain(buffer);
-}
-
-const uint32_t* lovrPassGetTallyData(Pass* pass, uint32_t* count) {
-  if (pass->tally.lastCount == 0 || !pass->tally.gpu) {
-    return NULL;
-  }
-
-  *count = pass->tally.lastCount;
-  uint32_t views = pass->tally.views;
-  uint32_t total = *count * views;
-  uint32_t* data = tempAlloc(&state.allocator, total * sizeof(uint32_t));
-  gpu_wait_idle();
-  gpu_tally_get_data(pass->tally.gpu, 0, total, data);
-  for (uint32_t i = 0; i < *count; i++) {
-    uint32_t* base = data + i * views;
-    for (uint32_t j = 1; j < views; j++) {
-      base[0] += base[j];
-    }
-  }
-
-  return data;
 }
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {

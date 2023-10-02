@@ -497,7 +497,6 @@ typedef struct {
 
 bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info);
 void gpu_tally_destroy(gpu_tally* tally);
-void gpu_tally_get_data(gpu_tally* tally, uint32_t index, uint32_t count, uint32_t* data);
 
 // Stream
 

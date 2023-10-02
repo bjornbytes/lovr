@@ -650,7 +650,6 @@ uint32_t lovrPassBeginTally(Pass* pass);
 uint32_t lovrPassFinishTally(Pass* pass);
 Buffer* lovrPassGetTallyBuffer(Pass* pass, uint32_t* offset);
 void lovrPassSetTallyBuffer(Pass* pass, Buffer* buffer, uint32_t offset);
-const uint32_t* lovrPassGetTallyData(Pass* pass, uint32_t* count);
 
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset);
 void lovrPassBarrier(Pass* pass);
