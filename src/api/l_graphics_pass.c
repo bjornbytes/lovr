@@ -173,7 +173,7 @@ static int l_lovrPassSetClear(lua_State* L) {
     if (lua_type(L, -1) == LUA_TNUMBER) {
       lua_pop(L, 1);
       loads[0] = LOAD_CLEAR;
-      luax_readcolor(L, -1, clears[0]);
+      luax_optcolor(L, -1, clears[0]);
       for (uint32_t i = 1; i < COUNTOF(clears); i++) {
         memcpy(clears[i], clears[0], 4 * sizeof(float));
         loads[i] = loads[0];
