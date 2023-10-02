@@ -1073,7 +1073,7 @@ static int l_lovrPassGetTallyBuffer(lua_State* L) {
 
 static int l_lovrPassSetTallyBuffer(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Buffer* buffer = luax_checktype(L, 2, Buffer);
+  Buffer* buffer = luax_totype(L, 2, Buffer);
   uint32_t offset = luax_optu32(L, 3, 0);
   lovrPassSetTallyBuffer(pass, buffer, offset);
   return 0;
