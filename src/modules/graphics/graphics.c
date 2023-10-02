@@ -607,7 +607,7 @@ static uint32_t lcm(uint32_t a, uint32_t b);
 static void beginFrame(void);
 static void processReadbacks(void);
 static size_t getLayout(gpu_slot* slots, uint32_t count);
-static gpu_bundle* getBundle(size_t layout);
+static gpu_bundle* getBundle(size_t layout, gpu_binding* bindings, uint32_t count);
 static gpu_texture* getScratchTexture(Canvas* canvas, TextureFormat format, bool srgb);
 static bool isDepthFormat(TextureFormat format);
 static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d);
@@ -1032,10 +1032,9 @@ static void recordComputePass(Pass* pass, gpu_stream* stream) {
     }
 
     if (compute->bundleInfo != bundleInfo) {
-      gpu_bundle* bundle = getBundle(compute->shader->layout);
-      gpu_bundle_write(&bundle, compute->bundleInfo, 1);
-      gpu_bind_bundles(stream, compute->shader->gpu, &bundle, 0, 1, NULL, 0);
       bundleInfo = compute->bundleInfo;
+      gpu_bundle* bundle = getBundle(compute->shader->layout, bundleInfo->bindings, bundleInfo->count);
+      gpu_bind_bundles(stream, compute->shader->gpu, &bundle, 0, 1, NULL, 0);
     }
 
     if (compute->constants && compute->constants != constants) {
@@ -1197,8 +1196,6 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   // Builtins
 
-  gpu_bundle* builtinBundle = getBundle(LAYOUT_BUILTIN);
-
   gpu_binding builtins[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = { 0 } },
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .buffer = { 0 } },
@@ -1206,32 +1203,23 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     { 3, GPU_SLOT_SAMPLER, .sampler = pass->sampler ? pass->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu }
   };
 
-  gpu_bundle_info builtinfo = {
-    .layout = state.layouts.data[LAYOUT_BUILTIN].gpu,
-    .bindings = builtins,
-    .count = COUNTOF(builtins)
-  };
-
   MappedBuffer mapped;
   size_t align = state.limits.uniformBufferAlign;
 
   // Globals
-
   mapped = mapBuffer(&state.streamBuffers, sizeof(Globals), align);
   builtins[0].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
-
   Globals* global = mapped.pointer;
-
   global->resolution[0] = canvas->width;
   global->resolution[1] = canvas->height;
   global->time = lovrHeadsetInterface ? lovrHeadsetInterface->getDisplayTime() : os_get_time();
 
+  // Cameras
   mapped = mapBuffer(&state.streamBuffers, pass->cameraCount * canvas->views * sizeof(Camera), align);
   builtins[1].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
   memcpy(mapped.pointer, pass->cameras, pass->cameraCount * canvas->views * sizeof(Camera));
 
   // DrawData
-
   mapped = mapBuffer(&state.streamBuffers, activeDrawCount * sizeof(DrawData), align);
   builtins[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, MIN(activeDrawCount, 256) * sizeof(DrawData) };
   DrawData* data = mapped.pointer;
@@ -1257,7 +1245,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     data->color[3] = draw->color[3];
   }
 
-  gpu_bundle_write(&builtinBundle, &builtinfo, 1);
+  gpu_bundle* builtinBundle = getBundle(LAYOUT_BUILTIN, builtins, COUNTOF(builtins));
 
   // Pipelines
 
@@ -1308,8 +1296,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     }
 
     if (draw->bundleInfo) {
-      draw->bundle = getBundle(draw->shader->layout);
-      gpu_bundle_write(&draw->bundle, draw->bundleInfo, 1);
+      draw->bundle = getBundle(draw->shader->layout, draw->bundleInfo->bindings, draw->bundleInfo->count);
     } else {
       draw->bundle = NULL;
     }
@@ -1484,27 +1471,18 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     syncResource(&access, &barrier);
     gpu_sync(stream, &barrier, 1);
 
-    Shader* shader = lovrGraphicsGetDefaultShader(SHADER_TALLY_MERGE);
-    gpu_layout* layout = state.layouts.data[shader->layout].gpu;
-
     gpu_binding bindings[] = {
       { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { pass->tally.secretBuffer, 0, queryCount * sizeof(uint32_t) } },
       { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { pass->tally.buffer->gpu, 0, pass->tally.count * sizeof(uint32_t) } }
     };
 
-    gpu_bundle* bundle = getBundle(shader->layout);
-    gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
-    gpu_bundle_write(&bundle, &bundleInfo, 1);
-
-    struct { uint32_t count, views; } constants = {
-      .count = pass->tally.count,
-      .views = pass->tally.views
-    };
+    Shader* shader = lovrGraphicsGetDefaultShader(SHADER_TALLY_MERGE);
+    gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
 
     gpu_compute_begin(stream);
     gpu_bind_pipeline(stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
     gpu_bind_bundles(stream, shader->gpu, &bundle, 0, 1, NULL, 0);
-    gpu_push_constants(stream, shader->gpu, &constants, sizeof(constants));
+    gpu_push_constants(stream, shader->gpu, (uint32_t[2]) { pass->tally.count, pass->tally.views }, 8);
     gpu_compute(stream, (pass->tally.count + 31) / 32, 1, 1);
     gpu_compute_end(stream);
   }
@@ -4716,7 +4694,6 @@ static void lovrModelAnimateVertices(Model* model) {
 
   if (blend) {
     Shader* shader = lovrGraphicsGetDefaultShader(SHADER_BLENDER);
-    gpu_layout* layout = state.layouts.data[shader->layout].gpu;
     uint32_t vertexCount = data->dynamicVertexCount;
     uint32_t blendBufferCursor = 0;
     uint32_t chunkSize = 64;
@@ -4742,15 +4719,12 @@ static void lovrModelAnimateVertices(Model* model) {
         memcpy(mapped.pointer, model->blendShapeWeights + group->index + j, count * sizeof(float));
         bindings[3].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
 
-        gpu_bundle* bundle = getBundle(shader->layout);
-        gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
-        gpu_bundle_write(&bundle, &bundleInfo, 1);
-
+        gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
         uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor, first };
         uint32_t subgroupSize = state.device.subgroupSize;
 
-        gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
         gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
+        gpu_push_constants(state.stream, shader->gpu, constants, sizeof(constants));
         gpu_compute(state.stream, (group->vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
 
         if (j + count < group->count) {
@@ -4783,7 +4757,6 @@ static void lovrModelAnimateVertices(Model* model) {
 
     Shader* shader = lovrGraphicsGetDefaultShader(SHADER_ANIMATOR);
     gpu_buffer* sourceBuffer = blend ? model->vertexBuffer->gpu : model->rawVertexBuffer->gpu;
-    gpu_layout* layout = state.layouts.data[shader->layout].gpu;
 
     uint32_t count = data->skinnedVertexCount;
 
@@ -4812,9 +4785,7 @@ static void lovrModelAnimateVertices(Model* model) {
         joints += 16;
       }
 
-      gpu_bundle* bundle = getBundle(shader->layout);
-      gpu_bundle_info bundleInfo = { layout, bindings, COUNTOF(bindings) };
-      gpu_bundle_write(&bundle, &bundleInfo, 1);
+      gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
       gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
 
       uint32_t subgroupSize = state.device.subgroupSize;
@@ -7553,14 +7524,16 @@ static size_t getLayout(gpu_slot* slots, uint32_t count) {
   return index;
 }
 
-static gpu_bundle* getBundle(size_t layoutIndex) {
+static gpu_bundle* getBundle(size_t layoutIndex, gpu_binding* bindings, uint32_t count) {
   Layout* layout = &state.layouts.data[layoutIndex];
   BundlePool* pool = layout->head;
   const uint32_t POOL_SIZE = 512;
+  gpu_bundle* bundle = NULL;
 
   if (pool) {
     if (pool->cursor < POOL_SIZE) {
-      return (gpu_bundle*) ((char*) pool->bundles + gpu_sizeof_bundle() * pool->cursor++);
+      bundle = (gpu_bundle*) ((char*) pool->bundles + gpu_sizeof_bundle() * pool->cursor++);
+      goto write;
     }
 
     // If the pool's closed, move it to the end of the list and try to use the next pool
@@ -7572,8 +7545,9 @@ static gpu_bundle* getBundle(size_t layoutIndex) {
     pool = layout->head;
 
     if (pool && gpu_is_complete(pool->tick)) {
+      bundle = pool->bundles;
       pool->cursor = 1;
-      return pool->bundles;
+      goto write;
     }
   }
 
@@ -7597,7 +7571,10 @@ static gpu_bundle* getBundle(size_t layoutIndex) {
 
   layout->head = pool;
   if (!layout->tail) layout->tail = pool;
-  return pool->bundles;
+  bundle = pool->bundles;
+write:
+  gpu_bundle_write(&bundle, &(gpu_bundle_info) { layout->gpu, bindings, count }, 1);
+  return bundle;
 }
 
 static gpu_texture* getScratchTexture(Canvas* canvas, TextureFormat format, bool srgb) {
