@@ -281,9 +281,11 @@ end
 
 if config.modules.data then
   cflags_rasterizer += '-Ideps/msdfgen'
+  cflags_rasterizer += '-DMSDFGEN_PUBLIC='
   lflags += '-lmsdfgen'
 
   msdfgen_cflags += '-fPIC'
+  msdfgen_cflags += target == 'win32' and '-DMSDFGEN_PUBLIC=__declspec(dllexport)' or '-DMSDFGEN_PUBLIC='
   msdfgen_src += 'deps/msdfgen/core/*.cpp'
   tup.foreach_rule(msdfgen_src, '^ CC msdfgen/%b^ $(cxx) $(flags) $(msdfgen_cflags) -c %f -o %o', '.obj/msdfgen/%B.o')
   tup.rule('.obj/msdfgen/*.o', '^ LD %o^ $(cxx) $(flags) -shared -o %o %f', lib('msdfgen'))
