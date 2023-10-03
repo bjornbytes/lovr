@@ -1401,7 +1401,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
       if ((info.vertexBuffer = luax_totype(L, index, Buffer)) != NULL) break;
       if ((blob = luax_totype(L, index, Blob)) != NULL) {
         lovrCheck(blob->size % format->stride == 0, "Blob size must be a multiple of vertex size");
-        format->length = blob->size / format->stride;
+        lovrCheck(blob->size < UINT32_MAX, "Max Blob size is 4GB");
+        format->length = (uint32_t) (blob->size / format->stride);
         hasData = true;
         break;
       }

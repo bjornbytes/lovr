@@ -73,9 +73,9 @@ static int l_lovrMeshSetVertices(lua_State* L) {
   const DataField* format = lovrMeshGetVertexFormat(mesh);
   uint32_t index = luax_optu32(L, 3, 1) - 1;
   if ((blob = luax_totype(L, 2, Blob)) != NULL) {
-    uint32_t limit = MIN(blob->size / format->stride, format->length - index);
+    uint32_t limit = (uint32_t) MIN(blob->size / format->stride, format->length - index);
     uint32_t count = luax_optu32(L, 4, limit);
-    lovrCheck(blob->size / format->stride <= limit, "Tried to read past the end of the Blob");
+    lovrCheck(blob->size / format->stride >= count, "Tried to read past the end of the Blob");
     void* data = lovrMeshSetVertices(mesh, index, count);
     memcpy(data, blob->data, count * format->stride);
   } else if (lua_istable(L, 2)) {
@@ -148,7 +148,7 @@ static int l_lovrMeshSetIndices(lua_State* L) {
       DataType type = luax_checkenum(L, 3, DataType, NULL);
       lovrCheck(type == TYPE_U16 || type == TYPE_U32, "Blob type must be u16 or u32");
       size_t stride = type == TYPE_U16 ? 2 : 4;
-      uint32_t count = blob->size / stride;
+      uint32_t count = (uint32_t) MIN(blob->size / stride, UINT32_MAX);
       void* data = lovrMeshSetIndices(mesh, count, type);
       memcpy(data, blob->data, count * stride);
     }
