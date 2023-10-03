@@ -218,6 +218,7 @@ bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* 
   float offsetY = -y0 * scale + padding;
 
   msShapeNormalize(shape);
+  msShapeOrientContours(shape);
   msEdgeColoringSimple(shape, 3., 0);
   msGenerateMTSDF(pixels, width, height, shape, spread, 1.f, 1.f, offsetX, offsetY);
   msShapeDestroy(shape);
