@@ -114,13 +114,14 @@ static int l_lovrTextureHasUsage(lua_State* L) {
 
 static int l_lovrTextureNewReadback(lua_State* L) {
   Texture* texture = luax_totype(L, 1, Texture);
-  uint32_t offset[4], extent[2];
+  uint32_t offset[4], extent[3];
   offset[0] = luax_optu32(L, 2, 0);
   offset[1] = luax_optu32(L, 3, 0);
   offset[2] = luax_optu32(L, 4, 1) - 1;
   offset[3] = luax_optu32(L, 5, 1) - 1;
   extent[0] = luax_optu32(L, 6, ~0u);
   extent[1] = luax_optu32(L, 7, ~0u);
+  extent[2] = 1;
   Readback* readback = lovrReadbackCreateTexture(texture, offset, extent);
   luax_pushtype(L, Readback, readback);
   lovrRelease(readback, lovrReadbackDestroy);

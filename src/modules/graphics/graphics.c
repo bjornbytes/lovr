@@ -4843,7 +4843,7 @@ Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t ext
   return readback;
 }
 
-Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[2]) {
+Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[3]) {
   if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
   if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
   lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");

@@ -492,7 +492,7 @@ Material* lovrModelGetMaterial(Model* model, uint32_t index);
 // Readback
 
 Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent);
-Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[2]);
+Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[3]);
 void lovrReadbackDestroy(void* ref);
 bool lovrReadbackIsComplete(Readback* readback);
 bool lovrReadbackWait(Readback* readback);
