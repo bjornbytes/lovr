@@ -533,13 +533,6 @@ static int l_lovrBufferGetFormat(lua_State* L) {
   return 1;
 }
 
-static int l_lovrBufferGetPointer(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
-  void* pointer = lovrBufferSetData(buffer, 0, ~0u);
-  lua_pushlightuserdata(L, pointer);
-  return 1;
-}
-
 static int l_lovrBufferNewReadback(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   uint32_t offset = luax_optu32(L, 2, 0);
@@ -660,6 +653,15 @@ static int l_lovrBufferSetData(lua_State* L) {
   return luax_typeerror(L, 2, "table, Blob, or Buffer");
 }
 
+static int l_lovrBufferMapData(lua_State* L) {
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  uint32_t offset = luax_optu32(L, 2, 0);
+  uint32_t extent = luax_optu32(L, 3, ~0u);
+  void* pointer = lovrBufferSetData(buffer, offset, extent);
+  lua_pushlightuserdata(L, pointer);
+  return 1;
+}
+
 static int l_lovrBufferClear(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   uint32_t offset = luax_optu32(L, 2, 0);
@@ -681,13 +683,14 @@ const luaL_Reg lovrBuffer[] = {
   { "getLength", l_lovrBufferGetLength },
   { "getStride", l_lovrBufferGetStride },
   { "getFormat", l_lovrBufferGetFormat },
-  { "getPointer", l_lovrBufferGetPointer },
   { "newReadback", l_lovrBufferNewReadback },
   { "getData", l_lovrBufferGetData },
   { "setData", l_lovrBufferSetData },
+  { "mapData", l_lovrBufferMapData },
   { "clear", l_lovrBufferClear },
 
   // Deprecated
   { "isTemporary", l_lovrBufferIsTemporary },
+  { "getPointer", l_lovrBufferMapData },
   { NULL, NULL }
 };
