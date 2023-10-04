@@ -545,9 +545,13 @@ static int l_lovrBufferNewReadback(lua_State* L) {
 
 static int l_lovrBufferGetData(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
-  const BufferInfo* info = lovrBufferGetInfo(buffer);
-  void* data = lovrBufferGetData(buffer, 0, info->size);
-  return luax_pushbufferdata(L, info->format, data);
+  const DataField* format = lovrBufferGetInfo(buffer)->format;
+  lovrCheck(format, "Buffer:getData requires the Buffer to have a format");
+  uint32_t index = luax_optu32(L, 2, 1) - 1;
+  lovrCheck(index < format->length, "Buffer:getData index exceeds the Buffer's length");
+  uint32_t count = luax_optu32(L, 3, format->length - index);
+  void* data = lovrBufferGetData(buffer, index * format->stride, count * format->stride);
+  return luax_pushbufferdata(L, format, data);
 }
 
 static int l_lovrBufferSetData(lua_State* L) {
