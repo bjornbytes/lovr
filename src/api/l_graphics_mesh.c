@@ -92,21 +92,30 @@ static int l_lovrMeshSetVertices(lua_State* L) {
 
 static int l_lovrMeshGetIndices(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
+
   uint32_t count;
   DataType type;
   void* data = lovrMeshGetIndices(mesh, &count, &type);
+
+  if (!data) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  uint16_t* u16 = data;
+  uint32_t* u32 = data;
   lua_createtable(L, (int) count, 0);
   for (uint32_t i = 0; i < count; i++) {
-    union { uint32_t* u32; uint16_t* u16; } p = { .u32 = data };
     switch (type) {
-      case TYPE_U16: lua_pushinteger(L, p.u16[i]); break;
-      case TYPE_U32: lua_pushinteger(L, p.u32[i]); break;
-      case TYPE_INDEX16: lua_pushinteger(L, p.u16[i] + 1); break;
-      case TYPE_INDEX32: lua_pushinteger(L, p.u32[i] + 1); break;
+      case TYPE_U16: lua_pushinteger(L, u16[i]); break;
+      case TYPE_U32: lua_pushinteger(L, u32[i]); break;
+      case TYPE_INDEX16: lua_pushinteger(L, u16[i] + 1); break;
+      case TYPE_INDEX32: lua_pushinteger(L, u32[i] + 1); break;
       default: lovrUnreachable();
     }
     lua_rawseti(L, -2, i + 1);
   }
+
   return 1;
 }
 
