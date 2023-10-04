@@ -399,57 +399,47 @@ static int luax_pushstruct(lua_State* L, const DataField* fields, uint32_t count
 }
 
 int luax_pushbufferdata(lua_State* L, const DataField* format, uint32_t count, char* data) {
-  if (count > 1) {
-    if (format->fieldCount > 1) {
-      bool nested = false;
+  lua_createtable(L, count, 0);
 
-      for (uint32_t i = 0; i < format->fieldCount; i++) {
-        if (format->fields[i].fields || format->fields[i].length > 0) {
-          nested = true;
-          break;
-        }
-      }
+  if (format->fieldCount > 1 || typeComponents[format->fields[0].type] > 1) {
+    bool nested = false;
 
-      lua_createtable(L, count, 0);
-
-      if (nested) {
-        for (uint32_t i = 0; i < count; i++) {
-          luax_pushstruct(L, format->fields, format->fieldCount, data);
-          lua_rawseti(L, -2, i + 1);
-          data += format->stride;
-        }
-      } else {
-        for (uint32_t i = 0; i < count; i++, data += format->stride) {
-          lua_newtable(L);
-          int j = 1;
-          for (uint32_t f = 0; f < format->fieldCount; f++) {
-            const DataField* field = &format->fields[f];
-            int n = luax_pushcomponents(L, field->type, data + field->offset);
-            for (int c = 0; c < n; c++) {
-              lua_rawseti(L, -1 - n + c, j + n - 1 - c);
-            }
-            j += n;
-          }
-          lua_rawseti(L, -2, i + 1);
-        }
-      }
-    } else {
-      const DataField* field = format->fields;
-      uint32_t n = typeComponents[field->type];
-      lua_createtable(L, (int) (count * n), 0);
-      for (uint32_t i = 0, j = 1; i < count; i++, j += n, data += format->stride) {
-        luax_pushcomponents(L, field->type, data + field->offset);
-        for (uint32_t c = 0; c < n; c++) {
-          lua_rawseti(L, -1 - n + c, j + n - 1 - c);
-        }
+    for (uint32_t i = 0; i < format->fieldCount; i++) {
+      if (format->fields[i].fields || format->fields[i].length > 0) {
+        nested = true;
+        break;
       }
     }
-    return 1;
-  } else if (format->fields[0].name && (format->fieldCount > 1 || format->fields[0].length > 0 || format->fields[0].fieldCount > 0)) {
-    return luax_pushstruct(L, format->fields, format->fieldCount, data);
+
+    if (nested) {
+      for (uint32_t i = 0; i < count; i++) {
+        luax_pushstruct(L, format->fields, format->fieldCount, data);
+        lua_rawseti(L, -2, i + 1);
+        data += format->stride;
+      }
+    } else {
+      for (uint32_t i = 0; i < count; i++, data += format->stride) {
+        lua_newtable(L);
+        int j = 1;
+        for (uint32_t f = 0; f < format->fieldCount; f++) {
+          const DataField* field = &format->fields[f];
+          int n = luax_pushcomponents(L, field->type, data + field->offset);
+          for (int c = 0; c < n; c++) {
+            lua_rawseti(L, -1 - n + c, j + n - 1 - c);
+          }
+          j += n;
+        }
+        lua_rawseti(L, -2, i + 1);
+      }
+    }
   } else {
-    return luax_pushcomponents(L, format->fields[0].type, data);
+    for (uint32_t i = 0; i < count; i++, data += format->stride) {
+      luax_pushcomponents(L, format->fields[0].type, data + format->fields[0].offset);
+      lua_rawseti(L, -2, i + 1);
+    }
   }
+
+  return 1;
 }
 
 uint32_t luax_gettablestride(lua_State* L, int index, int subindex, DataField* fields, uint32_t count) {
