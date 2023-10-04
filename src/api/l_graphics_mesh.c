@@ -62,9 +62,8 @@ static int l_lovrMeshGetVertices(lua_State* L) {
   uint32_t index = luax_optu32(L, 2, 1) - 1;
   uint32_t count = luax_optu32(L, 3, ~0u);
   void* data = lovrMeshGetVertices(mesh, index, count);
-  DataField format = *lovrMeshGetVertexFormat(mesh);
-  format.length = count == ~0u ? format.length - index : count;
-  return luax_pushbufferdata(L, &format, data);
+  const DataField* format = lovrMeshGetVertexFormat(mesh);
+  return luax_pushbufferdata(L, format, count == ~0u ? format->length - index : count, data);
 }
 
 static int l_lovrMeshSetVertices(lua_State* L) {

@@ -4828,6 +4828,8 @@ Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t ext
   if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(!lovrBufferIsTemporary(buffer), "Unable to read data back from a temporary Buffer");
   lovrCheck(offset + extent <= buffer->info.size, "Tried to read past the end of the Buffer");
+  lovrCheck(!buffer->info.format || offset % buffer->info.format->stride == 0, "Readback offset must be a multiple of Buffer's stride");
+  lovrCheck(!buffer->info.format || extent % buffer->info.format->stride == 0, "Readback size must be a multiple of Buffer's stride");
   Readback* readback = lovrReadbackCreate(READBACK_BUFFER);
   readback->buffer = buffer;
   void* data = malloc(extent);
@@ -4895,8 +4897,12 @@ bool lovrReadbackIsComplete(Readback* readback) {
 }
 
 bool lovrReadbackWait(Readback* readback) {
-  if ((state.tick == readback->tick && state.active) || lovrReadbackIsComplete(readback)) {
+  if (lovrReadbackIsComplete(readback)) {
     return false;
+  }
+
+  if (readback->tick == state.tick && state.active) {
+    lovrGraphicsSubmit(NULL, 0);
   }
 
   beginFrame();
@@ -4910,11 +4916,12 @@ bool lovrReadbackWait(Readback* readback) {
   return waited;
 }
 
-void* lovrReadbackGetData(Readback* readback, DataField** format) {
+void* lovrReadbackGetData(Readback* readback, DataField** format, uint32_t* count) {
   if (!lovrReadbackIsComplete(readback)) return NULL;
 
-  if (readback->type == READBACK_BUFFER) {
+  if (readback->type == READBACK_BUFFER && readback->buffer->info.format) {
     *format = readback->buffer->info.format;
+    *count = readback->blob->size / readback->buffer->info.format->stride;
     return readback->blob->data;
   }
 

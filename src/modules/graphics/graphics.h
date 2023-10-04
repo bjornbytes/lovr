@@ -496,7 +496,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
 void lovrReadbackDestroy(void* ref);
 bool lovrReadbackIsComplete(Readback* readback);
 bool lovrReadbackWait(Readback* readback);
-void* lovrReadbackGetData(Readback* readback, DataField** format);
+void* lovrReadbackGetData(Readback* readback, DataField** format, uint32_t* count);
 struct Blob* lovrReadbackGetBlob(Readback* readback);
 struct Image* lovrReadbackGetImage(Readback* readback);
 

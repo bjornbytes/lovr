@@ -165,7 +165,7 @@ void luax_checkdataflat(lua_State* L, int index, int subindex, uint32_t count, c
 void luax_checkdatatuples(lua_State* L, int index, int start, uint32_t count, const struct DataField* format, char* data);
 void luax_checkdatakeys(lua_State* L, int index, int start, uint32_t count, const struct DataField* array, char* data);
 void luax_checkstruct(lua_State* L, int index, const struct DataField* fields, uint32_t count, char* data);
-int luax_pushbufferdata(lua_State* L, const struct DataField* format, char* data);
+int luax_pushbufferdata(lua_State* L, const struct DataField* format, uint32_t count, char* data);
 void luax_pushbufferformat(lua_State* L, const struct DataField* fields, uint32_t count);
 uint32_t luax_gettablestride(lua_State* L, int index, int subindex, struct DataField* fields, uint32_t count);
 uint32_t luax_checkcomparemode(lua_State* L, int index);

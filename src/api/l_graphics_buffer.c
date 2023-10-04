@@ -398,8 +398,8 @@ static int luax_pushstruct(lua_State* L, const DataField* fields, uint32_t count
   return 1;
 }
 
-int luax_pushbufferdata(lua_State* L, const DataField* format, char* data) {
-  if (format->length > 1) {
+int luax_pushbufferdata(lua_State* L, const DataField* format, uint32_t count, char* data) {
+  if (count > 1) {
     if (format->fieldCount > 1) {
       bool nested = false;
 
@@ -410,16 +410,16 @@ int luax_pushbufferdata(lua_State* L, const DataField* format, char* data) {
         }
       }
 
+      lua_createtable(L, count, 0);
+
       if (nested) {
-        lua_createtable(L, format->length, 0);
-        for (uint32_t i = 0; i < format->length; i++) {
+        for (uint32_t i = 0; i < count; i++) {
           luax_pushstruct(L, format->fields, format->fieldCount, data);
           lua_rawseti(L, -2, i + 1);
           data += format->stride;
         }
       } else {
-        lua_createtable(L, format->length, 0);
-        for (uint32_t i = 0; i < format->length; i++, data += format->stride) {
+        for (uint32_t i = 0; i < count; i++, data += format->stride) {
           lua_newtable(L);
           int j = 1;
           for (uint32_t f = 0; f < format->fieldCount; f++) {
@@ -436,8 +436,8 @@ int luax_pushbufferdata(lua_State* L, const DataField* format, char* data) {
     } else {
       const DataField* field = format->fields;
       uint32_t n = typeComponents[field->type];
-      lua_createtable(L, (int) (format->length * n), 0);
-      for (uint32_t i = 0, j = 1; i < format->length; i++, j += n, data += format->stride) {
+      lua_createtable(L, (int) (count * n), 0);
+      for (uint32_t i = 0, j = 1; i < count; i++, j += n, data += format->stride) {
         luax_pushcomponents(L, field->type, data + field->offset);
         for (uint32_t c = 0; c < n; c++) {
           lua_rawseti(L, -1 - n + c, j + n - 1 - c);
@@ -445,10 +445,10 @@ int luax_pushbufferdata(lua_State* L, const DataField* format, char* data) {
       }
     }
     return 1;
-  } else if (format[1].name && (format->fieldCount > 1 || format[1].length > 0 || format[1].fieldCount > 0)) {
+  } else if (format->fields[0].name && (format->fieldCount > 1 || format->fields[0].length > 0 || format->fields[0].fieldCount > 0)) {
     return luax_pushstruct(L, format->fields, format->fieldCount, data);
   } else {
-    return luax_pushcomponents(L, format[1].type, data);
+    return luax_pushcomponents(L, format->fields[0].type, data);
   }
 }
 
@@ -551,7 +551,7 @@ static int l_lovrBufferGetData(lua_State* L) {
   lovrCheck(index < format->length, "Buffer:getData index exceeds the Buffer's length");
   uint32_t count = luax_optu32(L, 3, format->length - index);
   void* data = lovrBufferGetData(buffer, index * format->stride, count * format->stride);
-  return luax_pushbufferdata(L, format, data);
+  return luax_pushbufferdata(L, format, count, data);
 }
 
 static int l_lovrBufferSetData(lua_State* L) {
