@@ -3916,7 +3916,7 @@ static float* lovrMeshGetPositions(Mesh* mesh) {
   if (mesh->storage == MESH_GPU) return NULL;
   const DataField* format = lovrMeshGetVertexFormat(mesh);
   uint32_t positionHash = (uint32_t) hash64("VertexPosition", strlen("VertexPosition"));
-  for (uint32_t i = 1; i <= format->fieldCount; i++) {
+  for (uint32_t i = 0; i < format->fieldCount; i++) {
     const DataField* attribute = &format->fields[i];
     if (attribute->type != TYPE_F32x3) continue;
     if ((attribute->hash == LOCATION_POSITION || attribute->hash == positionHash)) {
