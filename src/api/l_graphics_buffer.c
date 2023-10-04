@@ -401,16 +401,15 @@ static int luax_pushstruct(lua_State* L, const DataField* fields, uint32_t count
 int luax_pushbufferdata(lua_State* L, const DataField* format, uint32_t count, char* data) {
   lua_createtable(L, count, 0);
 
-  if (format->fieldCount > 1 || typeComponents[format->fields[0].type] > 1) {
-    bool nested = false;
-
-    for (uint32_t i = 0; i < format->fieldCount; i++) {
-      if (format->fields[i].fields || format->fields[i].length > 0) {
-        nested = true;
-        break;
-      }
+  bool nested = false;
+  for (uint32_t i = 0; i < format->fieldCount; i++) {
+    if (format->fields[i].fields || format->fields[i].length > 0) {
+      nested = true;
+      break;
     }
+  }
 
+  if (format->fieldCount > 1 || typeComponents[format->fields[0].type] > 1 || nested) {
     if (nested) {
       for (uint32_t i = 0; i < count; i++) {
         luax_pushstruct(L, format->fields, format->fieldCount, data);
