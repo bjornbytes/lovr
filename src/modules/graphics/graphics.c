@@ -3130,7 +3130,7 @@ const DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, uin
 // Material
 
 Material* lovrMaterialCreate(const MaterialInfo* info) {
-  MaterialBlock* block = &state.materialBlocks.data[state.materialBlock];
+  MaterialBlock* block = state.materialBlocks.length > 0 ? &state.materialBlocks.data[state.materialBlock] : NULL;
   const uint32_t MATERIALS_PER_BLOCK = 256;
 
   if (!block || block->head == ~0u || !gpu_is_complete(block->list[block->head].tick)) {
@@ -3162,6 +3162,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
         block->list[i].block = (uint16_t) state.materialBlock;
         block->list[i].index = i;
         block->list[i].bundle = (gpu_bundle*) ((char*) block->bundles + i * gpu_sizeof_bundle());
+        block->list[i].hasWritableTexture = false;
       }
       block->list[MATERIALS_PER_BLOCK - 1].next = ~0u;
       block->tail = MATERIALS_PER_BLOCK - 1;
@@ -5477,7 +5478,7 @@ static Camera* getCamera(Pass* pass) {
   uint32_t count = pass->cameraCount;
   Camera* cameras = lovrPassAllocate(pass, (count + 1) * stride);
   Camera* newCamera = cameras + count * views;
-  memcpy(cameras, pass->cameras, count * stride);
+  if (pass->cameras) memcpy(cameras, pass->cameras, count * stride);
   memcpy(newCamera, newCamera - views, count > 0 ? stride : 0);
   pass->flags |= DIRTY_CAMERA;
   pass->cameras = cameras;
