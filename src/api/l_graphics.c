@@ -1078,7 +1078,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     if (lua_type(L, 1) == LUA_TSTRING) {
       size_t length;
       const char* string = lua_tolstring(L, 1, &length);
-      for (int i = 0; i < DEFAULT_SHADER_COUNT; i++) {
+      for (int i = 0; lovrDefaultShader[i].length; i++) {
         if (lovrDefaultShader[i].length == length && !memcmp(lovrDefaultShader[i].string, string, length)) {
           info.source[0] = lovrGraphicsGetDefaultShaderSource(i, STAGE_VERTEX);
           info.source[1] = lovrGraphicsGetDefaultShaderSource(i, STAGE_FRAGMENT);
