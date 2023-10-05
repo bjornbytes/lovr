@@ -702,6 +702,13 @@ static int l_lovrPassSend(lua_State* L) {
   lovrPassSendData(pass, name, length, slot, &pointer, &format);
   char* data = pointer;
 
+  // Coerce booleans since they aren't supported in buffer formats
+  if (lua_isboolean(L, 3)) {
+    bool value = lua_toboolean(L, 3);
+    lua_settop(L, 2);
+    lua_pushinteger(L, value);
+  }
+
   if (format->length > 0) {
     luaL_checktype(L, 3, LUA_TTABLE);
     if (format->fieldCount > 1) {
