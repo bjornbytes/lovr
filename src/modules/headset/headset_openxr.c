@@ -2022,6 +2022,10 @@ static void openxr_stopVibration(Device device) {
 }
 
 static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated) {
+  if (!state.features.handTrackingMesh) {
+    return NULL;
+  }
+
   // First, figure out how much data there is
   XrHandTrackingMeshFB mesh = { .type = XR_TYPE_HAND_TRACKING_MESH_FB };
   XrResult result = xrGetHandMeshFB(tracker, &mesh);
