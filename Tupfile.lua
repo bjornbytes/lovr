@@ -91,7 +91,7 @@ flags = {
   config.debug and '-g' or '',
   config.optimize and '-Os' or '',
   config.supercharge and '-flto -march=native -DLOVR_UNCHECKED' or '',
-  config.sanitize and '-fsanitize=address' or '',
+  config.sanitize and '-fsanitize=address -fsanitize=undefined' or '',
 }
 
 cflags = {
@@ -114,6 +114,7 @@ lflags = '-L' .. bin
 lflags += not config.debug and '-Wl,-s' or ''
 lflags += config.optimize and (target == 'macos' and '-Wl,-dead_strip' or '-Wl,--gc-sections') or ''
 lflags += '-rdynamic'
+lflags += config.sanitize and '-lubsan' or ''
 
 if target == 'win32' then
   cflags += '-D_CRT_SECURE_NO_WARNINGS'
