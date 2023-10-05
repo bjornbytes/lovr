@@ -1501,12 +1501,14 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   // Also OpenXR layout transitions go in the first/last stream
 
   uint32_t streamCount = count + 2;
-  uint32_t barrierCount = count > 0 ? count - 1 : 0;
   gpu_stream** streams = tempAlloc(&state.allocator, streamCount * sizeof(gpu_stream*));
-  gpu_barrier* computeBarriers = tempAlloc(&state.allocator, barrierCount * sizeof(gpu_barrier));
-  gpu_barrier* renderBarriers = tempAlloc(&state.allocator, barrierCount * sizeof(gpu_barrier));
-  memset(computeBarriers, 0, barrierCount * sizeof(gpu_barrier));
-  memset(renderBarriers, 0, barrierCount * sizeof(gpu_barrier));
+  gpu_barrier* computeBarriers = tempAlloc(&state.allocator, count * sizeof(gpu_barrier));
+  gpu_barrier* renderBarriers = tempAlloc(&state.allocator, count * sizeof(gpu_barrier));
+
+  if (count > 0) {
+    memset(computeBarriers, 0, count * sizeof(gpu_barrier));
+    memset(renderBarriers, 0, count * sizeof(gpu_barrier));
+  }
 
   if (state.preBarrier.prev != 0 && state.preBarrier.next != 0) {
     streams[0] = gpu_stream_begin("Pre Barrier");
@@ -1626,10 +1628,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     }
 
     recordComputePass(passes[i], stream);
-    if (i < barrierCount) gpu_sync(stream, &computeBarriers[i], 1);
+    gpu_sync(stream, &computeBarriers[i], 1);
 
     recordRenderPass(passes[i], stream);
-    if (i < barrierCount) gpu_sync(stream, &renderBarriers[i], 1);
+    gpu_sync(stream, &renderBarriers[i], 1);
 
     if (state.timingEnabled) {
       times[i].cpuTime = os_get_time() - times[i].cpuTime;
