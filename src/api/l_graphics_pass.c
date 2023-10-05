@@ -66,7 +66,7 @@ int l_lovrPassSetCanvas(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Texture* textures[4] = { 0 };
   Texture* depthTexture = NULL;
-  uint32_t depthFormat = 0;
+  uint32_t depthFormat = FORMAT_D32F;
   uint32_t samples = 4;
   if (lua_istable(L, 2)) {
     int length = luax_len(L, 2);
