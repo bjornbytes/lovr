@@ -2862,6 +2862,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
           field->arrayLength = child->arrayLength;
           field->arrayStride = child->arrayStride;
           field->elementSize = child->elementSize;
+          field->type = child->type; // This allows the field to be used as both AoS and single-field array
           child->arrayLength = 0;
           child->arrayStride = 0;
         }
