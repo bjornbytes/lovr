@@ -1218,7 +1218,8 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   memcpy(mapped.pointer, pass->cameras, pass->cameraCount * canvas->views * sizeof(Camera));
 
   // DrawData
-  mapped = mapBuffer(&state.streamBuffers, activeDrawCount * sizeof(DrawData), align);
+  uint32_t alignedDrawCount = activeDrawCount <= 256 ? activeDrawCount : ALIGN(activeDrawCount, 256);
+  mapped = mapBuffer(&state.streamBuffers, alignedDrawCount * sizeof(DrawData), align);
   builtins[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, MIN(activeDrawCount, 256) * sizeof(DrawData) };
   DrawData* data = mapped.pointer;
 
