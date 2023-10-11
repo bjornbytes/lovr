@@ -1049,7 +1049,7 @@ static void recordComputePass(Pass* pass, gpu_stream* stream) {
     if ((compute->flags & COMPUTE_BARRIER) && i < pass->computeCount - 1) {
       gpu_sync(stream, &(gpu_barrier) {
         .prev = GPU_PHASE_SHADER_COMPUTE,
-        .next = GPU_PHASE_SHADER_COMPUTE,
+        .next = GPU_PHASE_INDIRECT | GPU_PHASE_SHADER_COMPUTE,
         .flush = GPU_CACHE_STORAGE_WRITE,
         .clear = GPU_CACHE_INDIRECT | GPU_CACHE_UNIFORM | GPU_CACHE_TEXTURE | GPU_CACHE_STORAGE_READ
       }, 1);
