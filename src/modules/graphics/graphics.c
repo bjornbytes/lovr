@@ -1145,24 +1145,36 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
           continue;
         }
 
-        float center[3] = { draw->bounds[0], draw->bounds[1], draw->bounds[2] };
-        float extent[3] = { draw->bounds[3], draw->bounds[4], draw->bounds[5] };
+        float* center = draw->bounds + 0;
+        float* extent = draw->bounds + 3;
 
-        mat4_mulPoint(draw->transform, center);
-        mat4_mulDirection(draw->transform, extent);
-        vec3_abs(extent);
+        float corners[8][3] = {
+          { center[0] - extent[0], center[1] - extent[1], center[2] - extent[2] },
+          { center[0] - extent[0], center[1] - extent[1], center[2] + extent[2] },
+          { center[0] - extent[0], center[1] + extent[1], center[2] - extent[2] },
+          { center[0] - extent[0], center[1] + extent[1], center[2] + extent[2] },
+          { center[0] + extent[0], center[1] - extent[1], center[2] - extent[2] },
+          { center[0] + extent[0], center[1] - extent[1], center[2] + extent[2] },
+          { center[0] + extent[0], center[1] + extent[1], center[2] - extent[2] },
+          { center[0] + extent[0], center[1] + extent[1], center[2] + extent[2] }
+        };
+
+        for (uint32_t i = 0; i < COUNTOF(corners); i++) {
+          mat4_mulPoint(draw->transform, corners[i]);
+        }
 
         uint32_t visible = canvas->views;
 
         for (uint32_t v = 0; v < canvas->views; v++) {
           for (uint32_t p = 0; p < 6; p++) {
-            float* plane = frusta[v].planes[p];
+            bool inside = false;
 
-            float absPlane[4];
-            vec4_init(absPlane, plane);
-            vec4_abs(absPlane);
-
-            bool inside = vec3_dot(center, plane) + vec3_dot(extent, absPlane) > -plane[3];
+            for (uint32_t c = 0; c < COUNTOF(corners); c++) {
+              if (vec3_dot(corners[c], frusta[v].planes[p]) + frusta[v].planes[p][3] > 0.f) {
+                inside = true;
+                break;
+              }
+            }
 
             if (!inside) {
               visible--;
