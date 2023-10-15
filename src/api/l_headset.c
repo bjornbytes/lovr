@@ -576,8 +576,7 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
 }
 
 static int l_lovrHeadsetAnimate(lua_State* L) {
-  int index = lua_type(L, 1) == LUA_TSTRING ? 2 : 1;
-  Model* model = luax_checktype(L, index, Model);
+  Model* model = luax_checktype(L, 1, Model);
   lua_pushboolean(L, lovrHeadsetInterface->animate(model));
   return 1;
 }
@@ -651,16 +650,6 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   return 1;
 }
 
-// Deprecated
-static int l_lovrHeadsetGetOriginType(lua_State* L) {
-  if (lovrHeadsetInterface->isSeated()) {
-    lua_pushliteral(L, "head");
-  } else {
-    lua_pushliteral(L, "floor");
-  }
-  return 1;
-}
-
 static const luaL_Reg lovrHeadset[] = {
   { "start", l_lovrHeadsetStart },
   { "getDriver", l_lovrHeadsetGetDriver },
@@ -710,13 +699,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "getTime", l_lovrHeadsetGetTime },
   { "getDeltaTime", l_lovrHeadsetGetDeltaTime },
   { "getHands", l_lovrHeadsetGetHands },
-
-  // Deprecated
-  { "getOriginType", l_lovrHeadsetGetOriginType },
-  { "getDisplayFrequency", l_lovrHeadsetGetRefreshRate },
-  { "getDisplayFrequencies", l_lovrHeadsetGetRefreshRates },
-  { "setDisplayFrequency", l_lovrHeadsetSetRefreshRate },
-
   { NULL, NULL }
 };
 
