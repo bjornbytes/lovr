@@ -5,9 +5,9 @@
 #pragma once
 
 #define LOVR_VERSION_MAJOR 0
-#define LOVR_VERSION_MINOR 16
+#define LOVR_VERSION_MINOR 17
 #define LOVR_VERSION_PATCH 0
-#define LOVR_VERSION_ALIAS "Toad Rage"
+#define LOVR_VERSION_ALIAS "Tritium Gourmet"
 
 #ifdef _MSC_VER
 #define LOVR_THREAD_LOCAL __declspec(thread)
