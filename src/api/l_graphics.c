@@ -1423,17 +1423,6 @@ static int l_lovrGraphicsNewPass(lua_State* L) {
   return 1;
 }
 
-// Deprecated
-static int l_lovrGraphicsGetPass(lua_State* L) {
-  Pass* pass = lovrGraphicsGetPass();
-  luax_pushtype(L, Pass, pass);
-  lua_replace(L, 1);
-  l_lovrPassSetCanvas(L);
-  lua_settop(L, 1);
-  // No release, I live forever
-  return 1;
-}
-
 static const luaL_Reg lovrGraphics[] = {
   { "initialize", l_lovrGraphicsInitialize },
   { "isInitialized", l_lovrGraphicsIsInitialized },
@@ -1460,7 +1449,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "newMesh", l_lovrGraphicsNewMesh },
   { "newModel", l_lovrGraphicsNewModel },
   { "newPass", l_lovrGraphicsNewPass },
-  { "getPass", l_lovrGraphicsGetPass },
   { NULL, NULL }
 };
 

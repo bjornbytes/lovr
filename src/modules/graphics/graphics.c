@@ -567,8 +567,6 @@ static struct {
   TextureFormat depthFormat;
   Texture* window;
   Pass* windowPass;
-  arr_t(Pass*) passes;
-  uint32_t passCount;
   Font* defaultFont;
   Buffer* defaultBuffer;
   Texture* defaultTexture;
@@ -805,8 +803,6 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .texture = state.defaultTexture
   });
 
-  arr_init(&state.passes, arr_alloc);
-
   float16Init();
 #ifdef LOVR_USE_GLSLANG
   glslang_initialize_process();
@@ -825,9 +821,6 @@ void lovrGraphicsDestroy(void) {
     lovrHeadsetInterface->stop();
   }
 #endif
-  for (size_t i = 0; i < state.passes.length; i++) {
-    lovrRelease(state.passes.data[i], lovrPassDestroy);
-  }
   Readback* readback = state.oldestReadback;
   while (readback) {
     Readback* next = readback->next;
@@ -4962,18 +4955,6 @@ Pass* lovrGraphicsGetWindowPass(void) {
   return state.windowPass;
 }
 
-Pass* lovrGraphicsGetPass(void) {
-  beginFrame();
-
-  if (state.passCount >= state.passes.length) {
-    arr_push(&state.passes, lovrPassCreate());
-  }
-
-  Pass* pass = state.passes.data[state.passCount++];
-  lovrPassReset(pass);
-  return pass;
-}
-
 Pass* lovrPassCreate(void) {
   Pass* pass = calloc(1, sizeof(Pass));
   lovrAssert(pass, "Out of memory");
@@ -7395,7 +7376,6 @@ static void beginFrame(void) {
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin("Internal");
   state.allocator.cursor = 0;
-  state.passCount = 0;
   processReadbacks();
 }
 

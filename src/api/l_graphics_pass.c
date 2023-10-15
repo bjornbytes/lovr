@@ -82,15 +82,6 @@ int l_lovrPassSetCanvas(lua_State* L) {
       case LUA_TSTRING: depthFormat = luax_checkenum(L, -1, TextureFormat, NULL); break;
       case LUA_TBOOLEAN: depthFormat = lua_toboolean(L, -1) ? FORMAT_D32F : 0; break;
       case LUA_TNIL: depthFormat = FORMAT_D32F; break;
-      case LUA_TTABLE: // Deprecated
-        lua_getfield(L, -1, "format");
-        if (!lua_isnil(L, -1)) depthFormat = luax_checkenum(L, -1, TextureFormat, NULL);
-        lua_pop(L, 1);
-
-        lua_getfield(L, -1, "texture");
-        if (!lua_isnil(L, -1)) depthTexture = luax_checktype(L, -1, Texture);
-        lua_pop(L, 1);
-        break;
       default: lovrThrow("Expected Texture, TextureFormat, boolean, or nil for canvas depth buffer");
     }
     lua_pop(L, 1);
@@ -1107,23 +1098,6 @@ static int l_lovrPassBarrier(lua_State* L) {
   return 0;
 }
 
-// Deprecated
-static int l_lovrPassGetType(lua_State* L) {
-  lua_pushliteral(L, "render");
-  return 1;
-}
-
-static int l_lovrPassGetSampleCount(lua_State* L) {
-  Pass* pass = luax_checktype(L, 1, Pass);
-  Texture* textures[4];
-  Texture* depthTexture;
-  uint32_t depthFormat;
-  uint32_t samples;
-  lovrPassGetCanvas(pass, textures, &depthTexture, &depthFormat, &samples);
-  lua_pushinteger(L, samples);
-  return 1;
-}
-
 const luaL_Reg lovrPass[] = {
   { "reset", l_lovrPassReset },
   { "append", l_lovrPassAppend },
@@ -1205,9 +1179,6 @@ const luaL_Reg lovrPass[] = {
   { "barrier", l_lovrPassBarrier },
 
   // Deprecated
-  { "getType", l_lovrPassGetType },
-  { "getTarget", l_lovrPassGetCanvas },
-  { "getSampleCount", l_lovrPassGetSampleCount },
   { "setCullMode", l_lovrPassSetFaceCull },
 
   { NULL, NULL }

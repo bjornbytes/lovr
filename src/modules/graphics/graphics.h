@@ -563,7 +563,6 @@ typedef enum {
 } Winding;
 
 Pass* lovrGraphicsGetWindowPass(void);
-Pass* lovrGraphicsGetPass(void); // Deprecated
 Pass* lovrPassCreate(void);
 void lovrPassDestroy(void* ref);
 void lovrPassReset(Pass* pass);
