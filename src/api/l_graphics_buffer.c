@@ -664,13 +664,6 @@ static int l_lovrBufferClear(lua_State* L) {
   return 0;
 }
 
-static int l_lovrBufferIsTemporary(lua_State* L) {
-  Buffer* buffer = luax_checktype(L, 1, Buffer);
-  bool temporary = lovrBufferIsTemporary(buffer);
-  lua_pushboolean(L, temporary);
-  return 1;
-}
-
 const luaL_Reg lovrBuffer[] = {
   { "getSize", l_lovrBufferGetSize },
   { "getLength", l_lovrBufferGetLength },
@@ -681,9 +674,5 @@ const luaL_Reg lovrBuffer[] = {
   { "setData", l_lovrBufferSetData },
   { "mapData", l_lovrBufferMapData },
   { "clear", l_lovrBufferClear },
-
-  // Deprecated
-  { "isTemporary", l_lovrBufferIsTemporary },
-  { "getPointer", l_lovrBufferMapData },
   { NULL, NULL }
 };

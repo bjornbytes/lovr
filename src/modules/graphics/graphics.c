@@ -47,10 +47,6 @@ struct Buffer {
   Sync sync;
   gpu_buffer* gpu;
   BufferInfo info;
-  // Deprecated:
-  uint32_t offset;
-  uint32_t tick;
-  char* pointer;
 };
 
 typedef struct {
@@ -1804,7 +1800,7 @@ uint32_t lovrGraphicsAlignFields(DataField* parent, DataLayout layout) {
   return align;
 }
 
-static Buffer* lovrBufferInit(const BufferInfo* info, bool temporary) {
+Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   uint32_t fieldCount = info->format ? MAX(info->fieldCount, info->format->fieldCount + 1) : 0;
 
   size_t charCount = 0;
@@ -1813,17 +1809,8 @@ static Buffer* lovrBufferInit(const BufferInfo* info, bool temporary) {
     charCount += strlen(info->format[i].name) + 1;
   }
 
-  Buffer* buffer;
-  size_t memSize = sizeof(Buffer) + gpu_sizeof_buffer() + charCount + fieldCount * sizeof(DataField);
-
-  if (temporary) {
-    beginFrame();
-    buffer = tempAlloc(&state.allocator, memSize);
-    memset(buffer, 0, memSize);
-  } else {
-    buffer = calloc(1, memSize);
-    lovrAssert(buffer, "Out of memory");
-  }
+  Buffer* buffer = calloc(1, sizeof(Buffer) + gpu_sizeof_buffer() + charCount + fieldCount * sizeof(DataField));
+  lovrAssert(buffer, "Out of memory");
 
   buffer->ref = 1;
   buffer->info = *info;
@@ -1873,29 +1860,6 @@ static Buffer* lovrBufferInit(const BufferInfo* info, bool temporary) {
 
   lovrCheck(buffer->info.size > 0, "Buffer size can not be zero");
   lovrCheck(buffer->info.size <= 1 << 30, "Max buffer size is 1GB");
-  return buffer;
-}
-
-// Deprecated
-Buffer* lovrGraphicsGetBuffer(const BufferInfo* info, void** data) {
-  Buffer* buffer = lovrBufferInit(info, true);
-
-  size_t align = lcm(state.limits.uniformBufferAlign, buffer->info.format ? buffer->info.format->stride : 1);
-  MappedBuffer mapped = mapBuffer(&state.streamBuffers, buffer->info.size, align);
-  buffer->gpu = mapped.buffer;
-  buffer->offset = mapped.offset;
-  buffer->pointer = mapped.pointer;
-  buffer->tick = state.tick;
-
-  if (data) {
-    *data = buffer->pointer;
-  }
-
-  return buffer;
-}
-
-Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
-  Buffer* buffer = lovrBufferInit(info, false);
 
   gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
     .size = buffer->info.size,
@@ -1920,7 +1884,6 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
-  if (lovrBufferIsTemporary(buffer)) return;
   gpu_buffer_destroy(buffer->gpu);
   free(buffer);
 }
@@ -1929,18 +1892,9 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
 }
 
-bool lovrBufferIsTemporary(Buffer* buffer) {
-  return buffer->pointer != NULL;
-}
-
-bool lovrBufferIsValid(Buffer* buffer) {
-  return !lovrBufferIsTemporary(buffer) || buffer->tick == state.tick;
-}
-
 void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
   beginFrame();
   if (extent == ~0u) extent = buffer->info.size - offset;
-  lovrCheck(!lovrBufferIsTemporary(buffer), "Can not read from temporary buffer");
   lovrCheck(offset + extent <= buffer->info.size, "Buffer read range goes past the end of the Buffer");
 
   gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_READ);
@@ -1956,23 +1910,18 @@ void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
 }
 
 void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
-  if (lovrBufferIsTemporary(buffer)) {
-    return buffer->pointer + offset;
-  } else {
-    beginFrame();
-    if (extent == ~0u) extent = buffer->info.size - offset;
-    lovrCheck(offset + extent <= buffer->info.size, "Attempt to write past the end of the Buffer");
-    MappedBuffer mapped = mapBuffer(&state.uploadBuffers, extent, 4);
-    gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
-    gpu_sync(state.stream, &barrier, 1);
-    gpu_copy_buffers(state.stream, mapped.buffer, buffer->gpu, mapped.offset, offset, extent);
-    return mapped.pointer;
-  }
+  beginFrame();
+  if (extent == ~0u) extent = buffer->info.size - offset;
+  lovrCheck(offset + extent <= buffer->info.size, "Attempt to write past the end of the Buffer");
+  MappedBuffer mapped = mapBuffer(&state.uploadBuffers, extent, 4);
+  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_sync(state.stream, &barrier, 1);
+  gpu_copy_buffers(state.stream, mapped.buffer, buffer->gpu, mapped.offset, offset, extent);
+  return mapped.pointer;
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {
   beginFrame();
-  lovrCheck(!lovrBufferIsTemporary(dst), "Temporary buffers can not have another Buffer copied to them");
   lovrCheck(srcOffset + extent <= src->info.size, "Buffer copy range goes past the end of the source Buffer");
   lovrCheck(dstOffset + extent <= dst->info.size, "Buffer copy range goes past the end of the destination Buffer");
   gpu_barrier barriers[2];
@@ -1983,18 +1932,15 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
 }
 
 void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent, uint32_t value) {
+  if (extent == 0) return;
   if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(offset % 4 == 0, "Buffer clear offset must be a multiple of 4");
   lovrCheck(extent % 4 == 0, "Buffer clear extent must be a multiple of 4");
   lovrCheck(offset + extent <= buffer->info.size, "Buffer clear range goes past the end of the Buffer");
-  if (lovrBufferIsTemporary(buffer)) {
-    memset(buffer->pointer + offset, 0, extent); // Deprecated (value ignored)
-  } else if (extent > 0) {
-    beginFrame();
-    gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
-    gpu_sync(state.stream, &barrier, 1);
-    gpu_clear_buffer(state.stream, buffer->gpu, offset, extent, value);
-  }
+  beginFrame();
+  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_sync(state.stream, &barrier, 1);
+  gpu_clear_buffer(state.stream, buffer->gpu, offset, extent, value);
 }
 
 // Texture
@@ -4843,7 +4789,6 @@ static Readback* lovrReadbackCreate(ReadbackType type) {
 
 Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent == ~0u) extent = buffer->info.size - offset;
-  lovrCheck(!lovrBufferIsTemporary(buffer), "Unable to read data back from a temporary Buffer");
   lovrCheck(offset + extent <= buffer->info.size, "Tried to read past the end of the Buffer");
   lovrCheck(!buffer->info.format || offset % buffer->info.format->stride == 0, "Readback offset must be a multiple of Buffer's stride");
   lovrCheck(!buffer->info.format || extent % buffer->info.format->stride == 0, "Readback size must be a multiple of Buffer's stride");
@@ -5898,7 +5843,6 @@ void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t sl
   uint32_t limit;
 
   if (shader->storageMask & (1u << slot)) {
-    lovrCheck(!lovrBufferIsTemporary(buffer), "Temporary buffers can not be sent to storage buffer variables", slot + 1);
     lovrCheck((offset & (state.limits.storageBufferAlign - 1)) == 0, "Storage buffer offset (%d) is not aligned to storageBufferAlign limit (%d)", offset, state.limits.storageBufferAlign);
     limit = state.limits.storageBufferRange;
   } else {
@@ -5915,7 +5859,7 @@ void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t sl
 
   trackBuffer(pass, buffer, resource->phase, resource->cache);
   pass->bindings[slot].buffer.object = buffer->gpu;
-  pass->bindings[slot].buffer.offset = buffer->offset + offset;
+  pass->bindings[slot].buffer.offset = offset;
   pass->bindings[slot].buffer.extent = extent;
   pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
@@ -6101,13 +6045,6 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
     lovrCheck(info->vertex.buffer->info.format->stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
     trackBuffer(pass, info->vertex.buffer, GPU_PHASE_INPUT_VERTEX, GPU_CACHE_VERTEX);
     draw->vertexBuffer = info->vertex.buffer->gpu;
-
-    // Deprecated (temp buffer offset)
-    if (info->index.buffer || info->index.count > 0) {
-      draw->baseVertex += info->vertex.buffer->offset / info->vertex.buffer->info.format->stride;
-    } else {
-      draw->start += info->vertex.buffer->offset / info->vertex.buffer->info.format->stride;
-    }
   } else {
     draw->vertexBuffer = state.defaultBuffer->gpu;
   }
@@ -6122,7 +6059,6 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
     trackBuffer(pass, info->index.buffer, GPU_PHASE_INPUT_INDEX, GPU_CACHE_INDEX);
     draw->indexBuffer = info->index.buffer->gpu;
     draw->flags |= info->index.buffer->info.format->stride == 4 ? DRAW_INDEX32 : 0;
-    draw->start += info->index.buffer->offset / info->index.buffer->info.format->stride; // Deprecated
   } else {
     draw->indexBuffer = NULL;
   }
@@ -7753,7 +7689,7 @@ static Access* getNextAccess(Pass* pass, int type, bool texture) {
 }
 
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache) {
-  if (!buffer || lovrBufferIsTemporary(buffer)) return;
+  if (!buffer) return;
   Access* access = getNextAccess(pass, phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER, false);
   access->sync = &buffer->sync;
   access->phase = phase;

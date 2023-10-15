@@ -592,25 +592,13 @@ static uint32_t luax_checkbufferformat(lua_State* L, int index, DataField* field
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "name");
-    if (lua_isnil(L, -1)) {
-      lua_pop(L, 1);
-      lua_rawgeti(L, -1, 1);
-
-      // Deprecated
-      if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        lua_getfield(L, -1, "location");
-      }
-    }
+    if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 1);
     lovrCheck(lua_type(L, -1) == LUA_TSTRING, "Buffer fields must have a 'name' key");
     field->name = lua_tostring(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "length");
-    if (lua_isnil(L, -1)) {
-      lua_pop(L, 1);
-      lua_rawgeti(L, -1, 3);
-    }
+    if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 3);
     field->length = luax_optu32(L, -1, 0);
     lua_pop(L, 1);
 
@@ -624,41 +612,12 @@ static uint32_t luax_checkbufferformat(lua_State* L, int index, DataField* field
   return length;
 }
 
-static int luax_newbuffer(lua_State* L, Buffer* (*constructor)(const BufferInfo* info, void** data)) {
+static int l_lovrGraphicsNewBuffer(lua_State* L) {
   DataField format[64];
   BufferInfo info = { 0 };
   DataLayout layout = LAYOUT_PACKED;
   bool hasData = false;
   Blob* blob = NULL;
-
-  // Handle deprecated variants (type/format given second)
-  if (lua_type(L, 2) == LUA_TSTRING) {
-    lua_settop(L, 2);
-    lua_insert(L, 1);
-  } else if (lua_type(L, 2) == LUA_TTABLE) {
-    lua_rawgeti(L, 2, 1);
-    if (lua_type(L, -1) == LUA_TSTRING) {
-      lua_settop(L, 2);
-      lua_insert(L, 1);
-    } else if (lua_type(L, -1) == LUA_TTABLE) {
-      lua_getfield(L, -1, "type");
-      if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
-        lua_rawgeti(L, -1, 2);
-        if (lua_type(L, -1) == LUA_TSTRING) {
-          lua_settop(L, 2);
-          lua_insert(L, 1);
-        } else {
-          lua_pop(L, 2);
-        }
-      } else {
-        lua_settop(L, 2);
-        lua_insert(L, 1);
-      }
-    } else {
-      lua_pop(L, 1);
-    }
-  }
 
   int type = lua_type(L, 1);
 
@@ -741,7 +700,7 @@ static int luax_newbuffer(lua_State* L, Buffer* (*constructor)(const BufferInfo*
   }
 
   void* data;
-  Buffer* buffer = constructor(&info, (blob || hasData) ? &data : NULL);
+  Buffer* buffer = lovrBufferCreate(&info, (blob || hasData) ? &data : NULL);
 
   // Write data
   if (blob) {
@@ -771,14 +730,6 @@ static int luax_newbuffer(lua_State* L, Buffer* (*constructor)(const BufferInfo*
   luax_pushtype(L, Buffer, buffer);
   lovrRelease(buffer, lovrBufferDestroy);
   return 1;
-}
-
-static int l_lovrGraphicsGetBuffer(lua_State* L) {
-  return luax_newbuffer(L, lovrGraphicsGetBuffer);
-}
-
-static int l_lovrGraphicsNewBuffer(lua_State* L) {
-  return luax_newbuffer(L, lovrBufferCreate);
 }
 
 static int l_lovrGraphicsNewTexture(lua_State* L) {
@@ -1499,7 +1450,6 @@ static const luaL_Reg lovrGraphics[] = {
   { "setBackgroundColor", l_lovrGraphicsSetBackgroundColor },
   { "getWindowPass", l_lovrGraphicsGetWindowPass },
   { "getDefaultFont", l_lovrGraphicsGetDefaultFont },
-  { "getBuffer", l_lovrGraphicsGetBuffer },
   { "newBuffer", l_lovrGraphicsNewBuffer },
   { "newTexture", l_lovrGraphicsNewTexture },
   { "newSampler", l_lovrGraphicsNewSampler },
