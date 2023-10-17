@@ -494,13 +494,13 @@ void luax_optcolor(lua_State* L, int index, float color[4]) {
       break;
     case LUA_TUSERDATA:
     case LUA_TLIGHTUSERDATA: {
-      VectorType type;
-      float* v = luax_tovector(L, index, &type);
-      if (type == V_VEC3) {
+      int vectorType;
+      float* v = luax_tovector(L, index, &vectorType);
+      if (vectorType == V_VEC3) {
         memcpy(color, v, 3 * sizeof(float));
         color[3] = 1.f;
         break;
-      } else if (type == V_VEC4) {
+      } else if (vectorType == V_VEC4) {
         memcpy(color, v, 4 * sizeof(float));
         break;
       }

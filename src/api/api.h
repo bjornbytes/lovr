@@ -176,10 +176,19 @@ struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t
 #endif
 
 #ifndef LOVR_DISABLE_MATH
-#include "math/math.h" // TODO
-float* luax_tovector(lua_State* L, int index, VectorType* type);
-float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
-float* luax_newtempvector(lua_State* L, VectorType type);
+enum {
+  V_NONE,
+  V_VEC2,
+  V_VEC3,
+  V_VEC4,
+  V_QUAT,
+  V_MAT4,
+  MAX_VECTOR_TYPES
+};
+
+float* luax_tovector(lua_State* L, int index, int* type);
+float* luax_checkvector(lua_State* L, int index, int type, const char* expected);
+float* luax_newvector(lua_State* L, int type);
 int luax_readvec2(lua_State* L, int index, float* v, const char* expected);
 int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
 int luax_readvec4(lua_State* L, int index, float* v, const char* expected);

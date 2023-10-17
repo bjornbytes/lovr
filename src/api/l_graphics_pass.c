@@ -258,9 +258,9 @@ static int l_lovrPassGetViewPose(lua_State* L) {
 static int l_lovrPassSetViewPose(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
-  VectorType type;
-  float* p = luax_tovector(L, 3, &type);
-  if (p && type == V_MAT4) {
+  int vtype;
+  float* p = luax_tovector(L, 3, &vtype);
+  if (p && vtype == V_MAT4) {
     float matrix[16];
     mat4_init(matrix, p);
     bool inverted = lua_toboolean(L, 4);
@@ -876,7 +876,7 @@ static int l_lovrPassSphere(lua_State* L) {
 
 static bool luax_checkendpoints(lua_State* L, int index, float transform[16], bool center) {
   float *v, *u;
-  VectorType t1, t2;
+  int t1, t2;
   if ((v = luax_tovector(L, index + 0, &t1)) == NULL || t1 != V_VEC3) return false;
   if ((u = luax_tovector(L, index + 1, &t2)) == NULL || t2 != V_VEC3) return false;
   float radius = luax_optfloat(L, index + 2, 1.);

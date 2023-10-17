@@ -109,7 +109,7 @@ void luax_checkfieldv(lua_State* L, int index, int type, void* data) {
   DataPointer p = { .raw = data };
   uint32_t n = typeComponents[type];
   lovrCheck(n > 1, "Expected number for scalar data type, got vector");
-  VectorType vectorType;
+  int vectorType;
   float* v = luax_tovector(L, index, &vectorType);
   lovrCheck(v, "Expected vector, got non-vector userdata");
   if (n >= TYPE_MAT2 && n <= TYPE_MAT4) {
