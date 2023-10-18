@@ -274,6 +274,12 @@ static int l_lovrModelSetBlendShapeWeight(lua_State* L) {
   return 0;
 }
 
+static int l_lovrModelResetBlendShapes(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  lovrModelResetBlendShapes(model);
+  return 0;
+}
+
 static int l_lovrModelGetTriangles(lua_State* L) {
   return luax_callmodeldata(L, "getTriangles", 2);
 }
@@ -397,6 +403,7 @@ const luaL_Reg lovrModel[] = {
   { "getBlendShapeName", l_lovrModelGetBlendShapeName },
   { "getBlendShapeWeight", l_lovrModelGetBlendShapeWeight },
   { "setBlendShapeWeight", l_lovrModelSetBlendShapeWeight },
+  { "resetBlendShapes", l_lovrModelResetBlendShapes },
   { "getTriangles", l_lovrModelGetTriangles },
   { "getTriangleCount", l_lovrModelGetTriangleCount },
   { "getVertexCount", l_lovrModelGetVertexCount },

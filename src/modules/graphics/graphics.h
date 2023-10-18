@@ -474,6 +474,7 @@ Model* lovrModelClone(Model* model);
 void lovrModelDestroy(void* ref);
 const ModelInfo* lovrModelGetInfo(Model* model);
 void lovrModelResetNodeTransforms(Model* model);
+void lovrModelResetBlendShapes(Model* model);
 void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha);
 float lovrModelGetBlendShapeWeight(Model* model, uint32_t index);
 void lovrModelSetBlendShapeWeight(Model* model, uint32_t index, float weight);

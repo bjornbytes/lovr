@@ -4291,11 +4291,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
         group->vertexCount = groupVertexCount;
         group++;
       }
-
-      model->blendShapeWeights[i] = blendShape->weight;
     }
 
-    model->blendShapesDirty = true;
+    lovrModelResetBlendShapes(model);
   }
 
   // Transforms
@@ -4328,7 +4326,6 @@ Model* lovrModelClone(Model* parent) {
 
   model->blendGroups = parent->blendGroups;
   model->blendGroupCount = parent->blendGroupCount;
-  model->blendShapesDirty = true;
 
   model->vertexBuffer = lovrBufferCreate(&parent->vertexBuffer->info, NULL);
 
@@ -4358,10 +4355,7 @@ Model* lovrModelClone(Model* parent) {
 
   model->blendShapeWeights = malloc(data->blendShapeCount * sizeof(float));
   lovrAssert(model->blendShapeWeights, "Out of memory");
-
-  for (uint32_t i = 0; i < data->blendShapeCount; i++) {
-    model->blendShapeWeights[i] = data->blendShapes[i].weight;
-  }
+  lovrModelResetBlendShapes(model);
 
   model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
   model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
@@ -4432,6 +4426,14 @@ void lovrModelResetNodeTransforms(Model* model) {
     }
   }
   model->transformsDirty = true;
+}
+
+void lovrModelResetBlendShapes(Model* model) {
+  ModelData* data = model->info.data;
+  for (uint32_t i = 0; i < data->blendShapeCount; i++) {
+    model->blendShapeWeights[i] = data->blendShapes[i].weight;
+  }
+  model->blendShapesDirty = true;
 }
 
 void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha) {
