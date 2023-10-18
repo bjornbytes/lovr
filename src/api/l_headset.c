@@ -581,6 +581,40 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetNewLayer(lua_State* L) {
+  uint32_t width = luax_checku32(L, 1);
+  uint32_t height = luax_checku32(L, 2);
+  Layer* layer = lovrHeadsetInterface->newLayer(width, height);
+  luax_pushtype(L, Layer, layer);
+  lovrRelease(layer, lovrHeadsetInterface->destroyLayer);
+  return 1;
+}
+
+static int l_lovrHeadsetGetLayers(lua_State* L) {
+  uint32_t count;
+  Layer** layers = lovrHeadsetInterface->getLayers(&count);
+  lua_createtable(L, (int) count, 0);
+  for (uint32_t i = 0; i < count; i++) {
+    luax_pushtype(L, Layer, layers[i]);
+    lua_rawseti(L, -2, (int) i + 1);
+  }
+  return 1;
+}
+
+static int l_lovrHeadsetSetLayers(lua_State* L) {
+  Layer* layers[MAX_LAYERS];
+  luaL_checktype(L, 1, LUA_TTABLE);
+  uint32_t count = luax_len(L, 1);
+  lovrCheck(count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
+  for (uint32_t i = 0; i < count; i++) {
+    lua_rawgeti(L, 1, (int) i + 1);
+    layers[i] = luax_checktype(L, -1, Layer);
+    lua_pop(L, 1);
+  }
+  lovrHeadsetInterface->setLayers(layers, count);
+  return 0;
+}
+
 static int l_lovrHeadsetGetTexture(lua_State* L) {
   Texture* texture = lovrHeadsetInterface->getTexture();
   luax_pushtype(L, Texture, texture);
@@ -690,6 +724,9 @@ static const luaL_Reg lovrHeadset[] = {
   { "stopVibration", l_lovrHeadsetStopVibration },
   { "newModel", l_lovrHeadsetNewModel },
   { "animate", l_lovrHeadsetAnimate },
+  { "newLayer", l_lovrHeadsetNewLayer },
+  { "getLayers", l_lovrHeadsetGetLayers },
+  { "setLayers", l_lovrHeadsetSetLayers },
   { "getTexture", l_lovrHeadsetGetTexture },
   { "getPass", l_lovrHeadsetGetPass },
   { "submit", l_lovrHeadsetSubmit },
@@ -702,9 +739,12 @@ static const luaL_Reg lovrHeadset[] = {
   { NULL, NULL }
 };
 
+extern const luaL_Reg lovrLayer[];
+
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
+  luax_registertype(L, Layer);
 
   HeadsetDriver drivers[8];
 
