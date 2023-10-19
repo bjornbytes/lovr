@@ -187,8 +187,8 @@ typedef struct HeadsetInterface {
   void (*destroyLayer)(void* ref);
   Layer** (*getLayers)(uint32_t* count);
   void (*setLayers)(Layer** layers, uint32_t count);
-  void (*getLayerTransform)(Layer* layer, float* position, float* orientation);
-  void (*setLayerTransform)(Layer* layer, float* position, float* orientation);
+  void (*getLayerPose)(Layer* layer, float* position, float* orientation);
+  void (*setLayerPose)(Layer* layer, float* position, float* orientation);
   void (*getLayerSize)(Layer* layer, float* width, float* height);
   void (*setLayerSize)(Layer* layer, float width, float height);
   EyeMask (*getLayerEyeMask)(Layer* layer);

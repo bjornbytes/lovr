@@ -73,6 +73,14 @@ StringEntry lovrDeviceAxis[] = {
   { 0 }
 };
 
+StringEntry lovrEyeMask[] = {
+  [EYE_NONE] = ENTRY("none"),
+  [EYE_LEFT] = ENTRY("left"),
+  [EYE_RIGHT] = ENTRY("right"),
+  [EYE_BOTH] = ENTRY("both"),
+  { 0 }
+};
+
 static Device luax_optdevice(lua_State* L, int index) {
   const char* str = luaL_optstring(L, 1, "head");
   if (!strcmp(str, "left")) {
