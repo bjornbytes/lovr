@@ -84,17 +84,17 @@ static int l_lovrLayerSetSize(lua_State* L) {
   return 0;
 }
 
-static int l_lovrLayerGetEyeMask(lua_State* L) {
+static int l_lovrLayerGetViewMask(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
-  EyeMask mask = lovrHeadsetInterface->getLayerEyeMask(layer);
-  luax_pushenum(L, EyeMask, mask);
+  ViewMask mask = lovrHeadsetInterface->getLayerViewMask(layer);
+  luax_pushenum(L, ViewMask, mask);
   return 1;
 }
 
-static int l_lovrLayerSetEyeMask(lua_State* L) {
+static int l_lovrLayerSetViewMask(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
-  EyeMask mask = luax_checkenum(L, 2, EyeMask, "both");
-  lovrHeadsetInterface->setLayerEyeMask(layer, mask);
+  ViewMask mask = luax_checkenum(L, 2, ViewMask, "both");
+  lovrHeadsetInterface->setLayerViewMask(layer, mask);
   return 0;
 }
 
@@ -122,7 +122,7 @@ static int l_lovrLayerSetViewport(lua_State* L) {
 
 static int l_lovrLayerGetSupersample(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
-  bool supersample = lovrHeadsetInterface->getLayerOption(layer, LAYER_SUPERSAMPLE);
+  bool supersample = lovrHeadsetInterface->getLayerFlag(layer, LAYER_SUPERSAMPLE);
   lua_pushboolean(L, supersample);
   return 1;
 }
@@ -130,13 +130,13 @@ static int l_lovrLayerGetSupersample(lua_State* L) {
 static int l_lovrLayerSetSupersample(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
   bool supersample = lua_toboolean(L, 2);
-  lovrHeadsetInterface->setLayerOption(layer, LAYER_SUPERSAMPLE, supersample);
+  lovrHeadsetInterface->setLayerFlag(layer, LAYER_SUPERSAMPLE, supersample);
   return 0;
 }
 
 static int l_lovrLayerGetSharpen(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
-  bool sharpen = lovrHeadsetInterface->getLayerOption(layer, LAYER_SHARPEN);
+  bool sharpen = lovrHeadsetInterface->getLayerFlag(layer, LAYER_SHARPEN);
   lua_pushboolean(L, sharpen);
   return 1;
 }
@@ -144,7 +144,7 @@ static int l_lovrLayerGetSharpen(lua_State* L) {
 static int l_lovrLayerSetSharpen(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
   bool sharpen = lua_toboolean(L, 2);
-  lovrHeadsetInterface->setLayerOption(layer, LAYER_SHARPEN, sharpen);
+  lovrHeadsetInterface->setLayerFlag(layer, LAYER_SHARPEN, sharpen);
   return 0;
 }
 
@@ -171,8 +171,8 @@ const luaL_Reg lovrLayer[] = {
   { "setPose", l_lovrLayerSetPose },
   { "getSize", l_lovrLayerGetSize },
   { "setSize", l_lovrLayerSetSize },
-  { "getEyeMask", l_lovrLayerGetEyeMask },
-  { "setEyeMask", l_lovrLayerSetEyeMask },
+  { "getViewMask", l_lovrLayerGetViewMask },
+  { "setViewMask", l_lovrLayerSetViewMask },
   { "getViewport", l_lovrLayerGetViewport },
   { "setViewport", l_lovrLayerSetViewport },
   { "getSupersample", l_lovrLayerGetSupersample },

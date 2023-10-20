@@ -73,11 +73,10 @@ StringEntry lovrDeviceAxis[] = {
   { 0 }
 };
 
-StringEntry lovrEyeMask[] = {
-  [EYE_NONE] = ENTRY("none"),
+StringEntry lovrViewMask[] = {
+  [EYE_BOTH] = ENTRY("both"),
   [EYE_LEFT] = ENTRY("left"),
   [EYE_RIGHT] = ENTRY("right"),
-  [EYE_BOTH] = ENTRY("both"),
   { 0 }
 };
 
@@ -589,15 +588,6 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetNewLayer(lua_State* L) {
-  uint32_t width = luax_checku32(L, 1);
-  uint32_t height = luax_checku32(L, 2);
-  Layer* layer = lovrHeadsetInterface->newLayer(width, height);
-  luax_pushtype(L, Layer, layer);
-  lovrRelease(layer, lovrHeadsetInterface->destroyLayer);
-  return 1;
-}
-
 static int l_lovrHeadsetGetLayers(lua_State* L) {
   uint32_t count;
   Layer** layers = lovrHeadsetInterface->getLayers(&count);
@@ -621,6 +611,15 @@ static int l_lovrHeadsetSetLayers(lua_State* L) {
   }
   lovrHeadsetInterface->setLayers(layers, count);
   return 0;
+}
+
+static int l_lovrHeadsetNewLayer(lua_State* L) {
+  uint32_t width = luax_checku32(L, 1);
+  uint32_t height = luax_checku32(L, 2);
+  Layer* layer = lovrHeadsetInterface->newLayer(width, height);
+  luax_pushtype(L, Layer, layer);
+  lovrRelease(layer, lovrHeadsetInterface->destroyLayer);
+  return 1;
 }
 
 static int l_lovrHeadsetGetTexture(lua_State* L) {

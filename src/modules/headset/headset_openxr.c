@@ -160,6 +160,25 @@ enum {
   MAX_ACTIONS
 };
 
+typedef struct {
+  XrSwapchain handle;
+  uint32_t width;
+  uint32_t height;
+  uint32_t textureIndex;
+  uint32_t textureCount;
+  Texture* textures[MAX_IMAGES];
+  bool acquired;
+} Swapchain;
+
+struct Layer {
+  uint32_t ref;
+  Swapchain swapchain;
+  XrCompositionLayerQuad info;
+  XrCompositionLayerDepthTestFB depthTest;
+  XrCompositionLayerSettingsFB settings;
+  Pass* pass;
+};
+
 enum { COLOR, DEPTH };
 
 static struct {
@@ -175,19 +194,18 @@ static struct {
   XrEnvironmentBlendMode blendMode;
   uint32_t blendModeCount;
   XrSpace spaces[MAX_DEVICES];
-  XrSwapchain swapchain[2];
-  XrCompositionLayerProjection layers[1];
+  TextureFormat depthFormat;
+  Pass* pass;
+  Swapchain swapchains[2];
+  XrCompositionLayerProjection layer;
   XrCompositionLayerProjectionView layerViews[2];
   XrCompositionLayerDepthInfoKHR depthInfo[2];
   XrCompositionLayerPassthroughFB passthroughLayer;
+  Layer** layers;
+  uint32_t layerCount;
   XrFrameState frameState;
   XrTime lastDisplayTime;
   XrTime epoch;
-  TextureFormat depthFormat;
-  Texture* textures[2][MAX_IMAGES];
-  Pass* pass;
-  uint32_t textureIndex[2];
-  uint32_t textureCount[2];
   uint32_t width;
   uint32_t height;
   float clipNear;
@@ -213,6 +231,8 @@ static struct {
     bool handTrackingMesh;
     bool headless;
     bool keyboardTracking;
+    bool layerDepthTest;
+    bool layerSettings;
     bool ml2Controller;
     bool localFloor;
     bool overlay;
@@ -405,6 +425,89 @@ static XrControllerModelKeyMSFT getControllerModelKey(Device device) {
   return *modelKey;
 }
 
+static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth) {
+  XrSwapchainCreateInfo info = {
+    .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
+    .width = state.width,
+    .height = state.height,
+    .sampleCount = 1,
+    .faceCount = 1,
+    .arraySize = stereo << 1,
+    .mipCount = 1
+  };
+
+  if (depth) {
+    info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    switch (state.depthFormat) {
+      case FORMAT_D32F: info.format = VK_FORMAT_D32_SFLOAT; break;
+      case FORMAT_D24S8: info.format = VK_FORMAT_D24_UNORM_S8_UINT; break;
+      case FORMAT_D32FS8: info.format = VK_FORMAT_D32_SFLOAT_S8_UINT; break;
+      default: lovrUnreachable();
+    }
+  } else {
+    info.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
+    info.format = VK_FORMAT_R8G8B8A8_SRGB;
+  }
+
+  XR(xrCreateSwapchain(state.session, &info, &swapchain->handle), "Failed to create swapchain");
+
+#ifdef LOVR_VK
+  XrSwapchainImageVulkanKHR images[MAX_IMAGES];
+  for (uint32_t i = 0; i < MAX_IMAGES; i++) {
+    images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
+    images[i].next = NULL;
+  }
+#else
+#error "Unsupported graphics backend"
+#endif
+
+  XR(xrEnumerateSwapchainImages(swapchain->handle, MAX_IMAGES, &swapchain->textureCount, (XrSwapchainImageBaseHeader*) images), "Failed to query swapchain images");
+
+  for (uint32_t i = 0; i < swapchain->textureCount; i++) {
+    swapchain->textures[i] = lovrTextureCreate(&(TextureInfo) {
+      .type = stereo ? TEXTURE_ARRAY : TEXTURE_2D,
+      .format = depth ? state.depthFormat : FORMAT_RGBA8,
+      .srgb = !depth,
+      .width = state.width,
+      .height = state.height,
+      .layers = stereo << 1,
+      .mipmaps = 1,
+      .samples = 1,
+      .usage = TEXTURE_RENDER | (depth ? 0 : TEXTURE_SAMPLE),
+      .handle = (uintptr_t) images[i].image,
+      .label = "OpenXR Swapchain",
+      .xr = true
+    });
+  }
+}
+
+static void swapchain_destroy(Swapchain* swapchain) {
+  if (!swapchain->handle) return;
+  for (uint32_t i = 0; i < swapchain->textureCount; i++) {
+    lovrRelease(swapchain->textures[i], lovrTextureDestroy);
+  }
+  xrDestroySwapchain(swapchain->handle);
+  swapchain->handle = XR_NULL_HANDLE;
+}
+
+static Texture* swapchain_acquire(Swapchain* swapchain) {
+  if (!swapchain->acquired) {
+    XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
+    XR(xrAcquireSwapchainImage(swapchain->handle, NULL, &swapchain->textureIndex), "Failed to acquire swapchain image");
+    XR(xrWaitSwapchainImage(swapchain->handle, &waitInfo), "Failed to wait on swapchain image");
+    swapchain->acquired = true;
+  }
+
+  return swapchain->textures[swapchain->textureIndex];
+}
+
+static void swapchain_release(Swapchain* swapchain) {
+  if (swapchain->handle && swapchain->acquired) {
+    XR(xrReleaseSwapchainImage(swapchain->handle, NULL), "Failed to release swapchain image");
+    swapchain->acquired = false;
+  }
+}
+
 static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice) {
   XrVulkanGraphicsDeviceGetInfoKHR info = {
     .type = XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR,
@@ -445,6 +548,7 @@ static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo
 }
 
 static void openxr_destroy();
+static void openxr_setClipDistance(float clipNear, float clipFar);
 
 static bool openxr_init(HeadsetConfig* config) {
   state.config = *config;
@@ -509,6 +613,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_EXT_hand_tracking", &state.features.handTracking, true },
       { "XR_EXT_local_floor", &state.features.localFloor, true },
       { "XR_BD_controller_interaction", &state.features.picoController, true },
+      { "XR_FB_composition_layer_depth_test", &state.features.layerDepthTest, true },
+      { "XR_FB_composition_layer_settings", &state.features.layerSettings, true },
       { "XR_FB_display_refresh_rate", &state.features.refreshRate, true },
       { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
@@ -1160,8 +1266,7 @@ static bool openxr_init(HeadsetConfig* config) {
     }
   }
 
-  state.clipNear = .01f;
-  state.clipFar = 0.f;
+  openxr_setClipDistance(.01f, 0.f);
   state.frameState.type = XR_TYPE_FRAME_STATE;
   return true;
 }
@@ -1277,12 +1382,6 @@ static void openxr_start(void) {
     state.pass = lovrPassCreate();
 
 #ifdef LOVR_VK
-    XrSwapchainImageVulkanKHR images[2][MAX_IMAGES];
-    for (uint32_t i = 0; i < MAX_IMAGES; i++) {
-      images[COLOR][i].type = images[DEPTH][i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
-      images[COLOR][i].next = images[DEPTH][i].next = NULL;
-    }
-
     int64_t nativeColorFormat = VK_FORMAT_R8G8B8A8_SRGB;
     int64_t nativeDepthFormat;
 
@@ -1310,74 +1409,19 @@ static void openxr_start(void) {
     }
 
     lovrAssert(supportsColor, "This VR runtime does not support sRGB rgba8 textures");
+    swapchain_init(&state.swapchains[COLOR], state.width, state.height, true, false);
 
     GraphicsFeatures features;
     lovrGraphicsGetFeatures(&features);
-    if (!supportsDepth || !features.depthResolve) {
+    if (state.features.depth && supportsDepth && features.depthResolve) {
+      swapchain_init(&state.swapchains[DEPTH], state.width, state.height, true, true);
+    } else {
       state.features.depth = false;
     }
 
-    XrSwapchainCreateInfo info = {
-      .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
-      .usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
-      .format = nativeColorFormat,
-      .width = state.width,
-      .height = state.height,
-      .sampleCount = 1,
-      .faceCount = 1,
-      .arraySize = 2,
-      .mipCount = 1
-    };
-
-    XR(xrCreateSwapchain(state.session, &info, &state.swapchain[COLOR]), "Failed to create swapchain");
-    XR(xrEnumerateSwapchainImages(state.swapchain[COLOR], MAX_IMAGES, &state.textureCount[COLOR], (XrSwapchainImageBaseHeader*) images), "Failed to query swapchain images");
-
-    for (uint32_t i = 0; i < state.textureCount[COLOR]; i++) {
-      state.textures[COLOR][i] = lovrTextureCreate(&(TextureInfo) {
-        .type = TEXTURE_ARRAY,
-        .format = FORMAT_RGBA8,
-        .srgb = true,
-        .width = state.width,
-        .height = state.height,
-        .layers = 2,
-        .mipmaps = 1,
-        .samples = 1,
-        .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
-        .handle = (uintptr_t) images[COLOR][i].image,
-        .label = "OpenXR Color Swapchain",
-        .xr = true
-      });
-    }
-
-    if (state.features.depth) {
-      info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-      info.format = nativeDepthFormat;
-
-      XR(xrCreateSwapchain(state.session, &info, &state.swapchain[DEPTH]), "Failed to create swapchain");
-      XR(xrEnumerateSwapchainImages(state.swapchain[DEPTH], MAX_IMAGES, &state.textureCount[DEPTH], (XrSwapchainImageBaseHeader*) images), "Failed to query swapchain images");
-
-      for (uint32_t i = 0; i < state.textureCount[DEPTH]; i++) {
-        state.textures[DEPTH][i] = lovrTextureCreate(&(TextureInfo) {
-          .type = TEXTURE_ARRAY,
-          .format = state.depthFormat,
-          .srgb = false,
-          .width = state.width,
-          .height = state.height,
-          .layers = 2,
-          .mipmaps = 1,
-          .samples = 1,
-          .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
-          .handle = (uintptr_t) images[DEPTH][i].image,
-          .label = "OpenXR Depth Swapchain",
-          .xr = true
-        });
-      }
-    }
-
     // Pre-init composition layer
-    state.layers[0] = (XrCompositionLayerProjection) {
+    state.layer = (XrCompositionLayerProjection) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
-      .space = state.referenceSpace,
       .viewCount = 2,
       .views = state.layerViews
     };
@@ -1385,12 +1429,12 @@ static void openxr_start(void) {
     // Pre-init composition layer views
     state.layerViews[0] = (XrCompositionLayerProjectionView) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-      .subImage = { state.swapchain[COLOR], { { 0, 0 }, { state.width, state.height } }, 0 }
+      .subImage = { state.swapchains[COLOR].handle, { { 0, 0 }, { state.width, state.height } }, 0 }
     };
 
     state.layerViews[1] = (XrCompositionLayerProjectionView) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-      .subImage = { state.swapchain[COLOR], { { 0, 0 }, { state.width, state.height } }, 1 }
+      .subImage = { state.swapchains[COLOR].handle, { { 0, 0 }, { state.width, state.height } }, 1 }
     };
 
     if (state.features.depth) {
@@ -1398,7 +1442,7 @@ static void openxr_start(void) {
         state.layerViews[i].next = &state.depthInfo[i];
         state.depthInfo[i] = (XrCompositionLayerDepthInfoKHR) {
           .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR,
-          .subImage.swapchain = state.swapchain[DEPTH],
+          .subImage.swapchain = state.swapchains[DEPTH].handle,
           .subImage.imageRect = state.layerViews[i].subImage.imageRect,
           .subImage.imageArrayIndex = i,
           .minDepth = 0.f,
@@ -1442,16 +1486,9 @@ static void openxr_stop(void) {
     return;
   }
 
-  for (uint32_t i = 0; i < 2; i++) {
-    for (uint32_t j = 0; j < state.textureCount[i]; j++) {
-      lovrRelease(state.textures[i][j], lovrTextureDestroy);
-    }
-  }
-
+  swapchain_destroy(&state.swapchains[0]);
+  swapchain_destroy(&state.swapchains[1]);
   lovrRelease(state.pass, lovrPassDestroy);
-
-  if (state.swapchain[COLOR]) xrDestroySwapchain(state.swapchain[COLOR]);
-  if (state.swapchain[DEPTH]) xrDestroySwapchain(state.swapchain[DEPTH]);
 
   if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
   if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
@@ -1717,6 +1754,16 @@ static void openxr_getClipDistance(float* clipNear, float* clipFar) {
 static void openxr_setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
+
+  if (state.features.depth) {
+    if (clipFar == 0.f) {
+      state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = +INFINITY;
+      state.depthInfo[0].farZ = state.depthInfo[1].farZ = clipNear;
+    } else {
+      state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = clipNear;
+      state.depthInfo[0].farZ = state.depthInfo[1].farZ = clipFar;
+    }
+  }
 }
 
 static void openxr_getBoundsDimensions(float* width, float* depth) {
@@ -2416,33 +2463,156 @@ static bool openxr_animate(Model* model) {
   }
 }
 
+static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
+  Layer* layer = calloc(1, sizeof(Layer));
+  lovrAssert(layer, "Out of memory");
+  layer->ref = 1;
+  swapchain_init(&layer->swapchain, width, height, false, false);
+  layer->info.type = XR_TYPE_COMPOSITION_LAYER_QUAD;
+  layer->info.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+  layer->info.layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+  layer->info.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+  layer->info.subImage.swapchain = layer->swapchain.handle;
+  layer->info.subImage.imageRect.extent.width = width;
+  layer->info.subImage.imageRect.extent.height = height;
+  layer->info.pose.orientation.w = 1.f;
+  layer->info.size.width = 1.f;
+  layer->info.size.height = 1.f;
+  if (state.features.layerDepthTest) {
+    layer->depthTest.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB;
+    layer->depthTest.next = layer->info.next;
+    layer->depthTest.depthMask = XR_TRUE;
+    layer->depthTest.compareOp = XR_COMPARE_OP_LESS_OR_EQUAL_FB;
+    layer->info.next = &layer->depthTest;
+  }
+  if (state.features.layerSettings) {
+    layer->settings.type = XR_TYPE_COMPOSITION_LAYER_SETTINGS_FB;
+    layer->settings.next = layer->info.next;
+    layer->info.next = &layer->settings;
+  }
+  return layer;
+}
+
+static void openxr_destroyLayer(void* ref) {
+  Layer* layer = ref;
+  swapchain_destroy(&layer->swapchain);
+  lovrRelease(layer->pass, lovrPassDestroy);
+  free(layer);
+}
+
+static Layer** openxr_getLayers(uint32_t* count) {
+  *count = state.layerCount;
+  return state.layers;
+}
+
+static void openxr_setLayers(Layer** layers, uint32_t count) {
+  for (uint32_t i = 0; i < state.layerCount; i++) {
+    lovrRelease(state.layers[i], lovrLayerDestroy);
+  }
+
+  state.layerCount = count;
+  for (uint32_t i = 0; i < count; i++) {
+    lovrRetain(layers[i]);
+    state.layers[i] = layers[i];
+  }
+}
+
+static void openxr_getLayerPose(Layer* layer, float position[3], float orientation[4]) {
+  memcpy(position, &layer->info.pose.position.x, 3 * sizeof(float));
+  memcpy(orientation, &layer->info.pose.orientation.x, 4 * sizeof(float));
+}
+
+static void openxr_setLayerPose(Layer* layer, float position[3], float orientation[4]) {
+  memcpy(&layer->info.pose.position.x, position, 3 * sizeof(float));
+  memcpy(&layer->info.pose.orientation.x, orientation, 4 * sizeof(float));
+}
+
+static void openxr_getLayerSize(Layer* layer, float* width, float* height) {
+  *width = layer->info.size.width;
+  *height = layer->info.size.height;
+}
+
+static void openxr_setLayerSize(Layer* layer, float width, float height) {
+  layer->info.size.width = width;
+  layer->info.size.height = height;
+}
+
+static ViewMask openxr_getLayerViewMask(Layer* layer) {
+  return (ViewMask) layer->info.eyeVisibility;
+}
+
+static void openxr_setLayerViewMask(Layer* layer, ViewMask mask) {
+  layer->info.eyeVisibility = (XrEyeVisibility) mask;
+}
+
+static void openxr_getLayerViewport(Layer* layer, uint32_t* viewport) {
+  viewport[0] = layer->info.subImage.imageRect.offset.x;
+  viewport[1] = layer->info.subImage.imageRect.offset.y;
+  viewport[2] = layer->info.subImage.imageRect.extent.width;
+  viewport[3] = layer->info.subImage.imageRect.extent.height;
+}
+
+static void openxr_setLayerViewport(Layer* layer, uint32_t* viewport) {
+  layer->info.subImage.imageRect.offset.x = viewport[0];
+  layer->info.subImage.imageRect.offset.y = viewport[1];
+  layer->info.subImage.imageRect.extent.width = viewport[2];
+  layer->info.subImage.imageRect.extent.height = viewport[3];
+}
+
+static bool openxr_getLayerFlag(Layer* layer, LayerFlag flag) {
+  switch (flag) {
+    case LAYER_SUPERSAMPLE: return layer->settings.layerFlags & XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB;
+    case LAYER_SHARPEN: return layer->settings.layerFlags & XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB;
+  }
+}
+
+static void openxr_setLayerFlag(Layer* layer, LayerFlag flag, bool enable) {
+  XrCompositionLayerSettingsFlagsFB bit;
+  switch (flag) {
+    case LAYER_SUPERSAMPLE: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB;
+    case LAYER_SHARPEN: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB;
+    default: lovrUnreachable();
+  }
+
+  if (enable) {
+    layer->settings.layerFlags |= bit;
+  } else {
+    layer->settings.layerFlags &= ~bit;
+  }
+}
+
+static Texture* openxr_getLayerTexture(Layer* layer) {
+  return swapchain_acquire(&layer->swapchain);
+}
+
+static Pass* openxr_getLayerPass(Layer* layer) {
+  Texture* textures[4] = { openxr_getLayerTexture(layer) };
+  lovrPassSetCanvas(layer->pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1);
+
+  float background[4][4];
+  LoadAction loads[4] = { LOAD_CLEAR };
+  lovrGraphicsGetBackgroundColor(background[0]);
+  lovrPassSetClear(state.pass, loads, background, LOAD_CLEAR, 0.f);
+
+  return layer->pass;
+}
+
 static Texture* openxr_getTexture(void) {
   if (!SESSION_ACTIVE(state.sessionState)) {
     return NULL;
   }
 
-  if (state.began) {
-    return state.frameState.shouldRender ? state.textures[COLOR][state.textureIndex[COLOR]] : NULL;
+  if (!state.began) {
+    XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
+    XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
+    state.began = true;
   }
-
-  XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-  XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
-  state.began = true;
 
   if (!state.frameState.shouldRender) {
     return NULL;
   }
 
-  XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]), "Failed to acquire color swapchain image");
-  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo), "Failed to wait on color swapchain image");
-
-  if (state.features.depth) {
-    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]), "Failed to acquire depth swapchain image");
-    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo), "Failed to wait for depth swapchain image");
-  }
-
-  return state.textures[COLOR][state.textureIndex[COLOR]];
+  return swapchain_acquire(&state.swapchains[COLOR]);
 }
 
 static Texture* openxr_getDepthTexture(void) {
@@ -2450,28 +2620,17 @@ static Texture* openxr_getDepthTexture(void) {
     return NULL;
   }
 
-  if (state.began) {
-    return state.frameState.shouldRender ? state.textures[DEPTH][state.textureIndex[DEPTH]] : NULL;
+  if (!state.began) {
+    XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
+    XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
+    state.began = true;
   }
-
-  XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-  XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
-  state.began = true;
 
   if (!state.frameState.shouldRender) {
     return NULL;
   }
 
-  XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-  XR(xrAcquireSwapchainImage(state.swapchain[COLOR], NULL, &state.textureIndex[COLOR]), "Failed to acquire color swapchain image");
-  XR(xrWaitSwapchainImage(state.swapchain[COLOR], &waitInfo), "Failed to wait for color swapchain image");
-
-  if (state.features.depth) {
-    XR(xrAcquireSwapchainImage(state.swapchain[DEPTH], NULL, &state.textureIndex[DEPTH]), "Failed to acquire depth swapchain image");
-    XR(xrWaitSwapchainImage(state.swapchain[DEPTH], &waitInfo), "Failed to wait for depth swapchain image");
-  }
-
-  return state.textures[DEPTH][state.textureIndex[DEPTH]];
+  return swapchain_acquire(&state.swapchains[DEPTH]);
 }
 
 static Pass* openxr_getPass(void) {
@@ -2479,17 +2638,13 @@ static Pass* openxr_getPass(void) {
     return state.frameState.shouldRender ? state.pass : NULL;
   }
 
-  Texture* texture = openxr_getTexture();
-  Texture* depthTexture = openxr_getDepthTexture();
+  Texture* textures[4] = { openxr_getTexture() };
+  Texture* depth = openxr_getDepthTexture();
 
-  if (!texture) {
+  if (!textures[0]) {
     return NULL;
   }
 
-  Texture* textures[4] = { texture };
-  Texture* depth = depthTexture;
-
-  lovrPassReset(state.pass);
   lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1);
 
   float background[4][4];
@@ -2532,12 +2687,24 @@ static Pass* openxr_getPass(void) {
 }
 
 static void openxr_submit(void) {
-  if (!state.began || !SESSION_ACTIVE(state.sessionState)) {
+  if (!SESSION_ACTIVE(state.sessionState)) {
     state.waited = false;
     return;
   }
 
-  XrCompositionLayerBaseHeader const* layers[2];
+  if (!state.began) {
+    XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
+    XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
+    state.began = true;
+  }
+
+  XrCompositionLayerBaseHeader const* layers[MAX_LAYERS + 2];
+
+  XrCompositionLayerDepthTestFB depthTestInfo = {
+    .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB,
+    .depthMask = XR_TRUE,
+    .compareOp = XR_COMPARE_OP_LESS_OR_EQUAL_FB
+  };
 
   XrFrameEndInfo info = {
     .type = XR_TYPE_FRAME_END_INFO,
@@ -2546,36 +2713,31 @@ static void openxr_submit(void) {
     .layers = layers
   };
 
-  if (state.features.depth) {
-    if (state.clipFar == 0.f) {
-      state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = +INFINITY;
-      state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipNear;
-    } else {
-      state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = state.clipNear;
-      state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipFar;
-    }
-  }
-
   if (state.frameState.shouldRender) {
-    XR(xrReleaseSwapchainImage(state.swapchain[COLOR], NULL), "Failed to release color swapchain image");
+    swapchain_release(&state.swapchains[COLOR]);
+    swapchain_release(&state.swapchains[DEPTH]);
 
-    if (state.features.depth) {
-      XR(xrReleaseSwapchainImage(state.swapchain[DEPTH], NULL), "Failed to release depth swapchain image");
+    if (state.features.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE) {
+      state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+    } else {
+      state.layer.layerFlags = 0;
+    }
+
+    if (state.features.layerDepthTest && state.features.depth) {
+      depthTestInfo.next = state.layer.next;
+      state.layer.next = &depthTestInfo;
     }
 
     if (state.passthroughActive) {
-      layers[0] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
-      layers[1] = (const XrCompositionLayerBaseHeader*) &state.layers[0];
-      info.layerCount = 2;
-    } else {
-      layers[0] = (const XrCompositionLayerBaseHeader*) &state.layers[0];
-      info.layerCount = 1;
+      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
     }
 
-    if (state.features.overlay || state.passthroughActive) {
-      state.layers[0].layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-    } else {
-      state.layers[0].layerFlags = 0;
+    layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layer;
+    state.layer.space = state.referenceSpace;
+
+    for (uint32_t i = 0; i < state.layerCount; i++) {
+      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layers[i]->info;
+      state.layers[i]->info.space = state.referenceSpace;
     }
   }
 
@@ -2643,7 +2805,6 @@ static double openxr_update(void) {
         XrEventDataReferenceSpaceChangePending* event = (XrEventDataReferenceSpaceChangePending*) &e;
         if (event->referenceSpaceType == XR_REFERENCE_SPACE_TYPE_LOCAL) {
           createReferenceSpace(event->changeTime);
-          state.layers[0].space = state.referenceSpace;
           lovrEventPush((Event) { .type = EVENT_RECENTER });
         }
         break;
@@ -2722,6 +2883,22 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .stopVibration = openxr_stopVibration,
   .newModelData = openxr_newModelData,
   .animate = openxr_animate,
+  .newLayer = openxr_newLayer,
+  .destroyLayer = openxr_destroyLayer,
+  .getLayers = openxr_getLayers,
+  .setLayers = openxr_setLayers,
+  .getLayerPose = openxr_getLayerPose,
+  .setLayerPose = openxr_setLayerPose,
+  .getLayerSize = openxr_getLayerSize,
+  .setLayerSize = openxr_setLayerSize,
+  .getLayerViewMask = openxr_getLayerViewMask,
+  .setLayerViewMask = openxr_setLayerViewMask,
+  .getLayerViewport = openxr_getLayerViewport,
+  .setLayerViewport = openxr_setLayerViewport,
+  .getLayerFlag = openxr_getLayerFlag,
+  .setLayerFlag = openxr_setLayerFlag,
+  .getLayerTexture = openxr_getLayerTexture,
+  .getLayerPass = openxr_getLayerPass,
   .getTexture = openxr_getTexture,
   .getPass = openxr_getPass,
   .submit = openxr_submit,
