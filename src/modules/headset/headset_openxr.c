@@ -201,7 +201,7 @@ static struct {
   XrCompositionLayerProjectionView layerViews[2];
   XrCompositionLayerDepthInfoKHR depthInfo[2];
   XrCompositionLayerPassthroughFB passthroughLayer;
-  Layer** layers;
+  Layer* layers[MAX_LAYERS];
   uint32_t layerCount;
   XrFrameState frameState;
   XrTime lastDisplayTime;
@@ -432,7 +432,7 @@ static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
     .height = state.height,
     .sampleCount = 1,
     .faceCount = 1,
-    .arraySize = stereo << 1,
+    .arraySize = 1 << stereo,
     .mipCount = 1
   };
 
@@ -470,7 +470,7 @@ static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       .srgb = !depth,
       .width = state.width,
       .height = state.height,
-      .layers = stereo << 1,
+      .layers = 1 << stereo,
       .mipmaps = 1,
       .samples = 1,
       .usage = TEXTURE_RENDER | (depth ? 0 : TEXTURE_SAMPLE),
@@ -2490,6 +2490,7 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
     layer->settings.next = layer->info.next;
     layer->info.next = &layer->settings;
   }
+  layer->pass = lovrPassCreate();
   return layer;
 }
 
@@ -2563,14 +2564,15 @@ static bool openxr_getLayerFlag(Layer* layer, LayerFlag flag) {
   switch (flag) {
     case LAYER_SUPERSAMPLE: return layer->settings.layerFlags & XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB;
     case LAYER_SHARPEN: return layer->settings.layerFlags & XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB;
+    default: lovrUnreachable();
   }
 }
 
 static void openxr_setLayerFlag(Layer* layer, LayerFlag flag, bool enable) {
   XrCompositionLayerSettingsFlagsFB bit;
   switch (flag) {
-    case LAYER_SUPERSAMPLE: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB;
-    case LAYER_SHARPEN: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB;
+    case LAYER_SUPERSAMPLE: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB; break;
+    case LAYER_SHARPEN: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB; break;
     default: lovrUnreachable();
   }
 
@@ -2738,6 +2740,7 @@ static void openxr_submit(void) {
     for (uint32_t i = 0; i < state.layerCount; i++) {
       layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layers[i]->info;
       state.layers[i]->info.space = state.referenceSpace;
+      swapchain_release(&state.layers[i]->swapchain);
     }
   }
 

@@ -601,13 +601,21 @@ static int l_lovrHeadsetGetLayers(lua_State* L) {
 
 static int l_lovrHeadsetSetLayers(lua_State* L) {
   Layer* layers[MAX_LAYERS];
-  luaL_checktype(L, 1, LUA_TTABLE);
-  uint32_t count = luax_len(L, 1);
-  lovrCheck(count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
-  for (uint32_t i = 0; i < count; i++) {
-    lua_rawgeti(L, 1, (int) i + 1);
-    layers[i] = luax_checktype(L, -1, Layer);
-    lua_pop(L, 1);
+  uint32_t count = 0;
+  if (lua_type(L, 1) == LUA_TTABLE) {
+    count = luax_len(L, 1);
+    lovrCheck(count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
+    for (uint32_t i = 0; i < count; i++) {
+      lua_rawgeti(L, 1, (int) i + 1);
+      layers[i] = luax_checktype(L, -1, Layer);
+      lua_pop(L, 1);
+    }
+  } else {
+    count = lua_gettop(L);
+    lovrCheck(count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
+    for (uint32_t i = 0; i < count; i++) {
+      layers[i] = luax_checktype(L, (int) i + 1, Layer);
+    }
   }
   lovrHeadsetInterface->setLayers(layers, count);
   return 0;
