@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.lovr.app" android:installLocation="auto" android:versionCode="1">
   <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="26"/>
+  <uses-feature android:name="android.hardware.vulkan.version" android:version="0x00401000" android:required="true"/>
   <uses-feature android:name="android.hardware.vr.headtracking" android:required="false"/>
-  <uses-feature android:name="oculus.software.handtracking" android:required="false"/>
   <!-- Oculus -->
+  <uses-feature android:name="oculus.software.handtracking" android:required="false"/>
   <uses-feature android:name="oculus.software.trackedkeyboard" android:required="false"/>
   <uses-feature android:name="com.oculus.feature.RENDER_MODEL" android:required="false"/>
   <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="false"/>
