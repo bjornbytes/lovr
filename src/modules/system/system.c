@@ -1,5 +1,7 @@
 #include "system/system.h"
 #include "event/event.h"
+#include "graphics/graphics.h"
+#include "headset/headset.h"
 #include "core/os.h"
 #include "util.h"
 #include <string.h>
@@ -7,99 +9,138 @@
 static struct {
   bool initialized;
   bool keyRepeat;
-  bool prevKeyState[KEY_COUNT];
-  bool keyState[KEY_COUNT];
+  bool prevKeyState[OS_KEY_COUNT];
+  bool keyState[OS_KEY_COUNT];
   bool mouseState[8];
   double mouseX;
   double mouseY;
-  double scrollDelta;
 } state;
 
-static void onKey(os_button_action action, os_key key, uint32_t scancode, bool repeat) {
-  if (repeat && !state.keyRepeat) return;
-  state.keyState[key] = (action == BUTTON_PRESSED);
-  lovrEventPush((Event) {
-    .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
-    .data.key.code = key,
-    .data.key.scancode = scancode,
-    .data.key.repeat = repeat
-  });
-}
+extern void lovrGraphicsOnResize(uint32_t width, uint32_t height);
+extern void lovrSimulatorOnFocus(bool focused);
+extern void lovrSimulatorOnResize(uint32_t width, uint32_t height);
+extern void lovrSimulatorOnScroll(double dx, double dy);
 
-static void onText(uint32_t codepoint) {
-  Event event;
-  event.type = EVENT_TEXTINPUT;
-  event.data.text.codepoint = codepoint;
-  memset(&event.data.text.utf8, 0, sizeof(event.data.text.utf8));
-  utf8_encode(codepoint, event.data.text.utf8);
-  lovrEventPush(event);
-}
+static void onEvent(os_event_type type, os_event_data* data) {
+  switch (type) {
+    case OS_EVENT_QUIT:
+      lovrEventPush((Event) {
+        .type = EVENT_QUIT,
+        .data.quit.exitCode = 0
+      });
+      break;
 
-static void onMouseButton(int button, bool pressed) {
-  if ((size_t) button < COUNTOF(state.mouseState)) state.mouseState[button] = pressed;
-  lovrEventPush((Event) {
-    .type = pressed ? EVENT_MOUSEPRESSED : EVENT_MOUSERELEASED,
-    .data.mouse.x = state.mouseX,
-    .data.mouse.y = state.mouseY,
-    .data.mouse.button = button
-  });
-}
+    case OS_EVENT_FOCUS:
+#ifndef LOVR_DISABLE_HEADSET
+      if (lovrHeadsetInterface && lovrHeadsetInterface->driverType == DRIVER_SIMULATOR) {
+        lovrSimulatorOnFocus(data->focus.focused);
+        lovrEventPush((Event) {
+          .type = EVENT_FOCUS,
+          .data.boolean.value = data->focus.focused
+        });
+      }
+#endif
+      break;
 
-static void onMouseMove(double x, double y) {
-  lovrEventPush((Event) {
-    .type = EVENT_MOUSEMOVED,
-    .data.mouse.x = x,
-    .data.mouse.y = y,
-    .data.mouse.dx = x - state.mouseX,
-    .data.mouse.dy = y - state.mouseY
-  });
+    case OS_EVENT_RESIZE:
+#ifndef LOVR_DISABLE_GRAPHICS
+      lovrGraphicsOnResize(data->resize.width, data->resize.height);
+#endif
+#ifndef LOVR_DISABLE_HEADSET
+      if (lovrHeadsetInterface && lovrHeadsetInterface->driverType == DRIVER_SIMULATOR) {
+        lovrSimulatorOnResize(data->resize.width, data->resize.height);
+      }
+#endif
+      lovrEventPush((Event) {
+        .type = EVENT_RESIZE,
+        .data.resize.width = data->resize.width,
+        .data.resize.height = data->resize.height
+      });
+      break;
 
-  state.mouseX = x;
-  state.mouseY = y;
-}
+    case OS_EVENT_KEY_PRESSED:
+    case OS_EVENT_KEY_RELEASED:
+      if (data->key.repeat && !state.keyRepeat) return;
+      state.keyState[data->key.code] = (type == OS_EVENT_KEY_PRESSED);
+      lovrEventPush((Event) {
+        .type = OS_EVENT_KEY_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
+        .data.key.code = data->key.code,
+        .data.key.scancode = data->key.scancode,
+        .data.key.repeat = data->key.repeat
+      });
+      break;
 
-static void onWheelMove(double deltaX, double deltaY) {
-  state.scrollDelta += deltaY;
-  lovrEventPush((Event) {
-    .type = EVENT_MOUSEWHEELMOVED,
-    .data.wheel.x = deltaX,
-    .data.wheel.y = deltaY,
-  });
-}
+    case OS_EVENT_TEXT_INPUT: {
+      Event event;
+      event.type = EVENT_TEXTINPUT;
+      event.data.text.codepoint = data->text.codepoint;
+      memset(&event.data.text.utf8, 0, sizeof(event.data.text.utf8));
+      utf8_encode(data->text.codepoint, event.data.text.utf8);
+      lovrEventPush(event);
+      break;
+    }
 
-static void onPermission(os_permission permission, bool granted) {
-  lovrEventPush((Event) {
-    .type = EVENT_PERMISSION,
-    .data.permission.permission = permission,
-    .data.permission.granted = granted
-  });
-}
+    case OS_EVENT_MOUSE_PRESSED:
+    case OS_EVENT_MOUSE_RELEASED:
+      if ((size_t) data->mouse.button < COUNTOF(state.mouseState)) {
+        state.mouseState[data->mouse.button] = type == OS_EVENT_MOUSE_PRESSED;
+      }
+      lovrEventPush((Event) {
+        .type = type == OS_EVENT_MOUSE_PRESSED ? EVENT_MOUSEPRESSED : EVENT_MOUSERELEASED,
+        .data.mouse.x = state.mouseX,
+        .data.mouse.y = state.mouseY,
+        .data.mouse.button = data->mouse.button
+      });
+      break;
 
-static void onQuit(void) {
-  lovrEventPush((Event) {
-    .type = EVENT_QUIT,
-    .data.quit.exitCode = 0
-  });
+    case OS_EVENT_MOUSE_MOVED:
+      lovrEventPush((Event) {
+        .type = EVENT_MOUSEMOVED,
+        .data.mouse.x = data->move.x,
+        .data.mouse.y = data->move.y,
+        .data.mouse.dx = data->move.x - state.mouseX,
+        .data.mouse.dy = data->move.y - state.mouseY
+      });
+      state.mouseX = data->move.x;
+      state.mouseY = data->move.y;
+      break;
+
+    case OS_EVENT_WHEEL_MOVED:
+#ifndef LOVR_DISABLE_HEADSET
+      if (lovrHeadsetInterface && lovrHeadsetInterface->driverType == DRIVER_SIMULATOR) {
+        lovrSimulatorOnScroll(data->scroll.dx, data->scroll.dy);
+      }
+#endif
+      lovrEventPush((Event) {
+        .type = EVENT_MOUSEWHEELMOVED,
+        .data.wheel.x = data->scroll.dx,
+        .data.wheel.y = data->scroll.dy,
+      });
+      break;
+
+    case OS_EVENT_PERMISSION:
+      lovrEventPush((Event) {
+        .type = EVENT_PERMISSION,
+        .data.permission.permission = data->permission.type,
+        .data.permission.granted = data->permission.granted
+      });
+      break;
+
+    default:
+      lovrUnreachable();
+  }
 }
 
 bool lovrSystemInit(void) {
   if (state.initialized) return false;
-  os_on_key(onKey);
-  os_on_text(onText);
-  os_on_mouse_button(onMouseButton);
-  os_on_mouse_move(onMouseMove);
-  os_on_mousewheel_move(onWheelMove);
-  os_on_permission(onPermission);
   state.initialized = true;
+  os_on_event(onEvent);
   os_get_mouse_position(&state.mouseX, &state.mouseY);
   return true;
 }
 
 void lovrSystemDestroy(void) {
   if (!state.initialized) return;
-  os_on_key(NULL);
-  os_on_text(NULL);
-  os_on_permission(NULL);
   memset(&state, 0, sizeof(state));
 }
 
@@ -115,9 +156,13 @@ void lovrSystemRequestPermission(Permission permission) {
   os_request_permission((os_permission) permission);
 }
 
+void lovrSystemPollEvents(void) {
+  memcpy(state.prevKeyState, state.keyState, sizeof(state.keyState));
+  os_poll_events();
+}
+
 void lovrSystemOpenWindow(os_window_config* window) {
   lovrAssert(os_window_open(window), "Could not open window");
-  os_on_quit(onQuit);
 }
 
 bool lovrSystemIsWindowOpen(void) {
@@ -130,12 +175,6 @@ void lovrSystemGetWindowSize(uint32_t* width, uint32_t* height) {
 
 float lovrSystemGetWindowDensity(void) {
   return os_window_get_pixel_density();
-}
-
-void lovrSystemPollEvents(void) {
-  memcpy(state.prevKeyState, state.keyState, sizeof(state.keyState));
-  state.scrollDelta = 0.;
-  os_poll_events();
 }
 
 bool lovrSystemIsKeyDown(int keycode) {
@@ -166,9 +205,4 @@ void lovrSystemGetMousePosition(double* x, double* y) {
 bool lovrSystemIsMouseDown(int button) {
   if ((size_t) button > COUNTOF(state.mouseState)) return false;
   return state.mouseState[button];
-}
-
-// This is kind of a hacky thing for the simulator, since we're kinda bad at event dispatch
-float lovrSystemGetScrollDelta(void) {
-  return state.scrollDelta;
 }

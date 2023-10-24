@@ -6,6 +6,10 @@
 #include <pwd.h>
 #include <sys/mman.h>
 
+static struct {
+  fn_event* callback;
+} state;
+
 #include "os_glfw.h"
 
 #define NS_PER_SEC 1000000000ULL
@@ -15,7 +19,17 @@ bool os_init(void) {
 }
 
 void os_destroy(void) {
+#ifdef LOVR_USE_GLFW
   glfwTerminate();
+#endif
+}
+
+void os_thread_attach(void) {
+  //
+}
+
+void os_thread_detach(void) {
+  //
 }
 
 const char* os_get_name(void) {
@@ -48,10 +62,6 @@ void os_request_permission(os_permission permission) {
   //
 }
 
-void os_on_permission(fn_permission* callback) {
-  //
-}
-
 void* os_vm_init(size_t size) {
   return mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
@@ -66,14 +76,6 @@ bool os_vm_commit(void* p, size_t size) {
 
 bool os_vm_release(void* p, size_t size) {
   return !madvise(p, size, MADV_DONTNEED);
-}
-
-void os_thread_attach(void) {
-  //
-}
-
-void os_thread_detach(void) {
-  //
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {

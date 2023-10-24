@@ -1,93 +1,20 @@
 #ifndef LOVR_USE_GLFW
 
-void os_poll_events(void) {
-  //
-}
-
-bool os_window_open(const os_window_config* config) {
-  return false;
-}
-
-bool os_window_is_open(void) {
-  return false;
-}
-
-void os_window_get_size(uint32_t* width, uint32_t* height) {
-  *width = *height = 0;
-}
-
-float os_window_get_pixel_density(void) {
-  return 0.f;
-}
-
-void os_on_quit(fn_quit* callback) {
-  //
-}
-
-void os_on_focus(fn_focus* callback) {
-  //
-}
-
-void os_on_resize(fn_resize* callback) {
-  //
-}
-
-void os_on_key(fn_key* callback) {
-  //
-}
-
-void os_on_text(fn_text* callback) {
-  //
-}
-
-void os_on_mouse_button(fn_mouse_button* callback) {
-  //
-}
-
-void os_on_mouse_move(fn_mouse_move* callback) {
-  //
-}
-
-void os_on_mousewheel_move(fn_wheel_move* callback)
-{
-  //
-}
-
-void os_get_mouse_position(double* x, double* y) {
-  *x = *y = 0.;
-}
-
-void os_set_mouse_mode(os_mouse_mode mode) {
-  //
-}
-
-bool os_is_mouse_down(os_mouse_button button) {
-  return false;
-}
-
-bool os_is_key_down(os_key key) {
-  return false;
-}
-
-uintptr_t os_get_win32_window(void) {
-  return 0;
-}
-
-uintptr_t os_get_win32_instance(void) {
-  return 0;
-}
-
-uintptr_t os_get_ca_metal_layer(void) {
-  return 0;
-}
-
-uintptr_t os_get_xcb_connection(void) {
-  return 0;
-}
-
-uintptr_t os_get_xcb_window(void) {
-  return 0;
-}
+void os_on_event(fn_event* callback) {}
+void os_poll_events(void) {}
+bool os_window_open(const os_window_config* config) { return false; }
+bool os_window_is_open(void) { return false; }
+void os_window_get_size(uint32_t* width, uint32_t* height) { *width = *height = 0; }
+float os_window_get_pixel_density(void) { return 0.f; }
+void os_get_mouse_position(double* x, double* y) { *x = *y = 0.; }
+void os_set_mouse_relative(bool relative) {}
+bool os_is_mouse_down(int button) { return false; }
+bool os_is_key_down(os_key key) { return false; }
+uintptr_t os_get_win32_window(void) { return 0; }
+uintptr_t os_get_win32_instance(void) { return 0; }
+uintptr_t os_get_ca_metal_layer(void) { return 0; }
+uintptr_t os_get_xcb_connection(void) { return 0; }
+uintptr_t os_get_xcb_window(void) { return 0; }
 
 #else
 
@@ -114,14 +41,6 @@ uintptr_t os_get_xcb_window(void) {
 
 static struct {
   GLFWwindow* window;
-  fn_quit* onQuitRequest;
-  fn_focus* onWindowFocus;
-  fn_resize* onWindowResize;
-  fn_key* onKeyboardEvent;
-  fn_text* onTextEvent;
-  fn_mouse_button* onMouseButton;
-  fn_mouse_move* onMouseMove;
-  fn_mousewheel_move* onMouseWheelMove;
   uint32_t width;
   uint32_t height;
 } glfwState;
@@ -131,178 +50,183 @@ static void onError(int code, const char* description) {
 }
 
 static void onWindowClose(GLFWwindow* window) {
-  if (glfwState.onQuitRequest) {
-    glfwState.onQuitRequest();
+  if (state.callback) {
+    state.callback(OS_EVENT_QUIT, &(os_event_data) { 0 });
   }
 }
 
 static void onWindowFocus(GLFWwindow* window, int focused) {
-  if (glfwState.onWindowFocus) {
-    glfwState.onWindowFocus(focused);
+  if (state.callback) {
+    state.callback(OS_EVENT_FOCUS, &(os_event_data) {
+      .focus = { focused }
+    });
   }
 }
 
 static void onWindowResize(GLFWwindow* window, int width, int height) {
-  if (glfwState.onWindowResize && width > 0 && height > 0) {
-    glfwState.width = width;
-    glfwState.height = height;
-    glfwState.onWindowResize(width, height);
-  }
+  if (!state.callback || width == 0 || height == 0) return;
+  glfwState.width = width;
+  glfwState.height = height;
+  state.callback(OS_EVENT_RESIZE, &(os_event_data) {
+    .resize = { width, height }
+  });
 }
 
 static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int mods) {
-  if (glfwState.onKeyboardEvent) {
-    os_key key;
-    switch (k) {
-      case GLFW_KEY_A: key = KEY_A; break;
-      case GLFW_KEY_B: key = KEY_B; break;
-      case GLFW_KEY_C: key = KEY_C; break;
-      case GLFW_KEY_D: key = KEY_D; break;
-      case GLFW_KEY_E: key = KEY_E; break;
-      case GLFW_KEY_F: key = KEY_F; break;
-      case GLFW_KEY_G: key = KEY_G; break;
-      case GLFW_KEY_H: key = KEY_H; break;
-      case GLFW_KEY_I: key = KEY_I; break;
-      case GLFW_KEY_J: key = KEY_J; break;
-      case GLFW_KEY_K: key = KEY_K; break;
-      case GLFW_KEY_L: key = KEY_L; break;
-      case GLFW_KEY_M: key = KEY_M; break;
-      case GLFW_KEY_N: key = KEY_N; break;
-      case GLFW_KEY_O: key = KEY_O; break;
-      case GLFW_KEY_P: key = KEY_P; break;
-      case GLFW_KEY_Q: key = KEY_Q; break;
-      case GLFW_KEY_R: key = KEY_R; break;
-      case GLFW_KEY_S: key = KEY_S; break;
-      case GLFW_KEY_T: key = KEY_T; break;
-      case GLFW_KEY_U: key = KEY_U; break;
-      case GLFW_KEY_V: key = KEY_V; break;
-      case GLFW_KEY_W: key = KEY_W; break;
-      case GLFW_KEY_X: key = KEY_X; break;
-      case GLFW_KEY_Y: key = KEY_Y; break;
-      case GLFW_KEY_Z: key = KEY_Z; break;
-      case GLFW_KEY_0: key = KEY_0; break;
-      case GLFW_KEY_1: key = KEY_1; break;
-      case GLFW_KEY_2: key = KEY_2; break;
-      case GLFW_KEY_3: key = KEY_3; break;
-      case GLFW_KEY_4: key = KEY_4; break;
-      case GLFW_KEY_5: key = KEY_5; break;
-      case GLFW_KEY_6: key = KEY_6; break;
-      case GLFW_KEY_7: key = KEY_7; break;
-      case GLFW_KEY_8: key = KEY_8; break;
-      case GLFW_KEY_9: key = KEY_9; break;
+  if (!state.callback) return;
 
-      case GLFW_KEY_SPACE: key = KEY_SPACE; break;
-      case GLFW_KEY_ENTER: key = KEY_ENTER; break;
-      case GLFW_KEY_TAB: key = KEY_TAB; break;
-      case GLFW_KEY_ESCAPE: key = KEY_ESCAPE; break;
-      case GLFW_KEY_BACKSPACE: key = KEY_BACKSPACE; break;
-      case GLFW_KEY_UP: key = KEY_UP; break;
-      case GLFW_KEY_DOWN: key = KEY_DOWN; break;
-      case GLFW_KEY_LEFT: key = KEY_LEFT; break;
-      case GLFW_KEY_RIGHT: key = KEY_RIGHT; break;
-      case GLFW_KEY_HOME: key = KEY_HOME; break;
-      case GLFW_KEY_END: key = KEY_END; break;
-      case GLFW_KEY_PAGE_UP: key = KEY_PAGE_UP; break;
-      case GLFW_KEY_PAGE_DOWN: key = KEY_PAGE_DOWN; break;
-      case GLFW_KEY_INSERT: key = KEY_INSERT; break;
-      case GLFW_KEY_DELETE: key = KEY_DELETE; break;
-      case GLFW_KEY_F1: key = KEY_F1; break;
-      case GLFW_KEY_F2: key = KEY_F2; break;
-      case GLFW_KEY_F3: key = KEY_F3; break;
-      case GLFW_KEY_F4: key = KEY_F4; break;
-      case GLFW_KEY_F5: key = KEY_F5; break;
-      case GLFW_KEY_F6: key = KEY_F6; break;
-      case GLFW_KEY_F7: key = KEY_F7; break;
-      case GLFW_KEY_F8: key = KEY_F8; break;
-      case GLFW_KEY_F9: key = KEY_F9; break;
-      case GLFW_KEY_F10: key = KEY_F10; break;
-      case GLFW_KEY_F11: key = KEY_F11; break;
-      case GLFW_KEY_F12: key = KEY_F12; break;
+  os_key key;
+  switch (k) {
+    case GLFW_KEY_A: key = OS_KEY_A; break;
+    case GLFW_KEY_B: key = OS_KEY_B; break;
+    case GLFW_KEY_C: key = OS_KEY_C; break;
+    case GLFW_KEY_D: key = OS_KEY_D; break;
+    case GLFW_KEY_E: key = OS_KEY_E; break;
+    case GLFW_KEY_F: key = OS_KEY_F; break;
+    case GLFW_KEY_G: key = OS_KEY_G; break;
+    case GLFW_KEY_H: key = OS_KEY_H; break;
+    case GLFW_KEY_I: key = OS_KEY_I; break;
+    case GLFW_KEY_J: key = OS_KEY_J; break;
+    case GLFW_KEY_K: key = OS_KEY_K; break;
+    case GLFW_KEY_L: key = OS_KEY_L; break;
+    case GLFW_KEY_M: key = OS_KEY_M; break;
+    case GLFW_KEY_N: key = OS_KEY_N; break;
+    case GLFW_KEY_O: key = OS_KEY_O; break;
+    case GLFW_KEY_P: key = OS_KEY_P; break;
+    case GLFW_KEY_Q: key = OS_KEY_Q; break;
+    case GLFW_KEY_R: key = OS_KEY_R; break;
+    case GLFW_KEY_S: key = OS_KEY_S; break;
+    case GLFW_KEY_T: key = OS_KEY_T; break;
+    case GLFW_KEY_U: key = OS_KEY_U; break;
+    case GLFW_KEY_V: key = OS_KEY_V; break;
+    case GLFW_KEY_W: key = OS_KEY_W; break;
+    case GLFW_KEY_X: key = OS_KEY_X; break;
+    case GLFW_KEY_Y: key = OS_KEY_Y; break;
+    case GLFW_KEY_Z: key = OS_KEY_Z; break;
+    case GLFW_KEY_0: key = OS_KEY_0; break;
+    case GLFW_KEY_1: key = OS_KEY_1; break;
+    case GLFW_KEY_2: key = OS_KEY_2; break;
+    case GLFW_KEY_3: key = OS_KEY_3; break;
+    case GLFW_KEY_4: key = OS_KEY_4; break;
+    case GLFW_KEY_5: key = OS_KEY_5; break;
+    case GLFW_KEY_6: key = OS_KEY_6; break;
+    case GLFW_KEY_7: key = OS_KEY_7; break;
+    case GLFW_KEY_8: key = OS_KEY_8; break;
+    case GLFW_KEY_9: key = OS_KEY_9; break;
 
-      case GLFW_KEY_GRAVE_ACCENT: key = KEY_BACKTICK; break;
-      case GLFW_KEY_MINUS: key = KEY_MINUS; break;
-      case GLFW_KEY_EQUAL: key = KEY_EQUALS; break;
-      case GLFW_KEY_LEFT_BRACKET: key = KEY_LEFT_BRACKET; break;
-      case GLFW_KEY_RIGHT_BRACKET: key = KEY_RIGHT_BRACKET; break;
-      case GLFW_KEY_BACKSLASH: key = KEY_BACKSLASH; break;
-      case GLFW_KEY_SEMICOLON: key = KEY_SEMICOLON; break;
-      case GLFW_KEY_APOSTROPHE: key = KEY_APOSTROPHE; break;
-      case GLFW_KEY_COMMA: key = KEY_COMMA; break;
-      case GLFW_KEY_PERIOD: key = KEY_PERIOD; break;
-      case GLFW_KEY_SLASH: key = KEY_SLASH; break;
+    case GLFW_KEY_SPACE: key = OS_KEY_SPACE; break;
+    case GLFW_KEY_ENTER: key = OS_KEY_ENTER; break;
+    case GLFW_KEY_TAB: key = OS_KEY_TAB; break;
+    case GLFW_KEY_ESCAPE: key = OS_KEY_ESCAPE; break;
+    case GLFW_KEY_BACKSPACE: key = OS_KEY_BACKSPACE; break;
+    case GLFW_KEY_UP: key = OS_KEY_UP; break;
+    case GLFW_KEY_DOWN: key = OS_KEY_DOWN; break;
+    case GLFW_KEY_LEFT: key = OS_KEY_LEFT; break;
+    case GLFW_KEY_RIGHT: key = OS_KEY_RIGHT; break;
+    case GLFW_KEY_HOME: key = OS_KEY_HOME; break;
+    case GLFW_KEY_END: key = OS_KEY_END; break;
+    case GLFW_KEY_PAGE_UP: key = OS_KEY_PAGE_UP; break;
+    case GLFW_KEY_PAGE_DOWN: key = OS_KEY_PAGE_DOWN; break;
+    case GLFW_KEY_INSERT: key = OS_KEY_INSERT; break;
+    case GLFW_KEY_DELETE: key = OS_KEY_DELETE; break;
+    case GLFW_KEY_F1: key = OS_KEY_F1; break;
+    case GLFW_KEY_F2: key = OS_KEY_F2; break;
+    case GLFW_KEY_F3: key = OS_KEY_F3; break;
+    case GLFW_KEY_F4: key = OS_KEY_F4; break;
+    case GLFW_KEY_F5: key = OS_KEY_F5; break;
+    case GLFW_KEY_F6: key = OS_KEY_F6; break;
+    case GLFW_KEY_F7: key = OS_KEY_F7; break;
+    case GLFW_KEY_F8: key = OS_KEY_F8; break;
+    case GLFW_KEY_F9: key = OS_KEY_F9; break;
+    case GLFW_KEY_F10: key = OS_KEY_F10; break;
+    case GLFW_KEY_F11: key = OS_KEY_F11; break;
+    case GLFW_KEY_F12: key = OS_KEY_F12; break;
 
-      case GLFW_KEY_LEFT_CONTROL: key = KEY_LEFT_CONTROL; break;
-      case GLFW_KEY_LEFT_SHIFT: key = KEY_LEFT_SHIFT; break;
-      case GLFW_KEY_LEFT_ALT: key = KEY_LEFT_ALT; break;
-      case GLFW_KEY_LEFT_SUPER: key = KEY_LEFT_OS; break;
-      case GLFW_KEY_RIGHT_CONTROL: key = KEY_RIGHT_CONTROL; break;
-      case GLFW_KEY_RIGHT_SHIFT: key = KEY_RIGHT_SHIFT; break;
-      case GLFW_KEY_RIGHT_ALT: key = KEY_RIGHT_ALT; break;
-      case GLFW_KEY_RIGHT_SUPER: key = KEY_RIGHT_OS; break;
+    case GLFW_KEY_GRAVE_ACCENT: key = OS_KEY_BACKTICK; break;
+    case GLFW_KEY_MINUS: key = OS_KEY_MINUS; break;
+    case GLFW_KEY_EQUAL: key = OS_KEY_EQUALS; break;
+    case GLFW_KEY_LEFT_BRACKET: key = OS_KEY_LEFT_BRACKET; break;
+    case GLFW_KEY_RIGHT_BRACKET: key = OS_KEY_RIGHT_BRACKET; break;
+    case GLFW_KEY_BACKSLASH: key = OS_KEY_BACKSLASH; break;
+    case GLFW_KEY_SEMICOLON: key = OS_KEY_SEMICOLON; break;
+    case GLFW_KEY_APOSTROPHE: key = OS_KEY_APOSTROPHE; break;
+    case GLFW_KEY_COMMA: key = OS_KEY_COMMA; break;
+    case GLFW_KEY_PERIOD: key = OS_KEY_PERIOD; break;
+    case GLFW_KEY_SLASH: key = OS_KEY_SLASH; break;
 
-      case GLFW_KEY_CAPS_LOCK: key = KEY_CAPS_LOCK; break;
-      case GLFW_KEY_SCROLL_LOCK: key = KEY_SCROLL_LOCK; break;
-      case GLFW_KEY_NUM_LOCK: key = KEY_NUM_LOCK; break;
+    case GLFW_KEY_LEFT_CONTROL: key = OS_KEY_LEFT_CONTROL; break;
+    case GLFW_KEY_LEFT_SHIFT: key = OS_KEY_LEFT_SHIFT; break;
+    case GLFW_KEY_LEFT_ALT: key = OS_KEY_LEFT_ALT; break;
+    case GLFW_KEY_LEFT_SUPER: key = OS_KEY_LEFT_OS; break;
+    case GLFW_KEY_RIGHT_CONTROL: key = OS_KEY_RIGHT_CONTROL; break;
+    case GLFW_KEY_RIGHT_SHIFT: key = OS_KEY_RIGHT_SHIFT; break;
+    case GLFW_KEY_RIGHT_ALT: key = OS_KEY_RIGHT_ALT; break;
+    case GLFW_KEY_RIGHT_SUPER: key = OS_KEY_RIGHT_OS; break;
 
-      default: return;
-    }
-    os_button_action action = (a == GLFW_RELEASE) ? BUTTON_RELEASED : BUTTON_PRESSED;
-    bool repeat = (a == GLFW_REPEAT);
-    glfwState.onKeyboardEvent(action, key, scancode, repeat);
+    case GLFW_KEY_CAPS_LOCK: key = OS_KEY_CAPS_LOCK; break;
+    case GLFW_KEY_SCROLL_LOCK: key = OS_KEY_SCROLL_LOCK; break;
+    case GLFW_KEY_NUM_LOCK: key = OS_KEY_NUM_LOCK; break;
+
+    default: return;
   }
+
+  os_event_type type = a == GLFW_RELEASE ? OS_EVENT_KEY_PRESSED : OS_EVENT_KEY_RELEASED;
+  state.callback(type, &(os_event_data) { .key = { key, scancode, a == GLFW_REPEAT } });
 }
 
 static void onTextEvent(GLFWwindow* window, unsigned int codepoint) {
-  if (glfwState.onTextEvent) {
-    glfwState.onTextEvent(codepoint);
+  if (state.callback) {
+    state.callback(OS_EVENT_TEXT_INPUT, &(os_event_data) {
+      .text.codepoint = codepoint
+    });
   }
 }
 
 static void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
-  if (glfwState.onMouseButton) {
-    glfwState.onMouseButton(button, action == GLFW_PRESS);
+  if (state.callback) {
+    os_event_type type = action == GLFW_PRESS ? OS_EVENT_MOUSE_PRESSED : OS_EVENT_MOUSE_RELEASED;
+    state.callback(type, &(os_event_data) { .mouse.button = button });
   }
 }
 
 static void onMouseMove(GLFWwindow* window, double x, double y) {
-  if (glfwState.onMouseMove) {
-    glfwState.onMouseMove(x, y);
+  if (state.callback) {
+    state.callback(OS_EVENT_MOUSE_MOVED, &(os_event_data) {
+      .move = { x, y }
+    });
   }
 }
 
-static void onMouseWheelMove(GLFWwindow* window, double deltaX, double deltaY) {
-  if (glfwState.onMouseWheelMove) {
-    deltaX = (deltaX == 0.0) ? 0.0 : -deltaX;
-    glfwState.onMouseWheelMove(deltaX, deltaY);
-  }
-}
-
-static int convertMouseButton(os_mouse_button button) {
-  switch (button) {
-    case MOUSE_LEFT: return GLFW_MOUSE_BUTTON_LEFT;
-    case MOUSE_RIGHT: return GLFW_MOUSE_BUTTON_RIGHT;
-    default: return (int) button;
+static void onMouseWheelMove(GLFWwindow* window, double dx, double dy) {
+  if (state.callback) {
+    state.callback(OS_EVENT_WHEEL_MOVED, &(os_event_data) {
+      .move = { dx == 0. ? dx : -dx, dy }
+    });
   }
 }
 
 static int convertKey(os_key key) {
   switch (key) {
-    case KEY_W: return GLFW_KEY_W;
-    case KEY_A: return GLFW_KEY_A;
-    case KEY_S: return GLFW_KEY_S;
-    case KEY_D: return GLFW_KEY_D;
-    case KEY_Q: return GLFW_KEY_Q;
-    case KEY_E: return GLFW_KEY_E;
-    case KEY_UP: return GLFW_KEY_UP;
-    case KEY_DOWN: return GLFW_KEY_DOWN;
-    case KEY_LEFT: return GLFW_KEY_LEFT;
-    case KEY_RIGHT: return GLFW_KEY_RIGHT;
-    case KEY_LEFT_SHIFT: return GLFW_KEY_LEFT_SHIFT;
-    case KEY_RIGHT_SHIFT: return GLFW_KEY_RIGHT_SHIFT;
-    case KEY_ESCAPE: return GLFW_KEY_ESCAPE;
-    case KEY_F5: return GLFW_KEY_F5;
+    case OS_KEY_W: return GLFW_KEY_W;
+    case OS_KEY_A: return GLFW_KEY_A;
+    case OS_KEY_S: return GLFW_KEY_S;
+    case OS_KEY_D: return GLFW_KEY_D;
+    case OS_KEY_Q: return GLFW_KEY_Q;
+    case OS_KEY_E: return GLFW_KEY_E;
+    case OS_KEY_UP: return GLFW_KEY_UP;
+    case OS_KEY_DOWN: return GLFW_KEY_DOWN;
+    case OS_KEY_LEFT: return GLFW_KEY_LEFT;
+    case OS_KEY_RIGHT: return GLFW_KEY_RIGHT;
+    case OS_KEY_LEFT_SHIFT: return GLFW_KEY_LEFT_SHIFT;
+    case OS_KEY_RIGHT_SHIFT: return GLFW_KEY_RIGHT_SHIFT;
+    case OS_KEY_ESCAPE: return GLFW_KEY_ESCAPE;
+    case OS_KEY_F5: return GLFW_KEY_F5;
     default: return GLFW_KEY_UNKNOWN;
   }
+}
+
+void os_on_event(fn_event* callback) {
+  state.callback = callback;
 }
 
 void os_poll_events(void) {
@@ -386,38 +310,6 @@ float os_window_get_pixel_density(void) {
   return (w == 0 || fw == 0) ? 1.f : (float) fw / w;
 }
 
-void os_on_quit(fn_quit* callback) {
-  glfwState.onQuitRequest = callback;
-}
-
-void os_on_focus(fn_focus* callback) {
-  glfwState.onWindowFocus = callback;
-}
-
-void os_on_resize(fn_resize* callback) {
-  glfwState.onWindowResize = callback;
-}
-
-void os_on_key(fn_key* callback) {
-  glfwState.onKeyboardEvent = callback;
-}
-
-void os_on_text(fn_text* callback) {
-  glfwState.onTextEvent = callback;
-}
-
-void os_on_mouse_button(fn_mouse_button* callback) {
-  glfwState.onMouseButton = callback;
-}
-
-void os_on_mouse_move(fn_mouse_move* callback) {
-  glfwState.onMouseMove = callback;
-}
-
-void os_on_mousewheel_move(fn_mousewheel_move* callback) {
-  glfwState.onMouseWheelMove = callback;
-}
-
 void os_get_mouse_position(double* x, double* y) {
   if (glfwState.window) {
     glfwGetCursorPos(glfwState.window, x, y);
@@ -426,15 +318,15 @@ void os_get_mouse_position(double* x, double* y) {
   }
 }
 
-void os_set_mouse_mode(os_mouse_mode mode) {
+void os_set_mouse_relative(bool relative) {
   if (glfwState.window) {
-    int m = (mode == MOUSE_MODE_GRABBED) ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
-    glfwSetInputMode(glfwState.window, GLFW_CURSOR, m);
+    int mode = relative ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
+    glfwSetInputMode(glfwState.window, GLFW_CURSOR, mode);
   }
 }
 
-bool os_is_mouse_down(os_mouse_button button) {
-  return glfwState.window ? glfwGetMouseButton(glfwState.window, convertMouseButton(button)) == GLFW_PRESS : false;
+bool os_is_mouse_down(int button) {
+  return glfwState.window ? glfwGetMouseButton(glfwState.window, button) == GLFW_PRESS : false;
 }
 
 bool os_is_key_down(os_key key) {

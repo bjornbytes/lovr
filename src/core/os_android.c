@@ -12,139 +12,136 @@
 static struct {
   struct android_app* app;
   JNIEnv* jni;
-  fn_quit* onQuit;
-  fn_key* onKeyboardEvent;
-  fn_text* onTextEvent;
-  fn_permission* onPermissionEvent;
+  fn_event* callback;
 } state;
 
 static void onAppCmd(struct android_app* app, int32_t cmd) {
-  if (cmd == APP_CMD_DESTROY && state.onQuit) {
-    state.onQuit();
+  if (cmd == APP_CMD_DESTROY && state.callback) {
+    state.callback(OS_EVENT_QUIT, (os_event_data) { 0 });
   }
 }
 
-static int32_t onInputEvent(struct android_app* app, AInputEvent* event) {
-  if (AInputEvent_getType(event) != AINPUT_EVENT_TYPE_KEY || !state.onKeyboardEvent) {
+static int32_t onInputEvent(struct android_app* app, AInputEvent* input) {
+  if (AInputEvent_getType(input) != AINPUT_EVENT_TYPE_KEY || !state.callback) {
     return 0;
   }
 
-  os_button_action action;
-  switch (AKeyEvent_getAction(event)) {
-    case AKEY_EVENT_ACTION_DOWN: action = BUTTON_PRESSED; break;
-    case AKEY_EVENT_ACTION_UP: action = BUTTON_RELEASED; break;
+  os_event_type type;
+  switch (AKeyEvent_getAction(input)) {
+    case AKEY_EVENT_ACTION_DOWN: type = OS_EVENT_KEY_PRESSED; break;
+    case AKEY_EVENT_ACTION_UP: type = OS_EVENT_KEY_RELEASED; break;
     default: return 0;
   }
 
-  os_key key;
-  switch (AKeyEvent_getKeyCode(event)) {
-    case AKEYCODE_A: key = KEY_A; break;
-    case AKEYCODE_B: key = KEY_B; break;
-    case AKEYCODE_C: key = KEY_C; break;
-    case AKEYCODE_D: key = KEY_D; break;
-    case AKEYCODE_E: key = KEY_E; break;
-    case AKEYCODE_F: key = KEY_F; break;
-    case AKEYCODE_G: key = KEY_G; break;
-    case AKEYCODE_H: key = KEY_H; break;
-    case AKEYCODE_I: key = KEY_I; break;
-    case AKEYCODE_J: key = KEY_J; break;
-    case AKEYCODE_K: key = KEY_K; break;
-    case AKEYCODE_L: key = KEY_L; break;
-    case AKEYCODE_M: key = KEY_M; break;
-    case AKEYCODE_N: key = KEY_N; break;
-    case AKEYCODE_O: key = KEY_O; break;
-    case AKEYCODE_P: key = KEY_P; break;
-    case AKEYCODE_Q: key = KEY_Q; break;
-    case AKEYCODE_R: key = KEY_R; break;
-    case AKEYCODE_S: key = KEY_S; break;
-    case AKEYCODE_T: key = KEY_T; break;
-    case AKEYCODE_U: key = KEY_U; break;
-    case AKEYCODE_V: key = KEY_V; break;
-    case AKEYCODE_W: key = KEY_W; break;
-    case AKEYCODE_X: key = KEY_X; break;
-    case AKEYCODE_Y: key = KEY_Y; break;
-    case AKEYCODE_Z: key = KEY_Z; break;
-    case AKEYCODE_0: key = KEY_0; break;
-    case AKEYCODE_1: key = KEY_1; break;
-    case AKEYCODE_2: key = KEY_2; break;
-    case AKEYCODE_3: key = KEY_3; break;
-    case AKEYCODE_4: key = KEY_4; break;
-    case AKEYCODE_5: key = KEY_5; break;
-    case AKEYCODE_6: key = KEY_6; break;
-    case AKEYCODE_7: key = KEY_7; break;
-    case AKEYCODE_8: key = KEY_8; break;
-    case AKEYCODE_9: key = KEY_9; break;
+  os_event_data data = { 0 };
+  switch (AKeyEvent_getKeyCode(input)) {
+    case AKEYCODE_A: data.key.code = KEY_A; break;
+    case AKEYCODE_B: data.key.code = KEY_B; break;
+    case AKEYCODE_C: data.key.code = KEY_C; break;
+    case AKEYCODE_D: data.key.code = KEY_D; break;
+    case AKEYCODE_E: data.key.code = KEY_E; break;
+    case AKEYCODE_F: data.key.code = KEY_F; break;
+    case AKEYCODE_G: data.key.code = KEY_G; break;
+    case AKEYCODE_H: data.key.code = KEY_H; break;
+    case AKEYCODE_I: data.key.code = KEY_I; break;
+    case AKEYCODE_J: data.key.code = KEY_J; break;
+    case AKEYCODE_K: data.key.code = KEY_K; break;
+    case AKEYCODE_L: data.key.code = KEY_L; break;
+    case AKEYCODE_M: data.key.code = KEY_M; break;
+    case AKEYCODE_N: data.key.code = KEY_N; break;
+    case AKEYCODE_O: data.key.code = KEY_O; break;
+    case AKEYCODE_P: data.key.code = KEY_P; break;
+    case AKEYCODE_Q: data.key.code = KEY_Q; break;
+    case AKEYCODE_R: data.key.code = KEY_R; break;
+    case AKEYCODE_S: data.key.code = KEY_S; break;
+    case AKEYCODE_T: data.key.code = KEY_T; break;
+    case AKEYCODE_U: data.key.code = KEY_U; break;
+    case AKEYCODE_V: data.key.code = KEY_V; break;
+    case AKEYCODE_W: data.key.code = KEY_W; break;
+    case AKEYCODE_X: data.key.code = KEY_X; break;
+    case AKEYCODE_Y: data.key.code = KEY_Y; break;
+    case AKEYCODE_Z: data.key.code = KEY_Z; break;
+    case AKEYCODE_0: data.key.code = KEY_0; break;
+    case AKEYCODE_1: data.key.code = KEY_1; break;
+    case AKEYCODE_2: data.key.code = KEY_2; break;
+    case AKEYCODE_3: data.key.code = KEY_3; break;
+    case AKEYCODE_4: data.key.code = KEY_4; break;
+    case AKEYCODE_5: data.key.code = KEY_5; break;
+    case AKEYCODE_6: data.key.code = KEY_6; break;
+    case AKEYCODE_7: data.key.code = KEY_7; break;
+    case AKEYCODE_8: data.key.code = KEY_8; break;
+    case AKEYCODE_9: data.key.code = KEY_9; break;
 
-    case AKEYCODE_SPACE: key = KEY_SPACE; break;
-    case AKEYCODE_ENTER: key = KEY_ENTER; break;
-    case AKEYCODE_TAB: key = KEY_TAB; break;
-    case AKEYCODE_ESCAPE: key = KEY_ESCAPE; break;
-    case AKEYCODE_DEL: key = KEY_BACKSPACE; break;
-    case AKEYCODE_DPAD_UP: key = KEY_UP; break;
-    case AKEYCODE_DPAD_DOWN: key = KEY_DOWN; break;
-    case AKEYCODE_DPAD_LEFT: key = KEY_LEFT; break;
-    case AKEYCODE_DPAD_RIGHT: key = KEY_RIGHT; break;
-    case AKEYCODE_MOVE_HOME: key = KEY_HOME; break;
-    case AKEYCODE_MOVE_END: key = KEY_END; break;
-    case AKEYCODE_PAGE_UP: key = KEY_PAGE_UP; break;
-    case AKEYCODE_PAGE_DOWN: key = KEY_PAGE_DOWN; break;
-    case AKEYCODE_INSERT: key = KEY_INSERT; break;
-    case AKEYCODE_FORWARD_DEL: key = KEY_DELETE; break;
-    case AKEYCODE_F1: key = KEY_F1; break;
-    case AKEYCODE_F2: key = KEY_F2; break;
-    case AKEYCODE_F3: key = KEY_F3; break;
-    case AKEYCODE_F4: key = KEY_F4; break;
-    case AKEYCODE_F5: key = KEY_F5; break;
-    case AKEYCODE_F6: key = KEY_F6; break;
-    case AKEYCODE_F7: key = KEY_F7; break;
-    case AKEYCODE_F8: key = KEY_F8; break;
-    case AKEYCODE_F9: key = KEY_F9; break;
-    case AKEYCODE_F10: key = KEY_F10; break;
-    case AKEYCODE_F11: key = KEY_F11; break;
-    case AKEYCODE_F12: key = KEY_F12; break;
+    case AKEYCODE_SPACE: data.key.code = KEY_SPACE; break;
+    case AKEYCODE_ENTER: data.key.code = KEY_ENTER; break;
+    case AKEYCODE_TAB: data.key.code = KEY_TAB; break;
+    case AKEYCODE_ESCAPE: data.key.code = KEY_ESCAPE; break;
+    case AKEYCODE_DEL: data.key.code = KEY_BACKSPACE; break;
+    case AKEYCODE_DPAD_UP: data.key.code = KEY_UP; break;
+    case AKEYCODE_DPAD_DOWN: data.key.code = KEY_DOWN; break;
+    case AKEYCODE_DPAD_LEFT: data.key.code = KEY_LEFT; break;
+    case AKEYCODE_DPAD_RIGHT: data.key.code = KEY_RIGHT; break;
+    case AKEYCODE_MOVE_HOME: data.key.code = KEY_HOME; break;
+    case AKEYCODE_MOVE_END: data.key.code = KEY_END; break;
+    case AKEYCODE_PAGE_UP: data.key.code = KEY_PAGE_UP; break;
+    case AKEYCODE_PAGE_DOWN: data.key.code = KEY_PAGE_DOWN; break;
+    case AKEYCODE_INSERT: data.key.code = KEY_INSERT; break;
+    case AKEYCODE_FORWARD_DEL: data.key.code = KEY_DELETE; break;
+    case AKEYCODE_F1: data.key.code = KEY_F1; break;
+    case AKEYCODE_F2: data.key.code = KEY_F2; break;
+    case AKEYCODE_F3: data.key.code = KEY_F3; break;
+    case AKEYCODE_F4: data.key.code = KEY_F4; break;
+    case AKEYCODE_F5: data.key.code = KEY_F5; break;
+    case AKEYCODE_F6: data.key.code = KEY_F6; break;
+    case AKEYCODE_F7: data.key.code = KEY_F7; break;
+    case AKEYCODE_F8: data.key.code = KEY_F8; break;
+    case AKEYCODE_F9: data.key.code = KEY_F9; break;
+    case AKEYCODE_F10: data.key.code = KEY_F10; break;
+    case AKEYCODE_F11: data.key.code = KEY_F11; break;
+    case AKEYCODE_F12: data.key.code = KEY_F12; break;
 
-    case AKEYCODE_GRAVE: key = KEY_BACKTICK; break;
-    case AKEYCODE_MINUS: key = KEY_MINUS; break;
-    case AKEYCODE_EQUALS: key = KEY_EQUALS; break;
-    case AKEYCODE_LEFT_BRACKET: key = KEY_LEFT_BRACKET; break;
-    case AKEYCODE_RIGHT_BRACKET: key = KEY_RIGHT_BRACKET; break;
-    case AKEYCODE_BACKSLASH: key = KEY_BACKSLASH; break;
-    case AKEYCODE_SEMICOLON: key = KEY_SEMICOLON; break;
-    case AKEYCODE_APOSTROPHE: key = KEY_APOSTROPHE; break;
-    case AKEYCODE_COMMA: key = KEY_COMMA; break;
-    case AKEYCODE_PERIOD: key = KEY_PERIOD; break;
-    case AKEYCODE_SLASH: key = KEY_SLASH; break;
+    case AKEYCODE_GRAVE: data.key.code = KEY_BACKTICK; break;
+    case AKEYCODE_MINUS: data.key.code = KEY_MINUS; break;
+    case AKEYCODE_EQUALS: data.key.code = KEY_EQUALS; break;
+    case AKEYCODE_LEFT_BRACKET: data.key.code = KEY_LEFT_BRACKET; break;
+    case AKEYCODE_RIGHT_BRACKET: data.key.code = KEY_RIGHT_BRACKET; break;
+    case AKEYCODE_BACKSLASH: data.key.code = KEY_BACKSLASH; break;
+    case AKEYCODE_SEMICOLON: data.key.code = KEY_SEMICOLON; break;
+    case AKEYCODE_APOSTROPHE: data.key.code = KEY_APOSTROPHE; break;
+    case AKEYCODE_COMMA: data.key.code = KEY_COMMA; break;
+    case AKEYCODE_PERIOD: data.key.code = KEY_PERIOD; break;
+    case AKEYCODE_SLASH: data.key.code = KEY_SLASH; break;
 
-    case AKEYCODE_CTRL_LEFT: key = KEY_LEFT_CONTROL; break;
-    case AKEYCODE_SHIFT_LEFT: key = KEY_LEFT_SHIFT; break;
-    case AKEYCODE_ALT_LEFT: key = KEY_LEFT_ALT; break;
-    case AKEYCODE_META_LEFT: key = KEY_LEFT_OS; break;
-    case AKEYCODE_CTRL_RIGHT: key = KEY_RIGHT_CONTROL; break;
-    case AKEYCODE_SHIFT_RIGHT: key = KEY_RIGHT_SHIFT; break;
-    case AKEYCODE_ALT_RIGHT: key = KEY_RIGHT_ALT; break;
-    case AKEYCODE_META_RIGHT: key = KEY_RIGHT_OS; break;
+    case AKEYCODE_CTRL_LEFT: data.key.code = KEY_LEFT_CONTROL; break;
+    case AKEYCODE_SHIFT_LEFT: data.key.code = KEY_LEFT_SHIFT; break;
+    case AKEYCODE_ALT_LEFT: data.key.code = KEY_LEFT_ALT; break;
+    case AKEYCODE_META_LEFT: data.key.code = KEY_LEFT_OS; break;
+    case AKEYCODE_CTRL_RIGHT: data.key.code = KEY_RIGHT_CONTROL; break;
+    case AKEYCODE_SHIFT_RIGHT: data.key.code = KEY_RIGHT_SHIFT; break;
+    case AKEYCODE_ALT_RIGHT: data.key.code = KEY_RIGHT_ALT; break;
+    case AKEYCODE_META_RIGHT: data.key.code = KEY_RIGHT_OS; break;
 
-    case AKEYCODE_CAPS_LOCK: key = KEY_CAPS_LOCK; break;
-    case AKEYCODE_SCROLL_LOCK: key = KEY_SCROLL_LOCK; break;
-    case AKEYCODE_NUM_LOCK: key = KEY_NUM_LOCK; break;
+    case AKEYCODE_CAPS_LOCK: data.key.code = KEY_CAPS_LOCK; break;
+    case AKEYCODE_SCROLL_LOCK: data.key.code = KEY_SCROLL_LOCK; break;
+    case AKEYCODE_NUM_LOCK: data.key.code = KEY_NUM_LOCK; break;
 
     default: return 0;
   }
 
-  uint32_t scancode = AKeyEvent_getScanCode(event);
-  bool repeat = AKeyEvent_getRepeatCount(event) > 0;
+  data.key.scancode = AKeyEvent_getScanCode(input);
+  data.key.repeat = AKeyEvent_getRepeatCount(input) > 0;
 
-  state.onKeyboardEvent(action, key, scancode, repeat);
+  state.callback(type, data);
 
   // Text event
-  if (action == BUTTON_PRESSED && state.onTextEvent) {
+  if (action == BUTTON_PRESSED) {
     jclass jKeyEvent = (*state.jni)->FindClass(state.jni, "android/view/KeyEvent");
     jmethodID jgetUnicodeChar = (*state.jni)->GetMethodID(state.jni, jKeyEvent, "getUnicodeChar", "(I)I");
     jmethodID jKeyEventInit = (*state.jni)->GetMethodID(state.jni, jKeyEvent, "<init>", "(II)V");
-    jobject jevent = (*state.jni)->NewObject(state.jni, jKeyEvent, jKeyEventInit, AKEY_EVENT_ACTION_DOWN, AKeyEvent_getKeyCode(event));
-    uint32_t codepoint = (*state.jni)->CallIntMethod(state.jni, jevent, jgetUnicodeChar, AKeyEvent_getMetaState(event));
+    jobject jevent = (*state.jni)->NewObject(state.jni, jKeyEvent, jKeyEventInit, AKEY_EVENT_ACTION_DOWN, AKeyEvent_getKeyCode(input));
+    uint32_t codepoint = (*state.jni)->CallIntMethod(state.jni, jevent, jgetUnicodeChar, AKeyEvent_getMetaState(input));
     if (codepoint > 0) {
-      state.onTextEvent(codepoint);
+      state.callback(OS_EVENT_TEXT_INPUT, (os_event_data) { .text.codepoint = codepoint });
     }
     (*state.jni)->DeleteLocalRef(state.jni, jevent);
     (*state.jni)->DeleteLocalRef(state.jni, jKeyEvent);
@@ -170,23 +167,24 @@ bool os_init(void) {
 }
 
 void os_destroy(void) {
-  // There are two ways a quit can happen, which need to be handled slightly differently:
-  // - If the system tells us to quit, we get an event with APP_CMD_DESTROY.  In response we push a
-  //   QUIT event to lovr.event and main will eventually exit cleanly.  No other teardown necessary.
-  // - If the app exits manually (e.g. lovr.event.quit), then Android thinks we're still running and
-  //   the app is still in APP_CMD_RESUME.  We need to tell it to exit with ANativeActivity_Finish
-  //   and poll for events until the app state changes, otherwise the app is left in a broken state.
+  // If main exits, tell Android to finish the activity and wait for destruction.
   if (state.app->activityState == APP_CMD_RESUME) {
-    state.onQuit = NULL;
-    state.onKeyboardEvent = NULL;
-    state.onTextEvent = NULL;
-    state.onPermissionEvent = NULL;
+    state.callback = NULL;
     ANativeActivity_finish(state.app->activity);
     while (!state.app->destroyRequested) {
       os_poll_events();
     }
   }
   memset(&state, 0, sizeof(state));
+}
+
+void os_thread_attach(void) {
+  JNIEnv* jni;
+  (*state.app->activity->vm)->AttachCurrentThread(state.app->activity->vm, &jni, NULL);
+}
+
+void os_thread_detach(void) {
+  (*state.app->activity->vm)->DetachCurrentThread(state.app->activity->vm);
 }
 
 const char* os_get_name(void) {
@@ -197,15 +195,10 @@ uint32_t os_get_core_count(void) {
   return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
-// To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
-// end of the pipe.  The read end of the pipe is forwarded to __android_log_write.
-static struct {
-  int handles[2];
-  pthread_t thread;
-} log;
-
+// Redirect stdout/stderr to __android_log_write with a pipe
+static int logfd[2];
 static void* log_main(void* data) {
-  int* fd = data;
+  int* fd = logfd;
   pipe(fd);
   dup2(fd[1], STDOUT_FILENO);
   dup2(fd[1], STDERR_FILENO);
@@ -221,23 +214,22 @@ static void* log_main(void* data) {
 }
 
 void os_open_console(void) {
-  pthread_create(&log.thread, NULL, log_main, log.handles);
-  pthread_detach(log.thread);
+  pthread_t thread;
+  pthread_create(&thread, NULL, log_main, NULL);
+  pthread_detach(thread);
 }
-
-#define NS_PER_SEC 1000000000ULL
 
 double os_get_time(void) {
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
-  return (double) t.tv_sec + (t.tv_nsec / (double) NS_PER_SEC);
+  return (double) t.tv_sec + (t.tv_nsec / 1e9);
 }
 
 void os_sleep(double seconds) {
   seconds += .5e-9;
   struct timespec t;
   t.tv_sec = seconds;
-  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
+  t.tv_nsec = (seconds - t.tv_sec) * 1e9;
   while (nanosleep(&t, &t));
 }
 
@@ -245,8 +237,8 @@ void os_sleep(double seconds) {
 #define JNI(PKG, X) _JNI(PKG, X)
 
 JNIEXPORT void JNICALL JNI(LOVR_JAVA_PACKAGE, Activity_lovrPermissionEvent)(JNIEnv* jni, jobject activity, jint permission, jboolean granted) {
-  if (state.onPermissionEvent) {
-    state.onPermissionEvent(permission, granted);
+  if (state.callback) {
+    state.callback(OS_EVENT_PERMISSION, (os_event_data) { .permission = { permission, granted } });
   }
 }
 
@@ -257,7 +249,9 @@ void os_request_permission(os_permission permission) {
     jmethodID requestAudioCapturePermission = (*state.jni)->GetMethodID(state.jni, class, "requestAudioCapturePermission", "()V");
     if (!requestAudioCapturePermission) {
       (*state.jni)->DeleteLocalRef(state.jni, class);
-      if (state.onPermissionEvent) state.onPermissionEvent(OS_PERMISSION_AUDIO_CAPTURE, false);
+      if (state.callback) {
+        state.callback(OS_EVENT_PERMISSION, (os_event_data) { .permission = { permission, false } });
+      }
       return;
     }
 
@@ -279,92 +273,6 @@ bool os_vm_commit(void* p, size_t size) {
 
 bool os_vm_release(void* p, size_t size) {
   return !madvise(p, size, MADV_DONTNEED);
-}
-
-void os_thread_attach(void) {
-  JNIEnv* jni;
-  (*state.app->activity->vm)->AttachCurrentThread(state.app->activity->vm, &jni, NULL);
-}
-
-void os_thread_detach(void) {
-  (*state.app->activity->vm)->DetachCurrentThread(state.app->activity->vm);
-}
-
-// Notes about polling:
-// - Stop polling if a destroy is requested to give the application a chance to shut down.
-//   Otherwise this loop would still wait for an event and the app would seem unresponsive.
-// - Block if the app is paused or no window is present
-// - If the app was active and becomes inactive after an event, break instead of waiting for
-//   another event.  This gives the main loop a chance to respond (e.g. exit VR mode).
-void os_poll_events(void) {
-  while (!state.app->destroyRequested) {
-    int events;
-    struct android_poll_source* source;
-    int timeout = (state.app->window && state.app->activityState == APP_CMD_RESUME) ? 0 : -1;
-    if (ALooper_pollAll(timeout, NULL, &events, (void**) &source) >= 0) {
-      if (source) {
-        source->process(state.app, source);
-      }
-
-      if (timeout == 0 && (!state.app->window || state.app->activityState != APP_CMD_RESUME)) {
-        break;
-      }
-    } else {
-      break;
-    }
-  }
-}
-
-void os_on_quit(fn_quit* callback) {
-  state.onQuit = callback;
-}
-
-void os_on_focus(fn_focus* callback) {
-  //
-}
-
-void os_on_resize(fn_resize* callback) {
-  //
-}
-
-void os_on_key(fn_key* callback) {
-  state.onKeyboardEvent = callback;
-}
-
-void os_on_text(fn_text* callback) {
-  state.onTextEvent = callback;
-}
-
-void os_on_mouse_button(fn_mouse_button* callback) {
-  //
-}
-
-void os_on_mouse_move(fn_mouse_move* callback) {
-  //
-}
-
-void os_on_mousewheel_move(fn_mousewheel_move* callback) {
-  //
-}
-
-void os_on_permission(fn_permission* callback) {
-  state.onPermissionEvent = callback;
-}
-
-bool os_window_open(const os_window_config* config) {
-  return true;
-}
-
-bool os_window_is_open(void) {
-  return false;
-}
-
-void os_window_get_size(uint32_t* width, uint32_t* height) {
-  *width = *height = 0;
-}
-
-float os_window_get_pixel_density(void) {
-  return 0.f;
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
@@ -421,15 +329,60 @@ size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   return length;
 }
 
+void os_on_event(fn_event* callback) {
+  state.callback = callback;
+}
+
+// Notes about polling:
+// - Stop polling if a destroy is requested to give the application a chance to shut down.
+//   Otherwise this loop would still wait for an event and the app would seem unresponsive.
+// - Block if the app is paused or no window is present
+// - If the app was active and becomes inactive after an event, break instead of waiting for
+//   another event.  This gives the main loop a chance to respond (e.g. exit VR mode).
+void os_poll_events(void) {
+  while (!state.app->destroyRequested) {
+    int events;
+    struct android_poll_source* source;
+    int timeout = (state.app->window && state.app->activityState == APP_CMD_RESUME) ? 0 : -1;
+    if (ALooper_pollAll(timeout, NULL, &events, (void**) &source) >= 0) {
+      if (source) {
+        source->process(state.app, source);
+      }
+
+      if (timeout == 0 && (!state.app->window || state.app->activityState != APP_CMD_RESUME)) {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+}
+
+bool os_window_open(const os_window_config* config) {
+  return true;
+}
+
+bool os_window_is_open(void) {
+  return false;
+}
+
+void os_window_get_size(uint32_t* width, uint32_t* height) {
+  *width = *height = 0;
+}
+
+float os_window_get_pixel_density(void) {
+  return 0.f;
+}
+
 void os_get_mouse_position(double* x, double* y) {
   *x = *y = 0.;
 }
 
-void os_set_mouse_mode(os_mouse_mode mode) {
+void os_set_mouse_relative(bool relative) {
   //
 }
 
-bool os_is_mouse_down(os_mouse_button button) {
+bool os_is_mouse_down(int button) {
   return false;
 }
 
@@ -437,7 +390,7 @@ bool os_is_key_down(os_key key) {
   return false;
 }
 
-// Private, must be declared manually to use
+// Private, must be forward declared
 
 void* os_get_java_vm(void) {
   return state.app->activity->vm;
@@ -445,12 +398,4 @@ void* os_get_java_vm(void) {
 
 void* os_get_jni_context(void) {
   return state.app->activity->clazz;
-}
-
-const char** os_vk_get_instance_extensions(uint32_t* count) {
-  return *count = 0, NULL;
-}
-
-uint32_t os_vk_create_surface(void* instance, void** surface) {
-  return -13; // VK_ERROR_UNKNOWN
 }

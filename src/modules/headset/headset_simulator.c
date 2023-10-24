@@ -1,6 +1,5 @@
 #include "headset/headset.h"
 #include "data/image.h"
-#include "event/event.h"
 #include "graphics/graphics.h"
 #include "system/system.h"
 #include "core/maf.h"
@@ -45,9 +44,34 @@ static struct {
   float clipFar;
 } state;
 
-static void onFocus(bool focused) {
+extern void lovrSimulatorOnFocus(bool focused) {
   state.focused = focused;
-  lovrEventPush((Event) { .type = EVENT_FOCUS, .data.boolean = { focused } });
+}
+
+extern void lovrSimulatorOnResize(uint32_t width, uint32_t height) {
+  if (!state.pass) return;
+
+  float density = os_window_get_pixel_density();
+
+  lovrRelease(state.texture, lovrTextureDestroy);
+  state.texture = lovrTextureCreate(&(TextureInfo) {
+    .type = TEXTURE_2D,
+    .format = FORMAT_RGBA8,
+    .srgb = true,
+    .width = width * density,
+    .height = height * density,
+    .layers = 1,
+    .mipmaps = 1,
+    .samples = 1,
+    .usage = TEXTURE_RENDER | TEXTURE_SAMPLE
+  });
+
+  Texture* textures[4] = { state.texture };
+  lovrPassSetCanvas(state.pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1);
+}
+
+extern void lovrSimulatorOnScroll(double dx, double dy) {
+  state.distance = CLAMP(state.distance * (1.f + dy * .05f), .05f, 10.f);
 }
 
 static bool simulator_init(HeadsetConfig* config) {
@@ -66,8 +90,6 @@ static bool simulator_init(HeadsetConfig* config) {
   }
 
   state.focused = true;
-  os_on_focus(onFocus);
-
   return true;
 }
 
@@ -80,10 +102,15 @@ static void simulator_start(void) {
 
   if (hasGraphics) {
     state.pass = lovrPassCreate();
+
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
     if (state.config.stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
       state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
     }
+
+    uint32_t width, height;
+    os_window_get_size(&width, &height);
+    lovrSimulatorOnResize(width, height);
   }
 }
 
@@ -261,28 +288,6 @@ static Pass* simulator_getPass(void) {
 
   lovrPassReset(state.pass);
 
-  uint32_t width, height;
-  simulator_getDisplayDimensions(&width, &height);
-
-  if (lovrPassGetWidth(state.pass) != width || lovrPassGetHeight(state.pass) != height) {
-    lovrRelease(state.texture, lovrTextureDestroy);
-
-    state.texture = lovrTextureCreate(&(TextureInfo) {
-      .type = TEXTURE_2D,
-      .format = FORMAT_RGBA8,
-      .srgb = true,
-      .width = width,
-      .height = height,
-      .layers = 1,
-      .mipmaps = 1,
-      .samples = 1,
-      .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
-    });
-
-    Texture* textures[4] = { state.texture };
-    lovrPassSetCanvas(state.pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1);
-  }
-
   float background[4][4];
   LoadAction loads[4] = { LOAD_CLEAR };
   lovrGraphicsGetBackgroundColor(background[0]);
@@ -317,12 +322,12 @@ static double simulator_update(void) {
   state.dt = t - state.time;
   state.time = t;
 
-  bool trigger = os_is_mouse_down(MOUSE_RIGHT);
+  bool trigger = os_is_mouse_down(1);
   state.triggerChanged = trigger != state.triggerDown;
   state.triggerDown = trigger;
 
-  bool click = os_is_mouse_down(MOUSE_LEFT);
-  os_set_mouse_mode(click ? MOUSE_MODE_GRABBED : MOUSE_MODE_NORMAL);
+  bool click = os_is_mouse_down(0);
+  os_set_mouse_relative(click);
 
   double mxprev = state.mx;
   double myprev = state.my;
@@ -345,13 +350,13 @@ static double simulator_update(void) {
   quat_mul(target, yaw, pitch);
   quat_slerp(state.headOrientation, target, 1.f - expf(-TURNSMOOTH * state.dt));
 
-  bool sprint = os_is_key_down(KEY_LEFT_SHIFT) || os_is_key_down(KEY_RIGHT_SHIFT);
-  bool front = os_is_key_down(KEY_W) || os_is_key_down(KEY_UP);
-  bool back = os_is_key_down(KEY_S) || os_is_key_down(KEY_DOWN);
-  bool left = os_is_key_down(KEY_A) || os_is_key_down(KEY_LEFT);
-  bool right = os_is_key_down(KEY_D) || os_is_key_down(KEY_RIGHT);
-  bool up = os_is_key_down(KEY_Q);
-  bool down = os_is_key_down(KEY_E);
+  bool sprint = os_is_key_down(OS_KEY_LEFT_SHIFT) || os_is_key_down(OS_KEY_RIGHT_SHIFT);
+  bool front = os_is_key_down(OS_KEY_W) || os_is_key_down(OS_KEY_UP);
+  bool back = os_is_key_down(OS_KEY_S) || os_is_key_down(OS_KEY_DOWN);
+  bool left = os_is_key_down(OS_KEY_A) || os_is_key_down(OS_KEY_LEFT);
+  bool right = os_is_key_down(OS_KEY_D) || os_is_key_down(OS_KEY_RIGHT);
+  bool up = os_is_key_down(OS_KEY_Q);
+  bool down = os_is_key_down(OS_KEY_E);
 
   float velocity[3];
   velocity[0] = (left ? -1.f : right ? 1.f : 0.f);
@@ -379,8 +384,6 @@ static double simulator_update(void) {
   mat4_mulPoint(inverseProjection, ray);
   quat_rotate(state.headOrientation, ray);
   vec3_normalize(ray);
-
-  state.distance = CLAMP(state.distance * (1.f + lovrSystemGetScrollDelta() * .05f), .05f, 10.f);
 
   vec3_init(state.handPosition, ray);
   vec3_scale(state.handPosition, state.distance);

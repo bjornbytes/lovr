@@ -8,9 +8,13 @@
 #include <shlobj.h>
 #include <stdio.h>
 
+static struct {
+  uint64_t timerFrequency;
+  fn_event* callback;
+} state;
+
 #include "os_glfw.h"
 
-static uint64_t frequency;
 static __declspec(thread) HANDLE timer;
 static __declspec(thread) bool createdTimer;
 
@@ -60,13 +64,26 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev, LPSTR args, int show) {
 bool os_init(void) {
   LARGE_INTEGER f;
   QueryPerformanceFrequency(&f);
-  frequency = f.QuadPart;
+  state.timerFrequency = f.QuadPart;
   return true;
 }
 
 void os_destroy(void) {
   os_thread_detach();
+#ifdef LOVR_USE_GLFW
   glfwTerminate();
+#endif
+}
+
+void os_thread_attach(void) {
+  //
+}
+
+void os_thread_detach(void) {
+  if (createdTimer) {
+    CloseHandle(timer);
+    createdTimer = false;
+  }
 }
 
 const char* os_get_name(void) {
@@ -96,7 +113,7 @@ void os_open_console(void) {
 double os_get_time(void) {
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
-  return t.QuadPart / (double) frequency;
+  return t.QuadPart / (double) state.timerFrequency;
 }
 
 void os_sleep(double seconds) {
@@ -136,25 +153,6 @@ bool os_vm_commit(void* p, size_t size) {
 
 bool os_vm_release(void* p, size_t size) {
   return VirtualFree(p, 0, MEM_DECOMMIT);
-}
-
-void os_thread_attach(void) {
-  //
-}
-
-void os_thread_detach(void) {
-  if (createdTimer) {
-    CloseHandle(timer);
-    createdTimer = false;
-  }
-}
-
-void os_on_permission(fn_permission* callback) {
-  //
-}
-
-void os_window_message_box(const char* message) {
-  MessageBox((HANDLE) os_get_win32_window(), message, NULL, 0);
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
@@ -198,4 +196,8 @@ size_t os_get_executable_path(char* buffer, size_t size) {
 size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   *root = NULL;
   return os_get_executable_path(buffer, size);
+}
+
+void os_window_message_box(const char* message) {
+  MessageBox((HANDLE) os_get_win32_window(), message, NULL, 0);
 }

@@ -3,7 +3,6 @@
 #include "data/image.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
-#include "event/event.h"
 #include "headset/headset.h"
 #include "math/math.h"
 #include "core/gpu.h"
@@ -614,7 +613,6 @@ static bool syncResource(Access* access, gpu_barrier* barrier);
 static gpu_barrier syncTransfer(Sync* sync, gpu_cache cache);
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
-static void onResize(uint32_t width, uint32_t height);
 static void onMessage(void* context, const char* message, bool severe);
 
 // Entry
@@ -2005,7 +2003,6 @@ Texture* lovrGraphicsGetWindowTexture(void) {
     };
 
     gpu_surface_init(&info);
-    os_on_resize(onResize);
 
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
     if (state.config.stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
@@ -7874,24 +7871,6 @@ static void checkShaderFeatures(uint32_t* features, uint32_t count) {
   }
 }
 
-static void onResize(uint32_t width, uint32_t height) {
-  float density = os_window_get_pixel_density();
-
-  width *= density;
-  height *= density;
-
-  state.window->info.width = width;
-  state.window->info.height = height;
-
-  gpu_surface_resize(width, height);
-
-  lovrEventPush((Event) {
-    .type = EVENT_RESIZE,
-    .data.resize.width = width,
-    .data.resize.height = height
-  });
-}
-
 static void onMessage(void* context, const char* message, bool severe) {
   if (severe) {
 #ifdef _WIN32
@@ -7910,4 +7889,11 @@ static void onMessage(void* context, const char* message, bool severe) {
   } else {
     lovrLog(LOG_DEBUG, "GPU", message);
   }
+}
+
+extern void lovrGraphicsOnResize(uint32_t width, uint32_t height) {
+  float density = os_window_get_pixel_density();
+  state.window->info.width = width * density;
+  state.window->info.height = height * density;
+  gpu_surface_resize(width * density, height * density);
 }

@@ -18,12 +18,12 @@
 #define msg2(ret, obj, fn, T1, A1, T2, A2) ((ret(*)(id, SEL, T1, T2)) objc_msgSend)(obj, sel_getUid(fn), A1, A2)
 #define msg3(ret, obj, fn, T1, A1, T2, A2, T3, A3) ((ret(*)(id, SEL, T1, T2, T3)) objc_msgSend)(obj, sel_getUid(fn), A1, A2, A3)
 
-#include "os_glfw.h"
-
 static struct {
   uint64_t frequency;
-  fn_permission* onPermissionEvent;
+  fn_event* callback;
 } state;
+
+#include "os_glfw.h"
 
 bool os_init(void) {
   mach_timebase_info_data_t info;
@@ -33,7 +33,17 @@ bool os_init(void) {
 }
 
 void os_destroy(void) {
+#ifdef LOVR_USE_GLFW
   glfwTerminate();
+#endif
+}
+
+void os_thread_attach(void) {
+  //
+}
+
+void os_thread_detach(void) {
+  //
 }
 
 const char* os_get_name(void) {
@@ -66,35 +76,36 @@ void os_sleep(double seconds) {
 typedef void (^PermissionHandler)(BOOL granted);
 
 void os_request_permission(os_permission permission) {
+  if (!state.callback) return;
+
   if (permission == OS_PERMISSION_AUDIO_CAPTURE) {
     id AVCaptureDevice = cls(AVCaptureDevice);
 
     // If on old OS without permissions check, permission is implicitly granted
     if (!class_respondsToSelector(AVCaptureDevice, sel_getUid("authorizationStatusForMediaType:"))) {
-      if (state.onPermissionEvent) state.onPermissionEvent(permission, true);
+      state.callback(OS_EVENT_PERMISSION, &(os_event_data) { .permission = { permission, true } });
       return;
     }
 
 #if TARGET_OS_IOS || (defined(MAC_OS_X_VERSION_10_14) && __MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_14)
-    __block fn_permission* callback = state.onPermissionEvent;
     PermissionHandler handler = ^(BOOL granted) {
       dispatch_async(dispatch_get_main_queue(), ^{
-        if (callback) callback(OS_PERMISSION_AUDIO_CAPTURE, granted);
+        state.callback(OS_EVENT_PERMISSION, &(os_event_data) { .permission = { permission, granted } });
       });
     };
 
     switch (msg1(AVAuthorizationStatus, AVCaptureDevice, "authorizationStatusForMediaType:", AVMediaType, AVMediaTypeAudio)) {
       case AVAuthorizationStatusAuthorized:
-        if (state.onPermissionEvent) state.onPermissionEvent(permission, true);
+        state.callback(OS_EVENT_PERMISSION, &(os_event_data) { .permission = { permission, true } });
         break;
       case AVAuthorizationStatusNotDetermined:
         msg2(void, AVCaptureDevice, "requestAccessForMediaType:completionHandler:", AVMediaType, AVMediaTypeAudio, PermissionHandler, handler);
         break;
       case AVAuthorizationStatusDenied:
-        if (state.onPermissionEvent) state.onPermissionEvent(permission, false);
+        state.callback(OS_EVENT_PERMISSION, &(os_event_data) { .permission = { permission, false } });
         break;
       case AVAuthorizationStatusRestricted:
-        if (state.onPermissionEvent) state.onPermissionEvent(permission, false);
+        state.callback(OS_EVENT_PERMISSION, &(os_event_data) { .permission = { permission, false } });
         break;
     }
 #else
@@ -113,18 +124,6 @@ bool os_vm_free(void* p, size_t size) {
 
 bool os_vm_commit(void* p, size_t size) {
   return !mprotect(p, size, PROT_READ | PROT_WRITE);
-}
-
-void os_on_permission(fn_permission* callback) {
-  state.onPermissionEvent = callback;
-}
-
-void os_thread_attach(void) {
-  //
-}
-
-void os_thread_detach(void) {
-  //
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {

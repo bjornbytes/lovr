@@ -143,6 +143,8 @@ typedef struct {
   EventData data;
 } Event;
 
+typedef void EventCallback(Event* event);
+
 void lovrVariantDestroy(Variant* variant);
 
 bool lovrEventInit(void);
