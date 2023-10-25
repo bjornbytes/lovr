@@ -1301,7 +1301,7 @@ static void openxr_start(void) {
     bool supportsColor = false;
     bool supportsDepth = false;
 
-    for (uint32_t i = 0; i < formatCount && !supportsColor && !supportsDepth; i++) {
+    for (uint32_t i = 0; i < formatCount && (!supportsColor || !supportsDepth); i++) {
       if (formats[i] == nativeColorFormat) {
         supportsColor = true;
       } else if (formats[i] == nativeDepthFormat) {
