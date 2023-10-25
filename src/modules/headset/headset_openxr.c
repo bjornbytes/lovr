@@ -1311,7 +1311,9 @@ static void openxr_start(void) {
 
     lovrAssert(supportsColor, "This VR runtime does not support sRGB rgba8 textures");
 
-    if (!supportsDepth) {
+    GraphicsFeatures features;
+    lovrGraphicsGetFeatures(&features);
+    if (!supportsDepth || !features.depthResolve) {
       state.features.depth = false;
     }
 
