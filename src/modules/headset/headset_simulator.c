@@ -7,6 +7,7 @@
 #include "core/os.h"
 #include "util.h"
 #include <math.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -17,12 +18,26 @@
 #define TURNSMOOTH 30.f
 #define OFFSET (state.config.seated ? 0.f : 1.7f)
 
+struct Layer {
+  uint32_t ref;
+  uint32_t textureWidth;
+  uint32_t textureWeight;
+  float position[3];
+  float orientation[4];
+  float width;
+  float height;
+  ViewMask mask;
+  int32_t viewport[4];
+};
+
 static struct {
   bool initialized;
   HeadsetConfig config;
   TextureFormat depthFormat;
   Texture* texture;
   Pass* pass;
+  Layer* layers[MAX_LAYERS];
+  uint32_t layerCount;
   float pitch;
   float yaw;
   float distance;
@@ -88,6 +103,9 @@ static void simulator_start(void) {
 }
 
 static void simulator_stop(void) {
+  for (uint32_t i = 0; i < state.layerCount; i++) {
+    lovrRelease(state.layers[i], lovrLayerDestroy);
+  }
   lovrRelease(state.texture, lovrTextureDestroy);
   lovrRelease(state.pass, lovrPassDestroy);
   state.texture = NULL;
@@ -248,6 +266,92 @@ static struct ModelData* simulator_newModelData(Device device, bool animated) {
 
 static bool simulator_animate(struct Model* model) {
   return false;
+}
+
+static Layer* simulator_newLayer(uint32_t width, uint32_t height) {
+  Layer* layer = calloc(1, sizeof(Layer));
+  layer->ref = 1;
+  layer->textureWidth = width;
+  layer->textureWeight = height;
+  return layer;
+}
+
+static void simulator_destroyLayer(void* ref) {
+  Layer* layer = ref;
+  free(layer);
+}
+
+static Layer** simulator_getLayers(uint32_t* count) {
+  *count = state.layerCount;
+  return state.layers;
+}
+
+static void simulator_setLayers(Layer** layers, uint32_t count) {
+  lovrCheck(count <= MAX_LAYERS, "Too many layers");
+
+  for (uint32_t i = 0; i < state.layerCount; i++) {
+    lovrRelease(state.layers[i], lovrLayerDestroy);
+  }
+
+  state.layerCount = count;
+  for (uint32_t i = 0; i < count; i++) {
+    lovrRetain(layers[i]);
+    state.layers[i] = layers[i];
+  }
+}
+
+static void simulator_getLayerPose(Layer* layer, float* position, float* orientation) {
+  memcpy(position, layer->position, 3 * sizeof(float));
+  memcpy(orientation, layer->orientation, 4 * sizeof(float));
+}
+
+static void simulator_setLayerPose(Layer* layer, float* position, float* orientation) {
+  memcpy(layer->position, position, 3 * sizeof(float));
+  memcpy(layer->orientation, orientation, 4 * sizeof(float));
+}
+
+static void simulator_getLayerSize(Layer* layer, float* width, float* height) {
+  *width = layer->width;
+  *height = layer->height;
+}
+
+static void simulator_setLayerSize(Layer* layer, float width, float height) {
+  layer->width = width;
+  layer->height = height;
+}
+
+static ViewMask simulator_getLayerViewMask(Layer* layer) {
+  return layer->mask;
+}
+
+static void simulator_setLayerViewMask(Layer* layer, ViewMask mask) {
+  layer->mask = mask;
+}
+
+static void simulator_getLayerViewport(Layer* layer, int32_t viewport[4]) {
+  memcpy(viewport, layer->viewport, 4 * sizeof(int32_t));
+}
+
+static void simulator_setLayerViewport(Layer* layer, int32_t viewport[4]) {
+  memcpy(layer->viewport, viewport, 4 * sizeof(int32_t));
+  if (layer->viewport[2] == 0) layer->viewport[2] = layer->width - layer->viewport[0];
+  if (layer->viewport[3] == 0) layer->viewport[3] = layer->height - layer->viewport[1];
+}
+
+static bool simulator_getLayerFlag(Layer* layer, LayerFlag flag) {
+  return false;
+}
+
+static void simulator_setLayerFlag(Layer* layer, LayerFlag flag, bool enable) {
+  //
+}
+
+static struct Texture* simulator_getLayerTexture(Layer* layer) {
+  return NULL; // TODO
+}
+
+static struct Pass* simulator_getLayerPass(Layer* layer) {
+  return NULL; // TODO
 }
 
 static Texture* simulator_getTexture(void) {
@@ -432,6 +536,22 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .stopVibration = simulator_stopVibration,
   .newModelData = simulator_newModelData,
   .animate = simulator_animate,
+  .newLayer = simulator_newLayer,
+  .destroyLayer = simulator_destroyLayer,
+  .getLayers = simulator_getLayers,
+  .setLayers = simulator_setLayers,
+  .getLayerPose = simulator_getLayerPose,
+  .setLayerPose = simulator_setLayerPose,
+  .getLayerSize = simulator_getLayerSize,
+  .setLayerSize = simulator_setLayerSize,
+  .getLayerViewMask = simulator_getLayerViewMask,
+  .setLayerViewMask = simulator_setLayerViewMask,
+  .getLayerViewport = simulator_getLayerViewport,
+  .setLayerViewport = simulator_setLayerViewport,
+  .getLayerFlag = simulator_getLayerFlag,
+  .setLayerFlag = simulator_setLayerFlag,
+  .getLayerTexture = simulator_getLayerTexture,
+  .getLayerPass = simulator_getLayerPass,
   .getTexture = simulator_getTexture,
   .getPass = simulator_getPass,
   .submit = simulator_submit,

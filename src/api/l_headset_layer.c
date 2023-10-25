@@ -100,7 +100,7 @@ static int l_lovrLayerSetViewMask(lua_State* L) {
 
 static int l_lovrLayerGetViewport(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
-  uint32_t viewport[4];
+  int32_t viewport[4];
   lovrHeadsetInterface->getLayerViewport(layer, viewport);
   lua_pushinteger(L, viewport[0]);
   lua_pushinteger(L, viewport[1]);
@@ -111,11 +111,11 @@ static int l_lovrLayerGetViewport(lua_State* L) {
 
 static int l_lovrLayerSetViewport(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
-  uint32_t viewport[4];
+  int32_t viewport[4];
   viewport[0] = luax_optu32(L, 2, 0);
   viewport[1] = luax_optu32(L, 3, 0);
-  viewport[2] = luax_optu32(L, 4, ~0u);
-  viewport[3] = luax_optu32(L, 5, ~0u);
+  viewport[2] = luax_optu32(L, 4, 0);
+  viewport[3] = luax_optu32(L, 5, 0);
   lovrHeadsetInterface->setLayerViewport(layer, viewport);
   return 0;
 }

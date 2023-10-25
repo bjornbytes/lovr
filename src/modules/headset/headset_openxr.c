@@ -162,8 +162,6 @@ enum {
 
 typedef struct {
   XrSwapchain handle;
-  uint32_t width;
-  uint32_t height;
   uint32_t textureIndex;
   uint32_t textureCount;
   Texture* textures[MAX_IMAGES];
@@ -172,6 +170,8 @@ typedef struct {
 
 struct Layer {
   uint32_t ref;
+  uint32_t width;
+  uint32_t height;
   Swapchain swapchain;
   XrCompositionLayerQuad info;
   XrCompositionLayerDepthTestFB depthTest;
@@ -428,8 +428,8 @@ static XrControllerModelKeyMSFT getControllerModelKey(Device device) {
 static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth) {
   XrSwapchainCreateInfo info = {
     .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
-    .width = state.width,
-    .height = state.height,
+    .width = width,
+    .height = height,
     .sampleCount = 1,
     .faceCount = 1,
     .arraySize = 1 << stereo,
@@ -468,8 +468,8 @@ static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       .type = stereo ? TEXTURE_ARRAY : TEXTURE_2D,
       .format = depth ? state.depthFormat : FORMAT_RGBA8,
       .srgb = !depth,
-      .width = state.width,
-      .height = state.height,
+      .width = width,
+      .height = height,
       .layers = 1 << stereo,
       .mipmaps = 1,
       .samples = 1,
@@ -1486,6 +1486,10 @@ static void openxr_stop(void) {
     return;
   }
 
+  for (uint32_t i = 0; i < state.layerCount; i++) {
+    lovrRelease(state.layers[i], lovrLayerDestroy);
+  }
+
   swapchain_destroy(&state.swapchains[0]);
   swapchain_destroy(&state.swapchains[1]);
   lovrRelease(state.pass, lovrPassDestroy);
@@ -2467,7 +2471,10 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
   Layer* layer = calloc(1, sizeof(Layer));
   lovrAssert(layer, "Out of memory");
   layer->ref = 1;
+  layer->width = width;
+  layer->height = height;
   swapchain_init(&layer->swapchain, width, height, false, false);
+  swapchain_acquire(&layer->swapchain); // Avoid submission of un-acquired swapchain
   layer->info.type = XR_TYPE_COMPOSITION_LAYER_QUAD;
   layer->info.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
   layer->info.layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
@@ -2507,6 +2514,8 @@ static Layer** openxr_getLayers(uint32_t* count) {
 }
 
 static void openxr_setLayers(Layer** layers, uint32_t count) {
+  lovrCheck(count <= MAX_LAYERS, "Too many layers");
+
   for (uint32_t i = 0; i < state.layerCount; i++) {
     lovrRelease(state.layers[i], lovrLayerDestroy);
   }
@@ -2546,18 +2555,18 @@ static void openxr_setLayerViewMask(Layer* layer, ViewMask mask) {
   layer->info.eyeVisibility = (XrEyeVisibility) mask;
 }
 
-static void openxr_getLayerViewport(Layer* layer, uint32_t* viewport) {
+static void openxr_getLayerViewport(Layer* layer, int32_t* viewport) {
   viewport[0] = layer->info.subImage.imageRect.offset.x;
   viewport[1] = layer->info.subImage.imageRect.offset.y;
   viewport[2] = layer->info.subImage.imageRect.extent.width;
   viewport[3] = layer->info.subImage.imageRect.extent.height;
 }
 
-static void openxr_setLayerViewport(Layer* layer, uint32_t* viewport) {
+static void openxr_setLayerViewport(Layer* layer, int32_t* viewport) {
   layer->info.subImage.imageRect.offset.x = viewport[0];
   layer->info.subImage.imageRect.offset.y = viewport[1];
-  layer->info.subImage.imageRect.extent.width = viewport[2];
-  layer->info.subImage.imageRect.extent.height = viewport[3];
+  layer->info.subImage.imageRect.extent.width = viewport[2] ? viewport[2] : layer->width - viewport[0];
+  layer->info.subImage.imageRect.extent.height = viewport[3] ? viewport[3] : layer->height - viewport[1];
 }
 
 static bool openxr_getLayerFlag(Layer* layer, LayerFlag flag) {
@@ -2594,7 +2603,14 @@ static Pass* openxr_getLayerPass(Layer* layer) {
   float background[4][4];
   LoadAction loads[4] = { LOAD_CLEAR };
   lovrGraphicsGetBackgroundColor(background[0]);
-  lovrPassSetClear(state.pass, loads, background, LOAD_CLEAR, 0.f);
+  lovrPassSetClear(layer->pass, loads, background, LOAD_CLEAR, 0.f);
+
+  float viewMatrix[16] = MAT4_IDENTITY;
+  lovrPassSetViewMatrix(layer->pass, 0, viewMatrix);
+
+  float projection[16];
+  mat4_orthographic(projection, 0, layer->width, 0, layer->height, -1.f, 1.f);
+  lovrPassSetProjection(layer->pass, 0, projection);
 
   return layer->pass;
 }
@@ -2725,7 +2741,7 @@ static void openxr_submit(void) {
       state.layer.layerFlags = 0;
     }
 
-    if (state.features.layerDepthTest && state.features.depth) {
+    if (state.features.layerDepthTest && state.features.depth && state.layerCount > 0) {
       depthTestInfo.next = state.layer.next;
       state.layer.next = &depthTestInfo;
     }

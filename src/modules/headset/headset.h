@@ -191,8 +191,8 @@ typedef struct HeadsetInterface {
   void (*setLayerSize)(Layer* layer, float width, float height);
   ViewMask (*getLayerViewMask)(Layer* layer);
   void (*setLayerViewMask)(Layer* layer, ViewMask mask);
-  void (*getLayerViewport)(Layer* layer, uint32_t* viewport);
-  void (*setLayerViewport)(Layer* layer, uint32_t* viewport);
+  void (*getLayerViewport)(Layer* layer, int32_t* viewport);
+  void (*setLayerViewport)(Layer* layer, int32_t* viewport);
   bool (*getLayerFlag)(Layer* layer, LayerFlag flag);
   void (*setLayerFlag)(Layer* layer, LayerFlag flag, bool enable);
   struct Texture* (*getLayerTexture)(Layer* layer);
