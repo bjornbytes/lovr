@@ -1758,16 +1758,6 @@ static void openxr_getClipDistance(float* clipNear, float* clipFar) {
 static void openxr_setClipDistance(float clipNear, float clipFar) {
   state.clipNear = clipNear;
   state.clipFar = clipFar;
-
-  if (state.features.depth) {
-    if (clipFar == 0.f) {
-      state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = +INFINITY;
-      state.depthInfo[0].farZ = state.depthInfo[1].farZ = clipNear;
-    } else {
-      state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = clipNear;
-      state.depthInfo[0].farZ = state.depthInfo[1].farZ = clipFar;
-    }
-  }
 }
 
 static void openxr_getBoundsDimensions(float* width, float* depth) {
@@ -2579,6 +2569,7 @@ static bool openxr_getLayerFlag(Layer* layer, LayerFlag flag) {
 
 static void openxr_setLayerFlag(Layer* layer, LayerFlag flag, bool enable) {
   XrCompositionLayerSettingsFlagsFB bit;
+
   switch (flag) {
     case LAYER_SUPERSAMPLE: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB; break;
     case LAYER_SHARPEN: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB; break;
@@ -2735,23 +2726,36 @@ static void openxr_submit(void) {
     swapchain_release(&state.swapchains[COLOR]);
     swapchain_release(&state.swapchains[DEPTH]);
 
-    if (state.features.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE) {
-      state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-    } else {
-      state.layer.layerFlags = 0;
+    if (state.passthroughActive) {
+      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
     }
+
+    state.layer.next = NULL;
 
     if (state.features.layerDepthTest && state.features.depth && state.layerCount > 0) {
       depthTestInfo.next = state.layer.next;
       state.layer.next = &depthTestInfo;
     }
 
-    if (state.passthroughActive) {
-      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
+    if (state.features.depth) {
+      if (state.clipFar == 0.f) {
+        state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = +INFINITY;
+        state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipNear;
+      } else {
+        state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = state.clipNear;
+        state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipFar;
+      }
     }
 
-    layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layer;
+    if (state.features.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE) {
+      state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+    } else {
+      state.layer.layerFlags = 0;
+    }
+
     state.layer.space = state.referenceSpace;
+
+    layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layer;
 
     for (uint32_t i = 0; i < state.layerCount; i++) {
       layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layers[i]->info;
