@@ -42,3 +42,7 @@ void lovrHeadsetDestroy(void) {
     lovrHeadsetInterface = NULL;
   }
 }
+
+void lovrLayerDestroy(void* ref) {
+  lovrHeadsetInterface->destroyLayer(ref);
+}

@@ -62,6 +62,7 @@ extern StringEntry lovrTextureUsage[];
 extern StringEntry lovrTimeUnit[];
 extern StringEntry lovrUniformAccess[];
 extern StringEntry lovrVerticalAlign[];
+extern StringEntry lovrViewMask[];
 extern StringEntry lovrVolumeUnit[];
 extern StringEntry lovrWinding[];
 extern StringEntry lovrWrapMode[];

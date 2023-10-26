@@ -5,11 +5,14 @@
 #pragma once
 
 #define HAND_JOINT_COUNT 26
+#define MAX_LAYERS 10
 
 struct Model;
 struct ModelData;
 struct Texture;
 struct Pass;
+
+typedef struct Layer Layer;
 
 typedef enum {
   DRIVER_SIMULATOR,
@@ -120,6 +123,17 @@ typedef enum {
   JOINT_PINKY_TIP
 } HandJoint;
 
+typedef enum {
+  EYE_BOTH,
+  EYE_LEFT,
+  EYE_RIGHT
+} ViewMask;
+
+typedef enum {
+  LAYER_SUPERSAMPLE,
+  LAYER_SHARPEN
+} LayerFlag;
+
 // Notes:
 // - init is called immediately, the graphics module may not exist yet
 // - start is called after the graphics module is initialized, can be used to set up textures etc.
@@ -167,6 +181,22 @@ typedef struct HeadsetInterface {
   void (*stopVibration)(Device device);
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(struct Model* model);
+  Layer** (*getLayers)(uint32_t* count);
+  void (*setLayers)(Layer** layers, uint32_t count);
+  Layer* (*newLayer)(uint32_t width, uint32_t height);
+  void (*destroyLayer)(void* ref);
+  void (*getLayerPose)(Layer* layer, float* position, float* orientation);
+  void (*setLayerPose)(Layer* layer, float* position, float* orientation);
+  void (*getLayerSize)(Layer* layer, float* width, float* height);
+  void (*setLayerSize)(Layer* layer, float width, float height);
+  ViewMask (*getLayerViewMask)(Layer* layer);
+  void (*setLayerViewMask)(Layer* layer, ViewMask mask);
+  void (*getLayerViewport)(Layer* layer, int32_t* viewport);
+  void (*setLayerViewport)(Layer* layer, int32_t* viewport);
+  bool (*getLayerFlag)(Layer* layer, LayerFlag flag);
+  void (*setLayerFlag)(Layer* layer, LayerFlag flag, bool enable);
+  struct Texture* (*getLayerTexture)(Layer* layer);
+  struct Pass* (*getLayerPass)(Layer* layer);
   struct Texture* (*getTexture)(void);
   struct Pass* (*getPass)(void);
   void (*submit)(void);
@@ -185,3 +215,4 @@ extern HeadsetInterface* lovrHeadsetInterface;
 
 bool lovrHeadsetInit(HeadsetConfig* config);
 void lovrHeadsetDestroy(void);
+void lovrLayerDestroy(void* ref);

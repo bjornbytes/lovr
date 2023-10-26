@@ -495,8 +495,9 @@ endif()
 
 if(LOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
-    src/api/l_headset.c
     src/modules/headset/headset.c
+    src/api/l_headset.c
+    src/api/l_headset_layer.c
   )
 
   if(LOVR_USE_OPENXR)
