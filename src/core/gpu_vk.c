@@ -436,29 +436,12 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: return false;
   }
 
-  gpu_memory_type memoryType;
-
   switch (info->format) {
-    case GPU_FORMAT_D16:
-      texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_D16 : GPU_MEMORY_TEXTURE_D16;
-      break;
-    case GPU_FORMAT_D32F:
-      texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_D32F : GPU_MEMORY_TEXTURE_D32F;
-      break;
-    case GPU_FORMAT_D24S8:
-      texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_D24S8 : GPU_MEMORY_TEXTURE_D24S8;
-      break;
-    case GPU_FORMAT_D32FS8:
-      texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_D32FS8 : GPU_MEMORY_TEXTURE_D32FS8;
-      break;
-    default:
-      texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-      memoryType = (info->usage & GPU_TEXTURE_TRANSIENT) ? GPU_MEMORY_TEXTURE_LAZY_COLOR : GPU_MEMORY_TEXTURE_COLOR;
-      break;
+    case GPU_FORMAT_D16: texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT; break;
+    case GPU_FORMAT_D32F: texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT; break;
+    case GPU_FORMAT_D24S8: texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT; break;
+    case GPU_FORMAT_D32FS8: texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT; break;
+    default: texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT; break;
   }
 
   texture->layout = getNaturalLayout(info->usage, texture->aspect);
@@ -479,8 +462,6 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return gpu_texture_init_view(texture, &viewInfo);
   }
 
-  bool depth = texture->aspect & VK_IMAGE_ASPECT_DEPTH_BIT;
-
   VkImageCreateInfo imageInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
     .flags = flags,
@@ -493,8 +474,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .arrayLayers = texture->layers ? texture->layers : 1,
     .samples = info->samples,
     .usage =
-      (((info->usage & GPU_TEXTURE_RENDER) && !depth) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
-      (((info->usage & GPU_TEXTURE_RENDER) && depth) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
+      (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
+      (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect != VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
       ((info->usage & GPU_TEXTURE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
       ((info->usage & GPU_TEXTURE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
@@ -506,6 +487,17 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   VK(vkCreateImage(state.device, &imageInfo, NULL, &texture->handle), "Could not create texture") return false;
   nickname(texture->handle, VK_OBJECT_TYPE_IMAGE, info->label);
+
+  gpu_memory_type memoryType;
+  bool transient = info->usage & GPU_TEXTURE_TRANSIENT;
+
+  switch (info->format) {
+    case GPU_FORMAT_D16: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_D16 : GPU_MEMORY_TEXTURE_D16; break;
+    case GPU_FORMAT_D32F: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_D32F : GPU_MEMORY_TEXTURE_D32F; break;
+    case GPU_FORMAT_D24S8: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_D24S8 : GPU_MEMORY_TEXTURE_D24S8; break;
+    case GPU_FORMAT_D32FS8: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_D32FS8 : GPU_MEMORY_TEXTURE_D32FS8; break;
+    default: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_COLOR : GPU_MEMORY_TEXTURE_COLOR; break;
+  }
 
   VkDeviceSize offset;
   VkMemoryRequirements requirements;
