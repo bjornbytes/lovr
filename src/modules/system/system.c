@@ -7,8 +7,8 @@
 static struct {
   bool initialized;
   bool keyRepeat;
-  bool prevKeyState[KEY_COUNT];
-  bool keyState[KEY_COUNT];
+  bool prevKeyState[OS_KEY_COUNT];
+  bool keyState[OS_KEY_COUNT];
   bool mouseState[8];
   double mouseX;
   double mouseY;
