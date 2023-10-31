@@ -231,6 +231,24 @@ static void onKeyboardEvent(GLFWwindow* window, int k, int scancode, int a, int 
       case GLFW_KEY_PERIOD: key = OS_KEY_PERIOD; break;
       case GLFW_KEY_SLASH: key = OS_KEY_SLASH; break;
 
+      case GLFW_KEY_KP_0: key = OS_KEY_KP_0; break;
+      case GLFW_KEY_KP_1: key = OS_KEY_KP_1; break;
+      case GLFW_KEY_KP_2: key = OS_KEY_KP_2; break;
+      case GLFW_KEY_KP_3: key = OS_KEY_KP_3; break;
+      case GLFW_KEY_KP_4: key = OS_KEY_KP_4; break;
+      case GLFW_KEY_KP_5: key = OS_KEY_KP_5; break;
+      case GLFW_KEY_KP_6: key = OS_KEY_KP_6; break;
+      case GLFW_KEY_KP_7: key = OS_KEY_KP_7; break;
+      case GLFW_KEY_KP_8: key = OS_KEY_KP_8; break;
+      case GLFW_KEY_KP_9: key = OS_KEY_KP_9; break;
+      case GLFW_KEY_KP_DECIMAL: key = OS_KEY_KP_DECIMAL; break;
+      case GLFW_KEY_KP_DIVIDE: key = OS_KEY_KP_DIVIDE; break;
+      case GLFW_KEY_KP_MULTIPLY: key = OS_KEY_KP_MULTIPLY; break;
+      case GLFW_KEY_KP_SUBTRACT: key = OS_KEY_KP_SUBTRACT; break;
+      case GLFW_KEY_KP_ADD: key = OS_KEY_KP_ADD; break;
+      case GLFW_KEY_KP_ENTER: key = OS_KEY_KP_ENTER; break;
+      case GLFW_KEY_KP_EQUAL: key = OS_KEY_KP_EQUALS; break;
+
       case GLFW_KEY_LEFT_CONTROL: key = OS_KEY_LEFT_CONTROL; break;
       case GLFW_KEY_LEFT_SHIFT: key = OS_KEY_LEFT_SHIFT; break;
       case GLFW_KEY_LEFT_ALT: key = OS_KEY_LEFT_ALT; break;
