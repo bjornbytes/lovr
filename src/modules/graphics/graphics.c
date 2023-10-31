@@ -1938,23 +1938,6 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent, uint32_t 
 
 // Texture
 
-static Material* lovrTextureGetMaterial(Texture* texture) {
-  if (!texture->material) {
-    texture->material = lovrMaterialCreate(&(MaterialInfo) {
-      .data.color = { 1.f, 1.f, 1.f, 1.f },
-      .data.uvScale = { 1.f, 1.f },
-      .texture = texture
-    });
-
-    // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
-    // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
-    lovrRelease(texture, lovrTextureDestroy);
-    texture->material->info.texture = NULL;
-  }
-
-  return texture->material;
-}
-
 Texture* lovrGraphicsGetWindowTexture(void) {
   if (!state.window && os_window_is_open()) {
     uint32_t width, height;
@@ -2375,6 +2358,23 @@ void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count)
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
   mipmapTexture(state.stream, texture, base, count);
+}
+
+Material* lovrTextureToMaterial(Texture* texture) {
+  if (!texture->material) {
+    texture->material = lovrMaterialCreate(&(MaterialInfo) {
+      .data.color = { 1.f, 1.f, 1.f, 1.f },
+      .data.uvScale = { 1.f, 1.f },
+      .texture = texture
+    });
+
+    // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
+    // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
+    lovrRelease(texture, lovrTextureDestroy);
+    texture->material->info.texture = NULL;
+  }
+
+  return texture->material;
 }
 
 // Sampler
@@ -5652,12 +5652,8 @@ void lovrPassSetFont(Pass* pass, Font* font) {
   }
 }
 
-void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture) {
-  if (texture) {
-    material = lovrTextureGetMaterial(texture);
-  }
-
-  material = material ? material : state.defaultMaterial;
+void lovrPassSetMaterial(Pass* pass, Material* material) {
+  if (!material) material = state.defaultMaterial;
 
   if (pass->pipeline->material != material) {
     lovrRetain(material);
@@ -6985,7 +6981,7 @@ void lovrPassSkybox(Pass* pass, Texture* texture) {
   lovrPassDraw(pass, &(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .shader = !texture || texture->info.type == TEXTURE_2D ? SHADER_EQUIRECT : SHADER_CUBEMAP,
-    .material = texture ? lovrTextureGetMaterial(texture) : NULL,
+    .material = texture ? lovrTextureToMaterial(texture) : NULL,
     .vertex.format = VERTEX_EMPTY,
     .count = 6
   });
@@ -6995,7 +6991,7 @@ void lovrPassFill(Pass* pass, Texture* texture) {
   lovrPassDraw(pass, &(DrawInfo) {
     .mode = DRAW_TRIANGLES,
     .shader = texture && texture->info.type == TEXTURE_ARRAY ? SHADER_FILL_ARRAY : SHADER_FILL_2D,
-    .material = texture ? lovrTextureGetMaterial(texture) : NULL,
+    .material = texture ? lovrTextureToMaterial(texture) : NULL,
     .vertex.format = VERTEX_EMPTY,
     .count = 3
   });
@@ -7106,7 +7102,7 @@ void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform) {
     .mode = DRAW_TRIANGLES,
     .transform = transform,
     .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, 0.f },
-    .material = lovrTextureGetMaterial(texture),
+    .material = lovrTextureToMaterial(texture),
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,

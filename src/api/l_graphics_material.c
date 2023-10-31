@@ -2,6 +2,19 @@
 #include "graphics/graphics.h"
 #include "util.h"
 
+Material* luax_optmaterial(lua_State* L, int index) {
+  if (lua_isnoneornil(L, index)) {
+    return NULL;
+  } else {
+    Texture* texture = luax_totype(L, index, Texture);
+    if (texture) {
+      return lovrTextureToMaterial(texture);
+    } else {
+      return luax_checktype(L, index, Material);
+    }
+  }
+}
+
 static int l_lovrMaterialGetProperties(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   const MaterialInfo* info = lovrMaterialGetInfo(material);

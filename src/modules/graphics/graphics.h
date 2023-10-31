@@ -247,6 +247,7 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
 void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
 void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
 void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count);
+Material* lovrTextureToMaterial(Texture* texture);
 
 // Sampler
 
@@ -606,7 +607,7 @@ void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
 void lovrPassSetFaceCull(Pass* pass, CullMode mode);
 void lovrPassSetFont(Pass* pass, Font* font);
-void lovrPassSetMaterial(Pass* pass, Material* material, Texture* texture);
+void lovrPassSetMaterial(Pass* pass, Material* material);
 void lovrPassSetMeshMode(Pass* pass, DrawMode mode);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
 void lovrPassSetShader(Pass* pass, Shader* shader);

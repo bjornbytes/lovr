@@ -261,7 +261,7 @@ static int l_lovrMeshGetMaterial(lua_State* L) {
 
 static int l_lovrMeshSetMaterial(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
-  Material* material = luax_checktype(L, 2, Material);
+  Material* material = luax_optmaterial(L, 2);
   lovrMeshSetMaterial(mesh, material);
   return 0;
 }

@@ -550,9 +550,8 @@ static int l_lovrPassSetFont(lua_State* L) {
 
 static int l_lovrPassSetMaterial(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  Material* material = luax_totype(L, 2, Material);
-  Texture* texture = luax_totype(L, 2, Texture);
-  lovrPassSetMaterial(pass, material, texture);
+  Material* material = luax_optmaterial(L, 2);
+  lovrPassSetMaterial(pass, material);
   return 0;
 }
 
