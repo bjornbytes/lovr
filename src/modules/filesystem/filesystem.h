@@ -29,6 +29,7 @@ bool lovrFilesystemCreateDirectory(const char* path);
 bool lovrFilesystemRemove(const char* path);
 bool lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size);
+size_t lovrFilesystemGetBundlePath(char* buffer, size_t size, const char** root);
 size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size);
 size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size);
 size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size);

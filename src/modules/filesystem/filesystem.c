@@ -479,6 +479,10 @@ size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
   return os_get_data_directory(buffer, size);
 }
 
+size_t lovrFilesystemGetBundlePath(char* buffer, size_t size, const char** root) {
+  return os_get_bundle_path(buffer, size, root);
+}
+
 size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size) {
   return os_get_executable_path(buffer, size);
 }

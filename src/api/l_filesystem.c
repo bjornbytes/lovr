@@ -149,6 +149,21 @@ static int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFilesystemGetBundlePath(lua_State* L) {
+  char buffer[LOVR_PATH_MAX];
+  const char* root;
+
+  if (lovrFilesystemGetBundlePath(buffer, sizeof(buffer), &root)) {
+    lua_pushstring(L, buffer);
+    lua_pushstring(L, root);
+  } else {
+    lua_pushnil(L);
+    lua_pushnil(L);
+  }
+
+  return 2;
+}
+
 static int l_lovrFilesystemGetExecutablePath(lua_State* L) {
   char buffer[LOVR_PATH_MAX];
 
@@ -366,6 +381,7 @@ static const luaL_Reg lovrFilesystem[] = {
   { "append", l_lovrFilesystemAppend },
   { "createDirectory", l_lovrFilesystemCreateDirectory },
   { "getAppdataDirectory", l_lovrFilesystemGetAppdataDirectory },
+  { "getBundlePath", l_lovrFilesystemGetBundlePath },
   { "getDirectoryItems", l_lovrFilesystemGetDirectoryItems },
   { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
   { "getIdentity", l_lovrFilesystemGetIdentity },
