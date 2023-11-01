@@ -337,6 +337,12 @@ static int l_lovrFilesystemSetRequirePath(lua_State* L) {
   return 0;
 }
 
+static int l_lovrFilesystemSetSource(lua_State* L) {
+  const char* source = luaL_checkstring(L, 1);
+  lovrFilesystemSetSource(source);
+  return 0;
+}
+
 static int l_lovrFilesystemUnmount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, lovrFilesystemUnmount(path));
@@ -401,8 +407,9 @@ static const luaL_Reg lovrFilesystem[] = {
   { "newBlob", l_lovrFilesystemNewBlob },
   { "read", l_lovrFilesystemRead },
   { "remove", l_lovrFilesystemRemove },
-  { "setRequirePath", l_lovrFilesystemSetRequirePath },
   { "setIdentity", l_lovrFilesystemSetIdentity },
+  { "setRequirePath", l_lovrFilesystemSetRequirePath },
+  { "setSource", l_lovrFilesystemSetSource },
   { "unmount", l_lovrFilesystemUnmount },
   { "write", l_lovrFilesystemWrite },
   { "newFile", l_lovrFilesystemNewFile },

@@ -11,6 +11,7 @@ typedef struct File File;
 
 bool lovrFilesystemInit(const char* archive);
 void lovrFilesystemDestroy(void);
+void lovrFilesystemSetSource(const char* source);
 const char* lovrFilesystemGetSource(void);
 bool lovrFilesystemIsFused(void);
 bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char *root);
