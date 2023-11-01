@@ -111,10 +111,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    lua_State* T = lua_newthread(L);
-    lua_pushvalue(L, -2);
-    lua_xmove(L, T, 1);
-
+    lua_State* T = lua_tothread(L, -1);
     lovrSetErrorCallback(luax_vthrow, T);
     lovrSetLogCallback(luax_vlog, T);
 
