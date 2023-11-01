@@ -1,4 +1,5 @@
 lovr = require 'lovr'
+local lovr = lovr
 
 -- Note: Cannot be overloaded
 function lovr.boot()
