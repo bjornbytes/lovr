@@ -9,7 +9,7 @@
 typedef struct Archive Archive;
 typedef struct File File;
 
-bool lovrFilesystemInit(const char* archive);
+bool lovrFilesystemInit(void);
 void lovrFilesystemDestroy(void);
 void lovrFilesystemSetSource(const char* source);
 const char* lovrFilesystemGetSource(void);

@@ -592,18 +592,7 @@ int luaopen_lovr_filesystem(lua_State* L) {
   luax_registerloader(L, luaLoader, 2);
   luax_registerloader(L, libLoader, 3);
   luax_registerloader(L, libLoaderAllInOne, 4);
-
-  const char* archive = NULL;
-
-  lua_getglobal(L, "arg");
-  if (lua_istable(L, -1)) {
-    lua_rawgeti(L, -1, 0);
-    archive = lua_tostring(L, -1);
-    lua_pop(L, 1);
-  }
-  lua_pop(L, 1);
-
-  lovrFilesystemInit(archive);
+  lovrFilesystemInit();
   luax_atexit(L, lovrFilesystemDestroy);
   return 1;
 }

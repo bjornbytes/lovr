@@ -52,6 +52,22 @@ local conf = {
 
 function lovr.boot()
   lovr.filesystem = require('lovr.filesystem')
+
+  local bundle, root = lovr.filesystem.getBundlePath()
+  if lovr.filesystem.mount(bundle, nil, true, root) then
+    lovr.filesystem.setSource(bundle)
+  elseif arg[0] then
+    local source = arg[0]
+
+    if arg[0]:match('%.lua$') then
+      source = arg[0]:match('[/\\]') and arg[0]:gsub('[/\\][^/\\]+$', '') or '.'
+    end
+
+    if lovr.filesystem.mount(source) then
+      lovr.filesystem.setSource(source)
+    end
+  end
+
   local main = arg[0] and arg[0]:match('[^\\/]-%.lua$') or 'main.lua'
   local hasConf, hasMain = lovr.filesystem.isFile('conf.lua'), lovr.filesystem.isFile(main)
   if not lovr.filesystem.getSource() or not (hasConf or hasMain) then require('nogame') end
