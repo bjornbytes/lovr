@@ -6,12 +6,6 @@
 
 #define LOVR_PATH_MAX 1024
 
-#ifdef _WIN32
-#define LOVR_PATH_SEP '\\'
-#else
-#define LOVR_PATH_SEP '/'
-#endif
-
 typedef struct Archive Archive;
 typedef struct File File;
 

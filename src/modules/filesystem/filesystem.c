@@ -8,6 +8,12 @@
 #include <stdlib.h>
 #include <time.h>
 
+#ifdef _WIN32
+#define SLASH '\\'
+#else
+#define SLASH '/'
+#endif
+
 #define FOREACH_ARCHIVE(a) for (Archive* a = state.archives; a; a = a->next)
 
 typedef struct {
@@ -391,14 +397,14 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   }
 
   // Append /LOVR, mkdir
-  state.savePath[cursor++] = LOVR_PATH_SEP;
+  state.savePath[cursor++] = SLASH;
   memcpy(state.savePath + cursor, "LOVR", strlen("LOVR"));
   cursor += strlen("LOVR");
   state.savePath[cursor] = '\0';
   fs_mkdir(state.savePath);
 
   // Append /<identity>, mkdir
-  state.savePath[cursor++] = LOVR_PATH_SEP;
+  state.savePath[cursor++] = SLASH;
   memcpy(state.savePath + cursor, identity, length);
   cursor += length;
   state.savePath[cursor] = '\0';

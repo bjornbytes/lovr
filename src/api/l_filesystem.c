@@ -450,8 +450,10 @@ extern void* os_get_java_vm();
 static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 #ifdef _WIN32
   const char* extension = ".dll";
+  const char sep = '\\';
 #else
   const char* extension = ".so";
+  const char sep = '/';
 #endif
 
   const char* module = lua_tostring(L, 1);
@@ -484,14 +486,14 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
     return 0;
   }
 
-  char* slash = strrchr(path, LOVR_PATH_SEP);
+  char* slash = strrchr(path, sep);
   char* p = slash ? slash + 1 : path;
   length = p - path;
 #endif
 
   for (const char* m = module; *m && length < sizeof(path); m++, length++) {
     if (allInOneFlag && *m == '.') break;
-    *p++ = *m == '.' ? LOVR_PATH_SEP : *m;
+    *p++ = *m == '.' ? sep : *m;
   }
 
   for (const char* e = extension; *e && length < sizeof(path); e++, length++) {
