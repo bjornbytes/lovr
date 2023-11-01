@@ -77,6 +77,7 @@ struct Texture {
   Sync sync;
   gpu_texture* gpu;
   gpu_texture* renderView;
+  gpu_texture* linearView;
   Material* material;
   TextureInfo info;
 };
@@ -2136,6 +2137,22 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       lovrAssert(texture->renderView, "Out of memory");
       lovrAssert(gpu_texture_init_view(texture->renderView, &view), "Failed to create texture view");
     }
+  }
+
+  // Make a linear view of sRGB textures for storage bindings, since most GPUs don't support sRGB
+  // storage textures
+  if (info->srgb && (info->usage & TEXTURE_STORAGE)) {
+    gpu_texture_view_info view = {
+      .source = texture->gpu,
+      .type = (gpu_texture_type) info->type,
+      .linear = true
+    };
+
+    texture->linearView = malloc(gpu_sizeof_texture());
+    lovrAssert(texture->linearView, "Out of memory");
+    lovrAssert(gpu_texture_init_view(texture->linearView, &view), "Failed to create texture view");
+  } else {
+    texture->linearView = texture->gpu;
   }
 
   // Sample-only textures are exempt from sync tracking to reduce overhead.  Instead, they are
@@ -5852,14 +5869,16 @@ void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t s
 
   lovrCheck(shader->textureMask & (1u << slot), "Trying to send a Texture to slot %d, but the active Shader doesn't have a Texture in that slot");
 
+  gpu_texture* view = texture->gpu;
   if (shader->storageMask & (1u << slot)) {
     lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' usage to send them to image variables in shaders");
+    view = texture->linearView;
   } else {
     lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to send them to sampler variables in shaders");
   }
 
   trackTexture(pass, texture, resource->phase, resource->cache);
-  pass->bindings[slot].texture = texture->gpu;
+  pass->bindings[slot].texture = view;
   pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
 }

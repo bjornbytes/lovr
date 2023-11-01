@@ -183,6 +183,7 @@ typedef struct {
   bool swapchain;
   bool colorspace;
   bool depthResolve;
+  bool formatList;
 } gpu_extensions;
 
 // State
@@ -444,6 +445,10 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT; break;
   }
 
+  if (info->srgb && (info->usage & GPU_TEXTURE_STORAGE)) {
+    flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+  }
+
   texture->layout = getNaturalLayout(info->usage, texture->aspect);
   texture->layers = type == VK_IMAGE_TYPE_2D ? info->size[2] : 0;
   texture->samples = info->samples;
@@ -484,6 +489,24 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       (info->upload.levelCount > 0 ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
       (info->upload.generateMipmaps ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0)
   };
+
+  VkFormat formats[2];
+  VkImageFormatListCreateInfo imageFormatList;
+  if ((flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) && state.extensions.formatList) {
+    imageFormatList = (VkImageFormatListCreateInfo) {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO,
+      .viewFormatCount = COUNTOF(formats),
+      .pViewFormats = formats
+    };
+
+    formats[0] = convertFormat(texture->format, texture->srgb);
+    formats[1] = convertFormat(texture->format, !texture->srgb);
+
+    if (formats[0] != formats[1]) {
+      imageFormatList.pNext = imageInfo.pNext;
+      imageInfo.pNext = &imageFormatList;
+    }
+  }
 
   VK(vkCreateImage(state.device, &imageInfo, NULL, &texture->handle), "Could not create texture") return false;
   nickname(texture->handle, VK_OBJECT_TYPE_IMAGE, info->label);
@@ -621,7 +644,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     texture->samples = info->source->samples;
     texture->layers = info->layerCount ? info->layerCount : (info->source->layers - info->layerIndex);
     texture->format = info->source->format;
-    texture->srgb = info->source->srgb;
+    texture->srgb = !info->linear;
   }
 
   static const VkImageViewType types[] = {
@@ -1986,6 +2009,7 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
       { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
       { "VK_EXT_swapchain_colorspace", true, &state.extensions.colorspace },
+      { "VK_KHR_image_format_list", true, &state.extensions.formatList },
       { "VK_KHR_surface", true, &state.extensions.surface },
 #if defined(_WIN32)
       { "VK_KHR_win32_surface", true, &state.extensions.surfaceOS },

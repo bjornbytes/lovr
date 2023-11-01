@@ -115,6 +115,7 @@ typedef enum {
 typedef struct {
   gpu_texture* source;
   gpu_texture_type type;
+  bool linear;
   uint32_t layerIndex;
   uint32_t layerCount;
   uint32_t levelIndex;
