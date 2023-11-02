@@ -518,7 +518,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  if (!gpu_texture_init_view(texture, &viewInfo)) {
+  bool needsView = info->usage & (GPU_TEXTURE_RENDER | GPU_TEXTURE_SAMPLE | GPU_TEXTURE_STORAGE);
+
+  if (needsView && !gpu_texture_init_view(texture, &viewInfo)) {
     vkDestroyImage(state.device, texture->handle, NULL);
     gpu_release(memory);
     return false;
