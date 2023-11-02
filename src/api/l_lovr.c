@@ -5,7 +5,8 @@ static int l_lovrGetVersion(lua_State* L) {
   lua_pushinteger(L, LOVR_VERSION_MAJOR);
   lua_pushinteger(L, LOVR_VERSION_MINOR);
   lua_pushinteger(L, LOVR_VERSION_PATCH);
-  return 3;
+  lua_pushliteral(L, LOVR_VERSION_ALIAS);
+  return 4;
 }
 
 static const luaL_Reg lovr[] = {

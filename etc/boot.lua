@@ -1,4 +1,5 @@
 lovr = require 'lovr'
+
 local lovr = lovr
 
 local conf = {
@@ -54,46 +55,57 @@ function lovr.boot()
   lovr.filesystem = require('lovr.filesystem')
 
   local bundle, root = lovr.filesystem.getBundlePath()
-  if lovr.filesystem.mount(bundle, nil, true, root) then
-    lovr.filesystem.setSource(bundle)
-  elseif arg[0] then
-    local source = arg[0]
+  local fused = lovr.filesystem.mount(bundle, nil, true, root)
+  local cli = lovr.filesystem.isFile('arg.lua') and assert(pcall(require, 'arg')) and lovr.arg and lovr.arg(arg)
+  local source, main = bundle, 'main.lua'
 
-    if arg[0]:match('%.lua$') then
-      source = arg[0]:match('[/\\]') and arg[0]:gsub('[/\\][^/\\]+$', '') or '.'
-    end
-
-    if lovr.filesystem.mount(source) then
-      lovr.filesystem.setSource(source)
+  if not fused then
+    if arg[1] and not arg[1]:match('^%-') then
+      for i = 0, #arg do
+        arg[i - 1], arg[i] = arg[i], nil
+      end
+    else
+      return function()
+        print(table.concat({
+          'usage: lovr <source>',
+          '<source> can be a Lua file, a folder with a main.lua file, or a zip archive'
+        }, '\n'))
+        return 1
+      end
     end
   end
 
-  local main = arg[0] and arg[0]:match('[^\\/]-%.lua$') or 'main.lua'
-  local hasConf, hasMain = lovr.filesystem.isFile('conf.lua'), lovr.filesystem.isFile(main)
-  if not lovr.filesystem.getSource() or not (hasConf or hasMain) then require('nogame') end
-
-  -- Shift args up in fused mode, instead of consuming one for the source path
-  if lovr.filesystem.isFused() then
-    for i = 1, #arg + 1 do
-      arg[i] = arg[i - 1]
+  if cli or not fused then
+    if arg[0] and arg[0]:match('[^/\\]+%.lua$') then
+      source = arg[0]:match('[/\\]') and arg[0]:match('(.+)[/\\][^/\\]+$') or '.'
+      main = arg[0]:match('[^/\\]+%.lua$')
+    else
+      source = arg[0]
     end
-    arg[0] = lovr.filesystem.getSource()
   end
 
-  local confOk, confError = true
-  if hasConf then confOk, confError = pcall(require, 'conf') end
-  if confOk and lovr.conf then confOk, confError = pcall(lovr.conf, conf) end
+  local ok, failure
 
-  conf.graphics.debug = arg['--graphics-debug'] or conf.graphics.debug
+  if source ~= bundle and not lovr.filesystem.mount(source) then
+    failure = ('Couldn\'t find path %q, or it wasn\'t a valid zip archive.'):format(source)
+  elseif not lovr.filesystem.isFile(main) then
+    failure = ('No %s file found in %q.'):format(main, source:match('[^/\\]+[/\\]?$'))
+  else
+    lovr.filesystem.setSource(source)
+    if lovr.filesystem.isFile('conf.lua') then ok, failure = pcall(require, 'conf') end
+    if ok and lovr.conf then ok, failure = pcall(lovr.conf, conf) end
+  end
 
   lovr._setConf(conf)
   lovr.filesystem.setIdentity(conf.identity, conf.saveprecedence)
+
+  if not failure and cli then ok, failure = pcall(cli, conf) end
 
   for module in pairs(conf.modules) do
     if conf.modules[module] then
       local ok, result = pcall(require, 'lovr.' .. module)
       if not ok then
-        print(string.format('Warning: Could not load module %q: %s', module, result))
+        lovr.log('warn', string.format('Could not load module %q: %s', module, result))
       else
         lovr[module] = result
       end
@@ -112,9 +124,12 @@ function lovr.boot()
     lovr.headset.start()
   end
 
-  lovr.handlers = setmetatable({}, { __index = lovr })
-  if not confOk then error(confError) end
-  if hasMain then require(main:gsub('%.lua$', '')) end
+  if failure then
+    error(failure)
+  end
+
+  require(main:sub(1, -5))
+
   return lovr.run()
 end
 
@@ -167,7 +182,7 @@ function lovr.errhand(message)
 
   print(message)
 
-  if not lovr.graphics or not lovr.graphics.isInitialized() then
+  if not lovr.graphics then
     return function() return 1 end
   end
 
@@ -248,37 +263,23 @@ function lovr.log(message, level, tag)
   print(message)
 end
 
-return coroutine.create(function()
-  local errored = false
+lovr.handlers = setmetatable({}, { __index = lovr })
 
+return coroutine.create(function()
   local function onerror(...)
-    if not errored then
-      errored = true -- Ensure errhand is only called once
-      return lovr.errhand(...) or function() return 1 end
-    else
-      local message = tostring(...) .. formatTraceback(debug.traceback('', 2))
-      print('Error occurred while trying to display another error:\n' .. message)
+    onerror = function(...)
+      print('Error:\n\n' .. tostring(...) .. formatTraceback(debug.traceback('', 3)))
       return function() return 1 end
     end
+    return lovr.errhand(...) or function() return 1 end
   end
 
-  -- thread will be either lovr.run's step function, or the result of errhand
-  local _, thread = xpcall(lovr.boot, onerror)
+  local thread = select(2, xpcall(lovr.boot, onerror))
 
   while true do
     local ok, result, cookie = xpcall(thread, onerror)
-
-    -- If step function returned something, exit coroutine and return to C
-    if result and ok then
-      return result, cookie
-    elseif not ok then -- Switch to errhand loop
-      thread = result
-      if type(thread) ~= 'function' then
-        print('Error occurred while trying to display another error:\n' .. tostring(result))
-        return 1
-      end
-    end
-
+    if not ok then thread = result
+    elseif result then return result, cookie end
     coroutine.yield()
   end
 end)
