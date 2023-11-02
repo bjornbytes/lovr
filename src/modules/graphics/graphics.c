@@ -723,7 +723,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .layers = 1,
     .mipmaps = 1,
     .samples = 1,
-    .srgb = true,
+    .srgb = false,
     .imageCount = 1,
     .images = &image,
     .label = "Default Texture"
