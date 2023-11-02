@@ -84,14 +84,10 @@ typedef struct {
 } GraphicsLimits;
 
 enum {
-  TEXTURE_FEATURE_SAMPLE   = (1 << 0),
-  TEXTURE_FEATURE_FILTER   = (1 << 1),
-  TEXTURE_FEATURE_RENDER   = (1 << 2),
-  TEXTURE_FEATURE_BLEND    = (1 << 3),
-  TEXTURE_FEATURE_STORAGE  = (1 << 4),
-  TEXTURE_FEATURE_ATOMIC   = (1 << 5),
-  TEXTURE_FEATURE_BLIT_SRC = (1 << 6),
-  TEXTURE_FEATURE_BLIT_DST = (1 << 7)
+  TEXTURE_FEATURE_SAMPLE  = (1 << 0),
+  TEXTURE_FEATURE_RENDER  = (1 << 1),
+  TEXTURE_FEATURE_STORAGE = (1 << 2),
+  TEXTURE_FEATURE_BLIT    = (1 << 3)
 };
 
 bool lovrGraphicsInit(GraphicsConfig* config);

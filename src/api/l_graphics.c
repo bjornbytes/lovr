@@ -171,13 +171,9 @@ StringEntry lovrStencilAction[] = {
 
 StringEntry lovrTextureFeature[] = {
   [0] = ENTRY("sample"),
-  [1] = ENTRY("filter"),
-  [2] = ENTRY("render"),
-  [3] = ENTRY("blend"),
-  [4] = ENTRY("storage"),
-  [5] = ENTRY("atomic"),
-  [6] = ENTRY("blitsrc"),
-  [7] = ENTRY("blitdst"),
+  [1] = ENTRY("render"),
+  [2] = ENTRY("storage"),
+  [3] = ENTRY("blit"),
   { 0 }
 };
 

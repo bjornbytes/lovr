@@ -2197,17 +2197,16 @@ bool gpu_init(gpu_config* config) {
           } else {
             VkFormatProperties formatProperties;
             vkGetPhysicalDeviceFormatProperties(state.adapter, format, &formatProperties);
-            uint32_t renderMask = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            uint32_t sampleMask = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+            uint32_t renderMask = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
+            uint32_t blitMask = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
             uint32_t flags = formatProperties.optimalTilingFeatures;
             config->features->formats[i][j] =
-              ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? GPU_FEATURE_SAMPLE : 0) |
-              ((flags & renderMask) ? GPU_FEATURE_RENDER : 0) |
-              ((flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? GPU_FEATURE_BLEND : 0) |
-              ((flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? GPU_FEATURE_FILTER : 0) |
+              ((flags & sampleMask) == sampleMask ? GPU_FEATURE_SAMPLE : 0) |
+              ((flags & renderMask) == renderMask ? GPU_FEATURE_RENDER : 0) |
+              ((flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? GPU_FEATURE_RENDER : 0) |
               ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? GPU_FEATURE_STORAGE : 0) |
-              ((flags & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? GPU_FEATURE_ATOMIC : 0) |
-              ((flags & VK_FORMAT_FEATURE_BLIT_SRC_BIT) ? GPU_FEATURE_BLIT_SRC : 0) |
-              ((flags & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? GPU_FEATURE_BLIT_DST : 0);
+              ((flags & blitMask) == blitMask ? GPU_FEATURE_BLIT : 0);
           }
         }
       }

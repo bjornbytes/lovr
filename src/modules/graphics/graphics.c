@@ -961,13 +961,9 @@ uint32_t lovrGraphicsGetFormatSupport(uint32_t format, uint32_t features) {
     if (features) {
       support |=
         (((~features & TEXTURE_FEATURE_SAMPLE) || (supports & GPU_FEATURE_SAMPLE)) &&
-        ((~features & TEXTURE_FEATURE_FILTER) || (supports & GPU_FEATURE_FILTER)) &&
         ((~features & TEXTURE_FEATURE_RENDER) || (supports & GPU_FEATURE_RENDER)) &&
-        ((~features & TEXTURE_FEATURE_BLEND) || (supports & GPU_FEATURE_BLEND)) &&
         ((~features & TEXTURE_FEATURE_STORAGE) || (supports & GPU_FEATURE_STORAGE)) &&
-        ((~features & TEXTURE_FEATURE_ATOMIC) || (supports & GPU_FEATURE_ATOMIC)) &&
-        ((~features & TEXTURE_FEATURE_BLIT_SRC) || (supports & GPU_FEATURE_BLIT_SRC)) &&
-        ((~features & TEXTURE_FEATURE_BLIT_DST) || (supports & GPU_FEATURE_BLIT_DST))) << i;
+        ((~features & TEXTURE_FEATURE_BLIT) || (supports & GPU_FEATURE_BLIT))) << i;
     } else {
       support |= !!supports << i;
     }
@@ -2333,15 +2329,13 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   if (dstExtent[0] == ~0u) dstExtent[0] = dst->info.width - dstOffset[0];
   if (dstExtent[1] == ~0u) dstExtent[1] = dst->info.height - dstOffset[1];
   if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.layers - dstOffset[2];
-  uint32_t srcSupport = state.features.formats[src->info.format][src->info.srgb];
-  uint32_t dstSupport = state.features.formats[dst->info.format][dst->info.srgb];
+  uint32_t supports = state.features.formats[src->info.format][src->info.srgb];
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
   lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "to");
-  lovrCheck(srcSupport & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting from the source texture's format/encoding");
-  lovrCheck(dstSupport & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting to the destination texture's format/encoding");
-  lovrCheck(src->info.format == dst->info.format, "Texture formats must match to blit between them");
+  lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support blitting this texture format/encoding");
+  lovrCheck(src->info.format == dst->info.format && src->info.srgb == dst->info.srgb, "Texture formats must match to blit between them");
   lovrCheck(((src->info.type == TEXTURE_3D) ^ (dst->info.type == TEXTURE_3D)) == false, "3D textures can only be blitted with other 3D textures");
   lovrCheck(src->info.type == TEXTURE_3D || srcExtent[2] == dstExtent[2], "When blitting between non-3D textures, blit layer counts must match");
   checkTextureBounds(&src->info, srcOffset, srcExtent);
@@ -2373,8 +2367,7 @@ void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count)
   lovrCheck(!texture->info.parent, "Can not mipmap a Texture view");
   lovrCheck(texture->info.samples == 1, "Can not mipmap a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap it");
-  lovrCheck(supports & GPU_FEATURE_BLIT_SRC, "This GPU does not support blitting %s the source texture's format/encoding, which is required for mipmapping", "from");
-  lovrCheck(supports & GPU_FEATURE_BLIT_DST, "This GPU does not support blitting %s the source texture's format/encoding, which is required for mipmapping", "to");
+  lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support mipmapping this texture format/encoding");
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
