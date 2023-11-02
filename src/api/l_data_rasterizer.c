@@ -192,7 +192,7 @@ static int l_lovrRasterizerNewImage(lua_State* L) {
   lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);
   uint32_t width = 2 * padding + (uint32_t) ceilf(box[2] - box[0]);
   uint32_t height = 2 * padding + (uint32_t) ceilf(box[3] - box[1]);
-  Image* image = lovrImageCreateRaw(width, height, FORMAT_RGBA32F);
+  Image* image = lovrImageCreateRaw(width, height, FORMAT_RGBA32F, false);
   void* pixels = lovrImageGetLayerData(image, 0, 0);
   lovrRasterizerGetPixels(rasterizer, codepoint, pixels, width, height, spread);
   luax_pushtype(L, Image, image);

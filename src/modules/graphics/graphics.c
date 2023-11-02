@@ -706,7 +706,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   memcpy(mapped.pointer, data, sizeof(data));
   gpu_copy_buffers(state.stream, mapped.buffer, state.defaultBuffer->gpu, mapped.offset, 0, sizeof(data));
 
-  Image* image = lovrImageCreateRaw(4, 4, FORMAT_RGBA8);
+  Image* image = lovrImageCreateRaw(4, 4, FORMAT_RGBA8, false);
 
   float white[4] = { 1.f, 1.f, 1.f, 1.f };
   for (uint32_t y = 0; y < 4; y++) {
@@ -2265,7 +2265,7 @@ Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t exten
   lovrGraphicsSubmit(NULL, 0);
   lovrGraphicsWait();
 
-  Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format);
+  Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
   void* data = lovrImageGetLayerData(image, offset[3], offset[2]);
   memcpy(data, mapped.pointer, mapped.extent);
   return image;
@@ -4830,7 +4830,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   checkTextureBounds(&texture->info, offset, extent);
   Readback* readback = lovrReadbackCreate(READBACK_TEXTURE);
   readback->texture = texture;
-  readback->image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format);
+  readback->image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
   readback->mapped = mapBuffer(&state.downloadBuffers, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
   lovrRetain(texture);
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ);

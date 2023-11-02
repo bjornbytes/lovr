@@ -57,7 +57,7 @@ typedef void MapPixelCallback(void* userdata, uint32_t x, uint32_t y, float pixe
 
 typedef struct Image Image;
 
-Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format);
+Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format, bool srgb);
 Image* lovrImageCreateFromFile(struct Blob* blob);
 void lovrImageDestroy(void* ref);
 bool lovrImageIsSRGB(Image* image);

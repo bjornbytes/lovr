@@ -79,7 +79,7 @@ static size_t measure(uint32_t w, uint32_t h, TextureFormat format) {
   }
 }
 
-Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format) {
+Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format, bool srgb) {
   lovrCheck(width > 0 && height > 0, "Image dimensions must be positive");
   lovrCheck(format < FORMAT_BC1, "Blank images cannot be compressed");
   size_t size = measure(width, height, format);
@@ -87,6 +87,7 @@ Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format)
   Image* image = calloc(1, sizeof(Image));
   lovrAssert(image && data, "Out of memory");
   image->ref = 1;
+  image->flags = srgb ? IMAGE_SRGB : 0;
   image->width = width;
   image->height = height;
   image->format = format;

@@ -107,7 +107,7 @@ static int l_lovrDataNewImage(lua_State* L) {
     uint32_t width = luax_checku32(L, 1);
     uint32_t height = luax_checku32(L, 2);
     TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba8");
-    image = lovrImageCreateRaw(width, height, format);
+    image = lovrImageCreateRaw(width, height, format, true);
     size_t size = lovrImageGetLayerSize(image, 0);
     void* data = lovrImageGetLayerData(image, 0, 0);
     if (lua_gettop(L) >= 4) {
@@ -123,7 +123,7 @@ static int l_lovrDataNewImage(lua_State* L) {
       uint32_t width = lovrImageGetWidth(source, 0);
       uint32_t height = lovrImageGetHeight(source, 0);
       TextureFormat format = lovrImageGetFormat(source);
-      image = lovrImageCreateRaw(width, height, format);
+      image = lovrImageCreateRaw(width, height, format, true);
       memcpy(lovrImageGetLayerData(image, 0, 0), lovrImageGetLayerData(source, 0, 0), lovrImageGetLayerSize(image, 0));
     } else {
       Blob* blob = luax_readblob(L, 1, "Texture");
