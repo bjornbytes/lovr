@@ -50,7 +50,8 @@ static int l_lovrTextureGetFormat(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
   luax_pushenum(L, TextureFormat, info->format);
-  return 1;
+  lua_pushboolean(L, !info->srgb);
+  return 2;
 }
 
 static int l_lovrTextureGetWidth(lua_State* L) {
