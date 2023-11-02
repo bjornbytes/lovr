@@ -603,6 +603,7 @@ static size_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(size_t layout, gpu_binding* bindings, uint32_t count);
 static gpu_texture* getScratchTexture(Canvas* canvas, TextureFormat format, bool srgb);
 static bool isDepthFormat(TextureFormat format);
+static bool supportsSRGB(TextureFormat format);
 static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d);
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
 static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
@@ -2023,7 +2024,8 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   uint32_t limit = limits[info->type];
   uint32_t mipmapCap = log2(MAX(MAX(info->width, info->height), (info->type == TEXTURE_3D ? info->layers : 1))) + 1;
   uint32_t mipmaps = CLAMP(info->mipmaps, 1, mipmapCap);
-  uint8_t supports = state.features.formats[info->format][info->srgb];
+  bool srgb = supportsSRGB(info->format) && info->srgb;
+  uint8_t supports = state.features.formats[info->format][srgb];
 
   lovrCheck(info->width > 0, "Texture width must be greater than zero");
   lovrCheck(info->height > 0, "Texture height must be greater than zero");
@@ -2056,6 +2058,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *info;
   texture->info.mipmaps = mipmaps;
+  texture->info.srgb = srgb;
 
   uint32_t levelCount = 0;
   uint32_t levelOffsets[16];
@@ -2109,7 +2112,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
       (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
       ((info->usage == TEXTURE_RENDER) ? GPU_TEXTURE_TRANSIENT : 0),
-    .srgb = info->srgb,
+    .srgb = srgb,
     .handle = info->handle,
     .label = info->label,
     .upload = {
@@ -2141,7 +2144,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
 
   // Make a linear view of sRGB textures for storage bindings, since most GPUs don't support sRGB
   // storage textures
-  if (info->srgb && (info->usage & TEXTURE_STORAGE)) {
+  if (srgb && (info->usage & TEXTURE_STORAGE)) {
     gpu_texture_view_info view = {
       .source = texture->gpu,
       .type = (gpu_texture_type) info->type,
@@ -5063,7 +5066,7 @@ void lovrPassReset(Pass* pass) {
   pass->pipeline->info.depth.format = (gpu_texture_format) canvas->depth.format;
   for (uint32_t i = 0; i < canvas->count; i++) {
     pass->pipeline->info.color[i].format = (gpu_texture_format) canvas->color[i].texture->info.format;
-    pass->pipeline->info.color[i].srgb = canvas->color[i].texture->info.format;
+    pass->pipeline->info.color[i].srgb = canvas->color[i].texture->info.srgb;
   }
 
   pass->cameraCount = 0;
@@ -5182,7 +5185,7 @@ void lovrPassAppend(Pass* pass, Pass* other) {
       dst->pipelineInfo->depth.format = (gpu_texture_format) canvas->depth.format;
       for (uint32_t j = 0; j < canvas->count; j++) {
         dst->pipelineInfo->color[j].format = (gpu_texture_format) canvas->color[j].texture->info.format;
-        dst->pipelineInfo->color[j].srgb = canvas->color[j].texture->info.format;
+        dst->pipelineInfo->color[j].srgb = canvas->color[j].texture->info.srgb;
       }
 
       srcPipelineInfo = src->pipelineInfo;
@@ -7559,6 +7562,35 @@ static gpu_texture* getScratchTexture(Canvas* canvas, TextureFormat format, bool
 
 static bool isDepthFormat(TextureFormat format) {
   return format == FORMAT_D16 || format == FORMAT_D32F || format == FORMAT_D24S8 || format == FORMAT_D32FS8;
+}
+
+static bool supportsSRGB(TextureFormat format) {
+  switch (format) {
+    case FORMAT_R8:
+    case FORMAT_RG8:
+    case FORMAT_RGBA8:
+    case FORMAT_BC1:
+    case FORMAT_BC2:
+    case FORMAT_BC3:
+    case FORMAT_BC7:
+    case FORMAT_ASTC_4x4:
+    case FORMAT_ASTC_5x4:
+    case FORMAT_ASTC_5x5:
+    case FORMAT_ASTC_6x5:
+    case FORMAT_ASTC_6x6:
+    case FORMAT_ASTC_8x5:
+    case FORMAT_ASTC_8x6:
+    case FORMAT_ASTC_8x8:
+    case FORMAT_ASTC_10x5:
+    case FORMAT_ASTC_10x6:
+    case FORMAT_ASTC_10x8:
+    case FORMAT_ASTC_10x10:
+    case FORMAT_ASTC_12x10:
+    case FORMAT_ASTC_12x12:
+      return true;
+    default:
+      return false;
+  }
 }
 
 // Returns number of bytes of a 3D texture region of a given format
