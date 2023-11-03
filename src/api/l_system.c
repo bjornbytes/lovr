@@ -290,6 +290,20 @@ static int l_lovrSystemIsMouseDown(lua_State* L) {
   return 1;
 }
 
+static int l_lovrSystemWasMousePressed(lua_State* L) {
+  int button = luaL_checkint(L, 1) - 1;
+  bool pressed = lovrSystemWasMousePressed(button);
+  lua_pushboolean(L, pressed);
+  return 1;
+}
+
+static int l_lovrSystemWasMouseReleased(lua_State* L) {
+  int button = luaL_checkint(L, 1) - 1;
+  bool released = lovrSystemWasMouseReleased(button);
+  lua_pushboolean(L, released);
+  return 1;
+}
+
 static const luaL_Reg lovrSystem[] = {
   { "getOS", l_lovrSystemGetOS },
   { "getCoreCount", l_lovrSystemGetCoreCount },
@@ -310,6 +324,8 @@ static const luaL_Reg lovrSystem[] = {
   { "getMouseY", l_lovrSystemGetMouseY },
   { "getMousePosition", l_lovrSystemGetMousePosition },
   { "isMouseDown", l_lovrSystemIsMouseDown },
+  { "wasMousePressed", l_lovrSystemWasMousePressed },
+  { "wasMouseReleased", l_lovrSystemWasMouseReleased },
   { NULL, NULL }
 };
 

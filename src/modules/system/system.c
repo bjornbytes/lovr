@@ -9,6 +9,7 @@ static struct {
   bool keyRepeat;
   bool prevKeyState[OS_KEY_COUNT];
   bool keyState[OS_KEY_COUNT];
+  bool prevMouseState[8];
   bool mouseState[8];
   double mouseX;
   double mouseY;
@@ -134,6 +135,7 @@ float lovrSystemGetWindowDensity(void) {
 
 void lovrSystemPollEvents(void) {
   memcpy(state.prevKeyState, state.keyState, sizeof(state.keyState));
+  memcpy(state.prevMouseState, state.mouseState, sizeof(state.mouseState));
   state.scrollDelta = 0.;
   os_poll_events();
 }
@@ -166,6 +168,16 @@ void lovrSystemGetMousePosition(double* x, double* y) {
 bool lovrSystemIsMouseDown(int button) {
   if ((size_t) button > COUNTOF(state.mouseState)) return false;
   return state.mouseState[button];
+}
+
+bool lovrSystemWasMousePressed(int button) {
+  if ((size_t) button > COUNTOF(state.mouseState)) return false;
+  return !state.prevMouseState[button] && state.mouseState[button];
+}
+
+bool lovrSystemWasMouseReleased(int button) {
+  if ((size_t) button > COUNTOF(state.mouseState)) return false;
+  return state.prevMouseState[button] && !state.mouseState[button];
 }
 
 // This is kind of a hacky thing for the simulator, since we're kinda bad at event dispatch
