@@ -624,8 +624,6 @@ static void onMessage(void* context, const char* message, bool severe);
 bool lovrGraphicsInit(GraphicsConfig* config) {
   if (state.initialized) return false;
 
-  state.config = *config;
-
   gpu_config gpu = {
     .debug = config->debug,
     .callback = onMessage,
@@ -633,25 +631,23 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .engineVersion = { LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH },
     .device = &state.device,
     .features = &state.features,
-    .limits = &state.limits
-  };
-
+    .limits = &state.limits,
 #ifdef LOVR_VK
-  gpu.vk.cacheData = config->cacheData;
-  gpu.vk.cacheSize = config->cacheSize;
-#ifndef LOVR_DISABLE_HEADSET
-  if (lovrHeadsetInterface) {
-    gpu.vk.getPhysicalDevice = lovrHeadsetInterface->getVulkanPhysicalDevice;
-    gpu.vk.createInstance = lovrHeadsetInterface->createVulkanInstance;
-    gpu.vk.createDevice = lovrHeadsetInterface->createVulkanDevice;
-  }
+    .vk.cacheData = config->cacheData,
+    .vk.cacheSize = config->cacheSize,
 #endif
+#if defined(LOVR_VK) && !defined(LOVR_DISABLE_HEADSET)
+    .vk.getPhysicalDevice = lovrHeadsetInterface ? lovrHeadsetInterface->getVulkanPhysicalDevice : NULL,
+    .vk.createInstance = lovrHeadsetInterface ? lovrHeadsetInterface->createVulkanInstance : NULL,
+    .vk.createDevice = lovrHeadsetInterface ? lovrHeadsetInterface->createVulkanDevice : NULL,
 #endif
+  };
 
   if (!gpu_init(&gpu)) {
     lovrThrow("Failed to initialize GPU");
   }
 
+  state.config = *config;
   state.timingEnabled = config->debug;
 
   // Temporary frame memory uses a large 1GB virtual memory allocation, committing pages as needed
