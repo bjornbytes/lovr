@@ -805,6 +805,10 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
   }
 
+  if (lua_type(L, 1) == LUA_TNUMBER && lua_type(L, 3) != LUA_TNUMBER && info.type == TEXTURE_CUBE) {
+    info.layers = 6;
+  }
+
   Texture* texture = lovrTextureCreate(&info);
 
   for (uint32_t i = 0; i < info.imageCount; i++) {
