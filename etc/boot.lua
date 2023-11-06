@@ -147,7 +147,7 @@ function lovr.errhand(message)
 
   print(message)
 
-  if not lovr.graphics or not lovr.graphics.isInitialized() then
+  if not lovr.graphics then
     return function() return 1 end
   end
 
