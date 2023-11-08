@@ -52,8 +52,7 @@ enum {
   GPU_TEXTURE_RENDER    = (1 << 1),
   GPU_TEXTURE_STORAGE   = (1 << 2),
   GPU_TEXTURE_COPY_SRC  = (1 << 3),
-  GPU_TEXTURE_COPY_DST  = (1 << 4),
-  GPU_TEXTURE_TRANSIENT = (1 << 5)
+  GPU_TEXTURE_COPY_DST  = (1 << 4)
 };
 
 typedef enum {

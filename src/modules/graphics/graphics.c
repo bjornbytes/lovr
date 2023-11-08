@@ -2104,8 +2104,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
-      (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
-      ((info->usage == TEXTURE_RENDER) ? GPU_TEXTURE_TRANSIENT : 0),
+      (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
     .srgb = srgb,
     .handle = info->handle,
     .label = info->label,
@@ -7543,7 +7542,7 @@ static gpu_texture* getScratchTexture(Canvas* canvas, TextureFormat format, bool
     .size = { canvas->width, canvas->height, canvas->views },
     .mipmaps = 1,
     .samples = canvas->samples,
-    .usage = GPU_TEXTURE_RENDER | GPU_TEXTURE_TRANSIENT
+    .usage = GPU_TEXTURE_RENDER
   };
 
   lovrAssert(gpu_texture_init(scratch->texture, &info), "Failed to create scratch texture");

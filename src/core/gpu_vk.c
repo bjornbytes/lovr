@@ -485,7 +485,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       ((info->usage & GPU_TEXTURE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
       ((info->usage & GPU_TEXTURE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
-      ((info->usage & GPU_TEXTURE_TRANSIENT) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0) |
+      ((info->usage == GPU_TEXTURE_RENDER) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0) |
       (info->upload.levelCount > 0 ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
       (info->upload.generateMipmaps ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0)
   };
@@ -512,7 +512,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   nickname(texture->handle, VK_OBJECT_TYPE_IMAGE, info->label);
 
   gpu_memory_type memoryType;
-  bool transient = info->usage & GPU_TEXTURE_TRANSIENT;
+  bool transient = info->usage == GPU_TEXTURE_RENDER;
 
   switch (info->format) {
     case GPU_FORMAT_D16: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_D16 : GPU_MEMORY_TEXTURE_D16; break;
