@@ -220,7 +220,7 @@ enum { LINEAR, SRGB };
 #define MAX(a, b) (a > b ? a : b)
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define ALIGN(p, n) (((uintptr_t) (p) + (n - 1)) & ~(n - 1))
-#define LOG(s) if (state.config.callback) state.config.callback(state.config.userdata, s, false)
+#define LOG(s) if (state.config.fnLog) state.config.fnLog(state.config.userdata, s, false)
 #define VK(f, s) if (!vcheck(f, s))
 #define CHECK(c, s) if (!check(c, s))
 #define TICK_MASK (COUNTOF(state.ticks) - 1)
@@ -1979,8 +1979,10 @@ bool gpu_init(gpu_config* config) {
   {
     // Layers
 
-    VkLayerProperties layerInfo[32];
-    uint32_t layerCount = COUNTOF(layerInfo);
+    uint32_t layerCount = 0;
+    VK(vkEnumerateInstanceLayerProperties(&layerCount, NULL), "Failed to enumerate instance layers") return gpu_destroy(), false;
+    VkLayerProperties* layerInfo = config->fnAlloc(layerCount * sizeof(*layerInfo));
+    CHECK(layerInfo, "Out of memory") return gpu_destroy(), false;
     VK(vkEnumerateInstanceLayerProperties(&layerCount, layerInfo), "Failed to enumerate instance layers") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } layers[] = {
@@ -2001,10 +2003,14 @@ bool gpu_init(gpu_config* config) {
       }
     }
 
+    config->fnFree(layerInfo);
+
     // Extensions
 
-    VkExtensionProperties extensionInfo[64];
-    uint32_t extensionCount = COUNTOF(extensionInfo);
+    uint32_t extensionCount = 0;
+    VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL), "Failed to enumerate instance extensions") return gpu_destroy(), false;
+    VkExtensionProperties* extensionInfo = config->fnAlloc(extensionCount * sizeof(*extensionInfo));
+    CHECK(extensionInfo, "Out of memory") return gpu_destroy(), false;
     VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
@@ -2036,6 +2042,8 @@ bool gpu_init(gpu_config* config) {
       }
     }
 
+    config->fnFree(extensionInfo);
+
     // Instance
 
     VkInstanceCreateInfo instanceInfo = {
@@ -2053,15 +2061,15 @@ bool gpu_init(gpu_config* config) {
       .ppEnabledExtensionNames = enabledExtensions
     };
 
-    if (state.config.vk.createInstance) {
-      VK(state.config.vk.createInstance(&instanceInfo, NULL, (uintptr_t) &state.instance, (void*) vkGetInstanceProcAddr), "Instance creation failed") return gpu_destroy(), false;
+    if (config->vk.createInstance) {
+      VK(config->vk.createInstance(&instanceInfo, NULL, (uintptr_t) &state.instance, (void*) vkGetInstanceProcAddr), "Instance creation failed") return gpu_destroy(), false;
     } else {
       VK(vkCreateInstance(&instanceInfo, NULL, &state.instance), "Instance creation failed") return gpu_destroy(), false;
     }
 
     GPU_FOREACH_INSTANCE(GPU_LOAD_INSTANCE);
 
-    if (state.config.debug && state.config.callback) {
+    if (config->debug && config->fnLog) {
       if (state.extensions.debug) {
         VkDebugUtilsMessengerCreateInfoEXT messengerInfo = {
           .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
@@ -2082,8 +2090,8 @@ bool gpu_init(gpu_config* config) {
   }
 
   { // Device
-    if (state.config.vk.getPhysicalDevice) {
-      state.config.vk.getPhysicalDevice(state.instance, (uintptr_t) &state.adapter);
+    if (config->vk.getPhysicalDevice) {
+      config->vk.getPhysicalDevice(state.instance, (uintptr_t) &state.adapter);
     } else {
       uint32_t deviceCount = 1;
       VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "Physical device enumeration failed") return gpu_destroy(), false;
@@ -2213,16 +2221,21 @@ bool gpu_init(gpu_config* config) {
     }
 
     state.queueFamilyIndex = ~0u;
-    VkQueueFamilyProperties queueFamilies[8];
-    uint32_t queueFamilyCount = COUNTOF(queueFamilies);
-    uint32_t requiredQueueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, NULL);
+    VkQueueFamilyProperties* queueFamilies = config->fnAlloc(queueFamilyCount * sizeof(*queueFamilies));
+    CHECK(queueFamilies, "Out of memory") return gpu_destroy(), false;
     vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, queueFamilies);
+    uint32_t mask = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
-      if ((queueFamilies[i].queueFlags & requiredQueueFlags) == requiredQueueFlags) {
+      if ((queueFamilies[i].queueFlags & mask) == mask) {
         state.queueFamilyIndex = i;
         break;
       }
     }
+
+    config->fnFree(queueFamilies);
     CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
@@ -2230,11 +2243,13 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_swapchain", true, &state.extensions.swapchain },
       { "VK_KHR_portability_subset", true, &state.extensions.portability },
       { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve },
-      { "VK_KHR_shader_non_semantic_info", state.config.debug, &state.extensions.shaderDebug }
+      { "VK_KHR_shader_non_semantic_info", config->debug, &state.extensions.shaderDebug }
     };
 
-    VkExtensionProperties extensionInfo[512];
-    uint32_t extensionCount = COUNTOF(extensionInfo);
+    uint32_t extensionCount = 0;
+    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, NULL), "Failed to enumerate device extensions") return gpu_destroy(), false;
+    VkExtensionProperties* extensionInfo = config->fnAlloc(extensionCount * sizeof(*extensionInfo));
+    CHECK(extensionInfo, "Out of memory") return gpu_destroy(), false;
     VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
 
     uint32_t enabledExtensionCount = 0;
@@ -2250,6 +2265,8 @@ bool gpu_init(gpu_config* config) {
         return gpu_destroy(), false;
       }
     }
+
+    config->fnFree(extensionInfo);
 
     if (config->features) {
       config->features->depthResolve = state.extensions.depthResolve;
@@ -2270,8 +2287,8 @@ bool gpu_init(gpu_config* config) {
       .ppEnabledExtensionNames = enabledExtensions
     };
 
-    if (state.config.vk.createDevice) {
-      VK(state.config.vk.createDevice(state.instance, &deviceInfo, NULL, (uintptr_t) &state.device, (void*) vkGetInstanceProcAddr), "Device creation failed") return gpu_destroy(), false;
+    if (config->vk.createDevice) {
+      VK(config->vk.createDevice(state.instance, &deviceInfo, NULL, (uintptr_t) &state.device, (void*) vkGetInstanceProcAddr), "Device creation failed") return gpu_destroy(), false;
     } else {
       VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") return gpu_destroy(), false;
     }
@@ -3128,7 +3145,7 @@ static void nickname(void* handle, VkObjectType type, const char* name) {
 
 static bool vcheck(VkResult result, const char* message) {
   if (result >= 0) return true;
-  if (!state.config.callback) return false;
+  if (!state.config.fnLog) return false;
 
   const char* errorCode = "";
 #define CASE(x) case x: errorCode = " (" #x ")"; break;
@@ -3155,20 +3172,20 @@ static bool vcheck(VkResult result, const char* message) {
   size_t length2 = strlen(errorCode);
 
   if (length1 + length2 >= sizeof(string)) {
-    state.config.callback(state.config.userdata, message, true);
+    state.config.fnLog(state.config.userdata, message, true);
     return false;
   } else {
     memcpy(string, message, length1);
     memcpy(string + length1, errorCode, length2);
     string[length1 + length2] = '\0';
-    state.config.callback(state.config.userdata, string, true);
+    state.config.fnLog(state.config.userdata, string, true);
     return false;
   }
 }
 
 static bool check(bool condition, const char* message) {
-  if (!condition && state.config.callback) {
-    state.config.callback(state.config.userdata, message, true);
+  if (!condition && state.config.fnLog) {
+    state.config.fnLog(state.config.userdata, message, true);
   }
   return condition;
 }

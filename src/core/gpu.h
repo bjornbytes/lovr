@@ -682,7 +682,9 @@ typedef struct {
 typedef struct {
   bool debug;
   void* userdata;
-  void (*callback)(void* userdata, const char* message, bool error);
+  void (*fnLog)(void* userdata, const char* message, bool error);
+  void* (*fnAlloc)(size_t size);
+  void (*fnFree)(void* data);
   const char* engineName;
   uint32_t engineVersion[3];
   gpu_device_info* device;

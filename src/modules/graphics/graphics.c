@@ -626,7 +626,9 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   gpu_config gpu = {
     .debug = config->debug,
-    .callback = onMessage,
+    .fnLog = onMessage,
+    .fnAlloc = malloc,
+    .fnFree = free,
     .engineName = "LOVR",
     .engineVersion = { LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH },
     .device = &state.device,
