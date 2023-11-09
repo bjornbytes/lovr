@@ -1656,26 +1656,29 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     Canvas* canvas = &passes[i]->canvas;
 
     for (uint32_t t = 0; t < canvas->count; t++) {
-      canvas->color[t].texture->sync.barrier = &state.postBarrier;
+      Texture* texture = canvas->color[t].texture;
+      texture->sync.barrier = &state.postBarrier;
+      if (texture->info.xr && texture->xrTick != state.tick) {
+        gpu_xr_acquire(streams[0], texture->gpu);
+        gpu_xr_release(streams[streamCount - 1], texture->gpu);
+        texture->xrTick = state.tick;
+      }
     }
 
     if (canvas->depth.texture) {
-      canvas->depth.texture->sync.barrier = &state.postBarrier;
+      Texture* texture = canvas->depth.texture;
+      texture->sync.barrier = &state.postBarrier;
+      if (texture->info.xr && texture->xrTick != state.tick) {
+        gpu_xr_acquire(streams[0], texture->gpu);
+        gpu_xr_release(streams[streamCount - 1], texture->gpu);
+        texture->xrTick = state.tick;
+      }
     }
 
     for (uint32_t j = 0; j < COUNTOF(passes[i]->access); j++) {
       for (AccessBlock* block = passes[i]->access[j]; block != NULL; block = block->next) {
         for (uint32_t k = 0; k < block->count; k++) {
           block->list[k].sync->barrier = &state.postBarrier;
-
-          if (block->textureMask & (1ull << k)) {
-            Texture* texture = (Texture*) ((char*) block->list[k].sync - offsetof(Texture, sync));
-            if (texture && texture->info.xr && texture->xrTick != state.tick) {
-              gpu_xr_acquire(streams[0], texture->gpu);
-              gpu_xr_release(streams[streamCount - 1], texture->gpu);
-              texture->xrTick = state.tick;
-            }
-          }
         }
       }
     }
