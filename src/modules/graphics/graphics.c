@@ -3668,9 +3668,12 @@ void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
     uint32_t previous = '\0';
     const char* str = strings[i].string;
     const char* end = strings[i].string + strings[i].length;
-    uint8_t r = (uint8_t) (CLAMP(lovrMathGammaToLinear(strings[i].color[0]), 0.f, 1.f) * 255.f);
-    uint8_t g = (uint8_t) (CLAMP(lovrMathGammaToLinear(strings[i].color[1]), 0.f, 1.f) * 255.f);
-    uint8_t b = (uint8_t) (CLAMP(lovrMathGammaToLinear(strings[i].color[2]), 0.f, 1.f) * 255.f);
+    float rf = lovrMathGammaToLinear(strings[i].color[0]);
+    float gf = lovrMathGammaToLinear(strings[i].color[1]);
+    float bf = lovrMathGammaToLinear(strings[i].color[2]);
+    uint8_t r = (uint8_t) (CLAMP(rf, 0.f, 1.f) * 255.f);
+    uint8_t g = (uint8_t) (CLAMP(gf, 0.f, 1.f) * 255.f);
+    uint8_t b = (uint8_t) (CLAMP(bf, 0.f, 1.f) * 255.f);
     uint8_t a = (uint8_t) (CLAMP(strings[i].color[3], 0.f, 1.f) * 255.f);
 
     while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
