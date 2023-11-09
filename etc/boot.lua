@@ -84,6 +84,10 @@ function lovr.boot()
     end
   end
 
+  if lovr.graphics then
+    lovr.graphics.initialize()
+  end
+
   if lovr.system and conf.window then
     lovr.system.openWindow(conf.window)
   end
@@ -147,7 +151,7 @@ function lovr.errhand(message)
 
   print(message)
 
-  if not lovr.graphics then
+  if not lovr.graphics or not lovr.graphics.isInitialized() then
     return function() return 1 end
   end
 

@@ -320,6 +320,65 @@ static void luax_writeshadercache(void) {
   free(data);
 }
 
+static int l_lovrGraphicsInitialize(lua_State* L) {
+  GraphicsConfig config = {
+    .debug = false,
+    .vsync = false,
+    .stencil = false,
+    .antialias = true
+  };
+
+  bool shaderCache = true;
+
+  luax_pushconf(L);
+  lua_getfield(L, -1, "graphics");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "debug");
+    config.debug = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "vsync");
+    config.vsync = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "stencil");
+    config.stencil = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "antialias");
+    config.antialias = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "shadercache");
+    shaderCache = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 2);
+
+  if (shaderCache) {
+    config.cacheData = luax_readfile(".lovrshadercache", &config.cacheSize);
+  }
+
+  if (lovrGraphicsInit(&config)) {
+    luax_atexit(L, lovrGraphicsDestroy);
+
+    // Finalizers run in the opposite order they were added, so this has to go last
+    if (shaderCache) {
+      luax_atexit(L, luax_writeshadercache);
+    }
+  }
+
+  free(config.cacheData);
+
+  return 0;
+}
+
+static int l_lovrGraphicsIsInitialized(lua_State* L) {
+  bool initialized = lovrGraphicsIsInitialized();
+  lua_pushboolean(L, initialized);
+  return 1;
+}
+
 static int l_lovrGraphicsIsTimingEnabled(lua_State* L) {
   bool enabled = lovrGraphicsIsTimingEnabled();
   lua_pushboolean(L, enabled);
@@ -1365,6 +1424,8 @@ static int l_lovrGraphicsNewPass(lua_State* L) {
 }
 
 static const luaL_Reg lovrGraphics[] = {
+  { "initialize", l_lovrGraphicsInitialize },
+  { "isInitialized", l_lovrGraphicsIsInitialized },
   { "isTimingEnabled", l_lovrGraphicsIsTimingEnabled },
   { "setTimingEnabled", l_lovrGraphicsSetTimingEnabled },
   { "submit", l_lovrGraphicsSubmit },
@@ -1415,54 +1476,5 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Model);
   luax_registertype(L, Readback);
   luax_registertype(L, Pass);
-
-  GraphicsConfig config = {
-    .debug = false,
-    .vsync = false,
-    .stencil = false,
-    .antialias = true
-  };
-
-  bool shaderCache = true;
-
-  luax_pushconf(L);
-  lua_getfield(L, -1, "graphics");
-  if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "debug");
-    config.debug = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "vsync");
-    config.vsync = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "stencil");
-    config.stencil = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "antialias");
-    config.antialias = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "shadercache");
-    shaderCache = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  }
-  lua_pop(L, 2);
-
-  if (shaderCache) {
-    config.cacheData = luax_readfile(".lovrshadercache", &config.cacheSize);
-  }
-
-  if (lovrGraphicsInit(&config)) {
-    luax_atexit(L, lovrGraphicsDestroy);
-
-    // Finalizers run in the opposite order they were added, so this has to go last
-    if (shaderCache) {
-      luax_atexit(L, luax_writeshadercache);
-    }
-  }
-
-  free(config.cacheData);
   return 1;
 }
