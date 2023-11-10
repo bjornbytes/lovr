@@ -71,7 +71,7 @@ layout(location = 10) in vec4 VertexPosition;
 layout(location = 11) in vec3 VertexNormal;
 layout(location = 12) in vec2 VertexUV;
 layout(location = 13) in vec4 VertexColor;
-layout(location = 14) in vec3 VertexTangent;
+layout(location = 14) in vec4 VertexTangent;
 #endif
 
 // Framebuffer
@@ -85,7 +85,7 @@ layout(location = 10) out vec3 PositionWorld;
 layout(location = 11) out vec3 Normal;
 layout(location = 12) out vec2 UV;
 layout(location = 13) out vec4 Color;
-layout(location = 14) out vec3 Tangent;
+layout(location = 14) out vec4 Tangent;
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
@@ -93,7 +93,7 @@ layout(location = 10) in vec3 PositionWorld;
 layout(location = 11) in vec3 Normal;
 layout(location = 12) in vec2 UV;
 layout(location = 13) in vec4 Color;
-layout(location = 14) in vec3 Tangent;
+layout(location = 14) in vec4 Tangent;
 #endif
 
 // Builtins
@@ -227,8 +227,8 @@ struct Surface {
 mat3 getTangentMatrix() {
   if (flag_vertexTangents) {
     vec3 N = normalize(Normal);
-    vec3 T = normalize(Tangent);
-    vec3 B = cross(N, T);
+    vec3 T = normalize(Tangent.xyz);
+    vec3 B = cross(N, T) * Tangent.w;
     return mat3(T, B, N);
   } else {
     // http://www.thetenthplanet.de/archives/1180
@@ -458,7 +458,7 @@ void main() {
   if (flag_vertexColors) Color *= VertexColor;
 
   if (flag_vertexTangents) {
-    Tangent = NormalMatrix * VertexTangent;
+    Tangent = vec4(NormalMatrix * VertexTangent.xyz, VertexTangent.w);
   }
 
   PointSize = flag_pointSize;

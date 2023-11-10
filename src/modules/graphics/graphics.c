@@ -319,7 +319,7 @@ typedef struct {
   struct { float x, y, z; } normal;
   struct { float u, v; } uv;
   struct { uint8_t r, g, b, a; } color;
-  struct { float x, y, z; } tangent;
+  struct { float x, y, z, w; } tangent;
 } ModelVertex;
 
 typedef struct {
@@ -787,7 +787,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .attributes[1] = { 0, 11, offsetof(ModelVertex, normal), GPU_TYPE_F32x3 },
     .attributes[2] = { 0, 12, offsetof(ModelVertex, uv), GPU_TYPE_F32x2 },
     .attributes[3] = { 0, 13, offsetof(ModelVertex, color), GPU_TYPE_UN8x4 },
-    .attributes[4] = { 0, 14, offsetof(ModelVertex, tangent), GPU_TYPE_F32x3 }
+    .attributes[4] = { 0, 14, offsetof(ModelVertex, tangent), GPU_TYPE_F32x4 }
   };
 
   state.vertexFormats[VERTEX_EMPTY] = (gpu_vertex_format) {
@@ -4170,7 +4170,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
       { .type = TYPE_F32x3, .offset = offsetof(ModelVertex, normal), .hash = LOCATION_NORMAL },
       { .type = TYPE_F32x2, .offset = offsetof(ModelVertex, uv), .hash = LOCATION_UV },
       { .type = TYPE_UN8x4, .offset = offsetof(ModelVertex, color), .hash = LOCATION_COLOR },
-      { .type = TYPE_F32x3, .offset = offsetof(ModelVertex, tangent), .hash = LOCATION_TANGENT }
+      { .type = TYPE_F32x4, .offset = offsetof(ModelVertex, tangent), .hash = LOCATION_TANGENT }
     }
   };
 
@@ -4303,7 +4303,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     lovrModelDataCopyAttribute(data, attributes[ATTR_NORMAL], vertexData + 12, F32, 3, false, count, stride, 0);
     lovrModelDataCopyAttribute(data, attributes[ATTR_UV], vertexData + 24, F32, 2, false, count, stride, 0);
     lovrModelDataCopyAttribute(data, attributes[ATTR_COLOR], vertexData + 32, U8, 4, true, count, stride, 255);
-    lovrModelDataCopyAttribute(data, attributes[ATTR_TANGENT], vertexData + 36, F32, 3, false, count, stride, 0);
+    lovrModelDataCopyAttribute(data, attributes[ATTR_TANGENT], vertexData + 36, F32, 4, false, count, stride, 0);
     vertexData += count * stride;
 
     if (data->skinnedVertexCount > 0 && primitive->skin != ~0u) {
