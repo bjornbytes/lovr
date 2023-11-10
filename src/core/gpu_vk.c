@@ -649,24 +649,25 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     texture->srgb = !info->linear;
   }
 
-  static const VkImageViewType types[] = {
-    [GPU_TEXTURE_2D] = VK_IMAGE_VIEW_TYPE_2D,
-    [GPU_TEXTURE_3D] = VK_IMAGE_VIEW_TYPE_3D,
-    [GPU_TEXTURE_CUBE] = VK_IMAGE_VIEW_TYPE_CUBE,
-    [GPU_TEXTURE_ARRAY] = VK_IMAGE_VIEW_TYPE_2D_ARRAY
-  };
+  VkImageViewType type;
+  switch (info->type) {
+    case GPU_TEXTURE_2D: type = VK_IMAGE_VIEW_TYPE_2D; break;
+    case GPU_TEXTURE_3D: type = VK_IMAGE_VIEW_TYPE_3D; break;
+    case GPU_TEXTURE_CUBE: type = texture->layers > 6 ? VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VK_IMAGE_VIEW_TYPE_CUBE; break;
+    case GPU_TEXTURE_ARRAY: type = VK_IMAGE_VIEW_TYPE_2D_ARRAY; break;
+  }
 
   VkImageViewCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
     .image = info->source->handle,
-    .viewType = types[info->type],
+    .viewType = type,
     .format = convertFormat(texture->format, texture->srgb),
     .subresourceRange = {
       .aspectMask = texture->aspect,
-      .baseMipLevel = info ? info->levelIndex : 0,
-      .levelCount = (info && info->levelCount) ? info->levelCount : VK_REMAINING_MIP_LEVELS,
+      .baseMipLevel = info->levelIndex,
+      .levelCount = info->levelCount ? info->levelCount : VK_REMAINING_MIP_LEVELS,
       .baseArrayLayer = info ? info->layerIndex : 0,
-      .layerCount = (info && info->layerCount) ? info->layerCount : VK_REMAINING_ARRAY_LAYERS
+      .layerCount = info->layerCount ? info->layerCount : VK_REMAINING_ARRAY_LAYERS
     }
   };
 
@@ -2175,6 +2176,7 @@ bool gpu_init(gpu_config* config) {
 
       // Required features
       enable->fullDrawIndexUint32 = true;
+      enable->imageCubeArray = true;
       enable->independentBlend = true;
       multiviewFeatures.multiview = true;
       shaderDrawParameterFeatures.shaderDrawParameters = true;

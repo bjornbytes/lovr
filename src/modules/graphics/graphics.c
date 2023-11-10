@@ -2026,9 +2026,9 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(info->width <= limit, "Texture %s exceeds the limit for this texture type (%d)", "width", limit);
   lovrCheck(info->height <= limit, "Texture %s exceeds the limit for this texture type (%d)", "height", limit);
   lovrCheck(info->layers <= limit || info->type != TEXTURE_3D, "Texture %s exceeds the limit for this texture type (%d)", "layer count", limit);
-  lovrCheck(info->layers <= state.limits.textureLayers || info->type != TEXTURE_ARRAY, "Texture %s exceeds the limit for this texture type (%d)", "layer count", limit);
+  lovrCheck(info->layers <= state.limits.textureLayers || info->type == TEXTURE_3D, "Texture %s exceeds the limit for this texture type (%d)", "layer count", limit);
   lovrCheck(info->layers == 1 || info->type != TEXTURE_2D, "2D textures must have a layer count of 1");
-  lovrCheck(info->layers == 6 || info->type != TEXTURE_CUBE, "Cubemaps must have a layer count of 6");
+  lovrCheck(info->layers % 6 == 0 || info->type != TEXTURE_CUBE, "Cubemap layer count must be a multiple of 6");
   lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
   lovrCheck(measureTexture(info->format, info->width, info->height, info->layers) < 1 << 30, "Memory for a Texture can not exceed 1GB"); // TODO mip?
   lovrCheck(info->samples == 1 || info->samples == 4, "Texture multisample count must be 1 or 4...for now");
@@ -2177,7 +2177,7 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   lovrCheck(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
   lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D textures can only have a single layer");
   lovrCheck(view->levelCount == 1 || info->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
-  lovrCheck(view->layerCount == 6 || view->type != TEXTURE_CUBE, "Cubemaps can only have six layers");
+  lovrCheck(view->layerCount % 6 == 0 || view->type != TEXTURE_CUBE, "Cubemap layer count must be a multiple of 6");
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   lovrAssert(texture, "Out of memory");
@@ -7663,7 +7663,7 @@ static void checkShaderFeatures(uint32_t* features, uint32_t count) {
       case 42: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "min LOD");
       case 43: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "1D textures");
       case 44: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "1D textures");
-      case 45: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "cubemap array textures");
+      case 45: break; // Cubemap arrays
       case 46: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "texel buffers");
       case 47: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "texel buffers");
       case 48: lovrThrow("Shader uses unsupported feature #%d: %s", features[i], "multisampled storage textures");

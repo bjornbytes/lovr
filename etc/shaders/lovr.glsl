@@ -196,6 +196,7 @@ vec4 getPixel(texture2D t, vec2 uv) { return texture(sampler2D(t, Sampler), uv);
 vec4 getPixel(texture3D t, vec3 uvw) { return texture(sampler3D(t, Sampler), uvw); }
 vec4 getPixel(textureCube t, vec3 dir) { return texture(samplerCube(t, Sampler), dir); }
 vec4 getPixel(texture2DArray t, vec2 uv, float layer) { return texture(sampler2DArray(t, Sampler), vec3(uv, layer)); }
+vec4 getPixel(textureCubeArray t, vec4 coord) { return texture(samplerCubeArray(t, Sampler), coord); }
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
