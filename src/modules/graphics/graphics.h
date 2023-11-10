@@ -564,7 +564,6 @@ Pass* lovrGraphicsGetWindowPass(void);
 Pass* lovrPassCreate(void);
 void lovrPassDestroy(void* ref);
 void lovrPassReset(Pass* pass);
-void lovrPassAppend(Pass* pass, Pass* other);
 const PassStats* lovrPassGetStats(Pass* pass);
 
 void lovrPassGetCanvas(Pass* pass, Texture* color[4], Texture** depthTexture, uint32_t* depthFormat, uint32_t* samples);
