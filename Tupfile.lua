@@ -400,7 +400,6 @@ src = {
   'src/core/fs.c',
   ('src/core/os_%s.c'):format(target),
   'src/core/spv.c',
-  'src/core/zip.c',
   'src/api/api.c',
   'src/api/l_lovr.c'
 }

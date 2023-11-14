@@ -12,6 +12,8 @@
 #define LOVR_PATH_SEP '/'
 #endif
 
+typedef struct Archive Archive;
+
 bool lovrFilesystemInit(const char* archive);
 void lovrFilesystemDestroy(void);
 const char* lovrFilesystemGetSource(void);
@@ -37,3 +39,6 @@ size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size);
 size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size);
 const char* lovrFilesystemGetRequirePath(void);
 void lovrFilesystemSetRequirePath(const char* requirePath);
+
+Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root);
+void lovrArchiveDestroy(void* ref);
