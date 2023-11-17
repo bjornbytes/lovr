@@ -2,7 +2,7 @@
 #include "core/fs.h"
 #include "core/os.h"
 #include "util.h"
-#include "lib/stb/stb_image.h"
+#include "lib/miniz/miniz_tinfl.h"
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -754,8 +754,7 @@ static bool zip_read(Archive* archive, const char* path, size_t bytes, size_t* b
   *bytesRead = (bytes == (size_t) -1 || bytes > node->uncompressedSize) ? (uint32_t) node->uncompressedSize : bytes;
 
   if (node->compressed) {
-    // Add 4 to compressed size to fix an stb_image "bug" where it reads past end of buffer
-    if (stbi_zlib_decode_noheader_buffer(*dst, (int) node->uncompressedSize, node->data, (int) node->compressedSize + 4) < 0) {
+    if (tinfl_decompress_mem_to_mem(*dst, node->uncompressedSize, node->data, node->compressedSize, 0) < 0) {
       free(*dst);
       *dst = NULL;
     }
