@@ -800,10 +800,11 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     Image* image = images[0];
     uint32_t levels = lovrImageGetLevelCount(image);
     info.format = lovrImageGetFormat(image);
+    info.srgb = lovrImageIsSRGB(image);
     info.width = lovrImageGetWidth(image, 0);
     info.height = lovrImageGetHeight(image, 0);
-    info.mipmaps = levels == 1 ? ~0u : levels;
-    info.srgb = lovrImageIsSRGB(image);
+    bool mipmappable = lovrGraphicsGetFormatSupport(info.format, TEXTURE_FEATURE_BLIT) & (1 << info.srgb);
+    info.mipmaps = (levels == 1 && mipmappable) ? ~0u : levels;
     for (uint32_t i = 1; i < info.imageCount; i++) {
       lovrAssert(lovrImageGetWidth(images[0], 0) == lovrImageGetWidth(images[i], 0), "Image widths must match");
       lovrAssert(lovrImageGetHeight(images[0], 0) == lovrImageGetHeight(images[i], 0), "Image heights must match");
@@ -833,13 +834,15 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     lua_pop(L, 1);
 
     lua_getfield(L, index, "mipmaps");
+    bool mipmappable = lovrGraphicsGetFormatSupport(info.format, TEXTURE_FEATURE_BLIT) & (1 << info.srgb);
     if (lua_type(L, -1) == LUA_TNUMBER) {
       info.mipmaps = lua_tonumber(L, -1);
     } else if (!lua_isnil(L, -1)) {
       info.mipmaps = lua_toboolean(L, -1) ? ~0u : 1;
     } else {
-      info.mipmaps = (info.samples > 1 || info.imageCount == 0) ? 1 : ~0u;
+      info.mipmaps = (info.samples > 1 || info.imageCount == 0 || !mipmappable) ? 1 : ~0u;
     }
+    lovrCheck(info.imageCount == 0 || info.mipmaps == 1 || mipmappable, "This texture format does not support blitting, which is required for mipmap generation");
     lua_pop(L, 1);
 
     lua_getfield(L, index, "usage");
