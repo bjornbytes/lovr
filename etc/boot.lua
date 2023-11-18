@@ -81,8 +81,8 @@ function lovr.boot()
   -- Figure out source archive and main module.  CLI places source at arg[0]
 
   local source, main
-  if cli or not fused then
-    if arg[0] and arg[0]:match('[^/\\]+%.lua$') then
+  if (cli or not fused) and arg[0] then
+    if arg[0]:match('[^/\\]+%.lua$') then
       source = arg[0]:match('[/\\]') and arg[0]:match('(.+)[/\\][^/\\]+$') or '.'
       main = arg[0]:match('[^/\\]+%.lua$')
     else

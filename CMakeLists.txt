@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1.0)
+cmake_minimum_required(VERSION 3.3.0)
 cmake_policy(SET CMP0063 NEW)
 cmake_policy(SET CMP0079 NEW)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS deployment version")
@@ -628,6 +628,13 @@ foreach(path ${LOVR_RESOURCES})
   # Write some xxd-compatible C code!
   file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
 endforeach()
+
+add_custom_command(TARGET lovr POST_BUILD
+  DEPENDS "etc/nogame"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/etc/nogame"
+  COMMAND ${CMAKE_COMMAND} -E tar c "${CMAKE_CURRENT_BINARY_DIR}/nogame.zip" --format=zip arg.lua conf.lua main.lua
+  COMMAND ${CMAKE_COMMAND} -E cat "${CMAKE_CURRENT_BINARY_DIR}/nogame.zip" >> $<TARGET_FILE:lovr>
+)
 
 # Add a custom target that is always out of date so libraries are always moved
 add_custom_target(move_files ALL)
