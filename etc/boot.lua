@@ -54,10 +54,13 @@ local conf = {
 function lovr.boot()
   lovr.filesystem = require('lovr.filesystem')
 
+  -- See if there's a ZIP archive fused to the executable, and set up the fused CLI if it exists
+
   local bundle, root = lovr.filesystem.getBundlePath()
   local fused = lovr.filesystem.mount(bundle, nil, true, root)
   local cli = lovr.filesystem.isFile('arg.lua') and assert(pcall(require, 'arg')) and lovr.arg and lovr.arg(arg)
-  local source, main = bundle, 'main.lua'
+
+  -- Implement a barebones CLI if there is no bundled CLI/project
 
   if not fused then
     if arg[1] and not arg[1]:match('^%-') then
@@ -75,21 +78,30 @@ function lovr.boot()
     end
   end
 
+  -- Figure out source archive and main module.  CLI places source at arg[0]
+
+  local source, main
   if cli or not fused then
     if arg[0] and arg[0]:match('[^/\\]+%.lua$') then
       source = arg[0]:match('[/\\]') and arg[0]:match('(.+)[/\\][^/\\]+$') or '.'
       main = arg[0]:match('[^/\\]+%.lua$')
     else
       source = arg[0]
+      main = 'main.lua'
     end
+  elseif fused then
+    source = bundle
+    main = 'main.lua'
   end
 
-  local ok, failure
+  -- Mount source archive, make sure it's got the main file, and load conf.lua
 
+  local ok, failure = true, nil
   if source ~= bundle and not lovr.filesystem.mount(source) then
-    failure = ('Couldn\'t find path %q, or it wasn\'t a valid zip archive.'):format(source)
+    failure = ('Failed to load project at %q\nMake sure the path or archive is valid.'):format(source)
   elseif not lovr.filesystem.isFile(main) then
-    failure = ('No %s file found in %q.'):format(main, source:match('[^/\\]+[/\\]?$'))
+    local location = source == '.' and '' or (' in %q'):format(source:match('[^/\\]+[/\\]?$'))
+    failure = ('No %s file found%s.\nThe project may be packaged incorrectly.'):format(main, location)
   else
     lovr.filesystem.setSource(source)
     if lovr.filesystem.isFile('conf.lua') then ok, failure = pcall(require, 'conf') end
@@ -99,12 +111,16 @@ function lovr.boot()
   lovr._setConf(conf)
   lovr.filesystem.setIdentity(conf.identity, conf.saveprecedence)
 
-  if not failure and cli then ok, failure = pcall(cli, conf) end
+  -- CLI gets a chance to use/modify conf and handle arguments
+
+  if ok and not failure and cli then ok, failure = pcall(cli, conf) end
+
+  -- Boot!
 
   for module in pairs(conf.modules) do
     if conf.modules[module] then
-      local ok, result = pcall(require, 'lovr.' .. module)
-      if not ok then
+      local loaded, result = pcall(require, 'lovr.' .. module)
+      if not loaded then
         lovr.log('warn', string.format('Could not load module %q: %s', module, result))
       else
         lovr[module] = result
