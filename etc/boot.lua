@@ -216,7 +216,9 @@ function lovr.errhand(message)
         local font = lovr.graphics.getDefaultFont()
         local wrap = .7 * font:getPixelDensity()
         local lines = font:getLines(message, wrap)
-        local width = math.min(font:getWidth(message), wrap) * scale
+        local maxWidth = 0
+        for i, line in ipairs(lines) do maxWidth = math.max(maxWidth, font:getWidth(line)) end
+        local width = maxWidth * scale
         local height = .8 + #lines * font:getHeight() * scale
         local x = -width / 2
         local y = math.min(height / 2, 10)
@@ -234,12 +236,15 @@ function lovr.errhand(message)
       local pass = lovr.graphics.getWindowPass()
       if pass then
         local w, h = lovr.system.getWindowDimensions()
-        pass:setProjection(1, lovr.math.mat4():orthographic(0, w, 0, h, -1, 1))
+        pass:setProjection(1, lovr.math.mat4():orthographic(w, h))
         font:setPixelDensity(1)
 
         local scale = .6
         local wrap = w * .8 / scale
-        local width = math.min(font:getWidth(message), wrap) * scale
+        local lines = font:getLines(message, wrap)
+        local maxWidth = 0
+        for i, line in ipairs(lines) do maxWidth = math.max(maxWidth, font:getWidth(line)) end
+        local width = maxWidth * scale
         local x = w / 2 - width / 2
 
         pass:setColor(.95, .95, .95)
