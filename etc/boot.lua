@@ -289,10 +289,17 @@ lovr.handlers = setmetatable({}, { __index = lovr })
 return coroutine.create(function()
   local function onerror(...)
     onerror = function(...)
-      print('Error:\n\n' .. tostring(...) .. formatTraceback(debug.traceback('', 3)))
+      print('Error:\n\n' .. tostring(...) .. formatTraceback(debug.traceback('', 1)))
       return function() return 1 end
     end
-    return lovr.errhand(...) or function() return 1 end
+
+    local ok, result = pcall(lovr.errhand or onerror, ...)
+
+    if ok then
+      return result or function() return 1 end
+    else
+      return onerror(result)
+    end
   end
 
   local thread = select(2, xpcall(lovr.boot, onerror))
