@@ -504,14 +504,14 @@ struct Pass {
   Pipeline* pipeline;
   uint32_t transformIndex;
   uint32_t pipelineIndex;
+  char* constants;
   gpu_binding* bindings;
   uint32_t bindingMask;
-  char* constants;
   uint32_t computeCount;
-  uint32_t drawCount;
   Compute* computes;
-  Draw** draws;
-  Draw* lastDraw;
+  uint32_t drawCount;
+  uint32_t drawCapacity;
+  Draw* draws;
   PassStats stats;
 };
 
@@ -1115,7 +1115,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       }
 
       while (drawIndex < pass->drawCount) {
-        Draw* draw = &pass->draws[drawIndex >> 8][drawIndex & 0xff];
+        Draw* draw = &pass->draws[drawIndex];
 
         if (draw->camera != c) {
           break;
@@ -1217,7 +1217,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   DrawData* data = mapped.pointer;
 
   for (uint32_t i = 0; i < activeDrawCount; i++, data++) {
-    Draw* draw = &pass->draws[activeDraws[i] >> 8][activeDraws[i] & 0xff];
+    Draw* draw = &pass->draws[activeDraws[i]];
     // transform is provided as 4x3 row-major matrix for packing reasons, need to transpose
     data->transform[0] = draw->transform[0];
     data->transform[1] = draw->transform[4];
@@ -1241,20 +1241,19 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   // Pipelines
 
-  if (!pass->lastDraw->pipeline) {
-    uint32_t i = 0;
-    Draw* prev = NULL;
+  if (!pass->draws[pass->drawCount - 1].pipeline) {
+    uint32_t first = 0;
 
-    while (i < pass->drawCount && pass->draws[i >> 8][i & 0xff].pipeline) {
-      i++;
+    while (pass->draws[first].pipeline) {
+      first++; // TODO could binary search or cache
     }
 
-    while (i < pass->drawCount) {
-      Draw* draw = &pass->draws[i >> 8][i & 0xff];
+    for (uint32_t i = first; i < pass->drawCount; i++) {
+      Draw* prev = &pass->draws[i - 1];
+      Draw* draw = &pass->draws[i];
 
-      if (prev && draw->pipelineInfo == prev->pipelineInfo) {
+      if (i > 0 && draw->pipelineInfo == prev->pipelineInfo) {
         draw->pipeline = prev->pipeline;
-        i++;
         continue;
       }
 
@@ -1271,8 +1270,6 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       }
 
       draw->pipeline = state.pipelines.data[index];
-      prev = draw;
-      i++;
     }
   }
 
@@ -1280,7 +1277,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   Draw* prev = NULL;
   for (uint32_t i = 0; i < activeDrawCount; i++) {
-    Draw* draw = &pass->draws[activeDraws[i] >> 8][activeDraws[i] & 0xff];
+    Draw* draw = &pass->draws[activeDraws[i]];
 
     if (i > 0 && draw->bundleInfo == prev->bundleInfo) {
       draw->bundle = prev->bundle;
@@ -1344,7 +1341,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   gpu_bind_vertex_buffers(stream, &state.defaultBuffer->gpu, NULL, 1, 1);
 
   for (uint32_t i = 0; i < activeDrawCount; i++) {
-    Draw* draw = &pass->draws[activeDraws[i] >> 8][activeDraws[i] & 0xff];
+    Draw* draw = &pass->draws[activeDraws[i]];
     bool constantsDirty = draw->constants != constants;
 
     if (pass->tally.buffer && draw->tally != tally) {
@@ -4931,7 +4928,7 @@ static void lovrPassRelease(Pass* pass) {
   }
 
   for (uint32_t i = 0; i < pass->drawCount; i++) {
-    Draw* draw = &pass->draws[i >> 8][i & 0xff];
+    Draw* draw = &pass->draws[i];
     lovrRelease(draw->shader, lovrShaderDestroy);
     lovrRelease(draw->material, lovrMaterialDestroy);
   }
@@ -4976,7 +4973,7 @@ Pass* lovrPassCreate(void) {
   pass->ref = 1;
 
   pass->allocator.limit = 1 << 28;
-  pass->allocator.length = 1 << 16;
+  pass->allocator.length = 1 << 12;
   pass->allocator.memory = os_vm_init(pass->allocator.limit);
   os_vm_commit(pass->allocator.memory, pass->allocator.length);
   pass->buffers.type = GPU_BUFFER_STREAM;
@@ -5018,11 +5015,12 @@ void lovrPassReset(Pass* pass) {
   pass->flags = DIRTY_BINDINGS | DIRTY_CONSTANTS;
   pass->transform = lovrPassAllocate(pass, MAX_TRANSFORMS * 16 * sizeof(float));
   pass->pipeline = lovrPassAllocate(pass, MAX_PIPELINES * sizeof(Pipeline));
-  pass->bindings = lovrPassAllocate(pass, 32 * sizeof(gpu_binding));
   pass->constants = lovrPassAllocate(pass, state.limits.pushConstantSize);
-  pass->draws = lovrPassAllocate(pass, 256 * sizeof(Draw*));
-  pass->lastDraw = NULL;
+  pass->bindings = lovrPassAllocate(pass, 32 * sizeof(gpu_binding));
+  pass->computeCount = 0;
   pass->computes = NULL;
+  pass->drawCount = 0;
+  pass->draws = lovrPassAllocate(pass, pass->drawCapacity * sizeof(Draw));
 
   memset(&pass->geocache, 0, sizeof(pass->geocache));
 
@@ -5077,9 +5075,6 @@ void lovrPassReset(Pass* pass) {
 
   pass->sampler = NULL;
   pass->bindingMask = 0;
-
-  pass->computeCount = 0;
-  pass->drawCount = 0;
 }
 
 const PassStats* lovrPassGetStats(Pass* pass) {
@@ -5709,7 +5704,7 @@ void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot
   *format = resource->format;
 }
 
-static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw) {
+static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw* prev) {
   Pipeline* pipeline = pass->pipeline;
   Shader* shader = draw->shader;
 
@@ -5792,8 +5787,8 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw) {
     memcpy(draw->pipelineInfo, &pipeline->info, sizeof(pipeline->info));
     draw->pipeline = NULL;
   } else {
-    draw->pipelineInfo = pass->lastDraw->pipelineInfo;
-    draw->pipeline = pass->lastDraw->pipeline;
+    draw->pipelineInfo = prev->pipelineInfo;
+    draw->pipeline = prev->pipeline;
   }
 }
 
@@ -5890,12 +5885,16 @@ static void* lovrPassResolveConstants(Pass* pass, Shader* shader, void* previous
 }
 
 void lovrPassDraw(Pass* pass, DrawInfo* info) {
-  if ((pass->drawCount & 0xff) == 0) {
-    lovrCheck(pass->drawCount < 256 * 256, "Pass has too many draws!");
-    pass->draws[pass->drawCount >> 8] = lovrPassAllocate(pass, 256 * sizeof(Draw));
+  if (pass->drawCount >= pass->drawCapacity) {
+    lovrAssert(pass->drawCount < 1 << 16, "Pass has too many draws!");
+    pass->drawCapacity = pass->drawCapacity > 0 ? pass->drawCapacity << 1 : 1;
+    Draw* draws = lovrPassAllocate(pass, pass->drawCapacity * sizeof(Draw));
+    memcpy(draws, pass->draws, pass->drawCount * sizeof(Draw));
+    pass->draws = draws;
   }
 
-  Draw* draw = &pass->draws[pass->drawCount >> 8][pass->drawCount & 0xff];
+  Draw* prev = pass->drawCount > 0 ? &pass->draws[pass->drawCount - 1] : NULL;
+  Draw* draw = &pass->draws[pass->drawCount++];
 
   draw->flags = 0;
   draw->tally = pass->tally.active ? pass->tally.count : ~0u;
@@ -5916,11 +5915,11 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   draw->instances = MAX(info->instances, 1);
   draw->baseVertex = info->base;
 
-  lovrPassResolvePipeline(pass, info, draw);
+  lovrPassResolvePipeline(pass, info, draw, prev);
   lovrPassResolveBuffers(pass, info, draw);
 
-  draw->bundleInfo = lovrPassResolveBindings(pass, draw->shader, pass->lastDraw ? pass->lastDraw->bundleInfo : NULL);
-  draw->constants = lovrPassResolveConstants(pass, draw->shader, pass->lastDraw ? pass->lastDraw->constants : NULL);
+  draw->bundleInfo = lovrPassResolveBindings(pass, draw->shader, prev ? prev->bundleInfo : NULL);
+  draw->constants = lovrPassResolveConstants(pass, draw->shader, prev ? prev->constants : NULL);
 
   if (pass->pipeline->viewCull && info->bounds) {
     memcpy(draw->bounds, info->bounds, sizeof(draw->bounds));
@@ -5931,8 +5930,6 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   mat4_init(draw->transform, pass->transform);
   if (info->transform) mat4_mul(draw->transform, info->transform);
   memcpy(draw->color, pass->pipeline->color, 4 * sizeof(float));
-  pass->lastDraw = draw;
-  pass->drawCount++;
 }
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** points) {
@@ -6968,12 +6965,16 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
     .index.buffer = indices
   };
 
-  if ((pass->drawCount & 0xff) == 0) {
-    lovrCheck(pass->drawCount < 256 * 256, "Pass has too many draws!");
-    pass->draws[pass->drawCount >> 8] = lovrPassAllocate(pass, 256 * sizeof(Draw));
+  if (pass->drawCount >= pass->drawCapacity) {
+    lovrAssert(pass->drawCount < 1 << 16, "Pass has too many draws!");
+    pass->drawCapacity = pass->drawCapacity > 0 ? pass->drawCapacity << 1 : 1;
+    Draw* draws = lovrPassAllocate(pass, pass->drawCapacity * sizeof(Draw));
+    memcpy(draws, pass->draws, pass->drawCount * sizeof(Draw));
+    pass->draws = draws;
   }
 
-  Draw* draw = &pass->draws[pass->drawCount >> 8][pass->drawCount++ & 0xff];
+  Draw* prev = pass->drawCount > 0 ? &pass->draws[pass->drawCount - 1] : NULL;
+  Draw* draw = &pass->draws[pass->drawCount++];
 
   draw->flags = DRAW_INDIRECT;
   draw->tally = pass->tally.active ? pass->tally.count : ~0u;
@@ -6992,15 +6993,14 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   draw->indirect.count = count;
   draw->indirect.stride = stride;
 
-  lovrPassResolvePipeline(pass, &info, draw);
+  lovrPassResolvePipeline(pass, &info, draw, prev);
   lovrPassResolveBuffers(pass, &info, draw);
 
-  draw->bundleInfo = lovrPassResolveBindings(pass, shader, pass->lastDraw ? pass->lastDraw->bundleInfo : NULL);
-  draw->constants = lovrPassResolveConstants(pass, shader, pass->lastDraw ? pass->lastDraw->constants : NULL);
+  draw->bundleInfo = lovrPassResolveBindings(pass, shader, prev ? prev->bundleInfo : NULL);
+  draw->constants = lovrPassResolveConstants(pass, shader, prev ? prev->constants : NULL);
 
   mat4_init(draw->transform, pass->transform);
   memcpy(draw->color, pass->pipeline->color, 4 * sizeof(float));
-  pass->lastDraw = draw;
 
   trackBuffer(pass, draws, GPU_PHASE_INDIRECT, GPU_CACHE_INDIRECT);
 }
