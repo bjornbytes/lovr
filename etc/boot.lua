@@ -32,7 +32,7 @@ function lovr.boot()
     headset = {
       drivers = { 'openxr', 'webxr', 'desktop' },
       supersample = false,
-      offset = 1.7,
+      seated = false,
       stencil = false,
       antialias = true,
       submitdepth = true,
