@@ -790,6 +790,12 @@ static bool zip_read(Archive* archive, Handle* handle, uint8_t* data, size_t siz
   zip_node* node = handle->node;
   zip_stream* stream = handle->stream;
 
+  // EOF
+  if (handle->offset >= node->uncompressedSize) {
+    *count = 0;
+    return true;
+  }
+
   // Uncompressed reads are a simple memcpy
   if (!node->compressed) {
     *count = MIN(size, node->uncompressedSize - handle->offset);
@@ -810,7 +816,7 @@ static bool zip_read(Archive* archive, Handle* handle, uint8_t* data, size_t siz
     return true;
   }
 
-  // If the file was seeked backwards, gotta rewind to the beginning
+  // If the file seeked backwards, gotta rewind to the beginning
   if (stream->outputCursor > handle->offset) {
     tinfl_init(&stream->decompressor);
     stream->inputCursor = 0;
@@ -857,7 +863,7 @@ static bool zip_read(Archive* archive, Handle* handle, uint8_t* data, size_t siz
 }
 
 static bool zip_seek(Archive* archive, Handle* handle, uint64_t offset) {
-  handle->offset = MIN(offset, handle->node->uncompressedSize);
+  handle->offset = offset;
   return true;
 }
 
