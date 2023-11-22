@@ -494,6 +494,36 @@ MAF quat quat_between(quat q, vec3 u, vec3 v) {
   return quat_normalize(q);
 }
 
+MAF void quat_toEuler(quat q, float* roll, float *pitch, float* yaw) {
+  double sinr_cosp = 2.0 * (q[3] * q[0] + q[1] * q[2]);
+  double cosr_cosp = 1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]);
+  *roll = atan2(sinr_cosp, cosr_cosp);
+
+  double sinp = sqrt(1 + 2 * (q[3] * q[1] - q[0] * q[2]));
+  double cosp = sqrt(1 - 2 * (q[3] * q[1] - q[0] * q[2]));
+  *pitch = 2.0 * atan2(sinp, cosp) - M_PI / 2.0;
+
+  double siny_cosp = +2.0 * (q[3] * q[2] + q[0] * q[1]);
+  double cosy_cosp = +1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]);
+  *yaw = atan2(siny_cosp, cosy_cosp);
+}
+
+MAF quat quat_fromEuler(quat q, float roll, float pitch, float yaw) {
+  double cy = cos(yaw * 0.5);
+  double sy = sin(yaw * 0.5);
+  double cp = cos(pitch * 0.5);
+  double sp = sin(pitch * 0.5);
+  double cr = cos(roll * 0.5);
+  double sr = sin(roll * 0.5);
+
+  return quat_set(q,
+    cy * sr * cp - sy * cr * sp,
+    cy * cr * sp + sy * sr * cp,
+    sy * cr * cp - cy * sr * sp,
+    cy * cr * cp + sy * sr * sp
+  );
+}
+
 // mat4
 
 #define MAT4_IDENTITY { 1.f, 0.f, 0.f, 0.f,  0.f, 1.f, 0.f, 0.f,  0.f, 0.f, 1.f, 0.f,  0.f, 0.f, 0.f, 1.f }

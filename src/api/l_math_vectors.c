@@ -1453,6 +1453,26 @@ static int l_lovrQuatSlerp(lua_State* L) {
   return 1;
 }
 
+static int l_lovrQuatToEuler(lua_State* L) {
+  quat q = luax_checkvector(L, 1, V_QUAT, NULL);
+  float roll, pitch, yaw;
+  quat_toEuler(q, &roll, &pitch, &yaw);
+  lua_pushnumber(L, roll);
+  lua_pushnumber(L, pitch);
+  lua_pushnumber(L, yaw);
+  return 3;
+}
+
+static int l_lovrQuatFromEuler(lua_State* L) {
+  quat q = luax_checkvector(L, 1, V_QUAT, NULL);
+  float roll = luax_checkfloat(L, 2);
+  float pitch = luax_checkfloat(L, 3);
+  float yaw = luax_checkfloat(L, 4);
+  quat_fromEuler(q, roll, pitch, yaw);
+  lua_settop(L, 1);
+  return 1;
+}
+
 static int l_lovrQuat__mul(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
   VectorType type;
@@ -1574,6 +1594,8 @@ const luaL_Reg lovrQuat[] = {
   { "direction", l_lovrQuatDirection },
   { "conjugate", l_lovrQuatConjugate },
   { "slerp", l_lovrQuatSlerp },
+  { "toEuler", l_lovrQuatToEuler },
+  { "fromEuler", l_lovrQuatFromEuler },
   { "__mul", l_lovrQuat__mul },
   { "__len", l_lovrQuat__len },
   { "__tostring", l_lovrQuat__tostring },
