@@ -494,33 +494,33 @@ MAF quat quat_between(quat q, vec3 u, vec3 v) {
   return quat_normalize(q);
 }
 
-MAF void quat_toEuler(quat q, float* roll, float *pitch, float* yaw) {
+MAF void quat_toEuler(quat q, float* x, float* y, float *z) {
   double unit = (q[0] * q[0]) + (q[1] * q[1]) + (q[2] * q[2]) + (q[3] * q[3]);
   double test = q[0] * q[3] - q[1] * q[2];
   const double eps = 1e-7;
 
   if (test > (0.5 - eps) * unit) {
-    *roll = M_PI / 2.0;
-    *pitch = 2.0 * atan2(q[1], q[0]);
-    *yaw = 0.0;
+    *x = (float)M_PI / 2.0f;
+    *y = (float)2.0f * atan2(q[1], q[0]);
+    *z = 0.0f;
   } else if (test < -(0.5 - eps) * unit) {
-    *roll = -M_PI / 2.0;
-    *pitch = -2.0 * atan2(q[1], q[0]);
-    *yaw = 0.0;
+    *x = (float)-M_PI / 2.0f;
+    *y = (float)-2.0f * atan2(q[1], q[0]);
+    *z = 0.0f;
   } else {
-    *roll = asin(2.0 * (q[3] * q[0] - q[1] * q[2]));
-    *pitch = atan2(2.0 * q[3] * q[1] + 2.0 * q[2] * q[0], 1 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
-    *yaw = atan2(2.0 * q[3] * q[2] + 2.0 * q[0] * q[1], 1 - 2.0 * (q[2] * q[2] + q[0] * q[0]));
+    *x = asin(2.0 * (q[3] * q[0] - q[1] * q[2]));
+    *y = atan2(2.0 * q[3] * q[1] + 2.0 * q[2] * q[0], 1 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
+    *z = atan2(2.0 * q[3] * q[2] + 2.0 * q[0] * q[1], 1 - 2.0 * (q[2] * q[2] + q[0] * q[0]));
   }
 }
 
-MAF quat quat_fromEuler(quat q, float roll, float pitch, float yaw) {
-  double cy = cos(yaw * 0.5);
-  double sy = sin(yaw * 0.5);
-  double cp = cos(pitch * 0.5);
-  double sp = sin(pitch * 0.5);
-  double cr = cos(roll * 0.5);
-  double sr = sin(roll * 0.5);
+MAF quat quat_fromEuler(quat q, float x, float y, float z) {
+  double cy = cos(z * 0.5);
+  double sy = sin(z * 0.5);
+  double cp = cos(y * 0.5);
+  double sp = sin(y * 0.5);
+  double cr = cos(x * 0.5);
+  double sr = sin(x * 0.5);
 
   return quat_set(q,
     cy * sr * cp - sy * cr * sp,
