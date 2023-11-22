@@ -515,18 +515,18 @@ MAF void quat_toEuler(quat q, float* x, float* y, float *z) {
 }
 
 MAF quat quat_fromEuler(quat q, float x, float y, float z) {
-  double cy = cos(z * 0.5);
-  double sy = sin(z * 0.5);
-  double cp = cos(y * 0.5);
-  double sp = sin(y * 0.5);
-  double cr = cos(x * 0.5);
-  double sr = sin(x * 0.5);
+  double cx = cos(x * 0.5);
+  double sx = sin(x * 0.5);
+  double cy = cos(y * 0.5);
+  double sy = sin(y * 0.5);
+  double cz = cos(z * 0.5);
+  double sz = sin(z * 0.5);
 
   return quat_set(q,
-    cy * sr * cp - sy * cr * sp,
-    cy * cr * sp + sy * sr * cp,
-    sy * cr * cp - cy * sr * sp,
-    cy * cr * cp + sy * sr * sp
+    cy * sx * cz + sy * cx * sz,
+    sy * cx * cz - cy * sx * sz,
+    cy * cx * sz - sy * sx * cz,
+    cy * cx * cz + sy * sx * sz
   );
 }
 
