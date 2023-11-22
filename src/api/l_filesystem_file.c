@@ -105,6 +105,19 @@ static int l_lovrFileTell(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFileIsEOF(lua_State* L) {
+  File* file = luax_checktype(L, 1, File);
+  OpenMode mode = lovrFileGetMode(file);
+  if (mode == OPEN_READ) {
+    uint64_t offset = lovrFileTell(file);
+    uint64_t extent = lovrFileGetSize(file);
+    lua_pushboolean(L, offset >= extent);
+  } else {
+    lua_pushboolean(L, false);
+  }
+  return 1;
+}
+
 const luaL_Reg lovrFile[] = {
   { "getMode", l_lovrFileGetMode },
   { "getPath", l_lovrFileGetPath },
@@ -113,5 +126,6 @@ const luaL_Reg lovrFile[] = {
   { "write", l_lovrFileWrite },
   { "seek", l_lovrFileSeek },
   { "tell", l_lovrFileTell },
+  { "isEOF", l_lovrFileIsEOF },
   { NULL, NULL }
 };
