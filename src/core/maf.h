@@ -495,17 +495,23 @@ MAF quat quat_between(quat q, vec3 u, vec3 v) {
 }
 
 MAF void quat_toEuler(quat q, float* roll, float *pitch, float* yaw) {
-  double sinr_cosp = 2.0 * (q[3] * q[0] + q[1] * q[2]);
-  double cosr_cosp = 1.0 - 2.0 * (q[0] * q[0] + q[1] * q[1]);
-  *roll = atan2(sinr_cosp, cosr_cosp);
+  double unit = (q[0] * q[0]) + (q[1] * q[1]) + (q[2] * q[2]) + (q[3] * q[3]);
+  double test = q[0] * q[3] - q[1] * q[2];
+  const double eps = 1e-7;
 
-  double sinp = sqrt(1 + 2 * (q[3] * q[1] - q[0] * q[2]));
-  double cosp = sqrt(1 - 2 * (q[3] * q[1] - q[0] * q[2]));
-  *pitch = 2.0 * atan2(sinp, cosp) - M_PI / 2.0;
-
-  double siny_cosp = +2.0 * (q[3] * q[2] + q[0] * q[1]);
-  double cosy_cosp = +1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]);
-  *yaw = atan2(siny_cosp, cosy_cosp);
+  if (test > (0.5 - eps) * unit) {
+    *roll = M_PI / 2.0;
+    *pitch = 2.0 * atan2(q[1], q[0]);
+    *yaw = 0.0;
+  } else if (test < -(0.5 - eps) * unit) {
+    *roll = -M_PI / 2.0;
+    *pitch = -2.0 * atan2(q[1], q[0]);
+    *yaw = 0.0;
+  } else {
+    *roll = asin(2.0 * (q[3] * q[0] - q[1] * q[2]));
+    *pitch = atan2(2.0 * q[3] * q[1] + 2.0 * q[2] * q[0], 1 - 2.0 * (q[0] * q[0] + q[1] * q[1]));
+    *yaw = atan2(2.0 * q[3] * q[2] + 2.0 * q[0] * q[1], 1 - 2.0 * (q[2] * q[2] + q[0] * q[0]));
+  }
 }
 
 MAF quat quat_fromEuler(quat q, float roll, float pitch, float yaw) {
