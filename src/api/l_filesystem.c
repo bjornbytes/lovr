@@ -5,8 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+StringEntry lovrOpenMode[] = {
+  [OPEN_READ] = ENTRY("r"),
+  [OPEN_WRITE] = ENTRY("w"),
+  [OPEN_APPEND] = ENTRY("a"),
+  { 0 }
+};
+
 void* luax_readfile(const char* filename, size_t* bytesRead) {
-  return lovrFilesystemRead(filename, -1, bytesRead);
+  return lovrFilesystemRead(filename, bytesRead);
 }
 
 bool luax_writefile(const char* filename, const void* data, size_t size) {
@@ -110,7 +117,6 @@ static int l_lovrFilesystemGetAppdataDirectory(lua_State* L) {
 
   return 1;
 }
-
 
 static int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
@@ -275,9 +281,9 @@ static int l_lovrFilesystemMount(lua_State* L) {
 }
 
 static int l_lovrFilesystemNewBlob(lua_State* L) {
-  size_t size;
   const char* path = luaL_checkstring(L, 1);
-  uint8_t* data = luax_readfile(path, &size);
+  size_t size;
+  void* data = luax_readfile(path, &size);
   lovrAssert(data, "Could not load file '%s'", path);
   Blob* blob = lovrBlobCreate(data, size, path);
   luax_pushtype(L, Blob, blob);
@@ -287,18 +293,15 @@ static int l_lovrFilesystemNewBlob(lua_State* L) {
 
 static int l_lovrFilesystemRead(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  lua_Integer luaSize = luaL_optinteger(L, 2, -1);
-  size_t size = MAX(luaSize, -1);
-  size_t bytesRead;
-  void* content = lovrFilesystemRead(path, size, &bytesRead);
-  if (!content) {
+  size_t size;
+  void* data = lovrFilesystemRead(path, &size);
+  if (!data) {
     lua_pushnil(L);
     return 1;
   }
-  lua_pushlstring(L, content, bytesRead);
-  lua_pushinteger(L, bytesRead);
-  free(content);
-  return 2;
+  lua_pushlstring(L, data, size);
+  free(data);
+  return 1;
 }
 
 static int l_lovrFilesystemRemove(lua_State* L) {
@@ -343,6 +346,22 @@ static int l_lovrFilesystemWrite(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFilesystemNewFile(lua_State* L) {
+  const char* path = luaL_checkstring(L, 1);
+  OpenMode mode = luax_checkenum(L, 2, OpenMode, NULL);
+  const char* error;
+  File* file = lovrFileCreate(path, mode, &error);
+  if (file) {
+    luax_pushtype(L, File, file);
+    lovrRelease(file, lovrFileDestroy);
+    return 1;
+  } else {
+    lua_pushnil(L);
+    lua_pushstring(L, error);
+    return 2;
+  }
+}
+
 static const luaL_Reg lovrFilesystem[] = {
   { "append", l_lovrFilesystemAppend },
   { "createDirectory", l_lovrFilesystemCreateDirectory },
@@ -370,6 +389,7 @@ static const luaL_Reg lovrFilesystem[] = {
   { "setIdentity", l_lovrFilesystemSetIdentity },
   { "unmount", l_lovrFilesystemUnmount },
   { "write", l_lovrFilesystemWrite },
+  { "newFile", l_lovrFilesystemNewFile },
   { NULL, NULL }
 };
 
@@ -538,6 +558,8 @@ static int libLoaderAllInOne(lua_State* L) {
   return libLoaderCommon(L, allInOneFlag);
 }
 
+extern const luaL_Reg lovrFile[];
+
 int luaopen_lovr_filesystem(lua_State* L) {
   const char* archive = NULL;
 
@@ -555,6 +577,7 @@ int luaopen_lovr_filesystem(lua_State* L) {
 
   lua_newtable(L);
   luax_register(L, lovrFilesystem);
+  luax_registertype(L, File);
   luax_registerloader(L, luaLoader, 2);
   luax_registerloader(L, libLoader, 3);
   luax_registerloader(L, libLoaderAllInOne, 4);
