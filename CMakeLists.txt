@@ -418,6 +418,7 @@ if(LOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
     src/modules/filesystem/filesystem.c
     src/api/l_filesystem.c
+    src/api/l_filesystem_file.c
     src/lib/miniz/miniz_tinfl.c
   )
 else()
