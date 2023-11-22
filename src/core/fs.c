@@ -53,6 +53,22 @@ bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
   return success;
 }
 
+bool fs_seek(fs_handle file, uint64_t offset) {
+  LARGE_INTEGER n = { .QuadPart = offset };
+  return SetFilePointerEx(file.handle, n, NULL, FILE_BEGIN);
+}
+
+bool fs_fstat(fs_handle file, FileInfo* info) {
+  LARGE_INTEGER size;
+  if (!GetFileSizeEx(file.handle, &size)) {
+    return false;
+  }
+  info->size = size.QuadPart;
+  info->lastModified = 0;
+  info->type = FILE_REGULAR;
+  return true;
+}
+
 void* fs_map(const char* path, size_t* size) {
   WCHAR wpath[FS_PATH_MAX];
   if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {

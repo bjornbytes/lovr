@@ -642,7 +642,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
     node.mdate = readu16(p + 14);
     node.compressed = readu16(p + 10) == 8;
     node.directory = false;
-    uint16_t length = readu16(p + 28);
+    size_t length = readu16(p + 28);
     const char* path = (const char*) (p + 46);
     cursor += 46 + readu16(p + 28) + readu16(p + 30) + readu16(p + 32);
 
@@ -705,13 +705,13 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
         break;
       }
 
-      uint16_t end = length;
+      size_t end = length;
       while (length && path[length - 1] != '/') {
         length--;
       }
 
       archive->nodes.data[index].filename = path + length;
-      archive->nodes.data[index].filenameLength = end - length;
+      archive->nodes.data[index].filenameLength = (uint16_t) (end - length);
 
       // Root node
       if (length == 0) {
