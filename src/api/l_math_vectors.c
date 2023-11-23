@@ -1455,20 +1455,20 @@ static int l_lovrQuatSlerp(lua_State* L) {
 
 static int l_lovrQuatToEuler(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
-  float roll, pitch, yaw;
-  quat_toEuler(q, &roll, &yaw, &pitch);
-  lua_pushnumber(L, roll);
-  lua_pushnumber(L, yaw);
+  float pitch, yaw, roll;
+  quat_toEuler(q, &pitch, &yaw, &roll);
   lua_pushnumber(L, pitch);
+  lua_pushnumber(L, yaw);
+  lua_pushnumber(L, roll);
   return 3;
 }
 
 static int l_lovrQuatFromEuler(lua_State* L) {
   quat q = luax_checkvector(L, 1, V_QUAT, NULL);
-  float roll = luax_checkfloat(L, 2);
+  float pitch = luax_checkfloat(L, 2);
   float yaw = luax_checkfloat(L, 3);
-  float pitch = luax_checkfloat(L, 4);
-  quat_fromEuler(q, roll, yaw, pitch);
+  float roll = luax_checkfloat(L, 4);
+  quat_fromEuler(q, pitch, yaw, roll);
   lua_settop(L, 1);
   return 1;
 }
