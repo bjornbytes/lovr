@@ -532,10 +532,10 @@ static bool dir_fsize(Archive* archive, Handle* handle, uint64_t* size) {
   FileInfo info;
   if (!fs_fstat(handle->file, &info)) {
     return false;
+  } else {
+    *size = info.size;
+    return true;
   }
-
-  *size = info.size;
-  return true;
 }
 
 static bool dir_stat(Archive* archive, const char* path, FileInfo* info, bool needTime) {
