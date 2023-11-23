@@ -400,7 +400,6 @@ src = {
   'src/core/fs.c',
   ('src/core/os_%s.c'):format(target),
   'src/core/spv.c',
-  'src/core/zip.c',
   'src/api/api.c',
   'src/api/l_lovr.c'
 }
@@ -443,6 +442,7 @@ else
 end
 
 src += 'src/lib/stb/*.c'
+src += 'src/lib/miniz/*.c'
 src += (config.modules.audio or config.modules.data) and 'src/lib/miniaudio/*.c' or nil
 src += config.modules.data and 'src/lib/jsmn/*.c' or nil
 src += config.modules.data and 'src/lib/minimp3/*.c' or nil

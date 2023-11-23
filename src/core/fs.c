@@ -6,7 +6,7 @@
 
 #define FS_PATH_MAX 1024
 
-bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
+bool fs_open(const char* path, char mode, fs_handle* file) {
   WCHAR wpath[FS_PATH_MAX];
   if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
     return false;
@@ -15,9 +15,9 @@ bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
   DWORD access;
   DWORD creation;
   switch (mode) {
-    case OPEN_READ: access = GENERIC_READ; creation = OPEN_EXISTING; break;
-    case OPEN_WRITE: access = GENERIC_WRITE; creation = CREATE_ALWAYS; break;
-    case OPEN_APPEND: access = GENERIC_WRITE; creation = OPEN_ALWAYS; break;
+    case 'r': access = GENERIC_READ; creation = OPEN_EXISTING; break;
+    case 'w': access = GENERIC_WRITE; creation = CREATE_ALWAYS; break;
+    case 'a': access = GENERIC_WRITE; creation = OPEN_ALWAYS; break;
     default: return false;
   }
 
@@ -27,7 +27,7 @@ bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
     return false;
   }
 
-  if (mode == OPEN_APPEND && SetFilePointer(file->handle, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+  if (mode == 'a' && SetFilePointer(file->handle, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
     CloseHandle(file->handle);
     return false;
   }
@@ -39,18 +39,34 @@ bool fs_close(fs_handle file) {
   return CloseHandle(file.handle);
 }
 
-bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
-  DWORD bytes32 = *bytes > UINT32_MAX ? UINT32_MAX : (DWORD) *bytes;
-  bool success = ReadFile(file.handle, buffer, bytes32, &bytes32, NULL);
-  *bytes = bytes32;
+bool fs_read(fs_handle file, void* data, size_t size, size_t* count) {
+  DWORD bytes32 = size > UINT32_MAX ? UINT32_MAX : (DWORD) size;
+  bool success = ReadFile(file.handle, data, bytes32, &bytes32, NULL);
+  *count = bytes32;
   return success;
 }
 
-bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
-  DWORD bytes32 = *bytes > UINT32_MAX ? UINT32_MAX : (DWORD) *bytes;
-  bool success = WriteFile(file.handle, buffer, bytes32, &bytes32, NULL);
-  *bytes = bytes32;
+bool fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
+  DWORD bytes32 = size > UINT32_MAX ? UINT32_MAX : (DWORD) size;
+  bool success = WriteFile(file.handle, data, bytes32, &bytes32, NULL);
+  *count = bytes32;
   return success;
+}
+
+bool fs_seek(fs_handle file, uint64_t offset) {
+  LARGE_INTEGER n = { .QuadPart = offset };
+  return SetFilePointerEx(file.handle, n, NULL, FILE_BEGIN);
+}
+
+bool fs_fstat(fs_handle file, FileInfo* info) {
+  LARGE_INTEGER size;
+  if (!GetFileSizeEx(file.handle, &size)) {
+    return false;
+  }
+  info->size = size.QuadPart;
+  info->lastModified = 0;
+  info->type = FILE_REGULAR;
+  return true;
 }
 
 void* fs_map(const char* path, size_t* size) {
@@ -175,48 +191,65 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
 #include <limits.h>
 #include <unistd.h>
 
-bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
+bool fs_open(const char* path, char mode, fs_handle* file) {
   int flags;
   switch (mode) {
-    case OPEN_READ: flags = O_RDONLY; break;
-    case OPEN_WRITE: flags = O_WRONLY | O_CREAT | O_TRUNC; break;
-    case OPEN_APPEND: flags = O_APPEND | O_WRONLY | O_CREAT; break;
+    case 'r': flags = O_RDONLY; break;
+    case 'w': flags = O_WRONLY | O_CREAT | O_TRUNC; break;
+    case 'a': flags = O_APPEND | O_WRONLY | O_CREAT; break;
     default: return false;
   }
+  struct stat stats;
   file->fd = open(path, flags, S_IRUSR | S_IWUSR);
-  return file->fd >= 0;
+  return file->fd >= 0 && !fstat(file->fd, &stats) && !S_ISDIR(stats.st_mode);
 }
 
 bool fs_close(fs_handle file) {
   return close(file.fd) == 0;
 }
 
-bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
-  ssize_t result = read(file.fd, buffer, *bytes);
+bool fs_read(fs_handle file, void* data, size_t size, size_t* count) {
+  ssize_t result = read(file.fd, data, size);
   if (result < 0 || result > SSIZE_MAX) {
-    *bytes = 0;
+    *count = 0;
     return false;
   } else {
-    *bytes = (uint32_t) result;
+    *count = result;
     return true;
   }
 }
 
-bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
-  ssize_t result = write(file.fd, buffer, *bytes);
+bool fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
+  ssize_t result = write(file.fd, data, size);
   if (result < 0 || result > SSIZE_MAX) {
-    *bytes = 0;
+    *count = 0;
     return false;
   } else {
-    *bytes = (uint32_t) result;
+    *count = (size_t) result;
     return true;
   }
+}
+
+bool fs_seek(fs_handle file, uint64_t offset) {
+  return lseek(file.fd, (off_t) offset, SEEK_SET) != (off_t) -1;
+}
+
+bool fs_fstat(fs_handle file, FileInfo* info) {
+  struct stat stats;
+  if (fstat(file.fd, &stats)) {
+    return false;
+  }
+
+  info->size = (uint64_t) stats.st_size;
+  info->lastModified = (uint64_t) stats.st_mtime;
+  info->type = S_ISDIR(stats.st_mode) ? FILE_DIRECTORY : FILE_REGULAR;
+  return true;
 }
 
 void* fs_map(const char* path, size_t* size) {
   FileInfo info;
   fs_handle file;
-  if (!fs_stat(path, &info) || !fs_open(path, OPEN_READ, &file)) {
+  if (!fs_stat(path, &info) || !fs_open(path, 'r', &file)) {
     return NULL;
   }
   *size = info.size;
@@ -235,12 +268,9 @@ bool fs_stat(const char* path, FileInfo* info) {
     return false;
   }
 
-  if (info) {
-    info->size = (uint64_t) stats.st_size;
-    info->lastModified = (uint64_t) stats.st_mtime;
-    info->type = S_ISDIR(stats.st_mode) ? FILE_DIRECTORY : FILE_REGULAR;
-  }
-
+  info->size = (uint64_t) stats.st_size;
+  info->lastModified = (uint64_t) stats.st_mtime;
+  info->type = S_ISDIR(stats.st_mode) ? FILE_DIRECTORY : FILE_REGULAR;
   return true;
 }
 

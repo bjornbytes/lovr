@@ -12,6 +12,9 @@
 #define LOVR_PATH_SEP '/'
 #endif
 
+typedef struct Archive Archive;
+typedef struct File File;
+
 bool lovrFilesystemInit(const char* archive);
 void lovrFilesystemDestroy(void);
 const char* lovrFilesystemGetSource(void);
@@ -23,7 +26,7 @@ bool lovrFilesystemIsFile(const char* path);
 bool lovrFilesystemIsDirectory(const char* path);
 uint64_t lovrFilesystemGetSize(const char* path);
 uint64_t lovrFilesystemGetLastModified(const char* path);
-void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead);
+void* lovrFilesystemRead(const char* path, size_t* size);
 void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, const char* path), void* context);
 const char* lovrFilesystemGetIdentity(void);
 bool lovrFilesystemSetIdentity(const char* identity, bool precedence);
@@ -37,3 +40,26 @@ size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size);
 size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size);
 const char* lovrFilesystemGetRequirePath(void);
 void lovrFilesystemSetRequirePath(const char* requirePath);
+
+// Archive
+
+Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root);
+void lovrArchiveDestroy(void* ref);
+
+// File
+
+typedef enum {
+  OPEN_READ,
+  OPEN_WRITE,
+  OPEN_APPEND
+} OpenMode;
+
+File* lovrFileCreate(const char* path, OpenMode mode, const char** error);
+void lovrFileDestroy(void* ref);
+const char* lovrFileGetPath(File* file);
+OpenMode lovrFileGetMode(File* file);
+uint64_t lovrFileGetSize(File* file);
+bool lovrFileRead(File* file, void* data, size_t size, size_t* count);
+bool lovrFileWrite(File* file, const void* data, size_t size, size_t* count);
+bool lovrFileSeek(File* file, uint64_t offset);
+uint64_t lovrFileTell(File* file);

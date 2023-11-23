@@ -45,6 +45,7 @@ extern StringEntry lovrJointType[];
 extern StringEntry lovrKeyboardKey[];
 extern StringEntry lovrMeshStorage[];
 extern StringEntry lovrModelDrawMode[];
+extern StringEntry lovrOpenMode[];
 extern StringEntry lovrOriginType[];
 extern StringEntry lovrPassType[];
 extern StringEntry lovrPermission[];

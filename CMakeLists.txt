@@ -295,7 +295,6 @@ endif()
 
 set(LOVR_SRC
   src/core/fs.c
-  src/core/zip.c
   src/api/api.c
   src/api/l_lovr.c
   src/util.c
@@ -419,6 +418,8 @@ if(LOVR_ENABLE_FILESYSTEM)
   target_sources(lovr PRIVATE
     src/modules/filesystem/filesystem.c
     src/api/l_filesystem.c
+    src/api/l_filesystem_file.c
+    src/lib/miniz/miniz_tinfl.c
   )
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_FILESYSTEM)

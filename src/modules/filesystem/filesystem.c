@@ -2,58 +2,73 @@
 #include "core/fs.h"
 #include "core/os.h"
 #include "util.h"
-#include "core/zip.h"
-#include "lib/stb/stb_image.h"
+#include "lib/miniz/miniz_tinfl.h"
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
 
-#define FOREACH_ARCHIVE(a) for (Archive* a = state.archives.data; a != state.archives.data + state.archives.length; a++)
-
-typedef arr_t(char) strpool;
-
-static size_t strpool_append(strpool* pool, const char* string, size_t length) {
-  size_t tip = pool->length;
-  arr_reserve(pool, pool->length + length + 1);
-  memcpy(pool->data + tip, string, length);
-  pool->data[tip + length] = '\0';
-  pool->length += length + 1;
-  return tip;
-}
-
-static const char* strpool_resolve(strpool* pool, size_t offset) {
-  return pool->data + offset;
-}
+#define FOREACH_ARCHIVE(a) for (Archive* a = state.archives; a; a = a->next)
 
 typedef struct {
   uint32_t firstChild;
   uint32_t nextSibling;
-  size_t filename;
-  uint64_t offset;
-  uint64_t csize;
-  uint16_t mdate;
+  const char* filename;
+  const void* data;
+  uint32_t compressedSize;
+  uint32_t uncompressedSize;
+  uint16_t filenameLength;
   uint16_t mtime;
-  FileInfo info;
+  uint16_t mdate;
+  bool directory;
+  bool compressed;
 } zip_node;
 
-typedef struct Archive {
-  bool (*stat)(struct Archive* archive, const char* path, FileInfo* info);
-  void (*list)(struct Archive* archive, const char* path, fs_list_cb callback, void* context);
-  bool (*read)(struct Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** data);
-  void (*close)(struct Archive* archive);
-  zip_state zip;
-  strpool strings;
-  arr_t(zip_node) nodes;
-  map_t lookup;
-  size_t path;
+typedef struct {
+  size_t inputCursor;
+  size_t outputCursor;
+  size_t bufferExtent;
+  uint8_t buffer[32768];
+  tinfl_decompressor decompressor;
+} zip_stream;
+
+typedef struct {
+  fs_handle file;
+  zip_node* node;
+  zip_stream* stream;
+  uint64_t offset;
+} Handle;
+
+struct Archive {
+  uint32_t ref;
+  struct Archive* next;
+  bool (*open)(Archive* archive, const char* path, Handle* handle);
+  bool (*close)(Archive* archive, Handle* handle);
+  bool (*read)(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count);
+  bool (*seek)(Archive* archive, Handle* handle, uint64_t offset);
+  bool (*fsize)(Archive* archive, Handle* handle, size_t* size);
+  bool (*stat)(Archive* archive, const char* path, FileInfo* info, bool needTime);
+  void (*list)(Archive* archive, const char* path, fs_list_cb callback, void* context);
+  char* path;
+  char* mountpoint;
   size_t pathLength;
-  size_t mountpoint;
-  size_t mountpointLength;
-} Archive;
+  size_t mountLength;
+  uint8_t* data;
+  size_t size;
+  map_t lookup;
+  arr_t(zip_node) nodes;
+};
+
+struct File {
+  uint32_t ref;
+  OpenMode mode;
+  Handle handle;
+  Archive* archive;
+  char* path;
+};
 
 static struct {
   bool initialized;
-  arr_t(Archive) archives;
+  Archive* archives;
   size_t savePathLength;
   char savePath[1024];
   char source[1024];
@@ -92,7 +107,8 @@ static bool concat(char* buffer, const char* p1, size_t length1, const char* p2,
   return true;
 }
 
-static size_t normalize(char* buffer, const char* path, size_t length) {
+// Buffer must be at least as big as path length
+static size_t normalize(const char* path, size_t length, char* buffer) {
   size_t i = 0;
   size_t n = 0;
   while (path[i] == '/') i++;
@@ -106,12 +122,18 @@ static size_t normalize(char* buffer, const char* path, size_t length) {
   return n;
 }
 
+// Validates path and strips leading, trailing, and consecutive slashes, updating length
+static bool sanitize(const char* path, char* buffer, size_t* length) {
+  if (!valid(path)) return false;
+  size_t pathLength = strlen(path);
+  if (pathLength >= *length) return false;
+  *length = normalize(path, pathLength, buffer);
+  return true;
+}
+
 bool lovrFilesystemInit(const char* archive) {
   if (state.initialized) return false;
   state.initialized = true;
-
-  arr_init(&state.archives, arr_alloc);
-  arr_reserve(&state.archives, 2);
 
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
 
@@ -176,11 +198,12 @@ bool lovrFilesystemInit(const char* archive) {
 
 void lovrFilesystemDestroy(void) {
   if (!state.initialized) return;
-  for (size_t i = 0; i < state.archives.length; i++) {
-    Archive* archive = &state.archives.data[i];
-    archive->close(archive);
+  Archive* archive = state.archives;
+  while (archive) {
+    Archive* next = archive->next;
+    lovrRelease(archive, lovrArchiveDestroy);
+    archive = next;
   }
-  arr_free(&state.archives);
   memset(&state, 0, sizeof(state));
 }
 
@@ -194,66 +217,64 @@ bool lovrFilesystemIsFused(void) {
 
 // Archives
 
-static bool dir_init(Archive* archive, const char* path, const char* mountpoint, const char* root);
-static bool zip_init(Archive* archive, const char* path, const char* mountpoint, const char* root);
-
 bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char* root) {
   FOREACH_ARCHIVE(archive) {
-    if (!strcmp(strpool_resolve(&archive->strings, archive->path), path)) {
+    if (!strcmp(archive->path, path)) {
       return false;
     }
   }
 
-  Archive archive;
-  arr_init(&archive.strings, arr_alloc);
-
-  if (!dir_init(&archive, path, mountpoint, root) && !zip_init(&archive, path, mountpoint, root)) {
-    arr_free(&archive.strings);
-    return false;
-  }
-
-  archive.pathLength = strlen(path);
-  archive.path = strpool_append(&archive.strings, path, archive.pathLength);
-
-  if (mountpoint) {
-    char buffer[LOVR_PATH_MAX];
-    size_t length = strlen(mountpoint);
-    if (length >= sizeof(buffer)) return false;
-    length = normalize(buffer, mountpoint, length);
-    archive.mountpointLength = length;
-    archive.mountpoint = strpool_append(&archive.strings, buffer, archive.mountpointLength);
-  } else {
-    archive.mountpointLength = 0;
-    archive.mountpoint = 0;
-  }
+  Archive* archive = lovrArchiveCreate(path, mountpoint, root);
+  if (!archive) return false;
 
   if (append) {
-    arr_push(&state.archives, archive);
+    Archive* list = state.archives;
+    while (list && list->next) list = list->next;
+    *(list ? &list->next : &state.archives) = archive;
   } else {
-    arr_expand(&state.archives, 1);
-    memmove(state.archives.data + 1, state.archives.data, sizeof(Archive) * state.archives.length);
-    state.archives.data[0] = archive;
-    state.archives.length++;
+    archive->next = state.archives;
+    state.archives = archive;
   }
 
   return true;
 }
 
 bool lovrFilesystemUnmount(const char* path) {
-  FOREACH_ARCHIVE(archive) {
-    if (!strcmp(strpool_resolve(&archive->strings, archive->path), path)) {
-      archive->close(archive);
-      arr_splice(&state.archives, archive - state.archives.data, 1);
+  for (Archive** archive = &state.archives; *archive; archive = &(*archive)->next) {
+    if (!strcmp((*archive)->path, path)) {
+      Archive* next = (*archive)->next;
+      lovrRelease(*archive, lovrArchiveDestroy);
+      *archive = next;
       return true;
     }
   }
   return false;
 }
 
-static Archive* archiveStat(const char* path, FileInfo* info) {
-  if (valid(path)) {
+static bool archiveContains(Archive* archive, const char* path, size_t length) {
+  if (archive->mountLength == 0) return true;
+  if (length == archive->mountLength && !memcmp(path, archive->mountpoint, archive->mountLength)) return true;
+  if (length > archive->mountLength && path[archive->mountLength] == '/' && !memcmp(path, archive->mountpoint, archive->mountLength)) return true;
+  return false;
+}
+
+static bool mountpointContains(Archive* archive, const char* path, size_t length) {
+  return length < archive->mountLength && archive->mountpoint[length] == '/' && !memcmp(path, archive->mountpoint, length);
+}
+
+static Archive* archiveStat(const char* p, FileInfo* info, bool needTime) {
+  char path[1024];
+  size_t length = sizeof(path);
+  if (sanitize(p, path, &length)) {
     FOREACH_ARCHIVE(archive) {
-      if (archive->stat(archive, path, info)) {
+      if (archiveContains(archive, path, length)) {
+        if (archive->stat(archive, path, info, needTime)) {
+          return archive;
+        }
+      } else if (mountpointContains(archive, path, length)) {
+        info->type = FILE_DIRECTORY;
+        info->lastModified = ~0ull;
+        info->size = 0;
         return archive;
       }
     }
@@ -263,46 +284,81 @@ static Archive* archiveStat(const char* path, FileInfo* info) {
 
 const char* lovrFilesystemGetRealDirectory(const char* path) {
   FileInfo info;
-  Archive* archive = archiveStat(path, &info);
-  return archive ? (archive->strings.data + archive->path) : NULL;
+  Archive* archive = archiveStat(path, &info, false);
+  return archive ? archive->path : NULL;
 }
 
 bool lovrFilesystemIsFile(const char* path) {
   FileInfo info;
-  return archiveStat(path, &info) ? info.type == FILE_REGULAR : false;
+  return archiveStat(path, &info, false) && info.type == FILE_REGULAR;
 }
 
 bool lovrFilesystemIsDirectory(const char* path) {
   FileInfo info;
-  return archiveStat(path, &info) ? info.type == FILE_DIRECTORY : false;
+  return archiveStat(path, &info, false) && info.type == FILE_DIRECTORY;
 }
 
 uint64_t lovrFilesystemGetSize(const char* path) {
   FileInfo info;
-  return archiveStat(path, &info) ? info.size : ~0ull;
+  return archiveStat(path, &info, false) && info.type == FILE_REGULAR ? info.size : 0;
 }
 
 uint64_t lovrFilesystemGetLastModified(const char* path) {
   FileInfo info;
-  return archiveStat(path, &info) ? info.lastModified : ~0ull;
+  return archiveStat(path, &info, true) ? info.lastModified : ~0ull;
 }
 
-void* lovrFilesystemRead(const char* path, size_t bytes, size_t* bytesRead) {
-  if (valid(path)) {
-    void* data;
+void* lovrFilesystemRead(const char* p, size_t* size) {
+  Handle handle;
+  char path[1024];
+  size_t length = sizeof(path);
+  if (sanitize(p, path, &length)) {
     FOREACH_ARCHIVE(archive) {
-      if (archive->read(archive, path, bytes, bytesRead, &data)) {
+      if (!archiveContains(archive, path, length)) {
+        continue;
+      }
+
+      if (!archive->open(archive, path, &handle)) {
+        continue;
+      }
+
+      uint64_t bytes;
+      if (!archive->fsize(archive, &handle, &bytes) || bytes > SIZE_MAX) {
+        archive->close(archive, &handle);
+        continue;
+      }
+
+      *size = (size_t) bytes;
+      void* data = malloc(*size);
+      lovrAssert(data, "Out of memory");
+
+      if (archive->read(archive, &handle, data, *size, size)) {
+        archive->close(archive, &handle);
         return data;
       }
+
+      archive->close(archive, &handle);
     }
   }
   return NULL;
 }
 
-void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, const char* path), void* context) {
-  if (valid(path)) {
+void lovrFilesystemGetDirectoryItems(const char* p, void (*callback)(void* context, const char* path), void* context) {
+  char path[1024];
+  size_t length = sizeof(path);
+  if (sanitize(p, path, &length)) {
     FOREACH_ARCHIVE(archive) {
-      archive->list(archive, path, callback, context);
+      if (archiveContains(archive, path, length)) {
+        archive->list(archive, path, callback, context);
+      } else if (mountpointContains(archive, path, length)) {
+        const char* leaf = archive->mountpoint + length + 1;
+        const char* slash = strchr(leaf, '/');
+        size_t sublength = slash ? slash - leaf : archive->mountLength - length - 1;
+        char buffer[1024];
+        memcpy(buffer, leaf, sublength);
+        buffer[sublength] = '\0';
+        callback(context, buffer);
+      }
     }
   }
 }
@@ -399,11 +455,12 @@ bool lovrFilesystemWrite(const char* path, const char* content, size_t size, boo
   }
 
   fs_handle file;
-  if (!fs_open(resolved, append ? OPEN_APPEND : OPEN_WRITE, &file)) {
+  if (!fs_open(resolved, append ? 'a' : 'w', &file)) {
     return false;
   }
 
-  if (!fs_write(file, content, &size)) {
+  size_t count;
+  if (!fs_write(file, content, size, &count) || count != size) {
     return false;
   }
 
@@ -441,268 +498,131 @@ void lovrFilesystemSetRequirePath(const char* requirePath) {
 
 // Archive: dir
 
-enum {
-  PATH_INVALID,
-  PATH_VIRTUAL,
-  PATH_PHYSICAL
-};
-
-static int dir_resolve(Archive* archive, char* buffer, const char* rawpath) {
-  char normalized[LOVR_PATH_MAX];
-  char* path = normalized;
-
-  // Normalize the path
-  size_t length = strlen(rawpath);
-  if (length >= sizeof(normalized)) return PATH_INVALID;
-  length = normalize(normalized, rawpath, length);
-
-  // Compare each component of normalized path and mountpoint
-  if (archive->mountpointLength > 0) {
-    const char* mountpoint = strpool_resolve(&archive->strings, archive->mountpoint);
-    size_t mountpointLength = archive->mountpointLength;
-
-    for (;;) {
-      char* slash = strchr(mountpoint, '/');
-      size_t sublength = slash ? slash - mountpoint : mountpointLength;
-
-      // If the path is empty but there was still stuff in the mountpoint, it's a virtual directory
-      if (length == 0) {
-        // Return child directory's name for convenience in getDirectoryItems
-        memcpy(buffer, mountpoint, sublength);
-        buffer[sublength] = '\0';
-        return PATH_VIRTUAL;
-      }
-
-      // Check for paths that don't match this component of the mountpoint
-      if (length < sublength || strncmp(path, mountpoint, sublength)) {
-        return PATH_INVALID;
-      }
-
-      // If the path matched, make sure there's a slash after the match
-      if (length > sublength && path[sublength] != '/') {
-        return PATH_INVALID;
-      }
-
-      // Strip this component off of the path
-      if (length == sublength) {
-        path += sublength;
-        length -= sublength;
-      } else {
-        path += sublength + 1;
-        length -= sublength + 1;
-      }
-
-      // Strip this component off of the mountpoint, if mountpoint is empty then we're done
-      if (mountpointLength > sublength) {
-        mountpoint += sublength + 1;
-        mountpointLength -= sublength + 1;
-      } else {
-        break;
-      }
-    }
-  }
-
-  // Concat archive path and normalized path (without mountpoint), return full path
-  if (!concat(buffer, strpool_resolve(&archive->strings, archive->path), archive->pathLength, path, length)) {
-    return PATH_INVALID;
-  }
-
-  return PATH_PHYSICAL;
+static bool dir_resolve(Archive* archive, const char* fullpath, char* buffer) {
+  const char* path = fullpath + (archive->mountLength ? archive->mountLength + 1 : 0);
+  return concat(buffer, archive->path, archive->pathLength, path, strlen(path));
 }
 
-static bool dir_stat(Archive* archive, const char* path, FileInfo* info) {
+static bool dir_init(Archive* archive, const char* path, const char* root) {
+  FileInfo info;
+  return fs_stat(path, &info) && info.type == FILE_DIRECTORY;
+}
+
+static bool dir_open(Archive* archive, const char* path, Handle* handle) {
   char resolved[LOVR_PATH_MAX];
-  switch (dir_resolve(archive, resolved, path)) {
-    default:
-    case PATH_INVALID: return false;
-    case PATH_VIRTUAL: return fs_stat(strpool_resolve(&archive->strings, archive->path), info);
-    case PATH_PHYSICAL: return fs_stat(resolved, info);
+  return dir_resolve(archive, path, resolved) && fs_open(resolved, 'r', &handle->file);
+}
+
+static bool dir_close(Archive* archive, Handle* handle) {
+  return fs_close(handle->file);
+}
+
+static bool dir_read(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count) {
+  if (!fs_read(handle->file, data, size, count)) {
+    return false;
+  } else {
+    handle->offset += *count;
+    return true;
   }
+}
+
+static bool dir_seek(Archive* archive, Handle* handle, uint64_t offset) {
+  if (fs_seek(handle->file, offset)) {
+    handle->offset = offset;
+    return true;
+  }
+  return false;
+}
+
+static bool dir_fsize(Archive* archive, Handle* handle, uint64_t* size) {
+  FileInfo info;
+  if (!fs_fstat(handle->file, &info)) {
+    return false;
+  } else {
+    *size = info.size;
+    return true;
+  }
+}
+
+static bool dir_stat(Archive* archive, const char* path, FileInfo* info, bool needTime) {
+  char resolved[LOVR_PATH_MAX];
+  return dir_resolve(archive, path, resolved) && fs_stat(resolved, info);
 }
 
 static void dir_list(Archive* archive, const char* path, fs_list_cb callback, void* context) {
   char resolved[LOVR_PATH_MAX];
-  switch (dir_resolve(archive, resolved, path)) {
-    case PATH_INVALID: return;
-    case PATH_VIRTUAL: callback(context, resolved); return;
-    case PATH_PHYSICAL: fs_list(resolved, callback, context); return;
+  if (dir_resolve(archive, path, resolved)) {
+    fs_list(resolved, callback, context);
   }
-}
-
-static bool dir_read(Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** data) {
-  char resolved[LOVR_PATH_MAX];
-  if (dir_resolve(archive, resolved, path) != PATH_PHYSICAL) {
-    return false;
-  }
-
-  fs_handle file;
-  if (!fs_open(resolved, OPEN_READ, &file)) {
-    return false;
-  }
-
-  FileInfo info;
-  if (bytes == (size_t) -1) {
-    if (fs_stat(resolved, &info)) {
-      bytes = info.size;
-    } else {
-      fs_close(file);
-      return false;
-    }
-  }
-
-  if ((*data = malloc(bytes)) == NULL) {
-    fs_close(file);
-    return true;
-  }
-
-  if (!fs_read(file, *data, &bytes)) {
-    fs_close(file);
-    free(*data);
-    *data = NULL;
-    return true;
-  }
-
-  fs_close(file);
-  *bytesRead = bytes;
-  return true;
-}
-
-static void dir_close(Archive* archive) {
-  arr_free(&archive->strings);
-}
-
-static bool dir_init(Archive* archive, const char* path, const char* mountpoint, const char* root) {
-  FileInfo info;
-  if (!fs_stat(path, &info) || info.type != FILE_DIRECTORY) {
-    return false;
-  }
-
-  archive->stat = dir_stat;
-  archive->list = dir_list;
-  archive->read = dir_read;
-  archive->close = dir_close;
-  return true;
 }
 
 // Archive: zip
 
-static zip_node* zip_lookup(Archive* archive, const char* path) {
-  char buffer[LOVR_PATH_MAX];
-  size_t length = strlen(path);
-  if (length >= sizeof(buffer)) return NULL;
-  length = normalize(buffer, path, length);
-  uint64_t hash = length ? hash64(buffer, length) : 0;
-  uint64_t index = map_get(&archive->lookup, hash);
-  return index == MAP_NIL ? NULL : &archive->nodes.data[index];
-}
+static uint16_t readu16(const uint8_t* p) { uint16_t x; memcpy(&x, p, sizeof(x)); return x; }
+static uint32_t readu32(const uint8_t* p) { uint32_t x; memcpy(&x, p, sizeof(x)); return x; }
 
-static bool zip_stat(Archive* archive, const char* path, FileInfo* info) {
-  zip_node* node = zip_lookup(archive, path);
-  if (!node) return false;
-
-  // zip stores timestamps in dos time, conversion is slow so we do it only on request
-  if (node->info.lastModified == ~0ull) {
-    uint16_t mdate = node->mdate;
-    uint16_t mtime = node->mtime;
-    struct tm t;
-    memset(&t, 0, sizeof(t));
-    t.tm_isdst = -1;
-    t.tm_year = ((mdate >> 9) & 127) + 80;
-    t.tm_mon = ((mdate >> 5) & 15) - 1;
-    t.tm_mday = mdate & 31;
-    t.tm_hour = (mtime >> 11) & 31;
-    t.tm_min = (mtime >> 5) & 63;
-    t.tm_sec = (mtime << 1) & 62;
-    node->info.lastModified = mktime(&t);
-  }
-
-  *info = node->info;
-  return true;
-}
-
-static void zip_list(Archive* archive, const char* path, fs_list_cb callback, void* context) {
-  const zip_node* node = zip_lookup(archive, path);
-  if (!node || node->info.type != FILE_DIRECTORY) return;
-  uint32_t i = node->firstChild;
-  while (i != ~0u) {
-    zip_node* child = &archive->nodes.data[i];
-    callback(context, strpool_resolve(&archive->strings, child->filename));
-    i = child->nextSibling;
-  }
-}
-
-static bool zip_read(Archive* archive, const char* path, size_t bytes, size_t* bytesRead, void** dst) {
-  const zip_node* node = zip_lookup(archive, path);
-  if (!node) return false;
-
-  // Directories can't be read (but still return true because the file was present in the archive)
-  if (node->info.type == FILE_DIRECTORY) {
-    *dst = NULL;
-    return true;
-  }
-
-  size_t dstSize = node->info.size;
-  size_t srcSize = node->csize;
-  bool compressed;
-  const void* src;
-
-  if ((src = zip_load(&archive->zip, node->offset, &compressed)) == NULL) {
-    *dst = NULL;
-    return true;
-  }
-
-  if ((*dst = malloc(dstSize)) == NULL) {
-    return true;
-  }
-
-  *bytesRead = (bytes == (size_t) -1 || bytes > dstSize) ? (uint32_t) dstSize : bytes;
-
-  if (compressed) {
-    srcSize += 4; // pad buffer to fix an stb_image "bug"
-    if (stbi_zlib_decode_noheader_buffer(*dst, (int) dstSize, src, (int) srcSize) < 0) {
-      free(*dst);
-      *dst = NULL;
-    }
-  } else {
-    memcpy(*dst, src, *bytesRead);
-  }
-
-  return true;
-}
-
-static void zip_close(Archive* archive) {
+static void zip_free(Archive* archive) {
   arr_free(&archive->nodes);
   map_free(&archive->lookup);
-  arr_free(&archive->strings);
-  if (archive->zip.data) fs_unmap(archive->zip.data, archive->zip.size);
+  if (archive->data) fs_unmap(archive->data, archive->size);
 }
 
-static bool zip_init(Archive* archive, const char* filename, const char* mountpoint, const char* root) {
-  char path[LOVR_PATH_MAX];
-  memset(&archive->lookup, 0, sizeof(archive->lookup));
-  arr_init(&archive->nodes, arr_alloc);
-
-  // mmap the zip file, try to parse it, and figure out how many files there are
-  archive->zip.data = fs_map(filename, &archive->zip.size);
-  if (!archive->zip.data || !zip_open(&archive->zip) || archive->zip.count > UINT32_MAX) {
-    zip_close(archive);
+static bool zip_init(Archive* archive, const char* filename, const char* root) {
+  // Map the zip file into memory
+  archive->data = fs_map(filename, &archive->size);
+  if (!archive->data) {
+    zip_free(archive);
     return false;
   }
 
-  // Paste mountpoint into path, normalize, and add trailing slash.  Paths are "pre hashed" with the
-  // mountpoint prepended (and the root stripped) to avoid doing those operations on every lookup.
-  size_t mountpointLength = 0;
-  if (mountpoint) {
-    mountpointLength = strlen(mountpoint);
-    if (mountpointLength + 1 >= sizeof(path)) {
-      zip_close(archive);
+  // Check the end of the file for the magic zip footer
+  const uint8_t* p = archive->data + archive->size - 22;
+  if (archive->size < 22 || readu32(p) != 0x06054b50) {
+    zip_free(archive);
+    return false;
+  }
+
+  // Parse the number of file entries and reserve memory
+  uint16_t nodeCount = readu16(p + 10);
+  arr_init(&archive->nodes, realloc);
+  arr_reserve(&archive->nodes, nodeCount);
+  map_init(&archive->lookup, nodeCount);
+
+  zip_node rootNode;
+  memset(&rootNode, 0xff, sizeof(zip_node));
+  arr_push(&archive->nodes, rootNode);
+
+  // See where the zip thinks its central directory is
+  uint64_t cursor = readu32(p + 16);
+  if (cursor + 4 > archive->size) {
+    zip_free(archive);
+    return false;
+  }
+
+  // See if the central directory starts where the endOfCentralDirectory said it would.
+  // If it doesn't, then it might be a self-extracting archive with broken offsets (common).
+  // In this case, assume the central directory is directly adjacent to the endOfCentralDirectory,
+  // located at (offsetOfEndOfCentralDirectory (aka size - 22) - sizeOfCentralDirectory).
+  // If we find a central directory there, then compute a "base" offset that equals the difference
+  // between where it is and where it was supposed to be, and apply this offset to everything else.
+  uint64_t base = 0;
+  if (readu32(archive->data + cursor) != 0x02014b50) {
+    size_t offsetOfEndOfCentralDirectory = archive->size - 22;
+    size_t sizeOfCentralDirectory = readu32(p + 12);
+    size_t centralDirectoryOffset = offsetOfEndOfCentralDirectory - sizeOfCentralDirectory;
+
+    if (sizeOfCentralDirectory > offsetOfEndOfCentralDirectory || centralDirectoryOffset + 4 > archive->size) {
+      zip_free(archive);
       return false;
     }
 
-    mountpointLength = normalize(path, mountpoint, mountpointLength);
+    base = centralDirectoryOffset - cursor;
+    cursor = centralDirectoryOffset;
 
-    if (mountpointLength > 0) {
-      path[mountpointLength++] = '/';
+    // And if that didn't work, just give up
+    if (readu32(archive->data + cursor) != 0x02014b50) {
+      zip_free(archive);
+      return false;
     }
   }
 
@@ -711,54 +631,68 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
   size_t rootLength = root ? strlen(root) : 0;
   while (root && root[rootLength - 1] == '/') rootLength--;
 
-  // Allocate
-  map_init(&archive->lookup, archive->zip.count);
-  arr_reserve(&archive->nodes, archive->zip.count);
-
-  zip_file info;
-  for (uint32_t i = 0; i < archive->zip.count; i++) {
-    if (!zip_next(&archive->zip, &info)) {
-      zip_close(archive);
+  // Iterate the list of files in the zip and build up a tree of nodes
+  for (uint32_t i = 0; i < nodeCount; i++) {
+    p = archive->data + cursor;
+    if (cursor + 46 > archive->size || readu32(p) != 0x02014b50) {
+      zip_free(archive);
       return false;
     }
 
-    // Node
-    zip_node node = {
-      .firstChild = ~0u,
-      .nextSibling = ~0u,
-      .filename = (size_t) -1,
-      .offset = info.offset,
-      .csize = info.csize,
-      .mdate = info.mdate,
-      .mtime = info.mtime,
-      .info.size = info.size,
-      .info.lastModified = ~0ull,
-      .info.type = FILE_REGULAR
-    };
+    zip_node node;
+    node.firstChild = ~0u;
+    node.nextSibling = ~0u;
+    node.compressedSize = readu32(p + 20);
+    node.uncompressedSize = readu32(p + 24);
+    node.mtime = readu16(p + 12);
+    node.mdate = readu16(p + 14);
+    node.compressed = readu16(p + 10) == 8;
+    node.directory = false;
+    size_t length = readu16(p + 28);
+    const char* path = (const char*) (p + 46);
+    cursor += 46 + readu16(p + 28) + readu16(p + 30) + readu16(p + 32);
+
+    // Sanity check the local file header
+    uint64_t headerOffset = base + readu32(p + 42);
+    uint8_t* header = archive->data + headerOffset;
+    if (base + headerOffset > archive->size - 30 || readu32(header) != 0x04034b50) {
+      zip_free(archive);
+      return false;
+    }
+
+    // Filename and extra data are 30 bytes after the header, then the data starts
+    uint64_t dataOffset = headerOffset + 30 + readu16(header + 26) + readu16(header + 28);
+    node.data = archive->data + dataOffset;
+
+    // Make sure data is actually contained in the zip
+    if (dataOffset + node.compressedSize > archive->size) {
+      zip_free(archive);
+      return false;
+    }
+
+    // Strip leading slashes
+    while (length > 0 && *path == '/') {
+      length--;
+      path++;
+    }
 
     // Filenames that end in slashes are directories
-    if (info.name[info.length - 1] == '/') {
-      node.info.type = FILE_DIRECTORY;
-      info.length--;
+    while (length > 0 && path[length - 1] == '/') {
+      node.directory = true;
+      length--;
     }
 
-    // Skip files if their names are too long
-    if (mountpointLength + info.length - rootLength >= sizeof(path)) {
+    // Skip files if their names are too long, too short, or not under the root
+    if (length <= rootLength || (root && memcmp(path, root, rootLength))) {
       continue;
     }
 
-    // Skip files if they aren't under the root
-    if (root && (info.length < rootLength || memcmp(info.name, root, rootLength))) {
-      continue;
-    }
-
-    // Strip off the root from the filename and paste it after the mountpoint to get the "canonical" path
-    size_t length = normalize(path + mountpointLength, info.name + rootLength, info.length - rootLength) + mountpointLength;
-    size_t slash = length;
+    // Strip root
+    path += rootLength;
+    length -= rootLength;
 
     // Keep chopping off path segments, building up a tree of paths
     // We can stop early if we reach a path that has already been indexed
-    // Also add individual path segments to the string pool, for zip_list
     for (;;) {
       uint64_t hash = hash64(path, length);
       uint64_t index = map_get(&archive->lookup, hash);
@@ -768,7 +702,6 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
         map_set(&archive->lookup, hash, index);
         arr_push(&archive->nodes, node);
         node.firstChild = index;
-        node.info.type = FILE_DIRECTORY;
       } else {
         uint32_t childIndex = node.firstChild;
         zip_node* parent = &archive->nodes.data[index];
@@ -778,28 +711,346 @@ static bool zip_init(Archive* archive, const char* filename, const char* mountpo
         break;
       }
 
+      size_t end = length;
       while (length && path[length - 1] != '/') {
         length--;
       }
 
-      archive->nodes.data[index].filename = strpool_append(&archive->strings, path + length, slash - length);
+      archive->nodes.data[index].filename = path + length;
+      archive->nodes.data[index].filenameLength = (uint16_t) (end - length);
 
       // Root node
       if (length == 0) {
-        index = archive->nodes.length;
-        map_set(&archive->lookup, 0, index);
-        arr_push(&archive->nodes, node);
-        archive->nodes.data[index].filename = strpool_append(&archive->strings, path, 0);
+        archive->nodes.data[index].nextSibling = archive->nodes.data[0].firstChild;
+        archive->nodes.data[0].firstChild = index;
         break;
       }
 
-      slash = --length;
+      while (path[length - 1] == '/') length--;
     }
   }
 
-  archive->stat = zip_stat;
-  archive->list = zip_list;
-  archive->read = zip_read;
-  archive->close = zip_close;
   return true;
+}
+
+static zip_node* zip_resolve(Archive* archive, const char* fulpathLength) {
+  const char* path = fulpathLength + (archive->mountLength ? archive->mountLength + 1 : 0);
+  size_t length = strlen(path);
+  if (length == 0) return &archive->nodes.data[0];
+  uint64_t hash = hash64(path, length);
+  uint64_t index = map_get(&archive->lookup, hash);
+  return index == MAP_NIL ? NULL : &archive->nodes.data[index];
+}
+
+static bool zip_open(Archive* archive, const char* path, Handle* handle) {
+  handle->node = zip_resolve(archive, path);
+
+  if (!handle->node || handle->node->directory) {
+    return false;
+  }
+
+  if (handle->node->compressed) {
+    zip_stream* stream = handle->stream = malloc(sizeof(zip_stream));
+    lovrAssert(stream, "Out of memory");
+    tinfl_init(&stream->decompressor);
+    stream->inputCursor = 0;
+    stream->outputCursor = 0;
+    stream->bufferExtent = 0;
+  }
+
+  handle->offset = 0;
+  return true;
+}
+
+static bool zip_close(Archive* archive, Handle* handle) {
+  free(handle->stream);
+  return true;
+}
+
+static bool decompress(zip_node* node, zip_stream* stream, uint8_t* data, size_t size, size_t* count) {
+  if (size > 0 && stream->bufferExtent > 0) {
+    lovrUnreachable(); // Data in the buffer must be copied out first!
+  }
+
+  while (size > 0) {
+    uint8_t* input = (uint8_t*) node->data + stream->inputCursor;
+    uint8_t* output = stream->buffer;
+    size_t inSize = node->compressedSize - stream->inputCursor;
+    size_t outSize = sizeof(stream->buffer);
+    uint32_t flags = stream->outputCursor + outSize < node->uncompressedSize ? TINFL_FLAG_HAS_MORE_INPUT : 0;
+    int status = tinfl_decompress(&stream->decompressor, input, &inSize, output, output, &outSize, flags);
+    if (status < 0) return false;
+    size_t n = MIN(outSize, size);
+    if (data) memcpy(data, stream->buffer, n), data += n;
+    stream->inputCursor += inSize;
+    stream->outputCursor += n;
+    stream->bufferExtent = sizeof(stream->buffer) - n;
+    if (count) *count += n;
+    size -= n;
+  }
+
+  return true;
+}
+
+static bool zip_read(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count) {
+  zip_node* node = handle->node;
+  zip_stream* stream = handle->stream;
+
+  // EOF
+  if (handle->offset >= node->uncompressedSize) {
+    *count = 0;
+    return true;
+  }
+
+  // Uncompressed reads are a simple memcpy
+  if (!node->compressed) {
+    *count = MIN(size, node->uncompressedSize - handle->offset);
+    memcpy(data, (char*) node->data + handle->offset, *count);
+    handle->offset += *count;
+    return true;
+  }
+
+  // Whole-file compressed reads can use a simpler codepath
+  if (handle->offset == 0 && size == node->uncompressedSize) {
+    size_t inputSize = node->compressedSize;
+    uint32_t flags = TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF;
+    int status = tinfl_decompress(&stream->decompressor, node->data, &inputSize, data, data, &size, flags);
+    if (status != TINFL_STATUS_DONE) return false;
+    stream->outputCursor = size;
+    handle->offset = size;
+    *count = size;
+    return true;
+  }
+
+  // If the file seeked backwards, gotta rewind to the beginning
+  if (stream->outputCursor > handle->offset) {
+    tinfl_init(&stream->decompressor);
+    stream->inputCursor = 0;
+    stream->outputCursor = 0;
+    stream->bufferExtent = 0;
+  }
+
+  // Decompress and throw away data until reaching the current seek position
+  if (handle->offset > stream->outputCursor) {
+    if (stream->bufferExtent > 0) {
+      size_t n = MIN(stream->bufferExtent, handle->offset - stream->outputCursor);
+      stream->outputCursor += n;
+      stream->bufferExtent -= n;
+    }
+
+    if (!decompress(node, stream, NULL, handle->offset - stream->outputCursor, NULL)) {
+      return false;
+    }
+  }
+
+  size = MIN(size, node->uncompressedSize - handle->offset);
+  *count = 0;
+
+  // Use any remaining data from the buffer, if possible
+  if (stream->bufferExtent > 0) {
+    size_t n = MIN(stream->bufferExtent, size);
+    size_t offset = sizeof(stream->buffer) - stream->bufferExtent;
+    memcpy(data, stream->buffer + offset, n);
+    stream->outputCursor += n;
+    stream->bufferExtent -= n;
+    handle->offset += n;
+    *count += n;
+    size -= n;
+    data += n;
+  }
+
+  // Finally, decompress data in chunks and copy to the output until finished
+  if (decompress(node, stream, data, size, count)) {
+    handle->offset += size;
+    return true;
+  }
+
+  return false;
+}
+
+static bool zip_seek(Archive* archive, Handle* handle, uint64_t offset) {
+  handle->offset = offset;
+  return true;
+}
+
+static bool zip_fsize(Archive* archive, Handle* handle, uint64_t* size) {
+  zip_node* node = handle->node;
+  *size = node->uncompressedSize;
+  return true;
+}
+
+static bool zip_stat(Archive* archive, const char* path, FileInfo* info, bool needTime) {
+  zip_node* node = zip_resolve(archive, path);
+  if (!node) return false;
+
+  // This is slow, so it's only done when asked for
+  if (needTime) {
+    struct tm t;
+    memset(&t, 0, sizeof(t));
+    t.tm_isdst = -1;
+    t.tm_year = ((node->mdate >> 9) & 127) + 80;
+    t.tm_mon = ((node->mdate >> 5) & 15) - 1;
+    t.tm_mday = node->mdate & 31;
+    t.tm_hour = (node->mtime >> 11) & 31;
+    t.tm_min = (node->mtime >> 5) & 63;
+    t.tm_sec = (node->mtime << 1) & 62;
+    info->lastModified = mktime(&t);
+  }
+
+  info->size = node->uncompressedSize;
+  info->type = node->directory ? FILE_DIRECTORY : FILE_REGULAR;
+  return true;
+}
+
+static void zip_list(Archive* archive, const char* path, fs_list_cb callback, void* context) {
+  const zip_node* node = zip_resolve(archive, path);
+  if (!node) return;
+  for (uint32_t i = node->firstChild; i != ~0u; i = node->nextSibling) {
+    char buffer[1024];
+    node = &archive->nodes.data[i];
+    memcpy(buffer, node->filename, node->filenameLength);
+    buffer[node->filenameLength] = '\0';
+    callback(context, buffer);
+  }
+}
+
+// Archive
+
+Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root) {
+  Archive* archive = calloc(1, sizeof(Archive));
+  lovrAssert(archive, "Out of memory");
+  archive->ref = 1;
+
+  if (dir_init(archive, path, root)) {
+    archive->open = dir_open;
+    archive->close = dir_close;
+    archive->read = dir_read;
+    archive->seek = dir_seek;
+    archive->fsize = dir_fsize;
+    archive->stat = dir_stat;
+    archive->list = dir_list;
+  } else if (zip_init(archive, path, root)) {
+    archive->open = zip_open;
+    archive->close = zip_close;
+    archive->read = zip_read;
+    archive->seek = zip_seek;
+    archive->fsize = zip_fsize;
+    archive->stat = zip_stat;
+    archive->list = zip_list;
+  } else {
+    free(archive);
+    return NULL;
+  }
+
+  if (mountpoint) {
+    size_t length = strlen(mountpoint);
+    archive->mountpoint = malloc(length + 1);
+    lovrAssert(archive->mountpoint, "Out of memory");
+    archive->mountLength = normalize(mountpoint, length, archive->mountpoint);
+  }
+
+  archive->pathLength = strlen(path);
+  archive->path = malloc(archive->pathLength + 1);
+  lovrAssert(archive->path, "Out of memory");
+  memcpy(archive->path, path, archive->pathLength + 1);
+
+  return archive;
+}
+
+void lovrArchiveDestroy(void* ref) {
+  Archive* archive = ref;
+  if (archive->data) zip_free(archive);
+  free(archive->mountpoint);
+  free(archive->path);
+  free(archive);
+}
+
+// File
+
+File* lovrFileCreate(const char* p, OpenMode mode, const char** error) {
+  char path[1024];
+  size_t length = sizeof(path);
+  if (!sanitize(p, path, &length)) {
+    return *error = "File path is too long or contains invalid characters", NULL;
+  }
+
+  Handle handle = { 0 };
+  Archive* archive = NULL;
+
+  if (mode == OPEN_READ) {
+    FOREACH_ARCHIVE(a) {
+      if (archiveContains(a, path, length)) {
+        if (a->open(a, path, &handle)) {
+          archive = a;
+          break;
+        }
+      }
+    }
+
+    if (!archive) {
+      return *error = "File does not exist", NULL;
+    }
+  } else {
+    char fullpath[LOVR_PATH_MAX];
+    if (!concat(fullpath, state.savePath, state.savePathLength, path, length)) {
+      return *error = "File path is too long", NULL;
+    }
+
+    if (!fs_open(fullpath, mode == OPEN_APPEND ? 'a' : 'w', &handle.file)) {
+      return *error = "Failed to open file for writing", NULL; // TODO better errors pl0x
+    }
+  }
+
+  File* file = calloc(1, sizeof(File));
+  lovrAssert(file, "Out of memory");
+  file->ref = 1;
+  file->mode = mode;
+  file->handle = handle;
+  file->archive = archive;
+  lovrRetain(archive);
+
+  file->path = malloc(length + 1);
+  lovrAssert(file->path, "Out of memory");
+  memcpy(file->path, path, length + 1);
+
+  return file;
+}
+
+void lovrFileDestroy(void* ref) {
+  File* file = ref;
+  if (file->archive) file->archive->close(file->archive, &file->handle);
+  lovrRelease(file->archive, lovrArchiveDestroy);
+  free(file->path);
+  free(file);
+}
+
+const char* lovrFileGetPath(File* file) {
+  return file->path;
+}
+
+OpenMode lovrFileGetMode(File* file) {
+  return file->mode;
+}
+
+uint64_t lovrFileGetSize(File* file) {
+  uint64_t size;
+  return file->archive->fsize(file->archive, &file->handle, &size) ? size : ~0ull;
+}
+
+bool lovrFileRead(File* file, void* data, size_t size, size_t* count) {
+  lovrCheck(file->mode == OPEN_READ, "File was not opened for reading");
+  return file->archive->read(file->archive, &file->handle, data, size, count);
+}
+
+bool lovrFileWrite(File* file, const void* data, size_t size, size_t* count) {
+  lovrCheck(file->mode != OPEN_READ, "File was not opened for writing");
+  return fs_write(file->handle.file, data, size, count);
+}
+
+bool lovrFileSeek(File* file, uint64_t offset) {
+  return file->archive->seek(file->archive, &file->handle, offset);
+}
+
+uint64_t lovrFileTell(File* file) {
+  return file->handle.offset;
 }
