@@ -90,8 +90,9 @@ static int l_lovrFileSeek(lua_State* L) {
   File* file = luax_checktype(L, 1, File);
   lua_Number offset = luaL_checknumber(L, 2);
   lovrCheck(offset >= 0 && offset < 9007199254740992.0, "Invalid seek position");
-  lovrFileSeek(file, offset);
-  return 0;
+  bool success = lovrFileSeek(file, offset);
+  lua_pushboolean(L, success);
+  return 1;
 }
 
 static int l_lovrFileTell(lua_State* L) {
