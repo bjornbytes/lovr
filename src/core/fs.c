@@ -39,17 +39,17 @@ bool fs_close(fs_handle file) {
   return CloseHandle(file.handle);
 }
 
-bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
-  DWORD bytes32 = *bytes > UINT32_MAX ? UINT32_MAX : (DWORD) *bytes;
-  bool success = ReadFile(file.handle, buffer, bytes32, &bytes32, NULL);
-  *bytes = bytes32;
+bool fs_read(fs_handle file, void* data, size_t size, size_t* count) {
+  DWORD bytes32 = size > UINT32_MAX ? UINT32_MAX : (DWORD) size;
+  bool success = ReadFile(file.handle, data, bytes32, &bytes32, NULL);
+  *count = bytes32;
   return success;
 }
 
-bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
-  DWORD bytes32 = *bytes > UINT32_MAX ? UINT32_MAX : (DWORD) *bytes;
+bool fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
+  DWORD bytes32 = size > UINT32_MAX ? UINT32_MAX : (DWORD) size;
   bool success = WriteFile(file.handle, buffer, bytes32, &bytes32, NULL);
-  *bytes = bytes32;
+  *count = bytes32;
   return success;
 }
 
@@ -208,24 +208,24 @@ bool fs_close(fs_handle file) {
   return close(file.fd) == 0;
 }
 
-bool fs_read(fs_handle file, void* buffer, size_t* bytes) {
-  ssize_t result = read(file.fd, buffer, *bytes);
+bool fs_read(fs_handle file, void* data, size_t size, size_t* count) {
+  ssize_t result = read(file.fd, data, size);
   if (result < 0 || result > SSIZE_MAX) {
-    *bytes = 0;
+    *count = 0;
     return false;
   } else {
-    *bytes = (uint32_t) result;
+    *count = result;
     return true;
   }
 }
 
-bool fs_write(fs_handle file, const void* buffer, size_t* bytes) {
-  ssize_t result = write(file.fd, buffer, *bytes);
+bool fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
+  ssize_t result = write(file.fd, data, size);
   if (result < 0 || result > SSIZE_MAX) {
-    *bytes = 0;
+    *count = 0;
     return false;
   } else {
-    *bytes = (uint32_t) result;
+    *count = (size_t) result;
     return true;
   }
 }

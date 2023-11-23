@@ -459,7 +459,8 @@ bool lovrFilesystemWrite(const char* path, const char* content, size_t size, boo
     return false;
   }
 
-  if (!fs_write(file, content, &size)) {
+  size_t count;
+  if (!fs_write(file, content, size, &count) || count != size) {
     return false;
   }
 
@@ -517,7 +518,12 @@ static bool dir_close(Archive* archive, Handle* handle) {
 }
 
 static bool dir_read(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count) {
-  return *count = size, fs_read(handle->file, data, count);
+  if (!fs_read(handle->file, data, size, count)) {
+    return false;
+  } else {
+    handle->offset += *count;
+    return true;
+  }
 }
 
 static bool dir_seek(Archive* archive, Handle* handle, uint64_t offset) {
@@ -1038,7 +1044,7 @@ bool lovrFileRead(File* file, void* data, size_t size, size_t* count) {
 
 bool lovrFileWrite(File* file, const void* data, size_t size, size_t* count) {
   lovrCheck(file->mode != OPEN_READ, "File was not opened for writing");
-  return *count = size, fs_write(file->handle.file, data, count);
+  return fs_write(file->handle.file, data, size, count);
 }
 
 bool lovrFileSeek(File* file, uint64_t offset) {

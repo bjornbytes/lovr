@@ -20,8 +20,8 @@ typedef union { int fd; void* handle; } fs_handle;
 
 bool fs_open(const char* path, char mode, fs_handle* file);
 bool fs_close(fs_handle file);
-bool fs_read(fs_handle file, void* buffer, size_t* bytes);
-bool fs_write(fs_handle file, const void* buffer, size_t* bytes);
+bool fs_read(fs_handle file, void* data, size_t size, size_t* count);
+bool fs_write(fs_handle file, const void* data, size_t size, size_t* count);
 bool fs_seek(fs_handle file, uint64_t offset);
 bool fs_fstat(fs_handle file, FileInfo* info);
 void* fs_map(const char* path, size_t* size);
