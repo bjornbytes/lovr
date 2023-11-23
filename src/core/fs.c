@@ -199,8 +199,9 @@ bool fs_open(const char* path, char mode, fs_handle* file) {
     case 'a': flags = O_APPEND | O_WRONLY | O_CREAT; break;
     default: return false;
   }
+  struct stat stats;
   file->fd = open(path, flags, S_IRUSR | S_IWUSR);
-  return file->fd >= 0;
+  return file->fd >= 0 && !fstat(file->fd, &stats) && !S_ISDIR(stats.st_mode);
 }
 
 bool fs_close(fs_handle file) {
