@@ -3,6 +3,7 @@
 #include "core/os.h"
 #include "util.h"
 #include "lib/miniz/miniz_tinfl.h"
+#include <stdatomic.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -67,7 +68,7 @@ struct File {
 };
 
 static struct {
-  bool initialized;
+  uint32_t ref;
   Archive* archives;
   size_t savePathLength;
   char savePath[1024];
@@ -132,8 +133,7 @@ static bool sanitize(const char* path, char* buffer, size_t* length) {
 }
 
 bool lovrFilesystemInit(const char* archive) {
-  if (state.initialized) return false;
-  state.initialized = true;
+  if (atomic_fetch_add(&state.ref, 1)) return false;
 
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
 
@@ -197,7 +197,7 @@ bool lovrFilesystemInit(const char* archive) {
 }
 
 void lovrFilesystemDestroy(void) {
-  if (!state.initialized) return;
+  if (atomic_fetch_sub(&state.ref, 1) != 1) return;
   Archive* archive = state.archives;
   while (archive) {
     Archive* next = archive->next;

@@ -359,17 +359,14 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
     config.cacheData = luax_readfile(".lovrshadercache", &config.cacheSize);
   }
 
-  if (lovrGraphicsInit(&config)) {
-    luax_atexit(L, lovrGraphicsDestroy);
+  lovrGraphicsInit(&config);
+  luax_atexit(L, lovrGraphicsDestroy);
 
-    // Finalizers run in the opposite order they were added, so this has to go last
-    if (shaderCache) {
-      luax_atexit(L, luax_writeshadercache);
-    }
+  if (shaderCache) { // Finalizers run in the opposite order they were added, so this has to go last
+    luax_atexit(L, luax_writeshadercache);
   }
 
   free(config.cacheData);
-
   return 0;
 }
 

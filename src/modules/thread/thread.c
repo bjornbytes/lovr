@@ -4,6 +4,7 @@
 #include "core/os.h"
 #include "util.h"
 #include <math.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <threads.h>
@@ -32,20 +33,20 @@ struct Channel {
 };
 
 static struct {
-  bool initialized;
+  uint32_t ref;
   mtx_t channelLock;
   map_t channels;
 } state;
 
 bool lovrThreadModuleInit(void) {
-  if (state.initialized) return false;
+  if (atomic_fetch_add(&state.ref, 1)) return false;
   mtx_init(&state.channelLock, mtx_plain);
   map_init(&state.channels, 0);
-  return state.initialized = true;
+  return true;
 }
 
 void lovrThreadModuleDestroy(void) {
-  if (!state.initialized) return;
+  if (atomic_fetch_sub(&state.ref, 1)) return;
   for (size_t i = 0; i < state.channels.size; i++) {
     if (state.channels.values[i] != MAP_NIL) {
       lovrRelease((Channel*) (uintptr_t) state.channels.values[i], lovrChannelDestroy);
@@ -53,7 +54,7 @@ void lovrThreadModuleDestroy(void) {
   }
   mtx_destroy(&state.channelLock);
   map_free(&state.channels);
-  state.initialized = false;
+  memset(&state, 0, sizeof(state));
 }
 
 Channel* lovrThreadGetChannel(const char* name) {

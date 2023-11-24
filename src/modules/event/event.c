@@ -1,11 +1,12 @@
 #include "event/event.h"
 #include "thread/thread.h"
 #include "util.h"
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
 static struct {
-  bool initialized;
+  uint32_t ref;
   arr_t(Event) events;
   size_t head;
 } state;
@@ -20,13 +21,13 @@ void lovrVariantDestroy(Variant* variant) {
 }
 
 bool lovrEventInit(void) {
-  if (state.initialized) return false;
+  if (atomic_fetch_add(&state.ref, 1)) return false;
   arr_init(&state.events, arr_alloc);
-  return state.initialized = true;
+  return true;
 }
 
 void lovrEventDestroy(void) {
-  if (!state.initialized) return;
+  if (atomic_fetch_sub(&state.ref, 1) != 1) return;
   for (size_t i = state.head; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
     switch (event->type) {

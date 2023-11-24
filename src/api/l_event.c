@@ -280,9 +280,7 @@ int luaopen_lovr_event(lua_State* L) {
   lua_pushcfunction(L, nextEvent);
   pollRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-  if (lovrEventInit()) {
-    luax_atexit(L, lovrEventDestroy);
-  }
-
+  lovrEventInit();
+  luax_atexit(L, lovrEventDestroy);
   return 1;
 }

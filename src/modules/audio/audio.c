@@ -4,6 +4,7 @@
 #include "core/maf.h"
 #include "util.h"
 #include "lib/miniaudio/miniaudio.h"
+#include <stdatomic.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -41,7 +42,7 @@ struct Source {
 };
 
 static struct {
-  bool initialized;
+  uint32_t ref;
   ma_mutex lock;
   ma_context context;
   ma_device devices[2];
@@ -193,7 +194,7 @@ static Spatializer* spatializers[] = {
 // Entry
 
 bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
-  if (state.initialized) return false;
+  if (atomic_fetch_add(&state.ref, 1)) return false;
 
   state.sampleRate = sampleRate;
 
@@ -221,12 +222,11 @@ bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   state.absorption[2] = .0182f;
 
   quat_identity(state.orientation);
-
-  return state.initialized = true;
+  return true;
 }
 
 void lovrAudioDestroy(void) {
-  if (!state.initialized) return;
+  if (atomic_fetch_sub(&state.ref, 1) != 1) return;
   for (size_t i = 0; i < 2; i++) {
     ma_device_uninit(&state.devices[i]);
     free(state.deviceInfo[i]);

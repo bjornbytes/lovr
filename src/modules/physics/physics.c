@@ -1,6 +1,7 @@
 #include "physics.h"
 #include "util.h"
 #include <ode/ode.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 
 struct World {
@@ -138,21 +139,20 @@ static void onInfoMessage(int num, const char* format, va_list args) {
   lovrLog(LOG_INFO, "PHY", message);
 }
 
-static bool initialized = false;
+static uint32_t ref;
 
 bool lovrPhysicsInit(void) {
-  if (initialized) return false;
+  if (atomic_fetch_add(&ref, 1)) return false;
   dInitODE();
   dSetErrorHandler(onErrorMessage);
   dSetDebugHandler(onDebugMessage);
   dSetMessageHandler(onInfoMessage);
-  return initialized = true;
+  return true;
 }
 
 void lovrPhysicsDestroy(void) {
-  if (!initialized) return;
+  if (atomic_fetch_sub(&ref, 1) != 1) return;
   dCloseODE();
-  initialized = false;
 }
 
 World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount) {

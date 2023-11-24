@@ -1,12 +1,12 @@
 #include "headset/headset.h"
 #include "util.h"
+#include <stdatomic.h>
 
 HeadsetInterface* lovrHeadsetInterface = NULL;
-static bool initialized = false;
+static uint32_t ref;
 
 bool lovrHeadsetInit(HeadsetConfig* config) {
-  if (initialized) return false;
-  initialized = true;
+  if (atomic_fetch_add(&ref, 1)) return false;
 
   for (size_t i = 0; i < config->driverCount; i++) {
     HeadsetInterface* interface = NULL;
@@ -35,12 +35,12 @@ bool lovrHeadsetInit(HeadsetConfig* config) {
 }
 
 void lovrHeadsetDestroy(void) {
-  if (!initialized) return;
-  initialized = false;
+  if (atomic_fetch_sub(&ref, 1) != 1) return;
   if (lovrHeadsetInterface) {
     lovrHeadsetInterface->destroy();
     lovrHeadsetInterface = NULL;
   }
+  ref = 0;
 }
 
 void lovrLayerDestroy(void* ref) {

@@ -2,10 +2,11 @@
 #include "event/event.h"
 #include "core/os.h"
 #include "util.h"
+#include <stdatomic.h>
 #include <string.h>
 
 static struct {
-  bool initialized;
+  uint32_t ref;
   bool keyRepeat;
   bool prevKeyState[OS_KEY_COUNT];
   bool keyState[OS_KEY_COUNT];
@@ -84,20 +85,19 @@ static void onQuit(void) {
 }
 
 bool lovrSystemInit(void) {
-  if (state.initialized) return false;
+  if (atomic_fetch_add(&state.ref, 1)) return false;
   os_on_key(onKey);
   os_on_text(onText);
   os_on_mouse_button(onMouseButton);
   os_on_mouse_move(onMouseMove);
   os_on_mousewheel_move(onWheelMove);
   os_on_permission(onPermission);
-  state.initialized = true;
   os_get_mouse_position(&state.mouseX, &state.mouseY);
   return true;
 }
 
 void lovrSystemDestroy(void) {
-  if (!state.initialized) return;
+  if (atomic_fetch_sub(&state.ref, 1) != 1) return;
   os_on_key(NULL);
   os_on_text(NULL);
   os_on_permission(NULL);

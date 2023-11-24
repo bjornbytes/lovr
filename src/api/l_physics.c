@@ -178,8 +178,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, CylinderShape);
   luax_registertype(L, MeshShape);
   luax_registertype(L, TerrainShape);
-  if (lovrPhysicsInit()) {
-    luax_atexit(L, lovrPhysicsDestroy);
-  }
+  lovrPhysicsInit();
+  luax_atexit(L, lovrPhysicsDestroy);
   return 1;
 }

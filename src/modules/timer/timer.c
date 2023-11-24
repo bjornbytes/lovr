@@ -1,9 +1,10 @@
 #include "timer/timer.h"
 #include "core/os.h"
+#include <stdatomic.h>
 #include <string.h>
 
 static struct {
-  bool initialized;
+  uint32_t ref;
   double epoch;
   double lastTime;
   double time;
@@ -14,14 +15,13 @@ static struct {
 } state;
 
 bool lovrTimerInit(void) {
-  if (state.initialized) return false;
-  state.initialized = true;
+  if (atomic_fetch_add(&state.ref, 1)) return false;
   state.epoch = os_get_time();
   return true;
 }
 
 void lovrTimerDestroy(void) {
-  if (!state.initialized) return;
+  if (atomic_fetch_sub(&state.ref, 1) != 1) return;
   memset(&state, 0, sizeof(state));
 }
 

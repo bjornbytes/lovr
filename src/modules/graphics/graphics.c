@@ -14,6 +14,7 @@
 #include "monkey.h"
 #include "shaders.h"
 #include <math.h>
+#include <stdatomic.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -547,7 +548,7 @@ typedef struct {
 } ScratchTexture;
 
 static struct {
-  bool initialized;
+  uint32_t ref;
   bool active;
   bool presentable;
   bool timingEnabled;
@@ -618,7 +619,7 @@ static void onMessage(void* context, const char* message, bool severe);
 // Entry
 
 bool lovrGraphicsInit(GraphicsConfig* config) {
-  if (state.initialized) return false;
+  if (atomic_fetch_add(&state.ref, 1)) return false;
 
   gpu_config gpu = {
     .debug = config->debug,
@@ -803,12 +804,11 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 #ifdef LOVR_USE_GLSLANG
   glslang_initialize_process();
 #endif
-  state.initialized = true;
   return true;
 }
 
 void lovrGraphicsDestroy(void) {
-  if (!state.initialized) return;
+  if (atomic_fetch_sub(&state.ref, 1) != 1) return;
 #ifndef LOVR_DISABLE_HEADSET
   // If there's an active headset session it needs to be stopped so it can clean up its Pass and
   // swapchain textures before gpu_destroy is called.  This is really hacky and should be solved
@@ -889,7 +889,7 @@ void lovrGraphicsDestroy(void) {
 }
 
 bool lovrGraphicsIsInitialized(void) {
-  return state.initialized;
+  return state.ref;
 }
 
 void lovrGraphicsGetDevice(GraphicsDevice* device) {
