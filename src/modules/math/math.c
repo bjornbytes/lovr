@@ -1,5 +1,6 @@
 #include "math.h"
 #include "core/maf.h"
+#include "core/os.h"
 #include "util.h"
 #include "lib/noise/simplexnoise1234.h"
 #include <math.h>
@@ -229,21 +230,22 @@ Pool* lovrPoolCreate(void) {
   Pool* pool = calloc(1, sizeof(Pool));
   lovrAssert(pool, "Out of memory");
   pool->ref = 1;
+  pool->data = os_vm_init((1 << 24) * sizeof(float));
   lovrPoolGrow(pool, 1 << 12);
   return pool;
 }
 
 void lovrPoolDestroy(void* ref) {
   Pool* pool = ref;
-  free(pool->data);
+  os_vm_free(pool->data, (1 << 24) * sizeof(float));
   free(pool);
 }
 
 void lovrPoolGrow(Pool* pool, size_t count) {
   lovrAssert(count <= (1 << 24), "Temporary vector space exhausted.  Try using lovr.math.drain to drain the vector pool periodically.");
   pool->count = (uint32_t) count; // Assert guarantees safe
-  pool->data = realloc(pool->data, pool->count * sizeof(float));
-  lovrAssert(pool->data, "Out of memory");
+  bool result = os_vm_commit(pool->data, count * sizeof(float));
+  lovrAssert(result, "Out of memory");
 }
 
 Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
