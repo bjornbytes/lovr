@@ -683,13 +683,13 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
     }
 
     // Skip files if their names are too long, too short, or not under the root
-    if (length <= rootLength || (root && memcmp(path, root, rootLength))) {
+    if (length <= rootLength || (root && memcmp(path, root, rootLength) && path[rootLength] != '/')) {
       continue;
     }
 
     // Strip root
-    path += rootLength;
-    length -= rootLength;
+    path += rootLength + 1;
+    length -= rootLength + 1;
 
     // Keep chopping off path segments, building up a tree of paths
     // We can stop early if we reach a path that has already been indexed
@@ -756,6 +756,8 @@ static bool zip_open(Archive* archive, const char* path, Handle* handle) {
     stream->inputCursor = 0;
     stream->outputCursor = 0;
     stream->bufferExtent = 0;
+  } else {
+    handle->stream = NULL;
   }
 
   handle->offset = 0;
