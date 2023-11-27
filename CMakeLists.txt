@@ -779,11 +779,7 @@ elseif(ANDROID)
   if(LOVR_BUILD_EXE)
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
-
-    # If assets are included in the apk then add '-A assets' to aapt, otherwise don't add any flags
-    if(ANDROID_ASSETS)
-      set(ANDROID_ASSETS -A ${ANDROID_ASSETS})
-    endif()
+    set(ANDROID_ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/etc/nogame" CACHE STRING "The project folder to include in the APK")
 
     if(LOVR_USE_OPENXR)
       add_custom_command(TARGET move_files POST_BUILD
@@ -825,7 +821,7 @@ elseif(ANDROID)
         -M AndroidManifest.xml
         -I ${ANDROID_JAR}
         -F lovr.unaligned.apk
-        ${ANDROID_ASSETS}
+        -A ${ANDROID_ASSETS}
         raw
       COMMAND ${ANDROID_TOOLS}/zipalign -f -p 4 lovr.unaligned.apk lovr.unsigned.apk
       COMMAND ${ANDROID_TOOLS}/apksigner
