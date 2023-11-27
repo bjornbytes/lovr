@@ -177,7 +177,8 @@ size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   id bundle = msg(id, cls(NSBundle), "mainBundle");
   id path = msg2(id, bundle, "pathForResource:ofType:", id, nil, id, extension);
   if (path == nil) {
-    return 0;
+    *root = NULL;
+    return os_get_executable_path(buffer, size);
   }
 
   const char* cpath = msg(const char*, path, "UTF8String");
