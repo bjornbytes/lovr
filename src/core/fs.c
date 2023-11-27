@@ -200,7 +200,7 @@ bool fs_open(const char* path, char mode, fs_handle* file) {
     default: return false;
   }
   struct stat stats;
-  file->fd = open(path, flags, S_IRUSR | S_IWUSR);
+  file->fd = open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
   return file->fd >= 0 && !fstat(file->fd, &stats) && !S_ISDIR(stats.st_mode);
 }
 
@@ -279,7 +279,7 @@ bool fs_remove(const char* path) {
 }
 
 bool fs_mkdir(const char* path) {
-  return mkdir(path, S_IRWXU) == 0;
+  return mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) == 0;
 }
 
 bool fs_list(const char* path, fs_list_cb* callback, void* context) {
