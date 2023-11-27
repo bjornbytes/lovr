@@ -629,12 +629,19 @@ foreach(path ${LOVR_RESOURCES})
   file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
 endforeach()
 
-add_custom_command(TARGET lovr POST_BUILD
-  DEPENDS "etc/nogame"
-  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/etc/nogame"
-  COMMAND ${CMAKE_COMMAND} -E tar c "${CMAKE_CURRENT_BINARY_DIR}/nogame.zip" --format=zip arg.lua conf.lua main.lua
-  COMMAND ${CMAKE_COMMAND} -E cat "${CMAKE_CURRENT_BINARY_DIR}/nogame.zip" >> $<TARGET_FILE:lovr>
-)
+if(NOT ANDROID)
+  if(APPLE AND LOVR_BUILD_BUNDLE)
+    set(NOGAME_BUNDLE "${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/Resources/nogame.lovr")
+  else()
+    set(NOGAME_BUNDLE "$<TARGET_FILE:lovr>")
+  endif()
+  add_custom_command(TARGET lovr POST_BUILD
+    DEPENDS "etc/nogame"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/etc/nogame"
+    COMMAND ${CMAKE_COMMAND} -E tar c "${CMAKE_CURRENT_BINARY_DIR}/nogame.zip" --format=zip arg.lua conf.lua main.lua
+    COMMAND ${CMAKE_COMMAND} -E cat "${CMAKE_CURRENT_BINARY_DIR}/nogame.zip" >> ${NOGAME_BUNDLE}
+  )
+endif()
 
 # Add a custom target that is always out of date so libraries are always moved
 add_custom_target(move_files ALL)
