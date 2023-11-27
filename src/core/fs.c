@@ -183,7 +183,7 @@ bool fs_open(const char* path, OpenMode mode, fs_handle* file) {
     case OPEN_APPEND: flags = O_APPEND | O_WRONLY | O_CREAT; break;
     default: return false;
   }
-  file->fd = open(path, flags, S_IRUSR | S_IWUSR);
+  file->fd = open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
   return file->fd >= 0;
 }
 
@@ -249,7 +249,7 @@ bool fs_remove(const char* path) {
 }
 
 bool fs_mkdir(const char* path) {
-  return mkdir(path, S_IRWXU) == 0;
+  return mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) == 0;
 }
 
 bool fs_list(const char* path, fs_list_cb* callback, void* context) {
