@@ -4888,7 +4888,7 @@ void* lovrReadbackGetData(Readback* readback, DataField** format, uint32_t* coun
 
   if (readback->type == READBACK_BUFFER && readback->buffer->info.format) {
     *format = readback->buffer->info.format;
-    *count = readback->blob->size / readback->buffer->info.format->stride;
+    *count = (uint32_t) (readback->blob->size / readback->buffer->info.format->stride);
     return readback->blob->data;
   }
 
@@ -7712,7 +7712,7 @@ static void onResize(uint32_t width, uint32_t height) {
 static void onMessage(void* context, const char* message, bool severe) {
   if (severe) {
 #ifdef _WIN32
-    if (!state.initialized) {
+    if (!state.defaultTexture) { // Hacky way to determine if initialization has completed
       const char* format = "This program requires a graphics card with support for Vulkan 1.1, but no device was found or it failed to initialize properly.  The error message was:\n\n%s";
       size_t size = snprintf(NULL, 0, format, message) + 1;
       char* string = malloc(size);
