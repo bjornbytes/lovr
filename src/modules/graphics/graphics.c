@@ -2769,16 +2769,15 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       gpu_phase phase = s == 0 ? firstPhase : GPU_PHASE_SHADER_FRAGMENT;
       bool append = true;
 
-      if (s > 0) {
-        for (uint32_t j = 0; j < shader->resourceCount; j++) {
-          ShaderResource* other = &shader->resources[j];
-          if (other->binding == resource->binding) {
-            lovrCheck(other->type == resourceTypes[resource->type], "Shader variable (%d) does not use a consistent type", resource->binding);
-            slots[j].stages |= stage;
-            shader->resources[j].phase |= phase;
-            append = false;
-            break;
-          }
+      // It's ok to reuse binding slots (within or across stages), but the type must be consistent
+      for (uint32_t j = 0; j < shader->resourceCount; j++) {
+        ShaderResource* other = &shader->resources[j];
+        if (other->binding == resource->binding) {
+          lovrCheck(other->type == resourceTypes[resource->type], "Shader variable with binding number %d is declared multiple times with inconsistent types", resource->binding);
+          slots[j].stages |= stage;
+          shader->resources[j].phase |= phase;
+          append = false;
+          break;
         }
       }
 
