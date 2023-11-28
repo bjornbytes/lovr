@@ -98,10 +98,10 @@ function lovr.boot()
 
   local ok, failure = true, nil
   if source ~= bundle and not lovr.filesystem.mount(source) then
-    failure = ('Failed to load project at %q\nMake sure the path or archive is valid.'):format(source)
+    ok, failure = false, ('Failed to load project at %q\nMake sure the path or archive is valid.'):format(source)
   elseif not lovr.filesystem.isFile(main) then
     local location = source == '.' and '' or (' in %q'):format(source:match('[^/\\]+[/\\]?$'))
-    failure = ('No %s file found%s.\nThe project may be packaged incorrectly.'):format(main, location)
+    ok, failure = false, ('No %s file found%s.\nThe project may be packaged incorrectly.'):format(main, location)
   else
     lovr.filesystem.setSource(source)
     if lovr.filesystem.isFile('conf.lua') then ok, failure = pcall(require, 'conf') end
@@ -140,7 +140,7 @@ function lovr.boot()
     lovr.headset.start()
   end
 
-  if failure then
+  if not ok and failure then
     error(failure)
   end
 
