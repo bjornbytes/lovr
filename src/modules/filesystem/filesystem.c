@@ -655,7 +655,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
     // Sanity check the local file header
     uint64_t headerOffset = base + readu32(p + 42);
     uint8_t* header = archive->data + headerOffset;
-    if (base + headerOffset > archive->size - 30 || readu32(header) != 0x04034b50) {
+    if (headerOffset > archive->size - 30 || readu32(header) != 0x04034b50) {
       zip_free(archive);
       return false;
     }
@@ -688,8 +688,10 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
     }
 
     // Strip root
-    path += rootLength + 1;
-    length -= rootLength + 1;
+    if (root) {
+      path += rootLength + 1;
+      length -= rootLength + 1;
+    }
 
     // Keep chopping off path segments, building up a tree of paths
     // We can stop early if we reach a path that has already been indexed
