@@ -426,16 +426,12 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
 // Texture
 
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
-  VkImageType type;
-  VkImageCreateFlags flags = 0;
-
-  switch (info->type) {
-    case GPU_TEXTURE_2D: type = VK_IMAGE_TYPE_2D; break;
-    case GPU_TEXTURE_3D: type = VK_IMAGE_TYPE_3D, flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT; break;
-    case GPU_TEXTURE_CUBE: type = VK_IMAGE_TYPE_2D, flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; break;
-    case GPU_TEXTURE_ARRAY: type = VK_IMAGE_TYPE_2D; break;
-    default: return false;
-  }
+  static const VkImageType imageTypes[] = {
+    [GPU_TEXTURE_2D] = VK_IMAGE_TYPE_2D,
+    [GPU_TEXTURE_3D] = VK_IMAGE_TYPE_3D,
+    [GPU_TEXTURE_CUBE] = VK_IMAGE_TYPE_2D,
+    [GPU_TEXTURE_ARRAY] = VK_IMAGE_TYPE_2D
+  };
 
   switch (info->format) {
     case GPU_FORMAT_D16: texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT; break;
@@ -445,19 +441,16 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT; break;
   }
 
-  if (info->srgb && (info->usage & GPU_TEXTURE_STORAGE)) {
-    flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
-  }
-
   texture->layout = getNaturalLayout(info->usage, texture->aspect);
-  texture->layers = type == VK_IMAGE_TYPE_2D ? info->size[2] : 0;
+  texture->layers = info->type == GPU_TEXTURE_3D ? 0 : info->size[2];
   texture->samples = info->samples;
   texture->format = info->format;
   texture->srgb = info->srgb;
 
   gpu_texture_view_info viewInfo = {
     .source = texture,
-    .type = info->type
+    .type = info->type,
+    .usage = info->usage
   };
 
   if (info->handle) {
@@ -469,9 +462,12 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   VkImageCreateInfo imageInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-    .flags = flags,
-    .imageType = type,
-    .format = convertFormat(texture->format, texture->srgb),
+    .flags =
+      (info->type == GPU_TEXTURE_3D ? VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT : 0) |
+      (info->type == GPU_TEXTURE_CUBE ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0) |
+      (info->srgb ? VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : 0),
+    .imageType = imageTypes[info->type],
+    .format = convertFormat(texture->format, LINEAR),
     .extent.width = info->size[0],
     .extent.height = info->size[1],
     .extent.depth = texture->layers ? 1 : info->size[2],
@@ -492,15 +488,15 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   VkFormat formats[2];
   VkImageFormatListCreateInfo imageFormatList;
-  if ((flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) && state.extensions.formatList) {
+  if (info->srgb && state.extensions.formatList) {
     imageFormatList = (VkImageFormatListCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO,
       .viewFormatCount = COUNTOF(formats),
       .pViewFormats = formats
     };
 
-    formats[0] = convertFormat(texture->format, texture->srgb);
-    formats[1] = convertFormat(texture->format, !texture->srgb);
+    formats[0] = imageInfo.format;
+    formats[1] = convertFormat(texture->format, SRGB);
 
     if (formats[0] != formats[1]) {
       imageFormatList.pNext = imageInfo.pNext;
@@ -534,6 +530,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   }
 
   bool needsView = info->usage & (GPU_TEXTURE_RENDER | GPU_TEXTURE_SAMPLE | GPU_TEXTURE_STORAGE);
+  if (info->usage == GPU_TEXTURE_STORAGE && info->srgb) needsView = false;
 
   if (needsView && !gpu_texture_init_view(texture, &viewInfo)) {
     vkDestroyImage(state.device, texture->handle, NULL);
@@ -646,7 +643,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     texture->samples = info->source->samples;
     texture->layers = info->layerCount ? info->layerCount : (info->source->layers - info->layerIndex);
     texture->format = info->source->format;
-    texture->srgb = !info->linear;
+    texture->srgb = info->srgb;
   }
 
   VkImageViewType type;
@@ -657,8 +654,18 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     case GPU_TEXTURE_ARRAY: type = VK_IMAGE_VIEW_TYPE_2D_ARRAY; break;
   }
 
+  VkImageViewUsageCreateInfo usage = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,
+    .usage =
+      ((info->usage & GPU_TEXTURE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
+      (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
+      (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect != VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
+      ((info->usage & GPU_TEXTURE_STORAGE) && !texture->srgb ? VK_IMAGE_USAGE_STORAGE_BIT : 0)
+  };
+
   VkImageViewCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+    .pNext = &usage,
     .image = info->source->handle,
     .viewType = type,
     .format = convertFormat(texture->format, texture->srgb),
@@ -825,7 +832,8 @@ void gpu_surface_resize(uint32_t width, uint32_t height) {
 
     gpu_texture_view_info view = {
       .source = texture,
-      .type = GPU_TEXTURE_2D
+      .type = GPU_TEXTURE_2D,
+      .usage = GPU_TEXTURE_RENDER
     };
 
     CHECK(gpu_texture_init_view(texture, &view), "Failed to create swapchain texture views") return;

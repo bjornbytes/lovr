@@ -78,7 +78,7 @@ struct Texture {
   Sync sync;
   gpu_texture* gpu;
   gpu_texture* renderView;
-  gpu_texture* linearView;
+  gpu_texture* storageView;
   Material* material;
   TextureInfo info;
 };
@@ -2016,6 +2016,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   uint32_t mipmaps = CLAMP(info->mipmaps, 1, mipmapCap);
   bool srgb = supportsSRGB(info->format) && info->srgb;
   uint8_t supports = state.features.formats[info->format][srgb];
+  uint8_t linearSupports = state.features.formats[info->format][false];
 
   lovrCheck(info->width > 0, "Texture width must be greater than zero");
   lovrCheck(info->height > 0, "Texture height must be greater than zero");
@@ -2035,7 +2036,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(info->samples == 1 || mipmaps == 1, "Multisampled textures can only have 1 mipmap");
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this texture format/encoding");
   lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this texture format/encoding");
-  lovrCheck(~info->usage & TEXTURE_STORAGE || (supports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this texture format/encoding");
+  lovrCheck(~info->usage & TEXTURE_STORAGE || (linearSupports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this texture format");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->width <= state.limits.renderSize[0], "Texture has 'render' flag but its size exceeds the renderSize limit");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->height <= state.limits.renderSize[1], "Texture has 'render' flag but its size exceeds the renderSize limit");
   lovrCheck(~info->usage & TEXTURE_RENDER || info->type != TEXTURE_3D || !isDepthFormat(info->format), "3D depth textures can not have the 'render' flag");
@@ -2121,6 +2122,8 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       gpu_texture_view_info view = {
         .source = texture->gpu,
         .type = GPU_TEXTURE_ARRAY,
+        .usage = GPU_TEXTURE_RENDER,
+        .srgb = srgb,
         .layerCount = info->layers,
         .levelCount = 1
       };
@@ -2131,20 +2134,20 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     }
   }
 
-  // Make a linear view of sRGB textures for storage bindings, since most GPUs don't support sRGB
-  // storage textures
+  // Make a linear view of sRGB textures for storage bindings
   if (srgb && (info->usage & TEXTURE_STORAGE)) {
     gpu_texture_view_info view = {
       .source = texture->gpu,
       .type = (gpu_texture_type) info->type,
-      .linear = true
+      .usage = GPU_TEXTURE_STORAGE,
+      .srgb = false
     };
 
-    texture->linearView = malloc(gpu_sizeof_texture());
-    lovrAssert(texture->linearView, "Out of memory");
-    lovrAssert(gpu_texture_init_view(texture->linearView, &view), "Failed to create texture view");
+    texture->storageView = malloc(gpu_sizeof_texture());
+    lovrAssert(texture->storageView, "Out of memory");
+    lovrAssert(gpu_texture_init_view(texture->storageView, &view), "Failed to create texture view");
   } else {
-    texture->linearView = texture->gpu;
+    texture->storageView = texture->gpu;
   }
 
   // Sample-only textures are exempt from sync tracking to reduce overhead.  Instead, they are
@@ -2188,14 +2191,20 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
   texture->info.height = MAX(info->height >> view->levelIndex, 1);
   texture->info.layers = view->layerCount;
 
-  gpu_texture_init_view(texture->gpu, &(gpu_texture_view_info) {
-    .source = view->parent->gpu,
-    .type = (gpu_texture_type) view->type,
-    .layerIndex = view->layerIndex,
-    .layerCount = view->layerCount,
-    .levelIndex = view->levelIndex,
-    .levelCount = view->levelCount
-  });
+  if (info->usage & (TEXTURE_SAMPLE | TEXTURE_RENDER)) {
+    gpu_texture_init_view(texture->gpu, &(gpu_texture_view_info) {
+      .source = view->parent->gpu,
+      .type = (gpu_texture_type) view->type,
+      .usage = info->usage,
+      .srgb = info->srgb,
+      .layerIndex = view->layerIndex,
+      .layerCount = view->layerCount,
+      .levelIndex = view->levelIndex,
+      .levelCount = view->levelCount
+    });
+  } else {
+    texture->gpu = NULL;
+  }
 
   if ((info->usage & TEXTURE_RENDER) && view->layerCount <= state.limits.renderSize[2]) {
     if (view->levelCount == 1) {
@@ -2204,6 +2213,7 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
       gpu_texture_view_info subview = {
         .source = view->parent->gpu,
         .type = GPU_TEXTURE_ARRAY,
+        .usage = GPU_TEXTURE_RENDER,
         .layerIndex = view->layerIndex,
         .layerCount = view->layerCount,
         .levelIndex = view->levelIndex,
@@ -2216,6 +2226,25 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
     }
   }
 
+  if ((info->usage & TEXTURE_STORAGE) && info->srgb) {
+    gpu_texture_view_info subview = {
+      .source = view->parent->gpu,
+      .type = (gpu_texture_type) info->type,
+      .usage = GPU_TEXTURE_STORAGE,
+      .srgb = false,
+      .layerIndex = view->layerIndex,
+      .layerCount = view->layerCount,
+      .levelIndex = view->levelIndex,
+      .levelCount = view->levelCount
+    };
+
+    texture->storageView = malloc(gpu_sizeof_texture());
+    lovrAssert(texture->storageView, "Out of memory");
+    lovrAssert(gpu_texture_init_view(texture->storageView, &subview), "Failed to create texture view");
+  } else {
+    texture->storageView = texture->gpu;
+  }
+
   lovrRetain(view->parent);
   return texture;
 }
@@ -2226,7 +2255,7 @@ void lovrTextureDestroy(void* ref) {
     lovrRelease(texture->material, lovrMaterialDestroy);
     lovrRelease(texture->info.parent, lovrTextureDestroy);
     if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
-    if (texture->linearView && texture->linearView != texture->gpu) gpu_texture_destroy(texture->linearView);
+    if (texture->storageView && texture->storageView != texture->gpu) gpu_texture_destroy(texture->storageView);
     if (texture->gpu) gpu_texture_destroy(texture->gpu);
   }
   free(texture);
@@ -5649,7 +5678,7 @@ void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t s
   gpu_texture* view = texture->gpu;
   if (shader->storageMask & (1u << slot)) {
     lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' usage to send them to image variables in shaders");
-    view = texture->linearView;
+    view = texture->storageView;
   } else {
     lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to send them to sampler variables in shaders");
   }
