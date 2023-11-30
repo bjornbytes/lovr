@@ -8,7 +8,7 @@
 
 struct job {
   job* next;
-  atomic_bool done;
+  atomic_uint done;
   fn_job* fn;
   void* arg;
 };
@@ -42,7 +42,7 @@ static int worker_loop(void* arg) {
     mtx_unlock(&state.lock);
 
     job->fn(job->arg);
-    job->done = true;
+    atomic_fetch_add(&job->done, 1);
   }
 
   mtx_unlock(&state.lock);
@@ -98,7 +98,7 @@ job* job_start(fn_job* fn, void* arg) {
   state.lastJob = job;
 
   job->next = NULL;
-  job->done = false;
+  atomic_store(&job->done, 0);
   job->fn = fn;
   job->arg = arg;
 
@@ -110,7 +110,7 @@ job* job_start(fn_job* fn, void* arg) {
 void job_wait(job* job) {
   mtx_lock(&state.lock);
 
-  while (!job->done) {
+  while (atomic_load(&job->done) == 0) {
     struct job* task = state.nextJob;
     if (task) state.nextJob = task->next;
     if (!state.nextJob) state.lastJob = NULL;
@@ -118,7 +118,7 @@ void job_wait(job* job) {
 
     if (task) {
       task->fn(task->arg);
-      task->done = true;
+      atomic_fetch_add(&task->done, 1);
     } else {
       thrd_yield();
     }
