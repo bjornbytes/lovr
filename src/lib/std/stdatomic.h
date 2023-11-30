@@ -145,8 +145,26 @@ _Bool atomic_flag_clear_explicit(volatile atomic_flag*, memory_order);
 
 typedef volatile long atomic_uint;
 
+#define atomic_store(p, x) *(p) = (x);
+#define atomic_store_explicit(p, x, o) atomic_store(p, x)
+
+#define atomic_load(p) *(p)
+#define atomic_load_explicit(p, o) atomic_load(p)
+
 #define atomic_fetch_add(p, x) _InterlockedExchangeAdd(p, x)
+#define atomic_fetch_add_explicit(p, x, o) atomic_fetch_add(p, x)
+
 #define atomic_fetch_sub(p, x) _InterlockedExchangeAdd(p, -(x))
+#define atomic_fetch_sub_explicit(p, x, o) atomic_fetch_sub(p, x)
+
+#define atomic_fetch_or(p, x) InterlockedOr(p, x)
+#define atomic_fetch_or_explicit(p, x, o) atomic_fetch_or(p, x)
+
+#define atomic_fetch_xor(p, x) InterlockedXor(p, x)
+#define atomic_fetch_xor_explicit(p, x, o) atomic_fetch_xor(p, x)
+
+#define atomic_fetch_and(p, x) InterlockedAnd(p, x)
+#define atomic_fetch_and_explicit(p, x, o) atomic_fetch_and(p, x)
 
 #define ATOMIC_INT_LOCK_FREE 2
 
