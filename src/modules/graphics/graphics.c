@@ -2495,6 +2495,7 @@ static glsl_include_result_t* includer(void* cb, const char* path, const char* i
   lovrAssert(result, "Out of memory");
   result->header_name = path;
   result->header_data = ((ShaderIncluder*) cb)(path, &result->header_length);
+  if (!result->header_data) return NULL;
   return result;
 }
 #endif
