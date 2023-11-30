@@ -17,9 +17,9 @@ static struct {
   job jobs[MAX_JOBS];
   thrd_t workers[MAX_WORKERS];
   uint32_t workerCount;
-  job* freeJob;
-  job* nextJob;
-  job* lastJob;
+  job* head;
+  job* tail;
+  job* pool;
   cnd_t hasJob;
   mtx_t lock;
   bool done;
@@ -28,7 +28,8 @@ static struct {
 static int worker_loop(void* arg) {
   for (;;) {
     mtx_lock(&state.lock);
-    while (!state.nextJob && !state.done) {
+
+    while (!state.head && !state.done) {
       cnd_wait(&state.hasJob, &state.lock);
     }
 
@@ -36,9 +37,9 @@ static int worker_loop(void* arg) {
       break;
     }
 
-    job* job = state.nextJob;
-    state.nextJob = job->next;
-    if (!state.nextJob) state.lastJob = NULL;
+    job* job = state.head;
+    state.head = job->next;
+    if (!state.head) state.tail = NULL;
     mtx_unlock(&state.lock);
 
     job->fn(job->arg);
@@ -53,7 +54,7 @@ bool job_init(uint32_t count) {
   if (mtx_init(&state.lock, mtx_plain) != thrd_success) return false;
   if (cnd_init(&state.hasJob) != thrd_success) return false;
 
-  state.freeJob = state.jobs;
+  state.pool = state.jobs;
   for (uint32_t i = 0; i < MAX_JOBS - 1; i++) {
     state.jobs[i].next = &state.jobs[i + 1];
   }
@@ -80,22 +81,22 @@ void job_destroy(void) {
 }
 
 job* job_start(fn_job* fn, void* arg) {
-  if (!state.freeJob) {
+  if (!state.pool) {
     return NULL;
   }
 
   mtx_lock(&state.lock);
 
-  if (!state.freeJob) {
+  if (!state.pool) {
     mtx_unlock(&state.lock);
     return NULL;
   }
 
-  job* job = state.freeJob;
-  state.freeJob = job->next;
-  if (!state.nextJob) state.nextJob = job;
-  if (state.lastJob) state.lastJob->next = job;
-  state.lastJob = job;
+  job* job = state.pool;
+  state.pool = job->next;
+  if (!state.head) state.head = job;
+  if (state.tail) state.tail->next = job;
+  state.tail = job;
 
   job->next = NULL;
   atomic_store(&job->done, 0);
@@ -111,9 +112,9 @@ void job_wait(job* job) {
   mtx_lock(&state.lock);
 
   while (atomic_load(&job->done) == 0) {
-    struct job* task = state.nextJob;
-    if (task) state.nextJob = task->next;
-    if (!state.nextJob) state.lastJob = NULL;
+    struct job* task = state.head;
+    if (task) state.head = task->next;
+    if (!state.head) state.tail = NULL;
     mtx_unlock(&state.lock);
 
     if (task) {
@@ -126,8 +127,8 @@ void job_wait(job* job) {
     mtx_lock(&state.lock);
   }
 
-  job->next = state.freeJob;
-  state.freeJob = job;
+  job->next = state.pool;
+  state.pool = job;
 
   mtx_unlock(&state.lock);
 }
