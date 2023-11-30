@@ -271,7 +271,7 @@ typedef enum {
 typedef struct {
   Pass* pass;
   double cpuTime;
-} PassTime;
+} TimingInfo;
 
 struct Readback {
   uint32_t ref;
@@ -289,7 +289,7 @@ struct Readback {
       Image* image;
     };
     struct {
-      PassTime* times;
+      TimingInfo* times;
       uint32_t count;
     };
   };
@@ -1479,7 +1479,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   }
 }
 
-static Readback* lovrReadbackCreateTimestamp(PassTime* passes, uint32_t count, MappedBuffer mapped);
+static Readback* lovrReadbackCreateTimestamp(TimingInfo* passes, uint32_t count, MappedBuffer mapped);
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   beginFrame();
@@ -1578,10 +1578,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     }
   }
 
-  PassTime* times = NULL;
+  TimingInfo* times = NULL;
 
   if (state.timingEnabled && count > 0) {
-    times = malloc(count * sizeof(PassTime));
+    times = malloc(count * sizeof(TimingInfo));
     lovrAssert(times, "Out of memory");
 
     for (uint32_t i = 0; i < count; i++) {
@@ -4859,7 +4859,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   return readback;
 }
 
-static Readback* lovrReadbackCreateTimestamp(PassTime* times, uint32_t count, MappedBuffer buffer) {
+static Readback* lovrReadbackCreateTimestamp(TimingInfo* times, uint32_t count, MappedBuffer buffer) {
   Readback* readback = lovrReadbackCreate(READBACK_TIMESTAMP);
   readback->mapped = buffer;
   readback->times = times;
