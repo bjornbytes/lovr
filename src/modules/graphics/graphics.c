@@ -24,9 +24,10 @@
 #include "resource_limits_c.h"
 #endif
 
+#define MAX_PIPELINES 65536
 #define MAX_TALLIES 256
-#define MAX_TRANSFORMS 16
-#define MAX_PIPELINES 4
+#define TRANSFORM_STACK_SIZE 16
+#define PIPELINE_STACK_SIZE 4
 #define MAX_SHADER_RESOURCES 32
 #define MAX_CUSTOM_ATTRIBUTES 10
 #define LAYOUT_BUILTIN 0
@@ -582,7 +583,8 @@ static struct {
   BufferPool downloadBuffers;
   arr_t(ScratchTexture) scratchTextures;
   map_t pipelineLookup;
-  arr_t(gpu_pipeline*) pipelines;
+  gpu_pipeline* pipelines;
+  uint32_t pipelineCount;
   arr_t(Layout) layouts;
   Allocator allocator;
 } state;
@@ -592,6 +594,7 @@ static struct {
 static void* tempAlloc(Allocator* allocator, size_t size);
 static size_t tempPush(Allocator* allocator);
 static void tempPop(Allocator* allocator, size_t stack);
+static gpu_pipeline* getPipeline(uint32_t index);
 static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align);
 static int u64cmp(const void* a, const void* b);
 static void beginFrame(void);
@@ -655,12 +658,14 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   state.allocator.memory = os_vm_init(state.allocator.limit);
   os_vm_commit(state.allocator.memory, state.allocator.length);
 
+  state.pipelines = os_vm_init(MAX_PIPELINES * gpu_sizeof_pipeline());
+  lovrAssert(state.pipelines, "Out of memory");
+
   state.streamBuffers.type = GPU_BUFFER_STREAM;
   state.uploadBuffers.type = GPU_BUFFER_UPLOAD;
   state.downloadBuffers.type = GPU_BUFFER_DOWNLOAD;
 
   map_init(&state.pipelineLookup, 64);
-  arr_init(&state.pipelines, realloc);
   arr_init(&state.layouts, realloc);
   arr_init(&state.materialBlocks, realloc);
   arr_init(&state.scratchTextures, realloc);
@@ -850,12 +855,11 @@ void lovrGraphicsDestroy(void) {
     free(state.scratchTextures.data[i].texture);
   }
   arr_free(&state.scratchTextures);
-  for (size_t i = 0; i < state.pipelines.length; i++) {
-    gpu_pipeline_destroy(state.pipelines.data[i]);
-    free(state.pipelines.data[i]);
+  for (size_t i = 0; i < state.pipelineCount; i++) {
+    gpu_pipeline_destroy(getPipeline(i));
   }
+  os_vm_free(state.pipelines, MAX_PIPELINES * gpu_sizeof_pipeline());
   map_free(&state.pipelineLookup);
-  arr_free(&state.pipelines);
   BufferPool* pools[] = { &state.streamBuffers, &state.uploadBuffers, &state.downloadBuffers };
   for (size_t i = 0; i < COUNTOF(pools); i++) {
     ScratchBuffer* buffer = pools[i]->oldest;
@@ -1261,15 +1265,14 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       uint64_t index = map_get(&state.pipelineLookup, hash);
 
       if (index == MAP_NIL) {
-        gpu_pipeline* gpu = malloc(gpu_sizeof_pipeline());
-        lovrAssert(gpu, "Out of memory");
-        gpu_pipeline_init_graphics(gpu, draw->pipelineInfo);
-        index = state.pipelines.length;
-        arr_push(&state.pipelines, gpu);
+        lovrAssert(state.pipelineCount < MAX_PIPELINES, "Too many pipelines!");
+        index = state.pipelineCount++;
+        os_vm_commit(state.pipelines, state.pipelineCount * gpu_sizeof_pipeline());
+        gpu_pipeline_init_graphics(getPipeline(index), draw->pipelineInfo);
         map_set(&state.pipelineLookup, hash, index);
       }
 
-      draw->pipeline = state.pipelines.data[index];
+      draw->pipeline = getPipeline(index);
     }
   }
 
@@ -2622,11 +2625,10 @@ static void lovrShaderInit(Shader* shader) {
       .flagCount = shader->overrideCount
     };
 
-    gpu_pipeline* pipeline = malloc(gpu_sizeof_pipeline());
-    lovrAssert(pipeline, "Out of memory");
-    gpu_pipeline_init_compute(pipeline, &pipelineInfo);
-    arr_push(&state.pipelines, pipeline);
-    shader->computePipeline = pipeline;
+    lovrAssert(state.pipelineCount < MAX_PIPELINES, "Too many pipelines!");
+    shader->computePipeline = getPipeline(state.pipelineCount++);
+    os_vm_commit(state.pipelines, state.pipelineCount * gpu_sizeof_pipeline());
+    gpu_pipeline_init_compute(shader->computePipeline, &pipelineInfo);
   }
 }
 
@@ -5041,8 +5043,8 @@ void lovrPassReset(Pass* pass) {
   pass->access[ACCESS_RENDER] = NULL;
   pass->access[ACCESS_COMPUTE] = NULL;
   pass->flags = DIRTY_BINDINGS | DIRTY_CONSTANTS;
-  pass->transform = lovrPassAllocate(pass, MAX_TRANSFORMS * 16 * sizeof(float));
-  pass->pipeline = lovrPassAllocate(pass, MAX_PIPELINES * sizeof(Pipeline));
+  pass->transform = lovrPassAllocate(pass, TRANSFORM_STACK_SIZE * 16 * sizeof(float));
+  pass->pipeline = lovrPassAllocate(pass, PIPELINE_STACK_SIZE * sizeof(Pipeline));
   pass->constants = lovrPassAllocate(pass, state.limits.pushConstantSize);
   pass->bindings = lovrPassAllocate(pass, 32 * sizeof(gpu_binding));
   pass->computeCount = 0;
@@ -5290,12 +5292,12 @@ void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]) {
 void lovrPassPush(Pass* pass, StackType stack) {
   switch (stack) {
     case STACK_TRANSFORM:
-      lovrCheck(++pass->transformIndex < MAX_TRANSFORMS, "%s stack overflow (more pushes than pops?)", "Transform");
+      lovrCheck(++pass->transformIndex < TRANSFORM_STACK_SIZE, "%s stack overflow (more pushes than pops?)", "Transform");
       mat4_init(pass->transform + 16, pass->transform);
       pass->transform += 16;
       break;
     case STACK_STATE:
-      lovrCheck(++pass->pipelineIndex < MAX_PIPELINES, "%s stack overflow (more pushes than pops?)", "Pipeline");
+      lovrCheck(++pass->pipelineIndex < PIPELINE_STACK_SIZE, "%s stack overflow (more pushes than pops?)", "Pipeline");
       memcpy(pass->pipeline + 1, pass->pipeline, sizeof(Pipeline));
       pass->pipeline++;
       lovrRetain(pass->pipeline->font);
@@ -5309,14 +5311,14 @@ void lovrPassPush(Pass* pass, StackType stack) {
 void lovrPassPop(Pass* pass, StackType stack) {
   switch (stack) {
     case STACK_TRANSFORM:
-      lovrCheck(--pass->transformIndex < MAX_TRANSFORMS, "%s stack underflow (more pops than pushes?)", "Transform");
+      lovrCheck(--pass->transformIndex < TRANSFORM_STACK_SIZE, "%s stack underflow (more pops than pushes?)", "Transform");
       pass->transform -= 16;
       break;
     case STACK_STATE:
       lovrRelease(pass->pipeline->font, lovrFontDestroy);
       lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
       lovrRelease(pass->pipeline->material, lovrMaterialDestroy);
-      lovrCheck(--pass->pipelineIndex < MAX_PIPELINES, "%s stack underflow (more pops than pushes?)", "Pipeline");
+      lovrCheck(--pass->pipelineIndex < PIPELINE_STACK_SIZE, "%s stack underflow (more pops than pushes?)", "Pipeline");
       pass->pipeline--;
       pass->pipeline->dirty = true;
       break;
@@ -7124,6 +7126,10 @@ static size_t tempPush(Allocator* allocator) {
 
 static void tempPop(Allocator* allocator, size_t stack) {
   allocator->cursor = stack;
+}
+
+static gpu_pipeline* getPipeline(uint32_t index) {
+  return (gpu_pipeline*) ((char*) state.pipelines + index * gpu_sizeof_pipeline());
 }
 
 static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align) {
