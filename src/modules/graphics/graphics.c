@@ -598,6 +598,7 @@ static gpu_pipeline* getPipeline(uint32_t index);
 static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align);
 static int u64cmp(const void* a, const void* b);
 static void beginFrame(void);
+static void flushTransfers(void);
 static void processReadbacks(void);
 static size_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(size_t layout, gpu_binding* bindings, uint32_t count);
@@ -1872,6 +1873,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
+  flushTransfers();
   gpu_buffer_destroy(buffer->gpu);
   free(buffer);
 }
@@ -2255,6 +2257,7 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   if (texture != state.window) {
+    flushTransfers();
     lovrRelease(texture->material, lovrMaterialDestroy);
     lovrRelease(texture->info.parent, lovrTextureDestroy);
     if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
@@ -7201,6 +7204,12 @@ static void beginFrame(void) {
   state.stream = gpu_stream_begin("Internal");
   state.allocator.cursor = 0;
   processReadbacks();
+}
+
+static void flushTransfers(void) {
+  if (state.active) {
+    lovrGraphicsSubmit(NULL, 0);
+  }
 }
 
 static void processReadbacks(void) {

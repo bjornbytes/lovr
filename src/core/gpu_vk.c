@@ -2710,7 +2710,21 @@ static void gpu_release(gpu_memory* memory) {
 static void condemn(void* handle, VkObjectType type) {
   if (!handle) return;
   gpu_morgue* morgue = &state.morgue;
-  check(morgue->head - morgue->tail < COUNTOF(morgue->data), "Morgue overflow (too many objects waiting to be deleted)");
+
+  // If the morgue is full, try expunging to reclaim some space
+  if (morgue->head - morgue->tail >= COUNTOF(morgue->data)) {
+    expunge();
+
+    // If that didn't work, wait for the GPU to be done with the oldest victim and retry
+    if (morgue->head - morgue->tail >= COUNTOF(morgue->data)) {
+      gpu_wait_tick(morgue->data[morgue->tail & MORGUE_MASK].tick);
+      expunge();
+    }
+
+    // The following should be unreachable
+    check(morgue->head - morgue->tail < COUNTOF(morgue->data), "Morgue overflow!");
+  }
+
   morgue->data[morgue->head++ & MORGUE_MASK] = (gpu_victim) { handle, type, state.tick[CPU] };
 }
 
