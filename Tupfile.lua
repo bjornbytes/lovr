@@ -450,7 +450,7 @@ src += config.modules.math and 'src/lib/noise/*.c' or nil
 
 -- embed resource files with xxd
 
-res = { 'etc/boot.lua', 'etc/nogame.lua', 'etc/*.ttf', 'etc/shaders/*.glsl' }
+res = { 'etc/boot.lua', 'etc/*.ttf', 'etc/shaders/*.glsl' }
 tup.foreach_rule(res, '^ XD %b^ xxd -i %f > %o', '%f.h')
 
 for i, pattern in ipairs(res) do

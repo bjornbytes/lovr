@@ -8,6 +8,12 @@
 #include <stdlib.h>
 #include <time.h>
 
+#ifdef _WIN32
+#define SLASH '\\'
+#else
+#define SLASH '/'
+#endif
+
 #define FOREACH_ARCHIVE(a) for (Archive* a = state.archives; a; a = a->next)
 
 typedef struct {
@@ -75,7 +81,6 @@ static struct {
   char source[1024];
   char requirePath[1024];
   char identity[64];
-  bool fused;
 } state;
 
 // Rejects any path component that would escape the virtual filesystem (./, ../, :, and \)
@@ -132,7 +137,7 @@ static bool sanitize(const char* path, char* buffer, size_t* length) {
   return true;
 }
 
-bool lovrFilesystemInit(const char* archive) {
+bool lovrFilesystemInit(void) {
   if (atomic_fetch_add(&state.ref, 1)) return false;
 
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
@@ -159,40 +164,6 @@ bool lovrFilesystemInit(const char* archive) {
   }
 #endif
 
-  // Try to mount a bundled archive
-  const char* root = NULL;
-  if (os_get_bundle_path(state.source, LOVR_PATH_MAX, &root) && lovrFilesystemMount(state.source, NULL, true, root)) {
-    state.fused = true;
-    return true;
-  }
-
-  // If that didn't work, try mounting an archive passed in from the command line
-  if (archive) {
-    state.source[LOVR_PATH_MAX - 1] = '\0';
-    strncpy(state.source, archive, LOVR_PATH_MAX - 1);
-
-    // If the command line parameter is a file, use its containing folder as the source
-    size_t length = strlen(state.source);
-    if (length > 4 && !memcmp(state.source + length - 4, ".lua", 4)) {
-      char* slash = strrchr(state.source, '/');
-
-      if (slash) {
-        *slash = '\0';
-      } else if ((slash = strrchr(state.source, '\\')) != NULL) {
-        *slash = '\0';
-      } else {
-        state.source[0] = '.';
-        state.source[1] = '\0';
-      }
-    }
-
-    if (lovrFilesystemMount(state.source, NULL, true, NULL)) {
-      return true;
-    }
-  }
-
-  // Otherwise, there is no source
-  state.source[0] = '\0';
   return true;
 }
 
@@ -207,12 +178,22 @@ void lovrFilesystemDestroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
+void lovrFilesystemSetSource(const char* source) {
+  lovrAssert(!state.source[0], "Source is already set!");
+  size_t length = strlen(source);
+  lovrAssert(sizeof(state.source) > length, "Source is too long!");
+  memcpy(state.source, source, length);
+  state.source[length] = '\0';
+}
+
 const char* lovrFilesystemGetSource(void) {
-  return state.source;
+  return state.source[0]  ? state.source : NULL;
 }
 
 bool lovrFilesystemIsFused(void) {
-  return state.fused;
+  char path[LOVR_PATH_MAX];
+  const char* root;
+  return lovrFilesystemGetBundlePath(path, sizeof(path), &root) && !strcmp(state.source, path);
 }
 
 // Archives
@@ -391,14 +372,14 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   }
 
   // Append /LOVR, mkdir
-  state.savePath[cursor++] = LOVR_PATH_SEP;
+  state.savePath[cursor++] = SLASH;
   memcpy(state.savePath + cursor, "LOVR", strlen("LOVR"));
   cursor += strlen("LOVR");
   state.savePath[cursor] = '\0';
   fs_mkdir(state.savePath);
 
   // Append /<identity>, mkdir
-  state.savePath[cursor++] = LOVR_PATH_SEP;
+  state.savePath[cursor++] = SLASH;
   memcpy(state.savePath + cursor, identity, length);
   cursor += length;
   state.savePath[cursor] = '\0';
@@ -471,6 +452,10 @@ bool lovrFilesystemWrite(const char* path, const char* content, size_t size, boo
 
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
   return os_get_data_directory(buffer, size);
+}
+
+size_t lovrFilesystemGetBundlePath(char* buffer, size_t size, const char** root) {
+  return os_get_bundle_path(buffer, size, root);
 }
 
 size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size) {

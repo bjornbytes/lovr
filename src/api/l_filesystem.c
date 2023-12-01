@@ -149,6 +149,21 @@ static int l_lovrFilesystemGetDirectoryItems(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFilesystemGetBundlePath(lua_State* L) {
+  char buffer[LOVR_PATH_MAX];
+  const char* root;
+
+  if (lovrFilesystemGetBundlePath(buffer, sizeof(buffer), &root)) {
+    lua_pushstring(L, buffer);
+    lua_pushstring(L, root);
+  } else {
+    lua_pushnil(L);
+    lua_pushnil(L);
+  }
+
+  return 2;
+}
+
 static int l_lovrFilesystemGetExecutablePath(lua_State* L) {
   char buffer[LOVR_PATH_MAX];
 
@@ -322,6 +337,12 @@ static int l_lovrFilesystemSetRequirePath(lua_State* L) {
   return 0;
 }
 
+static int l_lovrFilesystemSetSource(lua_State* L) {
+  const char* source = luaL_checkstring(L, 1);
+  lovrFilesystemSetSource(source);
+  return 0;
+}
+
 static int l_lovrFilesystemUnmount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   lua_pushboolean(L, lovrFilesystemUnmount(path));
@@ -366,6 +387,7 @@ static const luaL_Reg lovrFilesystem[] = {
   { "append", l_lovrFilesystemAppend },
   { "createDirectory", l_lovrFilesystemCreateDirectory },
   { "getAppdataDirectory", l_lovrFilesystemGetAppdataDirectory },
+  { "getBundlePath", l_lovrFilesystemGetBundlePath },
   { "getDirectoryItems", l_lovrFilesystemGetDirectoryItems },
   { "getExecutablePath", l_lovrFilesystemGetExecutablePath },
   { "getIdentity", l_lovrFilesystemGetIdentity },
@@ -385,8 +407,9 @@ static const luaL_Reg lovrFilesystem[] = {
   { "newBlob", l_lovrFilesystemNewBlob },
   { "read", l_lovrFilesystemRead },
   { "remove", l_lovrFilesystemRemove },
-  { "setRequirePath", l_lovrFilesystemSetRequirePath },
   { "setIdentity", l_lovrFilesystemSetIdentity },
+  { "setRequirePath", l_lovrFilesystemSetRequirePath },
+  { "setSource", l_lovrFilesystemSetSource },
   { "unmount", l_lovrFilesystemUnmount },
   { "write", l_lovrFilesystemWrite },
   { "newFile", l_lovrFilesystemNewFile },
@@ -450,8 +473,10 @@ extern void* os_get_java_vm();
 static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 #ifdef _WIN32
   const char* extension = ".dll";
+  const char sep = '\\';
 #else
   const char* extension = ".so";
+  const char sep = '/';
 #endif
 
   const char* module = lua_tostring(L, 1);
@@ -484,14 +509,14 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
     return 0;
   }
 
-  char* slash = strrchr(path, LOVR_PATH_SEP);
+  char* slash = strrchr(path, sep);
   char* p = slash ? slash + 1 : path;
   length = p - path;
 #endif
 
   for (const char* m = module; *m && length < sizeof(path); m++, length++) {
     if (allInOneFlag && *m == '.') break;
-    *p++ = *m == '.' ? LOVR_PATH_SEP : *m;
+    *p++ = *m == '.' ? sep : *m;
   }
 
   for (const char* e = extension; *e && length < sizeof(path); e++, length++) {
@@ -567,18 +592,7 @@ int luaopen_lovr_filesystem(lua_State* L) {
   luax_registerloader(L, luaLoader, 2);
   luax_registerloader(L, libLoader, 3);
   luax_registerloader(L, libLoaderAllInOne, 4);
-
-  const char* archive = NULL;
-
-  lua_getglobal(L, "arg");
-  if (lua_istable(L, -1)) {
-    lua_rawgeti(L, -1, 0);
-    archive = lua_tostring(L, -1);
-    lua_pop(L, 1);
-  }
-  lua_pop(L, 1);
-
-  lovrFilesystemInit(archive);
+  lovrFilesystemInit();
   luax_atexit(L, lovrFilesystemDestroy);
   return 1;
 }
