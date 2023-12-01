@@ -606,7 +606,6 @@ static struct {
   map_t pipelineLookup;
   gpu_pipeline* pipelines;
   uint32_t pipelineCount;
-  mtx_t pipelineLock;
   arr_t(Layout) layouts;
   Allocator allocator;
 } state;
@@ -618,7 +617,7 @@ static size_t tempPush(Allocator* allocator);
 static void tempPop(Allocator* allocator, size_t stack);
 static gpu_pipeline* getPipeline(uint32_t index);
 static void compilePipeline(void* ctx);
-static void awaitPipelines(Pass* pass);
+static void awaitPipelines(Pass* pass, bool updateLookup);
 static BufferBlock* getBlock(gpu_buffer_type type, uint32_t size);
 static void freeBlock(BufferAllocator* allocator, BufferBlock* block);
 static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type type, uint32_t size, size_t align);
@@ -696,8 +695,6 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   arr_init(&state.layouts, realloc);
   arr_init(&state.materialBlocks, realloc);
   arr_init(&state.scratchTextures, realloc);
-
-  lovrAssert(mtx_init(&state.pipelineLock, mtx_plain) == thrd_success, "Failed to create mutex");
 
   gpu_slot builtinSlots[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Globals
@@ -897,7 +894,6 @@ void lovrGraphicsDestroy(void) {
     }
   }
   map_free(&state.passLookup);
-  mtx_destroy(&state.pipelineLock);
   for (size_t i = 0; i < COUNTOF(state.bufferAllocators); i++) {
     BufferBlock* block = state.bufferAllocators[i].freelist;
     while (block) {
@@ -1627,11 +1623,9 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   gpu_sync(state.stream, &state.postBarrier, 1);
 
-  mtx_lock(&state.pipelineLock);
   for (uint32_t i = 0; i < count; i++) {
-    awaitPipelines(passes[i]);
+    awaitPipelines(passes[i], true);
   }
-  mtx_unlock(&state.pipelineLock);
 
   for (uint32_t i = 0; i < count; i++) {
     gpu_stream* stream = gpu_stream_begin(NULL);
@@ -5035,11 +5029,7 @@ static void lovrPassRelease(Pass* pass) {
     lovrRelease(draw->material, lovrMaterialDestroy);
   }
 
-  if (pass->pipelineJobs) {
-    mtx_lock(&state.pipelineLock);
-    awaitPipelines(pass);
-    mtx_unlock(&state.pipelineLock);
-  }
+  awaitPipelines(pass, false);
 
   for (uint32_t i = 0; i < COUNTOF(pass->access); i++) {
     for (AccessBlock* block = pass->access[i]; block != NULL; block = block->next) {
@@ -7234,12 +7224,17 @@ static void compilePipeline(void* ctx) {
   gpu_pipeline_init_graphics(job->pipeline, &job->info);
 }
 
-// Must hold pipeline lock
-static void awaitPipelines(Pass* pass) {
+static void awaitPipelines(Pass* pass, bool updateLookup) {
   for (PipelineJob* job = pass->pipelineJobs; job; job = job->next) {
-    if (job->handle) job_wait(job->handle);
-    map_set(&state.pipelineLookup, job->hash, (uint64_t) (uintptr_t) job->pipeline);
+    if (job->handle) {
+      job_wait(job->handle);
+    }
+
+    if (updateLookup) {
+      map_set(&state.pipelineLookup, job->hash, (uint64_t) (uintptr_t) job->pipeline);
+    }
   }
+
   pass->pipelineJobs = NULL;
 }
 
