@@ -368,6 +368,7 @@ enum {
 
 typedef struct {
   Sync* sync;
+  void* object;
   gpu_phase phase;
   gpu_cache cache;
 } Access;
@@ -377,7 +378,8 @@ typedef struct {
   void* next;
   uint64_t count;
   uint64_t textureMask;
-  Access list[62];
+  uint64_t padding;
+  Access list[41];
 } AccessBlock;
 
 typedef struct {
@@ -1455,6 +1457,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
     Access access = {
       .sync = &tally->buffer->sync,
+      .object = tally->buffer,
       .phase = GPU_PHASE_SHADER_COMPUTE,
       .cache = GPU_CACHE_STORAGE_WRITE
     };
@@ -1534,9 +1537,11 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     // Color attachments
     for (uint32_t t = 0; t < canvas->count; t++) {
       if (canvas->color[t].texture == state.window) continue;
+      Texture* texture = canvas->color[t].texture;
 
       Access access = {
-        .sync = &canvas->color[t].texture->sync,
+        .sync = texture->info.parent ? &texture->info.parent->sync : &texture->sync,
+        .object = texture,
         .phase = GPU_PHASE_COLOR,
         .cache = GPU_CACHE_COLOR_WRITE | ((!canvas->resolve && canvas->color[t].load == LOAD_KEEP) ? GPU_CACHE_COLOR_READ : 0)
       };
@@ -1544,7 +1549,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       syncResource(&access, access.sync->barrier);
       access.sync->barrier = &renderBarriers[i];
 
-      if (canvas->color[t].texture->info.mipmaps > 1) {
+      if (texture->info.mipmaps > 1) {
         access.sync->writePhase = GPU_PHASE_TRANSFER;
         access.sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
       }
@@ -1552,7 +1557,12 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
     // Depth attachment
     if (canvas->depth.texture) {
-      Access access = { .sync = &canvas->depth.texture->sync };
+      Texture* texture = canvas->depth.texture;
+
+      Access access = {
+        .sync = texture->info.parent ? &texture->info.parent->sync : &texture->sync,
+        .object = texture
+      };
 
       if (canvas->resolve) {
         access.phase = GPU_PHASE_COLOR; // Depth resolve operations act like color resolves w.r.t. sync
@@ -1565,7 +1575,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       syncResource(&access, access.sync->barrier);
       access.sync->barrier = &renderBarriers[i];
 
-      if (canvas->depth.texture->info.mipmaps > 1) {
+      if (texture->info.mipmaps > 1) {
         access.sync->writePhase = GPU_PHASE_TRANSFER;
         access.sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
       }
@@ -4970,13 +4980,8 @@ static void lovrPassRelease(Pass* pass) {
   for (uint32_t i = 0; i < COUNTOF(pass->access); i++) {
     for (AccessBlock* block = pass->access[i]; block != NULL; block = block->next) {
       for (uint32_t j = 0; j < block->count; j++) {
-        if (block->textureMask & (1ull << j)) {
-          Texture* texture = (Texture*) ((char*) block->list[j].sync - offsetof(Texture, sync));
-          lovrRelease(texture, lovrTextureDestroy);
-        } else {
-          Buffer* buffer = (Buffer*) ((char*) block->list[j].sync - offsetof(Buffer, sync));
-          lovrRelease(buffer, lovrBufferDestroy);
-        }
+        bool texture = block->textureMask & (1ull << j);
+        lovrRelease(block->list[j].object, texture ? lovrTextureDestroy : lovrBufferDestroy);
       }
     }
   }
@@ -7535,6 +7540,7 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
   if (!buffer) return;
   Access* access = getNextAccess(pass, phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER, false);
   access->sync = &buffer->sync;
+  access->object = buffer;
   access->phase = phase;
   access->cache = cache;
   lovrRetain(buffer);
@@ -7553,6 +7559,7 @@ static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cach
 
   Access* access = getNextAccess(pass, phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER, true);
   access->sync = &root->sync;
+  access->object = texture;
   access->phase = phase;
   access->cache = cache;
   lovrRetain(texture);
@@ -7650,7 +7657,7 @@ static gpu_barrier syncTransfer(Sync* sync, gpu_cache cache) {
     barrier = &state.preBarrier;
   }
 
-  syncResource(&(Access) { sync, GPU_PHASE_TRANSFER, cache }, barrier);
+  syncResource(&(Access) { sync, NULL, GPU_PHASE_TRANSFER, cache }, barrier);
   if (cache & GPU_CACHE_READ_MASK) sync->lastTransferRead = state.tick;
   if (cache & GPU_CACHE_WRITE_MASK) sync->lastTransferWrite = state.tick;
 
