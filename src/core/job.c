@@ -39,11 +39,11 @@ static int worker_loop(void* arg) {
 
     job* job = state.head;
     state.head = job->next;
-    if (!state.head) state.tail = NULL;
+    if (!job->next) state.tail = NULL;
     mtx_unlock(&state.lock);
 
     job->fn(job->arg);
-    atomic_fetch_add(&job->done, 1);
+    job->done = true;
   }
 
   mtx_unlock(&state.lock);
@@ -51,8 +51,8 @@ static int worker_loop(void* arg) {
 }
 
 bool job_init(uint32_t count) {
-  if (mtx_init(&state.lock, mtx_plain) != thrd_success) return false;
-  if (cnd_init(&state.hasJob) != thrd_success) return false;
+  mtx_init(&state.lock, mtx_plain);
+  cnd_init(&state.hasJob);
 
   state.pool = state.jobs;
   for (uint32_t i = 0; i < MAX_JOBS - 1; i++) {
@@ -94,41 +94,44 @@ job* job_start(fn_job* fn, void* arg) {
 
   job* job = state.pool;
   state.pool = job->next;
-  if (!state.head) state.head = job;
-  if (state.tail) state.tail->next = job;
-  state.tail = job;
+
+  if (state.tail) {
+    state.tail->next = job;
+    state.tail = job;
+  } else {
+    state.head = job;
+    state.tail = job;
+    cnd_signal(&state.hasJob);
+  }
 
   job->next = NULL;
-  atomic_store(&job->done, 0);
+  job->done = false;
   job->fn = fn;
   job->arg = arg;
 
   mtx_unlock(&state.lock);
-  cnd_signal(&state.hasJob);
   return job;
 }
 
 void job_wait(job* job) {
-  mtx_lock(&state.lock);
+  while (!job->done) {
+    mtx_lock(&state.lock);
 
-  while (atomic_load(&job->done) == 0) {
-    struct job* task = state.head;
-    if (task) state.head = task->next;
-    if (!state.head) state.tail = NULL;
-    mtx_unlock(&state.lock);
-
-    if (task) {
+    if (state.head) {
+      struct job* task = state.head;
+      state.head = task->next;
+      if (!task->next) state.tail = NULL;
+      mtx_unlock(&state.lock);
       task->fn(task->arg);
-      atomic_fetch_add(&task->done, 1);
+      task->done = true;
     } else {
+      mtx_unlock(&state.lock);
       thrd_yield();
     }
-
-    mtx_lock(&state.lock);
   }
 
+  mtx_lock(&state.lock);
   job->next = state.pool;
   state.pool = job;
-
   mtx_unlock(&state.lock);
 }
