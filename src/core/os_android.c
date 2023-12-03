@@ -200,6 +200,7 @@ uint32_t os_get_core_count(void) {
 // To make regular printing work, a thread makes a pipe and redirects stdout and stderr to the write
 // end of the pipe.  The read end of the pipe is forwarded to __android_log_write.
 static struct {
+  bool attached;
   int handles[2];
   pthread_t thread;
 } log;
@@ -221,8 +222,11 @@ static void* log_main(void* data) {
 }
 
 void os_open_console(void) {
-  pthread_create(&log.thread, NULL, log_main, log.handles);
-  pthread_detach(log.thread);
+  if (!log.attached) {
+    pthread_create(&log.thread, NULL, log_main, log.handles);
+    pthread_detach(log.thread);
+    log.attached = true;
+  }
 }
 
 #define NS_PER_SEC 1000000000ULL
