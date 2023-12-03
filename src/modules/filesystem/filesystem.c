@@ -78,7 +78,6 @@ struct File {
 static struct {
   uint32_t ref;
   bool watching;
-  dmon_watch_id watchId;
   Archive* archives;
   size_t savePathLength;
   char savePath[1024];
@@ -218,14 +217,13 @@ void lovrFilesystemWatch(void) {
   if (!state.watching && fs_stat(state.source, &info) && info.type == FILE_DIRECTORY) {
     state.watching = true;
     dmon_init();
-    state.watchId = dmon_watch(state.source, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
+    dmon_watch(state.source, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
   }
 }
 
 void lovrFilesystemUnwatch(void) {
   if (state.watching) {
     state.watching = false;
-    dmon_unwatch(state.watchId);
     dmon_deinit();
   }
 }

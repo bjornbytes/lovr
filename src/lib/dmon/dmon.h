@@ -611,13 +611,13 @@ DMON_API_IMPL void dmon_deinit(void)
             if (_dmon.watches[i]) {
                 _dmon_unwatch(_dmon.watches[i]);
                 DMON_FREE(_dmon.watches[i]);
-                _dmon.watches[i] = NULL;
             }
         }
     }
 
     DeleteCriticalSection(&_dmon.mutex);
     stb_sb_free(_dmon.events);
+    memset(&_dmon, 0x0, sizeof(_dmon));
     _dmon_init = false;
 }
 
@@ -1156,13 +1156,13 @@ DMON_API_IMPL void dmon_deinit(void)
             if (_dmon.watches[i]) {
                 _dmon_unwatch(_dmon.watches[i]);
                 DMON_FREE(_dmon.watches[i]);
-                _dmon.watches[i] = NULL;
             }
         }
     }
 
     pthread_mutex_destroy(&_dmon.mutex);
     stb_sb_free(_dmon.events);
+    memset(&_dmon, 0x0, sizeof(_dmon));
     _dmon_init = false;
 }
 
@@ -1547,7 +1547,6 @@ DMON_API_IMPL void dmon_deinit(void)
             if (_dmon.watches[i]) {
                 _dmon_unwatch(_dmon.watches[i]);
                 DMON_FREE(_dmon.watches[i]);
-                _dmon.watches[i] = NULL;
             }
         }
     }
@@ -1557,6 +1556,7 @@ DMON_API_IMPL void dmon_deinit(void)
     if (_dmon.cf_alloc_ref)
         CFRelease(_dmon.cf_alloc_ref);
 
+    memset(&_dmon, 0x0, sizeof(_dmon));
     _dmon_init = false;
 }
 
