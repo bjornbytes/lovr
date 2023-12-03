@@ -600,7 +600,7 @@ static gpu_pipeline* getPipeline(uint32_t index);
 static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align);
 static int u64cmp(const void* a, const void* b);
 static void beginFrame(void);
-static void flushTransfers(Sync* sync);
+static void flushTransfers();
 static void processReadbacks(void);
 static size_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(size_t layout, gpu_binding* bindings, uint32_t count);
@@ -1883,7 +1883,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
 
 void lovrBufferDestroy(void* ref) {
   Buffer* buffer = ref;
-  flushTransfers(&buffer->sync);
+  flushTransfers();
   gpu_buffer_destroy(buffer->gpu);
   free(buffer);
 }
@@ -2267,7 +2267,7 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
 void lovrTextureDestroy(void* ref) {
   Texture* texture = ref;
   if (texture != state.window) {
-    flushTransfers(&texture->sync);
+    flushTransfers();
     lovrRelease(texture->material, lovrMaterialDestroy);
     lovrRelease(texture->info.parent, lovrTextureDestroy);
     if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
@@ -7217,8 +7217,8 @@ static void beginFrame(void) {
 // offset is saved and restored, which is pretty gross, but we don't want to invalidate temp memory
 // (currently this is only a problem for Font: when the font's atlas gets destroyed, it could
 // invalidate the temp memory used by Font:getLines and Pass:text).
-static void flushTransfers(Sync* sync) {
-  if (state.active && (sync->lastTransferRead == state.tick && sync->lastTransferWrite == state.tick)) {
+static void flushTransfers() {
+  if (state.active) {
     size_t cursor = state.allocator.cursor;
     lovrGraphicsSubmit(NULL, 0);
     beginFrame();
