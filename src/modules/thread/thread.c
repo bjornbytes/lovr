@@ -46,7 +46,7 @@ bool lovrThreadModuleInit(void) {
 }
 
 void lovrThreadModuleDestroy(void) {
-  if (atomic_fetch_sub(&state.ref, 1)) return;
+  if (atomic_fetch_sub(&state.ref, 1) != 1) return;
   for (size_t i = 0; i < state.channels.size; i++) {
     if (state.channels.values[i] != MAP_NIL) {
       lovrRelease((Channel*) (uintptr_t) state.channels.values[i], lovrChannelDestroy);
