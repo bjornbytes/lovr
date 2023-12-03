@@ -2,6 +2,7 @@ function lovr.arg(arg)
   local options = {
     _help = { short = '-h', long = '--help', help = 'Show help and exit' },
     _version = { short = '-v', long = '--version', help = 'Show version and exit' },
+    console = { long = '--console', help = 'Attach Windows console' },
     debug = { long = '--debug', help = 'Enable debugging checks and logging' }
   }
 
@@ -25,6 +26,11 @@ function lovr.arg(arg)
 
   for i = 0, #arg do
     arg[i - shift], arg[i] = arg[i], nil
+  end
+
+  if arg.console or arg._help or arg._version then
+    local ok, system = pcall(require, 'lovr.system')
+    if ok and system then system.openConsole() end
   end
 
   if arg._help then
