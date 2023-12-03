@@ -832,6 +832,7 @@ void lovrGraphicsDestroy(void) {
     readback = next;
   }
   if (state.timestamps) gpu_tally_destroy(state.timestamps);
+  free(state.timestamps);
   lovrRelease(state.window, lovrTextureDestroy);
   lovrRelease(state.windowPass, lovrPassDestroy);
   lovrRelease(state.defaultFont, lovrFontDestroy);
