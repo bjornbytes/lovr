@@ -53,11 +53,24 @@ void lovrEventPush(Event event) {
     size_t length = strlen(event.data.thread.error);
     char* copy = malloc(length + 1);
     lovrAssert(copy, "Out of memory");
-    memcpy(copy, event.data.thread.error, length);
-    copy[length] = '\0';
+    memcpy(copy, event.data.thread.error, length + 1);
     event.data.thread.error = copy;
   }
 #endif
+
+  if (event.type == EVENT_FILECHANGED) {
+    size_t length = strlen(event.data.file.path);
+    char* copy = malloc(length + 1);
+    memcpy(copy, event.data.file.path, length + 1);
+    event.data.file.path = copy;
+
+    if (event.data.file.oldpath) {
+      length = strlen(event.data.file.oldpath);
+      copy = malloc(length + 1);
+      memcpy(copy, event.data.file.oldpath, length + 1);
+      event.data.file.oldpath = copy;
+    }
+  }
 
   arr_push(&state.events, event);
 }

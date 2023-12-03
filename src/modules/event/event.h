@@ -25,6 +25,7 @@ typedef enum {
 #ifndef LOVR_DISABLE_THREAD
   EVENT_THREAD_ERROR,
 #endif
+  EVENT_FILECHANGED,
   EVENT_PERMISSION,
   EVENT_CUSTOM
 } EventType;
@@ -115,15 +116,21 @@ typedef struct {
 } ThreadEvent;
 
 typedef struct {
-  char name[MAX_EVENT_NAME_LENGTH];
-  Variant data[4];
-  uint32_t count;
-} CustomEvent;
+  char* path;
+  char* oldpath;
+  int action;
+} FileEvent;
 
 typedef struct {
   uint32_t permission;
   bool granted;
 } PermissionEvent;
+
+typedef struct {
+  char name[MAX_EVENT_NAME_LENGTH];
+  Variant data[4];
+  uint32_t count;
+} CustomEvent;
 
 typedef union {
   QuitEvent quit;
@@ -134,8 +141,9 @@ typedef union {
   MouseEvent mouse;
   MouseWheelEvent wheel;
   ThreadEvent thread;
-  CustomEvent custom;
+  FileEvent file;
   PermissionEvent permission;
+  CustomEvent custom;
 } EventData;
 
 typedef struct {
