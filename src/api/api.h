@@ -38,6 +38,7 @@ extern StringEntry lovrDrawMode[];
 extern StringEntry lovrDrawStyle[];
 extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
+extern StringEntry lovrFileAction[];
 extern StringEntry lovrFilterMode[];
 extern StringEntry lovrHeadsetDriver[];
 extern StringEntry lovrHorizontalAlign[];

@@ -9,11 +9,20 @@
 typedef struct Archive Archive;
 typedef struct File File;
 
+typedef enum {
+  FILE_CREATE,
+  FILE_DELETE,
+  FILE_MODIFY,
+  FILE_RENAME
+} FileAction;
+
 bool lovrFilesystemInit(void);
 void lovrFilesystemDestroy(void);
 void lovrFilesystemSetSource(const char* source);
 const char* lovrFilesystemGetSource(void);
 bool lovrFilesystemIsFused(void);
+void lovrFilesystemWatch(void);
+void lovrFilesystemUnwatch(void);
 bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char *root);
 bool lovrFilesystemUnmount(const char* path);
 const char* lovrFilesystemGetRealDirectory(const char* path);

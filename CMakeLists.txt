@@ -421,6 +421,7 @@ if(LOVR_ENABLE_FILESYSTEM)
     src/modules/filesystem/filesystem.c
     src/api/l_filesystem.c
     src/api/l_filesystem_file.c
+    src/lib/dmon/dmon.c
     src/lib/miniz/miniz_tinfl.c
   )
 else()
