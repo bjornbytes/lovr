@@ -53,6 +53,8 @@ void lovrEventDestroy(void) {
 }
 
 void lovrEventPush(Event event) {
+  if (state.ref == 0) return;
+
 #ifndef LOVR_DISABLE_THREAD
   if (event.type == EVENT_THREAD_ERROR) {
     lovrRetain(event.data.thread.thread);
