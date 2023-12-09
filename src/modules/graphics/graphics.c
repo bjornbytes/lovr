@@ -2797,6 +2797,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         continue;
       }
 
+      lovrCheck(resource->count == 0, "Arrays of resources in shaders are not currently supported");
       lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
       lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " uniform texel buffer", "");
       lovrCheck(resource->type != SPV_STORAGE_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " storage texel buffer", "");
