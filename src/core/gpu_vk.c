@@ -1127,8 +1127,8 @@ void gpu_bundle_pool_destroy(gpu_bundle_pool* pool) {
 }
 
 void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t count) {
-  VkDescriptorBufferInfo buffers[256];
-  VkDescriptorImageInfo images[256];
+  VkDescriptorBufferInfo bufferInfo[256];
+  VkDescriptorImageInfo imageInfo[256];
   VkWriteDescriptorSet writes[256];
   uint32_t bufferCount = 0;
   uint32_t imageCount = 0;
@@ -1149,41 +1149,58 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
     for (uint32_t j = 0; j < info->count; j++) {
       gpu_binding* binding = &info->bindings[j];
       VkDescriptorType type = types[binding->type];
+      gpu_buffer_binding* buffers = binding->count > 0 ? binding->buffers : &binding->buffer;
+      gpu_texture** textures = binding->count > 0 ? binding->textures : &binding->texture;
+      gpu_sampler** samplers = binding->count > 0 ? binding->samplers : &binding->sampler;
       bool texture = type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
       bool sampler = type == VK_DESCRIPTOR_TYPE_SAMPLER;
       bool image = texture || sampler;
 
-      writes[writeCount++] = (VkWriteDescriptorSet) {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = bundles[i]->handle,
-        .dstBinding = binding->number,
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = type,
-        .pBufferInfo = &buffers[bufferCount],
-        .pImageInfo = &images[imageCount]
-      };
+      uint32_t index = 0;
+      uint32_t descriptorCount = MAX(binding->count, 1);
 
-      if (sampler) {
-        images[imageCount++] = (VkDescriptorImageInfo) {
-          .sampler = binding->sampler->handle
-        };
-      } else if (texture) {
-        images[imageCount++] = (VkDescriptorImageInfo) {
-          .imageView = binding->texture->view,
-          .imageLayout = binding->texture->layout
-        };
-      } else {
-        buffers[bufferCount++] = (VkDescriptorBufferInfo) {
-          .buffer = binding->buffer.object->handle,
-          .offset = binding->buffer.offset,
-          .range = binding->buffer.extent
-        };
-      }
+      while (index < descriptorCount) {
+        uint32_t available = image ? COUNTOF(imageInfo) - imageCount : COUNTOF(bufferInfo) - bufferCount;
+        uint32_t chunk = MIN(descriptorCount - index, available);
 
-      if ((image ? imageCount >= COUNTOF(images) : bufferCount >= COUNTOF(buffers)) || writeCount >= COUNTOF(writes)) {
-        vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
-        bufferCount = imageCount = writeCount = 0;
+        writes[writeCount++] = (VkWriteDescriptorSet) {
+          .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+          .dstSet = bundles[i]->handle,
+          .dstBinding = binding->number,
+          .dstArrayElement = index,
+          .descriptorCount = chunk,
+          .descriptorType = type,
+          .pBufferInfo = &bufferInfo[bufferCount],
+          .pImageInfo = &imageInfo[imageCount]
+        };
+
+        if (sampler) {
+          for (uint32_t n = 0; n < chunk; n++, index++) {
+            imageInfo[imageCount++] = (VkDescriptorImageInfo) {
+              .sampler = samplers[index]->handle
+            };
+          }
+        } else if (texture) {
+          for (uint32_t n = 0; n < chunk; n++, index++) {
+            imageInfo[imageCount++] = (VkDescriptorImageInfo) {
+              .imageView = textures[index]->view,
+              .imageLayout = textures[index]->layout
+            };
+          }
+        } else {
+          for (uint32_t n = 0; n < chunk; n++, index++) {
+            bufferInfo[bufferCount++] = (VkDescriptorBufferInfo) {
+              .buffer = buffers[index].object->handle,
+              .offset = buffers[index].offset,
+              .range = buffers[index].extent
+            };
+          }
+        }
+
+        if ((image ? imageCount >= COUNTOF(imageInfo) : bufferCount >= COUNTOF(bufferInfo)) || writeCount >= COUNTOF(writes)) {
+          vkUpdateDescriptorSets(state.device, writeCount, writes, 0, NULL);
+          bufferCount = imageCount = writeCount = 0;
+        }
       }
     }
   }

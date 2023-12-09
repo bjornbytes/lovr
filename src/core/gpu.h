@@ -268,10 +268,14 @@ typedef struct {
 typedef struct {
   uint32_t number;
   gpu_slot_type type;
+  uint32_t count;
   union {
     gpu_buffer_binding buffer;
     gpu_texture* texture;
     gpu_sampler* sampler;
+    gpu_buffer_binding* buffers;
+    gpu_texture** textures;
+    gpu_sampler** samplers;
   };
 } gpu_binding;
 
