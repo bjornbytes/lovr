@@ -12,7 +12,7 @@
 //   - Doesn't support multiple entry points in one module (I think?)
 //   - Input variables with a location > 31 are ignored since they don't fit in the 32-bit mask
 //   - Max supported descriptor set or binding number is 255
-//   - Doesn't parse stuff lovr doesn't care about: texel buffers, geometry/tessellation, etc. etc.
+//   - Doesn't support stuff lovr doesn't care about like geometry/tessellation shaders
 
 typedef union {
   struct {
