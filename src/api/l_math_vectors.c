@@ -423,15 +423,13 @@ static int l_lovrVec2__newindex(lua_State* L) {
 }
 
 static int l_lovrVec2__index(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TUSERDATA) {
-    lua_getmetatable(L, 1);
-    lua_pushvalue(L, 2);
-    lua_rawget(L, -2);
-    if (!lua_isnil(L, -1)) {
-      return 1;
-    } else {
-      lua_pop(L, 2);
-    }
+  lua_getmetatable(L, 1);
+  lua_pushvalue(L, 2);
+  lua_rawget(L, -2);
+  if (!lua_isnil(L, -1)) {
+    return 1;
+  } else {
+    lua_pop(L, 2);
   }
 
   float* v = luax_checkvector(L, 1, V_VEC2, NULL);
@@ -815,15 +813,13 @@ static int l_lovrVec3__newindex(lua_State* L) {
 }
 
 static int l_lovrVec3__index(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TUSERDATA) {
-    lua_getmetatable(L, 1);
-    lua_pushvalue(L, 2);
-    lua_rawget(L, -2);
-    if (!lua_isnil(L, -1)) {
-      return 1;
-    } else {
-      lua_pop(L, 2);
-    }
+  lua_getmetatable(L, 1);
+  lua_pushvalue(L, 2);
+  lua_rawget(L, -2);
+  if (!lua_isnil(L, -1)) {
+    return 1;
+  } else {
+    lua_pop(L, 2);
   }
 
   float* v = luax_checkvector(L, 1, V_VEC3, NULL);
@@ -1212,15 +1208,13 @@ static int l_lovrVec4__newindex(lua_State* L) {
 }
 
 static int l_lovrVec4__index(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TUSERDATA) {
-    lua_getmetatable(L, 1);
-    lua_pushvalue(L, 2);
-    lua_rawget(L, -2);
-    if (!lua_isnil(L, -1)) {
-      return 1;
-    } else {
-      lua_pop(L, 2);
-    }
+  lua_getmetatable(L, 1);
+  lua_pushvalue(L, 2);
+  lua_rawget(L, -2);
+  if (!lua_isnil(L, -1)) {
+    return 1;
+  } else {
+    lua_pop(L, 2);
   }
 
   float* v = luax_checkvector(L, 1, V_VEC4, NULL);
@@ -1527,15 +1521,13 @@ static int l_lovrQuat__newindex(lua_State* L) {
 }
 
 static int l_lovrQuat__index(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TUSERDATA) {
-    lua_getmetatable(L, 1);
-    lua_pushvalue(L, 2);
-    lua_rawget(L, -2);
-    if (!lua_isnil(L, -1)) {
-      return 1;
-    } else {
-      lua_pop(L, 2);
-    }
+  lua_getmetatable(L, 1);
+  lua_pushvalue(L, 2);
+  lua_rawget(L, -2);
+  if (!lua_isnil(L, -1)) {
+    return 1;
+  } else {
+    lua_pop(L, 2);
   }
 
   float* q = luax_checkvector(L, 1, V_QUAT, NULL);
@@ -1986,15 +1978,13 @@ static int l_lovrMat4__newindex(lua_State* L) {
 }
 
 static int l_lovrMat4__index(lua_State* L) {
-  if (lua_type(L, 1) == LUA_TUSERDATA) {
-    lua_getmetatable(L, 1);
-    lua_pushvalue(L, 2);
-    lua_rawget(L, -2);
-    if (!lua_isnil(L, -1)) {
-      return 1;
-    } else {
-      lua_pop(L, 2);
-    }
+  lua_getmetatable(L, 1);
+  lua_pushvalue(L, 2);
+  lua_rawget(L, -2);
+  if (!lua_isnil(L, -1)) {
+    return 1;
+  } else {
+    lua_pop(L, 2);
   }
 
   float* m = luax_checkvector(L, 1, V_MAT4, NULL);
