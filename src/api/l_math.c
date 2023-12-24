@@ -31,12 +31,12 @@ extern const luaL_Reg lovrVec4[];
 extern const luaL_Reg lovrQuat[];
 extern const luaL_Reg lovrMat4[];
 
-static struct { size_t components; const char* name; lua_CFunction metacall, metaindex; const luaL_Reg* api; int metaref; } lovrVectorInfo[] = {
-  [V_VEC2] = { 2, "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL },
-  [V_VEC3] = { 3, "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL },
-  [V_VEC4] = { 4, "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL },
-  [V_QUAT] = { 4, "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL },
-  [V_MAT4] = { 16, "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL }
+static struct { size_t components; const char* name; lua_CFunction metacall, metaindex; const luaL_Reg* api; int metaref, poolref, cursor; } lovrVectorInfo[] = {
+  [V_VEC2] = { 2, "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL, LUA_REFNIL, 1 },
+  [V_VEC3] = { 3, "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL, LUA_REFNIL, 1 },
+  [V_VEC4] = { 4, "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL, LUA_REFNIL, 1 },
+  [V_QUAT] = { 4, "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL, LUA_REFNIL, 1 },
+  [V_MAT4] = { 16, "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL, LUA_REFNIL, 1 }
 };
 
 float* luax_tovector(lua_State* L, int index, int* type) {
@@ -61,12 +61,34 @@ float* luax_checkvector(lua_State* L, int index, int type, const char* expected)
   return p;
 }
 
+static bool pushed;
+
 float* luax_newvector(lua_State* L, int type) {
-  void* p = lua_newuserdata(L, sizeof(int) + lovrVectorInfo[type].components * sizeof(float));
-  *((int*) p) = type;
-  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metaref);
-  lua_setmetatable(L, -2);
-  return (float*) ((char*) p + sizeof(int));
+  if (pushed) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].poolref);
+    lua_rawgeti(L, -1, lovrVectorInfo[type].cursor);
+    if (lua_isnil(L, -1)) {
+      lua_pop(L, 1);
+      void* p = lua_newuserdata(L, sizeof(int) + lovrVectorInfo[type].components * sizeof(float));
+      *((int*) p) = type;
+      lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metaref);
+      lua_setmetatable(L, -2);
+      lua_pushvalue(L, -1);
+      lua_rawseti(L, -3, lovrVectorInfo[type].cursor++);
+      lua_remove(L, -2);
+      return (float*) ((char*) p + sizeof(int));
+    } else {
+      lua_remove(L, -2);
+      lovrVectorInfo[type].cursor++;
+      return (float*) ((char*) lua_topointer(L, -1) + sizeof(int));
+    }
+  } else {
+    void* p = lua_newuserdata(L, sizeof(int) + lovrVectorInfo[type].components * sizeof(float));
+    *((int*) p) = type;
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metaref);
+    lua_setmetatable(L, -2);
+    return (float*) ((char*) p + sizeof(int));
+  }
 }
 
 static int l_lovrMathNewCurve(lua_State* L) {
@@ -251,6 +273,19 @@ static int l_lovrMathMat4(lua_State* L) {
   return l_lovrMat4Set(L);
 }
 
+static int l_lovrMathPush(lua_State* L) {
+  for (int i = V_VEC2; i <= V_MAT4; i++) {
+    lovrVectorInfo[i].cursor = 1;
+  }
+  pushed = true;
+  return 0;
+}
+
+static int l_lovrMathPop(lua_State* L) {
+  pushed = false;
+  return 0;
+}
+
 static const luaL_Reg lovrMath[] = {
   { "newCurve", l_lovrMathNewCurve },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
@@ -266,6 +301,8 @@ static const luaL_Reg lovrMath[] = {
   { "newVec4", l_lovrMathNewVec4 },
   { "newQuat", l_lovrMathNewQuat },
   { "newMat4", l_lovrMathNewMat4 },
+  { "push", l_lovrMathPush },
+  { "pop", l_lovrMathPop },
   { NULL, NULL }
 };
 
@@ -295,6 +332,17 @@ int luaopen_lovr_math(lua_State* L) {
 
     luax_register(L, lovrVectorInfo[i].api);
     lovrVectorInfo[i].metaref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    // pool
+    lua_newtable(L);
+
+    // __mode = v
+    lua_newtable(L);
+    lua_pushliteral(L, "v");
+    lua_setfield(L, -2, "__mode");
+    lua_setmetatable(L, -2);
+
+    lovrVectorInfo[i].poolref = luaL_ref(L, LUA_REGISTRYINDEX);
   }
 
   // Module
