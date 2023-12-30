@@ -52,26 +52,27 @@ struct Buffer {
 };
 
 typedef struct {
+  void* next;
+  void* pointer;
+  gpu_buffer* handle;
+  uint32_t tick;
+  uint32_t size;
+  uint32_t ref;
+} BufferBlock;
+
+typedef struct {
+  BufferBlock* freelist;
+  BufferBlock* current;
+  uint32_t cursor;
+} BufferAllocator;
+
+typedef struct {
+  BufferBlock* block;
   gpu_buffer* buffer;
   uint32_t offset;
   uint32_t extent;
   void* pointer;
-} MappedBuffer;
-
-typedef struct {
-  void* next;
-  void* pointer;
-  gpu_buffer* gpu;
-  uint32_t size;
-  uint32_t tick;
-} ScratchBuffer;
-
-typedef struct {
-  ScratchBuffer* oldest;
-  ScratchBuffer* newest;
-  gpu_buffer_type type;
-  uint32_t cursor;
-} BufferPool;
+} BufferView;
 
 struct Texture {
   uint32_t ref;
@@ -277,7 +278,7 @@ struct Readback {
   uint32_t ref;
   uint32_t tick;
   Readback* next;
-  MappedBuffer mapped;
+  BufferView view;
   ReadbackType type;
   union {
     struct {
@@ -494,7 +495,7 @@ struct Pass {
   uint32_t ref;
   uint32_t flags;
   Allocator allocator;
-  BufferPool buffers;
+  BufferAllocator buffers;
   Shape geocache[16];
   AccessBlock* access[2];
   Tally tally;
@@ -580,9 +581,7 @@ static struct {
   Material* defaultMaterial;
   size_t materialBlock;
   arr_t(MaterialBlock) materialBlocks;
-  BufferPool streamBuffers;
-  BufferPool uploadBuffers;
-  BufferPool downloadBuffers;
+  BufferAllocator bufferAllocators[4];
   arr_t(ScratchTexture) scratchTextures;
   map_t pipelineLookup;
   gpu_pipeline* pipelines;
@@ -597,7 +596,10 @@ static void* tempAlloc(Allocator* allocator, size_t size);
 static size_t tempPush(Allocator* allocator);
 static void tempPop(Allocator* allocator, size_t stack);
 static gpu_pipeline* getPipeline(uint32_t index);
-static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align);
+static BufferBlock* getBlock(gpu_buffer_type type, uint32_t size);
+static void freeBlock(BufferAllocator* allocator, BufferBlock* block);
+static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type type, uint32_t size, size_t align);
+static BufferView getBuffer(gpu_buffer_type type, uint32_t size, size_t align);
 static int u64cmp(const void* a, const void* b);
 static void beginFrame(void);
 static void flushTransfers();
@@ -664,10 +666,6 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   state.pipelines = os_vm_init(MAX_PIPELINES * gpu_sizeof_pipeline());
   lovrAssert(state.pipelines, "Out of memory");
 
-  state.streamBuffers.type = GPU_BUFFER_STREAM;
-  state.uploadBuffers.type = GPU_BUFFER_UPLOAD;
-  state.downloadBuffers.type = GPU_BUFFER_DOWNLOAD;
-
   map_init(&state.pipelineLookup, 64);
   arr_init(&state.layouts, realloc);
   arr_init(&state.materialBlocks, realloc);
@@ -705,9 +703,9 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   }, NULL);
 
   beginFrame();
-  MappedBuffer mapped = mapBuffer(&state.uploadBuffers, sizeof(data), 4);
-  memcpy(mapped.pointer, data, sizeof(data));
-  gpu_copy_buffers(state.stream, mapped.buffer, state.defaultBuffer->gpu, mapped.offset, 0, sizeof(data));
+  BufferView view = getBuffer(GPU_BUFFER_UPLOAD, sizeof(data), 4);
+  memcpy(view.pointer, data, sizeof(data));
+  gpu_copy_buffers(state.stream, view.buffer, state.defaultBuffer->gpu, view.offset, 0, sizeof(data));
 
   Image* image = lovrImageCreateRaw(4, 4, FORMAT_RGBA8, false);
 
@@ -864,14 +862,17 @@ void lovrGraphicsDestroy(void) {
   }
   os_vm_free(state.pipelines, MAX_PIPELINES * gpu_sizeof_pipeline());
   map_free(&state.pipelineLookup);
-  BufferPool* pools[] = { &state.streamBuffers, &state.uploadBuffers, &state.downloadBuffers };
-  for (size_t i = 0; i < COUNTOF(pools); i++) {
-    ScratchBuffer* buffer = pools[i]->oldest;
-    while (buffer) {
-      ScratchBuffer* next = buffer->next;
-      gpu_buffer_destroy(buffer->gpu);
-      free(buffer);
-      buffer = next;
+  for (size_t i = 0; i < COUNTOF(state.bufferAllocators); i++) {
+    for (BufferBlock* block = state.bufferAllocators[i].freelist; block; block = block->next) {
+      gpu_buffer_destroy(block->handle);
+      free(block);
+    }
+
+    BufferBlock* current = state.bufferAllocators[i].current;
+
+    if (current) {
+      gpu_buffer_destroy(current->handle);
+      free(current);
     }
   }
   for (size_t i = 0; i < state.layouts.length; i++) {
@@ -1202,27 +1203,27 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     { 3, GPU_SLOT_SAMPLER, .sampler = pass->sampler ? pass->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu }
   };
 
-  MappedBuffer mapped;
+  BufferView view;
   size_t align = state.limits.uniformBufferAlign;
 
   // Globals
-  mapped = mapBuffer(&state.streamBuffers, sizeof(Globals), align);
-  builtins[0].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
-  Globals* global = mapped.pointer;
+  view = getBuffer(GPU_BUFFER_STREAM, sizeof(Globals), align);
+  builtins[0].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
+  Globals* global = view.pointer;
   global->resolution[0] = canvas->width;
   global->resolution[1] = canvas->height;
   global->time = lovrHeadsetInterface ? lovrHeadsetInterface->getDisplayTime() : os_get_time();
 
   // Cameras
-  mapped = mapBuffer(&state.streamBuffers, pass->cameraCount * canvas->views * sizeof(Camera), align);
-  builtins[1].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
-  memcpy(mapped.pointer, pass->cameras, pass->cameraCount * canvas->views * sizeof(Camera));
+  view = getBuffer(GPU_BUFFER_STREAM, pass->cameraCount * canvas->views * sizeof(Camera), align);
+  builtins[1].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
+  memcpy(view.pointer, pass->cameras, pass->cameraCount * canvas->views * sizeof(Camera));
 
   // DrawData
   uint32_t alignedDrawCount = activeDrawCount <= 256 ? activeDrawCount : ALIGN(activeDrawCount, 256);
-  mapped = mapBuffer(&state.streamBuffers, alignedDrawCount * sizeof(DrawData), align);
-  builtins[2].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, MIN(activeDrawCount, 256) * sizeof(DrawData) };
-  DrawData* data = mapped.pointer;
+  view = getBuffer(GPU_BUFFER_STREAM, alignedDrawCount * sizeof(DrawData), align);
+  builtins[2].buffer = (gpu_buffer_binding) { view.buffer, view.offset, MIN(activeDrawCount, 256) * sizeof(DrawData) };
+  DrawData* data = view.pointer;
 
   for (uint32_t i = 0; i < activeDrawCount; i++, data++) {
     Draw* draw = &pass->draws[activeDraws[i]];
@@ -1484,7 +1485,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   }
 }
 
-static Readback* lovrReadbackCreateTimestamp(TimingInfo* passes, uint32_t count, MappedBuffer mapped);
+static Readback* lovrReadbackCreateTimestamp(TimingInfo* passes, uint32_t count, BufferView view);
 
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   beginFrame();
@@ -1648,9 +1649,9 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   }
 
   if (state.timingEnabled && count > 0) {
-    MappedBuffer mapped = mapBuffer(&state.downloadBuffers, 2 * count * sizeof(uint32_t), 4);
-    gpu_copy_tally_buffer(streams[streamCount - 1], state.timestamps, mapped.buffer, 0, mapped.offset, 2 * count);
-    Readback* readback = lovrReadbackCreateTimestamp(times, count, mapped);
+    BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, 2 * count * sizeof(uint32_t), 4);
+    gpu_copy_tally_buffer(streams[streamCount - 1], state.timestamps, view.buffer, 0, view.offset, 2 * count);
+    Readback* readback = lovrReadbackCreateTimestamp(times, count, view);
     lovrRelease(readback, lovrReadbackDestroy); // It gets freed when it completes
   }
 
@@ -1659,7 +1660,9 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     streams++;
   }
 
-  // Reset all resource barriers to the default one (and sneak in OpenXR layout transitions >__>)
+  // - Reset all resource barriers to the default one
+  // - Sneak in OpenXR layout transitions >__>
+  // - Set tick of any full buffers to current tick
   for (uint32_t i = 0; i < count; i++) {
     Canvas* canvas = &passes[i]->canvas;
 
@@ -1689,6 +1692,10 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
           block->list[k].sync->barrier = &state.postBarrier;
         }
       }
+    }
+
+    for (BufferBlock* block = passes[i]->buffers.freelist; block; block = block->next) {
+      block->tick = state.tick;
     }
   }
 
@@ -1869,12 +1876,12 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
 
   if (data && *data == NULL) {
     beginFrame();
-    MappedBuffer mapped = mapBuffer(&state.uploadBuffers, buffer->info.size, 4);
-    gpu_copy_buffers(state.stream, mapped.buffer, buffer->gpu, mapped.offset, 0, buffer->info.size);
+    BufferView view = getBuffer(GPU_BUFFER_UPLOAD, buffer->info.size, 4);
+    gpu_copy_buffers(state.stream, view.buffer, buffer->gpu, view.offset, 0, buffer->info.size);
     buffer->sync.writePhase = GPU_PHASE_TRANSFER;
     buffer->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
     buffer->sync.lastTransferWrite = state.tick;
-    *data = mapped.pointer;
+    *data = view.pointer;
   }
 
   buffer->sync.barrier = &state.postBarrier;
@@ -1901,24 +1908,24 @@ void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
   gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
 
-  MappedBuffer mapped = mapBuffer(&state.downloadBuffers, extent, 4);
-  gpu_copy_buffers(state.stream, buffer->gpu, mapped.buffer, offset, mapped.offset, extent);
+  BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, 4);
+  gpu_copy_buffers(state.stream, buffer->gpu, view.buffer, offset, view.offset, extent);
 
   lovrGraphicsSubmit(NULL, 0);
   lovrGraphicsWait();
 
-  return mapped.pointer;
+  return view.pointer;
 }
 
 void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
   beginFrame();
   if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(offset + extent <= buffer->info.size, "Attempt to write past the end of the Buffer");
-  MappedBuffer mapped = mapBuffer(&state.uploadBuffers, extent, 4);
+  BufferView view = getBuffer(GPU_BUFFER_UPLOAD, extent, 4);
   gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
-  gpu_copy_buffers(state.stream, mapped.buffer, buffer->gpu, mapped.offset, offset, extent);
-  return mapped.pointer;
+  gpu_copy_buffers(state.stream, view.buffer, buffer->gpu, view.offset, offset, extent);
+  return view.pointer;
 }
 
 void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {
@@ -2070,7 +2077,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   uint32_t levelCount = 0;
   uint32_t levelOffsets[16];
   uint32_t levelSizes[16];
-  MappedBuffer mapped = { 0 };
+  BufferView view = { 0 };
 
   beginFrame();
 
@@ -2087,8 +2094,8 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       total += levelSizes[level];
     }
 
-    mapped = mapBuffer(&state.uploadBuffers, total, 64);
-    char* data = mapped.pointer;
+    view = getBuffer(GPU_BUFFER_UPLOAD, total, 64);
+    char* data = view.pointer;
 
     for (uint32_t level = 0; level < levelCount; level++) {
       for (uint32_t layer = 0; layer < info->layers; layer++) {
@@ -2100,7 +2107,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
         memcpy(data, pixels, size);
         data += size;
       }
-      levelOffsets[level] += mapped.offset;
+      levelOffsets[level] += view.offset;
     }
   }
 
@@ -2123,7 +2130,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     .label = info->label,
     .upload = {
       .stream = state.stream,
-      .buffer = mapped.buffer,
+      .buffer = view.buffer,
       .levelCount = levelCount,
       .levelOffsets = levelOffsets,
       .generateMipmaps = levelCount > 0 && levelCount < mipmaps
@@ -2295,15 +2302,15 @@ Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t exten
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
 
-  MappedBuffer mapped = mapBuffer(&state.downloadBuffers, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
-  gpu_copy_texture_buffer(state.stream, texture->gpu, mapped.buffer, offset, mapped.offset, extent);
+  BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
+  gpu_copy_texture_buffer(state.stream, texture->gpu, view.buffer, offset, view.offset, extent);
 
   lovrGraphicsSubmit(NULL, 0);
   lovrGraphicsWait();
 
   Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
   void* data = lovrImageGetLayerData(image, offset[3], offset[2]);
-  memcpy(data, mapped.pointer, mapped.extent);
+  memcpy(data, view.pointer, view.extent);
   return image;
 }
 
@@ -2326,8 +2333,8 @@ void lovrTextureSetPixels(Texture* texture, Image* image, uint32_t srcOffset[4],
   uint32_t layerOffset = measureTexture(texture->info.format, extent[0], srcOffset[1], 1);
   layerOffset += measureTexture(texture->info.format, srcOffset[0], 1, 1);
   uint32_t pitch = measureTexture(texture->info.format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
-  MappedBuffer mapped = mapBuffer(&state.uploadBuffers, totalSize, 64);
-  char* dst = mapped.pointer;
+  BufferView view = getBuffer(GPU_BUFFER_UPLOAD, totalSize, 64);
+  char* dst = view.pointer;
   for (uint32_t z = 0; z < extent[2]; z++) {
     const char* src = (char*) lovrImageGetLayerData(image, srcOffset[3], z) + layerOffset;
     for (uint32_t y = 0; y < extent[1]; y++) {
@@ -2338,7 +2345,7 @@ void lovrTextureSetPixels(Texture* texture, Image* image, uint32_t srcOffset[4],
   }
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
-  gpu_copy_buffer_texture(state.stream, mapped.buffer, texture->gpu, mapped.offset, dstOffset, extent);
+  gpu_copy_buffer_texture(state.stream, view.buffer, texture->gpu, view.offset, dstOffset, extent);
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
@@ -3203,13 +3210,13 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
     data = (MaterialData*) ((char*) block->pointer + material->index * stride);
   } else {
     beginFrame();
-    MappedBuffer mapped = mapBuffer(&state.uploadBuffers, sizeof(MaterialData), 4);
-    gpu_copy_buffers(state.stream, mapped.buffer, block->buffer, mapped.offset, stride * material->index, sizeof(MaterialData));
+    BufferView view = getBuffer(GPU_BUFFER_UPLOAD, sizeof(MaterialData), 4);
+    gpu_copy_buffers(state.stream, view.buffer, block->buffer, view.offset, stride * material->index, sizeof(MaterialData));
     state.postBarrier.prev |= GPU_PHASE_TRANSFER;
     state.postBarrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
     state.postBarrier.flush |= GPU_CACHE_TRANSFER_WRITE;
     state.postBarrier.clear |= GPU_CACHE_UNIFORM;
-    data = mapped.pointer;
+    data = view.pointer;
   }
 
   memcpy(data, info, sizeof(MaterialData));
@@ -3475,9 +3482,9 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   size_t stack = tempPush(&state.allocator);
   float* pixels = tempAlloc(&state.allocator, pixelWidth * pixelHeight * 4 * sizeof(float));
   lovrRasterizerGetPixels(font->info.rasterizer, glyph->codepoint, pixels, pixelWidth, pixelHeight, font->info.spread);
-  MappedBuffer mapped = mapBuffer(&state.uploadBuffers, pixelWidth * pixelHeight * 4 * sizeof(uint8_t), 64);
+  BufferView view = getBuffer(GPU_BUFFER_UPLOAD, pixelWidth * pixelHeight * 4 * sizeof(uint8_t), 64);
   float* src = pixels;
-  uint8_t* dst = mapped.pointer;
+  uint8_t* dst = view.pointer;
   for (uint32_t y = 0; y < pixelHeight; y++) {
     for (uint32_t x = 0; x < pixelWidth; x++) {
       for (uint32_t c = 0; c < 4; c++) {
@@ -3488,7 +3495,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   }
   uint32_t dstOffset[4] = { glyph->x - font->padding, glyph->y - font->padding, 0, 0 };
   uint32_t extent[3] = { pixelWidth, pixelHeight, 1 };
-  gpu_copy_buffer_texture(state.stream, mapped.buffer, font->atlas->gpu, mapped.offset, dstOffset, extent);
+  gpu_copy_buffer_texture(state.stream, view.buffer, font->atlas->gpu, view.offset, dstOffset, extent);
   tempPop(&state.allocator, stack);
 
   state.postBarrier.prev |= GPU_PHASE_TRANSFER;
@@ -4726,9 +4733,9 @@ static void lovrModelAnimateVertices(Model* model) {
         uint32_t count = MIN(group->count - j, chunkSize);
         bool first = j == 0;
 
-        MappedBuffer mapped = mapBuffer(&state.streamBuffers, chunkSize * sizeof(float), state.limits.uniformBufferAlign);
-        memcpy(mapped.pointer, model->blendShapeWeights + group->index + j, count * sizeof(float));
-        bindings[3].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
+        BufferView view = getBuffer(GPU_BUFFER_STREAM, chunkSize * sizeof(float), state.limits.uniformBufferAlign);
+        memcpy(view.pointer, model->blendShapeWeights + group->index + j, count * sizeof(float));
+        bindings[3].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
 
         gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
         uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor, first };
@@ -4784,11 +4791,11 @@ static void lovrModelAnimateVertices(Model* model) {
       ModelSkin* skin = &data->skins[i];
 
       uint32_t align = state.limits.uniformBufferAlign;
-      MappedBuffer mapped = mapBuffer(&state.streamBuffers, skin->jointCount * 16 * sizeof(float), align);
-      bindings[3].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
+      BufferView view = getBuffer(GPU_BUFFER_STREAM, skin->jointCount * 16 * sizeof(float), align);
+      bindings[3].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
 
       float transform[16];
-      float* joints = mapped.pointer;
+      float* joints = view.pointer;
       for (uint32_t j = 0; j < skin->jointCount; j++) {
         mat4_init(transform, model->globalTransforms + 16 * skin->joints[j]);
         mat4_mul(transform, skin->inverseBindMatrices + 16 * j);
@@ -4848,11 +4855,11 @@ Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t ext
   void* data = malloc(extent);
   lovrAssert(data, "Out of memory");
   readback->blob = lovrBlobCreate(data, extent, "Readback");
-  readback->mapped = mapBuffer(&state.downloadBuffers, extent, 4);
+  readback->view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, 4);
   lovrRetain(buffer);
   gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
-  gpu_copy_buffers(state.stream, buffer->gpu, readback->mapped.buffer, offset, readback->mapped.offset, extent);
+  gpu_copy_buffers(state.stream, buffer->gpu, readback->view.buffer, offset, readback->view.offset, extent);
   return readback;
 }
 
@@ -4867,17 +4874,17 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   Readback* readback = lovrReadbackCreate(READBACK_TEXTURE);
   readback->texture = texture;
   readback->image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
-  readback->mapped = mapBuffer(&state.downloadBuffers, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
+  readback->view = getBuffer(GPU_BUFFER_DOWNLOAD, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
   lovrRetain(texture);
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
-  gpu_copy_texture_buffer(state.stream, texture->gpu, readback->mapped.buffer, offset, readback->mapped.offset, extent);
+  gpu_copy_texture_buffer(state.stream, texture->gpu, readback->view.buffer, offset, readback->view.offset, extent);
   return readback;
 }
 
-static Readback* lovrReadbackCreateTimestamp(TimingInfo* times, uint32_t count, MappedBuffer buffer) {
+static Readback* lovrReadbackCreateTimestamp(TimingInfo* times, uint32_t count, BufferView buffer) {
   Readback* readback = lovrReadbackCreate(READBACK_TIMESTAMP);
-  readback->mapped = buffer;
+  readback->view = buffer;
   readback->times = times;
   readback->count = count;
   return readback;
@@ -4955,7 +4962,17 @@ static void* lovrPassAllocate(Pass* pass, size_t size) {
   return tempAlloc(&pass->allocator, size);
 }
 
+static BufferView lovrPassGetBuffer(Pass* pass, uint32_t size, size_t align) {
+  return allocateBuffer(&pass->buffers, GPU_BUFFER_STREAM, size, align);
+}
+
 static void lovrPassRelease(Pass* pass) {
+  for (BufferBlock* block = pass->buffers.freelist; block; block = block->next) {
+    freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], block);
+  }
+
+  pass->buffers.freelist = NULL;
+
   if (pass->pipeline) {
     for (uint32_t i = 0; i <= pass->pipelineIndex; i++) {
       lovrRelease(pass->pipeline->material, lovrMaterialDestroy);
@@ -5017,7 +5034,6 @@ Pass* lovrPassCreate(void) {
   pass->allocator.length = 1 << 12;
   pass->allocator.memory = os_vm_init(pass->allocator.limit);
   os_vm_commit(pass->allocator.memory, pass->allocator.length);
-  pass->buffers.type = GPU_BUFFER_STREAM;
 
   lovrPassReset(pass);
 
@@ -5036,13 +5052,7 @@ void lovrPassDestroy(void* ref) {
     gpu_tally_destroy(pass->tally.gpu);
     gpu_buffer_destroy(pass->tally.secretBuffer);
   }
-  ScratchBuffer* buffer = pass->buffers.oldest;
-  while (buffer) {
-    ScratchBuffer* next = buffer->next;
-    gpu_buffer_destroy(buffer->gpu);
-    free(buffer);
-    buffer = next;
-  }
+  freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
   os_vm_free(pass->allocator.memory, pass->allocator.limit);
   free(pass);
 }
@@ -5736,12 +5746,12 @@ void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot
   lovrCheck(~shader->storageMask & (1u << slot), "Unable to send table data to a storage buffer");
 
   uint32_t size = resource->format->stride * MAX(resource->format->length, 1);
-  MappedBuffer mapped = mapBuffer(&pass->buffers, size, state.limits.uniformBufferAlign);
-  pass->bindings[slot].buffer = (gpu_buffer_binding) { mapped.buffer, mapped.offset, mapped.extent };
+  BufferView view = lovrPassGetBuffer(pass, size, state.limits.uniformBufferAlign);
+  pass->bindings[slot].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
   pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
 
-  *data = mapped.pointer;
+  *data = view.pointer;
   *format = resource->format;
 }
 
@@ -5849,13 +5859,13 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
   if (!info->vertex.buffer && info->vertex.count > 0) {
     lovrCheck(info->vertex.count <= UINT16_MAX, "Shape has too many vertices (max is 65535)");
     uint32_t stride = state.vertexFormats[info->vertex.format].bufferStrides[0];
-    MappedBuffer mapped = mapBuffer(&pass->buffers, info->vertex.count * stride, stride);
-    *info->vertex.pointer = mapped.pointer;
-    draw->vertexBuffer = mapped.buffer;
+    BufferView view = lovrPassGetBuffer(pass, info->vertex.count * stride, stride);
+    *info->vertex.pointer = view.pointer;
+    draw->vertexBuffer = view.buffer;
     if (info->index.buffer || info->index.count > 0) {
-      draw->baseVertex = mapped.offset / stride;
+      draw->baseVertex = view.offset / stride;
     } else {
-      draw->start = mapped.offset / stride;
+      draw->start = view.offset / stride;
     }
   } else if (info->vertex.buffer) {
     lovrCheck(info->vertex.buffer->info.format->stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
@@ -5866,10 +5876,10 @@ static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
   }
 
   if (!info->index.buffer && info->index.count > 0) {
-    MappedBuffer mapped = mapBuffer(&pass->buffers, info->index.count * 2, 2);
-    *info->index.pointer = mapped.pointer;
-    draw->indexBuffer = mapped.buffer;
-    draw->start = mapped.offset / 2;
+    BufferView view = lovrPassGetBuffer(pass, info->index.count * 2, 2);
+    *info->index.pointer = view.pointer;
+    draw->indexBuffer = view.buffer;
+    draw->start = view.offset / 2;
   } else if (info->index.buffer) {
     trackBuffer(pass, info->index.buffer, GPU_PHASE_INPUT_INDEX, GPU_CACHE_INDEX);
     draw->indexBuffer = info->index.buffer->gpu;
@@ -7143,58 +7153,66 @@ static gpu_pipeline* getPipeline(uint32_t index) {
   return (gpu_pipeline*) ((char*) state.pipelines + index * gpu_sizeof_pipeline());
 }
 
-static MappedBuffer mapBuffer(BufferPool* pool, uint32_t size, size_t align) {
-  uint32_t cursor = (uint32_t) ((pool->cursor + (align - 1)) / align * align);
-  ScratchBuffer* buffer = pool->newest;
+static BufferBlock* getBlock(gpu_buffer_type type, uint32_t size) {
+  BufferBlock* block = state.bufferAllocators[type].freelist;
 
-  if (buffer && cursor + size > buffer->size) {
-    buffer->tick = state.tick;
-    buffer = NULL;
-
-    // Search through the freelist for a buffer to use
-    ScratchBuffer* previous = NULL;
-    for (ScratchBuffer* b = pool->oldest; b && b != pool->newest; previous = b, b = b->next) {
-      if (b->size >= size && gpu_is_complete(b->tick)) {
-        buffer = b;
-        if (previous) previous->next = buffer->next;
-        else pool->oldest = buffer->next;
-        pool->newest->next = buffer;
-        pool->newest = buffer;
-        buffer->next = NULL;
-        cursor = 0;
-        break;
-      }
-    }
+  if (block && block->size >= size && gpu_is_complete(block->tick)) {
+    state.bufferAllocators[type].freelist = block->next;
+    block->next = NULL;
+    return block;
   }
 
-  if (!buffer) {
-    buffer = malloc(sizeof(ScratchBuffer) + gpu_sizeof_buffer());
-    lovrAssert(buffer, "Out of memory");
-    buffer->gpu = (gpu_buffer*) (buffer + 1);
-    buffer->size = MAX(size, 1 << 22);
-    buffer->next = NULL;
+  block = malloc(sizeof(BufferBlock) + gpu_sizeof_buffer());
+  lovrAssert(block, "Out of memory");
+  block->handle = (gpu_buffer*) (block + 1);
+  block->size = MAX(size, 1 << 22);
+  block->next = NULL;
+  block->ref = 0;
 
-    gpu_buffer_init(buffer->gpu, &(gpu_buffer_info) {
-      .type = pool->type,
-      .size = buffer->size,
-      .pointer = &buffer->pointer,
-      .label = "Scratch Buffer"
-    });
+  gpu_buffer_init(block->handle, &(gpu_buffer_info) {
+    .type = type,
+    .size = block->size,
+    .pointer = &block->pointer,
+    .label = "Buffer Block"
+  });
 
-    if (pool->newest) pool->newest->next = buffer;
-    if (!pool->oldest) pool->oldest = buffer;
-    pool->newest = buffer;
+  return block;
+}
+
+static void freeBlock(BufferAllocator* allocator, BufferBlock* block) {
+  BufferBlock** list = &allocator->freelist;
+  while (*list) list = (BufferBlock**) &(*list)->next;
+  *list = block;
+}
+
+static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type type, uint32_t size, size_t align) {
+  uint32_t cursor = (uint32_t) ((allocator->cursor + (align - 1)) / align * align);
+  BufferBlock* block = allocator->current;
+
+  if (!block || cursor + size > block->size) {
+    if (block && type != GPU_BUFFER_STATIC) {
+      block->tick = state.tick;
+      freeBlock(allocator, block);
+    }
+
+    block = getBlock(type, size);
+    allocator->current = block;
     cursor = 0;
   }
 
-  pool->cursor = cursor + size;
+  allocator->cursor = cursor + size;
 
-  return (MappedBuffer) {
-    .buffer = buffer->gpu,
+  return (BufferView) {
+    .block = block,
+    .buffer = block->handle,
     .offset = cursor,
     .extent = size,
-    .pointer = (char*) buffer->pointer + cursor
+    .pointer = (char*) block->pointer + cursor
   };
+}
+
+static BufferView getBuffer(gpu_buffer_type type, uint32_t size, size_t align) {
+  return allocateBuffer(&state.bufferAllocators[type], type, size, align);
 }
 
 static int u64cmp(const void* a, const void* b) {
@@ -7234,15 +7252,15 @@ static void processReadbacks(void) {
 
     switch (readback->type) {
       case READBACK_BUFFER:
-        memcpy(readback->blob->data, readback->mapped.pointer, readback->mapped.extent);
+        memcpy(readback->blob->data, readback->view.pointer, readback->view.extent);
         break;
       case READBACK_TEXTURE:;
         size_t size = lovrImageGetLayerSize(readback->image, 0);
         void* data = lovrImageGetLayerData(readback->image, 0, 0);
-        memcpy(data, readback->mapped.pointer, size);
+        memcpy(data, readback->view.pointer, size);
         break;
       case READBACK_TIMESTAMP:;
-        uint32_t* timestamps = readback->mapped.pointer;
+        uint32_t* timestamps = readback->view.pointer;
         for (uint32_t i = 0; i < readback->count; i++) {
           Pass* pass = readback->times[i].pass;
           pass->stats.submitTime = readback->times[i].cpuTime;
