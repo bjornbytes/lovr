@@ -976,18 +976,6 @@ static ShaderSource luax_checkshadersource(lua_State* L, int index, ShaderStage 
         luaL_argerror(L, index, "single-line string was not filename or DefaultShader");
       }
     }
-  } else if (lua_istable(L, index)) {
-    int length = luax_len(L, index);
-    source.size = length * sizeof(uint32_t);
-    uint32_t* words = malloc(source.size);
-    lovrAssert(words, "Out of memory");
-    source.code = words;
-    *allocated = true;
-    for (int i = 0; i < length; i++) {
-      lua_rawgeti(L, index, i + 1);
-      words[i] = luax_checku32(L, -1);
-      lua_pop(L, 1);
-    }
   } else if (lua_isuserdata(L, index)) {
     Blob* blob = luax_checktype(L, index, Blob);
     source.code = blob->data;
