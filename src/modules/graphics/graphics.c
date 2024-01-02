@@ -7275,9 +7275,9 @@ static uint32_t un16x2(float x, float y) {
 
 static uint32_t sn10x3(float x, float y, float z) {
   return
-    ((((uint32_t) (int32_t) (x * 511.f)) & 0x3ff) << 20) |
+    ((((uint32_t) (int32_t) (z * 511.f)) & 0x3ff) << 20) |
     ((((uint32_t) (int32_t) (y * 511.f)) & 0x3ff) << 10) |
-    ((((uint32_t) (int32_t) (z * 511.f)) & 0x3ff) << 0);
+    ((((uint32_t) (int32_t) (x * 511.f)) & 0x3ff) << 0);
 }
 
 static uint64_t sn16x3(float x, float y, float z) {
