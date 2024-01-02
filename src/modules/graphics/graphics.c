@@ -311,9 +311,9 @@ typedef struct {
 } Camera;
 
 typedef struct {
-  struct { float x, y, z; } position;
-  struct { float x, y, z; } normal;
-  struct { float u, v; } uv;
+  uint64_t position;
+  uint32_t normal;
+  uint32_t uv;
 } ShapeVertex;
 
 typedef struct {
@@ -603,6 +603,9 @@ static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type typ
 static BufferView getBuffer(gpu_buffer_type type, uint32_t size, size_t align);
 static int u64cmp(const void* a, const void* b);
 static uint32_t lcm(uint32_t a, uint32_t b);
+static uint32_t un16x2(float x, float y);
+static uint32_t sn10x3(float x, float y, float z);
+static uint64_t sn16x3(float x, float y, float z);
 static void beginFrame(void);
 static void flushTransfers();
 static void processReadbacks(void);
@@ -749,9 +752,9 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .bufferCount = 2,
     .attributeCount = 5,
     .bufferStrides[0] = sizeof(ShapeVertex),
-    .attributes[0] = { 0, 10, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
-    .attributes[1] = { 0, 11, offsetof(ShapeVertex, normal), GPU_TYPE_F32x3 },
-    .attributes[2] = { 0, 12, offsetof(ShapeVertex, uv), GPU_TYPE_F32x2 },
+    .attributes[0] = { 0, 10, offsetof(ShapeVertex, position), GPU_TYPE_SN16x4 },
+    .attributes[1] = { 0, 11, offsetof(ShapeVertex, normal), GPU_TYPE_SN10x3 },
+    .attributes[2] = { 0, 12, offsetof(ShapeVertex, uv), GPU_TYPE_UN16x2 },
     .attributes[3] = { 1, 13, 16, GPU_TYPE_F32x4 },
     .attributes[4] = { 1, 14, 0, GPU_TYPE_F32x4 }
   };
@@ -6074,9 +6077,9 @@ void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
     for (uint32_t x = 0; x <= cols; x++) {
       float u = x * (1.f / cols);
       *vertices++ = (ShapeVertex) {
-        .position = { u - .5f, .5f - v, 0.f },
-        .normal = { 0.f, 0.f, 1.f },
-        .uv = { u, v }
+        .position = sn16x3(u - .5f, .5f - v, 0.f),
+        .normal = sn10x3(0.f, 0.f, 1.f),
+        .uv = un16x2(u, v)
       };
     }
   }
@@ -6166,26 +6169,26 @@ void lovrPassRoundrect(Pass* pass, float* transform, float r, uint32_t segments)
       float c = cosf(angle);
       float s = sinf(angle);
 
-      vertices[n * 0 + i] = (ShapeVertex) { {  x + c * rx,  y + s * ry, z }, { 0.f, 0.f, nz }, { .5f + x + c * rx, .5f - y - s * ry } };
-      vertices[n * 1 + i] = (ShapeVertex) { { -x - s * rx,  y + c * ry, z }, { 0.f, 0.f, nz }, { .5f - x - s * rx, .5f - y - c * ry } };
-      vertices[n * 2 + i] = (ShapeVertex) { { -x - c * rx, -y - s * ry, z }, { 0.f, 0.f, nz }, { .5f - x - c * rx, .5f + y + s * ry } };
-      vertices[n * 3 + i] = (ShapeVertex) { {  x + s * rx, -y - c * ry, z }, { 0.f, 0.f, nz }, { .5f + x + s * rx, .5f + y + c * ry } };
+      vertices[n * 0 + i] = (ShapeVertex) { sn16x3( x + c * rx,  y + s * ry, z), sn10x3(0.f, 0.f, nz), un16x2(.5f + x + c * rx, .5f - y - s * ry) };
+      vertices[n * 1 + i] = (ShapeVertex) { sn16x3(-x - s * rx,  y + c * ry, z), sn10x3(0.f, 0.f, nz), un16x2(.5f - x - s * rx, .5f - y - c * ry) };
+      vertices[n * 2 + i] = (ShapeVertex) { sn16x3(-x - c * rx, -y - s * ry, z), sn10x3(0.f, 0.f, nz), un16x2(.5f - x - c * rx, .5f + y + s * ry) };
+      vertices[n * 3 + i] = (ShapeVertex) { sn16x3( x + s * rx, -y - c * ry, z), sn10x3(0.f, 0.f, nz), un16x2(.5f + x + s * rx, .5f + y + c * ry) };
 
       if (thicc) {
-        vertices[n * 8  + i] = (ShapeVertex) { {  x + c * rx,  y + s * ry, z }, { c, s, 0.f }, { .5f + x + c * rx, .5f - y - s * ry } };
-        vertices[n * 9  + i] = (ShapeVertex) { { -x - s * rx,  y + c * ry, z }, { c, s, 0.f }, { .5f - x - s * rx, .5f - y - c * ry } };
-        vertices[n * 10 + i] = (ShapeVertex) { { -x - c * rx, -y - s * ry, z }, { c, s, 0.f }, { .5f - x - c * rx, .5f + y + s * ry } };
-        vertices[n * 11 + i] = (ShapeVertex) { {  x + s * rx, -y - c * ry, z }, { c, s, 0.f }, { .5f + x + s * rx, .5f + y + c * ry } };
+        vertices[n * 8  + i] = (ShapeVertex) { sn16x3( x + c * rx,  y + s * ry, z), sn10x3(c, s, 0.f), un16x2(.5f + x + c * rx, .5f - y - s * ry) };
+        vertices[n * 9  + i] = (ShapeVertex) { sn16x3(-x - s * rx,  y + c * ry, z), sn10x3(c, s, 0.f), un16x2(.5f - x - s * rx, .5f - y - c * ry) };
+        vertices[n * 10 + i] = (ShapeVertex) { sn16x3(-x - c * rx, -y - s * ry, z), sn10x3(c, s, 0.f), un16x2(.5f - x - c * rx, .5f + y + s * ry) };
+        vertices[n * 11 + i] = (ShapeVertex) { sn16x3( x + s * rx, -y - c * ry, z), sn10x3(c, s, 0.f), un16x2(.5f + x + s * rx, .5f + y + c * ry) };
       }
     }
 
     vertices += 4 * n;
 
     // 4 extra corner vertices per-side, used for the triangle fans and 9-slice quads
-    *corner++ = (ShapeVertex) { {  x,  y, z }, { 0.f, 0.f, nz }, { .5f + x, .5f - y } };
-    *corner++ = (ShapeVertex) { { -x,  y, z }, { 0.f, 0.f, nz }, { .5f - x, .5f - y } };
-    *corner++ = (ShapeVertex) { { -x, -y, z }, { 0.f, 0.f, nz }, { .5f - x, .5f + y } };
-    *corner++ = (ShapeVertex) { {  x, -y, z }, { 0.f, 0.f, nz }, { .5f + x, .5f + y } };
+    *corner++ = (ShapeVertex) { sn16x3( x,  y, z), sn10x3(0.f, 0.f, nz), un16x2(.5f + x, .5f - y) };
+    *corner++ = (ShapeVertex) { sn16x3(-x,  y, z), sn10x3(0.f, 0.f, nz), un16x2(.5f - x, .5f - y) };
+    *corner++ = (ShapeVertex) { sn16x3(-x, -y, z), sn10x3(0.f, 0.f, nz), un16x2(.5f - x, .5f + y) };
+    *corner++ = (ShapeVertex) { sn16x3( x, -y, z), sn10x3(0.f, 0.f, nz), un16x2(.5f + x, .5f + y) };
   }
 
   uint32_t m = segments;
@@ -6251,18 +6254,18 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
   uint16_t* indices;
 
   if (style == STYLE_LINE) {
-    static ShapeVertex vertexData[] = {
-      { { -.5f,  .5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } }, // Front
-      { {  .5f,  .5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
-      { {  .5f, -.5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
-      { { -.5f, -.5f, -.5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
-      { { -.5f,  .5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } }, // Back
-      { {  .5f,  .5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
-      { {  .5f, -.5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
-      { { -.5f, -.5f,  .5f }, { 0.f, 0.f, 0.f }, { 0.f, 0.f } }
+    ShapeVertex vertexData[] = {
+      { sn16x3(-.5f,  .5f, -.5f), sn10x3(0.f, 0.f, 0.f), un16x2(0.f, 0.f) }, // Front
+      { sn16x3( .5f,  .5f, -.5f), sn10x3(0.f, 0.f, 0.f), un16x2(0.f, 0.f) },
+      { sn16x3( .5f, -.5f, -.5f), sn10x3(0.f, 0.f, 0.f), un16x2(0.f, 0.f) },
+      { sn16x3(-.5f, -.5f, -.5f), sn10x3(0.f, 0.f, 0.f), un16x2(0.f, 0.f) },
+      { sn16x3(-.5f,  .5f,  .5f), sn10x3(0.f, 0.f, 0.f), un16x2(0.f, 0.f) }, // Back
+      { sn16x3( .5f,  .5f,  .5f), sn10x3(0.f, 0.f, 0.f), un16x2(0.f, 0.f) },
+      { sn16x3( .5f, -.5f,  .5f), sn10x3(0.f, 0.f, 0.f), un16x2(0.f, 0.f) },
+      { sn16x3(-.5f, -.5f,  .5f), sn10x3(0.f, 0.f, 0.f), un16x2(0.f, 0.f) }
     };
 
-    static uint16_t indexData[] = {
+    uint16_t indexData[] = {
       0, 1, 1, 2, 2, 3, 3, 0, // Front
       4, 5, 5, 6, 6, 7, 7, 4, // Back
       0, 4, 1, 5, 2, 6, 3, 7  // Connections
@@ -6284,34 +6287,34 @@ void lovrPassBox(Pass* pass, float* transform, DrawStyle style) {
       memcpy(indices, indexData, sizeof(indexData));
     }
   } else {
-    static ShapeVertex vertexData[] = {
-      { { -.5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 0.f } }, // Front
-      { { -.5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 0.f, 1.f } },
-      { {  .5f, -.5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 0.f } },
-      { {  .5f,  .5f, -.5f }, {  0.f,  0.f, -1.f }, { 1.f, 1.f } },
-      { {  .5f,  .5f, -.5f }, {  1.f,  0.f,  0.f }, { 0.f, 1.f } }, // Right
-      { {  .5f,  .5f,  .5f }, {  1.f,  0.f,  0.f }, { 1.f, 1.f } },
-      { {  .5f, -.5f, -.5f }, {  1.f,  0.f,  0.f }, { 0.f, 0.f } },
-      { {  .5f, -.5f,  .5f }, {  1.f,  0.f,  0.f }, { 1.f, 0.f } },
-      { {  .5f, -.5f,  .5f }, {  0.f,  0.f,  1.f }, { 0.f, 0.f } }, // Back
-      { {  .5f,  .5f,  .5f }, {  0.f,  0.f,  1.f }, { 0.f, 1.f } },
-      { { -.5f, -.5f,  .5f }, {  0.f,  0.f,  1.f }, { 1.f, 0.f } },
-      { { -.5f,  .5f,  .5f }, {  0.f,  0.f,  1.f }, { 1.f, 1.f } },
-      { { -.5f,  .5f,  .5f }, { -1.f,  0.f,  0.f }, { 0.f, 1.f } }, // Left
-      { { -.5f,  .5f, -.5f }, { -1.f,  0.f,  0.f }, { 1.f, 1.f } },
-      { { -.5f, -.5f,  .5f }, { -1.f,  0.f,  0.f }, { 0.f, 0.f } },
-      { { -.5f, -.5f, -.5f }, { -1.f,  0.f,  0.f }, { 1.f, 0.f } },
-      { { -.5f, -.5f, -.5f }, {  0.f, -1.f,  0.f }, { 0.f, 0.f } }, // Bottom
-      { {  .5f, -.5f, -.5f }, {  0.f, -1.f,  0.f }, { 1.f, 0.f } },
-      { { -.5f, -.5f,  .5f }, {  0.f, -1.f,  0.f }, { 0.f, 1.f } },
-      { {  .5f, -.5f,  .5f }, {  0.f, -1.f,  0.f }, { 1.f, 1.f } },
-      { { -.5f,  .5f, -.5f }, {  0.f,  1.f,  0.f }, { 0.f, 1.f } }, // Top
-      { { -.5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 0.f, 0.f } },
-      { {  .5f,  .5f, -.5f }, {  0.f,  1.f,  0.f }, { 1.f, 1.f } },
-      { {  .5f,  .5f,  .5f }, {  0.f,  1.f,  0.f }, { 1.f, 0.f } }
+    ShapeVertex vertexData[] = {
+      { sn16x3(-.5f, -.5f, -.5f), sn10x3( 0.f,  0.f, -1.f), un16x2(0.f, 0.f) }, // Front
+      { sn16x3(-.5f,  .5f, -.5f), sn10x3( 0.f,  0.f, -1.f), un16x2(0.f, 1.f) },
+      { sn16x3( .5f, -.5f, -.5f), sn10x3( 0.f,  0.f, -1.f), un16x2(1.f, 0.f) },
+      { sn16x3( .5f,  .5f, -.5f), sn10x3( 0.f,  0.f, -1.f), un16x2(1.f, 1.f) },
+      { sn16x3( .5f,  .5f, -.5f), sn10x3( 1.f,  0.f,  0.f), un16x2(0.f, 1.f) }, // Right
+      { sn16x3( .5f,  .5f,  .5f), sn10x3( 1.f,  0.f,  0.f), un16x2(1.f, 1.f) },
+      { sn16x3( .5f, -.5f, -.5f), sn10x3( 1.f,  0.f,  0.f), un16x2(0.f, 0.f) },
+      { sn16x3( .5f, -.5f,  .5f), sn10x3( 1.f,  0.f,  0.f), un16x2(1.f, 0.f) },
+      { sn16x3( .5f, -.5f,  .5f), sn10x3( 0.f,  0.f,  1.f), un16x2(0.f, 0.f) }, // Back
+      { sn16x3( .5f,  .5f,  .5f), sn10x3( 0.f,  0.f,  1.f), un16x2(0.f, 1.f) },
+      { sn16x3(-.5f, -.5f,  .5f), sn10x3( 0.f,  0.f,  1.f), un16x2(1.f, 0.f) },
+      { sn16x3(-.5f,  .5f,  .5f), sn10x3( 0.f,  0.f,  1.f), un16x2(1.f, 1.f) },
+      { sn16x3(-.5f,  .5f,  .5f), sn10x3(-1.f,  0.f,  0.f), un16x2(0.f, 1.f) }, // Left
+      { sn16x3(-.5f,  .5f, -.5f), sn10x3(-1.f,  0.f,  0.f), un16x2(1.f, 1.f) },
+      { sn16x3(-.5f, -.5f,  .5f), sn10x3(-1.f,  0.f,  0.f), un16x2(0.f, 0.f) },
+      { sn16x3(-.5f, -.5f, -.5f), sn10x3(-1.f,  0.f,  0.f), un16x2(1.f, 0.f) },
+      { sn16x3(-.5f, -.5f, -.5f), sn10x3( 0.f, -1.f,  0.f), un16x2(0.f, 0.f) }, // Bottom
+      { sn16x3( .5f, -.5f, -.5f), sn10x3( 0.f, -1.f,  0.f), un16x2(1.f, 0.f) },
+      { sn16x3(-.5f, -.5f,  .5f), sn10x3( 0.f, -1.f,  0.f), un16x2(0.f, 1.f) },
+      { sn16x3( .5f, -.5f,  .5f), sn10x3( 0.f, -1.f,  0.f), un16x2(1.f, 1.f) },
+      { sn16x3(-.5f,  .5f, -.5f), sn10x3( 0.f,  1.f,  0.f), un16x2(0.f, 1.f) }, // Top
+      { sn16x3(-.5f,  .5f,  .5f), sn10x3( 0.f,  1.f,  0.f), un16x2(0.f, 0.f) },
+      { sn16x3( .5f,  .5f, -.5f), sn10x3( 0.f,  1.f,  0.f), un16x2(1.f, 1.f) },
+      { sn16x3( .5f,  .5f,  .5f), sn10x3( 0.f,  1.f,  0.f), un16x2(1.f, 0.f) }
     };
 
-    static uint16_t indexData[] = {
+    uint16_t indexData[] = {
       0,  1,   2,  2,  1,  3,
       4,  5,   6,  6,  5,  7,
       8,  9,  10, 10,  9, 11,
@@ -6386,7 +6389,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
     }
 
     // Center
-    *vertices++ = (ShapeVertex) { { 0.f, 0.f, 0.f }, { 0.f, 0.f, 1.f }, { .5f, .5f } };
+    *vertices++ = (ShapeVertex) { sn16x3(0.f, 0.f, 0.f), sn10x3(0.f, 0.f, 1.f), un16x2(.5f, .5f) };
   }
 
   float angleShift = (angle2 - angle1) / segments;
@@ -6394,7 +6397,7 @@ void lovrPassCircle(Pass* pass, float* transform, DrawStyle style, float angle1,
     float theta = angle1 + i * angleShift;
     float x = cosf(theta);
     float y = sinf(theta);
-    *vertices++ = (ShapeVertex) { { x, y, 0.f }, { 0.f, 0.f, 1.f }, { x + .5f, .5f - y } };
+    *vertices++ = (ShapeVertex) { sn16x3(x, y, 0.f), sn10x3(0.f, 0.f, 1.f), un16x2(x + .5f, .5f - y) };
   }
 
   if (style == STYLE_LINE) {
@@ -6436,7 +6439,7 @@ void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t s
   }
 
   // Top
-  *vertices++ = (ShapeVertex) { { 0.f, 1.f, 0.f }, { 0.f, 1.f, 0.f }, { .5f, 0.f } };
+  *vertices++ = (ShapeVertex) { sn16x3(0.f, 1.f, 0.f), sn10x3(0.f, 1.f, 0.f), un16x2(.5f, 0.f) };
 
   // Rings
   for (uint32_t i = 1; i < segmentsV; i++) {
@@ -6452,12 +6455,12 @@ void lovrPassSphere(Pass* pass, float* transform, uint32_t segmentsH, uint32_t s
       float x = sintheta * sinphi;
       float y = cosphi;
       float z = -costheta * sinphi;
-      *vertices++ = (ShapeVertex) { { x, y, z }, { x, y, z }, { u, v } };
+      *vertices++ = (ShapeVertex) { sn16x3(x, y, z), sn10x3(x, y, z), un16x2(u, v) };
     }
   }
 
   // Bottom
-  *vertices++ = (ShapeVertex) { { 0.f, -1.f, 0.f }, { 0.f, -1.f, 0.f }, { .5f, 1.f } };
+  *vertices++ = (ShapeVertex) { sn16x3(0.f, -1.f, 0.f), sn10x3(0.f, -1.f, 0.f), un16x2(.5f, 1.f) };
 
   // Top
   for (uint32_t i = 0; i < segmentsH; i++) {
@@ -6528,8 +6531,8 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
     float theta = angle1 + i * angleShift;
     float x = cosf(theta);
     float y = sinf(theta);
-    *vertices++ = (ShapeVertex) { { x, y, -.5f }, { x, y, 0.f }, { x + .5f, .5f - y } };
-    *vertices++ = (ShapeVertex) { { x, y,  .5f }, { x, y, 0.f }, { x + .5f, .5f - y } };
+    *vertices++ = (ShapeVertex) { sn16x3(x, y, -.5f), sn10x3(x, y, 0.f), un16x2(x + .5f, .5f - y) };
+    *vertices++ = (ShapeVertex) { sn16x3(x, y,  .5f), sn10x3(x, y, 0.f), un16x2(x + .5f, .5f - y) };
   }
 
   // Tube quads
@@ -6545,16 +6548,16 @@ void lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
 
   if (capped) {
     // Cap centers
-    *vertices++ = (ShapeVertex) { { 0.f, 0.f, -.5f }, { 0.f, 0.f, -1.f }, { .5f, .5f } };
-    *vertices++ = (ShapeVertex) { { 0.f, 0.f,  .5f }, { 0.f, 0.f,  1.f }, { .5f, .5f } };
+    *vertices++ = (ShapeVertex) { sn16x3(0.f, 0.f, -.5f), sn10x3(0.f, 0.f, -1.f), un16x2(.5f, .5f) };
+    *vertices++ = (ShapeVertex) { sn16x3(0.f, 0.f,  .5f), sn10x3(0.f, 0.f,  1.f), un16x2(.5f, .5f) };
 
     // Caps
     for (uint32_t i = 0; i <= segments; i++) {
       float theta = angle1 + i * angleShift;
       float x = cosf(theta);
       float y = sinf(theta);
-      *vertices++ = (ShapeVertex) { { x, y, -.5f }, { 0.f, 0.f, -1.f }, { x + .5f, y - .5f } };
-      *vertices++ = (ShapeVertex) { { x, y,  .5f }, { 0.f, 0.f,  1.f }, { x + .5f, y - .5f } };
+      *vertices++ = (ShapeVertex) { sn16x3(x, y, -.5f), sn10x3(0.f, 0.f, -1.f), un16x2(x + .5f, y - .5f) };
+      *vertices++ = (ShapeVertex) { sn16x3(x, y,  .5f), sn10x3(0.f, 0.f,  1.f), un16x2(x + .5f, y - .5f) };
     }
 
     // Cap wedges
@@ -6604,12 +6607,12 @@ void lovrPassCone(Pass* pass, float* transform, uint32_t segments) {
     float nz = -rsqrt3;
     float u = x + .5f;
     float v = .5f - y;
-    vertices[segments * 0] = (ShapeVertex) { { x, y, 0.f }, { 0.f, 0.f, 1.f }, { u, v } };
-    vertices[segments * 1] = (ShapeVertex) { { x, y, 0.f }, { nx, ny, nz }, { u, v } };
+    vertices[segments * 0] = (ShapeVertex) { sn16x3(x, y, 0.f), sn10x3(0.f, 0.f, 1.f), un16x2(u, v) };
+    vertices[segments * 1] = (ShapeVertex) { sn16x3(x, y, 0.f), sn10x3(nx, ny, nz), un16x2(u, v) };
     vertices++;
   }
 
-  vertices[segments] = (ShapeVertex) { { 0.f, 0.f, -1.f }, { 0.f, 0.f, 0.f }, { .5f, .5f } };
+  vertices[segments] = (ShapeVertex) { sn16x3(0.f, 0.f, -1.f), sn10x3(0.f, 0.f, 0.f), un16x2(.5f, .5f) };
 
   // Base
   for (uint32_t i = 0; i < segments - 2; i++) {
@@ -6671,8 +6674,8 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
 
   float tip = length + radius;
   uint32_t h = vertexCount / 2;
-  vertices[0] = (ShapeVertex) { { 0.f, 0.f, -tip }, { 0.f, 0.f, -1.f }, { .5f, 0.f } };
-  vertices[h] = (ShapeVertex) { { 0.f, 0.f,  tip }, { 0.f, 0.f,  1.f }, { .5f, 1.f } };
+  vertices[0] = (ShapeVertex) { sn16x3(0.f, 0.f, -tip), sn10x3(0.f, 0.f, -1.f), un16x2(.5f, 0.f) };
+  vertices[h] = (ShapeVertex) { sn16x3(0.f, 0.f,  tip), sn10x3(0.f, 0.f,  1.f), un16x2(.5f, 1.f) };
   vertices++;
 
   for (uint32_t i = 1; i <= rings; i++) {
@@ -6688,8 +6691,8 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
       float x = costheta * sinphi;
       float y = sintheta * sinphi;
       float z = cosphi;
-      vertices[0] = (ShapeVertex) { { x * radius, y * radius, -(length + z * radius) }, { x, y, -z }, { u, v } };
-      vertices[h] = (ShapeVertex) { { x * radius, y * radius,  (length + z * radius) }, { x, y,  z }, { u, 1.f - v } };
+      vertices[0] = (ShapeVertex) { sn16x3(x * radius, y * radius, -(length + z * radius)), sn10x3(x, y, -z), un16x2(u, v) };
+      vertices[h] = (ShapeVertex) { sn16x3(x * radius, y * radius,  (length + z * radius)), sn10x3(x, y,  z), un16x2(u, 1.f - v) };
       vertices++;
     }
   }
@@ -6776,8 +6779,9 @@ void lovrPassTorus(Pass* pass, float* transform, uint32_t segmentsT, uint32_t se
       float nz = sinf(phi);
 
       *vertices++ = (ShapeVertex) {
-        .position = { tx * radius + nx * thickness, ty * radius + ny * thickness, nz * thickness },
-        .normal = { nx, ny, nz }
+        .position = sn16x3(tx * radius + nx * thickness, ty * radius + ny * thickness, nz * thickness),
+        .normal = sn10x3(nx, ny, nz),
+        .uv = un16x2(0.f, 0.f)
       };
 
       uint16_t a = (t + 0) * segmentsP + p;
@@ -6886,12 +6890,17 @@ void lovrPassMonkey(Pass* pass, float* transform) {
   // Manual vertex format conversion to avoid another format (and sn8x3 isn't always supported)
   for (uint32_t i = 0; i < vertexCount; i++) {
     vertices[i] = (ShapeVertex) {
-      .position.x = monkey_vertices[6 * i + 0] / 255.f * monkey_bounds[3] * 2.f + monkey_offset[0],
-      .position.y = monkey_vertices[6 * i + 1] / 255.f * monkey_bounds[4] * 2.f + monkey_offset[1],
-      .position.z = monkey_vertices[6 * i + 2] / 255.f * monkey_bounds[5] * 2.f + monkey_offset[2],
-      .normal.x = monkey_vertices[6 * i + 3] / 255.f * 2.f - 1.f,
-      .normal.y = monkey_vertices[6 * i + 4] / 255.f * 2.f - 1.f,
-      .normal.z = monkey_vertices[6 * i + 5] / 255.f * 2.f - 1.f,
+      .position = sn16x3(
+        monkey_vertices[6 * i + 0] / 255.f * monkey_bounds[3] * 2.f + monkey_offset[0],
+        monkey_vertices[6 * i + 1] / 255.f * monkey_bounds[4] * 2.f + monkey_offset[1],
+        monkey_vertices[6 * i + 2] / 255.f * monkey_bounds[5] * 2.f + monkey_offset[2]
+      ),
+      .normal = sn10x3(
+        monkey_vertices[6 * i + 3] / 255.f * 2.f - 1.f,
+        monkey_vertices[6 * i + 4] / 255.f * 2.f - 1.f,
+        monkey_vertices[6 * i + 5] / 255.f * 2.f - 1.f
+      ),
+      .uv = un16x2(0.f, 0.f)
     };
   }
 
@@ -6975,10 +6984,10 @@ void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform) {
   });
 
   ShapeVertex vertexData[] = {
-    { { -.5f,  .5f, 0.f }, { 0.f, 0.f, 1.f }, { 0.f, 0.f } },
-    { {  .5f,  .5f, 0.f }, { 0.f, 0.f, 1.f }, { 1.f, 0.f } },
-    { { -.5f, -.5f, 0.f }, { 0.f, 0.f, 1.f }, { 0.f, 1.f } },
-    { {  .5f, -.5f, 0.f }, { 0.f, 0.f, 1.f }, { 1.f, 1.f } }
+    { sn16x3(-.5f,  .5f, 0.f), sn10x3(0.f, 0.f, 1.f), un16x2(0.f, 0.f) },
+    { sn16x3( .5f,  .5f, 0.f), sn10x3(0.f, 0.f, 1.f), un16x2(1.f, 0.f) },
+    { sn16x3(-.5f, -.5f, 0.f), sn10x3(0.f, 0.f, 1.f), un16x2(0.f, 1.f) },
+    { sn16x3( .5f, -.5f, 0.f), sn10x3(0.f, 0.f, 1.f), un16x2(1.f, 1.f) }
   };
 
   uint16_t indexData[] = { 0, 2, 1, 1, 2, 3 };
@@ -7255,6 +7264,29 @@ static void beginFrame(void) {
   state.stream = gpu_stream_begin("Internal");
   state.allocator.cursor = 0;
   processReadbacks();
+}
+
+static uint32_t un16x2(float x, float y) {
+  return ((union { uint32_t u32; struct { uint16_t x, y; }; }) {
+    .x = (uint16_t) (x * UINT16_MAX + .5f),
+    .y = (uint16_t) (y * UINT16_MAX + .5f),
+  }).u32;
+}
+
+static uint32_t sn10x3(float x, float y, float z) {
+  return
+    ((((uint32_t) (int32_t) (x * 511.f)) & 0x3ff) << 20) |
+    ((((uint32_t) (int32_t) (y * 511.f)) & 0x3ff) << 10) |
+    ((((uint32_t) (int32_t) (z * 511.f)) & 0x3ff) << 0);
+}
+
+static uint64_t sn16x3(float x, float y, float z) {
+  return ((union { uint64_t u64; struct { int16_t x, y, z, w; }; }) {
+    .x = (int16_t) (x * INT16_MAX),
+    .y = (int16_t) (y * INT16_MAX),
+    .z = (int16_t) (z * INT16_MAX),
+    .w = (int16_t) (1.f * INT16_MAX)
+  }).u64;
 }
 
 // When a Buffer/Texture is garbage collected, if it has any transfer operations recorded to
