@@ -6630,11 +6630,10 @@ void lovrPassCone(Pass* pass, float* transform, uint32_t segments) {
 }
 
 void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
-  float sx = vec3_length(transform + 0);
-  float sy = vec3_length(transform + 4);
-  float sz = vec3_length(transform + 8);
-  float length = sz * .5f;
-  float radius = sx;
+  float radius = vec3_length(transform + 0);
+  float length = vec3_length(transform + 8);
+  float halfLength = length * .5f;
+  float tip = halfLength + radius;
 
   if (length == 0.f) {
     float rotation[4];
@@ -6645,15 +6644,12 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
     return;
   }
 
-  vec3_scale(transform + 0, 1.f / sx);
-  vec3_scale(transform + 4, 1.f / sy);
-  vec3_scale(transform + 8, 1.f / sz);
-
-  uint32_t key[] = { SHAPE_CAPSULE, FLOAT_BITS(radius), FLOAT_BITS(length), segments };
+  vec3_scale(transform + 8, tip / length);
 
   uint32_t rings = segments / 2;
   uint32_t vertexCount = 2 * (1 + rings * (segments + 1));
   uint32_t indexCount = 2 * (3 * segments + 6 * segments * (rings - 1)) + 6 * segments;
+  uint32_t key[] = { SHAPE_CAPSULE, FLOAT_BITS(length), segments };
   ShapeVertex* vertices;
   uint16_t* indices;
 
@@ -6661,7 +6657,7 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
     .hash = hash64(key, sizeof(key)),
     .mode = DRAW_TRIANGLES,
     .transform = transform,
-    .bounds = (float[6]) { 0.f, 0.f, 0.f, radius, radius, length + radius },
+    .bounds = (float[6]) { 0.f, 0.f, 0.f, 1.f, 1.f, tip },
     .vertex.pointer = (void**) &vertices,
     .vertex.count = vertexCount,
     .index.pointer = (void**) &indices,
@@ -6672,11 +6668,13 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
     return;
   }
 
-  float tip = length + radius;
   uint32_t h = vertexCount / 2;
-  vertices[0] = (ShapeVertex) { sn16x3(0.f, 0.f, -tip), sn10x3(0.f, 0.f, -1.f), un16x2(.5f, 0.f) };
-  vertices[h] = (ShapeVertex) { sn16x3(0.f, 0.f,  tip), sn10x3(0.f, 0.f,  1.f), un16x2(.5f, 1.f) };
+  vertices[0] = (ShapeVertex) { sn16x3(0.f, 0.f, -1.f), sn10x3(0.f, 0.f, -1.f), un16x2(.5f, 0.f) };
+  vertices[h] = (ShapeVertex) { sn16x3(0.f, 0.f,  1.f), sn10x3(0.f, 0.f,  1.f), un16x2(.5f, 1.f) };
   vertices++;
+
+  float base = halfLength / (halfLength + radius);
+  float sz = 1.f - base;
 
   for (uint32_t i = 1; i <= rings; i++) {
     float v = i / (float) rings;
@@ -6691,8 +6689,10 @@ void lovrPassCapsule(Pass* pass, float* transform, uint32_t segments) {
       float x = costheta * sinphi;
       float y = sintheta * sinphi;
       float z = cosphi;
-      vertices[0] = (ShapeVertex) { sn16x3(x * radius, y * radius, -(length + z * radius)), sn10x3(x, y, -z), un16x2(u, v) };
-      vertices[h] = (ShapeVertex) { sn16x3(x * radius, y * radius,  (length + z * radius)), sn10x3(x, y,  z), un16x2(u, 1.f - v) };
+      float n[3] = { x, y, z / sz };
+      vec3_normalize(n);
+      vertices[0] = (ShapeVertex) { sn16x3(x, y, -(base + z * sz)), sn10x3(n[0], n[1], -n[2]), un16x2(u, v) };
+      vertices[h] = (ShapeVertex) { sn16x3(x, y,  (base + z * sz)), sn10x3(n[0], n[1],  n[2]), un16x2(u, 1.f - v) };
       vertices++;
     }
   }
