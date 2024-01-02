@@ -80,6 +80,7 @@ StringEntry lovrDataType[] = {
   [TYPE_U8x4] = ENTRY("u8x4"),
   [TYPE_SN8x4] = ENTRY("sn8x4"),
   [TYPE_UN8x4] = ENTRY("un8x4"),
+  [TYPE_SN10x3] = ENTRY("sn10x3"),
   [TYPE_UN10x3] = ENTRY("un10x3"),
   [TYPE_I16] = ENTRY("i16"),
   [TYPE_I16x2] = ENTRY("i16x2"),

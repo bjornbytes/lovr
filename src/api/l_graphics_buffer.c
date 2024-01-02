@@ -10,6 +10,7 @@ static const uint32_t typeComponents[] = {
   [TYPE_U8x4] = 4,
   [TYPE_SN8x4] = 4,
   [TYPE_UN8x4] = 4,
+  [TYPE_SN10x3] = 3,
   [TYPE_UN10x3] = 3,
   [TYPE_I16] = 1,
   [TYPE_I16x2] = 2,
@@ -70,7 +71,8 @@ void luax_checkfieldn(lua_State* L, int index, int type, void* data) {
       case TYPE_U8x4: p.u8[i] = (uint8_t) x; break;
       case TYPE_SN8x4: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
       case TYPE_UN8x4: p.u8[i] = (uint8_t) CLAMP(x, 0.f, 1.f) * UINT8_MAX; break;
-      case TYPE_UN10x3: p.u32[0] |= (uint32_t) (CLAMP(x, 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
+      case TYPE_SN10x3: p.u32[0] |= (((uint32_t) (int32_t) (CLAMP(x, -1.f, 1.f) * 511.f)) & 0x3ff) << (10 * i); break;
+      case TYPE_UN10x3: p.u32[0] |= (((uint32_t) (CLAMP(x, 0.f, 1.f) * 1023.f)) & 0x3ff) << (10 * i); break;
       case TYPE_I16: p.i16[i] = (int16_t) x; break;
       case TYPE_I16x2: p.i16[i] = (int16_t) x; break;
       case TYPE_I16x4: p.i16[i] = (int16_t) x; break;
@@ -122,7 +124,8 @@ void luax_checkfieldv(lua_State* L, int index, int type, void* data) {
     case TYPE_U8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) v[i]; break;
     case TYPE_SN8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
     case TYPE_UN8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
-    case TYPE_UN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f) << (10 * (2 - i)); break;
+    case TYPE_SN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (((uint32_t) (int32_t) (CLAMP(v[i], -1.f, 1.f) * 511.f)) & 0x3ff) << (10 * i); break;
+    case TYPE_UN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (((uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f)) & 0x3ff) << (10 * i); break;
     case TYPE_I16x2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) v[i]; break;
     case TYPE_I16x4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) v[i]; break;
     case TYPE_U16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) v[i]; break;
@@ -325,7 +328,8 @@ static int luax_pushcomponents(lua_State* L, DataType type, char* data) {
     case TYPE_U8x4: for (int i = 0; i < 4; i++) lua_pushinteger(L, p.u8[i]); return 4;
     case TYPE_SN8x4: for (int i = 0; i < 4; i++) lua_pushnumber(L, MAX((float) p.i8[i] / 127, -1.f)); return 4;
     case TYPE_UN8x4: for (int i = 0; i < 4; i++) lua_pushnumber(L, (float) p.u8[i] / 255); return 4;
-    case TYPE_UN10x3: for (int i = 0; i < 3; i++) lua_pushnumber(L, (float) ((p.u32[0] >> (10 * (2 - i))) & 0x3ff) / 1023.f); return 3;
+    case TYPE_SN10x3: for (int i = 0; i < 3; i++) lua_pushnumber(L, (float) ((p.i32[0] >> (10 * i)) & 0x3ff) / 511.f); return 3;
+    case TYPE_UN10x3: for (int i = 0; i < 3; i++) lua_pushnumber(L, (float) ((p.u32[0] >> (10 * i)) & 0x3ff) / 1023.f); return 3;
     case TYPE_I16x2: for (int i = 0; i < 2; i++) lua_pushinteger(L, p.i16[i]); return 2;
     case TYPE_I16x4: for (int i = 0; i < 4; i++) lua_pushinteger(L, p.i16[i]); return 4;
     case TYPE_U16x2: for (int i = 0; i < 2; i++) lua_pushinteger(L, p.u16[i]); return 2;

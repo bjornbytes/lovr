@@ -116,6 +116,7 @@ typedef enum {
   TYPE_U8x4,
   TYPE_SN8x4,
   TYPE_UN8x4,
+  TYPE_SN10x3,
   TYPE_UN10x3,
   TYPE_I16,
   TYPE_I16x2,
