@@ -93,6 +93,12 @@ struct Sampler {
   SamplerInfo info;
 };
 
+enum {
+  VERTEX = (1 << STAGE_VERTEX),
+  FRAGMENT = (1 << STAGE_FRAGMENT),
+  COMPUTE = (1 << STAGE_COMPUTE)
+};
+
 typedef struct {
   uint32_t hash;
   uint32_t binding;
@@ -125,6 +131,7 @@ struct Shader {
   uint32_t storageMask;
   uint32_t constantSize;
   uint32_t constantCount;
+  uint32_t stageMask;
   ShaderAttribute* attributes;
   ShaderResource* resources;
   DataField* constants;
@@ -2650,7 +2657,7 @@ static void lovrShaderInit(Shader* shader) {
     }
   }
 
-  if (shader->info.type == SHADER_COMPUTE) {
+  if (shader->stageMask & COMPUTE) {
     gpu_compute_pipeline_info pipelineInfo = {
       .shader = shader->gpu,
       .flags = shader->flags,
@@ -2665,7 +2672,7 @@ static void lovrShaderInit(Shader* shader) {
 }
 
 ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage) {
-  const ShaderSource sources[][3] = {
+  const ShaderSource sources[][STAGE_COUNT] = {
     [SHADER_UNLIT] = {
       [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
       [STAGE_FRAGMENT] = { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
@@ -2722,16 +2729,14 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
     case SHADER_BLENDER:
     case SHADER_TALLY_MERGE:
       return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
-        .type = SHADER_COMPUTE,
-        .source[0] = lovrGraphicsGetDefaultShaderSource(type, STAGE_COMPUTE),
+        .source[STAGE_COMPUTE] = lovrGraphicsGetDefaultShaderSource(type, STAGE_COMPUTE),
         .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
         .flagCount = 1
       });
     default:
       return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
-        .type = SHADER_GRAPHICS,
-        .source[0] = lovrGraphicsGetDefaultShaderSource(type, STAGE_VERTEX),
-        .source[1] = lovrGraphicsGetDefaultShaderSource(type, STAGE_FRAGMENT)
+        .source[STAGE_VERTEX] = lovrGraphicsGetDefaultShaderSource(type, STAGE_VERTEX),
+        .source[STAGE_FRAGMENT] = lovrGraphicsGetDefaultShaderSource(type, STAGE_FRAGMENT)
       });
   }
 }
@@ -2740,16 +2745,35 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
   lovrAssert(shader, "Out of memory");
 
-  uint32_t stageCount = info->type == SHADER_GRAPHICS ? 2 : 1;
-  uint32_t firstStage = info->type == SHADER_GRAPHICS ? GPU_STAGE_VERTEX : GPU_STAGE_COMPUTE;
-  gpu_phase firstPhase = info->type == SHADER_GRAPHICS ? GPU_PHASE_SHADER_VERTEX : GPU_PHASE_SHADER_COMPUTE;
-  uint32_t userSet = info->type == SHADER_GRAPHICS ? 2 : 0;
+  for (uint32_t i = 0; i < COUNTOF(info->source); i++) {
+    if (info->source[i].code) {
+      shader->stageMask |= (1 << i);
+    }
+  }
+
+  ShaderStage stages[2];
+  uint32_t stageCount = 0;
+
+  if (shader->stageMask == VERTEX) {
+    stages[stageCount++] = STAGE_VERTEX;
+  } else if (shader->stageMask == (VERTEX | FRAGMENT)) {
+    stages[stageCount++] = STAGE_VERTEX;
+    stages[stageCount++] = STAGE_FRAGMENT;
+  } else if (shader->stageMask == COMPUTE) {
+    stages[stageCount++] = STAGE_COMPUTE;
+  } else {
+    lovrThrow("Invalid combination of shader stages given.  Expected vertex, vertex + pixel, or compute");
+  }
 
   // Parse SPIR-V
   spv_result result;
   spv_info spv[2] = { 0 };
+  uint32_t maxResources = 0;
+  uint32_t maxSpecConstants = 0;
+  uint32_t maxFields = 0;
+  uint32_t maxChars = 0;
   for (uint32_t i = 0; i < stageCount; i++) {
-    result = spv_parse(info->source[i].code, info->source[i].size, &spv[i]);
+    result = spv_parse(info->source[stages[i]].code, info->source[stages[i]].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
     lovrCheck(spv[i].version <= 0x00010300, "Invalid SPIR-V version (up to 1.3 is supported)");
 
@@ -2760,14 +2784,33 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     spv[i].fields = tempAlloc(&state.allocator, spv[i].fieldCount * sizeof(spv_field));
     memset(spv[i].fields, 0, spv[i].fieldCount * sizeof(spv_field));
 
-    result = spv_parse(info->source[i].code, info->source[i].size, &spv[i]);
+    result = spv_parse(info->source[stages[i]].code, info->source[stages[i]].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
 
     checkShaderFeatures(spv[i].features, spv[i].featureCount);
+
+    maxResources += spv[i].resourceCount;
+    maxSpecConstants += spv[i].specConstantCount;
+    maxFields += spv[i].fieldCount;
+
+    for (uint32_t j = 0; j < spv[i].fieldCount; j++) {
+      spv_field* field = &spv[i].fields[j];
+      maxChars += field->name ? strlen(field->name) + 1 : 0;
+    }
   }
 
+  // Allocate
+  gpu_slot* slots = tempAlloc(&state.allocator, maxResources * sizeof(gpu_slot));
+  shader->resources = malloc(maxResources * sizeof(ShaderResource));
+  shader->fields = malloc(maxFields * sizeof(DataField));
+  shader->flags = malloc(maxSpecConstants * sizeof(gpu_shader_flag));
+  shader->flagLookup = malloc(maxSpecConstants * sizeof(uint32_t));
+  shader->names = malloc(maxChars);
+  lovrAssert(shader->resources && shader->fields && shader->names, "Out of memory");
+  lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
+
   // Stage-specific metadata
-  if (info->type == SHADER_COMPUTE) {
+  if (shader->stageMask & COMPUTE) {
     memcpy(shader->workgroupSize, spv[0].workgroupSize, 3 * sizeof(uint32_t));
     lovrCheck(shader->workgroupSize[0] <= state.limits.workgroupSize[0], "Shader workgroup size exceeds the 'workgroupSize' limit");
     lovrCheck(shader->workgroupSize[1] <= state.limits.workgroupSize[1], "Shader workgroup size exceeds the 'workgroupSize' limit");
@@ -2785,28 +2828,11 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     }
   }
 
-  // Allocate
-  gpu_slot* slots = tempAlloc(&state.allocator, (spv[0].resourceCount + spv[1].resourceCount) * sizeof(gpu_slot));
-  shader->resources = malloc((spv[0].resourceCount + spv[1].resourceCount) * sizeof(ShaderResource));
-  shader->fields = malloc((spv[0].fieldCount + spv[1].fieldCount) * sizeof(DataField));
-  shader->flags = malloc((spv[0].specConstantCount + spv[1].specConstantCount) * sizeof(gpu_shader_flag));
-  shader->flagLookup = malloc((spv[0].specConstantCount + spv[1].specConstantCount) * sizeof(uint32_t));
-  lovrAssert(shader->resources && shader->fields, "Out of memory");
-  lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
-
-  size_t charCount = 0;
-  for (uint32_t s = 0; s < stageCount; s++) {
-    for (uint32_t i = 0; i < spv[s].fieldCount; i++) {
-      spv_field* field = &spv[s].fields[i];
-      charCount += field->name ? strlen(field->name) + 1 : 0;
-    }
-  }
-
-  shader->names = malloc(charCount);
-  lovrAssert(shader->names, "Out of memory");
+  uint32_t userSet = shader->stageMask & COMPUTE ? 0 : 2;
 
   // Resources
   for (uint32_t s = 0; s < stageCount; s++) {
+    ShaderStage stage = stages[s];
     for (uint32_t i = 0; i < spv[s].resourceCount; i++) {
       spv_resource* resource = &spv[s].resources[i];
 
@@ -2828,9 +2854,19 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         [SPV_SAMPLER] = GPU_SLOT_SAMPLER
       };
 
+      gpu_phase stageMap[] = {
+        [STAGE_VERTEX] = GPU_STAGE_VERTEX,
+        [STAGE_FRAGMENT] = GPU_STAGE_FRAGMENT,
+        [STAGE_COMPUTE] = GPU_STAGE_COMPUTE
+      };
+
+      gpu_phase stagePhase[] = {
+        [STAGE_VERTEX] = GPU_PHASE_SHADER_VERTEX,
+        [STAGE_FRAGMENT] = GPU_PHASE_SHADER_FRAGMENT,
+        [STAGE_COMPUTE] = GPU_PHASE_SHADER_COMPUTE
+      };
+
       uint32_t hash = (uint32_t) hash64(resource->name, strlen(resource->name));
-      uint32_t stage = s == 0 ? firstStage : GPU_STAGE_FRAGMENT;
-      gpu_phase phase = s == 0 ? firstPhase : GPU_PHASE_SHADER_FRAGMENT;
       bool append = true;
 
       // It's ok to reuse binding slots (within or across stages), but the type must be consistent
@@ -2838,8 +2874,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         ShaderResource* other = &shader->resources[j];
         if (other->binding == resource->binding) {
           lovrCheck(other->type == resourceTypes[resource->type], "Shader variable with binding number %d is declared multiple times with inconsistent types", resource->binding);
-          slots[j].stages |= stage;
-          shader->resources[j].phase |= phase;
+          slots[j].stages |= stageMap[stage];
+          shader->resources[j].phase |= stagePhase[stage];
           append = false;
           break;
         }
@@ -2860,14 +2896,14 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       slots[index] = (gpu_slot) {
         .number = resource->binding,
         .type = resourceTypes[resource->type],
-        .stages = stage
+        .stages = stageMap[stage]
       };
 
       shader->resources[index] = (ShaderResource) {
         .hash = hash,
         .binding = resource->binding,
         .type = resourceTypes[resource->type],
-        .phase = phase
+        .phase = stagePhase[stage]
       };
 
       if (resource->fields) {
@@ -2903,7 +2939,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       shader->storageMask |= (storage << resource->binding);
 
       if (storage) {
-        shader->resources[index].cache = stage == GPU_STAGE_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;
+        shader->resources[index].cache = stage == STAGE_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;
       } else {
         shader->resources[index].cache = texture ? GPU_CACHE_TEXTURE : GPU_CACHE_UNIFORM;
       }
@@ -3036,16 +3072,14 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   shader->layout = getLayout(slots, shader->resourceCount);
 
   gpu_shader_info gpu = {
-    .stages[0] = { info->source[0].code, info->source[0].size },
+    .vertex = { info->source[STAGE_VERTEX].code, info->source[STAGE_VERTEX].size },
+    .fragment = { info->source[STAGE_FRAGMENT].code, info->source[STAGE_FRAGMENT].size },
+    .compute = { info->source[STAGE_COMPUTE].code, info->source[STAGE_COMPUTE].size },
     .pushConstantSize = shader->constantSize,
     .label = info->label
   };
 
-  if (info->source[1].code) {
-    gpu.stages[1] = (gpu_shader_stage) { info->source[1].code, info->source[1].size };
-  }
-
-  if (info->type == SHADER_GRAPHICS) {
+  if (shader->stageMask & (VERTEX | FRAGMENT)) {
     gpu.layouts[0] = state.layouts.data[LAYOUT_BUILTIN].gpu;
     gpu.layouts[1] = state.layouts.data[LAYOUT_MATERIAL].gpu;
   }
@@ -3105,12 +3139,7 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
 }
 
 bool lovrShaderHasStage(Shader* shader, ShaderStage stage) {
-  switch (stage) {
-    case STAGE_VERTEX: return shader->info.type == SHADER_GRAPHICS;
-    case STAGE_FRAGMENT: return shader->info.type == SHADER_GRAPHICS;
-    case STAGE_COMPUTE: return shader->info.type == SHADER_COMPUTE;
-    default: return false;
-  }
+  return shader->stageMask & (1 << stage);
 }
 
 bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location) {
@@ -5532,8 +5561,8 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   Shader* previous = pass->pipeline->shader;
   if (shader == previous) return;
 
-  bool fromCompute = previous && previous->info.type == SHADER_COMPUTE;
-  bool toCompute = shader && shader->info.type == SHADER_COMPUTE;
+  bool fromCompute = previous && previous->stageMask & COMPUTE;
+  bool toCompute = shader && shader->stageMask & COMPUTE;
 
   if (fromCompute ^ toCompute) {
     pass->bindingMask = 0;
@@ -5541,7 +5570,7 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
 
   // Clear any bindings for resources that share the same slot but have different types
   if (shader) {
-    if (previous && previous->info.type == shader->info.type) {
+    if (previous) {
       for (uint32_t i = 0, j = 0; i < previous->resourceCount && j < shader->resourceCount;) {
         if (previous->resources[i].binding < shader->resources[j].binding) {
           i++;
@@ -5969,7 +5998,7 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   pass->flags &= ~DIRTY_CAMERA;
 
   draw->shader = pass->pipeline->shader ? pass->pipeline->shader : lovrGraphicsGetDefaultShader(info->shader);
-  lovrCheck(draw->shader->info.type == SHADER_GRAPHICS, "Tried to draw while a compute shader is active");
+  lovrCheck(draw->shader->stageMask & (VERTEX | FRAGMENT), "Tried to draw while a compute shader is active");
   lovrRetain(draw->shader);
 
   draw->material = info->material;
@@ -7109,7 +7138,7 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   Compute* compute = &pass->computes[pass->computeCount++];
   Shader* shader = pass->pipeline->shader;
 
-  lovrCheck(shader && shader->info.type == SHADER_COMPUTE, "To run a compute shader, a compute shader must be active");
+  lovrCheck(shader->stageMask == COMPUTE, "To run a compute shader, a compute shader must be active");
   lovrCheck(x <= state.limits.workgroupCount[0], "Compute %s count exceeds workgroupCount limit", "x");
   lovrCheck(y <= state.limits.workgroupCount[1], "Compute %s count exceeds workgroupCount limit", "y");
   lovrCheck(z <= state.limits.workgroupCount[2], "Compute %s count exceeds workgroupCount limit", "z");

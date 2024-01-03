@@ -294,14 +294,10 @@ typedef enum {
 } DefaultShader;
 
 typedef enum {
-  SHADER_GRAPHICS,
-  SHADER_COMPUTE
-} ShaderType;
-
-typedef enum {
   STAGE_VERTEX,
   STAGE_FRAGMENT,
-  STAGE_COMPUTE
+  STAGE_COMPUTE,
+  STAGE_COUNT
 } ShaderStage;
 
 typedef struct {
@@ -316,8 +312,7 @@ typedef struct {
 } ShaderFlag;
 
 typedef struct {
-  ShaderType type;
-  ShaderSource source[2];
+  ShaderSource source[STAGE_COUNT];
   uint32_t flagCount;
   ShaderFlag* flags;
   const char* label;

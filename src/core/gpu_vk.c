@@ -1002,18 +1002,31 @@ void gpu_layout_destroy(gpu_layout* layout) {
 // Shader
 
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
-  for (uint32_t i = 0; i < COUNTOF(info->stages) && info->stages[i].code; i++) {
+  struct { VkShaderStageFlags flags; gpu_shader_stage* source; } stages[] = {
+    { VK_SHADER_STAGE_VERTEX_BIT, &info->vertex },
+    { VK_SHADER_STAGE_FRAGMENT_BIT, &info->fragment },
+    { VK_SHADER_STAGE_COMPUTE_BIT, &info->compute }
+  };
+
+  uint32_t stageCount = 0;
+  VkShaderStageFlags stageFlags = 0;
+  for (uint32_t i = 0; i < COUNTOF(stages); i++) {
+    if (!stages[i].source->code) continue;
+
     VkShaderModuleCreateInfo moduleInfo = {
       .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-      .codeSize = info->stages[i].length,
-      .pCode = info->stages[i].code
+      .codeSize = stages[i].source->length,
+      .pCode = stages[i].source->code
     };
 
-    VK(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "Failed to load shader") {
+    VK(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[stageCount]), "Failed to load shader") {
       return false;
     }
 
     nickname(shader->handles[i], VK_OBJECT_TYPE_SHADER_MODULE, info->label);
+
+    stageFlags |= stages[i].flags;
+    stageCount++;
   }
 
   VkDescriptorSetLayout layouts[4];
@@ -1022,9 +1035,7 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     .pSetLayouts = layouts,
     .pushConstantRangeCount = info->pushConstantSize > 0,
     .pPushConstantRanges = &(VkPushConstantRange) {
-      .stageFlags = info->stages[1].code ?
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT :
-        VK_SHADER_STAGE_COMPUTE_BIT,
+      .stageFlags = stageFlags,
       .offset = 0,
       .size = info->pushConstantSize
     }
@@ -1445,6 +1456,8 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .pData = (const void*) constants
   };
 
+  uint32_t stageCount = info->shader->handles[1] ? 2 : 1;
+
   VkPipelineShaderStageCreateInfo shaders[2] = {
     {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -1491,7 +1504,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   VkGraphicsPipelineCreateInfo pipelineInfo = (VkGraphicsPipelineCreateInfo) {
     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-    .stageCount = 2,
+    .stageCount = stageCount,
     .pStages = shaders,
     .pVertexInputState = &vertexInput,
     .pInputAssemblyState = &inputAssembly,

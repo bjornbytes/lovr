@@ -33,13 +33,6 @@ static int l_lovrShaderClone(lua_State* L) {
   return 1;
 }
 
-static int l_lovrShaderGetType(lua_State* L) {
-  Shader* shader = luax_checktype(L, 1, Shader);
-  const ShaderInfo* info = lovrShaderGetInfo(shader);
-  luax_pushenum(L, ShaderType, info->type);
-  return 1;
-}
-
 static int l_lovrShaderHasStage(lua_State* L) {
   Shader* shader = luax_checktype(L, 1, Shader);
   ShaderStage stage = luax_checkenum(L, 2, ShaderStage, NULL);
@@ -93,12 +86,18 @@ static int l_lovrShaderGetBufferFormat(lua_State* L) {
   return 2;
 }
 
+// Deprecated
+static int l_lovrShaderGetType(lua_State* L) {
+  lua_pushstring(L, lovrShaderHasStage(luax_checktype(L, 1, Shader), STAGE_COMPUTE) ? "compute" : "graphics");
+  return 1;
+}
+
 const luaL_Reg lovrShader[] = {
   { "clone", l_lovrShaderClone },
-  { "getType", l_lovrShaderGetType },
   { "hasStage", l_lovrShaderHasStage },
   { "hasAttribute", l_lovrShaderHasAttribute },
   { "getWorkgroupSize", l_lovrShaderGetWorkgroupSize },
   { "getBufferFormat", l_lovrShaderGetBufferFormat },
+  { "getType", l_lovrShaderGetType }, // Deprecated
   { NULL, NULL }
 };

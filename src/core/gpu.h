@@ -248,7 +248,9 @@ typedef struct {
 } gpu_shader_stage;
 
 typedef struct {
-  gpu_shader_stage stages[2];
+  gpu_shader_stage vertex;
+  gpu_shader_stage fragment;
+  gpu_shader_stage compute;
   gpu_layout* layouts[4];
   uint32_t pushConstantSize;
   const char* label;

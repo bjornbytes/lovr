@@ -140,14 +140,8 @@ StringEntry lovrOriginType[] = {
 
 StringEntry lovrShaderStage[] = {
   [STAGE_VERTEX] = ENTRY("vertex"),
-  [STAGE_FRAGMENT] = ENTRY("fragment"),
+  [STAGE_FRAGMENT] = ENTRY("pixel"),
   [STAGE_COMPUTE] = ENTRY("compute"),
-  { 0 }
-};
-
-StringEntry lovrShaderType[] = {
-  [SHADER_GRAPHICS] = ENTRY("graphics"),
-  [SHADER_COMPUTE] = ENTRY("compute"),
   { 0 }
 };
 
@@ -1019,9 +1013,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       const char* string = lua_tolstring(L, 1, &length);
       for (int i = 0; lovrDefaultShader[i].length; i++) {
         if (lovrDefaultShader[i].length == length && !memcmp(lovrDefaultShader[i].string, string, length)) {
-          info.source[0] = lovrGraphicsGetDefaultShaderSource(i, STAGE_VERTEX);
-          info.source[1] = lovrGraphicsGetDefaultShaderSource(i, STAGE_FRAGMENT);
-          info.type = SHADER_GRAPHICS;
+          info.source[STAGE_VERTEX] = lovrGraphicsGetDefaultShaderSource(i, STAGE_VERTEX);
+          info.source[STAGE_FRAGMENT] = lovrGraphicsGetDefaultShaderSource(i, STAGE_FRAGMENT);
           allocated[0] = false;
           allocated[1] = false;
           break;
@@ -1030,15 +1023,13 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     }
 
     if (!info.source[0].code) {
-      info.type = SHADER_COMPUTE;
-      info.source[0] = luax_checkshadersource(L, 1, STAGE_COMPUTE, &allocated[0]);
+      info.source[STAGE_COMPUTE] = luax_checkshadersource(L, 1, STAGE_COMPUTE, &allocated[0]);
     }
 
     index = 2;
   } else {
-    info.type = SHADER_GRAPHICS;
-    info.source[0] = luax_checkshadersource(L, 1, STAGE_VERTEX, &allocated[0]);
-    info.source[1] = luax_checkshadersource(L, 2, STAGE_FRAGMENT, &allocated[1]);
+    info.source[STAGE_VERTEX] = luax_checkshadersource(L, 1, STAGE_VERTEX, &allocated[0]);
+    info.source[STAGE_FRAGMENT] = luax_checkshadersource(L, 2, STAGE_FRAGMENT, &allocated[1]);
     index = 3;
   }
 
