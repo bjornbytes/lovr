@@ -41,6 +41,9 @@ local conf = {
   math = {
     globals = true
   },
+  thread = {
+    workers = -1
+  },
   window = {
     width = 720,
     height = 800,

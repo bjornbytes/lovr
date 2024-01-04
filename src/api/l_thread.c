@@ -2,6 +2,7 @@
 #include "data/blob.h"
 #include "event/event.h"
 #include "thread/thread.h"
+#include "core/os.h"
 #include "util.h"
 #include <lualib.h>
 #include <stdlib.h>
@@ -88,7 +89,21 @@ int luaopen_lovr_thread(lua_State* L) {
   luax_register(L, lovrThreadModule);
   luax_registertype(L, Thread);
   luax_registertype(L, Channel);
-  lovrThreadModuleInit();
+
+  int32_t workers = -1;
+
+  luax_pushconf(L);
+  lua_getfield(L, -1, "thread");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "workers");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+      workers = lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 2);
+
+  lovrThreadModuleInit(workers);
   luax_atexit(L, lovrThreadModuleDestroy);
   return 1;
 }

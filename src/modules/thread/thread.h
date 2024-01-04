@@ -14,7 +14,7 @@ struct Variant;
 typedef struct Thread Thread;
 typedef struct Channel Channel;
 
-bool lovrThreadModuleInit(void);
+bool lovrThreadModuleInit(int32_t workers);
 void lovrThreadModuleDestroy(void);
 struct Channel* lovrThreadGetChannel(const char* name);
 
