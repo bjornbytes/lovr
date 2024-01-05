@@ -13,11 +13,13 @@ enum { mtx_plain };
 typedef HANDLE thrd_t;
 typedef CRITICAL_SECTION mtx_t;
 typedef CONDITION_VARIABLE cnd_t;
+#define thread_local __declspec(thread)
 #else
 #include <pthread.h>
 typedef pthread_t thrd_t;
 typedef pthread_mutex_t mtx_t;
 typedef pthread_cond_t cnd_t;
+#define thread_local _Thread_local
 #endif
 
 static inline int thrd_create(thrd_t* thread, thrd_start_t fn, void* arg);
