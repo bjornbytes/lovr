@@ -45,7 +45,7 @@ bool lovrThreadModuleInit(int32_t workers) {
   map_init(&state.channels, 0);
 
   uint32_t cores = os_get_core_count();
-  if (workers < 0) workers = cores + workers;
+  if (workers < 0) workers += cores;
   workers = MAX(workers, 0);
   job_init(workers);
 
