@@ -1,6 +1,7 @@
 #include "job.h"
 #include <stdatomic.h>
 #include <threads.h>
+#include <setjmp.h>
 #include <string.h>
 
 #define MAX_WORKERS 64
@@ -9,7 +10,7 @@
 struct job {
   job* next;
   atomic_uint done;
-  fn_job* fn;
+  union { fn_job* fn; const char* error; };
   void* arg;
 };
 
@@ -22,28 +23,40 @@ static struct {
   job* pool;
   cnd_t hasJob;
   mtx_t lock;
-  bool done;
+  bool quit;
 } state;
 
-static int worker_loop(void* arg) {
+static thread_local jmp_buf catch;
+
+// Must hold lock, this will unlock it, state.head must exist
+static void runJob(void) {
+  job* job = state.head;
+  state.head = job->next;
+  if (!job->next) state.tail = NULL;
+  mtx_unlock(&state.lock);
+
+  if (setjmp(catch) == 0) {
+    fn_job* fn = job->fn;
+    job->error = NULL;
+    fn(job, job->arg);
+  }
+
+  job->done = true;
+}
+
+static int workerLoop(void* arg) {
   for (;;) {
     mtx_lock(&state.lock);
 
-    while (!state.head && !state.done) {
+    while (!state.head && !state.quit) {
       cnd_wait(&state.hasJob, &state.lock);
     }
 
-    if (state.done) {
+    if (state.quit) {
       break;
     }
 
-    job* job = state.head;
-    state.head = job->next;
-    if (!job->next) state.tail = NULL;
-    mtx_unlock(&state.lock);
-
-    job->fn(job->arg);
-    job->done = true;
+    runJob();
   }
 
   mtx_unlock(&state.lock);
@@ -61,7 +74,7 @@ bool job_init(uint32_t count) {
 
   if (count > MAX_WORKERS) count = MAX_WORKERS;
   for (uint32_t i = 0; i < count; i++, state.workerCount++) {
-    if (thrd_create(&state.workers[i], worker_loop, (void*) (uintptr_t) i) != thrd_success) {
+    if (thrd_create(&state.workers[i], workerLoop, (void*) (uintptr_t) i) != thrd_success) {
       return false;
     }
   }
@@ -70,7 +83,7 @@ bool job_init(uint32_t count) {
 }
 
 void job_destroy(void) {
-  state.done = true;
+  state.quit = true;
   cnd_broadcast(&state.hasJob);
   for (uint32_t i = 0; i < state.workerCount; i++) {
     thrd_join(state.workers[i], NULL);
@@ -81,15 +94,17 @@ void job_destroy(void) {
 }
 
 job* job_start(fn_job* fn, void* arg) {
-  if (!state.pool) {
-    return NULL;
-  }
+  for (;;) {
+    mtx_lock(&state.lock);
 
-  mtx_lock(&state.lock);
-
-  if (!state.pool) {
-    mtx_unlock(&state.lock);
-    return NULL;
+    if (state.pool) {
+      break;
+    } else if (state.head) {
+      runJob();
+    } else { // Might not be a job to do if worker count is bigger than pool size
+      mtx_unlock(&state.lock);
+      thrd_yield();
+    }
   }
 
   job* job = state.pool;
@@ -113,23 +128,29 @@ job* job_start(fn_job* fn, void* arg) {
   return job;
 }
 
+void job_abort(job* job, const char* error) {
+  job->error = error;
+  longjmp(catch, 22);
+}
+
 void job_wait(job* job) {
   while (!job->done) {
     mtx_lock(&state.lock);
 
     if (state.head) {
-      struct job* task = state.head;
-      state.head = task->next;
-      if (!task->next) state.tail = NULL;
-      mtx_unlock(&state.lock);
-      task->fn(task->arg);
-      task->done = true;
+      runJob();
     } else {
       mtx_unlock(&state.lock);
       thrd_yield();
     }
   }
+}
 
+char* job_get_error(job* job) {
+  return (char*) job->error;
+}
+
+void job_free(job* job) {
   mtx_lock(&state.lock);
   job->next = state.pool;
   state.pool = job;
