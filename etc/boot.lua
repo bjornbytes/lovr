@@ -121,7 +121,7 @@ function lovr.boot()
     if conf.modules[module] then
       local loaded, result = pcall(require, 'lovr.' .. module)
       if not loaded then
-        lovr.log('warn', string.format('Could not load module %q: %s', module, result))
+        lovr.log(string.format('Could not load module %q: %s', module, result), 'warn')
       else
         lovr[module] = result
       end
