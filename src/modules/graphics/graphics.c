@@ -616,8 +616,8 @@ static void* tempAlloc(Allocator* allocator, size_t size);
 static size_t tempPush(Allocator* allocator);
 static void tempPop(Allocator* allocator, size_t stack);
 static gpu_pipeline* getPipeline(uint32_t index);
-static void compilePipeline(void* ctx);
-static void awaitPipelines(Pass* pass, bool updateLookup);
+static void compilePipeline(job* job, void* ctx);
+static void awaitPipelines(Pass* pass, bool isSubmit);
 static BufferBlock* getBlock(gpu_buffer_type type, uint32_t size);
 static void freeBlock(BufferAllocator* allocator, BufferBlock* block);
 static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type type, uint32_t size, size_t align);
@@ -5892,7 +5892,6 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
       job->hash = hash;
       job->pipeline = getPipeline(index);
       job->handle = job_start(compilePipeline, job);
-      if (!job->handle) compilePipeline(job);
       draw->pipeline = job->pipeline;
       pass->pipelineJobs = job;
     }
@@ -7219,20 +7218,32 @@ static gpu_pipeline* getPipeline(uint32_t index) {
   return (gpu_pipeline*) ((char*) state.pipelines + index * gpu_sizeof_pipeline());
 }
 
-static void compilePipeline(void* ctx) {
-  PipelineJob* job = ctx;
-  gpu_pipeline_init_graphics(job->pipeline, &job->info);
+static void compilePipeline(job* job, void* ctx) {
+  PipelineJob* data = ctx;
+  lovrSetErrorCallback((errorFn*) job_vabort, job);
+  gpu_pipeline_init_graphics(data->pipeline, &data->info);
 }
 
-static void awaitPipelines(Pass* pass, bool updateLookup) {
+static void awaitPipelines(Pass* pass, bool isSubmit) {
   for (PipelineJob* job = pass->pipelineJobs; job; job = job->next) {
-    if (job->handle) {
-      job_wait(job->handle);
-    }
+    job_wait(job->handle);
 
-    if (updateLookup) {
+    // We're only allowed to update the pipeline lookup during a submit, for thread safety reasons.
+    // Also, if we're not in a submit, we're either resetting the Pass or tearing down the graphics
+    // module completely.  It doesn't make sense to track the pipelines (or raise errors if they
+    // failed to compile) for those cases.
+    if (isSubmit) {
+      const char* error = job_get_error(job->handle);
+
+      if (error) {
+        pass->pipelineJobs = NULL;
+        lovrThrow("Failed to compile pipeline on worker thread: %s", error);
+      }
+
       map_set(&state.pipelineLookup, job->hash, (uint64_t) (uintptr_t) job->pipeline);
     }
+
+    job_free(job->handle);
   }
 
   pass->pipelineJobs = NULL;
