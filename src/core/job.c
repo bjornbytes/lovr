@@ -2,6 +2,8 @@
 #include <stdatomic.h>
 #include <threads.h>
 #include <setjmp.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define MAX_WORKERS 64
@@ -10,7 +12,7 @@
 struct job {
   job* next;
   atomic_uint done;
-  union { fn_job* fn; const char* error; };
+  union { fn_job* fn; char* error; };
   void* arg;
 };
 
@@ -129,7 +131,18 @@ job* job_start(fn_job* fn, void* arg) {
 }
 
 void job_abort(job* job, const char* error) {
-  job->error = error;
+  size_t length = strlen(error);
+  job->error = malloc(length + 1);
+  if (job->error) memcpy(job->error, error, length + 1);
+  else job->error = "Out of memory";
+  longjmp(catch, 22);
+}
+
+void job_vabort(job* job, const char* format, va_list args) {
+  int length = vsnprintf(NULL, 0, format, args);
+  job->error = malloc(length + 1);
+  if (job->error) vsnprintf(job->error, length + 1, format, args);
+  else job->error = "Out of memory";
   longjmp(catch, 22);
 }
 
@@ -146,12 +159,13 @@ void job_wait(job* job) {
   }
 }
 
-char* job_get_error(job* job) {
+const char* job_get_error(job* job) {
   return (char*) job->error;
 }
 
 void job_free(job* job) {
   mtx_lock(&state.lock);
+  if (job->error && job->error != "Out of memory") free(job->error);
   job->next = state.pool;
   state.pool = job;
   mtx_unlock(&state.lock);
