@@ -3102,6 +3102,7 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->info.flags = flags;
   shader->info.flagCount = count;
   shader->layout = parent->layout;
+  shader->stageMask = parent->stageMask;
   shader->bufferMask = parent->bufferMask;
   shader->textureMask = parent->textureMask;
   shader->samplerMask = parent->samplerMask;
@@ -5561,8 +5562,8 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   Shader* previous = pass->pipeline->shader;
   if (shader == previous) return;
 
-  bool fromCompute = previous && previous->stageMask & COMPUTE;
-  bool toCompute = shader && shader->stageMask & COMPUTE;
+  bool fromCompute = previous && (previous->stageMask & COMPUTE);
+  bool toCompute = shader && (shader->stageMask & COMPUTE);
 
   if (fromCompute ^ toCompute) {
     pass->bindingMask = 0;
