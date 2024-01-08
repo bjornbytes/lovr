@@ -3111,8 +3111,11 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->constantCount = parent->constantCount;
   shader->resourceCount = parent->resourceCount;
   shader->flagCount = parent->flagCount;
-  shader->constants = parent->constants;
+  shader->attributes = parent->attributes;
   shader->resources = parent->resources;
+  shader->constants = parent->constants;
+  shader->fields = parent->fields;
+  shader->names = parent->names;
   shader->flags = malloc(shader->flagCount * sizeof(gpu_shader_flag));
   shader->flagLookup = malloc(shader->flagCount * sizeof(uint32_t));
   lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
@@ -3124,14 +3127,17 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
 
 void lovrShaderDestroy(void* ref) {
   Shader* shader = ref;
-  gpu_shader_destroy(shader->gpu);
-  lovrRelease(shader->parent, lovrShaderDestroy);
-  free(shader->attributes);
-  free(shader->resources);
-  free(shader->fields);
+  if (shader->parent) {
+    lovrRelease(shader->parent, lovrShaderDestroy);
+  } else {
+    gpu_shader_destroy(shader->gpu);
+    free(shader->attributes);
+    free(shader->resources);
+    free(shader->fields);
+    free(shader->names);
+  }
   free(shader->flags);
   free(shader->flagLookup);
-  free(shader->names);
   free(shader);
 }
 
