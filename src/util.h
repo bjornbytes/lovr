@@ -52,6 +52,18 @@ enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
 void lovrSetLogCallback(logFn* callback, void* userdata);
 void lovrLog(int level, const char* tag, const char* format, ...);
 
+// Profiling
+#ifdef LOVR_PROFILE
+#include <TracyC.h>
+#define lovrProfileMarkFrame() TracyCFrameMark
+#define lovrProfileStart(id, label) TracyCZoneN(id, label, true)
+#define lovrProfileEnd(id) TracyCZoneEnd(id)
+#else
+#define lovrProfileMarkFrame() ((void) 0)
+#define lovrProfileStart(id, label) ((void) 0)
+#define lovrProfileEnd(id) ((void) 0)
+#endif
+
 // Hash function (FNV1a)
 static inline uint64_t hash64(const void* data, size_t length) {
   const uint8_t* bytes = (const uint8_t*) data;

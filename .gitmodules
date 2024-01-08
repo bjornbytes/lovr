@@ -31,3 +31,6 @@
 [submodule "plugins/lovr-http"]
 	path = plugins/lovr-http
 	url = https://github.com/bjornbytes/lovr-http
+[submodule "deps/tracy"]
+	path = deps/tracy
+	url = https://github.com/wolfpld/tracy
