@@ -1793,6 +1793,8 @@ void lovrGraphicsPresent(void) {
     state.shouldPresent = false;
     gpu_surface_present();
   }
+
+  lovrProfileMarkFrame();
 }
 
 void lovrGraphicsWait(void) {

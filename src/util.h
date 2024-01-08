@@ -67,6 +67,18 @@ enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
 void lovrSetLogCallback(fn_log* callback, void* userdata);
 void lovrLog(int level, const char* tag, const char* format, ...);
 
+// Profiling
+#ifdef LOVR_PROFILE
+#include <TracyC.h>
+#define lovrProfileMarkFrame() TracyCFrameMark
+#define lovrProfileStart(id, label) TracyCZoneN(id, label, true)
+#define lovrProfileEnd(id) TracyCZoneEnd(id)
+#else
+#define lovrProfileMarkFrame() ((void) 0)
+#define lovrProfileStart(id, label) ((void) 0)
+#define lovrProfileEnd(id) ((void) 0)
+#endif
+
 // Dynamic Array
 #define arr_t(T) struct { T* data; size_t length, capacity; }
 #define arr_init(a) (a)->data = NULL, (a)->length = 0, (a)->capacity = 0
