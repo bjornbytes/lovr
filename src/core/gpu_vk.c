@@ -1456,7 +1456,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .pData = (const void*) constants
   };
 
-  uint32_t stageCount = info->shader->handles[1] ? 2 : 1;
+  uint32_t stageCount = info->shader->handles[1] && info->attachmentCount > 0 ? 2 : 1;
 
   VkPipelineShaderStageCreateInfo shaders[2] = {
     {
