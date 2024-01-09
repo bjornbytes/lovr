@@ -134,7 +134,7 @@ void job_abort(job* job, const char* error) {
   size_t length = strlen(error);
   job->error = malloc(length + 1);
   if (job->error) memcpy(job->error, error, length + 1);
-  else job->error = "Out of memory";
+  else job->error = strdup("Out of memory");
   longjmp(catch, 22);
 }
 
@@ -142,7 +142,7 @@ void job_vabort(job* job, const char* format, va_list args) {
   int length = vsnprintf(NULL, 0, format, args);
   job->error = malloc(length + 1);
   if (job->error) vsnprintf(job->error, length + 1, format, args);
-  else job->error = "Out of memory";
+  else job->error = strdup("Out of memory");
   longjmp(catch, 22);
 }
 
@@ -165,7 +165,7 @@ const char* job_get_error(job* job) {
 
 void job_free(job* job) {
   mtx_lock(&state.lock);
-  if (job->error && job->error != "Out of memory") free(job->error);
+  if (job->error) free(job->error);
   job->next = state.pool;
   state.pool = job;
   mtx_unlock(&state.lock);
