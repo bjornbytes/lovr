@@ -2852,7 +2852,7 @@ static VkRenderPass getCachedRenderPass(gpu_pass_info* pass, bool exact) {
   uint32_t cols = COUNTOF(state.renderpasses[0]);
   gpu_cache_entry* row = state.renderpasses[hash & (rows - 1)];
   for (uint32_t i = 0; i < cols && row[i].object; i++) {
-    if ((row[i].hash & mask) == hash) {
+    if ((row[i].hash & mask) == (hash & mask)) {
       gpu_cache_entry entry = row[i];
       if (i > 0) {
         for (uint32_t j = i; j >= 1; j--) {
