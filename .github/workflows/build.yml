@@ -66,7 +66,7 @@ jobs:
       - name: Install Packages
         run: sudo apt install -y glslang-tools
       - name: Install Android 29
-        run: sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "platforms;android-29"
+        run: ${ANDROID_HOME}/tools/bin/sdkmanager --install "platforms;android-29"
       - name: Checkout
         uses: actions/checkout@v3
         with:
