@@ -1332,7 +1332,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   VkPipelineDepthStencilStateCreateInfo depthStencil = {
     .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-    .depthTestEnable = info->depth.test != GPU_COMPARE_NONE,
+    .depthTestEnable = info->depth.test != GPU_COMPARE_NONE || info->depth.write,
     .depthWriteEnable = info->depth.write,
     .depthCompareOp = compareOps[info->depth.test],
     .stencilTestEnable =
