@@ -857,7 +857,8 @@ void lovrGraphicsDestroy(void) {
   lovrRelease(state.defaultMaterial, lovrMaterialDestroy);
   for (size_t i = 0; i < state.materialBlocks.length; i++) {
     MaterialBlock* block = &state.materialBlocks.data[i];
-    if (atomic_fetch_sub(&block->view.block->ref, 1) == 1) {
+    BufferBlock* current = state.bufferAllocators[GPU_BUFFER_STATIC].current;
+    if (block->view.block != current && atomic_fetch_sub(&block->view.block->ref, 1) == 1) {
       freeBlock(&state.bufferAllocators[GPU_BUFFER_STATIC], block->view.block);
     }
     gpu_bundle_pool_destroy(block->bundlePool);
