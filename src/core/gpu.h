@@ -577,8 +577,9 @@ typedef enum {
   GPU_PHASE_DEPTH_EARLY = (1 << 6),
   GPU_PHASE_DEPTH_LATE = (1 << 7),
   GPU_PHASE_COLOR = (1 << 8),
-  GPU_PHASE_TRANSFER = (1 << 9),
-  GPU_PHASE_ALL = (1 << 10)
+  GPU_PHASE_COPY = (1 << 9),
+  GPU_PHASE_CLEAR = (1 << 10),
+  GPU_PHASE_BLIT = (1 << 11)
 } gpu_phase;
 
 typedef enum {

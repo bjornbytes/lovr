@@ -632,7 +632,7 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
 static void trackMaterial(Pass* pass, Material* material);
 static bool syncResource(Access* access, gpu_barrier* barrier);
-static gpu_barrier syncTransfer(Sync* sync, gpu_cache cache);
+static gpu_barrier syncTransfer(Sync* sync, gpu_phase phase, gpu_cache cache);
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent);
 static void checkShaderFeatures(uint32_t* features, uint32_t count);
 static void onResize(uint32_t width, uint32_t height);
@@ -1440,28 +1440,33 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   // Automipmap
 
-  gpu_barrier barrier = {
-    .prev = GPU_PHASE_ALL, // Waits for the external subpass dependency layout transition
-    .next = GPU_PHASE_TRANSFER,
-    .flush = 0,
-    .clear = GPU_CACHE_TRANSFER_READ
-  };
+  bool synchronized = false;
+  for (uint32_t t = 0; t < canvas->count; t++) {
+    if (canvas->color[t].texture->info.mipmaps > 1) {
+      if (!synchronized) {
+        synchronized = true;
+        gpu_sync(stream, &(gpu_barrier) {
+          .prev = GPU_PHASE_COLOR,
+          .next = GPU_PHASE_BLIT,
+          .flush = GPU_CACHE_COLOR_WRITE,
+          .clear = GPU_CACHE_TRANSFER_READ
+        }, 1);
+      }
 
-  uint32_t barrierCount = 1;
-
-  texture = canvas->color[0].texture;
-  for (uint32_t t = 0; t < canvas->count; t++, texture = canvas->color[t].texture) {
-    if (texture->info.mipmaps > 1) {
-      gpu_sync(stream, &barrier, barrierCount);
-      mipmapTexture(stream, texture, 0, ~0u);
-      barrierCount = 0;
+      mipmapTexture(stream, canvas->color[t].texture, 0, ~0u);
     }
   }
 
   texture = canvas->depth.texture;
-  if (texture && texture->info.mipmaps > 1) {
-    gpu_sync(stream, &barrier, barrierCount);
-    mipmapTexture(stream, texture, 0, ~0u);
+  if (canvas->depth.texture && canvas->depth.texture->info.mipmaps > 1) {
+    gpu_sync(stream, &(gpu_barrier) {
+      .prev = GPU_PHASE_DEPTH_EARLY | GPU_PHASE_DEPTH_LATE,
+      .next = GPU_PHASE_BLIT,
+      .flush = GPU_CACHE_DEPTH_WRITE,
+      .clear = GPU_CACHE_TRANSFER_READ
+    }, 1);
+
+    mipmapTexture(stream, canvas->depth.texture, 0, ~0u);
   }
 
   // Tally copy
@@ -1474,7 +1479,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     gpu_copy_tally_buffer(stream, tally->gpu, tempBuffer->gpu, 0, tempBuffer->base, count * canvas->views);
 
     gpu_barrier barrier = {
-      .prev = GPU_PHASE_TRANSFER,
+      .prev = GPU_PHASE_COPY,
       .next = GPU_PHASE_SHADER_COMPUTE,
       .flush = GPU_CACHE_TRANSFER_WRITE,
       .clear = GPU_CACHE_STORAGE_READ
@@ -1575,7 +1580,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       access.sync->barrier = &renderBarriers[i];
 
       if (texture->info.mipmaps > 1) {
-        access.sync->writePhase = GPU_PHASE_TRANSFER;
+        access.sync->writePhase = GPU_PHASE_BLIT;
         access.sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
       }
     }
@@ -1601,7 +1606,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       access.sync->barrier = &renderBarriers[i];
 
       if (texture->info.mipmaps > 1) {
-        access.sync->writePhase = GPU_PHASE_TRANSFER;
+        access.sync->writePhase = GPU_PHASE_BLIT;
         access.sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
       }
     }
@@ -1906,7 +1911,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
       beginFrame();
       BufferView staging = getBuffer(GPU_BUFFER_UPLOAD, buffer->info.size, 4);
       gpu_copy_buffers(state.stream, staging.buffer, buffer->gpu, staging.offset, buffer->base, buffer->info.size);
-      buffer->sync.writePhase = GPU_PHASE_TRANSFER;
+      buffer->sync.writePhase = GPU_PHASE_COPY;
       buffer->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
       buffer->sync.lastTransferWrite = state.tick;
       *data = staging.pointer;
@@ -1936,7 +1941,7 @@ void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(offset + extent <= buffer->info.size, "Buffer read range goes past the end of the Buffer");
 
-  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
 
   BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, 4);
@@ -1953,7 +1958,7 @@ void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(offset + extent <= buffer->info.size, "Attempt to write past the end of the Buffer");
   BufferView view = getBuffer(GPU_BUFFER_UPLOAD, extent, 4);
-  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
   gpu_copy_buffers(state.stream, view.buffer, buffer->gpu, view.offset, buffer->base + offset, extent);
   return view.pointer;
@@ -1964,8 +1969,8 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
   lovrCheck(srcOffset + extent <= src->info.size, "Buffer copy range goes past the end of the source Buffer");
   lovrCheck(dstOffset + extent <= dst->info.size, "Buffer copy range goes past the end of the destination Buffer");
   gpu_barrier barriers[2];
-  barriers[0] = syncTransfer(&src->sync, GPU_CACHE_TRANSFER_READ);
-  barriers[1] = syncTransfer(&dst->sync, GPU_CACHE_TRANSFER_WRITE);
+  barriers[0] = syncTransfer(&src->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
+  barriers[1] = syncTransfer(&dst->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, barriers, 2);
   gpu_copy_buffers(state.stream, src->gpu, dst->gpu, src->base + srcOffset, dst->base + dstOffset, extent);
 }
@@ -1977,7 +1982,7 @@ void lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent, uint32_t 
   lovrCheck(extent % 4 == 0, "Buffer clear extent must be a multiple of 4");
   lovrCheck(offset + extent <= buffer->info.size, "Buffer clear range goes past the end of the Buffer");
   beginFrame();
-  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
   gpu_clear_buffer(state.stream, buffer->gpu, buffer->base + offset, extent, value);
 }
@@ -2207,12 +2212,12 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   // Sample-only textures are exempt from sync tracking to reduce overhead.  Instead, they are
   // manually synchronized with a single barrier after the upload stream.
   if (info->usage == TEXTURE_SAMPLE) {
-    state.postBarrier.prev |= GPU_PHASE_TRANSFER;
+    state.postBarrier.prev |= GPU_PHASE_COPY | GPU_PHASE_BLIT;
     state.postBarrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
     state.postBarrier.flush |= GPU_CACHE_TRANSFER_WRITE;
     state.postBarrier.clear |= GPU_CACHE_TEXTURE;
   } else if (levelCount > 0) {
-    texture->sync.writePhase = GPU_PHASE_TRANSFER;
+    texture->sync.writePhase = GPU_PHASE_COPY | GPU_PHASE_BLIT;
     texture->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
     texture->sync.lastTransferWrite = state.tick;
   }
@@ -2330,7 +2335,7 @@ Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t exten
   lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
-  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
 
   BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
@@ -2374,7 +2379,7 @@ void lovrTextureSetPixels(Texture* texture, Image* image, uint32_t srcOffset[4],
       src += pitch;
     }
   }
-  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
   gpu_copy_buffer_texture(state.stream, view.buffer, texture->gpu, view.offset, dstOffset, extent);
 }
@@ -2392,8 +2397,8 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   checkTextureBounds(&src->info, srcOffset, extent);
   checkTextureBounds(&dst->info, dstOffset, extent);
   gpu_barrier barriers[2];
-  barriers[0] = syncTransfer(&src->sync, GPU_CACHE_TRANSFER_READ);
-  barriers[1] = syncTransfer(&dst->sync, GPU_CACHE_TRANSFER_WRITE);
+  barriers[0] = syncTransfer(&src->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
+  barriers[1] = syncTransfer(&dst->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, barriers, 2);
   gpu_copy_textures(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
 }
@@ -2418,8 +2423,8 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_barrier barriers[2];
-  barriers[0] = syncTransfer(&src->sync, GPU_CACHE_TRANSFER_READ);
-  barriers[1] = syncTransfer(&dst->sync, GPU_CACHE_TRANSFER_WRITE);
+  barriers[0] = syncTransfer(&src->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ);
+  barriers[1] = syncTransfer(&dst->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, barriers, 2);
   gpu_blit(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
 }
@@ -2432,7 +2437,7 @@ void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with 'transfer' usage to clear it");
   lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.layers, "Texture clear range exceeds texture layer count");
   lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
-  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_WRITE);
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
   gpu_clear_texture(state.stream, texture->gpu, value, layer, layerCount, level, levelCount);
 }
@@ -2446,7 +2451,7 @@ void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count)
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap it");
   lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support mipmapping this texture format/encoding");
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
-  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
   mipmapTexture(state.stream, texture, base, count);
 }
@@ -3270,7 +3275,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
     beginFrame();
     BufferView staging = getBuffer(GPU_BUFFER_UPLOAD, sizeof(MaterialData), 4);
     gpu_copy_buffers(state.stream, staging.buffer, block->view.buffer, staging.offset, block->view.offset + stride * material->index, sizeof(MaterialData));
-    state.postBarrier.prev |= GPU_PHASE_TRANSFER;
+    state.postBarrier.prev |= GPU_PHASE_COPY;
     state.postBarrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
     state.postBarrier.flush |= GPU_CACHE_TRANSFER_WRITE;
     state.postBarrier.clear |= GPU_CACHE_UNIFORM;
@@ -3498,8 +3503,8 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
     // - Ensure new atlas clear is finished/flushed before copying to it
     // - Ensure any unsynchronized pending uploads to old atlas finish before copying to new atlas
     gpu_barrier barrier;
-    barrier.prev = GPU_PHASE_TRANSFER;
-    barrier.next = GPU_PHASE_TRANSFER;
+    barrier.prev = GPU_PHASE_COPY | GPU_PHASE_CLEAR;
+    barrier.next = GPU_PHASE_COPY;
     barrier.flush = GPU_CACHE_TRANSFER_WRITE;
     barrier.clear = GPU_CACHE_TRANSFER_READ;
     gpu_sync(state.stream, &barrier, 1);
@@ -3556,7 +3561,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   gpu_copy_buffer_texture(state.stream, view.buffer, font->atlas->gpu, view.offset, dstOffset, extent);
   tempPop(&state.allocator, stack);
 
-  state.postBarrier.prev |= GPU_PHASE_TRANSFER;
+  state.postBarrier.prev |= GPU_PHASE_COPY;
   state.postBarrier.next |= GPU_PHASE_SHADER_FRAGMENT;
   state.postBarrier.flush |= GPU_CACHE_TRANSFER_WRITE;
   state.postBarrier.clear |= GPU_CACHE_TEXTURE;
@@ -4262,7 +4267,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
 
     // The vertex buffer may already have a pending copy if its memory was not host-visible, need to
     // wait for that to complete before copying to the raw vertex buffer
-    gpu_barrier barrier = syncTransfer(&model->vertexBuffer->sync, GPU_CACHE_TRANSFER_READ);
+    gpu_barrier barrier = syncTransfer(&model->vertexBuffer->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
     gpu_sync(state.stream, &barrier, 1);
 
     Buffer* src = model->vertexBuffer;
@@ -4270,7 +4275,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     gpu_copy_buffers(state.stream, src->gpu, dst->gpu, src->base, dst->base, data->dynamicVertexCount * sizeof(ModelVertex));
 
     gpu_sync(state.stream, &(gpu_barrier) {
-      .prev = GPU_PHASE_TRANSFER,
+      .prev = GPU_PHASE_COPY,
       .next = GPU_PHASE_SHADER_COMPUTE,
       .flush = GPU_CACHE_TRANSFER_WRITE,
       .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
@@ -4455,7 +4460,7 @@ Model* lovrModelClone(Model* parent) {
 
     beginFrame();
 
-    gpu_barrier barrier = syncTransfer(&parent->vertexBuffer->sync, GPU_CACHE_TRANSFER_READ);
+    gpu_barrier barrier = syncTransfer(&parent->vertexBuffer->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
     gpu_sync(state.stream, &barrier, 1);
 
     Buffer* src = parent->vertexBuffer;
@@ -4463,7 +4468,7 @@ Model* lovrModelClone(Model* parent) {
     gpu_copy_buffers(state.stream, src->gpu, dst->gpu, src->base, dst->base, parent->vertexBuffer->info.size);
 
     gpu_sync(state.stream, &(gpu_barrier) {
-      .prev = GPU_PHASE_TRANSFER,
+      .prev = GPU_PHASE_COPY,
       .next = GPU_PHASE_SHADER_COMPUTE,
       .flush = GPU_CACHE_TRANSFER_WRITE,
       .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
@@ -4918,7 +4923,7 @@ Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t ext
   readback->blob = lovrBlobCreate(data, extent, "Readback");
   readback->view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, 4);
   lovrRetain(buffer);
-  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_barrier barrier = syncTransfer(&buffer->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
   gpu_copy_buffers(state.stream, buffer->gpu, readback->view.buffer, buffer->base + offset, readback->view.offset, extent);
   return readback;
@@ -4937,7 +4942,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   readback->image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
   readback->view = getBuffer(GPU_BUFFER_DOWNLOAD, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
   lovrRetain(texture);
-  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_CACHE_TRANSFER_READ);
+  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
   gpu_copy_texture_buffer(state.stream, texture->gpu, readback->view.buffer, offset, readback->view.offset, extent);
   return readback;
@@ -7608,12 +7613,14 @@ static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, u
       volumetric ? MAX(texture->info.layers >> level, 1) : 1
     };
     gpu_blit(stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
-    gpu_sync(stream, &(gpu_barrier) {
-      .prev = GPU_PHASE_TRANSFER,
-      .next = GPU_PHASE_TRANSFER,
-      .flush = GPU_CACHE_TRANSFER_WRITE,
-      .clear = GPU_CACHE_TRANSFER_READ
-    }, 1);
+    if (i != count - 1) {
+      gpu_sync(stream, &(gpu_barrier) {
+        .prev = GPU_PHASE_BLIT,
+        .next = GPU_PHASE_BLIT,
+        .flush = GPU_CACHE_TRANSFER_WRITE,
+        .clear = GPU_CACHE_TRANSFER_READ
+      }, 1);
+    }
   }
 }
 
@@ -7760,7 +7767,7 @@ static bool syncResource(Access* access, gpu_barrier* barrier) {
   return write;
 }
 
-static gpu_barrier syncTransfer(Sync* sync, gpu_cache cache) {
+static gpu_barrier syncTransfer(Sync* sync, gpu_phase phase, gpu_cache cache) {
   gpu_barrier localBarrier = { 0 };
   gpu_barrier* barrier = NULL;
 
@@ -7773,7 +7780,7 @@ static gpu_barrier syncTransfer(Sync* sync, gpu_cache cache) {
     barrier = &state.preBarrier;
   }
 
-  syncResource(&(Access) { sync, NULL, GPU_PHASE_TRANSFER, cache }, barrier);
+  syncResource(&(Access) { sync, NULL, phase, cache }, barrier);
   if (cache & GPU_CACHE_READ_MASK) sync->lastTransferRead = state.tick;
   if (cache & GPU_CACHE_WRITE_MASK) sync->lastTransferWrite = state.tick;
 
