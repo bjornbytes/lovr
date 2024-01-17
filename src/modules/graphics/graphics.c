@@ -1898,14 +1898,18 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   buffer->block = view.block;
   atomic_fetch_add(&buffer->block->ref, 1);
 
-  if (data && !view.pointer) {
-    beginFrame();
-    BufferView staging = getBuffer(GPU_BUFFER_UPLOAD, buffer->info.size, 4);
-    gpu_copy_buffers(state.stream, staging.buffer, buffer->gpu, staging.offset, buffer->base, buffer->info.size);
-    buffer->sync.writePhase = GPU_PHASE_TRANSFER;
-    buffer->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
-    buffer->sync.lastTransferWrite = state.tick;
-    *data = staging.pointer;
+  if (data) {
+    if (view.pointer) {
+      *data = view.pointer;
+    } else {
+      beginFrame();
+      BufferView staging = getBuffer(GPU_BUFFER_UPLOAD, buffer->info.size, 4);
+      gpu_copy_buffers(state.stream, staging.buffer, buffer->gpu, staging.offset, buffer->base, buffer->info.size);
+      buffer->sync.writePhase = GPU_PHASE_TRANSFER;
+      buffer->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
+      buffer->sync.lastTransferWrite = state.tick;
+      *data = staging.pointer;
+    }
   }
 
   buffer->sync.barrier = &state.postBarrier;
