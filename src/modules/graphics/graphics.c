@@ -879,7 +879,9 @@ void lovrGraphicsDestroy(void) {
   map_free(&state.pipelineLookup);
   for (size_t i = 0; i < state.passLookup.size; i++) {
     if (state.passLookup.values[i] != MAP_NIL) {
-      gpu_pass_destroy((gpu_pass*) (uintptr_t) state.passLookup.values[i]);
+      gpu_pass* pass = (gpu_pass*) (uintptr_t) state.passLookup.values[i];
+      gpu_pass_destroy(pass);
+      free(pass);
     }
   }
   map_free(&state.passLookup);
