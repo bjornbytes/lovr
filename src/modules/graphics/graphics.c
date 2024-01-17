@@ -7269,11 +7269,11 @@ static void beginFrame(void) {
   processReadbacks();
 }
 
-// When a Buffer/Texture is garbage collected, if it has any transfer operations recorded to
-// state.stream, those transfers need to be submitted before it gets destroyed.  The allocator
-// offset is saved and restored, which is pretty gross, but we don't want to invalidate temp memory
-// (currently this is only a problem for Font: when the font's atlas gets destroyed, it could
-// invalidate the temp memory used by Font:getLines and Pass:text).
+// When a Texture is garbage collected, if it has any transfer operations recorded to state.stream,
+// those transfers need to be submitted before it gets destroyed.  The allocator offset is saved and
+// restored, which is pretty gross, but we don't want to invalidate temp memory (currently this is
+// only a problem for Font: when the font's atlas gets destroyed, it could invalidate the temp
+// memory used by Font:getLines and Pass:text).
 static void flushTransfers() {
   if (state.active) {
     size_t cursor = state.allocator.cursor;
