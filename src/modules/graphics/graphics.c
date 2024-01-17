@@ -5429,71 +5429,44 @@ void lovrPassSetBlendMode(Pass* pass, uint32_t index, BlendMode mode, BlendAlpha
 
   gpu_blend_state* blend = &pass->pipeline->info.blend[index];
 
-  switch (mode) {
-    case BLEND_ALPHA:
-      blend->color.src = GPU_BLEND_SRC_ALPHA;
-      blend->color.dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA;
-      blend->color.op = GPU_BLEND_ADD;
-      blend->alpha.src = GPU_BLEND_ONE;
-      blend->alpha.dst = GPU_BLEND_ONE_MINUS_SRC_ALPHA;
-      blend->alpha.op = GPU_BLEND_ADD;
-      break;
-    case BLEND_ADD:
-      blend->color.src = GPU_BLEND_SRC_ALPHA;
-      blend->color.dst = GPU_BLEND_ONE;
-      blend->color.op = GPU_BLEND_ADD;
-      blend->alpha.src = GPU_BLEND_ZERO;
-      blend->alpha.dst = GPU_BLEND_ONE;
-      blend->alpha.op = GPU_BLEND_ADD;
-      break;
-    case BLEND_SUBTRACT:
-      blend->color.src = GPU_BLEND_SRC_ALPHA;
-      blend->color.dst = GPU_BLEND_ONE;
-      blend->color.op = GPU_BLEND_RSUB;
-      blend->alpha.src = GPU_BLEND_ZERO;
-      blend->alpha.dst = GPU_BLEND_ONE;
-      blend->alpha.op = GPU_BLEND_RSUB;
-      break;
-    case BLEND_MULTIPLY:
-      blend->color.src = GPU_BLEND_DST_COLOR;
-      blend->color.dst = GPU_BLEND_ZERO;
-      blend->color.op = GPU_BLEND_ADD;
-      blend->alpha.src = GPU_BLEND_DST_COLOR;
-      blend->alpha.dst = GPU_BLEND_ZERO;
-      blend->alpha.op = GPU_BLEND_ADD;
-      break;
-    case BLEND_LIGHTEN:
-      blend->color.src = GPU_BLEND_SRC_ALPHA;
-      blend->color.dst = GPU_BLEND_ZERO;
-      blend->color.op = GPU_BLEND_MAX;
-      blend->alpha.src = GPU_BLEND_ONE;
-      blend->alpha.dst = GPU_BLEND_ZERO;
-      blend->alpha.op = GPU_BLEND_MAX;
-      break;
-    case BLEND_DARKEN:
-      blend->color.src = GPU_BLEND_SRC_ALPHA;
-      blend->color.dst = GPU_BLEND_ZERO;
-      blend->color.op = GPU_BLEND_MIN;
-      blend->alpha.src = GPU_BLEND_ONE;
-      blend->alpha.dst = GPU_BLEND_ZERO;
-      blend->alpha.op = GPU_BLEND_MIN;
-      break;
-    case BLEND_SCREEN:
-      blend->color.src = GPU_BLEND_SRC_ALPHA;
-      blend->color.dst = GPU_BLEND_ONE_MINUS_SRC_COLOR;
-      blend->color.op = GPU_BLEND_ADD;
-      blend->alpha.src = GPU_BLEND_ONE;
-      blend->alpha.dst = GPU_BLEND_ONE_MINUS_SRC_COLOR;
-      blend->alpha.op = GPU_BLEND_ADD;
-      break;
-    default: lovrUnreachable();
+  static const gpu_blend_state table[] = {
+    [BLEND_ALPHA] = {
+      .color = { GPU_BLEND_SRC_ALPHA, GPU_BLEND_ONE_MINUS_SRC_ALPHA, GPU_BLEND_ADD },
+      .alpha = { GPU_BLEND_ONE, GPU_BLEND_ONE_MINUS_SRC_ALPHA, GPU_BLEND_ADD }
+    },
+    [BLEND_ADD] = {
+      .color = { GPU_BLEND_SRC_ALPHA, GPU_BLEND_ONE, GPU_BLEND_ADD },
+      .alpha = { GPU_BLEND_ZERO, GPU_BLEND_ONE, GPU_BLEND_ADD }
+    },
+    [BLEND_SUBTRACT] = {
+      .color = { GPU_BLEND_SRC_ALPHA, GPU_BLEND_ONE, GPU_BLEND_RSUB },
+      .alpha = { GPU_BLEND_ZERO, GPU_BLEND_ONE, GPU_BLEND_RSUB }
+    },
+    [BLEND_MULTIPLY] = {
+      .color = { GPU_BLEND_DST_COLOR, GPU_BLEND_ZERO, GPU_BLEND_ADD },
+      .alpha = { GPU_BLEND_DST_COLOR, GPU_BLEND_ZERO, GPU_BLEND_ADD }
+    },
+    [BLEND_LIGHTEN] = {
+      .color = { GPU_BLEND_SRC_ALPHA, GPU_BLEND_ZERO, GPU_BLEND_MAX },
+      .alpha = { GPU_BLEND_ONE, GPU_BLEND_ZERO, GPU_BLEND_MAX }
+    },
+    [BLEND_DARKEN] = {
+      .color = { GPU_BLEND_SRC_ALPHA, GPU_BLEND_ZERO, GPU_BLEND_MIN },
+      .alpha = { GPU_BLEND_ONE, GPU_BLEND_ZERO, GPU_BLEND_MIN }
+    },
+    [BLEND_SCREEN] = {
+      .color = { GPU_BLEND_SRC_ALPHA, GPU_BLEND_ONE_MINUS_SRC_COLOR, GPU_BLEND_ADD },
+      .alpha = { GPU_BLEND_ONE, GPU_BLEND_ONE_MINUS_SRC_COLOR, GPU_BLEND_ADD }
+    },
   };
+
+  *blend = table[mode];
+  blend->enabled = true;
 
   if (alphaMode == BLEND_PREMULTIPLIED && mode != BLEND_MULTIPLY) {
     blend->color.src = GPU_BLEND_ONE;
   }
 
-  blend->enabled = true;
   pass->pipeline->dirty = true;
 }
 
