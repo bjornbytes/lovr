@@ -210,7 +210,7 @@ typedef enum {
   VERTEX_GLYPH,
   VERTEX_MODEL,
   VERTEX_EMPTY,
-  VERTEX_FORMAX
+  VERTEX_FORMAT_COUNT
 } VertexFormat;
 
 typedef struct {
@@ -234,7 +234,7 @@ typedef struct {
   uint32_t start;
   uint32_t count;
   uint32_t instances;
-  uint32_t base;
+  uint32_t baseVertex;
 } DrawInfo;
 
 typedef struct {
@@ -493,7 +493,7 @@ typedef struct {
 
 typedef struct {
   gpu_tally* gpu;
-  Buffer* secretBuffer;
+  Buffer* tempBuffer;
   bool active;
   uint32_t count;
   uint32_t bufferOffset;
@@ -584,7 +584,7 @@ static struct {
   Texture* defaultTexture;
   Sampler* defaultSamplers[2];
   Shader* defaultShaders[DEFAULT_SHADER_COUNT];
-  gpu_vertex_format vertexFormats[VERTEX_FORMAX];
+  gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
   Readback* oldestReadback;
   Readback* newestReadback;
   Material* defaultMaterial;
@@ -1339,7 +1339,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       });
 
       BufferInfo info = { .size = MAX_TALLIES * state.limits.renderSize[2] * sizeof(uint32_t) };
-      pass->tally.secretBuffer = lovrBufferCreate(&info, NULL);
+      pass->tally.tempBuffer = lovrBufferCreate(&info, NULL);
     }
 
     gpu_clear_tally(stream, pass->tally.gpu, 0, pass->tally.count * canvas->views);
@@ -1467,9 +1467,9 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   if (pass->tally.buffer && pass->tally.count > 0) {
     Tally* tally = &pass->tally;
     uint32_t count = MIN(tally->count, (tally->buffer->info.size - tally->bufferOffset) / 4);
-    Buffer* secretBuffer = pass->tally.secretBuffer;
+    Buffer* tempBuffer = pass->tally.tempBuffer;
 
-    gpu_copy_tally_buffer(stream, tally->gpu, secretBuffer->gpu, 0, secretBuffer->base, count * canvas->views);
+    gpu_copy_tally_buffer(stream, tally->gpu, tempBuffer->gpu, 0, tempBuffer->base, count * canvas->views);
 
     gpu_barrier barrier = {
       .prev = GPU_PHASE_TRANSFER,
@@ -1489,7 +1489,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     gpu_sync(stream, &barrier, 1);
 
     gpu_binding bindings[] = {
-      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { secretBuffer->gpu, secretBuffer->base, count * canvas->views * sizeof(uint32_t) } },
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tempBuffer->gpu, tempBuffer->base, count * canvas->views * sizeof(uint32_t) } },
       { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer->gpu, tally->buffer->base + tally->bufferOffset, count * sizeof(uint32_t) } }
     };
 
@@ -4326,7 +4326,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
       draw->index.buffer = model->indexBuffer;
       draw->start = indexCursor;
       draw->count = primitive->indices->count;
-      draw->base = vertexCursor;
+      draw->baseVertex = vertexCursor;
       indexCursor += draw->count;
     } else {
       draw->start = vertexCursor;
@@ -4728,7 +4728,7 @@ Mesh* lovrModelGetMesh(Model* model, uint32_t index) {
     Mesh* mesh = lovrMeshCreate(&info, NULL);
     if (draw->index.buffer) lovrMeshSetIndexBuffer(mesh, model->indexBuffer);
     lovrMeshSetDrawMode(mesh, draw->mode);
-    lovrMeshSetDrawRange(mesh, draw->start, draw->count, draw->base);
+    lovrMeshSetDrawRange(mesh, draw->start, draw->count, draw->baseVertex);
     lovrMeshSetMaterial(mesh, draw->material);
     memcpy(mesh->bounds, draw->bounds, sizeof(mesh->bounds));
     mesh->hasBounds = true;
@@ -5107,7 +5107,7 @@ void lovrPassDestroy(void* ref) {
   lovrRelease(pass->tally.buffer, lovrBufferDestroy);
   if (pass->tally.gpu) {
     gpu_tally_destroy(pass->tally.gpu);
-    lovrRelease(pass->tally.secretBuffer, lovrBufferDestroy);
+    lovrRelease(pass->tally.tempBuffer, lovrBufferDestroy);
   }
   freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
   os_vm_free(pass->allocator.memory, pass->allocator.limit);
@@ -5999,7 +5999,7 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   draw->start = info->start;
   draw->count = info->count > 0 ? info->count : (info->index.buffer || info->index.count > 0 ? info->index.count : info->vertex.count);
   draw->instances = MAX(info->instances, 1);
-  draw->baseVertex = info->base;
+  draw->baseVertex = info->baseVertex;
 
   lovrPassResolvePipeline(pass, info, draw, prev);
   lovrPassResolveBuffers(pass, info, draw);
@@ -7007,7 +7007,7 @@ void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform) {
   }
 }
 
-void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t base) {
+void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t baseVertex) {
   lovrCheck(!indices || indices->info.format, "Buffer must have been created with a format to use it as a%s buffer", "n index");
   lovrCheck(!vertices || vertices->info.format, "Buffer must have been created with a format to use it as a%s buffer", " vertex");
   lovrCheck(!vertices || !vertices->info.complexFormat, "Vertex buffers must use a simple format without nested types or arrays");
@@ -7033,7 +7033,7 @@ void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transfor
     .start = start,
     .count = count,
     .instances = instances,
-    .base = base
+    .baseVertex = baseVertex
   });
 }
 
