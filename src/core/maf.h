@@ -494,10 +494,10 @@ MAF quat quat_between(quat q, vec3 u, vec3 v) {
   return quat_normalize(q);
 }
 
-MAF void quat_toEuler(quat q, float* x, float* y, float *z) {
-  double unit = (q[0] * q[0]) + (q[1] * q[1]) + (q[2] * q[2]) + (q[3] * q[3]);
-  double test = q[0] * q[3] - q[1] * q[2];
-  const double eps = 1e-7;
+MAF void quat_getEuler(quat q, float* x, float* y, float *z) {
+  float unit = (q[0] * q[0]) + (q[1] * q[1]) + (q[2] * q[2]) + (q[3] * q[3]);
+  float test = q[0] * q[3] - q[1] * q[2];
+  const float eps = 1e-7f;
 
   if (test > (0.5 - eps) * unit) {
     *x = (float)M_PI / 2.0f;
@@ -514,13 +514,13 @@ MAF void quat_toEuler(quat q, float* x, float* y, float *z) {
   }
 }
 
-MAF quat quat_fromEuler(quat q, float x, float y, float z) {
-  double cx = cos(x * 0.5);
-  double sx = sin(x * 0.5);
-  double cy = cos(y * 0.5);
-  double sy = sin(y * 0.5);
-  double cz = cos(z * 0.5);
-  double sz = sin(z * 0.5);
+MAF quat quat_setEuler(quat q, float x, float y, float z) {
+  float cx = cos(x * 0.5);
+  float sx = sin(x * 0.5);
+  float cy = cos(y * 0.5);
+  float sy = sin(y * 0.5);
+  float cz = cos(z * 0.5);
+  float sz = sin(z * 0.5);
 
   return quat_set(q,
     cy * sx * cz + sy * cx * sz,
