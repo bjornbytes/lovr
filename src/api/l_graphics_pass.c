@@ -886,6 +886,7 @@ static int l_lovrPassSphere(lua_State* L) {
   int index = luax_readmat4(L, 2, transform, 1);
   uint32_t segmentsH = luax_optu32(L, index++, 48);
   uint32_t segmentsV = luax_optu32(L, index++, segmentsH / 2);
+  lovrAssert(segmentsH >= 2 && segmentsV >= 2, "Number of longitudes and latitudes must be >= 2");
   lovrPassSphere(pass, transform, segmentsH, segmentsV);
   return 0;
 }
