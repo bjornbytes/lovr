@@ -31,12 +31,28 @@ extern const luaL_Reg lovrVec4[];
 extern const luaL_Reg lovrQuat[];
 extern const luaL_Reg lovrMat4[];
 
-static struct { size_t components; const char* name; lua_CFunction metacall, metaindex; const luaL_Reg* api; int metaref, poolref, cursor; } lovrVectorInfo[] = {
-  [V_VEC2] = { 2, "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL, LUA_REFNIL, 1 },
-  [V_VEC3] = { 3, "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL, LUA_REFNIL, 1 },
-  [V_VEC4] = { 4, "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL, LUA_REFNIL, 1 },
-  [V_QUAT] = { 4, "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL, LUA_REFNIL, 1 },
-  [V_MAT4] = { 16, "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL, LUA_REFNIL, 1 }
+#define VECTOR_STACK_MAX 16
+
+typedef struct {
+  size_t components;
+  const char* name;
+  lua_CFunction metacall;
+  lua_CFunction metaindex;
+  const luaL_Reg* api;
+  int metatableRef;
+  int poolRef;
+  int poolCursor;
+  int stackPointers[VECTOR_STACK_MAX];
+} VectorInfo;
+
+static uint32_t stackIndex;
+
+static VectorInfo lovrVectorInfo[] = {
+  [V_VEC2] = { 2, "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL, LUA_REFNIL, 1, { 0 } },
+  [V_VEC3] = { 3, "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL, LUA_REFNIL, 1, { 0 } },
+  [V_VEC4] = { 4, "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL, LUA_REFNIL, 1, { 0 } },
+  [V_QUAT] = { 4, "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL, LUA_REFNIL, 1, { 0 } },
+  [V_MAT4] = { 16, "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL, LUA_REFNIL, 1, { 0 } }
 };
 
 float* luax_tovector(lua_State* L, int index, int* type) {
@@ -61,34 +77,31 @@ float* luax_checkvector(lua_State* L, int index, int type, const char* expected)
   return p;
 }
 
-static bool pushed;
-
 float* luax_newvector(lua_State* L, int type) {
-  if (pushed) {
-    lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].poolref);
-    lua_rawgeti(L, -1, lovrVectorInfo[type].cursor);
-    if (lua_isnil(L, -1)) {
-      lua_pop(L, 1);
-      void* p = lua_newuserdata(L, sizeof(int) + lovrVectorInfo[type].components * sizeof(float));
-      *((int*) p) = type;
-      lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metaref);
-      lua_setmetatable(L, -2);
-      lua_pushvalue(L, -1);
-      lua_rawseti(L, -3, lovrVectorInfo[type].cursor++);
+  if (stackIndex > 0) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].poolRef);
+    lua_rawgeti(L, -1, lovrVectorInfo[type].poolCursor);
+    if (!lua_isnil(L, -1)) {
       lua_remove(L, -2);
-      return (float*) ((char*) p + sizeof(int));
-    } else {
-      lua_remove(L, -2);
-      lovrVectorInfo[type].cursor++;
+      lovrVectorInfo[type].poolCursor++;
       return (float*) ((char*) lua_topointer(L, -1) + sizeof(int));
+    } else {
+      lua_pop(L, 1);
     }
-  } else {
-    void* p = lua_newuserdata(L, sizeof(int) + lovrVectorInfo[type].components * sizeof(float));
-    *((int*) p) = type;
-    lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metaref);
-    lua_setmetatable(L, -2);
-    return (float*) ((char*) p + sizeof(int));
   }
+
+  void* p = lua_newuserdata(L, sizeof(int) + lovrVectorInfo[type].components * sizeof(float));
+  *((int*) p) = type;
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metatableRef);
+  lua_setmetatable(L, -2);
+
+  if (stackIndex > 0) {
+    lua_pushvalue(L, -1);
+    lua_rawseti(L, -3, lovrVectorInfo[type].poolCursor++);
+    lua_remove(L, -2);
+  }
+
+  return (float*) ((char*) p + sizeof(int));
 }
 
 static int l_lovrMathNewCurve(lua_State* L) {
@@ -275,14 +288,17 @@ static int l_lovrMathMat4(lua_State* L) {
 
 static int l_lovrMathPush(lua_State* L) {
   for (int i = V_VEC2; i <= V_MAT4; i++) {
-    lovrVectorInfo[i].cursor = 1;
+    lovrVectorInfo[i].stackPointers[stackIndex] = lovrVectorInfo[i].poolCursor;
   }
-  pushed = true;
+  lovrAssert(++stackIndex < VECTOR_STACK_MAX, "Vector stack overflow (more pushes than pops?)");
   return 0;
 }
 
 static int l_lovrMathPop(lua_State* L) {
-  pushed = false;
+  lovrAssert(--stackIndex >= 0, "Vector stack underflow (more pops than pushes?)");
+  for (int i = V_VEC2; i <= V_MAT4; i++) {
+    lovrVectorInfo[i].poolCursor = lovrVectorInfo[i].stackPointers[stackIndex];
+  }
   return 0;
 }
 
@@ -331,7 +347,7 @@ int luaopen_lovr_math(lua_State* L) {
     lua_settable(L, -4);
 
     luax_register(L, lovrVectorInfo[i].api);
-    lovrVectorInfo[i].metaref = luaL_ref(L, LUA_REGISTRYINDEX);
+    lovrVectorInfo[i].metatableRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
     // pool
     lua_newtable(L);
@@ -342,7 +358,7 @@ int luaopen_lovr_math(lua_State* L) {
     lua_setfield(L, -2, "__mode");
     lua_setmetatable(L, -2);
 
-    lovrVectorInfo[i].poolref = luaL_ref(L, LUA_REGISTRYINDEX);
+    lovrVectorInfo[i].poolRef = luaL_ref(L, LUA_REGISTRYINDEX);
   }
 
   // Module
