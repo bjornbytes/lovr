@@ -1595,7 +1595,7 @@ const luaL_Reg lovrQuat[] = {
   { "conjugate", l_lovrQuatConjugate },
   { "slerp", l_lovrQuatSlerp },
   { "getEuler", l_lovrQuatGetEuler },
-  { "SetEuler", l_lovrQuatSetEuler },
+  { "setEuler", l_lovrQuatSetEuler },
   { "__mul", l_lovrQuat__mul },
   { "__len", l_lovrQuat__len },
   { "__tostring", l_lovrQuat__tostring },
