@@ -317,6 +317,8 @@ static int convertKey(os_key key) {
     case OS_KEY_RIGHT: return GLFW_KEY_RIGHT;
     case OS_KEY_LEFT_SHIFT: return GLFW_KEY_LEFT_SHIFT;
     case OS_KEY_RIGHT_SHIFT: return GLFW_KEY_RIGHT_SHIFT;
+    case OS_KEY_LEFT_CONTROL: return GLFW_KEY_LEFT_CONTROL;
+    case OS_KEY_RIGHT_CONTROL: return GLFW_KEY_RIGHT_CONTROL;
     case OS_KEY_ESCAPE: return GLFW_KEY_ESCAPE;
     case OS_KEY_F5: return GLFW_KEY_F5;
     default: return GLFW_KEY_UNKNOWN;
