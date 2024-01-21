@@ -16,14 +16,6 @@ struct Curve {
   arr_t(float) points;
 };
 
-struct Pool {
-  uint32_t ref;
-  float* data;
-  uint32_t count;
-  uint32_t cursor;
-  uint32_t generation;
-};
-
 struct RandomGenerator {
   uint32_t ref;
   Seed seed;
