@@ -465,7 +465,10 @@ comp = 'etc/shaders/*.comp'
 
 function compileShaders(stage)
   pattern = 'etc/shaders/*.' .. stage
-  tup.foreach_rule(pattern, 'glslangValidator --quiet --target-env vulkan1.1 --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
+  glslang_flags += '--quiet'
+  glslang_flags += config.debug and '-gVS' or ''
+  glslang_flags += '--target-env vulkan1.1'
+  tup.foreach_rule(pattern, 'glslangValidator $(glslang_flags) --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
 end
 
 compileShaders('vert')

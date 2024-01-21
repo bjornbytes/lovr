@@ -478,6 +478,7 @@ if(LOVR_ENABLE_GRAPHICS)
         COMMAND
           ${GLSLANG_VALIDATOR}
           --quiet
+          $<$<CONFIG:Debug>:-gVS>
           --target-env vulkan1.1
           --vn lovr_shader_${shader}_${ARGV0}
           -o ${shader_file}.h
