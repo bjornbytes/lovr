@@ -305,6 +305,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     [GPU_TYPE_U8x4] = WGPUVertexFormat_Uint8x4,
     [GPU_TYPE_SN8x4] = WGPUVertexFormat_Snorm8x4,
     [GPU_TYPE_UN8x4] = WGPUVertexFormat_Unorm8x4,
+    [GPU_TYPE_SN10x3] = WGPUVertexFormat_Undefined,
     [GPU_TYPE_UN10x3] = WGPUVertexFormat_Undefined,
     [GPU_TYPE_I16] = WGPUVertexFormat_Undefined,
     [GPU_TYPE_I16x2] = WGPUVertexFormat_Sint16x2,

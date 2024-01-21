@@ -1759,6 +1759,7 @@ uint32_t lovrGraphicsAlignFields(DataField* parent, DataLayout layout) {
     [TYPE_U8x4] = { 4, 1, 4 },
     [TYPE_SN8x4] = { 4, 1, 4 },
     [TYPE_UN8x4] = { 4, 1, 4 },
+    [TYPE_SN10x3] = { 4, 4, 4 },
     [TYPE_UN10x3] = { 4, 4, 4 },
     [TYPE_I16] = { 2, 2, 2 },
     [TYPE_I16x2] = { 4, 2, 4 },
