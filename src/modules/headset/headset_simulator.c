@@ -13,7 +13,7 @@
 
 #define MOVESPEED 3.f
 #define SPRINTSPEED 15.f
-#define SLOW_MOVESPEED 0.5f
+#define SLOWSPEED .5f
 #define MOVESMOOTH 30.f
 #define TURNSPEED .005f
 #define TURNSMOOTH 30.f
@@ -463,7 +463,7 @@ static double simulator_update(void) {
   velocity[0] = (left ? -1.f : right ? 1.f : 0.f);
   velocity[1] = (down ? -1.f : up ? 1.f : 0.f);
   velocity[2] = (front ? -1.f : back ? 1.f : 0.f);
-  vec3_scale(velocity, sprint ? SPRINTSPEED : (slow ? SLOW_MOVESPEED : MOVESPEED));
+  vec3_scale(velocity, sprint ? SPRINTSPEED : (slow ? SLOWSPEED : MOVESPEED));
   vec3_lerp(state.velocity, velocity, 1.f - expf(-MOVESMOOTH * state.dt));
 
   vec3_scale(vec3_init(velocity, state.velocity), state.dt);

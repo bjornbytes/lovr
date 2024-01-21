@@ -113,10 +113,11 @@ static void queryCallback(void* d, dGeomID a, dGeomID b) {
 
 // XXX slow, but probably fine (tag names are not on any critical path), could switch to hashing if needed
 static uint32_t findTag(World* world, const char* name) {
-  if (name == NULL) { return NO_TAG; }
-  for (uint32_t i = 0; i < MAX_TAGS && world->tags[i]; i++) {
-    if (!strcmp(world->tags[i], name)) {
-      return i;
+  if (name) {
+    for (uint32_t i = 0; i < MAX_TAGS && world->tags[i]; i++) {
+      if (!strcmp(world->tags[i], name)) {
+        return i;
+      }
     }
   }
   return NO_TAG;
