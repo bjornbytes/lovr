@@ -15,10 +15,10 @@ layout(push_constant) uniform PushConstants {
 
 struct ModelVertex {
   float px, py, pz;
-  float nx, ny, nz;
+  uint normal;
   float u, v;
   uint color;
-  float tx, ty, tz, tw;
+  uint tangent;
 };
 
 struct BlendVertex {
@@ -39,6 +39,9 @@ void lovrmain() {
 
   ModelVertex vertex = first ? rawVertices[vertexIndex] : vertices[vertexIndex];
 
+  vec4 normal = unpackSnorm10x3(vertex.normal);
+  vec4 tangent = unpackSnorm10x3(vertex.tangent);
+
   for (uint i = 0; i < blendShapeCount; i++, blendVertexIndex += vertexCount) {
     float weight = weights[i / 4][i % 4];
 
@@ -52,14 +55,17 @@ void lovrmain() {
     vertex.py += blendShape.py * weight;
     vertex.pz += blendShape.pz * weight;
 
-    vertex.nx += blendShape.nx * weight;
-    vertex.ny += blendShape.ny * weight;
-    vertex.nz += blendShape.nz * weight;
+    normal.x += blendShape.nx * weight;
+    normal.y += blendShape.ny * weight;
+    normal.z += blendShape.nz * weight;
 
-    vertex.tx += blendShape.tx * weight;
-    vertex.ty += blendShape.ty * weight;
-    vertex.tz += blendShape.tz * weight;
+    tangent.x += blendShape.tx * weight;
+    tangent.y += blendShape.ty * weight;
+    tangent.z += blendShape.tz * weight;
   }
+
+  vertex.normal = packSnorm10x3(normal);
+  vertex.tangent = packSnorm10x3(tangent);
 
   vertices[vertexIndex] = vertex;
 }
