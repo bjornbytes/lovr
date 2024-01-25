@@ -1747,7 +1747,6 @@ void lovrGraphicsWait(void) {
   }
 
   gpu_wait_idle();
-  gpu_wait_tick(state.tick);
   processReadbacks();
 }
 

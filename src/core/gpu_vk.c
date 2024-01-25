@@ -2766,6 +2766,7 @@ bool gpu_wait_tick(uint32_t tick) {
 
 void gpu_wait_idle(void) {
   vkDeviceWaitIdle(state.device);
+  state.tick[GPU] = state.tick[CPU];
 }
 
 uintptr_t gpu_vk_get_instance(void) {
