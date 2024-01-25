@@ -194,7 +194,7 @@ local function formatTraceback(s)
 end
 
 function lovr.errhand(message)
-  message = 'Error:\n\n' .. tostring(message) .. formatTraceback(debug.traceback('', 4))
+  message = 'Error:\n\n' .. tostring(message) .. formatTraceback(debug and debug.traceback('', 4) or '')
 
   print(message)
 
@@ -289,7 +289,7 @@ lovr.handlers = setmetatable({}, { __index = lovr })
 return coroutine.create(function()
   local function onerror(...)
     onerror = function(...)
-      print('Error:\n\n' .. tostring(...) .. formatTraceback(debug.traceback('', 1)))
+      print('Error:\n\n' .. tostring(...) .. formatTraceback(debug and debug.traceback('', 1) or ''))
       return function() return 1 end
     end
 
