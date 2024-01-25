@@ -147,7 +147,7 @@ local function formatTraceback(s)
 end
 
 function lovr.errhand(message)
-  message = 'Error:\n\n' .. tostring(message) .. formatTraceback(debug.traceback('', 4))
+  message = 'Error:\n\n' .. tostring(message) .. formatTraceback(debug and debug.traceback('', 4) or '')
 
   print(message)
 
@@ -240,7 +240,7 @@ return function()
       errored = true -- Ensure errhand is only called once
       return lovr.errhand(...) or function() return 1 end
     else
-      local message = tostring(...) .. formatTraceback(debug.traceback('', 2))
+      local message = tostring(...) .. formatTraceback(debug and debug.traceback('', 2) or '')
       print('Error occurred while trying to display another error:\n' .. message)
       return function() return 1 end
     end
