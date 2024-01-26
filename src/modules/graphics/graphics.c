@@ -238,7 +238,9 @@ typedef struct {
 } DrawInfo;
 
 typedef struct {
-  float properties[3][4];
+  float position[3];
+  float rotation[4];
+  float scale[3];
 } NodeTransform;
 
 typedef struct {
@@ -4531,17 +4533,15 @@ const ModelInfo* lovrModelGetInfo(Model* model) {
 void lovrModelResetNodeTransforms(Model* model) {
   ModelData* data = model->info.data;
   for (uint32_t i = 0; i < data->nodeCount; i++) {
-    vec3 position = model->localTransforms[i].properties[PROP_TRANSLATION];
-    quat orientation = model->localTransforms[i].properties[PROP_ROTATION];
-    vec3 scale = model->localTransforms[i].properties[PROP_SCALE];
+    NodeTransform* transform = &model->localTransforms[i];
     if (data->nodes[i].hasMatrix) {
-      mat4_getPosition(data->nodes[i].transform.matrix, position);
-      mat4_getOrientation(data->nodes[i].transform.matrix, orientation);
-      mat4_getScale(data->nodes[i].transform.matrix, scale);
+      mat4_getPosition(data->nodes[i].transform.matrix, transform->position);
+      mat4_getOrientation(data->nodes[i].transform.matrix, transform->rotation);
+      mat4_getScale(data->nodes[i].transform.matrix, transform->scale);
     } else {
-      vec3_init(position, data->nodes[i].transform.translation);
-      quat_init(orientation, data->nodes[i].transform.rotation);
-      vec3_init(scale, data->nodes[i].transform.scale);
+      vec3_init(transform->position, data->nodes[i].transform.translation);
+      quat_init(transform->rotation, data->nodes[i].transform.rotation);
+      vec3_init(transform->scale, data->nodes[i].transform.scale);
     }
   }
   model->transformsDirty = true;
@@ -4568,7 +4568,6 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   for (uint32_t i = 0; i < animation->channelCount; i++) {
     ModelAnimationChannel* channel = &animation->channels[i];
     uint32_t node = channel->nodeIndex;
-    NodeTransform* transform = &model->localTransforms[node];
 
     uint32_t keyframe = 0;
     while (keyframe < channel->keyframeCount && channel->times[keyframe] < time) {
@@ -4576,17 +4575,14 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
     }
 
     size_t n;
-    float values[4];
-    float* property = values;
     switch (channel->property) {
       case PROP_TRANSLATION: n = 3; break;
       case PROP_SCALE: n = 3; break;
       case PROP_ROTATION: n = 4; break;
-      case PROP_WEIGHTS:
-        n = data->nodes[node].blendShapeCount;
-        property = tempAlloc(&state.allocator, n * sizeof(float));
-        break;
+      case PROP_WEIGHTS: n = data->nodes[node].blendShapeCount; break;
     }
+
+    float* property = tempAlloc(&state.allocator, n * sizeof(float));
 
     // Handle the first/last keyframe case (no interpolation)
     if (keyframe == 0 || keyframe >= channel->keyframeCount) {
@@ -4640,13 +4636,18 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
       }
     }
 
-    float* dst;
     if (channel->property == PROP_WEIGHTS) {
-      dst = &model->blendShapeWeights[data->nodes[node].blendShapeIndex];
       model->blendShapesDirty = true;
     } else {
-      dst = transform->properties[channel->property];
       model->transformsDirty = true;
+    }
+
+    float* dst;
+    switch (channel->property) {
+      case PROP_TRANSLATION: dst = model->localTransforms[node].position; break;
+      case PROP_SCALE: dst = model->localTransforms[node].scale; break;
+      case PROP_ROTATION: dst = model->localTransforms[node].rotation; break;
+      case PROP_WEIGHTS: dst = &model->blendShapeWeights[data->nodes[node].blendShapeIndex]; break;
     }
 
     if (alpha >= 1.f) {
@@ -4672,9 +4673,9 @@ void lovrModelSetBlendShapeWeight(Model* model, uint32_t index, float weight) {
 
 void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[3], float scale[3], float rotation[4], OriginType origin) {
   if (origin == ORIGIN_PARENT) {
-    vec3_init(position, model->localTransforms[node].properties[PROP_TRANSLATION]);
-    vec3_init(scale, model->localTransforms[node].properties[PROP_SCALE]);
-    quat_init(rotation, model->localTransforms[node].properties[PROP_ROTATION]);
+    vec3_init(position, model->localTransforms[node].position);
+    vec3_init(scale, model->localTransforms[node].scale);
+    quat_init(rotation, model->localTransforms[node].rotation);
   } else {
     if (model->transformsDirty) {
       updateModelTransforms(model, model->info.data->rootNode, (float[]) MAT4_IDENTITY);
@@ -4692,13 +4693,13 @@ void lovrModelSetNodeTransform(Model* model, uint32_t node, float position[3], f
   NodeTransform* transform = &model->localTransforms[node];
 
   if (alpha >= 1.f) {
-    if (position) vec3_init(transform->properties[PROP_TRANSLATION], position);
-    if (scale) vec3_init(transform->properties[PROP_SCALE], scale);
-    if (rotation) quat_init(transform->properties[PROP_ROTATION], rotation);
+    if (position) vec3_init(transform->position, position);
+    if (scale) vec3_init(transform->scale, scale);
+    if (rotation) quat_init(transform->rotation, rotation);
   } else {
-    if (position) vec3_lerp(transform->properties[PROP_TRANSLATION], position, alpha);
-    if (scale) vec3_lerp(transform->properties[PROP_SCALE], scale, alpha);
-    if (rotation) quat_slerp(transform->properties[PROP_ROTATION], rotation, alpha);
+    if (position) vec3_lerp(transform->position, position, alpha);
+    if (scale) vec3_lerp(transform->scale, scale, alpha);
+    if (rotation) quat_slerp(transform->rotation, rotation, alpha);
   }
 
   model->transformsDirty = true;
@@ -7778,14 +7779,11 @@ static gpu_barrier syncTransfer(Sync* sync, gpu_cache cache) {
 static void updateModelTransforms(Model* model, uint32_t nodeIndex, float* parent) {
   mat4 global = model->globalTransforms + 16 * nodeIndex;
   NodeTransform* local = &model->localTransforms[nodeIndex];
-  vec3 T = local->properties[PROP_TRANSLATION];
-  quat R = local->properties[PROP_ROTATION];
-  vec3 S = local->properties[PROP_SCALE];
 
   mat4_init(global, parent);
-  mat4_translate(global, T[0], T[1], T[2]);
-  mat4_rotateQuat(global, R);
-  mat4_scale(global, S[0], S[1], S[2]);
+  mat4_translate(global, local->position[0], local->position[1], local->position[2]);
+  mat4_rotateQuat(global, local->rotation);
+  mat4_scale(global, local->scale[0], local->scale[1], local->scale[2]);
 
   ModelNode* node = &model->info.data->nodes[nodeIndex];
   for (uint32_t i = 0; i < node->childCount; i++) {
