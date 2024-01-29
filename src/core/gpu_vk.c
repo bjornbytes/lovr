@@ -216,8 +216,8 @@ static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type);
 static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve, bool discard, VkImageMemoryBarrier2KHR* barrier);
 static VkImageLayout getNaturalLayout(uint32_t usage, VkImageAspectFlags aspect);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
-static VkPipelineStageFlags convertPhase(gpu_phase phase, bool dst);
-static VkAccessFlags convertCache(gpu_cache cache);
+static VkPipelineStageFlags2 convertPhase(gpu_phase phase, bool dst);
+static VkAccessFlags2 convertCache(gpu_cache cache);
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
 static void nickname(void* object, VkObjectType type, const char* name);
 static bool vcheck(VkResult result, const char* message);
@@ -606,10 +606,10 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     }
 
     // Transition to natural layout
-    transition.srcStageMask = VK_PIPELINE_STAGE_2_NONE_KHR;
+    transition.srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR | VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
     transition.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR;
-    transition.srcAccessMask = VK_ACCESS_2_NONE_KHR;
-    transition.dstAccessMask = VK_ACCESS_2_NONE_KHR;
+    transition.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
+    transition.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR | VK_ACCESS_2_MEMORY_WRITE_BIT_KHR;
     transition.oldLayout = transition.newLayout;
     transition.newLayout = texture->layout;
     transition.subresourceRange.baseMipLevel = 0;
@@ -3069,8 +3069,8 @@ static VkFormat convertFormat(gpu_texture_format format, int colorspace) {
   return formats[format][colorspace];
 }
 
-static VkPipelineStageFlags convertPhase(gpu_phase phase, bool dst) {
-  VkPipelineStageFlags flags = 0;
+static VkPipelineStageFlags2 convertPhase(gpu_phase phase, bool dst) {
+  VkPipelineStageFlags2 flags = 0;
   if (phase & GPU_PHASE_INDIRECT) flags |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT_KHR;
   if (phase & GPU_PHASE_INPUT_INDEX) flags |= VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT_KHR;
   if (phase & GPU_PHASE_INPUT_VERTEX) flags |= VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT_KHR;
@@ -3086,8 +3086,8 @@ static VkPipelineStageFlags convertPhase(gpu_phase phase, bool dst) {
   return flags;
 }
 
-static VkAccessFlags convertCache(gpu_cache cache) {
-  VkAccessFlags flags = 0;
+static VkAccessFlags2 convertCache(gpu_cache cache) {
+  VkAccessFlags2 flags = 0;
   if (cache & GPU_CACHE_INDIRECT) flags |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT_KHR;
   if (cache & GPU_CACHE_INDEX) flags |= VK_ACCESS_2_INDEX_READ_BIT_KHR;
   if (cache & GPU_CACHE_VERTEX) flags |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT_KHR;

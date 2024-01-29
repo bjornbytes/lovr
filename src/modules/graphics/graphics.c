@@ -3506,7 +3506,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
     barrier.prev = GPU_PHASE_COPY | GPU_PHASE_CLEAR;
     barrier.next = GPU_PHASE_COPY;
     barrier.flush = GPU_CACHE_TRANSFER_WRITE;
-    barrier.clear = GPU_CACHE_TRANSFER_READ;
+    barrier.clear = GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE;
     gpu_sync(state.stream, &barrier, 1);
 
     if (font->atlas) {
