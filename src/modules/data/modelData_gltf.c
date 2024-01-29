@@ -224,11 +224,16 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     json = (char*) &jsonHeader[1];
     jsonLength = jsonHeader->length;
 
-    gltfChunkHeader* binHeader = (gltfChunkHeader*) &json[jsonLength];
-    lovrAssert(binHeader->type == MAGIC_BIN, "Invalid BIN header");
+    if (source->size > sizeof(gltfHeader) + sizeof(gltfChunkHeader) + jsonLength + 4) {
+      gltfChunkHeader* binHeader = (gltfChunkHeader*) &json[jsonLength];
+      lovrAssert(binHeader->type == MAGIC_BIN, "Invalid BIN header");
 
-    binData = (char*) &binHeader[1];
-    binOffset = (char*) binData - (char*) source->data;
+      binData = (char*) &binHeader[1];
+      binOffset = (char*) binData - (char*) source->data;
+    } else {
+      binData = NULL;
+      binOffset = 0;
+    }
   } else {
     json = (char*) data;
     jsonLength = source->size;
