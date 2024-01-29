@@ -4175,7 +4175,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
     }
   };
 
-  model->vertexBuffer = lovrBufferCreate(&vertexBufferInfo, (void**) &vertexData);
+  if (data->vertexCount > 0) {
+    model->vertexBuffer = lovrBufferCreate(&vertexBufferInfo, (void**) &vertexData);
+  }
 
   if (data->blendShapeVertexCount > 0) {
     model->blendBuffer = lovrBufferCreate(&(BufferInfo) {
@@ -4398,23 +4400,25 @@ Model* lovrModelClone(Model* parent) {
   model->blendGroupCount = parent->blendGroupCount;
   model->blendShapesDirty = true;
 
-  model->vertexBuffer = lovrBufferCreate(&parent->vertexBuffer->info, NULL);
+  if (parent->vertexBuffer) {
+    model->vertexBuffer = lovrBufferCreate(&parent->vertexBuffer->info, NULL);
 
-  beginFrame();
+    beginFrame();
 
-  gpu_barrier barrier = syncTransfer(&parent->vertexBuffer->sync, GPU_CACHE_TRANSFER_READ);
-  gpu_sync(state.stream, &barrier, 1);
+    gpu_barrier barrier = syncTransfer(&parent->vertexBuffer->sync, GPU_CACHE_TRANSFER_READ);
+    gpu_sync(state.stream, &barrier, 1);
 
-  gpu_buffer* src = parent->vertexBuffer->gpu;
-  gpu_buffer* dst = model->vertexBuffer->gpu;
-  gpu_copy_buffers(state.stream, src, dst, 0, 0, parent->vertexBuffer->info.size);
+    gpu_buffer* src = parent->vertexBuffer->gpu;
+    gpu_buffer* dst = model->vertexBuffer->gpu;
+    gpu_copy_buffers(state.stream, src, dst, 0, 0, parent->vertexBuffer->info.size);
 
-  gpu_sync(state.stream, &(gpu_barrier) {
-    .prev = GPU_PHASE_TRANSFER,
-    .next = GPU_PHASE_SHADER_COMPUTE,
-    .flush = GPU_CACHE_TRANSFER_WRITE,
-    .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
-  }, 1);
+    gpu_sync(state.stream, &(gpu_barrier) {
+      .prev = GPU_PHASE_TRANSFER,
+      .next = GPU_PHASE_SHADER_COMPUTE,
+      .flush = GPU_CACHE_TRANSFER_WRITE,
+      .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
+    }, 1);
+  }
 
   model->draws = malloc(data->primitiveCount * sizeof(DrawInfo));
   lovrAssert(model->draws, "Out of memory");
