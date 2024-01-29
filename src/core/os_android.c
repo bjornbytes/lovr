@@ -269,6 +269,14 @@ void os_request_permission(os_permission permission) {
   }
 }
 
+const char* os_get_clipboard_text() {
+  return NULL;
+}
+
+void os_set_clipboard_text(const char* text) {
+  //
+}
+
 void* os_vm_init(size_t size) {
   return mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }

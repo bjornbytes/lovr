@@ -30,3 +30,5 @@ bool lovrSystemIsMouseDown(int button);
 bool lovrSystemWasMousePressed(int button);
 bool lovrSystemWasMouseReleased(int button);
 float lovrSystemGetScrollDelta(void);
+const char* lovrSystemGetClipboardText(void);
+void lovrSystemSetClipboardText(const char* text);

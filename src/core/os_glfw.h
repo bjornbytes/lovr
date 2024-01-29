@@ -1,5 +1,13 @@
 #ifndef LOVR_USE_GLFW
 
+const char* os_get_clipboard_text(void) {
+  return NULL;
+}
+
+void os_set_clipboard_text(const char* text) {
+  //
+}
+
 void os_poll_events(void) {
   //
 }
@@ -323,6 +331,14 @@ static int convertKey(os_key key) {
     case OS_KEY_F5: return GLFW_KEY_F5;
     default: return GLFW_KEY_UNKNOWN;
   }
+}
+
+const char* os_get_clipboard_text(void) {
+  return glfwGetClipboardString(NULL);
+}
+
+void os_set_clipboard_text(const char* text) {
+  glfwSetClipboardString(NULL, text);
 }
 
 void os_poll_events(void) {

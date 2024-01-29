@@ -246,6 +246,14 @@ void os_request_permission(os_permission permission) {
   //
 }
 
+const char* os_get_clipboard_text() {
+  return NULL;
+}
+
+void os_set_clipboard_text(const char* text) {
+  //
+}
+
 void os_thread_attach(void) {
   //
 }

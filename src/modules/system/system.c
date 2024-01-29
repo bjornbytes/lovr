@@ -188,3 +188,11 @@ bool lovrSystemWasMouseReleased(int button) {
 float lovrSystemGetScrollDelta(void) {
   return state.scrollDelta;
 }
+
+const char* lovrSystemGetClipboardText(void) {
+  return os_get_clipboard_text();
+}
+
+void lovrSystemSetClipboardText(const char* text) {
+  os_set_clipboard_text(text);
+}
