@@ -1968,6 +1968,7 @@ void lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOf
   beginFrame();
   lovrCheck(srcOffset + extent <= src->info.size, "Buffer copy range goes past the end of the source Buffer");
   lovrCheck(dstOffset + extent <= dst->info.size, "Buffer copy range goes past the end of the destination Buffer");
+  lovrCheck(src != dst || (srcOffset >= dstOffset + extent || dstOffset >= srcOffset + extent), "Copying part of a Buffer to itself requires non-overlapping copy regions");
   gpu_barrier barriers[2];
   barriers[0] = syncTransfer(&src->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
   barriers[1] = syncTransfer(&dst->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
