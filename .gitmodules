@@ -31,3 +31,6 @@
 [submodule "plugins/lovr-http"]
 	path = plugins/lovr-http
 	url = https://github.com/bjornbytes/lovr-http
+[submodule "deps/jolt-physics-sharp"]
+	path = deps/jolt-physics-sharp
+	url = https://github.com/amerkoleci/JoltPhysicsSharp

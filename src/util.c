@@ -36,7 +36,7 @@ void lovrLog(int level, const char* tag, const char* format, ...) {
   va_end(args);
 }
 
-// Refcounting
+// Refcounting; to be reference-counted the object must have uint ref field as struct's first member
 #if ATOMIC_INT_LOCK_FREE != 2
 #error "Lock-free integer atomics are not supported on this platform, but are required for refcounting"
 #endif
