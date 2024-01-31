@@ -257,6 +257,8 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
           ((((uint32_t) (int32_t) (z * 511.f)) & 0x3ff) << 20) |
           ((((uint32_t) (int32_t) (w * 2.f)) & 0x003) << 30);
       }
+    } else {
+      lovrUnreachable();
     }
   } else {
     lovrUnreachable();
