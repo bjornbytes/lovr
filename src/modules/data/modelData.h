@@ -33,7 +33,7 @@ typedef enum {
   MAX_DEFAULT_ATTRIBUTES
 } DefaultAttribute;
 
-typedef enum { I8, U8, I16, U16, I32, U32, F32 } AttributeType;
+typedef enum { I8, U8, I16, U16, I32, U32, F32, SN10x3 } AttributeType;
 
 typedef union {
   void* raw;

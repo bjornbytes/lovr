@@ -12,7 +12,8 @@ static size_t typeSizes[] = {
   [U16] = 2,
   [I32] = 4,
   [U32] = 4,
-  [F32] = 4
+  [F32] = 4,
+  [SN10x3] = 4
 };
 
 static void* nullIO(const char* path, size_t* count) {
@@ -239,6 +240,22 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
         if (components == 4 && attribute->components == 3) {
           ((uint8_t*) dst)[3] = 255;
         }
+      }
+    } else {
+      lovrUnreachable();
+    }
+  } else if (type == SN10x3) {
+    if (attribute->type == F32) {
+      for (uint32_t i = 0; i < count; i++, src += attribute->stride, dst += stride) {
+        float x = ((float*) src)[0];
+        float y = ((float*) src)[1];
+        float z = ((float*) src)[2];
+        float w = attribute->components == 4 ? ((float*) src)[3] : 0.f;
+        *(uint32_t*) dst =
+          ((((uint32_t) (int32_t) (x * 511.f)) & 0x3ff) <<  0) |
+          ((((uint32_t) (int32_t) (y * 511.f)) & 0x3ff) << 10) |
+          ((((uint32_t) (int32_t) (z * 511.f)) & 0x3ff) << 20) |
+          ((((uint32_t) (int32_t) (w * 2.f)) & 0x003) << 30);
       }
     } else {
       lovrUnreachable();

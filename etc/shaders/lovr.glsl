@@ -444,6 +444,24 @@ vec3 linearToGamma(vec3 color) {
   return mix(1.055 * pow(color, vec3(1. / 2.4)) - .055, color * 12.92, lessThanEqual(color, vec3(.0031308)));
 }
 
+uint packSnorm10x3(vec4 v) {
+  return
+    ((int(v.x * 511.) & 0x3ff) <<  0) |
+    ((int(v.y * 511.) & 0x3ff) << 10) |
+    ((int(v.z * 511.) & 0x3ff) << 20) |
+    ((int(v.w * 2.) & 0x3) << 30);
+}
+
+// The weird 22 bit shift basically does sign-extension of a 10-bit value stored in a 32-bit int
+vec4 unpackSnorm10x3(uint n) {
+  return vec4(
+    max((int((n >> 0)  & 0x3ff) << 22 >> 22) / 511., -1.),
+    max((int((n >> 10) & 0x3ff) << 22 >> 22) / 511., -1.),
+    max((int((n >> 20) & 0x3ff) << 22 >> 22) / 511., -1.),
+    max(float((n >> 30) & 0x3), -1.)
+  );
+}
+
 // Entrypoints
 #ifndef NO_DEFAULT_MAIN
 #ifdef GL_VERTEX_SHADER
