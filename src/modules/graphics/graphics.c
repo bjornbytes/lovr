@@ -2857,15 +2857,17 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     for (uint32_t i = 0; i < spv[s].resourceCount; i++) {
       spv_resource* resource = &spv[s].resources[i];
 
-      if (resource->set != userSet) {
+      if (*resource->set != userSet) {
         continue;
       }
 
+      uint32_t binding = *resource->binding;
+
       lovrCheck(resource->arraySize == 0, "Arrays of resources in shaders are not currently supported");
-      lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
-      lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " uniform texel buffer", "");
-      lovrCheck(resource->type != SPV_STORAGE_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " storage texel buffer", "");
-      lovrCheck(resource->type != SPV_INPUT_ATTACHMENT, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, "n input attachment", "");
+      lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable (%d) is a%s, which is not supported%s", binding, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
+      lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", binding, " uniform texel buffer", "");
+      lovrCheck(resource->type != SPV_STORAGE_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", binding, " storage texel buffer", "");
+      lovrCheck(resource->type != SPV_INPUT_ATTACHMENT, "Shader variable (%d) is a%s, which is not supported%s", binding, "n input attachment", "");
 
       static const gpu_slot_type resourceTypes[] = {
         [SPV_UNIFORM_BUFFER] = GPU_SLOT_UNIFORM_BUFFER,
@@ -2893,8 +2895,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       // It's ok to reuse binding slots (within or across stages), but the type must be consistent
       for (uint32_t j = 0; j < shader->resourceCount; j++) {
         ShaderResource* other = &shader->resources[j];
-        if (other->binding == resource->binding) {
-          lovrCheck(other->type == resourceTypes[resource->type], "Shader variable with binding number %d is declared multiple times with inconsistent types", resource->binding);
+        if (other->binding == binding) {
+          lovrCheck(other->type == resourceTypes[resource->type], "Shader variable with binding number %d is declared multiple times with inconsistent types", binding);
           slots[j].stages |= stageMap[stage];
           shader->resources[j].phase |= stagePhase[stage];
           append = false;
@@ -2912,17 +2914,17 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         lovrThrow("Shader resource count exceeds resourcesPerShader limit (%d)", MAX_SHADER_RESOURCES);
       }
 
-      lovrCheck(resource->binding < 32, "Max resource binding number is %d", 32 - 1);
+      lovrCheck(binding < 32, "Max resource binding number is %d", 32 - 1);
 
       slots[index] = (gpu_slot) {
-        .number = resource->binding,
+        .number = binding,
         .type = resourceTypes[resource->type],
         .stages = stageMap[stage]
       };
 
       shader->resources[index] = (ShaderResource) {
         .hash = hash,
-        .binding = resource->binding,
+        .binding = binding,
         .type = resourceTypes[resource->type],
         .phase = stagePhase[stage]
       };
@@ -2954,10 +2956,10 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       bool texture = resource->type == SPV_SAMPLED_TEXTURE || resource->type == SPV_STORAGE_TEXTURE;
       bool sampler = resource->type == SPV_SAMPLER;
       bool storage = resource->type == SPV_STORAGE_BUFFER || resource->type == SPV_STORAGE_TEXTURE;
-      shader->bufferMask |= (buffer << resource->binding);
-      shader->textureMask |= (texture << resource->binding);
-      shader->samplerMask |= (sampler << resource->binding);
-      shader->storageMask |= (storage << resource->binding);
+      shader->bufferMask |= (buffer << binding);
+      shader->textureMask |= (texture << binding);
+      shader->samplerMask |= (sampler << binding);
+      shader->storageMask |= (storage << binding);
 
       if (storage) {
         shader->resources[index].cache = stage == STAGE_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;

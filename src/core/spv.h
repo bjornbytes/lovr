@@ -79,10 +79,10 @@ enum {
 };
 
 typedef struct {
-  uint32_t set;
-  uint32_t binding;
-  uint32_t arraySize;
+  const uint32_t* set;
+  const uint32_t* binding;
   const char* name;
+  uint32_t arraySize;
   spv_resource_type type;
   spv_texture_dimension dimension;
   uint32_t textureFlags;
