@@ -2600,6 +2600,7 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source, 
   int options = 0;
   options |= GLSLANG_SHADER_AUTO_MAP_BINDINGS;
   options |= GLSLANG_SHADER_AUTO_MAP_LOCATIONS;
+  options |= GLSLANG_SHADER_VULKAN_RULES_RELAXED;
 
   glslang_shader_set_options(shader, options);
 
