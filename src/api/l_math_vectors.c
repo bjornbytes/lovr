@@ -44,7 +44,7 @@ static const uint32_t* swizzles[5] = {
 
 inline void luax_readobjarr(lua_State* L, int index, size_t n, float* out, const char* name) {
   lovrCheck(lua_objlen(L, index) >= n, "length of %s table must >= %i", name, n);
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < n; i++) {
     lua_rawgeti(L, index, i + 1);
     out[i] = lua_tonumber(L, -1);
     lua_pop(L, 1);
@@ -63,8 +63,7 @@ int luax_readvec2(lua_State* L, int index, vec2 v, const char* expected) {
       return index;
     case LUA_TTABLE:
       luax_readobjarr(L, index, 2, v, "vec2");
-      index++;
-      return index;
+      return index + 1;
     default:
       vec2_init(v, luax_checkvector(L, index, V_VEC2, expected ? expected : "vec2 or number"));
       return index + 1;
@@ -84,8 +83,7 @@ int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
       return index;
     case LUA_TTABLE:
       luax_readobjarr(L, index, 3, v, "vec3");
-      index++;
-      return index;
+      return index + 1;
     default:
       vec3_init(v, luax_checkvector(L, index, V_VEC3, expected ? expected : "vec3 or number"));
       return index + 1;
@@ -106,8 +104,7 @@ int luax_readvec4(lua_State* L, int index, vec4 v, const char* expected) {
       return index;
     case LUA_TTABLE:
       luax_readobjarr(L, index, 4, v, "vec4");
-      index++;
-      return index;
+      return index + 1;
     default:
       vec4_init(v, luax_checkvector(L, index, V_VEC4, expected ? expected : "vec4 or number"));
       return index + 1;
@@ -135,8 +132,7 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
       return index;
     case LUA_TTABLE:
       luax_readobjarr(L, index, 3, v, "scale");
-      index++;
-      return index;
+      return index + 1;
     default: {
       VectorType type;
       float* u = luax_tovector(L, index++, &type);
@@ -172,8 +168,7 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
       float v[4];
       luax_readobjarr(L, index, 4, v, "quat");
       quat_fromAngleAxis(q, v[0], v[1], v[2], v[3]);
-      index++;
-      return index;
+      return index + 1;
     default:
       quat_init(q, luax_checkvector(L, index++, V_QUAT, expected ? expected : "quat or number"));
       return index;
