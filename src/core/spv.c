@@ -382,14 +382,16 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
 
   if (set) {
     resource->set = &word[3];
+    resource->binding = NULL;
   } else {
+    resource->set = NULL;
     resource->binding = &word[3];
   }
 
   for (;;) {
     const uint32_t* next = word + OP_LENGTH(word);
 
-    if (word == next || next > spv->edge || OP_CODE(next) != 71 || OP_CODE(next) != 72) {
+    if (word == next || next > spv->edge || (OP_CODE(next) != 71 && OP_CODE(next) != 72)) {
       break;
     }
 
