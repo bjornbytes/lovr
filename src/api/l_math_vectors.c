@@ -42,15 +42,6 @@ static const uint32_t* swizzles[5] = {
 
 // Helpers
 
-inline void luax_readobjarr(lua_State* L, int index, size_t n, float* out, const char* name) {
-  lovrCheck(lua_objlen(L, index) >= n, "length of %s table must >= %i", name, n);
-  for (int i = 0; i < n; i++) {
-    lua_rawgeti(L, index, i + 1);
-    out[i] = lua_tonumber(L, -1);
-    lua_pop(L, 1);
-  }
-}
-
 int luax_readvec2(lua_State* L, int index, vec2 v, const char* expected) {
   switch (lua_type(L, index)) {
     case LUA_TNIL:
@@ -165,8 +156,7 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
       quat_fromAngleAxis(q, v[0], v[1], v[2], v[3]);
       return index;
     case LUA_TTABLE:
-      luax_readobjarr(L, index, 4, v, "quat");
-      quat_init(q, v);
+      luax_readobjarr(L, index, 4, q, "quat");
       return index + 1;
     default:
       quat_init(q, luax_checkvector(L, index++, V_QUAT, expected ? expected : "quat or number"));

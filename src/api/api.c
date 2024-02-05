@@ -577,3 +577,12 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
 
   return luaL_argerror(L, index, "table, Mesh, or Model");
 }
+
+void luax_readobjarr(lua_State* L, int index, int n, float* out, const char* name) {
+  lovrCheck(lua_objlen(L, index) >= n, "length of %s table must >= %i", name, n);
+  for (int i = 0; i < n; i++) {
+    lua_rawgeti(L, index, i + 1);
+    out[i] = lua_tonumber(L, -1);
+  }
+  lua_pop(L, n);
+}
