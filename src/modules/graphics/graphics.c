@@ -626,7 +626,7 @@ static bool supportsSRGB(TextureFormat format);
 static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d);
 static void checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
 static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
-static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot);
+static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length);
 static Access* getNextAccess(Pass* pass, int type, bool texture);
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
@@ -5705,13 +5705,13 @@ void lovrPassSetWireframe(Pass* pass, bool wireframe) {
   }
 }
 
-void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent) {
+void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, Buffer* buffer, uint32_t offset, uint32_t extent) {
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A Shader must be active to send resources");
-  ShaderResource* resource = findShaderResource(shader, name, length, slot);
-  slot = resource->binding;
+  ShaderResource* resource = findShaderResource(shader, name, length);
+  uint32_t slot = resource->binding;
 
-  lovrCheck(shader->bufferMask & (1u << slot), "Trying to send a Buffer to slot %d, but the active Shader doesn't have a Buffer in that slot");
+  lovrCheck(shader->bufferMask & (1u << slot), "Trying to send a Buffer to '%s', but the active Shader doesn't have a Buffer in that slot", name);
   lovrCheck(offset < buffer->info.size, "Buffer offset is past the end of the Buffer");
 
   uint32_t limit;
@@ -5739,13 +5739,13 @@ void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t sl
   pass->flags |= DIRTY_BINDINGS;
 }
 
-void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture) {
+void lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture* texture) {
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A Shader must be active to send resources");
-  ShaderResource* resource = findShaderResource(shader, name, length, slot);
-  slot = resource->binding;
+  ShaderResource* resource = findShaderResource(shader, name, length);
+  uint32_t slot = resource->binding;
 
-  lovrCheck(shader->textureMask & (1u << slot), "Trying to send a Texture to slot %d, but the active Shader doesn't have a Texture in that slot");
+  lovrCheck(shader->textureMask & (1u << slot), "Trying to send a Texture to '%s', but the active Shader doesn't have a Texture in that slot", name);
 
   gpu_texture* view = texture->gpu;
   if (shader->storageMask & (1u << slot)) {
@@ -5761,20 +5761,20 @@ void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t s
   pass->flags |= DIRTY_BINDINGS;
 }
 
-void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler) {
+void lovrPassSendSampler(Pass* pass, const char* name, size_t length, Sampler* sampler) {
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A Shader must be active to send resources");
-  ShaderResource* resource = findShaderResource(shader, name, length, slot);
-  slot = resource->binding;
+  ShaderResource* resource = findShaderResource(shader, name, length);
+  uint32_t slot = resource->binding;
 
-  lovrCheck(shader->samplerMask & (1u << slot), "Trying to send a Sampler to slot %d, but the active Shader doesn't have a Sampler in that slot");
+  lovrCheck(shader->samplerMask & (1u << slot), "Trying to send a Sampler to '%s', but the active Shader doesn't have a Sampler in that slot", name);
 
   pass->bindings[slot].sampler = sampler->gpu;
   pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
 }
 
-void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot, void** data, DataField** format) {
+void lovrPassSendData(Pass* pass, const char* name, size_t length, void** data, DataField** format) {
   Shader* shader = pass->pipeline->shader;
   lovrCheck(shader, "A Shader must be active to send data to it");
 
@@ -5788,10 +5788,10 @@ void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot
     }
   }
 
-  ShaderResource* resource = findShaderResource(shader, name, length, slot);
-  slot = resource->binding;
+  ShaderResource* resource = findShaderResource(shader, name, length);
+  uint32_t slot = resource->binding;
 
-  lovrCheck(shader->bufferMask & (1u << slot), "Trying to send data to slot %d, but that slot isn't a Buffer");
+  lovrCheck(shader->bufferMask & (1u << slot), "Trying to send data to '%s', but that slot isn't a Buffer", name);
   lovrCheck(~shader->storageMask & (1u << slot), "Unable to send table data to a storage buffer");
 
   uint32_t size = resource->format->stride * MAX(resource->format->length, 1);
@@ -7638,23 +7638,14 @@ static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, u
   }
 }
 
-static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length, uint32_t slot) {
-  if (name) {
-    uint32_t hash = (uint32_t) hash64(name, length);
-    for (uint32_t i = 0; i < shader->resourceCount; i++) {
-      if (shader->resources[i].hash == hash) {
-        return &shader->resources[i];
-      }
+static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length) {
+  uint32_t hash = (uint32_t) hash64(name, length);
+  for (uint32_t i = 0; i < shader->resourceCount; i++) {
+    if (shader->resources[i].hash == hash) {
+      return &shader->resources[i];
     }
-    lovrThrow("Shader has no variable named '%s'", name);
-  } else {
-    for (uint32_t i = 0; i < shader->resourceCount; i++) {
-      if (shader->resources[i].binding == slot) {
-        return &shader->resources[i];
-      }
-    }
-    lovrThrow("Shader has no variable in slot '%d'", slot);
   }
+  lovrThrow("Shader has no variable named '%s'", name);
 }
 
 static Access* getNextAccess(Pass* pass, int type, bool texture) {

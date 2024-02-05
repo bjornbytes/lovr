@@ -608,10 +608,10 @@ void lovrPassSetViewCull(Pass* pass, bool enable);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);
 
-void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, uint32_t slot, Buffer* buffer, uint32_t offset, uint32_t extent);
-void lovrPassSendTexture(Pass* pass, const char* name, size_t length, uint32_t slot, Texture* texture);
-void lovrPassSendSampler(Pass* pass, const char* name, size_t length, uint32_t slot, Sampler* sampler);
-void lovrPassSendData(Pass* pass, const char* name, size_t length, uint32_t slot, void** data, DataField** format);
+void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, Buffer* buffer, uint32_t offset, uint32_t extent);
+void lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture* texture);
+void lovrPassSendSampler(Pass* pass, const char* name, size_t length, Sampler* sampler);
+void lovrPassSendData(Pass* pass, const char* name, size_t length, void** data, DataField** format);
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** vertices);
 void lovrPassLine(Pass* pass, uint32_t count, float** vertices);
