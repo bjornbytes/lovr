@@ -142,18 +142,18 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
 }
 
 int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
-  float v[4];
+  float angle, ax, ay, az;
   switch (lua_type(L, index)) {
     case LUA_TNIL:
     case LUA_TNONE:
       quat_identity(q);
       return ++index;
     case LUA_TNUMBER:
-      v[0] = luax_optfloat(L, index++, 0.f);
-      v[1] = luax_optfloat(L, index++, 0.f);
-      v[2] = luax_optfloat(L, index++, 1.f);
-      v[3] = luax_optfloat(L, index++, 0.f);
-      quat_fromAngleAxis(q, v[0], v[1], v[2], v[3]);
+      angle = luax_optfloat(L, index++, 0.f);
+      ax = luax_optfloat(L, index++, 0.f);
+      ay = luax_optfloat(L, index++, 1.f);
+      az = luax_optfloat(L, index++, 0.f);
+      quat_fromAngleAxis(q, angle, ax, ay, az);
       return index;
     case LUA_TTABLE:
       luax_readobjarr(L, index, 4, q, "quat");
@@ -185,8 +185,7 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
     case LUA_TTABLE:
       if (lua_type(L, index) == LUA_TTABLE && lua_objlen(L, index) >= 16) {
         luax_readobjarr(L, index, 16, m, "mat4");
-        index++;
-        return index;
+        return index + 1;
       }
       // Fall through
 
