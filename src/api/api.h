@@ -180,6 +180,7 @@ struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t
 float* luax_tovector(lua_State* L, int index, VectorType* type);
 float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
 float* luax_newtempvector(lua_State* L, VectorType type);
+inline void luax_readobjarr(lua_State* L, int index, size_t n, float* out, const char* name);
 int luax_readvec2(lua_State* L, int index, float* v, const char* expected);
 int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
 int luax_readvec4(lua_State* L, int index, float* v, const char* expected);
