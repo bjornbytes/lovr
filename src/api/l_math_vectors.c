@@ -183,7 +183,7 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
     } // Fall through
 
     case LUA_TTABLE:
-      if (lua_type(L, index) == LUA_TTABLE && lua_objlen(L, index) >= 16) {
+      if (lua_istable(L, index) && luax_len(L, index) >= 16) {
         luax_readobjarr(L, index, 16, m, "mat4");
         return index + 1;
       }

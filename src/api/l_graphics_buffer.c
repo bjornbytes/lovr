@@ -248,6 +248,8 @@ void luax_checkdatatuples(lua_State* L, int index, int start, uint32_t count, co
       const DataField* field = &format->fields[f];
       if (lua_isuserdata(L, -1)) {
         luax_checkfieldv(L, -1, field->type, data + field->offset);
+      } else if (lua_istable(L, -1)) {
+        luax_checkfieldt(L, -1, field->type, data + field->offset);
       } else {
         while (n < (int) typeComponents[field->type]) {
           lua_rawgeti(L, -n - 1, subindex + n);
