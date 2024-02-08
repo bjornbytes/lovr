@@ -5035,11 +5035,13 @@ static BufferView lovrPassGetBuffer(Pass* pass, uint32_t size, size_t align) {
 }
 
 static void lovrPassRelease(Pass* pass) {
-  for (BufferBlock* block = pass->buffers.freelist; block; block = block->next) {
-    freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], block);
+  // Chain all of the Pass's full buffers onto the end of the global freelist
+  if (pass->buffers.freelist) {
+    BufferBlock** list = &state.bufferAllocators[GPU_BUFFER_STREAM].freelist;
+    while (*list) list = (BufferBlock**) &(*list)->next;
+    *list = pass->buffers.freelist;
+    pass->buffers.freelist = NULL;
   }
-
-  pass->buffers.freelist = NULL;
 
   if (pass->pipeline) {
     for (uint32_t i = 0; i <= pass->pipelineIndex; i++) {
@@ -5120,7 +5122,7 @@ void lovrPassDestroy(void* ref) {
     gpu_tally_destroy(pass->tally.gpu);
     lovrRelease(pass->tally.tempBuffer, lovrBufferDestroy);
   }
-  freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
+  if (pass->buffers.current) freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
   os_vm_free(pass->allocator.memory, pass->allocator.limit);
   free(pass);
 }
