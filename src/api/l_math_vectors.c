@@ -56,7 +56,7 @@ int luax_readvec2(lua_State* L, int index, vec2 v, const char* expected) {
       luax_readobjarr(L, index, 2, v, "vec2");
       return index + 1;
     default:
-      vec2_init(v, luax_checkvector(L, index, V_VEC2, expected ? expected : "vec2 or number"));
+      vec2_init(v, luax_checkvector(L, index, V_VEC2, expected ? expected : "vec2, table or number"));
       return index + 1;
   }
 }
@@ -76,7 +76,7 @@ int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
       luax_readobjarr(L, index, 3, v, "vec3");
       return index + 1;
     default:
-      vec3_init(v, luax_checkvector(L, index, V_VEC3, expected ? expected : "vec3 or number"));
+      vec3_init(v, luax_checkvector(L, index, V_VEC3, expected ? expected : "vec3, table or number"));
       return index + 1;
   }
 }
@@ -97,7 +97,7 @@ int luax_readvec4(lua_State* L, int index, vec4 v, const char* expected) {
       luax_readobjarr(L, index, 4, v, "vec4");
       return index + 1;
     default:
-      vec4_init(v, luax_checkvector(L, index, V_VEC4, expected ? expected : "vec4 or number"));
+      vec4_init(v, luax_checkvector(L, index, V_VEC4, expected ? expected : "vec4, table or number"));
       return index + 1;
   }
 }
@@ -122,7 +122,7 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
       }
       return index;
     case LUA_TTABLE:
-      luax_readobjarr(L, index, 3, v, "scale");
+      luax_readobjarr(L, index, components, v, "scale");
       return index + 1;
     default: {
       VectorType type;
@@ -134,7 +134,7 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
       } else if (type == V_VEC3) {
         vec3_init(v, u);
       } else {
-        return luax_typeerror(L, index, "vec2, vec3, or number");
+        return luax_typeerror(L, index, "vec2, vec3, table or number");
       }
       return index;
     }
@@ -159,7 +159,7 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
       luax_readobjarr(L, index, 4, q, "quat");
       return index + 1;
     default:
-      quat_init(q, luax_checkvector(L, index++, V_QUAT, expected ? expected : "quat or number"));
+      quat_init(q, luax_checkvector(L, index++, V_QUAT, expected ? expected : "quat, table or number"));
       return index;
   }
 }
@@ -193,7 +193,7 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
       float S[3];
       float R[4];
       mat4_identity(m);
-      index = luax_readvec3(L, index, m + 12, "mat4, vec3, or number");
+      index = luax_readvec3(L, index, m + 12, "mat4, vec3, table or number");
       index = luax_readscale(L, index, S, scaleComponents, NULL);
       index = luax_readquat(L, index, R, NULL);
       mat4_rotateQuat(m, R);
