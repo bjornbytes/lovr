@@ -7228,6 +7228,7 @@ static BufferBlock* getBlock(gpu_buffer_type type, uint32_t size) {
 static void freeBlock(BufferAllocator* allocator, BufferBlock* block) {
   BufferBlock** list = &allocator->freelist;
   while (*list) list = (BufferBlock**) &(*list)->next;
+  block->next = NULL;
   *list = block;
 }
 
