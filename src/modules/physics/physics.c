@@ -89,6 +89,7 @@ typedef struct {
   void* userdata;
   bool called;
   bool shouldStop;
+  bool tagFilter;
 } QueryData;
 
 static void queryCallback(void* d, dGeomID a, dGeomID b) {
@@ -98,6 +99,22 @@ static void queryCallback(void* d, dGeomID a, dGeomID b) {
   Shape* shape = dGeomGetData(b);
   if (!shape) {
     return;
+  }
+  if (data->tagFilter) {
+    Shape* qshape = dGeomGetData(a);
+    if (!qshape || !shape->collider || !qshape->collider) {
+      return;
+    }
+
+    Collider* colliderA = qshape->collider;
+    Collider* colliderB = shape->collider;
+    uint32_t i = colliderA->tag;
+    uint32_t j = colliderB->tag;
+    World* world = colliderA->world;
+
+    if (i != NO_TAG && j != NO_TAG && !((world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i)))) {
+      return;
+    }
   }
 
   dContactGeom contact;
@@ -322,7 +339,9 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
+  QueryData data = {
+    .callback = callback, .userdata = userdata, .called = false,.shouldStop = false, .tagFilter = false
+  };
   dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
   dGeomSetPosition(box, position[0], position[1], position[2]);
   dSpaceCollide2(box, (dGeomID) world->space, &data, queryCallback);
@@ -331,7 +350,9 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCall
 }
 
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
+  QueryData data = {
+    .callback = callback, .userdata = userdata, .called = false, .shouldStop = false, .tagFilter = false
+  };
   dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
   dGeomSetPosition(sphere, position[0], position[1], position[2]);
   dSpaceCollide2(sphere, (dGeomID) world->space, &data, queryCallback);
@@ -999,6 +1020,14 @@ void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* 
 
 void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   dGeomGetAABB(shape->id, aabb);
+}
+
+bool lovrShapeQueryOverlapping(Shape* shape, QueryCallback callback, void* userdata) {
+  QueryData data = {
+    .callback = callback, .userdata = userdata, .called = false, .shouldStop = false, .tagFilter = true
+  };
+  dSpaceCollide2(shape->id, (dGeomID) shape->collider->world->space, &data, queryCallback);
+  return data.called;
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
