@@ -301,12 +301,6 @@ static void createReferenceSpace(XrTime time) {
     return;
   }
 
-  char name[256];
-  if (openxr_getDriverName(name, sizeof(name)) && !memcmp(name, "SteamVR", strlen("SteamVR"))) {
-    state.referenceSpace = state.spaces[DEVICE_FLOOR];
-    return;
-  }
-
   if (state.features.localFloor) {
     info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
   } else if (state.config.seated) {
