@@ -2101,7 +2101,7 @@ void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture) {
     .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
     .imageMemoryBarrierCount = 1,
     .pImageMemoryBarriers = &(VkImageMemoryBarrier2KHR) {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
       .srcStageMask = VK_PIPELINE_STAGE_2_NONE_KHR,
       .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR,
       .srcAccessMask = VK_ACCESS_2_NONE_KHR,
