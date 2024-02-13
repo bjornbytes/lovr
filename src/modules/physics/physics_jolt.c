@@ -22,6 +22,9 @@ struct World {
   JPH_BroadPhaseLayerInterface* broad_phase_layer_interface;
   JPH_ObjectVsBroadPhaseLayerFilter* broad_phase_layer_filter;
   JPH_ObjectLayerPairFilter* object_layer_pair_filter;
+  float defaultLinearDamping;
+  float defaultAngularDamping;
+  bool defaultIsSleepingAllowed;
   char* tags[MAX_TAGS];
 };
 
@@ -112,6 +115,9 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
 
   world->collision_steps = 1;
   world->ref = 1;
+  world->defaultLinearDamping = 0.05f;
+  world->defaultAngularDamping = 0.05f;
+  world->defaultIsSleepingAllowed = true;
   const uint32_t objectPhaseLayers = (MAX_TAGS + 1) * 2;
   world->broad_phase_layer_interface = JPH_BroadPhaseLayerInterfaceTable_Create(NUM_OP_LAYERS, NUM_BP_LAYERS);
   world->object_layer_pair_filter = JPH_ObjectLayerPairFilterTable_Create(NUM_OP_LAYERS);
@@ -310,27 +316,35 @@ void lovrWorldSetTightness(World* world, float tightness) {
 }
 
 void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support global LinearDamping option");
+  *damping = world->defaultLinearDamping;
+  *threshold = 0.f;
 }
 
 void lovrWorldSetLinearDamping(World* world, float damping, float threshold) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support global LinearDamping option");
+  world->defaultLinearDamping = damping;
+  if (threshold != 0.f) {
+    lovrLog(LOG_WARN, "PHY", "Jolt doesn't support LinearDamping threshold");
+  }
 }
 
 void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support global AngularDamping option");
+  *damping = world->defaultAngularDamping;
+  *threshold = 0.f;
 }
 
 void lovrWorldSetAngularDamping(World* world, float damping, float threshold) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support global AngularDamping option");
+  world->defaultAngularDamping = damping;
+  if (threshold != 0.f) {
+    lovrLog(LOG_WARN, "PHY", "Jolt doesn't support AngularDamping threshold");
+  }
 }
 
 bool lovrWorldIsSleepingAllowed(World* world) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support global SleepingAllowed option");
+  return world->defaultIsSleepingAllowed;
 }
 
 void lovrWorldSetSleepingAllowed(World* world, bool allowed) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support global SleepingAllowed option");
+  world->defaultIsSleepingAllowed = allowed;
 }
 
 const char* lovrWorldGetTagName(World* world, uint32_t tag) {
@@ -398,6 +412,9 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   collider->id = JPH_Body_GetID(collider->body);
   JPH_BodyInterface_AddBody(world->body_interface, collider->id, JPH_Activation_Activate);
   JPH_BodyInterface_SetUserData(world->body_interface, collider->id, (uint64_t) collider);
+  lovrColliderSetLinearDamping(collider, world->defaultLinearDamping, 0.f);
+  lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
+  lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
 
   arr_init(&collider->shapes, arr_alloc);
   arr_init(&collider->joints, arr_alloc);
