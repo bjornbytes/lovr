@@ -4,9 +4,9 @@
 #include "physics.h"
 #include "joltc.h"
 
-#define MAX_BODIES 2048
-#define MAX_BODY_PAIRS 2048
-#define MAX_CONTACT_CONSTRAINTS 2048
+#define MAX_BODIES 65535
+#define MAX_BODY_PAIRS 65535
+#define MAX_CONTACT_CONSTRAINTS 10240
 
 static bool initialized = false;
 static JPH_Shape* queryBox;
