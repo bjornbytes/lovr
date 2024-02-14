@@ -42,11 +42,12 @@ static struct {
   float pitch;
   float yaw;
   float distance;
-  float velocity[3];
   float headPosition[3];
   float headOrientation[4];
+  float headVelocity[3];
   float handPosition[3];
   float handOrientation[4];
+  float handVelocity[3];
   double epoch;
   double time;
   double dt;
@@ -75,7 +76,7 @@ static bool simulator_init(HeadsetConfig* config) {
 
   if (!state.initialized) {
     vec3_set(state.headPosition, 0.f, 0.f, 0.f);
-    vec3_set(state.handPosition, 0.f, 0.f, 0.f);
+    vec3_set(state.handPosition, 0.f, OFFSET, -state.distance);
     quat_identity(state.headOrientation);
     quat_identity(state.handOrientation);
     state.initialized = true;
@@ -232,9 +233,16 @@ static bool simulator_getPose(Device device, vec3 position, quat orientation) {
 }
 
 static bool simulator_getVelocity(Device device, vec3 velocity, vec3 angularVelocity) {
-  vec3_init(velocity, state.velocity);
-  vec3_set(angularVelocity, 0.f, 0.f, 0.f);
-  return device == DEVICE_HEAD;
+  if (device == DEVICE_HEAD) {
+    vec3_init(velocity, state.headVelocity);
+    vec3_set(angularVelocity, 0.f, 0.f, 0.f);
+    return true;
+  } else if (device == DEVICE_HAND_LEFT) {
+    vec3_init(velocity, state.handVelocity);
+    vec3_set(angularVelocity, 0.f, 0.f, 0.f);
+    return true;
+  }
+  return false;
 }
 
 static bool simulator_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
@@ -466,13 +474,14 @@ static double simulator_update(void) {
   velocity[1] = (down ? -1.f : up ? 1.f : 0.f);
   velocity[2] = (front ? -1.f : back ? 1.f : 0.f);
   vec3_scale(velocity, sprint ? SPRINTSPEED : (slow ? SLOWSPEED : MOVESPEED));
-  vec3_lerp(state.velocity, velocity, 1.f - expf(-MOVESMOOTH * state.dt));
+  vec3_lerp(state.headVelocity, velocity, 1.f - expf(-MOVESMOOTH * state.dt));
 
-  vec3_scale(vec3_init(velocity, state.velocity), state.dt);
+  vec3_scale(vec3_init(velocity, state.headVelocity), state.dt);
   quat_rotate(state.headOrientation, velocity);
   vec3_add(state.headPosition, velocity);
 
   // Hand
+  vec3_init(velocity, state.handPosition);
 
   float inverseProjection[16], angleLeft, angleRight, angleUp, angleDown;
   simulator_getViewAngles(0, &angleLeft, &angleRight, &angleUp, &angleDown);
@@ -503,6 +512,11 @@ static double simulator_update(void) {
   quat_rotate(state.headOrientation, y);
   mat4_target(basis, zero, ray, y);
   quat_fromMat4(state.handOrientation, basis);
+
+  vec3_scale(velocity, -1.f);
+  vec3_add(velocity, state.handPosition);
+  vec3_scale(velocity, 1.f / state.dt);
+  vec3_lerp(state.handVelocity, velocity, 1.f - expf(-MOVESMOOTH * state.dt));
 
   return state.dt;
 }
