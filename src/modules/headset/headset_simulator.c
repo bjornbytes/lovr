@@ -136,6 +136,8 @@ static bool simulator_isSeated(void) {
 static void simulator_getDisplayDimensions(uint32_t* width, uint32_t* height) {
   float density = os_window_get_pixel_density();
   os_window_get_size(width, height);
+  *width *= state.config.supersample;
+  *height *= state.config.supersample;
   *width *= density;
   *height *= density;
 }
@@ -438,8 +440,8 @@ static double simulator_update(void) {
     state.pitch = CLAMP(state.pitch - (state.my - myprev) * TURNSPEED, -(float) M_PI / 2.f, (float) M_PI / 2.f);
     state.yaw -= (state.mx - mxprev) * TURNSPEED;
   } else {
-    state.mxHand = state.mx;
-    state.myHand = state.my;
+    state.mxHand = state.mx * state.config.supersample;
+    state.myHand = state.my * state.config.supersample;
   }
 
   // Head
@@ -480,6 +482,8 @@ static double simulator_update(void) {
   float ray[3];
   uint32_t width, height;
   os_window_get_size(&width, &height);
+  width *= state.config.supersample;
+  height *= state.config.supersample;
   vec3_set(ray, state.mxHand / width * 2.f - 1.f, state.myHand / height * 2.f - 1.f, 1.f);
 
   mat4_mulPoint(inverseProjection, ray);
