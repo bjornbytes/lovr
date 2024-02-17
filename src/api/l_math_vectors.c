@@ -122,7 +122,15 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
       }
       return index;
     case LUA_TTABLE:
-      luax_readobjarr(L, index, components, v, "scale");
+      int tlen = luax_len(L, index);
+      if (tlen >= 3) {
+        luax_readobjarr(L, index, 3, v, "scale");
+      } else if (tlen == 2) {
+        luax_readobjarr(L, index, 2, v, "scale");
+        v[2] = 1.f;
+      } else {
+        return luax_typeerror(L, index, "table length must >= 2");
+      }
       return index + 1;
     default: {
       VectorType type;
