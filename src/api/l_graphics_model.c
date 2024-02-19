@@ -334,7 +334,7 @@ static int l_lovrModelGetMeshCount(lua_State* L) {
 
 static int l_lovrModelGetMesh(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
-  uint32_t index = luax_checku32(L, 3) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   Mesh* mesh = lovrModelGetMesh(model, index);
   luax_pushtype(L, Mesh, mesh);
   return 1;
