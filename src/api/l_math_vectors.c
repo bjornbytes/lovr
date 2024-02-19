@@ -103,6 +103,7 @@ int luax_readvec4(lua_State* L, int index, vec4 v, const char* expected) {
 }
 
 int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected) {
+  int tlen;
   switch (lua_type(L, index)) {
     case LUA_TNIL:
     case LUA_TNONE:
@@ -122,7 +123,7 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
       }
       return index;
     case LUA_TTABLE:
-      int tlen = luax_len(L, index);
+      tlen = luax_len(L, index);
       if (tlen >= 3) {
         luax_readobjarr(L, index, 3, v, "scale");
       } else if (tlen == 2) {
