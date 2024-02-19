@@ -64,13 +64,29 @@ typedef enum {
   SPV_INPUT_ATTACHMENT
 } spv_resource_type;
 
+typedef enum {
+  SPV_TEXTURE_1D,
+  SPV_TEXTURE_2D,
+  SPV_TEXTURE_3D
+} spv_texture_dimension;
+
+enum {
+  SPV_TEXTURE_CUBE = (1 << 0),
+  SPV_TEXTURE_ARRAY = (1 << 1),
+  SPV_TEXTURE_SHADOW = (1 << 2),
+  SPV_TEXTURE_MULTISAMPLE = (1 << 3),
+  SPV_TEXTURE_INTEGER = (1 << 4)
+};
+
 typedef struct {
   uint32_t set;
   uint32_t binding;
+  uint32_t arraySize;
   const char* name;
   spv_resource_type type;
-  uint32_t count;
-  spv_field* fields;
+  spv_texture_dimension dimension;
+  uint32_t textureFlags;
+  spv_field* bufferFields;
 } spv_resource;
 
 typedef struct {

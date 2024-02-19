@@ -2861,7 +2861,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         continue;
       }
 
-      lovrCheck(resource->count == 0, "Arrays of resources in shaders are not currently supported");
+      lovrCheck(resource->arraySize == 0, "Arrays of resources in shaders are not currently supported");
       lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
       lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " uniform texel buffer", "");
       lovrCheck(resource->type != SPV_STORAGE_TEXEL_BUFFER, "Shader variable (%d) is a%s, which is not supported%s", resource->binding, " storage texel buffer", "");
@@ -2927,8 +2927,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         .phase = stagePhase[stage]
       };
 
-      if (resource->fields) {
-        spv_field* field = &resource->fields[0];
+      if (resource->bufferFields) {
+        spv_field* field = &resource->bufferFields[0];
 
         // Unwrap the container struct if it just contains a single struct or array of structs
         if (field->fieldCount == 1 && field->totalFieldCount > 1) {
