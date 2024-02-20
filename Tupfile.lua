@@ -208,7 +208,7 @@ if config.luajit then
   end
   cflags += '-Ideps/luajit/src'
   lflags += '-L' .. config.luajit
-  lflags += '-lluajit'
+  lflags += '-lluajit-5.1'
 else
   cflags += '-Ideps/lua'
   lflags += '-llua'
