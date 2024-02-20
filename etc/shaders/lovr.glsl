@@ -63,6 +63,10 @@ layout(set = 1, binding = 4) uniform texture2D RoughnessTexture;
 layout(set = 1, binding = 5) uniform texture2D ClearcoatTexture;
 layout(set = 1, binding = 6) uniform texture2D OcclusionTexture;
 layout(set = 1, binding = 7) uniform texture2D NormalTexture;
+
+layout(push_constant) uniform PushConstants {
+  uint DrawID;
+};
 #endif
 
 // Attributes
@@ -116,7 +120,7 @@ layout(location = 14) in vec4 Tangent;
 #define BaseInstance gl_BaseInstance
 #define BaseVertex gl_BaseVertex
 #define DrawIndex gl_DrawIndex
-#define InstanceIndex (gl_InstanceIndex - gl_BaseInstance)
+#define InstanceIndex gl_InstanceIndex
 #define PointSize gl_PointSize
 #define Position gl_Position
 #define VertexIndex gl_VertexIndex
@@ -156,7 +160,6 @@ layout(location = 14) in vec4 Tangent;
 #endif
 
 #ifdef GL_VERTEX_SHADER
-#define DrawID gl_BaseInstance
 #define Transform mat4(Draws[DrawID].transform)
 #define NormalMatrix (cofactor3(Draws[DrawID].transform))
 #define PassColor Draws[DrawID].color

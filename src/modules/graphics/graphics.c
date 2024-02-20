@@ -1451,6 +1451,9 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       indexBuffer = draw->indexBuffer;
     }
 
+    uint32_t drawId = i & 0xff;
+    gpu_push_constants(stream, draw->shader->gpu, &drawId, sizeof(drawId));
+
     if (draw->flags & DRAW_INDIRECT) {
       if (draw->indexBuffer) {
         gpu_draw_indirect_indexed(stream, draw->indirect.buffer, draw->indirect.offset, draw->indirect.count, draw->indirect.stride);
@@ -1459,9 +1462,9 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       }
     } else {
       if (draw->indexBuffer) {
-        gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->baseVertex, i & 0xff);
+        gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->baseVertex, 0);
       } else {
-        gpu_draw(stream, draw->count, draw->instances, draw->start, i & 0xff);
+        gpu_draw(stream, draw->count, draw->instances, draw->start, 0);
       }
     }
   }
