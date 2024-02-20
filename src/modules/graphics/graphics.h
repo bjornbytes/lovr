@@ -295,13 +295,18 @@ typedef enum {
 } DefaultShader;
 
 typedef enum {
+  SHADER_GRAPHICS,
+  SHADER_COMPUTE
+} ShaderType;
+
+typedef enum {
   STAGE_VERTEX,
   STAGE_FRAGMENT,
-  STAGE_COMPUTE,
-  STAGE_COUNT
+  STAGE_COMPUTE
 } ShaderStage;
 
 typedef struct {
+  ShaderStage stage;
   const void* code;
   size_t size;
 } ShaderSource;
@@ -313,15 +318,17 @@ typedef struct {
 } ShaderFlag;
 
 typedef struct {
-  ShaderSource source[STAGE_COUNT];
-  uint32_t flagCount;
+  ShaderType type;
+  ShaderSource* stages;
+  uint32_t stageCount;
   ShaderFlag* flags;
+  uint32_t flagCount;
   const char* label;
 } ShaderInfo;
 
 typedef void* ShaderIncluder(const char* filename, size_t* bytesRead);
 
-ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source, ShaderIncluder* includer);
+void lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint32_t count, ShaderIncluder* includer);
 ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage);
 Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
 Shader* lovrShaderCreate(const ShaderInfo* info);

@@ -32,6 +32,7 @@
 #define MAX_CUSTOM_ATTRIBUTES 10
 #define LAYOUT_BUILTIN 0
 #define LAYOUT_MATERIAL 1
+#define LAYOUT_UNIFORMS 2
 #define FLOAT_BITS(f) ((union { float f; uint32_t u; }) { f }).u
 
 typedef struct {
@@ -94,9 +95,9 @@ struct Sampler {
 };
 
 enum {
-  VERTEX = (1 << STAGE_VERTEX),
-  FRAGMENT = (1 << STAGE_FRAGMENT),
-  COMPUTE = (1 << STAGE_COMPUTE)
+  FLAG_VERTEX = (1 << 0),
+  FLAG_FRAGMENT = (1 << 1),
+  FLAG_COMPUTE = (1 << 2)
 };
 
 typedef struct {
@@ -129,12 +130,12 @@ struct Shader {
   uint32_t textureMask;
   uint32_t samplerMask;
   uint32_t storageMask;
-  uint32_t constantSize;
-  uint32_t constantCount;
+  uint32_t uniformSize;
+  uint32_t uniformCount;
   uint32_t stageMask;
   ShaderAttribute* attributes;
   ShaderResource* resources;
-  DataField* constants;
+  DataField* uniforms;
   DataField* fields;
   uint32_t flagCount;
   uint32_t overrideCount;
@@ -353,7 +354,7 @@ enum {
 
 enum {
   DIRTY_BINDINGS = (1 << 0),
-  DIRTY_CONSTANTS = (1 << 1),
+  DIRTY_UNIFORMS = (1 << 1),
   DIRTY_CAMERA = (1 << 2),
   NEEDS_VIEW_CULL = (1 << 3)
 };
@@ -441,7 +442,8 @@ typedef struct {
   Shader* shader;
   gpu_bundle_info* bundleInfo;
   gpu_bundle* bundle;
-  void* constants;
+  gpu_buffer* uniformBuffer;
+  uint32_t uniformOffset;
   union {
     struct {
       uint32_t x;
@@ -471,9 +473,10 @@ typedef struct {
   gpu_bundle_info* bundleInfo;
   gpu_pipeline* pipeline;
   gpu_bundle* bundle;
-  void* constants;
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
+  gpu_buffer* uniformBuffer;
+  uint32_t uniformOffset;
   union {
     struct {
       uint32_t start;
@@ -521,9 +524,10 @@ struct Pass {
   Pipeline* pipeline;
   uint32_t transformIndex;
   uint32_t pipelineIndex;
-  char* constants;
   gpu_binding* bindings;
   uint32_t bindingMask;
+  void* uniforms;
+  uint32_t uniformSize;
   uint32_t computeCount;
   Compute* computes;
   uint32_t drawCount;
@@ -709,6 +713,13 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   size_t materialLayout = getLayout(materialSlots, COUNTOF(materialSlots));
   if (materialLayout != LAYOUT_MATERIAL) lovrUnreachable();
+
+  gpu_slot uniformSlots[] = {
+    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS | GPU_STAGE_COMPUTE }
+  };
+
+  size_t uniformLayout = getLayout(uniformSlots, COUNTOF(uniformSlots));
+  if (uniformLayout != LAYOUT_UNIFORMS) lovrUnreachable();
 
   float data[] = { 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f };
 
@@ -1035,7 +1046,9 @@ static void recordComputePass(Pass* pass, gpu_stream* stream) {
 
   gpu_pipeline* pipeline = NULL;
   gpu_bundle_info* bundleInfo = NULL;
-  void* constants = NULL;
+  gpu_bundle* uniformBundle = NULL;
+  gpu_buffer* uniformBuffer = NULL;
+  uint32_t uniformOffset = 0;
 
   gpu_compute_begin(stream);
 
@@ -1053,9 +1066,19 @@ static void recordComputePass(Pass* pass, gpu_stream* stream) {
       gpu_bind_bundles(stream, compute->shader->gpu, &bundle, 0, 1, NULL, 0);
     }
 
-    if (compute->constants && compute->constants != constants) {
-      gpu_push_constants(stream, compute->shader->gpu, compute->constants, compute->shader->constantSize);
-      constants = compute->constants;
+    if (compute->uniformBuffer != uniformBuffer || compute->uniformOffset != uniformOffset) {
+      if (compute->uniformBuffer != uniformBuffer) {
+        uniformBundle = getBundle(LAYOUT_UNIFORMS, &(gpu_binding) {
+          .number = 0,
+          .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC,
+          .buffer.object = compute->uniformBuffer,
+          .buffer.extent = compute->shader->uniformSize
+        }, 1);
+      }
+
+      gpu_bind_bundles(stream, compute->shader->gpu, &uniformBundle, 1, 1, &compute->uniformOffset, 1);
+      uniformBuffer = compute->uniformBuffer;
+      uniformOffset = compute->uniformOffset;
     }
 
     if (compute->flags & COMPUTE_INDIRECT) {
@@ -1366,13 +1389,14 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   Material* material = NULL;
   gpu_buffer* vertexBuffer = NULL;
   gpu_buffer* indexBuffer = NULL;
-  void* constants = NULL;
+  gpu_buffer* uniformBuffer = NULL;
+  uint32_t uniformOffset = 0;
+  gpu_bundle* uniformBundle = NULL;
 
   gpu_bind_vertex_buffers(stream, &state.defaultBuffer->gpu, &state.defaultBuffer->base, 1, 1);
 
   for (uint32_t i = 0; i < activeDrawCount; i++) {
     Draw* draw = &pass->draws[activeDraws[i]];
-    bool constantsDirty = draw->constants != constants;
 
     if (pass->tally.buffer && draw->tally != tally) {
       if (tally != ~0u) gpu_tally_finish(stream, pass->tally.gpu, tally * canvas->views);
@@ -1385,20 +1409,35 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       pipeline = draw->pipeline;
     }
 
-    if ((i & 0xff) == 0 || draw->camera != cameraIndex || constantsDirty) {
+    if ((i & 0xff) == 0 || draw->camera != cameraIndex) {
       uint32_t dynamicOffsets[] = { draw->camera * canvas->views * sizeof(Camera), (i >> 8) * 256 * sizeof(DrawData) };
       gpu_bind_bundles(stream, draw->shader->gpu, &builtinBundle, 0, 1, dynamicOffsets, COUNTOF(dynamicOffsets));
       cameraIndex = draw->camera;
     }
 
-    if (draw->material != material || constantsDirty) {
+    if (draw->material != material) {
       gpu_bind_bundles(stream, draw->shader->gpu, &draw->material->bundle, 1, 1, NULL, 0);
       material = draw->material;
     }
 
-    if (draw->bundle && (draw->bundle != bundle || constantsDirty)) {
+    if (draw->bundle && (draw->bundle != bundle)) {
       gpu_bind_bundles(stream, draw->shader->gpu, &draw->bundle, 2, 1, NULL, 0);
       bundle = draw->bundle;
+    }
+
+    if (draw->uniformBuffer != uniformBuffer || draw->uniformOffset != uniformOffset) {
+      if (draw->uniformBuffer != uniformBuffer) {
+        uniformBundle = getBundle(LAYOUT_UNIFORMS, &(gpu_binding) {
+          .number = 0,
+          .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC,
+          .buffer.object = draw->uniformBuffer,
+          .buffer.extent = draw->shader->uniformSize
+        }, 1);
+      }
+
+      gpu_bind_bundles(stream, draw->shader->gpu, &uniformBundle, 3, 1, &draw->uniformOffset, 1);
+      uniformBuffer = draw->uniformBuffer;
+      uniformOffset = draw->uniformOffset;
     }
 
     if (draw->vertexBuffer && draw->vertexBuffer != vertexBuffer) {
@@ -1410,11 +1449,6 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       gpu_index_type indexType = (draw->flags & DRAW_INDEX32) ? GPU_INDEX_U32 : GPU_INDEX_U16;
       gpu_bind_index_buffer(stream, draw->indexBuffer, 0, indexType);
       indexBuffer = draw->indexBuffer;
-    }
-
-    if (draw->constants && constantsDirty) {
-      gpu_push_constants(stream, draw->shader->gpu, draw->constants, draw->shader->constantSize);
-      constants = draw->constants;
     }
 
     if (draw->flags & DRAW_INDIRECT) {
@@ -2534,15 +2568,9 @@ static glsl_include_result_t* includer(void* cb, const char* path, const char* i
 }
 #endif
 
-ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source, ShaderIncluder* io) {
-  uint32_t magic = 0x07230203;
-
-  if (source->size % 4 == 0 && source->size >= 4 && !memcmp(source->code, &magic, 4)) {
-    return *source;
-  }
-
+void lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint32_t stageCount, ShaderIncluder* io) {
 #ifdef LOVR_USE_GLSLANG
-  const glslang_stage_t stages[] = {
+  const glslang_stage_t stageMap[] = {
     [STAGE_VERTEX] = GLSLANG_STAGE_VERTEX,
     [STAGE_FRAGMENT] = GLSLANG_STAGE_FRAGMENT,
     [STAGE_COMPUTE] = GLSLANG_STAGE_COMPUTE
@@ -2560,66 +2588,91 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source, 
     "#extension GL_EXT_samplerless_texture_functions : require\n"
     "#extension GL_GOOGLE_include_directive : require\n";
 
-  const char* strings[] = {
-    prefix,
-    (const char*) etc_shaders_lovr_glsl,
-    "#line 1\n",
-    source->code
-  };
+  glslang_program_t* program = NULL;
+  glslang_shader_t* shaders[2] = { 0 };
 
-  lovrCheck(source->size <= INT_MAX, "Shader is way too big");
-
-  int lengths[] = {
-    -1,
-    etc_shaders_lovr_glsl_len,
-    -1,
-    (int) source->size
-  };
-
-  const glslang_resource_t* resource = glslang_default_resource();
-
-  glslang_input_t input = {
-    .language = GLSLANG_SOURCE_GLSL,
-    .stage = stages[stage],
-    .client = GLSLANG_CLIENT_VULKAN,
-    .client_version = GLSLANG_TARGET_VULKAN_1_1,
-    .target_language = GLSLANG_TARGET_SPV,
-    .target_language_version = GLSLANG_TARGET_SPV_1_3,
-    .strings = strings,
-    .lengths = lengths,
-    .string_count = COUNTOF(strings),
-    .default_version = 460,
-    .default_profile = GLSLANG_NO_PROFILE,
-    .resource = resource,
-    .callbacks.include_local = includer,
-    .callbacks_ctx = (void*) io
-  };
-
-  glslang_shader_t* shader = glslang_shader_create(&input);
-
-  int options = 0;
-  options |= GLSLANG_SHADER_AUTO_MAP_BINDINGS;
-  options |= GLSLANG_SHADER_AUTO_MAP_LOCATIONS;
-  options |= GLSLANG_SHADER_VULKAN_RULES_RELAXED;
-
-  glslang_shader_set_options(shader, options);
-
-  if (!glslang_shader_preprocess(shader, &input)) {
-    lovrThrow("Could not preprocess %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
-    return (ShaderSource) { NULL, 0 };
+  if (stageCount > COUNTOF(shaders)) {
+    lovrUnreachable();
   }
 
-  if (!glslang_shader_parse(shader, &input)) {
-    lovrThrow("Could not parse %s shader:\n%s", stageNames[stage], glslang_shader_get_info_log(shader));
-    return (ShaderSource) { NULL, 0 };
+  for (uint32_t i = 0; i < stageCount; i++) {
+    ShaderSource* source = &stages[i];
+
+    // It's okay to pass precompiled SPIR-V here, and it will be returned unchanged.  However, it's
+    // dangerous to mix SPIR-V and GLSL because then glslang won't perform cross-stage linking,
+    // which means that e.g. the default uniform block might be different for each stage.  This
+    // isn't a problem when using the default shaders since they don't use uniforms.
+    uint32_t magic = 0x07230203;
+    if (source->size % 4 == 0 && source->size >= 4 && !memcmp(source->code, &magic, 4)) {
+      outputs[i] = stages[i];
+      continue;
+    } else if (!program) {
+      program = glslang_program_create();
+    }
+
+    const char* strings[] = {
+      prefix,
+      (const char*) etc_shaders_lovr_glsl,
+      "#line 1\n",
+      source->code
+    };
+
+    lovrCheck(source->size <= INT_MAX, "Shader is way too big");
+
+    int lengths[] = {
+      -1,
+      etc_shaders_lovr_glsl_len,
+      -1,
+      (int) source->size
+    };
+
+    const glslang_resource_t* resource = glslang_default_resource();
+
+    glslang_input_t input = {
+      .language = GLSLANG_SOURCE_GLSL,
+      .stage = stageMap[source->stage],
+      .client = GLSLANG_CLIENT_VULKAN,
+      .client_version = GLSLANG_TARGET_VULKAN_1_1,
+      .target_language = GLSLANG_TARGET_SPV,
+      .target_language_version = GLSLANG_TARGET_SPV_1_3,
+      .strings = strings,
+      .lengths = lengths,
+      .string_count = COUNTOF(strings),
+      .default_version = 460,
+      .default_profile = GLSLANG_NO_PROFILE,
+      .forward_compatible = true,
+      .resource = resource,
+      .callbacks.include_local = includer,
+      .callbacks_ctx = (void*) io
+    };
+
+    shaders[i] = glslang_shader_create(&input);
+
+    int options = 0;
+    options |= GLSLANG_SHADER_AUTO_MAP_BINDINGS;
+    options |= GLSLANG_SHADER_AUTO_MAP_LOCATIONS;
+    options |= GLSLANG_SHADER_VULKAN_RULES_RELAXED;
+
+    glslang_shader_set_options(shaders[i], options);
+
+    if (!glslang_shader_preprocess(shaders[i], &input)) {
+      lovrThrow("Could not preprocess %s shader:\n%s", stageNames[source->stage], glslang_shader_get_info_log(shaders[i]));
+    }
+
+    if (!glslang_shader_parse(shaders[i], &input)) {
+      lovrThrow("Could not parse %s shader:\n%s", stageNames[source->stage], glslang_shader_get_info_log(shaders[i]));
+    }
+
+    glslang_program_add_shader(program, shaders[i]);
   }
 
-  glslang_program_t* program = glslang_program_create();
-  glslang_program_add_shader(program, shader);
+  // We might not need to do anything if all the inputs were already SPIR-V
+  if (!program) {
+    return;
+  }
 
   if (!glslang_program_link(program, 0)) {
     lovrThrow("Could not link shader:\n%s", glslang_program_get_info_log(program));
-    return (ShaderSource) { NULL, 0 };
   }
 
   glslang_program_map_io(program);
@@ -2630,25 +2683,36 @@ ShaderSource lovrGraphicsCompileShader(ShaderStage stage, ShaderSource* source, 
     spvOptions.generate_debug_info = true;
     spvOptions.emit_nonsemantic_shader_debug_info = true;
     spvOptions.emit_nonsemantic_shader_debug_source = true;
-    glslang_program_add_source_text(program, stages[stage], source->code, source->size);
   }
 
-  glslang_program_SPIRV_generate_with_options(program, stages[stage], &spvOptions);
+  for (uint32_t i = 0; i < stageCount; i++) {
+    if (!shaders[i]) continue;
 
-  void* words = glslang_program_SPIRV_get_ptr(program);
-  size_t size = glslang_program_SPIRV_get_size(program) * 4;
+    ShaderSource* source = &stages[i];
 
-  void* data = malloc(size);
-  lovrAssert(data, "Out of memory");
-  memcpy(data, words, size);
+    if (state.config.debug && state.features.shaderDebug) {
+      glslang_program_add_source_text(program, stageMap[source->stage], source->code, source->size);
+    }
+
+    glslang_program_SPIRV_generate_with_options(program, stageMap[source->stage], &spvOptions);
+
+    void* words = glslang_program_SPIRV_get_ptr(program);
+    size_t size = glslang_program_SPIRV_get_size(program) * 4;
+
+    void* data = malloc(size);
+    lovrAssert(data, "Out of memory");
+    memcpy(data, words, size);
+
+    outputs[i].stage = source->stage;
+    outputs[i].code = data;
+    outputs[i].size = size;
+
+    glslang_shader_delete(shaders[i]);
+  }
 
   glslang_program_delete(program);
-  glslang_shader_delete(shader);
-
-  return (ShaderSource) { data, size };
 #else
   lovrThrow("Could not compile shader: No shader compiler available");
-  return (ShaderSource) { NULL, 0 };
 #endif
 }
 
@@ -2679,7 +2743,7 @@ static void lovrShaderInit(Shader* shader) {
     }
   }
 
-  if (shader->stageMask & COMPUTE) {
+  if (shader->info.type == SHADER_COMPUTE) {
     gpu_compute_pipeline_info pipelineInfo = {
       .shader = shader->gpu,
       .flags = shader->flags,
@@ -2694,47 +2758,47 @@ static void lovrShaderInit(Shader* shader) {
 }
 
 ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage) {
-  const ShaderSource sources[][STAGE_COUNT] = {
+  const ShaderSource sources[][3] = {
     [SHADER_UNLIT] = {
-      [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_NORMAL] = {
-      [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
     },
     [SHADER_FONT] = {
-      [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
     },
     [SHADER_CUBEMAP] = {
-      [STAGE_VERTEX] = { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) }
     },
     [SHADER_EQUIRECT] = {
-      [STAGE_VERTEX] = { lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) }
     },
     [SHADER_FILL_2D] = {
-      [STAGE_VERTEX] = { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_FILL_ARRAY] = {
-      [STAGE_VERTEX] = { lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
     },
     [SHADER_LOGO] = {
-      [STAGE_VERTEX] = { lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      [STAGE_FRAGMENT] = { lovr_shader_logo_frag, sizeof(lovr_shader_logo_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_logo_frag, sizeof(lovr_shader_logo_frag) }
     },
     [SHADER_ANIMATOR] = {
-      [STAGE_COMPUTE] = { lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) }
+      [STAGE_COMPUTE] = { STAGE_COMPUTE, lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) }
     },
     [SHADER_BLENDER] = {
-      [STAGE_COMPUTE] = { lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) }
+      [STAGE_COMPUTE] = { STAGE_COMPUTE, lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) }
     },
     [SHADER_TALLY_MERGE] = {
-      [STAGE_COMPUTE] = { lovr_shader_tallymerge_comp, sizeof(lovr_shader_tallymerge_comp) }
+      [STAGE_COMPUTE] = { STAGE_COMPUTE, lovr_shader_tallymerge_comp, sizeof(lovr_shader_tallymerge_comp) }
     }
   };
 
@@ -2751,14 +2815,22 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
     case SHADER_BLENDER:
     case SHADER_TALLY_MERGE:
       return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
-        .source[STAGE_COMPUTE] = lovrGraphicsGetDefaultShaderSource(type, STAGE_COMPUTE),
+        .type = SHADER_COMPUTE,
+        .stages = (ShaderSource[1]) {
+          lovrGraphicsGetDefaultShaderSource(type, STAGE_COMPUTE)
+        },
+        .stageCount = 1,
         .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
         .flagCount = 1
       });
     default:
       return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
-        .source[STAGE_VERTEX] = lovrGraphicsGetDefaultShaderSource(type, STAGE_VERTEX),
-        .source[STAGE_FRAGMENT] = lovrGraphicsGetDefaultShaderSource(type, STAGE_FRAGMENT)
+        .type = SHADER_GRAPHICS,
+        .stages = (ShaderSource[2]) {
+          lovrGraphicsGetDefaultShaderSource(type, STAGE_VERTEX),
+          lovrGraphicsGetDefaultShaderSource(type, STAGE_FRAGMENT)
+        },
+        .stageCount = 2
       });
   }
 }
@@ -2767,24 +2839,25 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
   lovrAssert(shader, "Out of memory");
 
-  for (uint32_t i = 0; i < COUNTOF(info->source); i++) {
-    if (info->source[i].code) {
-      shader->stageMask |= (1 << i);
-    }
+  size_t stack = tempPush(&state.allocator);
+
+  for (uint32_t i = 0; i < info->stageCount; i++) {
+    shader->stageMask |= (1 << info->stages[i].stage);
   }
 
-  ShaderStage stages[2];
-  uint32_t stageCount = 0;
+  if (info->type == SHADER_GRAPHICS) {
+    uint32_t mask = FLAG_VERTEX | FLAG_FRAGMENT;
+    lovrCheck(shader->stageMask & FLAG_VERTEX, "Graphics shaders must have a vertex stage");
+    lovrCheck((shader->stageMask & mask) == mask, "Graphics shaders can only have vertex and pixel stages");
+  } else if (info->type == SHADER_COMPUTE) {
+    lovrCheck(shader->stageMask == FLAG_COMPUTE, "Compute shaders can only have a compute stage");
+  }
 
-  if (shader->stageMask == VERTEX) {
-    stages[stageCount++] = STAGE_VERTEX;
-  } else if (shader->stageMask == (VERTEX | FRAGMENT)) {
-    stages[stageCount++] = STAGE_VERTEX;
-    stages[stageCount++] = STAGE_FRAGMENT;
-  } else if (shader->stageMask == COMPUTE) {
-    stages[stageCount++] = STAGE_COMPUTE;
-  } else {
-    lovrThrow("Invalid combination of shader stages given.  Expected vertex, vertex + pixel, or compute");
+  // Copy the source, because we perform edits on the SPIR-V and the input might be readonly memory
+  void* source[2];
+  for (uint32_t i = 0; i < info->stageCount; i++) {
+    source[i] = tempAlloc(&state.allocator, info->stages[i].size);
+    memcpy(source[i], info->stages[i].code, info->stages[i].size);
   }
 
   // Parse SPIR-V
@@ -2794,8 +2867,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   uint32_t maxSpecConstants = 0;
   uint32_t maxFields = 0;
   uint32_t maxChars = 0;
-  for (uint32_t i = 0; i < stageCount; i++) {
-    result = spv_parse(info->source[stages[i]].code, info->source[stages[i]].size, &spv[i]);
+  for (uint32_t i = 0; i < info->stageCount; i++) {
+    result = spv_parse(source[i], info->stages[i].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
     lovrCheck(spv[i].version <= 0x00010300, "Invalid SPIR-V version (up to 1.3 is supported)");
 
@@ -2806,7 +2879,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     spv[i].fields = tempAlloc(&state.allocator, spv[i].fieldCount * sizeof(spv_field));
     memset(spv[i].fields, 0, spv[i].fieldCount * sizeof(spv_field));
 
-    result = spv_parse(info->source[stages[i]].code, info->source[stages[i]].size, &spv[i]);
+    result = spv_parse(source[i], info->stages[i].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
 
     checkShaderFeatures(spv[i].features, spv[i].featureCount);
@@ -2832,7 +2905,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
 
   // Stage-specific metadata
-  if (shader->stageMask & COMPUTE) {
+  if (info->type == SHADER_COMPUTE) {
     memcpy(shader->workgroupSize, spv[0].workgroupSize, 3 * sizeof(uint32_t));
     lovrCheck(shader->workgroupSize[0] <= state.limits.workgroupSize[0], "Shader workgroup size exceeds the 'workgroupSize' limit");
     lovrCheck(shader->workgroupSize[1] <= state.limits.workgroupSize[1], "Shader workgroup size exceeds the 'workgroupSize' limit");
@@ -2850,12 +2923,13 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     }
   }
 
-  uint32_t userSet = shader->stageMask & COMPUTE ? 0 : 2;
+  uint32_t resourceSet = info->type == SHADER_COMPUTE ? 0 : 2;
+  uint32_t uniformSet = info->type == SHADER_COMPUTE ? 1 : 3;
   uint32_t lastResourceCount = 0;
 
   // Resources
-  for (uint32_t s = 0; s < stageCount; s++, lastResourceCount = shader->resourceCount) {
-    ShaderStage stage = stages[s];
+  for (uint32_t s = 0; s < info->stageCount; s++, lastResourceCount = shader->resourceCount) {
+    ShaderStage stage = info->stages[s].stage;
     for (uint32_t i = 0; i < spv[s].resourceCount; i++) {
       spv_resource* resource = &spv[s].resources[i];
       uint32_t* set = (uint32_t*) resource->set;
@@ -2865,7 +2939,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         continue;
       }
 
-      if (!(*set == userSet || (*set == 0 && *binding > LAST_BUILTIN_BINDING))) {
+      if (!(*set == resourceSet || (*set == 0 && *binding > LAST_BUILTIN_BINDING))) {
         continue;
       }
 
@@ -2905,7 +2979,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
           lovrCheck(other->type == resourceTypes[resource->type], "Shader variable '%s' is declared in multiple shader stages with different types", resource->name);
           slots[j].stages |= stageMap[stage];
           shader->resources[j].phase |= stagePhase[stage];
-          *set = userSet;
+          *set = resourceSet;
           *binding = shader->resources[j].binding;
           skip = true;
           break;
@@ -2916,12 +2990,24 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         continue;
       }
 
+      if (!strcmp(resource->name, "gl_DefaultUniformBlock") || !strcmp(resource->name, "DefaultUniformBlock")) {
+        spv_field* block = resource->bufferFields;
+        shader->uniformSize = block->elementSize;
+        shader->uniformCount = block->fieldCount;
+        shader->uniforms = shader->fields + ((s == 1 ? spv[0].fieldCount : 0) + (block->fields - spv[s].fields));
+        *set = uniformSet;
+        *binding = 0;
+        continue;
+      }
+
       uint32_t index = shader->resourceCount++;
 
       lovrAssert(index < MAX_SHADER_RESOURCES, "Shader resource count exceeds resourcesPerShader limit (%d)", MAX_SHADER_RESOURCES);
 
-      *set = userSet;
-      *binding = index;
+      if (*set != resourceSet) {
+        *set = resourceSet;
+        *binding = index;
+      }
 
       slots[index] = (gpu_slot) {
         .number = index,
@@ -2978,7 +3064,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
   // Fields
   char* name = shader->names;
-  for (uint32_t s = 0; s < stageCount; s++) {
+  for (uint32_t s = 0; s < info->stageCount; s++) {
     for (uint32_t i = 0; i < spv[s].fieldCount; i++) {
       static const DataType dataTypes[] = {
         [SPV_B32] = TYPE_U32,
@@ -3032,24 +3118,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     }
   }
 
-  // Push constant fields (use the biggest struct that actually exists, if any)
-  spv_field* c1 = spv[0].pushConstants;
-  spv_field* c2 = spv[1].pushConstants;
-
-  if (c1 && (!c2 || c1->elementSize > c2->elementSize)) {
-    shader->constants = shader->fields + (c1->fields - spv[0].fields);
-    shader->constantCount = c1->fieldCount;
-    shader->constantSize = c1->elementSize;
-  } else if (c2) {
-    shader->constants = shader->fields + spv[0].fieldCount + (c2->fields - spv[1].fields);
-    shader->constantCount = c2->fieldCount;
-    shader->constantSize = c2->elementSize;
-  }
-
-  lovrCheck(shader->constantSize <= state.limits.pushConstantSize, "Shader push constants block is too big");
-
   // Specialization constants
-  for (uint32_t s = 0; s < stageCount; s++) {
+  for (uint32_t s = 0; s < info->stageCount; s++) {
     for (uint32_t i = 0; i < spv[s].specConstantCount; i++) {
       spv_spec_constant* constant = &spv[s].specConstants[i];
 
@@ -3096,28 +3166,44 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     }
   }
 
+  // Push constants
+  uint32_t pushConstantSize = 0;
+  for (uint32_t i = 0; i < info->stageCount; i++) {
+    if (spv[i].pushConstants) {
+      pushConstantSize = MAX(pushConstantSize, spv[i].pushConstants->elementSize);
+    }
+  }
+
   shader->ref = 1;
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
   shader->layout = getLayout(slots, shader->resourceCount);
 
   gpu_shader_info gpu = {
-    .vertex = { info->source[STAGE_VERTEX].code, info->source[STAGE_VERTEX].size },
-    .fragment = { info->source[STAGE_FRAGMENT].code, info->source[STAGE_FRAGMENT].size },
-    .compute = { info->source[STAGE_COMPUTE].code, info->source[STAGE_COMPUTE].size },
-    .pushConstantSize = shader->constantSize,
+    .pushConstantSize = pushConstantSize,
     .label = info->label
   };
 
-  if (shader->stageMask & (VERTEX | FRAGMENT)) {
+  for (uint32_t i = 0; i < info->stageCount; i++) {
+    switch (info->stages[i].stage) {
+      case STAGE_VERTEX: gpu.vertex = (gpu_shader_stage) { .code = source[i], .length = info->stages[i].size }; break;
+      case STAGE_FRAGMENT: gpu.fragment = (gpu_shader_stage) { .code = source[i], .length = info->stages[i].size }; break;
+      case STAGE_COMPUTE: gpu.compute = (gpu_shader_stage) { .code = source[i], .length = info->stages[i].size }; break;
+      default: break;
+    }
+  }
+
+  if (info->type == SHADER_GRAPHICS) {
     gpu.layouts[0] = state.layouts.data[LAYOUT_BUILTIN].gpu;
     gpu.layouts[1] = state.layouts.data[LAYOUT_MATERIAL].gpu;
   }
 
-  gpu.layouts[userSet] = shader->resourceCount > 0 ? state.layouts.data[shader->layout].gpu : NULL;
+  gpu.layouts[resourceSet] = state.layouts.data[shader->layout].gpu;
+  if (shader->uniformSize > 0) gpu.layouts[uniformSet] = state.layouts.data[LAYOUT_UNIFORMS].gpu;
 
   gpu_shader_init(shader->gpu, &gpu);
   lovrShaderInit(shader);
+  tempPop(&state.allocator, stack);
   return shader;
 }
 
@@ -3137,13 +3223,13 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->textureMask = parent->textureMask;
   shader->samplerMask = parent->samplerMask;
   shader->storageMask = parent->storageMask;
-  shader->constantSize = parent->constantSize;
-  shader->constantCount = parent->constantCount;
+  shader->uniformSize = parent->uniformSize;
+  shader->uniformCount = parent->uniformCount;
   shader->resourceCount = parent->resourceCount;
   shader->flagCount = parent->flagCount;
   shader->attributes = parent->attributes;
   shader->resources = parent->resources;
-  shader->constants = parent->constants;
+  shader->uniforms = parent->uniforms;
   shader->fields = parent->fields;
   shader->names = parent->names;
   shader->flags = malloc(shader->flagCount * sizeof(gpu_shader_flag));
@@ -5142,11 +5228,12 @@ void lovrPassReset(Pass* pass) {
   pass->allocator.cursor = 0;
   pass->access[ACCESS_RENDER] = NULL;
   pass->access[ACCESS_COMPUTE] = NULL;
-  pass->flags = DIRTY_BINDINGS | DIRTY_CONSTANTS;
+  pass->flags = DIRTY_BINDINGS;
   pass->transform = lovrPassAllocate(pass, TRANSFORM_STACK_SIZE * 16 * sizeof(float));
   pass->pipeline = lovrPassAllocate(pass, PIPELINE_STACK_SIZE * sizeof(Pipeline));
-  pass->constants = lovrPassAllocate(pass, state.limits.pushConstantSize);
   pass->bindings = lovrPassAllocate(pass, 32 * sizeof(gpu_binding));
+  pass->uniforms = NULL;
+  pass->uniformSize = 0;
   pass->computeCount = 0;
   pass->computes = NULL;
   pass->drawCount = 0;
@@ -5573,8 +5660,8 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
   Shader* previous = pass->pipeline->shader;
   if (shader == previous) return;
 
-  bool fromCompute = previous && (previous->stageMask & COMPUTE);
-  bool toCompute = shader && (shader->stageMask & COMPUTE);
+  bool fromCompute = previous && previous->info.type == SHADER_COMPUTE;
+  bool toCompute = shader && shader->info.type == SHADER_COMPUTE;
 
   if (fromCompute ^ toCompute) {
     pass->bindingMask = 0;
@@ -5645,8 +5732,12 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
     pass->pipeline->lastVertexBuffer = NULL;
   }
 
-  if (shader && shader->constantSize > 0 && (!previous || previous->constantSize != shader->constantSize)) {
-    pass->flags |= DIRTY_CONSTANTS;
+  if (shader && shader->uniformSize > pass->uniformSize) {
+    void* uniforms = lovrPassAllocate(pass, shader->uniformSize);
+    if (pass->uniforms) memcpy(uniforms, pass->uniforms, pass->uniformSize);
+    pass->uniformSize = shader->uniformSize;
+    pass->uniforms = uniforms;
+    pass->flags |= DIRTY_UNIFORMS;
   }
 }
 
@@ -5779,11 +5870,11 @@ void lovrPassSendData(Pass* pass, const char* name, size_t length, void** data, 
   lovrCheck(shader, "A Shader must be active to send data to it");
 
   uint32_t hash = (uint32_t) hash64(name, length);
-  for (uint32_t i = 0; i < shader->constantCount; i++) {
-    if (shader->constants[i].hash == hash) {
-      *data = (char*) pass->constants + shader->constants[i].offset;
-      *format = &shader->constants[i];
-      pass->flags |= DIRTY_CONSTANTS;
+  for (uint32_t i = 0; i < shader->uniformCount; i++) {
+    if (shader->uniforms[i].hash == hash) {
+      *data = (char*) pass->uniforms + shader->uniforms[i].offset;
+      *format = &shader->uniforms[i];
+      pass->flags |= DIRTY_UNIFORMS;
       return;
     }
   }
@@ -5892,7 +5983,7 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
   }
 }
 
-static void lovrPassResolveBuffers(Pass* pass, DrawInfo* info, Draw* draw) {
+static void lovrPassResolveVertices(Pass* pass, DrawInfo* info, Draw* draw) {
   CachedShape* cached = info->hash ? &pass->geocache[info->hash & (COUNTOF(pass->geocache) - 1)] : NULL;
 
   if (cached && cached->hash == info->hash) {
@@ -5977,19 +6068,11 @@ static gpu_bundle_info* lovrPassResolveBindings(Pass* pass, Shader* shader, gpu_
   return bundle;
 }
 
-static void* lovrPassResolveConstants(Pass* pass, Shader* shader, void* previous) {
-  if (shader->constantSize == 0) {
-    return NULL;
-  }
-
-  if (~pass->flags & DIRTY_CONSTANTS) {
-    return previous;
-  }
-
-  void* constants = lovrPassAllocate(pass, shader->constantSize);
-  memcpy(constants, pass->constants, shader->constantSize);
-  pass->flags &= ~DIRTY_CONSTANTS;
-  return constants;
+static void lovrPassResolveUniforms(Pass* pass, Shader* shader, gpu_buffer** buffer, uint32_t* offset) {
+  BufferView view = lovrPassGetBuffer(pass, shader->uniformSize, state.limits.uniformBufferAlign);
+  memcpy(view.pointer, pass->uniforms, shader->uniformSize);
+  *buffer = view.buffer;
+  *offset = view.offset;
 }
 
 void lovrPassDraw(Pass* pass, DrawInfo* info) {
@@ -6001,7 +6084,7 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
     pass->draws = draws;
   }
 
-  Draw* prev = pass->drawCount > 0 ? &pass->draws[pass->drawCount - 1] : NULL;
+  Draw* previous = pass->drawCount > 0 ? &pass->draws[pass->drawCount - 1] : NULL;
   Draw* draw = &pass->draws[pass->drawCount++];
 
   draw->flags = 0;
@@ -6010,7 +6093,7 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   pass->flags &= ~DIRTY_CAMERA;
 
   draw->shader = pass->pipeline->shader ? pass->pipeline->shader : lovrGraphicsGetDefaultShader(info->shader);
-  lovrCheck(draw->shader->stageMask & (VERTEX | FRAGMENT), "Tried to draw while a compute shader is active");
+  lovrCheck(draw->shader->info.type == SHADER_GRAPHICS, "Tried to draw while a compute shader is active");
   lovrRetain(draw->shader);
 
   draw->material = info->material;
@@ -6023,11 +6106,17 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   draw->instances = MAX(info->instances, 1);
   draw->baseVertex = info->baseVertex;
 
-  lovrPassResolvePipeline(pass, info, draw, prev);
-  lovrPassResolveBuffers(pass, info, draw);
+  lovrPassResolvePipeline(pass, info, draw, previous);
+  lovrPassResolveVertices(pass, info, draw);
+  draw->bundleInfo = lovrPassResolveBindings(pass, draw->shader, previous ? previous->bundleInfo : NULL);
 
-  draw->bundleInfo = lovrPassResolveBindings(pass, draw->shader, prev ? prev->bundleInfo : NULL);
-  draw->constants = lovrPassResolveConstants(pass, draw->shader, prev ? prev->constants : NULL);
+  if (pass->flags & DIRTY_UNIFORMS) {
+    lovrPassResolveUniforms(pass, draw->shader, &draw->uniformBuffer, &draw->uniformOffset);
+    pass->flags &= ~DIRTY_UNIFORMS;
+  } else {
+    draw->uniformBuffer = previous ? previous->uniformBuffer : NULL;
+    draw->uniformOffset = previous ? previous->uniformOffset : 0;
+  }
 
   if (pass->pipeline->viewCull && info->bounds) {
     memcpy(draw->bounds, info->bounds, sizeof(draw->bounds));
@@ -7081,7 +7170,7 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
     pass->draws = draws;
   }
 
-  Draw* prev = pass->drawCount > 0 ? &pass->draws[pass->drawCount - 1] : NULL;
+  Draw* previous = pass->drawCount > 0 ? &pass->draws[pass->drawCount - 1] : NULL;
   Draw* draw = &pass->draws[pass->drawCount++];
 
   draw->flags = DRAW_INDIRECT;
@@ -7101,11 +7190,17 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   draw->indirect.count = count;
   draw->indirect.stride = stride;
 
-  lovrPassResolvePipeline(pass, &info, draw, prev);
-  lovrPassResolveBuffers(pass, &info, draw);
+  lovrPassResolvePipeline(pass, &info, draw, previous);
+  lovrPassResolveVertices(pass, &info, draw);
+  draw->bundleInfo = lovrPassResolveBindings(pass, shader, previous ? previous->bundleInfo : NULL);
 
-  draw->bundleInfo = lovrPassResolveBindings(pass, shader, prev ? prev->bundleInfo : NULL);
-  draw->constants = lovrPassResolveConstants(pass, shader, prev ? prev->constants : NULL);
+  if (pass->flags & DIRTY_UNIFORMS) {
+    lovrPassResolveUniforms(pass, shader, &draw->uniformBuffer, &draw->uniformOffset);
+    pass->flags &= ~DIRTY_UNIFORMS;
+  } else {
+    draw->uniformBuffer = previous ? previous->uniformBuffer : NULL;
+    draw->uniformOffset = previous ? previous->uniformOffset : 0;
+  }
 
   mat4_init(draw->transform, pass->transform);
   memcpy(draw->color, pass->pipeline->color, 4 * sizeof(float));
@@ -7150,7 +7245,7 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   Compute* compute = &pass->computes[pass->computeCount++];
   Shader* shader = pass->pipeline->shader;
 
-  lovrCheck(shader->stageMask == COMPUTE, "To run a compute shader, a compute shader must be active");
+  lovrCheck(shader->info.type == SHADER_COMPUTE, "To run a compute shader, a compute shader must be active");
   lovrCheck(x <= state.limits.workgroupCount[0], "Compute %s count exceeds workgroupCount limit", "x");
   lovrCheck(y <= state.limits.workgroupCount[1], "Compute %s count exceeds workgroupCount limit", "y");
   lovrCheck(z <= state.limits.workgroupCount[2], "Compute %s count exceeds workgroupCount limit", "z");
@@ -7160,7 +7255,14 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   lovrRetain(shader);
 
   compute->bundleInfo = lovrPassResolveBindings(pass, shader, previous ? previous->bundleInfo : NULL);
-  compute->constants = lovrPassResolveConstants(pass, shader, previous ? previous->constants : NULL);
+
+  if (pass->flags & DIRTY_UNIFORMS) {
+    lovrPassResolveUniforms(pass, shader, &compute->uniformBuffer, &compute->uniformOffset);
+    pass->flags &= ~DIRTY_UNIFORMS;
+  } else {
+    compute->uniformBuffer = previous ? previous->uniformBuffer : NULL;
+    compute->uniformOffset = previous ? previous->uniformOffset : 0;
+  }
 
   if (indirect) {
     compute->flags |= COMPUTE_INDIRECT;

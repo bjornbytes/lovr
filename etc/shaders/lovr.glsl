@@ -140,7 +140,7 @@ layout(location = 14) in vec4 Tangent;
 
 // Helpers
 
-#define Constants layout(push_constant) uniform PushConstants
+#define Constants uniform DefaultUniformBlock
 #ifdef GL_COMPUTE_SHADER
 #define var(x) layout(set = 0, binding = x)
 #else
