@@ -8,6 +8,7 @@ config = {
   glfw = true,
   luajit = false,
   glslang = true,
+  physics = 'ode',
   utf8 = true,
   modules = {
     audio = true,
@@ -406,7 +407,11 @@ src = {
 
 for module, enabled in pairs(config.modules) do
   if enabled then
-    override = { audio = 'src/modules/audio/audio.c', headset = 'src/modules/headset/headset.c' } -- TODO
+    override = {
+      audio = 'src/modules/audio/audio.c',
+      headset = 'src/modules/headset/headset.c',
+      physics = ('src/modules/physics/physics_%s.c'):format(config.physics)
+    }
     src += override[module] or ('src/modules/%s/*.c'):format(module)
     src += ('src/api/l_%s*.c'):format(module)
   else
