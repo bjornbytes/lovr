@@ -33,12 +33,18 @@ extern const luaL_Reg lovrMat4[];
 
 static LOVR_THREAD_LOCAL Pool* pool;
 
-static struct { const char* name; lua_CFunction constructor, indexer; const luaL_Reg* api; int metaref; } lovrVectorInfo[] = {
-  [V_VEC2] = { "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL },
-  [V_VEC3] = { "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL },
-  [V_VEC4] = { "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL },
-  [V_QUAT] = { "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL },
-  [V_MAT4] = { "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL }
+static struct {
+  const char* name;
+  lua_CFunction constructor, indexer;
+  const luaL_Reg* api;
+  int metaref;
+  int components;
+} lovrVectorInfo[] = {
+  [V_VEC2] = { "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL, 2 },
+  [V_VEC3] = { "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL, 3 },
+  [V_VEC4] = { "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL, 4 },
+  [V_QUAT] = { "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL, 4 },
+  [V_MAT4] = { "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL, 16 }
 };
 
 static void luax_destroypool(void) {
@@ -70,8 +76,18 @@ float* luax_tovector(lua_State* L, int index, VectorType* type) {
 
 float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected) {
   VectorType t;
-  float* p = luax_tovector(L, index, &t);
-  if (!p || t != type) luax_typeerror(L, index, expected ? expected : lovrVectorInfo[type].name);
+  float* p;
+  if (lua_istable(L, index)) {
+    lovrPoolAllocate(pool, type, &p);
+    luax_readobjarr(L, index, lovrVectorInfo[type].components, p, lovrVectorInfo[type].name);
+    return p;
+  } else {
+    p = luax_tovector(L, index, &t);
+  }
+
+  if (!p || t != type) {
+    luax_typeerror(L, index, expected ? expected : lovrVectorInfo[type].name);
+  }
   return p;
 }
 
