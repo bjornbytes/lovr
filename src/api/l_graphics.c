@@ -1072,8 +1072,10 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   Shader* shader = lovrShaderCreate(&info);
   luax_pushtype(L, Shader, shader);
   lovrRelease(shader, lovrShaderDestroy);
-  if (shouldFree[0] && source[0].code != compiled[0].code) free((void*) source[0].code);
-  if (shouldFree[1] && source[1].code != compiled[1].code) free((void*) source[1].code);
+  if (shouldFree[0]) free((void*) source[0].code);
+  if (shouldFree[1]) free((void*) source[1].code);
+  if (source[0].code != compiled[0].code) free((void*) compiled[0].code);
+  if (source[1].code != compiled[1].code) free((void*) compiled[1].code);
   arr_free(&flags);
   return 1;
 }
