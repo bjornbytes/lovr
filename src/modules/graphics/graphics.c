@@ -2790,10 +2790,6 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
       [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
       [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
     },
-    [SHADER_LOGO] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_logo_frag, sizeof(lovr_shader_logo_frag) }
-    },
     [SHADER_ANIMATOR] = {
       [STAGE_COMPUTE] = { STAGE_COMPUTE, lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) }
     },

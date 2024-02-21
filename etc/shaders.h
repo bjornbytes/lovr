@@ -10,7 +10,6 @@
 #include "shaders/animator.comp.h"
 #include "shaders/blender.comp.h"
 #include "shaders/tallymerge.comp.h"
-#include "shaders/logo.frag.h"
 
 #include "shaders/lovr.glsl.h"
 

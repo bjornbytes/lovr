@@ -58,7 +58,6 @@ StringEntry lovrDefaultShader[] = {
   [SHADER_EQUIRECT] = ENTRY("equirect"),
   [SHADER_FILL_2D] = ENTRY("fill"),
   [SHADER_FILL_ARRAY] = ENTRY("fillarray"),
-  [SHADER_LOGO] = ENTRY("logo"),
   { 0 }
 };
 
