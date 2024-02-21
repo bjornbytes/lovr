@@ -1027,7 +1027,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     info.type = SHADER_GRAPHICS;
     source[0] = luax_checkshadersource(L, 1, STAGE_VERTEX, &shouldFree[0]);
     source[1] = luax_checkshadersource(L, 2, STAGE_FRAGMENT, &shouldFree[1]);
-    info.stageCount = source[1].code ? 2 : 1;
+    info.stageCount = 2;
     index = 3;
   }
 

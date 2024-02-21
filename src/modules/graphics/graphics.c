@@ -2845,9 +2845,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   }
 
   if (info->type == SHADER_GRAPHICS) {
-    uint32_t mask = FLAG_VERTEX | FLAG_FRAGMENT;
-    lovrCheck(shader->stageMask & FLAG_VERTEX, "Graphics shaders must have a vertex stage");
-    lovrCheck((shader->stageMask & mask) == mask, "Graphics shaders can only have vertex and pixel stages");
+    lovrCheck(shader->stageMask == (FLAG_VERTEX | FLAG_FRAGMENT), "Graphics shaders must have a vertex and a pixel stage");
   } else if (info->type == SHADER_COMPUTE) {
     lovrCheck(shader->stageMask == FLAG_COMPUTE, "Compute shaders can only have a compute stage");
   }
