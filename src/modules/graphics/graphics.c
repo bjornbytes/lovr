@@ -3009,14 +3009,14 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       }
 
       slots[index] = (gpu_slot) {
-        .number = index,
+        .number = *binding,
         .type = resourceTypes[resource->type],
         .stages = stageMap[stage]
       };
 
       shader->resources[index] = (ShaderResource) {
         .hash = hash,
-        .binding = index,
+        .binding = *binding,
         .type = resourceTypes[resource->type],
         .phase = stagePhase[stage]
       };
@@ -3048,10 +3048,10 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       bool texture = resource->type == SPV_SAMPLED_TEXTURE || resource->type == SPV_STORAGE_TEXTURE;
       bool sampler = resource->type == SPV_SAMPLER;
       bool storage = resource->type == SPV_STORAGE_BUFFER || resource->type == SPV_STORAGE_TEXTURE;
-      shader->bufferMask |= (buffer << index);
-      shader->textureMask |= (texture << index);
-      shader->samplerMask |= (sampler << index);
-      shader->storageMask |= (storage << index);
+      shader->bufferMask |= (buffer << *binding);
+      shader->textureMask |= (texture << *binding);
+      shader->samplerMask |= (sampler << *binding);
+      shader->storageMask |= (storage << *binding);
 
       if (storage) {
         shader->resources[index].cache = stage == STAGE_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;
