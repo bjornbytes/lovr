@@ -145,11 +145,6 @@ layout(location = 14) in vec4 Tangent;
 // Helpers
 
 #define Constants uniform DefaultUniformBlock
-#ifdef GL_COMPUTE_SHADER
-#define var(x) layout(set = 0, binding = x)
-#else
-#define var(x) layout(set = 2, binding = x)
-#endif
 
 #ifndef GL_COMPUTE_SHADER
 #define Projection Cameras[ViewIndex].projection
