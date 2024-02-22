@@ -382,7 +382,6 @@ static Pass* simulator_getPass(void) {
       .height = height,
       .layers = 1,
       .mipmaps = 1,
-      .samples = 1,
       .usage = TEXTURE_RENDER | TEXTURE_SAMPLE,
     });
 

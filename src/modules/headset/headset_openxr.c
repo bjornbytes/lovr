@@ -466,7 +466,6 @@ static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       .height = height,
       .layers = 1 << stereo,
       .mipmaps = 1,
-      .samples = 1,
       .usage = TEXTURE_RENDER | (depth ? 0 : TEXTURE_SAMPLE),
       .handle = (uintptr_t) images[i].image,
       .label = "OpenXR Swapchain",

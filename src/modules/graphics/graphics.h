@@ -218,7 +218,6 @@ typedef struct {
   uint32_t height;
   uint32_t layers;
   uint32_t mipmaps;
-  uint32_t samples;
   uint32_t usage;
   bool srgb;
   bool xr;
