@@ -436,14 +436,16 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return gpu_texture_init_view(texture, &viewInfo);
   }
 
+  bool mutableFormat = info->srgb && (info->usage & GPU_TEXTURE_STORAGE);
+
   VkImageCreateInfo imageInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
     .flags =
       (info->type == GPU_TEXTURE_3D ? VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT : 0) |
       (info->type == GPU_TEXTURE_CUBE ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0) |
-      (info->srgb ? VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : 0),
+      (mutableFormat ? (VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT) : 0),
     .imageType = imageTypes[info->type],
-    .format = convertFormat(texture->format, LINEAR),
+    .format = convertFormat(texture->format, info->srgb),
     .extent.width = info->size[0],
     .extent.height = info->size[1],
     .extent.depth = texture->layers ? 1 : info->size[2],
@@ -464,7 +466,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   VkFormat formats[2];
   VkImageFormatListCreateInfo imageFormatList;
-  if (info->srgb && state.extensions.formatList) {
+  if (mutableFormat && state.extensions.formatList) {
     imageFormatList = (VkImageFormatListCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO,
       .viewFormatCount = COUNTOF(formats),
@@ -472,12 +474,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     };
 
     formats[0] = imageInfo.format;
-    formats[1] = convertFormat(texture->format, SRGB);
-
-    if (formats[0] != formats[1]) {
-      imageFormatList.pNext = imageInfo.pNext;
-      imageInfo.pNext = &imageFormatList;
-    }
+    formats[1] = convertFormat(texture->format, LINEAR);
+    imageFormatList.pNext = imageInfo.pNext;
+    imageInfo.pNext = &imageFormatList;
   }
 
   VK(vkCreateImage(state.device, &imageInfo, NULL, &texture->handle), "Could not create texture") return false;
@@ -505,10 +504,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  bool needsView = info->usage & (GPU_TEXTURE_RENDER | GPU_TEXTURE_SAMPLE | GPU_TEXTURE_STORAGE);
-  if (info->usage == GPU_TEXTURE_STORAGE && info->srgb) needsView = false;
-
-  if (needsView && !gpu_texture_init_view(texture, &viewInfo)) {
+  if (!gpu_texture_init_view(texture, &viewInfo)) {
     vkDestroyImage(state.device, texture->handle, NULL);
     gpu_release(memory);
     return false;
@@ -649,6 +645,11 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
       (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect != VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
       ((info->usage & GPU_TEXTURE_STORAGE) && !texture->srgb ? VK_IMAGE_USAGE_STORAGE_BIT : 0)
   };
+
+  if (usage.usage == 0) {
+    texture->view = VK_NULL_HANDLE;
+    return true;
+  }
 
   VkImageViewCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -2201,7 +2202,6 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
       { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
       { "VK_EXT_swapchain_colorspace", true, &state.extensions.colorspace },
-      { "VK_KHR_image_format_list", true, &state.extensions.formatList },
       { "VK_KHR_surface", true, &state.extensions.surface },
 #if defined(_WIN32)
       { "VK_KHR_win32_surface", true, &state.extensions.surfaceOS },
@@ -2436,6 +2436,7 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_portability_subset", true, &state.extensions.portability },
       { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve },
       { "VK_KHR_shader_non_semantic_info", config->debug, &state.extensions.shaderDebug },
+      { "VK_KHR_image_format_list", true, &state.extensions.formatList },
       { "VK_KHR_synchronization2", true, NULL }
     };
 
