@@ -91,10 +91,8 @@ static int l_lovrTextureGetMipmapCount(lua_State* L) {
   return 1;
 }
 
-static int l_lovrTextureGetSampleCount(lua_State* L) {
-  Texture* texture = luax_checktype(L, 1, Texture);
-  const TextureInfo* info = lovrTextureGetInfo(texture);
-  lua_pushinteger(L, info->samples);
+static int l_lovrTextureGetSampleCount(lua_State* L) { // Deprecated
+  lua_pushinteger(L, 1);
   return 1;
 }
 
@@ -246,7 +244,7 @@ const luaL_Reg lovrTexture[] = {
   { "getLayerCount", l_lovrTextureGetLayerCount },
   { "getDimensions", l_lovrTextureGetDimensions },
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
-  { "getSampleCount", l_lovrTextureGetSampleCount },
+  { "getSampleCount", l_lovrTextureGetSampleCount }, // Deprecated
   { "hasUsage", l_lovrTextureHasUsage },
   { "newReadback", l_lovrTextureNewReadback },
   { "getPixels", l_lovrTextureGetPixels },

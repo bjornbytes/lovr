@@ -451,7 +451,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .extent.depth = texture->layers ? 1 : info->size[2],
     .mipLevels = info->mipmaps,
     .arrayLayers = texture->layers ? texture->layers : 1,
-    .samples = info->samples,
+    .samples = info->samples ? info->samples : 1,
     .usage =
       (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
       (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect != VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |

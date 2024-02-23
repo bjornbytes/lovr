@@ -739,7 +739,6 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .height = 4,
     .layers = 1,
     .mipmaps = 1,
-    .samples = 1,
     .srgb = false,
     .imageCount = 1,
     .images = &image,
@@ -2013,7 +2012,6 @@ Texture* lovrGraphicsGetWindowTexture(void) {
       .height = height,
       .layers = 1,
       .mipmaps = 1,
-      .samples = 1,
       .usage = TEXTURE_RENDER,
       .srgb = true
     };
@@ -2090,11 +2088,6 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(info->layers % 6 == 0 || info->type != TEXTURE_CUBE, "Cubemap layer count must be a multiple of 6");
   lovrCheck(info->width == info->height || info->type != TEXTURE_CUBE, "Cubemaps must be square");
   lovrCheck(measureTexture(info->format, info->width, info->height, info->layers) < 1 << 30, "Memory for a Texture can not exceed 1GB"); // TODO mip?
-  lovrCheck(info->samples == 1 || info->samples == 4, "Texture multisample count must be 1 or 4...for now");
-  lovrCheck(info->samples == 1 || info->type != TEXTURE_CUBE, "Cubemaps can not be multisampled");
-  lovrCheck(info->samples == 1 || info->type != TEXTURE_3D, "3D textures can not be multisampled");
-  lovrCheck(info->samples == 1 || ~info->usage & TEXTURE_STORAGE, "Textures with the 'storage' flag can not be multisampled...for now");
-  lovrCheck(info->samples == 1 || mipmaps == 1, "Multisampled textures can only have 1 mipmap");
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this texture format/encoding");
   lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this texture format/encoding");
   lovrCheck(~info->usage & TEXTURE_STORAGE || (linearSupports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this texture format");
@@ -2157,7 +2150,6 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     .format = (gpu_texture_format) info->format,
     .size = { info->width, info->height, info->layers },
     .mipmaps = texture->info.mipmaps,
-    .samples = MAX(info->samples, 1),
     .usage =
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
@@ -2334,7 +2326,6 @@ Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t exten
   lovrCheck(extent[2] == 1, "Currently only a single layer can be read from a Texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
   lovrCheck(!texture->info.parent, "Texture views can not be read");
-  lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
@@ -2359,7 +2350,6 @@ void lovrTextureSetPixels(Texture* texture, Image* image, uint32_t srcOffset[4],
   if (extent[2] == ~0u) extent[2] = MIN(texture->info.layers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy to it");
   lovrCheck(!texture->info.parent, "Texture views can not be written to");
-  lovrCheck(texture->info.samples == 1, "Multisampled Textures can not be written to");
   lovrCheck(lovrImageGetFormat(image) == texture->info.format, "Image and Texture formats must match");
   lovrCheck(srcOffset[0] + extent[0] <= lovrImageGetWidth(image, srcOffset[3]), "Image copy region exceeds its %s", "width");
   lovrCheck(srcOffset[1] + extent[1] <= lovrImageGetHeight(image, srcOffset[3]), "Image copy region exceeds its %s", "height");
@@ -2395,7 +2385,6 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not copy texture views");
   lovrCheck(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
-  lovrCheck(src->info.samples == dst->info.samples, "Texture sample counts must match to copy between them");
   checkTextureBounds(&src->info, srcOffset, extent);
   checkTextureBounds(&dst->info, dstOffset, extent);
   gpu_barrier barriers[2];
@@ -2415,7 +2404,6 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.layers - dstOffset[2];
   uint32_t supports = state.features.formats[src->info.format][src->info.srgb];
   lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
-  lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Multisampled textures can not be used for blits");
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "to");
   lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support blitting this texture format/encoding");
@@ -2449,7 +2437,6 @@ void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count)
   if (count == ~0u) count = texture->info.mipmaps - (base + 1);
   uint32_t supports = state.features.formats[texture->info.format][texture->info.srgb];
   lovrCheck(!texture->info.parent, "Can not mipmap a Texture view");
-  lovrCheck(texture->info.samples == 1, "Can not mipmap a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap it");
   lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support mipmapping this texture format/encoding");
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
@@ -3493,7 +3480,6 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
       .height = font->atlasHeight,
       .layers = 1,
       .mipmaps = 1,
-      .samples = 1,
       .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
       .label = "Font Atlas"
     });
@@ -4203,7 +4189,6 @@ Model* lovrModelCreate(const ModelInfo* info) {
               .height = lovrImageGetHeight(data->images[index], 0),
               .layers = 1,
               .mipmaps = info->mipmaps || lovrImageGetLevelCount(data->images[index]) > 1 ? ~0u : 1,
-              .samples = 1,
               .srgb = texture == &material.texture || texture == &material.glowTexture,
               .images = &data->images[index],
               .imageCount = 1
@@ -4936,7 +4921,6 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
   lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
   lovrCheck(!texture->info.parent, "Can not read from a Texture view");
-  lovrCheck(texture->info.samples == 1, "Can not read from a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
   checkTextureBounds(&texture->info, offset, extent);
   Readback* readback = lovrReadbackCreate(READBACK_TEXTURE);
@@ -5229,8 +5213,8 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
     lovrCheck(t->height <= state.limits.renderSize[1], "Pass canvas height (%d) exceeds the renderSize limit of this GPU (%d)", t->height, state.limits.renderSize[1]);
     lovrCheck(t->layers <= state.limits.renderSize[2], "Pass canvas layer count (%d) exceeds the renderSize limit of this GPU (%d)", t->layers, state.limits.renderSize[2]);
     lovrCheck(samples == 1 || samples == 4, "Currently MSAA must be 1 or 4");
-    canvas->samples = t->samples > 1 ? t->samples : samples;
-    canvas->resolve = t->samples == 1 && samples > 1;
+    canvas->samples = samples;
+    canvas->resolve = samples > 1;
   } else {
     memset(canvas, 0, sizeof(Canvas));
   }
@@ -5244,7 +5228,6 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
     lovrCheck(texture->width == t->width, "Canvas texture sizes must match");
     lovrCheck(texture->height == t->height, "Canvas texture sizes must match");
     lovrCheck(texture->layers == t->layers, "Canvas texture layer counts must match");
-    lovrCheck(texture->samples == t->samples, "Canvas texture sample counts must match");
     canvas->color[i].texture = textures[i];
     lovrRetain(textures[i]);
   }
@@ -5256,8 +5239,7 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
     lovrCheck(texture->width == t->width, "Canvas texture sizes must match");
     lovrCheck(texture->height == t->height, "Canvas texture sizes must match");
     lovrCheck(texture->layers == t->layers, "Canvas texture layer counts must match");
-    lovrCheck(texture->samples == t->samples, "Canvas texture sample counts must match");
-    lovrCheck(texture->samples == samples || state.features.depthResolve, "This GPU does not support resolving depth textures, MSAA should be set to 1");
+    lovrCheck(samples == 1 || state.features.depthResolve, "This GPU does not support resolving depth textures, MSAA should be set to 1");
     canvas->depth.texture = depthTexture;
     canvas->depth.format = texture->format;
     lovrRetain(depthTexture);
