@@ -30,7 +30,7 @@
 #define PIPELINE_STACK_SIZE 4
 #define MAX_SHADER_RESOURCES 32
 #define MAX_CUSTOM_ATTRIBUTES 10
-#define LAYOUT_BUILTIN 0
+#define LAYOUT_BUILTINS 0
 #define LAYOUT_MATERIAL 1
 #define LAYOUT_UNIFORMS 2
 #define FLOAT_BITS(f) ((union { float f; uint32_t u; }) { f }).u
@@ -698,7 +698,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   };
 
   size_t builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
-  if (builtinLayout != LAYOUT_BUILTIN) lovrUnreachable();
+  if (builtinLayout != LAYOUT_BUILTINS) lovrUnreachable();
 
   gpu_slot materialSlots[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Data
@@ -1293,7 +1293,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     data->color[3] = draw->color[3];
   }
 
-  gpu_bundle* builtinBundle = getBundle(LAYOUT_BUILTIN, builtins, COUNTOF(builtins));
+  gpu_bundle* builtinBundle = getBundle(LAYOUT_BUILTINS, builtins, COUNTOF(builtins));
 
   // Pipelines
 
@@ -2837,9 +2837,11 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
 Shader* lovrShaderCreate(const ShaderInfo* info) {
   Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
   lovrAssert(shader, "Out of memory");
+  shader->ref = 1;
+  shader->gpu = (gpu_shader*) (shader + 1);
+  shader->info = *info;
 
-  size_t stack = tempPush(&state.allocator);
-
+  // Validate stage combinations
   for (uint32_t i = 0; i < info->stageCount; i++) {
     shader->stageMask |= (1 << info->stages[i].stage);
   }
@@ -2850,7 +2852,9 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     lovrCheck(shader->stageMask == FLAG_COMPUTE, "Compute shaders can only have a compute stage");
   }
 
-  // Copy the source, because we perform edits on the SPIR-V and the input might be readonly memory
+  size_t stack = tempPush(&state.allocator);
+
+  // Copy the source to temp memory (we perform edits on the SPIR-V and the input might be readonly)
   void* source[2];
   for (uint32_t i = 0; i < info->stageCount; i++) {
     source[i] = tempAlloc(&state.allocator, info->stages[i].size);
@@ -2891,25 +2895,31 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     }
   }
 
-  // Allocate
-  gpu_slot* slots = tempAlloc(&state.allocator, maxResources * sizeof(gpu_slot));
+  // Allocate memory
   shader->resources = malloc(maxResources * sizeof(ShaderResource));
   shader->fields = malloc(maxFields * sizeof(DataField));
+  shader->names = malloc(maxChars);
   shader->flags = malloc(maxSpecConstants * sizeof(gpu_shader_flag));
   shader->flagLookup = malloc(maxSpecConstants * sizeof(uint32_t));
-  shader->names = malloc(maxChars);
-  lovrAssert(shader->resources && shader->fields && shader->names, "Out of memory");
-  lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
+  lovrAssert(shader->resources, "Out of memory");
+  lovrAssert(shader->fields, "Out of memory");
+  lovrAssert(shader->names, "Out of memory");
+  lovrAssert(shader->flags, "Out of memory");
+  lovrAssert(shader->flagLookup, "Out of memory");
 
-  // Stage-specific metadata
+  // Workgroup size
   if (info->type == SHADER_COMPUTE) {
-    memcpy(shader->workgroupSize, spv[0].workgroupSize, 3 * sizeof(uint32_t));
-    lovrCheck(shader->workgroupSize[0] <= state.limits.workgroupSize[0], "Shader workgroup size exceeds the 'workgroupSize' limit");
-    lovrCheck(shader->workgroupSize[1] <= state.limits.workgroupSize[1], "Shader workgroup size exceeds the 'workgroupSize' limit");
-    lovrCheck(shader->workgroupSize[2] <= state.limits.workgroupSize[2], "Shader workgroup size exceeds the 'workgroupSize' limit");
-    uint32_t totalWorkgroupSize = shader->workgroupSize[0] * shader->workgroupSize[1] * shader->workgroupSize[2];
+    uint32_t* workgroupSize = spv[0].workgroupSize;
+    uint32_t totalWorkgroupSize = workgroupSize[0] * workgroupSize[1] * workgroupSize[2];
+    lovrCheck(workgroupSize[0] <= state.limits.workgroupSize[0], "Shader workgroup size exceeds the 'workgroupSize' limit");
+    lovrCheck(workgroupSize[1] <= state.limits.workgroupSize[1], "Shader workgroup size exceeds the 'workgroupSize' limit");
+    lovrCheck(workgroupSize[2] <= state.limits.workgroupSize[2], "Shader workgroup size exceeds the 'workgroupSize' limit");
     lovrCheck(totalWorkgroupSize <= state.limits.totalWorkgroupSize, "Shader workgroup size exceeds the 'totalWorkgroupSize' limit");
-  } else if (spv[0].attributeCount > 0) {
+    memcpy(shader->workgroupSize, workgroupSize, 3 * sizeof(uint32_t));
+  }
+
+  // Vertex attributes
+  if (info->type == SHADER_GRAPHICS && spv[0].attributeCount > 0) {
     shader->attributeCount = spv[0].attributeCount;
     shader->attributes = malloc(shader->attributeCount * sizeof(ShaderAttribute));
     lovrAssert(shader->attributes, "Out of memory");
@@ -2922,71 +2932,18 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
   uint32_t resourceSet = info->type == SHADER_COMPUTE ? 0 : 2;
   uint32_t uniformSet = info->type == SHADER_COMPUTE ? 1 : 3;
-  uint32_t lastResourceCount = 0;
 
   // Resources
-  for (uint32_t s = 0; s < info->stageCount; s++, lastResourceCount = shader->resourceCount) {
+  for (uint32_t s = 0, lastResourceCount = 0; s < info->stageCount; s++, lastResourceCount = shader->resourceCount) {
     ShaderStage stage = info->stages[s].stage;
     for (uint32_t i = 0; i < spv[s].resourceCount; i++) {
       spv_resource* resource = &spv[s].resources[i];
+
+      // It's safe to cast away const because we are operating on a copy of the input
       uint32_t* set = (uint32_t*) resource->set;
       uint32_t* binding = (uint32_t*) resource->binding;
 
-      if (!set || !binding) {
-        continue;
-      }
-
-      if (!(*set == resourceSet || (*set == 0 && *binding > LAST_BUILTIN_BINDING))) {
-        continue;
-      }
-
-      lovrCheck(resource->arraySize == 0, "Arrays of resources in shaders are not currently supported");
-      lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
-      lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " uniform texel buffer", "");
-      lovrCheck(resource->type != SPV_STORAGE_TEXEL_BUFFER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " storage texel buffer", "");
-      lovrCheck(resource->type != SPV_INPUT_ATTACHMENT, "Shader variable '%s' is a%s, which is not supported%s", resource->name, "n input attachment", "");
-
-      static const gpu_slot_type resourceTypes[] = {
-        [SPV_UNIFORM_BUFFER] = GPU_SLOT_UNIFORM_BUFFER,
-        [SPV_STORAGE_BUFFER] = GPU_SLOT_STORAGE_BUFFER,
-        [SPV_SAMPLED_TEXTURE] = GPU_SLOT_SAMPLED_TEXTURE,
-        [SPV_STORAGE_TEXTURE] = GPU_SLOT_STORAGE_TEXTURE,
-        [SPV_SAMPLER] = GPU_SLOT_SAMPLER
-      };
-
-      gpu_phase stageMap[] = {
-        [STAGE_VERTEX] = GPU_STAGE_VERTEX,
-        [STAGE_FRAGMENT] = GPU_STAGE_FRAGMENT,
-        [STAGE_COMPUTE] = GPU_STAGE_COMPUTE
-      };
-
-      gpu_phase stagePhase[] = {
-        [STAGE_VERTEX] = GPU_PHASE_SHADER_VERTEX,
-        [STAGE_FRAGMENT] = GPU_PHASE_SHADER_FRAGMENT,
-        [STAGE_COMPUTE] = GPU_PHASE_SHADER_COMPUTE
-      };
-
-      uint32_t hash = (uint32_t) hash64(resource->name, strlen(resource->name));
-      bool skip = false;
-
-      // Merge resources between shader stages by name
-      for (uint32_t j = 0; j < lastResourceCount; j++) {
-        ShaderResource* other = &shader->resources[j];
-        if (other->hash == hash) {
-          lovrCheck(other->type == resourceTypes[resource->type], "Shader variable '%s' is declared in multiple shader stages with different types", resource->name);
-          slots[j].stages |= stageMap[stage];
-          shader->resources[j].phase |= stagePhase[stage];
-          *set = resourceSet;
-          *binding = shader->resources[j].binding;
-          skip = true;
-          break;
-        }
-      }
-
-      if (skip) {
-        continue;
-      }
-
+      // glslang outputs gl_DefaultUniformBlock, there's also the Constants macro which defines a DefaultUniformBlock UBO
       if (!strcmp(resource->name, "gl_DefaultUniformBlock") || !strcmp(resource->name, "DefaultUniformBlock")) {
         spv_field* block = resource->bufferFields;
         shader->uniformSize = block->elementSize;
@@ -2997,55 +2954,72 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         continue;
       }
 
-      uint32_t index = shader->resourceCount++;
-
-      lovrAssert(index < MAX_SHADER_RESOURCES, "Shader resource count exceeds resourcesPerShader limit (%d)", MAX_SHADER_RESOURCES);
-
-      if (*set != resourceSet) {
-        *set = resourceSet;
-        *binding = index;
+      // Skip builtin resources
+      if (info->type == SHADER_GRAPHICS && ((*set == 0 && *binding <= LAST_BUILTIN_BINDING) || *set == 1)) {
+        continue;
       }
 
-      slots[index] = (gpu_slot) {
-        .number = *binding,
-        .type = resourceTypes[resource->type],
-        .stages = stageMap[stage]
+      static const gpu_slot_type types[] = {
+        [SPV_UNIFORM_BUFFER] = GPU_SLOT_UNIFORM_BUFFER,
+        [SPV_STORAGE_BUFFER] = GPU_SLOT_STORAGE_BUFFER,
+        [SPV_SAMPLED_TEXTURE] = GPU_SLOT_SAMPLED_TEXTURE,
+        [SPV_STORAGE_TEXTURE] = GPU_SLOT_STORAGE_TEXTURE,
+        [SPV_SAMPLER] = GPU_SLOT_SAMPLER
       };
+
+      gpu_phase phases[] = {
+        [STAGE_VERTEX] = GPU_PHASE_SHADER_VERTEX,
+        [STAGE_FRAGMENT] = GPU_PHASE_SHADER_FRAGMENT,
+        [STAGE_COMPUTE] = GPU_PHASE_SHADER_COMPUTE
+      };
+
+      gpu_slot_type type = types[resource->type];
+      gpu_phase phase = phases[stage];
+
+      // Merge resources between shader stages, by name
+      bool merged = false;
+      uint32_t hash = (uint32_t) hash64(resource->name, strlen(resource->name));
+      for (uint32_t j = 0; j < lastResourceCount; j++) {
+        ShaderResource* other = &shader->resources[j];
+        if (other->hash == hash) {
+          lovrCheck(other->type == type, "Shader variable '%s' is declared in multiple shader stages with different types", resource->name);
+          shader->resources[j].phase |= phase;
+          *set = resourceSet;
+          merged = true;
+          break;
+        }
+      }
+
+      if (merged) {
+        continue;
+      }
+
+      // Resources with auto-mapped binding numbers need to be moved into set #2
+      if (info->type == SHADER_GRAPHICS && *set == 0 && *binding > LAST_BUILTIN_BINDING) {
+        *set = resourceSet;
+      }
+
+      uint32_t index = shader->resourceCount++;
+
+      lovrCheck(resource->arraySize == 0, "Arrays of resources in shaders are not currently supported");
+      lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
+      lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " uniform texel buffer", "");
+      lovrCheck(resource->type != SPV_STORAGE_TEXEL_BUFFER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " storage texel buffer", "");
+      lovrCheck(resource->type != SPV_INPUT_ATTACHMENT, "Shader variable '%s' is a%s, which is not supported%s", resource->name, "n input attachment", "");
+      lovrCheck(shader->resourceCount < MAX_SHADER_RESOURCES, "Shader resource count exceeds resourcesPerShader limit (%d)", MAX_SHADER_RESOURCES);
 
       shader->resources[index] = (ShaderResource) {
         .hash = hash,
         .binding = *binding,
-        .type = resourceTypes[resource->type],
-        .phase = stagePhase[stage]
+        .type = type,
+        .phase = phase
       };
-
-      if (resource->bufferFields) {
-        spv_field* field = &resource->bufferFields[0];
-
-        // Unwrap the container struct if it just contains a single struct or array of structs
-        if (field->fieldCount == 1 && field->totalFieldCount > 1) {
-          field = &field->fields[0];
-        } else if (field->totalFieldCount == 1 && field->fields[0].arrayLength > 0) {
-          // Arrays of non-aggregates get converted to an array of single-element structs to better
-          // match the way buffer formats work.  Note that we edit the spv_field, because DataFields
-          // get initialized later and so any edits to them would get overwritten.
-          spv_field* child = &field->fields[0];
-          field->arrayLength = child->arrayLength;
-          field->arrayStride = child->arrayStride;
-          field->elementSize = child->elementSize;
-          field->type = child->type; // This allows the field to be used as both AoS and single-field array
-          child->arrayLength = 0;
-          child->arrayStride = 0;
-        }
-
-        shader->resources[index].fieldCount = field->totalFieldCount + 1;
-        shader->resources[index].format = shader->fields + ((s == 1 ? spv[0].fieldCount : 0) + (field - spv[s].fields));
-      }
 
       bool buffer = resource->type == SPV_UNIFORM_BUFFER || resource->type == SPV_STORAGE_BUFFER;
       bool texture = resource->type == SPV_SAMPLED_TEXTURE || resource->type == SPV_STORAGE_TEXTURE;
       bool sampler = resource->type == SPV_SAMPLER;
       bool storage = resource->type == SPV_STORAGE_BUFFER || resource->type == SPV_STORAGE_TEXTURE;
+
       shader->bufferMask |= (buffer << *binding);
       shader->textureMask |= (texture << *binding);
       shader->samplerMask |= (sampler << *binding);
@@ -3055,6 +3029,28 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         shader->resources[index].cache = stage == STAGE_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;
       } else {
         shader->resources[index].cache = texture ? GPU_CACHE_TEXTURE : GPU_CACHE_UNIFORM;
+      }
+
+      if (buffer && resource->bufferFields) {
+        spv_field* field = &resource->bufferFields[0];
+
+        // The following conversions take place, for convenience and to better match Buffer formats:
+        // - Struct containing either single struct or single array of structs gets unwrapped
+        // - Struct containing single array of non-structs gets converted to array of single-field structs
+        if (field->fieldCount == 1 && field->totalFieldCount > 1) {
+          field = &field->fields[0];
+        } else if (field->totalFieldCount == 1 && field->fields[0].arrayLength > 0) {
+          spv_field* child = &field->fields[0];
+          field->arrayLength = child->arrayLength;
+          field->arrayStride = child->arrayStride;
+          field->elementSize = child->elementSize;
+          field->type = child->type;
+          child->arrayLength = 0;
+          child->arrayStride = 0;
+        }
+
+        shader->resources[index].fieldCount = field->totalFieldCount + 1;
+        shader->resources[index].format = shader->fields + ((s == 1 ? spv[0].fieldCount : 0) + (field - spv[s].fields));
       }
     }
   }
@@ -3099,9 +3095,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         .length = field->arrayLength,
         .stride = field->arrayLength > 0 ? field->arrayStride : field->elementSize, // Use stride as element size for non-arrays
         .fieldCount = field->fieldCount,
-        .fields = field->fields ?
-          shader->fields + base + (field->fields - spv[s].fields) :
-          NULL
+        .fields = field->fields ? shader->fields + base + (field->fields - spv[s].fields) : NULL
       };
 
       if (field->name) {
@@ -3163,40 +3157,60 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     }
   }
 
-  // Push constants
-  uint32_t pushConstantSize = 0;
-  for (uint32_t i = 0; i < info->stageCount; i++) {
-    if (spv[i].pushConstants) {
-      pushConstantSize = MAX(pushConstantSize, spv[i].pushConstants->elementSize);
-    }
+  // Layout
+  gpu_slot* slots = tempAlloc(&state.allocator, shader->resourceCount * sizeof(gpu_slot));
+  for (uint32_t i = 0; i < shader->resourceCount; i++) {
+    ShaderResource* resource = &shader->resources[i];
+    slots[i] = (gpu_slot) {
+      .number = resource->binding,
+      .type = resource->type,
+      .stages =
+        ((resource->phase & GPU_PHASE_SHADER_VERTEX) ? GPU_STAGE_VERTEX : 0) |
+        ((resource->phase & GPU_PHASE_SHADER_FRAGMENT) ? GPU_STAGE_FRAGMENT : 0) |
+        ((resource->phase & GPU_PHASE_SHADER_COMPUTE) ? GPU_STAGE_COMPUTE : 0)
+    };
   }
 
-  shader->ref = 1;
-  shader->gpu = (gpu_shader*) (shader + 1);
-  shader->info = *info;
   shader->layout = getLayout(slots, shader->resourceCount);
 
   gpu_shader_info gpu = {
-    .pushConstantSize = pushConstantSize,
+    .stageCount = info->stageCount,
+    .stages = tempAlloc(&state.allocator, info->stageCount * sizeof(gpu_shader_source)),
     .label = info->label
   };
 
   for (uint32_t i = 0; i < info->stageCount; i++) {
-    switch (info->stages[i].stage) {
-      case STAGE_VERTEX: gpu.vertex = (gpu_shader_stage) { .code = source[i], .length = info->stages[i].size }; break;
-      case STAGE_FRAGMENT: gpu.fragment = (gpu_shader_stage) { .code = source[i], .length = info->stages[i].size }; break;
-      case STAGE_COMPUTE: gpu.compute = (gpu_shader_stage) { .code = source[i], .length = info->stages[i].size }; break;
-      default: break;
+    const uint32_t stageMap[] = {
+      [STAGE_VERTEX] = GPU_STAGE_VERTEX,
+      [STAGE_FRAGMENT] = GPU_STAGE_FRAGMENT,
+      [STAGE_COMPUTE] = GPU_STAGE_COMPUTE
+    };
+
+    gpu.stages[i] = (gpu_shader_source) {
+      .stage = stageMap[info->stages[i].stage],
+      .code = source[i],
+      .length = info->stages[i].size
+    };
+  }
+
+  for (uint32_t i = 0; i < info->stageCount; i++) {
+    if (spv[i].pushConstants) {
+      gpu.pushConstantSize = MAX(gpu.pushConstantSize, spv[i].pushConstants->elementSize);
     }
   }
 
-  if (info->type == SHADER_GRAPHICS) {
-    gpu.layouts[0] = state.layouts.data[LAYOUT_BUILTIN].gpu;
-    gpu.layouts[1] = state.layouts.data[LAYOUT_MATERIAL].gpu;
-  }
+  gpu_layout* resourceLayout = state.layouts.data[shader->layout].gpu;
+  gpu_layout* uniformsLayout = shader->uniformSize > 0 ? state.layouts.data[LAYOUT_UNIFORMS].gpu : NULL;
 
-  gpu.layouts[resourceSet] = state.layouts.data[shader->layout].gpu;
-  if (shader->uniformSize > 0) gpu.layouts[uniformSet] = state.layouts.data[LAYOUT_UNIFORMS].gpu;
+  if (info->type == SHADER_GRAPHICS) {
+    gpu.layouts[0] = state.layouts.data[LAYOUT_BUILTINS].gpu;
+    gpu.layouts[1] = state.layouts.data[LAYOUT_MATERIAL].gpu;
+    gpu.layouts[2] = resourceLayout;
+    gpu.layouts[3] = uniformsLayout;
+  } else {
+    gpu.layouts[0] = resourceLayout;
+    gpu.layouts[1] = uniformsLayout;
+  }
 
   gpu_shader_init(shader->gpu, &gpu);
   lovrShaderInit(shader);

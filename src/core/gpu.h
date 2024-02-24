@@ -245,16 +245,16 @@ void gpu_layout_destroy(gpu_layout* layout);
 // Shader
 
 typedef struct {
+  uint32_t stage;
   const void* code;
   size_t length;
-} gpu_shader_stage;
+} gpu_shader_source;
 
 typedef struct {
-  gpu_shader_stage vertex;
-  gpu_shader_stage fragment;
-  gpu_shader_stage compute;
-  gpu_layout* layouts[4];
+  uint32_t stageCount;
+  gpu_shader_source* stages;
   uint32_t pushConstantSize;
+  gpu_layout* layouts[4];
   const char* label;
 } gpu_shader_info;
 
