@@ -2820,7 +2820,8 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
         },
         .stageCount = 1,
         .flags = &(ShaderFlag) { NULL, 0, state.device.subgroupSize },
-        .flagCount = 1
+        .flagCount = 1,
+        .isDefault = true
       });
     default:
       return state.defaultShaders[type] = lovrShaderCreate(&(ShaderInfo) {
@@ -2829,7 +2830,8 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
           lovrGraphicsGetDefaultShaderSource(type, STAGE_VERTEX),
           lovrGraphicsGetDefaultShaderSource(type, STAGE_FRAGMENT)
         },
-        .stageCount = 2
+        .stageCount = 2,
+        .isDefault = true
       });
   }
 }
@@ -2983,8 +2985,9 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         ShaderResource* other = &shader->resources[j];
         if (other->hash == hash) {
           lovrCheck(other->type == type, "Shader variable '%s' is declared in multiple shader stages with different types", resource->name);
-          shader->resources[j].phase |= phase;
           *set = resourceSet;
+          *binding = shader->resources[j].binding;
+          shader->resources[j].phase |= phase;
           merged = true;
           break;
         }
@@ -2994,42 +2997,46 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         continue;
       }
 
-      // Resources with auto-mapped binding numbers need to be moved into set #2
-      if (info->type == SHADER_GRAPHICS && *set == 0 && *binding > LAST_BUILTIN_BINDING) {
-        *set = resourceSet;
-      }
-
       uint32_t index = shader->resourceCount++;
-
-      lovrCheck(resource->arraySize == 0, "Arrays of resources in shaders are not currently supported");
+      lovrCheck(index < MAX_SHADER_RESOURCES, "Shader resource count exceeds resourcesPerShader limit (%d)", MAX_SHADER_RESOURCES);
       lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
       lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " uniform texel buffer", "");
       lovrCheck(resource->type != SPV_STORAGE_TEXEL_BUFFER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " storage texel buffer", "");
       lovrCheck(resource->type != SPV_INPUT_ATTACHMENT, "Shader variable '%s' is a%s, which is not supported%s", resource->name, "n input attachment", "");
-      lovrCheck(shader->resourceCount < MAX_SHADER_RESOURCES, "Shader resource count exceeds resourcesPerShader limit (%d)", MAX_SHADER_RESOURCES);
+      lovrCheck(resource->arraySize == 0, "Arrays of resources in shaders are not currently supported");
 
-      shader->resources[index] = (ShaderResource) {
-        .hash = hash,
-        .binding = *binding,
-        .type = type,
-        .phase = phase
-      };
+      // Move resources into set #2 and give them auto-incremented binding numbers starting at zero
+      // Compute shaders don't need remapping since everything's in set #0 and there are no builtins
+      if (!info->isDefault && info->type == SHADER_GRAPHICS && *set == 0 && *binding > LAST_BUILTIN_BINDING) {
+        *set = resourceSet;
+        *binding = index;
+      }
 
       bool buffer = resource->type == SPV_UNIFORM_BUFFER || resource->type == SPV_STORAGE_BUFFER;
       bool texture = resource->type == SPV_SAMPLED_TEXTURE || resource->type == SPV_STORAGE_TEXTURE;
       bool sampler = resource->type == SPV_SAMPLER;
       bool storage = resource->type == SPV_STORAGE_BUFFER || resource->type == SPV_STORAGE_TEXTURE;
 
-      shader->bufferMask |= (buffer << *binding);
-      shader->textureMask |= (texture << *binding);
-      shader->samplerMask |= (sampler << *binding);
-      shader->storageMask |= (storage << *binding);
+      shader->bufferMask |= (buffer << index);
+      shader->textureMask |= (texture << index);
+      shader->samplerMask |= (sampler << index);
+      shader->storageMask |= (storage << index);
+
+      gpu_cache cache;
 
       if (storage) {
-        shader->resources[index].cache = stage == STAGE_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;
+        cache = info->type == SHADER_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;
       } else {
-        shader->resources[index].cache = texture ? GPU_CACHE_TEXTURE : GPU_CACHE_UNIFORM;
+        cache = texture ? GPU_CACHE_TEXTURE : GPU_CACHE_UNIFORM;
       }
+
+      shader->resources[index] = (ShaderResource) {
+        .hash = hash,
+        .binding = index,
+        .type = type,
+        .phase = phase,
+        .cache = cache
+      };
 
       if (buffer && resource->bufferFields) {
         spv_field* field = &resource->bufferFields[0];
@@ -5244,7 +5251,6 @@ void lovrPassReset(Pass* pass) {
   pass->pipeline = lovrPassAllocate(pass, PIPELINE_STACK_SIZE * sizeof(Pipeline));
   pass->bindings = lovrPassAllocate(pass, 32 * sizeof(gpu_binding));
   pass->uniforms = NULL;
-  pass->uniformSize = 0;
   pass->computeCount = 0;
   pass->computes = NULL;
   pass->drawCount = 0;
@@ -5668,88 +5674,96 @@ void lovrPassSetSampler(Pass* pass, Sampler* sampler) {
 }
 
 void lovrPassSetShader(Pass* pass, Shader* shader) {
-  Shader* previous = pass->pipeline->shader;
-  if (shader == previous) return;
+  Shader* old = pass->pipeline->shader;
 
-  bool fromCompute = previous && previous->info.type == SHADER_COMPUTE;
-  bool toCompute = shader && shader->info.type == SHADER_COMPUTE;
-
-  if (fromCompute ^ toCompute) {
-    pass->bindingMask = 0;
+  if (shader == old) {
+    return;
   }
 
-  // Clear any bindings for resources that share the same slot but have different types
   if (shader) {
-    if (previous) {
-      for (uint32_t i = 0, j = 0; i < previous->resourceCount && j < shader->resourceCount;) {
-        if (previous->resources[i].binding < shader->resources[j].binding) {
-          i++;
-        } else if (previous->resources[i].binding > shader->resources[j].binding) {
-          j++;
-        } else {
-          if (previous->resources[i].type != shader->resources[j].type) {
-            pass->bindingMask &= ~(1u << shader->resources[j].binding);
+    gpu_binding bindings[32];
+
+    // Ensure there's a valid binding for every resource in the new shader.  If the old shader had a
+    // binding with the same name and type, then use that, otherwise use a "default" resource.
+    for (uint32_t i = 0; i < shader->resourceCount; i++) {
+      ShaderResource* resource = &shader->resources[i];
+      bool useDefault = true;
+
+      if (old) {
+        ShaderResource* other = old->resources;
+        for (uint32_t j = 0; j < old->resourceCount; j++, other++) {
+          if (other->hash == resource->hash && other->type == resource->type) {
+            bindings[resource->binding] = pass->bindings[other->binding];
+            useDefault = false;
+            break;
           }
-          i++;
-          j++;
+        }
+      }
+
+      if (useDefault) {
+        switch (resource->type) {
+          case GPU_SLOT_UNIFORM_BUFFER:
+          case GPU_SLOT_STORAGE_BUFFER:
+            bindings[i].buffer.object = state.defaultBuffer->gpu;
+            bindings[i].buffer.offset = state.defaultBuffer->base;
+            bindings[i].buffer.extent = state.defaultBuffer->info.size;
+            break;
+          case GPU_SLOT_SAMPLED_TEXTURE:
+          case GPU_SLOT_STORAGE_TEXTURE:
+            bindings[i].texture = state.defaultTexture->gpu;
+            break;
+          case GPU_SLOT_SAMPLER:
+            bindings[i].sampler = state.defaultSamplers[FILTER_LINEAR]->gpu;
+            break;
+          default: break;
         }
       }
     }
 
-    uint32_t shaderSlots = (shader->bufferMask | shader->textureMask | shader->samplerMask);
-    uint32_t missingResources = shaderSlots & ~pass->bindingMask;
+    memcpy(pass->bindings, bindings, shader->resourceCount * sizeof(gpu_binding));
+    pass->flags |= DIRTY_BINDINGS;
 
-    // Assign default bindings to any slots used by the shader that are missing resources
-    if (missingResources) {
-      for (uint32_t i = 0; i < 32; i++) { // TODO biterationtrinsics
-        uint32_t bit = (1u << i);
+    // Uniform data is preserved for uniforms with the same name/size (this might be slow...)
+    if (shader->uniformCount > 0) {
+      void* uniforms = lovrPassAllocate(pass, shader->uniformSize);
 
-        if (~missingResources & bit) {
-          continue;
+      if (old && old->uniformCount > 0) {
+        for (uint32_t i = 0; i < shader->uniformCount; i++) {
+          DataField* uniform = &shader->uniforms[i];
+          DataField* other = old->uniforms;
+          for (uint32_t j = 0; j < old->uniformCount; j++, other++) {
+            if (uniform->hash == other->hash && uniform->stride == other->stride && uniform->length == other->length) {
+              void* src = (char*) pass->uniforms + other->offset;
+              void* dst = (char*) uniforms + uniform->offset;
+              size_t size = uniform->stride * MAX(uniform->length, 1);
+              memcpy(dst, src, size);
+            }
+          }
         }
-
-        pass->bindings[i].number = i;
-
-        if (shader->bufferMask & bit) {
-          pass->bindings[i].buffer.object = state.defaultBuffer->gpu;
-          pass->bindings[i].buffer.offset = state.defaultBuffer->base;
-          pass->bindings[i].buffer.extent = state.defaultBuffer->info.size;
-        } else if (shader->textureMask & bit) {
-          pass->bindings[i].texture = state.defaultTexture->gpu;
-        } else if (shader->samplerMask & bit) {
-          pass->bindings[i].sampler = state.defaultSamplers[FILTER_LINEAR]->gpu;
-        }
-
-        pass->bindingMask |= bit;
+      } else {
+        memset(uniforms, 0, shader->uniformSize);
       }
 
-      pass->flags |= DIRTY_BINDINGS;
+      pass->uniforms = uniforms;
+      pass->flags |= DIRTY_UNIFORMS;
+    } else {
+      pass->flags &= ~DIRTY_UNIFORMS;
+    }
+
+    // Custom vertex attributes must be reset: their locations may differ even if the names match
+    if (shader->hasCustomAttributes) {
+      pass->pipeline->lastVertexBuffer = NULL;
     }
 
     pass->pipeline->info.shader = shader->gpu;
     pass->pipeline->info.flags = shader->flags;
     pass->pipeline->info.flagCount = shader->overrideCount;
+    lovrRetain(shader);
   }
 
-  lovrRetain(shader);
-  lovrRelease(previous, lovrShaderDestroy);
+  lovrRelease(old, lovrShaderDestroy);
   pass->pipeline->shader = shader;
   pass->pipeline->dirty = true;
-
-  // If the shader changes, all the attribute names need to be wired up again, because attributes
-  // with the same name might have different locations.  But if the shader only uses built-in
-  // attributes (which is common), things will remain stable.
-  if ((shader && shader->hasCustomAttributes) || (previous && previous->hasCustomAttributes)) {
-    pass->pipeline->lastVertexBuffer = NULL;
-  }
-
-  if (shader && shader->uniformSize > pass->uniformSize) {
-    void* uniforms = lovrPassAllocate(pass, shader->uniformSize);
-    if (pass->uniforms) memcpy(uniforms, pass->uniforms, pass->uniformSize);
-    pass->uniformSize = shader->uniformSize;
-    pass->uniforms = uniforms;
-    pass->flags |= DIRTY_UNIFORMS;
-  }
 }
 
 void lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask) {

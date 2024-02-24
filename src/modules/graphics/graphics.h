@@ -323,6 +323,7 @@ typedef struct {
   ShaderFlag* flags;
   uint32_t flagCount;
   const char* label;
+  bool isDefault;
 } ShaderInfo;
 
 typedef void* ShaderIncluder(const char* filename, size_t* bytesRead);
