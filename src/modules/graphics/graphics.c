@@ -6088,6 +6088,8 @@ static gpu_bundle_info* lovrPassResolveBindings(Pass* pass, Shader* shader, gpu_
   for (uint32_t i = 0; i < bundle->count; i++) {
     bundle->bindings[i] = pass->bindings[shader->resources[i].binding];
     bundle->bindings[i].type = shader->resources[i].type;
+    bundle->bindings[i].number = shader->resources[i].binding;
+    bundle->bindings[i].count = 0;
   }
 
   pass->flags &= ~DIRTY_BINDINGS;
