@@ -2998,6 +2998,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       }
 
       uint32_t index = shader->resourceCount++;
+
       lovrCheck(index < MAX_SHADER_RESOURCES, "Shader resource count exceeds resourcesPerShader limit (%d)", MAX_SHADER_RESOURCES);
       lovrCheck(resource->type != SPV_COMBINED_TEXTURE_SAMPLER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " combined texture sampler", " (use e.g. texture2D instead of sampler2D)");
       lovrCheck(resource->type != SPV_UNIFORM_TEXEL_BUFFER, "Shader variable '%s' is a%s, which is not supported%s", resource->name, " uniform texel buffer", "");
@@ -3032,7 +3033,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
       shader->resources[index] = (ShaderResource) {
         .hash = hash,
-        .binding = index,
+        .binding = *binding,
         .type = type,
         .phase = phase,
         .cache = cache
