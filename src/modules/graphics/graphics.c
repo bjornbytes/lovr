@@ -525,7 +525,6 @@ struct Pass {
   uint32_t transformIndex;
   uint32_t pipelineIndex;
   gpu_binding* bindings;
-  uint32_t bindingMask;
   void* uniforms;
   uint32_t uniformSize;
   uint32_t computeCount;
@@ -5300,7 +5299,6 @@ void lovrPassReset(Pass* pass) {
   memset(pass->scissor, 0, sizeof(pass->scissor));
 
   pass->sampler = NULL;
-  pass->bindingMask = 0;
 }
 
 const PassStats* lovrPassGetStats(Pass* pass) {
@@ -5852,7 +5850,6 @@ void lovrPassSendBuffer(Pass* pass, const char* name, size_t length, Buffer* buf
   pass->bindings[slot].buffer.object = buffer->gpu;
   pass->bindings[slot].buffer.offset = buffer->base + offset;
   pass->bindings[slot].buffer.extent = extent;
-  pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
 }
 
@@ -5874,7 +5871,6 @@ void lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture* t
 
   trackTexture(pass, texture, resource->phase, resource->cache);
   pass->bindings[slot].texture = view;
-  pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
 }
 
@@ -5887,7 +5883,6 @@ void lovrPassSendSampler(Pass* pass, const char* name, size_t length, Sampler* s
   lovrCheck(shader->samplerMask & (1u << slot), "Trying to send a Sampler to '%s', but the active Shader doesn't have a Sampler in that slot", name);
 
   pass->bindings[slot].sampler = sampler->gpu;
-  pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
 }
 
@@ -5914,7 +5909,6 @@ void lovrPassSendData(Pass* pass, const char* name, size_t length, void** data, 
   uint32_t size = resource->format->stride * MAX(resource->format->length, 1);
   BufferView view = lovrPassGetBuffer(pass, size, state.limits.uniformBufferAlign);
   pass->bindings[slot].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
-  pass->bindingMask |= (1u << slot);
   pass->flags |= DIRTY_BINDINGS;
 
   *data = view.pointer;
