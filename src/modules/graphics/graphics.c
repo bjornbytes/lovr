@@ -526,7 +526,6 @@ struct Pass {
   uint32_t pipelineIndex;
   gpu_binding* bindings;
   void* uniforms;
-  uint32_t uniformSize;
   uint32_t computeCount;
   Compute* computes;
   uint32_t drawCount;
