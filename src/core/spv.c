@@ -20,8 +20,7 @@ typedef union {
     uint16_t name;
   } attribute;
   struct {
-    uint8_t set;
-    uint8_t binding;
+    uint16_t decoration;
     uint16_t name;
   } variable;
   struct {
@@ -220,8 +219,12 @@ static spv_result spv_parse_decoration(spv_context* spv, const uint32_t* op, spv
     case 1: spv->cache[id].flag.number = op[3]; break; // SpecID
     case 6: spv->cache[id].type.arrayStride = op[3]; break; // ArrayStride (overrides name)
     case 30: spv->cache[id].attribute.location = op[3]; break; // Location
-    case 33: spv->cache[id].variable.binding = op[3]; break; // Binding
-    case 34: spv->cache[id].variable.set = op[3]; break; // Set
+    case 33:
+    case 34:
+     if (spv->cache[id].variable.decoration == 0xffff) {
+       spv->cache[id].variable.decoration = op - spv->words;
+     }
+     break;
     default: break;
   }
 
@@ -352,11 +355,8 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
     return spv_parse_field(spv, type, info->pushConstants, info);
   }
 
-  uint32_t set = spv->cache[variableId].variable.set;
-  uint32_t binding = spv->cache[variableId].variable.binding;
-
   // Ignore output variables (storageClass 3) and anything without a set/binding decoration
-  if (storageClass == 3 || set == 0xff || binding == 0xff) {
+  if (storageClass == 3 || spv->cache[variableId].variable.decoration == 0xffff) {
     return SPV_OK;
   }
 
@@ -374,8 +374,38 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
 
   spv_resource* resource = &info->resources[info->resourceCount++];
 
-  resource->set = set;
-  resource->binding = binding;
+  // Resolve the set/binding pointers.  The cache stores the index of the first set/binding
+  // decoration word, we need to search for the "other" one.
+  const uint32_t* word = spv->words + spv->cache[variableId].variable.decoration;
+  bool set = word[2] == 34;
+  uint32_t other = set ? 33 : 34;
+
+  if (set) {
+    resource->set = &word[3];
+    resource->binding = NULL;
+  } else {
+    resource->set = NULL;
+    resource->binding = &word[3];
+  }
+
+  for (;;) {
+    const uint32_t* next = word + OP_LENGTH(word);
+
+    if (word == next || next > spv->edge || (OP_CODE(next) != 71 && OP_CODE(next) != 72)) {
+      break;
+    }
+
+    word = next;
+
+    if (OP_CODE(word) == 71 && word[1] == variableId && word[2] == other) {
+      if (set) {
+        resource->binding = &word[3];
+      } else {
+        resource->set = &word[3];
+      }
+      break;
+    }
+  }
 
   // If it's an array, read the array size and unwrap the inner type
   if (OP_CODE(type) == 28) { // OpTypeArray

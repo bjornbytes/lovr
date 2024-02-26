@@ -643,15 +643,9 @@ static int l_lovrPassSetWireframe(lua_State* L) {
 
 static int l_lovrPassSend(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  const char* name = NULL;
-  size_t length = 0;
-  uint32_t slot = ~0u;
 
-  switch (lua_type(L, 2)) {
-    case LUA_TSTRING: name = lua_tolstring(L, 2, &length); break;
-    case LUA_TNUMBER: slot = lua_tointeger(L, 2) - 1; break;
-    default: return luax_typeerror(L, 2, "string or number");
-  }
+  size_t length;
+  const char* name = lua_tolstring(L, 2, &length);
 
   if (lua_isnoneornil(L, 3)) {
     return luax_typeerror(L, 3, "Buffer, Texture, Sampler, number, vector, table, or boolean");
@@ -662,27 +656,27 @@ static int l_lovrPassSend(lua_State* L) {
   if (buffer) {
     uint32_t offset = lua_tointeger(L, 4);
     uint32_t extent = lua_tointeger(L, 5);
-    lovrPassSendBuffer(pass, name, length, slot, buffer, offset, extent);
+    lovrPassSendBuffer(pass, name, length, buffer, offset, extent);
     return 0;
   }
 
   Texture* texture = luax_totype(L, 3, Texture);
 
   if (texture) {
-    lovrPassSendTexture(pass, name, length, slot, texture);
+    lovrPassSendTexture(pass, name, length, texture);
     return 0;
   }
 
   Sampler* sampler = luax_totype(L, 3, Sampler);
 
   if (sampler) {
-    lovrPassSendSampler(pass, name, length, slot, sampler);
+    lovrPassSendSampler(pass, name, length, sampler);
     return 0;
   }
 
   void* pointer;
   DataField* format;
-  lovrPassSendData(pass, name, length, slot, &pointer, &format);
+  lovrPassSendData(pass, name, length, &pointer, &format);
   char* data = pointer;
 
   // Coerce booleans since they aren't supported in buffer formats

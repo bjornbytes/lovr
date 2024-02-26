@@ -9,7 +9,7 @@ function lovr.load()
     lovr.graphics.setBackgroundColor(0x20232c)
   end
 
-  logo = lovr.graphics.newShader('unlit', 'logo')
+  logo = lovr.graphics.newShader('unlit', 'logo.spv')
 end
 
 function lovr.draw(pass)

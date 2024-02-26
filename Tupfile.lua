@@ -261,7 +261,6 @@ if config.modules.graphics and config.glslang then
   glslang_cflags += '-fno-rtti'
   glslang_cflags += '-Ideps/glslang'
   glslang_lflags += '-shared'
-  glslang_src += 'deps/glslang/OGLCompilersDLL/*.cpp'
   glslang_src += 'deps/glslang/glslang/CInterface/*.cpp'
   glslang_src += 'deps/glslang/glslang/MachineIndependent/*.cpp'
   glslang_src += 'deps/glslang/glslang/MachineIndependent/preprocessor/*.cpp'
@@ -468,11 +467,12 @@ vert = 'etc/shaders/*.vert'
 frag = 'etc/shaders/*.frag'
 comp = 'etc/shaders/*.comp'
 
+glslang_flags += '--quiet'
+glslang_flags += config.debug and '-gVS' or ''
+glslang_flags += '--target-env vulkan1.1'
+
 function compileShaders(stage)
   pattern = 'etc/shaders/*.' .. stage
-  glslang_flags += '--quiet'
-  glslang_flags += config.debug and '-gVS' or ''
-  glslang_flags += '--target-env vulkan1.1'
   tup.foreach_rule(pattern, 'glslangValidator $(glslang_flags) --vn lovr_shader_%B_' .. stage .. ' -o %o %f', '%f.h')
 end
 

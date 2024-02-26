@@ -2,7 +2,7 @@
 #extension GL_EXT_multiview : require
 #extension GL_GOOGLE_include_directive : require
 
-#include "lovr.glsl"
+#include "shaders/lovr.glsl"
 
 vec4 lovrmain() {
   float y = UV.y;
