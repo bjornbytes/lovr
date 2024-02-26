@@ -670,6 +670,8 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     return false;
   }
 
+  nickname(texture->view, VK_OBJECT_TYPE_IMAGE_VIEW, info->label);
+
   return true;
 }
 

@@ -122,6 +122,7 @@ typedef struct {
   uint32_t layerCount;
   uint32_t levelIndex;
   uint32_t levelCount;
+  const char* label;
 } gpu_texture_view_info;
 
 typedef struct {

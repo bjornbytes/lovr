@@ -202,16 +202,6 @@ enum {
 };
 
 typedef struct {
-  Texture* parent;
-  TextureType type;
-  uint32_t layerIndex;
-  uint32_t layerCount;
-  uint32_t levelIndex;
-  uint32_t levelCount;
-} TextureViewInfo;
-
-typedef struct {
-  Texture* parent;
   TextureType type;
   uint32_t format;
   uint32_t width;
@@ -221,11 +211,20 @@ typedef struct {
   uint32_t usage;
   bool srgb;
   bool xr;
-  uintptr_t handle;
   uint32_t imageCount;
   struct Image** images;
   const char* label;
+  uintptr_t handle;
 } TextureInfo;
+
+typedef struct {
+  TextureType type;
+  uint32_t layerIndex;
+  uint32_t layerCount;
+  uint32_t levelIndex;
+  uint32_t levelCount;
+  const char* label;
+} TextureViewInfo;
 
 typedef enum {
   FILTER_NEAREST,
@@ -234,7 +233,7 @@ typedef enum {
 
 Texture* lovrGraphicsGetWindowTexture(void);
 Texture* lovrTextureCreate(const TextureInfo* info);
-Texture* lovrTextureCreateView(const TextureViewInfo* view);
+Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
 struct Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t extent[3]);

@@ -84,6 +84,9 @@ struct Texture {
   gpu_texture* renderView;
   gpu_texture* storageView;
   Material* material;
+  Texture* root;
+  uint32_t baseLayer;
+  uint32_t baseLevel;
   TextureInfo info;
 };
 
@@ -1569,7 +1572,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       Texture* texture = canvas->color[t].texture;
 
       Access access = {
-        .sync = texture->info.parent ? &texture->info.parent->sync : &texture->sync,
+        .sync = &texture->root->sync,
         .object = texture,
         .phase = GPU_PHASE_COLOR,
         .cache = GPU_CACHE_COLOR_WRITE | ((!canvas->resolve && canvas->color[t].load == LOAD_KEEP) ? GPU_CACHE_COLOR_READ : 0)
@@ -1589,7 +1592,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       Texture* texture = canvas->depth.texture;
 
       Access access = {
-        .sync = texture->info.parent ? &texture->info.parent->sync : &texture->sync,
+        .sync = &texture->root->sync,
         .object = texture
       };
 
@@ -2101,6 +2104,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrAssert(texture, "Out of memory");
   texture->ref = 1;
   texture->gpu = (gpu_texture*) (texture + 1);
+  texture->root = texture;
   texture->info = *info;
   texture->info.mipmaps = mipmaps;
   texture->info.srgb = srgb;
@@ -2220,56 +2224,61 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   return texture;
 }
 
-Texture* lovrTextureCreateView(const TextureViewInfo* view) {
-  const TextureInfo* info = &view->parent->info;
-  uint32_t maxLayers = info->type == TEXTURE_3D ? MAX(info->layers >> view->levelIndex, 1) : info->layers;
-  lovrCheck(!info->parent, "Can't nest texture views");
-  lovrCheck(view->type != TEXTURE_3D, "Texture views may not be 3D textures");
-  lovrCheck(view->layerCount > 0, "Texture view must have at least one layer");
-  lovrCheck(view->layerIndex + view->layerCount <= maxLayers, "Texture view layer range exceeds layer count of parent texture");
-  lovrCheck(view->levelIndex + view->levelCount <= info->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
-  lovrCheck(view->layerCount == 1 || view->type != TEXTURE_2D, "2D textures can only have a single layer");
-  lovrCheck(view->levelCount == 1 || info->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
-  lovrCheck(view->layerCount % 6 == 0 || view->type != TEXTURE_CUBE, "Cubemap layer count must be a multiple of 6");
+Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
+  const TextureInfo* base = &parent->info;
+  uint32_t maxLayers = base->type == TEXTURE_3D ? MAX(base->layers >> info->levelIndex, 1) : base->layers;
+
+  lovrCheck(info->type != TEXTURE_3D, "Texture views can't be 3D textures");
+  lovrCheck(info->layerCount > 0, "Texture view must have at least one layer");
+  lovrCheck(info->levelCount > 0, "Texture view must have at least one mipmap");
+  lovrCheck(info->layerCount == ~0u || info->layerIndex + info->layerCount <= maxLayers, "Texture view layer range exceeds layer count of parent texture");
+  lovrCheck(info->levelCount == ~0u || info->levelIndex + info->levelCount <= base->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
+  lovrCheck(info->layerCount == 1 || info->type != TEXTURE_2D, "2D textures can only have a single layer");
+  lovrCheck(info->levelCount == 1 || base->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
+  lovrCheck(info->layerCount % 6 == 0 || info->type != TEXTURE_CUBE, "Cubemap layer count must be a multiple of 6");
 
   Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
   lovrAssert(texture, "Out of memory");
   texture->ref = 1;
   texture->gpu = (gpu_texture*) (texture + 1);
-  texture->info = *info;
+  texture->info = *base;
 
-  texture->info.parent = view->parent;
-  texture->info.mipmaps = view->levelCount ? view->levelCount : info->mipmaps;
-  texture->info.width = MAX(info->width >> view->levelIndex, 1);
-  texture->info.height = MAX(info->height >> view->levelIndex, 1);
-  texture->info.layers = view->layerCount;
+  texture->root = parent->root;
+  texture->baseLayer = parent->baseLayer + info->layerIndex;
+  texture->baseLevel = parent->baseLevel + info->levelIndex;
+  texture->info.type = info->type;
+  texture->info.width = MAX(base->width >> info->levelIndex, 1);
+  texture->info.height = MAX(base->height >> info->levelIndex, 1);
+  texture->info.layers = info->layerCount == ~0u ? base->layers : info->layerCount;
+  texture->info.mipmaps = info->levelCount == ~0u ? base->mipmaps : info->levelCount;
 
-  if (info->usage & (TEXTURE_SAMPLE | TEXTURE_RENDER)) {
+  if (base->usage & (TEXTURE_SAMPLE | TEXTURE_RENDER)) {
     gpu_texture_init_view(texture->gpu, &(gpu_texture_view_info) {
-      .source = view->parent->gpu,
-      .type = (gpu_texture_type) view->type,
-      .usage = info->usage,
-      .srgb = info->srgb,
-      .layerIndex = view->layerIndex,
-      .layerCount = view->layerCount,
-      .levelIndex = view->levelIndex,
-      .levelCount = view->levelCount
+      .source = texture->root->gpu,
+      .type = (gpu_texture_type) info->type,
+      .usage = base->usage,
+      .srgb = base->srgb,
+      .layerIndex = texture->baseLayer,
+      .layerCount = info->layerCount,
+      .levelIndex = texture->baseLevel,
+      .levelCount = info->levelCount,
+      .label = info->label
     });
   } else {
     texture->gpu = NULL;
   }
 
-  if ((info->usage & TEXTURE_RENDER) && view->layerCount <= state.limits.renderSize[2]) {
-    if (view->levelCount == 1) {
+  if ((base->usage & TEXTURE_RENDER) && info->layerCount <= state.limits.renderSize[2]) {
+    if (info->levelCount == 1) {
       texture->renderView = texture->gpu;
     } else {
       gpu_texture_view_info subview = {
-        .source = view->parent->gpu,
+        .source = texture->root->gpu,
         .type = GPU_TEXTURE_ARRAY,
         .usage = GPU_TEXTURE_RENDER,
-        .layerIndex = view->layerIndex,
-        .layerCount = view->layerCount,
-        .levelIndex = view->levelIndex,
+        .layerIndex = texture->baseLayer,
+        .layerCount = info->layerCount,
+        .levelIndex = texture->baseLevel,
         .levelCount = 1
       };
 
@@ -2279,16 +2288,16 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
     }
   }
 
-  if ((info->usage & TEXTURE_STORAGE) && info->srgb) {
+  if ((base->usage & TEXTURE_STORAGE) && base->srgb) {
     gpu_texture_view_info subview = {
-      .source = view->parent->gpu,
-      .type = (gpu_texture_type) info->type,
+      .source = texture->root->gpu,
+      .type = (gpu_texture_type) base->type,
       .usage = GPU_TEXTURE_STORAGE,
       .srgb = false,
-      .layerIndex = view->layerIndex,
-      .layerCount = view->layerCount,
-      .levelIndex = view->levelIndex,
-      .levelCount = view->levelCount
+      .layerIndex = texture->baseLayer,
+      .layerCount = info->layerCount,
+      .levelIndex = texture->baseLevel,
+      .levelCount = info->levelCount
     };
 
     texture->storageView = malloc(gpu_sizeof_texture());
@@ -2298,7 +2307,7 @@ Texture* lovrTextureCreateView(const TextureViewInfo* view) {
     texture->storageView = texture->gpu;
   }
 
-  lovrRetain(view->parent);
+  lovrRetain(texture->root);
   return texture;
 }
 
@@ -2307,7 +2316,7 @@ void lovrTextureDestroy(void* ref) {
   if (texture != state.window) {
     flushTransfers();
     lovrRelease(texture->material, lovrMaterialDestroy);
-    lovrRelease(texture->info.parent, lovrTextureDestroy);
+    if (texture->root != texture) lovrRelease(texture->root, lovrTextureDestroy);
     if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
     if (texture->storageView && texture->storageView != texture->gpu) gpu_texture_destroy(texture->storageView);
     if (texture->gpu) gpu_texture_destroy(texture->gpu);
@@ -2319,20 +2328,25 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
 }
 
+Texture* lovrTextureGetParent(Texture* texture) {
+  return texture->root == texture ? NULL : texture->root;
+}
+
 Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t extent[3]) {
   beginFrame();
   if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
   if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
   lovrCheck(extent[2] == 1, "Currently only a single layer can be read from a Texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
-  lovrCheck(!texture->info.parent, "Texture views can not be read");
   checkTextureBounds(&texture->info, offset, extent);
 
   gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
 
+  uint32_t rootOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
+
   BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
-  gpu_copy_texture_buffer(state.stream, texture->gpu, view.buffer, offset, view.offset, extent);
+  gpu_copy_texture_buffer(state.stream, texture->root->gpu, view.buffer, rootOffset, view.offset, extent);
 
   lovrGraphicsSubmit(NULL, 0);
   lovrGraphicsWait();
@@ -2345,22 +2359,22 @@ Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t exten
 
 void lovrTextureSetPixels(Texture* texture, Image* image, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
   beginFrame();
+  TextureFormat format = texture->info.format;
   if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
   if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
   if (extent[2] == ~0u) extent[2] = MIN(texture->info.layers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy to it");
-  lovrCheck(!texture->info.parent, "Texture views can not be written to");
-  lovrCheck(lovrImageGetFormat(image) == texture->info.format, "Image and Texture formats must match");
+  lovrCheck(lovrImageGetFormat(image) == format, "Image and Texture formats must match");
   lovrCheck(srcOffset[0] + extent[0] <= lovrImageGetWidth(image, srcOffset[3]), "Image copy region exceeds its %s", "width");
   lovrCheck(srcOffset[1] + extent[1] <= lovrImageGetHeight(image, srcOffset[3]), "Image copy region exceeds its %s", "height");
   lovrCheck(srcOffset[2] + extent[2] <= lovrImageGetLayerCount(image), "Image copy region exceeds its %s", "layer count");
   lovrCheck(srcOffset[3] < lovrImageGetLevelCount(image), "Image copy region exceeds its %s", "mipmap count");
   checkTextureBounds(&texture->info, dstOffset, extent);
-  uint32_t rowSize = measureTexture(texture->info.format, extent[0], 1, 1);
-  uint32_t totalSize = measureTexture(texture->info.format, extent[0], extent[1], 1) * extent[2];
-  uint32_t layerOffset = measureTexture(texture->info.format, extent[0], srcOffset[1], 1);
-  layerOffset += measureTexture(texture->info.format, srcOffset[0], 1, 1);
-  uint32_t pitch = measureTexture(texture->info.format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
+  uint32_t rowSize = measureTexture(format, extent[0], 1, 1);
+  uint32_t totalSize = measureTexture(format, extent[0], extent[1], 1) * extent[2];
+  uint32_t layerOffset = measureTexture(format, extent[0], srcOffset[1], 1);
+  layerOffset += measureTexture(format, srcOffset[0], 1, 1);
+  uint32_t pitch = measureTexture(format, lovrImageGetWidth(image, srcOffset[3]), 1, 1);
   BufferView view = getBuffer(GPU_BUFFER_UPLOAD, totalSize, 64);
   char* dst = view.pointer;
   for (uint32_t z = 0; z < extent[2]; z++) {
@@ -2371,9 +2385,10 @@ void lovrTextureSetPixels(Texture* texture, Image* image, uint32_t srcOffset[4],
       src += pitch;
     }
   }
-  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
+  gpu_barrier barrier = syncTransfer(&texture->root->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
-  gpu_copy_buffer_texture(state.stream, view.buffer, texture->gpu, view.offset, dstOffset, extent);
+  uint32_t rootOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + texture->baseLayer, dstOffset[3] + texture->baseLevel };
+  gpu_copy_buffer_texture(state.stream, view.buffer, texture->root->gpu, view.offset, rootOffset, extent);
 }
 
 void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
@@ -2383,15 +2398,16 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   if (extent[2] == ~0u) extent[2] = MIN(src->info.layers - srcOffset[2], dst->info.layers - dstOffset[0]);
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
-  lovrCheck(!src->info.parent && !dst->info.parent, "Can not copy texture views");
   lovrCheck(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
   checkTextureBounds(&src->info, srcOffset, extent);
   checkTextureBounds(&dst->info, dstOffset, extent);
   gpu_barrier barriers[2];
-  barriers[0] = syncTransfer(&src->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
-  barriers[1] = syncTransfer(&dst->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
+  barriers[0] = syncTransfer(&src->root->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
+  barriers[1] = syncTransfer(&dst->root->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, barriers, 2);
-  gpu_copy_textures(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, extent);
+  uint32_t srcRootOffset[4] = { srcOffset[0], srcOffset[1], srcOffset[2] + src->baseLayer, srcOffset[3] + src->baseLevel };
+  uint32_t dstRootOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + dst->baseLayer, dstOffset[3] + dst->baseLevel };
+  gpu_copy_textures(state.stream, src->root->gpu, dst->root->gpu, srcRootOffset, dstRootOffset, extent);
 }
 
 void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter) {
@@ -2403,7 +2419,6 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   if (dstExtent[1] == ~0u) dstExtent[1] = dst->info.height - dstOffset[1];
   if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.layers - dstOffset[2];
   uint32_t supports = state.features.formats[src->info.format][src->info.srgb];
-  lovrCheck(!src->info.parent && !dst->info.parent, "Can not blit Texture views");
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "to");
   lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support blitting this texture format/encoding");
@@ -2413,36 +2428,36 @@ void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   checkTextureBounds(&src->info, srcOffset, srcExtent);
   checkTextureBounds(&dst->info, dstOffset, dstExtent);
   gpu_barrier barriers[2];
-  barriers[0] = syncTransfer(&src->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ);
-  barriers[1] = syncTransfer(&dst->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_WRITE);
+  barriers[0] = syncTransfer(&src->root->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ);
+  barriers[1] = syncTransfer(&dst->root->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, barriers, 2);
-  gpu_blit(state.stream, src->gpu, dst->gpu, srcOffset, dstOffset, srcExtent, dstExtent, (gpu_filter) filter);
+  uint32_t srcRootOffset[4] = { srcOffset[0], srcOffset[1], srcOffset[2] + src->baseLayer, srcOffset[3] + src->baseLevel };
+  uint32_t dstRootOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + dst->baseLayer, dstOffset[3] + dst->baseLevel };
+  gpu_blit(state.stream, src->root->gpu, dst->root->gpu, srcRootOffset, dstRootOffset, srcExtent, dstExtent, (gpu_filter) filter);
 }
 
 void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
   beginFrame();
   if (layerCount == ~0u) layerCount = texture->info.layers - layer;
   if (levelCount == ~0u) levelCount = texture->info.mipmaps - level;
-  lovrCheck(!texture->info.parent, "Texture views can not be cleared");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with 'transfer' usage to clear it");
   lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.layers, "Texture clear range exceeds texture layer count");
   lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
-  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
+  gpu_barrier barrier = syncTransfer(&texture->root->sync, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
-  gpu_clear_texture(state.stream, texture->gpu, value, layer, layerCount, level, levelCount);
+  gpu_clear_texture(state.stream, texture->root->gpu, value, texture->baseLayer + layer, layerCount, texture->baseLevel + level, levelCount);
 }
 
 void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count) {
   beginFrame();
   if (count == ~0u) count = texture->info.mipmaps - (base + 1);
   uint32_t supports = state.features.formats[texture->info.format][texture->info.srgb];
-  lovrCheck(!texture->info.parent, "Can not mipmap a Texture view");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to mipmap it");
   lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support mipmapping this texture format/encoding");
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
-  gpu_barrier barrier = syncTransfer(&texture->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
+  gpu_barrier barrier = syncTransfer(&texture->root->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
-  mipmapTexture(state.stream, texture, base, count);
+  mipmapTexture(state.stream, texture, texture->baseLevel + base, count);
 }
 
 Material* lovrTextureToMaterial(Texture* texture) {
@@ -4920,7 +4935,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
   if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
   lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
-  lovrCheck(!texture->info.parent, "Can not read from a Texture view");
+  lovrCheck(texture->root == texture, "Can not read from a Texture view");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
   checkTextureBounds(&texture->info, offset, extent);
   Readback* readback = lovrReadbackCreate(READBACK_TEXTURE);
@@ -7599,7 +7614,7 @@ static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, u
       MAX(texture->info.height >> level, 1),
       volumetric ? MAX(texture->info.layers >> level, 1) : 1
     };
-    gpu_blit(stream, texture->gpu, texture->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
+    gpu_blit(stream, texture->root->gpu, texture->root->gpu, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
     if (i != count - 1) {
       gpu_sync(stream, &(gpu_barrier) {
         .prev = GPU_PHASE_BLIT,
@@ -7659,16 +7674,14 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
 static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
   if (!texture) return;
 
-  Texture* root = texture->info.parent ? texture->info.parent : texture;
-
   // Sample-only textures can skip sync, but still need to be refcounted
-  if (root->info.usage == TEXTURE_SAMPLE) {
+  if (texture->root->info.usage == TEXTURE_SAMPLE) {
     phase = 0;
     cache = 0;
   }
 
   Access* access = getNextAccess(pass, phase == GPU_PHASE_SHADER_COMPUTE ? ACCESS_COMPUTE : ACCESS_RENDER, true);
-  access->sync = &root->sync;
+  access->sync = &texture->root->sync;
   access->object = texture;
   access->phase = phase;
   access->cache = cache;
