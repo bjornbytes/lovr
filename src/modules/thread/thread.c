@@ -1,6 +1,7 @@
 #include "thread/thread.h"
 #include "data/blob.h"
 #include "event/event.h"
+#include "core/job.h"
 #include "core/os.h"
 #include "util.h"
 #include <math.h>
@@ -38,10 +39,16 @@ static struct {
   map_t channels;
 } state;
 
-bool lovrThreadModuleInit(void) {
+bool lovrThreadModuleInit(int32_t workers) {
   if (atomic_fetch_add(&state.ref, 1)) return false;
   mtx_init(&state.channelLock, mtx_plain);
   map_init(&state.channels, 0);
+
+  uint32_t cores = os_get_core_count();
+  if (workers < 0) workers += cores;
+  workers = MAX(workers, 0);
+  job_init(workers);
+
   return true;
 }
 
@@ -54,6 +61,7 @@ void lovrThreadModuleDestroy(void) {
   }
   mtx_destroy(&state.channelLock);
   map_free(&state.channels);
+  job_destroy();
   memset(&state, 0, sizeof(state));
 }
 

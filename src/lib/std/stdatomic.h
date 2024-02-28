@@ -92,35 +92,35 @@ typedef uintmax_t atomic_uintmax_t;
 
 // 7.17.7
 
-#define atomic_store(p, x) __atomic_store(p, x, __ATOMIC_SEQ_CST)
-#define atomic_store_explicit __atomic_store
+#define atomic_store_explicit __atomic_store_n
+#define atomic_store(p, x) atomic_store_explicit(p, x, __ATOMIC_SEQ_CST)
 
-#define atomic_load(p, x) __atomic_load(p, x, __ATOMIC_SEQ_CST)
-#define atomic_load_explicit __atomic_load
+#define atomic_load_explicit __atomic_load_n
+#define atomic_load(p) atomic_load_explicit(p, __ATOMIC_SEQ_CST)
 
-#define atomic_exchange(p, x) __atomic_exchange(p, x, __ATOMIC_SEQ_CST)
-#define atomic_exchange_explicit __atomic_exchange
+#define atomic_exchange_explicit __atomic_exchange_n
+#define atomic_exchange(p, x) atomic_exchange_explicit(p, x, __ATOMIC_SEQ_CST)
 
-#define atomic_compare_exchange_strong(p, x, y) __atomic_compare_exchange(p, x, y, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
-#define atomic_compare_exchange_strong_explicit(p, x, y, o1, o2) __atomic_compare_exchange(p, x, y, false, o1, o2)
+#define atomic_compare_exchange_strong_explicit(p, x, y, o1, o2) __atomic_compare_exchange_n(p, x, y, false, o1, o2)
+#define atomic_compare_exchange_strong(p, x, y) atomic_compare_exchange_strong_explicit(p, x, y, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 
-#define atomic_compare_exchange_weak(p, x, y) __atomic_compare_exchange(p, x, y, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
-#define atomic_compare_exchange_weak_explicit(p, x, y, o1, o2) __atomic_compare_exchange(p, x, y, true, o1, o2)
+#define atomic_compare_exchange_weak_explicit(p, x, y, o1, o2) __atomic_compare_exchange_n(p, x, y, true, o1, o2)
+#define atomic_compare_exchange_weak(p, x, y) atomic_compare_exchange_weak_explicit(p, x, y, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 
-#define atomic_fetch_add(p, x) __atomic_fetch_add(p, x, __ATOMIC_SEQ_CST)
 #define atomic_fetch_add_explicit __atomic_fetch_add
+#define atomic_fetch_add(p, x) atomic_fetch_add_explicit(p, x, __ATOMIC_SEQ_CST)
 
-#define atomic_fetch_sub(p, x) __atomic_fetch_sub(p, x, __ATOMIC_SEQ_CST)
 #define atomic_fetch_sub_explicit __atomic_fetch_sub
+#define atomic_fetch_sub(p, x) atomic_fetch_sub_explicit(p, x, __ATOMIC_SEQ_CST)
 
-#define atomic_fetch_or(p, x) __atomic_fetch_or(p, x, __ATOMIC_SEQ_CST)
 #define atomic_fetch_or_explicit __atomic_fetch_or
+#define atomic_fetch_or(p, x) atomic_fetch_or_explicit(p, x, __ATOMIC_SEQ_CST)
 
-#define atomic_fetch_xor(p, x) __atomic_fetch_xor(p, x, __ATOMIC_SEQ_CST)
 #define atomic_fetch_xor_explicit __atomic_fetch_xor
+#define atomic_fetch_xor(p, x) atomic_fetch_xor_explicit(p, x, __ATOMIC_SEQ_CST)
 
-#define atomic_fetch_and(p, x) __atomic_fetch_and(p, x, __ATOMIC_SEQ_CST)
 #define atomic_fetch_and_explicit __atomic_fetch_and
+#define atomic_fetch_and(p, x) atomic_fetch_and_explicit(p, x, __ATOMIC_SEQ_CST)
 
 // 7.17.8
 
@@ -145,8 +145,26 @@ _Bool atomic_flag_clear_explicit(volatile atomic_flag*, memory_order);
 
 typedef volatile long atomic_uint;
 
+#define atomic_store(p, x) *(p) = (x);
+#define atomic_store_explicit(p, x, o) atomic_store(p, x)
+
+#define atomic_load(p) *(p)
+#define atomic_load_explicit(p, o) atomic_load(p)
+
 #define atomic_fetch_add(p, x) _InterlockedExchangeAdd(p, x)
+#define atomic_fetch_add_explicit(p, x, o) atomic_fetch_add(p, x)
+
 #define atomic_fetch_sub(p, x) _InterlockedExchangeAdd(p, -(x))
+#define atomic_fetch_sub_explicit(p, x, o) atomic_fetch_sub(p, x)
+
+#define atomic_fetch_or(p, x) InterlockedOr(p, x)
+#define atomic_fetch_or_explicit(p, x, o) atomic_fetch_or(p, x)
+
+#define atomic_fetch_xor(p, x) InterlockedXor(p, x)
+#define atomic_fetch_xor_explicit(p, x, o) atomic_fetch_xor(p, x)
+
+#define atomic_fetch_and(p, x) InterlockedAnd(p, x)
+#define atomic_fetch_and_explicit(p, x, o) atomic_fetch_and(p, x)
 
 #define ATOMIC_INT_LOCK_FREE 2
 
