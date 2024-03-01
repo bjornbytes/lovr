@@ -5741,8 +5741,6 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
 
       pass->uniforms = uniforms;
       pass->flags |= DIRTY_UNIFORMS;
-    } else {
-      pass->flags &= ~DIRTY_UNIFORMS;
     }
 
     // Custom vertex attributes must be reset: their locations may differ even if the names match
@@ -6128,7 +6126,7 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   lovrPassResolveVertices(pass, info, draw);
   draw->bundleInfo = lovrPassResolveBindings(pass, draw->shader, previous ? previous->bundleInfo : NULL);
 
-  if (pass->flags & DIRTY_UNIFORMS) {
+  if (draw->shader->uniformCount > 0 && pass->flags & DIRTY_UNIFORMS) {
     lovrPassResolveUniforms(pass, draw->shader, &draw->uniformBuffer, &draw->uniformOffset);
     pass->flags &= ~DIRTY_UNIFORMS;
   } else {
