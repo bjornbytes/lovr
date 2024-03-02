@@ -96,17 +96,13 @@ void job_destroy(void) {
 }
 
 job* job_start(fn_job* fn, void* arg) {
-  for (;;) {
-    mtx_lock(&state.lock);
+  mtx_lock(&state.lock);
 
-    if (state.pool) {
-      break;
-    } else if (state.head) {
-      runJob();
-    } else { // Might not be a job to do if worker count is bigger than pool size
-      mtx_unlock(&state.lock);
-      thrd_yield();
-    }
+  // If there's no free job available, return NULL as a backpressure signal
+  // Caller can choose how to handle: error, wait on older jobs, just run the job, etc.
+  if (!state.pool) {
+    mtx_unlock(&state.lock);
+    return NULL;
   }
 
   job* job = state.pool;
