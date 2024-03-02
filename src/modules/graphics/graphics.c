@@ -7217,7 +7217,7 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   lovrPassResolveVertices(pass, &info, draw);
   draw->bundleInfo = lovrPassResolveBindings(pass, shader, previous ? previous->bundleInfo : NULL);
 
-  if (pass->flags & DIRTY_UNIFORMS) {
+  if (shader->uniformCount > 0 && pass->flags & DIRTY_UNIFORMS) {
     lovrPassResolveUniforms(pass, shader, &draw->uniformBuffer, &draw->uniformOffset);
     pass->flags &= ~DIRTY_UNIFORMS;
   } else {
@@ -7279,7 +7279,7 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
 
   compute->bundleInfo = lovrPassResolveBindings(pass, shader, previous ? previous->bundleInfo : NULL);
 
-  if (pass->flags & DIRTY_UNIFORMS) {
+  if (shader->uniformCount > 0 && pass->flags & DIRTY_UNIFORMS) {
     lovrPassResolveUniforms(pass, shader, &compute->uniformBuffer, &compute->uniformOffset);
     pass->flags &= ~DIRTY_UNIFORMS;
   } else {
