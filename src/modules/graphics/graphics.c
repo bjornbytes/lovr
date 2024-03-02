@@ -79,7 +79,7 @@ struct Buffer {
 
 struct Texture {
   uint32_t ref;
-  uint32_t xrTick;
+  bool xrAcquired;
   Sync sync;
   gpu_texture* gpu;
   gpu_texture* renderView;
@@ -570,15 +570,15 @@ typedef struct {
 static struct {
   uint32_t ref;
   bool active;
-  bool presentable;
+  bool shouldPresent;
   bool timingEnabled;
   GraphicsConfig config;
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
   gpu_stream* stream;
-  gpu_barrier preBarrier;
-  gpu_barrier postBarrier;
+  gpu_barrier barrier;
+  gpu_barrier transferBarrier;
   gpu_tally* timestamps;
   uint32_t timestampCount;
   uint32_t tick;
@@ -625,7 +625,7 @@ static void processReadbacks(void);
 static gpu_pass* getPass(Canvas* canvas);
 static size_t getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(size_t layout, gpu_binding* bindings, uint32_t count);
-static gpu_texture* getScratchTexture(Canvas* canvas, TextureFormat format, bool srgb);
+static gpu_texture* getScratchTexture(gpu_stream* stream, Canvas* canvas, TextureFormat format, bool srgb);
 static bool isDepthFormat(TextureFormat format);
 static bool supportsSRGB(TextureFormat format);
 static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d);
@@ -1114,7 +1114,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   Texture* texture = canvas->color[0].texture;
   for (uint32_t i = 0; i < canvas->count; i++, texture = canvas->color[i].texture) {
     target.color[i] = (gpu_color_attachment) {
-      .texture = canvas->resolve ? getScratchTexture(canvas, texture->info.format, texture->info.srgb) : texture->renderView,
+      .texture = canvas->resolve ? getScratchTexture(stream, canvas, texture->info.format, texture->info.srgb) : texture->renderView,
       .resolve = canvas->resolve ? texture->renderView : NULL,
       .clear[0] = canvas->color[i].clear[0],
       .clear[1] = canvas->color[i].clear[1],
@@ -1125,7 +1125,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   if ((texture = canvas->depth.texture) != NULL || canvas->depth.format) {
     target.depth = (gpu_depth_attachment) {
-      .texture = canvas->resolve || !texture ? getScratchTexture(canvas, canvas->depth.format, false) : texture->renderView,
+      .texture = canvas->resolve || !texture ? getScratchTexture(stream, canvas, canvas->depth.format, false) : texture->renderView,
       .resolve = canvas->resolve && texture ? texture->renderView : NULL,
       .clear = canvas->depth.clear
     };
@@ -1555,18 +1555,10 @@ static Readback* lovrReadbackCreateTimestamp(TimingInfo* passes, uint32_t count,
 void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   beginFrame();
 
-  // Overall submission structure is:
-  // { PRE }, { state.stream, POST }, { C0, CB0, R0, RB0 } ... { CN, CBN, RN, RBN }
-  // Where
-  // - {} denotes a command buffer
-  // - PRE denotes the "pre barrier" (barrier for transfers synchronizing against previous frame)
-  // - POST denotes the "post barrier" (eager sync for state.stream and used as "first" barrier)
-  // - CX and CBX are the compute commands and compute barrier for each pass
-  // - RX and RBX are the render commands and render barrier for each pass
-  // Also OpenXR layout transitions go in the first/last stream
-
-  uint32_t streamCount = count + 2;
-  gpu_stream** streams = tempAlloc(&state.allocator, streamCount * sizeof(gpu_stream*));
+  bool xrCanvas = false;
+  uint32_t streamCount = 0;
+  uint32_t maxStreams = count + 3;
+  gpu_stream** streams = tempAlloc(&state.allocator, maxStreams * sizeof(gpu_stream*));
   gpu_barrier* computeBarriers = tempAlloc(&state.allocator, count * sizeof(gpu_barrier));
   gpu_barrier* renderBarriers = tempAlloc(&state.allocator, count * sizeof(gpu_barrier));
 
@@ -1575,21 +1567,20 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     memset(renderBarriers, 0, count * sizeof(gpu_barrier));
   }
 
-  if (state.preBarrier.prev != 0 && state.preBarrier.next != 0) {
-    streams[0] = gpu_stream_begin("Pre Barrier");
-    gpu_sync(streams[0], &state.preBarrier, 1);
-  } else {
-    streams[0] = NULL;
+  if (state.transferBarrier.prev != 0 && state.transferBarrier.next != 0) {
+    gpu_stream* stream = streams[streamCount++] = gpu_stream_begin(NULL);
+    gpu_sync(stream, &state.transferBarrier, 1);
+    gpu_stream_end(stream);
   }
 
-  streams[1] = state.stream;
+  streams[streamCount++] = state.stream;
 
   // Synchronization
   for (uint32_t i = 0; i < count; i++) {
     Pass* pass = passes[i];
     Canvas* canvas = &pass->canvas;
 
-    state.presentable |= pass == state.windowPass;
+    state.shouldPresent |= pass == state.windowPass;
 
     // Compute
     for (AccessBlock* block = pass->access[ACCESS_COMPUTE]; block != NULL; block = block->next) {
@@ -1620,6 +1611,12 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         access.sync->writePhase = GPU_PHASE_BLIT;
         access.sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
       }
+
+      if (texture->info.xr && !texture->xrAcquired) {
+        gpu_xr_acquire(state.stream, texture->gpu);
+        texture->xrAcquired = true;
+        xrCanvas = true;
+      }
     }
 
     // Depth attachment
@@ -1645,6 +1642,12 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       if (texture->info.mipmaps > 1) {
         access.sync->writePhase = GPU_PHASE_BLIT;
         access.sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
+      }
+
+      if (texture->info.xr && !texture->xrAcquired) {
+        gpu_xr_acquire(state.stream, texture->gpu);
+        texture->xrAcquired = true;
+        xrCanvas = true;
       }
     }
 
@@ -1689,10 +1692,11 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     gpu_clear_tally(state.stream, state.timestamps, 0, timestampCount);
   }
 
-  gpu_sync(state.stream, &state.postBarrier, 1);
+  gpu_sync(state.stream, &state.barrier, 1);
+  gpu_stream_end(state.stream);
 
   for (uint32_t i = 0; i < count; i++) {
-    gpu_stream* stream = gpu_stream_begin(NULL);
+    gpu_stream* stream = streams[streamCount++] = gpu_stream_begin(NULL);
 
     if (state.timingEnabled) {
       times[i].cpuTime = os_get_time();
@@ -1710,77 +1714,80 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       gpu_tally_mark(stream, state.timestamps, 2 * i + 1);
     }
 
-    streams[i + 2] = stream;
+    gpu_stream_end(stream);
   }
 
-  if (state.timingEnabled && count > 0) {
+  if (xrCanvas || (state.timingEnabled && count > 0)) {
+    gpu_stream* stream = streams[streamCount++] = gpu_stream_begin(NULL);
+
+    // Timestamp Readback
     BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, 2 * count * sizeof(uint32_t), 4);
-    gpu_copy_tally_buffer(streams[streamCount - 1], state.timestamps, view.buffer, 0, view.offset, 2 * count);
+    gpu_copy_tally_buffer(stream, state.timestamps, view.buffer, 0, view.offset, 2 * count);
     Readback* readback = lovrReadbackCreateTimestamp(times, count, view);
     lovrRelease(readback, lovrReadbackDestroy); // It gets freed when it completes
-  }
 
-  if (!streams[0]) {
-    streamCount--;
-    streams++;
-  }
+    // OpenXR Swapchain Layout Transitions
+    for (uint32_t i = 0; i < count; i++) {
+      Canvas* canvas = &passes[i]->canvas;
 
-  // - Reset all resource barriers to the default one
-  // - Sneak in OpenXR layout transitions >__>
-  // - Set tick of any full buffers to current tick
-  for (uint32_t i = 0; i < count; i++) {
-    Canvas* canvas = &passes[i]->canvas;
+      for (uint32_t t = 0; t < canvas->count; t++) {
+        Texture* texture = canvas->color[t].texture;
+        if (texture->info.xr && texture->xrAcquired) {
+          gpu_xr_release(stream, texture->gpu);
+          texture->xrAcquired = false;
+        }
+      }
 
-    for (uint32_t t = 0; t < canvas->count; t++) {
-      Texture* texture = canvas->color[t].texture;
-      texture->sync.barrier = &state.postBarrier;
-      if (texture->info.xr && texture->xrTick != state.tick) {
-        gpu_xr_acquire(streams[0], texture->gpu);
-        gpu_xr_release(streams[streamCount - 1], texture->gpu);
-        texture->xrTick = state.tick;
+      if (canvas->depth.texture) {
+        Texture* texture = canvas->depth.texture;
+        if (texture->info.xr && texture->xrAcquired) {
+          gpu_xr_release(stream, texture->gpu);
+          texture->xrAcquired = false;
+        }
       }
     }
 
+    gpu_stream_end(stream);
+  }
+
+  // Cleanup
+  for (uint32_t i = 0; i < count; i++) {
+    Canvas* canvas = &passes[i]->canvas;
+
+    // Reset barriers back to the default
+    for (uint32_t t = 0; t < canvas->count; t++) {
+      canvas->color[t].texture->sync.barrier = &state.barrier;
+    }
+
     if (canvas->depth.texture) {
-      Texture* texture = canvas->depth.texture;
-      texture->sync.barrier = &state.postBarrier;
-      if (texture->info.xr && texture->xrTick != state.tick) {
-        gpu_xr_acquire(streams[0], texture->gpu);
-        gpu_xr_release(streams[streamCount - 1], texture->gpu);
-        texture->xrTick = state.tick;
-      }
+      canvas->depth.texture->sync.barrier = &state.barrier;
     }
 
     for (uint32_t j = 0; j < COUNTOF(passes[i]->access); j++) {
       for (AccessBlock* block = passes[i]->access[j]; block != NULL; block = block->next) {
         for (uint32_t k = 0; k < block->count; k++) {
-          block->list[k].sync->barrier = &state.postBarrier;
+          block->list[k].sync->barrier = &state.barrier;
         }
       }
     }
 
+    // Mark the tick for any buffers that filled up, so we know when to recycle them
     for (BufferBlock* block = passes[i]->buffers.freelist; block; block = block->next) {
       block->tick = state.tick;
     }
   }
 
-  for (uint32_t i = 0; i < streamCount; i++) {
-    gpu_stream_end(streams[i]);
-  }
-
   gpu_submit(streams, streamCount);
 
-  state.stream = NULL;
   state.active = false;
-  memset(&state.preBarrier, 0, sizeof(gpu_barrier));
-  memset(&state.postBarrier, 0, sizeof(gpu_barrier));
+  state.stream = NULL;
 }
 
 void lovrGraphicsPresent(void) {
-  if (state.presentable) {
+  if (state.shouldPresent) {
     state.window->gpu = NULL;
     state.window->renderView = NULL;
-    state.presentable = false;
+    state.shouldPresent = false;
     gpu_surface_present();
   }
 }
@@ -1956,7 +1963,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
     }
   }
 
-  buffer->sync.barrier = &state.postBarrier;
+  buffer->sync.barrier = &state.barrier;
 
   return buffer;
 }
@@ -2245,17 +2252,17 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   // Sample-only textures are exempt from sync tracking to reduce overhead.  Instead, they are
   // manually synchronized with a single barrier after the upload stream.
   if (info->usage == TEXTURE_SAMPLE) {
-    state.postBarrier.prev |= GPU_PHASE_COPY | GPU_PHASE_BLIT;
-    state.postBarrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
-    state.postBarrier.flush |= GPU_CACHE_TRANSFER_WRITE;
-    state.postBarrier.clear |= GPU_CACHE_TEXTURE;
+    state.barrier.prev |= GPU_PHASE_COPY | GPU_PHASE_BLIT;
+    state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
+    state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
+    state.barrier.clear |= GPU_CACHE_TEXTURE;
   } else if (levelCount > 0) {
     texture->sync.writePhase = GPU_PHASE_COPY | GPU_PHASE_BLIT;
     texture->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
     texture->sync.lastTransferWrite = state.tick;
   }
 
-  texture->sync.barrier = &state.postBarrier;
+  texture->sync.barrier = &state.barrier;
   return texture;
 }
 
@@ -3391,10 +3398,10 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
     beginFrame();
     BufferView staging = getBuffer(GPU_BUFFER_UPLOAD, sizeof(MaterialData), 4);
     gpu_copy_buffers(state.stream, staging.buffer, block->view.buffer, staging.offset, block->view.offset + stride * material->index, sizeof(MaterialData));
-    state.postBarrier.prev |= GPU_PHASE_COPY;
-    state.postBarrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
-    state.postBarrier.flush |= GPU_CACHE_TRANSFER_WRITE;
-    state.postBarrier.clear |= GPU_CACHE_UNIFORM;
+    state.barrier.prev |= GPU_PHASE_COPY;
+    state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
+    state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
+    state.barrier.clear |= GPU_CACHE_UNIFORM;
     data = staging.pointer;
   }
 
@@ -3676,10 +3683,10 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   gpu_copy_buffer_texture(state.stream, view.buffer, font->atlas->gpu, view.offset, dstOffset, extent);
   tempPop(&state.allocator, stack);
 
-  state.postBarrier.prev |= GPU_PHASE_COPY;
-  state.postBarrier.next |= GPU_PHASE_SHADER_FRAGMENT;
-  state.postBarrier.flush |= GPU_CACHE_TRANSFER_WRITE;
-  state.postBarrier.clear |= GPU_CACHE_TEXTURE;
+  state.barrier.prev |= GPU_PHASE_COPY;
+  state.barrier.next |= GPU_PHASE_SHADER_FRAGMENT;
+  state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
+  state.barrier.clear |= GPU_CACHE_TEXTURE;
   return glyph;
 }
 
@@ -5002,10 +5009,10 @@ static void lovrModelAnimateVertices(Model* model) {
 
   gpu_compute_end(state.stream);
 
-  state.postBarrier.prev |= GPU_PHASE_SHADER_COMPUTE;
-  state.postBarrier.next |= GPU_PHASE_INPUT_VERTEX;
-  state.postBarrier.flush |= GPU_CACHE_STORAGE_WRITE;
-  state.postBarrier.clear |= GPU_CACHE_VERTEX;
+  state.barrier.prev |= GPU_PHASE_SHADER_COMPUTE;
+  state.barrier.next |= GPU_PHASE_INPUT_VERTEX;
+  state.barrier.flush |= GPU_CACHE_STORAGE_WRITE;
+  state.barrier.clear |= GPU_CACHE_VERTEX;
   model->lastVertexAnimation = state.tick;
 }
 
@@ -7412,6 +7419,8 @@ static void beginFrame(void) {
   state.active = true;
   state.tick = gpu_begin();
   state.stream = gpu_stream_begin("Internal");
+  memset(&state.barrier, 0, sizeof(gpu_barrier));
+  memset(&state.transferBarrier, 0, sizeof(gpu_barrier));
   state.allocator.cursor = 0;
   processReadbacks();
 }
@@ -7586,7 +7595,7 @@ write:
   return bundle;
 }
 
-static gpu_texture* getScratchTexture(Canvas* canvas, TextureFormat format, bool srgb) {
+static gpu_texture* getScratchTexture(gpu_stream* stream, Canvas* canvas, TextureFormat format, bool srgb) {
   uint16_t key[] = { canvas->width, canvas->height, canvas->views, format, srgb, canvas->samples };
   uint32_t hash = (uint32_t) hash64(key, sizeof(key));
 
@@ -7623,7 +7632,7 @@ static gpu_texture* getScratchTexture(Canvas* canvas, TextureFormat format, bool
     .mipmaps = 1,
     .samples = canvas->samples,
     .usage = GPU_TEXTURE_RENDER,
-    .upload.stream = state.stream
+    .upload.stream = stream
   };
 
   lovrAssert(gpu_texture_init(scratch->texture, &info), "Failed to create scratch texture");
@@ -7898,7 +7907,7 @@ static gpu_barrier syncTransfer(Sync* sync, gpu_phase phase, gpu_cache cache) {
   if (sync->lastTransferWrite == state.tick || (sync->lastTransferRead == state.tick && (cache & GPU_CACHE_WRITE_MASK))) {
     barrier = &localBarrier;
   } else {
-    barrier = &state.preBarrier;
+    barrier = &state.transferBarrier;
   }
 
   syncResource(&(Access) { sync, NULL, phase, cache }, barrier);
