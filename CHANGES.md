@@ -13,17 +13,22 @@ dev
 - Add `lovr.system.get/setClipboardText`.
 - Add `KeyCode`s for numpad keys.
 - Add `World:raycastAny` and `World:raycastClosest`.
+- Add support for `uniform` variables in shader code.
 - Add support for cubemap array textures.
+- Add support for transfer operations on texture views.
+- Add support for nesting texture views (creating a view of a view).
 - Add `sn10x3` `DataType`.
 - Add `Quat:get/setEuler`.
 - Add `lovr.system.openConsole`.
 - Add `lovr.filesystem.getBundlePath` (for internal Lua code).
 - Add `lovr.filesystem.setSource` (for internal Lua code).
+- Add `t.thread.workers` to configure number of worker threads.
 
 ### Change
 
 - Change nogame screen to be bundled as a fused zip archive.
 - Change `Mesh:setMaterial` to also take a `Texture`.
+- Change shader syntax to no longer require set/binding numbers for buffer/texture variables.
 - Change `Texture:getFormat` to also return whether the texture is linear or sRGB.
 - Change `Readback:getImage` and `Texture:getPixels` to return sRGB images when the source Texture is sRGB.
 - Change `lovr.graphics.newTexture` to use a layer count of 6 when type is `cube` and only width/height is given.
@@ -32,8 +37,9 @@ dev
 - Change `TextureFeature` to merge `sample` with `filter`, `render` with `blend`, and `blitsrc`/`blitdst` into `blit`.
 - Change file permissions for files and directories created by `lovr.filesystem` (so ADB can access them on Android 12+).
 - Change `Pass:sphere` to error when segment count is too small.
-- Change headset simulator movement to become slow when holding the control key.
+- Change headset simulator movement to slow down when holding the control key.
 - Change headset simulator to use `t.headset.supersample`.
+- Change `lovr.graphics.compileShader` to take/return multiple stages.
 
 ### Fix
 
@@ -46,7 +52,12 @@ dev
 - Fix shader #includes to error when including a file that doesn't exist.
 - Fix `lovr.graphics.newModel` to support empty GLB models.
 - Fix `lovr.graphics.newModel` to support models without any vertices.
+- Fix `Texture:getType` when used with texture views.
 - Fix `Model:getMesh`.
+
+### Deprecate
+
+- Deprecate `Texture:getSampleCount`.
 
 ### Remove
 
@@ -63,6 +74,10 @@ dev
 - Remove `Pass:getType` (passes support both render and compute now).
 - Remove `Pass:getTarget` (renamed to `Pass:getCanvas`).
 - Remove `Pass:getSampleCount` (`Pass:getCanvas` returns sample count).
+- Remove `samples` option from `lovr.graphics.newTexture` (sample count is always 1).
+- Remove variant of `Pass:send` that takes a binding number instead of a variable name.
+- Remove `Texture:newView` (renamed to `lovr.graphics.newTextureView`).
+- Remove `Texture:isView` and `Texture:getParent`.
 
 v0.17.0 - 2023-10-14
 ---
