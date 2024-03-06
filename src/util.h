@@ -89,7 +89,7 @@ static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t 
   lovrAssert(*data, "Out of memory");
 }
 
-// Hashmap
+// Hashmap (does not support removal)
 typedef struct {
   uint64_t* hashes;
   uint64_t* values;
@@ -103,7 +103,6 @@ void map_init(map_t* map, uint32_t n);
 void map_free(map_t* map);
 uint64_t map_get(map_t* map, uint64_t hash);
 void map_set(map_t* map, uint64_t hash, uint64_t value);
-void map_remove(map_t* map, uint64_t hash);
 
 // UTF-8
 size_t utf8_decode(const char *s, const char *e, unsigned *pch);

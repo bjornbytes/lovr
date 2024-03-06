@@ -129,32 +129,6 @@ void map_set(map_t* map, uint64_t hash, uint64_t value) {
   map->values[h] = value;
 }
 
-void map_remove(map_t* map, uint64_t hash) {
-  uint64_t h = map_find(map, hash);
-
-  if (map->hashes[h] == MAP_NIL) {
-    return;
-  }
-
-  uint64_t mask = map->size - 1;
-  uint64_t i = h;
-
-  do {
-    i = (i + 1) & mask;
-    uint64_t x = map->hashes[i] & mask;
-    // Removing a key from an open-addressed hash table is complicated
-    if ((i > h && (x <= h || x > i)) || (i < h && (x <= h && x > i))) {
-      map->hashes[h] = map->hashes[i];
-      map->values[h] = map->values[i];
-      h = i;
-    }
-  } while (map->hashes[i] != MAP_NIL);
-
-  map->hashes[i] = MAP_NIL;
-  map->values[i] = MAP_NIL;
-  map->used--;
-}
-
 // UTF-8
 // https://github.com/starwing/luautf8
 size_t utf8_decode(const char *s, const char *e, unsigned *pch) {
