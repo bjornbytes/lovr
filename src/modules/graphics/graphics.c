@@ -1721,10 +1721,12 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     gpu_stream* stream = streams[streamCount++] = gpu_stream_begin(NULL);
 
     // Timestamp Readback
-    BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, 2 * count * sizeof(uint32_t), 4);
-    gpu_copy_tally_buffer(stream, state.timestamps, view.buffer, 0, view.offset, 2 * count);
-    Readback* readback = lovrReadbackCreateTimestamp(times, count, view);
-    lovrRelease(readback, lovrReadbackDestroy); // It gets freed when it completes
+    if (state.timingEnabled) {
+      BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, 2 * count * sizeof(uint32_t), 4);
+      gpu_copy_tally_buffer(stream, state.timestamps, view.buffer, 0, view.offset, 2 * count);
+      Readback* readback = lovrReadbackCreateTimestamp(times, count, view);
+      lovrRelease(readback, lovrReadbackDestroy); // It gets freed when it completes
+    }
 
     // OpenXR Swapchain Layout Transitions
     for (uint32_t i = 0; i < count; i++) {
