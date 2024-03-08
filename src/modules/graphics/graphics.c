@@ -5242,7 +5242,10 @@ void lovrPassDestroy(void* ref) {
     gpu_tally_destroy(pass->tally.gpu);
     lovrRelease(pass->tally.tempBuffer, lovrBufferDestroy);
   }
-  if (pass->buffers.current) freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
+  if (pass->buffers.current) {
+    pass->buffers.current->tick = state.tick;
+    freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
+  }
   os_vm_free(pass->allocator.memory, pass->allocator.limit);
   free(pass);
 }
