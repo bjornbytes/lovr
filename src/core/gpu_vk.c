@@ -184,7 +184,7 @@ static struct {
   VkDebugUtilsMessengerEXT messenger;
   gpu_allocator allocators[GPU_MEMORY_COUNT];
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
-  gpu_memory memory[256];
+  gpu_memory memory[1024];
   uint32_t streamCount;
   uint32_t tick[2];
   gpu_tick ticks[2];
