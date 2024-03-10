@@ -373,6 +373,7 @@ typedef struct {
   uint64_t hash;
   uint32_t start;
   uint32_t baseVertex;
+  uint32_t vertexBufferOffset;
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
 } CachedShape;
@@ -479,6 +480,7 @@ typedef struct {
   gpu_buffer* vertexBuffer;
   gpu_buffer* indexBuffer;
   gpu_buffer* uniformBuffer;
+  uint32_t vertexBufferOffset;
   uint32_t uniformOffset;
   union {
     struct {
@@ -1388,6 +1390,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   gpu_bundle* bundle = NULL;
   Material* material = NULL;
   gpu_buffer* vertexBuffer = NULL;
+  uint32_t vertexBufferOffset = 0;
   gpu_buffer* indexBuffer = NULL;
   gpu_buffer* uniformBuffer = NULL;
   uint32_t uniformOffset = 0;
@@ -1440,9 +1443,10 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       uniformOffset = draw->uniformOffset;
     }
 
-    if (draw->vertexBuffer && draw->vertexBuffer != vertexBuffer) {
-      gpu_bind_vertex_buffers(stream, &draw->vertexBuffer, NULL, 0, 1);
+    if (draw->vertexBuffer && (draw->vertexBuffer != vertexBuffer || draw->vertexBufferOffset != vertexBufferOffset)) {
+      gpu_bind_vertex_buffers(stream, &draw->vertexBuffer, &draw->vertexBufferOffset, 0, 1);
       vertexBuffer = draw->vertexBuffer;
+      vertexBufferOffset = draw->vertexBufferOffset;
     }
 
     if (draw->indexBuffer && draw->indexBuffer != indexBuffer) {
@@ -1451,8 +1455,8 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       indexBuffer = draw->indexBuffer;
     }
 
-    uint32_t drawId = i & 0xff;
-    gpu_push_constants(stream, draw->shader->gpu, &drawId, sizeof(drawId));
+    uint32_t DrawID = i & 0xff;
+    gpu_push_constants(stream, draw->shader->gpu, &DrawID, sizeof(DrawID));
 
     if (draw->flags & DRAW_INDIRECT) {
       if (draw->indexBuffer) {
@@ -6017,6 +6021,7 @@ static void lovrPassResolveVertices(Pass* pass, DrawInfo* info, Draw* draw) {
     draw->indexBuffer = cached->indexBuffer;
     draw->start = cached->start;
     draw->baseVertex = cached->baseVertex;
+    draw->vertexBufferOffset = cached->vertexBufferOffset;
     *info->vertex.pointer = NULL;
     *info->index.pointer = NULL;
     return;
@@ -6028,24 +6033,17 @@ static void lovrPassResolveVertices(Pass* pass, DrawInfo* info, Draw* draw) {
     BufferView view = lovrPassGetBuffer(pass, info->vertex.count * stride, stride);
     *info->vertex.pointer = view.pointer;
     draw->vertexBuffer = view.buffer;
-    if (info->index.buffer || info->index.count > 0) {
-      draw->baseVertex = view.offset / stride;
-    } else {
-      draw->start = view.offset / stride;
-    }
+    draw->vertexBufferOffset = view.offset;
   } else if (info->vertex.buffer) {
     Buffer* buffer = info->vertex.buffer;
     uint32_t stride = buffer->info.format->stride;
     lovrCheck(stride <= state.limits.vertexBufferStride, "Vertex buffer stride exceeds vertexBufferStride limit");
     trackBuffer(pass, buffer, GPU_PHASE_INPUT_VERTEX, GPU_CACHE_VERTEX);
     draw->vertexBuffer = buffer->gpu;
-    if (info->index.buffer || info->index.count > 0) {
-      draw->baseVertex += buffer->base / stride;
-    } else {
-      draw->start += buffer->base / stride;
-    }
+    draw->vertexBufferOffset = buffer->base;
   } else {
     draw->vertexBuffer = state.defaultBuffer->gpu;
+    draw->vertexBufferOffset = state.defaultBuffer->base;
   }
 
   if (!info->index.buffer && info->index.count > 0) {
@@ -6068,6 +6066,7 @@ static void lovrPassResolveVertices(Pass* pass, DrawInfo* info, Draw* draw) {
     cached->indexBuffer = draw->indexBuffer;
     cached->start = draw->start;
     cached->baseVertex = draw->baseVertex;
+    cached->vertexBufferOffset = draw->vertexBufferOffset;
   }
 }
 
