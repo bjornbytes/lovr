@@ -77,5 +77,4 @@ void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]);
 void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]);
 void lovrImageMapPixel(Image* image, uint32_t x, uint32_t y, uint32_t w, uint32_t h, MapPixelCallback* callback, void* userdata);
 void lovrImageCopy(Image* src, Image* dst, uint32_t srcOffset[2], uint32_t dstOffset[2], uint32_t extent[2]);
-void lovrImageClear(Image* image);
 struct Blob* lovrImageEncode(Image* image);
