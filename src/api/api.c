@@ -382,7 +382,7 @@ void luax_pushconf(lua_State* L) {
 
 int luax_setconf(lua_State* L) {
   luax_pushconf(L);
-  lovrAssert(lua_isnil(L, -1), "Unable to set lovr.conf multiple times");
+  lovrCheck(lua_isnil(L, -1), "Unable to set lovr.conf multiple times");
   lua_pop(L, 1);
   lua_setfield(L, LUA_REGISTRYINDEX, "_lovrconf");
   return 0;
@@ -518,9 +518,9 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
 
     *vertexCount = luax_len(L, index) / (nested ? 1 : 3);
     *indexCount = luax_len(L, index + 1);
-    lovrAssert(*vertexCount > 0, "Invalid mesh data: vertex count is zero");
-    lovrAssert(*indexCount > 0, "Invalid mesh data: index count is zero");
-    lovrAssert(*indexCount % 3 == 0, "Index count must be a multiple of 3");
+    lovrCheck(*vertexCount > 0, "Invalid mesh data: vertex count is zero");
+    lovrCheck(*indexCount > 0, "Invalid mesh data: index count is zero");
+    lovrCheck(*indexCount % 3 == 0, "Index count must be a multiple of 3");
     *vertices = malloc(sizeof(float) * *vertexCount * 3);
     *indices = malloc(sizeof(uint32_t) * *indexCount);
     lovrAssert(vertices && indices, "Out of memory");
@@ -548,7 +548,7 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     for (uint32_t i = 0; i < *indexCount; i++) {
       lua_rawgeti(L, index + 1, i + 1);
       uint32_t index = luaL_checkinteger(L, -1) - 1;
-      lovrAssert(index < *vertexCount, "Invalid vertex index %d (expected [%d, %d])", index + 1, 1, *vertexCount);
+      lovrCheck(index < *vertexCount, "Invalid vertex index %d (expected [%d, %d])", index + 1, 1, *vertexCount);
       (*indices)[i] = index;
       lua_pop(L, 1);
     }

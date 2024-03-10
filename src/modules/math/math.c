@@ -144,8 +144,8 @@ void lovrCurveDestroy(void* ref) {
 }
 
 void lovrCurveEvaluate(Curve* curve, float t, vec4 p) {
-  lovrAssert(curve->points.length >= 8, "Need at least 2 points to evaluate a Curve");
-  lovrAssert(t >= 0.f && t <= 1.f, "Curve evaluation interval must be within [0, 1]");
+  lovrCheck(curve->points.length >= 8, "Need at least 2 points to evaluate a Curve");
+  lovrCheck(t >= 0.f && t <= 1.f, "Curve evaluation interval must be within [0, 1]");
   evaluate(curve->points.data, curve->points.length / 4, t, p);
 }
 
@@ -159,8 +159,8 @@ void lovrCurveGetTangent(Curve* curve, float t, vec4 p) {
 }
 
 Curve* lovrCurveSlice(Curve* curve, float t1, float t2) {
-  lovrAssert(curve->points.length >= 8, "Need at least 2 points to slice a Curve");
-  lovrAssert(t1 >= 0.f && t2 <= 1.f, "Curve slice interval must be within [0, 1]");
+  lovrCheck(curve->points.length >= 8, "Need at least 2 points to slice a Curve");
+  lovrCheck(t1 >= 0.f && t2 <= 1.f, "Curve slice interval must be within [0, 1]");
 
   Curve* new = lovrCurveCreate();
   arr_reserve(&new->points, curve->points.length);
@@ -271,7 +271,7 @@ Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
 }
 
 float* lovrPoolResolve(Pool* pool, Vector vector) {
-  lovrAssert(vector.handle.generation == pool->generation, "Attempt to use a temporary vector from a previous frame");
+  lovrCheck(vector.handle.generation == pool->generation, "Attempt to use a temporary vector from a previous frame");
   return pool->data + vector.handle.index;
 }
 

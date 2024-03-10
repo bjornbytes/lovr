@@ -209,7 +209,7 @@ static void setPixelRGBA32F(float* src, ImagePointer dst) { for (uint32_t i = 0;
 
 void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
-  lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
+  lovrCheck(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
   size_t offset = measure(y * image->width + x, 1, image->format);
   ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
   switch (image->format) {
@@ -228,7 +228,7 @@ void lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
 
 void lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
-  lovrAssert(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
+  lovrCheck(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
   size_t offset = measure(y * image->width + x, 1, image->format);
   ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
   switch (image->format) {
@@ -278,12 +278,12 @@ void lovrImageMapPixel(Image* image, uint32_t x0, uint32_t y0, uint32_t w, uint3
 }
 
 void lovrImageCopy(Image* src, Image* dst, uint32_t srcOffset[2], uint32_t dstOffset[2], uint32_t extent[2]) {
-  lovrAssert(src->format == dst->format, "To copy between Images, their formats must match");
-  lovrAssert(!lovrImageIsCompressed(src), "Compressed Images cannot be copied");
-  lovrAssert(dstOffset[0] + extent[0] <= dst->width, "Image copy region extends past the destination image width");
-  lovrAssert(dstOffset[1] + extent[1] <= dst->height, "Image copy region extends past the destination image height");
-  lovrAssert(srcOffset[0] + extent[0] <= src->width, "Image copy region extends past the source image width");
-  lovrAssert(srcOffset[1] + extent[1] <= src->height, "Image copy region extends past the source image height");
+  lovrCheck(src->format == dst->format, "To copy between Images, their formats must match");
+  lovrCheck(!lovrImageIsCompressed(src), "Compressed Images cannot be copied");
+  lovrCheck(dstOffset[0] + extent[0] <= dst->width, "Image copy region extends past the destination image width");
+  lovrCheck(dstOffset[1] + extent[1] <= dst->height, "Image copy region extends past the destination image height");
+  lovrCheck(srcOffset[0] + extent[0] <= src->width, "Image copy region extends past the source image width");
+  lovrCheck(srcOffset[1] + extent[1] <= src->height, "Image copy region extends past the source image height");
   size_t pixelSize = measure(1, 1, src->format);
   uint8_t* p = (uint8_t*) lovrImageGetLayerData(src, 0, 0) + (srcOffset[1] * src->width + srcOffset[0]) * pixelSize;
   uint8_t* q = (uint8_t*) lovrImageGetLayerData(dst, 0, 0) + (dstOffset[1] * dst->width + dstOffset[0]) * pixelSize;
@@ -320,7 +320,7 @@ static uint32_t crc32(uint8_t* data, size_t length) {
 }
 
 Blob* lovrImageEncode(Image* image) {
-  lovrAssert(image->format == FORMAT_RGBA8, "Only images with the rgba8 format can be encoded");
+  lovrCheck(image->format == FORMAT_RGBA8, "Currently, only images with the rgba8 format can be encoded");
   uint32_t w = image->width;
   uint32_t h = image->height;
   uint8_t* pixels = (uint8_t*) image->blob->data;
@@ -755,7 +755,7 @@ static Image* loadDDS(Blob* blob) {
       default: lovrThrow("DDS file uses an unsupported DXGI format (%d)", header10->dxgiFormat);
     }
 
-    lovrAssert(header10->resourceDimension != D3D10_RESOURCE_DIMENSION_TEXTURE3D, "Loading 3D DDS images is not supported");
+    lovrCheck(header10->resourceDimension != D3D10_RESOURCE_DIMENSION_TEXTURE3D, "Loading 3D DDS images is not supported");
     layers = header10->arraySize;
 
     if (header10->miscFlag & DDS_RESOURCE_MISC_TEXTURECUBE) {
@@ -787,7 +787,7 @@ static Image* loadDDS(Blob* blob) {
     lovrThrow("DDS file uses an unsupported format"); // TODO could handle more uncompressed formats
   }
 
-  lovrAssert(~header->flags & DDSD_DEPTH, "Loading 3D DDS images is not supported");
+  lovrCheck(~header->flags & DDSD_DEPTH, "Loading 3D DDS images is not supported");
   uint32_t levels = MAX(1, header->mipmapCount);
 
   Image* image = calloc(1, offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
@@ -927,9 +927,9 @@ static Image* loadKTX1(Blob* blob) {
   data += header.bytesOfKeyValueData;
   length -= header.bytesOfKeyValueData;
 
-  lovrAssert(header.pixelWidth > 0, "KTX image dimensions must be positive");
-  lovrAssert(header.pixelHeight > 0, "Unable to load 1D KTX images");
-  lovrAssert(header.pixelDepth == 0, "Unable to load 3D KTX images");
+  lovrCheck(header.pixelWidth > 0, "KTX image dimensions must be positive");
+  lovrCheck(header.pixelHeight > 0, "Unable to load 1D KTX images");
+  lovrCheck(header.pixelDepth == 0, "Unable to load 3D KTX images");
 
   uint32_t layers = MAX(header.numberOfArrayElements, 1);
   uint32_t levels = MAX(header.numberOfMipmapLevels, 1);
@@ -945,8 +945,8 @@ static Image* loadKTX1(Blob* blob) {
   lovrRetain(blob);
 
   if (header.numberOfFaces > 1) {
-    lovrAssert(header.numberOfFaces == 6, "KTX files must have 1 or 6 faces");
-    lovrAssert(header.numberOfArrayElements == 0, "KTX files with cubemap arrays are not supported");
+    lovrCheck(header.numberOfFaces == 6, "KTX files must have 1 or 6 faces");
+    lovrCheck(header.numberOfArrayElements == 0, "KTX files with cubemap arrays are not supported");
     image->flags |= IMAGE_CUBEMAP;
     image->layers = 6;
   }
@@ -1013,7 +1013,7 @@ static Image* loadKTX1(Blob* blob) {
       }
     }
   }
-  lovrAssert(image->format != ~0u, "KTX1 file uses an unsupported image format (glType = %d, glFormat = %d, glInternalFormat = %d)", header.glType, header.glFormat, header.glInternalFormat);
+  lovrCheck(image->format != ~0u, "KTX1 file uses an unsupported image format (glType = %d, glFormat = %d, glInternalFormat = %d)", header.glType, header.glFormat, header.glInternalFormat);
 
   // Mipmaps
   uint32_t width = image->width;
@@ -1074,12 +1074,12 @@ static Image* loadKTX2(Blob* blob) {
     return NULL;
   }
 
-  lovrAssert(header->pixelWidth > 0, "KTX image dimensions must be positive");
-  lovrAssert(header->pixelHeight > 0, "Unable to load 1D KTX images");
-  lovrAssert(header->pixelDepth == 0, "Unable to load 3D KTX images");
-  lovrAssert(header->faceCount == 1 || header->faceCount == 6, "Invalid KTX file (faceCount must be 1 or 6)");
-  lovrAssert(header->layerCount == 0 || header->faceCount == 1, "Unable to load cubemap array KTX images");
-  lovrAssert(!header->compression, "Supercompressed KTX files are not currently supported");
+  lovrCheck(header->pixelWidth > 0, "KTX image dimensions must be positive");
+  lovrCheck(header->pixelHeight > 0, "Unable to load 1D KTX images");
+  lovrCheck(header->pixelDepth == 0, "Unable to load 3D KTX images");
+  lovrCheck(header->faceCount == 1 || header->faceCount == 6, "Invalid KTX file (faceCount must be 1 or 6)");
+  lovrCheck(header->layerCount == 0 || header->faceCount == 1, "Unable to load cubemap array KTX images");
+  lovrCheck(!header->compression, "Supercompressed KTX files are not currently supported");
 
   uint32_t layers = MAX(header->layerCount, 1);
   uint32_t levels = MAX(header->levelCount, 1);

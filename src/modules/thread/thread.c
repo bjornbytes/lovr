@@ -139,7 +139,7 @@ void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount)
   free(thread->error);
   thread->error = NULL;
 
-  lovrAssert(argumentCount <= MAX_THREAD_ARGUMENTS, "Too many Thread arguments (max is %d)", MAX_THREAD_ARGUMENTS);
+  lovrCheck(argumentCount <= MAX_THREAD_ARGUMENTS, "Too many Thread arguments (max is %d)", MAX_THREAD_ARGUMENTS);
   memcpy(thread->arguments, arguments, argumentCount * sizeof(Variant));
   thread->argumentCount = argumentCount;
 

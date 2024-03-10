@@ -395,8 +395,8 @@ uint32_t lovrSoundRead(Sound* sound, uint32_t offset, uint32_t count, void* data
 }
 
 uint32_t lovrSoundWrite(Sound* sound, uint32_t offset, uint32_t count, const void* data) {
-  lovrAssert(!sound->decoder, "Compressed Sound can not be written to");
-  lovrAssert(sound->stream || sound->blob, "Live-generated sound can not be written to");
+  lovrCheck(!sound->decoder, "Compressed Sound can not be written to");
+  lovrCheck(sound->stream || sound->blob, "Live-generated sound can not be written to");
   size_t stride = lovrSoundGetStride(sound);
   uint32_t frames = 0;
 
@@ -422,11 +422,11 @@ uint32_t lovrSoundWrite(Sound* sound, uint32_t offset, uint32_t count, const voi
 }
 
 uint32_t lovrSoundCopy(Sound* src, Sound* dst, uint32_t count, uint32_t srcOffset, uint32_t dstOffset) {
-  lovrAssert(!dst->decoder, "Compressed Sound can not be written to");
-  lovrAssert(dst->stream || dst->blob, "Live-generated sound can not be written to");
-  lovrAssert(src != dst, "Can not copy a Sound to itself");
-  lovrAssert(src->format == dst->format, "Sound formats need to match");
-  lovrAssert(src->layout == dst->layout, "Sound channel layouts need to match");
+  lovrCheck(!dst->decoder, "Compressed Sound can not be written to");
+  lovrCheck(dst->stream || dst->blob, "Live-generated sound can not be written to");
+  lovrCheck(src != dst, "Can not copy a Sound to itself");
+  lovrCheck(src->format == dst->format, "Sound formats need to match");
+  lovrCheck(src->layout == dst->layout, "Sound channel layouts need to match");
   uint32_t frames = 0;
 
   if (dst->stream) {

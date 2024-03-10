@@ -179,9 +179,9 @@ void lovrFilesystemDestroy(void) {
 }
 
 void lovrFilesystemSetSource(const char* source) {
-  lovrAssert(!state.source[0], "Source is already set!");
+  lovrCheck(!state.source[0], "Source is already set!");
   size_t length = strlen(source);
-  lovrAssert(sizeof(state.source) > length, "Source is too long!");
+  lovrCheck(sizeof(state.source) > length, "Source is too long!");
   memcpy(state.source, source, length);
   state.source[length] = '\0';
 }

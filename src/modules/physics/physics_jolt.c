@@ -1064,7 +1064,7 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount
 }
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t widthSamples, uint32_t depthSamples, float horizontalScale, float verticalScale) {
-  lovrAssert(widthSamples == depthSamples, "Jolt needs terrain width and depth to be the same");
+  lovrCheck(widthSamples == depthSamples, "Jolt needs terrain width and depth to be the same");
   TerrainShape* terrain = calloc(1, sizeof(TerrainShape));
   lovrAssert(terrain, "Out of memory");
   terrain->ref = 1;
@@ -1197,7 +1197,7 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
 }
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
-  lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
+  lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
   BallJoint* joint = calloc(1, sizeof(BallJoint));
   lovrAssert(joint, "Out of memory");
   joint->ref = 1;
@@ -1255,7 +1255,7 @@ void lovrBallJointSetTightness(Joint* joint, float tightness) {
 }
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
-  lovrAssert(a->world == b->world, "Joint bodies must exist in same World");
+  lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
   DistanceJoint* joint = calloc(1, sizeof(DistanceJoint));
   lovrAssert(joint, "Out of memory");
   joint->ref = 1;
@@ -1323,7 +1323,7 @@ void lovrDistanceJointSetTightness(Joint* joint, float tightness) {
 }
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
-  lovrAssert(a->world == b->world, "Joint bodies must exist in the same World");
+  lovrCheck(a->world == b->world, "Joint bodies must exist in the same World");
 
   HingeJoint* joint = calloc(1, sizeof(HingeJoint));
   lovrAssert(joint, "Out of memory");
@@ -1417,7 +1417,7 @@ void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
 }
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
-  lovrAssert(a->world == b->world, "Joint bodies must exist in the same World");
+  lovrCheck(a->world == b->world, "Joint bodies must exist in the same World");
 
   SliderJoint* joint = calloc(1, sizeof(SliderJoint));
   lovrAssert(joint, "Out of memory");

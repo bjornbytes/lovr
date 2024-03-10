@@ -784,7 +784,7 @@ int luaopen_lovr_headset(lua_State* L) {
       for (int i = 0; i < n; i++) {
         lua_rawgeti(L, -1, i + 1);
         config.drivers[config.driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
-        lovrAssert(config.driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
+        lovrCheck(config.driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
         lua_pop(L, 1);
       }
       lua_pop(L, 1);

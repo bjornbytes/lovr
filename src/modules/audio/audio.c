@@ -291,8 +291,8 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
     lovrRetain(sink);
   }
 
-  lovrAssert(!sink || lovrSoundGetChannelLayout(sink) != CHANNEL_AMBISONIC, "Ambisonic Sounds cannot be used as sinks");
-  lovrAssert(!sink || lovrSoundIsStream(sink), "Sinks must be streams");
+  lovrCheck(!sink || lovrSoundGetChannelLayout(sink) != CHANNEL_AMBISONIC, "Ambisonic Sounds cannot be used as sinks");
+  lovrCheck(!sink || lovrSoundIsStream(sink), "Sinks must be streams");
 
   ma_device_uninit(&state.devices[type]);
   lovrRelease(state.sinks[type], lovrSoundDestroy);
@@ -407,7 +407,7 @@ void lovrAudioSetAbsorption(float absorption[3]) {
 // Source
 
 Source* lovrSourceCreate(Sound* sound, bool pitchable, bool spatial, uint32_t effects) {
-  lovrAssert(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
+  lovrCheck(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
   Source* source = calloc(1, sizeof(Source));
   lovrAssert(source, "Out of memory");
   source->ref = 1;
@@ -530,7 +530,7 @@ bool lovrSourceIsLooping(Source* source) {
 }
 
 void lovrSourceSetLooping(Source* source, bool loop) {
-  lovrAssert(loop == false || lovrSoundIsStream(source->sound) == false, "Can't loop streams");
+  lovrCheck(loop == false || lovrSoundIsStream(source->sound) == false, "Can't loop streams");
   source->looping = loop;
 }
 

@@ -767,7 +767,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
           lua_pushstring(L, altFaces[i]);
           lua_rawget(L, 1);
         }
-        lovrAssert(!lua_isnil(L, -1), "No array texture layers given and cubemap face '%s' missing", faces[i]);
+        lovrCheck(!lua_isnil(L, -1), "No array texture layers given and cubemap face '%s' missing", faces[i]);
         images[i] = luax_checkimage(L, -1);
       }
     } else {
@@ -802,11 +802,11 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     bool mipmappable = lovrGraphicsGetFormatSupport(info.format, TEXTURE_FEATURE_BLIT) & (1 << info.srgb);
     info.mipmaps = (levels == 1 && mipmappable) ? ~0u : levels;
     for (uint32_t i = 1; i < info.imageCount; i++) {
-      lovrAssert(lovrImageGetWidth(images[0], 0) == lovrImageGetWidth(images[i], 0), "Image widths must match");
-      lovrAssert(lovrImageGetHeight(images[0], 0) == lovrImageGetHeight(images[i], 0), "Image heights must match");
-      lovrAssert(lovrImageGetFormat(images[0]) == lovrImageGetFormat(images[i]), "Image formats must match");
-      lovrAssert(lovrImageGetLevelCount(images[0]) == lovrImageGetLevelCount(images[i]), "Image mipmap counts must match");
-      lovrAssert(lovrImageGetLayerCount(images[i]) == 1, "When a list of images are provided, each must have a single layer");
+      lovrCheck(lovrImageGetWidth(images[0], 0) == lovrImageGetWidth(images[i], 0), "Image widths must match");
+      lovrCheck(lovrImageGetHeight(images[0], 0) == lovrImageGetHeight(images[i], 0), "Image heights must match");
+      lovrCheck(lovrImageGetFormat(images[0]) == lovrImageGetFormat(images[i]), "Image formats must match");
+      lovrCheck(lovrImageGetLevelCount(images[0]) == lovrImageGetLevelCount(images[i]), "Image mipmap counts must match");
+      lovrCheck(lovrImageGetLayerCount(images[i]) == 1, "When a list of images are provided, each must have a single layer");
     }
   }
 
@@ -968,7 +968,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
 
   lua_getfield(L, 1, "mipmaprange");
   if (!lua_isnil(L, -1)) {
-    lovrAssert(lua_istable(L, -1), "Sampler mipmap range must be nil or a table");
+    lovrCheck(lua_istable(L, -1), "Sampler mipmap range must be nil or a table");
     lua_rawgeti(L, -1, 1);
     lua_rawgeti(L, -2, 2);
     info.range[0] = luax_checkfloat(L, -2);

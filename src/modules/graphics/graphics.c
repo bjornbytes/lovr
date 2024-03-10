@@ -2235,7 +2235,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
 
       texture->renderView = malloc(gpu_sizeof_texture());
       lovrAssert(texture->renderView, "Out of memory");
-      lovrAssert(gpu_texture_init_view(texture->renderView, &view), "Failed to create texture view");
+      gpu_texture_init_view(texture->renderView, &view);
     }
   }
 
@@ -2250,7 +2250,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
 
     texture->storageView = malloc(gpu_sizeof_texture());
     lovrAssert(texture->storageView, "Out of memory");
-    lovrAssert(gpu_texture_init_view(texture->storageView, &view), "Failed to create texture view");
+    gpu_texture_init_view(texture->storageView, &view);
   } else {
     texture->storageView = texture->gpu;
   }
@@ -2332,7 +2332,7 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
 
       texture->renderView = malloc(gpu_sizeof_texture());
       lovrAssert(texture->renderView, "Out of memory");
-      lovrAssert(gpu_texture_init_view(texture->renderView, &subview), "Failed to create texture view");
+      gpu_texture_init_view(texture->renderView, &subview);
     }
   }
 
@@ -2350,7 +2350,7 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
 
     texture->storageView = malloc(gpu_sizeof_texture());
     lovrAssert(texture->storageView, "Out of memory");
-    lovrAssert(gpu_texture_init_view(texture->storageView, &subview), "Failed to create texture view");
+    gpu_texture_init_view(texture->storageView, &subview);
   } else {
     texture->storageView = texture->gpu;
   }
@@ -4695,7 +4695,7 @@ void lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float a
   if (alpha <= 0.f) return;
 
   ModelData* data = model->info.data;
-  lovrAssert(animationIndex < data->animationCount, "Invalid animation index '%d' (Model has %d animation%s)", animationIndex + 1, data->animationCount, data->animationCount == 1 ? "" : "s");
+  lovrCheck(animationIndex < data->animationCount, "Invalid animation index '%d' (Model has %d animation%s)", animationIndex + 1, data->animationCount, data->animationCount == 1 ? "" : "s");
   ModelAnimation* animation = &data->animations[animationIndex];
   time = fmodf(time, animation->duration);
 
@@ -4876,13 +4876,13 @@ Mesh* lovrModelGetMesh(Model* model, uint32_t index) {
 
 Texture* lovrModelGetTexture(Model* model, uint32_t index) {
   ModelData* data = model->info.data;
-  lovrAssert(index < data->imageCount, "Invalid texture index '%d' (Model has %d texture%s)", index + 1, data->imageCount, data->imageCount == 1 ? "" : "s");
+  lovrCheck(index < data->imageCount, "Invalid texture index '%d' (Model has %d texture%s)", index + 1, data->imageCount, data->imageCount == 1 ? "" : "s");
   return model->textures[index];
 }
 
 Material* lovrModelGetMaterial(Model* model, uint32_t index) {
   ModelData* data = model->info.data;
-  lovrAssert(index < data->materialCount, "Invalid material index '%d' (Model has %d material%s)", index + 1, data->materialCount, data->materialCount == 1 ? "" : "s");
+  lovrCheck(index < data->materialCount, "Invalid material index '%d' (Model has %d material%s)", index + 1, data->materialCount, data->materialCount == 1 ? "" : "s");
   return model->materials[index];
 }
 
@@ -7639,7 +7639,7 @@ static gpu_texture* getScratchTexture(gpu_stream* stream, Canvas* canvas, Textur
     .upload.stream = stream
   };
 
-  lovrAssert(gpu_texture_init(scratch->texture, &info), "Failed to create scratch texture");
+  gpu_texture_init(scratch->texture, &info);
   scratch->hash = hash;
   scratch->tick = state.tick;
   return scratch->texture;
