@@ -5,6 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+StringEntry lovrMountMode[] = {
+  [MOUNT_READ] = ENTRY("read"),
+  [MOUNT_READWRITE] = ENTRY("readwrite"),
+  { 0 }
+};
+
 StringEntry lovrOpenMode[] = {
   [OPEN_READ] = ENTRY("r"),
   [OPEN_WRITE] = ENTRY("w"),
@@ -289,9 +295,17 @@ static int l_lovrFilesystemLoad(lua_State* L) {
 static int l_lovrFilesystemMount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   const char* mountpoint = luaL_optstring(L, 2, NULL);
-  bool append = lua_toboolean(L, 3);
-  const char* root = luaL_optstring(L, 4, NULL);
-  lua_pushboolean(L, lovrFilesystemMount(path, mountpoint, append, root));
+  if (lua_type(L, 3) == LUA_TSTRING) {
+    MountMode mode = luax_checkenum(L, 3, MountMode, "read");
+    bool append = lua_toboolean(L, 4);
+    const char* root = luaL_optstring(L, 5, NULL);
+    lua_pushboolean(L, lovrFilesystemMount(path, mountpoint, mode, append, root));
+  } else { // Deprecated
+    MountMode mode = MOUNT_READ;
+    bool append = lua_toboolean(L, 3);
+    const char* root = luaL_optstring(L, 4, NULL);
+    lua_pushboolean(L, lovrFilesystemMount(path, mountpoint, mode, append, root));
+  }
   return 1;
 }
 
