@@ -17,8 +17,7 @@ static ModelData* lovrModelDataInitStlBinary(ModelData* model, Blob* source, Mod
 
   uint32_t vertexCount = triangleCount * 3;
   size_t vertexBufferSize = vertexCount * 6 * sizeof(float);
-  float* vertices = malloc(vertexBufferSize);
-  lovrAssert(vertices, "Out of memory");
+  float* vertices = lovrMalloc(vertexBufferSize);
 
   model->blobCount = 1;
   model->bufferCount = 1;

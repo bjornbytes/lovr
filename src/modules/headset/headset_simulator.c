@@ -272,7 +272,7 @@ static bool simulator_animate(struct Model* model) {
 }
 
 static Layer* simulator_newLayer(uint32_t width, uint32_t height) {
-  Layer* layer = calloc(1, sizeof(Layer));
+  Layer* layer = lovrCalloc(sizeof(Layer));
   layer->ref = 1;
   layer->textureWidth = width;
   layer->textureWeight = height;
@@ -281,7 +281,7 @@ static Layer* simulator_newLayer(uint32_t width, uint32_t height) {
 
 static void simulator_destroyLayer(void* ref) {
   Layer* layer = ref;
-  free(layer);
+  lovrFree(layer);
 }
 
 static Layer** simulator_getLayers(uint32_t* count) {

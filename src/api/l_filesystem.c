@@ -74,7 +74,7 @@ static int luax_loadfile(lua_State* L, const char* path, const char* debug, cons
     return 2;
   }
   int status = luax_loadbufferx(L, buffer, size, debug, mode);
-  free(buffer);
+  lovrFree(buffer);
   switch (status) {
     case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
     case LUA_ERRSYNTAX: return luaL_error(L, "Syntax error: %s", lua_tostring(L, -1));
@@ -315,7 +315,7 @@ static int l_lovrFilesystemRead(lua_State* L) {
     return 1;
   }
   lua_pushlstring(L, data, size);
-  free(data);
+  lovrFree(data);
   return 1;
 }
 

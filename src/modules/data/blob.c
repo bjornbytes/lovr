@@ -3,8 +3,7 @@
 #include <stdlib.h>
 
 Blob* lovrBlobCreate(void* data, size_t size, const char* name) {
-  Blob* blob = calloc(1, sizeof(Blob));
-  lovrAssert(blob, "Out of memory");
+  Blob* blob = lovrMalloc(sizeof(Blob));
   blob->ref = 1;
   blob->data = data;
   blob->size = size;
@@ -14,6 +13,6 @@ Blob* lovrBlobCreate(void* data, size_t size, const char* name) {
 
 void lovrBlobDestroy(void* ref) {
   Blob* blob = ref;
-  free(blob->data);
-  free(blob);
+  lovrFree(blob->data);
+  lovrFree(blob);
 }

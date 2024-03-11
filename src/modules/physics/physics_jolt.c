@@ -110,8 +110,7 @@ void lovrPhysicsDestroy(void) {
 }
 
 World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount) {
-  World* world = calloc(1, sizeof(World));
-  lovrAssert(world, "Out of memory");
+  World* world = lovrCalloc(sizeof(World));
 
   world->collision_steps = 1;
   world->ref = 1;
@@ -149,7 +148,7 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
   lovrWorldSetGravity(world, xg, yg, zg);
   for (uint32_t i = 0; i < tagCount; i++) {
     size_t size = strlen(tags[i]) + 1;
-    world->tags[i] = malloc(size);
+    world->tags[i] = lovrMalloc(size);
     memcpy(world->tags[i], tags[i], size);
   }
   return world;
@@ -160,12 +159,12 @@ void lovrWorldDestroy(void* ref) {
   lovrWorldDestroyData(world);
   // todo: free up overlaps/contacts (once their allocation is implemented)
   for (uint32_t i = 0; i < MAX_TAGS - 1 && world->tags[i]; i++) {
-    free(world->tags[i]);
+    lovrFree(world->tags[i]);
   }
   if (world->tags[15]) {
-    free(world->tags[15]);
+    lovrFree(world->tags[15]);
   }
-  free(world);
+  lovrFree(world);
 }
 
 void lovrWorldDestroyData(World* world) {
@@ -394,8 +393,7 @@ bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const ch
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   // todo: crashes when too many are added
-  Collider* collider = calloc(1, sizeof(Collider));
-  lovrAssert(collider, "Out of memory");
+  Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
   collider->world = world;
   collider->tag = UNTAGGED;
@@ -437,7 +435,7 @@ void lovrColliderDestroy(void* ref) {
   lovrColliderDestroyData(collider);
   arr_free(&collider->shapes);
   arr_free(&collider->joints);
-  free(collider);
+  lovrFree(collider);
 }
 
 void lovrColliderDestroyData(Collider* collider) {
@@ -862,7 +860,7 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
 void lovrShapeDestroy(void* ref) {
   Shape* shape = ref;
   lovrShapeDestroyData(shape);
-  free(shape);
+  lovrFree(shape);
 }
 
 void lovrShapeDestroyData(Shape* shape) {
@@ -939,8 +937,7 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
 
 SphereShape* lovrSphereShapeCreate(float radius) {
   lovrCheck(radius > 0.f, "SphereShape radius must be positive");
-  SphereShape* sphere = calloc(1, sizeof(SphereShape));
-  lovrAssert(sphere, "Out of memory");
+  SphereShape* sphere = lovrCalloc(sizeof(SphereShape));
   sphere->ref = 1;
   sphere->type = SHAPE_SPHERE;
   sphere->shape = (JPH_Shape *) JPH_SphereShape_Create(radius);
@@ -957,8 +954,7 @@ void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
 }
 
 BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
-  BoxShape* box = calloc(1, sizeof(BoxShape));
-  lovrAssert(box, "Out of memory");
+  BoxShape* box = lovrCalloc(sizeof(BoxShape));
   box->ref = 1;
   box->type = SHAPE_BOX;
   const JPH_Vec3 halfExtent = {
@@ -985,8 +981,7 @@ void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d) {
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CapsuleShape dimensions must be positive");
-  CapsuleShape* capsule = calloc(1, sizeof(CapsuleShape));
-  lovrAssert(capsule, "Out of memory");
+  CapsuleShape* capsule = lovrCalloc(sizeof(CapsuleShape));
   capsule->ref = 1;
   capsule->type = SHAPE_CAPSULE;
   capsule->shape = (JPH_Shape *) JPH_CapsuleShape_Create(length / 2, radius);
@@ -1013,8 +1008,7 @@ void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CylinderShape dimensions must be positive");
-  CylinderShape* Cylinder = calloc(1, sizeof(CylinderShape));
-  lovrAssert(Cylinder, "Out of memory");
+  CylinderShape* Cylinder = lovrCalloc(sizeof(CylinderShape));
   Cylinder->ref = 1;
   Cylinder->type = SHAPE_CYLINDER;
   Cylinder->shape = (JPH_Shape *) JPH_CylinderShape_Create(length / 2.f, radius);
@@ -1040,13 +1034,12 @@ void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
 }
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]) {
-  MeshShape* mesh = calloc(1, sizeof(MeshShape));
-  lovrAssert(mesh, "Out of memory");
+  MeshShape* mesh = lovrCalloc(sizeof(MeshShape));
   mesh->ref = 1;
   mesh->type = SHAPE_MESH;
 
   int triangleCount = indexCount / 3;
-  JPH_IndexedTriangle * indexedTriangles = malloc(triangleCount * sizeof(JPH_IndexedTriangle));
+  JPH_IndexedTriangle * indexedTriangles = lovrMalloc(triangleCount * sizeof(JPH_IndexedTriangle));
   for (int i = 0; i < triangleCount; i++) {
     indexedTriangles[i].i1 = indices[i * 3 + 0];
     indexedTriangles[i].i2 = indices[i * 3 + 1];
@@ -1065,8 +1058,7 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t widthSamples, uint32_t depthSamples, float horizontalScale, float verticalScale) {
   lovrCheck(widthSamples == depthSamples, "Jolt needs terrain width and depth to be the same");
-  TerrainShape* terrain = calloc(1, sizeof(TerrainShape));
-  lovrAssert(terrain, "Out of memory");
+  TerrainShape* terrain = lovrCalloc(sizeof(TerrainShape));
   terrain->ref = 1;
   terrain->type = SHAPE_TERRAIN;
   const JPH_Vec3 offset = {
@@ -1127,7 +1119,7 @@ void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
 void lovrJointDestroy(void* ref) {
   Joint* joint = ref;
   lovrJointDestroyData(joint);
-  free(joint);
+  lovrFree(joint);
 }
 
 void lovrJointDestroyData(Joint* joint) {
@@ -1198,8 +1190,7 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
-  BallJoint* joint = calloc(1, sizeof(BallJoint));
-  lovrAssert(joint, "Out of memory");
+  BallJoint* joint = lovrCalloc(sizeof(BallJoint));
   joint->ref = 1;
   joint->type = JOINT_BALL;
 
@@ -1256,8 +1247,7 @@ void lovrBallJointSetTightness(Joint* joint, float tightness) {
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
-  DistanceJoint* joint = calloc(1, sizeof(DistanceJoint));
-  lovrAssert(joint, "Out of memory");
+  DistanceJoint* joint = lovrCalloc(sizeof(DistanceJoint));
   joint->ref = 1;
   joint->type = JOINT_DISTANCE;
 
@@ -1325,8 +1315,7 @@ void lovrDistanceJointSetTightness(Joint* joint, float tightness) {
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in the same World");
 
-  HingeJoint* joint = calloc(1, sizeof(HingeJoint));
-  lovrAssert(joint, "Out of memory");
+  HingeJoint* joint = lovrCalloc(sizeof(HingeJoint));
   joint->ref = 1;
   joint->type = JOINT_HINGE;
 
@@ -1419,8 +1408,7 @@ void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in the same World");
 
-  SliderJoint* joint = calloc(1, sizeof(SliderJoint));
-  lovrAssert(joint, "Out of memory");
+  SliderJoint* joint = lovrCalloc(sizeof(SliderJoint));
   joint->ref = 1;
   joint->type = JOINT_SLIDER;
 

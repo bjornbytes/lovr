@@ -21,8 +21,7 @@ static void* nullIO(const char* path, size_t* count) {
 }
 
 ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
-  ModelData* model = calloc(1, sizeof(ModelData));
-  lovrAssert(model, "Out of memory");
+  ModelData* model = lovrCalloc(sizeof(ModelData));
   model->ref = 1;
 
   if (!io) {
@@ -55,11 +54,11 @@ void lovrModelDataDestroy(void* ref) {
   map_free(&model->animationMap);
   map_free(&model->materialMap);
   map_free(&model->nodeMap);
-  free(model->vertices);
-  free(model->indices);
-  free(model->metadata);
-  free(model->data);
-  free(model);
+  lovrFree(model->vertices);
+  lovrFree(model->indices);
+  lovrFree(model->metadata);
+  lovrFree(model->data);
+  lovrFree(model);
 }
 
 // Batches allocations for all the ModelData arrays
@@ -84,8 +83,7 @@ void lovrModelDataAllocate(ModelData* model) {
   totalSize += sizes[14] = model->charCount * sizeof(char);
 
   size_t offset = 0;
-  char* p = model->data = calloc(1, totalSize);
-  lovrAssert(model->data, "Out of memory");
+  char* p = model->data = lovrCalloc(totalSize);
   model->blobs = (Blob**) (p + offset), offset += sizes[0];
   model->buffers = (ModelBuffer*) (p + offset), offset += sizes[1];
   model->images = (Image**) (p + offset), offset += sizes[2];
@@ -389,8 +387,7 @@ void lovrModelDataGetBoundingSphere(ModelData* model, float sphere[4]) {
     }
 
     uint32_t pointCount = totalPrimitiveCount * 8;
-    float* points = malloc(pointCount * 3 * sizeof(float));
-    lovrAssert(points, "Out of memory");
+    float* points = lovrMalloc(pointCount * 3 * sizeof(float));
 
     uint32_t pointIndex = 0;
     boundingSphereHelper(model, model->rootNode, &pointIndex, points, (float[16]) MAT4_IDENTITY);
@@ -445,7 +442,7 @@ void lovrModelDataGetBoundingSphere(ModelData* model, float sphere[4]) {
     model->boundingSphere[1] = y;
     model->boundingSphere[2] = z;
     model->boundingSphere[3] = r;
-    free(points);
+    lovrFree(points);
   }
 
   memcpy(sphere, model->boundingSphere, sizeof(model->boundingSphere));
@@ -562,9 +559,8 @@ void lovrModelDataGetTriangles(ModelData* model, float** vertices, uint32_t** in
 
   if (vertices && !model->vertices) {
     uint32_t baseIndex = 0;
-    model->vertices = malloc(model->totalVertexCount * 3 * sizeof(float));
-    model->indices = malloc(model->totalIndexCount * sizeof(uint32_t));
-    lovrAssert(model->vertices && model->indices, "Out of memory");
+    model->vertices = lovrMalloc(model->totalVertexCount * 3 * sizeof(float));
+    model->indices = lovrMalloc(model->totalIndexCount * sizeof(uint32_t));
     *vertices = model->vertices;
     *indices = model->indices;
     collectVertices(model, model->rootNode, vertices, indices, &baseIndex, (float[16]) MAT4_IDENTITY);

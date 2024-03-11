@@ -13,9 +13,9 @@ static struct {
 
 void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
-    case TYPE_STRING: free(variant->value.string.pointer); return;
+    case TYPE_STRING: lovrFree(variant->value.string.pointer); return;
     case TYPE_OBJECT: lovrRelease(variant->value.object.pointer, variant->value.object.destructor); return;
-    case TYPE_MATRIX: free(variant->value.matrix.data); return;
+    case TYPE_MATRIX: lovrFree(variant->value.matrix.data); return;
     default: return;
   }
 }
@@ -51,8 +51,7 @@ void lovrEventPush(Event event) {
   if (event.type == EVENT_THREAD_ERROR) {
     lovrRetain(event.data.thread.thread);
     size_t length = strlen(event.data.thread.error);
-    char* copy = malloc(length + 1);
-    lovrAssert(copy, "Out of memory");
+    char* copy = lovrMalloc(length + 1);
     memcpy(copy, event.data.thread.error, length);
     copy[length] = '\0';
     event.data.thread.error = copy;

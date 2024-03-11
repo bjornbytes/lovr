@@ -200,8 +200,8 @@ static int l_lovrAudioSetGeometry(lua_State* L) {
   AudioMaterial material = luax_checkenum(L, index, AudioMaterial, "generic");
   bool success = lovrAudioSetGeometry(vertices, indices, vertexCount, indexCount, material);
   if (shouldFree) {
-    free(vertices);
-    free(indices);
+    lovrFree(vertices);
+    lovrFree(indices);
   }
   lua_pushboolean(L, success);
   return 1;

@@ -229,7 +229,7 @@ void lovrAudioDestroy(void) {
   if (atomic_fetch_sub(&state.ref, 1) != 1) return;
   for (size_t i = 0; i < 2; i++) {
     ma_device_uninit(&state.devices[i]);
-    free(state.deviceInfo[i]);
+    lovrFree(state.deviceInfo[i]);
   }
   Source* source;
   FOREACH_SOURCE(source) lovrRelease(source, lovrSourceDestroy);
@@ -267,8 +267,7 @@ bool lovrAudioGetDevice(AudioType type, AudioDevice* device) {
   }
 
   if (!state.deviceInfo[type]) {
-    state.deviceInfo[type] = malloc(sizeof(ma_device_info));
-    lovrAssert(state.deviceInfo[type], "Out of memory");
+    state.deviceInfo[type] = lovrMalloc(sizeof(ma_device_info));
   }
 
   ma_device_info* info = state.deviceInfo[type];
@@ -408,8 +407,7 @@ void lovrAudioSetAbsorption(float absorption[3]) {
 
 Source* lovrSourceCreate(Sound* sound, bool pitchable, bool spatial, uint32_t effects) {
   lovrCheck(lovrSoundGetChannelLayout(sound) != CHANNEL_AMBISONIC, "Ambisonic Sources are not currently supported");
-  Source* source = calloc(1, sizeof(Source));
-  lovrAssert(source, "Out of memory");
+  Source* source = lovrCalloc(sizeof(Source));
   source->ref = 1;
   source->index = ~0u;
   source->sound = sound;
@@ -432,8 +430,7 @@ Source* lovrSourceCreate(Sound* sound, bool pitchable, bool spatial, uint32_t ef
   config.allowDynamicSampleRate = pitchable;
 
   if (pitchable || config.formatIn != config.formatOut || config.channelsIn != config.channelsOut || config.sampleRateIn != config.sampleRateOut) {
-    source->converter = malloc(sizeof(ma_data_converter));
-    lovrAssert(source->converter, "Out of memory");
+    source->converter = lovrMalloc(sizeof(ma_data_converter));
     ma_result status = ma_data_converter_init(&config, NULL, source->converter);
     lovrAssert(status == MA_SUCCESS, "Problem creating Source data converter: %s (%d)", ma_result_description(status), status);
   }
@@ -442,8 +439,7 @@ Source* lovrSourceCreate(Sound* sound, bool pitchable, bool spatial, uint32_t ef
 }
 
 Source* lovrSourceClone(Source* source) {
-  Source* clone = calloc(1, sizeof(Source));
-  lovrAssert(clone, "Out of memory");
+  Source* clone = lovrCalloc(sizeof(Source));
   clone->ref = 1;
   clone->index = ~0u;
   clone->sound = source->sound;
@@ -460,8 +456,7 @@ Source* lovrSourceClone(Source* source) {
   clone->pitchable = source->pitchable;
   clone->spatial = source->spatial;
   if (source->converter) {
-    clone->converter = malloc(sizeof(ma_data_converter));
-    lovrAssert(clone->converter, "Out of memory");
+    clone->converter = lovrMalloc(sizeof(ma_data_converter));
     ma_data_converter_config config = ma_data_converter_config_init_default();
     config.formatIn = source->converter->formatIn;
     config.formatOut = source->converter->formatOut;
@@ -480,8 +475,8 @@ void lovrSourceDestroy(void* ref) {
   Source* source = ref;
   lovrRelease(source->sound, lovrSoundDestroy);
   ma_data_converter_uninit(source->converter, NULL);
-  free(source->converter);
-  free(source);
+  lovrFree(source->converter);
+  lovrFree(source);
 }
 
 Sound* lovrSourceGetSound(Source* source) {

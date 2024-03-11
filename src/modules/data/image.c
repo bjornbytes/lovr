@@ -83,9 +83,8 @@ Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format,
   lovrCheck(width > 0 && height > 0, "Image dimensions must be positive");
   lovrCheck(format < FORMAT_BC1, "Blank images cannot be compressed");
   size_t size = measure(width, height, format);
-  void* data = malloc(size);
-  Image* image = calloc(1, sizeof(Image));
-  lovrAssert(image && data, "Out of memory");
+  void* data = lovrMalloc(size);
+  Image* image = lovrCalloc(sizeof(Image));
   image->ref = 1;
   image->flags = srgb ? IMAGE_SRGB : 0;
   image->width = width;
@@ -120,7 +119,7 @@ Image* lovrImageCreateFromFile(Blob* blob) {
 void lovrImageDestroy(void* ref) {
   Image* image = ref;
   lovrRelease(image->blob, lovrBlobDestroy);
-  free(image);
+  lovrFree(image);
 }
 
 bool lovrImageIsSRGB(Image* image) {
@@ -350,8 +349,7 @@ Blob* lovrImageEncode(Image* image) {
   size += 4 + strlen("IHDR") + sizeof(header) + 4;
   size += 4 + strlen("IDAT") + idatSize + 4;
   size += 4 + strlen("IEND") + 4;
-  uint8_t* data = malloc(size);
-  lovrAssert(data, "Out of memory");
+  uint8_t* data = lovrMalloc(size);
 
   crc_init();
   uint32_t crc;
@@ -790,8 +788,7 @@ static Image* loadDDS(Blob* blob) {
   lovrCheck(~header->flags & DDSD_DEPTH, "Loading 3D DDS images is not supported");
   uint32_t levels = MAX(1, header->mipmapCount);
 
-  Image* image = calloc(1, offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
-  lovrAssert(image, "Out of memory");
+  Image* image = lovrCalloc(offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
   image->ref = 1;
   image->flags = flags;
   image->width = header->width;
@@ -870,8 +867,7 @@ static Image* loadASTC(Blob* blob) {
     return NULL;
   }
 
-  Image* image = calloc(1, sizeof(Image));
-  lovrAssert(image, "Out of memory");
+  Image* image = lovrCalloc(sizeof(Image));
   image->ref = 1;
   image->width = width;
   image->height = height;
@@ -934,8 +930,7 @@ static Image* loadKTX1(Blob* blob) {
   uint32_t layers = MAX(header.numberOfArrayElements, 1);
   uint32_t levels = MAX(header.numberOfMipmapLevels, 1);
 
-  Image* image = calloc(1, offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
-  lovrAssert(image, "Out of memory");
+  Image* image = lovrCalloc(offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
   image->ref = 1;
   image->width = header.pixelWidth;
   image->height = header.pixelHeight;
@@ -1084,8 +1079,7 @@ static Image* loadKTX2(Blob* blob) {
   uint32_t layers = MAX(header->layerCount, 1);
   uint32_t levels = MAX(header->levelCount, 1);
 
-  Image* image = calloc(1, offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
-  lovrAssert(image, "Out of memory");
+  Image* image = lovrCalloc(offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
   image->ref = 1;
   image->width = header->pixelWidth;
   image->height = header->pixelHeight;
@@ -1194,8 +1188,7 @@ static Image* loadSTB(Blob* blob) {
 
   size_t size = measure(width, height, format);
 
-  Image* image = calloc(1, sizeof(Image));
-  lovrAssert(image, "Out of memory");
+  Image* image = lovrCalloc(sizeof(Image));
   image->ref = 1;
   image->flags = flags;
   image->width = width;

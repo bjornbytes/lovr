@@ -150,8 +150,7 @@ bool phonon_init(void) {
   state.renderingSettings.frameSize = BUFFER_SIZE;
   state.renderingSettings.convolutionType = IPL_CONVOLUTIONTYPE_PHONON;
 
-  state.scratchpad = malloc(BUFFER_SIZE * 4 * sizeof(float));
-  if (!state.scratchpad) return phonon_destroy(), false;
+  state.scratchpad = lovrMalloc(BUFFER_SIZE * 4 * sizeof(float));
 
   IPLHrtfParams hrtfParams = {
     .type = IPL_HRTFDATABASETYPE_DEFAULT
@@ -167,7 +166,7 @@ bool phonon_init(void) {
 }
 
 void phonon_destroy(void) {
-  if (state.scratchpad) free(state.scratchpad);
+  if (state.scratchpad) lovrFree(state.scratchpad);
   for (size_t i = 0; i < MAX_SOURCES; i++) {
     if (state.binauralEffect[i]) phonon_iplDestroyBinauralEffect(&state.binauralEffect[i]);
     if (state.directSoundEffect[i]) phonon_iplDestroyDirectSoundEffect(&state.directSoundEffect[i]);
@@ -334,8 +333,7 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
     .irradianceMinDistance = .1f
   };
 
-  IPLint32* triangleMaterials = malloc(indexCount / 3 * sizeof(IPLint32));
-  if (!triangleMaterials) goto fail;
+  IPLint32* triangleMaterials = lovrMalloc(indexCount / 3 * sizeof(IPLint32));
 
   for (uint32_t i = 0; i < indexCount / 3; i++) {
     triangleMaterials[i] = material;
@@ -356,11 +354,11 @@ bool phonon_setGeometry(float* vertices, uint32_t* indices, uint32_t vertexCount
   status = phonon_iplCreateEnvironmentalRenderer(state.context, state.environment, state.renderingSettings, AMBISONIC, NULL, NULL, &state.environmentalRenderer);
   if (status != IPL_STATUS_SUCCESS) goto fail;
 
-  free(triangleMaterials);
+  lovrFree(triangleMaterials);
   return true;
 
 fail:
-  free(triangleMaterials);
+  lovrFree(triangleMaterials);
   if (state.mesh) phonon_iplDestroyStaticMesh(&state.mesh);
   if (state.scene) phonon_iplDestroyScene(&state.scene);
   if (state.environment) phonon_iplDestroyEnvironment(&state.environment);

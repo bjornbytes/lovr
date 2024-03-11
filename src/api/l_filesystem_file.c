@@ -41,17 +41,16 @@ static int l_lovrFileRead(lua_State* L) {
     size = lovrFileGetSize(file) - lovrFileTell(file);
   }
   size_t count;
-  void* data = malloc(size);
-  lovrAssert(data, "Out of memory");
+  void* data = lovrMalloc(size);
   bool success = lovrFileRead(file, data, size, &count);
   if (success) {
     lua_pushlstring(L, data, count);
     lua_pushnumber(L, count);
-    free(data);
+    lovrFree(data);
     return 2;
   } else {
     lua_pushnil(L);
-    free(data);
+    lovrFree(data);
     return 1;
   }
 }

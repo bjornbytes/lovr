@@ -2,6 +2,30 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <stdio.h>
+
+// Allocation
+void* lovrMalloc(size_t size) {
+  void* data = malloc(size);
+  if (!data) fprintf(stderr, "Out of memory"), abort();
+  return data;
+}
+
+void* lovrCalloc(size_t size) {
+  void* data = calloc(1, size);
+  if (!data) fprintf(stderr, "Out of memory"), abort();
+  return data;
+}
+
+void* lovrRealloc(void* old, size_t size) {
+  void* data = realloc(old, size);
+  if (!data) fprintf(stderr, "Out of memory"), abort();
+  return data;
+}
+
+void lovrFree(void* data) {
+  free(data);
+}
 
 // Error handling
 static LOVR_THREAD_LOCAL errorFn* lovrErrorCallback;

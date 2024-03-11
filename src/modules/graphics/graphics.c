@@ -653,8 +653,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   gpu_config gpu = {
     .debug = config->debug,
     .fnLog = onMessage,
-    .fnAlloc = malloc,
-    .fnFree = free,
+    .fnAlloc = lovrMalloc,
+    .fnFree = lovrFree,
     .engineName = "LOVR",
     .engineVersion = { LOVR_VERSION_MAJOR, LOVR_VERSION_MINOR, LOVR_VERSION_PATCH },
     .device = &state.device,
@@ -858,7 +858,7 @@ void lovrGraphicsDestroy(void) {
     readback = next;
   }
   if (state.timestamps) gpu_tally_destroy(state.timestamps);
-  free(state.timestamps);
+  lovrFree(state.timestamps);
   lovrRelease(state.window, lovrTextureDestroy);
   lovrRelease(state.windowPass, lovrPassDestroy);
   lovrRelease(state.defaultFont, lovrFontDestroy);
@@ -877,14 +877,14 @@ void lovrGraphicsDestroy(void) {
       freeBlock(&state.bufferAllocators[GPU_BUFFER_STATIC], block->view.block);
     }
     gpu_bundle_pool_destroy(block->bundlePool);
-    free(block->list);
-    free(block->bundlePool);
-    free(block->bundles);
+    lovrFree(block->list);
+    lovrFree(block->bundlePool);
+    lovrFree(block->bundles);
   }
   arr_free(&state.materialBlocks);
   for (size_t i = 0; i < state.scratchTextures.length; i++) {
     gpu_texture_destroy(state.scratchTextures.data[i].texture);
-    free(state.scratchTextures.data[i].texture);
+    lovrFree(state.scratchTextures.data[i].texture);
   }
   arr_free(&state.scratchTextures);
   for (size_t i = 0; i < state.pipelineCount; i++) {
@@ -896,7 +896,7 @@ void lovrGraphicsDestroy(void) {
     if (state.passLookup.values[i] != MAP_NIL) {
       gpu_pass* pass = (gpu_pass*) (uintptr_t) state.passLookup.values[i];
       gpu_pass_destroy(pass);
-      free(pass);
+      lovrFree(pass);
     }
   }
   map_free(&state.passLookup);
@@ -905,7 +905,7 @@ void lovrGraphicsDestroy(void) {
     while (block) {
       gpu_buffer_destroy(block->handle);
       BufferBlock* next = block->next;
-      free(block);
+      lovrFree(block);
       block = next;
     }
 
@@ -913,7 +913,7 @@ void lovrGraphicsDestroy(void) {
 
     if (current) {
       gpu_buffer_destroy(current->handle);
-      free(current);
+      lovrFree(current);
     }
   }
   for (size_t i = 0; i < state.layouts.length; i++) {
@@ -921,13 +921,13 @@ void lovrGraphicsDestroy(void) {
     while (pool) {
       BundlePool* next = pool->next;
       gpu_bundle_pool_destroy(pool->gpu);
-      free(pool->gpu);
-      free(pool->bundles);
-      free(pool);
+      lovrFree(pool->gpu);
+      lovrFree(pool->bundles);
+      lovrFree(pool);
       pool = next;
     }
     gpu_layout_destroy(state.layouts.data[i].gpu);
-    free(state.layouts.data[i].gpu);
+    lovrFree(state.layouts.data[i].gpu);
   }
   arr_free(&state.layouts);
   gpu_destroy();
@@ -1358,8 +1358,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   if (pass->tally.buffer && pass->tally.count > 0) {
     if (!pass->tally.gpu) {
-      pass->tally.gpu = malloc(gpu_sizeof_tally());
-      lovrAssert(pass->tally.gpu, "Out of memory");
+      pass->tally.gpu = lovrMalloc(gpu_sizeof_tally());
       gpu_tally_init(pass->tally.gpu, &(gpu_tally_info) {
         .type = GPU_TALLY_PIXEL,
         .count = MAX_TALLIES * state.limits.renderSize[2]
@@ -1666,8 +1665,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   TimingInfo* times = NULL;
 
   if (state.timingEnabled && count > 0) {
-    times = malloc(count * sizeof(TimingInfo));
-    lovrAssert(times, "Out of memory");
+    times = lovrMalloc(count * sizeof(TimingInfo));
 
     for (uint32_t i = 0; i < count; i++) {
       times[i].pass = passes[i];
@@ -1680,8 +1678,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       if (state.timestamps) {
         gpu_tally_destroy(state.timestamps);
       } else {
-        state.timestamps = malloc(gpu_sizeof_tally());
-        lovrAssert(state.timestamps, "Out of memory");
+        state.timestamps = lovrMalloc(gpu_sizeof_tally());
       }
 
       gpu_tally_info info = {
@@ -1896,9 +1893,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
 
   charCount = ALIGN(charCount, 8);
 
-  Buffer* buffer = calloc(1, sizeof(Buffer) + charCount + fieldCount * sizeof(DataField));
-  lovrAssert(buffer, "Out of memory");
-
+  Buffer* buffer = lovrCalloc(sizeof(Buffer) + charCount + fieldCount * sizeof(DataField));
   buffer->ref = 1;
   buffer->info = *info;
   buffer->info.fieldCount = fieldCount;
@@ -1980,7 +1975,7 @@ void lovrBufferDestroy(void* ref) {
   if (buffer->block != allocator->current && atomic_fetch_sub(&buffer->block->ref, 1) == 1) {
     freeBlock(allocator, buffer->block);
   }
-  free(buffer);
+  lovrFree(buffer);
 }
 
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
@@ -2050,9 +2045,7 @@ Texture* lovrGraphicsGetWindowTexture(void) {
     width *= density;
     height *= density;
 
-    state.window = calloc(1, sizeof(Texture));
-    lovrAssert(state.window, "Out of memory");
-
+    state.window = lovrCalloc(sizeof(Texture));
     state.window->ref = 1;
     state.window->gpu = NULL;
     state.window->renderView = NULL;
@@ -2148,8 +2141,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck((info->format < FORMAT_BC1 || info->format > FORMAT_BC7) || state.features.textureBC, "%s textures are not supported on this GPU", "BC");
   lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.textureASTC, "%s textures are not supported on this GPU", "ASTC");
 
-  Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
-  lovrAssert(texture, "Out of memory");
+  Texture* texture = lovrCalloc(sizeof(Texture) + gpu_sizeof_texture());
   texture->ref = 1;
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->root = texture;
@@ -2233,8 +2225,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
         .levelCount = 1
       };
 
-      texture->renderView = malloc(gpu_sizeof_texture());
-      lovrAssert(texture->renderView, "Out of memory");
+      texture->renderView = lovrMalloc(gpu_sizeof_texture());
       gpu_texture_init_view(texture->renderView, &view);
     }
   }
@@ -2248,8 +2239,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       .srgb = false
     };
 
-    texture->storageView = malloc(gpu_sizeof_texture());
-    lovrAssert(texture->storageView, "Out of memory");
+    texture->storageView = lovrMalloc(gpu_sizeof_texture());
     gpu_texture_init_view(texture->storageView, &view);
   } else {
     texture->storageView = texture->gpu;
@@ -2285,8 +2275,7 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
   lovrCheck(info->levelCount == 1 || base->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
   lovrCheck(info->layerCount % 6 == 0 || info->type != TEXTURE_CUBE, "Cubemap layer count must be a multiple of 6");
 
-  Texture* texture = calloc(1, sizeof(Texture) + gpu_sizeof_texture());
-  lovrAssert(texture, "Out of memory");
+  Texture* texture = lovrCalloc(sizeof(Texture) + gpu_sizeof_texture());
   texture->ref = 1;
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *base;
@@ -2330,8 +2319,7 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
         .levelCount = 1
       };
 
-      texture->renderView = malloc(gpu_sizeof_texture());
-      lovrAssert(texture->renderView, "Out of memory");
+      texture->renderView = lovrMalloc(gpu_sizeof_texture());
       gpu_texture_init_view(texture->renderView, &subview);
     }
   }
@@ -2348,8 +2336,7 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
       .levelCount = info->levelCount
     };
 
-    texture->storageView = malloc(gpu_sizeof_texture());
-    lovrAssert(texture->storageView, "Out of memory");
+    texture->storageView = lovrMalloc(gpu_sizeof_texture());
     gpu_texture_init_view(texture->storageView, &subview);
   } else {
     texture->storageView = texture->gpu;
@@ -2369,7 +2356,7 @@ void lovrTextureDestroy(void* ref) {
     if (texture->storageView && texture->storageView != texture->gpu) gpu_texture_destroy(texture->storageView);
     if (texture->gpu) gpu_texture_destroy(texture->gpu);
   }
-  free(texture);
+  lovrFree(texture);
 }
 
 const TextureInfo* lovrTextureGetInfo(Texture* texture) {
@@ -2535,8 +2522,7 @@ Sampler* lovrSamplerCreate(const SamplerInfo* info) {
   lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
   lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds anisotropy limit (%f)", info->anisotropy, state.limits.anisotropy);
 
-  Sampler* sampler = calloc(1, sizeof(Sampler) + gpu_sizeof_sampler());
-  lovrAssert(sampler, "Out of memory");
+  Sampler* sampler = lovrCalloc(sizeof(Sampler) + gpu_sizeof_sampler());
   sampler->ref = 1;
   sampler->gpu = (gpu_sampler*) (sampler + 1);
   sampler->info = *info;
@@ -2561,7 +2547,7 @@ Sampler* lovrSamplerCreate(const SamplerInfo* info) {
 void lovrSamplerDestroy(void* ref) {
   Sampler* sampler = ref;
   gpu_sampler_destroy(sampler->gpu);
-  free(sampler);
+  lovrFree(sampler);
 }
 
 const SamplerInfo* lovrSamplerGetInfo(Sampler* sampler) {
@@ -2715,8 +2701,7 @@ void lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint
     void* words = glslang_program_SPIRV_get_ptr(program);
     size_t size = glslang_program_SPIRV_get_size(program) * 4;
 
-    void* data = malloc(size);
-    lovrAssert(data, "Out of memory");
+    void* data = lovrMalloc(size);
     memcpy(data, words, size);
 
     outputs[i].stage = source->stage;
@@ -2850,8 +2835,7 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
 }
 
 Shader* lovrShaderCreate(const ShaderInfo* info) {
-  Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
-  lovrAssert(shader, "Out of memory");
+  Shader* shader = lovrCalloc(sizeof(Shader) + gpu_sizeof_shader());
   shader->ref = 1;
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
@@ -2911,16 +2895,11 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   }
 
   // Allocate memory
-  shader->resources = malloc(maxResources * sizeof(ShaderResource));
-  shader->fields = malloc(maxFields * sizeof(DataField));
-  shader->names = malloc(maxChars);
-  shader->flags = malloc(maxSpecConstants * sizeof(gpu_shader_flag));
-  shader->flagLookup = malloc(maxSpecConstants * sizeof(uint32_t));
-  lovrAssert(shader->resources, "Out of memory");
-  lovrAssert(shader->fields, "Out of memory");
-  lovrAssert(shader->names, "Out of memory");
-  lovrAssert(shader->flags, "Out of memory");
-  lovrAssert(shader->flagLookup, "Out of memory");
+  shader->resources = lovrMalloc(maxResources * sizeof(ShaderResource));
+  shader->fields = lovrMalloc(maxFields * sizeof(DataField));
+  shader->names = lovrMalloc(maxChars);
+  shader->flags = lovrMalloc(maxSpecConstants * sizeof(gpu_shader_flag));
+  shader->flagLookup = lovrMalloc(maxSpecConstants * sizeof(uint32_t));
 
   // Workgroup size
   if (info->type == SHADER_COMPUTE) {
@@ -2936,8 +2915,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   // Vertex attributes
   if (info->type == SHADER_GRAPHICS && spv[0].attributeCount > 0) {
     shader->attributeCount = spv[0].attributeCount;
-    shader->attributes = malloc(shader->attributeCount * sizeof(ShaderAttribute));
-    lovrAssert(shader->attributes, "Out of memory");
+    shader->attributes = lovrMalloc(shader->attributeCount * sizeof(ShaderAttribute));
     for (uint32_t i = 0; i < shader->attributeCount; i++) {
       shader->attributes[i].location = spv[0].attributes[i].location;
       shader->attributes[i].hash = (uint32_t) hash64(spv[0].attributes[i].name, strlen(spv[0].attributes[i].name));
@@ -3240,8 +3218,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 }
 
 Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
-  Shader* shader = calloc(1, sizeof(Shader) + gpu_sizeof_shader());
-  lovrAssert(shader, "Out of memory");
+  Shader* shader = lovrCalloc(sizeof(Shader) + gpu_sizeof_shader());
   shader->ref = 1;
   lovrRetain(parent);
   shader->parent = parent;
@@ -3264,9 +3241,8 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->uniforms = parent->uniforms;
   shader->fields = parent->fields;
   shader->names = parent->names;
-  shader->flags = malloc(shader->flagCount * sizeof(gpu_shader_flag));
-  shader->flagLookup = malloc(shader->flagCount * sizeof(uint32_t));
-  lovrAssert(shader->flags && shader->flagLookup, "Out of memory");
+  shader->flags = lovrMalloc(shader->flagCount * sizeof(gpu_shader_flag));
+  shader->flagLookup = lovrMalloc(shader->flagCount * sizeof(uint32_t));
   memcpy(shader->flags, parent->flags, shader->flagCount * sizeof(gpu_shader_flag));
   memcpy(shader->flagLookup, parent->flagLookup, shader->flagCount * sizeof(uint32_t));
   lovrShaderInit(shader);
@@ -3279,14 +3255,14 @@ void lovrShaderDestroy(void* ref) {
     lovrRelease(shader->parent, lovrShaderDestroy);
   } else {
     gpu_shader_destroy(shader->gpu);
-    free(shader->attributes);
-    free(shader->resources);
-    free(shader->fields);
-    free(shader->names);
+    lovrFree(shader->attributes);
+    lovrFree(shader->resources);
+    lovrFree(shader->fields);
+    lovrFree(shader->names);
   }
-  free(shader->flags);
-  free(shader->flagLookup);
-  free(shader);
+  lovrFree(shader->flags);
+  lovrFree(shader->flagLookup);
+  lovrFree(shader);
 }
 
 const ShaderInfo* lovrShaderGetInfo(Shader* shader) {
@@ -3357,10 +3333,9 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
       lovrAssert(state.materialBlocks.length < UINT16_MAX, "Out of memory");
       state.materialBlock = state.materialBlocks.length++;
       block = &state.materialBlocks.data[state.materialBlock];
-      block->list = malloc(MATERIALS_PER_BLOCK * sizeof(Material));
-      block->bundlePool = malloc(gpu_sizeof_bundle_pool());
-      block->bundles = malloc(MATERIALS_PER_BLOCK * gpu_sizeof_bundle());
-      lovrAssert(block->list && block->bundlePool && block->bundles, "Out of memory");
+      block->list = lovrMalloc(MATERIALS_PER_BLOCK * sizeof(Material));
+      block->bundlePool = lovrMalloc(gpu_sizeof_bundle_pool());
+      block->bundles = lovrMalloc(MATERIALS_PER_BLOCK * gpu_sizeof_bundle());
 
       for (uint32_t i = 0; i < MATERIALS_PER_BLOCK; i++) {
         block->list[i].next = i + 1;
@@ -3488,8 +3463,7 @@ Font* lovrGraphicsGetDefaultFont(void) {
 }
 
 Font* lovrFontCreate(const FontInfo* info) {
-  Font* font = calloc(1, sizeof(Font));
-  lovrAssert(font, "Out of memory");
+  Font* font = lovrCalloc(sizeof(Font));
   font->ref = 1;
   font->info = *info;
   lovrRetain(info->rasterizer);
@@ -3524,7 +3498,7 @@ void lovrFontDestroy(void* ref) {
   arr_free(&font->glyphs);
   map_free(&font->glyphLookup);
   map_free(&font->kerning);
-  free(font);
+  lovrFree(font);
 }
 
 const FontInfo* lovrFontGetInfo(Font* font) {
@@ -3980,8 +3954,7 @@ Mesh* lovrMeshCreate(const MeshInfo* info, void** vertices) {
     lovrCheck(attribute->type < TYPE_INDEX16 || attribute->type > TYPE_INDEX32, "Mesh attributes can not use index types");
   }
 
-  Mesh* mesh = calloc(1, sizeof(Mesh));
-  lovrAssert(mesh, "Out of memory");
+  Mesh* mesh = lovrCalloc(sizeof(Mesh));
   mesh->ref = 1;
   mesh->vertexBuffer = buffer;
   mesh->storage = info->storage;
@@ -3990,8 +3963,7 @@ Mesh* lovrMeshCreate(const MeshInfo* info, void** vertices) {
   if (info->vertexBuffer) {
     lovrRetain(info->vertexBuffer);
   } else if (mesh->storage == MESH_CPU) {
-    mesh->vertices = vertices ? malloc(buffer->info.size) : calloc(1, buffer->info.size);
-    lovrAssert(mesh->vertices, "Out of memory");
+    mesh->vertices = vertices ? lovrMalloc(buffer->info.size) : lovrCalloc(buffer->info.size);
 
     if (vertices) {
       *vertices = mesh->vertices;
@@ -4011,9 +3983,9 @@ void lovrMeshDestroy(void* ref) {
   lovrRelease(mesh->vertexBuffer, lovrBufferDestroy);
   lovrRelease(mesh->indexBuffer, lovrBufferDestroy);
   lovrRelease(mesh->material, lovrMaterialDestroy);
-  free(mesh->vertices);
-  free(mesh->indices);
-  free(mesh);
+  lovrFree(mesh->vertices);
+  lovrFree(mesh->indices);
+  lovrFree(mesh);
 }
 
 const DataField* lovrMeshGetVertexFormat(Mesh* mesh) {
@@ -4143,8 +4115,7 @@ void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint
   lovrCheck(position, "Mesh has no VertexPosition attribute with vec3 type");
   const DataField* format = lovrMeshGetVertexFormat(mesh);
 
-  *vertices = malloc(format->length * 3 * sizeof(float));
-  lovrAssert(*vertices, "Out of memory");
+  *vertices = lovrMalloc(format->length * 3 * sizeof(float));
 
   for (uint32_t i = 0; i < format->length; i++) {
     vec3_init(*vertices, position);
@@ -4154,8 +4125,7 @@ void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint
 
   if (mesh->indexCount > 0) {
     *indexCount = mesh->indexCount;
-    *indices = malloc(*indexCount * sizeof(uint32_t));
-    lovrAssert(*indices, "Out of memory");
+    *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
     if (mesh->indexBuffer->info.format[1].type == TYPE_U16 || mesh->indexBuffer->info.format[1].type == TYPE_INDEX16) {
       for (uint32_t i = 0; i < mesh->indexCount; i++) {
         *indices[i] = (uint32_t) ((uint16_t*) mesh->indices)[i];
@@ -4165,8 +4135,7 @@ void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint
     }
   } else {
     *indexCount = format->length;
-    *indices = malloc(*indexCount * sizeof(uint32_t));
-    lovrAssert(*indices, "Out of memory");
+    *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
     lovrCheck(format->length >= 3 && format->length % 3 == 0, "Mesh vertex count must be divisible by 3");
     for (uint32_t i = 0; i < format->length; i++) {
       **indices = i;
@@ -4283,8 +4252,7 @@ static void lovrMeshFlush(Mesh* mesh) {
 
 Model* lovrModelCreate(const ModelInfo* info) {
   ModelData* data = info->data;
-  Model* model = calloc(1, sizeof(Model));
-  lovrAssert(model, "Out of memory");
+  Model* model = lovrCalloc(sizeof(Model));
   model->ref = 1;
   model->info = *info;
   lovrRetain(info->data);
@@ -4295,9 +4263,8 @@ Model* lovrModelCreate(const ModelInfo* info) {
 
   // Materials and Textures
   if (info->materials) {
-    model->textures = calloc(data->imageCount, sizeof(Texture*));
-    model->materials = malloc(data->materialCount * sizeof(Material*));
-    lovrAssert(model->textures && model->materials, "Out of memory");
+    model->textures = lovrCalloc(data->imageCount * sizeof(Texture*));
+    model->materials = lovrMalloc(data->materialCount * sizeof(Material*));
     for (uint32_t i = 0; i < data->materialCount; i++) {
       MaterialInfo material;
       ModelMaterial* properties = &data->materials[i];
@@ -4439,9 +4406,8 @@ Model* lovrModelCreate(const ModelInfo* info) {
   qsort(primitiveOrder, data->primitiveCount, sizeof(uint64_t), u64cmp);
 
   // Draws
-  model->draws = calloc(data->primitiveCount, sizeof(DrawInfo));
-  model->boundingBoxes = malloc(data->primitiveCount * 6 * sizeof(float));
-  lovrAssert(model->draws && model->boundingBoxes, "Out of memory");
+  model->draws = lovrCalloc(data->primitiveCount * sizeof(DrawInfo));
+  model->boundingBoxes = lovrMalloc(data->primitiveCount * 6 * sizeof(float));
   for (uint32_t i = 0, vertexCursor = 0, indexCursor = 0; i < data->primitiveCount; i++) {
     ModelPrimitive* primitive = &data->primitives[primitiveOrder[i] & ~0u];
     ModelAttribute* position = primitive->attributes[ATTR_POSITION];
@@ -4515,9 +4481,8 @@ Model* lovrModelCreate(const ModelInfo* info) {
       }
     }
 
-    model->blendGroups = malloc(model->blendGroupCount * sizeof(BlendGroup));
-    model->blendShapeWeights = malloc(data->blendShapeCount * sizeof(float));
-    lovrAssert(model->blendGroups && model->blendShapeWeights, "Out of memory");
+    model->blendGroups = lovrMalloc(model->blendGroupCount * sizeof(BlendGroup));
+    model->blendShapeWeights = lovrMalloc(data->blendShapeCount * sizeof(float));
 
     BlendGroup* group = model->blendGroups;
 
@@ -4552,9 +4517,8 @@ Model* lovrModelCreate(const ModelInfo* info) {
   }
 
   // Transforms
-  model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
-  model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
-  lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
+  model->localTransforms = lovrMalloc(sizeof(NodeTransform) * data->nodeCount);
+  model->globalTransforms = lovrMalloc(16 * sizeof(float) * data->nodeCount);
   lovrModelResetNodeTransforms(model);
 
   tempPop(&state.allocator, stack);
@@ -4564,8 +4528,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
 
 Model* lovrModelClone(Model* parent) {
   ModelData* data = parent->info.data;
-  Model* model = calloc(1, sizeof(Model));
-  lovrAssert(model, "Out of memory");
+  Model* model = lovrCalloc(sizeof(Model));
   model->ref = 1;
   model->parent = parent;
   model->info = parent->info;
@@ -4602,21 +4565,18 @@ Model* lovrModelClone(Model* parent) {
     }, 1);
   }
 
-  model->draws = malloc(data->primitiveCount * sizeof(DrawInfo));
-  lovrAssert(model->draws, "Out of memory");
+  model->draws = lovrMalloc(data->primitiveCount * sizeof(DrawInfo));
 
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
     model->draws[i] = parent->draws[i];
     model->draws[i].vertex.buffer = model->vertexBuffer;
   }
 
-  model->blendShapeWeights = malloc(data->blendShapeCount * sizeof(float));
-  lovrAssert(model->blendShapeWeights, "Out of memory");
+  model->blendShapeWeights = lovrMalloc(data->blendShapeCount * sizeof(float));
   lovrModelResetBlendShapes(model);
 
-  model->localTransforms = malloc(sizeof(NodeTransform) * data->nodeCount);
-  model->globalTransforms = malloc(16 * sizeof(float) * data->nodeCount);
-  lovrAssert(model->localTransforms && model->globalTransforms, "Out of memory");
+  model->localTransforms = lovrMalloc(sizeof(NodeTransform) * data->nodeCount);
+  model->globalTransforms = lovrMalloc(16 * sizeof(float) * data->nodeCount);
   lovrModelResetNodeTransforms(model);
 
   return model;
@@ -4627,12 +4587,12 @@ void lovrModelDestroy(void* ref) {
   if (model->parent) {
     lovrRelease(model->parent, lovrModelDestroy);
     lovrRelease(model->vertexBuffer, lovrBufferDestroy);
-    free(model->localTransforms);
-    free(model->globalTransforms);
-    free(model->blendShapeWeights);
-    free(model->meshes);
-    free(model->draws);
-    free(model);
+    lovrFree(model->localTransforms);
+    lovrFree(model->globalTransforms);
+    lovrFree(model->blendShapeWeights);
+    lovrFree(model->meshes);
+    lovrFree(model->draws);
+    lovrFree(model);
     return;
   }
   ModelData* data = model->info.data;
@@ -4643,8 +4603,8 @@ void lovrModelDestroy(void* ref) {
     for (uint32_t i = 0; i < data->imageCount; i++) {
       lovrRelease(model->textures[i], lovrTextureDestroy);
     }
-    free(model->materials);
-    free(model->textures);
+    lovrFree(model->materials);
+    lovrFree(model->textures);
   }
   lovrRelease(model->rawVertexBuffer, lovrBufferDestroy);
   lovrRelease(model->vertexBuffer, lovrBufferDestroy);
@@ -4652,14 +4612,14 @@ void lovrModelDestroy(void* ref) {
   lovrRelease(model->blendBuffer, lovrBufferDestroy);
   lovrRelease(model->skinBuffer, lovrBufferDestroy);
   lovrRelease(model->info.data, lovrModelDataDestroy);
-  free(model->localTransforms);
-  free(model->globalTransforms);
-  free(model->boundingBoxes);
-  free(model->blendShapeWeights);
-  free(model->blendGroups);
-  free(model->meshes);
-  free(model->draws);
-  free(model);
+  lovrFree(model->localTransforms);
+  lovrFree(model->globalTransforms);
+  lovrFree(model->boundingBoxes);
+  lovrFree(model->blendShapeWeights);
+  lovrFree(model->blendGroups);
+  lovrFree(model->meshes);
+  lovrFree(model->draws);
+  lovrFree(model);
 }
 
 const ModelInfo* lovrModelGetInfo(Model* model) {
@@ -4854,8 +4814,7 @@ Mesh* lovrModelGetMesh(Model* model, uint32_t index) {
   lovrCheck(index < data->primitiveCount, "Invalid mesh index '%d' (Model has %d mesh%s)", index + 1, data->primitiveCount, data->primitiveCount == 1 ? "" : "es");
 
   if (!model->meshes) {
-    model->meshes = calloc(data->primitiveCount, sizeof(Mesh*));
-    lovrAssert(model->meshes, "Out of memory");
+    model->meshes = lovrCalloc(data->primitiveCount * sizeof(Mesh*));
   }
 
   if (!model->meshes[index]) {
@@ -5026,8 +4985,7 @@ static void lovrModelAnimateVertices(Model* model) {
 
 static Readback* lovrReadbackCreate(ReadbackType type) {
   beginFrame();
-  Readback* readback = calloc(1, sizeof(Readback));
-  lovrAssert(readback, "Out of memory");
+  Readback* readback = lovrCalloc(sizeof(Readback));
   readback->ref = 1;
   readback->tick = state.tick;
   readback->type = type;
@@ -5045,8 +5003,7 @@ Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t ext
   lovrCheck(!buffer->info.format || extent % buffer->info.format->stride == 0, "Readback size must be a multiple of Buffer's stride");
   Readback* readback = lovrReadbackCreate(READBACK_BUFFER);
   readback->buffer = buffer;
-  void* data = malloc(extent);
-  lovrAssert(data, "Out of memory");
+  void* data = lovrMalloc(extent);
   readback->blob = lovrBlobCreate(data, extent, "Readback");
   readback->view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, 4);
   lovrRetain(buffer);
@@ -5097,11 +5054,11 @@ void lovrReadbackDestroy(void* ref) {
       for (uint32_t i = 0; i < readback->count; i++) {
         lovrRelease(readback->times[i].pass, lovrPassDestroy);
       }
-      free(readback->times);
+      lovrFree(readback->times);
       break;
     default: break;
   }
-  free(readback);
+  lovrFree(readback);
 }
 
 bool lovrReadbackIsComplete(Readback* readback) {
@@ -5220,8 +5177,7 @@ Pass* lovrGraphicsGetWindowPass(void) {
 }
 
 Pass* lovrPassCreate(void) {
-  Pass* pass = calloc(1, sizeof(Pass));
-  lovrAssert(pass, "Out of memory");
+  Pass* pass = lovrCalloc(sizeof(Pass));
   pass->ref = 1;
 
   pass->allocator.limit = 1 << 28;
@@ -5251,7 +5207,7 @@ void lovrPassDestroy(void* ref) {
     freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
   }
   os_vm_free(pass->allocator.memory, pass->allocator.limit);
-  free(pass);
+  lovrFree(pass);
 }
 
 void lovrPassReset(Pass* pass) {
@@ -7348,8 +7304,7 @@ static BufferBlock* getBlock(gpu_buffer_type type, uint32_t size) {
     return block;
   }
 
-  block = malloc(sizeof(BufferBlock) + gpu_sizeof_buffer());
-  lovrAssert(block, "Out of memory");
+  block = lovrMalloc(sizeof(BufferBlock) + gpu_sizeof_buffer());
   block->handle = (gpu_buffer*) (block + 1);
   block->size = MAX(size, 1 << 22);
   block->next = NULL;
@@ -7507,8 +7462,7 @@ static gpu_pass* getPass(Canvas* canvas) {
   uint64_t value = map_get(&state.passLookup, hash);
 
   if (value == MAP_NIL) {
-    gpu_pass* pass = malloc(gpu_sizeof_pass());
-    lovrAssert(pass, "Out of memory");
+    gpu_pass* pass = lovrMalloc(gpu_sizeof_pass());
     gpu_pass_init(pass, &info);
     map_set(&state.passLookup, hash, (uint64_t) (uintptr_t) pass);
     return pass;
@@ -7532,8 +7486,7 @@ static size_t getLayout(gpu_slot* slots, uint32_t count) {
     .count = count
   };
 
-  gpu_layout* handle = malloc(gpu_sizeof_layout());
-  lovrAssert(handle, "Out of memory");
+  gpu_layout* handle = lovrMalloc(gpu_sizeof_layout());
   gpu_layout_init(handle, &info);
 
   Layout layout = {
@@ -7574,10 +7527,9 @@ static gpu_bundle* getBundle(size_t layoutIndex, gpu_binding* bindings, uint32_t
   }
 
   // If no pool was available, make a new one
-  pool = malloc(sizeof(BundlePool));
-  gpu_bundle_pool* gpu = malloc(gpu_sizeof_bundle_pool());
-  gpu_bundle* bundles = malloc(POOL_SIZE * gpu_sizeof_bundle());
-  lovrAssert(pool && gpu && bundles, "Out of memory");
+  pool = lovrMalloc(sizeof(BundlePool));
+  gpu_bundle_pool* gpu = lovrMalloc(gpu_sizeof_bundle_pool());
+  gpu_bundle* bundles = lovrMalloc(POOL_SIZE * gpu_sizeof_bundle());
   pool->gpu = gpu;
   pool->bundles = bundles;
   pool->cursor = 1;
@@ -7624,8 +7576,7 @@ static gpu_texture* getScratchTexture(gpu_stream* stream, Canvas* canvas, Textur
   } else {
     arr_expand(&state.scratchTextures, 1);
     scratch = &state.scratchTextures.data[state.scratchTextures.length++];
-    scratch->texture = calloc(1, gpu_sizeof_texture());
-    lovrAssert(scratch->texture, "Out of memory");
+    scratch->texture = lovrCalloc(gpu_sizeof_texture());
   }
 
   gpu_texture_info info = {
@@ -8020,11 +7971,10 @@ static void onMessage(void* context, const char* message, bool severe) {
     if (!state.defaultTexture) { // Hacky way to determine if initialization has completed
       const char* format = "This program requires a graphics card with support for Vulkan 1.1, but no device was found or it failed to initialize properly.  The error message was:\n\n%s";
       size_t size = snprintf(NULL, 0, format, message) + 1;
-      char* string = malloc(size);
-      lovrAssert(string, "Out of memory");
+      char* string = lovrMalloc(size);
       snprintf(string, size, format, message);
       os_window_message_box(string);
-      free(string);
+      lovrFree(string);
       exit(1);
     }
 #endif

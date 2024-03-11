@@ -33,6 +33,12 @@
 #define CHECK_SIZEOF(T) int(*_o)[sizeof(T)]=1
 #define BREAK() __asm("int $3")
 
+// Allocation
+void* lovrMalloc(size_t size);
+void* lovrCalloc(size_t size);
+void* lovrRealloc(void* data, size_t size);
+void lovrFree(void* data);
+
 // Error handling
 typedef void errorFn(void*, const char*, va_list);
 void lovrSetErrorCallback(errorFn* callback, void* userdata);

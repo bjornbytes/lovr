@@ -581,8 +581,7 @@ static bool openxr_init(HeadsetConfig* config) {
       XR_INIT(result, "Failed to query extensions");
     }
 
-    XrExtensionProperties* extensionProperties = calloc(extensionCount, sizeof(*extensionProperties));
-    lovrAssert(extensionProperties, "Out of memory");
+    XrExtensionProperties* extensionProperties = lovrCalloc(extensionCount * sizeof(*extensionProperties));
     for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
     xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensionProperties);
 
@@ -631,7 +630,7 @@ static bool openxr_init(HeadsetConfig* config) {
       }
     }
 
-    free(extensionProperties);
+    lovrFree(extensionProperties);
 
 #ifdef __ANDROID__
     XrInstanceCreateInfoAndroidKHR androidInfo = {
@@ -725,8 +724,7 @@ static bool openxr_init(HeadsetConfig* config) {
 
     // Blend modes
     XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &state.blendModeCount, NULL), "Failed to query blend modes");
-    state.blendModes = malloc(state.blendModeCount * sizeof(XrEnvironmentBlendMode));
-    lovrAssert(state.blendModes, "Out of memory");
+    state.blendModes = lovrMalloc(state.blendModeCount * sizeof(XrEnvironmentBlendMode));
     XR_INIT(xrEnumerateEnvironmentBlendModes(state.instance, state.system, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, state.blendModeCount, &state.blendModeCount, state.blendModes), "Failed to query blend modes");
     state.blendMode = state.blendModes[0];
   }
@@ -1468,8 +1466,7 @@ static void openxr_start(void) {
 
   if (state.features.refreshRate) {
     XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, &state.refreshRateCount, NULL), "Failed to query refresh rates");
-    state.refreshRates = malloc(state.refreshRateCount * sizeof(float));
-    lovrAssert(state.refreshRates, "Out of memory");
+    state.refreshRates = lovrMalloc(state.refreshRateCount * sizeof(float));
     XR(xrEnumerateDisplayRefreshRatesFB(state.session, state.refreshRateCount, &state.refreshRateCount, state.refreshRates), "Failed to query refresh rates");
   }
 }
@@ -2090,8 +2087,7 @@ static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated)
   totalSize += sizes[9] = ALIGN(jointCount * 16 * sizeof(float), alignment);
 
   // Allocate
-  char* meshData = malloc(totalSize);
-  if (!meshData) return NULL;
+  char* meshData = lovrMalloc(totalSize);
 
   // Write offseted pointers to the mesh struct, to be filled in by the second call
   size_t offset = 0;
@@ -2110,12 +2106,11 @@ static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated)
   // Populate the data
   result = xrGetHandMeshFB(tracker, &mesh);
   if (XR_FAILED(result)) {
-    free(meshData);
+    lovrFree(meshData);
     return NULL;
   }
 
-  ModelData* model = calloc(1, sizeof(ModelData));
-  lovrAssert(model, "Out of memory");
+  ModelData* model = lovrCalloc(sizeof(ModelData));
   model->ref = 1;
   model->blobCount = 1;
   model->bufferCount = 6;
@@ -2127,8 +2122,7 @@ static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated)
   model->nodeCount = 2 + jointCount;
   lovrModelDataAllocate(model);
 
-  model->metadata = malloc(sizeof(XrHandTrackerEXT));
-  lovrAssert(model->metadata, "Out of memory");
+  model->metadata = lovrMalloc(sizeof(XrHandTrackerEXT));
   *((XrHandTrackerEXT*)model->metadata) = tracker;
   model->metadataSize = sizeof(XrHandTrackerEXT);
   model->metadataType = META_HANDTRACKING_FB;
@@ -2271,11 +2265,10 @@ static ModelData* openxr_newModelDataMSFT(XrControllerModelKeyMSFT modelKey, boo
     return NULL;
   }
 
-  unsigned char* modelData = malloc(size);
-  if (!modelData) return NULL;
+  unsigned char* modelData = lovrMalloc(size);
 
   if (XR_FAILED(xrLoadControllerModelMSFT(state.session, modelKey, size, &size, modelData))) {
-    free(modelData);
+    lovrFree(modelData);
     return NULL;
   }
 
@@ -2298,11 +2291,10 @@ static ModelData* openxr_newModelDataMSFT(XrControllerModelKeyMSFT modelKey, boo
     return false;
   }
 
-  free(model->metadata);
+  lovrFree(model->metadata);
   model->metadataType = META_CONTROLLER_MSFT;
   model->metadataSize = sizeof(MetadataControllerMSFT) + sizeof(uint32_t) * properties.nodeCountOutput;
-  model->metadata = malloc(model->metadataSize);
-  lovrAssert(model->metadata, "Out of memory");
+  model->metadata = lovrMalloc(model->metadataSize);
 
   MetadataControllerMSFT* metadata = model->metadata;
   metadata->modelKey = modelKey;
@@ -2451,8 +2443,7 @@ static bool openxr_animate(Model* model) {
 }
 
 static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
-  Layer* layer = calloc(1, sizeof(Layer));
-  lovrAssert(layer, "Out of memory");
+  Layer* layer = lovrCalloc(sizeof(Layer));
   layer->ref = 1;
   layer->width = width;
   layer->height = height;
@@ -2488,7 +2479,7 @@ static void openxr_destroyLayer(void* ref) {
   Layer* layer = ref;
   swapchain_destroy(&layer->swapchain);
   lovrRelease(layer->pass, lovrPassDestroy);
-  free(layer);
+  lovrFree(layer);
 }
 
 static Layer** openxr_getLayers(uint32_t* count) {

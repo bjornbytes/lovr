@@ -88,10 +88,7 @@ static void* decodeBase64(char* str, size_t length, size_t* decodedLength) {
   length -= s - str;
   int padding = (s[length - 1] == '=') + (s[length - 2] == '=');
   *decodedLength = length / 4 * 3 - padding;
-  uint8_t* data = malloc(*decodedLength);
-  if (!data) {
-    return NULL;
-  }
+  uint8_t* data = lovrMalloc(*decodedLength);
 
   uint32_t num = 0;
   uint32_t bits = 0;
@@ -113,7 +110,7 @@ static void* decodeBase64(char* str, size_t length, size_t* decodedLength) {
       } else if (c == '=') {
         break;
       } else {
-        free(data);
+        lovrFree(data);
         return NULL;
       }
 
@@ -241,8 +238,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     binOffset = 0;
   }
 
-  model->metadata = malloc(jsonLength);
-  lovrAssert(model->metadata, "Out of memory");
+  model->metadata = lovrMalloc(jsonLength);
   memcpy(model->metadata, json, jsonLength);
   model->metadataSize = jsonLength;
   model->metadataType = META_GLTF_JSON;
@@ -271,7 +267,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
   }
 
   if (tokenCount <= 0 || tokens[0].type != JSMN_OBJECT) {
-    free(heapTokens);
+    lovrFree(heapTokens);
     return NULL;
   }
 
@@ -325,8 +321,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         }
       }
 
-      animationSamplers = malloc(samplerCount * sizeof(gltfAnimationSampler));
-      lovrAssert(animationSamplers, "Out of memory");
+      animationSamplers = lovrMalloc(samplerCount * sizeof(gltfAnimationSampler));
       gltfAnimationSampler* sampler = animationSamplers;
       for (int i = (token++)->size; i > 0; i--) {
         for (int k = (token++)->size; k > 0; k--) {
@@ -369,8 +364,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
 
     } else if (STR_EQ(key, "images")) {
       model->imageCount = token->size;
-      images = malloc(model->imageCount * sizeof(gltfImage));
-      lovrAssert(images, "Out of memory");
+      images = lovrMalloc(model->imageCount * sizeof(gltfImage));
       gltfImage* image = images;
       for (int i = (token++)->size; i > 0; i--, image++) {
         image->bufferView = ~0u;
@@ -388,8 +382,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
       }
 
     } else if (STR_EQ(key, "textures")) {
-      textures = malloc(token->size * sizeof(gltfTexture));
-      lovrAssert(textures, "Out of memory");
+      textures = lovrMalloc(token->size * sizeof(gltfTexture));
       gltfTexture* texture = textures;
       for (int i = (token++)->size; i > 0; i--, texture++) {
         texture->image = ~0u;
@@ -433,8 +426,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
 
     } else if (STR_EQ(key, "meshes")) {
       info.meshes = token;
-      meshes = malloc(token->size * sizeof(gltfMesh));
-      lovrAssert(meshes, "Out of memory");
+      meshes = lovrMalloc(token->size * sizeof(gltfMesh));
       gltfMesh* mesh = meshes;
       model->primitiveCount = 0;
       model->blendShapeCount = 0;
@@ -500,8 +492,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     } else if (STR_EQ(key, "scenes")) {
       info.scenes = token;
       info.sceneCount = token->size;
-      scenes = malloc(info.sceneCount * sizeof(gltfScene));
-      lovrAssert(scenes, "Out of memory");
+      scenes = lovrMalloc(info.sceneCount * sizeof(gltfScene));
       gltfScene* scene = scenes;
       for (int i = (token++)->size; i > 0; i--, scene++) {
         for (int k = (token++)->size; k > 0; k--) {
@@ -1058,11 +1049,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     model->rootNode = scenes[rootScene].node;
   }
 
-  free(animationSamplers);
-  free(meshes);
-  free(images);
-  free(textures);
-  free(scenes);
-  free(heapTokens);
+  lovrFree(animationSamplers);
+  lovrFree(meshes);
+  lovrFree(images);
+  lovrFree(textures);
+  lovrFree(scenes);
+  lovrFree(heapTokens);
   return model;
 }

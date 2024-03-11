@@ -55,8 +55,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
         memcpy(variant->value.ministring.data, string, length);
       } else {
         variant->type = TYPE_STRING;
-        variant->value.string.pointer = malloc(length + 1);
-        lovrAssert(variant->value.string.pointer, "Out of memory");
+        variant->value.string.pointer = lovrMalloc(length + 1);
         memcpy(variant->value.string.pointer, string, length);
         variant->value.string.pointer[length] = '\0';
         variant->value.string.length = length;
@@ -92,8 +91,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       if (v) {
         if (type == V_MAT4) {
           variant->type = TYPE_MATRIX;
-          variant->value.matrix.data = malloc(16 * sizeof(float));
-          lovrAssert(variant->value.matrix.data, "Out of memory");
+          variant->value.matrix.data = lovrMalloc(16 * sizeof(float));
           memcpy(variant->value.matrix.data, v, 16 * sizeof(float));
           break;
         } else {
@@ -205,7 +203,7 @@ static int nextEvent(lua_State* L) {
       luax_pushtype(L, Thread, event.data.thread.thread);
       lua_pushstring(L, event.data.thread.error);
       lovrRelease(event.data.thread.thread, lovrThreadDestroy);
-      free(event.data.thread.error);
+      lovrFree(event.data.thread.error);
       return 3;
 #endif
 

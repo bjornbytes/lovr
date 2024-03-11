@@ -129,8 +129,7 @@ static void evaluate(float* restrict P, size_t n, float t, vec4 p) {
 }
 
 Curve* lovrCurveCreate(void) {
-  Curve* curve = calloc(1, sizeof(Curve));
-  lovrAssert(curve, "Out of memory");
+  Curve* curve = lovrCalloc(sizeof(Curve));
   curve->ref = 1;
   arr_init(&curve->points, arr_alloc);
   arr_reserve(&curve->points, 16);
@@ -140,7 +139,7 @@ Curve* lovrCurveCreate(void) {
 void lovrCurveDestroy(void* ref) {
   Curve* curve = ref;
   arr_free(&curve->points);
-  free(curve);
+  lovrFree(curve);
 }
 
 void lovrCurveEvaluate(Curve* curve, float t, vec4 p) {
@@ -227,8 +226,7 @@ static const size_t vectorComponents[] = {
 };
 
 Pool* lovrPoolCreate(void) {
-  Pool* pool = calloc(1, sizeof(Pool));
-  lovrAssert(pool, "Out of memory");
+  Pool* pool = lovrCalloc(sizeof(Pool));
   pool->ref = 1;
   pool->data = os_vm_init((1 << 24) * sizeof(float));
   lovrPoolGrow(pool, 1 << 12);
@@ -238,7 +236,7 @@ Pool* lovrPoolCreate(void) {
 void lovrPoolDestroy(void* ref) {
   Pool* pool = ref;
   os_vm_free(pool->data, (1 << 24) * sizeof(float));
-  free(pool);
+  lovrFree(pool);
 }
 
 void lovrPoolGrow(Pool* pool, size_t count) {
@@ -300,8 +298,7 @@ static uint64_t wangHash64(uint64_t key) {
 // Use an 'Xorshift*' variant, as shown here: http://xorshift.di.unimi.it
 
 RandomGenerator* lovrRandomGeneratorCreate(void) {
-  RandomGenerator* generator = calloc(1, sizeof(RandomGenerator));
-  lovrAssert(generator, "Out of memory");
+  RandomGenerator* generator = lovrCalloc(sizeof(RandomGenerator));
   generator->ref = 1;
   Seed seed = { .b32 = { .lo = 0xCBBF7A44, .hi = 0x0139408D } };
   lovrRandomGeneratorSetSeed(generator, seed);
@@ -310,7 +307,7 @@ RandomGenerator* lovrRandomGeneratorCreate(void) {
 }
 
 void lovrRandomGeneratorDestroy(void* ref) {
-  free(ref);
+  lovrFree(ref);
 }
 
 Seed lovrRandomGeneratorGetSeed(RandomGenerator* generator) {

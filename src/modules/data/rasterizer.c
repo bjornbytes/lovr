@@ -19,8 +19,7 @@ struct Rasterizer {
 };
 
 Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
-  Rasterizer* rasterizer = calloc(1, sizeof(Rasterizer));
-  lovrAssert(rasterizer, "Out of memory");
+  Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
   rasterizer->ref = 1;
 
   stbtt_fontinfo* font = &rasterizer->font;
@@ -47,7 +46,7 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
 void lovrRasterizerDestroy(void* ref) {
   Rasterizer* rasterizer = ref;
   lovrRelease(rasterizer->blob, lovrBlobDestroy);
-  free(rasterizer);
+  lovrFree(rasterizer);
 }
 
 float lovrRasterizerGetFontSize(Rasterizer* rasterizer) {

@@ -110,8 +110,7 @@ static int threadFunction(void* data) {
 }
 
 Thread* lovrThreadCreate(ThreadFunction* function, Blob* body) {
-  Thread* thread = calloc(1, sizeof(Thread));
-  lovrAssert(thread, "Out of memory");
+  Thread* thread = lovrCalloc(sizeof(Thread));
   thread->ref = 1;
   thread->body = body;
   thread->function = function;
@@ -125,8 +124,8 @@ void lovrThreadDestroy(void* ref) {
   mtx_destroy(&thread->lock);
   if (thread->handle) thrd_detach(thread->handle);
   lovrRelease(thread->body, lovrBlobDestroy);
-  free(thread->error);
-  free(thread);
+  lovrFree(thread->error);
+  lovrFree(thread);
 }
 
 void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount) {
@@ -136,7 +135,7 @@ void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount)
     return;
   }
 
-  free(thread->error);
+  lovrFree(thread->error);
   thread->error = NULL;
 
   lovrCheck(argumentCount <= MAX_THREAD_ARGUMENTS, "Too many Thread arguments (max is %d)", MAX_THREAD_ARGUMENTS);
@@ -170,8 +169,7 @@ const char* lovrThreadGetError(Thread* thread) {
 // Channel
 
 Channel* lovrChannelCreate(uint64_t hash) {
-  Channel* channel = calloc(1, sizeof(Channel));
-  lovrAssert(channel, "Out of memory");
+  Channel* channel = lovrCalloc(sizeof(Channel));
   channel->ref = 1;
   arr_init(&channel->messages, arr_alloc);
   mtx_init(&channel->lock, mtx_plain);
@@ -186,7 +184,7 @@ void lovrChannelDestroy(void* ref) {
   arr_free(&channel->messages);
   mtx_destroy(&channel->lock);
   cnd_destroy(&channel->cond);
-  free(channel);
+  lovrFree(channel);
 }
 
 bool lovrChannelPush(Channel* channel, Variant* variant, double timeout, uint64_t* id) {

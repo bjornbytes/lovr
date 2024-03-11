@@ -310,8 +310,7 @@ void* lovrFilesystemRead(const char* p, size_t* size) {
       }
 
       *size = (size_t) bytes;
-      void* data = malloc(*size);
-      lovrAssert(data, "Out of memory");
+      void* data = lovrMalloc(*size);
 
       if (archive->read(archive, &handle, data, *size, size)) {
         archive->close(archive, &handle);
@@ -737,8 +736,7 @@ static bool zip_open(Archive* archive, const char* path, Handle* handle) {
   }
 
   if (handle->node->compressed) {
-    zip_stream* stream = handle->stream = malloc(sizeof(zip_stream));
-    lovrAssert(stream, "Out of memory");
+    zip_stream* stream = handle->stream = lovrMalloc(sizeof(zip_stream));
     tinfl_init(&stream->decompressor);
     stream->inputCursor = 0;
     stream->outputCursor = 0;
@@ -752,7 +750,7 @@ static bool zip_open(Archive* archive, const char* path, Handle* handle) {
 }
 
 static bool zip_close(Archive* archive, Handle* handle) {
-  free(handle->stream);
+  lovrFree(handle->stream);
   return true;
 }
 
@@ -906,8 +904,7 @@ static void zip_list(Archive* archive, const char* path, fs_list_cb callback, vo
 // Archive
 
 Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root) {
-  Archive* archive = calloc(1, sizeof(Archive));
-  lovrAssert(archive, "Out of memory");
+  Archive* archive = lovrCalloc(sizeof(Archive));
   archive->ref = 1;
 
   if (dir_init(archive, path, root)) {
@@ -927,20 +924,18 @@ Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char*
     archive->stat = zip_stat;
     archive->list = zip_list;
   } else {
-    free(archive);
+    lovrFree(archive);
     return NULL;
   }
 
   if (mountpoint) {
     size_t length = strlen(mountpoint);
-    archive->mountpoint = malloc(length + 1);
-    lovrAssert(archive->mountpoint, "Out of memory");
+    archive->mountpoint = lovrMalloc(length + 1);
     archive->mountLength = normalize(mountpoint, length, archive->mountpoint);
   }
 
   archive->pathLength = strlen(path);
-  archive->path = malloc(archive->pathLength + 1);
-  lovrAssert(archive->path, "Out of memory");
+  archive->path = lovrMalloc(archive->pathLength + 1);
   memcpy(archive->path, path, archive->pathLength + 1);
 
   return archive;
@@ -949,9 +944,9 @@ Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char*
 void lovrArchiveDestroy(void* ref) {
   Archive* archive = ref;
   if (archive->data) zip_free(archive);
-  free(archive->mountpoint);
-  free(archive->path);
-  free(archive);
+  lovrFree(archive->mountpoint);
+  lovrFree(archive->path);
+  lovrFree(archive);
 }
 
 // File
@@ -990,16 +985,14 @@ File* lovrFileCreate(const char* p, OpenMode mode, const char** error) {
     }
   }
 
-  File* file = calloc(1, sizeof(File));
-  lovrAssert(file, "Out of memory");
+  File* file = lovrCalloc(sizeof(File));
   file->ref = 1;
   file->mode = mode;
   file->handle = handle;
   file->archive = archive;
   lovrRetain(archive);
 
-  file->path = malloc(length + 1);
-  lovrAssert(file->path, "Out of memory");
+  file->path = lovrMalloc(length + 1);
   memcpy(file->path, path, length + 1);
 
   return file;
@@ -1009,8 +1002,8 @@ void lovrFileDestroy(void* ref) {
   File* file = ref;
   if (file->archive) file->archive->close(file->archive, &file->handle);
   lovrRelease(file->archive, lovrArchiveDestroy);
-  free(file->path);
-  free(file);
+  lovrFree(file->path);
+  lovrFree(file);
 }
 
 const char* lovrFileGetPath(File* file) {

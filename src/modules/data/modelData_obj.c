@@ -101,7 +101,7 @@ static void parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
     data = newline + 1;
   }
 
-  free(p);
+  lovrFree(p);
 }
 
 ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io) {

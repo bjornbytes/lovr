@@ -30,9 +30,9 @@ static char* threadRunner(Thread* thread, Blob* body, Variant* arguments, uint32
   // Error handling
   size_t length;
   const char* message = lua_tolstring(L, -1, &length);
-  char* error = message ? malloc(length + 1) : NULL;
 
-  if (error) {
+  if (message) {
+    char* error = lovrMalloc(length + 1);
     memcpy(error, message, length + 1);
     lua_close(L);
     return error;
@@ -48,8 +48,7 @@ static int l_lovrThreadNewThread(lua_State* L) {
     size_t length;
     const char* str = luaL_checklstring(L, 1, &length);
     if (memchr(str, '\n', MIN(1024, length))) {
-      void* data = malloc(length + 1);
-      lovrAssert(data, "Out of memory");
+      void* data = lovrMalloc(length + 1);
       memcpy(data, str, length + 1);
       blob = lovrBlobCreate(data, length, "thread code");
     } else {

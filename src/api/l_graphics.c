@@ -305,19 +305,14 @@ static void luax_writeshadercache(void) {
     return;
   }
 
-  void* data = malloc(size);
-
-  if (!data) {
-    return;
-  }
-
+  void* data = lovrMalloc(size);
   lovrGraphicsGetShaderCache(data, &size);
 
   if (size > 0) {
     luax_writefile(".lovrshadercache", data, size);
   }
 
-  free(data);
+  lovrFree(data);
 }
 
 static int l_lovrGraphicsInitialize(lua_State* L) {
@@ -366,7 +361,7 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
     luax_atexit(L, luax_writeshadercache);
   }
 
-  free(config.cacheData);
+  lovrFree(config.cacheData);
   return 0;
 }
 
@@ -394,8 +389,7 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   uint32_t count = 0;
 
   Pass* stack[8];
-  Pass** passes = (size_t) length > COUNTOF(stack) ? malloc(length * sizeof(Pass*)) : stack;
-  lovrAssert(passes, "Out of memory");
+  Pass** passes = (size_t) length > COUNTOF(stack) ? lovrMalloc(length * sizeof(Pass*)) : stack;
 
   if (table) {
     for (int i = 0; i < length; i++) {
@@ -414,7 +408,7 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   }
 
   lovrGraphicsSubmit(passes, count);
-  if (passes != stack) free(passes);
+  if (passes != stack) lovrFree(passes);
   lua_pushboolean(L, true);
   return 1;
 }
@@ -750,8 +744,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.mipmaps = 1;
   } else if (lua_istable(L, 1)) {
     info.imageCount = luax_len(L, index++);
-    images = info.imageCount > COUNTOF(stack) ? malloc(info.imageCount * sizeof(Image*)) : stack;
-    lovrAssert(images, "Out of memory");
+    images = info.imageCount > COUNTOF(stack) ? lovrMalloc(info.imageCount * sizeof(Image*)) : stack;
 
     if (info.imageCount == 0) {
       info.layers = 6;
@@ -870,7 +863,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   if (images != stack) {
-    free(images);
+    lovrFree(images);
   }
 
   luax_pushtype(L, Texture, texture);
@@ -1035,7 +1028,7 @@ static int l_lovrGraphicsCompileShader(lua_State* L) {
   lovrGraphicsCompileShader(inputs, outputs, count, luax_readfile);
 
   for (uint32_t i = 0; i < count; i++) {
-    if (shouldFree[i] && outputs[i].code != inputs[i].code) free((void*) inputs[i].code);
+    if (shouldFree[i] && outputs[i].code != inputs[i].code) lovrFree((void*) inputs[i].code);
     Blob* blob = lovrBlobCreate((void*) outputs[i].code, outputs[i].size, "Shader code");
     luax_pushtype(L, Blob, blob);
     lovrRelease(blob, lovrBlobDestroy);
@@ -1106,8 +1099,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   lovrRelease(shader, lovrShaderDestroy);
 
   for (uint32_t i = 0; i < info.stageCount; i++) {
-    if (shouldFree[i]) free((void*) source[i].code);
-    if (source[i].code != compiled[i].code) free((void*) compiled[i].code);
+    if (shouldFree[i]) lovrFree((void*) source[i].code);
+    if (source[i].code != compiled[i].code) lovrFree((void*) compiled[i].code);
   }
 
   arr_free(&flags);
