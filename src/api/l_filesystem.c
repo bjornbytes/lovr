@@ -5,6 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+StringEntry lovrFileAction[] = {
+  [FILE_CREATE] = ENTRY("create"),
+  [FILE_DELETE] = ENTRY("delete"),
+  [FILE_MODIFY] = ENTRY("modify"),
+  [FILE_RENAME] = ENTRY("rename"),
+  { 0 }
+};
+
 StringEntry lovrOpenMode[] = {
   [OPEN_READ] = ENTRY("r"),
   [OPEN_WRITE] = ENTRY("w"),
@@ -349,6 +357,16 @@ static int l_lovrFilesystemUnmount(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFilesystemUnwatch(lua_State* L) {
+  lovrFilesystemUnwatch();
+  return 0;
+}
+
+static int l_lovrFilesystemWatch(lua_State* L) {
+  lovrFilesystemWatch();
+  return 0;
+}
+
 static int l_lovrFilesystemWrite(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   size_t size;
@@ -411,6 +429,8 @@ static const luaL_Reg lovrFilesystem[] = {
   { "setRequirePath", l_lovrFilesystemSetRequirePath },
   { "setSource", l_lovrFilesystemSetSource },
   { "unmount", l_lovrFilesystemUnmount },
+  { "unwatch", l_lovrFilesystemUnwatch },
+  { "watch", l_lovrFilesystemWatch },
   { "write", l_lovrFilesystemWrite },
   { "newFile", l_lovrFilesystemNewFile },
   { NULL, NULL }

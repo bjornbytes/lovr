@@ -68,7 +68,6 @@ static void onFocus(bool focused) {
 
 static bool simulator_init(HeadsetConfig* config) {
   state.config = *config;
-  state.epoch = os_get_time();
   state.clipNear = .01f;
   state.clipFar = 0.f;
   state.distance = .5f;
@@ -101,6 +100,9 @@ static void simulator_start(void) {
       state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
     }
   }
+
+  state.epoch = os_get_time();
+  state.time = 0.;
 }
 
 static void simulator_stop(void) {
