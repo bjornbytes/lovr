@@ -31,36 +31,38 @@ extern const luaL_Reg lovrVec4[];
 extern const luaL_Reg lovrQuat[];
 extern const luaL_Reg lovrMat4[];
 
-static LOVR_THREAD_LOCAL Pool* pool;
+#define VECTOR_STACK_MAX 16
 
-static struct { const char* name; lua_CFunction constructor, indexer; const luaL_Reg* api; int metaref; } lovrVectorInfo[] = {
-  [V_VEC2] = { "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL },
-  [V_VEC3] = { "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL },
-  [V_VEC4] = { "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL },
-  [V_QUAT] = { "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL },
-  [V_MAT4] = { "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL }
+typedef struct {
+  size_t components;
+  const char* name;
+  lua_CFunction metacall;
+  lua_CFunction metaindex;
+  const luaL_Reg* api;
+  int metatableRef;
+  int poolRef;
+  int poolCursor;
+  int stackPointers[VECTOR_STACK_MAX];
+} VectorInfo;
+
+static uint32_t stackIndex;
+
+static VectorInfo lovrVectorInfo[] = {
+  [V_VEC2] = { 2, "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2, LUA_REFNIL, LUA_REFNIL, 1, { 0 } },
+  [V_VEC3] = { 3, "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3, LUA_REFNIL, LUA_REFNIL, 1, { 0 } },
+  [V_VEC4] = { 4, "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4, LUA_REFNIL, LUA_REFNIL, 1, { 0 } },
+  [V_QUAT] = { 4, "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat, LUA_REFNIL, LUA_REFNIL, 1, { 0 } },
+  [V_MAT4] = { 16, "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4, LUA_REFNIL, LUA_REFNIL, 1, { 0 } }
 };
 
-static void luax_destroypool(void) {
-  lovrRelease(pool, lovrPoolDestroy);
-}
-
-float* luax_tovector(lua_State* L, int index, VectorType* type) {
+float* luax_tovector(lua_State* L, int index, int* type) {
   void* p = lua_touserdata(L, index);
 
   if (p) {
-    if (lua_type(L, index) == LUA_TLIGHTUSERDATA) {
-      Vector v = { .pointer = p };
-      if (v.handle.type > V_NONE && v.handle.type < MAX_VECTOR_TYPES) {
-        if (type) *type = v.handle.type;
-        return lovrPoolResolve(pool, v);
-      }
-    } else {
-      VectorType* t = p;
-      if (*t > V_NONE && *t < MAX_VECTOR_TYPES) {
-        if (type) *type = *t;
-        return (float*) (t + 1);
-      }
+    int* t = p;
+    if (*t > V_NONE && *t < MAX_VECTOR_TYPES) {
+      if (type) *type = *t;
+      return (float*) (t + 1);
     }
   }
 
@@ -68,26 +70,38 @@ float* luax_tovector(lua_State* L, int index, VectorType* type) {
   return NULL;
 }
 
-float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected) {
-  VectorType t;
+float* luax_checkvector(lua_State* L, int index, int type, const char* expected) {
+  int t;
   float* p = luax_tovector(L, index, &t);
   if (!p || t != type) luax_typeerror(L, index, expected ? expected : lovrVectorInfo[type].name);
   return p;
 }
 
-static float* luax_newvector(lua_State* L, VectorType type, size_t components) {
-  VectorType* p = lua_newuserdata(L, sizeof(VectorType) + components * sizeof(float));
-  *p = type;
-  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metaref);
-  lua_setmetatable(L, -2);
-  return (float*) (p + 1);
-}
+float* luax_newvector(lua_State* L, int type) {
+  if (stackIndex > 0) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].poolRef);
+    lua_rawgeti(L, -1, lovrVectorInfo[type].poolCursor);
+    if (!lua_isnil(L, -1)) {
+      lua_remove(L, -2);
+      lovrVectorInfo[type].poolCursor++;
+      return (float*) ((char*) lua_topointer(L, -1) + sizeof(int));
+    } else {
+      lua_pop(L, 1);
+    }
+  }
 
-float* luax_newtempvector(lua_State* L, VectorType type) {
-  float* data;
-  Vector vector = lovrPoolAllocate(pool, type, &data);
-  lua_pushlightuserdata(L, vector.pointer);
-  return data;
+  void* p = lua_newuserdata(L, sizeof(int) + lovrVectorInfo[type].components * sizeof(float));
+  *((int*) p) = type;
+  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metatableRef);
+  lua_setmetatable(L, -2);
+
+  if (stackIndex > 0) {
+    lua_pushvalue(L, -1);
+    lua_rawseti(L, -3, lovrVectorInfo[type].poolCursor++);
+    lua_remove(L, -2);
+  }
+
+  return (float*) ((char*) p + sizeof(int));
 }
 
 static int l_lovrMathNewCurve(lua_State* L) {
@@ -213,67 +227,78 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
 }
 
 static int l_lovrMathNewVec2(lua_State* L) {
-  luax_newvector(L, V_VEC2, 2);
+  luax_newvector(L, V_VEC2);
   lua_insert(L, 1);
   return l_lovrVec2Set(L);
 }
 
 static int l_lovrMathNewVec3(lua_State* L) {
-  luax_newvector(L, V_VEC3, 4);
+  luax_newvector(L, V_VEC3);
   lua_insert(L, 1);
   return l_lovrVec3Set(L);
 }
 
 static int l_lovrMathNewVec4(lua_State* L) {
-  luax_newvector(L, V_VEC4, 4);
+  luax_newvector(L, V_VEC4);
   lua_insert(L, 1);
   return l_lovrVec4Set(L);
 }
 
 static int l_lovrMathNewQuat(lua_State* L) {
-  luax_newvector(L, V_QUAT, 4);
+  luax_newvector(L, V_QUAT);
   lua_insert(L, 1);
   return l_lovrQuatSet(L);
 }
 
 static int l_lovrMathNewMat4(lua_State* L) {
-  luax_newvector(L, V_MAT4, 16);
+  luax_newvector(L, V_MAT4);
   lua_insert(L, 1);
   return l_lovrMat4Set(L);
 }
 
 static int l_lovrMathVec2(lua_State* L) {
-  luax_newtempvector(L, V_VEC2);
+  luax_newvector(L, V_VEC2);
   lua_replace(L, 1);
   return l_lovrVec2Set(L);
 }
 
 static int l_lovrMathVec3(lua_State* L) {
-  luax_newtempvector(L, V_VEC3);
+  luax_newvector(L, V_VEC3);
   lua_replace(L, 1);
   return l_lovrVec3Set(L);
 }
 
 static int l_lovrMathVec4(lua_State* L) {
-  luax_newtempvector(L, V_VEC4);
+  luax_newvector(L, V_VEC4);
   lua_replace(L, 1);
   return l_lovrVec4Set(L);
 }
 
 static int l_lovrMathQuat(lua_State* L) {
-  luax_newtempvector(L, V_QUAT);
+  luax_newvector(L, V_QUAT);
   lua_replace(L, 1);
   return l_lovrQuatSet(L);
 }
 
 static int l_lovrMathMat4(lua_State* L) {
-  luax_newtempvector(L, V_MAT4);
+  luax_newvector(L, V_MAT4);
   lua_replace(L, 1);
   return l_lovrMat4Set(L);
 }
 
-static int l_lovrMathDrain(lua_State* L) {
-  lovrPoolDrain(pool);
+static int l_lovrMathPush(lua_State* L) {
+  for (int i = V_VEC2; i <= V_MAT4; i++) {
+    lovrVectorInfo[i].stackPointers[stackIndex] = lovrVectorInfo[i].poolCursor;
+  }
+  lovrAssert(++stackIndex < VECTOR_STACK_MAX, "Vector stack overflow (more pushes than pops?)");
+  return 0;
+}
+
+static int l_lovrMathPop(lua_State* L) {
+  lovrAssert(--stackIndex >= 0, "Vector stack underflow (more pops than pushes?)");
+  for (int i = V_VEC2; i <= V_MAT4; i++) {
+    lovrVectorInfo[i].poolCursor = lovrVectorInfo[i].stackPointers[stackIndex];
+  }
   return 0;
 }
 
@@ -292,57 +317,10 @@ static const luaL_Reg lovrMath[] = {
   { "newVec4", l_lovrMathNewVec4 },
   { "newQuat", l_lovrMathNewQuat },
   { "newMat4", l_lovrMathNewMat4 },
-  { "drain", l_lovrMathDrain },
+  { "push", l_lovrMathPush },
+  { "pop", l_lovrMathPop },
   { NULL, NULL }
 };
-
-static int l_lovrLightUserdata__index(lua_State* L) {
-  VectorType type;
-  if (!luax_tovector(L, 1, &type)) {
-    return 0;
-  }
-
-  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metaref);
-  lua_pushvalue(L, 2);
-  lua_rawget(L, -2);
-  if (lua_isnil(L, -1)) {
-    lua_pop(L, 1);
-    lua_pushliteral(L, "__index");
-    lua_rawget(L, -2);
-    if (!lua_isnil(L, -1)) {
-      lua_pushvalue(L, 1);
-      lua_pushvalue(L, 2);
-      lua_call(L, 2, 1);
-      return 1;
-    } else {
-      return 0;
-    }
-  }
-  return 1;
-}
-
-static int l_lovrLightUserdataOp(lua_State* L) {
-  VectorType type;
-  if (!luax_tovector(L, lua_islightuserdata(L, 1) ? 1 : 2, &type)) {
-    lua_pushliteral(L, "__tostring");
-    if (lua_rawequal(L, -1, lua_upvalueindex(1))) {
-      lua_pop(L, 1);
-      lua_pushfstring(L, "%s: %p", lua_typename(L, lua_type(L, 1)), lua_topointer(L, 1));
-      return 1;
-    }
-    lua_pop(L, 1);
-    return luaL_error(L, "Unsupported lightuserdata operator %q", lua_tostring(L, lua_upvalueindex(1)));
-  }
-
-  lua_rawgeti(L, LUA_REGISTRYINDEX, lovrVectorInfo[type].metaref);
-  lua_pushvalue(L, lua_upvalueindex(1));
-  lua_gettable(L, -2);
-  lua_pushvalue(L, 1);
-  lua_pushvalue(L, 2);
-  lua_pushvalue(L, 3);
-  lua_call(L, 3, 1);
-  return 1;
-}
 
 int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
@@ -350,13 +328,13 @@ int luaopen_lovr_math(lua_State* L) {
   luax_registertype(L, Curve);
   luax_registertype(L, RandomGenerator);
 
-  for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
+  for (int i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
     lua_newtable(L);
 
     lua_newtable(L);
-    lua_pushcfunction(L, lovrVectorInfo[i].constructor);
+    lua_pushcfunction(L, lovrVectorInfo[i].metacall);
     lua_setfield(L, -2, "__call");
-    lua_pushcfunction(L, lovrVectorInfo[i].indexer);
+    lua_pushcfunction(L, lovrVectorInfo[i].metaindex);
     lua_setfield(L, -2, "__index");
     lua_setmetatable(L, -2);
 
@@ -369,30 +347,23 @@ int luaopen_lovr_math(lua_State* L) {
     lua_settable(L, -4);
 
     luax_register(L, lovrVectorInfo[i].api);
-    lovrVectorInfo[i].metaref = luaL_ref(L, LUA_REGISTRYINDEX);
-  }
+    lovrVectorInfo[i].metatableRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-  // Global lightuserdata metatable
-  lua_pushlightuserdata(L, NULL);
-  lua_newtable(L);
-  lua_pushcfunction(L, l_lovrLightUserdata__index);
-  lua_setfield(L, -2, "__index");
-  const char* ops[] = { "__add", "__sub", "__mul", "__div", "__unm", "__len", "__tostring", "__newindex" };
-  for (size_t i = 0; i < COUNTOF(ops); i++) {
-    lua_pushstring(L, ops[i]);
-    lua_pushcclosure(L, l_lovrLightUserdataOp, 1);
-    lua_setfield(L, -2, ops[i]);
+    // pool
+    lua_newtable(L);
+
+    // __mode = v
+    lua_newtable(L);
+    lua_pushliteral(L, "v");
+    lua_setfield(L, -2, "__mode");
+    lua_setmetatable(L, -2);
+
+    lovrVectorInfo[i].poolRef = luaL_ref(L, LUA_REGISTRYINDEX);
   }
-  lua_setmetatable(L, -2);
-  lua_pop(L, 1);
 
   // Module
   lovrMathInit();
   luax_atexit(L, lovrMathDestroy);
-
-  // Each Lua state gets its own thread-local Pool
-  pool = lovrPoolCreate();
-  luax_atexit(L, luax_destroypool);
 
   // Globals
   luax_pushconf(L);
@@ -401,7 +372,7 @@ int luaopen_lovr_math(lua_State* L) {
     if (lua_istable(L, -1)) {
       lua_getfield(L, -1, "globals");
       if (lua_toboolean(L, -1)) {
-        for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
+        for (int i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
           lua_getfield(L, -4, lovrVectorInfo[i].name);
           lua_setglobal(L, lovrVectorInfo[i].name);
 
