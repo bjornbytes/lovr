@@ -1,10 +1,9 @@
 lovr = require 'lovr'
 
-<<<<<<< HEAD
 local lovr = lovr
 
 local conf = {
-  version = '0.17.0',
+  version = '0.17.1',
   identity = 'default',
   saveprecedence = true,
   modules = {
@@ -52,57 +51,6 @@ local conf = {
     resizable = false,
     title = 'LÖVR',
     icon = nil
-=======
--- Note: Cannot be overloaded
-function lovr.boot()
-  local conf = {
-    version = '0.17.1',
-    identity = 'default',
-    saveprecedence = true,
-    modules = {
-      audio = true,
-      data = true,
-      event = true,
-      graphics = true,
-      headset = true,
-      math = true,
-      physics = true,
-      system = true,
-      thread = true,
-      timer = true
-    },
-    audio = {
-      start = true,
-      spatializer = nil
-    },
-    graphics = {
-      debug = false,
-      vsync = true,
-      stencil = false,
-      antialias = true,
-      shadercache = true
-    },
-    headset = {
-      drivers = { 'openxr', 'webxr', 'desktop' },
-      supersample = false,
-      offset = 1.7,
-      stencil = false,
-      antialias = true,
-      submitdepth = true,
-      overlay = false
-    },
-    math = {
-      globals = true
-    },
-    window = {
-      width = 720,
-      height = 800,
-      fullscreen = false,
-      resizable = false,
-      title = 'LÖVR',
-      icon = nil
-    }
->>>>>>> stable
   }
 }
 
