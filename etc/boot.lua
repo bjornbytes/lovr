@@ -76,7 +76,7 @@ function lovr.boot()
           'usage: lovr <source>',
           '<source> can be a Lua file, a folder with a main.lua file, or a zip archive'
         }, '\n'))
-        return 1
+        return 0
       end
     end
   end
