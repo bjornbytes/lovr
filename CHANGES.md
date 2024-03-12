@@ -35,25 +35,16 @@ dev
 - Change `lovr.graphics.newTexture` to default mipmap count to 1 when an Image is given with a non-blittable format.
 - Change `lovr.graphics.newTexture` to error if mipmaps are requested and an Image is given with a non-blittable format.
 - Change `TextureFeature` to merge `sample` with `filter`, `render` with `blend`, and `blitsrc`/`blitdst` into `blit`.
-- Change file permissions for files and directories created by `lovr.filesystem` (so ADB can access them on Android 12+).
-- Change `Pass:sphere` to error when segment count is too small.
 - Change headset simulator movement to slow down when holding the control key.
 - Change headset simulator to use `t.headset.supersample`.
 - Change `lovr.graphics.compileShader` to take/return multiple stages.
 
 ### Fix
 
-- Fix `lovr.quit` to not get called twice when aborting quit.
 - Fix `t.headset.submitDepth` to actually submit depth.
 - Fix depth write when depth testing is disabled.
-- Fix `Pass:skybox` to render cubemaps with the correct X/Z orientation.
-- Fix bitangent sign when using `TangentMatrix` in shaders.
 - Fix "morgue overflow" error when creating or destroying large amounts of textures at once.
-- Fix shader #includes to error when including a file that doesn't exist.
-- Fix `lovr.graphics.newModel` to support empty GLB models.
-- Fix `lovr.graphics.newModel` to support models without any vertices.
 - Fix `Texture:getType` when used with texture views.
-- Fix `Model:getMesh`.
 
 ### Deprecate
 
@@ -78,6 +69,29 @@ dev
 - Remove variant of `Pass:send` that takes a binding number instead of a variable name.
 - Remove `Texture:newView` (renamed to `lovr.graphics.newTextureView`).
 - Remove `Texture:isView` and `Texture:getParent`.
+
+v0.17.1 - 2024-03-12
+---
+
+### Change
+
+- Change file permissions for files and directories created by `lovr.filesystem` (so ADB can access them on Android 12+).
+- Change `Pass:sphere` to error when segment count is too small.
+- Change `Buffer:setData` to error when copying within a single Buffer and the source and destination ranges overlap.
+
+### Fix
+
+- Fix LÖVR failing to start on Oculus Quest v62+.
+- Fix `Pass:skybox` to render cubemaps with the correct X/Z orientation.
+- Fix depth write when depth testing is disabled.
+- Fix `lovr.graphics.newModel` to support empty GLB models.
+- Fix `lovr.graphics.newModel` to support models without any vertices.
+- Fix bitangent sign in `TangentMatrix` builtin.
+- Fix shader #includes to error when including a file that doesn't exist.
+- Fix `lovr.quit` to not get called twice when canceling quit.
+- Fix GPU error when texture had only `transfer` usage.
+- Fix rare crash when calling vector methods.
+- Fix `Model:getMesh`.
 
 v0.17.0 - 2023-10-14
 ---
