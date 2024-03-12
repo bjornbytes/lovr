@@ -6,7 +6,7 @@
 
 #define LOVR_VERSION_MAJOR 0
 #define LOVR_VERSION_MINOR 17
-#define LOVR_VERSION_PATCH 0
+#define LOVR_VERSION_PATCH 1
 #define LOVR_VERSION_ALIAS "Tritium Gourmet"
 
 #ifdef _MSC_VER
