@@ -45,6 +45,7 @@ dev
 - Fix depth write when depth testing is disabled.
 - Fix "morgue overflow" error when creating or destroying large amounts of textures at once.
 - Fix `Texture:getType` when used with texture views.
+- Fix possible negative `dt` in lovr.update when restarting with the simulator.
 
 ### Deprecate
 
