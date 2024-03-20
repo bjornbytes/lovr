@@ -52,8 +52,11 @@ int luax_readvec2(lua_State* L, int index, vec2 v, const char* expected) {
       v[0] = luax_tofloat(L, index++);
       v[1] = luax_optfloat(L, index++, v[0]);
       return index;
+    case LUA_TTABLE:
+      luax_readobjarr(L, index, 2, v, "vec2");
+      return index + 1;
     default:
-      vec2_init(v, luax_checkvector(L, index, V_VEC2, expected ? expected : "vec2 or number"));
+      vec2_init(v, luax_checkvector(L, index, V_VEC2, expected ? expected : "vec2, table or number"));
       return index + 1;
   }
 }
@@ -69,8 +72,11 @@ int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
       v[1] = luax_optfloat(L, index++, v[0]);
       v[2] = luax_optfloat(L, index++, v[0]);
       return index;
+    case LUA_TTABLE:
+      luax_readobjarr(L, index, 3, v, "vec3");
+      return index + 1;
     default:
-      vec3_init(v, luax_checkvector(L, index, V_VEC3, expected ? expected : "vec3 or number"));
+      vec3_init(v, luax_checkvector(L, index, V_VEC3, expected ? expected : "vec3, table or number"));
       return index + 1;
   }
 }
@@ -87,13 +93,17 @@ int luax_readvec4(lua_State* L, int index, vec4 v, const char* expected) {
       v[2] = luax_optfloat(L, index++, v[0]);
       v[3] = luax_optfloat(L, index++, v[0]);
       return index;
+    case LUA_TTABLE:
+      luax_readobjarr(L, index, 4, v, "vec4");
+      return index + 1;
     default:
-      vec4_init(v, luax_checkvector(L, index, V_VEC4, expected ? expected : "vec4 or number"));
+      vec4_init(v, luax_checkvector(L, index, V_VEC4, expected ? expected : "vec4, table or number"));
       return index + 1;
   }
 }
 
 int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected) {
+  int tlen;
   switch (lua_type(L, index)) {
     case LUA_TNIL:
     case LUA_TNONE:
@@ -112,6 +122,17 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
         }
       }
       return index;
+    case LUA_TTABLE:
+      tlen = luax_len(L, index);
+      if (tlen >= 3) {
+        luax_readobjarr(L, index, 3, v, "scale");
+      } else if (tlen == 2) {
+        luax_readobjarr(L, index, 2, v, "scale");
+        v[2] = 1.f;
+      } else {
+        return luax_typeerror(L, index, "table length must >= 2");
+      }
+      return index + 1;
     default: {
       VectorType type;
       float* u = luax_tovector(L, index++, &type);
@@ -122,7 +143,7 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
       } else if (type == V_VEC3) {
         vec3_init(v, u);
       } else {
-        return luax_typeerror(L, index, "vec2, vec3, or number");
+        return luax_typeerror(L, index, "vec2, vec3, table or number");
       }
       return index;
     }
@@ -143,8 +164,11 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
       az = luax_optfloat(L, index++, 0.f);
       quat_fromAngleAxis(q, angle, ax, ay, az);
       return index;
+    case LUA_TTABLE:
+      luax_readobjarr(L, index, 4, q, "quat");
+      return index + 1;
     default:
-      quat_init(q, luax_checkvector(L, index++, V_QUAT, expected ? expected : "quat or number"));
+      quat_init(q, luax_checkvector(L, index++, V_QUAT, expected ? expected : "quat, table or number"));
       return index;
   }
 }
@@ -167,11 +191,18 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
       }
     } // Fall through
 
+    case LUA_TTABLE:
+      if (lua_istable(L, index) && luax_len(L, index) >= 16) {
+        luax_readobjarr(L, index, 16, m, "mat4");
+        return index + 1;
+      }
+      // Fall through
+
     case LUA_TNUMBER: {
       float S[3];
       float R[4];
       mat4_identity(m);
-      index = luax_readvec3(L, index, m + 12, "mat4, vec3, or number");
+      index = luax_readvec3(L, index, m + 12, "mat4, vec3, table or number");
       index = luax_readscale(L, index, S, scaleComponents, NULL);
       index = luax_readquat(L, index, R, NULL);
       mat4_rotateQuat(m, R);
