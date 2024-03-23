@@ -269,7 +269,7 @@ void os_request_permission(os_permission permission) {
   }
 }
 
-const char* os_get_clipboard_text() {
+const char* os_get_clipboard_text(void) {
   return NULL;
 }
 

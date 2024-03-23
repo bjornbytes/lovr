@@ -160,7 +160,7 @@ void os_open_console(void);
 double os_get_time(void);
 void os_sleep(double seconds);
 void os_request_permission(os_permission permission);
-const char* os_get_clipboard_text();
+const char* os_get_clipboard_text(void);
 void os_set_clipboard_text(const char* text);
 
 void* os_vm_init(size_t size);

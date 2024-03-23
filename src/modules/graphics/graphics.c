@@ -622,7 +622,7 @@ static BufferView getBuffer(gpu_buffer_type type, uint32_t size, size_t align);
 static int u64cmp(const void* a, const void* b);
 static uint32_t lcm(uint32_t a, uint32_t b);
 static void beginFrame(void);
-static void flushTransfers();
+static void flushTransfers(void);
 static void processReadbacks(void);
 static gpu_pass* getPass(Canvas* canvas);
 static size_t getLayout(gpu_slot* slots, uint32_t count);
@@ -7389,7 +7389,7 @@ static void beginFrame(void) {
 // restored, which is pretty gross, but we don't want to invalidate temp memory (currently this is
 // only a problem for Font: when the font's atlas gets destroyed, it could invalidate the temp
 // memory used by Font:getLines and Pass:text).
-static void flushTransfers() {
+static void flushTransfers(void) {
   if (state.active) {
     size_t cursor = state.allocator.cursor;
     lovrGraphicsSubmit(NULL, 0);
