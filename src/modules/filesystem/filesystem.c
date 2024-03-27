@@ -568,7 +568,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
 
   // Parse the number of file entries and reserve memory
   uint16_t nodeCount = readu16(p + 10);
-  arr_init(&archive->nodes, realloc);
+  arr_init(&archive->nodes);
   arr_reserve(&archive->nodes, nodeCount);
   map_init(&archive->lookup, nodeCount);
 

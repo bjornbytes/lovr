@@ -39,13 +39,22 @@ void* lovrCalloc(size_t size);
 void* lovrRealloc(void* data, size_t size);
 void lovrFree(void* data);
 
-// Error handling
-typedef void errorFn(void*, const char*, va_list);
-void lovrSetErrorCallback(errorFn* callback, void* userdata);
+// Refcounting (to be refcounted, a struct must have a uint32_t refcount as its first field)
+void lovrRetain(void* ref);
+void lovrRelease(void* ref, void (*destructor)(void*));
+
+// Defer
+uint32_t lovrDeferPush(void);
+void lovrDeferPop(uint32_t base);
+void lovrDefer(void (*fn)(void*), void* arg);
+void lovrErrDefer(void (*fn)(void*), void* arg);
+void lovrDeferRelease(void* ref, void (*destructor)(void*));
+
+// Exceptions
+void lovrTry(void (*fn)(void*), void* arg, void (*catch)(void*, const char*, va_list), void* catchArg);
 LOVR_NORETURN void lovrThrow(const char* format, ...);
 #define lovrAssert(c, ...) do { if (!(c)) { lovrThrow(__VA_ARGS__); } } while(0)
 #define lovrUnreachable() lovrThrow("Unreachable")
-
 #ifdef LOVR_UNCHECKED
 #define lovrCheck(c, ...) ((void) 0)
 #else
@@ -53,10 +62,29 @@ LOVR_NORETURN void lovrThrow(const char* format, ...);
 #endif
 
 // Logging
-typedef void logFn(void*, int, const char*, const char*, va_list);
+typedef void fn_log(void*, int, const char*, const char*, va_list);
 enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
-void lovrSetLogCallback(logFn* callback, void* userdata);
+void lovrSetLogCallback(fn_log* callback, void* userdata);
 void lovrLog(int level, const char* tag, const char* format, ...);
+
+// Dynamic Array
+#define arr_t(T) struct { T* data; size_t length, capacity; }
+#define arr_init(a) (a)->data = NULL, (a)->length = 0, (a)->capacity = 0
+#define arr_free(a) if ((a)->data) lovrFree((a)->data)
+#define arr_reserve(a, n) _arr_reserve((void**) &((a)->data), n, &(a)->capacity, sizeof(*(a)->data))
+#define arr_expand(a, n) arr_reserve(a, (a)->length + n)
+#define arr_push(a, x) arr_reserve(a, (a)->length + 1), (a)->data[(a)->length] = x, (a)->length++
+#define arr_pop(a) (a)->data[--(a)->length]
+#define arr_append(a, p, n) arr_reserve(a, (a)->length + n), memcpy((a)->data + (a)->length, p, n * sizeof(*(p))), (a)->length += n
+#define arr_splice(a, i, n) memmove((a)->data + (i), (a)->data + ((i) + n), ((a)->length - (i) - (n)) * sizeof(*(a)->data)), (a)->length -= n
+#define arr_clear(a) (a)->length = 0
+
+static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t stride) {
+  if (*capacity >= n) return;
+  if (*capacity == 0) *capacity = 1;
+  while (*capacity < n) *capacity *= 2;
+  *data = lovrRealloc(*data, *capacity * stride);
+}
 
 // Hash function (FNV1a)
 static inline uint64_t hash64(const void* data, size_t length) {
@@ -66,33 +94,6 @@ static inline uint64_t hash64(const void* data, size_t length) {
     hash = (hash ^ bytes[i]) * 0x100000001b3;
   }
   return hash;
-}
-
-// Refcounting
-void lovrRetain(void* ref);
-void lovrRelease(void* ref, void (*destructor)(void*));
-
-// Dynamic Array
-typedef void* arr_allocator(void* data, size_t size);
-#define arr_t(T) struct { T* data; arr_allocator* alloc; size_t length, capacity; }
-#define arr_init(a, allocator) (a)->data = NULL, (a)->length = 0, (a)->capacity = 0, (a)->alloc = allocator
-#define arr_free(a) if ((a)->data) (a)->alloc((a)->data, 0)
-#define arr_reserve(a, n) _arr_reserve((void**) &((a)->data), n, &(a)->capacity, sizeof(*(a)->data), (a)->alloc)
-#define arr_expand(a, n) arr_reserve(a, (a)->length + n)
-#define arr_push(a, x) arr_reserve(a, (a)->length + 1), (a)->data[(a)->length] = x, (a)->length++
-#define arr_pop(a) (a)->data[--(a)->length]
-#define arr_append(a, p, n) arr_reserve(a, (a)->length + n), memcpy((a)->data + (a)->length, p, n * sizeof(*(p))), (a)->length += n
-#define arr_splice(a, i, n) memmove((a)->data + (i), (a)->data + ((i) + n), ((a)->length - (i) - (n)) * sizeof(*(a)->data)), (a)->length -= n
-#define arr_clear(a) (a)->length = 0
-
-void* arr_alloc(void* data, size_t size);
-
-static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t stride, arr_allocator* allocator) {
-  if (*capacity >= n) return;
-  if (*capacity == 0) *capacity = 1;
-  while (*capacity < n) *capacity *= 2;
-  *data = allocator(*data, *capacity * stride);
-  lovrAssert(*data, "Out of memory");
 }
 
 // Hashmap (does not support removal)

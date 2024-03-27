@@ -131,7 +131,7 @@ static void evaluate(float* restrict P, size_t n, float t, vec4 p) {
 Curve* lovrCurveCreate(void) {
   Curve* curve = lovrCalloc(sizeof(Curve));
   curve->ref = 1;
-  arr_init(&curve->points, arr_alloc);
+  arr_init(&curve->points);
   arr_reserve(&curve->points, 16);
   return curve;
 }

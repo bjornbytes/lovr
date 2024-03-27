@@ -398,8 +398,8 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
   lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
 
-  arr_init(&collider->shapes, arr_alloc);
-  arr_init(&collider->joints, arr_alloc);
+  arr_init(&collider->shapes);
+  arr_init(&collider->joints);
 
   // Adjust the world's collider list
   if (!collider->world->head) {

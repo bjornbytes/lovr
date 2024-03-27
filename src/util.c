@@ -1,25 +1,28 @@
 #include "util.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdatomic.h>
+#include <setjmp.h>
 #include <stdio.h>
 
 // Allocation
+
 void* lovrMalloc(size_t size) {
   void* data = malloc(size);
-  if (!data) fprintf(stderr, "Out of memory"), abort();
+  lovrAssert(data, "Out of memory");
   return data;
 }
 
 void* lovrCalloc(size_t size) {
   void* data = calloc(1, size);
-  if (!data) fprintf(stderr, "Out of memory"), abort();
+  lovrAssert(data, "Out of memory");
   return data;
 }
 
 void* lovrRealloc(void* old, size_t size) {
   void* data = realloc(old, size);
-  if (!data) fprintf(stderr, "Out of memory"), abort();
+  lovrAssert(data, "Out of memory");
   return data;
 }
 
@@ -27,40 +30,8 @@ void lovrFree(void* data) {
   free(data);
 }
 
-// Error handling
-static LOVR_THREAD_LOCAL errorFn* lovrErrorCallback;
-static LOVR_THREAD_LOCAL void* lovrErrorUserdata;
+// Refcounting
 
-void lovrSetErrorCallback(errorFn* callback, void* userdata) {
-  lovrErrorCallback = callback;
-  lovrErrorUserdata = userdata;
-}
-
-void lovrThrow(const char* format, ...) {
-  va_list args;
-  va_start(args, format);
-  lovrErrorCallback(lovrErrorUserdata, format, args);
-  va_end(args);
-  exit(EXIT_FAILURE);
-}
-
-// Logging
-logFn* lovrLogCallback;
-void* lovrLogUserdata;
-
-void lovrSetLogCallback(logFn* callback, void* userdata) {
-  lovrLogCallback = callback;
-  lovrLogUserdata = userdata;
-}
-
-void lovrLog(int level, const char* tag, const char* format, ...) {
-  va_list args;
-  va_start(args, format);
-  lovrLogCallback(lovrLogUserdata, level, tag, format, args);
-  va_end(args);
-}
-
-// Refcounting; to be reference-counted the object must have uint ref field as struct's first member
 #if ATOMIC_INT_LOCK_FREE != 2
 #error "Lock-free integer atomics are not supported on this platform, but are required for refcounting"
 #endif
@@ -77,18 +48,118 @@ void lovrRelease(void* object, void (*destructor)(void*)) {
   }
 }
 
-// Dynamic Array
-// Default malloc-based allocator for arr_t (like realloc except well-defined when size is 0)
-void* arr_alloc(void* data, size_t size) {
-  if (size > 0) {
-    return realloc(data, size);
-  } else {
-    free(data);
-    return NULL;
+// Defer
+
+typedef struct {
+  void (*fn)(void*);
+  void* arg;
+} Closure;
+
+static LOVR_THREAD_LOCAL struct {
+  Closure stack[16];
+  uint16_t releaseMask;
+  uint16_t errMask;
+  uint32_t top;
+} defer;
+
+uint32_t lovrDeferPush(void) {
+  return defer.top;
+}
+
+static void deferPop(uint32_t base, bool err) {
+  while (defer.top > base) {
+    uint32_t index = --defer.top;
+    Closure c = defer.stack[index];
+    if (err || (defer.errMask & (1u << index)) == 0) {
+      if (defer.releaseMask & (1u << index)) {
+        lovrRelease(c.arg, c.fn);
+      } else {
+        c.fn(c.arg);
+      }
+    }
   }
 }
 
+void lovrDeferPop(uint32_t base) {
+  deferPop(base, false);
+}
+
+void lovrDefer(void (*fn)(void*), void* arg) {
+  lovrAssert(defer.top < COUNTOF(defer.stack), "Defer stack overflow!");
+  defer.releaseMask &= ~(1u << defer.top);
+  defer.errMask &= ~(1u << defer.top);
+  defer.stack[defer.top++] = (Closure) { fn, arg };
+}
+
+void lovrErrDefer(void (*fn)(void*), void* arg) {
+  lovrAssert(defer.top < COUNTOF(defer.stack), "Defer stack overflow!");
+  defer.releaseMask &= ~(1u << defer.top);
+  defer.errMask |= (1u << defer.top);
+  defer.stack[defer.top++] = (Closure) { fn, arg };
+}
+
+void lovrDeferRelease(void* object, void (*destructor)(void*)) {
+  lovrAssert(defer.top < COUNTOF(defer.stack), "Defer stack overflow!");
+  defer.releaseMask |= (1u << defer.top);
+  defer.errMask &= ~(1u << defer.top);
+  defer.stack[defer.top++] = (Closure) { destructor, object };
+}
+
+// Exceptions
+
+typedef struct Handler {
+  struct Handler* prev;
+  uint32_t baseDefer;
+  void (*catch)(void* arg, const char* format, va_list args);
+  void* arg;
+  jmp_buf env;
+} Handler;
+
+static LOVR_THREAD_LOCAL Handler* lovrHandler;
+
+void lovrTry(void (*fn)(void*), void* arg, void(*catch)(void*, const char*, va_list), void* catchArg) {
+  lovrHandler = &(Handler) {
+    .prev = lovrHandler,
+    .baseDefer = defer.top,
+    .catch = catch,
+    .arg = arg
+  };
+
+  if (setjmp(lovrHandler->env) == 0) {
+    fn(arg);
+  }
+
+  lovrHandler = lovrHandler->prev;
+}
+
+void lovrThrow(const char* format, ...) {
+  deferPop(lovrHandler->baseDefer, true);
+  va_list args;
+  va_start(args, format);
+  lovrHandler->catch(lovrHandler->arg, format, args);
+  va_end(args);
+  longjmp(lovrHandler->env, 1);
+}
+
+// Logging
+
+static fn_log* lovrLogCallback;
+static void* lovrLogUserdata;
+
+void lovrSetLogCallback(fn_log* callback, void* userdata) {
+  lovrLogCallback = callback;
+  lovrLogUserdata = userdata;
+}
+
+void lovrLog(int level, const char* tag, const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  lovrLogCallback(lovrLogUserdata, level, tag, format, args);
+  va_end(args);
+}
+
 // Hashmap
+
 static void map_rehash(map_t* map) {
   map_t old = *map;
   map->size <<= 1;
@@ -155,6 +226,7 @@ void map_set(map_t* map, uint64_t hash, uint64_t value) {
 
 // UTF-8
 // https://github.com/starwing/luautf8
+
 size_t utf8_decode(const char *s, const char *e, unsigned *pch) {
   unsigned ch;
 

@@ -10,6 +10,12 @@
 #include <string.h>
 #include <stdlib.h>
 
+static void run(void* T) {
+  while (luax_resume(T, 0) == LUA_YIELD) {
+    os_sleep(0.);
+  }
+}
+
 int main(int argc, char** argv) {
   os_init();
 
@@ -37,12 +43,8 @@ int main(int argc, char** argv) {
     }
 
     lua_State* T = lua_tothread(L, -1);
-    lovrSetErrorCallback(luax_vthrow, T);
     lovrSetLogCallback(luax_vlog, T);
-
-    while (luax_resume(T, 0) == LUA_YIELD) {
-      os_sleep(0.);
-    }
+    lovrTry(run, T, luax_vthrow, T);
 
     if (lua_type(T, 1) == LUA_TSTRING && !strcmp(lua_tostring(T, 1), "restart")) {
       luax_checkvariant(T, 2, &cookie);

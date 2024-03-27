@@ -171,7 +171,7 @@ const char* lovrThreadGetError(Thread* thread) {
 Channel* lovrChannelCreate(uint64_t hash) {
   Channel* channel = lovrCalloc(sizeof(Channel));
   channel->ref = 1;
-  arr_init(&channel->messages, arr_alloc);
+  arr_init(&channel->messages);
   mtx_init(&channel->lock, mtx_plain);
   cnd_init(&channel->cond);
   channel->hash = hash;

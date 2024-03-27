@@ -123,16 +123,16 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
   arr_t(float) normals;
   arr_t(float) uvs;
 
-  arr_init(&groups, arr_alloc);
-  arr_init(&images, arr_alloc);
-  arr_init(&materials, arr_alloc);
+  arr_init(&groups);
+  arr_init(&images);
+  arr_init(&materials);
   map_init(&materialMap, 0);
-  arr_init(&vertexBlob, arr_alloc);
-  arr_init(&indexBlob, arr_alloc);
+  arr_init(&vertexBlob);
+  arr_init(&indexBlob);
   map_init(&vertexMap, 0);
-  arr_init(&positions, arr_alloc);
-  arr_init(&normals, arr_alloc);
-  arr_init(&uvs, arr_alloc);
+  arr_init(&positions);
+  arr_init(&normals);
+  arr_init(&uvs);
 
   arr_push(&groups, ((objGroup) { .material = -1 }));
 

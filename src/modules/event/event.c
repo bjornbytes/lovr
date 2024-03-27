@@ -22,7 +22,7 @@ void lovrVariantDestroy(Variant* variant) {
 
 bool lovrEventInit(void) {
   if (atomic_fetch_add(&state.ref, 1)) return false;
-  arr_init(&state.events, arr_alloc);
+  arr_init(&state.events);
   return true;
 }
 

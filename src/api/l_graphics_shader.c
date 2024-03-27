@@ -9,7 +9,7 @@ static int l_lovrShaderClone(lua_State* L) {
   lua_pushnil(L);
 
   arr_t(ShaderFlag) flags;
-  arr_init(&flags, realloc);
+  arr_init(&flags);
 
   while (lua_next(L, 2) != 0) {
     ShaderFlag flag = { 0 };

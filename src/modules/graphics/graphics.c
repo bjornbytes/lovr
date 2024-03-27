@@ -689,9 +689,9 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   map_init(&state.passLookup, 4);
   map_init(&state.pipelineLookup, 64);
-  arr_init(&state.layouts, realloc);
-  arr_init(&state.materialBlocks, realloc);
-  arr_init(&state.scratchTextures, realloc);
+  arr_init(&state.layouts);
+  arr_init(&state.materialBlocks);
+  arr_init(&state.scratchTextures);
 
   gpu_slot builtinSlots[] = {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Globals
@@ -3467,7 +3467,7 @@ Font* lovrFontCreate(const FontInfo* info) {
   font->ref = 1;
   font->info = *info;
   lovrRetain(info->rasterizer);
-  arr_init(&font->glyphs, realloc);
+  arr_init(&font->glyphs);
   map_init(&font->glyphLookup, 36);
   map_init(&font->kerning, 36);
 

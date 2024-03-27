@@ -1059,7 +1059,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   lovrGraphicsCompileShader(source, compiled, info.stageCount, luax_readfile);
 
   arr_t(ShaderFlag) flags;
-  arr_init(&flags, realloc);
+  arr_init(&flags);
 
   if (lua_istable(L, index)) {
     lua_getfield(L, index, "flags");
