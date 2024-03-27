@@ -1,9 +1,6 @@
 #include "job.h"
 #include <stdatomic.h>
 #include <threads.h>
-#include <setjmp.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define MAX_WORKERS 64
@@ -11,9 +8,9 @@
 
 struct job {
   job* next;
-  atomic_uint done;
-  union { fn_job* fn; char* error; };
+  fn_job* fn;
   void* arg;
+  atomic_uint done;
 };
 
 static struct {
@@ -28,8 +25,6 @@ static struct {
   bool quit;
 } state;
 
-static thread_local jmp_buf catch;
-
 // Must hold lock, this will unlock it, state.head must exist
 static void runJob(void) {
   job* job = state.head;
@@ -37,12 +32,7 @@ static void runJob(void) {
   if (!job->next) state.tail = NULL;
   mtx_unlock(&state.lock);
 
-  if (setjmp(catch) == 0) {
-    fn_job* fn = job->fn;
-    job->error = NULL;
-    fn(job, job->arg);
-  }
-
+  job->fn(job->arg);
   job->done = true;
 }
 
@@ -98,10 +88,9 @@ void job_destroy(void) {
 job* job_start(fn_job* fn, void* arg) {
   mtx_lock(&state.lock);
 
-  // If there's no free job available, return NULL as a backpressure signal
-  // Caller can choose how to handle: error, wait on older jobs, just run the job, etc.
   if (!state.pool) {
     mtx_unlock(&state.lock);
+    fn(arg);
     return NULL;
   }
 
@@ -126,23 +115,9 @@ job* job_start(fn_job* fn, void* arg) {
   return job;
 }
 
-void job_abort(job* job, const char* error) {
-  size_t length = strlen(error);
-  job->error = malloc(length + 1);
-  if (job->error) memcpy(job->error, error, length + 1);
-  else job->error = strdup("Out of memory");
-  longjmp(catch, 22);
-}
-
-void job_vabort(job* job, const char* format, va_list args) {
-  int length = vsnprintf(NULL, 0, format, args);
-  job->error = malloc(length + 1);
-  if (job->error) vsnprintf(job->error, length + 1, format, args);
-  else job->error = strdup("Out of memory");
-  longjmp(catch, 22);
-}
-
 void job_wait(job* job) {
+  if (!job) return;
+
   while (!job->done) {
     mtx_lock(&state.lock);
 
@@ -153,15 +128,8 @@ void job_wait(job* job) {
       thrd_yield();
     }
   }
-}
 
-const char* job_get_error(job* job) {
-  return (char*) job->error;
-}
-
-void job_free(job* job) {
   mtx_lock(&state.lock);
-  if (job->error) free(job->error);
   job->next = state.pool;
   state.pool = job;
   mtx_unlock(&state.lock);
