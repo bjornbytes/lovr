@@ -187,7 +187,6 @@ if(LOVR_ENABLE_PHYSICS)
     endif()
   elseif(LOVR_PHYSICS_LIBRARY STREQUAL "JOLT")
     add_subdirectory(deps/jolt-physics-sharp jolt)
-    set_target_properties(HelloWorldNative PROPERTIES EXCLUDE_FROM_ALL 1) # TODO
     set(LOVR_PHYSICS_LIB joltc)
   endif()
 endif()
