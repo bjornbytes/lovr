@@ -64,20 +64,6 @@ struct Joint {
 // (NO_TAG = ~0u is not used in jolt implementation)
 #define UNTAGGED (MAX_TAGS)
 
-static void matrix_struct_to_array(const JPH_RMatrix4x4* matrix, float arr[16]) {
-  arr[0] = matrix->m11; arr[1] = matrix->m12; arr[2] = matrix->m13; arr[3] = matrix->m14;
-  arr[4] = matrix->m21; arr[5] = matrix->m22; arr[6] = matrix->m23; arr[7] = matrix->m24;
-  arr[8] = matrix->m31; arr[9] = matrix->m32; arr[10] = matrix->m33; arr[11] = matrix->m34;
-  arr[12] = matrix->m41; arr[13] = matrix->m42; arr[14] = matrix->m43; arr[15] = matrix->m44;
-}
-
-static void array_to_rmatrix_struct(const float arr[16], JPH_RMatrix4x4* matrix) {
-  matrix->m11 = arr[0]; matrix->m12 = arr[1]; matrix->m13 = arr[2]; matrix->m14 = arr[3];
-  matrix->m21 = arr[4]; matrix->m22 = arr[5]; matrix->m23 = arr[6]; matrix->m24 = arr[7];
-  matrix->m31 = arr[8]; matrix->m32 = arr[9]; matrix->m33 = arr[10]; matrix->m34 = arr[11];
-  matrix->m41 = arr[12]; matrix->m42 = arr[13]; matrix->m43 = arr[14]; matrix->m44 = arr[15];
-}
-
 // XXX slow, but probably fine (tag names are not on any critical path), could switch to hashing if needed
 static uint32_t findTag(World* world, const char* name) {
   for (uint32_t i = 0; i < MAX_TAGS && world->tags[i]; i++) {
@@ -203,8 +189,8 @@ void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX
 
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->physics_system);
-  const JPH_RVec3 origin = {.x = x1, .y = y1, .z = z1};
-  const JPH_Vec3 direction = {.x = x2 - x1, .y = y2 - y1, .z = z2 - z1};
+  const JPH_RVec3 origin = { x1, y1, z1 };
+  const JPH_Vec3 direction = { x2 - x1, y2 - y1, z2 - z1 };
   JPH_AllHit_CastRayCollector* collector = JPH_AllHit_CastRayCollector_Create();
   JPH_NarrowPhaseQuery_CastRayAll(query,
     &origin, &direction,
@@ -224,7 +210,7 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
       hit_array[i].bodyID);
     size_t count;
     Shape** shape = lovrColliderGetShapes(collider, &count);
-    const JPH_RVec3 position = {.x = x, .y = y, .z = z};
+    const JPH_RVec3 position = { x, y, z };
     JPH_Vec3 normal;
     JPH_Body_GetWorldSpaceSurfaceNormal(collider->body, hit_array[i].subShapeID2, &position, &normal);
     bool shouldStop = callback(
@@ -240,16 +226,14 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
 
 static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3], float scale[3], QueryCallback callback, void* userdata) {
   JPH_RMatrix4x4 transform;
+  float* m = &transform.m11;
+  mat4_identity(m);
+  mat4_translate(m, position[0], position[1], position[2]);
+  mat4_scale(m, scale[0], scale[1], scale[2]);
+
   JPH_Vec3 direction = { 0.f };
   JPH_RVec3 base_offset = { 0.f };
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->physics_system);
-  float transformArray[16] = {
-    scale[0], 0.f, 0.f, 0.f,
-    0.f, scale[1], 0.f, 0.f,
-    0.f, 0.f, scale[2], 0.f,
-    position[0], position[1], position[2], 1.f
-  };
-  array_to_rmatrix_struct(transformArray, &transform);
   JPH_AllHit_CastShapeCollector_Reset(cast_shape_collector);
   JPH_NarrowPhaseQuery_CastShape(query, queryBox, &transform, &direction, &base_offset, cast_shape_collector);
   size_t hit_count;
@@ -641,16 +625,8 @@ void lovrColliderGetPosition(Collider* collider, float* x, float* y, float* z) {
 }
 
 void lovrColliderSetPosition(Collider* collider, float x, float y, float z) {
-  JPH_RVec3 position = {
-    .x = x,
-    .y = y,
-    .z = z
-  };
-  JPH_BodyInterface_SetPosition(
-    collider->world->body_interface,
-    collider->id,
-    &position,
-    JPH_Activation_Activate);
+  JPH_RVec3 position = { x, y, z };
+  JPH_BodyInterface_SetPosition(collider->world->body_interface, collider->id, &position, JPH_Activation_Activate);
 }
 
 void lovrColliderGetOrientation(Collider* collider, float* orientation) {
@@ -685,11 +661,7 @@ void lovrColliderGetLinearVelocity(Collider* collider, float* x, float* y, float
 }
 
 void lovrColliderSetLinearVelocity(Collider* collider, float x, float y, float z) {
-  const JPH_Vec3 velocity = {
-    .x = x,
-    .y = y,
-    .z = z
-  };
+  const JPH_Vec3 velocity = { x, y, z };
   JPH_BodyInterface_SetLinearVelocity(collider->world->body_interface, collider->id, &velocity);
 }
 
@@ -702,11 +674,7 @@ void lovrColliderGetAngularVelocity(Collider* collider, float* x, float* y, floa
 }
 
 void lovrColliderSetAngularVelocity(Collider* collider, float x, float y, float z) {
-  JPH_Vec3 velocity = {
-    .x = x,
-    .y = y,
-    .z = z
-  };
+  JPH_Vec3 velocity = { x, y, z };
   JPH_BodyInterface_SetAngularVelocity(collider->world->body_interface, collider->id, &velocity);
 }
 
@@ -739,34 +707,18 @@ void lovrColliderSetAngularDamping(Collider* collider, float damping, float thre
 }
 
 void lovrColliderApplyForce(Collider* collider, float x, float y, float z) {
-  JPH_Vec3 force = {
-    .x = x,
-    .y = y,
-    .z = z
-  };
+  JPH_Vec3 force = { x, y, z };
   JPH_BodyInterface_AddForce(collider->world->body_interface, collider->id, &force);
 }
 
 void lovrColliderApplyForceAtPosition(Collider* collider, float x, float y, float z, float cx, float cy, float cz) {
-  JPH_Vec3 force = {
-    .x = x,
-    .y = y,
-    .z = z
-  };
-  JPH_RVec3 position = {
-    .x = cx,
-    .y = cy,
-    .z = cz
-  };
+  JPH_Vec3 force = { x, y, z };
+  JPH_RVec3 position = { cx, cy, cz };
   JPH_BodyInterface_AddForce2(collider->world->body_interface, collider->id, &force, &position);
 }
 
 void lovrColliderApplyTorque(Collider* collider, float x, float y, float z) {
-  JPH_Vec3 torque = {
-    .x = x,
-    .y = y,
-    .z = z
-  };
+  JPH_Vec3 torque = { x, y, z };
   JPH_BodyInterface_AddTorque(collider->world->body_interface, collider->id, &torque);
 }
 
@@ -779,12 +731,11 @@ void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z
 
 void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
   float position[4] = { wx, wy, wz, 1.f };
-  JPH_RMatrix4x4 transformStruct;
-  float transformArray[16];
-  JPH_Body_GetWorldTransform(collider->body, &transformStruct);
-  matrix_struct_to_array(&transformStruct, transformArray);
-  mat4_invert((mat4) &transformArray);
-  mat4_mulVec4((mat4) &transformArray, position);
+  JPH_RMatrix4x4 transform;
+  float* m = &transform.m11;
+  JPH_Body_GetWorldTransform(collider->body, &transform);
+  mat4_invert(m);
+  mat4_mulVec4(m, position);
   *x = position[0];
   *y = position[1];
   *z = position[2];
@@ -792,11 +743,10 @@ void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz,
 
 void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
   float position[4] = { x, y, z, 1.f };
-  JPH_RMatrix4x4 transformStruct;
-  float transformArray[16];
-  JPH_Body_GetWorldTransform(collider->body, &transformStruct);
-  matrix_struct_to_array(&transformStruct, transformArray);
-  mat4_mulVec4((mat4) &transformArray, position);
+  JPH_RMatrix4x4 transform;
+  float* m = &transform.m11;
+  JPH_Body_GetWorldTransform(collider->body, &transform);
+  mat4_mulVec4(m, position);
   *wx = position[0];
   *wy = position[1];
   *wz = position[2];
@@ -804,12 +754,11 @@ void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, fl
 
 void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
   float direction[4] = { wx, wy, wz, 0.f };
-  JPH_RMatrix4x4 transformStruct;
-  float transformArray[16];
-  JPH_Body_GetWorldTransform(collider->body, &transformStruct);
-  matrix_struct_to_array(&transformStruct, transformArray);
-  mat4_invert((mat4) &transformArray);
-  mat4_mulVec4((mat4) &transformArray, direction);
+  JPH_RMatrix4x4 transform;
+  float* m = &transform.m11;
+  JPH_Body_GetWorldTransform(collider->body, &transform);
+  mat4_invert(m);
+  mat4_mulVec4(m, direction);
   *x = direction[0];
   *y = direction[1];
   *z = direction[2];
@@ -817,11 +766,10 @@ void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz
 
 void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
   float direction[4] = { x, y, z, 0.f };
-  JPH_RMatrix4x4 transformStruct;
-  float transformArray[16];
-  JPH_Body_GetWorldTransform(collider->body, &transformStruct);
-  matrix_struct_to_array(&transformStruct, transformArray);
-  mat4_mulVec4((mat4) &transformArray, direction);
+  JPH_RMatrix4x4 transform;
+  float* m = &transform.m11;
+  JPH_Body_GetWorldTransform(collider->body, &transform);
+  mat4_mulVec4(m, direction);
   *wx = direction[0];
   *wy = direction[1];
   *wz = direction[2];
@@ -834,11 +782,7 @@ void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, fl
 }
 
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz) {
-  JPH_RVec3 point = {
-    .x = wx,
-    .y = wy,
-    .z = wz
-  };
+  JPH_RVec3 point = { wx, wy, wz };
   JPH_Vec3 velocity;
   JPH_BodyInterface_GetPointVelocity(collider->world->body_interface, collider->id, &point, &velocity);
   *vx = velocity.x;
@@ -1080,16 +1024,16 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t widthSamples, uin
 }
 
 void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
-  JPH_Body * body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint *) joint->constraint);
-  JPH_Body * body2 = JPH_TwoBodyConstraint_GetBody2((JPH_TwoBodyConstraint *) joint->constraint);
-  JPH_RMatrix4x4 centerOfMassTransformStruct1;
-  JPH_RMatrix4x4 centerOfMassTransformStruct2;
-  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransformStruct1);
-  JPH_Body_GetCenterOfMassTransform(body2, &centerOfMassTransformStruct2);
+  JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
+  JPH_Body* body2 = JPH_TwoBodyConstraint_GetBody2((JPH_TwoBodyConstraint*) joint->constraint);
+  JPH_RMatrix4x4 centerOfMassTransform1;
+  JPH_RMatrix4x4 centerOfMassTransform2;
+  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransform1);
+  JPH_Body_GetCenterOfMassTransform(body2, &centerOfMassTransform2);
   JPH_Matrix4x4 constraintToBody1;
   JPH_Matrix4x4 constraintToBody2;
-  JPH_TwoBodyConstraint_GetConstraintToBody1Matrix((JPH_TwoBodyConstraint *) joint->constraint, &constraintToBody1);
-  JPH_TwoBodyConstraint_GetConstraintToBody2Matrix((JPH_TwoBodyConstraint *) joint->constraint, &constraintToBody2);
+  JPH_TwoBodyConstraint_GetConstraintToBody1Matrix((JPH_TwoBodyConstraint*) joint->constraint, &constraintToBody1);
+  JPH_TwoBodyConstraint_GetConstraintToBody2Matrix((JPH_TwoBodyConstraint*) joint->constraint, &constraintToBody2);
   float translation1[4] = {
     constraintToBody1.m41,
     constraintToBody1.m42,
@@ -1102,12 +1046,8 @@ void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
     constraintToBody2.m43,
     constraintToBody2.m44
   };
-  float centerOfMassTransformArray1[16];
-  float centerOfMassTransformArray2[16];
-  matrix_struct_to_array(&centerOfMassTransformStruct1, centerOfMassTransformArray1);
-  matrix_struct_to_array(&centerOfMassTransformStruct2, centerOfMassTransformArray2);
-  mat4_mulVec4((mat4) &centerOfMassTransformArray1, translation1);
-  mat4_mulVec4((mat4) &centerOfMassTransformArray2, translation2);
+  mat4_mulVec4(&centerOfMassTransform1.m11, translation1);
+  mat4_mulVec4(&centerOfMassTransform2.m11, translation2);
   anchor1[0] = translation1[0];
   anchor1[1] = translation1[1];
   anchor1[2] = translation1[2];
@@ -1359,8 +1299,8 @@ void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
   JPH_HingeConstraintSettings * settings = JPH_HingeConstraint_GetSettings((JPH_HingeConstraint *) joint->constraint);
   JPH_HingeConstraintSettings_GetHingeAxis1(settings, &resultAxis);
   JPH_Body * body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint *) joint->constraint);
-  JPH_RMatrix4x4 centerOfMassTransformStruct;
-  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransformStruct);
+  JPH_RMatrix4x4 centerOfMassTransform;
+  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransform);
   JPH_Matrix4x4 constraintToBody;
   JPH_TwoBodyConstraint_GetConstraintToBody1Matrix((JPH_TwoBodyConstraint *) joint->constraint, &constraintToBody);
   float translation[4] = {
@@ -1369,9 +1309,7 @@ void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
     resultAxis.z,
     0.f
   };
-  float centerOfMassTransformArray[16];
-  matrix_struct_to_array(&centerOfMassTransformStruct, centerOfMassTransformArray);
-  mat4_mulVec4((mat4) &centerOfMassTransformArray, translation);
+  mat4_mulVec4(&centerOfMassTransform.m11, translation);
   axis[0] = translation[0];
   axis[1] = translation[1];
   axis[2] = translation[2];
@@ -1433,8 +1371,8 @@ void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
   JPH_SliderConstraintSettings * settings = JPH_SliderConstraint_GetSettings((JPH_SliderConstraint *) joint->constraint);
   JPH_SliderConstraintSettings_GetSliderAxis(settings, &resultAxis);
   JPH_Body * body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint *) joint->constraint);
-  JPH_RMatrix4x4 centerOfMassTransformStruct;
-  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransformStruct);
+  JPH_RMatrix4x4 centerOfMassTransform;
+  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransform);
   JPH_Matrix4x4 constraintToBody;
   JPH_TwoBodyConstraint_GetConstraintToBody1Matrix((JPH_TwoBodyConstraint *) joint->constraint, &constraintToBody);
   float translation[4] = {
@@ -1443,9 +1381,7 @@ void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
     resultAxis.z,
     0.f
   };
-  float centerOfMassTransformArray[16];
-  matrix_struct_to_array(&centerOfMassTransformStruct, centerOfMassTransformArray);
-  mat4_mulVec4((mat4) &centerOfMassTransformArray, translation);
+  mat4_mulVec4(&centerOfMassTransform.m11, translation);
   axis[0] = translation[0];
   axis[1] = translation[1];
   axis[2] = translation[2];
