@@ -809,6 +809,7 @@ void lovrShapeDestroy(void* ref) {
 
 void lovrShapeDestroyData(Shape* shape) {
   if (shape->shape) {
+    JPH_Shape_Destroy(shape->shape);
     shape->shape = NULL;
   }
 }
@@ -983,20 +984,26 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount
   mesh->type = SHAPE_MESH;
 
   int triangleCount = indexCount / 3;
-  JPH_IndexedTriangle * indexedTriangles = lovrMalloc(triangleCount * sizeof(JPH_IndexedTriangle));
+  JPH_IndexedTriangle* indexedTriangles = lovrMalloc(triangleCount * sizeof(JPH_IndexedTriangle));
   for (int i = 0; i < triangleCount; i++) {
     indexedTriangles[i].i1 = indices[i * 3 + 0];
     indexedTriangles[i].i2 = indices[i * 3 + 1];
     indexedTriangles[i].i3 = indices[i * 3 + 2];
     indexedTriangles[i].materialIndex = 0;
   }
-  JPH_MeshShapeSettings * shape_settings = JPH_MeshShapeSettings_Create2(
+  JPH_MeshShapeSettings* shape_settings = JPH_MeshShapeSettings_Create2(
     (const JPH_Vec3*) vertices,
     vertexCount,
     indexedTriangles,
     triangleCount);
-  mesh->shape = (JPH_Shape *) JPH_MeshShapeSettings_CreateShape(shape_settings);
-  JPH_ShapeSettings_Destroy((JPH_ShapeSettings *) shape_settings);
+  mesh->shape = (JPH_Shape*) JPH_MeshShapeSettings_CreateShape(shape_settings);
+  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) shape_settings);
+  lovrFree(indexedTriangles);
+  // Note that we're responsible for freeing the vertices/indices when we're done with them because
+  // ODE took ownership of mesh data.  If ODE gets removed, we should probably get rid of this and
+  // have the caller free the vertices/indices themselves.
+  lovrFree(vertices);
+  lovrFree(indices);
   return mesh;
 }
 
