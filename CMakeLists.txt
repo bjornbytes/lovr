@@ -43,7 +43,6 @@ option(LOVR_BUILD_WITH_SYMBOLS "Build with C function symbols exposed" OFF)
 
 set(LOVR_PHYSICS_LIBRARY "ODE" CACHE STRING "Physics library to use")
 set_property(CACHE LOVR_PHYSICS_LIBRARY PROPERTY STRINGS ODE JOLT)
-message(STATUS "Physics library: ${LOVR_PHYSICS_LIBRARY}")
 
 # Setup
 if(EMSCRIPTEN)
@@ -550,10 +549,8 @@ if(LOVR_ENABLE_PHYSICS)
     src/api/l_physics_world.c
   )
   if(LOVR_PHYSICS_LIBRARY STREQUAL "ODE")
-    message(STATUS "Using ODE physics library")
     target_sources(lovr PRIVATE src/modules/physics/physics_ode.c)
   elseif(LOVR_PHYSICS_LIBRARY STREQUAL "JOLT")
-    message(STATUS "Using JOLT physics library")
     target_sources(lovr PRIVATE src/modules/physics/physics_jolt.c)
   endif()
 else()
