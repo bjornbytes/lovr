@@ -1,8 +1,8 @@
-#include <stdlib.h>
+#include "physics/physics.h"
 #include "core/maf.h"
 #include "util.h"
-#include "physics.h"
-#include "joltc.h"
+#include <stdlib.h>
+#include <joltc.h>
 
 #define MAX_BODIES 65535
 #define MAX_BODY_PAIRS 65535
