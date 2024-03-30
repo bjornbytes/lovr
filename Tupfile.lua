@@ -97,7 +97,7 @@ flags = {
 
 cflags = {
   '-std=c11 -pedantic',
-  '-Wall -Wextra -Wno-unused-parameter',
+  '-Wall -Wextra -Wno-unused-parameter -Wno-strict-prototypes',
   config.strict and '-Werror' or '',
   config.optimize and '-fdata-sections -ffunction-sections' or '',
   '-fdiagnostics-color=always',
