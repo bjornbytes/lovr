@@ -152,6 +152,10 @@ void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* function
   lua_pushcfunction(L, luax_meta__gc);
   lua_setfield(L, -2, "__gc");
 
+  // m.__close = gc
+  lua_pushcfunction(L, luax_meta__gc);
+  lua_setfield(L, -2, "__close");
+
   // m.__tostring
   lua_pushcfunction(L, luax_meta__tostring);
   lua_setfield(L, -2, "__tostring");
