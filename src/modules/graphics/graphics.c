@@ -2086,8 +2086,8 @@ Texture* lovrGraphicsGetWindowTexture(void) {
     os_on_resize(onResize);
 
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
-    if (state.config.stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
-      state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
+    if (!lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+      state.depthFormat = state.config.stencil ? FORMAT_D24S8 : FORMAT_D24;
     }
   }
 

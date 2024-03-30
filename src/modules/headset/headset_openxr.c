@@ -433,6 +433,7 @@ static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
   if (depth) {
     info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     switch (state.depthFormat) {
+      case FORMAT_D24: info.format = VK_FORMAT_X8_D24_UNORM_PACK32; break;
       case FORMAT_D32F: info.format = VK_FORMAT_D32_SFLOAT; break;
       case FORMAT_D24S8: info.format = VK_FORMAT_D24_UNORM_S8_UINT; break;
       case FORMAT_D32FS8: info.format = VK_FORMAT_D32_SFLOAT_S8_UINT; break;
@@ -1366,8 +1367,8 @@ static void openxr_start(void) {
   if (hasGraphics) {
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
 
-    if (state.config.stencil && !lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
-      state.depthFormat = FORMAT_D24S8; // Guaranteed to be supported if the other one isn't
+    if (!lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+      state.depthFormat = state.config.stencil ? FORMAT_D24S8 : FORMAT_D24;
     }
 
     state.pass = lovrPassCreate();
@@ -1377,6 +1378,7 @@ static void openxr_start(void) {
     int64_t nativeDepthFormat;
 
     switch (state.depthFormat) {
+      case FORMAT_D24: nativeDepthFormat = VK_FORMAT_X8_D24_UNORM_PACK32; break;
       case FORMAT_D32F: nativeDepthFormat = VK_FORMAT_D32_SFLOAT; break;
       case FORMAT_D24S8: nativeDepthFormat = VK_FORMAT_D24_UNORM_S8_UINT; break;
       case FORMAT_D32FS8: nativeDepthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT; break;

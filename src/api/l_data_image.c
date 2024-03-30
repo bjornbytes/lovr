@@ -21,6 +21,7 @@ StringEntry lovrTextureFormat[] = {
   [FORMAT_RGB10A2] = ENTRY("rgb10a2"),
   [FORMAT_RG11B10F] = ENTRY("rg11b10f"),
   [FORMAT_D16] = ENTRY("d16"),
+  [FORMAT_D24] = ENTRY("d24"),
   [FORMAT_D32F] = ENTRY("d32f"),
   [FORMAT_D24S8] = ENTRY("d24s8"),
   [FORMAT_D32FS8] = ENTRY("d32fs8"),

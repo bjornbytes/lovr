@@ -48,6 +48,7 @@ static size_t measure(uint32_t w, uint32_t h, TextureFormat format) {
     case FORMAT_RGB10A2: return w * h * 4;
     case FORMAT_RG11B10F: return w * h * 4;
     case FORMAT_D16: return w * h * 2;
+    case FORMAT_D24: return w * h * 4;
     case FORMAT_D32F: return w * h * 4;
     case FORMAT_D24S8: return w * h * 4;
     case FORMAT_D32FS8: return w * h * 5;
@@ -137,6 +138,7 @@ bool lovrImageIsCube(Image* image) {
 bool lovrImageIsDepth(Image* image) {
   switch (image->format) {
     case FORMAT_D16:
+    case FORMAT_D24:
     case FORMAT_D32F:
     case FORMAT_D24S8:
     case FORMAT_D32FS8:
@@ -966,6 +968,7 @@ static Image* loadKTX1(Blob* blob) {
     [FORMAT_RGB10A2]    = { 0x8368, 0x1908, 0x8059, 0 },
     [FORMAT_RG11B10F]   = { 0x8C3A, 0x1907, 0x8C3A, 0 },
     [FORMAT_D16]        = { 0x1403, 0x1902, 0x81A5, 0 },
+    [FORMAT_D24]        = { 0x1405, 0x1902, 0x81A6, 0 },
     [FORMAT_D32F]       = { 0x1406, 0x1902, 0x8CAC, 0 },
     [FORMAT_D24S8]      = { 0x84FA, 0x84F9, 0x88F0, 0 },
     [FORMAT_D32FS8]     = { 0x8DAD, 0x84F9, 0x8CAD, 0 },
@@ -1112,6 +1115,7 @@ static Image* loadKTX2(Blob* blob) {
     case 64:  image->format = FORMAT_RGB10A2; break;
     case 122: image->format = FORMAT_RG11B10F; break;
     case 124: image->format = FORMAT_D16; break;
+    case 125: image->format = FORMAT_D24; break;
     case 126: image->format = FORMAT_D32F; break;
     case 129: image->format = FORMAT_D24S8; break;
     case 130: image->format = FORMAT_D32FS8; break;
