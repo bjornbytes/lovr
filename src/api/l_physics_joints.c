@@ -57,27 +57,38 @@ static int l_lovrJointGetColliders(lua_State* L) {
   return 2;
 }
 
+static void luax_pushjointstash(lua_State* L) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrjointstash");
+
+  if (lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_replace(L, -2);
+
+    // metatable
+    lua_newtable(L);
+    lua_pushliteral(L, "k");
+    lua_setfield(L, -2, "__mode");
+    lua_setmetatable(L, -2);
+
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrjointstash");
+  }
+}
+
 static int l_lovrJointGetUserData(lua_State* L) {
-  Joint* joint = luax_checkjoint(L, 1);
-  union { int i; void* p; } ref = { .p = lovrJointGetUserData(joint) };
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref.i);
+  luax_checktype(L, 1, Joint);
+  luax_pushjointstash(L);
+  lua_pushvalue(L, 1);
+  lua_rawget(L, -2);
   return 1;
 }
 
 static int l_lovrJointSetUserData(lua_State* L) {
-  Joint* joint = luax_checkjoint(L, 1);
-  union { int i; void* p; } ref = { .p = lovrJointGetUserData(joint) };
-  if (ref.i) {
-    luaL_unref(L, LUA_REGISTRYINDEX, ref.i);
-  }
-
-  if (lua_gettop(L) < 2) {
-    lua_pushnil(L);
-  }
-
-  lua_settop(L, 2);
-  ref.i = luaL_ref(L, LUA_REGISTRYINDEX);
-  lovrJointSetUserData(joint, ref.p);
+  luax_checktype(L, 1, Joint);
+  luax_pushjointstash(L);
+  lua_pushvalue(L, 1);
+  lua_pushvalue(L, 2);
+  lua_rawset(L, -3);
   return 0;
 }
 

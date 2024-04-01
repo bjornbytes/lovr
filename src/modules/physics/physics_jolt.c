@@ -37,7 +37,6 @@ struct Collider {
   Collider* next;
   arr_t(Shape*) shapes;
   arr_t(Joint*) joints;
-  void* userdata;
   uint32_t tag;
 };
 
@@ -46,14 +45,12 @@ struct Shape {
   ShapeType type;
   Collider* collider;
   JPH_Shape* shape;
-  void* userdata;
 };
 
 struct Joint {
   uint32_t ref;
   JointType type;
   JPH_Constraint * constraint;
-  void* userdata;
 };
 
 // Broad phase and object phase layers
@@ -495,14 +492,6 @@ Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
   return collider->joints.data;
 }
 
-void* lovrColliderGetUserData(Collider* collider) {
-  return collider->userdata;
-}
-
-void lovrColliderSetUserData(Collider* collider, void* data) {
-  collider->userdata = data;
-}
-
 const char* lovrColliderGetTag(Collider* collider) {
   return lovrWorldGetTagName(collider->world, collider->tag);
 }
@@ -842,14 +831,6 @@ void lovrShapeSetSensor(Shape* shape, bool sensor) {
   JPH_Body_SetIsSensor(shape->collider->body, sensor);
 }
 
-void* lovrShapeGetUserData(Shape* shape) {
-  return shape->userdata;
-}
-
-void lovrShapeSetUserData(Shape* shape, void* data) {
-  shape->userdata = data;
-}
-
 void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z) {
   // todo: compound shapes
   *x = 0.f;
@@ -1117,14 +1098,6 @@ void lovrJointGetColliders(Joint* joint, Collider** a, Collider** b) {
   if (bodyB) {
     *b = (Collider*) JPH_Body_GetUserData(bodyB);
   }
-}
-
-void* lovrJointGetUserData(Joint* joint) {
-  return joint->userdata;
-}
-
-void lovrJointSetUserData(Joint* joint, void* data) {
-  joint->userdata = data;
 }
 
 bool lovrJointIsEnabled(Joint* joint) {

@@ -21,7 +21,6 @@ struct Collider {
   World* world;
   Collider* prev;
   Collider* next;
-  void* userdata;
   uint32_t tag;
   arr_t(Shape*) shapes;
   arr_t(Joint*) joints;
@@ -36,7 +35,6 @@ struct Shape {
   Collider* collider;
   void* vertices;
   void* indices;
-  void* userdata;
   bool sensor;
 };
 
@@ -44,7 +42,6 @@ struct Joint {
   uint32_t ref;
   JointType type;
   dJointID id;
-  void* userdata;
 };
 
 static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
@@ -571,14 +568,6 @@ Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
   return collider->joints.data;
 }
 
-void* lovrColliderGetUserData(Collider* collider) {
-  return collider->userdata;
-}
-
-void lovrColliderSetUserData(Collider* collider, void* data) {
-  collider->userdata = data;
-}
-
 const char* lovrColliderGetTag(Collider* collider) {
   return lovrWorldGetTagName(collider->world, collider->tag);
 }
@@ -899,14 +888,6 @@ void lovrShapeSetSensor(Shape* shape, bool sensor) {
   shape->sensor = sensor;
 }
 
-void* lovrShapeGetUserData(Shape* shape) {
-  return shape->userdata;
-}
-
-void lovrShapeSetUserData(Shape* shape, void* data) {
-  shape->userdata = data;
-}
-
 void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z) {
   const dReal* position = dGeomGetOffsetPosition(shape->id);
   *x = position[0];
@@ -1159,14 +1140,6 @@ void lovrJointGetColliders(Joint* joint, Collider** a, Collider** b) {
   if (bodyB) {
     *b = dBodyGetData(bodyB);
   }
-}
-
-void* lovrJointGetUserData(Joint* joint) {
-  return joint->userdata;
-}
-
-void lovrJointSetUserData(Joint* joint, void* data) {
-  joint->userdata = data;
 }
 
 bool lovrJointIsEnabled(Joint* joint) {

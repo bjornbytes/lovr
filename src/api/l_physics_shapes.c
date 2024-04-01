@@ -179,27 +179,38 @@ static int l_lovrShapeSetSensor(lua_State* L) {
   return 0;
 }
 
+static void luax_pushshapestash(lua_State* L) {
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrshapestash");
+
+  if (lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_replace(L, -2);
+
+    // metatable
+    lua_newtable(L);
+    lua_pushliteral(L, "k");
+    lua_setfield(L, -2, "__mode");
+    lua_setmetatable(L, -2);
+
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrshapestash");
+  }
+}
+
 static int l_lovrShapeGetUserData(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  union { int i; void* p; } ref = { .p = lovrShapeGetUserData(shape) };
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref.i);
+  luax_checktype(L, 1, Shape);
+  luax_pushshapestash(L);
+  lua_pushvalue(L, 1);
+  lua_rawget(L, -2);
   return 1;
 }
 
 static int l_lovrShapeSetUserData(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  union { int i; void* p; } ref = { .p = lovrShapeGetUserData(shape) };
-  if (ref.i) {
-    luaL_unref(L, LUA_REGISTRYINDEX, ref.i);
-  }
-
-  if (lua_gettop(L) < 2) {
-    lua_pushnil(L);
-  }
-
-  lua_settop(L, 2);
-  ref.i = luaL_ref(L, LUA_REGISTRYINDEX);
-  lovrShapeSetUserData(shape, ref.p);
+  luax_checktype(L, 1, Shape);
+  luax_pushshapestash(L);
+  lua_pushvalue(L, 1);
+  lua_pushvalue(L, 2);
+  lua_rawset(L, -3);
   return 0;
 }
 
