@@ -350,8 +350,11 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
   }
   lua_pop(L, 2);
 
+  uint32_t defer = lovrDeferPush();
+
   if (shaderCache) {
     config.cacheData = luax_readfile(".lovrshadercache", &config.cacheSize);
+    lovrDefer(lovrFree, config.cacheData);
   }
 
   lovrGraphicsInit(&config);
@@ -361,7 +364,8 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
     luax_atexit(L, luax_writeshadercache);
   }
 
-  lovrFree(config.cacheData);
+  lovrDeferPop(defer);
+
   return 0;
 }
 
@@ -389,7 +393,13 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   uint32_t count = 0;
 
   Pass* stack[8];
-  Pass** passes = (size_t) length > COUNTOF(stack) ? lovrMalloc(length * sizeof(Pass*)) : stack;
+  Pass** passes = stack;
+  uint32_t defer = lovrDeferPush();
+
+  if ((size_t) length > COUNTOF(stack)) {
+    passes = lovrMalloc(length * sizeof(Pass*));
+    lovrDefer(lovrFree, passes);
+  }
 
   if (table) {
     for (int i = 0; i < length; i++) {
@@ -408,8 +418,8 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   }
 
   lovrGraphicsSubmit(passes, count);
-  if (passes != stack) lovrFree(passes);
   lua_pushboolean(L, true);
+  lovrDeferPop(defer);
   return 1;
 }
 
@@ -719,6 +729,13 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   return 1;
 }
 
+static void freeImages(void* arg) {
+  TextureInfo* info = arg;
+  for (uint32_t i = 0; i < info->imageCount; i++) {
+    lovrRelease(info->images[i], lovrImageDestroy);
+  }
+}
+
 static int l_lovrGraphicsNewTexture(lua_State* L) {
   TextureInfo info = {
     .type = TEXTURE_2D,
@@ -732,6 +749,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   int index = 1;
   Image* stack[6];
   Image** images = stack;
+  uint32_t defer = lovrDeferPush();
 
   if (lua_isnumber(L, 1)) {
     info.width = luax_checku32(L, index++);
@@ -743,12 +761,18 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.usage |= TEXTURE_RENDER;
     info.mipmaps = 1;
   } else if (lua_istable(L, 1)) {
-    info.imageCount = luax_len(L, index++);
-    images = info.imageCount > COUNTOF(stack) ? lovrMalloc(info.imageCount * sizeof(Image*)) : stack;
+    int tableLength = luax_len(L, index++);
 
-    if (info.imageCount == 0) {
+    if ((size_t) tableLength > COUNTOF(stack)) {
+      images = lovrMalloc(tableLength * sizeof(Image*));
+      lovrDefer(lovrFree, images);
+    }
+
+    info.images = images;
+    lovrDefer(freeImages, &info);
+
+    if (tableLength == 0) {
       info.layers = 6;
-      info.imageCount = 6;
       info.type = TEXTURE_CUBE;
       const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
       const char* altFaces[6] = { "px", "nx", "py", "ny", "pz", "nz" };
@@ -761,12 +785,12 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
           lua_rawget(L, 1);
         }
         lovrCheck(!lua_isnil(L, -1), "No array texture layers given and cubemap face '%s' missing", faces[i]);
-        images[i] = luax_checkimage(L, -1);
+        images[info.imageCount++] = luax_checkimage(L, -1);
       }
     } else {
-      for (uint32_t i = 0; i < info.imageCount; i++) {
+      for (int i = 0; i < tableLength; i++) {
         lua_rawgeti(L, 1, i + 1);
-        images[i] = luax_checkimage(L, -1);
+        images[info.imageCount++] = luax_checkimage(L, -1);
         lua_pop(L, 1);
       }
 
@@ -785,7 +809,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   if (info.imageCount > 0) {
-    info.images = images;
     Image* image = images[0];
     uint32_t levels = lovrImageGetLevelCount(image);
     info.format = lovrImageGetFormat(image);
@@ -857,17 +880,9 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   Texture* texture = lovrTextureCreate(&info);
-
-  for (uint32_t i = 0; i < info.imageCount; i++) {
-    lovrRelease(images[i], lovrImageDestroy);
-  }
-
-  if (images != stack) {
-    lovrFree(images);
-  }
-
   luax_pushtype(L, Texture, texture);
   lovrRelease(texture, lovrTextureDestroy);
+  lovrDeferPop(defer);
   return 1;
 }
 
@@ -1130,8 +1145,10 @@ static Texture* luax_opttexture(lua_State* L, int index) {
     .images = &image
   };
 
+  uint32_t defer = lovrDeferPush();
+  lovrDeferRelease(image, lovrImageDestroy);
   texture = lovrTextureCreate(&info);
-  lovrRelease(image, lovrImageDestroy);
+  lovrDeferPop(defer);
   return texture;
 }
 
@@ -1260,6 +1277,8 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
   info.rasterizer = luax_totype(L, 1, Rasterizer);
   info.spread = 4.;
 
+  uint32_t defer = lovrDeferPush();
+
   if (!info.rasterizer) {
     Blob* blob = NULL;
     float size;
@@ -1271,19 +1290,19 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
       blob = luax_readblob(L, 1, "Font");
       size = luax_optfloat(L, 2, 32.);
       info.spread = luaL_optnumber(L, 3, info.spread);
+      lovrDeferRelease(blob, lovrBlobDestroy);
     }
 
     info.rasterizer = lovrRasterizerCreate(blob, size);
-    lovrRelease(blob, lovrBlobDestroy);
+    lovrDeferRelease(info.rasterizer, lovrRasterizerDestroy);
   } else {
     info.spread = luaL_optnumber(L, 2, info.spread);
-    lovrRetain(info.rasterizer);
   }
 
   Font* font = lovrFontCreate(&info);
   luax_pushtype(L, Font, font);
-  lovrRelease(info.rasterizer, lovrRasterizerDestroy);
   lovrRelease(font, lovrFontDestroy);
+  lovrDeferPop(defer);
   return 1;
 }
 
@@ -1397,12 +1416,13 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   info.materials = true;
   info.mipmaps = true;
 
+  uint32_t defer = lovrDeferPush();
+
   if (!info.data) {
     Blob* blob = luax_readblob(L, 1, "Model");
+    lovrDeferRelease(blob, lovrBlobDestroy);
     info.data = lovrModelDataCreate(blob, luax_readfile);
-    lovrRelease(blob, lovrBlobDestroy);
-  } else {
-    lovrRetain(info.data);
+    lovrDeferRelease(info.data, lovrModelDataDestroy);
   }
 
   if (lua_istable(L, 2)) {
@@ -1417,8 +1437,8 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
 
   Model* model = lovrModelCreate(&info);
   luax_pushtype(L, Model, model);
-  lovrRelease(info.data, lovrModelDataDestroy);
   lovrRelease(model, lovrModelDestroy);
+  lovrDeferPop(defer);
   return 1;
 }
 

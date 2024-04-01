@@ -141,6 +141,8 @@ static int l_lovrSystemOpenWindow(lua_State* L) {
   os_window_config window;
   memset(&window, 0, sizeof(window));
 
+  uint32_t defer = lovrDeferPush();
+
   luaL_checktype(L, 1, LUA_TTABLE);
 
   lua_getfield(L, 1, "width");
@@ -170,11 +172,12 @@ static int l_lovrSystemOpenWindow(lua_State* L) {
     window.icon.data = lovrImageGetLayerData(image, 0, 0);
     window.icon.width = lovrImageGetWidth(image, 0);
     window.icon.height = lovrImageGetHeight(image, 0);
+    lovrDeferRelease(image, lovrImageDestroy);
   }
   lua_pop(L, 1);
 
   lovrSystemOpenWindow(&window);
-  lovrRelease(image, lovrImageDestroy);
+  lovrDeferPop(defer);
   return 0;
 }
 

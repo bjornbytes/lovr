@@ -42,15 +42,17 @@ static int l_lovrFileRead(lua_State* L) {
   }
   size_t count;
   void* data = lovrMalloc(size);
+  uint32_t defer = lovrDeferPush();
+  lovrDefer(lovrFree, data);
   bool success = lovrFileRead(file, data, size, &count);
   if (success) {
     lua_pushlstring(L, data, count);
     lua_pushnumber(L, count);
-    lovrFree(data);
+    lovrDeferPop(defer);
     return 2;
   } else {
     lua_pushnil(L);
-    lovrFree(data);
+    lovrDeferPop(defer);
     return 1;
   }
 }

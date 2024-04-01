@@ -277,18 +277,19 @@ static int l_lovrAudioNewSource(lua_State* L) {
     lua_pop(L, 1);
   }
 
+  uint32_t defer = lovrDeferPush();
+
   if (!sound) {
     Blob* blob = luax_readblob(L, 1, "Source");
+    lovrDeferRelease(blob, lovrBlobDestroy);
     sound = lovrSoundCreateFromFile(blob, decode);
-    lovrRelease(blob, lovrBlobDestroy);
-  } else {
-    lovrRetain(sound);
+    lovrDeferRelease(sound, lovrSoundDestroy);
   }
 
   Source* source = lovrSourceCreate(sound, pitchable, spatial, effects);
   luax_pushtype(L, Source, source);
-  lovrRelease(sound, lovrSoundDestroy);
   lovrRelease(source, lovrSourceDestroy);
+  lovrDeferPop(defer);
   return 1;
 }
 

@@ -572,10 +572,12 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
 
   if (modelData) {
     ModelInfo info = { .data = modelData, .mipmaps = true };
+    uint32_t defer = lovrDeferPush();
+    lovrDeferRelease(info.data, lovrModelDataDestroy);
     Model* model = lovrModelCreate(&info);
     luax_pushtype(L, Model, model);
-    lovrRelease(modelData, lovrModelDataDestroy);
     lovrRelease(model, lovrModelDestroy);
+    lovrDeferPop(defer);
     return 1;
   }
 

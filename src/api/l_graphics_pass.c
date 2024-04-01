@@ -937,13 +937,15 @@ static int l_lovrPassText(lua_State* L) {
   uint32_t count;
   ColoredString stack;
   ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
+  uint32_t defer = lovrDeferPush();
+  if (strings != &stack) lovrDefer(lovrFree, strings);
   float transform[16];
   int index = luax_readmat4(L, 3, transform, 1);
   float wrap = luax_optfloat(L, index++, 0.);
   HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
   lovrPassText(pass, strings, count, transform, wrap, halign, valign);
-  if (strings != &stack) lovrFree(strings);
+  lovrDeferPop(defer);
   return 0;
 }
 

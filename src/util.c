@@ -99,6 +99,7 @@ void lovrErrDefer(void (*fn)(void*), void* arg) {
 }
 
 void lovrDeferRelease(void* object, void (*destructor)(void*)) {
+  if (!object) return;
   lovrAssert(defer.top < COUNTOF(defer.stack), "Defer stack overflow!");
   defer.releaseMask |= (1u << defer.top);
   defer.errMask &= ~(1u << defer.top);
