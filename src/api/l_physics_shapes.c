@@ -14,6 +14,7 @@ void luax_pushshape(lua_State* L, Shape* shape) {
     case SHAPE_CYLINDER: luax_pushtype(L, CylinderShape, shape); break;
     case SHAPE_MESH: luax_pushtype(L, MeshShape, shape); break;
     case SHAPE_TERRAIN: luax_pushtype(L, TerrainShape, shape); break;
+    case SHAPE_COMPOUND: luax_pushtype(L, CompoundShape, shape); break;
     default: lovrUnreachable();
   }
 }
@@ -28,7 +29,8 @@ Shape* luax_checkshape(lua_State* L, int index) {
       hash64("CapsuleShape", strlen("CapsuleShape")),
       hash64("CylinderShape", strlen("CylinderShape")),
       hash64("MeshShape", strlen("MeshShape")),
-      hash64("TerrainShape", strlen("TerrainShape"))
+      hash64("TerrainShape", strlen("TerrainShape")),
+      hash64("CompoundShape", strlen("CompoundShape"))
     };
 
     for (size_t i = 0; i < COUNTOF(hashes); i++) {
@@ -133,6 +135,10 @@ Shape* luax_newterrainshape(lua_State* L, int index) {
     luax_typeerror(L, index, "Image, number, or function");
     return NULL;
   }
+}
+
+Shape* luax_newcompoundshape(lua_State* L, int index) {
+  return NULL; // TODO
 }
 
 static int l_lovrShapeDestroy(lua_State* L) {
@@ -370,5 +376,18 @@ const luaL_Reg lovrMeshShape[] = {
 
 const luaL_Reg lovrTerrainShape[] = {
   lovrShape,
+  { NULL, NULL }
+};
+
+static int l_lovrCompoundShapeGetShapeCount(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  uint32_t count = lovrCompoundShapeGetShapeCount(shape);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
+const luaL_Reg lovrCompoundShape[] = {
+  lovrShape,
+  { "getShapeCount", l_lovrCompoundShapeGetShapeCount },
   { NULL, NULL }
 };

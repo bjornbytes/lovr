@@ -751,6 +751,8 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
   aabb[5] = box.max.z;
 }
 
+// Shapes
+
 void lovrShapeDestroy(void* ref) {
   Shape* shape = ref;
   lovrShapeDestroyData(shape);
@@ -937,6 +939,34 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) shape_settings);
   return terrain;
 }
+
+CompoundShape* lovrCompoundShapeCreate(Shape** shapes, vec3 positions, quat orientations, uint32_t count) {
+  CompoundShape* parent = lovrCalloc(sizeof(CompoundShape));
+  parent->ref = 1;
+  parent->type = SHAPE_COMPOUND;
+
+  JPH_MutableCompoundShapeSettings* settings = JPH_MutableCompoundShapeSettings_Create();
+  JPH_CompoundShapeSettings* settingsSuper = (JPH_CompoundShapeSettings*) settings;
+
+  for (uint32_t i = 0; i < count; i++) {
+    JPH_Vec3 position;
+    JPH_Quat rotation;
+    vec3_init(&position.x, positions + 3 * i);
+    quat_init(&rotation.x, orientations + 3 * i);
+    JPH_CompoundShapeSettings_AddShape2(settingsSuper, &position, &rotation, shapes[i]->shape, 0);
+    lovrRetain(shapes[i]);
+  }
+
+  parent->shape = (JPH_Shape*) JPH_MutableCompoundShape_Create(settings);
+  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
+  return parent;
+}
+
+uint32_t lovrCompoundShapeGetShapeCount(CompoundShape* shape) {
+  return JPH_CompoundShape_GetNumSubShapes((JPH_CompoundShape*) shape->shape);
+}
+
+// Joints
 
 void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
   JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);

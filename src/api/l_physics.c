@@ -9,6 +9,7 @@ StringEntry lovrShapeType[] = {
   [SHAPE_CYLINDER] = ENTRY("cylinder"),
   [SHAPE_MESH] = ENTRY("mesh"),
   [SHAPE_TERRAIN] = ENTRY("terrain"),
+  [SHAPE_COMPOUND] = ENTRY("compound"),
   { 0 }
 };
 
@@ -178,6 +179,13 @@ static int l_lovrPhysicsNewTerrainShape(lua_State* L) {
   return 1;
 }
 
+static int l_lovrPhysicsNewCompoundShape(lua_State* L) {
+  CompoundShape* shape = luax_newcompoundshape(L, 1);
+  luax_pushtype(L, CompoundShape, shape);
+  lovrRelease(shape, lovrShapeDestroy);
+  return 1;
+}
+
 static const luaL_Reg lovrPhysics[] = {
   { "newWorld", l_lovrPhysicsNewWorld },
   { "newBallJoint", l_lovrPhysicsNewBallJoint },
@@ -190,6 +198,7 @@ static const luaL_Reg lovrPhysics[] = {
   { "newSliderJoint", l_lovrPhysicsNewSliderJoint },
   { "newSphereShape", l_lovrPhysicsNewSphereShape },
   { "newTerrainShape", l_lovrPhysicsNewTerrainShape },
+  { "newCompoundShape", l_lovrPhysicsNewCompoundShape },
   { NULL, NULL }
 };
 
@@ -205,6 +214,7 @@ extern const luaL_Reg lovrCapsuleShape[];
 extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrMeshShape[];
 extern const luaL_Reg lovrTerrainShape[];
+extern const luaL_Reg lovrCompoundShape[];
 
 int luaopen_lovr_physics(lua_State* L) {
   lua_newtable(L);
@@ -221,6 +231,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, CylinderShape);
   luax_registertype(L, MeshShape);
   luax_registertype(L, TerrainShape);
+  luax_registertype(L, CompoundShape);
   lovrPhysicsInit();
   luax_atexit(L, lovrPhysicsDestroy);
   return 1;
