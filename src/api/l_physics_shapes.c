@@ -147,12 +147,6 @@ static int l_lovrShapeGetType(lua_State* L) {
   return 1;
 }
 
-static int l_lovrShapeGetCollider(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  luax_pushtype(L, Collider, lovrShapeGetCollider(shape));
-  return 1;
-}
-
 static int l_lovrShapeIsEnabled(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   lua_pushboolean(L, lovrShapeIsEnabled(shape));
@@ -214,74 +208,6 @@ static int l_lovrShapeSetUserData(lua_State* L) {
   return 0;
 }
 
-static int l_lovrShapeGetPosition(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  float x, y, z;
-  lovrShapeGetPosition(shape, &x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 3;
-}
-
-static int l_lovrShapeSetPosition(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  lovrCheck(lovrShapeGetCollider(shape) != NULL, "Shape must be attached to collider");
-  float position[3];
-  luax_readvec3(L, 2, position, NULL);
-  lovrShapeSetPosition(shape, position[0], position[1], position[2]);
-  return 0;
-}
-
-static int l_lovrShapeGetOrientation(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  float angle, x, y, z, orientation[4];
-  lovrShapeGetOrientation(shape, orientation);
-  quat_getAngleAxis(orientation, &angle, &x, &y, &z);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  return 4;
-}
-
-static int l_lovrShapeSetOrientation(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  lovrCheck(lovrShapeGetCollider(shape) != NULL, "Shape must be attached to collider");
-  float orientation[4];
-  luax_readquat(L, 2, orientation, NULL);
-  lovrShapeSetOrientation(shape, orientation);
-  return 0;
-}
-
-static int l_lovrShapeGetPose(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  float x, y, z;
-  lovrShapeGetPosition(shape, &x, &y, &z);
-  float angle, ax, ay, az, orientation[4];
-  lovrShapeGetOrientation(shape, orientation);
-  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 7;
-}
-
-static int l_lovrShapeSetPose(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  lovrCheck(lovrShapeGetCollider(shape) != NULL, "Shape must be attached to collider");
-  float position[3], orientation[4];
-  int index = luax_readvec3(L, 2, position, NULL);
-  luax_readquat(L, index, orientation, NULL);
-  lovrShapeSetPosition(shape, position[0], position[1], position[2]);
-  lovrShapeSetOrientation(shape, orientation);
-  return 0;
-}
-
 static int l_lovrShapeGetMass(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   float density = luax_checkfloat(L, 2);
@@ -313,19 +239,12 @@ static int l_lovrShapeGetAABB(lua_State* L) {
 #define lovrShape \
   { "destroy", l_lovrShapeDestroy }, \
   { "getType", l_lovrShapeGetType }, \
-  { "getCollider", l_lovrShapeGetCollider }, \
   { "isEnabled", l_lovrShapeIsEnabled }, \
   { "setEnabled", l_lovrShapeSetEnabled }, \
   { "isSensor", l_lovrShapeIsSensor }, \
   { "setSensor", l_lovrShapeSetSensor }, \
   { "getUserData", l_lovrShapeGetUserData }, \
   { "setUserData", l_lovrShapeSetUserData }, \
-  { "getPosition", l_lovrShapeGetPosition }, \
-  { "setPosition", l_lovrShapeSetPosition }, \
-  { "getOrientation", l_lovrShapeGetOrientation }, \
-  { "setOrientation", l_lovrShapeSetOrientation }, \
-  { "getPose", l_lovrShapeGetPose }, \
-  { "setPose", l_lovrShapeSetPose }, \
   { "getMass", l_lovrShapeGetMass }, \
   { "getAABB", l_lovrShapeGetAABB }
 

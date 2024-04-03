@@ -24,30 +24,26 @@ static int l_lovrColliderGetWorld(lua_State* L) {
   return 1;
 }
 
-static int l_lovrColliderAddShape(lua_State* L) {
+static int l_lovrColliderGetShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checkshape(L, 2);
-  lovrColliderAddShape(collider, shape);
-  return 0;
-}
-
-static int l_lovrColliderRemoveShape(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checkshape(L, 2);
-  lovrColliderRemoveShape(collider, shape);
-  return 0;
-}
-
-static int l_lovrColliderGetShapes(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  size_t count;
-  Shape** shapes = lovrColliderGetShapes(collider, &count);
-  lua_createtable(L, (int) count, 0);
-  for (size_t i = 0; i < count; i++) {
-    luax_pushshape(L, shapes[i]);
-    lua_rawseti(L, -2, (int) i + 1);
+  Shape* shape = lovrColliderGetShape(collider);
+  if (shape) {
+    luax_pushshape(L, shape);
+  } else {
+    lua_pushnil(L);
   }
   return 1;
+}
+
+static int l_lovrColliderSetShape(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  if (lua_isnoneornil(L, 2)) {
+    lovrColliderSetShape(collider, NULL);
+  } else {
+    Shape* shape = luax_checkshape(L, 2);
+    lovrColliderSetShape(collider, shape);
+  }
+  return 0;
 }
 
 static int l_lovrColliderGetJoints(lua_State* L) {
@@ -563,9 +559,8 @@ const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "isDestroyed", l_lovrColliderIsDestroyed },
   { "getWorld", l_lovrColliderGetWorld },
-  { "addShape", l_lovrColliderAddShape },
-  { "removeShape", l_lovrColliderRemoveShape },
-  { "getShapes", l_lovrColliderGetShapes },
+  { "getShape", l_lovrColliderGetShape },
+  { "setShape", l_lovrColliderSetShape },
   { "getJoints", l_lovrColliderGetJoints },
   { "getUserData", l_lovrColliderGetUserData },
   { "setUserData", l_lovrColliderSetUserData },

@@ -22,9 +22,9 @@ struct Collider {
   JPH_BodyID id;
   JPH_Body* body;
   World* world;
+  Shape* shape;
   Collider* prev;
   Collider* next;
-  arr_t(Shape*) shapes;
   arr_t(Joint*) joints;
   uint32_t tag;
 };
@@ -32,7 +32,6 @@ struct Collider {
 struct Shape {
   uint32_t ref;
   ShapeType type;
-  Collider* collider;
   JPH_Shape* shape;
 };
 
@@ -184,13 +183,13 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
       world->bodies,
       hit_array[i].bodyID);
     size_t count;
-    Shape** shape = lovrColliderGetShapes(collider, &count);
+    Shape* shape = lovrColliderGetShape(collider);
     const JPH_RVec3 position = { x, y, z };
     JPH_Vec3 normal;
     JPH_Body_GetWorldSpaceSurfaceNormal(collider->body, hit_array[i].subShapeID2, &position, &normal);
 
     bool shouldStop = callback(
-      shape[0], // assumes one shape per collider; todo: compound shapes
+      shape, // assumes one shape per collider; todo: compound shapes
       x, y, z,
       normal.x, normal.y, normal.z,
       userdata);
@@ -222,8 +221,8 @@ static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3
       world->bodies,
       id);
     size_t count;
-    Shape** shape = lovrColliderGetShapes(collider, &count);
-    bool shouldStop = callback(shape[0], userdata);
+    Shape* shape = lovrColliderGetShape(collider);
+    bool shouldStop = callback(shape, userdata);
     if (shouldStop) {
       break;
     }
@@ -341,7 +340,6 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
   lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
 
-  arr_init(&collider->shapes);
   arr_init(&collider->joints);
 
   // Adjust the world's collider list
@@ -361,7 +359,6 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
 void lovrColliderDestroy(void* ref) {
   Collider* collider = ref;
   lovrColliderDestroyData(collider);
-  arr_free(&collider->shapes);
   arr_free(&collider->joints);
   lovrFree(collider);
 }
@@ -371,13 +368,9 @@ void lovrColliderDestroyData(Collider* collider) {
     return;
   }
 
+  lovrRelease(collider->shape, lovrShapeDestroy);
+
   size_t count;
-
-  Shape** shapes = lovrColliderGetShapes(collider, &count);
-  for (size_t i = 0; i < count; i++) {
-    lovrColliderRemoveShape(collider, shapes[i]);
-  }
-
   Joint** joints = lovrColliderGetJoints(collider, &count);
   for (size_t i = 0; i < count; i++) {
     lovrRelease(joints[i], lovrJointDestroy);
@@ -411,29 +404,24 @@ Collider* lovrColliderGetNext(Collider* collider) {
   return collider->next;
 }
 
-void lovrColliderAddShape(Collider* collider, Shape* shape) {
-  lovrRetain(shape);
-  shape->collider = collider;
-  arr_push(&collider->shapes, shape);
-  bool isMeshOrTerrain = (shape->type == SHAPE_TERRAIN) || (shape->type == SHAPE_MESH);
-  bool shouldUpdateMass = !isMeshOrTerrain;
-  if (isMeshOrTerrain) {
-    lovrColliderSetKinematic(shape->collider, true);
-  }
-  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape->shape, shouldUpdateMass, JPH_Activation_Activate);
+Shape* lovrColliderGetShape(Collider* collider) {
+  return collider->shape;
 }
 
-void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
-  if (shape->collider == collider) {
-    // todo: actions necessary for compound shapes
-    shape->collider = NULL;
-    lovrRelease(shape, lovrShapeDestroy);
-  }
-}
+void lovrColliderSetShape(Collider* collider, Shape* shape) {
+  if (shape != collider->shape) {
+    lovrRelease(collider->shape, lovrShapeDestroy);
+    collider->shape = shape;
+    lovrRetain(shape);
 
-Shape** lovrColliderGetShapes(Collider* collider, size_t* count) {
-  *count = collider->shapes.length;
-  return collider->shapes.data;
+    bool updateMass = true;
+    if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+      lovrColliderSetKinematic(collider, true);
+      updateMass = false;
+    }
+
+    JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape->shape, updateMass, JPH_Activation_Activate);
+  }
 }
 
 Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
@@ -538,17 +526,15 @@ void lovrColliderSetAwake(Collider* collider, bool awake) {
 }
 
 float lovrColliderGetMass(Collider* collider) {
-   if (collider->shapes.length > 0) {
-    JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
-    return 1.f / JPH_MotionProperties_GetInverseMassUnchecked(motionProperties);
-  }
-  return 0.f;
+   if (!collider->shape) return 0.f;
+  JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
+  return 1.f / JPH_MotionProperties_GetInverseMassUnchecked(motionProperties);
 }
 
 void lovrColliderSetMass(Collider* collider, float mass) {
-  if (collider->shapes.length > 0) {
+  if (collider->shape) {
     JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
-    Shape* shape = collider->shapes.data[0];
+    Shape* shape = collider->shape;
     JPH_MassProperties* massProperties;
     JPH_Shape_GetMassProperties(shape->shape, massProperties);
     JPH_MassProperties_ScaleToMass(massProperties, mass);
@@ -782,10 +768,6 @@ ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
 }
 
-Collider* lovrShapeGetCollider(Shape* shape) {
-  return shape->collider;
-}
-
 bool lovrShapeIsEnabled(Shape* shape) {
   return true;
 }
@@ -797,43 +779,19 @@ void lovrShapeSetEnabled(Shape* shape, bool enabled) {
 }
 
 bool lovrShapeIsSensor(Shape* shape) {
-  lovrLog(LOG_WARN, "PHY", "Jolt sensor property fetched from collider, not shape");
-  return JPH_Body_IsSensor(shape->collider->body);
+  lovrThrow("NYI");
 }
 
 void lovrShapeSetSensor(Shape* shape, bool sensor) {
-  lovrLog(LOG_WARN, "PHY", "Jolt sensor property is applied to collider, not shape");
-  JPH_Body_SetIsSensor(shape->collider->body, sensor);
+  lovrThrow("NYI");
 }
 
-void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z) {
-  // todo: compound shapes
-  *x = 0.f;
-  *y = 0.f;
-  *z = 0.f;
+void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+  //
 }
-
-void lovrShapeSetPosition(Shape* shape, float x, float y, float z) {
-  // todo: compound shapes
-}
-
-void lovrShapeGetOrientation(Shape* shape, float* orientation) {
-  // todo: compound shapes
-  orientation[0] = 0.f;
-  orientation[1] = 0.f;
-  orientation[2] = 0.f;
-  orientation[3] = 1.f;
-}
-
-void lovrShapeSetOrientation(Shape* shape, float* orientation) {
-  // todo: compound shapes
-}
-
-void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {}
 
 void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
-  // todo: with compound shapes this is no longer correct
-  lovrColliderGetAABB(shape->collider, aabb);
+  // TODO
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
