@@ -810,6 +810,7 @@ SphereShape* lovrSphereShapeCreate(float radius) {
   sphere->ref = 1;
   sphere->type = SHAPE_SPHERE;
   sphere->shape = (JPH_Shape*) JPH_SphereShape_Create(radius);
+  JPH_Shape_SetUserData(sphere->shape, (uint64_t) (uintptr_t) sphere);
   return sphere;
 }
 
@@ -828,6 +829,7 @@ BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
   box->type = SHAPE_BOX;
   const JPH_Vec3 halfExtent = { w / 2.f, h / 2.f, d / 2.f };
   box->shape = (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, 0.f);
+  JPH_Shape_SetUserData(box->shape, (uint64_t) (uintptr_t) box);
   return box;
 }
 
@@ -850,6 +852,7 @@ CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
   capsule->ref = 1;
   capsule->type = SHAPE_CAPSULE;
   capsule->shape = (JPH_Shape*) JPH_CapsuleShape_Create(length / 2, radius);
+  JPH_Shape_SetUserData(capsule->shape, (uint64_t) (uintptr_t) capsule);
   return capsule;
 }
 
@@ -873,24 +876,25 @@ void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CylinderShape dimensions must be positive");
-  CylinderShape* Cylinder = lovrCalloc(sizeof(CylinderShape));
-  Cylinder->ref = 1;
-  Cylinder->type = SHAPE_CYLINDER;
-  Cylinder->shape = (JPH_Shape*) JPH_CylinderShape_Create(length / 2.f, radius);
-  return Cylinder;
+  CylinderShape* cylinder = lovrCalloc(sizeof(CylinderShape));
+  cylinder->ref = 1;
+  cylinder->type = SHAPE_CYLINDER;
+  cylinder->shape = (JPH_Shape*) JPH_CylinderShape_Create(length / 2.f, radius);
+  JPH_Shape_SetUserData(cylinder->shape, (uint64_t) (uintptr_t) cylinder);
+  return cylinder;
 }
 
-float lovrCylinderShapeGetRadius(CylinderShape* Cylinder) {
-  return JPH_CylinderShape_GetRadius((JPH_CylinderShape*) Cylinder->shape);
+float lovrCylinderShapeGetRadius(CylinderShape* cylinder) {
+  return JPH_CylinderShape_GetRadius((JPH_CylinderShape*) cylinder->shape);
 }
 
-void lovrCylinderShapeSetRadius(CylinderShape* Cylinder, float radius) {
+void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius) {
   lovrLog(LOG_WARN, "PHY", "Jolt CylinderShape radius is read-only");
   // todo: no setter available, but the shape could be removed and re-added
 }
 
-float lovrCylinderShapeGetLength(CylinderShape* Cylinder) {
-  return JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) Cylinder->shape) * 2.f;
+float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
+  return JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) cylinder->shape) * 2.f;
 }
 
 void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
