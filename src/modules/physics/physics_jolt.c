@@ -953,23 +953,30 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
 }
 
 CompoundShape* lovrCompoundShapeCreate(Shape** shapes, vec3 positions, quat orientations, uint32_t count, bool freeze) {
+  lovrCheck(!freeze || count > 0, "A frozen CompoundShape must contain at least one shape");
+
   CompoundShape* parent = lovrCalloc(sizeof(CompoundShape));
   parent->ref = 1;
   parent->type = SHAPE_COMPOUND;
 
-  JPH_MutableCompoundShapeSettings* settings = JPH_MutableCompoundShapeSettings_Create();
-  JPH_CompoundShapeSettings* superSettings = (JPH_CompoundShapeSettings*) settings;
+  JPH_CompoundShapeSettings* settings = freeze ?
+    (JPH_CompoundShapeSettings*) JPH_StaticCompoundShapeSettings_Create() :
+    (JPH_CompoundShapeSettings*) JPH_MutableCompoundShapeSettings_Create();
 
   for (uint32_t i = 0; i < count; i++) {
-    JPH_Vec3 position;
-    JPH_Quat rotation;
-    vec3_init(&position.x, positions + 3 * i);
-    quat_init(&rotation.x, orientations + 3 * i);
-    JPH_CompoundShapeSettings_AddShape2(superSettings, &position, &rotation, shapes[i]->shape, 0);
+    lovrCheck(shapes[i]->type != SHAPE_COMPOUND, "Currently, nesting compound shapes is not supported");
+    JPH_Vec3 position = { positions[3 * i + 0], positions[3 * i + 1], positions[3 * i + 2] };
+    JPH_Quat rotation = { orientations[4 * i + 0], orientations[4 * i + 1], orientations[4 * i + 2], orientations[4 * i + 3] };
+    JPH_CompoundShapeSettings_AddShape2(settings, &position, &rotation, shapes[i]->shape, 0);
     lovrRetain(shapes[i]);
   }
 
-  parent->shape = (JPH_Shape*) JPH_MutableCompoundShape_Create(settings);
+  if (freeze) {
+    parent->shape = (JPH_Shape*) JPH_StaticCompoundShape_Create((JPH_StaticCompoundShapeSettings*) settings);
+  } else {
+    parent->shape = (JPH_Shape*) JPH_MutableCompoundShape_Create((JPH_MutableCompoundShapeSettings*) settings);
+  }
+
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
   return parent;
 }
@@ -981,6 +988,7 @@ bool lovrCompoundShapeIsFrozen(CompoundShape* shape) {
 void lovrCompoundShapeAddShape(CompoundShape* shape, Shape* child, float* position, float* orientation) {
   lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
   lovrCheck(child->type != SHAPE_COMPOUND, "Currently, nesting compound shapes is not supported");
+  lovrCheck(child != shape, "Don't put a CompoundShape inside itself!  lol");
   JPH_Vec3 pos = { position[0], position[1], position[2] };
   JPH_Quat rot = { orientation[0], orientation[1], orientation[2], orientation[3] };
   JPH_MutableCompoundShape_AddShape((JPH_MutableCompoundShape*) shape->shape, &pos, &rot, child->shape, 0);
@@ -990,6 +998,8 @@ void lovrCompoundShapeAddShape(CompoundShape* shape, Shape* child, float* positi
 void lovrCompoundShapeReplaceShape(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation) {
   lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
   lovrCheck(child->type != SHAPE_COMPOUND, "Currently, nesting compound shapes is not supported");
+  lovrCheck(index < lovrCompoundShapeGetShapeCount(shape), "CompoundShape has no shape at index %d", index + 1);
+  lovrCheck(child != shape, "Don't put a CompoundShape inside itself!  lol");
   JPH_Vec3 pos = { position[0], position[1], position[2] };
   JPH_Quat rot = { orientation[0], orientation[1], orientation[2], orientation[3] };
   JPH_MutableCompoundShape_ModifyShape2((JPH_MutableCompoundShape*) shape->shape, index, &pos, &rot, child->shape);
@@ -998,15 +1008,20 @@ void lovrCompoundShapeReplaceShape(CompoundShape* shape, uint32_t index, Shape* 
 
 void lovrCompoundShapeRemoveShape(CompoundShape* shape, uint32_t index) {
   lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
+  lovrCheck(index < lovrCompoundShapeGetShapeCount(shape), "CompoundShape has no shape at index %d", index + 1);
   Shape* child = lovrCompoundShapeGetShape(shape, index);
   JPH_MutableCompoundShape_RemoveShape((JPH_MutableCompoundShape*) shape->shape, index);
   lovrRelease(child, lovrShapeDestroy);
 }
 
 Shape* lovrCompoundShapeGetShape(CompoundShape* shape, uint32_t index) {
-  const JPH_Shape* child;
-  JPH_CompoundShape_GetSubShape((JPH_CompoundShape*) shape->shape, index, &child, NULL, NULL, NULL);
-  return (Shape*) (uintptr_t) JPH_Shape_GetUserData(child);
+  if (index < lovrCompoundShapeGetShapeCount(shape)) {
+    const JPH_Shape* child;
+    JPH_CompoundShape_GetSubShape((JPH_CompoundShape*) shape->shape, index, &child, NULL, NULL, NULL);
+    return (Shape*) (uintptr_t) JPH_Shape_GetUserData(child);
+  } else {
+    return NULL;
+  }
 }
 
 uint32_t lovrCompoundShapeGetShapeCount(CompoundShape* shape) {
@@ -1014,6 +1029,7 @@ uint32_t lovrCompoundShapeGetShapeCount(CompoundShape* shape) {
 }
 
 void lovrCompoundShapeGetShapeOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
+  lovrCheck(index < lovrCompoundShapeGetShapeCount(shape), "CompoundShape has no shape at index %d", index + 1);
   const JPH_Shape* child;
   JPH_Vec3 pos;
   JPH_Quat rot;
@@ -1025,6 +1041,7 @@ void lovrCompoundShapeGetShapeOffset(CompoundShape* shape, uint32_t index, float
 
 void lovrCompoundShapeSetShapeOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
   lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
+  lovrCheck(index < lovrCompoundShapeGetShapeCount(shape), "CompoundShape has no shape at index %d", index + 1);
   JPH_Vec3 pos = { position[0], position[1], position[2] };
   JPH_Quat rot = { orientation[0], orientation[1], orientation[2], orientation[3] };
   JPH_MutableCompoundShape_ModifyShape((JPH_MutableCompoundShape*) shape->shape, index, &pos, &rot);
