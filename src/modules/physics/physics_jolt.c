@@ -818,11 +818,6 @@ float lovrSphereShapeGetRadius(SphereShape* sphere) {
   return JPH_SphereShape_GetRadius((JPH_SphereShape*) sphere->shape);
 }
 
-void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
-  lovrLog(LOG_WARN, "PHY", "Jolt SphereShape radius is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
-}
-
 BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
   BoxShape* box = lovrCalloc(sizeof(BoxShape));
   box->ref = 1;
@@ -841,11 +836,6 @@ void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d) {
   *d = halfExtent.z * 2.f;
 }
 
-void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d) {
-  lovrLog(LOG_WARN, "PHY", "Jolt BoxShape dimensions are read-only");
-  // todo: no setter available, but the shape could be removed and re-added
-}
-
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CapsuleShape dimensions must be positive");
   CapsuleShape* capsule = lovrCalloc(sizeof(CapsuleShape));
@@ -860,18 +850,8 @@ float lovrCapsuleShapeGetRadius(CapsuleShape* capsule) {
   return JPH_CapsuleShape_GetRadius((JPH_CapsuleShape*) capsule->shape);
 }
 
-void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius) {
-  lovrLog(LOG_WARN, "PHY", "Jolt CapsuleShape radius is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
-}
-
 float lovrCapsuleShapeGetLength(CapsuleShape* capsule) {
   return 2.f * JPH_CapsuleShape_GetHalfHeightOfCylinder((JPH_CapsuleShape*) capsule->shape);
-}
-
-void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
-  lovrLog(LOG_WARN, "PHY", "Jolt CapsuleShape length is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
 }
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
@@ -888,18 +868,8 @@ float lovrCylinderShapeGetRadius(CylinderShape* cylinder) {
   return JPH_CylinderShape_GetRadius((JPH_CylinderShape*) cylinder->shape);
 }
 
-void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius) {
-  lovrLog(LOG_WARN, "PHY", "Jolt CylinderShape radius is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
-}
-
 float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
   return JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) cylinder->shape) * 2.f;
-}
-
-void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
-  lovrLog(LOG_WARN, "PHY", "Jolt CylinderShape length is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
 }
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]) {

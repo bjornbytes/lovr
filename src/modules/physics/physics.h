@@ -171,23 +171,17 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]);
 
 SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* sphere);
-void lovrSphereShapeSetRadius(SphereShape* sphere, float radius);
 
 BoxShape* lovrBoxShapeCreate(float w, float h, float d);
 void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d);
-void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d);
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length);
 float lovrCapsuleShapeGetRadius(CapsuleShape* capsule);
-void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius);
 float lovrCapsuleShapeGetLength(CapsuleShape* capsule);
-void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length);
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length);
 float lovrCylinderShapeGetRadius(CylinderShape* cylinder);
-void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius);
 float lovrCylinderShapeGetLength(CylinderShape* cylinder);
-void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length);
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]);
 
