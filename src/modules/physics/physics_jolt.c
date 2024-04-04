@@ -172,32 +172,34 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
   const JPH_Vec3 direction = { x2 - x1, y2 - y1, z2 - z1 };
   JPH_AllHit_CastRayCollector* collector = JPH_AllHit_CastRayCollector_Create();
   JPH_NarrowPhaseQuery_CastRayAll(query, &origin, &direction, collector, NULL, NULL, NULL);
-  size_t hit_count;
-  JPH_RayCastResult* hit_array = JPH_AllHit_CastRayCollector_GetHits(collector, &hit_count);
-  for (int i = 0; i < hit_count; i++) {
-    float x = x1 + hit_array[i].fraction * (x2 - x1);
-    float y = y1 + hit_array[i].fraction * (y2 - y1);
-    float z = z1 + hit_array[i].fraction * (z2 - z1);
-    // todo: assuming one shape per collider; doesn't support compound shape
-    Collider* collider = (Collider*) JPH_BodyInterface_GetUserData(
-      world->bodies,
-      hit_array[i].bodyID);
-    size_t count;
-    Shape* shape = lovrColliderGetShape(collider);
-    const JPH_RVec3 position = { x, y, z };
+
+  size_t count;
+  JPH_RayCastResult* hits = JPH_AllHit_CastRayCollector_GetHits(collector, &count);
+
+  for (size_t i = 0; i < count; i++) {
+    Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(world->bodies, hits[i].bodyID);
+
+    uint32_t shape = 0;
+    if (collider->shape->type == SHAPE_COMPOUND) {
+      JPH_SubShapeID id = hits[i].subShapeID2;
+      JPH_SubShapeID remainder;
+      shape = JPH_CompoundShape_GetSubShapeIndexFromID((JPH_CompoundShape*) collider->shape, id, &remainder);
+    }
+
+    JPH_RVec3 position = {
+      x1 + hits[i].fraction * (x2 - x1),
+      y1 + hits[i].fraction * (y2 - y1),
+      z1 + hits[i].fraction * (z2 - z1)
+    };
+
     JPH_Vec3 normal;
-    JPH_Body_GetWorldSpaceSurfaceNormal(collider->body, hit_array[i].subShapeID2, &position, &normal);
+    JPH_Body_GetWorldSpaceSurfaceNormal(collider->body, hits[i].subShapeID2, &position, &normal);
 
-    bool shouldStop = callback(
-      shape, // assumes one shape per collider; todo: compound shapes
-      x, y, z,
-      normal.x, normal.y, normal.z,
-      userdata);
-
-    if (shouldStop) {
+    if (callback(collider, shape, &position.x, &normal.x, userdata)) {
       break;
     }
   }
+
   JPH_AllHit_CastRayCollector_Destroy(collector);
 }
 
@@ -208,26 +210,25 @@ static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3
   mat4_translate(m, position[0], position[1], position[2]);
   mat4_scale(m, scale[0], scale[1], scale[2]);
 
-  JPH_Vec3 direction = { 0.f };
-  JPH_RVec3 base_offset = { 0.f };
+  JPH_Vec3 direction = { 0.f, 0.f, 0.f };
+  JPH_RVec3 base_offset = { 0.f, 0.f, 0.f };
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
   JPH_AllHit_CastShapeCollector_Reset(state.castShapeCollector);
   JPH_NarrowPhaseQuery_CastShape(query, shape, &transform, &direction, &base_offset, state.castShapeCollector);
-  size_t hit_count;
-  JPH_ShapeCastResult* hit_array = JPH_AllHit_CastShapeCollector_GetHits(state.castShapeCollector, &hit_count);
-  for (int i = 0; i < hit_count; i++) {
+
+  size_t count;
+  JPH_AllHit_CastShapeCollector_GetHits(state.castShapeCollector, &count);
+
+  for (size_t i = 0; i < count; i++) {
     JPH_BodyID id = JPH_AllHit_CastShapeCollector_GetBodyID2(state.castShapeCollector, i);
-    Collider* collider = (Collider*) JPH_BodyInterface_GetUserData(
-      world->bodies,
-      id);
-    size_t count;
-    Shape* shape = lovrColliderGetShape(collider);
-    bool shouldStop = callback(shape, userdata);
-    if (shouldStop) {
+    Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(world->bodies, id);
+
+    if (callback(collider, 0, userdata)) {
       break;
     }
   }
-  return hit_count > 0;
+
+  return count > 0;
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
