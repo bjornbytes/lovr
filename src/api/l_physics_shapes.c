@@ -138,7 +138,82 @@ Shape* luax_newterrainshape(lua_State* L, int index) {
 }
 
 Shape* luax_newcompoundshape(lua_State* L, int index) {
-  return NULL; // TODO
+  if (lua_isnoneornil(L, index)) {
+    return lovrCompoundShapeCreate(NULL, NULL, NULL, 0, false);
+  }
+
+  luaL_checktype(L, index, LUA_TTABLE);
+  int length = luax_len(L, index);
+
+  uint32_t defer = lovrDeferPush();
+  Shape** shapes = lovrMalloc(length * sizeof(Shape*));
+  float* positions = lovrMalloc(length * 3 * sizeof(float));
+  float* orientations = lovrMalloc(length * 4 * sizeof(float));
+  lovrDefer(lovrFree, shapes);
+  lovrDefer(lovrFree, positions);
+  lovrDefer(lovrFree, orientations);
+
+  for (int i = 0; i < length; i++) {
+    lua_rawgeti(L, index, i + 1);
+    lovrCheck(lua_istable(L, -1), "Expected table of tables for compound shape");
+
+    lua_rawgeti(L, -1, 1);
+    shapes[i] = luax_totype(L, -1, Shape);
+    lovrCheck(shapes[i], "Expected a Shape for CompoundShape entry #%d", i + 1);
+    lua_pop(L, 1);
+
+    int index = 2;
+    lua_rawgeti(L, -1, index);
+    switch (lua_type(L, -1)) {
+      case LUA_TNIL:
+        vec3_set(&positions[3 * i], 0.f, 0.f, 0.f);
+        lua_pop(L, 1);
+        break;
+      case LUA_TNUMBER:
+        lua_rawgeti(L, -2, index++);
+        lua_rawgeti(L, -3, index++);
+        vec3_set(&positions[3 * i], luax_tofloat(L, -3), luax_tofloat(L, -2), luax_tofloat(L, -1));
+        lua_pop(L, 3);
+        break;
+      default: {
+        float* v = luax_checkvector(L, -1, V_VEC3, "nil, number, or vec3");
+        vec3_init(&positions[3 * i], v);
+        lua_pop(L, 1);
+        break;
+      }
+    }
+
+    lua_rawgeti(L, -1, index);
+    switch (lua_type(L, -1)) {
+      case LUA_TNIL:
+        quat_identity(&orientations[4 * i]);
+        lua_pop(L, 1);
+        break;
+      case LUA_TNUMBER:
+        lua_rawgeti(L, -2, index++);
+        lua_rawgeti(L, -3, index++);
+        lua_rawgeti(L, -4, index++);
+        quat_set(&orientations[4 * i], luax_tofloat(L, -4), luax_tofloat(L, -3), luax_tofloat(L, -2), luax_tofloat(L, -1));
+        lua_pop(L, 4);
+        break;
+      default: {
+        float* q = luax_checkvector(L, -1, V_QUAT, "nil, number, or quat");
+        quat_init(&positions[4 * i], q);
+        lua_pop(L, 1);
+        break;
+      }
+    }
+
+    lua_pop(L, 1);
+  }
+
+  lua_getfield(L, index, "freeze");
+  bool freeze = lua_toboolean(L, -1);
+  lua_pop(L, 1);
+
+  CompoundShape* shape = lovrCompoundShapeCreate(shapes, positions, orientations, length, freeze);
+  lovrDeferPop(defer);
+  return shape;
 }
 
 static int l_lovrShapeDestroy(lua_State* L) {
@@ -379,6 +454,63 @@ const luaL_Reg lovrTerrainShape[] = {
   { NULL, NULL }
 };
 
+static int l_lovrCompoundShapeIsFrozen(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  bool frozen = lovrCompoundShapeIsFrozen(shape);
+  lua_pushboolean(L, frozen);
+  return 1;
+}
+
+static int l_lovrCompoundShapeAddShape(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  Shape* child = luax_checkshape(L, 2);
+  float position[3], orientation[4];
+  int index = 3;
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readquat(L, index, orientation, NULL);
+  lovrCompoundShapeAddShape(shape, child, position, orientation);
+  return 0;
+}
+
+static int l_lovrCompoundShapeReplaceShape(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  uint32_t index = luax_checku32(L, 2);
+  Shape* child = luax_checkshape(L, 3);
+  float position[3], orientation[4];
+  int i = 4;
+  i = luax_readvec3(L, i, position, NULL);
+  i = luax_readquat(L, i, orientation, NULL);
+  lovrCompoundShapeReplaceShape(shape, index, child, position, orientation);
+  return 0;
+}
+
+static int l_lovrCompoundShapeRemoveShape(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  uint32_t index = luax_checku32(L, 2);
+  lovrCompoundShapeRemoveShape(shape, index);
+  return 0;
+}
+
+static int l_lovrCompoundShapeGetShape(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  uint32_t index = luax_checku32(L, 2);
+  Shape* child = lovrCompoundShapeGetShape(shape, index);
+  luax_pushshape(L, child);
+  return 1;
+}
+
+static int l_lovrCompoundShapeGetShapes(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  int count = (int) lovrCompoundShapeGetShapeCount(shape);
+  lua_createtable(L, count, 0);
+  for (int i = 0; i < count; i++) {
+    Shape* shape = lovrCompoundShapeGetShape(shape, (uint32_t) i);
+    luax_pushshape(L, shape);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
 static int l_lovrCompoundShapeGetShapeCount(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
   uint32_t count = lovrCompoundShapeGetShapeCount(shape);
@@ -386,8 +518,44 @@ static int l_lovrCompoundShapeGetShapeCount(lua_State* L) {
   return 1;
 }
 
+static int l_lovrCompoundShapeGetShapeOffset(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  uint32_t index = luax_checku32(L, 2);
+  float position[3], orientation[4], angle, ax, ay, az;
+  lovrCompoundShapeGetShapeOffset(shape, index, position, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
+static int l_lovrCompoundShapeSetShapeOffset(lua_State* L) {
+  CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
+  uint32_t index = luax_checku32(L, 2);
+  float position[3], orientation[4];
+  int i = 3;
+  i = luax_readvec3(L, i, position, NULL);
+  i = luax_readquat(L, i, orientation, NULL);
+  lovrCompoundShapeSetShapeOffset(shape, index, position, orientation);
+  return 0;
+}
+
 const luaL_Reg lovrCompoundShape[] = {
   lovrShape,
-  { "getShapeCount", l_lovrCompoundShapeGetShapeCount },
+  { "isFrozen", l_lovrCompoundShapeIsFrozen },
+  { "addShape", l_lovrCompoundShapeAddShape },
+  { "replaceShape", l_lovrCompoundShapeReplaceShape },
+  { "removeShape", l_lovrCompoundShapeRemoveShape },
+  { "getShape", l_lovrCompoundShapeGetShape },
+  { "getShapes", l_lovrCompoundShapeGetShapes },
+  { "getShapeCount", l_lovrCompoundShapeGetShapes },
+  { "getShapeOffset", l_lovrCompoundShapeGetShapeOffset },
+  { "setShapeOffset", l_lovrCompoundShapeSetShapeOffset },
+  { "__len", l_lovrCompoundShapeGetShapeCount }, // :)
   { NULL, NULL }
 };

@@ -193,8 +193,15 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY);
 
-CompoundShape* lovrCompoundShapeCreate(Shape** shapes, float* positions, float* orientations, uint32_t count);
+CompoundShape* lovrCompoundShapeCreate(Shape** shapes, float* positions, float* orientations, uint32_t count, bool freeze);
+bool lovrCompoundShapeIsFrozen(CompoundShape* shape);
+void lovrCompoundShapeAddShape(CompoundShape* shape, Shape* child, float* position, float* orientation);
+void lovrCompoundShapeReplaceShape(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation);
+void lovrCompoundShapeRemoveShape(CompoundShape* shape, uint32_t index);
+Shape* lovrCompoundShapeGetShape(CompoundShape* shape, uint32_t index);
 uint32_t lovrCompoundShapeGetShapeCount(CompoundShape* shape);
+void lovrCompoundShapeGetShapeOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
+void lovrCompoundShapeSetShapeOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
 
 // These tokens need to exist for Lua bindings
 #define lovrSphereShapeDestroy lovrShapeDestroy
