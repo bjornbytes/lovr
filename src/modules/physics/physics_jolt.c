@@ -923,7 +923,7 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
 }
 
 CompoundShape* lovrCompoundShapeCreate(Shape** shapes, vec3 positions, quat orientations, uint32_t count, bool freeze) {
-  lovrCheck(!freeze || count > 0, "A frozen CompoundShape must contain at least one shape");
+  lovrCheck(!freeze || count >= 2, "A frozen CompoundShape must contain at least two shapes");
 
   CompoundShape* parent = lovrCalloc(sizeof(CompoundShape));
   parent->ref = 1;
