@@ -164,10 +164,6 @@ bool lovrShapeIsEnabled(Shape* shape);
 void lovrShapeSetEnabled(Shape* shape, bool enabled);
 bool lovrShapeIsSensor(Shape* shape);
 void lovrShapeSetSensor(Shape* shape, bool sensor);
-void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);
-void lovrShapeSetPosition(Shape* shape, float x, float y, float z);
-void lovrShapeGetOrientation(Shape* shape, float* orientation);
-void lovrShapeSetOrientation(Shape* shape, float* orientation);
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
 void lovrShapeGetAABB(Shape* shape, float aabb[6]);
 
