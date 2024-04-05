@@ -110,16 +110,17 @@ static int l_lovrColliderSetKinematic(lua_State* L) {
   return 0;
 }
 
-static int l_lovrColliderIsGravityIgnored(lua_State* L) {
+static int l_lovrColliderGetGravityScale(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  lua_pushboolean(L, lovrColliderIsGravityIgnored(collider));
+  float scale = lovrColliderGetGravityScale(collider);
+  lua_pushnumber(L, scale);
   return 1;
 }
 
-static int l_lovrColliderSetGravityIgnored(lua_State* L) {
+static int l_lovrColliderSetGravityScale(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  bool ignored = lua_toboolean(L, 2);
-  lovrColliderSetGravityIgnored(collider, ignored);
+  float scale = luax_checkfloat(L, 2);
+  lovrColliderSetGravityScale(collider, scale);
   return 0;
 }
 
@@ -507,6 +508,21 @@ static int l_lovrColliderSetTag(lua_State* L) {
   return 0;
 }
 
+// Deprecated
+static int l_lovrColliderIsGravityIgnored(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushboolean(L, lovrColliderGetGravityScale(collider) == 0.f);
+  return 1;
+}
+
+// Deprecated
+static int l_lovrColliderSetGravityIgnored(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool ignored = lua_toboolean(L, 2);
+  lovrColliderSetGravityScale(collider, ignored ? 0.f : 1.f);
+  return 0;
+}
+
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "isDestroyed", l_lovrColliderIsDestroyed },
@@ -519,8 +535,8 @@ const luaL_Reg lovrCollider[] = {
   { "setUserData", l_lovrColliderSetUserData },
   { "isKinematic", l_lovrColliderIsKinematic },
   { "setKinematic", l_lovrColliderSetKinematic },
-  { "isGravityIgnored", l_lovrColliderIsGravityIgnored },
-  { "setGravityIgnored", l_lovrColliderSetGravityIgnored },
+  { "getGravityScale", l_lovrColliderGetGravityScale },
+  { "setGravityScale", l_lovrColliderSetGravityScale },
   { "isSleepingAllowed", l_lovrColliderIsSleepingAllowed },
   { "setSleepingAllowed", l_lovrColliderSetSleepingAllowed },
   { "isAwake", l_lovrColliderIsAwake },
@@ -559,5 +575,10 @@ const luaL_Reg lovrCollider[] = {
   { "setRestitution", l_lovrColliderSetRestitution },
   { "getTag", l_lovrColliderGetTag },
   { "setTag", l_lovrColliderSetTag },
+
+  // Deprecated
+  { "isGravityIgnored", l_lovrColliderIsGravityIgnored },
+  { "setGravityIgnored", l_lovrColliderSetGravityIgnored },
+
   { NULL, NULL }
 };

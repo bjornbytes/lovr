@@ -610,12 +610,12 @@ void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
   }
 }
 
-bool lovrColliderIsGravityIgnored(Collider* collider) {
-  return !dBodyGetGravityMode(collider->body);
+float lovrColliderGetGravityScale(Collider* collider) {
+  return dBodyGetGravityMode(collider->body) ? 1.f : 0.f;
 }
 
-void lovrColliderSetGravityIgnored(Collider* collider, bool ignored) {
-  dBodySetGravityMode(collider->body, !ignored);
+void lovrColliderSetGravityScale(Collider* collider, float scale) {
+  dBodySetGravityMode(collider->body, scale == 0.f ? false : true);
 }
 
 bool lovrColliderIsSleepingAllowed(Collider* collider) {

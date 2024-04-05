@@ -497,15 +497,12 @@ void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
   }
 }
 
-bool lovrColliderIsGravityIgnored(Collider* collider) {
-  return JPH_BodyInterface_GetGravityFactor(collider->world->bodies, collider->id) == 0.f;
+float lovrColliderGetGravityScale(Collider* collider) {
+  return JPH_BodyInterface_GetGravityFactor(collider->world->bodies, collider->id);
 }
 
-void lovrColliderSetGravityIgnored(Collider* collider, bool ignored) {
-  JPH_BodyInterface_SetGravityFactor(
-    collider->world->bodies,
-    collider->id,
-    ignored ? 0.f : 1.f);
+void lovrColliderSetGravityScale(Collider* collider, float scale) {
+  return JPH_BodyInterface_SetGravityFactor(collider->world->bodies, collider->id, scale);
 }
 
 bool lovrColliderIsSleepingAllowed(Collider* collider) {
