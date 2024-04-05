@@ -426,12 +426,6 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
 }
 
 void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation) {
-  if (!collider->shape) {
-    vec3_set(position, 0.f, 0.f, 0.f);
-    quat_identity(orientation);
-    return;
-  }
-
   const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->body_interface, collider->id);
 
   if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
@@ -448,10 +442,6 @@ void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orie
 }
 
 void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation) {
-  if (!collider->shape) {
-    return;
-  }
-
   const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->body_interface, collider->id);
 
   if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {

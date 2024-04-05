@@ -27,22 +27,14 @@ static int l_lovrColliderGetWorld(lua_State* L) {
 static int l_lovrColliderGetShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   Shape* shape = lovrColliderGetShape(collider);
-  if (shape) {
-    luax_pushshape(L, shape);
-  } else {
-    lua_pushnil(L);
-  }
+  luax_pushshape(L, shape);
   return 1;
 }
 
 static int l_lovrColliderSetShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  if (lua_isnoneornil(L, 2)) {
-    lovrColliderSetShape(collider, NULL);
-  } else {
-    Shape* shape = luax_checkshape(L, 2);
-    lovrColliderSetShape(collider, shape);
-  }
+  Shape* shape = luax_checkshape(L, 2);
+  lovrColliderSetShape(collider, shape);
   return 0;
 }
 
