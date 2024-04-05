@@ -54,8 +54,6 @@ World* lovrWorldCreate(WorldInfo* info);
 void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
-int lovrWorldGetStepCount(World* world);
-void lovrWorldSetStepCount(World* world, int iterations);
 void lovrWorldComputeOverlaps(World* world);
 int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
 int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
@@ -66,6 +64,14 @@ bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCa
 Collider* lovrWorldGetFirstCollider(World* world);
 void lovrWorldGetGravity(World* world, float gravity[3]);
 void lovrWorldSetGravity(World* world, float gravity[3]);
+const char* lovrWorldGetTagName(World* world, uint32_t tag);
+void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
+void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
+bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
+
+// Deprecated
+int lovrWorldGetStepCount(World* world);
+void lovrWorldSetStepCount(World* world, int iterations);
 float lovrWorldGetResponseTime(World* world);
 void lovrWorldSetResponseTime(World* world, float responseTime);
 float lovrWorldGetTightness(World* world);
@@ -76,10 +82,6 @@ void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold);
 void lovrWorldSetAngularDamping(World* world, float damping, float threshold);
 bool lovrWorldIsSleepingAllowed(World* world);
 void lovrWorldSetSleepingAllowed(World* world, bool allowed);
-const char* lovrWorldGetTagName(World* world, uint32_t tag);
-void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
-void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
-bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
 
 // Collider
 

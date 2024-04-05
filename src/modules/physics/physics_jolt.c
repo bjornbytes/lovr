@@ -151,15 +151,6 @@ void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* u
   JPH_PhysicsSystem_Step(world->system, dt, world->collisionSteps);
 }
 
-int lovrWorldGetStepCount(World* world) {
-  return world->collisionSteps;
-}
-
-void lovrWorldSetStepCount(World* world, int iterations) {
-  // todo: with too big count JobSystemThreadPool.cpp:124: (false) No jobs available!
-  world->collisionSteps = iterations;
-}
-
 void lovrWorldComputeOverlaps(World* world) {
   //
 }
@@ -263,54 +254,6 @@ void lovrWorldSetGravity(World* world, float gravity[3]) {
   JPH_PhysicsSystem_SetGravity(world->system, &(const JPH_Vec3) { gravity[0], gravity[1], gravity[2] });
 }
 
-float lovrWorldGetResponseTime(World* world) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support global ResponseTime option");
-}
-
-void lovrWorldSetResponseTime(World* world, float responseTime) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support global ResponseTime option");
-}
-
-float lovrWorldGetTightness(World* world) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support Tightness option");
-}
-
-void lovrWorldSetTightness(World* world, float tightness) {
-  lovrLog(LOG_WARN, "PHY", "Jolt doesn't support Tightness option");
-}
-
-void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold) {
-  *damping = world->defaultLinearDamping;
-  *threshold = 0.f;
-}
-
-void lovrWorldSetLinearDamping(World* world, float damping, float threshold) {
-  world->defaultLinearDamping = damping;
-  if (threshold != 0.f) {
-    lovrLog(LOG_WARN, "PHY", "Jolt doesn't support LinearDamping threshold");
-  }
-}
-
-void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold) {
-  *damping = world->defaultAngularDamping;
-  *threshold = 0.f;
-}
-
-void lovrWorldSetAngularDamping(World* world, float damping, float threshold) {
-  world->defaultAngularDamping = damping;
-  if (threshold != 0.f) {
-    lovrLog(LOG_WARN, "PHY", "Jolt doesn't support AngularDamping threshold");
-  }
-}
-
-bool lovrWorldIsSleepingAllowed(World* world) {
-  return world->defaultIsSleepingAllowed;
-}
-
-void lovrWorldSetSleepingAllowed(World* world, bool allowed) {
-  world->defaultIsSleepingAllowed = allowed;
-}
-
 const char* lovrWorldGetTagName(World* world, uint32_t tag) {
   return (tag == UNTAGGED) ? NULL : world->tags[tag];
 }
@@ -355,6 +298,22 @@ bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const ch
   uint32_t jDynamic = j * 2 + 1;
   return JPH_ObjectLayerPairFilterTable_ShouldCollide(world->objectLayerPairFilter, iDynamic, jDynamic);
 }
+
+// Deprecated
+int lovrWorldGetStepCount(World* world) { return world->collisionSteps; }
+void lovrWorldSetStepCount(World* world, int iterations) { world->collisionSteps = iterations;}
+float lovrWorldGetResponseTime(World* world) {}
+void lovrWorldSetResponseTime(World* world, float responseTime) {}
+float lovrWorldGetTightness(World* world) {}
+void lovrWorldSetTightness(World* world, float tightness) {}
+bool lovrWorldIsSleepingAllowed(World* world) { return world->defaultIsSleepingAllowed; }
+void lovrWorldSetSleepingAllowed(World* world, bool allowed) { world->defaultIsSleepingAllowed = allowed; }
+void lovrWorldGetLinearDamping(World* world, float* damping, float* threshold) { *damping = world->defaultLinearDamping, *threshold = 0.f; }
+void lovrWorldSetLinearDamping(World* world, float damping, float threshold) { world->defaultLinearDamping = damping; }
+void lovrWorldGetAngularDamping(World* world, float* damping, float* threshold) { *damping = world->defaultAngularDamping, *threshold = 0.f; }
+void lovrWorldSetAngularDamping(World* world, float damping, float threshold) { world->defaultAngularDamping = damping; }
+
+// Collider
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   // todo: crashes when too many are added

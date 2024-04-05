@@ -529,6 +529,11 @@ const luaL_Reg lovrWorld[] = {
   { "querySphere", l_lovrWorldQuerySphere },
   { "getGravity", l_lovrWorldGetGravity },
   { "setGravity", l_lovrWorldSetGravity },
+  { "disableCollisionBetween", l_lovrWorldDisableCollisionBetween },
+  { "enableCollisionBetween", l_lovrWorldEnableCollisionBetween },
+  { "isCollisionEnabledBetween", l_lovrWorldIsCollisionEnabledBetween },
+
+  // Deprecated
   { "getTightness", l_lovrWorldGetTightness },
   { "setTightness", l_lovrWorldSetTightness },
   { "getResponseTime", l_lovrWorldGetResponseTime },
@@ -539,10 +544,8 @@ const luaL_Reg lovrWorld[] = {
   { "setAngularDamping", l_lovrWorldSetAngularDamping },
   { "isSleepingAllowed", l_lovrWorldIsSleepingAllowed },
   { "setSleepingAllowed", l_lovrWorldSetSleepingAllowed },
-  { "disableCollisionBetween", l_lovrWorldDisableCollisionBetween },
-  { "enableCollisionBetween", l_lovrWorldEnableCollisionBetween },
-  { "isCollisionEnabledBetween", l_lovrWorldIsCollisionEnabledBetween },
   { "getStepCount", l_lovrWorldGetStepCount },
   { "setStepCount", l_lovrWorldSetStepCount },
+
   { NULL, NULL }
 };
