@@ -197,7 +197,7 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
 
         // Triangulate faces (triangle fan)
         if (i >= 3) {
-          arr_push(&indexBlob, indexBlob.data[indexBlob.length - i]);
+          arr_push(&indexBlob, indexBlob.data[indexBlob.length - (3 * (i - 2))]);
           arr_push(&indexBlob, indexBlob.data[indexBlob.length - 2]);
           group->count += 2;
         }
