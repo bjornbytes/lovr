@@ -95,6 +95,8 @@ World* lovrColliderGetWorld(Collider* collider);
 Collider* lovrColliderGetNext(Collider* collider);
 Shape* lovrColliderGetShape(Collider* collider);
 void lovrColliderSetShape(Collider* collider, Shape* shape);
+void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation);
+void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation);
 Joint** lovrColliderGetJoints(Collider* collider, size_t* count);
 const char* lovrColliderGetTag(Collider* collider);
 bool lovrColliderSetTag(Collider* collider, const char* tag);

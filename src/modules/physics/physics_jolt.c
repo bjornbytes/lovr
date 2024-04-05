@@ -425,6 +425,46 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
   }
 }
 
+void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation) {
+  if (!collider->shape) {
+    vec3_set(position, 0.f, 0.f, 0.f);
+    quat_identity(orientation);
+    return;
+  }
+
+  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->body_interface, collider->id);
+
+  if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
+    JPH_Vec3 jposition;
+    JPH_Quat jrotation;
+    JPH_RotatedTranslatedShape_GetPosition((JPH_RotatedTranslatedShape*) shape, &jposition);
+    JPH_RotatedTranslatedShape_GetRotation((JPH_RotatedTranslatedShape*) shape, &jrotation);
+    vec3_init(position, &jposition.x);
+    quat_init(orientation, &jrotation.x);
+  } else {
+    vec3_set(position, 0.f, 0.f, 0.f);
+    quat_identity(orientation);
+  }
+}
+
+void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation) {
+  if (!collider->shape) {
+    return;
+  }
+
+  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->body_interface, collider->id);
+
+  if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
+    JPH_Shape_Destroy((JPH_Shape*) shape);
+  }
+
+  JPH_Vec3 jposition = { position[0], position[1], position[2] };
+  JPH_Quat jrotation = { orientation[0], orientation[1], orientation[2], orientation[3] };
+  shape = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(&jposition, &jrotation, collider->shape->shape);
+  bool updateMass = collider->shape->type == SHAPE_MESH || collider->shape->type == SHAPE_TERRAIN;
+  JPH_BodyInterface_SetShape(collider->world->body_interface, collider->id, shape, updateMass, JPH_Activation_Activate);
+}
+
 Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
   *count = collider->joints.length;
   return collider->joints.data;
