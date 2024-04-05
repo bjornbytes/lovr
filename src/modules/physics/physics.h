@@ -64,8 +64,8 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata);
 Collider* lovrWorldGetFirstCollider(World* world);
-void lovrWorldGetGravity(World* world, float* x, float* y, float* z);
-void lovrWorldSetGravity(World* world, float x, float y, float z);
+void lovrWorldGetGravity(World* world, float gravity[3]);
+void lovrWorldSetGravity(World* world, float gravity[3]);
 float lovrWorldGetResponseTime(World* world);
 void lovrWorldSetResponseTime(World* world, float responseTime);
 float lovrWorldGetTightness(World* world);

@@ -375,11 +375,11 @@ static int l_lovrWorldQuerySphere(lua_State* L) {
 
 static int l_lovrWorldGetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float x, y, z;
-  lovrWorldGetGravity(world, &x, &y, &z);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
-  lua_pushnumber(L, z);
+  float gravity[3];
+  lovrWorldGetGravity(world, gravity);
+  lua_pushnumber(L, gravity[0]);
+  lua_pushnumber(L, gravity[1]);
+  lua_pushnumber(L, gravity[2]);
   return 3;
 }
 
@@ -387,7 +387,7 @@ static int l_lovrWorldSetGravity(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float gravity[3];
   luax_readvec3(L, 2, gravity, NULL);
-  lovrWorldSetGravity(world, gravity[0], gravity[1], gravity[2]);
+  lovrWorldSetGravity(world, gravity);
   return 0;
 }
 

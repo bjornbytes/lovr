@@ -162,7 +162,7 @@ World* lovrWorldCreate(WorldInfo* info) {
   dHashSpaceSetLevels(world->space, -4, 8);
   world->contactGroup = dJointGroupCreate(0);
   arr_init(&world->overlaps);
-  lovrWorldSetGravity(world, info->gravity[0], info->gravity[1], info->gravity[2]);
+  lovrWorldSetGravity(world, info->gravity);
   lovrWorldSetSleepingAllowed(world, info->allowSleep);
   for (uint32_t i = 0; i < info->tagCount; i++) {
     size_t size = strlen(info->tags[i]) + 1;
@@ -339,16 +339,16 @@ Collider* lovrWorldGetFirstCollider(World* world) {
   return world->head;
 }
 
-void lovrWorldGetGravity(World* world, float* x, float* y, float* z) {
-  dReal gravity[4];
-  dWorldGetGravity(world->id, gravity);
-  *x = gravity[0];
-  *y = gravity[1];
-  *z = gravity[2];
+void lovrWorldGetGravity(World* world, float gravity[3]) {
+  dReal g[4];
+  dWorldGetGravity(world->id, g);
+  gravity[0] = g[0];
+  gravity[1] = g[1];
+  gravity[2] = g[2];
 }
 
-void lovrWorldSetGravity(World* world, float x, float y, float z) {
-  dWorldSetGravity(world->id, x, y, z);
+void lovrWorldSetGravity(World* world, float gravity[3]) {
+  dWorldSetGravity(world->id, gravity[0], gravity[1], gravity[2]);
 }
 
 float lovrWorldGetResponseTime(World* world) {
