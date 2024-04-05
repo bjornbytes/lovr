@@ -4,10 +4,6 @@
 #include <stdlib.h>
 #include <joltc.h>
 
-#define MAX_BODIES 65535
-#define MAX_BODY_PAIRS 65535
-#define MAX_CONTACT_CONSTRAINTS 10240
-
 static bool initialized = false;
 static JPH_Shape* queryBox;
 static JPH_Shape* querySphere;
@@ -87,14 +83,15 @@ void lovrPhysicsDestroy(void) {
   initialized = false;
 }
 
-World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount) {
+World* lovrWorldCreate(WorldInfo* info) {
   World* world = lovrCalloc(sizeof(World));
 
   world->ref = 1;
   world->collision_steps = 1;
   world->defaultLinearDamping = .05f;
   world->defaultAngularDamping = .05f;
-  world->defaultIsSleepingAllowed = true;
+  world->defaultIsSleepingAllowed = info->allowSleep;
+
   world->broad_phase_layer_interface = JPH_BroadPhaseLayerInterfaceTable_Create(NUM_OP_LAYERS, NUM_BP_LAYERS);
   world->object_layer_pair_filter = JPH_ObjectLayerPairFilterTable_Create(NUM_OP_LAYERS);
   for (uint32_t i = 0; i < NUM_OP_LAYERS; i++) {
@@ -112,9 +109,9 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
     world->object_layer_pair_filter, NUM_OP_LAYERS);
 
   JPH_PhysicsSystemSettings settings = {
-    .maxBodies = MAX_BODIES,
-    .maxBodyPairs = MAX_BODY_PAIRS,
-    .maxContactConstraints = MAX_CONTACT_CONSTRAINTS,
+    .maxBodies = info->maxColliders,
+    .maxBodyPairs = info->maxColliderPairs,
+    .maxContactConstraints = info->maxContacts,
     .broadPhaseLayerInterface = world->broad_phase_layer_interface,
     .objectLayerPairFilter = world->object_layer_pair_filter,
     .objectVsBroadPhaseLayerFilter = world->broad_phase_layer_filter
@@ -122,12 +119,14 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
   world->physics_system = JPH_PhysicsSystem_Create(&settings);
   world->body_interface = JPH_PhysicsSystem_GetBodyInterface(world->physics_system);
 
-  lovrWorldSetGravity(world, xg, yg, zg);
-  for (uint32_t i = 0; i < tagCount; i++) {
-    size_t size = strlen(tags[i]) + 1;
+  lovrWorldSetGravity(world, info->gravity[0], info->gravity[1], info->gravity[2]);
+
+  for (uint32_t i = 0; i < info->tagCount; i++) {
+    size_t size = strlen(info->tags[i]) + 1;
     world->tags[i] = lovrMalloc(size);
-    memcpy(world->tags[i], tags[i], size);
+    memcpy(world->tags[i], info->tags[i], size);
   }
+
   return world;
 }
 

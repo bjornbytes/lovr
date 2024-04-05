@@ -40,7 +40,17 @@ typedef struct {
   float depth;
 } Contact;
 
-World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount);
+typedef struct {
+  uint32_t maxColliders;
+  uint32_t maxColliderPairs;
+  uint32_t maxContacts;
+  bool allowSleep;
+  const char* tags[MAX_TAGS];
+  uint32_t tagCount;
+  float gravity[3]; // Deprecated
+} WorldInfo;
+
+World* lovrWorldCreate(WorldInfo* info);
 void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);

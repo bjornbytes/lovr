@@ -21,28 +21,70 @@ StringEntry lovrJointType[] = {
 };
 
 static int l_lovrPhysicsNewWorld(lua_State* L) {
-  float xg = luax_optfloat(L, 1, 0.f);
-  float yg = luax_optfloat(L, 2, -9.81f);
-  float zg = luax_optfloat(L, 3, 0.f);
-  bool allowSleep = lua_gettop(L) < 4 || lua_toboolean(L, 4);
-  const char* tags[MAX_TAGS];
-  int tagCount;
-  if (lua_type(L, 5) == LUA_TTABLE) {
-    tagCount = luax_len(L, 5);
-    lovrCheck(tagCount <= MAX_TAGS, "Max number of world tags is %d", MAX_TAGS);
-    for (int i = 0; i < tagCount; i++) {
-      lua_rawgeti(L, -1, i + 1);
-      if (lua_isstring(L, -1)) {
-        tags[i] = lua_tostring(L, -1);
-      } else {
-        return luaL_error(L, "World tags must be a table of strings");
+  WorldInfo info = {
+    .maxColliders = 65536,
+    .maxColliderPairs = 65536,
+    .maxContacts = 16384,
+    .allowSleep = true,
+    .gravity = { 0.f, -9.81f, 0.f }
+  };
+
+  if (lua_istable(L, 1)) {
+    lua_getfield(L, 1, "maxColliders");
+    if (!lua_isnil(L, -1)) info.maxColliders = luax_checku32(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "maxColliderPairs");
+    if (!lua_isnil(L, -1)) info.maxColliderPairs = luax_checku32(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "maxContacts");
+    if (!lua_isnil(L, -1)) info.maxContacts = luax_checku32(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "allowSleep");
+    if (!lua_isnil(L, -1)) info.allowSleep = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "tags");
+    if (!lua_isnil(L, -1)) {
+      lovrCheck(lua_istable(L, -1), "World tag list should be a table");
+      lovrCheck(info.tagCount <= MAX_TAGS, "Max number of world tags is %d", MAX_TAGS);
+      info.tagCount = luax_len(L, 5);
+      for (uint32_t i = 0; i < info.tagCount; i++) {
+        lua_rawgeti(L, -1, (int) i + 1);
+        if (lua_isstring(L, -1)) {
+          info.tags[i] = lua_tostring(L, -1);
+        } else {
+          return luaL_error(L, "World tags must be a table of strings");
+        }
+        lua_pop(L, 1);
       }
-      lua_pop(L, 1);
     }
-  } else {
-    tagCount = 0;
+    lua_pop(L, 1);
+  } else { // Deprecated
+    info.gravity[0] = luax_optfloat(L, 1, 0.f);
+    info.gravity[1] = luax_optfloat(L, 2, -9.81f);
+    info.gravity[2] = luax_optfloat(L, 3, 0.f);
+    info.allowSleep = lua_gettop(L) < 4 || lua_toboolean(L, 4);
+    if (lua_type(L, 5) == LUA_TTABLE) {
+      info.tagCount = luax_len(L, 5);
+      lovrCheck(info.tagCount <= MAX_TAGS, "Max number of world tags is %d", MAX_TAGS);
+      for (uint32_t i = 0; i < info.tagCount; i++) {
+        lua_rawgeti(L, -1, (int) i + 1);
+        if (lua_isstring(L, -1)) {
+          info.tags[i] = lua_tostring(L, -1);
+        } else {
+          return luaL_error(L, "World tags must be a table of strings");
+        }
+        lua_pop(L, 1);
+      }
+    } else {
+      info.tagCount = 0;
+    }
   }
-  World* world = lovrWorldCreate(xg, yg, zg, allowSleep, tags, tagCount);
+
+  World* world = lovrWorldCreate(&info);
   luax_pushtype(L, World, world);
   lovrRelease(world, lovrWorldDestroy);
   return 1;

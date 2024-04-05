@@ -154,7 +154,7 @@ void lovrPhysicsDestroy(void) {
   dCloseODE();
 }
 
-World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char** tags, uint32_t tagCount) {
+World* lovrWorldCreate(WorldInfo* info) {
   World* world = lovrCalloc(sizeof(World));
   world->ref = 1;
   world->id = dWorldCreate();
@@ -162,12 +162,12 @@ World* lovrWorldCreate(float xg, float yg, float zg, bool allowSleep, const char
   dHashSpaceSetLevels(world->space, -4, 8);
   world->contactGroup = dJointGroupCreate(0);
   arr_init(&world->overlaps);
-  lovrWorldSetGravity(world, xg, yg, zg);
-  lovrWorldSetSleepingAllowed(world, allowSleep);
-  for (uint32_t i = 0; i < tagCount; i++) {
-    size_t size = strlen(tags[i]) + 1;
+  lovrWorldSetGravity(world, info->gravity[0], info->gravity[1], info->gravity[2]);
+  lovrWorldSetSleepingAllowed(world, info->allowSleep);
+  for (uint32_t i = 0; i < info->tagCount; i++) {
+    size_t size = strlen(info->tags[i]) + 1;
     world->tags[i] = lovrMalloc(size);
-    memcpy(world->tags[i], tags[i], size);
+    memcpy(world->tags[i], info->tags[i], size);
   }
   memset(world->masks, 0xff, sizeof(world->masks));
   return world;
