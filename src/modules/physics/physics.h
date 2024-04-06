@@ -165,7 +165,7 @@ void lovrShapeDestroy(void* ref);
 void lovrShapeDestroyData(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
-void lovrShapeGetAABB(Shape* shape, float aabb[6]);
+void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]);
 
 SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* sphere);

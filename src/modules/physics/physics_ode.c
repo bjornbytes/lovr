@@ -976,7 +976,7 @@ void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* 
   inertia[5] = m.I[9];
 }
 
-void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
+void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]) {
   dGeomGetAABB(shape->id, aabb);
 }
 

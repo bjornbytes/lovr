@@ -849,8 +849,22 @@ void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* 
   //
 }
 
-void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
-  // TODO
+void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]) {
+  JPH_AABox box;
+  if (!position && !orientation) {
+    JPH_Shape_GetLocalBounds(shape->shape, &box);
+  } else {
+    JPH_RMatrix4x4 transform;
+    JPH_Vec3 scale = { 1.f, 1.f, 1.f };
+    mat4_fromPose(&transform.m11, position, orientation);
+    JPH_Shape_GetWorldSpaceBounds(shape->shape, &transform, &scale, &box);
+  }
+  aabb[0] = box.min.x;
+  aabb[1] = box.max.x;
+  aabb[2] = box.min.y;
+  aabb[3] = box.max.y;
+  aabb[4] = box.min.z;
+  aabb[5] = box.max.z;
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {

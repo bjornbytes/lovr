@@ -284,8 +284,15 @@ static int l_lovrShapeGetMass(lua_State* L) {
 
 static int l_lovrShapeGetAABB(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
-  float aabb[6];
-  lovrShapeGetAABB(shape, aabb);
+  float position[3], orientation[4], aabb[6];
+  if (lua_gettop(L) >= 2) {
+    int index = 2;
+    index = luax_readvec3(L, index, position, NULL);
+    index = luax_readquat(L, index, orientation, NULL);
+    lovrShapeGetAABB(shape, position, orientation, aabb);
+  } else {
+    lovrShapeGetAABB(shape, NULL, NULL, aabb);
+  }
   for (int i = 0; i < 6; i++) {
     lua_pushnumber(L, aabb[i]);
   }
