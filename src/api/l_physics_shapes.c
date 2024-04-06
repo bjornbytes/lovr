@@ -91,17 +91,17 @@ Shape* luax_newmeshshape(lua_State* L, int index) {
 }
 
 Shape* luax_newterrainshape(lua_State* L, int index) {
-  float horizontalScale = luax_checkfloat(L, index++);
+  float scaleXZ = luax_checkfloat(L, index++);
   int type = lua_type(L, index);
   if (type == LUA_TNIL || type == LUA_TNONE) {
     float vertices[4] = { 0.f };
-    return lovrTerrainShapeCreate(vertices, 2, 2, horizontalScale, 1.f);
+    return lovrTerrainShapeCreate(vertices, 2, scaleXZ, 1.f);
   } else if (type == LUA_TFUNCTION) {
-    uint32_t samples = luax_optu32(L, index + 1, 100);
-    float* vertices = lovrMalloc(sizeof(float) * samples * samples);
-    for (uint32_t i = 0; i < samples * samples; i++) {
-      float x = horizontalScale * (-.5f + ((float) (i % samples)) / samples);
-      float z = horizontalScale * (-.5f + ((float) (i / samples)) / samples);
+    uint32_t n = luax_optu32(L, index + 1, 100);
+    float* vertices = lovrMalloc(sizeof(float) * n * n);
+    for (uint32_t i = 0; i < n * n; i++) {
+      float x = scaleXZ * (-.5f + ((float) (i % n)) / n);
+      float z = scaleXZ * (-.5f + ((float) (i / n)) / n);
       lua_pushvalue(L, index);
       lua_pushnumber(L, x);
       lua_pushnumber(L, z);
@@ -110,23 +110,23 @@ Shape* luax_newterrainshape(lua_State* L, int index) {
       vertices[i] = luax_tofloat(L, -1);
       lua_pop(L, 1);
     }
-    TerrainShape* shape = lovrTerrainShapeCreate(vertices, samples, samples, horizontalScale, 1.f);
+    TerrainShape* shape = lovrTerrainShapeCreate(vertices, n, scaleXZ, 1.f);
     lovrFree(vertices);
     return shape;
   } else if (type == LUA_TUSERDATA) {
     Image* image = luax_checktype(L, index, Image);
-    uint32_t imageWidth = lovrImageGetWidth(image, 0);
-    uint32_t imageHeight = lovrImageGetHeight(image, 0);
-    float verticalScale = luax_optfloat(L, index + 1, 1.f);
-    float* vertices = lovrMalloc(sizeof(float) * imageWidth * imageHeight);
-    for (uint32_t y = 0; y < imageHeight; y++) {
-      for (uint32_t x = 0; x < imageWidth; x++) {
+    uint32_t n = lovrImageGetWidth(image, 0);
+    lovrCheck(lovrImageGetHeight(image, 0) == n, "TerrainShape images must be square");
+    float scaleY = luax_optfloat(L, index + 1, 1.f);
+    float* vertices = lovrMalloc(sizeof(float) * n * n);
+    for (uint32_t y = 0; y < n; y++) {
+      for (uint32_t x = 0; x < n; x++) {
         float pixel[4];
         lovrImageGetPixel(image, x, y, pixel);
-        vertices[x + y * imageWidth] = pixel[0];
+        vertices[x + y * n] = pixel[0];
       }
     }
-    TerrainShape* shape = lovrTerrainShapeCreate(vertices, imageWidth, imageHeight, horizontalScale, verticalScale);
+    TerrainShape* shape = lovrTerrainShapeCreate(vertices, n, scaleXZ, scaleY);
     lovrFree(vertices);
     return shape;
   } else {

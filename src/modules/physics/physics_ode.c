@@ -1119,13 +1119,12 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float* vertices, int indexCount,
   return mesh;
 }
 
-TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t widthSamples, uint32_t depthSamples, float horizontalScale, float verticalScale) {
+TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY) {
   const float thickness = 10.f;
   TerrainShape* terrain = lovrCalloc(sizeof(TerrainShape));
   terrain->ref = 1;
   dHeightfieldDataID dataID = dGeomHeightfieldDataCreate();
-  dGeomHeightfieldDataBuildSingle(dataID, vertices, 1, horizontalScale, horizontalScale,
-                                  widthSamples, depthSamples, verticalScale, 0.f, thickness, 0);
+  dGeomHeightfieldDataBuildSingle(dataID, vertices, 1, scaleXZ, scaleXZ, n, n, scaleY, 0.f, thickness, 0);
   terrain->id = dCreateHeightfield(0, dataID, 1);
   terrain->type = SHAPE_TERRAIN;
   dGeomSetData(terrain->id, terrain);

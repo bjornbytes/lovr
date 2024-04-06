@@ -956,24 +956,22 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount
   return mesh;
 }
 
-TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t widthSamples, uint32_t depthSamples, float horizontalScale, float verticalScale) {
-  lovrCheck(widthSamples == depthSamples, "Jolt needs terrain width and depth to be the same");
+TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY) {
   TerrainShape* terrain = lovrCalloc(sizeof(TerrainShape));
   terrain->ref = 1;
   terrain->type = SHAPE_TERRAIN;
   const JPH_Vec3 offset = {
-    .x = -.5f * horizontalScale,
+    .x = -.5f * scaleXZ,
     .y = 0.f,
-    .z = -.5f * horizontalScale
+    .z = -.5f * scaleXZ
   };
   const JPH_Vec3 scale = {
-    .x = horizontalScale / widthSamples,
-    .y = verticalScale,
-    .z = horizontalScale / depthSamples
+    .x = scaleXZ / n,
+    .y = scaleY,
+    .z = scaleXZ / n
   };
 
-  JPH_HeightFieldShapeSettings* shape_settings = JPH_HeightFieldShapeSettings_Create(
-    vertices, &offset, &scale, widthSamples);
+  JPH_HeightFieldShapeSettings* shape_settings = JPH_HeightFieldShapeSettings_Create(vertices, &offset, &scale, n);
   terrain->shape = (JPH_Shape*) JPH_HeightFieldShapeSettings_CreateShape(shape_settings);
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) shape_settings);
   return terrain;
