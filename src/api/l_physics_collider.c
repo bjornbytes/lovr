@@ -110,6 +110,20 @@ static int l_lovrColliderSetKinematic(lua_State* L) {
   return 0;
 }
 
+static int l_lovrColliderIsContinuous(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool continuous = lovrColliderIsContinuous(collider);
+  lua_pushboolean(L, continuous);
+  return 1;
+}
+
+static int l_lovrColliderSetContinuous(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool continuous = lua_toboolean(L, 2);
+  lovrColliderSetContinuous(collider, continuous);
+  return 0;
+}
+
 static int l_lovrColliderGetGravityScale(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float scale = lovrColliderGetGravityScale(collider);
@@ -535,6 +549,8 @@ const luaL_Reg lovrCollider[] = {
   { "setUserData", l_lovrColliderSetUserData },
   { "isKinematic", l_lovrColliderIsKinematic },
   { "setKinematic", l_lovrColliderSetKinematic },
+  { "isContinuous", l_lovrColliderIsContinuous },
+  { "setContinuous", l_lovrColliderSetContinuous },
   { "getGravityScale", l_lovrColliderGetGravityScale },
   { "setGravityScale", l_lovrColliderSetGravityScale },
   { "isSleepingAllowed", l_lovrColliderIsSleepingAllowed },

@@ -610,6 +610,14 @@ void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
   }
 }
 
+bool lovrColliderIsContinuous(Collider* collider) {
+  return false;
+}
+
+void lovrColliderSetContinuous(Collider* collider, bool continuous) {
+  //
+}
+
 float lovrColliderGetGravityScale(Collider* collider) {
   return dBodyGetGravityMode(collider->body) ? 1.f : 0.f;
 }

@@ -497,6 +497,15 @@ void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
   }
 }
 
+bool lovrColliderIsContinuous(Collider* collider) {
+  return JPH_BodyInterface_GetMotionQuality(collider->world->bodies, collider->id) == JPH_MotionQuality_LinearCast;
+}
+
+void lovrColliderSetContinuous(Collider* collider, bool continuous) {
+  JPH_MotionQuality quality = continuous ? JPH_MotionQuality_LinearCast : JPH_MotionQuality_Discrete;
+  return JPH_BodyInterface_SetMotionQuality(collider->world->bodies, collider->id, quality);
+}
+
 float lovrColliderGetGravityScale(Collider* collider) {
   return JPH_BodyInterface_GetGravityFactor(collider->world->bodies, collider->id);
 }

@@ -104,6 +104,8 @@ float lovrColliderGetRestitution(Collider* collider);
 void lovrColliderSetRestitution(Collider* collider, float restitution);
 bool lovrColliderIsKinematic(Collider* collider);
 void lovrColliderSetKinematic(Collider* collider, bool kinematic);
+bool lovrColliderIsContinuous(Collider* collider);
+void lovrColliderSetContinuous(Collider* collider, bool continuous);
 float lovrColliderGetGravityScale(Collider* collider);
 void lovrColliderSetGravityScale(Collider* collider, float scale);
 bool lovrColliderIsSleepingAllowed(Collider* collider);
