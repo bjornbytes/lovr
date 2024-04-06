@@ -17,6 +17,20 @@ static int l_lovrColliderIsDestroyed(lua_State* L) {
   return 1;
 }
 
+static int l_lovrColliderIsEnabled(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool enabled = lovrColliderIsEnabled(collider);
+  lua_pushboolean(L, enabled);
+  return 1;
+}
+
+static int l_lovrColliderSetEnabled(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool enable = lua_toboolean(L, 2);
+  lovrColliderSetEnabled(collider, enable);
+  return 1;
+}
+
 static int l_lovrColliderGetWorld(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   World* world = lovrColliderGetWorld(collider);
@@ -120,6 +134,19 @@ static int l_lovrColliderSetKinematic(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   bool kinematic = lua_toboolean(L, 2);
   lovrColliderSetKinematic(collider, kinematic);
+  return 0;
+}
+
+static int l_lovrColliderIsSensor(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushboolean(L, lovrColliderIsSensor(collider));
+  return 1;
+}
+
+static int l_lovrColliderSetSensor(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool sensor = lua_toboolean(L, 2);
+  lovrColliderSetSensor(collider, sensor);
   return 0;
 }
 
@@ -585,6 +612,8 @@ static int l_lovrColliderSetGravityIgnored(lua_State* L) {
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "isDestroyed", l_lovrColliderIsDestroyed },
+  { "isEnabled", l_lovrColliderIsEnabled },
+  { "setEnabled", l_lovrColliderSetEnabled },
   { "getWorld", l_lovrColliderGetWorld },
   { "getShape", l_lovrColliderGetShape },
   { "setShape", l_lovrColliderSetShape },
@@ -595,6 +624,8 @@ const luaL_Reg lovrCollider[] = {
   { "setUserData", l_lovrColliderSetUserData },
   { "isKinematic", l_lovrColliderIsKinematic },
   { "setKinematic", l_lovrColliderSetKinematic },
+  { "isSensor", l_lovrColliderIsSensor },
+  { "setSensor", l_lovrColliderSetSensor },
   { "isContinuous", l_lovrColliderIsContinuous },
   { "setContinuous", l_lovrColliderSetContinuous },
   { "getGravityScale", l_lovrColliderGetGravityScale },

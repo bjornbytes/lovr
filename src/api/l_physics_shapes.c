@@ -229,32 +229,6 @@ static int l_lovrShapeGetType(lua_State* L) {
   return 1;
 }
 
-static int l_lovrShapeIsEnabled(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  lua_pushboolean(L, lovrShapeIsEnabled(shape));
-  return 1;
-}
-
-static int l_lovrShapeSetEnabled(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  bool enabled = lua_toboolean(L, 2);
-  lovrShapeSetEnabled(shape, enabled);
-  return 0;
-}
-
-static int l_lovrShapeIsSensor(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  lua_pushboolean(L, lovrShapeIsSensor(shape));
-  return 1;
-}
-
-static int l_lovrShapeSetSensor(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  bool sensor = lua_toboolean(L, 2);
-  lovrShapeSetSensor(shape, sensor);
-  return 0;
-}
-
 static void luax_pushshapestash(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrshapestash");
 
@@ -321,10 +295,6 @@ static int l_lovrShapeGetAABB(lua_State* L) {
 #define lovrShape \
   { "destroy", l_lovrShapeDestroy }, \
   { "getType", l_lovrShapeGetType }, \
-  { "isEnabled", l_lovrShapeIsEnabled }, \
-  { "setEnabled", l_lovrShapeSetEnabled }, \
-  { "isSensor", l_lovrShapeIsSensor }, \
-  { "setSensor", l_lovrShapeSetSensor }, \
   { "getUserData", l_lovrShapeGetUserData }, \
   { "setUserData", l_lovrShapeSetUserData }, \
   { "getMass", l_lovrShapeGetMass }, \

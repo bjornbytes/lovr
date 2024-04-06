@@ -26,6 +26,7 @@ struct Collider {
   arr_t(Joint*) joints;
   float friction;
   float restitution;
+  bool sensor;
 };
 
 struct Shape {
@@ -35,7 +36,6 @@ struct Shape {
   Collider* collider;
   void* vertices;
   void* indices;
-  bool sensor;
 };
 
 struct Joint {
@@ -279,7 +279,7 @@ int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float res
 
   int contactCount = dCollide(a->id, b->id, MAX_CONTACTS, &contacts[0].geom, sizeof(dContact));
 
-  if (!a->sensor && !b->sensor) {
+  if (!colliderA->sensor && !colliderB->sensor) {
     for (int c = 0; c < contactCount; c++) {
       dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[c]);
       dJointAttach(joint, colliderA->body, colliderB->body);
@@ -500,6 +500,14 @@ bool lovrColliderIsDestroyed(Collider* collider) {
   return !collider->body;
 }
 
+bool lovrColliderIsEnabled(Collider* collider) {
+  return true;
+}
+
+void lovrColliderSetEnabled(Collider* collider, bool enable) {
+  //
+}
+
 void lovrColliderInitInertia(Collider* collider, Shape* shape) {
   // compute inertia matrix for default density
   const float density = 1.0f;
@@ -615,6 +623,14 @@ void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
   } else {
     dBodySetDynamic(collider->body);
   }
+}
+
+bool lovrColliderIsSensor(Collider* collider) {
+  return collider->sensor;
+}
+
+void lovrColliderSetSensor(Collider* collider, bool sensor) {
+  collider->sensor = sensor;
 }
 
 bool lovrColliderIsContinuous(Collider* collider) {
@@ -893,26 +909,6 @@ ShapeType lovrShapeGetType(Shape* shape) {
 
 Collider* lovrShapeGetCollider(Shape* shape) {
   return shape->collider;
-}
-
-bool lovrShapeIsEnabled(Shape* shape) {
-  return dGeomIsEnabled(shape->id);
-}
-
-void lovrShapeSetEnabled(Shape* shape, bool enabled) {
-  if (enabled) {
-    dGeomEnable(shape->id);
-  } else {
-    dGeomDisable(shape->id);
-  }
-}
-
-bool lovrShapeIsSensor(Shape* shape) {
-  return shape->sensor;
-}
-
-void lovrShapeSetSensor(Shape* shape, bool sensor) {
-  shape->sensor = sensor;
 }
 
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {

@@ -90,6 +90,8 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
 bool lovrColliderIsDestroyed(Collider* collider);
+bool lovrColliderIsEnabled(Collider* collider);
+void lovrColliderSetEnabled(Collider* collider, bool enable);
 void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
 Collider* lovrColliderGetNext(Collider* collider);
@@ -106,6 +108,8 @@ float lovrColliderGetRestitution(Collider* collider);
 void lovrColliderSetRestitution(Collider* collider, float restitution);
 bool lovrColliderIsKinematic(Collider* collider);
 void lovrColliderSetKinematic(Collider* collider, bool kinematic);
+bool lovrColliderIsSensor(Collider* collider);
+void lovrColliderSetSensor(Collider* collider, bool sensor);
 bool lovrColliderIsContinuous(Collider* collider);
 void lovrColliderSetContinuous(Collider* collider, bool continuous);
 float lovrColliderGetGravityScale(Collider* collider);
@@ -160,10 +164,6 @@ typedef enum {
 void lovrShapeDestroy(void* ref);
 void lovrShapeDestroyData(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
-bool lovrShapeIsEnabled(Shape* shape);
-void lovrShapeSetEnabled(Shape* shape, bool enabled);
-bool lovrShapeIsSensor(Shape* shape);
-void lovrShapeSetSensor(Shape* shape, bool sensor);
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
 void lovrShapeGetAABB(Shape* shape, float aabb[6]);
 

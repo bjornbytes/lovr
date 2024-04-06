@@ -399,6 +399,18 @@ bool lovrColliderIsDestroyed(Collider* collider) {
   return !collider->body;
 }
 
+bool lovrColliderIsEnabled(Collider* collider) {
+  return JPH_BodyInterface_IsAdded(collider->world->bodies, collider->id);
+}
+
+void lovrColliderSetEnabled(Collider* collider, bool enable) {
+  if (enable && !lovrColliderIsEnabled(collider)) {
+    JPH_BodyInterface_AddBody(collider->world->bodies, collider->id, JPH_Activation_DontActivate);
+  } else if (!enable && lovrColliderIsEnabled(collider)) {
+    JPH_BodyInterface_RemoveBody(collider->world->bodies, collider->id);
+  }
+}
+
 void lovrColliderInitInertia(Collider* collider, Shape* shape) {
   //
 }
@@ -536,6 +548,14 @@ void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
       JPH_MotionType_Dynamic,
       JPH_Activation_Activate);
   }
+}
+
+bool lovrColliderIsSensor(Collider* collider) {
+  return JPH_Body_IsSensor(collider->body);
+}
+
+void lovrColliderSetSensor(Collider* collider, bool sensor) {
+  JPH_Body_SetIsSensor(collider->body, sensor);
 }
 
 bool lovrColliderIsContinuous(Collider* collider) {
@@ -823,24 +843,6 @@ void lovrShapeDestroyData(Shape* shape) {
 
 ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
-}
-
-bool lovrShapeIsEnabled(Shape* shape) {
-  return true;
-}
-
-void lovrShapeSetEnabled(Shape* shape, bool enabled) {
-  if (!enabled) {
-    lovrLog(LOG_WARN, "PHY", "Jolt doesn't support disabling shapes");
-  }
-}
-
-bool lovrShapeIsSensor(Shape* shape) {
-  lovrThrow("NYI");
-}
-
-void lovrShapeSetSensor(Shape* shape, bool sensor) {
-  lovrThrow("NYI");
 }
 
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
