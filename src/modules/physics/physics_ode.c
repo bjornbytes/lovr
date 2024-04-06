@@ -436,7 +436,7 @@ bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const ch
   return (world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i));
 }
 
-Collider* lovrColliderCreate(World* world, float x, float y, float z) {
+Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float z) {
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
   collider->body = dBodyCreate(world->id);
@@ -447,6 +447,7 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   dBodySetData(collider->body, collider);
   arr_init(&collider->joints);
 
+  lovrColliderSetShape(collider, shape);
   lovrColliderSetPosition(collider, x, y, z);
 
   // Adjust the world's collider list

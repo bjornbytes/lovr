@@ -315,7 +315,7 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold) { 
 
 // Collider
 
-Collider* lovrColliderCreate(World* world, float x, float y, float z) {
+Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float z) {
   uint32_t count = JPH_PhysicsSystem_GetNumBodies(world->system);
   uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
   lovrCheck(count < limit, "Too many colliders!");
@@ -331,7 +331,7 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   const JPH_Quat rotation = { 0.f, 0.f, 0.f, 1.f };
   // todo: a placeholder querySphere shape is used in collider, then replaced in lovrColliderAddShape
   JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(
-    state.querySphere, &position, &rotation, motionType, objectLayer);
+    shape ? shape->shape : state.querySphere, &position, &rotation, motionType, objectLayer);
   collider->body = JPH_BodyInterface_CreateBody(world->bodies, settings);
   JPH_BodyCreationSettings_Destroy(settings);
   collider->id = JPH_Body_GetID(collider->body);
@@ -426,7 +426,7 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
 }
 
 void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation) {
-  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->body_interface, collider->id);
+  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
 
   if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
     JPH_Vec3 jposition;
@@ -442,7 +442,7 @@ void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orie
 }
 
 void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation) {
-  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->body_interface, collider->id);
+  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
 
   if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
     JPH_Shape_Destroy((JPH_Shape*) shape);
@@ -452,7 +452,7 @@ void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orie
   JPH_Quat jrotation = { orientation[0], orientation[1], orientation[2], orientation[3] };
   shape = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(&jposition, &jrotation, collider->shape->shape);
   bool updateMass = collider->shape->type == SHAPE_MESH || collider->shape->type == SHAPE_TERRAIN;
-  JPH_BodyInterface_SetShape(collider->world->body_interface, collider->id, shape, updateMass, JPH_Activation_Activate);
+  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape, updateMass, JPH_Activation_Activate);
 }
 
 Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {

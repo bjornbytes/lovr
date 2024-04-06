@@ -104,7 +104,7 @@ static int l_lovrWorldNewCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float position[3];
   luax_readvec3(L, 2, position, NULL);
-  Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
+  Collider* collider = lovrColliderCreate(world, NULL, position[0], position[1], position[2]);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
   return 1;
@@ -114,9 +114,8 @@ static int l_lovrWorldNewBoxCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
-  Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   BoxShape* shape = luax_newboxshape(L, index);
-  lovrColliderSetShape(collider, shape);
+  Collider* collider = lovrColliderCreate(world, shape, position[0], position[1], position[2]);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
@@ -128,9 +127,8 @@ static int l_lovrWorldNewCapsuleCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
-  Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   CapsuleShape* shape = luax_newcapsuleshape(L, index);
-  lovrColliderSetShape(collider, shape);
+  Collider* collider = lovrColliderCreate(world, shape, position[0], position[1], position[2]);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
@@ -142,9 +140,8 @@ static int l_lovrWorldNewCylinderCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
-  Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   CylinderShape* shape = luax_newcylindershape(L, index);
-  lovrColliderSetShape(collider, shape);
+  Collider* collider = lovrColliderCreate(world, shape, position[0], position[1], position[2]);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
@@ -156,9 +153,8 @@ static int l_lovrWorldNewSphereCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
-  Collider* collider = lovrColliderCreate(world, position[0], position[1], position[2]);
   SphereShape* shape = luax_newsphereshape(L, index);
-  lovrColliderSetShape(collider, shape);
+  Collider* collider = lovrColliderCreate(world, shape, position[0], position[1], position[2]);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
@@ -168,9 +164,8 @@ static int l_lovrWorldNewSphereCollider(lua_State* L) {
 
 static int l_lovrWorldNewMeshCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  Collider* collider = lovrColliderCreate(world, 0.f, 0.f, 0.f);
   MeshShape* shape = luax_newmeshshape(L, 2);
-  lovrColliderSetShape(collider, shape);
+  Collider* collider = lovrColliderCreate(world, shape, 0.f, 0.f, 0.f);
   lovrColliderInitInertia(collider, shape);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
@@ -180,9 +175,8 @@ static int l_lovrWorldNewMeshCollider(lua_State* L) {
 
 static int l_lovrWorldNewTerrainCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  Collider* collider = lovrColliderCreate(world, 0.f, 0.f, 0.f);
   TerrainShape* shape = luax_newterrainshape(L, 2);
-  lovrColliderSetShape(collider, shape);
+  Collider* collider = lovrColliderCreate(world, shape, 0.f, 0.f, 0.f);
   lovrColliderSetKinematic(collider, true);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
