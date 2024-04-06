@@ -131,6 +131,9 @@ void lovrColliderSetAngularDamping(Collider* collider, float damping, float thre
 void lovrColliderApplyForce(Collider* collider, float x, float y, float z);
 void lovrColliderApplyForceAtPosition(Collider* collider, float x, float y, float z, float cx, float cy, float cz);
 void lovrColliderApplyTorque(Collider* collider, float x, float y, float z);
+void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]);
+void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]);
+void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]);
 void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z);
 void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z);
 void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz);

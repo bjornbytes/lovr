@@ -383,6 +383,28 @@ static int l_lovrColliderApplyTorque(lua_State* L) {
   return 0;
 }
 
+static int l_lovrColliderApplyLinearImpulse(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float impulse[3];
+  int index = luax_readvec3(L, 2, impulse, NULL);
+  if (lua_gettop(L) >= index) {
+    float position[3];
+    luax_readvec3(L, index, position, NULL);
+    lovrColliderApplyLinearImpulseAtPosition(collider, impulse, position);
+  } else {
+    lovrColliderApplyLinearImpulse(collider, impulse);
+  }
+  return 0;
+}
+
+static int l_lovrColliderApplyAngularImpulse(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float impulse[3];
+  luax_readvec3(L, 2, impulse, NULL);
+  lovrColliderApplyAngularImpulse(collider, impulse);
+  return 0;
+}
+
 static int l_lovrColliderGetLocalCenter(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float x, y, z;
@@ -577,6 +599,8 @@ const luaL_Reg lovrCollider[] = {
   { "setAngularDamping", l_lovrColliderSetAngularDamping },
   { "applyForce", l_lovrColliderApplyForce },
   { "applyTorque", l_lovrColliderApplyTorque },
+  { "applyLinearImpulse", l_lovrColliderApplyLinearImpulse },
+  { "applyAngularImpulse", l_lovrColliderApplyAngularImpulse },
   { "getLocalCenter", l_lovrColliderGetLocalCenter },
   { "getLocalPoint", l_lovrColliderGetLocalPoint },
   { "getWorldPoint", l_lovrColliderGetWorldPoint },

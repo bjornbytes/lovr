@@ -768,6 +768,18 @@ void lovrColliderApplyTorque(Collider* collider, float x, float y, float z) {
   dBodyAddTorque(collider->body, x, y, z);
 }
 
+void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]) {
+  //
+}
+
+void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]) {
+  //
+}
+
+void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
+  //
+}
+
 void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z) {
   dMass m;
   dBodyGetMass(collider->body, &m);

@@ -667,6 +667,22 @@ void lovrColliderApplyTorque(Collider* collider, float x, float y, float z) {
   JPH_BodyInterface_AddTorque(collider->world->bodies, collider->id, &torque);
 }
 
+void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]) {
+  JPH_Vec3 vector = { impulse[0], impulse[1], impulse[2] };
+  JPH_BodyInterface_AddImpulse(collider->world->bodies, collider->id, &vector);
+}
+
+void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]) {
+  JPH_Vec3 vector = { impulse[0], impulse[1], impulse[2] };
+  JPH_Vec3 point = { position[0], position[1], position[2] };
+  JPH_BodyInterface_AddImpulse2(collider->world->bodies, collider->id, &vector, &point);
+}
+
+void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
+  JPH_Vec3 vector = { impulse[0], impulse[1], impulse[2] };
+  JPH_BodyInterface_AddAngularImpulse(collider->world->bodies, collider->id, &vector);
+}
+
 void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z) {
   // todo: applicable for CompoundShape and OffsetCenterOfMassShape
   *x = 0.f;
