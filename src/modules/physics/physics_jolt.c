@@ -43,6 +43,7 @@ struct Joint {
 
 static struct {
   bool initialized;
+  Shape* pointShape;
   JPH_Shape* queryBox;
   JPH_Shape* querySphere;
   JPH_AllHit_CastShapeCollector* castShapeCollector;
@@ -69,14 +70,16 @@ static uint32_t findTag(World* world, const char* name) {
 bool lovrPhysicsInit(void) {
   if (state.initialized) return false;
   JPH_Init(32 * 1024 * 1024);
-  state.castShapeCollector = JPH_AllHit_CastShapeCollector_Create();
+  state.pointShape = lovrSphereShapeCreate(FLT_EPSILON);
   state.querySphere = (JPH_Shape*) JPH_SphereShape_Create(1.f);
   state.queryBox = (JPH_Shape*) JPH_BoxShape_Create(&(const JPH_Vec3) { .5, .5f, .5f }, 0.f);
+  state.castShapeCollector = JPH_AllHit_CastShapeCollector_Create();
   return state.initialized = true;
 }
 
 void lovrPhysicsDestroy(void) {
   if (!state.initialized) return;
+  lovrRelease(state.pointShape, lovrShapeDestroy);
   JPH_Shutdown();
   state.initialized = false;
 }
@@ -320,23 +323,26 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float
   uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
   lovrCheck(count < limit, "Too many colliders!");
 
+  if (!shape) shape = state.pointShape;
+
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
   collider->world = world;
+  collider->shape = shape;
   collider->tag = UNTAGGED;
-  JPH_MotionType motionType = JPH_MotionType_Dynamic;
-  JPH_ObjectLayer objectLayer = UNTAGGED * 2 + 1;
 
   const JPH_RVec3 position = { x, y, z };
   const JPH_Quat rotation = { 0.f, 0.f, 0.f, 1.f };
-  // todo: a placeholder querySphere shape is used in collider, then replaced in lovrColliderAddShape
-  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(
-    shape ? shape->shape : state.querySphere, &position, &rotation, motionType, objectLayer);
+  JPH_MotionType type = JPH_MotionType_Dynamic;
+  JPH_ObjectLayer objectLayer = UNTAGGED * 2 + 1;
+  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(shape->shape, &position, &rotation, type, objectLayer);
   collider->body = JPH_BodyInterface_CreateBody(world->bodies, settings);
-  JPH_BodyCreationSettings_Destroy(settings);
   collider->id = JPH_Body_GetID(collider->body);
+  JPH_BodyCreationSettings_Destroy(settings);
+
   JPH_BodyInterface_AddBody(world->bodies, collider->id, JPH_Activation_Activate);
   JPH_BodyInterface_SetUserData(world->bodies, collider->id, (uint64_t) collider);
+
   lovrColliderSetLinearDamping(collider, world->defaultLinearDamping, 0.f);
   lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
   lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
@@ -352,8 +358,8 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float
     world->head = collider;
   }
 
-  // The world owns a reference to the collider
-  lovrRetain(collider);
+  lovrRetain(collider->shape);
+  lovrRetain(collider); // The world owns a reference to the collider
   return collider;
 }
 
@@ -406,22 +412,35 @@ Collider* lovrColliderGetNext(Collider* collider) {
 }
 
 Shape* lovrColliderGetShape(Collider* collider) {
-  return collider->shape;
+  return collider->shape == state.pointShape ? NULL : collider->shape;
 }
 
 void lovrColliderSetShape(Collider* collider, Shape* shape) {
-  if (shape != collider->shape) {
-    lovrRelease(collider->shape, lovrShapeDestroy);
-    collider->shape = shape;
-    lovrRetain(shape);
+  shape = shape ? shape : state.pointShape;
 
-    bool updateMass = true;
-    if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
-      lovrColliderSetKinematic(collider, true);
-      updateMass = false;
-    }
+  if (shape == collider->shape) {
+    return;
+  }
 
-    JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape->shape, updateMass, JPH_Activation_Activate);
+  float position[3], orientation[4];
+  const JPH_Shape* parent = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  bool hasOffset = JPH_Shape_GetSubType(parent) == JPH_ShapeSubType_RotatedTranslated;
+  if (hasOffset) lovrColliderGetShapeOffset(collider, position, orientation);
+
+  lovrRelease(collider->shape, lovrShapeDestroy);
+  collider->shape = shape;
+  lovrRetain(shape);
+
+  bool updateMass = true;
+  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+    lovrColliderSetKinematic(collider, true);
+    updateMass = false;
+  }
+
+  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape->shape, updateMass, JPH_Activation_Activate);
+
+  if (hasOffset) {
+    lovrColliderSetShapeOffset(collider, position, orientation);
   }
 }
 
@@ -451,7 +470,7 @@ void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orie
   JPH_Vec3 jposition = { position[0], position[1], position[2] };
   JPH_Quat jrotation = { orientation[0], orientation[1], orientation[2], orientation[3] };
   shape = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(&jposition, &jrotation, collider->shape->shape);
-  bool updateMass = collider->shape->type == SHAPE_MESH || collider->shape->type == SHAPE_TERRAIN;
+  bool updateMass = collider->shape && (collider->shape->type == SHAPE_MESH || collider->shape->type == SHAPE_TERRAIN);
   JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape, updateMass, JPH_Activation_Activate);
 }
 
@@ -557,20 +576,17 @@ void lovrColliderSetAwake(Collider* collider, bool awake) {
 }
 
 float lovrColliderGetMass(Collider* collider) {
-   if (!collider->shape) return 0.f;
   JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
   return 1.f / JPH_MotionProperties_GetInverseMassUnchecked(motionProperties);
 }
 
 void lovrColliderSetMass(Collider* collider, float mass) {
-  if (collider->shape) {
-    JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
-    Shape* shape = collider->shape;
-    JPH_MassProperties* massProperties;
-    JPH_Shape_GetMassProperties(shape->shape, massProperties);
-    JPH_MassProperties_ScaleToMass(massProperties, mass);
-    JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, massProperties);
-  }
+  JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
+  Shape* shape = collider->shape;
+  JPH_MassProperties* massProperties;
+  JPH_Shape_GetMassProperties(shape->shape, massProperties);
+  JPH_MassProperties_ScaleToMass(massProperties, mass);
+  JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, massProperties);
 }
 
 void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
