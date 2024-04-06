@@ -102,9 +102,10 @@ static bool queryCallback(Collider* collider, uint32_t shape, void* userdata) {
 
 static int l_lovrWorldNewCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
+  Shape* shape = luax_totype(L, 2, Shape);
   float position[3];
-  luax_readvec3(L, 2, position, NULL);
-  Collider* collider = lovrColliderCreate(world, NULL, position[0], position[1], position[2]);
+  luax_readvec3(L, 2 + !!shape, position, NULL);
+  Collider* collider = lovrColliderCreate(world, shape, position[0], position[1], position[2]);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
   return 1;
