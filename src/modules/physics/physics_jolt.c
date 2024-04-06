@@ -316,7 +316,10 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold) { 
 // Collider
 
 Collider* lovrColliderCreate(World* world, float x, float y, float z) {
-  // todo: crashes when too many are added
+  uint32_t count = JPH_PhysicsSystem_GetNumBodies(world->system);
+  uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
+  lovrCheck(count < limit, "Too many colliders!");
+
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
   collider->world = world;
