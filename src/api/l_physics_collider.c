@@ -84,12 +84,13 @@ static int l_lovrColliderSetShapeOffset(lua_State* L) {
 
 static int l_lovrColliderGetJoints(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  size_t count;
-  Joint** joints = lovrColliderGetJoints(collider, &count);
-  lua_createtable(L, (int) count, 0);
-  for (size_t i = 0; i < count; i++) {
-    luax_pushjoint(L, joints[i]);
-    lua_rawseti(L, -2, (int) i + 1);
+  lua_newtable(L);
+  int index = 1;
+  void* private;
+  Joint* joint = NULL;
+  while ((joint = lovrColliderEnumerateJoints(collider, joint, &private)) != NULL) {
+    luax_pushjoint(L, joint);
+    lua_rawseti(L, -2, index++);
   }
   return 1;
 }

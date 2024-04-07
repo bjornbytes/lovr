@@ -185,25 +185,10 @@ static int l_lovrWorldNewTerrainCollider(lua_State* L) {
   return 1;
 }
 
-static int l_lovrWorldGetColliders(lua_State* L) {
+static int l_lovrWorldDestroy(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-
-  if (lua_istable(L, 2)) {
-    lua_settop(L, 2);
-  } else {
-    lua_newtable(L);
-  }
-
-  Collider* collider = lovrWorldGetFirstCollider(world);
-  int index = 1;
-
-  while (collider) {
-    luax_pushtype(L, Collider, collider);
-    lua_rawseti(L, -2, index++);
-    collider = lovrColliderGetNext(collider);
-  }
-
-  return 1;
+  lovrWorldDestroyData(world);
+  return 0;
 }
 
 static int l_lovrWorldGetTags(lua_State* L) {
@@ -219,10 +204,42 @@ static int l_lovrWorldGetTags(lua_State* L) {
   return 1;
 }
 
-static int l_lovrWorldDestroy(lua_State* L) {
+static int l_lovrWorldGetColliders(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  lovrWorldDestroyData(world);
-  return 0;
+  lua_createtable(L, (int) lovrWorldGetColliderCount(world), 0);
+  Collider* collider = NULL;
+  int index = 1;
+  while ((collider = lovrWorldEnumerateColliders(world, collider)) != NULL) {
+    luax_pushtype(L, Collider, collider);
+    lua_rawseti(L, -2, index++);
+  }
+  return 1;
+}
+
+static int l_lovrWorldGetColliderCount(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  uint32_t count = lovrWorldGetColliderCount(world);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
+static int l_lovrWorldGetJoints(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lua_createtable(L, (int) lovrWorldGetJointCount(world), 0);
+  Joint* joint = NULL;
+  int index = 1;
+  while ((joint = lovrWorldEnumerateJoints(world, joint)) != NULL) {
+    luax_pushjoint(L, joint);
+    lua_rawseti(L, -2, index++);
+  }
+  return 1;
+}
+
+static int l_lovrWorldGetJointCount(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  uint32_t count = lovrWorldGetJointCount(world);
+  lua_pushinteger(L, count);
+  return 1;
 }
 
 static int l_lovrWorldUpdate(lua_State* L) {
@@ -514,9 +531,12 @@ const luaL_Reg lovrWorld[] = {
   { "newSphereCollider", l_lovrWorldNewSphereCollider },
   { "newMeshCollider", l_lovrWorldNewMeshCollider },
   { "newTerrainCollider", l_lovrWorldNewTerrainCollider },
-  { "getColliders", l_lovrWorldGetColliders },
-  { "getTags", l_lovrWorldGetTags },
   { "destroy", l_lovrWorldDestroy },
+  { "getTags", l_lovrWorldGetTags },
+  { "getColliderCount", l_lovrWorldGetColliderCount },
+  { "getJointCount", l_lovrWorldGetJointCount },
+  { "getColliders", l_lovrWorldGetColliders },
+  { "getJoints", l_lovrWorldGetJoints },
   { "update", l_lovrWorldUpdate },
   { "computeOverlaps", l_lovrWorldComputeOverlaps },
   { "overlaps", l_lovrWorldOverlaps },

@@ -4,16 +4,24 @@
 #include <stdlib.h>
 #include <joltc.h>
 
+typedef struct JointNode {
+  struct JointNode* prev;
+  struct JointNode* next;
+  Joint* joint;
+} JointNode;
+
 struct World {
   uint32_t ref;
   JPH_PhysicsSystem* system;
   JPH_BodyInterface* bodies;
   JPH_ObjectLayerPairFilter* objectLayerPairFilter;
-  int collisionSteps;
-  Collider* head;
+  Collider* colliders;
+  Joint* joints;
+  uint32_t jointCount;
   float defaultLinearDamping;
   float defaultAngularDamping;
   bool defaultIsSleepingAllowed;
+  int collisionSteps;
   char* tags[MAX_TAGS];
 };
 
@@ -25,7 +33,7 @@ struct Collider {
   Shape* shape;
   Collider* prev;
   Collider* next;
-  arr_t(Joint*) joints;
+  JointNode* joints;
   uint32_t tag;
 };
 
@@ -39,6 +47,10 @@ struct Joint {
   uint32_t ref;
   JointType type;
   JPH_Constraint* constraint;
+  JointNode a;
+  JointNode b;
+  Joint* prev;
+  Joint* next;
 };
 
 static struct {
@@ -141,12 +153,29 @@ void lovrWorldDestroy(void* ref) {
 }
 
 void lovrWorldDestroyData(World* world) {
-  while (world->head) {
-    Collider* next = world->head->next;
-    lovrColliderDestroyData(world->head);
-    world->head = next;
+  while (world->colliders) {
+    Collider* collider = world->colliders;
+    Collider* next = collider->next;
+    lovrColliderDestroyData(collider);
+    world->colliders = next;
   }
   JPH_PhysicsSystem_Destroy(world->system);
+}
+
+uint32_t lovrWorldGetColliderCount(World* world) {
+  return JPH_PhysicsSystem_GetNumBodies(world->system);
+}
+
+uint32_t lovrWorldGetJointCount(World* world) {
+  return world->jointCount; // Jolt doesn't expose this
+}
+
+Collider* lovrWorldEnumerateColliders(World* world, Collider* collider) {
+  return collider ? collider->next : world->colliders;
+}
+
+Joint* lovrWorldEnumerateJoints(World* world, Joint* joint) {
+  return joint ? joint->next : world->joints;
 }
 
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata) {
@@ -241,10 +270,6 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCall
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
   float scale[3] = { radius, radius, radius };
   return lovrWorldQueryShape(world, state.querySphere, position, scale, callback, userdata);
-}
-
-Collider* lovrWorldGetFirstCollider(World* world) {
-  return world->head;
 }
 
 void lovrWorldGetGravity(World* world, float gravity[3]) {
@@ -345,26 +370,21 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float
   lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
   lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
 
-  arr_init(&collider->joints);
-
-  // Adjust the world's collider list
-  if (!world->head) {
-    world->head = collider;
-  } else {
-    collider->next = world->head;
+  if (world->colliders) {
+    collider->next = world->colliders;
     collider->next->prev = collider;
-    world->head = collider;
   }
 
+  world->colliders = collider;
+
   lovrRetain(collider->shape);
-  lovrRetain(collider); // The world owns a reference to the collider
+  lovrRetain(collider);
   return collider;
 }
 
 void lovrColliderDestroy(void* ref) {
   Collider* collider = ref;
   lovrColliderDestroyData(collider);
-  arr_free(&collider->joints);
   lovrFree(collider);
 }
 
@@ -375,18 +395,20 @@ void lovrColliderDestroyData(Collider* collider) {
 
   lovrRelease(collider->shape, lovrShapeDestroy);
 
-  size_t count;
-  Joint** joints = lovrColliderGetJoints(collider, &count);
-  for (size_t i = 0; i < count; i++) {
-    lovrRelease(joints[i], lovrJointDestroy);
+  JointNode* node = collider->joints;
+  while (node) {
+    JointNode* next = node->next;
+    lovrJointDestroyData(node->joint);
+    node = next;
   }
 
-  JPH_BodyInterface_RemoveBody(collider->world->bodies, collider->id);
+  World* world = collider->world;
+  JPH_BodyInterface_RemoveBody(world->bodies, collider->id);
   collider->body = NULL;
 
   if (collider->next) collider->next->prev = collider->prev;
   if (collider->prev) collider->prev->next = collider->next;
-  if (collider->world->head == collider) collider->world->head = collider->next;
+  if (world->colliders == collider) world->colliders = collider->next;
   collider->next = collider->prev = NULL;
 
   // If the Collider is destroyed, the world lets go of its reference to this Collider
@@ -492,9 +514,15 @@ void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orie
   JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape, updateMass, JPH_Activation_Activate);
 }
 
-Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
-  *count = collider->joints.length;
-  return collider->joints.data;
+Joint* lovrColliderEnumerateJoints(Collider* collider, Joint* joint, void** private) {
+  if (joint) {
+    JointNode* node = *private;
+    *private = &node->next;
+    return node->next->joint;
+  } else {
+    *private = &collider->joints;
+    return collider->joints->joint;
+  }
 }
 
 const char* lovrColliderGetTag(Collider* collider) {
@@ -1087,7 +1115,7 @@ void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float
 
 // Joints
 
-void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
+static void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
   JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
   JPH_Body* body2 = JPH_TwoBodyConstraint_GetBody2((JPH_TwoBodyConstraint*) joint->constraint);
   JPH_RMatrix4x4 centerOfMassTransform1;
@@ -1108,6 +1136,38 @@ void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
   anchor2[2] = constraintToBody2.m43;
 }
 
+void lovrJointInit(Joint* joint, Collider* a, Collider* b) {
+  JointNode* nodeA = &joint->a;
+  JointNode* nodeB = &joint->b;
+
+  nodeA->joint = joint;
+  nodeB->joint = joint;
+
+  if (a->joints) {
+    nodeA->next = a->joints;
+    a->joints->prev = nodeA;
+  }
+
+  a->joints = nodeA;
+
+  if (b->joints) {
+    nodeB->next = b->joints;
+    b->joints->prev = nodeB;
+  }
+
+  b->joints = nodeB;
+
+  World* world = a->world;
+
+  if (world->joints) {
+    joint->next = world->joints;
+    joint->next->prev = joint;
+  }
+
+  world->joints = joint;
+  world->jointCount++;
+}
+
 void lovrJointDestroy(void* ref) {
   Joint* joint = ref;
   lovrJointDestroyData(joint);
@@ -1119,34 +1179,36 @@ void lovrJointDestroyData(Joint* joint) {
     return;
   }
 
-  JPH_PhysicsSystem* system;
-  JPH_Body* bodyA = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
-  if (bodyA) {
-    Collider* collider = (Collider*) JPH_Body_GetUserData(bodyA);
-    system = collider->world->system;
-    for (size_t i = 0; i < collider->joints.length; i++) {
-      if (collider->joints.data[i] == joint) {
-        arr_splice(&collider->joints, i, 1);
-        break;
-      }
-    }
-  }
+  JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
+  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
+  Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
 
-  JPH_Body* bodyB = JPH_TwoBodyConstraint_GetBody2((JPH_TwoBodyConstraint*) joint->constraint);
-  if (bodyB) {
-    Collider* collider = (Collider*) JPH_Body_GetUserData(bodyB);
-    for (size_t i = 0; i < collider->joints.length; i++) {
-      if (collider->joints.data[i] == joint) {
-        arr_splice(&collider->joints, i, 1);
-        break;
-      }
-    }
-  }
-  if (system) {
-    JPH_PhysicsSystem_RemoveConstraint(system, joint->constraint);
-  }
+  JointNode* nodeA = &joint->a;
+  if (nodeA->next) nodeA->next->prev = nodeA->prev;
+  if (nodeA->prev) nodeA->prev->next = nodeA->next;
+  if (nodeA == a->joints) a->joints = nodeA->next;
+
+  JointNode* nodeB = &joint->b;
+  if (nodeB->next) nodeB->next->prev = nodeB->prev;
+  if (nodeB->prev) nodeB->prev->next = nodeB->next;
+  if (nodeB == b->joints) b->joints = nodeB->next;
+
+  World* world = a->world;
+  if (joint->next) joint->next->prev = joint->prev;
+  if (joint->prev) joint->prev->next = joint->next;
+  if (world->joints == joint) world->joints = joint->next;
+  joint->next = joint->prev = NULL;
+  world->jointCount--;
+
+  JPH_PhysicsSystem_RemoveConstraint(world->system, joint->constraint);
+  JPH_Constraint_Destroy(joint->constraint);
   joint->constraint = NULL;
+
   lovrRelease(joint, lovrJointDestroy);
+}
+
+bool lovrJointIsDestroyed(Joint* joint) {
+  return !joint->constraint;
 }
 
 JointType lovrJointGetType(Joint* joint) {
@@ -1188,8 +1250,7 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   joint->constraint = (JPH_Constraint*) JPH_PointConstraintSettings_CreateConstraint(settings, a->body, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
   JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
-  arr_push(&a->joints, joint);
-  arr_push(&b->joints, joint);
+  lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
 }
@@ -1237,8 +1298,7 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3
   joint->constraint = (JPH_Constraint*) JPH_DistanceConstraintSettings_CreateConstraint(settings, a->body, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
   JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
-  arr_push(&a->joints, joint);
-  arr_push(&b->joints, joint);
+  lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
 }
@@ -1300,8 +1360,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], floa
   joint->constraint = (JPH_Constraint*) JPH_HingeConstraintSettings_CreateConstraint(settings, a->body, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
   JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
-  arr_push(&a->joints, joint);
-  arr_push(&b->joints, joint);
+  lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
 }
@@ -1377,8 +1436,7 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   joint->constraint = (JPH_Constraint*) JPH_SliderConstraintSettings_CreateConstraint(settings, a->body, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
   JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
-  arr_push(&a->joints, joint);
-  arr_push(&b->joints, joint);
+  lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
 }

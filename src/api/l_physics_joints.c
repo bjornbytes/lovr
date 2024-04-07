@@ -41,6 +41,13 @@ static int l_lovrJointDestroy(lua_State* L) {
   return 0;
 }
 
+static int l_lovrJointIsDestroyed(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  bool destroyed = lovrJointIsDestroyed(joint);
+  lua_pushboolean(L, destroyed);
+  return 1;
+}
+
 static int l_lovrJointGetType(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
   luax_pushenum(L, JointType, lovrJointGetType(joint));
@@ -107,6 +114,7 @@ static int l_lovrJointSetEnabled(lua_State* L) {
 
 #define lovrJoint \
   { "destroy", l_lovrJointDestroy }, \
+  { "isDestroyed", l_lovrJointIsDestroyed }, \
   { "getType", l_lovrJointGetType }, \
   { "getColliders", l_lovrJointGetColliders }, \
   { "getUserData", l_lovrJointGetUserData }, \

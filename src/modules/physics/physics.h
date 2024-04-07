@@ -54,6 +54,10 @@ typedef struct {
 World* lovrWorldCreate(WorldInfo* info);
 void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
+uint32_t lovrWorldGetColliderCount(World* world);
+uint32_t lovrWorldGetJointCount(World* world);
+Collider* lovrWorldEnumerateColliders(World* world, Collider* collider);
+Joint* lovrWorldEnumerateJoints(World* world, Joint* joint);
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
 void lovrWorldComputeOverlaps(World* world);
 int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
@@ -62,7 +66,6 @@ void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX
 void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata);
-Collider* lovrWorldGetFirstCollider(World* world);
 void lovrWorldGetGravity(World* world, float gravity[3]);
 void lovrWorldSetGravity(World* world, float gravity[3]);
 const char* lovrWorldGetTagName(World* world, uint32_t tag);
@@ -94,12 +97,11 @@ bool lovrColliderIsEnabled(Collider* collider);
 void lovrColliderSetEnabled(Collider* collider, bool enable);
 void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
-Collider* lovrColliderGetNext(Collider* collider);
 Shape* lovrColliderGetShape(Collider* collider, uint32_t child);
 void lovrColliderSetShape(Collider* collider, Shape* shape);
 void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation);
 void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation);
-Joint** lovrColliderGetJoints(Collider* collider, size_t* count);
+Joint* lovrColliderEnumerateJoints(Collider* collider, Joint* joint, void** private);
 const char* lovrColliderGetTag(Collider* collider);
 bool lovrColliderSetTag(Collider* collider, const char* tag);
 float lovrColliderGetFriction(Collider* collider);
@@ -215,6 +217,7 @@ typedef enum {
 
 void lovrJointDestroy(void* ref);
 void lovrJointDestroyData(Joint* joint);
+bool lovrJointIsDestroyed(Joint* joint);
 JointType lovrJointGetType(Joint* joint);
 float lovrJointGetCFM(Joint* joint);
 void lovrJointSetCFM(Joint* joint, float cfm);

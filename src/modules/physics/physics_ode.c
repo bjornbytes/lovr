@@ -206,6 +206,28 @@ void lovrWorldDestroyData(World* world) {
   }
 }
 
+uint32_t lovrWorldGetColliderCount(World* world) {
+  Collider* collider = world->head;
+  uint32_t count = 0;
+  while (collider) {
+    collider = collider->next;
+    count++;
+  }
+  return count;
+}
+
+uint32_t lovrWorldGetJointCount(World* world) {
+  return 0;
+}
+
+Collider* lovrWorldEnumerateColliders(World* world, Collider* collider) {
+  return collider ? collider->next : world->head;
+}
+
+Joint* lovrWorldEnumerateJoints(World* world, Joint* joint) {
+  return NULL;
+}
+
 void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata) {
   if (resolver) {
     resolver(world, userdata);
@@ -333,10 +355,6 @@ bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCa
   dSpaceCollide2(sphere, (dGeomID) world->space, &data, queryCallback);
   dGeomDestroy(sphere);
   return data.called;
-}
-
-Collider* lovrWorldGetFirstCollider(World* world) {
-  return world->head;
 }
 
 void lovrWorldGetGravity(World* world, float gravity[3]) {
@@ -478,8 +496,8 @@ void lovrColliderDestroyData(Collider* collider) {
 
   lovrColliderSetShape(collider, NULL);
 
-  size_t count;
-  Joint** joints = lovrColliderGetJoints(collider, &count);
+  Joint** joints = collider->joints.data;
+  size_t count = collider->joints.length;
   for (size_t i = 0; i < count; i++) {
     lovrRelease(joints[i], lovrJointDestroy);
   }
@@ -581,6 +599,15 @@ Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
   }
   *count = collider->joints.length;
   return collider->joints.data;
+}
+
+Joint* lovrColliderEnumerateJoints(Collider* collider, Joint* joint, void** private) {
+  if (!joint) {
+    *private = NULL;
+  }
+
+  uintptr_t index = (uintptr_t) *private;
+  return index < collider->joints.length ? collider->joints.data[index] : NULL;
 }
 
 const char* lovrColliderGetTag(Collider* collider) {
@@ -1158,6 +1185,10 @@ void lovrJointDestroyData(Joint* joint) {
     dJointDestroy(joint->id);
     joint->id = NULL;
   }
+}
+
+bool lovrJointIsDestroyed(Joint* joint) {
+  return joint->id == NULL;
 }
 
 JointType lovrJointGetType(Joint* joint) {
