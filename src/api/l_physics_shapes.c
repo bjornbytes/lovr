@@ -402,7 +402,7 @@ static int l_lovrCompoundShapeAddShape(lua_State* L) {
 
 static int l_lovrCompoundShapeReplaceShape(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
-  uint32_t index = luax_checku32(L, 2);
+  uint32_t index = luax_checku32(L, 2) - 1;
   Shape* child = luax_checkshape(L, 3);
   float position[3], orientation[4];
   int i = 4;

@@ -1041,6 +1041,7 @@ void lovrCompoundShapeReplaceShape(CompoundShape* shape, uint32_t index, Shape* 
   lovrCheck(child != shape, "Don't put a CompoundShape inside itself!  lol");
   JPH_Vec3 pos = { position[0], position[1], position[2] };
   JPH_Quat rot = { orientation[0], orientation[1], orientation[2], orientation[3] };
+  lovrRelease(lovrCompoundShapeGetShape(shape, index), lovrShapeDestroy);
   JPH_MutableCompoundShape_ModifyShape2((JPH_MutableCompoundShape*) shape->shape, index, &pos, &rot, child->shape);
   lovrRetain(child);
 }
