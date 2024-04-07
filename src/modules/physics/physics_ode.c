@@ -76,7 +76,7 @@ static void raycastCallback(void* d, dGeomID a, dGeomID b) {
   int count = dCollide(a, b, MAX_CONTACTS, &contact->geom, sizeof(dContact));
   for (int i = 0; i < count; i++) {
     dContactGeom g = contact[i].geom;
-    data->shouldStop = callback(collider, 0, g.pos, g.normal, userdata);
+    data->shouldStop = callback(collider, g.pos, g.normal, 0, userdata);
   }
 }
 

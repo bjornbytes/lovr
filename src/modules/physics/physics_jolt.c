@@ -181,12 +181,12 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
 
   for (size_t i = 0; i < count; i++) {
     Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(world->bodies, hits[i].bodyID);
+    uint32_t child = 0;
 
-    uint32_t shape = 0;
     if (collider->shape->type == SHAPE_COMPOUND) {
       JPH_SubShapeID id = hits[i].subShapeID2;
       JPH_SubShapeID remainder;
-      shape = JPH_CompoundShape_GetSubShapeIndexFromID((JPH_CompoundShape*) collider->shape, id, &remainder);
+      child = JPH_CompoundShape_GetSubShapeIndexFromID((JPH_CompoundShape*) collider->shape, id, &remainder);
     }
 
     JPH_RVec3 position = {
@@ -198,7 +198,7 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
     JPH_Vec3 normal;
     JPH_Body_GetWorldSpaceSurfaceNormal(collider->body, hits[i].subShapeID2, &position, &normal);
 
-    if (callback(collider, shape, &position.x, &normal.x, userdata)) {
+    if (callback(collider, &position.x, &normal.x, child, userdata)) {
       break;
     }
   }

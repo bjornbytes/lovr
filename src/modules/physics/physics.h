@@ -27,8 +27,8 @@ typedef Joint HingeJoint;
 typedef Joint SliderJoint;
 
 typedef void (*CollisionResolver)(World* world, void* userdata);
-typedef bool (*RaycastCallback)(Collider* collider, uint32_t shape, float position[3], float normal[3], void* userdata);
-typedef bool (*QueryCallback)(Collider* collider, uint32_t shape, void* userdata);
+typedef bool (*RaycastCallback)(Collider* collider, float position[3], float normal[3], uint32_t child, void* userdata);
+typedef bool (*QueryCallback)(Collider* collider, uint32_t child, void* userdata);
 
 bool lovrPhysicsInit(void);
 void lovrPhysicsDestroy(void);

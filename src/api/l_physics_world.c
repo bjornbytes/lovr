@@ -27,17 +27,17 @@ static int nextOverlap(lua_State* L) {
   }
 }
 
-static bool raycastCallback(Collider* collider, uint32_t shape, float position[3], float normal[3], void* userdata) {
+static bool raycastCallback(Collider* collider, float position[3], float normal[3], uint32_t shape, void* userdata) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
   luax_pushtype(L, Collider, collider);
-  lua_pushinteger(L, shape);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
   lua_pushnumber(L, position[2]);
   lua_pushnumber(L, normal[0]);
   lua_pushnumber(L, normal[1]);
   lua_pushnumber(L, normal[2]);
+  lua_pushinteger(L, shape + 1);
   lua_call(L, 8, 1);
   bool shouldStop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
   lua_pop(L, 1);
@@ -54,7 +54,7 @@ typedef struct {
   float normal[3];
 } RaycastData;
 
-static bool raycastAnyCallback(Collider* collider, uint32_t shape, float position[3], float normal[3], void* userdata) {
+static bool raycastAnyCallback(Collider* collider, float position[3], float normal[3], uint32_t shape, void* userdata) {
   RaycastData* data = userdata;
   if (data->tag) {
     const char* tag = lovrColliderGetTag(collider);
@@ -70,7 +70,7 @@ static bool raycastAnyCallback(Collider* collider, uint32_t shape, float positio
   return true;
 }
 
-static bool raycastClosestCallback(Collider* collider, uint32_t shape, float position[3], float normal[3], void* userdata) {
+static bool raycastClosestCallback(Collider* collider, float position[3], float normal[3], uint32_t shape, void* userdata) {
   RaycastData* data = userdata;
   if (data->tag) {
     const char* tag = lovrColliderGetTag(collider);
@@ -93,7 +93,7 @@ static bool queryCallback(Collider* collider, uint32_t shape, void* userdata) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
   luax_pushtype(L, Collider, collider);
-  lua_pushinteger(L, shape);
+  lua_pushinteger(L, shape + 1);
   lua_call(L, 2, 1);
   bool shouldStop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
   lua_pop(L, 1);
@@ -309,13 +309,13 @@ static int l_lovrWorldRaycastAny(lua_State* L) {
   lovrWorldRaycast(world, start[0], start[1], start[2], end[0], end[1], end[2], raycastAnyCallback, &data);
   if (data.collider) {
     luax_pushtype(L, Collider, data.collider);
-    lua_pushinteger(L, data.shape);
     lua_pushnumber(L, data.position[0]);
     lua_pushnumber(L, data.position[1]);
     lua_pushnumber(L, data.position[2]);
     lua_pushnumber(L, data.normal[0]);
     lua_pushnumber(L, data.normal[1]);
     lua_pushnumber(L, data.normal[2]);
+    lua_pushinteger(L, data.shape + 1);
     return 8;
   } else {
     lua_pushnil(L);
@@ -334,13 +334,13 @@ static int l_lovrWorldRaycastClosest(lua_State* L) {
   lovrWorldRaycast(world, start[0], start[1], start[2], end[0], end[1], end[2], raycastClosestCallback, &data);
   if (data.shape) {
     luax_pushtype(L, Collider, data.collider);
-    lua_pushinteger(L, data.shape);
     lua_pushnumber(L, data.position[0]);
     lua_pushnumber(L, data.position[1]);
     lua_pushnumber(L, data.position[2]);
     lua_pushnumber(L, data.normal[0]);
     lua_pushnumber(L, data.normal[1]);
     lua_pushnumber(L, data.normal[2]);
+    lua_pushinteger(L, data.shape + 1);
     return 8;
   } else {
     lua_pushnil(L);
