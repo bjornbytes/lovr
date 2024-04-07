@@ -187,13 +187,13 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
 
 CompoundShape* lovrCompoundShapeCreate(Shape** shapes, float* positions, float* orientations, uint32_t count, bool freeze);
 bool lovrCompoundShapeIsFrozen(CompoundShape* shape);
-void lovrCompoundShapeAddShape(CompoundShape* shape, Shape* child, float* position, float* orientation);
-void lovrCompoundShapeReplaceShape(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation);
-void lovrCompoundShapeRemoveShape(CompoundShape* shape, uint32_t index);
-Shape* lovrCompoundShapeGetShape(CompoundShape* shape, uint32_t index);
-uint32_t lovrCompoundShapeGetShapeCount(CompoundShape* shape);
-void lovrCompoundShapeGetShapeOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
-void lovrCompoundShapeSetShapeOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
+void lovrCompoundShapeAddChild(CompoundShape* shape, Shape* child, float* position, float* orientation);
+void lovrCompoundShapeReplaceChild(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation);
+void lovrCompoundShapeRemoveChild(CompoundShape* shape, uint32_t index);
+Shape* lovrCompoundShapeGetChild(CompoundShape* shape, uint32_t index);
+uint32_t lovrCompoundShapeGetChildCount(CompoundShape* shape);
+void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
+void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
 
 // These tokens need to exist for Lua bindings
 #define lovrSphereShapeDestroy lovrShapeDestroy

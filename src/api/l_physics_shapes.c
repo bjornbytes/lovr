@@ -389,18 +389,18 @@ static int l_lovrCompoundShapeIsFrozen(lua_State* L) {
   return 1;
 }
 
-static int l_lovrCompoundShapeAddShape(lua_State* L) {
+static int l_lovrCompoundShapeAddChild(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
   Shape* child = luax_checkshape(L, 2);
   float position[3], orientation[4];
   int index = 3;
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readquat(L, index, orientation, NULL);
-  lovrCompoundShapeAddShape(shape, child, position, orientation);
+  lovrCompoundShapeAddChild(shape, child, position, orientation);
   return 0;
 }
 
-static int l_lovrCompoundShapeReplaceShape(lua_State* L) {
+static int l_lovrCompoundShapeReplaceChild(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
   uint32_t index = luax_checku32(L, 2) - 1;
   Shape* child = luax_checkshape(L, 3);
@@ -408,49 +408,49 @@ static int l_lovrCompoundShapeReplaceShape(lua_State* L) {
   int i = 4;
   i = luax_readvec3(L, i, position, NULL);
   i = luax_readquat(L, i, orientation, NULL);
-  lovrCompoundShapeReplaceShape(shape, index, child, position, orientation);
+  lovrCompoundShapeReplaceChild(shape, index, child, position, orientation);
   return 0;
 }
 
-static int l_lovrCompoundShapeRemoveShape(lua_State* L) {
+static int l_lovrCompoundShapeRemoveChild(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
   uint32_t index = luax_checku32(L, 2) - 1;
-  lovrCompoundShapeRemoveShape(shape, index);
+  lovrCompoundShapeRemoveChild(shape, index);
   return 0;
 }
 
-static int l_lovrCompoundShapeGetShape(lua_State* L) {
+static int l_lovrCompoundShapeGetChild(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
   uint32_t index = luax_checku32(L, 2) - 1;
-  Shape* child = lovrCompoundShapeGetShape(shape, index);
+  Shape* child = lovrCompoundShapeGetChild(shape, index);
   luax_pushshape(L, child);
   return 1;
 }
 
-static int l_lovrCompoundShapeGetShapes(lua_State* L) {
+static int l_lovrCompoundShapeGetChildren(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
-  int count = (int) lovrCompoundShapeGetShapeCount(shape);
+  int count = (int) lovrCompoundShapeGetChildCount(shape);
   lua_createtable(L, count, 0);
   for (int i = 0; i < count; i++) {
-    Shape* child = lovrCompoundShapeGetShape(shape, (uint32_t) i);
+    Shape* child = lovrCompoundShapeGetChild(shape, (uint32_t) i);
     luax_pushshape(L, child);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
 
-static int l_lovrCompoundShapeGetShapeCount(lua_State* L) {
+static int l_lovrCompoundShapeGetChildCount(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
-  uint32_t count = lovrCompoundShapeGetShapeCount(shape);
+  uint32_t count = lovrCompoundShapeGetChildCount(shape);
   lua_pushinteger(L, count);
   return 1;
 }
 
-static int l_lovrCompoundShapeGetShapeOffset(lua_State* L) {
+static int l_lovrCompoundShapeGetChildOffset(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
   uint32_t index = luax_checku32(L, 2) - 1;
   float position[3], orientation[4], angle, ax, ay, az;
-  lovrCompoundShapeGetShapeOffset(shape, index, position, orientation);
+  lovrCompoundShapeGetChildOffset(shape, index, position, orientation);
   quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
@@ -462,28 +462,28 @@ static int l_lovrCompoundShapeGetShapeOffset(lua_State* L) {
   return 7;
 }
 
-static int l_lovrCompoundShapeSetShapeOffset(lua_State* L) {
+static int l_lovrCompoundShapeSetChildOffset(lua_State* L) {
   CompoundShape* shape = luax_checktype(L, 1, CompoundShape);
   uint32_t index = luax_checku32(L, 2) - 1;
   float position[3], orientation[4];
   int i = 3;
   i = luax_readvec3(L, i, position, NULL);
   i = luax_readquat(L, i, orientation, NULL);
-  lovrCompoundShapeSetShapeOffset(shape, index, position, orientation);
+  lovrCompoundShapeSetChildOffset(shape, index, position, orientation);
   return 0;
 }
 
 const luaL_Reg lovrCompoundShape[] = {
   lovrShape,
   { "isFrozen", l_lovrCompoundShapeIsFrozen },
-  { "addShape", l_lovrCompoundShapeAddShape },
-  { "replaceShape", l_lovrCompoundShapeReplaceShape },
-  { "removeShape", l_lovrCompoundShapeRemoveShape },
-  { "getShape", l_lovrCompoundShapeGetShape },
-  { "getShapes", l_lovrCompoundShapeGetShapes },
-  { "getShapeCount", l_lovrCompoundShapeGetShapeCount },
-  { "getShapeOffset", l_lovrCompoundShapeGetShapeOffset },
-  { "setShapeOffset", l_lovrCompoundShapeSetShapeOffset },
-  { "__len", l_lovrCompoundShapeGetShapeCount }, // :)
+  { "addChild", l_lovrCompoundShapeAddChild },
+  { "replaceChild", l_lovrCompoundShapeReplaceChild },
+  { "removeChild", l_lovrCompoundShapeRemoveChild },
+  { "getChild", l_lovrCompoundShapeGetChild },
+  { "getChildren", l_lovrCompoundShapeGetChildren },
+  { "getChildCount", l_lovrCompoundShapeGetChildCount },
+  { "getChildOffset", l_lovrCompoundShapeGetChildOffset },
+  { "setChildOffset", l_lovrCompoundShapeSetChildOffset },
+  { "__len", l_lovrCompoundShapeGetChildCount }, // :)
   { NULL, NULL }
 };

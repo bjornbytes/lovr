@@ -1119,31 +1119,31 @@ bool lovrCompoundShapeIsFrozen(CompoundShape* shape) {
   return false;
 }
 
-void lovrCompoundShapeAddShape(CompoundShape* shape, Shape* child, float* position, float* orientation) {
+void lovrCompoundShapeAddChild(CompoundShape* shape, Shape* child, float* position, float* orientation) {
   //
 }
 
-void lovrCompoundShapeReplaceShape(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation) {
+void lovrCompoundShapeReplaceChild(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation) {
   //
 }
 
-void lovrCompoundShapeRemoveShape(CompoundShape* shape, uint32_t index) {
+void lovrCompoundShapeRemoveChild(CompoundShape* shape, uint32_t index) {
   //
 }
 
-Shape* lovrCompoundShapeGetShape(CompoundShape* shape, uint32_t index) {
+Shape* lovrCompoundShapeGetChild(CompoundShape* shape, uint32_t index) {
   return NULL;
 }
 
-uint32_t lovrCompoundShapeGetShapeCount(CompoundShape* shape) {
+uint32_t lovrCompoundShapeGetChildCount(CompoundShape* shape) {
   return 0;
 }
 
-void lovrCompoundShapeGetShapeOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
+void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
   //
 }
 
-void lovrCompoundShapeSetShapeOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
+void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
   //
 }
 
