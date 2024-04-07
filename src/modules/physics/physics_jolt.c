@@ -404,6 +404,7 @@ void lovrColliderDestroyData(Collider* collider) {
 
   World* world = collider->world;
   JPH_BodyInterface_RemoveBody(world->bodies, collider->id);
+  JPH_BodyInterface_DestroyBody(world->bodies, collider->id);
   collider->body = NULL;
 
   if (collider->next) collider->next->prev = collider->prev;
