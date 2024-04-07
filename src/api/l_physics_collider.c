@@ -42,13 +42,17 @@ static int l_lovrColliderGetShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   uint32_t child = lua_gettop(L) == 1 ? ~0u : luax_checku32(L, 2) - 1;
   Shape* shape = lovrColliderGetShape(collider, child);
-  luax_pushshape(L, shape);
+  if (shape) {
+    luax_pushshape(L, shape);
+  } else {
+    lua_pushnil(L);
+  }
   return 1;
 }
 
 static int l_lovrColliderSetShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checkshape(L, 2);
+  Shape* shape = lua_isnoneornil(L, 2) ? NULL : luax_checkshape(L, 2);
   lovrColliderSetShape(collider, shape);
   return 0;
 }
