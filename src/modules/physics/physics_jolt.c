@@ -516,13 +516,15 @@ void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orie
 }
 
 Joint* lovrColliderEnumerateJoints(Collider* collider, Joint* joint, void** private) {
-  if (joint) {
-    JointNode* node = *private;
-    *private = &node->next;
-    return node->next->joint;
+  if (!joint) {
+    JointNode* node = collider->joints;
+    *private = collider->joints;
+    return node ? node->joint : NULL;
   } else {
-    *private = &collider->joints;
-    return collider->joints->joint;
+    JointNode* node = *private;
+    node = node ? node->next : NULL;
+    *private = node;
+    return node ? node->joint : NULL;
   }
 }
 
