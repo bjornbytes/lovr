@@ -22,9 +22,9 @@ struct Collider {
   JPH_BodyID id;
   JPH_Body* body;
   World* world;
+  Shape* shape;
   Collider* prev;
   Collider* next;
-  arr_t(Shape*) shapes;
   arr_t(Joint*) joints;
   uint32_t tag;
 };
@@ -32,7 +32,6 @@ struct Collider {
 struct Shape {
   uint32_t ref;
   ShapeType type;
-  Collider* collider;
   JPH_Shape* shape;
 };
 
@@ -44,6 +43,7 @@ struct Joint {
 
 static struct {
   bool initialized;
+  Shape* pointShape;
   JPH_Shape* queryBox;
   JPH_Shape* querySphere;
   JPH_AllHit_CastShapeCollector* castShapeCollector;
@@ -70,14 +70,16 @@ static uint32_t findTag(World* world, const char* name) {
 bool lovrPhysicsInit(void) {
   if (state.initialized) return false;
   JPH_Init(32 * 1024 * 1024);
-  state.castShapeCollector = JPH_AllHit_CastShapeCollector_Create();
+  state.pointShape = lovrSphereShapeCreate(FLT_EPSILON);
   state.querySphere = (JPH_Shape*) JPH_SphereShape_Create(1.f);
   state.queryBox = (JPH_Shape*) JPH_BoxShape_Create(&(const JPH_Vec3) { .5, .5f, .5f }, 0.f);
+  state.castShapeCollector = JPH_AllHit_CastShapeCollector_Create();
   return state.initialized = true;
 }
 
 void lovrPhysicsDestroy(void) {
   if (!state.initialized) return;
+  lovrRelease(state.pointShape, lovrShapeDestroy);
   JPH_Shutdown();
   state.initialized = false;
 }
@@ -173,32 +175,34 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
   const JPH_Vec3 direction = { x2 - x1, y2 - y1, z2 - z1 };
   JPH_AllHit_CastRayCollector* collector = JPH_AllHit_CastRayCollector_Create();
   JPH_NarrowPhaseQuery_CastRayAll(query, &origin, &direction, collector, NULL, NULL, NULL);
-  size_t hit_count;
-  JPH_RayCastResult* hit_array = JPH_AllHit_CastRayCollector_GetHits(collector, &hit_count);
-  for (int i = 0; i < hit_count; i++) {
-    float x = x1 + hit_array[i].fraction * (x2 - x1);
-    float y = y1 + hit_array[i].fraction * (y2 - y1);
-    float z = z1 + hit_array[i].fraction * (z2 - z1);
-    // todo: assuming one shape per collider; doesn't support compound shape
-    Collider* collider = (Collider*) JPH_BodyInterface_GetUserData(
-      world->bodies,
-      hit_array[i].bodyID);
-    size_t count;
-    Shape** shape = lovrColliderGetShapes(collider, &count);
-    const JPH_RVec3 position = { x, y, z };
+
+  size_t count;
+  JPH_RayCastResult* hits = JPH_AllHit_CastRayCollector_GetHits(collector, &count);
+
+  for (size_t i = 0; i < count; i++) {
+    Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(world->bodies, hits[i].bodyID);
+    uint32_t child = 0;
+
+    if (collider->shape->type == SHAPE_COMPOUND) {
+      JPH_SubShapeID id = hits[i].subShapeID2;
+      JPH_SubShapeID remainder;
+      child = JPH_CompoundShape_GetSubShapeIndexFromID((JPH_CompoundShape*) collider->shape, id, &remainder);
+    }
+
+    JPH_RVec3 position = {
+      x1 + hits[i].fraction * (x2 - x1),
+      y1 + hits[i].fraction * (y2 - y1),
+      z1 + hits[i].fraction * (z2 - z1)
+    };
+
     JPH_Vec3 normal;
-    JPH_Body_GetWorldSpaceSurfaceNormal(collider->body, hit_array[i].subShapeID2, &position, &normal);
+    JPH_Body_GetWorldSpaceSurfaceNormal(collider->body, hits[i].subShapeID2, &position, &normal);
 
-    bool shouldStop = callback(
-      shape[0], // assumes one shape per collider; todo: compound shapes
-      x, y, z,
-      normal.x, normal.y, normal.z,
-      userdata);
-
-    if (shouldStop) {
+    if (callback(collider, &position.x, &normal.x, child, userdata)) {
       break;
     }
   }
+
   JPH_AllHit_CastRayCollector_Destroy(collector);
 }
 
@@ -209,26 +213,25 @@ static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3
   mat4_translate(m, position[0], position[1], position[2]);
   mat4_scale(m, scale[0], scale[1], scale[2]);
 
-  JPH_Vec3 direction = { 0.f };
-  JPH_RVec3 base_offset = { 0.f };
+  JPH_Vec3 direction = { 0.f, 0.f, 0.f };
+  JPH_RVec3 base_offset = { 0.f, 0.f, 0.f };
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
   JPH_AllHit_CastShapeCollector_Reset(state.castShapeCollector);
   JPH_NarrowPhaseQuery_CastShape(query, shape, &transform, &direction, &base_offset, state.castShapeCollector);
-  size_t hit_count;
-  JPH_ShapeCastResult* hit_array = JPH_AllHit_CastShapeCollector_GetHits(state.castShapeCollector, &hit_count);
-  for (int i = 0; i < hit_count; i++) {
+
+  size_t count;
+  JPH_AllHit_CastShapeCollector_GetHits(state.castShapeCollector, &count);
+
+  for (size_t i = 0; i < count; i++) {
     JPH_BodyID id = JPH_AllHit_CastShapeCollector_GetBodyID2(state.castShapeCollector, i);
-    Collider* collider = (Collider*) JPH_BodyInterface_GetUserData(
-      world->bodies,
-      id);
-    size_t count;
-    Shape** shape = lovrColliderGetShapes(collider, &count);
-    bool shouldStop = callback(shape[0], userdata);
-    if (shouldStop) {
+    Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(world->bodies, id);
+
+    if (callback(collider, 0, userdata)) {
       break;
     }
   }
-  return hit_count > 0;
+
+  return count > 0;
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
@@ -315,7 +318,7 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold) { 
 
 // Collider
 
-Collider* lovrColliderCreate(World* world, float x, float y, float z) {
+Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float z) {
   uint32_t count = JPH_PhysicsSystem_GetNumBodies(world->system);
   uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
   lovrCheck(count < limit, "Too many colliders!");
@@ -323,25 +326,25 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
   collider->world = world;
+  collider->shape = shape ? shape : state.pointShape;
   collider->tag = UNTAGGED;
-  JPH_MotionType motionType = JPH_MotionType_Dynamic;
-  JPH_ObjectLayer objectLayer = UNTAGGED * 2 + 1;
 
   const JPH_RVec3 position = { x, y, z };
   const JPH_Quat rotation = { 0.f, 0.f, 0.f, 1.f };
-  // todo: a placeholder querySphere shape is used in collider, then replaced in lovrColliderAddShape
-  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(
-    state.querySphere, &position, &rotation, motionType, objectLayer);
+  JPH_MotionType type = JPH_MotionType_Dynamic;
+  JPH_ObjectLayer objectLayer = UNTAGGED * 2 + 1;
+  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(collider->shape->shape, &position, &rotation, type, objectLayer);
   collider->body = JPH_BodyInterface_CreateBody(world->bodies, settings);
-  JPH_BodyCreationSettings_Destroy(settings);
   collider->id = JPH_Body_GetID(collider->body);
+  JPH_BodyCreationSettings_Destroy(settings);
+
   JPH_BodyInterface_AddBody(world->bodies, collider->id, JPH_Activation_Activate);
   JPH_BodyInterface_SetUserData(world->bodies, collider->id, (uint64_t) collider);
+
   lovrColliderSetLinearDamping(collider, world->defaultLinearDamping, 0.f);
   lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
   lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
 
-  arr_init(&collider->shapes);
   arr_init(&collider->joints);
 
   // Adjust the world's collider list
@@ -353,15 +356,14 @@ Collider* lovrColliderCreate(World* world, float x, float y, float z) {
     world->head = collider;
   }
 
-  // The world owns a reference to the collider
-  lovrRetain(collider);
+  lovrRetain(collider->shape);
+  lovrRetain(collider); // The world owns a reference to the collider
   return collider;
 }
 
 void lovrColliderDestroy(void* ref) {
   Collider* collider = ref;
   lovrColliderDestroyData(collider);
-  arr_free(&collider->shapes);
   arr_free(&collider->joints);
   lovrFree(collider);
 }
@@ -371,13 +373,9 @@ void lovrColliderDestroyData(Collider* collider) {
     return;
   }
 
+  lovrRelease(collider->shape, lovrShapeDestroy);
+
   size_t count;
-
-  Shape** shapes = lovrColliderGetShapes(collider, &count);
-  for (size_t i = 0; i < count; i++) {
-    lovrColliderRemoveShape(collider, shapes[i]);
-  }
-
   Joint** joints = lovrColliderGetJoints(collider, &count);
   for (size_t i = 0; i < count; i++) {
     lovrRelease(joints[i], lovrJointDestroy);
@@ -399,6 +397,18 @@ bool lovrColliderIsDestroyed(Collider* collider) {
   return !collider->body;
 }
 
+bool lovrColliderIsEnabled(Collider* collider) {
+  return JPH_BodyInterface_IsAdded(collider->world->bodies, collider->id);
+}
+
+void lovrColliderSetEnabled(Collider* collider, bool enable) {
+  if (enable && !lovrColliderIsEnabled(collider)) {
+    JPH_BodyInterface_AddBody(collider->world->bodies, collider->id, JPH_Activation_DontActivate);
+  } else if (!enable && lovrColliderIsEnabled(collider)) {
+    JPH_BodyInterface_RemoveBody(collider->world->bodies, collider->id);
+  }
+}
+
 void lovrColliderInitInertia(Collider* collider, Shape* shape) {
   //
 }
@@ -411,29 +421,75 @@ Collider* lovrColliderGetNext(Collider* collider) {
   return collider->next;
 }
 
-void lovrColliderAddShape(Collider* collider, Shape* shape) {
+Shape* lovrColliderGetShape(Collider* collider, uint32_t child) {
+  if (collider->shape == state.pointShape) {
+    return NULL;
+  }
+
+  if (child == ~0u || collider->shape->type != SHAPE_COMPOUND) {
+    return collider->shape;
+  }
+
+  return lovrCompoundShapeGetChild(collider->shape, child);
+}
+
+void lovrColliderSetShape(Collider* collider, Shape* shape) {
+  shape = shape ? shape : state.pointShape;
+
+  if (shape == collider->shape) {
+    return;
+  }
+
+  float position[3], orientation[4];
+  const JPH_Shape* parent = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  bool hasOffset = JPH_Shape_GetSubType(parent) == JPH_ShapeSubType_RotatedTranslated;
+  if (hasOffset) lovrColliderGetShapeOffset(collider, position, orientation);
+
+  lovrRelease(collider->shape, lovrShapeDestroy);
+  collider->shape = shape;
   lovrRetain(shape);
-  shape->collider = collider;
-  arr_push(&collider->shapes, shape);
-  bool isMeshOrTerrain = (shape->type == SHAPE_TERRAIN) || (shape->type == SHAPE_MESH);
-  bool shouldUpdateMass = !isMeshOrTerrain;
-  if (isMeshOrTerrain) {
-    lovrColliderSetKinematic(shape->collider, true);
-  }
-  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape->shape, shouldUpdateMass, JPH_Activation_Activate);
-}
 
-void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
-  if (shape->collider == collider) {
-    // todo: actions necessary for compound shapes
-    shape->collider = NULL;
-    lovrRelease(shape, lovrShapeDestroy);
+  bool updateMass = true;
+  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+    lovrColliderSetKinematic(collider, true);
+    updateMass = false;
+  }
+
+  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape->shape, updateMass, JPH_Activation_Activate);
+
+  if (hasOffset) {
+    lovrColliderSetShapeOffset(collider, position, orientation);
   }
 }
 
-Shape** lovrColliderGetShapes(Collider* collider, size_t* count) {
-  *count = collider->shapes.length;
-  return collider->shapes.data;
+void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation) {
+  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+
+  if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
+    JPH_Vec3 jposition;
+    JPH_Quat jrotation;
+    JPH_RotatedTranslatedShape_GetPosition((JPH_RotatedTranslatedShape*) shape, &jposition);
+    JPH_RotatedTranslatedShape_GetRotation((JPH_RotatedTranslatedShape*) shape, &jrotation);
+    vec3_init(position, &jposition.x);
+    quat_init(orientation, &jrotation.x);
+  } else {
+    vec3_set(position, 0.f, 0.f, 0.f);
+    quat_identity(orientation);
+  }
+}
+
+void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation) {
+  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+
+  if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
+    JPH_Shape_Destroy((JPH_Shape*) shape);
+  }
+
+  JPH_Vec3 jposition = { position[0], position[1], position[2] };
+  JPH_Quat jrotation = { orientation[0], orientation[1], orientation[2], orientation[3] };
+  shape = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(&jposition, &jrotation, collider->shape->shape);
+  bool updateMass = collider->shape && (collider->shape->type == SHAPE_MESH || collider->shape->type == SHAPE_TERRAIN);
+  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape, updateMass, JPH_Activation_Activate);
 }
 
 Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
@@ -500,6 +556,14 @@ void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
   }
 }
 
+bool lovrColliderIsSensor(Collider* collider) {
+  return JPH_Body_IsSensor(collider->body);
+}
+
+void lovrColliderSetSensor(Collider* collider, bool sensor) {
+  JPH_Body_SetIsSensor(collider->body, sensor);
+}
+
 bool lovrColliderIsContinuous(Collider* collider) {
   return JPH_BodyInterface_GetMotionQuality(collider->world->bodies, collider->id) == JPH_MotionQuality_LinearCast;
 }
@@ -538,22 +602,17 @@ void lovrColliderSetAwake(Collider* collider, bool awake) {
 }
 
 float lovrColliderGetMass(Collider* collider) {
-   if (collider->shapes.length > 0) {
-    JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
-    return 1.f / JPH_MotionProperties_GetInverseMassUnchecked(motionProperties);
-  }
-  return 0.f;
+  JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
+  return 1.f / JPH_MotionProperties_GetInverseMassUnchecked(motionProperties);
 }
 
 void lovrColliderSetMass(Collider* collider, float mass) {
-  if (collider->shapes.length > 0) {
-    JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
-    Shape* shape = collider->shapes.data[0];
-    JPH_MassProperties* massProperties;
-    JPH_Shape_GetMassProperties(shape->shape, massProperties);
-    JPH_MassProperties_ScaleToMass(massProperties, mass);
-    JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, massProperties);
-  }
+  JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
+  Shape* shape = collider->shape;
+  JPH_MassProperties* massProperties;
+  JPH_Shape_GetMassProperties(shape->shape, massProperties);
+  JPH_MassProperties_ScaleToMass(massProperties, mass);
+  JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, massProperties);
 }
 
 void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
@@ -765,6 +824,8 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
   aabb[5] = box.max.z;
 }
 
+// Shapes
+
 void lovrShapeDestroy(void* ref) {
   Shape* shape = ref;
   lovrShapeDestroyData(shape);
@@ -773,6 +834,14 @@ void lovrShapeDestroy(void* ref) {
 
 void lovrShapeDestroyData(Shape* shape) {
   if (shape->shape) {
+    if (shape->type == SHAPE_COMPOUND) {
+      uint32_t count = lovrCompoundShapeGetChildCount(shape);
+      for (uint32_t i = 0; i < count; i++) {
+        Shape* child = lovrCompoundShapeGetChild(shape, i);
+        lovrRelease(child, lovrShapeDestroy);
+      }
+    }
+
     JPH_Shape_Destroy(shape->shape);
     shape->shape = NULL;
   }
@@ -782,58 +851,26 @@ ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
 }
 
-Collider* lovrShapeGetCollider(Shape* shape) {
-  return shape->collider;
+void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+  //
 }
 
-bool lovrShapeIsEnabled(Shape* shape) {
-  return true;
-}
-
-void lovrShapeSetEnabled(Shape* shape, bool enabled) {
-  if (!enabled) {
-    lovrLog(LOG_WARN, "PHY", "Jolt doesn't support disabling shapes");
+void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]) {
+  JPH_AABox box;
+  if (!position && !orientation) {
+    JPH_Shape_GetLocalBounds(shape->shape, &box);
+  } else {
+    JPH_RMatrix4x4 transform;
+    JPH_Vec3 scale = { 1.f, 1.f, 1.f };
+    mat4_fromPose(&transform.m11, position, orientation);
+    JPH_Shape_GetWorldSpaceBounds(shape->shape, &transform, &scale, &box);
   }
-}
-
-bool lovrShapeIsSensor(Shape* shape) {
-  lovrLog(LOG_WARN, "PHY", "Jolt sensor property fetched from collider, not shape");
-  return JPH_Body_IsSensor(shape->collider->body);
-}
-
-void lovrShapeSetSensor(Shape* shape, bool sensor) {
-  lovrLog(LOG_WARN, "PHY", "Jolt sensor property is applied to collider, not shape");
-  JPH_Body_SetIsSensor(shape->collider->body, sensor);
-}
-
-void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z) {
-  // todo: compound shapes
-  *x = 0.f;
-  *y = 0.f;
-  *z = 0.f;
-}
-
-void lovrShapeSetPosition(Shape* shape, float x, float y, float z) {
-  // todo: compound shapes
-}
-
-void lovrShapeGetOrientation(Shape* shape, float* orientation) {
-  // todo: compound shapes
-  orientation[0] = 0.f;
-  orientation[1] = 0.f;
-  orientation[2] = 0.f;
-  orientation[3] = 1.f;
-}
-
-void lovrShapeSetOrientation(Shape* shape, float* orientation) {
-  // todo: compound shapes
-}
-
-void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {}
-
-void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
-  // todo: with compound shapes this is no longer correct
-  lovrColliderGetAABB(shape->collider, aabb);
+  aabb[0] = box.min.x;
+  aabb[1] = box.max.x;
+  aabb[2] = box.min.y;
+  aabb[3] = box.max.y;
+  aabb[4] = box.min.z;
+  aabb[5] = box.max.z;
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
@@ -842,16 +879,12 @@ SphereShape* lovrSphereShapeCreate(float radius) {
   sphere->ref = 1;
   sphere->type = SHAPE_SPHERE;
   sphere->shape = (JPH_Shape*) JPH_SphereShape_Create(radius);
+  JPH_Shape_SetUserData(sphere->shape, (uint64_t) (uintptr_t) sphere);
   return sphere;
 }
 
 float lovrSphereShapeGetRadius(SphereShape* sphere) {
   return JPH_SphereShape_GetRadius((JPH_SphereShape*) sphere->shape);
-}
-
-void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
-  lovrLog(LOG_WARN, "PHY", "Jolt SphereShape radius is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
 }
 
 BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
@@ -860,6 +893,7 @@ BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
   box->type = SHAPE_BOX;
   const JPH_Vec3 halfExtent = { w / 2.f, h / 2.f, d / 2.f };
   box->shape = (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, 0.f);
+  JPH_Shape_SetUserData(box->shape, (uint64_t) (uintptr_t) box);
   return box;
 }
 
@@ -871,17 +905,13 @@ void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d) {
   *d = halfExtent.z * 2.f;
 }
 
-void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d) {
-  lovrLog(LOG_WARN, "PHY", "Jolt BoxShape dimensions are read-only");
-  // todo: no setter available, but the shape could be removed and re-added
-}
-
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CapsuleShape dimensions must be positive");
   CapsuleShape* capsule = lovrCalloc(sizeof(CapsuleShape));
   capsule->ref = 1;
   capsule->type = SHAPE_CAPSULE;
   capsule->shape = (JPH_Shape*) JPH_CapsuleShape_Create(length / 2, radius);
+  JPH_Shape_SetUserData(capsule->shape, (uint64_t) (uintptr_t) capsule);
   return capsule;
 }
 
@@ -889,45 +919,26 @@ float lovrCapsuleShapeGetRadius(CapsuleShape* capsule) {
   return JPH_CapsuleShape_GetRadius((JPH_CapsuleShape*) capsule->shape);
 }
 
-void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius) {
-  lovrLog(LOG_WARN, "PHY", "Jolt CapsuleShape radius is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
-}
-
 float lovrCapsuleShapeGetLength(CapsuleShape* capsule) {
   return 2.f * JPH_CapsuleShape_GetHalfHeightOfCylinder((JPH_CapsuleShape*) capsule->shape);
 }
 
-void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
-  lovrLog(LOG_WARN, "PHY", "Jolt CapsuleShape length is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
-}
-
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CylinderShape dimensions must be positive");
-  CylinderShape* Cylinder = lovrCalloc(sizeof(CylinderShape));
-  Cylinder->ref = 1;
-  Cylinder->type = SHAPE_CYLINDER;
-  Cylinder->shape = (JPH_Shape*) JPH_CylinderShape_Create(length / 2.f, radius);
-  return Cylinder;
+  CylinderShape* cylinder = lovrCalloc(sizeof(CylinderShape));
+  cylinder->ref = 1;
+  cylinder->type = SHAPE_CYLINDER;
+  cylinder->shape = (JPH_Shape*) JPH_CylinderShape_Create(length / 2.f, radius);
+  JPH_Shape_SetUserData(cylinder->shape, (uint64_t) (uintptr_t) cylinder);
+  return cylinder;
 }
 
-float lovrCylinderShapeGetRadius(CylinderShape* Cylinder) {
-  return JPH_CylinderShape_GetRadius((JPH_CylinderShape*) Cylinder->shape);
+float lovrCylinderShapeGetRadius(CylinderShape* cylinder) {
+  return JPH_CylinderShape_GetRadius((JPH_CylinderShape*) cylinder->shape);
 }
 
-void lovrCylinderShapeSetRadius(CylinderShape* Cylinder, float radius) {
-  lovrLog(LOG_WARN, "PHY", "Jolt CylinderShape radius is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
-}
-
-float lovrCylinderShapeGetLength(CylinderShape* Cylinder) {
-  return JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) Cylinder->shape) * 2.f;
-}
-
-void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
-  lovrLog(LOG_WARN, "PHY", "Jolt CylinderShape length is read-only");
-  // todo: no setter available, but the shape could be removed and re-added
+float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
+  return JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) cylinder->shape) * 2.f;
 }
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]) {
@@ -979,6 +990,102 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) shape_settings);
   return terrain;
 }
+
+CompoundShape* lovrCompoundShapeCreate(Shape** shapes, vec3 positions, quat orientations, uint32_t count, bool freeze) {
+  lovrCheck(!freeze || count >= 2, "A frozen CompoundShape must contain at least two shapes");
+
+  CompoundShape* shape = lovrCalloc(sizeof(CompoundShape));
+  shape->ref = 1;
+  shape->type = SHAPE_COMPOUND;
+
+  JPH_CompoundShapeSettings* settings = freeze ?
+    (JPH_CompoundShapeSettings*) JPH_StaticCompoundShapeSettings_Create() :
+    (JPH_CompoundShapeSettings*) JPH_MutableCompoundShapeSettings_Create();
+
+  for (uint32_t i = 0; i < count; i++) {
+    lovrCheck(shapes[i]->type != SHAPE_COMPOUND, "Currently, nesting compound shapes is not supported");
+    JPH_Vec3 position = { positions[3 * i + 0], positions[3 * i + 1], positions[3 * i + 2] };
+    JPH_Quat rotation = { orientations[4 * i + 0], orientations[4 * i + 1], orientations[4 * i + 2], orientations[4 * i + 3] };
+    JPH_CompoundShapeSettings_AddShape2(settings, &position, &rotation, shapes[i]->shape, 0);
+    lovrRetain(shapes[i]);
+  }
+
+  if (freeze) {
+    shape->shape = (JPH_Shape*) JPH_StaticCompoundShape_Create((JPH_StaticCompoundShapeSettings*) settings);
+  } else {
+    shape->shape = (JPH_Shape*) JPH_MutableCompoundShape_Create((JPH_MutableCompoundShapeSettings*) settings);
+  }
+
+  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
+  return shape;
+}
+
+bool lovrCompoundShapeIsFrozen(CompoundShape* shape) {
+  return JPH_Shape_GetSubType(shape->shape) == JPH_ShapeSubType_StaticCompound;
+}
+
+void lovrCompoundShapeAddChild(CompoundShape* shape, Shape* child, float* position, float* orientation) {
+  lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
+  lovrCheck(child->type != SHAPE_COMPOUND, "Currently, nesting compound shapes is not supported");
+  JPH_Vec3 pos = { position[0], position[1], position[2] };
+  JPH_Quat rot = { orientation[0], orientation[1], orientation[2], orientation[3] };
+  JPH_MutableCompoundShape_AddShape((JPH_MutableCompoundShape*) shape->shape, &pos, &rot, child->shape, 0);
+  lovrRetain(child);
+}
+
+void lovrCompoundShapeReplaceChild(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation) {
+  lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
+  lovrCheck(child->type != SHAPE_COMPOUND, "Currently, nesting compound shapes is not supported");
+  lovrCheck(index < lovrCompoundShapeGetChildCount(shape), "CompoundShape has no child at index %d", index + 1);
+  JPH_Vec3 pos = { position[0], position[1], position[2] };
+  JPH_Quat rot = { orientation[0], orientation[1], orientation[2], orientation[3] };
+  lovrRelease(lovrCompoundShapeGetChild(shape, index), lovrShapeDestroy);
+  JPH_MutableCompoundShape_ModifyShape2((JPH_MutableCompoundShape*) shape->shape, index, &pos, &rot, child->shape);
+  lovrRetain(child);
+}
+
+void lovrCompoundShapeRemoveChild(CompoundShape* shape, uint32_t index) {
+  lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
+  lovrCheck(index < lovrCompoundShapeGetChildCount(shape), "CompoundShape has no child at index %d", index + 1);
+  Shape* child = lovrCompoundShapeGetChild(shape, index);
+  JPH_MutableCompoundShape_RemoveShape((JPH_MutableCompoundShape*) shape->shape, index);
+  lovrRelease(child, lovrShapeDestroy);
+}
+
+Shape* lovrCompoundShapeGetChild(CompoundShape* shape, uint32_t index) {
+  if (index < lovrCompoundShapeGetChildCount(shape)) {
+    const JPH_Shape* child;
+    JPH_CompoundShape_GetSubShape((JPH_CompoundShape*) shape->shape, index, &child, NULL, NULL, NULL);
+    return (Shape*) (uintptr_t) JPH_Shape_GetUserData(child);
+  } else {
+    return NULL;
+  }
+}
+
+uint32_t lovrCompoundShapeGetChildCount(CompoundShape* shape) {
+  return JPH_CompoundShape_GetNumSubShapes((JPH_CompoundShape*) shape->shape);
+}
+
+void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
+  lovrCheck(index < lovrCompoundShapeGetChildCount(shape), "CompoundShape has no child at index %d", index + 1);
+  const JPH_Shape* child;
+  JPH_Vec3 pos;
+  JPH_Quat rot;
+  uint32_t userData;
+  JPH_CompoundShape_GetSubShape((JPH_CompoundShape*) shape->shape, index, &child, &pos, &rot, &userData);
+  vec3_init(position, &pos.x);
+  quat_init(orientation, &rot.x);
+}
+
+void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
+  lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
+  lovrCheck(index < lovrCompoundShapeGetChildCount(shape), "CompoundShape has no child at index %d", index + 1);
+  JPH_Vec3 pos = { position[0], position[1], position[2] };
+  JPH_Quat rot = { orientation[0], orientation[1], orientation[2], orientation[3] };
+  JPH_MutableCompoundShape_ModifyShape((JPH_MutableCompoundShape*) shape->shape, index, &pos, &rot);
+}
+
+// Joints
 
 void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
   JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);

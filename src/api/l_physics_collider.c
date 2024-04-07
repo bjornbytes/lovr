@@ -17,6 +17,20 @@ static int l_lovrColliderIsDestroyed(lua_State* L) {
   return 1;
 }
 
+static int l_lovrColliderIsEnabled(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool enabled = lovrColliderIsEnabled(collider);
+  lua_pushboolean(L, enabled);
+  return 1;
+}
+
+static int l_lovrColliderSetEnabled(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool enable = lua_toboolean(L, 2);
+  lovrColliderSetEnabled(collider, enable);
+  return 1;
+}
+
 static int l_lovrColliderGetWorld(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   World* world = lovrColliderGetWorld(collider);
@@ -24,30 +38,48 @@ static int l_lovrColliderGetWorld(lua_State* L) {
   return 1;
 }
 
-static int l_lovrColliderAddShape(lua_State* L) {
+static int l_lovrColliderGetShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checkshape(L, 2);
-  lovrColliderAddShape(collider, shape);
-  return 0;
-}
-
-static int l_lovrColliderRemoveShape(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = luax_checkshape(L, 2);
-  lovrColliderRemoveShape(collider, shape);
-  return 0;
-}
-
-static int l_lovrColliderGetShapes(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  size_t count;
-  Shape** shapes = lovrColliderGetShapes(collider, &count);
-  lua_createtable(L, (int) count, 0);
-  for (size_t i = 0; i < count; i++) {
-    luax_pushshape(L, shapes[i]);
-    lua_rawseti(L, -2, (int) i + 1);
+  uint32_t child = lua_gettop(L) == 1 ? ~0u : luax_checku32(L, 2) - 1;
+  Shape* shape = lovrColliderGetShape(collider, child);
+  if (shape) {
+    luax_pushshape(L, shape);
+  } else {
+    lua_pushnil(L);
   }
   return 1;
+}
+
+static int l_lovrColliderSetShape(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  Shape* shape = lua_isnoneornil(L, 2) ? NULL : luax_checkshape(L, 2);
+  lovrColliderSetShape(collider, shape);
+  return 0;
+}
+
+static int l_lovrColliderGetShapeOffset(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float position[3], orientation[4], angle, ax, ay, az;
+  lovrColliderGetShapeOffset(collider, position, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
+static int l_lovrColliderSetShapeOffset(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  int index = 2;
+  float position[3], orientation[4];
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readquat(L, index, orientation, NULL);
+  lovrColliderSetShapeOffset(collider, position, orientation);
+  return 0;
 }
 
 static int l_lovrColliderGetJoints(lua_State* L) {
@@ -107,6 +139,19 @@ static int l_lovrColliderSetKinematic(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   bool kinematic = lua_toboolean(L, 2);
   lovrColliderSetKinematic(collider, kinematic);
+  return 0;
+}
+
+static int l_lovrColliderIsSensor(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushboolean(L, lovrColliderIsSensor(collider));
+  return 1;
+}
+
+static int l_lovrColliderSetSensor(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool sensor = lua_toboolean(L, 2);
+  lovrColliderSetSensor(collider, sensor);
   return 0;
 }
 
@@ -545,6 +590,16 @@ static int l_lovrColliderSetTag(lua_State* L) {
 }
 
 // Deprecated
+static int l_lovrColliderGetShapes(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  Shape* shape = lovrColliderGetShape(collider, ~0u);
+  lua_createtable(L, 1, 0);
+  luax_pushshape(L, shape);
+  lua_rawseti(L, -2, 1);
+  return 1;
+}
+
+// Deprecated
 static int l_lovrColliderIsGravityIgnored(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   lua_pushboolean(L, lovrColliderGetGravityScale(collider) == 0.f);
@@ -562,15 +617,20 @@ static int l_lovrColliderSetGravityIgnored(lua_State* L) {
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "isDestroyed", l_lovrColliderIsDestroyed },
+  { "isEnabled", l_lovrColliderIsEnabled },
+  { "setEnabled", l_lovrColliderSetEnabled },
   { "getWorld", l_lovrColliderGetWorld },
-  { "addShape", l_lovrColliderAddShape },
-  { "removeShape", l_lovrColliderRemoveShape },
-  { "getShapes", l_lovrColliderGetShapes },
+  { "getShape", l_lovrColliderGetShape },
+  { "setShape", l_lovrColliderSetShape },
+  { "getShapeOffset", l_lovrColliderGetShapeOffset },
+  { "setShapeOffset", l_lovrColliderSetShapeOffset },
   { "getJoints", l_lovrColliderGetJoints },
   { "getUserData", l_lovrColliderGetUserData },
   { "setUserData", l_lovrColliderSetUserData },
   { "isKinematic", l_lovrColliderIsKinematic },
   { "setKinematic", l_lovrColliderSetKinematic },
+  { "isSensor", l_lovrColliderIsSensor },
+  { "setSensor", l_lovrColliderSetSensor },
   { "isContinuous", l_lovrColliderIsContinuous },
   { "setContinuous", l_lovrColliderSetContinuous },
   { "getGravityScale", l_lovrColliderGetGravityScale },
@@ -617,6 +677,7 @@ const luaL_Reg lovrCollider[] = {
   { "setTag", l_lovrColliderSetTag },
 
   // Deprecated
+  { "getShapes", l_lovrColliderGetShapes },
   { "isGravityIgnored", l_lovrColliderIsGravityIgnored },
   { "setGravityIgnored", l_lovrColliderSetGravityIgnored },
 

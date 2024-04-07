@@ -19,6 +19,7 @@ typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
 typedef Shape MeshShape;
 typedef Shape TerrainShape;
+typedef Shape CompoundShape;
 
 typedef Joint BallJoint;
 typedef Joint DistanceJoint;
@@ -26,8 +27,8 @@ typedef Joint HingeJoint;
 typedef Joint SliderJoint;
 
 typedef void (*CollisionResolver)(World* world, void* userdata);
-typedef bool (*RaycastCallback)(Shape* shape, float x, float y, float z, float nx, float ny, float nz, void* userdata);
-typedef bool (*QueryCallback)(Shape* shape, void* userdata);
+typedef bool (*RaycastCallback)(Collider* collider, float position[3], float normal[3], uint32_t child, void* userdata);
+typedef bool (*QueryCallback)(Collider* collider, uint32_t child, void* userdata);
 
 bool lovrPhysicsInit(void);
 void lovrPhysicsDestroy(void);
@@ -85,16 +86,19 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 
 // Collider
 
-Collider* lovrColliderCreate(World* world, float x, float y, float z);
+Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float z);
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
 bool lovrColliderIsDestroyed(Collider* collider);
+bool lovrColliderIsEnabled(Collider* collider);
+void lovrColliderSetEnabled(Collider* collider, bool enable);
 void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
 Collider* lovrColliderGetNext(Collider* collider);
-void lovrColliderAddShape(Collider* collider, Shape* shape);
-void lovrColliderRemoveShape(Collider* collider, Shape* shape);
-Shape** lovrColliderGetShapes(Collider* collider, size_t* count);
+Shape* lovrColliderGetShape(Collider* collider, uint32_t child);
+void lovrColliderSetShape(Collider* collider, Shape* shape);
+void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation);
+void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation);
 Joint** lovrColliderGetJoints(Collider* collider, size_t* count);
 const char* lovrColliderGetTag(Collider* collider);
 bool lovrColliderSetTag(Collider* collider, const char* tag);
@@ -104,6 +108,8 @@ float lovrColliderGetRestitution(Collider* collider);
 void lovrColliderSetRestitution(Collider* collider, float restitution);
 bool lovrColliderIsKinematic(Collider* collider);
 void lovrColliderSetKinematic(Collider* collider, bool kinematic);
+bool lovrColliderIsSensor(Collider* collider);
+void lovrColliderSetSensor(Collider* collider, bool sensor);
 bool lovrColliderIsContinuous(Collider* collider);
 void lovrColliderSetContinuous(Collider* collider, bool continuous);
 float lovrColliderGetGravityScale(Collider* collider);
@@ -151,47 +157,43 @@ typedef enum {
   SHAPE_CAPSULE,
   SHAPE_CYLINDER,
   SHAPE_MESH,
-  SHAPE_TERRAIN
+  SHAPE_TERRAIN,
+  SHAPE_COMPOUND
 } ShapeType;
 
 void lovrShapeDestroy(void* ref);
 void lovrShapeDestroyData(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
-Collider* lovrShapeGetCollider(Shape* shape);
-bool lovrShapeIsEnabled(Shape* shape);
-void lovrShapeSetEnabled(Shape* shape, bool enabled);
-bool lovrShapeIsSensor(Shape* shape);
-void lovrShapeSetSensor(Shape* shape, bool sensor);
-void lovrShapeGetPosition(Shape* shape, float* x, float* y, float* z);
-void lovrShapeSetPosition(Shape* shape, float x, float y, float z);
-void lovrShapeGetOrientation(Shape* shape, float* orientation);
-void lovrShapeSetOrientation(Shape* shape, float* orientation);
 void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
-void lovrShapeGetAABB(Shape* shape, float aabb[6]);
+void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]);
 
 SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* sphere);
-void lovrSphereShapeSetRadius(SphereShape* sphere, float radius);
 
 BoxShape* lovrBoxShapeCreate(float w, float h, float d);
 void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d);
-void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d);
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length);
 float lovrCapsuleShapeGetRadius(CapsuleShape* capsule);
-void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius);
 float lovrCapsuleShapeGetLength(CapsuleShape* capsule);
-void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length);
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length);
 float lovrCylinderShapeGetRadius(CylinderShape* cylinder);
-void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius);
 float lovrCylinderShapeGetLength(CylinderShape* cylinder);
-void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length);
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]);
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY);
+
+CompoundShape* lovrCompoundShapeCreate(Shape** shapes, float* positions, float* orientations, uint32_t count, bool freeze);
+bool lovrCompoundShapeIsFrozen(CompoundShape* shape);
+void lovrCompoundShapeAddChild(CompoundShape* shape, Shape* child, float* position, float* orientation);
+void lovrCompoundShapeReplaceChild(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation);
+void lovrCompoundShapeRemoveChild(CompoundShape* shape, uint32_t index);
+Shape* lovrCompoundShapeGetChild(CompoundShape* shape, uint32_t index);
+uint32_t lovrCompoundShapeGetChildCount(CompoundShape* shape);
+void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
+void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
 
 // These tokens need to exist for Lua bindings
 #define lovrSphereShapeDestroy lovrShapeDestroy
@@ -200,6 +202,7 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
 #define lovrCylinderShapeDestroy lovrShapeDestroy
 #define lovrMeshShapeDestroy lovrShapeDestroy
 #define lovrTerrainShapeDestroy lovrShapeDestroy
+#define lovrCompoundShapeDestroy lovrShapeDestroy
 
 // Joints
 
