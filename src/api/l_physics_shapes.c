@@ -159,7 +159,6 @@ Shape* luax_newcompoundshape(lua_State* L, int index) {
 
     lua_rawgeti(L, -1, 1);
     shapes[i] = luax_checkshape(L, -1);
-    lovrCheck(shapes[i], "Expected a Shape for CompoundShape entry #%d", i + 1);
     lua_pop(L, 1);
 
     int index = 2;
