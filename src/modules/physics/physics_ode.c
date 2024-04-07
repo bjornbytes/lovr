@@ -524,7 +524,7 @@ Collider* lovrColliderGetNext(Collider* collider) {
   return collider->next;
 }
 
-Shape* lovrColliderGetShape(Collider* collider) {
+Shape* lovrColliderGetShape(Collider* collider, uint32_t child) {
   return collider->shape;
 }
 

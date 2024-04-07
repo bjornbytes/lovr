@@ -40,7 +40,8 @@ static int l_lovrColliderGetWorld(lua_State* L) {
 
 static int l_lovrColliderGetShape(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = lovrColliderGetShape(collider);
+  uint32_t child = lua_gettop(L) == 1 ? ~0u : luax_checku32(L, 2) - 1;
+  Shape* shape = lovrColliderGetShape(collider, child);
   luax_pushshape(L, shape);
   return 1;
 }
@@ -587,7 +588,7 @@ static int l_lovrColliderSetTag(lua_State* L) {
 // Deprecated
 static int l_lovrColliderGetShapes(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  Shape* shape = lovrColliderGetShape(collider);
+  Shape* shape = lovrColliderGetShape(collider, ~0u);
   lua_createtable(L, 1, 0);
   luax_pushshape(L, shape);
   lua_rawseti(L, -2, 1);

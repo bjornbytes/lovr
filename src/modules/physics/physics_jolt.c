@@ -323,19 +323,17 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float
   uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
   lovrCheck(count < limit, "Too many colliders!");
 
-  if (!shape) shape = state.pointShape;
-
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
   collider->world = world;
-  collider->shape = shape;
+  collider->shape = shape ? shape : state.pointShape;
   collider->tag = UNTAGGED;
 
   const JPH_RVec3 position = { x, y, z };
   const JPH_Quat rotation = { 0.f, 0.f, 0.f, 1.f };
   JPH_MotionType type = JPH_MotionType_Dynamic;
   JPH_ObjectLayer objectLayer = UNTAGGED * 2 + 1;
-  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(shape->shape, &position, &rotation, type, objectLayer);
+  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(collider->shape->shape, &position, &rotation, type, objectLayer);
   collider->body = JPH_BodyInterface_CreateBody(world->bodies, settings);
   collider->id = JPH_Body_GetID(collider->body);
   JPH_BodyCreationSettings_Destroy(settings);
@@ -423,8 +421,16 @@ Collider* lovrColliderGetNext(Collider* collider) {
   return collider->next;
 }
 
-Shape* lovrColliderGetShape(Collider* collider) {
-  return collider->shape == state.pointShape ? NULL : collider->shape;
+Shape* lovrColliderGetShape(Collider* collider, uint32_t child) {
+  if (collider->shape == state.pointShape) {
+    return NULL;
+  }
+
+  if (child == ~0u || collider->shape->type != SHAPE_COMPOUND) {
+    return collider->shape;
+  }
+
+  return lovrCompoundShapeGetShape(collider->shape, child);
 }
 
 void lovrColliderSetShape(Collider* collider, Shape* shape) {

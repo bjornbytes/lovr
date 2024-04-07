@@ -95,7 +95,7 @@ void lovrColliderSetEnabled(Collider* collider, bool enable);
 void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
 Collider* lovrColliderGetNext(Collider* collider);
-Shape* lovrColliderGetShape(Collider* collider);
+Shape* lovrColliderGetShape(Collider* collider, uint32_t child);
 void lovrColliderSetShape(Collider* collider, Shape* shape);
 void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation);
 void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation);
