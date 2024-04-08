@@ -86,9 +86,8 @@ static int l_lovrColliderGetJoints(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   lua_newtable(L);
   int index = 1;
-  void* private;
   Joint* joint = NULL;
-  while ((joint = lovrColliderEnumerateJoints(collider, joint, &private)) != NULL) {
+  while ((joint = lovrColliderGetJoints(collider, joint)) != NULL) {
     luax_pushjoint(L, joint);
     lua_rawseti(L, -2, index++);
   }

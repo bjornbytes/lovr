@@ -206,18 +206,6 @@ static int l_lovrWorldGetTags(lua_State* L) {
   return 1;
 }
 
-static int l_lovrWorldGetColliders(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  lua_createtable(L, (int) lovrWorldGetColliderCount(world), 0);
-  Collider* collider = NULL;
-  int index = 1;
-  while ((collider = lovrWorldEnumerateColliders(world, collider)) != NULL) {
-    luax_pushtype(L, Collider, collider);
-    lua_rawseti(L, -2, index++);
-  }
-  return 1;
-}
-
 static int l_lovrWorldGetColliderCount(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   uint32_t count = lovrWorldGetColliderCount(world);
@@ -225,22 +213,34 @@ static int l_lovrWorldGetColliderCount(lua_State* L) {
   return 1;
 }
 
-static int l_lovrWorldGetJoints(lua_State* L) {
+static int l_lovrWorldGetJointCount(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  lua_createtable(L, (int) lovrWorldGetJointCount(world), 0);
-  Joint* joint = NULL;
+  uint32_t count = lovrWorldGetJointCount(world);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
+static int l_lovrWorldGetColliders(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
   int index = 1;
-  while ((joint = lovrWorldEnumerateJoints(world, joint)) != NULL) {
-    luax_pushjoint(L, joint);
+  Collider* collider = NULL;
+  lua_createtable(L, (int) lovrWorldGetColliderCount(world), 0);
+  while ((collider = lovrWorldGetColliders(world, collider)) != NULL) {
+    luax_pushtype(L, Collider, collider);
     lua_rawseti(L, -2, index++);
   }
   return 1;
 }
 
-static int l_lovrWorldGetJointCount(lua_State* L) {
+static int l_lovrWorldGetJoints(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  uint32_t count = lovrWorldGetJointCount(world);
-  lua_pushinteger(L, count);
+  int index = 1;
+  Joint* joint = NULL;
+  lua_createtable(L, (int) lovrWorldGetJointCount(world), 0);
+  while ((joint = lovrWorldGetJoints(world, joint)) != NULL) {
+    luax_pushjoint(L, joint);
+    lua_rawseti(L, -2, index++);
+  }
   return 1;
 }
 

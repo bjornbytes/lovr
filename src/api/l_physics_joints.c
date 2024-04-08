@@ -56,9 +56,8 @@ static int l_lovrJointGetType(lua_State* L) {
 
 static int l_lovrJointGetColliders(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
-  Collider* a;
-  Collider* b;
-  lovrJointGetColliders(joint, &a, &b);
+  Collider* a = lovrJointGetColliderA(joint);
+  Collider* b = lovrJointGetColliderB(joint);
   luax_pushtype(L, Collider, a);
   luax_pushtype(L, Collider, b);
   return 2;

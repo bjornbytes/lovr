@@ -220,11 +220,11 @@ uint32_t lovrWorldGetJointCount(World* world) {
   return 0;
 }
 
-Collider* lovrWorldEnumerateColliders(World* world, Collider* collider) {
+Collider* lovrWorldGetColliders(World* world, Collider* collider) {
   return collider ? collider->next : world->head;
 }
 
-Joint* lovrWorldEnumerateJoints(World* world, Joint* joint) {
+Joint* lovrWorldGetJoints(World* world, Joint* joint) {
   return NULL;
 }
 
@@ -538,10 +538,6 @@ World* lovrColliderGetWorld(Collider* collider) {
   return collider->world;
 }
 
-Collider* lovrColliderGetNext(Collider* collider) {
-  return collider->next;
-}
-
 Shape* lovrColliderGetShape(Collider* collider, uint32_t child) {
   return collider->shape;
 }
@@ -588,26 +584,18 @@ void lovrColliderSetShapeOffset(Collider* collider, float position[3], float ori
   dGeomSetOffsetQuaternion(collider->shape->id, q);
 }
 
-Joint** lovrColliderGetJoints(Collider* collider, size_t* count) {
-  arr_clear(&collider->joints);
-  int jointCount = dBodyGetNumJoints(collider->body);
-  for (int i = 0; i < jointCount; i++) {
-    Joint* joint = dJointGetData(dBodyGetJoint(collider->body, i));
-    if (joint) {
-      arr_push(&collider->joints, joint);
+Joint* lovrColliderGetJoints(Collider* collider, Joint* joint) {
+  if (joint == NULL) {
+    return collider->joints.length ? NULL : collider->joints.data[0];
+  }
+
+  for (size_t i = 0; i < collider->joints.length; i++) {
+    if (collider->joints.data[i] == joint) {
+      return i == collider->joints.length - 1 ? NULL : collider->joints.data[i + 1];
     }
   }
-  *count = collider->joints.length;
-  return collider->joints.data;
-}
 
-Joint* lovrColliderEnumerateJoints(Collider* collider, Joint* joint, void** private) {
-  if (!joint) {
-    *private = NULL;
-  }
-
-  uintptr_t index = (uintptr_t) *private;
-  return index < collider->joints.length ? collider->joints.data[index] : NULL;
+  return NULL;
 }
 
 const char* lovrColliderGetTag(Collider* collider) {
@@ -1143,17 +1131,14 @@ JointType lovrJointGetType(Joint* joint) {
   return joint->type;
 }
 
-void lovrJointGetColliders(Joint* joint, Collider** a, Collider** b) {
+Collider* lovrJointGetColliderA(Joint* joint) {
   dBodyID bodyA = dJointGetBody(joint->id, 0);
+  return bodyA ? dBodyGetData(bodyA) : NULL;
+}
+
+Collider* lovrJointGetColliderB(Joint* joint) {
   dBodyID bodyB = dJointGetBody(joint->id, 1);
-
-  if (bodyA) {
-    *a = dBodyGetData(bodyA);
-  }
-
-  if (bodyB) {
-    *b = dBodyGetData(bodyB);
-  }
+  return bodyB ? dBodyGetData(bodyB) : NULL;
 }
 
 bool lovrJointIsEnabled(Joint* joint) {
