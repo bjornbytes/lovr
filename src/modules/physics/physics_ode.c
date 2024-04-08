@@ -1,4 +1,5 @@
 #include "physics.h"
+#include "core/maf.h"
 #include "util.h"
 #include <ode/ode.h>
 #include <stdatomic.h>
@@ -162,7 +163,6 @@ World* lovrWorldCreate(WorldInfo* info) {
   dHashSpaceSetLevels(world->space, -4, 8);
   world->contactGroup = dJointGroupCreate(0);
   arr_init(&world->overlaps);
-  lovrWorldSetGravity(world, info->gravity);
   lovrWorldSetSleepingAllowed(world, info->allowSleep);
   for (uint32_t i = 0; i < info->tagCount; i++) {
     size_t size = strlen(info->tags[i]) + 1;
@@ -327,14 +327,14 @@ void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX
   }
 }
 
-void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
+void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata) {
   RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
-  float dx = x2 - x1;
-  float dy = y2 - y1;
-  float dz = z2 - z1;
+  float dx = start[0] - end[0];
+  float dy = start[1] - end[1];
+  float dz = start[2] - end[2];
   float length = sqrtf(dx * dx + dy * dy + dz * dz);
   dGeomID ray = dCreateRay(world->space, length);
-  dGeomRaySet(ray, x1, y1, z1, dx, dy, dz);
+  dGeomRaySet(ray, start[0], start[1], start[2], end[0], end[1], end[2]);
   dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
   dGeomDestroy(ray);
 }
@@ -454,7 +454,7 @@ bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const ch
   return (world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i));
 }
 
-Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float z) {
+Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]) {
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
   collider->body = dBodyCreate(world->id);
@@ -466,7 +466,7 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float
   arr_init(&collider->joints);
 
   lovrColliderSetShape(collider, shape);
-  lovrColliderSetPosition(collider, x, y, z);
+  lovrColliderSetPosition(collider, position);
 
   // Adjust the world's collider list
   if (!collider->world->head) {
@@ -529,9 +529,9 @@ void lovrColliderSetEnabled(Collider* collider, bool enable) {
 void lovrColliderInitInertia(Collider* collider, Shape* shape) {
   // compute inertia matrix for default density
   const float density = 1.0f;
-  float cx, cy, cz, mass, inertia[6];
-  lovrShapeGetMass(shape, density, &cx, &cy, &cz, &mass, inertia);
-  lovrColliderSetMassData(collider, cx, cy, cz, mass, inertia);
+  float centerOfMass[3], mass, inertia[6];
+  lovrShapeGetMass(shape, density, centerOfMass, &mass, inertia);
+  lovrColliderSetMassData(collider, centerOfMass, mass, inertia);
 }
 
 World* lovrColliderGetWorld(Collider* collider) {
@@ -569,7 +569,7 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
   }
 }
 
-void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation) {
+void lovrColliderGetShapeOffset(Collider* collider, float position[3], float orientation[4]) {
   const dReal* p = dGeomGetOffsetPosition(collider->shape->id);
   position[0] = p[0];
   position[1] = p[1];
@@ -582,7 +582,7 @@ void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orie
   orientation[3] = q[0];
 }
 
-void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation) {
+void lovrColliderSetShapeOffset(Collider* collider, float position[3], float orientation[4]) {
   dGeomSetOffsetPosition(collider->shape->id, position[0], position[1], position[2]);
   dReal q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
   dGeomSetOffsetQuaternion(collider->shape->id, q);
@@ -709,12 +709,10 @@ void lovrColliderSetMass(Collider* collider, float mass) {
   dBodySetMass(collider->body, &m);
 }
 
-void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+void lovrColliderGetMassData(Collider* collider, float centerOfMass[3], float* mass, float inertia[6]) {
   dMass m;
   dBodyGetMass(collider->body, &m);
-  *cx = m.c[0];
-  *cy = m.c[1];
-  *cz = m.c[2];
+  vec3_set(centerOfMass, m.c[0], m.c[1], m.c[2]);
   *mass = m.mass;
 
   // Diagonal
@@ -728,30 +726,25 @@ void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz
   inertia[5] = m.I[9];
 }
 
-void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[6]) {
+void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float mass, float inertia[6]) {
   dMass m;
   dBodyGetMass(collider->body, &m);
-  dMassSetParameters(&m, mass, cx, cy, cz, inertia[0], inertia[1], inertia[2], inertia[3], inertia[4], inertia[5]);
+  dMassSetParameters(&m, mass, centerOfMass[0], centerOfMass[1], centerOfMass[2], inertia[0], inertia[1], inertia[2], inertia[3], inertia[4], inertia[5]);
   dBodySetMass(collider->body, &m);
 }
 
-void lovrColliderGetPosition(Collider* collider, float* x, float* y, float* z) {
-  const dReal* position = dBodyGetPosition(collider->body);
-  *x = position[0];
-  *y = position[1];
-  *z = position[2];
+void lovrColliderGetPosition(Collider* collider, float position[3]) {
+  const dReal* p = dBodyGetPosition(collider->body);
+  vec3_set(position, p[0], p[1], p[2]);
 }
 
-void lovrColliderSetPosition(Collider* collider, float x, float y, float z) {
-  dBodySetPosition(collider->body, x, y, z);
+void lovrColliderSetPosition(Collider* collider, float position[3]) {
+  dBodySetPosition(collider->body, position[0], position[1], position[2]);
 }
 
-void lovrColliderGetOrientation(Collider* collider, float* orientation) {
+void lovrColliderGetOrientation(Collider* collider, float orientation[4]) {
   const dReal* q = dBodyGetQuaternion(collider->body);
-  orientation[0] = q[1];
-  orientation[1] = q[2];
-  orientation[2] = q[3];
-  orientation[3] = q[0];
+  quat_set(orientation, q[1], q[2], q[3], q[0]);
 }
 
 void lovrColliderSetOrientation(Collider* collider, float* orientation) {
@@ -759,28 +752,24 @@ void lovrColliderSetOrientation(Collider* collider, float* orientation) {
   dBodySetQuaternion(collider->body, q);
 }
 
-void lovrColliderGetLinearVelocity(Collider* collider, float* x, float* y, float* z) {
-  const dReal* velocity = dBodyGetLinearVel(collider->body);
-  *x = velocity[0];
-  *y = velocity[1];
-  *z = velocity[2];
+void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {
+  const dReal* v = dBodyGetLinearVel(collider->body);
+  vec3_set(velocity, v[0], v[1], v[2]);
 }
 
-void lovrColliderSetLinearVelocity(Collider* collider, float x, float y, float z) {
+void lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]) {
   dBodyEnable(collider->body);
-  dBodySetLinearVel(collider->body, x, y, z);
+  dBodySetLinearVel(collider->body, velocity[0], velocity[1], velocity[2]);
 }
 
-void lovrColliderGetAngularVelocity(Collider* collider, float* x, float* y, float* z) {
-  const dReal* velocity = dBodyGetAngularVel(collider->body);
-  *x = velocity[0];
-  *y = velocity[1];
-  *z = velocity[2];
+void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]) {
+  const dReal* v = dBodyGetAngularVel(collider->body);
+  vec3_set(velocity, v[0], v[1], v[2]);
 }
 
-void lovrColliderSetAngularVelocity(Collider* collider, float x, float y, float z) {
+void lovrColliderSetAngularVelocity(Collider* collider, float velocity[3]) {
   dBodyEnable(collider->body);
-  dBodySetAngularVel(collider->body, x, y, z);
+  dBodySetAngularVel(collider->body, velocity[0], velocity[1], velocity[2]);
 }
 
 void lovrColliderGetLinearDamping(Collider* collider, float* damping, float* threshold) {
@@ -803,19 +792,19 @@ void lovrColliderSetAngularDamping(Collider* collider, float damping, float thre
   dBodySetAngularDampingThreshold(collider->body, threshold);
 }
 
-void lovrColliderApplyForce(Collider* collider, float x, float y, float z) {
+void lovrColliderApplyForce(Collider* collider, float force[3]) {
   dBodyEnable(collider->body);
-  dBodyAddForce(collider->body, x, y, z);
+  dBodyAddForce(collider->body, force[0], force[1], force[2]);
 }
 
-void lovrColliderApplyForceAtPosition(Collider* collider, float x, float y, float z, float cx, float cy, float cz) {
+void lovrColliderApplyForceAtPosition(Collider* collider, float force[3], float position[3]) {
   dBodyEnable(collider->body);
-  dBodyAddForceAtPos(collider->body, x, y, z, cx, cy, cz);
+  dBodyAddForceAtPos(collider->body, force[0], force[1], force[2], position[0], position[1], position[2]);
 }
 
-void lovrColliderApplyTorque(Collider* collider, float x, float y, float z) {
+void lovrColliderApplyTorque(Collider* collider, float torque[3]) {
   dBodyEnable(collider->body);
-  dBodyAddTorque(collider->body, x, y, z);
+  dBodyAddTorque(collider->body, torque[0], torque[1], torque[2]);
 }
 
 void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]) {
@@ -830,60 +819,46 @@ void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
   //
 }
 
-void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z) {
+void lovrColliderGetLocalCenter(Collider* collider, float center[3]) {
   dMass m;
   dBodyGetMass(collider->body, &m);
-  *x = m.c[0];
-  *y = m.c[1];
-  *z = m.c[2];
+  vec3_set(center, m.c[0], m.c[1], m.c[2]);
 }
 
-void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
-  dReal local[4];
-  dBodyGetPosRelPoint(collider->body, wx, wy, wz, local);
-  *x = local[0];
-  *y = local[1];
-  *z = local[2];
+void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3]) {
+  dReal point[4];
+  dBodyGetPosRelPoint(collider->body, world[0], world[1], world[2], point);
+  vec3_set(local, point[0], point[1], point[2]);
 }
 
-void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
-  dReal world[4];
-  dBodyGetRelPointPos(collider->body, x, y, z, world);
-  *wx = world[0];
-  *wy = world[1];
-  *wz = world[2];
+void lovrColliderGetWorldPoint(Collider* collider, float local[3], float world[3]) {
+  dReal point[4];
+  dBodyGetRelPointPos(collider->body, local[0], local[1], local[2], point);
+  vec3_set(world, point[0], point[1], point[2]);
 }
 
-void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
-  dReal local[4];
-  dBodyVectorFromWorld(collider->body, wx, wy, wz, local);
-  *x = local[0];
-  *y = local[1];
-  *z = local[2];
+void lovrColliderGetLocalVector(Collider* collider, float world[3], float local[3]) {
+  dReal vector[4];
+  dBodyVectorFromWorld(collider->body, world[0], world[1], world[2], local);
+  vec3_set(local, vector[0], vector[1], vector[2]);
 }
 
-void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
-  dReal world[4];
-  dBodyVectorToWorld(collider->body, x, y, z, world);
-  *wx = world[0];
-  *wy = world[1];
-  *wz = world[2];
+void lovrColliderGetWorldVector(Collider* collider, float local[3], float world[3]) {
+  dReal vector[4];
+  dBodyVectorToWorld(collider->body, local[0], local[1], local[2], world);
+  vec3_set(world, vector[0], vector[1], vector[2]);
 }
 
-void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, float y, float z, float* vx, float* vy, float* vz) {
-  dReal velocity[4];
-  dBodyGetRelPointVel(collider->body, x, y, z, velocity);
-  *vx = velocity[0];
-  *vy = velocity[1];
-  *vz = velocity[2];
+void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float point[3], float velocity[3]) {
+  dReal vector[4];
+  dBodyGetRelPointVel(collider->body, point[0], point[1], point[2], vector);
+  vec3_set(velocity, vector[0], vector[1], vector[2]);
 }
 
-void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz) {
-  dReal velocity[4];
-  dBodyGetPointVel(collider->body, wx, wy, wz, velocity);
-  *vx = velocity[0];
-  *vy = velocity[1];
-  *vz = velocity[2];
+void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float point[3], float velocity[3]) {
+  dReal vector[4];
+  dBodyGetPointVel(collider->body, point[0], point[1], point[2], velocity);
+  vec3_set(velocity, vector[0], vector[1], vector[2]);
 }
 
 void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
@@ -938,7 +913,7 @@ Collider* lovrShapeGetCollider(Shape* shape) {
   return shape->collider;
 }
 
-void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]) {
   dMass m;
   dMassSetZero(&m);
   switch (shape->type) {
@@ -987,9 +962,9 @@ void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* 
   const dReal* rotation = dGeomGetOffsetRotation(shape->id);
   dMassRotate(&m, rotation);
 
-  *cx = m.c[0];
-  *cy = m.c[1];
-  *cz = m.c[2];
+  centerOfMass[0] = m.c[0];
+  centerOfMass[1] = m.c[1];
+  centerOfMass[2] = m.c[2];
   *mass = m.mass;
 
   // Diagonal
@@ -1026,26 +1001,19 @@ void lovrSphereShapeSetRadius(SphereShape* sphere, float radius) {
   dGeomSphereSetRadius(sphere->id, radius);
 }
 
-BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
+BoxShape* lovrBoxShapeCreate(float dimensions[3]) {
   BoxShape* box = lovrCalloc(sizeof(BoxShape));
   box->ref = 1;
   box->type = SHAPE_BOX;
-  box->id = dCreateBox(0, w, h, d);
+  box->id = dCreateBox(0, dimensions[0], dimensions[1], dimensions[2]);
   dGeomSetData(box->id, box);
   return box;
 }
 
-void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d) {
-  dReal dimensions[4];
-  dGeomBoxGetLengths(box->id, dimensions);
-  *w = dimensions[0];
-  *h = dimensions[1];
-  *d = dimensions[2];
-}
-
-void lovrBoxShapeSetDimensions(BoxShape* box, float w, float h, float d) {
-  lovrCheck(w > 0.f && h > 0.f && d > 0.f, "BoxShape dimensions must be positive");
-  dGeomBoxSetLengths(box->id, w, h, d);
+void lovrBoxShapeGetDimensions(BoxShape* box, float dimensions[3]) {
+  dReal d[4];
+  dGeomBoxGetLengths(box->id, d);
+  vec3_set(dimensions, d[0], d[1], d[2]);
 }
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
@@ -1064,20 +1032,10 @@ float lovrCapsuleShapeGetRadius(CapsuleShape* capsule) {
   return radius;
 }
 
-void lovrCapsuleShapeSetRadius(CapsuleShape* capsule, float radius) {
-  lovrCheck(radius > 0.f, "CapsuleShape dimensions must be positive");
-  dGeomCapsuleSetParams(capsule->id, radius, lovrCapsuleShapeGetLength(capsule));
-}
-
 float lovrCapsuleShapeGetLength(CapsuleShape* capsule) {
   dReal radius, length;
   dGeomCapsuleGetParams(capsule->id, &radius, &length);
   return length;
-}
-
-void lovrCapsuleShapeSetLength(CapsuleShape* capsule, float length) {
-  lovrCheck(length > 0.f, "CapsuleShape dimensions must be positive");
-  dGeomCapsuleSetParams(capsule->id, lovrCapsuleShapeGetRadius(capsule), length);
 }
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
@@ -1096,20 +1054,10 @@ float lovrCylinderShapeGetRadius(CylinderShape* cylinder) {
   return radius;
 }
 
-void lovrCylinderShapeSetRadius(CylinderShape* cylinder, float radius) {
-  lovrCheck(radius > 0.f, "CylinderShape dimensions must be positive");
-  dGeomCylinderSetParams(cylinder->id, radius, lovrCylinderShapeGetLength(cylinder));
-}
-
 float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
   dReal radius, length;
   dGeomCylinderGetParams(cylinder->id, &radius, &length);
   return length;
-}
-
-void lovrCylinderShapeSetLength(CylinderShape* cylinder, float length) {
-  lovrCheck(length > 0.f, "CylinderShape dimensions must be positive");
-  dGeomCylinderSetParams(cylinder->id, lovrCylinderShapeGetRadius(cylinder), length);
 }
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float* vertices, int indexCount, dTriIndex* indices) {

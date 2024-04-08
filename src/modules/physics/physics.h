@@ -48,7 +48,6 @@ typedef struct {
   bool allowSleep;
   const char* tags[MAX_TAGS];
   uint32_t tagCount;
-  float gravity[3]; // Deprecated
 } WorldInfo;
 
 World* lovrWorldCreate(WorldInfo* info);
@@ -63,7 +62,7 @@ void lovrWorldComputeOverlaps(World* world);
 int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
 int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
 void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count);
-void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata);
+void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata);
 void lovrWorldGetGravity(World* world, float gravity[3]);
@@ -89,7 +88,7 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 
 // Collider
 
-Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float z);
+Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]);
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
 bool lovrColliderIsDestroyed(Collider* collider);
@@ -99,8 +98,8 @@ void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
 Shape* lovrColliderGetShape(Collider* collider, uint32_t child);
 void lovrColliderSetShape(Collider* collider, Shape* shape);
-void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation);
-void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation);
+void lovrColliderGetShapeOffset(Collider* collider, float position[3], float orientation[4]);
+void lovrColliderSetShapeOffset(Collider* collider, float position[3], float orientation[4]);
 Joint* lovrColliderEnumerateJoints(Collider* collider, Joint* joint, void** private);
 const char* lovrColliderGetTag(Collider* collider);
 bool lovrColliderSetTag(Collider* collider, const char* tag);
@@ -122,33 +121,33 @@ bool lovrColliderIsAwake(Collider* collider);
 void lovrColliderSetAwake(Collider* collider, bool awake);
 float lovrColliderGetMass(Collider* collider);
 void lovrColliderSetMass(Collider* collider, float mass);
-void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
-void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[6]);
-void lovrColliderGetPosition(Collider* collider, float* x, float* y, float* z);
-void lovrColliderSetPosition(Collider* collider, float x, float y, float z);
-void lovrColliderGetOrientation(Collider* collider, float* orientation);
-void lovrColliderSetOrientation(Collider* collider, float* orientation);
-void lovrColliderGetLinearVelocity(Collider* collider, float* x, float* y, float* z);
-void lovrColliderSetLinearVelocity(Collider* collider, float x, float y, float z);
-void lovrColliderGetAngularVelocity(Collider* collider, float* x, float* y, float* z);
-void lovrColliderSetAngularVelocity(Collider* collider, float x, float y, float z);
+void lovrColliderGetMassData(Collider* collider, float centerOfMass[3], float* mass, float inertia[6]);
+void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float mass, float inertia[6]);
+void lovrColliderGetPosition(Collider* collider, float position[3]);
+void lovrColliderSetPosition(Collider* collider, float position[3]);
+void lovrColliderGetOrientation(Collider* collider, float orientation[4]);
+void lovrColliderSetOrientation(Collider* collider, float orientation[4]);
+void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]);
+void lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]);
+void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]);
+void lovrColliderSetAngularVelocity(Collider* collider, float velocity[3]);
 void lovrColliderGetLinearDamping(Collider* collider, float* damping, float* threshold);
 void lovrColliderSetLinearDamping(Collider* collider, float damping, float threshold);
 void lovrColliderGetAngularDamping(Collider* collider, float* damping, float* threshold);
 void lovrColliderSetAngularDamping(Collider* collider, float damping, float threshold);
-void lovrColliderApplyForce(Collider* collider, float x, float y, float z);
-void lovrColliderApplyForceAtPosition(Collider* collider, float x, float y, float z, float cx, float cy, float cz);
-void lovrColliderApplyTorque(Collider* collider, float x, float y, float z);
+void lovrColliderApplyForce(Collider* collider, float force[3]);
+void lovrColliderApplyForceAtPosition(Collider* collider, float force[3], float position[3]);
+void lovrColliderApplyTorque(Collider* collider, float torque[3]);
 void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]);
 void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]);
 void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]);
-void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z);
-void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z);
-void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz);
-void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z);
-void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz);
-void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, float y, float z, float* vx, float* vy, float* vz);
-void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz);
+void lovrColliderGetLocalCenter(Collider* collider, float center[3]);
+void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3]);
+void lovrColliderGetWorldPoint(Collider* collider, float local[3], float world[3]);
+void lovrColliderGetLocalVector(Collider* collider, float world[3], float local[3]);
+void lovrColliderGetWorldVector(Collider* collider, float local[3], float world[3]);
+void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float point[3], float velocity[3]);
+void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float point[3], float velocity[3]);
 void lovrColliderGetAABB(Collider* collider, float aabb[6]);
 
 // Shapes
@@ -166,14 +165,14 @@ typedef enum {
 void lovrShapeDestroy(void* ref);
 void lovrShapeDestroyData(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
-void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]);
+void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]);
 void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]);
 
 SphereShape* lovrSphereShapeCreate(float radius);
 float lovrSphereShapeGetRadius(SphereShape* sphere);
 
-BoxShape* lovrBoxShapeCreate(float w, float h, float d);
-void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d);
+BoxShape* lovrBoxShapeCreate(float dimensions[3]);
+void lovrBoxShapeGetDimensions(BoxShape* box, float dimensions[3]);
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length);
 float lovrCapsuleShapeGetRadius(CapsuleShape* capsule);
@@ -189,13 +188,13 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
 
 CompoundShape* lovrCompoundShapeCreate(Shape** shapes, float* positions, float* orientations, uint32_t count, bool freeze);
 bool lovrCompoundShapeIsFrozen(CompoundShape* shape);
-void lovrCompoundShapeAddChild(CompoundShape* shape, Shape* child, float* position, float* orientation);
-void lovrCompoundShapeReplaceChild(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation);
+void lovrCompoundShapeAddChild(CompoundShape* shape, Shape* child, float position[3], float orientation[4]);
+void lovrCompoundShapeReplaceChild(CompoundShape* shape, uint32_t index, Shape* child, float position[3], float orientation[4]);
 void lovrCompoundShapeRemoveChild(CompoundShape* shape, uint32_t index);
 Shape* lovrCompoundShapeGetChild(CompoundShape* shape, uint32_t index);
 uint32_t lovrCompoundShapeGetChildCount(CompoundShape* shape);
-void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
-void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation);
+void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float position[3], float orientation[4]);
+void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float position[3], float orientation[4]);
 
 // These tokens need to exist for Lua bindings
 #define lovrSphereShapeDestroy lovrShapeDestroy

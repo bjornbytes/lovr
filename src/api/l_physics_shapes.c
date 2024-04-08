@@ -52,7 +52,7 @@ Shape* luax_newsphereshape(lua_State* L, int index) {
 Shape* luax_newboxshape(lua_State* L, int index) {
   float size[3];
   luax_readscale(L, index, size, 3, NULL);
-  return lovrBoxShapeCreate(size[0], size[1], size[2]);
+  return lovrBoxShapeCreate(size);
 }
 
 Shape* luax_newcapsuleshape(lua_State* L, int index) {
@@ -266,12 +266,11 @@ static int l_lovrShapeSetUserData(lua_State* L) {
 static int l_lovrShapeGetMass(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   float density = luax_checkfloat(L, 2);
-  float cx, cy, cz, mass;
-  float inertia[6];
-  lovrShapeGetMass(shape, density, &cx, &cy, &cz, &mass, inertia);
-  lua_pushnumber(L, cx);
-  lua_pushnumber(L, cy);
-  lua_pushnumber(L, cz);
+  float centerOfMass[3], mass, inertia[6];
+  lovrShapeGetMass(shape, density, centerOfMass, &mass, inertia);
+  lua_pushnumber(L, centerOfMass[0]);
+  lua_pushnumber(L, centerOfMass[1]);
+  lua_pushnumber(L, centerOfMass[2]);
   lua_pushnumber(L, mass);
   lua_newtable(L);
   for (int i = 0; i < 6; i++) {
@@ -320,11 +319,11 @@ const luaL_Reg lovrSphereShape[] = {
 
 static int l_lovrBoxShapeGetDimensions(lua_State* L) {
   BoxShape* box = luax_checktype(L, 1, BoxShape);
-  float w, h, d;
-  lovrBoxShapeGetDimensions(box, &w, &h, &d);
-  lua_pushnumber(L, w);
-  lua_pushnumber(L, h);
-  lua_pushnumber(L, d);
+  float dimensions[3];
+  lovrBoxShapeGetDimensions(box, dimensions);
+  lua_pushnumber(L, dimensions[0]);
+  lua_pushnumber(L, dimensions[1]);
+  lua_pushnumber(L, dimensions[2]);
   return 3;
 }
 

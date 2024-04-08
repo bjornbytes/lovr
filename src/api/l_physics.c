@@ -26,8 +26,7 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     .maxColliders = 65536,
     .maxColliderPairs = 65536,
     .maxContacts = 16384,
-    .allowSleep = true,
-    .gravity = { 0.f, -9.81f, 0.f }
+    .allowSleep = true
   };
 
   if (lua_istable(L, 1)) {
@@ -64,9 +63,6 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     }
     lua_pop(L, 1);
   } else { // Deprecated
-    info.gravity[0] = luax_optfloat(L, 1, 0.f);
-    info.gravity[1] = luax_optfloat(L, 2, -9.81f);
-    info.gravity[2] = luax_optfloat(L, 3, 0.f);
     info.allowSleep = lua_gettop(L) < 4 || lua_toboolean(L, 4);
     if (lua_type(L, 5) == LUA_TTABLE) {
       info.tagCount = luax_len(L, 5);
@@ -86,6 +82,15 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
   }
 
   World* world = lovrWorldCreate(&info);
+
+  if (!lua_istable(L, 1)) {
+    float gravity[3];
+    gravity[0] = luax_optfloat(L, 1, 0.f);
+    gravity[1] = luax_optfloat(L, 2, -9.81f);
+    gravity[2] = luax_optfloat(L, 3, 0.f);
+    lovrWorldSetGravity(world, gravity);
+  }
+
   luax_pushtype(L, World, world);
   lovrRelease(world, lovrWorldDestroy);
   return 1;

@@ -132,8 +132,6 @@ World* lovrWorldCreate(WorldInfo* info) {
   world->system = JPH_PhysicsSystem_Create(&settings);
   world->bodies = JPH_PhysicsSystem_GetBodyInterface(world->system);
 
-  lovrWorldSetGravity(world, info->gravity);
-
   for (uint32_t i = 0; i < info->tagCount; i++) {
     size_t size = strlen(info->tags[i]) + 1;
     world->tags[i] = lovrMalloc(size);
@@ -198,10 +196,10 @@ void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX
   //
 }
 
-void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, float y2, float z2, RaycastCallback callback, void* userdata) {
+void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
-  const JPH_RVec3 origin = { x1, y1, z1 };
-  const JPH_Vec3 direction = { x2 - x1, y2 - y1, z2 - z1 };
+  const JPH_RVec3 origin = { start[0], start[1], start[2] };
+  const JPH_Vec3 direction = { end[0] - start[0], end[1] - start[1], end[2] - start[2] };
   JPH_AllHit_CastRayCollector* collector = JPH_AllHit_CastRayCollector_Create();
   JPH_NarrowPhaseQuery_CastRayAll(query, &origin, &direction, collector, NULL, NULL, NULL);
 
@@ -219,9 +217,9 @@ void lovrWorldRaycast(World* world, float x1, float y1, float z1, float x2, floa
     }
 
     JPH_RVec3 position = {
-      x1 + hits[i].fraction * (x2 - x1),
-      y1 + hits[i].fraction * (y2 - y1),
-      z1 + hits[i].fraction * (z2 - z1)
+      start[0] + hits[i].fraction * direction.x,
+      start[1] + hits[i].fraction * direction.y,
+      start[2] + hits[i].fraction * direction.z
     };
 
     JPH_Vec3 normal;
@@ -243,10 +241,10 @@ static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3
   mat4_scale(m, scale[0], scale[1], scale[2]);
 
   JPH_Vec3 direction = { 0.f, 0.f, 0.f };
-  JPH_RVec3 base_offset = { 0.f, 0.f, 0.f };
+  JPH_RVec3 baseOffset = { 0.f, 0.f, 0.f };
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
   JPH_AllHit_CastShapeCollector_Reset(state.castShapeCollector);
-  JPH_NarrowPhaseQuery_CastShape(query, shape, &transform, &direction, &base_offset, state.castShapeCollector);
+  JPH_NarrowPhaseQuery_CastShape(query, shape, &transform, &direction, &baseOffset, state.castShapeCollector);
 
   size_t count;
   JPH_AllHit_CastShapeCollector_GetHits(state.castShapeCollector, &count);
@@ -275,11 +273,12 @@ bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCa
 void lovrWorldGetGravity(World* world, float gravity[3]) {
   JPH_Vec3 g;
   JPH_PhysicsSystem_GetGravity(world->system, &g);
-  vec3_init(gravity, &g.x);
+  vec3_set(gravity, g.x, g.y, g.z);
 }
 
 void lovrWorldSetGravity(World* world, float gravity[3]) {
-  JPH_PhysicsSystem_SetGravity(world->system, &(const JPH_Vec3) { gravity[0], gravity[1], gravity[2] });
+  JPH_Vec3 g = { gravity[0], gravity[1], gravity[2] };
+  JPH_PhysicsSystem_SetGravity(world->system, &g);
 }
 
 const char* lovrWorldGetTagName(World* world, uint32_t tag) {
@@ -343,7 +342,7 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold) { 
 
 // Collider
 
-Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float z) {
+Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]) {
   uint32_t count = JPH_PhysicsSystem_GetNumBodies(world->system);
   uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
   lovrCheck(count < limit, "Too many colliders!");
@@ -354,11 +353,11 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float x, float y, float
   collider->shape = shape ? shape : state.pointShape;
   collider->tag = UNTAGGED;
 
-  const JPH_RVec3 position = { x, y, z };
-  const JPH_Quat rotation = { 0.f, 0.f, 0.f, 1.f };
+  JPH_RVec3 p = { position[0], position[1], position[2] };
+  JPH_Quat q = { 0.f, 0.f, 0.f, 1.f };
   JPH_MotionType type = JPH_MotionType_Dynamic;
   JPH_ObjectLayer objectLayer = UNTAGGED * 2 + 1;
-  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(collider->shape->shape, &position, &rotation, type, objectLayer);
+  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(collider->shape->shape, &p, &q, type, objectLayer);
   collider->body = JPH_BodyInterface_CreateBody(world->bodies, settings);
   collider->id = JPH_Body_GetID(collider->body);
   JPH_BodyCreationSettings_Destroy(settings);
@@ -485,32 +484,32 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
   }
 }
 
-void lovrColliderGetShapeOffset(Collider* collider, float* position, float* orientation) {
+void lovrColliderGetShapeOffset(Collider* collider, float position[3], float orientation[4]) {
   const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
 
   if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
-    JPH_Vec3 jposition;
-    JPH_Quat jrotation;
-    JPH_RotatedTranslatedShape_GetPosition((JPH_RotatedTranslatedShape*) shape, &jposition);
-    JPH_RotatedTranslatedShape_GetRotation((JPH_RotatedTranslatedShape*) shape, &jrotation);
-    vec3_init(position, &jposition.x);
-    quat_init(orientation, &jrotation.x);
+    JPH_Vec3 p;
+    JPH_Quat q;
+    JPH_RotatedTranslatedShape_GetPosition((JPH_RotatedTranslatedShape*) shape, &p);
+    JPH_RotatedTranslatedShape_GetRotation((JPH_RotatedTranslatedShape*) shape, &q);
+    vec3_set(position, p.x, p.y, p.z);
+    quat_set(orientation, q.x, q.y, q.z, q.w);
   } else {
     vec3_set(position, 0.f, 0.f, 0.f);
     quat_identity(orientation);
   }
 }
 
-void lovrColliderSetShapeOffset(Collider* collider, float* position, float* orientation) {
+void lovrColliderSetShapeOffset(Collider* collider, float position[3], float orientation[4]) {
   const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
 
   if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
     JPH_Shape_Destroy((JPH_Shape*) shape);
   }
 
-  JPH_Vec3 jposition = { position[0], position[1], position[2] };
-  JPH_Quat jrotation = { orientation[0], orientation[1], orientation[2], orientation[3] };
-  shape = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(&jposition, &jrotation, collider->shape->shape);
+  JPH_Vec3 p = { position[0], position[1], position[2] };
+  JPH_Quat q = { orientation[0], orientation[1], orientation[2], orientation[3] };
+  shape = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(&p, &q, collider->shape->shape);
   bool updateMass = collider->shape && (collider->shape->type == SHAPE_MESH || collider->shape->type == SHAPE_TERRAIN);
   JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape, updateMass, JPH_Activation_Activate);
 }
@@ -646,74 +645,56 @@ void lovrColliderSetMass(Collider* collider, float mass) {
   JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, massProperties);
 }
 
-void lovrColliderGetMassData(Collider* collider, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+void lovrColliderGetMassData(Collider* collider, float centerOfMass[3], float* mass, float inertia[6]) {
   //
 }
 
-void lovrColliderSetMassData(Collider* collider, float cx, float cy, float cz, float mass, float inertia[6]) {
+void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float mass, float inertia[6]) {
   //
 }
 
-void lovrColliderGetPosition(Collider* collider, float* x, float* y, float* z) {
-  JPH_RVec3 position;
-  JPH_Body_GetPosition(collider->body, &position);
-  *x = position.x;
-  *y = position.y;
-  *z = position.z;
+void lovrColliderGetPosition(Collider* collider, float position[3]) {
+  JPH_RVec3 p;
+  JPH_Body_GetPosition(collider->body, &p);
+  vec3_set(position, p.x, p.y, p.z);
 }
 
-void lovrColliderSetPosition(Collider* collider, float x, float y, float z) {
-  JPH_RVec3 position = { x, y, z };
-  JPH_BodyInterface_SetPosition(collider->world->bodies, collider->id, &position, JPH_Activation_Activate);
+void lovrColliderSetPosition(Collider* collider, float position[3]) {
+  JPH_RVec3 p = { position[0], position[1], position[2] };
+  JPH_BodyInterface_SetPosition(collider->world->bodies, collider->id, &p, JPH_Activation_Activate);
 }
 
 void lovrColliderGetOrientation(Collider* collider, float* orientation) {
-  JPH_Quat quat;
-  JPH_Body_GetRotation(collider->body, &quat);
-  orientation[0] = quat.x;
-  orientation[1] = quat.y;
-  orientation[2] = quat.z;
-  orientation[3] = quat.w;
+  JPH_Quat q;
+  JPH_Body_GetRotation(collider->body, &q);
+  quat_set(orientation, q.x, q.y, q.z, q.w);
 }
 
 void lovrColliderSetOrientation(Collider* collider, float* orientation) {
-  JPH_Quat rotation = {
-   .x = orientation[0],
-   .y = orientation[1],
-   .z = orientation[2],
-   .w = orientation[3]
- };
-  JPH_BodyInterface_SetRotation(
-    collider->world->bodies,
-    collider->id,
-    &rotation,
-    JPH_Activation_Activate);
+  JPH_Quat q = { orientation[0], orientation[1], orientation[2], orientation[3] };
+  JPH_BodyInterface_SetRotation(collider->world->bodies, collider->id, &q, JPH_Activation_Activate);
 }
 
-void lovrColliderGetLinearVelocity(Collider* collider, float* x, float* y, float* z) {
-  JPH_Vec3 velocity;
-  JPH_BodyInterface_GetLinearVelocity(collider->world->bodies, collider->id, &velocity);
-  *x = velocity.x;
-  *y = velocity.y;
-  *z = velocity.z;
+void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {
+  JPH_Vec3 v;
+  JPH_BodyInterface_GetLinearVelocity(collider->world->bodies, collider->id, &v);
+  vec3_set(velocity, v.x, v.y, v.z);
 }
 
-void lovrColliderSetLinearVelocity(Collider* collider, float x, float y, float z) {
-  const JPH_Vec3 velocity = { x, y, z };
-  JPH_BodyInterface_SetLinearVelocity(collider->world->bodies, collider->id, &velocity);
+void lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]) {
+  JPH_Vec3 v = { velocity[0], velocity[1], velocity[2] };
+  JPH_BodyInterface_SetLinearVelocity(collider->world->bodies, collider->id, &v);
 }
 
-void lovrColliderGetAngularVelocity(Collider* collider, float* x, float* y, float* z) {
-  JPH_Vec3 velocity;
-  JPH_BodyInterface_GetAngularVelocity(collider->world->bodies, collider->id, &velocity);
-  *x = velocity.x;
-  *y = velocity.y;
-  *z = velocity.z;
+void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]) {
+  JPH_Vec3 v;
+  JPH_BodyInterface_GetAngularVelocity(collider->world->bodies, collider->id, &v);
+  vec3_set(velocity, v.x, v.y, v.z);
 }
 
-void lovrColliderSetAngularVelocity(Collider* collider, float x, float y, float z) {
-  JPH_Vec3 velocity = { x, y, z };
-  JPH_BodyInterface_SetAngularVelocity(collider->world->bodies, collider->id, &velocity);
+void lovrColliderSetAngularVelocity(Collider* collider, float velocity[3]) {
+  JPH_Vec3 v = { velocity[0], velocity[1], velocity[2] };
+  JPH_BodyInterface_SetAngularVelocity(collider->world->bodies, collider->id, &v);
 }
 
 void lovrColliderGetLinearDamping(Collider* collider, float* damping, float* threshold) {
@@ -744,104 +725,84 @@ void lovrColliderSetAngularDamping(Collider* collider, float damping, float thre
   }
 }
 
-void lovrColliderApplyForce(Collider* collider, float x, float y, float z) {
-  JPH_Vec3 force = { x, y, z };
-  JPH_BodyInterface_AddForce(collider->world->bodies, collider->id, &force);
+void lovrColliderApplyForce(Collider* collider, float force[3]) {
+  JPH_Vec3 f = { force[0], force[1], force[2] };
+  JPH_BodyInterface_AddForce(collider->world->bodies, collider->id, &f);
 }
 
-void lovrColliderApplyForceAtPosition(Collider* collider, float x, float y, float z, float cx, float cy, float cz) {
-  JPH_Vec3 force = { x, y, z };
-  JPH_RVec3 position = { cx, cy, cz };
-  JPH_BodyInterface_AddForce2(collider->world->bodies, collider->id, &force, &position);
+void lovrColliderApplyForceAtPosition(Collider* collider, float force[3], float position[3]) {
+  JPH_Vec3 f = { force[0], force[1], force[2] };
+  JPH_RVec3 p = { position[0], position[1], position[2] };
+  JPH_BodyInterface_AddForce2(collider->world->bodies, collider->id, &f, &p);
 }
 
-void lovrColliderApplyTorque(Collider* collider, float x, float y, float z) {
-  JPH_Vec3 torque = { x, y, z };
-  JPH_BodyInterface_AddTorque(collider->world->bodies, collider->id, &torque);
+void lovrColliderApplyTorque(Collider* collider, float torque[3]) {
+  JPH_Vec3 t = { torque[0], torque[1], torque[2] };
+  JPH_BodyInterface_AddTorque(collider->world->bodies, collider->id, &t);
 }
 
 void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]) {
-  JPH_Vec3 vector = { impulse[0], impulse[1], impulse[2] };
-  JPH_BodyInterface_AddImpulse(collider->world->bodies, collider->id, &vector);
+  JPH_Vec3 v = { impulse[0], impulse[1], impulse[2] };
+  JPH_BodyInterface_AddImpulse(collider->world->bodies, collider->id, &v);
 }
 
 void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]) {
-  JPH_Vec3 vector = { impulse[0], impulse[1], impulse[2] };
-  JPH_Vec3 point = { position[0], position[1], position[2] };
-  JPH_BodyInterface_AddImpulse2(collider->world->bodies, collider->id, &vector, &point);
+  JPH_Vec3 v = { impulse[0], impulse[1], impulse[2] };
+  JPH_Vec3 p = { position[0], position[1], position[2] };
+  JPH_BodyInterface_AddImpulse2(collider->world->bodies, collider->id, &v, &p);
 }
 
 void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
-  JPH_Vec3 vector = { impulse[0], impulse[1], impulse[2] };
-  JPH_BodyInterface_AddAngularImpulse(collider->world->bodies, collider->id, &vector);
+  JPH_Vec3 v = { impulse[0], impulse[1], impulse[2] };
+  JPH_BodyInterface_AddAngularImpulse(collider->world->bodies, collider->id, &v);
 }
 
-void lovrColliderGetLocalCenter(Collider* collider, float* x, float* y, float* z) {
+void lovrColliderGetLocalCenter(Collider* collider, float center[3]) {
   // todo: applicable for CompoundShape and OffsetCenterOfMassShape
-  *x = 0.f;
-  *y = 0.f;
-  *z = 0.f;
+  vec3_set(center, 0.f, 0.f, 0.f);
 }
 
-void lovrColliderGetLocalPoint(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
-  float position[4] = { wx, wy, wz, 1.f };
+void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3]) {
   JPH_RMatrix4x4 transform;
-  float* m = &transform.m11;
   JPH_Body_GetWorldTransform(collider->body, &transform);
-  mat4_invert(m);
-  mat4_mulVec4(m, position);
-  *x = position[0];
-  *y = position[1];
-  *z = position[2];
+  vec3_init(local, world);
+  mat4_invert(&transform.m11);
+  mat4_mulPoint(&transform.m11, local);
 }
 
-void lovrColliderGetWorldPoint(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
-  float position[4] = { x, y, z, 1.f };
+void lovrColliderGetWorldPoint(Collider* collider, float local[3], float world[3]) {
   JPH_RMatrix4x4 transform;
-  float* m = &transform.m11;
   JPH_Body_GetWorldTransform(collider->body, &transform);
-  mat4_mulVec4(m, position);
-  *wx = position[0];
-  *wy = position[1];
-  *wz = position[2];
+  vec3_init(world, local);
+  mat4_mulPoint(&transform.m11, world);
 }
 
-void lovrColliderGetLocalVector(Collider* collider, float wx, float wy, float wz, float* x, float* y, float* z) {
-  float direction[4] = { wx, wy, wz, 0.f };
+void lovrColliderGetLocalVector(Collider* collider, float world[3], float local[3]) {
   JPH_RMatrix4x4 transform;
-  float* m = &transform.m11;
   JPH_Body_GetWorldTransform(collider->body, &transform);
-  mat4_invert(m);
-  mat4_mulVec4(m, direction);
-  *x = direction[0];
-  *y = direction[1];
-  *z = direction[2];
+  vec3_init(local, world);
+  mat4_invert(&transform.m11);
+  mat4_mulDirection(&transform.m11, local);
 }
 
-void lovrColliderGetWorldVector(Collider* collider, float x, float y, float z, float* wx, float* wy, float* wz) {
-  float direction[4] = { x, y, z, 0.f };
+void lovrColliderGetWorldVector(Collider* collider, float local[3], float world[3]) {
   JPH_RMatrix4x4 transform;
-  float* m = &transform.m11;
   JPH_Body_GetWorldTransform(collider->body, &transform);
-  mat4_mulVec4(m, direction);
-  *wx = direction[0];
-  *wy = direction[1];
-  *wz = direction[2];
+  vec3_init(world, local);
+  mat4_mulDirection(&transform.m11, world);
 }
 
-void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float x, float y, float z, float* vx, float* vy, float* vz) {
+void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float point[3], float velocity[3]) {
   float wx, wy, wz;
-  lovrColliderGetWorldPoint(collider, x, y, z, &wx, &wy, &wz);
-  lovrColliderGetLinearVelocityFromWorldPoint(collider, wx, wy, wz, vx, vy, vz);
+  lovrColliderGetWorldPoint(collider, point, velocity);
+  lovrColliderGetLinearVelocityFromWorldPoint(collider, point, velocity);
 }
 
-void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float wx, float wy, float wz, float* vx, float* vy, float* vz) {
-  JPH_RVec3 point = { wx, wy, wz };
-  JPH_Vec3 velocity;
-  JPH_BodyInterface_GetPointVelocity(collider->world->bodies, collider->id, &point, &velocity);
-  *vx = velocity.x;
-  *vy = velocity.y;
-  *vz = velocity.z;
+void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float point[3], float velocity[3]) {
+  JPH_RVec3 p = { point[0], point[1], point[2] };
+  JPH_Vec3 v;
+  JPH_BodyInterface_GetPointVelocity(collider->world->bodies, collider->id, &p, &v);
+  vec3_set(velocity, v.x, v.y, v.z);
 }
 
 void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
@@ -882,7 +843,7 @@ ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
 }
 
-void lovrShapeGetMass(Shape* shape, float density, float* cx, float* cy, float* cz, float* mass, float inertia[6]) {
+void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]) {
   //
 }
 
@@ -918,22 +879,20 @@ float lovrSphereShapeGetRadius(SphereShape* sphere) {
   return JPH_SphereShape_GetRadius((JPH_SphereShape*) sphere->shape);
 }
 
-BoxShape* lovrBoxShapeCreate(float w, float h, float d) {
+BoxShape* lovrBoxShapeCreate(float dimensions[3]) {
   BoxShape* box = lovrCalloc(sizeof(BoxShape));
   box->ref = 1;
   box->type = SHAPE_BOX;
-  const JPH_Vec3 halfExtent = { w / 2.f, h / 2.f, d / 2.f };
+  const JPH_Vec3 halfExtent = { dimensions[0] / 2.f, dimensions[1] / 2.f, dimensions[2] / 2.f };
   box->shape = (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, 0.f);
   JPH_Shape_SetUserData(box->shape, (uint64_t) (uintptr_t) box);
   return box;
 }
 
-void lovrBoxShapeGetDimensions(BoxShape* box, float* w, float* h, float* d) {
+void lovrBoxShapeGetDimensions(BoxShape* box, float dimensions[3]) {
   JPH_Vec3 halfExtent;
   JPH_BoxShape_GetHalfExtent((JPH_BoxShape*) box->shape, &halfExtent);
-  *w = halfExtent.x * 2.f;
-  *h = halfExtent.y * 2.f;
-  *d = halfExtent.z * 2.f;
+  vec3_set(dimensions, halfExtent.x * 2.f, halfExtent.y * 2.f, halfExtent.z * 2.f);
 }
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
@@ -1097,7 +1056,7 @@ uint32_t lovrCompoundShapeGetChildCount(CompoundShape* shape) {
   return JPH_CompoundShape_GetNumSubShapes((JPH_CompoundShape*) shape->shape);
 }
 
-void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
+void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float position[3], float orientation[4]) {
   lovrCheck(index < lovrCompoundShapeGetChildCount(shape), "CompoundShape has no child at index %d", index + 1);
   const JPH_Shape* child;
   JPH_Vec3 pos;
@@ -1108,7 +1067,7 @@ void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float
   quat_init(orientation, &rot.x);
 }
 
-void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
+void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float position[3], float orientation[4]) {
   lovrCheck(!lovrCompoundShapeIsFrozen(shape), "CompoundShape is frozen and can not be changed");
   lovrCheck(index < lovrCompoundShapeGetChildCount(shape), "CompoundShape has no child at index %d", index + 1);
   JPH_Vec3 pos = { position[0], position[1], position[2] };
