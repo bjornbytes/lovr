@@ -201,6 +201,7 @@ struct Shape* luax_newsphereshape(lua_State* L, int index);
 struct Shape* luax_newboxshape(lua_State* L, int index);
 struct Shape* luax_newcapsuleshape(lua_State* L, int index);
 struct Shape* luax_newcylindershape(lua_State* L, int index);
+struct Shape* luax_newconvexshape(lua_State* L, int index);
 struct Shape* luax_newmeshshape(lua_State* L, int index);
 struct Shape* luax_newterrainshape(lua_State* L, int index);
 struct Shape* luax_newcompoundshape(lua_State* L, int index);

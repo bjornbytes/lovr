@@ -150,6 +150,19 @@ static int l_lovrWorldNewCylinderCollider(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldNewConvexCollider(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float position[3];
+  int index = luax_readvec3(L, 2, position, NULL);
+  ConvexShape* shape = luax_newconvexshape(L, index);
+  Collider* collider = lovrColliderCreate(world, shape, position);
+  lovrColliderInitInertia(collider, shape);
+  luax_pushtype(L, Collider, collider);
+  lovrRelease(collider, lovrColliderDestroy);
+  lovrRelease(shape, lovrShapeDestroy);
+  return 1;
+}
+
 static int l_lovrWorldNewSphereCollider(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float position[3];
@@ -530,6 +543,7 @@ const luaL_Reg lovrWorld[] = {
   { "newBoxCollider", l_lovrWorldNewBoxCollider },
   { "newCapsuleCollider", l_lovrWorldNewCapsuleCollider },
   { "newCylinderCollider", l_lovrWorldNewCylinderCollider },
+  { "newConvexCollider", l_lovrWorldNewConvexCollider },
   { "newSphereCollider", l_lovrWorldNewSphereCollider },
   { "newMeshCollider", l_lovrWorldNewMeshCollider },
   { "newTerrainCollider", l_lovrWorldNewTerrainCollider },

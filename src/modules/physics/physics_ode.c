@@ -1048,6 +1048,10 @@ float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
   return length;
 }
 
+ConvexShape* lovrConvexShapeCreate(float positions[], uint32_t count) {
+  lovrThrow("ODE does not support ConvexShape");
+}
+
 MeshShape* lovrMeshShapeCreate(int vertexCount, float* vertices, int indexCount, dTriIndex* indices) {
   MeshShape* mesh = lovrCalloc(sizeof(MeshShape));
   mesh->ref = 1;
@@ -1075,7 +1079,7 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
 }
 
 CompoundShape* lovrCompoundShapeCreate(Shape** shapes, float* positions, float* orientations, uint32_t count, bool freeze) {
-  lovrThrow("ODE does not support compound shape");
+  lovrThrow("ODE does not support CompoundShape");
 }
 
 bool lovrCompoundShapeIsFrozen(CompoundShape* shape) {

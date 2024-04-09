@@ -527,7 +527,7 @@ static void collectVertices(ModelData* model, uint32_t nodeIndex, float** vertic
       *baseIndex += positions->count;
     }
 
-    if (index) {
+    if (indices && index) {
       lovrAssert(index->type == U16 || index->type == U32, "Unreachable");
 
       char* data = (char*) model->buffers[index->buffer].data + index->offset;
@@ -558,19 +558,18 @@ void lovrModelDataGetTriangles(ModelData* model, float** vertices, uint32_t** in
   }
 
   if (vertices && !model->vertices) {
+    uint32_t* tempIndices;
     uint32_t baseIndex = 0;
     model->vertices = lovrMalloc(model->totalVertexCount * 3 * sizeof(float));
     model->indices = lovrMalloc(model->totalIndexCount * sizeof(uint32_t));
     *vertices = model->vertices;
-    *indices = model->indices;
-    collectVertices(model, model->rootNode, vertices, indices, &baseIndex, (float[16]) MAT4_IDENTITY);
+    tempIndices = model->indices;
+    collectVertices(model, model->rootNode, vertices, &tempIndices, &baseIndex, (float[16]) MAT4_IDENTITY);
   }
 
-  *vertexCount = model->totalVertexCount;
-  *indexCount = model->totalIndexCount;
+  if (vertexCount) *vertexCount = model->totalVertexCount;
+  if (indexCount) *indexCount = model->totalIndexCount;
 
-  if (vertices) {
-    *vertices = model->vertices;
-    *indices = model->indices;
-  }
+  if (vertices) *vertices = model->vertices;
+  if (indices) *indices = model->indices;
 }

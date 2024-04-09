@@ -12,6 +12,7 @@ void luax_pushshape(lua_State* L, Shape* shape) {
     case SHAPE_BOX: luax_pushtype(L, BoxShape, shape); break;
     case SHAPE_CAPSULE: luax_pushtype(L, CapsuleShape, shape); break;
     case SHAPE_CYLINDER: luax_pushtype(L, CylinderShape, shape); break;
+    case SHAPE_CONVEX: luax_pushtype(L, ConvexShape, shape); break;
     case SHAPE_MESH: luax_pushtype(L, MeshShape, shape); break;
     case SHAPE_TERRAIN: luax_pushtype(L, TerrainShape, shape); break;
     case SHAPE_COMPOUND: luax_pushtype(L, CompoundShape, shape); break;
@@ -28,6 +29,7 @@ Shape* luax_checkshape(lua_State* L, int index) {
       hash64("BoxShape", strlen("BoxShape")),
       hash64("CapsuleShape", strlen("CapsuleShape")),
       hash64("CylinderShape", strlen("CylinderShape")),
+      hash64("ConvexShape", strlen("ConvexShape")),
       hash64("MeshShape", strlen("MeshShape")),
       hash64("TerrainShape", strlen("TerrainShape")),
       hash64("CompoundShape", strlen("CompoundShape"))
@@ -65,6 +67,16 @@ Shape* luax_newcylindershape(lua_State* L, int index) {
   float radius = luax_optfloat(L, index + 0, 1.f);
   float length = luax_optfloat(L, index + 1, 1.f);
   return lovrCylinderShapeCreate(radius, length);
+}
+
+Shape* luax_newconvexshape(lua_State* L, int index) {
+  float* points;
+  uint32_t count;
+  bool shouldFree;
+  luax_readmesh(L, index, &points, &count, NULL, NULL, &shouldFree);
+  ConvexShape* shape = lovrConvexShapeCreate(points, count);
+  if (shouldFree) lovrFree(points);
+  return shape;
 }
 
 Shape* luax_newmeshshape(lua_State* L, int index) {
@@ -368,6 +380,11 @@ const luaL_Reg lovrCylinderShape[] = {
   lovrShape,
   { "getRadius", l_lovrCylinderShapeGetRadius },
   { "getLength", l_lovrCylinderShapeGetLength },
+  { NULL, NULL }
+};
+
+const luaL_Reg lovrConvexShape[] = {
+  lovrShape,
   { NULL, NULL }
 };
 

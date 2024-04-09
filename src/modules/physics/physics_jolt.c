@@ -915,6 +915,16 @@ float lovrCylinderShapeGetLength(CylinderShape* cylinder) {
   return JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) cylinder->shape) * 2.f;
 }
 
+ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count) {
+  ConvexShape* convex = lovrCalloc(sizeof(ConvexShape));
+  convex->ref = 1;
+  convex->type = SHAPE_CONVEX;
+  JPH_ConvexHullShapeSettings* settings = JPH_ConvexHullShapeSettings_Create((const JPH_Vec3*) points, count, .05f);
+  convex->shape = (JPH_Shape*) JPH_ConvexHullShapeSettings_CreateShape(settings);
+  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
+  return convex;
+}
+
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]) {
   MeshShape* mesh = lovrCalloc(sizeof(MeshShape));
   mesh->ref = 1;

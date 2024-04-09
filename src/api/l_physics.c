@@ -7,6 +7,7 @@ StringEntry lovrShapeType[] = {
   [SHAPE_BOX] = ENTRY("box"),
   [SHAPE_CAPSULE] = ENTRY("capsule"),
   [SHAPE_CYLINDER] = ENTRY("cylinder"),
+  [SHAPE_CONVEX] = ENTRY("convex"),
   [SHAPE_MESH] = ENTRY("mesh"),
   [SHAPE_TERRAIN] = ENTRY("terrain"),
   [SHAPE_COMPOUND] = ENTRY("compound"),
@@ -121,6 +122,13 @@ static int l_lovrPhysicsNewCapsuleShape(lua_State* L) {
   return 1;
 }
 
+static int l_lovrPhysicsNewConvexShape(lua_State* L) {
+  ConvexShape* convex = luax_newconvexshape(L, 1);
+  luax_pushtype(L, ConvexShape, convex);
+  lovrRelease(convex, lovrShapeDestroy);
+  return 1;
+}
+
 static int l_lovrPhysicsNewCylinderShape(lua_State* L) {
   CylinderShape* cylinder = luax_newcylindershape(L, 1);
   luax_pushtype(L, CylinderShape, cylinder);
@@ -196,6 +204,7 @@ static const luaL_Reg lovrPhysics[] = {
   { "newBallJoint", l_lovrPhysicsNewBallJoint },
   { "newBoxShape", l_lovrPhysicsNewBoxShape },
   { "newCapsuleShape", l_lovrPhysicsNewCapsuleShape },
+  { "newConvexShape", l_lovrPhysicsNewConvexShape },
   { "newCylinderShape", l_lovrPhysicsNewCylinderShape },
   { "newDistanceJoint", l_lovrPhysicsNewDistanceJoint },
   { "newHingeJoint", l_lovrPhysicsNewHingeJoint },
@@ -217,6 +226,7 @@ extern const luaL_Reg lovrSphereShape[];
 extern const luaL_Reg lovrBoxShape[];
 extern const luaL_Reg lovrCapsuleShape[];
 extern const luaL_Reg lovrCylinderShape[];
+extern const luaL_Reg lovrConvexShape[];
 extern const luaL_Reg lovrMeshShape[];
 extern const luaL_Reg lovrTerrainShape[];
 extern const luaL_Reg lovrCompoundShape[];
@@ -234,6 +244,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, BoxShape);
   luax_registertype(L, CapsuleShape);
   luax_registertype(L, CylinderShape);
+  luax_registertype(L, ConvexShape);
   luax_registertype(L, MeshShape);
   luax_registertype(L, TerrainShape);
   luax_registertype(L, CompoundShape);

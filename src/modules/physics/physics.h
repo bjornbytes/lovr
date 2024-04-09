@@ -17,6 +17,7 @@ typedef Shape SphereShape;
 typedef Shape BoxShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
+typedef Shape ConvexShape;
 typedef Shape MeshShape;
 typedef Shape TerrainShape;
 typedef Shape CompoundShape;
@@ -157,6 +158,7 @@ typedef enum {
   SHAPE_BOX,
   SHAPE_CAPSULE,
   SHAPE_CYLINDER,
+  SHAPE_CONVEX,
   SHAPE_MESH,
   SHAPE_TERRAIN,
   SHAPE_COMPOUND
@@ -182,6 +184,8 @@ CylinderShape* lovrCylinderShapeCreate(float radius, float length);
 float lovrCylinderShapeGetRadius(CylinderShape* cylinder);
 float lovrCylinderShapeGetLength(CylinderShape* cylinder);
 
+ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count);
+
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]);
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY);
@@ -201,6 +205,7 @@ void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float
 #define lovrBoxShapeDestroy lovrShapeDestroy
 #define lovrCapsuleShapeDestroy lovrShapeDestroy
 #define lovrCylinderShapeDestroy lovrShapeDestroy
+#define lovrConvexShapeDestroy lovrShapeDestroy
 #define lovrMeshShapeDestroy lovrShapeDestroy
 #define lovrTerrainShapeDestroy lovrShapeDestroy
 #define lovrCompoundShapeDestroy lovrShapeDestroy
