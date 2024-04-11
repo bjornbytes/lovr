@@ -114,8 +114,8 @@ Shape* luax_newterrainshape(lua_State* L, int index) {
     uint32_t n = luax_optu32(L, index + 1, 100);
     float* vertices = lovrMalloc(sizeof(float) * n * n);
     for (uint32_t i = 0; i < n * n; i++) {
-      float x = scaleXZ * (-.5f + ((float) (i % n)) / n);
-      float z = scaleXZ * (-.5f + ((float) (i / n)) / n);
+      float x = scaleXZ * (-.5f + ((float) (i % n)) / (n - 1));
+      float z = scaleXZ * (-.5f + ((float) (i / n)) / (n - 1));
       lua_pushvalue(L, index);
       lua_pushnumber(L, x);
       lua_pushnumber(L, z);

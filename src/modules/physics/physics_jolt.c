@@ -623,10 +623,10 @@ float lovrColliderGetMass(Collider* collider) {
 void lovrColliderSetMass(Collider* collider, float mass) {
   JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
   Shape* shape = collider->shape;
-  JPH_MassProperties* massProperties;
-  JPH_Shape_GetMassProperties(shape->shape, massProperties);
-  JPH_MassProperties_ScaleToMass(massProperties, mass);
-  JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, massProperties);
+  JPH_MassProperties massProperties;
+  JPH_Shape_GetMassProperties(shape->shape, &massProperties);
+  JPH_MassProperties_ScaleToMass(&massProperties, mass);
+  JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, &massProperties);
 }
 
 void lovrColliderGetMassData(Collider* collider, float centerOfMass[3], float* mass, float inertia[6]) {
@@ -964,9 +964,9 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
     .z = -.5f * scaleXZ
   };
   const JPH_Vec3 scale = {
-    .x = scaleXZ / n,
+    .x = scaleXZ / (n - 1),
     .y = scaleY,
-    .z = scaleXZ / n
+    .z = scaleXZ / (n - 1)
   };
 
   JPH_HeightFieldShapeSettings* shape_settings = JPH_HeightFieldShapeSettings_Create(vertices, &offset, &scale, n);
