@@ -964,9 +964,9 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
     .z = -.5f * scaleXZ
   };
   const JPH_Vec3 scale = {
-    .x = scaleXZ / n,
+    .x = scaleXZ / (n - 1),
     .y = scaleY,
-    .z = scaleXZ / n
+    .z = scaleXZ / (n - 1)
   };
 
   JPH_HeightFieldShapeSettings* shape_settings = JPH_HeightFieldShapeSettings_Create(vertices, &offset, &scale, n);
