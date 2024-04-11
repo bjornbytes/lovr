@@ -623,10 +623,10 @@ float lovrColliderGetMass(Collider* collider) {
 void lovrColliderSetMass(Collider* collider, float mass) {
   JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
   Shape* shape = collider->shape;
-  JPH_MassProperties* massProperties;
-  JPH_Shape_GetMassProperties(shape->shape, massProperties);
-  JPH_MassProperties_ScaleToMass(massProperties, mass);
-  JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, massProperties);
+  JPH_MassProperties massProperties;
+  JPH_Shape_GetMassProperties(shape->shape, &massProperties);
+  JPH_MassProperties_ScaleToMass(&massProperties, mass);
+  JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, &massProperties);
 }
 
 void lovrColliderGetMassData(Collider* collider, float centerOfMass[3], float* mass, float inertia[6]) {
