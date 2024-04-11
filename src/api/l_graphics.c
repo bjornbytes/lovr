@@ -799,6 +799,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     }
   } else {
     info.imageCount = 1;
+    info.images = images;
     images[0] = luax_checkimage(L, index++);
     info.layers = lovrImageGetLayerCount(images[0]);
     if (lovrImageIsCube(images[0])) {
