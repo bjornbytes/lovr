@@ -686,42 +686,7 @@ static int l_lovrPassSend(lua_State* L) {
     lua_pushinteger(L, value);
   }
 
-  if (format->length > 0) {
-    luaL_checktype(L, 3, LUA_TTABLE);
-    if (format->fieldCount > 1) {
-      lua_rawgeti(L, 3, 1);
-      lovrCheck(lua_type(L, -1) == LUA_TTABLE, "Expected table of tables");
-      bool dictionary = luax_len(L, -1) == 0;
-      lua_pop(L, 1);
-
-      // Nested structs/arrays don't support the "tuple" table format
-      for (uint32_t i = 0; i < format->fieldCount; i++) {
-        if (format->fields[i].fieldCount > 0 || format->fields[i].length > 0) {
-          dictionary = true;
-          break;
-        }
-      }
-
-      if (dictionary) {
-        luax_checkdatakeys(L, 3, 1, format->length, format, data);
-      } else {
-        luax_checkdatatuples(L, 3, 1, format->length, format, data);
-      }
-    } else {
-      luax_checkfieldarray(L, 3, format, data);
-    }
-  } else if (format->fieldCount > 1) {
-    luaL_checktype(L, 3, LUA_TTABLE);
-    luax_checkstruct(L, 3, format->fields, format->fieldCount, data);
-  } else if (lua_type(L, 3) == LUA_TNUMBER) {
-    luax_checkfieldn(L, 3, format->type, data);
-  } else if (lua_isuserdata(L, 3)) {
-    luax_checkfieldv(L, 3, format->type, data);
-  } else if (lua_istable(L, 3)) {
-    luax_checkfieldt(L, 3, format->type, data);
-  } else {
-    return luax_typeerror(L, 3, "number, vector, or table");
-  }
+  luax_checkbufferdata(L, 3, format, data);
 
   return 0;
 }

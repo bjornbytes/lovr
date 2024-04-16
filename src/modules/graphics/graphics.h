@@ -158,6 +158,7 @@ typedef struct DataField {
   uint32_t stride;
   uint32_t fieldCount;
   struct DataField* fields;
+  struct DataField* parent;
 } DataField;
 
 typedef enum {
@@ -172,7 +173,6 @@ typedef struct {
   uint32_t size;
   uint32_t fieldCount;
   DataField* format;
-  bool complexFormat;
   const char* label;
   uintptr_t handle;
 } BufferInfo;

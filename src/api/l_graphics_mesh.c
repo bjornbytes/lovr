@@ -83,7 +83,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
     uint32_t count = luax_optu32(L, 4, limit);
     lovrCheck(length <= limit, "Table does not have enough data to set %d items", count);
     void* data = lovrMeshSetVertices(mesh, index, count);
-    luax_checkdatatuples(L, 2, 1, count, format, data);
+    luax_checkbufferdata(L, 2, format, data);
   } else {
     return luax_typeerror(L, 2, "table or Blob");
   }

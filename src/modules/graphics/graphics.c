@@ -74,6 +74,7 @@ struct Buffer {
   Sync sync;
   gpu_buffer* gpu;
   BufferBlock* block;
+  bool complexFormat;
   BufferInfo info;
 };
 
@@ -1851,6 +1852,11 @@ uint32_t lovrGraphicsAlignFields(DataField* parent, DataLayout layout) {
   uint32_t extent = 0;
   uint32_t align = 1;
 
+  if (parent->fieldCount == 0) {
+    align = layout == LAYOUT_PACKED ? table[parent->type].scalarAlign : table[parent->type].baseAlign;
+    extent = table[parent->type].size;
+  }
+
   for (uint32_t i = 0; i < parent->fieldCount; i++) {
     DataField* field = &parent->fields[i];
     uint32_t length = MAX(field->length, 1);
@@ -1901,12 +1907,11 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   buffer->info.fieldCount = fieldCount;
 
   if (info->format) {
-    lovrCheck(info->format->length > 0, "Buffer length can not be zero");
     char* names = (char*) buffer + sizeof(Buffer);
     DataField* format = buffer->info.format = (DataField*) (names + charCount);
     memcpy(format, info->format, fieldCount * sizeof(DataField));
 
-    // Copy names, hash names, fixup children pointers
+    // Copy names, hash names, fixup children pointers, set parent pointers
     for (uint32_t i = 0; i < fieldCount; i++) {
       if (format[i].name) {
         size_t length = strlen(format[i].name);
@@ -1927,6 +1932,15 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
       format->fields = format + 1;
     }
 
+    // Set parent pointers
+    for (uint32_t i = 0; i < fieldCount; i++) {
+      if (format[i].fields) {
+        for (uint32_t j = 0; j < format[i].fieldCount; j++) {
+          format[i].fields[j].parent = &format[i];
+        }
+      }
+    }
+
     // Size is optional, and can be computed from format
     if (buffer->info.size == 0) {
       buffer->info.size = format->stride * MAX(format->length, 1);
@@ -1935,7 +1949,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
     // Formats with array/struct fields have extra restrictions, cache it
     for (uint32_t i = 0; i < format->fieldCount; i++) {
       if (format->fields[i].fieldCount > 0 || format->fields[i].length > 0) {
-        buffer->info.complexFormat = true;
+        buffer->complexFormat = true;
         break;
       }
     }
@@ -3035,19 +3049,9 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       if (buffer && resource->bufferFields) {
         spv_field* field = &resource->bufferFields[0];
 
-        // The following conversions take place, for convenience and to better match Buffer formats:
-        // - Struct containing either single struct or single array of structs gets unwrapped
-        // - Struct containing single array of non-structs gets converted to array of single-field structs
-        if (field->fieldCount == 1 && field->totalFieldCount > 1) {
+        // Struct containing single item gets unwrapped
+        if (field->fieldCount == 1) {
           field = &field->fields[0];
-        } else if (field->totalFieldCount == 1 && field->fields[0].arrayLength > 0) {
-          spv_field* child = &field->fields[0];
-          field->arrayLength = child->arrayLength;
-          field->arrayStride = child->arrayStride;
-          field->elementSize = child->elementSize;
-          field->type = child->type;
-          child->arrayLength = 0;
-          child->arrayStride = 0;
         }
 
         shader->resources[index].fieldCount = field->totalFieldCount + 1;
@@ -3934,7 +3938,7 @@ Mesh* lovrMeshCreate(const MeshInfo* info, void** vertices) {
 
   if (buffer) {
     lovrCheck(buffer->info.format, "Mesh vertex buffer must have format information");
-    lovrCheck(!buffer->info.complexFormat, "Mesh vertex buffer must use a format without nested types or arrays");
+    lovrCheck(!buffer->complexFormat, "Mesh vertex buffer must use a format without nested types or arrays");
     lovrCheck(info->storage == MESH_GPU, "Mesh storage must be 'gpu' when created from a Buffer");
     lovrRetain(buffer);
   } else {
@@ -3949,8 +3953,8 @@ Mesh* lovrMeshCreate(const MeshInfo* info, void** vertices) {
   lovrCheck(format->stride <= state.limits.vertexBufferStride, "Mesh vertex buffer stride exceeds the vertexBufferStride limit of this GPU");
   lovrCheck(format->fieldCount <= state.limits.vertexAttributes, "Mesh attribute count exceeds the vertexAttributes limit of this GPU");
 
-  for (uint32_t i = 0; i < format->fieldCount; i++) {
-    const DataField* attribute = &format->fields[i];
+  for (uint32_t i = 0; i < MAX(format->fieldCount, 1); i++) {
+    const DataField* attribute = format->fieldCount > 0 ? &format->fields[i] : format;
     lovrCheck(attribute->offset < 256, "Max Mesh attribute offset is 255"); // Limited by u8 gpu_attribute offset
     lovrCheck(attribute->type < TYPE_MAT2 || attribute->type > TYPE_MAT4, "Currently, Mesh attributes can not use matrix types");
     lovrCheck(attribute->type < TYPE_INDEX16 || attribute->type > TYPE_INDEX32, "Mesh attributes can not use index types");
@@ -4011,12 +4015,14 @@ void lovrMeshSetIndexBuffer(Mesh* mesh, Buffer* buffer) {
 
   DataField* format = buffer->info.format;
   lovrCheck(format, "Mesh index buffer must have been created with a format");
-  DataType type = format[1].type;
-  if (format->fieldCount > 1 || (type != TYPE_U16 && type != TYPE_U32 && type != TYPE_INDEX16 && type != TYPE_INDEX32)) {
+  lovrCheck(format->length > 0, "Mesh index buffer length can not be zero");
+
+  DataType type = format->type;
+  if (format->fieldCount > 0 || (type != TYPE_U16 && type != TYPE_U32 && type != TYPE_INDEX16 && type != TYPE_INDEX32)) {
     lovrThrow("Mesh index buffer must use the u16, u32, index16, or index32 type");
   } else {
     uint32_t stride = (type == TYPE_U16 || type == TYPE_INDEX16) ? 2 : 4;
-    lovrCheck(format->stride == stride && format[1].offset == 0, "Mesh index buffer must be tightly packed");
+    lovrCheck(format->stride == stride && format->offset == 0, "Mesh index buffer must be tightly packed");
   }
 
   lovrRelease(mesh->indexBuffer, lovrBufferDestroy);
@@ -4057,7 +4063,7 @@ void* lovrMeshGetIndices(Mesh* mesh, uint32_t* count, DataType* type) {
   }
 
   *count = mesh->indexCount;
-  *type = mesh->indexBuffer->info.format[1].type;
+  *type = mesh->indexBuffer->info.format->type;
 
   if (mesh->storage == MESH_CPU) {
     return mesh->indices;
@@ -4071,14 +4077,11 @@ void* lovrMeshSetIndices(Mesh* mesh, uint32_t count, DataType type) {
   mesh->indexCount = count;
   mesh->dirtyIndices = true;
 
-  if (!mesh->indexBuffer || count > format->length || type != format[1].type) {
+  if (!mesh->indexBuffer || count > format->length || type != format->type) {
     lovrRelease(mesh->indexBuffer, lovrBufferDestroy);
     uint32_t stride = (type == TYPE_U16 || type == TYPE_INDEX16) ? 2 : 4;
-    DataField format[2] = {
-      { .length = count, .stride = stride, .fieldCount = 1 },
-      { .type = type }
-    };
-    BufferInfo info = { .format = format };
+    DataField format = { .length = count, .stride = stride, .type = type };
+    BufferInfo info = { .format = &format };
     if (mesh->storage == MESH_CPU) {
       mesh->indexBuffer = lovrBufferCreate(&info, NULL);
       mesh->indices = realloc(mesh->indices, count * stride);
@@ -4100,8 +4103,8 @@ static float* lovrMeshGetPositions(Mesh* mesh) {
   if (mesh->storage == MESH_GPU) return NULL;
   const DataField* format = lovrMeshGetVertexFormat(mesh);
   uint32_t positionHash = (uint32_t) hash64("VertexPosition", strlen("VertexPosition"));
-  for (uint32_t i = 0; i < format->fieldCount; i++) {
-    const DataField* attribute = &format->fields[i];
+  for (uint32_t i = 0; i < MAX(format->fieldCount, 1); i++) {
+    const DataField* attribute = format->fieldCount > 0 ? &format->fields[i] : format;
     if (attribute->type != TYPE_F32x3) continue;
     if ((attribute->hash == LOCATION_POSITION || attribute->hash == positionHash)) {
       return (float*) ((char*) mesh->vertices + attribute->offset);
@@ -4128,7 +4131,7 @@ void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint
   if (mesh->indexCount > 0) {
     *indexCount = mesh->indexCount;
     *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
-    if (mesh->indexBuffer->info.format[1].type == TYPE_U16 || mesh->indexBuffer->info.format[1].type == TYPE_INDEX16) {
+    if (mesh->indexBuffer->info.format->type == TYPE_U16 || mesh->indexBuffer->info.format->type == TYPE_INDEX16) {
       for (uint32_t i = 0; i < mesh->indexCount; i++) {
         *indices[i] = (uint32_t) ((uint16_t*) mesh->indices)[i];
       }
@@ -4378,13 +4381,13 @@ Model* lovrModelCreate(const ModelInfo* info) {
     }, 1);
   }
 
+  DataType indexType = data->indexType == U32 ? TYPE_INDEX32 : TYPE_INDEX16;
   uint32_t indexSize = data->indexType == U32 ? 4 : 2;
 
   if (data->indexCount > 0) {
     model->indexBuffer = lovrBufferCreate(&(BufferInfo) {
       .format = (DataField[]) {
-        { .length = data->indexCount, .stride = indexSize, .fieldCount = 1 },
-        { .type = data->indexType == U32 ? TYPE_INDEX32 : TYPE_INDEX16 }
+        { .length = data->indexCount, .stride = indexSize, .type = indexType }
       }
     }, (void**) &indexData);
   }
@@ -5916,8 +5919,8 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
       ShaderAttribute* attribute = &shader->attributes[i];
       bool found = false;
 
-      for (uint32_t j = 0; j < format->fieldCount; j++) {
-        DataField* field = &format->fields[j];
+      for (uint32_t j = 0; j < MAX(format->fieldCount, 1); j++) {
+        const DataField* field = format->fieldCount > 0 ? &format->fields[j] : format;
         if (field->hash == attribute->hash || field->hash == attribute->location) {
           lovrCheck(field->type < TYPE_MAT2, "Currently vertex attributes can not use matrix or index types");
           pipeline->info.vertex.attributes[i] = (gpu_attribute) {
@@ -7106,7 +7109,7 @@ void lovrPassDrawTexture(Pass* pass, Texture* texture, float* transform) {
 void lovrPassMesh(Pass* pass, Buffer* vertices, Buffer* indices, float* transform, uint32_t start, uint32_t count, uint32_t instances, uint32_t baseVertex) {
   lovrCheck(!indices || indices->info.format, "Buffer must have been created with a format to use it as a%s buffer", "n index");
   lovrCheck(!vertices || vertices->info.format, "Buffer must have been created with a format to use it as a%s buffer", " vertex");
-  lovrCheck(!vertices || !vertices->info.complexFormat, "Vertex buffers must use a simple format without nested types or arrays");
+  lovrCheck(!vertices || !vertices->complexFormat, "Vertex buffers must use a simple format without nested types or arrays");
 
   if (count == ~0u) {
     if (indices || vertices) {

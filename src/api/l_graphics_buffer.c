@@ -62,11 +62,67 @@ typedef union {
   float* f32;
 } DataPointer;
 
-void luax_checkfieldn(lua_State* L, int index, int type, void* data) {
+#ifndef LOVR_UNCHECKED
+#define luax_fieldcheck(L, cond, index, field, arr) if (!(cond)) luax_fielderror(L, index, field, arr)
+#else
+#define luax_fieldcheck(L, cond, index, field, arr) ((void) 0)
+#endif
+
+static void luax_fielderror(lua_State* L, int index, const DataField* field, bool arr) {
+  if (index < 0) index += lua_gettop(L) + 1;
+
+  if (!field->parent) {
+    lua_pushliteral(L, "buffer data");
+  } else if (!field->name) {
+    lua_pushliteral(L, "<anonymous>");
+  } else {
+    lua_pushstring(L, field->name);
+    DataField* parent = field->parent;
+    while (parent && parent->name) {
+      if (parent->length > 0) {
+        lua_pushfstring(L, "%s[]", parent->name);
+      } else {
+        lua_pushstring(L, parent->name);
+      }
+      lua_insert(L, -2);
+      lua_pushliteral(L, ".");
+      lua_insert(L, -2);
+      lua_concat(L, 3);
+      parent = parent->parent;
+    }
+    lua_pushliteral(L, "'");
+    lua_insert(L, -2);
+    lua_pushliteral(L, "'");
+    lua_concat(L, 3);
+  }
+
+  const char* kind;
+  const char* expected;
+  if (arr && field->length > 0) {
+    kind = "array";
+    expected = "table";
+  } else if (field->fieldCount > 0) {
+    kind = "struct";
+    expected = "table";
+  } else if (typeComponents[field->type] > 1) {
+    kind = "vector";
+    expected = "number, table, or vector";
+  } else {
+    kind = "scalar";
+    expected = "number";
+  }
+
+  const char* name = lua_tostring(L, -1);
+  const char* typename = luaL_typename(L, index);
+  luaL_error(L, "Bad type for %s %s: %s expected, got %s", kind, name, expected, typename);
+}
+
+static void luax_checkfieldn(lua_State* L, int index, const DataField* field, void* data) {
   DataPointer p = { .raw = data };
-  for (uint32_t i = 0; i < typeComponents[type]; i++) {
+  for (uint32_t i = 0; i < typeComponents[field->type]; i++) {
+    luax_fieldcheck(L, lua_type(L, index + i) == LUA_TNUMBER, index + i, field, false);
     double x = lua_tonumber(L, index + i);
-    switch (type) {
+    switch (field->type) {
       case TYPE_I8x4: p.i8[i] = (int8_t) x; break;
       case TYPE_U8x4: p.u8[i] = (uint8_t) x; break;
       case TYPE_SN8x4: p.i8[i] = (int8_t) CLAMP(x, -1.f, 1.f) * INT8_MAX; break;
@@ -107,19 +163,18 @@ void luax_checkfieldn(lua_State* L, int index, int type, void* data) {
   }
 }
 
-void luax_checkfieldv(lua_State* L, int index, int type, void* data) {
+static void luax_checkfieldv(lua_State* L, int index, const DataField* field, void* data) {
   DataPointer p = { .raw = data };
-  uint32_t n = typeComponents[type];
-  lovrCheck(n > 1, "Expected number for scalar data type, got vector");
   VectorType vectorType;
   float* v = luax_tovector(L, index, &vectorType);
-  lovrCheck(v, "Expected vector, got non-vector userdata");
-  if (n >= TYPE_MAT2 && n <= TYPE_MAT4) {
+  uint32_t n = typeComponents[field->type];
+  luax_fieldcheck(L, v && n > 1, index, field, false);
+  if (field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4) {
     lovrCheck(vectorType == V_MAT4, "Tried to send a non-matrix to a matrix type");
   } else {
     lovrCheck(vectorComponents[vectorType] == n, "Expected %d vector components, got %d", n, vectorComponents[vectorType]);
   }
-  switch (type) {
+  switch (field->type) {
     case TYPE_I8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) v[i]; break;
     case TYPE_U8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) v[i]; break;
     case TYPE_SN8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
@@ -152,176 +207,121 @@ void luax_checkfieldv(lua_State* L, int index, int type, void* data) {
   }
 }
 
-void luax_checkfieldt(lua_State* L, int index, int type, void* data) {
+static void luax_checkfieldt(lua_State* L, int index, const DataField* field, void* data) {
+  luax_fieldcheck(L, lua_istable(L, index), index, field, false);
   if (index < 0) index += lua_gettop(L) + 1;
-  int n = typeComponents[type];
-  for (int i = 0; i < n; i++) {
-    lua_rawgeti(L, index, i + 1);
+  int n = typeComponents[field->type];
+  for (int i = 1; i <= n; i++) {
+    lua_rawgeti(L, index, i);
   }
-  luax_checkfieldn(L, -n, type, data);
+  luax_checkfieldn(L, -n, field, data);
   lua_pop(L, n);
 }
 
-uint32_t luax_checkfieldarray(lua_State* L, int index, const DataField* array, char* data) {
-  int components = typeComponents[array->type];
+static void luax_checkstruct(lua_State* L, int index, const DataField* structure, char* data) {
+  luax_fieldcheck(L, lua_istable(L, index), index, structure, false);
+  if (index < 0) index += lua_gettop(L) + 1;
   uint32_t length = luax_len(L, index);
+  uint32_t f = 0;
 
-  if (components == 1) {
-    uint32_t count = MIN(length, array->length);
-    for (uint32_t i = 0; i < count; i++, data += array->stride) {
-      lua_rawgeti(L, index, i + 1);
-      luax_checkfieldn(L, -1, array->type, data);
+  // Number keys
+  for (uint32_t i = 1; i <= length && f < structure->fieldCount; f++) {
+    lua_rawgeti(L, index, i);
+    const DataField* field = &structure->fields[f];
+    if (field->length == 0 && field->fieldCount == 0 && lua_type(L, -1) == LUA_TNUMBER) {
+      int n = typeComponents[field->type];
+      for (int c = 1; c < n; c++) lua_rawgeti(L, index, i + c);
+      luax_checkfieldn(L, -n, field, data + field->offset);
+      lua_pop(L, n);
+      i += n;
+    } else {
+      luax_checkbufferdata(L, -1, field, data + field->offset);
       lua_pop(L, 1);
-    }
-    return count;
-  }
-
-  lua_rawgeti(L, index, 1);
-  int innerType = lua_type(L, -1);
-  lua_pop(L, 1);
-
-  uint32_t count;
-
-  switch (innerType) {
-    case LUA_TNUMBER:
-      if (index < 0) index += lua_gettop(L) + 1;
-      count = MIN(array->length, length / components);
-      lovrCheck(length % components == 0, "Table length for key '%s' must be divisible by %d", array->name, components);
-      for (uint32_t i = 0; i < count; i++, data += array->stride) {
-        for (int j = 1; j <= components; j++) {
-          lua_rawgeti(L, index, i * components + j);
-        }
-        luax_checkfieldn(L, -components, array->type, data);
-        lua_pop(L, components);
-      }
-      break;
-    case LUA_TUSERDATA:
-    case LUA_TLIGHTUSERDATA:
-      count = MIN(array->length, length);
-      for (uint32_t i = 0; i < count; i++, data += array->stride) {
-        lua_rawgeti(L, index, i + 1);
-        luax_checkfieldv(L, -1, array->type, data);
-        lua_pop(L, 1);
-      }
-      break;
-    case LUA_TTABLE:
-      count = MIN(array->length, length);
-      for (uint32_t i = 0; i < count; i++, data += array->stride) {
-        lua_rawgeti(L, index, i + 1);
-        luax_checkfieldt(L, -1, array->type, data);
-        lua_pop(L, 1);
-      }
-      break;
-    case LUA_TNIL:
-      count = 0;
-      break;
-  }
-
-  return count;
-}
-
-void luax_checkdataflat(lua_State* L, int index, int subindex, uint32_t count, const DataField* format, char* data) {
-  for (uint32_t i = 0; i < count; i++, data += format->stride) {
-    for (uint32_t f = 0; f < format->fieldCount; f++) {
-      int n = 1;
-      lua_rawgeti(L, index, subindex++);
-      const DataField* field = &format->fields[f];
-      if (lua_isuserdata(L, -1)) {
-        luax_checkfieldv(L, -1, field->type, data + field->offset);
-      } else {
-        n = typeComponents[field->type];
-        for (int c = 1; c < n; c++) {
-          lua_rawgeti(L, index, subindex++);
-        }
-        luax_checkfieldn(L, -n, field->type, data + field->offset);
-      }
-      lua_pop(L, n);
+      i++;
     }
   }
-}
 
-void luax_checkdatatuples(lua_State* L, int index, int start, uint32_t count, const DataField* format, char* data) {
-  for (uint32_t i = 0; i < count; i++, data += format->stride) {
-    lua_rawgeti(L, index, start + i);
-    lovrCheck(lua_type(L, -1) == LUA_TTABLE, "Expected table of tables");
-
-    for (uint32_t f = 0, subindex = 1; f < format->fieldCount; f++) {
-      int n = 1;
-      lua_rawgeti(L, -1, subindex);
-      const DataField* field = &format->fields[f];
-      if (lua_isuserdata(L, -1)) {
-        luax_checkfieldv(L, -1, field->type, data + field->offset);
-      } else {
-        while (n < (int) typeComponents[field->type]) {
-          lua_rawgeti(L, -n - 1, subindex + n);
-          n++;
-        }
-        luax_checkfieldn(L, -n, field->type, data + field->offset);
-      }
-      subindex += n;
-      lua_pop(L, n);
-    }
-
-    lua_pop(L, 1);
-  }
-}
-
-void luax_checkdatakeys(lua_State* L, int index, int start, uint32_t count, const DataField* array, char* data) {
-  for (uint32_t i = 0; i < count; i++, data += array->stride) {
-    lua_rawgeti(L, index, start + i);
-    lovrCheck(lua_istable(L, -1), "Expected table of tables");
-    luax_checkstruct(L, -1, array->fields, array->fieldCount, data);
-    lua_pop(L, 1);
-  }
-}
-
-void luax_checkstruct(lua_State* L, int index, const DataField* fields, uint32_t fieldCount, char* data) {
-  for (uint32_t f = 0; f < fieldCount; f++) {
-    const DataField* field = &fields[f];
-    int n = field->fieldCount == 0 ? typeComponents[field->type] : 0;
+  // String keys
+  while (f < structure->fieldCount && structure->fields[f].name) {
+    const DataField* field = &structure->fields[f++];
     lua_getfield(L, index, field->name);
 
     if (lua_isnil(L, -1)) {
       memset(data + field->offset, 0, MAX(field->length, 1) * field->stride);
-      lua_pop(L, 1);
-      continue;
-    }
-
-    if (field->length > 0) {
-      lovrCheck(lua_istable(L, -1), "Expected table for key '%s'", field->name);
-      uint32_t count;
-
-      if (field->fieldCount > 0) {
-        uint32_t tableLength = luax_len(L, -1);
-        count = MIN(field->length, tableLength);
-        luax_checkdatakeys(L, -1, 1, count, field, data + field->offset);
-      } else {
-        count = luax_checkfieldarray(L, -1, field, data + field->offset);
-      }
-
-      if (count < field->length) {
-        memset(data + field->offset + count * field->stride, 0, (field->length - count) * field->stride);
-      }
-    } else if (field->fieldCount > 0) {
-      lovrCheck(lua_istable(L, -1), "Expected table for key '%s'", field->name);
-      luax_checkstruct(L, -1, field->fields, field->fieldCount, data + field->offset);
-    } else if (n == 1) {
-      lovrCheck(lua_type(L, -1) == LUA_TNUMBER, "Expected number for key '%s'", field->name);
-      luax_checkfieldn(L, -1, field->type, data + field->offset);
-    } else if (lua_isuserdata(L, -1)) {
-      luax_checkfieldv(L, -1, field->type, data + field->offset);
-    } else if (lua_istable(L, -1)) {
-      lovrCheck(luax_len(L, -1) == n, "Table length for key '%s' must be %d", field->name, n);
-      luax_checkfieldt(L, -1, field->type, data + field->offset);
     } else {
-      lovrThrow("Expected table or vector for key '%s'", field->name);
+      luax_checkbufferdata(L, -1, field, data + field->offset);
     }
 
     lua_pop(L, 1);
   }
 }
 
-static int luax_pushcomponents(lua_State* L, DataType type, char* data) {
+static void luax_checkarray(lua_State* L, int index, int start, uint32_t count, const DataField* array, char* data) {
+  luax_fieldcheck(L, lua_istable(L, index), index, array, true);
+  uint32_t length = luax_len(L, index);
+  count = MIN(count, (length - start + 1));
+
+  if (array->fieldCount > 0) {
+    for (uint32_t i = 0; i < count; i++, data += array->stride) {
+      lua_rawgeti(L, index, start + i);
+      luax_checkstruct(L, -1, array, data);
+      lua_pop(L, 1);
+    }
+  } else {
+    lua_rawgeti(L, index, start);
+    int type = lua_type(L, -1);
+    lua_pop(L, 1);
+
+    if (type == LUA_TNUMBER) {
+      if (index < 0) index += lua_gettop(L) + 1;
+      uint32_t n = typeComponents[array->type];
+      count = MIN(count, (length - start + 1) / n);
+      for (uint32_t i = 0; i < count; i += n, data += array->stride) {
+        for (uint32_t j = 0; j < n; j++) {
+          lua_rawgeti(L, index, start + i + j);
+        }
+        luax_checkfieldn(L, -n, array, data);
+        lua_pop(L, n);
+      }
+    } else if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
+      for (uint32_t i = 0; i < count; i++, data += array->stride) {
+        lua_rawgeti(L, index, start + i);
+        luax_checkfieldv(L, -1, array, data);
+        lua_pop(L, 1);
+      }
+    } else if (type == LUA_TTABLE) {
+      for (uint32_t i = 0; i < count; i++, data += array->stride) {
+        lua_rawgeti(L, index, start + i);
+        luax_checkfieldt(L, -1, array, data);
+        lua_pop(L, 1);
+      }
+    } else {
+      lua_rawgeti(L, index, start);
+      luax_fieldcheck(L, type == LUA_TNIL, -1, array, false);
+      lua_pop(L, 1);
+    }
+  }
+}
+
+void luax_checkbufferdata(lua_State* L, int index, const DataField* field, char* data) {
+  int type = lua_type(L, index);
+
+  if (field->length > 0) {
+    luax_checkarray(L, index, 1, field->length, field, data);
+  } else if (field->fieldCount > 0) {
+    luax_checkstruct(L, index, field, data);
+  } else if (typeComponents[field->type] == 1) {
+    luax_checkfieldn(L, index, field, data);
+  } else if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
+    luax_checkfieldv(L, index, field, data);
+  } else if (type == LUA_TTABLE) {
+    luax_checkfieldt(L, index, field, data);
+  } else {
+    luax_fielderror(L, index, field, false);
+  }
+}
+
+static int luax_pushfieldn(lua_State* L, DataType type, char* data) {
   DataPointer p = { .raw = data };
   switch (type) {
     case TYPE_I8x4: for (int i = 0; i < 4; i++) lua_pushinteger(L, p.i8[i]); return 4;
@@ -361,104 +361,58 @@ static int luax_pushcomponents(lua_State* L, DataType type, char* data) {
   }
 }
 
-static int luax_pushstruct(lua_State* L, const DataField* fields, uint32_t count, char* data) {
-  lua_createtable(L, 0, count);
-  for (uint32_t i = 0; i < count; i++) {
-    const DataField* field = &fields[i];
-    if (field->length > 0) {
-      if (field->fieldCount > 0) {
-        lua_createtable(L, field->length, 0);
-        for (uint32_t j = 0; j < field->length; j++) {
-          luax_pushstruct(L, field->fields, field->fieldCount, data + field->offset + j * field->stride);
-          lua_rawseti(L, -2, j + 1);
-        }
-      } else {
-        DataType type = field->type;
-        uint32_t n = typeComponents[field->type];
-        lua_createtable(L, (int) (field->length * n), 0);
-        for (uint32_t j = 0, k = 1; j < field->length; j++, k += n) {
-          luax_pushcomponents(L, type, data + field->offset + j * field->stride);
-          for (uint32_t c = 0; c < n; c++) {
-            lua_rawseti(L, -1 - n + c, k + n - 1 - c);
-          }
-        }
-      }
-    } else if (field->fieldCount > 0) {
-      luax_pushstruct(L, field->fields, field->fieldCount, data + field->offset);
-    } else {
-      uint32_t n = typeComponents[field->type];
-      if (n > 1) {
-        lua_createtable(L, n, 0);
-        luax_pushcomponents(L, field->type, data + field->offset);
-        for (uint32_t c = 0; c < n; c++) {
-          lua_rawseti(L, -1 - n + c, n - c);
-        }
-      } else {
-        luax_pushcomponents(L, field->type, data + field->offset);
-      }
-    }
-    lua_setfield(L, -2, field->name);
-  }
-  return 1;
-}
-
 int luax_pushbufferdata(lua_State* L, const DataField* format, uint32_t count, char* data) {
-  lua_createtable(L, count, 0);
-
-  bool nested = false;
-  for (uint32_t i = 0; i < format->fieldCount; i++) {
-    if (format->fields[i].fields || format->fields[i].length > 0) {
-      nested = true;
-      break;
-    }
-  }
-
-  if (format->fieldCount > 1 || typeComponents[format->fields[0].type] > 1 || nested) {
-    if (nested) {
-      for (uint32_t i = 0; i < count; i++) {
-        luax_pushstruct(L, format->fields, format->fieldCount, data);
+  if (format->length > 0 && count > 0) {
+    lua_createtable(L, count, 0);
+    if (format->fieldCount > 0) {
+      for (uint32_t i = 0; i < count; i++, data += format->stride) {
+        luax_pushbufferdata(L, format, 0, data);
         lua_rawseti(L, -2, i + 1);
-        data += format->stride;
       }
     } else {
+      int n = typeComponents[format->type];
       for (uint32_t i = 0; i < count; i++, data += format->stride) {
-        lua_newtable(L);
-        int j = 1;
-        for (uint32_t f = 0; f < format->fieldCount; f++) {
-          const DataField* field = &format->fields[f];
-          int n = luax_pushcomponents(L, field->type, data + field->offset);
-          for (int c = 0; c < n; c++) {
-            lua_rawseti(L, -1 - n + c, j + n - 1 - c);
-          }
-          j += n;
+        luax_pushfieldn(L, format->type, data);
+        for (int c = 0; c < n; c++) {
+          lua_rawseti(L, -1 - n + c, i * n + c + 1);
         }
-        lua_rawseti(L, -2, i + 1);
       }
     }
-  } else {
-    for (uint32_t i = 0; i < count; i++, data += format->stride) {
-      luax_pushcomponents(L, format->fields[0].type, data + format->fields[0].offset);
-      lua_rawseti(L, -2, i + 1);
+    return 1;
+  } else if (format->fieldCount > 0) {
+    lua_createtable(L, 0, format->fieldCount);
+    for (uint32_t f = 0; f < format->fieldCount; f++) {
+      const DataField* field = &format->fields[f];
+      if (field->length > 0) {
+        luax_pushbufferdata(L, field, field->length, data + field->offset);
+      } else if (field->fieldCount > 0) {
+        luax_pushbufferdata(L, field, 0, data + field->offset);
+      } else {
+        uint32_t n = typeComponents[field->type];
+        if (n > 1) {
+          lua_createtable(L, n, 0);
+          luax_pushfieldn(L, field->type, data + field->offset);
+          for (uint32_t c = 0; c < n; c++) {
+            lua_rawseti(L, -1 - n + c, n - c);
+          }
+        } else {
+          luax_pushfieldn(L, field->type, data + field->offset);
+        }
+      }
+      if (field->name) {
+        lua_setfield(L, -2, field->name);
+      } else {
+        lua_rawseti(L, -2, f + 1);
+      }
     }
+    return 1;
+  } else {
+    return luax_pushfieldn(L, format->type, data);
   }
-
-  return 1;
 }
 
-uint32_t luax_gettablestride(lua_State* L, int index, int subindex, DataField* fields, uint32_t count) {
-  int stride = 0;
-  for (uint32_t i = 0; i < count; i++) {
-    lovrCheck(!fields[i].fields && fields[i].length == 0, "This Buffer's format requires data to be given as a table of tables");
-    lua_rawgeti(L, index, subindex + stride);
-    switch (lua_type(L, -1)) {
-      case LUA_TUSERDATA: case LUA_TLIGHTUSERDATA: stride++; break;
-      case LUA_TNUMBER: stride += typeComponents[fields[i].type]; break;
-      case LUA_TNIL: lovrThrow("Table does not have enough elements for a single element");
-      default: lovrThrow("Expected table of numbers and/or vectors");
-    }
-    lua_pop(L, 1);
-  }
-  return (uint32_t) stride;
+int luax_gettablestride(lua_State* L, int type) {
+  return typeComponents[type];
 }
 
 static int l_lovrBufferGetSize(lua_State* L) {
@@ -519,7 +473,11 @@ static int l_lovrBufferGetFormat(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const DataField* format = lovrBufferGetInfo(buffer)->format;
   if (format) {
-    luax_pushbufferformat(L, format->fields, format->fieldCount);
+    if (format->fieldCount > 0) {
+      luax_pushbufferformat(L, format->fields, format->fieldCount);
+    } else {
+      luax_pushbufferformat(L, format, 1);
+    }
   } else {
     lua_pushnil(L);
   }
@@ -540,78 +498,42 @@ static int l_lovrBufferGetData(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const DataField* format = lovrBufferGetInfo(buffer)->format;
   lovrCheck(format, "Buffer:getData requires the Buffer to have a format");
-  uint32_t index = luax_optu32(L, 2, 1) - 1;
-  lovrCheck(index < format->length, "Buffer:getData index exceeds the Buffer's length");
-  uint32_t count = luax_optu32(L, 3, format->length - index);
-  void* data = lovrBufferGetData(buffer, index * format->stride, count * format->stride);
-  return luax_pushbufferdata(L, format, count, data);
+  if (format->length > 0) {
+    uint32_t index = luax_optu32(L, 2, 1) - 1;
+    lovrCheck(index < format->length, "Buffer:getData index exceeds the Buffer's length");
+    uint32_t count = luax_optu32(L, 3, format->length - index);
+    void* data = lovrBufferGetData(buffer, index * format->stride, count * format->stride);
+    return luax_pushbufferdata(L, format, count, data);
+  } else {
+    void* data = lovrBufferGetData(buffer, 0, format->stride);
+    return luax_pushbufferdata(L, format, 0, data);
+  }
 }
 
 static int l_lovrBufferSetData(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   const DataField* format = info->format;
-  bool hasNames = format->fields[0].name;
 
-  if (format && format->length == 1) { // When Buffer's length is 1, you can pass a single item
-    if (lua_istable(L, 2) && luax_len(L, 2) == 0 && hasNames) {
-      luax_checkstruct(L, 2, format->fields, format->fieldCount, lovrBufferSetData(buffer, 0, ~0u));
-      return 0;
-    } else if (typeComponents[format->fields[0].type] == 1 && lua_type(L, 2) == LUA_TNUMBER) {
-      luax_checkfieldn(L, 2, format->fields[0].type, lovrBufferSetData(buffer, 0, ~0u));
-      return 0;
-    } else if (typeComponents[format->fields[0].type] > 1 && luax_tovector(L, 2, NULL)) {
-      luax_checkfieldv(L, 2, format->fields[0].type, lovrBufferSetData(buffer, 0, ~0u));
-      return 0;
-    }
-  }
+  if (format) {
+    if (format->length > 0) {
+      luax_fieldcheck(L, lua_istable(L, 2), 2, format, -1);
+      uint32_t length = luax_len(L, 2);
+      uint32_t dstIndex = luax_optu32(L, 3, 1) - 1;
+      uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
 
-  if (lua_istable(L, 2)) {
-    lovrCheck(format, "Buffer must be created with format information to copy a table to it");
+      lua_rawgeti(L, 2, srcIndex + 1);
+      uint32_t tstride = format->fieldCount == 0 && lua_type(L, -1) == LUA_TNUMBER ? typeComponents[format->type] : 1;
+      lua_pop(L, 1);
 
-    uint32_t length = luax_len(L, 2);
-    uint32_t dstIndex = luax_optu32(L, 3, 1) - 1;
-    uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
-
-    // Fast path for scalar formats
-    if (format->fieldCount == 1 && typeComponents[format->fields[0].type] == 1) {
-      uint32_t limit = MIN(format->length - dstIndex, length - srcIndex);
-      uint32_t count = luax_optu32(L, 5, limit);
-      char* data = lovrBufferSetData(buffer, dstIndex * format->stride, count * format->stride);
-      for (uint32_t i = 0; i < count; i++, data += format->stride) {
-        lua_rawgeti(L, 2, srcIndex + i + 1);
-        luax_checkfieldn(L, -1, format->fields[0].type, data);
-        lua_pop(L, 1);
-      }
-      return 0;
-    }
-
-    lua_rawgeti(L, 2, 1);
-    bool tableOfTables = info->complexFormat || lua_istable(L, -1);
-    bool tuples = tableOfTables && !info->complexFormat && (luax_len(L, -1) > 0 || !hasNames);
-    lua_pop(L, 1);
-
-    if (tableOfTables) {
-      uint32_t limit = MIN(format->length - dstIndex, length - srcIndex);
+      uint32_t limit = MIN(format->length - dstIndex, (length - srcIndex) / tstride);
       uint32_t count = luax_optu32(L, 5, limit);
 
-      lovrCheck(length - srcIndex >= count, "Table does not have enough elements");
       char* data = lovrBufferSetData(buffer, dstIndex * format->stride, count * format->stride);
-
-      if (tuples) {
-        luax_checkdatatuples(L, 2, srcIndex + 1, count, format, data);
-      } else {
-        luax_checkdatakeys(L, 2, srcIndex + 1, count, format, data);
-      }
+      luax_checkarray(L, 2, srcIndex + 1, count, format, data);
     } else {
-      uint32_t tableStride = luax_gettablestride(L, 2, srcIndex + 1, format->fields, format->fieldCount);
-      lovrCheck(length % tableStride == 0, "Table length is not aligned -- it either uses inconsistent types for each field or is missing some data");
-      uint32_t limit = MIN(format->length - dstIndex, (length - srcIndex) / tableStride);
-      uint32_t count = luax_optu32(L, 5, limit);
-
-      lovrCheck((length - srcIndex) / tableStride >= count, "Table does not have enough elements");
-      char* data = lovrBufferSetData(buffer, dstIndex * format->stride, count * format->stride);
-      luax_checkdataflat(L, 2, srcIndex + 1, count, format, data);
+      luaL_checkany(L, 2);
+      luax_checkbufferdata(L, 2, format, lovrBufferSetData(buffer, 0, format->stride));
     }
 
     return 0;
@@ -647,7 +569,7 @@ static int l_lovrBufferSetData(lua_State* L) {
     return 0;
   }
 
-  return luax_typeerror(L, 2, "table, Blob, or Buffer");
+  return luax_typeerror(L, 2, "Blob or Buffer");
 }
 
 static int l_lovrBufferMapData(lua_State* L) {

@@ -96,10 +96,10 @@ static int l_lovrShaderGetBufferFormat(lua_State* L) {
   lua_pushinteger(L, format->stride);
   lua_setfield(L, -2, "stride");
 
-  if (format->length == ~0u) {
+  if (format->length == 0 || format->length == ~0u) {
     lua_pushnil(L);
   } else {
-    lua_pushinteger(L, MAX(format->length, 1));
+    lua_pushinteger(L, format->length);
   }
 
   return 2;

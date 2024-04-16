@@ -626,13 +626,12 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     lovrCheck(blob->size < UINT32_MAX, "Blob is too big to create a Buffer");
     info.size = (uint32_t) blob->size;
   } else if (type == LUA_TSTRING) {
-    info.fieldCount = 2;
+    info.fieldCount = 1;
     info.format = format;
-    format[0] = (DataField) { .fieldCount = 1 };
-    format[1] = (DataField) { .type = luax_checkdatatype(L, 1) };
+    format[0] = (DataField) { .type = luax_checkdatatype(L, 1) };
   } else if (type == LUA_TTABLE) {
     info.format = format;
-    format[0] = (DataField) { .fieldCount = luax_len(L, 1) };
+    format[0] = (DataField) { .fieldCount = luax_len(L, 1), .fields = format + 1 };
 
     lua_rawgeti(L, 1, 1);
     bool anonymous = lua_type(L, -1) == LUA_TSTRING;
@@ -646,6 +645,12 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
         lua_rawgeti(L, 1, i);
         format[i] = (DataField) { .type = luax_checkdatatype(L, -1) };
         lua_pop(L, 1);
+      }
+
+      // Convert single-field anonymous formats to regular arrays
+      if (format->fieldCount == 1) {
+        format->type = format[1].type;
+        format->fieldCount = 0;
       }
     } else {
       info.fieldCount = 1;
@@ -665,19 +670,18 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   // Length/size
   if (info.format) {
-    format->fields = format + 1;
     lovrGraphicsAlignFields(format, layout);
     switch (lua_type(L, 2)) {
-      case LUA_TNIL: case LUA_TNONE: format->length = 1; break;
+      case LUA_TNIL: case LUA_TNONE: format->length = 0; break;
       case LUA_TNUMBER: format->length = luax_checku32(L, 2); break;
       case LUA_TTABLE:
         lua_rawgeti(L, 2, 1);
-        if (lua_istable(L, -1)) {
-          format->length = luax_len(L, -2);
-        } else if (lua_isnil(L, -1) && format->fields[0].name) {
-          format->length = 1;
+        if (lua_type(L, -1) == LUA_TNUMBER) {
+          lovrCheck(format->fieldCount <= 1, "Struct data must be provided as a table of tables");
+          DataType type = format->fieldCount == 0 ? format->type : format->fields[0].type;
+          format->length = luax_len(L, -2) / luax_gettablestride(L, type);
         } else {
-          format->length = luax_len(L, -2) / luax_gettablestride(L, 2, 1, format->fields, format->fieldCount);
+          format->length = luax_len(L, -2);
         }
         lua_pop(L, 1);
         hasData = true;
@@ -689,7 +693,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
           format->length = info.size / format->stride;
           break;
         } else if (luax_tovector(L, 2, NULL)) {
-          format->length = 1;
+          format->length = 0;
           hasData = true;
           break;
         }
@@ -704,25 +708,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   if (blob) {
     memcpy(data, blob->data, info.size);
   } else if (hasData) {
-    if (luax_tovector(L, 2, NULL)) {
-      luax_checkfieldv(L, 2, format->fields[0].type, data);
-    } else if (luax_len(L, 2) == 0 && format->fields[0].name) {
-      luax_checkstruct(L, 2, format->fields, format->fieldCount, data);
-    } else {
-      lua_rawgeti(L, 2, 1);
-      bool complexFormat = lovrBufferGetInfo(buffer)->complexFormat;
-      bool tableOfTables = complexFormat || lua_istable(L, -1);
-      bool tuples = tableOfTables && !complexFormat && (luax_len(L, -1) > 0 || !format->fields[0].name);
-      lua_pop(L, 1);
-
-      if (tuples) {
-        luax_checkdatatuples(L, 2, 1, format->length, format, data);
-      } else if (tableOfTables) {
-        luax_checkdatakeys(L, 2, 1, format->length, format, data);
-      } else {
-        luax_checkdataflat(L, 2, 1, format->length, format, data);
-      }
-    }
+    luax_checkbufferdata(L, 2, format, data);
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -1404,7 +1390,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   if (blob) {
     memcpy(vertices, blob->data, blob->size);
   } else if (hasData) {
-    luax_checkdatatuples(L, index, 1, format->length, lovrMeshGetVertexFormat(mesh), vertices);
+    luax_checkbufferdata(L, index, lovrMeshGetVertexFormat(mesh), vertices);
   }
 
   luax_pushtype(L, Mesh, mesh);
