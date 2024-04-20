@@ -6,27 +6,6 @@
 #include <stdbool.h>
 #include <string.h>
 
-static void collisionResolver(World* world, void* userdata) {
-  lua_State* L = userdata;
-  luaL_checktype(L, -1, LUA_TFUNCTION);
-  luax_pushtype(L, World, world);
-  lua_call(L, 1, 0);
-}
-
-static int nextOverlap(lua_State* L) {
-  World* world = luax_checktype(L, lua_upvalueindex(1), World);
-  Shape* a;
-  Shape* b;
-  if (lovrWorldGetNextOverlap(world, &a, &b)) {
-    luax_pushshape(L, a);
-    luax_pushshape(L, b);
-    return 2;
-  } else {
-    lua_pushnil(L);
-    return 1;
-  }
-}
-
 static bool raycastCallback(Collider* collider, float position[3], float normal[3], uint32_t shape, void* userdata) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
@@ -258,35 +237,10 @@ static int l_lovrWorldGetJoints(lua_State* L) {
 }
 
 static int l_lovrWorldUpdate(lua_State* L) {
-  lua_settop(L, 3);
   World* world = luax_checktype(L, 1, World);
   float dt = luax_checkfloat(L, 2);
-  CollisionResolver resolver = lua_type(L, 3) == LUA_TFUNCTION ? collisionResolver : NULL;
-  lovrWorldUpdate(world, dt, resolver, L);
+  lovrWorldUpdate(world, dt);
   return 0;
-}
-
-static int l_lovrWorldComputeOverlaps(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  lovrWorldComputeOverlaps(world);
-  return 0;
-}
-
-static int l_lovrWorldOverlaps(lua_State* L) {
-  luax_checktype(L, 1, World);
-  lua_settop(L, 1);
-  lua_pushcclosure(L, nextOverlap, 1);
-  return 1;
-}
-
-static int l_lovrWorldCollide(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  Shape* a = luax_checkshape(L, 2);
-  Shape* b = luax_checkshape(L, 3);
-  float friction = luax_optfloat(L, 4, -1.f);
-  float restitution = luax_optfloat(L, 5, -1.f);
-  lua_pushboolean(L, lovrWorldCollide(world, a, b, friction, restitution));
-  return 1;
 }
 
 static int l_lovrWorldGetContacts(lua_State* L) {
@@ -554,9 +508,6 @@ const luaL_Reg lovrWorld[] = {
   { "getColliders", l_lovrWorldGetColliders },
   { "getJoints", l_lovrWorldGetJoints },
   { "update", l_lovrWorldUpdate },
-  { "computeOverlaps", l_lovrWorldComputeOverlaps },
-  { "overlaps", l_lovrWorldOverlaps },
-  { "collide", l_lovrWorldCollide },
   { "getContacts", l_lovrWorldGetContacts },
   { "raycast", l_lovrWorldRaycast },
   { "raycastAny", l_lovrWorldRaycastAny },

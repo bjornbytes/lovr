@@ -27,7 +27,6 @@ typedef Joint DistanceJoint;
 typedef Joint HingeJoint;
 typedef Joint SliderJoint;
 
-typedef void (*CollisionResolver)(World* world, void* userdata);
 typedef bool (*RaycastCallback)(Collider* collider, float position[3], float normal[3], uint32_t child, void* userdata);
 typedef bool (*QueryCallback)(Collider* collider, uint32_t child, void* userdata);
 
@@ -58,10 +57,7 @@ uint32_t lovrWorldGetColliderCount(World* world);
 uint32_t lovrWorldGetJointCount(World* world);
 Collider* lovrWorldGetColliders(World* world, Collider* collider);
 Joint* lovrWorldGetJoints(World* world, Joint* joint);
-void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata);
-void lovrWorldComputeOverlaps(World* world);
-int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b);
-int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution);
+void lovrWorldUpdate(World* world, float dt);
 void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count);
 void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata);

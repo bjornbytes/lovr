@@ -177,20 +177,8 @@ Joint* lovrWorldGetJoints(World* world, Joint* joint) {
   return joint ? joint->world.next : world->joints;
 }
 
-void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata) {
+void lovrWorldUpdate(World* world, float dt) {
   JPH_PhysicsSystem_Step(world->system, dt, world->collisionSteps);
-}
-
-void lovrWorldComputeOverlaps(World* world) {
-  //
-}
-
-int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b) {
-  return 0;
-}
-
-int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution) {
-  return 0;
 }
 
 void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count) {

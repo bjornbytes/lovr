@@ -45,14 +45,44 @@ struct Joint {
   dJointID id;
 };
 
-static void defaultNearCallback(void* data, dGeomID a, dGeomID b) {
-  lovrWorldCollide((World*) data, dGeomGetData(a), dGeomGetData(b), -1, -1);
-}
-
-static void customNearCallback(void* data, dGeomID shapeA, dGeomID shapeB) {
+static void defaultNearCallback(void* data, dGeomID ga, dGeomID gb) {
   World* world = data;
-  arr_push(&world->overlaps, dGeomGetData(shapeA));
-  arr_push(&world->overlaps, dGeomGetData(shapeB));
+  Collider* a = dBodyGetData(dGeomGetBody(ga));
+  Collider* b = dBodyGetData(dGeomGetBody(gb));
+
+  if (!a || !b) {
+    return;
+  }
+
+  uint32_t i = a->tag;
+  uint32_t j = b->tag;
+
+  if (i != NO_TAG && j != NO_TAG && !((world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i)))) {
+    return;
+  }
+
+  float friction = sqrtf(a->friction * b->friction);
+  float restitution = MAX(a->restitution, b->restitution);
+
+  dContact contacts[MAX_CONTACTS];
+  for (int c = 0; c < MAX_CONTACTS; c++) {
+    contacts[c].surface.mode = 0;
+    contacts[c].surface.mu = friction;
+    contacts[c].surface.bounce = restitution;
+
+    if (restitution > 0) {
+      contacts[c].surface.mode |= dContactBounce;
+    }
+  }
+
+  int contactCount = dCollide(ga, gb, MAX_CONTACTS, &contacts[0].geom, sizeof(dContact));
+
+  if (!a->sensor && !b->sensor) {
+    for (int c = 0; c < contactCount; c++) {
+      dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[c]);
+      dJointAttach(joint, a->body, b->body);
+    }
+  }
 }
 
 typedef struct {
@@ -228,12 +258,8 @@ Joint* lovrWorldGetJoints(World* world, Joint* joint) {
   return NULL;
 }
 
-void lovrWorldUpdate(World* world, float dt, CollisionResolver resolver, void* userdata) {
-  if (resolver) {
-    resolver(world, userdata);
-  } else {
-    dSpaceCollide(world->space, world, defaultNearCallback);
-  }
+void lovrWorldUpdate(World* world, float dt) {
+  dSpaceCollide(world->space, world, defaultNearCallback);
 
   if (dt > 0) {
     dWorldQuickStep(world->id, dt);
@@ -248,67 +274,6 @@ int lovrWorldGetStepCount(World* world) {
 
 void lovrWorldSetStepCount(World* world, int iterations) {
   dWorldSetQuickStepNumIterations(world->id, iterations);
-}
-
-void lovrWorldComputeOverlaps(World* world) {
-  arr_clear(&world->overlaps);
-  dSpaceCollide(world->space, world, customNearCallback);
-}
-
-int lovrWorldGetNextOverlap(World* world, Shape** a, Shape** b) {
-  if (world->overlaps.length == 0) {
-    *a = *b = NULL;
-    return 0;
-  }
-
-  *a = arr_pop(&world->overlaps);
-  *b = arr_pop(&world->overlaps);
-  return 1;
-}
-
-int lovrWorldCollide(World* world, Shape* a, Shape* b, float friction, float restitution) {
-  if (!a || !b) {
-    return false;
-  }
-
-  Collider* colliderA = a->collider;
-  Collider* colliderB = b->collider;
-  uint32_t i = colliderA->tag;
-  uint32_t j = colliderB->tag;
-
-  if (i != NO_TAG && j != NO_TAG && !((world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i)))) {
-    return false;
-  }
-
-  if (friction < 0.f) {
-    friction = sqrtf(colliderA->friction * colliderB->friction);
-  }
-
-  if (restitution < 0.f) {
-    restitution = MAX(colliderA->restitution, colliderB->restitution);
-  }
-
-  dContact contacts[MAX_CONTACTS];
-  for (int c = 0; c < MAX_CONTACTS; c++) {
-    contacts[c].surface.mode = 0;
-    contacts[c].surface.mu = friction;
-    contacts[c].surface.bounce = restitution;
-
-    if (restitution > 0) {
-      contacts[c].surface.mode |= dContactBounce;
-    }
-  }
-
-  int contactCount = dCollide(a->id, b->id, MAX_CONTACTS, &contacts[0].geom, sizeof(dContact));
-
-  if (!colliderA->sensor && !colliderB->sensor) {
-    for (int c = 0; c < contactCount; c++) {
-      dJointID joint = dJointCreateContact(world->id, world->contactGroup, &contacts[c]);
-      dJointAttach(joint, colliderA->body, colliderB->body);
-    }
-  }
-
-  return contactCount;
 }
 
 void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count) {
