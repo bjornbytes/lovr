@@ -23,51 +23,6 @@ static bool raycastCallback(Collider* collider, float position[3], float normal[
   return shouldStop;
 }
 
-typedef struct {
-  const char* tag;
-  Collider* collider;
-  uint32_t shape;
-  float distance;
-  float origin[3];
-  float position[3];
-  float normal[3];
-} RaycastData;
-
-static bool raycastAnyCallback(Collider* collider, float position[3], float normal[3], uint32_t shape, void* userdata) {
-  RaycastData* data = userdata;
-  if (data->tag) {
-    const char* tag = lovrColliderGetTag(collider);
-    if (!tag || strcmp(tag, data->tag)) {
-      return false;
-    }
-  }
-  data->collider = collider;
-  data->shape = shape;
-  vec3_init(data->position, position);
-  vec3_init(data->normal, normal);
-  data->distance = vec3_distance(data->origin, data->position);
-  return true;
-}
-
-static bool raycastClosestCallback(Collider* collider, float position[3], float normal[3], uint32_t shape, void* userdata) {
-  RaycastData* data = userdata;
-  if (data->tag) {
-    const char* tag = lovrColliderGetTag(collider);
-    if (!tag || strcmp(tag, data->tag)) {
-      return false;
-    }
-  }
-  float distance = vec3_distance(data->origin, position);
-  if (distance < data->distance) {
-    vec3_init(data->position, position);
-    vec3_init(data->normal, normal);
-    data->distance = distance;
-    data->collider = collider;
-    data->shape = shape;
-  }
-  return false;
-}
-
 static bool queryCallback(Collider* collider, uint32_t shape, void* userdata) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
@@ -284,56 +239,6 @@ static int l_lovrWorldRaycast(lua_State* L) {
   return 0;
 }
 
-static int l_lovrWorldRaycastAny(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float start[3], end[3];
-  int index = 2;
-  index = luax_readvec3(L, index, start, NULL);
-  index = luax_readvec3(L, index, end, NULL);
-  RaycastData data = { 0 };
-  data.tag = lua_tostring(L, index);
-  lovrWorldRaycast(world, start, end, raycastAnyCallback, &data);
-  if (data.collider) {
-    luax_pushtype(L, Collider, data.collider);
-    lua_pushnumber(L, data.position[0]);
-    lua_pushnumber(L, data.position[1]);
-    lua_pushnumber(L, data.position[2]);
-    lua_pushnumber(L, data.normal[0]);
-    lua_pushnumber(L, data.normal[1]);
-    lua_pushnumber(L, data.normal[2]);
-    lua_pushinteger(L, data.shape + 1);
-    return 8;
-  } else {
-    lua_pushnil(L);
-    return 1;
-  }
-}
-
-static int l_lovrWorldRaycastClosest(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float start[3], end[3];
-  int index = 2;
-  index = luax_readvec3(L, index, start, NULL);
-  index = luax_readvec3(L, index, end, NULL);
-  RaycastData data = { .distance = FLT_MAX };
-  data.tag = lua_tostring(L, index);
-  lovrWorldRaycast(world, start, end, raycastClosestCallback, &data);
-  if (data.shape) {
-    luax_pushtype(L, Collider, data.collider);
-    lua_pushnumber(L, data.position[0]);
-    lua_pushnumber(L, data.position[1]);
-    lua_pushnumber(L, data.position[2]);
-    lua_pushnumber(L, data.normal[0]);
-    lua_pushnumber(L, data.normal[1]);
-    lua_pushnumber(L, data.normal[2]);
-    lua_pushinteger(L, data.shape + 1);
-    return 8;
-  } else {
-    lua_pushnil(L);
-    return 1;
-  }
-}
-
 static int l_lovrWorldQueryBox(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float position[3], size[3];
@@ -510,8 +415,6 @@ const luaL_Reg lovrWorld[] = {
   { "update", l_lovrWorldUpdate },
   { "getContacts", l_lovrWorldGetContacts },
   { "raycast", l_lovrWorldRaycast },
-  { "raycastAny", l_lovrWorldRaycastAny },
-  { "raycastClosest", l_lovrWorldRaycastClosest },
   { "queryBox", l_lovrWorldQueryBox },
   { "querySphere", l_lovrWorldQuerySphere },
   { "getGravity", l_lovrWorldGetGravity },
