@@ -94,27 +94,9 @@ static int l_lovrColliderGetJoints(lua_State* L) {
   return 1;
 }
 
-static void luax_pushcolliderstash(lua_State* L) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrcolliderstash");
-
-  if (lua_isnil(L, -1)) {
-    lua_newtable(L);
-    lua_replace(L, -2);
-
-    // metatable
-    lua_newtable(L);
-    lua_pushliteral(L, "k");
-    lua_setfield(L, -2, "__mode");
-    lua_setmetatable(L, -2);
-
-    lua_pushvalue(L, -1);
-    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrcolliderstash");
-  }
-}
-
 static int l_lovrColliderGetUserData(lua_State* L) {
   luax_checktype(L, 1, Collider);
-  luax_pushcolliderstash(L);
+  luax_pushstash(L, "lovr.collider.userdata");
   lua_pushvalue(L, 1);
   lua_rawget(L, -2);
   return 1;
@@ -122,7 +104,7 @@ static int l_lovrColliderGetUserData(lua_State* L) {
 
 static int l_lovrColliderSetUserData(lua_State* L) {
   luax_checktype(L, 1, Collider);
-  luax_pushcolliderstash(L);
+  luax_pushstash(L, "lovr.collider.userdata");
   lua_pushvalue(L, 1);
   lua_pushvalue(L, 2);
   lua_rawset(L, -3);

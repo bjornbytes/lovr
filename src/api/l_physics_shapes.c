@@ -240,27 +240,9 @@ static int l_lovrShapeGetType(lua_State* L) {
   return 1;
 }
 
-static void luax_pushshapestash(lua_State* L) {
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrshapestash");
-
-  if (lua_isnil(L, -1)) {
-    lua_newtable(L);
-    lua_replace(L, -2);
-
-    // metatable
-    lua_newtable(L);
-    lua_pushliteral(L, "k");
-    lua_setfield(L, -2, "__mode");
-    lua_setmetatable(L, -2);
-
-    lua_pushvalue(L, -1);
-    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrshapestash");
-  }
-}
-
 static int l_lovrShapeGetUserData(lua_State* L) {
   luax_checktype(L, 1, Shape);
-  luax_pushshapestash(L);
+  luax_pushstash(L, "lovr.shape.userdata");
   lua_pushvalue(L, 1);
   lua_rawget(L, -2);
   return 1;
@@ -268,7 +250,7 @@ static int l_lovrShapeGetUserData(lua_State* L) {
 
 static int l_lovrShapeSetUserData(lua_State* L) {
   luax_checktype(L, 1, Shape);
-  luax_pushshapestash(L);
+  luax_pushstash(L, "lovr.shape.userdata");
   lua_pushvalue(L, 1);
   lua_pushvalue(L, 2);
   lua_rawset(L, -3);
