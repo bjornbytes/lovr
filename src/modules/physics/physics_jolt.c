@@ -492,7 +492,7 @@ void lovrColliderSetShapeOffset(Collider* collider, float position[3], float ori
   JPH_Vec3* p = vec3_toJolt(position);
   JPH_Quat* q = quat_toJolt(orientation);
   shape = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(p, q, collider->shape->shape);
-  bool updateMass = collider->shape && (collider->shape->type == SHAPE_MESH || collider->shape->type == SHAPE_TERRAIN);
+  bool updateMass = collider->shape && collider->shape->type != SHAPE_MESH && collider->shape->type != SHAPE_TERRAIN;
   JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape, updateMass, JPH_Activation_Activate);
 }
 
