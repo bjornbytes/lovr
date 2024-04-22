@@ -423,6 +423,10 @@ bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const ch
   return (world->masks[i] & (1 << j)) && (world->masks[j] & (1 << i));
 }
 
+void lovrWorldSetCallbacks(World* world, WorldCallbacks* callbacks) {
+  //
+}
+
 Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
@@ -826,6 +830,74 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
     aabb[4] = MIN(aabb[4], otherAABB[4]);
     aabb[5] = MAX(aabb[5], otherAABB[5]);
   }
+}
+
+Collider* lovrContactGetColliderA(Contact* contact) {
+  return NULL;
+}
+
+Collider* lovrContactGetColliderB(Contact* contact) {
+  return NULL;
+}
+
+Shape* lovrContactGetShapeA(Contact* contact) {
+  return NULL;
+}
+
+Shape* lovrContactGetShapeB(Contact* contact) {
+  return NULL;
+}
+
+void lovrContactGetNormal(Contact* contact, float normal[3]) {
+  //
+}
+
+float lovrContactGetPenetration(Contact* contact) {
+  return 0.f;
+}
+
+uint32_t lovrContactGetPointCount(Contact* contact) {
+  return 0;
+}
+
+void lovrContactGetPoint(Contact* contact, uint32_t index, float point[3]) {
+  //
+}
+
+float lovrContactGetFriction(Contact* contact) {
+  return 0.f;
+}
+
+void lovrContactSetFriction(Contact* contact, float friction) {
+  //
+}
+
+float lovrContactGetRestitution(Contact* contact) {
+  return 0.f;
+}
+
+void lovrContactSetRestitution(Contact* contact, float restitution) {
+  //
+}
+
+bool lovrContactIsEnabled(Contact* contact) {
+  return true;
+}
+
+void lovrContactSetEnabled(Contact* contact, bool enable) {
+  //
+}
+
+void lovrContactGetSurfaceVelocity(Contact* contact, float velocity[3]) {
+  //
+}
+
+void lovrContactSetSurfaceVelocity(Contact* contact, float velocity[3]) {
+  //
+}
+
+void lovrContactDestroy(void* ref) {
+  //
 }
 
 void lovrShapeDestroy(void* ref) {

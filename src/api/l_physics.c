@@ -307,6 +307,7 @@ static const luaL_Reg lovrPhysics[] = {
 
 extern const luaL_Reg lovrWorld[];
 extern const luaL_Reg lovrCollider[];
+extern const luaL_Reg lovrContact[];
 extern const luaL_Reg lovrBoxShape[];
 extern const luaL_Reg lovrSphereShape[];
 extern const luaL_Reg lovrCapsuleShape[];
@@ -327,6 +328,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_register(L, lovrPhysics);
   luax_registertype(L, World);
   luax_registertype(L, Collider);
+  luax_registertype(L, Contact);
   luax_registertype(L, BoxShape);
   luax_registertype(L, SphereShape);
   luax_registertype(L, CapsuleShape);

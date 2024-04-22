@@ -559,6 +559,7 @@ if(LOVR_ENABLE_PHYSICS)
   target_sources(lovr PRIVATE
     src/api/l_physics.c
     src/api/l_physics_collider.c
+    src/api/l_physics_contact.c
     src/api/l_physics_joints.c
     src/api/l_physics_shapes.c
     src/api/l_physics_world.c

@@ -5,17 +5,27 @@
 #include <threads.h>
 #include <joltc.h>
 
+struct Contact {
+  Collider* colliderA;
+  Collider* colliderB;
+  const JPH_ContactManifold* manifold;
+  JPH_ContactSettings* settings;
+};
+
 struct World {
   uint32_t ref;
   JPH_PhysicsSystem* system;
   JPH_BodyInterface* bodies;
   JPH_BodyActivationListener* activationListener;
   JPH_ObjectLayerPairFilter* objectLayerPairFilter;
+  JPH_ContactListener* listener;
+  Contact contact;
   Collider* colliders;
   Collider** activeColliders;
   uint32_t activeColliderCount;
   Joint* joints;
   uint32_t jointCount;
+  WorldCallbacks callbacks;
   float defaultLinearDamping;
   float defaultAngularDamping;
   bool defaultIsSleepingAllowed;
@@ -156,6 +166,63 @@ static void onSleep(void* arg, JPH_BodyID id, uint64_t userData) {
   mtx_unlock(&world->lock);
 }
 
+static JPH_ValidateResult onContactValidate(void* userdata, const JPH_Body* body1, const JPH_Body* body2, const JPH_RVec3* offset, const JPH_CollideShapeResult* result) {
+  World* world = userdata;
+  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
+  Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
+  bool accept = world->callbacks.filter(world->callbacks.userdata, world, a, b);
+  return accept ?
+    JPH_ValidateResult_AcceptAllContactsForThisBodyPair :
+    JPH_ValidateResult_RejectAllContactsForThisBodyPair;
+}
+
+static void onContactPersisted(void* userdata, const JPH_Body* body1, const JPH_Body* body2, const JPH_ContactManifold* manifold, JPH_ContactSettings* settings) {
+  World* world = userdata;
+  JPH_BodyID id1 = JPH_Body_GetID(body1);
+  JPH_BodyID id2 = JPH_Body_GetID(body2);
+  if (world->callbacks.contact) {
+    Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
+    Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
+    mtx_lock(&world->lock);
+    world->contact.colliderA = a;
+    world->contact.colliderB = b;
+    world->contact.manifold = manifold;
+    world->contact.settings = settings;
+    world->callbacks.contact(world->callbacks.userdata, world, a, b, &world->contact);
+    mtx_unlock(&world->lock);
+  }
+}
+
+static void onContactAdded(void* userdata, const JPH_Body* body1, const JPH_Body* body2, const JPH_ContactManifold* manifold, JPH_ContactSettings* settings) {
+  World* world = userdata;
+  JPH_BodyID id1 = JPH_Body_GetID(body1);
+  JPH_BodyID id2 = JPH_Body_GetID(body2);
+
+  if (world->callbacks.enter && !JPH_PhysicsSystem_WereBodiesInContact(world->system, id1, id2)) {
+    Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
+    Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
+    mtx_lock(&world->lock);
+    world->callbacks.enter(world->callbacks.userdata, world, a, b);
+    mtx_unlock(&world->lock);
+  }
+
+  onContactPersisted(userdata, body1, body2, manifold, settings);
+}
+
+static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
+  World* world = userdata;
+  if (!JPH_PhysicsSystem_WereBodiesInContact(world->system, pair->Body1ID, pair->Body2ID)) {
+    JPH_BodyInterface* bodies = JPH_PhysicsSystem_GetBodyInterfaceNoLock(world->system);
+    Collider* a = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(bodies, pair->Body1ID);
+    Collider* b = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(bodies, pair->Body2ID);
+    if (a && b) {
+      mtx_lock(&world->lock);
+      world->callbacks.exit(world->callbacks.userdata, world, a, b);
+      mtx_unlock(&world->lock);
+    }
+  }
+}
+
 bool lovrPhysicsInit(void) {
   if (state.initialized) return false;
   JPH_Init(32 * 1024 * 1024);
@@ -273,6 +340,7 @@ void lovrWorldDestroyData(World* world) {
     lovrColliderDestroyData(collider);
     world->colliders = next;
   }
+  if (world->listener) JPH_ContactListener_Destroy(world->listener);
   JPH_PhysicsSystem_Destroy(world->system);
   JPH_BodyActivationListener_Destroy(world->activationListener);
 }
@@ -572,6 +640,26 @@ bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const ch
   lovrCheck(i != ~0u, "Unknown tag '%s'", tag1);
   lovrCheck(j != ~0u, "Unknown tag '%s'", tag2);
   return JPH_ObjectLayerPairFilterTable_ShouldCollide(world->objectLayerPairFilter, i, j);
+}
+
+void lovrWorldSetCallbacks(World* world, WorldCallbacks* callbacks) {
+  if (!callbacks || (!callbacks->filter && !callbacks->enter && !callbacks->exit && !callbacks->contact)) {
+    JPH_PhysicsSystem_SetContactListener(world->system, NULL);
+  } else {
+    if (!world->listener) {
+      world->listener = JPH_ContactListener_Create();
+    }
+
+    JPH_ContactListener_SetProcs(world->listener, (JPH_ContactListener_Procs) {
+      .OnContactValidate = callbacks->filter ? onContactValidate : NULL,
+      .OnContactAdded = (callbacks->enter || callbacks->contact) ? onContactAdded : NULL,
+      .OnContactPersisted = callbacks->contact ? onContactPersisted : NULL,
+      .OnContactRemoved = callbacks->exit ? onContactRemoved : NULL
+    }, world);
+
+    world->callbacks = *callbacks;
+    JPH_PhysicsSystem_SetContactListener(world->system, world->listener);
+  }
 }
 
 // Deprecated
@@ -1149,6 +1237,82 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
   aabb[3] = box.max.y;
   aabb[4] = box.min.z;
   aabb[5] = box.max.z;
+}
+
+// Contact
+
+Collider* lovrContactGetColliderA(Contact* contact) {
+  return contact->colliderA;
+}
+
+Collider* lovrContactGetColliderB(Contact* contact) {
+  return contact->colliderB;
+}
+
+Shape* lovrContactGetShapeA(Contact* contact) {
+  return subshapeToShape(contact->colliderA, JPH_ContactManifold_GetSubShapeID1(contact->manifold));
+}
+
+Shape* lovrContactGetShapeB(Contact* contact) {
+  return subshapeToShape(contact->colliderB, JPH_ContactManifold_GetSubShapeID2(contact->manifold));
+}
+
+void lovrContactGetNormal(Contact* contact, float normal[3]) {
+  JPH_Vec3 n;
+  JPH_ContactManifold_GetWorldSpaceNormal(contact->manifold, &n);
+  vec3_fromJolt(normal, &n);
+}
+
+float lovrContactGetPenetration(Contact* contact) {
+  return JPH_ContactManifold_GetPenetrationDepth(contact->manifold);
+}
+
+uint32_t lovrContactGetPointCount(Contact* contact) {
+  return JPH_ContactManifold_GetPointCount(contact->manifold);
+}
+
+void lovrContactGetPoint(Contact* contact, uint32_t index, float point[3]) {
+  JPH_Vec3 p;
+  JPH_ContactManifold_GetWorldSpaceContactPointOn2(contact->manifold, index, &p);
+  vec3_fromJolt(point, &p);
+}
+
+float lovrContactGetFriction(Contact* contact) {
+  return JPH_ContactSettings_GetFriction(contact->settings);
+}
+
+void lovrContactSetFriction(Contact* contact, float friction) {
+  return JPH_ContactSettings_SetFriction(contact->settings, friction);
+}
+
+float lovrContactGetRestitution(Contact* contact) {
+  return JPH_ContactSettings_GetRestitution(contact->settings);
+}
+
+void lovrContactSetRestitution(Contact* contact, float restitution) {
+  return JPH_ContactSettings_SetRestitution(contact->settings, restitution);
+}
+
+bool lovrContactIsEnabled(Contact* contact) {
+  return JPH_ContactSettings_GetIsSensor(contact->settings);
+}
+
+void lovrContactSetEnabled(Contact* contact, bool enable) {
+  JPH_ContactSettings_SetIsSensor(contact->settings, !enable);
+}
+
+void lovrContactGetSurfaceVelocity(Contact* contact, float velocity[3]) {
+  JPH_Vec3 v;
+  JPH_ContactSettings_GetRelativeLinearSurfaceVelocity(contact->settings, &v);
+  vec3_fromJolt(velocity, &v);
+}
+
+void lovrContactSetSurfaceVelocity(Contact* contact, float velocity[3]) {
+  JPH_ContactSettings_SetRelativeLinearSurfaceVelocity(contact->settings, vec3_toJolt(velocity));
+}
+
+void lovrContactDestroy(void* ref) {
+  // Contact is a temporary object owned by a World
 }
 
 // Shapes

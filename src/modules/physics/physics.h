@@ -10,6 +10,7 @@
 
 typedef struct World World;
 typedef struct Collider Collider;
+typedef struct Contact Contact;
 typedef struct Shape Shape;
 typedef struct Joint Joint;
 
@@ -33,6 +34,14 @@ bool lovrPhysicsInit(void);
 void lovrPhysicsDestroy(void);
 
 // World
+
+typedef struct {
+  bool (*filter)(void* userdata, World* world, Collider* a, Collider* b);
+  void (*enter)(void* userdata, World* world, Collider* a, Collider* b);
+  void (*exit)(void* userdata, World* world, Collider* a, Collider* b);
+  void (*contact)(void* userdata, World* world, Collider* a, Collider* b, Contact* contact);
+  void* userdata;
+} WorldCallbacks;
 
 typedef struct {
   uint32_t tickRate;
@@ -85,6 +94,7 @@ bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
 void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
 bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2);
+void lovrWorldSetCallbacks(World* world, WorldCallbacks* callbacks);
 
 // Deprecated
 int lovrWorldGetStepCount(World* world);
@@ -166,6 +176,26 @@ void lovrColliderGetWorldVector(Collider* collider, float local[3], float world[
 void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float point[3], float velocity[3]);
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float point[3], float velocity[3]);
 void lovrColliderGetAABB(Collider* collider, float aabb[6]);
+
+// Contact
+
+Collider* lovrContactGetColliderA(Contact* contact);
+Collider* lovrContactGetColliderB(Contact* contact);
+Shape* lovrContactGetShapeA(Contact* contact);
+Shape* lovrContactGetShapeB(Contact* contact);
+void lovrContactGetNormal(Contact* contact, float normal[3]);
+float lovrContactGetPenetration(Contact* contact);
+uint32_t lovrContactGetPointCount(Contact* contact);
+void lovrContactGetPoint(Contact* contact, uint32_t index, float point[3]);
+float lovrContactGetFriction(Contact* contact);
+void lovrContactSetFriction(Contact* contact, float friction);
+float lovrContactGetRestitution(Contact* contact);
+void lovrContactSetRestitution(Contact* contact, float restitution);
+bool lovrContactIsEnabled(Contact* contact);
+void lovrContactSetEnabled(Contact* contact, bool enable);
+void lovrContactGetSurfaceVelocity(Contact* contact, float velocity[3]);
+void lovrContactSetSurfaceVelocity(Contact* contact, float velocity[3]);
+void lovrContactDestroy(void* ref);
 
 // Shapes
 
