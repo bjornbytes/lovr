@@ -36,12 +36,6 @@ void lovrPhysicsDestroy(void);
 // World
 
 typedef struct {
-  float x, y, z;
-  float nx, ny, nz;
-  float depth;
-} Contact;
-
-typedef struct {
   uint32_t maxColliders;
   uint32_t maxColliderPairs;
   uint32_t maxContacts;
@@ -58,7 +52,6 @@ uint32_t lovrWorldGetJointCount(World* world);
 Collider* lovrWorldGetColliders(World* world, Collider* collider);
 Joint* lovrWorldGetJoints(World* world, Joint* joint);
 void lovrWorldUpdate(World* world, float dt);
-void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count);
 void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata);

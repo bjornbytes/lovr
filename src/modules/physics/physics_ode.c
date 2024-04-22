@@ -276,22 +276,6 @@ void lovrWorldSetStepCount(World* world, int iterations) {
   dWorldSetQuickStepNumIterations(world->id, iterations);
 }
 
-void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count) {
-  dContactGeom info[MAX_CONTACTS];
-  int c = *count = dCollide(a->id, b->id, MAX_CONTACTS, info, sizeof(info[0]));
-  for (int i = 0; i < c; i++) {
-    contacts[i] = (Contact) {
-      .x = info[i].pos[0],
-      .y = info[i].pos[1],
-      .z = info[i].pos[2],
-      .nx = info[i].normal[0],
-      .ny = info[i].normal[1],
-      .nz = info[i].normal[2],
-      .depth = info[i].depth
-    };
-  }
-}
-
 void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata) {
   RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
   float dx = start[0] - end[0];

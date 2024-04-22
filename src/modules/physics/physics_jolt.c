@@ -181,10 +181,6 @@ void lovrWorldUpdate(World* world, float dt) {
   JPH_PhysicsSystem_Step(world->system, dt, world->collisionSteps);
 }
 
-void lovrWorldGetContacts(World* world, Shape* a, Shape* b, Contact contacts[MAX_CONTACTS], uint32_t* count) {
-  //
-}
-
 void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
   const JPH_RVec3 origin = { start[0], start[1], start[2] };
