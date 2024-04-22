@@ -84,7 +84,6 @@ void lovrColliderDestroyData(Collider* collider);
 bool lovrColliderIsDestroyed(Collider* collider);
 bool lovrColliderIsEnabled(Collider* collider);
 void lovrColliderSetEnabled(Collider* collider, bool enable);
-void lovrColliderInitInertia(Collider* collider, Shape* shape);
 World* lovrColliderGetWorld(Collider* collider);
 Joint* lovrColliderGetJoints(Collider* collider, Joint* joint);
 Shape* lovrColliderGetShape(Collider* collider, uint32_t child);

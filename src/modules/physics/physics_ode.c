@@ -475,14 +475,6 @@ void lovrColliderSetEnabled(Collider* collider, bool enable) {
   //
 }
 
-void lovrColliderInitInertia(Collider* collider, Shape* shape) {
-  // compute inertia matrix for default density
-  const float density = 1.0f;
-  float centerOfMass[3], mass, inertia[6];
-  lovrShapeGetMass(shape, density, centerOfMass, &mass, inertia);
-  lovrColliderSetMassData(collider, centerOfMass, mass, inertia);
-}
-
 World* lovrColliderGetWorld(Collider* collider) {
   return collider->world;
 }

@@ -416,10 +416,6 @@ void lovrColliderSetEnabled(Collider* collider, bool enable) {
   }
 }
 
-void lovrColliderInitInertia(Collider* collider, Shape* shape) {
-  //
-}
-
 World* lovrColliderGetWorld(Collider* collider) {
   return collider->world;
 }
@@ -667,9 +663,6 @@ void lovrColliderGetLinearDamping(Collider* collider, float* damping, float* thr
 void lovrColliderSetLinearDamping(Collider* collider, float damping, float threshold) {
   JPH_MotionProperties* properties = JPH_Body_GetMotionProperties(collider->body);
   JPH_MotionProperties_SetLinearDamping(properties, damping);
-  if (threshold != 0.f) {
-    lovrLog(LOG_WARN, "PHY", "Jolt does not support velocity threshold parameter for damping");
-  }
 }
 
 void lovrColliderGetAngularDamping(Collider* collider, float* damping, float* threshold) {
@@ -681,9 +674,6 @@ void lovrColliderGetAngularDamping(Collider* collider, float* damping, float* th
 void lovrColliderSetAngularDamping(Collider* collider, float damping, float threshold) {
   JPH_MotionProperties* properties = JPH_Body_GetMotionProperties(collider->body);
   JPH_MotionProperties_SetAngularDamping(properties, damping);
-  if (threshold != 0.f) {
-    lovrLog(LOG_WARN, "PHY", "Jolt does not support velocity threshold parameter for damping");
-  }
 }
 
 void lovrColliderApplyForce(Collider* collider, float force[3]) {
