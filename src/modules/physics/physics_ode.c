@@ -762,6 +762,10 @@ void lovrColliderGetLocalCenter(Collider* collider, float center[3]) {
   vec3_set(center, m.c[0], m.c[1], m.c[2]);
 }
 
+void lovrColliderGetWorldCenter(Collider* collider, float center[3]) {
+  //
+}
+
 void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3]) {
   dReal point[4];
   dBodyGetPosRelPoint(collider->body, world[0], world[1], world[2], point);

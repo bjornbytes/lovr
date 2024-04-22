@@ -439,6 +439,16 @@ static int l_lovrColliderGetLocalCenter(lua_State* L) {
   return 3;
 }
 
+static int l_lovrColliderGetWorldCenter(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float center[3];
+  lovrColliderGetWorldCenter(collider, center);
+  lua_pushnumber(L, center[0]);
+  lua_pushnumber(L, center[1]);
+  lua_pushnumber(L, center[2]);
+  return 3;
+}
+
 static int l_lovrColliderGetLocalPoint(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float world[3], local[3];
@@ -635,6 +645,7 @@ const luaL_Reg lovrCollider[] = {
   { "applyLinearImpulse", l_lovrColliderApplyLinearImpulse },
   { "applyAngularImpulse", l_lovrColliderApplyAngularImpulse },
   { "getLocalCenter", l_lovrColliderGetLocalCenter },
+  { "getWorldCenter", l_lovrColliderGetWorldCenter },
   { "getLocalPoint", l_lovrColliderGetLocalPoint },
   { "getWorldPoint", l_lovrColliderGetWorldPoint },
   { "getLocalVector", l_lovrColliderGetLocalVector },

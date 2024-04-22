@@ -711,8 +711,15 @@ void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
 }
 
 void lovrColliderGetLocalCenter(Collider* collider, float center[3]) {
-  // todo: applicable for CompoundShape and OffsetCenterOfMassShape
-  vec3_set(center, 0.f, 0.f, 0.f);
+  JPH_Vec3 v;
+  JPH_Shape_GetCenterOfMass(JPH_BodyInterface_GetShape(collider->world->bodies, collider->id), &v);
+  vec3_fromJolt(center, &v);
+}
+
+void lovrColliderGetWorldCenter(Collider* collider, float center[3]) {
+  JPH_RVec3 v;
+  JPH_Body_GetCenterOfMassPosition(collider->body, &v);
+  vec3_fromJolt(center, &v);
 }
 
 void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3]) {

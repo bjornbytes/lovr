@@ -132,6 +132,7 @@ void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]);
 void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]);
 void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]);
 void lovrColliderGetLocalCenter(Collider* collider, float center[3]);
+void lovrColliderGetWorldCenter(Collider* collider, float center[3]);
 void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3]);
 void lovrColliderGetWorldPoint(Collider* collider, float local[3], float world[3]);
 void lovrColliderGetLocalVector(Collider* collider, float world[3], float local[3]);
