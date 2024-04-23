@@ -506,25 +506,6 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
   }
 }
 
-void lovrColliderGetShapeOffset(Collider* collider, float position[3], float orientation[4]) {
-  const dReal* p = dGeomGetOffsetPosition(collider->shape->id);
-  position[0] = p[0];
-  position[1] = p[1];
-  position[2] = p[2];
-  dReal q[4];
-  dGeomGetOffsetQuaternion(collider->shape->id, q);
-  orientation[0] = q[1];
-  orientation[1] = q[2];
-  orientation[2] = q[3];
-  orientation[3] = q[0];
-}
-
-void lovrColliderSetShapeOffset(Collider* collider, float position[3], float orientation[4]) {
-  dGeomSetOffsetPosition(collider->shape->id, position[0], position[1], position[2]);
-  dReal q[4] = { orientation[3], orientation[0], orientation[1], orientation[2] };
-  dGeomSetOffsetQuaternion(collider->shape->id, q);
-}
-
 Joint* lovrColliderGetJoints(Collider* collider, Joint* joint) {
   if (joint == NULL) {
     return collider->joints.length ? NULL : collider->joints.data[0];

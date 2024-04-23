@@ -57,31 +57,6 @@ static int l_lovrColliderSetShape(lua_State* L) {
   return 0;
 }
 
-static int l_lovrColliderGetShapeOffset(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  float position[3], orientation[4], angle, ax, ay, az;
-  lovrColliderGetShapeOffset(collider, position, orientation);
-  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
-  lua_pushnumber(L, position[0]);
-  lua_pushnumber(L, position[1]);
-  lua_pushnumber(L, position[2]);
-  lua_pushnumber(L, angle);
-  lua_pushnumber(L, ax);
-  lua_pushnumber(L, ay);
-  lua_pushnumber(L, az);
-  return 7;
-}
-
-static int l_lovrColliderSetShapeOffset(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  int index = 2;
-  float position[3], orientation[4];
-  index = luax_readvec3(L, index, position, NULL);
-  index = luax_readquat(L, index, orientation, NULL);
-  lovrColliderSetShapeOffset(collider, position, orientation);
-  return 0;
-}
-
 static int l_lovrColliderGetJoints(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   lua_newtable(L);
@@ -605,8 +580,6 @@ const luaL_Reg lovrCollider[] = {
   { "getWorld", l_lovrColliderGetWorld },
   { "getShape", l_lovrColliderGetShape },
   { "setShape", l_lovrColliderSetShape },
-  { "getShapeOffset", l_lovrColliderGetShapeOffset },
-  { "setShapeOffset", l_lovrColliderSetShapeOffset },
   { "getJoints", l_lovrColliderGetJoints },
   { "getUserData", l_lovrColliderGetUserData },
   { "setUserData", l_lovrColliderSetUserData },

@@ -443,11 +443,6 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
     return;
   }
 
-  float position[3], orientation[4];
-  const JPH_Shape* parent = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
-  bool hasOffset = JPH_Shape_GetSubType(parent) == JPH_ShapeSubType_RotatedTranslated;
-  if (hasOffset) lovrColliderGetShapeOffset(collider, position, orientation);
-
   lovrRelease(collider->shape, lovrShapeDestroy);
   collider->shape = shape;
   lovrRetain(shape);
@@ -459,41 +454,6 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
   }
 
   JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape->shape, updateMass, JPH_Activation_Activate);
-
-  if (hasOffset) {
-    lovrColliderSetShapeOffset(collider, position, orientation);
-  }
-}
-
-void lovrColliderGetShapeOffset(Collider* collider, float position[3], float orientation[4]) {
-  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
-
-  if (JPH_Shape_GetSubType(shape) != JPH_ShapeSubType_RotatedTranslated) {
-    vec3_set(position, 0.f, 0.f, 0.f);
-    quat_identity(orientation);
-    return;
-  }
-
-  JPH_Vec3 p;
-  JPH_Quat q;
-  JPH_RotatedTranslatedShape_GetPosition((JPH_RotatedTranslatedShape*) shape, &p);
-  JPH_RotatedTranslatedShape_GetRotation((JPH_RotatedTranslatedShape*) shape, &q);
-  vec3_fromJolt(position, &p);
-  quat_fromJolt(orientation, &q);
-}
-
-void lovrColliderSetShapeOffset(Collider* collider, float position[3], float orientation[4]) {
-  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
-
-  if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_RotatedTranslated) {
-    JPH_Shape_Destroy((JPH_Shape*) shape);
-  }
-
-  JPH_Vec3* p = vec3_toJolt(position);
-  JPH_Quat* q = quat_toJolt(orientation);
-  shape = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(p, q, collider->shape->shape);
-  bool updateMass = collider->shape && collider->shape->type != SHAPE_MESH && collider->shape->type != SHAPE_TERRAIN;
-  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape, updateMass, JPH_Activation_Activate);
 }
 
 const char* lovrColliderGetTag(Collider* collider) {
