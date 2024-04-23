@@ -15,6 +15,7 @@ StringEntry lovrShapeType[] = {
 };
 
 StringEntry lovrJointType[] = {
+  [JOINT_WELD] = ENTRY("weld"),
   [JOINT_BALL] = ENTRY("ball"),
   [JOINT_DISTANCE] = ENTRY("distance"),
   [JOINT_HINGE] = ENTRY("hinge"),
@@ -94,6 +95,17 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 
   luax_pushtype(L, World, world);
   lovrRelease(world, lovrWorldDestroy);
+  return 1;
+}
+
+static int l_lovrPhysicsNewWeldJoint(lua_State* L) {
+  Collider* a = luax_checktype(L, 1, Collider);
+  Collider* b = luax_checktype(L, 2, Collider);
+  float anchor[3];
+  luax_readvec3(L, 3, anchor, NULL);
+  WeldJoint* joint = lovrWeldJointCreate(a, b, anchor);
+  luax_pushtype(L, WeldJoint, joint);
+  lovrRelease(joint, lovrJointDestroy);
   return 1;
 }
 
@@ -201,6 +213,7 @@ static int l_lovrPhysicsNewCompoundShape(lua_State* L) {
 
 static const luaL_Reg lovrPhysics[] = {
   { "newWorld", l_lovrPhysicsNewWorld },
+  { "newWeldJoint", l_lovrPhysicsNewWeldJoint },
   { "newBallJoint", l_lovrPhysicsNewBallJoint },
   { "newBoxShape", l_lovrPhysicsNewBoxShape },
   { "newCapsuleShape", l_lovrPhysicsNewCapsuleShape },
@@ -218,6 +231,7 @@ static const luaL_Reg lovrPhysics[] = {
 
 extern const luaL_Reg lovrWorld[];
 extern const luaL_Reg lovrCollider[];
+extern const luaL_Reg lovrWeldJoint[];
 extern const luaL_Reg lovrBallJoint[];
 extern const luaL_Reg lovrDistanceJoint[];
 extern const luaL_Reg lovrHingeJoint[];
@@ -236,6 +250,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_register(L, lovrPhysics);
   luax_registertype(L, World);
   luax_registertype(L, Collider);
+  luax_registertype(L, WeldJoint);
   luax_registertype(L, BallJoint);
   luax_registertype(L, DistanceJoint);
   luax_registertype(L, HingeJoint);

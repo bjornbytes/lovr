@@ -5,6 +5,7 @@
 
 void luax_pushjoint(lua_State* L, Joint* joint) {
   switch (lovrJointGetType(joint)) {
+    case JOINT_WELD: luax_pushtype(L, WeldJoint, joint); break;
     case JOINT_BALL: luax_pushtype(L, BallJoint, joint); break;
     case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
     case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
@@ -18,6 +19,7 @@ Joint* luax_checkjoint(lua_State* L, int index) {
 
   if (p) {
     const uint64_t hashes[] = {
+      hash64("WeldJoint", strlen("WeldJoint")),
       hash64("BallJoint", strlen("BallJoint")),
       hash64("DistanceJoint", strlen("DistanceJoint")),
       hash64("HingeJoint", strlen("HingeJoint")),
@@ -93,6 +95,20 @@ static int l_lovrJointSetEnabled(lua_State* L) {
   return 0;
 }
 
+static int l_lovrJointGetForce(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float force = lovrJointGetForce(joint);
+  lua_pushnumber(L, force);
+  return 1;
+}
+
+static int l_lovrJointGetTorque(lua_State* L) {
+  Joint* joint = luax_checkjoint(L, 1);
+  float torque = lovrJointGetTorque(joint);
+  lua_pushnumber(L, torque);
+  return 1;
+}
+
 #define lovrJoint \
   { "destroy", l_lovrJointDestroy }, \
   { "isDestroyed", l_lovrJointIsDestroyed }, \
@@ -101,7 +117,28 @@ static int l_lovrJointSetEnabled(lua_State* L) {
   { "getUserData", l_lovrJointGetUserData }, \
   { "setUserData", l_lovrJointSetUserData }, \
   { "isEnabled", l_lovrJointIsEnabled }, \
-  { "setEnabled", l_lovrJointSetEnabled }
+  { "setEnabled", l_lovrJointSetEnabled }, \
+  { "getForce", l_lovrJointGetForce }, \
+  { "getTorque", l_lovrJointGetTorque }
+
+static int l_lovrWeldJointGetAnchors(lua_State* L) {
+  WeldJoint* joint = luax_checktype(L, 1, WeldJoint);
+  float anchor1[3], anchor2[3];
+  lovrWeldJointGetAnchors(joint, anchor1, anchor2);
+  lua_pushnumber(L, anchor1[0]);
+  lua_pushnumber(L, anchor1[1]);
+  lua_pushnumber(L, anchor1[2]);
+  lua_pushnumber(L, anchor2[0]);
+  lua_pushnumber(L, anchor2[1]);
+  lua_pushnumber(L, anchor2[2]);
+  return 6;
+}
+
+const luaL_Reg lovrWeldJoint[] = {
+  lovrJoint,
+  { "getAnchors", l_lovrWeldJointGetAnchors },
+  { NULL, NULL }
+};
 
 static int l_lovrBallJointGetAnchors(lua_State* L) {
   BallJoint* joint = luax_checktype(L, 1, BallJoint);

@@ -1156,6 +1156,69 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
   JPH_Constraint_SetEnabled(joint->constraint, enable);
 }
 
+float lovrJointGetForce(Joint* joint) {
+  JPH_Vec3 v;
+  float force[3], x, y;
+  switch (joint->type) {
+    case JOINT_WELD:
+      JPH_FixedConstraint_GetTotalLambdaPosition((JPH_FixedConstraint*) joint->constraint, &v);
+      return vec3_length(vec3_fromJolt(force, &v));
+    case JOINT_BALL:
+      JPH_PointConstraint_GetTotalLambdaPosition((JPH_PointConstraint*) joint->constraint, &v);
+      return vec3_length(vec3_fromJolt(force, &v));
+    case JOINT_DISTANCE:
+      return JPH_DistanceConstraint_GetTotalLambdaPosition((JPH_DistanceConstraint*) joint->constraint);
+    case JOINT_HINGE:
+      JPH_HingeConstraint_GetTotalLambdaPosition((JPH_HingeConstraint*) joint->constraint, &v);
+      return vec3_length(vec3_fromJolt(force, &v));
+    case JOINT_SLIDER:
+      JPH_SliderConstraint_GetTotalLambdaPosition((JPH_SliderConstraint*) joint->constraint, &x, &y);
+      return sqrtf((x * x) + (y * y));
+    default: return 0.f;
+  }
+}
+
+float lovrJointGetTorque(Joint* joint) {
+  JPH_Vec3 v;
+  float torque[3], x, y;
+  switch (joint->type) {
+    case JOINT_WELD:
+      JPH_FixedConstraint_GetTotalLambdaRotation((JPH_FixedConstraint*) joint->constraint, &v);
+      return vec3_length(vec3_fromJolt(torque, &v));
+    case JOINT_BALL:
+      return 0.f;
+    case JOINT_DISTANCE:
+      return 0.f;
+    case JOINT_HINGE:
+      JPH_HingeConstraint_GetTotalLambdaRotation((JPH_HingeConstraint*) joint->constraint, &x, &y);
+      return sqrtf((x * x) + (y * y));
+    case JOINT_SLIDER:
+      JPH_SliderConstraint_GetTotalLambdaRotation((JPH_SliderConstraint*) joint->constraint, &v);
+      return vec3_length(vec3_fromJolt(torque, &v));
+    default: return 0.f;
+  }
+}
+
+WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
+  lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
+  WeldJoint* joint = lovrCalloc(sizeof(WeldJoint));
+  joint->ref = 1;
+  joint->type = JOINT_WELD;
+  JPH_FixedConstraintSettings* settings = JPH_FixedConstraintSettings_Create();
+  JPH_FixedConstraintSettings_SetPoint1(settings, vec3_toJolt(anchor));
+  JPH_FixedConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
+  joint->constraint = (JPH_Constraint*) JPH_FixedConstraintSettings_CreateConstraint(settings, a->body, b->body);
+  JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
+  JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
+  lovrJointInit(joint, a, b);
+  lovrRetain(joint);
+  return joint;
+}
+
+void lovrWeldJointGetAnchors(WeldJoint* joint, float anchor1[3], float anchor2[3]) {
+  lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
+}
+
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
   BallJoint* joint = lovrCalloc(sizeof(BallJoint));

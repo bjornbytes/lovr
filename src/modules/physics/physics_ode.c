@@ -1102,6 +1102,22 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
   }
 }
 
+float lovrJointGetForce(Joint* joint) {
+  return 0.f;
+}
+
+float lovrJointGetTorque(Joint* joint) {
+  return 0.f;
+}
+
+BallJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
+  lovrThrow("NYI");
+}
+
+void lovrWeldJointGetAnchors(WeldJoint* joint, float anchor1[3], float anchor2[3]) {
+  //
+}
+
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
   BallJoint* joint = lovrCalloc(sizeof(BallJoint));

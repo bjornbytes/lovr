@@ -22,6 +22,7 @@ typedef Shape MeshShape;
 typedef Shape TerrainShape;
 typedef Shape CompoundShape;
 
+typedef Joint WeldJoint;
 typedef Joint BallJoint;
 typedef Joint DistanceJoint;
 typedef Joint HingeJoint;
@@ -202,6 +203,7 @@ void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float
 // Joints
 
 typedef enum {
+  JOINT_WELD,
   JOINT_BALL,
   JOINT_DISTANCE,
   JOINT_HINGE,
@@ -217,6 +219,11 @@ Collider* lovrJointGetColliderB(Joint* joint);
 Joint* lovrJointGetNext(Joint* joint, Collider* collider);
 bool lovrJointIsEnabled(Joint* joint);
 void lovrJointSetEnabled(Joint* joint, bool enable);
+float lovrJointGetForce(Joint* joint);
+float lovrJointGetTorque(Joint* joint);
+
+WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]);
+void lovrWeldJointGetAnchors(WeldJoint* joint, float anchor1[3], float anchor2[3]);
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]);
 void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3]);
@@ -257,6 +264,7 @@ float lovrSliderJointGetUpperLimit(SliderJoint* joint);
 void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit);
 
 // These tokens need to exist for Lua bindings
+#define lovrWeldJointDestroy lovrJointDestroy
 #define lovrBallJointDestroy lovrJointDestroy
 #define lovrDistanceJointDestroy lovrJointDestroy
 #define lovrHingeJointDestroy lovrJointDestroy
