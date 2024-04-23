@@ -1107,7 +1107,7 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   joint->id = dJointCreateBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrBallJointSetAnchor(joint, anchor);
+  dJointSetBallAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
   lovrRetain(joint);
   return joint;
 }
@@ -1122,10 +1122,6 @@ void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3
   anchor2[0] = anchor[0];
   anchor2[1] = anchor[1];
   anchor2[2] = anchor[2];
-}
-
-void lovrBallJointSetAnchor(BallJoint* joint, float anchor[3]) {
-  dJointSetBallAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
 }
 
 float lovrBallJointGetResponseTime(Joint* joint) {
@@ -1152,7 +1148,8 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3
   joint->id = dJointCreateDBall(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrDistanceJointSetAnchors(joint, anchor1, anchor2);
+  dJointSetDBallAnchor1(joint->id, anchor1[0], anchor1[1], anchor1[2]);
+  dJointSetDBallAnchor2(joint->id, anchor2[0], anchor2[1], anchor2[2]);
   lovrRetain(joint);
   return joint;
 }
@@ -1167,11 +1164,6 @@ void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float a
   anchor2[0] = anchor[0];
   anchor2[1] = anchor[1];
   anchor2[2] = anchor[2];
-}
-
-void lovrDistanceJointSetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]) {
-  dJointSetDBallAnchor1(joint->id, anchor1[0], anchor1[1], anchor1[2]);
-  dJointSetDBallAnchor2(joint->id, anchor2[0], anchor2[1], anchor2[2]);
 }
 
 float lovrDistanceJointGetDistance(DistanceJoint* joint) {
@@ -1206,7 +1198,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], floa
   joint->id = dJointCreateHinge(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrHingeJointSetAnchor(joint, anchor);
+  dJointSetHingeAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
   lovrHingeJointSetAxis(joint, axis);
   lovrRetain(joint);
   return joint;
@@ -1222,10 +1214,6 @@ void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2
   anchor2[0] = anchor[0];
   anchor2[1] = anchor[1];
   anchor2[2] = anchor[2];
-}
-
-void lovrHingeJointSetAnchor(HingeJoint* joint, float anchor[3]) {
-  dJointSetHingeAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
 }
 
 void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {

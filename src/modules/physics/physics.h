@@ -225,7 +225,6 @@ void lovrWeldJointGetAnchors(WeldJoint* joint, float anchor1[3], float anchor2[3
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]);
 void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3]);
-void lovrBallJointSetAnchor(BallJoint* joint, float anchor[3]);
 float lovrBallJointGetResponseTime(Joint* joint);
 void lovrBallJointSetResponseTime(Joint* joint, float responseTime);
 float lovrBallJointGetTightness(Joint* joint);
@@ -233,7 +232,6 @@ void lovrBallJointSetTightness(Joint* joint, float tightness);
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]);
 void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]);
-void lovrDistanceJointSetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]);
 float lovrDistanceJointGetDistance(DistanceJoint* joint);
 void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance);
 float lovrDistanceJointGetResponseTime(Joint* joint);
@@ -243,7 +241,6 @@ void lovrDistanceJointSetTightness(Joint* joint, float tightness);
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]);
 void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2[3]);
-void lovrHingeJointSetAnchor(HingeJoint* joint, float anchor[3]);
 void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]);
 void lovrHingeJointSetAxis(HingeJoint* joint, float axis[3]);
 float lovrHingeJointGetAngle(HingeJoint* joint);

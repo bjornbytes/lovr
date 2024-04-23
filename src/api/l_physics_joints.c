@@ -153,14 +153,6 @@ static int l_lovrBallJointGetAnchors(lua_State* L) {
   return 6;
 }
 
-static int l_lovrBallJointSetAnchor(lua_State* L) {
-  BallJoint* joint = luax_checktype(L, 1, BallJoint);
-  float anchor[3];
-  luax_readvec3(L, 2, anchor, NULL);
-  lovrBallJointSetAnchor(joint, anchor);
-  return 0;
-}
-
 static int l_lovrBallJointGetResponseTime(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
   float responseTime = lovrBallJointGetResponseTime(joint);
@@ -194,7 +186,6 @@ static int l_lovrBallJointSetTightness(lua_State* L) {
 const luaL_Reg lovrBallJoint[] = {
   lovrJoint,
   { "getAnchors", l_lovrBallJointGetAnchors },
-  { "setAnchor", l_lovrBallJointSetAnchor },
   { "getResponseTime", l_lovrBallJointGetResponseTime},
   { "setResponseTime", l_lovrBallJointSetResponseTime},
   { "getTightness", l_lovrBallJointGetTightness},
@@ -213,15 +204,6 @@ static int l_lovrDistanceJointGetAnchors(lua_State* L) {
   lua_pushnumber(L, anchor2[1]);
   lua_pushnumber(L, anchor2[2]);
   return 6;
-}
-
-static int l_lovrDistanceJointSetAnchors(lua_State* L) {
-  DistanceJoint* joint = luax_checktype(L, 1, DistanceJoint);
-  float anchor1[3], anchor2[3];
-  int index = luax_readvec3(L, 2, anchor1, NULL);
-  luax_readvec3(L, index, anchor2, NULL);
-  lovrDistanceJointSetAnchors(joint, anchor1, anchor2);
-  return 0;
 }
 
 static int l_lovrDistanceJointGetDistance(lua_State* L) {
@@ -270,7 +252,6 @@ static int l_lovrDistanceJointSetTightness(lua_State* L) {
 const luaL_Reg lovrDistanceJoint[] = {
   lovrJoint,
   { "getAnchors", l_lovrDistanceJointGetAnchors },
-  { "setAnchors", l_lovrDistanceJointSetAnchors },
   { "getDistance", l_lovrDistanceJointGetDistance },
   { "setDistance", l_lovrDistanceJointSetDistance },
   { "getResponseTime", l_lovrDistanceJointGetResponseTime},
@@ -291,14 +272,6 @@ static int l_lovrHingeJointGetAnchors(lua_State* L) {
   lua_pushnumber(L, anchor2[1]);
   lua_pushnumber(L, anchor2[2]);
   return 6;
-}
-
-static int l_lovrHingeJointSetAnchor(lua_State* L) {
-  HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  float anchor[3];
-  luax_readvec3(L, 2, anchor, NULL);
-  lovrHingeJointSetAnchor(joint, anchor);
-  return 0;
 }
 
 static int l_lovrHingeJointGetAxis(lua_State* L) {
@@ -370,7 +343,6 @@ static int l_lovrHingeJointSetLimits(lua_State* L) {
 const luaL_Reg lovrHingeJoint[] = {
   lovrJoint,
   { "getAnchors", l_lovrHingeJointGetAnchors },
-  { "setAnchor", l_lovrHingeJointSetAnchor },
   { "getAxis", l_lovrHingeJointGetAxis },
   { "setAxis", l_lovrHingeJointSetAxis },
   { "getAngle", l_lovrHingeJointGetAngle },

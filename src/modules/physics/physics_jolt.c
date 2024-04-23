@@ -1200,12 +1200,6 @@ void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3
   lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
 }
 
-void lovrBallJointSetAnchor(BallJoint* joint, float anchor[3]) {
-  JPH_PointConstraint* constraint = (JPH_PointConstraint*) joint->constraint;
-  JPH_PointConstraint_SetPoint1(constraint, JPH_ConstraintSpace_WorldSpace, vec3_toJolt(anchor));
-  JPH_PointConstraint_SetPoint2(constraint, JPH_ConstraintSpace_WorldSpace, vec3_toJolt(anchor));
-}
-
 float lovrBallJointGetResponseTime(Joint* joint) {
   lovrLog(LOG_WARN, "PHY", "Jolt does not support BallJoint response time");
 }
@@ -1241,11 +1235,6 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3
 
 void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]) {
   lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
-}
-
-void lovrDistanceJointSetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support modifying joint anchors after creation");
-  // todo: no setter available, but the constraint could be removed and re-added
 }
 
 float lovrDistanceJointGetDistance(DistanceJoint* joint) {
@@ -1303,11 +1292,6 @@ void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2
   lovrJointGetAnchors(joint, anchor1, anchor2);
 }
 
-void lovrHingeJointSetAnchor(HingeJoint* joint, float anchor[3]) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support modifying joint anchors after creation");
-  // todo: no setter available, but the constraint could be removed and re-added
-}
-
 void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
   JPH_Vec3 resultAxis;
   JPH_HingeConstraintSettings* settings = JPH_HingeConstraint_GetSettings((JPH_HingeConstraint*) joint->constraint);
@@ -1333,7 +1317,6 @@ void lovrHingeJointSetAxis(HingeJoint* joint, float axis[3]) {
   lovrLog(LOG_WARN, "PHY", "Jolt does not support modifying joint axis after creation");
   // todo: no setter available, but the constraint could be removed and re-added
 }
-
 
 float lovrHingeJointGetAngle(HingeJoint* joint) {
   return -JPH_HingeConstraint_GetCurrentAngle((JPH_HingeConstraint*) joint->constraint);
