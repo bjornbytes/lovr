@@ -1071,6 +1071,14 @@ Collider* lovrJointGetColliderB(Joint* joint) {
   return bodyB ? dBodyGetData(bodyB) : NULL;
 }
 
+uint32_t lovrJointGetPriority(Joint* joint) {
+  return 0;
+}
+
+void lovrJointSetPriority(Joint* joint, uint32_t priority) {
+  //
+}
+
 bool lovrJointIsEnabled(Joint* joint) {
   return dJointIsEnabled(joint->id);
 }
@@ -1124,22 +1132,6 @@ void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3
   anchor2[2] = anchor[2];
 }
 
-float lovrBallJointGetResponseTime(Joint* joint) {
-  return dJointGetBallParam(joint->id, dParamCFM);
-}
-
-void lovrBallJointSetResponseTime(Joint* joint, float responseTime) {
-  dJointSetBallParam(joint->id, dParamCFM, responseTime);
-}
-
-float lovrBallJointGetTightness(Joint* joint) {
-  return dJointGetBallParam(joint->id, dParamERP);
-}
-
-void lovrBallJointSetTightness(Joint* joint, float tightness) {
-  dJointSetBallParam(joint->id, dParamERP, tightness);
-}
-
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
   DistanceJoint* joint = lovrCalloc(sizeof(DistanceJoint));
@@ -1166,28 +1158,21 @@ void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float a
   anchor2[2] = anchor[2];
 }
 
-float lovrDistanceJointGetDistance(DistanceJoint* joint) {
-  return dJointGetDBallDistance(joint->id);
+void lovrDistanceJointGetLimits(DistanceJoint* joint, float* min, float* max) {
+  *min = dJointGetDBallDistance(joint->id);
+  *max = dJointGetDBallDistance(joint->id);
 }
 
-void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance) {
-  dJointSetDBallDistance(joint->id, distance);
+void lovrDistanceJointSetLimits(DistanceJoint* joint, float min, float max) {
+  dJointSetDBallDistance(joint->id, max);
 }
 
-float lovrDistanceJointGetResponseTime(Joint* joint) {
-  return dJointGetDBallParam(joint->id, dParamCFM);
+void lovrDistanceJointGetSpring(DistanceJoint* joint, float* frequency, float* damping) {
+  // TODO
 }
 
-void lovrDistanceJointSetResponseTime(Joint* joint, float responseTime) {
-  dJointSetDBallParam(joint->id, dParamCFM, responseTime);
-}
-
-float lovrDistanceJointGetTightness(Joint* joint) {
-  return dJointGetDBallParam(joint->id, dParamERP);
-}
-
-void lovrDistanceJointSetTightness(Joint* joint, float tightness) {
-  dJointSetDBallParam(joint->id, dParamERP, tightness);
+void lovrDistanceJointSetSpring(DistanceJoint* joint, float frequency, float damping) {
+  // TODO
 }
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
@@ -1199,7 +1184,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], floa
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
   dJointSetHingeAnchor(joint->id, anchor[0], anchor[1], anchor[2]);
-  lovrHingeJointSetAxis(joint, axis);
+  dJointSetHingeAxis(joint->id, axis[0], axis[1], axis[2]);
   lovrRetain(joint);
   return joint;
 }
@@ -1224,28 +1209,62 @@ void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
   axis[2] = daxis[2];
 }
 
-void lovrHingeJointSetAxis(HingeJoint* joint, float axis[3]) {
-  dJointSetHingeAxis(joint->id, axis[0], axis[1], axis[2]);
-}
-
 float lovrHingeJointGetAngle(HingeJoint* joint) {
   return dJointGetHingeAngle(joint->id);
 }
 
-float lovrHingeJointGetLowerLimit(HingeJoint* joint) {
-  return dJointGetHingeParam(joint->id, dParamLoStop);
+void lovrHingeJointGetLimits(HingeJoint* joint, float* min, float* max) {
+  *min = dJointGetHingeParam(joint->id, dParamLoStop);
+  *max = dJointGetHingeParam(joint->id, dParamHiStop);
 }
 
-void lovrHingeJointSetLowerLimit(HingeJoint* joint, float limit) {
-  dJointSetHingeParam(joint->id, dParamLoStop, limit);
+void lovrHingeJointSetLimits(HingeJoint* joint, float min, float max) {
+  dJointSetHingeParam(joint->id, dParamLoStop, min);
+  dJointSetHingeParam(joint->id, dParamHiStop, max);
 }
 
-float lovrHingeJointGetUpperLimit(HingeJoint* joint) {
-  return dJointGetHingeParam(joint->id, dParamHiStop);
+float lovrHingeJointGetFriction(HingeJoint* joint) {
+  return 0.f;
 }
 
-void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
-  dJointSetHingeParam(joint->id, dParamHiStop, limit);
+void lovrHingeJointSetFriction(HingeJoint* joint, float friction) {
+  //
+}
+
+void lovrHingeJointGetMotorTarget(HingeJoint* joint, TargetType* type, float* value) {
+  //
+}
+
+void lovrHingeJointSetMotorTarget(HingeJoint* joint, TargetType type, float value) {
+  //
+}
+
+void lovrHingeJointGetMotorSpring(HingeJoint* joint, float* frequency, float* damping) {
+  //
+}
+
+void lovrHingeJointSetMotorSpring(HingeJoint* joint, float frequency, float damping) {
+  //
+}
+
+void lovrHingeJointGetMaxMotorForce(HingeJoint* joint, float* positive, float* negative) {
+  //
+}
+
+void lovrHingeJointSetMaxMotorForce(HingeJoint* joint, float positive, float negative) {
+  //
+}
+
+float lovrHingeJointGetMotorForce(HingeJoint* joint) {
+  return 0.f;
+}
+
+void lovrHingeJointGetSpring(HingeJoint* joint, float* frequency, float* damping) {
+  //
+}
+
+void lovrHingeJointSetSpring(HingeJoint* joint, float frequency, float damping) {
+  //
 }
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
@@ -1256,9 +1275,13 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   joint->id = dJointCreateSlider(a->world->id, 0);
   dJointSetData(joint->id, joint);
   dJointAttach(joint->id, a->body, b->body);
-  lovrSliderJointSetAxis(joint, axis);
+  dJointSetSliderAxis(joint->id, axis[0], axis[1], axis[2]);
   lovrRetain(joint);
   return joint;
+}
+
+void lovrSliderJointGetAnchors(SliderJoint* joint, float anchor1[3], float anchor2[3]) {
+  //
 }
 
 void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
@@ -1269,26 +1292,60 @@ void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
   axis[2] = daxis[2];
 }
 
-void lovrSliderJointSetAxis(SliderJoint* joint, float axis[3]) {
-  dJointSetSliderAxis(joint->id, axis[0], axis[1], axis[2]);
-}
-
 float lovrSliderJointGetPosition(SliderJoint* joint) {
   return dJointGetSliderPosition(joint->id);
 }
 
-float lovrSliderJointGetLowerLimit(SliderJoint* joint) {
-  return dJointGetSliderParam(joint->id, dParamLoStop);
+void lovrSliderJointGetLimits(SliderJoint* joint, float* min, float* max) {
+  *min = dJointGetSliderParam(joint->id, dParamLoStop);
+  *min = dJointGetSliderParam(joint->id, dParamHiStop);
 }
 
-void lovrSliderJointSetLowerLimit(SliderJoint* joint, float limit) {
-  dJointSetSliderParam(joint->id, dParamLoStop, limit);
+void lovrSliderJointSetLimits(SliderJoint* joint, float min, float max) {
+  dJointSetSliderParam(joint->id, dParamLoStop, min);
+  dJointSetSliderParam(joint->id, dParamHiStop, max);
 }
 
-float lovrSliderJointGetUpperLimit(SliderJoint* joint) {
-  return dJointGetSliderParam(joint->id, dParamHiStop);
+float lovrSliderJointGetFriction(SliderJoint* joint) {
+  return 0.f;
 }
 
-void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit) {
-  dJointSetSliderParam(joint->id, dParamHiStop, limit);
+void lovrSliderJointSetFriction(SliderJoint* joint, float friction) {
+  //
+}
+
+void lovrSliderJointGetMotorTarget(SliderJoint* joint, TargetType* type, float* value) {
+  //
+}
+
+void lovrSliderJointSetMotorTarget(SliderJoint* joint, TargetType type, float value) {
+  //
+}
+
+void lovrSliderJointGetMotorSpring(SliderJoint* joint, float* frequency, float* damping) {
+  //
+}
+
+void lovrSliderJointSetMotorSpring(SliderJoint* joint, float frequency, float damping) {
+  //
+}
+
+void lovrSliderJointGetMaxMotorForce(SliderJoint* joint, float* positive, float* negative) {
+  //
+}
+
+void lovrSliderJointSetMaxMotorForce(SliderJoint* joint, float positive, float negative) {
+  //
+}
+
+float lovrSliderJointGetMotorForce(SliderJoint* joint) {
+  return 0.f;
+}
+
+void lovrSliderJointGetSpring(SliderJoint* joint, float* frequency, float* damping) {
+  //
+}
+
+void lovrSliderJointSetSpring(SliderJoint* joint, float frequency, float damping) {
+  //
 }

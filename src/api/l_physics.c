@@ -23,6 +23,13 @@ StringEntry lovrJointType[] = {
   { 0 }
 };
 
+StringEntry lovrTargetType[] = {
+  [TARGET_NONE] = ENTRY("none"),
+  [TARGET_VELOCITY] = ENTRY("velocity"),
+  [TARGET_POSITION] = ENTRY("position"),
+  { 0 }
+};
+
 static int l_lovrPhysicsNewWorld(lua_State* L) {
   WorldInfo info = {
     .maxColliders = 65536,

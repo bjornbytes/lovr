@@ -1108,6 +1108,14 @@ Joint* lovrJointGetNext(Joint* joint, Collider* collider) {
   return lovrJointGetNode(joint, collider)->next;
 }
 
+uint32_t lovrJointGetPriority(Joint* joint) {
+  return JPH_Constraint_GetConstraintPriority(joint->constraint);
+}
+
+void lovrJointSetPriority(Joint* joint, uint32_t priority) {
+  JPH_Constraint_SetConstraintPriority(joint->constraint, priority);
+}
+
 bool lovrJointIsEnabled(Joint* joint) {
   return JPH_Constraint_GetEnabled(joint->constraint);
 }
@@ -1159,16 +1167,18 @@ float lovrJointGetTorque(Joint* joint) {
   }
 }
 
+// WeldJoint
+
 WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
   WeldJoint* joint = lovrCalloc(sizeof(WeldJoint));
   joint->ref = 1;
   joint->type = JOINT_WELD;
-  JPH_FixedConstraintSettings* settings = JPH_FixedConstraintSettings_Create();
-  JPH_FixedConstraintSettings_SetPoint1(settings, vec3_toJolt(anchor));
-  JPH_FixedConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
-  joint->constraint = (JPH_Constraint*) JPH_FixedConstraintSettings_CreateConstraint(settings, a->body, b->body);
-  JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
+  JPH_FixedConstraintSettings settings;
+  JPH_FixedConstraintSettings_InitDefault(&settings);
+  settings.point1 = (JPH_Vec3) { anchor[0], anchor[1], anchor[2] };
+  settings.point2 = (JPH_Vec3) { anchor[0], anchor[1], anchor[2] };
+  joint->constraint = (JPH_Constraint*) JPH_FixedConstraintSettings_CreateConstraint(&settings, a->body, b->body);
   JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
@@ -1178,6 +1188,8 @@ WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
 void lovrWeldJointGetAnchors(WeldJoint* joint, float anchor1[3], float anchor2[3]) {
   lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
 }
+
+// BallJoint
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
@@ -1200,21 +1212,7 @@ void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3
   lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
 }
 
-float lovrBallJointGetResponseTime(Joint* joint) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support BallJoint response time");
-}
-
-void lovrBallJointSetResponseTime(Joint* joint, float responseTime) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support BallJoint response time");
-}
-
-float lovrBallJointGetTightness(Joint* joint) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support BallJoint tightness");
-}
-
-void lovrBallJointSetTightness(Joint* joint, float tightness) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support BallJoint tightness");
-}
+// DistanceJoint
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
@@ -1237,35 +1235,30 @@ void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float a
   lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
 }
 
-float lovrDistanceJointGetDistance(DistanceJoint* joint) {
-  return JPH_DistanceConstraint_GetMaxDistance((JPH_DistanceConstraint*) joint->constraint);
+void lovrDistanceJointGetLimits(DistanceJoint* joint, float* min, float* max) {
+  *min = JPH_DistanceConstraint_GetMinDistance((JPH_DistanceConstraint*) joint->constraint);
+  *max = JPH_DistanceConstraint_GetMaxDistance((JPH_DistanceConstraint*) joint->constraint);
 }
 
-void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance) {
-  JPH_DistanceConstraint_SetDistance((JPH_DistanceConstraint*) joint->constraint, distance, distance);
+void lovrDistanceJointSetLimits(DistanceJoint* joint, float min, float max) {
+  JPH_DistanceConstraint_SetDistance((JPH_DistanceConstraint*) joint->constraint, min, max);
 }
 
-float lovrDistanceJointGetResponseTime(Joint* joint) {
-  JPH_SpringSettings* settings = JPH_DistanceConstraint_GetLimitsSpringSettings((JPH_DistanceConstraint*) joint->constraint);
-  return 1.f / JPH_SpringSettings_GetFrequency(settings);
+void lovrDistanceJointGetSpring(DistanceJoint* joint, float* frequency, float* damping) {
+  JPH_SpringSettings settings;
+  JPH_DistanceConstraint_GetLimitsSpringSettings((JPH_DistanceConstraint*) joint->constraint, &settings);
+  *frequency = settings.frequencyOrStiffness;
+  *damping = settings.damping;
 }
 
-void lovrDistanceJointSetResponseTime(Joint* joint, float responseTime) {
-  JPH_SpringSettings* settings = JPH_SpringSettings_Create(1.f / responseTime, 0.f);
-  JPH_DistanceConstraint_SetLimitsSpringSettings((JPH_DistanceConstraint*) joint->constraint, settings);
-  JPH_SpringSettings_Destroy(settings);
+void lovrDistanceJointSetSpring(DistanceJoint* joint, float frequency, float damping) {
+  JPH_DistanceConstraint_SetLimitsSpringSettings((JPH_DistanceConstraint*) joint->constraint, &(JPH_SpringSettings) {
+    .frequencyOrStiffness = frequency,
+    .damping = damping
+  });
 }
 
-float lovrDistanceJointGetTightness(Joint* joint) {
-  // todo: jolt has spring damping instead of tightness, not compatible with lovr API
-  // (but body's damping is not that different)
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support DistanceJoint tightness");
-  return 0.f;
-}
-
-void lovrDistanceJointSetTightness(Joint* joint, float tightness) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support DistanceJoint tightness");
-}
+// HingeJoint
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in the same World");
@@ -1313,32 +1306,104 @@ void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
   axis[2] = translation[2];
 }
 
-void lovrHingeJointSetAxis(HingeJoint* joint, float axis[3]) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support modifying joint axis after creation");
-  // todo: no setter available, but the constraint could be removed and re-added
-}
-
 float lovrHingeJointGetAngle(HingeJoint* joint) {
   return -JPH_HingeConstraint_GetCurrentAngle((JPH_HingeConstraint*) joint->constraint);
 }
 
-float lovrHingeJointGetLowerLimit(HingeJoint* joint) {
-  return JPH_HingeConstraint_GetLimitsMin((JPH_HingeConstraint*) joint->constraint);
+void lovrHingeJointGetLimits(HingeJoint* joint, float* min, float* max) {
+  *min = JPH_HingeConstraint_GetLimitsMin((JPH_HingeConstraint*) joint->constraint);
+  *max = JPH_HingeConstraint_GetLimitsMax((JPH_HingeConstraint*) joint->constraint);
 }
 
-void lovrHingeJointSetLowerLimit(HingeJoint* joint, float limit) {
-  float upper_limit = JPH_HingeConstraint_GetLimitsMax((JPH_HingeConstraint*) joint->constraint);
-  JPH_HingeConstraint_SetLimits((JPH_HingeConstraint*) joint->constraint, limit, upper_limit);
+void lovrHingeJointSetLimits(HingeJoint* joint, float min, float max) {
+  JPH_HingeConstraint_SetLimits((JPH_HingeConstraint*) joint->constraint, min, max);
 }
 
-float lovrHingeJointGetUpperLimit(HingeJoint* joint) {
-  return JPH_HingeConstraint_GetLimitsMax((JPH_HingeConstraint*) joint->constraint);
+float lovrHingeJointGetFriction(HingeJoint* joint) {
+  return JPH_HingeConstraint_GetMaxFrictionTorque((JPH_HingeConstraint*) joint->constraint);
 }
 
-void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit) {
-  float lower_limit = JPH_HingeConstraint_GetLimitsMin((JPH_HingeConstraint*) joint->constraint);
-  JPH_HingeConstraint_SetLimits((JPH_HingeConstraint*) joint->constraint, lower_limit, limit);
+void lovrHingeJointSetFriction(HingeJoint* joint, float friction) {
+  JPH_HingeConstraint_SetMaxFrictionTorque((JPH_HingeConstraint*) joint->constraint, friction);
 }
+
+void lovrHingeJointGetMotorTarget(HingeJoint* joint, TargetType* type, float* value) {
+  JPH_HingeConstraint* constraint = (JPH_HingeConstraint*) joint->constraint;
+  JPH_MotorState motorState = JPH_HingeConstraint_GetMotorState(constraint);
+  *type = (TargetType) motorState;
+  switch (motorState) {
+    case JPH_MotorState_Velocity: *value = JPH_HingeConstraint_GetTargetAngularVelocity(constraint); break;
+    case JPH_MotorState_Position: *value = JPH_HingeConstraint_GetTargetAngle(constraint); break;
+    default: *value = 0.f; break;
+  }
+}
+
+void lovrHingeJointSetMotorTarget(HingeJoint* joint, TargetType type, float value) {
+  JPH_HingeConstraint* constraint = (JPH_HingeConstraint*) joint->constraint;
+  switch (type) {
+    case TARGET_VELOCITY:
+      JPH_HingeConstraint_SetMotorState(constraint, JPH_MotorState_Velocity);
+      JPH_HingeConstraint_SetTargetAngularVelocity(constraint, value);
+      break;
+    case TARGET_POSITION:
+      JPH_HingeConstraint_SetMotorState(constraint, JPH_MotorState_Position);
+      JPH_HingeConstraint_SetTargetAngle(constraint, value);
+      break;
+    default:
+      JPH_HingeConstraint_SetMotorState(constraint, JPH_MotorState_Off);
+      break;
+  }
+}
+
+void lovrHingeJointGetMotorSpring(HingeJoint* joint, float* frequency, float* damping) {
+  JPH_MotorSettings settings;
+  JPH_HingeConstraint_GetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
+  *frequency = settings.springSettings.frequencyOrStiffness;
+  *damping = settings.springSettings.damping;
+}
+
+void lovrHingeJointSetMotorSpring(HingeJoint* joint, float frequency, float damping) {
+  JPH_MotorSettings settings;
+  JPH_HingeConstraint_GetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
+  settings.springSettings.frequencyOrStiffness = frequency;
+  settings.springSettings.damping = damping;
+  JPH_HingeConstraint_SetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
+}
+
+void lovrHingeJointGetMaxMotorForce(HingeJoint* joint, float* positive, float* negative) {
+  JPH_MotorSettings settings;
+  JPH_HingeConstraint_GetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
+  *positive = settings.maxTorqueLimit;
+  *negative = -settings.minTorqueLimit;
+}
+
+void lovrHingeJointSetMaxMotorForce(HingeJoint* joint, float positive, float negative) {
+  JPH_MotorSettings settings;
+  JPH_HingeConstraint_GetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
+  settings.minTorqueLimit = -negative;
+  settings.maxTorqueLimit = positive;
+  JPH_HingeConstraint_SetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
+}
+
+float lovrHingeJointGetMotorForce(HingeJoint* joint) {
+  return JPH_HingeConstraint_GetTotalLambdaMotor((JPH_HingeConstraint*) joint->constraint);
+}
+
+void lovrHingeJointGetSpring(HingeJoint* joint, float* frequency, float* damping) {
+  JPH_SpringSettings settings;
+  JPH_HingeConstraint_GetLimitsSpringSettings((JPH_HingeConstraint*) joint->constraint, &settings);
+  *frequency = settings.frequencyOrStiffness;
+  *damping = settings.damping;
+}
+
+void lovrHingeJointSetSpring(HingeJoint* joint, float frequency, float damping) {
+  JPH_HingeConstraint_SetLimitsSpringSettings((JPH_HingeConstraint*) joint->constraint, &(JPH_SpringSettings) {
+    .frequencyOrStiffness = frequency,
+    .damping = damping
+  });
+}
+
+// SliderJoint
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in the same World");
@@ -1355,6 +1420,10 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
+}
+
+void lovrSliderJointGetAnchors(SliderJoint* joint, float anchor1[3], float anchor2[3]) {
+  lovrJointGetAnchors(joint, anchor1, anchor2);
 }
 
 void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
@@ -1378,29 +1447,99 @@ void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
   axis[2] = translation[2];
 }
 
-void lovrSliderJointSetAxis(SliderJoint* joint, float axis[3]) {
-  lovrLog(LOG_WARN, "PHY", "Jolt does not support modifying joint axis after creation");
-  // todo: no setter available, but the constraint could be removed and re-added
-}
-
 float lovrSliderJointGetPosition(SliderJoint* joint) {
   return JPH_SliderConstraint_GetCurrentPosition((JPH_SliderConstraint*) joint->constraint);
 }
 
-float lovrSliderJointGetLowerLimit(SliderJoint* joint) {
-  return JPH_SliderConstraint_GetLimitsMin((JPH_SliderConstraint*) joint->constraint);
+void lovrSliderJointGetLimits(SliderJoint* joint, float* min, float* max) {
+  *min = JPH_SliderConstraint_GetLimitsMin((JPH_SliderConstraint*) joint->constraint);
+  *max = JPH_SliderConstraint_GetLimitsMax((JPH_SliderConstraint*) joint->constraint);
 }
 
-void lovrSliderJointSetLowerLimit(SliderJoint* joint, float limit) {
-  float upper_limit = JPH_SliderConstraint_GetLimitsMax((JPH_SliderConstraint*) joint->constraint);
-  JPH_SliderConstraint_SetLimits((JPH_SliderConstraint*) joint->constraint, limit, upper_limit);
+void lovrSliderJointSetLimits(SliderJoint* joint, float min, float max) {
+  JPH_SliderConstraint_SetLimits((JPH_SliderConstraint*) joint->constraint, min, max);
 }
 
-float lovrSliderJointGetUpperLimit(SliderJoint* joint) {
-  return JPH_SliderConstraint_GetLimitsMax((JPH_SliderConstraint*) joint->constraint);
+float lovrSliderJointGetFriction(SliderJoint* joint) {
+  return JPH_SliderConstraint_GetMaxFrictionForce((JPH_SliderConstraint*) joint->constraint);
 }
 
-void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit) {
-  float lower_limit = JPH_SliderConstraint_GetLimitsMin((JPH_SliderConstraint*) joint->constraint);
-  JPH_SliderConstraint_SetLimits((JPH_SliderConstraint*) joint->constraint, lower_limit, limit);
+void lovrSliderJointSetFriction(SliderJoint* joint, float friction) {
+  JPH_SliderConstraint_SetMaxFrictionForce((JPH_SliderConstraint*) joint->constraint, friction);
+}
+
+void lovrSliderJointGetMotorTarget(SliderJoint* joint, TargetType* type, float* value) {
+  JPH_SliderConstraint* constraint = (JPH_SliderConstraint*) joint->constraint;
+  JPH_MotorState motorState = JPH_SliderConstraint_GetMotorState(constraint);
+  *type = (TargetType) motorState;
+  switch (motorState) {
+    case JPH_MotorState_Velocity: *value = JPH_SliderConstraint_GetTargetVelocity(constraint); break;
+    case JPH_MotorState_Position: *value = JPH_SliderConstraint_GetTargetPosition(constraint); break;
+    default: *value = 0.f; break;
+  }
+}
+
+void lovrSliderJointSetMotorTarget(SliderJoint* joint, TargetType type, float value) {
+  JPH_SliderConstraint* constraint = (JPH_SliderConstraint*) joint->constraint;
+  switch (type) {
+    case TARGET_VELOCITY:
+      JPH_SliderConstraint_SetMotorState(constraint, JPH_MotorState_Velocity);
+      JPH_SliderConstraint_SetTargetVelocity(constraint, value);
+      break;
+    case TARGET_POSITION:
+      JPH_SliderConstraint_SetMotorState(constraint, JPH_MotorState_Position);
+      JPH_SliderConstraint_SetTargetPosition(constraint, value);
+      break;
+    default:
+      JPH_SliderConstraint_SetMotorState(constraint, JPH_MotorState_Off);
+      break;
+  }
+}
+
+void lovrSliderJointGetMotorSpring(SliderJoint* joint, float* frequency, float* damping) {
+  JPH_MotorSettings settings;
+  JPH_SliderConstraint_GetMotorSettings((JPH_SliderConstraint*) joint->constraint, &settings);
+  *frequency = settings.springSettings.frequencyOrStiffness;
+  *damping = settings.springSettings.damping;
+}
+
+void lovrSliderJointSetMotorSpring(SliderJoint* joint, float frequency, float damping) {
+  JPH_MotorSettings settings;
+  JPH_SliderConstraint_GetMotorSettings((JPH_SliderConstraint*) joint->constraint, &settings);
+  settings.springSettings.frequencyOrStiffness = frequency;
+  settings.springSettings.damping = damping;
+  JPH_SliderConstraint_SetMotorSettings((JPH_SliderConstraint*) joint->constraint, &settings);
+}
+
+void lovrSliderJointGetMaxMotorForce(SliderJoint* joint, float* positive, float* negative) {
+  JPH_MotorSettings settings;
+  JPH_SliderConstraint_GetMotorSettings((JPH_SliderConstraint*) joint->constraint, &settings);
+  *positive = settings.maxForceLimit;
+  *negative = -settings.minForceLimit;
+}
+
+void lovrSliderJointSetMaxMotorForce(SliderJoint* joint, float positive, float negative) {
+  JPH_MotorSettings settings;
+  JPH_SliderConstraint_GetMotorSettings((JPH_SliderConstraint*) joint->constraint, &settings);
+  settings.minForceLimit = -negative;
+  settings.maxForceLimit = positive;
+  JPH_SliderConstraint_SetMotorSettings((JPH_SliderConstraint*) joint->constraint, &settings);
+}
+
+float lovrSliderJointGetMotorForce(SliderJoint* joint) {
+  return JPH_SliderConstraint_GetTotalLambdaMotor((JPH_SliderConstraint*) joint->constraint);
+}
+
+void lovrSliderJointGetSpring(SliderJoint* joint, float* frequency, float* damping) {
+  JPH_SpringSettings settings;
+  JPH_SliderConstraint_GetLimitsSpringSettings((JPH_SliderConstraint*) joint->constraint, &settings);
+  *frequency = settings.frequencyOrStiffness;
+  *damping = settings.damping;
+}
+
+void lovrSliderJointSetSpring(SliderJoint* joint, float frequency, float damping) {
+  JPH_SliderConstraint_SetLimitsSpringSettings((JPH_SliderConstraint*) joint->constraint, &(JPH_SpringSettings) {
+    .frequencyOrStiffness = frequency,
+    .damping = damping
+  });
 }

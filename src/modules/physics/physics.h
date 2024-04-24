@@ -208,6 +208,12 @@ typedef enum {
   JOINT_SLIDER
 } JointType;
 
+typedef enum {
+  TARGET_NONE,
+  TARGET_VELOCITY,
+  TARGET_POSITION
+} TargetType;
+
 void lovrJointDestroy(void* ref);
 void lovrJointDestroyData(Joint* joint);
 bool lovrJointIsDestroyed(Joint* joint);
@@ -215,6 +221,8 @@ JointType lovrJointGetType(Joint* joint);
 Collider* lovrJointGetColliderA(Joint* joint);
 Collider* lovrJointGetColliderB(Joint* joint);
 Joint* lovrJointGetNext(Joint* joint, Collider* collider);
+uint32_t lovrJointGetPriority(Joint* joint);
+void lovrJointSetPriority(Joint* joint, uint32_t priority);
 bool lovrJointIsEnabled(Joint* joint);
 void lovrJointSetEnabled(Joint* joint, bool enable);
 float lovrJointGetForce(Joint* joint);
@@ -225,38 +233,49 @@ void lovrWeldJointGetAnchors(WeldJoint* joint, float anchor1[3], float anchor2[3
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]);
 void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3]);
-float lovrBallJointGetResponseTime(Joint* joint);
-void lovrBallJointSetResponseTime(Joint* joint, float responseTime);
-float lovrBallJointGetTightness(Joint* joint);
-void lovrBallJointSetTightness(Joint* joint, float tightness);
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]);
 void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]);
-float lovrDistanceJointGetDistance(DistanceJoint* joint);
-void lovrDistanceJointSetDistance(DistanceJoint* joint, float distance);
-float lovrDistanceJointGetResponseTime(Joint* joint);
-void lovrDistanceJointSetResponseTime(Joint* joint, float responseTime);
-float lovrDistanceJointGetTightness(Joint* joint);
-void lovrDistanceJointSetTightness(Joint* joint, float tightness);
+void lovrDistanceJointGetLimits(DistanceJoint* joint, float* min, float* max);
+void lovrDistanceJointSetLimits(DistanceJoint* joint, float min, float max);
+void lovrDistanceJointGetSpring(DistanceJoint* joint, float* frequency, float* damping);
+void lovrDistanceJointSetSpring(DistanceJoint* joint, float frequency, float damping);
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]);
 void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2[3]);
 void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]);
-void lovrHingeJointSetAxis(HingeJoint* joint, float axis[3]);
 float lovrHingeJointGetAngle(HingeJoint* joint);
-float lovrHingeJointGetLowerLimit(HingeJoint* joint);
-void lovrHingeJointSetLowerLimit(HingeJoint* joint, float limit);
-float lovrHingeJointGetUpperLimit(HingeJoint* joint);
-void lovrHingeJointSetUpperLimit(HingeJoint* joint, float limit);
+void lovrHingeJointGetLimits(HingeJoint* joint, float* min, float* max);
+void lovrHingeJointSetLimits(HingeJoint* joint, float min, float max);
+float lovrHingeJointGetFriction(HingeJoint* joint);
+void lovrHingeJointSetFriction(HingeJoint* joint, float friction);
+void lovrHingeJointGetMotorTarget(HingeJoint* joint, TargetType* type, float* value);
+void lovrHingeJointSetMotorTarget(HingeJoint* joint, TargetType type, float value);
+void lovrHingeJointGetMotorSpring(HingeJoint* joint, float* frequency, float* damping);
+void lovrHingeJointSetMotorSpring(HingeJoint* joint, float frequency, float damping);
+void lovrHingeJointGetMaxMotorForce(HingeJoint* joint, float* positive, float* negative);
+void lovrHingeJointSetMaxMotorForce(HingeJoint* joint, float positive, float negative);
+float lovrHingeJointGetMotorForce(HingeJoint* joint);
+void lovrHingeJointGetSpring(HingeJoint* joint, float* frequency, float* damping);
+void lovrHingeJointSetSpring(HingeJoint* joint, float frequency, float damping);
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]);
+void lovrSliderJointGetAnchors(SliderJoint* joint, float anchor1[3], float anchor2[3]);
 void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]);
-void lovrSliderJointSetAxis(SliderJoint* joint, float axis[3]);
 float lovrSliderJointGetPosition(SliderJoint* joint);
-float lovrSliderJointGetLowerLimit(SliderJoint* joint);
-void lovrSliderJointSetLowerLimit(SliderJoint* joint, float limit);
-float lovrSliderJointGetUpperLimit(SliderJoint* joint);
-void lovrSliderJointSetUpperLimit(SliderJoint* joint, float limit);
+void lovrSliderJointGetLimits(SliderJoint* joint, float* min, float* max);
+void lovrSliderJointSetLimits(SliderJoint* joint, float min, float max);
+float lovrSliderJointGetFriction(SliderJoint* joint);
+void lovrSliderJointSetFriction(SliderJoint* joint, float friction);
+void lovrSliderJointGetMotorTarget(SliderJoint* joint, TargetType* type, float* value);
+void lovrSliderJointSetMotorTarget(SliderJoint* joint, TargetType type, float value);
+void lovrSliderJointGetMotorSpring(SliderJoint* joint, float* frequency, float* damping);
+void lovrSliderJointSetMotorSpring(SliderJoint* joint, float frequency, float damping);
+void lovrSliderJointGetMaxMotorForce(SliderJoint* joint, float* positive, float* negative);
+void lovrSliderJointSetMaxMotorForce(SliderJoint* joint, float positive, float negative);
+float lovrSliderJointGetMotorForce(SliderJoint* joint);
+void lovrSliderJointGetSpring(SliderJoint* joint, float* frequency, float* damping);
+void lovrSliderJointSetSpring(SliderJoint* joint, float frequency, float damping);
 
 // These tokens need to exist for Lua bindings
 #define lovrWeldJointDestroy lovrJointDestroy
