@@ -689,6 +689,14 @@ void lovrColliderSetOrientation(Collider* collider, float* orientation) {
   dBodySetQuaternion(collider->body, q);
 }
 
+void lovrColliderGetRawPosition(Collider* collider, float position[3]) {
+  lovrColliderGetPosition(collider, position);
+}
+
+void lovrColliderGetRawOrientation(Collider* collider, float orientation[4]) {
+  lovrColliderGetOrientation(collider, orientation);
+}
+
 void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {
   const dReal* v = dBodyGetLinearVel(collider->body);
   vec3_set(velocity, v[0], v[1], v[2]);

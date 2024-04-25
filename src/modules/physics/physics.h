@@ -35,6 +35,8 @@ void lovrPhysicsDestroy(void);
 // World
 
 typedef struct {
+  uint32_t tickRate;
+  uint32_t tickLimit;
   uint32_t maxColliders;
   bool deterministic;
   bool threadSafe;
@@ -136,6 +138,8 @@ void lovrColliderGetPosition(Collider* collider, float position[3]);
 void lovrColliderSetPosition(Collider* collider, float position[3]);
 void lovrColliderGetOrientation(Collider* collider, float orientation[4]);
 void lovrColliderSetOrientation(Collider* collider, float orientation[4]);
+void lovrColliderGetRawPosition(Collider* collider, float position[3]);
+void lovrColliderGetRawOrientation(Collider* collider, float orientation[4]);
 void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]);
 void lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]);
 void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]);
