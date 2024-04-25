@@ -92,10 +92,9 @@ typedef struct {
 } RaycastData;
 
 static void raycastCallback(void* d, dGeomID a, dGeomID b) {
+  if (a == b) return;
   RaycastData* data = d;
   if (data->shouldStop) return;
-  CastCallback* callback = data->callback;
-  void* userdata = data->userdata;
   Shape* shape = dGeomGetData(b);
   Collider* collider = dBodyGetData(dGeomGetBody(b));
 
@@ -106,8 +105,14 @@ static void raycastCallback(void* d, dGeomID a, dGeomID b) {
   dContact contact[MAX_CONTACTS];
   int count = dCollide(a, b, MAX_CONTACTS, &contact->geom, sizeof(dContact));
   for (int i = 0; i < count; i++) {
-    dContactGeom g = contact[i].geom;
-    data->shouldStop = callback(collider, g.pos, g.normal, 0, userdata);
+    CastResult hit;
+    hit.collider = collider;
+    vec3_init(hit.position, contact[i].geom.pos);
+    hit.fraction = 0.f;
+    hit.part = 0;
+
+    data->shouldStop = data->callback(data->userdata, &hit);
+    if (data->shouldStop) break;
   }
 }
 
@@ -276,16 +281,21 @@ void lovrWorldSetStepCount(World* world, int iterations) {
   dWorldSetQuickStepNumIterations(world->id, iterations);
 }
 
-void lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata) {
-  RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
-  float dx = start[0] - end[0];
-  float dy = start[1] - end[1];
-  float dz = start[2] - end[2];
-  float length = sqrtf(dx * dx + dy * dy + dz * dz);
-  dGeomID ray = dCreateRay(world->space, length);
-  dGeomRaySet(ray, start[0], start[1], start[2], end[0], end[1], end[2]);
-  dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
-  dGeomDestroy(ray);
+bool lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata) {
+  if (callback) {
+    RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
+    float dx = start[0] - end[0];
+    float dy = start[1] - end[1];
+    float dz = start[2] - end[2];
+    float length = sqrtf(dx * dx + dy * dy + dz * dz);
+    dGeomID ray = dCreateRay(world->space, length);
+    dGeomRaySet(ray, start[0], start[1], start[2], end[0], end[1], end[2]);
+    dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
+    dGeomDestroy(ray);
+    return true;
+  }
+
+  return false;
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {

@@ -78,18 +78,6 @@ static uint32_t findTag(World* world, const char* name) {
   return UNTAGGED;
 }
 
-typedef struct {
-  World* world;
-  QueryCallback* callback;
-  void* userdata;
-} QueryInfo;
-
-static void queryCallback(void* arg, JPH_BodyID id) {
-  QueryInfo* query = arg;
-  Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(query->world->bodies, id);
-  if (query->callback) query->callback(query->userdata, collider);
-}
-
 bool lovrPhysicsInit(void) {
   if (state.initialized) return false;
   JPH_Init(32 * 1024 * 1024);
@@ -189,41 +177,52 @@ void lovrWorldUpdate(World* world, float dt) {
   JPH_PhysicsSystem_Step(world->system, dt, world->collisionSteps);
 }
 
-void lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata) {
+typedef struct {
+  World* world;
+  float origin[3];
+  float direction[3];
+  CastCallback* callback;
+  void* userdata;
+} CastInfo;
+
+static float raycastCallback(void* arg, JPH_RayCastResult* result) {
+  CastInfo* cast = arg;
+  CastResult hit;
+  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(cast->world->bodies, result->bodyID);
+  hit.position[0] = cast->origin[0] + cast->direction[0] * result->fraction;
+  hit.position[1] = cast->origin[1] + cast->direction[1] * result->fraction;
+  hit.position[2] = cast->origin[2] + cast->direction[2] * result->fraction;
+  hit.fraction = result->fraction;
+  hit.part = result->subShapeID2;
+  return cast->callback(cast->userdata, &hit);
+}
+
+bool lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
-  const JPH_RVec3 origin = { start[0], start[1], start[2] };
-  const JPH_Vec3 direction = { end[0] - start[0], end[1] - start[1], end[2] - start[2] };
-  JPH_AllHit_CastRayCollector* collector = JPH_AllHit_CastRayCollector_Create();
-  JPH_NarrowPhaseQuery_CastRayAll(query, &origin, &direction, collector, NULL, NULL, NULL);
 
-  size_t count;
-  JPH_RayCastResult* hits = JPH_AllHit_CastRayCollector_GetHits(collector, &count);
+  CastInfo raycast = {
+    .world = world,
+    .origin = { start[0], start[1], start[2] },
+    .direction = { end[0] - start[0], end[1] - start[1], end[2] - start[2] },
+    .callback = callback,
+    .userdata = userdata
+  };
 
-  for (size_t i = 0; i < count; i++) {
-    Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(world->bodies, hits[i].bodyID);
-    uint32_t child = 0;
+  JPH_RVec3* origin = vec3_toJolt(raycast.origin);
+  JPH_Vec3* direction = vec3_toJolt(raycast.direction);
+  return JPH_NarrowPhaseQuery_CastRay2(query, origin, direction, raycastCallback, &raycast, NULL, NULL, NULL);
+}
 
-    if (collider->shape->type == SHAPE_COMPOUND) {
-      JPH_SubShapeID id = hits[i].subShapeID2;
-      JPH_SubShapeID remainder;
-      child = JPH_CompoundShape_GetSubShapeIndexFromID((JPH_CompoundShape*) collider->shape, id, &remainder);
-    }
+typedef struct {
+  World* world;
+  QueryCallback* callback;
+  void* userdata;
+} QueryInfo;
 
-    JPH_RVec3 position = {
-      start[0] + hits[i].fraction * direction.x,
-      start[1] + hits[i].fraction * direction.y,
-      start[2] + hits[i].fraction * direction.z
-    };
-
-    JPH_Vec3 normal;
-    JPH_Body_GetWorldSpaceSurfaceNormal(collider->body, hits[i].subShapeID2, &position, &normal);
-
-    if (callback(collider, &position.x, &normal.x, child, userdata)) {
-      break;
-    }
-  }
-
-  JPH_AllHit_CastRayCollector_Destroy(collector);
+static void queryCallback(void* arg, JPH_BodyID id) {
+  QueryInfo* query = arg;
+  Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(query->world->bodies, id);
+  if (query->callback) query->callback(query->userdata, collider);
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {
