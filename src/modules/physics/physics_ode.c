@@ -86,7 +86,7 @@ static void defaultNearCallback(void* data, dGeomID ga, dGeomID gb) {
 }
 
 typedef struct {
-  RaycastCallback callback;
+  CastCallback* callback;
   void* userdata;
   bool shouldStop;
 } RaycastData;
@@ -94,7 +94,7 @@ typedef struct {
 static void raycastCallback(void* d, dGeomID a, dGeomID b) {
   RaycastData* data = d;
   if (data->shouldStop) return;
-  RaycastCallback callback = data->callback;
+  CastCallback* callback = data->callback;
   void* userdata = data->userdata;
   Shape* shape = dGeomGetData(b);
   Collider* collider = dBodyGetData(dGeomGetBody(b));
@@ -112,7 +112,7 @@ static void raycastCallback(void* d, dGeomID a, dGeomID b) {
 }
 
 typedef struct {
-  QueryCallback callback;
+  QueryCallback* callback;
   void* userdata;
   bool called;
   bool shouldStop;
@@ -276,7 +276,7 @@ void lovrWorldSetStepCount(World* world, int iterations) {
   dWorldSetQuickStepNumIterations(world->id, iterations);
 }
 
-void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata) {
+void lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata) {
   RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
   float dx = start[0] - end[0];
   float dy = start[1] - end[1];
@@ -288,7 +288,7 @@ void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallbac
   dGeomDestroy(ray);
 }
 
-bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {
   QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
   dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
   dGeomSetPosition(box, position[0], position[1], position[2]);
@@ -297,7 +297,7 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCall
   return data.called;
 }
 
-bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata) {
   QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
   dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
   dGeomSetPosition(sphere, position[0], position[1], position[2]);

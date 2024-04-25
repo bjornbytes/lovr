@@ -28,8 +28,8 @@ typedef Joint DistanceJoint;
 typedef Joint HingeJoint;
 typedef Joint SliderJoint;
 
-typedef bool (*RaycastCallback)(Collider* collider, float position[3], float normal[3], uint32_t child, void* userdata);
-typedef bool (*QueryCallback)(Collider* collider, uint32_t child, void* userdata);
+typedef bool CastCallback(Collider* collider, float position[3], float normal[3], uint32_t child, void* userdata);
+typedef bool QueryCallback(Collider* collider, uint32_t child, void* userdata);
 
 bool lovrPhysicsInit(void);
 void lovrPhysicsDestroy(void);
@@ -53,9 +53,9 @@ uint32_t lovrWorldGetJointCount(World* world);
 Collider* lovrWorldGetColliders(World* world, Collider* collider);
 Joint* lovrWorldGetJoints(World* world, Joint* joint);
 void lovrWorldUpdate(World* world, float dt);
-void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata);
-bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata);
-bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata);
+void lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata);
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata);
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata);
 void lovrWorldGetGravity(World* world, float gravity[3]);
 void lovrWorldSetGravity(World* world, float gravity[3]);
 const char* lovrWorldGetTagName(World* world, uint32_t tag);

@@ -181,7 +181,7 @@ void lovrWorldUpdate(World* world, float dt) {
   JPH_PhysicsSystem_Step(world->system, dt, world->collisionSteps);
 }
 
-void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallback callback, void* userdata) {
+void lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
   const JPH_RVec3 origin = { start[0], start[1], start[2] };
   const JPH_Vec3 direction = { end[0] - start[0], end[1] - start[1], end[2] - start[2] };
@@ -218,7 +218,7 @@ void lovrWorldRaycast(World* world, float start[3], float end[3], RaycastCallbac
   JPH_AllHit_CastRayCollector_Destroy(collector);
 }
 
-static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3], float scale[3], QueryCallback callback, void* userdata) {
+static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3], float scale[3], QueryCallback* callback, void* userdata) {
   JPH_RMatrix4x4 transform;
   float* m = &transform.m11;
   mat4_identity(m);
@@ -246,11 +246,11 @@ static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3
   return count > 0;
 }
 
-bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback callback, void* userdata) {
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {
   return lovrWorldQueryShape(world, state.queryBox, position, size, callback, userdata);
 }
 
-bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback callback, void* userdata) {
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata) {
   float scale[3] = { radius, radius, radius };
   return lovrWorldQueryShape(world, state.querySphere, position, scale, callback, userdata);
 }
