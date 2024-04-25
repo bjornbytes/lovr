@@ -52,8 +52,6 @@ struct Joint {
 static struct {
   bool initialized;
   Shape* pointShape;
-  JPH_Shape* queryBox;
-  JPH_Shape* querySphere;
   JPH_AllHit_CastShapeCollector* castShapeCollector;
 } state;
 
@@ -80,12 +78,22 @@ static uint32_t findTag(World* world, const char* name) {
   return UNTAGGED;
 }
 
+typedef struct {
+  World* world;
+  QueryCallback* callback;
+  void* userdata;
+} QueryInfo;
+
+static void queryCallback(void* arg, JPH_BodyID id) {
+  QueryInfo* query = arg;
+  Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(query->world->bodies, id);
+  if (query->callback) query->callback(query->userdata, collider);
+}
+
 bool lovrPhysicsInit(void) {
   if (state.initialized) return false;
   JPH_Init(32 * 1024 * 1024);
   state.pointShape = lovrSphereShapeCreate(FLT_EPSILON);
-  state.querySphere = (JPH_Shape*) JPH_SphereShape_Create(1.f);
-  state.queryBox = (JPH_Shape*) JPH_BoxShape_Create(&(const JPH_Vec3) { .5, .5f, .5f }, 0.f);
   state.castShapeCollector = JPH_AllHit_CastShapeCollector_Create();
   return state.initialized = true;
 }
@@ -218,41 +226,35 @@ void lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* 
   JPH_AllHit_CastRayCollector_Destroy(collector);
 }
 
-static bool lovrWorldQueryShape(World* world, JPH_Shape* shape, float position[3], float scale[3], QueryCallback* callback, void* userdata) {
-  JPH_RMatrix4x4 transform;
-  float* m = &transform.m11;
-  mat4_identity(m);
-  mat4_translate(m, position[0], position[1], position[2]);
-  mat4_scale(m, scale[0], scale[1], scale[2]);
-
-  JPH_Vec3 direction = { 0.f, 0.f, 0.f };
-  JPH_RVec3 baseOffset = { 0.f, 0.f, 0.f };
-  const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
-  JPH_AllHit_CastShapeCollector_Reset(state.castShapeCollector);
-  JPH_NarrowPhaseQuery_CastShape(query, shape, &transform, &direction, &baseOffset, state.castShapeCollector);
-
-  size_t count;
-  JPH_AllHit_CastShapeCollector_GetHits(state.castShapeCollector, &count);
-
-  for (size_t i = 0; i < count; i++) {
-    JPH_BodyID id = JPH_AllHit_CastShapeCollector_GetBodyID2(state.castShapeCollector, i);
-    Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(world->bodies, id);
-
-    if (callback(collider, 0, userdata)) {
-      break;
-    }
-  }
-
-  return count > 0;
-}
-
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {
-  return lovrWorldQueryShape(world, state.queryBox, position, size, callback, userdata);
+  const JPH_BroadPhaseQuery* query = JPH_PhysicsSystem_GetBroadPhaseQuery(world->system);
+
+  QueryInfo info = {
+    .world = world,
+    .callback = callback,
+    .userdata = userdata
+  };
+
+  JPH_AABox box;
+  box.min.x = position[0] - size[0] * .5f;
+  box.min.y = position[1] - size[1] * .5f;
+  box.min.z = position[2] - size[2] * .5f;
+  box.max.x = position[0] + size[0] * .5f;
+  box.max.y = position[1] + size[1] * .5f;
+  box.max.z = position[2] + size[2] * .5f;
+  return JPH_BroadPhaseQuery_CollideAABox(query, &box, queryCallback, &info, NULL, NULL);
 }
 
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata) {
-  float scale[3] = { radius, radius, radius };
-  return lovrWorldQueryShape(world, state.querySphere, position, scale, callback, userdata);
+  const JPH_BroadPhaseQuery* query = JPH_PhysicsSystem_GetBroadPhaseQuery(world->system);
+
+  QueryInfo info = {
+    .world = world,
+    .callback = callback,
+    .userdata = userdata
+  };
+
+  return JPH_BroadPhaseQuery_CollideSphere(query, vec3_toJolt(position), radius, queryCallback, &info, NULL, NULL);
 }
 
 void lovrWorldGetGravity(World* world, float gravity[3]) {

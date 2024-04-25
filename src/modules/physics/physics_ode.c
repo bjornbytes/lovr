@@ -131,7 +131,7 @@ static void queryCallback(void* d, dGeomID a, dGeomID b) {
   dContactGeom contact;
   if (dCollide(a, b, 1 | CONTACTS_UNIMPORTANT, &contact, sizeof(contact))) {
     if (data->callback) {
-      data->shouldStop = data->callback(collider, 0, data->userdata);
+      data->shouldStop = data->callback(collider, data->userdata);
     } else {
       data->shouldStop = true;
     }

@@ -23,11 +23,10 @@ static bool raycastCallback(Collider* collider, float position[3], float normal[
   return shouldStop;
 }
 
-static bool queryCallback(Collider* collider, uint32_t shape, void* userdata) {
+static bool queryCallback(Collider* collider, void* userdata) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
   luax_pushtype(L, Collider, collider);
-  lua_pushinteger(L, shape + 1);
   lua_call(L, 2, 1);
   bool shouldStop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
   lua_pop(L, 1);
