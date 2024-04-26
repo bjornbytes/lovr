@@ -658,6 +658,14 @@ void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float ma
   dBodySetMass(collider->body, &m);
 }
 
+void lovrColliderGetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
+  lovrThrow("NYI");
+}
+
+void lovrColliderSetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
+  lovrThrow("NYI");
+}
+
 void lovrColliderGetPosition(Collider* collider, float position[3]) {
   const dReal* p = dBodyGetPosition(collider->body);
   vec3_set(position, p[0], p[1], p[2]);

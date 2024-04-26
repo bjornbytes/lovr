@@ -223,6 +223,59 @@ static int l_lovrColliderSetMassData(lua_State* L) {
   return 0;
 }
 
+static int l_lovrColliderGetEnabledAxes(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool translation[3];
+  bool rotation[3];
+  lovrColliderGetEnabledAxes(collider, translation, rotation);
+
+  char string[3];
+  size_t length;
+
+  length = 0;
+  for (size_t i = 0; i < 3; i++) {
+    if (translation[i]) {
+      string[length++] = 'x' + i;
+    }
+  }
+  lua_pushlstring(L, string, length);
+
+  length = 0;
+  for (size_t i = 0; i < 3; i++) {
+    if (rotation[i]) {
+      string[length++] = 'x' + i;
+    }
+  }
+  lua_pushlstring(L, string, length);
+
+  return 2;
+}
+
+static int l_lovrColliderSetEnabledAxes(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool translation[3] = { false, false, false };
+  bool rotation[3] = { false, false, false };
+  const char* string;
+  size_t length;
+
+  string = lua_tolstring(L, 2, &length);
+  for (size_t i = 0; i < length; i++) {
+    if (string[i] >= 'x' && string[i] <= 'z') {
+      translation[string[i] - 'x'] = true;
+    }
+  }
+
+  string = lua_tolstring(L, 3, &length);
+  for (size_t i = 0; i < length; i++) {
+    if (string[i] >= 'x' && string[i] <= 'z') {
+      rotation[string[i] - 'x'] = true;
+    }
+  }
+
+  lovrColliderSetEnabledAxes(collider, translation, rotation);
+  return 0;
+}
+
 static int l_lovrColliderGetPosition(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float position[3];
@@ -598,6 +651,8 @@ const luaL_Reg lovrCollider[] = {
   { "setMass", l_lovrColliderSetMass },
   { "getMassData", l_lovrColliderGetMassData },
   { "setMassData", l_lovrColliderSetMassData },
+  { "getEnabledAxes", l_lovrColliderGetEnabledAxes },
+  { "setEnabledAxes", l_lovrColliderSetEnabledAxes },
   { "getPosition", l_lovrColliderGetPosition },
   { "setPosition", l_lovrColliderSetPosition },
   { "getOrientation", l_lovrColliderGetOrientation },

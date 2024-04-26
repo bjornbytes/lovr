@@ -641,6 +641,29 @@ void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float ma
   //
 }
 
+void lovrColliderGetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
+  // TODO need bindings
+}
+
+void lovrColliderSetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
+  JPH_AllowedDOFs dofs = 0;
+
+  for (size_t i = 0; i < 3; i++) {
+    if (translation[i]) {
+      dofs |= JPH_AllowedDOFs_TranslationX << i;
+    }
+  }
+
+  for (size_t i = 0; i < 3; i++) {
+    if (rotation[i]) {
+      dofs |= JPH_AllowedDOFs_RotationX << i;
+    }
+  }
+
+  JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
+  JPH_MotionProperties_SetMassProperties(motion, dofs, NULL); // TODO need to synthesize mass
+}
+
 void lovrColliderGetPosition(Collider* collider, float position[3]) {
   JPH_RVec3 p;
   JPH_Body_GetPosition(collider->body, &p);

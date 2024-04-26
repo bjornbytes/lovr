@@ -133,6 +133,8 @@ float lovrColliderGetMass(Collider* collider);
 void lovrColliderSetMass(Collider* collider, float mass);
 void lovrColliderGetMassData(Collider* collider, float centerOfMass[3], float* mass, float inertia[6]);
 void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float mass, float inertia[6]);
+void lovrColliderGetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]);
+void lovrColliderSetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]);
 void lovrColliderGetPosition(Collider* collider, float position[3]);
 void lovrColliderSetPosition(Collider* collider, float position[3]);
 void lovrColliderGetOrientation(Collider* collider, float orientation[4]);
