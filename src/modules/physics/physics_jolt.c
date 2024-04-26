@@ -496,6 +496,20 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
     return;
   }
 
+  if (collider->joints) {
+    JPH_Vec3 oldCenterOfMass;
+    JPH_Vec3 newCenterOfMass;
+    JPH_Vec3 deltaCenterOfMass;
+    JPH_Shape_GetCenterOfMass(collider->shape->shape, &oldCenterOfMass);
+    JPH_Shape_GetCenterOfMass(collider->shape->shape, &newCenterOfMass);
+    deltaCenterOfMass.x = newCenterOfMass.x - oldCenterOfMass.x;
+    deltaCenterOfMass.y = newCenterOfMass.y - oldCenterOfMass.y;
+    deltaCenterOfMass.z = newCenterOfMass.z - oldCenterOfMass.z;
+    for (Joint* joint = collider->joints; joint; joint = lovrJointGetNext(joint, collider)) {
+      JPH_Constraint_NotifyShapeChanged(joint->constraint, collider->id, &deltaCenterOfMass);
+    }
+  }
+
   lovrRelease(collider->shape, lovrShapeDestroy);
   collider->shape = shape;
   lovrRetain(shape);
