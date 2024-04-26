@@ -48,6 +48,14 @@ typedef struct {
 } Raycast;
 
 typedef struct {
+  Shape* shape;
+  float start[3];
+  float end[3];
+  float scale;
+  float orientation[4];
+} Shapecast;
+
+typedef struct {
   Collider* collider;
   Shape* shape;
   float position[3];
@@ -67,6 +75,7 @@ Collider* lovrWorldGetColliders(World* world, Collider* collider);
 Joint* lovrWorldGetJoints(World* world, Joint* joint);
 void lovrWorldUpdate(World* world, float dt);
 bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, void* userdata);
+bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback* callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata);
 void lovrWorldGetGravity(World* world, float gravity[3]);

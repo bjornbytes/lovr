@@ -221,6 +221,28 @@ static int l_lovrWorldRaycast(lua_State* L) {
   return 0;
 }
 
+static int l_lovrWorldShapecast(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  int index = 2;
+  Shapecast shapecast;
+  shapecast.shape = luax_checktype(L, index++, Shape);
+  index = luax_readvec3(L, index, shapecast.start, NULL);
+  index = luax_readvec3(L, index, shapecast.end, NULL);
+  shapecast.scale = luax_optfloat(L, index++, 1.f);
+  index = luax_readquat(L, index, shapecast.orientation, NULL);
+  if (lua_isnoneornil(L, index)) {
+    CastResult hit;
+    if (lovrWorldShapecast(world, &shapecast, castClosestCallback, &hit)) {
+      return luax_pushcastresult(L, &hit);
+    }
+  } else {
+    luaL_checktype(L, index, LUA_TFUNCTION);
+    lua_settop(L, index);
+    lovrWorldShapecast(world, &shapecast, castCallback, L);
+  }
+  return 0;
+}
+
 static int l_lovrWorldQueryBox(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float position[3], size[3];
@@ -396,6 +418,7 @@ const luaL_Reg lovrWorld[] = {
   { "getJoints", l_lovrWorldGetJoints },
   { "update", l_lovrWorldUpdate },
   { "raycast", l_lovrWorldRaycast },
+  { "shapecast", l_lovrWorldShapecast },
   { "queryBox", l_lovrWorldQueryBox },
   { "querySphere", l_lovrWorldQuerySphere },
   { "getGravity", l_lovrWorldGetGravity },

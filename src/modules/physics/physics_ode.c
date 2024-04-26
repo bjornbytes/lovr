@@ -299,6 +299,10 @@ bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, vo
   return false;
 }
 
+bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback* callback, void* userdata) {
+  lovrThrow("NYI");
+}
+
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {
   QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
   dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));

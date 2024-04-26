@@ -188,13 +188,14 @@ void lovrWorldUpdate(World* world, float dt) {
 typedef struct {
   World* world;
   Raycast* raycast;
+  Shapecast* shapecast;
   CastCallback* callback;
   void* userdata;
-} RaycastContext;
+} CastContext;
 
 static float raycastCallback(void* arg, JPH_RayCastResult* result) {
-  RaycastContext* ctx = arg;
   CastResult hit;
+  CastContext* ctx = arg;
   Raycast* raycast = ctx->raycast;
   hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, result->bodyID);
   hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
@@ -218,7 +219,7 @@ bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, vo
   JPH_RVec3* origin = vec3_toJolt(raycast->start);
   JPH_Vec3* direction = vec3_toJolt(dir);
 
-  RaycastContext context = {
+  CastContext context = {
     .world = world,
     .raycast = raycast,
     .callback = callback,
@@ -228,26 +229,63 @@ bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, vo
   return JPH_NarrowPhaseQuery_CastRay2(query, origin, direction, raycastCallback, &context, NULL, NULL, NULL);
 }
 
+static float shapecastCallback(void* arg, JPH_ShapeCastResult* result) {
+  CastResult hit;
+  CastContext* ctx = arg;
+  Shapecast* shapecast = ctx->shapecast;
+  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, result->bodyID2);
+  hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
+  vec3_fromJolt(hit.position, &result->contactPointOn2);
+  JPH_Vec3 normal;
+  JPH_Body_GetWorldSpaceSurfaceNormal(hit.collider->body, result->subShapeID2, &result->contactPointOn2, &normal);
+  vec3_fromJolt(hit.normal, &normal);
+  hit.fraction = result->fraction;
+  return ctx->callback(ctx->userdata, &hit);
+}
+
+bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback callback, void* userdata) {
+  const JPH_NarrowPhaseQuery* query = JPH_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
+
+  JPH_Shape* shape = shapecast->shape->shape;
+
+  JPH_Vec3 centerOfMass;
+  JPH_Shape_GetCenterOfMass(shape, &centerOfMass);
+
+  JPH_RMatrix4x4 transform;
+  mat4_fromPose(&transform.m11, shapecast->start, shapecast->orientation);
+  mat4_translate(&transform.m11, centerOfMass.x, centerOfMass.y, centerOfMass.z);
+  mat4_scale(&transform.m11, shapecast->scale, shapecast->scale, shapecast->scale); // TODO does this work, or should we use scale arg?
+
+  float dir[3];
+  vec3_init(dir, shapecast->end);
+  vec3_sub(dir, shapecast->start);
+  JPH_Vec3* direction = vec3_toJolt(dir);
+  JPH_RVec3 offset = { 0.f, 0.f, 0.f };
+
+  CastContext context = {
+    .world = world,
+    .shapecast = shapecast,
+    .callback = callback,
+    .userdata = userdata
+  };
+
+  return JPH_NarrowPhaseQuery_CastShape(query, shape, &transform, direction, &offset, shapecastCallback, &context, NULL, NULL, NULL);
+}
+
 typedef struct {
   World* world;
   QueryCallback* callback;
   void* userdata;
-} QueryInfo;
+} QueryContext;
 
 static void queryCallback(void* arg, JPH_BodyID id) {
-  QueryInfo* query = arg;
-  Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(query->world->bodies, id);
-  if (query->callback) query->callback(query->userdata, collider);
+  QueryContext* ctx = arg;
+  Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, id);
+  if (ctx->callback) ctx->callback(ctx->userdata, collider);
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {
   const JPH_BroadPhaseQuery* query = JPH_PhysicsSystem_GetBroadPhaseQuery(world->system);
-
-  QueryInfo info = {
-    .world = world,
-    .callback = callback,
-    .userdata = userdata
-  };
 
   JPH_AABox box;
   box.min.x = position[0] - size[0] * .5f;
@@ -256,19 +294,26 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCall
   box.max.x = position[0] + size[0] * .5f;
   box.max.y = position[1] + size[1] * .5f;
   box.max.z = position[2] + size[2] * .5f;
-  return JPH_BroadPhaseQuery_CollideAABox(query, &box, queryCallback, &info, NULL, NULL);
-}
 
-bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata) {
-  const JPH_BroadPhaseQuery* query = JPH_PhysicsSystem_GetBroadPhaseQuery(world->system);
-
-  QueryInfo info = {
+  QueryContext context = {
     .world = world,
     .callback = callback,
     .userdata = userdata
   };
 
-  return JPH_BroadPhaseQuery_CollideSphere(query, vec3_toJolt(position), radius, queryCallback, &info, NULL, NULL);
+  return JPH_BroadPhaseQuery_CollideAABox(query, &box, queryCallback, &context, NULL, NULL);
+}
+
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata) {
+  const JPH_BroadPhaseQuery* query = JPH_PhysicsSystem_GetBroadPhaseQuery(world->system);
+
+  QueryContext context = {
+    .world = world,
+    .callback = callback,
+    .userdata = userdata
+  };
+
+  return JPH_BroadPhaseQuery_CollideSphere(query, vec3_toJolt(position), radius, queryCallback, &context, NULL, NULL);
 }
 
 void lovrWorldGetGravity(World* world, float gravity[3]) {
