@@ -43,10 +43,16 @@ typedef struct {
 } WorldInfo;
 
 typedef struct {
+  float start[3];
+  float end[3];
+} Raycast;
+
+typedef struct {
   Collider* collider;
+  Shape* shape;
   float position[3];
+  float normal[3];
   float fraction;
-  uint32_t part;
 } CastResult;
 
 typedef float CastCallback(void* userdata, CastResult* hit);
@@ -60,7 +66,7 @@ uint32_t lovrWorldGetJointCount(World* world);
 Collider* lovrWorldGetColliders(World* world, Collider* collider);
 Joint* lovrWorldGetJoints(World* world, Joint* joint);
 void lovrWorldUpdate(World* world, float dt);
-bool lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata);
+bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata);
 void lovrWorldGetGravity(World* world, float gravity[3]);
@@ -94,7 +100,7 @@ bool lovrColliderIsEnabled(Collider* collider);
 void lovrColliderSetEnabled(Collider* collider, bool enable);
 World* lovrColliderGetWorld(Collider* collider);
 Joint* lovrColliderGetJoints(Collider* collider, Joint* joint);
-Shape* lovrColliderGetShape(Collider* collider, uint32_t child);
+Shape* lovrColliderGetShape(Collider* collider);
 void lovrColliderSetShape(Collider* collider, Shape* shape);
 const char* lovrColliderGetTag(Collider* collider);
 bool lovrColliderSetTag(Collider* collider, const char* tag);

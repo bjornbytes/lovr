@@ -6,28 +6,31 @@
 #include <stdbool.h>
 #include <string.h>
 
-static void luax_pushcastresult(lua_State* L, CastResult* hit) {
+static int luax_pushcastresult(lua_State* L, CastResult* hit) {
   luax_pushtype(L, Collider, hit->collider);
+  luax_pushshape(L, hit->shape);
   lua_pushnumber(L, hit->position[0]);
   lua_pushnumber(L, hit->position[1]);
   lua_pushnumber(L, hit->position[2]);
+  lua_pushnumber(L, hit->normal[0]);
+  lua_pushnumber(L, hit->normal[1]);
+  lua_pushnumber(L, hit->normal[2]);
   lua_pushnumber(L, hit->fraction);
-  lua_pushinteger(L, hit->part);
+  return 9;
 }
 
 static float castCallback(void* userdata, CastResult* hit) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
-  luax_pushcastresult(L, hit);
-  lua_call(L, 6, 1);
-  bool stop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
+  int n = luax_pushcastresult(L, hit);
+  lua_call(L, n, 1);
+  float fraction = lua_type(L, -1) == LUA_TNUMBER ? luax_tofloat(L, -1) : 1.f;
   lua_pop(L, 1);
-  return stop ? 0.f : 1.f;
+  return fraction;
 }
 
 static float castClosestCallback(void* userdata, CastResult* hit) {
-  CastResult* closest = userdata;
-  *closest = *hit;
+  *((CastResult*) userdata) = *hit;
   return hit->fraction;
 }
 
@@ -202,24 +205,20 @@ static int l_lovrWorldUpdate(lua_State* L) {
 static int l_lovrWorldRaycast(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   int index = 2;
-  float start[3], end[3];
-  index = luax_readvec3(L, index, start, NULL);
-  index = luax_readvec3(L, index, end, NULL);
+  Raycast raycast;
+  index = luax_readvec3(L, index, raycast.start, NULL);
+  index = luax_readvec3(L, index, raycast.end, NULL);
   if (lua_isnoneornil(L, index)) {
-    CastResult closest;
-    if (lovrWorldRaycast(world, start, end, castClosestCallback, &closest)) {
-      luax_pushcastresult(L, &closest);
-      return 6;
-    } else {
-      lua_pushnil(L);
-      return 1;
+    CastResult hit;
+    if (lovrWorldRaycast(world, &raycast, castClosestCallback, &hit)) {
+      return luax_pushcastresult(L, &hit);
     }
   } else {
     luaL_checktype(L, index, LUA_TFUNCTION);
     lua_settop(L, index);
-    lovrWorldRaycast(world, start, end, castCallback, L);
-    return 0;
+    lovrWorldRaycast(world, &raycast, castCallback, L);
   }
+  return 0;
 }
 
 static int l_lovrWorldQueryBox(lua_State* L) {

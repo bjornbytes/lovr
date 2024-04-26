@@ -52,7 +52,6 @@ struct Joint {
 static struct {
   bool initialized;
   Shape* pointShape;
-  JPH_AllHit_CastShapeCollector* castShapeCollector;
 } state;
 
 // Broad phase and object phase layers
@@ -78,11 +77,20 @@ static uint32_t findTag(World* world, const char* name) {
   return UNTAGGED;
 }
 
+static Shape* subshapeToShape(Collider* collider, JPH_SubShapeID id) {
+  if (collider->shape->type == SHAPE_COMPOUND) {
+    JPH_SubShapeID remainder;
+    uint32_t index = JPH_CompoundShape_GetSubShapeIndexFromID((JPH_CompoundShape*) collider->shape->shape, id, &remainder);
+    return lovrCompoundShapeGetChild(collider->shape, index);
+  } else {
+    return collider->shape;
+  }
+}
+
 bool lovrPhysicsInit(void) {
   if (state.initialized) return false;
   JPH_Init(32 * 1024 * 1024);
   state.pointShape = lovrSphereShapeCreate(FLT_EPSILON);
-  state.castShapeCollector = JPH_AllHit_CastShapeCollector_Create();
   return state.initialized = true;
 }
 
@@ -179,38 +187,45 @@ void lovrWorldUpdate(World* world, float dt) {
 
 typedef struct {
   World* world;
-  float origin[3];
-  float direction[3];
+  Raycast* raycast;
   CastCallback* callback;
   void* userdata;
-} CastInfo;
+} RaycastContext;
 
 static float raycastCallback(void* arg, JPH_RayCastResult* result) {
-  CastInfo* cast = arg;
+  RaycastContext* ctx = arg;
   CastResult hit;
-  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(cast->world->bodies, result->bodyID);
-  hit.position[0] = cast->origin[0] + cast->direction[0] * result->fraction;
-  hit.position[1] = cast->origin[1] + cast->direction[1] * result->fraction;
-  hit.position[2] = cast->origin[2] + cast->direction[2] * result->fraction;
+  Raycast* raycast = ctx->raycast;
+  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, result->bodyID);
+  hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
+  hit.position[0] = raycast->start[0] + (raycast->end[0] - raycast->start[0]) * result->fraction;
+  hit.position[1] = raycast->start[1] + (raycast->end[1] - raycast->start[1]) * result->fraction;
+  hit.position[2] = raycast->start[2] + (raycast->end[2] - raycast->start[2]) * result->fraction;
+  JPH_Vec3 normal;
+  JPH_Body_GetWorldSpaceSurfaceNormal(hit.collider->body, result->subShapeID2, vec3_toJolt(hit.position), &normal);
+  vec3_fromJolt(hit.normal, &normal);
   hit.fraction = result->fraction;
-  hit.part = result->subShapeID2;
-  return cast->callback(cast->userdata, &hit);
+  return ctx->callback(ctx->userdata, &hit);
 }
 
-bool lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata) {
-  const JPH_NarrowPhaseQuery* query = JPC_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
+bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, void* userdata) {
+  const JPH_NarrowPhaseQuery* query = JPH_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
 
-  CastInfo raycast = {
+  float dir[3];
+  vec3_init(dir, raycast->end);
+  vec3_sub(dir, raycast->start);
+
+  JPH_RVec3* origin = vec3_toJolt(raycast->start);
+  JPH_Vec3* direction = vec3_toJolt(dir);
+
+  RaycastContext context = {
     .world = world,
-    .origin = { start[0], start[1], start[2] },
-    .direction = { end[0] - start[0], end[1] - start[1], end[2] - start[2] },
+    .raycast = raycast,
     .callback = callback,
     .userdata = userdata
   };
 
-  JPH_RVec3* origin = vec3_toJolt(raycast.origin);
-  JPH_Vec3* direction = vec3_toJolt(raycast.direction);
-  return JPH_NarrowPhaseQuery_CastRay2(query, origin, direction, raycastCallback, &raycast, NULL, NULL, NULL);
+  return JPH_NarrowPhaseQuery_CastRay2(query, origin, direction, raycastCallback, &context, NULL, NULL, NULL);
 }
 
 typedef struct {
@@ -425,16 +440,8 @@ Joint* lovrColliderGetJoints(Collider* collider, Joint* joint) {
   return joint ? lovrJointGetNext(joint, collider) : collider->joints;
 }
 
-Shape* lovrColliderGetShape(Collider* collider, uint32_t child) {
-  if (collider->shape == state.pointShape) {
-    return NULL;
-  }
-
-  if (child == ~0u || collider->shape->type != SHAPE_COMPOUND) {
-    return collider->shape;
-  }
-
-  return lovrCompoundShapeGetChild(collider->shape, child);
+Shape* lovrColliderGetShape(Collider* collider) {
+  return collider->shape == state.pointShape ? NULL : collider->shape;
 }
 
 void lovrColliderSetShape(Collider* collider, Shape* shape) {

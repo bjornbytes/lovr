@@ -107,9 +107,10 @@ static void raycastCallback(void* d, dGeomID a, dGeomID b) {
   for (int i = 0; i < count; i++) {
     CastResult hit;
     hit.collider = collider;
+    hit.shape = collider->shape;
     vec3_init(hit.position, contact[i].geom.pos);
+    vec3_init(hit.normal, contact[i].geom.normal);
     hit.fraction = 0.f;
-    hit.part = 0;
 
     data->shouldStop = data->callback(data->userdata, &hit);
     if (data->shouldStop) break;
@@ -281,15 +282,15 @@ void lovrWorldSetStepCount(World* world, int iterations) {
   dWorldSetQuickStepNumIterations(world->id, iterations);
 }
 
-bool lovrWorldRaycast(World* world, float start[3], float end[3], CastCallback* callback, void* userdata) {
+bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, void* userdata) {
   if (callback) {
     RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
-    float dx = start[0] - end[0];
-    float dy = start[1] - end[1];
-    float dz = start[2] - end[2];
+    float dx = raycast->start[0] - raycast->end[0];
+    float dy = raycast->start[1] - raycast->end[1];
+    float dz = raycast->start[2] - raycast->end[2];
     float length = sqrtf(dx * dx + dy * dy + dz * dz);
     dGeomID ray = dCreateRay(world->space, length);
-    dGeomRaySet(ray, start[0], start[1], start[2], end[0], end[1], end[2]);
+    dGeomRaySet(ray, raycast->start[0], raycast->start[1], raycast->start[2], raycast->end[0], raycast->end[1], raycast->end[2]);
     dSpaceCollide2(ray, (dGeomID) world->space, &data, raycastCallback);
     dGeomDestroy(ray);
     return true;
@@ -489,7 +490,7 @@ World* lovrColliderGetWorld(Collider* collider) {
   return collider->world;
 }
 
-Shape* lovrColliderGetShape(Collider* collider, uint32_t child) {
+Shape* lovrColliderGetShape(Collider* collider) {
   return collider->shape;
 }
 
