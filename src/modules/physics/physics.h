@@ -35,9 +35,12 @@ void lovrPhysicsDestroy(void);
 
 typedef struct {
   uint32_t maxColliders;
-  uint32_t maxColliderPairs;
-  uint32_t maxContacts;
+  bool deterministic;
+  bool threadSafe;
   bool allowSleep;
+  float stabilization;
+  float maxPenetration;
+  float minBounceVelocity;
   const char* tags[MAX_TAGS];
   uint32_t tagCount;
 } WorldInfo;

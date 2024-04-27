@@ -126,16 +126,28 @@ World* lovrWorldCreate(WorldInfo* info) {
     broadPhaseLayerInterface, NUM_BP_LAYERS,
     world->objectLayerPairFilter, NUM_OP_LAYERS);
 
-  JPH_PhysicsSystemSettings settings = {
+  JPH_PhysicsSystemSettings config = {
     .maxBodies = info->maxColliders,
-    .maxBodyPairs = info->maxColliderPairs,
-    .maxContactConstraints = info->maxContacts,
+    .maxBodyPairs = info->maxColliders * 2,
+    .maxContactConstraints = info->maxColliders,
     .broadPhaseLayerInterface = broadPhaseLayerInterface,
     .objectLayerPairFilter = world->objectLayerPairFilter,
     .objectVsBroadPhaseLayerFilter = broadPhaseLayerFilter
   };
-  world->system = JPH_PhysicsSystem_Create(&settings);
-  world->bodies = JPH_PhysicsSystem_GetBodyInterface(world->system);
+  world->system = JPH_PhysicsSystem_Create(&config);
+
+  JPH_PhysicsSettings settings;
+  JPH_PhysicsSystem_GetPhysicsSettings(world->system, &settings);
+  settings.deterministicSimulation = info->deterministic;
+  settings.allowSleeping = info->allowSleep;
+  settings.baumgarte = CLAMP(info->stabilization, 0.f, 1.f);
+  settings.penetrationSlop = MAX(info->maxPenetration, 0.f);
+  settings.minVelocityForRestitution = MAX(info->minBounceVelocity, 0.f);
+  JPH_PhysicsSystem_SetPhysicsSettings(world->system, &settings);
+
+  world->bodies = info->threadSafe ?
+    JPH_PhysicsSystem_GetBodyInterface(world->system) :
+    JPH_PhysicsSystem_GetBodyInterfaceNoLock(world->system);
 
   for (uint32_t i = 0; i < info->tagCount; i++) {
     size_t size = strlen(info->tags[i]) + 1;
