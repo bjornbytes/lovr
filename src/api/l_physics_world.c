@@ -131,7 +131,6 @@ static int l_lovrWorldNewTerrainCollider(lua_State* L) {
   TerrainShape* shape = luax_newterrainshape(L, 2);
   float position[3] = { 0.f, 0.f, 0.f };
   Collider* collider = lovrColliderCreate(world, shape, position);
-  lovrColliderSetKinematic(collider, true);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
   lovrRelease(shape, lovrShapeDestroy);

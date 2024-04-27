@@ -2,6 +2,13 @@
 #include "physics/physics.h"
 #include "util.h"
 
+StringEntry lovrColliderType[] = {
+  [COLLIDER_STATIC] = ENTRY("static"),
+  [COLLIDER_DYNAMIC] = ENTRY("dynamic"),
+  [COLLIDER_KINEMATIC] = ENTRY("kinematic"),
+  { 0 }
+};
+
 StringEntry lovrShapeType[] = {
   [SHAPE_SPHERE] = ENTRY("sphere"),
   [SHAPE_BOX] = ENTRY("box"),

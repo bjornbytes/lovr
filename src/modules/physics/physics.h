@@ -101,6 +101,12 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 
 // Collider
 
+typedef enum {
+  COLLIDER_STATIC,
+  COLLIDER_DYNAMIC,
+  COLLIDER_KINEMATIC
+} ColliderType;
+
 Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]);
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
@@ -117,8 +123,8 @@ float lovrColliderGetFriction(Collider* collider);
 void lovrColliderSetFriction(Collider* collider, float friction);
 float lovrColliderGetRestitution(Collider* collider);
 void lovrColliderSetRestitution(Collider* collider, float restitution);
-bool lovrColliderIsKinematic(Collider* collider);
-void lovrColliderSetKinematic(Collider* collider, bool kinematic);
+ColliderType lovrColliderGetType(Collider* collider);
+void lovrColliderSetType(Collider* collider, ColliderType type);
 bool lovrColliderIsSensor(Collider* collider);
 void lovrColliderSetSensor(Collider* collider, bool sensor);
 bool lovrColliderIsContinuous(Collider* collider);

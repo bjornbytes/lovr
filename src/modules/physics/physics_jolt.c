@@ -516,7 +516,7 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
 
   bool updateMass = true;
   if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
-    lovrColliderSetKinematic(collider, true);
+    lovrColliderSetType(collider, COLLIDER_STATIC);
     updateMass = false;
   }
 
@@ -536,8 +536,8 @@ bool lovrColliderSetTag(Collider* collider, const char* tag) {
       return false;
     }
   }
-  bool kinematic = lovrColliderIsKinematic(collider);
-  JPH_ObjectLayer objectLayer = collider->tag * 2 + (kinematic ? 0 : 1);
+  bool isStatic = lovrColliderGetType(collider) == COLLIDER_STATIC;
+  JPH_ObjectLayer objectLayer = collider->tag * 2 + (isStatic ? 0 : 1);
   JPH_BodyInterface_SetObjectLayer(collider->world->bodies, collider->id, objectLayer);
   return true;
 }
@@ -558,20 +558,29 @@ void lovrColliderSetRestitution(Collider* collider, float restitution) {
   JPH_BodyInterface_SetRestitution(collider->world->bodies, collider->id, restitution);
 }
 
-bool lovrColliderIsKinematic(Collider* collider) {
-  JPH_ObjectLayer objectLayer = JPH_BodyInterface_GetObjectLayer(collider->world->bodies, collider->id);
-  return objectLayer % 2 == 0;
+ColliderType lovrColliderGetType(Collider* collider) {
+  switch (JPH_BodyInterface_GetMotionType(collider->world->bodies, collider->id)) {
+    case JPH_MotionType_Static: return COLLIDER_STATIC;
+    case JPH_MotionType_Dynamic: return COLLIDER_DYNAMIC;
+    case JPH_MotionType_Kinematic: return COLLIDER_KINEMATIC;
+    default: lovrUnreachable();
+  }
 }
 
-void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
-  JPH_ObjectLayer objectLayer = collider->tag * 2 + (kinematic ? 0 : 1);
-  JPH_BodyInterface_SetObjectLayer(collider->world->bodies, collider->id, objectLayer);
-  if (kinematic) {
-    JPH_BodyInterface_DeactivateBody(collider->world->bodies, collider->id);
-    JPH_BodyInterface_SetMotionType(collider->world->bodies, collider->id, JPH_MotionType_Kinematic, JPH_Activation_DontActivate);
-  } else {
-    JPH_BodyInterface_SetMotionType(collider->world->bodies, collider->id, JPH_MotionType_Dynamic, JPH_Activation_Activate);
+void lovrColliderSetType(Collider* collider, ColliderType type) {
+  JPH_MotionType motionType;
+
+  switch (type) {
+    case COLLIDER_STATIC: motionType = JPH_MotionType_Static; break;
+    case COLLIDER_DYNAMIC: motionType = JPH_MotionType_Dynamic; break;
+    case COLLIDER_KINEMATIC: motionType = JPH_MotionType_Kinematic; break;
+    default: lovrUnreachable();
   }
+
+  JPH_BodyInterface_SetMotionType(collider->world->bodies, collider->id, motionType, JPH_Activation_Activate);
+
+  JPH_ObjectLayer objectLayer = collider->tag * 2 + (type == COLLIDER_STATIC ? 0 : 1);
+  JPH_BodyInterface_SetObjectLayer(collider->world->bodies, collider->id, objectLayer);
 }
 
 bool lovrColliderIsSensor(Collider* collider) {

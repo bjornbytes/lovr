@@ -85,16 +85,17 @@ static int l_lovrColliderSetUserData(lua_State* L) {
   return 0;
 }
 
-static int l_lovrColliderIsKinematic(lua_State* L) {
+static int l_lovrColliderGetType(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  lua_pushboolean(L, lovrColliderIsKinematic(collider));
+  ColliderType type = lovrColliderGetType(collider);
+  luax_pushenum(L, ColliderType, type);
   return 1;
 }
 
-static int l_lovrColliderSetKinematic(lua_State* L) {
+static int l_lovrColliderSetType(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  bool kinematic = lua_toboolean(L, 2);
-  lovrColliderSetKinematic(collider, kinematic);
+  ColliderType type = luax_checkenum(L, 2, ColliderType, NULL);
+  lovrColliderSetType(collider, type);
   return 0;
 }
 
@@ -624,6 +625,21 @@ static int l_lovrColliderSetGravityIgnored(lua_State* L) {
   return 0;
 }
 
+// Deprecated
+static int l_lovrColliderIsKinematic(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lua_pushboolean(L, lovrColliderGetType(collider) != COLLIDER_DYNAMIC);
+  return 1;
+}
+
+// Deprecated
+static int l_lovrColliderSetKinematic(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  bool kinematic = lua_toboolean(L, 2);
+  lovrColliderSetType(collider, kinematic ? COLLIDER_KINEMATIC : COLLIDER_DYNAMIC);
+  return 0;
+}
+
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "isDestroyed", l_lovrColliderIsDestroyed },
@@ -635,8 +651,8 @@ const luaL_Reg lovrCollider[] = {
   { "getJoints", l_lovrColliderGetJoints },
   { "getUserData", l_lovrColliderGetUserData },
   { "setUserData", l_lovrColliderSetUserData },
-  { "isKinematic", l_lovrColliderIsKinematic },
-  { "setKinematic", l_lovrColliderSetKinematic },
+  { "getType", l_lovrColliderGetType },
+  { "setType", l_lovrColliderSetType },
   { "isSensor", l_lovrColliderIsSensor },
   { "setSensor", l_lovrColliderSetSensor },
   { "isContinuous", l_lovrColliderIsContinuous },
@@ -691,6 +707,8 @@ const luaL_Reg lovrCollider[] = {
   { "getShapes", l_lovrColliderGetShapes },
   { "isGravityIgnored", l_lovrColliderIsGravityIgnored },
   { "setGravityIgnored", l_lovrColliderSetGravityIgnored },
+  { "isKinematic", l_lovrColliderIsKinematic },
+  { "setKinematic", l_lovrColliderSetKinematic },
 
   { NULL, NULL }
 };

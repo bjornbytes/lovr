@@ -565,15 +565,15 @@ void lovrColliderSetRestitution(Collider* collider, float restitution) {
   collider->restitution = restitution;
 }
 
-bool lovrColliderIsKinematic(Collider* collider) {
-  return dBodyIsKinematic(collider->body);
+ColliderType lovrColliderGetType(Collider* collider) {
+  return dBodyIsKinematic(collider->body) ? COLLIDER_KINEMATIC : COLLIDER_DYNAMIC;
 }
 
-void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
-  if (kinematic) {
-    dBodySetKinematic(collider->body);
-  } else {
+void lovrColliderSetType(Collider* collider, ColliderType type) {
+  if (type == COLLIDER_DYNAMIC) {
     dBodySetDynamic(collider->body);
+  } else {
+    dBodySetKinematic(collider->body);
   }
 }
 
