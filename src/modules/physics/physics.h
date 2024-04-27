@@ -203,6 +203,10 @@ float lovrCylinderShapeGetRadius(CylinderShape* cylinder);
 float lovrCylinderShapeGetLength(CylinderShape* cylinder);
 
 ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count);
+uint32_t lovrConvexShapeGetPointCount(ConvexShape* convex);
+void lovrConvexShapeGetPoint(ConvexShape* shape, uint32_t index, float point[3]);
+uint32_t lovrConvexShapeGetFaceCount(ConvexShape* convex);
+uint32_t lovrConvexShapeGetFace(ConvexShape* shape, uint32_t index, uint32_t* pointIndices, uint32_t capacity);
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]);
 

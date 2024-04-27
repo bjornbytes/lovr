@@ -365,8 +365,55 @@ const luaL_Reg lovrCylinderShape[] = {
   { NULL, NULL }
 };
 
+static int l_lovrConvexShapeGetPointCount(lua_State* L) {
+  ConvexShape* convex = luax_checktype(L, 1, ConvexShape);
+  uint32_t count = lovrConvexShapeGetPointCount(convex);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
+static int l_lovrConvexShapeGetPoint(lua_State* L) {
+  ConvexShape* convex = luax_checktype(L, 1, ConvexShape);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  float point[3];
+  lovrConvexShapeGetPoint(convex, index, point);
+  lua_pushnumber(L, point[0]);
+  lua_pushnumber(L, point[1]);
+  lua_pushnumber(L, point[2]);
+  return 3;
+}
+
+static int l_lovrConvexShapeGetFaceCount(lua_State* L) {
+  ConvexShape* convex = luax_checktype(L, 1, ConvexShape);
+  uint32_t count = lovrConvexShapeGetFaceCount(convex);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
+static int l_lovrConvexShapeGetFace(lua_State* L) {
+  ConvexShape* convex = luax_checktype(L, 1, ConvexShape);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  uint32_t count = lovrConvexShapeGetFace(convex, index, NULL, 0);
+  lua_createtable(L, (int) count, 0);
+  uint32_t stack[8];
+  uint32_t* indices = count > COUNTOF(stack) ? lovrMalloc(count * sizeof(uint32_t)) : stack;
+  lovrConvexShapeGetFace(convex, index, indices, count);
+  for (uint32_t i = 0; i < count; i++) {
+    lua_pushinteger(L, indices[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  if (indices != stack) {
+    lovrFree(indices);
+  }
+  return 1;
+}
+
 const luaL_Reg lovrConvexShape[] = {
   lovrShape,
+  { "getPointCount", l_lovrConvexShapeGetPointCount },
+  { "getPoint", l_lovrConvexShapeGetPoint },
+  { "getFaceCount", l_lovrConvexShapeGetFaceCount },
+  { "getFace", l_lovrConvexShapeGetFace },
   { NULL, NULL }
 };
 

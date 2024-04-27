@@ -1001,6 +1001,22 @@ ConvexShape* lovrConvexShapeCreate(float positions[], uint32_t count) {
   lovrThrow("ODE does not support ConvexShape");
 }
 
+uint32_t lovrConvexShapeGetPointCount(ConvexShape* convex) {
+  return 0;
+}
+
+void lovrConvexShapeGetPoint(ConvexShape* shape, uint32_t index, float point[3]) {
+  //
+}
+
+uint32_t lovrConvexShapeGetFaceCount(ConvexShape* convex) {
+  return 0;
+}
+
+uint32_t lovrConvexShapeGetFace(ConvexShape* shape, uint32_t index, uint32_t* pointIndices, uint32_t capacity) {
+  return 0;
+}
+
 MeshShape* lovrMeshShapeCreate(int vertexCount, float* vertices, int indexCount, dTriIndex* indices) {
   MeshShape* mesh = lovrCalloc(sizeof(MeshShape));
   mesh->ref = 1;
