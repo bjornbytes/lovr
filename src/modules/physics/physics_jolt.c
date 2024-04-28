@@ -412,7 +412,7 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]) {
 
   JPH_RVec3* p = vec3_toJolt(position);
   JPH_Quat q = { 0.f, 0.f, 0.f, 1.f };
-  JPH_MotionType type = JPH_MotionType_Dynamic;
+  JPH_MotionType type = JPH_Shape_MustBeStatic(collider->shape->handle) ? JPH_MotionType_Static : JPH_MotionType_Dynamic;
   JPH_ObjectLayer objectLayer = UNTAGGED * 2 + 1;
   JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(collider->shape->handle, p, &q, type, objectLayer);
   collider->body = JPH_BodyInterface_CreateBody(world->bodies, settings);
@@ -422,9 +422,11 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]) {
   JPH_BodyInterface_AddBody(world->bodies, collider->id, JPH_Activation_Activate);
   JPH_BodyInterface_SetUserData(world->bodies, collider->id, (uint64_t) collider);
 
-  lovrColliderSetLinearDamping(collider, world->defaultLinearDamping, 0.f);
-  lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
-  lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
+  if (type == JPH_MotionType_Dynamic) {
+    lovrColliderSetLinearDamping(collider, world->defaultLinearDamping, 0.f);
+    lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
+    lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
+  }
 
   if (world->colliders) {
     collider->next = world->colliders;
