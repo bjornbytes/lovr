@@ -663,23 +663,25 @@ void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float ma
 }
 
 void lovrColliderGetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
-  // TODO need bindings
+  JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
+  JPH_AllowedDOFs dofs = JPH_MotionProperties_GetAllowedDOFs(motion);
+  if (dofs & JPH_AllowedDOFs_TranslationX) translation[0] = true;
+  if (dofs & JPH_AllowedDOFs_TranslationY) translation[1] = true;
+  if (dofs & JPH_AllowedDOFs_TranslationZ) translation[2] = true;
+  if (dofs & JPH_AllowedDOFs_RotationX) rotation[0] = true;
+  if (dofs & JPH_AllowedDOFs_RotationY) rotation[1] = true;
+  if (dofs & JPH_AllowedDOFs_RotationZ) rotation[2] = true;
 }
 
 void lovrColliderSetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
   JPH_AllowedDOFs dofs = 0;
 
-  for (size_t i = 0; i < 3; i++) {
-    if (translation[i]) {
-      dofs |= JPH_AllowedDOFs_TranslationX << i;
-    }
-  }
-
-  for (size_t i = 0; i < 3; i++) {
-    if (rotation[i]) {
-      dofs |= JPH_AllowedDOFs_RotationX << i;
-    }
-  }
+  if (translation[0]) dofs |= JPH_AllowedDOFs_TranslationX;
+  if (translation[1]) dofs |= JPH_AllowedDOFs_TranslationY;
+  if (translation[2]) dofs |= JPH_AllowedDOFs_TranslationZ;
+  if (rotation[0]) dofs |= JPH_AllowedDOFs_RotationX;
+  if (rotation[1]) dofs |= JPH_AllowedDOFs_RotationY;
+  if (rotation[2]) dofs |= JPH_AllowedDOFs_RotationZ;
 
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
   JPH_MotionProperties_SetMassProperties(motion, dofs, NULL); // TODO need to synthesize mass
