@@ -8,6 +8,7 @@ void luax_pushjoint(lua_State* L, Joint* joint) {
   switch (lovrJointGetType(joint)) {
     case JOINT_WELD: luax_pushtype(L, WeldJoint, joint); break;
     case JOINT_BALL: luax_pushtype(L, BallJoint, joint); break;
+    case JOINT_CONE: luax_pushtype(L, ConeJoint, joint); break;
     case JOINT_DISTANCE: luax_pushtype(L, DistanceJoint, joint); break;
     case JOINT_HINGE: luax_pushtype(L, HingeJoint, joint); break;
     case JOINT_SLIDER: luax_pushtype(L, SliderJoint, joint); break;
@@ -22,6 +23,7 @@ Joint* luax_checkjoint(lua_State* L, int index) {
     const uint64_t hashes[] = {
       hash64("WeldJoint", strlen("WeldJoint")),
       hash64("BallJoint", strlen("BallJoint")),
+      hash64("ConeJoint", strlen("ConeJoint")),
       hash64("DistanceJoint", strlen("DistanceJoint")),
       hash64("HingeJoint", strlen("HingeJoint")),
       hash64("SliderJoint", strlen("SliderJoint"))
@@ -173,6 +175,52 @@ static int l_lovrBallJointGetAnchors(lua_State* L) {
 const luaL_Reg lovrBallJoint[] = {
   lovrJoint,
   { "getAnchors", l_lovrBallJointGetAnchors },
+  { NULL, NULL }
+};
+
+static int l_lovrConeJointGetAnchors(lua_State* L) {
+  ConeJoint* joint = luax_checktype(L, 1, ConeJoint);
+  float anchor1[3], anchor2[3];
+  lovrConeJointGetAnchors(joint, anchor1, anchor2);
+  lua_pushnumber(L, anchor1[0]);
+  lua_pushnumber(L, anchor1[1]);
+  lua_pushnumber(L, anchor1[2]);
+  lua_pushnumber(L, anchor2[0]);
+  lua_pushnumber(L, anchor2[1]);
+  lua_pushnumber(L, anchor2[2]);
+  return 6;
+}
+
+static int l_lovrConeJointGetAxis(lua_State* L) {
+  ConeJoint* joint = luax_checktype(L, 1, ConeJoint);
+  float axis[3];
+  lovrConeJointGetAxis(joint, axis);
+  lua_pushnumber(L, axis[0]);
+  lua_pushnumber(L, axis[1]);
+  lua_pushnumber(L, axis[2]);
+  return 3;
+}
+
+static int l_lovrConeJointGetLimit(lua_State* L) {
+  ConeJoint* joint = luax_checktype(L, 1, ConeJoint);
+  float limit = lovrConeJointGetLimit(joint);
+  lua_pushnumber(L, limit);
+  return 1;
+}
+
+static int l_lovrConeJointSetLimit(lua_State* L) {
+  ConeJoint* joint = luax_checktype(L, 1, ConeJoint);
+  float limit = luax_checkfloat(L, 2);
+  lovrConeJointSetLimit(joint, limit);
+  return 0;
+}
+
+const luaL_Reg lovrConeJoint[] = {
+  lovrJoint,
+  { "getAnchors", l_lovrConeJointGetAnchors },
+  { "getAxis", l_lovrConeJointGetAxis },
+  { "getLimit", l_lovrConeJointGetLimit },
+  { "setLimit", l_lovrConeJointSetLimit },
   { NULL, NULL }
 };
 

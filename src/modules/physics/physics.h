@@ -24,6 +24,7 @@ typedef Shape CompoundShape;
 
 typedef Joint WeldJoint;
 typedef Joint BallJoint;
+typedef Joint ConeJoint;
 typedef Joint DistanceJoint;
 typedef Joint HingeJoint;
 typedef Joint SliderJoint;
@@ -240,6 +241,7 @@ void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float
 typedef enum {
   JOINT_WELD,
   JOINT_BALL,
+  JOINT_CONE,
   JOINT_DISTANCE,
   JOINT_HINGE,
   JOINT_SLIDER
@@ -270,6 +272,12 @@ void lovrWeldJointGetAnchors(WeldJoint* joint, float anchor1[3], float anchor2[3
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]);
 void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3]);
+
+ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]);
+void lovrConeJointGetAnchors(ConeJoint* joint, float anchor1[3], float anchor2[3]);
+void lovrConeJointGetAxis(ConeJoint* joint, float axis[3]);
+float lovrConeJointGetLimit(ConeJoint* joint);
+void lovrConeJointSetLimit(ConeJoint* joint, float angle);
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]);
 void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]);

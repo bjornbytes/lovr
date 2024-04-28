@@ -1362,6 +1362,62 @@ void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3
   lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
 }
 
+// ConeJoint
+
+ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
+  lovrCheck(a || b, "Joint requires at least one Collider");
+  lovrCheck(!a || !b || a->world == b->world, "Joint bodies must exist in same World");
+  JPH_Body* bodyA = a ? a->body : NULL;
+  JPH_Body* bodyB = b ? b->body : NULL;
+  World* world = (a ? a : b)->world;
+
+  ConeJoint* joint = lovrCalloc(sizeof(ConeJoint));
+  joint->ref = 1;
+  joint->type = JOINT_CONE;
+
+  JPH_ConeConstraintSettings* settings = JPH_ConeConstraintSettings_Create();
+  JPH_ConeConstraintSettings_SetPoint1(settings, vec3_toJolt(anchor));
+  JPH_ConeConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
+  JPH_ConeConstraintSettings_SetTwistAxis1(settings, vec3_toJolt(axis));
+  JPH_ConeConstraintSettings_SetTwistAxis2(settings, vec3_toJolt(axis));
+  joint->constraint = (JPH_Constraint*) JPH_ConeConstraintSettings_CreateConstraint(settings, bodyA, bodyB);
+  JPH_PhysicsSystem_AddConstraint((a ? a : b)->world->system, joint->constraint);
+  lovrJointInit(joint, a, b);
+  lovrRetain(joint);
+  return joint;
+}
+
+void lovrConeJointGetAnchors(ConeJoint* joint, float anchor1[3], float anchor2[3]) {
+  lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
+}
+
+void lovrConeJointGetAxis(ConeJoint* joint, float axis[3]) {
+  JPH_Vec3 resultAxis;
+  JPH_ConeConstraintSettings* settings = (JPH_ConeConstraintSettings*) JPH_Constraint_GetConstraintSettings((JPH_Constraint*) joint->constraint);
+  JPH_ConeConstraintSettings_GetTwistAxis1(settings, &resultAxis);
+  JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
+  JPH_RMatrix4x4 centerOfMassTransform;
+  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransform);
+  JPH_Matrix4x4 constraintToBody;
+  JPH_TwoBodyConstraint_GetConstraintToBody1Matrix((JPH_TwoBodyConstraint*) joint->constraint, &constraintToBody);
+  float translation[4] = {
+    resultAxis.x,
+    resultAxis.y,
+    resultAxis.z,
+    0.f
+  };
+  mat4_mulVec4(&centerOfMassTransform.m11, translation);
+  vec3_init(axis, translation);
+}
+
+float lovrConeJointGetLimit(ConeJoint* joint) {
+  return acosf(JPH_ConeConstraint_GetCosHalfConeAngle((JPH_ConeConstraint*) joint->constraint));
+}
+
+void lovrConeJointSetLimit(ConeJoint* joint, float angle) {
+  JPH_ConeConstraint_SetHalfConeAngle((JPH_ConeConstraint*) joint->constraint, CLAMP(angle, 0.f, (float) M_PI));
+}
+
 // DistanceJoint
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
@@ -1445,7 +1501,7 @@ void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2
 
 void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
   JPH_Vec3 resultAxis;
-  JPH_HingeConstraintSettings* settings = JPH_HingeConstraint_GetSettings((JPH_HingeConstraint*) joint->constraint);
+  JPH_HingeConstraintSettings* settings = (JPH_HingeConstraintSettings*) JPH_Constraint_GetConstraintSettings((JPH_Constraint*) joint->constraint);
   JPH_HingeConstraintSettings_GetHingeAxis1(settings, &resultAxis);
   JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
   JPH_RMatrix4x4 centerOfMassTransform;
@@ -1459,9 +1515,7 @@ void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
     0.f
   };
   mat4_mulVec4(&centerOfMassTransform.m11, translation);
-  axis[0] = translation[0];
-  axis[1] = translation[1];
-  axis[2] = translation[2];
+  vec3_init(axis, translation);
 }
 
 float lovrHingeJointGetAngle(HingeJoint* joint) {
@@ -1590,7 +1644,7 @@ void lovrSliderJointGetAnchors(SliderJoint* joint, float anchor1[3], float ancho
 
 void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
   JPH_Vec3 resultAxis;
-  JPH_SliderConstraintSettings* settings = JPH_SliderConstraint_GetSettings((JPH_SliderConstraint*) joint->constraint);
+  JPH_SliderConstraintSettings* settings = (JPH_SliderConstraintSettings*) JPH_Constraint_GetConstraintSettings((JPH_Constraint*) joint->constraint);
   JPH_SliderConstraintSettings_GetSliderAxis(settings, &resultAxis);
   JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
   JPH_RMatrix4x4 centerOfMassTransform;

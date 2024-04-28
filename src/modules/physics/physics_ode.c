@@ -1171,6 +1171,26 @@ void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3
   anchor2[2] = anchor[2];
 }
 
+ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
+  lovrThrow("NYI");
+}
+
+void lovrConeJointGetAnchors(ConeJoint* joint, float anchor1[3], float anchor2[3]) {
+  //
+}
+
+void lovrConeJointGetAxis(ConeJoint* joint, float axis[3]) {
+  //
+}
+
+float lovrConeJointGetLimit(ConeJoint* joint) {
+  return 0.f;
+}
+
+void lovrConeJointSetLimit(ConeJoint* joint, float angle) {
+  //
+}
+
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
   lovrCheck(a->world == b->world, "Joint bodies must exist in same World");
   DistanceJoint* joint = lovrCalloc(sizeof(DistanceJoint));
