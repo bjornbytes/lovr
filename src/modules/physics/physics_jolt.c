@@ -27,6 +27,7 @@ struct World {
   uint32_t staticTagMask;
   uint32_t tagLookup[MAX_TAGS];
   char* tags[MAX_TAGS];
+  mtx_t lock;
 };
 
 struct Collider {
@@ -134,13 +135,16 @@ static JPH_ObjectLayerFilter* getObjectLayerFilter(World* world, uint32_t tagMas
 
 static void onAwake(void* arg, JPH_BodyID id, uint64_t userData) {
   World* world = arg;
+  mtx_lock(&world->lock);
   Collider* collider = (Collider*) (uintptr_t) userData;
   collider->activeIndex = world->activeColliderCount++;
   world->activeColliders[collider->activeIndex] = collider;
+  mtx_unlock(&world->lock);
 }
 
 static void onSleep(void* arg, JPH_BodyID id, uint64_t userData) {
   World* world = arg;
+  mtx_lock(&world->lock);
   Collider* collider = (Collider*) (uintptr_t) userData;
   if (collider->activeIndex != world->activeColliderCount - 1) {
     Collider* lastCollider = world->activeColliders[world->activeColliderCount - 1];
@@ -149,6 +153,7 @@ static void onSleep(void* arg, JPH_BodyID id, uint64_t userData) {
   }
   world->activeColliderCount--;
   collider->activeIndex = ~0u;
+  mtx_unlock(&world->lock);
 }
 
 bool lovrPhysicsInit(void) {
@@ -171,6 +176,7 @@ World* lovrWorldCreate(WorldInfo* info) {
   world->defaultLinearDamping = .05f;
   world->defaultAngularDamping = .05f;
   world->defaultIsSleepingAllowed = info->allowSleep;
+  mtx_init(&world->lock, mtx_plain);
 
   world->tagCount = info->tagCount;
   world->staticTagMask = info->staticTagMask;
@@ -253,6 +259,7 @@ void lovrWorldDestroy(void* ref) {
   for (uint32_t i = 0; i < world->tagCount; i++) {
     lovrFree(world->tags[i]);
   }
+  mtx_destroy(&world->lock);
   lovrFree(world->activeColliders);
   lovrFree(world);
 }
