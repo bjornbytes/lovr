@@ -963,23 +963,23 @@ ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count) {
 }
 
 uint32_t lovrConvexShapeGetPointCount(ConvexShape* convex) {
-  return JPH_ConvexHullShape_GetNumPoints(convex->shape);
+  return JPH_ConvexHullShape_GetNumPoints((JPH_ConvexHullShape*) convex->shape);
 }
 
 void lovrConvexShapeGetPoint(ConvexShape* convex, uint32_t index, float point[3]) {
   lovrCheck(index < lovrConvexShapeGetPointCount(convex), "Invalid point index '%d'", index + 1);
   JPH_Vec3 v;
-  JPH_ConvexHullShape_GetPoint(convex->shape, index, &v);
+  JPH_ConvexHullShape_GetPoint((JPH_ConvexHullShape*) convex->shape, index, &v);
   vec3_fromJolt(point, &v);
 }
 
 uint32_t lovrConvexShapeGetFaceCount(ConvexShape* convex) {
-  return JPH_ConvexHullShape_GetNumFaces(convex->shape);
+  return JPH_ConvexHullShape_GetNumFaces((JPH_ConvexHullShape*) convex->shape);
 }
 
 uint32_t lovrConvexShapeGetFace(ConvexShape* convex, uint32_t index, uint32_t* pointIndices, uint32_t capacity) {
   lovrCheck(index < lovrConvexShapeGetFaceCount(convex), "Invalid face index '%d'", index + 1);
-  return JPH_ConvexHullShape_GetFaceVertices(convex->shape, index, capacity, pointIndices);
+  return JPH_ConvexHullShape_GetFaceVertices((JPH_ConvexHullShape*) convex->shape, index, capacity, pointIndices);
 }
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]) {
