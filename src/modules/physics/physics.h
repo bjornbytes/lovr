@@ -13,8 +13,8 @@ typedef struct Collider Collider;
 typedef struct Shape Shape;
 typedef struct Joint Joint;
 
-typedef Shape SphereShape;
 typedef Shape BoxShape;
+typedef Shape SphereShape;
 typedef Shape CapsuleShape;
 typedef Shape CylinderShape;
 typedef Shape ConvexShape;
@@ -77,13 +77,13 @@ uint32_t lovrWorldGetColliderCount(World* world);
 uint32_t lovrWorldGetJointCount(World* world);
 Collider* lovrWorldGetColliders(World* world, Collider* collider);
 Joint* lovrWorldGetJoints(World* world, Joint* joint);
+void lovrWorldGetGravity(World* world, float gravity[3]);
+void lovrWorldSetGravity(World* world, float gravity[3]);
 void lovrWorldUpdate(World* world, float dt);
 bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, void* userdata);
 bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback* callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata);
-void lovrWorldGetGravity(World* world, float gravity[3]);
-void lovrWorldSetGravity(World* world, float gravity[3]);
 const char* lovrWorldGetTagName(World* world, uint32_t tag);
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
 void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
@@ -176,8 +176,8 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]);
 // Shapes
 
 typedef enum {
-  SHAPE_SPHERE,
   SHAPE_BOX,
+  SHAPE_SPHERE,
   SHAPE_CAPSULE,
   SHAPE_CYLINDER,
   SHAPE_CONVEX,
@@ -187,29 +187,28 @@ typedef enum {
 } ShapeType;
 
 void lovrShapeDestroy(void* ref);
-void lovrShapeDestroyData(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
 void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]);
 void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]);
 
-SphereShape* lovrSphereShapeCreate(float radius);
-float lovrSphereShapeGetRadius(SphereShape* sphere);
-
 BoxShape* lovrBoxShapeCreate(float dimensions[3]);
-void lovrBoxShapeGetDimensions(BoxShape* box, float dimensions[3]);
+void lovrBoxShapeGetDimensions(BoxShape* shape, float dimensions[3]);
+
+SphereShape* lovrSphereShapeCreate(float radius);
+float lovrSphereShapeGetRadius(SphereShape* shape);
 
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length);
-float lovrCapsuleShapeGetRadius(CapsuleShape* capsule);
-float lovrCapsuleShapeGetLength(CapsuleShape* capsule);
+float lovrCapsuleShapeGetRadius(CapsuleShape* shape);
+float lovrCapsuleShapeGetLength(CapsuleShape* shape);
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length);
-float lovrCylinderShapeGetRadius(CylinderShape* cylinder);
-float lovrCylinderShapeGetLength(CylinderShape* cylinder);
+float lovrCylinderShapeGetRadius(CylinderShape* shape);
+float lovrCylinderShapeGetLength(CylinderShape* shape);
 
 ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count);
-uint32_t lovrConvexShapeGetPointCount(ConvexShape* convex);
+uint32_t lovrConvexShapeGetPointCount(ConvexShape* shape);
 void lovrConvexShapeGetPoint(ConvexShape* shape, uint32_t index, float point[3]);
-uint32_t lovrConvexShapeGetFaceCount(ConvexShape* convex);
+uint32_t lovrConvexShapeGetFaceCount(ConvexShape* shape);
 uint32_t lovrConvexShapeGetFace(ConvexShape* shape, uint32_t index, uint32_t* pointIndices, uint32_t capacity);
 
 MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]);
@@ -227,8 +226,8 @@ void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float
 void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float position[3], float orientation[4]);
 
 // These tokens need to exist for Lua bindings
-#define lovrSphereShapeDestroy lovrShapeDestroy
 #define lovrBoxShapeDestroy lovrShapeDestroy
+#define lovrSphereShapeDestroy lovrShapeDestroy
 #define lovrCapsuleShapeDestroy lovrShapeDestroy
 #define lovrCylinderShapeDestroy lovrShapeDestroy
 #define lovrConvexShapeDestroy lovrShapeDestroy
@@ -325,6 +324,7 @@ void lovrSliderJointSetSpring(SliderJoint* joint, float frequency, float damping
 // These tokens need to exist for Lua bindings
 #define lovrWeldJointDestroy lovrJointDestroy
 #define lovrBallJointDestroy lovrJointDestroy
+#define lovrConeJointDestroy lovrJointDestroy
 #define lovrDistanceJointDestroy lovrJointDestroy
 #define lovrHingeJointDestroy lovrJointDestroy
 #define lovrSliderJointDestroy lovrJointDestroy

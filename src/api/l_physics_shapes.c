@@ -8,8 +8,8 @@
 
 void luax_pushshape(lua_State* L, Shape* shape) {
   switch (lovrShapeGetType(shape)) {
-    case SHAPE_SPHERE: luax_pushtype(L, SphereShape, shape); break;
     case SHAPE_BOX: luax_pushtype(L, BoxShape, shape); break;
+    case SHAPE_SPHERE: luax_pushtype(L, SphereShape, shape); break;
     case SHAPE_CAPSULE: luax_pushtype(L, CapsuleShape, shape); break;
     case SHAPE_CYLINDER: luax_pushtype(L, CylinderShape, shape); break;
     case SHAPE_CONVEX: luax_pushtype(L, ConvexShape, shape); break;
@@ -25,8 +25,8 @@ Shape* luax_checkshape(lua_State* L, int index) {
 
   if (p) {
     const uint64_t hashes[] = {
-      hash64("SphereShape", strlen("SphereShape")),
       hash64("BoxShape", strlen("BoxShape")),
+      hash64("SphereShape", strlen("SphereShape")),
       hash64("CapsuleShape", strlen("CapsuleShape")),
       hash64("CylinderShape", strlen("CylinderShape")),
       hash64("ConvexShape", strlen("ConvexShape")),
@@ -46,15 +46,15 @@ Shape* luax_checkshape(lua_State* L, int index) {
   return NULL;
 }
 
-Shape* luax_newsphereshape(lua_State* L, int index) {
-  float radius = luax_optfloat(L, index, 1.f);
-  return lovrSphereShapeCreate(radius);
-}
-
 Shape* luax_newboxshape(lua_State* L, int index) {
   float size[3];
   luax_readscale(L, index, size, 3, NULL);
   return lovrBoxShapeCreate(size);
+}
+
+Shape* luax_newsphereshape(lua_State* L, int index) {
+  float radius = luax_optfloat(L, index, 1.f);
+  return lovrSphereShapeCreate(radius);
 }
 
 Shape* luax_newcapsuleshape(lua_State* L, int index) {
@@ -228,12 +228,6 @@ Shape* luax_newcompoundshape(lua_State* L, int index) {
   return shape;
 }
 
-static int l_lovrShapeDestroy(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  lovrShapeDestroyData(shape);
-  return 0;
-}
-
 static int l_lovrShapeGetType(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   luax_pushenum(L, ShapeType, lovrShapeGetType(shape));
@@ -292,24 +286,11 @@ static int l_lovrShapeGetAABB(lua_State* L) {
 }
 
 #define lovrShape \
-  { "destroy", l_lovrShapeDestroy }, \
   { "getType", l_lovrShapeGetType }, \
   { "getUserData", l_lovrShapeGetUserData }, \
   { "setUserData", l_lovrShapeSetUserData }, \
   { "getMass", l_lovrShapeGetMass }, \
   { "getAABB", l_lovrShapeGetAABB }
-
-static int l_lovrSphereShapeGetRadius(lua_State* L) {
-  SphereShape* sphere = luax_checktype(L, 1, SphereShape);
-  lua_pushnumber(L, lovrSphereShapeGetRadius(sphere));
-  return 1;
-}
-
-const luaL_Reg lovrSphereShape[] = {
-  lovrShape,
-  { "getRadius", l_lovrSphereShapeGetRadius },
-  { NULL, NULL }
-};
 
 static int l_lovrBoxShapeGetDimensions(lua_State* L) {
   BoxShape* box = luax_checktype(L, 1, BoxShape);
@@ -324,6 +305,18 @@ static int l_lovrBoxShapeGetDimensions(lua_State* L) {
 const luaL_Reg lovrBoxShape[] = {
   lovrShape,
   { "getDimensions", l_lovrBoxShapeGetDimensions },
+  { NULL, NULL }
+};
+
+static int l_lovrSphereShapeGetRadius(lua_State* L) {
+  SphereShape* sphere = luax_checktype(L, 1, SphereShape);
+  lua_pushnumber(L, lovrSphereShapeGetRadius(sphere));
+  return 1;
+}
+
+const luaL_Reg lovrSphereShape[] = {
+  lovrShape,
+  { "getRadius", l_lovrSphereShapeGetRadius },
   { NULL, NULL }
 };
 

@@ -194,6 +194,24 @@ static int l_lovrWorldGetJoints(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldGetGravity(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float gravity[3];
+  lovrWorldGetGravity(world, gravity);
+  lua_pushnumber(L, gravity[0]);
+  lua_pushnumber(L, gravity[1]);
+  lua_pushnumber(L, gravity[2]);
+  return 3;
+}
+
+static int l_lovrWorldSetGravity(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float gravity[3];
+  luax_readvec3(L, 2, gravity, NULL);
+  lovrWorldSetGravity(world, gravity);
+  return 0;
+}
+
 static int l_lovrWorldUpdate(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float dt = luax_checkfloat(L, 2);
@@ -267,23 +285,31 @@ static int l_lovrWorldQuerySphere(lua_State* L) {
   return 1;
 }
 
-static int l_lovrWorldGetGravity(lua_State* L) {
+static int l_lovrWorldDisableCollisionBetween(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  float gravity[3];
-  lovrWorldGetGravity(world, gravity);
-  lua_pushnumber(L, gravity[0]);
-  lua_pushnumber(L, gravity[1]);
-  lua_pushnumber(L, gravity[2]);
-  return 3;
-}
-
-static int l_lovrWorldSetGravity(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float gravity[3];
-  luax_readvec3(L, 2, gravity, NULL);
-  lovrWorldSetGravity(world, gravity);
+  const char* tag1 = luaL_checkstring(L, 2);
+  const char* tag2 = luaL_checkstring(L, 3);
+  lovrWorldDisableCollisionBetween(world, tag1, tag2);
   return 0;
 }
+
+static int l_lovrWorldEnableCollisionBetween(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  const char* tag1 = luaL_checkstring(L, 2);
+  const char* tag2 = luaL_checkstring(L, 3);
+  lovrWorldEnableCollisionBetween(world, tag1, tag2);
+  return 0;
+}
+
+static int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  const char* tag1 = lua_tostring(L, 2);
+  const char* tag2 = lua_tostring(L, 3);
+  lua_pushboolean(L, lovrWorldIsCollisionEnabledBetween(world, tag1, tag2));
+  return 1;
+}
+
+// Deprecated
 
 static int l_lovrWorldGetTightness(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
@@ -360,30 +386,6 @@ static int l_lovrWorldSetSleepingAllowed(lua_State* L) {
   bool allowed = lua_toboolean(L, 2);
   lovrWorldSetSleepingAllowed(world, allowed);
   return 0;
-}
-
-static int l_lovrWorldDisableCollisionBetween(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  const char* tag1 = luaL_checkstring(L, 2);
-  const char* tag2 = luaL_checkstring(L, 3);
-  lovrWorldDisableCollisionBetween(world, tag1, tag2);
-  return 0;
-}
-
-static int l_lovrWorldEnableCollisionBetween(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  const char* tag1 = luaL_checkstring(L, 2);
-  const char* tag2 = luaL_checkstring(L, 3);
-  lovrWorldEnableCollisionBetween(world, tag1, tag2);
-  return 0;
-}
-
-static int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  const char* tag1 = lua_tostring(L, 2);
-  const char* tag2 = lua_tostring(L, 3);
-  lua_pushboolean(L, lovrWorldIsCollisionEnabledBetween(world, tag1, tag2));
-  return 1;
 }
 
 static int l_lovrWorldGetStepCount(lua_State* L) {

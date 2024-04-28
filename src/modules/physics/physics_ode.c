@@ -822,24 +822,17 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
 
 void lovrShapeDestroy(void* ref) {
   Shape* shape = ref;
-  lovrShapeDestroyData(shape);
-  lovrFree(shape);
-}
-
-void lovrShapeDestroyData(Shape* shape) {
-  if (shape->id) {
-    if (shape->type == SHAPE_MESH) {
-      dTriMeshDataID dataID = dGeomTriMeshGetData(shape->id);
-      dGeomTriMeshDataDestroy(dataID);
-      lovrFree(shape->vertices);
-      lovrFree(shape->indices);
-    } else if (shape->type == SHAPE_TERRAIN) {
-      dHeightfieldDataID dataID = dGeomHeightfieldGetHeightfieldData(shape->id);
-      dGeomHeightfieldDataDestroy(dataID);
-    }
-    dGeomDestroy(shape->id);
-    shape->id = NULL;
+  if (shape->type == SHAPE_MESH) {
+    dTriMeshDataID dataID = dGeomTriMeshGetData(shape->id);
+    dGeomTriMeshDataDestroy(dataID);
+    lovrFree(shape->vertices);
+    lovrFree(shape->indices);
+  } else if (shape->type == SHAPE_TERRAIN) {
+    dHeightfieldDataID dataID = dGeomHeightfieldGetHeightfieldData(shape->id);
+    dGeomHeightfieldDataDestroy(dataID);
   }
+  dGeomDestroy(shape->id);
+  lovrFree(shape);
 }
 
 ShapeType lovrShapeGetType(Shape* shape) {
