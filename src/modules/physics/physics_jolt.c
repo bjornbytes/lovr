@@ -16,7 +16,9 @@ struct World {
   float defaultAngularDamping;
   bool defaultIsSleepingAllowed;
   int collisionSteps;
+  uint32_t tagLookup[MAX_TAGS];
   char* tags[MAX_TAGS];
+  uint32_t tagCount;
 };
 
 struct Collider {
@@ -67,10 +69,10 @@ static struct {
 #define quat_toJolt(q) &(JPH_Quat) { q[0], q[1], q[2], q[3] }
 #define quat_fromJolt(q, j) quat_set(q, (j)->x, (j)->y, (j)->z, (j)->w)
 
-// XXX slow, but probably fine (tag names are not on any critical path), could switch to hashing if needed
 static uint32_t findTag(World* world, const char* name) {
-  for (uint32_t i = 0; i < MAX_TAGS && world->tags[i]; i++) {
-    if (!strcmp(world->tags[i], name)) {
+  uint32_t hash = (uint32_t) hash64(name, strlen(name));
+  for (uint32_t i = 0; i < world->tagCount; i++) {
+    if (world->tagLookup[i] == hash) {
       return i;
     }
   }
@@ -149,10 +151,12 @@ World* lovrWorldCreate(WorldInfo* info) {
     JPH_PhysicsSystem_GetBodyInterface(world->system) :
     JPH_PhysicsSystem_GetBodyInterfaceNoLock(world->system);
 
-  for (uint32_t i = 0; i < info->tagCount; i++) {
+  world->tagCount = info->tagCount;
+  for (uint32_t i = 0; i < world->tagCount; i++) {
     size_t size = strlen(info->tags[i]) + 1;
     world->tags[i] = lovrMalloc(size);
     memcpy(world->tags[i], info->tags[i], size);
+    world->tagLookup[i] = (uint32_t) hash64(info->tags[i], size - 1);
   }
 
   return world;
@@ -161,7 +165,7 @@ World* lovrWorldCreate(WorldInfo* info) {
 void lovrWorldDestroy(void* ref) {
   World* world = ref;
   lovrWorldDestroyData(world);
-  for (uint32_t i = 0; i < MAX_TAGS - 1 && world->tags[i]; i++) {
+  for (uint32_t i = 0; i < world->tagCount; i++) {
     lovrFree(world->tags[i]);
   }
   lovrFree(world);

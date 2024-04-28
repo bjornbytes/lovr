@@ -81,7 +81,7 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     if (!lua_isnil(L, -1)) {
       lovrCheck(lua_istable(L, -1), "World tag list should be a table");
       lovrCheck(info.tagCount <= MAX_TAGS, "Max number of world tags is %d", MAX_TAGS);
-      info.tagCount = luax_len(L, 5);
+      info.tagCount = luax_len(L, -1);
       for (uint32_t i = 0; i < info.tagCount; i++) {
         lua_rawgeti(L, -1, (int) i + 1);
         if (lua_isstring(L, -1)) {
