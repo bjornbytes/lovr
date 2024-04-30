@@ -954,6 +954,14 @@ ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
 }
 
+float lovrShapeGetVolume(Shape* shape) {
+  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+    return 0.f;
+  } else {
+    return JPH_Shape_GetVolume(shape->handle);
+  }
+}
+
 void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]) {
   //
 }

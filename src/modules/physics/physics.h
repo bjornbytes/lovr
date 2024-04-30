@@ -175,6 +175,7 @@ typedef enum {
 
 void lovrShapeDestroy(void* ref);
 ShapeType lovrShapeGetType(Shape* shape);
+float lovrShapeGetVolume(Shape* shape);
 void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]);
 void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]);
 

@@ -843,6 +843,10 @@ ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
 }
 
+float lovrShapeGetVolume(Shape* shape) {
+  return 0.f;
+}
+
 Collider* lovrShapeGetCollider(Shape* shape) {
   return shape->collider;
 }
