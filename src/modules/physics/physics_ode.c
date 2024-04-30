@@ -859,69 +859,8 @@ Collider* lovrShapeGetCollider(Shape* shape) {
   return shape->collider;
 }
 
-void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]) {
-  dMass m;
-  dMassSetZero(&m);
-  switch (shape->type) {
-    case SHAPE_SPHERE: {
-      dMassSetSphere(&m, density, dGeomSphereGetRadius(shape->id));
-      break;
-    }
-
-    case SHAPE_BOX: {
-      dReal lengths[4];
-      dGeomBoxGetLengths(shape->id, lengths);
-      dMassSetBox(&m, density, lengths[0], lengths[1], lengths[2]);
-      break;
-    }
-
-    case SHAPE_CAPSULE: {
-      dReal radius, length;
-      dGeomCapsuleGetParams(shape->id, &radius, &length);
-      dMassSetCapsule(&m, density, 3, radius, length);
-      break;
-    }
-
-    case SHAPE_CYLINDER: {
-      dReal radius, length;
-      dGeomCylinderGetParams(shape->id, &radius, &length);
-      dMassSetCylinder(&m, density, 3, radius, length);
-      break;
-    }
-
-    case SHAPE_MESH: {
-      dMassSetTrimesh(&m, density, shape->id);
-      dGeomSetPosition(shape->id, -m.c[0], -m.c[1], -m.c[2]);
-      dMassTranslate(&m, -m.c[0], -m.c[1], -m.c[2]);
-      break;
-    }
-
-    case SHAPE_TERRAIN: {
-      break;
-    }
-
-    default: break;
-  }
-
-  const dReal* position = dGeomGetOffsetPosition(shape->id);
-  dMassTranslate(&m, position[0], position[1], position[2]);
-  const dReal* rotation = dGeomGetOffsetRotation(shape->id);
-  dMassRotate(&m, rotation);
-
-  centerOfMass[0] = m.c[0];
-  centerOfMass[1] = m.c[1];
-  centerOfMass[2] = m.c[2];
-  *mass = m.mass;
-
-  // Diagonal
-  inertia[0] = m.I[0];
-  inertia[1] = m.I[5];
-  inertia[2] = m.I[10];
-
-  // Lower triangular
-  inertia[3] = m.I[4];
-  inertia[4] = m.I[8];
-  inertia[5] = m.I[9];
+void lovrShapeGetMassData(Shape* shape, float* mass, float inertia[9], float center[3]) {
+  //
 }
 
 void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]) {

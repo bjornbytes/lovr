@@ -963,7 +963,7 @@ float lovrShapeGetVolume(Shape* shape) {
 }
 
 float lovrShapeGetDensity(Shape* shape) {
-  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN || shape->type == SHAPE_COMPOUND) {
     return 0.f;
   } else {
     return JPH_ConvexShape_GetDensity((JPH_ConvexShape*) shape->handle);
@@ -971,13 +971,42 @@ float lovrShapeGetDensity(Shape* shape) {
 }
 
 void lovrShapeSetDensity(Shape* shape, float density) {
-  if (shape->type != SHAPE_MESH && shape->type != SHAPE_TERRAIN) {
+  if (shape->type != SHAPE_MESH && shape->type != SHAPE_TERRAIN && shape->type != SHAPE_COMPOUND) {
     JPH_ConvexShape_SetDensity((JPH_ConvexShape*) shape->handle, density);
   }
 }
 
-void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]) {
-  //
+void lovrShapeGetMassData(Shape* shape, float* mass, float inertia[9], float center[3]) {
+  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+    if (mass) *mass = 0.f;
+    if (inertia) memset(inertia, 0, 9 * sizeof(float));
+    if (center) vec3_set(center, 0.f, 0.f, 0.f);
+  }
+
+  JPH_MassProperties properties;
+  JPH_Shape_GetMassProperties(shape->handle, &properties);
+
+  if (mass) *mass = properties.mass;
+
+  if (inertia) {
+    inertia[0] = properties.inertia.m11;
+    inertia[1] = properties.inertia.m12;
+    inertia[2] = properties.inertia.m13;
+    inertia[3] = properties.inertia.m21;
+    inertia[4] = properties.inertia.m22;
+    inertia[5] = properties.inertia.m23;
+    inertia[6] = properties.inertia.m31;
+    inertia[7] = properties.inertia.m32;
+    inertia[8] = properties.inertia.m33;
+  }
+
+  if (center) {
+    JPH_Vec3 centerOfMass;
+    JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
+    center[0] = centerOfMass.x;
+    center[1] = centerOfMass.y;
+    center[2] = centerOfMass.z;
+  }
 }
 
 void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]) {
