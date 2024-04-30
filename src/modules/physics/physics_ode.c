@@ -121,12 +121,10 @@ typedef struct {
   QueryCallback* callback;
   void* userdata;
   bool called;
-  bool shouldStop;
 } QueryData;
 
 static void queryCallback(void* d, dGeomID a, dGeomID b) {
   QueryData* data = d;
-  if (data->shouldStop) return;
 
   Shape* shape = dGeomGetData(b);
   Collider* collider = dBodyGetData(dGeomGetBody(b));
@@ -137,9 +135,7 @@ static void queryCallback(void* d, dGeomID a, dGeomID b) {
   dContactGeom contact;
   if (dCollide(a, b, 1 | CONTACTS_UNIMPORTANT, &contact, sizeof(contact))) {
     if (data->callback) {
-      data->shouldStop = data->callback(collider, data->userdata);
-    } else {
-      data->shouldStop = true;
+      data->callback(collider, data->userdata);
     }
     data->called = true;
   }
@@ -304,7 +300,7 @@ bool lovrWorldShapecast(World* world, Shapecast* shapecast, uint32_t filter, Cas
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t filter, QueryCallback* callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false };
   dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
   dGeomSetPosition(box, position[0], position[1], position[2]);
   dSpaceCollide2(box, (dGeomID) world->space, &data, queryCallback);
@@ -313,7 +309,7 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t 
 }
 
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_t filter, QueryCallback* callback, void* userdata) {
-  QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
+  QueryData data = { .callback = callback, .userdata = userdata, .called = false };
   dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
   dGeomSetPosition(sphere, position[0], position[1], position[2]);
   dSpaceCollide2(sphere, (dGeomID) world->space, &data, queryCallback);

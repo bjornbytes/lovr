@@ -388,7 +388,7 @@ typedef struct {
 static void queryCallback(void* arg, JPH_BodyID id) {
   QueryContext* ctx = arg;
   Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, id);
-  if (ctx->callback) ctx->callback(ctx->userdata, collider);
+  ctx->callback(ctx->userdata, collider);
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t tagMask, QueryCallback* callback, void* userdata) {

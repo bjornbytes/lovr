@@ -69,7 +69,7 @@ typedef struct {
 } CastResult;
 
 typedef float CastCallback(void* userdata, CastResult* hit);
-typedef bool QueryCallback(void* userdata, Collider* collider);
+typedef void QueryCallback(void* userdata, Collider* collider);
 
 World* lovrWorldCreate(WorldInfo* info);
 void lovrWorldDestroy(void* ref);

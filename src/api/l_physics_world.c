@@ -34,14 +34,15 @@ static float castClosestCallback(void* userdata, CastResult* hit) {
   return hit->fraction;
 }
 
-static bool queryCallback(void* userdata, Collider* collider) {
+static void queryCallback(void* userdata, Collider* collider) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
   luax_pushtype(L, Collider, collider);
-  lua_call(L, 2, 1);
-  bool shouldStop = lua_type(L, -1) == LUA_TBOOLEAN && !lua_toboolean(L, -1);
-  lua_pop(L, 1);
-  return shouldStop;
+  lua_call(L, 2, 0);
+}
+
+static void queryNoCallback(void* userdata, Collider* collider) {
+  *((Collider**) userdata) = collider;
 }
 
 static int l_lovrWorldNewCollider(lua_State* L) {
@@ -278,11 +279,17 @@ static int l_lovrWorldQueryBox(lua_State* L) {
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readvec3(L, index, size, NULL);
   uint32_t filter = luax_checktagmask(L, index++, world);
-  bool function = lua_type(L, index) == LUA_TFUNCTION;
-  lua_settop(L, index);
-  bool any = lovrWorldQueryBox(world, position, size, filter, function ? queryCallback : NULL, L);
-  lua_pushboolean(L, any);
-  return 1;
+  if (lua_isnoneornil(L, index)) {
+    Collider* collider = NULL;
+    lovrWorldQueryBox(world, position, size, filter, queryNoCallback, &collider);
+    luax_pushtype(L, Collider, collider);
+    return 1;
+  } else {
+    luaL_checktype(L, index, LUA_TFUNCTION);
+    lua_settop(L, index);
+    lovrWorldQueryBox(world, position, size, filter, queryCallback, L);
+    return 0;
+  }
 }
 
 static int l_lovrWorldQuerySphere(lua_State* L) {
@@ -291,11 +298,17 @@ static int l_lovrWorldQuerySphere(lua_State* L) {
   int index = luax_readvec3(L, 2, position, NULL);
   float radius = luax_checkfloat(L, index++);
   uint32_t filter = luax_checktagmask(L, index++, world);
-  bool function = lua_type(L, index) == LUA_TFUNCTION;
-  lua_settop(L, index);
-  bool any = lovrWorldQuerySphere(world, position, radius, filter, function ? queryCallback : NULL, L);
-  lua_pushboolean(L, any);
-  return 1;
+  if (lua_isnoneornil(L, index)) {
+    Collider* collider = NULL;
+    lovrWorldQuerySphere(world, position, radius, filter, queryNoCallback, &collider);
+    luax_pushtype(L, Collider, collider);
+    return 1;
+  } else {
+    luaL_checktype(L, index, LUA_TFUNCTION);
+    lua_settop(L, index);
+    lovrWorldQuerySphere(world, position, radius, filter, queryCallback, L);
+    return 0;
+  }
 }
 
 static int l_lovrWorldDisableCollisionBetween(lua_State* L) {
