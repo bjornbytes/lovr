@@ -394,7 +394,7 @@ static float collideCallback(void* arg, JPH_CollideShapeResult* result) {
   return ctx->callback(ctx->userdata, &hit);
 }
 
-bool lovrWorldCollide(World* world, Shape* shape, float pose[7], float scale, uint32_t filter, CollideCallback* callback, void* userdata) {
+bool lovrWorldCollideShape(World* world, Shape* shape, float pose[7], float scale, uint32_t filter, CollideCallback* callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPH_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
 
   JPH_Vec3 centerOfMass;

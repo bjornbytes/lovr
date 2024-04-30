@@ -299,7 +299,7 @@ static int l_lovrWorldShapecast(lua_State* L) {
   return 0;
 }
 
-static int l_lovrWorldCollide(lua_State* L) {
+static int l_lovrWorldCollideShape(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   int index;
   Shape* shape;
@@ -320,13 +320,13 @@ static int l_lovrWorldCollide(lua_State* L) {
   uint32_t filter = luax_checktagmask(L, index++, world);
   if (lua_isnoneornil(L, index)) {
     CollideResult hit;
-    if (lovrWorldCollide(world, shape, pose, scale, filter, collideFirstCallback, &hit)) {
+    if (lovrWorldCollideShape(world, shape, pose, scale, filter, collideFirstCallback, &hit)) {
       return luax_pushcollideresult(L, &hit);
     }
   } else {
     luaL_checktype(L, index, LUA_TFUNCTION);
     lua_settop(L, index);
-    lovrWorldCollide(world, shape, pose, scale, filter, collideCallback, L);
+    lovrWorldCollideShape(world, shape, pose, scale, filter, collideCallback, L);
   }
   return 0;
 }
@@ -505,7 +505,7 @@ const luaL_Reg lovrWorld[] = {
   { "update", l_lovrWorldUpdate },
   { "raycast", l_lovrWorldRaycast },
   { "shapecast", l_lovrWorldShapecast },
-  { "collide", l_lovrWorldCollide },
+  { "collideShape", l_lovrWorldCollideShape },
   { "queryBox", l_lovrWorldQueryBox },
   { "querySphere", l_lovrWorldQuerySphere },
   { "getGravity", l_lovrWorldGetGravity },
