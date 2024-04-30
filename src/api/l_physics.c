@@ -1,13 +1,7 @@
 #include "api.h"
 #include "physics/physics.h"
 #include "util.h"
-
-StringEntry lovrColliderType[] = {
-  [COLLIDER_STATIC] = ENTRY("static"),
-  [COLLIDER_DYNAMIC] = ENTRY("dynamic"),
-  [COLLIDER_KINEMATIC] = ENTRY("kinematic"),
-  { 0 }
-};
+#include <string.h>
 
 StringEntry lovrShapeType[] = {
   [SHAPE_BOX] = ENTRY("box"),
@@ -88,6 +82,26 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
           info.tags[i] = lua_tostring(L, -1);
         } else {
           return luaL_error(L, "World tags must be a table of strings");
+        }
+        lua_pop(L, 1);
+      }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "staticTags");
+    if (!lua_isnil(L, -1)) {
+      lovrCheck(lua_istable(L,  -1), "World static tag list should be a table");
+      int length = luax_len(L, -1);
+      for (int i = 0; i < length; i++) {
+        lua_rawgeti(L, -1, i + 1);
+        const char* string = lua_tostring(L, -1);
+        lovrCheck(string, "Static tag list must be a table of strings");
+        for (uint32_t j = 0; j < info.tagCount; j++) {
+          if (!strcmp(string, info.tags[i])) {
+            info.staticTagMask |= (1 << j);
+            break;
+          }
+          lovrCheck(j < info.tagCount - 1, "Static tag '%s' does not exist", string);
         }
         lua_pop(L, 1);
       }

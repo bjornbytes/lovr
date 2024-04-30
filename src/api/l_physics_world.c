@@ -145,12 +145,11 @@ static int l_lovrWorldDestroy(lua_State* L) {
 
 static int l_lovrWorldGetTags(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
-  lua_newtable(L);
-  for (uint32_t i = 0; i < MAX_TAGS; i++) {
-    const char* tag = lovrWorldGetTagName(world, i);
-    if (tag == NULL)
-      break;
-    lua_pushstring(L, tag);
+  uint32_t count;
+  char** tags = lovrWorldGetTags(world, &count);
+  lua_createtable(L, (int) count, 0);
+  for (uint32_t i = 0; i < count; i++) {
+    lua_pushstring(L, tags[i]);
     lua_rawseti(L, -2, i + 1);
   }
   return 1;

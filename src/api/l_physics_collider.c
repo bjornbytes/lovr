@@ -85,17 +85,16 @@ static int l_lovrColliderSetUserData(lua_State* L) {
   return 0;
 }
 
-static int l_lovrColliderGetType(lua_State* L) {
+static int l_lovrColliderIsKinematic(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  ColliderType type = lovrColliderGetType(collider);
-  luax_pushenum(L, ColliderType, type);
+  lua_pushboolean(L, lovrColliderIsKinematic(collider));
   return 1;
 }
 
-static int l_lovrColliderSetType(lua_State* L) {
+static int l_lovrColliderSetKinematic(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  ColliderType type = luax_checkenum(L, 2, ColliderType, NULL);
-  lovrColliderSetType(collider, type);
+  bool kinematic = lua_toboolean(L, 2);
+  lovrColliderSetKinematic(collider, kinematic);
   return 0;
 }
 
@@ -587,16 +586,7 @@ static int l_lovrColliderGetTag(lua_State* L) {
 
 static int l_lovrColliderSetTag(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  if (lua_isnoneornil(L, 2)) {
-    lovrColliderSetTag(collider, NULL);
-    return 0;
-  }
-
-  const char* tag = luaL_checkstring(L, 2);
-  if (!lovrColliderSetTag(collider, tag)) {
-    return luaL_error(L, "Invalid tag %s", tag);
-  }
-
+  lovrColliderSetTag(collider, lua_tostring(L, 2));
   return 0;
 }
 
@@ -625,21 +615,6 @@ static int l_lovrColliderSetGravityIgnored(lua_State* L) {
   return 0;
 }
 
-// Deprecated
-static int l_lovrColliderIsKinematic(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  lua_pushboolean(L, lovrColliderGetType(collider) != COLLIDER_DYNAMIC);
-  return 1;
-}
-
-// Deprecated
-static int l_lovrColliderSetKinematic(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  bool kinematic = lua_toboolean(L, 2);
-  lovrColliderSetType(collider, kinematic ? COLLIDER_KINEMATIC : COLLIDER_DYNAMIC);
-  return 0;
-}
-
 const luaL_Reg lovrCollider[] = {
   { "destroy", l_lovrColliderDestroy },
   { "isDestroyed", l_lovrColliderIsDestroyed },
@@ -651,8 +626,8 @@ const luaL_Reg lovrCollider[] = {
   { "getJoints", l_lovrColliderGetJoints },
   { "getUserData", l_lovrColliderGetUserData },
   { "setUserData", l_lovrColliderSetUserData },
-  { "getType", l_lovrColliderGetType },
-  { "setType", l_lovrColliderSetType },
+  { "isKinematic", l_lovrColliderIsKinematic },
+  { "setKinematic", l_lovrColliderSetKinematic },
   { "isSensor", l_lovrColliderIsSensor },
   { "setSensor", l_lovrColliderSetSensor },
   { "isContinuous", l_lovrColliderIsContinuous },
@@ -707,8 +682,6 @@ const luaL_Reg lovrCollider[] = {
   { "getShapes", l_lovrColliderGetShapes },
   { "isGravityIgnored", l_lovrColliderIsGravityIgnored },
   { "setGravityIgnored", l_lovrColliderSetGravityIgnored },
-  { "isKinematic", l_lovrColliderIsKinematic },
-  { "setKinematic", l_lovrColliderSetKinematic },
 
   { NULL, NULL }
 };

@@ -377,8 +377,9 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed) {
   dWorldSetAutoDisableFlag(world->id, allowed);
 }
 
-const char* lovrWorldGetTagName(World* world, uint32_t tag) {
-  return (tag == NO_TAG) ? NULL : world->tags[tag];
+char** lovrWorldGetTags(World* world, uint32_t* count) {
+  *count = 0;
+  return world->tags;
 }
 
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
@@ -536,17 +537,16 @@ Joint* lovrColliderGetJoints(Collider* collider, Joint* joint) {
 }
 
 const char* lovrColliderGetTag(Collider* collider) {
-  return lovrWorldGetTagName(collider->world, collider->tag);
+  return collider->tag == NO_TAG ? NULL : collider->world->tags[collider->tag];
 }
 
-bool lovrColliderSetTag(Collider* collider, const char* tag) {
+void lovrColliderSetTag(Collider* collider, const char* tag) {
   if (!tag) {
     collider->tag = NO_TAG;
-    return true;
+    return;
   }
 
   collider->tag = findTag(collider->world, tag);
-  return collider->tag != NO_TAG;
 }
 
 float lovrColliderGetFriction(Collider* collider) {
@@ -565,15 +565,15 @@ void lovrColliderSetRestitution(Collider* collider, float restitution) {
   collider->restitution = restitution;
 }
 
-ColliderType lovrColliderGetType(Collider* collider) {
-  return dBodyIsKinematic(collider->body) ? COLLIDER_KINEMATIC : COLLIDER_DYNAMIC;
+bool lovrColliderIsKinematic(Collider* collider) {
+  return dBodyIsKinematic(collider->body);
 }
 
-void lovrColliderSetType(Collider* collider, ColliderType type) {
-  if (type == COLLIDER_DYNAMIC) {
-    dBodySetDynamic(collider->body);
-  } else {
+void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
+  if (kinematic) {
     dBodySetKinematic(collider->body);
+  } else {
+    dBodySetDynamic(collider->body);
   }
 }
 

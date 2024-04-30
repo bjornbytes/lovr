@@ -26,7 +26,6 @@ extern StringEntry lovrBlendMode[];
 extern StringEntry lovrBlockType[];
 extern StringEntry lovrBufferLayout[];
 extern StringEntry lovrChannelLayout[];
-extern StringEntry lovrColliderType[];
 extern StringEntry lovrCompareMode[];
 extern StringEntry lovrCullMode[];
 extern StringEntry lovrDataType[];

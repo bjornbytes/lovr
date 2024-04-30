@@ -43,6 +43,7 @@ typedef struct {
   float maxPenetration;
   float minBounceVelocity;
   const char* tags[MAX_TAGS];
+  uint32_t staticTagMask;
   uint32_t tagCount;
 } WorldInfo;
 
@@ -73,6 +74,7 @@ typedef bool QueryCallback(void* userdata, Collider* collider);
 World* lovrWorldCreate(WorldInfo* info);
 void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
+char** lovrWorldGetTags(World* world, uint32_t* count);
 uint32_t lovrWorldGetColliderCount(World* world);
 uint32_t lovrWorldGetJointCount(World* world);
 Collider* lovrWorldGetColliders(World* world, Collider* collider);
@@ -84,10 +86,9 @@ bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, vo
 bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback* callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata);
-const char* lovrWorldGetTagName(World* world, uint32_t tag);
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
 void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
-bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag);
+bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2);
 
 // Deprecated
 int lovrWorldGetStepCount(World* world);
@@ -105,12 +106,6 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 
 // Collider
 
-typedef enum {
-  COLLIDER_STATIC,
-  COLLIDER_DYNAMIC,
-  COLLIDER_KINEMATIC
-} ColliderType;
-
 Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]);
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
@@ -122,13 +117,13 @@ Joint* lovrColliderGetJoints(Collider* collider, Joint* joint);
 Shape* lovrColliderGetShape(Collider* collider);
 void lovrColliderSetShape(Collider* collider, Shape* shape);
 const char* lovrColliderGetTag(Collider* collider);
-bool lovrColliderSetTag(Collider* collider, const char* tag);
+void lovrColliderSetTag(Collider* collider, const char* tag);
 float lovrColliderGetFriction(Collider* collider);
 void lovrColliderSetFriction(Collider* collider, float friction);
 float lovrColliderGetRestitution(Collider* collider);
 void lovrColliderSetRestitution(Collider* collider, float restitution);
-ColliderType lovrColliderGetType(Collider* collider);
-void lovrColliderSetType(Collider* collider, ColliderType type);
+bool lovrColliderIsKinematic(Collider* collider);
+void lovrColliderSetKinematic(Collider* collider, bool kinematic);
 bool lovrColliderIsSensor(Collider* collider);
 void lovrColliderSetSensor(Collider* collider, bool sensor);
 bool lovrColliderIsContinuous(Collider* collider);
