@@ -282,7 +282,7 @@ void lovrWorldSetStepCount(World* world, int iterations) {
   dWorldSetQuickStepNumIterations(world->id, iterations);
 }
 
-bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, void* userdata) {
+bool lovrWorldRaycast(World* world, Raycast* raycast, uint32_t filter, CastCallback* callback, void* userdata) {
   if (callback) {
     RaycastData data = { .callback = callback, .userdata = userdata, .shouldStop = false };
     float dx = raycast->start[0] - raycast->end[0];
@@ -299,11 +299,11 @@ bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, vo
   return false;
 }
 
-bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback* callback, void* userdata) {
+bool lovrWorldShapecast(World* world, Shapecast* shapecast, uint32_t filter, CastCallback* callback, void* userdata) {
   lovrThrow("NYI");
 }
 
-bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t filter, QueryCallback* callback, void* userdata) {
   QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
   dGeomID box = dCreateBox(world->space, fabsf(size[0]), fabsf(size[1]), fabsf(size[2]));
   dGeomSetPosition(box, position[0], position[1], position[2]);
@@ -312,7 +312,7 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCall
   return data.called;
 }
 
-bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata) {
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_t filter, QueryCallback* callback, void* userdata) {
   QueryData data = { .callback = callback, .userdata = userdata, .called = false, .shouldStop = false };
   dGeomID sphere = dCreateSphere(world->space, fabsf(radius));
   dGeomSetPosition(sphere, position[0], position[1], position[2]);
@@ -380,6 +380,10 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed) {
 char** lovrWorldGetTags(World* world, uint32_t* count) {
   *count = 0;
   return world->tags;
+}
+
+uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length) {
+  return 0;
 }
 
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {

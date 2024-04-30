@@ -2,6 +2,7 @@
 #include "core/maf.h"
 #include "util.h"
 #include <stdlib.h>
+#include <threads.h>
 #include <joltc.h>
 
 struct World {
@@ -52,6 +53,11 @@ struct Joint {
   JointNode a, b, world;
 };
 
+static thread_local struct {
+  JPH_BroadPhaseLayerFilter* broadPhaseLayerFilter;
+  JPH_ObjectLayerFilter* objectLayerFilter;
+} thread;
+
 static struct {
   bool initialized;
   Shape* pointShape;
@@ -62,8 +68,8 @@ static struct {
 #define quat_toJolt(q) &(JPH_Quat) { q[0], q[1], q[2], q[3] }
 #define quat_fromJolt(q, j) quat_set(q, (j)->x, (j)->y, (j)->z, (j)->w)
 
-static uint32_t findTag(World* world, const char* name) {
-  uint32_t hash = (uint32_t) hash64(name, strlen(name));
+static uint32_t findTag(World* world, const char* name, size_t length) {
+  uint32_t hash = (uint32_t) hash64(name, length);
   for (uint32_t i = 0; i < world->tagCount; i++) {
     if (world->tagLookup[i] == hash) {
       return i;
@@ -80,6 +86,42 @@ static Shape* subshapeToShape(Collider* collider, JPH_SubShapeID id) {
   } else {
     return collider->shape;
   }
+}
+
+static JPH_Bool32 broadPhaseLayerFilter(void* mask, JPH_BroadPhaseLayer layer) {
+  return ((uintptr_t) mask & (1 << layer)) != 0;
+}
+
+static JPH_BroadPhaseLayerFilter* getBroadPhaseLayerFilter(World* world, uint32_t tagMask) {
+  if (!thread.broadPhaseLayerFilter) {
+    thread.broadPhaseLayerFilter = JPH_BroadPhaseLayerFilter_Create();
+  }
+
+  uint32_t layerMask = 0;
+  if (~world->staticTagMask & tagMask) layerMask |= 0x1;
+  if ( world->staticTagMask & tagMask) layerMask |= 0x3;
+
+  JPH_BroadPhaseLayerFilter_SetProcs(thread.broadPhaseLayerFilter, (JPH_BroadPhaseLayerFilter_Procs) {
+    .ShouldCollide = broadPhaseLayerFilter
+  }, (void*) (uintptr_t) layerMask);
+
+  return thread.broadPhaseLayerFilter;
+}
+
+static JPH_Bool32 objectLayerFilter(void* mask, JPH_ObjectLayer layer) {
+  return ((uintptr_t) mask & (1 << layer)) != 0;
+}
+
+static JPH_ObjectLayerFilter* getObjectLayerFilter(World* world, uint32_t tagMask) {
+  if (!thread.objectLayerFilter) {
+    thread.objectLayerFilter = JPH_ObjectLayerFilter_Create();
+  }
+
+  JPH_ObjectLayerFilter_SetProcs(thread.objectLayerFilter, (JPH_ObjectLayerFilter_Procs) {
+    .ShouldCollide = objectLayerFilter
+  }, (void*) (uintptr_t) tagMask);
+
+  return thread.objectLayerFilter;
 }
 
 bool lovrPhysicsInit(void) {
@@ -114,15 +156,15 @@ World* lovrWorldCreate(WorldInfo* info) {
     world->tagLookup[i] = (uint32_t) hash64(info->tags[i], length);
   }
 
-  uint32_t bpLayerCount = 2;
+  uint32_t broadPhaseLayerCount = world->staticTagMask ? 2 : 1;
   uint32_t objectLayerCount = info->tagCount + 1;
-  JPH_BroadPhaseLayerInterface* broadPhaseLayerInterface = JPH_BroadPhaseLayerInterfaceTable_Create(objectLayerCount, bpLayerCount);
+  JPH_BroadPhaseLayerInterface* broadPhaseLayerInterface = JPH_BroadPhaseLayerInterfaceTable_Create(objectLayerCount, broadPhaseLayerCount);
   world->objectLayerPairFilter = JPH_ObjectLayerPairFilterTable_Create(objectLayerCount);
 
   // Each tag gets its own object layer, last object layer is for untagged colliders
   for (uint32_t i = 0; i < objectLayerCount; i++) {
     bool isStatic = world->staticTagMask & (1 << i);
-    JPH_BroadPhaseLayerInterfaceTable_MapObjectToBroadPhaseLayer(broadPhaseLayerInterface, i, isStatic ? 0 : 1);
+    JPH_BroadPhaseLayerInterfaceTable_MapObjectToBroadPhaseLayer(broadPhaseLayerInterface, i, isStatic);
 
     // Static tags never collide with other static tags
     for (uint32_t j = i; j < objectLayerCount; j++) {
@@ -135,7 +177,7 @@ World* lovrWorldCreate(WorldInfo* info) {
   }
 
   JPH_ObjectVsBroadPhaseLayerFilter* broadPhaseLayerFilter = JPH_ObjectVsBroadPhaseLayerFilterTable_Create(
-    broadPhaseLayerInterface, bpLayerCount,
+    broadPhaseLayerInterface, broadPhaseLayerCount,
     world->objectLayerPairFilter, objectLayerCount);
 
   JPH_PhysicsSystemSettings config = {
@@ -186,6 +228,32 @@ void lovrWorldDestroyData(World* world) {
 
 char** lovrWorldGetTags(World* world, uint32_t* count) {
   return world->tags;
+}
+
+uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length) {
+  uint32_t accept = 0;
+  uint32_t ignore = 0;
+
+  while (length > 0) {
+    if (*string == ' ') {
+      string++;
+      length--;
+      continue;
+    }
+
+    bool invert = *string == '~';
+    const char* space = memchr(string, ' ', length);
+    size_t span = space ? space - string : length;
+    uint32_t tag = findTag(world, string + invert, span - invert);
+    lovrCheck(tag != ~0u, "Unknown tag in filter '%s'", string);
+    if (invert) ignore |= (1 << tag);
+    else accept |= (1 << tag);
+    span += !!space;
+    string += span;
+    length -= span;
+  }
+
+  return accept ? accept : ~ignore;
 }
 
 uint32_t lovrWorldGetColliderCount(World* world) {
@@ -242,7 +310,7 @@ static float raycastCallback(void* arg, JPH_RayCastResult* result) {
   return ctx->callback(ctx->userdata, &hit);
 }
 
-bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, void* userdata) {
+bool lovrWorldRaycast(World* world, Raycast* raycast, uint32_t tagMask, CastCallback* callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPH_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
 
   float dir[3];
@@ -259,7 +327,10 @@ bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, vo
     .userdata = userdata
   };
 
-  return JPH_NarrowPhaseQuery_CastRay2(query, origin, direction, raycastCallback, &context, NULL, NULL, NULL);
+  JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, tagMask);
+  JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, tagMask);
+
+  return JPH_NarrowPhaseQuery_CastRay2(query, origin, direction, raycastCallback, &context, layerFilter, tagFilter, NULL);
 }
 
 static float shapecastCallback(void* arg, JPH_ShapeCastResult* result) {
@@ -276,7 +347,7 @@ static float shapecastCallback(void* arg, JPH_ShapeCastResult* result) {
   return ctx->callback(ctx->userdata, &hit);
 }
 
-bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback callback, void* userdata) {
+bool lovrWorldShapecast(World* world, Shapecast* shapecast, uint32_t tagMask, CastCallback callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPH_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
 
   JPH_Shape* shape = shapecast->shape->handle;
@@ -302,7 +373,10 @@ bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback callbac
     .userdata = userdata
   };
 
-  return JPH_NarrowPhaseQuery_CastShape(query, shape, &transform, direction, &offset, shapecastCallback, &context, NULL, NULL, NULL);
+  JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, tagMask);
+  JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, tagMask);
+
+  return JPH_NarrowPhaseQuery_CastShape(query, shape, &transform, direction, &offset, shapecastCallback, &context, layerFilter, tagFilter, NULL);
 }
 
 typedef struct {
@@ -317,7 +391,7 @@ static void queryCallback(void* arg, JPH_BodyID id) {
   if (ctx->callback) ctx->callback(ctx->userdata, collider);
 }
 
-bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata) {
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t tagMask, QueryCallback* callback, void* userdata) {
   const JPH_BroadPhaseQuery* query = JPH_PhysicsSystem_GetBroadPhaseQuery(world->system);
 
   JPH_AABox box;
@@ -334,10 +408,13 @@ bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCall
     .userdata = userdata
   };
 
-  return JPH_BroadPhaseQuery_CollideAABox(query, &box, queryCallback, &context, NULL, NULL);
+  JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, tagMask);
+  JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, tagMask);
+
+  return JPH_BroadPhaseQuery_CollideAABox(query, &box, queryCallback, &context, layerFilter, tagFilter);
 }
 
-bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata) {
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_t tagMask, QueryCallback* callback, void* userdata) {
   const JPH_BroadPhaseQuery* query = JPH_PhysicsSystem_GetBroadPhaseQuery(world->system);
 
   QueryContext context = {
@@ -346,20 +423,23 @@ bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCa
     .userdata = userdata
   };
 
-  return JPH_BroadPhaseQuery_CollideSphere(query, vec3_toJolt(position), radius, queryCallback, &context, NULL, NULL);
+  JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, tagMask);
+  JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, tagMask);
+
+  return JPH_BroadPhaseQuery_CollideSphere(query, vec3_toJolt(position), radius, queryCallback, &context, layerFilter, tagFilter);
 }
 
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
-  uint32_t i = findTag(world, tag1);
-  uint32_t j = findTag(world, tag2);
+  uint32_t i = findTag(world, tag1, strlen(tag1));
+  uint32_t j = findTag(world, tag2, strlen(tag2));
   lovrCheck(i != ~0u, "Unknown tag '%s'", tag1);
   lovrCheck(j != ~0u, "Unknown tag '%s'", tag2);
   JPH_ObjectLayerPairFilterTable_DisableCollision(world->objectLayerPairFilter, i, j);
 }
 
 void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2) {
-  uint32_t i = findTag(world, tag1);
-  uint32_t j = findTag(world, tag2);
+  uint32_t i = findTag(world, tag1, strlen(tag1));
+  uint32_t j = findTag(world, tag2, strlen(tag2));
   lovrCheck(i != ~0u, "Unknown tag '%s'", tag1);
   lovrCheck(j != ~0u, "Unknown tag '%s'", tag2);
   JPH_ObjectLayerPairFilterTable_EnableCollision(world->objectLayerPairFilter, i, j);
@@ -367,8 +447,8 @@ void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char*
 
 bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2) {
   if (!tag1 || !tag2) return true;
-  uint32_t i = findTag(world, tag1);
-  uint32_t j = findTag(world, tag2);
+  uint32_t i = findTag(world, tag1, strlen(tag1));
+  uint32_t j = findTag(world, tag2, strlen(tag2));
   lovrCheck(i != ~0u, "Unknown tag '%s'", tag1);
   lovrCheck(j != ~0u, "Unknown tag '%s'", tag2);
   return JPH_ObjectLayerPairFilterTable_ShouldCollide(world->objectLayerPairFilter, i, j);
@@ -533,7 +613,7 @@ const char* lovrColliderGetTag(Collider* collider) {
 }
 
 void lovrColliderSetTag(Collider* collider, const char* tag) {
-  collider->tag = tag ? findTag(collider->world, tag) : ~0u;
+  collider->tag = tag ? findTag(collider->world, tag, strlen(tag)) : ~0u;
   lovrCheck(!tag || collider->tag != ~0u, "Unknown tag '%s'", tag);
   JPH_ObjectLayer objectLayer = collider->tag == ~0u ? collider->world->tagCount : collider->tag;
   JPH_BodyInterface_SetObjectLayer(collider->world->bodies, collider->id, objectLayer);

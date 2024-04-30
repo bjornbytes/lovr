@@ -5,7 +5,7 @@
 #pragma once
 
 #define MAX_CONTACTS 10
-#define MAX_TAGS 32
+#define MAX_TAGS 31
 #define NO_TAG ~0u
 
 typedef struct World World;
@@ -75,6 +75,7 @@ World* lovrWorldCreate(WorldInfo* info);
 void lovrWorldDestroy(void* ref);
 void lovrWorldDestroyData(World* world);
 char** lovrWorldGetTags(World* world, uint32_t* count);
+uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length);
 uint32_t lovrWorldGetColliderCount(World* world);
 uint32_t lovrWorldGetJointCount(World* world);
 Collider* lovrWorldGetColliders(World* world, Collider* collider);
@@ -82,10 +83,10 @@ Joint* lovrWorldGetJoints(World* world, Joint* joint);
 void lovrWorldGetGravity(World* world, float gravity[3]);
 void lovrWorldSetGravity(World* world, float gravity[3]);
 void lovrWorldUpdate(World* world, float dt);
-bool lovrWorldRaycast(World* world, Raycast* raycast, CastCallback* callback, void* userdata);
-bool lovrWorldShapecast(World* world, Shapecast* shapecast, CastCallback* callback, void* userdata);
-bool lovrWorldQueryBox(World* world, float position[3], float size[3], QueryCallback* callback, void* userdata);
-bool lovrWorldQuerySphere(World* world, float position[3], float radius, QueryCallback* callback, void* userdata);
+bool lovrWorldRaycast(World* world, Raycast* raycast, uint32_t tagMask, CastCallback* callback, void* userdata);
+bool lovrWorldShapecast(World* world, Shapecast* shapecast, uint32_t tagMask, CastCallback* callback, void* userdata);
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t tagMask, QueryCallback* callback, void* userdata);
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_t tagMask, QueryCallback* callback, void* userdata);
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
 void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
 bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2);

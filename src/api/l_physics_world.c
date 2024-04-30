@@ -218,21 +218,32 @@ static int l_lovrWorldUpdate(lua_State* L) {
   return 0;
 }
 
+static uint32_t luax_checktagmask(lua_State* L, int index, World* world) {
+  if (lua_isnoneornil(L, index)) {
+    return ~0u;
+  } else {
+    size_t length;
+    const char* string = luaL_checklstring(L, index, &length);
+    return lovrWorldGetTagMask(world, string, length);
+  }
+}
+
 static int l_lovrWorldRaycast(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   int index = 2;
   Raycast raycast;
   index = luax_readvec3(L, index, raycast.start, NULL);
   index = luax_readvec3(L, index, raycast.end, NULL);
+  uint32_t filter = luax_checktagmask(L, index++, world);
   if (lua_isnoneornil(L, index)) {
     CastResult hit;
-    if (lovrWorldRaycast(world, &raycast, castClosestCallback, &hit)) {
+    if (lovrWorldRaycast(world, &raycast, filter, castClosestCallback, &hit)) {
       return luax_pushcastresult(L, &hit);
     }
   } else {
     luaL_checktype(L, index, LUA_TFUNCTION);
     lua_settop(L, index);
-    lovrWorldRaycast(world, &raycast, castCallback, L);
+    lovrWorldRaycast(world, &raycast, filter, castCallback, L);
   }
   return 0;
 }
@@ -246,15 +257,16 @@ static int l_lovrWorldShapecast(lua_State* L) {
   index = luax_readvec3(L, index, shapecast.end, NULL);
   shapecast.scale = luax_optfloat(L, index++, 1.f);
   index = luax_readquat(L, index, shapecast.orientation, NULL);
+  uint32_t filter = luax_checktagmask(L, index++, world);
   if (lua_isnoneornil(L, index)) {
     CastResult hit;
-    if (lovrWorldShapecast(world, &shapecast, castClosestCallback, &hit)) {
+    if (lovrWorldShapecast(world, &shapecast, filter, castClosestCallback, &hit)) {
       return luax_pushcastresult(L, &hit);
     }
   } else {
     luaL_checktype(L, index, LUA_TFUNCTION);
     lua_settop(L, index);
-    lovrWorldShapecast(world, &shapecast, castCallback, L);
+    lovrWorldShapecast(world, &shapecast, filter, castCallback, L);
   }
   return 0;
 }
@@ -265,9 +277,10 @@ static int l_lovrWorldQueryBox(lua_State* L) {
   int index = 2;
   index = luax_readvec3(L, index, position, NULL);
   index = luax_readvec3(L, index, size, NULL);
+  uint32_t filter = luax_checktagmask(L, index++, world);
   bool function = lua_type(L, index) == LUA_TFUNCTION;
   lua_settop(L, index);
-  bool any = lovrWorldQueryBox(world, position, size, function ? queryCallback : NULL, L);
+  bool any = lovrWorldQueryBox(world, position, size, filter, function ? queryCallback : NULL, L);
   lua_pushboolean(L, any);
   return 1;
 }
@@ -277,9 +290,10 @@ static int l_lovrWorldQuerySphere(lua_State* L) {
   float position[3];
   int index = luax_readvec3(L, 2, position, NULL);
   float radius = luax_checkfloat(L, index++);
+  uint32_t filter = luax_checktagmask(L, index++, world);
   bool function = lua_type(L, index) == LUA_TFUNCTION;
   lua_settop(L, index);
-  bool any = lovrWorldQuerySphere(world, position, radius, function ? queryCallback : NULL, L);
+  bool any = lovrWorldQuerySphere(world, position, radius, filter, function ? queryCallback : NULL, L);
   lua_pushboolean(L, any);
   return 1;
 }

@@ -97,7 +97,7 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
         const char* string = lua_tostring(L, -1);
         lovrCheck(string, "Static tag list must be a table of strings");
         for (uint32_t j = 0; j < info.tagCount; j++) {
-          if (!strcmp(string, info.tags[i])) {
+          if (!strcmp(string, info.tags[j])) {
             info.staticTagMask |= (1 << j);
             break;
           }
