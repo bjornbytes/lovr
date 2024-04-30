@@ -962,6 +962,20 @@ float lovrShapeGetVolume(Shape* shape) {
   }
 }
 
+float lovrShapeGetDensity(Shape* shape) {
+  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+    return 0.f;
+  } else {
+    return JPH_ConvexShape_GetDensity((JPH_ConvexShape*) shape->handle);
+  }
+}
+
+void lovrShapeSetDensity(Shape* shape, float density) {
+  if (shape->type != SHAPE_MESH && shape->type != SHAPE_TERRAIN) {
+    JPH_ConvexShape_SetDensity((JPH_ConvexShape*) shape->handle, density);
+  }
+}
+
 void lovrShapeGetMass(Shape* shape, float density, float centerOfMass[3], float* mass, float inertia[6]) {
   //
 }

@@ -847,6 +847,14 @@ float lovrShapeGetVolume(Shape* shape) {
   return 0.f;
 }
 
+float lovrShapeGetDensity(Shape* shape) {
+  return 0.f;
+}
+
+void lovrShapeSetDensity(Shape* shape, float density) {
+  //
+}
+
 Collider* lovrShapeGetCollider(Shape* shape) {
   return shape->collider;
 }

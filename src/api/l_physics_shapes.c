@@ -235,7 +235,7 @@ static int l_lovrShapeGetType(lua_State* L) {
 }
 
 static int l_lovrShapeGetUserData(lua_State* L) {
-  luax_checktype(L, 1, Shape);
+  luax_checkshape(L, 1);
   luax_pushstash(L, "lovr.shape.userdata");
   lua_pushvalue(L, 1);
   lua_rawget(L, -2);
@@ -243,7 +243,7 @@ static int l_lovrShapeGetUserData(lua_State* L) {
 }
 
 static int l_lovrShapeSetUserData(lua_State* L) {
-  luax_checktype(L, 1, Shape);
+  luax_checkshape(L, 1);
   luax_pushstash(L, "lovr.shape.userdata");
   lua_pushvalue(L, 1);
   lua_pushvalue(L, 2);
@@ -252,10 +252,24 @@ static int l_lovrShapeSetUserData(lua_State* L) {
 }
 
 static int l_lovrShapeGetVolume(lua_State* L) {
-  Shape* shape = luax_checktype(L, 1, Shape);
+  Shape* shape = luax_checkshape(L, 1);
   float volume = lovrShapeGetVolume(shape);
   lua_pushnumber(L, volume);
   return 1;
+}
+
+static int l_lovrShapeGetDensity(lua_State* L) {
+  Shape* shape = luax_checkshape(L, 1);
+  float density = lovrShapeGetDensity(shape);
+  lua_pushnumber(L, density);
+  return 1;
+}
+
+static int l_lovrShapeSetDensity(lua_State* L) {
+  Shape* shape = luax_checkshape(L, 1);
+  float density = luax_checkfloat(L, 2);
+  lovrShapeSetDensity(shape, density);
+  return 0;
 }
 
 static int l_lovrShapeGetMass(lua_State* L) {
@@ -296,7 +310,9 @@ static int l_lovrShapeGetAABB(lua_State* L) {
   { "getType", l_lovrShapeGetType }, \
   { "getUserData", l_lovrShapeGetUserData }, \
   { "setUserData", l_lovrShapeSetUserData }, \
-  { "setVolume", l_lovrShapeGetVolume }, \
+  { "getVolume", l_lovrShapeGetVolume }, \
+  { "getDensity", l_lovrShapeGetDensity }, \
+  { "setDensity", l_lovrShapeSetDensity }, \
   { "getMass", l_lovrShapeGetMass }, \
   { "getAABB", l_lovrShapeGetAABB }
 
