@@ -48,19 +48,6 @@ typedef struct {
 } WorldInfo;
 
 typedef struct {
-  float start[3];
-  float end[3];
-} Raycast;
-
-typedef struct {
-  Shape* shape;
-  float start[3];
-  float end[3];
-  float scale;
-  float orientation[4];
-} Shapecast;
-
-typedef struct {
   Collider* collider;
   Shape* shape;
   float position[3];
@@ -68,7 +55,10 @@ typedef struct {
   float fraction;
 } CastResult;
 
+typedef CastResult CollideResult;
+
 typedef float CastCallback(void* userdata, CastResult* hit);
+typedef float CollideCallback(void* userdata, CollideResult* hit);
 typedef void QueryCallback(void* userdata, Collider* collider);
 
 World* lovrWorldCreate(WorldInfo* info);
@@ -83,10 +73,11 @@ Joint* lovrWorldGetJoints(World* world, Joint* joint);
 void lovrWorldGetGravity(World* world, float gravity[3]);
 void lovrWorldSetGravity(World* world, float gravity[3]);
 void lovrWorldUpdate(World* world, float dt);
-bool lovrWorldRaycast(World* world, Raycast* raycast, uint32_t tagMask, CastCallback* callback, void* userdata);
-bool lovrWorldShapecast(World* world, Shapecast* shapecast, uint32_t tagMask, CastCallback* callback, void* userdata);
-bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t tagMask, QueryCallback* callback, void* userdata);
-bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_t tagMask, QueryCallback* callback, void* userdata);
+bool lovrWorldRaycast(World* world, float start[3], float end[3], uint32_t filter, CastCallback* callback, void* userdata);
+bool lovrWorldShapecast(World* world, Shape* shape, float pose[7], float scale, float end[3], uint32_t filter, CastCallback* callback, void* userdata);
+bool lovrWorldCollide(World* world, Shape* shape, float pose[7], float scale, uint32_t filter, CollideCallback* callback, void* userdata);
+bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t filter, QueryCallback* callback, void* userdata);
+bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_t filter, QueryCallback* callback, void* userdata);
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
 void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2);
 bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2);
