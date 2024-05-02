@@ -60,7 +60,6 @@ static thread_local struct {
 
 static struct {
   bool initialized;
-  Shape* pointShape;
 } state;
 
 #define vec3_toJolt(v) &(JPH_Vec3) { v[0], v[1], v[2] }
@@ -127,13 +126,11 @@ static JPH_ObjectLayerFilter* getObjectLayerFilter(World* world, uint32_t tagMas
 bool lovrPhysicsInit(void) {
   if (state.initialized) return false;
   JPH_Init(32 * 1024 * 1024);
-  state.pointShape = lovrSphereShapeCreate(FLT_EPSILON);
   return state.initialized = true;
 }
 
 void lovrPhysicsDestroy(void) {
   if (!state.initialized) return;
-  lovrRelease(state.pointShape, lovrShapeDestroy);
   JPH_Shutdown();
   state.initialized = false;
 }
@@ -510,7 +507,7 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold) { 
 
 // Collider
 
-Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]) {
+Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   uint32_t count = JPH_PhysicsSystem_GetNumBodies(world->system);
   uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
   lovrCheck(count < limit, "Too many colliders!");
@@ -518,7 +515,7 @@ Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]) {
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
   collider->world = world;
-  collider->shape = shape ? shape : state.pointShape;
+  collider->shape = shape;
   collider->tag = ~0u;
 
   JPH_RVec3* p = vec3_toJolt(position);
@@ -611,12 +608,10 @@ Joint* lovrColliderGetJoints(Collider* collider, Joint* joint) {
 }
 
 Shape* lovrColliderGetShape(Collider* collider) {
-  return collider->shape == state.pointShape ? NULL : collider->shape;
+  return collider->shape;
 }
 
 void lovrColliderSetShape(Collider* collider, Shape* shape) {
-  shape = shape ? shape : state.pointShape;
-
   if (shape == collider->shape) {
     return;
   }

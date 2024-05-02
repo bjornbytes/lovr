@@ -98,7 +98,7 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 
 // Collider
 
-Collider* lovrColliderCreate(World* world, Shape* shape, float position[3]);
+Collider* lovrColliderCreate(World* world, float position[3], Shape* shape);
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestroyData(Collider* collider);
 bool lovrColliderIsDestroyed(Collider* collider);
