@@ -1375,7 +1375,14 @@ void lovrShapeGetInertia(Shape* shape, float diagonal[3], float rotation[4]) {
     return;
   }
 
-  // eigenvalue decomposition ^^
+  JPH_MassProperties properties;
+  JPH_Shape_GetMassProperties(shape->handle, &properties);
+
+  JPH_Vec3 d;
+  JPH_Matrix4x4 m;
+  JPH_MassProperties_DecomposePrincipalMomentsOfInertia(&properties, &m, &d);
+  vec3_fromJolt(diagonal, &d);
+  quat_fromMat4(rotation, &m.m11);
 }
 
 void lovrShapeGetCenterOfMass(Shape* shape, float center[3]) {
