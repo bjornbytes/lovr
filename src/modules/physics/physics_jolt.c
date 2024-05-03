@@ -229,6 +229,8 @@ World* lovrWorldCreate(WorldInfo* info) {
   settings.baumgarte = CLAMP(info->stabilization, 0.f, 1.f);
   settings.penetrationSlop = MAX(info->maxPenetration, 0.f);
   settings.minVelocityForRestitution = MAX(info->minBounceVelocity, 0.f);
+  settings.numVelocitySteps = MAX(settings.numVelocitySteps, 2);
+  settings.numPositionSteps = MAX(settings.numPositionSteps, 1);
   JPH_PhysicsSystem_SetPhysicsSettings(world->system, &settings);
 
   world->bodies = info->threadSafe ?

@@ -44,6 +44,8 @@ typedef struct {
   float stabilization;
   float maxPenetration;
   float minBounceVelocity;
+  uint32_t velocitySteps;
+  uint32_t positionSteps;
   const char* tags[MAX_TAGS];
   uint32_t staticTagMask;
   uint32_t tagCount;
