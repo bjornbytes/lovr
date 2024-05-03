@@ -272,44 +272,31 @@ static int l_lovrShapeSetDensity(lua_State* L) {
   return 0;
 }
 
-static int l_lovrShapeGetMassData(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
-  float mass, inertia[9], center[3];
-  lovrShapeGetMassData(shape, &mass, inertia, center);
-  lua_pushnumber(L, mass);
-  lua_createtable(L, 9, 0);
-  for (int i = 0; i < 9; i++) {
-    lua_pushnumber(L, inertia[i]);
-    lua_rawseti(L, -2, i + 1);
-  }
-  lua_pushnumber(L, center[0]);
-  lua_pushnumber(L, center[1]);
-  lua_pushnumber(L, center[2]);
-  return 5;
-}
-
 static int l_lovrShapeGetMass(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
-  float mass;
-  lovrShapeGetMassData(shape, &mass, NULL, NULL);
+  float mass = lovrShapeGetMass(shape);
   lua_pushnumber(L, mass);
   return 1;
 }
 
 static int l_lovrShapeGetInertia(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
-  float inertia[9];
-  lovrShapeGetMassData(shape, NULL, inertia, NULL);
-  for (int i = 0; i < 9; i++) {
-    lua_pushnumber(L, inertia[i]);
-  }
-  return 9;
+  float diagonal[3], rotation[4];
+  lovrShapeGetInertia(shape, diagonal, rotation);
+  lua_pushnumber(L, diagonal[0]);
+  lua_pushnumber(L, diagonal[1]);
+  lua_pushnumber(L, diagonal[2]);
+  lua_pushnumber(L, rotation[0]);
+  lua_pushnumber(L, rotation[1]);
+  lua_pushnumber(L, rotation[2]);
+  lua_pushnumber(L, rotation[3]);
+  return 7;
 }
 
-static int l_lovrShapeGetCenter(lua_State* L) {
+static int l_lovrShapeGetCenterOfMass(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
   float center[3];
-  lovrShapeGetMassData(shape, NULL, NULL, center);
+  lovrShapeGetCenterOfMass(shape, center);
   lua_pushnumber(L, center[0]);
   lua_pushnumber(L, center[1]);
   lua_pushnumber(L, center[2]);
@@ -340,10 +327,9 @@ static int l_lovrShapeGetAABB(lua_State* L) {
   { "getVolume", l_lovrShapeGetVolume }, \
   { "getDensity", l_lovrShapeGetDensity }, \
   { "setDensity", l_lovrShapeSetDensity }, \
-  { "getMassData", l_lovrShapeGetMassData }, \
   { "getMass", l_lovrShapeGetMass }, \
   { "getInertia", l_lovrShapeGetInertia }, \
-  { "getCenter", l_lovrShapeGetCenter }, \
+  { "getCenterOfMass", l_lovrShapeGetCenterOfMass }, \
   { "getAABB", l_lovrShapeGetAABB }
 
 static int l_lovrBoxShapeGetDimensions(lua_State* L) {

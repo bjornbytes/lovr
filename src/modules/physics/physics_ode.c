@@ -631,35 +631,31 @@ float lovrColliderGetMass(Collider* collider) {
   return m.mass;
 }
 
-void lovrColliderSetMass(Collider* collider, float mass) {
+void lovrColliderSetMass(Collider* collider, float* mass) {
   dMass m;
   dBodyGetMass(collider->body, &m);
-  dMassAdjust(&m, mass);
+  dMassAdjust(&m, *mass);
   dBodySetMass(collider->body, &m);
 }
 
-void lovrColliderGetMassData(Collider* collider, float centerOfMass[3], float* mass, float inertia[6]) {
-  dMass m;
-  dBodyGetMass(collider->body, &m);
-  vec3_set(centerOfMass, m.c[0], m.c[1], m.c[2]);
-  *mass = m.mass;
-
-  // Diagonal
-  inertia[0] = m.I[0];
-  inertia[1] = m.I[5];
-  inertia[2] = m.I[10];
-
-  // Lower triangular
-  inertia[3] = m.I[4];
-  inertia[4] = m.I[8];
-  inertia[5] = m.I[9];
+void lovrColliderGetInertia(Collider* collider, float diagonal[3], float rotation[4]) {
+  //
 }
 
-void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float mass, float inertia[6]) {
-  dMass m;
-  dBodyGetMass(collider->body, &m);
-  dMassSetParameters(&m, mass, centerOfMass[0], centerOfMass[1], centerOfMass[2], inertia[0], inertia[1], inertia[2], inertia[3], inertia[4], inertia[5]);
-  dBodySetMass(collider->body, &m);
+void lovrColliderSetInertia(Collider* collider, float diagonal[3], float rotation[4]) {
+  //
+}
+
+void lovrColliderGetCenterOfMass(Collider* collider, float center[3]) {
+  //
+}
+
+void lovrColliderSetCenterOfMass(Collider* collider, float center[3]) {
+  //
+}
+
+void lovrColliderResetMassData(Collider* collider) {
+  //
 }
 
 void lovrColliderGetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
@@ -865,6 +861,18 @@ void lovrShapeSetDensity(Shape* shape, float density) {
 
 Collider* lovrShapeGetCollider(Shape* shape) {
   return shape->collider;
+}
+
+float lovrShapeGetMass(Shape* shape) {
+  return 0.f;
+}
+
+void lovrShapeGetInertia(Shape* shape, float diagonal[3], float rotation[4]) {
+  //
+}
+
+void lovrShapeGetCenterOfMass(Shape* shape, float center[3]) {
+  //
 }
 
 void lovrShapeGetMassData(Shape* shape, float* mass, float inertia[9], float center[3]) {

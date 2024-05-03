@@ -590,6 +590,19 @@ void lovrWorldSetAngularDamping(World* world, float damping, float threshold) { 
 
 // Collider
 
+static void changeCenterOfMass(Collider* collider, const JPH_Shape* oldShape, const JPH_Shape* newShape) {
+  if (collider->joints) {
+    JPH_Vec3 oldCenter;
+    JPH_Vec3 newCenter;
+    JPH_Shape_GetCenterOfMass(oldShape, &oldCenter);
+    JPH_Shape_GetCenterOfMass(newShape, &newCenter);
+    JPH_Vec3 delta = { newCenter.x - oldCenter.x, newCenter.y - oldCenter.y, newCenter.z - oldCenter.z };
+    for (Joint* joint = collider->joints; joint; joint = lovrJointGetNext(joint, collider)) {
+      JPH_Constraint_NotifyShapeChanged(joint->constraint, collider->id, &delta);
+    }
+  }
+}
+
 Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   uint32_t count = JPH_PhysicsSystem_GetNumBodies(world->system);
   uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
@@ -702,19 +715,8 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
     return;
   }
 
-  if (collider->joints) {
-    JPH_Vec3 oldCenterOfMass;
-    JPH_Vec3 newCenterOfMass;
-    JPH_Vec3 deltaCenterOfMass;
-    JPH_Shape_GetCenterOfMass(collider->shape->handle, &oldCenterOfMass);
-    JPH_Shape_GetCenterOfMass(collider->shape->handle, &newCenterOfMass);
-    deltaCenterOfMass.x = newCenterOfMass.x - oldCenterOfMass.x;
-    deltaCenterOfMass.y = newCenterOfMass.y - oldCenterOfMass.y;
-    deltaCenterOfMass.z = newCenterOfMass.z - oldCenterOfMass.z;
-    for (Joint* joint = collider->joints; joint; joint = lovrJointGetNext(joint, collider)) {
-      JPH_Constraint_NotifyShapeChanged(joint->constraint, collider->id, &deltaCenterOfMass);
-    }
-  }
+  const JPH_Shape* oldShape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  changeCenterOfMass(collider, oldShape, shape->handle);
 
   lovrRelease(collider->shape, lovrShapeDestroy);
   collider->shape = shape;
@@ -817,24 +819,137 @@ void lovrColliderSetAwake(Collider* collider, bool awake) {
 }
 
 float lovrColliderGetMass(Collider* collider) {
-  JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
-  return 1.f / JPH_MotionProperties_GetInverseMassUnchecked(motionProperties);
+  if (lovrColliderIsKinematic(collider)) {
+    return 0.f;
+  }
+
+  JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
+
+  // If all degrees of freedom are restricted, inverse mass is locked to zero
+  if (JPH_MotionProperties_GetAllowedDOFs(motion) & 0x7 == 0) {
+    return 0.f;
+  }
+
+  return 1.f / JPH_MotionProperties_GetInverseMassUnchecked(motion);
 }
 
-void lovrColliderSetMass(Collider* collider, float mass) {
-  JPH_MotionProperties* motionProperties = JPH_Body_GetMotionProperties(collider->body);
-  JPH_MassProperties massProperties;
-  JPH_Shape_GetMassProperties(collider->shape->handle, &massProperties);
-  JPH_MassProperties_ScaleToMass(&massProperties, mass);
-  JPH_MotionProperties_SetMassProperties(motionProperties, JPH_AllowedDOFs_All, &massProperties);
+void lovrColliderSetMass(Collider* collider, float* mass) {
+  if (lovrColliderIsKinematic(collider)) {
+    return;
+  }
+
+  JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
+
+  // If all degrees of freedom are restricted, inverse mass is locked to zero
+  if (JPH_MotionProperties_GetAllowedDOFs(motion) & 0x7 == 0) {
+    return;
+  }
+
+  if (mass) {
+    lovrCheck(*mass > 0.f, "Mass must be positive");
+    JPH_MotionProperties_SetInverseMass(motion, 1.f / *mass);
+  } else {
+    JPH_MotionProperties_SetInverseMass(motion, 1.f / lovrShapeGetMass(collider->shape));
+  }
 }
 
-void lovrColliderGetMassData(Collider* collider, float centerOfMass[3], float* mass, float inertia[6]) {
-  //
+void lovrColliderGetInertia(Collider* collider, float diagonal[3], float rotation[4]) {
+  if (lovrColliderIsKinematic(collider)) {
+    vec3_set(diagonal, 0.f, 0.f, 0.f);
+    quat_identity(rotation);
+    return;
+  }
+
+  JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
+
+  // If all degrees of freedom are restricted, inertia is locked to zero
+  if (JPH_MotionProperties_GetAllowedDOFs(motion) & 0x38 == 0) {
+    vec3_set(diagonal, 0.f, 0.f, 0.f);
+    quat_identity(rotation);
+    return;
+  }
+
+  JPH_Vec3 idiagonal;
+  JPH_MotionProperties_GetInverseInertiaDiagonal(motion, &idiagonal);
+  vec3_set(diagonal, 1.f / idiagonal.x, 1.f / idiagonal.y, 1.f / idiagonal.z);
+
+  JPH_Quat q;
+  JPH_MotionProperties_GetInertiaRotation(motion, &q);
+  quat_fromJolt(rotation, &q);
 }
 
-void lovrColliderSetMassData(Collider* collider, float centerOfMass[3], float mass, float inertia[6]) {
-  //
+void lovrColliderSetInertia(Collider* collider, float diagonal[3], float rotation[4]) {
+  if (lovrColliderIsKinematic(collider)) {
+    return;
+  }
+
+  JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
+
+  // If all degrees of freedom are restricted, inverse inertia is locked to zero
+  if (JPH_MotionProperties_GetAllowedDOFs(motion) & 0x38 == 0) {
+    return;
+  }
+
+  if (diagonal) {
+    JPH_Vec3 idiagonal = { 1.f / diagonal[0], 1.f / diagonal[1], 1.f / diagonal[2] };
+    JPH_MotionProperties_SetInverseInertia(motion, &idiagonal, quat_toJolt(rotation));
+  } else {
+    JPH_MassProperties massProperties;
+    JPH_Shape_GetMassProperties(JPH_BodyInterface_GetShape(collider->world->bodies, collider->id), &massProperties);
+    float inverseMass = JPH_MotionProperties_GetInverseMassUnchecked(motion);
+    if (inverseMass > 0.f) JPH_MassProperties_ScaleToMass(&massProperties, 1.f / inverseMass);
+    JPH_AllowedDOFs dofs = JPH_MotionProperties_GetAllowedDOFs(motion);
+    JPH_MotionProperties_SetMassProperties(motion, dofs, &massProperties);
+  }
+}
+
+void lovrColliderGetCenterOfMass(Collider* collider, float center[3]) {
+  JPH_Vec3 centerOfMass;
+  JPH_Shape_GetCenterOfMass(JPH_BodyInterface_GetShape(collider->world->bodies, collider->id), &centerOfMass);
+  vec3_fromJolt(center, &centerOfMass);
+}
+
+void lovrColliderSetCenterOfMass(Collider* collider, float center[3]) {
+  JPH_Shape* oldShape = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  JPH_Shape* newShape;
+
+  if (center) {
+    JPH_Vec3 base;
+    JPH_Shape_GetCenterOfMass(collider->shape->handle, &base);
+
+    JPH_Vec3 offset = { center[0] - base.x, center[1] - base.y, center[2] - base.z };
+    newShape = (JPH_Shape*) JPH_OffsetCenterOfMassShape_Create(&offset, collider->shape->handle);
+  } else {
+    newShape = collider->shape->handle;
+  }
+
+  changeCenterOfMass(collider, oldShape, newShape);
+  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, newShape, false, JPH_Activation_DontActivate);
+
+  if (JPH_Shape_GetSubType(oldShape) == JPH_ShapeSubType_OffsetCenterOfMass) {
+    JPH_Shape_Destroy(oldShape);
+  }
+}
+
+void lovrColliderResetMassData(Collider* collider) {
+  if (lovrColliderIsKinematic(collider)) {
+    return;
+  }
+
+  JPH_Shape* shape = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+
+  if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_OffsetCenterOfMass) {
+    JPH_Shape_Destroy(shape);
+    changeCenterOfMass(collider, shape, collider->shape->handle);
+    JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, collider->shape->handle, false, JPH_Activation_DontActivate);
+  }
+
+  JPH_MassProperties mass;
+  JPH_Shape_GetMassProperties(collider->shape->handle, &mass);
+
+  JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
+  JPH_AllowedDOFs dofs = JPH_MotionProperties_GetAllowedDOFs(motion);
+  JPH_MotionProperties_SetMassProperties(motion, dofs, &mass);
 }
 
 void lovrColliderGetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
@@ -859,7 +974,9 @@ void lovrColliderSetEnabledAxes(Collider* collider, bool translation[3], bool ro
   if (rotation[2]) dofs |= JPH_AllowedDOFs_RotationZ;
 
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
-  JPH_MotionProperties_SetMassProperties(motion, dofs, NULL); // TODO need to synthesize mass
+  JPH_MassProperties mass;
+  JPH_Shape_GetMassProperties(collider->shape->handle, &mass);
+  JPH_MotionProperties_SetMassProperties(motion, dofs, &mass);
 }
 
 void lovrColliderGetPosition(Collider* collider, float position[3]) {
@@ -1077,37 +1194,30 @@ void lovrShapeSetDensity(Shape* shape, float density) {
   }
 }
 
-void lovrShapeGetMassData(Shape* shape, float* mass, float inertia[9], float center[3]) {
+float lovrShapeGetMass(Shape* shape) {
   if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
-    if (mass) *mass = 0.f;
-    if (inertia) memset(inertia, 0, 9 * sizeof(float));
-    if (center) vec3_set(center, 0.f, 0.f, 0.f);
+    return 0.f;
   }
 
   JPH_MassProperties properties;
   JPH_Shape_GetMassProperties(shape->handle, &properties);
+  return properties.mass;
+}
 
-  if (mass) *mass = properties.mass;
-
-  if (inertia) {
-    inertia[0] = properties.inertia.m11;
-    inertia[1] = properties.inertia.m12;
-    inertia[2] = properties.inertia.m13;
-    inertia[3] = properties.inertia.m21;
-    inertia[4] = properties.inertia.m22;
-    inertia[5] = properties.inertia.m23;
-    inertia[6] = properties.inertia.m31;
-    inertia[7] = properties.inertia.m32;
-    inertia[8] = properties.inertia.m33;
+void lovrShapeGetInertia(Shape* shape, float diagonal[3], float rotation[4]) {
+  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+    vec3_set(diagonal, 0.f, 0.f, 0.f);
+    quat_identity(rotation);
+    return;
   }
 
-  if (center) {
-    JPH_Vec3 centerOfMass;
-    JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
-    center[0] = centerOfMass.x;
-    center[1] = centerOfMass.y;
-    center[2] = centerOfMass.z;
-  }
+  // eigenvalue decomposition ^^
+}
+
+void lovrShapeGetCenterOfMass(Shape* shape, float center[3]) {
+  JPH_Vec3 centerOfMass;
+  JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
+  vec3_fromJolt(center, &centerOfMass);
 }
 
 void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]) {
@@ -1561,11 +1671,11 @@ WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
   joint->ref = 1;
   joint->type = JOINT_WELD;
 
-  JPH_FixedConstraintSettings settings;
-  JPH_FixedConstraintSettings_InitDefault(&settings);
-  settings.point1 = (JPH_Vec3) { anchor[0], anchor[1], anchor[2] };
-  settings.point2 = (JPH_Vec3) { anchor[0], anchor[1], anchor[2] };
-  joint->constraint = (JPH_Constraint*) JPH_FixedConstraintSettings_CreateConstraint(&settings, bodyA, bodyB);
+  JPH_FixedConstraintSettings* settings = JPH_FixedConstraintSettings_Create();
+  JPH_FixedConstraintSettings_SetPoint1(settings, vec3_toJolt(anchor));
+  JPH_FixedConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
+  joint->constraint = (JPH_Constraint*) JPH_FixedConstraintSettings_CreateConstraint(settings, bodyA, bodyB);
+  JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
   JPH_PhysicsSystem_AddConstraint(world->system, joint->constraint);
   lovrJointInit(joint, a, b);
   lovrRetain(joint);

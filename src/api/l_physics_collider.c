@@ -173,53 +173,67 @@ static int l_lovrColliderGetMass(lua_State* L) {
 
 static int l_lovrColliderSetMass(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float mass = luax_checkfloat(L, 2);
-  lovrColliderSetMass(collider, mass);
+  if (lua_isnoneornil(L, 2)) {
+    lovrColliderSetMass(collider, NULL);
+  } else {
+    float mass = luax_checkfloat(L, 2);
+    lovrColliderSetMass(collider, &mass);
+  }
   return 0;
 }
 
-static int l_lovrColliderGetMassData(lua_State* L) {
+static int l_lovrColliderGetInertia(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float centerOfMass[3], mass, inertia[6];
-  lovrColliderGetMassData(collider, centerOfMass, &mass, inertia);
-  lua_pushnumber(L, centerOfMass[0]);
-  lua_pushnumber(L, centerOfMass[1]);
-  lua_pushnumber(L, centerOfMass[2]);
-  lua_pushnumber(L, mass);
-  lua_newtable(L);
-  for (int i = 0; i < 6; i++) {
-    lua_pushnumber(L, inertia[i]);
-    lua_rawseti(L, -2, i + 1);
-  }
-  return 5;
+  float diagonal[3], rotation[4];
+  lovrColliderGetInertia(collider, diagonal, rotation);
+  lua_pushnumber(L, diagonal[0]);
+  lua_pushnumber(L, diagonal[1]);
+  lua_pushnumber(L, diagonal[2]);
+  lua_pushnumber(L, rotation[0]);
+  lua_pushnumber(L, rotation[1]);
+  lua_pushnumber(L, rotation[2]);
+  lua_pushnumber(L, rotation[3]);
+  return 7;
 }
 
-static int l_lovrColliderSetMassData(lua_State* L) {
+static int l_lovrColliderSetInertia(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  float centerOfMass[3];
-  int index = luax_readvec3(L, 2, centerOfMass, NULL);
-  float mass = luax_checkfloat(L, index++);
-  float inertia[6];
-  if (lua_istable(L, index) && luax_len(L, index) >= 6) {
-    for (int i = 0; i < 6; i++) {
-      lua_rawgeti(L, index, i + 1);
-      if (!lua_isnumber(L, -1)) {
-        return luaL_argerror(L, 6, "Expected 6 numbers or a table with 6 numbers");
-      }
-
-      inertia[i] = lua_tonumber(L, -1);
-      lua_pop(L, 1);
-    }
+  if (lua_isnoneornil(L, 2)) {
+    lovrColliderSetInertia(collider, NULL, NULL);
   } else {
-    for (int i = index; i < index + 6; i++) {
-      if (lua_isnumber(L, i)) {
-        inertia[i - index] = lua_tonumber(L, i);
-      } else {
-        return luaL_argerror(L, i, "Expected 6 numbers or a table with 6 numbers");
-      }
-    }
+    float diagonal[3], rotation[4];
+    int index = luax_readvec3(L, 2, diagonal, NULL);
+    luax_readquat(L, index, rotation, NULL);
+    lovrColliderSetInertia(collider, diagonal, rotation);
   }
-  lovrColliderSetMassData(collider, centerOfMass, mass, inertia);
+  return 0;
+}
+
+static int l_lovrColliderGetCenterOfMass(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  float center[3];
+  lovrColliderGetCenterOfMass(collider, center);
+  lua_pushnumber(L, center[0]);
+  lua_pushnumber(L, center[1]);
+  lua_pushnumber(L, center[2]);
+  return 3;
+}
+
+static int l_lovrColliderSetCenterOfMass(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  if (lua_isnoneornil(L, 2)) {
+    lovrColliderSetCenterOfMass(collider, NULL);
+  } else {
+    float center[3];
+    luax_readvec3(L, 2, center, NULL);
+    lovrColliderSetCenterOfMass(collider, center);
+  }
+  return 0;
+}
+
+static int l_lovrColliderResetMassData(lua_State* L) {
+  Collider* collider = luax_checktype(L, 1, Collider);
+  lovrColliderResetMassData(collider);
   return 0;
 }
 
@@ -478,26 +492,6 @@ static int l_lovrColliderApplyAngularImpulse(lua_State* L) {
   return 0;
 }
 
-static int l_lovrColliderGetLocalCenter(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  float center[3];
-  lovrColliderGetLocalCenter(collider, center);
-  lua_pushnumber(L, center[0]);
-  lua_pushnumber(L, center[1]);
-  lua_pushnumber(L, center[2]);
-  return 3;
-}
-
-static int l_lovrColliderGetWorldCenter(lua_State* L) {
-  Collider* collider = luax_checktype(L, 1, Collider);
-  float center[3];
-  lovrColliderGetWorldCenter(collider, center);
-  lua_pushnumber(L, center[0]);
-  lua_pushnumber(L, center[1]);
-  lua_pushnumber(L, center[2]);
-  return 3;
-}
-
 static int l_lovrColliderGetLocalPoint(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
   float world[3], local[3];
@@ -662,8 +656,11 @@ const luaL_Reg lovrCollider[] = {
   { "setAwake", l_lovrColliderSetAwake },
   { "getMass", l_lovrColliderGetMass },
   { "setMass", l_lovrColliderSetMass },
-  { "getMassData", l_lovrColliderGetMassData },
-  { "setMassData", l_lovrColliderSetMassData },
+  { "getInertia", l_lovrColliderGetInertia },
+  { "setInertia", l_lovrColliderSetInertia },
+  { "getCenterOfMass", l_lovrColliderGetCenterOfMass },
+  { "setCenterOfMass", l_lovrColliderSetCenterOfMass },
+  { "resetMassData", l_lovrColliderResetMassData },
   { "getEnabledAxes", l_lovrColliderGetEnabledAxes },
   { "setEnabledAxes", l_lovrColliderSetEnabledAxes },
   { "getPosition", l_lovrColliderGetPosition },
@@ -686,8 +683,6 @@ const luaL_Reg lovrCollider[] = {
   { "applyTorque", l_lovrColliderApplyTorque },
   { "applyLinearImpulse", l_lovrColliderApplyLinearImpulse },
   { "applyAngularImpulse", l_lovrColliderApplyAngularImpulse },
-  { "getLocalCenter", l_lovrColliderGetLocalCenter },
-  { "getWorldCenter", l_lovrColliderGetWorldCenter },
   { "getLocalPoint", l_lovrColliderGetLocalPoint },
   { "getWorldPoint", l_lovrColliderGetWorldPoint },
   { "getLocalVector", l_lovrColliderGetLocalVector },
