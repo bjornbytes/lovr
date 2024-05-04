@@ -12,20 +12,54 @@ dev
 - Add `lovr.system.wasMousePressed` and `lovr.system.wasMouseReleased`.
 - Add `lovr.system.get/setClipboardText`.
 - Add `KeyCode`s for numpad keys.
-- Add `World:raycastAny` and `World:raycastClosest`.
 - Add support for `uniform` variables in shader code.
 - Add support for cubemap array textures.
 - Add support for transfer operations on texture views.
 - Add support for nesting texture views (creating a view of a view).
 - Add `sn10x3` `DataType`.
+- Add `d24` `TextureFormat`.
 - Add `Quat:get/setEuler`.
 - Add `lovr.system.openConsole`.
 - Add `lovr.filesystem.getBundlePath` (for internal Lua code).
 - Add `lovr.filesystem.setSource` (for internal Lua code).
 - Add `t.thread.workers` to configure number of worker threads.
+- Add support for declaring objects as to-be-closed variables in Lua 5.4.
+- Add variant of `lovr.physics.newWorld` that takes a table of settings.
+- Add `World:get/setCallbacks` and `Contact` object.
+- Add `World:getColliderCount`.
+- Add `World:getJointCount` and `World:getJoints`.
+- Add `World:shapecast`.
+- Add `World:collideShape`.
+- Add `Collider:get/setGravityScale`.
+- Add `Collider:is/setContinuous`.
+- Add `Collider:get/setEnabledAxes`.
+- Add `Collider:applyLinearImpulse` and `Collider:applyAngularImpulse`.
+- Add `Collider:getRawPosition` and `Collider:getRawOrientation`.
+- Add `Collider:get/setShape` (replaces `:addShape/removeShape/getShapes`).
+- Add `Collider:is/setSensor` (replaces `Shape:is/setSensor`).
+- Add `Collider:get/setInertia`.
+- Add `Collider:get/setCenterOfMass`.
+- Add `Collider:resetMassData`.
+- Add `Collider:is/setEnabled`.
+- Add `CompoundShape`.
+- Add `ConvexShape`.
+- Add `WeldJoint`.
+- Add `ConeJoint`.
+- Add `Joint:getForce` and `Joint:getTorque`.
+- Add `Joint:get/setPriority`.
+- Add `Joint:isDestroyed`.
+- Add `DistanceJoint:get/setLimits`.
+- Add `:get/setSpring` to `DistanceJoint`, `HingeJoint`, and `SliderJoint`.
+- Add `HingeJoint:get/setFriction` and `SliderJoint:get/setFriction`.
+- Add `SliderJoint:getAnchors`.
+- Add `Shape:get/setDensity`.
+- Add `Shape:getMass/Volume/Inertia/CenterOfMass`.
+- Add motor support to `HingeJoint` and `SliderJoint`.
+- Add support for creating a `MeshShape` from a `ModelData`.
 
 ### Change
 
+- Change `lovr.physics` to use a fixed timestep by default, with automatic Collider interpolation.
 - Change nogame screen to be bundled as a fused zip archive.
 - Change `Mesh:setMaterial` to also take a `Texture`.
 - Change shader syntax to no longer require set/binding numbers for buffer/texture variables.
@@ -38,6 +72,18 @@ dev
 - Change headset simulator movement to slow down when holding the control key.
 - Change headset simulator to use `t.headset.supersample`.
 - Change `lovr.graphics.compileShader` to take/return multiple stages.
+- Change maximum number of physics tags from 16 to 32.
+- Change `TerrainShape` to require square dimensions.
+- Change `World:newCollider` to take a `Shape` as its last argument.
+- Change `Buffer:setData` to use more consistent rules to read data from tables.
+- Change `Collider` to recompute its mass if its shape changes.
+- Change `World:queryBox/querySphere` to perform coarse AABB collision detection (use `World:collideShape` for an exact test).
+- Change `World:queryBox/querySphere` to take an optional set of tags to include/exclude.
+- Change `World:queryBox/querySphere` to return the first collider detected, when the callback is nil.
+- Change `World:queryBox/querySphere` to return nil when a callback is given.
+- Change `World:raycast` to take a set of tags to allow/ignore.
+- Change `World:raycast` callback to be optional (if nil, the closest hit will be returned).
+- Change physics queries to report colliders instead of shapes.
 
 ### Fix
 
@@ -46,10 +92,20 @@ dev
 - Fix "morgue overflow" error when creating or destroying large amounts of textures at once.
 - Fix `Texture:getType` when used with texture views.
 - Fix possible negative `dt` in lovr.update when restarting with the simulator.
+- Fix issue where `Collider`/`Shape`/`Joint` userdata wouldn't get garbage collected.
+- Fix OBJ triangulation for faces with more than 4 vertices.
+- Fix possible crash when using vectors in multiple threads.
 
 ### Deprecate
 
 - Deprecate `Texture:getSampleCount`.
+- Deprecate `World:get/setTightness` (use `stabilization` option when creating World).
+- Deprecate `World:get/setLinearDamping` (use `Collider:get/setLinearDamping`).
+- Deprecate `World:get/setAngularDamping` (use `Collider:get/setAngularDamping`).
+- Deprecate `World:is/setSleepingAllowed` (use `sleep` option when creating World).
+- Deprecate `World:get/setStepCount` (use `positionSteps`/`velocitySteps` option when creating World).
+- Deprecate `Collider:is/setGravityIgnored` (use `Collider:get/setGravityScale`).
+- Deprecate `Collider:getShapes` (use `Collider:getShape`).
 
 ### Remove
 
@@ -70,6 +126,25 @@ dev
 - Remove variant of `Pass:send` that takes a binding number instead of a variable name.
 - Remove `Texture:newView` (renamed to `lovr.graphics.newTextureView`).
 - Remove `Texture:isView` and `Texture:getParent`.
+- Remove `Collider:addShape` and `Collider:removeShape` (use `Collider:setShape` and `CompoundShape`).
+- Remove `Shape:getCollider`.
+- Remove `Shape:get/setPosition`, `Shape:get/setOrientation`, and `Shape:get/setPose`.
+- Remove `BoxShape:setDimensions`.
+- Remove `SphereShape:setRadius`.
+- Remove `CapsuleShape:setRadius` and `CapsuleShape:setLength`.
+- Remove `CylinderShape:setRadius` and `CylinderShape:setLength`.
+- Remove `Shape:is/setSensor` (use `Collider:is/setSensor`).
+- Remove `World:overlaps/computeOverlaps/collide/getContacts` (use `World:setCallbacks`).
+- Remove `BallJoint:setAnchor`.
+- Remove `DistanceJoint:setAnchors`.
+- Remove `HingeJoint:setAnchor`.
+- Remove `BallJoint:get/setResponseTime` and `BallJoint:get/setTightness`.
+- Remove `DistanceJoint:get/setResponseTime` and `DistanceJoint:get/setTightness` (use `:setSpring`).
+- Remove `DistanceJoint:get/setDistance` (renamed to `:get/setLimits`).
+- Remove `HingeJoint:get/setUpper/LowerLimit` (use `:get/setLimits`).
+- Remove `SliderJoint:get/setUpper/LowerLimit` (use `:get/setLimits`).
+- Remove `Collider:getLocalCenter` (renamed to `Collider:getCenterOfMass`).
+- Remove `Shape:getMassData` (split into separate getters).
 
 v0.17.1 - 2024-03-12
 ---
