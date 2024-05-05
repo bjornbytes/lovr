@@ -159,13 +159,16 @@ void os_poll_events(void) {
       case XCB_KEY_RELEASE: {
         uint8_t keycode = event.key->detail;
         os_key key = convertKey(keycode);
+        bool press = type == XCB_KEY_PRESS;
 
         if (key < OS_KEY_COUNT) {
-          state.keyDown[key] = type == XCB_KEY_PRESS;
-          if (state.onKey) state.onKey(type == XCB_KEY_RELEASE, key, keycode, false); // TODO repeat
+          bool repeat = press && state.keyDown[key];
+          os_button_action action = press ? BUTTON_PRESSED : BUTTON_RELEASED;
+          state.keyDown[key] = press;
+          if (state.onKey) state.onKey(action, key, keycode, repeat);
         }
 
-        if (type == XCB_KEY_PRESS && state.onText) {
+        if (press && state.onText) {
           xkb_keysym_t keysym = xkb_state_key_get_one_sym(state.keystate, keycode);
           xkb_compose_state_feed(state.compose, keysym);
           enum xkb_compose_status status = xkb_compose_state_get_status(state.compose);
@@ -320,6 +323,12 @@ bool os_window_open(const os_window_config* config) {
 
   xcb_xkb_event_type_t keyEvents = XCB_XKB_EVENT_TYPE_STATE_NOTIFY;
   xcb_xkb_select_events(state.connection, keyboard, keyEvents, 0, keyEvents, 0, 0, &details);
+
+  // Change key repeat to omit synthetic key released events in between each keypress event
+  xcb_xkb_device_spec_t device = XCB_XKB_ID_USE_CORE_KBD;
+  uint32_t autorepeat = XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT;
+  xcb_xkb_per_client_flags_cookie_t perClientFlags = xcb_xkb_per_client_flags(state.connection, device, autorepeat, autorepeat, 0, 0, 0);
+  xcb_xkb_per_client_flags_reply(state.connection, perClientFlags, NULL);
 
   // window
 
