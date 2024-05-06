@@ -39,8 +39,11 @@ static struct {
   uint32_t height;
   bool keyDown[OS_KEY_COUNT];
   bool mouseDown[2];
-  double mouseX;
-  double mouseY;
+  int16_t mouseX;
+  int16_t mouseY;
+  int16_t warpX;
+  int16_t warpY;
+  bool grabbed;
 } state;
 
 bool os_init(void) {
@@ -208,7 +211,7 @@ void os_poll_events(void) {
       case XCB_MOTION_NOTIFY:
         state.mouseX = event.motion->event_x;
         state.mouseY = event.motion->event_y;
-        if (state.onMouseMove) {
+        if (state.onMouseMove && (state.mouseX != state.warpX || state.mouseY != state.warpY)) {
           state.onMouseMove(state.mouseX, state.mouseY);
         }
         break;
@@ -490,7 +493,7 @@ void os_get_mouse_position(double* x, double* y) {
 
 void os_set_mouse_mode(os_mouse_mode mode) {
   if (!state.connection) return;
-  if (mode == MOUSE_MODE_GRABBED) {
+  if (mode == MOUSE_MODE_GRABBED && !state.grabbed) {
     if (!state.hiddenCursor) {
       state.hiddenCursor = xcb_generate_id(state.connection);
       xcb_pixmap_t pixmap = xcb_generate_id(state.connection);
@@ -498,10 +501,16 @@ void os_set_mouse_mode(os_mouse_mode mode) {
       xcb_create_cursor(state.connection, state.hiddenCursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
       xcb_free_pixmap(state.connection, pixmap);
     }
-    xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &state.hiddenCursor);
-  } else {
-    xcb_cursor_t cursor = XCB_CURSOR_NONE;
-    xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &cursor);
+    uint32_t events = XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION;
+    xcb_grab_pointer(state.connection, 0, state.window, events, 1, 1, state.window, state.hiddenCursor, XCB_CURRENT_TIME);
+    state.warpX = state.mouseX;
+    state.warpY = state.mouseY;
+    state.grabbed = true;
+  } else if (mode == MOUSE_MODE_NORMAL && state.grabbed) {
+    xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &(uint32_t) { XCB_CURSOR_NONE });
+    xcb_ungrab_pointer(state.connection, XCB_CURRENT_TIME);
+    xcb_warp_pointer(state.connection, XCB_NONE, state.window, 0, 0, 0, 0, state.warpX, state.warpY);
+    state.grabbed = false;
   }
 }
 
