@@ -69,7 +69,7 @@ static int l_lovrJointGetColliders(lua_State* L) {
 }
 
 static int l_lovrJointGetUserData(lua_State* L) {
-  luax_checktype(L, 1, Joint);
+  luax_checkjoint(L, 1);
   luax_pushstash(L, "lovr.joint.userdata");
   lua_pushvalue(L, 1);
   lua_rawget(L, -2);
@@ -77,7 +77,7 @@ static int l_lovrJointGetUserData(lua_State* L) {
 }
 
 static int l_lovrJointSetUserData(lua_State* L) {
-  luax_checktype(L, 1, Joint);
+  luax_checkjoint(L, 1);
   luax_pushstash(L, "lovr.joint.userdata");
   lua_pushvalue(L, 1);
   lua_pushvalue(L, 2);
@@ -86,14 +86,14 @@ static int l_lovrJointSetUserData(lua_State* L) {
 }
 
 static int l_lovrJointGetPriority(lua_State* L) {
-  Joint* joint = luax_checktype(L, 1, Joint);
+  Joint* joint = luax_checkjoint(L, 1);
   uint32_t priority = lovrJointGetPriority(joint);
   lua_pushinteger(L, priority);
   return 1;
 }
 
 static int l_lovrJointSetPriority(lua_State* L) {
-  Joint* joint = luax_checktype(L, 1, Joint);
+  Joint* joint = luax_checkjoint(L, 1);
   uint32_t priority = luax_checku32(L, 2);
   lovrJointSetPriority(joint, priority);
   return 0;
