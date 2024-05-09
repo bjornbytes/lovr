@@ -108,8 +108,8 @@ Shape* luax_newterrainshape(lua_State* L, int index) {
   float scaleXZ = luax_checkfloat(L, index++);
   int type = lua_type(L, index);
   if (type == LUA_TNIL || type == LUA_TNONE) {
-    float vertices[4] = { 0.f };
-    return lovrTerrainShapeCreate(vertices, 2, scaleXZ, 1.f);
+    float vertices[9] = { 0.f };
+    return lovrTerrainShapeCreate(vertices, 3, scaleXZ, 1.f);
   } else if (type == LUA_TFUNCTION) {
     uint32_t n = luax_optu32(L, index + 1, 100);
     float* vertices = lovrMalloc(sizeof(float) * n * n);
@@ -144,7 +144,7 @@ Shape* luax_newterrainshape(lua_State* L, int index) {
     lovrFree(vertices);
     return shape;
   } else {
-    luax_typeerror(L, index, "Image, number, or function");
+    luax_typeerror(L, index, "nil, Image, or function");
     return NULL;
   }
 }
