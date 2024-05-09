@@ -1938,7 +1938,8 @@ float lovrConeJointGetLimit(ConeJoint* joint) {
 }
 
 void lovrConeJointSetLimit(ConeJoint* joint, float angle) {
-  JPH_ConeConstraint_SetHalfConeAngle((JPH_ConeConstraint*) joint->constraint, CLAMP(angle, 0.f, (float) M_PI));
+  lovrCheck(angle >= 0 && angle <= (float) M_PI, "Cone joint angle limit must be between 0 and PI");
+  JPH_ConeConstraint_SetHalfConeAngle((JPH_ConeConstraint*) joint->constraint, angle);
 }
 
 // DistanceJoint
@@ -1975,6 +1976,8 @@ void lovrDistanceJointGetLimits(DistanceJoint* joint, float* min, float* max) {
 }
 
 void lovrDistanceJointSetLimits(DistanceJoint* joint, float min, float max) {
+  lovrCheck(min <= max, "Slider joint lower distance limit can not exceed the upper limit");
+  lovrCheck(max >= 0.f, "Distance joint upper distance limit can not be negative");
   JPH_DistanceConstraint_SetDistance((JPH_DistanceConstraint*) joint->constraint, min, max);
 }
 
@@ -2051,6 +2054,8 @@ void lovrHingeJointGetLimits(HingeJoint* joint, float* min, float* max) {
 }
 
 void lovrHingeJointSetLimits(HingeJoint* joint, float min, float max) {
+  lovrCheck(min <= 0.f && min >= -(float) M_PI, "Hinge joint lower angle limit must be between -PI and 0");
+  lovrCheck(max >= 0.f && max <= (float) M_PI, "Hinge joint upper angle limit must be between 0 and PI");
   JPH_HingeConstraint_SetLimits((JPH_HingeConstraint*) joint->constraint, min, max);
 }
 
@@ -2196,6 +2201,8 @@ void lovrSliderJointGetLimits(SliderJoint* joint, float* min, float* max) {
 }
 
 void lovrSliderJointSetLimits(SliderJoint* joint, float min, float max) {
+  lovrCheck(min <= 0.f, "Slider joint lower distance limit can not be positive");
+  lovrCheck(max >= 0.f, "Slider joint upper distance limit can not be negative");
   JPH_SliderConstraint_SetLimits((JPH_SliderConstraint*) joint->constraint, min, max);
 }
 
