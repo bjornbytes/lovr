@@ -665,9 +665,9 @@ void lovrWorldSetCallbacks(World* world, WorldCallbacks* callbacks) {
 // Deprecated
 int lovrWorldGetStepCount(World* world) { return world->collisionSteps; }
 void lovrWorldSetStepCount(World* world, int iterations) { world->collisionSteps = iterations;}
-float lovrWorldGetResponseTime(World* world) {}
+float lovrWorldGetResponseTime(World* world) { return 0.f; }
 void lovrWorldSetResponseTime(World* world, float responseTime) {}
-float lovrWorldGetTightness(World* world) {}
+float lovrWorldGetTightness(World* world) { return 0.f; }
 void lovrWorldSetTightness(World* world, float tightness) {}
 bool lovrWorldIsSleepingAllowed(World* world) { return world->defaultIsSleepingAllowed; }
 void lovrWorldSetSleepingAllowed(World* world, bool allowed) { world->defaultIsSleepingAllowed = allowed; }
@@ -914,7 +914,7 @@ float lovrColliderGetMass(Collider* collider) {
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
 
   // If all degrees of freedom are restricted, inverse mass is locked to zero
-  if (JPH_MotionProperties_GetAllowedDOFs(motion) & 0x7 == 0) {
+  if ((JPH_MotionProperties_GetAllowedDOFs(motion) & 0x7) == 0) {
     return 0.f;
   }
 
@@ -929,7 +929,7 @@ void lovrColliderSetMass(Collider* collider, float* mass) {
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
 
   // If all degrees of freedom are restricted, inverse mass is locked to zero
-  if (JPH_MotionProperties_GetAllowedDOFs(motion) & 0x7 == 0) {
+  if ((JPH_MotionProperties_GetAllowedDOFs(motion) & 0x7) == 0) {
     return;
   }
 
@@ -951,7 +951,7 @@ void lovrColliderGetInertia(Collider* collider, float diagonal[3], float rotatio
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
 
   // If all degrees of freedom are restricted, inertia is locked to zero
-  if (JPH_MotionProperties_GetAllowedDOFs(motion) & 0x38 == 0) {
+  if ((JPH_MotionProperties_GetAllowedDOFs(motion) & 0x38) == 0) {
     vec3_set(diagonal, 0.f, 0.f, 0.f);
     quat_identity(rotation);
     return;
@@ -974,7 +974,7 @@ void lovrColliderSetInertia(Collider* collider, float diagonal[3], float rotatio
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
 
   // If all degrees of freedom are restricted, inverse inertia is locked to zero
-  if (JPH_MotionProperties_GetAllowedDOFs(motion) & 0x38 == 0) {
+  if ((JPH_MotionProperties_GetAllowedDOFs(motion) & 0x38) == 0) {
     return;
   }
 
