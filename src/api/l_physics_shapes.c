@@ -244,6 +244,7 @@ static int l_lovrShapeGetUserData(lua_State* L) {
 
 static int l_lovrShapeSetUserData(lua_State* L) {
   luax_checkshape(L, 1);
+  lua_settop(L, 2);
   luax_pushstash(L, "lovr.shape.userdata");
   lua_pushvalue(L, 1);
   lua_pushvalue(L, 2);

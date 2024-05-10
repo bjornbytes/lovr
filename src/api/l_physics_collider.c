@@ -78,6 +78,7 @@ static int l_lovrColliderGetUserData(lua_State* L) {
 
 static int l_lovrColliderSetUserData(lua_State* L) {
   luax_checktype(L, 1, Collider);
+  lua_settop(L, 2);
   luax_pushstash(L, "lovr.collider.userdata");
   lua_pushvalue(L, 1);
   lua_pushvalue(L, 2);

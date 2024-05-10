@@ -78,6 +78,7 @@ static int l_lovrJointGetUserData(lua_State* L) {
 
 static int l_lovrJointSetUserData(lua_State* L) {
   luax_checkjoint(L, 1);
+  lua_settop(L, 2);
   luax_pushstash(L, "lovr.joint.userdata");
   lua_pushvalue(L, 1);
   lua_pushvalue(L, 2);
