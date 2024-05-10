@@ -3731,6 +3731,8 @@ float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count) {
 }
 
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context) {
+  if (count == 0) return;
+
   size_t totalLength = 0;
   for (uint32_t i = 0; i < count; i++) {
     totalLength += strings[i].length;
