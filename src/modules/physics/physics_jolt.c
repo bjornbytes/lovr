@@ -810,10 +810,11 @@ void lovrColliderSetShape(Collider* collider, Shape* shape) {
   collider->shape = shape;
   lovrRetain(shape);
 
-  bool updateMass = true;
-  if (shape->type == SHAPE_MESH || shape->type == SHAPE_TERRAIN) {
+  bool isStatic = JPH_Shape_MustBeStatic(shape->handle);
+  bool updateMass = !isStatic;
+
+  if (isStatic) {
     JPH_BodyInterface_SetMotionType(collider->world->bodies, collider->id, JPH_MotionType_Static, JPH_Activation_DontActivate);
-    updateMass = false;
   }
 
   JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, shape->handle, updateMass, JPH_Activation_Activate);
