@@ -856,7 +856,9 @@ bool lovrColliderIsKinematic(Collider* collider) {
 }
 
 void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
-  if (collider->tag == ~0u || (collider->world->staticTagMask & (1 << collider->tag)) == 0) {
+  bool mustBeStatic = JPH_Shape_MustBeStatic(collider->shape->handle);
+  bool hasStaticTag = collider->tag != ~0u && (collider->world->staticTagMask & (1 << collider->tag));
+  if (!mustBeStatic && !hasStaticTag) {
     JPH_MotionType motionType = kinematic ? JPH_MotionType_Kinematic : JPH_MotionType_Dynamic;
     JPH_BodyInterface_SetMotionType(collider->world->bodies, collider->id, motionType, JPH_Activation_DontActivate);
   }
