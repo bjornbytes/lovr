@@ -165,6 +165,114 @@ void os_thread_detach(void) {
   }
 }
 
+static os_key convertKey(uint16_t scancode) {
+  switch (scancode) {
+    case 0x01E: return OS_KEY_A;
+    case 0x030: return OS_KEY_B;
+    case 0x02E: return OS_KEY_C;
+    case 0x020: return OS_KEY_D;
+    case 0x012: return OS_KEY_E;
+    case 0x021: return OS_KEY_F;
+    case 0x022: return OS_KEY_G;
+    case 0x023: return OS_KEY_H;
+    case 0x017: return OS_KEY_I;
+    case 0x024: return OS_KEY_J;
+    case 0x025: return OS_KEY_K;
+    case 0x026: return OS_KEY_L;
+    case 0x032: return OS_KEY_M;
+    case 0x031: return OS_KEY_N;
+    case 0x018: return OS_KEY_O;
+    case 0x019: return OS_KEY_P;
+    case 0x010: return OS_KEY_Q;
+    case 0x013: return OS_KEY_R;
+    case 0x01F: return OS_KEY_S;
+    case 0x014: return OS_KEY_T;
+    case 0x016: return OS_KEY_U;
+    case 0x02F: return OS_KEY_V;
+    case 0x011: return OS_KEY_W;
+    case 0x02D: return OS_KEY_X;
+    case 0x015: return OS_KEY_Y;
+    case 0x02C: return OS_KEY_Z;
+    case 0x002: return OS_KEY_1;
+    case 0x003: return OS_KEY_2;
+    case 0x004: return OS_KEY_3;
+    case 0x005: return OS_KEY_4;
+    case 0x006: return OS_KEY_5;
+    case 0x007: return OS_KEY_6;
+    case 0x008: return OS_KEY_7;
+    case 0x009: return OS_KEY_8;
+    case 0x00A: return OS_KEY_9;
+    case 0x00B: return OS_KEY_0;
+    case 0x039: return OS_KEY_SPACE;
+    case 0x01C: return OS_KEY_ENTER;
+    case 0x00F: return OS_KEY_TAB;
+    case 0x001: return OS_KEY_ESCAPE;
+    case 0x00E: return OS_KEY_BACKSPACE;
+    case 0x148: return OS_KEY_UP;
+    case 0x150: return OS_KEY_DOWN;
+    case 0x14B: return OS_KEY_LEFT;
+    case 0x14D: return OS_KEY_RIGHT;
+    case 0x147: return OS_KEY_HOME;
+    case 0x14F: return OS_KEY_END;
+    case 0x149: return OS_KEY_PAGE_UP;
+    case 0x151: return OS_KEY_PAGE_DOWN;
+    case 0x152: return OS_KEY_INSERT;
+    case 0x153: return OS_KEY_DELETE;
+    case 0x03B: return OS_KEY_F1;
+    case 0x03C: return OS_KEY_F2;
+    case 0x03D: return OS_KEY_F3;
+    case 0x03E: return OS_KEY_F4;
+    case 0x03F: return OS_KEY_F5;
+    case 0x040: return OS_KEY_F6;
+    case 0x041: return OS_KEY_F7;
+    case 0x042: return OS_KEY_F8;
+    case 0x043: return OS_KEY_F9;
+    case 0x044: return OS_KEY_F10;
+    case 0x057: return OS_KEY_F11;
+    case 0x058: return OS_KEY_F12;
+    case 0x029: return OS_KEY_BACKTICK;
+    case 0x00C: return OS_KEY_MINUS;
+    case 0x00D: return OS_KEY_EQUALS;
+    case 0x01A: return OS_KEY_LEFT_BRACKET;
+    case 0x01B: return OS_KEY_RIGHT_BRACKET;
+    case 0x02B: return OS_KEY_BACKSLASH;
+    case 0x027: return OS_KEY_SEMICOLON;
+    case 0x028: return OS_KEY_APOSTROPHE;
+    case 0x033: return OS_KEY_COMMA;
+    case 0x034: return OS_KEY_PERIOD;
+    case 0x035: return OS_KEY_SLASH;
+    case 0x052: return OS_KEY_KP_0;
+    case 0x04F: return OS_KEY_KP_1;
+    case 0x050: return OS_KEY_KP_2;
+    case 0x051: return OS_KEY_KP_3;
+    case 0x04B: return OS_KEY_KP_4;
+    case 0x04C: return OS_KEY_KP_5;
+    case 0x04D: return OS_KEY_KP_6;
+    case 0x047: return OS_KEY_KP_7;
+    case 0x048: return OS_KEY_KP_8;
+    case 0x049: return OS_KEY_KP_9;
+    case 0x053: return OS_KEY_KP_DECIMAL;
+    case 0x135: return OS_KEY_KP_DIVIDE;
+    case 0x037: return OS_KEY_KP_MULTIPLY;
+    case 0x04A: return OS_KEY_KP_SUBTRACT;
+    case 0x04E: return OS_KEY_KP_ADD;
+    case 0x11C: return OS_KEY_KP_ENTER;
+    case 0x059: return OS_KEY_KP_EQUALS;
+    case 0x01D: return OS_KEY_LEFT_CONTROL;
+    case 0x02A: return OS_KEY_LEFT_SHIFT;
+    case 0x038: return OS_KEY_LEFT_ALT;
+    case 0x15B: return OS_KEY_LEFT_OS;
+    case 0x11D: return OS_KEY_RIGHT_CONTROL;
+    case 0x036: return OS_KEY_RIGHT_SHIFT;
+    case 0x138: return OS_KEY_RIGHT_ALT;
+    case 0x15C: return OS_KEY_RIGHT_OS;
+    case 0x03A: return OS_KEY_CAPS_LOCK;
+    case 0x046: return OS_KEY_SCROLL_LOCK;
+    case 0x145: return OS_KEY_NUM_LOCK;
+    default: return OS_KEY_COUNT;
+  }
+}
+
 static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPARAM lparam) {
   switch (message) {
     case WM_CLOSE:
@@ -182,55 +290,16 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
     case WM_KEYUP:
     case WM_SYSKEYDOWN:
     case WM_SYSKEYUP: {
-      os_key key = OS_KEY_COUNT;
-      switch (param) {
-        case 'A': key = OS_KEY_A; break;
-        case 'B': key = OS_KEY_B; break;
-        case 'C': key = OS_KEY_C; break;
-        case 'D': key = OS_KEY_D; break;
-        case 'E': key = OS_KEY_E; break;
-        case 'F': key = OS_KEY_F; break;
-        case 'G': key = OS_KEY_G; break;
-        case 'H': key = OS_KEY_H; break;
-        case 'I': key = OS_KEY_I; break;
-        case 'J': key = OS_KEY_J; break;
-        case 'K': key = OS_KEY_K; break;
-        case 'L': key = OS_KEY_L; break;
-        case 'M': key = OS_KEY_M; break;
-        case 'N': key = OS_KEY_N; break;
-        case 'O': key = OS_KEY_O; break;
-        case 'P': key = OS_KEY_P; break;
-        case 'Q': key = OS_KEY_Q; break;
-        case 'R': key = OS_KEY_R; break;
-        case 'S': key = OS_KEY_S; break;
-        case 'T': key = OS_KEY_T; break;
-        case 'U': key = OS_KEY_U; break;
-        case 'V': key = OS_KEY_V; break;
-        case 'W': key = OS_KEY_W; break;
-        case 'X': key = OS_KEY_X; break;
-        case 'Y': key = OS_KEY_Y; break;
-        case 'Z': key = OS_KEY_Z; break;
-        case '0': key = OS_KEY_0; break;
-        case '1': key = OS_KEY_1; break;
-        case '2': key = OS_KEY_2; break;
-        case '3': key = OS_KEY_3; break;
-        case '4': key = OS_KEY_4; break;
-        case '5': key = OS_KEY_5; break;
-        case '6': key = OS_KEY_6; break;
-        case '7': key = OS_KEY_7; break;
-        case '8': key = OS_KEY_8; break;
-        case '9': key = OS_KEY_9; break;
-        default: break;
-      }
+      uint16_t scancode = HIWORD(lparam) & 0x1FF;
+      os_key key = convertKey(scancode);
+
       if (key != OS_KEY_COUNT) {
         bool pressed = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
-
-        if (state.onKey) {
-          bool repeat = !!(lparam & KF_REPEAT);
-          state.onKey(pressed ? BUTTON_PRESSED : BUTTON_RELEASED, key, 0, repeat);
-        }
+        os_button_action action = pressed ? BUTTON_PRESSED : BUTTON_RELEASED;
+        bool repeat = !!(HIWORD(lparam) & KF_REPEAT);
 
         state.keys[key] = pressed;
+        if (state.onKey) state.onKey(action, key, scancode, repeat);
       }
       break;
     }
