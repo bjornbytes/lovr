@@ -18,6 +18,7 @@ static struct {
   fn_focus* onFocus;
   fn_key* onKey;
   fn_text* onText;
+  fn_mouse_button* onMouseButton;
   WCHAR highSurrogate;
   bool keys[OS_KEY_COUNT];
   bool buttons[2];
@@ -318,17 +319,25 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       }
       break;
     case WM_LBUTTONDOWN:
-      state.buttons[MOUSE_LEFT] = true;
+    case WM_LBUTTONUP: {
+      bool down = message == WM_LBUTTONDOWN;
+      state.buttons[MOUSE_LEFT] = down;
+      if (state.onMouseButton) state.onMouseButton(0, down);
       break;
+    }
     case WM_RBUTTONDOWN:
-      state.buttons[MOUSE_RIGHT] = true;
+    case WM_RBUTTONUP: {
+      bool down = message == WM_RBUTTONDOWN;
+      state.buttons[MOUSE_RIGHT] = down;
+      if (state.onMouseButton) state.onMouseButton(1, down);
       break;
-    case WM_LBUTTONUP:
-      state.buttons[MOUSE_LEFT] = false;
+    }
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP: {
+      bool down = message == WM_MBUTTONDOWN;
+      if (state.onMouseButton) state.onMouseButton(2, down);
       break;
-    case WM_RBUTTONUP:
-      state.buttons[MOUSE_RIGHT] = false;
-      break;
+    }
   }
 
   return DefWindowProcW(window, message, param, lparam);
@@ -363,7 +372,7 @@ void os_on_text(fn_text* callback) {
 }
 
 void os_on_mouse_button(fn_mouse_button* callback) {
-  //
+  state.onMouseButton = callback;
 }
 
 void os_on_mouse_move(fn_mouse_move* callback) {
