@@ -207,15 +207,7 @@ World* lovrWorldCreate(WorldInfo* info) {
 
 void lovrWorldDestroy(void* ref) {
   World* world = ref;
-  lovrWorldDestroyData(world);
-  arr_free(&world->overlaps);
-  for (uint32_t i = 0; i < MAX_TAGS && world->tags[i]; i++) {
-    lovrFree(world->tags[i]);
-  }
-  lovrFree(world);
-}
 
-void lovrWorldDestroyData(World* world) {
   while (world->head) {
     Collider* next = world->head->next;
     lovrColliderDestroyData(world->head);
@@ -236,6 +228,12 @@ void lovrWorldDestroyData(World* world) {
     dWorldDestroy(world->id);
     world->id = NULL;
   }
+
+  arr_free(&world->overlaps);
+  for (uint32_t i = 0; i < MAX_TAGS && world->tags[i]; i++) {
+    lovrFree(world->tags[i]);
+  }
+  lovrFree(world);
 }
 
 uint32_t lovrWorldGetColliderCount(World* world) {

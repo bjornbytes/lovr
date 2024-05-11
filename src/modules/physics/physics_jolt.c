@@ -324,16 +324,6 @@ World* lovrWorldCreate(WorldInfo* info) {
 
 void lovrWorldDestroy(void* ref) {
   World* world = ref;
-  lovrWorldDestroyData(world);
-  for (uint32_t i = 0; i < world->tagCount; i++) {
-    lovrFree(world->tags[i]);
-  }
-  mtx_destroy(&world->lock);
-  lovrFree(world->activeColliders);
-  lovrFree(world);
-}
-
-void lovrWorldDestroyData(World* world) {
   while (world->colliders) {
     Collider* collider = world->colliders;
     Collider* next = collider->next;
@@ -343,6 +333,12 @@ void lovrWorldDestroyData(World* world) {
   if (world->listener) JPH_ContactListener_Destroy(world->listener);
   JPH_PhysicsSystem_Destroy(world->system);
   JPH_BodyActivationListener_Destroy(world->activationListener);
+  for (uint32_t i = 0; i < world->tagCount; i++) {
+    lovrFree(world->tags[i]);
+  }
+  mtx_destroy(&world->lock);
+  lovrFree(world->activeColliders);
+  lovrFree(world);
 }
 
 char** lovrWorldGetTags(World* world, uint32_t* count) {

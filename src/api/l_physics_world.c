@@ -223,12 +223,6 @@ static int l_lovrWorldNewTerrainCollider(lua_State* L) {
   return 1;
 }
 
-static int l_lovrWorldDestroy(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  lovrWorldDestroyData(world);
-  return 0;
-}
-
 static int l_lovrWorldGetTags(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   uint32_t count;
@@ -456,85 +450,6 @@ static int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
   return 1;
 }
 
-// Deprecated
-
-static int l_lovrWorldGetTightness(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float tightness = lovrWorldGetTightness(world);
-  lovrCheck(tightness >= 0, "Negative tightness factor causes simulation instability");
-  lua_pushnumber(L, tightness);
-  return 1;
-}
-
-static int l_lovrWorldSetTightness(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float tightness = luax_checkfloat(L, 2);
-  lovrWorldSetTightness(world, tightness);
-  return 0;
-}
-
-static int l_lovrWorldGetResponseTime(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float responseTime = lovrWorldGetResponseTime(world);
-  lua_pushnumber(L, responseTime);
-  return 1;
-}
-
-static int l_lovrWorldSetResponseTime(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float responseTime = luax_checkfloat(L, 2);
-  lovrCheck(responseTime >= 0, "Negative response time causes simulation instability");
-  lovrWorldSetResponseTime(world, responseTime);
-  return 0;
-}
-
-static int l_lovrWorldGetLinearDamping(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float damping, threshold;
-  lovrWorldGetLinearDamping(world, &damping, &threshold);
-  lua_pushnumber(L, damping);
-  lua_pushnumber(L, threshold);
-  return 2;
-}
-
-static int l_lovrWorldSetLinearDamping(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float damping = luax_checkfloat(L, 2);
-  float threshold = luax_optfloat(L, 3, 0.0f);
-  lovrWorldSetLinearDamping(world, damping, threshold);
-  return 0;
-}
-
-static int l_lovrWorldGetAngularDamping(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float damping, threshold;
-  lovrWorldGetAngularDamping(world, &damping, &threshold);
-  lua_pushnumber(L, damping);
-  lua_pushnumber(L, threshold);
-  return 2;
-}
-
-static int l_lovrWorldSetAngularDamping(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  float damping = luax_checkfloat(L, 2);
-  float threshold = luax_optfloat(L, 3, 0.0f);
-  lovrWorldSetAngularDamping(world, damping, threshold);
-  return 0;
-}
-
-static int l_lovrWorldIsSleepingAllowed(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  lua_pushboolean(L, lovrWorldIsSleepingAllowed(world));
-  return 1;
-}
-
-static int l_lovrWorldSetSleepingAllowed(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  bool allowed = lua_toboolean(L, 2);
-  lovrWorldSetSleepingAllowed(world, allowed);
-  return 0;
-}
-
 static int l_lovrWorldGetCallbacks(lua_State* L) {
   luax_checktype(L, 1, World);
   lua_settop(L, 1);
@@ -615,6 +530,91 @@ static int l_lovrWorldSetCallbacks(lua_State* L) {
   return 0;
 }
 
+// Deprecated
+
+static int l_lovrWorldDestroy(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lovrRelease(world, lovrWorldDestroy);
+  return 0;
+}
+
+static int l_lovrWorldGetTightness(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float tightness = lovrWorldGetTightness(world);
+  lovrCheck(tightness >= 0, "Negative tightness factor causes simulation instability");
+  lua_pushnumber(L, tightness);
+  return 1;
+}
+
+static int l_lovrWorldSetTightness(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float tightness = luax_checkfloat(L, 2);
+  lovrWorldSetTightness(world, tightness);
+  return 0;
+}
+
+static int l_lovrWorldGetResponseTime(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float responseTime = lovrWorldGetResponseTime(world);
+  lua_pushnumber(L, responseTime);
+  return 1;
+}
+
+static int l_lovrWorldSetResponseTime(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float responseTime = luax_checkfloat(L, 2);
+  lovrCheck(responseTime >= 0, "Negative response time causes simulation instability");
+  lovrWorldSetResponseTime(world, responseTime);
+  return 0;
+}
+
+static int l_lovrWorldGetLinearDamping(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float damping, threshold;
+  lovrWorldGetLinearDamping(world, &damping, &threshold);
+  lua_pushnumber(L, damping);
+  lua_pushnumber(L, threshold);
+  return 2;
+}
+
+static int l_lovrWorldSetLinearDamping(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float damping = luax_checkfloat(L, 2);
+  float threshold = luax_optfloat(L, 3, 0.0f);
+  lovrWorldSetLinearDamping(world, damping, threshold);
+  return 0;
+}
+
+static int l_lovrWorldGetAngularDamping(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float damping, threshold;
+  lovrWorldGetAngularDamping(world, &damping, &threshold);
+  lua_pushnumber(L, damping);
+  lua_pushnumber(L, threshold);
+  return 2;
+}
+
+static int l_lovrWorldSetAngularDamping(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  float damping = luax_checkfloat(L, 2);
+  float threshold = luax_optfloat(L, 3, 0.0f);
+  lovrWorldSetAngularDamping(world, damping, threshold);
+  return 0;
+}
+
+static int l_lovrWorldIsSleepingAllowed(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lua_pushboolean(L, lovrWorldIsSleepingAllowed(world));
+  return 1;
+}
+
+static int l_lovrWorldSetSleepingAllowed(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  bool allowed = lua_toboolean(L, 2);
+  lovrWorldSetSleepingAllowed(world, allowed);
+  return 0;
+}
+
 static int l_lovrWorldGetStepCount(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   int iterations = lovrWorldGetStepCount(world);
@@ -638,7 +638,6 @@ const luaL_Reg lovrWorld[] = {
   { "newSphereCollider", l_lovrWorldNewSphereCollider },
   { "newMeshCollider", l_lovrWorldNewMeshCollider },
   { "newTerrainCollider", l_lovrWorldNewTerrainCollider },
-  { "destroy", l_lovrWorldDestroy },
   { "getTags", l_lovrWorldGetTags },
   { "getColliderCount", l_lovrWorldGetColliderCount },
   { "getJointCount", l_lovrWorldGetJointCount },
@@ -659,6 +658,7 @@ const luaL_Reg lovrWorld[] = {
   { "setCallbacks", l_lovrWorldSetCallbacks },
 
   // Deprecated
+  { "destroy", l_lovrWorldDestroy },
   { "getTightness", l_lovrWorldGetTightness },
   { "setTightness", l_lovrWorldSetTightness },
   { "getResponseTime", l_lovrWorldGetResponseTime },

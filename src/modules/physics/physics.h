@@ -76,7 +76,6 @@ typedef void QueryCallback(void* userdata, Collider* collider);
 
 World* lovrWorldCreate(WorldInfo* info);
 void lovrWorldDestroy(void* ref);
-void lovrWorldDestroyData(World* world);
 char** lovrWorldGetTags(World* world, uint32_t* count);
 uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length);
 uint32_t lovrWorldGetColliderCount(World* world);
