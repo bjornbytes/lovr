@@ -403,7 +403,7 @@ src += config.modules.thread and 'src/core/job.c' or nil
 
 -- embed resource files with xxd
 
-res = { 'etc/boot.lua', 'etc/*.ttf', 'etc/shaders/*.glsl' }
+res = { 'etc/boot.lua', 'etc/*.ttf', 'etc/shaders/*.glsl', 'src/api/l_math.lua' }
 tup.foreach_rule(res, '^ XD %b^ xxd -i %f > %o', '%f.h')
 
 for i, pattern in ipairs(res) do

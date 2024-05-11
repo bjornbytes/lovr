@@ -1,5 +1,6 @@
 #include "api.h"
 #include "math/math.h"
+#include "l_math.lua.h"
 #include "util.h"
 #include <threads.h>
 #include <stdlib.h>
@@ -423,6 +424,14 @@ int luaopen_lovr_math(lua_State* L) {
     lua_pop(L, 1);
   }
   lua_pop(L, 1);
+
+  if (!luaL_loadbuffer(L, (const char*) src_api_l_math_lua, src_api_l_math_lua_len, "@math.lua")) {
+    lua_pushvalue(L, -2);
+    lua_call(L, 1, 0);
+  } else {
+    lovrThrow("%s", lua_tostring(L, -1));
+    lua_pop(L, 1);
+  }
 
   return 1;
 }
