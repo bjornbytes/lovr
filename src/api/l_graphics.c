@@ -667,7 +667,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     format->stride = luax_optu32(L, -1, 0);
     lua_pop(L, 1);
   } else {
-    return luax_typeerror(L, 1, "number, Blob, table, or string");
+    return luax_typeerror(L, 1, "number, Blob, table, or string"), 0;
   }
 
   // Length/size
@@ -699,7 +699,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
           hasData = true;
           break;
         }
-        return luax_typeerror(L, 2, "nil, number, vector, table, or Blob");
+        return luax_typeerror(L, 2, "nil, number, vector, table, or Blob"), 0;
     }
   }
 
@@ -1377,7 +1377,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
         hasData = true;
         break;
       }
-    default: return luax_typeerror(L, index, "number, table, Blob, or Buffer");
+    default: return luax_typeerror(L, index, "number, table, Blob, or Buffer"), 0;
   }
 
   if (info.vertexBuffer) {

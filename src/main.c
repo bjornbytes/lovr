@@ -3,7 +3,7 @@
 #include "core/os.h"
 #include "util.h"
 #include "boot.lua.h"
-#include <lualib.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
@@ -34,7 +34,8 @@ int main(int argc, char** argv) {
     lua_setglobal(L, "arg");
 
     lua_pushcfunction(L, luax_getstack);
-    if (luaL_loadbuffer(L, (const char*) etc_boot_lua, etc_boot_lua_len, "@boot.lua") || lua_pcall(L, 0, 1, -2)) {
+    int status = luax_loadbufferx(L, (const char*) etc_boot_lua, etc_boot_lua_len, "@boot.lua", NULL);
+    if (status != 0 || lua_pcall(L, 0, 1, -2)) {
       fprintf(stderr, "%s\n", lua_tostring(L, -1));
       os_destroy();
       return 1;

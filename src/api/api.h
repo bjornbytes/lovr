@@ -87,7 +87,11 @@ typedef struct {
 
 #ifdef LOVR_USE_LUAU
 #undef lua_pushcfunction
+#undef lua_pushcclosure
 #define lua_pushcfunction(L, fn) lua_pushcclosurek(L, fn, NULL, 0, NULL)
+#define lua_pushcclosure(L, fn, n) lua_pushcclosurek(L, fn, NULL, n, NULL)
+#define luaL_ref lua_ref
+#define luaL_unref lua_unref
 #endif
 
 #if LUA_VERSION_NUM > 501

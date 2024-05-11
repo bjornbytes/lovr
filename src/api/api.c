@@ -1,5 +1,8 @@
 #include "api.h"
 #include "util.h"
+#ifdef LOVR_USE_LUAU
+#include <luacode.h>
+#endif
 #include "lib/lua/lutf8lib.h"
 #include <stdlib.h>
 #include <stdarg.h>
@@ -303,7 +306,9 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
 }
 
 int luax_resume(lua_State* T, int n) {
-#if LUA_VERSION_NUM >= 504
+#ifdef LOVR_USE_LUAU
+  return lua_resume(T, NULL, n);
+#elif LUA_VERSION_NUM >= 504
   int results;
   return lua_resume(T, NULL, n, &results);
 #elif LUA_VERSION_NUM >= 502
@@ -314,7 +319,13 @@ int luax_resume(lua_State* T, int n) {
 }
 
 int luax_loadbufferx(lua_State* L, const char* buffer, size_t size, const char* name, const char* mode) {
-#if LUA_VERSION_NUM >= 502
+#ifdef LOVR_USE_LUAU
+  size_t bytecodeSize = 0;
+  char* bytecode = luau_compile(buffer, size, NULL, &bytecodeSize);
+  int result = luau_load(L, name, bytecode, bytecodeSize, 0);
+  free(bytecode);
+  return result;
+#elif LUA_VERSION_NUM >= 502
   return luaL_loadbufferx(L, buffer, size, name, mode);
 #else
   bool binary = buffer[0] == LUA_SIGNATURE[0];

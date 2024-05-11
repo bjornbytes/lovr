@@ -109,10 +109,11 @@ endif()
 
 # Lua
 if(LOVR_USE_LUAU)
+  set(LOVR_ENABLE_UTF8 OFF)
   set(LUAU_BUILD_TESTS OFF CACHE BOOL "")
   set(LUAU_BUILD_CLI OFF CACHE BOOL "")
   set(LUAU_EXTERN_C ON CACHE BOOL "")
-  add_subdirectory(deps/luau)
+  add_subdirectory(deps/luau luau)
   set(LOVR_LUA Luau.VM Luau.Compiler Luau.Ast)
 elseif(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
   if(LOVR_SYSTEM_LUA)

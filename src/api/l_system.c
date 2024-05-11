@@ -292,21 +292,21 @@ static int l_lovrSystemGetMousePosition(lua_State* L) {
 }
 
 static int l_lovrSystemIsMouseDown(lua_State* L) {
-  int button = luaL_checkint(L, 1) - 1;
+  int button = luaL_checkinteger(L, 1) - 1;
   bool down = lovrSystemIsMouseDown(button);
   lua_pushboolean(L, down);
   return 1;
 }
 
 static int l_lovrSystemWasMousePressed(lua_State* L) {
-  int button = luaL_checkint(L, 1) - 1;
+  int button = luaL_checkinteger(L, 1) - 1;
   bool pressed = lovrSystemWasMousePressed(button);
   lua_pushboolean(L, pressed);
   return 1;
 }
 
 static int l_lovrSystemWasMouseReleased(lua_State* L) {
-  int button = luaL_checkint(L, 1) - 1;
+  int button = luaL_checkinteger(L, 1) - 1;
   bool released = lovrSystemWasMouseReleased(button);
   lua_pushboolean(L, released);
   return 1;
