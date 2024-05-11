@@ -34,3 +34,6 @@
 [submodule "deps/tracy"]
 	path = deps/tracy
 	url = https://github.com/wolfpld/tracy
+[submodule "deps/luau"]
+	path = deps/luau
+	url = https://github.com/luau-lang/luau

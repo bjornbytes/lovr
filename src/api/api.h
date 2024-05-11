@@ -3,7 +3,11 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <lua.h>
+#ifdef LOVR_USE_LUAU
+#include <lualib.h>
+#else
 #include <lauxlib.h>
+#endif
 
 #pragma once
 
@@ -80,6 +84,11 @@ typedef struct {
   uint64_t hash;
   void* object;
 } Proxy;
+
+#ifdef LOVR_USE_LUAU
+#undef lua_pushcfunction
+#define lua_pushcfunction(L, fn) lua_pushcclosurek(L, fn, NULL, 0, NULL)
+#endif
 
 #if LUA_VERSION_NUM > 501
 #define luax_len(L, i) (int) lua_rawlen(L, i)
