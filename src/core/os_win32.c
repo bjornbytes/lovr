@@ -224,7 +224,7 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
         bool pressed = message == WM_KEYDOWN;
 
         if (state.onKey) {
-          bool repeat = pressed && state.keys[key];
+          bool repeat = !!(lparam & KF_REPEAT);
           state.onKey(pressed ? BUTTON_PRESSED : BUTTON_RELEASED, key, 0, repeat);
         }
 
