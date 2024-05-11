@@ -17,6 +17,8 @@ static struct {
   fn_quit* onQuit;
   fn_focus* onFocus;
   fn_key* onKey;
+  fn_text* onText;
+  WCHAR highSurrogate;
   bool keys[OS_KEY_COUNT];
   bool buttons[2];
   bool focused;
@@ -303,6 +305,18 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       }
       break;
     }
+    case WM_CHAR:
+      if (param >= 0xD800 && param <= 0xDBFF) {
+        state.highSurrogate = (WCHAR) param;
+      } else {
+        uint32_t codepoint = param;
+        if (param >= 0xDC00 && param <= 0xDFFF && state.highSurrogate != 0) {
+          codepoint = ((state.highSurrogate - 0xD800) << 10) + (param - 0xDC00) + 0x10000;
+          state.highSurrogate = 0;
+        }
+        if (state.onText && codepoint >= 32) state.onText(codepoint);
+      }
+      break;
     case WM_LBUTTONDOWN:
       state.buttons[MOUSE_LEFT] = true;
       break;
@@ -345,7 +359,7 @@ void os_on_key(fn_key* callback) {
 }
 
 void os_on_text(fn_text* callback) {
-  //
+  state.onText = callback;
 }
 
 void os_on_mouse_button(fn_mouse_button* callback) {
