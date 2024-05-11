@@ -179,7 +179,9 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       state.focused = false;
       break;
     case WM_KEYDOWN:
-    case WM_KEYUP: {
+    case WM_KEYUP:
+    case WM_SYSKEYDOWN:
+    case WM_SYSKEYUP: {
       os_key key = OS_KEY_COUNT;
       switch (param) {
         case 'A': key = OS_KEY_A; break;
@@ -221,7 +223,7 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
         default: break;
       }
       if (key != OS_KEY_COUNT) {
-        bool pressed = message == WM_KEYDOWN;
+        bool pressed = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
 
         if (state.onKey) {
           bool repeat = !!(lparam & KF_REPEAT);
