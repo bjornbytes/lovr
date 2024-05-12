@@ -3,6 +3,7 @@
 #define WINVER 0x0600
 #define _WIN32_WINNT 0x0600
 #include <windows.h>
+#include <windowsx.h>
 #include <shellapi.h>
 #include <knownfolders.h>
 #include <shlobj.h>
@@ -19,6 +20,7 @@ static struct {
   fn_key* onKey;
   fn_text* onText;
   fn_mouse_button* onMouseButton;
+  fn_mouse_move* onMouseMove;
   WCHAR highSurrogate;
   bool keys[OS_KEY_COUNT];
   bool buttons[2];
@@ -338,6 +340,12 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       if (state.onMouseButton) state.onMouseButton(2, down);
       break;
     }
+    case WM_MOUSEMOVE: {
+      int32_t x = GET_X_LPARAM(lparam);
+      int32_t y = GET_Y_LPARAM(lparam);
+      if (state.onMouseMove) state.onMouseMove(x, y);
+      break;
+    }
   }
 
   return DefWindowProcW(window, message, param, lparam);
@@ -376,7 +384,7 @@ void os_on_mouse_button(fn_mouse_button* callback) {
 }
 
 void os_on_mouse_move(fn_mouse_move* callback) {
-  //
+  state.onMouseMove = callback;
 }
 
 void os_on_mousewheel_move(fn_mousewheel_move* callback) {
