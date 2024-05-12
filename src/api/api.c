@@ -1,8 +1,6 @@
 #include "api.h"
 #include "util.h"
 #include "lib/lua/lutf8lib.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>

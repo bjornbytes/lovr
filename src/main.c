@@ -3,8 +3,6 @@
 #include "core/os.h"
 #include "util.h"
 #include "boot.lua.h"
-#include <lua.h>
-#include <lauxlib.h>
 #include <lualib.h>
 #include <stdbool.h>
 #include <string.h>
