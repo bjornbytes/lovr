@@ -173,7 +173,6 @@ typedef struct {
   uint32_t size;
   uint32_t fieldCount;
   DataField* format;
-  const char* label;
   uintptr_t handle;
 } BufferInfo;
 

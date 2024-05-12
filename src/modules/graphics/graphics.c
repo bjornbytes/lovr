@@ -727,10 +727,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   float data[] = { 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f };
 
-  state.defaultBuffer = lovrBufferCreate(&(BufferInfo) {
-    .size = sizeof(data),
-    .label = "Default Buffer"
-  }, NULL);
+  state.defaultBuffer = lovrBufferCreate(&(BufferInfo) { .size = sizeof(data), }, NULL);
 
   beginFrame();
   BufferView view = getBuffer(GPU_BUFFER_UPLOAD, sizeof(data), 4);
@@ -2165,6 +2162,13 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   texture->info.mipmaps = mipmaps;
   texture->info.srgb = srgb;
 
+  if (info->label) {
+    size_t size = strlen(info->label) + 1;
+    char* label = lovrMalloc(size);
+    memcpy(label, info->label, size);
+    texture->info.label = label;
+  }
+
   uint32_t levelCount = 0;
   uint32_t levelOffsets[16];
   uint32_t levelSizes[16];
@@ -2296,6 +2300,13 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->info = *base;
 
+  if (info->label) {
+    size_t size = strlen(info->label) + 1;
+    char* label = lovrMalloc(size);
+    memcpy(label, info->label, size);
+    texture->info.label = label;
+  }
+
   texture->root = parent->root;
   texture->baseLayer = parent->baseLayer + info->layerIndex;
   texture->baseLevel = parent->baseLevel + info->levelIndex;
@@ -2372,6 +2383,7 @@ void lovrTextureDestroy(void* ref) {
     if (texture->storageView && texture->storageView != texture->gpu) gpu_texture_destroy(texture->storageView);
     if (texture->gpu) gpu_texture_destroy(texture->gpu);
   }
+  lovrFree((char*) texture->info.label);
   lovrFree(texture);
 }
 
@@ -2856,6 +2868,13 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
 
+  if (info->label) {
+    size_t size = strlen(info->label) + 1;
+    char* label = lovrMalloc(size);
+    memcpy(label, info->label, size);
+    shader->info.label = label;
+  }
+
   // Validate stage combinations
   for (uint32_t i = 0; i < info->stageCount; i++) {
     shader->stageMask |= (1 << info->stages[i].stage);
@@ -3265,6 +3284,7 @@ void lovrShaderDestroy(void* ref) {
     lovrFree(shader->resources);
     lovrFree(shader->fields);
     lovrFree(shader->names);
+    lovrFree((char*) shader->info.label);
   }
   lovrFree(shader->flags);
   lovrFree(shader->flagLookup);

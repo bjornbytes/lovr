@@ -4,6 +4,13 @@
 #include "data/image.h"
 #include <string.h>
 
+static int l_lovrTextureGetLabel(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  const TextureInfo* info = lovrTextureGetInfo(texture);
+  lua_pushstring(L, info->label);
+  return 1;
+}
+
 static int l_lovrTextureGetType(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* info = lovrTextureGetInfo(texture);
@@ -199,6 +206,7 @@ static int l_lovrTextureGenerateMipmaps(lua_State* L) {
 }
 
 const luaL_Reg lovrTexture[] = {
+  { "getLabel", l_lovrTextureGetLabel },
   { "getType", l_lovrTextureGetType },
   { "getFormat", l_lovrTextureGetFormat },
   { "getWidth", l_lovrTextureGetWidth },
