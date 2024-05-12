@@ -35,7 +35,6 @@ void lovrCurveRemovePoint(Curve* curve, size_t index);
 
 typedef enum {
   V_NONE,
-  V_VEC2,
   V_VEC3,
   V_VEC4,
   V_QUAT,

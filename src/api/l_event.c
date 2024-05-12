@@ -99,7 +99,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
         } else {
           variant->type = TYPE_VECTOR;
           variant->value.vector.type = type;
-          memcpy(variant->value.vector.data, v, (type == V_VEC2 ? 2 : 4) * sizeof(float));
+          memcpy(variant->value.vector.data, v, 4 * sizeof(float));
           break;
         }
       } else if (lua_type(L, index) == LUA_TLIGHTUSERDATA) {
@@ -125,7 +125,7 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_MINISTRING: lua_pushlstring(L, variant->value.ministring.data, variant->value.ministring.length); return 1;
     case TYPE_POINTER: lua_pushlightuserdata(L, variant->value.pointer); return 1;
     case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash64(variant->value.object.type, strlen(variant->value.object.type)), variant->value.object.pointer); return 1;
-    case TYPE_VECTOR: memcpy(luax_newtempvector(L, variant->value.vector.type), variant->value.vector.data, (variant->value.vector.type == V_VEC2 ? 2 : 4) * sizeof(float)); return 1;
+    case TYPE_VECTOR: memcpy(luax_newtempvector(L, variant->value.vector.type), variant->value.vector.data, 4 * sizeof(float)); return 1;
     case TYPE_MATRIX: memcpy(luax_newtempvector(L, V_MAT4), variant->value.vector.data, 16 * sizeof(float)); return 1;
     default: return 0;
   }

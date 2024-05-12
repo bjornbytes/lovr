@@ -10,94 +10,10 @@
 #define M_PI 3.14159265358979
 #endif
 
-typedef float* vec2;
 typedef float* vec3;
 typedef float* vec4;
 typedef float* quat;
 typedef float* mat4;
-
-// vec2
-
-MAF vec2 vec2_set(vec2 v, float x, float y) {
-  v[0] = x;
-  v[1] = y;
-  return v;
-}
-
-MAF vec2 vec2_init(vec2 v, const vec2 u) {
-  return memcpy(v, u, 2 * sizeof(float));
-}
-
-MAF vec2 vec2_add(vec2 v, const vec2 u) {
-  v[0] += u[0];
-  v[1] += u[1];
-  return v;
-}
-
-MAF vec2 vec2_sub(vec2 v, const vec2 u) {
-  v[0] -= u[0];
-  v[1] -= u[1];
-  return v;
-}
-
-MAF vec2 vec2_mul(vec2 v, const vec2 u) {
-  v[0] *= u[0];
-  v[1] *= u[1];
-  return v;
-}
-
-MAF vec2 vec2_div(vec2 v, const vec2 u) {
-  v[0] /= u[0];
-  v[1] /= u[1];
-  return v;
-}
-
-MAF vec2 vec2_scale(vec2 v, float s) {
-  v[0] *= s;
-  v[1] *= s;
-  return v;
-}
-
-MAF float vec2_length(vec2 v) {
-  return sqrtf(v[0] * v[0] + v[1] * v[1]);
-}
-
-MAF vec2 vec2_normalize(vec2 v) {
-  float length = vec2_length(v);
-  return length == 0.f ? v : vec2_scale(v, 1.f / length);
-}
-
-MAF float vec2_distance2(const vec2 v, const vec2 u) {
-  float dx = v[0] - u[0];
-  float dy = v[1] - u[1];
-  return dx * dx + dy * dy;
-}
-
-MAF float vec2_distance(const vec2 v, const vec2 u) {
-  return sqrtf(vec2_distance2(v, u));
-}
-
-MAF float vec2_dot(const vec2 v, const vec2 u) {
-  return v[0] * u[0] + v[1] * u[1];
-}
-
-MAF vec2 vec2_lerp(vec2 v, const vec2 u, float t) {
-  v[0] = v[0] * (1.f - t) + u[0] * t;
-  v[1] = v[1] * (1.f - t) + u[1] * t;
-  return v;
-}
-
-MAF float vec2_angle(const vec2 v, const vec2 u) {
-  float denom = vec2_length(v) * vec2_length(u);
-  if (denom == 0.f) {
-    return (float) M_PI / 2.f;
-  } else {
-    float cos = vec2_dot(v, u) / denom;
-    cos = cos < -1.f ? -1.f : cos;
-    cos = cos > 1.f ? 1.f : cos;
-    return acosf(cos);
-  }
-}
 
 // vec3
 
@@ -218,7 +134,7 @@ MAF vec4 vec4_init(vec4 v, const vec4 u) {
   return memcpy(v, u, 4 * sizeof(float));
 }
 
-MAF vec2 vec4_add(vec4 v, const vec4 u) {
+MAF vec4 vec4_add(vec4 v, const vec4 u) {
   v[0] += u[0];
   v[1] += u[1];
   v[2] += u[2];

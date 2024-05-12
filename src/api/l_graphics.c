@@ -1208,16 +1208,13 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     float shift = lua_tonumber(L, -1);
     info.data.uvShift[0] = shift;
     info.data.uvShift[1] = shift;
-  } else if (lua_type(L, -1) == LUA_TTABLE) {
+  } else {
+    luaL_checktype(L, -1, LUA_TTABLE);
     lua_rawgeti(L, -1, 1);
     lua_rawgeti(L, -2, 2);
     info.data.uvShift[0] = luax_optfloat(L, -2, 0.f);
     info.data.uvShift[1] = luax_optfloat(L, -1, 0.f);
     lua_pop(L, 2);
-  } else if (!lua_isnil(L, -1)) {
-    float* v = luax_checkvector(L, -1, V_VEC2, "vec2, table, or nil");
-    info.data.uvShift[0] = v[0];
-    info.data.uvShift[1] = v[1];
   }
   lua_pop(L, 1);
 
@@ -1229,16 +1226,13 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     float scale = lua_tonumber(L, -1);
     info.data.uvScale[0] = scale;
     info.data.uvScale[1] = scale;
-  } else if (lua_type(L, -1) == LUA_TTABLE) {
+  } else {
+    luaL_checktype(L, -1, LUA_TTABLE);
     lua_rawgeti(L, -1, 1);
     lua_rawgeti(L, -2, 2);
     info.data.uvScale[0] = luax_optfloat(L, -2, 1.f);
     info.data.uvScale[1] = luax_optfloat(L, -1, 1.f);
     lua_pop(L, 2);
-  } else {
-    float* v = luax_checkvector(L, -1, V_VEC2, "vec2, table, or nil");
-    info.data.uvScale[0] = v[0];
-    info.data.uvScale[1] = v[1];
   }
   lua_pop(L, 1);
 
