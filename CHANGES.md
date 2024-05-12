@@ -56,6 +56,7 @@ dev
 - Add `Shape:getMass/Volume/Inertia/CenterOfMass`.
 - Add motor support to `HingeJoint` and `SliderJoint`.
 - Add support for creating a `MeshShape` from a `ModelData`.
+- Add `Texture:getLabel` and `Shader:getLabel`.
 
 ### Change
 
