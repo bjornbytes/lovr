@@ -41,7 +41,6 @@ dev
 - Add `Collider:get/setCenterOfMass`.
 - Add `Collider:resetMassData`.
 - Add `Collider:is/setEnabled`.
-- Add `CompoundShape`.
 - Add `ConvexShape`.
 - Add `WeldJoint`.
 - Add `ConeJoint`.

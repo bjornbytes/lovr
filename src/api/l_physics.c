@@ -11,7 +11,6 @@ StringEntry lovrShapeType[] = {
   [SHAPE_CONVEX] = ENTRY("convex"),
   [SHAPE_MESH] = ENTRY("mesh"),
   [SHAPE_TERRAIN] = ENTRY("terrain"),
-  [SHAPE_COMPOUND] = ENTRY("compound"),
   { 0 }
 };
 
@@ -212,13 +211,6 @@ static int l_lovrPhysicsNewTerrainShape(lua_State* L) {
   return 1;
 }
 
-static int l_lovrPhysicsNewCompoundShape(lua_State* L) {
-  CompoundShape* shape = luax_newcompoundshape(L, 1);
-  luax_pushtype(L, CompoundShape, shape);
-  lovrRelease(shape, lovrShapeDestroy);
-  return 1;
-}
-
 static int l_lovrPhysicsNewWeldJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_totype(L, 2, Collider);
@@ -297,7 +289,6 @@ static const luaL_Reg lovrPhysics[] = {
   { "newConvexShape", l_lovrPhysicsNewConvexShape },
   { "newMeshShape", l_lovrPhysicsNewMeshShape },
   { "newTerrainShape", l_lovrPhysicsNewTerrainShape },
-  { "newCompoundShape", l_lovrPhysicsNewCompoundShape },
   { "newWeldJoint", l_lovrPhysicsNewWeldJoint },
   { "newBallJoint", l_lovrPhysicsNewBallJoint },
   { "newConeJoint", l_lovrPhysicsNewConeJoint },
@@ -317,7 +308,6 @@ extern const luaL_Reg lovrCylinderShape[];
 extern const luaL_Reg lovrConvexShape[];
 extern const luaL_Reg lovrMeshShape[];
 extern const luaL_Reg lovrTerrainShape[];
-extern const luaL_Reg lovrCompoundShape[];
 extern const luaL_Reg lovrWeldJoint[];
 extern const luaL_Reg lovrBallJoint[];
 extern const luaL_Reg lovrConeJoint[];
@@ -338,7 +328,6 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, ConvexShape);
   luax_registertype(L, MeshShape);
   luax_registertype(L, TerrainShape);
-  luax_registertype(L, CompoundShape);
   luax_registertype(L, WeldJoint);
   luax_registertype(L, BallJoint);
   luax_registertype(L, ConeJoint);

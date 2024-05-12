@@ -293,11 +293,11 @@ bool lovrWorldRaycast(World* world, float start[3], float end[3], uint32_t filte
   return false;
 }
 
-bool lovrWorldShapecast(World* world, Shape* shape, float pose[7], float scale, float end[3], uint32_t filter, CastCallback* callback, void* userdata) {
+bool lovrWorldShapecast(World* world, Shape* shape, float pose[7], float end[3], uint32_t filter, CastCallback* callback, void* userdata) {
   return false;
 }
 
-bool lovrWorldCollideShape(World* world, Shape* shape, float pose[7], float scale, uint32_t filter, CollideCallback* callback, void* userdata) {
+bool lovrWorldCollideShape(World* world, Shape* shape, float pose[7], uint32_t filter, CollideCallback* callback, void* userdata) {
   return false;
 }
 
@@ -436,7 +436,7 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   dBodySetData(collider->body, collider);
   arr_init(&collider->joints);
 
-  lovrColliderSetShape(collider, shape);
+  lovrColliderAddShape(collider, shape);
   lovrColliderSetPosition(collider, position);
 
   // Adjust the world's collider list
@@ -464,8 +464,6 @@ void lovrColliderDestroyData(Collider* collider) {
   if (!collider->body) {
     return;
   }
-
-  lovrColliderSetShape(collider, NULL);
 
   Joint** joints = collider->joints.data;
   size_t count = collider->joints.length;
@@ -501,31 +499,12 @@ World* lovrColliderGetWorld(Collider* collider) {
   return collider->world;
 }
 
-Shape* lovrColliderGetShape(Collider* collider) {
-  return collider->shape;
+Shape* lovrColliderGetShapes(Collider* collider, Shape* shape) {
+  return NULL;
 }
 
-void lovrColliderSetShape(Collider* collider, Shape* shape) {
-  if (collider->shape) {
-    dSpaceRemove(collider->world->space, collider->shape->id);
-    dGeomSetBody(collider->shape->id, 0);
-    collider->shape->collider = NULL;
-    lovrRelease(collider->shape, lovrShapeDestroy);
-  }
-
-  collider->shape = shape;
-
-  if (shape) {
-    if (shape->collider) {
-      lovrColliderSetShape(shape->collider, NULL);
-    }
-
-    shape->collider = collider;
-    dGeomSetBody(shape->id, collider->body);
-    dSpaceID newSpace = collider->world->space;
-    dSpaceAdd(newSpace, shape->id);
-    lovrRetain(shape);
-  }
+void lovrColliderAddShape(Collider* collider, Shape* shape) {
+  //
 }
 
 Joint* lovrColliderGetJoints(Collider* collider, Joint* joint) {
@@ -633,10 +612,10 @@ float lovrColliderGetMass(Collider* collider) {
   return m.mass;
 }
 
-void lovrColliderSetMass(Collider* collider, float* mass) {
+void lovrColliderSetMass(Collider* collider, float mass) {
   dMass m;
   dBodyGetMass(collider->body, &m);
-  dMassAdjust(&m, *mass);
+  dMassAdjust(&m, mass);
   dBodySetMass(collider->body, &m);
 }
 
@@ -653,6 +632,14 @@ void lovrColliderGetCenterOfMass(Collider* collider, float center[3]) {
 }
 
 void lovrColliderSetCenterOfMass(Collider* collider, float center[3]) {
+  //
+}
+
+bool lovrColliderGetAutomaticMass(Collider* collider) {
+  return false;
+}
+
+void lovrColliderSetAutomaticMass(Collider* collider, bool enable) {
   //
 }
 
@@ -913,6 +900,14 @@ void lovrShapeDestroy(void* ref) {
   lovrFree(shape);
 }
 
+void lovrShapeDestroyData(Shape* shape) {
+  //
+}
+
+bool lovrShapeIsDestroyed(Shape* shape) {
+  return false;
+}
+
 ShapeType lovrShapeGetType(Shape* shape) {
   return shape->type;
 }
@@ -949,7 +944,12 @@ void lovrShapeGetMassData(Shape* shape, float* mass, float inertia[9], float cen
   //
 }
 
-void lovrShapeGetAABB(Shape* shape, float position[3], float orientation[4], float aabb[6]) {
+void lovrShapeGetOffset(Shape* shape, float position[3], float orientation[4]) {}
+void lovrShapeSetOffset(Shape* shape, float position[3], float orientation[4]) {}
+void lovrShapeGetPosition(Shape* shape, float position[3]) {}
+void lovrShapeGetOrientation(Shape* shape, float orientation[4]) {}
+
+void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   dGeomGetAABB(shape->id, aabb);
 }
 
@@ -1035,6 +1035,10 @@ ConvexShape* lovrConvexShapeCreate(float positions[], uint32_t count) {
   lovrThrow("ODE does not support ConvexShape");
 }
 
+ConvexShape* lovrConvexShapeClone(ConvexShape* parent) {
+  return NULL;
+}
+
 uint32_t lovrConvexShapeGetPointCount(ConvexShape* convex) {
   return 0;
 }
@@ -1065,6 +1069,10 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float* vertices, int indexCount,
   return mesh;
 }
 
+MeshShape* lovrMeshShapeClone(MeshShape* parent) {
+  return NULL;
+}
+
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY) {
   const float thickness = 10.f;
   TerrainShape* terrain = lovrCalloc(sizeof(TerrainShape));
@@ -1075,42 +1083,6 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
   terrain->type = SHAPE_TERRAIN;
   dGeomSetData(terrain->id, terrain);
   return terrain;
-}
-
-CompoundShape* lovrCompoundShapeCreate(Shape** shapes, float* positions, float* orientations, uint32_t count, bool freeze) {
-  lovrThrow("ODE does not support CompoundShape");
-}
-
-bool lovrCompoundShapeIsFrozen(CompoundShape* shape) {
-  return false;
-}
-
-void lovrCompoundShapeAddChild(CompoundShape* shape, Shape* child, float* position, float* orientation) {
-  //
-}
-
-void lovrCompoundShapeReplaceChild(CompoundShape* shape, uint32_t index, Shape* child, float* position, float* orientation) {
-  //
-}
-
-void lovrCompoundShapeRemoveChild(CompoundShape* shape, uint32_t index) {
-  //
-}
-
-Shape* lovrCompoundShapeGetChild(CompoundShape* shape, uint32_t index) {
-  return NULL;
-}
-
-uint32_t lovrCompoundShapeGetChildCount(CompoundShape* shape) {
-  return 0;
-}
-
-void lovrCompoundShapeGetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
-  //
-}
-
-void lovrCompoundShapeSetChildOffset(CompoundShape* shape, uint32_t index, float* position, float* orientation) {
-  //
 }
 
 void lovrJointDestroy(void* ref) {
