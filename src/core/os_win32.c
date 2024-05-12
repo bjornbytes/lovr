@@ -21,6 +21,7 @@ static struct {
   fn_text* onText;
   fn_mouse_button* onMouseButton;
   fn_mouse_move* onMouseMove;
+  fn_mouse_move* onWheelMove;
   WCHAR highSurrogate;
   bool keys[OS_KEY_COUNT];
   bool buttons[2];
@@ -346,6 +347,12 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       if (state.onMouseMove) state.onMouseMove(x, y);
       break;
     }
+    case WM_MOUSEWHEEL:
+      if (state.onWheelMove) state.onWheelMove(0., (double) (SHORT) HIWORD(param) / WHEEL_DELTA);
+      break;
+    case WM_MOUSEHWHEEL:
+      if (state.onWheelMove) state.onWheelMove(-(double) (SHORT) HIWORD(param) / WHEEL_DELTA, 0.);
+      break;
   }
 
   return DefWindowProcW(window, message, param, lparam);
@@ -388,7 +395,7 @@ void os_on_mouse_move(fn_mouse_move* callback) {
 }
 
 void os_on_mousewheel_move(fn_mousewheel_move* callback) {
-  //
+  state.onWheelMove = callback;
 }
 
 void os_on_permission(fn_permission* callback) {
