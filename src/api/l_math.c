@@ -11,21 +11,17 @@ int l_lovrRandomGeneratorRandomNormal(lua_State* L);
 int l_lovrRandomGeneratorGetSeed(lua_State* L);
 int l_lovrRandomGeneratorSetSeed(lua_State* L);
 int l_lovrVec3Set(lua_State* L);
-int l_lovrVec4Set(lua_State* L);
 int l_lovrQuatSet(lua_State* L);
 int l_lovrMat4Set(lua_State* L);
 int l_lovrVec3__metaindex(lua_State* L);
-int l_lovrVec4__metaindex(lua_State* L);
 int l_lovrQuat__metaindex(lua_State* L);
 int l_lovrMat4__metaindex(lua_State* L);
 static int l_lovrMathVec3(lua_State* L);
-static int l_lovrMathVec4(lua_State* L);
 static int l_lovrMathQuat(lua_State* L);
 static int l_lovrMathMat4(lua_State* L);
 extern const luaL_Reg lovrCurve[];
 extern const luaL_Reg lovrRandomGenerator[];
 extern const luaL_Reg lovrVec3[];
-extern const luaL_Reg lovrVec4[];
 extern const luaL_Reg lovrQuat[];
 extern const luaL_Reg lovrMat4[];
 
@@ -34,7 +30,6 @@ static thread_local int metaref[MAX_VECTOR_TYPES];
 
 static struct { const char* name; lua_CFunction constructor, indexer; const luaL_Reg* api; } lovrVectorInfo[] = {
   [V_VEC3] = { "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3 },
-  [V_VEC4] = { "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4 },
   [V_QUAT] = { "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat },
   [V_MAT4] = { "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4 }
 };
@@ -216,12 +211,6 @@ static int l_lovrMathNewVec3(lua_State* L) {
   return l_lovrVec3Set(L);
 }
 
-static int l_lovrMathNewVec4(lua_State* L) {
-  luax_newvector(L, V_VEC4, 4);
-  lua_insert(L, 1);
-  return l_lovrVec4Set(L);
-}
-
 static int l_lovrMathNewQuat(lua_State* L) {
   luax_newvector(L, V_QUAT, 4);
   lua_insert(L, 1);
@@ -238,12 +227,6 @@ static int l_lovrMathVec3(lua_State* L) {
   luax_newtempvector(L, V_VEC3);
   lua_replace(L, 1);
   return l_lovrVec3Set(L);
-}
-
-static int l_lovrMathVec4(lua_State* L) {
-  luax_newtempvector(L, V_VEC4);
-  lua_replace(L, 1);
-  return l_lovrVec4Set(L);
 }
 
 static int l_lovrMathQuat(lua_State* L) {
@@ -274,7 +257,6 @@ static const luaL_Reg lovrMath[] = {
   { "gammaToLinear", l_lovrMathGammaToLinear },
   { "linearToGamma", l_lovrMathLinearToGamma },
   { "newVec3", l_lovrMathNewVec3 },
-  { "newVec4", l_lovrMathNewVec4 },
   { "newQuat", l_lovrMathNewQuat },
   { "newMat4", l_lovrMathNewMat4 },
   { "drain", l_lovrMathDrain },
@@ -414,6 +396,11 @@ int luaopen_lovr_math(lua_State* L) {
         lua_pushvalue(L, -1);
         lua_setglobal(L, "vec2");
         lua_setglobal(L, "Vec2");
+
+        lua_getfield(L, -4, "vec4");
+        lua_pushvalue(L, -1);
+        lua_setglobal(L, "vec4");
+        lua_setglobal(L, "Vec4");
       }
       lua_pop(L, 1);
     }

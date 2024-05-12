@@ -489,7 +489,7 @@ void luax_readcolor(lua_State* L, int index, float color[4]) {
   }
 }
 
-// Like readcolor, but only consumes 1 argument (nil, hex, table, vec3, vec4), useful for table keys
+// Like readcolor, but only consumes 1 argument (nil, hex, table, vec3), useful for table keys
 void luax_optcolor(lua_State* L, int index, float color[4]) {
   switch (lua_type(L, index)) {
     case LUA_TNONE:
@@ -523,12 +523,9 @@ void luax_optcolor(lua_State* L, int index, float color[4]) {
         memcpy(color, v, 3 * sizeof(float));
         color[3] = 1.f;
         break;
-      } else if (type == V_VEC4) {
-        memcpy(color, v, 4 * sizeof(float));
-        break;
       }
     } /* fallthrough */
-    default: lovrThrow("Expected nil, number, table, vec3, or vec4 for color value");
+    default: lovrThrow("Expected nil, number, table, or vec3 for color value");
   }
 }
 
