@@ -205,7 +205,8 @@ int luax_typeerror(lua_State* L, int index, const char* expected) {
     name = luaL_typename(L, index);
   }
   const char* message = lua_pushfstring(L, "%s expected, got %s", expected, name);
-  return luaL_argerror(L, index, message);
+  luaL_argerror(L, index, message);
+  return 0;
 }
 
 // Registers the userdata on the top of the stack in the registry.
@@ -273,10 +274,12 @@ int _luax_checkenum(lua_State* L, int index, const StringEntry* map, const char*
   }
 
   if (index > 0) {
-    return luaL_argerror(L, index, lua_pushfstring(L, "invalid %s '%s'", label, string));
+    luaL_argerror(L, index, lua_pushfstring(L, "invalid %s '%s'", label, string));
   } else {
-    return luaL_error(L, "invalid %s '%s'", label, string);
+    luaL_error(L, "invalid %s '%s'", label, string);
   }
+
+  return 0;
 }
 
 void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
@@ -604,8 +607,9 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     return index + 1;
   }
 
-  return luaL_argerror(L, index, "table, ModelData, Model, or Mesh expected");
+  luaL_argerror(L, index, "table, ModelData, Model, or Mesh expected");
 #else
-  return luaL_argerror(L, index, "table or ModelData expected");
+  luaL_argerror(L, index, "table or ModelData expected");
 #endif
+  return 0;
 }

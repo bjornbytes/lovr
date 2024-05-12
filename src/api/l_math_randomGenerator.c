@@ -53,7 +53,7 @@ static int l_lovrRandomGeneratorSetState(lua_State* L) {
   RandomGenerator* generator = luax_checktype(L, 1, RandomGenerator);
   const char* state = luaL_checklstring(L, 2, NULL);
   if (lovrRandomGeneratorSetState(generator, state)) {
-    return luaL_error(L, "invalid random state %s", state);
+    luaL_error(L, "invalid random state %s", state);
   }
   return 0;
 }

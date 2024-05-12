@@ -332,7 +332,8 @@ static int l_lovrLightUserdataOp(lua_State* L) {
       return 1;
     }
     lua_pop(L, 1);
-    return luaL_error(L, "Unsupported lightuserdata operator %q", lua_tostring(L, lua_upvalueindex(1)));
+    luaL_error(L, "Unsupported lightuserdata operator %q", lua_tostring(L, lua_upvalueindex(1)));
+    return 0;
   }
 
   lua_rawgeti(L, LUA_REGISTRYINDEX, metaref[type]);

@@ -76,8 +76,8 @@ static int luax_loadfile(lua_State* L, const char* path, const char* debug, cons
   int status = luax_loadbufferx(L, buffer, size, debug, mode);
   lovrFree(buffer);
   switch (status) {
-    case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1));
-    case LUA_ERRSYNTAX: return luaL_error(L, "Syntax error: %s", lua_tostring(L, -1));
+    case LUA_ERRMEM: return luaL_error(L, "Memory allocation error: %s", lua_tostring(L, -1)), 0;
+    case LUA_ERRSYNTAX: return luaL_error(L, "Syntax error: %s", lua_tostring(L, -1)), 0;
     default: return 1;
   }
 }
@@ -219,7 +219,7 @@ static int l_lovrFilesystemGetSize(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   uint64_t size = lovrFilesystemGetSize(path);
   if (size == ~0ull) {
-    return luaL_error(L, "File does not exist");
+    return luaL_error(L, "File does not exist"), 0;
   }
   lua_pushinteger(L, size);
   return 1;

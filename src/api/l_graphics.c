@@ -218,7 +218,8 @@ static uint32_t luax_checkdatatype(lua_State* L, int index) {
   const char* string = luaL_checklstring(L, index, &length);
 
   if (length < 3) {
-    return luaL_error(L, "invalid DataType '%s'", string), 0;
+    luaL_error(L, "invalid DataType '%s'", string);
+    return 0;
   }
 
   // Deprecated: plurals are allowed and ignored
@@ -262,7 +263,8 @@ static uint32_t luax_checkdatatype(lua_State* L, int index) {
     }
   }
 
-  return luaL_error(L, "invalid DataType '%s'", string), 0;
+  luaL_error(L, "invalid DataType '%s'", string);
+  return 0;
 }
 
 uint32_t luax_checkcomparemode(lua_State* L, int index) {
@@ -854,7 +856,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
         }
         break;
       case LUA_TNIL: break;
-      default: return luaL_error(L, "Expected Texture usage to be a string, table, or nil");
+      default: luaL_error(L, "Expected Texture usage to be a string, table, or nil"); return 0;
     }
     lua_pop(L, 1);
 
