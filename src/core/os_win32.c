@@ -25,6 +25,8 @@ static struct {
   WCHAR highSurrogate;
   bool keys[OS_KEY_COUNT];
   bool buttons[2];
+  double mouseX;
+  double mouseY;
   bool focused;
   uint64_t frequency;
 } state;
@@ -342,9 +344,13 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       break;
     }
     case WM_MOUSEMOVE: {
-      int32_t x = GET_X_LPARAM(lparam);
-      int32_t y = GET_Y_LPARAM(lparam);
-      if (state.onMouseMove) state.onMouseMove(x, y);
+      double x = GET_X_LPARAM(lparam);
+      double y = GET_Y_LPARAM(lparam);
+      if (x != state.mouseX || y != state.mouseY) {
+        if (state.onMouseMove) state.onMouseMove(x, y);
+        state.mouseX = x;
+        state.mouseY = y;
+      }
       break;
     }
     case WM_MOUSEWHEEL:
