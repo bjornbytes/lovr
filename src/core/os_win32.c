@@ -460,22 +460,32 @@ bool os_window_open(const os_window_config* config) {
     return false;
   }
 
-  DWORD style = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
+  DWORD style = WS_VISIBLE;
+  uint32_t width, height;
 
-  if (!config->resizable) {
-    style &= ~WS_THICKFRAME;
+  if (config->fullscreen) {
+    style |= WS_POPUP;
+    width = GetSystemMetrics(SM_CXSCREEN);
+    height = GetSystemMetrics(SM_CYSCREEN);
+  } else {
+    style |= WS_OVERLAPPEDWINDOW;
+    width = config->width;
+    height = config->height;
+
+    if (!config->resizable) {
+      style &= ~WS_THICKFRAME;
+    }
   }
 
-  RECT rect = { 0, 0, config->width, config->height };
+  RECT rect = { 0, 0, width, height };
   AdjustWindowRect(&rect, style, FALSE);
 
   state.window = CreateWindowW(wc.lpszClassName, wtitle, style,
       CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top,
       NULL, NULL, state.instance, NULL);
 
-
-  state.width = config->width;
-  state.height = config->height;
+  state.width = width;
+  state.height = height;
   state.cursor = LoadCursor(NULL, IDC_ARROW);
 
   return !!state.window;
