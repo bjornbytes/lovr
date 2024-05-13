@@ -426,6 +426,7 @@ bool os_window_open(const os_window_config* config) {
   WNDCLASSW wc = {
     .lpfnWndProc = windowProc,
     .hInstance = state.instance,
+    .hCursor = LoadCursor(NULL, IDC_ARROW),
     .lpszClassName = L"LOVR"
   };
 
