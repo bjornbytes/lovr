@@ -14,9 +14,13 @@ static __declspec(thread) bool createdTimer;
 
 static struct {
   HINSTANCE instance;
+  HCURSOR cursor;
   HWND window;
+  uint32_t width;
+  uint32_t height;
   fn_quit* onQuit;
   fn_focus* onFocus;
+  fn_resize* onResize;
   fn_key* onKey;
   fn_text* onText;
   fn_mouse_button* onMouseButton;
@@ -73,7 +77,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev, LPSTR args, int show) {
 #endif
 
 bool os_init(void) {
-  state.instance = GetModuleHandle(NULL);;
+  state.instance = GetModuleHandle(NULL);
   LARGE_INTEGER f;
   QueryPerformanceFrequency(&f);
   state.frequency = f.QuadPart;
@@ -317,6 +321,18 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       if (state.onFocus) state.onFocus(false);
       state.focused = false;
       break;
+    case WM_EXITSIZEMOVE: {
+      RECT rect;
+      GetClientRect(state.window, &rect);
+      if (state.width != rect.right || state.height != rect.bottom) {
+        state.width = rect.right;
+        state.height = rect.bottom;
+        if (state.onResize) {
+          state.onResize(state.width, state.height);
+        }
+      }
+      break;
+    }
     case WM_KEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYDOWN:
@@ -344,6 +360,12 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
           state.highSurrogate = 0;
         }
         if (state.onText && codepoint >= 32) state.onText(codepoint);
+      }
+      break;
+    case WM_SETCURSOR:
+      if (LOWORD(lparam) == HTCLIENT) {
+        SetCursor(state.cursor);
+        return TRUE;
       }
       break;
     case WM_CAPTURECHANGED: state.captureMask = 0; break;
@@ -391,7 +413,7 @@ void os_on_focus(fn_focus* callback) {
 }
 
 void os_on_resize(fn_resize* callback) {
-  //
+  state.onResize = callback;
 }
 
 void os_on_key(fn_key* callback) {
@@ -426,7 +448,6 @@ bool os_window_open(const os_window_config* config) {
   WNDCLASSW wc = {
     .lpfnWndProc = windowProc,
     .hInstance = state.instance,
-    .hCursor = LoadCursor(NULL, IDC_ARROW),
     .lpszClassName = L"LOVR"
   };
 
@@ -445,9 +466,17 @@ bool os_window_open(const os_window_config* config) {
     style &= ~WS_THICKFRAME;
   }
 
+  RECT rect = { 0, 0, config->width, config->height };
+  AdjustWindowRect(&rect, style, FALSE);
+
   state.window = CreateWindowW(wc.lpszClassName, wtitle, style,
-      CW_USEDEFAULT, CW_USEDEFAULT, config->width, config->height,
+      CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top,
       NULL, NULL, state.instance, NULL);
+
+
+  state.width = config->width;
+  state.height = config->height;
+  state.cursor = LoadCursor(NULL, IDC_ARROW);
 
   return !!state.window;
 }
@@ -457,15 +486,8 @@ bool os_window_is_open() {
 }
 
 void os_window_get_size(uint32_t* width, uint32_t* height) {
-  if (state.window) {
-    RECT rect;
-    GetClientRect(state.window, &rect);
-    *width = rect.right;
-    *height = rect.bottom;
-  } else {
-    *width = 0;
-    *height = 0;
-  }
+  *width = state.width;
+  *height = state.height;
 }
 
 float os_window_get_pixel_density(void) {
@@ -486,14 +508,14 @@ void os_get_mouse_position(double* x, double* y) {
 
 void os_set_mouse_mode(os_mouse_mode mode) {
   if (mode == MOUSE_MODE_NORMAL) {
-    SetCursor(LoadCursorW(NULL, IDC_ARROW));
+    //SetCursor(state.cursor);
     ClipCursor(NULL);
   } else {
     RECT clip;
     GetClientRect(state.window, &clip);
     ClientToScreen(state.window, (POINT*) &clip.left);
     ClientToScreen(state.window, (POINT*) &clip.right);
-    SetCursor(NULL);
+    //SetCursor(NULL);
     ClipCursor(&clip);
   }
 }
