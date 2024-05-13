@@ -25,6 +25,7 @@ static struct {
   WCHAR highSurrogate;
   bool keys[OS_KEY_COUNT];
   bool buttons[2];
+  uint8_t captureMask;
   double mouseX;
   double mouseY;
   bool focused;
@@ -281,6 +282,28 @@ static os_key convertKey(uint16_t scancode) {
   }
 }
 
+static void mousePressed(uint8_t button) {
+  if (state.captureMask == 0) SetCapture(state.window);
+  state.captureMask |= (1 << button);
+
+  state.buttons[button] = true;
+
+  if (state.onMouseButton) {
+    state.onMouseButton(button, true);
+  }
+}
+
+static void mouseReleased(uint8_t button) {
+  state.captureMask &= ~(1 << button);
+  if (state.captureMask == 0) ReleaseCapture();
+
+  state.buttons[button] = false;
+
+  if (state.onMouseButton) {
+    state.onMouseButton(button, false);
+  }
+}
+
 static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPARAM lparam) {
   switch (message) {
     case WM_CLOSE:
@@ -323,26 +346,13 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
         if (state.onText && codepoint >= 32) state.onText(codepoint);
       }
       break;
-    case WM_LBUTTONDOWN:
-    case WM_LBUTTONUP: {
-      bool down = message == WM_LBUTTONDOWN;
-      state.buttons[MOUSE_LEFT] = down;
-      if (state.onMouseButton) state.onMouseButton(0, down);
-      break;
-    }
-    case WM_RBUTTONDOWN:
-    case WM_RBUTTONUP: {
-      bool down = message == WM_RBUTTONDOWN;
-      state.buttons[MOUSE_RIGHT] = down;
-      if (state.onMouseButton) state.onMouseButton(1, down);
-      break;
-    }
-    case WM_MBUTTONDOWN:
-    case WM_MBUTTONUP: {
-      bool down = message == WM_MBUTTONDOWN;
-      if (state.onMouseButton) state.onMouseButton(2, down);
-      break;
-    }
+    case WM_CAPTURECHANGED: state.captureMask = 0; break;
+    case WM_LBUTTONDOWN: mousePressed(0); break;
+    case WM_RBUTTONDOWN: mousePressed(1); break;
+    case WM_MBUTTONDOWN: mousePressed(2); break;
+    case WM_LBUTTONUP: mouseReleased(0); break;
+    case WM_RBUTTONUP: mouseReleased(1); break;
+    case WM_MBUTTONUP: mouseReleased(2); break;
     case WM_MOUSEMOVE: {
       double x = GET_X_LPARAM(lparam);
       double y = GET_Y_LPARAM(lparam);
