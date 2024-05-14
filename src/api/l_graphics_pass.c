@@ -701,13 +701,11 @@ static uint32_t luax_getvertexcount(lua_State* L, int index) {
     case LUA_TTABLE:
       lua_rawgeti(L, index, 1);
       int innerType = lua_type(L, -1);
+      lovrCheck(innerType == LUA_TNUMBER, "Expected table of numbers");
       lua_pop(L, 1);
-      return luax_len(L, index) / (innerType == LUA_TNUMBER ? 3 : 1);
-    case LUA_TUSERDATA:
-    case LUA_TLIGHTUSERDATA:
-      return lua_gettop(L) - index + 1;
+      return luax_len(L, index) / 3;
     default:
-      return luax_typeerror(L, index, "number, table, or vector");
+      return luax_typeerror(L, index, "number or table");
   }
 }
 
@@ -723,31 +721,10 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
       }
       break;
     case LUA_TTABLE:
-      lua_rawgeti(L, index, 1);
-      int innerType = lua_type(L, -1);
-      lua_pop(L, 1);
-      if (innerType == LUA_TNUMBER) {
-        for (uint32_t i = 0; i < 3 * count; i++) {
-          lua_rawgeti(L, index, i + 1);
-          *vertices++ = luax_tofloat(L, -1);
-          lua_pop(L, 1);
-        }
-      } else if (innerType == LUA_TUSERDATA || innerType == LUA_TLIGHTUSERDATA) {
-        for (uint32_t i = 0; i < count; i++) {
-          lua_rawgeti(L, index, i + 1);
-          float* v = luax_checkvector(L, -1, V_VEC3, NULL);
-          memcpy(vertices, v, 3 * sizeof(float));
-          vertices += 3;
-          lua_pop(L, 1);
-        }
-      }
-      break;
-    case LUA_TUSERDATA:
-    case LUA_TLIGHTUSERDATA:
-      for (uint32_t i = 0; i < count; i++) {
-        float *v = luax_checkvector(L, index + i, V_VEC3, NULL);
-        memcpy(vertices, v, 3 * sizeof(float));
-        vertices += 3;
+      for (uint32_t i = 0; i < 3 * count; i++) {
+        lua_rawgeti(L, index, i + 1);
+        *vertices++ = luax_tofloat(L, -1);
+        lua_pop(L, 1);
       }
       break;
   }
@@ -834,10 +811,12 @@ static int l_lovrPassSphere(lua_State* L) {
 }
 
 static bool luax_checkendpoints(lua_State* L, int index, float transform[16], bool center) {
-  float *v, *u;
-  VectorType t1, t2;
-  if ((v = luax_tovector(L, index + 0, &t1)) == NULL || t1 != V_VEC3) return false;
-  if ((u = luax_tovector(L, index + 1, &t2)) == NULL || t2 != V_VEC3) return false;
+  float v[3], u[3];
+  if (lua_type(L, index) != LUA_TTABLE || lua_type(L, index + 1) != LUA_TTABLE) {
+    return false;
+  }
+  luax_readvec3(L, index + 0, v, NULL);
+  luax_readvec3(L, index + 1, u, NULL);
   float radius = luax_optfloat(L, index + 2, 1.);
   float orientation[4];
   float forward[3] = { 0.f, 0.f, -1.f };
