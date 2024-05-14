@@ -16,6 +16,7 @@ static struct {
   HINSTANCE instance;
   HCURSOR cursor;
   HWND window;
+  bool focused;
   uint32_t width;
   uint32_t height;
   fn_quit* onQuit;
@@ -26,14 +27,13 @@ static struct {
   fn_mouse_button* onMouseButton;
   fn_mouse_move* onMouseMove;
   fn_mouse_move* onWheelMove;
-  WCHAR highSurrogate;
-  bool keys[OS_KEY_COUNT];
-  bool buttons[2];
+  WCHAR surrogate;
+  bool keyDown[OS_KEY_COUNT];
+  bool mouseDown[3];
   uint8_t captureMask;
   double mouseX;
   double mouseY;
-  bool focused;
-  uint64_t frequency;
+  uint64_t timerFrequency;
 } state;
 
 #ifndef LOVR_OMIT_MAIN
@@ -80,7 +80,7 @@ bool os_init(void) {
   state.instance = GetModuleHandle(NULL);
   LARGE_INTEGER f;
   QueryPerformanceFrequency(&f);
-  state.frequency = f.QuadPart;
+  state.timerFrequency = f.QuadPart;
   return true;
 }
 
@@ -117,7 +117,7 @@ void os_open_console(void) {
 double os_get_time(void) {
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
-  return t.QuadPart / (double) state.frequency;
+  return t.QuadPart / (double) state.timerFrequency;
 }
 
 void os_sleep(double seconds) {
@@ -290,7 +290,7 @@ static void mousePressed(uint8_t button) {
   if (state.captureMask == 0) SetCapture(state.window);
   state.captureMask |= (1 << button);
 
-  state.buttons[button] = true;
+  state.mouseDown[button] = true;
 
   if (state.onMouseButton) {
     state.onMouseButton(button, true);
@@ -301,7 +301,7 @@ static void mouseReleased(uint8_t button) {
   state.captureMask &= ~(1 << button);
   if (state.captureMask == 0) ReleaseCapture();
 
-  state.buttons[button] = false;
+  state.mouseDown[button] = false;
 
   if (state.onMouseButton) {
     state.onMouseButton(button, false);
@@ -345,19 +345,19 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
         os_button_action action = pressed ? BUTTON_PRESSED : BUTTON_RELEASED;
         bool repeat = !!(HIWORD(lparam) & KF_REPEAT);
 
-        state.keys[key] = pressed;
+        state.keyDown[key] = pressed;
         if (state.onKey) state.onKey(action, key, scancode, repeat);
       }
       break;
     }
     case WM_CHAR:
       if (param >= 0xD800 && param <= 0xDBFF) {
-        state.highSurrogate = (WCHAR) param;
+        state.surrogate = (WCHAR) param;
       } else {
         uint32_t codepoint = param;
-        if (param >= 0xDC00 && param <= 0xDFFF && state.highSurrogate != 0) {
-          codepoint = ((state.highSurrogate - 0xD800) << 10) + (param - 0xDC00) + 0x10000;
-          state.highSurrogate = 0;
+        if (param >= 0xDC00 && param <= 0xDFFF && state.surrogate != 0) {
+          codepoint = ((state.surrogate - 0xD800) << 10) + (param - 0xDC00) + 0x10000;
+          state.surrogate = 0;
         }
         if (state.onText && codepoint >= 32) state.onText(codepoint);
       }
@@ -531,11 +531,11 @@ void os_set_mouse_mode(os_mouse_mode mode) {
 }
 
 bool os_is_mouse_down(os_mouse_button button) {
-  return state.buttons[button];
+  return state.mouseDown[button];
 }
 
 bool os_is_key_down(os_key key) {
-  return state.keys[key];
+  return state.keyDown[key];
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
