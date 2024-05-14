@@ -535,7 +535,7 @@ bool os_is_mouse_down(os_mouse_button button) {
 }
 
 bool os_is_key_down(os_key key) {
-  return false;
+  return state.keys[key];
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
