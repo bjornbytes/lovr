@@ -33,6 +33,9 @@ static struct {
   uint8_t captureMask;
   double mouseX;
   double mouseY;
+  int grabX;
+  int grabY;
+  os_mouse_mode mouseMode;
   uint64_t timerFrequency;
 } state;
 
@@ -318,6 +321,8 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       state.focused = true;
       break;
     case WM_KILLFOCUS:
+      memset(state.mouseDown, false, sizeof(state.mouseDown));
+      os_set_mouse_mode(MOUSE_MODE_NORMAL);
       if (state.onFocus) state.onFocus(false);
       state.focused = false;
       break;
@@ -376,12 +381,34 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
     case WM_RBUTTONUP: mouseReleased(1); break;
     case WM_MBUTTONUP: mouseReleased(2); break;
     case WM_MOUSEMOVE: {
-      double x = GET_X_LPARAM(lparam);
-      double y = GET_Y_LPARAM(lparam);
-      if (x != state.mouseX || y != state.mouseY) {
-        if (state.onMouseMove) state.onMouseMove(x, y);
-        state.mouseX = x;
-        state.mouseY = y;
+      if (state.mouseMode == MOUSE_MODE_NORMAL) {
+        double x = GET_X_LPARAM(lparam);
+        double y = GET_Y_LPARAM(lparam);
+        if (x != state.mouseX || y != state.mouseY) {
+          if (state.onMouseMove) state.onMouseMove(x, y);
+          state.mouseX = x;
+          state.mouseY = y;
+        }
+      }
+      break;
+    }
+    case WM_INPUT: {
+      if (state.mouseMode == MOUSE_MODE_GRABBED) {
+        uint32_t size = sizeof(RAWINPUT);
+        static uint8_t buffer[sizeof(RAWINPUT)];
+        if (GetRawInputData((HRAWINPUT) lparam, RID_INPUT, buffer, &size, sizeof(RAWINPUTHEADER)) == -1) {
+          break;
+        }
+
+        RAWINPUT* raw = (RAWINPUT*) buffer;
+
+        if (raw->header.dwType == RIM_TYPEMOUSE && (~raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE)) {
+          int32_t dx = raw->data.mouse.lLastX;
+          int32_t dy = raw->data.mouse.lLastY;
+          state.mouseX += dx;
+          state.mouseY += dy;
+          if (state.onMouseMove) state.onMouseMove(state.mouseX, state.mouseY);
+        }
       }
       break;
     }
@@ -509,25 +536,33 @@ void os_window_message_box(const char* message) {
 }
 
 void os_get_mouse_position(double* x, double* y) {
-  POINT point;
-  GetCursorPos(&point);
-  ScreenToClient(state.window, &point);
-  *x = point.x;
-  *y = point.y;
+  *x = state.mouseX;
+  *y = state.mouseY;
 }
 
 void os_set_mouse_mode(os_mouse_mode mode) {
-  if (mode == MOUSE_MODE_NORMAL) {
-    //SetCursor(state.cursor);
-    ClipCursor(NULL);
-  } else {
-    RECT clip;
-    GetClientRect(state.window, &clip);
-    ClientToScreen(state.window, (POINT*) &clip.left);
-    ClientToScreen(state.window, (POINT*) &clip.right);
-    //SetCursor(NULL);
-    ClipCursor(&clip);
+  if (state.mouseMode == mode) {
+    return;
   }
+
+  if (mode == MOUSE_MODE_GRABBED && state.focused) {
+    RAWINPUTDEVICE device = { 0x01, 0x02, 0, state.window };
+    RegisterRawInputDevices(&device, 1, sizeof(device));
+    POINT position;
+    GetCursorPos(&position);
+    ClipCursor(&(RECT) { position.x, position.y, position.x, position.y });
+    state.grabX = position.x;
+    state.grabY = position.y;
+    ShowCursor(FALSE);
+  } else if (mode == MOUSE_MODE_NORMAL) {
+    RAWINPUTDEVICE device = { 0x01, 0x02, RIDEV_REMOVE, NULL };
+    RegisterRawInputDevices(&device, 1, sizeof(device));
+    ClipCursor(NULL);
+    SetCursorPos(state.grabX, state.grabY);
+    ShowCursor(TRUE);
+  }
+
+  state.mouseMode = mode;
 }
 
 bool os_is_mouse_down(os_mouse_button button) {
