@@ -14,7 +14,7 @@ uint32_t luax_checkanimationindex(lua_State* L, int index, ModelData* model) {
       size_t length;
       const char* name = lua_tolstring(L, index, &length);
       uint64_t hash = hash64(name, length);
-      uint64_t entry = map_get(&model->animationMap, hash);
+      uint64_t entry = map_get(model->animationMap, hash);
       lovrCheck(entry != MAP_NIL, "Model has no animation named '%s'", name);
       return (uint32_t) entry;
     }
@@ -33,7 +33,7 @@ uint32_t luax_checkmaterialindex(lua_State* L, int index, ModelData* model) {
       size_t length;
       const char* name = lua_tolstring(L, index, &length);
       uint64_t hash = hash64(name, length);
-      uint64_t entry = map_get(&model->materialMap, hash);
+      uint64_t entry = map_get(model->materialMap, hash);
       lovrCheck(entry != MAP_NIL, "Model has no material named '%s'", name);
       return (uint32_t) entry;
     }
@@ -52,7 +52,7 @@ uint32_t luax_checknodeindex(lua_State* L, int index, ModelData* model) {
       size_t length;
       const char* name = lua_tolstring(L, index, &length);
       uint64_t hash = hash64(name, length);
-      uint64_t entry = map_get(&model->nodeMap, hash);
+      uint64_t entry = map_get(model->nodeMap, hash);
       lovrCheck(entry != MAP_NIL, "Model has no node named '%s'", name);
       return (uint32_t) entry;
     }

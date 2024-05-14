@@ -2,6 +2,7 @@
 #include "data/blob.h"
 #include "data/image.h"
 #include "core/maf.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -50,10 +51,10 @@ void lovrModelDataDestroy(void* ref) {
   for (uint32_t i = 0; i < model->imageCount; i++) {
     lovrRelease(model->images[i], lovrImageDestroy);
   }
-  map_free(&model->blendShapeMap);
-  map_free(&model->animationMap);
-  map_free(&model->materialMap);
-  map_free(&model->nodeMap);
+  map_free(model->blendShapeMap);
+  map_free(model->animationMap);
+  map_free(model->materialMap);
+  map_free(model->nodeMap);
   lovrFree(model->vertices);
   lovrFree(model->indices);
   lovrFree(model->metadata);
@@ -64,7 +65,7 @@ void lovrModelDataDestroy(void* ref) {
 // Batches allocations for all the ModelData arrays
 void lovrModelDataAllocate(ModelData* model) {
   size_t totalSize = 0;
-  size_t sizes[15];
+  size_t sizes[19];
   size_t alignment = 8;
   totalSize += sizes[0] = ALIGN(model->blobCount * sizeof(Blob*), alignment);
   totalSize += sizes[1] = ALIGN(model->bufferCount * sizeof(ModelBuffer), alignment);
@@ -80,7 +81,11 @@ void lovrModelDataAllocate(ModelData* model) {
   totalSize += sizes[11] = ALIGN(model->blendDataCount * sizeof(ModelBlendData), alignment);
   totalSize += sizes[12] = ALIGN(model->childCount * sizeof(uint32_t), alignment);
   totalSize += sizes[13] = ALIGN(model->jointCount * sizeof(uint32_t), alignment);
-  totalSize += sizes[14] = model->charCount * sizeof(char);
+  totalSize += sizes[14] = ALIGN(model->charCount * sizeof(char), alignment);
+  totalSize += sizes[15] = ALIGN(sizeof(map_t), alignment);
+  totalSize += sizes[16] = ALIGN(sizeof(map_t), alignment);
+  totalSize += sizes[17] = ALIGN(sizeof(map_t), alignment);
+  totalSize += sizes[18] = ALIGN(sizeof(map_t), alignment);
 
   size_t offset = 0;
   char* p = model->data = lovrCalloc(totalSize);
@@ -99,11 +104,15 @@ void lovrModelDataAllocate(ModelData* model) {
   model->children = (uint32_t*) (p + offset), offset += sizes[12];
   model->joints = (uint32_t*) (p + offset), offset += sizes[13];
   model->chars = (char*) (p + offset), offset += sizes[14];
+  model->blendShapeMap = (map_t*) (p + offset), offset += sizes[15];
+  model->animationMap = (map_t*) (p + offset), offset += sizes[16];
+  model->materialMap = (map_t*) (p + offset), offset += sizes[17];
+  model->nodeMap = (map_t*) (p + offset), offset += sizes[18];
 
-  map_init(&model->blendShapeMap, model->blendShapeCount);
-  map_init(&model->animationMap, model->animationCount);
-  map_init(&model->materialMap, model->materialCount);
-  map_init(&model->nodeMap, model->nodeCount);
+  map_init(model->blendShapeMap, model->blendShapeCount);
+  map_init(model->animationMap, model->animationCount);
+  map_init(model->materialMap, model->materialCount);
+  map_init(model->nodeMap, model->nodeCount);
 }
 
 void lovrModelDataFinalize(ModelData* model) {

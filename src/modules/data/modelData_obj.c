@@ -300,8 +300,8 @@ ModelData* lovrModelDataInitObj(ModelData* model, Blob* source, ModelDataIO* io)
 
   memcpy(model->images, images.data, model->imageCount * sizeof(Image*));
   memcpy(model->materials, materials.data, model->materialCount * sizeof(ModelMaterial));
-  memcpy(model->materialMap.hashes, materialMap.hashes, materialMap.size * sizeof(uint64_t));
-  memcpy(model->materialMap.values, materialMap.values, materialMap.size * sizeof(uint64_t));
+  memcpy(((map_t*) model->materialMap)->hashes, materialMap.hashes, materialMap.size * sizeof(uint64_t));
+  memcpy(((map_t*) model->materialMap)->values, materialMap.values, materialMap.size * sizeof(uint64_t));
 
   float min[4] = { FLT_MAX };
   float max[4] = { FLT_MIN };

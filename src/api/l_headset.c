@@ -3,6 +3,7 @@
 #include "data/modelData.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
+#include "util.h"
 #include <stdlib.h>
 
 StringEntry lovrHeadsetDriver[] = {

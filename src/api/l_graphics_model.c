@@ -24,7 +24,7 @@ uint32_t luax_checkblendshape(lua_State* L, int index, Model* model) {
       size_t length;
       const char* name = lua_tolstring(L, index, &length);
       ModelData* data = lovrModelGetInfo(model)->data;
-      uint64_t blendShapeIndex = map_get(&data->blendShapeMap, hash64(name, length));
+      uint64_t blendShapeIndex = map_get(data->blendShapeMap, hash64(name, length));
       lovrCheck(blendShapeIndex != MAP_NIL, "ModelData has no blend shape named '%s'", name);
       return (uint32_t) blendShapeIndex;
     }

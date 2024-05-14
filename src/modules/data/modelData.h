@@ -1,4 +1,3 @@
-#include "util.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -234,10 +233,10 @@ typedef struct ModelData {
 
   // Lookups
 
-  map_t blendShapeMap;
-  map_t animationMap;
-  map_t materialMap;
-  map_t nodeMap;
+  void* blendShapeMap;
+  void* animationMap;
+  void* materialMap;
+  void* nodeMap;
 } ModelData;
 
 typedef void* ModelDataIO(const char* filename, size_t* bytesRead);

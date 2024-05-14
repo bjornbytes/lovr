@@ -1,6 +1,7 @@
 #include "data/modelData.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "util.h"
 #include "lib/jsmn/jsmn.h"
 #include <stdlib.h>
 #include <string.h>
@@ -713,7 +714,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           token += NOM_VALUE(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          map_set(&model->animationMap, hash64(name.data, name.length), animation - model->animations);
+          map_set(model->animationMap, hash64(name.data, name.length), animation - model->animations);
           memcpy(model->chars, name.data, name.length);
           animation->name = model->chars;
           model->chars += name.length + 1;
@@ -800,7 +801,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           material->alphaCutoff = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          map_set(&model->materialMap, hash64(name.data, name.length), material - model->materials);
+          map_set(model->materialMap, hash64(name.data, name.length), material - model->materials);
           memcpy(model->chars, name.data, name.length);
           material->name = model->chars;
           model->chars += name.length + 1;
@@ -889,8 +890,8 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
               for (int k3 = (token++)->size, index = mesh->blendShapeIndex; k3 > 0; k3--, index++) {
                 gltfString name = NOM_STR(json, token);
                 uint64_t hash = hash64(name.data, name.length);
-                if (map_get(&model->blendShapeMap, hash) == MAP_NIL) {
-                  map_set(&model->blendShapeMap, hash, index);
+                if (map_get(model->blendShapeMap, hash) == MAP_NIL) {
+                  map_set(model->blendShapeMap, hash, index);
                 }
                 memcpy(model->chars, name.data, name.length);
                 model->chars += name.length + 1;
@@ -968,7 +969,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           scale[2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
-          map_set(&model->nodeMap, hash64(name.data, name.length), node - model->nodes);
+          map_set(model->nodeMap, hash64(name.data, name.length), node - model->nodes);
           memcpy(model->chars, name.data, name.length);
           node->name = model->chars;
           model->chars += name.length + 1;
