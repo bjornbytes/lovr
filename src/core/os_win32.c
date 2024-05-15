@@ -6,6 +6,8 @@
 #include <windowsx.h>
 #include <shellapi.h>
 #include <knownfolders.h>
+#include <dwmapi.h>
+#pragma comment(lib, "Dwmapi.lib")
 #include <shlobj.h>
 #include <stdio.h>
 
@@ -510,6 +512,9 @@ bool os_window_open(const os_window_config* config) {
   state.window = CreateWindowW(wc.lpszClassName, wtitle, style,
       CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top,
       NULL, NULL, state.instance, NULL);
+
+  BOOL darkMode = true;
+  DwmSetWindowAttribute(state.window, 20, &darkMode, sizeof(darkMode));
 
   state.width = width;
   state.height = height;
