@@ -573,6 +573,7 @@ typedef struct {
 static struct {
   uint32_t ref;
   bool active;
+  bool resized;
   bool shouldPresent;
   bool timingEnabled;
   GraphicsConfig config;
@@ -2106,6 +2107,11 @@ Texture* lovrGraphicsGetWindowTexture(void) {
 
   if (state.window && !state.window->gpu) {
     beginFrame();
+
+    if (state.resized) {
+      gpu_surface_resize(state.window->info.width, state.window->info.height);
+      state.resized = false;
+    }
 
     state.window->gpu = gpu_surface_acquire();
     state.window->renderView = state.window->gpu;
@@ -7991,8 +7997,7 @@ static void onResize(uint32_t width, uint32_t height) {
 
   state.window->info.width = width;
   state.window->info.height = height;
-
-  gpu_surface_resize(width, height);
+  state.resized = true;
 
   lovrEventPush((Event) {
     .type = EVENT_RESIZE,

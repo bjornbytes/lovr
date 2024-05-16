@@ -1,15 +1,17 @@
 #include "os.h"
+#define WINVER 0x0A00
+#define _WIN32_WINNT 0x0A00
 #define WIN32_LEAN_AND_MEAN
-#define WINVER 0x0600
-#define _WIN32_WINNT 0x0600
 #include <windows.h>
 #include <windowsx.h>
 #include <shellapi.h>
 #include <knownfolders.h>
 #include <dwmapi.h>
-#pragma comment(lib, "Dwmapi.lib")
 #include <shlobj.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+#pragma comment(lib, "Dwmapi.lib")
 
 static __declspec(thread) HANDLE timer;
 static __declspec(thread) bool createdTimer;
@@ -328,14 +330,21 @@ static LRESULT CALLBACK windowProc(HWND window, UINT message, WPARAM param, LPAR
       if (state.onFocus) state.onFocus(false);
       state.focused = false;
       break;
-    case WM_EXITSIZEMOVE: {
-      RECT rect;
-      GetClientRect(state.window, &rect);
-      if (state.width != rect.right || state.height != rect.bottom) {
-        state.width = rect.right;
-        state.height = rect.bottom;
+    case WM_DPICHANGED: {
+      RECT* rect = (RECT*) lparam;
+      int32_t width = rect->right - rect->left;
+      int32_t height = rect->bottom - rect->top;
+      SetWindowPos(state.window, HWND_TOP, rect->left, rect->top, width, height, SWP_NOACTIVATE | SWP_NOZORDER);
+      break;
+    }
+    case WM_SIZE: {
+      uint32_t width = LOWORD(lparam);
+      uint32_t height = HIWORD(lparam);
+      if (param == 0 && (width != state.width || height != state.height)) {
+        state.width = width;
+        state.height = height;
         if (state.onResize) {
-          state.onResize(state.width, state.height);
+          state.onResize(width, height);
         }
       }
       break;
@@ -473,6 +482,8 @@ bool os_window_open(const os_window_config* config) {
   if (state.window) {
     return true;
   }
+
+  SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
   WNDCLASSW wc = {
     .lpfnWndProc = windowProc,
