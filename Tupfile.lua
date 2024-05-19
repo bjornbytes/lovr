@@ -274,7 +274,9 @@ if config.modules.graphics and config.glslang then
   glslang_src += 'deps/glslang/SPIRV/CInterface/spirv_c_interface.cpp'
   glslang_src += 'deps/glslang/glslang/ResourceLimits/resource_limits_c.cpp'
   glslang_src += 'deps/glslang/glslang/ResourceLimits/ResourceLimits.cpp'
+  glslang_src.extra_inputs = '.obj/glslang/build_info.h'
 
+  tup.rule('deps/glslang/build_info.h.tmpl', 'python3 deps/glslang/build_info.py deps/glslang -i %f -o %o', '.obj/glslang/build_info.h')
   tup.foreach_rule(glslang_src, '^ CC glslang/%b^ $(cc) $(flags) $(glslang_cflags) -c %f -o %o', '.obj/glslang/%B.o')
   tup.rule('.obj/glslang/*.o', '^ LD %o^ $(cxx) $(flags) -o %o %f $(glslang_lflags)', lib('glslang'))
 end
