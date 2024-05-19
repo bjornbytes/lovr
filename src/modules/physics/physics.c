@@ -128,7 +128,7 @@ static Shape* subshapeToShape(Collider* collider, JPH_SubShapeID id) {
 }
 
 static JPH_Bool32 broadPhaseLayerFilter(void* mask, JPH_BroadPhaseLayer layer) {
-  return ((uintptr_t) mask & (1 << layer)) != 0;
+  return ((uint32_t) (uintptr_t) mask & (1 << layer)) != 0;
 }
 
 static JPH_BroadPhaseLayerFilter* getBroadPhaseLayerFilter(World* world, uint32_t tagMask) {
@@ -148,7 +148,7 @@ static JPH_BroadPhaseLayerFilter* getBroadPhaseLayerFilter(World* world, uint32_
 }
 
 static JPH_Bool32 objectLayerFilter(void* mask, JPH_ObjectLayer layer) {
-  return ((uintptr_t) mask & (1 << layer)) != 0;
+  return ((uint32_t) (uintptr_t) mask & (1 << layer)) != 0;
 }
 
 static JPH_ObjectLayerFilter* getObjectLayerFilter(World* world, uint32_t tagMask) {
@@ -1164,7 +1164,7 @@ bool lovrColliderIsContinuous(Collider* collider) {
 
 void lovrColliderSetContinuous(Collider* collider, bool continuous) {
   JPH_MotionQuality quality = continuous ? JPH_MotionQuality_LinearCast : JPH_MotionQuality_Discrete;
-  return JPH_BodyInterface_SetMotionQuality(collider->world->bodies, collider->id, quality);
+  JPH_BodyInterface_SetMotionQuality(collider->world->bodies, collider->id, quality);
 }
 
 float lovrColliderGetGravityScale(Collider* collider) {
@@ -1172,7 +1172,7 @@ float lovrColliderGetGravityScale(Collider* collider) {
 }
 
 void lovrColliderSetGravityScale(Collider* collider, float scale) {
-  return JPH_BodyInterface_SetGravityFactor(collider->world->bodies, collider->id, scale);
+  JPH_BodyInterface_SetGravityFactor(collider->world->bodies, collider->id, scale);
 }
 
 bool lovrColliderIsSleepingAllowed(Collider* collider) {
@@ -1520,15 +1520,14 @@ void lovrColliderGetWorldVector(Collider* collider, float local[3], float world[
 }
 
 void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float point[3], float velocity[3]) {
-  float wx, wy, wz;
-  lovrColliderGetWorldPoint(collider, point, velocity);
-  lovrColliderGetLinearVelocityFromWorldPoint(collider, point, velocity);
+  float world[3];
+  lovrColliderGetWorldPoint(collider, point, world);
+  lovrColliderGetLinearVelocityFromWorldPoint(collider, world, velocity);
 }
 
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float point[3], float velocity[3]) {
-  JPH_RVec3 p = { point[0], point[1], point[2] };
   JPH_Vec3 v;
-  JPH_BodyInterface_GetPointVelocity(collider->world->bodies, collider->id, &p, &v);
+  JPH_BodyInterface_GetPointVelocity(collider->world->bodies, collider->id, vec3_toJolt(point), &v);
   vec3_fromJolt(velocity, &v);
 }
 
