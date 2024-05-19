@@ -35,11 +35,12 @@ dev
 - Add `Collider:get/setEnabledAxes`.
 - Add `Collider:applyLinearImpulse` and `Collider:applyAngularImpulse`.
 - Add `Collider:getRawPosition` and `Collider:getRawOrientation`.
-- Add `Collider:get/setShape` (replaces `:addShape/removeShape/getShapes`).
+- Add `Collider:getShape`.
 - Add `Collider:is/setSensor` (replaces `Shape:is/setSensor`).
 - Add `Collider:get/setInertia`.
 - Add `Collider:get/setCenterOfMass`.
 - Add `Collider:resetMassData`.
+- Add `Collider:get/setAutomaticMass`.
 - Add `Collider:is/setEnabled`.
 - Add `ConvexShape`.
 - Add `WeldJoint`.
@@ -53,6 +54,7 @@ dev
 - Add `SliderJoint:getAnchors`.
 - Add `Shape:get/setDensity`.
 - Add `Shape:getMass/Volume/Inertia/CenterOfMass`.
+- Add `Shape:get/setOffset`.
 - Add motor support to `HingeJoint` and `SliderJoint`.
 - Add support for creating a `MeshShape` from a `ModelData`.
 - Add `Texture:getLabel` and `Shader:getLabel`.
@@ -72,18 +74,16 @@ dev
 - Change headset simulator movement to slow down when holding the control key.
 - Change headset simulator to use `t.headset.supersample`.
 - Change `lovr.graphics.compileShader` to take/return multiple stages.
-- Change maximum number of physics tags from 16 to 32.
+- Change maximum number of physics tags from 16 to 31.
 - Change `TerrainShape` to require square dimensions.
-- Change `World:newCollider` to take a `Shape` as its last argument.
 - Change `Buffer:setData` to use more consistent rules to read data from tables.
-- Change `Collider` to recompute its mass if its shape changes.
 - Change `World:queryBox/querySphere` to perform coarse AABB collision detection (use `World:collideShape` for an exact test).
 - Change `World:queryBox/querySphere` to take an optional set of tags to include/exclude.
 - Change `World:queryBox/querySphere` to return the first collider detected, when the callback is nil.
 - Change `World:queryBox/querySphere` to return nil when a callback is given.
 - Change `World:raycast` to take a set of tags to allow/ignore.
 - Change `World:raycast` callback to be optional (if nil, the closest hit will be returned).
-- Change physics queries to report colliders instead of shapes.
+- Change physics queries to report colliders in addition to shapes.
 
 ### Fix
 
@@ -105,7 +105,6 @@ dev
 - Deprecate `World:is/setSleepingAllowed` (use `sleep` option when creating World).
 - Deprecate `World:get/setStepCount` (use `positionSteps`/`velocitySteps` option when creating World).
 - Deprecate `Collider:is/setGravityIgnored` (use `Collider:get/setGravityScale`).
-- Deprecate `Collider:getShapes` (use `Collider:getShape`).
 
 ### Remove
 
@@ -126,13 +125,7 @@ dev
 - Remove variant of `Pass:send` that takes a binding number instead of a variable name.
 - Remove `Texture:newView` (renamed to `lovr.graphics.newTextureView`).
 - Remove `Texture:isView` and `Texture:getParent`.
-- Remove `Collider:addShape` and `Collider:removeShape` (use `Collider:setShape` and `CompoundShape`).
-- Remove `Shape:getCollider`.
-- Remove `Shape:get/setPosition`, `Shape:get/setOrientation`, and `Shape:get/setPose`.
-- Remove `BoxShape:setDimensions`.
-- Remove `SphereShape:setRadius`.
-- Remove `CapsuleShape:setRadius` and `CapsuleShape:setLength`.
-- Remove `CylinderShape:setRadius` and `CylinderShape:setLength`.
+- Remove `Shape:setPosition`, `Shape:setOrientation`, and `Shape:setPose` (use `Shape:setOffset`).
 - Remove `Shape:is/setSensor` (use `Collider:is/setSensor`).
 - Remove `World:overlaps/computeOverlaps/collide/getContacts` (use `World:setCallbacks`).
 - Remove `BallJoint:setAnchor`.
