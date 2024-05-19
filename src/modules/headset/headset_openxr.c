@@ -2304,7 +2304,7 @@ static ModelData* openxr_newModelDataMSFT(XrControllerModelKeyMSFT modelKey, boo
 
   for (uint32_t i = 0; i < properties.nodeCountOutput; i++) {
     const char* name = nodeProperties[i].nodeName;
-    uint64_t nodeIndex = map_get(&model->nodeMap, hash64(name, strlen(name)));
+    uint64_t nodeIndex = map_get(model->nodeMap, hash64(name, strlen(name)));
     lovrCheck(nodeIndex != MAP_NIL, "ModelData has no node named '%s'", name);
     metadata->nodeIndices[i] = nodeIndex;
   }
