@@ -2,14 +2,11 @@
 #include <string.h>
 
 #ifdef _WIN32
-#define VK_USE_PLATFORM_WIN32_KHR
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
-#define VK_NO_PROTOTYPES
-#include <vulkan/vulkan.h>
 
 #if defined(_WIN32)
 #define VK_USE_PLATFORM_WIN32_KHR
