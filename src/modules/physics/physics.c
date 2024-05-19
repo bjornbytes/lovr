@@ -1586,7 +1586,7 @@ float lovrContactGetFriction(Contact* contact) {
 }
 
 void lovrContactSetFriction(Contact* contact, float friction) {
-  return JPH_ContactSettings_SetFriction(contact->settings, friction);
+  JPH_ContactSettings_SetFriction(contact->settings, friction);
 }
 
 float lovrContactGetRestitution(Contact* contact) {
@@ -1594,7 +1594,7 @@ float lovrContactGetRestitution(Contact* contact) {
 }
 
 void lovrContactSetRestitution(Contact* contact, float restitution) {
-  return JPH_ContactSettings_SetRestitution(contact->settings, restitution);
+  JPH_ContactSettings_SetRestitution(contact->settings, restitution);
 }
 
 bool lovrContactIsEnabled(Contact* contact) {
