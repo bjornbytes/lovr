@@ -11,7 +11,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#pragma comment(lib, "Dwmapi.lib")
+#pragma comment(lib, "dwmapi.lib")
+
+#ifdef LOVR_USE_GLFW
+#include "os_glfw.h"
+#endif
 
 static __declspec(thread) HANDLE timer;
 static __declspec(thread) bool createdTimer;
@@ -150,6 +154,7 @@ void os_request_permission(os_permission permission) {
   //
 }
 
+#ifndef LOVR_USE_GLFW
 const char* os_get_clipboard_text(void) {
   return NULL; // TODO
 }
@@ -157,6 +162,7 @@ const char* os_get_clipboard_text(void) {
 void os_set_clipboard_text(const char* text) {
   // TODO
 }
+#endif
 
 void* os_vm_init(size_t size) {
   return VirtualAlloc(NULL, size, MEM_RESERVE, PAGE_NOACCESS);
@@ -185,6 +191,7 @@ void os_thread_detach(void) {
   }
 }
 
+#ifndef LOVR_USE_GLFW
 static os_key convertKey(uint16_t scancode) {
   switch (scancode) {
     case 0x01E: return OS_KEY_A;
@@ -474,10 +481,6 @@ void os_on_mousewheel_move(fn_mousewheel_move* callback) {
   state.onWheelMove = callback;
 }
 
-void os_on_permission(fn_permission* callback) {
-  //
-}
-
 bool os_window_open(const os_window_config* config) {
   if (state.window) {
     return true;
@@ -547,10 +550,6 @@ float os_window_get_pixel_density(void) {
   return 1.f;
 }
 
-void os_window_message_box(const char* message) {
-  MessageBox((HANDLE) os_get_win32_window(), message, NULL, 0);
-}
-
 void os_get_mouse_position(double* x, double* y) {
   *x = state.mouseX;
   *y = state.mouseY;
@@ -587,6 +586,23 @@ bool os_is_mouse_down(os_mouse_button button) {
 
 bool os_is_key_down(os_key key) {
   return state.keyDown[key];
+}
+
+uintptr_t os_get_win32_instance(void) {
+  return (uintptr_t) state.instance;
+}
+
+uintptr_t os_get_win32_window(void) {
+  return (uintptr_t) state.window;
+}
+#endif
+
+void os_on_permission(fn_permission* callback) {
+  //
+}
+
+void os_window_message_box(const char* message) {
+  MessageBox((HANDLE) os_get_win32_window(), message, NULL, 0);
 }
 
 size_t os_get_home_directory(char* buffer, size_t size) {
@@ -630,12 +646,4 @@ size_t os_get_executable_path(char* buffer, size_t size) {
 size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   *root = NULL;
   return os_get_executable_path(buffer, size);
-}
-
-uintptr_t os_get_win32_instance(void) {
-  return (uintptr_t) state.instance;
-}
-
-uintptr_t os_get_win32_window(void) {
-  return (uintptr_t) state.window;
 }
