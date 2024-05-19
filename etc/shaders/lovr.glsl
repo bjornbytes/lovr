@@ -505,8 +505,10 @@ void main() {
     PixelColor.rgb = tonemap(PixelColor.rgb);
   }
 
-  if (flag_alphaCutoff && PixelColor.a <= Material.alphaCutoff) {
-    discard;
+  if (flag_alphaCutoff) { // Nesting the ifs instead of using && to work around a glslang bug
+    if (PixelColor.a <= Material.alphaCutoff) {
+      discard;
+    }
   }
 }
 #endif
