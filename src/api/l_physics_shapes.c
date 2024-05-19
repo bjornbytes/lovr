@@ -92,20 +92,14 @@ Shape* luax_newmeshshape(lua_State* L, int index) {
 
   luax_readmesh(L, index, &vertices, &vertexCount, &indices, &indexCount, &shouldFree);
 
-  // If we do not own the mesh data, we must make a copy
-  // ode's trimesh collider needs to own the triangle info for the lifetime of the geom
-  // Note that if shouldFree is true, we don't free the data and let the physics module do it when
-  // the collider/shape is destroyed
-  if (!shouldFree) {
-    float* v = vertices;
-    uint32_t* i = indices;
-    vertices = lovrMalloc(3 * vertexCount * sizeof(float));
-    indices = lovrMalloc(indexCount * sizeof(uint32_t));
-    memcpy(vertices, v, 3 * vertexCount * sizeof(float));
-    memcpy(indices, i, indexCount * sizeof(uint32_t));
+  Shape* shape = lovrMeshShapeCreate(vertexCount, vertices, indexCount, indices);
+
+  if (shouldFree) {
+    lovrFree(vertices);
+    lovrFree(indices);
   }
 
-  return lovrMeshShapeCreate(vertexCount, vertices, indexCount, indices);
+  return shape;
 }
 
 Shape* luax_newterrainshape(lua_State* L, int index) {

@@ -4,9 +4,7 @@
 
 #pragma once
 
-#define MAX_CONTACTS 10
 #define MAX_TAGS 31
-#define NO_TAG ~0u
 
 typedef struct World World;
 typedef struct Collider Collider;

@@ -1932,11 +1932,6 @@ MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount
   shape->handle = (JPH_Shape*) JPH_MeshShapeSettings_CreateShape(shape_settings);
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) shape_settings);
   lovrFree(indexedTriangles);
-  // Note that we're responsible for freeing the vertices/indices when we're done with them because
-  // ODE took ownership of mesh data.  If ODE gets removed, we should probably get rid of this and
-  // have the caller free the vertices/indices themselves.
-  lovrFree(vertices);
-  lovrFree(indices);
   return shape;
 }
 

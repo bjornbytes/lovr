@@ -7,9 +7,6 @@
 [submodule "deps/msdfgen"]
 	path = deps/msdfgen
 	url = https://github.com/bjornbytes/msdfgen
-[submodule "deps/ode"]
-	path = deps/ode
-	url = https://github.com/bjornbytes/ode
 [submodule "deps/luajit"]
 	path = deps/luajit
 	url = https://github.com/WohlSoft/LuaJIT
