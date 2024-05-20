@@ -124,6 +124,97 @@ void os_thread_detach(void) {
   //
 }
 
+static os_key convertKey(uint8_t keycode) {
+  switch (keycode - 8) {
+    case KEY_ESC: return OS_KEY_ESCAPE;
+    case KEY_1: return OS_KEY_1;
+    case KEY_2: return OS_KEY_2;
+    case KEY_3: return OS_KEY_3;
+    case KEY_4: return OS_KEY_4;
+    case KEY_5: return OS_KEY_5;
+    case KEY_6: return OS_KEY_6;
+    case KEY_7: return OS_KEY_7;
+    case KEY_8: return OS_KEY_8;
+    case KEY_9: return OS_KEY_9;
+    case KEY_0: return OS_KEY_0;
+    case KEY_MINUS: return OS_KEY_MINUS;
+    case KEY_EQUAL: return OS_KEY_EQUALS;
+    case KEY_BACKSPACE: return OS_KEY_BACKSPACE;
+    case KEY_TAB: return OS_KEY_TAB;
+    case KEY_Q: return OS_KEY_Q;
+    case KEY_W: return OS_KEY_W;
+    case KEY_E: return OS_KEY_E;
+    case KEY_R: return OS_KEY_R;
+    case KEY_T: return OS_KEY_T;
+    case KEY_Y: return OS_KEY_Y;
+    case KEY_U: return OS_KEY_U;
+    case KEY_I: return OS_KEY_I;
+    case KEY_O: return OS_KEY_O;
+    case KEY_P: return OS_KEY_P;
+    case KEY_LEFTBRACE: return OS_KEY_LEFT_BRACKET;
+    case KEY_RIGHTBRACE: return OS_KEY_RIGHT_BRACKET;
+    case KEY_ENTER: return OS_KEY_ENTER;
+    case KEY_LEFTCTRL: return OS_KEY_LEFT_CONTROL;
+    case KEY_A: return OS_KEY_A;
+    case KEY_S: return OS_KEY_S;
+    case KEY_D: return OS_KEY_D;
+    case KEY_F: return OS_KEY_F;
+    case KEY_G: return OS_KEY_G;
+    case KEY_H: return OS_KEY_H;
+    case KEY_J: return OS_KEY_J;
+    case KEY_K: return OS_KEY_K;
+    case KEY_L: return OS_KEY_L;
+    case KEY_SEMICOLON: return OS_KEY_SEMICOLON;
+    case KEY_APOSTROPHE: return OS_KEY_APOSTROPHE;
+    case KEY_GRAVE: return OS_KEY_BACKTICK;
+    case KEY_LEFTSHIFT: return OS_KEY_LEFT_SHIFT;
+    case KEY_BACKSLASH: return OS_KEY_BACKSLASH;
+    case KEY_Z: return OS_KEY_Z;
+    case KEY_X: return OS_KEY_X;
+    case KEY_C: return OS_KEY_C;
+    case KEY_V: return OS_KEY_V;
+    case KEY_B: return OS_KEY_B;
+    case KEY_N: return OS_KEY_N;
+    case KEY_M: return OS_KEY_M;
+    case KEY_COMMA: return OS_KEY_COMMA;
+    case KEY_DOT: return OS_KEY_PERIOD;
+    case KEY_SLASH: return OS_KEY_SLASH;
+    case KEY_RIGHTSHIFT: return OS_KEY_RIGHT_SHIFT;
+    case KEY_LEFTALT: return OS_KEY_LEFT_ALT;
+    case KEY_SPACE: return OS_KEY_SPACE;
+    case KEY_CAPSLOCK: return OS_KEY_CAPS_LOCK;
+    case KEY_F1: return OS_KEY_F1;
+    case KEY_F2: return OS_KEY_F2;
+    case KEY_F3: return OS_KEY_F3;
+    case KEY_F4: return OS_KEY_F4;
+    case KEY_F5: return OS_KEY_F5;
+    case KEY_F6: return OS_KEY_F6;
+    case KEY_F7: return OS_KEY_F7;
+    case KEY_F8: return OS_KEY_F8;
+    case KEY_F9: return OS_KEY_F9;
+    case KEY_F10: return OS_KEY_F10;
+    case KEY_NUMLOCK: return OS_KEY_NUM_LOCK;
+    case KEY_SCROLLLOCK: return OS_KEY_SCROLL_LOCK;
+    case KEY_F11: return OS_KEY_F11;
+    case KEY_F12: return OS_KEY_F12;
+    case KEY_RIGHTCTRL: return OS_KEY_RIGHT_CONTROL;
+    case KEY_RIGHTALT: return OS_KEY_RIGHT_ALT;
+    case KEY_HOME: return OS_KEY_HOME;
+    case KEY_UP: return OS_KEY_UP;
+    case KEY_PAGEUP: return OS_KEY_PAGE_UP;
+    case KEY_LEFT: return OS_KEY_LEFT;
+    case KEY_RIGHT: return OS_KEY_RIGHT;
+    case KEY_END: return OS_KEY_END;
+    case KEY_DOWN: return OS_KEY_DOWN;
+    case KEY_PAGEDOWN: return OS_KEY_PAGE_DOWN;
+    case KEY_INSERT: return OS_KEY_INSERT;
+    case KEY_DELETE: return OS_KEY_DELETE;
+    case KEY_LEFTMETA: return OS_KEY_LEFT_OS;
+    case KEY_RIGHTMETA: return OS_KEY_RIGHT_OS;
+    default: return OS_KEY_COUNT;
+  }
+}
+
 void os_poll_events(void) {
   if (!state.connection) return;
 
@@ -552,97 +643,6 @@ bool os_is_mouse_down(os_mouse_button button) {
 
 bool os_is_key_down(os_key key) {
   return state.keyDown[key];
-}
-
-static os_key convertKey(uint8_t keycode) {
-  switch (keycode - 8) {
-    case KEY_ESC: return OS_KEY_ESCAPE;
-    case KEY_1: return OS_KEY_1;
-    case KEY_2: return OS_KEY_2;
-    case KEY_3: return OS_KEY_3;
-    case KEY_4: return OS_KEY_4;
-    case KEY_5: return OS_KEY_5;
-    case KEY_6: return OS_KEY_6;
-    case KEY_7: return OS_KEY_7;
-    case KEY_8: return OS_KEY_8;
-    case KEY_9: return OS_KEY_9;
-    case KEY_0: return OS_KEY_0;
-    case KEY_MINUS: return OS_KEY_MINUS;
-    case KEY_EQUAL: return OS_KEY_EQUALS;
-    case KEY_BACKSPACE: return OS_KEY_BACKSPACE;
-    case KEY_TAB: return OS_KEY_TAB;
-    case KEY_Q: return OS_KEY_Q;
-    case KEY_W: return OS_KEY_W;
-    case KEY_E: return OS_KEY_E;
-    case KEY_R: return OS_KEY_R;
-    case KEY_T: return OS_KEY_T;
-    case KEY_Y: return OS_KEY_Y;
-    case KEY_U: return OS_KEY_U;
-    case KEY_I: return OS_KEY_I;
-    case KEY_O: return OS_KEY_O;
-    case KEY_P: return OS_KEY_P;
-    case KEY_LEFTBRACE: return OS_KEY_LEFT_BRACKET;
-    case KEY_RIGHTBRACE: return OS_KEY_RIGHT_BRACKET;
-    case KEY_ENTER: return OS_KEY_ENTER;
-    case KEY_LEFTCTRL: return OS_KEY_LEFT_CONTROL;
-    case KEY_A: return OS_KEY_A;
-    case KEY_S: return OS_KEY_S;
-    case KEY_D: return OS_KEY_D;
-    case KEY_F: return OS_KEY_F;
-    case KEY_G: return OS_KEY_G;
-    case KEY_H: return OS_KEY_H;
-    case KEY_J: return OS_KEY_J;
-    case KEY_K: return OS_KEY_K;
-    case KEY_L: return OS_KEY_L;
-    case KEY_SEMICOLON: return OS_KEY_SEMICOLON;
-    case KEY_APOSTROPHE: return OS_KEY_APOSTROPHE;
-    case KEY_GRAVE: return OS_KEY_BACKTICK;
-    case KEY_LEFTSHIFT: return OS_KEY_LEFT_SHIFT;
-    case KEY_BACKSLASH: return OS_KEY_BACKSLASH;
-    case KEY_Z: return OS_KEY_Z;
-    case KEY_X: return OS_KEY_X;
-    case KEY_C: return OS_KEY_C;
-    case KEY_V: return OS_KEY_V;
-    case KEY_B: return OS_KEY_B;
-    case KEY_N: return OS_KEY_N;
-    case KEY_M: return OS_KEY_M;
-    case KEY_COMMA: return OS_KEY_COMMA;
-    case KEY_DOT: return OS_KEY_PERIOD;
-    case KEY_SLASH: return OS_KEY_SLASH;
-    case KEY_RIGHTSHIFT: return OS_KEY_RIGHT_SHIFT;
-    case KEY_LEFTALT: return OS_KEY_LEFT_ALT;
-    case KEY_SPACE: return OS_KEY_SPACE;
-    case KEY_CAPSLOCK: return OS_KEY_CAPS_LOCK;
-    case KEY_F1: return OS_KEY_F1;
-    case KEY_F2: return OS_KEY_F2;
-    case KEY_F3: return OS_KEY_F3;
-    case KEY_F4: return OS_KEY_F4;
-    case KEY_F5: return OS_KEY_F5;
-    case KEY_F6: return OS_KEY_F6;
-    case KEY_F7: return OS_KEY_F7;
-    case KEY_F8: return OS_KEY_F8;
-    case KEY_F9: return OS_KEY_F9;
-    case KEY_F10: return OS_KEY_F10;
-    case KEY_NUMLOCK: return OS_KEY_NUM_LOCK;
-    case KEY_SCROLLLOCK: return OS_KEY_SCROLL_LOCK;
-    case KEY_F11: return OS_KEY_F11;
-    case KEY_F12: return OS_KEY_F12;
-    case KEY_RIGHTCTRL: return OS_KEY_RIGHT_CONTROL;
-    case KEY_RIGHTALT: return OS_KEY_RIGHT_ALT;
-    case KEY_HOME: return OS_KEY_HOME;
-    case KEY_UP: return OS_KEY_UP;
-    case KEY_PAGEUP: return OS_KEY_PAGE_UP;
-    case KEY_LEFT: return OS_KEY_LEFT;
-    case KEY_RIGHT: return OS_KEY_RIGHT;
-    case KEY_END: return OS_KEY_END;
-    case KEY_DOWN: return OS_KEY_DOWN;
-    case KEY_PAGEDOWN: return OS_KEY_PAGE_DOWN;
-    case KEY_INSERT: return OS_KEY_INSERT;
-    case KEY_DELETE: return OS_KEY_DELETE;
-    case KEY_LEFTMETA: return OS_KEY_LEFT_OS;
-    case KEY_RIGHTMETA: return OS_KEY_RIGHT_OS;
-    default: return OS_KEY_COUNT;
-  }
 }
 
 uintptr_t os_get_xcb_connection(void) {
