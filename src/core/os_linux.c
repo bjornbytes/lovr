@@ -8,16 +8,16 @@
 #include <linux/input.h>
 #include <xcb/xcb.h>
 #include <xcb/xkb.h>
+#include <xcb/xinput.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 #include <xkbcommon/xkbcommon-compose.h>
 
 #define NS_PER_SEC 1000000000ULL
 
-static os_key convertKey(uint8_t keycode);
-
 static struct {
   xcb_connection_t* connection;
+  xcb_screen_t* screen;
   struct xkb_context* xkb;
   struct xkb_keymap* keymap;
   struct xkb_state* keystate;
@@ -39,11 +39,11 @@ static struct {
   uint32_t height;
   bool keyDown[OS_KEY_COUNT];
   bool mouseDown[2];
+  os_mouse_mode mouseMode;
   int16_t mouseX;
   int16_t mouseY;
-  int16_t warpX;
-  int16_t warpY;
-  bool grabbed;
+  int16_t grabX;
+  int16_t grabY;
 } state;
 
 bool os_init(void) {
@@ -129,12 +129,14 @@ void os_poll_events(void) {
 
   union {
     xcb_generic_event_t* any;
+    xcb_ge_generic_event_t* generic;
     xcb_client_message_event_t* message;
     xcb_configure_notify_event_t* configure;
     xcb_focus_in_event_t* focus;
     xcb_key_press_event_t* key;
     xcb_button_press_event_t* mouse;
     xcb_motion_notify_event_t* motion;
+    xcb_input_raw_motion_event_t* raw;
     xcb_xkb_state_notify_event_t* keystate;
   } event;
 
@@ -209,10 +211,27 @@ void os_poll_events(void) {
         break;
 
       case XCB_MOTION_NOTIFY:
+        if (state.mouseMode == MOUSE_MODE_GRABBED) break;
+        if (state.mouseX == event.motion->event_x && state.mouseY == event.motion->event_y) break;
+
         state.mouseX = event.motion->event_x;
         state.mouseY = event.motion->event_y;
-        if (state.onMouseMove && (state.mouseX != state.warpX || state.mouseY != state.warpY)) {
+
+        if (state.onMouseMove) {
           state.onMouseMove(state.mouseX, state.mouseY);
+        }
+        break;
+
+      case XCB_GE_GENERIC:
+        if (event.generic->event_type == XCB_INPUT_RAW_MOTION && state.mouseMode == MOUSE_MODE_GRABBED) {
+          uint32_t* mask = xcb_input_raw_button_press_valuator_mask(event.raw);
+
+          if (state.onMouseMove && (mask[0] & 0x3) == 0x3) {
+            xcb_input_fp3232_t* values = xcb_input_raw_button_press_axisvalues(event.raw);
+            state.mouseX += values[0].integral;
+            state.mouseY += values[1].integral;
+            state.onMouseMove(state.mouseX, state.mouseY);
+          }
         }
         break;
 
@@ -335,19 +354,19 @@ bool os_window_open(const os_window_config* config) {
 
   // window
 
-  xcb_screen_t* screen = xcb_setup_roots_iterator(xcb_get_setup(state.connection)).data;
+  state.screen = xcb_setup_roots_iterator(xcb_get_setup(state.connection)).data;
 
   uint8_t depth = XCB_COPY_FROM_PARENT;
   state.window = xcb_generate_id(state.connection);
-  xcb_window_t parent = screen->root;
-  uint16_t w = config->fullscreen ? screen->width_in_pixels : config->width;
-  uint16_t h = config->fullscreen ? screen->height_in_pixels : config->height;
+  xcb_window_t parent = state.screen->root;
+  uint16_t w = config->fullscreen ? state.screen->width_in_pixels : config->width;
+  uint16_t h = config->fullscreen ? state.screen->height_in_pixels : config->height;
   uint16_t border = 0;
   xcb_window_class_t class = XCB_WINDOW_CLASS_INPUT_OUTPUT;
-  xcb_visualid_t visual = screen->root_visual;
+  xcb_visualid_t visual = state.screen->root_visual;
   uint32_t keys = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
   uint32_t values[] = {
-    screen->black_pixel,
+    state.screen->black_pixel,
     XCB_EVENT_MASK_STRUCTURE_NOTIFY |
     XCB_EVENT_MASK_KEY_PRESS |
     XCB_EVENT_MASK_KEY_RELEASE |
@@ -492,8 +511,20 @@ void os_get_mouse_position(double* x, double* y) {
 }
 
 void os_set_mouse_mode(os_mouse_mode mode) {
-  if (!state.connection) return;
-  if (mode == MOUSE_MODE_GRABBED && !state.grabbed) {
+  if (!state.connection || state.mouseMode == mode) return;
+  state.mouseMode = mode;
+
+  struct {
+    xcb_input_event_mask_t info;
+    xcb_input_xi_event_mask_t mask;
+  } rawInput;
+
+  rawInput.info.deviceid = XCB_INPUT_DEVICE_ALL_MASTER;
+  rawInput.info.mask_len = 1;
+  rawInput.mask = mode == MOUSE_MODE_GRABBED ? XCB_INPUT_XI_EVENT_MASK_RAW_MOTION : 0;
+  xcb_input_xi_select_events(state.connection, state.screen->root, 1, &rawInput.info);
+
+  if (mode == MOUSE_MODE_GRABBED) {
     if (!state.hiddenCursor) {
       state.hiddenCursor = xcb_generate_id(state.connection);
       xcb_pixmap_t pixmap = xcb_generate_id(state.connection);
@@ -501,16 +532,17 @@ void os_set_mouse_mode(os_mouse_mode mode) {
       xcb_create_cursor(state.connection, state.hiddenCursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
       xcb_free_pixmap(state.connection, pixmap);
     }
-    uint32_t events = XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION;
+
+    uint32_t events = XCB_EVENT_MASK_BUTTON_RELEASE;
     xcb_grab_pointer(state.connection, 0, state.window, events, 1, 1, state.window, state.hiddenCursor, XCB_CURRENT_TIME);
-    state.warpX = state.mouseX;
-    state.warpY = state.mouseY;
-    state.grabbed = true;
-  } else if (mode == MOUSE_MODE_NORMAL && state.grabbed) {
+    state.grabX = state.mouseX;
+    state.grabY = state.mouseY;
+  } else {
     xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &(uint32_t) { XCB_CURSOR_NONE });
+    xcb_warp_pointer(state.connection, XCB_NONE, state.window, 0, 0, 0, 0, state.grabX, state.grabY);
     xcb_ungrab_pointer(state.connection, XCB_CURRENT_TIME);
-    xcb_warp_pointer(state.connection, XCB_NONE, state.window, 0, 0, 0, 0, state.warpX, state.warpY);
-    state.grabbed = false;
+    state.mouseX = state.grabX;
+    state.mouseY = state.grabY;
   }
 }
 
