@@ -19,7 +19,7 @@ static int luax_pushcastresult(lua_State* L, CastResult* hit) {
   return 9;
 }
 
-static int luax_pushcollideresult(lua_State* L, CollideResult* hit) {
+static int luax_pushoverlapresult(lua_State* L, OverlapResult* hit) {
   luax_pushtype(L, Collider, hit->collider);
   luax_pushshape(L, hit->shape);
   lua_pushnumber(L, hit->position[0]);
@@ -46,18 +46,18 @@ static float castClosestCallback(void* userdata, CastResult* hit) {
   return hit->fraction;
 }
 
-static float collideCallback(void* userdata, CollideResult* hit) {
+static float overlapCallback(void* userdata, OverlapResult* hit) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
-  int n = luax_pushcollideresult(L, hit);
+  int n = luax_pushoverlapresult(L, hit);
   lua_call(L, n, 1);
   bool stop = lua_type(L, -1) == LUA_TBOOLEAN && lua_toboolean(L, -1);
   lua_pop(L, 1);
   return stop ? -FLT_MAX : FLT_MAX;
 }
 
-static float collideFirstCallback(void* userdata, CollideResult* hit) {
-  *((CollideResult*) userdata) = *hit;
+static float overlapFirstCallback(void* userdata, OverlapResult* hit) {
+  *((OverlapResult*) userdata) = *hit;
   return -FLT_MAX;
 }
 
@@ -353,7 +353,7 @@ static int l_lovrWorldShapecast(lua_State* L) {
   return 0;
 }
 
-static int l_lovrWorldCollideShape(lua_State* L) {
+static int l_lovrWorldOverlapShape(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   int index;
   float pose[7];
@@ -362,14 +362,14 @@ static int l_lovrWorldCollideShape(lua_State* L) {
   index = luax_readquat(L, index, pose + 3, NULL);
   uint32_t filter = luax_checktagmask(L, index++, world);
   if (lua_isnoneornil(L, index)) {
-    CollideResult hit;
-    if (lovrWorldCollideShape(world, shape, pose, filter, collideFirstCallback, &hit)) {
-      return luax_pushcollideresult(L, &hit);
+    OverlapResult hit;
+    if (lovrWorldOverlapShape(world, shape, pose, filter, overlapFirstCallback, &hit)) {
+      return luax_pushoverlapresult(L, &hit);
     }
   } else {
     luaL_checktype(L, index, LUA_TFUNCTION);
     lua_settop(L, index);
-    lovrWorldCollideShape(world, shape, pose, filter, collideCallback, L);
+    lovrWorldOverlapShape(world, shape, pose, filter, overlapCallback, L);
   }
   return 0;
 }
@@ -633,7 +633,7 @@ const luaL_Reg lovrWorld[] = {
   { "update", l_lovrWorldUpdate },
   { "raycast", l_lovrWorldRaycast },
   { "shapecast", l_lovrWorldShapecast },
-  { "collideShape", l_lovrWorldCollideShape },
+  { "overlapShape", l_lovrWorldOverlapShape },
   { "queryBox", l_lovrWorldQueryBox },
   { "querySphere", l_lovrWorldQuerySphere },
   { "getGravity", l_lovrWorldGetGravity },

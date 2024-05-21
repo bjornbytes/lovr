@@ -544,13 +544,13 @@ bool lovrWorldShapecast(World* world, Shape* shape, float pose[7], float end[3],
 
 typedef struct {
   World* world;
-  CollideCallback* callback;
+  OverlapCallback* callback;
   void* userdata;
-} CollideContext;
+} OverlapContext;
 
-static float collideCallback(void* arg, JPH_CollideShapeResult* result) {
-  CastResult hit;
-  CollideContext* ctx = arg;
+static float overlapCallback(void* arg, JPH_CollideShapeResult* result) {
+  OverlapResult hit;
+  OverlapContext* ctx = arg;
   hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, result->bodyID2);
   hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
   vec3_fromJolt(hit.position, &result->contactPointOn2);
@@ -559,7 +559,7 @@ static float collideCallback(void* arg, JPH_CollideShapeResult* result) {
   return ctx->callback(ctx->userdata, &hit);
 }
 
-bool lovrWorldCollideShape(World* world, Shape* shape, float pose[7], uint32_t filter, CollideCallback* callback, void* userdata) {
+bool lovrWorldOverlapShape(World* world, Shape* shape, float pose[7], uint32_t filter, OverlapCallback* callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPH_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
 
   JPH_Vec3 centerOfMass;
@@ -572,7 +572,7 @@ bool lovrWorldCollideShape(World* world, Shape* shape, float pose[7], uint32_t f
   JPH_Vec3 scale = { 1.f, 1.f, 1.f };
   JPH_RVec3 offset = { 0.f, 0.f, 0.f };
 
-  CollideContext context = {
+  OverlapContext context = {
     .world = world,
     .callback = callback,
     .userdata = userdata
@@ -581,7 +581,7 @@ bool lovrWorldCollideShape(World* world, Shape* shape, float pose[7], uint32_t f
   JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, filter);
   JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, filter);
 
-  return JPH_NarrowPhaseQuery_CollideShape(query, shape->handle, &scale, &transform, &offset, collideCallback, &context, layerFilter, tagFilter, NULL);
+  return JPH_NarrowPhaseQuery_CollideShape(query, shape->handle, &scale, &transform, &offset, overlapCallback, &context, layerFilter, tagFilter, NULL);
 }
 
 typedef struct {

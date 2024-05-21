@@ -65,10 +65,10 @@ typedef struct {
   float fraction;
 } CastResult;
 
-typedef CastResult CollideResult;
+typedef CastResult OverlapResult;
 
 typedef float CastCallback(void* userdata, CastResult* hit);
-typedef float CollideCallback(void* userdata, CollideResult* hit);
+typedef float OverlapCallback(void* userdata, OverlapResult* hit);
 typedef void QueryCallback(void* userdata, Collider* collider);
 
 World* lovrWorldCreate(WorldInfo* info);
@@ -84,7 +84,7 @@ void lovrWorldSetGravity(World* world, float gravity[3]);
 void lovrWorldUpdate(World* world, float dt);
 bool lovrWorldRaycast(World* world, float start[3], float end[3], uint32_t filter, CastCallback* callback, void* userdata);
 bool lovrWorldShapecast(World* world, Shape* shape, float pose[7], float end[3], uint32_t filter, CastCallback* callback, void* userdata);
-bool lovrWorldCollideShape(World* world, Shape* shape, float pose[7], uint32_t filter, CollideCallback* callback, void* userdata);
+bool lovrWorldOverlapShape(World* world, Shape* shape, float pose[7], uint32_t filter, OverlapCallback* callback, void* userdata);
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t filter, QueryCallback* callback, void* userdata);
 bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_t filter, QueryCallback* callback, void* userdata);
 void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2);
