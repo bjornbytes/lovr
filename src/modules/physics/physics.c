@@ -1775,7 +1775,9 @@ BoxShape* lovrBoxShapeCreate(float dimensions[3]) {
   shape->ref = 1;
   shape->type = SHAPE_BOX;
   const JPH_Vec3 halfExtent = { dimensions[0] / 2.f, dimensions[1] / 2.f, dimensions[2] / 2.f };
-  shape->handle = (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, .05f);
+  float shortestSide = MIN(dimensions[0], MIN(dimensions[1], dimensions[2]));
+  float convexRadius = MIN(shortestSide * .1f, .05f);
+  shape->handle = (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, convexRadius);
   JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   quat_identity(shape->rotation);
   return shape;
@@ -1789,7 +1791,9 @@ void lovrBoxShapeGetDimensions(BoxShape* shape, float dimensions[3]) {
 
 void lovrBoxShapeSetDimensions(BoxShape* shape, float dimensions[3]) {
   JPH_Vec3 halfExtent = { dimensions[0] / 2.f, dimensions[1] / 2.f, dimensions[2] / 2.f };
-  lovrShapeReplace(shape, (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, .05f));
+  float shortestSide = MIN(dimensions[0], MIN(dimensions[1], dimensions[2]));
+  float convexRadius = MIN(shortestSide * .1f, .05f);
+  lovrShapeReplace(shape, (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, convexRadius));
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
