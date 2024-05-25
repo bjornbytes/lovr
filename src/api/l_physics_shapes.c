@@ -19,7 +19,7 @@ void luax_pushshape(lua_State* L, Shape* shape) {
   }
 }
 
-Shape* luax_checkshape(lua_State* L, int index) {
+static Shape* luax_toshape(lua_State* L, int index) {
   Proxy* p = lua_touserdata(L, index);
 
   if (p) {
@@ -40,8 +40,18 @@ Shape* luax_checkshape(lua_State* L, int index) {
     }
   }
 
-  luax_typeerror(L, index, "Shape");
   return NULL;
+}
+
+Shape* luax_checkshape(lua_State* L, int index) {
+  Shape* shape = luax_toshape(L, index);
+  if (shape) {
+    lovrCheck(!lovrShapeIsDestroyed(shape), "Attempt to use a destroyed Shape");
+    return shape;
+  } else {
+    luax_typeerror(L, index, "Shape");
+    return NULL;
+  }
 }
 
 Shape* luax_newboxshape(lua_State* L, int index) {
@@ -154,7 +164,8 @@ static int l_lovrShapeDestroy(lua_State* L) {
 }
 
 static int l_lovrShapeIsDestroyed(lua_State* L) {
-  Shape* shape = luax_checkshape(L, 1);
+  Shape* shape = luax_toshape(L, 1);
+  if (!shape) luax_typeerror(L, 1, "Shape");
   bool destroyed = lovrShapeIsDestroyed(shape);
   lua_pushboolean(L, destroyed);
   return 1;

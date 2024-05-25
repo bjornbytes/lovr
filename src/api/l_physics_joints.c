@@ -16,7 +16,7 @@ void luax_pushjoint(lua_State* L, Joint* joint) {
   }
 }
 
-Joint* luax_checkjoint(lua_State* L, int index) {
+static Joint* luax_tojoint(lua_State* L, int index) {
   Proxy* p = lua_touserdata(L, index);
 
   if (p) {
@@ -36,8 +36,18 @@ Joint* luax_checkjoint(lua_State* L, int index) {
     }
   }
 
-  luax_typeerror(L, index, "Joint");
   return NULL;
+}
+
+Joint* luax_checkjoint(lua_State* L, int index) {
+  Joint* joint = luax_tojoint(L, index);
+  if (joint) {
+    lovrCheck(!lovrJointIsDestroyed(joint), "Attempt to use a destroyed Joint");
+    return joint;
+  } else {
+    luax_typeerror(L, index, "Joint");
+    return NULL;
+  }
 }
 
 static int l_lovrJointDestroy(lua_State* L) {
@@ -47,7 +57,8 @@ static int l_lovrJointDestroy(lua_State* L) {
 }
 
 static int l_lovrJointIsDestroyed(lua_State* L) {
-  Joint* joint = luax_checkjoint(L, 1);
+  Joint* joint = luax_tojoint(L, 1);
+  if (!joint) luax_typeerror(L, 1, "Joint");
   bool destroyed = lovrJointIsDestroyed(joint);
   lua_pushboolean(L, destroyed);
   return 1;
