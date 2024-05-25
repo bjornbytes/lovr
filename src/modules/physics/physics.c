@@ -1141,7 +1141,7 @@ float lovrColliderGetFriction(Collider* collider) {
 }
 
 void lovrColliderSetFriction(Collider* collider, float friction) {
-  JPH_BodyInterface_SetFriction(collider->world->bodies, collider->id, friction);
+  JPH_BodyInterface_SetFriction(collider->world->bodies, collider->id, MAX(friction, 0.f));
 }
 
 float lovrColliderGetRestitution(Collider* collider) {
@@ -1149,7 +1149,7 @@ float lovrColliderGetRestitution(Collider* collider) {
 }
 
 void lovrColliderSetRestitution(Collider* collider, float restitution) {
-  JPH_BodyInterface_SetRestitution(collider->world->bodies, collider->id, restitution);
+  JPH_BodyInterface_SetRestitution(collider->world->bodies, collider->id, MAX(restitution, 0.f));
 }
 
 bool lovrColliderIsKinematic(Collider* collider) {
@@ -1604,7 +1604,7 @@ float lovrContactGetFriction(Contact* contact) {
 }
 
 void lovrContactSetFriction(Contact* contact, float friction) {
-  JPH_ContactSettings_SetFriction(contact->settings, friction);
+  JPH_ContactSettings_SetFriction(contact->settings, MAX(friction, 0.f));
 }
 
 float lovrContactGetRestitution(Contact* contact) {
@@ -1612,7 +1612,7 @@ float lovrContactGetRestitution(Contact* contact) {
 }
 
 void lovrContactSetRestitution(Contact* contact, float restitution) {
-  JPH_ContactSettings_SetRestitution(contact->settings, restitution);
+  JPH_ContactSettings_SetRestitution(contact->settings, MAX(restitution, 0.f));
 }
 
 bool lovrContactIsEnabled(Contact* contact) {
