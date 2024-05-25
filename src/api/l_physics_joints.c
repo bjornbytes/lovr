@@ -42,7 +42,7 @@ Joint* luax_checkjoint(lua_State* L, int index) {
 
 static int l_lovrJointDestroy(lua_State* L) {
   Joint* joint = luax_checkjoint(L, 1);
-  lovrJointDestroyData(joint);
+  lovrJointDestruct(joint);
   return 0;
 }
 

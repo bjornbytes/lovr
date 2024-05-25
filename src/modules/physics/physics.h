@@ -73,6 +73,8 @@ typedef void QueryCallback(void* userdata, Collider* collider);
 
 World* lovrWorldCreate(WorldInfo* info);
 void lovrWorldDestroy(void* ref);
+void lovrWorldDestruct(World* world);
+bool lovrWorldIsDestroyed(World* world);
 char** lovrWorldGetTags(World* world, uint32_t* count);
 uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length);
 uint32_t lovrWorldGetColliderCount(World* world);
@@ -110,7 +112,7 @@ void lovrWorldSetSleepingAllowed(World* world, bool allowed);
 
 Collider* lovrColliderCreate(World* world, float position[3], Shape* shape);
 void lovrColliderDestroy(void* ref);
-void lovrColliderDestroyData(Collider* collider);
+void lovrColliderDestruct(Collider* collider);
 bool lovrColliderIsDestroyed(Collider* collider);
 bool lovrColliderIsEnabled(Collider* collider);
 void lovrColliderSetEnabled(Collider* collider, bool enable);
@@ -178,6 +180,7 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]);
 
 // Contact
 
+void lovrContactDestroy(void* ref);
 Collider* lovrContactGetColliderA(Contact* contact);
 Collider* lovrContactGetColliderB(Contact* contact);
 Shape* lovrContactGetShapeA(Contact* contact);
@@ -194,7 +197,6 @@ bool lovrContactIsEnabled(Contact* contact);
 void lovrContactSetEnabled(Contact* contact, bool enable);
 void lovrContactGetSurfaceVelocity(Contact* contact, float velocity[3]);
 void lovrContactSetSurfaceVelocity(Contact* contact, float velocity[3]);
-void lovrContactDestroy(void* ref);
 
 // Shapes
 
@@ -209,7 +211,7 @@ typedef enum {
 } ShapeType;
 
 void lovrShapeDestroy(void* ref);
-void lovrShapeDestroyData(Shape* shape);
+void lovrShapeDestruct(Shape* shape);
 bool lovrShapeIsDestroyed(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
 Collider* lovrShapeGetCollider(Shape* shape);
@@ -283,7 +285,7 @@ typedef enum {
 } TargetType;
 
 void lovrJointDestroy(void* ref);
-void lovrJointDestroyData(Joint* joint);
+void lovrJointDestruct(Joint* joint);
 bool lovrJointIsDestroyed(Joint* joint);
 JointType lovrJointGetType(Joint* joint);
 Collider* lovrJointGetColliderA(Joint* joint);

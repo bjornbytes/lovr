@@ -346,21 +346,37 @@ World* lovrWorldCreate(WorldInfo* info) {
 
 void lovrWorldDestroy(void* ref) {
   World* world = ref;
+  lovrWorldDestruct(world);
+  lovrFree(world);
+}
+
+void lovrWorldDestruct(World* world) {
+  if (!world->system) {
+    return;
+  }
+
   while (world->colliders) {
     Collider* collider = world->colliders;
     Collider* next = collider->next;
-    lovrColliderDestroyData(collider);
+    lovrColliderDestruct(collider);
     world->colliders = next;
   }
+
   if (world->listener) JPH_ContactListener_Destroy(world->listener);
-  JPH_PhysicsSystem_Destroy(world->system);
   JPH_BodyActivationListener_Destroy(world->activationListener);
+  lovrFree(world->activeColliders);
+
   for (uint32_t i = 0; i < world->tagCount; i++) {
     lovrFree(world->tags[i]);
   }
   mtx_destroy(&world->lock);
-  lovrFree(world->activeColliders);
-  lovrFree(world);
+
+  JPH_PhysicsSystem_Destroy(world->system);
+  world->system = NULL;
+}
+
+bool lovrWorldIsDestroyed(World* world) {
+  return !world->system;
 }
 
 char** lovrWorldGetTags(World* world, uint32_t* count) {
@@ -759,11 +775,11 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
 
 void lovrColliderDestroy(void* ref) {
   Collider* collider = ref;
-  lovrColliderDestroyData(collider);
+  lovrColliderDestruct(collider);
   lovrFree(collider);
 }
 
-void lovrColliderDestroyData(Collider* collider) {
+void lovrColliderDestruct(Collider* collider) {
   if (!collider->body) {
     return;
   }
@@ -774,7 +790,7 @@ void lovrColliderDestroyData(Collider* collider) {
 
   while (joint) {
     Joint* next = lovrJointGetNext(joint, collider);
-    lovrJointDestroyData(joint);
+    lovrJointDestruct(joint);
     joint = next;
   }
 
@@ -787,8 +803,7 @@ void lovrColliderDestroyData(Collider* collider) {
     shape->collider = NULL;
     shape->next = NULL;
     shape->index = ~0u;
-    lovrShapeDestroyData(shape);
-    lovrRelease(shape, lovrShapeDestroy);
+    lovrShapeDestruct(shape);
     shape = next;
   }
 
@@ -1544,6 +1559,10 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]) {
 
 // Contact
 
+void lovrContactDestroy(void* ref) {
+  // Contact is a temporary object owned by the World
+}
+
 Collider* lovrContactGetColliderA(Contact* contact) {
   return contact->colliderA;
 }
@@ -1614,19 +1633,15 @@ void lovrContactSetSurfaceVelocity(Contact* contact, float velocity[3]) {
   JPH_ContactSettings_SetRelativeLinearSurfaceVelocity(contact->settings, vec3_toJolt(velocity));
 }
 
-void lovrContactDestroy(void* ref) {
-  // Contact is a temporary object owned by a World
-}
-
 // Shapes
 
 void lovrShapeDestroy(void* ref) {
   Shape* shape = ref;
-  lovrShapeDestroyData(shape);
+  lovrShapeDestruct(shape);
   lovrFree(shape);
 }
 
-void lovrShapeDestroyData(Shape* shape) {
+void lovrShapeDestruct(Shape* shape) {
   if (!shape->handle) {
     return;
   }
@@ -2030,11 +2045,11 @@ void lovrJointInit(Joint* joint, Collider* a, Collider* b) {
 
 void lovrJointDestroy(void* ref) {
   Joint* joint = ref;
-  lovrJointDestroyData(joint);
+  lovrJointDestruct(joint);
   lovrFree(joint);
 }
 
-void lovrJointDestroyData(Joint* joint) {
+void lovrJointDestruct(Joint* joint) {
   if (!joint->constraint) {
     return;
   }

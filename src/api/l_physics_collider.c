@@ -6,7 +6,7 @@
 
 static int l_lovrColliderDestroy(lua_State* L) {
   Collider* collider = luax_checktype(L, 1, Collider);
-  lovrColliderDestroyData(collider);
+  lovrColliderDestruct(collider);
   return 0;
 }
 

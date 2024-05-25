@@ -149,7 +149,7 @@ Shape* luax_newterrainshape(lua_State* L, int index) {
 
 static int l_lovrShapeDestroy(lua_State* L) {
   Shape* shape = luax_checkshape(L, 1);
-  lovrShapeDestroyData(shape);
+  lovrShapeDestruct(shape);
   return 0;
 }
 

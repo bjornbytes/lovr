@@ -222,6 +222,19 @@ static int l_lovrWorldNewTerrainCollider(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldDestroy(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  lovrWorldDestruct(world);
+  return 0;
+}
+
+static int l_lovrWorldIsDestroyed(lua_State* L) {
+  World* world = luax_checktype(L, 1, World);
+  bool destroyed = lovrWorldIsDestroyed(world);
+  lua_pushboolean(L, destroyed);
+  return 1;
+}
+
 static int l_lovrWorldGetTags(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   uint32_t count;
@@ -519,12 +532,6 @@ static int l_lovrWorldSetCallbacks(lua_State* L) {
 
 // Deprecated
 
-static int l_lovrWorldDestroy(lua_State* L) {
-  World* world = luax_checktype(L, 1, World);
-  lovrRelease(world, lovrWorldDestroy);
-  return 0;
-}
-
 static int l_lovrWorldGetTightness(lua_State* L) {
   World* world = luax_checktype(L, 1, World);
   float tightness = lovrWorldGetTightness(world);
@@ -625,6 +632,9 @@ const luaL_Reg lovrWorld[] = {
   { "newSphereCollider", l_lovrWorldNewSphereCollider },
   { "newMeshCollider", l_lovrWorldNewMeshCollider },
   { "newTerrainCollider", l_lovrWorldNewTerrainCollider },
+
+  { "destroy", l_lovrWorldDestroy },
+  { "isDestroyed", l_lovrWorldIsDestroyed },
   { "getTags", l_lovrWorldGetTags },
   { "getColliderCount", l_lovrWorldGetColliderCount },
   { "getJointCount", l_lovrWorldGetJointCount },
@@ -645,7 +655,6 @@ const luaL_Reg lovrWorld[] = {
   { "setCallbacks", l_lovrWorldSetCallbacks },
 
   // Deprecated
-  { "destroy", l_lovrWorldDestroy },
   { "getTightness", l_lovrWorldGetTightness },
   { "setTightness", l_lovrWorldSetTightness },
   { "getResponseTime", l_lovrWorldGetResponseTime },
