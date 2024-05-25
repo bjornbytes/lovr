@@ -757,8 +757,8 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   quat_identity(collider->lastOrientation);
 
   if (type == JPH_MotionType_Dynamic) {
-    lovrColliderSetLinearDamping(collider, world->defaultLinearDamping, 0.f);
-    lovrColliderSetAngularDamping(collider, world->defaultAngularDamping, 0.f);
+    lovrColliderSetLinearDamping(collider, world->defaultLinearDamping);
+    lovrColliderSetAngularDamping(collider, world->defaultAngularDamping);
     lovrColliderSetSleepingAllowed(collider, world->defaultIsSleepingAllowed);
   }
 
@@ -1452,26 +1452,24 @@ void lovrColliderSetAngularVelocity(Collider* collider, float velocity[3]) {
   JPH_BodyInterface_SetAngularVelocity(collider->world->bodies, collider->id, vec3_toJolt(velocity));
 }
 
-void lovrColliderGetLinearDamping(Collider* collider, float* damping, float* threshold) {
+float lovrColliderGetLinearDamping(Collider* collider) {
   JPH_MotionProperties* properties = JPH_Body_GetMotionProperties(collider->body);
-  *damping = JPH_MotionProperties_GetLinearDamping(properties);
-  *threshold = 0.f;
+  return JPH_MotionProperties_GetLinearDamping(properties);
 }
 
-void lovrColliderSetLinearDamping(Collider* collider, float damping, float threshold) {
+void lovrColliderSetLinearDamping(Collider* collider, float damping) {
   JPH_MotionProperties* properties = JPH_Body_GetMotionProperties(collider->body);
-  JPH_MotionProperties_SetLinearDamping(properties, damping);
+  JPH_MotionProperties_SetLinearDamping(properties, MAX(damping, 0.f));
 }
 
-void lovrColliderGetAngularDamping(Collider* collider, float* damping, float* threshold) {
+float lovrColliderGetAngularDamping(Collider* collider) {
   JPH_MotionProperties* properties = JPH_Body_GetMotionProperties(collider->body);
-  *damping = JPH_MotionProperties_GetAngularDamping(properties);
-  *threshold = 0.f;
+  return JPH_MotionProperties_GetAngularDamping(properties);
 }
 
-void lovrColliderSetAngularDamping(Collider* collider, float damping, float threshold) {
+void lovrColliderSetAngularDamping(Collider* collider, float damping) {
   JPH_MotionProperties* properties = JPH_Body_GetMotionProperties(collider->body);
-  JPH_MotionProperties_SetAngularDamping(properties, damping);
+  JPH_MotionProperties_SetAngularDamping(properties, MAX(damping, 0.f));
 }
 
 void lovrColliderApplyForce(Collider* collider, float force[3]) {
