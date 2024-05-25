@@ -1426,6 +1426,12 @@ void lovrColliderGetRawOrientation(Collider* collider, float orientation[4]) {
   quat_fromJolt(orientation, &q);
 }
 
+void lovrColliderSetPose(Collider* collider, float position[3], float orientation[4]) {
+  JPH_BodyInterface_SetPositionAndRotation(collider->world->bodies, collider->id, vec3_toJolt(position), quat_toJolt(orientation), JPH_Activation_Activate);
+  vec3_init(collider->lastPosition, position);
+  quat_init(collider->lastOrientation, orientation);
+}
+
 void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {
   JPH_Vec3 v;
   JPH_BodyInterface_GetLinearVelocity(collider->world->bodies, collider->id, &v);

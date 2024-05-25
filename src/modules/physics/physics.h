@@ -156,6 +156,7 @@ void lovrColliderGetOrientation(Collider* collider, float orientation[4]);
 void lovrColliderSetOrientation(Collider* collider, float orientation[4]);
 void lovrColliderGetRawPosition(Collider* collider, float position[3]);
 void lovrColliderGetRawOrientation(Collider* collider, float orientation[4]);
+void lovrColliderSetPose(Collider* collider, float position[3], float orientation[4]);
 void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]);
 void lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]);
 void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]);
