@@ -23,6 +23,11 @@ int main(int argc, char** argv) {
     luaL_openlibs(L);
     luax_preload(L);
 
+#ifdef LOVR_USE_LUAU
+    lua_pushcfunction(L, luax_require);
+    lua_setfield(L, LUA_GLOBALSINDEX, "require");
+#endif
+
     lua_newtable(L);
     static Variant cookie;
     luax_pushvariant(L, &cookie);

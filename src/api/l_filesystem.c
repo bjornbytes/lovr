@@ -583,15 +583,24 @@ static int libLoaderAllInOne(lua_State* L) {
   return libLoaderCommon(L, allInOneFlag);
 }
 
+int luax_loadmodule(lua_State* L) {
+  if (luaLoader(L)) return 1;
+  if (libLoader(L)) return 1;
+  if (libLoaderAllInOne(L)) return 1;
+  return 0;
+}
+
 extern const luaL_Reg lovrFile[];
 
 int luaopen_lovr_filesystem(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrFilesystem);
   luax_registertype(L, File);
+#ifndef LOVR_USE_LUAU
   luax_registerloader(L, luaLoader, 2);
   luax_registerloader(L, libLoader, 3);
   luax_registerloader(L, libLoaderAllInOne, 4);
+#endif
   lovrFilesystemInit();
   luax_atexit(L, lovrFilesystemDestroy);
   return 1;

@@ -127,10 +127,72 @@ void luax_preload(lua_State* L) {
     { NULL, NULL }
   };
 
+#ifdef LOVR_USE_LUAU
+  lua_getfield(L, LUA_REGISTRYINDEX, "_PRELOAD");
+
+  if (!lua_istable(L, -1)) {
+    lua_newtable(L);
+    lua_replace(L, -2);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_PRELOAD");
+  }
+
+  luax_register(L, lovrModules);
+  lua_pop(L, 1);
+#else
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "preload");
   luax_register(L, lovrModules);
   lua_pop(L, 2);
+#endif
+}
+
+int luax_require(lua_State* L) {
+  const char* module = luaL_checkstring(L, 1);
+  lua_settop(L, 1);
+
+  lua_getfield(L, LUA_REGISTRYINDEX, "_LOADED");
+  lua_getfield(L, 2, module);
+  if (lua_toboolean(L, -1)) {
+    return 1;
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, LUA_REGISTRYINDEX, "_PRELOAD");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, module);
+    if (lua_isfunction(L, -1)) {
+      goto load;
+    } else {
+      lua_pop(L, 1);
+    }
+  }
+  lua_pop(L, 1);
+
+#ifndef LOVR_DISABLE_FILESYSTEM
+  lua_pushcfunction(L, luax_loadmodule);
+  lua_pushvalue(L, 1);
+  lua_call(L, 1, 1);
+  if (lua_isfunction(L, -1)) {
+    goto load;
+  } else if (lua_type(L, -1) == LUA_TSTRING) {
+    lua_error(L);
+    return 1;
+  }
+#endif
+
+  luaL_error(L, "No module %s", module);
+
+load:
+  lua_pushvalue(L, 1);
+  lua_call(L, 1, 1);
+  if (lua_isnil(L, -1)) {
+    lua_pushboolean(L, true);
+    lua_replace(L, -2);
+  }
+  lua_pushvalue(L, -1);
+  lua_setfield(L, 2, module);
+  return 1;
 }
 
 void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, destructorFn* destructor) {
