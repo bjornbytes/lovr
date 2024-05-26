@@ -32,6 +32,7 @@ struct World {
   int collisionSteps;
   float time;
   float tickRate;
+  float inverseDelta;
   uint32_t tickLimit;
   uint32_t tagCount;
   uint32_t staticTagMask;
@@ -438,6 +439,7 @@ void lovrWorldSetGravity(World* world, float gravity[3]) {
 void lovrWorldUpdate(World* world, float dt) {
   if (world->tickRate == 0.f) {
     JPH_PhysicsSystem_Step(world->system, dt, 1);
+    world->inverseDelta = 1.f / dt;
     return;
   }
 
@@ -464,6 +466,7 @@ void lovrWorldUpdate(World* world, float dt) {
     }
 
     JPH_PhysicsSystem_Step(world->system, world->tickRate, 1);
+    world->inverseDelta = 1.f / world->tickRate;
     tick++;
   }
 }
@@ -2130,44 +2133,54 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
 }
 
 float lovrJointGetForce(Joint* joint) {
+  JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
+  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
+  Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
+  World* world = a ? a->world : b->world;
+
   JPH_Vec3 v;
   float force[3], x, y;
   switch (joint->type) {
     case JOINT_WELD:
       JPH_FixedConstraint_GetTotalLambdaPosition((JPH_FixedConstraint*) joint->constraint, &v);
-      return vec3_length(vec3_fromJolt(force, &v));
+      return vec3_length(vec3_fromJolt(force, &v)) * world->inverseDelta;
     case JOINT_BALL:
       JPH_PointConstraint_GetTotalLambdaPosition((JPH_PointConstraint*) joint->constraint, &v);
-      return vec3_length(vec3_fromJolt(force, &v));
+      return vec3_length(vec3_fromJolt(force, &v)) * world->inverseDelta;
     case JOINT_DISTANCE:
       return JPH_DistanceConstraint_GetTotalLambdaPosition((JPH_DistanceConstraint*) joint->constraint);
     case JOINT_HINGE:
       JPH_HingeConstraint_GetTotalLambdaPosition((JPH_HingeConstraint*) joint->constraint, &v);
-      return vec3_length(vec3_fromJolt(force, &v));
+      return vec3_length(vec3_fromJolt(force, &v)) * world->inverseDelta;
     case JOINT_SLIDER:
       JPH_SliderConstraint_GetTotalLambdaPosition((JPH_SliderConstraint*) joint->constraint, &x, &y);
-      return sqrtf((x * x) + (y * y));
+      return sqrtf((x * x) + (y * y)) * world->inverseDelta;
     default: return 0.f;
   }
 }
 
 float lovrJointGetTorque(Joint* joint) {
+  JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
+  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
+  Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
+  World* world = a ? a->world : b->world;
+
   JPH_Vec3 v;
   float torque[3], x, y;
   switch (joint->type) {
     case JOINT_WELD:
       JPH_FixedConstraint_GetTotalLambdaRotation((JPH_FixedConstraint*) joint->constraint, &v);
-      return vec3_length(vec3_fromJolt(torque, &v));
+      return vec3_length(vec3_fromJolt(torque, &v)) * world->inverseDelta;
     case JOINT_BALL:
       return 0.f;
     case JOINT_DISTANCE:
       return 0.f;
     case JOINT_HINGE:
       JPH_HingeConstraint_GetTotalLambdaRotation((JPH_HingeConstraint*) joint->constraint, &x, &y);
-      return sqrtf((x * x) + (y * y));
+      return sqrtf((x * x) + (y * y)) * world->inverseDelta;
     case JOINT_SLIDER:
       JPH_SliderConstraint_GetTotalLambdaRotation((JPH_SliderConstraint*) joint->constraint, &v);
-      return vec3_length(vec3_fromJolt(torque, &v));
+      return vec3_length(vec3_fromJolt(torque, &v)) * world->inverseDelta;
     default: return 0.f;
   }
 }
