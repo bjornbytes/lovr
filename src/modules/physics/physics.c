@@ -1992,27 +1992,6 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
 
 // Joints
 
-static void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
-  JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
-  JPH_Body* body2 = JPH_TwoBodyConstraint_GetBody2((JPH_TwoBodyConstraint*) joint->constraint);
-  JPH_RMatrix4x4 centerOfMassTransform1;
-  JPH_RMatrix4x4 centerOfMassTransform2;
-  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransform1);
-  JPH_Body_GetCenterOfMassTransform(body2, &centerOfMassTransform2);
-  JPH_Matrix4x4 constraintToBody1;
-  JPH_Matrix4x4 constraintToBody2;
-  JPH_TwoBodyConstraint_GetConstraintToBody1Matrix((JPH_TwoBodyConstraint*) joint->constraint, &constraintToBody1);
-  JPH_TwoBodyConstraint_GetConstraintToBody2Matrix((JPH_TwoBodyConstraint*) joint->constraint, &constraintToBody2);
-  mat4_mulVec4(&centerOfMassTransform1.m11, &constraintToBody1.m41);
-  mat4_mulVec4(&centerOfMassTransform2.m11, &constraintToBody2.m41);
-  anchor1[0] = constraintToBody1.m41;
-  anchor1[1] = constraintToBody1.m42;
-  anchor1[2] = constraintToBody1.m43;
-  anchor2[0] = constraintToBody2.m41;
-  anchor2[1] = constraintToBody2.m42;
-  anchor2[2] = constraintToBody2.m43;
-}
-
 static JointNode* lovrJointGetNode(Joint* joint, Collider* collider) {
   return collider == lovrJointGetColliderA(joint) ? &joint->a : &joint->b;
 }
@@ -2113,6 +2092,27 @@ Joint* lovrJointGetNext(Joint* joint, Collider* collider) {
   return lovrJointGetNode(joint, collider)->next;
 }
 
+void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {
+  JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
+  JPH_Body* body2 = JPH_TwoBodyConstraint_GetBody2((JPH_TwoBodyConstraint*) joint->constraint);
+  JPH_RMatrix4x4 centerOfMassTransform1;
+  JPH_RMatrix4x4 centerOfMassTransform2;
+  JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransform1);
+  JPH_Body_GetCenterOfMassTransform(body2, &centerOfMassTransform2);
+  JPH_Matrix4x4 constraintToBody1;
+  JPH_Matrix4x4 constraintToBody2;
+  JPH_TwoBodyConstraint_GetConstraintToBody1Matrix((JPH_TwoBodyConstraint*) joint->constraint, &constraintToBody1);
+  JPH_TwoBodyConstraint_GetConstraintToBody2Matrix((JPH_TwoBodyConstraint*) joint->constraint, &constraintToBody2);
+  mat4_mulVec4(&centerOfMassTransform1.m11, &constraintToBody1.m41);
+  mat4_mulVec4(&centerOfMassTransform2.m11, &constraintToBody2.m41);
+  anchor1[0] = constraintToBody1.m41;
+  anchor1[1] = constraintToBody1.m42;
+  anchor1[2] = constraintToBody1.m43;
+  anchor2[0] = constraintToBody2.m41;
+  anchor2[1] = constraintToBody2.m42;
+  anchor2[2] = constraintToBody2.m43;
+}
+
 uint32_t lovrJointGetPriority(Joint* joint) {
   return JPH_Constraint_GetConstraintPriority(joint->constraint);
 }
@@ -2196,10 +2196,6 @@ WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
   return joint;
 }
 
-void lovrWeldJointGetAnchors(WeldJoint* joint, float anchor1[3], float anchor2[3]) {
-  lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
-}
-
 // BallJoint
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
@@ -2222,10 +2218,6 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
-}
-
-void lovrBallJointGetAnchors(BallJoint* joint, float anchor1[3], float anchor2[3]) {
-  lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
 }
 
 // ConeJoint
@@ -2251,10 +2243,6 @@ ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float 
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
-}
-
-void lovrConeJointGetAnchors(ConeJoint* joint, float anchor1[3], float anchor2[3]) {
-  lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
 }
 
 void lovrConeJointGetAxis(ConeJoint* joint, float axis[3]) {
@@ -2309,10 +2297,6 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3
   return joint;
 }
 
-void lovrDistanceJointGetAnchors(DistanceJoint* joint, float anchor1[3], float anchor2[3]) {
-  lovrJointGetAnchors((Joint*) joint, anchor1, anchor2);
-}
-
 void lovrDistanceJointGetLimits(DistanceJoint* joint, float* min, float* max) {
   *min = JPH_DistanceConstraint_GetMinDistance((JPH_DistanceConstraint*) joint->constraint);
   *max = JPH_DistanceConstraint_GetMaxDistance((JPH_DistanceConstraint*) joint->constraint);
@@ -2362,10 +2346,6 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], floa
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
-}
-
-void lovrHingeJointGetAnchors(HingeJoint* joint, float anchor1[3], float anchor2[3]) {
-  lovrJointGetAnchors(joint, anchor1, anchor2);
 }
 
 void lovrHingeJointGetAxis(HingeJoint* joint, float axis[3]) {
@@ -2507,10 +2487,6 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
-}
-
-void lovrSliderJointGetAnchors(SliderJoint* joint, float anchor1[3], float anchor2[3]) {
-  lovrJointGetAnchors(joint, anchor1, anchor2);
 }
 
 void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
