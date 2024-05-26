@@ -404,6 +404,22 @@ static int l_lovrColliderGetRawOrientation(lua_State* L) {
   return 4;
 }
 
+static int l_lovrColliderGetRawPose(lua_State* L) {
+  Collider* collider = luax_checkcollider(L, 1);
+  float position[3], orientation[4], angle, ax, ay, az;
+  lovrColliderGetRawPosition(collider, position);
+  lovrColliderGetRawOrientation(collider, orientation);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
 static int l_lovrColliderGetLinearVelocity(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float velocity[3];
@@ -687,6 +703,7 @@ const luaL_Reg lovrCollider[] = {
   { "setPose", l_lovrColliderSetPose },
   { "getRawPosition", l_lovrColliderGetRawPosition },
   { "getRawOrientation", l_lovrColliderGetRawOrientation },
+  { "getRawPose", l_lovrColliderGetRawPose },
   { "getLinearVelocity", l_lovrColliderGetLinearVelocity },
   { "setLinearVelocity", l_lovrColliderSetLinearVelocity },
   { "getAngularVelocity", l_lovrColliderGetAngularVelocity },
