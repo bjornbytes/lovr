@@ -282,6 +282,12 @@ function lovr.threaderror(thread, err)
   error('Thread error\n\n' .. err, 0)
 end
 
+function lovr.filechanged(path, action, oldpath)
+  if not path:match('^%.') then
+    lovr.event.restart()
+  end
+end
+
 function lovr.log(message, level, tag)
   message = message:gsub('\n$', '')
   print(message)

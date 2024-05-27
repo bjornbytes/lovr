@@ -3,7 +3,8 @@ function lovr.arg(arg)
     _help = { short = '-h', long = '--help', help = 'Show help and exit' },
     _version = { short = '-v', long = '--version', help = 'Show version and exit' },
     console = { long = '--console', help = 'Attach Windows console' },
-    debug = { long = '--debug', help = 'Enable debugging checks and logging' }
+    debug = { long = '--debug', help = 'Enable debugging checks and logging' },
+    watch = { short = '-w', long = '--watch', help = 'Watch files and restart on change' }
   }
 
   local shift
@@ -67,6 +68,10 @@ function lovr.arg(arg)
   return function(conf)
     if arg.debug then
       conf.graphics.debug = true
+    end
+
+    if arg.watch then
+      lovr.filesystem.watch()
     end
   end
 end

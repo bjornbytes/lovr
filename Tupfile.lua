@@ -393,6 +393,7 @@ src += 'src/lib/miniz/*.c'
 src += (config.modules.audio or config.modules.data) and 'src/lib/miniaudio/*.c' or nil
 src += config.modules.data and 'src/lib/jsmn/*.c' or nil
 src += config.modules.data and 'src/lib/minimp3/*.c' or nil
+src += config.modules.filesystem and 'src/lib/dmon/*.c' or nil
 src += config.modules.math and 'src/lib/noise/*.c' or nil
 src += config.modules.thread and 'src/core/job.c' or nil
 

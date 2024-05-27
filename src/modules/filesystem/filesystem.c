@@ -1,7 +1,9 @@
 #include "filesystem/filesystem.h"
+#include "event/event.h"
 #include "core/fs.h"
 #include "core/os.h"
 #include "util.h"
+#include "lib/dmon/dmon.h"
 #include "lib/miniz/miniz_tinfl.h"
 #include <stdatomic.h>
 #include <string.h>
@@ -75,6 +77,7 @@ struct File {
 
 static struct {
   uint32_t ref;
+  dmon_watch_id watcher;
   Archive* archives;
   size_t savePathLength;
   char savePath[1024];
@@ -175,6 +178,7 @@ void lovrFilesystemDestroy(void) {
     lovrRelease(archive, lovrArchiveDestroy);
     archive = next;
   }
+  lovrFilesystemUnwatch();
   memset(&state, 0, sizeof(state));
 }
 
@@ -187,7 +191,45 @@ void lovrFilesystemSetSource(const char* source) {
 }
 
 const char* lovrFilesystemGetSource(void) {
-  return state.source[0]  ? state.source : NULL;
+  return state.source[0] ? state.source : NULL;
+}
+
+static void onFileEvent(dmon_watch_id id, dmon_action action, const char* dir, const char* path, const char* oldpath, void* ctx) {
+  static const FileAction map[] = {
+    [DMON_ACTION_CREATE] = FILE_CREATE,
+    [DMON_ACTION_DELETE] = FILE_DELETE,
+    [DMON_ACTION_MODIFY] = FILE_MODIFY,
+    [DMON_ACTION_MOVE] = FILE_RENAME
+  };
+
+  lovrEventPush((Event) {
+    .type = EVENT_FILECHANGED,
+    .data.file = {
+      .path = (char*) path,
+      .action = map[action],
+      .oldpath = (char*) oldpath
+    }
+  });
+}
+
+void lovrFilesystemWatch(void) {
+#ifdef ANDROID
+  const char* path = state.savePath;
+#else
+  const char* path = state.source;
+#endif
+  FileInfo info;
+  if (!state.watcher.id && fs_stat(path, &info) && info.type == FILE_DIRECTORY) {
+    dmon_init();
+    state.watcher = dmon_watch(path, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
+  }
+}
+
+void lovrFilesystemUnwatch(void) {
+  if (state.watcher.id) {
+    dmon_deinit();
+    state.watcher.id = 0;
+  }
 }
 
 bool lovrFilesystemIsFused(void) {
