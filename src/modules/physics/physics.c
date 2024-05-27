@@ -1444,6 +1444,19 @@ void lovrColliderGetRawOrientation(Collider* collider, float orientation[4]) {
   quat_fromJolt(orientation, &q);
 }
 
+void lovrColliderGetPose(Collider* collider, float position[3], float orientation[4]) {
+  JPH_RVec3 p;
+  JPH_Quat q;
+  JPH_BodyInterface_GetPositionAndRotation(collider->world->bodies, collider->id, &p, &q);
+  vec3_fromJolt(position, &p);
+  quat_fromJolt(orientation, &q);
+  if (collider->world->tickRate > 0.f && lovrColliderIsAwake(collider)) {
+    float t = 1.f - collider->world->time / collider->world->tickRate;
+    vec3_lerp(position, collider->lastPosition, t);
+    quat_slerp(orientation, collider->lastOrientation, t);
+  }
+}
+
 void lovrColliderSetPose(Collider* collider, float position[3], float orientation[4]) {
   JPH_BodyInterface_SetPositionAndRotation(collider->world->bodies, collider->id, vec3_toJolt(position), quat_toJolt(orientation), JPH_Activation_Activate);
   vec3_init(collider->lastPosition, position);
@@ -1763,8 +1776,7 @@ void lovrShapeSetOffset(Shape* shape, float translation[3], float rotation[4]) {
 void lovrShapeGetPose(Shape* shape, float position[3], float orientation[4]) {
   if (shape->collider) {
     float colliderPosition[3], colliderOrientation[4];
-    lovrColliderGetPosition(shape->collider, colliderPosition);
-    lovrColliderGetOrientation(shape->collider, colliderOrientation);
+    lovrColliderGetPose(shape->collider, colliderPosition, colliderOrientation);
 
     if (position) {
       vec3_init(position, shape->translation);
@@ -1784,8 +1796,7 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   if (shape->collider) {
     JPH_RMatrix4x4 transform;
     float position[3], orientation[4], scale[3] = { 1.f, 1.f, 1.f };
-    lovrColliderGetPosition(shape->collider, position);
-    lovrColliderGetOrientation(shape->collider, orientation);
+    lovrColliderGetPose(shape->collider, position, orientation);
     mat4_fromPose(&transform.m11, position, orientation);
     JPH_Shape_GetWorldSpaceBounds(shape->handle, &transform, vec3_toJolt(scale), &box);
   } else {
