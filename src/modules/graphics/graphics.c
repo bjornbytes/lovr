@@ -2998,8 +2998,17 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       }
 
       // Skip builtin resources
-      if (info->type == SHADER_GRAPHICS && ((*set == 0 && *binding <= LAST_BUILTIN_BINDING) || *set == 1)) {
-        continue;
+      if (info->type == SHADER_GRAPHICS) {
+        if (*set == 0) {
+          // Unused user resources are given binding #0 for some reason, we still want to keep those
+          if (*binding == 0 && !strcmp(resource->name, "Globals")) {
+            continue;
+          } else if (*binding > 0 && *binding <= LAST_BUILTIN_BINDING) {
+            continue;
+          }
+        } else if (*set == 1) {
+          continue;
+        }
       }
 
       static const gpu_slot_type types[] = {
