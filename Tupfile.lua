@@ -259,6 +259,7 @@ if config.modules.graphics and config.glslang then
   glslang_cflags += '-fno-exceptions'
   glslang_cflags += '-fno-rtti'
   glslang_cflags += '-Ideps/glslang'
+  glslang_cflags += '-I.obj'
   glslang_lflags += '-shared'
   glslang_src += 'deps/glslang/glslang/CInterface/*.cpp'
   glslang_src += 'deps/glslang/glslang/MachineIndependent/*.cpp'
