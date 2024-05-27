@@ -47,14 +47,18 @@ typedef struct {
 
 struct Archive {
   uint32_t ref;
+  MountMode mode;
   struct Archive* next;
-  bool (*open)(Archive* archive, const char* path, Handle* handle);
+  bool (*open)(Archive* archive, const char* path, OpenMode mode, Handle* handle);
   bool (*close)(Archive* archive, Handle* handle);
   bool (*read)(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count);
+  bool (*write)(Archive* archive, Handle* handle, const uint8_t* data, size_t size, size_t* count);
   bool (*seek)(Archive* archive, Handle* handle, uint64_t offset);
   bool (*fsize)(Archive* archive, Handle* handle, size_t* size);
   bool (*stat)(Archive* archive, const char* path, FileInfo* info, bool needTime);
   void (*list)(Archive* archive, const char* path, fs_list_cb callback, void* context);
+  bool (*mkdir)(Archive* archive, const char* path);
+  bool (*remove)(Archive* archive, const char* path);
   char* path;
   char* mountpoint;
   size_t pathLength;
@@ -158,7 +162,7 @@ bool lovrFilesystemInit(void) {
     state.identity[length] = '\0';
     state.savePath[cursor - 6] = '/';
     state.savePathLength = cursor;
-    if (!lovrFilesystemMount(state.savePath, NULL, false, NULL)) {
+    if (!lovrFilesystemMount(state.savePath, NULL, MOUNT_READWRITE, false, NULL)) {
       state.identity[0] = '\0';
     }
   }
@@ -198,14 +202,14 @@ bool lovrFilesystemIsFused(void) {
 
 // Archives
 
-bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char* root) {
+bool lovrFilesystemMount(const char* path, const char* mountpoint, MountMode mode, bool append, const char* root) {
   FOREACH_ARCHIVE(archive) {
     if (!strcmp(archive->path, path)) {
       return false;
     }
   }
 
-  Archive* archive = lovrArchiveCreate(path, mountpoint, root);
+  Archive* archive = lovrArchiveCreate(path, mountpoint, mode, root);
   if (!archive) return false;
 
   if (append) {
@@ -299,7 +303,7 @@ void* lovrFilesystemRead(const char* p, size_t* size) {
         continue;
       }
 
-      if (!archive->open(archive, path, &handle)) {
+      if (!archive->open(archive, path, OPEN_READ, &handle)) {
         continue;
       }
 
@@ -323,6 +327,26 @@ void* lovrFilesystemRead(const char* p, size_t* size) {
   return NULL;
 }
 
+bool lovrFilesystemWrite(const char* p, const char* data, size_t size, bool append) {
+  Handle handle;
+  char path[1024];
+  size_t length = sizeof(path);
+  OpenMode mode = append ? OPEN_APPEND : OPEN_WRITE;
+  if (sanitize(p, path, &length)) {
+    FOREACH_ARCHIVE(archive) {
+      if (archive->mode != MOUNT_READWRITE) continue;
+      if (!archiveContains(archive, path, length)) continue;
+      if (!archive->open(archive, path, mode, &handle)) continue;
+
+      size_t bytesWritten = 0;
+      bool success = archive->write(archive, &handle, (const uint8_t*) data, size, &bytesWritten);
+      archive->close(archive, &handle);
+      return success && size == bytesWritten;
+    }
+  }
+  return false;
+}
+
 void lovrFilesystemGetDirectoryItems(const char* p, void (*callback)(void* context, const char* path), void* context) {
   char path[1024];
   size_t length = sizeof(path);
@@ -343,7 +367,35 @@ void lovrFilesystemGetDirectoryItems(const char* p, void (*callback)(void* conte
   }
 }
 
-// Writing
+bool lovrFilesystemCreateDirectory(const char* p) {
+  char path[1024];
+  size_t length = sizeof(path);
+  if (sanitize(p, path, &length)) {
+    FOREACH_ARCHIVE(archive) {
+      if (archive->mode != MOUNT_READWRITE) continue;
+      if (!archiveContains(archive, path, length)) continue;
+      return archive->mkdir(archive, path);
+    }
+  }
+  return false;
+}
+
+bool lovrFilesystemRemove(const char* p) {
+  FileInfo info;
+  char path[1024];
+  size_t length = sizeof(path);
+  if (sanitize(p, path, &length)) {
+    FOREACH_ARCHIVE(archive) {
+      if (archive->mode != MOUNT_READWRITE) continue;
+      if (!archiveContains(archive, path, length)) continue;
+      if (!archive->stat(archive, path, &info, false)) continue;
+      return archive->remove(archive, path);
+    }
+  }
+  return false;
+}
+
+// Paths
 
 const char* lovrFilesystemGetIdentity(void) {
   return state.identity[0] == '\0' ? NULL : state.identity;
@@ -389,7 +441,7 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   memcpy(state.identity, identity, length + 1);
 
   // Mount the fully resolved save path
-  if (!lovrFilesystemMount(state.savePath, NULL, !precedence, NULL)) {
+  if (!lovrFilesystemMount(state.savePath, NULL, MOUNT_READWRITE, !precedence, NULL)) {
     state.identity[0] = '\0';
     return false;
   }
@@ -400,54 +452,6 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
 const char* lovrFilesystemGetSaveDirectory(void) {
   return state.savePath;
 }
-
-bool lovrFilesystemCreateDirectory(const char* path) {
-  char resolved[LOVR_PATH_MAX];
-
-  if (!valid(path) || !concat(resolved, state.savePath, state.savePathLength, path, strlen(path))) {
-    return false;
-  }
-
-  char* cursor = resolved + state.savePathLength;
-  while (*cursor == '/') cursor++;
-
-  while (*cursor) {
-    if (*cursor == '/') {
-      *cursor = '\0';
-      fs_mkdir(resolved);
-      *cursor = '/';
-    }
-    cursor++;
-  }
-
-  return fs_mkdir(resolved);
-}
-
-bool lovrFilesystemRemove(const char* path) {
-  char resolved[LOVR_PATH_MAX];
-  return valid(path) && concat(resolved, state.savePath, state.savePathLength, path, strlen(path)) && fs_remove(resolved);
-}
-
-bool lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
-  char resolved[LOVR_PATH_MAX];
-  if (!valid(path) || !concat(resolved, state.savePath, state.savePathLength, path, strlen(path))) {
-    return false;
-  }
-
-  fs_handle file;
-  if (!fs_open(resolved, append ? 'a' : 'w', &file)) {
-    return false;
-  }
-
-  size_t count;
-  if (!fs_write(file, content, size, &count) || count != size) {
-    return false;
-  }
-
-  return fs_close(file);
-}
-
-// Paths
 
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size) {
   return os_get_data_directory(buffer, size);
@@ -487,14 +491,16 @@ static bool dir_resolve(Archive* archive, const char* fullpath, char* buffer) {
   return concat(buffer, archive->path, archive->pathLength, path, strlen(path));
 }
 
-static bool dir_init(Archive* archive, const char* path, const char* root) {
+static bool dir_init(Archive* archive, const char* path, MountMode mode, const char* root) {
   FileInfo info;
   return fs_stat(path, &info) && info.type == FILE_DIRECTORY;
 }
 
-static bool dir_open(Archive* archive, const char* path, Handle* handle) {
+static bool dir_open(Archive* archive, const char* path, OpenMode mode, Handle* handle) {
+  if (mode != OPEN_READ && archive->mode == MOUNT_READ) return false;
   char resolved[LOVR_PATH_MAX];
-  return dir_resolve(archive, path, resolved) && fs_open(resolved, 'r', &handle->file);
+  char modes[] = { [OPEN_READ] = 'r', [OPEN_WRITE] = 'w', [OPEN_APPEND] = 'a' };
+  return dir_resolve(archive, path, resolved) && fs_open(resolved, modes[mode], &handle->file);
 }
 
 static bool dir_close(Archive* archive, Handle* handle) {
@@ -503,6 +509,15 @@ static bool dir_close(Archive* archive, Handle* handle) {
 
 static bool dir_read(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count) {
   if (!fs_read(handle->file, data, size, count)) {
+    return false;
+  } else {
+    handle->offset += *count;
+    return true;
+  }
+}
+
+static bool dir_write(Archive* archive, Handle* handle, const uint8_t* data, size_t size, size_t* count) {
+  if (!fs_write(handle->file, data, size, count)) {
     return false;
   } else {
     handle->offset += *count;
@@ -540,6 +555,33 @@ static void dir_list(Archive* archive, const char* path, fs_list_cb callback, vo
   }
 }
 
+static bool dir_mkdir(Archive* archive, const char* path) {
+  char resolved[LOVR_PATH_MAX];
+
+  if (!dir_resolve(archive, path, resolved)) {
+    return false;
+  }
+
+  char* cursor = resolved + archive->mountLength;
+  while (*cursor == '/') cursor++;
+
+  while (*cursor) {
+    if (*cursor == '/') {
+      *cursor = '\0';
+      fs_mkdir(resolved);
+      *cursor = '/';
+    }
+    cursor++;
+  }
+
+  return fs_mkdir(resolved);
+}
+
+static bool dir_remove(Archive* archive, const char* path) {
+  char resolved[LOVR_PATH_MAX];
+  return dir_resolve(archive, path, resolved) && fs_remove(resolved);
+}
+
 // Archive: zip
 
 static uint16_t readu16(const uint8_t* p) { uint16_t x; memcpy(&x, p, sizeof(x)); return x; }
@@ -551,7 +593,11 @@ static void zip_free(Archive* archive) {
   if (archive->data) fs_unmap(archive->data, archive->size);
 }
 
-static bool zip_init(Archive* archive, const char* filename, const char* root) {
+static bool zip_init(Archive* archive, const char* filename, MountMode mode, const char* root) {
+  if (mode == MOUNT_READWRITE) {
+    return false;
+  }
+
   // Map the zip file into memory
   archive->data = fs_map(filename, &archive->size);
   if (!archive->data) {
@@ -728,7 +774,9 @@ static zip_node* zip_resolve(Archive* archive, const char* fulpathLength) {
   return index == MAP_NIL ? NULL : &archive->nodes.data[index];
 }
 
-static bool zip_open(Archive* archive, const char* path, Handle* handle) {
+static bool zip_open(Archive* archive, const char* path, OpenMode mode, Handle* handle) {
+  if (mode != OPEN_READ) return false;
+
   handle->node = zip_resolve(archive, path);
 
   if (!handle->node || handle->node->directory) {
@@ -903,26 +951,33 @@ static void zip_list(Archive* archive, const char* path, fs_list_cb callback, vo
 
 // Archive
 
-Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root) {
-  Archive* archive = lovrCalloc(sizeof(Archive));
+Archive* lovrArchiveCreate(const char* path, const char* mountpoint, MountMode mode, const char* root) {
+  Archive* archive = calloc(1, sizeof(Archive));
   archive->ref = 1;
+  archive->mode = mode;
 
-  if (dir_init(archive, path, root)) {
+  if (dir_init(archive, path, mode, root)) {
     archive->open = dir_open;
     archive->close = dir_close;
     archive->read = dir_read;
+    archive->write = dir_write;
     archive->seek = dir_seek;
     archive->fsize = dir_fsize;
     archive->stat = dir_stat;
     archive->list = dir_list;
-  } else if (zip_init(archive, path, root)) {
+    archive->mkdir = dir_mkdir;
+    archive->remove = dir_remove;
+  } else if (zip_init(archive, path, mode, root)) {
     archive->open = zip_open;
     archive->close = zip_close;
     archive->read = zip_read;
+    archive->write = NULL;
     archive->seek = zip_seek;
     archive->fsize = zip_fsize;
     archive->stat = zip_stat;
     archive->list = zip_list;
+    archive->mkdir = NULL;
+    archive->remove = NULL;
   } else {
     lovrFree(archive);
     return NULL;
@@ -961,28 +1016,18 @@ File* lovrFileCreate(const char* p, OpenMode mode, const char** error) {
   Handle handle = { 0 };
   Archive* archive = NULL;
 
-  if (mode == OPEN_READ) {
-    FOREACH_ARCHIVE(a) {
-      if (archiveContains(a, path, length)) {
-        if (a->open(a, path, &handle)) {
-          archive = a;
-          break;
-        }
+  FOREACH_ARCHIVE(a) {
+    if ((a->mode == MOUNT_READWRITE || mode == OPEN_READ) && archiveContains(a, path, length)) {
+      if (a->open(a, path, mode, &handle)) {
+        archive = a;
+        break;
       }
     }
+  }
 
-    if (!archive) {
-      return *error = "File does not exist", NULL;
-    }
-  } else {
-    char fullpath[LOVR_PATH_MAX];
-    if (!concat(fullpath, state.savePath, state.savePathLength, path, length)) {
-      return *error = "File path is too long", NULL;
-    }
-
-    if (!fs_open(fullpath, mode == OPEN_APPEND ? 'a' : 'w', &handle.file)) {
-      return *error = "Failed to open file for writing", NULL; // TODO better errors pl0x
-    }
+  if (!archive) {
+    *error = mode == OPEN_READ ? "File does not exist" : "Failed to open file for writing";
+    return NULL;
   }
 
   File* file = lovrCalloc(sizeof(File));
