@@ -645,7 +645,7 @@ static int l_lovrPassSend(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
 
   size_t length;
-  const char* name = lua_tolstring(L, 2, &length);
+  const char* name = luaL_checklstring(L, 2, &length);
 
   if (lua_isnoneornil(L, 3)) {
     return luax_typeerror(L, 3, "Buffer, Texture, Sampler, number, vector, table, or boolean");
