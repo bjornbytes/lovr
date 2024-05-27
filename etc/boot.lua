@@ -283,7 +283,9 @@ function lovr.threaderror(thread, err)
 end
 
 function lovr.filechanged(path, action, oldpath)
-  lovr.event.restart()
+  if not path:match('^%.') then
+    lovr.event.restart()
+  end
 end
 
 function lovr.log(message, level, tag)

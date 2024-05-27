@@ -77,7 +77,7 @@ struct File {
 
 static struct {
   uint32_t ref;
-  bool watching;
+  dmon_watch_id watcher;
   Archive* archives;
   size_t savePathLength;
   char savePath[1024];
@@ -191,7 +191,7 @@ void lovrFilesystemSetSource(const char* source) {
 }
 
 const char* lovrFilesystemGetSource(void) {
-  return state.source[0]  ? state.source : NULL;
+  return state.source[0] ? state.source : NULL;
 }
 
 static void onFileEvent(dmon_watch_id id, dmon_action action, const char* dir, const char* path, const char* oldpath, void* ctx) {
@@ -213,18 +213,22 @@ static void onFileEvent(dmon_watch_id id, dmon_action action, const char* dir, c
 }
 
 void lovrFilesystemWatch(void) {
+#ifdef ANDROID
+  const char* path = state.savePath;
+#else
+  const char* path = state.source;
+#endif
   FileInfo info;
-  if (!state.watching && fs_stat(state.source, &info) && info.type == FILE_DIRECTORY) {
-    state.watching = true;
+  if (!state.watcher.id && fs_stat(path, &info) && info.type == FILE_DIRECTORY) {
     dmon_init();
-    dmon_watch(state.source, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
+    state.watcher = dmon_watch(path, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
   }
 }
 
 void lovrFilesystemUnwatch(void) {
-  if (state.watching) {
-    state.watching = false;
+  if (state.watcher.id) {
     dmon_deinit();
+    state.watcher.id = 0;
   }
 }
 
