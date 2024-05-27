@@ -267,11 +267,11 @@ static int l_lovrColliderResetMassData(lua_State* L) {
   return 0;
 }
 
-static int l_lovrColliderGetEnabledAxes(lua_State* L) {
+static int l_lovrColliderGetDegreesOfFreedom(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   bool translation[3];
   bool rotation[3];
-  lovrColliderGetEnabledAxes(collider, translation, rotation);
+  lovrColliderGetDegreesOfFreedom(collider, translation, rotation);
 
   char string[3];
   size_t length;
@@ -295,7 +295,7 @@ static int l_lovrColliderGetEnabledAxes(lua_State* L) {
   return 2;
 }
 
-static int l_lovrColliderSetEnabledAxes(lua_State* L) {
+static int l_lovrColliderSetDegreesOfFreedom(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   bool translation[3] = { false, false, false };
   bool rotation[3] = { false, false, false };
@@ -316,7 +316,7 @@ static int l_lovrColliderSetEnabledAxes(lua_State* L) {
     }
   }
 
-  lovrColliderSetEnabledAxes(collider, translation, rotation);
+  lovrColliderSetDegreesOfFreedom(collider, translation, rotation);
   return 0;
 }
 
@@ -693,8 +693,8 @@ const luaL_Reg lovrCollider[] = {
   { "getAutomaticMass", l_lovrColliderGetAutomaticMass },
   { "setAutomaticMass", l_lovrColliderSetAutomaticMass },
   { "resetMassData", l_lovrColliderResetMassData },
-  { "getEnabledAxes", l_lovrColliderGetEnabledAxes },
-  { "setEnabledAxes", l_lovrColliderSetEnabledAxes },
+  { "getDegreesOfFreedom", l_lovrColliderGetDegreesOfFreedom },
+  { "setDegreesOfFreedom", l_lovrColliderSetDegreesOfFreedom },
   { "getPosition", l_lovrColliderGetPosition },
   { "setPosition", l_lovrColliderSetPosition },
   { "getOrientation", l_lovrColliderGetOrientation },

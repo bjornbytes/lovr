@@ -33,7 +33,7 @@ dev
 - Add `World:collideShape`.
 - Add `Collider:get/setGravityScale`.
 - Add `Collider:is/setContinuous`.
-- Add `Collider:get/setEnabledAxes`.
+- Add `Collider:get/setDegreesOfFreedom`.
 - Add `Collider:applyLinearImpulse` and `Collider:applyAngularImpulse`.
 - Add `Collider:getRawPosition` and `Collider:getRawOrientation`.
 - Add `Collider:getShape`.

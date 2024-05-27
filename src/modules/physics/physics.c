@@ -1376,7 +1376,7 @@ void lovrColliderResetMassData(Collider* collider) {
   }
 }
 
-void lovrColliderGetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
+void lovrColliderGetDegreesOfFreedom(Collider* collider, bool translation[3], bool rotation[3]) {
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
   JPH_AllowedDOFs dofs = JPH_MotionProperties_GetAllowedDOFs(motion);
   if (dofs & JPH_AllowedDOFs_TranslationX) translation[0] = true;
@@ -1387,7 +1387,7 @@ void lovrColliderGetEnabledAxes(Collider* collider, bool translation[3], bool ro
   if (dofs & JPH_AllowedDOFs_RotationZ) rotation[2] = true;
 }
 
-void lovrColliderSetEnabledAxes(Collider* collider, bool translation[3], bool rotation[3]) {
+void lovrColliderSetDegreesOfFreedom(Collider* collider, bool translation[3], bool rotation[3]) {
   JPH_AllowedDOFs dofs = 0;
 
   if (translation[0]) dofs |= JPH_AllowedDOFs_TranslationX;
