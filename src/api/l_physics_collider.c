@@ -207,15 +207,16 @@ static int l_lovrColliderSetMass(lua_State* L) {
 
 static int l_lovrColliderGetInertia(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
-  float diagonal[3], rotation[4];
+  float diagonal[3], rotation[4], angle, ax, ay, az;
   lovrColliderGetInertia(collider, diagonal, rotation);
+  quat_getAngleAxis(rotation, &angle, &ax, &ay, &az);
   lua_pushnumber(L, diagonal[0]);
   lua_pushnumber(L, diagonal[1]);
   lua_pushnumber(L, diagonal[2]);
-  lua_pushnumber(L, rotation[0]);
-  lua_pushnumber(L, rotation[1]);
-  lua_pushnumber(L, rotation[2]);
-  lua_pushnumber(L, rotation[3]);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
   return 7;
 }
 
