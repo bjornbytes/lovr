@@ -8,6 +8,7 @@ dev
 
 - Add `Layer` object, `lovr.headset.newLayer`, and `lovr.headset.get/setLayers`.
 - Add `File` object and `lovr.filesystem.newFile`.
+- Add `--watch` CLI flag, `lovr.filechanged` event, and `lovr.filesystem.watch/unwatch`.
 - Add `Model:resetBlendShapes`.
 - Add `lovr.system.wasMousePressed` and `lovr.system.wasMouseReleased`.
 - Add `lovr.system.get/setClipboardText`.
