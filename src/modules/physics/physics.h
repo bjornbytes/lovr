@@ -327,9 +327,9 @@ void lovrHingeJointGetMotorTarget(HingeJoint* joint, TargetType* type, float* va
 void lovrHingeJointSetMotorTarget(HingeJoint* joint, TargetType type, float value);
 void lovrHingeJointGetMotorSpring(HingeJoint* joint, float* frequency, float* damping);
 void lovrHingeJointSetMotorSpring(HingeJoint* joint, float frequency, float damping);
-void lovrHingeJointGetMaxMotorForce(HingeJoint* joint, float* positive, float* negative);
-void lovrHingeJointSetMaxMotorForce(HingeJoint* joint, float positive, float negative);
-float lovrHingeJointGetMotorForce(HingeJoint* joint);
+void lovrHingeJointGetMaxMotorTorque(HingeJoint* joint, float* positive, float* negative);
+void lovrHingeJointSetMaxMotorTorque(HingeJoint* joint, float positive, float negative);
+float lovrHingeJointGetMotorTorque(HingeJoint* joint);
 void lovrHingeJointGetSpring(HingeJoint* joint, float* frequency, float* damping);
 void lovrHingeJointSetSpring(HingeJoint* joint, float frequency, float damping);
 

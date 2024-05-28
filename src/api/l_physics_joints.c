@@ -346,30 +346,30 @@ static int l_lovrHingeJointSetMotorSpring(lua_State* L) {
   return 0;
 }
 
-static int l_lovrHingeJointGetMaxMotorForce(lua_State* L) {
+static int l_lovrHingeJointGetMaxMotorTorque(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   float positive, negative;
-  lovrHingeJointGetMaxMotorForce(joint, &positive, &negative);
+  lovrHingeJointGetMaxMotorTorque(joint, &positive, &negative);
   lua_pushnumber(L, positive);
   lua_pushnumber(L, negative);
   return 2;
 }
 
-static int l_lovrHingeJointSetMaxMotorForce(lua_State* L) {
+static int l_lovrHingeJointSetMaxMotorTorque(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   if (lua_isnoneornil(L, 2)) {
-    lovrHingeJointSetMaxMotorForce(joint, HUGE_VALF, HUGE_VALF);
+    lovrHingeJointSetMaxMotorTorque(joint, HUGE_VALF, HUGE_VALF);
   } else {
     float positive = luax_checkfloat(L, 2);
     float negative = luax_optfloat(L, 3, positive);
-    lovrHingeJointSetMaxMotorForce(joint, positive, negative);
+    lovrHingeJointSetMaxMotorTorque(joint, positive, negative);
   }
   return 0;
 }
 
-static int l_lovrHingeJointGetMotorForce(lua_State* L) {
+static int l_lovrHingeJointGetMotorTorque(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  float force = lovrHingeJointGetMotorForce(joint);
+  float force = lovrHingeJointGetMotorTorque(joint);
   lua_pushnumber(L, force);
   return 1;
 }
@@ -403,9 +403,9 @@ const luaL_Reg lovrHingeJoint[] = {
   { "setMotorTarget", l_lovrHingeJointSetMotorTarget },
   { "getMotorSpring", l_lovrHingeJointGetMotorSpring },
   { "setMotorSpring", l_lovrHingeJointSetMotorSpring },
-  { "getMaxMotorForce", l_lovrHingeJointGetMaxMotorForce },
-  { "setMaxMotorForce", l_lovrHingeJointSetMaxMotorForce },
-  { "getMotorForce", l_lovrHingeJointGetMotorForce },
+  { "getMaxMotorTorque", l_lovrHingeJointGetMaxMotorTorque },
+  { "setMaxMotorTorque", l_lovrHingeJointSetMaxMotorTorque },
+  { "getMotorTorque", l_lovrHingeJointGetMotorTorque },
   { "getSpring", l_lovrHingeJointGetSpring },
   { "setSpring", l_lovrHingeJointSetSpring },
   { NULL, NULL }

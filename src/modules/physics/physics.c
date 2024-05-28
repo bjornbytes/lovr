@@ -2471,14 +2471,14 @@ void lovrHingeJointSetMotorSpring(HingeJoint* joint, float frequency, float damp
   JPH_HingeConstraint_SetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
 }
 
-void lovrHingeJointGetMaxMotorForce(HingeJoint* joint, float* positive, float* negative) {
+void lovrHingeJointGetMaxMotorTorque(HingeJoint* joint, float* positive, float* negative) {
   JPH_MotorSettings settings;
   JPH_HingeConstraint_GetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
   *positive = settings.maxTorqueLimit;
   *negative = -settings.minTorqueLimit;
 }
 
-void lovrHingeJointSetMaxMotorForce(HingeJoint* joint, float positive, float negative) {
+void lovrHingeJointSetMaxMotorTorque(HingeJoint* joint, float positive, float negative) {
   JPH_MotorSettings settings;
   JPH_HingeConstraint_GetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
   settings.minTorqueLimit = -negative;
@@ -2486,7 +2486,7 @@ void lovrHingeJointSetMaxMotorForce(HingeJoint* joint, float positive, float neg
   JPH_HingeConstraint_SetMotorSettings((JPH_HingeConstraint*) joint->constraint, &settings);
 }
 
-float lovrHingeJointGetMotorForce(HingeJoint* joint) {
+float lovrHingeJointGetMotorTorque(HingeJoint* joint) {
   return JPH_HingeConstraint_GetTotalLambdaMotor((JPH_HingeConstraint*) joint->constraint);
 }
 
