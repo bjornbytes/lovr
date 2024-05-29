@@ -18,29 +18,42 @@ struct Rasterizer {
   stbtt_fontinfo font;
 };
 
-Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
+static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
+  unsigned char* data = blob ? blob->data : etc_VarelaRound_ttf;
+
+  stbtt_fontinfo font;
+  if (!stbtt_InitFont(&font, data, stbtt_GetFontOffsetForIndex(data, 0))) {
+    return NULL;
+  }
+
   Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
   rasterizer->ref = 1;
 
-  stbtt_fontinfo* font = &rasterizer->font;
-  const unsigned char* data = blob ? blob->data : etc_VarelaRound_ttf;
-  if (!stbtt_InitFont(font, data, stbtt_GetFontOffsetForIndex(data, 0))) {
-    lovrThrow("Problem loading font");
-  }
-
   lovrRetain(blob);
   rasterizer->blob = blob;
+  rasterizer->font = font;
   rasterizer->size = size;
-  rasterizer->scale = stbtt_ScaleForMappingEmToPixels(font, size);
+  rasterizer->scale = stbtt_ScaleForMappingEmToPixels(&rasterizer->font, size);
 
   // Even though line gap is a thing, it's usually zero so we pretend it isn't real
   int ascent, descent, lineGap;
-  stbtt_GetFontVMetrics(font, &ascent, &descent, &lineGap);
+  stbtt_GetFontVMetrics(&rasterizer->font, &ascent, &descent, &lineGap);
   rasterizer->ascent = ascent * rasterizer->scale;
   rasterizer->descent = descent * rasterizer->scale;
   rasterizer->leading = (ascent - descent + lineGap) * rasterizer->scale;
 
   return rasterizer;
+}
+
+static Rasterizer* lovrRasterizerCreateBMF(Blob* blob) {
+  return NULL;
+}
+
+Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
+  Rasterizer* rasterizer = NULL;
+  if ((rasterizer = lovrRasterizerCreateTTF(blob, size)) != NULL) return rasterizer;
+  if ((rasterizer = lovrRasterizerCreateBMF(blob)) != NULL) return rasterizer;
+  lovrThrow("Problem loading font: not recognized as TTF or BMFont");
 }
 
 void lovrRasterizerDestroy(void* ref) {
