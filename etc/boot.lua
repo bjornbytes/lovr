@@ -116,7 +116,7 @@ function lovr.boot()
 
   -- CLI gets a chance to use/modify conf and handle arguments
 
-  if ok and not failure and cli then ok, failure = pcall(cli, conf) end
+  if ok and cli then ok, failure = pcall(cli, conf) end
 
   -- Boot!
 
