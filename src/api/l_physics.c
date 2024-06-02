@@ -24,7 +24,7 @@ StringEntry lovrJointType[] = {
 };
 
 StringEntry lovrMotorMode[] = {
-  [MOTOR_NONE] = ENTRY("none"),
+  [MOTOR_OFF] = ENTRY("off"),
   [MOTOR_VELOCITY] = ENTRY("velocity"),
   [MOTOR_POSITION] = ENTRY("position"),
   { 0 }

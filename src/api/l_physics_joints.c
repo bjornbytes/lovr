@@ -302,30 +302,35 @@ static int l_lovrHingeJointSetFriction(lua_State* L) {
   return 0;
 }
 
-static int l_lovrHingeJointGetMotorTarget(lua_State* L) {
+static int l_lovrHingeJointGetMotorMode(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  MotorMode mode;
-  float value;
-  lovrHingeJointGetMotorTarget(joint, &mode, &value);
-  if (mode == MOTOR_NONE) {
+  MotorMode mode = lovrHingeJointGetMotorMode(joint);
+  if (mode == MOTOR_OFF) {
     lua_pushnil(L);
-    return 1;
   } else {
     luax_pushenum(L, MotorMode, mode);
-    lua_pushnumber(L, value);
-    return 2;
   }
+  return 1;
+}
+
+static int l_lovrHingeJointSetMotorMode(lua_State* L) {
+  HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
+  MotorMode mode = luax_checkenum(L, 2, MotorMode, "off");
+  lovrHingeJointSetMotorMode(joint, mode);
+  return 0;
+}
+
+static int l_lovrHingeJointGetMotorTarget(lua_State* L) {
+  HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
+  float target = lovrHingeJointGetMotorTarget(joint);
+  lua_pushnumber(L, target);
+  return 1;
 }
 
 static int l_lovrHingeJointSetMotorTarget(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  if (lua_isnoneornil(L, 2)) {
-    lovrHingeJointSetMotorTarget(joint, MOTOR_NONE, 0.f);
-  } else {
-    MotorMode mode = luax_checkenum(L, 2, MotorMode, NULL);
-    float value = luax_checkfloat(L, 3);
-    lovrHingeJointSetMotorTarget(joint, mode, value);
-  }
+  float target = luax_checkfloat(L, 2);
+  lovrHingeJointSetMotorTarget(joint, target);
   return 0;
 }
 
@@ -399,6 +404,8 @@ const luaL_Reg lovrHingeJoint[] = {
   { "setLimits", l_lovrHingeJointSetLimits },
   { "getFriction", l_lovrHingeJointGetFriction },
   { "setFriction", l_lovrHingeJointSetFriction },
+  { "getMotorMode", l_lovrHingeJointGetMotorMode },
+  { "setMotorMode", l_lovrHingeJointSetMotorMode },
   { "getMotorTarget", l_lovrHingeJointGetMotorTarget },
   { "setMotorTarget", l_lovrHingeJointSetMotorTarget },
   { "getMotorSpring", l_lovrHingeJointGetMotorSpring },
@@ -462,30 +469,35 @@ static int l_lovrSliderJointSetFriction(lua_State* L) {
   return 0;
 }
 
-static int l_lovrSliderJointGetMotorTarget(lua_State* L) {
+static int l_lovrSliderJointGetMotorMode(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
-  MotorMode mode;
-  float value;
-  lovrSliderJointGetMotorTarget(joint, &mode, &value);
-  if (mode == MOTOR_NONE) {
+  MotorMode mode = lovrSliderJointGetMotorMode(joint);
+  if (mode == MOTOR_OFF) {
     lua_pushnil(L);
-    return 1;
   } else {
     luax_pushenum(L, MotorMode, mode);
-    lua_pushnumber(L, value);
-    return 2;
   }
+  return 1;
+}
+
+static int l_lovrSliderJointSetMotorMode(lua_State* L) {
+  SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
+  MotorMode mode = luax_checkenum(L, 2, MotorMode, "off");
+  lovrSliderJointSetMotorMode(joint, mode);
+  return 0;
+}
+
+static int l_lovrSliderJointGetMotorTarget(lua_State* L) {
+  SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
+  float target = lovrSliderJointGetMotorTarget(joint);
+  lua_pushnumber(L, target);
+  return 1;
 }
 
 static int l_lovrSliderJointSetMotorTarget(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
-  if (lua_isnoneornil(L, 2)) {
-    lovrSliderJointSetMotorTarget(joint, MOTOR_NONE, 0.f);
-  } else {
-    MotorMode mode = luax_checkenum(L, 2, MotorMode, NULL);
-    float value = luax_checkfloat(L, 3);
-    lovrSliderJointSetMotorTarget(joint, mode, value);
-  }
+  float target = luax_checkfloat(L, 2);
+  lovrSliderJointSetMotorTarget(joint, target);
   return 0;
 }
 
@@ -559,6 +571,8 @@ const luaL_Reg lovrSliderJoint[] = {
   { "setLimits", l_lovrSliderJointSetLimits },
   { "getFriction", l_lovrSliderJointGetFriction },
   { "setFriction", l_lovrSliderJointSetFriction },
+  { "getMotorMode", l_lovrSliderJointGetMotorMode },
+  { "setMotorMode", l_lovrSliderJointSetMotorMode },
   { "getMotorTarget", l_lovrSliderJointGetMotorTarget },
   { "setMotorTarget", l_lovrSliderJointSetMotorTarget },
   { "getMotorSpring", l_lovrSliderJointGetMotorSpring },

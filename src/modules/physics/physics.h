@@ -281,7 +281,7 @@ typedef enum {
 } JointType;
 
 typedef enum {
-  MOTOR_NONE,
+  MOTOR_OFF,
   MOTOR_VELOCITY,
   MOTOR_POSITION
 } MotorMode;
@@ -323,8 +323,10 @@ void lovrHingeJointGetLimits(HingeJoint* joint, float* min, float* max);
 void lovrHingeJointSetLimits(HingeJoint* joint, float min, float max);
 float lovrHingeJointGetFriction(HingeJoint* joint);
 void lovrHingeJointSetFriction(HingeJoint* joint, float friction);
-void lovrHingeJointGetMotorTarget(HingeJoint* joint, MotorMode* mode, float* value);
-void lovrHingeJointSetMotorTarget(HingeJoint* joint, MotorMode mode, float value);
+MotorMode lovrHingeJointGetMotorMode(HingeJoint* joint);
+void lovrHingeJointSetMotorMode(HingeJoint* joint, MotorMode mode);
+float lovrHingeJointGetMotorTarget(HingeJoint* joint);
+void lovrHingeJointSetMotorTarget(HingeJoint* joint, float target);
 void lovrHingeJointGetMotorSpring(HingeJoint* joint, float* frequency, float* damping);
 void lovrHingeJointSetMotorSpring(HingeJoint* joint, float frequency, float damping);
 void lovrHingeJointGetMaxMotorTorque(HingeJoint* joint, float* positive, float* negative);
@@ -340,8 +342,10 @@ void lovrSliderJointGetLimits(SliderJoint* joint, float* min, float* max);
 void lovrSliderJointSetLimits(SliderJoint* joint, float min, float max);
 float lovrSliderJointGetFriction(SliderJoint* joint);
 void lovrSliderJointSetFriction(SliderJoint* joint, float friction);
-void lovrSliderJointGetMotorTarget(SliderJoint* joint, MotorMode* mode, float* value);
-void lovrSliderJointSetMotorTarget(SliderJoint* joint, MotorMode mode, float value);
+MotorMode lovrSliderJointGetMotorMode(SliderJoint* joint);
+void lovrSliderJointSetMotorMode(SliderJoint* joint, MotorMode mode);
+float lovrSliderJointGetMotorTarget(SliderJoint* joint);
+void lovrSliderJointSetMotorTarget(SliderJoint* joint, float target);
 void lovrSliderJointGetMotorSpring(SliderJoint* joint, float* frequency, float* damping);
 void lovrSliderJointSetMotorSpring(SliderJoint* joint, float frequency, float damping);
 void lovrSliderJointGetMaxMotorForce(SliderJoint* joint, float* positive, float* negative);

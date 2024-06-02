@@ -2409,32 +2409,28 @@ void lovrHingeJointSetFriction(HingeJoint* joint, float friction) {
   JPH_HingeConstraint_SetMaxFrictionTorque((JPH_HingeConstraint*) joint->constraint, friction);
 }
 
-void lovrHingeJointGetMotorTarget(HingeJoint* joint, MotorMode* type, float* value) {
+MotorMode lovrHingeJointGetMotorMode(HingeJoint* joint) {
   JPH_HingeConstraint* constraint = (JPH_HingeConstraint*) joint->constraint;
-  JPH_MotorState motorState = JPH_HingeConstraint_GetMotorState(constraint);
-  *type = (MotorMode) motorState;
-  switch (motorState) {
-    case JPH_MotorState_Velocity: *value = JPH_HingeConstraint_GetTargetAngularVelocity(constraint); break;
-    case JPH_MotorState_Position: *value = JPH_HingeConstraint_GetTargetAngle(constraint); break;
-    default: *value = 0.f; break;
-  }
+  return (MotorMode) JPH_HingeConstraint_GetMotorState(constraint);
 }
 
-void lovrHingeJointSetMotorTarget(HingeJoint* joint, MotorMode type, float value) {
+void lovrHingeJointSetMotorMode(HingeJoint* joint, MotorMode mode) {
   JPH_HingeConstraint* constraint = (JPH_HingeConstraint*) joint->constraint;
-  switch (type) {
-    case MOTOR_VELOCITY:
-      JPH_HingeConstraint_SetMotorState(constraint, JPH_MotorState_Velocity);
-      JPH_HingeConstraint_SetTargetAngularVelocity(constraint, value);
-      break;
-    case MOTOR_POSITION:
-      JPH_HingeConstraint_SetMotorState(constraint, JPH_MotorState_Position);
-      JPH_HingeConstraint_SetTargetAngle(constraint, value);
-      break;
-    default:
-      JPH_HingeConstraint_SetMotorState(constraint, JPH_MotorState_Off);
-      break;
-  }
+  JPH_HingeConstraint_SetMotorState(constraint, (JPH_MotorState) mode);
+}
+
+float lovrHingeJointGetMotorTarget(HingeJoint* joint) {
+  JPH_HingeConstraint* constraint = (JPH_HingeConstraint*) joint->constraint;
+  JPH_MotorState motorState = JPH_HingeConstraint_GetMotorState(constraint);
+  return motorState == JPH_MotorState_Position ?
+    JPH_HingeConstraint_GetTargetAngle(constraint) :
+    JPH_HingeConstraint_GetTargetAngularVelocity(constraint);
+}
+
+void lovrHingeJointSetMotorTarget(HingeJoint* joint, float target) {
+  JPH_HingeConstraint* constraint = (JPH_HingeConstraint*) joint->constraint;
+  JPH_HingeConstraint_SetTargetAngle(constraint, target);
+  JPH_HingeConstraint_SetTargetAngularVelocity(constraint, target);
 }
 
 void lovrHingeJointGetMotorSpring(HingeJoint* joint, float* frequency, float* damping) {
@@ -2549,32 +2545,28 @@ void lovrSliderJointSetFriction(SliderJoint* joint, float friction) {
   JPH_SliderConstraint_SetMaxFrictionForce((JPH_SliderConstraint*) joint->constraint, friction);
 }
 
-void lovrSliderJointGetMotorTarget(SliderJoint* joint, MotorMode* type, float* value) {
+MotorMode lovrSliderJointGetMotorMode(SliderJoint* joint) {
   JPH_SliderConstraint* constraint = (JPH_SliderConstraint*) joint->constraint;
-  JPH_MotorState motorState = JPH_SliderConstraint_GetMotorState(constraint);
-  *type = (MotorMode) motorState;
-  switch (motorState) {
-    case JPH_MotorState_Velocity: *value = JPH_SliderConstraint_GetTargetVelocity(constraint); break;
-    case JPH_MotorState_Position: *value = JPH_SliderConstraint_GetTargetPosition(constraint); break;
-    default: *value = 0.f; break;
-  }
+  return (MotorMode) JPH_SliderConstraint_GetMotorState(constraint);
 }
 
-void lovrSliderJointSetMotorTarget(SliderJoint* joint, MotorMode type, float value) {
+void lovrSliderJointSetMotorMode(SliderJoint* joint, MotorMode mode) {
   JPH_SliderConstraint* constraint = (JPH_SliderConstraint*) joint->constraint;
-  switch (type) {
-    case MOTOR_VELOCITY:
-      JPH_SliderConstraint_SetMotorState(constraint, JPH_MotorState_Velocity);
-      JPH_SliderConstraint_SetTargetVelocity(constraint, value);
-      break;
-    case MOTOR_POSITION:
-      JPH_SliderConstraint_SetMotorState(constraint, JPH_MotorState_Position);
-      JPH_SliderConstraint_SetTargetPosition(constraint, value);
-      break;
-    default:
-      JPH_SliderConstraint_SetMotorState(constraint, JPH_MotorState_Off);
-      break;
-  }
+  JPH_SliderConstraint_SetMotorState(constraint, (JPH_MotorState) mode);
+}
+
+float lovrSliderJointGetMotorTarget(SliderJoint* joint) {
+  JPH_SliderConstraint* constraint = (JPH_SliderConstraint*) joint->constraint;
+  JPH_MotorState motorState = JPH_SliderConstraint_GetMotorState(constraint);
+  return motorState == JPH_MotorState_Position ?
+    JPH_SliderConstraint_GetTargetPosition(constraint) :
+    JPH_SliderConstraint_GetTargetVelocity(constraint);
+}
+
+void lovrSliderJointSetMotorTarget(SliderJoint* joint, float target) {
+  JPH_SliderConstraint* constraint = (JPH_SliderConstraint*) joint->constraint;
+  JPH_SliderConstraint_SetTargetPosition(constraint, target);
+  JPH_SliderConstraint_SetTargetVelocity(constraint, target);
 }
 
 void lovrSliderJointGetMotorSpring(SliderJoint* joint, float* frequency, float* damping) {
