@@ -236,8 +236,8 @@ static int l_lovrDistanceJointGetSpring(lua_State* L) {
 
 static int l_lovrDistanceJointSetSpring(lua_State* L) {
   DistanceJoint* joint = luax_checktype(L, 1, DistanceJoint);
-  float frequency = luax_checkfloat(L, 2);
-  float damping = luax_checkfloat(L, 3);
+  float frequency = luax_optfloat(L, 2, 0.f);
+  float damping = luax_optfloat(L, 3, 1.f);
   lovrDistanceJointSetSpring(joint, frequency, damping);
   return 0;
 }
@@ -345,8 +345,8 @@ static int l_lovrHingeJointGetMotorSpring(lua_State* L) {
 
 static int l_lovrHingeJointSetMotorSpring(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  float frequency = luax_checkfloat(L, 2);
-  float damping = luax_checkfloat(L, 3);
+  float frequency = luax_optfloat(L, 2, 0.f);
+  float damping = luax_optfloat(L, 3, 1.f);
   lovrHingeJointSetMotorSpring(joint, frequency, damping);
   return 0;
 }
@@ -390,8 +390,8 @@ static int l_lovrHingeJointGetSpring(lua_State* L) {
 
 static int l_lovrHingeJointSetSpring(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  float frequency = luax_checkfloat(L, 2);
-  float damping = luax_checkfloat(L, 3);
+  float frequency = luax_optfloat(L, 2, 0.f);
+  float damping = luax_optfloat(L, 3, 1.f);
   lovrHingeJointSetSpring(joint, frequency, damping);
   return 0;
 }
@@ -512,8 +512,8 @@ static int l_lovrSliderJointGetMotorSpring(lua_State* L) {
 
 static int l_lovrSliderJointSetMotorSpring(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
-  float frequency = luax_checkfloat(L, 2);
-  float damping = luax_checkfloat(L, 3);
+  float frequency = luax_optfloat(L, 2, 0.f);
+  float damping = luax_optfloat(L, 3, 1.f);
   lovrSliderJointSetMotorSpring(joint, frequency, damping);
   return 0;
 }
@@ -557,8 +557,8 @@ static int l_lovrSliderJointGetSpring(lua_State* L) {
 
 static int l_lovrSliderJointSetSpring(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
-  float frequency = luax_checkfloat(L, 2);
-  float damping = luax_checkfloat(L, 3);
+  float frequency = luax_optfloat(L, 2, 0.f);
+  float damping = luax_optfloat(L, 3, 1.f);
   lovrSliderJointSetSpring(joint, frequency, damping);
   return 0;
 }
