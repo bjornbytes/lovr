@@ -1326,7 +1326,7 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
       lovrDeferRelease(blob, lovrBlobDestroy);
     }
 
-    info.rasterizer = lovrRasterizerCreate(blob, size);
+    info.rasterizer = lovrRasterizerCreate(blob, size, luax_readfile);
     lovrDeferRelease(info.rasterizer, lovrRasterizerDestroy);
   } else {
     info.spread = luaL_optnumber(L, 2, info.spread);

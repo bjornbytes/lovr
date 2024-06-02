@@ -1,10 +1,12 @@
 #include "data/rasterizer.h"
 #include "data/blob.h"
+#include "data/image.h"
 #include "util.h"
 #include "VarelaRound.ttf.h"
 #include "lib/stb/stb_truetype.h"
 #include <msdfgen-c.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 struct Rasterizer {
@@ -14,15 +16,21 @@ struct Rasterizer {
   float ascent;
   float descent;
   float leading;
-  struct Blob* blob;
+  Blob* blob;
+  Image* atlas;
   stbtt_fontinfo font;
 };
 
 static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
   unsigned char* data = blob ? blob->data : etc_VarelaRound_ttf;
 
+  int offset = stbtt_GetFontOffsetForIndex(data, 0);
+  if (offset == -1) {
+    return NULL;
+  }
+
   stbtt_fontinfo font;
-  if (!stbtt_InitFont(&font, data, stbtt_GetFontOffsetForIndex(data, 0))) {
+  if (!stbtt_InitFont(&font, data, offset)) {
     return NULL;
   }
 
@@ -45,20 +53,144 @@ static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
   return rasterizer;
 }
 
-static Rasterizer* lovrRasterizerCreateBMF(Blob* blob) {
-  return NULL;
+// FIXME we're assuming the string is NULL terminated here, but it isn't, necessarily
+static int parseNumber(map_t* map, const char* key) {
+  uint64_t value = map_get(map, hash64(key, strlen(key)));
+  if (value == MAP_NIL) return 0;
+  return (int) strtol((const char*) (uintptr_t) value, NULL, 10);
 }
 
-Rasterizer* lovrRasterizerCreate(Blob* blob, float size) {
+// FIXME we're assuming the string is NULL terminated here, but it isn't, necessarily
+static const char* parseString(map_t* map, const char* key, size_t* length) {
+  uint64_t value = map_get(map, hash64(key, strlen(key)));
+  if (value == MAP_NIL) return NULL;
+  const char* string = (const char*) (uintptr_t) value;
+  if (string[0] == '"') {
+    char* quote = strchr(string + 1, '"');
+    if (!quote) return NULL;
+    *length = quote - (string + 1);
+    return string + 1;
+  } else {
+    char* space = strchr(string, ' ');
+    char* newline = strchr(string, '\n');
+    *length = space ? space - string : (newline ? newline - string : strlen(string));
+    return string;
+  }
+}
+
+#include <stdio.h>
+static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
+  if (!blob || blob->size < 4) return NULL;
+
+  if (!memcmp(blob->data, "info", 4)) {
+    Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
+    rasterizer->ref = 1;
+    rasterizer->scale = 1.f;
+
+    uint32_t defer = lovrDeferPush();
+    lovrErrDefer(lovrFree, rasterizer);
+
+    char* string = blob->data;
+    size_t length = blob->size;
+
+    map_t map;
+    map_init(&map, 8);
+
+    while (length > 0) {
+      char* newline = memchr(string, '\n', length);
+      size_t lineLength = newline ? newline - string : length;
+
+      // Clear the map
+      memset(map.hashes, 0xff, map.size * sizeof(uint64_t));
+      memset(map.values, 0xff, map.size * sizeof(uint64_t));
+      map.used = 0;
+
+      // Parse the tag
+      char* tag = string;
+      char* space = memchr(string, ' ', lineLength);
+      size_t tagLength = space ? space - tag : lineLength;
+      size_t cursor = space ? tagLength + 1 : lineLength;
+
+      // Add fields to the map
+      while (cursor < lineLength) {
+        char* equals = memchr(string + cursor, '=', lineLength - cursor);
+
+        // Split fields on =, the part before is the key and the part after is the value, add to map
+        if (equals) {
+          char* key = string + cursor;
+          uint64_t hash = hash64(key, equals - key);
+          map_set(&map, hash, (uintptr_t) (equals + 1));
+        }
+
+        // Fields are separated by spaces
+        space = memchr(string + cursor, ' ', lineLength - cursor);
+        cursor = space ? space - string + 1 : lineLength;
+      }
+
+      if (!memcmp(tag, "info", tagLength)) {
+        rasterizer->size = parseNumber(&map, "size");
+      } else if (!memcmp(tag, "common", tagLength)) {
+        lovrCheck(parseNumber(&map, "pages") == 1, "Currently, BMFont files with multiple images are not supported");
+        lovrCheck(parseNumber(&map, "packed") == 0, "Currently, packed BMFont files are not supported");
+        rasterizer->leading = parseNumber(&map, "lineHeight");
+        rasterizer->ascent = parseNumber(&map, "base");
+        rasterizer->descent = rasterizer->leading - rasterizer->ascent; // Best effort
+      } else if (!memcmp(tag, "page", tagLength)) {
+        char fullpath[1024];
+        lovrCheck(strlen(blob->name) < sizeof(fullpath), "BMFont filename is too long");
+        memcpy(fullpath, blob->name, strlen(blob->name));
+        char* slash = strrchr(fullpath, '/');
+        char* filename = slash ? slash + 1 : fullpath;
+        size_t maxLength = sizeof(fullpath) - 1 - (filename - fullpath);
+
+        size_t length;
+        const char* file = parseString(&map, "file", &length);
+        lovrCheck(file, "BMFont is missing image path");
+        lovrCheck(length <= maxLength, "BMFont filename is too long");
+        memcpy(filename, file, length);
+        filename[length] = '\0';
+
+        size_t atlasSize;
+        void* atlasData = io(fullpath, &atlasSize);
+        Blob* atlasBlob = lovrBlobCreate(atlasData, atlasSize, "BMFont atlas");
+        rasterizer->atlas = lovrImageCreateFromFile(atlasBlob);
+      } else if (!memcmp(tag, "char", tagLength)) {
+        //uint32_t codepoint = getNumber(&map, "id");
+      } else if (!memcmp(tag, "kerning", tagLength)) {
+        //
+      }
+
+      // Go to the next line
+      if (newline) {
+        string += lineLength + 1;
+        length -= lineLength + 1;
+      } else {
+        break;
+      }
+    }
+
+    map_free(&map);
+    lovrDeferPop(defer);
+
+    return rasterizer;
+  } else if (!memcmp(blob, (uint8_t[]) { 'B', 'M', 'F', 3 }, 4)) {
+    return NULL; // TODO
+  } else {
+    return NULL;
+  }
+}
+
+Rasterizer* lovrRasterizerCreate(Blob* blob, float size, RasterizerIO* io) {
   Rasterizer* rasterizer = NULL;
   if ((rasterizer = lovrRasterizerCreateTTF(blob, size)) != NULL) return rasterizer;
-  if ((rasterizer = lovrRasterizerCreateBMF(blob)) != NULL) return rasterizer;
+  if ((rasterizer = lovrRasterizerCreateBMF(blob, io)) != NULL) return rasterizer;
   lovrThrow("Problem loading font: not recognized as TTF or BMFont");
 }
 
 void lovrRasterizerDestroy(void* ref) {
   Rasterizer* rasterizer = ref;
   lovrRelease(rasterizer->blob, lovrBlobDestroy);
+  lovrRelease(rasterizer->atlas, lovrImageDestroy);
   lovrFree(rasterizer);
 }
 

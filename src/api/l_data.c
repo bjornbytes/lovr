@@ -161,7 +161,7 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
     lovrDeferRelease(blob, lovrBlobDestroy);
   }
 
-  Rasterizer* rasterizer = lovrRasterizerCreate(blob, size);
+  Rasterizer* rasterizer = lovrRasterizerCreate(blob, size, luax_readfile);
   luax_pushtype(L, Rasterizer, rasterizer);
   lovrRelease(rasterizer, lovrRasterizerDestroy);
   lovrDeferPop(defer);

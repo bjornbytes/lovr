@@ -3503,7 +3503,7 @@ const MaterialInfo* lovrMaterialGetInfo(Material* material) {
 
 Font* lovrGraphicsGetDefaultFont(void) {
   if (!state.defaultFont) {
-    Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32);
+    Rasterizer* rasterizer = lovrRasterizerCreate(NULL, 32, NULL);
     state.defaultFont = lovrFontCreate(&(FontInfo) {
       .rasterizer = rasterizer,
       .spread = 4.

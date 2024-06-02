@@ -7,8 +7,10 @@
 struct Blob;
 struct Image;
 
+typedef void* RasterizerIO(const char* filename, size_t* bytesRead);
+
 typedef struct Rasterizer Rasterizer;
-Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size);
+Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size, RasterizerIO* io);
 void lovrRasterizerDestroy(void* ref);
 float lovrRasterizerGetFontSize(Rasterizer* rasterizer);
 uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
