@@ -304,14 +304,14 @@ static int l_lovrHingeJointSetFriction(lua_State* L) {
 
 static int l_lovrHingeJointGetMotorTarget(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
-  TargetType type;
+  MotorMode mode;
   float value;
-  lovrHingeJointGetMotorTarget(joint, &type, &value);
-  if (type == TARGET_NONE) {
+  lovrHingeJointGetMotorTarget(joint, &mode, &value);
+  if (mode == MOTOR_NONE) {
     lua_pushnil(L);
     return 1;
   } else {
-    luax_pushenum(L, TargetType, type);
+    luax_pushenum(L, MotorMode, mode);
     lua_pushnumber(L, value);
     return 2;
   }
@@ -320,11 +320,11 @@ static int l_lovrHingeJointGetMotorTarget(lua_State* L) {
 static int l_lovrHingeJointSetMotorTarget(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   if (lua_isnoneornil(L, 2)) {
-    lovrHingeJointSetMotorTarget(joint, TARGET_NONE, 0.f);
+    lovrHingeJointSetMotorTarget(joint, MOTOR_NONE, 0.f);
   } else {
-    TargetType type = luax_checkenum(L, 2, TargetType, NULL);
+    MotorMode mode = luax_checkenum(L, 2, MotorMode, NULL);
     float value = luax_checkfloat(L, 3);
-    lovrHingeJointSetMotorTarget(joint, type, value);
+    lovrHingeJointSetMotorTarget(joint, mode, value);
   }
   return 0;
 }
@@ -464,14 +464,14 @@ static int l_lovrSliderJointSetFriction(lua_State* L) {
 
 static int l_lovrSliderJointGetMotorTarget(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
-  TargetType type;
+  MotorMode mode;
   float value;
-  lovrSliderJointGetMotorTarget(joint, &type, &value);
-  if (type == TARGET_NONE) {
+  lovrSliderJointGetMotorTarget(joint, &mode, &value);
+  if (mode == MOTOR_NONE) {
     lua_pushnil(L);
     return 1;
   } else {
-    luax_pushenum(L, TargetType, type);
+    luax_pushenum(L, MotorMode, mode);
     lua_pushnumber(L, value);
     return 2;
   }
@@ -480,11 +480,11 @@ static int l_lovrSliderJointGetMotorTarget(lua_State* L) {
 static int l_lovrSliderJointSetMotorTarget(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   if (lua_isnoneornil(L, 2)) {
-    lovrSliderJointSetMotorTarget(joint, TARGET_NONE, 0.f);
+    lovrSliderJointSetMotorTarget(joint, MOTOR_NONE, 0.f);
   } else {
-    TargetType type = luax_checkenum(L, 2, TargetType, NULL);
+    MotorMode mode = luax_checkenum(L, 2, MotorMode, NULL);
     float value = luax_checkfloat(L, 3);
-    lovrSliderJointSetMotorTarget(joint, type, value);
+    lovrSliderJointSetMotorTarget(joint, mode, value);
   }
   return 0;
 }

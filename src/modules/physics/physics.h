@@ -281,10 +281,10 @@ typedef enum {
 } JointType;
 
 typedef enum {
-  TARGET_NONE,
-  TARGET_VELOCITY,
-  TARGET_POSITION
-} TargetType;
+  MOTOR_NONE,
+  MOTOR_VELOCITY,
+  MOTOR_POSITION
+} MotorMode;
 
 void lovrJointDestroy(void* ref);
 void lovrJointDestruct(Joint* joint);
@@ -323,8 +323,8 @@ void lovrHingeJointGetLimits(HingeJoint* joint, float* min, float* max);
 void lovrHingeJointSetLimits(HingeJoint* joint, float min, float max);
 float lovrHingeJointGetFriction(HingeJoint* joint);
 void lovrHingeJointSetFriction(HingeJoint* joint, float friction);
-void lovrHingeJointGetMotorTarget(HingeJoint* joint, TargetType* type, float* value);
-void lovrHingeJointSetMotorTarget(HingeJoint* joint, TargetType type, float value);
+void lovrHingeJointGetMotorTarget(HingeJoint* joint, MotorMode* mode, float* value);
+void lovrHingeJointSetMotorTarget(HingeJoint* joint, MotorMode mode, float value);
 void lovrHingeJointGetMotorSpring(HingeJoint* joint, float* frequency, float* damping);
 void lovrHingeJointSetMotorSpring(HingeJoint* joint, float frequency, float damping);
 void lovrHingeJointGetMaxMotorTorque(HingeJoint* joint, float* positive, float* negative);
@@ -340,8 +340,8 @@ void lovrSliderJointGetLimits(SliderJoint* joint, float* min, float* max);
 void lovrSliderJointSetLimits(SliderJoint* joint, float min, float max);
 float lovrSliderJointGetFriction(SliderJoint* joint);
 void lovrSliderJointSetFriction(SliderJoint* joint, float friction);
-void lovrSliderJointGetMotorTarget(SliderJoint* joint, TargetType* type, float* value);
-void lovrSliderJointSetMotorTarget(SliderJoint* joint, TargetType type, float value);
+void lovrSliderJointGetMotorTarget(SliderJoint* joint, MotorMode* mode, float* value);
+void lovrSliderJointSetMotorTarget(SliderJoint* joint, MotorMode mode, float value);
 void lovrSliderJointGetMotorSpring(SliderJoint* joint, float* frequency, float* damping);
 void lovrSliderJointSetMotorSpring(SliderJoint* joint, float frequency, float damping);
 void lovrSliderJointGetMaxMotorForce(SliderJoint* joint, float* positive, float* negative);

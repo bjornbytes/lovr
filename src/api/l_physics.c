@@ -23,10 +23,10 @@ StringEntry lovrJointType[] = {
   { 0 }
 };
 
-StringEntry lovrTargetType[] = {
-  [TARGET_NONE] = ENTRY("none"),
-  [TARGET_VELOCITY] = ENTRY("velocity"),
-  [TARGET_POSITION] = ENTRY("position"),
+StringEntry lovrMotorMode[] = {
+  [MOTOR_NONE] = ENTRY("none"),
+  [MOTOR_VELOCITY] = ENTRY("velocity"),
+  [MOTOR_POSITION] = ENTRY("position"),
   { 0 }
 };
 
