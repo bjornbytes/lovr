@@ -2464,7 +2464,9 @@ void lovrHingeJointSetMaxMotorTorque(HingeJoint* joint, float positive, float ne
 }
 
 float lovrHingeJointGetMotorTorque(HingeJoint* joint) {
-  return JPH_HingeConstraint_GetTotalLambdaMotor((JPH_HingeConstraint*) joint->constraint);
+  JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
+  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
+  return JPH_HingeConstraint_GetTotalLambdaMotor((JPH_HingeConstraint*) joint->constraint) * a->world->inverseDelta;
 }
 
 void lovrHingeJointGetSpring(HingeJoint* joint, float* frequency, float* damping) {
@@ -2600,7 +2602,9 @@ void lovrSliderJointSetMaxMotorForce(SliderJoint* joint, float positive, float n
 }
 
 float lovrSliderJointGetMotorForce(SliderJoint* joint) {
-  return JPH_SliderConstraint_GetTotalLambdaMotor((JPH_SliderConstraint*) joint->constraint);
+  JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
+  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
+  return JPH_SliderConstraint_GetTotalLambdaMotor((JPH_SliderConstraint*) joint->constraint) * a->world->inverseDelta;
 }
 
 void lovrSliderJointGetSpring(SliderJoint* joint, float* frequency, float* damping) {
