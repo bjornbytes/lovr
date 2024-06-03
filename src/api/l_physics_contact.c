@@ -30,10 +30,10 @@ static int l_lovrContactGetNormal(lua_State* L) {
   return 3;
 }
 
-static int l_lovrContactGetPenetration(lua_State* L) {
+static int l_lovrContactGetOverlap(lua_State* L) {
   Contact* contact = luax_checktype(L, 1, Contact);
-  float penetration = lovrContactGetPenetration(contact);
-  lua_pushnumber(L, penetration);
+  float overlap = lovrContactGetOverlap(contact);
+  lua_pushnumber(L, overlap);
   return 1;
 }
 
@@ -114,7 +114,7 @@ const luaL_Reg lovrContact[] = {
   { "getColliders", l_lovrContactGetColliders },
   { "getShapes", l_lovrContactGetShapes },
   { "getNormal", l_lovrContactGetNormal },
-  { "getPenetration", l_lovrContactGetPenetration },
+  { "getOverlap", l_lovrContactGetOverlap },
   { "getPoints", l_lovrContactGetPoints },
   { "getFriction", l_lovrContactGetFriction },
   { "setFriction", l_lovrContactSetFriction },

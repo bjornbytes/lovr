@@ -1620,7 +1620,7 @@ void lovrContactGetNormal(Contact* contact, float normal[3]) {
   vec3_fromJolt(normal, &n);
 }
 
-float lovrContactGetPenetration(Contact* contact) {
+float lovrContactGetOverlap(Contact* contact) {
   return JPH_ContactManifold_GetPenetrationDepth(contact->manifold);
 }
 

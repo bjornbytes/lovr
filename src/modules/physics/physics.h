@@ -188,7 +188,7 @@ Collider* lovrContactGetColliderB(Contact* contact);
 Shape* lovrContactGetShapeA(Contact* contact);
 Shape* lovrContactGetShapeB(Contact* contact);
 void lovrContactGetNormal(Contact* contact, float normal[3]);
-float lovrContactGetPenetration(Contact* contact);
+float lovrContactGetOverlap(Contact* contact);
 uint32_t lovrContactGetPointCount(Contact* contact);
 void lovrContactGetPoint(Contact* contact, uint32_t index, float point[3]);
 float lovrContactGetFriction(Contact* contact);
