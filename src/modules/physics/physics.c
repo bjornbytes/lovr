@@ -2025,23 +2025,23 @@ static JointNode* lovrJointGetNode(Joint* joint, Collider* collider) {
 }
 
 void lovrJointInit(Joint* joint, Collider* a, Collider* b) {
-  World* world = a->world;
+  World* world = b->world;
 
-  if (a->joints) {
-    joint->a.next = a->joints;
-    lovrJointGetNode(a->joints, a)->prev = joint;
-  }
-
-  a->joints = joint;
-
-  if (b) {
-    if (b->joints) {
-      joint->b.next = b->joints;
-      lovrJointGetNode(b->joints, b)->prev = joint;
+  if (a) {
+    if (a->joints) {
+      joint->a.next = a->joints;
+      lovrJointGetNode(a->joints, a)->prev = joint;
     }
 
-    b->joints = joint;
+    a->joints = joint;
   }
+
+  if (b->joints) {
+    joint->b.next = b->joints;
+    lovrJointGetNode(b->joints, b)->prev = joint;
+  }
+
+  b->joints = joint;
 
   if (world->joints) {
     joint->world.next = world->joints;
@@ -2066,7 +2066,7 @@ void lovrJointDestruct(Joint* joint) {
   JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
   Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
   Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
-  World* world = a->world;
+  World* world = b->world;
   JointNode* node;
 
   node = &joint->a;
@@ -2157,7 +2157,7 @@ float lovrJointGetForce(Joint* joint) {
   JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
   Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
   Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
-  World* world = a->world;
+  World* world = b->world;
 
   JPH_Vec3 v;
   float force[3], x, y;
@@ -2184,7 +2184,7 @@ float lovrJointGetTorque(Joint* joint) {
   JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
   Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
   Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
-  World* world = a->world;
+  World* world = b->world;
 
   JPH_Vec3 v;
   float torque[3], x, y;
@@ -2209,8 +2209,8 @@ float lovrJointGetTorque(Joint* joint) {
 // WeldJoint
 
 WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
-  lovrCheck(!b || a->world == b->world, "Joint bodies must exist in same World");
-  JPH_Body* parent = b ? b->body : JPH_Body_GetFixedToWorldBody();
+  lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
+  JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   WeldJoint* joint = lovrCalloc(sizeof(WeldJoint));
   joint->ref = 1;
@@ -2219,9 +2219,9 @@ WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
   JPH_FixedConstraintSettings* settings = JPH_FixedConstraintSettings_Create();
   JPH_FixedConstraintSettings_SetPoint1(settings, vec3_toJolt(anchor));
   JPH_FixedConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
-  joint->constraint = (JPH_Constraint*) JPH_FixedConstraintSettings_CreateConstraint(settings, parent, a->body);
+  joint->constraint = (JPH_Constraint*) JPH_FixedConstraintSettings_CreateConstraint(settings, parent, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
-  JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
+  JPH_PhysicsSystem_AddConstraint(b->world->system, joint->constraint);
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
@@ -2230,8 +2230,8 @@ WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
 // BallJoint
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
-  lovrCheck(!b || a->world == b->world, "Joint bodies must exist in same World");
-  JPH_Body* parent = b ? b->body : JPH_Body_GetFixedToWorldBody();
+  lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
+  JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   BallJoint* joint = lovrCalloc(sizeof(BallJoint));
   joint->ref = 1;
@@ -2240,9 +2240,9 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   JPH_PointConstraintSettings* settings = JPH_PointConstraintSettings_Create();
   JPH_PointConstraintSettings_SetPoint1(settings, vec3_toJolt(anchor));
   JPH_PointConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
-  joint->constraint = (JPH_Constraint*) JPH_PointConstraintSettings_CreateConstraint(settings, parent, a->body);
+  joint->constraint = (JPH_Constraint*) JPH_PointConstraintSettings_CreateConstraint(settings, parent, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
-  JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
+  JPH_PhysicsSystem_AddConstraint(b->world->system, joint->constraint);
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
@@ -2251,8 +2251,8 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
 // ConeJoint
 
 ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
-  lovrCheck(!b || a->world == b->world, "Joint bodies must exist in same World");
-  JPH_Body* parent = b ? b->body : JPH_Body_GetFixedToWorldBody();
+  lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
+  JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   ConeJoint* joint = lovrCalloc(sizeof(ConeJoint));
   joint->ref = 1;
@@ -2263,8 +2263,8 @@ ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float 
   JPH_ConeConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
   JPH_ConeConstraintSettings_SetTwistAxis1(settings, vec3_toJolt(axis));
   JPH_ConeConstraintSettings_SetTwistAxis2(settings, vec3_toJolt(axis));
-  joint->constraint = (JPH_Constraint*) JPH_ConeConstraintSettings_CreateConstraint(settings, parent, a->body);
-  JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
+  joint->constraint = (JPH_Constraint*) JPH_ConeConstraintSettings_CreateConstraint(settings, parent, b->body);
+  JPH_PhysicsSystem_AddConstraint(b->world->system, joint->constraint);
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
@@ -2301,8 +2301,8 @@ void lovrConeJointSetLimit(ConeJoint* joint, float angle) {
 // DistanceJoint
 
 DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3], float anchor2[3]) {
-  lovrCheck(!b || a->world == b->world, "Joint bodies must exist in same World");
-  JPH_Body* parent = b ? b->body : JPH_Body_GetFixedToWorldBody();
+  lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
+  JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   DistanceJoint* joint = lovrCalloc(sizeof(DistanceJoint));
   joint->ref = 1;
@@ -2311,9 +2311,9 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3
   JPH_DistanceConstraintSettings* settings = JPH_DistanceConstraintSettings_Create();
   JPH_DistanceConstraintSettings_SetPoint1(settings, vec3_toJolt(anchor1));
   JPH_DistanceConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor2));
-  joint->constraint = (JPH_Constraint*) JPH_DistanceConstraintSettings_CreateConstraint(settings, parent, a->body);
+  joint->constraint = (JPH_Constraint*) JPH_DistanceConstraintSettings_CreateConstraint(settings, parent, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
-  JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
+  JPH_PhysicsSystem_AddConstraint(b->world->system, joint->constraint);
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
@@ -2347,8 +2347,8 @@ void lovrDistanceJointSetSpring(DistanceJoint* joint, float frequency, float dam
 // HingeJoint
 
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
-  lovrCheck(!b || a->world == b->world, "Joint bodies must exist in same World");
-  JPH_Body* parent = b ? b->body : JPH_Body_GetFixedToWorldBody();
+  lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
+  JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   HingeJoint* joint = lovrCalloc(sizeof(HingeJoint));
   joint->ref = 1;
@@ -2359,9 +2359,9 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], floa
   JPH_HingeConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
   JPH_HingeConstraintSettings_SetHingeAxis1(settings, vec3_toJolt(axis));
   JPH_HingeConstraintSettings_SetHingeAxis2(settings, vec3_toJolt(axis));
-  joint->constraint = (JPH_Constraint*) JPH_HingeConstraintSettings_CreateConstraint(settings, parent, a->body);
+  joint->constraint = (JPH_Constraint*) JPH_HingeConstraintSettings_CreateConstraint(settings, parent, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
-  JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
+  JPH_PhysicsSystem_AddConstraint(b->world->system, joint->constraint);
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
@@ -2465,8 +2465,8 @@ void lovrHingeJointSetMaxMotorTorque(HingeJoint* joint, float positive, float ne
 
 float lovrHingeJointGetMotorTorque(HingeJoint* joint) {
   JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
-  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
-  return JPH_HingeConstraint_GetTotalLambdaMotor((JPH_HingeConstraint*) joint->constraint) * a->world->inverseDelta;
+  Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
+  return JPH_HingeConstraint_GetTotalLambdaMotor((JPH_HingeConstraint*) joint->constraint) * b->world->inverseDelta;
 }
 
 void lovrHingeJointGetSpring(HingeJoint* joint, float* frequency, float* damping) {
@@ -2486,8 +2486,8 @@ void lovrHingeJointSetSpring(HingeJoint* joint, float frequency, float damping) 
 // SliderJoint
 
 SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
-  lovrCheck(!b || a->world == b->world, "Joint bodies must exist in same World");
-  JPH_Body* parent = b ? b->body : JPH_Body_GetFixedToWorldBody();
+  lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
+  JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   SliderJoint* joint = lovrCalloc(sizeof(SliderJoint));
   joint->ref = 1;
@@ -2495,9 +2495,9 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
 
   JPH_SliderConstraintSettings* settings = JPH_SliderConstraintSettings_Create();
   JPH_SliderConstraintSettings_SetSliderAxis(settings, vec3_toJolt(axis));
-  joint->constraint = (JPH_Constraint*) JPH_SliderConstraintSettings_CreateConstraint(settings, parent, a->body);
+  joint->constraint = (JPH_Constraint*) JPH_SliderConstraintSettings_CreateConstraint(settings, parent, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
-  JPH_PhysicsSystem_AddConstraint(a->world->system, joint->constraint);
+  JPH_PhysicsSystem_AddConstraint(b->world->system, joint->constraint);
   lovrJointInit(joint, a, b);
   lovrRetain(joint);
   return joint;
@@ -2603,8 +2603,8 @@ void lovrSliderJointSetMaxMotorForce(SliderJoint* joint, float positive, float n
 
 float lovrSliderJointGetMotorForce(SliderJoint* joint) {
   JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
-  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
-  return JPH_SliderConstraint_GetTotalLambdaMotor((JPH_SliderConstraint*) joint->constraint) * a->world->inverseDelta;
+  Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
+  return JPH_SliderConstraint_GetTotalLambdaMotor((JPH_SliderConstraint*) joint->constraint) * b->world->inverseDelta;
 }
 
 void lovrSliderJointGetSpring(SliderJoint* joint, float* frequency, float* damping) {
