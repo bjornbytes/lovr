@@ -173,7 +173,6 @@ struct Font {
   Material* material;
   arr_t(Glyph) glyphs;
   map_t glyphLookup;
-  map_t kerning;
   float pixelDensity;
   float lineSpacing;
   uint32_t padding;
@@ -3521,7 +3520,6 @@ Font* lovrFontCreate(const FontInfo* info) {
   lovrRetain(info->rasterizer);
   arr_init(&font->glyphs);
   map_init(&font->glyphLookup, 36);
-  map_init(&font->kerning, 36);
 
   font->pixelDensity = lovrRasterizerGetLeading(info->rasterizer);
   font->lineSpacing = 1.f;
@@ -3549,7 +3547,6 @@ void lovrFontDestroy(void* ref) {
   lovrRelease(font->atlas, lovrTextureDestroy);
   arr_free(&font->glyphs);
   map_free(&font->glyphLookup);
-  map_free(&font->kerning);
   lovrFree(font);
 }
 
@@ -3722,19 +3719,6 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   return glyph;
 }
 
-float lovrFontGetKerning(Font* font, uint32_t first, uint32_t second) {
-  uint32_t codepoints[] = { first, second };
-  uint64_t hash = hash64(codepoints, sizeof(codepoints));
-  union { float f32; uint64_t u64; } kerning = { .u64 = map_get(&font->kerning, hash) };
-
-  if (kerning.u64 == MAP_NIL) {
-    kerning.f32 = lovrRasterizerGetKerning(font->info.rasterizer, first, second);
-    map_set(&font->kerning, hash, kerning.u64);
-  }
-
-  return kerning.f32;
-}
-
 float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count) {
   float x = 0.f;
   float maxWidth = 0.f;
@@ -3765,7 +3749,7 @@ float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count) {
 
       Glyph* glyph = lovrFontGetGlyph(font, codepoint, NULL);
 
-      if (previous) x += lovrFontGetKerning(font, previous, codepoint);
+      if (previous) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
       previous = codepoint;
 
       x += glyph->advance;
@@ -3832,7 +3816,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     Glyph* glyph = lovrFontGetGlyph(font, codepoint, NULL);
 
     // Keming
-    if (previous) x += lovrFontGetKerning(font, previous, codepoint);
+    if (previous) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
     previous = codepoint;
 
     // Wrap
@@ -3929,7 +3913,7 @@ void lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
       }
 
       // Keming
-      if (previous) x += lovrFontGetKerning(font, previous, codepoint);
+      if (previous) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
       previous = codepoint;
 
       // Wrap

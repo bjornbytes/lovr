@@ -16,6 +16,7 @@ struct Rasterizer {
   float ascent;
   float descent;
   float leading;
+  map_t kerning;
   Blob* blob;
   Image* atlas;
   stbtt_fontinfo font;
@@ -50,6 +51,8 @@ static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
   rasterizer->descent = descent * rasterizer->scale;
   rasterizer->leading = (ascent - descent + lineGap) * rasterizer->scale;
 
+  map_init(&rasterizer->kerning, 0);
+
   return rasterizer;
 }
 
@@ -78,7 +81,6 @@ static const char* parseString(map_t* map, const char* key, size_t* length) {
   }
 }
 
-#include <stdio.h>
 static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
   if (!blob || blob->size < 4) return NULL;
 
@@ -86,15 +88,13 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
     Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
     rasterizer->ref = 1;
     rasterizer->scale = 1.f;
-
-    uint32_t defer = lovrDeferPush();
-    lovrErrDefer(lovrFree, rasterizer);
-
-    char* string = blob->data;
-    size_t length = blob->size;
+    map_init(&rasterizer->kerning, 0);
 
     map_t map;
     map_init(&map, 8);
+
+    char* string = blob->data;
+    size_t length = blob->size;
 
     while (length > 0) {
       char* newline = memchr(string, '\n', length);
@@ -169,9 +169,6 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
       }
     }
 
-    map_free(&map);
-    lovrDeferPop(defer);
-
     return rasterizer;
   } else if (!memcmp(blob, (uint8_t[]) { 'B', 'M', 'F', 3 }, 4)) {
     return NULL; // TODO
@@ -185,12 +182,14 @@ Rasterizer* lovrRasterizerCreate(Blob* blob, float size, RasterizerIO* io) {
   if ((rasterizer = lovrRasterizerCreateTTF(blob, size)) != NULL) return rasterizer;
   if ((rasterizer = lovrRasterizerCreateBMF(blob, io)) != NULL) return rasterizer;
   lovrThrow("Problem loading font: not recognized as TTF or BMFont");
+  return NULL;
 }
 
 void lovrRasterizerDestroy(void* ref) {
   Rasterizer* rasterizer = ref;
   lovrRelease(rasterizer->blob, lovrBlobDestroy);
   lovrRelease(rasterizer->atlas, lovrImageDestroy);
+  map_free(&rasterizer->kerning);
   lovrFree(rasterizer);
 }
 
@@ -248,7 +247,16 @@ float lovrRasterizerGetBearing(Rasterizer* rasterizer, uint32_t codepoint) {
 }
 
 float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t first, uint32_t second) {
-  return stbtt_GetCodepointKernAdvance(&rasterizer->font, first, second) * rasterizer->scale;
+  uint32_t codepoints[] = { first, second };
+  uint64_t hash = hash64(codepoints, sizeof(codepoints));
+  uint64_t kerning = map_get(&rasterizer->kerning, hash);
+
+  if (kerning == MAP_NIL) {
+    kerning = stbtt_GetCodepointKernAdvance(&rasterizer->font, first, second);
+    map_set(&rasterizer->kerning, hash, kerning);
+  }
+
+  return kerning * rasterizer->scale;
 }
 
 void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]) {

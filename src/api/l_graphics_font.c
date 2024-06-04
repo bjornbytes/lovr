@@ -89,9 +89,10 @@ static int l_lovrFontGetHeight(lua_State* L) {
 
 static int l_lovrFontGetKerning(lua_State* L) {
   Font* font = luax_checktype(L, 1, Font);
+  Rasterizer* rasterizer = lovrFontGetInfo(font)->rasterizer;
   uint32_t first = luax_checkcodepoint(L, 2);
   uint32_t second = luax_checkcodepoint(L, 3);
-  float kerning = lovrFontGetKerning(font, first, second);
+  float kerning = lovrRasterizerGetKerning(rasterizer, first, second);
   float density = lovrFontGetPixelDensity(font);
   lua_pushnumber(L, kerning / density);
   return 1;
