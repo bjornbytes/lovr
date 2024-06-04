@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdatomic.h>
+#include <threads.h>
 #include <setjmp.h>
 #include <stdio.h>
 
@@ -55,7 +56,7 @@ typedef struct {
   void* arg;
 } Closure;
 
-static LOVR_THREAD_LOCAL struct {
+static thread_local struct {
   Closure stack[16];
   uint16_t releaseMask;
   uint16_t errMask;
@@ -116,7 +117,7 @@ typedef struct Handler {
   jmp_buf env;
 } Handler;
 
-static LOVR_THREAD_LOCAL Handler* lovrHandler;
+static thread_local Handler* lovrHandler;
 
 void lovrTry(void (*fn)(void*), void* arg, void(*catch)(void*, const char*, va_list), void* catchArg) {
   lovrHandler = &(Handler) {

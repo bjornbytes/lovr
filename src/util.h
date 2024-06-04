@@ -9,12 +9,6 @@
 #define LOVR_VERSION_PATCH 1
 #define LOVR_VERSION_ALIAS "Tritium Gourmet"
 
-#ifdef _MSC_VER
-#define LOVR_THREAD_LOCAL __declspec(thread)
-#else
-#define LOVR_THREAD_LOCAL __thread
-#endif
-
 #ifdef __cplusplus
 #define LOVR_NORETURN [[noreturn]]
 #else

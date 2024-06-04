@@ -2,6 +2,7 @@
 #include "event/event.h"
 #include "thread/thread.h"
 #include "util.h"
+#include <threads.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,7 +28,7 @@ StringEntry lovrEventType[] = {
   { 0 }
 };
 
-static LOVR_THREAD_LOCAL int pollRef;
+static thread_local int pollRef;
 
 void luax_checkvariant(lua_State* L, int index, Variant* variant) {
   int type = lua_type(L, index);

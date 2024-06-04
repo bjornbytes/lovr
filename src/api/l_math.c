@@ -1,6 +1,7 @@
 #include "api.h"
 #include "math/math.h"
 #include "util.h"
+#include <threads.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -31,8 +32,8 @@ extern const luaL_Reg lovrVec4[];
 extern const luaL_Reg lovrQuat[];
 extern const luaL_Reg lovrMat4[];
 
-static LOVR_THREAD_LOCAL Pool* pool;
-static LOVR_THREAD_LOCAL int metaref[MAX_VECTOR_TYPES];
+static thread_local Pool* pool;
+static thread_local int metaref[MAX_VECTOR_TYPES];
 
 static struct { const char* name; lua_CFunction constructor, indexer; const luaL_Reg* api; } lovrVectorInfo[] = {
   [V_VEC2] = { "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2 },
