@@ -15,7 +15,8 @@ struct Contact {
 struct World {
   uint32_t ref;
   JPH_PhysicsSystem* system;
-  JPH_BodyInterface* bodies;
+  JPH_BodyInterface* bodyInterfaceLocked;
+  JPH_BodyInterface* bodyInterfaceNoLock;
   JPH_BodyActivationListener* activationListener;
   JPH_ObjectLayerPairFilter* objectLayerPairFilter;
   JPH_ContactListener* listener;
@@ -83,6 +84,7 @@ struct Joint {
 static thread_local struct {
   JPH_BroadPhaseLayerFilter* broadPhaseLayerFilter;
   JPH_ObjectLayerFilter* objectLayerFilter;
+  bool locked;
 } thread;
 
 static struct {
@@ -94,6 +96,17 @@ static struct {
 #define vec3_fromJolt(v, j) vec3_set(v, (j)->x, (j)->y, (j)->z)
 #define quat_toJolt(q) &(JPH_Quat) { q[0], q[1], q[2], q[3] }
 #define quat_fromJolt(q, j) quat_set(q, (j)->x, (j)->y, (j)->z, (j)->w)
+
+enum { READ, WRITE };
+
+static JPH_BodyInterface* getBodyInterface(Collider* collider, int access) {
+  if (thread.locked) {
+    lovrCheck(access == READ, "Tried to write to a Collider inside a collision callback");
+    return collider->world->bodyInterfaceNoLock;
+  } else {
+    return collider->world->bodyInterfaceLocked;
+  }
+}
 
 static uint8_t findTag(World* world, const char* name, size_t length) {
   uint32_t hash = (uint32_t) hash64(name, length);
@@ -107,7 +120,7 @@ static uint8_t findTag(World* world, const char* name, size_t length) {
 
 static Shape* subshapeToShape(Collider* collider, JPH_SubShapeID id) {
   if (collider->shapes && collider->shapes->next) {
-    const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+    const JPH_Shape* shape = JPH_BodyInterface_GetShape(getBodyInterface(collider, READ), collider->id);
 
     if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_OffsetCenterOfMass) {
       shape = (JPH_Shape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape);
@@ -191,7 +204,11 @@ static JPH_ValidateResult onContactValidate(void* userdata, const JPH_Body* body
   World* world = userdata;
   Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
   Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
+  mtx_lock(&world->lock);
+  thread.locked = true;
   bool accept = world->callbacks.filter(world->callbacks.userdata, world, a, b);
+  thread.locked = false;
+  mtx_unlock(&world->lock);
   return accept ?
     JPH_ValidateResult_AcceptAllContactsForThisBodyPair :
     JPH_ValidateResult_RejectAllContactsForThisBodyPair;
@@ -205,11 +222,13 @@ static void onContactPersisted(void* userdata, const JPH_Body* body1, const JPH_
     Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
     Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
     mtx_lock(&world->lock);
+    thread.locked = true;
     world->contact.colliderA = a;
     world->contact.colliderB = b;
     world->contact.manifold = manifold;
     world->contact.settings = settings;
     world->callbacks.contact(world->callbacks.userdata, world, a, b, &world->contact);
+    thread.locked = false;
     mtx_unlock(&world->lock);
   }
 }
@@ -223,7 +242,9 @@ static void onContactAdded(void* userdata, const JPH_Body* body1, const JPH_Body
     Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
     Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
     mtx_lock(&world->lock);
+    thread.locked = true;
     world->callbacks.enter(world->callbacks.userdata, world, a, b);
+    thread.locked = false;
     mtx_unlock(&world->lock);
   }
 
@@ -233,12 +254,14 @@ static void onContactAdded(void* userdata, const JPH_Body* body1, const JPH_Body
 static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
   World* world = userdata;
   if (!JPH_PhysicsSystem_WereBodiesInContact(world->system, pair->Body1ID, pair->Body2ID)) {
-    JPH_BodyInterface* bodies = JPH_PhysicsSystem_GetBodyInterfaceNoLock(world->system);
-    Collider* a = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(bodies, pair->Body1ID);
-    Collider* b = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(bodies, pair->Body2ID);
+    JPH_BodyInterface* interface = world->bodyInterfaceNoLock;
+    Collider* a = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(interface, pair->Body1ID);
+    Collider* b = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(interface, pair->Body2ID);
     if (a && b) {
       mtx_lock(&world->lock);
+      thread.locked = true;
       world->callbacks.exit(world->callbacks.userdata, world, a, b);
+      thread.locked = false;
       mtx_unlock(&world->lock);
     }
   }
@@ -323,9 +346,10 @@ World* lovrWorldCreate(WorldInfo* info) {
   settings.numPositionSteps = MAX(settings.numPositionSteps, 1);
   JPH_PhysicsSystem_SetPhysicsSettings(world->system, &settings);
 
-  world->bodies = info->threadSafe ?
+  world->bodyInterfaceNoLock = JPH_PhysicsSystem_GetBodyInterfaceNoLock(world->system);
+  world->bodyInterfaceLocked = info->threadSafe ?
     JPH_PhysicsSystem_GetBodyInterface(world->system) :
-    JPH_PhysicsSystem_GetBodyInterfaceNoLock(world->system);
+    world->bodyInterfaceNoLock;
 
   world->tickRate = info->tickRate == 0 ? 0.f : 1.f / info->tickRate;
   world->tickLimit = info->tickLimit;
@@ -482,7 +506,7 @@ typedef struct {
 static float raycastCallback(void* arg, JPH_RayCastResult* result) {
   CastResult hit;
   CastContext* ctx = arg;
-  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, result->bodyID);
+  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID);
   hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
   vec3_init(hit.position, ctx->direction);
   vec3_scale(hit.position, result->fraction);
@@ -521,7 +545,7 @@ bool lovrWorldRaycast(World* world, float start[3], float end[3], uint32_t filte
 static float shapecastCallback(void* arg, JPH_ShapeCastResult* result) {
   CastResult hit;
   CastContext* ctx = arg;
-  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, result->bodyID2);
+  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID2);
   hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
   vec3_fromJolt(hit.position, &result->contactPointOn2);
   JPH_Vec3 normal;
@@ -570,7 +594,7 @@ typedef struct {
 static float overlapCallback(void* arg, JPH_CollideShapeResult* result) {
   OverlapResult hit;
   OverlapContext* ctx = arg;
-  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, result->bodyID2);
+  hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID2);
   hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
   vec3_fromJolt(hit.position, &result->contactPointOn2);
   vec3_fromJolt(hit.normal, &result->penetrationAxis);
@@ -611,7 +635,7 @@ typedef struct {
 
 static void queryCallback(void* arg, JPH_BodyID id) {
   QueryContext* ctx = arg;
-  Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodies, id);
+  Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, id);
   ctx->callback(ctx->userdata, collider);
 }
 
@@ -749,12 +773,12 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   JPH_MotionType type = JPH_Shape_MustBeStatic(shape->handle) ? JPH_MotionType_Static : JPH_MotionType_Dynamic;
   JPH_ObjectLayer objectLayer = world->tagCount;
   JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(shape->handle, p, &q, type, objectLayer);
-  collider->body = JPH_BodyInterface_CreateBody(world->bodies, settings);
+  collider->body = JPH_BodyInterface_CreateBody(world->bodyInterfaceLocked, settings);
   collider->id = JPH_Body_GetID(collider->body);
+  JPH_Body_SetUserData(collider->body, (uint64_t) (uintptr_t) collider);
   JPH_BodyCreationSettings_Destroy(settings);
 
-  JPH_BodyInterface_SetUserData(world->bodies, collider->id, (uint64_t) collider);
-  JPH_BodyInterface_AddBody(world->bodies, collider->id, JPH_Activation_Activate);
+  JPH_BodyInterface_AddBody(world->bodyInterfaceLocked, collider->id, JPH_Activation_Activate);
 
   vec3_init(collider->lastPosition, position);
   quat_identity(collider->lastOrientation);
@@ -810,7 +834,8 @@ void lovrColliderDestruct(Collider* collider) {
     shape = next;
   }
 
-  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  JPH_BodyInterface* interface = getBodyInterface(collider, READ);
+  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
   JPH_ShapeSubType type = JPH_Shape_GetSubType(handle);
 
   if (type == JPH_ShapeSubType_OffsetCenterOfMass) {
@@ -827,8 +852,8 @@ void lovrColliderDestruct(Collider* collider) {
   // Body
 
   World* world = collider->world;
-  JPH_BodyInterface_RemoveBody(world->bodies, collider->id);
-  JPH_BodyInterface_DestroyBody(world->bodies, collider->id);
+  JPH_BodyInterface_RemoveBody(world->bodyInterfaceLocked, collider->id);
+  JPH_BodyInterface_DestroyBody(world->bodyInterfaceLocked, collider->id);
   collider->body = NULL;
 
   if (collider->next) collider->next->prev = collider->prev;
@@ -843,14 +868,15 @@ bool lovrColliderIsDestroyed(Collider* collider) {
 }
 
 bool lovrColliderIsEnabled(Collider* collider) {
-  return JPH_BodyInterface_IsAdded(collider->world->bodies, collider->id);
+  return JPH_BodyInterface_IsAdded(getBodyInterface(collider, READ), collider->id);
 }
 
 void lovrColliderSetEnabled(Collider* collider, bool enable) {
-  if (enable && !lovrColliderIsEnabled(collider)) {
-    JPH_BodyInterface_AddBody(collider->world->bodies, collider->id, JPH_Activation_DontActivate);
-  } else if (!enable && lovrColliderIsEnabled(collider)) {
-    JPH_BodyInterface_RemoveBody(collider->world->bodies, collider->id);
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (enable) {
+    JPH_BodyInterface_AddBody(interface, collider->id, JPH_Activation_DontActivate);
+  } else {
+    JPH_BodyInterface_RemoveBody(interface, collider->id);
   }
 }
 
@@ -868,13 +894,14 @@ Shape* lovrColliderGetShapes(Collider* collider, Shape* shape) {
 
 void lovrColliderAddShape(Collider* collider, Shape* shape) {
   lovrCheck(!shape->collider, "Shape is already attached to a Collider");
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
 
   // Set the Collider to static if the new shape requires it
   if (JPH_Shape_MustBeStatic(shape->handle)) {
-    JPH_BodyInterface_SetMotionType(collider->world->bodies, collider->id, JPH_MotionType_Static, JPH_Activation_DontActivate);
+    JPH_BodyInterface_SetMotionType(interface, collider->id, JPH_MotionType_Static, JPH_Activation_DontActivate);
   }
 
-  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
   JPH_Shape* offsetCenterOfMass = JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_OffsetCenterOfMass ? handle : NULL;
 
   JPH_Vec3 oldCenter;
@@ -916,30 +943,30 @@ void lovrColliderAddShape(Collider* collider, Shape* shape) {
         // Set the shape to the CompoundShape, replacing the OffsetCenterOfMassShape.  This takes
         // care of recomputing the mass, center, etc.
         JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
-        JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, handle, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
         JPH_Shape_Destroy(offsetCenterOfMass);
       } else {
         // If the shape is already the CompoundShape, use NotifyShapeChanged to update mass/center
         JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
-        JPH_BodyInterface_NotifyShapeChanged(collider->world->bodies, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
       }
     } else {
       // Mark the shape as changed so the AABB updates, but don't change the mass/center.
-      JPH_BodyInterface_NotifyShapeChanged(collider->world->bodies, collider->id, &newCenter, false, JPH_Activation_DontActivate);
+      JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &newCenter, false, JPH_Activation_DontActivate);
     }
   } else {
     if (collider->automaticMass) {
       // Replace the simple shape with the new compound shape, adjusting all the mass properties
-      JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, handle, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
       adjustJoints(collider, &oldCenter, &newCenter);
     } else {
       // If automaticMass=false, use an OffsetCenterOfMassShape to keep the center of mass the same
       JPH_Vec3 offset = { oldCenter.x - newCenter.x, oldCenter.y - newCenter.y, oldCenter.z - newCenter.z };
       JPH_Shape* wrapper = (JPH_Shape*) JPH_OffsetCenterOfMassShape_Create(&offset, handle);
-      JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, wrapper, false, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, wrapper, false, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
     }
   }
@@ -953,8 +980,9 @@ void lovrColliderAddShape(Collider* collider, Shape* shape) {
 
 void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   lovrCheck(shape->collider == collider, "Shape is not attached to this Collider");
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
 
-  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
   JPH_Shape* offsetCenterOfMass = JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_OffsetCenterOfMass ? handle : NULL;
 
   JPH_Vec3 oldCenter;
@@ -982,14 +1010,14 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   // Adjust mass
   if (handle == state.sphere->handle) {
     if (collider->automaticMass) {
-      JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, handle, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
       adjustJoints(collider, &oldCenter, &newCenter);
     } else {
       // Maintain the center of mass, no need to adjust joints since center isn't changing
       JPH_Vec3 offset = { oldCenter.x - newCenter.x, oldCenter.y - newCenter.y, oldCenter.z - newCenter.z };
       JPH_Shape* wrapper = (JPH_Shape*) JPH_OffsetCenterOfMassShape_Create(&offset, handle);
-      JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, wrapper, false, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, wrapper, false, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
     }
   } else {
@@ -997,18 +1025,18 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
       if (offsetCenterOfMass) {
         // Replace the OffsetCenterOfMassShape with the CompoundShape
         JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
-        JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, handle, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
         JPH_Shape_Destroy(offsetCenterOfMass);
       } else {
         // Tell Jolt that the CompoundShape changed, recenter and recompute mass data
         JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
-        JPH_BodyInterface_NotifyShapeChanged(collider->world->bodies, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
       }
     } else {
       // Mark shape as changed, don't update the mass/center, keep OffsetCenterOfMassShape, if any
-      JPH_BodyInterface_NotifyShapeChanged(collider->world->bodies, collider->id, &newCenter, false, JPH_Activation_DontActivate);
+      JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &newCenter, false, JPH_Activation_DontActivate);
     }
   }
 
@@ -1031,11 +1059,12 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
 }
 
 static void lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape* new) {
-  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
   JPH_Shape* offsetCenterOfMass = JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_OffsetCenterOfMass ? handle : NULL;
 
   if (handle == shape->handle) {
-    JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, new, collider->automaticMass, JPH_Activation_DontActivate);
+    JPH_BodyInterface_SetShape(interface, collider->id, new, collider->automaticMass, JPH_Activation_DontActivate);
     return;
   }
 
@@ -1049,7 +1078,7 @@ static void lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape
       JPH_Vec3 offset;
       JPH_OffsetCenterOfMassShape_GetOffset((JPH_OffsetCenterOfMassShape*) handle, &offset);
       JPH_Shape* wrapper = (JPH_Shape*) JPH_OffsetCenterOfMassShape_Create(&offset, new);
-      JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, wrapper, collider->automaticMass, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, wrapper, collider->automaticMass, JPH_Activation_DontActivate);
       JPH_Shape_Destroy(handle);
       return;
     } else {
@@ -1069,21 +1098,22 @@ static void lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape
 
     if (offsetCenterOfMass) {
       JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
-      JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, handle, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
       adjustJoints(collider, &oldCenter, &newCenter);
       JPH_Shape_Destroy(offsetCenterOfMass);
     } else {
       JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
-      JPH_BodyInterface_NotifyShapeChanged(collider->world->bodies, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
       adjustJoints(collider, &oldCenter, &newCenter);
     }
   } else {
-    JPH_BodyInterface_NotifyShapeChanged(collider->world->bodies, collider->id, &oldCenter, false, JPH_Activation_DontActivate);
+    JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, false, JPH_Activation_DontActivate);
   }
 }
 
 static void lovrColliderMoveShape(Collider* collider, Shape* shape, float translation[3], float rotation[4]) {
-  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
   JPH_Shape* offsetCenterOfMass = JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_OffsetCenterOfMass ? handle : NULL;
 
   JPH_Vec3 oldCenter;
@@ -1112,28 +1142,28 @@ static void lovrColliderMoveShape(Collider* collider, Shape* shape, float transl
     if (collider->automaticMass) {
       if (offsetCenterOfMass) {
         JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
-        JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, handle, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
         JPH_Shape_Destroy(offsetCenterOfMass);
       } else {
         JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
-        JPH_BodyInterface_NotifyShapeChanged(collider->world->bodies, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
       }
     } else {
-      JPH_BodyInterface_NotifyShapeChanged(collider->world->bodies, collider->id, &newCenter, false, JPH_Activation_DontActivate);
+      JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &newCenter, false, JPH_Activation_DontActivate);
     }
   } else {
     if (collider->automaticMass) {
       // Replace the simple shape with the new compound shape, adjusting all the mass properties
-      JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, handle, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
       adjustJoints(collider, &oldCenter, &newCenter);
     } else {
       // If automaticMass=false, use an OffsetCenterOfMassShape to keep the center of mass the same
       JPH_Vec3 offset = { oldCenter.x - newCenter.x, oldCenter.y - newCenter.y, oldCenter.z - newCenter.z };
       JPH_Shape* wrapper = (JPH_Shape*) JPH_OffsetCenterOfMassShape_Create(&offset, handle);
-      JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, wrapper, false, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, wrapper, false, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
     }
   }
@@ -1147,39 +1177,42 @@ void lovrColliderSetTag(Collider* collider, const char* tag) {
   collider->tag = tag ? findTag(collider->world, tag, strlen(tag)) : 0xff;
   lovrCheck(!tag || collider->tag != 0xff, "Unknown tag '%s'", tag);
   JPH_ObjectLayer objectLayer = collider->tag == 0xff ? collider->world->tagCount : collider->tag;
-  JPH_BodyInterface_SetObjectLayer(collider->world->bodies, collider->id, objectLayer);
+
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  JPH_BodyInterface_SetObjectLayer(interface, collider->id, objectLayer);
 
   if (collider->tag != 0xff && collider->world->staticTagMask & (1 << collider->tag)) {
-    JPH_BodyInterface_SetMotionType(collider->world->bodies, collider->id, JPH_MotionType_Static, JPH_Activation_DontActivate);
+    JPH_BodyInterface_SetMotionType(interface, collider->id, JPH_MotionType_Static, JPH_Activation_DontActivate);
   }
 }
 
 float lovrColliderGetFriction(Collider* collider) {
-  return JPH_BodyInterface_GetFriction(collider->world->bodies, collider->id);
+  return JPH_BodyInterface_GetFriction(getBodyInterface(collider, READ), collider->id);
 }
 
 void lovrColliderSetFriction(Collider* collider, float friction) {
-  JPH_BodyInterface_SetFriction(collider->world->bodies, collider->id, MAX(friction, 0.f));
+  JPH_BodyInterface_SetFriction(getBodyInterface(collider, WRITE), collider->id, MAX(friction, 0.f));
 }
 
 float lovrColliderGetRestitution(Collider* collider) {
-  return JPH_BodyInterface_GetRestitution(collider->world->bodies, collider->id);
+  return JPH_BodyInterface_GetRestitution(getBodyInterface(collider, READ), collider->id);
 }
 
 void lovrColliderSetRestitution(Collider* collider, float restitution) {
-  JPH_BodyInterface_SetRestitution(collider->world->bodies, collider->id, MAX(restitution, 0.f));
+  JPH_BodyInterface_SetRestitution(getBodyInterface(collider, WRITE), collider->id, MAX(restitution, 0.f));
 }
 
 bool lovrColliderIsKinematic(Collider* collider) {
-  return JPH_BodyInterface_GetMotionType(collider->world->bodies, collider->id) != JPH_MotionType_Dynamic;
+  return JPH_BodyInterface_GetMotionType(getBodyInterface(collider, READ), collider->id) != JPH_MotionType_Dynamic;
 }
 
 void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
-  bool mustBeStatic = JPH_Shape_MustBeStatic(JPH_BodyInterface_GetShape(collider->world->bodies, collider->id));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  bool mustBeStatic = JPH_Shape_MustBeStatic(JPH_BodyInterface_GetShape(interface, collider->id));
   bool hasStaticTag = collider->tag != 0xff && (collider->world->staticTagMask & (1 << collider->tag));
   if (!mustBeStatic && !hasStaticTag) {
     JPH_MotionType motionType = kinematic ? JPH_MotionType_Kinematic : JPH_MotionType_Dynamic;
-    JPH_BodyInterface_SetMotionType(collider->world->bodies, collider->id, motionType, JPH_Activation_DontActivate);
+    JPH_BodyInterface_SetMotionType(interface, collider->id, motionType, JPH_Activation_DontActivate);
   }
 }
 
@@ -1192,20 +1225,20 @@ void lovrColliderSetSensor(Collider* collider, bool sensor) {
 }
 
 bool lovrColliderIsContinuous(Collider* collider) {
-  return JPH_BodyInterface_GetMotionQuality(collider->world->bodies, collider->id) == JPH_MotionQuality_LinearCast;
+  return JPH_BodyInterface_GetMotionQuality(getBodyInterface(collider, READ), collider->id) == JPH_MotionQuality_LinearCast;
 }
 
 void lovrColliderSetContinuous(Collider* collider, bool continuous) {
   JPH_MotionQuality quality = continuous ? JPH_MotionQuality_LinearCast : JPH_MotionQuality_Discrete;
-  JPH_BodyInterface_SetMotionQuality(collider->world->bodies, collider->id, quality);
+  JPH_BodyInterface_SetMotionQuality(getBodyInterface(collider, WRITE), collider->id, quality);
 }
 
 float lovrColliderGetGravityScale(Collider* collider) {
-  return JPH_BodyInterface_GetGravityFactor(collider->world->bodies, collider->id);
+  return JPH_BodyInterface_GetGravityFactor(getBodyInterface(collider, READ), collider->id);
 }
 
 void lovrColliderSetGravityScale(Collider* collider, float scale) {
-  JPH_BodyInterface_SetGravityFactor(collider->world->bodies, collider->id, scale);
+  JPH_BodyInterface_SetGravityFactor(getBodyInterface(collider, WRITE), collider->id, scale);
 }
 
 bool lovrColliderIsSleepingAllowed(Collider* collider) {
@@ -1217,14 +1250,14 @@ void lovrColliderSetSleepingAllowed(Collider* collider, bool allowed) {
 }
 
 bool lovrColliderIsAwake(Collider* collider) {
-  return JPH_BodyInterface_IsActive(collider->world->bodies, collider->id);
+  return JPH_BodyInterface_IsActive(getBodyInterface(collider, READ), collider->id);
 }
 
 void lovrColliderSetAwake(Collider* collider, bool awake) {
   if (awake) {
-    JPH_BodyInterface_ActivateBody(collider->world->bodies, collider->id);
+    JPH_BodyInterface_ActivateBody(getBodyInterface(collider, WRITE), collider->id);
   } else {
-    JPH_BodyInterface_DeactivateBody(collider->world->bodies, collider->id);
+    JPH_BodyInterface_DeactivateBody(getBodyInterface(collider, WRITE), collider->id);
   }
 }
 
@@ -1302,7 +1335,8 @@ void lovrColliderSetInertia(Collider* collider, float diagonal[3], float rotatio
 
 void lovrColliderGetCenterOfMass(Collider* collider, float center[3]) {
   JPH_Vec3 centerOfMass;
-  JPH_Shape_GetCenterOfMass(JPH_BodyInterface_GetShape(collider->world->bodies, collider->id), &centerOfMass);
+  JPH_BodyInterface* interface = getBodyInterface(collider, READ);
+  JPH_Shape_GetCenterOfMass(JPH_BodyInterface_GetShape(interface, collider->id), &centerOfMass);
   vec3_fromJolt(center, &centerOfMass);
 }
 
@@ -1311,7 +1345,8 @@ void lovrColliderSetCenterOfMass(Collider* collider, float center[3]) {
     return;
   }
 
-  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  const JPH_Shape* shape = JPH_BodyInterface_GetShape(interface, collider->id);
 
   JPH_Vec3 oldCenter;
   JPH_Shape_GetCenterOfMass(shape, &oldCenter);
@@ -1326,7 +1361,7 @@ void lovrColliderSetCenterOfMass(Collider* collider, float center[3]) {
   JPH_Shape_GetCenterOfMass(shape, &base);
   JPH_Vec3 offset = { center[0] - base.x, center[1] - base.y, center[2] - base.z };
   JPH_Shape* outer = (JPH_Shape*) JPH_OffsetCenterOfMassShape_Create(&offset, (JPH_Shape*) shape);
-  JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, outer, collider->automaticMass, JPH_Activation_DontActivate);
+  JPH_BodyInterface_SetShape(interface, collider->id, outer, collider->automaticMass, JPH_Activation_DontActivate);
   adjustJoints(collider, &oldCenter, vec3_toJolt(center));
 }
 
@@ -1338,7 +1373,8 @@ void lovrColliderSetAutomaticMass(Collider* collider, bool enable) {
   if (collider->automaticMass != enable) {
     collider->automaticMass = enable;
 
-    JPH_Shape* shape = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+    JPH_BodyInterface* interface = getBodyInterface(collider, READ);
+    JPH_Shape* shape = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
 
     // While automatic mass is disabled, the compound shape's center of mass is not kept up-to-date
     // when shapes are modified.  So if automatic mass is ever re-enabled, we need to make sure to
@@ -1354,14 +1390,15 @@ void lovrColliderResetMassData(Collider* collider) {
     return;
   }
 
-  JPH_Shape* shape = (JPH_Shape*) JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  JPH_Shape* shape = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
 
   if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_OffsetCenterOfMass) {
     JPH_Vec3 oldCenter;
     JPH_Shape_GetCenterOfMass(shape, &oldCenter);
 
     const JPH_Shape* inner = JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape);
-    JPH_BodyInterface_SetShape(collider->world->bodies, collider->id, inner, true, JPH_Activation_DontActivate);
+    JPH_BodyInterface_SetShape(interface, collider->id, inner, true, JPH_Activation_DontActivate);
     JPH_Shape_Destroy(shape);
 
     JPH_Vec3 newCenter;
@@ -1399,58 +1436,58 @@ void lovrColliderSetDegreesOfFreedom(Collider* collider, bool translation[3], bo
 
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
   JPH_MassProperties mass;
-  const JPH_Shape* shape = JPH_BodyInterface_GetShape(collider->world->bodies, collider->id);
+  const JPH_Shape* shape = JPH_BodyInterface_GetShape(getBodyInterface(collider, READ), collider->id);
   JPH_Shape_GetMassProperties(shape, &mass);
   JPH_MotionProperties_SetMassProperties(motion, dofs, &mass);
 }
 
 void lovrColliderGetPosition(Collider* collider, float position[3]) {
   JPH_RVec3 p;
-  JPH_Body_GetPosition(collider->body, &p);
+  JPH_BodyInterface_GetPosition(getBodyInterface(collider, READ), collider->id, &p);
   vec3_fromJolt(position, &p);
-  if (collider->world->tickRate > 0.f && lovrColliderIsAwake(collider)) {
+  if (collider->world->tickRate > 0.f && collider->activeIndex != ~0u) {
     vec3_lerp(position, collider->lastPosition, 1.f - collider->world->time / collider->world->tickRate);
   }
 }
 
 void lovrColliderSetPosition(Collider* collider, float position[3]) {
-  JPH_BodyInterface_SetPosition(collider->world->bodies, collider->id, vec3_toJolt(position), JPH_Activation_Activate);
+  JPH_BodyInterface_SetPosition(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), JPH_Activation_Activate);
   vec3_init(collider->lastPosition, position);
 }
 
 void lovrColliderGetOrientation(Collider* collider, float orientation[4]) {
   JPH_Quat q;
-  JPH_Body_GetRotation(collider->body, &q);
+  JPH_BodyInterface_GetRotation(getBodyInterface(collider, READ), collider->id, &q);
   quat_fromJolt(orientation, &q);
-  if (collider->world->tickRate > 0.f && lovrColliderIsAwake(collider)) {
+  if (collider->world->tickRate > 0.f && collider->activeIndex != ~0u) {
     quat_slerp(orientation, collider->lastOrientation, 1.f - collider->world->time / collider->world->tickRate);
   }
 }
 
 void lovrColliderSetOrientation(Collider* collider, float orientation[4]) {
-  JPH_BodyInterface_SetRotation(collider->world->bodies, collider->id, quat_toJolt(orientation), JPH_Activation_Activate);
+  JPH_BodyInterface_SetRotation(getBodyInterface(collider, WRITE), collider->id, quat_toJolt(orientation), JPH_Activation_Activate);
   quat_init(collider->lastOrientation, orientation);
 }
 
 void lovrColliderGetRawPosition(Collider* collider, float position[3]) {
   JPH_RVec3 p;
-  JPH_Body_GetPosition(collider->body, &p);
+  JPH_BodyInterface_GetPosition(getBodyInterface(collider, READ), collider->id, &p);
   vec3_fromJolt(position, &p);
 }
 
 void lovrColliderGetRawOrientation(Collider* collider, float orientation[4]) {
   JPH_Quat q;
-  JPH_Body_GetRotation(collider->body, &q);
+  JPH_BodyInterface_GetRotation(getBodyInterface(collider, READ), collider->id, &q);
   quat_fromJolt(orientation, &q);
 }
 
 void lovrColliderGetPose(Collider* collider, float position[3], float orientation[4]) {
   JPH_RVec3 p;
   JPH_Quat q;
-  JPH_BodyInterface_GetPositionAndRotation(collider->world->bodies, collider->id, &p, &q);
+  JPH_BodyInterface_GetPositionAndRotation(getBodyInterface(collider, READ), collider->id, &p, &q);
   vec3_fromJolt(position, &p);
   quat_fromJolt(orientation, &q);
-  if (collider->world->tickRate > 0.f && lovrColliderIsAwake(collider)) {
+  if (collider->world->tickRate > 0.f && collider->activeIndex != ~0u) {
     float t = 1.f - collider->world->time / collider->world->tickRate;
     vec3_lerp(position, collider->lastPosition, t);
     quat_slerp(orientation, collider->lastOrientation, t);
@@ -1458,29 +1495,29 @@ void lovrColliderGetPose(Collider* collider, float position[3], float orientatio
 }
 
 void lovrColliderSetPose(Collider* collider, float position[3], float orientation[4]) {
-  JPH_BodyInterface_SetPositionAndRotation(collider->world->bodies, collider->id, vec3_toJolt(position), quat_toJolt(orientation), JPH_Activation_Activate);
+  JPH_BodyInterface_SetPositionAndRotation(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), quat_toJolt(orientation), JPH_Activation_Activate);
   vec3_init(collider->lastPosition, position);
   quat_init(collider->lastOrientation, orientation);
 }
 
 void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {
   JPH_Vec3 v;
-  JPH_BodyInterface_GetLinearVelocity(collider->world->bodies, collider->id, &v);
+  JPH_BodyInterface_GetLinearVelocity(getBodyInterface(collider, READ), collider->id, &v);
   vec3_fromJolt(velocity, &v);
 }
 
 void lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]) {
-  JPH_BodyInterface_SetLinearVelocity(collider->world->bodies, collider->id, vec3_toJolt(velocity));
+  JPH_BodyInterface_SetLinearVelocity(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(velocity));
 }
 
 void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]) {
   JPH_Vec3 v;
-  JPH_BodyInterface_GetAngularVelocity(collider->world->bodies, collider->id, &v);
+  JPH_BodyInterface_GetAngularVelocity(getBodyInterface(collider, READ), collider->id, &v);
   vec3_fromJolt(velocity, &v);
 }
 
 void lovrColliderSetAngularVelocity(Collider* collider, float velocity[3]) {
-  JPH_BodyInterface_SetAngularVelocity(collider->world->bodies, collider->id, vec3_toJolt(velocity));
+  JPH_BodyInterface_SetAngularVelocity(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(velocity));
 }
 
 float lovrColliderGetLinearDamping(Collider* collider) {
@@ -1504,44 +1541,32 @@ void lovrColliderSetAngularDamping(Collider* collider, float damping) {
 }
 
 void lovrColliderApplyForce(Collider* collider, float force[3]) {
-  JPH_BodyInterface_AddForce(collider->world->bodies, collider->id, vec3_toJolt(force));
+  JPH_BodyInterface_AddForce(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(force));
 }
 
 void lovrColliderApplyForceAtPosition(Collider* collider, float force[3], float position[3]) {
-  JPH_BodyInterface_AddForce2(collider->world->bodies, collider->id, vec3_toJolt(force), vec3_toJolt(position));
+  JPH_BodyInterface_AddForce2(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(force), vec3_toJolt(position));
 }
 
 void lovrColliderApplyTorque(Collider* collider, float torque[3]) {
-  JPH_BodyInterface_AddTorque(collider->world->bodies, collider->id, vec3_toJolt(torque));
+  JPH_BodyInterface_AddTorque(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(torque));
 }
 
 void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]) {
-  JPH_BodyInterface_AddImpulse(collider->world->bodies, collider->id, vec3_toJolt(impulse));
+  JPH_BodyInterface_AddImpulse(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse));
 }
 
 void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]) {
-  JPH_BodyInterface_AddImpulse2(collider->world->bodies, collider->id, vec3_toJolt(impulse), vec3_toJolt(position));
+  JPH_BodyInterface_AddImpulse2(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse), vec3_toJolt(position));
 }
 
 void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
-  JPH_BodyInterface_AddAngularImpulse(collider->world->bodies, collider->id, vec3_toJolt(impulse));
-}
-
-void lovrColliderGetLocalCenter(Collider* collider, float center[3]) {
-  JPH_Vec3 v;
-  JPH_Shape_GetCenterOfMass(JPH_BodyInterface_GetShape(collider->world->bodies, collider->id), &v);
-  vec3_fromJolt(center, &v);
-}
-
-void lovrColliderGetWorldCenter(Collider* collider, float center[3]) {
-  JPH_RVec3 v;
-  JPH_Body_GetCenterOfMassPosition(collider->body, &v);
-  vec3_fromJolt(center, &v);
+  JPH_BodyInterface_AddAngularImpulse(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse));
 }
 
 void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3]) {
   JPH_RMatrix4x4 transform;
-  JPH_Body_GetWorldTransform(collider->body, &transform);
+  JPH_BodyInterface_GetWorldTransform(getBodyInterface(collider, READ), collider->id, &transform);
   vec3_init(local, world);
   mat4_invert(&transform.m11);
   mat4_mulPoint(&transform.m11, local);
@@ -1549,14 +1574,14 @@ void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3
 
 void lovrColliderGetWorldPoint(Collider* collider, float local[3], float world[3]) {
   JPH_RMatrix4x4 transform;
-  JPH_Body_GetWorldTransform(collider->body, &transform);
+  JPH_BodyInterface_GetWorldTransform(getBodyInterface(collider, READ), collider->id, &transform);
   vec3_init(world, local);
   mat4_mulPoint(&transform.m11, world);
 }
 
 void lovrColliderGetLocalVector(Collider* collider, float world[3], float local[3]) {
   JPH_RMatrix4x4 transform;
-  JPH_Body_GetWorldTransform(collider->body, &transform);
+  JPH_BodyInterface_GetWorldTransform(getBodyInterface(collider, READ), collider->id, &transform);
   vec3_init(local, world);
   mat4_invert(&transform.m11);
   mat4_mulDirection(&transform.m11, local);
@@ -1564,7 +1589,7 @@ void lovrColliderGetLocalVector(Collider* collider, float world[3], float local[
 
 void lovrColliderGetWorldVector(Collider* collider, float local[3], float world[3]) {
   JPH_RMatrix4x4 transform;
-  JPH_Body_GetWorldTransform(collider->body, &transform);
+  JPH_BodyInterface_GetWorldTransform(getBodyInterface(collider, READ), collider->id, &transform);
   vec3_init(world, local);
   mat4_mulDirection(&transform.m11, world);
 }
@@ -1577,7 +1602,7 @@ void lovrColliderGetLinearVelocityFromLocalPoint(Collider* collider, float point
 
 void lovrColliderGetLinearVelocityFromWorldPoint(Collider* collider, float point[3], float velocity[3]) {
   JPH_Vec3 v;
-  JPH_BodyInterface_GetPointVelocity(collider->world->bodies, collider->id, vec3_toJolt(point), &v);
+  JPH_BodyInterface_GetPointVelocity(getBodyInterface(collider, READ), collider->id, vec3_toJolt(point), &v);
   vec3_fromJolt(velocity, &v);
 }
 
